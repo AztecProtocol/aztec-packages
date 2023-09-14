@@ -221,7 +221,6 @@ TEST_F(RelationCorrectnessTests, StandardRelationCorrectness)
 {
     using Flavor = flavor::Standard;
     using FF = typename Flavor::FF;
-    using ProverPolynomials = typename Flavor::ProverPolynomials;
 
     // Create a composer and a dummy circuit with a few gates
     auto builder = proof_system::StandardCircuitBuilder();
@@ -230,52 +229,22 @@ TEST_F(RelationCorrectnessTests, StandardRelationCorrectness)
 
     // Create a prover (it will compute proving key and witness)
     auto composer = StandardComposer();
-    auto prover = composer.create_prover(builder);
-    auto circuit_size = prover.key->circuit_size;
+    auto instance = composer.create_instance(builder);
+    auto proving_key = instance->proving_key;
+    auto circuit_size = proving_key->circuit_size;
 
     // Generate beta and gamma
     FF beta = FF::random_element();
     FF gamma = FF::random_element();
 
-    // Compute public input delta
-    const auto public_inputs = builder.get_public_inputs();
-    auto public_input_delta = compute_public_input_delta<Flavor>(public_inputs, beta, gamma, prover.key->circuit_size);
-
-    proof_system::RelationParameters<FF> params{
-        .beta = beta,
-        .gamma = gamma,
-        .public_input_delta = public_input_delta,
-    };
-
-    // Create an array of spans to the underlying polynomials to more easily
-    // get the transposition.
-    // Ex: polynomial_spans[3][i] returns the i-th coefficient of the third polynomial
-    // in the list below
-    ProverPolynomials prover_polynomials;
-
-    prover_polynomials.w_l = prover.key->w_l;
-    prover_polynomials.w_r = prover.key->w_r;
-    prover_polynomials.w_o = prover.key->w_o;
-    prover_polynomials.q_m = prover.key->q_m;
-    prover_polynomials.q_l = prover.key->q_l;
-    prover_polynomials.q_r = prover.key->q_r;
-    prover_polynomials.q_o = prover.key->q_o;
-    prover_polynomials.q_c = prover.key->q_c;
-    prover_polynomials.sigma_1 = prover.key->sigma_1;
-    prover_polynomials.sigma_2 = prover.key->sigma_2;
-    prover_polynomials.sigma_3 = prover.key->sigma_3;
-    prover_polynomials.id_1 = prover.key->id_1;
-    prover_polynomials.id_2 = prover.key->id_2;
-    prover_polynomials.id_3 = prover.key->id_3;
-    prover_polynomials.lagrange_first = prover.key->lagrange_first;
-    prover_polynomials.lagrange_last = prover.key->lagrange_last;
-
-    // Compute grand product polynomial
-    grand_product_library::compute_grand_products<flavor::Standard>(prover.key, prover_polynomials, params);
+    instance->initialise_prover_polynomials();
+    instance->compute_grand_product_polynomials(beta, gamma);
 
     // Construct the round for applying sumcheck relations and results for storing computed results
     auto relations = std::tuple(proof_system::ArithmeticRelation<FF>(), proof_system::PermutationRelation<FF>());
 
+    auto prover_polynomials = instance->prover_polynomials;
+    auto params = instance->relation_parameters;
     // Check that each relation is satisfied across each row of the prover polynomials
     check_relation<Flavor>(std::get<0>(relations), circuit_size, prover_polynomials, params);
     check_relation<Flavor>(std::get<1>(relations), circuit_size, prover_polynomials, params);

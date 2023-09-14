@@ -2,7 +2,7 @@
 #include "barretenberg/proof_system/flavor/flavor.hpp"
 #include "barretenberg/proof_system/relations/relation_parameters.hpp"
 namespace proof_system::honk {
-template <UltraFlavor Flavor> class VerifierInstance_ {
+template <class Flavor> class VerifierInstance_ {
   public:
     using FF = typename Flavor::FF;
     using VerificationKey = typename Flavor::VerificationKey;

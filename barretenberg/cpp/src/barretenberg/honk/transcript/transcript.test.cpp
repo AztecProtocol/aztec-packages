@@ -138,11 +138,12 @@ TYPED_TEST(TranscriptTests, ProverManifestConsistency)
 
     // Automatically generate a transcript manifest by constructing a proof
     auto composer = StandardComposer_<Flavor>();
-    auto prover = composer.create_prover(builder);
+    auto instance = composer.create_instance(builder);
+    auto prover = composer.create_prover(instance);
     auto proof = prover.construct_proof();
 
     // Check that the prover generated manifest agrees with the manifest hard coded in this suite
-    auto manifest_expected = TestFixture::construct_standard_honk_manifest(prover.key->circuit_size);
+    auto manifest_expected = TestFixture::construct_standard_honk_manifest(instance->proving_key->circuit_size);
     auto prover_manifest = prover.transcript.get_manifest();
     // Note: a manifest can be printed using manifest.print()
     for (size_t round = 0; round < manifest_expected.size(); ++round) {
@@ -166,11 +167,12 @@ TYPED_TEST(TranscriptTests, VerifierManifestConsistency)
 
     // Automatically generate a transcript manifest in the prover by constructing a proof
     auto composer = StandardComposer_<Flavor>();
-    auto prover = composer.create_prover(builder);
+    auto instance = composer.create_instance(builder);
+    auto prover = composer.create_prover(instance);
     auto proof = prover.construct_proof();
 
     // Automatically generate a transcript manifest in the verifier by verifying a proof
-    auto verifier = composer.create_verifier(builder);
+    auto verifier = composer.create_verifier(instance);
     verifier.verify_proof(proof);
     prover.transcript.print();
     verifier.transcript.print();

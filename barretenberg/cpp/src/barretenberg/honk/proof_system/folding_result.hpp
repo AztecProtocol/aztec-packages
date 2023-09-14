@@ -1,7 +1,7 @@
 #pragma once
 #include "barretenberg/proof_system/flavor/flavor.hpp"
 namespace proof_system::honk {
-template <UltraFlavor Flavor> struct ProverFoldingResult {
+template <class Flavor> struct ProverFoldingResult {
   public:
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using FoldingParameters = typename Flavor::FoldingParameters;
@@ -10,7 +10,7 @@ template <UltraFlavor Flavor> struct ProverFoldingResult {
     FoldingParameters params;
 };
 
-template <UltraFlavor Flavor> struct VerifierFoldingResult {
+template <class Flavor> struct VerifierFoldingResult {
     using FF = typename Flavor::FF;
     using VerificationKey = typename Flavor::VerificationKey;
     using FoldingParameters = typename Flavor::FoldingParameters;
@@ -24,7 +24,7 @@ template <UltraFlavor Flavor> struct VerifierFoldingResult {
  *
  * @tparam Flavor
  */
-template <UltraFlavor Flavor> struct FoldingResult {
+template <class Flavor> struct FoldingResult {
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using VerificationKey = typename Flavor::VerificationKey;

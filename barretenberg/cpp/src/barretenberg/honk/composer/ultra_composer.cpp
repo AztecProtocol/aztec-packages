@@ -27,9 +27,7 @@ UltraProver_<Flavor> UltraComposer_<Flavor>::create_prover(std::shared_ptr<Insta
 template <UltraFlavor Flavor>
 UltraVerifier_<Flavor> UltraComposer_<Flavor>::create_verifier(std::shared_ptr<Instance> instance)
 {
-    // for the folding composer we compute the commitment keys here!
     auto verification_key = instance->compute_verification_key();
-    // change this it's clunky and inconsistent
     UltraVerifier_<Flavor> output_state(verification_key);
     auto pcs_verification_key = std::make_unique<VerifierCommitmentKey>(verification_key->circuit_size, crs_factory_);
     output_state.pcs_verification_key = std::move(pcs_verification_key);

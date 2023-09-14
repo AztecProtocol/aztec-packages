@@ -16,7 +16,7 @@ namespace proof_system::honk {
  * and folded public inputs and its FoldingParams are expected to be non-zero
  *
  */
-template <UltraFlavor Flavor> class ProverInstance_ {
+template <class Flavor> class ProverInstance_ {
   public:
     using Circuit = typename Flavor::CircuitBuilder;
     using ProvingKey = typename Flavor::ProvingKey;
@@ -75,8 +75,11 @@ template <UltraFlavor Flavor> class ProverInstance_ {
     ~ProverInstance_() = default;
 
     std::shared_ptr<VerificationKey> compute_verification_key();
+
     void initialise_prover_polynomials();
-    void compute_sorted_accumulator_polynomials(FF);
+    void compute_sorted_accumulator_polynomials(FF)
+        requires IsUltraFlavor<Flavor>;
+
     void compute_grand_product_polynomials(FF, FF);
 
     std::shared_ptr<ProvingKey> compute_proving_key(Circuit&);
@@ -85,18 +88,23 @@ template <UltraFlavor Flavor> class ProverInstance_ {
 
     void compute_witness(Circuit&);
 
-    void construct_ecc_op_wire_polynomials(auto&);
+    void construct_ecc_op_wire_polynomials(auto&)
+        requires IsUltraFlavor<Flavor>;
 
     void add_table_column_selector_poly_to_proving_key(barretenberg::polynomial& small, const std::string& tag);
 
-    void compute_sorted_list_accumulator(FF);
+    void compute_sorted_list_accumulator(FF)
+        requires IsUltraFlavor<Flavor>;
 
-    void add_plookup_memory_records_to_wire_4(FF);
+    void add_plookup_memory_records_to_wire_4(FF)
+        requires IsUltraFlavor<Flavor>;
 };
 
 extern template class ProverInstance_<honk::flavor::Ultra>;
 extern template class ProverInstance_<honk::flavor::UltraGrumpkin>;
 extern template class ProverInstance_<honk::flavor::GoblinUltra>;
+extern template class ProverInstance_<honk::flavor::Standard>;
+extern template class ProverInstance_<honk::flavor::StandardGrumpkin>;
 
 using ProverInstance = ProverInstance_<honk::flavor::Ultra>;
 
