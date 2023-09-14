@@ -1508,7 +1508,8 @@ workflows:
             - integration-archiver-l1-to-l2
             - e2e-p2p
             - e2e-browser-sandbox
-            - e2e-canary-test
+            - e2e-canary-test-x86_64
+            - e2e-canary-test-arm64
             - e2e-card-game
             - aztec-rpc-sandbox
             - cli-docs-sandbox
