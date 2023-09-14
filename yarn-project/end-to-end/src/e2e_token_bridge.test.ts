@@ -139,9 +139,7 @@ describe('e2e_token_bridge_contract', () => {
 
     // 3. Consume message on aztec and mint publicly
     logger('Consuming messages on L2');
-    const tx = bridge.methods
-      .mint_public({ address: ownerAddress }, bridgeAmount, messageKey, secret, { address: ethAccount.toField() })
-      .send();
+    const tx = bridge.methods.mint_public(bridgeAmount, messageKey, secret, { address: ethAccount.toField() }).send();
     const receipt = await tx.wait();
     expect(receipt.status).toBe(TxStatus.MINED);
     const afterBalance = await token.methods.balance_of_public({ address: ownerAddress }).view();
@@ -174,13 +172,7 @@ describe('e2e_token_bridge_contract', () => {
 
     // 5. Withdraw from L2 bridge
     const withdrawTx = bridge.methods
-      .withdraw_public(
-        { address: ownerAddress },
-        { address: ethAccount.toField() },
-        withdrawAmount,
-        { address: EthAddress.ZERO.toField() },
-        nonce,
-      )
+      .withdraw_public({ address: ethAccount.toField() }, withdrawAmount, { address: EthAddress.ZERO.toField() }, nonce)
       .send();
     const withdrawReceipt = await withdrawTx.wait();
     expect(withdrawReceipt.status).toBe(TxStatus.MINED);
@@ -213,9 +205,7 @@ describe('e2e_token_bridge_contract', () => {
 
     // 3. Consume message on aztec and mint publicly
     logger('Consuming messages on L2');
-    const tx = bridge.methods
-      .mint({ address: ownerAddress }, bridgeAmount, messageKey, secret, { address: ethAccount.toField() })
-      .send();
+    const tx = bridge.methods.mint(bridgeAmount, messageKey, secret, { address: ethAccount.toField() }).send();
     const receipt = await tx.wait();
     expect(receipt.status).toBe(TxStatus.MINED);
     const txClaim = token.methods.redeem_shield({ address: ownerAddress }, bridgeAmount, secret).send();
@@ -248,7 +238,6 @@ describe('e2e_token_bridge_contract', () => {
     const withdrawTx = bridge.methods
       .withdraw(
         { address: token.address },
-        { address: ownerAddress },
         { address: ethAccount.toField() },
         withdrawAmount,
         { address: EthAddress.ZERO.toField() },

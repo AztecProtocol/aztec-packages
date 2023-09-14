@@ -47,7 +47,6 @@ contract TokenBridge {
     // Consumes a L1->L2 message and calls the token contract to mint the appropriate amount publicly
     #[aztec(public)]
     fn mint_public(
-        recipient: AztecAddress,
         amount: Field,
         msg_key: Field, // L1 to L2 message key as derived from the inbox contract
         secret: Field,
@@ -55,13 +54,13 @@ contract TokenBridge {
     ) -> Field {
         let storage = Storage::init(Context::public(&mut context));
 
-        let content_hash = get_mint_content_hash(amount, recipient.address, canceller.address);
+        let content_hash = get_mint_content_hash(amount, context.msg_sender(), canceller.address);
 
         // Consume message and emit nullifier
         context.consume_l1_to_l2_message(msg_key, content_hash, secret);
 
         // Mint token on L2
-        Token::at(storage.token.read()).mint_public(context, recipient.address, amount)
+        Token::at(storage.token.read()).mint_public(context, context.msg_sender(), amount)
     }
 
     // Consumes a L1->L2 message and calls the token contract to mint the appropriate amount in private assets
@@ -69,7 +68,6 @@ contract TokenBridge {
     // This method is public because it accesses public storage. For similar reasons, the corresponding call on the token is also public
     #[aztec(public)]
     fn mint(
-        recipient: AztecAddress,
         amount: Field,
         msg_key: Field, // L1 to L2 message key as derived from the inbox contract
         secret: Field,
@@ -77,7 +75,7 @@ contract TokenBridge {
     ) -> Field {
         let storage = Storage::init(Context::public(&mut context));
 
-        let content_hash = get_mint_content_hash(amount, recipient.address, canceller.address);
+        let content_hash = get_mint_content_hash(amount, context.msg_sender(), canceller.address);
 
         // Consume message and emit nullifier
         context.consume_l1_to_l2_message(msg_key, content_hash, secret);
@@ -91,7 +89,6 @@ contract TokenBridge {
     // Requires `from` to give approval to the bridge to burn tokens on their behalf using witness signatures 
     #[aztec(public)]
     fn withdraw_public(
-        from: AztecAddress, // aztec address to withdraw from
         recipient: EthereumAddress, // ethereum address to withdraw to
         amount: Field,
         callerOnL1: EthereumAddress, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
@@ -100,7 +97,7 @@ contract TokenBridge {
         let storage = Storage::init(Context::public(&mut context));
 
         // Burn tokens on L2
-        let return_value = Token::at(storage.token.read()).burn_public(context, from.address, amount, nonce);
+        let return_value = Token::at(storage.token.read()).burn_public(context, context.msg_sender(), amount, nonce);
 
         let content = get_withdraw_content_hash(amount, recipient.address, callerOnL1.address);
 
@@ -115,7 +112,6 @@ contract TokenBridge {
     #[aztec(private)]
     fn withdraw(
         token:AztecAddress, // can't read public storage in private, so pass the token and call an internal public fn to check if provided token is as expected.
-        from: AztecAddress, // aztec address to withdraw from
         recipient: EthereumAddress, // ethereum address to withdraw to
         amount: Field,
         callerOnL1: EthereumAddress, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
@@ -123,7 +119,7 @@ contract TokenBridge {
     ) -> Field {
         // can't read public storage (`storage.token`) in private so let the user pass it in
         // later assert that this token address is as expected
-        let return_value = Token::at(token.address).burn(&mut context, from.address, amount, nonce);
+        let return_value = Token::at(token.address).burn(&mut context, context.msg_sender(), amount, nonce);
 
         let content = get_withdraw_content_hash(amount, recipient.address, callerOnL1.address);
         // Emit the l2 to l1 message
