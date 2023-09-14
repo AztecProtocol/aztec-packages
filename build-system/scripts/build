@@ -126,7 +126,6 @@ for PARENT in $PARENTS; do
   fetch_image $PARENT_IMAGE_URI
   # Tag it to look like an official release as that's what we use in Dockerfiles.
   TAG=$ECR_DEPLOY_URL/$PARENT
-  echo "Tagging $PARENT_IMAGE_URI as $TAG"
   retry docker tag $PARENT_IMAGE_URI $TAG
 done
 
