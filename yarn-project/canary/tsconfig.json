@@ -26,6 +26,9 @@
       "path": "../cli"
     },
     {
+      "path": "../end-to-end"
+    },
+    {
       "path": "../l1-artifacts"
     },
     {

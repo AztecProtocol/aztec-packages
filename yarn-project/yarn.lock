@@ -259,6 +259,7 @@ __metadata:
   dependencies:
     "@aztec/aztec.js": "workspace:^"
     "@aztec/cli": "workspace:^"
+    "@aztec/end-to-end": "workspace:^"
     "@aztec/l1-artifacts": "workspace:^"
     "@aztec/noir-contracts": "workspace:^"
     "@jest/globals": ^29.5.0
@@ -350,7 +351,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/end-to-end@workspace:end-to-end":
+"@aztec/end-to-end@workspace:^, @aztec/end-to-end@workspace:end-to-end":
   version: 0.0.0-use.local
   resolution: "@aztec/end-to-end@workspace:end-to-end"
   dependencies:

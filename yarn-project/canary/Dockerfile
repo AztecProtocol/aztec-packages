@@ -1,17 +1,26 @@
 # FROM node:18-alpine
-FROM 278380418400.dkr.ecr.us-east-1.amazonaws.com/yarn-project-base AS builder
+FROM yarn-project-base AS builder
 
 RUN apk update && apk add --no-cache udev ttf-freefont chromium curl jq bash
 ENV CHROME_BIN="/usr/bin/chromium-browser" PUPPETEER_SKIP_CHROMIUM_DOWNLOAD="true"
 
-ARG COMMIT_TAG=""
+ARG COMMIT_TAG="0.7.0"
 
-# Build canary with external @aztec deps
+# Update @aztec deps
 COPY . .
-WORKDIR /usr/src/yarn-project/canary
-RUN ./scripts/update_packages.sh $COMMIT_TAG
+
+# Build end-to-end package
+WORKDIR /usr/src/yarn-project/end-to-end
+RUN ./scripts/setup_canary.sh $COMMIT_TAG
 RUN yarn && yarn build
 
+# Build canary package
+WORKDIR /usr/src/yarn-project/canary
+RUN ./scripts/update_packages.sh $COMMIT_TAG
+RUN ls ../node_modules/@aztec/end-to-end
+RUN yarn && yarn build
+
+# Copy web artifacts for browser test
 RUN cp node_modules/@aztec/aztec.js/dest/main.js src/web/
 RUN cp node_modules/@aztec/circuits.js/resources/aztec3-circuits.wasm src/web/
 
