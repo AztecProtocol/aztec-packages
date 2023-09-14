@@ -120,7 +120,10 @@ bigfield<C, T>::bigfield(const field_t<C>& low_bits_in,
             high_accumulator = context->decompose_into_base4_accumulators(high_bits_in.witness_index,
                                                                           static_cast<size_t>(num_high_limb_bits),
                                                                           "bigfield: high_bits_in too large.");
-            limb_3.witness_index = high_accumulator[static_cast<size_t>((num_last_limb_bits / 2) - 1)];
+
+            if constexpr (!IsSimulator<C>) {
+                limb_3.witness_index = high_accumulator[static_cast<size_t>((num_last_limb_bits / 2) - 1)];
+            }
             limb_2 = (high_bits_in - (limb_3 * shift_1));
         }
     } else {
@@ -1747,7 +1750,7 @@ template <typename C, typename T> void bigfield<C, T>::assert_equal(const bigfie
     C* ctx = this->context ? this->context : other.context;
 
     if constexpr (IsSimulator<C>) {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/677) 
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/677)
         return;
     } else {
         if (is_constant() && other.is_constant()) {
