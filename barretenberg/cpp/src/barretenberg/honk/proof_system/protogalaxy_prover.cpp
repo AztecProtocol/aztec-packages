@@ -42,7 +42,6 @@ template <UltraFlavor Flavor> void ProtoGalaxyProver_<Flavor>::prepare_for_foldi
 template <UltraFlavor Flavor> ProverFoldingResult<Flavor> ProtoGalaxyProver_<Flavor>::fold_instances()
 {
     prepare_for_folding();
-    info("did folding prover prep");
     ProverFoldingResult<Flavor> res;
     res.folding_data = transcript.proof_data;
     return res;

@@ -1,16 +1,10 @@
 
 #include "instance.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
-
 #include "barretenberg/honk/proof_system/grand_product_library.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
-
 #include "barretenberg/srs/factories/file_crs_factory.hpp"
-#include <array>
-#include <cstddef>
 #include <gtest/gtest.h>
-#include <string>
-#include <vector>
 
 using namespace proof_system::honk;
 namespace instance_tests {

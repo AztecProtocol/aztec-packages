@@ -7,10 +7,6 @@
 #include "barretenberg/proof_system/flavor/flavor.hpp"
 #include "barretenberg/proof_system/relations/relation_parameters.hpp"
 #include "barretenberg/srs/factories/file_crs_factory.hpp"
-#include <cstddef>
-#include <memory>
-#include <utility>
-#include <vector>
 namespace proof_system::honk {
 /**
  * @brief  An Instance is normally constructed from a finalised circuit and it's role is to compute all the polynomials
