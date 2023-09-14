@@ -8,10 +8,6 @@ use dep::aztec::oracle::{
     get_secret_key::get_secret_key,
     get_public_key::get_public_key,
 };
-use dep::std::{
-    hash::pedersen,
-    grumpkin_scalar_mul::grumpkin_fixed_base,
-};
 
 global VALUE_NOTE_LEN: Field = 3; // 3 plus a header.
 
@@ -63,13 +59,6 @@ impl ValueNote {
     fn compute_nullifier(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_read_or_nullify(ValueNoteMethods, self);
         let secret = get_secret_key(self.owner);
-
-        // Constrain the owner - Nullifier secret key is currently just the encryption private key so we can constrain
-        // the owner by deriving the public key from the secret key and checking the result.
-        let owner_public_key = get_public_key(self.owner);
-        let computed_public_key = dep::std::grumpkin_scalar_mul::grumpkin_fixed_base(secret);
-        assert(owner_public_key.x == computed_public_key[0]);
-        assert(owner_public_key.y == computed_public_key[1]);
 
         // TODO(#1205) Should use a non-zero generator index.
         dep::std::hash::pedersen([
