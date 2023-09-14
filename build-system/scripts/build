@@ -35,7 +35,7 @@ echo "Repository: $REPOSITORY"
 echo "Working directory: $PWD"
 echo "Dockerfile: $DOCKERFILE"
 echo "Build directory: $BUILD_DIR"
-echo "Platforms: $PLATFORMS"
+echo "Platform: $PLATFORM"
 
 # Fetch images with retries
 function fetch_image() {
@@ -174,15 +174,9 @@ for STAGE in $STAGES; do
 
   echo "Building stage: $STAGE"
   STAGE_IMAGE_COMMIT_URI=$ECR_URL/$REPOSITORY:cache-$CONTENT_HASH-$STAGE
-  if [[ $MULTI_ARCH == "true" ]]; then
-    # Build our dockerfile, add timing information
-    docker buildx build --platform $PLATFORMS --target $STAGE $STAGE_CACHE_FROM -t $STAGE_IMAGE_COMMIT_URI -f $DOCKERFILE --build-arg COMMIT_TAG=$COMMIT_TAG_VERSION --build-arg ARG_CONTENT_HASH=$CONTENT_HASH --push . \
-    | while read line ; do echo "$(date "+%H:%M:%S")| $line"; done
-  else
-    # Build our dockerfile, add timing information
-    docker build --target $STAGE $STAGE_CACHE_FROM -t $STAGE_IMAGE_COMMIT_URI -f $DOCKERFILE --build-arg COMMIT_TAG=$COMMIT_TAG_VERSION --build-arg ARG_CONTENT_HASH=$CONTENT_HASH . \
-    | while read line ; do echo "$(date "+%H:%M:%S")| $line"; done
-  fi
+  # Build our dockerfile, add timing information
+  docker build --target $STAGE $STAGE_CACHE_FROM -t $STAGE_IMAGE_COMMIT_URI -f $DOCKERFILE --build-arg COMMIT_TAG=$COMMIT_TAG_VERSION --build-arg ARG_CONTENT_HASH=$CONTENT_HASH . \
+  | while read line ; do echo "$(date "+%H:%M:%S")| $line"; done
 
   # We don't want to have redo this stages work when building the final image. Use it as a layer cache.
   CACHE_FROM="--cache-from $STAGE_IMAGE_COMMIT_URI $CACHE_FROM"
@@ -207,15 +201,8 @@ if [[ -n "$PLATFORM" ]]; then
   IMAGE_COMMIT_URI=$IMAGE_COMMIT_URI-$PLATFORM
 fi
 echo "Building image: $IMAGE_COMMIT_URI"
-if [[ $MULTI_ARCH == "true" ]]; then
-  # Build our dockerfile, add timing information
-  docker buildx build --platform $PLATFORMS --target $STAGE $STAGE_CACHE_FROM -t $STAGE_IMAGE_COMMIT_URI -f $DOCKERFILE --build-arg COMMIT_TAG=$COMMIT_TAG_VERSION --build-arg ARG_CONTENT_HASH=$CONTENT_HASH --push . \
-  | while read line ; do echo "$(date "+%H:%M:%S")| $line"; done
-else
-  # Build our dockerfile, add timing information
-  docker build -t $IMAGE_COMMIT_URI -f $DOCKERFILE $CACHE_FROM --build-arg COMMIT_TAG=$COMMIT_TAG_VERSION --build-arg ARG_CONTENT_HASH=$CONTENT_HASH . \
-  | while read line ; do echo "$(date "+%H:%M:%S")| $line"; done
-fi
+docker build -t $IMAGE_COMMIT_URI -f $DOCKERFILE $CACHE_FROM --build-arg COMMIT_TAG=$COMMIT_TAG_VERSION --build-arg ARG_CONTENT_HASH=$CONTENT_HASH . \
+| while read line ; do echo "$(date "+%H:%M:%S")| $line"; done
 echo "Pushing image: $IMAGE_COMMIT_URI"
 retry docker push $IMAGE_COMMIT_URI > /dev/null 2>&1
 untag_remote_image $REPOSITORY tainted
