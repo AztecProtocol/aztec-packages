@@ -1,16 +1,7 @@
 import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecRPCServer } from '@aztec/aztec-rpc';
-import {
-  AccountWallet,
-  computeMessageSecretHash
-} from '@aztec/aztec.js';
-import {
-  CircuitsWasm,
-  CompleteAddress,
-  Fr,
-  FunctionSelector,
-  GeneratorIndex
-} from '@aztec/circuits.js';
+import { AccountWallet, computeMessageSecretHash } from '@aztec/aztec.js';
+import { CircuitsWasm, CompleteAddress, Fr, FunctionSelector, GeneratorIndex } from '@aztec/circuits.js';
 import { pedersenPlookupCompressWithHashIndex } from '@aztec/circuits.js/barretenberg';
 import { DebugLogger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts/types';
@@ -49,7 +40,11 @@ describe('e2e_token_contract', () => {
 
     asset = await TokenContract.deploy(wallets[0]).send().deployed();
     logger(`Token deployed to ${asset.address}`);
-    tokenSim = new TokenSimulator(asset, logger, accounts.map(a => a.address));
+    tokenSim = new TokenSimulator(
+      asset,
+      logger,
+      accounts.map(a => a.address),
+    );
 
     await asset.methods._initialize({ address: accounts[0].address }).send().wait();
     expect(await asset.methods.admin().view()).toBe(accounts[0].address.toBigInt());

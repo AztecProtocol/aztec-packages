@@ -33,6 +33,13 @@ Finally, the wallet **sends** the resulting _transaction_ object, which includes
 :::warning
 There are no proofs generated as of the Sandbox release. This will be included in a future release before testnet.
 :::
+
+## Authorising actions
+
+Account contracts in Aztec expose an interface for other contracts to validate [whether an action is authorised by the account or not](../../concepts/foundation/accounts/main.md#authorising-actions). For example, an application contract may want to transfer tokens on behalf of a user, in which case the token contract will check with the account contract whether the application is authorised to do so. These actions may be carried out in private or in public functions, and in transactions originated by the user or by someone else.
+
+Wallets should manage these authorisations, prompting the user when they are requested by an application. Authorisations in private executions come in the form of _auth witnesses_, which are usually signatures over an identifier for an action. Applications can request the wallet to produce an auth witness via the `createAuthWitness` call. In public functions, authorisations are pre-stored in the account contract storage, which is handled by a call to an internal function in the account contract implementation.
+
 ## Key management
 
 As in EVM-based chains, wallets are expected to manage user keys, or provide an interface to hardware wallets or alternative key stores. Keep in mind that in Aztec each account requires [two sets of keys](../../concepts/foundation/accounts/keys.md): privacy keys and authentication keys. Privacy keys are mandated by the protocol and used for encryption and nullification, whereas authentication keys are dependent on the account contract implementation rolled out by the wallet. Should the account contract support it, wallets must provide the user with the means to rotate or recover their authentication keys.

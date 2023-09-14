@@ -26,6 +26,8 @@ export interface AccountContract {
 
   /**
    * Returns the account interface for this account contract given a deployment at the provided address.
+   * The account interface is responsible for assembling tx requests given requested function calls, and
+   * for creating signed auth witnesses given action identifiers (message hashes).
    * @param address - Address where this account contract is deployed.
    * @param nodeInfo - Info on the chain where it is deployed.
    * @returns An account interface instance for creating tx requests and authorising actions.

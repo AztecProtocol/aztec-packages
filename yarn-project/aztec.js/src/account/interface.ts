@@ -1,6 +1,7 @@
 import { Fr } from '@aztec/circuits.js';
 import { AuthWitness, CompleteAddress, FunctionCall, TxExecutionRequest } from '@aztec/types';
 
+// docs:start:account-interface
 /** Creates authorisation witnesses. */
 export interface AuthWitnessProvider {
   /**
@@ -26,6 +27,9 @@ export interface EntrypointInterface {
  * requests and authorise actions for its corresponding account.
  */
 export interface AccountInterface extends AuthWitnessProvider, EntrypointInterface {
-  /** Returns the complete address for this account. */
+  /**
+   * Returns the complete address for this account.
+   */
   getCompleteAddress(): CompleteAddress;
 }
+// docs:end:account-interface

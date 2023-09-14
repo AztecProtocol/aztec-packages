@@ -8,8 +8,8 @@ global public_key_y: Field = 0x29155934ffaa105323695b5f91faadd84acc21f4a8bda2fad
 
 // Declared outside the contract to work around Noir error
 // "entered unreachable code: ICE: Params to the program should only contains numbers and arrays"
+// docs:start:is-valid
 fn is_valid_impl(_context: &mut PrivateContext, message_hash: Field) -> bool {
-    // docs:start:entrypoint-auth
     // TODO: Workaround for https://github.com/noir-lang/noir/issues/2421
     let message_bytes_slice = message_hash.to_be_bytes(32);
     let mut message_bytes: [u8; 32] = [0; 32];
@@ -22,10 +22,10 @@ fn is_valid_impl(_context: &mut PrivateContext, message_hash: Field) -> bool {
 
     let verification = std::schnorr::verify_signature(public_key_x, public_key_y, signature, message_bytes);
     assert(verification == true);
-    // docs:end:entrypoint-auth
 
     true
 }
+// docs:end:is-valid
 
 // Account contract that uses Schnorr signatures for authentication using a hardcoded public key.
 contract SchnorrHardcodedAccount {

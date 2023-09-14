@@ -34,6 +34,7 @@ impl AccountActions {
     AccountActions::init(Context::public(context), approved_action_storage_slot, is_valid_impl)
   }
   
+  // docs:start:entrypoint
   fn entrypoint(self, payload: EntrypointPayload) {
     let message_hash = payload.hash();
     let valid_fn = self.is_valid_impl;
@@ -41,6 +42,7 @@ impl AccountActions {
     assert(valid_fn(private_context, message_hash));
     payload.execute_calls(private_context);
   }
+  // docs:end:entrypoint
 
   fn is_valid(self, message_hash: Field) -> Field {
     let valid_fn = self.is_valid_impl;

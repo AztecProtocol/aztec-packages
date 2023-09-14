@@ -1,20 +1,10 @@
 import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecRPCServer } from '@aztec/aztec-rpc';
-import {
-  AccountWallet,
-  CheatCodes,
-  Fr,
-  SentTx,
-  computeMessageSecretHash
-} from '@aztec/aztec.js';
+import { AccountWallet, CheatCodes, Fr, SentTx, computeMessageSecretHash } from '@aztec/aztec.js';
 import { CircuitsWasm, CompleteAddress, FunctionSelector, GeneratorIndex } from '@aztec/circuits.js';
 import { pedersenPlookupCompressWithHashIndex } from '@aztec/circuits.js/barretenberg';
 import { DebugLogger } from '@aztec/foundation/log';
-import {
-  LendingContract,
-  PriceFeedContract,
-  TokenContract,
-} from '@aztec/noir-contracts/types';
+import { LendingContract, PriceFeedContract, TokenContract } from '@aztec/noir-contracts/types';
 import { AztecRPC, TxStatus } from '@aztec/types';
 
 import { jest } from '@jest/globals';
@@ -93,7 +83,7 @@ describe('e2e_lending_contract', () => {
   beforeAll(async () => {
     ({ aztecNode, aztecRpcServer, logger, cheatCodes: cc, wallet, accounts } = await setup(1));
     ({ lendingContract, priceFeedContract, collateralAsset, stableCoin } = await deployContracts());
-    
+
     lendingAccount = new LendingAccount(accounts[0].address, new Fr(42));
 
     // Also specified in `noir-contracts/src/contracts/lending_contract/src/main.nr`
