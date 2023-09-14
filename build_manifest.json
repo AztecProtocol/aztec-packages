@@ -116,7 +116,7 @@
     "buildDir": "yarn-project",
     "projectDir": "yarn-project/aztec-sandbox"
   },
-  "aztec-sandbox-arm": {
+  "aztec-sandbox-arm64": {
     "buildDir": "yarn-project",
     "projectDir": "yarn-project/aztec-sandbox",
     "dockerfile": "Dockerfile.final"
