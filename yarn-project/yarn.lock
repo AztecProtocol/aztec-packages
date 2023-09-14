@@ -271,7 +271,6 @@ __metadata:
     koa: ^2.14.2
     koa-static: ^5.0.0
     puppeteer: ^21.1.0
-    string-argv: ^0.3.2
     ts-jest: ^29.1.0
     ts-node: ^10.9.1
     tslib: ^2.4.0

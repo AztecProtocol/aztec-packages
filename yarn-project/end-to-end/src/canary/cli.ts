@@ -1,20 +1,20 @@
-import { AztecAddress, AztecRPC, CompleteAddress, createDebugLogger } from '@aztec/aztec.js';
+import { AztecAddress, AztecRPC, CompleteAddress, DebugLogger } from '@aztec/aztec.js';
 import { getProgram } from '@aztec/cli';
 
 import stringArgv from 'string-argv';
 import { format } from 'util';
 
-const debug = createDebugLogger('aztec:e2e_cli');
-
 const INITIAL_BALANCE = 33000;
 const TRANSFER_BALANCE = 3000;
 
 export const testSuite = (
+  name: string,
   setup: () => Promise<AztecRPC>,
   cleanup: () => Promise<void>,
+  debug: DebugLogger,
   rpcUrl = 'http://localhost:8080',
 ) =>
-  describe('CLI e2e test', () => {
+  describe(name, () => {
     let cli: ReturnType<typeof getProgram>;
     let aztecRpcClient: AztecRPC;
     let existingAccounts: CompleteAddress[];

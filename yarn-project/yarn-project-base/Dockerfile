@@ -1,7 +1,7 @@
 # Update this counter to trigger a rebuild when needed: 1
-FROM circuits-wasm-linux-clang as circuits
-FROM l1-contracts as contracts
-FROM noir-contracts-build as noir
+FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/circuits-wasm-linux-clang as circuits
+FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/l1-contracts as contracts
+FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/noir-contracts-build as noir
 
 FROM node:18-alpine AS builder_
 RUN apk update && apk add --no-cache build-base git python3 curl bash jq sed

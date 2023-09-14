@@ -18,8 +18,6 @@ echo "Removing all files & folders that aren't needed for canary tests"
 TARGET_DIR="./src"
 cd "$TARGET_DIR"
 
-ls -A
-
 # Loop through all files and folders in the directory
 for item in $(ls -A); do
   if [[ "$item" != "index.ts" && "$item" != "canary" ]]; then
@@ -27,6 +25,7 @@ for item in $(ls -A); do
     rm -rf "$item"
   fi
 done
+cd ..
 
 echo "Updating external Aztec dependencies to version $VERSION"
 
