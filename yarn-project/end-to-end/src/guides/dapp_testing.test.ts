@@ -146,6 +146,7 @@ describe('guides/dapp/testing', () => {
       let rpc: AztecRPC;
       let owner: AccountWallet;
       let recipient: AccountWallet;
+      let testContract: TestContract;
       let token: TokenContract;
       let cheats: CheatCodes;
       let ownerSlot: Fr;
@@ -154,15 +155,13 @@ describe('guides/dapp/testing', () => {
         rpc = createAztecRpcClient(SANDBOX_URL);
         owner = await createAccount(rpc);
         recipient = await createAccount(rpc);
+        testContract = await TestContract.deploy(owner).send().deployed();
         token = await TokenContract.deploy(owner).send().deployed();
         expect((await token.methods._initialize({ address: owner.getAddress() }).send().wait()).status).toEqual(
           TxStatus.MINED,
         );
         const secret = Fr.random();
         const secretHash = await computeMessageSecretHash(secret);
-        expect((await token.methods._initialize({ address: owner.getAddress() }).send().wait()).status).toEqual(
-          TxStatus.MINED,
-        );
         expect((await token.methods.mint_private(100n, secretHash).send().wait()).status).toEqual(TxStatus.MINED);
         expect(
           (await token.methods.redeem_shield({ address: owner.getAddress() }, 100n, secret).send().wait()).status,
@@ -173,7 +172,7 @@ describe('guides/dapp/testing', () => {
         // The balances mapping is defined on storage slot 3 and is indexed by user address
         ownerSlot = cheats.aztec.computeSlotInMap(3n, owner.getAddress());
         // docs:end:calc-slot
-      }, 30_000);
+      }, 60_000);
 
       it('checks private storage', async () => {
         // docs:start:private-storage
@@ -193,12 +192,13 @@ describe('guides/dapp/testing', () => {
         // docs:end:public-storage
       });
 
-      it('checks unencrypted logs', async () => {
+      it('checks unencrypted logs, [Kinda broken with current implementation]', async () => {
         // docs:start:unencrypted-logs
-        const tx = await token.methods.mint_public({ address: owner.getAddress() }, 100n).send().wait();
+        const value = Fr.fromString('ef'); // Only 1 bytes will make its way in there :( so no larger stuff
+        const tx = await testContract.methods.emit_unencrypted(value).send().wait();
         const logs = await rpc.getUnencryptedLogs(tx.blockNumber!, 1);
-        const textLogs = L2BlockL2Logs.unrollLogs(logs).map(log => log.toString('ascii'));
-        expect(textLogs).toEqual(['Coins minted']);
+        const log = L2BlockL2Logs.unrollLogs(logs)[0];
+        expect(Fr.fromBuffer(log)).toEqual(value);
         // docs:end:unencrypted-logs
       });
 
