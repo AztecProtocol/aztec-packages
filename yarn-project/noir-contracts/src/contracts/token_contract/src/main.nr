@@ -1,5 +1,4 @@
 mod types;
-mod account_interface;
 mod util;
 
 // Minimal token implementation that supports `AuthWit` accounts.
@@ -32,10 +31,10 @@ contract Token {
             FieldSerialisationMethods, FIELD_SERIALISED_LEN,
         },
         oracle::compute_selector::compute_selector,
+        auth::{assert_valid_message_for, assert_valid_public_message_for}
     };
 
     use crate::types::{AztecAddress, TransparentNote, TransparentNoteMethods, TRANSPARENT_NOTE_LEN};
-    use crate::account_interface::AccountContract;
     use crate::util::{compute_message_hash};
 
     struct Storage {
@@ -166,7 +165,7 @@ contract Token {
             // The redeem is only spendable once, so we need to ensure that you cannot insert multiple shields from the same message.
             let selector = compute_selector("shield((Field),Field,Field,Field)");
             let message_field = compute_message_hash([context.msg_sender(), context.this_address(), selector, from.address, amount, secret_hash, nonce]);
-            AccountContract::at(from.address).is_valid(Context::public(&mut context), message_field);
+            assert_valid_public_message_for(&mut context, from.address, message_field);
         } else {
             assert(nonce == 0, "invalid nonce");
         }
@@ -194,7 +193,7 @@ contract Token {
         if (from.address != context.msg_sender()) {
             let selector = compute_selector("transfer_public((Field),(Field),Field,Field)");
             let message_field = compute_message_hash([context.msg_sender(), context.this_address(), selector, from.address, to.address, amount, nonce]);
-            AccountContract::at(from.address).is_valid(Context::public(&mut context), message_field);
+            assert_valid_public_message_for(&mut context, from.address, message_field);
         } else {
             assert(nonce == 0, "invalid nonce");
         }
@@ -220,7 +219,7 @@ contract Token {
         if (from.address != context.msg_sender()) {
             let selector = compute_selector("burn_public((Field),Field,Field)");
             let message_field = compute_message_hash([context.msg_sender(), context.this_address(), selector, from.address, amount, nonce]);
-            AccountContract::at(from.address).is_valid(Context::public(&mut context), message_field);
+            assert_valid_public_message_for(&mut context, from.address, message_field);
         } else {
             assert(nonce == 0, "invalid nonce");
         }
@@ -264,7 +263,7 @@ contract Token {
         if (from.address != context.msg_sender()) {
             let selector = compute_selector("unshield((Field),(Field),Field,Field)");
             let message_field = compute_message_hash([context.msg_sender(), context.this_address(), selector, from.address, to.address, amount, nonce]);
-            AccountContract::at(from.address).is_valid(Context::private(&mut context), message_field);
+            assert_valid_message_for(&mut context, from.address, message_field);
         } else {
             assert(nonce == 0, "invalid nonce");
         }
@@ -290,7 +289,7 @@ contract Token {
         if (from.address != context.msg_sender()) {
             let selector = compute_selector("transfer((Field),(Field),Field,Field)");
             let message_field = compute_message_hash([context.msg_sender(), context.this_address(), selector, from.address, to.address, amount, nonce]);
-            AccountContract::at(from.address).is_valid(Context::private(&mut context), message_field);
+            assert_valid_message_for(&mut context, from.address, message_field);
         } else {
             assert(nonce == 0, "invalid nonce");
         }
@@ -315,7 +314,7 @@ contract Token {
         if (from.address != context.msg_sender()) {
             let selector = compute_selector("burn((Field),Field,Field)");
             let message_field = compute_message_hash([context.msg_sender(), context.this_address(), selector, from.address, amount, nonce]);
-            AccountContract::at(from.address).is_valid(Context::private(&mut context), message_field);
+            assert_valid_message_for(&mut context, from.address, message_field);
         } else {
             assert(nonce == 0, "invalid nonce");
         }
