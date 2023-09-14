@@ -4,11 +4,11 @@ use crate::types::point::Point;
 #[oracle(getSecretKey)]
 fn get_secret_key_oracle(
     _owner: Point,
-) -> [Field; dep::std::grumpkin_scalar::GRUMPKIN_SCALAR_SERIALISED_LEN] {
+) -> [Field; dep::std::grumpkin_scalar::GRUMPKIN_SCALAR_SERIALIZED_LEN] {
 }
 
 unconstrained fn get_secret_key_internal(owner_public_key: Point) -> dep::std::grumpkin_scalar::GrumpkinScalar {
-    dep::std::grumpkin_scalar::deserialise_grumpkin_scalar(get_secret_key_oracle(owner_public_key))
+    dep::std::grumpkin_scalar::deserialize_grumpkin_scalar(get_secret_key_oracle(owner_public_key))
 }
 
 fn get_secret_key(owner: Field) -> dep::std::grumpkin_scalar::GrumpkinScalar {
