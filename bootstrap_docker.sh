@@ -37,7 +37,6 @@ if [ -z "$PROJECT_NAME" ]; then
 fi
 
 source ./build-system/scripts/setup_env $COMMIT_HASH '' mainframe_$USER > /dev/null
-docker buildx create --name multi-platform-builder --bootstrap --use
 build_local $PROJECT_NAME $ONLY_TARGET
 
 if [ -z "$PROJECT_NAME" ]; then
