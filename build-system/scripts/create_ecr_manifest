@@ -16,6 +16,8 @@ echo "Creating manifest list $FINAL..."
 X86=$ECR_URL/$FINAL_IMAGE_NAME-x86_64:cache-$CONTENT_HASH
 ARM64=$ECR_URL/$FINAL_IMAGE_NAME-arm64:cache-$CONTENT_HASH
 
+export DOCKER_CLI_EXPERIMENTAL=enabled
+
 docker manifest create $FINAL \
 --amend $X86 \
 --amend $ARM64
