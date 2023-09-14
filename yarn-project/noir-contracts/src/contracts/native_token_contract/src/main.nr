@@ -1,5 +1,3 @@
-mod storage;
-
 // Testing token that can be bridged in and out.
 // TODOS:
 // - Add role based access control to mint functions
@@ -11,40 +9,102 @@ contract NativeToken {
     use dep::value_note::{
         balance_utils,
         utils::{increment, decrement},
-        value_note::{VALUE_NOTE_LEN, ValueNoteMethods},
+        value_note::{VALUE_NOTE_LEN, ValueNote, ValueNoteMethods},
     };
     use dep::std;
-    use dep::aztec::constants_gen::GENERATOR_INDEX__SIGNATURE_PAYLOAD;
-
-    use dep::non_native::{
-        hash::{get_mint_content_hash, get_withdraw_content_hash},
-        transparent_note::{
-            TransparentNote,
-            TransparentNoteMethods
-        },
-    };
-
-    use crate::storage::Storage;
-
     use dep::aztec::{
+        constants_gen::GENERATOR_INDEX__SIGNATURE_PAYLOAD,
+        context::{PrivateContext, PublicContext, Context},
         note::{
             note_header::NoteHeader,
             utils as note_utils,
         },
         oracle::{
+            compute_selector::compute_selector,
             logs::emit_unencrypted_log,
-            compute_selector::compute_selector
         },
-        public_call_stack_item::PublicCallStackItem,
-        types::point::Point
+        state_vars::{
+            map::Map,
+            public_state::PublicState,
+            set::Set,
+        },
+        types::type_serialisation::field_serialisation::{
+            FieldSerialisationMethods,
+            FIELD_SERIALISED_LEN,
+        },
+        auth::assert_valid_message_for,
     };
+    use dep::non_native::{
+        hash::{get_mint_content_hash, get_withdraw_content_hash},
+        transparent_note::{
+            TransparentNote,
+            TransparentNoteMethods,
+            TRANSPARENT_NOTE_LEN,
+        },
+    };
+
+    struct Storage {
+        balances: Map<Set<ValueNote, VALUE_NOTE_LEN>>,
+        total_supply: PublicState<Field, FIELD_SERIALISED_LEN>,
+        pending_shields: Set<TransparentNote, TRANSPARENT_NOTE_LEN>,
+        public_balances: Map<PublicState<Field, FIELD_SERIALISED_LEN>>,
+        public_allowances: Map<Map<PublicState<Field, FIELD_SERIALISED_LEN>>>,
+    }
+
+    impl Storage {
+        fn init(context: Context) -> pub Self {
+            Storage {
+                balances: Map::new(
+                    context,
+                    1, // Storage slot
+                    |context, slot| {
+                        Set::new(context, slot, ValueNoteMethods)
+                    },
+                ),
+                total_supply: PublicState::new(
+                    context,
+                    2,
+                    FieldSerialisationMethods,
+                ),
+                pending_shields: Set::new(context, 3, TransparentNoteMethods),
+                public_balances: Map::new(
+                    context,
+                    4,
+                    |context, slot| {
+                        PublicState::new(
+                            context,
+                            slot,
+                            FieldSerialisationMethods,
+                        )
+                    },
+                ),
+                public_allowances: Map::new(
+                    context,
+                    5,
+                    |context, s1| {
+                        Map::new(
+                            context,
+                            s1,
+                            |context, s2| {
+                                PublicState::new(
+                                    context,
+                                    s2,
+                                    FieldSerialisationMethods,
+                                )
+                            },
+                        )
+                    },
+                ),
+            }
+        }
+    }
 
     #[aztec(private)]
     fn constructor(
         initial_supply: Field,
         owner: Field,
     ) {
-        let storage = Storage::init(Option::some(&mut context), Option::none());
+        let storage = Storage::init(Context::private(&mut context));
 
         let balance = storage.balances.at(owner);
         increment(balance, initial_supply, owner);
@@ -55,7 +115,7 @@ contract NativeToken {
         to: Field,
         amount: Field,
     ) -> Field {
-        let storage = Storage::init(Option::none(), Option::some(&mut context));
+        let storage = Storage::init(Context::public(&mut context));
         let new_balance = storage.public_balances.at(to).read() + amount;
         storage.public_balances.at(to).write(new_balance);
         storage.total_supply.write(storage.total_supply.read() + amount);
@@ -69,7 +129,7 @@ contract NativeToken {
         amount: Field,
         secret_hash: Field,
     ) -> Field {
-        let storage = Storage::init(Option::none(), Option::some(&mut context));
+        let storage = Storage::init(Context::public(&mut context));
         let pending_shields = storage.pending_shields;
 
         let mut note = TransparentNote::new(amount, secret_hash);
@@ -92,7 +152,7 @@ contract NativeToken {
         secret: Field,
         canceller: Field,
     ) {
-        let storage = Storage::init(Option::some(&mut context), Option::none());
+        let storage = Storage::init(Context::private(&mut context));
 
         let content_hash = get_mint_content_hash(amount, owner, canceller);
 
@@ -113,7 +173,7 @@ contract NativeToken {
         recipient: Field, // ethereum address in the field
         callerOnL1: Field, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
     ) {
-        let storage = Storage::init(Option::some(&mut context), Option::none());
+        let storage = Storage::init(Context::private(&mut context));
 
         let sender_balance = storage.balances.at(sender);
         decrement(sender_balance, amount, sender);
@@ -134,7 +194,7 @@ contract NativeToken {
         secret: Field,
         canceller: Field,
     ) -> Field {
-        let storage = Storage::init(Option::none(), Option::some(&mut context));
+        let storage = Storage::init(Context::public(&mut context));
         let public_balances = storage.public_balances;
 
         let content_hash = get_mint_content_hash(amount, owner_address, canceller);
@@ -158,7 +218,7 @@ contract NativeToken {
         recipient: Field,
         callerOnL1: Field, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
     ) {
-        let storage = Storage::init(Option::none(), Option::some(&mut context));
+        let storage = Storage::init(Context::public(&mut context));
         let public_balances = storage.public_balances;
 
         let sender = context.msg_sender();
@@ -178,7 +238,7 @@ contract NativeToken {
         spender: Field,
         allowance: Field,
     ) {
-        let storage = Storage::init(Option::none(), Option::some(&mut context));
+        let storage = Storage::init(Context::public(&mut context));
         storage.public_allowances.at(context.msg_sender()).at(spender).write(allowance);
     }
 
@@ -187,7 +247,7 @@ contract NativeToken {
         to: Field,
         amount: Field,
     ) {
-        let storage = Storage::init(Option::none(), Option::some(&mut context));
+        let storage = Storage::init(Context::public(&mut context));
 
         // Decrease user's balance.
         let sender = context.msg_sender();
@@ -211,7 +271,7 @@ contract NativeToken {
         to: Field,
         amount: Field,
     ) {
-        let storage = Storage::init(Option::none(), Option::some(&mut context));
+        let storage = Storage::init(Context::public(&mut context));
 
         // Decrease allowance
         let allowance = storage.public_allowances.at(from).at(context.msg_sender());
@@ -240,7 +300,7 @@ contract NativeToken {
         to: Field,
         amount: Field,
     ) {
-        let storage = Storage::init(Option::some(&mut context), Option::none());
+        let storage = Storage::init(Context::private(&mut context));
 
         // Gets the set of sender's notes and picks 2 of those.
         let sender_balance = storage.balances.at(from);
@@ -256,7 +316,7 @@ contract NativeToken {
         amount: Field,
         secretHash: Field,
     ) {
-        let storage = Storage::init(Option::none(), Option::some(&mut context));
+        let storage = Storage::init(Context::public(&mut context));
         let public_balances = storage.public_balances;
         let pending_shields = storage.pending_shields;
 
@@ -285,13 +345,13 @@ contract NativeToken {
         secret: Field,
         owner: Field,
     ) {
-        let storage = Storage::init(Option::some(&mut context), Option::none());
+        let storage = Storage::init(Context::private(&mut context));
         let pending_shields = storage.pending_shields;
 
         let public_note = TransparentNote::new_from_secret(amount, secret);
 
         // Ensure that the note exists in the tree and remove it.
-        pending_shields.assert_contains_and_remove(public_note);
+        pending_shields.assert_contains_and_remove_publicly_created(public_note);
 
         // Mint the tokens
         let balance = storage.balances.at(owner);
@@ -304,7 +364,7 @@ contract NativeToken {
         to: Field,
         amount: Field,
     ) {
-        let storage = Storage::init(Option::some(&mut context), Option::none());
+        let storage = Storage::init(Context::private(&mut context));
 
         // If `from != sender` then we use the is_valid function to check that the message is approved.
         if (from != context.msg_sender()) {
@@ -321,9 +381,8 @@ contract NativeToken {
                 ], 
                 GENERATOR_INDEX__SIGNATURE_PAYLOAD
             )[0];
-            let is_valid_selector = compute_selector("is_valid(Field)");
-            let _callStackItem0 = context.call_private_function(from, is_valid_selector, [message_field]);
-            assert(_callStackItem0[0] == is_valid_selector);
+            
+            assert_valid_message_for(&mut context, from, message_field);
         }
 
         // Reduce user balance
@@ -342,7 +401,7 @@ contract NativeToken {
         amount: Field,
         to: Field,
     ) {
-        let storage = Storage::init(Option::none(), Option::some(&mut context));
+        let storage = Storage::init(Context::public(&mut context));
 
         let to_balance = storage.public_balances.at(to);
         let current_balance = to_balance.read();
@@ -353,7 +412,7 @@ contract NativeToken {
     unconstrained fn balance_of(
         owner: Field,
     ) -> Field {
-        let storage = Storage::init(Option::none(), Option::none());
+        let storage = Storage::init(Context::none());
         let owner_balance = storage.balances.at(owner);
 
         balance_utils::get_balance(owner_balance)
@@ -372,14 +431,14 @@ contract NativeToken {
     }
 
     unconstrained fn total_supply() -> Field {
-        let storage = Storage::init(Option::none(), Option::none());
+        let storage = Storage::init(Context::none());
         storage.total_supply.read()
     }
 
     unconstrained fn public_balance_of(
         owner: Field,
     ) -> Field {
-        let storage = Storage::init(Option::none(), Option::none());
+        let storage = Storage::init(Context::none());
         storage.public_balances.at(owner).read()
     }
 
@@ -387,7 +446,7 @@ contract NativeToken {
         owner: Field,
         spender: Field,
     ) -> Field {
-        let storage = Storage::init(Option::none(), Option::none());
+        let storage = Storage::init(Context::none());
         storage.public_allowances.at(owner).at(spender).read()
     }
 }

@@ -7,6 +7,7 @@ import {
   FunctionSelector,
   GlobalVariables,
   HistoricBlockData,
+  RETURN_VALUES_LENGTH,
 } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -32,9 +33,6 @@ import { AcirSimulator } from '../index.js';
 import { CommitmentsDB, PublicContractsDB, PublicStateDB } from './db.js';
 import { PublicExecution, PublicExecutionResult } from './execution.js';
 import { ContractStorageActionsCollector } from './state_actions.js';
-
-// Copied from crate::abi at noir-contracts/src/contracts/noir-aztec/src/abi.nr
-const NOIR_MAX_RETURN_VALUES = 4;
 
 /**
  * Handles execution of public functions.
@@ -126,10 +124,11 @@ export class PublicExecutor {
       },
       callPublicFunction: async ([address], [functionSelector], [argsHash]) => {
         const args = packedArgs.unpack(fromACVMField(argsHash));
-        this.log(`Public function call: addr=${address} selector=${functionSelector} args=${args.join(',')}`);
+        const selector = FunctionSelector.fromField(fromACVMField(functionSelector));
+        this.log(`Public function call: addr=${address} selector=${selector} args=${args.join(',')}`);
         const childExecutionResult = await this.callPublicFunction(
           frToAztecAddress(fromACVMField(address)),
-          FunctionSelector.fromField(fromACVMField(functionSelector)),
+          selector,
           args,
           execution.callContext,
           globalVariables,
@@ -137,7 +136,7 @@ export class PublicExecutor {
 
         nestedExecutions.push(childExecutionResult);
         this.log(`Returning from nested call: ret=${childExecutionResult.returnValues.join(', ')}`);
-        return padArrayEnd(childExecutionResult.returnValues, Fr.ZERO, NOIR_MAX_RETURN_VALUES).map(toACVMField);
+        return padArrayEnd(childExecutionResult.returnValues, Fr.ZERO, RETURN_VALUES_LENGTH).map(toACVMField);
       },
       emitUnencryptedLog: args => {
         // https://github.com/AztecProtocol/aztec-packages/issues/885
