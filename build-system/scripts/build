@@ -26,7 +26,7 @@ set -euo pipefail
 
 REPOSITORY=$1
 FORCE_BUILD=${2:-"false"}
-PLATFORM=${3:-""}
+ARCH=${3:-""}
 DOCKERFILE=$(query_manifest dockerfile $REPOSITORY)
 PROJECT_DIR=$(query_manifest projectDir $REPOSITORY)
 BUILD_DIR=$(query_manifest buildDir $REPOSITORY)
@@ -35,7 +35,7 @@ echo "Repository: $REPOSITORY"
 echo "Working directory: $PWD"
 echo "Dockerfile: $DOCKERFILE"
 echo "Build directory: $BUILD_DIR"
-echo "Platform: $PLATFORM"
+echo "Arch: $ARCH"
 
 # Fetch images with retries
 function fetch_image() {
@@ -186,8 +186,8 @@ fi
 
 # Build the actual image and give it a commit tag.
 IMAGE_COMMIT_URI=$ECR_URL/$REPOSITORY:cache-$CONTENT_HASH
-if [[ -n "$PLATFORM" ]]; then
-  IMAGE_COMMIT_URI=$IMAGE_COMMIT_URI-$PLATFORM
+if [[ -n "$ARCH" ]]; then
+  IMAGE_COMMIT_URI=$IMAGE_COMMIT_URI-$ARCH
 fi
 echo "Building image: $IMAGE_COMMIT_URI"
 # Build our dockerfile, add timing information
