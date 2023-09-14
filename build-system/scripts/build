@@ -201,6 +201,7 @@ if [[ -n "$PLATFORM" ]]; then
   IMAGE_COMMIT_URI=$IMAGE_COMMIT_URI-$PLATFORM
 fi
 echo "Building image: $IMAGE_COMMIT_URI"
+# Build our dockerfile, add timing information
 docker build -t $IMAGE_COMMIT_URI -f $DOCKERFILE $CACHE_FROM --build-arg COMMIT_TAG=$COMMIT_TAG_VERSION --build-arg ARG_CONTENT_HASH=$CONTENT_HASH . \
 | while read line ; do echo "$(date "+%H:%M:%S")| $line"; done
 echo "Pushing image: $IMAGE_COMMIT_URI"
