@@ -13,7 +13,7 @@ shift
 
 # if FORCE_BUILD is already set, just continue with it
 if [[ $FORCE_BUILD == 'true' ]]; then
-  build $REPOSITORY $FORCE_BUILD
+  build $REPOSITORY "true"
   exit 0
 fi
 
