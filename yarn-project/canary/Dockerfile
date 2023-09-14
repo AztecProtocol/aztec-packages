@@ -1,4 +1,3 @@
-# FROM node:18-alpine
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project-base AS builder
 
 RUN apk update && apk add --no-cache udev ttf-freefont chromium curl jq bash
