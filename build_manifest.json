@@ -112,26 +112,19 @@
     "buildDir": "yarn-project",
     "projectDir": "yarn-project/aztec-rpc"
   },
-  "aztec-sandbox": {
+  "aztec-sandbox-base": {
     "buildDir": "yarn-project",
     "projectDir": "yarn-project/aztec-sandbox"
   },
   "aztec-sandbox-arm": {
     "buildDir": "yarn-project",
     "projectDir": "yarn-project/aztec-sandbox",
-    "dockerfile": "aztec-sandbox/Dockerfile.arm64",
-    "rebuildPatterns": ["^yarn-project/aztec-sandbox/"],
-    "dependencies": [
-      "aztec-node",
-      "aztec-rpc",
-      "aztec.js",
-      "circuits.js",
-      "ethereum",
-      "foundation",
-      "l1-artifacts",
-      "noir-contracts",
-      "types"
-    ]
+    "dockerfile": "aztec-sandbox/Dockerfile.final"
+  },
+  "aztec-sandbox-x86_64": {
+    "buildDir": "yarn-project",
+    "projectDir": "yarn-project/aztec-sandbox",
+    "dockerfile": "aztec-sandbox/Dockerfile.final"
   },
   "aztec.js": {
     "buildDir": "yarn-project",

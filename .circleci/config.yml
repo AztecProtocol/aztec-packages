@@ -572,7 +572,7 @@ jobs:
           name: "Build and test"
           command: build aztec-rpc
 
-  aztec-sandbox:
+  aztec-sandbox-base:
     machine:
       image: ubuntu-2004:202010-01
     resource_class: large
@@ -581,7 +581,18 @@ jobs:
       - *setup_env
       - run:
           name: "Build and test"
-          command: force_deploy_build aztec-sandbox false
+          command: force_deploy_build aztec-sandbox-base false
+
+  aztec-sandbox-x86_64:
+    machine:
+      image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: force_deploy_build aztec-sandbox-final true
 
   aztec-sandbox-arm64:
     machine:
@@ -592,7 +603,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build and test"
-          command: force_deploy_build aztec-sandbox-arm true
+          command: force_deploy_build aztec-sandbox-final true
 
   circuits-js:
     machine:
@@ -991,9 +1002,20 @@ jobs:
           name: "Test"
           command: cond_run_script end-to-end ./scripts/run_tests_local sample-dapp ./scripts/docker-compose-e2e-sandbox.yml
 
-  e2e-canary-test:
+  e2e-canary-test-x86_64:
     machine:
       image: ubuntu-2004:202010-01
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_run_script canary-build ./scripts/run_tests uniswap_trade_on_l1_from_l2.test.ts canary-build ./scripts/docker-compose-e2e-sandbox.yml
+
+  e2e-canary-test-arm64:
+    machine:
+      image: ubuntu-2204:2023.07.1
+    resource_class: arm.large
     steps:
       - *checkout
       - *setup_env
@@ -1032,17 +1054,6 @@ jobs:
       - run:
           name: "Noop"
           command: echo Noop
-
-  # aztec-sandbox-multi-platform:
-  #   machine:
-  #     image: ubuntu-2004:202010-01
-  #   resource_class: large
-  #   steps:
-  #     - *checkout
-  #     - *setup_env
-  #     - run:
-  #         name: "Build and test"
-  #         command: force_deploy_build aztec-sandbox-multi-platform true "linux/amd64,linux/arm64,linux/arm/v7"
 
   deploy-npm:
     machine:
@@ -1396,8 +1407,17 @@ workflows:
       - types: *yarn_project
       - circuits-js: *yarn_project
       - rollup-provider: *yarn_project
-      - aztec-sandbox: *yarn_project
+      - aztec-sandbox-base: *yarn_project
       - canary: *yarn_project
+
+      - aztec-sandbox-x86_64:
+          requires:
+            - aztec-sandbox-base
+          <<: *defaults
+      - aztec-sandbox-arm64:
+          requires:
+            - aztec-sandbox-base
+          <<: *defaults
 
       - e2e-join:
           requires:
@@ -1422,13 +1442,9 @@ workflows:
             - types
             - circuits-js
             - rollup-provider
-            - aztec-sandbox
+            - aztec-sandbox-x86_64
+            - aztec-sandbox-arm64
             - canary
-          <<: *defaults
-
-      - aztec-sandbox-arm64:
-          requires:
-            - aztec-sandbox
           <<: *defaults
 
       - e2e-2-rpc-servers: *e2e_test
@@ -1455,7 +1471,8 @@ workflows:
       - integration-l1-publisher: *e2e_test
       - integration-archiver-l1-to-l2: *e2e_test
       - e2e-p2p: *e2e_test
-      - e2e-canary-test: *e2e_test
+      - e2e-canary-test-x86_64: *e2e_test
+      - e2e-canary-test-arm64: *e2e_test
       - e2e-browser-sandbox: *e2e_test
       - e2e-card-game: *e2e_test
       - aztec-rpc-sandbox: *e2e_test
