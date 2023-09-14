@@ -204,5 +204,6 @@ echo "Building image: $IMAGE_COMMIT_URI"
 docker build -t $IMAGE_COMMIT_URI -f $DOCKERFILE $CACHE_FROM --build-arg COMMIT_TAG=$COMMIT_TAG_VERSION --build-arg ARG_CONTENT_HASH=$CONTENT_HASH . \
 | while read line ; do echo "$(date "+%H:%M:%S")| $line"; done
 echo "Pushing image: $IMAGE_COMMIT_URI"
+docker inspect $IMAGE_COMMIT_URI
 retry docker push $IMAGE_COMMIT_URI > /dev/null 2>&1
 untag_remote_image $REPOSITORY tainted
