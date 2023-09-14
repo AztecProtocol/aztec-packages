@@ -165,7 +165,7 @@ describe('guides/dapp/testing', () => {
         );
         expect((await token.methods.mint_private(100n, secretHash).send().wait()).status).toEqual(TxStatus.MINED);
         expect(
-          (await token.methods.redeem_shield({ address: owner.getAddress() }, 100n, secretHash).send().wait()).status,
+          (await token.methods.redeem_shield({ address: owner.getAddress() }, 100n, secret).send().wait()).status,
         ).toEqual(TxStatus.MINED);
 
         // docs:start:calc-slot
