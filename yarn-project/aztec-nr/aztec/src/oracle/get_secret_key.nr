@@ -7,9 +7,13 @@ fn get_secret_key_oracle(
 ) -> [Field; dep::std::grumpkin_scalar::GRUMPKIN_SCALAR_SERIALISED_LEN] {
 }
 
-unconstrained fn get_secret_key(owner: Field) -> dep::std::grumpkin_scalar::GrumpkinScalar {
+unconstrained fn get_secret_key_internal(owner_public_key: Point) -> dep::std::grumpkin_scalar::GrumpkinScalar {
+    dep::std::grumpkin_scalar::deserialise_grumpkin_scalar(get_secret_key_oracle(owner_public_key))
+}
+
+fn get_secret_key(owner: Field) -> dep::std::grumpkin_scalar::GrumpkinScalar {
     let owner_public_key = get_public_key(owner);
-    let secret = dep::std::grumpkin_scalar::deserialise_grumpkin_scalar(get_secret_key_oracle(owner_public_key));
+    let secret = get_secret_key_internal(owner_public_key);
 
     // Constrain the owner - Nullifier secret key is currently just the encryption private key so we can constrain
     // the owner by deriving the public key from the secret key and checking the result.
