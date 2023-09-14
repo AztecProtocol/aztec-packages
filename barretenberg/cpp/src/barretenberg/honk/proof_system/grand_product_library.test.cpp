@@ -6,11 +6,7 @@
 #include "barretenberg/polynomials/polynomial.hpp"
 
 #include "barretenberg/srs/factories/file_crs_factory.hpp"
-#include <array>
-#include <cstddef>
 #include <gtest/gtest.h>
-#include <string>
-#include <vector>
 
 using namespace proof_system::honk;
 namespace grand_product_library_tests {

@@ -12,7 +12,8 @@ using namespace proof_system::honk;
 
 template <typename Flavor> class TranscriptTests : public testing::Test {
   protected:
-    // TODO(640): The Standard Honk on Grumpkin test suite fails unless the SRS is initialised for every test.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/640): The Standard Honk on Grumpkin test suite fails
+    // unless the SRS is initialised for every test.
     virtual void SetUp()
     {
         if constexpr (proof_system::IsGrumpkinFlavor<Flavor>) {
@@ -351,7 +352,7 @@ TEST_F(UltraTranscriptTests, FoldingManifestTest)
     auto instance_one = composer.create_instance(builder_one);
     auto instance_two = composer.create_instance(builder_two);
 
-    std::vector<std::shared_ptr<Instance>> insts;
+    std::vector<std::shared_ptr<ProverInstance>> insts;
     insts.emplace_back(instance_one);
     insts.emplace_back(instance_two);
     auto prover = composer.create_folding_prover(insts);

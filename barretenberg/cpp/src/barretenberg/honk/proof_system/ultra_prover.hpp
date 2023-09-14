@@ -2,7 +2,7 @@
 #include "barretenberg/honk/flavor/goblin_ultra.hpp"
 #include "barretenberg/honk/flavor/ultra.hpp"
 #include "barretenberg/honk/flavor/ultra_grumpkin.hpp"
-#include "barretenberg/honk/instance/instance.hpp"
+#include "barretenberg/honk/instance/prover_instance.hpp"
 #include "barretenberg/honk/pcs/gemini/gemini.hpp"
 #include "barretenberg/honk/pcs/shplonk/shplonk.hpp"
 #include "barretenberg/honk/proof_system/work_queue.hpp"
@@ -22,7 +22,7 @@ template <UltraFlavor Flavor> class UltraProver_ {
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using Curve = typename Flavor::Curve;
-    using Instance = Instance_<Flavor>;
+    using Instance = ProverInstance_<Flavor>;
 
   public:
     explicit UltraProver_(std::shared_ptr<Instance>);

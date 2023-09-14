@@ -1,5 +1,4 @@
 #include "ultra_prover.hpp"
-#include "barretenberg/honk/instance/instance.hpp"
 #include "barretenberg/honk/pcs/claim.hpp"
 #include "barretenberg/honk/sumcheck/sumcheck.hpp"
 #include "barretenberg/honk/utils/power_polynomial.hpp"

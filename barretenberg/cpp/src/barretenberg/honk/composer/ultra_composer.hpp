@@ -1,5 +1,5 @@
 #pragma once
-#include "barretenberg/honk/instance/instance.hpp"
+#include "barretenberg/honk/instance/prover_instance.hpp"
 #include "barretenberg/honk/proof_system/protogalaxy_prover.hpp"
 #include "barretenberg/honk/proof_system/protogalaxy_verifier.hpp"
 #include "barretenberg/honk/proof_system/ultra_prover.hpp"
@@ -22,7 +22,7 @@ template <UltraFlavor Flavor> class UltraComposer_ {
     using PCS = typename Flavor::PCS;
     using CommitmentKey = typename Flavor::CommitmentKey;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
-    using Instance = Instance_<Flavor>;
+    using Instance = ProverInstance_<Flavor>;
 
     // offset due to placing zero wires at the start of execution trace
     static constexpr size_t num_zero_rows = Flavor::has_zero_row ? 1 : 0;

@@ -16,8 +16,7 @@ namespace proof_system::honk {
  * and folded public inputs and its FoldingParams are expected to be non-zero
  *
  */
-
-template <UltraFlavor Flavor> class Instance_ {
+template <UltraFlavor Flavor> class ProverInstance_ {
   public:
     using Circuit = typename Flavor::CircuitBuilder;
     using ProvingKey = typename Flavor::ProvingKey;
@@ -31,7 +30,6 @@ template <UltraFlavor Flavor> class Instance_ {
     // offset due to placing zero wires at the start of execution trace
     static constexpr size_t num_zero_rows = Flavor::has_zero_row ? 1 : 0;
 
-    static constexpr std::string_view NAME_STRING = "UltraHonk";
     static constexpr size_t NUM_WIRES = Circuit::NUM_WIRES;
     std::shared_ptr<ProvingKey> proving_key;
     std::shared_ptr<VerificationKey> verification_key;
@@ -60,27 +58,28 @@ template <UltraFlavor Flavor> class Instance_ {
     // Used by the prover for domain separation in the transcript
     uint32_t index;
 
-    Instance_(Circuit& circuit)
+    ProverInstance_(Circuit& circuit)
     {
         compute_circuit_size_parameters(circuit);
         compute_proving_key(circuit);
         compute_witness(circuit);
     }
 
-    Instance_(FoldingResult<Flavor> result)
+    ProverInstance_(FoldingResult<Flavor> result)
         : verification_key(std::move(result.verification_key))
         , prover_polynomials(result.folded_prover_polynomials)
         , public_inputs(result.folded_public_inputs)
         , folding_params(result.params){};
 
-    Instance_(Instance_&& other) noexcept = default;
-    Instance_(Instance_ const& other) noexcept = default;
-    Instance_& operator=(Instance_&& other) noexcept = default;
-    Instance_& operator=(Instance_ const& other) noexcept = default;
-    ~Instance_() = default;
+    ProverInstance_(ProverInstance_&& other) noexcept = default;
+    ~ProverInstance_() = default;
+
+    std::shared_ptr<VerificationKey> compute_verification_key();
+    void initialise_prover_polynomials();
+    void compute_sorted_accumulator_polynomials(FF);
+    void compute_grand_product_polynomials(FF, FF);
 
     std::shared_ptr<ProvingKey> compute_proving_key(Circuit&);
-    std::shared_ptr<VerificationKey> compute_verification_key();
 
     void compute_circuit_size_parameters(Circuit&);
 
@@ -90,21 +89,15 @@ template <UltraFlavor Flavor> class Instance_ {
 
     void add_table_column_selector_poly_to_proving_key(barretenberg::polynomial& small, const std::string& tag);
 
-    void initialise_prover_polynomials();
-
-    void compute_sorted_accumulator_polynomials(FF);
-
     void compute_sorted_list_accumulator(FF);
 
     void add_plookup_memory_records_to_wire_4(FF);
-
-    void compute_grand_product_polynomials(FF, FF);
 };
 
-extern template class Instance_<honk::flavor::Ultra>;
-extern template class Instance_<honk::flavor::UltraGrumpkin>;
-extern template class Instance_<honk::flavor::GoblinUltra>;
+extern template class ProverInstance_<honk::flavor::Ultra>;
+extern template class ProverInstance_<honk::flavor::UltraGrumpkin>;
+extern template class ProverInstance_<honk::flavor::GoblinUltra>;
 
-using Instance = Instance_<honk::flavor::Ultra>;
+using ProverInstance = ProverInstance_<honk::flavor::Ultra>;
 
 } // namespace proof_system::honk

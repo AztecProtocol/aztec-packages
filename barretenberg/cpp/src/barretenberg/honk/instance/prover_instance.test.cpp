@@ -1,5 +1,5 @@
 
-#include "instance.hpp"
+#include "prover_instance.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/honk/proof_system/grand_product_library.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
@@ -54,7 +54,7 @@ template <class Flavor> class InstanceTests : public testing::Test {
 
         builder.add_gates_to_ensure_all_polys_are_non_zero();
         builder.finalize_circuit();
-        auto instance = Instance_<Flavor>(builder);
+        auto instance = ProverInstance_<Flavor>(builder);
 
         // Get random challenge eta
         auto eta = FF::random_element();

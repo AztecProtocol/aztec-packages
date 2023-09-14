@@ -4,7 +4,7 @@ namespace proof_system::honk {
 template <UltraFlavor Flavor>
 ProtoGalaxyVerifier_<Flavor>::ProtoGalaxyVerifier_(std::vector<std::shared_ptr<VerificationKey>> vks)
 {
-    // TODO(#391): simplify code with C++23 features
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/391): simplify code with C++23 features
     uint32_t idx = 0;
     for (const auto& vk : vks) {
         VerifierInstance inst;

@@ -1,4 +1,4 @@
-#include "instance.hpp"
+#include "prover_instance.hpp"
 #include "barretenberg/honk/proof_system/grand_product_library.hpp"
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 #include "barretenberg/proof_system/composer/permutation_lib.hpp"
@@ -10,7 +10,7 @@ namespace proof_system::honk {
  * @tparam Flavor
  * @param circuit
  */
-template <UltraFlavor Flavor> void Instance_<Flavor>::compute_circuit_size_parameters(Circuit& circuit)
+template <UltraFlavor Flavor> void ProverInstance_<Flavor>::compute_circuit_size_parameters(Circuit& circuit)
 {
     // Compute total length of the tables and the number of lookup gates; their sum is the minimum circuit size
     for (const auto& table : circuit.lookup_tables) {
@@ -41,7 +41,7 @@ template <UltraFlavor Flavor> void Instance_<Flavor>::compute_circuit_size_param
  * @brief Compute witness polynomials
  *
  */
-template <UltraFlavor Flavor> void Instance_<Flavor>::compute_witness(Circuit& circuit)
+template <UltraFlavor Flavor> void ProverInstance_<Flavor>::compute_witness(Circuit& circuit)
 {
     if (computed_witness) {
         return;
@@ -154,7 +154,7 @@ template <UltraFlavor Flavor> void Instance_<Flavor>::compute_witness(Circuit& c
  * @tparam Flavor
  * @param wire_polynomials
  */
-template <UltraFlavor Flavor> void Instance_<Flavor>::construct_ecc_op_wire_polynomials(auto& wire_polynomials)
+template <UltraFlavor Flavor> void ProverInstance_<Flavor>::construct_ecc_op_wire_polynomials(auto& wire_polynomials)
 {
     std::array<polynomial, Flavor::NUM_WIRES> op_wire_polynomials;
     for (auto& poly : op_wire_polynomials) {
@@ -179,7 +179,7 @@ template <UltraFlavor Flavor> void Instance_<Flavor>::construct_ecc_op_wire_poly
 }
 
 template <UltraFlavor Flavor>
-std::shared_ptr<typename Flavor::ProvingKey> Instance_<Flavor>::compute_proving_key(Circuit& circuit)
+std::shared_ptr<typename Flavor::ProvingKey> ProverInstance_<Flavor>::compute_proving_key(Circuit& circuit)
 {
     if (proving_key) {
         return proving_key;
@@ -246,7 +246,7 @@ std::shared_ptr<typename Flavor::ProvingKey> Instance_<Flavor>::compute_proving_
     return proving_key;
 }
 
-template <UltraFlavor Flavor> void Instance_<Flavor>::initialise_prover_polynomials()
+template <UltraFlavor Flavor> void ProverInstance_<Flavor>::initialise_prover_polynomials()
 {
     prover_polynomials.q_c = proving_key->q_c;
     prover_polynomials.q_l = proving_key->q_l;
@@ -306,7 +306,7 @@ template <UltraFlavor Flavor> void Instance_<Flavor>::initialise_prover_polynomi
     }
 }
 
-template <UltraFlavor Flavor> void Instance_<Flavor>::compute_sorted_accumulator_polynomials(FF eta)
+template <UltraFlavor Flavor> void ProverInstance_<Flavor>::compute_sorted_accumulator_polynomials(FF eta)
 {
     relation_parameters.eta = eta;
     // Compute sorted witness-table accumulator
@@ -331,7 +331,7 @@ template <UltraFlavor Flavor> void Instance_<Flavor>::compute_sorted_accumulator
  * @param eta random challenge
  * @return Polynomial
  */
-template <UltraFlavor Flavor> void Instance_<Flavor>::compute_sorted_list_accumulator(FF eta)
+template <UltraFlavor Flavor> void ProverInstance_<Flavor>::compute_sorted_list_accumulator(FF eta)
 {
     const size_t circuit_size = proving_key->circuit_size;
 
@@ -362,7 +362,7 @@ template <UltraFlavor Flavor> void Instance_<Flavor>::compute_sorted_list_accumu
  * @tparam Flavor
  * @param eta challenge produced after commitment to first three wire polynomials
  */
-template <UltraFlavor Flavor> void Instance_<Flavor>::add_plookup_memory_records_to_wire_4(FF eta)
+template <UltraFlavor Flavor> void ProverInstance_<Flavor>::add_plookup_memory_records_to_wire_4(FF eta)
 {
     // The plookup memory record values are computed at the indicated indices as
     // w4 = w3 * eta^3 + w2 * eta^2 + w1 * eta + read_write_flag;
@@ -391,7 +391,7 @@ template <UltraFlavor Flavor> void Instance_<Flavor>::add_plookup_memory_records
     }
 }
 
-template <UltraFlavor Flavor> void Instance_<Flavor>::compute_grand_product_polynomials(FF beta, FF gamma)
+template <UltraFlavor Flavor> void ProverInstance_<Flavor>::compute_grand_product_polynomials(FF beta, FF gamma)
 {
     auto public_input_delta =
         compute_public_input_delta<Flavor>(public_inputs, beta, gamma, proving_key->circuit_size, pub_inputs_offset);
@@ -412,7 +412,7 @@ template <UltraFlavor Flavor> void Instance_<Flavor>::compute_grand_product_poly
  * @return Pointer to the resulting verification key of the Instance.
  * */
 template <UltraFlavor Flavor>
-std::shared_ptr<typename Flavor::VerificationKey> Instance_<Flavor>::compute_verification_key()
+std::shared_ptr<typename Flavor::VerificationKey> ProverInstance_<Flavor>::compute_verification_key()
 {
     if (verification_key) {
         return verification_key;
@@ -464,8 +464,8 @@ std::shared_ptr<typename Flavor::VerificationKey> Instance_<Flavor>::compute_ver
     return verification_key;
 }
 
-template class Instance_<honk::flavor::Ultra>;
-template class Instance_<honk::flavor::UltraGrumpkin>;
-template class Instance_<honk::flavor::GoblinUltra>;
+template class ProverInstance_<honk::flavor::Ultra>;
+template class ProverInstance_<honk::flavor::UltraGrumpkin>;
+template class ProverInstance_<honk::flavor::GoblinUltra>;
 
 } // namespace proof_system::honk

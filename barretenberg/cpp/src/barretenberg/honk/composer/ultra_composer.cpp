@@ -1,5 +1,4 @@
 #include "barretenberg/honk/composer/ultra_composer.hpp"
-#include "barretenberg/honk/instance/instance.hpp"
 #include "barretenberg/honk/proof_system/grand_product_library.hpp"
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 #include "barretenberg/proof_system/composer/composer_lib.hpp"
@@ -8,7 +7,7 @@
 namespace proof_system::honk {
 
 template <UltraFlavor Flavor>
-std::shared_ptr<Instance_<Flavor>> UltraComposer_<Flavor>::create_instance(CircuitBuilder& circuit)
+std::shared_ptr<ProverInstance_<Flavor>> UltraComposer_<Flavor>::create_instance(CircuitBuilder& circuit)
 {
     circuit.add_gates_to_ensure_all_polys_are_non_zero();
     circuit.finalize_circuit();
