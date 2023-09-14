@@ -24,10 +24,22 @@ Or if you use yarn:
 yarn global add @aztec/cli
 ```
 
-Then verify that it is installed with:
+If you have specified a SANDBOX_VERSION environmental variable when installing sandbox, you will need to specify the same version when installing the CLI. For example:
 
 ```bash
-aztec-cli -h
+npm install -g @aztec/cli@0.7.0
+```
+
+or if you use yarn:
+
+```bash
+yarn global add @aztec/cli@0.7.0
+```
+
+Verify that the correct version is installed:
+
+```bash
+aztec-cli --version
 ```
 
 ## I have the Sandbox running, now what?

@@ -383,6 +383,14 @@ Alternatively you can open a new terminal and use aztec-cli to get the version.
 aztec-cli get-node-info
 ```
 
+:::note
+
+Versions of `sandbox` and `aztec-cli` must match.
+If `aztec-cli --version` does not return the same version as `SANDBOX_VERSION` then you need to install the correct version of `aztec-cli`.
+See [this section](./cli.md#requirements) for how to accomplish that.
+
+:::
+
 ## Next Steps
 Here we showed how to interact with the sandbox, but didn't go into details on how to write your own contract or any relevant setup needed for it. 
 
