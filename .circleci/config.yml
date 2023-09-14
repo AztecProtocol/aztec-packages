@@ -592,7 +592,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build and test"
-          command: force_deploy_build aztec-sandbox-final true
+          command: build aztec-sandbox-final true
 
   aztec-sandbox-arm64:
     machine:
@@ -603,7 +603,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build and test"
-          command: force_deploy_build aztec-sandbox-final true
+          command: build aztec-sandbox-final true
 
   circuits-js:
     machine:
