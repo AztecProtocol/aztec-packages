@@ -99,10 +99,12 @@ export class PrivateFunctionExecution {
         this.context.handleNewNote(this.contractAddress, storageSlot, preimage, innerNoteHash);
         return Promise.resolve(ZERO_ACVM_FIELD);
       },
-      notifyNullifiedNote: async ([slot], [innerNullifier], [innerNoteHash]) => {
-        await this.context.handleNullifiedNote(this.contractAddress, slot, innerNullifier, innerNoteHash);
+      notifyNullifiedNote: async ([innerNullifier], [innerNoteHash]) => {
+        await this.context.handleNullifiedNote(this.contractAddress, innerNullifier, innerNoteHash);
         return Promise.resolve(ZERO_ACVM_FIELD);
       },
+      checkNoteHashExists: ([nonce], [innerNoteHash]) =>
+        this.context.checkNoteHashExists(this.contractAddress, nonce, innerNoteHash),
       callPrivateFunction: async ([acvmContractAddress], [acvmFunctionSelector], [acvmArgsHash]) => {
         const contractAddress = fromACVMField(acvmContractAddress);
         const functionSelector = fromACVMField(acvmFunctionSelector);
@@ -125,7 +127,6 @@ export class PrivateFunctionExecution {
       getL1ToL2Message: ([msgKey]) => {
         return this.context.getL1ToL2Message(fromACVMField(msgKey));
       },
-      getCommitment: ([commitment]) => this.context.getCommitment(this.contractAddress, commitment),
       debugLog: (...args) => {
         this.log(oracleDebugCallToFormattedStr(args));
         return Promise.resolve(ZERO_ACVM_FIELD);
@@ -135,15 +136,16 @@ export class PrivateFunctionExecution {
         return Promise.resolve(ZERO_ACVM_FIELD);
       },
       enqueuePublicFunctionCall: async ([acvmContractAddress], [acvmFunctionSelector], [acvmArgsHash]) => {
+        const selector = FunctionSelector.fromField(fromACVMField(acvmFunctionSelector));
         const enqueuedRequest = await this.enqueuePublicFunctionCall(
           frToAztecAddress(fromACVMField(acvmContractAddress)),
-          FunctionSelector.fromField(fromACVMField(acvmFunctionSelector)),
+          selector,
           this.context.packedArgsCache.unpack(fromACVMField(acvmArgsHash)),
           this.callContext,
         );
 
         this.log(
-          `Enqueued call to public function (with side-effect counter #${enqueuedRequest.sideEffectCounter}) ${acvmContractAddress}:${acvmFunctionSelector}`,
+          `Enqueued call to public function (with side-effect counter #${enqueuedRequest.sideEffectCounter}) ${acvmContractAddress}:${selector}`,
         );
         enqueuedPublicFunctionCalls.push(enqueuedRequest);
         return toAcvmEnqueuePublicFunctionResult(enqueuedRequest);
