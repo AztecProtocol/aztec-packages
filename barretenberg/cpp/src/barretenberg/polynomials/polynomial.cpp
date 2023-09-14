@@ -280,7 +280,7 @@ template <typename Fr> void Polynomial<Fr>::add_scaled(std::span<const Fr> other
     size_t num_threads = get_num_cpus_pow2();
     size_t range_per_thread = other_size / num_threads;
     size_t leftovers = other_size - (range_per_thread * num_threads);
-    parallel_for (num_threads, [&](size_t j) {
+    parallel_for(num_threads, [&](size_t j) {
         size_t offset = j * range_per_thread;
         size_t end = (j == num_threads - 1) ? offset + range_per_thread + leftovers : offset + range_per_thread;
         for (size_t i = offset; i < end; ++i)

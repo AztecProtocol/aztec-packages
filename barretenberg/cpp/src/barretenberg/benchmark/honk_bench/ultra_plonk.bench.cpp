@@ -31,7 +31,9 @@ void construct_proof_ultra_gates(State& state, void (*test_circuit_function)(Ult
     bench_utils::construct_proof_with_specified_num_gates<UltraPlonk>(state, test_circuit_function);
 }
 
-BENCHMARK_CAPTURE(construct_proof_ultra_gates, basic_arith, &bench_utils::generate_basic_arithmetic_circuit<UltraBuilder>)
+BENCHMARK_CAPTURE(construct_proof_ultra_gates,
+                  basic_arith,
+                  &bench_utils::generate_basic_arithmetic_circuit<UltraBuilder>)
     ->DenseRange(MIN_LOG_NUM_GATES, MAX_LOG_NUM_GATES)
     ->Repetitions(NUM_REPETITIONS)
     ->Unit(::benchmark::kMillisecond);
