@@ -100,7 +100,6 @@ PrivateTokenAirdropContractAbi
 PrivateTokenContractAbi
 PublicTokenContractAbi
 SchnorrAccountContractAbi
-SchnorrAuthWitnessAccountContractAbi
 SchnorrHardcodedAccountContractAbi
 SchnorrSingleKeyAccountContractAbi
 TestContractAbi
