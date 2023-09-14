@@ -64,6 +64,9 @@ class base_rollup_tests : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { barretenberg::srs::init_crs_factory("../barretenberg/cpp/srs_db/ignition"); }
 
+    // TODO(1998): uncomment once https://github.com/AztecProtocol/aztec-packages/issues/1998 is solved and
+    //             use new pattern such as call_func_and_wrapper from test_helper.hpp
+
     //     static void run_cbind(BaseRollupInputs& base_rollup_inputs,
     //                           BaseOrMergeRollupPublicInputs& expected_public_inputs,
     //                           bool compare_pubins = true,
@@ -141,6 +144,7 @@ TEST_F(base_rollup_tests, native_no_new_contract_leafs)
     ASSERT_EQ(outputs.end_contract_tree_snapshot, expectedEndContractTreeSnapshot);
     ASSERT_EQ(outputs.start_contract_tree_snapshot, emptyInputs.start_contract_tree_snapshot);
     ASSERT_FALSE(builder.failed()) << builder.failure_msgs;
+    // TODO(1998): see above
     //  run_cbind(emptyInputs, outputs);
 }
 
@@ -186,6 +190,7 @@ TEST_F(base_rollup_tests, native_contract_leaf_inserted)
     ASSERT_EQ(outputs.start_contract_tree_snapshot, inputs.start_contract_tree_snapshot);
     ASSERT_EQ(outputs.end_contract_tree_snapshot, expected_end_contracts_snapshot);
     ASSERT_FALSE(builder.failed()) << builder.failure_msgs;
+    // TODO(1998): see above
     // run_cbind(inputs, outputs);
 }
 
@@ -242,6 +247,7 @@ TEST_F(base_rollup_tests, native_contract_leaf_inserted_in_non_empty_snapshot_tr
     ASSERT_EQ(outputs.start_contract_tree_snapshot, inputs.start_contract_tree_snapshot);
     ASSERT_EQ(outputs.end_contract_tree_snapshot, expected_end_contracts_snapshot);
     ASSERT_FALSE(builder.failed()) << builder.failure_msgs;
+    // TODO(1998): see above
     // run_cbind(inputs, outputs);
 }
 
@@ -284,6 +290,7 @@ TEST_F(base_rollup_tests, native_new_commitments_tree)
     ASSERT_EQ(outputs.start_private_data_tree_snapshot, inputs.start_private_data_tree_snapshot);
     ASSERT_EQ(outputs.end_private_data_tree_snapshot, expected_end_commitments_snapshot);
     ASSERT_FALSE(builder.failed()) << builder.failure_msgs;
+    // TODO(1998): see above
     // run_cbind(inputs, outputs);
 }
 
@@ -572,7 +579,7 @@ TEST_F(base_rollup_tests, native_empty_block_calldata_hash)
     ASSERT_TRUE(compare_field_hash_to_expected(output_calldata_hash, expected_calldata_hash) == true);
 
     ASSERT_FALSE(builder.failed()) << builder.failure_msgs;
-
+    // TODO(1998): see above
     // run_cbind(inputs, outputs);
 }
 
@@ -617,6 +624,7 @@ TEST_F(base_rollup_tests, native_calldata_hash)
     ASSERT_EQ(expected_calldata_hash, output_calldata_hash);
 
     ASSERT_FALSE(builder.failed()) << builder.failure_msgs;
+    // TODO(1998): see above
     // run_cbind(inputs, outputs);
 }
 
@@ -663,6 +671,7 @@ TEST_F(base_rollup_tests, native_constants_dont_change)
         aztec3::circuits::rollup::native_base_rollup::base_rollup_circuit(builder, inputs);
     ASSERT_EQ(inputs.constants, outputs.constants);
     EXPECT_FALSE(builder.failed());
+    // TODO(1998): see above
     // run_cbind(inputs, outputs);
 }
 
@@ -717,6 +726,7 @@ TEST_F(base_rollup_tests, native_cbind_0)
     // @todo Error handling?
     BaseRollupInputs inputs = base_rollup_inputs_from_kernels({ get_empty_kernel(), get_empty_kernel() });
     BaseOrMergeRollupPublicInputs ignored_public_inputs;
+    // TODO(1998): see above
     // run_cbind(inputs, ignored_public_inputs, false);
 }
 
@@ -752,6 +762,7 @@ TEST_F(base_rollup_tests, native_single_public_state_read)
     ASSERT_EQ(outputs.end_public_data_tree_root, public_data_tree.root());
     ASSERT_EQ(outputs.end_public_data_tree_root, outputs.start_public_data_tree_root);
     ASSERT_FALSE(builder.failed()) << builder.failure_msgs;
+    // TODO(1998): see above
     // run_cbind(inputs, outputs);
 }
 
@@ -790,6 +801,7 @@ TEST_F(base_rollup_tests, native_single_public_state_write)
     ASSERT_EQ(outputs.end_public_data_tree_root, public_data_tree.root());
     ASSERT_NE(outputs.end_public_data_tree_root, outputs.start_public_data_tree_root);
     ASSERT_FALSE(builder.failed()) << builder.failure_msgs;
+    // TODO(1998): see above
     // run_cbind(inputs, outputs);
 }
 
@@ -838,6 +850,7 @@ TEST_F(base_rollup_tests, native_multiple_public_state_read_writes)
     ASSERT_EQ(outputs.end_public_data_tree_root, public_data_tree.root());
     ASSERT_NE(outputs.end_public_data_tree_root, outputs.start_public_data_tree_root);
     ASSERT_FALSE(builder.failed()) << builder.failure_msgs;
+    // TODO(1998): see above
     // run_cbind(inputs, outputs);
 }
 
@@ -877,6 +890,7 @@ TEST_F(base_rollup_tests, native_invalid_public_state_read)
     ASSERT_EQ(outputs.end_public_data_tree_root, public_data_tree.root());
     ASSERT_EQ(outputs.end_public_data_tree_root, outputs.start_public_data_tree_root);
     ASSERT_TRUE(builder.failed());
+    // TODO(1998): see above
     // run_cbind(inputs, outputs, true, false);
 }
 
