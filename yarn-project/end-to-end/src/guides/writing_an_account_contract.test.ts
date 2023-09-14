@@ -27,7 +27,7 @@ class SchnorrHardcodedKeyAccountContract extends BaseAccountContract {
       async createAuthWitness(message: Fr): Promise<AuthWitness> {
         const signer = await Schnorr.new();
         const signature = signer.constructSignature(message.toBuffer(), privateKey);
-        return new AuthWitness(message, signature.toFields());
+        return new AuthWitness(message, [...signature.toBuffer()]);
       },
     };
   }
