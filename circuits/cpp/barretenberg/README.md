@@ -40,7 +40,7 @@ Or install from a package manager, on Ubuntu:
 sudo apt-get install libomp-dev
 ```
 
-> Note: on a fresh Ubuntu Kinetic installation, installing OpenMP from source yields a `Could NOT find OpenMP_C (missing: OpenMP_omp_LIBRARY) (found version "5.0")` error when trying to build Barretenberg. Installing from apt worked fine.
+> Note: on a fresh Ubuntu lunar installation, installing OpenMP from source yields a `Could NOT find OpenMP_C (missing: OpenMP_omp_LIBRARY) (found version "5.0")` error when trying to build Barretenberg. Installing from apt worked fine.
 
 ### Getting started
 
