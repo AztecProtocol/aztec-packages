@@ -592,7 +592,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build and test"
-          command: force_deploy_build aztec-sandbox-x86_64 true
+          command: force_deploy_build aztec-sandbox true x86_64
 
   aztec-sandbox-arm64:
     machine:
@@ -603,7 +603,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build and test"
-          command: force_deploy_build aztec-sandbox-arm64 true
+          command: force_deploy_build aztec-sandbox true arm64
 
   aztec-sandbox-ecr-manifest:
     machine:

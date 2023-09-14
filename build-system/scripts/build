@@ -26,7 +26,7 @@ set -euo pipefail
 
 REPOSITORY=$1
 FORCE_BUILD=${2:-"false"}
-PLATFORMS=${3:-"linux/amd64"}
+PLATFORM=${3:-""}
 DOCKERFILE=$(query_manifest dockerfile $REPOSITORY)
 PROJECT_DIR=$(query_manifest projectDir $REPOSITORY)
 BUILD_DIR=$(query_manifest buildDir $REPOSITORY)
@@ -68,15 +68,15 @@ echo "Content hash: $CONTENT_HASH"
 cd $BUILD_DIR
 
 MULTI_ARCH="false"
-if [[ $PLATFORMS != "linux/amd64" ]]; then
-  MULTI_ARCH="true"
-  retry ensure_docker_buildx
-  echo "Creating multi-platform builder"
-  docker buildx create --name multi-platform-builder --bootstrap --use
-  echo "Multi-platform builder created"
+# if [[ $PLATFORMS != "linux/amd64" ]]; then
+#   MULTI_ARCH="true"
+#   retry ensure_docker_buildx
+#   echo "Creating multi-platform builder"
+#   docker buildx create --name multi-platform-builder --bootstrap --use
+#   echo "Multi-platform builder created"
 
-  docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-fi
+#   docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+# fi
 
 # If we have previously successful commit, we can early out if nothing relevant has changed since.
 if [[ $FORCE_BUILD == 'false' ]] && check_rebuild cache-"$CONTENT_HASH" $REPOSITORY; then
@@ -203,6 +203,9 @@ fi
 
 # Build the actual image and give it a commit tag.
 IMAGE_COMMIT_URI=$ECR_URL/$REPOSITORY:cache-$CONTENT_HASH
+if [[ -n "$PLATFORM" ]]; then
+  IMAGE_COMMIT_URI=$IMAGE_COMMIT_URI-$PLATFORM
+fi
 echo "Building image: $IMAGE_COMMIT_URI"
 if [[ $MULTI_ARCH == "true" ]]; then
   # Build our dockerfile, add timing information
