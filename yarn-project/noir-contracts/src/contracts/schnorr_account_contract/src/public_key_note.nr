@@ -1,10 +1,7 @@
 use dep::aztec::note::note_interface::NoteInterface;
 use dep::aztec::note::note_header::NoteHeader;
 use dep::aztec::note::utils::compute_unique_siloed_note_hash;
-use dep::aztec::oracle::{
-    get_secret_key::get_secret_key,
-    get_public_key::get_public_key,
-};
+use dep::aztec::oracle::get_secret_key::get_secret_key;
 
 global PUBLIC_KEY_NOTE_LEN: Field = 3;
 
@@ -35,7 +32,6 @@ impl PublicKeyNote {
     fn compute_nullifier(self) -> Field {
         let unique_siloed_note_hash = compute_unique_siloed_note_hash(PublicKeyNoteMethods, self);
         let secret = get_secret_key(self.owner);
-
         // TODO(#1205) Should use a non-zero generator index.
         dep::std::hash::pedersen([
             unique_siloed_note_hash,
