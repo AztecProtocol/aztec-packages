@@ -1,67 +1,33 @@
 mod public_key_note;
 
-use dep::std;
-use dep::aztec::{
-    context::{PrivateContext, PublicContext, Context},
-    oracle::{ get_public_key::get_public_key, auth_witness::get_auth_witness },
-    state_vars::immutable_singleton::ImmutableSingleton,
-};
-
-use crate::public_key_note::{PublicKeyNote, PublicKeyNoteMethods, PUBLIC_KEY_NOTE_LEN};
-
-// Declared outside the contract to work around Noir error
-// "entered unreachable code: ICE: Params to the program should only contains numbers and arrays"
-fn is_valid_impl(context: &mut PrivateContext, message_hash: Field) -> bool{
-    // docs:start:entrypoint
-    // Load public key from storage
-    let storage = Storage::init(Context::private(context));
-    let public_key = storage.signing_public_key.get_note();
-
-    // TODO workaround for https://github.com/noir-lang/noir/issues/2421
-    let message_bytes_slice = message_hash.to_be_bytes(32);
-    let mut message_bytes: [u8; 32] = [0; 32];
-    for i in 0..32 { message_bytes[i] = message_bytes_slice[i]; }
-
-    // Load auth witness
-    let witness: [Field; 64] = get_auth_witness(message_hash);
-    let mut signature: [u8; 64] = [0; 64];
-    for i in 0..64 { signature[i] = witness[i] as u8; }
-
-    // Verify signature of the payload bytes
-    let verification = std::schnorr::verify_signature(public_key.x, public_key.y, signature, message_bytes);
-    assert(verification == true);
-    // docs:end:entrypoint
-    true
-}
-
-struct Storage {
-    signing_public_key: ImmutableSingleton<PublicKeyNote, PUBLIC_KEY_NOTE_LEN>,
-}
-
-impl Storage {
-    fn init(context: Context) -> Self {
-        Storage {
-            signing_public_key: ImmutableSingleton::new(context, 1, PublicKeyNoteMethods),
-        }
-    }
-}
-
 // Account contract that uses Schnorr signatures for authentication.
 // The signing key is stored in an immutable private note and should be different from the encryption/nullifying key.
 contract SchnorrAccount {
+    use dep::std;
+
     use dep::aztec::{
         context::{PrivateContext, PublicContext, Context},
         entrypoint::{ENTRYPOINT_PAYLOAD_SIZE, EntrypointPayload},
         log::emit_encrypted_log,
         note::{ note_header::NoteHeader, utils as note_utils },
-        oracle::{ get_public_key::get_public_key },
+        oracle::{ get_public_key::get_public_key, auth_witness::get_auth_witness },
         state_vars::immutable_singleton::ImmutableSingleton,
         account::AccountActions,
     };
 
     use crate::public_key_note::{PublicKeyNote, PublicKeyNoteMethods, PUBLIC_KEY_NOTE_LEN};
-    use crate::is_valid_impl;
-    use crate::Storage;
+
+    struct Storage {
+        signing_public_key: ImmutableSingleton<PublicKeyNote, PUBLIC_KEY_NOTE_LEN>,
+    }
+
+    impl Storage {
+        fn init(context: Context) -> pub Self {
+            Storage {
+                signing_public_key: ImmutableSingleton::new(context, 1, PublicKeyNoteMethods),
+            }
+        }
+    }
 
     global ACCOUNT_ACTIONS_STORAGE_SLOT = 2;
 
@@ -114,6 +80,25 @@ contract SchnorrAccount {
     internal fn internal_set_is_valid_storage(message_hash: Field, value: Field) {
         let actions = AccountActions::public(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
         actions.internal_set_is_valid_storage(message_hash, value)
+    }
+
+    #[contract_library_method]
+    fn is_valid_impl(context: &mut PrivateContext, message_hash: Field) -> pub bool {
+        // docs:start:entrypoint
+        // Load public key from storage
+        let storage = Storage::init(Context::private(context));
+        let public_key = storage.signing_public_key.get_note();
+
+        // Load auth witness
+        let witness: [Field; 64] = get_auth_witness(message_hash);
+        let mut signature: [u8; 64] = [0; 64];
+        for i in 0..64 { signature[i] = witness[i] as u8; }
+
+        // Verify signature of the payload bytes
+        let verification = std::schnorr::verify_signature(public_key.x, public_key.y, signature, message_hash.to_be_bytes(32));
+        assert(verification == true);
+        // docs:end:entrypoint
+        true
     }
 
     // Computes notes hash and nullifier.

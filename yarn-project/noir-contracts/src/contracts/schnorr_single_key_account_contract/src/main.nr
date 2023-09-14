@@ -1,17 +1,6 @@
 mod util;
 mod auth_oracle;
 
-use dep::aztec::context::PrivateContext;
-use crate::{ util::recover_address, auth_oracle::get_auth_witness };
-
-// Declared outside the contract to work around Noir error
-// "entered unreachable code: ICE: Params to the program should only contains numbers and arrays"
-fn is_valid_impl(context: &mut PrivateContext, message_hash: Field) -> bool {
-    let witness = get_auth_witness(message_hash);
-    assert(recover_address(message_hash, witness) == context.this_address());
-    true
-}
-
 contract SchnorrSingleKeyAccount {
     use dep::std::{
         hash::pedersen_with_separator,
@@ -24,7 +13,7 @@ contract SchnorrSingleKeyAccount {
         context::{ PrivateContext, PublicContext, Context },
     };
 
-    use crate::is_valid_impl;
+    use crate::{ util::recover_address, auth_oracle::get_auth_witness };
 
     global ACCOUNT_ACTIONS_STORAGE_SLOT = 1;
 
@@ -59,5 +48,12 @@ contract SchnorrSingleKeyAccount {
     internal fn internal_set_is_valid_storage(message_hash: Field, value: Field) {
         let actions = AccountActions::public(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
         actions.internal_set_is_valid_storage(message_hash, value)
+    }
+
+    #[contract_library_method]
+    fn is_valid_impl(context: &mut PrivateContext, message_hash: Field) -> pub bool {
+        let witness = get_auth_witness(message_hash);
+        assert(recover_address(message_hash, witness) == context.this_address());
+        true
     }
 }
