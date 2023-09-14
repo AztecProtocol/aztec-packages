@@ -41,7 +41,11 @@ using fq_ct = bn254::BaseField;
 using public_witness_ct = bn254::public_witness_ct;
 using witness_ct = bn254::witness_ct;
 
+<<<<<<< HEAD
 SolverConfiguration config = { true, 0 };
+=======
+SolverConfiguration config = { true, 0 };
+>>>>>>> 404ec34d38e1a9c3fbe7a3cdb6e88c28f62f72e4^
 
 msgpack::sbuffer create_circuit(bool pub_ab, bool ab)
 {
@@ -209,11 +213,19 @@ TEST(bigfield, unique_square)
 
     Solver s(circuit_info.modulus, config);
 
+<<<<<<< HEAD
     std::pair<Circuit<FFTerm>, Circuit<FFTerm>> cs =
         unique_witness<FFTerm>(circuit_info,
                                &s,
                                { "a_limb_0", "a_limb_1", "a_limb_2", "a_limb_3" },
                                { "c_limb_0", "c_limb_1", "c_limb_2", "c_limb_3" });
+=======
+    std::pair<Circuit<FFTerm>, Circuit<FFTerm>> cs =
+        unique_witness<FFTerm>(circuit_info,
+                               &s,
+                               { "a_limb_0", "a_limb_1", "a_limb_2", "a_limb_3" },
+                               { "c_limb_0", "c_limb_1", "c_limb_2", "c_limb_3" });
+>>>>>>> 404ec34d38e1a9c3fbe7a3cdb6e88c28f62f72e4^
 
     auto start = std::chrono::high_resolution_clock::now();
     bool res = s.check();

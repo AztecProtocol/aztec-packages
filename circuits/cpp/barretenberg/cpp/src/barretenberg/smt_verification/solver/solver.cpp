@@ -24,7 +24,11 @@ bool Solver::check()
  * */
 std::unordered_map<std::string, std::string> Solver::model(std::unordered_map<std::string, cvc5::Term>& terms) const
 {
+<<<<<<< HEAD
     if (!this->checked) {
+=======
+    if (!this->checked) {
+>>>>>>> 404ec34d38e1a9c3fbe7a3cdb6e88c28f62f72e4^
         throw std::length_error("Haven't checked yet");
     }
     if (!this->res) {

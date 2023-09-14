@@ -129,8 +129,8 @@ class WitnessEntities_ : public Entities_<DataType, HandleType, NUM_WITNESS_ENTI
  * @brief Base proving key class.
  *
  * @tparam PrecomputedEntities An instance of PrecomputedEntities_ with polynomial data type and span handle type.
- * @tparam FF The scalar field on which we will encode our polynomial data. When instantiating, this may be extractable
- * from the other template paramter.
+ * @tparam FF The scalar field on which we will encode our polynomial data. When instantiating, this may be
+ * extractable from the other template paramter.
  */
 template <typename PrecomputedPolynomials, typename WitnessPolynomials>
 class ProvingKey_ : public PrecomputedPolynomials, public WitnessPolynomials {

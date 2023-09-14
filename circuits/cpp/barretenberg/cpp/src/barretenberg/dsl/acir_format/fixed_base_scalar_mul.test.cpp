@@ -1,9 +1,16 @@
+<<<<<<< HEAD
 #include "fixed_base_scalar_mul.hpp"
+=======
+>>>>>>> 404ec34d38e1a9c3fbe7a3cdb6e88c28f62f72e4^
 #include "acir_format.hpp"
 #include "barretenberg/crypto/ecdsa/ecdsa.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
+<<<<<<< HEAD
+=======
+#include "fixed_base_scalar_mul.hpp"
+>>>>>>> 404ec34d38e1a9c3fbe7a3cdb6e88c28f62f72e4^
 
 #include <cstdint>
 #include <gtest/gtest.h>

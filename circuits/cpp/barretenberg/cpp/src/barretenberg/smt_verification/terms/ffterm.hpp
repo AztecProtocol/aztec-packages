@@ -48,7 +48,11 @@ class FFTerm {
 
     operator std::string() const { return term.isFiniteFieldValue() ? term.getFiniteFieldValue() : term.toString(); };
     operator cvc5::Term() const { return term; };
+<<<<<<< HEAD
 
+=======
+    
+>>>>>>> 404ec34d38e1a9c3fbe7a3cdb6e88c28f62f72e4^
     ~FFTerm() = default;
     friend std::ostream& operator<<(std::ostream& out, const FFTerm& k) { return out << k.term; }
 

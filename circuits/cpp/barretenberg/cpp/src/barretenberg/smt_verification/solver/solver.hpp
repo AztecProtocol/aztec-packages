@@ -7,13 +7,21 @@ namespace smt_solver {
 
 /**
  * @brief Solver configuration
+<<<<<<< HEAD
  *
+=======
+ *
+>>>>>>> 404ec34d38e1a9c3fbe7a3cdb6e88c28f62f72e4^
  * @param produce_model tells the solver to actually compute the values of the variables in SAT case.
  * @param timeout tells the solver to stop trying after `timeout` msecs.
  *
  * @todo TODO(alex): more cvc5 options.
  */
+<<<<<<< HEAD
 struct SolverConfiguration {
+=======
+struct SolverConfiguration {
+>>>>>>> 404ec34d38e1a9c3fbe7a3cdb6e88c28f62f72e4^
     bool produce_model;
     uint64_t timeout;
 };
@@ -33,7 +41,11 @@ class Solver {
     bool res = false;
     bool checked = false;
 
+<<<<<<< HEAD
     explicit Solver(const std::string& modulus, const SolverConfiguration& config = { false, 0 }, uint32_t base = 16)
+=======
+    explicit Solver(const std::string& modulus, const SolverConfiguration& config = { false, 0 }, uint32_t base = 16)
+>>>>>>> 404ec34d38e1a9c3fbe7a3cdb6e88c28f62f72e4^
     {
         this->fp = s.mkFiniteFieldSort(modulus, base);
         this->modulus = fp.getFiniteFieldSize();
