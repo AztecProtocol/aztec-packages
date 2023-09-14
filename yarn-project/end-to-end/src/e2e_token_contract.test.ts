@@ -1,20 +1,7 @@
 import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecRPCServer } from '@aztec/aztec-rpc';
-import {
-  Account,
-  AuthWitnessAccountContract,
-  AuthWitnessEntrypointWallet,
-  IAuthWitnessAccountEntrypoint,
-  computeMessageSecretHash,
-} from '@aztec/aztec.js';
-import {
-  CircuitsWasm,
-  CompleteAddress,
-  Fr,
-  FunctionSelector,
-  GeneratorIndex,
-  GrumpkinScalar,
-} from '@aztec/circuits.js';
+import { AuthWitnessEntrypointWallet, computeMessageSecretHash } from '@aztec/aztec.js';
+import { CircuitsWasm, CompleteAddress, Fr, FunctionSelector, GeneratorIndex } from '@aztec/circuits.js';
 import { pedersenPlookupCompressWithHashIndex } from '@aztec/circuits.js/barretenberg';
 import { DebugLogger } from '@aztec/foundation/log';
 import { SchnorrAuthWitnessAccountContract, TokenContract } from '@aztec/noir-contracts/types';
@@ -22,7 +9,7 @@ import { AztecRPC, TxStatus } from '@aztec/types';
 
 import { jest } from '@jest/globals';
 
-import { setup } from './fixtures/utils.js';
+import { createAuthWitnessAccounts, setup } from './fixtures/utils.js';
 import { TokenSimulator } from './simulators/token_simulator.js';
 
 const hashPayload = async (payload: Fr[]) => {
@@ -50,29 +37,7 @@ describe('e2e_token_contract', () => {
 
   beforeAll(async () => {
     ({ aztecNode, aztecRpcServer, logger } = await setup(0));
-
-    {
-      const _accounts = [];
-      for (let i = 0; i < 3; i++) {
-        const privateKey = GrumpkinScalar.random();
-        const account = new Account(aztecRpcServer, privateKey, new AuthWitnessAccountContract(privateKey));
-        const deployTx = await account.deploy();
-        await deployTx.wait({ interval: 0.1 });
-        _accounts.push(account);
-      }
-      wallets = await Promise.all(
-        _accounts.map(
-          async account =>
-            new AuthWitnessEntrypointWallet(
-              aztecRpcServer,
-              (await account.getEntrypoint()) as unknown as IAuthWitnessAccountEntrypoint,
-              await account.getCompleteAddress(),
-            ),
-        ),
-      );
-      //wallet = new AuthWitnessEntrypointWallet(aztecRpcServer, await AuthEntrypointCollection.fromAccounts(_accounts));
-      accounts = await wallets[0].getAccounts();
-    }
+    ({ accounts, wallets } = await createAuthWitnessAccounts(aztecRpcServer, 3));
 
     {
       logger(`Deploying token contract`);

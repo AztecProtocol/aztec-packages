@@ -47,8 +47,8 @@ contract UniswapPortal {
    * @param _amountOutMinimum - The minimum amount of output assets to receive from the swap (slippage protection)
    * @param _aztecRecipient - The aztec address to receive the output assets
    * @param _secretHash - The hash of the secret consumable message
-   * @param _deadlineForL1ToL2Message - deadline for when the L1 to L2 message (to mint outpiut assets in L2) must be consumed by
-   * @param _canceller - The ethereum address that can cancel the deposit
+   * @param _deadlineForL1ToL2Message - deadline for when the L1 to L2 message (to mint output assets in L2) must be consumed by
+   * @param _canceller - The ethereum address that can cancel the L1 to L2 deposit
    * @param _withCaller - When true, using `msg.sender` as the caller, otherwise address(0)
    * @return The entryKey of the deposit transaction in the Inbox
    */
