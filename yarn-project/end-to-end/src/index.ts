@@ -1,3 +1,4 @@
 // Should only export tests from the canary directory
 
-export { testSuite as cliTestSuite } from './canary/cli.js';
+export { cliTestSuite } from './canary/cli.js';
+export { browserTestSuite } from './canary/browser.js';

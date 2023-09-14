@@ -7,7 +7,7 @@ import { format } from 'util';
 const INITIAL_BALANCE = 33000;
 const TRANSFER_BALANCE = 3000;
 
-export const testSuite = (
+export const cliTestSuite = (
   name: string,
   setup: () => Promise<AztecRPC>,
   cleanup: () => Promise<void>,

@@ -3,7 +3,7 @@ import { AztecRPCServer } from '@aztec/aztec-rpc';
 import { startHttpRpcServer } from '@aztec/aztec-sandbox';
 import { AztecRPC, createDebugLogger } from '@aztec/aztec.js';
 
-import { testSuite } from './canary/cli.js';
+import { cliTestSuite } from './canary/cli.js';
 import { setup as e2eSetup } from './fixtures/utils.js';
 
 const HTTP_PORT = 9009;
@@ -30,4 +30,4 @@ const testCleanup = async () => {
   await (aztecRpcServer as AztecRPCServer).stop();
 };
 
-testSuite(testSetup, testCleanup, RPC_URL);
+cliTestSuite('E2E CLI Test', testSetup, testCleanup, createDebugLogger('aztec:e2e_cli'), RPC_URL);
