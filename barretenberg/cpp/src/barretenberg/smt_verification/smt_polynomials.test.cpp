@@ -121,11 +121,7 @@ TEST(polynomial_evaluation, correct)
 
     CircuitSchema circuit_info = unpack_from_buffer(buf);
 
-<<<<<<< HEAD
     Solver s(circuit_info.modulus, { true, 0 });
-=======
-    Solver s(circuit_info.modulus, { true, 0 });
->>>>>>> 404ec34d38e1a9c3fbe7a3cdb6e88c28f62f72e4^
     Circuit<smt_terms::FFTerm> circuit(circuit_info, &s);
     FFTerm ev = polynomial_evaluation(circuit, n, true);
 
@@ -148,11 +144,7 @@ TEST(polynomial_evaluation, incorrect)
 
     CircuitSchema circuit_info = unpack_from_buffer(buf);
 
-<<<<<<< HEAD
     Solver s(circuit_info.modulus, { true, 0 });
-=======
-    Solver s(circuit_info.modulus, { true, 0 });
->>>>>>> 404ec34d38e1a9c3fbe7a3cdb6e88c28f62f72e4^
     Circuit<smt_terms::FFTerm> circuit(circuit_info, &s);
     FFTerm ev = polynomial_evaluation(circuit, n, false);
 
@@ -172,8 +164,4 @@ TEST(polynomial_evaluation, incorrect)
     }
 }
 
-<<<<<<< HEAD
 // TODO(alex) try with arbitrary coefficients
-=======
-// TODO(alex) try with arbitrary coefficients 
->>>>>>> 404ec34d38e1a9c3fbe7a3cdb6e88c28f62f72e4^

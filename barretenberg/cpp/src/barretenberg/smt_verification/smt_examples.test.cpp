@@ -35,11 +35,7 @@ TEST(circuit_verification, multiplication_true)
     auto buf = builder.export_circuit();
 
     smt_circuit::CircuitSchema circuit_info = smt_circuit::unpack_from_buffer(buf);
-<<<<<<< HEAD
     smt_solver::Solver s(circuit_info.modulus, { true, 0 });
-=======
-    smt_solver::Solver s(circuit_info.modulus, { true, 0 });
->>>>>>> 404ec34d38e1a9c3fbe7a3cdb6e88c28f62f72e4^
     smt_circuit::Circuit<smt_terms::FFTerm> circuit(circuit_info, &s);
     smt_terms::FFTerm a1 = circuit["a"];
     smt_terms::FFTerm b1 = circuit["b"];
@@ -70,11 +66,7 @@ TEST(circuit_verification, multiplication_true_kind)
     auto buf = builder.export_circuit();
 
     smt_circuit::CircuitSchema circuit_info = smt_circuit::unpack_from_buffer(buf);
-<<<<<<< HEAD
     smt_solver::Solver s(circuit_info.modulus, { true, 0 });
-=======
-    smt_solver::Solver s(circuit_info.modulus, { true, 0 });
->>>>>>> 404ec34d38e1a9c3fbe7a3cdb6e88c28f62f72e4^
     smt_circuit::Circuit<smt_terms::FFTerm> circuit(circuit_info, &s);
     smt_terms::FFTerm a1 = circuit["a"];
     smt_terms::FFTerm b1 = circuit["b"];
@@ -82,11 +74,7 @@ TEST(circuit_verification, multiplication_true_kind)
     smt_terms::FFTerm two = smt_terms::FFTerm::Const("2", &s, 10);
     smt_terms::FFTerm thr = smt_terms::FFTerm::Const("3", &s, 10);
     smt_terms::FFTerm cr = smt_terms::FFTerm::Var("cr", &s);
-<<<<<<< HEAD
     cr* thr* b1 == two* a1;
-=======
-    cr* thr* b1 == two* a1;
->>>>>>> 404ec34d38e1a9c3fbe7a3cdb6e88c28f62f72e4^
     c1 != cr;
 
     bool res = s.check();
@@ -109,11 +97,7 @@ TEST(circuit_verification, multiplication_false)
     auto buf = builder.export_circuit();
 
     smt_circuit::CircuitSchema circuit_info = smt_circuit::unpack_from_buffer(buf);
-<<<<<<< HEAD
     smt_solver::Solver s(circuit_info.modulus, { true, 0 });
-=======
-    smt_solver::Solver s(circuit_info.modulus, { true, 0 });
->>>>>>> 404ec34d38e1a9c3fbe7a3cdb6e88c28f62f72e4^
     smt_circuit::Circuit<smt_terms::FFTerm> circuit(circuit_info, &s);
 
     smt_terms::FFTerm a1 = circuit["a"];
@@ -156,11 +140,7 @@ TEST(circuit_verifiaction, unique_witness)
     auto buf = builder.export_circuit();
 
     smt_circuit::CircuitSchema circuit_info = smt_circuit::unpack_from_buffer(buf);
-<<<<<<< HEAD
     smt_solver::Solver s(circuit_info.modulus, { true, 0 });
-=======
-    smt_solver::Solver s(circuit_info.modulus, { true, 0 });
->>>>>>> 404ec34d38e1a9c3fbe7a3cdb6e88c28f62f72e4^
 
     std::pair<smt_circuit::Circuit<smt_terms::FFTerm>, smt_circuit::Circuit<smt_terms::FFTerm>> cirs =
         smt_circuit::unique_witness<smt_terms::FFTerm>(circuit_info, &s, { "ev" }, { "z" });
@@ -175,15 +155,9 @@ TEST(circuit_verifiaction, unique_witness)
 
 using namespace smt_terms;
 
-<<<<<<< HEAD
 TEST(solver_use_case, solver)
 {
     Solver s("11", { true, 0 }, 10);
-=======
-TEST(solver_use_case, solver)
-{
-    Solver s("11", { true, 0 }, 10);
->>>>>>> 404ec34d38e1a9c3fbe7a3cdb6e88c28f62f72e4^
     FFTerm x = FFTerm::Var("x", &s);
     FFTerm y = FFTerm::Var("y", &s);
 
@@ -196,21 +170,12 @@ TEST(solver_use_case, solver)
     bool res = s.check();
     ASSERT_TRUE(res);
 
-<<<<<<< HEAD
     std::unordered_map<std::string, cvc5::Term> vars = { { "x", x }, { "y", y } };
-=======
-    std::unordered_map<std::string, cvc5::Term> vars = { { "x", x }, { "y", y } };
->>>>>>> 404ec34d38e1a9c3fbe7a3cdb6e88c28f62f72e4^
     std::unordered_map<std::string, std::string> mvars = s.model(vars);
 
     info("x = ", mvars["x"]);
     info("y = ", mvars["y"]);
 }
 
-<<<<<<< HEAD
 // TODO(alex): Try setting the whole witness to be not equal at the same time, while setting inputs and outputs to be
 // equal
-=======
-// TODO(alex): Try setting the whole witness to be not equal at the same time, while setting inputs and outputs to be
-// equal  
->>>>>>> 404ec34d38e1a9c3fbe7a3cdb6e88c28f62f72e4^

@@ -34,11 +34,7 @@ struct CircuitSchema {
  *
  * @tparam FF FFTerm or FFITerm
  */
-<<<<<<< HEAD
 template <typename FF> class Circuit {
-=======
-template <typename FF> class Circuit {
->>>>>>> 404ec34d38e1a9c3fbe7a3cdb6e88c28f62f72e4^
   private:
     void init();
     void add_gates();
@@ -67,11 +63,7 @@ template <typename FF> class Circuit {
 
 /**
  * @brief Construct a new Circuit::Circuit object
-<<<<<<< HEAD
  *
-=======
- *
->>>>>>> 404ec34d38e1a9c3fbe7a3cdb6e88c28f62f72e4^
  * @param circuit_info CircuitShema object
  * @param solver pointer to the global solver
  * @param tag tag of the circuit. Empty by default.
@@ -126,16 +118,9 @@ Circuit<FF>::Circuit(CircuitSchema& circuit_info, Solver* solver, const std::str
 /**
  * Creates all the needed symbolic variables and constants
  * which are used in circuit.
-<<<<<<< HEAD
  *
  */
-template <typename FF>
-    void Circuit<FF>::init()
-=======
-    * * /
-    template <typename FF>
-    void Circuit<FF>::init()
->>>>>>> 404ec34d38e1a9c3fbe7a3cdb6e88c28f62f72e4^
+template <typename FF> void Circuit<FF>::init()
 {
     size_t num_vars = variables.size();
 
@@ -161,16 +146,9 @@ template <typename FF>
 
 /**
  * @brief Adds all the gate constraints to the solver.
-<<<<<<< HEAD
  *
  */
-template <typename FF>
-    void Circuit<FF>::add_gates()
-=======
-    * * /
-    template <typename FF>
-    void Circuit<FF>::add_gates()
->>>>>>> 404ec34d38e1a9c3fbe7a3cdb6e88c28f62f72e4^
+template <typename FF> void Circuit<FF>::add_gates()
 {
     for (size_t i = 0; i < get_num_gates(); i++) {
         FF q_m = FF::Const(selectors[i][0], this->solver);
@@ -183,7 +161,6 @@ template <typename FF>
         uint32_t w_r = wires_idxs[i][1];
         uint32_t w_o = wires_idxs[i][2];
 
-<<<<<<< HEAD
         // Binary gate. Relaxes the solver.
         // TODO(alex): Probably we can add other basic gates here too to relax the stuff.
         // TODO(alex): Theoretically this can be applyed after we ensure that the block of polynomial equations holds
@@ -193,17 +170,6 @@ template <typename FF>
         if (w_l == w_r && w_r == w_o) {
             if (std::string(q_m) == "1" && std::string(q_1) == "0" && std::string(q_2) == "0" &&
                 std::string(q_3) == "-1" && std::string(q_c) == "0") { // squaring gate
-=======
-        // Binary gate. Relaxes the solver.
-        // TODO(alex): Probably we can add other basic gates here too to relax the stuff.
-        // TODO(alex): Theoretically this can be applyed after we ensure that the block of polynomial equations holds
-        // and then simplify that block in future to relax the solver constraint system. Seems like a hard one to
-        // implement or actually to automate, but I'll think on it for a while. it will probably require to split
-        // add_gates and init methods into more complex/generalized parts.
-        if (w_l == w_r && w_r == w_o) {
-            if (std::string(q_m) == "1" && std::string(q_1) == "0" && std::string(q_2) == "0" &&
-                std::string(q_3) == "-1" && std::string(q_c) == "0") { // squaring gate
->>>>>>> 404ec34d38e1a9c3fbe7a3cdb6e88c28f62f72e4^
                 (Bool(vars[w_l]) == Bool(vars[0]) | Bool(vars[w_l]) == Bool(vars[1])).assert_term();
             }
         }
@@ -236,18 +202,11 @@ template <typename FF>
 
 /**
  * @brief Returns a previously named symbolic variable.
-<<<<<<< HEAD
  *
  * @param name
  * @return FF
  */
-template <typename FF>
-    FF Circuit<FF>::operator[](const std::string& name)
-=======
-    * *@param name* @ return FF * /
-    template <typename FF>
-    FF Circuit<FF>::operator[](const std::string& name)
->>>>>>> 404ec34d38e1a9c3fbe7a3cdb6e88c28f62f72e4^
+template <typename FF> FF Circuit<FF>::operator[](const std::string& name)
 {
     if (!this->terms.contains(name)) {
         throw std::length_error("No such an item " + name + " in vars or it vas not declared as interesting");
@@ -261,7 +220,6 @@ CircuitSchema unpack_from_file(const std::string& fname);
 
 template <typename FF>
 std::pair<Circuit<FF>, Circuit<FF>> unique_witness(CircuitSchema& circuit_info,
-<<<<<<< HEAD
                                                    Solver* s,
                                                    const std::vector<std::string>& equal = {},
                                                    const std::vector<std::string>& not_equal = {},
@@ -283,28 +241,5 @@ extern template std::pair<Circuit<FFITerm>, Circuit<FFITerm>> unique_witness(
     const std::vector<std::string>& not_equal = {},
     const std::vector<std::string>& equal_at_the_same_time = {},
     const std::vector<std::string>& not_eqaul_at_the_same_time = {});
-=======
-                                                   Solver* s,
-                                                   const std::vector<std::string>& equal = {},
-                                                   const std::vector<std::string>& not_equal = {},
-                                                   const std::vector<std::string>& equal_at_the_same_time = {},
-                                                   const std::vector<std::string>& not_eqaul_at_the_same_time = {});
-
-extern template std::pair<Circuit<FFTerm>, Circuit<FFTerm>> unique_witness(
-    CircuitSchema& circuit_info,
-    Solver* s,
-    const std::vector<std::string>& equal = {},
-    const std::vector<std::string>& not_equal = {},
-    const std::vector<std::string>& equal_at_the_same_time = {},
-    const std::vector<std::string>& not_eqaul_at_the_same_time = {});
-
-extern template std::pair<Circuit<FFITerm>, Circuit<FFITerm>> unique_witness(
-    CircuitSchema& circuit_info,
-    Solver* s,
-    const std::vector<std::string>& equal = {},
-    const std::vector<std::string>& not_equal = {},
-    const std::vector<std::string>& equal_at_the_same_time = {},
-    const std::vector<std::string>& not_eqaul_at_the_same_time = {});
->>>>>>> 404ec34d38e1a9c3fbe7a3cdb6e88c28f62f72e4^
 
 }; // namespace smt_circuit

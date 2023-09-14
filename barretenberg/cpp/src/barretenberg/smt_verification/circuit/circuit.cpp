@@ -6,15 +6,9 @@ namespace smt_circuit {
  * @brief Get the CircuitSchema object
  * @details Initialize the CircuitSchmea from the binary file
  * that contains an msgpack compatible buffer.
-<<<<<<< HEAD
  *
  * @param filename
  * @return CircuitSchema
-=======
- *
- * @param filename
- * @return CircuitSchema
->>>>>>> 404ec34d38e1a9c3fbe7a3cdb6e88c28f62f72e4^
  */
 CircuitSchema unpack_from_file(const std::string& filename)
 {
@@ -43,15 +37,9 @@ CircuitSchema unpack_from_file(const std::string& filename)
 /**
  * @brief Get the CircuitSchema object
  * @details Initialize the CircuitSchmea from the msgpack compatible buffer.
-<<<<<<< HEAD
  *
  * @param buf
  * @return CircuitSchema
-=======
- *
- * @param buf
- * @return CircuitSchema
->>>>>>> 404ec34d38e1a9c3fbe7a3cdb6e88c28f62f72e4^
  */
 CircuitSchema unpack_from_buffer(const msgpack::sbuffer& buf)
 {
@@ -62,21 +50,12 @@ CircuitSchema unpack_from_buffer(const msgpack::sbuffer& buf)
 
 /**
  * @brief Check your circuit for witness uniqness
-<<<<<<< HEAD
  *
  * @details Creates two Circuit objects that represent the same
  * circuit, however you can choose which variables should be (not) equal in both cases,
  * and also the variables that should (not) be equal at the same time.
  *
  * @param circuit_info
-=======
- *
- * @details Creates two Circuit objects that represent the same
- * circuit, however you can choose which variables should be (not) equal in both cases,
- * and also the variables that should (not) be equal at the same time.
- *
- * @param circuit_info
->>>>>>> 404ec34d38e1a9c3fbe7a3cdb6e88c28f62f72e4^
  * @param s pointer to the global solver
  * @param equal all the variables that should be equal in both circuits
  * @param nequal all the variables that should be different in both circuits
@@ -86,19 +65,11 @@ CircuitSchema unpack_from_buffer(const msgpack::sbuffer& buf)
  */
 template <typename FF>
 std::pair<Circuit<FF>, Circuit<FF>> unique_witness(CircuitSchema& circuit_info,
-<<<<<<< HEAD
                                                    Solver* s,
                                                    const std::vector<std::string>& equal,
                                                    const std::vector<std::string>& not_equal,
                                                    const std::vector<std::string>& equal_at_the_same_time,
                                                    const std::vector<std::string>& not_equal_at_the_same_time)
-=======
-                                                   Solver* s,
-                                                   const std::vector<std::string>& equal,
-                                                   const std::vector<std::string>& not_equal,
-                                                   const std::vector<std::string>& equal_at_the_same_time,
-                                                   const std::vector<std::string>& not_equal_at_the_same_time)
->>>>>>> 404ec34d38e1a9c3fbe7a3cdb6e88c28f62f72e4^
 {
     Circuit<FF> c1(circuit_info, s, "circuit1");
     Circuit<FF> c2(circuit_info, s, "circuit2");
@@ -136,7 +107,6 @@ std::pair<Circuit<FF>, Circuit<FF>> unique_witness(CircuitSchema& circuit_info,
     return { c1, c2 };
 }
 
-<<<<<<< HEAD
 template std::pair<Circuit<FFTerm>, Circuit<FFTerm>> unique_witness(
     CircuitSchema& circuit_info,
     Solver* s,
@@ -152,22 +122,5 @@ template std::pair<Circuit<FFITerm>, Circuit<FFITerm>> unique_witness(
     const std::vector<std::string>& not_equal = {},
     const std::vector<std::string>& equal_at_the_same_time = {},
     const std::vector<std::string>& not_eqaul_at_the_same_time = {});
-=======
-template std::pair<Circuit<FFTerm>, Circuit<FFTerm>> unique_witness(
-    CircuitSchema& circuit_info,
-    Solver* s,
-    const std::vector<std::string>& equal = {},
-    const std::vector<std::string>& not_equal = {},
-    const std::vector<std::string>& equal_at_the_same_time = {},
-    const std::vector<std::string>& not_eqaul_at_the_same_time = {});
-
-template std::pair<Circuit<FFITerm>, Circuit<FFITerm>> unique_witness(
-    CircuitSchema& circuit_info,
-    Solver* s,
-    const std::vector<std::string>& equal = {},
-    const std::vector<std::string>& not_equal = {},
-    const std::vector<std::string>& equal_at_the_same_time = {},
-    const std::vector<std::string>& not_eqaul_at_the_same_time = {});
->>>>>>> 404ec34d38e1a9c3fbe7a3cdb6e88c28f62f72e4^
 
 }; // namespace smt_circuit
