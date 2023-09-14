@@ -13,6 +13,8 @@ namespace proof_system::honk {
 namespace flavor {
 class Standard;
 class Ultra;
+template <std::size_t x> class GoblinTranslator_;
+using GoblinTranslator = GoblinTranslator_<2048>;
 } // namespace flavor
 } // namespace proof_system::honk
 

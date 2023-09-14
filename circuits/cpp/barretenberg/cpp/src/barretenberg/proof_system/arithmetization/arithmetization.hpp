@@ -174,10 +174,104 @@ template <typename _FF> class Ultra : public Arithmetization</*NUM_WIRES =*/4, /
         // ~Selectors() = default;
     };
 };
-class GoblinTranslator : public Arithmetization</*NUM_WIRES =*/78, /*num_selectors =*/0> {
+class GoblinTranslator : public Arithmetization</*NUM_WIRES =*/81, /*num_selectors =*/0> {
   public:
     // Dirty hack
     using Selectors = bool;
     using FF = curve::BN254::ScalarField;
+
+    /**
+     * @brief There are so many wires that naming them has no sense, it is easier to access them with enums
+     *
+     */
+    enum WireIds : size_t {
+        OP, // The first 4 wires contain the standard values from the EccQueue wire
+        X_LO_Y_HI,
+        X_HI_Z_1,
+        Y_LO_Z_2,
+        P_X_LOW_LIMBS,                    // P.xₗₒ split into 2 68 bit limbs
+        P_X_LOW_LIMBS_RANGE_CONSTRAINT_0, // Low limbs split further into smaller chunks for range constraints
+        P_X_LOW_LIMBS_RANGE_CONSTRAINT_1,
+        P_X_LOW_LIMBS_RANGE_CONSTRAINT_2,
+        P_X_LOW_LIMBS_RANGE_CONSTRAINT_3,
+        P_X_LOW_LIMBS_RANGE_CONSTRAINT_4,
+        P_X_LOW_LIMBS_RANGE_CONSTRAINT_TAIL,
+        P_X_HIGH_LIMBS,                    // P.xₕᵢ split into 2 68 bit limbs
+        P_X_HIGH_LIMBS_RANGE_CONSTRAINT_0, // High limbs split into chunks for range constraints
+        P_X_HIGH_LIMBS_RANGE_CONSTRAINT_1,
+        P_X_HIGH_LIMBS_RANGE_CONSTRAINT_2,
+        P_X_HIGH_LIMBS_RANGE_CONSTRAINT_3,
+        P_X_HIGH_LIMBS_RANGE_CONSTRAINT_4,
+        P_X_HIGH_LIMBS_RANGE_CONSTRAINT_TAIL,
+        P_Y_LOW_LIMBS,                    // P.yₗₒ split into 2 68 bit limbs
+        P_Y_LOW_LIMBS_RANGE_CONSTRAINT_0, // Low limbs split into chunks for range constraints
+        P_Y_LOW_LIMBS_RANGE_CONSTRAINT_1,
+        P_Y_LOW_LIMBS_RANGE_CONSTRAINT_2,
+        P_Y_LOW_LIMBS_RANGE_CONSTRAINT_3,
+        P_Y_LOW_LIMBS_RANGE_CONSTRAINT_4,
+        P_Y_LOW_LIMBS_RANGE_CONSTRAINT_TAIL,
+        P_Y_HIGH_LIMBS,                    // P.yₕᵢ split into 2 68 bit limbs
+        P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_0, // High limbs split into chunks for range constraints
+        P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_1,
+        P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_2,
+        P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_3,
+        P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_4,
+        P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_TAIL,
+        Z_LO_LIMBS,                    // Low limbs of z_1 and z_2
+        Z_LO_LIMBS_RANGE_CONSTRAINT_0, // Range constraints for low limbs of z_1 and z_2
+        Z_LO_LIMBS_RANGE_CONSTRAINT_1,
+        Z_LO_LIMBS_RANGE_CONSTRAINT_2,
+        Z_LO_LIMBS_RANGE_CONSTRAINT_3,
+        Z_LO_LIMBS_RANGE_CONSTRAINT_4,
+        Z_LO_LIMBS_RANGE_CONSTRAINT_TAIL,
+        Z_HI_LIMBS,                    // Hi Limbs of z_1 and z_2
+        Z_HI_LIMBS_RANGE_CONSTRAINT_0, // Range constraints for high limbs of z_1 and z_2
+        Z_HI_LIMBS_RANGE_CONSTRAINT_1,
+        Z_HI_LIMBS_RANGE_CONSTRAINT_2,
+        Z_HI_LIMBS_RANGE_CONSTRAINT_3,
+        Z_HI_LIMBS_RANGE_CONSTRAINT_4,
+        Z_HI_LIMBS_RANGE_CONSTRAINT_TAIL,
+        ACCUMULATORS_BINARY_LIMBS_0, // Contain 68-bit limbs of current and previous accumulator (previous at higher
+                                     // indices because of the nuances of KZG commitment)
+        ACCUMULATORS_BINARY_LIMBS_1,
+        ACCUMULATORS_BINARY_LIMBS_2,
+        ACCUMULATORS_BINARY_LIMBS_3,
+        ACCUMULATOR_LO_LIMBS_RANGE_CONSTRAINT_0, // Range constraints for the current accumulator limbs (no need to redo
+                                                 // previous accumulator)
+        ACCUMULATOR_LO_LIMBS_RANGE_CONSTRAINT_1,
+        ACCUMULATOR_LO_LIMBS_RANGE_CONSTRAINT_2,
+        ACCUMULATOR_LO_LIMBS_RANGE_CONSTRAINT_3,
+        ACCUMULATOR_LO_LIMBS_RANGE_CONSTRAINT_4,
+        ACCUMULATOR_LO_LIMBS_RANGE_CONSTRAINT_TAIL,
+        ACCUMULATOR_HI_LIMBS_RANGE_CONSTRAINT_0,
+        ACCUMULATOR_HI_LIMBS_RANGE_CONSTRAINT_1,
+        ACCUMULATOR_HI_LIMBS_RANGE_CONSTRAINT_2,
+        ACCUMULATOR_HI_LIMBS_RANGE_CONSTRAINT_3,
+        ACCUMULATOR_HI_LIMBS_RANGE_CONSTRAINT_4,
+        ACCUMULATOR_HI_LIMBS_RANGE_CONSTRAINT_TAIL,
+        QUOTIENT_LO_BINARY_LIMBS, // Quotient limbs
+        QUOTIENT_HI_BINARY_LIMBS,
+        QUOTIENT_LO_LIMBS_RANGE_CONSTRAIN_0, // Range constraints for quotient
+        QUOTIENT_LO_LIMBS_RANGE_CONSTRAIN_1,
+        QUOTIENT_LO_LIMBS_RANGE_CONSTRAIN_2,
+        QUOTIENT_LO_LIMBS_RANGE_CONSTRAIN_3,
+        QUOTIENT_LO_LIMBS_RANGE_CONSTRAIN_4,
+        QUOTIENT_LO_LIMBS_RANGE_CONSTRAIN_TAIL,
+        QUOTIENT_HI_LIMBS_RANGE_CONSTRAIN_0,
+        QUOTIENT_HI_LIMBS_RANGE_CONSTRAIN_1,
+        QUOTIENT_HI_LIMBS_RANGE_CONSTRAIN_2,
+        QUOTIENT_HI_LIMBS_RANGE_CONSTRAIN_3,
+        QUOTIENT_HI_LIMBS_RANGE_CONSTRAIN_4,
+        QUOTIENT_HI_LIMBS_RANGE_CONSTRAIN_TAIL,
+        RELATION_WIDE_LIMBS, // Limbs for checking the correctness of  mod 2²⁷² relations. TODO(kesha): add range
+                             // constraints
+        RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_0,
+        RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_1,
+        RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_2,
+        RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_TAIL,
+
+        TOTAL_COUNT
+
+    };
 };
 } // namespace arithmetization

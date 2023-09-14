@@ -1,7 +1,5 @@
 #pragma once
-#include "barretenberg/honk/flavor/goblin_ultra.hpp"
-#include "barretenberg/honk/flavor/ultra.hpp"
-#include "barretenberg/honk/flavor/ultra_grumpkin.hpp"
+#include "barretenberg/honk/flavor/goblin_translator.hpp"
 #include "barretenberg/honk/pcs/gemini/gemini.hpp"
 #include "barretenberg/honk/pcs/shplonk/shplonk.hpp"
 #include "barretenberg/honk/proof_system/work_queue.hpp"
@@ -24,15 +22,15 @@ template <typename Flavor> class GoblinTranslatorProver_ {
     using Polynomial = typename Flavor::Polynomial;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
-    static size_t constexpr TargetCircuitSize = Flavor::TargetCircuitSize;
+    static size_t constexpr MINI_CIRCUIT_SIZE = Flavor::MINI_CIRCUIT_SIZE;
+    static size_t constexpr FULL_CIRCUIT_SIZE = Flavor::FULL_CIRCUIT_SIZE;
 
   public:
     explicit GoblinTranslatorProver_(std::shared_ptr<ProvingKey> input_key,
                                      std::shared_ptr<PCSCommitmentKey> commitment_key);
 
     void execute_preamble_round();
-    void execute_wire_commitments_round();
-    void execute_sorted_list_accumulator_round();
+    void execute_wire_and_sorted_constraints_commitments_round();
     void execute_grand_product_computation_round();
     void execute_relation_check_rounds();
     void execute_univariatization_round();
@@ -80,6 +78,7 @@ template <typename Flavor> class GoblinTranslatorProver_ {
     plonk::proof proof;
 };
 
+extern template class GoblinTranslatorProver_<honk::flavor::GoblinTranslatorBasic>;
 using GoblinTranslatorProver = GoblinTranslatorProver_<honk::flavor::GoblinTranslatorBasic>;
 
 } // namespace proof_system::honk

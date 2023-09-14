@@ -176,9 +176,9 @@ TEST(TranslatorCircuitBuilder, CircuitBuilderBaseCase)
     GoblinTranslatorCircuitBuilder::AccumulationInput single_accumulation_step =
         generate_witness_values(op, p_x_lo, p_x_hi, p_y_lo, p_y_hi, z_1, z_2, previous_accumulator, v, x);
 
-    auto circuit_builder = GoblinTranslatorCircuitBuilder();
+    auto circuit_builder = GoblinTranslatorCircuitBuilder(v, x);
     circuit_builder.create_accumulation_gate(single_accumulation_step);
-    EXPECT_TRUE(circuit_builder.check_circuit(x, v));
+    EXPECT_TRUE(circuit_builder.check_circuit());
 }
 
 TEST(TranslatorCircuitBuilder, SeveralOperationCorrectness)
@@ -218,9 +218,9 @@ TEST(TranslatorCircuitBuilder, SeveralOperationCorrectness)
                      batching_challenge +
                  op_accumulator) *
                 x_pow;
-    auto circuit_builder = GoblinTranslatorCircuitBuilder();
+    auto circuit_builder = GoblinTranslatorCircuitBuilder(batching_challenge, x);
     circuit_builder.feed_ecc_op_queue_into_circuit(op_queue, batching_challenge, x);
-    EXPECT_TRUE(circuit_builder.check_circuit(x, batching_challenge));
+    EXPECT_TRUE(circuit_builder.check_circuit());
     EXPECT_EQ(result, circuit_builder.get_computation_result());
 }
 } // namespace proof_system

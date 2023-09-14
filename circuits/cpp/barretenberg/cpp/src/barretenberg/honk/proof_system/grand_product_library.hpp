@@ -128,11 +128,15 @@ void compute_grand_product(const size_t circuit_size,
     // Step (3) Compute z_perm[i] = numerator[i] / denominator[i]
     auto& grand_product_polynomial = GrandProdRelation::get_grand_product_polynomial(full_polynomials);
     grand_product_polynomial[0] = 0;
+    info("GP compute pointer: ", &grand_product_polynomial[0]);
     parallel_for(num_threads, [&](size_t thread_idx) {
         const size_t start = thread_idx * block_size;
         const size_t end = (thread_idx == num_threads - 1) ? circuit_size - 1 : (thread_idx + 1) * block_size;
         for (size_t i = start; i < end; ++i) {
             grand_product_polynomial[i + 1] = numerator[i] * denominator[i];
+            if (i < 16) {
+                info(i + 1, " : ", grand_product_polynomial[i + 1]);
+            }
         }
     });
 }

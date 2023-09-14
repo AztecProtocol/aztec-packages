@@ -8,6 +8,7 @@
  * @copyright Copyright (c) 2023
  *
  */
+#include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/ecc/curves/bn254/fq.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/proof_system/arithmetization/arithmetization.hpp"
@@ -130,6 +131,12 @@ class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<arithmetization
         QUOTIENT_HI_LIMBS_RANGE_CONSTRAIN_TAIL,
         RELATION_WIDE_LIMBS, // Limbs for checking the correctness of  mod 2²⁷² relations. TODO(kesha): add range
                              // constraints
+        RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_0_SHIFTED,
+        RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_1_SHIFTED,
+        RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_2_SHIFTED,
+        RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_TAIL_SHIFTED,
+
+        TOTAL_COUNT
 
     };
     static constexpr size_t DEFAULT_PLOOKUP_RANGE_STEP_SIZE = 12;
@@ -160,6 +167,8 @@ class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<arithmetization
         Fr(NEGATIVE_PRIME_MODULUS.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4).lo),
         -Fr(Fq::modulus)
     };
+    static constexpr size_t NUM_RELATION_WIDE_LIMB_CONSTRAINTS =
+        1 + RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_TAIL_SHIFTED - RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_0_SHIFTED;
     /**
      * @brief The accumulation input structure contains all the necessary values to initalize an accumulation gate as
      * well as additional values for checking its correctness
@@ -193,6 +202,11 @@ class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<arithmetization
         std::array<Fr, NUM_BINARY_LIMBS + 1> quotient_binary_limbs;
         std::array<std::array<Fr, NUM_MICRO_LIMBS>, NUM_BINARY_LIMBS> quotient_microlimbs;
         std::array<Fr, 2> relation_wide_limbs;
+        std::array<std::array<Fr,
+                              RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_TAIL_SHIFTED -
+                                  RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_0_SHIFTED + 1>,
+                   2>
+            relation_wide_microlimbs;
 
         // Additional
         std::array<Fr, NUM_BINARY_LIMBS + 1> x_limbs;
@@ -211,9 +225,24 @@ class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<arithmetization
     static constexpr std::string_view NAME_STRING = "GoblinTranslatorArithmetization";
 
     std::map<uint64_t, RangeList> range_lists;
+    Fq batching_challenge_v;
+    Fq evaluation_input_x;
     // TODO(kesha): fix size hints
-    GoblinTranslatorCircuitBuilder()
-        : CircuitBuilderBase({}, 0){};
+    // GoblinTranslatorCircuitBuilder()
+    //     : CircuitBuilderBase({}, 0)
+    //     , batching_challenge_v(0)
+    //     , evaluation_input_x(0){};
+    GoblinTranslatorCircuitBuilder(Fq batching_challenge_v_, Fq evaluation_input_x_)
+        : CircuitBuilderBase({}, 0)
+        , batching_challenge_v(batching_challenge_v_)
+        , evaluation_input_x(evaluation_input_x_)
+    {
+        add_variable(FF::zero());
+        for (auto& wire : wires) {
+            wire.emplace_back(0);
+        }
+        num_gates++;
+    };
     GoblinTranslatorCircuitBuilder(const GoblinTranslatorCircuitBuilder& other) = delete;
     GoblinTranslatorCircuitBuilder(GoblinTranslatorCircuitBuilder&& other) noexcept
         : CircuitBuilderBase(std::move(other)){};
@@ -232,7 +261,7 @@ class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<arithmetization
      * @param v The batching challenge
      * @return RelationInputs
      */
-    static RelationInputs compute_relation_inputs_limbs(Fq x, Fq v)
+    static RelationInputs compute_relation_inputs_limbs(Fq batching_challenge_v, Fq evaluation_input_x)
     {
         /**
          * @brief A small function to transform a native element Fq into its bigfield representation  in Fr scalars
@@ -246,6 +275,8 @@ class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<arithmetization
                                        Fr(original_uint.slice(3 * NUM_LIMB_BITS, 4 * NUM_LIMB_BITS)),
                                        Fr(original_uint) });
         };
+        Fq& v = batching_challenge_v;
+        Fq& x = evaluation_input_x;
         Fq v_squared;
         Fq v_cubed;
         Fq v_quarted;
@@ -440,7 +471,20 @@ class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<arithmetization
         lay_limbs_in_row_and_range_constrain(
             acc_step.quotient_microlimbs[3], QUOTIENT_HI_LIMBS_RANGE_CONSTRAIN_0, NUM_MICRO_LIMBS);
 
+        lay_limbs_in_row_and_range_constrain(acc_step.relation_wide_microlimbs[0],
+                                             RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_0_SHIFTED,
+                                             NUM_RELATION_WIDE_LIMB_CONSTRAINTS);
+        lay_limbs_in_row_and_range_constrain(acc_step.relation_wide_microlimbs[1],
+                                             RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_0_SHIFTED,
+                                             NUM_RELATION_WIDE_LIMB_CONSTRAINTS);
+
         num_gates += 2;
+
+        barretenberg::constexpr_for<0, TOTAL_COUNT, 1>(
+            [&]<size_t i>() { ASSERT(std::get<i>(wires).size() == num_gates); });
+        // for (size_t i = 0; i < TOTAL_COUNT; i++) {
+        //     info("Wire ", i, " size: ", wires[i].size());
+        // }
     }
     void assign_tag(const uint32_t variable_index, const uint32_t tag)
     {
@@ -501,14 +545,15 @@ class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<arithmetization
      * @return true
      * @return false
      */
-    bool check_circuit(Fq x, Fq v)
+    bool check_circuit()
     {
+
         // info("Range lists:");
         // for (auto& range_list : range_lists) {
         //     info("Size: ", range_list.first, "count: ", range_list.second.variable_indices.size());
         // }
         // Compute the limbs of x and powers of v (these go into the relation)
-        RelationInputs relation_inputs = compute_relation_inputs_limbs(x, v);
+        RelationInputs relation_inputs = compute_relation_inputs_limbs(batching_challenge_v, evaluation_input_x);
 
         // Get the wires
         auto& op_wire = std::get<OP>(wires);

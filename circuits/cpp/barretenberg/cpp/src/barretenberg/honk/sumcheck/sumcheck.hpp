@@ -77,8 +77,8 @@ template <typename Flavor> class SumcheckProver {
      *
      * @details
      */
-    SumcheckOutput<Flavor> prove(
-        auto full_polynomials, const RelationParameters<FF>& relation_parameters) // pass by value, not by reference
+    SumcheckOutput<Flavor> prove(auto full_polynomials,
+                                 const RelationParameters<FF>& relation_parameters) // pass by value, not by reference
     {
         auto [alpha, zeta] = transcript.get_challenges("Sumcheck:alpha", "Sumcheck:zeta");
 

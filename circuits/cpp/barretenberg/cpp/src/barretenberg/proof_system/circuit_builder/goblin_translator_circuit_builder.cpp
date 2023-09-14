@@ -333,6 +333,7 @@ GoblinTranslatorCircuitBuilder::AccumulationInput generate_witness_values(
         .quotient_binary_limbs = quotient_witnesses,
         .quotient_microlimbs = {},
         .relation_wide_limbs = { low_wide_relation_limb_divided, high_wide_relation_limb * shift_2_inverse },
+        .relation_wide_microlimbs = { { { 0 } } },
         .x_limbs = x_witnesses,
         .v_limbs = v_witnesses,
         .v_squared_limbs = v_squared_witnesses,

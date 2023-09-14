@@ -25,7 +25,7 @@
 namespace proof_system::honk {
 
 /**
- * Create UltraProver_ from proving key, witness and manifest.
+ * Create GoblinTranslatorProver_ from proving key, witness and manifest.
  *
  * @param input_key Proving key.
  * @param input_manifest Input manifest
@@ -39,54 +39,199 @@ GoblinTranslatorProver_<Flavor>::GoblinTranslatorProver_(std::shared_ptr<typenam
     , queue(commitment_key, transcript)
     , pcs_commitment_key(commitment_key)
 {
-    // prover_polynomials.q_c = key->q_c;
-    // prover_polynomials.q_l = key->q_l;
-    // prover_polynomials.q_r = key->q_r;
-    // prover_polynomials.q_o = key->q_o;
-    // prover_polynomials.q_4 = key->q_4;
-    // prover_polynomials.q_m = key->q_m;
-    // prover_polynomials.q_arith = key->q_arith;
-    // prover_polynomials.q_sort = key->q_sort;
-    // prover_polynomials.q_elliptic = key->q_elliptic;
-    // prover_polynomials.q_aux = key->q_aux;
-    // prover_polynomials.q_lookup = key->q_lookup;
-    // prover_polynomials.sigma_1 = key->sigma_1;
-    // prover_polynomials.sigma_2 = key->sigma_2;
-    // prover_polynomials.sigma_3 = key->sigma_3;
-    // prover_polynomials.sigma_4 = key->sigma_4;
-    // prover_polynomials.id_1 = key->id_1;
-    // prover_polynomials.id_2 = key->id_2;
-    // prover_polynomials.id_3 = key->id_3;
-    // prover_polynomials.id_4 = key->id_4;
-    // prover_polynomials.table_1 = key->table_1;
-    // prover_polynomials.table_2 = key->table_2;
-    // prover_polynomials.table_3 = key->table_3;
-    // prover_polynomials.table_4 = key->table_4;
-    // prover_polynomials.table_1_shift = key->table_1.shifted();
-    // prover_polynomials.table_2_shift = key->table_2.shifted();
-    // prover_polynomials.table_3_shift = key->table_3.shifted();
-    // prover_polynomials.table_4_shift = key->table_4.shifted();
-    // prover_polynomials.lagrange_first = key->lagrange_first;
-    // prover_polynomials.lagrange_last = key->lagrange_last;
-    // prover_polynomials.w_l = key->w_l;
-    // prover_polynomials.w_r = key->w_r;
-    // prover_polynomials.w_o = key->w_o;
-    // prover_polynomials.w_l_shift = key->w_l.shifted();
-    // prover_polynomials.w_r_shift = key->w_r.shifted();
-    // prover_polynomials.w_o_shift = key->w_o.shifted();
-
-    // // Add public inputs to transcript from the second wire polynomial; This requires determination of the offset at
-    // // which the PI have been written into the wires relative to the 0th index.
-    // std::span<FF> public_wires_source = prover_polynomials.w_r;
-    // pub_inputs_offset = Flavor::has_zero_row ? 1 : 0;
-    // if constexpr (IsGoblinFlavor<Flavor>) {
-    //     pub_inputs_offset += key->num_ecc_op_gates;
-    // }
-
-    // for (size_t i = 0; i < key->num_public_inputs; ++i) {
-    //     size_t idx = i + pub_inputs_offset;
-    //     public_inputs.emplace_back(public_wires_source[idx]);
-    // }
+    prover_polynomials.op = key->op;
+    prover_polynomials.x_lo_y_hi = key->x_lo_y_hi;
+    prover_polynomials.x_hi_z_1 = key->x_hi_z_1;
+    prover_polynomials.y_lo_z_2 = key->y_lo_z_2;
+    prover_polynomials.p_x_low_limbs = key->p_x_low_limbs;
+    prover_polynomials.p_x_low_limbs_range_constraint_0 = key->p_x_low_limbs_range_constraint_0;
+    prover_polynomials.p_x_low_limbs_range_constraint_1 = key->p_x_low_limbs_range_constraint_1;
+    prover_polynomials.p_x_low_limbs_range_constraint_2 = key->p_x_low_limbs_range_constraint_2;
+    prover_polynomials.p_x_low_limbs_range_constraint_3 = key->p_x_low_limbs_range_constraint_3;
+    prover_polynomials.p_x_low_limbs_range_constraint_4 = key->p_x_low_limbs_range_constraint_4;
+    prover_polynomials.p_x_low_limbs_range_constraint_tail = key->p_x_low_limbs_range_constraint_tail;
+    prover_polynomials.p_x_high_limbs = key->p_x_high_limbs;
+    prover_polynomials.p_x_high_limbs_range_constraint_0 = key->p_x_high_limbs_range_constraint_0;
+    prover_polynomials.p_x_high_limbs_range_constraint_1 = key->p_x_high_limbs_range_constraint_1;
+    prover_polynomials.p_x_high_limbs_range_constraint_2 = key->p_x_high_limbs_range_constraint_2;
+    prover_polynomials.p_x_high_limbs_range_constraint_3 = key->p_x_high_limbs_range_constraint_3;
+    prover_polynomials.p_x_high_limbs_range_constraint_4 = key->p_x_high_limbs_range_constraint_4;
+    prover_polynomials.p_x_high_limbs_range_constraint_tail = key->p_x_high_limbs_range_constraint_tail;
+    prover_polynomials.p_y_low_limbs = key->p_y_low_limbs;
+    prover_polynomials.p_y_low_limbs_range_constraint_0 = key->p_y_low_limbs_range_constraint_0;
+    prover_polynomials.p_y_low_limbs_range_constraint_1 = key->p_y_low_limbs_range_constraint_1;
+    prover_polynomials.p_y_low_limbs_range_constraint_2 = key->p_y_low_limbs_range_constraint_2;
+    prover_polynomials.p_y_low_limbs_range_constraint_3 = key->p_y_low_limbs_range_constraint_3;
+    prover_polynomials.p_y_low_limbs_range_constraint_4 = key->p_y_low_limbs_range_constraint_4;
+    prover_polynomials.p_y_low_limbs_range_constraint_tail = key->p_y_low_limbs_range_constraint_tail;
+    prover_polynomials.p_y_high_limbs = key->p_y_high_limbs;
+    prover_polynomials.p_y_high_limbs_range_constraint_0 = key->p_y_high_limbs_range_constraint_0;
+    prover_polynomials.p_y_high_limbs_range_constraint_1 = key->p_y_high_limbs_range_constraint_1;
+    prover_polynomials.p_y_high_limbs_range_constraint_2 = key->p_y_high_limbs_range_constraint_2;
+    prover_polynomials.p_y_high_limbs_range_constraint_3 = key->p_y_high_limbs_range_constraint_3;
+    prover_polynomials.p_y_high_limbs_range_constraint_4 = key->p_y_high_limbs_range_constraint_4;
+    prover_polynomials.p_y_high_limbs_range_constraint_tail = key->p_y_high_limbs_range_constraint_tail;
+    prover_polynomials.z_lo_limbs = key->z_lo_limbs;
+    prover_polynomials.z_lo_limbs_range_constraint_0 = key->z_lo_limbs_range_constraint_0;
+    prover_polynomials.z_lo_limbs_range_constraint_1 = key->z_lo_limbs_range_constraint_1;
+    prover_polynomials.z_lo_limbs_range_constraint_2 = key->z_lo_limbs_range_constraint_2;
+    prover_polynomials.z_lo_limbs_range_constraint_3 = key->z_lo_limbs_range_constraint_3;
+    prover_polynomials.z_lo_limbs_range_constraint_4 = key->z_lo_limbs_range_constraint_4;
+    prover_polynomials.z_lo_limbs_range_constraint_tail = key->z_lo_limbs_range_constraint_tail;
+    prover_polynomials.z_hi_limbs = key->z_hi_limbs;
+    prover_polynomials.z_hi_limbs_range_constraint_0 = key->z_hi_limbs_range_constraint_0;
+    prover_polynomials.z_hi_limbs_range_constraint_1 = key->z_hi_limbs_range_constraint_1;
+    prover_polynomials.z_hi_limbs_range_constraint_2 = key->z_hi_limbs_range_constraint_2;
+    prover_polynomials.z_hi_limbs_range_constraint_3 = key->z_hi_limbs_range_constraint_3;
+    prover_polynomials.z_hi_limbs_range_constraint_4 = key->z_hi_limbs_range_constraint_4;
+    prover_polynomials.z_hi_limbs_range_constraint_tail = key->z_hi_limbs_range_constraint_tail;
+    prover_polynomials.accumulators_binary_limbs_0 = key->accumulators_binary_limbs_0;
+    prover_polynomials.accumulators_binary_limbs_1 = key->accumulators_binary_limbs_1;
+    prover_polynomials.accumulators_binary_limbs_2 = key->accumulators_binary_limbs_2;
+    prover_polynomials.accumulators_binary_limbs_3 = key->accumulators_binary_limbs_3;
+    prover_polynomials.accumulator_lo_limbs_range_constraint_0 = key->accumulator_lo_limbs_range_constraint_0;
+    prover_polynomials.accumulator_lo_limbs_range_constraint_1 = key->accumulator_lo_limbs_range_constraint_1;
+    prover_polynomials.accumulator_lo_limbs_range_constraint_2 = key->accumulator_lo_limbs_range_constraint_2;
+    prover_polynomials.accumulator_lo_limbs_range_constraint_3 = key->accumulator_lo_limbs_range_constraint_3;
+    prover_polynomials.accumulator_lo_limbs_range_constraint_4 = key->accumulator_lo_limbs_range_constraint_4;
+    prover_polynomials.accumulator_lo_limbs_range_constraint_tail = key->accumulator_lo_limbs_range_constraint_tail;
+    prover_polynomials.accumulator_hi_limbs_range_constraint_0 = key->accumulator_hi_limbs_range_constraint_0;
+    prover_polynomials.accumulator_hi_limbs_range_constraint_1 = key->accumulator_hi_limbs_range_constraint_1;
+    prover_polynomials.accumulator_hi_limbs_range_constraint_2 = key->accumulator_hi_limbs_range_constraint_2;
+    prover_polynomials.accumulator_hi_limbs_range_constraint_3 = key->accumulator_hi_limbs_range_constraint_3;
+    prover_polynomials.accumulator_hi_limbs_range_constraint_4 = key->accumulator_hi_limbs_range_constraint_4;
+    prover_polynomials.accumulator_hi_limbs_range_constraint_tail = key->accumulator_hi_limbs_range_constraint_tail;
+    prover_polynomials.quotient_lo_binary_limbs = key->quotient_lo_binary_limbs;
+    prover_polynomials.quotient_hi_binary_limbs = key->quotient_hi_binary_limbs;
+    prover_polynomials.quotient_lo_limbs_range_constraint_0 = key->quotient_lo_limbs_range_constraint_0;
+    prover_polynomials.quotient_lo_limbs_range_constraint_1 = key->quotient_lo_limbs_range_constraint_1;
+    prover_polynomials.quotient_lo_limbs_range_constraint_2 = key->quotient_lo_limbs_range_constraint_2;
+    prover_polynomials.quotient_lo_limbs_range_constraint_3 = key->quotient_lo_limbs_range_constraint_3;
+    prover_polynomials.quotient_lo_limbs_range_constraint_4 = key->quotient_lo_limbs_range_constraint_4;
+    prover_polynomials.quotient_lo_limbs_range_constraint_tail = key->quotient_lo_limbs_range_constraint_tail;
+    prover_polynomials.quotient_hi_limbs_range_constraint_0 = key->quotient_hi_limbs_range_constraint_0;
+    prover_polynomials.quotient_hi_limbs_range_constraint_1 = key->quotient_hi_limbs_range_constraint_1;
+    prover_polynomials.quotient_hi_limbs_range_constraint_2 = key->quotient_hi_limbs_range_constraint_2;
+    prover_polynomials.quotient_hi_limbs_range_constraint_3 = key->quotient_hi_limbs_range_constraint_3;
+    prover_polynomials.quotient_hi_limbs_range_constraint_4 = key->quotient_hi_limbs_range_constraint_4;
+    prover_polynomials.quotient_hi_limbs_range_constraint_tail = key->quotient_hi_limbs_range_constraint_tail;
+    prover_polynomials.relation_wide_limbs = key->relation_wide_limbs;
+    prover_polynomials.relation_wide_limbs_range_constraint_0 = key->relation_wide_limbs_range_constraint_0;
+    prover_polynomials.relation_wide_limbs_range_constraint_1 = key->relation_wide_limbs_range_constraint_1;
+    prover_polynomials.relation_wide_limbs_range_constraint_2 = key->relation_wide_limbs_range_constraint_2;
+    prover_polynomials.relation_wide_limbs_range_constraint_tail = key->relation_wide_limbs_range_constraint_tail;
+    prover_polynomials.concatenated_range_constraints_0 = key->concatenated_range_constraints_0;
+    prover_polynomials.concatenated_range_constraints_1 = key->concatenated_range_constraints_1;
+    prover_polynomials.concatenated_range_constraints_2 = key->concatenated_range_constraints_2;
+    prover_polynomials.concatenated_range_constraints_3 = key->concatenated_range_constraints_3;
+    prover_polynomials.ordered_range_constraints_0 = key->ordered_range_constraints_0;
+    prover_polynomials.ordered_range_constraints_1 = key->ordered_range_constraints_1;
+    prover_polynomials.ordered_range_constraints_2 = key->ordered_range_constraints_2;
+    prover_polynomials.ordered_range_constraints_3 = key->ordered_range_constraints_3;
+    prover_polynomials.ordered_extra_range_constraints_denominator = key->ordered_extra_range_constraints_denominator;
+    prover_polynomials.x_lo_y_hi_shift = key->x_lo_y_hi.shifted();
+    prover_polynomials.x_hi_z_1_shift = key->x_hi_z_1.shifted();
+    prover_polynomials.y_lo_z_2_shift = key->y_lo_z_2.shifted();
+    prover_polynomials.p_x_low_limbs_shift = key->p_x_low_limbs.shifted();
+    prover_polynomials.p_x_low_limbs_range_constraint_0_shift = key->p_x_low_limbs_range_constraint_0.shifted();
+    prover_polynomials.p_x_low_limbs_range_constraint_1_shift = key->p_x_low_limbs_range_constraint_1.shifted();
+    prover_polynomials.p_x_low_limbs_range_constraint_2_shift = key->p_x_low_limbs_range_constraint_2.shifted();
+    prover_polynomials.p_x_low_limbs_range_constraint_3_shift = key->p_x_low_limbs_range_constraint_3.shifted();
+    prover_polynomials.p_x_low_limbs_range_constraint_4_shift = key->p_x_low_limbs_range_constraint_4.shifted();
+    prover_polynomials.p_x_low_limbs_range_constraint_tail_shift = key->p_x_low_limbs_range_constraint_tail.shifted();
+    prover_polynomials.p_x_high_limbs_shift = key->p_x_high_limbs.shifted();
+    prover_polynomials.p_x_high_limbs_range_constraint_0_shift = key->p_x_high_limbs_range_constraint_0.shifted();
+    prover_polynomials.p_x_high_limbs_range_constraint_1_shift = key->p_x_high_limbs_range_constraint_1.shifted();
+    prover_polynomials.p_x_high_limbs_range_constraint_2_shift = key->p_x_high_limbs_range_constraint_2.shifted();
+    prover_polynomials.p_x_high_limbs_range_constraint_3_shift = key->p_x_high_limbs_range_constraint_3.shifted();
+    prover_polynomials.p_x_high_limbs_range_constraint_4_shift = key->p_x_high_limbs_range_constraint_4.shifted();
+    prover_polynomials.p_x_high_limbs_range_constraint_tail_shift = key->p_x_high_limbs_range_constraint_tail.shifted();
+    prover_polynomials.p_y_low_limbs_shift = key->p_y_low_limbs.shifted();
+    prover_polynomials.p_y_low_limbs_range_constraint_0_shift = key->p_y_low_limbs_range_constraint_0.shifted();
+    prover_polynomials.p_y_low_limbs_range_constraint_1_shift = key->p_y_low_limbs_range_constraint_1.shifted();
+    prover_polynomials.p_y_low_limbs_range_constraint_2_shift = key->p_y_low_limbs_range_constraint_2.shifted();
+    prover_polynomials.p_y_low_limbs_range_constraint_3_shift = key->p_y_low_limbs_range_constraint_3.shifted();
+    prover_polynomials.p_y_low_limbs_range_constraint_4_shift = key->p_y_low_limbs_range_constraint_4.shifted();
+    prover_polynomials.p_y_low_limbs_range_constraint_tail_shift = key->p_y_low_limbs_range_constraint_tail.shifted();
+    prover_polynomials.p_y_high_limbs_shift = key->p_y_high_limbs.shifted();
+    prover_polynomials.p_y_high_limbs_range_constraint_0_shift = key->p_y_high_limbs_range_constraint_0.shifted();
+    prover_polynomials.p_y_high_limbs_range_constraint_1_shift = key->p_y_high_limbs_range_constraint_1.shifted();
+    prover_polynomials.p_y_high_limbs_range_constraint_2_shift = key->p_y_high_limbs_range_constraint_2.shifted();
+    prover_polynomials.p_y_high_limbs_range_constraint_3_shift = key->p_y_high_limbs_range_constraint_3.shifted();
+    prover_polynomials.p_y_high_limbs_range_constraint_4_shift = key->p_y_high_limbs_range_constraint_4.shifted();
+    prover_polynomials.p_y_high_limbs_range_constraint_tail_shift = key->p_y_high_limbs_range_constraint_tail.shifted();
+    prover_polynomials.z_lo_limbs_shift = key->z_lo_limbs.shifted();
+    prover_polynomials.z_lo_limbs_range_constraint_0_shift = key->z_lo_limbs_range_constraint_0.shifted();
+    prover_polynomials.z_lo_limbs_range_constraint_1_shift = key->z_lo_limbs_range_constraint_1.shifted();
+    prover_polynomials.z_lo_limbs_range_constraint_2_shift = key->z_lo_limbs_range_constraint_2.shifted();
+    prover_polynomials.z_lo_limbs_range_constraint_3_shift = key->z_lo_limbs_range_constraint_3.shifted();
+    prover_polynomials.z_lo_limbs_range_constraint_4_shift = key->z_lo_limbs_range_constraint_4.shifted();
+    prover_polynomials.z_lo_limbs_range_constraint_tail_shift = key->z_lo_limbs_range_constraint_tail.shifted();
+    prover_polynomials.z_hi_limbs_shift = key->z_hi_limbs.shifted();
+    prover_polynomials.z_hi_limbs_range_constraint_0_shift = key->z_hi_limbs_range_constraint_0.shifted();
+    prover_polynomials.z_hi_limbs_range_constraint_1_shift = key->z_hi_limbs_range_constraint_1.shifted();
+    prover_polynomials.z_hi_limbs_range_constraint_2_shift = key->z_hi_limbs_range_constraint_2.shifted();
+    prover_polynomials.z_hi_limbs_range_constraint_3_shift = key->z_hi_limbs_range_constraint_3.shifted();
+    prover_polynomials.z_hi_limbs_range_constraint_4_shift = key->z_hi_limbs_range_constraint_4.shifted();
+    prover_polynomials.z_hi_limbs_range_constraint_tail_shift = key->z_hi_limbs_range_constraint_tail.shifted();
+    prover_polynomials.accumulators_binary_limbs_0_shift = key->accumulators_binary_limbs_0.shifted();
+    prover_polynomials.accumulators_binary_limbs_1_shift = key->accumulators_binary_limbs_1.shifted();
+    prover_polynomials.accumulators_binary_limbs_2_shift = key->accumulators_binary_limbs_2.shifted();
+    prover_polynomials.accumulators_binary_limbs_3_shift = key->accumulators_binary_limbs_3.shifted();
+    prover_polynomials.accumulator_lo_limbs_range_constraint_0_shift =
+        key->accumulator_lo_limbs_range_constraint_0.shifted();
+    prover_polynomials.accumulator_lo_limbs_range_constraint_1_shift =
+        key->accumulator_lo_limbs_range_constraint_1.shifted();
+    prover_polynomials.accumulator_lo_limbs_range_constraint_2_shift =
+        key->accumulator_lo_limbs_range_constraint_2.shifted();
+    prover_polynomials.accumulator_lo_limbs_range_constraint_3_shift =
+        key->accumulator_lo_limbs_range_constraint_3.shifted();
+    prover_polynomials.accumulator_lo_limbs_range_constraint_4_shift =
+        key->accumulator_lo_limbs_range_constraint_4.shifted();
+    prover_polynomials.accumulator_lo_limbs_range_constraint_tail_shift =
+        key->accumulator_lo_limbs_range_constraint_tail.shifted();
+    prover_polynomials.accumulator_hi_limbs_range_constraint_0_shift =
+        key->accumulator_hi_limbs_range_constraint_0.shifted();
+    prover_polynomials.accumulator_hi_limbs_range_constraint_1_shift =
+        key->accumulator_hi_limbs_range_constraint_1.shifted();
+    prover_polynomials.accumulator_hi_limbs_range_constraint_2_shift =
+        key->accumulator_hi_limbs_range_constraint_2.shifted();
+    prover_polynomials.accumulator_hi_limbs_range_constraint_3_shift =
+        key->accumulator_hi_limbs_range_constraint_3.shifted();
+    prover_polynomials.accumulator_hi_limbs_range_constraint_4_shift =
+        key->accumulator_hi_limbs_range_constraint_4.shifted();
+    prover_polynomials.accumulator_hi_limbs_range_constraint_tail_shift =
+        key->accumulator_hi_limbs_range_constraint_tail.shifted();
+    prover_polynomials.quotient_lo_binary_limbs_shift = key->quotient_lo_binary_limbs.shifted();
+    prover_polynomials.quotient_hi_binary_limbs_shift = key->quotient_hi_binary_limbs.shifted();
+    prover_polynomials.quotient_lo_limbs_range_constraint_0_shift = key->quotient_lo_limbs_range_constraint_0.shifted();
+    prover_polynomials.quotient_lo_limbs_range_constraint_1_shift = key->quotient_lo_limbs_range_constraint_1.shifted();
+    prover_polynomials.quotient_lo_limbs_range_constraint_2_shift = key->quotient_lo_limbs_range_constraint_2.shifted();
+    prover_polynomials.quotient_lo_limbs_range_constraint_3_shift = key->quotient_lo_limbs_range_constraint_3.shifted();
+    prover_polynomials.quotient_lo_limbs_range_constraint_4_shift = key->quotient_lo_limbs_range_constraint_4.shifted();
+    prover_polynomials.quotient_lo_limbs_range_constraint_tail_shift =
+        key->quotient_lo_limbs_range_constraint_tail.shifted();
+    prover_polynomials.quotient_hi_limbs_range_constraint_0_shift = key->quotient_hi_limbs_range_constraint_0.shifted();
+    prover_polynomials.quotient_hi_limbs_range_constraint_1_shift = key->quotient_hi_limbs_range_constraint_1.shifted();
+    prover_polynomials.quotient_hi_limbs_range_constraint_2_shift = key->quotient_hi_limbs_range_constraint_2.shifted();
+    prover_polynomials.quotient_hi_limbs_range_constraint_3_shift = key->quotient_hi_limbs_range_constraint_3.shifted();
+    prover_polynomials.quotient_hi_limbs_range_constraint_4_shift = key->quotient_hi_limbs_range_constraint_4.shifted();
+    prover_polynomials.quotient_hi_limbs_range_constraint_tail_shift =
+        key->quotient_hi_limbs_range_constraint_tail.shifted();
+    prover_polynomials.relation_wide_limbs_shift = key->relation_wide_limbs.shifted();
+    prover_polynomials.relation_wide_limbs_range_constraint_0_shift =
+        key->relation_wide_limbs_range_constraint_0.shifted();
+    prover_polynomials.relation_wide_limbs_range_constraint_1_shift =
+        key->relation_wide_limbs_range_constraint_1.shifted();
+    prover_polynomials.relation_wide_limbs_range_constraint_2_shift =
+        key->relation_wide_limbs_range_constraint_2.shifted();
+    prover_polynomials.relation_wide_limbs_range_constraint_tail_shift =
+        key->relation_wide_limbs_range_constraint_tail.shifted();
+    prover_polynomials.lagrange_first = key->lagrange_first;
+    prover_polynomials.lagrange_last = key->lagrange_last;
+    prover_polynomials.lagrange_odd = key->lagrange_odd;
+    prover_polynomials.lagrange_even = key->lagrange_even;
+    prover_polynomials.ordered_extra_range_constraints_numerator = key->ordered_extra_range_constraints_numerator;
 }
 
 /**
@@ -97,79 +242,52 @@ template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_preambl
 {
     const auto circuit_size = static_cast<uint32_t>(key->circuit_size);
 
+    // TODO(kesha) replace with actual circuit size
     transcript.send_to_verifier("circuit_size", circuit_size);
-    // transcript.send_to_verifier("evaluation_point_x", );
-    // transcript.send_to_verifier("batching_challenge_v", );
+    transcript.send_to_verifier("evaluation_input_x", key->evaluation_input_x);
+    transcript.send_to_verifier("batching_challenge_v", key->batching_challenge_v);
 }
 
 /**
  * @brief Compute commitments to the first three wires
  *
  */
-template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_wire_commitments_round()
+template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_wire_and_sorted_constraints_commitments_round()
 {
     // Commit to the first three wire polynomials; the fourth is committed to after the addition of memory records.
     auto wire_polys = key->get_wires();
     auto labels = commitment_labels.get_wires();
-    for (size_t idx = 0; idx < 3; ++idx) {
+    info("Sizes: ", wire_polys.size(), " ", labels.size());
+    for (size_t idx = 0; idx < wire_polys.size(); ++idx) {
         queue.add_commitment(wire_polys[idx], labels[idx]);
     }
-}
-
-/**
- * @brief Compute sorted witness-table accumulator
- *
- */
-template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_sorted_list_accumulator_round()
-{
-    // Compute and add eta to relation parameters
-    auto eta = transcript.get_challenge("eta");
-    relation_parameters.eta = eta;
-
-    // Compute sorted witness-table accumulator and its commitment
-    key->sorted_accum = prover_library::compute_sorted_list_accumulator<Flavor>(key, eta);
-    queue.add_commitment(key->sorted_accum, commitment_labels.sorted_accum);
-
-    // Finalize fourth wire polynomial by adding lookup memory records, then commit
-    prover_library::add_plookup_memory_records_to_wire_4<Flavor>(key, eta);
-    queue.add_commitment(key->w_4, commitment_labels.w_4);
-
-    prover_polynomials.sorted_accum_shift = key->sorted_accum.shifted();
-    prover_polynomials.sorted_accum = key->sorted_accum;
-    prover_polynomials.w_4 = key->w_4;
-    prover_polynomials.w_4_shift = key->w_4.shifted();
 }
 
 /**
  * @brief Compute permutation and lookup grand product polynomials and commitments
  *
  */
-template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_grand_product_computation_round()
+template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_grand_product_computation_round()
 {
     // Compute and store parameters required by relations in Sumcheck
-    auto [beta, gamma] = transcript.get_challenges("beta", "gamma");
+    auto [gamma] = transcript.get_challenges("gamma");
 
-    auto public_input_delta =
-        compute_public_input_delta<Flavor>(public_inputs, beta, gamma, key->circuit_size, pub_inputs_offset);
-    auto lookup_grand_product_delta = compute_lookup_grand_product_delta(beta, gamma, key->circuit_size);
-
-    relation_parameters.beta = beta;
+    relation_parameters.beta = 0;
     relation_parameters.gamma = gamma;
-    relation_parameters.public_input_delta = public_input_delta;
-    relation_parameters.lookup_grand_product_delta = lookup_grand_product_delta;
+    relation_parameters.public_input_delta = 0;
+    relation_parameters.lookup_grand_product_delta = 0;
 
-    // Compute permutation + lookup grand product and their commitments
+    // Compute constraint permutation grand product
     grand_product_library::compute_grand_products<Flavor>(key, prover_polynomials, relation_parameters);
 
     queue.add_commitment(key->z_perm, commitment_labels.z_perm);
-    queue.add_commitment(key->z_lookup, commitment_labels.z_lookup);
 }
 
 /**
  * @brief Run Sumcheck resulting in u = (u_1,...,u_d) challenges and all evaluations at u being calculated.
  *
  */
-template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_relation_check_rounds()
+template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_relation_check_rounds()
 {
     using Sumcheck = sumcheck::SumcheckProver<Flavor>;
 
@@ -183,7 +301,7 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_relation_check_
  * - Compute d+1 Fold polynomials and their evaluations.
  *
  * */
-template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_univariatization_round()
+template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_univariatization_round()
 {
     const size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
 
@@ -221,7 +339,7 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_univariatizatio
  * - Compute and aggregate opening pairs (challenge, evaluation) for each of d Fold polynomials.
  * - Add d-many Fold evaluations a_i, i = 0, ..., d-1 to the transcript, excluding eval of Fold_{r}^(0)
  * */
-template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_pcs_evaluation_round()
+template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_pcs_evaluation_round()
 {
     const FF r_challenge = transcript.get_challenge("Gemini:r");
     gemini_output = Gemini::compute_fold_polynomial_evaluations(
@@ -238,7 +356,7 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_pcs_evaluation_
  * - Do Fiat-Shamir to get "nu" challenge.
  * - Compute commitment [Q]_1
  * */
-template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_shplonk_batched_quotient_round()
+template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_shplonk_batched_quotient_round()
 {
     nu_challenge = transcript.get_challenge("Shplonk:nu");
 
@@ -253,7 +371,7 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_shplonk_batched
  * - Do Fiat-Shamir to get "z" challenge.
  * - Compute polynomial Q(X) - Q_z(X)
  * */
-template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_shplonk_partial_evaluation_round()
+template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_shplonk_partial_evaluation_round()
 {
     const FF z_challenge = transcript.get_challenge("Shplonk:z");
 
@@ -265,29 +383,25 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_shplonk_partial
  * - For KZG, this is the quotient commitment [W]_1
  * - For IPA, the vectors L and R
  * */
-template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_final_pcs_round()
+template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_final_pcs_round()
 {
     PCS::compute_opening_proof(pcs_commitment_key, shplonk_output.opening_pair, shplonk_output.witness, transcript);
     // queue.add_commitment(quotient_W, "KZG:W");
 }
 
-template <UltraFlavor Flavor> plonk::proof& UltraProver_<Flavor>::export_proof()
+template <typename Flavor> plonk::proof& GoblinTranslatorProver_<Flavor>::export_proof()
 {
     proof.proof_data = transcript.proof_data;
     return proof;
 }
 
-template <UltraFlavor Flavor> plonk::proof& UltraProver_<Flavor>::construct_proof()
+template <typename Flavor> plonk::proof& GoblinTranslatorProver_<Flavor>::construct_proof()
 {
     // Add circuit size public input size and public inputs to transcript.
     execute_preamble_round();
 
     // Compute first three wire commitments
-    execute_wire_commitments_round();
-    queue.process_queue();
-
-    // Compute sorted list accumulator and commitment
-    execute_sorted_list_accumulator_round();
+    execute_wire_and_sorted_constraints_commitments_round();
     queue.process_queue();
 
     // Fiat-Shamir: beta & gamma
@@ -324,8 +438,5 @@ template <UltraFlavor Flavor> plonk::proof& UltraProver_<Flavor>::construct_proo
     return export_proof();
 }
 
-template class UltraProver_<honk::flavor::Ultra>;
-template class UltraProver_<honk::flavor::UltraGrumpkin>;
-template class UltraProver_<honk::flavor::GoblinUltra>;
-
+template class GoblinTranslatorProver_<honk::flavor::GoblinTranslatorBasic>;
 } // namespace proof_system::honk

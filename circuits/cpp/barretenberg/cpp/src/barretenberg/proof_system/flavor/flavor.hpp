@@ -149,6 +149,7 @@ class ProvingKey_ : public PrecomputedPolynomials, public WitnessPolynomials {
     {
         this->evaluation_domain = barretenberg::EvaluationDomain<FF>(circuit_size, circuit_size);
         PrecomputedPolynomials::circuit_size = circuit_size;
+        info("Circuit size: ", circuit_size);
         this->log_circuit_size = numeric::get_msb(circuit_size);
         this->num_public_inputs = num_public_inputs;
         // Allocate memory for precomputed polynomials
