@@ -26,6 +26,8 @@ class ArgumentEncoder {
           this.flattened.push(new Fr(BigInt(arg)));
         } else if (typeof arg === 'bigint') {
           this.flattened.push(new Fr(arg));
+        } else if (typeof arg === 'boolean') {
+          this.flattened.push(new Fr(arg ? 1 : 0));
         } else if (typeof arg === 'object') {
           if (Buffer.isBuffer(arg)) {
             this.flattened.push(Fr.fromBuffer(arg));
