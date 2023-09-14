@@ -614,7 +614,7 @@ jobs:
       - *setup_env
       - run:
           name: "Create ECR manifest"
-          command: create_ecr_manifest aztec-sandbox
+          command: create_ecr_manifest aztec-sandbox-base aztec-sandbox
 
   circuits-js:
     machine:

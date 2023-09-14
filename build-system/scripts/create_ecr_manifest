@@ -1,6 +1,7 @@
 set -e
 
 REPOSITORY=$1
+FINAL_IMAGE_NAME=$2
 
 # Ensure ECR repository exists.
 retry ensure_repo $REPOSITORY $ECR_REGION refresh_lifecycle
@@ -8,12 +9,12 @@ retry ensure_repo $REPOSITORY $ECR_REGION refresh_lifecycle
 CONTENT_HASH=$(calculate_content_hash $REPOSITORY)
 echo "Content hash: $CONTENT_HASH"
 
-FINAL=$ECR_URL/$REPOSITORY:cache-$CONTENT_HASH
+FINAL=$ECR_URL/$FINAL_IMAGE_NAME:cache-$CONTENT_HASH
 
 echo "Creating manifest list $FINAL..."
 
-X86=$ECR_URL/$REPOSITORY-x86_64:cache-$CONTENT_HASH
-ARM64=$ECR_URL/$REPOSITORY-arm64:cache-$CONTENT_HASH
+X86=$ECR_URL/$FINAL_IMAGE_NAME-x86_64:cache-$CONTENT_HASH
+ARM64=$ECR_URL/$FINAL_IMAGE_NAME-arm64:cache-$CONTENT_HASH
 
 docker manifest create $FINAL \
 --amend $X86 \
