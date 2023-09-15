@@ -307,7 +307,7 @@ export class AztecRPCServer implements AztecRPC {
       chainId,
       rollupAddress,
       client: this.clientInfo,
-      compatibleNargoVersion: NoirVersion.commit,
+      compatibleNargoVersion: NoirVersion.tag,
     };
   }
 
