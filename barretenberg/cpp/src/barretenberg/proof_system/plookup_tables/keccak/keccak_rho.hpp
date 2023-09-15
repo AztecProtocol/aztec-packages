@@ -4,7 +4,8 @@
 #include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/numeric/bitop/pow.hpp"
 
-namespace plookup::keccak_tables {
+namespace plookup {
+namespace keccak_tables {
 
 /**
  * @brief Generate the plookup tables used for the RHO round of the Keccak hash algorithm
@@ -70,7 +71,7 @@ template <size_t TABLE_BITS = 0, size_t LANE_INDEX = 0> class Rho {
         0, 1, 62, 28, 27, 36, 44, 6, 55, 20, 3, 10, 43, 25, 39, 41, 45, 15, 21, 8, 18, 2, 61, 56, 14,
     };
 
-    static constexpr std::array<uint64_t, 3> RHO_NORMALIZATION_TABLE{
+    static constexpr uint64_t RHO_NORMALIZATION_TABLE[3]{
         0,
         1,
         0,
@@ -99,7 +100,7 @@ template <size_t TABLE_BITS = 0, size_t LANE_INDEX = 0> class Rho {
             base_shift *= BASE;
         }
 
-        return { barretenberg::fr(accumulator), barretenberg::fr{ accumulator / divisor } };
+        return { barretenberg::fr(accumulator), barretenberg::fr(accumulator / divisor) };
     }
 
     /**
@@ -240,9 +241,9 @@ template <size_t TABLE_BITS = 0, size_t LANE_INDEX = 0> class Rho {
         MultiTable table;
         table.id = id;
 
-        table.column_1_step_sizes.emplace_back(1);
-        table.column_2_step_sizes.emplace_back(1);
-        table.column_3_step_sizes.emplace_back(1);
+        table.column_1_step_sizes.push_back(1);
+        table.column_2_step_sizes.push_back(1);
+        table.column_3_step_sizes.push_back(1);
 
         // generate table selector values for the 'right' slice
         barretenberg::constexpr_for<0, num_right_tables, 1>([&]<size_t i> {
@@ -253,18 +254,18 @@ template <size_t TABLE_BITS = 0, size_t LANE_INDEX = 0> class Rho {
 
             constexpr uint64_t scaled_base = numeric::pow64(BASE, bit_slice);
             if (i == num_right_tables - 1) {
-                table.column_1_step_sizes.emplace_back(scaled_base);
-                table.column_2_step_sizes.emplace_back(0);
-                table.column_3_step_sizes.emplace_back(0);
+                table.column_1_step_sizes.push_back(scaled_base);
+                table.column_2_step_sizes.push_back(0);
+                table.column_3_step_sizes.push_back(0);
             } else {
-                table.column_1_step_sizes.emplace_back(scaled_base);
-                table.column_2_step_sizes.emplace_back(scaled_base);
-                table.column_3_step_sizes.emplace_back(0);
+                table.column_1_step_sizes.push_back(scaled_base);
+                table.column_2_step_sizes.push_back(scaled_base);
+                table.column_3_step_sizes.push_back(0);
             }
 
             table.slice_sizes.push_back(scaled_base);
             table.get_table_values.emplace_back(&get_rho_renormalization_values);
-            table.lookup_ids.push_back(static_cast<BasicTableId>(static_cast<size_t>(KECCAK_RHO_1) + (bit_slice - 1)));
+            table.lookup_ids.push_back((BasicTableId)((size_t)KECCAK_RHO_1 + (bit_slice - 1)));
         });
 
         // generate table selector values for the 'left' slice
@@ -277,18 +278,19 @@ template <size_t TABLE_BITS = 0, size_t LANE_INDEX = 0> class Rho {
             constexpr uint64_t scaled_base = numeric::pow64(BASE, bit_slice);
 
             if (i != num_left_tables - 1) {
-                table.column_1_step_sizes.emplace_back(scaled_base);
-                table.column_2_step_sizes.emplace_back(scaled_base);
-                table.column_3_step_sizes.emplace_back(0);
+                table.column_1_step_sizes.push_back(scaled_base);
+                table.column_2_step_sizes.push_back(scaled_base);
+                table.column_3_step_sizes.push_back(0);
             }
 
             table.slice_sizes.push_back(scaled_base);
             table.get_table_values.emplace_back(&get_rho_renormalization_values);
-            table.lookup_ids.push_back(static_cast<BasicTableId>(static_cast<size_t>(KECCAK_RHO_1) + (bit_slice - 1)));
+            table.lookup_ids.push_back((BasicTableId)((size_t)KECCAK_RHO_1 + (bit_slice - 1)));
         });
 
         return table;
     }
 };
 
-} // namespace plookup::keccak_tables
+} // namespace keccak_tables
+} // namespace plookup

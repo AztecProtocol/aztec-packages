@@ -8,11 +8,9 @@
 #include "sparse.hpp"
 #include "types.hpp"
 
-namespace plookup::sha256_tables {
+namespace plookup {
+namespace sha256_tables {
 
-// We're doing some degenerate compile-time work with this C-array that can't be done with std::array,
-// We pass it as a uint64_t* template parameter, no easy way to do that with std::array
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
 static constexpr uint64_t choose_normalization_table[28]{
     /* xor result = 0 */
     0, // e + 2f + 3g = 0 => e = 0, f = 0, g = 0 => t = 0
@@ -48,9 +46,6 @@ static constexpr uint64_t choose_normalization_table[28]{
     2, // e + 2f + 3g = 6 => e = 1, f = 1, g = 1 => t = 1
 };
 
-// We're doing some degenerate compile-time work with this C-array that can't be done with std::array,
-// We pass it as a uint64_t* template parameter, no easy way to do that with std::array
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
 static constexpr uint64_t majority_normalization_table[16]{
     /* xor result = 0 */
     0, // a + b + c = 0 => (a & b) ^ (a & c) ^ (b & c) = 0
@@ -74,9 +69,6 @@ static constexpr uint64_t majority_normalization_table[16]{
     2,
 };
 
-// We're doing some degenerate compile-time work with this C-array that can't be done with std::array,
-// We pass it as a uint64_t* template parameter, no easy way to do that with std::array
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
 static constexpr uint64_t witness_extension_normalization_table[16]{
     /* xor result = 0 */
     0,
@@ -431,4 +423,5 @@ inline MultiTable get_majority_input_table(const MultiTableId id = SHA256_MAJ_IN
     return table;
 }
 
-} // namespace plookup::sha256_tables
+} // namespace sha256_tables
+} // namespace plookup

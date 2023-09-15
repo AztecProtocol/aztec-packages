@@ -4,7 +4,8 @@
 
 #include "barretenberg/numeric/bitop/rotate.hpp"
 
-namespace plookup::uint_tables {
+namespace plookup {
+namespace uint_tables {
 
 template <uint64_t bits_per_slice, uint64_t num_rotated_output_bits>
 inline std::array<barretenberg::fr, 2> get_xor_rotate_values_from_key(const std::array<uint64_t, 2> key)
@@ -102,4 +103,5 @@ inline MultiTable get_uint32_and_table(const MultiTableId id = UINT32_AND)
     return table;
 }
 
-} // namespace plookup::uint_tables
+} // namespace uint_tables
+} // namespace plookup

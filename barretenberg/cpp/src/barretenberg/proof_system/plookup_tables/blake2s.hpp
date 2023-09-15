@@ -5,7 +5,8 @@
 #include "sparse.hpp"
 #include "types.hpp"
 
-namespace plookup::blake2s_tables {
+namespace plookup {
+namespace blake2s_tables {
 
 static constexpr size_t BITS_IN_LAST_SLICE = 5UL;
 static constexpr size_t SIZE_OF_LAST_SLICE = (1UL << BITS_IN_LAST_SLICE);
@@ -20,8 +21,8 @@ inline std::array<barretenberg::fr, 2> get_xor_rotate_values_from_key(const std:
 {
     uint64_t filtered_key0 = filter ? key[0] & 3ULL : key[0];
     uint64_t filtered_key1 = filter ? key[1] & 3ULL : key[1];
-    return { uint256_t{ numeric::rotate32(static_cast<uint32_t>(filtered_key0) ^ static_cast<uint32_t>(filtered_key1),
-                                          static_cast<uint32_t>(num_rotated_output_bits)) },
+    return { uint256_t(numeric::rotate32(uint32_t(filtered_key0) ^ uint32_t(filtered_key1),
+                                         uint32_t(num_rotated_output_bits))),
              0ULL };
 }
 
@@ -49,8 +50,7 @@ inline BasicTable generate_xor_rotate_table(BasicTableId id, const size_t table_
                 j_copy &= 3ULL;
             }
             table.column_3.emplace_back(
-                uint256_t{ numeric::rotate32(static_cast<uint32_t>(i_copy) ^ static_cast<uint32_t>(j_copy),
-                                             static_cast<uint32_t>(num_rotated_output_bits)) });
+                uint256_t(numeric::rotate32(uint32_t(i_copy) ^ uint32_t(j_copy), uint32_t(num_rotated_output_bits))));
         }
     }
 
@@ -215,4 +215,5 @@ inline MultiTable get_blake2s_xor_rotate_7_table(const MultiTableId id = BLAKE_X
     return table;
 }
 
-} // namespace plookup::blake2s_tables
+} // namespace blake2s_tables
+} // namespace plookup
