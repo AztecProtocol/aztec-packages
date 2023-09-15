@@ -83,7 +83,7 @@ const sidebars = {
     },
 
     {
-      label: "Contracts",
+      label: "Aztec.nr Contracts",
       type: "category",
       link: {
         type: "doc",
@@ -128,79 +128,42 @@ const sidebars = {
             "dev_docs/contracts/portals/outbox",
           ],
         },
-        {
-          label: "Resources",
-          type: "category",
-          items: [
-            "dev_docs/contracts/resources/style_guide",
-            {
-              label: "Common Patterns",
-              type: "category",
-              link: {
-                type: "doc",
-                id: "dev_docs/contracts/resources/common_patterns/main",
-              },
-              items: [
-                "dev_docs/contracts/resources/common_patterns/sending_tokens_to_user",
-                "dev_docs/contracts/resources/common_patterns/sending_tokens_to_contract",
-                "dev_docs/contracts/resources/common_patterns/access_control",
-                "dev_docs/contracts/resources/common_patterns/interacting_with_l1",
-              ],
-            },
-          ],
-        },
-        {
-          label: "Security Considerations",
-          type: "category",
-          items: [
-            {
-              label: "Breaking changes",
-              type: "category",
-              link: {
-                type: "doc",
-                id: "dev_docs/contracts/security/breaking_changes/main",
-              },
-              items: ["dev_docs/contracts/security/breaking_changes/v0"],
-            },
-          ],
-        },
-      ],
-    },
-    {
-      label: "DApp Development",
-      type: "category",
-      link: {
-        type: "doc",
-        id: "dev_docs/dapps/main",
-      },
-      items: [
-        {
-          label: "API",
-          type: "category",
-          link: {
-            type: "doc",
-            id: "dev_docs/dapps/api/main",
-          },
-          items: [
-            "dev_docs/dapps/api/aztec_rpc",
-            "dev_docs/dapps/api/contract_interaction",
-          ],
-        },
-        {
-          label: "Tutorials",
-          type: "category",
-          link: {
-            type: "doc",
-            id: "dev_docs/dapps/tutorials/main",
-          },
-          items: [
-            "dev_docs/dapps/tutorials/project_setup",
-            "dev_docs/dapps/tutorials/rpc_server",
-            "dev_docs/dapps/tutorials/contract_deployment",
-            "dev_docs/dapps/tutorials/contract_interaction",
-            "dev_docs/dapps/tutorials/testing",
-          ],
-        },
+        // {
+        //   label: "Resources",
+        //   type: "category",
+        //   items: [
+        //     "dev_docs/contracts/resources/style_guide",
+        //     {
+        //       label: "Common Patterns",
+        //       type: "category",
+        //       link: {
+        //         type: "doc",
+        //         id: "dev_docs/contracts/resources/common_patterns/main",
+        //       },
+        //       items: [
+        //         "dev_docs/contracts/resources/common_patterns/sending_tokens_to_user",
+        //         "dev_docs/contracts/resources/common_patterns/sending_tokens_to_contract",
+        //         "dev_docs/contracts/resources/common_patterns/access_control",
+        //         "dev_docs/contracts/resources/common_patterns/interacting_with_l1",
+        //       ],
+        //     },
+        //   ],
+        // },
+        // {
+        //   label: "Security Considerations",
+        //   type: "category",
+        //   items: [
+        //     {
+        //       label: "Breaking changes",
+        //       type: "category",
+        //       link: {
+        //         type: "doc",
+        //         id: "dev_docs/contracts/security/breaking_changes/main",
+        //       },
+        //       items: ["dev_docs/contracts/security/breaking_changes/v0"],
+        //     },
+        //   ],
+        // },
       ],
     },
 
@@ -222,6 +185,43 @@ const sidebars = {
         id: "dev_docs/cli/main",
       },
       items: [],
+    },
+    {
+      label: "DApp Development",
+      type: "category",
+      link: {
+        type: "doc",
+        id: "dev_docs/dapps/main",
+      },
+      items: [
+        // {
+        //   label: "API",
+        //   type: "category",
+        //   link: {
+        //     type: "doc",
+        //     id: "dev_docs/dapps/api/main",
+        //   },
+        //   items: [
+        //     "dev_docs/dapps/api/aztec_rpc",
+        //     "dev_docs/dapps/api/contract_interaction",
+        //   ],
+        // },
+        {
+          label: "Tutorials",
+          type: "category",
+          link: {
+            type: "doc",
+            id: "dev_docs/dapps/tutorials/main",
+          },
+          items: [
+            "dev_docs/dapps/tutorials/project_setup",
+            "dev_docs/dapps/tutorials/rpc_server",
+            "dev_docs/dapps/tutorials/contract_deployment",
+            "dev_docs/dapps/tutorials/contract_interaction",
+            "dev_docs/dapps/tutorials/testing",
+          ],
+        },
+      ],
     },
 
     {
