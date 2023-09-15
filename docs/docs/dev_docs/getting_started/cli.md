@@ -24,7 +24,7 @@ Or if you use yarn:
 yarn global add @aztec/cli
 ```
 
-If you have specified a SANDBOX_VERSION environmental variable when installing sandbox, you will need to specify the same version when installing the CLI. For example:
+If you have specified a SANDBOX_VERSION environmental variable when installing the Sandbox, you will need to specify the same version when installing the CLI. For example:
 
 ```bash
 npm install -g @aztec/cli@0.7.0

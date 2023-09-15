@@ -359,7 +359,7 @@ To update the sandbox, simply run the curl command again:
 
 It will download and start the latest version of sandbox.
 
-If you would like to use a fixed version of sandbox you can export the `SANDBOX_VERSION` environmental variable.
+If you would like to use a fixed version of the sandbox, you can export the `SANDBOX_VERSION` environmental variable.
 The version in our case is a tag of the `aztec-sandbox` image on [dockerhub](https://hub.docker.com/r/aztecprotocol/aztec-sandbox/tags).
 This is the full command:
 
