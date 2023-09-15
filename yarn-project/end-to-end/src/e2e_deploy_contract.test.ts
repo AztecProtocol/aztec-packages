@@ -1,7 +1,7 @@
 import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecRPCServer } from '@aztec/aztec-rpc';
 import { AztecAddress, ContractDeployer, Fr, isContractDeployed } from '@aztec/aztec.js';
-import { getContractDeploymentInfo } from '@aztec/circuits.js';
+import { CompleteAddress, getContractDeploymentInfo } from '@aztec/circuits.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { TestContractAbi } from '@aztec/noir-contracts/artifacts';
 import { AztecRPC, TxStatus } from '@aztec/types';
@@ -11,7 +11,7 @@ import { setup } from './fixtures/utils.js';
 describe('e2e_deploy_contract', () => {
   let aztecNode: AztecNodeService | undefined;
   let aztecRpcServer: AztecRPC;
-  let accounts: AztecAddress[];
+  let accounts: CompleteAddress[];
   let logger: DebugLogger;
 
   beforeEach(async () => {
@@ -30,7 +30,7 @@ describe('e2e_deploy_contract', () => {
    * https://hackmd.io/ouVCnacHQRq2o1oRc5ksNA#Interfaces-and-Responsibilities
    */
   it('should deploy a contract', async () => {
-    const publicKey = (await aztecRpcServer.getPublicKeyAndPartialAddress(accounts[0]))[0];
+    const publicKey = accounts[0].publicKey;
     const salt = Fr.random();
     const deploymentData = await getContractDeploymentInfo(TestContractAbi, [], salt, publicKey);
     const deployer = new ContractDeployer(TestContractAbi, aztecRpcServer, publicKey);
@@ -41,7 +41,6 @@ describe('e2e_deploy_contract', () => {
       expect.objectContaining({
         status: TxStatus.PENDING,
         error: '',
-        contractAddress: deploymentData.address,
       }),
     );
     logger(`Receipt received and expecting contract deployment at ${receipt.contractAddress}`);
@@ -49,8 +48,14 @@ describe('e2e_deploy_contract', () => {
     const receiptAfterMined = await tx.getReceipt();
 
     expect(isMined).toBe(true);
-    expect(receiptAfterMined.status).toBe(TxStatus.MINED);
-    const contractAddress = receipt.contractAddress!;
+    expect(receiptAfterMined).toEqual(
+      expect.objectContaining({
+        status: TxStatus.MINED,
+        error: '',
+        contractAddress: deploymentData.completeAddress.address,
+      }),
+    );
+    const contractAddress = receiptAfterMined.contractAddress!;
     expect(await isContractDeployed(aztecRpcServer, contractAddress)).toBe(true);
     expect(await isContractDeployed(aztecRpcServer, AztecAddress.random())).toBe(false);
   }, 30_000);
@@ -91,13 +96,9 @@ describe('e2e_deploy_contract', () => {
     }
 
     {
-      const tx = deployer.deploy().send({ contractAddressSalt });
-      const isMined = await tx.isMined({ interval: 0.1 });
-      expect(isMined).toBe(false);
-      const receipt = await tx.getReceipt();
-
-      expect(receipt.status).toBe(TxStatus.DROPPED);
-      expect(receipt.error).toBe('Tx dropped by P2P node.');
+      await expect(deployer.deploy().send({ contractAddressSalt }).wait()).rejects.toThrowError(
+        /A settled tx with equal hash/,
+      );
     }
   }, 30_000);
 });

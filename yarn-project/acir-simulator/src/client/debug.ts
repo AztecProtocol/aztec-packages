@@ -1,4 +1,4 @@
-import { ForeignCallInput } from 'acvm_js';
+import { ForeignCallInput } from '@noir-lang/acvm_js';
 
 import { ACVMField } from '../acvm/index.js';
 
@@ -24,7 +24,7 @@ export function acvmFieldMessageToString(msg: ACVMField[]): string {
 }
 
 /**
- * Format a debug string for Noir filling in `'{0}'` entries with their
+ * Format a debug string for Aztec.nr filling in `'{0}'` entries with their
  * corresponding values from the args array.
  *
  * @param formatStr - str of form `'this is a string with some entries like {0} and {1}'`

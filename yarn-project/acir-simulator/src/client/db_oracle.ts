@@ -1,5 +1,5 @@
-import { HistoricBlockData, PartialAddress, PrivateKey, PublicKey } from '@aztec/circuits.js';
-import { FunctionAbi } from '@aztec/foundation/abi';
+import { CompleteAddress, GrumpkinPrivateKey, HistoricBlockData, PublicKey } from '@aztec/circuits.js';
+import { FunctionAbi, FunctionDebugMetadata, FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -18,22 +18,16 @@ export interface NoteData {
   nonce: Fr;
   /** The preimage of the note */
   preimage: Fr[];
-  /** The corresponding nullifier of the note */
+  /** The inner note hash of the note. */
+  innerNoteHash: Fr;
+  /** The corresponding nullifier of the note. Undefined for pending notes. */
   siloedNullifier?: Fr;
   /** The note's leaf index in the private data tree. Undefined for pending notes. */
   index?: bigint;
 }
 
 /**
- * Information about a note needed during execution.
- */
-export interface PendingNoteData extends NoteData {
-  /** The inner note hash (used as a nullified commitment). */
-  innerNoteHash: Fr;
-}
-
-/**
- * The format that noir uses to get L1 to L2 Messages.
+ * The format that Aztec.nr uses to get L1 to L2 Messages.
  */
 export interface MessageLoadOracleInputs {
   /**
@@ -52,19 +46,13 @@ export interface MessageLoadOracleInputs {
 }
 
 /**
- * The format noir uses to get commitments.
+ * A function ABI with optional debug metadata
  */
-export interface CommitmentDataOracleInputs {
-  /** The siloed commitment. */
-  commitment: Fr;
+export interface FunctionAbiWithDebugMetadata extends FunctionAbi {
   /**
-   * The path in the merkle tree to the commitment.
+   * Debug metadata for the function.
    */
-  siblingPath: Fr[];
-  /**
-   * The index of the message commitment in the merkle tree.
-   */
-  index: bigint;
+  debug?: FunctionDebugMetadata;
 }
 
 /**
@@ -72,11 +60,18 @@ export interface CommitmentDataOracleInputs {
  */
 export interface DBOracle extends CommitmentsDB {
   /**
-   * Retrieve the public key associated to a given address.
+   * Retrieve the complete address associated to a given address.
    * @param address - Address to fetch the pubkey for.
-   * @returns A public key and the corresponding partial address, such that the hash of the two resolves to the input address.
+   * @returns A complete address associated with the input address.
    */
-  getPublicKey(address: AztecAddress): Promise<[PublicKey, PartialAddress]>;
+  getCompleteAddress(address: AztecAddress): Promise<CompleteAddress>;
+
+  /**
+   * Retrieve the auth witness for a given message hash.
+   * @param message_hash - The message hash.
+   * @returns A Promise that resolves to an array of field elements representing the auth witness.
+   */
+  getAuthWitness(message_hash: Fr): Promise<Fr[]>;
 
   /**
    * Retrieve the secret key associated with a specific public key.
@@ -85,10 +80,10 @@ export interface DBOracle extends CommitmentsDB {
    *
    * @param contractAddress - The contract address. Ignored here. But we might want to return different keys for different contracts.
    * @param pubKey - The public key of an account.
-   * @returns A Promise that resolves to the secret key as a Buffer.
+   * @returns A Promise that resolves to the secret key.
    * @throws An Error if the input address does not match the public key address of the key pair.
    */
-  getSecretKey(contractAddress: AztecAddress, pubKey: PublicKey): Promise<PrivateKey>;
+  getSecretKey(contractAddress: AztecAddress, pubKey: PublicKey): Promise<GrumpkinPrivateKey>;
 
   /**
    * Retrieves a set of notes stored in the database for a given contract address and storage slot.
@@ -106,10 +101,10 @@ export interface DBOracle extends CommitmentsDB {
    * The function is identified by its selector, which is a unique identifier generated from the function signature.
    *
    * @param contractAddress - The contract address.
-   * @param functionSelector - The Buffer containing the function selector bytes.
+   * @param selector - The corresponding function selector.
    * @returns A Promise that resolves to a FunctionAbi object containing the ABI information of the target function.
    */
-  getFunctionABI(contractAddress: AztecAddress, functionSelector: Buffer): Promise<FunctionAbi>;
+  getFunctionABI(contractAddress: AztecAddress, selector: FunctionSelector): Promise<FunctionAbiWithDebugMetadata>;
 
   /**
    * Retrieves the portal contract address associated with the given contract address.

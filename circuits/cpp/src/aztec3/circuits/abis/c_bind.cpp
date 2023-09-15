@@ -4,6 +4,7 @@
 #include "function_data.hpp"
 #include "function_leaf_preimage.hpp"
 #include "kernel_circuit_public_inputs.hpp"
+#include "kernel_circuit_public_inputs_final.hpp"
 #include "previous_kernel_data.hpp"
 #include "private_circuit_public_inputs.hpp"
 #include "tx_context.hpp"
@@ -16,6 +17,7 @@
 #include "rollup/root/root_rollup_public_inputs.hpp"
 
 #include "aztec3/circuits/abis/combined_accumulated_data.hpp"
+#include "aztec3/circuits/abis/final_accumulated_data.hpp"
 #include "aztec3/circuits/abis/new_contract_data.hpp"
 #include "aztec3/circuits/abis/packers.hpp"
 #include "aztec3/circuits/abis/point.hpp"
@@ -183,7 +185,7 @@ WASM_EXPORT void abis__hash_vk(uint8_t const* vk_data_buf, uint8_t* output)
  * @brief Generates a function tree leaf from its preimage.
  * This is a WASM-export that can be called from Typescript.
  *
- * @details given a `uint8_t const*` buffer representing a function leaf's prieimage,
+ * @details given a `uint8_t const*` buffer representing a function leaf's preimage,
  * construct a FunctionLeafPreimage instance, hash, and return the serialized results
  * in the `output` buffer.
  *
@@ -360,7 +362,7 @@ WASM_EXPORT void abis__compute_contract_address_from_partial(uint8_t const* poin
  * @param constructor_hash_buf the hash of the contract constructor's verification key
  * @param output buffer that will contain the output. The serialized contract address.
  * See the link bellow for more details:
- * https://github.com/AztecProtocol/aztec-packages/blob/janb/rpc-interface-cleanup/docs/docs/concepts/foundation/accounts/keys.md#addresses-partial-addresses-and-public-keys
+ * https://github.com/AztecProtocol/aztec-packages/blob/master/docs/docs/concepts/foundation/accounts/keys.md#addresses-partial-addresses-and-public-keys
  */
 WASM_EXPORT void abis__compute_partial_address(uint8_t const* contract_address_salt_buf,
                                                uint8_t const* function_tree_root_buf,
@@ -453,6 +455,16 @@ CBIND(abis__compute_block_hash_with_globals, aztec3::circuits::compute_block_has
 CBIND(abis__compute_globals_hash, aztec3::circuits::compute_globals_hash<NT>);
 
 /**
+ * @brief Compute the value to be inserted into the public data tree
+ */
+CBIND(abis__compute_public_data_tree_value, aztec3::circuits::compute_public_data_tree_value<NT>);
+
+/**
+ * @brief Compute the index for inserting a value into the public data tree
+ */
+CBIND(abis__compute_public_data_tree_index, aztec3::circuits::compute_public_data_tree_index<NT>);
+
+/**
  * @brief Generates a signed tx request hash from it's pre-image
  * This is a WASM-export that can be called from Typescript.
  *
@@ -524,6 +536,13 @@ WASM_EXPORT const char* abis__test_roundtrip_serialize_private_circuit_public_in
                                                                                     size);
 }
 
+WASM_EXPORT const char* abis__test_roundtrip_serialize_public_circuit_public_inputs(
+    uint8_t const* public_circuits_public_inputs_buf, uint32_t* size)
+{
+    return as_string_output<aztec3::circuits::abis::PublicCircuitPublicInputs<NT>>(public_circuits_public_inputs_buf,
+                                                                                   size);
+}
+
 WASM_EXPORT const char* abis__test_roundtrip_serialize_function_data(uint8_t const* function_data_buf, uint32_t* size)
 {
     return as_string_output<aztec3::circuits::abis::FunctionData<NT>>(function_data_buf, size);
@@ -576,6 +595,11 @@ WASM_EXPORT const char* abis__test_roundtrip_serialize_combined_accumulated_data
     return as_string_output<aztec3::circuits::abis::CombinedAccumulatedData<NT>>(input, size);
 }
 
+WASM_EXPORT const char* abis__test_roundtrip_serialize_final_accumulated_data(uint8_t const* input, uint32_t* size)
+{
+    return as_string_output<aztec3::circuits::abis::FinalAccumulatedData<NT>>(input, size);
+}
+
 WASM_EXPORT const char* abis__test_roundtrip_serialize_signature(uint8_t const* input, uint32_t* size)
 {
     return as_string_output<NT::schnorr_signature>(input, size);
@@ -595,6 +619,12 @@ WASM_EXPORT const char* abis__test_roundtrip_serialize_kernel_circuit_public_inp
                                                                                     uint32_t* size)
 {
     return as_string_output<aztec3::circuits::abis::KernelCircuitPublicInputs<NT>>(input, size);
+}
+
+WASM_EXPORT const char* abis__test_roundtrip_serialize_kernel_circuit_public_inputs_final(uint8_t const* input,
+                                                                                          uint32_t* size)
+{
+    return as_string_output<aztec3::circuits::abis::KernelCircuitPublicInputsFinal<NT>>(input, size);
 }
 
 WASM_EXPORT const char* abis__test_roundtrip_serialize_public_kernel_inputs(uint8_t const* input, uint32_t* size)

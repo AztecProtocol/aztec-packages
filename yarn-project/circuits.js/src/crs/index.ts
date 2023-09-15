@@ -1,8 +1,9 @@
+import { fileURLToPath } from '@aztec/foundation/url';
+
 import isNode from 'detect-node';
 import { existsSync } from 'fs';
 import { open } from 'fs/promises';
 import { dirname } from 'path';
-import { fileURLToPath } from 'url';
 
 /**
  * Downloader for CRS from the web or local.
@@ -27,7 +28,7 @@ export class NetCrs {
     const g1End = g1Start + this.numPoints * 64 - 1;
 
     // Download required range of data.
-    const response = await fetch('https://aztec-ignition.s3.amazonaws.com/MAIN%20IGNITION/sealed/transcript00.dat', {
+    const response = await fetch('https://aztec-ignition.s3.amazonaws.com/MAIN%20IGNITION/monomial/transcript00.dat', {
       headers: {
         Range: `bytes=${g1Start}-${g1End}`,
       },
@@ -42,10 +43,10 @@ export class NetCrs {
    * Download the G2 points data.
    */
   async downloadG2Data() {
-    const g2Start = 28 + 5040000 * 64;
+    const g2Start = 28 + 5040001 * 64;
     const g2End = g2Start + 128 - 1;
 
-    const response2 = await fetch('https://aztec-ignition.s3.amazonaws.com/MAIN%20IGNITION/sealed/transcript00.dat', {
+    const response2 = await fetch('https://aztec-ignition.s3.amazonaws.com/MAIN%20IGNITION/monomial/transcript00.dat', {
       headers: {
         Range: `bytes=${g2Start}-${g2End}`,
       },
@@ -94,7 +95,7 @@ export class FileCrs {
     const g1Start = 28;
     const g1Length = this.numPoints * 64;
 
-    const g2Start = 28 + 5040000 * 64;
+    const g2Start = 28 + 5040001 * 64;
     const g2Length = 128;
     // Lazily seek our data
     const fileHandle = await open(this.path, 'r');
@@ -144,7 +145,7 @@ export class Crs {
        */
       const SRS_DEV_PATH =
         dirname(fileURLToPath(import.meta.url)) +
-        '/../../../../circuits/cpp/barretenberg/cpp/srs_db/ignition/monomial/transcript00.dat';
+        '/../../../../barretenberg/cpp/srs_db/ignition/monomial/transcript00.dat';
       this.crs = existsSync(SRS_DEV_PATH) ? new FileCrs(numPoints, SRS_DEV_PATH) : new NetCrs(numPoints);
     } else {
       this.crs = new NetCrs(numPoints);

@@ -6,12 +6,8 @@
 #include "aztec3/circuits/abis/call_stack_item.hpp"
 #include "aztec3/circuits/abis/combined_accumulated_data.hpp"
 #include "aztec3/circuits/abis/combined_constant_data.hpp"
-#include "aztec3/circuits/abis/contract_deployment_data.hpp"
-#include "aztec3/circuits/abis/function_data.hpp"
-#include "aztec3/circuits/abis/historic_block_data.hpp"
-#include "aztec3/circuits/abis/kernel_circuit_public_inputs.hpp"
+#include "aztec3/circuits/abis/contract_storage_update_request.hpp"
 #include "aztec3/circuits/abis/previous_kernel_data.hpp"
-#include "aztec3/circuits/abis/private_circuit_public_inputs.hpp"
 #include "aztec3/circuits/abis/public_kernel/public_call_data.hpp"
 #include "aztec3/circuits/abis/public_kernel/public_kernel_inputs.hpp"
 #include "aztec3/circuits/abis/tx_context.hpp"
@@ -26,7 +22,7 @@
 
 #include <array>
 
-namespace {
+namespace aztec3::circuits::kernel::public_kernel {
 using DummyCircuitBuilder = aztec3::utils::DummyCircuitBuilder;
 using aztec3::circuits::abis::public_kernel::PublicKernelInputs;
 using NT = aztec3::utils::types::NativeTypes;
@@ -34,6 +30,8 @@ using aztec3::circuits::abis::CallContext;
 using aztec3::circuits::abis::CallStackItem;
 using aztec3::circuits::abis::CombinedAccumulatedData;
 using aztec3::circuits::abis::CombinedConstantData;
+using aztec3::circuits::abis::ContractStorageRead;
+using aztec3::circuits::abis::ContractStorageUpdateRequest;
 using aztec3::circuits::abis::HistoricBlockData;
 using aztec3::circuits::abis::NewContractData;
 using aztec3::circuits::abis::OptionallyRevealedData;
@@ -45,10 +43,6 @@ using aztec3::circuits::abis::TxContext;
 using aztec3::circuits::abis::TxRequest;
 using aztec3::circuits::abis::public_kernel::PublicCallData;
 using aztec3::utils::source_arrays_are_in_target;
-}  // namespace
-
-namespace aztec3::circuits::kernel::public_kernel {
-
 using PublicCallStackItem = CallStackItem<NT, aztec3::circuits::abis::PublicTypes>;
 
 template <size_t SIZE>
@@ -107,7 +101,10 @@ PublicCallStackItem generate_call_stack_item(NT::fr contract_address,
 {
     NT::uint32 count = seed + 1;
     FunctionData<NT> const function_data{
-        .function_selector = count,
+        .selector =
+            {
+                .value = count,
+            },
         .is_private = false,
         .is_constructor = false,
     };
@@ -264,7 +261,10 @@ PublicKernelInputs<NT> get_kernel_inputs_with_previous_kernel(NT::boolean privat
     const NT::address msg_sender = NT::fr(1);
 
     FunctionData<NT> const function_data{
-        .function_selector = 1,
+        .selector =
+            {
+                .value = 1,
+            },
         .is_private = false,
         .is_constructor = false,
     };
@@ -326,7 +326,16 @@ PublicKernelInputs<NT> get_kernel_inputs_with_previous_kernel(NT::boolean privat
     std::array<fr, NUM_FIELDS_PER_SHA256> const unencrypted_logs_hash =
         array_of_values<NUM_FIELDS_PER_SHA256>(seed, NUM_FIELDS_PER_SHA256);
     fr const unencrypted_log_preimages_length = ++seed;
-    fr const historic_public_data_tree_root = ++seed;
+    HistoricBlockData<NT> block_data = {
+        .private_data_tree_root = ++seed,
+        .nullifier_tree_root = ++seed,
+        .contract_tree_root = ++seed,
+        .l1_to_l2_messages_tree_root = ++seed,
+        .blocks_tree_root = ++seed,
+        .private_kernel_vk_tree_root = ++seed,
+        .public_data_tree_root = ++seed,
+        .global_variables_hash = ++seed,
+    };
 
     // create the public circuit public inputs
     auto const public_circuit_public_inputs = PublicCircuitPublicInputs<NT>{
@@ -341,7 +350,7 @@ PublicKernelInputs<NT> get_kernel_inputs_with_previous_kernel(NT::boolean privat
         .new_l2_to_l1_msgs = new_l2_to_l1_msgs,
         .unencrypted_logs_hash = unencrypted_logs_hash,
         .unencrypted_log_preimages_length = unencrypted_log_preimages_length,
-        .historic_public_data_tree_root = historic_public_data_tree_root,
+        .historic_block_data = block_data,
     };
 
     const PublicCallStackItem call_stack_item{
@@ -631,7 +640,9 @@ TEST(public_kernel_tests, function_selector_must_be_valid)
     DummyBuilder dummyBuilder = DummyBuilder("public_kernel_tests__function_selector_must_be_valid");
     PublicKernelInputs<NT> inputs = get_kernel_inputs_with_previous_kernel(true);
 
-    inputs.public_call.call_stack_item.function_data.function_selector = 0;
+    inputs.public_call.call_stack_item.function_data.selector = {
+        .value = 0,
+    };
     auto public_inputs = native_public_kernel_circuit_private_previous_kernel(dummyBuilder, inputs);
     ASSERT_TRUE(dummyBuilder.failed());
     ASSERT_EQ(dummyBuilder.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__FUNCTION_SIGNATURE_INVALID);

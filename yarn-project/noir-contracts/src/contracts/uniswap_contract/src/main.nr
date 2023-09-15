@@ -1,23 +1,13 @@
+mod non_native_token_interface;
+
 // Demonstrates how to send a message to a portal contract on L1. We use Uniswap here as it's the most typical example.
 contract Uniswap {
-    use dep::aztec::abi;
-    use dep::aztec::abi::PrivateContextInputs;
-    use dep::aztec::abi::PublicContextInputs;
-    use dep::aztec::context::Context;
-    use dep::aztec::oracle::{
-        public_call,
-        context::get_portal_address
-    };
-    use dep::aztec::private_call_stack_item::PrivateCallStackItem;
-    use dep::aztec::public_call_stack_item::PublicCallStackItem;
-    use dep::aztec::types::point::Point;
+    use dep::aztec::oracle::context::get_portal_address;
     
-    fn constructor(
-        inputs: PrivateContextInputs,
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
-        Context::new(inputs, 0).finish()
-    }
+    use crate::non_native_token_interface::NonNativeTokenPrivateContextInterface;
+    
+    #[aztec(private)]
+    fn constructor() {}
 
     // What we need to make this nicer:
     // 1. A way to access other (and my own) contract's portal addresses (we need many additional args for no good reason now)
@@ -27,9 +17,8 @@ contract Uniswap {
     // 5. account abstraction using its own "custom" constants instead of using shared constants...
     // 6. currently have to manually set the args array for calling other contracts which is inconvenient when using structs etc.
 
+    #[aztec(private)]
     fn swap(
-        inputs: PrivateContextInputs,
-        withdrawFnSelector: Field, // withdraw method on inputAsset (l2 contract) that would withdraw to L1
         inputAsset: Field, 
         inputAmount: Field,
         uniswapFeeTier: Field, // which uniswap tier to use (eg 3000 for 0.3% fee)
@@ -41,22 +30,7 @@ contract Uniswap {
         deadlineForL1ToL2Message: Field, // for when l1 uniswap portal inserts the message to consume output assets on L2
         cancellerForL1ToL2Message: Field, // L1 address of who can cancel the message to consume assets on L2.
         callerOnL1: Field, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = Context::new(inputs, abi::hash_args([
-            withdrawFnSelector,
-            inputAsset,
-            inputAmount,
-            uniswapFeeTier,
-            outputAsset,
-            minimumOutputAmount,
-            sender,
-            recipient,
-            secretHash,
-            deadlineForL1ToL2Message,
-            cancellerForL1ToL2Message,
-            callerOnL1,
-        ]));
-
+    ) -> Field {
         // Get portal addresses
         let l1UniswapPortal = context.this_portal_address();
         let inputAssetPortalAddress = get_portal_address(inputAsset);
@@ -65,16 +39,15 @@ contract Uniswap {
         // inputAsset.withdraw(inputAmount, sender, recipient=l1UniswapPortal, callerOnL1=l1UniswapPortal) 
         // only uniswap portal can call this (done to safeguard ordering of message consumption)
         // ref: https://docs.aztec.network/aztec/how-it-works/l1-l2-messaging#designated-caller
-        let return_values = context.call_private_function(inputAsset, withdrawFnSelector, [
+        let inputAssetInterface = NonNativeTokenPrivateContextInterface::at(inputAsset);
+        let return_value = inputAssetInterface.withdraw(
+            &mut context,
             inputAmount,
             sender,
             l1UniswapPortal,
             l1UniswapPortal,
-        ]);
+        )[0];
         
-        let result = return_values[0];
-        context.return_values.push(result);
-
         // Send the swap message to L1 portal
         let content_hash = _compute_swap_content_hash(
            inputAssetPortalAddress,
@@ -90,8 +63,7 @@ contract Uniswap {
         );
         context.message_portal(content_hash);
 
-        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
-        context.finish()
+        return_value
     }
 
     // refer `l1-contracts/test/portals/UniswapPortal.sol` on how L2 to L1 message is expected

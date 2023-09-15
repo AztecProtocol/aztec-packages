@@ -1,4 +1,4 @@
-# Noir contracts
+# Aztec.nr contracts
 
 This package contains the source code and the Aztec ABIs for the example contracts used in tests.
 
@@ -9,6 +9,35 @@ Please note that any example contract set out herein is provided solely for info
 ## Setup
 
 ### Installing Noir
+
+An essential tool for managing noir versions is noirup.
+
+- Install [noirup](https://github.com/noir-lang/noirup)
+  ```
+  curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | bash
+  ```
+
+### Happy Path
+Currently we all work from a single `aztec` tagged noir release. This release updates independently from noir's regular cadence to allow us to rapidly prototype new features. 
+It has prebuilt binaries and is super easy to install using `noirup`
+
+- Install [noirup](https://github.com/noir-lang/noirup)
+  ```
+  curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | bash
+  ```
+- Install `aztec` tagged nargo
+  ```
+  noirup -v aztec
+  ```
+
+> Pinning Aztec flavoured noir releases  
+> Aztec noir is released with semver alongside noir. If you would like to pin to a specific version you can run:
+> ```bash
+> noirup -v <noir-version>-aztec.<patch version>
+> ```
+> e.g `noirup -v 0.11.1-aztec.0`
+
+### Building from source (If working with custom features)
 
 - Install [noirup](https://github.com/noir-lang/noirup)
   ```
@@ -42,11 +71,11 @@ Please note that any example contract set out herein is provided solely for info
   git clone https://github.com/noir-lang/noir.git
   ```
 
-- Checkout aztec3 branch
+- Checkout your target noir branch
 
   ```
   cd noir
-  git checkout aztec3
+  git checkout <branch>
   ```
 
 - Enable direnv
@@ -100,7 +129,7 @@ Please note that any example contract set out herein is provided solely for info
    compiler_version = "0.7.1"
 
    [dependencies]
-   aztec = { path = "../../../../noir-libs/noir-aztec" }
+   aztec = { path = "../../../../aztec-nr/aztec" }
    ```
 
 4. Replace the content of the generated `example_contract/src/main.nr` file with your contract code.

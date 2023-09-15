@@ -6,8 +6,7 @@ import {
   getConfigEnvVars as getRpcConfig,
 } from '@aztec/aztec-rpc';
 import { ContractDeployer, SentTx, isContractDeployed } from '@aztec/aztec.js';
-import { AztecAddress, CircuitsWasm, Fr, PublicKey, getContractDeploymentInfo } from '@aztec/circuits.js';
-import { computeContractAddressFromPartial } from '@aztec/circuits.js/abis';
+import { AztecAddress, CompleteAddress, Fr, PublicKey, getContractDeploymentInfo } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { DebugLogger } from '@aztec/foundation/log';
 import { TestContractAbi } from '@aztec/noir-contracts/artifacts';
@@ -135,7 +134,7 @@ describe('e2e_p2p_network', () => {
     const txs: SentTx[] = [];
     for (let i = 0; i < numTxs; i++) {
       const salt = Fr.random();
-      const deploymentInfo = await getContractDeploymentInfo(TestContractAbi, [], salt, publicKey);
+      const origin = (await getContractDeploymentInfo(TestContractAbi, [], salt, publicKey)).completeAddress.address;
       const deployer = new ContractDeployer(TestContractAbi, aztecRpcServer, publicKey);
       const tx = deployer.deploy().send({ contractAddressSalt: salt });
       logger(`Tx sent with hash ${await tx.getTxHash()}`);
@@ -144,10 +143,9 @@ describe('e2e_p2p_network', () => {
         expect.objectContaining({
           status: TxStatus.PENDING,
           error: '',
-          contractAddress: deploymentInfo.address,
         }),
       );
-      logger(`Receipt received and expecting contract deployment at ${receipt.contractAddress}`);
+      logger(`Receipt received and expecting contract deployment at ${origin}`);
       txs.push(tx);
     }
     return txs;
@@ -160,16 +158,18 @@ describe('e2e_p2p_network', () => {
   ): Promise<NodeContext> => {
     const rpcConfig = getRpcConfig();
     const aztecRpcServer = await createAztecRPCServer(node, rpcConfig, {}, true);
-    const keyPair = ConstantKeyPair.random(await Grumpkin.new());
-    const partialAddress = Fr.random();
-    const publicKey = keyPair.getPublicKey();
-    const address = computeContractAddressFromPartial(await CircuitsWasm.get(), publicKey, partialAddress);
-    const account = await aztecRpcServer.addAccount(await keyPair.getPrivateKey(), address, partialAddress);
 
-    const txs = await submitTxsTo(aztecRpcServer, account, numTxs, publicKey);
+    const keyPair = ConstantKeyPair.random(await Grumpkin.new());
+    const completeAddress = await CompleteAddress.fromPrivateKeyAndPartialAddress(
+      await keyPair.getPrivateKey(),
+      Fr.random(),
+    );
+    await aztecRpcServer.registerAccount(await keyPair.getPrivateKey(), completeAddress.partialAddress);
+
+    const txs = await submitTxsTo(aztecRpcServer, completeAddress.address, numTxs, completeAddress.publicKey);
     return {
       txs,
-      account,
+      account: completeAddress.address,
       rpcServer: aztecRpcServer,
       node,
     };

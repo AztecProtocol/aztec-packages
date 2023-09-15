@@ -4,7 +4,7 @@ Please use the [TUTORIAL-TEMPLATE](../../TUTORIAL_TEMPLATE.md) for standalone gu
 
 Explain how to write a dapp using [`aztec.js`](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/aztec.js). Maybe that readme is enough?
 
-- aztec.js 
+- aztec.js
   - Docs outlining every typescript type.
     - Q: can we use the tsdocs, or do we need something with a human touch (i.e. with careful explanations sandwiching the auto-generated interface data?)
   - Docs outlining every external function:
@@ -21,7 +21,7 @@ Explain how to write a dapp using [`aztec.js`](https://github.com/AztecProtocol/
     - Use the e2e tests as inspiration.
       - Instantiate a contract
       - Deploy a contract
-      - How to generate a nice typescript interface for a Noir Contract's functions (we have a little `.ts` program in `noir-contracts` to generate a types file at the moment... how would a user do this?)
+      - How to generate a nice typescript interface for an Aztec.nr contract's functions (we have a little `.ts` program in `noir-contracts` to generate a types file at the moment... how would a user do this?)
       - Call 'view' functions
       - Simulate functions (simulate the result, without sending to the 'network')
       - Execute functions (send them to the 'network')
@@ -32,9 +32,10 @@ Explain how to write a dapp using [`aztec.js`](https://github.com/AztecProtocol/
       - How to filter for historic data in the historic block tree?
       - How to query data from any of the trees (advanced)
 
-FOR INSTRUCTIONS FOR BUILDING A WALLET, WE SHOULD WRITE DOCS [HERE](../wallets/building_a_wallet.md)
+FOR INSTRUCTIONS FOR BUILDING A WALLET, WE SHOULD WRITE DOCS HERE
 
 ERRORS:
+
 - Add any error explanations to [errors.md](../contracts/common_errors.md) (and break that file into multiple files if it's too unwieldy).
 
 ## Testing a dapp

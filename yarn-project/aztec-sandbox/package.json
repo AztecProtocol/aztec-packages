@@ -1,8 +1,11 @@
 {
   "name": "@aztec/aztec-sandbox",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
-  "exports": "./dest/index.js",
+  "exports": {
+    ".": "./dest/index.js"
+  },
+  "bin": "./dest/bin/index.js",
   "typedocOptions": {
     "entryPoints": [
       "./src/index.ts"
@@ -11,13 +14,11 @@
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
-    "prepare": "node ../yarn-project-base/scripts/update_build_manifest.mjs package.json",
     "build": "yarn clean && tsc -b",
-    "start": "node ./dest",
+    "start": "node --no-warnings ./dest/bin",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T prettier -w ./src",
-    "prepare:check": "node ../yarn-project-base/scripts/update_build_manifest.mjs package.json --check",
     "build:dev": "tsc -b --watch",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --passWithNoTests",
     "run:example:token": "DEBUG='aztec:*' node ./dest/examples/private_token_contract.js",
@@ -39,7 +40,9 @@
     "abitype": "^0.8.11",
     "koa": "^2.14.2",
     "koa-router": "^12.0.0",
-    "viem": "^1.2.5"
+    "viem": "^1.2.5",
+    "winston": "^3.10.0",
+    "winston-daily-rotate-file": "^4.7.1"
   },
   "files": [
     "dest",
@@ -59,9 +62,9 @@
   "jest": {
     "preset": "ts-jest/presets/default-esm",
     "moduleNameMapper": {
-      "^(\\.{1,2}/.*)\\.js$": "$1"
+      "^(\\.{1,2}/.*)\\.m?js$": "$1"
     },
-    "testRegex": "./src/.*\\.test\\.ts$",
+    "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
     "rootDir": "./src"
   },
   "engines": {

@@ -36,11 +36,11 @@ export class HistoricBlockData {
     /**
      * Current public state tree hash.
      */
-    public readonly publicDataTreeRoot: Fr,
+    public publicDataTreeRoot: Fr,
     /**
      * Previous globals hash, this value is used to recalculate the block hash.
      */
-    public readonly globalVariablesHash: Fr,
+    public globalVariablesHash: Fr,
   ) {}
 
   static from(fields: FieldsOf<HistoricBlockData>) {
@@ -79,6 +79,23 @@ export class HistoricBlockData {
 
   toString() {
     return this.toBuffer().toString();
+  }
+
+  /**
+   * Return the historic block data as an array of items in the order they are serialised in noir.
+   * @returns Array of items in the order they are stored in the contract
+   */
+  toArray(): Fr[] {
+    return [
+      this.privateDataTreeRoot,
+      this.nullifierTreeRoot,
+      this.contractTreeRoot,
+      this.l1ToL2MessagesTreeRoot,
+      this.blocksTreeRoot, // Note private_kernel_vk_tree_root, is not included yet as
+      // it is not present in noir,
+      this.publicDataTreeRoot,
+      this.globalVariablesHash,
+    ];
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {

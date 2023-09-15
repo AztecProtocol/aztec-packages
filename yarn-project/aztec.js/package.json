@@ -1,9 +1,11 @@
 {
   "name": "@aztec/aztec.js",
+  "homepage": "https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/aztec.js",
   "version": "0.1.0",
   "type": "module",
   "exports": {
     "node": "./dest/index.js",
+    "import": "./dest/index.js",
     "default": "./dest/main.js"
   },
   "typedocOptions": {
@@ -14,8 +16,6 @@
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
-    "prepare": "node ../yarn-project-base/scripts/update_build_manifest.mjs package.json",
-    "prepare:check": "node ../yarn-project-base/scripts/update_build_manifest.mjs package.json --check",
     "build": "yarn clean && tsc -b && webpack",
     "build:web": "webpack",
     "build:dev": "tsc -b --watch",
@@ -31,9 +31,9 @@
   "jest": {
     "preset": "ts-jest/presets/default-esm",
     "moduleNameMapper": {
-      "^(\\.{1,2}/.*)\\.js$": "$1"
+      "^(\\.{1,2}/.*)\\.m?js$": "$1"
     },
-    "testRegex": "./src/.*\\.test\\.ts$",
+    "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
     "rootDir": "./src"
   },
   "dependencies": {
@@ -42,6 +42,7 @@
     "@aztec/types": "workspace:^",
     "lodash.every": "^4.6.0",
     "lodash.partition": "^4.6.0",
+    "lodash.zip": "^4.2.0",
     "tslib": "^2.4.0"
   },
   "devDependencies": {
@@ -50,6 +51,7 @@
     "@types/jest": "^29.5.0",
     "@types/lodash.every": "^4.6.7",
     "@types/lodash.partition": "^4.6.0",
+    "@types/lodash.zip": "^4.2.7",
     "@types/node": "^18.7.23",
     "buffer": "^6.0.3",
     "crypto-browserify": "^3.12.0",

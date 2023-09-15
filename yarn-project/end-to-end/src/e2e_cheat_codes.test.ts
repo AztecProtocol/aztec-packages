@@ -1,13 +1,12 @@
 import { AztecNodeService } from '@aztec/aztec-node';
-import { AztecAddress, AztecRPCServer, EthAddress, Fr } from '@aztec/aztec-rpc';
-import { Wallet } from '@aztec/aztec.js';
+import { AztecRPCServer, EthAddress } from '@aztec/aztec-rpc';
+import { CheatCodes, Wallet } from '@aztec/aztec.js';
 import { RollupAbi } from '@aztec/l1-artifacts';
-import { LendingContract } from '@aztec/noir-contracts/types';
-import { AztecRPC } from '@aztec/types';
+import { TestContract } from '@aztec/noir-contracts/types';
+import { AztecRPC, TxStatus } from '@aztec/types';
 
 import { Account, Chain, HttpTransport, PublicClient, WalletClient, getAddress, getContract, parseEther } from 'viem';
 
-import { CheatCodes } from './fixtures/cheat_codes.js';
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_cheat_codes', () => {
@@ -19,17 +18,14 @@ describe('e2e_cheat_codes', () => {
   let walletClient: WalletClient<HttpTransport, Chain, Account>;
   let publicClient: PublicClient<HttpTransport, Chain>;
   let rollupAddress: EthAddress;
-  let recipient: AztecAddress;
 
   beforeAll(async () => {
     let deployL1ContractsValues;
-    let accounts;
-    ({ aztecNode, aztecRpcServer, wallet, accounts, cheatCodes: cc, deployL1ContractsValues } = await setup());
+    ({ aztecNode, aztecRpcServer, wallet, cheatCodes: cc, deployL1ContractsValues } = await setup());
 
     walletClient = deployL1ContractsValues.walletClient;
     publicClient = deployL1ContractsValues.publicClient;
     rollupAddress = deployL1ContractsValues.rollupAddress;
-    recipient = accounts[0];
   }, 100_000);
 
   afterAll(async () => {
@@ -42,34 +38,42 @@ describe('e2e_cheat_codes', () => {
   describe('L1 only', () => {
     describe('mine', () => {
       it(`mine block`, async () => {
-        const blockNumber = await cc.l1.blockNumber();
-        await cc.l1.mine();
-        expect(await cc.l1.blockNumber()).toBe(blockNumber + 1);
+        const blockNumber = await cc.eth.blockNumber();
+        await cc.eth.mine();
+        expect(await cc.eth.blockNumber()).toBe(blockNumber + 1);
       });
 
       it.each([10, 42, 99])(`mine blocks`, async increment => {
-        const blockNumber = await cc.l1.blockNumber();
-        await cc.l1.mine(increment);
-        expect(await cc.l1.blockNumber()).toBe(blockNumber + increment);
+        const blockNumber = await cc.eth.blockNumber();
+        await cc.eth.mine(increment);
+        expect(await cc.eth.blockNumber()).toBe(blockNumber + increment);
       });
     });
 
     it.each([100, 42, 99])('setNextBlockTimestamp', async increment => {
-      const blockNumber = await cc.l1.blockNumber();
-      const timestamp = await cc.l1.timestamp();
-      await cc.l1.setNextBlockTimestamp(timestamp + increment);
+      const blockNumber = await cc.eth.blockNumber();
+      const timestamp = await cc.eth.timestamp();
+      await cc.eth.setNextBlockTimestamp(timestamp + increment);
 
-      expect(await cc.l1.timestamp()).toBe(timestamp);
+      expect(await cc.eth.timestamp()).toBe(timestamp);
 
-      await cc.l1.mine();
+      await cc.eth.mine();
 
-      expect(await cc.l1.blockNumber()).toBe(blockNumber + 1);
-      expect(await cc.l1.timestamp()).toBe(timestamp + increment);
+      expect(await cc.eth.blockNumber()).toBe(blockNumber + 1);
+      expect(await cc.eth.timestamp()).toBe(timestamp + increment);
+    });
+
+    it('setNextBlockTimestamp to a past timestamp throws', async () => {
+      const timestamp = await cc.eth.timestamp();
+      const pastTimestamp = timestamp - 1000;
+      await expect(async () => await cc.eth.setNextBlockTimestamp(pastTimestamp)).rejects.toThrow(
+        `Error setting next block timestamp: Timestamp error: ${pastTimestamp} is lower than or equal to previous block's timestamp`,
+      );
     });
 
     it('load a value at a particular storage slot', async () => {
       // check that storage slot 0 is empty as expected
-      const res = await cc.l1.load(EthAddress.ZERO, 0n);
+      const res = await cc.eth.load(EthAddress.ZERO, 0n);
       expect(res).toBe(0n);
     });
 
@@ -79,18 +83,18 @@ describe('e2e_cheat_codes', () => {
         const storageSlot = BigInt('0x' + storageSlotInHex);
         const valueToSet = 5n;
         const contractAddress = EthAddress.fromString('0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266');
-        await cc.l1.store(contractAddress, storageSlot, valueToSet);
-        expect(await cc.l1.load(contractAddress, storageSlot)).toBe(valueToSet);
+        await cc.eth.store(contractAddress, storageSlot, valueToSet);
+        expect(await cc.eth.load(contractAddress, storageSlot)).toBe(valueToSet);
         // also test with the keccak value of the slot - can be used to compute storage slots of maps
-        await cc.l1.store(contractAddress, cc.l1.keccak256(0n, storageSlot), valueToSet);
-        expect(await cc.l1.load(contractAddress, cc.l1.keccak256(0n, storageSlot))).toBe(valueToSet);
+        await cc.eth.store(contractAddress, cc.eth.keccak256(0n, storageSlot), valueToSet);
+        expect(await cc.eth.load(contractAddress, cc.eth.keccak256(0n, storageSlot))).toBe(valueToSet);
       },
     );
 
     it('set bytecode correctly', async () => {
       const contractAddress = EthAddress.fromString('0x70997970C51812dc3A010C7d01b50e0d17dc79C8');
-      await cc.l1.etch(contractAddress, '0x1234');
-      expect(await cc.l1.getBytecode(contractAddress)).toBe('0x1234');
+      await cc.eth.etch(contractAddress, '0x1234');
+      expect(await cc.eth.getBytecode(contractAddress)).toBe('0x1234');
     });
 
     it('impersonate', async () => {
@@ -106,7 +110,7 @@ describe('e2e_cheat_codes', () => {
       const beforeBalance = await publicClient.getBalance({ address: randomAddress });
 
       // impersonate random address
-      await cc.l1.startPrank(EthAddress.fromString(randomAddress));
+      await cc.eth.startImpersonating(EthAddress.fromString(randomAddress));
       // send funds from random address
       const amountToSend = parseEther('0.1');
       const txHash = await walletClient.sendTransaction({
@@ -119,7 +123,7 @@ describe('e2e_cheat_codes', () => {
       expect(await publicClient.getBalance({ address: randomAddress })).toBe(beforeBalance - amountToSend - feePaid);
 
       // stop impersonating
-      await cc.l1.stopPrank(EthAddress.fromString(randomAddress));
+      await cc.eth.stopImpersonating(EthAddress.fromString(randomAddress));
 
       // making calls from random address should not be successful
       try {
@@ -135,35 +139,41 @@ describe('e2e_cheat_codes', () => {
       }
     });
 
-    it('can modify L1 block time', async () => {
-      // deploy lending contract
-      const tx = LendingContract.deploy(aztecRpcServer).send();
+    it('can modify L2 block time', async () => {
+      const tx = TestContract.deploy(aztecRpcServer).send();
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
-      const contract = await LendingContract.create(receipt.contractAddress!, wallet);
+      const contract = await TestContract.at(receipt.contractAddress!, wallet);
 
       // now update time:
-      const timestamp = await cc.l1.timestamp();
+      const timestamp = await cc.eth.timestamp();
       const newTimestamp = timestamp + 100_000_000;
-      await cc.l2.warp(newTimestamp);
+      await cc.aztec.warp(newTimestamp);
 
       // ensure rollup contract is correctly updated
       const rollup = getContract({ address: getAddress(rollupAddress.toString()), abi: RollupAbi, publicClient });
       expect(Number(await rollup.read.lastBlockTs())).toEqual(newTimestamp);
+      expect(Number(await rollup.read.lastWarpedBlockTs())).toEqual(newTimestamp);
 
-      // initialize contract -> this updates `lastUpdatedTs` to the current timestamp of the rollup
-      // this should be the new timestamp
-      const txInit = contract.methods.init().send({ origin: recipient });
-      await txInit.isMined({ interval: 0.1 });
+      const txIsTimeEqual = contract.methods.isTimeEqual(newTimestamp).send();
+      const isTimeEqualReceipt = await txIsTimeEqual.wait({ interval: 0.1 });
+      expect(isTimeEqualReceipt.status).toBe(TxStatus.MINED);
 
-      // fetch last updated ts from L2 contract and expect it to me same as new timestamp
-      const lastUpdatedTs = Number(new Fr((await contract.methods.getTot(0).view())[0][1]).value);
-      expect(lastUpdatedTs).toEqual(newTimestamp);
-      // ensure anvil is correctly updated
-      expect(await cc.l1.timestamp()).toEqual(newTimestamp);
-      // ensure rollup contract is correctly updated
-      expect(Number(await rollup.read.lastBlockTs())).toEqual(newTimestamp);
-      expect;
+      // Since last rollup block was warped, txs for this rollup will have time incremented by 1
+      // See https://github.com/AztecProtocol/aztec-packages/issues/1614 for details
+      const txTimeNotEqual = contract.methods.isTimeEqual(newTimestamp + 1).send();
+      const isTimeNotEqualReceipt = await txTimeNotEqual.wait({ interval: 0.1 });
+      expect(isTimeNotEqualReceipt.status).toBe(TxStatus.MINED);
+      // block is published at t >= newTimestamp + 1.
+      expect(Number(await rollup.read.lastBlockTs())).toBeGreaterThanOrEqual(newTimestamp + 1);
     }, 50_000);
+
+    it('should throw if setting L2 block time to a past timestamp', async () => {
+      const timestamp = await cc.eth.timestamp();
+      const pastTimestamp = timestamp - 1000;
+      await expect(async () => await cc.aztec.warp(pastTimestamp)).rejects.toThrow(
+        `Error setting next block timestamp: Timestamp error: ${pastTimestamp} is lower than or equal to previous block's timestamp`,
+      );
+    });
   });
 });

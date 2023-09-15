@@ -1,0 +1,30 @@
+{
+  "extends": "..",
+  "compilerOptions": {
+    "outDir": "dest",
+    "rootDir": "src",
+    "tsBuildInfoFile": ".tsbuildinfo"
+  },
+  "references": [
+    {
+      "path": "../aztec.js"
+    },
+    {
+      "path": "../ethereum"
+    },
+    {
+      "path": "../foundation"
+    },
+    {
+      "path": "../noir-compiler"
+    },
+    {
+      "path": "../noir-contracts"
+    },
+    {
+      "path": "../types"
+    }
+  ],
+  "include": ["src"],
+  "exclude": ["contracts"]
+}

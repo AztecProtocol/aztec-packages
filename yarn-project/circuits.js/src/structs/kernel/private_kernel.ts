@@ -1,12 +1,14 @@
-import { EthAddress } from '@aztec/foundation/eth-address';
+import { Tuple } from '@aztec/foundation/serialize';
 
 import {
   CONTRACT_TREE_HEIGHT,
   FUNCTION_TREE_HEIGHT,
+  MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_READ_REQUESTS_PER_CALL,
+  MAX_READ_REQUESTS_PER_TX,
 } from '../../cbind/constants.gen.js';
-import { FieldsOf, assertMemberLength } from '../../utils/jsUtils.js';
+import { FieldsOf } from '../../utils/jsUtils.js';
 import { serializeToBuffer } from '../../utils/serialize.js';
 import { PrivateCallStackItem } from '../call_stack_item.js';
 import { Fr } from '../index.js';
@@ -30,7 +32,7 @@ export class PrivateCallData {
     /**
      * Other private call stack items to be processed.
      */
-    public privateCallStackPreimages: PrivateCallStackItem[],
+    public privateCallStackPreimages: Tuple<PrivateCallStackItem, typeof MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
     /**
      * The proof of the execution of this private call.
      */
@@ -51,19 +53,16 @@ export class PrivateCallData {
     /**
      * The membership witnesses for read requests created by the function being invoked.
      */
-    public readRequestMembershipWitnesses: ReadRequestMembershipWitness[],
+    public readRequestMembershipWitnesses: Tuple<ReadRequestMembershipWitness, typeof MAX_READ_REQUESTS_PER_CALL>,
     /**
      * The address of the portal contract corresponding to the contract on which the function is being invoked.
      */
-    public portalContractAddress: EthAddress,
+    public portalContractAddress: Fr,
     /**
      * The hash of the ACIR of the function being invoked.
      */
     public acirHash: Fr,
-  ) {
-    assertMemberLength(this, 'privateCallStackPreimages', MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL);
-    assertMemberLength(this, 'readRequestMembershipWitnesses', MAX_READ_REQUESTS_PER_CALL);
-  }
+  ) {}
 
   /**
    * Serialize into a field array. Low-level utility.
@@ -143,5 +142,33 @@ export class PrivateKernelInputsInner {
    */
   toBuffer() {
     return serializeToBuffer(this.previousKernel, this.privateCall);
+  }
+}
+
+/**
+ * Input to the private kernel circuit - Final ordering call.
+ */
+export class PrivateKernelInputsOrdering {
+  constructor(
+    /**
+     * The previous kernel data
+     */
+    public previousKernel: PreviousKernelData,
+    /**
+     * Contains hints for the transient read requests to localize corresponding commitments.
+     */
+    public readCommitmentHints: Tuple<Fr, typeof MAX_READ_REQUESTS_PER_TX>,
+    /**
+     * Contains hints for the transient nullifiers to localize corresponding commitments.
+     */
+    public nullifierCommitmentHints: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
+  ) {}
+
+  /**
+   * Serialize this as a buffer.
+   * @returns The buffer.
+   */
+  toBuffer() {
+    return serializeToBuffer(this.previousKernel, this.readCommitmentHints);
   }
 }

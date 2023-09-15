@@ -107,6 +107,15 @@ export class AztecAddress {
   }
 
   /**
+   * Returns this address from a Field element.
+   * @param field - The Field element to convert.
+   * @returns An Address Object from a Field element with the same value.
+   */
+  static fromField(field: Fr): AztecAddress {
+    return new AztecAddress(toBufferBE(field.value, AztecAddress.SIZE_IN_BYTES));
+  }
+
+  /**
    * Returns this address as a field element.
    * @returns A field element with the same value as the address.
    */
@@ -126,11 +135,11 @@ export class AztecAddress {
    * Determines if this AztecAddress instance is equal to the given AztecAddress instance.
    * Equality is based on the content of their respective buffers.
    *
-   * @param rhs - The AztecAddress instance to compare against.
+   * @param other - The AztecAddress instance to compare against.
    * @returns True if the buffers of both instances are equal, false otherwise.
    */
-  equals(rhs: AztecAddress) {
-    return this.buffer.equals(rhs.buffer);
+  equals(other: AztecAddress) {
+    return this.buffer.equals(other.buffer);
   }
 
   /**

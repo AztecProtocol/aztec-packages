@@ -1,4 +1,5 @@
 import { Fr } from '@aztec/foundation/fields';
+import { Tuple } from '@aztec/foundation/serialize';
 
 import {
   MAX_NEW_COMMITMENTS_PER_CALL,
@@ -10,9 +11,10 @@ import {
   NUM_FIELDS_PER_SHA256,
   RETURN_VALUES_LENGTH,
 } from '../cbind/constants.gen.js';
-import { FieldsOf, assertMemberLength } from '../utils/jsUtils.js';
+import { FieldsOf, makeTuple } from '../utils/jsUtils.js';
 import { serializeToBuffer } from '../utils/serialize.js';
 import { CallContext } from './call_context.js';
+import { HistoricBlockData } from './index.js';
 import { ContractDeploymentData } from './tx_context.js';
 
 /**
@@ -32,45 +34,45 @@ export class PrivateCircuitPublicInputs {
     /**
      * Return values of the corresponding function call.
      */
-    public returnValues: Fr[],
+    public returnValues: Tuple<Fr, typeof RETURN_VALUES_LENGTH>,
     /**
      * Read requests created by the corresponding function call.
      */
-    public readRequests: Fr[],
+    public readRequests: Tuple<Fr, typeof MAX_READ_REQUESTS_PER_CALL>,
     /**
      * New commitments created by the corresponding function call.
      */
-    public newCommitments: Fr[],
+    public newCommitments: Tuple<Fr, typeof MAX_NEW_COMMITMENTS_PER_CALL>,
     /**
      * New nullifiers created by the corresponding function call.
      */
-    public newNullifiers: Fr[],
+    public newNullifiers: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_CALL>,
     /**
      * The commitments those were nullified by the above newNullifiers.
      */
-    public nullifiedCommitments: Fr[],
+    public nullifiedCommitments: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_CALL>,
     /**
      * Private call stack at the current kernel iteration.
      */
-    public privateCallStack: Fr[],
+    public privateCallStack: Tuple<Fr, typeof MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
     /**
      * Public call stack at the current kernel iteration.
      */
-    public publicCallStack: Fr[],
+    public publicCallStack: Tuple<Fr, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
     /**
      * New L2 to L1 messages created by the corresponding function call.
      */
-    public newL2ToL1Msgs: Fr[],
+    public newL2ToL1Msgs: Tuple<Fr, typeof MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
     /**
      * Hash of the encrypted logs emitted in this function call.
      * Note: Represented as an array of 2 fields in order to fit in all of the 256 bits of sha256 hash.
      */
-    public encryptedLogsHash: Fr[],
+    public encryptedLogsHash: Tuple<Fr, typeof NUM_FIELDS_PER_SHA256>,
     /**
      * Hash of the unencrypted logs emitted in this function call.
      * Note: Represented as an array of 2 fields in order to fit in all of the 256 bits of sha256 hash.
      */
-    public unencryptedLogsHash: Fr[],
+    public unencryptedLogsHash: Tuple<Fr, typeof NUM_FIELDS_PER_SHA256>,
     /**
      * Length of the encrypted log preimages emitted in this function call.
      * Note: Here so that the gas cost of this request can be measured by circuits, without actually needing to feed
@@ -82,33 +84,9 @@ export class PrivateCircuitPublicInputs {
      */
     public unencryptedLogPreimagesLength: Fr,
     /**
-     * Root of the private data tree roots tree.
+     * Historic roots of the data trees, used to calculate the block hash the user is proving against.
      */
-    public historicPrivateDataTreeRoot: Fr,
-    /**
-     * Root of the nullifier tree roots tree.
-     */
-    public historicPrivateNullifierTreeRoot: Fr,
-    /**
-     * Root of the contract tree roots tree.
-     */
-    public historicContractTreeRoot: Fr,
-    /**
-     * Root of the L2 to L1 messages tree.
-     */
-    public historicL1ToL2MessagesTreeRoot: Fr,
-    /**
-     * Root of the Blocks roots tree.
-     */
-    public historicBlocksTreeRoot: Fr,
-    /**
-     * Previous blocks global variables hash.
-     */
-    public historicGlobalVariablesHash: Fr,
-    /**
-     * Root of the Public Data tree.
-     */
-    public historicPublicDataTreeRoot: Fr,
+    public historicBlockData: HistoricBlockData,
     /**
      * Deployment data of contracts being deployed in this kernel iteration.
      */
@@ -121,18 +99,7 @@ export class PrivateCircuitPublicInputs {
      * Version of the instance.
      */
     public version: Fr,
-  ) {
-    assertMemberLength(this, 'returnValues', RETURN_VALUES_LENGTH);
-    assertMemberLength(this, 'readRequests', MAX_READ_REQUESTS_PER_CALL);
-    assertMemberLength(this, 'newCommitments', MAX_NEW_COMMITMENTS_PER_CALL);
-    assertMemberLength(this, 'newNullifiers', MAX_NEW_NULLIFIERS_PER_CALL);
-    assertMemberLength(this, 'nullifiedCommitments', MAX_NEW_NULLIFIERS_PER_CALL);
-    assertMemberLength(this, 'privateCallStack', MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL);
-    assertMemberLength(this, 'publicCallStack', MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
-    assertMemberLength(this, 'newL2ToL1Msgs', MAX_NEW_L2_TO_L1_MSGS_PER_CALL);
-    assertMemberLength(this, 'encryptedLogsHash', NUM_FIELDS_PER_SHA256);
-    assertMemberLength(this, 'unencryptedLogsHash', NUM_FIELDS_PER_SHA256);
-  }
+  ) {}
   /**
    * Create PrivateCircuitPublicInputs from a fields dictionary.
    * @param fields - The dictionary.
@@ -147,32 +114,22 @@ export class PrivateCircuitPublicInputs {
    * @returns An empty PrivateCircuitPublicInputs object.
    */
   public static empty(): PrivateCircuitPublicInputs {
-    const frArray = (num: number) =>
-      Array(num)
-        .fill(0)
-        .map(() => Fr.ZERO);
     return new PrivateCircuitPublicInputs(
       CallContext.empty(),
       Fr.ZERO,
-      frArray(RETURN_VALUES_LENGTH),
-      frArray(MAX_READ_REQUESTS_PER_CALL),
-      frArray(MAX_NEW_COMMITMENTS_PER_CALL),
-      frArray(MAX_NEW_NULLIFIERS_PER_CALL),
-      frArray(MAX_NEW_NULLIFIERS_PER_CALL),
-      frArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL),
-      frArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL),
-      frArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL),
-      frArray(NUM_FIELDS_PER_SHA256),
-      frArray(NUM_FIELDS_PER_SHA256),
+      makeTuple(RETURN_VALUES_LENGTH, Fr.zero),
+      makeTuple(MAX_READ_REQUESTS_PER_CALL, Fr.zero),
+      makeTuple(MAX_NEW_COMMITMENTS_PER_CALL, Fr.zero),
+      makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, Fr.zero),
+      makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, Fr.zero),
+      makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, Fr.zero),
+      makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, Fr.zero),
+      makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, Fr.zero),
+      makeTuple(NUM_FIELDS_PER_SHA256, Fr.zero),
+      makeTuple(NUM_FIELDS_PER_SHA256, Fr.zero),
       Fr.ZERO,
       Fr.ZERO,
-      Fr.ZERO,
-      Fr.ZERO,
-      Fr.ZERO,
-      Fr.ZERO,
-      Fr.ZERO,
-      Fr.ZERO,
-      Fr.ZERO,
+      HistoricBlockData.empty(),
       ContractDeploymentData.empty(),
       Fr.ZERO,
       Fr.ZERO,
@@ -200,13 +157,7 @@ export class PrivateCircuitPublicInputs {
       fields.unencryptedLogsHash,
       fields.encryptedLogPreimagesLength,
       fields.unencryptedLogPreimagesLength,
-      fields.historicPrivateDataTreeRoot,
-      fields.historicPrivateNullifierTreeRoot,
-      fields.historicContractTreeRoot,
-      fields.historicL1ToL2MessagesTreeRoot,
-      fields.historicBlocksTreeRoot,
-      fields.historicGlobalVariablesHash,
-      fields.historicPublicDataTreeRoot,
+      fields.historicBlockData,
       fields.contractDeploymentData,
       fields.chainId,
       fields.version,

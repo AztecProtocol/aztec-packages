@@ -5,7 +5,7 @@
 #include "contract_storage_update_request.hpp"
 #include "../../constants.hpp"
 
-#include "aztec3/utils/msgpack_derived_output.hpp"
+#include "aztec3/circuits/abis/historic_block_data.hpp"
 #include "aztec3/utils/types/circuit_types.hpp"
 #include "aztec3/utils/types/native_types.hpp"
 
@@ -42,9 +42,9 @@ template <typename NCT> struct PublicCircuitPublicInputs {
     // variable-length data.
     fr unencrypted_log_preimages_length = 0;
 
-    fr historic_public_data_tree_root = 0;
+    HistoricBlockData<NCT> historic_block_data{};
 
-    address prover_address;
+    address prover_address{};
 
     // for serialization, update with new fields
     MSGPACK_FIELDS(call_context,
@@ -58,7 +58,7 @@ template <typename NCT> struct PublicCircuitPublicInputs {
                    new_l2_to_l1_msgs,
                    unencrypted_logs_hash,
                    unencrypted_log_preimages_length,
-                   historic_public_data_tree_root,
+                   historic_block_data,
                    prover_address);
 
     boolean operator==(PublicCircuitPublicInputs<NCT> const& other) const
@@ -91,7 +91,7 @@ template <typename NCT> struct PublicCircuitPublicInputs {
             .unencrypted_logs_hash = to_ct(unencrypted_logs_hash),
             .unencrypted_log_preimages_length = to_ct(unencrypted_log_preimages_length),
 
-            .historic_public_data_tree_root = to_ct(historic_public_data_tree_root),
+            .historic_block_data = to_ct(historic_block_data),
 
             .prover_address = to_ct(prover_address),
         };
@@ -121,7 +121,7 @@ template <typename NCT> struct PublicCircuitPublicInputs {
         spread_arr_into_vec(unencrypted_logs_hash, inputs);
         inputs.push_back(unencrypted_log_preimages_length);
 
-        inputs.push_back(historic_public_data_tree_root);
+        spread_arr_into_vec(historic_block_data.to_array(), inputs);
         inputs.push_back(prover_address);
 
         if (inputs.size() != PUBLIC_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH) {

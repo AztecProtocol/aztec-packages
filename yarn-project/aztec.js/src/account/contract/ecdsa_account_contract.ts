@@ -1,9 +1,8 @@
 import { Ecdsa } from '@aztec/circuits.js/barretenberg';
 import { ContractAbi } from '@aztec/foundation/abi';
-import { NodeInfo, PrivateKey } from '@aztec/types';
+import { CompleteAddress, NodeInfo } from '@aztec/types';
 
 import EcdsaAccountContractAbi from '../../abis/ecdsa_account_contract.json' assert { type: 'json' };
-import { CompleteAddress } from '../complete_address.js';
 import { StoredKeyAccountEntrypoint } from '../entrypoint/stored_key_account_entrypoint.js';
 import { AccountContract } from './index.js';
 
@@ -11,7 +10,7 @@ import { AccountContract } from './index.js';
  * Account contract that authenticates transactions using ECDSA signatures
  * verified against a secp256k1 public key stored in an immutable encrypted note.
  */ export class EcdsaAccountContract implements AccountContract {
-  constructor(private signingPrivateKey: PrivateKey) {}
+  constructor(private signingPrivateKey: Buffer) {}
 
   public async getDeploymentArgs() {
     const signingPublicKey = await Ecdsa.new().then(e => e.computePublicKey(this.signingPrivateKey));
@@ -19,10 +18,12 @@ import { AccountContract } from './index.js';
   }
 
   public async getEntrypoint({ address }: CompleteAddress, { chainId, version }: NodeInfo) {
-    return new StoredKeyAccountEntrypoint(address, this.signingPrivateKey, await Ecdsa.new(), chainId, version);
+    const ecdsa = await Ecdsa.new();
+    const signClosure = (msg: Buffer) => ecdsa.constructSignature(msg, this.signingPrivateKey);
+    return new StoredKeyAccountEntrypoint(address, signClosure, chainId, version);
   }
 
   public getContractAbi(): ContractAbi {
-    return EcdsaAccountContractAbi as ContractAbi;
+    return EcdsaAccountContractAbi as unknown as ContractAbi;
   }
 }

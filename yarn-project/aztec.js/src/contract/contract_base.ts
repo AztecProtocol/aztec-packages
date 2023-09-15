@@ -1,7 +1,6 @@
-import { ContractAbi, FunctionAbi, generateFunctionSelector } from '@aztec/foundation/abi';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { ContractAbi, FunctionAbi, FunctionSelector } from '@aztec/foundation/abi';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { DeployedContract } from '@aztec/types';
+import { CompleteAddress, DeployedContract } from '@aztec/types';
 
 import { Wallet } from '../aztec_rpc_client/wallet.js';
 import { ContractFunctionInteraction } from './contract_function_interaction.js';
@@ -14,13 +13,13 @@ export type ContractMethod = ((...args: any[]) => ContractFunctionInteraction) &
   /**
    * The unique identifier for a contract function in bytecode.
    */
-  readonly selector: Buffer;
+  readonly selector: FunctionSelector;
 };
 
 /**
  * Abstract implementation of a contract extended by the Contract class and generated contract types.
  */
-export abstract class ContractBase {
+export class ContractBase {
   /**
    * An object containing contract methods mapped to their respective names.
    */
@@ -28,9 +27,9 @@ export abstract class ContractBase {
 
   protected constructor(
     /**
-     * The deployed contract's address.
+     * The deployed contract's complete address.
      */
-    public readonly address: AztecAddress,
+    public readonly completeAddress: CompleteAddress,
     /**
      * The Application Binary Interface for the contract.
      */
@@ -42,7 +41,7 @@ export abstract class ContractBase {
   ) {
     abi.functions.forEach((f: FunctionAbi) => {
       const interactionFunction = (...args: any[]) => {
-        return new ContractFunctionInteraction(this.wallet, this.address!, f, args);
+        return new ContractFunctionInteraction(this.wallet, this.completeAddress.address!, f, args);
       };
 
       this.methods[f.name] = Object.assign(interactionFunction, {
@@ -51,10 +50,26 @@ export abstract class ContractBase {
          * @returns Selector of the function.
          */
         get selector() {
-          return generateFunctionSelector(f.name, f.parameters);
+          return FunctionSelector.fromNameAndParameters(f.name, f.parameters);
         },
       });
     });
+  }
+
+  /**
+   * Address of the contract.
+   */
+  public get address() {
+    return this.completeAddress.address;
+  }
+
+  /**
+   * Creates a new instance of the contract wrapper attached to a different wallet.
+   * @param wallet - Wallet to use for sending txs.
+   * @returns A new contract instance.
+   */
+  public withWallet(wallet: Wallet): this {
+    return new ContractBase(this.completeAddress, this.abi, wallet) as this;
   }
 
   /**
@@ -69,7 +84,7 @@ export abstract class ContractBase {
   public attach(portalContract: EthAddress, dependencies: DeployedContract[] = []) {
     const deployedContract: DeployedContract = {
       abi: this.abi,
-      address: this.address,
+      completeAddress: this.completeAddress,
       portalContract,
     };
     return this.wallet.addContracts([deployedContract, ...dependencies]);

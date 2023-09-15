@@ -1,163 +1,278 @@
 import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecRPCServer } from '@aztec/aztec-rpc';
-import { AztecAddress, Fr, Wallet } from '@aztec/aztec.js';
-import { CircuitsWasm } from '@aztec/circuits.js';
-import { pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
+import {
+  Account,
+  AuthWitnessAccountContract,
+  AuthWitnessEntrypointWallet,
+  CheatCodes,
+  Fr,
+  IAuthWitnessAccountEntrypoint,
+  SentTx,
+  computeMessageSecretHash,
+} from '@aztec/aztec.js';
+import { CircuitsWasm, CompleteAddress, FunctionSelector, GeneratorIndex, GrumpkinScalar } from '@aztec/circuits.js';
+import { pedersenPlookupCompressWithHashIndex } from '@aztec/circuits.js/barretenberg';
 import { DebugLogger } from '@aztec/foundation/log';
-import { LendingContract } from '@aztec/noir-contracts/types';
+import {
+  LendingContract,
+  PriceFeedContract,
+  SchnorrAuthWitnessAccountContract,
+  TokenContract,
+} from '@aztec/noir-contracts/types';
 import { AztecRPC, TxStatus } from '@aztec/types';
 
+import { jest } from '@jest/globals';
+
 import { setup } from './fixtures/utils.js';
+import { LendingAccount, LendingSimulator, TokenSimulator } from './simulators/index.js';
 
 describe('e2e_lending_contract', () => {
+  jest.setTimeout(100_000);
   let aztecNode: AztecNodeService | undefined;
   let aztecRpcServer: AztecRPC;
-  let wallet: Wallet;
-  let accounts: AztecAddress[];
+  let wallet: AuthWitnessEntrypointWallet;
+  let accounts: CompleteAddress[];
   let logger: DebugLogger;
 
-  let contract: LendingContract;
+  let cc: CheatCodes;
+  const TIME_JUMP = 100;
 
-  const deployContract = async () => {
-    logger(`Deploying L2 public contract...`);
-    const tx = LendingContract.deploy(aztecRpcServer).send();
+  let lendingContract: LendingContract;
+  let priceFeedContract: PriceFeedContract;
+  let collateralAsset: TokenContract;
+  let stableCoin: TokenContract;
 
-    logger(`Tx sent with hash ${await tx.getTxHash()}`);
-    const receipt = await tx.getReceipt();
-    await tx.isMined({ interval: 0.1 });
-    const txReceipt = await tx.getReceipt();
-    logger(`L2 contract deployed at ${receipt.contractAddress}`);
-    contract = await LendingContract.create(receipt.contractAddress!, wallet);
-    return { contract, tx, txReceipt };
+  let lendingAccount: LendingAccount;
+  let lendingSim: LendingSimulator;
+
+  const waitForSuccess = async (tx: SentTx) => {
+    const receipt = await tx.wait();
+    expect(receipt.status).toBe(TxStatus.MINED);
+    return receipt;
   };
 
-  beforeEach(async () => {
-    ({ aztecNode, aztecRpcServer, wallet, accounts, logger } = await setup());
-  }, 100_000);
+  const deployContracts = async () => {
+    let lendingContract: LendingContract;
+    let priceFeedContract: PriceFeedContract;
 
-  afterEach(async () => {
+    let collateralAsset: TokenContract;
+    let stableCoin: TokenContract;
+
+    {
+      logger(`Deploying price feed contract...`);
+      const receipt = await waitForSuccess(PriceFeedContract.deploy(wallet).send());
+      logger(`Price feed deployed to ${receipt.contractAddress}`);
+      priceFeedContract = await PriceFeedContract.at(receipt.contractAddress!, wallet);
+    }
+
+    {
+      logger(`Deploying collateral asset feed contract...`);
+      const receipt = await waitForSuccess(TokenContract.deploy(wallet).send());
+      logger(`Collateral asset deployed to ${receipt.contractAddress}`);
+      collateralAsset = await TokenContract.at(receipt.contractAddress!, wallet);
+    }
+
+    {
+      logger(`Deploying stable coin contract...`);
+      const receipt = await waitForSuccess(TokenContract.deploy(wallet).send());
+      logger(`Stable coin asset deployed to ${receipt.contractAddress}`);
+      stableCoin = await TokenContract.at(receipt.contractAddress!, wallet);
+    }
+
+    {
+      logger(`Deploying L2 public contract...`);
+      const receipt = await waitForSuccess(LendingContract.deploy(wallet).send());
+      logger(`CDP deployed at ${receipt.contractAddress}`);
+      lendingContract = await LendingContract.at(receipt.contractAddress!, wallet);
+    }
+
+    await waitForSuccess(collateralAsset.methods._initialize(accounts[0]).send());
+    await waitForSuccess(collateralAsset.methods.set_minter({ address: lendingContract.address }, true).send());
+    await waitForSuccess(stableCoin.methods._initialize(accounts[0]).send());
+    await waitForSuccess(stableCoin.methods.set_minter({ address: lendingContract.address }, true).send());
+
+    return { priceFeedContract, lendingContract, collateralAsset, stableCoin };
+  };
+
+  beforeAll(async () => {
+    ({ aztecNode, aztecRpcServer, logger, cheatCodes: cc } = await setup(0));
+
+    const privateKey = GrumpkinScalar.random();
+    const account = new Account(aztecRpcServer, privateKey, new AuthWitnessAccountContract(privateKey));
+    const deployTx = await account.deploy();
+    await deployTx.wait({ interval: 0.1 });
+    wallet = new AuthWitnessEntrypointWallet(
+      aztecRpcServer,
+      (await account.getEntrypoint()) as unknown as IAuthWitnessAccountEntrypoint,
+      await account.getCompleteAddress(),
+    );
+    accounts = await wallet.getAccounts();
+
+    ({ lendingContract, priceFeedContract, collateralAsset, stableCoin } = await deployContracts());
+    lendingAccount = new LendingAccount(accounts[0].address, new Fr(42));
+
+    // Also specified in `noir-contracts/src/contracts/lending_contract/src/main.nr`
+    const rate = 1268391679n;
+    lendingSim = new LendingSimulator(
+      cc,
+      lendingAccount,
+      rate,
+      lendingContract,
+      new TokenSimulator(collateralAsset, logger, [lendingContract.address, ...accounts.map(a => a.address)]),
+      new TokenSimulator(stableCoin, logger, [lendingContract.address, ...accounts.map(a => a.address)]),
+    );
+  }, 200_000);
+
+  afterAll(async () => {
     await aztecNode?.stop();
     if (aztecRpcServer instanceof AztecRPCServer) {
       await aztecRpcServer?.stop();
     }
   });
 
-  // Fetch a storage snapshot from the contract that we can use to compare between transitions.
-  const getStorageSnapshot = async (contract: LendingContract, aztecNode: AztecRPC, account: Account) => {
-    const storageValues: { [key: string]: Fr } = {};
-    const accountKey = await account.key();
+  afterEach(async () => {
+    await lendingSim.check();
+  });
 
-    const tot = await contract.methods.getTot(0).view();
-    const privatePos = await contract.methods.getPosition(accountKey).view();
-    const publicPos = await contract.methods.getPosition(account.address.toField()).view();
-
-    storageValues['interest_accumulator'] = new Fr(tot['interest_accumulator']);
-    storageValues['last_updated_ts'] = new Fr(tot['last_updated_ts']);
-    storageValues['private_collateral'] = new Fr(privatePos['collateral']);
-    storageValues['private_debt'] = new Fr(privatePos['static_debt']);
-    storageValues['public_collateral'] = new Fr(publicPos['collateral']);
-    storageValues['public_debt'] = new Fr(publicPos['static_debt']);
-
-    return storageValues;
+  const hashPayload = async (payload: Fr[]) => {
+    return pedersenPlookupCompressWithHashIndex(
+      await CircuitsWasm.get(),
+      payload.map(fr => fr.toBuffer()),
+      GeneratorIndex.SIGNATURE_PAYLOAD,
+    );
   };
 
-  // Convenience struct to hold an account's address and secret that can easily be passed around.
-  // Contains utilities to compute the "key" for private holdings in the public state.
-  class Account {
-    public readonly address: AztecAddress;
-    public readonly secret: Fr;
-
-    constructor(address: AztecAddress, secret: Fr) {
-      this.address = address;
-      this.secret = secret;
-    }
-
-    public async key(): Promise<Fr> {
-      return Fr.fromBuffer(
-        pedersenPlookupCommitInputs(
-          await CircuitsWasm.get(),
-          [this.address, this.secret].map(f => f.toBuffer()),
-        ),
-      );
-    }
-  }
-
-  it('Full lending run-through', async () => {
-    const recipientIdx = 0;
-
-    const recipient = accounts[recipientIdx];
-    const { contract: deployedContract } = await deployContract();
-
-    const account = new Account(recipient, new Fr(42));
-
-    const storageSnapshots: { [key: string]: { [key: string]: Fr } } = {};
+  it('Mint assets for later usage', async () => {
+    await waitForSuccess(priceFeedContract.methods.set_price(0n, 2n * 10n ** 9n).send());
 
     {
-      // Initialize the contract values, setting the interest accumulator to 1e9 and the last updated timestamp to now.
-      logger('Initializing contract');
-      const tx = deployedContract.methods.init().send({ origin: recipient });
-      await tx.isMined({ interval: 0.1 });
-      const receipt = await tx.getReceipt();
-      expect(receipt.status).toBe(TxStatus.MINED);
-      storageSnapshots['initial'] = await getStorageSnapshot(deployedContract, aztecRpcServer, account);
+      const assets = [collateralAsset, stableCoin];
+      const mintAmount = 10000n;
+      for (const asset of assets) {
+        const secret = Fr.random();
+        const secretHash = await computeMessageSecretHash(secret);
 
-      expect(storageSnapshots['initial']['interest_accumulator']).toEqual(new Fr(1000000000n));
-      expect(storageSnapshots['initial']['last_updated_ts'].value).toBeGreaterThan(0n);
+        const a = asset.methods.mint_public({ address: lendingAccount.address }, mintAmount).send();
+        const b = asset.methods.mint_private(mintAmount, secretHash).send();
+
+        await Promise.all([a, b].map(waitForSuccess));
+        await waitForSuccess(
+          asset.methods.redeem_shield({ address: lendingAccount.address }, mintAmount, secret).send(),
+        );
+      }
     }
 
-    {
+    lendingSim.mintStableCoinOutsideLoan(lendingAccount.address, 10000n, true);
+    lendingSim.stableCoin.redeemShield(lendingAccount.address, 10000n);
+    lendingSim.mintStableCoinOutsideLoan(lendingAccount.address, 10000n, false);
+
+    lendingSim.collateralAsset.mintPrivate(10000n);
+    lendingSim.collateralAsset.redeemShield(lendingAccount.address, 10000n);
+    lendingSim.collateralAsset.mintPublic(lendingAccount.address, 10000n);
+  });
+
+  it('Initialize the contract', async () => {
+    await lendingSim.prepare();
+    logger('Initializing contract');
+    await waitForSuccess(
+      lendingContract.methods.init(priceFeedContract.address, 8000, collateralAsset.address, stableCoin.address).send(),
+    );
+  });
+
+  describe('Deposits', () => {
+    it('Depositing 🥸 : 💰 -> 🏦', async () => {
+      const depositAmount = 420n;
+      const nonce = Fr.random();
+      const messageHash = await hashPayload([
+        lendingContract.address.toField(),
+        collateralAsset.address.toField(),
+        FunctionSelector.fromSignature('unshield((Field),(Field),Field,Field)').toField(),
+        lendingAccount.address.toField(),
+        lendingContract.address.toField(),
+        new Fr(depositAmount),
+        nonce,
+      ]);
+      await wallet.signAndAddAuthWitness(messageHash);
+      await lendingSim.progressTime(TIME_JUMP);
+      lendingSim.depositPrivate(lendingAccount.address, await lendingAccount.key(), depositAmount);
+
       // Make a private deposit of funds into own account.
       // This should:
       // - increase the interest accumulator
       // - increase last updated timestamp.
       // - increase the private collateral.
       logger('Depositing 🥸 : 💰 -> 🏦');
-      const tx = deployedContract.methods.deposit_private(account.secret, 0n, 420n).send({ origin: recipient });
-      await tx.isMined({ interval: 0.1 });
-      const receipt = await tx.getReceipt();
-      expect(receipt.status).toBe(TxStatus.MINED);
-      storageSnapshots['private_deposit'] = await getStorageSnapshot(deployedContract, aztecRpcServer, account);
-
-      // @todo The accumulator should not increase when there are no debt. But we don't have reads/writes enough right now to handle that.
-      expect(storageSnapshots['private_deposit']['interest_accumulator'].value).toBeGreaterThan(
-        storageSnapshots['initial']['interest_accumulator'].value,
+      await waitForSuccess(
+        lendingContract.methods
+          .deposit_private(
+            lendingAccount.address,
+            depositAmount,
+            nonce,
+            lendingAccount.secret,
+            0n,
+            collateralAsset.address,
+          )
+          .send(),
       );
-      expect(storageSnapshots['private_deposit']['last_updated_ts'].value).toBeGreaterThan(
-        storageSnapshots['initial']['last_updated_ts'].value,
-      );
-      expect(storageSnapshots['private_deposit']['private_collateral']).toEqual(new Fr(420n));
-    }
+    });
 
-    {
+    it('Depositing 🥸 on behalf of recipient: 💰 -> 🏦', async () => {
+      const depositAmount = 421n;
+      const nonce = Fr.random();
+      const messageHash = await hashPayload([
+        lendingContract.address.toField(),
+        collateralAsset.address.toField(),
+        FunctionSelector.fromSignature('unshield((Field),(Field),Field,Field)').toField(),
+        lendingAccount.address.toField(),
+        lendingContract.address.toField(),
+        new Fr(depositAmount),
+        nonce,
+      ]);
+      await wallet.signAndAddAuthWitness(messageHash);
+
+      await lendingSim.progressTime(TIME_JUMP);
+      lendingSim.depositPrivate(lendingAccount.address, lendingAccount.address.toField(), depositAmount);
       // Make a private deposit of funds into another account, in this case, a public account.
       // This should:
       // - increase the interest accumulator
       // - increase last updated timestamp.
       // - increase the public collateral.
       logger('Depositing 🥸 on behalf of recipient: 💰 -> 🏦');
-      const tx = deployedContract.methods.deposit_private(0n, recipient.toField(), 420n).send({ origin: recipient });
-      await tx.isMined({ interval: 0.1 });
-      const receipt = await tx.getReceipt();
-      expect(receipt.status).toBe(TxStatus.MINED);
-      storageSnapshots['private_deposit_on_behalf'] = await getStorageSnapshot(
-        deployedContract,
-        aztecRpcServer,
-        account,
+      await waitForSuccess(
+        lendingContract.methods
+          .deposit_private(
+            lendingAccount.address,
+            depositAmount,
+            nonce,
+            0n,
+            lendingAccount.address,
+            collateralAsset.address,
+          )
+          .send(),
       );
+    });
 
-      expect(storageSnapshots['private_deposit_on_behalf']['interest_accumulator'].value).toBeGreaterThan(
-        storageSnapshots['private_deposit']['interest_accumulator'].value,
-      );
-      expect(storageSnapshots['private_deposit_on_behalf']['last_updated_ts'].value).toBeGreaterThan(
-        storageSnapshots['private_deposit']['last_updated_ts'].value,
-      );
-      expect(storageSnapshots['private_deposit_on_behalf']['private_collateral']).toEqual(
-        storageSnapshots['private_deposit']['private_collateral'],
-      );
-      expect(storageSnapshots['private_deposit_on_behalf']['public_collateral']).toEqual(new Fr(420n));
-    }
+    it('Depositing: 💰 -> 🏦', async () => {
+      const depositAmount = 211n;
 
-    {
+      const nonce = Fr.random();
+      const messageHash = await hashPayload([
+        lendingContract.address.toField(),
+        collateralAsset.address.toField(),
+        FunctionSelector.fromSignature('transfer_public((Field),(Field),Field,Field)').toField(),
+        lendingAccount.address.toField(),
+        lendingContract.address.toField(),
+        new Fr(depositAmount),
+        nonce,
+      ]);
+
+      // Add it to the wallet as approved
+      const me = await SchnorrAuthWitnessAccountContract.at(accounts[0].address, wallet);
+      await waitForSuccess(me.methods.set_is_valid_storage(messageHash, 1).send());
+
+      await lendingSim.progressTime(TIME_JUMP);
+      lendingSim.depositPublic(lendingAccount.address, lendingAccount.address.toField(), depositAmount);
+
       // Make a public deposit of funds into self.
       // This should:
       // - increase the interest accumulator
@@ -165,27 +280,32 @@ describe('e2e_lending_contract', () => {
       // - increase the public collateral.
 
       logger('Depositing: 💰 -> 🏦');
-      const tx = deployedContract.methods.deposit_public(account.address, 211n).send({ origin: recipient });
-      await tx.isMined({ interval: 0.1 });
-      const receipt = await tx.getReceipt();
-      expect(receipt.status).toBe(TxStatus.MINED);
-      storageSnapshots['public_deposit'] = await getStorageSnapshot(deployedContract, aztecRpcServer, account);
+      await waitForSuccess(
+        lendingContract.methods
+          .deposit_public(depositAmount, nonce, lendingAccount.address, collateralAsset.address)
+          .send(),
+      );
+    });
+    describe('failure cases', () => {
+      it('calling internal _deposit function directly', async () => {
+        // Try to call the internal `_deposit` function directly
+        // This should:
+        // - not change any storage values.
+        // - fail
 
-      expect(storageSnapshots['public_deposit']['interest_accumulator'].value).toBeGreaterThan(
-        storageSnapshots['private_deposit_on_behalf']['interest_accumulator'].value,
-      );
-      expect(storageSnapshots['public_deposit']['last_updated_ts'].value).toBeGreaterThan(
-        storageSnapshots['private_deposit_on_behalf']['last_updated_ts'].value,
-      );
-      expect(storageSnapshots['public_deposit']['private_collateral']).toEqual(
-        storageSnapshots['private_deposit_on_behalf']['private_collateral'],
-      );
-      expect(storageSnapshots['public_deposit']['public_collateral']).toEqual(
-        new Fr(storageSnapshots['private_deposit_on_behalf']['public_collateral'].value + 211n),
-      );
-    }
+        await expect(
+          lendingContract.methods._deposit(lendingAccount.address.toField(), 42n, collateralAsset.address).simulate(),
+        ).rejects.toThrow();
+      });
+    });
+  });
 
-    {
+  describe('Borrow', () => {
+    it('Borrow 🥸 : 🏦 -> 🍌', async () => {
+      const borrowAmount = 69n;
+      await lendingSim.progressTime(TIME_JUMP);
+      lendingSim.borrow(await lendingAccount.key(), lendingAccount.address, borrowAmount);
+
       // Make a private borrow using the private account
       // This should:
       // - increase the interest accumulator
@@ -193,28 +313,16 @@ describe('e2e_lending_contract', () => {
       // - increase the private debt.
 
       logger('Borrow 🥸 : 🏦 -> 🍌');
-      const tx = deployedContract.methods.borrow_private(account.secret, 69n).send({ origin: recipient });
-      await tx.isMined({ interval: 0.1 });
-      const receipt = await tx.getReceipt();
-      expect(receipt.status).toBe(TxStatus.MINED);
-      storageSnapshots['private_borrow'] = await getStorageSnapshot(deployedContract, aztecRpcServer, account);
+      await waitForSuccess(
+        lendingContract.methods.borrow_private(lendingAccount.secret, lendingAccount.address, borrowAmount).send(),
+      );
+    });
 
-      expect(storageSnapshots['private_borrow']['interest_accumulator'].value).toBeGreaterThan(
-        storageSnapshots['public_deposit']['interest_accumulator'].value,
-      );
-      expect(storageSnapshots['private_borrow']['last_updated_ts'].value).toBeGreaterThan(
-        storageSnapshots['public_deposit']['last_updated_ts'].value,
-      );
-      expect(storageSnapshots['private_borrow']['private_collateral']).toEqual(
-        storageSnapshots['public_deposit']['private_collateral'],
-      );
-      expect(storageSnapshots['private_borrow']['public_collateral']).toEqual(
-        storageSnapshots['public_deposit']['public_collateral'],
-      );
-      expect(storageSnapshots['private_borrow']['private_debt']).toEqual(new Fr(69n));
-    }
+    it('Borrow: 🏦 -> 🍌', async () => {
+      const borrowAmount = 69n;
+      await lendingSim.progressTime(TIME_JUMP);
+      lendingSim.borrow(lendingAccount.address.toField(), lendingAccount.address, borrowAmount);
 
-    {
       // Make a public borrow using the private account
       // This should:
       // - increase the interest accumulator
@@ -222,31 +330,27 @@ describe('e2e_lending_contract', () => {
       // - increase the public debt.
 
       logger('Borrow: 🏦 -> 🍌');
-      const tx = deployedContract.methods.borrow_public(69n).send({ origin: recipient });
-      await tx.isMined({ interval: 0.1 });
-      const receipt = await tx.getReceipt();
-      expect(receipt.status).toBe(TxStatus.MINED);
-      storageSnapshots['public_borrow'] = await getStorageSnapshot(deployedContract, aztecRpcServer, account);
+      await waitForSuccess(lendingContract.methods.borrow_public(lendingAccount.address, borrowAmount).send());
+    });
+  });
 
-      expect(storageSnapshots['public_borrow']['interest_accumulator'].value).toBeGreaterThan(
-        storageSnapshots['private_borrow']['interest_accumulator'].value,
-      );
-      expect(storageSnapshots['public_borrow']['last_updated_ts'].value).toBeGreaterThan(
-        storageSnapshots['private_borrow']['last_updated_ts'].value,
-      );
-      expect(storageSnapshots['public_borrow']['private_collateral']).toEqual(
-        storageSnapshots['private_borrow']['private_collateral'],
-      );
-      expect(storageSnapshots['public_borrow']['public_collateral']).toEqual(
-        storageSnapshots['private_borrow']['public_collateral'],
-      );
-      expect(storageSnapshots['public_borrow']['private_debt']).toEqual(
-        storageSnapshots['private_borrow']['private_debt'],
-      );
-      expect(storageSnapshots['public_borrow']['public_debt']).toEqual(new Fr(69n));
-    }
+  describe('Repay', () => {
+    it('Repay 🥸 : 🍌 -> 🏦', async () => {
+      const repayAmount = 20n;
+      const nonce = Fr.random();
+      const messageHash = await hashPayload([
+        lendingContract.address.toField(),
+        stableCoin.address.toField(),
+        FunctionSelector.fromSignature('burn((Field),Field,Field)').toField(),
+        lendingAccount.address.toField(),
+        new Fr(repayAmount),
+        nonce,
+      ]);
+      await wallet.signAndAddAuthWitness(messageHash);
 
-    {
+      await lendingSim.progressTime(TIME_JUMP);
+      lendingSim.repayPrivate(lendingAccount.address, await lendingAccount.key(), repayAmount);
+
       // Make a private repay of the debt in the private account
       // This should:
       // - increase the interest accumulator
@@ -254,33 +358,29 @@ describe('e2e_lending_contract', () => {
       // - decrease the private debt.
 
       logger('Repay 🥸 : 🍌 -> 🏦');
-      const tx = deployedContract.methods.repay_private(account.secret, 0n, 20n).send({ origin: recipient });
-      await tx.isMined({ interval: 0.1 });
-      const receipt = await tx.getReceipt();
-      expect(receipt.status).toBe(TxStatus.MINED);
-      storageSnapshots['private_repay'] = await getStorageSnapshot(deployedContract, aztecRpcServer, account);
+      await waitForSuccess(
+        lendingContract.methods
+          .repay_private(lendingAccount.address, repayAmount, nonce, lendingAccount.secret, 0n, stableCoin.address)
+          .send(),
+      );
+    });
 
-      expect(storageSnapshots['private_repay']['interest_accumulator'].value).toBeGreaterThan(
-        storageSnapshots['public_borrow']['interest_accumulator'].value,
-      );
-      expect(storageSnapshots['private_repay']['last_updated_ts'].value).toBeGreaterThan(
-        storageSnapshots['public_borrow']['last_updated_ts'].value,
-      );
-      expect(storageSnapshots['private_repay']['private_collateral']).toEqual(
-        storageSnapshots['public_borrow']['private_collateral'],
-      );
-      expect(storageSnapshots['private_repay']['public_collateral']).toEqual(
-        storageSnapshots['public_borrow']['public_collateral'],
-      );
-      expect(storageSnapshots['private_repay']['private_debt'].value).toEqual(
-        storageSnapshots['public_borrow']['private_debt'].value - 20n,
-      );
-      expect(storageSnapshots['private_repay']['public_debt']).toEqual(
-        storageSnapshots['public_borrow']['public_debt'],
-      );
-    }
+    it('Repay 🥸  on behalf of public: 🍌 -> 🏦', async () => {
+      const repayAmount = 21n;
+      const nonce = Fr.random();
+      const messageHash = await hashPayload([
+        lendingContract.address.toField(),
+        stableCoin.address.toField(),
+        FunctionSelector.fromSignature('burn((Field),Field,Field)').toField(),
+        lendingAccount.address.toField(),
+        new Fr(repayAmount),
+        nonce,
+      ]);
+      await wallet.signAndAddAuthWitness(messageHash);
 
-    {
+      await lendingSim.progressTime(TIME_JUMP);
+      lendingSim.repayPrivate(lendingAccount.address, lendingAccount.address.toField(), repayAmount);
+
       // Make a private repay of the debt in the public account
       // This should:
       // - increase the interest accumulator
@@ -288,33 +388,33 @@ describe('e2e_lending_contract', () => {
       // - decrease the public debt.
 
       logger('Repay 🥸  on behalf of public: 🍌 -> 🏦');
-      const tx = deployedContract.methods.repay_private(0n, recipient.toField(), 20n).send({ origin: recipient });
-      await tx.isMined({ interval: 0.1 });
-      const receipt = await tx.getReceipt();
-      expect(receipt.status).toBe(TxStatus.MINED);
-      storageSnapshots['private_repay_on_behalf'] = await getStorageSnapshot(deployedContract, aztecRpcServer, account);
+      await waitForSuccess(
+        lendingContract.methods
+          .repay_private(lendingAccount.address, repayAmount, nonce, 0n, lendingAccount.address, stableCoin.address)
+          .send(),
+      );
+    });
 
-      expect(storageSnapshots['private_repay_on_behalf']['interest_accumulator'].value).toBeGreaterThan(
-        storageSnapshots['private_repay']['interest_accumulator'].value,
-      );
-      expect(storageSnapshots['private_repay_on_behalf']['last_updated_ts'].value).toBeGreaterThan(
-        storageSnapshots['private_repay']['last_updated_ts'].value,
-      );
-      expect(storageSnapshots['private_repay_on_behalf']['private_collateral']).toEqual(
-        storageSnapshots['private_repay']['private_collateral'],
-      );
-      expect(storageSnapshots['private_repay_on_behalf']['public_collateral']).toEqual(
-        storageSnapshots['private_repay']['public_collateral'],
-      );
-      expect(storageSnapshots['private_repay_on_behalf']['private_debt']).toEqual(
-        storageSnapshots['private_repay']['private_debt'],
-      );
-      expect(storageSnapshots['private_repay_on_behalf']['public_debt'].value).toEqual(
-        storageSnapshots['private_repay']['public_debt'].value - 20n,
-      );
-    }
+    it('Repay: 🍌 -> 🏦', async () => {
+      const repayAmount = 20n;
 
-    {
+      const nonce = Fr.random();
+      const messageHash = await hashPayload([
+        lendingContract.address.toField(),
+        stableCoin.address.toField(),
+        FunctionSelector.fromSignature('burn_public((Field),Field,Field)').toField(),
+        lendingAccount.address.toField(),
+        new Fr(repayAmount),
+        nonce,
+      ]);
+
+      // Add it to the wallet as approved
+      const me = await SchnorrAuthWitnessAccountContract.at(accounts[0].address, wallet);
+      await waitForSuccess(me.methods.set_is_valid_storage(messageHash, 1).send());
+
+      await lendingSim.progressTime(TIME_JUMP);
+      lendingSim.repayPublic(lendingAccount.address, lendingAccount.address.toField(), repayAmount);
+
       // Make a public repay of the debt in the public account
       // This should:
       // - increase the interest accumulator
@@ -322,33 +422,18 @@ describe('e2e_lending_contract', () => {
       // - decrease the public debt.
 
       logger('Repay: 🍌 -> 🏦');
-      const tx = deployedContract.methods.repay_public(recipient.toField(), 20n).send({ origin: recipient });
-      await tx.isMined({ interval: 0.1 });
-      const receipt = await tx.getReceipt();
-      expect(receipt.status).toBe(TxStatus.MINED);
-      storageSnapshots['public_repay'] = await getStorageSnapshot(deployedContract, aztecRpcServer, account);
+      await waitForSuccess(
+        lendingContract.methods.repay_public(repayAmount, nonce, lendingAccount.address, stableCoin.address).send(),
+      );
+    });
+  });
 
-      expect(storageSnapshots['public_repay']['interest_accumulator'].value).toBeGreaterThan(
-        storageSnapshots['private_repay_on_behalf']['interest_accumulator'].value,
-      );
-      expect(storageSnapshots['public_repay']['last_updated_ts'].value).toBeGreaterThan(
-        storageSnapshots['private_repay_on_behalf']['last_updated_ts'].value,
-      );
-      expect(storageSnapshots['public_repay']['private_collateral']).toEqual(
-        storageSnapshots['private_repay_on_behalf']['private_collateral'],
-      );
-      expect(storageSnapshots['public_repay']['public_collateral']).toEqual(
-        storageSnapshots['private_repay_on_behalf']['public_collateral'],
-      );
-      expect(storageSnapshots['public_repay']['private_debt']).toEqual(
-        storageSnapshots['private_repay_on_behalf']['private_debt'],
-      );
-      expect(storageSnapshots['public_repay']['public_debt'].value).toEqual(
-        storageSnapshots['private_repay_on_behalf']['public_debt'].value - 20n,
-      );
-    }
+  describe('Withdraw', () => {
+    it('Withdraw: 🏦 -> 💰', async () => {
+      const withdrawAmount = 42n;
+      await lendingSim.progressTime(TIME_JUMP);
+      lendingSim.withdraw(lendingAccount.address.toField(), lendingAccount.address, withdrawAmount);
 
-    {
       // Withdraw funds from the public account
       // This should:
       // - increase the interest accumulator
@@ -356,33 +441,14 @@ describe('e2e_lending_contract', () => {
       // - decrease the public collateral.
 
       logger('Withdraw: 🏦 -> 💰');
-      const tx = deployedContract.methods.withdraw_public(42n).send({ origin: recipient });
-      await tx.isMined({ interval: 0.1 });
-      const receipt = await tx.getReceipt();
-      expect(receipt.status).toBe(TxStatus.MINED);
-      storageSnapshots['public_withdraw'] = await getStorageSnapshot(deployedContract, aztecRpcServer, account);
+      await waitForSuccess(lendingContract.methods.withdraw_public(lendingAccount.address, withdrawAmount).send());
+    });
 
-      expect(storageSnapshots['public_withdraw']['interest_accumulator'].value).toBeGreaterThan(
-        storageSnapshots['public_repay']['interest_accumulator'].value,
-      );
-      expect(storageSnapshots['public_withdraw']['last_updated_ts'].value).toBeGreaterThan(
-        storageSnapshots['public_repay']['last_updated_ts'].value,
-      );
-      expect(storageSnapshots['public_withdraw']['private_collateral']).toEqual(
-        storageSnapshots['public_repay']['private_collateral'],
-      );
-      expect(storageSnapshots['public_withdraw']['public_collateral'].value).toEqual(
-        storageSnapshots['public_repay']['public_collateral'].value - 42n,
-      );
-      expect(storageSnapshots['public_withdraw']['private_debt']).toEqual(
-        storageSnapshots['public_repay']['private_debt'],
-      );
-      expect(storageSnapshots['public_withdraw']['public_debt']).toEqual(
-        storageSnapshots['public_repay']['public_debt'],
-      );
-    }
+    it('Withdraw 🥸 : 🏦 -> 💰', async () => {
+      const withdrawAmount = 42n;
+      await lendingSim.progressTime(TIME_JUMP);
+      lendingSim.withdraw(await lendingAccount.key(), lendingAccount.address, withdrawAmount);
 
-    {
       // Withdraw funds from the private account
       // This should:
       // - increase the interest accumulator
@@ -390,49 +456,19 @@ describe('e2e_lending_contract', () => {
       // - decrease the private collateral.
 
       logger('Withdraw 🥸 : 🏦 -> 💰');
-      const tx = deployedContract.methods.withdraw_private(account.secret, 42n).send({ origin: recipient });
-      await tx.isMined({ interval: 0.1 });
-      const receipt = await tx.getReceipt();
-      expect(receipt.status).toBe(TxStatus.MINED);
-      storageSnapshots['private_withdraw'] = await getStorageSnapshot(deployedContract, aztecRpcServer, account);
+      await waitForSuccess(
+        lendingContract.methods.withdraw_private(lendingAccount.secret, lendingAccount.address, withdrawAmount).send(),
+      );
+    });
 
-      expect(storageSnapshots['private_withdraw']['interest_accumulator'].value).toBeGreaterThan(
-        storageSnapshots['public_withdraw']['interest_accumulator'].value,
-      );
-      expect(storageSnapshots['private_withdraw']['last_updated_ts'].value).toBeGreaterThan(
-        storageSnapshots['public_withdraw']['last_updated_ts'].value,
-      );
-      expect(storageSnapshots['private_withdraw']['private_collateral'].value).toEqual(
-        storageSnapshots['public_withdraw']['private_collateral'].value - 42n,
-      );
-      expect(storageSnapshots['private_withdraw']['public_collateral']).toEqual(
-        storageSnapshots['public_withdraw']['public_collateral'],
-      );
-      expect(storageSnapshots['private_withdraw']['private_debt']).toEqual(
-        storageSnapshots['public_withdraw']['private_debt'],
-      );
-      expect(storageSnapshots['private_withdraw']['public_debt']).toEqual(
-        storageSnapshots['public_withdraw']['public_debt'],
-      );
-    }
-
-    {
-      // Try to call the internal `_deposit` function directly
-      // This should:
-      // - not change any storage values.
-      // - fail
-
-      const tx = deployedContract.methods._deposit(recipient.toField(), 42n).send({ origin: recipient });
-      await tx.isMined({ interval: 0.1 });
-      const receipt = await tx.getReceipt();
-      expect(receipt.status).toBe(TxStatus.DROPPED);
-      logger('Rejected call directly to internal function 🧚 ');
-      storageSnapshots['attempted_internal_deposit'] = await getStorageSnapshot(
-        deployedContract,
-        aztecRpcServer,
-        account,
-      );
-      expect(storageSnapshots['private_withdraw']).toEqual(storageSnapshots['attempted_internal_deposit']);
-    }
-  }, 450_000);
+    describe('failure cases', () => {
+      it('withdraw more than possible to revert', async () => {
+        // Withdraw more than possible to test the revert.
+        logger('Withdraw: trying to withdraw more than possible');
+        await expect(
+          lendingContract.methods.withdraw_public(lendingAccount.address, 10n ** 9n).simulate(),
+        ).rejects.toThrow();
+      });
+    });
+  });
 });

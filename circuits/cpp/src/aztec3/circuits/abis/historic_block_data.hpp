@@ -9,6 +9,8 @@
 
 #include <barretenberg/barretenberg.hpp>
 
+#include <array>
+
 namespace aztec3::circuits::abis {
 
 using aztec3::utils::types::CircuitTypes;
@@ -52,6 +54,20 @@ template <typename NCT> struct HistoricBlockData {
                global_variables_hash == other.global_variables_hash;
     };
 
+    template <typename Builder> void assert_is_zero()
+    {
+        static_assert((std::is_same<CircuitTypes<Builder>, NCT>::value));
+
+        private_data_tree_root.assert_is_zero();
+        nullifier_tree_root.assert_is_zero();
+        contract_tree_root.assert_is_zero();
+        l1_to_l2_messages_tree_root.assert_is_zero();
+        blocks_tree_root.assert_is_zero();
+        private_kernel_vk_tree_root.assert_is_zero();
+        public_data_tree_root.assert_is_zero();
+        global_variables_hash.assert_is_zero();
+    }
+
     template <typename Builder> HistoricBlockData<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const
     {
         static_assert((std::is_same<NativeTypes, NCT>::value));
@@ -94,6 +110,18 @@ template <typename NCT> struct HistoricBlockData {
         private_kernel_vk_tree_root.set_public();
         public_data_tree_root.set_public();
         global_variables_hash.set_public();
+    }
+
+    std::array<fr, 7> to_array() const
+    {
+        return { private_data_tree_root,
+                 nullifier_tree_root,
+                 contract_tree_root,
+                 l1_to_l2_messages_tree_root,
+                 blocks_tree_root,  // Note private_kernel_vk_tree_root, is not included yet as
+                                    // it is not present in noir,
+                 public_data_tree_root,
+                 global_variables_hash };
     }
 
 

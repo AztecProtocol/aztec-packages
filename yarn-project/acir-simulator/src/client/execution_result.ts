@@ -16,28 +16,6 @@ export interface NewNoteData {
 }
 
 /**
- * The contents of a nullified commitment.
- */
-export interface NewNullifierData {
-  /** The preimage of the nullified commitment. */
-  preimage: Fr[];
-  /** The storage slot of the nullified commitment. */
-  storageSlot: Fr;
-  /** The nullifier. */
-  nullifier: Fr;
-}
-
-/**
- * The preimages of the executed function.
- */
-export interface ExecutionPreimages {
-  /** The preimages of the new notes. */
-  newNotes: NewNoteData[];
-  /** The preimages of the nullified commitments. */
-  nullifiedNotes: NewNullifierData[];
-}
-
-/**
  * The result of executing a private function.
  */
 export interface ExecutionResult {
@@ -53,9 +31,9 @@ export interface ExecutionResult {
   callStackItem: PrivateCallStackItem;
   /** The partially filled-in read request membership witnesses for commitments being read. */
   readRequestPartialWitnesses: ReadRequestMembershipWitness[];
-  // Needed for the user
-  /** The preimages of the executed function. */
-  preimages: ExecutionPreimages;
+  // Needed when we enable chained txs. The new notes can be cached and used in a later transaction.
+  /** The notes created in the executed function. */
+  newNotes: NewNoteData[];
   /** The decoded return values of the executed function. */
   returnValues: DecodedReturn;
   /** The nested executions. */
@@ -100,9 +78,10 @@ export function collectUnencryptedLogs(execResult: ExecutionResult): FunctionL2L
  * @returns All enqueued public function calls.
  */
 export function collectEnqueuedPublicFunctionCalls(execResult: ExecutionResult): PublicCallRequest[] {
-  // without the .reverse(), the logs will be in a queue like fashion which is wrong as the kernel processes it like a stack.
+  // without the reverse sort, the logs will be in a queue like fashion which is wrong
+  // as the kernel processes it like a stack, popping items off and pushing them to output
   return [
     ...execResult.enqueuedPublicFunctionCalls,
-    ...[...execResult.nestedExecutions].reverse().flatMap(collectEnqueuedPublicFunctionCalls),
-  ];
+    ...[...execResult.nestedExecutions].flatMap(collectEnqueuedPublicFunctionCalls),
+  ].sort((a, b) => b.sideEffectCounter! - a.sideEffectCounter!); // REVERSE SORT!
 }

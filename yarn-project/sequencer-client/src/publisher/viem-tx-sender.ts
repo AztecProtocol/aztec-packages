@@ -1,7 +1,7 @@
 import { createEthereumChain } from '@aztec/ethereum';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { ContractDeploymentEmitterAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { ContractDataAndBytecode } from '@aztec/types';
+import { BLOB_SIZE_IN_BYTES, ExtendedContractData } from '@aztec/types';
 
 import {
   GetContractReturnType,
@@ -49,7 +49,7 @@ export class ViemTxSender implements L1PublisherTxSender {
       contractDeploymentEmitterContract: contractDeploymentEmitterContractAddress,
     } = config;
     const chain = createEthereumChain(rpcUrl, apiKey);
-    this.account = privateKeyToAccount(`0x${publisherPrivateKey.toString()}`);
+    this.account = privateKeyToAccount(publisherPrivateKey);
     const walletClient = createWalletClient({
       account: this.account,
       chain: chain.chainInfo,
@@ -120,23 +120,29 @@ export class ViemTxSender implements L1PublisherTxSender {
    * Sends a tx to the contract deployment emitter contract with contract deployment data such as bytecode. Returns once the tx has been mined.
    * @param l2BlockNum - Number of the L2 block that owns this encrypted logs.
    * @param l2BlockHash - The hash of the block corresponding to this data.
-   * @param newContractDataAndBytecode - Data to publish.
+   * @param newExtendedContractData - Data to publish.
    * @returns The hash of the mined tx.
    */
   async sendEmitContractDeploymentTx(
     l2BlockNum: number,
     l2BlockHash: Buffer,
-    newContractDataAndBytecode: ContractDataAndBytecode[],
+    newExtendedContractData: ExtendedContractData[],
   ): Promise<(string | undefined)[]> {
     const hashes: string[] = [];
-    for (const contractDataAndBytecode of newContractDataAndBytecode) {
+    for (const extendedContractData of newExtendedContractData) {
       const args = [
         BigInt(l2BlockNum),
-        contractDataAndBytecode.contractData.contractAddress.toString() as Hex,
-        contractDataAndBytecode.contractData.portalContractAddress.toString() as Hex,
+        extendedContractData.contractData.contractAddress.toString() as Hex,
+        extendedContractData.contractData.portalContractAddress.toString() as Hex,
         `0x${l2BlockHash.toString('hex')}`,
-        `0x${contractDataAndBytecode.bytecode.toString('hex')}`,
+        extendedContractData.partialAddress.toString(true),
+        extendedContractData.publicKey.x.toString(true),
+        extendedContractData.publicKey.y.toString(true),
+        `0x${extendedContractData.bytecode.toString('hex')}`,
       ] as const;
+
+      const codeSize = extendedContractData.bytecode.length;
+      this.log(`Bytecode is ${codeSize} bytes and require ${codeSize / BLOB_SIZE_IN_BYTES} blobs`);
 
       const gas = await this.contractDeploymentEmitterContract.estimateGas.emitContractDeployment(args, {
         account: this.account,

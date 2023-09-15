@@ -1,0 +1,32 @@
+name: release-please
+
+# Trigger on merges to 'master' branch
+on:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    name: Create Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run Release Please
+        id: release
+        uses: google-github-actions/release-please-action@v3
+        with:
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          command: manifest
+
+      - name: Dispatch to publish workflow
+        uses: benc-uk/workflow-dispatch@v1
+        if: ${{ steps.release.outputs.tag_name }}
+        with:
+          workflow: publish-bb.yml
+          ref: master
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          inputs: '{ "tag": "${{ steps.release.outputs.tag_name }}", "publish": true }'

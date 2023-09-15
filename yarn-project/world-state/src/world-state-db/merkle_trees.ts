@@ -1,16 +1,17 @@
 import {
-  BaseRollupInputs,
   CONTRACT_TREE_HEIGHT,
   CircuitsWasm,
   Fr,
   GlobalVariables,
   HISTORIC_BLOCKS_TREE_HEIGHT,
   L1_TO_L2_MSG_TREE_HEIGHT,
+  NULLIFIER_SUBTREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
   PRIVATE_DATA_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
-import { computeBlockHashWithGlobals } from '@aztec/circuits.js/abis';
+import { computeBlockHash } from '@aztec/circuits.js/abis';
+import { Committable } from '@aztec/foundation/committable';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { IWasmModule } from '@aztec/foundation/wasm';
@@ -24,6 +25,7 @@ import {
   StandardIndexedTree,
   StandardTree,
   UpdateOnlyTree,
+  loadTree,
   newTree,
 } from '@aztec/merkle-tree';
 import { L2Block, MerkleTreeId, SiblingPath, merkleTreeIds } from '@aztec/types';
@@ -31,6 +33,7 @@ import { L2Block, MerkleTreeId, SiblingPath, merkleTreeIds } from '@aztec/types'
 import { default as levelup } from 'levelup';
 
 import { MerkleTreeOperationsFacade } from '../merkle-tree/merkle_tree_operations_facade.js';
+import { computeGlobalVariablesHash } from '../utils.js';
 import {
   CurrentTreeRoots,
   INITIAL_NULLIFIER_TREE_SIZE,
@@ -42,29 +45,46 @@ import {
 } from './index.js';
 
 /**
+ * Data necessary to reinitialise the merkle trees from Db.
+ */
+interface FromDbOptions {
+  /**
+   * The global variables from the last block.
+   */
+  globalVariables: GlobalVariables;
+}
+
+/**
  * A convenience class for managing multiple merkle trees.
  */
 export class MerkleTrees implements MerkleTreeDb {
   private trees: (AppendOnlyTree | UpdateOnlyTree)[] = [];
+  private latestGlobalVariablesHash: Committable<Fr>;
   private jobQueue = new SerialQueue();
 
-  constructor(private db: levelup.LevelUp, private log = createDebugLogger('aztec:merkle_trees')) {}
+  constructor(private db: levelup.LevelUp, private log = createDebugLogger('aztec:merkle_trees')) {
+    this.latestGlobalVariablesHash = new Committable(Fr.zero());
+  }
 
   /**
    * Initialises the collection of Merkle Trees.
    * @param optionalWasm - WASM instance to use for hashing (if not provided PrimitivesWasm will be used).
+   * @param fromDbOptions - Options to initialise the trees from the database.
    */
-  public async init(optionalWasm?: IWasmModule) {
+  public async init(optionalWasm?: IWasmModule, fromDbOptions?: FromDbOptions) {
+    const fromDb = fromDbOptions !== undefined;
+    const initialiseTree = fromDb ? loadTree : newTree;
+
     const wasm = optionalWasm ?? (await CircuitsWasm.get());
     const hasher = new Pedersen(wasm);
-    const contractTree: AppendOnlyTree = await newTree(
+    const contractTree: AppendOnlyTree = await initialiseTree(
       StandardTree,
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.CONTRACT_TREE]}`,
       CONTRACT_TREE_HEIGHT,
     );
-    const nullifierTree = await newTree(
+    const nullifierTree = await initialiseTree(
       StandardIndexedTree,
       this.db,
       hasher,
@@ -72,28 +92,28 @@ export class MerkleTrees implements MerkleTreeDb {
       NULLIFIER_TREE_HEIGHT,
       INITIAL_NULLIFIER_TREE_SIZE,
     );
-    const privateDataTree: AppendOnlyTree = await newTree(
+    const privateDataTree: AppendOnlyTree = await initialiseTree(
       StandardTree,
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.PRIVATE_DATA_TREE]}`,
       PRIVATE_DATA_TREE_HEIGHT,
     );
-    const publicDataTree: UpdateOnlyTree = await newTree(
+    const publicDataTree: UpdateOnlyTree = await initialiseTree(
       SparseTree,
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.PUBLIC_DATA_TREE]}`,
       PUBLIC_DATA_TREE_HEIGHT,
     );
-    const l1Tol2MessagesTree: AppendOnlyTree = await newTree(
+    const l1Tol2MessagesTree: AppendOnlyTree = await initialiseTree(
       StandardTree,
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.L1_TO_L2_MESSAGES_TREE]}`,
       L1_TO_L2_MSG_TREE_HEIGHT,
     );
-    const historicBlocksTree: AppendOnlyTree = await newTree(
+    const historicBlocksTree: AppendOnlyTree = await initialiseTree(
       StandardTree,
       this.db,
       hasher,
@@ -105,8 +125,14 @@ export class MerkleTrees implements MerkleTreeDb {
     this.jobQueue.start();
 
     // The first leaf in the blocks tree contains the empty roots of the other trees and empty global variables.
-    await this.updateHistoricBlocksTree(GlobalVariables.empty(), true);
-    await historicBlocksTree.commit();
+    if (!fromDb) {
+      const initialGlobalVariablesHash = await computeGlobalVariablesHash(GlobalVariables.empty());
+      await this._updateLatestGlobalVariablesHash(initialGlobalVariablesHash);
+      await this._updateHistoricBlocksTree(initialGlobalVariablesHash, true);
+      await this._commit();
+    } else {
+      await this._updateLatestGlobalVariablesHash(await computeGlobalVariablesHash(fromDbOptions.globalVariables));
+    }
   }
 
   /**
@@ -147,12 +173,27 @@ export class MerkleTrees implements MerkleTreeDb {
   /**
    * Inserts into the roots trees (CONTRACT_TREE_ROOTS_TREE, PRIVATE_DATA_TREE_ROOTS_TREE, L1_TO_L2_MESSAGES_TREE_ROOTS_TREE)
    * the current roots of the corresponding trees (CONTRACT_TREE, PRIVATE_DATA_TREE, L1_TO_L2_MESSAGES_TREE).
-   * @param globals - The global variables to use for hashing.
+   * @param globalsHash - The current global variables hash.
    * @param includeUncommitted - Indicates whether to include uncommitted data.
    */
-  public async updateHistoricBlocksTree(globals: GlobalVariables, includeUncommitted: boolean) {
-    const blockHash = await this.getCurrentBlockHash(globals, includeUncommitted);
-    await this.appendLeaves(MerkleTreeId.BLOCKS_TREE, [blockHash.toBuffer()]);
+  public async updateHistoricBlocksTree(globalsHash: Fr, includeUncommitted: boolean) {
+    await this.synchronise(() => this._updateHistoricBlocksTree(globalsHash, includeUncommitted));
+  }
+
+  /**
+   * Updates the latest global variables hash
+   * @param globalVariablesHash - The latest global variables hash
+   */
+  public async updateLatestGlobalVariablesHash(globalVariablesHash: Fr) {
+    return await this.synchronise(() => this._updateLatestGlobalVariablesHash(globalVariablesHash));
+  }
+
+  /**
+   * Gets the global variables hash from the previous block
+   * @param includeUncommitted - Indicates whether to include uncommitted data.
+   */
+  public async getLatestGlobalVariablesHash(includeUncommitted: boolean): Promise<Fr> {
+    return await this.synchronise(() => this._getGlobalVariablesHash(includeUncommitted));
   }
 
   /**
@@ -170,8 +211,8 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param includeUncommitted - Indicates whether to include uncommitted data.
    * @returns The current roots of the trees.
    */
-  public getTreeRoots(includeUncommitted: boolean): CurrentTreeRoots {
-    const roots = this.getAllTreeRoots(includeUncommitted);
+  public async getTreeRoots(includeUncommitted: boolean): Promise<CurrentTreeRoots> {
+    const roots = await this.synchronise(() => Promise.resolve(this._getAllTreeRoots(includeUncommitted)));
 
     return {
       privateDataTreeRoot: roots[0],
@@ -183,14 +224,14 @@ export class MerkleTrees implements MerkleTreeDb {
     };
   }
 
-  async getCurrentBlockHash(globals: GlobalVariables, includeUncommitted: boolean): Promise<Fr> {
-    const roots = this.getAllTreeRoots(includeUncommitted).map(root => Fr.fromBuffer(root));
+  private async _getCurrentBlockHash(globalsHash: Fr, includeUncommitted: boolean): Promise<Fr> {
+    const roots = (await this._getAllTreeRoots(includeUncommitted)).map(root => Fr.fromBuffer(root));
     const wasm = await CircuitsWasm.get();
-    return computeBlockHashWithGlobals(wasm, globals, roots[0], roots[1], roots[2], roots[3], roots[4]);
+    return computeBlockHash(wasm, globalsHash, roots[0], roots[1], roots[2], roots[3], roots[4]);
   }
 
-  getAllTreeRoots(includeUncommitted: boolean): Buffer[] {
-    return [
+  private _getAllTreeRoots(includeUncommitted: boolean): Promise<Buffer[]> {
+    const roots = [
       MerkleTreeId.PRIVATE_DATA_TREE,
       MerkleTreeId.NULLIFIER_TREE,
       MerkleTreeId.CONTRACT_TREE,
@@ -198,6 +239,8 @@ export class MerkleTrees implements MerkleTreeDb {
       MerkleTreeId.PUBLIC_DATA_TREE,
       MerkleTreeId.BLOCKS_TREE,
     ].map(tree => this.trees[tree].getRoot(includeUncommitted));
+
+    return Promise.resolve(roots);
   }
 
   /**
@@ -377,6 +420,20 @@ export class MerkleTrees implements MerkleTreeDb {
     return await this.jobQueue.put(fn);
   }
 
+  private _updateLatestGlobalVariablesHash(globalVariablesHash: Fr): Promise<void> {
+    this.latestGlobalVariablesHash.set(globalVariablesHash);
+    return Promise.resolve();
+  }
+
+  private _getGlobalVariablesHash(includeUncommitted: boolean): Promise<Fr> {
+    return Promise.resolve(this.latestGlobalVariablesHash.get(includeUncommitted));
+  }
+
+  private async _updateHistoricBlocksTree(globalsHash: Fr, includeUncommitted: boolean) {
+    const blockHash = await this._getCurrentBlockHash(globalsHash, includeUncommitted);
+    await this._appendLeaves(MerkleTreeId.BLOCKS_TREE, [blockHash.toBuffer()]);
+  }
+
   /**
    * Returns the tree info for the specified tree id.
    * @param treeId - Id of the tree to get information from.
@@ -451,6 +508,7 @@ export class MerkleTrees implements MerkleTreeDb {
     for (const tree of this.trees) {
       await tree.commit();
     }
+    this.latestGlobalVariablesHash.commit();
   }
 
   /**
@@ -461,6 +519,7 @@ export class MerkleTrees implements MerkleTreeDb {
     for (const tree of this.trees) {
       await tree.rollback();
     }
+    this.latestGlobalVariablesHash.rollback();
   }
 
   /**
@@ -477,7 +536,7 @@ export class MerkleTrees implements MerkleTreeDb {
       compareRoot(l2Block.endNullifierTreeSnapshot.root, MerkleTreeId.NULLIFIER_TREE),
       compareRoot(l2Block.endPrivateDataTreeSnapshot.root, MerkleTreeId.PRIVATE_DATA_TREE),
       compareRoot(l2Block.endPublicDataTreeRoot, MerkleTreeId.PUBLIC_DATA_TREE),
-      compareRoot(l2Block.endL1ToL2MessageTreeSnapshot.root, MerkleTreeId.L1_TO_L2_MESSAGES_TREE),
+      compareRoot(l2Block.endL1ToL2MessagesTreeSnapshot.root, MerkleTreeId.L1_TO_L2_MESSAGES_TREE),
       compareRoot(l2Block.endHistoricBlocksTreeSnapshot.root, MerkleTreeId.BLOCKS_TREE),
     ];
     const ourBlock = rootChecks.every(x => x);
@@ -503,7 +562,7 @@ export class MerkleTrees implements MerkleTreeDb {
       // Sync the indexed trees
       await (this.trees[MerkleTreeId.NULLIFIER_TREE] as StandardIndexedTree).batchInsert(
         l2Block.newNullifiers.map(fr => fr.toBuffer()),
-        BaseRollupInputs.NULLIFIER_SUBTREE_HEIGHT,
+        NULLIFIER_SUBTREE_HEIGHT,
       );
 
       // Sync the public data tree
@@ -514,7 +573,11 @@ export class MerkleTrees implements MerkleTreeDb {
       }
 
       // Sync and add the block to the historic blocks tree
-      const blockHash = await this.getCurrentBlockHash(l2Block.globalVariables, true);
+      const globalVariablesHash = await computeGlobalVariablesHash(l2Block.globalVariables);
+      await this._updateLatestGlobalVariablesHash(globalVariablesHash);
+      this.log(`Synced global variables with hash ${this.latestGlobalVariablesHash.toString()}`);
+
+      const blockHash = await this._getCurrentBlockHash(globalVariablesHash, true);
       await this._appendLeaves(MerkleTreeId.BLOCKS_TREE, [blockHash.toBuffer()]);
 
       await this._commit();

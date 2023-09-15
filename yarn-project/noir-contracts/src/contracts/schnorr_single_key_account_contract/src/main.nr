@@ -5,37 +5,30 @@ contract SchnorrSingleKeyAccount {
     use dep::std;
     use dep::aztec::entrypoint;
     use dep::aztec::entrypoint::EntrypointPayload;
-    use dep::aztec::abi;
-    use dep::aztec::abi::PrivateContextInputs;
     use dep::aztec::abi::CallContext;
     use dep::aztec::private_call_stack_item::PrivateCallStackItem;
     use dep::aztec::public_call_stack_item::PublicCallStackItem;
-    use dep::aztec::context::Context;
     use dep::aztec::types::vec::BoundedVec;
     use dep::aztec::types::point::Point;
     use dep::aztec::constants_gen::GENERATOR_INDEX__CONTRACT_ADDRESS;
     use dep::aztec::constants_gen::GENERATOR_INDEX__SIGNATURE_PAYLOAD;
 
+    #[aztec(private)]
     fn entrypoint(
-        inputs: pub PrivateContextInputs,
         payload: pub EntrypointPayload, // contains a set of arguments, selectors, targets and a nonce
         owner: pub [u8;64], // pubkey x and y coordinates concatenated
         signature: pub [u8;64], // schnorr signature of the payload hash
         partial_address: pub Field,
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        // Initialize context
-        // ENTRYPOINT_PAYLOAD_SIZE(13) + 64 + 64 + 1
-        let mut args: BoundedVec<Field, 142> = BoundedVec::new(0);
-        args.push_array(payload.serialize());
-        for byte in owner { args.push(byte as Field); }
-        for byte in signature { args.push(byte as Field); }
-        args.push(partial_address);
-        let mut context = Context::new(inputs, abi::hash_args(args.storage));
-
+    ) {
         // Verify payload signature
         let payload_fields: [Field; entrypoint::ENTRYPOINT_PAYLOAD_SIZE] = payload.serialize();
         let message_field: Field = std::hash::pedersen_with_separator(payload_fields, GENERATOR_INDEX__SIGNATURE_PAYLOAD)[0];
-        let message_bytes = message_field.to_be_bytes(32);
+        // TODO workaround for https://github.com/noir-lang/noir/issues/2421
+        let message_bytes_slice = message_field.to_be_bytes(32);
+        let mut message_bytes: [u8; 32] = [0; 32];
+        for i in 0..32 {
+          message_bytes[i] = message_bytes_slice[i];
+        }
 
         // Convert owner pubkey into fields
         let mut x: Field = 0;
@@ -50,25 +43,18 @@ contract SchnorrSingleKeyAccount {
         }
         
         // Verify signature of the payload hash
-        // TODO: Find out why this signature verification never fails
         let verification = std::schnorr::verify_signature(x, y, signature, message_bytes);
         assert(verification == true);
 
         // Verify public key against address
         let reproduced_address = dep::std::hash::pedersen_with_separator([x, y, partial_address], GENERATOR_INDEX__CONTRACT_ADDRESS)[0];
-        assert(reproduced_address == inputs.call_context.storage_contract_address);
+        assert(reproduced_address == context.this_address());
 
         // Execute calls
         payload.execute_calls(&mut context);
-
-        context.finish()
     }
 
     // Constructs the contract
-    fn constructor(
-        inputs: pub PrivateContextInputs,
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
-        Context::new(inputs, 0).finish()
-    }
+    #[aztec(private)]
+    fn constructor() {}
 }

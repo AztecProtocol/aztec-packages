@@ -1,10 +1,9 @@
-import { HistoricBlockData, PartialAddress } from '@aztec/circuits.js';
+import { CompleteAddress, HistoricBlockData } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { ContractDatabase, MerkleTreeId, PublicKey, TxHash } from '@aztec/types';
+import { ContractDatabase, MerkleTreeId, PublicKey } from '@aztec/types';
 
 import { NoteSpendingInfoDao } from './note_spending_info_dao.js';
-import { TxDao } from './tx_dao.js';
 
 /**
  * A database interface that provides methods for retrieving, adding, and removing transactional data related to Aztec
@@ -12,34 +11,18 @@ import { TxDao } from './tx_dao.js';
  */
 export interface Database extends ContractDatabase {
   /**
-   * Retrieve a transaction from the MemoryDB using its transaction hash.
-   * The function searches for the transaction with the given hash in the txTable and returns it as a Promise.
-   * Returns 'undefined' if the transaction is not found in the database.
-   *
-   * @param txHash - The TxHash of the transaction to be retrieved.
-   * @returns A Promise that resolves to the found TxDao instance, or undefined if not found.
+   * Add a auth witness to the database.
+   * @param messageHash - The message hash.
+   * @param witness - An array of field elements representing the auth witness.
    */
-  getTx(txHash: TxHash): Promise<TxDao | undefined>;
+  addAuthWitness(messageHash: Fr, witness: Fr[]): Promise<void>;
 
   /**
-   * Adds a TxDao instance to the transaction table.
-   * If a transaction with the same hash already exists in the table, it replaces the existing one.
-   * Otherwise, it pushes the new transaction to the table.
-   *
-   * @param tx - The TxDao instance representing the transaction to be added.
-   * @returns A Promise that resolves when the transaction is successfully added/updated in the table.
+   * Fetching the auth witness for a given message hash.
+   * @param messageHash - The message hash.
+   * @returns A Promise that resolves to an array of field elements representing the auth witness.
    */
-  addTx(tx: TxDao): Promise<void>;
-
-  /**
-   * Add an array of transaction data objects.
-   * If a transaction with the same hash already exists in the database, it will be updated
-   * with the new transaction data. Otherwise, the new transaction will be added to the database.
-   *
-   * @param txs - An array of TxDao instances representing the transactions to be added to the database.
-   * @returns A Promise that resolves when all the transactions have been added or updated.
-   */
-  addTxs(txs: TxDao[]): Promise<void>;
+  getAuthWitness(messageHash: Fr): Promise<Fr[]>;
 
   /**
    * Get auxiliary transaction data based on contract address and storage slot.
@@ -125,34 +108,24 @@ export interface Database extends ContractDatabase {
   setHistoricBlockData(historicBlockData: HistoricBlockData): Promise<void>;
 
   /**
-   * Adds public key and partial address to a database.
-   * @param address - Address of the account to add public key and partial address for.
-   * @param publicKey - Public key of the corresponding user.
-   * @param partialAddress - The partially computed address of the account contract.
-   * @returns A Promise that resolves once the public key has been added to the database.
+   * Adds complete address to the database.
+   * @param address - The complete address to add.
+   * @returns A promise resolving to true if the address was added, false if it already exists.
+   * @throws If we try to add a CompleteAddress with the same AztecAddress but different public key or partial
+   * address.
    */
-  addPublicKeyAndPartialAddress(
-    address: AztecAddress,
-    publicKey: PublicKey,
-    partialAddress: PartialAddress,
-  ): Promise<void>;
+  addCompleteAddress(address: CompleteAddress): Promise<boolean>;
 
   /**
-   * Retrieve the public key and partial address associated with an address.
-   * Throws an error if the account is not found in the key store.
-   *
-   * @param address - The AztecAddress instance representing the account to get public key and partial address for.
-   * @returns A Promise resolving to the PublicKey instance representing the public key.
-   * @remarks The public key and partial address form a preimage of a contract address. See
-   * https://github.com/AztecProtocol/aztec-packages/blob/janb/rpc-interface-cleanup/docs/docs/concepts/foundation/accounts/keys.md#addresses-partial-addresses-and-public-keys
+   * Retrieves the complete address corresponding to the provided aztec address.
+   * @param address - The aztec address of the complete address contract.
+   * @returns A promise that resolves to a CompleteAddress instance if the address is found, or undefined if not found.
    */
-  getPublicKeyAndPartialAddress(address: AztecAddress): Promise<[PublicKey, PartialAddress] | undefined>;
+  getCompleteAddress(address: AztecAddress): Promise<CompleteAddress | undefined>;
 
   /**
-   * Retrieves the list of Aztec addresses added to this database
-   * The addresses are returned as a promise that resolves to an array of AztecAddress objects.
-   *
+   * Retrieves the list of complete address added to this database
    * @returns A promise that resolves to an array of AztecAddress instances.
    */
-  getAccounts(): Promise<AztecAddress[]>;
+  getCompleteAddresses(): Promise<CompleteAddress[]>;
 }

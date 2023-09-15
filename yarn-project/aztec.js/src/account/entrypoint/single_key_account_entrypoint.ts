@@ -1,15 +1,13 @@
-import { AztecAddress, CircuitsWasm, FunctionData, PartialAddress, PrivateKey, TxContext } from '@aztec/circuits.js';
-import { Signer } from '@aztec/circuits.js/barretenberg';
+import { AztecAddress, FunctionData, GrumpkinPrivateKey, PartialAddress, TxContext } from '@aztec/circuits.js';
+import { Schnorr } from '@aztec/circuits.js/barretenberg';
 import { ContractAbi, encodeArguments } from '@aztec/foundation/abi';
 import { FunctionCall, PackedArguments, TxExecutionRequest } from '@aztec/types';
-
-import partition from 'lodash.partition';
 
 import SchnorrSingleKeyAccountContractAbi from '../../abis/schnorr_single_key_account_contract.json' assert { type: 'json' };
 import { generatePublicKey } from '../../index.js';
 import { DEFAULT_CHAIN_ID, DEFAULT_VERSION } from '../../utils/defaults.js';
 import { buildPayload, hashPayload } from './entrypoint_payload.js';
-import { CreateTxRequestOpts, Entrypoint } from './index.js';
+import { Entrypoint } from './index.js';
 
 /**
  * Account contract implementation that uses a single key for signing and encryption. This public key is not
@@ -20,30 +18,21 @@ export class SingleKeyAccountEntrypoint implements Entrypoint {
   constructor(
     private address: AztecAddress,
     private partialAddress: PartialAddress,
-    private privateKey: PrivateKey,
-    private signer: Signer,
+    private privateKey: GrumpkinPrivateKey,
     private chainId: number = DEFAULT_CHAIN_ID,
     private version: number = DEFAULT_VERSION,
   ) {}
 
-  async createTxExecutionRequest(
-    executions: FunctionCall[],
-    opts: CreateTxRequestOpts = {},
-  ): Promise<TxExecutionRequest> {
-    if (opts.origin && !opts.origin.equals(this.address)) {
-      throw new Error(`Sender ${opts.origin.toString()} does not match account address ${this.address.toString()}`);
-    }
+  async createTxExecutionRequest(executions: FunctionCall[]): Promise<TxExecutionRequest> {
+    const { payload, packedArguments: callsPackedArguments } = await buildPayload(executions);
+    const message = await hashPayload(payload);
 
-    const [privateCalls, publicCalls] = partition(executions, exec => exec.functionData.isPrivate);
-    const wasm = await CircuitsWasm.get();
-    const { payload, packedArguments: callsPackedArguments } = await buildPayload(privateCalls, publicCalls);
-    const message = hashPayload(payload, wasm);
-
-    const signature = this.signer.constructSignature(message, this.privateKey).toBuffer();
+    const signer = await Schnorr.new();
+    const signature = signer.constructSignature(message, this.privateKey).toBuffer();
     const publicKey = await generatePublicKey(this.privateKey);
     const args = [payload, publicKey.toBuffer(), signature, this.partialAddress];
     const abi = this.getEntrypointAbi();
-    const packedArgs = await PackedArguments.fromArgs(encodeArguments(abi, args), wasm);
+    const packedArgs = await PackedArguments.fromArgs(encodeArguments(abi, args));
     const txRequest = TxExecutionRequest.from({
       argsHash: packedArgs.hash,
       origin: this.address,

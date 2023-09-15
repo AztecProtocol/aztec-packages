@@ -1,20 +1,9 @@
-import { AztecAddress, AztecRPC, EthAddress, Wallet } from '@aztec/aztec.js';
+import { AztecAddress, EthAddress, Wallet } from '@aztec/aztec.js';
 import { PortalERC20Abi, PortalERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
 import { NonNativeTokenContract } from '@aztec/noir-contracts/types';
 
 import type { Abi, Narrow } from 'abitype';
 import { Account, Chain, Hex, HttpTransport, PublicClient, WalletClient, getContract } from 'viem';
-
-export const waitForRPCServer = async (rpcServer: AztecRPC) => {
-  while (true) {
-    try {
-      await rpcServer.getNodeInfo();
-      break;
-    } catch (err) {
-      await delay(1000);
-    }
-  }
-};
 
 /**
  * Deploy L1 token and portal, initialize portal, deploy a non native l2 token contract and attach is to the portal.
@@ -62,7 +51,7 @@ export async function deployAndInitializeNonNativeL2TokenContracts(
   });
   await tx.isMined();
   const receipt = await tx.getReceipt();
-  const l2Contract = await NonNativeTokenContract.create(receipt.contractAddress!, wallet);
+  const l2Contract = await NonNativeTokenContract.at(receipt.contractAddress!, wallet);
   await l2Contract.attach(tokenPortalAddress);
   const l2TokenAddress = l2Contract.address.toString() as `0x${string}`;
 
@@ -103,12 +92,4 @@ export async function deployL1Contract(
   }
 
   return EthAddress.fromString(receipt.contractAddress!);
-}
-
-/**
- * Sleep for a given number of milliseconds.
- * @param ms - the number of milliseconds to sleep for
- */
-export function delay(ms: number): Promise<void> {
-  return new Promise<void>(resolve => setTimeout(resolve, ms));
 }

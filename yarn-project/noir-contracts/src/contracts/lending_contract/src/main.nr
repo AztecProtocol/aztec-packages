@@ -1,184 +1,241 @@
-mod storage;
+mod asset;
+mod interest_math;
+mod helpers;
+mod interfaces;
 
-// Single asset lending contract. Just for show.
+// Single asset CDP contract.
+// Shoving re-entries up the ass.
+// TODO's:
+// - Use asset address instead of 0. We only use 0, as there is only one collateral asset :shrug:.
+// - Update accumulator should be for specific asset, just abusing only 1 asset atm.
+// - A way to repay all debt at once
+// - Liquidations
 contract Lending {
+    use dep::safe_math::SafeU120;
+    use dep::std::option::Option;
     use dep::aztec::{
-        abi,
-        abi::PrivateContextInputs,
-        abi::PublicContextInputs
+        context::{PrivateContext, PublicContext, Context},
+        oracle::compute_selector::compute_selector,
+        state_vars::{
+            map::Map,
+            public_state::PublicState,
+        },
+        types::type_serialisation::{
+            field_serialisation::{FieldSerialisationMethods, FIELD_SERIALISED_LEN},
+            TypeSerialisationInterface,
+        },
     };
-    use dep::aztec::context::Context;
-    use dep::aztec::oracle::{
-        logs::emit_unencrypted_log,
-        create_nullifier::create_nullifier,
-    };
-    use dep::aztec::public_call_stack_item::{
-        PublicCallStackItem,
-        call_public_function,
-        call_public_function_no_args,
-    };
-    use crate::storage::{Storage, Tot, Account};
+    use crate::asset::{ASSET_SERIALISED_LEN, Asset, AssetSerialisationMethods};
+    use crate::interest_math::compute_multiplier;
+    use crate::helpers::{covered_by_collateral, DebtReturn, debt_updates, debt_value, compute_identifier};
+    use crate::interfaces::{Token, Lending, PriceFeed};
 
-    struct Pos {
+    // Storage structure, containing all storage, and specifying what slots they use.
+    struct Storage {
+        collateral_asset: PublicState<Field, 1>,
+        stable_coin: PublicState<Field, 1>,
+        assets: Map<PublicState<Asset, ASSET_SERIALISED_LEN>>,
+        collateral: Map<PublicState<Field, FIELD_SERIALISED_LEN>>,
+        static_debt: Map<PublicState<Field, FIELD_SERIALISED_LEN>>, // abusing keys very heavily
+    }
+
+    impl Storage {
+        fn init(context: Context) -> pub Self {
+            Storage {
+                collateral_asset: PublicState::new(
+                    context,
+                    1,
+                    FieldSerialisationMethods,
+                ),
+                stable_coin: PublicState::new(
+                    context,
+                    2,
+                    FieldSerialisationMethods,
+                ),
+                assets: Map::new(
+                    context,
+                    3,
+                    |context, slot| {
+                        PublicState::new(
+                            context,
+                            slot,
+                            AssetSerialisationMethods,
+                        )
+                    },
+                ),
+                collateral: Map::new(
+                    context,
+                    4,
+                    |context, slot| {
+                        PublicState::new(
+                            context,
+                            slot,
+                            FieldSerialisationMethods,
+                        )
+                    },
+                ),
+                static_debt: Map::new(
+                    context,
+                    5,
+                    |context, slot| {
+                        PublicState::new(
+                            context,
+                            slot,
+                            FieldSerialisationMethods,
+                        )
+                    },
+                ),
+            }
+        }
+    }
+
+    struct Position {
         collateral: Field,
         static_debt: Field,
+        debt: Field,
     }
 
     // Constructs the contract.
+    #[aztec(private)]
     fn constructor(
-        inputs: PrivateContextInputs
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
-        Context::new(inputs, 0).finish()
-    }
+    ) {}
 
-    open fn init(
-        inputs: PublicContextInputs
-    ) -> pub Field {
-        let storage = Storage::init();
+    #[aztec(public)]
+    fn init(
+        oracle_address: Field,
+        loan_to_value: Field,
+        collateral_asset: Field,
+        stable_coin: Field,
+    ) -> Field {
+        let storage = Storage::init(Context::public(&mut context));
+        let asset_loc = storage.assets.at(0);
+        let asset = asset_loc.read();
 
-        let asset = storage.assets.at(0);
+        assert (loan_to_value as u120 <= 10000);
+        assert (asset.last_updated_ts == 0);
+        assert (asset.interest_accumulator == 0);
 
-        let tot = asset.read();
-
-        assert (tot.last_updated_ts == 0);
-        assert (tot.interest_accumulator == 0);
-
-        asset.write(Tot {
+        asset_loc.write(Asset {
             interest_accumulator: 1000000000,
-            last_updated_ts: inputs.public_global_variables.timestamp as u120,
+            last_updated_ts: context.timestamp() as u120,
+            loan_to_value: loan_to_value as u120,
+            oracle_address,
         });
+
+        storage.collateral_asset.write(collateral_asset);
+        storage.stable_coin.write(stable_coin);
 
         1
     }
 
     // Create a position.
+    #[aztec(public)]
+    fn update_accumulator() -> Asset {
+        let storage = Storage::init(Context::public(&mut context));
 
-    open fn update_tot(
-        inputs: PublicContextInputs
-    ) -> pub Field {
-        let storage = Storage::init();
+        let asset_loc = storage.assets.at(0);
+        let mut asset = asset_loc.read();
 
-        let asset = storage.assets.at(0);
-        let mut tot = asset.read();
+        let dt: SafeU120 = SafeU120{value: context.timestamp() as u120}.sub(SafeU120{value: asset.last_updated_ts});
 
-        let dt: u120 = inputs.public_global_variables.timestamp as u120  - tot.last_updated_ts;
+        // Only update if time has passed.
+        if (!dt.is_zero()) {
+            let precision: SafeU120 = SafeU120{value: 1000000000};
+            let rate_per_second: u120 = 1268391679; // 4% yearly rate / (60 * 60 * 24 * 365)
+            // if rate_per_second < sqrt(WAD) our approx is eq precision + rate * dt
+            let multiplier = compute_multiplier(rate_per_second, dt);
 
-        // Need proper interest computation here.
-        // Assume constant rate because too few reads :cry:
-        let rate: u120 = 100000;
-        // Just need something that increases, but :cry:
-        let multiplier: u120 = 1000000000 + dt * rate;
-        let divisor: u120 = 1000000000;
+            // accumulator *= multiplier, and multiplier >= 1
+            asset.interest_accumulator = SafeU120{value: asset.interest_accumulator}.mul_div(multiplier, precision).value;
+            asset.last_updated_ts = context.timestamp() as u120;
 
-        tot.interest_accumulator = (tot.interest_accumulator * multiplier) / divisor;
-        tot.last_updated_ts = inputs.public_global_variables.timestamp as u120;
-
-        asset.write(tot);
-
-        1
-    }
-
-    // This don't need to be on behalf of self. We should be able to repay on behalf of someone else.
-    fn deposit_private(
-        inputs: PrivateContextInputs,
-        secret: Field,
-        owner: Field,
-        amount: Field
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = Context::new(inputs, abi::hash_args([
-            secret,
-            owner,
-            amount
-        ]));
-
-        assert (!((secret == 0) as bool & (owner == 0) as bool));
-        let mut account = owner;
-        let me = inputs.call_context.msg_sender;
-
-        if (secret != 0) {
-            account = Account::new(me, secret).key();
+            asset_loc.write(asset);
         }
 
-        // Unshield tokens into this contract.
-
-        // _deposit(account, amount)
-        let _callStackItem = context.call_public_function(
-            inputs.call_context.storage_contract_address, 
-            3009041984,
-            [account, amount]
-        );
-
-        context.finish()
+        asset
     }
 
-    open fn deposit_public(
-        inputs: PublicContextInputs,
-        owner: Field,
-        amount: Field
-    ) -> pub Field {
-        // @todo @LHerskind Transfer tokens into this contract. We can't do it now because too few writes.
-    
-        call_public_function(inputs.call_context.storage_contract_address, 3009041984, [owner, amount])[0]
+    #[aztec(private)]
+    fn deposit_private(
+        from: Field,
+        amount: Field,
+        nonce: Field,
+        secret: Field,
+        on_behalf_of: Field,
+        collateral_asset: Field,
+    ) {
+        let on_behalf_of = compute_identifier(secret, on_behalf_of, context.msg_sender());
+        let _res = Token::at(collateral_asset).unshield(&mut context, from, context.this_address(), amount, nonce);
+        // _deposit(on_behalf_of, amount, collateral_asset)
+        let selector = compute_selector("_deposit(Field,Field,Field)");
+        let _callStackItem2 = context.call_public_function(context.this_address(), selector, [on_behalf_of, amount, collateral_asset]);
     }
 
-    open internal fn _deposit(
-        inputs: PublicContextInputs,
-        owner: Field,
-        amount: Field
-    ) -> pub Field {
-        let _void = call_public_function_no_args(inputs.call_context.storage_contract_address, 1259373467)[0];
+    #[aztec(public)]
+    fn deposit_public(
+        amount: Field,
+        nonce: Field,
+        on_behalf_of: Field,
+        collateral_asset: Field,
+    ) -> Field {
+        Token::at(collateral_asset).transfer_public(context, context.msg_sender(), context.this_address(), amount, nonce);
+        let selector = compute_selector("_deposit(Field,Field,Field)");
+        let return_values = context.call_public_function(context.this_address(), selector, [on_behalf_of, amount, collateral_asset]);
+        
+        return_values[0]
+    }
 
-        let storage = Storage::init();
+    #[aztec(public)]
+    internal fn _deposit(
+        owner: Field,
+        amount: Field,
+        collateral_asset: Field,
+    ) -> Field {
+        let _asset = Lending::at(context.this_address()).update_accumulator(context);
+        let storage = Storage::init(Context::public(&mut context));
+
+        let coll_asset = storage.collateral_asset.read();
+        assert(coll_asset == collateral_asset);
 
         let coll_loc = storage.collateral.at(owner);
         let collateral = coll_loc.read();
-
         coll_loc.write(collateral + amount);
+
         1
     }
 
+    #[aztec(private)]
     fn withdraw_private(
-        inputs: PrivateContextInputs,
         secret: Field,
+        to: Field,
         amount: Field
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = Context::new(inputs, abi::hash_args([
-            secret,
-            amount
-        ]));
-
-        let me = inputs.call_context.msg_sender;
-        let account = Account::new(me, secret).key();
-        let _callStackItem = context.call_public_function(
-            inputs.call_context.storage_contract_address, 
-            1065861440,
-            [account, amount]
-        );
-
-        context.finish()
+    ) {
+        let on_behalf_of = compute_identifier(secret, 0, context.msg_sender());
+        let selector = compute_selector("_withdraw(Field,Field,Field)");
+        let _callStackItem = context.call_public_function(context.this_address(), selector, [on_behalf_of, to, amount]);
     }
 
+    #[aztec(public)]
+    fn withdraw_public(
+        to: Field,
+        amount: Field,
+    ) -> Field {
+        let selector = compute_selector("_withdraw(Field,Field,Field)");
+        let return_values = context.call_public_function(context.this_address(), selector, [context.msg_sender(), to, amount]);
 
-    open fn withdraw_public(
-        inputs: PublicContextInputs,
-        amount: Field
-    ) -> pub Field {
-        // @todo @LHerskind Transfer tokens into this contract. We can't do it now because too few writes.
-    
-        call_public_function(inputs.call_context.storage_contract_address, 1065861440, [inputs.call_context.msg_sender, amount])[0]
+        return_values[0]
     }
 
-     open internal fn _withdraw(
-        inputs: PublicContextInputs,
+    #[aztec(public)]
+    internal fn _withdraw(
         owner: Field,
-        // recipient: Field,
+        recipient: Field,
         amount: Field
-    ) -> pub Field {
-        // Access control.
-        let _void = call_public_function_no_args(inputs.call_context.storage_contract_address, 1259373467)[0];
-
-        let storage = Storage::init();
+    ) -> Field {
+        let asset = Lending::at(context.this_address()).update_accumulator(context);
+        let price = PriceFeed::at(asset.oracle_address).get_price(context);
+        
+        let storage = Storage::init(Context::public(&mut context));
 
         let coll_loc = storage.collateral.at(owner);
         let collateral: Field = coll_loc.read();
@@ -186,146 +243,142 @@ contract Lending {
         let debt_loc = storage.static_debt.at(owner);
         let static_debt: Field = debt_loc.read();
 
-        assert (collateral as u120 >= amount as u120);
-        assert (collateral as u120 - amount as u120 >= static_debt as u120);
+        // debt_covered will revert if decrease would leave insufficient collateral to cover debt.
+        // or trying to remove more collateral than available
+        let debt_covered = covered_by_collateral(price, asset.loan_to_value, collateral as u120, 0, amount as u120);
+        let debt_returns = debt_updates(asset.interest_accumulator, static_debt as u120, 0, 0);
+
+        assert (debt_returns.debt_value < debt_covered);
 
         coll_loc.write(collateral - amount);
 
-        // Transfer tokens to recipient (could be with shielding or without, for now, can't to either).
+        // @todo @LHerskind Support both shielding and transfers (for now just transfer)
+        let collateral_asset = storage.collateral_asset.read();
+        Token::at(collateral_asset).transfer_public(context, context.this_address(), recipient, amount, 0);
+
         1
     }
 
+    #[aztec(private)]
     fn borrow_private(
-        inputs: PrivateContextInputs,
         secret: Field,
+        to: Field,
         amount: Field
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = Context::new(inputs, abi::hash_args([
-            secret,
-            amount
-        ]));
-
-        let me = inputs.call_context.msg_sender;
-        let account = Account::new(me, secret).key();
-
-        let _callStackItem = context.call_public_function(
-            inputs.call_context.storage_contract_address, 
-            1462609836,
-            [account, amount]
-        );
-
-        context.finish()
+    ) {
+        let on_behalf_of = compute_identifier(secret, 0, context.msg_sender());
+        let selector = compute_selector("_borrow(Field,Field,Field)");
+        let _callStackItem = context.call_public_function(context.this_address(), selector, [on_behalf_of, to, amount]);
     }
 
-    open fn borrow_public(
-        inputs: PublicContextInputs,
+    #[aztec(public)]
+    fn borrow_public(
+        to: Field,
         amount: Field
-    ) -> pub Field {
-        call_public_function(inputs.call_context.storage_contract_address, 1462609836, [inputs.call_context.msg_sender, amount])[0]
+    ) -> Field {
+        let selector = compute_selector("_borrow(Field,Field,Field)");
+        let return_values = context.call_public_function(context.this_address(), selector, [context.msg_sender(), to, amount]);
+        
+        return_values[0]
     }
 
-    open internal fn _borrow(
-        inputs: PublicContextInputs,
+    #[aztec(public)]
+    internal fn _borrow(
         owner: Field,
+        to: Field,
         amount: Field
-    ) -> pub Field {
-        // Access control.
-        let _void = call_public_function_no_args(inputs.call_context.storage_contract_address, 1259373467)[0];
+    ) -> Field {
+        let asset = Lending::at(context.this_address()).update_accumulator(context);
+        let price = PriceFeed::at(asset.oracle_address).get_price(context);
+        
+        let storage = Storage::init(Context::public(&mut context));
 
-        let storage = Storage::init();
+        // Fetch collateral and static_debt, compute health of current position
+        let collateral = storage.collateral.at(owner).read() as u120;
+        let static_debt = storage.static_debt.at(owner).read() as u120;
 
-        let coll_loc = storage.collateral.at(owner);
-        let collateral: Field = coll_loc.read();
+        let debt_covered = covered_by_collateral(price, asset.loan_to_value, collateral, 0, 0);
+        let debt_returns = debt_updates(asset.interest_accumulator, static_debt, amount as u120, 0);
 
-        let debt_loc = storage.static_debt.at(owner);
-        let static_debt: Field = debt_loc.read();
+        assert (debt_returns.debt_value < debt_covered);
 
-        assert (static_debt as u120 + amount as u120 < collateral as u120);
+        storage.static_debt.at(owner).write(debt_returns.static_debt as Field);
 
-        debt_loc.write(static_debt + amount);
-
-        // @todo @LHerskind Transferring funds to the recipient.
+        // @todo @LHerskind Need to support both private and public minting.
+        let stable_coin = storage.stable_coin.read();
+        Token::at(stable_coin).mint_public(context, to, amount);
 
         1
     }
 
-    // This don't need to be on behalf of self. We should be able to repay on behalf of someone else.
+    #[aztec(private)]
     fn repay_private(
-        inputs: PrivateContextInputs,
+        from: Field,
+        amount: Field,
+        nonce: Field,
         secret: Field,
-        owner: Field,
-        amount: Field
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = Context::new(inputs, abi::hash_args([
-            secret,
-            owner,
-            amount
-        ]));
-
-        assert (!((secret == 0) as bool & (owner == 0) as bool));
-        let mut account = owner;
-        let me = inputs.call_context.msg_sender;
-
-        if (secret != 0) {
-            account = Account::new(me, secret).key();
-        }
-
-        // @todo @lherskind Transfer tokens from me to this contract.
-
-        let _callStackItem = context.call_public_function(
-            inputs.call_context.storage_contract_address, 
-            3985016136,
-            [account, amount]
-        );
-
-        context.finish()
+        on_behalf_of: Field,
+        stable_coin: Field,
+    ) {
+        let on_behalf_of = compute_identifier(secret, on_behalf_of, context.msg_sender());
+        let _res = Token::at(stable_coin).burn(&mut context, from, amount, nonce);
+        let selector = compute_selector("_repay(Field,Field,Field)");
+        let _callStackItem = context.call_public_function(context.this_address(), selector, [on_behalf_of, amount, stable_coin]);
     }
 
-    open fn repay_public(
-        inputs: PublicContextInputs,
+    #[aztec(public)]
+    fn repay_public(
+        amount: Field,
+        nonce: Field,
         owner: Field,
-        amount: Field
-    ) -> pub Field {
-        // @todo @LHerskind Transfer tokens from msg.sender to this contract.
-        call_public_function(inputs.call_context.storage_contract_address, 3985016136, [owner, amount])[0]
+        stable_coin: Field,
+    ) -> Field {
+        Token::at(stable_coin).burn_public(context, context.msg_sender(), amount, nonce);
+        let selector = compute_selector("_repay(Field,Field,Field)");
+        let return_values = context.call_public_function(context.this_address(), selector, [owner, amount, stable_coin]);
+        
+        return_values[0]
     }
 
-    open internal fn _repay(
-        inputs: PublicContextInputs,
+    #[aztec(public)]
+    internal fn _repay(
         owner: Field,
-        amount: Field
-    ) -> pub Field {
-        let _void = call_public_function_no_args(inputs.call_context.storage_contract_address, 1259373467)[0];
+        amount: Field,
+        stable_coin: Field,
+    ) {
+        let asset = Lending::at(context.this_address()).update_accumulator(context);
+        let storage = Storage::init(Context::public(&mut context));
 
-        let storage = Storage::init();
-        // Should constrain access from private.
-        // should only be callable from self from private.
+        // To ensure that private is using the correct token.
+        assert(stable_coin == storage.stable_coin.read());
 
-        let debt_loc = storage.static_debt.at(owner);
+        let static_debt = storage.static_debt.at(owner).read() as u120;
+        let debt_returns = debt_updates(asset.interest_accumulator, static_debt, 0, amount as u120);
 
-        // @todo @LHerskind using "as" after using maps key => field have issues.
-        // Need to be explicitly specified as field first.
-        let static_debt: Field = debt_loc.read();
-
-        assert (static_debt as u120 >= amount as u120);
-
-        debt_loc.write(static_debt - amount);
+        storage.static_debt.at(owner).write(debt_returns.static_debt as Field);
+        
         1
     }
 
-    unconstrained fn getTot(
+    unconstrained fn get_asset(
         assetId: Field,
-    ) -> Tot {
-        let storage = Storage::init();
+    ) -> Asset {
+        let storage = Storage::init(Context::none());
         storage.assets.at(assetId).read()
     }
 
-    unconstrained fn getPosition(
+    unconstrained fn get_position(
         owner: Field,
-    ) -> Pos {
-        let storage = Storage::init();
+    ) -> Position {
+        let storage = Storage::init(Context::none());
         let collateral = storage.collateral.at(owner).read();
         let static_debt = storage.static_debt.at(owner).read();
-        Pos {collateral, static_debt}
+        let asset = storage.assets.at(0).read();
+        let debt = debt_value(static_debt as u120, asset.interest_accumulator as u120) as Field;
+        Position {collateral, static_debt, debt}
+    }
+
+    unconstrained fn get_assets() -> [Field; 2] {
+        let storage = Storage::init(Context::none());
+        [storage.collateral_asset.read(), storage.stable_coin.read()]
     }
 }

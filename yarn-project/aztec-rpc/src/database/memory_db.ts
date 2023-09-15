@@ -1,13 +1,12 @@
-import { HistoricBlockData, PartialAddress } from '@aztec/circuits.js';
+import { CompleteAddress, HistoricBlockData } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { MerkleTreeId, PublicKey, TxHash } from '@aztec/types';
+import { MerkleTreeId, PublicKey } from '@aztec/types';
 
 import { MemoryContractDatabase } from '../contract_database/index.js';
 import { Database } from './database.js';
 import { NoteSpendingInfoDao } from './note_spending_info_dao.js';
-import { TxDao } from './tx_dao.js';
 
 /**
  * The MemoryDB class provides an in-memory implementation of a database to manage transactions and auxiliary data.
@@ -16,32 +15,33 @@ import { TxDao } from './tx_dao.js';
  * As an in-memory database, the stored data will not persist beyond the life of the application instance.
  */
 export class MemoryDB extends MemoryContractDatabase implements Database {
-  private txTable: TxDao[] = [];
   private noteSpendingInfoTable: NoteSpendingInfoDao[] = [];
   private treeRoots: Record<MerkleTreeId, Fr> | undefined;
   private globalVariablesHash: Fr | undefined;
-  private publicKeysAndPartialAddresses: Map<bigint, [PublicKey, PartialAddress]> = new Map();
+  private addresses: CompleteAddress[] = [];
+  private authWitnesses: Record<string, Fr[]> = {};
 
   constructor(logSuffix?: string) {
     super(createDebugLogger(logSuffix ? 'aztec:memory_db_' + logSuffix : 'aztec:memory_db'));
   }
 
-  public getTx(txHash: TxHash) {
-    return Promise.resolve(this.txTable.find(tx => tx.txHash.equals(txHash)));
-  }
-
-  public addTx(tx: TxDao) {
-    const index = this.txTable.findIndex(t => t.txHash.equals(tx.txHash));
-    if (index === -1) {
-      this.txTable.push(tx);
-    } else {
-      this.txTable[index] = tx;
-    }
+  /**
+   * Add a auth witness to the database.
+   * @param messageHash - The message hash.
+   * @param witness - An array of field elements representing the auth witness.
+   */
+  public addAuthWitness(messageHash: Fr, witness: Fr[]): Promise<void> {
+    this.authWitnesses[messageHash.toString()] = witness;
     return Promise.resolve();
   }
 
-  public async addTxs(txs: TxDao[]) {
-    await Promise.all(txs.map(tx => this.addTx(tx)));
+  /**
+   * Fetching the auth witness for a given message hash.
+   * @param messageHash - The message hash.
+   * @returns A Promise that resolves to an array of field elements representing the auth witness.
+   */
+  public getAuthWitness(messageHash: Fr): Promise<Fr[]> {
+    return Promise.resolve(this.authWitnesses[messageHash.toString()]);
   }
 
   public addNoteSpendingInfo(noteSpendingInfoDao: NoteSpendingInfoDao) {
@@ -121,24 +121,27 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
     });
   }
 
-  addPublicKeyAndPartialAddress(
-    address: AztecAddress,
-    publicKey: PublicKey,
-    partialAddress: PartialAddress,
-  ): Promise<void> {
-    if (this.publicKeysAndPartialAddresses.has(address.toBigInt())) {
-      throw new Error(`Account ${address} already exists`);
+  public addCompleteAddress(completeAddress: CompleteAddress): Promise<boolean> {
+    const accountIndex = this.addresses.findIndex(r => r.address.equals(completeAddress.address));
+    if (accountIndex !== -1) {
+      if (this.addresses[accountIndex].equals(completeAddress)) {
+        return Promise.resolve(false);
+      }
+
+      throw new Error(
+        `Complete address with aztec address ${completeAddress.address.toString()} but different public key or partial key already exists in memory database`,
+      );
     }
-    this.publicKeysAndPartialAddresses.set(address.toBigInt(), [publicKey, partialAddress]);
-    return Promise.resolve();
+    this.addresses.push(completeAddress);
+    return Promise.resolve(true);
   }
 
-  getPublicKeyAndPartialAddress(address: AztecAddress): Promise<[PublicKey, Fr] | undefined> {
-    return Promise.resolve(this.publicKeysAndPartialAddresses.get(address.toBigInt()));
+  public getCompleteAddress(address: AztecAddress): Promise<CompleteAddress | undefined> {
+    const recipient = this.addresses.find(r => r.address.equals(address));
+    return Promise.resolve(recipient);
   }
 
-  getAccounts(): Promise<AztecAddress[]> {
-    const addresses = Array.from(this.publicKeysAndPartialAddresses.keys());
-    return Promise.resolve(addresses.map(AztecAddress.fromBigInt));
+  public getCompleteAddresses(): Promise<CompleteAddress[]> {
+    return Promise.resolve(this.addresses);
   }
 }

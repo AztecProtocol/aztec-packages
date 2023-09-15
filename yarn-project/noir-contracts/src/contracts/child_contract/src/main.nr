@@ -1,48 +1,117 @@
-mod storage;
-
 // A contract used along with `Parent` contract to test nested calls.
 contract Child {
-    use dep::aztec::abi;
-    use dep::aztec::abi::PrivateContextInputs;
-    use dep::aztec::abi::PublicContextInputs;
-    use dep::aztec::context::Context;
-    use crate::storage::Storage;
+    use dep::std::option::Option;
 
-    fn constructor(
-        inputs: PrivateContextInputs,
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
-        Context::new(inputs, 0).finish()
+    use dep::aztec::{
+        abi::CallContext,
+        context::{PrivateContext, PublicContext, Context},
+        oracle::{
+            logs::emit_unencrypted_log,
+            compute_selector::compute_selector,
+        },
+        state_vars::public_state::PublicState,
+        types::type_serialisation::field_serialisation::{FieldSerialisationMethods, FIELD_SERIALISED_LEN},
+    };
+
+    struct Storage {
+        current_value: PublicState<Field, FIELD_SERIALISED_LEN>,
     }
+
+    impl Storage {
+        fn init(context: Context) -> pub Self {
+            Storage {
+                current_value: PublicState::new(
+                    context,
+                    1,
+                    FieldSerialisationMethods,
+                ),
+            }
+        }
+    }
+
+    #[aztec(private)]
+    fn constructor()  {}
 
     // Returns a sum of the input and the chain id and version of the contract in private circuit public input's return_values.
+    #[aztec(private)]
     fn value(
-        inputs: PrivateContextInputs,
         input: Field,
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = Context::new(inputs, abi::hash_args([input]));
-
-        context.return_values.push(input + inputs.private_global_variables.chain_id + inputs.private_global_variables.version);
-
-        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
-        context.finish()
+    ) -> Field {
+        input + context.chain_id() + context.version()
     }
 
-    // Returns base_value + 42.
-    open fn pubValue(inputs: PublicContextInputs, base_value: Field) -> pub Field {
-        base_value + inputs.public_global_variables.chain_id + inputs.public_global_variables.version + inputs.public_global_variables.block_number + inputs.public_global_variables.timestamp
+    fn check_sender(call_context: CallContext) {
+        assert_eq(call_context.msg_sender, call_context.storage_contract_address, "Sender must be this contract");
     }
 
-    // Increments `current_value` by `new_value` and returns `new_value` + 1.
-    open fn pubStoreValue(_inputs: PublicContextInputs, new_value: Field) -> pub Field {
-        let storage = Storage::init();
+    // Returns a sum of the input and the chain id and version of the contract in private circuit public input's return_values. 
+    // Can only be called from this contract.
+    #[aztec(private)]
+    fn valueInternal(
+        input: Field,
+    ) -> Field {
+        check_sender(inputs.call_context);
+        input + context.chain_id() + context.version()
+    }
+
+    // Returns base_value + chain_id + version + block_number + timestamp
+    #[aztec(public)]
+    fn pubGetValue(base_value: Field) -> Field {
+        let returnValue = base_value + context.chain_id() + context.version() + context.block_number() + context.timestamp();
+
+        returnValue
+    }
+
+    // Sets `current_value` to `new_value`
+    #[aztec(public)]
+    fn pubSetValue(new_value: Field) -> Field {
+        let storage = Storage::init(Context::public(&mut context));
+        storage.current_value.write(new_value);
+        let _hash = emit_unencrypted_log(new_value);
+        
+        new_value
+    }
+
+    // Increments `current_value` by `new_value`
+    #[aztec(public)]
+    fn pubIncValue(new_value: Field) -> Field {
+        let storage = Storage::init(Context::public(&mut context));
         let old_value = storage.current_value.read();
-        // Compiler complains if we don't assign the result to anything
-        let _void1 = storage.current_value.write(old_value + new_value);
-        // Compiler fails with "we do not allow private ABI inputs to be returned as public outputs" if we try to
-        // return new_value as-is, but then it also complains if we add `pub` to `new_value` in the args, so we
-        // just assign it to another variable and tweak it so it's not the same value, and the compiler is happy.
-        let ret_value = new_value + 1;
-        ret_value
+        storage.current_value.write(old_value + new_value);
+        let _hash = emit_unencrypted_log(new_value);
+
+        new_value
+    }
+
+    // Increments `current_value` by `new_value`. Can only be called from this contract.
+    #[aztec(public)] 
+    fn pubIncValueInternal(new_value: Field) -> Field {
+        let storage = Storage::init(Context::public(&mut context));
+        check_sender(inputs.call_context);
+        let old_value = storage.current_value.read();
+        storage.current_value.write(old_value + new_value);
+        let _hash = emit_unencrypted_log(new_value);
+        
+        new_value
+    }
+
+    #[aztec(public)]
+    fn setValueTwiceWithNestedFirst() {
+        let pubSetValueSelector = compute_selector("pubSetValue(Field)");
+        let _ret = context.call_public_function(context.this_address(), pubSetValueSelector, [10]);
+
+        let storage = Storage::init(Context::public(&mut context));
+        storage.current_value.write(20);
+        let _hash = emit_unencrypted_log(20);
+    }
+
+    #[aztec(public)]
+    fn setValueTwiceWithNestedLast() {
+        let storage = Storage::init(Context::public(&mut context));
+        storage.current_value.write(20);
+        let _hash = emit_unencrypted_log(20);
+
+        let pubSetValueSelector = compute_selector("pubSetValue(Field)");
+        let _ret = context.call_public_function(context.this_address(), pubSetValueSelector, [10]);
     }
 }

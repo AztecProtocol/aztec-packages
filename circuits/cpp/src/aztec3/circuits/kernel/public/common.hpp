@@ -2,8 +2,6 @@
 
 #include "init.hpp"
 
-#include "aztec3/circuits/abis/contract_storage_read.hpp"
-#include "aztec3/circuits/abis/contract_storage_update_request.hpp"
 #include "aztec3/circuits/abis/kernel_circuit_public_inputs.hpp"
 #include "aztec3/circuits/abis/public_data_update_request.hpp"
 #include "aztec3/circuits/abis/public_kernel/public_kernel_inputs.hpp"
@@ -11,24 +9,17 @@
 #include "aztec3/utils/array.hpp"
 #include "aztec3/utils/dummy_circuit_builder.hpp"
 
+namespace aztec3::circuits::kernel::public_kernel {
+
 using NT = aztec3::utils::types::NativeTypes;
-using aztec3::circuits::abis::ContractStorageRead;
-using aztec3::circuits::abis::ContractStorageUpdateRequest;
 using aztec3::circuits::abis::KernelCircuitPublicInputs;
 using aztec3::circuits::abis::PublicDataRead;
 using aztec3::circuits::abis::PublicDataUpdateRequest;
 using aztec3::circuits::abis::public_kernel::PublicKernelInputs;
 using DummyBuilder = aztec3::utils::DummyCircuitBuilder;
-using aztec3::circuits::check_membership;
-using aztec3::circuits::compute_public_data_tree_index;
-using aztec3::circuits::compute_public_data_tree_value;
-using aztec3::circuits::root_from_sibling_path;
 using aztec3::utils::array_length;
-using aztec3::utils::array_pop;
 using aztec3::utils::array_push;
 using aztec3::utils::push_array_to_array;
-
-namespace aztec3::circuits::kernel::public_kernel {
 
 /**
  * @brief Validate that all pre-images on the call stack hash to equal the accumulated data
@@ -180,7 +171,7 @@ void common_validate_inputs(DummyBuilder& builder, KernelInput const& public_ker
     builder.do_assert(this_call_stack_item.contract_address != 0,
                       "Contract address must be non-zero",
                       CircuitErrorCode::PUBLIC_KERNEL__CONTRACT_ADDRESS_INVALID);
-    builder.do_assert(this_call_stack_item.function_data.function_selector != 0,
+    builder.do_assert(this_call_stack_item.function_data.selector.value != 0,
                       "Function signature must be non-zero",
                       CircuitErrorCode::PUBLIC_KERNEL__FUNCTION_SIGNATURE_INVALID);
     builder.do_assert(this_call_stack_item.function_data.is_constructor == false,
@@ -224,7 +215,7 @@ void perform_static_call_checks(Builder& builder, KernelInput const& public_kern
 }
 
 /**
- * @brief Proagates valid (i.e. non-empty) update requests from this iteration to the circuit output
+ * @brief Propagates valid (i.e. non-empty) update requests from this iteration to the circuit output
  * @tparam The type of kernel input
  * @param public_kernel_inputs The inputs to this iteration of the kernel circuit
  * @param circuit_outputs The circuit outputs to be populated

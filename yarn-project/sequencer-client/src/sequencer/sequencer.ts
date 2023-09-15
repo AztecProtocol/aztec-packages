@@ -3,15 +3,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { P2P } from '@aztec/p2p';
-import {
-  ContractData,
-  ContractDataAndBytecode,
-  L1ToL2MessageSource,
-  L2Block,
-  L2BlockSource,
-  MerkleTreeId,
-  Tx,
-} from '@aztec/types';
+import { L1ToL2MessageSource, L2Block, L2BlockSource, MerkleTreeId, Tx } from '@aztec/types';
 import { WorldStateStatus, WorldStateSynchroniser } from '@aztec/world-state';
 
 import times from 'lodash.times';
@@ -137,10 +129,11 @@ export class Sequencer {
         return;
       }
 
-      this.log(`Processing ${validTxs.length} txs...`);
+      const blockNumber = (await this.l2BlockSource.getBlockNumber()) + 1;
+
+      this.log.info(`Building block ${blockNumber} with ${validTxs.length} transactions...`);
       this.state = SequencerState.CREATING_BLOCK;
 
-      const blockNumber = (await this.l2BlockSource.getBlockHeight()) + 1;
       const newGlobalVariables = await this.globalsBuilder.buildGlobalVariables(new Fr(blockNumber));
       const prevGlobalVariables = (await this.l2BlockSource.getL2Block(-1))?.globalVariables ?? GlobalVariables.empty();
 
@@ -149,11 +142,16 @@ export class Sequencer {
       const processor = await this.publicProcessorFactory.create(prevGlobalVariables, newGlobalVariables);
       const [processedTxs, failedTxs] = await processor.process(validTxs);
       if (failedTxs.length > 0) {
-        this.log(`Dropping failed txs ${(await Tx.getHashes(failedTxs)).join(', ')}`);
-        await this.p2pClient.deleteTxs(await Tx.getHashes(failedTxs));
+        const failedTxData = failedTxs.map(fail => fail.tx);
+        this.log(`Dropping failed txs ${(await Tx.getHashes(failedTxData)).join(', ')}`);
+        await this.p2pClient.deleteTxs(await Tx.getHashes(failedTxData));
       }
 
-      if (processedTxs.length === 0) {
+      // Only accept processed transactions that are not double-spends
+      // public functions emitting nullifiers would pass earlier check but fail here
+      const processedValidTxs = await this.takeValidProcessedTxs(processedTxs);
+
+      if (processedValidTxs.length === 0) {
         this.log('No txs processed correctly to build block. Exiting');
         return;
       }
@@ -164,16 +162,16 @@ export class Sequencer {
       this.log('Successfully retrieved L1 to L2 messages from contract');
 
       // Build the new block by running the rollup circuits
-      this.log(`Assembling block with txs ${processedTxs.map(tx => tx.hash).join(', ')}`);
+      this.log(`Assembling block with txs ${processedValidTxs.map(tx => tx.hash).join(', ')}`);
 
       const emptyTx = await processor.makeEmptyProcessedTx();
-      const block = await this.buildBlock(processedTxs, l1ToL2Messages, emptyTx, newGlobalVariables);
+      const block = await this.buildBlock(processedValidTxs, l1ToL2Messages, emptyTx, newGlobalVariables);
       this.log(`Assembled block ${block.number}`);
 
-      await this.publishContractDataAndBytecode(validTxs, block);
+      await this.publishExtendedContractData(validTxs, block);
 
       await this.publishL2Block(block);
-      this.log.info(`Submitted rollup block ${block.number} with ${processedTxs.length} transactions`);
+      this.log.info(`Submitted rollup block ${block.number} with ${processedValidTxs.length} transactions`);
     } catch (err) {
       this.log.error(err);
       this.log.error(`Rolling back world state DB`);
@@ -182,28 +180,25 @@ export class Sequencer {
   }
 
   /**
-   * Gets new contract data and bytecode from the txs and publishes it on chain.
+   * Gets new extended contract data from the txs and publishes it on chain.
    * @param validTxs - The set of real transactions being published as part of the block.
    * @param block - The L2Block to be published.
    */
-  protected async publishContractDataAndBytecode(validTxs: Tx[], block: L2Block) {
+  protected async publishExtendedContractData(validTxs: Tx[], block: L2Block) {
     // Publishes contract data for txs to the network and awaits the tx to be mined
     this.state = SequencerState.PUBLISHING_CONTRACT_DATA;
     const newContractData = validTxs
       .map(tx => {
         // Currently can only have 1 new contract per tx
         const newContract = tx.data?.end.newContracts[0];
-        if (newContract && tx.newContractPublicFunctions?.length) {
-          return new ContractDataAndBytecode(
-            new ContractData(newContract.contractAddress, newContract.portalContractAddress),
-            tx.newContractPublicFunctions,
-          );
+        if (newContract) {
+          return tx.newContracts[0];
         }
       })
       .filter((cd): cd is Exclude<typeof cd, undefined> => cd !== undefined);
 
     const blockHash = block.getCalldataHash();
-    this.log(`Publishing contract data and bytecode with block hash ${blockHash.toString('hex')}`);
+    this.log(`Publishing extended contract data with block hash ${blockHash.toString('hex')}`);
 
     const publishedContractData = await this.publisher.processNewContractData(block.number, blockHash, newContractData);
     if (publishedContractData) {
@@ -256,6 +251,13 @@ export class Sequencer {
     }
 
     return validTxs;
+  }
+
+  protected async takeValidProcessedTxs(txs: ProcessedTx[]) {
+    const isDoubleSpends = await Promise.all(txs.map(async tx => await this.isTxDoubleSpend(tx as unknown as Tx)));
+    const doubleSpends = txs.filter((tx, index) => isDoubleSpends[index]).map(tx => tx.hash);
+    await this.p2pClient.deleteTxs(doubleSpends);
+    return txs.filter((tx, index) => !isDoubleSpends[index]);
   }
 
   /**

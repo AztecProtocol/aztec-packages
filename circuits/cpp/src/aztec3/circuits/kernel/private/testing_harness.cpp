@@ -156,7 +156,10 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
     const Point<NT> msg_sender_pub_key = { .x = 123456789, .y = 123456789 };
 
     FunctionData<NT> const function_data{
-        .function_selector = 1,  // TODO(suyash): deduce this from the contract, somehow.
+        .selector =
+            {
+                .value = 1,  // TODO: deduce this from the contract, somehow.
+            },
         .is_private = true,
         .is_constructor = is_constructor,
     };
@@ -200,7 +203,7 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
         // push to array/vector
         // use variation of `compute_root_partial_left_tree` to compute the root from leaves
         // const auto& function_leaf_preimage = FunctionLeafPreimage<NT>{
-        //    .function_selector = function_data.function_selector,
+        //    .selector = function_data.selector,
         //    .is_private = function_data.is_private,
         //    .vk_hash = private_circuit_vk_hash,
         //    .acir_hash = acir_hash,
@@ -227,7 +230,7 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
         // update the contract address in the call context now that it is known
         call_context.storage_contract_address = contract_address;
     } else {
-        const NT::fr& function_tree_root = function_tree_root_from_siblings<NT>(function_data.function_selector,
+        const NT::fr& function_tree_root = function_tree_root_from_siblings<NT>(function_data.selector,
                                                                                 function_data.is_internal,
                                                                                 function_data.is_private,
                                                                                 private_circuit_vk_hash,
@@ -276,7 +279,7 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
         OptionalPrivateCircuitPublicInputs<NT> const opt_private_circuit_public_inputs = func(ctx, args_vec);
         private_circuit_public_inputs = opt_private_circuit_public_inputs.remove_optionality();
         // TODO(suyash): this should likely be handled as part of the DB/Oracle/Context infrastructure
-        private_circuit_public_inputs.historic_contract_tree_root = contract_tree_root;
+        private_circuit_public_inputs.historic_block_data.contract_tree_root = contract_tree_root;
 
         private_circuit_public_inputs.encrypted_logs_hash = encrypted_logs_hash;
         private_circuit_public_inputs.unencrypted_logs_hash = unencrypted_logs_hash;
@@ -296,10 +299,7 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
             .unencrypted_logs_hash = unencrypted_logs_hash,
             .encrypted_log_preimages_length = encrypted_log_preimages_length,
             .unencrypted_log_preimages_length = unencrypted_log_preimages_length,
-            .historic_private_data_tree_root = 0,
-            .historic_nullifier_tree_root = 0,
-            .historic_contract_tree_root = contract_tree_root,
-            .historic_l1_to_l2_messages_tree_root = 0,
+            .historic_block_data = HistoricBlockData<NT>{ .contract_tree_root = contract_tree_root },
             .contract_deployment_data = contract_deployment_data,
         };
     }
@@ -485,8 +485,8 @@ PrivateKernelInputsInner<NT> do_private_call_get_kernel_inputs_inner(
     mock_previous_kernel.public_inputs.constants = CombinedConstantData<NT>{
         .block_data =
             HistoricBlockData<NT>{
-                .private_data_tree_root = private_circuit_public_inputs.historic_private_data_tree_root,
-                .contract_tree_root = private_circuit_public_inputs.historic_contract_tree_root,
+                .private_data_tree_root = private_circuit_public_inputs.historic_block_data.private_data_tree_root,
+                .contract_tree_root = private_circuit_public_inputs.historic_block_data.contract_tree_root,
             },
         .tx_context = tx_context,
     };

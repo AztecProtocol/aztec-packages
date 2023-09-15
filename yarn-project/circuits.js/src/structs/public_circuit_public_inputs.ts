@@ -10,12 +10,12 @@ import {
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_DATA_READS_PER_CALL,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
-  NUM_FIELDS_PER_SHA256,
   RETURN_VALUES_LENGTH,
 } from '../cbind/constants.gen.js';
-import { FieldsOf, assertMemberLength, makeTuple } from '../utils/jsUtils.js';
+import { FieldsOf, makeTuple } from '../utils/jsUtils.js';
 import { serializeToBuffer } from '../utils/serialize.js';
 import { CallContext } from './call_context.js';
+import { HistoricBlockData } from './index.js';
 
 /**
  * Contract storage read operation on a specific contract.
@@ -33,6 +33,10 @@ export class ContractStorageRead {
      * Value read from the storage slot.
      */
     public readonly currentValue: Fr,
+    /**
+     * Optional side effect counter tracking position of this event in tx execution.
+     */
+    public readonly sideEffectCounter?: number,
   ) {}
 
   static from(args: {
@@ -44,8 +48,12 @@ export class ContractStorageRead {
      * Value read from the storage slot.
      */
     currentValue: Fr;
+    /**
+     * Optional side effect counter tracking position of this event in tx execution.
+     */
+    sideEffectCounter?: number;
   }) {
-    return new ContractStorageRead(args.storageSlot, args.currentValue);
+    return new ContractStorageRead(args.storageSlot, args.currentValue, args.sideEffectCounter);
   }
 
   toBuffer() {
@@ -90,24 +98,11 @@ export class ContractStorageUpdateRequest {
      * New value of the storage slot.
      */
     public readonly newValue: Fr,
+    /**
+     * Optional side effect counter tracking position of this event in tx execution.
+     */
+    public readonly sideEffectCounter?: number,
   ) {}
-
-  static from(args: {
-    /**
-     * Storage slot we are updating.
-     */
-    storageSlot: Fr;
-    /**
-     * Old value of the storage slot.
-     */
-    oldValue: Fr;
-    /**
-     * New value of the storage slot.
-     */
-    newValue: Fr;
-  }) {
-    return new ContractStorageUpdateRequest(args.storageSlot, args.oldValue, args.newValue);
-  }
 
   toBuffer() {
     return serializeToBuffer(this.storageSlot, this.oldValue, this.newValue);
@@ -116,6 +111,24 @@ export class ContractStorageUpdateRequest {
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new ContractStorageUpdateRequest(reader.readFr(), reader.readFr(), reader.readFr());
+  }
+
+  /**
+   * Create PublicCallRequest from a fields dictionary.
+   * @param fields - The dictionary.
+   * @returns A PublicCallRequest object.
+   */
+  static from(fields: FieldsOf<ContractStorageUpdateRequest>): ContractStorageUpdateRequest {
+    return new ContractStorageUpdateRequest(...ContractStorageUpdateRequest.getFields(fields));
+  }
+
+  /**
+   * Serialize into a field array. Low-level utility.
+   * @param fields - Object with fields.
+   * @returns The array.
+   */
+  static getFields(fields: FieldsOf<ContractStorageUpdateRequest>) {
+    return [fields.storageSlot, fields.oldValue, fields.newValue, fields.sideEffectCounter] as const;
   }
 
   static empty() {
@@ -185,23 +198,14 @@ export class PublicCircuitPublicInputs {
      */
     public unencryptedLogPreimagesLength: Fr,
     /**
-     * Root of the public data tree when the call started.
+     * Root of the commitment trees when the call started.
      */
-    public historicPublicDataTreeRoot: Fr,
+    public historicBlockData: HistoricBlockData,
     /**
      * Address of the prover.
      */
     public proverAddress: AztecAddress,
-  ) {
-    assertMemberLength(this, 'returnValues', RETURN_VALUES_LENGTH);
-    assertMemberLength(this, 'publicCallStack', MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
-    assertMemberLength(this, 'newCommitments', MAX_NEW_COMMITMENTS_PER_CALL);
-    assertMemberLength(this, 'newNullifiers', MAX_NEW_NULLIFIERS_PER_CALL);
-    assertMemberLength(this, 'newL2ToL1Msgs', MAX_NEW_L2_TO_L1_MSGS_PER_CALL);
-    assertMemberLength(this, 'contractStorageUpdateRequests', MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL);
-    assertMemberLength(this, 'contractStorageReads', MAX_PUBLIC_DATA_READS_PER_CALL);
-    assertMemberLength(this, 'unencryptedLogsHash', NUM_FIELDS_PER_SHA256);
-  }
+  ) {}
 
   /**
    * Create PublicCircuitPublicInputs from a fields dictionary.
@@ -229,7 +233,7 @@ export class PublicCircuitPublicInputs {
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, Fr.zero),
       makeTuple(2, Fr.zero),
       Fr.ZERO,
-      Fr.ZERO,
+      HistoricBlockData.empty(),
       AztecAddress.ZERO,
     );
   }
@@ -248,7 +252,7 @@ export class PublicCircuitPublicInputs {
       isFrArrayEmpty(this.newL2ToL1Msgs) &&
       isFrArrayEmpty(this.unencryptedLogsHash) &&
       this.unencryptedLogPreimagesLength.isZero() &&
-      this.historicPublicDataTreeRoot.isZero() &&
+      this.historicBlockData.isEmpty() &&
       this.proverAddress.isZero()
     );
   }
@@ -271,7 +275,7 @@ export class PublicCircuitPublicInputs {
       fields.newL2ToL1Msgs,
       fields.unencryptedLogsHash,
       fields.unencryptedLogPreimagesLength,
-      fields.historicPublicDataTreeRoot,
+      fields.historicBlockData,
       fields.proverAddress,
     ] as const;
   }

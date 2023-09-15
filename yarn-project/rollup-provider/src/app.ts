@@ -1,7 +1,7 @@
 import { Fr, HistoricBlockData } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AztecNode, MerkleTreeId, Tx, TxHash } from '@aztec/types';
+import { AztecNode, MerkleTreeId, SimulationError, Tx, TxHash } from '@aztec/types';
 
 import Koa, { Context, DefaultState } from 'koa';
 import Router from 'koa-router';
@@ -31,7 +31,7 @@ export function appFactory(node: AztecNode, prefix: string) {
     try {
       await next();
     } catch (err: any) {
-      logger(err);
+      logger.error(err);
       ctx.status = 400;
       ctx.body = { error: err.message };
     }
@@ -44,6 +44,19 @@ export function appFactory(node: AztecNode, prefix: string) {
     };
     ctx.set('content-type', 'application/json');
     ctx.status = 200;
+  });
+
+  router.get('/get-tx', async (ctx: Koa.Context) => {
+    const hash = ctx.query.hash!;
+    const txHash = new TxHash(Buffer.from(hash as string, 'hex'));
+    const tx = await node.getTx(txHash);
+    ctx.set('content-type', 'application/octet-stream');
+    if (tx == undefined) {
+      ctx.status = 404;
+    } else {
+      ctx.status = 200;
+      ctx.body = tx.toBuffer();
+    }
   });
 
   router.get('/get-block', async (ctx: Koa.Context) => {
@@ -69,10 +82,10 @@ export function appFactory(node: AztecNode, prefix: string) {
     ctx.status = 200;
   });
 
-  router.get('/get-block-height', async (ctx: Koa.Context) => {
+  router.get('/get-block-number', async (ctx: Koa.Context) => {
     ctx.set('content-type', 'application/json');
     ctx.body = {
-      blockHeight: await node.getBlockHeight(),
+      blockNumber: await node.getBlockNumber(),
     };
     ctx.status = 200;
   });
@@ -105,7 +118,7 @@ export function appFactory(node: AztecNode, prefix: string) {
     const address = ctx.query.address;
     ctx.set('content-type', 'application/json');
     ctx.body = {
-      contractData: await node.getContractDataAndBytecode(AztecAddress.fromString(address as string)),
+      contractData: await node.getExtendedContractData(AztecAddress.fromString(address as string)),
     };
     ctx.status = 200;
   });
@@ -256,9 +269,27 @@ export function appFactory(node: AztecNode, prefix: string) {
     ctx.status = 200;
   });
 
+  router.post('/tx-simulate', checkReady, async (ctx: Koa.Context) => {
+    const stream = new PromiseReadable(ctx.req);
+    const postData = (await stream.readAll()) as Buffer;
+    const tx = Tx.fromBuffer(postData);
+    try {
+      await node.simulatePublicCalls(tx);
+    } catch (err) {
+      if (err instanceof SimulationError) {
+        ctx.body = {
+          simulationError: err.toJSON(),
+        };
+        ctx.status = 400;
+      } else {
+        throw err;
+      }
+    }
+  });
+
   const app = new Koa();
   app.on('error', error => {
-    logger(`KOA app-level error. ${JSON.stringify({ error })}`);
+    logger.error(`KOA app-level error. ${JSON.stringify({ error })}`);
   });
   app.proxy = true;
   app.use(exceptionHandler);

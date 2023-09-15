@@ -1,10 +1,10 @@
 import { numToUInt32BE } from '@aztec/foundation/serialize';
+import { fileURLToPath } from '@aztec/foundation/url';
 import { IWasmModule, WasmModule } from '@aztec/foundation/wasm';
 
 import isNode from 'detect-node';
 import { readFile } from 'fs/promises';
 import { dirname, join } from 'path';
-import { fileURLToPath } from 'url';
 
 import { Crs } from '../crs/index.js';
 
@@ -62,7 +62,7 @@ export class CircuitsWasm implements IWasmModule {
    * @param loggerName - The logger name.
    * @returns The wrapper.
    */
-  private static async new(initial = 30, maximum = 8192, loggerName = 'wasm'): Promise<CircuitsWasm> {
+  private static async new(initial = 30, maximum = 8192, loggerName = 'aztec:wasm'): Promise<CircuitsWasm> {
     const wasm = new WasmModule(
       await fetchBinary(CODE_PATH),
       module => ({
@@ -74,7 +74,7 @@ export class CircuitsWasm implements IWasmModule {
           const rawStr = wasm.getMemoryAsString(addr);
           const m = wasm.getMemory();
           const str = `${rawStr} (mem: ${(m.length / (1024 * 1024)).toFixed(2)}MB)`;
-          if (str.startsWith('abort: ')) {
+          if (str.startsWith('abort: ') || str.startsWith('important: ')) {
             // we explicitly want to route to console.log for every abort message to not miss them:
             // eslint-disable-next-line no-console
             console.log(str);

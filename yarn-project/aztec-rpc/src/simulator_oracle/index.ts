@@ -1,16 +1,14 @@
-import { CommitmentDataOracleInputs, DBOracle, MessageLoadOracleInputs } from '@aztec/acir-simulator';
+import { DBOracle, FunctionAbiWithDebugMetadata, MessageLoadOracleInputs } from '@aztec/acir-simulator';
 import {
   AztecAddress,
-  CircuitsWasm,
+  CompleteAddress,
   EthAddress,
   Fr,
+  FunctionSelector,
+  GrumpkinPrivateKey,
   HistoricBlockData,
-  PartialAddress,
-  PrivateKey,
   PublicKey,
 } from '@aztec/circuits.js';
-import { siloCommitment } from '@aztec/circuits.js/abis';
-import { FunctionAbi } from '@aztec/foundation/abi';
 import { DataCommitmentProvider, KeyStore, L1ToL2MessageProvider } from '@aztec/types';
 
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
@@ -28,34 +26,51 @@ export class SimulatorOracle implements DBOracle {
     private dataTreeProvider: DataCommitmentProvider,
   ) {}
 
-  getSecretKey(_contractAddress: AztecAddress, pubKey: PublicKey): Promise<PrivateKey> {
+  getSecretKey(_contractAddress: AztecAddress, pubKey: PublicKey): Promise<GrumpkinPrivateKey> {
     return this.keyStore.getAccountPrivateKey(pubKey);
   }
 
-  async getPublicKey(address: AztecAddress): Promise<[PublicKey, PartialAddress]> {
-    const result = await this.db.getPublicKeyAndPartialAddress(address);
-    if (!result)
+  async getCompleteAddress(address: AztecAddress): Promise<CompleteAddress> {
+    const completeAddress = await this.db.getCompleteAddress(address);
+    if (!completeAddress)
       throw new Error(
-        `Unknown public key for address ${address.toString()}. Add public key to Aztec RPC server by calling server.addPublicKeyAndPartialAddress(...)`,
+        `Unknown complete address for address ${address.toString()}. Add the information to Aztec RPC server by calling server.registerRecipient(...) or server.registerAccount(...)`,
       );
-    return result;
+    return completeAddress;
+  }
+
+  async getAuthWitness(messageHash: Fr): Promise<Fr[]> {
+    const witness = await this.db.getAuthWitness(messageHash);
+    if (!witness) throw new Error(`Unknown auth witness for message hash ${messageHash.toString(true)}`);
+    return witness;
   }
 
   async getNotes(contractAddress: AztecAddress, storageSlot: Fr) {
     const noteDaos = await this.db.getNoteSpendingInfo(contractAddress, storageSlot);
-    return noteDaos.map(({ contractAddress, storageSlot, nonce, notePreimage, siloedNullifier, index }) => ({
-      contractAddress,
-      storageSlot,
-      nonce,
-      preimage: notePreimage.items,
-      siloedNullifier,
-      // RPC Client can use this index to get full MembershipWitness
-      index,
-    }));
+    return noteDaos.map(
+      ({ contractAddress, storageSlot, nonce, notePreimage, innerNoteHash, siloedNullifier, index }) => ({
+        contractAddress,
+        storageSlot,
+        nonce,
+        preimage: notePreimage.items,
+        innerNoteHash,
+        siloedNullifier,
+        // RPC Client can use this index to get full MembershipWitness
+        index,
+      }),
+    );
   }
 
-  async getFunctionABI(contractAddress: AztecAddress, functionSelector: Buffer): Promise<FunctionAbi> {
-    return await this.contractDataOracle.getFunctionAbi(contractAddress, functionSelector);
+  async getFunctionABI(
+    contractAddress: AztecAddress,
+    selector: FunctionSelector,
+  ): Promise<FunctionAbiWithDebugMetadata> {
+    const abi = await this.contractDataOracle.getFunctionAbi(contractAddress, selector);
+    const debug = await this.contractDataOracle.getFunctionDebugMetadata(contractAddress, selector);
+    return {
+      ...abi,
+      debug,
+    };
   }
 
   async getPortalContractAddress(contractAddress: AztecAddress): Promise<EthAddress> {
@@ -83,23 +98,12 @@ export class SimulatorOracle implements DBOracle {
   }
 
   /**
-   * Retrieves the noir oracle data required to prove existence of a given commitment.
-   * @param contractAddress - The contract Address.
-   * @param innerCommitment - The key of the message being fetched.
-   * @returns - A promise that resolves to the commitment data, a sibling path and the
-   *            index of the message in the private data tree.
+   * Gets the index of a commitment in the private data tree.
+   * @param commitment - The commitment.
+   * @returns - The index of the commitment. Undefined if it does not exist in the tree.
    */
-  async getCommitmentOracle(contractAddress: AztecAddress, innerCommitment: Fr): Promise<CommitmentDataOracleInputs> {
-    const siloedCommitment = siloCommitment(await CircuitsWasm.get(), contractAddress, innerCommitment);
-    const index = await this.dataTreeProvider.findCommitmentIndex(siloedCommitment.toBuffer());
-    if (!index) throw new Error('Commitment not found');
-
-    const siblingPath = await this.dataTreeProvider.getDataTreePath(index);
-    return await Promise.resolve({
-      commitment: siloedCommitment,
-      siblingPath: siblingPath.toFieldArray(),
-      index,
-    });
+  async getCommitmentIndex(commitment: Fr) {
+    return await this.dataTreeProvider.findCommitmentIndex(commitment.toBuffer());
   }
 
   /**

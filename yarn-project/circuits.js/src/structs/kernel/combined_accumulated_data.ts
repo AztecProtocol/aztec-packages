@@ -14,16 +14,9 @@ import {
   MAX_READ_REQUESTS_PER_TX,
   NUM_FIELDS_PER_SHA256,
 } from '../../cbind/constants.gen.js';
-import { assertMemberLength, makeTuple } from '../../index.js';
+import { makeTuple } from '../../index.js';
 import { serializeToBuffer } from '../../utils/serialize.js';
-import {
-  AggregationObject,
-  AztecAddress,
-  EthAddress,
-  Fr,
-  FunctionData,
-  ReadRequestMembershipWitness,
-} from '../index.js';
+import { AggregationObject, AztecAddress, EthAddress, Fr, FunctionData } from '../index.js';
 
 /**
  * The information assembled after the contract deployment was processed by the private kernel circuit.
@@ -186,6 +179,10 @@ export class PublicDataRead {
      * Returned value from the public data tree.
      */
     public readonly value: Fr,
+    /**
+     * Optional side effect counter tracking position of this event in tx execution.
+     */
+    public readonly sideEffectCounter?: number,
   ) {}
 
   static from(args: {
@@ -236,6 +233,10 @@ export class PublicDataUpdateRequest {
      * New value of the leaf.
      */
     public readonly newValue: Fr,
+    /**
+     * Optional side effect counter tracking position of this event in tx execution.
+     */
+    public readonly sideEffectCounter?: number,
   ) {}
 
   static from(args: {
@@ -286,10 +287,6 @@ export class CombinedAccumulatedData {
      * All the read requests made in this transaction.
      */
     public readRequests: Tuple<Fr, typeof MAX_READ_REQUESTS_PER_TX>,
-    /**
-     * All the read request membership witnesses made in this transaction.
-     */
-    public readRequestMembershipWitnesses: Tuple<ReadRequestMembershipWitness, typeof MAX_READ_REQUESTS_PER_TX>,
     /**
      * The new commitments made in this transaction.
      */
@@ -349,28 +346,12 @@ export class CombinedAccumulatedData {
      * All the public data reads made in this transaction.
      */
     public publicDataReads: Tuple<PublicDataRead, typeof MAX_PUBLIC_DATA_READS_PER_TX>,
-  ) {
-    assertMemberLength(this, 'readRequests', MAX_READ_REQUESTS_PER_TX);
-    assertMemberLength(this, 'readRequestMembershipWitnesses', MAX_READ_REQUESTS_PER_TX);
-    assertMemberLength(this, 'newCommitments', MAX_NEW_COMMITMENTS_PER_TX);
-    assertMemberLength(this, 'newNullifiers', MAX_NEW_NULLIFIERS_PER_TX);
-    assertMemberLength(this, 'nullifiedCommitments', MAX_NEW_NULLIFIERS_PER_TX);
-    assertMemberLength(this, 'privateCallStack', MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX);
-    assertMemberLength(this, 'publicCallStack', MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX);
-    assertMemberLength(this, 'newL2ToL1Msgs', MAX_NEW_L2_TO_L1_MSGS_PER_TX);
-    assertMemberLength(this, 'encryptedLogsHash', NUM_FIELDS_PER_SHA256);
-    assertMemberLength(this, 'unencryptedLogsHash', NUM_FIELDS_PER_SHA256);
-    assertMemberLength(this, 'newContracts', MAX_NEW_CONTRACTS_PER_TX);
-    assertMemberLength(this, 'optionallyRevealedData', MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX);
-    assertMemberLength(this, 'publicDataUpdateRequests', MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX);
-    assertMemberLength(this, 'publicDataReads', MAX_PUBLIC_DATA_READS_PER_TX);
-  }
+  ) {}
 
   toBuffer() {
     return serializeToBuffer(
       this.aggregationObject,
       this.readRequests,
-      this.readRequestMembershipWitnesses,
       this.newCommitments,
       this.newNullifiers,
       this.nullifiedCommitments,
@@ -402,7 +383,6 @@ export class CombinedAccumulatedData {
     return new CombinedAccumulatedData(
       reader.readObject(AggregationObject),
       reader.readArray(MAX_READ_REQUESTS_PER_TX, Fr),
-      reader.readArray(MAX_READ_REQUESTS_PER_TX, ReadRequestMembershipWitness),
       reader.readArray(MAX_NEW_COMMITMENTS_PER_TX, Fr),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Fr),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Fr),
@@ -420,6 +400,27 @@ export class CombinedAccumulatedData {
     );
   }
 
+  static fromFinalAccumulatedData(finalData: FinalAccumulatedData): CombinedAccumulatedData {
+    return new CombinedAccumulatedData(
+      finalData.aggregationObject,
+      makeTuple(MAX_READ_REQUESTS_PER_TX, Fr.zero),
+      finalData.newCommitments,
+      finalData.newNullifiers,
+      finalData.nullifiedCommitments,
+      finalData.privateCallStack,
+      finalData.publicCallStack,
+      finalData.newL2ToL1Msgs,
+      finalData.encryptedLogsHash,
+      finalData.unencryptedLogsHash,
+      finalData.encryptedLogPreimagesLength,
+      finalData.unencryptedLogPreimagesLength,
+      finalData.newContracts,
+      finalData.optionallyRevealedData,
+      makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest.empty),
+      makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, PublicDataRead.empty),
+    );
+  }
+
   /**
    * Deserializes from a string, corresponding to a write in cpp.
    * @param str - String to read from.
@@ -433,7 +434,6 @@ export class CombinedAccumulatedData {
     return new CombinedAccumulatedData(
       AggregationObject.makeFake(),
       makeTuple(MAX_READ_REQUESTS_PER_TX, Fr.zero),
-      makeTuple(MAX_READ_REQUESTS_PER_TX, () => ReadRequestMembershipWitness.empty(BigInt(0))),
       makeTuple(MAX_NEW_COMMITMENTS_PER_TX, Fr.zero),
       makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero),
       makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero),
@@ -448,6 +448,143 @@ export class CombinedAccumulatedData {
       makeTuple(MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX, OptionallyRevealedData.empty),
       makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest.empty),
       makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, PublicDataRead.empty),
+    );
+  }
+}
+
+/**
+ * Specific accumulated data structure for the final ordering private kernel circuit. It is included
+ *  in the final public inputs of private kernel circuit.
+ */
+export class FinalAccumulatedData {
+  constructor(
+    /**
+     * Aggregated proof of all the previous kernel iterations.
+     */
+    public aggregationObject: AggregationObject, // Contains the aggregated proof of all previous kernel iterations
+    /**
+     * The new commitments made in this transaction.
+     */
+    public newCommitments: Tuple<Fr, typeof MAX_NEW_COMMITMENTS_PER_TX>,
+    /**
+     * The new nullifiers made in this transaction.
+     */
+    public newNullifiers: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
+    /**
+     * The commitments which are nullified by a nullifier in the above list. For pending nullifiers, we have:
+     * nullifiedCommitments[j] != 0 if and only if newNullifiers[j] nullifies nullifiedCommitments[j]
+     */
+    public nullifiedCommitments: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
+    /**
+     * Current private call stack.
+     */
+    public privateCallStack: Tuple<Fr, typeof MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
+    /**
+     * Current public call stack.
+     */
+    public publicCallStack: Tuple<Fr, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
+    /**
+     * All the new L2 to L1 messages created in this transaction.
+     */
+    public newL2ToL1Msgs: Tuple<Fr, typeof MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
+    /**
+     * Accumulated encrypted logs hash from all the previous kernel iterations.
+     * Note: Represented as a tuple of 2 fields in order to fit in all of the 256 bits of sha256 hash.
+     */
+    public encryptedLogsHash: Tuple<Fr, typeof NUM_FIELDS_PER_SHA256>,
+    /**
+     * Accumulated unencrypted logs hash from all the previous kernel iterations.
+     * Note: Represented as a tuple of 2 fields in order to fit in all of the 256 bits of sha256 hash.
+     */
+    public unencryptedLogsHash: Tuple<Fr, typeof NUM_FIELDS_PER_SHA256>,
+    /**
+     * Total accumulated length of the encrypted log preimages emitted in all the previous kernel iterations
+     */
+    public encryptedLogPreimagesLength: Fr,
+    /**
+     * Total accumulated length of the unencrypted log preimages emitted in all the previous kernel iterations
+     */
+    public unencryptedLogPreimagesLength: Fr,
+    /**
+     * All the new contracts deployed in this transaction.
+     */
+    public newContracts: Tuple<NewContractData, typeof MAX_NEW_CONTRACTS_PER_TX>,
+    /**
+     * All the optionally revealed data in this transaction.
+     */
+    public optionallyRevealedData: Tuple<OptionallyRevealedData, typeof MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX>,
+  ) {}
+
+  toBuffer() {
+    return serializeToBuffer(
+      this.aggregationObject,
+      this.newCommitments,
+      this.newNullifiers,
+      this.nullifiedCommitments,
+      this.privateCallStack,
+      this.publicCallStack,
+      this.newL2ToL1Msgs,
+      this.encryptedLogsHash,
+      this.unencryptedLogsHash,
+      this.encryptedLogPreimagesLength,
+      this.unencryptedLogPreimagesLength,
+      this.newContracts,
+      this.optionallyRevealedData,
+    );
+  }
+
+  toString() {
+    return this.toBuffer().toString();
+  }
+
+  /**
+   * Deserializes from a buffer or reader, corresponding to a write in cpp.
+   * @param buffer - Buffer or reader to read from.
+   * @returns Deserialized object.
+   */
+  static fromBuffer(buffer: Buffer | BufferReader): FinalAccumulatedData {
+    const reader = BufferReader.asReader(buffer);
+    return new FinalAccumulatedData(
+      reader.readObject(AggregationObject),
+      reader.readArray(MAX_NEW_COMMITMENTS_PER_TX, Fr),
+      reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Fr),
+      reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Fr),
+      reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, Fr),
+      reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, Fr),
+      reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr),
+      reader.readArray(2, Fr),
+      reader.readArray(2, Fr),
+      reader.readFr(),
+      reader.readFr(),
+      reader.readArray(MAX_NEW_CONTRACTS_PER_TX, NewContractData),
+      reader.readArray(MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX, OptionallyRevealedData),
+    );
+  }
+
+  /**
+   * Deserializes from a string, corresponding to a write in cpp.
+   * @param str - String to read from.
+   * @returns Deserialized object.
+   */
+  static fromString(str: string) {
+    return FinalAccumulatedData.fromBuffer(Buffer.from(str, 'hex'));
+  }
+
+  static empty() {
+    return new FinalAccumulatedData(
+      AggregationObject.makeFake(),
+      makeTuple(MAX_NEW_COMMITMENTS_PER_TX, Fr.zero),
+      makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero),
+      makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero),
+      makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, Fr.zero),
+      makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, Fr.zero),
+      makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr.zero),
+      makeTuple(2, Fr.zero),
+      makeTuple(2, Fr.zero),
+      Fr.zero(),
+      Fr.zero(),
+      makeTuple(MAX_NEW_CONTRACTS_PER_TX, NewContractData.empty),
+      makeTuple(MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX, OptionallyRevealedData.empty),
     );
   }
 }

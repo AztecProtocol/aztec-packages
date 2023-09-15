@@ -1,9 +1,7 @@
-use dep::std::hash::pedersen;
 use dep::aztec::note::note_interface::NoteInterface;
 use dep::aztec::note::note_header::NoteHeader;
-use dep::aztec::oracle::get_secret_key::get_secret_key;
-use dep::aztec::oracle::get_public_key::get_public_key;
 use dep::aztec::note::utils::compute_siloed_note_hash;
+use dep::aztec::oracle::get_secret_key::get_secret_key;
 
 global ADDRESS_NOTE_LEN: Field = 2;
 
@@ -29,24 +27,17 @@ impl AddressNote {
 
     fn compute_nullifier(self) -> Field {
         let siloed_note_hash = compute_siloed_note_hash(AddressNoteMethods, self);
-        let owner_nullifying_public_key = get_public_key(self.owner);
-        let secret = get_secret_key(owner_nullifying_public_key);
+        let secret = get_secret_key(self.owner);
+        // TODO(#1205) Should use a non-zero generator index.
         dep::std::hash::pedersen([
             siloed_note_hash,
-            secret,
+            secret.low,
+            secret.high,
         ])[0]
     }
 
     fn set_header(&mut self, header: NoteHeader) {
         self.header = header;
-    }
-
-    fn dummy() -> Self {
-        AddressNote {
-            address: 0,
-            owner: 0,
-            header: NoteHeader::empty(),
-        }
     }
 }
 
@@ -63,15 +54,12 @@ fn serialise(note: AddressNote) -> [Field; ADDRESS_NOTE_LEN]{
 }
 
 fn compute_note_hash(note: AddressNote) -> Field {
+    // TODO(#1205) Should use a non-zero generator index.
     dep::std::hash::pedersen(note.serialise())[0]
 }
 
 fn compute_nullifier(note: AddressNote) -> Field {
     note.compute_nullifier()
-}
-
-fn dummy() -> AddressNote {
-    AddressNote::dummy()
 }
 
 fn get_header(note: AddressNote) -> NoteHeader {
@@ -87,7 +75,6 @@ global AddressNoteMethods = NoteInterface {
     serialise,
     compute_note_hash,
     compute_nullifier,
-    dummy,
     get_header,
     set_header,
 };

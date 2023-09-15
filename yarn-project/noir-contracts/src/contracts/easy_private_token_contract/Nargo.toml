@@ -2,9 +2,9 @@
 name = "easy_private_token_contract"
 authors = [""]
 compiler_version = "0.1"
-type = "bin"
+type = "contract"
 
 [dependencies]
-aztec = { path = "../../../../noir-libs/noir-aztec" }
-value_note = { path = "../../../../noir-libs/value-note"}
-easy_private_state = { path = "../../../../noir-libs/easy-private-state"}
+aztec = { path = "../../../../aztec-nr/aztec" }
+value_note = { path = "../../../../aztec-nr/value-note"}
+easy_private_state = { path = "../../../../aztec-nr/easy-private-state"}

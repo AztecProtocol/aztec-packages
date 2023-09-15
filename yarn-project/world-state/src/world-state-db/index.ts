@@ -1,4 +1,5 @@
-import { GlobalVariables, MAX_NEW_NULLIFIERS_PER_TX } from '@aztec/circuits.js';
+import { MAX_NEW_NULLIFIERS_PER_TX } from '@aztec/circuits.js';
+import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { LeafData, LowLeafWitnessData } from '@aztec/merkle-tree';
 import { L2Block, MerkleTreeId, SiblingPath } from '@aztec/types';
@@ -115,14 +116,14 @@ export interface MerkleTreeOperations {
   /**
    * Gets the current roots of the commitment trees.
    */
-  getTreeRoots(): CurrentTreeRoots;
+  getTreeRoots(): Promise<CurrentTreeRoots>;
 
   /**
    * Gets sibling path for a leaf.
    * @param treeId - The tree to be queried for a sibling path.
    * @param index - The index of the leaf for which a sibling path should be returned.
    */
-  getSiblingPath(treeId: MerkleTreeId, index: bigint): Promise<SiblingPath<number>>;
+  getSiblingPath<N extends number>(treeId: MerkleTreeId, index: bigint): Promise<SiblingPath<N>>;
 
   /**
    * Returns the previous index for a given value in an indexed tree.
@@ -175,9 +176,20 @@ export interface MerkleTreeOperations {
   /**
    * Inserts the new block hash into the new block hashes tree.
    * This includes all of the current roots of all of the data trees and the current blocks global vars.
-   * @param globalVariables - The global variables to insert into the block hash.
+   * @param globalVariablesHash - The global variables hash to insert into the block hash.
    */
-  updateHistoricBlocksTree(globalVariables: GlobalVariables): Promise<void>;
+  updateHistoricBlocksTree(globalVariablesHash: Fr): Promise<void>;
+
+  /**
+   * Updates the latest global variables hash
+   * @param globalVariablesHash - The latest global variables hash
+   */
+  updateLatestGlobalVariablesHash(globalVariablesHash: Fr): Promise<void>;
+
+  /**
+   * Gets the global variables hash from the previous block
+   */
+  getLatestGlobalVariablesHash(): Promise<Fr>;
 
   /**
    * Batch insert multiple leaves into the tree.
