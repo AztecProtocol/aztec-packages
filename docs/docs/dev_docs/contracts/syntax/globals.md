@@ -4,7 +4,7 @@ title: Globals
 
 # Globals
 
-- timestamp
-- block number
-- chain id
-- version
+- `timestamp`
+- `block_number`
+- `chain_id`
+- `version`

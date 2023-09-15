@@ -20,6 +20,7 @@ Let's start with the account contract itself in Aztec.nr. Create [a new Aztec.nr
 
 :::info
 You can use [the Aztec CLI](../cli/main.md) to generate a new keypair if you want to use a different one:
+
 ```bash
 $ aztec-cli generate-private-key
 ```
@@ -28,6 +29,7 @@ $ aztec-cli generate-private-key
 Private Key: 0xc06461a031058f116f087bc0161b11c039648eb47e03bad3eab089709bf9b8ae
 Public Key:  0x0ede151adaef1cfcc1b3e152ea39f00c5cda3f3857cef00decb049d283672dc713c0e184340407e796411f74b7383252f1406272b58fccad6fee203f8a6db474
 ```
+
 :::
 
 The important part of this contract is the `entrypoint` function, which will be the first function executed in any transaction originated from this account. This function has two main responsibilities: 1) authenticating the transaction and 2) executing calls. It receives a `payload` with the list of function calls to execute, as well as a signature over that payload.
@@ -50,7 +52,7 @@ Last, we execute the calls in the payload struct. The `execute_calls` helper fun
 
 #include_code entrypoint-execute-calls yarn-project/aztec-nr/aztec/src/entrypoint.nr rust
 
-Note the usage of the `_with_packed_args` variant of [`call_public_function` and `call_private_function`](../contracts/functions.md#calling-functions). Due to Noir limitations, we cannot include more than a small number of arguments in a function call. However, we can bypass this restriction by using a hash of the arguments in a function call, which gets automatically expanded to the full set of arguments when the nested call is executed. We call this _argument packing_.
+Note the usage of the `_with_packed_args` variant of [`call_public_function` and `call_private_function`](../contracts/syntax/functions.md#calling-functions). Due to Noir limitations, we cannot include more than a small number of arguments in a function call. However, we can bypass this restriction by using a hash of the arguments in a function call, which gets automatically expanded to the full set of arguments when the nested call is executed. We call this _argument packing_.
 
 ## The typescript side of things
 
@@ -68,7 +70,7 @@ For our account contract, we need to assemble the function calls into a payload,
 
 Note that we are using the `buildPayload` and `hashPayload` helpers for assembling and Pedersen-hashing the `EntrypointPayload` struct for our `entrypoint` function. As mentioned, this is not required, and you can define your own structure for instructing your account contract what functions to run.
 
-Then, we are using the `Schnorr` signer from the `@aztec/circuits.js` package to sign over the payload hash. This signer maps to exactly the same signing scheme that Noir's standard library expects in `schnorr::verify_signature`. 
+Then, we are using the `Schnorr` signer from the `@aztec/circuits.js` package to sign over the payload hash. This signer maps to exactly the same signing scheme that Noir's standard library expects in `schnorr::verify_signature`.
 
 :::info
 More signing schemes are available in case you want to experiment with other types of keys. Check out Noir's [documentation on cryptographic primitives](https://noir-lang.org/standard_library/cryptographic_primitives).
@@ -81,6 +83,7 @@ Last, we use the `buildTxExecutionRequest` helper function to assemble the trans
 Let's try creating a new account backed by our account contract, and interact with a simple token contract to test it works.
 
 <!-- TODO: Link to docs showing how to get an instance of Aztec RPC server  -->
+
 To create and deploy the account, we will use the `Account` class, which takes an instance of an Aztec RPC server, a [privacy private key](../../concepts/foundation/accounts/keys.md#privacy-keys), and an instance of our `AccountContract` class:
 
 #include_code account-contract-deploy yarn-project/end-to-end/src/guides/writing_an_account_contract.test.ts typescript
