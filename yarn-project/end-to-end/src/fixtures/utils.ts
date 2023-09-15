@@ -394,7 +394,7 @@ export async function deployAndInitializeStandardizedTokenAndBridgeContracts(
     throw new Error(`Bridge token is not ${l2Token.address}`);
 
   // make the bridge a minter on the token:
-  const makeMinterTx = l2Token.methods.set_minter({ address: bridge.address }, 1).send();
+  const makeMinterTx = l2Token.methods.set_minter({ address: bridge.address }, true).send();
   const makeMinterReceipt = await makeMinterTx.wait();
   if (makeMinterReceipt.status !== TxStatus.MINED)
     throw new Error(`Make bridge a minter tx status is ${makeMinterReceipt.status}`);

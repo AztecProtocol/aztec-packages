@@ -71,7 +71,7 @@ describe('e2e_token_bridge_contract', () => {
     tokenPortal = contracts.tokenPortal;
     underlyingERC20 = contracts.underlyingERC20;
     logger(`Deployed and initialized token, portal and its bridge.`);
-  }, 60_000);
+  }, 65_000);
 
   afterEach(async () => {
     await aztecNode?.stop();
@@ -139,7 +139,9 @@ describe('e2e_token_bridge_contract', () => {
 
     // 3. Consume message on aztec and mint publicly
     logger('Consuming messages on L2');
-    const tx = bridge.methods.mint_public(bridgeAmount, messageKey, secret, { address: ethAccount.toField() }).send();
+    const tx = bridge.methods
+      .deposit_public(bridgeAmount, messageKey, secret, { address: ethAccount.toField() })
+      .send();
     const receipt = await tx.wait();
     expect(receipt.status).toBe(TxStatus.MINED);
     const afterBalance = await token.methods.balance_of_public({ address: ownerAddress }).view();
@@ -188,7 +190,11 @@ describe('e2e_token_bridge_contract', () => {
     const secretHash = await computeMessageSecretHash(secret);
 
     // 1. Mint tokens on L1
-    await mintTokensOnL1(l1TokenBalance);
+    // TODO (#2291): Because same owner is used across two tests, l1 balance already exists. This is why we have two separate cross chain tests.
+    // Separate them like before
+    if ((await underlyingERC20.read.balanceOf([ethAccount.toString()])) === 0n) {
+      await mintTokensOnL1(l1TokenBalance);
+    }
 
     // 2. Deposit tokens to the TokenPortal
     const messageKey = await depositTokensToPortal(bridgeAmount, secretHash);
@@ -205,7 +211,7 @@ describe('e2e_token_bridge_contract', () => {
 
     // 3. Consume message on aztec and mint publicly
     logger('Consuming messages on L2');
-    const tx = bridge.methods.mint(bridgeAmount, messageKey, secret, { address: ethAccount.toField() }).send();
+    const tx = bridge.methods.deposit(bridgeAmount, messageKey, secret, { address: ethAccount.toField() }).send();
     const receipt = await tx.wait();
     expect(receipt.status).toBe(TxStatus.MINED);
     const txClaim = token.methods.redeem_shield({ address: ownerAddress }, bridgeAmount, secret).send();

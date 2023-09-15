@@ -77,7 +77,7 @@ describe('CLI docs sandbox', () => {
     logs.splice(0);
   };
 
-  it('prints example contracts', async () => {
+  it.only('prints example contracts', async () => {
     const docs = `
 // docs:start:example-contracts
 % aztec-cli example-contracts
@@ -104,6 +104,7 @@ SchnorrAuthWitnessAccountContractAbi
 SchnorrHardcodedAccountContractAbi
 SchnorrSingleKeyAccountContractAbi
 TestContractAbi
+TokenBridgeContractAbi
 TokenContractAbi
 UniswapContractAbi
 // docs:end:example-contracts

@@ -46,7 +46,7 @@ contract TokenBridge {
 
     // Consumes a L1->L2 message and calls the token contract to mint the appropriate amount publicly
     #[aztec(public)]
-    fn mint_public(
+    fn deposit_public(
         amount: Field,
         msg_key: Field, // L1 to L2 message key as derived from the inbox contract
         secret: Field,
@@ -60,14 +60,17 @@ contract TokenBridge {
         context.consume_l1_to_l2_message(msg_key, content_hash, secret);
 
         // Mint token on L2
-        Token::at(storage.token.read()).mint_public(context, context.msg_sender(), amount)
+        // If I call using the interface, for some reason, the kernel queues mint_public twice and mints double the tokens.
+        // So, for now, call the token contract directly
+        // Token::at(storage.token.read()).mint_public(context, context.msg_sender(), amount)
+        context.call_public_function(storage.token.read(), compute_selector("mint_public((Field),Field)"), [context.msg_sender(), amount])[0]
     }
 
     // Consumes a L1->L2 message and calls the token contract to mint the appropriate amount in private assets
     // User needs to call token.redeem_shield() to get the private assets
     // This method is public because it accesses public storage. For similar reasons, the corresponding call on the token is also public
     #[aztec(public)]
-    fn mint(
+    fn deposit(
         amount: Field,
         msg_key: Field, // L1 to L2 message key as derived from the inbox contract
         secret: Field,
@@ -111,7 +114,7 @@ contract TokenBridge {
     // Requires `from` to give approval to the bridge to burn tokens on their behalf using witness signatures 
     #[aztec(private)]
     fn withdraw(
-        token:AztecAddress, // can't read public storage in private, so pass the token and call an internal public fn to check if provided token is as expected.
+        token: AztecAddress, // can't read public storage in private, so pass the token and call an internal public fn to check if provided token is as expected.
         recipient: EthereumAddress, // ethereum address to withdraw to
         amount: Field,
         callerOnL1: EthereumAddress, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
@@ -119,8 +122,12 @@ contract TokenBridge {
     ) -> Field {
         // can't read public storage (`storage.token`) in private so let the user pass it in
         // later assert that this token address is as expected
-        let return_value = Token::at(token.address).burn(&mut context, context.msg_sender(), amount, nonce);
-
+        // let return_value = Token::at(token.address).burn(&mut context, context.msg_sender(), amount, nonce);
+        let return_value = context.call_private_function(
+			token.address, 
+			compute_selector("burn((Field),Field,Field)"), 
+			[context.msg_sender(), amount, nonce]
+		);
         let content = get_withdraw_content_hash(amount, recipient.address, callerOnL1.address);
         // Emit the l2 to l1 message
         context.message_portal(content);
@@ -128,7 +135,8 @@ contract TokenBridge {
         // Assert that user provided token address is same as seen in storage. 
         context.call_public_function(token.address, compute_selector("_assert_token_is_same(Field)"), [token.address]);
 
-        return_value
+        return_value[0]
+
     }
 
     // /// Unconstrained /// 
