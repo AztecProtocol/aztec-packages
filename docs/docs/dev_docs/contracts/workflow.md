@@ -1,8 +1,10 @@
-# Aztec.nr smart contract workflow
+---
+title: Contract Workflow
+---
 
 ## Write
 
-[Write a contract](./syntax/main.md)
+[Write a contract](./syntax/main.md).
 
 ## Compile
 

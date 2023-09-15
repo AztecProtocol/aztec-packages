@@ -1,4 +1,6 @@
-# Limitations
+---
+title: Limitations
+---
 
 The Aztec Sandbox and the Aztec Smart Contract Library are **prototypes**, and should be treated as such. They've been released early, to gather feedback on the capabilities of the protocol and user experiences.
 
@@ -31,11 +33,11 @@ Help shape and define:
 
 There are plans to resolve all of the below. See also the [engineering roadmap](../../about_aztec/roadmap/engineering_roadmap.md).
 
-### It is not audited.
+### It is not audited
 
 None of the Sandbox code is audited. It's being iterated-on every day. It will not be audited for quite some time.
 
-### No Proofs!
+### No Proofs
 
 That's right, the Sandbox doesn't actually generate or verify any zk-SNARKs yet!
 

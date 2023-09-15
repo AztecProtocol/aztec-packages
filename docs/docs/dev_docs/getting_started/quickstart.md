@@ -72,7 +72,9 @@ CONTRACT_ADDRESS="Paste the contract address here"
 We can check Alice's private token balance by querying the contract.
 
 <!-- Uncomment this when this test (https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/end-to-end/src/guides/up_quick_start.sh#L18-L24)
-is updated to use $CONTRACT instead of a hardcoded value -->
+is updated to use $CONTRACT instead of a hardcoded value
+ie when this PR lands: https://github.com/AztecProtocol/aztec-packages/pull/2344
+-->
 
 <!-- #include_code deploy yarn-project/end-to-end/src/guides/up_quick_start.sh bash -->
 

@@ -81,11 +81,10 @@ You can replace the content of the generated file `example_contract/src/main.nr`
 
 ## Next Steps
 
-You can learn more about writing contracts from the [Contracts section](../contracts/main.md).
-For now you can use the [PrivateToken contract example here](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-contracts/src/contracts/private_token_contract/src/main.nr).
+You can learn more about writing contracts from the [Contracts section](../contracts/main.md). Consider going through the [token contract tutorial](./token_contract_tutorial.md) for a deep dive on writing more advanced Aztec contracts and an introduction to some of the concepts that underpin the Aztec network architecture.
 
 After writing the contract, you have to compile it. Details can be found [here](../contracts/compiling.md).
 
-After compiling, you can deploy your contract to the Aztec network. Relevant instructions and explainations can be found [here](../contracts/deploying.md).
+After compiling, you can deploy your contract to the Aztec network. Relevant instructions and explanations can be found [here](../contracts/deploying.md).
 
 Thereafter, you can interact with the contracts similar to how it was shown in the the [Creating and submitting transactions section on the Sandbox page](./sandbox.md#creating-and-submitting-transactions).
