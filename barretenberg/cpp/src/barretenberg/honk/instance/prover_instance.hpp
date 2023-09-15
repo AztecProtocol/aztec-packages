@@ -18,8 +18,9 @@ namespace proof_system::honk {
  * and folded public inputs and its FoldingParams are expected to be non-zero
  *
  */
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/725): create an Instances class that manages several
+// Instance and passes them to ProtoGakaxy prover and verifier so that Instance objects don't need to mantain an index
 template <class Flavor> class ProverInstance_ {
-  public:
     using Circuit = typename Flavor::CircuitBuilder;
     using ProvingKey = typename Flavor::ProvingKey;
     using VerificationKey = typename Flavor::VerificationKey;
@@ -29,10 +30,9 @@ template <class Flavor> class ProverInstance_ {
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using Polynomial = typename Flavor::Polynomial;
 
+  public:
     // offset due to placing zero wires at the start of execution trace
-    static constexpr size_t num_zero_rows = Flavor::has_zero_row ? 1 : 0;
 
-    static constexpr size_t NUM_WIRES = Circuit::NUM_WIRES;
     std::shared_ptr<ProvingKey> proving_key;
     std::shared_ptr<VerificationKey> verification_key;
     std::shared_ptr<CommitmentKey> commitment_key;
@@ -42,20 +42,9 @@ template <class Flavor> class ProverInstance_ {
     // The number of public inputs has to be the same for all instances because they are
     // folded element by element.
     std::vector<FF> public_inputs;
-    size_t pub_inputs_offset;
-
+    size_t pub_inputs_offset = 0;
     proof_system::RelationParameters<FF> relation_parameters;
-
     std::vector<uint32_t> recursive_proof_public_input_indices;
-    bool contains_recursive_proof = false;
-    bool computed_witness = false;
-    size_t total_num_gates = 0; // num_gates + num_pub_inputs + tables + zero_row_offset (used to compute dyadic size)
-    size_t dyadic_circuit_size = 0; // final power-of-2 circuit size
-    size_t lookups_size = 0;        // total number of lookup gates
-    size_t tables_size = 0;         // total number of table entries
-    size_t num_public_inputs = 0;
-    size_t num_ecc_op_gates = 0;
-
     FoldingParameters folding_params;
     // Used by the prover for domain separation in the transcript
     uint32_t index;
@@ -79,16 +68,31 @@ template <class Flavor> class ProverInstance_ {
         , public_inputs(result.folded_public_inputs)
         , folding_params(result.params){};
 
-    ProverInstance_(ProverInstance_&& other) noexcept = default;
     ~ProverInstance_() = default;
 
     std::shared_ptr<VerificationKey> compute_verification_key();
 
     void initialise_prover_polynomials();
+
     void compute_sorted_accumulator_polynomials(FF)
         requires IsUltraFlavor<Flavor>;
 
+    void compute_sorted_list_accumulator(FF)
+        requires IsUltraFlavor<Flavor>;
+
     void compute_grand_product_polynomials(FF, FF);
+
+  private:
+    static constexpr size_t num_zero_rows = Flavor::has_zero_row ? 1 : 0;
+    static constexpr size_t NUM_WIRES = Circuit::NUM_WIRES;
+    bool contains_recursive_proof = false;
+    bool computed_witness = false;
+    size_t total_num_gates = 0; // num_gates + num_pub_inputs + tables + zero_row_offset (used to compute dyadic size)
+    size_t dyadic_circuit_size = 0; // final power-of-2 circuit size
+    size_t lookups_size = 0;        // total number of lookup gates
+    size_t tables_size = 0;         // total number of table entries
+    size_t num_public_inputs = 0;
+    size_t num_ecc_op_gates = 0;
 
     std::shared_ptr<ProvingKey> compute_proving_key(Circuit&);
 
@@ -101,9 +105,6 @@ template <class Flavor> class ProverInstance_ {
         requires IsUltraFlavor<Flavor>;
 
     void add_table_column_selector_poly_to_proving_key(barretenberg::polynomial& small, const std::string& tag);
-
-    void compute_sorted_list_accumulator(FF)
-        requires IsUltraFlavor<Flavor>;
 
     void add_plookup_memory_records_to_wire_4(FF)
         requires IsUltraFlavor<Flavor>;

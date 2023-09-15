@@ -36,7 +36,7 @@ template <typename Flavor> class StandardHonkComposerTests : public ::testing::T
     };
 };
 
-using FlavorTypes = ::testing::Types<flavor::Standard>;
+using FlavorTypes = ::testing::Types<flavor::Standard, flavor::StandardGrumpkin>;
 TYPED_TEST_SUITE(StandardHonkComposerTests, FlavorTypes);
 
 /**
@@ -443,6 +443,6 @@ TYPED_TEST(StandardHonkComposerTests, SumcheckEvaluations)
         ASSERT_EQ(verified, expected_result);
     };
     run_test(/*expected_result=*/true);
-    // run_test(/*expected_result=*/false);
+    run_test(/*expected_result=*/false);
 }
 } // namespace test_standard_honk_composer

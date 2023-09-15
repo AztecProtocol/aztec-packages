@@ -194,14 +194,21 @@ std::shared_ptr<typename Flavor::ProvingKey> ProverInstance_<Flavor>::compute_pr
         return proving_key;
     }
 
+    // Compute lagrange selectors
+
     proving_key = std::make_shared<ProvingKey>(dyadic_circuit_size, num_public_inputs);
+    construct_selector_polynomials<Flavor>(circuit, proving_key.get());
+
+    if constexpr (StandardFlavor<Flavor>) {
+        // Compute sigma polynomials (we should update that late)
+        compute_standard_honk_sigma_permutations<Flavor>(circuit, proving_key.get());
+        compute_standard_honk_id_polynomials<Flavor>(proving_key.get());
+        compute_first_and_last_lagrange_polynomials<Flavor>(proving_key.get());
+    }
 
     if constexpr (IsUltraFlavor<Flavor>) {
 
-        construct_selector_polynomials<Flavor>(circuit, proving_key.get());
-
         compute_honk_generalized_sigma_permutations<Flavor>(circuit, proving_key.get());
-
         compute_first_and_last_lagrange_polynomials<Flavor>(proving_key.get());
 
         polynomial poly_q_table_column_1(dyadic_circuit_size);
@@ -254,15 +261,6 @@ std::shared_ptr<typename Flavor::ProvingKey> ProverInstance_<Flavor>::compute_pr
         if constexpr (IsGoblinFlavor<Flavor>) {
             proving_key->num_ecc_op_gates = num_ecc_op_gates;
         }
-    } else {
-        // Compute lagrange selectors
-        construct_selector_polynomials<Flavor>(circuit, proving_key.get());
-
-        // Compute sigma polynomials (we should update that late)
-        compute_standard_honk_sigma_permutations<Flavor>(circuit, proving_key.get());
-        compute_standard_honk_id_polynomials<Flavor>(proving_key.get());
-
-        compute_first_and_last_lagrange_polynomials<Flavor>(proving_key.get());
     }
 
     return proving_key;
@@ -325,12 +323,15 @@ template <class Flavor> void ProverInstance_<Flavor>::initialise_prover_polynomi
         if constexpr (IsGoblinFlavor<Flavor>) {
             pub_inputs_offset += proving_key->num_ecc_op_gates;
         }
-    }
-
-    // Construct the public inputs array
-    for (size_t i = 0; i < proving_key->num_public_inputs; ++i) {
-        size_t idx = i + pub_inputs_offset;
-        public_inputs.emplace_back(public_wires_source[idx]);
+        // Construct the public inputs array
+        for (size_t i = 0; i < proving_key->num_public_inputs; ++i) {
+            size_t idx = i + pub_inputs_offset;
+            public_inputs.emplace_back(public_wires_source[idx]);
+        }
+    } else {
+        for (size_t i = 0; i < proving_key->num_public_inputs; ++i) {
+            public_inputs.emplace_back(public_wires_source[i]);
+        }
     }
 }
 

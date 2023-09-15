@@ -6,6 +6,7 @@ template <class Flavor> struct ProverFoldingResult {
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using FoldingParameters = typename Flavor::FoldingParameters;
     ProverPolynomials folded_prover_polynomials;
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/656): turn folding data into a struct
     std::vector<uint8_t> folding_data;
     FoldingParameters params;
 };
