@@ -17,6 +17,8 @@
 #include "barretenberg/proof_system/relations/permutation_relation.hpp"
 #include "barretenberg/proof_system/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/srs/factories/crs_factory.hpp"
+#include "barretenberg/honk/flavor/ultra.hpp"
+
 #include <array>
 #include <concepts>
 #include <span>
@@ -37,11 +39,15 @@ namespace proof_system::honk::flavor {
  * (e.g. Polynomial, ExtendedEdges, etc.) since we do not emulate prover computation in circuits, i.e. it only makes
  * sense to instantiate a Verifier with this flavor.
  *
+ * @note Unlike conventional flavors, "recursive" flavors are templated by a builder (much like native vs stdlib types).
+ * This is because the flavor itself determines the details of the underlying verifier algorithm (i.e. the set of
+ * relations), while the Builder determines the arithmetization of that algorithm into a circuit.
+ *
+ * @tparam BuilderType Determines the arithmetization of the verifier circuit defined based on this flavor.
  */
-
 template <typename BuilderType> class UltraRecursive_ {
   public:
-    using CircuitBuilder = BuilderType;
+    using CircuitBuilder = BuilderType; // Determines arithmetization of circuit instantiated with this flavor
     using Curve = plonk::stdlib::bn254<CircuitBuilder>;
     using GroupElement = typename Curve::Element;
     using Commitment = typename Curve::Element;
@@ -51,7 +57,7 @@ template <typename BuilderType> class UltraRecursive_ {
     // Note(luke): Eventually this may not be needed at all
     using VerifierCommitmentKey = pcs::VerifierCommitmentKey<Curve>;
 
-    static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
+    static constexpr size_t NUM_WIRES = flavor::Ultra::NUM_WIRES;
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
     // Note: this number does not include the individual sorted list polynomials.
@@ -114,8 +120,6 @@ template <typename BuilderType> class UltraRecursive_ {
         DataType& table_4 = std::get<22>(this->_data);
         DataType& lagrange_first = std::get<23>(this->_data);
         DataType& lagrange_last = std::get<24>(this->_data);
-
-        static constexpr CircuitType CIRCUIT_TYPE = CircuitBuilder::CIRCUIT_TYPE;
 
         std::vector<HandleType> get_selectors() override
         {

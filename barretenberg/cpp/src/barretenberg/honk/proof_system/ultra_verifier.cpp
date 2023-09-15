@@ -193,12 +193,13 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const plonk
             agg_op_queue_evals[idx] =
                 transcript.template receive_from_prover<FF>("agg_op_queue_eval_" + std::to_string(idx + 1));
 
-            // Check the identity T_i(γ) = T_{i-1}(γ) + t_i^{shift}(γ). If it fails, return false
+            // Check the identity T_i(\kappa) = T_{i-1}(\kappa) + t_i^{shift}(\kappa). If it fails, return false
             if (agg_op_queue_evals[idx] != prev_agg_op_queue_evals[idx] + shifted_op_wire_evals[idx]) {
                 return false;
             }
         }
 
+        // Add corresponding univariate opening claims {(\kappa, p(\kappa), [p(X)]}
         for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
             univariate_opening_claims.emplace_back(pcs::OpeningClaim<Curve>{ { kappa, prev_agg_op_queue_evals[idx] },
                                                                              prev_agg_op_queue_commitments[idx] });
@@ -215,8 +216,6 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const plonk
 
     // Produce a Shplonk claim: commitment [Q] - [Q_z], evaluation zero (at random challenge z)
     auto shplonk_claim = Shplonk::reduce_verification(pcs_verification_key, univariate_opening_claims, transcript);
-
-    // transcript.print();
 
     // Verify the Shplonk claim with KZG or IPA
     return PCS::verify(pcs_verification_key, shplonk_claim, transcript);

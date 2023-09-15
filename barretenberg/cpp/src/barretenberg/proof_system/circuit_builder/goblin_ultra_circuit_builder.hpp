@@ -109,8 +109,5 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
     }
 };
 extern template class GoblinUltraCircuitBuilder_<barretenberg::fr>;
-// TODO: template plookup to be able to be able to have UltraCircuitBuilder on Grumpkin
-// extern template class UltraCircuitBuilder_<grumpkin::fr>;
 using GoblinUltraCircuitBuilder = GoblinUltraCircuitBuilder_<barretenberg::fr>;
-// using UltraGrumpkinCircuitBuilder = UltraCircuitBuilder_<grumpkin::fr>;
 } // namespace proof_system

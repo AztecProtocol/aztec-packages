@@ -46,7 +46,6 @@ template <typename FF> void UltraCircuitBuilder_<FF>::finalize_circuit()
         process_ROM_arrays();
         process_RAM_arrays();
         process_range_lists();
-
         circuit_finalised = true;
     }
 }

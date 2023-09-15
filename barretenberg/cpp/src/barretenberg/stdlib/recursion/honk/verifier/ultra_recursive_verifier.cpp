@@ -221,10 +221,11 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
             ASSERT(agg_op_queue_evals[idx].get_value() ==
                    prev_agg_op_queue_evals[idx].get_value() + shifted_op_wire_evals[idx].get_value());
 
-            // Check the identity T_i(γ) = T_{i-1}(γ) + t_i^{shift}(γ).
+            // Check the identity T_i(\kappa) = T_{i-1}(\kappa) + t_i^{shift}(\kappa).
             agg_op_queue_evals[idx].assert_equal(prev_agg_op_queue_evals[idx] + shifted_op_wire_evals[idx]);
         }
 
+        // Add corresponding univariate opening claims {(\kappa, p(\kappa), [p(X)]}
         for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
             univariate_opening_claims.emplace_back(
                 UnivariateClaim{ { kappa, prev_agg_op_queue_evals[idx] }, prev_agg_op_queue_commitments[idx] });

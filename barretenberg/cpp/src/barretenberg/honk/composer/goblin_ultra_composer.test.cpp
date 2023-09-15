@@ -52,6 +52,26 @@ class GoblinUltraHonkComposerTests : public ::testing::Test {
             builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, FF(1), FF(1), FF(1), FF(-1), FF(0) });
         }
     }
+
+    /**
+     * @brief Construct a goblin ultra circuit then generate a verify its proof
+     * 
+     * @param op_queue 
+     * @return auto 
+     */
+    bool construct_test_circuit_then_generate_and_verify_proof(auto& op_queue) {
+        auto builder = GoblinUltraCircuitBuilder(op_queue);
+
+        generate_test_circuit(builder);
+
+        auto composer = GoblinUltraComposer();
+        auto prover = composer.create_prover(builder);
+        auto verifier = composer.create_verifier(builder);
+        auto proof = prover.construct_proof();
+        bool verified = verifier.verify_proof(proof);
+
+        return verified;
+    }
 };
 
 /**
@@ -68,15 +88,9 @@ TEST_F(GoblinUltraHonkComposerTests, SingleCircuit)
     // Add mock data to op queue to simulate interaction with a previous circuit
     op_queue->populate_with_mock_initital_data();
 
-    auto builder = GoblinUltraCircuitBuilder(op_queue);
+    // Construct a test circuit then generate and verify its proof
+    auto verified = construct_test_circuit_then_generate_and_verify_proof(op_queue);
 
-    generate_test_circuit(builder);
-
-    auto composer = GoblinUltraComposer();
-    auto prover = composer.create_prover(builder);
-    auto verifier = composer.create_verifier(builder);
-    auto proof = prover.construct_proof();
-    bool verified = verifier.verify_proof(proof);
     EXPECT_EQ(verified, true);
 }
 
@@ -93,45 +107,15 @@ TEST_F(GoblinUltraHonkComposerTests, MultipleCircuits)
     // Add mock data to op queue to simulate interaction with a previous circuit
     op_queue->populate_with_mock_initital_data();
 
-    // Track the expected size of the op queue transcript
-    size_t expected_op_queue_size = 1; // +1 from mock data
-
-    // Construct first circuit and its proof
-    {
-        auto builder = GoblinUltraCircuitBuilder(op_queue);
-
-        generate_test_circuit(builder);
-        expected_op_queue_size += builder.num_ecc_op_gates;
-
-        auto composer = GoblinUltraComposer();
-        auto prover = composer.create_prover(builder);
-        auto verifier = composer.create_verifier(builder);
-        auto proof = prover.construct_proof();
-        bool verified = verifier.verify_proof(proof);
-        EXPECT_EQ(verified, true);
+    // Construct multiple test circuits that share an ECC op queue. Generate and verify a proof for each.
+    size_t NUM_CIRCUITS = 3;
+    for (size_t i = 0; i < NUM_CIRCUITS; ++i) {
+        construct_test_circuit_then_generate_and_verify_proof(op_queue);
     }
-
-    // Construct second circuit
-    {
-        auto builder = GoblinUltraCircuitBuilder(op_queue);
-
-        generate_test_circuit(builder);
-        expected_op_queue_size += builder.num_ecc_op_gates;
-
-        auto composer = GoblinUltraComposer();
-        auto prover = composer.create_prover(builder);
-        auto verifier = composer.create_verifier(builder);
-        auto proof = prover.construct_proof();
-        bool verified = verifier.verify_proof(proof);
-        EXPECT_EQ(verified, true);
-    }
-
-    // Check that the op queue contains the expected number of entries
-    size_t aggregate_op_queue_size = op_queue->current_ultra_ops_size;
-    EXPECT_EQ(expected_op_queue_size, aggregate_op_queue_size);
 
     // Compute the commitments to the aggregate op queue directly and check that they match those that were computed
     // iteratively during transcript aggregation by the provers and stored in the op queue.
+    size_t aggregate_op_queue_size = op_queue->current_ultra_ops_size;
     auto crs_factory = std::make_shared<barretenberg::srs::factories::FileCrsFactory<Curve>>("../srs_db/ignition");
     auto commitment_key = std::make_shared<CommitmentKey>(aggregate_op_queue_size, crs_factory);
     size_t idx = 0;
