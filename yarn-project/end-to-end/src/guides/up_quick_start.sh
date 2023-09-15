@@ -16,7 +16,9 @@ aztec-cli deploy \
 # docs:end:deploy
 
 aztec-cli check-deploy --contract-address 0x03b030d48607ba8a0562f0f1f82be26c3f091e45e10f74c2d8cebb80d526a69f
+# docs:start:declare-contract
 CONTRACT=0x03b030d48607ba8a0562f0f1f82be26c3f091e45e10f74c2d8cebb80d526a69f
+# docs:end:declare-contract
 
 # docs:start:get-balance
 aztec-cli call getBalance \
