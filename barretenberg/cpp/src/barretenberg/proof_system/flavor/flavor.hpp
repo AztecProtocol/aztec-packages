@@ -256,6 +256,8 @@ class Standard;
 class StandardGrumpkin;
 class Ultra;
 class UltraGrumpkin;
+class ECCVM;
+class ECCVMGrumpkin;
 class GoblinUltra;
 template <typename BuilderType> class UltraRecursive_;
 template <typename BuilderType> class GoblinUltraRecursive_;
@@ -303,6 +305,8 @@ template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, honk::flavor::Standa
 template <typename T> concept StandardFlavor = IsAnyOf<T, honk::flavor::Standard,  honk::flavor::StandardGrumpkin>;
 
 template <typename T> concept UltraFlavor = IsAnyOf<T, honk::flavor::Ultra, honk::flavor::UltraGrumpkin, honk::flavor::GoblinUltra>;
+
+template <typename T> concept ECCVMFlavor = IsAnyOf<T, honk::flavor::ECCVM, honk::flavor::ECCVMGrumpkin>;
 
 // clang-format on
 } // namespace proof_system
