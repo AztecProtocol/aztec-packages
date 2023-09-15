@@ -83,8 +83,6 @@ template <typename FF> class StandardCircuitBuilder_ : public CircuitBuilderBase
     void create_fixed_group_add_gate_with_init(const fixed_group_add_quad_<FF>& in,
                                                const fixed_group_init_quad_<FF>& init);
     void create_fixed_group_add_gate_final(const add_quad_<FF>& in);
-    void create_ecc_add_gate(const ecc_add_gate_<FF>& in) override;
-    void create_ecc_dbl_gate(const ecc_dbl_gate_<FF>& in) override;
 
     fixed_group_add_quad_<FF> previous_add_quad;
 

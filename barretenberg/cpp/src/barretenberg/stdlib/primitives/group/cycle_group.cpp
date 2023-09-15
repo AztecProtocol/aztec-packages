@@ -168,15 +168,33 @@ template <typename Composer> void cycle_group<Composer>::validate_is_on_curve() 
 }
 
 /**
- * @brief Evaluates a doubling
+ * @brief Evaluates a doubling. Does not use Ultra double gate
  *
  * @tparam Composer
  * @return cycle_group<Composer>
  */
-template <typename Composer> cycle_group<Composer> cycle_group<Composer>::dbl() const
+template <typename Composer>
+cycle_group<Composer> cycle_group<Composer>::dbl() const
+    requires IsNotUltraArithmetic<Composer>
 {
-    // n.b. if p1 is point at infinity, calling p1.dbl() does not give us an output that satisfies the double gate :o)
-    // (native code just checks out of the dbl() method if point is at infinity)
+    auto lambda = (x * x * 3) / (y + y);
+    auto x3 = lambda.madd(lambda, -x - x);
+    auto y3 = lambda.madd(x - x3, -y);
+    return cycle_group(x3, y3, false);
+}
+
+/**
+ * @brief Evaluates a doubling. Uses Ultra double gate
+ *
+ * @tparam Composer
+ * @return cycle_group<Composer>
+ */
+template <typename Composer>
+cycle_group<Composer> cycle_group<Composer>::dbl() const
+    requires IsUltraArithmetic<Composer>
+{
+    // n.b. if p1 is point at infinity, calling p1.dbl() does not give us an output that satisfies the double gate
+    // :o) (native code just checks out of the dbl() method if point is at infinity)
     auto x1 = x.get_value();
     auto y1 = y.get_value();
     auto lambda = (x1 * x1 * 3) / (y1 + y1);
@@ -209,6 +227,7 @@ template <typename Composer> cycle_group<Composer> cycle_group<Composer>::dbl() 
  * @brief Will evaluate ECC point addition over `*this` and `other`.
  *        Incomplete addition formula edge cases are *NOT* checked!
  *        Only use this method if you know the x-coordinates of the operands cannot collide
+ *        Standard version that does not use ecc group gate
  *
  * @tparam Composer
  * @param other
@@ -216,6 +235,32 @@ template <typename Composer> cycle_group<Composer> cycle_group<Composer>::dbl() 
  */
 template <typename Composer>
 cycle_group<Composer> cycle_group<Composer>::unconditional_add(const cycle_group& other) const
+    requires IsNotUltraArithmetic<Composer>
+{
+    auto x_diff = other.x - x;
+    auto y_diff = other.y - y;
+    // unconditional add so do not check divisor is zero
+    // (this also makes it much easier to test failure cases as this does not segfault!)
+    auto lambda = y_diff.divide_no_zero_check(x_diff);
+    auto x3 = lambda.madd(lambda, -other.x - x);
+    auto y3 = lambda.madd(x - x3, -y);
+    cycle_group result(x3, y3, false);
+    return result;
+}
+
+/**
+ * @brief Will evaluate ECC point addition over `*this` and `other`.
+ *        Incomplete addition formula edge cases are *NOT* checked!
+ *        Only use this method if you know the x-coordinates of the operands cannot collide
+ *        Ultra version that uses ecc group gate
+ *
+ * @tparam Composer
+ * @param other
+ * @return cycle_group<Composer>
+ */
+template <typename Composer>
+cycle_group<Composer> cycle_group<Composer>::unconditional_add(const cycle_group& other) const
+    requires IsUltraArithmetic<Composer>
 {
     auto context = get_context(other);
 
@@ -267,42 +312,46 @@ cycle_group<Composer> cycle_group<Composer>::unconditional_add(const cycle_group
 template <typename Composer>
 cycle_group<Composer> cycle_group<Composer>::unconditional_subtract(const cycle_group& other) const
 {
-    auto context = get_context(other);
+    if constexpr (!IS_ULTRA) {
+        return unconditional_add(-other);
+    } else {
+        auto context = get_context(other);
 
-    const bool lhs_constant = is_constant();
-    const bool rhs_constant = other.is_constant();
+        const bool lhs_constant = is_constant();
+        const bool rhs_constant = other.is_constant();
 
-    if (lhs_constant && !rhs_constant) {
-        auto lhs = cycle_group<Composer>::from_constant_witness(context, get_value());
-        return lhs.unconditional_subtract(other);
+        if (lhs_constant && !rhs_constant) {
+            auto lhs = cycle_group<Composer>::from_constant_witness(context, get_value());
+            return lhs.unconditional_subtract(other);
+        }
+        if (!lhs_constant && rhs_constant) {
+            auto rhs = cycle_group<Composer>::from_constant_witness(context, other.get_value());
+            return unconditional_subtract(rhs);
+        }
+        auto p1 = get_value();
+        auto p2 = other.get_value();
+        AffineElement p3(Element(p1) - Element(p2));
+        if (lhs_constant && rhs_constant) {
+            return cycle_group(p3);
+        }
+        field_t r_x(witness_t(context, p3.x));
+        field_t r_y(witness_t(context, p3.y));
+        cycle_group result(r_x, r_y, false);
+
+        proof_system::ecc_add_gate_<FF> add_gate{
+            .x1 = x.get_witness_index(),
+            .y1 = y.get_witness_index(),
+            .x2 = other.x.get_witness_index(),
+            .y2 = other.y.get_witness_index(),
+            .x3 = result.x.get_witness_index(),
+            .y3 = result.y.get_witness_index(),
+            .endomorphism_coefficient = 1,
+            .sign_coefficient = -1,
+        };
+        context->create_ecc_add_gate(add_gate);
+
+        return result;
     }
-    if (!lhs_constant && rhs_constant) {
-        auto rhs = cycle_group<Composer>::from_constant_witness(context, other.get_value());
-        return unconditional_subtract(rhs);
-    }
-    auto p1 = get_value();
-    auto p2 = other.get_value();
-    AffineElement p3(Element(p1) - Element(p2));
-    if (lhs_constant && rhs_constant) {
-        return cycle_group(p3);
-    }
-    field_t r_x(witness_t(context, p3.x));
-    field_t r_y(witness_t(context, p3.y));
-    cycle_group result(r_x, r_y, false);
-
-    proof_system::ecc_add_gate_<FF> add_gate{
-        .x1 = x.get_witness_index(),
-        .y1 = y.get_witness_index(),
-        .x2 = other.x.get_witness_index(),
-        .y2 = other.y.get_witness_index(),
-        .x3 = result.x.get_witness_index(),
-        .y3 = result.y.get_witness_index(),
-        .endomorphism_coefficient = 1,
-        .sign_coefficient = -1,
-    };
-    context->create_ecc_add_gate(add_gate);
-
-    return result;
 }
 
 /**
@@ -455,6 +504,20 @@ template <typename Composer> cycle_group<Composer> cycle_group<Composer>::operat
     result_is_infinity = result_is_infinity || (lhs_infinity && rhs_infinity);
     result.set_point_at_infinity(result_is_infinity);
 
+    return result;
+}
+
+/**
+ * @brief Negates a point
+ *
+ * @tparam Composer
+ * @param other
+ * @return cycle_group<Composer>
+ */
+template <typename Composer> cycle_group<Composer> cycle_group<Composer>::operator-() const
+{
+    cycle_group result(*this);
+    result.y = -y;
     return result;
 }
 
@@ -835,7 +898,7 @@ typename cycle_group<Composer>::batch_mul_internal_output cycle_group<Composer>:
     const std::span<cycle_scalar> scalars,
     const std::span<AffineElement> base_points,
     [[maybe_unused]] const std::span<AffineElement> off)
-    requires SupportsLookupTables<Composer>
+    requires IsUltraArithmetic<Composer>
 {
     ASSERT(scalars.size() == base_points.size());
 
@@ -916,7 +979,7 @@ typename cycle_group<Composer>::batch_mul_internal_output cycle_group<Composer>:
     const std::span<cycle_scalar> scalars,
     const std::span<AffineElement> base_points,
     const std::span<AffineElement> offset_generators)
-    requires DoesNotSupportLookupTables<Composer>
+    requires IsNotUltraArithmetic<Composer>
 
 {
     ASSERT(scalars.size() == base_points.size());

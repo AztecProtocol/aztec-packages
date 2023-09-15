@@ -11,9 +11,9 @@
 namespace proof_system::plonk::stdlib {
 
 template <typename Composer>
-concept SupportsLookupTables = (Composer::CIRCUIT_TYPE == CircuitType::ULTRA);
+concept IsUltraArithmetic = (Composer::CIRCUIT_TYPE == CircuitType::ULTRA);
 template <typename Composer>
-concept DoesNotSupportLookupTables = (Composer::CIRCUIT_TYPE != CircuitType::ULTRA);
+concept IsNotUltraArithmetic = (Composer::CIRCUIT_TYPE != CircuitType::ULTRA);
 
 /**
  * @brief cycle_group represents a group Element of the proving system's embedded curve
@@ -155,13 +155,20 @@ template <typename Composer> class cycle_group {
     bool_t is_point_at_infinity() const { return _is_infinity; }
     void set_point_at_infinity(const bool_t& is_infinity) { _is_infinity = is_infinity; }
     void validate_is_on_curve() const;
-    cycle_group dbl() const;
-    cycle_group unconditional_add(const cycle_group& other) const;
+    cycle_group dbl() const
+        requires IsUltraArithmetic<Composer>;
+    cycle_group dbl() const
+        requires IsNotUltraArithmetic<Composer>;
+    cycle_group unconditional_add(const cycle_group& other) const
+        requires IsUltraArithmetic<Composer>;
+    cycle_group unconditional_add(const cycle_group& other) const
+        requires IsNotUltraArithmetic<Composer>;
     cycle_group unconditional_subtract(const cycle_group& other) const;
     cycle_group constrained_unconditional_add(const cycle_group& other) const;
     cycle_group constrained_unconditional_subtract(const cycle_group& other) const;
     cycle_group operator+(const cycle_group& other) const;
     cycle_group operator-(const cycle_group& other) const;
+    cycle_group operator-() const;
     cycle_group& operator+=(const cycle_group& other);
     cycle_group& operator-=(const cycle_group& other);
     static cycle_group batch_mul(const std::vector<cycle_scalar>& scalars,
@@ -177,6 +184,7 @@ template <typename Composer> class cycle_group {
   private:
     bool_t _is_infinity;
     bool _is_constant;
+
     static batch_mul_internal_output _variable_base_batch_mul_internal(std::span<cycle_scalar> scalars,
                                                                        std::span<cycle_group> base_points,
                                                                        std::span<AffineElement> offset_generators,
@@ -185,11 +193,11 @@ template <typename Composer> class cycle_group {
     static batch_mul_internal_output _fixed_base_batch_mul_internal(std::span<cycle_scalar> scalars,
                                                                     std::span<AffineElement> base_points,
                                                                     std::span<AffineElement> offset_generators)
-        requires SupportsLookupTables<Composer>;
+        requires IsUltraArithmetic<Composer>;
     static batch_mul_internal_output _fixed_base_batch_mul_internal(std::span<cycle_scalar> scalars,
                                                                     std::span<AffineElement> base_points,
                                                                     std::span<AffineElement> offset_generators)
-        requires DoesNotSupportLookupTables<Composer>;
+        requires IsNotUltraArithmetic<Composer>;
 };
 
 template <typename ComposerContext>

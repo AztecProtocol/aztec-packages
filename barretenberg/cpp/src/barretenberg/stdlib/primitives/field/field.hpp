@@ -292,8 +292,6 @@ template <typename ComposerContext> class field_t {
 
     uint32_t get_witness_index() const { return witness_index; }
 
-    // std::vector<field_t<ComposerContext>> decompose_into_slices(size_t num_bits = 256, size_t slice_bits = 1) const;
-
     std::vector<bool_t<ComposerContext>> decompose_into_bits(
         size_t num_bits = 256,
         std::function<witness_t<ComposerContext>(ComposerContext* ctx, uint64_t, uint256_t)> get_bit =

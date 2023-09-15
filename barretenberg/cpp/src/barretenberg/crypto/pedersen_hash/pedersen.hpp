@@ -4,10 +4,12 @@
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include <array>
 
-namespace crypto::pedersen_hash {
+namespace crypto {
+namespace pedersen_hash {
 
 grumpkin::g1::element hash_single(const barretenberg::fr& in, generators::generator_index_t const& index);
 
-grumpkin::fq hash_multiple(const std::vector<grumpkin::fq>& inputs, size_t hash_index = 0);
+grumpkin::fq hash_multiple(const std::vector<grumpkin::fq>& inputs, const size_t hash_index = 0);
 
-} // namespace crypto::pedersen_hash
+} // namespace pedersen_hash
+} // namespace crypto
