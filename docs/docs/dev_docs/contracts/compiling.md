@@ -8,22 +8,43 @@ We'll also cover how to generate a helper [TypeScript interface](#typescript-int
 
 ## Prerequisites
 
-You will need the Noir build tool `nargo`, which you can install via [`noirup`](https://github.com/noir-lang/noirup). Make sure you install the `aztec` version of nargo:
+You will need Aztec CLI to compile the contracts. 
+Follow [CLI tutorial](../getting_started/cli.md#installing-the-aztec-cli) and install the version compatible with your Sandbox.
+
+Start the Sandbox (see [Sandbox tutorial](../getting_started/sandbox.md) if unsure how to do it) and get node info:
 
 ```bash
+aztec-cli get-node-info
+```
+Your output should look like this:
+
+```
+Node Info:
+
+Version: 1
+Chain Id: 31337
+Rollup Address: 0x9e545e3c0baab3e08cdfd552c960a1050f373042
+Client: aztec-rpc@0.1.0
+Compatible Nargo Version: NARGO_VERSION
+```
+
+You will need the Noir build tool `nargo`, which you can install via [`noirup`](https://github.com/noir-lang/noirup).
+
+Install `noirup`:
+```shell
 curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | bash
-noirup -v aztec
+```
+
+Now install the version of `nargo` compatible with your Sandbox version by replacing `NARGO_VERSION` with the version from the output of `aztec-cli get-node-info`:
+```shell
+noirup -v NARGO_VERSION
 ```
 
 :::info
-You can re-run `noirup -v aztec` whenever you want to update to the latest version of Noir supported by the Aztec Network.
+Once you'll update the sandbox you will have to run the `noirup` again with the updated `NARGO_VERSION`.
 :::
 
 ## Compile using the CLI
-
-To compile a contract using the Aztec CLI, first install it:
-
-`npm install -g @aztec/cli`
 
 Then run the `compile` command with the path to your [contract project folder](./layout.md#directory-structure), which is the one that contains the `Nargo.toml` file:
 
