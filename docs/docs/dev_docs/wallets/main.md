@@ -34,11 +34,11 @@ Finally, the wallet **sends** the resulting _transaction_ object, which includes
 There are no proofs generated as of the Sandbox release. This will be included in a future release before testnet.
 :::
 
-## Authorising actions
+## Authorizing actions
 
-Account contracts in Aztec expose an interface for other contracts to validate [whether an action is authorised by the account or not](../../concepts/foundation/accounts/main.md#authorising-actions). For example, an application contract may want to transfer tokens on behalf of a user, in which case the token contract will check with the account contract whether the application is authorised to do so. These actions may be carried out in private or in public functions, and in transactions originated by the user or by someone else.
+Account contracts in Aztec expose an interface for other contracts to validate [whether an action is authorized by the account or not](../../concepts/foundation/accounts/main.md#authorizing-actions). For example, an application contract may want to transfer tokens on behalf of a user, in which case the token contract will check with the account contract whether the application is authorized to do so. These actions may be carried out in private or in public functions, and in transactions originated by the user or by someone else.
 
-Wallets should manage these authorisations, prompting the user when they are requested by an application. Authorisations in private executions come in the form of _auth witnesses_, which are usually signatures over an identifier for an action. Applications can request the wallet to produce an auth witness via the `createAuthWitness` call. In public functions, authorisations are pre-stored in the account contract storage, which is handled by a call to an internal function in the account contract implementation.
+Wallets should manage these authorizations, prompting the user when they are requested by an application. Authorizations in private executions come in the form of _auth witnesses_, which are usually signatures over an identifier for an action. Applications can request the wallet to produce an auth witness via the `createAuthWitness` call. In public functions, authorizations are pre-stored in the account contract storage, which is handled by a call to an internal function in the account contract implementation.
 
 ## Key management
 
@@ -63,5 +63,5 @@ At the time of this writing, all private state is encrypted and broadcasted thro
 
 Encrypted data blobs do not carry any public information as to whom their recipient is. Therefore, it is not possible for a remote node to identify the notes that belong to a user, and it is not possible for a wallet to query a remote node for its private state. As such, wallets need to keep a local database of their accounts private state, in order to be able to answer any queries on their private state.
 
-Dapps may require access to the user's private state, in order to show information relevant to the current application. For instance, a dapp for a token may require access to the user's private notes in the token contract in order to display the user's balance. It is responsibility of the wallet to require authorisation from the user before disclosing private state to a dapp.
+Dapps may require access to the user's private state, in order to show information relevant to the current application. For instance, a dapp for a token may require access to the user's private notes in the token contract in order to display the user's balance. It is responsibility of the wallet to require authorization from the user before disclosing private state to a dapp.
 

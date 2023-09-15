@@ -2,7 +2,7 @@
 
 This tutorial will take you through the process of writing your own account contract in Noir, along with the Typescript glue code required for using it within a [wallet](./main.md).
 
-Writing your own account contract allows you to define the rules by which user transactions are authorised and paid for, as well as how user keys are managed (including key rotation and recovery). In other words, writing an account contract lets you make the most out of [account abstraction](../../concepts/foundation/accounts/main.md#what-is-account-abstraction) in the Aztec network.
+Writing your own account contract allows you to define the rules by which user transactions are authorized and paid for, as well as how user keys are managed (including key rotation and recovery). In other words, writing an account contract lets you make the most out of [account abstraction](../../concepts/foundation/accounts/main.md#what-is-account-abstraction) in the Aztec network.
 
 It is highly recommended that you understand how an [account](../../concepts/foundation/accounts/main.md) is defined in Aztec, as well as the differences between privacy and authentication [keys](../../concepts/foundation/accounts/keys.md). You will also need to know how to write a [contract in Noir](../contracts/main.md), as well as some basic [Typescript](https://www.typescriptlang.org/).
 
@@ -44,7 +44,7 @@ The `AccountActions` module provides default implementations for most of the acc
 
 #include_code is-valid yarn-project/noir-contracts/src/contracts/schnorr_hardcoded_account_contract/src/main.nr rust
 
-For our account contract, we will take the hash of the action to authorise, request the corresponding auth witness from the oracle, and validate it against our hardcoded public key. If the signature is correct, we authorise the action.
+For our account contract, we will take the hash of the action to authorize, request the corresponding auth witness from the oracle, and validate it against our hardcoded public key. If the signature is correct, we authorize the action.
 ## The typescript side of things
 
 Now that we have a valid account contract, we need to write the typescript glue code that will take care of formatting and authenticating transactions so they can be processed by our contract, as well as deploying the contract during account setup. This takes the form of implementing the `AccountContract` interface:
