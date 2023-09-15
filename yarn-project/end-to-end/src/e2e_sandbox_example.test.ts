@@ -108,7 +108,7 @@ describe('e2e_sandbox_example', () => {
     const tokenContractAlice = await TokenContract.at(contract.address, await accounts[0].getWallet());
 
     await tokenContractAlice.methods._initialize({ address: alice }).send().wait();
-    await tokenContractAlice.methods.set_minter({ address: bob }, 1).send().wait();
+    await tokenContractAlice.methods.set_minter({ address: bob }, true).send().wait();
 
     logger(`Contract successfully deployed at address ${contract.address.toShortString()}`);
 
