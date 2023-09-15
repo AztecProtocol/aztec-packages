@@ -52,6 +52,10 @@ export type NodeInfo = {
    * Identifier of the client software.
    */
   client: string;
+  /**
+   * The nargo version compatible with this node.
+   */
+  compatibleNargoVersion: string;
 };
 
 /** Provides up to which block has been synced by different components. */

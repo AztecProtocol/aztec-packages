@@ -30,7 +30,7 @@ export const cliTestSuite = (
         logs.push(format(...args));
         debug(...args);
       };
-    });
+    }, 30_000);
 
     afterAll(async () => {
       await cleanup();
