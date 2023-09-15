@@ -1,6 +1,6 @@
 #pragma once
 
-// External Barretenberg C++ API
+// External Barretenberg C++ API.
 #include "common/container.hpp"
 #include "common/map.hpp"
 #include "common/mem.hpp"
