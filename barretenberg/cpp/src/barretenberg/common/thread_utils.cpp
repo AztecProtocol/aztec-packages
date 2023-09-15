@@ -16,7 +16,7 @@ size_t calculate_num_threads(size_t num_iterations, size_t min_iterations_per_th
     size_t max_num_threads = get_num_cpus(); // number of available threads
     size_t desired_num_threads = num_iterations / min_iterations_per_thread;
     size_t num_threads = std::min(desired_num_threads, max_num_threads); // fewer than max if justified
-    num_threads = num_threads > 0 ? num_threads : 1;
+    num_threads = num_threads > 0 ? num_threads : 1;                     // ensure num_threads is at least 1
     return num_threads;
 }
 
@@ -33,7 +33,7 @@ size_t calculate_num_threads_pow2(size_t num_iterations, size_t min_iterations_p
     size_t desired_num_threads = num_iterations / min_iterations_per_thread;
     desired_num_threads = static_cast<size_t>(1ULL << numeric::get_msb(desired_num_threads));
     size_t num_threads = std::min(desired_num_threads, max_num_threads); // fewer than max if justified
-    num_threads = num_threads > 0 ? num_threads : 1;
+    num_threads = num_threads > 0 ? num_threads : 1;                     // ensure num_threads is at least 1
     return num_threads;
 }
 
