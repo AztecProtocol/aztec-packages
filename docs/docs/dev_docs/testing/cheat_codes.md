@@ -2,8 +2,6 @@
 title: Cheat Codes
 ---
 
-asdasd
-
 ## Introduction
 
 To help with testing, the sandbox is shipped with a set of cheatcodes.

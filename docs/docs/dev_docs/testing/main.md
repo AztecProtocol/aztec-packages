@@ -1,3 +1,5 @@
----
-title: Testing
----
+import DocCardList from '@theme/DocCardList';
+
+# Testing
+
+<DocCardList/>
