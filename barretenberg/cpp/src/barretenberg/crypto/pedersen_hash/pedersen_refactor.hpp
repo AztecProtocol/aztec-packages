@@ -64,11 +64,11 @@ template <typename Curve> class pedersen_hash_refactor {
     // (i.e. simplify the name as we no longer have a need for `hash_single`)
     static Fq hash_multiple(const std::vector<Fq>& inputs,
                             size_t hash_index = 0,
-                            const generator_data* generator_context = nullptr);
+                            const generator_data* generator_context = generator_data::get_default_generators());
 
     static Fq hash(const std::vector<Fq>& inputs,
                    size_t hash_index = 0,
-                   const generator_data* generator_context = nullptr);
+                   const generator_data* generator_context = generator_data::get_default_generators());
 };
 
 extern template class pedersen_hash_refactor<curve::Grumpkin>;

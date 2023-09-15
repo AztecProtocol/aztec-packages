@@ -77,21 +77,15 @@ template <typename Fq, typename Fr, typename Params> class alignas(64) affine_el
      */
     static affine_element random_element(numeric::random::Engine* engine = nullptr) noexcept;
 
-    static std::optional<affine_element> derive_from_x_coordinate(const Fq& x, bool sign_bit) noexcept;
-
     /**
      * @brief Hash a seed value to curve.
      *
      * @return A point on the curve corresponding to the given seed
      */
-<<<<<<< HEAD:circuits/cpp/barretenberg/cpp/src/barretenberg/ecc/groups/affine_element.hpp
-    static affine_element hash_to_curve(const uint64_t seed) noexcept;
-=======
     template <typename = typename std::enable_if<Params::can_hash_to_curve>>
     static affine_element hash_to_curve(uint64_t seed) noexcept;
 
     template <typename = typename std::enable_if<Params::can_hash_to_curve>>
->>>>>>> origin/master:barretenberg/cpp/src/barretenberg/ecc/groups/affine_element.hpp
     static affine_element hash_to_curve(const std::vector<uint8_t>& seed) noexcept;
 
     constexpr bool operator==(const affine_element& other) const noexcept;

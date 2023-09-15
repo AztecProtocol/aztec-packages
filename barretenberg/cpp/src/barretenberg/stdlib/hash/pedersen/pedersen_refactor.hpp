@@ -1,8 +1,9 @@
 #pragma once
-#include "../../primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "../../primitives/field/field.hpp"
 #include "../../primitives/point/point.hpp"
-#include "barretenberg/crypto/pedersen_commitment/pedersen_refactor.hpp"
+#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+
+#include "../../primitives/circuit_builders/circuit_builders.hpp"
 
 namespace proof_system::plonk::stdlib {
 
@@ -19,6 +20,11 @@ template <typename ComposerContext> class pedersen_hash_refactor {
     using field_t = stdlib::field_t<ComposerContext>;
     using point = stdlib::point<ComposerContext>;
     using bool_t = stdlib::bool_t<ComposerContext>;
+    using EmbeddedCurve = typename ComposerContext::EmbeddedCurve;
+    // template <class FF>
+    // using EmbeddedCurve =
+    //     std::conditional_t<std::same_as<FF, barretenberg::g1::coordinate_field>, curve::BN254, curve::Grumpkin>;
+    using generator_data = crypto::generator_data<EmbeddedCurve>;
 
   public:
     // TODO(@suyash67) as part of refactor project, can we remove this and replace with `hash`
@@ -26,12 +32,12 @@ template <typename ComposerContext> class pedersen_hash_refactor {
     // TODO update to new interface
     static field_t hash_multiple(const std::vector<field_t>& in,
                                  size_t hash_index = 0,
-                                 const std::string& domain_separator = grumpkin::g1::DEFAULT_DOMAIN_SEPARATOR,
+                                 const generator_data* generator_context = generator_data::get_default_generators(),
                                  bool validate_inputs_in_field = true);
 
     static field_t hash(const std::vector<field_t>& in,
                         size_t hash_index = 0,
-                        const std::string& domain_separator = grumpkin::g1::DEFAULT_DOMAIN_SEPARATOR,
+                        const generator_data* generator_context = generator_data::get_default_generators(),
                         bool validate_inputs_in_field = true);
 };
 

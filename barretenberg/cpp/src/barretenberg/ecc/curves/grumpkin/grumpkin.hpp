@@ -30,11 +30,8 @@ struct GrumpkinG1Params {
 };
 using g1 = barretenberg::group<barretenberg::fr, barretenberg::fq, GrumpkinG1Params>;
 
-<<<<<<< HEAD:circuits/cpp/barretenberg/cpp/src/barretenberg/ecc/curves/grumpkin/grumpkin.hpp
-=======
 g1::affine_element get_generator(size_t generator_index);
 
->>>>>>> origin/master:barretenberg/cpp/src/barretenberg/ecc/curves/grumpkin/grumpkin.hpp
 }; // namespace grumpkin
 
 namespace curve {

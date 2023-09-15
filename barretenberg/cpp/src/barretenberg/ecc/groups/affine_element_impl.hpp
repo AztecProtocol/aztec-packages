@@ -201,7 +201,6 @@ constexpr bool affine_element<Fq, Fr, T>::operator>(const affine_element& other)
 }
 
 template <class Fq, class Fr, class T>
-<<<<<<< HEAD:circuits/cpp/barretenberg/cpp/src/barretenberg/ecc/groups/affine_element_impl.hpp
 constexpr std::optional<affine_element<Fq, Fr, T>> affine_element<Fq, Fr, T>::derive_from_x_coordinate(
     const Fq& x, bool sign_bit) noexcept
 {
@@ -221,13 +220,9 @@ constexpr std::optional<affine_element<Fq, Fr, T>> affine_element<Fq, Fr, T>::de
 }
 
 template <class Fq, class Fr, class T>
-affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::hash_to_curve(uint64_t seed) noexcept
-{
-=======
 template <typename>
 affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::hash_to_curve(uint64_t seed) noexcept
 {
->>>>>>> origin/master:barretenberg/cpp/src/barretenberg/ecc/groups/affine_element_impl.hpp
     static_assert(static_cast<bool>(T::can_hash_to_curve));
 
     Fq input(seed, 0, 0, 0);
@@ -251,6 +246,7 @@ affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::hash_to_curve(uint64_t seed
 }
 
 template <class Fq, class Fr, class T>
+template <typename>
 affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::hash_to_curve(const std::vector<uint8_t>& seed) noexcept
 {
     std::vector<uint8_t> target_seed(seed);
@@ -302,28 +298,21 @@ affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::random_element(numeric::ran
         engine = &numeric::random::get_engine();
     }
 
-    Fq yy;
     Fq x;
     Fq y;
     while (true) {
         // Sample a random x-coordinate and check if it satisfies curve equation.
         x = Fq::random_element(engine);
         // Negate the y-coordinate based on a randomly sampled bit.
-<<<<<<< HEAD:circuits/cpp/barretenberg/cpp/src/barretenberg/ecc/groups/affine_element_impl.hpp
         bool sign_bit = (engine->get_random_uint8() & 1) != 0;
 
         std::optional<affine_element> result = derive_from_x_coordinate(x, sign_bit);
-=======
-        bool random_bit = (engine->get_random_uint8() & 1) != 0;
-        if (random_bit) {
-            y = -y;
-        }
->>>>>>> origin/master:barretenberg/cpp/src/barretenberg/ecc/groups/affine_element_impl.hpp
 
         if (result.has_value()) {
             return result.value();
         }
     }
+    throw_or_abort("affine_element::random_element error");
     return affine_element<Fq, Fr, T>(x, y);
 }
 

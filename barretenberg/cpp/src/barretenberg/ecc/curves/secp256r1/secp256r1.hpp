@@ -104,15 +104,9 @@ struct Secp256r1G1Params {
         fq(0xCBB6406837BF51F5, 0x2BCE33576B315ECE, 0x8EE7EB4A7C0F9E16, 0x4FE342E2FE1A7F9B).to_montgomery_form();
 };
 
-<<<<<<< HEAD:circuits/cpp/barretenberg/cpp/src/barretenberg/ecc/curves/secp256r1/secp256r1.hpp
-typedef barretenberg::
-    group<barretenberg::field<Secp256r1FqParams>, barretenberg::field<Secp256r1FrParams>, Secp256r1G1Params>
-        g1;
-=======
 using g1 = barretenberg::
     group<barretenberg::field<Secp256r1FqParams>, barretenberg::field<Secp256r1FrParams>, Secp256r1G1Params>;
 g1::affine_element get_generator(size_t generator_index);
->>>>>>> origin/master:barretenberg/cpp/src/barretenberg/ecc/curves/secp256r1/secp256r1.hpp
 } // namespace secp256r1
 
 namespace curve {
