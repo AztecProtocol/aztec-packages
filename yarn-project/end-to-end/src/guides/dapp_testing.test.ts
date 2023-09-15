@@ -5,7 +5,6 @@ import {
   CheatCodes,
   Fr,
   L2BlockL2Logs,
-  TxStatus,
   computeMessageSecretHash,
   createAccount,
   createAztecRpcClient,
@@ -33,9 +32,7 @@ describe('guides/dapp/testing', () => {
         owner = await createAccount(rpc);
         recipient = await createAccount(rpc);
         token = await TokenContract.deploy(owner).send().deployed();
-        expect((await token.methods._initialize({ address: owner.getAddress() }).send().wait()).status).toEqual(
-          TxStatus.MINED,
-        );
+        await token.methods._initialize({ address: owner.getAddress() }).send().wait();
       }, 60_000);
 
       // docs:start:stop-in-proc-sandbox
@@ -46,10 +43,8 @@ describe('guides/dapp/testing', () => {
         expect(await token.methods.balance_of_private({ address: recipient.getAddress() }).view()).toEqual(0n);
         const secret = Fr.random();
         const secretHash = await computeMessageSecretHash(secret);
-        expect((await token.methods.mint_private(20n, secretHash).send().wait()).status).toEqual(TxStatus.MINED);
-        expect(
-          (await token.methods.redeem_shield({ address: recipient.getAddress() }, 20n, secret).send().wait()).status,
-        ).toEqual(TxStatus.MINED);
+        await token.methods.mint_private(20n, secretHash).send().wait();
+        await token.methods.redeem_shield({ address: recipient.getAddress() }, 20n, secret).send().wait();
         expect(await token.methods.balance_of_private({ address: recipient.getAddress() }).view()).toEqual(20n);
       });
     });
@@ -73,19 +68,15 @@ describe('guides/dapp/testing', () => {
         owner = await createAccount(rpc);
         recipient = await createAccount(rpc);
         token = await TokenContract.deploy(owner).send().deployed();
-        expect((await token.methods._initialize({ address: owner.getAddress() }).send().wait()).status).toEqual(
-          TxStatus.MINED,
-        );
+        await token.methods._initialize({ address: owner.getAddress() }).send().wait();
       }, 30_000);
 
       it('increases recipient funds on mint', async () => {
         expect(await token.methods.balance_of_private({ address: recipient.getAddress() }).view()).toEqual(0n);
         const secret = Fr.random();
         const secretHash = await computeMessageSecretHash(secret);
-        expect((await token.methods.mint_private(20n, secretHash).send().wait()).status).toEqual(TxStatus.MINED);
-        expect(
-          (await token.methods.redeem_shield({ address: recipient.getAddress() }, 20n, secret).send().wait()).status,
-        ).toEqual(TxStatus.MINED);
+        await token.methods.mint_private(20n, secretHash).send().wait();
+        await token.methods.redeem_shield({ address: recipient.getAddress() }, 20n, secret).send().wait();
         expect(await token.methods.balance_of_private({ address: recipient.getAddress() }).view()).toEqual(20n);
       });
     });
@@ -102,9 +93,7 @@ describe('guides/dapp/testing', () => {
         rpc = createAztecRpcClient(SANDBOX_URL);
         [owner, recipient] = await getSandboxAccountsWallets(rpc);
         token = await TokenContract.deploy(owner).send().deployed();
-        expect((await token.methods._initialize({ address: owner.getAddress() }).send().wait()).status).toEqual(
-          TxStatus.MINED,
-        );
+        await token.methods._initialize({ address: owner.getAddress() }).send().wait();
         // docs:end:use-existing-wallets
       }, 30_000);
 
@@ -112,10 +101,8 @@ describe('guides/dapp/testing', () => {
         expect(await token.methods.balance_of_private({ address: recipient.getAddress() }).view()).toEqual(0n);
         const secret = Fr.random();
         const secretHash = await computeMessageSecretHash(secret);
-        expect((await token.methods.mint_private(20n, secretHash).send().wait()).status).toEqual(TxStatus.MINED);
-        expect(
-          (await token.methods.redeem_shield({ address: recipient.getAddress() }, 20n, secret).send().wait()).status,
-        ).toEqual(TxStatus.MINED);
+        await token.methods.mint_private(20n, secretHash).send().wait();
+        await token.methods.redeem_shield({ address: recipient.getAddress() }, 20n, secret).send().wait();
         expect(await token.methods.balance_of_private({ address: recipient.getAddress() }).view()).toEqual(20n);
       });
     });
@@ -157,15 +144,11 @@ describe('guides/dapp/testing', () => {
         recipient = await createAccount(rpc);
         testContract = await TestContract.deploy(owner).send().deployed();
         token = await TokenContract.deploy(owner).send().deployed();
-        expect((await token.methods._initialize({ address: owner.getAddress() }).send().wait()).status).toEqual(
-          TxStatus.MINED,
-        );
+        await token.methods._initialize({ address: owner.getAddress() }).send().wait();
         const secret = Fr.random();
         const secretHash = await computeMessageSecretHash(secret);
-        expect((await token.methods.mint_private(100n, secretHash).send().wait()).status).toEqual(TxStatus.MINED);
-        expect(
-          (await token.methods.redeem_shield({ address: owner.getAddress() }, 100n, secret).send().wait()).status,
-        ).toEqual(TxStatus.MINED);
+        await token.methods.mint_private(100n, secretHash).send().wait();
+        await token.methods.redeem_shield({ address: owner.getAddress() }, 100n, secret).send().wait();
 
         // docs:start:calc-slot
         cheats = await CheatCodes.create(ETHEREUM_HOST, rpc);
