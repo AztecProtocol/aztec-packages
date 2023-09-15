@@ -25,7 +25,7 @@ This ensures you are on the aztec branch of nargo.
 
 #### Aztec Sandbox
 
-You need to setup the [aztec sandbox](./sandbox.md)
+You need to setup the [Aztec sandbox](./sandbox.md).
 
 <!-- TODO([#1056](https://github.com/AztecProtocol/aztec-packages/issues/1056)): Add a step for the starter kit -->
 
