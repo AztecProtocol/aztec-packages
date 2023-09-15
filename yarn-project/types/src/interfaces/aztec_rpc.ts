@@ -1,6 +1,7 @@
 import { AztecAddress, EthAddress, Fr, GrumpkinPrivateKey, PartialAddress } from '@aztec/circuits.js';
 import { ContractAbi } from '@aztec/foundation/abi';
 import {
+  AuthWitness,
   CompleteAddress,
   ContractData,
   ExtendedContractData,
@@ -51,6 +52,10 @@ export type NodeInfo = {
    * Identifier of the client software.
    */
   client: string;
+  /**
+   * The nargo version compatible with this node.
+   */
+  nargoVersion: string;
 };
 
 /** Provides up to which block has been synced by different components. */
@@ -71,10 +76,9 @@ export type SyncStatus = {
 export interface AztecRPC {
   /**
    * Insert a witness for a given message hash.
-   * @param messageHash - The message hash to insert witness at
-   * @param witness - The witness to insert
+   * @param authWitness - The auth witness to insert.
    */
-  addAuthWitness(messageHash: Fr, witness: Fr[]): Promise<void>;
+  addAuthWitness(authWitness: AuthWitness): Promise<void>;
 
   /**
    * Registers an account in the Aztec RPC server.
@@ -103,14 +107,14 @@ export interface AztecRPC {
    *
    * @returns A promise that resolves to an array of the accounts registered on this RPC server.
    */
-  getAccounts(): Promise<CompleteAddress[]>;
+  getRegisteredAccounts(): Promise<CompleteAddress[]>;
 
   /**
    * Retrieves the complete address of the account corresponding to the provided aztec address.
    * @param address - The aztec address of the account contract.
    * @returns A promise that resolves to the complete address of the requested account.
    */
-  getAccount(address: AztecAddress): Promise<CompleteAddress | undefined>;
+  getRegisteredAccount(address: AztecAddress): Promise<CompleteAddress | undefined>;
 
   /**
    * Retrieves the list of recipients added to this rpc server.
