@@ -20,10 +20,11 @@ template <typename ComposerContext> class pedersen_hash_refactor {
     using field_t = stdlib::field_t<ComposerContext>;
     using point = stdlib::point<ComposerContext>;
     using bool_t = stdlib::bool_t<ComposerContext>;
-    using EmbeddedCurve = typename ComposerContext::EmbeddedCurve;
-    // template <class FF>
-    // using EmbeddedCurve =
-    //     std::conditional_t<std::same_as<FF, barretenberg::g1::coordinate_field>, curve::BN254, curve::Grumpkin>;
+    using EmbeddedCurve =
+        std::conditional_t<std::same_as<typename ComposerContext::FF, barretenberg::g1::coordinate_field>,
+                           curve::BN254,
+                           curve::Grumpkin>;
+
     using generator_data = crypto::generator_data<EmbeddedCurve>;
 
   public:

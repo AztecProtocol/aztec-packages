@@ -505,8 +505,6 @@ template <typename FF> bool StandardCircuitBuilder_<FF>::check_circuit()
         gate_sum = q_m[i] * left * right + q_1[i] * left + q_2[i] * right + q_3[i] * output + q_c[i];
         if (!gate_sum.is_zero()) {
             info("gate number", i);
-            info("l, r, o = ", left, ", ", right, ", ", output);
-            info("wl,wr,wo = ", w_l[i], ", ", w_r[i], ", ", w_o[i]);
             return false;
         }
     }
