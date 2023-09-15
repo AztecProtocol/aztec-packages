@@ -384,13 +384,11 @@ Alternatively you can open a new terminal and use aztec-cli to get the version.
 :::note
 
 Versions of `sandbox` and `aztec-cli` must match.
-If `aztec-cli --version` does not return the same version as `SANDBOX_VERSION` then you need to install the correct version of `aztec-cli`.
+If `aztec-cli --version` does not return the same version as sandbox then you need to install the correct version of `aztec-cli`.
 See [this section](./cli.md#requirements) for how to accomplish that.
 
 To get the version of the Sandbox you have installed start the Sandbox and look for the version in the logs.
-Alternatively you can use `aztec-cli`:
-
-#include_code node-info yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
+Alternatively you can use `aztec-cli` as described above.
 
 :::
 
