@@ -26,10 +26,24 @@ describe('CLI docs sandbox', () => {
   }, 60_000);
 
   const waitForSandboxWithCli = async () => {
+    const docs = `
+// docs:start:node-info
+% aztec-cli get-node-info
+
+Node Info:
+
+Version: 1
+Chain Id: 31337
+Rollup Address: 0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9
+Client: aztec-rpc@0.7.2
+// docs:end:node-info
+`;
+
+    const command = docs.split('\n')[2].split('aztec-cli ')[1];
     while (true) {
       resetCli();
       try {
-        await run('get-node-info');
+        await run(command);
         break;
       } catch (err) {
         await sleep(1000);

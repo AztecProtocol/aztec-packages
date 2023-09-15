@@ -378,10 +378,8 @@ export SANDBOX_VERSION=latest
 Now when you run the curl command it will use the version you specified.
 To verify that it's the case check the console output of the curl command.
 Alternatively you can open a new terminal and use aztec-cli to get the version.
-  
-```sh
-aztec-cli get-node-info
-```
+
+#include_code node-info yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
 
 :::note
 
