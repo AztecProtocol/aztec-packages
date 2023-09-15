@@ -1207,10 +1207,10 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
                                      FF alpha_base,
                                      FF alpha) const;
     FF compute_elliptic_double_identity(FF q_elliptic_double_value,
-                                        FF w_1_value,
                                         FF w_2_value,
                                         FF w_3_value,
-                                        FF w_4_value,
+                                        FF w_2_shifted_value,
+                                        FF w_3_shifted_value,
                                         FF alpha_base,
                                         FF alpha) const;
 

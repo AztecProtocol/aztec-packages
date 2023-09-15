@@ -33,28 +33,19 @@ template <typename C> signature_bits<C> convert_signature(C* context, const cryp
  *          e' = hash(([s]g + [e]pub).x | message)
           and return e'.
  *
- * @details UltraPlonk: ~5318 gates, excluding gates required to init the UltraPlonk range check
- * (~1.5k for fixed/variable_base_mul (hmm high), ~4k for blake2s) for a string of length = 34.
+ * @details UltraPlonk: ~5018 gates, excluding gates required to init the UltraPlonk range check
+ * (~1,169k for fixed/variable_base_mul, ~4k for blake2s) for a string of length = 34.
  */
 template <typename C>
 std::array<field_t<C>, 2> verify_signature_internal(const byte_array<C>& message,
                                                     const point<C>& pub_key,
                                                     const signature_bits<C>& sig)
 {
-    // Compute [s]g, where s = (s_lo, s_hi) and g = G1::one.
-    cycle_group<C> g1(grumpkin::g1::one);
-    auto R_1 = g1 * sig.s;
-
-    // Compute [e]pub, where e = (e_lo, e_hi)
     cycle_group<C> key(pub_key.x, pub_key.y, false);
-    auto R_2 = key * sig.e;
+    cycle_group<C> g1(grumpkin::g1::one);
+    // compute g1 * sig.s + key * sig,e
 
-    // check R_1 != R_2
-    (R_1.x - R_2.x).assert_is_not_zero("Cannot add points in Schnorr verification.");
-    // Compute x-coord of R_1 + R_2 = [s]g + [e]pub.
-    field_t<C> lambda = (R_1.y - R_2.y) / (R_1.x - R_2.x);
-    field_t<C> x_3 = lambda * lambda - (R_1.x + R_2.x);
-
+    auto x_3 = cycle_group<C>::batch_mul({ sig.s, sig.e }, { g1, key }).x;
     // build input (pedersen(([s]g + [e]pub).x | pub.x | pub.y) | message) to hash function
     // pedersen hash ([r].x | pub.x) to make sure the size of `hash_input` is <= 64 bytes for a 32 byte message
     byte_array<C> hash_input(stdlib::pedersen_hash_refactor<C>::hash({ x_3, key.x, key.y }));
@@ -66,7 +57,6 @@ std::array<field_t<C>, 2> verify_signature_internal(const byte_array<C>& message
     static constexpr size_t HI_BYTES = 32 - LO_BYTES;
     field_t<C> output_hi(output.slice(0, LO_BYTES));
     field_t<C> output_lo(output.slice(LO_BYTES, HI_BYTES));
-
     return { output_lo, output_hi };
 }
 

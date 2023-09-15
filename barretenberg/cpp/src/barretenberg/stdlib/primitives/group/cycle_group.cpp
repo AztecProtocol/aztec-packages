@@ -889,7 +889,6 @@ typename cycle_group<Composer>::batch_mul_internal_output cycle_group<Composer>:
     const bool unconditional_add)
 {
     ASSERT(scalars.size() == base_points.size());
-
     Composer* context = nullptr;
     for (auto& scalar : scalars) {
         if (scalar.lo.get_context() != nullptr) {
@@ -922,6 +921,24 @@ typename cycle_group<Composer>::batch_mul_internal_output cycle_group<Composer>:
     Element offset_generator_accumulator = offset_generators[0];
     cycle_group accumulator = offset_generators[0];
 
+    // populate the set of points we are going to add into our accumulator, *before* we do any ECC operations
+    // this way we are able to fuse mutliple ecc add / ecc double operations and reduce total gate count.
+    // (ecc add/ecc double gates normally cost 2 UltraPlonk gates. However if we chain add->add, add->double,
+    // double->add, double->double, they only cost one)
+    std::vector<cycle_group> points_to_add;
+    for (size_t i = 0; i < num_rounds; ++i) {
+        for (size_t j = 0; j < num_points; ++j) {
+            const std::optional<field_t> scalar_slice = scalar_slices[j].read(num_rounds - i - 1);
+            // if we are doing a batch mul over scalars of different bit-lengths, we may not have any scalar bits for a
+            // given round and a given scalar
+            if (scalar_slice.has_value()) {
+                const cycle_group point = point_tables[j].read(scalar_slice.value());
+                points_to_add.emplace_back(point);
+            }
+        }
+    }
+    std::vector<std::tuple<field_t, field_t>> x_coordinate_checks;
+    size_t point_counter = 0;
     for (size_t i = 0; i < num_rounds; ++i) {
         if (i != 0) {
             for (size_t j = 0; j < TABLE_BITS; ++j) {
@@ -936,14 +953,20 @@ typename cycle_group<Composer>::batch_mul_internal_output cycle_group<Composer>:
             // if we are doing a batch mul over scalars of different bit-lengths, we may not have any scalar bits for a
             // given round and a given scalar
             if (scalar_slice.has_value()) {
-                const cycle_group point = point_tables[j].read(scalar_slice.value());
-                accumulator = unconditional_add ? accumulator.unconditional_add(point)
-                                                : accumulator.constrained_unconditional_add(point);
+                const auto& point = points_to_add[point_counter++];
+                if (!unconditional_add) {
+                    x_coordinate_checks.push_back({ accumulator.x, point.x });
+                }
+                accumulator = accumulator.unconditional_add(point);
                 offset_generator_accumulator = offset_generator_accumulator + Element(offset_generators[j + 1]);
             }
         }
     }
 
+    for (auto& [x1, x2] : x_coordinate_checks) {
+        auto x_diff = x2 - x1;
+        x_diff.assert_is_not_zero("_variable_base_batch_mul_internal x-coordinate collision");
+    }
     /**
      * offset_generator_accumulator represents the sum of all the offset generator terms present in `accumulator`.
      * We don't subtract off yet, as we may be able to combine `offset_generator_accumulator` with other constant terms

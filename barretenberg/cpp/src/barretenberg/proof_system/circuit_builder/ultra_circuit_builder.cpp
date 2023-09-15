@@ -420,7 +420,6 @@ template <typename FF> void UltraCircuitBuilder_<FF>::create_ecc_add_gate(const 
     can_fuse_into_previous_gate = can_fuse_into_previous_gate && (q_arith[this->num_gates - 1] == 0);
 
     if (can_fuse_into_previous_gate) {
-
         q_3[this->num_gates - 1] = in.endomorphism_coefficient;
         q_4[this->num_gates - 1] = in.endomorphism_coefficient.sqr();
         q_1[this->num_gates - 1] = in.sign_coefficient;
@@ -476,13 +475,46 @@ template <typename FF> void UltraCircuitBuilder_<FF>::create_ecc_add_gate(const 
  */
 template <typename FF> void UltraCircuitBuilder_<FF>::create_ecc_dbl_gate(const ecc_dbl_gate_<FF>& in)
 {
+    /**
+     * gate structure:
+     * | 1  | 2  | 3  | 4  |
+     * | -  | x1 | y1 | -  |
+     * | -  | x3 | y3 | -  |
+     * we can chain an ecc_add_gate + an ecc_dbl_gate if x3 y3 of previous add_gate equals x1 y1 of current gate
+     * can also chain double gates together
+     **/
+    bool can_fuse_into_previous_gate = true;
+    can_fuse_into_previous_gate = can_fuse_into_previous_gate && (w_r[this->num_gates - 1] == in.x1);
+    can_fuse_into_previous_gate = can_fuse_into_previous_gate && (w_o[this->num_gates - 1] == in.y1);
+
     // q_elliptic_double.emplace_back(1);
-    w_l.emplace_back(in.x1);
-    w_4.emplace_back(in.y1);
+    if (can_fuse_into_previous_gate) {
+        q_elliptic_double[this->num_gates - 1] = 1;
+    } else {
+        w_r.emplace_back(in.x1);
+        w_o.emplace_back(in.y1);
+        w_l.emplace_back(this->zero_idx);
+        w_4.emplace_back(this->zero_idx);
+        q_elliptic_double.emplace_back(1);
+        q_m.emplace_back(0);
+        q_1.emplace_back(0);
+        q_2.emplace_back(0);
+        q_3.emplace_back(0);
+        q_c.emplace_back(0);
+        q_arith.emplace_back(0);
+        q_4.emplace_back(0);
+        q_sort.emplace_back(0);
+        q_lookup_type.emplace_back(0);
+        q_elliptic.emplace_back(0);
+        q_aux.emplace_back(0);
+        ++this->num_gates;
+    }
+
     w_r.emplace_back(in.x3);
     w_o.emplace_back(in.y3);
-
-    q_elliptic_double.emplace_back(1);
+    w_l.emplace_back(this->zero_idx);
+    w_4.emplace_back(this->zero_idx);
+    q_elliptic_double.emplace_back(0);
     q_m.emplace_back(0);
     q_1.emplace_back(0);
     q_2.emplace_back(0);
@@ -3402,15 +3434,20 @@ inline FF UltraCircuitBuilder_<FF>::compute_auxilary_identity(FF q_aux_value,
  * @return fr
  */
 template <typename FF>
-inline FF UltraCircuitBuilder_<FF>::compute_elliptic_double_identity(
-    FF q_elliptic_double_value, FF w_1_value, FF w_2_value, FF w_3_value, FF w_4_value, FF alpha_base, FF alpha) const
+inline FF UltraCircuitBuilder_<FF>::compute_elliptic_double_identity(FF q_elliptic_double_value,
+                                                                     FF w_2_value,
+                                                                     FF w_3_value,
+                                                                     FF w_2_shifted_value,
+                                                                     FF w_3_shifted_value,
+                                                                     FF alpha_base,
+                                                                     FF alpha) const
 {
     constexpr FF curve_b = CircuitBuilderBase<arithmetization::Ultra<FF>>::EmbeddedCurve::Group::curve_b;
     static_assert(CircuitBuilderBase<arithmetization::Ultra<FF>>::EmbeddedCurve::Group::curve_a == 0);
-    const auto x1 = w_1_value;
-    const auto y1 = w_4_value;
-    const auto x3 = w_2_value;
-    const auto y3 = w_3_value;
+    const auto x1 = w_2_value;
+    const auto y1 = w_3_value;
+    const auto x3 = w_2_shifted_value;
+    const auto y3 = w_3_shifted_value;
 
     // x-coordinate relation
     // (x3 + 2x1)(4y^2) - (9x^4) = 0
@@ -3689,8 +3726,13 @@ template <typename FF> bool UltraCircuitBuilder_<FF>::check_circuit()
                 break;
             }
         }
-        if (!compute_elliptic_double_identity(
-                 q_elliptic_double_value, w_1_value, w_2_value, w_3_value, w_4_value, elliptic_double_base, alpha)
+        if (!compute_elliptic_double_identity(q_elliptic_double_value,
+                                              w_2_value,
+                                              w_3_value,
+                                              w_2_shifted_value,
+                                              w_3_shifted_value,
+                                              elliptic_double_base,
+                                              alpha)
                  .is_zero()) {
 #ifndef FUZZING
             info("Elliptic doubling identity fails at gate ", i);
