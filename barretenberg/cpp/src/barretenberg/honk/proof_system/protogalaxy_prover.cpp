@@ -1,7 +1,7 @@
 #include "protogalaxy_prover.hpp"
 #include "barretenberg/proof_system/flavor/flavor.hpp"
 namespace proof_system::honk {
-template <UltraFlavor Flavor>
+template <class Flavor>
 ProtoGalaxyProver_<Flavor>::ProtoGalaxyProver_(std::vector<std::shared_ptr<Instance>> insts)
     : instances(insts)
 {}
@@ -12,7 +12,7 @@ ProtoGalaxyProver_<Flavor>::ProtoGalaxyProver_(std::vector<std::shared_ptr<Insta
  * polynomials in the transcript.
  *
  */
-template <UltraFlavor Flavor> void ProtoGalaxyProver_<Flavor>::prepare_for_folding()
+template <class Flavor> void ProtoGalaxyProver_<Flavor>::prepare_for_folding()
 {
     for (const auto& instance : instances) {
         instance->initialise_prover_polynomials();
@@ -39,7 +39,7 @@ template <UltraFlavor Flavor> void ProtoGalaxyProver_<Flavor>::prepare_for_foldi
 }
 
 // TODO(#689): implement this function
-template <UltraFlavor Flavor> ProverFoldingResult<Flavor> ProtoGalaxyProver_<Flavor>::fold_instances()
+template <class Flavor> ProverFoldingResult<Flavor> ProtoGalaxyProver_<Flavor>::fold_instances()
 {
     prepare_for_folding();
     ProverFoldingResult<Flavor> res;

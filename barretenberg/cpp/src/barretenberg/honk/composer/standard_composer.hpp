@@ -70,10 +70,6 @@ template <StandardFlavor Flavor> class StandardComposer_ {
 
     std::shared_ptr<CommitmentKey> compute_commitment_key(size_t circuit_size)
     {
-        if (commitment_key) {
-            return commitment_key;
-        }
-
         commitment_key = std::make_shared<CommitmentKey>(circuit_size, crs_factory_);
         return commitment_key;
     };

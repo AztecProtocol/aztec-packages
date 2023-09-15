@@ -1,5 +1,7 @@
 #pragma once
 #include "barretenberg/honk/flavor/goblin_ultra.hpp"
+#include "barretenberg/honk/flavor/standard.hpp"
+#include "barretenberg/honk/flavor/standard_grumpkin.hpp"
 #include "barretenberg/honk/flavor/ultra.hpp"
 #include "barretenberg/honk/flavor/ultra_grumpkin.hpp"
 #include "barretenberg/honk/proof_system/folding_result.hpp"
@@ -60,7 +62,13 @@ template <class Flavor> class ProverInstance_ {
 
     ProverInstance_(Circuit& circuit)
     {
-        compute_circuit_size_parameters(circuit);
+        if constexpr (IsUltraFlavor<Flavor>) {
+            compute_circuit_size_parameters(circuit);
+        } else {
+            num_public_inputs = circuit.public_inputs.size();
+            total_num_gates = circuit.num_gates + num_public_inputs;
+            dyadic_circuit_size = circuit.get_circuit_subgroup_size(total_num_gates);
+        }
         compute_proving_key(circuit);
         compute_witness(circuit);
     }
@@ -84,7 +92,8 @@ template <class Flavor> class ProverInstance_ {
 
     std::shared_ptr<ProvingKey> compute_proving_key(Circuit&);
 
-    void compute_circuit_size_parameters(Circuit&);
+    void compute_circuit_size_parameters(Circuit&)
+        requires IsUltraFlavor<Flavor>;
 
     void compute_witness(Circuit&);
 

@@ -6,7 +6,7 @@
 #include "barretenberg/honk/proof_system/folding_result.hpp"
 #include "barretenberg/proof_system/flavor/flavor.hpp"
 namespace proof_system::honk {
-template <UltraFlavor Flavor> class ProtoGalaxyProver_ {
+template <class Flavor> class ProtoGalaxyProver_ {
   public:
     using FF = typename Flavor::FF;
     using Instance = ProverInstance_<Flavor>;

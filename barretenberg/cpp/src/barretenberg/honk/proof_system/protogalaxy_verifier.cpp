@@ -1,7 +1,7 @@
 #include "protogalaxy_verifier.hpp"
 #include "barretenberg/honk/utils/grand_product_delta.hpp"
 namespace proof_system::honk {
-template <UltraFlavor Flavor>
+template <class Flavor>
 ProtoGalaxyVerifier_<Flavor>::ProtoGalaxyVerifier_(std::vector<std::shared_ptr<VerificationKey>> vks)
 {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/391): simplify code with C++23 features
@@ -15,7 +15,7 @@ ProtoGalaxyVerifier_<Flavor>::ProtoGalaxyVerifier_(std::vector<std::shared_ptr<V
     }
 }
 
-template <UltraFlavor Flavor>
+template <class Flavor>
 VerifierFoldingResult<Flavor> ProtoGalaxyVerifier_<Flavor>::fold_public_parameters(std::vector<uint8_t> fold_data)
 {
     transcript = VerifierTranscript<FF>{ fold_data };

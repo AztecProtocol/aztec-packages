@@ -8,7 +8,7 @@
 #include "barretenberg/proof_system/flavor/flavor.hpp"
 
 namespace proof_system::honk {
-template <UltraFlavor Flavor> class ProtoGalaxyVerifier_ {
+template <class Flavor> class ProtoGalaxyVerifier_ {
   public:
     using FF = typename Flavor::FF;
     using VerificationKey = typename Flavor::VerificationKey;
