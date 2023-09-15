@@ -40,6 +40,7 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
 
 extern template class UltraRecursiveVerifier_<proof_system::honk::flavor::UltraRecursive_<UltraCircuitBuilder>>;
 extern template class UltraRecursiveVerifier_<proof_system::honk::flavor::UltraRecursive_<GoblinUltraCircuitBuilder>>;
-extern template class UltraRecursiveVerifier_<proof_system::honk::flavor::GoblinUltraRecursive>;
+extern template class UltraRecursiveVerifier_<proof_system::honk::flavor::GoblinUltraRecursive_<UltraCircuitBuilder>>;
+extern template class UltraRecursiveVerifier_<proof_system::honk::flavor::GoblinUltraRecursive_<GoblinUltraCircuitBuilder>>;
 
 } // namespace proof_system::plonk::stdlib::recursion::honk

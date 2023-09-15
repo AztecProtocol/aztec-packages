@@ -30,6 +30,7 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using RelationParams = ::proof_system::RelationParameters<FF>;
+    using UnivariateClaim = ::proof_system::honk::pcs::OpeningClaim<Curve>;
 
     RelationParams relation_parameters;
 
@@ -176,11 +177,11 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     // Produce a Gemini claim consisting of:
     // - d+1 commitments [Fold_{r}^(0)], [Fold_{-r}^(0)], and [Fold^(l)], l = 1:d-1
     // - d+1 evaluations a_0_pos, and a_l, l = 0:d-1
-    auto gemini_claim = Gemini::reduce_verification(multivariate_challenge,
-                                                    batched_evaluation,
-                                                    batched_commitment_unshifted,
-                                                    batched_commitment_to_be_shifted,
-                                                    transcript);
+    auto univariate_opening_claims = Gemini::reduce_verification(multivariate_challenge,
+                                                                 batched_evaluation,
+                                                                 batched_commitment_unshifted,
+                                                                 batched_commitment_to_be_shifted,
+                                                                 transcript);
 
     info("Gemini: num gates = ",
          builder->get_num_gates() - prev_num_gates,
@@ -189,8 +190,57 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
          ")");
     prev_num_gates = builder->get_num_gates();
 
+    // Perform ECC op queue transcript aggregation protocol
+    if constexpr (IsGoblinFlavor<Flavor>) {
+        // Receive commitments [t_i^{shift}], [T_{i-1}], and [T_i]
+        std::array<Commitment, Flavor::NUM_WIRES> prev_agg_op_queue_commitments;
+        std::array<Commitment, Flavor::NUM_WIRES> shifted_op_wire_commitments;
+        std::array<Commitment, Flavor::NUM_WIRES> agg_op_queue_commitments;
+        for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
+            std::string suffix = std::to_string(idx + 1);
+            prev_agg_op_queue_commitments[idx] =
+                transcript.template receive_from_prover<Commitment>("PREV_AGG_OP_QUEUE_" + suffix);
+            shifted_op_wire_commitments[idx] =
+                transcript.template receive_from_prover<Commitment>("SHIFTED_OP_WIRE_" + suffix);
+            agg_op_queue_commitments[idx] =
+                transcript.template receive_from_prover<Commitment>("AGG_OP_QUEUE_" + suffix);
+        }
+
+        // Receive claimed evaluations of t_i^{shift}, T_{i-1}, and T_i
+        FF kappa = transcript.get_challenge("kappa");
+        std::array<FF, Flavor::NUM_WIRES> prev_agg_op_queue_evals;
+        std::array<FF, Flavor::NUM_WIRES> shifted_op_wire_evals;
+        std::array<FF, Flavor::NUM_WIRES> agg_op_queue_evals;
+        for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
+            std::string suffix = std::to_string(idx + 1);
+            prev_agg_op_queue_evals[idx] =
+                transcript.template receive_from_prover<FF>("prev_agg_op_queue_eval_" + suffix);
+            shifted_op_wire_evals[idx] = transcript.template receive_from_prover<FF>("op_wire_eval_" + suffix);
+            agg_op_queue_evals[idx] = transcript.template receive_from_prover<FF>("agg_op_queue_eval_" + suffix);
+
+            ASSERT(agg_op_queue_evals[idx].get_value() ==
+                   prev_agg_op_queue_evals[idx].get_value() + shifted_op_wire_evals[idx].get_value());
+
+            // Check the identity T_i(γ) = T_{i-1}(γ) + t_i^{shift}(γ).
+            agg_op_queue_evals[idx].assert_equal(prev_agg_op_queue_evals[idx] + shifted_op_wire_evals[idx]);
+        }
+
+        for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
+            univariate_opening_claims.emplace_back(
+                UnivariateClaim{ { kappa, prev_agg_op_queue_evals[idx] }, prev_agg_op_queue_commitments[idx] });
+        }
+        for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
+            univariate_opening_claims.emplace_back(
+                UnivariateClaim{ { kappa, shifted_op_wire_evals[idx] }, shifted_op_wire_commitments[idx] });
+        }
+        for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
+            univariate_opening_claims.emplace_back(
+                UnivariateClaim{ { kappa, agg_op_queue_evals[idx] }, agg_op_queue_commitments[idx] });
+        }
+    }
+
     // Produce a Shplonk claim: commitment [Q] - [Q_z], evaluation zero (at random challenge z)
-    auto shplonk_claim = Shplonk::reduce_verification(pcs_verification_key, gemini_claim, transcript);
+    auto shplonk_claim = Shplonk::reduce_verification(pcs_verification_key, univariate_opening_claims, transcript);
 
     info("Shplonk: num gates = ",
          builder->get_num_gates() - prev_num_gates,
@@ -209,6 +259,7 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
 
 template class UltraRecursiveVerifier_<proof_system::honk::flavor::UltraRecursive_<UltraCircuitBuilder>>;
 template class UltraRecursiveVerifier_<proof_system::honk::flavor::UltraRecursive_<GoblinUltraCircuitBuilder>>;
-template class UltraRecursiveVerifier_<proof_system::honk::flavor::GoblinUltraRecursive>;
+template class UltraRecursiveVerifier_<proof_system::honk::flavor::GoblinUltraRecursive_<UltraCircuitBuilder>>;
+template class UltraRecursiveVerifier_<proof_system::honk::flavor::GoblinUltraRecursive_<GoblinUltraCircuitBuilder>>;
 
 } // namespace proof_system::plonk::stdlib::recursion::honk

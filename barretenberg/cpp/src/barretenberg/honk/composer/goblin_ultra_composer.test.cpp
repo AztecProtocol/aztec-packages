@@ -21,7 +21,6 @@ class GoblinUltraHonkComposerTests : public ::testing::Test {
 
     using Curve = curve::BN254;
     using FF = Curve::ScalarField;
-    using Commitment = Curve::AffineElement;
     using CommitmentKey = pcs::CommitmentKey<Curve>;
 
     /**
@@ -53,31 +52,6 @@ class GoblinUltraHonkComposerTests : public ::testing::Test {
             builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, FF(1), FF(1), FF(1), FF(-1), FF(0) });
         }
     }
-
-    /**
-     * @brief Populate ECC op queue with mock data as stand in for "previous circuit" in tests
-     * @details We currently cannot support Goblin proofs (specifically, transcript aggregation) if there is not
-     * existing data in the ECC op queue (since this leads to zero-commitment issues). This method populates the op
-     * queue with mock data so that the prover of an arbitrary 'first' circuit can behave as if it were not the prover
-     * over the first circuit in the stack.
-     *
-     * @param op_queue
-     */
-    static void populate_ecc_op_queue_with_mock_data(std::shared_ptr<ECCOpQueue>& op_queue)
-    {
-        // Add a single row of data to the op queue and commit to each column as [1] * FF(data)
-        std::array<Commitment, 4> mock_op_queue_commitments;
-        size_t idx = 0;
-        for (auto& entry : op_queue->ultra_ops) {
-            auto mock_data = FF::random_element();
-            entry.emplace_back(mock_data);
-            mock_op_queue_commitments[idx++] = Commitment::one() * mock_data;
-        }
-        // Set some internal data based on the size of the op queue data
-        op_queue->set_size_data();
-        // Add the commitments to the op queue data for use by the next circuit
-        op_queue->set_commitment_data(mock_op_queue_commitments);
-    }
 };
 
 /**
@@ -92,7 +66,7 @@ TEST_F(GoblinUltraHonkComposerTests, SingleCircuit)
     auto op_queue = std::make_shared<ECCOpQueue>();
 
     // Add mock data to op queue to simulate interaction with a previous circuit
-    populate_ecc_op_queue_with_mock_data(op_queue);
+    op_queue->populate_with_mock_initital_data();
 
     auto builder = GoblinUltraCircuitBuilder(op_queue);
 
@@ -117,7 +91,7 @@ TEST_F(GoblinUltraHonkComposerTests, MultipleCircuits)
     auto op_queue = std::make_shared<ECCOpQueue>();
 
     // Add mock data to op queue to simulate interaction with a previous circuit
-    populate_ecc_op_queue_with_mock_data(op_queue);
+    op_queue->populate_with_mock_initital_data();
 
     // Track the expected size of the op queue transcript
     size_t expected_op_queue_size = 1; // +1 from mock data

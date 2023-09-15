@@ -269,19 +269,22 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_op_queue_transc
         }
 
         // Compute/get commitments [t_i^{shift}], [T_{i-1}], and [T_i] and add to transcript
+        std::array<Commitment, Flavor::NUM_WIRES> shifted_op_wire_commitments;
+        std::array<Commitment, Flavor::NUM_WIRES> prev_aggregate_op_queue_commitments;
         std::array<Commitment, Flavor::NUM_WIRES> aggregate_op_queue_commitments;
         for (size_t idx = 0; idx < right_shifted_op_wires.size(); ++idx) {
             // Get previous transcript commitment [T_{i-1}] from op queue
-            auto prev_aggregate_op_queue_commitment = key->op_queue->ultra_ops_commitments[idx];
+            prev_aggregate_op_queue_commitments[idx] = key->op_queue->ultra_ops_commitments[idx];
             // Compute commitment [t_i^{shift}] directly
-            auto shifted_op_wire_commitment = pcs_commitment_key->commit(right_shifted_op_wires[idx]);
+            shifted_op_wire_commitments[idx] = pcs_commitment_key->commit(right_shifted_op_wires[idx]);
             // Compute updated aggregate transcript commitmen as [T_i] = [T_{i-1}] + [t_i^{shift}]
-            aggregate_op_queue_commitments[idx] = prev_aggregate_op_queue_commitment + shifted_op_wire_commitment;
+            aggregate_op_queue_commitments[idx] =
+                prev_aggregate_op_queue_commitments[idx] + shifted_op_wire_commitments[idx];
 
             std::string suffix = std::to_string(idx + 1);
-            transcript.send_to_verifier("PREV_AGG_ECC_OP_QUEUE_" + suffix, prev_aggregate_op_queue_commitment);
-            transcript.send_to_verifier("SHIFTED_ECC_OP_WIRE_" + suffix, shifted_op_wire_commitment);
-            transcript.send_to_verifier("AGG_ECC_OP_QUEUE_" + suffix, aggregate_op_queue_commitments[idx]);
+            transcript.send_to_verifier("PREV_AGG_OP_QUEUE_" + suffix, prev_aggregate_op_queue_commitments[idx]);
+            transcript.send_to_verifier("SHIFTED_OP_WIRE_" + suffix, shifted_op_wire_commitments[idx]);
+            transcript.send_to_verifier("AGG_OP_QUEUE_" + suffix, aggregate_op_queue_commitments[idx]);
         }
 
         // Store the commitments [T_{i}] (to be used later in subsequent iterations as [T_{i-1}]).
@@ -293,28 +296,40 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_op_queue_transc
         auto kappa = transcript.get_challenge("kappa");
         auto prev_aggregate_ecc_op_transcript = key->op_queue->get_previous_aggregate_transcript();
         auto aggregate_ecc_op_transcript = key->op_queue->get_aggregate_transcript();
+        std::array<FF, Flavor::NUM_WIRES> prev_agg_op_queue_evals;
+        std::array<FF, Flavor::NUM_WIRES> right_shifted_op_wire_evals;
+        std::array<FF, Flavor::NUM_WIRES> agg_op_queue_evals;
+        std::array<Polynomial, Flavor::NUM_WIRES> prev_agg_op_queue_polynomials;
+        std::array<Polynomial, Flavor::NUM_WIRES> agg_op_queue_polynomials;
         for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
             std::string suffix = std::to_string(idx + 1);
 
             // T_{i-1}(γ)
-            auto polynomial = Polynomial(prev_aggregate_ecc_op_transcript[idx]);
-            auto evaluation = polynomial.evaluate(kappa);
-            univariate_openings.opening_pairs.emplace_back(OpenPair{ kappa, evaluation });
-            univariate_openings.witnesses.emplace_back(std::move(polynomial));
-            transcript.send_to_verifier("prev_agg_ecc_op_queue_eval_" + suffix, evaluation);
+            prev_agg_op_queue_polynomials[idx] = Polynomial(prev_aggregate_ecc_op_transcript[idx]);
+            prev_agg_op_queue_evals[idx] = prev_agg_op_queue_polynomials[idx].evaluate(kappa);
+            transcript.send_to_verifier("prev_agg_op_queue_eval_" + suffix, prev_agg_op_queue_evals[idx]);
 
             // t_i^{shift}(γ)
-            evaluation = right_shifted_op_wires[idx].evaluate(kappa);
-            univariate_openings.opening_pairs.emplace_back(OpenPair{ kappa, evaluation });
-            univariate_openings.witnesses.emplace_back(std::move(right_shifted_op_wires[idx]));
-            transcript.send_to_verifier("op_wire_eval_" + suffix, evaluation);
+            right_shifted_op_wire_evals[idx] = right_shifted_op_wires[idx].evaluate(kappa);
+            transcript.send_to_verifier("op_wire_eval_" + suffix, right_shifted_op_wire_evals[idx]);
 
             // T_i(γ)
-            polynomial = Polynomial(aggregate_ecc_op_transcript[idx]);
-            evaluation = polynomial.evaluate(kappa);
-            univariate_openings.opening_pairs.emplace_back(OpenPair{ kappa, evaluation });
-            univariate_openings.witnesses.emplace_back(std::move(polynomial));
-            transcript.send_to_verifier("agg_ecc_op_queue_eval_" + suffix, evaluation);
+            agg_op_queue_polynomials[idx] = Polynomial(aggregate_ecc_op_transcript[idx]);
+            agg_op_queue_evals[idx] = agg_op_queue_polynomials[idx].evaluate(kappa);
+            transcript.send_to_verifier("agg_op_queue_eval_" + suffix, agg_op_queue_evals[idx]);
+        }
+
+        for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
+            univariate_openings.opening_pairs.emplace_back(OpenPair{ kappa, prev_agg_op_queue_evals[idx] });
+            univariate_openings.witnesses.emplace_back(std::move(prev_agg_op_queue_polynomials[idx]));
+        }
+        for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
+            univariate_openings.opening_pairs.emplace_back(OpenPair{ kappa, right_shifted_op_wire_evals[idx] });
+            univariate_openings.witnesses.emplace_back(std::move(right_shifted_op_wires[idx]));
+        }
+        for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
+            univariate_openings.opening_pairs.emplace_back(OpenPair{ kappa, agg_op_queue_evals[idx] });
+            univariate_openings.witnesses.emplace_back(std::move(agg_op_queue_polynomials[idx]));
         }
     }
 }
