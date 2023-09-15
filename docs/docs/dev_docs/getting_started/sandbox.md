@@ -6,7 +6,7 @@ import Image from "@theme/IdealImage";
 
 ## Introduction
 
-The Aztec Sandbox aims to provide a local development system against which you can build and test Noir contracts in a fast, safe, and free environment.
+The Aztec Sandbox aims to provide a local development system against which you can build and test Aztec.nr contracts in a fast, safe, and free environment.
 
 Here we will walkthrough the process of retrieving the Sandbox, installing the client libraries and using it to deploy and use a fully private token contract on the Aztec network.
 
@@ -70,7 +70,7 @@ Let's create an empty project called `private-token`. If you are familiar with s
 
 Although both `yarn` and `npm` would work, this example uses `yarn`. Open the terminal and do the following
 
-1. Ensure node version is 18 or more by running
+1. Ensure node version is 18 or higher by running
 
 ```sh
 node -v

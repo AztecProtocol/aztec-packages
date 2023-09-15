@@ -1,18 +1,22 @@
 import {
   AztecAddress,
   CallContext,
+  CircuitsWasm,
   EthAddress,
   Fr,
   FunctionData,
   FunctionSelector,
   GlobalVariables,
   HistoricBlockData,
+  RETURN_VALUES_LENGTH,
 } from '@aztec/circuits.js';
+import { siloCommitment } from '@aztec/circuits.js/abis';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { FunctionL2Logs } from '@aztec/types';
 
 import {
+  ONE_ACVM_FIELD,
   ZERO_ACVM_FIELD,
   acvm,
   convertACVMFieldToBuffer,
@@ -22,7 +26,6 @@ import {
   fromACVMField,
   toACVMField,
   toACVMWitness,
-  toAcvmCommitmentLoadOracleInputs,
   toAcvmL1ToL2MessageLoadOracleInputs,
 } from '../acvm/index.js';
 import { oracleDebugCallToFormattedStr } from '../client/debug.js';
@@ -32,9 +35,6 @@ import { AcirSimulator } from '../index.js';
 import { CommitmentsDB, PublicContractsDB, PublicStateDB } from './db.js';
 import { PublicExecution, PublicExecutionResult } from './execution.js';
 import { ContractStorageActionsCollector } from './state_actions.js';
-
-// Copied from crate::abi at noir-contracts/src/contracts/noir-aztec/src/abi.nr
-const NOIR_MAX_RETURN_VALUES = 4;
 
 /**
  * Handles execution of public functions.
@@ -93,12 +93,14 @@ export class PublicExecutor {
         const messageInputs = await this.commitmentsDb.getL1ToL2Message(fromACVMField(msgKey));
         return toAcvmL1ToL2MessageLoadOracleInputs(messageInputs, this.blockData.l1ToL2MessagesTreeRoot);
       }, // l1 to l2 messages in public contexts TODO: https://github.com/AztecProtocol/aztec-packages/issues/616
-      getCommitment: async ([commitment]) => {
-        const commitmentInputs = await this.commitmentsDb.getCommitmentOracle(
-          execution.contractAddress,
-          fromACVMField(commitment),
-        );
-        return toAcvmCommitmentLoadOracleInputs(commitmentInputs, this.blockData.privateDataTreeRoot);
+      checkNoteHashExists: async ([_nonce], [innerNoteHash]) => {
+        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
+        // Once public kernel or base rollup circuit injects nonces, this can be updated to use uniqueSiloedCommitment.
+        const wasm = await CircuitsWasm.get();
+        const siloedNoteHash = siloCommitment(wasm, execution.contractAddress, fromACVMField(innerNoteHash));
+        const index = await this.commitmentsDb.getCommitmentIndex(siloedNoteHash);
+        // return 0 or 1 for whether note hash exists
+        return index === undefined ? ZERO_ACVM_FIELD : ONE_ACVM_FIELD;
       },
       storageRead: async ([slot], [numberOfElements]) => {
         const startStorageSlot = fromACVMField(slot);
@@ -126,10 +128,11 @@ export class PublicExecutor {
       },
       callPublicFunction: async ([address], [functionSelector], [argsHash]) => {
         const args = packedArgs.unpack(fromACVMField(argsHash));
-        this.log(`Public function call: addr=${address} selector=${functionSelector} args=${args.join(',')}`);
+        const selector = FunctionSelector.fromField(fromACVMField(functionSelector));
+        this.log(`Public function call: addr=${address} selector=${selector} args=${args.join(',')}`);
         const childExecutionResult = await this.callPublicFunction(
           frToAztecAddress(fromACVMField(address)),
-          FunctionSelector.fromField(fromACVMField(functionSelector)),
+          selector,
           args,
           execution.callContext,
           globalVariables,
@@ -137,7 +140,7 @@ export class PublicExecutor {
 
         nestedExecutions.push(childExecutionResult);
         this.log(`Returning from nested call: ret=${childExecutionResult.returnValues.join(', ')}`);
-        return padArrayEnd(childExecutionResult.returnValues, Fr.ZERO, NOIR_MAX_RETURN_VALUES).map(toACVMField);
+        return padArrayEnd(childExecutionResult.returnValues, Fr.ZERO, RETURN_VALUES_LENGTH).map(toACVMField);
       },
       emitUnencryptedLog: args => {
         // https://github.com/AztecProtocol/aztec-packages/issues/885

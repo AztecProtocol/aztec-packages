@@ -64,21 +64,19 @@ describe('e2e_pending_commitments_contract', () => {
     return contract;
   };
 
-  it('Noir function can "get" notes it just "inserted"', async () => {
+  it('Aztec.nr function can "get" notes it just "inserted"', async () => {
     const mintAmount = 65n;
 
     const deployedContract = await deployContract();
 
-    const tx = deployedContract.methods
-      .test_insert_then_get_then_nullify_flat(mintAmount, owner)
-      .send({ origin: owner });
+    const tx = deployedContract.methods.test_insert_then_get_then_nullify_flat(mintAmount, owner).send();
 
     await tx.isMined({ interval: 0.1 });
     const receipt = await tx.getReceipt();
     expect(receipt.status).toBe(TxStatus.MINED);
   }, 60_000);
 
-  it('Squash! Noir function can "create" and "nullify" note in the same TX', async () => {
+  it('Squash! Aztec.nr function can "create" and "nullify" note in the same TX', async () => {
     // Kernel will squash the noteHash and its nullifier.
     // Realistic way to describe this test is "Mint note A, then burn note A in the same transaction"
     const mintAmount = 65n;
@@ -93,7 +91,7 @@ describe('e2e_pending_commitments_contract', () => {
         deployedContract.methods.get_then_nullify_note.selector.toField(),
         deployedContract.methods.get_note_zero_balance.selector.toField(),
       )
-      .send({ origin: owner });
+      .send();
 
     await tx.isMined({ interval: 0.1 });
     const receipt = await tx.getReceipt();
@@ -103,7 +101,7 @@ describe('e2e_pending_commitments_contract', () => {
     await expectNullifiersSquashedExcept(0);
   }, 60_000);
 
-  it('Squash! Noir function can "create" 2 notes and "nullify" both in the same TX', async () => {
+  it('Squash! Aztec.nr function can "create" 2 notes and "nullify" both in the same TX', async () => {
     // Kernel will squash both noteHashes and their nullifier.
     // Realistic way to describe this test is "Mint notes A and B, then burn both in the same transaction"
     const mintAmount = 65n;
@@ -117,7 +115,7 @@ describe('e2e_pending_commitments_contract', () => {
         deployedContract.methods.insert_note.selector.toField(),
         deployedContract.methods.get_then_nullify_note.selector.toField(),
       )
-      .send({ origin: owner });
+      .send();
 
     await tx.isMined({ interval: 0.1 });
     const receipt = await tx.getReceipt();
@@ -127,7 +125,7 @@ describe('e2e_pending_commitments_contract', () => {
     await expectNullifiersSquashedExcept(0);
   }, 60_000);
 
-  it('Squash! Noir function can "create" 2 notes and "nullify" 1 in the same TX (kernel will squash one note + nullifier)', async () => {
+  it('Squash! Aztec.nr function can "create" 2 notes and "nullify" 1 in the same TX (kernel will squash one note + nullifier)', async () => {
     // Kernel will squash one noteHash and its nullifier.
     // The other note will become persistent!
     // Realistic way to describe this test is "Mint notes A and B, then burn note A in the same transaction"
@@ -142,7 +140,7 @@ describe('e2e_pending_commitments_contract', () => {
         deployedContract.methods.insert_note.selector.toField(),
         deployedContract.methods.get_then_nullify_note.selector.toField(),
       )
-      .send({ origin: owner });
+      .send();
 
     await tx.isMined({ interval: 0.1 });
     const receipt = await tx.getReceipt();
@@ -152,7 +150,7 @@ describe('e2e_pending_commitments_contract', () => {
     await expectNullifiersSquashedExcept(0);
   }, 60_000);
 
-  it('Squash! Noir function can nullify a pending note and a persistent in the same TX', async () => {
+  it('Squash! Aztec.nr function can nullify a pending note and a persistent in the same TX', async () => {
     // Create 1 note in isolated TX.
     // Then, in a separate TX, create 1 new note and nullify BOTH notes.
     // In this second TX, the kernel will squash one note + nullifier,
@@ -163,7 +161,7 @@ describe('e2e_pending_commitments_contract', () => {
     const deployedContract = await deployContract();
 
     // create persistent note
-    const tx0 = deployedContract.methods.insert_note(mintAmount, owner).send({ origin: owner });
+    const tx0 = deployedContract.methods.insert_note(mintAmount, owner).send();
 
     await tx0.isMined({ interval: 0.1 });
     const receipt0 = await tx0.getReceipt();
@@ -181,7 +179,7 @@ describe('e2e_pending_commitments_contract', () => {
         deployedContract.methods.get_then_nullify_note.selector.toField(),
         deployedContract.methods.get_note_zero_balance.selector.toField(),
       )
-      .send({ origin: owner });
+      .send();
 
     await tx1.isMined({ interval: 0.1 });
     const receipt1 = await tx1.getReceipt();
@@ -203,7 +201,7 @@ describe('e2e_pending_commitments_contract', () => {
     const mintAmount = 65n;
 
     const deployedContract = await deployContract();
-    const tx0 = deployedContract.methods.insert_note(mintAmount, owner).send({ origin: owner });
+    const tx0 = deployedContract.methods.insert_note(mintAmount, owner).send();
 
     await tx0.isMined({ interval: 0.1 });
     const receipt = await tx0.getReceipt();
@@ -220,7 +218,7 @@ describe('e2e_pending_commitments_contract', () => {
         deployedContract.methods.get_then_nullify_note.selector.toField(),
         deployedContract.methods.get_note_zero_balance.selector.toField(),
       )
-      .send({ origin: owner });
+      .send();
 
     await tx1.isMined({ interval: 0.1 });
     const receipt2 = await tx1.getReceipt();

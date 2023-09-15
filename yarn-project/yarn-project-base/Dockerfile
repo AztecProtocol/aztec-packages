@@ -1,3 +1,4 @@
+# Update this counter to trigger a rebuild when needed: 1
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/circuits-wasm-linux-clang as circuits
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/l1-contracts as contracts
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/noir-contracts-build as noir
@@ -7,9 +8,9 @@ RUN apk update && apk add --no-cache build-base git python3 curl bash jq sed
 COPY --from=contracts /usr/src/l1-contracts/out /usr/src/l1-contracts/out
 
 COPY --from=circuits /usr/src/circuits/cpp/build-wasm/bin/aztec3-circuits.wasm /usr/src/circuits/cpp/build-wasm/bin/aztec3-circuits.wasm
-COPY --from=circuits /usr/src/circuits/cpp/build-wasm/bin/aztec3-circuits.wasm /usr/src/circuits/cpp/barretenberg/cpp/build-wasm/bin/primitives.wasm
-COPY --from=circuits /usr/src/circuits/cpp/barretenberg/cpp/srs_db/download_ignition.sh /usr/src/circuits/cpp/barretenberg/cpp/srs_db/download_ignition.sh
-WORKDIR /usr/src/circuits/cpp/barretenberg/cpp/srs_db
+COPY --from=circuits /usr/src/circuits/cpp/build-wasm/bin/aztec3-circuits.wasm /usr/src/barretenberg/cpp/build-wasm/bin/primitives.wasm
+COPY --from=circuits /usr/src/barretenberg/cpp/srs_db/download_ignition.sh /usr/src/barretenberg/cpp/srs_db/download_ignition.sh
+WORKDIR /usr/src/barretenberg/cpp/srs_db
 RUN ./download_ignition.sh 1
 
 WORKDIR /usr/src/yarn-project
@@ -24,6 +25,7 @@ COPY aztec-sandbox/package.json aztec-sandbox/package.json
 COPY aztec.js/package.json aztec.js/package.json
 COPY aztec.js/package.local.json aztec.js/package.local.json
 COPY canary/package.json canary/package.json
+COPY boxes/private-token/package.json boxes/private-token/package.json
 COPY docs/package.json docs/package.json
 COPY end-to-end/package.json end-to-end/package.json
 COPY ethereum/package.json ethereum/package.json
@@ -70,11 +72,6 @@ RUN /bin/bash -c '\
   [[ $F =~ (.*-) ]] && ln $F /root/.yarn/berry/cache/${BASH_REMATCH[1]}8.zip; \
   done'
 
-# We hack around the build context by copying the build manifest to and from the yarn_project root,
-# see the comment in .circleci/config.yml for more info.
-COPY build_manifest.json ./
-RUN cp build_manifest.json ../
-
 # Copy tsconfig to check dependencies
 COPY acir-simulator/tsconfig.json acir-simulator/tsconfig.json
 COPY archiver/tsconfig.json archiver/tsconfig.json
@@ -112,19 +109,20 @@ RUN ./scripts/generate-artifacts.sh
 
 WORKDIR /usr/src/yarn-project
 
-# Generate noir contract artifacts
+# Generate Aztec.nr contract artifacts
 FROM builder_ as noir_types
 COPY . .
 COPY --from=noir /usr/src/yarn-project/noir-contracts/src/contracts /usr/src/yarn-project/noir-contracts/src/contracts
+COPY --from=noir /usr/src/yarn-project/noir-contracts/target /usr/src/yarn-project/noir-contracts/target
 WORKDIR /usr/src/yarn-project/noir-contracts
 
 # Run yarn build to have the json ABIs available for the types generator
 RUN yarn build
-RUN ./scripts/types_ci.sh
+RUN ./scripts/types_all.sh
 # Run yarn build again to build the types
 RUN yarn build
 
-# Take noir contract artifacts into the final build image
+# Take Aztec.nr contract artifacts into the final build image
 FROM builder_ as final
 COPY . .
 COPY --from=noir_types /usr/src/yarn-project/noir-contracts/src/artifacts /usr/src/yarn-project/noir-contracts/src/artifacts
