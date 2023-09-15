@@ -20,7 +20,9 @@ import { encodeArguments } from '@aztec/foundation/abi';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import NoirVersion from '@aztec/noir-compiler/noir-version';
 import {
+  AuthWitness,
   AztecNode,
   AztecRPC,
   ContractDao,
@@ -76,11 +78,6 @@ export class AztecRPCServer implements AztecRPC {
     this.clientInfo = `${name.split('/')[name.split('/').length - 1]}@${version}`;
   }
 
-  public async addAuthWitness(messageHash: Fr, witness: Fr[]) {
-    await this.db.addAuthWitness(messageHash, witness);
-    return Promise.resolve();
-  }
-
   /**
    * Starts the Aztec RPC server by beginning the synchronisation process between the Aztec node and the database.
    *
@@ -104,6 +101,10 @@ export class AztecRPCServer implements AztecRPC {
     this.log.info('Stopped');
   }
 
+  public addAuthWitness(witness: AuthWitness) {
+    return this.db.addAuthWitness(witness.requestHash, witness.witness);
+  }
+
   public async registerAccount(privKey: GrumpkinPrivateKey, partialAddress: PartialAddress) {
     const completeAddress = await CompleteAddress.fromPrivateKeyAndPartialAddress(privKey, partialAddress);
     const wasAdded = await this.db.addCompleteAddress(completeAddress);
@@ -117,7 +118,7 @@ export class AztecRPCServer implements AztecRPC {
     }
   }
 
-  public async getAccounts(): Promise<CompleteAddress[]> {
+  public async getRegisteredAccounts(): Promise<CompleteAddress[]> {
     // Get complete addresses of both the recipients and the accounts
     const addresses = await this.db.getCompleteAddresses();
     // Filter out the addresses not corresponding to accounts
@@ -126,8 +127,8 @@ export class AztecRPCServer implements AztecRPC {
     return accounts;
   }
 
-  public async getAccount(address: AztecAddress): Promise<CompleteAddress | undefined> {
-    const result = await this.getAccounts();
+  public async getRegisteredAccount(address: AztecAddress): Promise<CompleteAddress | undefined> {
+    const result = await this.getRegisteredAccounts();
     const account = result.find(r => r.address.equals(address));
     return Promise.resolve(account);
   }
@@ -306,6 +307,7 @@ export class AztecRPCServer implements AztecRPC {
       chainId,
       rollupAddress,
       client: this.clientInfo,
+      nargoVersion: NoirVersion.commit,
     };
   }
 
