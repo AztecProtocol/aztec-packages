@@ -110,7 +110,7 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
   it('Creates an account', async () => {
     const result = await page.evaluate(
       async (rpcUrl, privateKeyString) => {
-        const { GrumpkinScalar, createAztecRpcClient, makeFetch, getUnsafeSchnorrAccount } = window.AztecJs;
+        const { GrumpkinScalar, createAztecRpcClient, getUnsafeSchnorrAccount } = window.AztecJs;
         const client = createAztecRpcClient(rpcUrl!);
         const privateKey = GrumpkinScalar.fromString(privateKeyString);
         const account = getUnsafeSchnorrAccount(client, privateKey);
@@ -135,7 +135,7 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
   it("Gets the owner's balance", async () => {
     const result = await page.evaluate(
       async (rpcUrl, contractAddress, PrivateTokenContractAbi) => {
-        const { Contract, AztecAddress, createAztecRpcClient, makeFetch } = window.AztecJs;
+        const { Contract, AztecAddress, createAztecRpcClient } = window.AztecJs;
         const client = createAztecRpcClient(rpcUrl!);
         const owner = (await client.getRegisteredAccounts())[0].address;
         const [wallet] = await AztecJs.getSandboxAccountsWallets(client);
@@ -155,7 +155,7 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
     const result = await page.evaluate(
       async (rpcUrl, contractAddress, transferAmount, PrivateTokenContractAbi) => {
         console.log(`Starting transfer tx`);
-        const { AztecAddress, Contract, createAztecRpcClient, makeFetch } = window.AztecJs;
+        const { AztecAddress, Contract, createAztecRpcClient } = window.AztecJs;
         const client = createAztecRpcClient(rpcUrl!);
         const accounts = await client.getRegisteredAccounts();
         const receiver = accounts[1].address;
@@ -176,8 +176,7 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
   const deployPrivateTokenContract = async () => {
     const txHash = await page.evaluate(
       async (rpcUrl, privateKeyString, initialBalance, PrivateTokenContractAbi) => {
-        const { GrumpkinScalar, DeployMethod, createAztecRpcClient, makeFetch, getUnsafeSchnorrAccount } =
-          window.AztecJs;
+        const { GrumpkinScalar, DeployMethod, createAztecRpcClient, getUnsafeSchnorrAccount } = window.AztecJs;
         const client = createAztecRpcClient(rpcUrl!);
         let accounts = await client.getRegisteredAccounts();
         if (accounts.length === 0) {
