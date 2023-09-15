@@ -1,4 +1,7 @@
 #pragma once
+
+// TODO(@zac-wiliamson #2341 rename to pedersen.hpp once we migrate to new hash standard)
+
 #include "../generators/fixed_base_scalar_mul.hpp"
 #include "../generators/generator_data.hpp"
 #include "../pedersen_commitment/pedersen_refactor.hpp"

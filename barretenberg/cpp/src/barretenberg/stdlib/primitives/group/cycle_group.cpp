@@ -576,13 +576,64 @@ typename cycle_group<Composer>::cycle_scalar cycle_group<Composer>::cycle_scalar
     return cycle_scalar(lo, hi);
 }
 
+/**
+ * @brief Use when we want to multiply a group element by a string of bits of known size.
+ *        N.B. using this constructor method will make our scalar multiplication methods not perform primality tests.
+ *
+ * @tparam Composer
+ * @param context
+ * @param value
+ * @param num_bits
+ * @return cycle_group<Composer>::cycle_scalar
+ */
+template <typename Composer>
+typename cycle_group<Composer>::cycle_scalar cycle_group<Composer>::cycle_scalar::from_witness_bitstring(
+    Composer* context, const uint256_t& bitstring, const size_t num_bits)
+{
+    ASSERT(bitstring.get_msb() < num_bits);
+    const uint256_t lo_v = bitstring.slice(0, LO_BITS);
+    const uint256_t hi_v = bitstring.slice(LO_BITS, HI_BITS);
+    field_t lo = witness_t(context, lo_v);
+    field_t hi = witness_t(context, hi_v);
+    cycle_scalar result{ lo, hi, num_bits, true, false };
+    return result;
+}
+
+/**
+ * @brief Use when we want to multiply a group element by a string of bits of known size.
+ *        N.B. using this constructor method will make our scalar multiplication methods not perform primality tests.
+ *
+ * @tparam Composer
+ * @param context
+ * @param value
+ * @param num_bits
+ * @return cycle_group<Composer>::cycle_scalar
+ */
+template <typename Composer>
+typename cycle_group<Composer>::cycle_scalar cycle_group<Composer>::cycle_scalar::create_from_bn254_scalar(
+    const field_t& in)
+{
+    const uint256_t value_u256(in.get_value());
+    const uint256_t lo_v = value_u256.slice(0, LO_BITS);
+    const uint256_t hi_v = value_u256.slice(LO_BITS, HI_BITS);
+    if (in.is_constant()) {
+        cycle_scalar result{ field_t(lo_v), field_t(hi_v), NUM_BITS, false, true };
+        return result;
+    }
+    field_t lo = witness_t(in.get_context(), lo_v);
+    field_t hi = witness_t(in.get_context(), hi_v);
+    lo.add_two(hi * (uint256_t(1) << LO_BITS), -in).assert_equal(0);
+    cycle_scalar result{ lo, hi, NUM_BITS, false, true };
+    return result;
+}
+
 template <typename Composer> bool cycle_group<Composer>::cycle_scalar::is_constant() const
 {
     return (lo.is_constant() && hi.is_constant());
 }
 
 template <typename Composer>
-typename cycle_group<Composer>::cycle_scalar::ScalarField cycle_group<Composer>::cycle_scalar::get_value() const
+typename cycle_group<Composer>::ScalarField cycle_group<Composer>::cycle_scalar::get_value() const
 {
     uint256_t lo_v(lo.get_value());
     uint256_t hi_v(hi.get_value());
@@ -612,6 +663,9 @@ cycle_group<Composer>::straus_scalar_slice::straus_scalar_slice(Composer* contex
     // this also performs an implicit range check on the input slices
     const auto slice_scalar = [&](const field_t& scalar, const size_t num_bits) {
         std::vector<field_t> result;
+        if (num_bits == 0) {
+            return result;
+        }
         if (scalar.is_constant()) {
             const size_t num_slices = (num_bits + table_bits - 1) / table_bits;
             const uint64_t table_mask = (1ULL << table_bits) - 1ULL;
@@ -657,14 +711,17 @@ cycle_group<Composer>::straus_scalar_slice::straus_scalar_slice(Composer* contex
         return result;
     };
 
-    auto hi_slices = slice_scalar(scalar.hi, cycle_scalar::HI_BITS);
-    auto lo_slices = slice_scalar(scalar.lo, cycle_scalar::LO_BITS);
+    const size_t lo_bits = scalar.num_bits() > cycle_scalar::LO_BITS ? cycle_scalar::LO_BITS : scalar.num_bits();
+    const size_t hi_bits = scalar.num_bits() > cycle_scalar::LO_BITS ? scalar.num_bits() - cycle_scalar::LO_BITS : 0;
+    auto hi_slices = slice_scalar(scalar.hi, hi_bits);
+    auto lo_slices = slice_scalar(scalar.lo, lo_bits);
 
-    if (!scalar.is_constant()) {
+    if (!scalar.is_constant() && !scalar.skip_primality_test()) {
         // Check that scalar.hi * 2^LO_BITS + scalar.lo < cycle_group_modulus when evaluated over the integers
-        constexpr uint256_t cycle_group_modulus = cycle_scalar::ScalarField::modulus;
-        constexpr uint256_t r_lo = cycle_group_modulus.slice(0, cycle_scalar::LO_BITS);
-        constexpr uint256_t r_hi = cycle_group_modulus.slice(cycle_scalar::LO_BITS, cycle_scalar::HI_BITS);
+        const uint256_t cycle_group_modulus =
+            scalar.use_bn254_scalar_field_for_primality_test() ? FF::modulus : ScalarField::modulus;
+        const uint256_t r_lo = cycle_group_modulus.slice(0, cycle_scalar::LO_BITS);
+        const uint256_t r_hi = cycle_group_modulus.slice(cycle_scalar::LO_BITS, cycle_scalar::HI_BITS);
 
         bool need_borrow = uint256_t(scalar.lo.get_value()) > r_lo;
         field_t borrow = scalar.lo.is_constant() ? need_borrow : field_t::from_witness(context, need_borrow);
@@ -699,9 +756,13 @@ cycle_group<Composer>::straus_scalar_slice::straus_scalar_slice(Composer* contex
  * @param index
  * @return field_t<Composer>
  */
-template <typename Composer> field_t<Composer> cycle_group<Composer>::straus_scalar_slice::read(size_t index)
+template <typename Composer>
+std::optional<field_t<Composer>> cycle_group<Composer>::straus_scalar_slice::read(size_t index)
 {
-    ASSERT(slices.size() > index);
+
+    if (index >= slices.size()) {
+        return {};
+    }
     return slices[index];
 }
 
@@ -843,6 +904,12 @@ typename cycle_group<Composer>::batch_mul_internal_output cycle_group<Composer>:
         }
     }
 
+    size_t num_bits = 0;
+    for (auto& s : scalars) {
+        num_bits = std::max(num_bits, s.num_bits());
+    }
+    size_t num_rounds = (num_bits + TABLE_BITS - 1) / TABLE_BITS;
+
     const size_t num_points = scalars.size();
 
     std::vector<straus_scalar_slice> scalar_slices;
@@ -855,7 +922,7 @@ typename cycle_group<Composer>::batch_mul_internal_output cycle_group<Composer>:
     Element offset_generator_accumulator = offset_generators[0];
     cycle_group accumulator = offset_generators[0];
 
-    for (size_t i = 0; i < NUM_ROUNDS; ++i) {
+    for (size_t i = 0; i < num_rounds; ++i) {
         if (i != 0) {
             for (size_t j = 0; j < TABLE_BITS; ++j) {
                 // offset_generator_accuulator is a regular Element, so dbl() won't add constraints
@@ -865,11 +932,15 @@ typename cycle_group<Composer>::batch_mul_internal_output cycle_group<Composer>:
         }
 
         for (size_t j = 0; j < num_points; ++j) {
-            const field_t scalar_slice = scalar_slices[j].read(NUM_ROUNDS - i - 1);
-            const cycle_group point = point_tables[j].read(scalar_slice);
-            accumulator = unconditional_add ? accumulator.unconditional_add(point)
-                                            : accumulator.constrained_unconditional_add(point);
-            offset_generator_accumulator = offset_generator_accumulator + Element(offset_generators[j + 1]);
+            const std::optional<field_t> scalar_slice = scalar_slices[j].read(num_rounds - i - 1);
+            // if we are doing a batch mul over scalars of different bit-lengths, we may not have any scalar bits for a
+            // given round and a given scalar
+            if (scalar_slice.has_value()) {
+                const cycle_group point = point_tables[j].read(scalar_slice.value());
+                accumulator = unconditional_add ? accumulator.unconditional_add(point)
+                                                : accumulator.constrained_unconditional_add(point);
+                offset_generator_accumulator = offset_generator_accumulator + Element(offset_generators[j + 1]);
+            }
         }
     }
 
@@ -993,6 +1064,11 @@ typename cycle_group<Composer>::batch_mul_internal_output cycle_group<Composer>:
         }
     }
 
+    size_t num_bits = 0;
+    for (auto& s : scalars) {
+        num_bits = std::max(num_bits, s.num_bits());
+    }
+    size_t num_rounds = (num_bits + TABLE_BITS - 1) / TABLE_BITS;
     // core algorithm
     // define a `table_bits` size lookup table
     const size_t num_points = scalars.size();
@@ -1003,33 +1079,37 @@ typename cycle_group<Composer>::batch_mul_internal_output cycle_group<Composer>:
 
     // creating these point tables should cost 0 constraints if base points are constant
     for (size_t i = 0; i < num_points; ++i) {
-        std::vector<Element> round_points(NUM_ROUNDS);
-        std::vector<Element> round_offset_generators(NUM_ROUNDS);
+        std::vector<Element> round_points(num_rounds);
+        std::vector<Element> round_offset_generators(num_rounds);
         round_points[0] = base_points[i];
         round_offset_generators[0] = offset_generators[i + 1];
-        for (size_t j = 1; j < NUM_ROUNDS; ++j) {
+        for (size_t j = 1; j < num_rounds; ++j) {
             round_points[j] = round_points[j - 1].dbl();
             round_offset_generators[j] = round_offset_generators[j - 1].dbl();
         }
-        Element::batch_normalize(&round_points[0], NUM_ROUNDS);
-        Element::batch_normalize(&round_offset_generators[0], NUM_ROUNDS);
-        point_tables[i].resize(NUM_ROUNDS);
-        for (size_t j = 0; j < NUM_ROUNDS; ++j) {
+        Element::batch_normalize(&round_points[0], num_rounds);
+        Element::batch_normalize(&round_offset_generators[0], num_rounds);
+        point_tables[i].resize(num_rounds);
+        for (size_t j = 0; j < num_rounds; ++j) {
             point_tables[i][j] = straus_lookup_table(
                 context, cycle_group(round_points[j]), cycle_group(round_offset_generators[j]), TABLE_BITS);
         }
         scalar_slices.emplace_back(straus_scalar_slice(context, scalars[i], TABLE_BITS));
     }
     Element offset_generator_accumulator = offset_generators[0];
-    cycle_group accumulator = cycle_group(Element(offset_generators[0]) * (uint256_t(1) << (NUM_ROUNDS - 1)));
-    for (size_t i = 0; i < NUM_ROUNDS; ++i) {
+    cycle_group accumulator = cycle_group(Element(offset_generators[0]) * (uint256_t(1) << (num_rounds - 1)));
+    for (size_t i = 0; i < num_rounds; ++i) {
         offset_generator_accumulator = (i > 0) ? offset_generator_accumulator.dbl() : offset_generator_accumulator;
         for (size_t j = 0; j < num_points; ++j) {
             auto& point_table = point_tables[j][i];
-            const field_t scalar_slice = scalar_slices[j].read(i);
-            const cycle_group point = point_table.read(scalar_slice);
-            accumulator = accumulator.unconditional_add(point);
-            offset_generator_accumulator = offset_generator_accumulator + Element(offset_generators[j + 1]);
+            const std::optional<field_t> scalar_slice = scalar_slices[j].read(i);
+            // if we are doing a batch mul over scalars of different bit-lengths, we may not have any scalar bits for a
+            // given round and a given scalar
+            if (scalar_slice.has_value()) {
+                const cycle_group point = point_table.read(scalar_slice.value());
+                accumulator = accumulator.unconditional_add(point);
+                offset_generator_accumulator = offset_generator_accumulator + Element(offset_generators[j + 1]);
+            }
         }
     }
 
@@ -1086,6 +1166,14 @@ cycle_group<Composer> cycle_group<Composer>::batch_mul(const std::vector<cycle_s
     std::vector<cycle_scalar> fixed_base_scalars;
     std::vector<AffineElement> fixed_base_points;
 
+    size_t num_bits = 0;
+    for (auto& s : scalars) {
+        num_bits = std::max(num_bits, s.num_bits());
+    }
+
+    // if num_bits > NUM_BITS, skip lookup-version of fixed-base scalar mul. too much complexity
+    bool num_bits_exceeds_lookup_table_size = num_bits > NUM_BITS;
+
     // When calling `_variable_base_batch_mul_internal`, we can unconditionally add iff all of the input points
     // are fixed-base points
     // (i.e. we are ULTRA Composer and we are doing fixed-base mul over points not present in our plookup tables)
@@ -1103,7 +1191,8 @@ cycle_group<Composer> cycle_group<Composer>::batch_mul(const std::vector<cycle_s
                 continue;
             }
             if constexpr (IS_ULTRA) {
-                if (plookup::fixed_base::table::lookup_table_exists_for_point(base_points[i].get_value())) {
+                if (!num_bits_exceeds_lookup_table_size &&
+                    plookup::fixed_base::table::lookup_table_exists_for_point(base_points[i].get_value())) {
                     fixed_base_scalars.push_back(scalars[i]);
                     fixed_base_points.push_back(base_points[i].get_value());
                 } else {

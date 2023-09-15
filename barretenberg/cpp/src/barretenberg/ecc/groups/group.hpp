@@ -46,6 +46,8 @@ template <typename _coordinate_field, typename _subgroup_field, typename GroupPa
     static constexpr coordinate_field curve_a = GroupParams::a;
     static constexpr coordinate_field curve_b = GroupParams::b;
 
+    // TODO(@zac-wiliamson #2341 remove this method once we migrate to new hash standard)
+    // (and rename derive_generators_secure to derive_generators)
     template <size_t N> static inline auto derive_generators()
     {
         std::array<affine_element, N> generators;

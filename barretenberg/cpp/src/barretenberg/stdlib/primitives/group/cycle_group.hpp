@@ -6,6 +6,7 @@
 
 #include "../../hash/pedersen/pedersen.hpp"
 #include "../../hash/pedersen/pedersen_gates.hpp"
+#include "barretenberg/proof_system/plookup_tables/fixed_base/fixed_base_params.hpp"
 #include <optional>
 
 namespace proof_system::plonk::stdlib {
@@ -35,12 +36,13 @@ template <typename Composer> class cycle_group {
     using Element = typename Curve::Element;
     using AffineElement = typename Curve::AffineElement;
     using generator_data = crypto::generator_data<Curve>;
+    using ScalarField = typename Curve::ScalarField;
 
     static constexpr size_t STANDARD_NUM_TABLE_BITS = 1;
     static constexpr size_t ULTRA_NUM_TABLE_BITS = 4;
     static constexpr bool IS_ULTRA = Composer::CIRCUIT_TYPE == CircuitType::ULTRA;
     static constexpr size_t TABLE_BITS = IS_ULTRA ? ULTRA_NUM_TABLE_BITS : STANDARD_NUM_TABLE_BITS;
-    static constexpr size_t NUM_BITS = FF::modulus.get_msb() + 1;
+    static constexpr size_t NUM_BITS = ScalarField::modulus.get_msb() + 1;
     static constexpr size_t NUM_ROUNDS = (NUM_BITS + TABLE_BITS - 1) / TABLE_BITS;
     inline static const std::string OFFSET_GENERATOR_DOMAIN_SEPARATOR = "cycle_group_offset_generator";
 
@@ -66,18 +68,44 @@ template <typename Composer> class cycle_group {
      * free from the `batch_mul` algorithm, making the range checks performed by `bigfield` largely redundant.
      */
     struct cycle_scalar {
-        using ScalarField = typename Curve::ScalarField;
-        static constexpr size_t LO_BITS = 128;
-        static constexpr size_t HI_BITS = ScalarField::modulus.get_msb() + 1 - LO_BITS;
+        static constexpr size_t LO_BITS = plookup::FixedBaseParams::BITS_PER_LO_SCALAR;
+        static constexpr size_t HI_BITS = NUM_BITS - LO_BITS;
+        field_t lo;
+        field_t hi;
+
+      private:
+        size_t _num_bits = NUM_BITS;
+        bool _skip_primality_test = false;
+        // if our scalar multiplier is a bn254 FF scalar (e.g. pedersen hash),
+        // we want to validate the cycle_scalar < bn254::fr::modulus *not* grumpkin::fr::modulus
+        bool _use_bn254_scalar_field_for_primality_test = false;
+
+      public:
+        cycle_scalar(const field_t& _lo,
+                     const field_t& _hi,
+                     const size_t bits,
+                     const bool skip_primality_test,
+                     const bool use_bn254_scalar_field_for_primality_test)
+            : lo(_lo)
+            , hi(_hi)
+            , _num_bits(bits)
+            , _skip_primality_test(skip_primality_test)
+            , _use_bn254_scalar_field_for_primality_test(use_bn254_scalar_field_for_primality_test){};
         cycle_scalar(const ScalarField& _in = 0);
         cycle_scalar(const field_t& _lo, const field_t& _hi);
         cycle_scalar(const field_t& _in);
         static cycle_scalar from_witness(Composer* context, const ScalarField& value);
+        static cycle_scalar from_witness_bitstring(Composer* context, const uint256_t& bitstring, size_t num_bits);
+        static cycle_scalar create_from_bn254_scalar(const field_t& _in);
         [[nodiscard]] bool is_constant() const;
         ScalarField get_value() const;
         Composer* get_context() const { return lo.get_context() != nullptr ? lo.get_context() : hi.get_context(); }
-        field_t lo;
-        field_t hi;
+        [[nodiscard]] size_t num_bits() const { return _num_bits; }
+        [[nodiscard]] bool skip_primality_test() const { return _skip_primality_test; }
+        [[nodiscard]] bool use_bn254_scalar_field_for_primality_test() const
+        {
+            return _use_bn254_scalar_field_for_primality_test;
+        }
     };
 
     /**
@@ -87,7 +115,7 @@ template <typename Composer> class cycle_group {
      */
     struct straus_scalar_slice {
         straus_scalar_slice(Composer* context, const cycle_scalar& scalars, size_t table_bits);
-        field_t read(size_t index);
+        std::optional<field_t> read(size_t index);
         size_t _table_bits;
         std::vector<field_t> slices;
     };

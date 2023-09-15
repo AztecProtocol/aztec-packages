@@ -4,6 +4,8 @@
 #include <omp.h>
 #endif
 
+// TODO(@zac-wiliamson #2341 rename to pedersen.cpp once we migrate to new hash standard)
+
 namespace crypto {
 
 using namespace generators;

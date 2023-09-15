@@ -1,3 +1,5 @@
+// TODO(@zac-wiliamson #2341 rename to pedersen.cpp once we migrate to new hash standard)
+
 #include "./pedersen_refactor.hpp"
 #include "./convert_buffer_to_field.hpp"
 #include "barretenberg/common/serialize.hpp"

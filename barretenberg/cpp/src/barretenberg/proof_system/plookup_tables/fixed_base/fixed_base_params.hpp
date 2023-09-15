@@ -1,5 +1,6 @@
 #pragma once
 
+#include "barretenberg/plonk/proof_system/constants.hpp"
 #include <barretenberg/common/assert.hpp>
 #include <cstddef>
 #include <cstdint>

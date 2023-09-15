@@ -9,7 +9,7 @@
 #define STDLIB_TYPE_ALIASES                                                                                            \
     using Composer = TypeParam;                                                                                        \
     using cycle_group_ct = stdlib::cycle_group<Composer>;                                                              \
-    using Curve = typename Composer::EmbeddedCurve;                                                                    \
+    using Curve = typename stdlib::cycle_group<Composer>::Curve;                                                       \
     using Element = typename Curve::Element;                                                                           \
     using AffineElement = typename Curve::AffineElement;                                                               \
     using Group = typename Curve::Group;                                                                               \
@@ -28,8 +28,8 @@ auto& engine = numeric::random::get_debug_engine();
 
 template <class Composer> class CycleGroupTest : public ::testing::Test {
   public:
-    using Curve = typename Composer::EmbeddedCurve;
-    using Group = typename Composer::EmbeddedCurve::Group;
+    using Curve = typename stdlib::cycle_group<Composer>::Curve;
+    using Group = typename Curve::Group;
 
     using Element = typename Curve::Element;
     using AffineElement = typename Curve::AffineElement;

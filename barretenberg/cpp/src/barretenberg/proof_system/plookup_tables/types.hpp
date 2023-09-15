@@ -57,6 +57,7 @@ enum BasicTableId {
     FIXED_BASE_1_0 = FIXED_BASE_0_0 + FixedBaseParams::NUM_TABLES_PER_LO_MULTITABLE,
     FIXED_BASE_2_0 = FIXED_BASE_1_0 + FixedBaseParams::NUM_TABLES_PER_HI_MULTITABLE,
     FIXED_BASE_3_0 = FIXED_BASE_2_0 + FixedBaseParams::NUM_TABLES_PER_LO_MULTITABLE,
+    // TODO(@zac-wiliamson #2341 remove PEDERSEN basic tables)
     PEDERSEN_29_SMALL = FIXED_BASE_3_0 + FixedBaseParams::NUM_TABLES_PER_HI_MULTITABLE,
     PEDERSEN_28,
     PEDERSEN_27,
@@ -116,6 +117,7 @@ enum MultiTableId {
     AES_NORMALIZE,
     AES_INPUT,
     AES_SBOX,
+    // TODO(@zac-wiliamson #2341 remove PEDERSEN_LEFT/RIGHT/HI/LO)
     PEDERSEN_LEFT_HI,
     PEDERSEN_LEFT_LO,
     PEDERSEN_RIGHT_HI,
