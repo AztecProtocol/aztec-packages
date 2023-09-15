@@ -10,7 +10,7 @@ title: Contract Workflow
 
 [Compile a contract](./compiling.md).
 
-## Test
+## Unit Tests
 
 [Test individual noir functions](https://noir-lang.org/nargo/testing).
 
@@ -18,6 +18,6 @@ title: Contract Workflow
 
 [Deploy a contract](./deploying.md).
 
-## Test
+## Integration Tests
 
 [Test a deployed contract](../testing/main.md)
