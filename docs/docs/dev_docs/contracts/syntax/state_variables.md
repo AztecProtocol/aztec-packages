@@ -122,7 +122,7 @@ A note should conform to the following interface:
 
 The interplay between a private state variable and its notes can be confusing. Here's a summary to aid intuition:
 
-- A private state variable (of type `Singleton`, `ImmutableSingleton` or `Set`) may be declared in [Storage](./storage.md).
+- A private state variable (of type `Singleton`, `ImmutableSingleton` or `Set`) may be declared in [Storage](storage).
 - Every note contains (as a 'header') the contract address and storage slot of the state variable to which it "belongs". A note is said to "belong" to a private state if the storage slot of the private state matches the storage slot contained in the note's header.
   - Management of this 'header' is abstracted-away from developers who use the `ImmutableSingleton`, `Singleton` and `Set` types.
 - A private state variable is colloquially said to "point" to one or many notes (depending on the type), if those note(s) all "belong" to that private state, and those note(s) haven't-yet been nullified.
