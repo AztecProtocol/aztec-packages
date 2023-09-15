@@ -70,14 +70,8 @@ contract SchnorrAccount {
         actions.is_valid_public(message_hash)
     }
 
-    #[aztec(private)]
-    fn set_is_valid_storage(message_hash: Field, value: bool) {
-        let actions = AccountActions::private(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
-        actions.set_is_valid_storage(message_hash, value)
-    }
-
     #[aztec(public)]
-    internal fn internal_set_is_valid_storage(message_hash: Field, value: bool) {
+    internal fn set_is_valid_storage(message_hash: Field, value: bool) {
         let actions = AccountActions::public(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
         actions.internal_set_is_valid_storage(message_hash, value)
     }

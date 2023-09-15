@@ -62,16 +62,6 @@ impl AccountActions {
     }
   }
 
-  // TODO: See if we can remove this function. Maybe we can have the entrypoint call directly into internal_set_is_valid_storage..?
-  fn set_is_valid_storage(self, message_hash: Field, value: bool) {
-    let private_context = self.context.private.unwrap();
-    assert(private_context.msg_sender() == private_context.this_address(), "only the owner can set the storage");
-    // assert(_inner_is_valid(message_hash, context.this_address()), "only the owner can set the storage");
-
-    let selector = compute_selector("internal_set_is_valid_storage(Field,bool)");
-    let _void = private_context.call_public_function(private_context.this_address(), selector, [message_hash, value as Field]);
-  }
-
   fn internal_set_is_valid_storage(self, message_hash: Field, value: bool) {
     self.approved_action.at(message_hash).write(value);
   }

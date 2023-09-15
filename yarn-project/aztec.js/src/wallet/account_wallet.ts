@@ -50,8 +50,8 @@ export class AccountWallet extends BaseWallet {
   private getSetIsValidStorageAbi(): FunctionAbiHeader {
     return {
       name: 'set_is_valid_storage',
-      functionType: 'secret' as FunctionType,
-      isInternal: false,
+      functionType: 'open' as FunctionType,
+      isInternal: true,
       parameters: [
         {
           name: 'message_hash',
@@ -60,7 +60,7 @@ export class AccountWallet extends BaseWallet {
         },
         {
           name: 'value',
-          type: { kind: 'field' },
+          type: { kind: 'boolean' },
           visibility: 'private' as ABIParameterVisibility,
         },
       ],
