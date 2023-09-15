@@ -14,4 +14,4 @@ The following command will download and execute a script that uses docker compos
 
 `/bin/bash -c "$(curl -fsSL 'https://sandbox.aztec.network')"`
 
-For a complete walk-through deploying and using a private contract, see our [getting started guide](../getting_started/sandbox.md).
+For a complete walk-through deploying and using a private contract with the Sandbox and CLI, see our [quickstart](../getting_started/quickstart).
