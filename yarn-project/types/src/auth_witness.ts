@@ -2,7 +2,7 @@ import { Fr, Vector } from '@aztec/circuits.js';
 import { BufferReader, serializeToBuffer } from '@aztec/circuits.js/utils';
 
 /**
- * An authentication witness. Used to authorise an action by a user.
+ * An authentication witness. Used to authorize an action by a user.
  */
 export class AuthWitness {
   /** Authentication witness for the hash  */

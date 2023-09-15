@@ -26,14 +26,14 @@ export class AccountWallet extends BaseWallet {
   }
 
   /**
-   * Returns a function interaction to set a message hash as authorised in this account.
-   * Public calls can then consume this authorisation.
-   * @param message - Message hash to authorise.
-   * @param authorised - True to authorise, false to revoke authorisation.
+   * Returns a function interaction to set a message hash as authorized in this account.
+   * Public calls can then consume this authorization.
+   * @param message - Message hash to authorize.
+   * @param authorized - True to authorize, false to revoke authorization.
    * @returns - A function interaction.
    */
-  public setPublicAuth(message: Fr | Buffer, authorised: boolean): ContractFunctionInteraction {
-    const args = [message, authorised];
+  public setPublicAuth(message: Fr | Buffer, authorized: boolean): ContractFunctionInteraction {
+    const args = [message, authorized];
     return new ContractFunctionInteraction(this, this.getAddress(), this.getSetIsValidStorageAbi(), args);
   }
 

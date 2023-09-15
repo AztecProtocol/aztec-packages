@@ -2,11 +2,11 @@ import { Fr } from '@aztec/circuits.js';
 import { AuthWitness, CompleteAddress, FunctionCall, TxExecutionRequest } from '@aztec/types';
 
 // docs:start:account-interface
-/** Creates authorisation witnesses. */
+/** Creates authorization witnesses. */
 export interface AuthWitnessProvider {
   /**
-   * Create an authorisation witness for the given message.
-   * @param message - Message to authorise.
+   * Create an authorization witness for the given message.
+   * @param message - Message to authorize.
    */
   createAuthWitness(message: Fr): Promise<AuthWitness>;
 }
@@ -24,7 +24,7 @@ export interface EntrypointInterface {
 
 /**
  * Handler for interfacing with an account. Knows how to create transaction execution
- * requests and authorise actions for its corresponding account.
+ * requests and authorize actions for its corresponding account.
  */
 export interface AccountInterface extends AuthWitnessProvider, EntrypointInterface {
   /**

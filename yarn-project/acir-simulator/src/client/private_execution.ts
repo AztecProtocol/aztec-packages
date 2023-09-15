@@ -74,7 +74,7 @@ export class PrivateFunctionExecution {
       },
       getAuthWitness: async ([messageHash]) => {
         const witness = await this.context.getAuthWitness(fromACVMField(messageHash));
-        if (!witness) throw new Error(`Authorisation not found for message hash ${fromACVMField(messageHash)}`);
+        if (!witness) throw new Error(`Authorization not found for message hash ${fromACVMField(messageHash)}`);
         return witness.map(toACVMField);
       },
       getSecretKey: ([ownerX], [ownerY]) => this.context.getSecretKey(this.contractAddress, ownerX, ownerY),

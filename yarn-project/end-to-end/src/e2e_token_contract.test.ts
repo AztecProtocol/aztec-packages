@@ -329,7 +329,7 @@ describe('e2e_token_contract', () => {
                 nonce,
               )
               .simulate(),
-          ).rejects.toThrowError('Assertion failed: Message not authorised by account');
+          ).rejects.toThrowError('Assertion failed: Message not authorized by account');
         });
 
         it('transfer more than balance on behalf of other', async () => {
@@ -382,7 +382,7 @@ describe('e2e_token_contract', () => {
                 nonce,
               )
               .simulate(),
-          ).rejects.toThrowError('Assertion failed: Message not authorised by account');
+          ).rejects.toThrowError('Assertion failed: Message not authorized by account');
 
           expect(await asset.methods.balance_of_public({ address: accounts[0].address }).view()).toEqual(balance0);
           expect(await asset.methods.balance_of_public({ address: accounts[1].address }).view()).toEqual(balance1);
@@ -410,7 +410,7 @@ describe('e2e_token_contract', () => {
                 nonce,
               )
               .simulate(),
-          ).rejects.toThrowError('Assertion failed: Message not authorised by account');
+          ).rejects.toThrowError('Assertion failed: Message not authorized by account');
 
           expect(await asset.methods.balance_of_public({ address: accounts[0].address }).view()).toEqual(balance0);
           expect(await asset.methods.balance_of_public({ address: accounts[1].address }).view()).toEqual(balance1);
@@ -750,7 +750,7 @@ describe('e2e_token_contract', () => {
             .withWallet(wallets[2])
             .methods.shield({ address: accounts[0].address }, amount, secretHash, nonce)
             .simulate(),
-        ).rejects.toThrowError('Assertion failed: Message not authorised by account');
+        ).rejects.toThrowError('Assertion failed: Message not authorized by account');
       });
 
       it('on behalf of other (wrong designated caller)', async () => {
@@ -769,7 +769,7 @@ describe('e2e_token_contract', () => {
             .withWallet(wallets[2])
             .methods.shield({ address: accounts[0].address }, amount, secretHash, nonce)
             .simulate(),
-        ).rejects.toThrowError('Assertion failed: Message not authorised by account');
+        ).rejects.toThrowError('Assertion failed: Message not authorized by account');
 
         expect(await asset.methods.balance_of_public({ address: accounts[0].address }).view()).toEqual(balancePub);
         expect(await asset.methods.balance_of_private({ address: accounts[0].address }).view()).toEqual(balancePriv);
@@ -786,7 +786,7 @@ describe('e2e_token_contract', () => {
             .withWallet(wallets[1])
             .methods.shield({ address: accounts[0].address }, amount, secretHash, nonce)
             .simulate(),
-        ).rejects.toThrowError(`Assertion failed: Message not authorised by account`);
+        ).rejects.toThrowError(`Assertion failed: Message not authorized by account`);
       });
     });
   });
@@ -1013,7 +1013,7 @@ describe('e2e_token_contract', () => {
               .withWallet(wallets[1])
               .methods.burn_public({ address: accounts[0].address }, amount, nonce)
               .simulate(),
-          ).rejects.toThrowError('Assertion failed: Message not authorised by account');
+          ).rejects.toThrowError('Assertion failed: Message not authorized by account');
         });
 
         it('burn more than balance on behalf of other', async () => {
@@ -1049,7 +1049,7 @@ describe('e2e_token_contract', () => {
               .withWallet(wallets[1])
               .methods.burn_public({ address: accounts[0].address }, amount, nonce)
               .simulate(),
-          ).rejects.toThrowError('Assertion failed: Message not authorised by account');
+          ).rejects.toThrowError('Assertion failed: Message not authorized by account');
         });
       });
     });

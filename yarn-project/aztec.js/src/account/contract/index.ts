@@ -11,7 +11,7 @@ export * from './base_account_contract.js';
 // docs:start:account-contract-interface
 /**
  * An account contract instance. Knows its ABI, deployment arguments, how to create
- * transaction execution requests out of function calls, and how to authorise actions.
+ * transaction execution requests out of function calls, and how to authorize actions.
  */
 export interface AccountContract {
   /**
@@ -30,7 +30,7 @@ export interface AccountContract {
    * for creating signed auth witnesses given action identifiers (message hashes).
    * @param address - Address where this account contract is deployed.
    * @param nodeInfo - Info on the chain where it is deployed.
-   * @returns An account interface instance for creating tx requests and authorising actions.
+   * @returns An account interface instance for creating tx requests and authorizing actions.
    */
   getInterface(address: CompleteAddress, nodeInfo: NodeInfo): Promise<AccountInterface>;
 }
