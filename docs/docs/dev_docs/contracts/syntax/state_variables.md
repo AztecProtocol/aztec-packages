@@ -1,4 +1,6 @@
-# State Variables
+---
+title: State Variables
+---
 
 State variables come in two flavours: [**public** state](#publicstatet-t_serialised_len) and [**private** state](#private-state-variables).
 

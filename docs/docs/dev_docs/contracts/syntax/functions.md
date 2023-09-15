@@ -1,4 +1,6 @@
-# Functions
+---
+title: Functions
+---
 
 ## `constructor`
 

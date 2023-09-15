@@ -1,66 +1,24 @@
 ---
-title: Aztec Sandbox
+title: Aztec.js
 ---
 
 import Image from "@theme/IdealImage";
 
 ## Introduction
 
-The Aztec Sandbox aims to provide a local development system against which you can build and test Aztec.nr contracts in a fast, safe, and free environment.
-
-Here we will walkthrough the process of retrieving the Sandbox, installing the client libraries and using it to deploy and use a fully private token contract on the Aztec network.
+Here we will walkthrough the process of using Aztec.js to deploy and use a fully private token contract on the Aztec network.
 
 ## What do you need?
 
 - Node.Js >= v18
 - Docker and Docker Compose (Docker Desktop under WSL2 on windows)
+- The Sandbox installed and running - read about that in the [quickstart](quickstart)
 
 That's it...
 
-## Ok, so how do I try it out?
+## Let's go
 
-Well, you can find instructions [at the website](https://sandbox.aztec.network).
-
-Or you can just curl the site instead like this:
-
-```sh
-/bin/bash -c "$(curl -fsSL 'https://sandbox.aztec.network')"
-```
-
-It will download and execute a script invoking docker compose with 2 containers:
-
-- Anvil
-- Aztec Sandbox
-
-It will need to create servers on localhost ports 8545 (Anvil) and 8080 (Sandbox) so you will need to ensure nothing conflicts with this.
-
-Within a few seconds the Sandbox should be up and running!
-
-<Image img={require("/img/sandbox.png")} />
-
-## Great, but what can I do with it?
-
-Aztec's Layer 2 network is a fully programmable combined private/public ZK rollup. To achieve this, the network contains the following primary components:
-
-- Aztec Node - Aggregates all of the 'backend' services necessary for the building and publishing of rollups.
-- Aztec RPC Server - Normally residing with the end client, this decrypts and stores a client's private state, executes simulations and submits transactions to the Aztec Node.
-- Aztec.js - Aztec's client library for interacting with the Aztec RPC Server (think Ethers.js).
-
-All of this is included in the Sandbox, with the exception of Aztec.js which you can use to interact with it.
-
-With the help of Aztec.js you will be able to:
-
-- Create an account
-- Deploy a contract
-- Call view methods on contracts
-- Simulate the calling of contract functions
-- Send transactions to the network
-- Be notified when transactions settle
-- Query chain state such as chain id, block number etc.
-
-## I have the Sandbox running, show me how to use it!
-
-We will deploy a private token contract, and send tokens privately, using the Sandbox.
+We will deploy a private token contract, and send tokens privately, using Aztec.js and the Sandbox.
 
 Writing the contract itself is out of scope for this tutorial, so we will use a Private Token Contract which has been pre-supplied as an example. See [here](../contracts/main.md) for more information on how to write contracts for Aztec.
 
@@ -351,6 +309,7 @@ Our complete output should now be:
 That's it! We have successfully deployed a private token contract to an instance of the Aztec network and mined private state-transitioning transactions. We have also queried the resulting state all via the interfaces provided by the contract.
 
 ## Next Steps
-Here we showed how to interact with the sandbox, but didn't go into details on how to write your own contract or any relevant setup needed for it. 
+
+Here we showed how to interact with the sandbox, but didn't go into details on how to write your own contract or any relevant setup needed for it.
 
 You can find details on setting up [here](./noir_contracts.md) and refer to the [Contracts section](../contracts/main.md) on syntax, compiling, deploying and interacting with how to start writing contracts.

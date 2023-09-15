@@ -75,9 +75,10 @@ const sidebars = {
         id: "dev_docs/getting_started/main",
       },
       items: [
+        "dev_docs/getting_started/quickstart",
+        "dev_docs/getting_started/cli",
         "dev_docs/getting_started/sandbox",
         "dev_docs/getting_started/noir_contracts",
-        "dev_docs/getting_started/cli",
       ],
     },
 
@@ -94,6 +95,7 @@ const sidebars = {
         "dev_docs/contracts/events",
         "dev_docs/contracts/compiling",
         "dev_docs/contracts/deploying",
+        "dev_docs/contracts/example-contract",
         "dev_docs/contracts/abi",
         {
           label: "Syntax",
@@ -104,14 +106,12 @@ const sidebars = {
           },
           items: [
             "dev_docs/contracts/contract",
-            "dev_docs/contracts/types",
+            "dev_docs/contracts/functions",
             "dev_docs/contracts/storage",
             "dev_docs/contracts/state_variables",
-            "dev_docs/contracts/functions",
-            "dev_docs/contracts/control_structure",
             "dev_docs/contracts/visibility",
             "dev_docs/contracts/globals",
-            "dev_docs/contracts/constrain",
+            "dev_docs/contracts/types",
           ],
         },
         {

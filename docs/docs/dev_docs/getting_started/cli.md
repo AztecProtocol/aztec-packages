@@ -6,7 +6,7 @@ title: Aztec CLI
 
 The Aztec CLI is a tool designed to enable a user to interact with the Aztec Network.
 
-This tutorial will use the Aztec Sandbox so you should first set it up by following [the Aztec Sandbox instructions](../sandbox/main.md).
+This tutorial will use the Aztec Sandbox so you should first set it up by following [the Aztec Sandbox instructions](quickstart).
 
 ## Requirements
 
