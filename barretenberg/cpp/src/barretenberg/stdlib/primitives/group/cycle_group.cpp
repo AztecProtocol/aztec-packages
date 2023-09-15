@@ -950,7 +950,7 @@ typename cycle_group<Composer>::batch_mul_internal_output cycle_group<Composer>:
 
         for (size_t j = 0; j < num_points; ++j) {
             const std::optional<field_t> scalar_slice = scalar_slices[j].read(num_rounds - i - 1);
-            // if we are doing a batch mul over scalars of different bit-lengths, we may not have any scalar bits for a
+            // if we are doing a batch mul over scalars of different bit-lengths, we may not have a bit slice for a
             // given round and a given scalar
             if (scalar_slice.has_value()) {
                 const auto& point = points_to_add[point_counter++];
@@ -1194,8 +1194,8 @@ cycle_group<Composer> cycle_group<Composer>::batch_mul(const std::vector<cycle_s
         num_bits = std::max(num_bits, s.num_bits());
     }
 
-    // if num_bits > NUM_BITS, skip lookup-version of fixed-base scalar mul. too much complexity
-    bool num_bits_exceeds_lookup_table_size = num_bits > NUM_BITS;
+    // if num_bits != NUM_BITS, skip lookup-version of fixed-base scalar mul. too much complexity
+    bool num_bits_not_full_field_size = num_bits != NUM_BITS;
 
     // When calling `_variable_base_batch_mul_internal`, we can unconditionally add iff all of the input points
     // are fixed-base points
@@ -1214,7 +1214,7 @@ cycle_group<Composer> cycle_group<Composer>::batch_mul(const std::vector<cycle_s
                 continue;
             }
             if constexpr (IS_ULTRA) {
-                if (!num_bits_exceeds_lookup_table_size &&
+                if (!num_bits_not_full_field_size &&
                     plookup::fixed_base::table::lookup_table_exists_for_point(base_points[i].get_value())) {
                     fixed_base_scalars.push_back(scalars[i]);
                     fixed_base_points.push_back(base_points[i].get_value());
