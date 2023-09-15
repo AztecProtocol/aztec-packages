@@ -43,7 +43,7 @@ async function transferPrivateFunds(client) {
 
 async function showPublicBalances(client) {
   // docs:start:showPublicBalances
-  const accounts = await client.getAccounts();
+  const accounts = await client.getRegisteredAccounts();
   const publicToken = await getPublicToken(client);
 
   for (const account of accounts) {
