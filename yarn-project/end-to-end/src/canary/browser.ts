@@ -46,7 +46,7 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
 
     beforeAll(async () => {
       server = setup();
-      testClient = AztecJs.createAztecRpcClient(SANDBOX_URL!, AztecJs.makeFetch([1, 2, 3], true));
+      testClient = AztecJs.createAztecRpcClient(SANDBOX_URL!);
       await AztecJs.waitForSandbox(testClient);
 
       app = new Koa();
@@ -93,8 +93,8 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
     it('Creates an account', async () => {
       const result = await page.evaluate(
         async (rpcUrl, privateKeyString) => {
-          const { GrumpkinScalar, createAztecRpcClient, makeFetch, getUnsafeSchnorrAccount } = window.AztecJs;
-          const client = createAztecRpcClient(rpcUrl!, makeFetch([1, 2, 3], true));
+          const { GrumpkinScalar, createAztecRpcClient, getUnsafeSchnorrAccount } = window.AztecJs;
+          const client = createAztecRpcClient(rpcUrl!);
           const privateKey = GrumpkinScalar.fromString(privateKeyString);
           const account = getUnsafeSchnorrAccount(client, privateKey);
           await account.waitDeploy();
@@ -118,8 +118,8 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
     it("Gets the owner's balance", async () => {
       const result = await page.evaluate(
         async (rpcUrl, contractAddress, PrivateTokenContractAbi) => {
-          const { Contract, AztecAddress, createAztecRpcClient, makeFetch } = window.AztecJs;
-          const client = createAztecRpcClient(rpcUrl!, makeFetch([1, 2, 3], true));
+          const { Contract, AztecAddress, createAztecRpcClient } = window.AztecJs;
+          const client = createAztecRpcClient(rpcUrl!);
           const owner = (await client.getRegisteredAccounts())[0].address;
           const [wallet] = await AztecJs.getSandboxAccountsWallets(client);
           const contract = await Contract.at(AztecAddress.fromString(contractAddress), PrivateTokenContractAbi, wallet);
@@ -138,8 +138,8 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
       const result = await page.evaluate(
         async (rpcUrl, contractAddress, transferAmount, PrivateTokenContractAbi) => {
           console.log(`Starting transfer tx`);
-          const { AztecAddress, Contract, createAztecRpcClient, makeFetch } = window.AztecJs;
-          const client = createAztecRpcClient(rpcUrl!, makeFetch([1, 2, 3], true));
+          const { AztecAddress, Contract, createAztecRpcClient } = window.AztecJs;
+          const client = createAztecRpcClient(rpcUrl!);
           const accounts = await client.getRegisteredAccounts();
           const owner = accounts[0].address;
           const receiver = accounts[1].address;
@@ -164,9 +164,8 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
     const deployPrivateTokenContract = async () => {
       const txHash = await page.evaluate(
         async (rpcUrl, privateKeyString, initialBalance, PrivateTokenContractAbi) => {
-          const { GrumpkinScalar, DeployMethod, createAztecRpcClient, makeFetch, getUnsafeSchnorrAccount } =
-            window.AztecJs;
-          const client = createAztecRpcClient(rpcUrl!, makeFetch([1, 2, 3], true));
+          const { GrumpkinScalar, DeployMethod, createAztecRpcClient, getUnsafeSchnorrAccount } = window.AztecJs;
+          const client = createAztecRpcClient(rpcUrl!);
           let accounts = await client.getRegisteredAccounts();
           if (accounts.length === 0) {
             // This test needs an account for deployment. We create one in case there is none available in the RPC server.
