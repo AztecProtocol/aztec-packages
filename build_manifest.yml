@@ -1,0 +1,266 @@
+# Welcome to build_manifest.yml, for all your building needs!
+# CL: I'm going to write more useful information here, but I haven't yet. Ask me if you have questions.
+barretenberg-wasm-linux-clang:
+  buildDir: barretenberg/cpp
+  dockerfile: dockerfiles/Dockerfile.wasm-linux-clang
+  rebuildPatterns: .rebuild_patterns
+  spot: 64
+
+barretenberg-x86_64-linux-gcc:
+  buildDir: barretenberg/cpp
+  dockerfile: dockerfiles/Dockerfile.x86_64-linux-gcc
+  rebuildPatterns: .rebuild_patterns
+  spot: 64
+
+barretenberg-x86_64-linux-clang:
+  buildDir: barretenberg/cpp
+  dockerfile: dockerfiles/Dockerfile.x86_64-linux-clang
+  rebuildPatterns: .rebuild_patterns
+  spot: 64
+
+barretenberg-x86_64-linux-clang-fuzzing:
+  buildDir: barretenberg/cpp
+  dockerfile: dockerfiles/Dockerfile.x86_64-linux-clang-fuzzing
+  rebuildPatterns: .rebuild_patterns
+  spot: 64
+
+# Barretenberg with assertions enabled and tests.
+barretenberg-x86_64-linux-clang-assert:
+  buildDir: barretenberg/cpp
+  dockerfile: dockerfiles/Dockerfile.x86_64-linux-clang-assert
+  rebuildPatterns: .rebuild_patterns
+  spot: 64
+  tests:
+    barretenberg-stdlib-tests:
+      command: ./scripts/run_tests 1 stdlib-tests
+      spot: 32
+    barretenberg-dsl-tests:
+      command: ./scripts/run_tests 1 dsl_tests
+      spot: 32
+    barretenberg-tests:
+      command: ./scripts/bb-tests.sh
+      spot: 32
+    barretenberg-honk-tests:
+      command: ./scripts/run_tests 1 honk_tests
+      spot: 32
+    barretenberg-proof-system-tests:
+      command: ./scripts/run_tests 1 proof_system_tests
+      spot: 32
+    barretenberg-stdlib-recursion-turbo-tests:
+      command: ./scripts/run_tests 1 stdlib_recursion_tests --gtest_filter=*turbo*
+      spot: 32
+    barretenberg-stdlib-recursion-ultra-tests:
+      command: ./scripts/run_tests 3 stdlib_recursion_tests --gtest_filter=-*turbo*
+      spot: 32
+    barretenberg-join-split-tests:
+      command: ./scripts/run_tests 3 join_split_example_proofs_join_split_tests --gtest_filter=-*full_proof*
+      spot: 32
+
+# The bb acir tests are independently built from the above.
+barretenberg-acir-tests:
+  buildDir: barretenberg/acir_tests
+  dockerfile: Dockerfile.bb
+  spot: 32
+  dependencies:
+    - barretenberg-x86_64-linux-clang-assert
+
+bb-js:
+  buildDir: barretenberg/ts
+  dependencies:
+    - barretenberg-wasm-linux-clang
+  tests:
+    bb-js-tests:
+      command: ./scripts/run_tests
+      spot: 32
+
+# The bb.js acir tests are independently built from the above.
+bb-js-acir-tests:
+  buildDir: barretenberg/acir_tests
+  dockerfile: Dockerfile.bb.js
+  spot: 32
+  dependencies:
+    - bb.js
+
+# Circuits
+circuits-wasm-linux-clang:
+  buildDir: circuits/cpp
+  dockerfile: dockerfiles/Dockerfile.wasm-linux-clang
+  rebuildPatterns: .rebuild_patterns
+  spot: 32
+  dependencies:
+    - barretenberg-wasm-linux-clang
+
+circuits-wasm-linux-clang-assert:
+  buildDir: circuits/cpp
+  dockerfile: dockerfiles/Dockerfile.wasm-linux-clang-assert
+  rebuildPatterns: .rebuild_patterns
+  spot: 32
+  dependencies:
+    - barretenberg-wasm-linux-clang
+  tests:
+    circuits-wasm-tests:
+      command: ./scripts/run_tests 1 wasm scripts/a3-tests -*.skip*:*.circuit*
+      spot: 32
+
+circuits-x86_64-linux-clang-tidy:
+  buildDir: circuits/cpp
+  dockerfile: dockerfiles/Dockerfile.x86_64-linux-clang-tidy
+  rebuildPatterns: .rebuild_patterns
+  spot: 32
+  dependencies:
+    - barretenberg-x86_64-linux-clang
+
+circuits-x86_64-linux-clang:
+  buildDir: circuits/cpp
+  dockerfile: dockerfiles/Dockerfile.x86_64-linux-clang
+  rebuildPatterns: .rebuild_patterns
+  spot: 32
+  dependencies:
+    - barretenberg-x86_64-linux-clang
+
+circuits-x86_64-linux-clang-assert:
+  buildDir: circuits/cpp
+  dockerfile: dockerfiles/Dockerfile.x86_64-linux-clang-assert
+  rebuildPatterns: .rebuild_patterns
+  spot: 32
+  dependencies:
+    - barretenberg-x86_64-linux-clang
+  tests:
+    circuits-x86_64-tests:
+      command: ./scripts/run_tests 1 x86_64 scripts/a3-tests -*.skip*
+      spot: 32
+
+# Docs kinda do their own thing. Netlify will pull changes and deploy.
+docs:
+  buildDir: .
+  dockerfile: docs/Dockerfile
+  rebuildPatterns:
+    - ^docs/
+    - ^.*.cpp$
+    - ^.*.ts$
+
+l1-contracts:
+  buildDir: l1-contracts
+
+# We should move the noir source code to the top of the repo.
+# It's currently under yarn-project which looks very circular, but it isn't.
+# We're specific with our rebuild patterns as we depend on aztec.nr, but it doesn't have its own build.
+noir-contracts-build:
+  buildDir: yarn-project
+  projectDir: yarn-project/noir-contracts
+  dockerfile: Dockerfile.build
+  rebuildPatterns:
+    - ^yarn-project/noir-contracts/
+    - ^yarn-project/aztec-nr/
+
+yarn-project-base-deps:
+  buildDir: yarn-project
+  dockerfile: yarn-project-base/Dockerfile.deps
+  rebuildPatterns:
+    - ^yarn-project/yarn-project-base/
+    - ^yarn-project/yarn.lock
+  dependencies:
+    - circuits-wasm-linux-clang
+    - l1-contracts
+    - noir-contracts-build
+
+yarn-project-base:
+  buildDir: yarn-project
+  dockerfile: yarn-project-base/Dockerfile
+  rebuildPatterns:
+    - ^yarn-project/l1-artifacts/
+    - ^yarn-project/noir-contracts/
+    - ^yarn-project/aztec-nr/
+    - ^yarn-project/noir-compiler/
+    - ^yarn-project/yarn-project-base/
+    - ^yarn-project/yarn.lock
+  dependencies:
+    - circuits-wasm-linux-clang
+    - l1-contracts
+    - noir-contracts-build
+
+l1-artifacts:
+  buildDir: yarn-project
+  projectDir: yarn-project/l1-artifacts
+
+acir-simulator:
+  buildDir: yarn-project
+  projectDir: yarn-project/acir-simulator
+archiver:
+  buildDir: yarn-project
+  projectDir: yarn-project/archiver
+cli:
+  buildDir: yarn-project
+  projectDir: yarn-project/cli
+aztec-rpc:
+  buildDir: yarn-project
+  projectDir: yarn-project/aztec-rpc
+aztec-sandbox-base:
+  buildDir: yarn-project
+  projectDir: yarn-project/aztec-sandbox
+aztec-sandbox:
+  buildDir: yarn-project
+  projectDir: yarn-project/aztec-sandbox
+  dockerfile: Dockerfile.final
+aztec.js:
+  buildDir: yarn-project
+  projectDir: yarn-project/aztec.js
+canary-build:
+  buildDir: yarn-project
+  projectDir: yarn-project/canary
+  dockerfile: Dockerfile.build
+canary:
+  buildDir: yarn-project
+  projectDir: yarn-project/canary
+circuits.js:
+  buildDir: yarn-project
+  projectDir: yarn-project/circuits.js
+end-to-end:
+  buildDir: yarn-project
+  projectDir: yarn-project/end-to-end
+ethereum:
+  buildDir: yarn-project
+  projectDir: yarn-project/ethereum
+foundation:
+  buildDir: yarn-project
+  projectDir: yarn-project/foundation
+key-store:
+  buildDir: yarn-project
+  projectDir: yarn-project/key-store
+merkle-tree:
+  buildDir: yarn-project
+  projectDir: yarn-project/merkle-tree
+noir-contracts:
+  buildDir: yarn-project
+  projectDir: yarn-project/noir-contracts
+  rebuildPatterns:
+    - ^yarn-project/noir-contracts/
+    - ^yarn-project/aztec-nr/
+noir-compiler:
+  buildDir: yarn-project
+  projectDir: yarn-project/noir-compiler
+p2p:
+  buildDir: yarn-project
+  projectDir: yarn-project/p2p
+p2p-bootstrap:
+  buildDir: yarn-project
+  projectDir: yarn-project/p2p-bootstrap
+  dockerfile: ../p2p/Dockerfile
+prover-client:
+  buildDir: yarn-project
+  projectDir: yarn-project/prover-client
+rollup-provider:
+  buildDir: yarn-project
+  projectDir: yarn-project/rollup-provider
+aztec-node:
+  buildDir: yarn-project
+  projectDir: yarn-project/aztec-node
+sequencer-client:
+  buildDir: yarn-project
+  projectDir: yarn-project/sequencer-client
+types:
+  buildDir: yarn-project
+  projectDir: yarn-project/types
+world-state:
+  buildDir: yarn-project
+  projectDir: yarn-project/world-state

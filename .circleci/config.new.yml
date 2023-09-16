@@ -84,8 +84,481 @@ jobs:
       - *checkout
       - *setup_env
       - run:
-          name: "Build"
+          name: Build
           command: cond_spot_run_build barretenberg-wasm-linux-clang 64
+
+  barretenberg-x86_64-linux-gcc:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: cond_spot_run_build barretenberg-x86_64-linux-gcc 64
+
+  barretenberg-x86_64-linux-clang:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: cond_spot_run_build barretenberg-x86_64-linux-clang 64
+
+  barretenberg-x86_64-linux-clang-fuzzing:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: cond_spot_run_build barretenberg-x86_64-linux-clang-fuzzing 64
+
+  barretenberg-x86_64-linux-clang-assert:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: cond_spot_run_build barretenberg-x86_64-linux-clang-assert 64
+
+  barretenberg-stdlib-tests:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Test
+          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 1 stdlib-tests
+
+  bb.js:
+    machine:
+      - image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: build bb.js
+
+  barretenberg-acir-tests-bb:
+    machine:
+      - image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: build barretenberg-acir-tests-bb
+
+  barretenberg-acir-tests-bb.js:
+    machine:
+      - image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: build barretenberg-acir-tests-bb.js
+
+  circuits-wasm-linux-clang:
+    machine:
+      - image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: build circuits-wasm-linux-clang
+
+  circuits-wasm-linux-clang-assert:
+    machine:
+      - image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: build circuits-wasm-linux-clang-assert
+
+  circuits-x86_64-linux-clang-tidy:
+    machine:
+      - image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: build circuits-x86_64-linux-clang-tidy
+
+  circuits-x86_64-linux-clang:
+    machine:
+      - image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: build circuits-x86_64-linux-clang
+
+  circuits-x86_64-linux-clang-assert:
+    machine:
+      - image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: build circuits-x86_64-linux-clang-assert
+
+  docs:
+    machine:
+      - image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: build docs
+
+  l1-contracts:
+    machine:
+      - image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: build l1-contracts
+
+  l1-artifacts:
+    machine:
+      - image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: build l1-artifacts
+
+  yarn-project-base:
+    machine:
+      - image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: build yarn-project-base
+
+  acir-simulator:
+    machine:
+      - image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: build acir-simulator
+
+  archiver:
+    machine:
+      - image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: build archiver
+
+  cli:
+    machine:
+      - image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: build cli
+
+  aztec-rpc:
+    machine:
+      - image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: build aztec-rpc
+
+  aztec-sandbox-base:
+    machine:
+      - image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: build aztec-sandbox-base
+
+  aztec-sandbox:
+    machine:
+      - image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: build aztec-sandbox
+
+  aztec.js:
+    machine:
+      - image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: build aztec.js
+
+  canary-build:
+    machine:
+      - image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: build canary-build
+
+  canary:
+    machine:
+      - image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: build canary
+
+  circuits.js:
+    machine:
+      - image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: build circuits.js
+
+  end-to-end:
+    machine:
+      - image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: build end-to-end
+
+  ethereum:
+    machine:
+      - image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: build ethereum
+
+  foundation:
+    machine:
+      - image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: build foundation
+
+  key-store:
+    machine:
+      - image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: build key-store
+
+  merkle-tree:
+    machine:
+      - image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: build merkle-tree
+
+  noir-contracts-build:
+    machine:
+      - image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: build noir-contracts-build
+
+  noir-contracts:
+    machine:
+      - image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: build noir-contracts
+
+  noir-compiler:
+    machine:
+      - image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: build noir-compiler
+
+  p2p:
+    machine:
+      - image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: build p2p
+
+  p2p-bootstrap:
+    machine:
+      - image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: build p2p-bootstrap
+
+  prover-client:
+    machine:
+      - image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: build prover-client
+
+  rollup-provider:
+    machine:
+      - image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: build rollup-provider
+
+  aztec-node:
+    machine:
+      - image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: build aztec-node
+
+  sequencer-client:
+    machine:
+      - image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: build sequencer-client
+
+  types:
+    machine:
+      - image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: build types
+
+  world-state:
+    machine:
+      - image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: build world-state
 
 # Repeatable config for defining the workflow below.
 tag_regex: &tag_regex /^aztec-packages-v.*/
@@ -129,7 +602,7 @@ bb_test: &bb_test
 workflows:
   system:
     when:
-      equal: [system, << pipeline.parameters.workflow >>]
+      equal: [ system, << pipeline.parameters.workflow >> ]
     jobs:
       - build-docs: *defaults
 
@@ -360,7 +833,6 @@ workflows:
             - guides-dapp-testing
             - guides-sample-dapp
           <<: *defaults
-
         # Deployment and Canary tests
       - deploy-dockerhub:
           requires:

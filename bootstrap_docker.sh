@@ -24,6 +24,7 @@ set -e
 PROJECT_NAME=${1:-}
 COMMIT_HASH=$(git rev-parse HEAD)
 ONLY_TARGET=${ONLY_TARGET:-}
+export DOCKER_BUILDKIT=${DOCKER_BUILDKIT:-1}
 
 # If we're calling this script from within a project directory, that's the target project.
 if [ -z "$PROJECT_NAME" ]; then

@@ -65,7 +65,7 @@ for E in ${PROJECTS[@]}; do
   echo "*** Building $PROJECT_DIR_NAME:$DOCKERFILE -> $REPO ***"
   echo
 
-  time docker build ${ADDITIONAL_ARGS:-} --build-arg ARG_COMMIT_HASH=$COMMIT_HASH -f $DOCKERFILE -t $ECR_DEPLOY_URL/$REPO:latest .
+  docker build ${ADDITIONAL_ARGS:-} --build-arg ARG_COMMIT_HASH=$COMMIT_HASH -f $DOCKERFILE -t $ECR_DEPLOY_URL/$REPO:latest .
   docker tag $ECR_DEPLOY_URL/$REPO:latest aztecprotocol/$REPO:latest
 
   if [ "$PROJECT_DIR_NAME" = "$TARGET_PROJECT" ]; then
