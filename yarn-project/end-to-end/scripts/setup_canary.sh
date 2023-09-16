@@ -2,6 +2,7 @@
 set -eu
 
 COMMIT_TAG=$1
+TARGET_PKGS=$2
 
 if [ -z "$COMMIT_TAG" ]; then
   echo "No commit tag provided."
@@ -30,7 +31,7 @@ cd ..
 echo "Updating external Aztec dependencies to version $VERSION"
 
 # Packages that are publically available in npm
-TARGET_PKGS=("@aztec/aztec.js" "@aztec/cli" "@aztec/l1-artifacts" "@aztec/noir-contracts")
+# TARGET_PKGS=("@aztec/aztec.js" "@aztec/cli" "@aztec/l1-artifacts" "@aztec/noir-contracts")
 
 TMP=$(mktemp)
 for PKG in "${TARGET_PKGS[@]}"; do
