@@ -22,7 +22,7 @@ function generateYupSchema(functionAbi: FunctionAbi) {
   const initialValues: NoirFunctionFormValues = {};
   for (const param of functionAbi.parameters) {
     if (CONTRACT_ADDRESS_PARAM_NAMES.includes(param.name)) {
-  // these are hex strings instead, but yup doesn't support bigint so we convert back to bigint on execution
+      // these are hex strings instead, but yup doesn't support bigint so we convert back to bigint on execution
       parameterSchema[param.name] = Yup.string().required();
       initialValues[param.name] = DEFAULT_PUBLIC_ADDRESS;
       continue;
@@ -32,7 +32,7 @@ function generateYupSchema(functionAbi: FunctionAbi) {
         parameterSchema[param.name] = Yup.number().required();
         initialValues[param.name] = 100;
         break;
-    // not really needed for private token, since we hide the nullifier helper method which has the array input
+      // not really needed for private token, since we hide the nullifier helper method which has the array input
       case 'array':
         // eslint-disable-next-line no-case-declarations
         const arrayLength = param.type.length;

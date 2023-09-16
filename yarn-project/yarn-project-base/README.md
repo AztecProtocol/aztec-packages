@@ -9,10 +9,10 @@ and reuses layers is very powerful. We build this base image in order to:
 1. Encapsulate the downloading of all workspace dependencies.
 1. Check our package.json files have inherited from the common package.json.
 1. Check out tsconfig project references are all correct.
-1. Check all formatting is correct.
 1. Generate L1 contract ABIs.
 1. Generate Noir contract ABIs.
 1. Build the entire project.
+1. Check all formatting is correct.
 
 All downstream projects can then assume these things have already been handled, greatly improving build times,
 and reducing possiblities of bugs.
@@ -28,7 +28,7 @@ is not the case during development.
 ## Why are we split into two, Dockerfile and Dockerfile.deps?
 
 Dockerfile.deps is built first, and has it's own .dockerignore file that ensures none of the project source code
-is within it's context. Only files related to steps 1-3.
+is within it's context. Only files related to steps 1-4.
 
 Dockerfile is built second and builds upon Dockerfile.deps. It copies in the rest of the yarn workspace context and
-handles steps 4-n.
+handles steps 5-n.

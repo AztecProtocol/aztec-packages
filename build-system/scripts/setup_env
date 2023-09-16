@@ -67,6 +67,7 @@ fi
 
 echo export ROOT_PATH=$PWD >> $BASH_ENV
 echo export BUILD_SYSTEM_PATH=$BUILD_SYSTEM_PATH >> $BASH_ENV
+echo export DOCKER_BUILDKIT=${DOCKER_BUILDKIT:-1} >> $BASH_ENV
 echo export SSH_CONFIG_PATH=$BUILD_SYSTEM_PATH/remote/ssh_config >> $BASH_ENV
 echo export PATH=$PATH:$BUILD_SYSTEM_PATH/scripts >> $BASH_ENV
 echo export AWS_DEFAULT_REGION=eu-west-2 >> $BASH_ENV

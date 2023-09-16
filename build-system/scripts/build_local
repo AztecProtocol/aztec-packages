@@ -12,7 +12,7 @@ TARGET_PROJECT=${1:-}
 ONLY_TARGET=${2:-}
 
 if [ -n "${NO_CACHE:-}" ]; then
-  ADDITIONAL_ARGS=--no-cache
+  ADDITIONAL_ARGS="${ADDITIONAL_ARGS:-} --no-cache"
 fi
 
 ROOT=$(git rev-parse --show-toplevel)
@@ -63,6 +63,7 @@ for E in ${PROJECTS[@]}; do
   echo
   echo
   echo "*** Building $PROJECT_DIR_NAME:$DOCKERFILE -> $REPO ***"
+  echo "*** Context: $PWD"
   echo
 
   docker build ${ADDITIONAL_ARGS:-} --build-arg ARG_COMMIT_HASH=$COMMIT_HASH -f $DOCKERFILE -t $ECR_DEPLOY_URL/$REPO:latest .
