@@ -23,7 +23,7 @@ RUN ./scripts/update_packages.sh $COMMIT_TAG
 RUN yarn && yarn build
 
 # Copy web artifacts for browser test
-RUN cp ../node_modules/@aztec/aztec.js/dest/main.js src/web/
-RUN cp ../node_modules/@aztec/circuits.js/resources/aztec3-circuits.wasm src/web/
+RUN cp ./node_modules/@aztec/aztec.js/dest/main.js src/web/
+RUN cp ./node_modules/@aztec/circuits.js/resources/aztec3-circuits.wasm src/web/
 
 ENTRYPOINT ["yarn", "test"]
