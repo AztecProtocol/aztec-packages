@@ -1,5 +1,4 @@
-# This base dockerfile is for caching the workspace dependencies and running workspace checks.
-# The dockerignore file ensures the context only contains package.json and tsconfig.json files.
+# This base dockerfile is for installing the workspace dependencies, running workspace checks, and generating artefacts.
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/circuits-wasm-linux-clang as circuits
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/l1-contracts as contracts
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/noir-contracts-build as noir
@@ -9,10 +8,8 @@ RUN apk update && apk add --no-cache build-base git python3 curl bash jq sed
 COPY --from=contracts /usr/src/l1-contracts/out /usr/src/l1-contracts/out
 COPY --from=circuits /usr/src/circuits/cpp/build-wasm/bin /usr/src/circuits/cpp/build-wasm/bin
 COPY --from=noir /usr/src/yarn-project/noir-contracts/target /usr/src/yarn-project/noir-contracts/target
-
 WORKDIR /usr/src/yarn-project
-# The dockerignore file ensures the context only contains package.json and tsconfig.json files.
-# WARNING: boxes is an exception! See dockerignore file.
+# Copy entire workspace context.
 COPY . .
 # Install all workspace dependencies.
 RUN yarn --immutable
@@ -23,6 +20,8 @@ RUN echo "enableNetwork: false" >> .yarnrc.yml
 # https://github.com/yarnpkg/berry/issues/1789
 #
 # To work around this, we will construct a global cache from the local cache using hard links (requires a hacky rename).
+# This adds a 0 byte layer to the docker image. Genius!
+#
 # When we build a downstream docker image, we:
 # - Do the build in a named "builder" stage.
 # - Erase the local cache with a `yarn cache clean`. Files will remain in global cache due to hard link.
@@ -41,3 +40,11 @@ RUN yarn prepare:check
 
 # Generate L1 contract TypeScript artifacts.
 RUN cd l1-artifacts && ./scripts/generate-artifacts.sh
+
+# Generate Noir contract TypeScript artifacts.
+# Run yarn build to have the json ABIs available for the types generator, generate types, build again.
+COPY --from=noir /usr/src/yarn-project/noir-contracts/src/contracts /usr/src/yarn-project/noir-contracts/src/contracts
+RUN cd /usr/src/yarn-project/noir-contracts && yarn build && ./scripts/types_all.sh && yarn build
+
+# Build the entire project.
+RUN yarn tsc -b
