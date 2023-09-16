@@ -2,7 +2,18 @@
 set -eu
 
 COMMIT_TAG=$1
-TARGET_PKGS=$2
+TARGET_PKGS_FILE=$2
+
+# Check if file exists and read it into an array
+if [ -f "$TARGET_PKGS_FILE" ]; then
+  mapfile -t TARGET_PKGS < <(cat "$TARGET_PKGS_FILE")
+  echo "Loaded array:"
+  for i in "${TARGET_PKGS[@]}"; do
+    echo "$i"
+  done
+else
+  echo "File $TARGET_PKGS_FILE does not exist."
+fi
 
 if [ -z "$COMMIT_TAG" ]; then
   echo "No commit tag provided."

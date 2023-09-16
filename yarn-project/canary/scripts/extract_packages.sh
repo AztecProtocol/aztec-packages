@@ -1,6 +1,11 @@
 #!/bin/bash
 
-# Extract keys from package.json
-TARGET_PKGS=$(jq -r '.dependencies | to_entries[] | select(.key | startswith("@aztec/") and .key != "@aztec/end-to-end") | .key' package.json)
+FILE=$1
 
-echo $TARGET_PKGS
+# Capture the output of the jq command in a Bash array
+mapfile -t TARGET_PKGS < <(jq -r '.dependencies | keys[] | select(startswith("@aztec/") and . != "@aztec/end-to-end")' $FILE)
+
+# Loop through the array and print each element on a new line
+for pkg in "${TARGET_PKGS[@]}"; do
+  echo "$pkg"
+done

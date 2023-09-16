@@ -1,4 +1,4 @@
-FROM 278380418400.dkr.ecr.us-east-2.amazonaws.com/yarn-project-base:cache-bac67d29a415980ebfdada76c76fbd4509313973 AS builder
+FROM 278380418400.dkr.ecr.us-east-2.amazonaws.com/yarn-project-base AS builder
 
 RUN apk update && apk add --no-cache udev ttf-freefont chromium curl jq bash
 ENV CHROME_BIN="/usr/bin/chromium-browser" PUPPETEER_SKIP_CHROMIUM_DOWNLOAD="true"
@@ -9,14 +9,16 @@ COPY . .
 
 # Setup & Build end-to-end package
 WORKDIR /usr/src/yarn-project/end-to-end
-RUN ./scripts/setup_canary.sh $COMMIT_TAG ../canary/scripts/extract_packages.sh
-RUN ls
-RUN cat package.json
+
+# Extract canary @aztec dependencies
+RUN ../canary/scripts/extract_packages.sh ../canary/package.json > ./target_pkgs.txt
+# Update end-to-end dependencies with target version
+RUN ./scripts/setup_canary.sh $COMMIT_TAG ./target_pkgs.txt
+RUN rm ./target_pkgs.txt
 RUN yarn && yarn build
 
 # Build canary package
 WORKDIR /usr/src/yarn-project/canary
-# Update @aztec deps
 RUN ./scripts/update_packages.sh $COMMIT_TAG
 RUN yarn && yarn build
 
