@@ -77,8 +77,8 @@ describe('e2e_2_rpc_servers', () => {
     expect(balance).toBe(expectedBalance);
   };
 
-  const deployPrivateTokenContract = async (initialBalance: bigint, owner: AztecAddress) => {
-    logger(`Deploying PrivateToken contract...`);
+  const deployTokenContract = async (initialBalance: bigint, owner: AztecAddress) => {
+    logger(`Deploying Token contract...`);
     const contract = await TokenContract.deploy(walletA).send().deployed();
     expect((await contract.methods._initialize({ address: owner }).send().wait()).status).toBe(TxStatus.MINED);
 
@@ -102,7 +102,7 @@ describe('e2e_2_rpc_servers', () => {
     const transferAmount1 = 654n;
     const transferAmount2 = 323n;
 
-    const completeTokenAddress = await deployPrivateTokenContract(initialBalance, userA.address);
+    const completeTokenAddress = await deployTokenContract(initialBalance, userA.address);
     const tokenAddress = completeTokenAddress.address;
 
     // Add account B to wallet A
@@ -110,7 +110,7 @@ describe('e2e_2_rpc_servers', () => {
     // Add account A to wallet B
     await aztecRpcServerB.registerRecipient(userA);
 
-    // Add privateToken to RPC server B
+    // Add token to RPC server B
     await aztecRpcServerB.addContracts([
       {
         abi: TokenContract.abi,
