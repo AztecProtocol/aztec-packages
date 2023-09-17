@@ -5,8 +5,8 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/honk/composer/ultra_composer.hpp"
 #include "barretenberg/honk/proof_system/ultra_prover.hpp"
-#include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 #include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
+#include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 
 using namespace proof_system::honk;
 
@@ -57,11 +57,12 @@ class GoblinUltraHonkComposerTests : public ::testing::Test {
 
     /**
      * @brief Construct a goblin ultra circuit then generate a verify its proof
-     * 
-     * @param op_queue 
-     * @return auto 
+     *
+     * @param op_queue
+     * @return auto
      */
-    bool construct_test_circuit_then_generate_and_verify_proof(auto& op_queue) {
+    bool construct_test_circuit_then_generate_and_verify_proof(auto& op_queue)
+    {
         auto builder = proof_system::GoblinUltraCircuitBuilder(op_queue);
 
         generate_test_circuit(builder);
