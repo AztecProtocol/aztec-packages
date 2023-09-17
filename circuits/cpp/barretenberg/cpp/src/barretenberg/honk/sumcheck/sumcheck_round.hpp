@@ -115,10 +115,7 @@ template <typename Flavor> class SumcheckProverRound {
     void extend_edges(auto& extended_edges, auto& multivariates, size_t edge_idx)
     {
         size_t univariate_idx = 0; // TODO(#391) zip
-        // size_t i = 0;
         for (auto& poly : multivariates) {
-            // info("I: ", i++);
-            // info("Edge idx: ", edge_idx);
             auto edge = Univariate<FF, 2>({ poly[edge_idx], poly[edge_idx + 1] });
             extended_edges[univariate_idx] = barycentric_2_to_max.extend(edge);
             ++univariate_idx;
@@ -163,7 +160,9 @@ template <typename Flavor> class SumcheckProverRound {
         // Constuct extended edge containers; one per thread
         std::vector<ExtendedEdges<MAX_RELATION_LENGTH>> extended_edges;
         extended_edges.resize(num_threads);
-        auto my_func = [&](size_t thread_idx) {
+
+        // Accumulate the contribution from each sub-relation accross each edge of the hyper-cube
+        parallel_for(num_threads, [&](size_t thread_idx) {
             size_t start = thread_idx * iterations_per_thread;
             size_t end = (thread_idx + 1) * iterations_per_thread;
 
@@ -182,35 +181,8 @@ template <typename Flavor> class SumcheckProverRound {
                                                   extended_edges[thread_idx],
                                                   relation_parameters,
                                                   pow_challenge);
-                // info("AAA ", std::get<0>(std::get<0>(thread_univariate_accumulators[thread_idx])));
             }
-        };
-
-        for (size_t i = 0; i < num_threads; ++i) {
-            my_func(i);
-        }
-        // // Accumulate the contribution from each sub-relation accross each edge of the hyper-cube
-        // parallel_for(num_threads, [&](size_t thread_idx) {
-        //     size_t start = thread_idx * iterations_per_thread;
-        //     size_t end = (thread_idx + 1) * iterations_per_thread;
-
-        //     // For each edge_idx = 2i, we need to multiply the whole contribution by zeta^{2^{2i}}
-        //     // This means that each univariate for each relation needs an extra multiplication.
-        //     for (size_t edge_idx = start; edge_idx < end; edge_idx += 2) {
-        //         extend_edges(extended_edges[thread_idx], polynomials, edge_idx);
-
-        //         // Update the pow polynomial's contribution c_l ⋅ ζ_{l+1}ⁱ for the next edge.
-        //         FF pow_challenge = pow_challenges[edge_idx >> 1];
-
-        //         // Compute the i-th edge's univariate contribution,
-        //         // scale it by the pow polynomial's constant and zeta power "c_l ⋅ ζ_{l+1}ⁱ"
-        //         // and add it to the accumulators for Sˡ(Xₗ)
-        //         accumulate_relation_univariates<>(thread_univariate_accumulators[thread_idx],
-        //                                           extended_edges[thread_idx],
-        //                                           relation_parameters,
-        //                                           pow_challenge);
-        //     }
-        // });
+        });
 
         // Accumulate the per-thread univariate accumulators into a single set of accumulators
         for (auto& accumulators : thread_univariate_accumulators) {
@@ -244,6 +216,7 @@ template <typename Flavor> class SumcheckProverRound {
     {
         std::get<relation_idx>(relations).add_edge_contribution(
             std::get<relation_idx>(univariate_accumulators), extended_edges, relation_parameters, scaling_factor);
+
         // Repeat for the next relation.
         if constexpr (relation_idx + 1 < NUM_RELATIONS) {
             accumulate_relation_univariates<relation_idx + 1>(
