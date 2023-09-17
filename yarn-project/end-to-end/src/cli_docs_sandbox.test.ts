@@ -104,6 +104,7 @@ SchnorrSingleKeyAccountContractAbi
 StatefulTestContractAbi
 TestContractAbi
 TokenContractAbi
+TokenBridgeContractAbi
 UniswapContractAbi
 // docs:end:example-contracts
 `;
