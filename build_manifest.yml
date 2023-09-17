@@ -153,9 +153,9 @@ noir-contracts-build:
     - ^yarn-project/noir-contracts/
     - ^yarn-project/aztec-nr/
 
-yarn-project-base-deps:
+yarn-project-base:
   buildDir: yarn-project
-  dockerfile: yarn-project-base/Dockerfile.deps
+  projectDir: yarn-project/yarn-project-base
   rebuildPatterns:
     - ^yarn-project/yarn-project-base/
     - ^yarn-project/yarn.lock
@@ -163,18 +163,28 @@ yarn-project-base-deps:
     - circuits-wasm-linux-clang
     - l1-contracts
 
-yarn-project-base:
+yarn-project:
   buildDir: yarn-project
-  dockerfile: yarn-project-base/Dockerfile
-  rebuildPatterns:
-    - ^yarn-project/
   dependencies:
-    - yarn-project-base-deps
+    - yarn-project-base
     - noir-contracts-build
-  tests:
-    l1-artifacts:
-      buildDir: yarn-project
-      projectDir: yarn-project/l1-artifacts
+
+aztec-sandbox:
+  buildDir: yarn-project
+  projectDir: yarn-project/aztec-sandbox
+  dependencies:
+    - yarn-project
+
+end-to-end:
+  buildDir: yarn-project
+  projectDir: yarn-project/end-to-end
+  dependencies:
+    - yarn-project
+
+  # tests:
+  #   l1-artifacts:
+  #     buildDir: yarn-project
+  #     projectDir: yarn-project/l1-artifacts
 # acir-simulator:
 #   buildDir: yarn-project
 #   projectDir: yarn-project/acir-simulator
@@ -190,10 +200,6 @@ yarn-project-base:
 # aztec-sandbox-base:
 #   buildDir: yarn-project
 #   projectDir: yarn-project/aztec-sandbox
-# aztec-sandbox:
-#   buildDir: yarn-project
-#   projectDir: yarn-project/aztec-sandbox
-#   dockerfile: Dockerfile.final
 # aztec.js:
 #   buildDir: yarn-project
 #   projectDir: yarn-project/aztec.js
@@ -207,9 +213,6 @@ yarn-project-base:
 # circuits.js:
 #   buildDir: yarn-project
 #   projectDir: yarn-project/circuits.js
-# end-to-end:
-#   buildDir: yarn-project
-#   projectDir: yarn-project/end-to-end
 # ethereum:
 #   buildDir: yarn-project
 #   projectDir: yarn-project/ethereum
