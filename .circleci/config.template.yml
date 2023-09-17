@@ -1,0 +1,131 @@
+# This file uses YAML anchors and aliases to prevent repetition of blocks of config:
+# https://support.atlassian.com/bitbucket-cloud/docs/yaml-anchors/
+#
+# Two primary anchors are checkout and setup_env, called as the first step of almost all jobs:
+# - checkout: A custom checkout step to reduce the amount of data downloaded to improve speed.
+# - setup_env: Sets up the common environment used by all build steps.
+#
+# Two CCI executors are used:
+# - docker (small): Used only to launch external EC2 instances for big workloads. It's the cheapest option.
+# - machine (large): Used for building in CCI itself. 4cpus, 15GB has the optimal power/cost ratio.
+#
+# The docker executor uses a custom image build in `build_image`. It's specifically streamlined for fast download
+# with just enough tools to execute the build system, and launch EC2 instances etc.
+#
+# There are some `join` steps that are just noops. They are just used to produce cleaner graph rendering in CCI.
+
+version: 2.1
+
+orbs:
+  slack: circleci/slack@4.12.1
+
+parameters:
+  workflow:
+    type: string
+    default: "system"
+
+# This build step checks out the code from the repository. It has a hardcoded readonly key to allow the checkout.
+# Initially it just fetches the repo metadata for the current commit hash to a depth of 50 commits.
+# We need historical commit hashes to calculate diffs between previous and current commits.
+# It then checks out the fetched head to actually download the data.
+checkout: &checkout
+  run:
+    name: "Checkout code"
+    command: |
+      function retry() {
+        # Retries up to 3 times with 10 second intervals
+        for i in $(seq 1 3); do
+          "$@" && return || sleep 10
+        done
+        echo "$@ failed after 3 attempts"
+        exit 1
+      }
+      cd $HOME
+      mkdir -p .ssh
+      chmod 0700 .ssh
+      retry ssh-keyscan -t rsa github.com >> .ssh/known_hosts
+
+      # A read only key for cloning the repository.
+      echo $GIT_CHECKOUT_KEY | base64 -d > .ssh/id_rsa
+
+      chmod 0600 .ssh/id_rsa
+      # IF YOU'RE CHANGING THIS, YOU ALSO WANT TO CHANGE: build-system/scripts/remote_runner
+      # Shallow checkout this commit.
+      mkdir -p project
+      cd project
+      git init
+      git remote add origin $CIRCLE_REPOSITORY_URL
+
+      # Only download metadata when fetching.
+      retry git fetch --depth 1 --filter=blob:none origin $CIRCLE_SHA1
+      retry git checkout FETCH_HEAD
+
+# Called setup_env to setup a bunch of global variables used throughout the rest of the build process.
+# It takes the required CCI environment variables as inputs, and gives them normalised names for the rest of
+# the build process. This enables easy running of the build system external to CCI, as used for powerful EC2 builds.
+setup_env: &setup_env
+  run:
+    name: "Setup environment"
+    command: ./build-system/scripts/setup_env "$CIRCLE_SHA1" "$CIRCLE_TAG" "$CIRCLE_JOB" "$CIRCLE_REPOSITORY_URL" "$CIRCLE_BRANCH"
+
+# This step is used to save logs from various barretenberg test to the workspace so that they can be used later to parse benchmark values out of them
+save_logs: &save_logs
+  persist_to_workspace:
+    root: /tmp/test-logs
+    paths:
+      - ./*
+
+# No need to add jobs here! Use the generator to update:
+#  $ (cd build-system/cci_gen && yarn && yarn start)
+jobs:
+
+# Repeatable config for defining the workflow below.
+tag_regex: &tag_regex /^aztec-packages-v.*/
+
+defaults: &defaults
+  filters:
+    tags:
+      only: *tag_regex
+  context:
+    - build
+    - slack
+  post-steps:
+    - slack/notify:
+        event: fail
+        branch_pattern: "master"
+
+# deploy_defaults: &deploy_defaults
+#   filters:
+#     tags:
+#       only: *tag_regex
+#     branches:
+#       ignore: /.*/
+#   context:
+#     - build
+#     - slack
+#   post-steps:
+#     - slack/notify:
+#         event: fail
+#         branch_pattern: "master"
+
+# yarn_project: &yarn_project
+#   requires:
+#     - yarn-project-base
+#   <<: *defaults
+
+# e2e_test: &e2e_test
+#   requires:
+#     - e2e-join
+#   <<: *defaults
+
+# bb_test: &bb_test
+#   requires:
+#     - barretenberg-x86_64-linux-clang-assert
+#   <<: *defaults
+
+# Workflows.
+workflows:
+  system:
+    when:
+      equal: [system, << pipeline.parameters.workflow >>]
+    jobs:

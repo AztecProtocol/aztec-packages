@@ -152,6 +152,8 @@ noir-contracts-build:
   rebuildPatterns:
     - ^yarn-project/noir-contracts/
     - ^yarn-project/aztec-nr/
+  # Prevent automatic querying of get_dependencies.sh script. Needed because this looks like a yarn project.
+  dependencies: []
 
 yarn-project-base:
   buildDir: yarn-project
@@ -165,6 +167,7 @@ yarn-project-base:
 
 yarn-project:
   buildDir: yarn-project
+  spot: 64
   dependencies:
     - yarn-project-base
     - noir-contracts-build
@@ -180,6 +183,69 @@ end-to-end:
   projectDir: yarn-project/end-to-end
   dependencies:
     - yarn-project
+  tests:
+    e2e-2-rpc-servers:
+      command: ./scripts/run_tests_local e2e_2_rpc_servers.test.ts
+    e2e-multiple-accounts-1-enc-key:
+      command: ./scripts/run_tests_local e2e_multiple_accounts_1_enc_key.test.ts
+    e2e-deploy-contract:
+      command: ./scripts/run_tests_local e2e_deploy_contract.test.ts
+    e2e-lending-contract:
+      command: ./scripts/run_tests_local e2e_lending_contract.test.ts
+    e2e-token-contract:
+      command: ./scripts/run_tests_local e2e_token_contract.test.ts
+    e2e-private-token-contract:
+      command: ./scripts/run_tests_local e2e_private_token_contract.test.ts
+    e2e-multi-transfer-contract:
+      command: ./scripts/run_tests_local e2e_multi_transfer.test.ts
+    e2e-block-building:
+      command: ./scripts/run_tests_local e2e_block_building.test.ts
+    e2e-nested-contract:
+      command: ./scripts/run_tests_local e2e_nested_contract.test.ts
+    e2e-non-contract-account:
+      command: ./scripts/run_tests_local e2e_non_contract_account.test.ts
+    e2e-cross-chain-messaging:
+      command: ./scripts/run_tests_local e2e_cross_chain_messaging.test.ts
+    e2e-public-cross-chain-messaging:
+      command: ./scripts/run_tests_local e2e_public_cross_chain_messaging.test.ts
+    e2e-public-to-private-messaging:
+      command: ./scripts/run_tests_local e2e_public_to_private_messaging.test.ts
+    e2e-account-contracts:
+      command: ./scripts/run_tests_local e2e_account_contracts.test.ts
+    e2e-escrow-contract:
+      command: ./scripts/run_tests_local e2e_escrow_contract.test.ts
+    e2e-pending-commitments-contract:
+      command: ./scripts/run_tests_local e2e_pending_commitments_contract.test.ts
+    e2e-ordering:
+      command: ./scripts/run_tests_local e2e_ordering.test.ts
+    uniswap-trade-on-l1-from-l2:
+      command: ./scripts/run_tests_local uniswap_trade_on_l1_from_l2.test.ts
+    integration-archiver-l1-to-l2:
+      command: ./scripts/run_tests_local integration_archiver_l1_to_l2.test.ts
+    integration-l1-publisher:
+      command: ./scripts/run_tests_local integration_l1_publisher.test.ts
+    e2e-public-token-contract:
+      command: ./scripts/run_tests_local e2e_public_token_contract.test.ts
+    e2e-cli:
+      command: ./scripts/run_tests_local e2e_cli.test.ts
+    e2e-p2p:
+      command: ./scripts/run_tests_local e2e_p2p_network.test.ts
+    e2e-card-game:
+      command: ./scripts/run_tests_local e2e_card_game.test.ts
+    e2e-sandbox-example:
+      command: ./scripts/run_tests_local e2e_sandbox_example.test.ts ./scripts/docker-compose-e2e-sandbox.yml
+    e2e-browser-sandbox:
+      command: ./scripts/run_tests_local e2e_aztec_js_browser.test.ts ./scripts/docker-compose-e2e-sandbox.yml
+    aztec-rpc-sandbox:
+      command: ./scripts/run_tests_local aztec_rpc_sandbox.test.ts ./scripts/docker-compose-e2e-sandbox.yml
+    cli-docs-sandbox:
+      command: ./scripts/run_tests_local cli_docs_sandbox.test.ts ./scripts/docker-compose-e2e-sandbox.yml
+    guides-writing-an-account-contract:
+      command: ./scripts/run_tests_local guides/writing_an_account_contract.test.ts
+    guides-dapp-testing:
+      command: ./scripts/run_tests_local guides/dapp_testing.test.ts ./scripts/docker-compose-e2e-sandbox.yml
+    guides-sample-dapp:
+      command: ./scripts/run_tests_local sample-dapp ./scripts/docker-compose-e2e-sandbox.yml
 
   # tests:
   #   l1-artifacts:

@@ -10,31 +10,34 @@ set -eu
 
 TARGET_PROJECT=${1:-}
 ONLY_TARGET=${2:-}
+MANIFEST="build_manifest.yml"
 
 if [ -n "${NO_CACHE:-}" ]; then
   ADDITIONAL_ARGS="${ADDITIONAL_ARGS:-} --no-cache"
 fi
 
-ROOT=$(git rev-parse --show-toplevel)
-source $ROOT/build_manifest.sh
-
 # If given a name, check it exists.
 if [ -n "$TARGET_PROJECT" ]; then
-  EXISTS=0
-  for E in ${PROJECTS[@]}; do
-    ARR=(${E//:/ })
-    PROJECT_DIR_NAME=${ARR[0]}
-    if [ "$PROJECT_DIR_NAME" = "$TARGET_PROJECT" ]; then
-      EXISTS=1
-    fi
-  done
-  if [ "$EXISTS" -eq 0 ]; then
-    echo "Unknown project $TARGET_PROJECT, check build_manifest.sh";
+  if [ $(yq "has(\"$TARGET_PROJECT\")" $MANIFEST) == "false" ]; then
+    echo "Unknown project $TARGET_PROJECT, check $MANIFEST";
     exit 1
   fi
 fi
 
-for E in ${PROJECTS[@]}; do
+# Build list of projects to build.
+if [ "$ONLY_TARGET" == "true" ]; then
+  DEPS=("$TARGET_PROJECT")
+else
+  DEPS=($(query_manifest dependencies $TARGET_PROJECT))
+fi
+declare -a PROJECTS
+for DEP in ${DEPS[@]}; do
+  BUILD_DIR=$(query_manifest buildDir $DEP)
+  DOCKERFILE=$(query_manifest dockerfile $DEP)
+  PROJECTS+=("$DEP:$BUILD_DIR:$DOCKERFILE")
+done
+
+for E in "${PROJECTS[@]}"; do
   ARR=(${E//:/ })
   PROJECT_DIR_NAME=${ARR[0]}
   WORKING_DIR=${ARR[1]}
