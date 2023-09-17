@@ -133,8 +133,9 @@ template <typename BuilderType> class GoblinRecursiveVerifierTest : public testi
 
         // Compute native verification key
         InnerComposer inner_composer;
-        auto prover = inner_composer.create_prover(inner_circuit); // A prerequisite for computing VK
-        const auto native_verification_key = inner_composer.compute_verification_key(inner_circuit);
+        auto instance = inner_composer.create_instance(inner_circuit);
+        auto prover = inner_composer.create_prover(instance); // A prerequisite for computing VK
+        const auto native_verification_key = instance->compute_verification_key();
 
         // Instantiate the recursive verification key from the native verification key
         OuterBuilder outer_circuit;
@@ -162,9 +163,10 @@ template <typename BuilderType> class GoblinRecursiveVerifierTest : public testi
 
         // Generate a proof over the inner circuit
         InnerComposer inner_composer;
-        auto inner_prover = inner_composer.create_prover(inner_circuit);
+        auto instance = inner_composer.create_instance(inner_circuit);
+        auto inner_prover = inner_composer.create_prover(instance);
         auto inner_proof = inner_prover.construct_proof();
-        const auto native_verification_key = inner_composer.compute_verification_key(inner_circuit);
+        const auto native_verification_key = instance->compute_verification_key();
 
         // Create a recursive verification circuit for the proof of the inner circuit
         OuterBuilder outer_circuit;
@@ -178,7 +180,7 @@ template <typename BuilderType> class GoblinRecursiveVerifierTest : public testi
 
         // Additional check 1: Perform native verification then perform the pairing on the outputs of the recursive
         // verifier and check that the result agrees.
-        auto native_verifier = inner_composer.create_verifier(inner_circuit);
+        auto native_verifier = inner_composer.create_verifier(instance);
         auto native_result = native_verifier.verify_proof(inner_proof);
         auto recursive_result = native_verifier.pcs_verification_key->pairing_check(pairing_points[0].get_value(),
                                                                                     pairing_points[1].get_value());

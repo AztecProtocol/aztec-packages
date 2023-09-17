@@ -32,7 +32,6 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
 
     std::shared_ptr<VerificationKey> key;
     std::map<std::string, Commitment> commitments;
-    std::map<std::string, FF> pcs_fr_elements;
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
     Builder* builder;
     Transcript<Builder> transcript;

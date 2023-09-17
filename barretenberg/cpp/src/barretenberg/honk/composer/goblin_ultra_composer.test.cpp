@@ -6,6 +6,7 @@
 #include "barretenberg/honk/composer/ultra_composer.hpp"
 #include "barretenberg/honk/proof_system/ultra_prover.hpp"
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
+#include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
 
 using namespace proof_system::honk;
 
@@ -21,6 +22,7 @@ class GoblinUltraHonkComposerTests : public ::testing::Test {
 
     using Curve = curve::BN254;
     using FF = Curve::ScalarField;
+    using Point = Curve::AffineElement;
     using CommitmentKey = pcs::CommitmentKey<Curve>;
 
     /**
@@ -32,7 +34,7 @@ class GoblinUltraHonkComposerTests : public ::testing::Test {
     {
         // Add some ecc op gates
         for (size_t i = 0; i < 3; ++i) {
-            auto point = g1::affine_one * FF::random_element();
+            auto point = Point::one() * FF::random_element();
             auto scalar = FF::random_element();
             builder.queue_ecc_mul_accum(point, scalar);
         }
@@ -60,13 +62,14 @@ class GoblinUltraHonkComposerTests : public ::testing::Test {
      * @return auto 
      */
     bool construct_test_circuit_then_generate_and_verify_proof(auto& op_queue) {
-        auto builder = GoblinUltraCircuitBuilder(op_queue);
+        auto builder = proof_system::GoblinUltraCircuitBuilder(op_queue);
 
         generate_test_circuit(builder);
 
         auto composer = GoblinUltraComposer();
-        auto prover = composer.create_prover(builder);
-        auto verifier = composer.create_verifier(builder);
+        auto instance = composer.create_instance(builder);
+        auto prover = composer.create_prover(instance);
+        auto verifier = composer.create_verifier(instance);
         auto proof = prover.construct_proof();
         bool verified = verifier.verify_proof(proof);
 
@@ -83,7 +86,7 @@ class GoblinUltraHonkComposerTests : public ::testing::Test {
  */
 TEST_F(GoblinUltraHonkComposerTests, SingleCircuit)
 {
-    auto op_queue = std::make_shared<ECCOpQueue>();
+    auto op_queue = std::make_shared<proof_system::ECCOpQueue>();
 
     // Add mock data to op queue to simulate interaction with a previous circuit
     op_queue->populate_with_mock_initital_data();
@@ -102,7 +105,7 @@ TEST_F(GoblinUltraHonkComposerTests, SingleCircuit)
 TEST_F(GoblinUltraHonkComposerTests, MultipleCircuits)
 {
     // Instantiate EccOpQueue. This will be shared across all circuits in the series
-    auto op_queue = std::make_shared<ECCOpQueue>();
+    auto op_queue = std::make_shared<proof_system::ECCOpQueue>();
 
     // Add mock data to op queue to simulate interaction with a previous circuit
     op_queue->populate_with_mock_initital_data();
