@@ -175,6 +175,7 @@ template <typename Flavor> void GoblinTranslatorComposer_<Flavor>::compute_witne
     proving_key->relation_wide_limbs_range_constraint_1 = wire_polynomials[78];
     proving_key->relation_wide_limbs_range_constraint_2 = wire_polynomials[79];
     proving_key->relation_wide_limbs_range_constraint_tail = wire_polynomials[80];
+    compute_concatenated_polynomials<Flavor>(proving_key.get());
     compute_goblin_translator_range_constraint_ordered_polynomials<Flavor>(proving_key.get());
     computed_witness = true;
 }
@@ -192,6 +193,7 @@ GoblinTranslatorProver_<Flavor> GoblinTranslatorComposer_<Flavor>::create_prover
     compute_commitment_key(proving_key->circuit_size);
 
     GoblinTranslatorProver_<Flavor> output_state(proving_key, commitment_key);
+    info("Lagrange[-1]", proving_key->lagrange_last[Flavor::FULL_CIRCUIT_SIZE - 1]);
 
     return output_state;
 }
