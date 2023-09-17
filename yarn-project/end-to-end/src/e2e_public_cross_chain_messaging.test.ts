@@ -82,7 +82,7 @@ describe('e2e_public_cross_chain_messaging', () => {
     // Wait for the archiver to process the message
     await delay(5000); /// waiting 5 seconds.
 
-    // Perform an unrelated transaction on L2 to progress the rollup. Here we mint tokens to owner
+    // Perform an unrelated transaction on L2 to progress the rollup. Here we mint public tokens.
     const unrelatedMintAmount = 99n;
     await crossChainTestHarness.mintTokensPublicOnL2(unrelatedMintAmount);
     await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, unrelatedMintAmount);
@@ -93,7 +93,7 @@ describe('e2e_public_cross_chain_messaging', () => {
     await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, balanceBefore + bridgeAmount);
     const afterBalance = balanceBefore + bridgeAmount;
 
-    // // time to withdraw the funds again!
+    // time to withdraw the funds again!
     logger('Withdrawing funds from L2');
 
     // 4. Give approval to bridge to burn owner's funds:

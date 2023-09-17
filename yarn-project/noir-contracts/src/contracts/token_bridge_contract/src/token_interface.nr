@@ -28,7 +28,6 @@ impl Token {
     );
   }
 
-  // Private
   fn mint_private(self: Self, context: PublicContext, amount: Field, secret_hash: Field) {
     let _return_values = context.call_public_function(
       self.address,

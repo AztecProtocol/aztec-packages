@@ -41,7 +41,6 @@ describe.skip('uniswap_trade_on_l1_from_l2', () => {
 
   let ethAccount: EthAddress;
   let owner: AztecAddress;
-  let receiver: AztecAddress;
   const initialBalance = 10n;
   const wethAmountToBridge = parseEther('1');
 
@@ -68,7 +67,6 @@ describe.skip('uniswap_trade_on_l1_from_l2', () => {
 
     ethAccount = EthAddress.fromString((await walletClient.getAddresses())[0]);
     owner = accounts[0].address;
-    receiver = accounts[1].address;
 
     logger('Deploying DAI Portal, initializing and deploying l2 contract...');
     daiCrossChainHarness = await CrossChainTestHarness.new(

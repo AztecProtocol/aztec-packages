@@ -42,7 +42,7 @@ export class CrossChainTestHarness {
     });
 
     // Deploy and initialize all required contracts
-    logger(`Deploying and initializing token, portal and its bridge...`);
+    logger('Deploying and initializing token, portal and its bridge...');
     const contracts = await deployAndInitializeStandardizedTokenAndBridgeContracts(
       wallet,
       walletClient,
@@ -51,19 +51,19 @@ export class CrossChainTestHarness {
       owner.address,
       underlyingERC20Address,
     );
-    const l2token = contracts.token;
-    const l2bridge = contracts.bridge;
+    const l2Token = contracts.token;
+    const l2Bridge = contracts.bridge;
     const underlyingERC20 = contracts.underlyingERC20;
     const tokenPortal = contracts.tokenPortal;
     const tokenPortalAddress = contracts.tokenPortalAddress;
-    logger(`Deployed and initialized token, portal and its bridge.`);
+    logger('Deployed and initialized token, portal and its bridge.');
 
     if (initialBalance) {
       logger(`Minting ${initialBalance} tokens to ${owner.address}...`);
-      const mintTx = l2token.methods.mint_public({ address: owner.address }, initialBalance).send();
+      const mintTx = l2Token.methods.mint_public({ address: owner.address }, initialBalance).send();
       const mintReceipt = await mintTx.wait();
       expect(mintReceipt.status).toBe(TxStatus.MINED);
-      expect(l2token.methods.balance_of_public({ address: owner.address }).view()).toBe(initialBalance);
+      expect(l2Token.methods.balance_of_public({ address: owner.address }).view()).toBe(initialBalance);
       logger(`Minted ${initialBalance} tokens to ${owner.address}.`);
     }
 
@@ -73,8 +73,8 @@ export class CrossChainTestHarness {
       cheatCodes,
       accounts,
       logger,
-      l2token,
-      l2bridge,
+      l2Token,
+      l2Bridge,
       ethAccount,
       tokenPortalAddress,
       tokenPortal,

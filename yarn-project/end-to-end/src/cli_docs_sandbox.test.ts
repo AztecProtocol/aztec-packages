@@ -103,8 +103,8 @@ SchnorrHardcodedAccountContractAbi
 SchnorrSingleKeyAccountContractAbi
 StatefulTestContractAbi
 TestContractAbi
-TokenContractAbi
 TokenBridgeContractAbi
+TokenContractAbi
 UniswapContractAbi
 // docs:end:example-contracts
 `;

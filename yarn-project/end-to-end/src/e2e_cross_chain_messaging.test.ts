@@ -72,19 +72,22 @@ describe('e2e_cross_chain_messaging', () => {
 
     // 1. Mint tokens on L1
     await crossChainTestHarness.mintTokensOnL1(l1TokenBalance);
+
+    // 2. Deposit tokens to the TokenPortal
     const messageKey = await crossChainTestHarness.sendTokensToPortal(bridgeAmount, secretHash);
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);
 
     // Wait for the archiver to process the message
     await delay(5000); /// waiting 5 seconds.
 
-    // Perform another unrelated transaction on L2 to progress the rollup.
+    // Perform an unrelated transaction on L2 to progress the rollup. Here we mint public tokens.
     const unrelatedMintAmount = 99n;
     await crossChainTestHarness.mintTokensPublicOnL2(unrelatedMintAmount);
     await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, unrelatedMintAmount);
 
     // 3. Consume L1-> L2 message and mint private tokens on L2
     await crossChainTestHarness.consumeMessageOnAztecAndMintSecretly(bridgeAmount, messageKey, secret);
+    // tokens were minted privately in a TransparentNote which the owner (person who knows the secret) must redeem:
     await crossChainTestHarness.redeemShieldPrivatelyOnL2(bridgeAmount, secret);
     await crossChainTestHarness.expectPrivateBalanceOnL2(ownerAddress, bridgeAmount);
 
@@ -116,4 +119,6 @@ describe('e2e_cross_chain_messaging', () => {
 
     expect(await outbox.read.contains([entryKey.toString(true)])).toBeFalsy();
   }, 120_000);
+
+  // TODO: Fialure cases!
 });

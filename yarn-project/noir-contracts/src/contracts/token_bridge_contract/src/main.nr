@@ -1,4 +1,3 @@
-mod types;
 mod util;
 mod token_interface;
 
@@ -14,10 +13,10 @@ contract TokenBridge {
         types::type_serialisation::field_serialisation::{
             FieldSerialisationMethods, FIELD_SERIALISED_LEN,
         },
+        types::address::{AztecAddress, EthereumAddress},
         oracle::compute_selector::compute_selector,
     };
 
-    use crate::types::{AztecAddress, EthereumAddress};
     use crate::token_interface::Token;
     use crate::util::{get_mint_content_hash, get_withdraw_content_hash, compute_secret_hash};
 
