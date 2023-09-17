@@ -12,3 +12,4 @@ RUN cd /usr/src/yarn-project/noir-contracts && yarn build && ./scripts/types_all
 
 # Build the entire project and check formatting.
 RUN yarn tsc -b && yarn formatting
+RUN yarn test

@@ -76,19 +76,10 @@ save_logs: &save_logs
       - ./*
 
 jobs:
-  barretenberg-wasm-linux-clang:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build"
-          command: cond_spot_run_build barretenberg-wasm-linux-clang 64
 
 # Repeatable config for defining the workflow below.
 tag_regex: &tag_regex /^aztec-packages-v.*/
+
 defaults: &defaults
   filters:
     tags:
@@ -100,6 +91,7 @@ defaults: &defaults
     - slack/notify:
         event: fail
         branch_pattern: "master"
+
 deploy_defaults: &deploy_defaults
   filters:
     tags:
@@ -113,19 +105,23 @@ deploy_defaults: &deploy_defaults
     - slack/notify:
         event: fail
         branch_pattern: "master"
+
 yarn_project: &yarn_project
   requires:
     - yarn-project-base
   <<: *defaults
+
 e2e_test: &e2e_test
   requires:
     - e2e-join
   <<: *defaults
+
 bb_test: &bb_test
   requires:
     - barretenberg-x86_64-linux-clang-assert
   <<: *defaults
 
+# Workflows.
 workflows:
   system:
     when:
