@@ -46,6 +46,7 @@ fi
 HOOKS_DIR=$(git rev-parse --git-path hooks)
 echo "(cd barretenberg/cpp && ./format.sh staged)" > $HOOKS_DIR/pre-commit
 echo "(cd circuits/cpp && ./format.sh staged)" >> $HOOKS_DIR/pre-commit
+# TODO: Call cci_gen to ensure .circleci/config.yml is up-to-date!
 chmod +x $HOOKS_DIR/pre-commit
 
 git submodule update --init --recursive

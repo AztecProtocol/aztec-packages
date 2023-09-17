@@ -375,7 +375,12 @@ jobs:
       - *setup_env
       - run:
           name: Build
-          command: build noir-contracts-build
+          command: |
+            which build
+            which jq
+            which yq
+            cat $BASH_ENV
+            build noir-contracts-build
 
   yarn-project-base:
     machine:
@@ -810,7 +815,7 @@ defaults: &defaults
 workflows:
   system:
     when:
-      equal: [ system, << pipeline.parameters.workflow >> ]
+      equal: [system, << pipeline.parameters.workflow >>]
     jobs:
       - barretenberg-wasm-linux-clang:
           <<: *defaults
