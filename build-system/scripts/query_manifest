@@ -13,7 +13,7 @@ fi
 
 function get_deps {
   local TYPE=$(yq -r ".\"$1\".dependencies | type" $MANIFEST)
-  if [ "$TYPE" == "string" ]; then
+  if [ "$TYPE" == "!!str" ]; then
     # Execute string as command relative to buildDir to retrieve dependencies.
     local BUILD_DIR=$($0 buildDir $1)
     local CMD=$BUILD_DIR/$(yq -r ".\"$1\".dependencies")
@@ -23,7 +23,7 @@ function get_deps {
     fi
     local PROJECT_DIR=$($0 projectDir $1)
     DEPS=($($CMD $PROJECT_DIR))
-  elif [ "$TYPE" == "null" ]; then
+  elif [ "$TYPE" == "!!null" ]; then
     # Execute default script relative to buildDir to retrieve dependencies.
     local BUILD_DIR=$($0 buildDir $1)
     local CMD=$BUILD_DIR/scripts/get_dependencies.sh
@@ -33,7 +33,7 @@ function get_deps {
     fi
     local PROJECT_DIR=$($0 projectDir $1)
     DEPS=($($CMD $PROJECT_DIR))
-  elif [ "$TYPE" == "array" ]; then
+  elif [ "$TYPE" == "!!seq" ]; then
     DEPS=($(yq -r ".\"$1\".dependencies // [] | .[]" $MANIFEST))
   else
     >&2 echo "dependencies must be a array, string or null."
@@ -43,13 +43,13 @@ function get_deps {
 
 function add_rebuild_patterns {
   local TYPE=$(yq -r ".\"$1\".rebuildPatterns | type" $MANIFEST)
-  if [ "$TYPE" == "string" ]; then
+  if [ "$TYPE" == "!!str" ]; then
     local FILE=$(yq -r ".\"$1\".rebuildPatterns" $MANIFEST)
     local PROJECT_DIR=$($0 projectDir $1)
     PATTERNS=(${PATTERNS[@]} $(cat $PROJECT_DIR/$FILE))
-  elif [ "$TYPE" == "array" ]; then
+  elif [ "$TYPE" == "!!seq" ]; then
     PATTERNS=(${PATTERNS[@]} $(yq -r ".\"$1\".rebuildPatterns | .[]" $MANIFEST))
-  elif [ "$TYPE" == "null" ]; then
+  elif [ "$TYPE" == "!!null" ]; then
     local PROJECT_DIR=$($0 relativeProjectDir $1)
     PATTERNS=(${PATTERNS[@]} "^$PROJECT_DIR/")
   else

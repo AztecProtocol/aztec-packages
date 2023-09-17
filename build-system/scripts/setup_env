@@ -84,11 +84,6 @@ echo export GIT_REPOSITORY_URL=$GIT_REPOSITORY_URL >> $BASH_ENV
 echo export VERSION_TAG=$VERSION_TAG >> $BASH_ENV
 echo export DEPLOY_TAG=$DEPLOY_TAG >> $BASH_ENV
 echo export BRANCH=$BRANCH >> $BASH_ENV
-# Our alpine build image has jq installed, ubuntu build instances use our committed version.
-if [ ! -f /etc/alpine-release ]; then
-  echo export PATH=\$PATH:$BUILD_SYSTEM_PATH/bin >> $BASH_ENV
-  echo export LD_LIBRARY_PATH=$BUILD_SYSTEM_PATH/lib >> $BASH_ENV
-fi
 cat $BASH_ENV
 
 # Having written the variables to $BASH_ENV, we now want to set them in this shell context.
