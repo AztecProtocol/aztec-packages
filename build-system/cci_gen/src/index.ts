@@ -9,7 +9,7 @@ function toCircleJob(spot: boolean) {
           resource_class: "small",
         }
       : {
-          machine: [{ image: "ubuntu-2204:2023.07.2" }],
+          machine: { image: "ubuntu-2204:2023.07.2" },
           resource_class: "large",
         }),
     steps: [

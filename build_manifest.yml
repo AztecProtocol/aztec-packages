@@ -79,7 +79,7 @@ bb-js-acir-tests:
   dockerfile: Dockerfile.bb.js
   spot: 32
   dependencies:
-    - bb.js
+    - bb-js
 
 # Circuits
 circuits-wasm-linux-clang:
