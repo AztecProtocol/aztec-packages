@@ -280,6 +280,7 @@ template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_grand_p
     // Compute constraint permutation grand product
     grand_product_library::compute_grand_products<Flavor>(key, prover_polynomials, relation_parameters);
 
+    info("Z_PERM", prover_polynomials.z_perm[Flavor::FULL_CIRCUIT_SIZE - 1]);
     queue.add_commitment(key->z_perm, commitment_labels.z_perm);
 }
 

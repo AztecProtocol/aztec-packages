@@ -521,10 +521,10 @@ class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<arithmetization
     barretenberg::fq get_computation_result()
     {
         ASSERT(num_gates > 0);
-        return (uint256_t(get_variable(wires[WireIds::ACCUMULATORS_BINARY_LIMBS_0][0])) +
-                uint256_t(get_variable(wires[WireIds::ACCUMULATORS_BINARY_LIMBS_1][0])) * SHIFT_1 +
-                uint256_t(get_variable(wires[WireIds::ACCUMULATORS_BINARY_LIMBS_2][0])) * SHIFT_2 +
-                uint256_t(get_variable(wires[WireIds::ACCUMULATORS_BINARY_LIMBS_3][0])) * SHIFT_3);
+        return (uint256_t(get_variable(wires[WireIds::ACCUMULATORS_BINARY_LIMBS_0][1])) +
+                uint256_t(get_variable(wires[WireIds::ACCUMULATORS_BINARY_LIMBS_1][1])) * SHIFT_1 +
+                uint256_t(get_variable(wires[WireIds::ACCUMULATORS_BINARY_LIMBS_2][1])) * SHIFT_2 +
+                uint256_t(get_variable(wires[WireIds::ACCUMULATORS_BINARY_LIMBS_3][1])) * SHIFT_3);
     }
     /**
      * @brief Generate all the gates required to proof the correctness of batched evalution of polynomials representing
@@ -603,9 +603,9 @@ class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<arithmetization
          * @brief Enumerate through the gates
          *
          */
-        for (size_t i = 0; i < num_gates - 1; i++) {
+        for (size_t i = 1; i < num_gates - 1; i++) {
             // The main relation is computed between odd and the next even indices. For example, 1 and 2
-            if (!(i & 1)) {
+            if ((i & 1)) {
                 // Get the values
                 Fr op_code = get_variable(op_wire[i]);
                 Fr p_x_lo = get_variable(x_lo_y_hi_wire[i]);

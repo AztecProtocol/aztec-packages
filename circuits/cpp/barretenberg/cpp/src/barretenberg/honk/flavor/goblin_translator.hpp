@@ -482,6 +482,13 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
                      ordered_extra_range_constraints_denominator };
         };
 
+        std::vector<HandleType> get_concatenation_targets()
+        {
+            return { concatenated_range_constraints_0,
+                     concatenated_range_constraints_1,
+                     concatenated_range_constraints_2,
+                     concatenated_range_constraints_3 };
+        }
         std::vector<std::vector<HandleType>> get_concatenation_groups()
         {
             return {

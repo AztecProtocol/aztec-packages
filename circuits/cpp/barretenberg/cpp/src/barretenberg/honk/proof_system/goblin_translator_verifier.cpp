@@ -94,7 +94,7 @@ template <typename Flavor> bool GoblinTranslatorVerifier_<Flavor>::verify_proof(
         return false;
     }
     // TODO:remove;
-    return true;
+    // return true;
 
     auto [multivariate_challenge, purported_evaluations] = *sumcheck_output;
 

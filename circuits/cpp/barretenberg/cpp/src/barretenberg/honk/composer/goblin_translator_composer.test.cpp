@@ -1,7 +1,9 @@
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <gtest/gtest.h>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #include "barretenberg/common/log.hpp"
@@ -34,6 +36,46 @@ std::vector<uint32_t> add_variables(auto& circuit_constructor, std::vector<fr> v
 void prove_and_verify(auto& circuit_constructor, auto& composer, bool expected_result)
 {
     auto prover = composer.create_prover(circuit_constructor);
+    // auto proving_key = prover.key;
+    // std::unordered_map<uint64_t, size_t> numerator_unique;
+    // std::unordered_map<uint64_t, size_t> denominator_unique;
+    // auto add_to_numerator = [&](auto& polynomial, size_t i) {
+    //     uint64_t low = uint256_t(polynomial[i]).data[0];
+    //     if (numerator_unique.contains(low)) {
+    //         numerator_unique[low] += 1;
+    //     } else {
+    //         numerator_unique[low] = 1;
+    //     }
+    // };
+    // auto add_to_denominator = [&](auto& polynomial, size_t i) {
+    //     uint64_t low = uint256_t(polynomial[i]).data[0];
+    //     if (denominator_unique.contains(low)) {
+    //         denominator_unique[low] += 1;
+    //     } else {
+    //         denominator_unique[low] = 1;
+    //     }
+    // };
+    // for (size_t i = 0; i < proving_key->circuit_size; i++) {
+    //     add_to_numerator(proving_key->concatenated_range_constraints_0, i);
+    //     add_to_numerator(proving_key->concatenated_range_constraints_1, i);
+    //     add_to_numerator(proving_key->concatenated_range_constraints_2, i);
+    //     add_to_numerator(proving_key->concatenated_range_constraints_3, i);
+    //     add_to_denominator(proving_key->ordered_range_constraints_0, i);
+    //     add_to_denominator(proving_key->ordered_range_constraints_1, i);
+    //     add_to_denominator(proving_key->ordered_range_constraints_2, i);
+    //     add_to_denominator(proving_key->ordered_range_constraints_3, i);
+    //     add_to_denominator(proving_key->ordered_extra_range_constraints_denominator, i);
+    //     add_to_numerator(proving_key->ordered_extra_range_constraints_numerator, i);
+    // }
+    // for (size_t i = 0; i < (1 << 12); i++) {
+    //     info(i,
+    //          " : ",
+    //          numerator_unique.contains(i) ? numerator_unique[i] : 0,
+    //          " / ",
+    //          denominator_unique.contains(i) ? denominator_unique[i] : 0);
+    // }
+    // EXPECT_EQ(numerator, denominator);
+    // return;
     auto verifier = composer.create_verifier(circuit_constructor);
     auto proof = prover.construct_proof();
     bool verified = verifier.verify_proof(proof);

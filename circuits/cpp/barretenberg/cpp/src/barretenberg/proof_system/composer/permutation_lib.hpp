@@ -18,6 +18,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <initializer_list>
+#include <iterator>
 #include <string>
 #include <utility>
 #include <vector>
@@ -540,7 +541,7 @@ template <typename Flavor> inline void compute_extra_range_constraint_numerator(
 {
 
     auto full_circuit_size = Flavor::FULL_CIRCUIT_SIZE;
-    typename Flavor::Polynomial extra_range_constraint_numerator(full_circuit_size);
+    auto& extra_range_constraint_numerator = proving_key->ordered_extra_range_constraints_numerator;
 
     auto sort_step = Flavor::SORT_STEP;
     auto num_concatenated_wires = Flavor::NUM_CONCATENATED_WIRES;
@@ -561,13 +562,15 @@ template <typename Flavor> inline void compute_extra_range_constraint_numerator(
                    sorted_elements.cend(),
                    extra_range_constraint_numerator.begin(),
                    [](size_t i) { return FF(i); });
+    auto read_end_offset = extra_range_constraint_numerator.begin();
+    std::advance(read_end_offset, sorted_elements_count);
     for (size_t i = 1; i < (num_concatenated_wires + 1); i++) {
-        std::copy(extra_range_constraint_numerator.begin(),
-                  extra_range_constraint_numerator.begin() + sorted_elements_count,
-                  extra_range_constraint_numerator.begin() + (i * sorted_elements_count));
-    }
 
-    proving_key->ordered_extra_range_constraints_numerator = std::move(extra_range_constraint_numerator);
+        auto starting_write_offset = extra_range_constraint_numerator.begin();
+        std::advance(starting_write_offset, i * sorted_elements_count);
+
+        std::copy(extra_range_constraint_numerator.begin(), read_end_offset, starting_write_offset);
+    }
 }
 
 /**
@@ -636,6 +639,25 @@ void compute_honk_generalized_sigma_permutations(const typename Flavor::CircuitB
         proving_key->get_id_polynomials(), mapping.ids, proving_key);
 }
 
+template <typename Flavor, typename StorageHandle> void compute_concatenated_polynomials(StorageHandle* proving_key)
+{
+    auto concatenation_groups = proving_key->get_concatenation_groups();
+    auto targets = proving_key->get_concatenation_targets();
+    auto ordering_function = [&](size_t i) {
+        auto my_group = concatenation_groups[i];
+        auto& current_target = targets[i];
+
+        for (size_t j = 0; j < my_group.size(); j++) {
+
+            auto starting_write_offset = current_target.begin();
+            auto finishing_read_offset = my_group[j].begin();
+            std::advance(starting_write_offset, j * Flavor::MINI_CIRCUIT_SIZE);
+            std::advance(finishing_read_offset, Flavor::MINI_CIRCUIT_SIZE);
+            std::copy(my_group[j].begin(), finishing_read_offset, starting_write_offset);
+        }
+    };
+    parallel_for(concatenation_groups.size(), ordering_function);
+}
 /**
  * @brief Compute range constrain permutation
  *
@@ -673,10 +695,10 @@ void compute_goblin_translator_range_constraint_ordered_polynomials(StorageHandl
     }
     std::vector<std::vector<uint32_t>> ordered_vectors_uint(num_concatenated_wires);
     //    num_concatenated_wires, barretenberg::Polynomial<FF>(full_circuit_size));
-    auto ordered_constraint_polynomials = std::vector{ proving_key->ordered_range_constraints_0,
-                                                       proving_key->ordered_range_constraints_1,
-                                                       proving_key->ordered_range_constraints_2,
-                                                       proving_key->ordered_range_constraints_3 };
+    auto ordered_constraint_polynomials = std::vector{ &proving_key->ordered_range_constraints_0,
+                                                       &proving_key->ordered_range_constraints_1,
+                                                       &proving_key->ordered_range_constraints_2,
+                                                       &proving_key->ordered_range_constraints_3 };
     std::vector<size_t> extra_denominator_uint((num_concatenated_wires + 1) * sorted_elements_count);
     auto concatenation_groups = proving_key->get_concatenation_groups();
     auto ordering_function = [&](size_t i) {
@@ -705,7 +727,7 @@ void compute_goblin_translator_range_constraint_ordered_polynomials(StorageHandl
         // ordered_constraint_polynomials[i] = std::move(Polynomial<FF>(full_circuit_size));
         std::transform(current_vector.cbegin(),
                        current_vector.cend(),
-                       ordered_constraint_polynomials[i].begin(),
+                       (*ordered_constraint_polynomials[i]).begin(),
                        [](uint32_t in) { return FF(in); });
     };
     parallel_for(num_concatenated_wires, ordering_function);
@@ -723,12 +745,5 @@ void compute_goblin_translator_range_constraint_ordered_polynomials(StorageHandl
                    extra_denominator_uint.cend(),
                    proving_key->ordered_extra_range_constraints_denominator.begin(),
                    [](uint32_t in) { return FF(in); });
-
-    // proving_key->ordered_range_constraints_0 = std::move(ordered_constraint_polynomials[0]);
-    // proving_key->ordered_range_constraints_1 = std::move(ordered_constraint_polynomials[1]);
-    // proving_key->ordered_range_constraints_2 = std::move(ordered_constraint_polynomials[2]);
-    // proving_key->ordered_range_constraints_3 = std::move(ordered_constraint_polynomials[3]);
-
-    //    proving_key->ordered_extra_range_constraints_denominator = std::move(extra_denominator);
 }
 } // namespace proof_system

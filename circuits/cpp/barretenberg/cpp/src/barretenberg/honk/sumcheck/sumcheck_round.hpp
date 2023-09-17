@@ -244,7 +244,6 @@ template <typename Flavor> class SumcheckProverRound {
     {
         std::get<relation_idx>(relations).add_edge_contribution(
             std::get<relation_idx>(univariate_accumulators), extended_edges, relation_parameters, scaling_factor);
-
         // Repeat for the next relation.
         if constexpr (relation_idx + 1 < NUM_RELATIONS) {
             accumulate_relation_univariates<relation_idx + 1>(

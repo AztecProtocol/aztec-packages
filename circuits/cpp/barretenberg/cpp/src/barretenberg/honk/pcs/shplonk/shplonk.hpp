@@ -2,6 +2,7 @@
 #include "barretenberg/honk/pcs/claim.hpp"
 #include "barretenberg/honk/pcs/commitment_key.hpp"
 #include "barretenberg/honk/transcript/transcript.hpp"
+#include <algorithm>
 
 /**
  * @brief Reduces multiple claims about commitments, each opened at a single point
@@ -161,10 +162,13 @@ template <typename Params> class ShplonkVerifier_ {
      * @return OpeningClaim
      */
     static OpeningClaim<Params> reduce_verification(std::shared_ptr<VK> vk,
-                                              std::span<const OpeningClaim<Params>> claims,
-                                              VerifierTranscript<Fr>& transcript)
+                                                    std::span<const OpeningClaim<Params>> claims,
+                                                    VerifierTranscript<Fr>& transcript)
     {
         const size_t num_claims = claims.size();
+        for (size_t i = 0; i < num_claims; i++) {
+            info("Claim ", i, ": ", claims[i]);
+        }
 
         const Fr nu = transcript.get_challenge("Shplonk:nu");
 
@@ -202,6 +206,7 @@ template <typename Params> class ShplonkVerifier_ {
             // G₀ += ρʲ / ( r − xⱼ ) ⋅ vⱼ
             G_commitment_constant += scaling_factor * opening_pair.evaluation;
             // [G] -= ρʲ / ( r − xⱼ )⋅[fⱼ]
+            info("Commitment", commitment);
             G_commitment -= commitment * scaling_factor;
 
             current_nu *= nu;

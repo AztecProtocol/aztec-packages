@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <gtest/gtest.h>
 
 #include "barretenberg/honk/composer/standard_composer.hpp"
@@ -14,6 +15,9 @@
 #include "barretenberg/honk/sumcheck/relations/permutation_relation.hpp"
 #include "barretenberg/honk/sumcheck/relations/relation_parameters.hpp"
 #include "barretenberg/honk/sumcheck/relations/ultra_arithmetic_relation.hpp"
+#include "barretenberg/numeric/random/engine.hpp"
+#include "barretenberg/numeric/uint128/uint128.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/plonk/proof_system/types/polynomial_manifest.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/proof_system/composer/permutation_lib.hpp"
@@ -556,7 +560,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorPermutationRelationCorrectness)
     using Flavor = honk::flavor::GoblinTranslatorBasic;
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
-
+    auto& engine = numeric::random::get_debug_engine();
     // Create a prover (it will compute proving key and witness)
     auto circuit_size = Flavor::MINI_CIRCUIT_SIZE * Flavor::CONCATENATION_INDEX;
 
@@ -585,6 +589,16 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorPermutationRelationCorrectness)
     prover_polynomials.lagrange_last[circuit_size - 1] = 1;
     info(prover_polynomials.lagrange_first[0]);
     info(prover_polynomials.lagrange_last[circuit_size - 1]);
+    for (size_t i = 0; i < 0; i++) {
+        prover_polynomials.concatenated_range_constraints_0[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.concatenated_range_constraints_1[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.concatenated_range_constraints_2[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.concatenated_range_constraints_3[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+    }
     // prover_polynomials.concatenated_range_constraints_0 = temporary_polynomial;
     // prover_polynomials.concatenated_range_constraints_1 = temporary_polynomial;
     // prover_polynomials.concatenated_range_constraints_2 = temporary_polynomial;
@@ -604,13 +618,9 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorPermutationRelationCorrectness)
     grand_product_library::compute_grand_product<Flavor, sumcheck::GoblinPermutationRelation<FF>>(
         circuit_size, prover_polynomials, params);
     prover_polynomials.z_perm_shift = polynomial_container[Flavor::ALL_ENTITIES_IDS::Z_PERM].shifted();
-    info("z_perm ", prover_polynomials.z_perm[0], "pointer: ", &prover_polynomials.z_perm[0]);
-    info("z_perm_shift ", prover_polynomials.z_perm_shift[0]);
-    for (size_t i = 0; i < circuit_size; i++) {
-        info("z_perm[", i, "]", prover_polynomials.z_perm[i]);
-    }
-    return;
-    info("z_perm[-1]", prover_polynomials.z_perm[circuit_size - 2]);
+    // for (size_t i = 0; i < circuit_size; i++) {
+    //     info(i, " : ", prover_polynomials.ordered_extra_range_constraints_numerator[i]);
+    // }
     // Construct the round for applying sumcheck relations and results for storing computed results
     auto relations = std::tuple(honk::sumcheck::GoblinPermutationRelation<FF>());
     // Check that each relation is satisfied across each row of the prover polynomials

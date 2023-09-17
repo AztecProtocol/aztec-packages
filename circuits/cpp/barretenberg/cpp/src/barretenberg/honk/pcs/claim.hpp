@@ -56,6 +56,14 @@ template <typename Params> class OpeningClaim {
     };
 
     bool operator==(const OpeningClaim& other) const = default;
+    friend std::ostream& operator<<(std::ostream& os, const OpeningClaim& a)
+    {
+        std::ios_base::fmtflags f(os.flags());
+        os << "{ " << a.opening_pair.evaluation << " = f( " << a.opening_pair.challenge
+           << ") for Comm(f) = " << a.commitment << " }";
+        os.flags(f);
+        return os;
+    }
 };
 
 /**

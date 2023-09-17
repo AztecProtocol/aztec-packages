@@ -90,6 +90,8 @@ template <typename Flavor> class SumcheckProver {
         // First round
         // This populates partially_evaluated_polynomials.
         auto round_univariate = round.compute_univariate(full_polynomials, relation_parameters, pow_univariate, alpha);
+        info("LAST: ", round_univariate);
+        info("FIRST FINISHED");
         transcript.send_to_verifier("Sumcheck:univariate_0", round_univariate);
         FF round_challenge = transcript.get_challenge("Sumcheck:u_0");
         multivariate_challenge.emplace_back(round_challenge);
