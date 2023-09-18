@@ -8,6 +8,26 @@ Get started with the Aztec Sandbox
 
 The Aztec Sandbox is an environment for local development on the Aztec Network. It's easy to get setup with just a single, simple command, and contains all the components needed to develop and test Aztec contracts and applications.
 
+### Background
+
+Aztec's Layer 2 network is a fully programmable combined private/public ZK rollup. To achieve this, the network contains the following primary components:
+
+- Aztec Node - Aggregates all of the 'backend' services necessary for the building and publishing of rollups. This packages is currently in development and much of the functionality is mocked.
+- [Aztec RPC Server](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/aztec-rpc) - Normally residing with the end client, this decrypts and stores a client's private state, executes simulations and submits transactions to the Aztec Node.
+- [Aztec.js](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/aztec.js) - Aztec's client library for interacting with the Aztec RPC Server (think Ethers.js). See the getting started guide [here](./aztecjs.md).
+
+All of this is included in the Sandbox, with the exception of Aztec.js which you can use to interact with it.
+
+With the help of Aztec.js you will be able to:
+
+- Create an account
+- Deploy a contract
+- Call view methods on contracts
+- Simulate the calling of contract functions
+- Send transactions to the network
+- Be notified when transactions settle
+- Query chain state such as chain id, block number etc.
+
 This quickstart walks you through installing the Sandbox, deploying your first Noir contract, and verifying its execution!
 
 ## Installation
