@@ -109,3 +109,4 @@ Aztec's Layer 2 network is a fully programmable combined private/public ZK rollu
 - Aztec Node - Aggregates all of the 'backend' services necessary for the building and publishing of rollups.
 - Aztec RPC Server - Normally residing with the end client, this decrypts and stores a client's private state, executes simulations and submits transactions to the Aztec Node.
 - [Aztec.js](./sandbox) - Aztec's client library for interacting with the Aztec RPC Server (think Ethers.js).
+- [Write your own contracts](./noir_contracts.md)

@@ -16,7 +16,19 @@ Aztec.nr contains abstractions which remove the need to understand the low-level
   - secrets
 - Functions for communicating with Ethereum L1
 
-To import Aztec.nr into your Aztec contract project, simply include it as a dependency.
+To import Aztec.nr into your Aztec contract project, simply include it as a dependency. For example:
 
-#include_code importing-aztec /yarn-project/noir-contracts/src/contracts/private_token_contract/Nargo.toml toml
+```toml
+[package]
+name = "token_contract"
+authors = [""]
+compiler_version = "0.1"
+type = "contract"
+
+[dependencies]
+aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="master", directory="yarn-project/aztec-nr/aztec" }
+value_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="master", directory="yarn-project/aztec-nr/value-note"}
+safe_math = { git="https://github.com/AztecProtocol/aztec-packages/", tag="master", directory="yarn-project/aztec-nr/safe-math"}
+```
+
 <DocCardList />

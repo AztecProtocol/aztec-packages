@@ -14,7 +14,7 @@ If you haven't read [Aztec Sandbox](./aztecjs.md), we recommend going there firs
 
 #### `nargo`
 
-Nargo is Noir's build tool. On your terminal, run: 
+Nargo is Noir's build tool. On your terminal, run:
 
 <InstallNargoInstructions />
 
@@ -26,7 +26,7 @@ You need to setup the [Aztec sandbox](./aztecjs.md).
 
 ## Set up for aztec.nr contracts
 
-1. Inside the yarn project you created from the [Sandbox](./aztecjs.md) page, create a sub-folder where the contracts will reside.
+1. Inside the yarn project you created from the [Aztec.js](./aztecjs.md) page, create a sub-folder where the contracts will reside.
 
 ```bash
 mkdir contracts
