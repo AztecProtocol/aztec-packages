@@ -37,12 +37,6 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
     // number of gates created per non-native field operation in process_non_native_field_multiplications
     static constexpr size_t GATES_PER_NON_NATIVE_FIELD_MULTIPLICATION_ARITHMETIC = 7;
 
-    // // Indices for constant variables corresponding to ECCOpQueue op codes
-    // uint32_t null_op_idx;
-    // uint32_t add_accum_op_idx;
-    // uint32_t mul_accum_op_idx;
-    // uint32_t equality_op_idx;
-
     struct non_native_field_witnesses {
         // first 4 array elements = limbs
         // 5th element = prime basis limb

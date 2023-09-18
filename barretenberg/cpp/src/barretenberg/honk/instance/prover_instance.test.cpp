@@ -88,7 +88,6 @@ template <class Flavor> class InstanceTests : public testing::Test {
     };
 };
 
-// using FlavorTypes = testing::Types<flavor::Ultra, flavor::UltraGrumpkin>;
 using FlavorTypes = testing::Types<flavor::Ultra, flavor::UltraGrumpkin, flavor::GoblinUltra>;
 TYPED_TEST_SUITE(InstanceTests, FlavorTypes);
 
