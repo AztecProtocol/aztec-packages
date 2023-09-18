@@ -22,7 +22,7 @@
 # - Perform the build of the image itself. With the cache primed we should only have to rebuild the necessary layers.
 # - Push the image tagged with the commit hash to the cache.
 
-set -euox pipefail
+set -euo pipefail
 
 REPOSITORY=$1
 FORCE_BUILD=${2:-"false"}
