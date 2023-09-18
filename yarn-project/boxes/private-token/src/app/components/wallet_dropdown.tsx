@@ -1,5 +1,5 @@
-import { CompleteAddress } from '@aztec/aztec.js';
 import { Loader } from '@aztec/aztec-ui';
+import { CompleteAddress } from '@aztec/aztec.js';
 import { useEffect, useState } from 'react';
 import { rpcClient } from '../../config.js';
 import { Select } from './select.js';

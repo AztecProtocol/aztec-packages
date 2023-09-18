@@ -1,8 +1,8 @@
-import * as Yup from 'yup';
 import { Button, Card, CardTheme, Loader } from '@aztec/aztec-ui';
 import { AztecAddress, CompleteAddress, Fr } from '@aztec/aztec.js';
 import { ContractAbi, FunctionAbi } from '@aztec/foundation/abi';
 import { useFormik } from 'formik';
+import * as Yup from 'yup';
 import { CONTRACT_ADDRESS_PARAM_NAMES, DEFAULT_PUBLIC_ADDRESS, rpcClient } from '../../config.js';
 import { callContractFunction, deployContract, viewContractFunction } from '../../scripts/index.js';
 import { convertArgs } from '../../scripts/util.js';
@@ -162,7 +162,7 @@ export function ContractFunctionForm({
                 )}
               </div>
             ))}
-            {isLoading ? <Loader /> : <Button disabled={disabled} text={buttonText} className={styles.actionButton} />}
+            {isLoading ? <Loader /> : <Button disabled={disabled} text={buttonText} className={styles.actionButton} type='submit' />}
           </form>
         }
       />
