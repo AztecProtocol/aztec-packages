@@ -1,4 +1,120 @@
-rent image to continue.
+#!/bin/bash
+#
+# Builds a docker image and pushes it to it's repository. Leverages caches where possible.
+# Cached images include previous successfully built images (including multi-stages) built on this branch.
+# The images output are cache images, meaning they will eventually get purged.
+# The deploy phase will tag the images such that they become permanent.
+#
+# usage: ./build <repository>
+# example: ./build aztec-connect-cpp-x86_64-linux-clang
+# output image:
+#   278380418400.dkr.ecr.us-east-2.amazonaws.com/aztec-connect-cpp-x86_64-linux-clang:cache-deadbeefcafebabe1337c0d3
+#
+# In more detail:
+# - Init all submodules required to build this project.
+# - Log into cache ECR, and ensures repository exists.
+# - Checks if current project needs to be rebuilt, if not, retag previous image with current commit hash and early out.
+# - Validate any terraform that may exist.
+# - Pull down dependent images that we do not control (e.g. alpine etc).
+# - For images we do control, pull the image we've built (or retagged) as part of this build.
+# - For each "named stage" (usually intermittent builders before creating final image), pull previous to prime the cache, build and push the results.
+# - Pull previous project image to use it as a layer cache if it exists.
+# - Perform the build of the image itself. With the cache primed we should only have to rebuild the necessary layers.
+# - Push the image tagged with the commit hash to the cache.
+
+set -euo pipefail
+
+REPOSITORY=$1
+FORCE_BUILD=${2:-"false"}
+ARCH=${3:-""}
+DOCKERFILE=$(query_manifest dockerfile $REPOSITORY)
+PROJECT_DIR=$(query_manifest projectDir $REPOSITORY)
+BUILD_DIR=$(query_manifest buildDir $REPOSITORY)
+
+echo "Repository: $REPOSITORY"
+echo "Working directory: $PWD"
+echo "Dockerfile: $DOCKERFILE"
+echo "Build directory: $BUILD_DIR"
+echo "Arch: $ARCH"
+
+# Fetch images with retries
+function fetch_image() {
+  echo "Pulling: $1"
+  if ! retry docker pull $1 > /dev/null 2>&1; then
+    echo "Image not found: $1"
+    return 1
+  fi
+  return 0
+}
+
+# Fetch images, but don't assume this will work
+function try_fetch_image() {
+  echo "Pulling: $1"
+  if ! docker pull $1 > /dev/null 2>&1; then
+    echo "Image not found: $1"
+    return 1
+  fi
+  return 0
+}
+
+function docker_login() {
+  # Retries up to 3 times with 10 second intervals
+  for i in $(seq 1 3); do
+    echo "$DOCKERHUB_PASSWORD" | docker login -u aztecprotocolci --password-stdin && return || sleep 10
+  done
+  echo "$@ failed docker_login after 3 attempts"
+  exit 1
+}
+
+docker_login
+
+# Ensure ECR repository exists.
+retry ensure_repo $REPOSITORY $ECR_REGION refresh_lifecycle
+
+CONTENT_HASH=$(calculate_content_hash $REPOSITORY)
+echo "Content hash: $CONTENT_HASH"
+
+cd $BUILD_DIR
+
+# If we have previously successful commit, we can early out if nothing relevant has changed since.
+if [[ $FORCE_BUILD == 'false' ]] && check_rebuild cache-"$CONTENT_HASH" $REPOSITORY; then
+  echo "No rebuild necessary."
+  untag_remote_image $REPOSITORY tainted
+  exit 0
+fi
+
+init_submodules $REPOSITORY
+
+# Validate any terraform if it exists.
+if [ -d $ROOT_PATH/$PROJECT_DIR/terraform ]; then
+  ensure_terraform
+  export TF_IN_AUTOMATION=1
+  pushd $ROOT_PATH/$PROJECT_DIR/terraform
+  for DIR in . $(find . -maxdepth 1 -type d); do
+    pushd $DIR
+    if [ -f ./main.tf ]; then
+      terraform init -input=false -backend-config="key=dummy"
+      terraform validate
+    fi
+    popd
+  done
+  popd
+fi
+
+# Pull latest parents that are not ours. We also do not want to pull images suffixed by _, this is how we scope intermediate build images.
+PARENTS=$(cat $DOCKERFILE | sed -n -e 's/^FROM \([^[:space:]]\+\).*/\1/p' | sed '/_$/d' | grep -v $ECR_DEPLOY_URL  | sort | uniq)
+for PARENT in $PARENTS; do
+  [ "$PARENT" == "scratch" ] && continue
+  fetch_image $PARENT
+done
+
+# For each parent that's ours, pull in the latest image.
+PARENTS=$(cat $DOCKERFILE | sed -n -e "s/^FROM $ECR_DEPLOY_URL\/\([^[:space:]]\+\).*/\1/p")
+for PARENT in $PARENTS; do
+  # Extract repository name (i.e. discard tag).
+  PARENT_REPO=${PARENT%:*}
+  PARENT_CONTENT_HASH=$(calculate_content_hash $PARENT_REPO)
+  # There must be a parent image to continue.
   if [ -z "$PARENT_CONTENT_HASH" ]; then
     echo "No parent image found for $PARENT_REPO"
     exit 1
@@ -26,16 +142,16 @@ for STAGE in $STAGES; do
       STAGE_CACHE_FROM="--cache-from $STAGE_IMAGE_LAST_URI"
     fi
   fi
-
+  
   echo "Building stage: $STAGE"
   STAGE_IMAGE_COMMIT_URI=$ECR_URL/$REPOSITORY:cache-$CONTENT_HASH-$STAGE
   # Build our dockerfile, add timing information
   docker build --target $STAGE $STAGE_CACHE_FROM -t $STAGE_IMAGE_COMMIT_URI -f $DOCKERFILE --build-arg COMMIT_TAG=$COMMIT_TAG_VERSION --build-arg ARG_CONTENT_HASH=$CONTENT_HASH . \
   | while read line ; do echo "$(date "+%H:%M:%S")| $line"; done
-
+  
   # We don't want to have redo this stages work when building the final image. Use it as a layer cache.
   CACHE_FROM="--cache-from $STAGE_IMAGE_COMMIT_URI $CACHE_FROM"
-
+  
   echo "Pushing stage: $STAGE"
   retry docker push $STAGE_IMAGE_COMMIT_URI > /dev/null 2>&1
   echo
