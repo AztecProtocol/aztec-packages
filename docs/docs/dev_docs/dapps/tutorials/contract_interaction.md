@@ -4,7 +4,7 @@ In this section, we'll write the logic in our app that will interact with the co
 
 ## Showing user balance
 
-Let's start by showing our user balance for the private token across their accounts. To do this, we can leverage the `balance_of_private` [unconstrained](../../contracts/functions.md#unconstrained-functions) view function of the private token contract:
+Let's start by showing our user balance for the private token across their accounts. To do this, we can leverage the `balance_of_private` unconstrained view function of the private token contract:
 
 #include_code balance_of_private yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
 

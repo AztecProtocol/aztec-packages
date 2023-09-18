@@ -42,6 +42,8 @@ To install and start the Sandbox paste the line below in a macOS Terminal or Lin
 /bin/bash -c "$(curl -fsSL 'https://sandbox.aztec.network')"
 ```
 
+This will attempt to run the Sandbox on localhost:8080, so you will have to make sure nothing else is running on that port or change the port defined in `./.aztec/docker-compose.yml`. Running the command again will overwrite any changes made to the docker-compose.yml.
+
 To install a specific version of the sandbox, you can set the environment variable `SANDBOX_VERSION`
 
 ```bash
