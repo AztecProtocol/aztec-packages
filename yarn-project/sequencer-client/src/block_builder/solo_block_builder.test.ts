@@ -1,7 +1,6 @@
 import {
   AppendOnlyTreeSnapshot,
   BaseOrMergeRollupPublicInputs,
-  BaseRollupInputs,
   CircuitsWasm,
   Fr,
   GlobalVariables,
@@ -11,6 +10,7 @@ import {
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  NULLIFIER_SUBTREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   Proof,
   PublicDataUpdateRequest,
@@ -138,7 +138,7 @@ describe('sequencer/solo_block_builder', () => {
     await expectsDb.batchInsert(
       MerkleTreeId.NULLIFIER_TREE,
       flatMap(txs, tx => tx.data.end.newNullifiers.map(x => x.toBuffer())),
-      BaseRollupInputs.NULLIFIER_SUBTREE_HEIGHT,
+      NULLIFIER_SUBTREE_HEIGHT,
     );
     for (const write of txs.flatMap(tx => tx.data.end.publicDataUpdateRequests)) {
       await expectsDb.updateLeaf(MerkleTreeId.PUBLIC_DATA_TREE, write.newValue.toBuffer(), write.leafIndex.value);
@@ -157,7 +157,7 @@ describe('sequencer/solo_block_builder', () => {
       rootRollupOutput.endPrivateDataTreeSnapshot.root,
       rootRollupOutput.endNullifierTreeSnapshot.root,
       rootRollupOutput.endContractTreeSnapshot.root,
-      rootRollupOutput.endL1ToL2MessageTreeSnapshot.root,
+      rootRollupOutput.endL1ToL2MessagesTreeSnapshot.root,
       rootRollupOutput.endPublicDataTreeRoot,
     );
     await expectsDb.appendLeaves(MerkleTreeId.BLOCKS_TREE, [blockHash.toBuffer()]);
@@ -208,7 +208,7 @@ describe('sequencer/solo_block_builder', () => {
     rootRollupOutput.endPrivateDataTreeSnapshot = await getTreeSnapshot(MerkleTreeId.PRIVATE_DATA_TREE);
     rootRollupOutput.endPublicDataTreeRoot = (await getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE)).root;
 
-    rootRollupOutput.endL1ToL2MessageTreeSnapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGES_TREE);
+    rootRollupOutput.endL1ToL2MessagesTreeSnapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGES_TREE);
 
     // Calculate block hash
     rootRollupOutput.globalVariables = globalVariables;
@@ -241,8 +241,8 @@ describe('sequencer/solo_block_builder', () => {
       endContractTreeSnapshot: rootRollupOutput.endContractTreeSnapshot,
       startPublicDataTreeRoot: rootRollupOutput.startPublicDataTreeRoot,
       endPublicDataTreeRoot: rootRollupOutput.endPublicDataTreeRoot,
-      startL1ToL2MessageTreeSnapshot: rootRollupOutput.startL1ToL2MessageTreeSnapshot,
-      endL1ToL2MessageTreeSnapshot: rootRollupOutput.endL1ToL2MessageTreeSnapshot,
+      startL1ToL2MessagesTreeSnapshot: rootRollupOutput.startL1ToL2MessagesTreeSnapshot,
+      endL1ToL2MessagesTreeSnapshot: rootRollupOutput.endL1ToL2MessagesTreeSnapshot,
       startHistoricBlocksTreeSnapshot: rootRollupOutput.startHistoricBlocksTreeSnapshot,
       endHistoricBlocksTreeSnapshot: rootRollupOutput.endHistoricBlocksTreeSnapshot,
       newCommitments,
@@ -356,7 +356,7 @@ describe('sequencer/solo_block_builder', () => {
         expect(contractTreeAfter.root).toEqual(expectedContractTreeAfter);
         expect(contractTreeAfter.size).toEqual(BigInt(totalCount));
       },
-      10000,
+      30000,
     );
 
     it('builds an empty L2 block', async () => {
@@ -372,18 +372,19 @@ describe('sequencer/solo_block_builder', () => {
     }, 10_000);
 
     it('builds a mixed L2 block', async () => {
+      // Ensure that each transaction has unique (non-intersecting nullifier values)
       const txs = await Promise.all([
-        makeBloatedProcessedTx(32),
-        makeBloatedProcessedTx(64),
-        makeBloatedProcessedTx(96),
-        makeBloatedProcessedTx(128),
+        makeBloatedProcessedTx(1 * MAX_NEW_NULLIFIERS_PER_TX),
+        makeBloatedProcessedTx(2 * MAX_NEW_NULLIFIERS_PER_TX),
+        makeBloatedProcessedTx(3 * MAX_NEW_NULLIFIERS_PER_TX),
+        makeBloatedProcessedTx(4 * MAX_NEW_NULLIFIERS_PER_TX),
       ]);
 
       const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 
       const [l2Block] = await builder.buildL2Block(globalVariables, txs, l1ToL2Messages);
       expect(l2Block.number).toEqual(blockNumber);
-    }, 20_000);
+    }, 40_000);
 
     // This test specifically tests nullifier values which previously caused e2e_private_token test to fail
     it('e2e_private_token edge case regression test on nullifier values', async () => {
@@ -410,7 +411,7 @@ describe('sequencer/solo_block_builder', () => {
       await builderDb.batchInsert(
         MerkleTreeId.NULLIFIER_TREE,
         updateVals.map(v => toBufferBE(v, 32)),
-        BaseRollupInputs.NULLIFIER_SUBTREE_HEIGHT,
+        NULLIFIER_SUBTREE_HEIGHT,
       );
 
       const [l2Block] = await builder.buildL2Block(globalVariables, txs, mockL1ToL2Messages);

@@ -1,15 +1,15 @@
-import { AztecRPC, CompleteAddress, PrivateKey } from '@aztec/types';
+import { AztecRPC, CompleteAddress, GrumpkinPrivateKey } from '@aztec/types';
 
 import { AccountContract, AccountWallet, AztecAddress, Fr } from '../index.js';
-import { Account } from './account.js';
 import { EcdsaAccountContract } from './contract/ecdsa_account_contract.js';
 import { SchnorrAccountContract } from './contract/schnorr_account_contract.js';
 import { SingleKeyAccountContract } from './contract/single_key_account_contract.js';
+import { AccountManager } from './manager/index.js';
 
-export { Account } from './account.js';
 export * from './contract/index.js';
-export * from './entrypoint/index.js';
-export { CompleteAddress };
+export * from './defaults/index.js';
+export { AccountInterface, AuthWitnessProvider } from './interface.js';
+export { AccountManager, CompleteAddress };
 
 /** A contract deployment salt. */
 export type Salt = Fr | number | bigint;
@@ -23,11 +23,11 @@ export type Salt = Fr | number | bigint;
  */
 export function getEcdsaAccount(
   rpc: AztecRPC,
-  encryptionPrivateKey: PrivateKey,
-  signingPrivateKey: PrivateKey,
+  encryptionPrivateKey: GrumpkinPrivateKey,
+  signingPrivateKey: Buffer,
   saltOrAddress?: Salt | CompleteAddress,
-): Account {
-  return new Account(rpc, encryptionPrivateKey, new EcdsaAccountContract(signingPrivateKey), saltOrAddress);
+): AccountManager {
+  return new AccountManager(rpc, encryptionPrivateKey, new EcdsaAccountContract(signingPrivateKey), saltOrAddress);
 }
 
 /**
@@ -39,11 +39,11 @@ export function getEcdsaAccount(
  */
 export function getSchnorrAccount(
   rpc: AztecRPC,
-  encryptionPrivateKey: PrivateKey,
-  signingPrivateKey: PrivateKey,
+  encryptionPrivateKey: GrumpkinPrivateKey,
+  signingPrivateKey: GrumpkinPrivateKey,
   saltOrAddress?: Salt | CompleteAddress,
-): Account {
-  return new Account(rpc, encryptionPrivateKey, new SchnorrAccountContract(signingPrivateKey), saltOrAddress);
+): AccountManager {
+  return new AccountManager(rpc, encryptionPrivateKey, new SchnorrAccountContract(signingPrivateKey), saltOrAddress);
 }
 
 /**
@@ -54,10 +54,10 @@ export function getSchnorrAccount(
  */
 export function getUnsafeSchnorrAccount(
   rpc: AztecRPC,
-  encryptionAndSigningPrivateKey: PrivateKey,
+  encryptionAndSigningPrivateKey: GrumpkinPrivateKey,
   saltOrAddress?: Salt | CompleteAddress,
-): Account {
-  return new Account(
+): AccountManager {
+  return new AccountManager(
     rpc,
     encryptionAndSigningPrivateKey,
     new SingleKeyAccountContract(encryptionAndSigningPrivateKey),
@@ -75,7 +75,7 @@ export function getUnsafeSchnorrAccount(
 export function getUnsafeSchnorrWallet(
   rpc: AztecRPC,
   address: AztecAddress,
-  signingKey: PrivateKey,
+  signingKey: GrumpkinPrivateKey,
 ): Promise<AccountWallet> {
   return getWallet(rpc, address, new SingleKeyAccountContract(signingKey));
 }
@@ -85,18 +85,18 @@ export function getUnsafeSchnorrWallet(
  * @param rpc - An AztecRPC server instance.
  * @param address - Address for the account.
  * @param accountContract - Account contract implementation.
- * * @returns A wallet for this account that can be used to interact with a contract instance.
+ * @returns A wallet for this account that can be used to interact with a contract instance.
  */
 export async function getWallet(
   rpc: AztecRPC,
   address: AztecAddress,
   accountContract: AccountContract,
 ): Promise<AccountWallet> {
-  const completeAddress = await rpc.getAccount(address);
+  const completeAddress = await rpc.getRegisteredAccount(address);
   if (!completeAddress) {
     throw new Error(`Account ${address} not found`);
   }
   const nodeInfo = await rpc.getNodeInfo();
-  const entrypoint = await accountContract.getEntrypoint(completeAddress, nodeInfo);
-  return new AccountWallet(rpc, entrypoint, completeAddress);
+  const entrypoint = await accountContract.getInterface(completeAddress, nodeInfo);
+  return new AccountWallet(rpc, entrypoint);
 }

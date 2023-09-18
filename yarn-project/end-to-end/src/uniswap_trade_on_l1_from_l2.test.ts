@@ -189,12 +189,10 @@ describe('uniswap_trade_on_l1_from_l2', () => {
 
     // 4. Send L2 to L1 message to withdraw funds and another message to swap assets.
     logger('Send L2 tx to withdraw WETH to uniswap portal and send message to swap assets on L1');
-    const selector = wethCrossChainHarness.l2Contract.methods.withdraw.selector.toField();
     const minimumOutputAmount = 0;
 
     const withdrawTx = uniswapL2Contract.methods
       .swap(
-        selector,
         wethCrossChainHarness.l2Contract.address.toField(),
         wethAmountToBridge,
         new Fr(3000),
@@ -207,7 +205,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
         ethAccount.toField(),
         ethAccount.toField(),
       )
-      .send({ origin: owner });
+      .send();
     await withdrawTx.isMined({ interval: 0.1 });
     const withdrawReceipt = await withdrawTx.getReceipt();
     expect(withdrawReceipt.status).toBe(TxStatus.MINED);

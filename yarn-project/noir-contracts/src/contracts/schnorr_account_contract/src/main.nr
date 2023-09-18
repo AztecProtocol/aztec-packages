@@ -1,60 +1,35 @@
-mod storage;
 mod public_key_note;
 
 // Account contract that uses Schnorr signatures for authentication.
 // The signing key is stored in an immutable private note and should be different from the encryption/nullifying key.
 contract SchnorrAccount {
     use dep::std;
-    use dep::std::option::Option;
-    use dep::aztec::entrypoint;
-    use dep::aztec::entrypoint::EntrypointPayload;
-    use dep::aztec::abi::CallContext;
-    use dep::aztec::private_call_stack_item::PrivateCallStackItem;
-    use dep::aztec::public_call_stack_item::PublicCallStackItem;
-    use dep::aztec::log::emit_encrypted_log;
-    use dep::aztec::oracle::get_public_key::get_public_key;
-    use dep::aztec::types::vec::BoundedVec;
-    use dep::aztec::types::point::Point;
-    use dep::aztec::note::utils as note_utils;
-    use dep::aztec::note::note_header::NoteHeader;
-    use dep::aztec::constants_gen::MAX_NOTE_FIELDS_LENGTH;
-    use dep::aztec::constants_gen::GENERATOR_INDEX__CONTRACT_ADDRESS;
-    use dep::aztec::constants_gen::GENERATOR_INDEX__SIGNATURE_PAYLOAD;
 
-    use crate::storage::Storage;
-    use crate::public_key_note::PublicKeyNote;
-    use crate::public_key_note::PublicKeyNoteMethods;
-    use crate::public_key_note::PUBLIC_KEY_NOTE_LEN;
+    use dep::aztec::{
+        context::{PrivateContext, PublicContext, Context},
+        entrypoint::{ENTRYPOINT_PAYLOAD_SIZE, EntrypointPayload},
+        log::emit_encrypted_log,
+        note::{ note_header::NoteHeader, utils as note_utils },
+        oracle::{ get_public_key::get_public_key, auth_witness::get_auth_witness },
+        state_vars::immutable_singleton::ImmutableSingleton,
+        account::AccountActions,
+    };
 
-    // docs:start:entrypoint
-    #[aztec(private)]
-    fn entrypoint(
-        payload: pub EntrypointPayload, // contains a set of arguments, selectors, targets and a nonce
-        signature: pub [u8;64], // schnorr signature of the payload hash
-    ) {
-        // Load public key from storage
-        let storage = Storage::init(Option::some(&mut context), Option::none());
-        let public_key = storage.signing_public_key.get_note();
+    use crate::public_key_note::{PublicKeyNote, PublicKeyNoteMethods, PUBLIC_KEY_NOTE_LEN};
 
-        // Verify payload signature
-        let payload_fields: [Field; entrypoint::ENTRYPOINT_PAYLOAD_SIZE] = payload.serialize();
-        let message_field: Field = std::hash::pedersen_with_separator(payload_fields, GENERATOR_INDEX__SIGNATURE_PAYLOAD)[0];
-        // TODO workaround for https://github.com/noir-lang/noir/issues/2421
-        let message_bytes_slice = message_field.to_be_bytes(32);
-        let mut message_bytes: [u8; 32] = [0; 32];
-        for i in 0..32 {
-          message_bytes[i] = message_bytes_slice[i];
-        }
-
-        // Verify signature of the payload bytes
-        let verification = std::schnorr::verify_signature(public_key.x, public_key.y, signature, message_bytes);
-        assert(verification == true);
-
-        // docs:end:entrypoint
-
-        // Execute calls
-        payload.execute_calls(&mut context);
+    struct Storage {
+        signing_public_key: ImmutableSingleton<PublicKeyNote, PUBLIC_KEY_NOTE_LEN>,
     }
+
+    impl Storage {
+        fn init(context: Context) -> pub Self {
+            Storage {
+                signing_public_key: ImmutableSingleton::new(context, 1, PublicKeyNoteMethods),
+            }
+        }
+    }
+
+    global ACCOUNT_ACTIONS_STORAGE_SLOT = 2;
 
     // Constructs the contract
     #[aztec(private)]
@@ -62,7 +37,7 @@ contract SchnorrAccount {
         signing_pub_key_x: pub Field,
         signing_pub_key_y: pub Field,
     ) {
-        let storage = Storage::init(Option::some(&mut context), Option::none());
+        let storage = Storage::init(Context::private(&mut context));
         
         let this = context.this_address();
         let mut pub_key_note = PublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this);
@@ -75,6 +50,49 @@ contract SchnorrAccount {
             get_public_key(this),
             pub_key_note.serialise(),
         );
+    }
+
+    #[aztec(private)]
+    fn entrypoint(payload: pub EntrypointPayload) {
+        let actions = AccountActions::private(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
+        actions.entrypoint(payload);
+    }
+
+    #[aztec(private)]
+    fn is_valid(message_hash: Field) -> Field {
+        let actions = AccountActions::private(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
+        actions.is_valid(message_hash)
+    }
+
+    #[aztec(public)]
+    fn is_valid_public(message_hash: Field) -> Field {
+        let actions = AccountActions::public(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
+        actions.is_valid_public(message_hash)
+    }
+
+    #[aztec(public)]
+    internal fn set_is_valid_storage(message_hash: Field, value: bool) {
+        let actions = AccountActions::public(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
+        actions.internal_set_is_valid_storage(message_hash, value)
+    }
+
+    #[contract_library_method]
+    fn is_valid_impl(context: &mut PrivateContext, message_hash: Field) -> pub bool {
+        // docs:start:entrypoint
+        // Load public key from storage
+        let storage = Storage::init(Context::private(context));
+        let public_key = storage.signing_public_key.get_note();
+
+        // Load auth witness
+        let witness: [Field; 64] = get_auth_witness(message_hash);
+        let mut signature: [u8; 64] = [0; 64];
+        for i in 0..64 { signature[i] = witness[i] as u8; }
+
+        // Verify signature of the payload bytes
+        let verification = std::schnorr::verify_signature(public_key.x, public_key.y, signature, message_hash.to_be_bytes(32));
+        assert(verification == true);
+        // docs:end:entrypoint
+        true
     }
 
     // Computes notes hash and nullifier.

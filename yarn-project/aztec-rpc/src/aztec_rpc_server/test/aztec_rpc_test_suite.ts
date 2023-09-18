@@ -27,13 +27,13 @@ export const aztecRpcTestSuite = (testName: string, aztecRpcSetup: () => Promise
       await rpc.registerAccount(await keyPair.getPrivateKey(), completeAddress.partialAddress);
 
       // Check that the account is correctly registered using the getAccounts and getRecipients methods
-      const accounts = await rpc.getAccounts();
+      const accounts = await rpc.getRegisteredAccounts();
       const recipients = await rpc.getRecipients();
       expect(accounts).toContainEqual(completeAddress);
       expect(recipients).not.toContainEqual(completeAddress);
 
       // Check that the account is correctly registered using the getAccount and getRecipient methods
-      const account = await rpc.getAccount(completeAddress.address);
+      const account = await rpc.getRegisteredAccount(completeAddress.address);
       const recipient = await rpc.getRecipient(completeAddress.address);
       expect(account).toEqual(completeAddress);
       expect(recipient).toBeUndefined();
@@ -45,13 +45,13 @@ export const aztecRpcTestSuite = (testName: string, aztecRpcSetup: () => Promise
       await rpc.registerRecipient(completeAddress);
 
       // Check that the recipient is correctly registered using the getAccounts and getRecipients methods
-      const accounts = await rpc.getAccounts();
+      const accounts = await rpc.getRegisteredAccounts();
       const recipients = await rpc.getRecipients();
       expect(accounts).not.toContainEqual(completeAddress);
       expect(recipients).toContainEqual(completeAddress);
 
       // Check that the recipient is correctly registered using the getAccount and getRecipient methods
-      const account = await rpc.getAccount(completeAddress.address);
+      const account = await rpc.getRegisteredAccount(completeAddress.address);
       const recipient = await rpc.getRecipient(completeAddress.address);
       expect(account).toBeUndefined();
       expect(recipient).toEqual(completeAddress);
@@ -99,13 +99,14 @@ export const aztecRpcTestSuite = (testName: string, aztecRpcSetup: () => Promise
     it('throws when simulating a tx targeting public entrypoint', async () => {
       const functionData = FunctionData.empty();
       functionData.isPrivate = false;
-      const txExecutionRequest = new TxExecutionRequest(
-        AztecAddress.random(),
+      const txExecutionRequest = TxExecutionRequest.from({
+        origin: AztecAddress.random(),
+        argsHash: new Fr(0),
         functionData,
-        new Fr(0),
-        TxContext.empty(),
-        [],
-      );
+        txContext: TxContext.empty(),
+        packedArguments: [],
+        authWitnesses: [],
+      });
 
       await expect(async () => await rpc.simulateTx(txExecutionRequest, false)).rejects.toThrow(
         'Public entrypoints are not allowed',
@@ -132,9 +133,9 @@ export const aztecRpcTestSuite = (testName: string, aztecRpcSetup: () => Promise
 
     it('successfully gets node info', async () => {
       const nodeInfo = await rpc.getNodeInfo();
-      expect(nodeInfo.version).toBeDefined();
-      expect(nodeInfo.chainId).toBeDefined();
-      expect(nodeInfo.rollupAddress).toBeDefined();
+      expect(typeof nodeInfo.version).toEqual('number');
+      expect(typeof nodeInfo.chainId).toEqual('number');
+      expect(nodeInfo.rollupAddress.toString()).toMatch(/0x[a-fA-F0-9]+/);
     });
 
     // Note: Not testing `isGlobalStateSynchronised`, `isAccountStateSynchronised` and `getSyncStatus` as these methods

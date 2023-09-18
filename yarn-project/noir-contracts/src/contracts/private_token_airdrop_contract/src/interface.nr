@@ -36,7 +36,7 @@ impl PrivateTokenAirdropPrivateContextInterface {
     serialised_args[6] = recipients[2];
     serialised_args[7] = spend_note_offset as Field;
 
-    context.call_private_function(self.address, 0x88bd156f, serialised_args)
+    context.call_private_function(self.address, 0xbf748730, serialised_args)
   }
   
 
@@ -50,7 +50,7 @@ impl PrivateTokenAirdropPrivateContextInterface {
     serialised_args[0] = amount;
     serialised_args[1] = owner;
 
-    context.call_private_function(self.address, 0x7ecb218a, serialised_args)
+    context.call_private_function(self.address, 0xa4fa3a6f, serialised_args)
   }
   
 
@@ -59,30 +59,60 @@ impl PrivateTokenAirdropPrivateContextInterface {
     context: &mut PrivateContext,
     amount: Field,
     secret: Field,
-    owner: Field
+    owner: Field,
+    nonce: Field
   ) -> [Field; RETURN_VALUES_LENGTH] {
-    let mut serialised_args = [0; 3];
+    let mut serialised_args = [0; 4];
     serialised_args[0] = amount;
     serialised_args[1] = secret;
     serialised_args[2] = owner;
+    serialised_args[3] = nonce;
 
-    context.call_private_function(self.address, 0x9f7bacc8, serialised_args)
+    context.call_private_function(self.address, 0xa9220f0f, serialised_args)
   }
   
 
   fn createClaims(
     self,
     context: &mut PrivateContext,
-    amounts: [Field;2],
-    secrets: [Field;2]
+    amounts: [Field;16],
+    secrets: [Field;16]
   ) -> [Field; RETURN_VALUES_LENGTH] {
-    let mut serialised_args = [0; 4];
+    let mut serialised_args = [0; 32];
     serialised_args[0] = amounts[0];
     serialised_args[1] = amounts[1];
-    serialised_args[2] = secrets[0];
-    serialised_args[3] = secrets[1];
+    serialised_args[2] = amounts[2];
+    serialised_args[3] = amounts[3];
+    serialised_args[4] = amounts[4];
+    serialised_args[5] = amounts[5];
+    serialised_args[6] = amounts[6];
+    serialised_args[7] = amounts[7];
+    serialised_args[8] = amounts[8];
+    serialised_args[9] = amounts[9];
+    serialised_args[10] = amounts[10];
+    serialised_args[11] = amounts[11];
+    serialised_args[12] = amounts[12];
+    serialised_args[13] = amounts[13];
+    serialised_args[14] = amounts[14];
+    serialised_args[15] = amounts[15];
+    serialised_args[16] = secrets[0];
+    serialised_args[17] = secrets[1];
+    serialised_args[18] = secrets[2];
+    serialised_args[19] = secrets[3];
+    serialised_args[20] = secrets[4];
+    serialised_args[21] = secrets[5];
+    serialised_args[22] = secrets[6];
+    serialised_args[23] = secrets[7];
+    serialised_args[24] = secrets[8];
+    serialised_args[25] = secrets[9];
+    serialised_args[26] = secrets[10];
+    serialised_args[27] = secrets[11];
+    serialised_args[28] = secrets[12];
+    serialised_args[29] = secrets[13];
+    serialised_args[30] = secrets[14];
+    serialised_args[31] = secrets[15];
 
-    context.call_private_function(self.address, 0xcaf1f505, serialised_args)
+    context.call_private_function(self.address, 0x2eebe7ab, serialised_args)
   }
   
 
@@ -96,7 +126,7 @@ impl PrivateTokenAirdropPrivateContextInterface {
     serialised_args[0] = amount;
     serialised_args[1] = owner;
 
-    context.call_private_function(self.address, 0x1dc9c3c0, serialised_args)
+    context.call_private_function(self.address, 0x1535439c, serialised_args)
   }
   
 
@@ -110,7 +140,7 @@ impl PrivateTokenAirdropPrivateContextInterface {
     serialised_args[0] = amount;
     serialised_args[1] = recipient;
 
-    context.call_private_function(self.address, 0x61dd7032, serialised_args)
+    context.call_private_function(self.address, 0xc0888d22, serialised_args)
   }
   
 }

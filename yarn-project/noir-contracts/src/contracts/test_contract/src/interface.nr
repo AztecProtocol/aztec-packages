@@ -49,7 +49,7 @@ impl TestPrivateContextInterface {
     serialised_args[0] = amount;
     serialised_args[1] = secretHash;
 
-    context.call_public_function(self.address, 0x1c031d17, serialised_args)
+    context.call_public_function(self.address, 0xbac98727, serialised_args)
   }
   
 
@@ -63,7 +63,19 @@ impl TestPrivateContextInterface {
     serialised_args[0] = amount;
     serialised_args[1] = secretHash;
 
-    context.call_public_function(self.address, 0x0217ef40, serialised_args)
+    context.call_public_function(self.address, 0x42040a24, serialised_args)
+  }
+  
+
+  fn emit_unencrypted(
+    self,
+    context: &mut PrivateContext,
+    value: Field
+  ) {
+    let mut serialised_args = [0; 1];
+    serialised_args[0] = value;
+
+    context.call_public_function(self.address, 0x817a64cb, serialised_args)
   }
   
 
@@ -75,7 +87,7 @@ impl TestPrivateContextInterface {
     let mut serialised_args = [0; 1];
     serialised_args[0] = aztec_address;
 
-    context.call_private_function(self.address, 0xe5df1726, serialised_args)
+    context.call_private_function(self.address, 0xaf15a45f, serialised_args)
   }
   
 
@@ -87,7 +99,7 @@ impl TestPrivateContextInterface {
     let mut serialised_args = [0; 1];
     serialised_args[0] = address;
 
-    context.call_private_function(self.address, 0x553aaad4, serialised_args)
+    context.call_private_function(self.address, 0x88f0753b, serialised_args)
   }
   
 
@@ -119,7 +131,7 @@ impl TestPrivateContextInterface {
     let mut serialised_args = [0; 1];
     serialised_args[0] = time;
 
-    context.call_public_function(self.address, 0x57587e4d, serialised_args)
+    context.call_public_function(self.address, 0xfff6026c, serialised_args)
   }
   
 
@@ -152,7 +164,7 @@ impl TestPrivateContextInterface {
     serialised_args[15] = aDeepStruct.manyNotes[2].amount;
     serialised_args[16] = aDeepStruct.manyNotes[2].secretHash;
 
-    context.call_private_function(self.address, 0x7c97ca29, serialised_args)
+    context.call_private_function(self.address, 0x81d7c118, serialised_args)
   }
   
 }
@@ -182,7 +194,7 @@ impl TestPublicContextInterface {
     serialised_args[0] = amount;
     serialised_args[1] = secretHash;
 
-    context.call_public_function(self.address, 0x1c031d17, serialised_args)
+    context.call_public_function(self.address, 0xbac98727, serialised_args)
   }
   
 
@@ -196,7 +208,19 @@ impl TestPublicContextInterface {
     serialised_args[0] = amount;
     serialised_args[1] = secretHash;
 
-    context.call_public_function(self.address, 0x0217ef40, serialised_args)
+    context.call_public_function(self.address, 0x42040a24, serialised_args)
+  }
+  
+
+  fn emit_unencrypted(
+    self,
+    context: PublicContext,
+    value: Field
+  ) -> [Field; RETURN_VALUES_LENGTH] {
+    let mut serialised_args = [0; 1];
+    serialised_args[0] = value;
+
+    context.call_public_function(self.address, 0x817a64cb, serialised_args)
   }
   
 
@@ -208,7 +232,7 @@ impl TestPublicContextInterface {
     let mut serialised_args = [0; 1];
     serialised_args[0] = time;
 
-    context.call_public_function(self.address, 0x57587e4d, serialised_args)
+    context.call_public_function(self.address, 0xfff6026c, serialised_args)
   }
   
 }

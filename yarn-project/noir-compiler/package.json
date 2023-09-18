@@ -4,21 +4,20 @@
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
-    "./cli": "./dest/cli/index.js"
+    "./cli": "./dest/cli/index.js",
+    "./noir-version": "./dest/noir-version.js"
   },
   "typedocOptions": {
     "entryPoints": [
       "./src/index.ts"
     ],
-    "name": "Aztec noir compiler",
+    "name": "Aztec.nr compiler",
     "tsconfig": "./tsconfig.json"
   },
   "bin": {
     "aztec-compile": "dest/cli.js"
   },
   "scripts": {
-    "prepare": "node ../yarn-project-base/scripts/update_build_manifest.mjs package.json",
-    "prepare:check": "node ../yarn-project-base/scripts/update_build_manifest.mjs package.json --check",
     "build": "yarn clean && tsc -b",
     "build:dev": "tsc -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
@@ -32,9 +31,9 @@
   "jest": {
     "preset": "ts-jest/presets/default-esm",
     "moduleNameMapper": {
-      "^(\\.{1,2}/.*)\\.js$": "$1"
+      "^(\\.{1,2}/.*)\\.m?js$": "$1"
     },
-    "testRegex": "./src/.*\\.test\\.ts$",
+    "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
     "rootDir": "./src"
   },
   "dependencies": {

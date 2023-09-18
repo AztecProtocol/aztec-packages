@@ -3,7 +3,7 @@ import { BufferReader } from '@aztec/foundation/serialize';
 
 import { computeContractAddressFromPartial } from '../abis/abis.js';
 import { Grumpkin } from '../barretenberg/index.js';
-import { CircuitsWasm, Fr, Point, PrivateKey } from '../index.js';
+import { CircuitsWasm, Fr, GrumpkinPrivateKey, Point } from '../index.js';
 import { PartialAddress } from './partial_address.js';
 import { PublicKey } from './public_key.js';
 
@@ -51,7 +51,10 @@ export class CompleteAddress {
     return new CompleteAddress(address, pubKey, partialAddress);
   }
 
-  static async fromPrivateKeyAndPartialAddress(privateKey: PrivateKey, partialAddress: Fr): Promise<CompleteAddress> {
+  static async fromPrivateKeyAndPartialAddress(
+    privateKey: GrumpkinPrivateKey,
+    partialAddress: Fr,
+  ): Promise<CompleteAddress> {
     const wasm = await CircuitsWasm.get();
     const grumpkin = new Grumpkin(wasm);
     const pubKey = grumpkin.mul(Grumpkin.generator, privateKey);
@@ -64,7 +67,7 @@ export class CompleteAddress {
    * @returns A readable string representation of the complete address.
    */
   public toReadableString(): string {
-    return `Address: ${this.address.toString()}, Public Key: ${this.publicKey.toString()}, Partial Address: ${this.partialAddress.toString()}`;
+    return ` Address: ${this.address.toString()}\n Public Key: ${this.publicKey.toString()}\n Partial Address: ${this.partialAddress.toString()}\n`;
   }
 
   /**

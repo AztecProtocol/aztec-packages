@@ -1,10 +1,12 @@
-import { AztecAddress, EthAddress, Fr, PartialAddress, PrivateKey } from '@aztec/circuits.js';
+import { AztecAddress, EthAddress, Fr, GrumpkinPrivateKey, PartialAddress } from '@aztec/circuits.js';
 import { ContractAbi } from '@aztec/foundation/abi';
 import {
+  AuthWitness,
   CompleteAddress,
   ContractData,
   ExtendedContractData,
   L2BlockL2Logs,
+  NotePreimage,
   Tx,
   TxExecutionRequest,
   TxHash,
@@ -50,6 +52,10 @@ export type NodeInfo = {
    * Identifier of the client software.
    */
   client: string;
+  /**
+   * The nargo version compatible with this node.
+   */
+  compatibleNargoVersion: string;
 };
 
 /** Provides up to which block has been synced by different components. */
@@ -69,6 +75,12 @@ export type SyncStatus = {
  */
 export interface AztecRPC {
   /**
+   * Insert a witness for a given message hash.
+   * @param authWitness - The auth witness to insert.
+   */
+  addAuthWitness(authWitness: AuthWitness): Promise<void>;
+
+  /**
    * Registers an account in the Aztec RPC server.
    *
    * @param privKey - Private key of the corresponding user master public key.
@@ -76,7 +88,7 @@ export interface AztecRPC {
    * @returns Empty promise.
    * @throws If the account is already registered.
    */
-  registerAccount(privKey: PrivateKey, partialAddress: PartialAddress): Promise<void>;
+  registerAccount(privKey: GrumpkinPrivateKey, partialAddress: PartialAddress): Promise<void>;
 
   /**
    * Registers recipient in the Aztec RPC server.
@@ -95,14 +107,14 @@ export interface AztecRPC {
    *
    * @returns A promise that resolves to an array of the accounts registered on this RPC server.
    */
-  getAccounts(): Promise<CompleteAddress[]>;
+  getRegisteredAccounts(): Promise<CompleteAddress[]>;
 
   /**
    * Retrieves the complete address of the account corresponding to the provided aztec address.
    * @param address - The aztec address of the account contract.
    * @returns A promise that resolves to the complete address of the requested account.
    */
-  getAccount(address: AztecAddress): Promise<CompleteAddress | undefined>;
+  getRegisteredAccount(address: AztecAddress): Promise<CompleteAddress | undefined>;
 
   /**
    * Retrieves the list of recipients added to this rpc server.
@@ -159,6 +171,17 @@ export interface AztecRPC {
   getTxReceipt(txHash: TxHash): Promise<TxReceipt>;
 
   /**
+   * Retrieves the private storage data at a specified contract address and storage slot.
+   * The returned data is data at the storage slot or throws an error if the contract is not deployed.
+   *
+   * @param owner - The address for whom the private data is encrypted.
+   * @param contract - The AztecAddress of the target contract.
+   * @param storageSlot - The Fr representing the storage slot to be fetched.
+   * @returns A set of note preimages for the owner in that contract and slot.
+   */
+  getPrivateStorageAt(owner: AztecAddress, contract: AztecAddress, storageSlot: Fr): Promise<NotePreimage[]>;
+
+  /**
    * Retrieves the public storage data at a specified contract address and storage slot.
    * The returned data is data at the storage slot or throws an error if the contract is not deployed.
    *
@@ -167,6 +190,16 @@ export interface AztecRPC {
    * @returns A buffer containing the public storage data at the storage slot.
    */
   getPublicStorageAt(contract: AztecAddress, storageSlot: Fr): Promise<Buffer | undefined>;
+
+  /**
+   * Find the nonce(s) for a note in a tx with given preimage at a specified contract address and storage slot.
+   * @param contract - The contract address of the note.
+   * @param storageSlot - The storage slot of the note.
+   * @param preimage - The note preimage.
+   * @param txHash - The tx hash of the tx containing the note.
+   * @returns The nonces of the note. It's an array because there might be more than one note with the same preimage.
+   */
+  getNoteNonces(contract: AztecAddress, storageSlot: Fr, preimage: NotePreimage, txHash: TxHash): Promise<Fr[]>;
 
   /**
    * Simulate the execution of a view (read-only) function on a deployed contract without actually modifying state.

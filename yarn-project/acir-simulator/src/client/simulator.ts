@@ -1,20 +1,20 @@
-import { CallContext, CircuitsWasm, FunctionData, TxContext } from '@aztec/circuits.js';
-import { computeTxHash } from '@aztec/circuits.js/abis';
+import { CallContext, FunctionData, MAX_NOTE_FIELDS_LENGTH, TxContext } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
-import { ArrayType, FunctionType, encodeArguments } from '@aztec/foundation/abi';
+import { ArrayType, FunctionSelector, FunctionType, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { AztecNode, FunctionCall, TxExecutionRequest } from '@aztec/types';
 
-import { WasmBlackBoxFunctionSolver, createBlackBoxSolver } from 'acvm_js';
+import { WasmBlackBoxFunctionSolver, createBlackBoxSolver } from '@noir-lang/acvm_js';
 
-import { PackedArgsCache } from '../packed_args_cache.js';
+import { createSimulationError } from '../common/errors.js';
+import { PackedArgsCache } from '../common/packed_args_cache.js';
 import { ClientTxExecutionContext } from './client_execution_context.js';
 import { DBOracle, FunctionAbiWithDebugMetadata } from './db_oracle.js';
+import { ExecutionNoteCache } from './execution_note_cache.js';
 import { ExecutionResult } from './execution_result.js';
-import { computeNoteHashAndNullifierSelector, computeNoteHashAndNullifierSignature } from './function_selectors.js';
 import { PrivateFunctionExecution } from './private_execution.js';
 import { UnconstrainedFunctionExecution } from './unconstrained_execution.js';
 
@@ -22,7 +22,7 @@ import { UnconstrainedFunctionExecution } from './unconstrained_execution.js';
  * The ACIR simulator.
  */
 export class AcirSimulator {
-  private static solver: WasmBlackBoxFunctionSolver; // ACVM's backend
+  private static solver: Promise<WasmBlackBoxFunctionSolver>; // ACVM's backend
   private log: DebugLogger;
 
   constructor(private db: DBOracle) {
@@ -42,8 +42,8 @@ export class AcirSimulator {
    *
    * @returns ACVM WasmBlackBoxFunctionSolver
    */
-  public static async getSolver(): Promise<WasmBlackBoxFunctionSolver> {
-    if (!this.solver) this.solver = await createBlackBoxSolver();
+  public static getSolver(): Promise<WasmBlackBoxFunctionSolver> {
+    if (!this.solver) this.solver = createBlackBoxSolver();
     return this.solver;
   }
 
@@ -68,7 +68,9 @@ export class AcirSimulator {
     }
 
     if (request.origin !== contractAddress) {
-      this.log.warn('Request origin does not match contract address in simulation');
+      this.log.warn(
+        `Request origin does not match contract address in simulation. Request origin: ${request.origin}, contract address: ${contractAddress}`,
+      );
     }
 
     const curve = await Grumpkin.new();
@@ -83,15 +85,14 @@ export class AcirSimulator {
       request.functionData.isConstructor,
     );
 
-    const wasm = await CircuitsWasm.get();
-    const txNullifier = computeTxHash(wasm, request.toTxRequest());
     const execution = new PrivateFunctionExecution(
       new ClientTxExecutionContext(
         this.db,
-        txNullifier,
         request.txContext,
         historicBlockData,
         await PackedArgsCache.create(request.packedArguments),
+        new ExecutionNoteCache(),
+        request.authWitnesses,
       ),
       entryPointABI,
       contractAddress,
@@ -101,7 +102,11 @@ export class AcirSimulator {
       curve,
     );
 
-    return execution.run();
+    try {
+      return await execution.run();
+    } catch (err) {
+      throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during private execution'));
+    }
   }
 
   /**
@@ -139,10 +144,11 @@ export class AcirSimulator {
     const execution = new UnconstrainedFunctionExecution(
       new ClientTxExecutionContext(
         this.db,
-        Fr.ZERO,
         TxContext.empty(),
         historicBlockData,
         await PackedArgsCache.create([]),
+        new ExecutionNoteCache(),
+        [],
       ),
       entryPointABI,
       contractAddress,
@@ -151,7 +157,11 @@ export class AcirSimulator {
       callContext,
     );
 
-    return execution.run(aztecNode);
+    try {
+      return await execution.run(aztecNode);
+    } catch (err) {
+      throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during private execution'));
+    }
   }
 
   /**
@@ -168,12 +178,23 @@ export class AcirSimulator {
     storageSlot: Fr,
     notePreimage: Fr[],
   ) {
-    let abi: FunctionAbiWithDebugMetadata;
-    try {
-      abi = await this.db.getFunctionABI(contractAddress, computeNoteHashAndNullifierSelector);
-    } catch (e) {
+    let abi: FunctionAbiWithDebugMetadata | undefined = undefined;
+
+    // Brute force
+    for (let i = notePreimage.length; i < MAX_NOTE_FIELDS_LENGTH; i++) {
+      const signature = `compute_note_hash_and_nullifier(Field,Field,Field,[Field;${i}])`;
+      const selector = FunctionSelector.fromSignature(signature);
+      try {
+        abi = await this.db.getFunctionABI(contractAddress, selector);
+        if (abi !== undefined) break;
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    if (abi == undefined) {
       throw new Error(
-        `Mandatory implementation of "${computeNoteHashAndNullifierSignature}" missing in noir contract ${contractAddress.toString()}.`,
+        `Mandatory implementation of "compute_note_hash_and_nullifier" missing in noir contract ${contractAddress.toString()}.`,
       );
     }
 

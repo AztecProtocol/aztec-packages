@@ -6,7 +6,6 @@
 #include "../../constants.hpp"
 
 #include "aztec3/circuits/abis/historic_block_data.hpp"
-#include "aztec3/utils/msgpack_derived_output.hpp"
 #include "aztec3/utils/types/circuit_types.hpp"
 #include "aztec3/utils/types/native_types.hpp"
 
@@ -45,7 +44,7 @@ template <typename NCT> struct PublicCircuitPublicInputs {
 
     HistoricBlockData<NCT> historic_block_data{};
 
-    address prover_address;
+    address prover_address{};
 
     // for serialization, update with new fields
     MSGPACK_FIELDS(call_context,

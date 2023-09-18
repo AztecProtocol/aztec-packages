@@ -503,13 +503,14 @@ describe('HttpNode', () => {
 
     it('should fetch a simulation error', async () => {
       const tx = mockTx();
-      const simulationError = new SimulationError('Failing function', {
-        contractAddress: AztecAddress.ZERO,
-        functionSelector: FunctionSelector.empty(),
-      });
+      const simulationError = new SimulationError('test error', [
+        { contractAddress: AztecAddress.ZERO, functionSelector: FunctionSelector.empty() },
+      ]);
+
       const response = {
         simulationError: simulationError.toJSON(),
       };
+
       setFetchMock(response);
 
       await expect(httpNode.simulatePublicCalls(tx)).rejects.toThrow(simulationError);

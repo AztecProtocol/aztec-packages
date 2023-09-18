@@ -1,12 +1,11 @@
-mod storage;
-
 use dep::aztec::context::{
     PrivateContext,
     PublicContext
 };
 
-use crate::storage::Asset;
+use crate::asset::Asset;
 use dep::aztec::constants_gen::RETURN_VALUES_LENGTH;
+use dep::aztec::oracle::compute_selector::compute_selector;
 
 struct PriceFeed {
   address: Field,
@@ -20,7 +19,7 @@ impl PriceFeed {
   fn get_price(self: Self, context: PublicContext) -> u120 {
     let return_values = context.call_public_function(
       self.address, 
-      3359284436,
+      compute_selector("get_price(Field)"),
       [0]
     );
 
@@ -37,36 +36,44 @@ impl Token {
     Self { address }
   }
 
-  fn transfer_pub(self: Self, context: PublicContext, to: Field, amount: Field) {
+  fn transfer_public(self: Self, context: PublicContext, from: Field, to: Field, amount: Field, nonce: Field) {
     let _transfer_return_values = context.call_public_function(
       self.address,
-      1012824788, 
+      compute_selector("transfer_public((Field),(Field),Field,Field)"),
+      [from, to, amount, nonce]
+    );
+  }
+
+  fn mint_public(self: Self, context: PublicContext, to: Field, amount: Field) {
+    let _return_values = context.call_public_function(
+      self.address,
+      compute_selector("mint_public((Field),Field)"),
       [to, amount]
     );
   }
 
-  fn transfer_from_pub(self: Self, context: PublicContext, from: Field, to: Field, amount: Field) {
-    let _transfer_return_values = context.call_public_function(
-      self.address, 
-      1602017294, 
-      [from, to, amount]
-    );
-  }
-
-  fn owner_mint_pub(self: Self, context: PublicContext, to: Field, amount: Field) {
-    let _transfer_return_values = context.call_public_function(
-      self.address, 
-      1071038680, 
-      [to, amount]
+  fn burn_public(self: Self, context: PublicContext, from: Field, amount: Field, nonce: Field){
+    let _return_values = context.call_public_function(
+      self.address,
+      compute_selector("burn_public((Field),Field,Field)"),
+      [from, amount, nonce]
     );
   }
 
   // Private
-  fn unshield(self: Self, context: &mut PrivateContext, from: Field, to: Field, amount: Field) -> [Field; RETURN_VALUES_LENGTH] {
+  fn unshield(self: Self, context: &mut PrivateContext, from: Field, to: Field, amount: Field, nonce: Field) -> [Field; RETURN_VALUES_LENGTH] {
     context.call_private_function(
       self.address,
-      2423803924, 
-      [from, to, amount]
+      compute_selector("unshield((Field),(Field),Field,Field)"),
+      [from, to, amount, nonce]
+    )
+  }
+
+  fn burn(self: Self, context: &mut PrivateContext, from: Field, amount: Field, nonce: Field) -> [Field; RETURN_VALUES_LENGTH] {
+    context.call_private_function(
+      self.address,
+      compute_selector("burn((Field),Field,Field)"),
+      [from, amount, nonce]
     )
   }
 }
@@ -82,8 +89,8 @@ impl Lending {
 
   fn update_accumulator(self: Self, context: PublicContext) -> Asset {
     let return_values = context.call_public_function_no_args(
-      self.address, 
-      0x1873b536
+      self.address,
+      compute_selector("update_accumulator()"),
     );
 
     Asset {

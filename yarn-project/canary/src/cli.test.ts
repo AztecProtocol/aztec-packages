@@ -1,13 +1,14 @@
-import { createAztecRpcClient, createDebugLogger, makeFetch } from '@aztec/aztec.js';
-import { cliTestSuite } from '@aztec/cli';
+import { createAztecRpcClient, createDebugLogger, makeFetch, waitForSandbox } from '@aztec/aztec.js';
+import { cliTestSuite } from '@aztec/end-to-end';
 
 const { SANDBOX_URL = 'http://localhost:8080' } = process.env;
 
-const debug = createDebugLogger('aztec:e2e_cli');
+const debug = createDebugLogger('aztec:canary_cli');
 
-const setupRPC = () => {
-  const aztecRpcClient = createAztecRpcClient(SANDBOX_URL, makeFetch([1, 2, 3], true));
-  return Promise.resolve(aztecRpcClient);
+const setupRPC = async () => {
+  const aztecRpcClient = createAztecRpcClient(SANDBOX_URL, makeFetch([1, 2, 3, 4, 5], true));
+  await waitForSandbox(aztecRpcClient);
+  return aztecRpcClient;
 };
 
-cliTestSuite('CLI canary', setupRPC, () => Promise.resolve(), SANDBOX_URL, debug);
+cliTestSuite('CLI Canary', setupRPC, () => Promise.resolve(), debug, SANDBOX_URL);

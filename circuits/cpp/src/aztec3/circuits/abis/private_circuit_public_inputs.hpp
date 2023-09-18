@@ -9,7 +9,6 @@
 #include "aztec3/utils/types/convert.hpp"
 #include "aztec3/utils/types/native_types.hpp"
 
-#include "barretenberg/common/serialize.hpp"
 #include <barretenberg/barretenberg.hpp>
 
 namespace aztec3::circuits::abis {
@@ -274,9 +273,9 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
                    chain_id,
                    version);
 
-    OptionalPrivateCircuitPublicInputs<NCT>() = default;
+    OptionalPrivateCircuitPublicInputs() = default;
 
-    OptionalPrivateCircuitPublicInputs<NCT>(
+    OptionalPrivateCircuitPublicInputs(
         std::optional<CallContext<NCT>> const& call_context,
 
         opt_fr const& args_hash,

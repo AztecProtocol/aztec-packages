@@ -1,6 +1,6 @@
 # Accounts
 
-**Every account in Aztec is a smart contract** which defines the rules for whether a transaction is or not valid. This allows implementing different schemes for transaction signing, nonce management, and fee payments. However, encryption and nullifying keys, which are specific to private blockchains, are still enshrined at the protocol level.
+**Every account in Aztec is a smart contract** which defines the rules for whether a transaction is or is not valid. This allows implementing different schemes for transaction signing, nonce management, and fee payments. However, encryption and nullifying keys, which are specific to private blockchains, are still enshrined at the protocol level.
 
 ## Background
 
@@ -97,6 +97,16 @@ As an example, we can think of a lottery contract, where at some point a prize n
 The protocol requires that every account is a contract for the purposes of sending a transaction. This means that a user needs to deploy their account contract as their first action when they want to interact with the network. 
 
 However, this is not required when sitting on the receiving end. A user can deterministically derive their address from their encryption public key and the account contract they intend to deploy, and share this address with other users that want to interact with them _before_ they deploy the account contract.
+
+### Authorizing actions
+
+Account contracts are also expected, though not required by the protocol, to implement a set of methods for authorizing actions on behalf of the user. During a transaction, a contract may call into the account contract and request the user authorization for a given action, identified by a hash. This pattern is used, for instance, for transferring tokens from an account that is not the caller.
+
+When executing a private function, this authorization is checked by requesting an _auth witness_ from the execution oracle, which is usually a signed message. The RPC Server is responsible for storing these auth witnesses and returning them to the requesting account contract. Auth witnesses can belong to the current user executing the local transaction, or to another user who shared it out-of-band.
+
+However, during a public function execution, it is not possible to retrieve a value from the local oracle. To support authorizations in public functions, account contracts should save in contract storage what actions have been pre-authorized by their owner. 
+
+These two patterns combined allow an account contract to answer whether an action `is_valid` for a given user both in private and public contexts.
 
 ### Encryption and nullifying keys
 

@@ -11,8 +11,6 @@
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
-    "prepare": "node ../yarn-project-base/scripts/update_build_manifest.mjs package.json",
-    "prepare:check": "node ../yarn-project-base/scripts/update_build_manifest.mjs package.json --check",
     "build": "yarn clean && tsc -b",
     "build:dev": "tsc -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
@@ -26,16 +24,16 @@
   "jest": {
     "preset": "ts-jest/presets/default-esm",
     "moduleNameMapper": {
-      "^(\\.{1,2}/.*)\\.js$": "$1"
+      "^(\\.{1,2}/.*)\\.m?js$": "$1"
     },
-    "testRegex": "./src/.*\\.test\\.ts$",
+    "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
     "rootDir": "./src"
   },
   "dependencies": {
     "@aztec/circuits.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/types": "workspace:^",
-    "acvm_js": "github:noir-lang/acvm-js-wasm#arv/0.24.1",
+    "@noir-lang/acvm_js": "0.26.1",
     "levelup": "^5.1.1",
     "memdown": "^6.1.1",
     "tslib": "^2.4.0"

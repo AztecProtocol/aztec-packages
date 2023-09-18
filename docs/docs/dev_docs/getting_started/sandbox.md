@@ -6,7 +6,7 @@ import Image from "@theme/IdealImage";
 
 ## Introduction
 
-The Aztec Sandbox aims to provide a local development system against which you can build and test Noir contracts in a fast, safe, and free environment.
+The Aztec Sandbox aims to provide a local development system against which you can build and test Aztec.nr contracts in a fast, safe, and free environment.
 
 Here we will walkthrough the process of retrieving the Sandbox, installing the client libraries and using it to deploy and use a fully private token contract on the Aztec network.
 
@@ -70,7 +70,7 @@ Let's create an empty project called `private-token`. If you are familiar with s
 
 Although both `yarn` and `npm` would work, this example uses `yarn`. Open the terminal and do the following
 
-1. Ensure node version is 18 or more by running
+1. Ensure node version is 18 or higher by running
 
 ```sh
 node -v
@@ -136,7 +136,7 @@ Add a `tsconfig.json` file into the project root, here is an example:
     "skipLibCheck": true
   },
   "references": [],
-  "include": ["src"]
+  "include": ["src", "src/*.json"]
 }
 ```
 
@@ -218,7 +218,7 @@ That might seem like a lot to digest but it can be broken down into the followin
 2. We wait for the deployment of the 2 account contracts to complete.
 3. We retrieve the expected account addresses from the `Account` objects and ensure that they are present in the set of account addresses registered on the Sandbox.
 
-Note, we use the `getAccounts` api to verify that the addresses computed as part of the
+Note, we use the `getRegisteredAccounts` api to verify that the addresses computed as part of the
 account contract deployment have been successfully added to the Sandbox.
 
 If you were looking at your terminal that is running the Sandbox you should hopefully have seen a lot of activity. This is because the Sandbox will have simulated the deployment of both contracts, executed the private kernel circuit for each before submitted 2 transactions to the pool. The sequencer will have picked them up and inserted them into a rollup and executed the recursive rollup circuits before publishing the rollup to Anvil. Once this has completed, the rollup is retrieved and pulled down to the internal RPC Server so that any new account state can be decrypted.
@@ -349,3 +349,8 @@ Our complete output should now be:
 ```
 
 That's it! We have successfully deployed a private token contract to an instance of the Aztec network and mined private state-transitioning transactions. We have also queried the resulting state all via the interfaces provided by the contract.
+
+## Next Steps
+Here we showed how to interact with the sandbox, but didn't go into details on how to write your own contract or any relevant setup needed for it. 
+
+You can find details on setting up [here](./noir_contracts.md) and refer to the [Contracts section](../contracts/main.md) on syntax, compiling, deploying and interacting with how to start writing contracts.

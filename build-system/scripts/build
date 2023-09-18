@@ -26,6 +26,7 @@ set -euo pipefail
 
 REPOSITORY=$1
 FORCE_BUILD=${2:-"false"}
+ARCH=${3:-""}
 DOCKERFILE=$(query_manifest dockerfile $REPOSITORY)
 PROJECT_DIR=$(query_manifest projectDir $REPOSITORY)
 BUILD_DIR=$(query_manifest buildDir $REPOSITORY)
@@ -34,8 +35,20 @@ echo "Repository: $REPOSITORY"
 echo "Working directory: $PWD"
 echo "Dockerfile: $DOCKERFILE"
 echo "Build directory: $BUILD_DIR"
+echo "Arch: $ARCH"
 
+# Fetch images with retries
 function fetch_image() {
+  echo "Pulling: $1"
+  if ! retry docker pull $1 > /dev/null 2>&1; then
+    echo "Image not found: $1"
+    return 1
+  fi
+  return 0
+}
+
+# Fetch images, but don't assume this will work
+function try_fetch_image() {
   echo "Pulling: $1"
   if ! docker pull $1 > /dev/null 2>&1; then
     echo "Image not found: $1"
@@ -44,8 +57,19 @@ function fetch_image() {
   return 0
 }
 
+function docker_login() {
+  # Retries up to 3 times with 10 second intervals
+  for i in $(seq 1 3); do
+    echo "$DOCKERHUB_PASSWORD" | docker login -u aztecprotocolci --password-stdin && return || sleep 10
+  done
+  echo "$@ failed docker_login after 3 attempts"
+  exit 1
+}
+
+docker_login
+
 # Ensure ECR repository exists.
-retry_10 ensure_repo $REPOSITORY $ECR_REGION refresh_lifecycle
+retry ensure_repo $REPOSITORY $ECR_REGION refresh_lifecycle
 
 CONTENT_HASH=$(calculate_content_hash $REPOSITORY)
 echo "Content hash: $CONTENT_HASH"
@@ -78,9 +102,9 @@ if [ -d $ROOT_PATH/$PROJECT_DIR/terraform ]; then
 fi
 
 # Pull latest parents that are not ours. We also do not want to pull images suffixed by _, this is how we scope intermediate build images.
-echo "$DOCKERHUB_PASSWORD" | docker login -u aztecprotocolci --password-stdin
 PARENTS=$(cat $DOCKERFILE | sed -n -e 's/^FROM \([^[:space:]]\+\).*/\1/p' | sed '/_$/d' | grep -v $ECR_DEPLOY_URL  | sort | uniq)
 for PARENT in $PARENTS; do
+  [ "$PARENT" == "scratch" ] && continue
   fetch_image $PARENT
 done
 
@@ -99,8 +123,11 @@ for PARENT in $PARENTS; do
   echo "Pulling dependency $PARENT_REPO..."
   fetch_image $PARENT_IMAGE_URI
   # Tag it to look like an official release as that's what we use in Dockerfiles.
-  docker tag $PARENT_IMAGE_URI $ECR_DEPLOY_URL/$PARENT
+  TAG=$ECR_DEPLOY_URL/$PARENT
+  retry docker tag $PARENT_IMAGE_URI $TAG
 done
+
+COMMIT_TAG_VERSION=$(extract_tag_version $REPOSITORY false)
 
 # Pull, build and push each named stage to cache.
 STAGE_CACHE_FROM=""
@@ -115,18 +142,18 @@ for STAGE in $STAGES; do
       STAGE_CACHE_FROM="--cache-from $STAGE_IMAGE_LAST_URI"
     fi
   fi
-
+  
   echo "Building stage: $STAGE"
   STAGE_IMAGE_COMMIT_URI=$ECR_URL/$REPOSITORY:cache-$CONTENT_HASH-$STAGE
   # Build our dockerfile, add timing information
-  docker build --target $STAGE $STAGE_CACHE_FROM -t $STAGE_IMAGE_COMMIT_URI -f $DOCKERFILE --build-arg ARG_CONTENT_HASH=$CONTENT_HASH . \
-    | while read line ; do echo "$(date "+%H:%M:%S")| $line"; done
-
+  docker build --target $STAGE $STAGE_CACHE_FROM -t $STAGE_IMAGE_COMMIT_URI -f $DOCKERFILE --build-arg COMMIT_TAG=$COMMIT_TAG_VERSION --build-arg ARG_CONTENT_HASH=$CONTENT_HASH . \
+  | while read line ; do echo "$(date "+%H:%M:%S")| $line"; done
+  
   # We don't want to have redo this stages work when building the final image. Use it as a layer cache.
   CACHE_FROM="--cache-from $STAGE_IMAGE_COMMIT_URI $CACHE_FROM"
-
+  
   echo "Pushing stage: $STAGE"
-  docker push $STAGE_IMAGE_COMMIT_URI > /dev/null 2>&1
+  retry docker push $STAGE_IMAGE_COMMIT_URI > /dev/null 2>&1
   echo
 done
 
@@ -134,17 +161,20 @@ done
 if [ -n "$CONTENT_HASH" ]; then
   LAST_SUCCESSFUL_URI=$ECR_URL/$REPOSITORY:cache-$CONTENT_HASH
   echo "Pulling previous build of $REPOSITORY..."
-  fetch_image $LAST_SUCCESSFUL_URI || true
+  try_fetch_image $LAST_SUCCESSFUL_URI || true
   CACHE_FROM="--cache-from $LAST_SUCCESSFUL_URI $CACHE_FROM"
   echo
 fi
 
 # Build the actual image and give it a commit tag.
 IMAGE_COMMIT_URI=$ECR_URL/$REPOSITORY:cache-$CONTENT_HASH
+if [[ -n "$ARCH" ]]; then
+  IMAGE_COMMIT_URI=$IMAGE_COMMIT_URI-$ARCH
+fi
 echo "Building image: $IMAGE_COMMIT_URI"
 # Build our dockerfile, add timing information
-docker build -t $IMAGE_COMMIT_URI -f $DOCKERFILE $CACHE_FROM --build-arg COMMIT_TAG=$COMMIT_TAG --build-arg ARG_CONTENT_HASH=$CONTENT_HASH . \
-  | while read line ; do echo "$(date "+%H:%M:%S")| $line"; done
+docker build -t $IMAGE_COMMIT_URI -f $DOCKERFILE $CACHE_FROM --build-arg COMMIT_TAG=$COMMIT_TAG_VERSION --build-arg ARG_CONTENT_HASH=$CONTENT_HASH . \
+| while read line ; do echo "$(date "+%H:%M:%S")| $line"; done
 echo "Pushing image: $IMAGE_COMMIT_URI"
-docker push $IMAGE_COMMIT_URI > /dev/null 2>&1
+retry docker push $IMAGE_COMMIT_URI > /dev/null 2>&1
 untag_remote_image $REPOSITORY tainted

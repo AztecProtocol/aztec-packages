@@ -95,7 +95,7 @@ export class FileCrs {
     const g1Start = 28;
     const g1Length = this.numPoints * 64;
 
-    const g2Start = 28 + 5040000 * 64;
+    const g2Start = 28 + 5040001 * 64;
     const g2Length = 128;
     // Lazily seek our data
     const fileHandle = await open(this.path, 'r');
@@ -145,7 +145,7 @@ export class Crs {
        */
       const SRS_DEV_PATH =
         dirname(fileURLToPath(import.meta.url)) +
-        '/../../../../circuits/cpp/barretenberg/cpp/srs_db/ignition/monomial/transcript00.dat';
+        '/../../../../barretenberg/cpp/srs_db/ignition/monomial/transcript00.dat';
       this.crs = existsSync(SRS_DEV_PATH) ? new FileCrs(numPoints, SRS_DEV_PATH) : new NetCrs(numPoints);
     } else {
       this.crs = new NetCrs(numPoints);

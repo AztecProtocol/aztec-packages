@@ -32,24 +32,24 @@ checkout: &checkout
   run:
     name: "Checkout code"
     command: |
-      function retry_10() {
-        # Retries up to 10 times with 10 second intervals
-        for i in $(seq 1 10); do
+      function retry() {
+        # Retries up to 3 times with 10 second intervals
+        for i in $(seq 1 3); do
           "$@" && return || sleep 10
         done
-        echo "$@ failed after 10 attempts"
+        echo "$@ failed after 3 attempts"
         exit 1
       }
       cd $HOME
       mkdir -p .ssh
       chmod 0700 .ssh
-      retry_10 ssh-keyscan -t rsa github.com >> .ssh/known_hosts
+      retry ssh-keyscan -t rsa github.com >> .ssh/known_hosts
 
       # A read only key for cloning the repository.
       echo $GIT_CHECKOUT_KEY | base64 -d > .ssh/id_rsa
 
       chmod 0600 .ssh/id_rsa
-      # IF YOU'RE CHANGING THIS, YOU ALSO WANT TO CHANGE: build-system/remote_build/remote_build
+      # IF YOU'RE CHANGING THIS, YOU ALSO WANT TO CHANGE: build-system/scripts/remote_runner
       # Shallow checkout this commit.
       mkdir -p project
       cd project
@@ -57,8 +57,8 @@ checkout: &checkout
       git remote add origin $CIRCLE_REPOSITORY_URL
 
       # Only download metadata when fetching.
-      retry_10 git fetch --depth 1 --filter=blob:none origin $CIRCLE_SHA1
-      git checkout FETCH_HEAD
+      retry git fetch --depth 1 --filter=blob:none origin $CIRCLE_SHA1
+      retry git checkout FETCH_HEAD
 
 # Called setup_env to setup a bunch of global variables used throughout the rest of the build process.
 # It takes the required CCI environment variables as inputs, and gives them normalised names for the rest of
@@ -140,7 +140,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests barretenberg-x86_64-linux-clang-assert 1 stdlib-tests
+          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 1 stdlib-tests
       - *save_logs
 
   barretenberg-dsl-tests:
@@ -152,7 +152,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests barretenberg-x86_64-linux-clang-assert 1 dsl_tests
+          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 1 dsl_tests
       - *save_logs
 
   barretenberg-tests:
@@ -164,7 +164,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_test_script ./scripts/bb-tests.sh barretenberg-x86_64-linux-clang-assert
+          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/bb-tests.sh
       - *save_logs
 
   barretenberg-honk-tests:
@@ -176,7 +176,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests barretenberg-x86_64-linux-clang-assert 1 honk_tests
+          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 1 honk_tests
       - *save_logs
 
   barretenberg-proof-system-tests:
@@ -188,7 +188,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests barretenberg-x86_64-linux-clang-assert 1 proof_system_tests
+          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 1 proof_system_tests
       - *save_logs
 
   barretenberg-stdlib-recursion-turbo-tests:
@@ -200,7 +200,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests barretenberg-x86_64-linux-clang-assert 1 stdlib_recursion_tests --gtest_filter=*turbo*
+          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 1 stdlib_recursion_tests --gtest_filter=*turbo*
       - *save_logs
 
   barretenberg-stdlib-recursion-ultra-tests:
@@ -212,7 +212,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests barretenberg-x86_64-linux-clang-assert 3 stdlib_recursion_tests --gtest_filter=-*turbo*
+          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 3 stdlib_recursion_tests --gtest_filter=-*turbo*
       - *save_logs
 
   barretenberg-join-split-tests:
@@ -224,21 +224,32 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests barretenberg-x86_64-linux-clang-assert 3 join_split_example_proofs_join_split_tests --gtest_filter=-*full_proof*
+          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 3 join_split_example_proofs_join_split_tests --gtest_filter=-*full_proof*
       - *save_logs
 
-  barretenberg-benchmark-aggregator:
+  # barretenberg-benchmark-aggregator:
+  #   docker:
+  #     - image: aztecprotocol/alpine-build-image
+  #   resource_class: small
+  #   steps:
+  #     - attach_workspace:
+  #         at: /tmp/test-logs
+  #     - *checkout
+  #     - *setup_env
+  #     - run:
+  #         name: "Test"
+  #         command: ./scripts/ci/store_test_benchmark_logs $AZTEC_GITHUB_TOKEN
+
+  barretenberg-acir-tests-bb:
     docker:
       - image: aztecprotocol/alpine-build-image
     resource_class: small
     steps:
-      - attach_workspace:
-          at: /tmp/test-logs
       - *checkout
       - *setup_env
       - run:
-          name: "Test"
-          command: ./scripts/ci/store_test_benchmark_logs $AZTEC_GITHUB_TOKEN
+          name: "Build and test"
+          command: cond_spot_run_build barretenberg-acir-tests-bb 32
 
   bb-js:
     machine:
@@ -248,7 +259,7 @@ jobs:
       - *checkout
       - *setup_env
       - run:
-          name: "Build"
+          name: "Build and test"
           command: build bb.js
 
   bb-js-tests:
@@ -259,10 +270,10 @@ jobs:
       - *checkout
       - *setup_env
       - run:
-          name: "Test"
-          command: cond_spot_run_tests bb.js
+          name: "Build and test"
+          command: cond_spot_run_test bb.js 32 ./scripts/run_tests
 
-  barretenberg-acir-tests:
+  bb-js-acir-tests:
     docker:
       - image: aztecprotocol/alpine-build-image
     resource_class: small
@@ -271,7 +282,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build and test"
-          command: cond_spot_run_build barretenberg-acir-tests 32
+          command: cond_spot_run_build barretenberg-acir-tests-bb.js 32
 
   circuits-wasm-linux-clang:
     docker:
@@ -337,7 +348,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests circuits-wasm-linux-clang-assert 1 wasm scripts/a3-tests -*.skip*:*.circuit*
+          command: cond_spot_run_test circuits-wasm-linux-clang-assert 32 ./scripts/run_tests 1 wasm scripts/a3-tests -*.skip*:*.circuit*
       - *save_logs
 
   circuits-x86_64-tests:
@@ -349,17 +360,8 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests circuits-x86_64-linux-clang-assert 1 x86_64 scripts/a3-tests -*.skip*
+          command: cond_spot_run_test circuits-x86_64-linux-clang-assert 32 ./scripts/run_tests 1 x86_64 scripts/a3-tests -*.skip*
       - *save_logs
-
-  circuits-end:
-    docker:
-      - image: cimg/base:current
-    resource_class: small
-    steps:
-      - run:
-          name: "Noop"
-          command: echo Noop
 
   l1-contracts:
     machine:
@@ -379,12 +381,6 @@ jobs:
     steps:
       - *checkout
       - *setup_env
-      # We make the build_manifest in the root available to yarn-project. We should be injecting another
-      # build context to docker instead, but that requires modifying the build script from build-system
-      # to accept arbitrary arguments to be passed to docker build, so we avoid it for now.
-      - run:
-          name: "Make build manifest available"
-          command: cp build_manifest.json yarn-project/
       - run:
           name: "Build"
           command: build yarn-project-base
@@ -411,7 +407,7 @@ jobs:
           name: "Build and test"
           command: build aztec.js
 
-  aztec-cli:
+  cli:
     machine:
       image: ubuntu-2004:202010-01
     resource_class: large
@@ -420,7 +416,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build and test"
-          command: build aztec-cli
+          command: build cli
 
   types:
     machine:
@@ -576,7 +572,7 @@ jobs:
           name: "Build and test"
           command: build aztec-rpc
 
-  aztec-sandbox:
+  aztec-sandbox-base:
     machine:
       image: ubuntu-2004:202010-01
     resource_class: large
@@ -585,7 +581,40 @@ jobs:
       - *setup_env
       - run:
           name: "Build and test"
-          command: build aztec-sandbox
+          command: force_deploy_build aztec-sandbox-base false
+
+  aztec-sandbox-x86_64:
+    machine:
+      image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: force_deploy_build aztec-sandbox false x86_64
+
+  aztec-sandbox-arm64:
+    machine:
+      image: ubuntu-2204:2023.07.1
+    resource_class: arm.large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: force_deploy_build aztec-sandbox false arm64
+
+  aztec-sandbox-ecr-manifest:
+    machine:
+      image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Create ECR manifest"
+          command: create_ecr_manifest aztec-sandbox-base aztec-sandbox x86_64,arm64
 
   circuits-js:
     machine:
@@ -662,8 +691,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local e2e_2_rpc_servers.test.ts
-          working_directory: yarn-project/end-to-end
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_2_rpc_servers.test.ts
 
   e2e-multiple-accounts-1-enc-key:
     machine:
@@ -674,8 +702,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local e2e_multiple_accounts_1_enc_key.test.ts
-          working_directory: yarn-project/end-to-end
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_multiple_accounts_1_enc_key.test.ts
 
   e2e-deploy-contract:
     machine:
@@ -686,8 +713,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local e2e_deploy_contract.test.ts
-          working_directory: yarn-project/end-to-end
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_deploy_contract.test.ts
 
   e2e-lending-contract:
     machine:
@@ -698,8 +724,29 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local e2e_lending_contract.test.ts
-          working_directory: yarn-project/end-to-end
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_lending_contract.test.ts
+
+  e2e-token-contract:
+    machine:
+      image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_token_contract.test.ts
+
+  e2e-private-airdrop:
+    machine:
+      image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_private_airdrop.test.ts
 
   e2e-private-token-contract:
     machine:
@@ -710,30 +757,27 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local e2e_private_token_contract.test.ts
-          working_directory: yarn-project/end-to-end
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_private_token_contract.test.ts
 
   e2e-sandbox-example:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests end-to-end e2e_sandbox_example.test.ts docker-compose-e2e-sandbox.yml
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_sandbox_example.test.ts ./scripts/docker-compose-e2e-sandbox.yml
 
   e2e-multi-transfer-contract:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests end-to-end e2e_multi_transfer.test.ts
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_multi_transfer.test.ts
 
   e2e-block-building:
     machine:
@@ -744,8 +788,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local e2e_block_building.test.ts
-          working_directory: yarn-project/end-to-end
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_block_building.test.ts
 
   e2e-nested-contract:
     machine:
@@ -756,8 +799,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local e2e_nested_contract.test.ts
-          working_directory: yarn-project/end-to-end
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_nested_contract.test.ts
 
   e2e-non-contract-account:
     machine:
@@ -768,8 +810,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local e2e_non_contract_account.test.ts
-          working_directory: yarn-project/end-to-end
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_non_contract_account.test.ts
 
   e2e-cross-chain-messaging:
     machine:
@@ -780,8 +821,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local e2e_cross_chain_messaging.test.ts
-          working_directory: yarn-project/end-to-end
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_cross_chain_messaging.test.ts
 
   e2e-public-cross-chain-messaging:
     machine:
@@ -792,8 +832,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local e2e_public_cross_chain_messaging.test.ts
-          working_directory: yarn-project/end-to-end
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_public_cross_chain_messaging.test.ts
 
   e2e-public-to-private-messaging:
     machine:
@@ -804,8 +843,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local e2e_public_to_private_messaging.test.ts
-          working_directory: yarn-project/end-to-end
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_public_to_private_messaging.test.ts
 
   e2e-account-contracts:
     machine:
@@ -816,19 +854,17 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local e2e_account_contracts.test.ts
-          working_directory: yarn-project/end-to-end
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_account_contracts.test.ts
 
   e2e-escrow-contract:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests end-to-end e2e_escrow_contract.test.ts
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_escrow_contract.test.ts
 
   e2e-pending-commitments-contract:
     machine:
@@ -839,8 +875,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local e2e_pending_commitments_contract.test.ts
-          working_directory: yarn-project/end-to-end
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_pending_commitments_contract.test.ts
 
   e2e-ordering:
     machine:
@@ -851,8 +886,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local e2e_ordering.test.ts
-          working_directory: yarn-project/end-to-end
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_ordering.test.ts
 
   uniswap-trade-on-l1-from-l2:
     machine:
@@ -863,8 +897,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local uniswap_trade_on_l1_from_l2.test.ts
-          working_directory: yarn-project/end-to-end
+          command: cond_run_script end-to-end ./scripts/run_tests_local uniswap_trade_on_l1_from_l2.test.ts
 
   integration-archiver-l1-to-l2:
     machine:
@@ -875,8 +908,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local integration_archiver_l1_to_l2.test.ts
-          working_directory: yarn-project/end-to-end
+          command: cond_run_script end-to-end ./scripts/run_tests_local integration_archiver_l1_to_l2.test.ts
 
   integration-l1-publisher:
     machine:
@@ -887,8 +919,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local integration_l1_publisher.test.ts
-          working_directory: yarn-project/end-to-end
+          command: cond_run_script end-to-end ./scripts/run_tests_local integration_l1_publisher.test.ts
 
   e2e-public-token-contract:
     machine:
@@ -899,8 +930,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local e2e_public_token_contract.test.ts
-          working_directory: yarn-project/end-to-end
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_public_token_contract.test.ts
 
   e2e-cli:
     machine:
@@ -911,41 +941,57 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local e2e_cli.test.ts
-          working_directory: yarn-project/end-to-end
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_cli.test.ts
 
   e2e-p2p:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests end-to-end e2e_p2p_network.test.ts
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_p2p_network.test.ts
 
   e2e-browser-sandbox:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests end-to-end e2e_aztec_js_browser.test.ts docker-compose-e2e-sandbox.yml
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_aztec_js_browser.test.ts ./scripts/docker-compose-e2e-sandbox.yml
+
+  e2e-card-game:
+    machine:
+      image: ubuntu-2004:202010-01
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_card_game.test.ts
 
   aztec-rpc-sandbox:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests end-to-end aztec_rpc_sandbox.test.ts docker-compose-e2e-sandbox.yml
+          command: cond_run_script end-to-end ./scripts/run_tests_local aztec_rpc_sandbox.test.ts ./scripts/docker-compose-e2e-sandbox.yml
+
+  cli-docs-sandbox:
+    machine:
+      image: ubuntu-2004:202010-01
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_run_script end-to-end ./scripts/run_tests_local cli_docs_sandbox.test.ts ./scripts/docker-compose-e2e-sandbox.yml
 
   guides-writing-an-account-contract:
     machine:
@@ -956,19 +1002,37 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local guides/writing_an_account_contract.test.ts
-          working_directory: yarn-project/end-to-end
+          command: cond_run_script end-to-end ./scripts/run_tests_local guides/writing_an_account_contract.test.ts
 
-  e2e-canary-test:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+  guides-dapp-testing:
+    machine:
+      image: ubuntu-2004:202010-01
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_test_script ./scripts/run_tests canary-build uniswap_trade_on_l1_from_l2.test.ts canary-build docker-compose-e2e-sandbox.yml
+          command: cond_run_script end-to-end ./scripts/run_tests_local guides/dapp_testing.test.ts ./scripts/docker-compose-e2e-sandbox.yml
+
+  guides-sample-dapp:
+    machine:
+      image: ubuntu-2004:202010-01
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_run_script end-to-end ./scripts/run_tests_local sample-dapp ./scripts/docker-compose-e2e-sandbox.yml
+
+  e2e-canary-test:
+    machine:
+      image: ubuntu-2004:202010-01
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_run_script canary-build ./scripts/run_tests uniswap_trade_on_l1_from_l2.test.ts canary-build ./scripts/docker-compose-e2e-sandbox.yml
 
   build-docs:
     machine:
@@ -1060,11 +1124,11 @@ jobs:
             deploy_ecr noir-contracts
             deploy_npm noir-contracts
       - run:
-          name: "aztec-cli"
-          working_directory: aztec-cli
+          name: "cli"
+          working_directory: cli
           command: |
-            deploy_ecr aztec-cli
-            deploy_npm aztec-cli
+            deploy_ecr cli
+            deploy_npm cli
       # Aztec Sandbox and dependencies
       - run:
           name: "aztec-rpc"
@@ -1126,6 +1190,7 @@ jobs:
           command: |
             deploy_ecr aztec-sandbox
             deploy_npm aztec-sandbox
+
   deploy-dockerhub:
     machine:
       image: ubuntu-2004:202010-01
@@ -1137,8 +1202,11 @@ jobs:
           name: "deploy-sandbox"
           working_directory: aztec-sandbox
           command: |
-            deploy_ecr aztec-sandbox
-            deploy_dockerhub aztec-sandbox
+            deploy_ecr aztec-sandbox x86_64
+            deploy_ecr aztec-sandbox arm64
+            deploy_dockerhub aztec-sandbox x86_64
+            deploy_dockerhub aztec-sandbox arm64
+            create_dockerhub_manifest aztec-sandbox x86_64,arm64
 
   deploy-end:
     docker:
@@ -1194,7 +1262,7 @@ jobs:
           command: spot_run_test_script ./scripts/run_tests canary cli.test.ts canary docker-compose.yml
 
 # Repeatable config for defining the workflow below.
-tag_regex: &tag_regex /^v.*/
+tag_regex: &tag_regex /^aztec-packages-v.*/
 defaults: &defaults
   filters:
     tags:
@@ -1231,14 +1299,6 @@ bb_test: &bb_test
   requires:
     - barretenberg-x86_64-linux-clang-assert
   <<: *defaults
-circuits-wasm-test: &circuits-wasm-test
-  requires:
-    - circuits-wasm-linux-clang-assert
-  <<: *defaults
-circuits-x86_64-test: &circuits-x86_64-test
-  requires:
-    - circuits-x86_64-linux-clang-assert
-  <<: *defaults
 
 workflows:
   system:
@@ -1246,6 +1306,8 @@ workflows:
       equal: [system, << pipeline.parameters.workflow >>]
     jobs:
       - build-docs: *defaults
+
+      # Barretenberg
       - barretenberg-x86_64-linux-gcc: *defaults
       - barretenberg-x86_64-linux-clang: *defaults
       - barretenberg-x86_64-linux-clang-assert: *defaults
@@ -1259,17 +1321,21 @@ workflows:
       - barretenberg-stdlib-recursion-turbo-tests: *bb_test
       - barretenberg-stdlib-recursion-ultra-tests: *bb_test
       - barretenberg-join-split-tests: *bb_test
-      - barretenberg-benchmark-aggregator:
+      # - barretenberg-benchmark-aggregator:
+      #     requires:
+      #       - barretenberg-tests
+      #       - barretenberg-stdlib-tests
+      #       - barretenberg-stdlib-recursion-turbo-tests
+      #       - barretenberg-stdlib-recursion-ultra-tests
+      #       - barretenberg-join-split-tests
+      #     filters:
+      #       branches:
+      #         only:
+      #           - master
+      #     <<: *defaults
+      - barretenberg-acir-tests-bb:
           requires:
-            - barretenberg-tests
-            - barretenberg-stdlib-tests
-            - barretenberg-stdlib-recursion-turbo-tests
-            - barretenberg-stdlib-recursion-ultra-tests
-            - barretenberg-join-split-tests
-          filters:
-            branches:
-              only:
-                - master
+            - barretenberg-x86_64-linux-clang-assert
           <<: *defaults
       - bb-js:
           requires:
@@ -1279,35 +1345,54 @@ workflows:
           requires:
             - bb-js
           <<: *defaults
-      - barretenberg-acir-tests:
+      - bb-js-acir-tests:
           requires:
-            - barretenberg-x86_64-linux-clang-assert
             - bb-js
           <<: *defaults
-      - circuits-wasm-linux-clang: *defaults
-      - circuits-wasm-linux-clang-assert: *defaults
-      - circuits-x86_64-linux-clang-tidy: *defaults
-      - circuits-x86_64-linux-clang: *defaults
-      - circuits-x86_64-linux-clang-assert: *defaults
-      - circuits-wasm-tests:
-          <<: *circuits-wasm-test
-      - circuits-x86_64-tests:
-          <<: *circuits-x86_64-test
 
-      - circuits-end:
+      # Circuits
+      - circuits-wasm-linux-clang:
           requires:
-            - circuits-wasm-linux-clang
-            - circuits-wasm-linux-clang-assert
-            - circuits-x86_64-linux-clang-tidy
-            - circuits-x86_64-linux-clang
-            - circuits-x86_64-linux-clang-assert
-            - circuits-wasm-tests
-            - circuits-x86_64-tests
+            - barretenberg-wasm-linux-clang
           <<: *defaults
+      - circuits-wasm-linux-clang-assert:
+          requires:
+            - barretenberg-wasm-linux-clang
+          <<: *defaults
+      - circuits-x86_64-linux-clang-tidy:
+          requires:
+            - barretenberg-x86_64-linux-clang
+          <<: *defaults
+      - circuits-x86_64-linux-clang:
+          requires:
+            - barretenberg-x86_64-linux-clang
+          <<: *defaults
+      - circuits-x86_64-linux-clang-assert:
+          requires:
+            - barretenberg-x86_64-linux-clang
+          <<: *defaults
+      - circuits-wasm-tests:
+          requires:
+            - circuits-wasm-linux-clang-assert
+          <<: *defaults
+      - circuits-x86_64-tests:
+          requires:
+            - circuits-x86_64-linux-clang-assert
+          <<: *defaults
+
+      # - circuits-end:
+      #     requires:
+      #       - circuits-wasm-linux-clang
+      #       - circuits-x86_64-linux-clang-tidy
+      #       - circuits-x86_64-linux-clang
+      #       - circuits-wasm-tests
+      #       - circuits-x86_64-tests
+      #     <<: *defaults
 
       - l1-contracts: *defaults
       - noir-contracts-build: *defaults
 
+      # Yarn Project
       - yarn-project-base:
           requires:
             - circuits-wasm-linux-clang
@@ -1324,7 +1409,7 @@ workflows:
       - archiver: *yarn_project
       - aztec-rpc: *yarn_project
       - aztec-node: *yarn_project
-      - aztec-cli: *yarn_project
+      - cli: *yarn_project
       - key-store: *yarn_project
       - merkle-tree: *yarn_project
       - p2p: *yarn_project
@@ -1336,8 +1421,23 @@ workflows:
       - types: *yarn_project
       - circuits-js: *yarn_project
       - rollup-provider: *yarn_project
-      - aztec-sandbox: *yarn_project
+      - aztec-sandbox-base: *yarn_project
       - canary: *yarn_project
+
+      - aztec-sandbox-x86_64:
+          requires:
+            - aztec-sandbox-base
+          <<: *defaults
+      - aztec-sandbox-arm64:
+          requires:
+            - aztec-sandbox-base
+          <<: *defaults
+
+      - aztec-sandbox-ecr-manifest:
+          requires:
+            - aztec-sandbox-x86_64
+            - aztec-sandbox-arm64
+          <<: *defaults
 
       - e2e-join:
           requires:
@@ -1350,7 +1450,7 @@ workflows:
             - archiver
             - aztec-rpc
             - aztec-node
-            - aztec-cli
+            - cli
             - key-store
             - merkle-tree
             - p2p
@@ -1362,13 +1462,15 @@ workflows:
             - types
             - circuits-js
             - rollup-provider
-            - aztec-sandbox
+            - aztec-sandbox-ecr-manifest
             - canary
           <<: *defaults
 
       - e2e-2-rpc-servers: *e2e_test
       - e2e-deploy-contract: *e2e_test
       - e2e-lending-contract: *e2e_test
+      - e2e-token-contract: *e2e_test
+      - e2e-private-airdrop: *e2e_test
       - e2e-private-token-contract: *e2e_test
       - e2e-sandbox-example: *e2e_test
       - e2e-multi-transfer-contract: *e2e_test
@@ -1391,14 +1493,20 @@ workflows:
       - e2e-p2p: *e2e_test
       - e2e-canary-test: *e2e_test
       - e2e-browser-sandbox: *e2e_test
+      - e2e-card-game: *e2e_test
       - aztec-rpc-sandbox: *e2e_test
+      - cli-docs-sandbox: *e2e_test
       - guides-writing-an-account-contract: *e2e_test
+      - guides-dapp-testing: *e2e_test
+      - guides-sample-dapp: *e2e_test
 
       - e2e-end:
           requires:
             - e2e-2-rpc-servers
             - e2e-deploy-contract
             - e2e-lending-contract
+            - e2e-token-contract
+            - e2e-private-airdrop
             - e2e-private-token-contract
             - e2e-sandbox-example
             - e2e-multi-transfer-contract
@@ -1421,10 +1529,15 @@ workflows:
             - e2e-p2p
             - e2e-browser-sandbox
             - e2e-canary-test
+            - e2e-card-game
             - aztec-rpc-sandbox
+            - cli-docs-sandbox
             - guides-writing-an-account-contract
+            - guides-dapp-testing
+            - guides-sample-dapp
           <<: *defaults
 
+        # Deployment and Canary tests
       - deploy-dockerhub:
           requires:
             - e2e-end

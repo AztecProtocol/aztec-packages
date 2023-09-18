@@ -146,7 +146,7 @@ function generateAbiGetter(name: string) {
 function generateAbiStatement(name: string, abiImportPath: string) {
   const stmts = [
     `import ${name}ContractAbiJson from '${abiImportPath}' assert { type: 'json' };`,
-    `export const ${name}ContractAbi = ${name}ContractAbiJson as unknown as ContractAbi;`,
+    `export const ${name}ContractAbi = ${name}ContractAbiJson as ContractAbi;`,
   ];
   return stmts.join('\n');
 }
@@ -181,10 +181,6 @@ ${abiStatement}
  */
 export class ${input.name}Contract extends ContractBase {
   ${ctor}
-
-  get address() {
-    return this.completeAddress.address;
-  }
 
   ${at}
 

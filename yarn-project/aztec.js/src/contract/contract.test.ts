@@ -14,7 +14,7 @@ import {
 
 import { MockProxy, mock } from 'jest-mock-extended';
 
-import { Wallet } from '../aztec_rpc_client/wallet.js';
+import { Wallet } from '../wallet/index.js';
 import { Contract } from './contract.js';
 
 describe('Contract Class', () => {
@@ -28,7 +28,13 @@ describe('Contract Class', () => {
   const mockTxHash = { type: 'TxHash' } as any as TxHash;
   const mockTxReceipt = { type: 'TxReceipt' } as any as TxReceipt;
   const mockViewResultValue = 1;
-  const mockNodeInfo: NodeInfo = { version: 1, chainId: 2, rollupAddress: EthAddress.random(), client: '' };
+  const mockNodeInfo: NodeInfo = {
+    version: 1,
+    chainId: 2,
+    rollupAddress: EthAddress.random(),
+    client: '',
+    compatibleNargoVersion: 'vx.x.x-aztec.x',
+  };
 
   const defaultAbi: ContractAbi = {
     name: 'FooContract',
@@ -102,16 +108,14 @@ describe('Contract Class', () => {
     wallet.getTxReceipt.mockResolvedValue(mockTxReceipt);
     wallet.getNodeInfo.mockResolvedValue(mockNodeInfo);
     wallet.simulateTx.mockResolvedValue(mockTx);
-    wallet.getAccounts.mockResolvedValue([account]);
+    wallet.getRegisteredAccounts.mockResolvedValue([account]);
   });
 
   it('should create and send a contract method tx', async () => {
     const fooContract = await Contract.at(contractAddress, defaultAbi, wallet);
     const param0 = 12;
     const param1 = 345n;
-    const sentTx = fooContract.methods.bar(param0, param1).send({
-      origin: account.address,
-    });
+    const sentTx = fooContract.methods.bar(param0, param1).send();
     const txHash = await sentTx.getTxHash();
     const receipt = await sentTx.getReceipt();
 
@@ -134,7 +138,7 @@ describe('Contract Class', () => {
 
   it('should not call create on an unconstrained function', async () => {
     const fooContract = await Contract.at(contractAddress, defaultAbi, wallet);
-    await expect(fooContract.methods.qux().create({ origin: account.address })).rejects.toThrow();
+    await expect(fooContract.methods.qux().create()).rejects.toThrow();
   });
 
   it('should not call view on a secret or open function', async () => {
