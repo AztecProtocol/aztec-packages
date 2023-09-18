@@ -109,7 +109,6 @@ export function ContractFunctionForm({
   contractAddress,
   contractAbi,
   functionAbi,
-  title,
   buttonText = 'Submit',
   isLoading,
   disabled,
@@ -133,39 +132,31 @@ export function ContractFunctionForm({
   });
 
   return (
-    <div className={styles.form}>
-      <Card
-        className={styles.card}
-        cardTheme={CardTheme.DARK}
-        cardHeader={title || `${functionAbi.name} (${functionAbi.functionType})`}
-        cardContent={
-          <form onSubmit={formik.handleSubmit} className={styles.content}>
-            <div className={styles.tag}>
-              <div className={styles.title}>{`${contractAbi.name}`}</div>
-              {!!contractAddress && <div>{`${contractAddress.toShortString()}`}</div>}
-            </div>
-            {functionAbi.parameters.map(input => (
-              <div key={input.name} className={styles.field}>
-                <label className={styles.label} htmlFor={input.name}>
-                  {input.name} ({input.type.kind})
-                </label>
-                <input
-                  className={styles.input}
-                  id={input.name}
-                  name={input.name}
-                  type="text"
-                  onChange={formik.handleChange}
-                  value={formik.values[input.name]}
-                />
-                {formik.touched[input.name] && formik.errors[input.name] && (
-                  <div>{formik.errors[input.name]?.toString()}</div>
-                )}
-              </div>
-            ))}
-            {isLoading ? <Loader /> : <Button disabled={disabled} text={buttonText} className={styles.actionButton} type='submit' />}
-          </form>
-        }
-      />
-    </div>
+    <form onSubmit={formik.handleSubmit} className={styles.content}>
+      {functionAbi.parameters.map(input => (
+        <div key={input.name} className={styles.field}>
+          <label className={styles.label} htmlFor={input.name}>
+            {input.name} ({input.type.kind})
+          </label>
+          <input
+            className={styles.input}
+            id={input.name}
+            name={input.name}
+            disabled={isLoading}
+            type="text"
+            onChange={formik.handleChange}
+            value={formik.values[input.name]}
+          />
+          {formik.touched[input.name] && formik.errors[input.name] && (
+            <div>{formik.errors[input.name]?.toString()}</div>
+          )}
+        </div>
+      ))}
+      {isLoading ? (
+        <Loader />
+      ) : (
+        <Button disabled={disabled} text={buttonText} className={styles.actionButton} type="submit" />
+      )}
+    </form>
   );
 }
