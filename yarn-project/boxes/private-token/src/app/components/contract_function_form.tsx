@@ -135,6 +135,7 @@ export function ContractFunctionForm({
   return (
     <div className={styles.form}>
       <Card
+        className={styles.card}
         cardTheme={CardTheme.DARK}
         cardHeader={title || `${functionAbi.name} (${functionAbi.functionType})`}
         cardContent={

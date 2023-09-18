@@ -35,6 +35,10 @@
     gap: 15px;
 }
 
+.card {
+    z-index: 1;
+}
+
 .form {
     display: flex;
 }
@@ -65,7 +69,7 @@
     display: flex;
     position: relative;
     flex-direction: column;
-    font-size: 14px;
+    font-size: 16px;
     gap: 5px;
     background-color: #fff;
     text-align: right;

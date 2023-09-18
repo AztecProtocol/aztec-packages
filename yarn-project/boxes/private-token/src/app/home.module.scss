@@ -13,3 +13,16 @@
     height: 45px;
     cursor: pointer;
 }
+
+.privateBackground {
+    transform: rotate(-20deg);
+    width: 150vw;
+    height: 150vh;
+    font-weight: 500;
+    opacity: 0.3;
+    font-size: 14px;
+    pointer-events: none;
+    position: absolute;
+    font-size: 14px;
+    z-index: 0;
+}

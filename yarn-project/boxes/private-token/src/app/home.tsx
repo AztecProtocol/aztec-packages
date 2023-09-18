@@ -1,6 +1,6 @@
 import { Loader } from '@aztec/aztec-ui';
 import { CompleteAddress } from '@aztec/aztec.js';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { SANDBOX_URL } from '../config.js';
 import { WalletDropdown } from './components/wallet_dropdown.js';
 import { Contract } from './contract.js';
@@ -10,6 +10,40 @@ export function Home() {
   const [isLoadingWallet, setIsLoadingWallet] = useState(true);
   const [selectedWallet, setSelectedWallet] = useState<CompleteAddress>();
   const [selectWalletError, setSelectedWalletError] = useState('');
+  const [privateMode, setPrivateMode] = useState(false);
+  const konamiIndex = useRef(0);
+
+  const konamiCode = [
+    'ArrowUp',
+    'ArrowUp',
+    'ArrowDown',
+    'ArrowDown',
+    'ArrowLeft',
+    'ArrowRight',
+    'ArrowLeft',
+    'ArrowRight',
+    'KeyB',
+    'KeyA',
+  ];
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === konamiCode[konamiIndex.current]) {
+        konamiIndex.current++;
+        if (konamiIndex.current === konamiCode.length) {
+          setPrivateMode(true);
+          konamiIndex.current = 0;
+        }
+      } else {
+        konamiIndex.current = 0;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
 
   const handleSelectWallet = (address: CompleteAddress | undefined) => {
     setSelectedWallet(address);
@@ -21,8 +55,15 @@ export function Home() {
     setIsLoadingWallet(false);
   };
 
+  function generatePrivateString() {
+    const word = 'PRIVATE';
+    const times = 4000;
+    return Array(times).fill(word).join(' ');
+  }
+
   return (
     <main className={styles.main}>
+      {privateMode ? <div className={styles.privateBackground}>{generatePrivateString()}</div> : null}
       <img src="aztec_logo.svg" alt="Aztec" className={styles.logo} />
       <>
         {isLoadingWallet && <Loader />}
