@@ -90,7 +90,6 @@ EscrowContractAbi
 ImportTestContractAbi
 LendingContractAbi
 MultiTransferContractAbi
-NativeTokenContractAbi
 NonNativeTokenContractAbi
 ParentContractAbi
 PendingCommitmentsContractAbi
@@ -100,9 +99,9 @@ PrivateTokenAirdropContractAbi
 PrivateTokenContractAbi
 PublicTokenContractAbi
 SchnorrAccountContractAbi
-SchnorrAuthWitnessAccountContractAbi
 SchnorrHardcodedAccountContractAbi
 SchnorrSingleKeyAccountContractAbi
+StatefulTestContractAbi
 TestContractAbi
 TokenContractAbi
 UniswapContractAbi

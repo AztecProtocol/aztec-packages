@@ -6,7 +6,7 @@ cmake_minimum_required(VERSION 3.24)
 project(
     Barretenberg
     DESCRIPTION "BN254 elliptic curve library, and PLONK SNARK prover"
-    VERSION 0.7.0 # x-release-please-version
+    VERSION 0.7.5 # x-release-please-version
     LANGUAGES CXX C
 )
 
@@ -135,3 +135,11 @@ include(cmake/gtest.cmake)
 include(cmake/benchmark.cmake)
 include(cmake/module.cmake)
 add_subdirectory(src)
+if (ENABLE_ASAN AND NOT(FUZZING))
+    find_program(LLVM_SYMBOLIZER_PATH NAMES llvm-symbolizer-16)
+    if (NOT(LLVM_SYMBOLIZER_PATH))
+        message(WARNING "LLVM symbolizer not found, so ASAN output will be limited")
+    else()
+        message(AUTHOR_WARNING "Run `export ASAN_SYMBOLIZER_PATH=\"${LLVM_SYMBOLIZER_PATH}\"` before running tests for better ASAN output (at which lines the bugs are).")
+    endif()
+endif()
