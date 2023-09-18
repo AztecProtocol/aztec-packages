@@ -20,10 +20,7 @@ We are going to start with a blank project and fill in the code defined [here](h
 
 You will need to install nargo, the Noir build too. if you are familiar with Rust, this is similar to cargo.
 
-```bash
-curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | bash
-noirup -v 0.11.1-aztec.0
-```
+<InstallNargoInstructions />
 
 If you've already installed the `aztec-cli`, as described in the quickstart [here](./quickstart#cli), you can check which version of Noir is compatible with your version of the CLI and sandbox by running:
 
