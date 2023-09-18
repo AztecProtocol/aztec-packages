@@ -61,47 +61,47 @@ The structure of a contract artifact is as follows:
 
 ```
 
-### Contract Name
+### `name`
 It is a simple string that matches the name that the contract developer used for this contract in noir. It's used for logs and errors.
 
-### Functions
+### `functions`
 A contract is a collection of several functions that can be called. Each function has the following properties:
 
-#### Name
+#### `function.name`
 A simple string that matches the name that the contract developer used for this function in noir. For logging and debugging purposes.
 
-#### Function Type
-The functionType can have one of the following values:
+#### `function.functionType`
+The function type can have one of the following values:
 
 - Secret: The function is ran and proved locally by the clients, and its bytecode not published to the network.
 - Open: The function is ran and proved by the sequencer, and its bytecode is published to the network.
 - Unconstrained: The function is ran locally by the clients to generate digested information useful for the user. It's not meant to be transacted against.
 
-#### Internal Flag
-The isInternal property is a boolean that indicates whether the function is internal to the contract and cannot be called from outside.
+#### `function.isInternal`
+The is internal property is a boolean that indicates whether the function is internal to the contract and cannot be called from outside.
 
-#### Parameters
+#### `function.parameters`
 Each function can have multiple parameters that are arguments to execute the function. Parameters have a name, and type (like integers, strings, or complex types like arrays and structures).
 
-#### Return Types
-The returnTypes property defines the types of values that the function returns after execution.
+#### `function.returnTypes`
+The return types property defines the types of values that the function returns after execution.
 
-#### Bytecode
+#### `function.bytecode`
 The bytecode is a string representing the compiled ACIR of the function, ready for execution on the network.
 
-#### Verification Key (Optional)
-The verificationKey is an optional property that contains the verification key of the function. This key is used to verify the proof of the function execution.
+#### `function.verificationKey`
+The verification key is an optional property that contains the verification key of the function. This key is used to verify the proof of the function execution.
 
-### Debug Metadata (Optional)
+### `debug` (Optional)
 Although not significant for non-developer users, it is worth mentioning that there is a debug section in the contract artifact which helps contract developers to debug and test their contracts. This section mainly contains debug symbols and file maps that link back to the original source code.
 
 ## Understanding Parameter and Return Types
 To make the most of the functions, it's essential to understand the types of parameters and return values. Here are some common types you might encounter:
 
- - Field: A basic type representing a field element in the finite field of the curve used in the Aztec protocol.
- - Boolean: A simple true/false value.
- - Integer: Represents whole numbers. It has attributes defining its sign (positive or negative) and width (the number of bits representing the integer).
- - Array: Represents a collection of elements, all of the same type. It has attributes defining its length and the type of elements it holds.
- - String: Represents a sequence of characters with a specified length.
- - Struct: A complex type representing a structure with various fields, each having a specific type and name.
+ - `field`: A basic type representing a field element in the finite field of the curve used in the Aztec protocol.
+ - `boolean`: A simple true/false value.
+ - `integer`: Represents whole numbers. It has attributes defining its sign (positive or negative) and width (the number of bits representing the integer).
+ - `array`: Represents a collection of elements, all of the same type. It has attributes defining its length and the type of elements it holds.
+ - `string`: Represents a sequence of characters with a specified length.
+ - `struct`: A complex type representing a structure with various fields, each having a specific type and name.
 
