@@ -1,30 +1,72 @@
 ---
-title: Aztec.js
+title: Aztec Sandbox
 ---
 
 import Image from "@theme/IdealImage";
 
 ## Introduction
 
-Here we will walkthrough the process of using Aztec.js to deploy and use a fully private token contract on the Aztec network.
+The Aztec Sandbox aims to provide a local development system against which you can build and test Aztec.nr contracts in a fast, safe, and free environment.
+
+Here we will walkthrough the process of retrieving the Sandbox, installing the client libraries and using it to deploy and use a fully private token contract on the Aztec network.
 
 ## What do you need?
 
 - Node.Js >= v18
 - Docker and Docker Compose (Docker Desktop under WSL2 on windows)
-- The Sandbox installed and running - read about that in the [quickstart](quickstart)
 
 That's it...
 
-## Let's go
+## Ok, so how do I try it out?
 
-We will deploy a private token contract, and send tokens privately, using Aztec.js and the Sandbox.
+Well, you can find instructions [at the website](https://sandbox.aztec.network).
 
-Writing the contract itself is out of scope for this tutorial, so we will use a Private Token Contract which has been pre-supplied as an example. See [here](../contracts/main.md) for more information on how to write contracts for Aztec.
+Or you can just curl the site instead like this:
+
+```sh
+/bin/bash -c "$(curl -fsSL 'https://sandbox.aztec.network')"
+```
+
+It will download and execute a script invoking docker compose with 2 containers:
+
+- Anvil
+- Aztec Sandbox
+
+It will need to create servers on localhost ports 8545 (Anvil) and 8080 (Sandbox) so you will need to ensure nothing conflicts with this.
+
+Within a few seconds the Sandbox should be up and running!
+
+<Image img={require("/img/sandbox.png")} />
+
+## Great, but what can I do with it?
+
+Aztec's Layer 2 network is a fully programmable combined private/public ZK rollup. To achieve this, the network contains the following primary components:
+
+- Aztec Node - Aggregates all of the 'backend' services necessary for the building and publishing of rollups.
+- Aztec RPC Server - Normally residing with the end client, this decrypts and stores a client's private state, executes simulations and submits transactions to the Aztec Node.
+- Aztec.js - Aztec's client library for interacting with the Aztec RPC Server (think Ethers.js).
+
+All of this is included in the Sandbox, with the exception of Aztec.js which you can use to interact with it.
+
+With the help of Aztec.js you will be able to:
+
+- Create an account
+- Deploy a contract
+- Call view methods on contracts
+- Simulate the calling of contract functions
+- Send transactions to the network
+- Be notified when transactions settle
+- Query chain state such as chain id, block number etc.
+
+## I have the Sandbox running, show me how to use it!
+
+We will deploy a token contract, and send tokens privately, using the Sandbox.
+
+Writing the contract itself is out of scope for this tutorial, so we will use a Token Contract which has been pre-supplied as an example. See [here](../contracts/main.md) for more information on how to write contracts for Aztec.
 
 The following should work for MacOS, Linux or even WSL2 Ubuntu under Windows.
 
-Let's create an empty project called `private-token`. If you are familiar with setting up Typescript projects then you can skip to step 6.
+Let's create an empty project called `token`. If you are familiar with setting up Typescript projects then you can skip to step 6.
 
 Although both `yarn` and `npm` would work, this example uses `yarn`. Open the terminal and do the following
 
@@ -37,12 +79,28 @@ node -v
 2. Initialize a yarn project
 
 ```sh
-mkdir private-token
-cd private-token
+mkdir token
+cd token
 yarn init
 ```
 
-1. Create a `src` folder inside your new `private-token` directory:
+This should ask a series of questions that you can fill like so:
+
+```
+yarn init v1.22.19
+question name (token):
+question version (1.0.0):
+question description: My first token contract
+question entry point (index.js):
+question repository url:
+question author: Phil
+question license (MIT):
+question private:
+success Saved package.json
+Done in 23.60s.
+```
+
+3. Create a `src` folder inside your new `token` directory:
 
 ```sh
 mkdir src
@@ -86,9 +144,9 @@ Add a `tsconfig.json` file into the project root, here is an example:
 
 ```json
 {
-  "name": "private-token",
+  "name": "token",
   "version": "1.0.0",
-  "description": "My first private token contract",
+  "description": "My first token contract",
   "main": "index.js",
   "author": "Phil",
   "license": "MIT",
@@ -114,22 +172,9 @@ yarn add @aztec/aztec.js @aztec/noir-contracts
 
 7. Create an `index.ts` file in the `src` directory and add the following imports:
 
-<!-- this imported code is missing a dependency -->
-<!-- #include_code imports /yarn-project/end-to-end/src/e2e_sandbox_example.test.ts typescript -->
+#include_code imports /yarn-project/end-to-end/src/e2e_sandbox_example.test.ts typescript
 
-```ts
-import {
-  AztecRPC,
-  Fr,
-  computeMessageSecretHash,
-  createDebugLogger,
-  getSchnorrAccount,
-  waitForSandbox,
-  createAztecRpcClient,
-} from "@aztec/aztec.js";
-```
-
-and the following setup code inside the `main`:
+and the following setup code:
 
 #include_code setup /yarn-project/end-to-end/src/e2e_sandbox_example.test.ts typescript
 
@@ -142,7 +187,15 @@ yarn start
 A successful run should show:
 
 ```
-  token Aztec Sandbox Info  { version: 1, chainId: 31337 } +0ms
+  token Aztec Sandbox Info  {
+    version: 1,
+    chainId: 31337,
+    rollupAddress: EthAddress {
+      buffer: <Buffer cf 7e d3 ac ca 5a 46 7e 9e 70 4c 70 3e 8d 87 f6 34 fb 0f c9>
+    },
+    client: 'aztec-rpc@0.1.0',
+    compatibleNargoVersion: '0.11.1-aztec.0'
+  }
 ```
 
 Great!. The Sandbox is running and we are able to interact with it.
@@ -161,10 +214,18 @@ Continue with adding the following to the `index.ts` file in our example:
 Running `yarn start` should now output:
 
 ```
-  private-token Aztec Sandbox Info  { version: 1, chainId: 31337 } +0ms
-  private-token Creating accounts using schnorr signers... +2ms
-  private-token Created Alice's account at 0x054d89d0...f17e +23s
-  private-token Created Bob's account at 0x0a8410a1...7c48 +1ms
+  token Aztec Sandbox Info  {
+    version: 1,
+    chainId: 31337,
+    rollupAddress: EthAddress {
+      buffer: <Buffer cf 7e d3 ac ca 5a 46 7e 9e 70 4c 70 3e 8d 87 f6 34 fb 0f c9>
+    },
+    client: 'aztec-rpc@0.1.0',
+    compatibleNargoVersion: '0.11.1-aztec.0'
+  }
+  token Creating accounts using schnorr signers... +3ms
+  token Created Alice's account at 0x1509b252...0027 +10s
+  token Created Bob's account at 0x031862e8...e7a3 +0ms
 ```
 
 That might seem like a lot to digest but it can be broken down into the following steps:
@@ -187,13 +248,20 @@ Now that we have our accounts setup, let's move on to deploy our private token c
 `yarn start` will now give the following output:
 
 ```
-  private-token Aztec Sandbox Info  { version: 1, chainId: 31337 } +0ms
-  private-token Creating accounts using schnorr signers... +2ms
-  private-token Created Alice's account at 0x054d89d0...f17e +23s
-  private-token Created Bob's account at 0x0a8410a1...7c48 +1ms
-  private-token Deploying private token contract minting an initial 1000000 tokens to Alice... +0ms
-  private-token Transaction status is mined +8s
-  private-token Contract successfully deployed at address 0x143e0af4...11b6 +7ms
+  token Aztec Sandbox Info  {
+    version: 1,
+    chainId: 31337,
+    rollupAddress: EthAddress {
+      buffer: <Buffer cf 7e d3 ac ca 5a 46 7e 9e 70 4c 70 3e 8d 87 f6 34 fb 0f c9>
+    },
+    client: 'aztec-rpc@0.1.0',
+    compatibleNargoVersion: '0.11.1-aztec.0'
+  }
+  token Creating accounts using schnorr signers... +3ms
+  token Created Alice's account at 0x1509b252...0027 +10s
+  token Created Bob's account at 0x031862e8...e7a3 +0ms
+  token Deploying token contract minting an initial 1000000 tokens to Alice... +1ms
+  token Contract successfully deployed at address 0x1c3dc2ed...1362 +15s
 ```
 
 We can break this down as follows:
@@ -201,25 +269,17 @@ We can break this down as follows:
 1. We create and send a contract deployment transaction to the network.
 2. We wait for it to be successfully mined.
 3. We retrieve the transaction receipt containing the transaction status and contract address.
-4. We use the `getContractInfo()` api on the RPC Server to retrieve information about the reported contract address.
-5. The fact that this api returns a valid object tells us that the contract was successfully deployed in a prior block.
-
-Our output will now be:
-
-```
-  private-token Aztec Sandbox Info  { version: 1, chainId: 31337 } +0ms
-  private-token Creating accounts using schnorr signers... +2ms
-  private-token Created Alice's account at 0x054d89d0...f17e +23s
-  private-token Created Bob's account at 0x0a8410a1...7c48 +1ms
-  private-token Deploying private token contract minting an initial 1000000 tokens to Alice... +0ms
-  private-token Contract successfully deployed at address 0x143e0af4...11b6 +7ms
-```
+4. We connect to the contract with Alice
+5. Alice initialize the contract with herself as the admin and a minter.
+6. Alice adds Bob as minter.
+7. Alice mints 1000000 tokens to be claimed by herself in private.
+8. Alice claims the tokens privately.
 
 ## Viewing the balance of an account
 
-A token contract wouldn't be very useful if you aren't able to query the balance of an account. As part of the deployment, tokens were minted to Alice. We can now call the contract's `getBalance()` function to retrieve the balances of the accounts.
+A token contract wouldn't be very useful if you aren't able to query the balance of an account. As part of the deployment, tokens were minted to Alice. We can now call the contract's `balance_of_private()` function to retrieve the balances of the accounts.
 
-#include_code getBalance /yarn-project/noir-contracts/src/contracts/private_token_contract/src/main.nr rust
+#include_code balance_of_private /yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
 
 Call this function using the following code:
 
@@ -228,15 +288,22 @@ Call this function using the following code:
 Running now should yield output:
 
 ```
-  private-token Aztec Sandbox Info  { version: 1, chainId: 31337 } +0ms
-  private-token Creating accounts using schnorr signers... +2ms
-  private-token Created Alice's account at 0x054d89d0...f17e +23s
-  private-token Created Bob's account at 0x0a8410a1...7c48 +1ms
-  private-token Deploying private token contract minting an initial 1000000 tokens to Alice... +0ms
-  private-token Transaction status is mined +8s
-  private-token Contract successfully deployed at address 0x143e0af4...11b6 +7ms
-  private-token Alice's balance 1000000 +4s
-  private-token Bob's balance 0 +3s
+  token Aztec Sandbox Info  {
+    version: 1,
+    chainId: 31337,
+    rollupAddress: EthAddress {
+      buffer: <Buffer cf 7e d3 ac ca 5a 46 7e 9e 70 4c 70 3e 8d 87 f6 34 fb 0f c9>
+    },
+    client: 'aztec-rpc@0.1.0',
+    compatibleNargoVersion: '0.11.1-aztec.0'
+  }
+  token Creating accounts using schnorr signers... +3ms
+  token Created Alice's account at 0x1509b252...0027 +10s
+  token Created Bob's account at 0x031862e8...e7a3 +0ms
+  token Deploying token contract minting an initial 1000000 tokens to Alice... +1ms
+  token Contract successfully deployed at address 0x1c3dc2ed...1362 +15s
+  token Alice's balance 1000000 +9s
+  token Bob's balance 0 +33ms
 ```
 
 In this section, we first created 2 instances of the `PrivateTokenContract` contract abstraction. One for each of our deployed accounts. This contract abstraction offers a Typescript interface reflecting the abi of the contract. We then call `getBalance()` as a `view` method. View methods can be thought as read-only. No transaction is submitted as a result but a user's state can be queried.
@@ -245,30 +312,39 @@ We can see that each account has the expected balance of tokens.
 
 ## Creating and submitting transactions
 
-Now lets transfer some funds from Alice to Bob by calling the `transfer` function on the contract. This function takes 3 arguments:
+Now lets transfer some funds from Alice to Bob by calling the `transfer` function on the contract. This function takes 4 arguments:
 
-1. The quantity of tokens to transfer.
-2. The sender.
-3. The recipient.
+1. The sender.
+2. The recipient.
+3. The quantity of tokens to be transferred.
+4. The nonce for the [authentication witness](../../concepts//foundation/accounts/main.md#authorizing-actions), or 0 if msg.sender equal sender.
 
-#include_code transfer /yarn-project/noir-contracts/src/contracts/private_token_contract/src/main.nr rust
+#include_code transfer /yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
 
 #include_code Transfer /yarn-project/end-to-end/src/e2e_sandbox_example.test.ts typescript
 
 Our output should now look like this:
 
 ```
-  private-token Aztec Sandbox Info  { version: 1, chainId: 31337 } +0ms
-  private-token Creating accounts using schnorr signers... +2ms
-  private-token Created Alice's account at 0x054d89d0...f17e +23s
-  private-token Created Bob's account at 0x0a8410a1...7c48 +1ms
-  private-token Deploying private token contract minting an initial 1000000 tokens to Alice... +0ms
-  private-token Contract successfully deployed at address 0x143e0af4...11b6 +7ms
-  private-token Alice's balance 1000000 +4s
-  private-token Bob's balance 0 +3s
-  private-token Transferring 543 tokens from Alice to Bob... +0ms
-  private-token Alice's balance 999457 +4s
-  private-token Bob's balance 543 +3s
+  token Aztec Sandbox Info  {
+    version: 1,
+    chainId: 31337,
+    rollupAddress: EthAddress {
+      buffer: <Buffer cf 7e d3 ac ca 5a 46 7e 9e 70 4c 70 3e 8d 87 f6 34 fb 0f c9>
+    },
+    client: 'aztec-rpc@0.1.0',
+    compatibleNargoVersion: '0.11.1-aztec.0'
+  }
+  token Creating accounts using schnorr signers... +3ms
+  token Created Alice's account at 0x1509b252...0027 +10s
+  token Created Bob's account at 0x031862e8...e7a3 +0ms
+  token Deploying token contract minting an initial 1000000 tokens to Alice... +1ms
+  token Contract successfully deployed at address 0x1c3dc2ed...1362 +15s
+  token Alice's balance 1000000 +9s
+  token Bob's balance 0 +33ms
+  token Transferring 543 tokens from Alice to Bob... +0ms
+  token Alice's balance 999457 +5s
+  token Bob's balance 543 +40ms
 ```
 
 Here, we used the same contract abstraction as was previously used for reading Alice's balance. But this time we called `send()` generating and sending a transaction to the network. After waiting for the transaction to settle we were able to check the new balance values.
@@ -287,20 +363,28 @@ Let's mint some tokens to Bob's account:
 Our complete output should now be:
 
 ```
-  private-token Aztec Sandbox Info  { version: 1, chainId: 31337 } +0ms
-  private-token Creating accounts using schnorr signers... +2ms
-  private-token Created Alice's account at 0x054d89d0...f17e +23s
-  private-token Created Bob's account at 0x0a8410a1...7c48 +1ms
-  private-token Deploying private token contract minting an initial 1000000 tokens to Alice... +0ms
-  private-token Contract successfully deployed at address 0x143e0af4...11b6 +7ms
-  private-token Alice's balance 1000000 +4s
-  private-token Bob's balance 0 +3s
-  private-token Transferring 543 tokens from Alice to Bob... +0ms
-  private-token Alice's balance 999457 +4s
-  private-token Bob's balance 543 +3s
-  private-token Minting 10000 tokens to Bob... +1ms
-  private-token Alice's balance 999457 +4s
-  private-token Bob's balance 10543 +4s
+  token Aztec Sandbox Info  {
+    version: 1,
+    chainId: 31337,
+    rollupAddress: EthAddress {
+      buffer: <Buffer cf 7e d3 ac ca 5a 46 7e 9e 70 4c 70 3e 8d 87 f6 34 fb 0f c9>
+    },
+    client: 'aztec-rpc@0.1.0',
+    compatibleNargoVersion: '0.11.1-aztec.0'
+  }
+  token Creating accounts using schnorr signers... +3ms
+  token Created Alice's account at 0x1509b252...0027 +10s
+  token Created Bob's account at 0x031862e8...e7a3 +0ms
+  token Deploying token contract minting an initial 1000000 tokens to Alice... +1ms
+  token Contract successfully deployed at address 0x1c3dc2ed...1362 +15s
+  token Alice's balance 1000000 +9s
+  token Bob's balance 0 +33ms
+  token Transferring 543 tokens from Alice to Bob... +0ms
+  token Alice's balance 999457 +5s
+  token Bob's balance 543 +40ms
+  token Minting 10000 tokens to Bob... +0ms
+  token Alice's balance 999457 +9s
+  token Bob's balance 10543 +47ms
 ```
 
 That's it! We have successfully deployed a private token contract to an instance of the Aztec network and mined private state-transitioning transactions. We have also queried the resulting state all via the interfaces provided by the contract.
