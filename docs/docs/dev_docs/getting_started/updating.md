@@ -62,3 +62,7 @@ Then we install the `Compatible Nargo Version` with (replace `COMPATIBLE_NARGO_V
 ```shell
 noirup -v COMPATIBLE_NARGO_VERSION
 ```
+
+## Updating Noir framework
+Finally we need to update the Noir framework for Aztec contracts `aztec.nr`.
+We need to install a version compatible with our `nargo` version.
