@@ -11,15 +11,22 @@ namespace barretenberg {
 template <typename Flavor, size_t NUM_> struct Instances {
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
-
     static constexpr size_t NUM = NUM_;
-    std::array<typename Flavor::ProverPolynomials, NUM> data;
 
-    Univariate<FF, NUM> get_row(size_t univariate_idx, size_t row_idx) const
+    using ArrayType = std::array<ProverPolynomials, NUM>;
+    ArrayType _data;
+    ProverPolynomials const& operator[](size_t idx) const { return _data[idx]; }
+    typename ArrayType::iterator begin() { return _data.begin(); };
+    typename ArrayType::iterator end() { return _data.end(); };
+
+    Univariate<FF, NUM> row_to_base_univariate(size_t entity_idx, size_t row_idx) const
     {
         Univariate<FF, NUM> result;
-        for (auto& instance : data) {
-            result.evaluations[univariate_idx] = instance._data[univariate_idx][row_idx];
+        size_t instance_idx = 0;
+        for (auto& instance : _data) {
+            // WORKTODO cleanup
+            result.evaluations[instance_idx] = instance._data[entity_idx][row_idx];
+            instance_idx++;
         }
         return result;
     }
@@ -47,9 +54,9 @@ template <typename Flavor, typename Instances> class ProtogalaxyProver {
      */
     void extend_univariates(ExtendedUnivariates& extended_univariates, const Instances& instances, const size_t row_idx)
     {
-        for (size_t univariate_idx = 0; univariate_idx < Instances::NUM; univariate_idx++) {
-            auto univariate = instances.get_row(univariate_idx, row_idx);
-            extended_univariates[univariate_idx] = univariate.template extend_to<ExtendedUnivariate::LENGTH>();
+        for (size_t entity_idx = 0; entity_idx < Instances::NUM; entity_idx++) {
+            auto univariate = instances.row_to_base_univariate(entity_idx, row_idx);
+            extended_univariates[entity_idx] = univariate.template extend_to<ExtendedUnivariate::LENGTH>();
         }
     }
 
@@ -76,7 +83,7 @@ template <typename Flavor, typename Instances> class ProtogalaxyProver {
         const PowUnivariate<typename Flavor::FF>& pow_univariate,
         const typename Flavor::FF alpha)
     {
-        size_t common_circuit_size = instances.data[0]._data[0].size(); // WORKTODO
+        size_t common_circuit_size = instances[0]._data[0].size(); // WORKTODO
         // Precompute the vector of required powers of zeta
         // WORKTODO: Parallelize this
         std::vector<FF> pow_challenges(common_circuit_size >> 1);
