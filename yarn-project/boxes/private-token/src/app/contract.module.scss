@@ -1,8 +1,8 @@
-.title {
-    font-weight: 500;
-}
-
-.header {
-    display: flex;
-    flex-direction: column;
+.tos {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    cursor: pointer;
+    font-size: 14px;
+    font-style: italic;
 }

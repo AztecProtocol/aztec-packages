@@ -16,6 +16,7 @@ interface Props {
 }
 
 export function Contract({ wallet }: Props) {
+  const [isTermsOpen, setTermsOpen] = useState<boolean>(false);
   const [contractAddress, setContractAddress] = useState<AztecAddress | undefined>();
   const [processingFunction, setProcessingFunction] = useState('');
   const [errorMsg, setError] = useState('');
@@ -41,10 +42,6 @@ export function Contract({ wallet }: Props) {
 
   return (
     <>
-      {/* <div className={styles.header}>
-        <div className={styles.title}>{`${contractAbi.name} Noir Smart Contract`}</div>
-        {!!contractAddress && <div>{`Contract address: ${contractAddress}`}</div>}
-      </div> */}
       {!contractAddress && (
         <ContractFunctionForm
           wallet={wallet}
@@ -59,6 +56,9 @@ export function Contract({ wallet }: Props) {
           onError={setError}
         />
       )}
+      <div className={styles.tos} onClick={() => setTermsOpen(true)}>
+        Terms of Service
+      </div>
       {!!contractAddress &&
         contractAbi.functions
           .filter(f => f.name !== 'constructor' && !f.isInternal && !FILTERED_FUNCTION_NAMES.includes(f.name))
@@ -80,6 +80,14 @@ export function Contract({ wallet }: Props) {
       {!!(errorMsg || result) && (
         <Popup isWarning={!!errorMsg} onClose={handleClosePopup}>
           {errorMsg || result}
+        </Popup>
+      )}
+      {isTermsOpen && (
+        <Popup isWarning={false} onClose={() => setTermsOpen(false)}>
+          Please note that any example token contract, user interface, or demonstration set out herein is provided
+          solely for informational/academic purposes only and does not constitute any inducement to use, deploy and/or
+          any confirmation of any Aztec token. Any implementation of any such contract with an interface or any other
+          infrastructure should be used in accordance with applicable laws and regulations.
         </Popup>
       )}
     </>

@@ -139,6 +139,10 @@ export function ContractFunctionForm({
         cardHeader={title || `${functionAbi.name} (${functionAbi.functionType})`}
         cardContent={
           <form onSubmit={formik.handleSubmit} className={styles.content}>
+            <div className={styles.tag}>
+              <div className={styles.title}>{`${contractAbi.name}`}</div>
+              {!!contractAddress && <div>{`${contractAddress.toShortString()}`}</div>}
+            </div>
             {functionAbi.parameters.map(input => (
               <div key={input.name} className={styles.field}>
                 <label className={styles.label} htmlFor={input.name}>
