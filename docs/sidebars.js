@@ -77,7 +77,7 @@ const sidebars = {
       items: [
         "dev_docs/getting_started/quickstart",
         "dev_docs/getting_started/cli",
-        "dev_docs/getting_started/sandbox",
+        "dev_docs/getting_started/aztecjs",
         "dev_docs/getting_started/noir_contracts",
         "dev_docs/getting_started/token_contract_tutorial",
       ],
@@ -112,7 +112,6 @@ const sidebars = {
             "dev_docs/contracts/syntax/state_variables",
             "dev_docs/contracts/syntax/visibility",
             "dev_docs/contracts/syntax/globals",
-            "dev_docs/contracts/syntax/types",
           ],
         },
         {

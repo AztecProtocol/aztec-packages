@@ -7,7 +7,7 @@ title: Aztec.nr Contracts
 This guide explains the set up required to write a contract using the Aztec.nr library; then deploy it to the sandbox. Aztec.nr is a library on top of [Noir](https://noir-lang.org/) that can be used to write smart contracts for Aztec. Since Noir files use the `.nr` extension, we are calling this library "Aztec.nr".
 
 :::info Prerequisite reading
-If you haven't read [Aztec Sandbox](./sandbox.md), we recommend going there first.
+If you haven't read [Aztec Sandbox](./aztecjs.md), we recommend going there first.
 :::
 
 ### Dependencies
@@ -25,13 +25,13 @@ This ensures you are on the aztec branch of nargo.
 
 #### Aztec Sandbox
 
-You need to setup the [Aztec sandbox](./sandbox.md).
+You need to setup the [Aztec sandbox](./aztecjs.md).
 
 <!-- TODO([#1056](https://github.com/AztecProtocol/aztec-packages/issues/1056)): Add a step for the starter kit -->
 
 ## Set up for aztec.nr contracts
 
-1. Inside the yarn project you created from the [Sandbox](./sandbox.md) page, create a sub-folder where the contracts will reside.
+1. Inside the yarn project you created from the [Sandbox](./aztecjs.md) page, create a sub-folder where the contracts will reside.
 
 ```bash
 mkdir contracts
@@ -87,4 +87,4 @@ After writing the contract, you have to compile it. Details can be found [here](
 
 After compiling, you can deploy your contract to the Aztec network. Relevant instructions and explanations can be found [here](../contracts/deploying.md).
 
-Thereafter, you can interact with the contracts similar to how it was shown in the the [Creating and submitting transactions section on the Sandbox page](./sandbox.md#creating-and-submitting-transactions).
+Thereafter, you can interact with the contracts similar to how it was shown in the the [Creating and submitting transactions section on the Sandbox page](./aztecjs.md#creating-and-submitting-transactions).
