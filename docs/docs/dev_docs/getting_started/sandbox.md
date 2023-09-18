@@ -312,7 +312,7 @@ We can see that each account has the expected balance of tokens.
 
 ## Creating and submitting transactions
 
-Now lets transfer some funds from Alice to Bob by calling the `transfer` function on the contract. This function takes 3 arguments:
+Now lets transfer some funds from Alice to Bob by calling the `transfer` function on the contract. This function takes 4 arguments:
 
 1. The sender.
 2. The recipient.
