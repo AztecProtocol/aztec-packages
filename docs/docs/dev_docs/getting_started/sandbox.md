@@ -317,7 +317,7 @@ Now lets transfer some funds from Alice to Bob by calling the `transfer` functio
 1. The sender.
 2. The recipient.
 3. The quantity of tokens to be transferred.
-4. The nonce for the AuthWit, or 0 if msg.sender equal sender.
+4. The nonce for the [authentication witness](../../concepts//foundation/accounts/main.md#authorizing-actions), or 0 if msg.sender equal sender.
 
 #include_code transfer /yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
 
