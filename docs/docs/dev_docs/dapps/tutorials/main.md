@@ -12,7 +12,7 @@ The full code for this tutorial is [available on the `aztec-packages` repository
 
 - Linux or OSX environment
 - [NodeJS](https://nodejs.org/) 18 or higher
-- [Aztec Sandbox](../../getting_started/aztecjs.md)
+- [Aztec Sandbox](../../getting_started/sandbox.md)
 - [Aztec CLI](../../getting_started/cli.md)
 - [Nargo](../../getting_started/noir_contracts.md) for building contracts
 

@@ -14,7 +14,7 @@ Aztec's Layer 2 network is a fully programmable combined private/public ZK rollu
 
 - Aztec Node - Aggregates all of the 'backend' services necessary for the building and publishing of rollups. This packages is currently in development and much of the functionality is mocked.
 - [Aztec RPC Server](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/aztec-rpc) - Normally residing with the end client, this decrypts and stores a client's private state, executes simulations and submits transactions to the Aztec Node.
-- [Aztec.js](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/aztec.js) - Aztec's client library for interacting with the Aztec RPC Server (think Ethers.js). See the getting started guide [here](./aztecjs.md).
+- [Aztec.js](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/aztec.js) - Aztec's client library for interacting with the Aztec RPC Server (think Ethers.js). See the getting started guide [here](./sandbox.md).
 
 All of this is included in the Sandbox, with the exception of Aztec.js which you can use to interact with it.
 
@@ -36,7 +36,7 @@ You can run the Sandbox using either Docker or npm.
 
 ### With Docker
 
-To install and start the Sandbox paste the line below in a macOS Terminal or Linux shell prompt. You will need to have Docker installed on your machine.
+To install and start the Sandbox paste the line below in a macOS Terminal or Linux shell prompt. You will need to have Docker installed and running on your machine.
 
 ```bash
 /bin/bash -c "$(curl -fsSL 'https://sandbox.aztec.network')"
@@ -52,7 +52,9 @@ NOTE: If `SANDBOX_VERSION` is not defined, the script will pull the latest relea
 
 ### With npm
 
-You can download and run the Sandbox package directly if you have nodejs 18 or higher installed. You will also need an Ethereum node like Anvil or Hardhat running locally on port 8545.
+You can download and run the Sandbox package directly if you have nodejs 18 or higher installed.
+
+You will also need an Ethereum node like Anvil or Hardhat running locally on port 8545.
 
 ```bash
 npx @aztec/aztec-sandbox

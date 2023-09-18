@@ -71,7 +71,7 @@ export class PrivateTokenContract extends ContractBase {
 }
 ```
 
-Read more about interacting with contracts using `aztec.js` [here](../dapps/main.md).
+Read more about interacting with contracts using `aztec.js` [here](../getting_started/sandbox.md).
 
 ### Aztec.nr interfaces
 

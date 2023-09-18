@@ -42,23 +42,7 @@ cd private-token
 yarn init
 ```
 
-This should ask a series of questions that you can fill like so:
-
-```
-yarn init v1.22.19
-question name (private-token):
-question version (1.0.0):
-question description: My first private token contract
-question entry point (index.js):
-question repository url:
-question author: Phil
-question license (MIT):
-question private:
-success Saved package.json
-Done in 23.60s.
-```
-
-3. Create a `src` folder inside your new `private-token` directory:
+1. Create a `src` folder inside your new `private-token` directory:
 
 ```sh
 mkdir src
@@ -113,7 +97,7 @@ Add a `tsconfig.json` file into the project root, here is an example:
     "build": "yarn clean && tsc -b",
     "build:dev": "tsc -b --watch",
     "clean": "rm -rf ./dest tsconfig.tsbuildinfo",
-    "start": "yarn build && export DEBUG='private-token' && node ./dest/index.js"
+    "start": "yarn build && export DEBUG='token' && node ./dest/index.js"
   },
   "devDependencies": {
     "@types/node": "^20.4.9",
@@ -130,9 +114,22 @@ yarn add @aztec/aztec.js @aztec/noir-contracts
 
 7. Create an `index.ts` file in the `src` directory and add the following imports:
 
-#include_code imports /yarn-project/end-to-end/src/e2e_sandbox_example.test.ts typescript
+<!-- this imported code is missing a dependency -->
+<!-- #include_code imports /yarn-project/end-to-end/src/e2e_sandbox_example.test.ts typescript -->
 
-and the following setup code:
+```ts
+import {
+  AztecRPC,
+  Fr,
+  computeMessageSecretHash,
+  createDebugLogger,
+  getSchnorrAccount,
+  waitForSandbox,
+  createAztecRpcClient,
+} from "@aztec/aztec.js";
+```
+
+and the following setup code inside the `main`:
 
 #include_code setup /yarn-project/end-to-end/src/e2e_sandbox_example.test.ts typescript
 
@@ -145,7 +142,7 @@ yarn start
 A successful run should show:
 
 ```
-  private-token Aztec Sandbox Info  { version: 1, chainId: 31337 } +0ms
+  token Aztec Sandbox Info  { version: 1, chainId: 31337 } +0ms
 ```
 
 Great!. The Sandbox is running and we are able to interact with it.

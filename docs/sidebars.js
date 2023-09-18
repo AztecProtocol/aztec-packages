@@ -76,8 +76,8 @@ const sidebars = {
       },
       items: [
         "dev_docs/getting_started/quickstart",
-        "dev_docs/getting_started/cli",
-        "dev_docs/getting_started/aztecjs",
+        // "dev_docs/getting_started/cli",
+        "dev_docs/getting_started/sandbox",
         "dev_docs/getting_started/noir_contracts",
         "dev_docs/getting_started/token_contract_tutorial",
       ],
@@ -189,10 +189,6 @@ const sidebars = {
     {
       label: "DApp Development",
       type: "category",
-      link: {
-        type: "doc",
-        id: "dev_docs/dapps/main",
-      },
       items: [
         // {
         //   label: "API",
