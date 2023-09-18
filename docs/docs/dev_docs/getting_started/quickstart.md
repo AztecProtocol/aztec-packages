@@ -52,34 +52,33 @@ The sandbox is preloaded with two accounts. Let's assign them to shell variables
 The default accounts that come with sandbox will likely change over time. Save two of the "Initial accounts" that are printed in the terminal when you started the sandbox.
 :::
 
-```bash
-ALICE="0x183253b9bb70e447c2bddce766b199111bec335d3396cd403ff5306ddf2f8a43"
-BOB="0x112cc0f5583099bf9cf9cd3e638aff4222a688c210a07f74262d8b4b90e51f2b"
-```
+#include_code declare-accounts yarn-project/end-to-end/src/guides/up_quick_start.sh bash
 
-Start by deploying a private token contract, minting an initial supply of private tokens to Alice:
+Start by deploying a token contract. After it is deployed, we check that the deployment succeeded, export the deployment address to use in future commands and then call the `_initialize` function. For more detail on how the token contract works, see the [token contract tutorial](./token_contract_tutorial).
 
 #include_code deploy yarn-project/end-to-end/src/guides/up_quick_start.sh bash
 
-The contract address of the newly-deployed contract should be printed to the console. Let's store this contract address for future commands:
+The contract address of the newly-deployed contract should be printed to the console. Store this contract address for future commands:
 
 ```bash
 CONTRACT="Paste the contract address here"
 ```
 
-#include_code declare-contract yarn-project/end-to-end/src/guides/up_quick_start.sh bash
-
 ## Calling a contract
 
-We can check Alice's private token balance by querying the contract.
+Alice is set up as the contract admin and token minter in the `_initialize` function. Let's get Alice some private tokens.
 
-#include_code get-balance yarn-project/end-to-end/src/guides/up_quick_start.sh bash
+We need to export the `SECRET` and `SECRET_HASH` values in order to privately mint tokens. Private tokens are claimable by anyone with the pre-image to a provided hash, see more about how the token contract works in the [token contract tutorial](./token_contract_tutorial.md). Once the tokens have been minted, Alice can claim them with the `redeem_shield` function. After this, Alice should have 1000 tokens in their private balance.
+
+#include_code mint-private yarn-project/end-to-end/src/guides/up_quick_start.sh bash
 
 We can have Alice privately transfer tokens to Bob. Only Alice and Bob will know what's happened. Here, we use Alice's private key to send a transaction to transfer tokens to Bob. Once they are transferred, we can verify that it worked as expected by checking Alice's and Bob's balances:
 
 #include_code transfer yarn-project/end-to-end/src/guides/up_quick_start.sh bash
 
-Congratualations! You are all set up with the Aztec sandbox!
+Alice and Bob should have 500 tokens.
+
+Congratulations! You are all set up with the Aztec sandbox!
 
 ## Great, but what can I do with it?
 
