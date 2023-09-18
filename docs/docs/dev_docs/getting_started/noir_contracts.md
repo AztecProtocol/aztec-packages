@@ -14,14 +14,9 @@ If you haven't read [Aztec Sandbox](./aztecjs.md), we recommend going there firs
 
 #### `nargo`
 
-Nargo is Noir's build tool. On your terminal, run:
+Nargo is Noir's build tool. On your terminal, run: 
 
-```bash
-curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | bash
-noirup -v aztec
-```
-
-This ensures you are on the aztec branch of nargo.
+<InstallNargoInstructions />
 
 #### Aztec Sandbox
 
