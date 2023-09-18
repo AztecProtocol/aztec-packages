@@ -68,7 +68,7 @@ export class AztecRPCServer implements AztecRPC {
   private contractDataOracle: ContractDataOracle;
   private simulator: AcirSimulator;
   private log: DebugLogger;
-  private clientInfo: string;
+  private sandboxVersion: string;
 
   constructor(
     private keyStore: KeyStore,
@@ -82,8 +82,7 @@ export class AztecRPCServer implements AztecRPC {
     this.contractDataOracle = new ContractDataOracle(db, node);
     this.simulator = getAcirSimulator(db, node, node, node, keyStore, this.contractDataOracle);
 
-    const { version, name } = getPackageInfo();
-    this.clientInfo = `${name.split('/')[name.split('/').length - 1]}@${version}`;
+    this.sandboxVersion = getPackageInfo().version;
   }
 
   /**
@@ -345,11 +344,11 @@ export class AztecRPCServer implements AztecRPC {
     ]);
 
     return {
-      version,
-      chainId,
-      rollupAddress,
-      client: this.clientInfo,
+      sandboxVersion: this.sandboxVersion,
       compatibleNargoVersion: NoirVersion.tag,
+      chainId,
+      version,
+      rollupAddress,
     };
   }
 
