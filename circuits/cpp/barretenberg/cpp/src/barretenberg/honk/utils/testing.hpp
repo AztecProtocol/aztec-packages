@@ -5,7 +5,7 @@ namespace proof_system::honk {
 template <typename Flavor>
 std::pair<std::array<barretenberg::Polynomial<typename Flavor::FF>, Flavor::NUM_ALL_ENTITIES>,
           typename Flavor::ProverPolynomials>
-get_random_prover_polynomials(const size_t log_circuit_size, const size_t starting_value)
+get_sequential_prover_polynomials(const size_t log_circuit_size, const size_t starting_value)
 {
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;

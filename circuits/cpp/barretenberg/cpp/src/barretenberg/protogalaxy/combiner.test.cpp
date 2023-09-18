@@ -24,86 +24,12 @@ TEST(Protogalaxy, Combiner)
 
             size_t instance_idx = 0;
             for (auto& instance : instances) {
-                auto [storage, prover_polynomials] = proof_system::honk::get_random_prover_polynomials<Flavor>(
+                auto [storage, prover_polynomials] = proof_system::honk::get_sequential_prover_polynomials<Flavor>(
                     /*log_circuit_size=*/1, instance_idx * 64);
                 storage_arrays[instance_idx] = std::move(storage);
                 instance = prover_polynomials;
                 instance_idx++;
             }
-
-            // info("q_c[0]: ", instances[0].q_c[0]);
-            // info("q_c[1]: ", instances[0].q_c[1]);
-            // info("q_l[0]: ", instances[0].q_l[0]);
-            // info("q_l[1]: ", instances[0].q_l[1]);
-            // info("q_r[0]: ", instances[0].q_r[0]);
-            // info("q_r[1]: ", instances[0].q_r[1]);
-            // info("q_o[0]: ", instances[0].q_o[0]);
-            // info("q_o[1]: ", instances[0].q_o[1]);
-            // info("q_m[0]: ", instances[0].q_m[0]);
-            // info("q_m[1]: ", instances[0].q_m[1]);
-            // info(instances[0].sigma_1[0]);
-            // info(instances[0].sigma_1[1]);
-            // info(instances[0].sigma_2[0]);
-            // info(instances[0].sigma_2[1]);
-            // info(instances[0].sigma_3[0]);
-            // info(instances[0].sigma_3[1]);
-            // info(instances[0].id_1[0]);
-            // info(instances[0].id_1[1]);
-            // info(instances[0].id_2[0]);
-            // info(instances[0].id_2[1]);
-            // info(instances[0].id_3[0]);
-            // info(instances[0].id_3[1]);
-            // info(instances[0].lagrange_first[0]);
-            // info(instances[0].lagrange_first[1]);
-            // info(instances[0].lagrange_last[0]);
-            // info(instances[0].lagrange_last[1]);
-            info("w_l[0]: ", instances[0].w_l[0]);
-            info("w_l[1]: ", instances[0].w_l[1]);
-            info("w_r[0]: ", instances[0].w_r[0]);
-            info("w_r[1]: ", instances[0].w_r[1]);
-            info("w_o[0]: ", instances[0].w_o[0]);
-            info("w_o[1]: ", instances[0].w_o[1]);
-            // info(instances[0].z_perm[0]);
-            // info(instances[0].z_perm[1]);
-            // info(instances[0].z_perm_shift[0]);
-            // info(instances[0].z_perm_shift[1]);
-
-            // info("q_c[0]: ", instances[1].q_c[0]);
-            // info("q_c[1]: ", instances[1].q_c[1]);
-            // info("q_l[0]: ", instances[1].q_l[0]);
-            // info("q_l[1]: ", instances[1].q_l[1]);
-            // info("q_r[0]: ", instances[1].q_r[0]);
-            // info("q_r[1]: ", instances[1].q_r[1]);
-            // info("q_o[0]: ", instances[1].q_o[0]);
-            // info("q_o[1]: ", instances[1].q_o[1]);
-            // info("q_m[0]: ", instances[1].q_m[0]);
-            // info("q_m[1]: ", instances[1].q_m[1]);
-            // info(instances[1].sigma_1[0]);
-            // info(instances[1].sigma_1[1]);
-            // info(instances[1].sigma_2[0]);
-            // info(instances[1].sigma_2[1]);
-            // info(instances[1].sigma_3[0]);
-            // info(instances[1].sigma_3[1]);
-            // info(instances[1].id_1[0]);
-            // info(instances[1].id_1[1]);
-            // info(instances[1].id_2[0]);
-            // info(instances[1].id_2[1]);
-            // info(instances[1].id_3[0]);
-            // info(instances[1].id_3[1]);
-            // info(instances[1].lagrange_first[0]);
-            // info(instances[1].lagrange_first[1]);
-            // info(instances[1].lagrange_last[0]);
-            // info(instances[1].lagrange_last[1]);
-            info("w_l[0]: ", instances[1].w_l[0]);
-            info("w_l[1]: ", instances[1].w_l[1]);
-            // info("w_r[0]: ", instances[1].w_r[0]);
-            // info("w_r[1]: ", instances[1].w_r[1]);
-            // info("w_o[0]: ", instances[1].w_o[0]);
-            // info("w_o[1]: ", instances[1].w_o[1]);
-            // info(instances[1].z_perm[0]);
-            // info(instances[1].z_perm[1]);
-            // info(instances[1].z_perm_shift[0]);
-            // info(instances[1].z_perm_shift[1]);
 
             // for (auto& instance : instances) {
             //     std::fill(instance.z_perm.begin(), instance.z_perm.end(), FF(0));

@@ -54,7 +54,7 @@ template <typename Flavor, typename Instances> class ProtogalaxyProver {
      */
     void extend_univariates(ExtendedUnivariates& extended_univariates, const Instances& instances, const size_t row_idx)
     {
-        for (size_t entity_idx = 0; entity_idx < Instances::NUM; entity_idx++) {
+        for (size_t entity_idx = 0; entity_idx < Flavor::NUM_ALL_ENTITIES; entity_idx++) {
             auto univariate = instances.row_to_base_univariate(entity_idx, row_idx);
             extended_univariates[entity_idx] = univariate.template extend_to<ExtendedUnivariate::LENGTH>();
         }
