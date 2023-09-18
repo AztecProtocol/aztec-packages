@@ -1,6 +1,6 @@
 import { AztecRPC, createAztecRpcClient } from '@aztec/aztec.js';
 import { ContractAbi } from '@aztec/foundation/abi';
-import { PrivateTokenContractAbi } from './artifacts/PrivateToken.js'; // update this if using a different contract
+import { PrivateTokenContractAbi } from './artifacts/private_token.js'; // update this if using a different contract
 
 export const contractAbi: ContractAbi = PrivateTokenContractAbi;
 

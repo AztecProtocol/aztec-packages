@@ -11,7 +11,7 @@ import {
 } from '@aztec/aztec.js';
 import { FunctionAbi } from '@aztec/foundation/abi';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { PrivateTokenContract } from '../artifacts/PrivateToken.js';
+import { PrivateTokenContract } from '../artifacts/private_token.js';
 import { rpcClient } from '../config.js';
 import { callContractFunction, deployContract, getWallet, viewContractFunction } from '../scripts/index.js';
 import { convertArgs } from '../scripts/util.js';
