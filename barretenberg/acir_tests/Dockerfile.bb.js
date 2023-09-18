@@ -1,4 +1,4 @@
-FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/bb.js
+FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/bb-js
 
 FROM node:18
 COPY --from=0 /usr/src/barretenberg/ts /usr/src/barretenberg/ts
