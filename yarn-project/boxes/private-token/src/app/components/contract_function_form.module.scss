@@ -1,0 +1,61 @@
+.input {
+    border: none;
+    outline-width: 0;
+    outline-color: rgba(0, 0, 0, 0);
+    padding: 2px 20px 0 20px;
+    width: calc(100% - 30px);
+    height: 45px;
+    color: #000;
+    border: 1px solid rgba(0, 0, 0, 0);
+    font-size: 16px;
+    text-align: left;
+    font-weight: 400;
+    border-radius: 10px;
+    text-align: left;
+    text-overflow: ellipsis;
+    transition: box-shadow .2s;
+    box-shadow: 0px 4px 10px rgba(0, 0, 0, .1);
+    -webkit-appearance: none;
+}
+
+.label {
+    font-weight: 450;
+    font-size: 18px;
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+    text-align: left;
+    margin-bottom: 15px;
+    justify-content: space-between;
+}
+
+.inputWrapper {
+    width: 100%;
+    display: flex;
+    gap: 15px;
+}
+
+.form {
+    display: flex;
+}
+
+.field {
+    display: flex;
+    justify-content: start;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.content {
+    display: flex;
+    justify-content: space-between;
+    flex-direction: column;
+    margin: 30px;
+    width: 400px;
+    height: 250px;
+}
+
+.actionButton {
+    width: 100%;
+    align-self: center;
+}

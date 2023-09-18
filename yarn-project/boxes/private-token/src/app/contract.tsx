@@ -3,6 +3,7 @@ import { FunctionAbi } from '@aztec/foundation/abi';
 import { useState } from 'react';
 import { FILTERED_FUNCTION_NAMES, contractAbi } from '../config.js';
 import { ContractFunctionForm, Popup } from './components/index.js';
+import styles from './contract.module.scss';
 
 const functionTypeSortOrder = {
   secret: 0,
@@ -12,10 +13,9 @@ const functionTypeSortOrder = {
 
 interface Props {
   wallet: CompleteAddress;
-  onDeploy: () => void;
 }
 
-export function Contract({ wallet, onDeploy }: Props) {
+export function Contract({ wallet }: Props) {
   const [contractAddress, setContractAddress] = useState<AztecAddress | undefined>();
   const [processingFunction, setProcessingFunction] = useState('');
   const [errorMsg, setError] = useState('');
@@ -34,18 +34,17 @@ export function Contract({ wallet, onDeploy }: Props) {
     setResult('');
     setError('');
     setProcessingFunction('');
-    onDeploy();
   };
 
   const constructorAbi = contractAbi.functions.find(f => f.name === 'constructor')!;
   const hasResult = !!(result || errorMsg);
 
   return (
-    <div>
-      <div className="flex flex-col pb-4">
-        <div className="text-4xl">{`${contractAbi.name} Noir Smart Contract`}</div>
-        {!!contractAddress && <div className="pt-4 text-xs">{`Contract address: ${contractAddress}`}</div>}
-      </div>
+    <>
+      {/* <div className={styles.header}>
+        <div className={styles.title}>{`${contractAbi.name} Noir Smart Contract`}</div>
+        {!!contractAddress && <div>{`Contract address: ${contractAddress}`}</div>}
+      </div> */}
       {!contractAddress && (
         <ContractFunctionForm
           wallet={wallet}
@@ -60,32 +59,29 @@ export function Contract({ wallet, onDeploy }: Props) {
           onError={setError}
         />
       )}
-      {!!contractAddress && (
-        <div>
-          {contractAbi.functions
-            .filter(f => f.name !== 'constructor' && !f.isInternal && !FILTERED_FUNCTION_NAMES.includes(f.name))
-            .sort((a, b) => functionTypeSortOrder[a.functionType] - functionTypeSortOrder[b.functionType])
-            .map((functionAbi: FunctionAbi) => (
-              <ContractFunctionForm
-                key={functionAbi.name}
-                wallet={wallet}
-                contractAddress={contractAddress}
-                contractAbi={contractAbi}
-                functionAbi={functionAbi}
-                isLoading={processingFunction === functionAbi.name && !hasResult}
-                disabled={processingFunction === functionAbi.name && hasResult}
-                onSubmit={() => handleSubmitForm(functionAbi.name)}
-                onSuccess={handleResult}
-                onError={setError}
-              />
-            ))}
-        </div>
-      )}
+      {!!contractAddress &&
+        contractAbi.functions
+          .filter(f => f.name !== 'constructor' && !f.isInternal && !FILTERED_FUNCTION_NAMES.includes(f.name))
+          .sort((a, b) => functionTypeSortOrder[a.functionType] - functionTypeSortOrder[b.functionType])
+          .map((functionAbi: FunctionAbi) => (
+            <ContractFunctionForm
+              key={functionAbi.name}
+              wallet={wallet}
+              contractAddress={contractAddress}
+              contractAbi={contractAbi}
+              functionAbi={functionAbi}
+              isLoading={processingFunction === functionAbi.name && !hasResult}
+              disabled={processingFunction === functionAbi.name && hasResult}
+              onSubmit={() => handleSubmitForm(functionAbi.name)}
+              onSuccess={handleResult}
+              onError={setError}
+            />
+          ))}
       {!!(errorMsg || result) && (
         <Popup isWarning={!!errorMsg} onClose={handleClosePopup}>
           {errorMsg || result}
         </Popup>
       )}
-    </div>
+    </>
   );
 }
