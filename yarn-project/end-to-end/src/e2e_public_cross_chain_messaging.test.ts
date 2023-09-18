@@ -76,7 +76,7 @@ describe('e2e_public_cross_chain_messaging', () => {
     await crossChainTestHarness.mintTokensOnL1(l1TokenBalance);
 
     // 2. Deposit tokens to the TokenPortal
-    const messageKey = await crossChainTestHarness.sendTokensToPortal(bridgeAmount, secretHash);
+    const messageKey = await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount, secretHash);
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);
 
     // Wait for the archiver to process the message
@@ -122,5 +122,5 @@ describe('e2e_public_cross_chain_messaging', () => {
     expect(await outbox.read.contains([entryKey.toString(true)])).toBeFalsy();
   }, 120_000);
 
-  // TODO: Fialure cases!
+  // TODO: Failure cases!
 });

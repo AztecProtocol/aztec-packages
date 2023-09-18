@@ -68,13 +68,20 @@ describe('e2e_cross_chain_messaging', () => {
     const l1TokenBalance = 1000000n;
     const bridgeAmount = 100n;
 
-    const [secret, secretHash] = await crossChainTestHarness.generateClaimSecret();
+    const [secretForL2MessageConsumption, secretHashForL2MessageConsumption] =
+      await crossChainTestHarness.generateClaimSecret();
+    const [secretForRedeemingMintedNotes, secretHashForRedeemingMintedNotes] =
+      await crossChainTestHarness.generateClaimSecret();
 
     // 1. Mint tokens on L1
     await crossChainTestHarness.mintTokensOnL1(l1TokenBalance);
 
     // 2. Deposit tokens to the TokenPortal
-    const messageKey = await crossChainTestHarness.sendTokensToPortal(bridgeAmount, secretHash);
+    const messageKey = await crossChainTestHarness.sendTokensToPortalPrivate(
+      bridgeAmount,
+      secretHashForL2MessageConsumption,
+      secretHashForRedeemingMintedNotes,
+    );
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);
 
     // Wait for the archiver to process the message
@@ -86,9 +93,14 @@ describe('e2e_cross_chain_messaging', () => {
     await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, unrelatedMintAmount);
 
     // 3. Consume L1-> L2 message and mint private tokens on L2
-    await crossChainTestHarness.consumeMessageOnAztecAndMintSecretly(bridgeAmount, messageKey, secret);
+    await crossChainTestHarness.consumeMessageOnAztecAndMintSecretly(
+      bridgeAmount,
+      messageKey,
+      secretForL2MessageConsumption,
+      secretHashForRedeemingMintedNotes,
+    );
     // tokens were minted privately in a TransparentNote which the owner (person who knows the secret) must redeem:
-    await crossChainTestHarness.redeemShieldPrivatelyOnL2(bridgeAmount, secret);
+    await crossChainTestHarness.redeemShieldPrivatelyOnL2(bridgeAmount, secretForRedeemingMintedNotes);
     await crossChainTestHarness.expectPrivateBalanceOnL2(ownerAddress, bridgeAmount);
 
     // time to withdraw the funds again!
@@ -120,5 +132,5 @@ describe('e2e_cross_chain_messaging', () => {
     expect(await outbox.read.contains([entryKey.toString(true)])).toBeFalsy();
   }, 120_000);
 
-  // TODO: Fialure cases!
+  // TODO: Failure cases!
 });

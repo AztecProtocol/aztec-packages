@@ -133,8 +133,15 @@ describe.skip('uniswap_trade_on_l1_from_l2', () => {
     const meBeforeBalance = await wethCrossChainHarness.getL1BalanceOf(ethAccount);
 
     // 1. Approve and deposit weth to the portal and move to L2
-    const [secret, secretHash] = await wethCrossChainHarness.generateClaimSecret();
-    const messageKey = await wethCrossChainHarness.sendTokensToPortal(wethAmountToBridge, secretHash);
+    const [secretForL2MessageConsumption, secretHashForL2MessageConsumption] =
+      await wethCrossChainHarness.generateClaimSecret();
+    const [, secretHashForRedeemingMintedNotes] = await wethCrossChainHarness.generateClaimSecret();
+
+    const messageKey = await wethCrossChainHarness.sendTokensToPortalPrivate(
+      wethAmountToBridge,
+      secretHashForL2MessageConsumption,
+      secretHashForRedeemingMintedNotes,
+    );
     expect(await wethCrossChainHarness.getL1BalanceOf(ethAccount)).toBe(meBeforeBalance - wethAmountToBridge);
 
     // Wait for the archiver to process the message
@@ -146,7 +153,12 @@ describe.skip('uniswap_trade_on_l1_from_l2', () => {
 
     // 3. Claim WETH on L2
     logger('Minting weth on L2');
-    await wethCrossChainHarness.consumeMessageOnAztecAndMintSecretly(wethAmountToBridge, messageKey, secret);
+    await wethCrossChainHarness.consumeMessageOnAztecAndMintSecretly(
+      wethAmountToBridge,
+      messageKey,
+      secretForL2MessageConsumption,
+      secretHashForRedeemingMintedNotes,
+    );
     await wethCrossChainHarness.expectPrivateBalanceOnL2(owner, wethAmountToBridge + initialBalance - transferAmount);
 
     // Store balances
@@ -166,7 +178,7 @@ describe.skip('uniswap_trade_on_l1_from_l2', () => {
         new Fr(minimumOutputAmount),
         owner,
         owner,
-        secretHash,
+        secretHashForL2MessageConsumption,
         new Fr(2 ** 32 - 1),
         ethAccount.toField(),
         ethAccount.toField(),
@@ -190,7 +202,7 @@ describe.skip('uniswap_trade_on_l1_from_l2', () => {
       daiCrossChainHarness.tokenPortalAddress.toString(),
       minimumOutputAmount,
       owner.toString(),
-      secretHash.toString(true),
+      secretHashForL2MessageConsumption.toString(true),
       deadline,
       ethAccount.toString(),
       true,
@@ -213,7 +225,12 @@ describe.skip('uniswap_trade_on_l1_from_l2', () => {
 
     // 6. claim dai on L2
     logger('Consuming messages to mint dai on L2');
-    await daiCrossChainHarness.consumeMessageOnAztecAndMintSecretly(daiAmountToBridge, depositDaiMessageKey, secret);
+    await daiCrossChainHarness.consumeMessageOnAztecAndMintSecretly(
+      daiAmountToBridge,
+      depositDaiMessageKey,
+      secretForL2MessageConsumption,
+      secretHashForRedeemingMintedNotes,
+    );
     await daiCrossChainHarness.expectPrivateBalanceOnL2(owner, initialBalance + daiAmountToBridge);
 
     const wethBalanceAfterSwap = await wethCrossChainHarness.getL2PrivateBalanceOf(owner);

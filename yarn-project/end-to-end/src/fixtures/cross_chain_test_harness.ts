@@ -146,13 +146,13 @@ export class CrossChainTestHarness {
     return await this.underlyingERC20.read.balanceOf([address.toString()]);
   }
 
-  async sendTokensToPortal(bridgeAmount: bigint, secretHash: Fr) {
+  async sendTokensToPortalPublic(bridgeAmount: bigint, secretHash: Fr) {
     await this.underlyingERC20.write.approve([this.tokenPortalAddress.toString(), bridgeAmount], {} as any);
 
     // Deposit tokens to the TokenPortal
     const deadline = 2 ** 32 - 1; // max uint32 - 1
 
-    this.logger('Sending messages to L1 portal to be consumed privately');
+    this.logger('Sending messages to L1 portal to be consumed publicly');
     const args = [
       this.ownerAddress.toString(),
       bridgeAmount,
@@ -160,10 +160,36 @@ export class CrossChainTestHarness {
       secretHash.toString(true),
       this.ethAccount.toString(),
     ] as const;
-    const { result: messageKeyHex } = await this.tokenPortal.simulate.depositToAztec(args, {
+    const { result: messageKeyHex } = await this.tokenPortal.simulate.depositToAztecPublic(args, {
       account: this.ethAccount.toString(),
     } as any);
-    await this.tokenPortal.write.depositToAztec(args, {} as any);
+    await this.tokenPortal.write.depositToAztecPublic(args, {} as any);
+
+    return Fr.fromString(messageKeyHex);
+  }
+
+  async sendTokensToPortalPrivate(
+    bridgeAmount: bigint,
+    secretHashForL2MessageConsumption: Fr,
+    secretHashForRedeemingMintedNotes: Fr,
+  ) {
+    await this.underlyingERC20.write.approve([this.tokenPortalAddress.toString(), bridgeAmount], {} as any);
+
+    // Deposit tokens to the TokenPortal
+    const deadline = 2 ** 32 - 1; // max uint32 - 1
+
+    this.logger('Sending messages to L1 portal to be consumed privately');
+    const args = [
+      bridgeAmount,
+      deadline,
+      secretHashForL2MessageConsumption.toString(true),
+      secretHashForRedeemingMintedNotes.toString(true),
+      this.ethAccount.toString(),
+    ] as const;
+    const { result: messageKeyHex } = await this.tokenPortal.simulate.depositToAztecPrivate(args, {
+      account: this.ethAccount.toString(),
+    } as any);
+    await this.tokenPortal.write.depositToAztecPrivate(args, {} as any);
 
     return Fr.fromString(messageKeyHex);
   }
@@ -183,11 +209,18 @@ export class CrossChainTestHarness {
     expect(receipt.status).toBe(TxStatus.MINED);
   }
 
-  async consumeMessageOnAztecAndMintSecretly(bridgeAmount: bigint, messageKey: Fr, secret: Fr) {
+  async consumeMessageOnAztecAndMintSecretly(
+    bridgeAmount: bigint,
+    messageKey: Fr,
+    secretForL2MessageConsumption: Fr,
+    secretHashForL2MessageConsumption: Fr,
+  ) {
     this.logger('Consuming messages on L2 secretively');
     // Call the mint tokens function on the Aztec.nr contract
     const consumptionTx = this.l2Bridge.methods
-      .deposit_private(bridgeAmount, messageKey, secret, { address: this.ethAccount.toField() })
+      .claim_private(bridgeAmount, messageKey, secretForL2MessageConsumption, secretHashForL2MessageConsumption, {
+        address: this.ethAccount.toField(),
+      })
       .send();
     const consumptionReceipt = await consumptionTx.wait();
     expect(consumptionReceipt.status).toBe(TxStatus.MINED);
@@ -197,7 +230,9 @@ export class CrossChainTestHarness {
     this.logger('Consuming messages on L2 Publicly');
     // Call the mint tokens function on the Aztec.nr contract
     const tx = this.l2Bridge.methods
-      .deposit_public(bridgeAmount, messageKey, secret, { address: this.ethAccount.toField() })
+      .claim_public({ address: this.ownerAddress }, bridgeAmount, messageKey, secret, {
+        address: this.ethAccount.toField(),
+      })
       .send();
     const receipt = await tx.wait();
     expect(receipt.status).toBe(TxStatus.MINED);
@@ -205,7 +240,7 @@ export class CrossChainTestHarness {
 
   async withdrawPrivateFromAztecToL1(withdrawAmount: bigint, nonce: Fr = Fr.ZERO) {
     const withdrawTx = this.l2Bridge.methods
-      .withdraw_private(
+      .exit_to_l1_private(
         { address: this.l2Token.address },
         withdrawAmount,
         { address: this.ethAccount.toField() },
@@ -219,7 +254,7 @@ export class CrossChainTestHarness {
 
   async withdrawPublicFromAztecToL1(withdrawAmount: bigint, nonce: Fr = Fr.ZERO) {
     const withdrawTx = this.l2Bridge.methods
-      .withdraw_public(
+      .exit_to_l1_public(
         withdrawAmount,
         { address: this.ethAccount.toField() },
         { address: EthAddress.ZERO.toField() },
