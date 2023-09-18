@@ -269,8 +269,11 @@ We can break this down as follows:
 1. We create and send a contract deployment transaction to the network.
 2. We wait for it to be successfully mined.
 3. We retrieve the transaction receipt containing the transaction status and contract address.
-4. We use the `getContractInfo()` api on the RPC Server to retrieve information about the reported contract address.
-5. The fact that this api returns a valid object tells us that the contract was successfully deployed in a prior block.
+4. We connect to the contract with Alice
+5. Alice initialize the contract with herself as the admin and a minter.
+6. Alice adds Bob as minter.
+7. Alice mints 1000000 tokens to be claimed by herself in private.
+8. Alice claims the tokens privately.
 
 ## Viewing the balance of an account
 
@@ -311,9 +314,10 @@ We can see that each account has the expected balance of tokens.
 
 Now lets transfer some funds from Alice to Bob by calling the `transfer` function on the contract. This function takes 3 arguments:
 
-1. The quantity of tokens to transfer.
-2. The sender.
-3. The recipient.
+1. The sender.
+2. The recipient.
+3. The quantity of tokens to be transferred.
+4. The nonce for the AuthWit, or 0 if msg.sender equal sender.
 
 #include_code transfer /yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
 

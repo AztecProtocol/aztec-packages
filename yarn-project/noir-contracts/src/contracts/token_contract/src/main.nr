@@ -180,7 +180,7 @@ contract Token {
         1
     }
 
-    // docs:start:transfer
+    
     #[aztec(public)]
     fn transfer_public(
         from: AztecAddress,
@@ -207,7 +207,6 @@ contract Token {
 
         1
     }
-    // docs:end:transfer
 
     #[aztec(public)]
     fn burn_public(
@@ -278,6 +277,7 @@ contract Token {
         1
     }
 
+    // docs:start:transfer
     #[aztec(private)]
     fn transfer(
         from: AztecAddress,
@@ -303,6 +303,7 @@ contract Token {
 
         1
     }
+    // docs:end:transfer
 
     #[aztec(private)]
     fn burn(

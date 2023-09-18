@@ -1,6 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
-/* eslint-disable import/no-duplicates */
 // docs:start:imports
 import {
   AztecRPC,
@@ -11,8 +8,6 @@ import {
   getSchnorrAccount,
   waitForSandbox,
 } from '@aztec/aztec.js';
-
-/* eslint-enable @typescript-eslint/no-unused-vars */
 import { GrumpkinScalar } from '@aztec/circuits.js';
 import { TokenContract } from '@aztec/noir-contracts/types';
 
@@ -120,7 +115,8 @@ describe('e2e_sandbox_example', () => {
     ////////////// QUERYING THE TOKEN BALANCE FOR EACH ACCOUNT //////////////
 
     // Bob wants to mint some funds, the contract is already deployed, create an abstraction and link it his wallet
-    const tokenContractBob = await TokenContract.at(contract.address, await accounts[1].getWallet());
+    // Since we already have a token link, we can simply create a new instance of the contract linked to Bob's wallet
+    const tokenContractBob = tokenContractAlice.withWallet(await accounts[1].getWallet());
 
     let aliceBalance = await tokenContractAlice.methods.balance_of_private({ address: alice }).view();
     logger(`Alice's balance ${aliceBalance}`);
