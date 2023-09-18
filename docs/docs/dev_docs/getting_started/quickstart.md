@@ -38,13 +38,15 @@ You can download and run the Sandbox package directly if you have nodejs 18 or h
 npx @aztec/aztec-sandbox
 ```
 
-## Deploying a contract
+### CLI
 
 To interact with the sandbox now that it's running locally, install the Aztec CLI:
 
 ```bash
 npm install -g @aztec/cli
 ```
+
+## Deploying a contract
 
 The sandbox is preloaded with two accounts. Let's assign them to shell variables. Run the following in your terminal, so we can refer to the accounts as $ALICE and $BOB from now on:
 

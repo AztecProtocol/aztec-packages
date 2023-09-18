@@ -22,18 +22,30 @@ You will need to install nargo, the Noir build too. if you are familiar with Rus
 
 ```bash
 curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | bash
-noirup -v aztec
-```
-
-<!--
-If the nargo version installed above doesn't work, you can try installing a specific Aztec version of Noir using the following command:
-
-```bash
 noirup -v 0.11.1-aztec.0
 ```
- -->
 
-This command ensures that you are on the latest `aztec` version of noirup, which is what we need to compile and deploy aztec.nr smart contracts. The `aztec` tag points to the latest build, so if you are running the Sandbox and `aztec-cli` as well, make sure you are using the latest versions of those as well--we will be regularly shipping breaking changes so mis-matched versions may not work.
+If you've already installed the `aztec-cli`, as described in the quickstart [here](./quickstart#cli), you can check which version of Noir is compatible with your version of the CLI and sandbox by running:
+
+```bash
+aztec-cli get-node-info
+```
+
+It should print something similar to:
+
+```bash
+➜  ~ aztec-cli get-node-info
+
+Node Info:
+
+Version: 1
+Chain Id: 31337
+Rollup Address: 0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9
+Client: aztec-rpc@0.7.5
+Compatible Nargo Version: 0.11.1-aztec.0
+```
+
+When you are running the Sandbox, `aztec-cli`, and compiling contracts with Noir, make sure you are using matching versions--we will be shipping breaking changes so mis-matched versions may not work.
 
 You should also install the [Noir Language Support extension](https://marketplace.visualstudio.com/items?itemName=noir-lang.vscode-noir) for VS Code.
 
@@ -207,7 +219,7 @@ This happens remotely by the sequencer, which takes inputs from the private exec
 
 Step 3. Ethereum execution
 
-Aztec transactions can pass data directly to Ethereum contracts. The technical details of this are beyond the scope of this tutorial, but we will cover them in an upcoming piece.
+Aztec transactions can pass data to Ethereum contracts through the rollup via the outbox. The data can consumed by Ethereum contracts at a later time, but this is not part of the transaction flow for an Aztec transaction. The technical details of this are beyond the scope of this tutorial, but we will cover them in an upcoming piece.
 
 ### Unconstrained functions
 
