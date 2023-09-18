@@ -55,7 +55,7 @@ export type NodeInfo = {
   /**
    * The nargo version compatible with this node.
    */
-  nargoVersion: string;
+  compatibleNargoVersion: string;
 };
 
 /** Provides up to which block has been synced by different components. */
@@ -190,6 +190,16 @@ export interface AztecRPC {
    * @returns A buffer containing the public storage data at the storage slot.
    */
   getPublicStorageAt(contract: AztecAddress, storageSlot: Fr): Promise<Buffer | undefined>;
+
+  /**
+   * Find the nonce(s) for a note in a tx with given preimage at a specified contract address and storage slot.
+   * @param contract - The contract address of the note.
+   * @param storageSlot - The storage slot of the note.
+   * @param preimage - The note preimage.
+   * @param txHash - The tx hash of the tx containing the note.
+   * @returns The nonces of the note. It's an array because there might be more than one note with the same preimage.
+   */
+  getNoteNonces(contract: AztecAddress, storageSlot: Fr, preimage: NotePreimage, txHash: TxHash): Promise<Fr[]>;
 
   /**
    * Simulate the execution of a view (read-only) function on a deployed contract without actually modifying state.

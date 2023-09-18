@@ -1,5 +1,74 @@
 # Changelog
 
+## [0.7.6](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.7.5...aztec-packages-v0.7.6) (2023-09-18)
+
+
+### Features
+
+* New api to get note nonces ([#2327](https://github.com/AztecProtocol/aztec-packages/issues/2327)) ([8f5eb28](https://github.com/AztecProtocol/aztec-packages/commit/8f5eb28fae2cdcd549241a85b8b2343c7b661aac))
+* Replace private token in testing ([#2304](https://github.com/AztecProtocol/aztec-packages/issues/2304)) ([934ba96](https://github.com/AztecProtocol/aztec-packages/commit/934ba96ad6a6843edfed81aef179d826ce6c4cea))
+
+
+### Bug Fixes
+
+* Exit with error log when COMMIT_TAG is not set properly on canary ([#2371](https://github.com/AztecProtocol/aztec-packages/issues/2371)) ([68fe053](https://github.com/AztecProtocol/aztec-packages/commit/68fe053f8bf7830659a98a9aae8a7c3fbdfe664c))
+* Preserve public function call ordering in account entrypoint ([#2348](https://github.com/AztecProtocol/aztec-packages/issues/2348)) ([5b2cf75](https://github.com/AztecProtocol/aztec-packages/commit/5b2cf758b54a810693cb296bb5a2985c5d882dee))
+* Return output-debug flag ([#2364](https://github.com/AztecProtocol/aztec-packages/issues/2364)) ([af86580](https://github.com/AztecProtocol/aztec-packages/commit/af86580814d6f63f15a9ae2476f91c58c835bf82))
+* Revert "fix: strip leading 'v' from dockerhub tags" ([#2367](https://github.com/AztecProtocol/aztec-packages/issues/2367)) ([53bc041](https://github.com/AztecProtocol/aztec-packages/commit/53bc041af5d7f7ad66baf5076130cf627f8f65d5))
+* Stale CLI docs ([#2336](https://github.com/AztecProtocol/aztec-packages/issues/2336)) ([f38873b](https://github.com/AztecProtocol/aztec-packages/commit/f38873b1751a7604cba3aed888323c7cd106b689))
+* Strip leading 'v' from dockerhub tags ([#2360](https://github.com/AztecProtocol/aztec-packages/issues/2360)) ([a4bb05c](https://github.com/AztecProtocol/aztec-packages/commit/a4bb05ca2bda0f4e5ccd15c01bf1faadaa664354))
+
+
+### Miscellaneous
+
+* Added docs for artifact files ([#2362](https://github.com/AztecProtocol/aztec-packages/issues/2362)) ([6d3ba3f](https://github.com/AztecProtocol/aztec-packages/commit/6d3ba3fc833aa4f103c6b84065bb2dd0bea0f6b4)), closes [#2190](https://github.com/AztecProtocol/aztec-packages/issues/2190)
+* **aztec_noir:** Remove inputs from consume l1 to l2 message  ([#2354](https://github.com/AztecProtocol/aztec-packages/issues/2354)) ([2235f7c](https://github.com/AztecProtocol/aztec-packages/commit/2235f7cd0cdf5dfdd3188d3f606673e94e25c47d))
+* Remove "as unknown" casts for ABIs where possible ([#2331](https://github.com/AztecProtocol/aztec-packages/issues/2331)) ([bf2651e](https://github.com/AztecProtocol/aztec-packages/commit/bf2651e714e148cdd0a625a435fe1ee64d762ffb))
+* Script to extract tag version ([#2368](https://github.com/AztecProtocol/aztec-packages/issues/2368)) ([4b686b0](https://github.com/AztecProtocol/aztec-packages/commit/4b686b0d17f5a0811bfeef6bbe50d29b44cd7753))
+* Share e2e code with canary ([#2299](https://github.com/AztecProtocol/aztec-packages/issues/2299)) ([21224de](https://github.com/AztecProtocol/aztec-packages/commit/21224dea64318a5956a705d0b413dd0e7bcf795c))
+
+## [0.7.5](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.7.4...aztec-packages-v0.7.5) (2023-09-15)
+
+
+### Features
+
+* Protogalaxy interfaces ([#2125](https://github.com/AztecProtocol/aztec-packages/issues/2125)) ([b45dd26](https://github.com/AztecProtocol/aztec-packages/commit/b45dd26214119f0c52c2c4f48ff11f650912fef9))
+* Renamed `nargoVersion` as `compatibleNargoVersion` ([#2338](https://github.com/AztecProtocol/aztec-packages/issues/2338)) ([6f9e0f1](https://github.com/AztecProtocol/aztec-packages/commit/6f9e0f1bbb721f72b9951caed64921f311a4a30b))
+
+
+### Bug Fixes
+
+* Add retry around docker login and revive spot_run_test_script ([#2346](https://github.com/AztecProtocol/aztec-packages/issues/2346)) ([79e5f05](https://github.com/AztecProtocol/aztec-packages/commit/79e5f05c70cdc4bfb1bd6635d900b593dc8ada6b))
+* Unbox command. ([#2337](https://github.com/AztecProtocol/aztec-packages/issues/2337)) ([e9bc9c6](https://github.com/AztecProtocol/aztec-packages/commit/e9bc9c60fd1f79592ffe828a59618320ff26327b))
+
+
+### Miscellaneous
+
+* Increase guides-dapp-testing test timeout ([#2343](https://github.com/AztecProtocol/aztec-packages/issues/2343)) ([1cebe2c](https://github.com/AztecProtocol/aztec-packages/commit/1cebe2c22a93686f36c952a912540bb129768ee4))
+* Use retries by default on rpc client fetch ([#2342](https://github.com/AztecProtocol/aztec-packages/issues/2342)) ([f4ffd68](https://github.com/AztecProtocol/aztec-packages/commit/f4ffd68f1c4fe75a53caa1bec32f246aa5f0c818))
+
+## [0.7.4](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.7.3...aztec-packages-v0.7.4) (2023-09-15)
+
+
+### Features
+
+* Elliptic Curve Virtual Machine Circuit ([#1268](https://github.com/AztecProtocol/aztec-packages/issues/1268)) ([f85ecd9](https://github.com/AztecProtocol/aztec-packages/commit/f85ecd921271ec94b551992bcfe16c2b56f72d2e))
+* Exposing nargo version via `NodeInfo` ([#2333](https://github.com/AztecProtocol/aztec-packages/issues/2333)) ([1c2669c](https://github.com/AztecProtocol/aztec-packages/commit/1c2669c4b442c022f9f501f0b8caf102a08e0b0c)), closes [#2332](https://github.com/AztecProtocol/aztec-packages/issues/2332)
+* Migrate accounts to auth witness ([#2281](https://github.com/AztecProtocol/aztec-packages/issues/2281)) ([91152af](https://github.com/AztecProtocol/aztec-packages/commit/91152afbdde0313972007d265230276c6160eb2c)), closes [#2043](https://github.com/AztecProtocol/aztec-packages/issues/2043)
+
+
+### Bug Fixes
+
+* Aztec-nr mirror url ([#2321](https://github.com/AztecProtocol/aztec-packages/issues/2321)) ([aaf7f67](https://github.com/AztecProtocol/aztec-packages/commit/aaf7f67fcb0e226f9094feeff6795957dfd9d67e))
+* **build:** Fixed paths on s3 deployments ([#2335](https://github.com/AztecProtocol/aztec-packages/issues/2335)) ([38c7979](https://github.com/AztecProtocol/aztec-packages/commit/38c7979c03f7e1c5ffbaf8537cd91ed1574e0c95))
+
+
+### Miscellaneous
+
+* Do not format boxes with global format ([#2326](https://github.com/AztecProtocol/aztec-packages/issues/2326)) ([2fe845f](https://github.com/AztecProtocol/aztec-packages/commit/2fe845f2f0cb46c8940826045a703de333b8b0f5))
+* Remove native token ([#2280](https://github.com/AztecProtocol/aztec-packages/issues/2280)) ([4032d01](https://github.com/AztecProtocol/aztec-packages/commit/4032d014c29a2a1eddb13881d6e469b35177f207))
+* Rename getAccounts to getRegisteredAccounts ([#2330](https://github.com/AztecProtocol/aztec-packages/issues/2330)) ([c7f3776](https://github.com/AztecProtocol/aztec-packages/commit/c7f37769df6584a8c3f0a970d8694a2b455f00d3))
+
 ## [0.7.3](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.7.2...aztec-packages-v0.7.3) (2023-09-15)
 
 

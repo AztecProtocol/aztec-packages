@@ -96,7 +96,7 @@ const sidebars = {
         "dev_docs/contracts/events",
         "dev_docs/contracts/compiling",
         "dev_docs/contracts/deploying",
-        "dev_docs/contracts/example-contract",
+        "dev_docs/contracts/artifacts",
         "dev_docs/contracts/abi",
         {
           label: "Syntax",
