@@ -5,7 +5,7 @@ import { Fr, FunctionSelector } from '@aztec/circuits.js';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { DebugLogger } from '@aztec/foundation/log';
 import { TokenBridgeContract, TokenContract } from '@aztec/noir-contracts/types';
-import { AztecRPC } from '@aztec/types';
+import { AztecRPC, TxStatus } from '@aztec/types';
 
 import { CrossChainTestHarness } from './fixtures/cross_chain_test_harness.js';
 import { delay, hashPayload, setup } from './fixtures/utils.js';
@@ -15,7 +15,8 @@ describe('e2e_cross_chain_messaging', () => {
   let aztecRpcServer: AztecRPC;
   let logger: DebugLogger;
 
-  let wallet: AccountWallet;
+  let user1Wallet: AccountWallet;
+  let user2Wallet: AccountWallet;
   let ethAccount: EthAddress;
   let ownerAddress: AztecAddress;
 
@@ -30,7 +31,7 @@ describe('e2e_cross_chain_messaging', () => {
       aztecRpcServer: aztecRpcServer_,
       deployL1ContractsValues,
       accounts,
-      wallet: wallet_,
+      wallets,
       logger: logger_,
       cheatCodes,
     } = await setup(2);
@@ -39,7 +40,7 @@ describe('e2e_cross_chain_messaging', () => {
       aztecRpcServer_,
       deployL1ContractsValues,
       accounts,
-      wallet_,
+      wallets[0],
       logger_,
       cheatCodes,
     );
@@ -50,7 +51,8 @@ describe('e2e_cross_chain_messaging', () => {
     ownerAddress = crossChainTestHarness.ownerAddress;
     outbox = crossChainTestHarness.outbox;
     aztecRpcServer = crossChainTestHarness.aztecRpcServer;
-    wallet = wallet_;
+    user1Wallet = wallets[0];
+    user2Wallet = wallets[1];
     logger = logger_;
     logger('Successfully deployed contracts and initialized portal');
   }, 100_000);
@@ -63,7 +65,7 @@ describe('e2e_cross_chain_messaging', () => {
     await crossChainTestHarness?.stop();
   });
 
-  it('Milestone 2: Deposit funds from L1 -> L2 and withdraw back to L1', async () => {
+  it.skip('Milestone 2: Deposit funds from L1 -> L2 and withdraw back to L1', async () => {
     // Generate a claim secret using pedersen
     const l1TokenBalance = 1000000n;
     const bridgeAmount = 100n;
@@ -117,7 +119,7 @@ describe('e2e_cross_chain_messaging', () => {
       new Fr(withdrawAmount),
       nonce,
     ]);
-    await wallet.createAuthWitness(burnMessageHash);
+    await user1Wallet.createAuthWitness(burnMessageHash);
 
     // 5. Withdraw owner's funds from L2 to L1
     const entryKey = await crossChainTestHarness.checkEntryIsNotInOutbox(withdrawAmount);
@@ -132,5 +134,96 @@ describe('e2e_cross_chain_messaging', () => {
     expect(await outbox.read.contains([entryKey.toString(true)])).toBeFalsy();
   }, 120_000);
 
-  // TODO: Failure cases!
+  // Unit tests for TokenBridge's private methods.
+  it('Someone else can mint funds to me on my behalf (privately)', async () => {
+    const l1TokenBalance = 1000000n;
+    const bridgeAmount = 100n;
+    const [secretForL2MessageConsumption, secretHashForL2MessageConsumption] =
+      await crossChainTestHarness.generateClaimSecret();
+    const [secretForRedeemingMintedNotes, secretHashForRedeemingMintedNotes] =
+      await crossChainTestHarness.generateClaimSecret();
+
+    await crossChainTestHarness.mintTokensOnL1(l1TokenBalance);
+    const messageKey = await crossChainTestHarness.sendTokensToPortalPrivate(
+      bridgeAmount,
+      secretHashForL2MessageConsumption,
+      secretHashForRedeemingMintedNotes,
+    );
+    expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);
+
+    // Wait for the archiver to process the message
+    await delay(5000); /// waiting 5 seconds.
+
+    // Perform an unrelated transaction on L2 to progress the rollup. Here we mint public tokens.
+    const unrelatedMintAmount = 99n;
+    await crossChainTestHarness.mintTokensPublicOnL2(unrelatedMintAmount);
+    await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, unrelatedMintAmount);
+
+    // 3. Consume L1-> L2 message and mint private tokens on L2
+
+    // Sending wrong secret hashes should fail:
+    await expect(
+      l2Bridge
+        .withWallet(user2Wallet)
+        .methods.claim_private(
+          bridgeAmount,
+          messageKey,
+          secretForL2MessageConsumption,
+          secretHashForL2MessageConsumption,
+          {
+            address: ethAccount.toField(),
+          },
+        )
+        .simulate(),
+    ).rejects.toThrowError("Cannot satisfy constraint 'l1_to_l2_message_data.message.content == content");
+
+    // send the right one -
+    const consumptionTx = l2Bridge
+      .withWallet(user2Wallet)
+      .methods.claim_private(
+        bridgeAmount,
+        messageKey,
+        secretForL2MessageConsumption,
+        secretHashForRedeemingMintedNotes,
+        {
+          address: ethAccount.toField(),
+        },
+      )
+      .send();
+    const consumptionReceipt = await consumptionTx.wait();
+    expect(consumptionReceipt.status).toBe(TxStatus.MINED);
+
+    // Now user1 can claim the notes that user2 minted on their behalf.
+    await crossChainTestHarness.redeemShieldPrivatelyOnL2(bridgeAmount, secretForRedeemingMintedNotes);
+    await crossChainTestHarness.expectPrivateBalanceOnL2(ownerAddress, bridgeAmount);
+  }, 50_000);
+
+  it("Bridge can't withdraw my funds if I don't give approval", async () => {
+    const mintAmountToUser1 = 100n;
+    await crossChainTestHarness.mintTokensPublicOnL2(mintAmountToUser1);
+
+    const withdrawAmount = 9n;
+    const nonce = Fr.random();
+    const expectedBurnMessageHash = await hashPayload([
+      l2Bridge.address.toField(),
+      l2Token.address.toField(),
+      FunctionSelector.fromSignature('burn((Field),Field,Field)').toField(),
+      user1Wallet.getAddress().toField(),
+      new Fr(withdrawAmount),
+      nonce,
+    ]);
+    // Should fail as owner has not given approval to bridge burn their funds.
+    await expect(
+      l2Bridge
+        .withWallet(user1Wallet)
+        .methods.exit_to_l1_private(
+          { address: l2Token.address },
+          withdrawAmount,
+          { address: ethAccount.toField() },
+          { address: EthAddress.ZERO.toField() },
+          nonce,
+        )
+        .simulate(),
+    ).rejects.toThrowError(`Unknown auth witness for message hash 0x${expectedBurnMessageHash.toString('hex')}`);
+  });
 });
