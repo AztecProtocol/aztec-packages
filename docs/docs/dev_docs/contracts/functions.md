@@ -19,13 +19,13 @@ Although constructors are always needed, they are not required to do anything. A
 
 ## `Private` Functions
 
-To create a private function you can annotate it with the `#[aztec(private)]` attribute. This will make the [private context](./context.md#private-context-broken-down) available within your current function's execution scope.
+To create a private function you can annotate it with the `#[aztec(private)]` attribute. This will make the [private context](./context.mdx#private-context-broken-down) available within your current function's execution scope.
 
 #include_code functions-SecretFunction /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/main.nr rust
 
 ## `Public` Functions
 
-To create a public function you can annotate it with the `#[aztec(public)]` attribute. This will make the [public context](./context.md#public-context) available within your current function's execution scope.
+To create a public function you can annotate it with the `#[aztec(public)]` attribute. This will make the [public context](./context.mdx#public-context) available within your current function's execution scope.
 
 #include_code functions-OpenFunction /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/main.nr rust
 
@@ -139,7 +139,7 @@ Inside the kernel circuits, the inputs to functions are reduced to a single valu
 **Creating the function's context.**
 #include_code context-example-context /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/main.nr rust
 
-Each Aztec function has access to a [context](./context.md) object. This object although ergonomically a global variable, is local. It is initialized from the inputs provided by the kernel, and a hash of the function's inputs.
+Each Aztec function has access to a [context](./context.mdx) object. This object although ergonomically a global variable, is local. It is initialized from the inputs provided by the kernel, and a hash of the function's inputs.
 
 #include_code context-example-context-return /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/main.nr rust
 
