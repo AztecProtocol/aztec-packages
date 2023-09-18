@@ -1,3 +1,4 @@
+FROM node:18-alpine
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project-base AS builder
 
 WORKDIR /usr/src
@@ -11,3 +12,4 @@ RUN yarn build
 WORKDIR /usr/src/docs
 
 RUN yarn && yarn build
+
