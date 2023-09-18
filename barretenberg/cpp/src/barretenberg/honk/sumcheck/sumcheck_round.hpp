@@ -419,13 +419,14 @@ template <typename Flavor> class SumcheckVerifierRound {
     {
         // S^{l}(0) = ( (1−0) + 0⋅ζ^{ 2^l } ) ⋅ T^{l}(0) = T^{l}(0)
         // S^{l}(1) = ( (1−1) + 1⋅ζ^{ 2^l } ) ⋅ T^{l}(1) = ζ^{ 2^l } ⋅ T^{l}(1)
-        // WORKTODO: Need to actually assert this equality!
         FF total_sum = univariate.value_at(0) + univariate.value_at(1);
         // target_total_sum = sigma_{l} =
         // TODO(#673): Conditionals like this can go away once native verification is is just recursive verification
         // with a simulated builder.
         bool sumcheck_round_failed(false);
         if constexpr (IsRecursiveFlavor<Flavor>) {
+            // TODO(#726): Need to constrain this equality and update the native optional return value mechanism for the
+            // recursive setting.
             sumcheck_round_failed = (target_total_sum != total_sum).get_value();
         } else {
             sumcheck_round_failed = (target_total_sum != total_sum);
