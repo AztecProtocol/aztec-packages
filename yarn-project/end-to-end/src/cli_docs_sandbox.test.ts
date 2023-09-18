@@ -35,7 +35,8 @@ Node Info:
 Version: 1
 Chain Id: 31337
 Rollup Address: 0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9
-Client: aztec-rpc@0.7.2
+Client: aztec-rpc@0.7.5
+Compatible Nargo Version: 0.11.1-aztec.0
 // docs:end:node-info
 `;
 

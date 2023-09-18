@@ -24,30 +24,10 @@ Or if you use yarn:
 yarn global add @aztec/cli
 ```
 
-If you have specified a SANDBOX_VERSION environmental variable when installing the Sandbox, you will need to specify the same version when installing the CLI.
-To get the version of the Sandbox you have installed start the Sandbox and look for the version in the logs.
-Alternatively, if you already have a version of aztec-cli installed, you can run:
-
-#include_code node-info yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
-
-To install a specific version of the CLI, run:
+Then verify that it is installed with:
 
 ```bash
-npm install -g @aztec/cli@YOUR_VERSION
-```
-
-or if you use yarn:
-
-```bash
-yarn global add @aztec/cli@YOUR_VERSION
-```
-
-If your version was not found look at the list of available versions on [npmjs.com](https://www.npmjs.com/package/@aztec/cli?activeTab=versions).
-
-Verify that the correct version is installed:
-
-```bash
-aztec-cli --version
+aztec-cli -h
 ```
 
 ## I have the Sandbox running, now what?
