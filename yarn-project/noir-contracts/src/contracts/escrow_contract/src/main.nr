@@ -43,14 +43,16 @@ contract Escrow {
     ) {
         let storage = Storage::init(Context::private(&mut context));
 
+        let this = context.this_address();
+
         // Create a new note and add it to the owners set.
-        let mut note = AddressNote::new(owner, context.this_address());
+        let mut note = AddressNote::new(owner, this);
 
         // Insert the owner into storage
         storage.owners.insert(&mut note);
         emit_encrypted_log(
             &mut context,
-            context.this_address(),
+            this,
             storage.owners.storage_slot,
             get_public_key(this),
             note.serialise(),
