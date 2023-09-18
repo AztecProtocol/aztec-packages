@@ -8,9 +8,9 @@
 - A constructor behaves almost identically to any other function. It's just important for Aztec to be able to identify this function as special: it may only be called once, and will not be deployed as part of the contract.
 
 An example of a constructor is as follows:
-#include_code constructor /yarn-project/noir-contracts/src/contracts/private_token_contract/src/main.nr rust
+#include_code constructor /yarn-project/noir-contracts/src/contracts/escrow_contract/src/main.nr rust
 
-In this example (taken from a token contract), the constructor mints `initial_supply` tokens to the passed in `owner`. 
+In this example (taken from an escrow contract), the constructor sets the deployer as an `owner`.
 
 Although constructors are always needed, they are not required to do anything. A empty constructor can be created as follows:
 
@@ -25,8 +25,7 @@ To create a private function you can annotate it with the `#[aztec(private)]` at
 
 ## `Public` Functions
 
-<!-- TODO: UPDATE LINK TO PUBLIC CONTEXT NOT THE INPTUS -->
-To create a public function you can annotate it with the `#[aztec(public)]` attribute. This will make the [public context](./context.md#public-context-inputs) available within your current function's execution scope.
+To create a public function you can annotate it with the `#[aztec(public)]` attribute. This will make the [public context](./context.md#public-context) available within your current function's execution scope.
 
 #include_code functions-OpenFunction /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/main.nr rust
 
@@ -67,8 +66,10 @@ The context available within functions includes the ability to send messages to 
 
 ### What happens behind the scenes?
 When a user sends a message from a [portal contract](../../concepts/foundation/communication/cross_chain_calls.md#portal) to the rollup's inbox it gets processed and added to the `l1 to l2 messages tree`.
+
  <-- TODO(Maddiaa): INCLUDE LINK TO WHERE the messages tree is discussed elsewhere in the docs. -->
-The l1 to l2 messages tree contains all messages that have been sent from l1 to the l2. The good thing about this tree is that it does not reveal when it's messages have been spent, as consuming a message from the l1 to l2 messages tree is done by nullifing a message, rather than marking it as consumed.
+
+The l1 to l2 messages tree contains all messages that have been sent from l1 to the l2. The good thing about this tree is that it does not reveal when it's messages have been spent, as consuming a message from the l1 to l2 messages tree is done by nullifing a message.
 
 When calling the `consume_l1_to_l2_message` function on a contract; a number of actions are performed by `Aztec.nr`.
 
@@ -77,10 +78,10 @@ When calling the `consume_l1_to_l2_message` function on a contract; a number of 
 3. Check that the message content matches the content reproduced earlier on. 
 4. Validate that caller know's the preimage to the message's `secretHash`. See more information [here](../../concepts/foundation/communication/cross_chain_calls.md#messages).
 5. We compute the nullifier for the message.
-#include_code l1_to_l2_message_compute_nullifier  /yarn-project/noir-libs/aztec-noir/src/messaging/l1_to_l2_message.nr rust
+#include_code l1_to_l2_message_compute_nullifier  /yarn-project/aztec-nr/aztec/src/messaging/l1_to_l2_message.nr rust
 6. Finally we push the nullifier to the context. Allowing it to be checked for validity by the kernel and rollup circuits. 
 
-#include_code consume_l1_to_l2_message  /yarn-project/noir-libs/aztec-noir/src/context.nr rust
+#include_code consume_l1_to_l2_message  /yarn-project/aztec-nr/aztec/src/context.nr rust
 
 As the same nullifier cannot be created twice. We cannot consume the message again.
 
@@ -97,7 +98,7 @@ Aztec.nr uses an attribute system to annotate a function's type. Annotating a fu
 
 However; `#aztec(private)` is just syntactic sugar. At compile time, the framework inserts code that allows the function to interact with the [kernel](../../concepts/advanced/circuits/kernels/private_kernel.md).
 
-To help illustrate how this interacts with the internals of Aztec and its kernel circuits, we can take an example private function, and explore what it looks like after Aztec.nr's macro expansion.
+To help illustrate how this interacts with the internals of #public-contextAztec and its kernel circuits, we can take an example private function, and explore what it looks like after Aztec.nr's macro expansion.
 
 #### Before expansion
 #include_code simple_macro_example /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/main.nr rust
@@ -109,7 +110,6 @@ To help illustrate how this interacts with the internals of Aztec and its kernel
 #### The expansion broken down?
 Viewing the expanded noir contract uncovers a lot about how noir contracts interact with the [kernel](../../concepts/advanced/circuits/kernels/private_kernel.md). To aid with developing intuition, we will break down each inserted line.
 
-<!-- Comment on what each of the lines do -> make a nice way to the processor to copy sub snippets / ignore sub snippets -->
 **Receiving context from the kernel.**
 #include_code context-example-inputs /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/main.nr rust
 
@@ -132,7 +132,7 @@ This structure contains a host of information about the executed program. It wil
 **Hashing the function inputs.**
 #include_code context-example-hasher /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/main.nr rust
 
-What is the hasher and why is it needed? 
+*What is the hasher and why is it needed?*
 
 Inside the kernel circuits, the inputs to functions are reduced to a single value; the inputs hash. This prevents the need for multiple different kernel circuits; each supporting differing numbers of inputs. The hasher abstraction that allows us to create an array of all of the inputs that can be reduced to a single value. 
 

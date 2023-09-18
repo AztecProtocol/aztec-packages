@@ -5,7 +5,7 @@
   "scripts": {
     "docusaurus": "docusaurus",
     "start": "docusaurus start",
-    "start:dev": "concurrently \"yarn preprocess:dev\" \"docusaurus start --host 0.0.0.0\"",
+    "start:dev": "concurrently \"yarn preprocess:dev\" \"docusaurus start --host 0.0.0.0 --port 3001\"",
     "start:dev:local": "concurrently \"yarn preprocess:dev\" \"docusaurus start\"",
     "build": "yarn preprocess && docusaurus build",
     "swizzle": "docusaurus swizzle",

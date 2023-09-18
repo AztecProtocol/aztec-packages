@@ -3,6 +3,9 @@ title: Aztec.nr Context
 description: Documentation of Aztec's Private and Public execution contexts
 hide_table_of_contents: false
 ---
+
+import Image from "@theme/IdealImage";
+
 # The Function Context
 
 ## What is the context
@@ -22,31 +25,34 @@ The following section will cover both contexts.
 ## The Private Context
 
 The code snippet below shows what is contained within the private context.
-#include_code private-context /yarn-project/noir-libs/aztec-noir/src/context.nr rust
+#include_code private-context /yarn-project/aztec-nr/aztec/src/context.nr rust
 
 ### Private Context Broken Down
 #### Inputs
 The context inputs includes all of the information that is passed from the kernel circuit into the application circuit. It contains the following values.
 
-#include_code private-context-inputs /yarn-project/noir-libs/aztec-noir/src/abi.nr rust
+#include_code private-context-inputs /yarn-project/aztec-nr/aztec/src/abi.nr rust
 
 As shown in the snippet, the application context is made up of 4 main structures. The call context, the block data, the contract deployment data and the private global variables.
 
 First of all, the call context.
 
-#include_code call-context /yarn-project/noir-libs/aztec-noir/src/abi.nr rust
+#include_code call-context /yarn-project/aztec-nr/aztec/src/abi.nr rust
 
-The call context contains information about the current call being made:.
+The call context contains information about the current call being made:
+
+
 1. Msg Sender
     - The message sender is the account (Aztec Contract) that sent the message to the current context. In the first call of the kernel circuit (often the account contract call), this value will be empty. For all subsequent calls the value will be the previous call. 
 
-    ( TODO: INCLUDE A DIAGRAM HERE SHOWING HOW IT GETS UPDATED ON CONTRACT CALLS )
-2. Storage contract address
-    - This value is the address of the current context's contract address. This value will be the value of the current contract that is being executed except for when the current call is a delegate call (TODO: INCLUDE A LINK TO ITS DOCUMENTATION). In this case the value will be that of the sending contract. 
+> The graphic below illustrates how the message sender changes throughout the kernel circuit iterations.
+<Image img={require("/img/context/sender_context_change.png")} />
 
-    - This value is important as it is the value that is used when siloing the storage values of a contract. ( TODO: DOES THIS NEED TO BE DIVED INTO MORE OR IS IT SOMETHING THTAT THERE IS A LINK TO).
+2. Storage contract address
+    - This value is the address of the current context's contract address. This value will be the value of the current contract that is being executed except for when the current call is a delegate call (Warning: This is yet to be implemented). In this case the value will be that of the sending contract. 
+
 3. Portal Contract Address 
-    - This value stores the current contract's linked portal contract address. ( INCLUDE A LINK TO THE LITERATURE ). As a quick recap, this value is the value of the contracts related ethereum l1 contract address, and will be the recipient of any messages that are created by this contract.
+    - This value stores the current contract's linked [portal contract](./portals/main.md) address. As a quick recap, this value is the value of the contracts related ethereum l1 contract address, and will be the recipient of any messages that are created by this contract.
 4. Flags
     - Furthermore there are a series of flags that are stored within the application context:
         - is_delegate_call: Denotes whether the current call is a delegate call. If true, then the storage contract address will be the address of the sender.
@@ -56,17 +62,17 @@ The call context contains information about the current call being made:.
 ### Historic Block Data
 Another structure that is contained within the context is the Historic Block Data object. This object is a special one as it contains all of the roots of Aztec's data trees. 
 
-#include_code historic-block-data /yarn-project/noir-libs/aztec-noir/src/abi.nr rust
+#include_code historic-block-data /yarn-project/aztec-nr/aztec/src/abi.nr rust
 
 ### Contract Deployment Data
 Just like with the `is_contract_deployment` flag mentioned earlier. This data will only be set to true when the current transaction is one in which a contract is being deployed.
 
-#include_code contract-deployment-data /yarn-project/noir-libs/aztec-noir/src/abi.nr rust
+#include_code contract-deployment-data /yarn-project/aztec-nr/aztec/src/abi.nr rust
 
 ### Private Global Variables
 In the private execution context, we only have access to a subset of the total global variables, we are restricted to those which can be reliably proven by the kernel circuits.
 
-#include_code private-global-variables /yarn-project/noir-libs/aztec-noir/src/abi.nr rust
+#include_code private-global-variables /yarn-project/aztec-nr/aztec/src/abi.nr rust
 
 ### Args Hash
 To allow for flexibility in the number of arguments supported by Aztec functions, all function inputs are reduced to a singular value which can be proven from within the application. 
@@ -101,13 +107,16 @@ The public call stack contains all of the external function calls that are creat
 ### New L2 to L1 msgs
 New L2 to L1 messages contains messages that are delivered to the [l1 outbox](../../concepts/foundation/communication/cross_chain_calls.md) on the execution of each rollup.
 
-## Public Context Inputs
+## Public Context
+The Public Context includes all of the information passed from the `Public VM` into the execution environment. It is very similar to the [Private Context](#the-private-context), however it has some minor differences (detailed below).
+
+### Public Context Inputs
 In the current version of the system, the public context is almost a clone of the private execution context. It contains the same call context data, access to the same historic tree roots, however it does NOT have access to contract deployment data, this is due to traditional contract deployments only currently being possible from private transactions.
 
-#include_code public-context-inputs /yarn-project/noir-libs/aztec-noir/src/abi.nr rust
+#include_code public-context-inputs /yarn-project/aztec-nr/aztec/src/abi.nr rust
 
 
 ### Public Global Variables
 The public global variables are provided by the rollup sequencer and consequently contain some more values than the private global variables.
 
-#include_code public-global-variables /yarn-project/noir-libs/aztec-noir/src/abi.nr rust
+#include_code public-global-variables /yarn-project/aztec-nr/aztec/src/abi.nr rust
