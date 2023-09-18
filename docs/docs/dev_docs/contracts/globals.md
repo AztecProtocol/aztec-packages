@@ -9,7 +9,7 @@ For developers coming from solidity, this concept will be similar to how the glo
 `Aztec` has two execution environments, Private and Public. Each execution environment contains a different global variables object. 
 
 ## Private Global Variables 
-#include_code private-global-variables /yarn-project/noir-libs/noir-aztec/src/abi.nr rust
+#include_code private-global-variables /yarn-project/aztec-nr/aztec/src/abi.nr rust
 
 The private global variables contain:
 ### Chain Id
@@ -19,7 +19,7 @@ The chain id differs depending on which Aztec instance you are on ( NOT the Ethe
 The version number indicates which Aztec hardfork you are on. The Genesis block of the network will have the version number 1.
 
 ## Public Global Variables
-#include_code public-global-variables /yarn-project/noir-libs/noir-aztec/src/abi.nr rust
+#include_code public-global-variables /yarn-project/aztec-nr/aztec/src/abi.nr rust
 
 The public global variables contain the values present in the `private global variables` described above, with the addition of:
 
