@@ -16,36 +16,39 @@ aztec-cli deploy \
 # docs:end:deploy
 
 aztec-cli check-deploy --contract-address 0x03b030d48607ba8a0562f0f1f82be26c3f091e45e10f74c2d8cebb80d526a69f
+# docs:start:declare-contract
+CONTRACT=0x03b030d48607ba8a0562f0f1f82be26c3f091e45e10f74c2d8cebb80d526a69f
+# docs:end:declare-contract
 
 # docs:start:get-balance
 aztec-cli call getBalance \
   --args $ALICE \
   --contract-abi PrivateTokenContractAbi \
-  --contract-address 0x03b030d48607ba8a0562f0f1f82be26c3f091e45e10f74c2d8cebb80d526a69f
+  --contract-address $CONTRACT
 # docs:end:get-balance
 
 # docs:start:transfer
 aztec-cli send transfer \
   --args 500 $ALICE $BOB \
   --contract-abi PrivateTokenContractAbi \
-  --contract-address 0x03b030d48607ba8a0562f0f1f82be26c3f091e45e10f74c2d8cebb80d526a69f \
+  --contract-address $CONTRACT \
   --private-key 0xb2803ec899f76f6b2ac011480d24028f1a29587f8a3a92f7ee9d48d8c085c284
 
 aztec-cli call getBalance \
   --args $ALICE \
   --contract-abi PrivateTokenContractAbi \
-  --contract-address 0x03b030d48607ba8a0562f0f1f82be26c3f091e45e10f74c2d8cebb80d526a69f
+  --contract-address $CONTRACT
 
 aztec-cli call getBalance \
   --args $BOB \
   --contract-abi PrivateTokenContractAbi \
-  --contract-address 0x03b030d48607ba8a0562f0f1f82be26c3f091e45e10f74c2d8cebb80d526a69f
+  --contract-address $CONTRACT
 # docs:end:transfer
 
 aztec-cli get-logs
 
 # Test end result
-BOB_BALANCE=$(aztec-cli call getBalance --args $BOB --contract-abi PrivateTokenContractAbi --contract-address 0x03b030d48607ba8a0562f0f1f82be26c3f091e45e10f74c2d8cebb80d526a69f)
+BOB_BALANCE=$(aztec-cli call getBalance --args $BOB --contract-abi PrivateTokenContractAbi --contract-address $CONTRACT)
 if ! echo $BOB_BALANCE | grep -q 500; then 
   echo "Incorrect Bob balance after transaction (expected 500 but got $BOB_BALANCE)"
   exit 1

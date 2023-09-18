@@ -64,54 +64,20 @@ Start by deploying a private token contract, minting an initial supply of privat
 The contract address of the newly-deployed contract should be printed to the console. Let's store this contract address for future commands:
 
 ```bash
-CONTRACT_ADDRESS="Paste the contract address here"
+CONTRACT="Paste the contract address here"
 ```
 
-## Caling a contract
+#include_code declare-contract yarn-project/end-to-end/src/guides/up_quick_start.sh bash
+
+## Calling a contract
 
 We can check Alice's private token balance by querying the contract.
 
-<!-- Uncomment this when this test (https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/end-to-end/src/guides/up_quick_start.sh#L18-L24)
-is updated to use $CONTRACT instead of a hardcoded value
-ie when this PR lands: https://github.com/AztecProtocol/aztec-packages/pull/2344
--->
+#include_code get-balance yarn-project/end-to-end/src/guides/up_quick_start.sh bash
 
-<!-- #include_code deploy yarn-project/end-to-end/src/guides/up_quick_start.sh bash -->
+We can have Alice privately transfer tokens to Bob. Only Alice and Bob will know what's happened. Here, we use Alice's private key to send a transaction to transfer tokens to Bob. Once they are transferred, we can verify that it worked as expected by checking Alice's and Bob's balances:
 
-```bash
-aztec-cli call getBalance \
-  --args $ALICE \
-  --contract-abi PrivateTokenContractAbi \
-  --contract-address $CONTRACT_ADDRESS
-```
-
-We can have Alice privately transfer tokens to Bob. Only Alice and Bob will know what's happened. Here, we use Alice's private key to send a transaction to transfer tokens to Bob:
-
-```bash
-aztec-cli send transfer \
-  --args 500 $BOB \
-  --contract-abi PrivateTokenContractAbi \
-  --contract-address $CONTRACT_ADDRESS \
-  --private-key 0xb2803ec899f76f6b2ac011480d24028f1a29587f8a3a92f7ee9d48d8c085c284
-```
-
-Next we can verify the result by checking Alice's new balance
-
-```bash
-aztec-cli call getBalance \
-  --args $ALICE \
-  --contract-abi PrivateTokenContractAbi \
-  --contract-address $CONTRACT_ADDRESS
-```
-
-Lastly, we can further verify the result by checking Bob's new balance
-
-```bash
-aztec-cli call getBalance \
-  --args $BOB \
-  --contract-abi PrivateTokenContractAbi \
-  --contract-address $CONTRACT_ADDRESS
-```
+#include_code transfer yarn-project/end-to-end/src/guides/up_quick_start.sh bash
 
 Congratualations! You are all set up with the Aztec sandbox!
 
@@ -121,4 +87,4 @@ Aztec's Layer 2 network is a fully programmable combined private/public ZK rollu
 
 - Aztec Node - Aggregates all of the 'backend' services necessary for the building and publishing of rollups.
 - Aztec RPC Server - Normally residing with the end client, this decrypts and stores a client's private state, executes simulations and submits transactions to the Aztec Node.
-- Aztec.js - Aztec's client library for interacting with the Aztec RPC Server (think Ethers.js).
+- [Aztec.js](./sandbox) - Aztec's client library for interacting with the Aztec RPC Server (think Ethers.js).
