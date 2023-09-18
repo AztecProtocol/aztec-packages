@@ -166,7 +166,8 @@ export class NoteProcessor {
    * @param noteSpendingInfo - An instance of NoteSpendingInfo containing transaction details.
    * @param excludedIndices - Indices that have been assigned a note in the same tx. Notes in a tx can have the same
    * NoteSpendingInfo. We need to find a different index for each replicate.
-   * @returns A Fr instance representing the computed nullifier.
+   * @returns Information for a decrypted note, including the index of its commitment, nonce, inner note
+   * hash, and the siloed nullifier. Throw if cannot find the nonce for the note.
    */
   private async findNoteIndexAndNullifier(
     commitments: Fr[],
