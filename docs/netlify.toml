@@ -53,3 +53,11 @@
 [[redirects]]
     from = "/dev_docs/contracts/contract"
     to = "/dev_docs/contracts/syntax/contract"
+
+[[redirects]]
+    from = "/dev_docs/getting_started/sandbox"
+    to = "/dev_docs/getting_started/aztecjs"
+
+[[redirects]]
+    from = "/dev_docs/getting_started/cli"
+    to = "/dev_docs/getting_started/quickstart"
