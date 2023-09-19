@@ -398,13 +398,8 @@ Public functions are declared with the `#[aztec(public)]` macro above the functi
 
 As described in the [execution contexts section above](#execution-contexts), public function logic and transaction information is transparent to the world. Public functions update public state, but can be used to prepare data to be used in a private context, as we will go over below (e.g. see the [shield](#shield) function).
 
-Every public function initializes storage using the public context like so:
 
-```rust
-let storage = Storage::init(Context::public(&mut context));
-```
-
-After this, storage is referenced as `storage.variable`. We won't go over this step in any of the following function descriptions.
+Storage is referenced as `storage.variable`.
 
 #### `set_admin`
 
@@ -415,7 +410,7 @@ After storage is initialized, the contract checks that the `msg_sender` is the `
     fn set_admin(
         new_admin: AztecAddress,
     ) {
-        let storage = Storage::init(Context::public(&mut context));
+        
         assert(storage.admin.read() == context.msg_sender(), "caller is not admin");
         storage.admin.write(new_admin.address);
     }
@@ -431,7 +426,6 @@ This function allows the `admin` to add or a remove a `minter` from the public `
         minter: AztecAddress,
         approve: bool,
     ) {
-        let storage = Storage::init(Context::public(&mut context));
         assert(storage.admin.read() == context.msg_sender(), "caller is not admin");
         storage.minters.at(minter.address).write(approve as Field);
     }
@@ -451,7 +445,6 @@ The function returns 1 to indicate successful execution.
         to: AztecAddress,
         amount: Field,
     ) -> Field {
-        let storage = Storage::init(Context::public(&mut context));
         assert(storage.minters.at(context.msg_sender()).read() == 1, "caller is not minter");
         let amount = SafeU120::new(amount);
         let new_balance = SafeU120::new(storage.public_balances.at(to.address).read()).add(amount);
@@ -475,7 +468,6 @@ First, public storage is initialized. Then it checks that the `msg_sender` is an
         amount: Field,
         secret_hash: Field,
     ) -> Field {
-        let storage = Storage::init(Context::public(&mut context));
         assert(storage.minters.at(context.msg_sender()).read() == 1, "caller is not minter");
         let pending_shields = storage.pending_shields;
         let mut note = TransparentNote::new(amount, secret_hash);
@@ -509,8 +501,6 @@ It returns `1` to indicate successful execution.
         secret_hash: Field,
         nonce: Field,
     ) -> Field {
-        let storage = Storage::init(Context::public(&mut context));
-
         if (from.address != context.msg_sender()) {
             // The redeem is only spendable once, so we need to ensure that you cannot insert multiple shields from the same message.
             let selector = compute_selector("shield((Field),Field,Field,Field)");
@@ -546,8 +536,6 @@ After storage is initialized, the [authorization flow specified above](#authoriz
         amount: Field,
         nonce: Field,
     ) -> Field {
-        let storage = Storage::init(Context::public(&mut context));
-
         if (from.address != context.msg_sender()) {
             let selector = compute_selector("transfer_public((Field),(Field),Field,Field)");
             let message_field = compute_message_hash([context.msg_sender(), context.this_address(), selector, from.address, to.address, amount, nonce]);
@@ -580,8 +568,6 @@ After storage is initialized, the [authorization flow specified above](#authoriz
         amount: Field,
         nonce: Field,
     ) -> Field {
-        let storage = Storage::init(Context::public(&mut context));
-
         if (from.address != context.msg_sender()) {
             let selector = compute_selector("burn_public((Field),Field,Field)");
             let message_field = compute_message_hash([context.msg_sender(), context.this_address(), selector, from.address, amount, nonce]);
@@ -612,13 +598,7 @@ Private functions are declared with the `#[aztec(private)]` macro above the func
 
 As described in the [execution contexts section above](#execution-contexts), private function logic and transaction information is hidden from the world and is executed on user devices. Private functions update private state, but can pass data to the public execution context (e.g. see the [`unshield`](#unshield) function).
 
-Every private function initializes storage using the private context like so:
-
-```rust
-let storage = Storage::init(Context::private(&mut context));
-```
-
-After this, storage is referenced as `storage.variable`. We won't go over this step in any of the following function descriptions.
+Storage is referenced as `storage.variable`.
 
 #### `redeem_shield`
 
@@ -635,7 +615,6 @@ The function returns `1` to indicate successful execution.
         amount: Field,
         secret: Field,
     ) -> Field {
-        let storage = Storage::init(Context::private(&mut context));
         let pending_shields = storage.pending_shields;
         let balance = storage.balances.at(to.address);
         let mut public_note = TransparentNote::new_from_secret(amount, secret);
@@ -663,8 +642,6 @@ The function returns `1` to indicate successful execution.
         amount: Field,
         nonce: Field,
     ) -> Field {
-        let storage = Storage::init(Context::private(&mut context));
-
         if (from.address != context.msg_sender()) {
             let selector = compute_selector("unshield((Field),(Field),Field,Field)");
             let message_field = compute_message_hash([context.msg_sender(), context.this_address(), selector, from.address, to.address, amount, nonce]);
@@ -697,8 +674,6 @@ After initializing storage, the function checks that the `msg_sender` is authori
         amount: Field,
         nonce: Field,
     ) -> Field {
-        let storage = Storage::init(Context::private(&mut context));
-
         if (from.address != context.msg_sender()) {
             let selector = compute_selector("transfer((Field),(Field),Field,Field)");
             let message_field = compute_message_hash([context.msg_sender(), context.this_address(), selector, from.address, to.address, amount, nonce]);
@@ -730,8 +705,6 @@ After initializing storage, the function checks that the `msg_sender` is authori
         amount: Field,
         nonce: Field,
     ) -> Field {
-        let storage = Storage::init(Context::private(&mut context));
-
         if (from.address != context.msg_sender()) {
             let selector = compute_selector("burn((Field),Field,Field)");
             let message_field = compute_message_hash([context.msg_sender(), context.this_address(), selector, from.address, amount, nonce]);
@@ -769,7 +742,6 @@ This function sets the creator of the contract (passed as `msg_sender` from the 
     fn _initialize(
         new_admin: AztecAddress,
     ) {
-        let storage = Storage::init(Context::public(&mut context));
         storage.admin.write(new_admin.address);
         storage.minters.at(new_admin.address).write(1);
     }
@@ -785,7 +757,6 @@ This function is called from [`unshield`](#unshield). The account's private bala
         to: AztecAddress,
         amount: Field,
     ) {
-        let storage = Storage::init(Context::public(&mut context));
         let new_balance = SafeU120::new(storage.public_balances.at(to.address).read()).add(SafeU120::new(amount));
         storage.public_balances.at(to.address).write(new_balance.value as Field);
     }
@@ -801,7 +772,6 @@ This function is called from [`burn`](#burn). The account's private balance is d
         amount: Field,
     ) {
         // Only to be called from burn.
-        let storage = Storage::init(Context::public(&mut context));
         let new_supply = SafeU120::new(storage.total_supply.read()).sub(SafeU120::new(amount));
         storage.total_supply.write(new_supply.value as Field);
     }
@@ -817,7 +787,6 @@ A getter function for reading the public `admin` value.
 
 ```rust
     unconstrained fn admin() -> Field {
-        let storage = Storage::init(Context::none());
         storage.admin.read()
     }
 ```
@@ -830,7 +799,6 @@ A getter function for checking the value of associated with a `minter` in the pu
     unconstrained fn is_minter(
         minter: AztecAddress,
     ) -> bool {
-        let storage = Storage::init(Context::none());
         storage.minters.at(minter.address).read() as bool
     }
 ```
@@ -841,7 +809,6 @@ A getter function for checking the token `total_supply`.
 
 ```rust
     unconstrained fn total_supply() -> Field {
-        let storage = Storage::init(Context::none());
         storage.total_supply.read()
     }
 ```
@@ -854,7 +821,6 @@ A getter function for checking the private balance of the provided Aztec account
     unconstrained fn balance_of_private(
         owner: AztecAddress,
     ) -> Field {
-        let storage = Storage::init(Context::none());
         let owner_balance = storage.balances.at(owner.address);
 
         balance_utils::get_balance(owner_balance)
@@ -869,7 +835,6 @@ A getter function for checking the public balance of the provided Aztec account.
     unconstrained fn balance_of_public(
         owner: AztecAddress,
     ) -> Field {
-        let storage = Storage::init(Context::none());
         storage.public_balances.at(owner.address).read()
     }
 ```
