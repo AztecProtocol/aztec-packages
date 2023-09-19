@@ -11,5 +11,5 @@ COPY --from=noir /usr/src/yarn-project/noir-contracts/target /usr/src/yarn-proje
 RUN cd /usr/src/yarn-project/noir-contracts && yarn build && ./scripts/types_all.sh && yarn build
 
 # Build the entire project and check formatting.
-RUN yarn tsc -b && yarn -p -j unlimited formatting
+RUN yarn tsc -b && yarn formatting
 RUN yarn test
