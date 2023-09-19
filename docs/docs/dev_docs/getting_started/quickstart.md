@@ -79,7 +79,7 @@ npm install -g @aztec/cli
 
 ## Deploying a contract
 
-The sandbox is preloaded with two accounts. Let's assign them to shell variables. Run the following in your terminal, so we can refer to the accounts as $ALICE and $BOB from now on:
+The sandbox is preloaded with multiple accounts. Let's assign them to shell variables. Run the following in your terminal, so we can refer to the accounts as $ALICE and $BOB from now on:
 
 :::note
 The default accounts that come with sandbox will likely change over time. Save two of the "Initial accounts" that are printed in the terminal when you started the sandbox.
@@ -91,11 +91,7 @@ Start by deploying a token contract. After it is deployed, we check that the dep
 
 #include_code deploy yarn-project/end-to-end/src/guides/up_quick_start.sh bash
 
-The contract address of the newly-deployed contract should be printed to the console. Store this contract address for future commands:
-
-```bash
-CONTRACT="Paste the contract address here"
-```
+Note that the deployed contract address is exported, so we can use it as `$CONTRACT` later on.
 
 ## Calling a contract
 
