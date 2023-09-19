@@ -45,6 +45,7 @@ contract TokenBridge {
         // let _callStackItem = context.call_public_function(context.this_address(), selector, [context.msg_sender()]);
     }
 
+    // docs:start:token_bridge_claim_public
     // Consumes a L1->L2 message and calls the token contract to mint the appropriate amount publicly
     #[aztec(public)]
     fn claim_public(
@@ -65,7 +66,9 @@ contract TokenBridge {
 
         1
     }
+    // docs:end:token_bridge_claim_public
 
+    // docs:start:token_bridge_exit_public
     // Burns the appropriate amount of tokens and creates a L2 to L1 withdraw message publicly
     // Requires `msg.sender` to give approval to the bridge to burn tokens on their behalf using witness signatures 
     #[aztec(public)]
@@ -86,7 +89,9 @@ contract TokenBridge {
    
         1
     }
+    // docs:end:token_bridge_exit_public
 
+    // docs:start:token_bridge_claim_private
     // Consumes a L1->L2 message and calls the token contract to mint the appropriate amount in private assets
     // User needs to call token.redeem_shield() to get the private assets
     #[aztec(private)]
@@ -113,7 +118,9 @@ contract TokenBridge {
 
         1
     }
+    // docs:end:token_bridge_claim_private
 
+    // docs:start:token_bridge_exit_private
     // Burns the appropriate amount of tokens and creates a L2 to L1 withdraw message privately
     // Requires `msg.sender` (caller of the method) to give approval to the bridge to burn tokens on their behalf using witness signatures 
     #[aztec(private)]
@@ -136,6 +143,7 @@ contract TokenBridge {
 
         1
     }
+    // docs:end:token_bridge_exit_private
     
     // /// Unconstrained /// 
 

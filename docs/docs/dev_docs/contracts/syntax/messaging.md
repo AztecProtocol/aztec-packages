@@ -5,10 +5,12 @@ description: Documentation of Aztec's Messaging system
 
 # Messaging
 
-## L1 --> L2
+## L1 -> L2
 The context available within functions includes the ability to send messages to l1. For more information on how cross chain communication works in Aztec, see the [documentation on communication.](../../../concepts/foundation/communication/cross_chain_calls.md)
 
-#include_code non_native_token_withdraw  /yarn-project/noir-contracts/src/contracts/non_native_token_contract/src/main.nr rust
+#include_code token_bridge_exit_private  /yarn-project/noir-contracts/src/contracts/token_bridge_contract/src/main.nr rust
+
+#include_code token_bridge_exit_public  /yarn-project/noir-contracts/src/contracts/token_bridge_contract/src/main.nr rust
 
 ### What happens behind the scenes?
 When a user sends a message from a [portal contract](../../../concepts/foundation/communication/cross_chain_calls.md#portal) to the rollup's inbox it gets processed and added to the `l1 to l2 messages tree`.
@@ -31,4 +33,4 @@ When calling the `consume_l1_to_l2_message` function on a contract; a number of 
 
 As the same nullifier cannot be created twice. We cannot consume the message again.
 
-## L2 ->> L1
+## L2 -> L1

@@ -34,20 +34,24 @@ With all that information at hand, we can call the `sendL2Message` function on t
 
 As time passes, a sequencer will see your tx, the juicy fee provided and include it in a rollup block. Upon inclusion, it is removed from L1, and made available to be consumed on L2.
 
-To consume the message, we can use the `consume_l1_to_l2_message` function within the `context` struct. 
+An example usage of this flow is a token bridge. You can deposit to Aztec i.e. mint your tokens on aztec publicly or privately as shown here:
+
+#include_code token_portal_deposit l1-contracts/test/portals/TokenPortal.sol solidity
+
+To consume the message on Aztec, we can use the `consume_l1_to_l2_message` function within the `context` struct. 
 The `msg_key` is the hash of the message produced from the `sendL2Message` call, the `content` is the content of the message, and the `secret` is the pre-image hashed to compute the `secretHash`.
 
 #include_code context_consume_l1_to_l2_message /yarn-project/aztec-nr/aztec/src/context.nr rust
 
-Computing the `content` might be a little clunky in its current form, as we are still adding a number of bytes utilities. A good example exists within the [Non-native token example](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-contracts/src/contracts/non_native_token_contract/src/hash.nr).
+Computing the `content` might be a little clunky in its current form, as we are still adding a number of bytes utilities. A good example exists within the [Token Bridge example](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-contracts/src/contracts/token_bridge_contract/src/util.nr).
 
-:::info
-The `inputs` that is passed into `consume_l1_to_l2_message` are only temporary, and will be removed in the future when we improve syntax.
-:::
+On Aztec, to consume the message and mint the notes, in the Aztec contract a `claim_private` function consumes a message from L1 and mints tokens to a user. Note that we are using a private function, as we don't want to expose the user that is receiving the tokens publicly.
 
-An example usage of this flow is a token bridge, in the Aztec contract a `mint` function consumes a message from L1 and mints tokens to a user. Note that we are using a private function, as we don't want to expose the user that is receiving the tokens publicly.
+#include_code token_bridge_claim_private yarn-project/noir-contracts/src/contracts/token_bridge_contract/src/main.nr rust
 
-#include_code non_native_token_mint yarn-project/noir-contracts/src/contracts/non_native_token_contract/src/main.nr rust
+Note that, if you deposited to Aztec publicly (using the `TokenPortal.depositToAztecPublic()` method that was shown earlier), you have to call the `claim_public` method on the aztec contract which works similar to `claim_private` but operates in the public domain and calculates the appropriate content hash:
+
+#include_code token_bridge_claim_public yarn-project/noir-contracts/src/contracts/token_bridge_contract/src/main.nr rust
 
 After the transaction has been mined, the message is consumed, and the tokens have been minted on Aztec and are ready for use by the user. A consumed message cannot be consumed again. 
 
@@ -73,8 +77,11 @@ Access control on the L1 portal contract is essential to prevent consumption of 
 
 As earlier, we can use a token bridge as an example. In this case, we are burning tokens on L2 and sending a message to the portal to free them on L1.
 
-<!-- TODO: update token standard  https://github.com/AztecProtocol/aztec-packages/issues/2177 -->
-#include_code non_native_token_withdraw yarn-project/noir-contracts/src/contracts/non_native_token_contract/src/main.nr rust
+#include_code token_bridge_exit_private yarn-project/noir-contracts/src/contracts/token_bridge_contract/src/main.nr rust
+
+Here, you are burning your funds privately, and not leaking the burn amount on Aztec. However, you can also exit publicly:
+
+#include_code token_bridge_exit_public yarn-project/noir-contracts/src/contracts/token_bridge_contract/src/main.nr rust
 
 When the transaction is included in a rollup block the message will be inserted into the `Outbox`, where the recipient portal can consume it from. When consuming, the `msg.sender` must match the `recipient` meaning that only portal can actually consume the message.
 
@@ -148,6 +155,8 @@ Building on our token example from earlier, this can be called like:
 
 The example above ensure that the user can cancel their message if it is underpriced.
 
+Note that there are two flows for cancellation depending on if your deposit for was publicly or privately.
+
 ### Designated caller
 Designating a caller grants the ability to specify who should be able to call a function that consumes a message. This is useful for ordering of batched messages, as we will see shortly.  
 
@@ -180,7 +189,7 @@ Designated callers are enforced at the contract level for contracts that are not
 
 - Non-native token (asset bridged from L1)
   - [Portal contract](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/test/portals/TokenPortal.sol)
-  - [Aztec contract](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-contracts/src/contracts/non_native_token_contract/src/main.nr)
+  - [Aztec Token Bridge contract](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-contracts/src/contracts/token_bridge_contract/src/main.nr)
 - Uniswap (swap tokens on L1)
   - [Portal contract](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/test/portals/UniswapPortal.sol)
   - [Aztec contract](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-contracts/src/contracts/uniswap_contract/src/main.nr)

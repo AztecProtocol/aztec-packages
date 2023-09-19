@@ -22,6 +22,7 @@ contract TokenPortal {
     l2TokenAddress = _l2TokenAddress;
   }
 
+  // docs:start:token_portal_deposit
   /**
    * @notice Deposit funds into the portal and adds an L2 message which can only be consumed publicly on Aztec
    * @param _to - The aztec address of the recipient
@@ -92,6 +93,7 @@ contract TokenPortal {
       actor, _deadline, contentHash, _secretHashForL2MessageConsumption
     );
   }
+  // docs:end:token_portal_deposit
 
   // docs:start:token_portal_cancel
   /**
