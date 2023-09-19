@@ -19,9 +19,7 @@ That's it...
 
 ## Ok, so how do I try it out?
 
-Well, you can find instructions [at the website](https://sandbox.aztec.network).
-
-Or you can just curl the site instead like this:
+You can just curl the site like this:
 
 ```sh
 /bin/bash -c "$(curl -fsSL 'https://sandbox.aztec.network')"
@@ -37,26 +35,6 @@ It will need to create servers on localhost ports 8545 (Anvil) and 8080 (Sandbox
 Within a few seconds the Sandbox should be up and running!
 
 <Image img={require("/img/sandbox.png")} />
-
-## Great, but what can I do with it?
-
-Aztec's Layer 2 network is a fully programmable combined private/public ZK rollup. To achieve this, the network contains the following primary components:
-
-- Aztec Node - Aggregates all of the 'backend' services necessary for the building and publishing of rollups.
-- Aztec RPC Server - Normally residing with the end client, this decrypts and stores a client's private state, executes simulations and submits transactions to the Aztec Node.
-- Aztec.js - Aztec's client library for interacting with the Aztec RPC Server (think Ethers.js).
-
-All of this is included in the Sandbox, with the exception of Aztec.js which you can use to interact with it.
-
-With the help of Aztec.js you will be able to:
-
-- Create an account
-- Deploy a contract
-- Call view methods on contracts
-- Simulate the calling of contract functions
-- Send transactions to the network
-- Be notified when transactions settle
-- Query chain state such as chain id, block number etc.
 
 ## I have the Sandbox running, show me how to use it
 

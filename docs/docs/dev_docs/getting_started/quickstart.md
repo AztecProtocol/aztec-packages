@@ -2,11 +2,13 @@
 title: Quickstart
 ---
 
-Get started with the Aztec Sandbox
+Get started with the Aztec Sandbox.
 
 ## Introduction
 
 The Aztec Sandbox is an environment for local development on the Aztec Network. It's easy to get setup with just a single, simple command, and contains all the components needed to develop and test Aztec contracts and applications.
+
+This is a 1 page introduction to getting started with running the sandbox, and interacting with it via the CLI. We will go over how to deploy a token contract to the sandbox, mint tokens and transfer them between accounts. You will find more in depth information on the following pages in this Getting Started section.
 
 ### Background
 
@@ -64,7 +66,7 @@ npx @aztec/aztec-sandbox
 
 ### CLI
 
-To interact with the sandbox now that it's running locally, install the Aztec CLI:
+To interact with the sandbox now that it's running locally, install the [Aztec CLI](https://www.npmjs.com/package/@aztec/cli):
 
 ```bash
 npm install -g @aztec/cli
