@@ -36,6 +36,7 @@
     "p2p",
     "p2p-bootstrap",
     "boxes/blank-react",
+    "boxes/blank",
     "boxes/private-token",
     "prover-client",
     "rollup-provider",
