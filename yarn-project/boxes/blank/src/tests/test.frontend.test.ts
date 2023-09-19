@@ -9,10 +9,9 @@ import {
   createAztecRpcClient,
   waitForSandbox,
 } from '@aztec/aztec.js';
-import { FunctionAbi } from '@aztec/foundation/abi';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { TestContract } from '../artifacts/test.js';
-import { callContractFunction, convertArgs, deployContract, getWallet, rpcClient } from '../index.js';
+import { callContractFunction, convertArgs, deployContract, getFunctionAbi, getWallet, rpcClient } from '../index.js';
 const logger = createDebugLogger('aztec:http-rpc-client');
 
 // assumes sandbox is running locally, which this script does not trigger
@@ -22,12 +21,6 @@ const setupSandbox = async () => {
   const aztecRpc = createAztecRpcClient(SANDBOX_URL);
   await waitForSandbox(aztecRpc);
   return aztecRpc;
-};
-
-const getFunctionAbi = (contractAbi: any, functionName: string) => {
-  const functionAbi = contractAbi.functions.find((f: FunctionAbi) => f.name === functionName);
-  if (!functionAbi) throw new Error(`Function ${functionName} not found in abi`);
-  return functionAbi;
 };
 
 async function deployZKContract(owner: CompleteAddress, wallet: Wallet, rpcClient: AztecRPC) {
@@ -46,9 +39,9 @@ async function deployZKContract(owner: CompleteAddress, wallet: Wallet, rpcClien
 }
 
 async function call(contractAddress: AztecAddress, privateTokenContract: Contract, address: CompleteAddress) {
-  const getBalanceAbi = getFunctionAbi(TestContract.abi, 'getPublicKey');
+  const getPkAbi = getFunctionAbi(TestContract.abi, 'getPublicKey');
   const callArgs = { address: address.address };
-  const typedArgs = convertArgs(getBalanceAbi, callArgs);
+  const typedArgs = convertArgs(getPkAbi, callArgs);
 
   return await callContractFunction(
     contractAddress,

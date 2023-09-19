@@ -25,7 +25,7 @@ export const DEFAULT_PUBLIC_ADDRESS: string = '0x25048e8c1b7dea68053d597ac2d9206
 
 let contractAddress: string = '';
 document.getElementById('deploy')?.addEventListener('click', async () => {
-  console.log('deploy logic');
+  console.log('Deploying Contract');
   const [wallet, ..._rest] = await getSandboxAccountsWallets(rpcClient);
 
   const contractAztecAddress = await deployContract(
@@ -36,17 +36,21 @@ document.getElementById('deploy')?.addEventListener('click', async () => {
     rpcClient,
   );
   contractAddress = contractAztecAddress.toString();
-  console.log('Deploy Succeeded', contractAddress);
+  console.log('Deploy Succeeded, contract deployed at', contractAddress);
 });
 
 document.getElementById('interact')?.addEventListener('click', async () => {
   const [wallet, ..._rest] = await getSandboxAccountsWallets(rpcClient);
+  const callArgs = { address: wallet.getCompleteAddress().address };
+  const getPkAbi = getFunctionAbi(TestContractAbi, 'getPublicKey');
+  const typedArgs = convertArgs(getPkAbi, callArgs);
+  console.log('Interacting with Contract');
 
   const call = await callContractFunction(
     AztecAddress.fromString(contractAddress),
     contractAbi,
     'getPublicKey',
-    [],
+    typedArgs,
     rpcClient,
     wallet.getCompleteAddress(),
   );
@@ -54,7 +58,11 @@ document.getElementById('interact')?.addEventListener('click', async () => {
   console.log('Interaction transaction succeeded', call);
 });
 
-// ALICE smart contract wallet public key, available on sandbox by default
+export const getFunctionAbi = (contractAbi: any, functionName: string) => {
+  const functionAbi = contractAbi.functions.find((f: FunctionAbi) => f.name === functionName);
+  if (!functionAbi) throw new Error(`Function ${functionName} not found in abi`);
+  return functionAbi;
+};
 
 export async function callContractFunction(
   address: AztecAddress,
