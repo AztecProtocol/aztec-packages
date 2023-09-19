@@ -15,21 +15,21 @@ import { ContractAbi } from '@aztec/foundation/abi';
 import { Point } from '@aztec/foundation/fields';
 import { AztecRPC, PublicKey } from '@aztec/types';
 
-import TestContractAbiJson from './test_contract.json' assert { type: 'json' };
+import BlankContractAbiJson from './blank_contract.json' assert { type: 'json' };
 
-export const TestContractAbi = TestContractAbiJson as ContractAbi;
+export const BlankContractAbi = BlankContractAbiJson as ContractAbi;
 
 /**
- * Type-safe interface for contract Test;
+ * Type-safe interface for contract Blank;
  */
-export class TestContract extends ContractBase {
+export class BlankContract extends ContractBase {
   private constructor(
     /** The deployed contract's complete address. */
     completeAddress: CompleteAddress,
     /** The wallet. */
     wallet: Wallet,
   ) {
-    super(completeAddress, TestContractAbi, wallet);
+    super(completeAddress, BlankContractAbi, wallet);
   }
 
   /**
@@ -48,28 +48,28 @@ export class TestContract extends ContractBase {
     if (extendedContractData === undefined) {
       throw new Error('Contract ' + address.toString() + ' is not deployed');
     }
-    return new TestContract(extendedContractData.getCompleteAddress(), wallet);
+    return new BlankContract(extendedContractData.getCompleteAddress(), wallet);
   }
 
   /**
    * Creates a tx to deploy a new instance of this contract.
    */
   public static deploy(rpc: AztecRPC) {
-    return new DeployMethod<TestContract>(Point.ZERO, rpc, TestContractAbi, Array.from(arguments).slice(1));
+    return new DeployMethod<BlankContract>(Point.ZERO, rpc, BlankContractAbi, Array.from(arguments).slice(1));
   }
 
   /**
    * Creates a tx to deploy a new instance of this contract using the specified public key to derive the address.
    */
   public static deployWithPublicKey(rpc: AztecRPC, publicKey: PublicKey) {
-    return new DeployMethod<TestContract>(publicKey, rpc, TestContractAbi, Array.from(arguments).slice(2));
+    return new DeployMethod<BlankContract>(publicKey, rpc, BlankContractAbi, Array.from(arguments).slice(2));
   }
 
   /**
    * Returns this contract's ABI.
    */
   public static get abi(): ContractAbi {
-    return TestContractAbi;
+    return BlankContractAbi;
   }
 
   /** Type-safe wrappers for the public methods exposed by the contract. */

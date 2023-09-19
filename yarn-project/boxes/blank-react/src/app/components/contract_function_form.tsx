@@ -1,4 +1,4 @@
-import { Button, Card, CardTheme, Loader } from '@aztec/aztec-ui';
+import { Button, Loader } from '@aztec/aztec-ui';
 import { AztecAddress, CompleteAddress, Fr } from '@aztec/aztec.js';
 import { ContractAbi, FunctionAbi } from '@aztec/foundation/abi';
 import { useFormik } from 'formik';

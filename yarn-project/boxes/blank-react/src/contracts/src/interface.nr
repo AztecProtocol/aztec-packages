@@ -6,12 +6,12 @@ use dep::aztec::constants_gen::RETURN_VALUES_LENGTH;
 
 
 
-// Interface for calling Test functions from a private context
-struct TestPrivateContextInterface {
+// Interface for calling Blank functions from a private context
+struct BlankPrivateContextInterface {
   address: Field,
 }
 
-impl TestPrivateContextInterface {
+impl BlankPrivateContextInterface {
   fn at(address: Field) -> Self {
       Self {
           address,
@@ -34,12 +34,12 @@ impl TestPrivateContextInterface {
   
 
 
-// Interface for calling Test functions from a public context
-struct TestPublicContextInterface {
+// Interface for calling Blank functions from a public context
+struct BlankPublicContextInterface {
   address: Field,
 }
 
-impl TestPublicContextInterface {
+impl BlankPublicContextInterface {
   fn at(address: Field) -> Self {
       Self {
           address,

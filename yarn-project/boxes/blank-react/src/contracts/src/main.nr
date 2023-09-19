@@ -1,4 +1,4 @@
-contract Test {
+contract Blank {
     use dep::aztec::{
         abi,
         oracle::{
