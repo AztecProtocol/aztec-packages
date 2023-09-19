@@ -11,4 +11,11 @@ export const CONTRACT_ADDRESS_PARAM_NAMES = ['owner', 'contract_address', 'recip
 export const FILTERED_FUNCTION_NAMES = ['compute_note_hash_and_nullifier'];
 
 // ALICE smart contract wallet public key, available on sandbox by default
-export const DEFAULT_PUBLIC_ADDRESS: string = '0x25048e8c1b7dea68053d597ac2d920637c99523651edfb123d0632da785970d0';
+export let DEFAULT_PUBLIC_ADDRESS: string;
+
+async function setDefaultPublicAddress() {
+  const accounts = await rpcClient.getRegisteredAccounts();
+  DEFAULT_PUBLIC_ADDRESS = accounts[0].address.toString();
+}
+
+await setDefaultPublicAddress();
