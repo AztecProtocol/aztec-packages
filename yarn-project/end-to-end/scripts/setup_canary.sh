@@ -52,9 +52,6 @@ echo "Updating external Aztec dependencies to version $VERSION"
 JSON_TARGET_PKGS=$(printf '%s\n' "${TARGET_PKGS[@]}" | jq -R -s -c 'split("\n") | map(select(. != ""))')
 
 TMP=$(mktemp)
-# for PKG in "${TARGET_PKGS[@]}"; do
-#   jq --arg v $VERSION ".dependencies[\"$PKG\"] = \$v" package.json > $TMP && mv $TMP package.json
-# done
 jq --arg v $VERSION --argjson target_pkgs "$JSON_TARGET_PKGS" '
 .dependencies |= with_entries(
   select(
