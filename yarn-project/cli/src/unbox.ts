@@ -17,17 +17,7 @@ import * as path from 'path';
 const GITHUB_OWNER = 'AztecProtocol';
 const GITHUB_REPO = 'aztec-packages';
 const GITHUB_TAG_PREFIX = 'aztec-packages';
-const NOIR_CONTRACTS_PATH = 'yarn-project/noir-contracts/src/contracts';
 const BOXES_PATH = 'yarn-project/boxes';
-
-/**
- * Converts a contract name in "upper camel case" to a folder name in snake case or kebab case.
- * @param contractName - The contract name.
- * @returns The folder name.
- * */
-function contractNameToFolder(contractName: string, separator = '-'): string {
-  return contractName.replace(/[\w]([A-Z])/g, m => `${m[0]}${separator}${m[1]}`).toLowerCase();
-}
 
 /**
  * If the box contains the noir contract source code, we don't need to download it from github.
