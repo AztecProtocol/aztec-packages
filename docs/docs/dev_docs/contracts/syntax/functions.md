@@ -8,16 +8,16 @@ title: Functions
 In Aztec there are multiple different types of visibility that can be applied to functions. Namely we have `data visibility` and `function visibility`. 
 
 ### Data Visibility
-Data visibility is used to describe whether the data (or state) used in a function is generally accessible (public) or on a need to know basis (private). Functions with public data visibility is executed by the sequencer, and functions with private data visibility are executed by the user. For more information on why this is the case, see [communication](../../../concepts/foundation/communication/public_private_calls.md).
+Data visibility is used to describe whether the data (or state) used in a function is generally accessible (public) or on a need to know basis (private). Functions with public data visibility are executed by the sequencer, and functions with private data visibility are executed by the user. For more information on why this is the case, see [communication](../../../concepts/foundation/communication/public_private_calls.md).
 
 In the following sections, we are going to see how these two "types" co-exists and interact.
 
 ### Function visibility
-This is the kind of visibility you are more used to seeing in Solidity and more "normal" programming languages. It is used to describe whether a function is callable from other contracts, or only from within the same contract.
+This is the kind of visibility you are more used to seeing in Solidity and more traditional programming languages. It is used to describe whether a function is callable from other contracts, or only from within the same contract.
 
 By default, all functions are callable from other contracts, similarly to the Solidity `public` visibility. To make them only callable from the contract itself, you can mark them as `internal`. Contrary to solidity, we don't have the `external` nor `private` keywords. `external` since it is limited usage when we don't support inheritance, and `private` since we don't support inheritance and it would also be confusing with multiple types of `private`.
 
-A good place to use `internal` is when you want a private function to be able to alter public state. While as mentioned above, private functions cannot do this directly, they are able to call public functions, and by making these internal, we can ensure that this state manipulating function is only callable from our private function.
+A good place to use `internal` is when you want a private function to be able to alter public state. As mentioned above, private functions cannot do this directly. They are able to call public functions and by making these internal we can ensure that this state manipulating function is only callable from our private function.
 
 :::danger
 Note that non-internal functions could be used directly as an entry-point, which currently means that the `msg_sender` would be `0`, so for now, using address `0` as a burn address is not recommended.
@@ -43,7 +43,7 @@ It is not possible to call public functions from within a constructor. Beware th
 :::
 
 ## `Public` Functions
-A public function is executed by the sequencer and access a state model that is very similar to that of the EVM and Ethereum. Even though mainly working in an EVM-like model for public transactions, they are able to write data into private storage that can be consumed later by a private function.
+A public function is executed by the sequencer and has access to a state model that is very similar to that of the EVM and Ethereum. Even though they work in an EVM-like model for public transactions, they are able to write data into private storage that can be consumed later by a private function.
 
 To create a public function you can annotate it with the `#[aztec(public)]` attribute. This will make the [public context](./context.mdx#public-context) available within your current function's execution scope.
 
@@ -57,7 +57,7 @@ As alluded to earlier, a private function operates on private information, and i
 
 ## `unconstrained` functions
 
-Unconstrained functions are are an underlying part of `Noir` and has a deeper explanation [here](https://noir-lang.org/language_concepts/unconstrained). But in short, they are functions which are not directly constrained and therefore should be seem as untrusted! That they are untrusted means that for security the developer must make sure to constrain them when used! 
+Unconstrained functions are are an underlying part of Noir and has a deeper explanation [here](https://noir-lang.org/language_concepts/unconstrained). But in short, they are functions which are not directly constrained and therefore should be seen as untrusted! That they are untrusted means that, for security, the developer must make sure to constrain them when used! 
 
 Beyond using them inside your other functions, they can however be very convenient for providing something that reads storage and apply some logic and returns values to a user interface or similar. Below is a snippet from exposing the `balance_of_private` function from a token implementation, allow a user to easily read their balance. Similar to the `balanceOf` function in the ERC20 standard. 
 
@@ -71,7 +71,7 @@ Note, that unconstrained functions can have access to both public and private da
 
 An oracle is something that allows us to get data from the outside world into our contracts. The most widely-known types of oracles in blockchain systems are probably Chainlink price feeds, which allow us to get the price of an asset in USD taking non-blockchain data into account. 
 
-While this is one type of oracle, the more general oracle, allows us to get "some" data into the contract. In the context of oracle functions or oracle calls in Aztec, it can essentially be seen as user provided arguments, that can be embedded at any point in the circuit, and thus don't need to be an input parameter. 
+While this is one type of oracle, the more general oracle, allows us to get "some" data into the contract. In the context of oracle functions or oracle calls in Aztec, it can essentially be seen as user-provided arguments, that can be embedded at any point in the circuit, and thus don't need to be an input parameter. 
 
 **Why is this useful? Why don't just pass them as input parameters?**
 In the world of EVM, you would just read the values directly from storage and call it a day. However, when we are working with circuits for private execution, this becomes more tricky as you cannot just read the storage directly from your state tree, only commitments sit in there 😱. The pre-images (content) of your notes need to be provided to the function to prove that you actually allowed to spend them. 
