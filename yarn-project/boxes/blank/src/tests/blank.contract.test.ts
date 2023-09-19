@@ -11,7 +11,7 @@ import {
 } from '@aztec/aztec.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { BlankContract } from '../artifacts/blank.js';
-import { callContractFunction, convertArgs, deployContract, getFunctionAbi, getWallet, rpcClient } from '../index.js';
+import { callContractFunction, deployContract, getWallet, rpcClient } from '../index.js';
 const logger = createDebugLogger('aztec:http-rpc-client');
 
 // assumes sandbox is running locally, which this script does not trigger
@@ -25,13 +25,7 @@ const setupSandbox = async () => {
 
 async function deployZKContract(owner: CompleteAddress, wallet: Wallet, rpcClient: AztecRPC) {
   logger('Deploying Blank contract...');
-  const constructorArgs = {
-    // eslint-disable-next-line camelcase
-  };
-  const constructorAbi = getFunctionAbi(BlankContract.abi, 'constructor');
-  const typedArgs = convertArgs(constructorAbi, constructorArgs);
-
-  const contractAddress = await deployContract(owner, BlankContract.abi, typedArgs, Fr.random(), rpcClient);
+  const contractAddress = await deployContract(owner, BlankContract.abi, [], Fr.random(), rpcClient);
 
   logger(`L2 contract deployed at ${contractAddress}`);
   const contract = await BlankContract.at(contractAddress, wallet);
@@ -39,15 +33,11 @@ async function deployZKContract(owner: CompleteAddress, wallet: Wallet, rpcClien
 }
 
 async function call(contractAddress: AztecAddress, privateTokenContract: Contract, address: CompleteAddress) {
-  const getPkAbi = getFunctionAbi(BlankContract.abi, 'getPublicKey');
-  const callArgs = { address: address.address };
-  const typedArgs = convertArgs(getPkAbi, callArgs);
-
   return await callContractFunction(
     contractAddress,
     privateTokenContract.abi,
     'getPublicKey',
-    typedArgs,
+    [address.address.toField()],
     rpcClient,
     address,
   );
