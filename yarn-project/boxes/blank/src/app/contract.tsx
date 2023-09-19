@@ -1,11 +1,11 @@
+import { Button, ButtonSize, ButtonTheme, Card, CardTheme, ImageButton, ImageButtonIcon } from '@aztec/aztec-ui';
 import { AztecAddress, CompleteAddress } from '@aztec/aztec.js';
 import { FunctionAbi } from '@aztec/foundation/abi';
 import { ReactNode, useState } from 'react';
-import { FILTERED_FUNCTION_NAMES, contractAbi } from '../config.js';
+import { contractAbi } from '../config.js';
+import { Copy } from './components/copy.js';
 import { ContractFunctionForm, Popup } from './components/index.js';
 import styles from './contract.module.scss';
-import { Button, ButtonSize, ButtonTheme, Card, CardTheme, ImageButton, ImageButtonIcon } from '@aztec/aztec-ui';
-import { Copy } from './components/copy.js';
 
 const functionTypeSortOrder = {
   secret: 0,
@@ -46,7 +46,7 @@ export function Contract({ wallet }: Props) {
   function renderCardContent(contractAddress?: AztecAddress): { content: ReactNode; header: string } {
     if (contractAddress) {
       const functions = contractAbi.functions
-        .filter(f => f.name !== 'constructor' && !f.isInternal && !FILTERED_FUNCTION_NAMES.includes(f.name))
+        .filter(f => f.name !== 'constructor' && !f.isInternal)
         .sort((a, b) => functionTypeSortOrder[a.functionType] - functionTypeSortOrder[b.functionType]);
 
       if (selectedFunctionIndex === -1) {
