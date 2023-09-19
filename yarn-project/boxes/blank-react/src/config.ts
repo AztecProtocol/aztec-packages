@@ -9,7 +9,7 @@ export const contractAbi: ContractAbi = BlankContractAbi;
 export const SANDBOX_URL: string = process.env.SANDBOX_URL || 'http://localhost:8080';
 export const rpcClient: AztecRPC = createAztecRpcClient(SANDBOX_URL);
 
-export const CONTRACT_ADDRESS_PARAM_NAMES = ['owner', 'contract_address', 'recipient'];
+export const CONTRACT_ADDRESS_PARAM_NAMES = ['address'];
 export const FILTERED_FUNCTION_NAMES = [];
 
 // ALICE smart contract wallet public key, available on sandbox by default
