@@ -30,11 +30,12 @@ contract Token {
         types::type_serialisation::field_serialisation::{
             FieldSerialisationMethods, FIELD_SERIALISED_LEN,
         },
+        types::address::{AztecAddress},
         oracle::compute_selector::compute_selector,
         auth::{assert_valid_message_for, assert_valid_public_message_for}
     };
 
-    use crate::types::{AztecAddress, TransparentNote, TransparentNoteMethods, TRANSPARENT_NOTE_LEN};
+    use crate::types::{TransparentNote, TransparentNoteMethods, TRANSPARENT_NOTE_LEN};
     use crate::util::{compute_message_hash};
 
     struct Storage {
@@ -180,6 +181,7 @@ contract Token {
         1
     }
 
+    
     #[aztec(public)]
     fn transfer_public(
         from: AztecAddress,
@@ -276,6 +278,7 @@ contract Token {
         1
     }
 
+    // docs:start:transfer
     #[aztec(private)]
     fn transfer(
         from: AztecAddress,
@@ -301,6 +304,7 @@ contract Token {
 
         1
     }
+    // docs:end:transfer
 
     #[aztec(private)]
     fn burn(
@@ -383,6 +387,7 @@ contract Token {
         storage.total_supply.read()
     }
 
+    // docs:start:balance_of_private
     unconstrained fn balance_of_private(
         owner: AztecAddress,
     ) -> Field {
@@ -391,6 +396,7 @@ contract Token {
 
         balance_utils::get_balance(owner_balance)
     }
+    // docs:end:balance_of_private
 
     unconstrained fn balance_of_public(
         owner: AztecAddress,
