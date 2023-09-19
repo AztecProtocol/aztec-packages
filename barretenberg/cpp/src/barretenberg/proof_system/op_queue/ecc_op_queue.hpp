@@ -21,7 +21,7 @@ class ECCOpQueue {
     using Fr = Curve::ScalarField;
     using Fq = Curve::BaseField; // Grumpkin's scalar field
     using ECCVMOperation = proof_system_eccvm::VMOperation<Curve::Group>;
-    Point point_at_infinity = Point::infinity();
+    Point point_at_infinity = Curve::Group::affine_point_at_infinity;
 
     // The operations written to the queue are also performed natively; the result is stored in accumulator
     Point accumulator = point_at_infinity;
