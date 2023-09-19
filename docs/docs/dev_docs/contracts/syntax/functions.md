@@ -6,7 +6,7 @@ title: Functions
 
 - A special `constructor` function MUST be declared within a contract's scope.
 - A constructor doesn't have a name, because its purpose is clear: to initialise contract state.
-- In Aztec terminology, a constructor is always a '`private` function' (i.e. it cannot be a `public` function).
+- In Aztec terminology, a constructor is always a '`private` function' (i.e. it cannot be a `public` function, in the current version of the sandbox it cannot call public functions either).
 - A constructor behaves almost identically to any other function. It's just important for Aztec to be able to identify this function as special: it may only be called once, and will not be deployed as part of the contract.
 
 An example of a constructor is as follows:
@@ -54,7 +54,7 @@ Aztec.nr uses an attribute system to annotate a function's type. Annotating a fu
 
 However; `#aztec(private)` is just syntactic sugar. At compile time, the framework inserts code that allows the function to interact with the [kernel](../../../concepts/advanced/circuits/kernels/private_kernel.md).
 
-To help illustrate how this interacts with the internals of #public-contextAztec and its kernel circuits, we can take an example private function, and explore what it looks like after Aztec.nr's macro expansion.
+To help illustrate how this interacts with the internals of Aztec and its kernel circuits, we can take an example private function, and explore what it looks like after Aztec.nr's macro expansion.
 
 #### Before expansion
 #include_code simple_macro_example /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/main.nr rust
