@@ -10,12 +10,12 @@ In Aztec there are multiple different types of visibility that can be applied to
 ### Data Visibility
 Data visibility is used to describe whether the data (or state) used in a function is generally accessible (public) or on a need to know basis (private). Functions with public data visibility is executed by the sequencer, and functions with private data visibility are executed by the user. For more information on why this is the case, see [communication](../../../concepts/foundation/communication/public_private_calls.md).
 
-In the coming sections, we are going to see how these two "types" co-exists and interact.
+In the following sections, we are going to see how these two "types" co-exists and interact.
 
 ### Function visibility
 This is the kind of visibility you are more used to seeing in Solidity and more "normal" programming languages. It is used to describe whether a function is callable from other contracts, or only from within the same contract.
 
-By default, all functions are callable from other contracts, similarly to the Solidity `public` visibility. To make them only callable from the contract itself, you can mark them as `internal`.
+By default, all functions are callable from other contracts, similarly to the Solidity `public` visibility. To make them only callable from the contract itself, you can mark them as `internal`. Contrary to solidity, we don't have the `external` nor `private` keywords. `external` as it is implided, and `private` since we don't support inheritance and would also be confusing with multiple types of `private`.
 
 A good place to use `internal` is when you want a private function to be able to alter public state. While as mentioned above, private functions cannot do this directly, they are able to call public functions, and by making these internal, we can ensure that this state manipulating function is only callable from our private function.
 
@@ -69,18 +69,18 @@ Note, that unconstrained functions can have access to both public and private da
 
 ## Oracle functions
 
-An oracle is something that allow us to get data from the outside world into our contracts. The most widely-known types of oracles in blockchain systems are probably Chainlink price feeds, which allow us to get the price of an asset in USD taking non-blockchain data into account. 
+An oracle is something that allows us to get data from the outside world into our contracts. The most widely-known types of oracles in blockchain systems are probably Chainlink price feeds, which allow us to get the price of an asset in USD taking non-blockchain data into account. 
 
 While this is one type of oracle, the more general oracle, allows us to get "some" data into the contract. In the context of oracle functions or oracle calls in Aztec, it can essentially be seen as user provided arguments, that can be embedded at any point in the circuit, and thus don't need to be an input parameter. 
 
 **Why is this useful? Why don't just pass them as input parameters?**
 In the world of EVM, you would just read the values directly from storage and call it a day. However, when we are working with circuits for private execution, this becomes more tricky as you cannot just read the storage directly from your state tree, only commitments sit in there 😱. The pre-images (content) of your notes need to be provided to the function to prove that you actually allowed to spend them. 
 
-You could of course provide them to your function as inputs, but then functions that have different underlying notes would end up with different function signatures and thus selectors. Meaning that integrating with many of this would become a pain in the neck for the developers, see some of the motivation behind [EIP-4626](https://eips.ethereum.org/EIPS/eip-4626) for similar case in EVM.
+You could of course provide them to your function as inputs, but then functions that have different underlying notes would end up with different function signatures and thus selectors. This means that integrating with many different tokens (with different underlying notes) would become a pain for the developers, see some of the motivation behind [EIP-4626](https://eips.ethereum.org/EIPS/eip-4626) for similar case in EVM.
 
-If we are instead fetching the notes using an oracle call, we can keep the function signature independent of the underlying notes and thus make it much easier to integrate with! A similar idea, but applied to authentication mechanism is used for the Authentication Witnesses that allow us to have a single function signature for any wallet implementation making integrations a breeze, see [AuthWit](../../wallets/main#authorizing-actions) for more information on this.
+If we are instead fetching the notes using an oracle call, we can keep the function signature independent of the underlying notes and thus make it much easier to integrate with! A similar idea, but applied to the authentication mechanism is used for the Authentication Witnesses that allow us to have a single function signature for any wallet implementation making integrations a breeze, see [AuthWit](../../wallets/main#authorizing-actions) for more information on this.
 
-Oracles introduce `non determinism` into a circuit, and thus are `unconstrained`. It is important that any information that is injected into a circuit through an oracle is later constrained for correctness. Otherwise the circuit will be `under constrained` and potentially insecure!
+Oracles introduce **non-determinism** into a circuit, and thus are `unconstrained`. It is important that any information that is injected into a circuit through an oracle is later constrained for correctness. Otherwise, the circuit will be **under-constrained** and potentially insecure!
 
 `Aztec.nr` has a module dedicated to its oracles. If you are interested, you can view them by following the link below:
 #include_code oracles-module /yarn-project/aztec-nr/aztec/src/oracle.nr rust
@@ -106,35 +106,34 @@ Behind the scenes, the `Aztec RPC Server` (the beating heart of Aztec that runs 
 Take, for example, the following call stack:
 ```
 AccountContract::entrypoint
-    |-> A::example_call
-        | -> B::nested_call
-    |-> C::example_call
+    |-> Foo::example_call
+        | -> Bar::nested_call
+    |-> Baz::example_call
 ```
 
-<!-- TODO(md): better names for these examples-->
-In the example above the Account Contract has been instructed to call two external functions. In the first function all, to `ContractA::example_call` a further nested call is performed to `ContractB::nested_call`. Finally the account contract makes one last call to `ContractC::example_call`.
+In the example above the Account Contract has been instructed to call two external functions. In the first function all, to `Foo::example_call` a further nested call is performed to `Bar::nested_call`. Finally the account contract makes one last call to `Baz::example_call`.
 
 Lets further illustrate what these examples could look like
 <!-- TODO: should these move into the docs examples -->
 ```rust
-// Contract A contains a singular function that returns the result of B::nested_call
-contract A {
+// Foo contains a singular function that returns the result of Bar::nested_call
+contract Foo {
     #[aztec(private)]
     fn example_call(input: Field) -> pub Field {
-        B::at(<contract_b_address>).nested_call(input)
+        Bar::at(<bar_address>).nested_call(input)
     }
 }
 
-// Contract B contains a singular function that returns a `input + 1`
-contract B {
+// Bar contains a singular function that returns a `input + 1`
+contract Bar {
     #[aztec(private)]
     fn nested_call(input: Field) -> pub Field {
         input + 1
     }
 }
 
-// Contract C contains a singular function that simply returns `10`
-contract C {
+// Baz contains a singular function that simply returns `10`
+contract Baz {
     #[aztec(private)]
     fn example_call() -> pub Field {
         10
@@ -142,14 +141,14 @@ contract C {
 }
 ```
 
-When simulating the following call stack, we can execution flow to continue procedurally. The simulator will begin at the account contract's entry point, find a call to `A::example_call`, then begin to execute the code there. When the simulator executes the code in contract `A`, it will find the further nested call to contract `B::nested_call`. It will execute the code in B, bringing the return value back to contract `A`.
-The same process will be followed for contract `C`.
+When simulating the following call stack, we can execution flow to continue procedurally. The simulator will begin at the account contract's entry point, find a call to `Foo::example_call`, then begin to execute the code there. When the simulator executes the code in contract `Foo`, it will find the further nested call to contract `Bar::nested_call`. It will execute the code in Bar, bringing the return value back to contract `Foo`.
+The same process will be followed for contract `Baz`.
 
 So far the provided example is identical to other executions. Ethereum execution occurs in a similar way, during execution the EVM will execute instructions until it reaches an external call, where it will hop into a new context and execute code there, returning back when it is complete, bringing with it return values from the foreign execution. 
 
-Those of you who have written circuits before may see an issue here. The account contract, contract `A`, `B` and `C` are all distinct circuits, which do not know anything about each other. How is it possible to use a value from contract `B` in contract `A`? This value will not be constrained.
+Those of you who have written circuits before may see an issue here. The account contract, contract `Foo`, `Bar` and `Baz` are all distinct circuits, which do not know anything about each other. How is it possible to use a value from contract `Bar` in contract `Foo`? This value will not be constrained.
 
-This is where the `kernel` circuit comes in. Once the execution of all of our functions has completed, we can just prove the execution of each of them independently. It is the job of the `kernel` circuit to constrain that the input parameters in a cross function call are correct, as well as the return values. The kernel will constrain that the value returned from `A::example_call` is the same value that is returned from `B::nested_call`, it will also be able to constrain the value returned by `B::nested_call`  is the inputs to `A::example_call` + 1.
+This is where the `kernel` circuit comes in. Once the execution of all of our functions has completed, we can just prove the execution of each of them independently. It is the job of the `kernel` circuit to constrain that the input parameters in a cross function call are correct, as well as the return values. The kernel will constrain that the value returned from `Foo::example_call` is the same value that is returned from `Bar::nested_call`, it will also be able to constrain the value returned by `Bar::nested_call`  is the inputs to `Foo::example_call` + 1.
 
 The orchestration of these calls has an added benefit. All of the nested calls are **recursively proven**. This means that the kernel circuit essentially gobbles up each of our function's execution proofs. Condensing the size of the final proof to just be one.
 
