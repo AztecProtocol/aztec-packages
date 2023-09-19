@@ -3015,13 +3015,13 @@ __metadata:
   linkType: hard
 
 "@multiformats/multiaddr-matcher@npm:^1.0.0, @multiformats/multiaddr-matcher@npm:^1.0.1":
-  version: 1.0.1
-  resolution: "@multiformats/multiaddr-matcher@npm:1.0.1"
+  version: 1.0.2
+  resolution: "@multiformats/multiaddr-matcher@npm:1.0.2"
   dependencies:
     "@chainsafe/is-ip": ^2.0.1
     "@multiformats/multiaddr": ^12.0.0
     multiformats: ^12.0.1
-  checksum: 71579db42aa0e22297e542946d7ad2ab5a3427d619de6838cce46cce3bb168615577b6e94b58fca1b4af94520dae366810ecc309081810e15ff61781591908d5
+  checksum: 708c56943dca9ba019b0e224a966ed763aa8af51dbccd2cdadbd27763041793348aa312721dc98e62afcced69f6368d68c508f4f8283200775cf575ff7aede6f
   languageName: node
   linkType: hard
 
@@ -6883,9 +6883,9 @@ __metadata:
   linkType: hard
 
 "caniuse-lite@npm:^1.0.30001517, caniuse-lite@npm:^1.0.30001520":
-  version: 1.0.30001535
-  resolution: "caniuse-lite@npm:1.0.30001535"
-  checksum: d66f71a3b97bc24108a54fe7ecaf9133c8a9466f91199185bdf43cff94dc89905860ea15ac18e57a109dd5dc85465d8df7dffa50e19324d03682f37a203468c1
+  version: 1.0.30001538
+  resolution: "caniuse-lite@npm:1.0.30001538"
+  checksum: 94c5d55757a339c7cc175f08a024671e2b4e7c04f130b1015793303d637061347efb6ad84447c3b8137333e742d150b8ad9672716bbf2482646c2e63a56f6c55
   languageName: node
   linkType: hard
 
@@ -8214,9 +8214,9 @@ __metadata:
   linkType: hard
 
 "electron-to-chromium@npm:^1.4.477":
-  version: 1.4.523
-  resolution: "electron-to-chromium@npm:1.4.523"
-  checksum: c090a958afe7849d9d1a0d3ed3a2300ded202374cd68013f9114fac33c506268b3e08a204c3f6e0ad4fe56a3ae75d23a8325cf9474e2954c6d0ddef6a018780c
+  version: 1.4.524
+  resolution: "electron-to-chromium@npm:1.4.524"
+  checksum: 4b2e94fea247fa6148559f7e0a6d4b5bd94641fc117fb208ac9dd00a7763a09f7f7e311551015357088124d96a237a29aacda1e8c7b7a274380e65e0553f1e43
   languageName: node
   linkType: hard
 
@@ -9384,12 +9384,12 @@ __metadata:
   linkType: hard
 
 "follow-redirects@npm:^1.0.0, follow-redirects@npm:^1.14.0":
-  version: 1.15.2
-  resolution: "follow-redirects@npm:1.15.2"
+  version: 1.15.3
+  resolution: "follow-redirects@npm:1.15.3"
   peerDependenciesMeta:
     debug:
       optional: true
-  checksum: faa66059b66358ba65c234c2f2a37fcec029dc22775f35d9ad6abac56003268baf41e55f9ee645957b32c7d9f62baf1f0b906e68267276f54ec4b4c597c2b190
+  checksum: 584da22ec5420c837bd096559ebfb8fe69d82512d5585004e36a3b4a6ef6d5905780e0c74508c7b72f907d1fa2b7bd339e613859e9c304d0dc96af2027fd0231
   languageName: node
   linkType: hard
 
@@ -15991,9 +15991,9 @@ __metadata:
   linkType: hard
 
 "spdx-license-ids@npm:^3.0.0":
-  version: 3.0.14
-  resolution: "spdx-license-ids@npm:3.0.14"
-  checksum: 9ff0264e5e84963f3fc438b77eeae9ce5f3f5a1807102be7efb6b5a0b14b0c1d3d5226e4ce881f58961b59165e05de8745e49b9c23c5a59d5197f4d0fb958ab1
+  version: 3.0.15
+  resolution: "spdx-license-ids@npm:3.0.15"
+  checksum: 99d567875b50504e1a7359f6da7d03e28db2b855b412ced18310679d091565a44f61ffd2585f19ea53a1192c35f2156c143507b12339dda26ef928547df32002
   languageName: node
   linkType: hard
 
@@ -17988,8 +17988,8 @@ __metadata:
   linkType: hard
 
 "ws@npm:^8.13.0, ws@npm:^8.5.0":
-  version: 8.14.1
-  resolution: "ws@npm:8.14.1"
+  version: 8.14.2
+  resolution: "ws@npm:8.14.2"
   peerDependencies:
     bufferutil: ^4.0.1
     utf-8-validate: ">=5.0.2"
@@ -17998,7 +17998,7 @@ __metadata:
       optional: true
     utf-8-validate:
       optional: true
-  checksum: 9e310be2b0ff69e1f87d8c6d093ecd17a1ed4c37f281d17c35e8c30e2bd116401775b3d503249651374e6e0e1e9905db62fff096b694371c77561aee06bc3466
+  checksum: 3ca0dad26e8cc6515ff392b622a1467430814c463b3368b0258e33696b1d4bed7510bc7030f7b72838b9fdeb8dbd8839cbf808367d6aae2e1d668ce741d4308b
   languageName: node
   linkType: hard
 
