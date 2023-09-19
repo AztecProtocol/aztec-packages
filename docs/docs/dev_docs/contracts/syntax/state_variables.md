@@ -329,6 +329,22 @@ The process of applying the options to get the final notes is not constrained. I
 
 #include_code state_vars-check_return_notes /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/main.nr rust
 
+### `.view_notes` (unconstrained)
+
+Similar to [`.get_notes`](#get_notes), this method returns the notes accessible to the account:
+
+#include_code state_vars-SetView /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/actions.nr rust
+
+There's also a limit on the maximum number of notes that can be returned in one go. To find the current limit, refer to [this file](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec-nr/aztec/src/constants_gen.nr) and look for `MAX_NOTES_PER_PAGE`.
+
+The key distinction is that this method is unconstrained. It does not perform a check to verify if the notes actually exist, which is something the [`.get_notes`](#get_notes) method does under the hood. Therefore, it should only be used in an unconstrained contract function.
+
+This function requires a `NoteViewerOptions`:
+
+#include_code NoteViewerOptions /yarn-project/aztec-nr/aztec/src/note/note_viewer_options.nr rust
+
+The `NoteViewerOptions` is essentially similar to the [`NoteGetterOptions`](#notegetteroptions), except that it doesn't take a custom filter.
+
 ## `Map<T>`
 
 `Map` is a state variable that maps a `Field` to another state variable, which can be [`PublicState`](#publicstatet-t_serialised_len), all the [private state variables](#private-state-variables), and even another Map.
