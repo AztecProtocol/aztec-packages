@@ -42,7 +42,7 @@ contract Escrow {
     ) {
         let this = context.this_address();
         
-        let storage = Storage::init(Context::private(&mut context));
+        
         let mut note = AddressNote::new(owner, this);
         storage.owners.insert(&mut note);
         emit_encrypted_log(
@@ -63,7 +63,7 @@ contract Escrow {
     ) {
         let this = context.this_address();
         let sender = context.msg_sender();
-        let storage = Storage::init(Context::private(&mut context));
+        
         
         // We don't remove note from the owners set. If a note exists, the owner and recipient are legit.
         let options = NoteGetterOptions::new().select(0, sender).select(1, this).set_limit(1);

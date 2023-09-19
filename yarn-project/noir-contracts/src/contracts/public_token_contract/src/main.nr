@@ -46,7 +46,7 @@ contract PublicToken {
         recipient: Field,
     ) -> Field {
 
-        let storage = Storage::init(Context::public(&mut context));
+        
         let recipient_balance = storage.balances.at(recipient);
         let new_amount = recipient_balance.read() + amount;
         // TODO: Remove return value.
@@ -64,7 +64,7 @@ contract PublicToken {
         amount: Field,
         recipient: Field,
     ) -> Field {
-        let storage = Storage::init(Context::public(&mut context));
+        
         let sender = context.msg_sender();
 
         let sender_balance = storage.balances.at(sender);
@@ -93,7 +93,7 @@ contract PublicToken {
     unconstrained fn publicBalanceOf(
         owner: Field,
     ) -> Field {
-        let storage = Storage::init(Context::none());
+        
         storage.balances.at(owner).read()
     }
 }
