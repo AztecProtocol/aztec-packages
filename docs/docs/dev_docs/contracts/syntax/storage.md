@@ -7,6 +7,10 @@ An example of such a struct could be as follow:
 
 #include_code storage-struct-declaration /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/main.nr rust
 
+:::info
+If your storage include private state variables it must include  a `compute_note_hash_and_nullifier` function to allow the RPC to process encrypted events, see [encrypted events](./../events.md#processing-encrypted-events) for more.
+:::
+
 In here, we are setting up a mix of public and private state variables. The public state variables can be read by anyone, and functions manipulating them are executed by the sequence, we will see more to this in [functions](./functions.md#public-functions) in a few moments. The private state variables are only readable by their owner, or people whom the owner have shared the data with. 
 
 As mentioned earlier in the foundational concepts ([state model](./../../../concepts/foundation/state_model.md) and [private/public execution](./../../../concepts/foundation/communication/public_private_calls.md)) private state are following a UTXO model where only the people knowing the pre-images of the commitments in the state will be able to use that knowledge.

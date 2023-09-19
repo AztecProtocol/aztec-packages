@@ -211,10 +211,6 @@ const sidebars = {
       items: [
         "dev_docs/contracts/workflow",
         "dev_docs/contracts/layout",
-        "dev_docs/contracts/events",
-        "dev_docs/contracts/compiling",
-        "dev_docs/contracts/deploying",
-        "dev_docs/contracts/artifacts",
         {
           label: "Syntax",
           type: "category",
@@ -223,9 +219,9 @@ const sidebars = {
             id: "dev_docs/contracts/syntax/main",
           },
           items: [
-            "dev_docs/contracts/syntax/contract",
             "dev_docs/contracts/syntax/storage",
             "dev_docs/contracts/syntax/state_variables",
+            "dev_docs/contracts/syntax/events",
             "dev_docs/contracts/syntax/functions",
             "dev_docs/contracts/syntax/context",
             "dev_docs/contracts/syntax/globals",
@@ -246,6 +242,9 @@ const sidebars = {
             "dev_docs/contracts/portals/outbox",
           ],
         },
+        "dev_docs/contracts/compiling",
+        "dev_docs/contracts/deploying",
+        "dev_docs/contracts/artifacts",
         // {
         //   label: "Resources",
         //   type: "category",
