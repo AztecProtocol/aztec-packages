@@ -1,5 +1,6 @@
 ---
 title: Functions
+description: This page will go over functions, how private and public functions differ and how then can be used together.
 ---
 
 
@@ -21,6 +22,15 @@ A good place to use `internal` is when you want a private function to be able to
 
 :::danger
 Note that non-internal functions could be used directly as an entry-point, which currently means that the `msg_sender` would be `0`, so for now, using address `0` as a burn address is not recommended.
+:::
+
+## Mutability
+Currently, any function is "mutable" in the sense that it might alter state. In the future, we will support static calls, similarly to EVM. A static call is essentially a call that does not alter state (it keeps state static). This is useful for when you want to call a function in a separate contract, but ensure that it cannot alter state, or call other functions that might alter state (such as re-entering).
+
+Similarly, a special case of a mutating call is the `delegatecall` where the function executed might not be in the same contract as the state being altered. It is at this moment, not certain if `delegatecall`s should become a fully fledged feature. 
+
+:::danger No `staticcall` or `delegatecall` support
+While `staticcall` and `delegatecall` both have flags in the call context, they are currently not supported and will not behave as one would expect if usage is attempted.
 :::
 
 ## `constructor`
