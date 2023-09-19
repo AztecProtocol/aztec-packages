@@ -1,4 +1,6 @@
-# Testing
+---
+title: Testing with Typescript
+---
 
 Testing is an integral part of any piece of software, and especially important for any blockchain application. In this page we will cover how to interact with your Noir contracts in a testing environment to write automated tests for your apps.
 

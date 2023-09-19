@@ -56,4 +56,6 @@
 
 [[redirects]]
     from = "/dev_docs/getting_started/cli"
-    to = "/dev_docs/getting_started/quickstart"
+    to = "/dev_docs/cli"
+
+    

@@ -125,7 +125,8 @@ If the decryption is successful, the Aztec RPC Server will store the decrypted n
 If the decryption fails, the specific log will be discarded.
 
 For the Aztec RPC Server to successfully process the decrypted note we need to compute the note's 'note hash' and 'nullifier'.
-Aztec.nr enables smart contract developers to design custom notes, meaning developers can also customise how a note's note hash and nullifier should be computed. Because of this customisability, and because there will be a potentially-unlimited number of smart contracts deployed to Aztec, an Aztec RPR Server needs to be 'taught' how to compute the custom note hashes and nullifiers for a particular contract. Therefore, developers will need to implement a `compute_note_hash_and_nullifier` function inside their contracts.
+Aztec.nr enables smart contract developers to design custom notes, meaning developers can also customise how a note's note hash and nullifier should be computed. Because of this customisability, and because there will be a potentially-unlimited number of smart contracts deployed to Aztec, an Aztec RPC Server needs to be 'taught' how to compute the custom note hashes and nullifiers for a particular contract. Therefore, developers will need to implement a `compute_note_hash_and_nullifier` function inside their contracts.
+
 Every time a new note is successfully decrypted, the Aztec RPC Server will expect the existence of a `compute_note_hash_and_nullifier` function, which must teach it how to correctly process the new note.
 
 This is an example implementation inside the `PrivateTokenContract`:

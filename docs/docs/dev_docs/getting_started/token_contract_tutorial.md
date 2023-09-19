@@ -896,7 +896,7 @@ This must be included in every contract because it depends on the storage slots,
 
 ## Compiling
 
-Now that the contract is complete, you should be able to compile it with the `aztec-cli`. See the [CLI page](./cli) for instructions on setting it up.
+Now that the contract is complete, you should be able to compile it with the `aztec-cli`. See the [CLI page](../cli/cli.md) for instructions on setting it up.
 
 ```bash
 aztec-cli compile /path/to/token_contracts_folder

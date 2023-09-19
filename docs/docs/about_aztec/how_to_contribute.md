@@ -6,7 +6,7 @@ Decentralization is one of our core values, so we want to encourage participatio
 
 ## Improve the protocol
 
-- Join us at our [Discourse forum](https://discourse.aztec.network/) to discuss all things related to Aztec and share your feedback
+- Join us at our [Discourse forum](https://discourse.aztec.network/) or [Discord server](https://discord.gg/DgWG2DBMyB) to discuss all things related to Aztec and share your feedback
 
 ## Contribute code
 

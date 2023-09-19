@@ -172,7 +172,7 @@ For example, until community standards are developed to reduce the uniqueness of
 
 ### Upper limits on function outputs and tx outputs
 
-Due to the rigidity of zk-SNARK circuits, there are upper bounds on the amount of computation a circuit can perform, and on the amount of data that can be passed into and out of a function. See [Aztec function ABIs](../contracts/abi.md) for more information.
+Due to the rigidity of zk-SNARK circuits, there are upper bounds on the amount of computation a circuit can perform, and on the amount of data that can be passed into and out of a function.
 
 > Blockchain developers are no stranger to restrictive computational environments. Ethereum has gas limits, local variable stack limits, call stack limits, contract deployment size limits, log size limits, etc.
 

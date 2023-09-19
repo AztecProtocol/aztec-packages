@@ -76,7 +76,6 @@ const sidebars = {
       },
       items: [
         "dev_docs/getting_started/quickstart",
-        // "dev_docs/getting_started/cli",
         "dev_docs/getting_started/sandbox",
         "dev_docs/getting_started/noir_contracts",
         "dev_docs/getting_started/token_contract_tutorial",
@@ -97,7 +96,6 @@ const sidebars = {
         "dev_docs/contracts/compiling",
         "dev_docs/contracts/deploying",
         "dev_docs/contracts/artifacts",
-        "dev_docs/contracts/abi",
         {
           label: "Syntax",
           type: "category",
@@ -110,7 +108,6 @@ const sidebars = {
             "dev_docs/contracts/syntax/functions",
             "dev_docs/contracts/syntax/storage",
             "dev_docs/contracts/syntax/state_variables",
-            "dev_docs/contracts/syntax/visibility",
             "dev_docs/contracts/syntax/globals",
           ],
         },
@@ -174,7 +171,7 @@ const sidebars = {
         type: "doc",
         id: "dev_docs/sandbox/main",
       },
-      items: ["dev_docs/sandbox/components", "dev_docs/sandbox/common_errors"],
+      items: ["dev_docs/sandbox/common_errors"],
     },
 
     {
@@ -184,7 +181,7 @@ const sidebars = {
         type: "doc",
         id: "dev_docs/cli/main",
       },
-      items: [],
+      items: ["dev_docs/cli/cli"],
     },
     {
       label: "DApp Development",
@@ -227,10 +224,7 @@ const sidebars = {
         type: "doc",
         id: "dev_docs/testing/main",
       },
-      items: [
-        "dev_docs/testing/writing_a_test",
-        "dev_docs/testing/cheat_codes",
-      ],
+      items: ["dev_docs/testing/testing", "dev_docs/testing/cheat_codes"],
     },
 
     {
@@ -362,19 +356,12 @@ const sidebars = {
                 type: "doc",
                 id: "concepts/advanced/circuits/rollup_circuits/main",
               },
-              items: [
-                "concepts/advanced/circuits/rollup_circuits/base_rollup",
-                "concepts/advanced/circuits/rollup_circuits/merge_rollup",
-                "concepts/advanced/circuits/rollup_circuits/root_rollup",
-              ],
+              items: [],
             },
           ],
         },
-
         "concepts/advanced/public_vm",
-
         "concepts/advanced/contract_creation",
-        // "concepts/advanced/rollup_contract",
       ],
     },
 

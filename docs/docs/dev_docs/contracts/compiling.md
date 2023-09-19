@@ -1,6 +1,6 @@
 # Compiling contracts
 
-Once you have written a [contract](../contracts/main.md) in Aztec.nr, you will need to compile it into an [artifact](./abi.md) in order to use it.
+Once you have written a [contract](../contracts/main.md) in Aztec.nr, you will need to compile it into an [artifact](./artifacts.md) in order to use it.
 
 In this guide we will cover how to do so, both using the CLI and programmatically.
 
@@ -28,7 +28,7 @@ Then run the `compile` command with the path to your [contract project folder](.
 aztec-cli compile ./path/to/my_aztec_contract_project
 ```
 
-This will output a JSON [artifact](./artifacts.md) for each contract in the project to a `target` folder containing their [ABI](./abi.md), which you can use for deploying or interacting with your contracts.
+This will output a JSON [artifact](./artifacts.md) for each contract in the project to a `target` folder containing their ABI, which you can use for deploying or interacting with your contracts.
 
 ### Typescript Interfaces
 
@@ -145,7 +145,7 @@ The compiler exposes the following functions:
 
 ## Next steps
 
-Once you have compiled your contracts, you can use the generated artifacts via the `Contract` class in the `aztec.js` package to deploy and interact with them, or rely on the type-safe typescript classes directly. Alternatively, use the CLI [to deploy](../../dev_docs/getting_started/cli.md#deploying-a-token-contract) and [interact](../../dev_docs/getting_started/cli.md#sending-a-transaction) with them.
+Once you have compiled your contracts, you can use the generated artifacts via the `Contract` class in the `aztec.js` package to deploy and interact with them, or rely on the type-safe typescript classes directly. Alternatively, use the CLI [to deploy](../../dev_docs/cli/cli.md#deploying-a-token-contract) and [interact](../../dev_docs/cli/cli.md#sending-a-transaction) with them.
 
 import Disclaimer from "../../misc/common/\_disclaimer.mdx";
 <Disclaimer/>
