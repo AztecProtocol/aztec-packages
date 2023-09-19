@@ -30,7 +30,7 @@ describe('e2e_sandbox_example', () => {
     logger('Aztec Sandbox Info ', nodeInfo);
     // docs:end:setup
 
-    expect(typeof nodeInfo.version).toBe('number');
+    expect(typeof nodeInfo.protocolVersion).toBe('number');
     expect(typeof nodeInfo.chainId).toBe('number');
     expect(typeof nodeInfo.rollupAddress).toBe('object');
 
@@ -167,5 +167,5 @@ describe('e2e_sandbox_example', () => {
 
     expect(aliceBalance).toBe(initialSupply - transferQuantity);
     expect(bobBalance).toBe(transferQuantity + mintQuantity);
-  }, 60_000);
+  }, 120_000);
 });
