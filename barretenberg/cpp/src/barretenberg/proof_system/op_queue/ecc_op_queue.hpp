@@ -1,24 +1,11 @@
 #pragma once
 
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
+#include "barretenberg/proof_system/circuit_builder/eccvm/eccvm_builder_types.hpp"
 
 namespace proof_system {
 
 enum EccOpCode { NULL_OP, ADD_ACCUM, MUL_ACCUM, EQUALITY };
-
-/**
- * @brief Raw description of an ECC operation used to produce equivalent descriptions over different curves.
- */
-struct ECCOp {
-    const bool add = false;
-    const bool mul = false;
-    const bool eq = false;
-    const bool reset = false;
-    const barretenberg::g1::affine_element base_point = barretenberg::g1::affine_element{ 0, 0 };
-    const uint256_t scalar_1 = 0;
-    const uint256_t scalar_2 = 0;
-    const barretenberg::fr mul_scalar_full = 0;
-};
 
 /**
  * @brief Used to construct execution trace representations of elliptic curve operations.
@@ -29,40 +16,25 @@ struct ECCOp {
  * ultra (resp. eccvm) ops members of this class (rather than in the builder's variables array).
  */
 class ECCOpQueue {
-    using Point = curve::BN254::AffineElement;
-    Point point_at_infinity = curve::BN254::Group::affine_point_at_infinity;
-    using Fr = curve::BN254::ScalarField;
-    using Fq = curve::BN254::BaseField; // Grumpkin's scalar field
+    using Curve = curve::BN254;
+    using Point = Curve::AffineElement;
+    using Fr = Curve::ScalarField;
+    using Fq = Curve::BaseField; // Grumpkin's scalar field
+    using ECCVMOperation = proof_system_eccvm::VMOperation<Curve::Group>;
+    Point point_at_infinity = Point::infinity();
 
     // The operations written to the queue are also performed natively; the result is stored in accumulator
     Point accumulator = point_at_infinity;
 
   public:
-    std::vector<ECCOp> raw_ops;
+    std::vector<ECCVMOperation> raw_ops;
     std::array<std::vector<Fr>, 4> ultra_ops; // ops encoded in the width-4 Ultra format
-    std::vector<std::array<Fq, 5>> eccvm_ops;
 
     size_t current_ultra_ops_size = 0;  // M_i
     size_t previous_ultra_ops_size = 0; // M_{i-1}
 
     std::array<Point, 4> ultra_ops_commitments;
     std::array<Point, 4> previous_ultra_ops_commitments;
-
-    uint32_t get_number_of_muls()
-    {
-        uint32_t num_muls = 0;
-        for (auto& op : raw_ops) {
-            if (op.mul) {
-                if (op.scalar_1 != 0) {
-                    num_muls++;
-                }
-                if (op.scalar_2 != 0) {
-                    num_muls++;
-                }
-            }
-        }
-        return num_muls;
-    }
 
     Point get_accumulator() { return accumulator; }
 
@@ -79,6 +51,7 @@ class ECCOpQueue {
     }
 
     [[nodiscard]] size_t get_previous_size() const { return previous_ultra_ops_size; }
+    [[nodiscard]] size_t get_current_size() const { return current_ultra_ops_size; }
 
     void set_commitment_data(std::array<Point, 4>& commitments)
     {
@@ -153,14 +126,14 @@ class ECCOpQueue {
         accumulator = accumulator + to_add;
 
         // Store the operation
-        raw_ops.emplace_back(ECCOp{
+        raw_ops.emplace_back(ECCVMOperation{
             .add = true,
             .mul = false,
             .eq = false,
             .reset = false,
             .base_point = to_add,
-            .scalar_1 = 0,
-            .scalar_2 = 0,
+            .z1 = 0,
+            .z2 = 0,
             .mul_scalar_full = 0,
         });
     }
@@ -176,20 +149,20 @@ class ECCOpQueue {
         accumulator = accumulator + to_mul * scalar;
 
         // Store the operation
-        Fr scalar_1 = 0;
-        Fr scalar_2 = 0;
+        Fr z1 = 0;
+        Fr z2 = 0;
         auto converted = scalar.from_montgomery_form();
-        Fr::split_into_endomorphism_scalars(converted, scalar_1, scalar_2);
-        scalar_1 = scalar_1.to_montgomery_form();
-        scalar_2 = scalar_2.to_montgomery_form();
-        raw_ops.emplace_back(ECCOp{
+        Fr::split_into_endomorphism_scalars(converted, z1, z2);
+        z1 = z1.to_montgomery_form();
+        z2 = z2.to_montgomery_form();
+        raw_ops.emplace_back(ECCVMOperation{
             .add = false,
             .mul = true,
             .eq = false,
             .reset = false,
             .base_point = to_mul,
-            .scalar_1 = scalar_1,
-            .scalar_2 = scalar_2,
+            .z1 = z1,
+            .z2 = z2,
             .mul_scalar_full = scalar,
         });
     }
@@ -204,14 +177,14 @@ class ECCOpQueue {
         auto expected = accumulator;
         accumulator.self_set_infinity(); // TODO(luke): is this always desired?
 
-        raw_ops.emplace_back(ECCOp{
+        raw_ops.emplace_back(ECCVMOperation{
             .add = false,
             .mul = false,
             .eq = true,
             .reset = true,
             .base_point = expected,
-            .scalar_1 = 0,
-            .scalar_2 = 0,
+            .z1 = 0,
+            .z2 = 0,
             .mul_scalar_full = 0,
         });
 
@@ -224,14 +197,14 @@ class ECCOpQueue {
      */
     void empty_row()
     {
-        raw_ops.emplace_back(ECCOp{
+        raw_ops.emplace_back(ECCVMOperation{
             .add = false,
             .mul = false,
             .eq = false,
             .reset = false,
             .base_point = point_at_infinity,
-            .scalar_1 = 0,
-            .scalar_2 = 0,
+            .z1 = 0,
+            .z2 = 0,
             .mul_scalar_full = 0,
         });
     }
