@@ -6882,7 +6882,7 @@ __metadata:
     serve: ^14.2.1
     stream-browserify: ^3.0.0
     style-loader: ^3.3.3
-    ts-jest: ^29.1.0
+    ts-jest: ^29.1.1
     ts-loader: ^9.4.4
     ts-node: ^10.9.1
     tty-browserify: ^0.0.1
@@ -17851,7 +17851,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ts-jest@npm:^29.1.0":
+"ts-jest@npm:^29.1.0, ts-jest@npm:^29.1.1":
   version: 29.1.1
   resolution: "ts-jest@npm:29.1.1"
   dependencies:

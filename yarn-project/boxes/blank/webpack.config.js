@@ -12,7 +12,7 @@ export default (_, argv) => ({
   mode: 'production',
   devtool: false,
   entry: {
-    main: './src/app/index.tsx',
+    main: './src/index.ts',
   },
   module: {
     rules: [
@@ -26,34 +26,6 @@ export default (_, argv) => ({
             },
           },
         ],
-      },
-      {
-        test: /\.css$/i,
-        use: ['style-loader', 'css-loader', 'postcss-loader'],
-      },
-      {
-        test: /\.module\.scss$/,
-        use: [
-          'style-loader',
-          {
-            loader: 'css-loader',
-            options: {
-              modules: {
-                localIdentName: '[local]_[hash:base64:5]',
-              },
-            },
-          },
-          'sass-loader',
-        ],
-      },
-      {
-        test: /\.(woff|woff2|eot|ttf|otf)$/,
-        type: 'asset/resource',
-      },
-      {
-        test: /\.scss$/,
-        exclude: /\.module\.scss$/,
-        use: ['style-loader', 'css-loader', 'sass-loader'],
       },
     ],
   },
@@ -78,10 +50,7 @@ export default (_, argv) => ({
           to: 'aztec3-circuits.wasm',
         },
         {
-          from: './src/assets',
-        },
-        {
-          from: './src/app/index.html',
+          from: './src/index.html',
           to: 'index.html',
         },
       ],

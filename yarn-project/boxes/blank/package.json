@@ -19,20 +19,8 @@
     "test:integration": "concurrently -k -s first -c reset,dim -n test,anvil \"yarn test\" \"anvil\""
   },
   "jest": {
-    "preset": "ts-jest/presets/default-esm",
-    "globals": {
-      "ts-jest": {
-        "useESM": true
-      }
-    },
-    "transform": {
-      "^.+\\.(ts|tsx)$": "ts-jest"
-    },
-    "moduleNameMapper": {
-      "^(\\.{1,2}/.*)\\.js$": "$1"
-    },
-    "testRegex": "./src/.*\\.test\\.ts$",
-    "rootDir": "./src"
+    "preset": "ts-jest'",
+    "testEnvironment": "jsdom"
   },
   "dependencies": {
     "@aztec/aztec-ui": "^0.1.14",
@@ -70,7 +58,7 @@
     "resolve-typescript-plugin": "^2.0.1",
     "stream-browserify": "^3.0.0",
     "style-loader": "^3.3.3",
-    "ts-jest": "^29.1.0",
+    "ts-jest": "^29.1.1",
     "ts-loader": "^9.4.4",
     "ts-node": "^10.9.1",
     "tty-browserify": "^0.0.1",
