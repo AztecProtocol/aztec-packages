@@ -93,7 +93,7 @@ export class AztecRPCServer implements AztecRPC {
   public async start() {
     await this.synchroniser.start(INITIAL_L2_BLOCK_NUM, 1, this.config.l2BlockPollingIntervalMS);
     const info = await this.getNodeInfo();
-    this.log.info(`Started RPC server connected to chain ${info.chainId} version ${info.version}`);
+    this.log.info(`Started RPC server connected to chain ${info.chainId} version ${info.protocolVersion}`);
   }
 
   /**
@@ -347,7 +347,7 @@ export class AztecRPCServer implements AztecRPC {
       sandboxVersion: this.sandboxVersion,
       compatibleNargoVersion: NoirVersion.tag,
       chainId,
-      version,
+      protocolVersion: version,
       rollupAddress,
     };
   }

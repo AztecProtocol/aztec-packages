@@ -31,7 +31,7 @@ describe('Contract Class', () => {
   const mockNodeInfo: NodeInfo = {
     sandboxVersion: 'vx.x.x',
     compatibleNargoVersion: 'vx.x.x-aztec.x',
-    version: 1,
+    protocolVersion: 1,
     chainId: 2,
     rollupAddress: EthAddress.random(),
   };

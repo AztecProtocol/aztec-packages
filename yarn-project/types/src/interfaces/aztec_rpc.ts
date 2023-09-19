@@ -51,7 +51,7 @@ export type NodeInfo = {
   /**
    * Protocol version.
    */
-  version: number;
+  protocolVersion: number;
   /**
    * The rollup contract address
    */
