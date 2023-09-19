@@ -18,25 +18,25 @@ namespace stdlib {
  * N.B. wherever possible, UltraPlonk should use pedersen_plookup as it is MUCH more efficient!
  * pedersen_plookup produces different hash outputs to the TurboPlonk pedersen hash, use this if interoperability
  * between proof systems is required
- * @tparam Composer
+ * @tparam Builder
  */
-template <typename Composer> class pedersen_gates {
+template <typename Builder> class pedersen_gates {
   public:
-    using FF = typename Composer::FF;
+    using FF = typename Builder::FF;
     using fixed_group_add_quad = proof_system::fixed_group_add_quad_<FF>;
     using fixed_group_init_quad = proof_system::fixed_group_init_quad_<FF>;
     using add_quad = proof_system::add_quad_<FF>;
 
-    Composer* context;
+    Builder* context;
     fixed_group_add_quad previous_add_quad;
 
-    pedersen_gates(Composer* input_context = nullptr)
+    pedersen_gates(Builder* input_context = nullptr)
         : context(input_context)
     {}
 
     void create_fixed_group_add_gate(const fixed_group_add_quad& in)
     {
-        if constexpr (std::same_as<Composer, TurboCircuitBuilder>) {
+        if constexpr (std::same_as<Builder, TurboCircuitBuilder>) {
             context->create_fixed_group_add_gate(in);
         } else {
 
@@ -229,7 +229,7 @@ template <typename Composer> class pedersen_gates {
 
     void create_fixed_group_add_gate_with_init(const fixed_group_add_quad& in, const fixed_group_init_quad& init)
     {
-        if constexpr (std::same_as<Composer, TurboCircuitBuilder>) {
+        if constexpr (std::same_as<Builder, TurboCircuitBuilder>) {
             context->create_fixed_group_add_gate_with_init(in, init);
         } else {
             uint32_t x_0_idx = in.a;
@@ -295,7 +295,7 @@ template <typename Composer> class pedersen_gates {
 
     void create_fixed_group_add_gate_final(const add_quad& in)
     {
-        if constexpr (std::same_as<Composer, TurboCircuitBuilder>) {
+        if constexpr (std::same_as<Builder, TurboCircuitBuilder>) {
             context->create_fixed_group_add_gate_final(in);
         } else {
 
