@@ -92,8 +92,7 @@ async function downloadContractAndBoxFromGithub(
   // small string conversion, in the ABI the contract name looks like PrivateToken
   // but in the repostory it looks like private_token
 
-  const kebabCaseContractName = contractNameToFolder(contractName, '-');
-  log(`Downloading @aztex/boxes/${kebabCaseContractName} to ${outputPath}...`);
+  log(`Downloading @aztex/boxes/${contractName} to ${outputPath}...`);
   // Step 1: Fetch the monorepo ZIP from GitHub, matching the CLI version
   const url = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/archive/refs/tags/${tag}.zip`;
   const response = await fetch(url);
@@ -106,7 +105,7 @@ async function downloadContractAndBoxFromGithub(
   // this is currently only implemented for PrivateToken under 'boxes/private-token/'
   const repoDirectoryPrefix = `${GITHUB_REPO}-${tag}`;
 
-  const boxPath = `${repoDirectoryPrefix}/${BOXES_PATH}/${kebabCaseContractName}`;
+  const boxPath = `${repoDirectoryPrefix}/${BOXES_PATH}/${contractName}`;
   await copyFolderFromGithub(data, boxPath, outputPath, log);
 
   const contractTargetDirectory = path.join(outputPath, 'src', 'contracts');
@@ -294,13 +293,13 @@ export async function unboxContract(
   packageVersion: string,
   log: LogFn,
 ) {
-  const contractNames = ['PrivateToken'];
+  const contractNames = ['private-token', 'blank'];
 
   if (!contractNames.includes(contractName)) {
     log(
       `The noir contract named "${contractName}" was not found in "@aztec/boxes" package.  Valid options are: 
         ${contractNames.join('\n\t')}
-      We recommend "PrivateToken" as a default.`,
+      We recommend "private-token" as a default.`,
     );
     return;
   }

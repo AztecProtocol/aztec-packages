@@ -1,6 +1,4 @@
-This is a minimal [Aztec](https://aztec.network/) Noir smart contract and frontend bootstrapped with [`aztec-cli unbox`](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/cli). It is recommended you use the `aztec-cli unbox PrivateToken` command so that the repository is copied with needed modifications from the monorepo subpackage.
-
-Some contract specific settings for `PrivateToken` are in a [config](src/config.ts) will require manual updates depending on your changes to the source code. `aztec-cli` can be installed with `npm i -g @aztec/cli`, if you don't have it already.
+This is a minimal [Aztec](https://aztec.network/) Noir smart contract and frontend bootstrapped with [`aztec-cli unbox`](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/cli). It is recommended you use the `aztec-cli unbox blank` command so that the repository is copied with needed modifications from the monorepo subpackage.
 
 ## Setup
 
@@ -41,12 +39,8 @@ This folder should have the following directory structure:
 |— README.md
 |— package.json
 |— src
-       |-config.ts - PrivateToken specific configuration for the frontend.
-       |             You may need to update this if you modify the contract functions.
-       |— app
-              |— [frontend React .tsx code files]
-       |- scripts
-              |- [helpers for frontend to interact with contract on the sandbox]
+       index.html
+       index.ts
        |— contracts
               |— src
                      | The Noir smart contract source files are here.
@@ -58,13 +52,13 @@ This folder should have the following directory structure:
               |— private_token_contract.json
               |— private_token.ts
        |— tests
-              | A simple end2end test deploying and testing the PrivateToken on a local sandbox
-              | using the front end helper methods in app/scripts/
+              | A simple end2end test deploying and testing the minimal contract on a local sandbox
+              | using the front end helper methods in index.ts
               | The test requires the sandbox and anvil to be running (yarn start:sandbox).
-              |- privatetoken.test.ts
+              |- test.frontennd.test.ts
 ```
 
-Most relevant to you is likely `src/contracts/main.nr` (and the build config `src/contracts/Nargo.toml`). This contains the example PrivateToken logic that the frontend interacts with and is a good place to start writing Noir.
+Most relevant to you is likely `src/contracts/main.nr` (and the build config `src/contracts/Nargo.toml`). This contains the example blank contract logic that the frontend interacts with and is a good place to start writing Noir.
 
 The `src/artifacts` folder can be re-generated from the command line with `yarn compile` which is an alias for
 
@@ -77,9 +71,9 @@ This will generate a [Contract ABI](https://www.alchemy.com/overviews/what-is-an
 Note: the `compile` command seems to generate a Typescript file which needs a single change -
 
 ```
-import PrivateTokenContractAbiJson from 'PrivateToken.json' assert { type: 'json' };
+import TestContractAbiJson from 'text_contract.json' assert { type: 'json' };
 // need to update the relative import to
-import PrivateTokenContractAbiJson from './PrivateToken.json' assert { type: 'json' };
+import TestContractAbiJson from './test_contract.json' assert { type: 'json' };
 ```
 
 After compiling, you can re-deploy the upated noir smart contract from the web UI. The function interaction forms are generated from parsing the ContractABI, so they should update automatically after you recompile.
