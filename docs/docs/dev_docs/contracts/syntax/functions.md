@@ -15,7 +15,7 @@ In the following sections, we are going to see how these two "types" co-exists a
 ### Function visibility
 This is the kind of visibility you are more used to seeing in Solidity and more "normal" programming languages. It is used to describe whether a function is callable from other contracts, or only from within the same contract.
 
-By default, all functions are callable from other contracts, similarly to the Solidity `public` visibility. To make them only callable from the contract itself, you can mark them as `internal`. Contrary to solidity, we don't have the `external` nor `private` keywords. `external` as it is implided, and `private` since we don't support inheritance and would also be confusing with multiple types of `private`.
+By default, all functions are callable from other contracts, similarly to the Solidity `public` visibility. To make them only callable from the contract itself, you can mark them as `internal`. Contrary to solidity, we don't have the `external` nor `private` keywords. `external` since it is limited usage when we don't support inheritance, and `private` since we don't support inheritance and it would also be confusing with multiple types of `private`.
 
 A good place to use `internal` is when you want a private function to be able to alter public state. While as mentioned above, private functions cannot do this directly, they are able to call public functions, and by making these internal, we can ensure that this state manipulating function is only callable from our private function.
 
