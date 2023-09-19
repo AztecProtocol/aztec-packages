@@ -113,7 +113,7 @@ const config = {
       },
     ],
     [
-      "docusaurus-plugin-typedoc",
+      "@spalladino/docusaurus-plugin-typedoc",
       {
         id: "apis/aztec-rpc",
         entryPoints: ["../yarn-project/types/src/interfaces/aztec_rpc.ts"],

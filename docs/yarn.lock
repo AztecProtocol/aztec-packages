@@ -1875,6 +1875,11 @@
     p-map "^4.0.0"
     webpack-sources "^3.2.2"
 
+"@spalladino/docusaurus-plugin-typedoc@^0.20.3":
+  version "0.20.3"
+  resolved "https://registry.yarnpkg.com/@spalladino/docusaurus-plugin-typedoc/-/docusaurus-plugin-typedoc-0.20.3.tgz#04e0f8db61b8328ab0b8d6d4bd43a59fb0cdbbdd"
+  integrity sha512-LufWGbOUbyztOgJY42UDeQ0bnpTqZBtdIL1duTaIMpNj1MM2N9F3QqQhmQY3J9SnqCnkMjZu13RnK/ninWbLLg==
+
 "@svgr/babel-plugin-add-jsx-attribute@^6.5.1":
   version "6.5.1"
   resolved "https://registry.yarnpkg.com/@svgr/babel-plugin-add-jsx-attribute/-/babel-plugin-add-jsx-attribute-6.5.1.tgz#74a5d648bd0347bda99d82409d87b8ca80b9a1ba"
@@ -3955,11 +3960,6 @@ dns-packet@^5.2.2:
   integrity sha512-EgqGeaBB8hLiHLZtp/IbaDQTL8pZ0+IvwzSHA6d7VyMDM+B9hgddEMa9xjK5oYnw0ci0JQ6g2XCD7/f6cafU6g==
   dependencies:
     "@leichtgewicht/ip-codec" "^2.0.1"
-
-docusaurus-plugin-typedoc@^0.20.1:
-  version "0.20.1"
-  resolved "https://registry.yarnpkg.com/docusaurus-plugin-typedoc/-/docusaurus-plugin-typedoc-0.20.1.tgz#a845530717c532b4a030ee785bf8cef68ca7d045"
-  integrity sha512-BZw4tiqNg7xS6mVisWo44bWSu8eYU1i38fx1ci4J8k8EbtLNEPt+WugEA6xqv3A++Mv75gnBsjljEVnYsqFQPg==
 
 dom-converter@^0.2.0:
   version "0.2.0"
