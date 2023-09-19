@@ -48,8 +48,10 @@ contract TokenPortalTest is Test {
   bytes32 internal to = bytes32(0x2d749407d8c364537cdeb799c1574929cb22ff1ece2b96d2a1c6fa287a0e0171);
   uint256 internal amount = 100;
   uint256 internal mintAmount = 1 ether;
+  // this hash is just a random 32 byte string
   bytes32 internal secretHashForL2MessageConsumption =
     0x147e4fec49805c924e28150fc4b36824679bc17ecb1d7d9f6a9effb7fde6b6a0;
+  // this hash is just a random 32 byte string
   bytes32 internal secretHashForRedeemingMintedNotes =
     0x157e4fec49805c924e28150fc4b36824679bc17ecb1d7d9f6a9effb7fde6b6a0;
   uint64 internal bid = 1 ether;
@@ -123,7 +125,7 @@ contract TokenPortalTest is Test {
       _createExpectedMintPrivateL1ToL2Message(address(this));
     bytes32 expectedEntryKey = inbox.computeEntryKey(expectedMessage);
 
-    // Check the even was emitted
+    // Check the event was emitted
     vm.expectEmit(true, true, true, true);
     // event we expect
     emit MessageAdded(
@@ -166,7 +168,7 @@ contract TokenPortalTest is Test {
       _createExpectedMintPublicL1ToL2Message(address(this));
     bytes32 expectedEntryKey = inbox.computeEntryKey(expectedMessage);
 
-    // Check the even was emitted
+    // Check the event was emitted
     vm.expectEmit(true, true, true, true);
     // event we expect
     emit MessageAdded(

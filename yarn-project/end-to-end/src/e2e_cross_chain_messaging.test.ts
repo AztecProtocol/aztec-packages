@@ -167,12 +167,10 @@ describe('e2e_cross_chain_messaging', () => {
         .withWallet(user2Wallet)
         .methods.claim_private(
           bridgeAmount,
+          secretHashForL2MessageConsumption,
+          { address: ethAccount.toField() },
           messageKey,
           secretForL2MessageConsumption,
-          secretHashForL2MessageConsumption,
-          {
-            address: ethAccount.toField(),
-          },
         )
         .simulate(),
     ).rejects.toThrowError("Cannot satisfy constraint 'l1_to_l2_message_data.message.content == content");
@@ -182,12 +180,10 @@ describe('e2e_cross_chain_messaging', () => {
       .withWallet(user2Wallet)
       .methods.claim_private(
         bridgeAmount,
+        secretHashForRedeemingMintedNotes,
+        { address: ethAccount.toField() },
         messageKey,
         secretForL2MessageConsumption,
-        secretHashForRedeemingMintedNotes,
-        {
-          address: ethAccount.toField(),
-        },
       )
       .send();
     const consumptionReceipt = await consumptionTx.wait();
@@ -217,9 +213,9 @@ describe('e2e_cross_chain_messaging', () => {
       l2Bridge
         .withWallet(user1Wallet)
         .methods.exit_to_l1_private(
+          { address: ethAccount.toField() },
           { address: l2Token.address },
           withdrawAmount,
-          { address: ethAccount.toField() },
           { address: EthAddress.ZERO.toField() },
           nonce,
         )

@@ -27,8 +27,8 @@ contract TokenPortal {
    * @param _to - The aztec address of the recipient
    * @param _amount - The amount to deposit
    * @param _deadline - The timestamp after which the entry can be cancelled
-   * @param _secretHash - The hash of the secret consumable message
-   * @param _canceller - The address that can cancel the L1 to L2 message.
+   * @param _secretHash - The hash of the secret consumable message. The hash should be 254 bits (so it can fit in a Field element)
+   * @param _canceller - The address that can cancel the L1 to L2 message
    * @return The key of the entry in the Inbox
    */
   function depositToAztecPublic(
@@ -39,7 +39,6 @@ contract TokenPortal {
     address _canceller
   ) external payable returns (bytes32) {
     // Preamble
-    // @todo: (issue #624) handle different versions
     IInbox inbox = registry.getInbox();
     DataStructures.L2Actor memory actor = DataStructures.L2Actor(l2TokenAddress, 1);
 
@@ -61,7 +60,7 @@ contract TokenPortal {
    * @param _deadline - The timestamp after which the entry can be cancelled
    * @param _secretHashForL2MessageConsumption - The hash of the secret consumable L1 to L2 message. The hash should be 254 bits (so it can fit in a Field element)
    * @param _secretHashForL2MessageConsumption - The hash of the secret to redeem minted notes privately on Aztec. The hash should be 254 bits (so it can fit in a Field element)
-   * @param _canceller - The address that can cancel the L1 to L2 message.
+   * @param _canceller - The address that can cancel the L1 to L2 message
    * @return The key of the entry in the Inbox
    */
   function depositToAztecPrivate(
@@ -72,7 +71,6 @@ contract TokenPortal {
     address _canceller
   ) external payable returns (bytes32) {
     // Preamble
-    // @todo: (issue #624) handle different versions
     IInbox inbox = registry.getInbox();
     DataStructures.L2Actor memory actor = DataStructures.L2Actor(l2TokenAddress, 1);
 
@@ -113,7 +111,6 @@ contract TokenPortal {
     bytes32 _secretHash,
     uint64 _fee
   ) external returns (bytes32) {
-    // @todo: (issue #624) handle different versions
     IInbox inbox = registry.getInbox();
     DataStructures.L1Actor memory l1Actor = DataStructures.L1Actor(address(this), block.chainid);
     DataStructures.L2Actor memory l2Actor = DataStructures.L2Actor(l2TokenAddress, 1);
@@ -151,7 +148,6 @@ contract TokenPortal {
     bytes32 _secretHashForRedeemingMintedNotes,
     uint64 _fee
   ) external returns (bytes32) {
-    // @todo: (issue #624) handle different versions
     IInbox inbox = registry.getInbox();
     DataStructures.L1Actor memory l1Actor = DataStructures.L1Actor(address(this), block.chainid);
     DataStructures.L2Actor memory l2Actor = DataStructures.L2Actor(l2TokenAddress, 1);
@@ -206,7 +202,6 @@ contract TokenPortal {
         )
     });
 
-    // @todo: (issue #624) handle different versions
     bytes32 entryKey = registry.getOutbox().consume(message);
 
     underlying.transfer(_recipient, _amount);

@@ -29,7 +29,7 @@ impl EthereumAddress {
     // Check that it actually will fit. Spending a lot of constraints here :grimacing:
     let bytes = address.to_be_bytes(32);
     for i in 0..12 {
-        assert(bytes[i] == 0, "Value too large for SafeU120");
+        assert(bytes[i] == 0, "Value too large for an ethereum address");
     }
     Self {
       address

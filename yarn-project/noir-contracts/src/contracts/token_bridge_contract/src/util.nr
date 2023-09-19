@@ -49,7 +49,7 @@ fn get_mint_private_content_hash(amount: Field, secret_hash_for_redeeming_minted
 
 // Computes a content hash of a deposit/mint_public message.
 // Refer TokenPortal.sol for reference on L1.
-fn get_mint_public_content_hash(amount: Field, owner_address: Field, canceller: Field) -> Field {
+fn get_mint_public_content_hash(owner_address: Field, amount: Field, canceller: Field) -> Field {
     let mut hash_bytes: [u8; 100] = [0; 100];
     let amount_bytes = amount.to_be_bytes(32);
     let recipient_bytes = owner_address.to_be_bytes(32);
@@ -86,7 +86,7 @@ fn get_mint_public_content_hash(amount: Field, owner_address: Field, canceller: 
 }
 
 // Computes a content hash of a withdraw message.
-fn get_withdraw_content_hash(amount: Field, recipient: Field, callerOnL1: Field) -> Field {
+fn get_withdraw_content_hash(recipient: Field, amount: Field, callerOnL1: Field) -> Field {
     // Compute the content hash
     // Compute sha256(selector || amount || recipient)
     // then convert to a single field element

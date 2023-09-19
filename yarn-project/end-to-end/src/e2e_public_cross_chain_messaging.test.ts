@@ -151,9 +151,13 @@ describe('e2e_public_cross_chain_messaging', () => {
     await expect(
       l2Bridge
         .withWallet(user2Wallet)
-        .methods.claim_public({ address: user2Wallet.getAddress() }, bridgeAmount, messageKey, secret, {
-          address: ownerEthAddress.toField(),
-        })
+        .methods.claim_public(
+          { address: user2Wallet.getAddress() },
+          bridgeAmount,
+          { address: ownerEthAddress.toField() },
+          messageKey,
+          secret,
+        )
         .simulate(),
     ).rejects.toThrow();
 
@@ -161,9 +165,13 @@ describe('e2e_public_cross_chain_messaging', () => {
     logger("user2 consumes owner's message on L2 Publicly");
     const tx = l2Bridge
       .withWallet(user2Wallet)
-      .methods.claim_public({ address: ownerAddress }, bridgeAmount, messageKey, secret, {
-        address: ownerEthAddress.toField(),
-      })
+      .methods.claim_public(
+        { address: ownerAddress },
+        bridgeAmount,
+        { address: ownerEthAddress.toField() },
+        messageKey,
+        secret,
+      )
       .send();
     const receipt = await tx.wait();
     expect(receipt.status).toBe(TxStatus.MINED);
@@ -183,8 +191,8 @@ describe('e2e_public_cross_chain_messaging', () => {
       l2Bridge
         .withWallet(ownerWallet)
         .methods.exit_to_l1_public(
-          withdrawAmount,
           { address: ownerEthAddress.toField() },
+          withdrawAmount,
           { address: EthAddress.ZERO.toField() },
           nonce,
         )

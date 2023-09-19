@@ -4,7 +4,7 @@ mod token_interface;
 // Minimal implementation of the token bridge that can move funds between L1 <> L2.
 // The bridge has a corresponding Portal contract on L1 that it is attached to 
 // And corresponds to a Token on L2 that uses the `AuthWit` accounts pattern.
-// Bridge has to be set as a minter on the token before it can be sued
+// Bridge has to be set as a minter on the token before it can be used
 
 contract TokenBridge {
     use dep::aztec::{
@@ -50,13 +50,13 @@ contract TokenBridge {
     fn claim_public(
         to: AztecAddress,
         amount: Field,
+        canceller: EthereumAddress,
         msg_key: Field,
         secret: Field,
-        canceller: EthereumAddress,
     ) -> Field {
         let storage = Storage::init(Context::public(&mut context));
 
-        let content_hash = get_mint_public_content_hash(amount, to.address, canceller.address);
+        let content_hash = get_mint_public_content_hash(to.address, amount, canceller.address);
         // Consume message and emit nullifier
         context.consume_l1_to_l2_message(msg_key, content_hash, secret);
 
@@ -70,15 +70,15 @@ contract TokenBridge {
     // Requires `msg.sender` to give approval to the bridge to burn tokens on their behalf using witness signatures 
     #[aztec(public)]
     fn exit_to_l1_public(
-        amount: Field,
         recipient: EthereumAddress, // ethereum address to withdraw to
+        amount: Field,
         callerOnL1: EthereumAddress, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
-        nonce: Field,
+        nonce: Field, // nonce used in the approval message by `msg.sender` to let bridge burn their tokens on L2
     ) -> Field {
         let storage = Storage::init(Context::public(&mut context));
 
         // Send an L2 to L1 message
-        let content = get_withdraw_content_hash(amount, recipient.address, callerOnL1.address);
+        let content = get_withdraw_content_hash(recipient.address, amount, callerOnL1.address);
         context.message_portal(content);     
 
         // Burn tokens 
@@ -92,19 +92,19 @@ contract TokenBridge {
     #[aztec(private)]
     fn claim_private(
         amount: Field,
-        msg_key: Field, // L1 to L2 message key as derived from the inbox contract
-        secret_for_L1_to_L2_message_consumption: Field, // secret used to consume the L1 to L2 message
         secret_hash_for_redeeming_minted_notes: Field, // secret hash used to redeem minted notes at a later time. This enables anyone to call this function and mint tokens to a user on their behalf
         canceller: EthereumAddress,
+        msg_key: Field, // L1 to L2 message key as derived from the inbox contract
+        secret_for_L1_to_L2_message_consumption: Field, // secret used to consume the L1 to L2 message
     ) -> Field {
         // Consume L1 to L2 message and emit nullifier
         let content_hash = get_mint_private_content_hash(amount, secret_hash_for_redeeming_minted_notes, canceller.address);
         context.consume_l1_to_l2_message(msg_key, content_hash, secret_for_L1_to_L2_message_consumption);
 
         // Mint tokens on L2 
-        // We hash the secret privately and send the hash in a public call so the secret isn't leaked
-        // Furthermore, `mint_private` on token is public. So we can an internal public function 
-        // which then calls the token contract
+        // `mint_private` on token is public. So we call an internal public function 
+        // which then calls the public method on the token contract.
+        // Since the secret_hash is passed, no secret is leaked. 
         context.call_public_function(
             context.this_address(),
             compute_selector("_call_mint_on_token(Field,Field)"),
@@ -115,17 +115,17 @@ contract TokenBridge {
     }
 
     // Burns the appropriate amount of tokens and creates a L2 to L1 withdraw message privately
-    // Requires `from` to give approval to the bridge to burn tokens on their behalf using witness signatures 
+    // Requires `msg.sender` (caller of the method) to give approval to the bridge to burn tokens on their behalf using witness signatures 
     #[aztec(private)]
     fn exit_to_l1_private(
+        recipient: EthereumAddress, // ethereum address to withdraw to
         token: AztecAddress,
         amount: Field,
-        recipient: EthereumAddress, // ethereum address to withdraw to
         callerOnL1: EthereumAddress, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
-        nonce: Field,
+        nonce: Field, // nonce used in the approval message by `msg.sender` to let bridge burn their tokens on L2
     ) -> Field {
         // Send an L2 to L1 message
-        let content = get_withdraw_content_hash(amount, recipient.address, callerOnL1.address);
+        let content = get_withdraw_content_hash(recipient.address, amount, callerOnL1.address);
         context.message_portal(content);
 
         // Assert that user provided token address is same as seen in storage. 

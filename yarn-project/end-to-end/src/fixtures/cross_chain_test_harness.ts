@@ -211,16 +211,20 @@ export class CrossChainTestHarness {
 
   async consumeMessageOnAztecAndMintSecretly(
     bridgeAmount: bigint,
+    secretHashForRedeemingMintedNotes: Fr,
     messageKey: Fr,
     secretForL2MessageConsumption: Fr,
-    secretHashForL2MessageConsumption: Fr,
   ) {
     this.logger('Consuming messages on L2 secretively');
     // Call the mint tokens function on the Aztec.nr contract
     const consumptionTx = this.l2Bridge.methods
-      .claim_private(bridgeAmount, messageKey, secretForL2MessageConsumption, secretHashForL2MessageConsumption, {
-        address: this.ethAccount.toField(),
-      })
+      .claim_private(
+        bridgeAmount,
+        secretHashForRedeemingMintedNotes,
+        { address: this.ethAccount.toField() },
+        messageKey,
+        secretForL2MessageConsumption,
+      )
       .send();
     const consumptionReceipt = await consumptionTx.wait();
     expect(consumptionReceipt.status).toBe(TxStatus.MINED);
@@ -230,9 +234,13 @@ export class CrossChainTestHarness {
     this.logger('Consuming messages on L2 Publicly');
     // Call the mint tokens function on the Aztec.nr contract
     const tx = this.l2Bridge.methods
-      .claim_public({ address: this.ownerAddress }, bridgeAmount, messageKey, secret, {
-        address: this.ethAccount.toField(),
-      })
+      .claim_public(
+        { address: this.ownerAddress },
+        bridgeAmount,
+        { address: this.ethAccount.toField() },
+        messageKey,
+        secret,
+      )
       .send();
     const receipt = await tx.wait();
     expect(receipt.status).toBe(TxStatus.MINED);
@@ -241,9 +249,9 @@ export class CrossChainTestHarness {
   async withdrawPrivateFromAztecToL1(withdrawAmount: bigint, nonce: Fr = Fr.ZERO) {
     const withdrawTx = this.l2Bridge.methods
       .exit_to_l1_private(
+        { address: this.ethAccount.toField() },
         { address: this.l2Token.address },
         withdrawAmount,
-        { address: this.ethAccount.toField() },
         { address: EthAddress.ZERO.toField() },
         nonce,
       )
@@ -255,8 +263,8 @@ export class CrossChainTestHarness {
   async withdrawPublicFromAztecToL1(withdrawAmount: bigint, nonce: Fr = Fr.ZERO) {
     const withdrawTx = this.l2Bridge.methods
       .exit_to_l1_public(
-        withdrawAmount,
         { address: this.ethAccount.toField() },
+        withdrawAmount,
         { address: EthAddress.ZERO.toField() },
         nonce,
       )
