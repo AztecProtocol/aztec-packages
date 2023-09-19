@@ -78,11 +78,6 @@ echo export ECR_DEPLOY_REGION=eu-west-2 >> $BASH_ENV
 echo export ECR_DEPLOY_URL=278380418400.dkr.ecr.eu-west-2.amazonaws.com >> $BASH_ENV
 echo export PROJECT=$PROJECT >> $BASH_ENV
 echo export COMMIT_HASH=$COMMIT_HASH >> $BASH_ENV
-# if our commit messages has [debug ci] anywhere in it, we set -x in all build system BASH files
-# this can also be used for other verbose logging
-if [[ "$COMMIT_MESSAGE" == *"[debug ci]"* ]]; then
-  echo export BUILD_SYSTEM_DEBUG=1
-fi
 echo export COMMIT_TAG=$COMMIT_TAG >> $BASH_ENV
 echo export JOB_NAME=$JOB_NAME >> $BASH_ENV
 echo export GIT_REPOSITORY_URL=$GIT_REPOSITORY_URL >> $BASH_ENV
@@ -105,6 +100,12 @@ if [ -n "$COMMIT_HASH" ]; then
   mkdir -p ~/.ssh
   echo ${BUILD_INSTANCE_KEY:-} | base64 -d > ~/.ssh/build_instance_key
   chmod 600 ~/.ssh/build_instance_key
+  COMMIT_MESSAGE=`git log -n 1 --pretty=format:"%s" HEAD`
+  # if our commit messages has [debug ci] anywhere in it, we set -x in all build system BASH files
+  # this can also be used for other verbose logging
+  if [[ "$COMMIT_MESSAGE" == *"[debug ci]"* ]]; then
+    echo export BUILD_SYSTEM_DEBUG=1 >> $BASH_ENV
+  fi
 fi
 
 set +e
