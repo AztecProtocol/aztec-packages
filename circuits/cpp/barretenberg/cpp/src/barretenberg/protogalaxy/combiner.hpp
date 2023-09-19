@@ -83,14 +83,14 @@ template <typename Flavor, typename Instances> class ProtogalaxyProver {
         const PowUnivariate<typename Flavor::FF>& pow_univariate,
         const typename Flavor::FF alpha)
     {
-        size_t common_circuit_size = instances[0]._data[0].size(); // WORKTODO
+        size_t common_circuit_size = instances[0]._data[0].size();
         // Precompute the vector of required powers of zeta
         // WORKTODO: Parallelize this
-        std::vector<FF> pow_challenges(common_circuit_size >> 1);
+        std::vector<FF> pow_challenges(common_circuit_size);
         pow_challenges[0] =
             pow_univariate.partial_evaluation_constant; // LEFTOFFHERE: segfault here; need nonempty polynomials!
-        for (size_t i = 1; i < (common_circuit_size >> 1); ++i) {
-            pow_challenges[i] = pow_challenges[i - 1] * pow_univariate.zeta_pow_sqr;
+        for (size_t i = 1; i < common_circuit_size; ++i) {
+            pow_challenges[i] = pow_challenges[i - 1] * pow_univariate.zeta_pow;
         }
 
         // Determine number of threads for multithreading.
@@ -123,7 +123,7 @@ template <typename Flavor, typename Instances> class ProtogalaxyProver {
                 extend_univariates(extended_univariates[thread_idx], instances, idx);
 
                 // Update the pow polynomial's contribution c_l ⋅ ζ_{l+1}ⁱ for the next edge.
-                FF pow_challenge = pow_challenges[idx >> 1];
+                FF pow_challenge = pow_challenges[idx];
 
                 // Compute the i-th edge's univariate contribution,
                 // scale it by the pow polynomial's constant and zeta power "c_l ⋅ ζ_{l+1}ⁱ"

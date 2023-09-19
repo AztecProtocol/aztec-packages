@@ -20,7 +20,7 @@ TEST(Protogalaxy, Combiner)
             auto relation_parameters = RelationParameters::get_random();
             ProtogalaxyProver<Flavor, Instances<Flavor, NUM_INSTANCES>> prover;
             auto pow_univariate = PowUnivariate<FF>(/*zeta_pow=*/2);
-            auto alpha = FF(2);
+            auto alpha = FF(0); // focus on the arithmetic relation only
 
             size_t instance_idx = 0;
             for (auto& instance : instances) {
@@ -31,29 +31,17 @@ TEST(Protogalaxy, Combiner)
                 instance_idx++;
             }
 
-            // for (auto& instance : instances) {
-            //     std::fill(instance.z_perm.begin(), instance.z_perm.end(), FF(0));
-            //     std::fill(instance.z_perm_shift.begin(), instance.z_perm_shift.end(), FF(0));
-            // }
-
-            [[maybe_unused]] auto result =
-                prover.compute_combiner(instances, relation_parameters, pow_univariate, alpha);
-            info(result.value_at(0));
-            info(result.value_at(1));
-            info(result.value_at(2));
-            info(result.value_at(3));
-            info(result.value_at(4));
-            info(result.value_at(5));
-            // auto expected_result =
-            //     barretenberg::Univariate<FF, 6>(std::array<FF, 6>{ 0, 0, 0, 0, 0, 0 });
-            // EXPECT_EQ(result, expected_result);
+            auto result = prover.compute_combiner(instances, relation_parameters, pow_univariate, alpha);
+            auto expected_result = barretenberg::Univariate<FF, 6>(
+                std::array<FF, 6>{ 21150, 3778492, 30367578, 117758328, 322795030, 721196340 });
+            EXPECT_EQ(result, expected_result);
         } else {
             Instances<Flavor, NUM_INSTANCES> instances;
             std::array<std::array<Polynomial, Flavor::NUM_ALL_ENTITIES>, NUM_INSTANCES> storage_arrays;
             auto relation_parameters = RelationParameters();
             ProtogalaxyProver<Flavor, Instances<Flavor, NUM_INSTANCES>> prover;
             auto pow_univariate = PowUnivariate<FF>(/*zeta_pow=*/2);
-            auto alpha = FF(0);
+            auto alpha = FF(0); // focus on the arithmetic relation only
 
             size_t instance_idx = 0;
             for (auto& instance : instances) {
@@ -101,12 +89,12 @@ TEST(Protogalaxy, Combiner)
             EXPECT_EQ(instances[1].w_r[1], FF(5));
 
             auto result = prover.compute_combiner(instances, relation_parameters, pow_univariate, alpha);
-            auto expected_result = barretenberg::Univariate<FF, 6>(std::array<FF, 6>{ 0, 0, 0, 0, 0, 0 });
+            auto expected_result = barretenberg::Univariate<FF, 6>(std::array<FF, 6>{ 0, 0, 0, 0, 0, 0 }); // WORKTODO
             EXPECT_EQ(result, expected_result);
         }
     };
     run_test(true);
-    // run_test(false);
+    run_test(false);
 };
 
 } // namespace barretenberg::test_protogalaxy_prover
