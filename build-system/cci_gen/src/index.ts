@@ -41,7 +41,7 @@ function toTestJob(job: string, { spot, command }: any) {
   run.name = "Test";
   run.command = spot
     ? `cond_spot_run_test ${job} ${spot} ${command}`
-    : `cond_run_test ${job} ${command}`;
+    : `cond_run_script ${job} ${command}`;
 
   const jobNode: any = jobObject;
   jobNode.steps[0] = new Alias("checkout");
