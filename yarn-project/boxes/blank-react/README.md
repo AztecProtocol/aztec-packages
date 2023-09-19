@@ -8,7 +8,6 @@ Dependencies can be installed from the root of the package:
 yarn
 yarn install:noir
 yarn install:sandbox
-yarn build
 ```
 
 This sandbox requires [Docker](https://www.docker.com/) to be installed _and running_ locally. In the event the image needs updating, you can run `yarn install:sandbox` (see [sandbox docs](https://aztec-docs-dev.netlify.app/dev_docs/getting_started/sandbox) for more information.)
@@ -17,7 +16,7 @@ In addition to the usual javascript dependencies, this project requires `nargo` 
 
 ## Getting started
 
-After `yarn build` has run,`yarn start:sandbox` in one terminal will launch a local instance of the Aztec sandbox via Docker Compose and `yarn start:dev` will launch a frontend app for deploying and interacting with an empty Aztec smart contract.
+After `yarn` has run,`yarn start:sandbox` in one terminal will launch a local instance of the Aztec sandbox via Docker Compose and `yarn start:dev` will launch a frontend app for deploying and interacting with an empty Aztec smart contract.
 
 At this point, [http://localhost:5173](http://localhost:5173) should provide a minimal smart contract frontend.
 
@@ -27,7 +26,7 @@ This folder should have the following directory structure:
 |— README.md
 |— package.json
 |— src
-       |-config.ts - PrivateToken specific configuration for the frontend.
+       |-config.ts - Blank Contract specific configuration for the frontend.
        |             You may need to update this if you modify the contract functions.
        |— app
               |— [frontend React .tsx code files]
@@ -41,11 +40,10 @@ This folder should have the following directory structure:
                |— Nargo.toml [Noir build file, includes Aztec smart contract dependencies]
        |— artifacts
               |  These are both generated from `contracts/` by the compile command
-              |— private_token_contract.json
-              |— private_token.ts
+              |— blank_contract.json
+              |— blank.ts
        |— tests
-              | A simple end2end test deploying and testing the PrivateToken on a local sandbox
-              | using the front end helper methods in app/scripts/
+              | A simple end2end test deploying and testing the Blank contract deploys on a local sandbox
               | The test requires the sandbox and anvil to be running (yarn start:sandbox).
               |- blank.contract.test.ts
 ```

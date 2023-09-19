@@ -50,7 +50,7 @@ describe('ZK Contract Tests', () => {
   let owner: CompleteAddress;
   let _account2: CompleteAddress;
   let _account3: CompleteAddress;
-  let testTokenContract: Contract;
+  let contract: Contract;
   let contractAddress: AztecAddress;
   let rpcClient: AztecRPC;
 
@@ -61,12 +61,12 @@ describe('ZK Contract Tests', () => {
 
     wallet = await getWallet(owner, rpcClient);
 
-    testTokenContract = await deployZKContract(owner, wallet, rpcClient);
-    contractAddress = testTokenContract.address;
+    contract = await deployZKContract(owner, wallet, rpcClient);
+    contractAddress = contract.address;
   }, 60000);
 
   test('call succeeds after deploy', async () => {
-    const callTx = call(contractAddress, testTokenContract, owner);
+    const callTx = call(contractAddress, contract, owner);
     await callTx;
   }, 40000);
 });
