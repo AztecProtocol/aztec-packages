@@ -21,13 +21,13 @@ Although constructors are always needed, they are not required to do anything. A
 
 ## `Private` Functions
 
-To create a private function you can annotate it with the `#[aztec(private)]` attribute. This will make the [private context](./context.mdx#private-context-broken-down) available within your current function's execution scope.
+To create a private function you can annotate it with the `#[aztec(private)]` attribute. This will make the [private context](../context.mdx#private-context-broken-down) available within your current function's execution scope.
 
 #include_code functions-SecretFunction /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/main.nr rust
 
 ## `Public` Functions
 
-To create a public function you can annotate it with the `#[aztec(public)]` attribute. This will make the [public context](./context.mdx#public-context) available within your current function's execution scope.
+To create a public function you can annotate it with the `#[aztec(public)]` attribute. This will make the [public context](../context.mdx#public-context) available within your current function's execution scope.
 
 #include_code functions-OpenFunction /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/main.nr rust
 
@@ -52,7 +52,7 @@ These are used to annotate functions so that they are compliant with Aztec ABIs.
 ### Function type attributes explained.
 Aztec.nr uses an attribute system to annotate a function's type. Annotating a function with the `#[aztec(private)]` attribute tells the framework that this will be a private function that will be executed on a users device. Thus the compiler will create a circuit to define this function. 
 
-However; `#aztec(private)` is just syntactic sugar. At compile time, the framework inserts code that allows the function to interact with the [kernel](../../concepts/advanced/circuits/kernels/private_kernel.md).
+However; `#aztec(private)` is just syntactic sugar. At compile time, the framework inserts code that allows the function to interact with the [kernel](../../../concepts/advanced/circuits/kernels/private_kernel.md).
 
 To help illustrate how this interacts with the internals of #public-contextAztec and its kernel circuits, we can take an example private function, and explore what it looks like after Aztec.nr's macro expansion.
 
@@ -64,12 +64,12 @@ To help illustrate how this interacts with the internals of #public-contextAztec
 #include_code simple_macro_example_expanded /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/main.nr rust
 
 #### The expansion broken down?
-Viewing the expanded noir contract uncovers a lot about how noir contracts interact with the [kernel](../../concepts/advanced/circuits/kernels/private_kernel.md). To aid with developing intuition, we will break down each inserted line.
+Viewing the expanded noir contract uncovers a lot about how noir contracts interact with the [kernel](../../../concepts/advanced/circuits/kernels/private_kernel.md). To aid with developing intuition, we will break down each inserted line.
 
 **Receiving context from the kernel.**
 #include_code context-example-inputs /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/main.nr rust
 
-Private function calls are able to interact with each other through orchestration from within the [kernel circuit](../../concepts/advanced/circuits/kernels/private_kernel.md). The kernel circuit forwards information to each app circuit. This information then becomes part of the private context. 
+Private function calls are able to interact with each other through orchestration from within the [kernel circuit](../../../concepts/advanced/circuits/kernels/private_kernel.md). The kernel circuit forwards information to each app circuit. This information then becomes part of the private context. 
 For example, within each circuit we can access some global variables. To access them we can call `context.chain_id()`. The value of this chain ID comes from the values passed into the circuit from the kernel. 
 
 The kernel can then check that all of the values passed to each circuit in a function call are the same. 
@@ -95,7 +95,7 @@ Inside the kernel circuits, the inputs to functions are reduced to a single valu
 **Creating the function's context.**
 #include_code context-example-context /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/main.nr rust
 
-Each Aztec function has access to a [context](./context.mdx) object. This object although ergonomically a global variable, is local. It is initialized from the inputs provided by the kernel, and a hash of the function's inputs.
+Each Aztec function has access to a [context](../context.mdx) object. This object although ergonomically a global variable, is local. It is initialized from the inputs provided by the kernel, and a hash of the function's inputs.
 
 #include_code context-example-context-return /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/main.nr rust
 
