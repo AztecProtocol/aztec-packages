@@ -12,7 +12,7 @@ import {
 import { createDebugLogger } from '@aztec/foundation/log';
 import { BlankContract } from '../artifacts/blank.js';
 import { callContractFunction, deployContract, getWallet, rpcClient } from '../index.js';
-const logger = createDebugLogger('aztec:http-rpc-client');
+const logger = createDebugLogger('aztec:blank-box-test');
 
 // assumes sandbox is running locally, which this script does not trigger
 // as well as anvil.  anvil can be started with yarn test:integration
@@ -48,7 +48,7 @@ describe('ZK Contract Tests', () => {
   let owner: CompleteAddress;
   let _account2: CompleteAddress;
   let _account3: CompleteAddress;
-  let testTokenContract: Contract;
+  let contract: Contract;
   let contractAddress: AztecAddress;
   let rpcClient: AztecRPC;
 
@@ -59,12 +59,12 @@ describe('ZK Contract Tests', () => {
 
     wallet = await getWallet(owner, rpcClient);
 
-    testTokenContract = await deployZKContract(owner, wallet, rpcClient);
-    contractAddress = testTokenContract.address;
+    contract = await deployZKContract(owner, wallet, rpcClient);
+    contractAddress = contract.address;
   }, 60000);
 
   test('call succeeds after deploy', async () => {
-    const callTx = call(contractAddress, testTokenContract, owner);
+    const callTx = call(contractAddress, contract, owner);
     await callTx;
   }, 40000);
 });

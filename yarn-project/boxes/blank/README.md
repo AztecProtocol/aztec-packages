@@ -8,7 +8,6 @@ Dependencies can be installed from the root of the package:
 yarn
 yarn install:noir
 yarn install:sandbox
-yarn build
 ```
 
 This sandbox requires [Docker](https://www.docker.com/) to be installed _and running_ locally. In the event the image needs updating, you can run `yarn install:sandbox` (see [sandbox docs](https://aztec-docs-dev.netlify.app/dev_docs/getting_started/sandbox) for more information.)
@@ -17,7 +16,7 @@ In addition to the usual javascript dependencies, this project requires `nargo` 
 
 ## Getting started
 
-After `yarn build` has run,`yarn start:sandbox` in one terminal will launch a local instance of the Aztec sandbox via Docker Compose and `yarn start:dev` will launch a frontend app for deploying and interacting with an empty Aztec smart contract.
+After `yarn` has run,`yarn start:sandbox` in one terminal will launch a local instance of the Aztec sandbox via Docker Compose and `yarn start:dev` will launch a frontend app for deploying and interacting with an empty Aztec smart contract.
 
 At this point, [http://localhost:5173](http://localhost:5173) should provide a minimal smart contract frontend.
 
@@ -37,8 +36,8 @@ This folder should have the following directory structure:
                |— Nargo.toml [Noir build file, includes Aztec smart contract dependencies]
        |— artifacts
               |  These are both generated from `contracts/` by the compile command
-              |— test_contract.json
-              |— test_token.ts
+              |— blank_contract.json
+              |— blank.ts
        |— tests
               | A simple end2end test deploying and testing the minimal contract on a local sandbox
               | using the front end helper methods in index.ts
