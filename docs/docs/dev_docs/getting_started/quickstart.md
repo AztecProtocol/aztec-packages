@@ -32,6 +32,11 @@ With the help of Aztec.js you will be able to:
 
 This quickstart walks you through installing the Sandbox, deploying your first Noir contract, and verifying its execution!
 
+## Requirements
+
+- Node.js >= v18 (recommend installing with [nvm](https://github.com/nvm-sh/nvm))
+- Docker and Docker Compose (Docker Desktop under WSL2 on windows)
+
 ## Installation
 
 You can run the Sandbox using either Docker or npm.

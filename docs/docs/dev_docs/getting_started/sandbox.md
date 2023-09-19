@@ -12,7 +12,7 @@ Here we will walkthrough the process of retrieving the Sandbox, installing the c
 
 ## What do you need?
 
-- Node.Js >= v18
+- Node.js >= v18
 - Docker and Docker Compose (Docker Desktop under WSL2 on windows)
 
 That's it...
