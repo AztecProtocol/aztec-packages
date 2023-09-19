@@ -38,7 +38,7 @@ An example usage of this flow is a token bridge. You can deposit to Aztec i.e. m
 
 #include_code token_portal_deposit l1-contracts/test/portals/TokenPortal.sol solidity
 
-To consume the message on Aztec, we can use the `consume_l1_to_l2_message` function within the `context` struct. 
+To consume the message on Aztec, we can use the `consume_l1_to_l2_message` function from the `context`. 
 The `msg_key` is the hash of the message produced from the `sendL2Message` call, the `content` is the content of the message, and the `secret` is the pre-image hashed to compute the `secretHash`.
 
 #include_code context_consume_l1_to_l2_message /yarn-project/aztec-nr/aztec/src/context.nr rust
@@ -49,7 +49,7 @@ On Aztec, to consume the message and mint the notes, in the Aztec contract a `cl
 
 #include_code token_bridge_claim_private yarn-project/noir-contracts/src/contracts/token_bridge_contract/src/main.nr rust
 
-Note that, if you deposited to Aztec publicly (using the `TokenPortal.depositToAztecPublic()` method that was shown earlier), you have to call the `claim_public` method on the aztec contract which works similar to `claim_private` but operates in the public domain and calculates the appropriate content hash:
+Note that, if you deposited to Aztec publicly (using the `TokenPortal.depositToAztecPublic()` method that was shown earlier), you have to call the `claim_public` method on the Aztec contract which works similar to `claim_private` but operates in the public domain and calculates the appropriate content hash:
 
 #include_code token_bridge_claim_public yarn-project/noir-contracts/src/contracts/token_bridge_contract/src/main.nr rust
 
@@ -75,11 +75,11 @@ When sending a message from L2 to L1 we don't need to pass recipient, deadline, 
 Access control on the L1 portal contract is essential to prevent consumption of messages sent from the wrong L2 contract.
 :::
 
-As earlier, we can use a token bridge as an example. In this case, we are burning tokens on L2 and sending a message to the portal to free them on L1.
+As earlier, we can use a token bridge as an example. In this case, we are burning tokens on L2 and sending a message to the portal to free them on L1. The burn happens privately, so it doesn't leak the burn amount on Aztec.
 
 #include_code token_bridge_exit_private yarn-project/noir-contracts/src/contracts/token_bridge_contract/src/main.nr rust
 
-Here, you are burning your funds privately, and not leaking the burn amount on Aztec. However, you can also exit publicly:
+You can also exit publicly:
 
 #include_code token_bridge_exit_public yarn-project/noir-contracts/src/contracts/token_bridge_contract/src/main.nr rust
 
