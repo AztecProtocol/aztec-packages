@@ -10,8 +10,8 @@ import {
   getSandboxAccountsWallets,
 } from '@aztec/aztec.js';
 import { ContractAbi, FunctionAbi, encodeArguments } from '@aztec/foundation/abi';
-import { TestContractAbi } from './artifacts/test.js';
-export const contractAbi: ContractAbi = TestContractAbi;
+import { BlankContractAbi } from './artifacts/blank.js';
+export const contractAbi: ContractAbi = BlankContractAbi;
 
 export const SANDBOX_URL: string = process.env.SANDBOX_URL || 'http://localhost:8080';
 export const rpcClient: AztecRPC = createAztecRpcClient(SANDBOX_URL);
@@ -42,7 +42,7 @@ document.getElementById('deploy')?.addEventListener('click', async () => {
 document.getElementById('interact')?.addEventListener('click', async () => {
   const [wallet, ..._rest] = await getSandboxAccountsWallets(rpcClient);
   const callArgs = { address: wallet.getCompleteAddress().address };
-  const getPkAbi = getFunctionAbi(TestContractAbi, 'getPublicKey');
+  const getPkAbi = getFunctionAbi(BlankContractAbi, 'getPublicKey');
   const typedArgs = convertArgs(getPkAbi, callArgs);
   console.log('Interacting with Contract');
 

@@ -4,7 +4,6 @@ module.exports = {
   extends: [
     'eslint:recommended',
     'plugin:@typescript-eslint/recommended',
-    'plugin:react-hooks/recommended',
     'plugin:import/recommended',
     'plugin:import/typescript',
     'prettier',
@@ -17,7 +16,7 @@ module.exports = {
   },
   ignorePatterns: ['dist', '.eslintrc.cjs'],
   parser: '@typescript-eslint/parser',
-  plugins: ['react-refresh'],
+  plugins: [],
   overrides: [
     {
       files: ['*.ts', '*.tsx'],
