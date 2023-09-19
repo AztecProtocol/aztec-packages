@@ -18,6 +18,10 @@ You can run `aztec-cli get-node-info` to query the version of nargo that corresp
 
 ## Compile using the CLI
 
+To compile a contract using the Aztec CLI, first install it:
+
+`npm install -g @aztec/cli`
+
 Then run the `compile` command with the path to your [contract project folder](./layout.md#directory-structure), which is the one that contains the `Nargo.toml` file:
 
 ```

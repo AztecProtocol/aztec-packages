@@ -24,14 +24,6 @@ You need to setup the [Aztec sandbox](./sandbox.md).
 
 <!-- TODO([#1056](https://github.com/AztecProtocol/aztec-packages/issues/1056)): Add a step for the starter kit -->
 
-#### `aztec-cli`
-Install aztec-cli by following the [CLI tutorial](../getting_started/cli.md#installing-the-aztec-cli).
-
-#### `nargo`
-Nargo is Noir's build tool.
-
-Install it by following the [Prerequisites section of contract compilation](../contracts/compiling.md#Prerequisites).
-
 ## Set up for aztec.nr contracts
 
 1. Inside the yarn project you created from the [Aztec.js](./sandbox.md) page, create a sub-folder where the contracts will reside.
