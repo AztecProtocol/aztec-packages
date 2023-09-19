@@ -109,6 +109,7 @@ const sidebars = {
             "dev_docs/contracts/syntax/storage",
             "dev_docs/contracts/syntax/state_variables",
             "dev_docs/contracts/syntax/globals",
+            "dev_docs/contracts/syntax/messaging",
           ],
         },
         {
@@ -123,8 +124,8 @@ const sidebars = {
             "dev_docs/contracts/portals/registry",
             "dev_docs/contracts/portals/inbox",
             "dev_docs/contracts/portals/outbox",
-          ],
-        },
+          ]
+        }
         // {
         //   label: "Resources",
         //   type: "category",
@@ -363,6 +364,26 @@ const sidebars = {
         "concepts/advanced/public_vm",
         "concepts/advanced/contract_creation",
       ],
+    },
+
+    {
+      type: "html",
+      value: '<span class="sidebar-divider" />',
+    },
+
+    // API
+
+    {
+      type: "html",
+      className: "sidebar-title",
+      value: "API Reference",
+      defaultStyle: true,
+    },
+
+    {
+      label: "Aztec RPC Server",
+      type: "doc",
+      id: "apis/aztec-rpc/interfaces/AztecRPC",
     },
 
     {
