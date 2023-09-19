@@ -21,21 +21,21 @@ If you are unsure what version to use go to [aztec-packages repository](https://
 
 Then set the `SANDBOX_VERSION` environmental variable to the version you want to use. E.g.:
 ```shell
-export SANDBOX_VERSION=v0.7.5
+export SANDBOX_VERSION=0.7.7
 ```
 
 Now when you run the curl command it will use the version you specified.
 To verify that it's the case check the console output of the curl command.
 You should see the following line:
 ```
-Aztec Sandbox v0.7.5 is now ready for use!
+Aztec Sandbox 0.7.7 is now ready for use!
 ```
 
 Alternatively you can open a new terminal and use aztec-cli to get the version.
 
 #include_code node-info yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
 
-The client version should be the same as the one we chose by setting the `SANDBOX_VERSION` environmental variable.
+The sandbox version should be the same as the one we chose by setting the `SANDBOX_VERSION` environmental variable.
 
 ## Updating Aztec CLI
 If the latest version was used when updating the sandbox then we can simply run the following command to update the CLI:
@@ -50,7 +50,7 @@ npm install -g @aztec/cli@REPLACE_WITH_SANDBOX_VERSION
 
 E.g.:
 ```shell
-npm install -g @aztec/cli@0.7.5
+npm install -g @aztec/cli@0.7.7
 ```
 
 ## Updating Noir compiler
@@ -64,5 +64,37 @@ noirup -v COMPATIBLE_NARGO_VERSION
 ```
 
 ## Updating Noir framework
-Finally we need to update the Noir framework for Aztec contracts `aztec.nr`.
+Finally we need to update the Noir framework for Aztec contracts.
 We need to install a version compatible with our `nargo` version.
+
+To update the framework we will update a tag of the `aztec.nr` dependency in the `Nargo.toml` file to the `SANDBOX_VERSION` from above.
+Find all the dependencies pointing to the directory within `aztec.nr` framework and update the corresponding tag:
+
+```toml
+[dependencies]
+aztec = { git="https://github.com/AztecProtocol/aztec-packages", tag="aztec-packages-v<REPLACE_WITH_NEW_SANDBOX_VERSION>", directory="yarn-project/aztec-nr/aztec" }
+value_note = { git="https://github.com/AztecProtocol/aztec-packages", tag="aztec-packages-v<REPLACE_WITH_NEW_SANDBOX_VERSION>", directory="yarn-project/aztec-nr/value-note" }
+```
+
+To provide you with a concrete example we will update from version `0.7.5`:
+```toml
+[dependencies]
+aztec = { git="https://github.com/AztecProtocol/aztec-packages", tag="aztec-packages-v0.7.5", directory="yarn-project/aztec-nr/aztec" }
+value_note = { git="https://github.com/AztecProtocol/aztec-packages", tag="aztec-packages-v0.7.5", directory="yarn-project/aztec-nr/value-note" }
+```
+
+to `0.7.7`:
+
+```toml
+[dependencies]
+aztec = { git="https://github.com/AztecProtocol/aztec-packages", tag="aztec-packages-v0.7.7", directory="yarn-project/aztec-nr/aztec" }
+value_note = { git="https://github.com/AztecProtocol/aztec-packages", tag="aztec-packages-v0.7.7", directory="yarn-project/aztec-nr/value-note" }
+```
+
+Go to the project directory and try compiling it with `aztec-cli`` to verify that the update was successful:
+```shell
+cd /your/project/root
+aztec-cli compile ./
+```
+
+If the dependencies fail to resolve ensure that the tag matches a tag in the [aztec-packages repository](https://github.com/AztecProtocol/aztec-packages/tags).
