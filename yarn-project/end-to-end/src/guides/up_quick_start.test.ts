@@ -8,6 +8,9 @@ describe('guides/up_quick_start', () => {
     await waitForSandbox();
     // eslint-disable-next-line no-console
     console.log(`Sandbox ready`);
-    execSync(`PATH=$PATH:../node_modules/.bin ./src/guides/up_quick_start.sh`, { shell: '/bin/bash', stdio: 'pipe' });
+    execSync(`DEBUG="aztec:*" PATH=$PATH:../node_modules/.bin ./src/guides/up_quick_start.sh`, {
+      shell: '/bin/bash',
+      stdio: 'pipe',
+    });
   }, 90_000);
 });
