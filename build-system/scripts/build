@@ -161,12 +161,13 @@ for STAGE in $STAGES; do
   echo
 done
 
-# Pull previous image to use it as a layer cache if it exists.
-if [ -n "$CONTENT_HASH" ]; then
+# Pull previous image to use it as a layer cache if it exists, and if we have not manually ran.
+if [ -n "$COMMIT_HASH" ]; then
   LAST_SUCCESSFUL_URI=$ECR_URL/$REPOSITORY:cache-$CONTENT_HASH
   echo "Pulling previous build of $REPOSITORY..."
-  try_fetch_image $LAST_SUCCESSFUL_URI || true
-  CACHE_FROM="--cache-from $LAST_SUCCESSFUL_URI $CACHE_FROM"
+  if try_fetch_image $LAST_SUCCESSFUL_URI ; then
+    CACHE_FROM="--cache-from $LAST_SUCCESSFUL_URI $CACHE_FROM"
+  fi
   echo
 fi
 
