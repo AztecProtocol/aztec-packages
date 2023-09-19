@@ -32,10 +32,10 @@ async function deployZKContract(owner: CompleteAddress, wallet: Wallet, rpcClien
   return contract;
 }
 
-async function call(contractAddress: AztecAddress, privateTokenContract: Contract, address: CompleteAddress) {
+async function call(contractAddress: AztecAddress, testTokenContract: Contract, address: CompleteAddress) {
   return await callContractFunction(
     contractAddress,
-    privateTokenContract.abi,
+    testTokenContract.abi,
     'getPublicKey',
     [address.address.toField()],
     rpcClient,
@@ -48,7 +48,7 @@ describe('ZK Contract Tests', () => {
   let owner: CompleteAddress;
   let _account2: CompleteAddress;
   let _account3: CompleteAddress;
-  let privateTokenContract: Contract;
+  let testTokenContract: Contract;
   let contractAddress: AztecAddress;
   let rpcClient: AztecRPC;
 
@@ -59,12 +59,12 @@ describe('ZK Contract Tests', () => {
 
     wallet = await getWallet(owner, rpcClient);
 
-    privateTokenContract = await deployZKContract(owner, wallet, rpcClient);
-    contractAddress = privateTokenContract.address;
+    testTokenContract = await deployZKContract(owner, wallet, rpcClient);
+    contractAddress = testTokenContract.address;
   }, 60000);
 
   test('call succeeds after deploy', async () => {
-    const callTx = call(contractAddress, privateTokenContract, owner);
+    const callTx = call(contractAddress, testTokenContract, owner);
     await callTx;
   }, 40000);
 });
