@@ -66,7 +66,7 @@ checkout: &checkout
 setup_env: &setup_env
   run:
     name: "Setup environment"
-    command: ./build-system/scripts/setup_env "$CIRCLE_SHA1" "$CIRCLE_TAG" "$CIRCLE_JOB" "$CIRCLE_REPOSITORY_URL" "$CIRCLE_BRANCH"
+    command: ./build-system/scripts/setup_env "$CIRCLE_SHA1" "$CIRCLE_TAG" "$CIRCLE_JOB" "$CIRCLE_REPOSITORY_URL" "$CIRCLE_BRANCH" "$CIRCLE_COMMIT_MESSAGE"
 
 # This step is used to save logs from various barretenberg test to the workspace so that they can be used later to parse benchmark values out of them
 save_logs: &save_logs
