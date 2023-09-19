@@ -8,7 +8,7 @@ An example of such a struct could be as follow:
 #include_code storage-struct-declaration /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/main.nr rust
 
 :::info
-If your storage include private state variables it must include  a `compute_note_hash_and_nullifier` function to allow the RPC to process encrypted events, see [encrypted events](./../events.md#processing-encrypted-events) for more.
+If your storage include private state variables it must include  a `compute_note_hash_and_nullifier` function to allow the RPC to process encrypted events, see [encrypted events](./events.md#processing-encrypted-events) for more.
 :::
 
 In here, we are setting up a mix of public and private state variables. The public state variables can be read by anyone, and functions manipulating them are executed by the sequence, we will see more to this in [functions](./functions.md#public-functions) in a few moments. The private state variables are only readable by their owner, or people whom the owner have shared the data with. 
