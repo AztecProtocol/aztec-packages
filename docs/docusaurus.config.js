@@ -124,9 +124,9 @@ const config = {
         },
       ],
       algolia: {
-        appId: "YOMNCJ88NY",
-        apiKey: "ef5490899a6f9618f55c7997ba5b35b4",
-        indexName: "aztec--dev",
+        appId: "CL4NK79B0W",
+        apiKey: "21d89dadaa37a4d1b6bf4b17978dcf7f",
+        indexName: "aztec",
       },
       colorMode: {
         defaultMode: "light",
