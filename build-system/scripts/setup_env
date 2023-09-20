@@ -89,10 +89,6 @@ echo export BRANCH=$BRANCH >> $BASH_ENV
 if [ ! -f /etc/alpine-release ]; then
   echo export PATH=$BUILD_SYSTEM_PATH/bin:\$PATH >> $BASH_ENV
 fi
-cat $BASH_ENV
-
-# Having written the variables to $BASH_ENV, we now want to set them in this shell context.
-source $BASH_ENV
 
 # Only run the following if we're the result of a commit (i.e. not being run manually).
 if [ -n "$COMMIT_HASH" ]; then
@@ -100,12 +96,32 @@ if [ -n "$COMMIT_HASH" ]; then
   mkdir -p ~/.ssh
   echo ${BUILD_INSTANCE_KEY:-} | base64 -d > ~/.ssh/build_instance_key
   chmod 600 ~/.ssh/build_instance_key
+
+  declare -A commands
+  commands=(
+    ["debug"]="BUILD_SYSTEM_DEBUG=1"
+    ["rebuild"]="BUILD_SYSTEM_REBUILD=1"
+  )
+
   COMMIT_MESSAGE=`git log -n 1 --pretty=format:"%s" HEAD`
-  # if our commit messages has [debug ci] anywhere in it, we set -x in all build system BASH files
-  # this can also be used for other verbose logging
-  if [[ "$COMMIT_MESSAGE" == *"[debug ci]"* ]]; then
-    echo export BUILD_SYSTEM_DEBUG=1 >> $BASH_ENV
+
+  if [[ $COMMIT_MESSAGE =~ \[ci[[:space:]]([^]]+)\] ]]; then
+    IFS=' ' read -r -a ci_commands <<< "${BASH_REMATCH[1]}"
+    for ci_command in "${ci_commands[@]}"; do
+      if [[ -n ${commands[$ci_command]} ]]; then
+        echo "export ${commands[$ci_command]}" >> "$BASH_ENV"
+      else
+        echo "Unrecognized ci command: $ci_command" >&2
+      fi
+    done
   fi
 fi
 
+# Print for visibility.
+cat $BASH_ENV
+
+# Having written the variables to $BASH_ENV, we now want to set them in this shell context.
+source $BASH_ENV
+
+# This script is often "sourced", we don't want calling shell to exit on a subsequent error!
 set +e

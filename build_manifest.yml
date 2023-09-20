@@ -4,32 +4,32 @@ barretenberg-wasm-linux-clang:
   buildDir: barretenberg/cpp
   dockerfile: dockerfiles/Dockerfile.wasm-linux-clang
   rebuildPatterns: .rebuild_patterns
-  spot: 64
+  spot: 128
 
 barretenberg-x86_64-linux-gcc:
   buildDir: barretenberg/cpp
   dockerfile: dockerfiles/Dockerfile.x86_64-linux-gcc
   rebuildPatterns: .rebuild_patterns
-  spot: 64
+  spot: 128
 
 barretenberg-x86_64-linux-clang:
   buildDir: barretenberg/cpp
   dockerfile: dockerfiles/Dockerfile.x86_64-linux-clang
   rebuildPatterns: .rebuild_patterns
-  spot: 64
+  spot: 128
 
 barretenberg-x86_64-linux-clang-fuzzing:
   buildDir: barretenberg/cpp
   dockerfile: dockerfiles/Dockerfile.x86_64-linux-clang-fuzzing
   rebuildPatterns: .rebuild_patterns
-  spot: 64
+  spot: 128
 
 # Barretenberg with assertions enabled and tests.
 barretenberg-x86_64-linux-clang-assert:
   buildDir: barretenberg/cpp
   dockerfile: dockerfiles/Dockerfile.x86_64-linux-clang-assert
   rebuildPatterns: .rebuild_patterns
-  spot: 64
+  spot: 128
   tests:
     barretenberg-stdlib-tests:
       command: ./scripts/run_tests 1 stdlib-tests
@@ -167,7 +167,7 @@ yarn-project-base:
 
 yarn-project:
   buildDir: yarn-project
-  spot: 64
+  spot: 128
   dependencies:
     - yarn-project-base
     - noir-contracts-build
