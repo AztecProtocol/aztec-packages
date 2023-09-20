@@ -84,8 +84,9 @@ void FFTerm::operator*=(const FFTerm& other)
  */
 FFTerm FFTerm::operator/(const FFTerm& other) const
 {
-    cvc5::Term nz = this->solver->s.mkTerm(cvc5::Kind::EQUAL, {other.term, this->solver->s.mkFiniteFieldElem("0", this->solver->fp)});
-    nz = this->solver->s.mkTerm(cvc5::Kind::EQUAL, {nz, this->solver->s.mkBoolean(false)});
+    cvc5::Term nz = this->solver->s.mkTerm(cvc5::Kind::EQUAL,
+                                           { other.term, this->solver->s.mkFiniteFieldElem("0", this->solver->fp) });
+    nz = this->solver->s.mkTerm(cvc5::Kind::EQUAL, { nz, this->solver->s.mkBoolean(false) });
     this->solver->s.assertFormula(nz);
 
     cvc5::Term res = this->solver->s.mkConst(this->solver->fp,
@@ -99,8 +100,9 @@ FFTerm FFTerm::operator/(const FFTerm& other) const
 
 void FFTerm::operator/=(const FFTerm& other)
 {
-    cvc5::Term nz = this->solver->s.mkTerm(cvc5::Kind::EQUAL, {other.term, this->solver->s.mkFiniteFieldElem("0", this->solver->fp)});
-    nz = this->solver->s.mkTerm(cvc5::Kind::EQUAL, {nz, this->solver->s.mkBoolean(false)});
+    cvc5::Term nz = this->solver->s.mkTerm(cvc5::Kind::EQUAL,
+                                           { other.term, this->solver->s.mkFiniteFieldElem("0", this->solver->fp) });
+    nz = this->solver->s.mkTerm(cvc5::Kind::EQUAL, { nz, this->solver->s.mkBoolean(false) });
     this->solver->s.assertFormula(nz);
 
     cvc5::Term res = this->solver->s.mkConst(this->solver->fp,

@@ -39,9 +39,9 @@ FFITerm::FFITerm(const std::string& t, Solver* slv, bool isconst, uint32_t base)
         slv->s.assertFormula(lt);
     } else {
         std::string tmp = slv->s.mkFiniteFieldElem(t, slv->fp, base).getFiniteFieldValue(); // dumb but works
-        if(tmp[0] == '-'){
-            this->term = slv->s.mkTerm(cvc5::Kind::ADD, {slv->s.mkInteger(tmp), this->modulus});
-        }else{
+        if (tmp[0] == '-') {
+            this->term = slv->s.mkTerm(cvc5::Kind::ADD, { slv->s.mkInteger(tmp), this->modulus });
+        } else {
             this->term = slv->s.mkInteger(tmp);
         }
         // this->term = slv->s.mkInteger(tmp); won't work for now since the assertion will definitely fail
@@ -102,8 +102,8 @@ void FFITerm::operator*=(const FFITerm& other)
  */
 FFITerm FFITerm::operator/(const FFITerm& other) const
 {
-    cvc5::Term nz = this->solver->s.mkTerm(cvc5::Kind::EQUAL, {other.term, this->solver->s.mkInteger("0")});
-    nz = this->solver->s.mkTerm(cvc5::Kind::EQUAL, {nz, this->solver->s.mkBoolean(false)});
+    cvc5::Term nz = this->solver->s.mkTerm(cvc5::Kind::EQUAL, { other.term, this->solver->s.mkInteger("0") });
+    nz = this->solver->s.mkTerm(cvc5::Kind::EQUAL, { nz, this->solver->s.mkBoolean(false) });
     this->solver->s.assertFormula(nz);
 
     cvc5::Term res = this->solver->s.mkConst(this->solver->s.getIntegerSort(),
@@ -118,10 +118,10 @@ FFITerm FFITerm::operator/(const FFITerm& other) const
 
 void FFITerm::operator/=(const FFITerm& other)
 {
-    cvc5::Term nz = this->solver->s.mkTerm(cvc5::Kind::EQUAL, {other.term, this->solver->s.mkInteger("0")});
-    nz = this->solver->s.mkTerm(cvc5::Kind::EQUAL, {nz, this->solver->s.mkBoolean(false)});
+    cvc5::Term nz = this->solver->s.mkTerm(cvc5::Kind::EQUAL, { other.term, this->solver->s.mkInteger("0") });
+    nz = this->solver->s.mkTerm(cvc5::Kind::EQUAL, { nz, this->solver->s.mkBoolean(false) });
     this->solver->s.assertFormula(nz);
-    
+
     cvc5::Term res = this->solver->s.mkConst(this->solver->fp,
                                              "fe0f65a52067384116dc1137d798e0ca00a7ed46950e4eab7db51e08481535f2_div_" +
                                                  std::string(*this) + "__" + std::string(other));
