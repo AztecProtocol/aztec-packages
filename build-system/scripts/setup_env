@@ -97,7 +97,7 @@ if [ -n "$COMMIT_HASH" ]; then
   echo ${BUILD_INSTANCE_KEY:-} | base64 -d > ~/.ssh/build_instance_key
   chmod 600 ~/.ssh/build_instance_key
 
-  COMMIT_MESSAGE=`git log -n 1 --pretty=format:"%s" HEAD`
+  COMMIT_MESSAGE=`git log -n 1 --pretty=format:"%s" $COMMIT_HASH`
 
   if [[ "$COMMIT_MESSAGE" == *"[ci debug]"* ]]; then
     echo export BUILD_SYSTEM_DEBUG=1 >> $BASH_ENV
