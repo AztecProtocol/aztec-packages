@@ -49,6 +49,7 @@ export async function deployInitialSandboxAccounts(aztecRpc: AztecRPC) {
   // Attempt to get as much parallelism as possible
   const deployMethods = await Promise.all(
     accounts.map(async x => {
+      console.log("Creating account for privkey ", x.privateKey);
       const deployMethod = await x.account.getDeployMethod();
       await deployMethod.create({ contractAddressSalt: x.account.salt });
       await deployMethod.simulate({});

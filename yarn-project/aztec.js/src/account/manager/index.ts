@@ -78,6 +78,7 @@ export class AccountManager {
    */
   public async register(): Promise<AccountWallet> {
     const completeAddress = await this.getCompleteAddress();
+    console.log('registerAccount ', this.encryptionPrivateKey, completeAddress.partialAddress)
     await this.rpc.registerAccount(this.encryptionPrivateKey, completeAddress.partialAddress);
     return this.getWallet();
   }
