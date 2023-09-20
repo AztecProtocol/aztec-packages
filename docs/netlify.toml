@@ -62,4 +62,19 @@
     from = "/aztec/overview"
     to = "/"
 
+[[redirects]]
+    from = "/aztec/*"
+    to = "/"
+
+[[redirects]]
+    from = "/noir"
+    to = "/"
+
+[[redirects]]
+    from = "/aztec-connect-sunset"
+    to = "/misc/aztec-connect-sunset"
+
+[[redirects]]
+    from = "/glossary"
+    to = "/misc/glossary"
     
