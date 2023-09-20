@@ -3,7 +3,7 @@ FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project-base AS builder
 RUN apk update && apk add --no-cache udev ttf-freefont chromium curl jq bash
 ENV CHROME_BIN="/usr/bin/chromium-browser" PUPPETEER_SKIP_CHROMIUM_DOWNLOAD="true"
 
-ARG COMMIT_TAG="."
+ARG COMMIT_TAG="v0.7.8"
 
 COPY . .
 

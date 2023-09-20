@@ -1,7 +1,7 @@
 #!/bin/bash
 set -eu
 
-COMMIT_TAG=${1:-'v0.7.8'}
+COMMIT_TAG=$1
 TARGET_PKGS_FILE=$2
 
 # Check if file exists and read it into an array
