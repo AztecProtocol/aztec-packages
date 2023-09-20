@@ -10,7 +10,7 @@ REPOSITORY=$2
 [ -n "$TAG" ] || exit 1
 
 # Requested a rebuild via [ci rebuild] commit message.
-[ -z "$BUILD_SYSTEM_REBUILD" ] || exit 1
+[ -z "${BUILD_SYSTEM_REBUILD:-}" ] || exit 1
 
 if ! image_exists $REPOSITORY $TAG; then
   echo "Rebuild required."
