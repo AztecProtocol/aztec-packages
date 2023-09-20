@@ -9,6 +9,7 @@ export default {
   ...MDXComponents,
   Version,
   NoirVersion,
+  AztecPackagesVersion,
   InstallNargoInstructions,
   CodeBlock,
 };
