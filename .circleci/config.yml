@@ -89,7 +89,7 @@ jobs:
       - *setup_env
       - run:
           name: Build
-          command: cond_spot_run_build barretenberg-wasm-linux-clang 64
+          command: cond_spot_run_build barretenberg-wasm-linux-clang 128
 
   barretenberg-x86_64-linux-gcc:
     docker:
@@ -100,7 +100,7 @@ jobs:
       - *setup_env
       - run:
           name: Build
-          command: cond_spot_run_build barretenberg-x86_64-linux-gcc 64
+          command: cond_spot_run_build barretenberg-x86_64-linux-gcc 128
 
   barretenberg-x86_64-linux-clang:
     docker:
@@ -111,7 +111,7 @@ jobs:
       - *setup_env
       - run:
           name: Build
-          command: cond_spot_run_build barretenberg-x86_64-linux-clang 64
+          command: cond_spot_run_build barretenberg-x86_64-linux-clang 128
 
   barretenberg-x86_64-linux-clang-fuzzing:
     docker:
@@ -122,7 +122,7 @@ jobs:
       - *setup_env
       - run:
           name: Build
-          command: cond_spot_run_build barretenberg-x86_64-linux-clang-fuzzing 64
+          command: cond_spot_run_build barretenberg-x86_64-linux-clang-fuzzing 128
 
   barretenberg-x86_64-linux-clang-assert:
     docker:
@@ -133,7 +133,7 @@ jobs:
       - *setup_env
       - run:
           name: Build
-          command: cond_spot_run_build barretenberg-x86_64-linux-clang-assert 64
+          command: cond_spot_run_build barretenberg-x86_64-linux-clang-assert 128
 
   barretenberg-stdlib-tests:
     docker:
@@ -397,7 +397,7 @@ jobs:
       - *setup_env
       - run:
           name: Build
-          command: cond_spot_run_build yarn-project 64
+          command: cond_spot_run_build yarn-project 128
 
   aztec-sandbox:
     machine:
