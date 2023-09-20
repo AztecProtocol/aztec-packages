@@ -52,6 +52,7 @@ export async function deployInitialSandboxAccounts(aztecRpc: AztecRPC) {
       const deployMethod = await x.account.getDeployMethod();
       await deployMethod.create({ contractAddressSalt: x.account.salt });
       await deployMethod.simulate({});
+      await x.account.register();
       return deployMethod;
     }),
   );
