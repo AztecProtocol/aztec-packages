@@ -4,8 +4,6 @@
     { "path": "../../aztec.js" },
     { "path": "../../cli" },
     { "path": "../../foundation" },
-    { "path": "../../noir-compiler" },
-    { "path": "../../noir-contracts" },
     { "path": "../../types" }
   ],
   "exclude": ["src/**/*.test.ts"]
