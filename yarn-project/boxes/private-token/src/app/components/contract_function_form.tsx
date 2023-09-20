@@ -1,4 +1,4 @@
-import { Button, Card, CardTheme, Loader } from '@aztec/aztec-ui';
+import { Button, Loader } from '@aztec/aztec-ui';
 import { AztecAddress, CompleteAddress, Fr } from '@aztec/aztec.js';
 import { ContractAbi, FunctionAbi } from '@aztec/foundation/abi';
 import { useFormik } from 'formik';
@@ -86,7 +86,8 @@ async function handleFunctionCall(
   if (functionAbi.functionType === 'unconstrained') {
     return await viewContractFunction(contractAddress!, contractAbi, functionName, typedArgs, rpcClient, wallet);
   } else {
-    return await callContractFunction(contractAddress!, contractAbi, functionName, typedArgs, rpcClient, wallet);
+    const txnReceipt =  await callContractFunction(contractAddress!, contractAbi, functionName, typedArgs, rpcClient, wallet);
+    return `Transaction ${txnReceipt.status} on block number ${txnReceipt.blockNumber}`;
   }
 }
 
