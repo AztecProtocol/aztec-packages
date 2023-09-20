@@ -43,15 +43,13 @@ Note that while the `secret` and the `content` are both hashed, they are actuall
 
 #include_code context_consume_l1_to_l2_message /yarn-project/aztec-nr/aztec/src/context.nr rust
 
-Computing the `content` might be a little clunky in its current form, as we are still adding a number of bytes utilities. A good example exists within the [Token bridge example](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-contracts/src/contracts/token_bridge_contract/src/util.nr).
-
-Since the message consumption is emitting a nullifier the same message cannot be consumed again. The index in the message tree is used as part of the nullifier computation, ensuring that the same content and secret being inserted will be distinct messages that can each be consumed. Without the index in the nullifier, it would be possible to perform a kind of attack known as `Faerie Gold` attacks where two seemingly good messages are inserted, but only one of them can be consumed later.
+Computing the `content` must be done manually in its current form, as we are still adding a number of bytes utilities. A good example exists within the [Token bridge example](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-contracts/src/contracts/token_bridge_contract/src/util.nr).
 
 #include_code claim_public /yarn-project/noir-contracts/src/contracts/token_bridge_contract/src/main.nr rust
 
-After the transaction has been mined, the message is consumed, a nullifier is emitted and the tokens have been minted on Aztec and are ready for claiming.
-
 Since the message consumption is emitting a nullifier the same message cannot be consumed again. The index in the message tree is used as part of the nullifier computation, ensuring that the same content and secret being inserted will be distinct messages that can each be consumed. Without the index in the nullifier, it would be possible to perform a kind of attack known as `Faerie Gold` attacks where two seemingly good messages are inserted, but only one of them can be consumed later.
+
+After the transaction has been mined, the message is consumed, a nullifier is emitted and the tokens have been minted on Aztec and are ready for claiming.
 
 ## Passing data to L1
 
@@ -75,7 +73,6 @@ Access control on the L1 portal contract is essential to prevent consumption of 
 
 As earlier, we can use a token bridge as an example. In this case, we are burning tokens on L2 and sending a message to the portal to free them on L1.
 
-<!-- TODO: update token standard  https://github.com/AztecProtocol/aztec-packages/issues/2177 -->
 #include_code exit_to_l1_private yarn-project/noir-contracts/src/contracts/token_bridge_contract/src/main.nr rust
 
 When the transaction is included in a rollup block the message will be inserted into the `Outbox`, where the recipient portal can consume it from. When consuming, the `msg.sender` must match the `recipient` meaning that only portal can actually consume the message.
@@ -90,9 +87,13 @@ As noted earlier, the portal contract should check that the sender is as expecte
 
 
 ## How to deploy a contract with a portal
-- Deploy L1 
-- Deploy l2
-- Initialize l1 with l2 address.
+- Deploy to L1 using Viem, Foundry or your preferred tool;
+- Deploy to L2 passing in the address of the L1 portal as its portal contract;
+  ```typescript
+  const deploymentTx = Contract.deploy(wallet).send({portalContract: tokenPortalAddress});
+  ```
+- Initialize l1 with l2 address for access control.
+
 
 ## Standards
 
@@ -170,9 +171,10 @@ bytes memory message = abi.encodeWithSignature(
 
 This way, the message can be consumed by the portal contract, but only if the caller is the designated caller. By being a bit clever when specifying the designated caller, we can ensure that the calls are done in the correct order. For the Uniswap example, say that we have token portals implemented as we have done throughout this page, and a Uniswap portal implementing the designated caller.
 
-Then we simply need to require that the Uniswap portal is the caller of the withdraw, and that the uniswap portal implementation is executing the withdraw before the swap. This can all be validated in the contract, and the user can be sure that the calls are done in the correct order from taking a look at the contracts. Since all of the messages are emitted to L1 from the same transaction, we can be sure that they either are all emitted or none of them are since the transaction is atomic. 
+We require that the Uniswap portal is the caller of the withdraw, and that the uniswap portal implementation is executing the withdraw before the swap.  
+The order of execution can be constrained in the contract. Since all of the messages are emitted to L1 in the same transaction, we can leverage transaction atomicity to ensure success of failure of all messages. 
 
-Note, that crossing the L1/L2 chasm is asynchronous, so there could be a situation where the user have burned the assets on L2 but the swap fails on L1! This could be due to major price movements or the like. In such a case, the user could be stuck with funds on L1 that they cannot get back to L2 unless the portal contract implements a way to handle this (properly handling errors).
+Note, that crossing the L1/L2 chasm is asynchronous, so there could be a situation where the user has burned their assets on L2 but the swap fails on L1! This could be due to major price movements or the like. In such a case, the user could be stuck with funds on L1 that they cannot get back to L2 unless the portal contract implements a way to properly handle such errors.
 
 :::caution
 Designated callers are enforced at the contract level for contracts that are not the rollup itself, and should not be trusted to implement the standard correctly. The user should always be aware that it is possible for the developer to implement something that looks like designated caller without providing the abilities to the user.
