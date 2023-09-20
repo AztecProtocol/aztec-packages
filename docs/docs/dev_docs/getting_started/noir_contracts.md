@@ -38,7 +38,7 @@ All contract projects will reside within this folder. Note that contracts don't 
 
 ```bash
 cd contracts
-nargo new example_contract
+nargo new --contract example_contract
 ```
 
 This creates a noir project with a Nargo.toml (which is the manifest file of the project). This file is found at `example_contract/src/main.nr`, where we will write our contract.
@@ -67,7 +67,7 @@ compiler_version = "0.1"
 type = "contract"
 
 [dependencies]
-aztec = { git="https://github.com/AztecProtocol/aztec-packages", tag="master", directory="yarn-project/aztec-nr/aztec" }
+aztec = { git = "https://github.com/AztecProtocol/aztec-nr", tag = "master", directory = "aztec" }
 ```
 
 You are now ready to write your own contracts!
