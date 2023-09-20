@@ -7,7 +7,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { AztecNode, FunctionCall, TxExecutionRequest } from '@aztec/types';
 
-import { WasmBlackBoxFunctionSolver, createBlackBoxSolver } from 'acvm_js';
+import { WasmBlackBoxFunctionSolver, createBlackBoxSolver } from '@noir-lang/acvm_js';
 
 import { createSimulationError } from '../common/errors.js';
 import { PackedArgsCache } from '../common/packed_args_cache.js';
@@ -22,7 +22,7 @@ import { UnconstrainedFunctionExecution } from './unconstrained_execution.js';
  * The ACIR simulator.
  */
 export class AcirSimulator {
-  private static solver: WasmBlackBoxFunctionSolver; // ACVM's backend
+  private static solver: Promise<WasmBlackBoxFunctionSolver>; // ACVM's backend
   private log: DebugLogger;
 
   constructor(private db: DBOracle) {
@@ -42,8 +42,8 @@ export class AcirSimulator {
    *
    * @returns ACVM WasmBlackBoxFunctionSolver
    */
-  public static async getSolver(): Promise<WasmBlackBoxFunctionSolver> {
-    if (!this.solver) this.solver = await createBlackBoxSolver();
+  public static getSolver(): Promise<WasmBlackBoxFunctionSolver> {
+    if (!this.solver) this.solver = createBlackBoxSolver();
     return this.solver;
   }
 

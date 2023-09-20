@@ -9,11 +9,11 @@ import {
   getSchnorrAccount,
   isContractDeployed,
 } from '@aztec/aztec.js';
-import { StructType } from '@aztec/foundation/abi';
+import { StructType, decodeFunctionSignatureWithParameterNames } from '@aztec/foundation/abi';
 import { JsonStringify } from '@aztec/foundation/json-rpc';
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
-import { compileContract } from '@aztec/noir-compiler/cli';
+import { compileContract, generateNoirInterface, generateTypescriptInterface } from '@aztec/noir-compiler/cli';
 import { CompleteAddress, ContractData, L2BlockL2Logs, TxHash } from '@aztec/types';
 
 import { Command } from 'commander';
@@ -485,7 +485,30 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       Object.entries(info).map(([key, value]) => log(`${startCase(key)}: ${value}`));
     });
 
+  program
+    .command('inspect-contract')
+    .description('Shows list of external callable functions for a contract')
+    .argument(
+      '<contractAbiFile>',
+      `A compiled Noir contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts`,
+    )
+    .action(async (contractAbiFile: string) => {
+      const contractAbi = await getContractAbi(contractAbiFile, debugLogger);
+      const contractFns = contractAbi.functions.filter(
+        f => !f.isInternal && f.name !== 'compute_note_hash_and_nullifier',
+      );
+      if (contractFns.length === 0) {
+        log(`No external functions found for contract ${contractAbi.name}`);
+      }
+      for (const fn of contractFns) {
+        const signature = decodeFunctionSignatureWithParameterNames(fn.name, fn.parameters);
+        log(`${fn.functionType} ${signature}`);
+      }
+    });
+
   compileContract(program, 'compile', log);
+  generateTypescriptInterface(program, 'generate-typescript', log);
+  generateNoirInterface(program, 'generate-noir-interface', log);
 
   return program;
 }
