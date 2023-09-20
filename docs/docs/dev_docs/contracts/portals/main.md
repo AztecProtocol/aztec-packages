@@ -32,18 +32,24 @@ With all that information at hand, we can call the `sendL2Message` function on t
 As time passes, a sequencer will see your tx, the juicy fee provided and include it in a rollup block. Upon inclusion, it is removed from L1, and made available to be consumed on L2.
 
 To consume the message, we can use the `consume_l1_to_l2_message` function within the `context` struct. 
-The `msg_key` is the hash of the message returned by the `sendL2Message` call and is used to help the RPC find the correct message. The `content` is the content of the message, and the `secret` is the pre-image hashed to compute the `secretHash`. Note that while the `secret` and the `content` are both hashed, they are actually hashed with different hash functions! The `secret` is hashed with `pedersen` and the `content` is hashed with `sha256` mapped to a Field element.
-If the `content` or `secret` is incorrect, the message will not be consumed, and the transaction will revert.
+- The `msg_key` is the hash of the message returned by the `sendL2Message` call and is used to help the RPC find the correct message. 
+- The `content` is the content of the message, limited to one Field element. For content larger than one Field, we suggest using the `sha256` hash function truncated to a single Field element. `sha256` is suggested as it is cheap on L1 while still being managable on L2. 
+- The `secret` is the pre-image hashed using Pedersen to compute the `secretHash`. 
+- If the `content` or `secret` does not match the entry at `msg_key` the message will not be consumed, and the transaction will revert.
+
+:::info
+Note that while the `secret` and the `content` are both hashed, they are actually hashed with different hash functions!
+:::
 
 #include_code context_consume_l1_to_l2_message /yarn-project/aztec-nr/aztec/src/context.nr rust
 
 Computing the `content` might be a little clunky in its current form, as we are still adding a number of bytes utilities. A good example exists within the [Token bridge example](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-contracts/src/contracts/token_bridge_contract/src/util.nr).
 
-An example usage of this flow is a token bridge, in the Aztec contract a `claim_public` function consumes a message from L1 and mints tokens to a user. Note that while we are doing this in public, there is also a private claim in the contract.
+Since the message consumption is emitting a nullifier the same message cannot be consumed again. The index in the message tree is used as part of the nullifier computation, ensuring that the same content and secret being inserted will be distinct messages that can each be consumed. Without the index in the nullifier, it would be possible to perform a kind of attack known as `Faerie Gold` attacks where two seemingly good messages are inserted, but only one of them can be consumed later.
 
 #include_code claim_public /yarn-project/noir-contracts/src/contracts/token_bridge_contract/src/main.nr rust
 
-After the transaction has been mined, the message is consumed, a nullifier is emitted and the tokens have been minted on Aztec and are ready for use by the user.
+After the transaction has been mined, the message is consumed, a nullifier is emitted and the tokens have been minted on Aztec and are ready for claiming.
 
 Since the message consumption is emitting a nullifier the same message cannot be consumed again. The index in the message tree is used as part of the nullifier computation, ensuring that the same content and secret being inserted will be distinct messages that can each be consumed. Without the index in the nullifier, it would be possible to perform a kind of attack known as fairy gold attacks where two seemingly good messages are inserted, but only one of them can be consumed later.
 
@@ -166,7 +172,7 @@ This way, the message can be consumed by the portal contract, but only if the ca
 
 Then we simply need to require that the Uniswap portal is the caller of the withdraw, and that the uniswap portal implementation is executing the withdraw before the swap. This can all be validated in the contract, and the user can be sure that the calls are done in the correct order from taking a look at the contracts. Since all of the messages are emitted to L1 from the same transaction, we can be sure that they either are all emitted or none of them are since the transaction is atomic. 
 
-Note however, that crossing the L1/L2 chasm is asynchronous, so there could be a situation where the user have burned the assets on L2 but the swap fails on L1! This could be due to major price movements or the like. In such a case, the user could be stuck with funds on L1 that they cannot get back to L2 unless the portal contract implements a way to handle this (proper handling errors).
+Note, that crossing the L1/L2 chasm is asynchronous, so there could be a situation where the user have burned the assets on L2 but the swap fails on L1! This could be due to major price movements or the like. In such a case, the user could be stuck with funds on L1 that they cannot get back to L2 unless the portal contract implements a way to handle this (properly handling errors).
 
 :::caution
 Designated callers are enforced at the contract level for contracts that are not the rollup itself, and should not be trusted to implement the standard correctly. The user should always be aware that it is possible for the developer to implement something that looks like designated caller without providing the abilities to the user.
