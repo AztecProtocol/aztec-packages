@@ -20,6 +20,8 @@ git checkout FETCH_HEAD
 
 echo "Git checkout completed."
 
+echo "PWD: $PWD"
+
 BASH_ENV=/tmp/bash_env
 echo "Calling setup env..."
 source ./build-system/scripts/setup_env "$COMMIT_HASH" "$COMMIT_TAG" "$JOB_NAME" "$GIT_REPOSITORY_URL"

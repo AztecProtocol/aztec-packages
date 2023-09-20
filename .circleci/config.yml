@@ -1555,13 +1555,13 @@ workflows:
 
       - build-deployment-canary:
           requires:
-            - deploy-end
-          <<: *deploy_defaults
+            - e2e-end
+          <<: *defaults
 
       - run-deployment-canary-uniswap:
           requires:
             - build-deployment-canary
-          <<: *deploy_defaults
+          <<: *defaults
 
       - run-deployment-canary-browser:
           requires:
