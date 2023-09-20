@@ -54,7 +54,7 @@ await aztecRpc.registerRecipient(completeAddress);
 </Tabs>
 
 :::info
-If a note recipient is one of the accounts inside the Aztec RPC Server, we don't need to register it as a recipient because we already have the public key available.
+If a note recipient is one of the accounts inside the Aztec RPC Server, we don't need to register it as a recipient because we already have the public key available. You can register a recipient as shown [here](../deploying#deploying-private-token-contract)
 
 At this point the Sandbox only enables the emitting of encrypted note preimages through encrypted events.
 In the future we will allow emitting arbitrary information.
@@ -71,7 +71,7 @@ Then you can call the function:
 
 ### Processing Encrypted Events
 
-One function of Aztec RPC Server is constantly loading encrypted logs from an AztecNode and decrypting them.
+One of the functions of the Aztec RPC Server is constantly loading encrypted logs from the `AztecNode` and decrypting them.
 When new encrypted logs are obtained, the Aztec RPC Server will try to decrypt them using the private encryption key of all the accounts registered inside Aztec RPC Server.
 If the decryption is successful, the Aztec RPC Server will store the decrypted note inside a database.
 If the decryption fails, the specific log will be discarded.
@@ -126,11 +126,11 @@ aztec-cli get-logs --from 5 --limit 1
 
 All event data is pushed to Ethereum as calldata by the sequencer and for this reason the cost of emitting an event is non-trivial.
 
-:::info
-The cost of submitting calldata to Ethereum is currently 4 gas per byte. In the Sandbox, an encrypted note has a fixed overhead of 4 field elements (to broadcast an ephemeral public key, a contract address, and a storage slot); plus a variable number of field elements depending on the type of note being emitted.
+In the Sandbox, an encrypted note has a fixed overhead of 4 field elements (to broadcast an ephemeral public key, a contract address, and a storage slot); plus a variable number of field elements depending on the type of note being emitted.
 
 A `ValueNote`, for example, currently uses 3 fields elements (plus the fixed overhead of 4). That's roughly `7 * 32 = 224` bytes of information.
 
+#include_code value-note-def /yarn-project/aztec-nr/value-note/src/value_note.nr
+
 - There are plans to compress encrypted note data further.
 - There are plans to adopt EIP-4844 blobs to reduce the cost of data submission further.
-:::

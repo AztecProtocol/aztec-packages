@@ -31,7 +31,8 @@ Help shape and define:
 - Constructors can not call nor alter public state
   - The constructor is executed exclusively in private domain, WITHOUT the ability to call public functions or alter public state. This means to set initial storage values, you need to follow a pattern similar to [proxies in Ethereum](https://blog.openzeppelin.com/proxy-patterns), where you `initialize` the contract with values after it have been deployed, see [constructor](../contracts/syntax/functions.md#constructor). 
 - No static nor delegate calls (see [mutability](../contracts/syntax/functions.md#mutability)).
-  - There are unused values in the call-context. Beware that what you think of as a `view` could alter state ATM! Notably the account could alter state or re-enter whenever the account contract's `is_valid` function is called.
+  - These values are unused in the call-context. 
+  - Beware that what you think of as a `view` could alter state ATM! Notably the account could alter state or re-enter whenever the account contract's `is_valid` function is called.
 - `msg_sender` is leaked when doing private -> public calls
   - The `msg_sender` will always be set, if you call a public function from the private world, the `msg_sender` will be set to the private caller's address. See [function context](../contracts/syntax/context.mdx).
 - The initial `msg_sender` is 0, which can be problematic for some contracts, see [function visibility](../contracts/syntax/functions.md#function-visibility).
