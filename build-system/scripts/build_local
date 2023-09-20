@@ -10,7 +10,7 @@
 set -eu
 
 TARGET_PROJECT=${1:-}
-ONLY_TARGET=${2:-}
+ONLY_TARGET=${ONLY_TARGET:-}
 MANIFEST="build_manifest.yml"
 
 if [ -n "${NO_CACHE:-}" ]; then
@@ -26,7 +26,7 @@ if [ -n "$TARGET_PROJECT" ]; then
 fi
 
 # Build list of projects to build.
-if [ "$ONLY_TARGET" == "true" ]; then
+if [ -n "$ONLY_TARGET" ]; then
   DEPS=("$TARGET_PROJECT")
 else
   DEPS=($(query_manifest dependencies $TARGET_PROJECT))

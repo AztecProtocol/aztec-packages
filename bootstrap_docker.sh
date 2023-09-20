@@ -23,7 +23,6 @@ set -e
 
 PROJECT_NAME=${1:-}
 COMMIT_HASH=$(git rev-parse HEAD)
-ONLY_TARGET=${ONLY_TARGET:-}
 
 # If we're calling this script from within a project directory, that's the target project.
 if [ -z "$PROJECT_NAME" ]; then
@@ -37,7 +36,7 @@ if [ -z "$PROJECT_NAME" ]; then
 fi
 
 source ./build-system/scripts/setup_env $COMMIT_HASH '' mainframe_$USER > /dev/null
-build_local $PROJECT_NAME $ONLY_TARGET
+build_local $PROJECT_NAME
 
 if [ -z "$PROJECT_NAME" ]; then
   echo
