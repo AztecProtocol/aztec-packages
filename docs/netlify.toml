@@ -111,6 +111,10 @@
     to = "/concepts/foundation/communication/cross_chain_calls"
 
 [[redirects]]
+    from = "/aztec/protocol/contract-creation"
+    to = "/concepts/advanced/contract_creation"
+
+[[redirects]]
     from = "/noir"
     to = "/"
 
