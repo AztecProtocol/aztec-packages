@@ -98,17 +98,16 @@ template <typename Curve> class pedersen_commitment_refactor {
     using Fr = typename Curve::ScalarField;
     using Fq = typename Curve::BaseField;
     using Group = typename Curve::Group;
-    using generator_data = generator_data<Curve>;
 
     static AffineElement commit_native(
         const std::vector<Fq>& inputs,
         size_t hash_index = 0,
-        const generator_data* generator_context = generator_data::get_default_generators());
+        const generator_data<Curve>* generator_context = generator_data<Curve>::get_default_generators());
 
     static AffineElement commit_native(
         const std::vector<Fr>& inputs,
         size_t hash_index = 0,
-        const generator_data* generator_context = generator_data::get_default_generators());
+        const generator_data<Curve>* generator_context = generator_data<Curve>::get_default_generators());
 };
 
 extern template class pedersen_commitment_refactor<curve::Grumpkin>;
