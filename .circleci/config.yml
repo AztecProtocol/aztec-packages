@@ -89,7 +89,7 @@ jobs:
       - *setup_env
       - run:
           name: Build
-          command: cond_spot_run_build barretenberg-wasm-linux-clang 64 | ./add_timestamps.sh
+          command: cond_spot_run_build barretenberg-wasm-linux-clang 64 | add_timestamps
 
   barretenberg-x86_64-linux-gcc:
     docker:
@@ -100,7 +100,7 @@ jobs:
       - *setup_env
       - run:
           name: Build
-          command: cond_spot_run_build barretenberg-x86_64-linux-gcc 64 | ./add_timestamps.sh
+          command: cond_spot_run_build barretenberg-x86_64-linux-gcc 64 | add_timestamps
 
   barretenberg-x86_64-linux-clang:
     docker:
@@ -111,7 +111,7 @@ jobs:
       - *setup_env
       - run:
           name: Build
-          command: cond_spot_run_build barretenberg-x86_64-linux-clang 64 | ./add_timestamps.sh
+          command: cond_spot_run_build barretenberg-x86_64-linux-clang 64 | add_timestamps
 
   barretenberg-x86_64-linux-clang-fuzzing:
     docker:
@@ -122,7 +122,7 @@ jobs:
       - *setup_env
       - run:
           name: Build
-          command: cond_spot_run_build barretenberg-x86_64-linux-clang-fuzzing 64 | ./add_timestamps.sh
+          command: cond_spot_run_build barretenberg-x86_64-linux-clang-fuzzing 64 | add_timestamps
 
   barretenberg-x86_64-linux-clang-assert:
     docker:
@@ -133,7 +133,7 @@ jobs:
       - *setup_env
       - run:
           name: Build
-          command: cond_spot_run_build barretenberg-x86_64-linux-clang-assert 64 | ./add_timestamps.sh
+          command: cond_spot_run_build barretenberg-x86_64-linux-clang-assert 64 | add_timestamps
 
   barretenberg-stdlib-tests:
     docker:
@@ -144,7 +144,7 @@ jobs:
       - *setup_env
       - run:
           name: Test
-          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 1 stdlib-tests | ./add_timestamps.sh
+          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 1 stdlib-tests | add_timestamps
 
   barretenberg-dsl-tests:
     docker:
@@ -155,7 +155,7 @@ jobs:
       - *setup_env
       - run:
           name: Test
-          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 1 dsl_tests | ./add_timestamps.sh
+          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 1 dsl_tests | add_timestamps
 
   barretenberg-tests:
     docker:
@@ -166,7 +166,7 @@ jobs:
       - *setup_env
       - run:
           name: Test
-          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/bb-tests.sh | ./add_timestamps.sh
+          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/bb-tests.sh | add_timestamps
 
   barretenberg-honk-tests:
     docker:
@@ -177,7 +177,7 @@ jobs:
       - *setup_env
       - run:
           name: Test
-          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 1 honk_tests | ./add_timestamps.sh
+          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 1 honk_tests | add_timestamps
 
   barretenberg-proof-system-tests:
     docker:
@@ -188,7 +188,7 @@ jobs:
       - *setup_env
       - run:
           name: Test
-          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 1 proof_system_tests | ./add_timestamps.sh
+          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 1 proof_system_tests | add_timestamps
 
   barretenberg-stdlib-recursion-turbo-tests:
     docker:
@@ -199,7 +199,7 @@ jobs:
       - *setup_env
       - run:
           name: Test
-          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 1 stdlib_recursion_tests --gtest_filter=*turbo* | ./add_timestamps.sh
+          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 1 stdlib_recursion_tests --gtest_filter=*turbo* | add_timestamps
 
   barretenberg-stdlib-recursion-ultra-tests:
     docker:
@@ -210,7 +210,7 @@ jobs:
       - *setup_env
       - run:
           name: Test
-          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 3 stdlib_recursion_tests --gtest_filter=-*turbo* | ./add_timestamps.sh
+          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 3 stdlib_recursion_tests --gtest_filter=-*turbo* | add_timestamps
 
   barretenberg-join-split-tests:
     docker:
@@ -221,7 +221,7 @@ jobs:
       - *setup_env
       - run:
           name: Test
-          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 3 join_split_example_proofs_join_split_tests --gtest_filter=-*full_proof* | ./add_timestamps.sh
+          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 3 join_split_example_proofs_join_split_tests --gtest_filter=-*full_proof* | add_timestamps
 
   barretenberg-acir-tests:
     docker:
@@ -232,7 +232,7 @@ jobs:
       - *setup_env
       - run:
           name: Build
-          command: cond_spot_run_build barretenberg-acir-tests 32 | ./add_timestamps.sh
+          command: cond_spot_run_build barretenberg-acir-tests 32 | add_timestamps
 
   bb-js:
     machine:
@@ -243,7 +243,7 @@ jobs:
       - *setup_env
       - run:
           name: Build
-          command: build bb-js | ./add_timestamps.sh
+          command: build bb-js | add_timestamps
 
   bb-js-tests:
     docker:
@@ -254,7 +254,7 @@ jobs:
       - *setup_env
       - run:
           name: Test
-          command: cond_spot_run_test bb-js 32 ./scripts/run_tests | ./add_timestamps.sh
+          command: cond_spot_run_test bb-js 32 ./scripts/run_tests | add_timestamps
 
   bb-js-acir-tests:
     docker:
@@ -265,7 +265,7 @@ jobs:
       - *setup_env
       - run:
           name: Build
-          command: cond_spot_run_build bb-js-acir-tests 32 | ./add_timestamps.sh
+          command: cond_spot_run_build bb-js-acir-tests 32 | add_timestamps
 
   circuits-wasm-linux-clang:
     docker:
@@ -276,7 +276,7 @@ jobs:
       - *setup_env
       - run:
           name: Build
-          command: cond_spot_run_build circuits-wasm-linux-clang 32 | ./add_timestamps.sh
+          command: cond_spot_run_build circuits-wasm-linux-clang 32 | add_timestamps
 
   circuits-wasm-linux-clang-assert:
     docker:
@@ -287,7 +287,7 @@ jobs:
       - *setup_env
       - run:
           name: Build
-          command: cond_spot_run_build circuits-wasm-linux-clang-assert 32 | ./add_timestamps.sh
+          command: cond_spot_run_build circuits-wasm-linux-clang-assert 32 | add_timestamps
 
   circuits-wasm-tests:
     docker:
@@ -298,7 +298,7 @@ jobs:
       - *setup_env
       - run:
           name: Test
-          command: cond_spot_run_test circuits-wasm-linux-clang-assert 32 ./scripts/run_tests 1 wasm scripts/a3-tests -*.skip*:*.circuit* | ./add_timestamps.sh
+          command: cond_spot_run_test circuits-wasm-linux-clang-assert 32 ./scripts/run_tests 1 wasm scripts/a3-tests -*.skip*:*.circuit* | add_timestamps
 
   circuits-x86_64-linux-clang-tidy:
     docker:
@@ -309,7 +309,7 @@ jobs:
       - *setup_env
       - run:
           name: Build
-          command: cond_spot_run_build circuits-x86_64-linux-clang-tidy 32 | ./add_timestamps.sh
+          command: cond_spot_run_build circuits-x86_64-linux-clang-tidy 32 | add_timestamps
 
   circuits-x86_64-linux-clang:
     docker:
@@ -320,7 +320,7 @@ jobs:
       - *setup_env
       - run:
           name: Build
-          command: cond_spot_run_build circuits-x86_64-linux-clang 32 | ./add_timestamps.sh
+          command: cond_spot_run_build circuits-x86_64-linux-clang 32 | add_timestamps
 
   circuits-x86_64-linux-clang-assert:
     docker:
@@ -331,7 +331,7 @@ jobs:
       - *setup_env
       - run:
           name: Build
-          command: cond_spot_run_build circuits-x86_64-linux-clang-assert 32 | ./add_timestamps.sh
+          command: cond_spot_run_build circuits-x86_64-linux-clang-assert 32 | add_timestamps
 
   circuits-x86_64-tests:
     docker:
@@ -342,7 +342,7 @@ jobs:
       - *setup_env
       - run:
           name: Test
-          command: cond_spot_run_test circuits-x86_64-linux-clang-assert 32 ./scripts/run_tests 1 x86_64 scripts/a3-tests -*.skip* | ./add_timestamps.sh
+          command: cond_spot_run_test circuits-x86_64-linux-clang-assert 32 ./scripts/run_tests 1 x86_64 scripts/a3-tests -*.skip* | add_timestamps
 
   docs:
     machine:
@@ -353,7 +353,7 @@ jobs:
       - *setup_env
       - run:
           name: Build
-          command: build docs | ./add_timestamps.sh
+          command: build docs | add_timestamps
 
   l1-contracts:
     machine:
@@ -364,7 +364,7 @@ jobs:
       - *setup_env
       - run:
           name: Build
-          command: build l1-contracts | ./add_timestamps.sh
+          command: build l1-contracts | add_timestamps
 
   noir-contracts-build:
     machine:
@@ -375,7 +375,7 @@ jobs:
       - *setup_env
       - run:
           name: Build
-          command: build noir-contracts-build | ./add_timestamps.sh
+          command: build noir-contracts-build | add_timestamps
 
   yarn-project-base:
     machine:
@@ -386,7 +386,7 @@ jobs:
       - *setup_env
       - run:
           name: Build
-          command: build yarn-project-base | ./add_timestamps.sh
+          command: build yarn-project-base | add_timestamps
 
   yarn-project:
     docker:
@@ -397,7 +397,7 @@ jobs:
       - *setup_env
       - run:
           name: Build
-          command: cond_spot_run_build yarn-project 64 | ./add_timestamps.sh
+          command: cond_spot_run_build yarn-project 64 | add_timestamps
 
   aztec-sandbox:
     machine:
@@ -408,7 +408,7 @@ jobs:
       - *setup_env
       - run:
           name: Build
-          command: build aztec-sandbox | ./add_timestamps.sh
+          command: build aztec-sandbox | add_timestamps
 
   end-to-end:
     machine:
@@ -419,7 +419,7 @@ jobs:
       - *setup_env
       - run:
           name: Build
-          command: build end-to-end | ./add_timestamps.sh
+          command: build end-to-end | add_timestamps
 
   e2e-2-rpc-servers:
     machine:
@@ -430,7 +430,7 @@ jobs:
       - *setup_env
       - run:
           name: Test
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_2_rpc_servers.test.ts | ./add_timestamps.sh
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_2_rpc_servers.test.ts | add_timestamps
 
   e2e-multiple-accounts-1-enc-key:
     machine:
@@ -441,7 +441,7 @@ jobs:
       - *setup_env
       - run:
           name: Test
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_multiple_accounts_1_enc_key.test.ts | ./add_timestamps.sh
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_multiple_accounts_1_enc_key.test.ts | add_timestamps
 
   e2e-deploy-contract:
     machine:
@@ -452,7 +452,7 @@ jobs:
       - *setup_env
       - run:
           name: Test
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_deploy_contract.test.ts | ./add_timestamps.sh
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_deploy_contract.test.ts | add_timestamps
 
   e2e-lending-contract:
     machine:
@@ -463,7 +463,7 @@ jobs:
       - *setup_env
       - run:
           name: Test
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_lending_contract.test.ts | ./add_timestamps.sh
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_lending_contract.test.ts | add_timestamps
 
   e2e-token-contract:
     machine:
@@ -474,7 +474,7 @@ jobs:
       - *setup_env
       - run:
           name: Test
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_token_contract.test.ts | ./add_timestamps.sh
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_token_contract.test.ts | add_timestamps
 
   e2e-private-token-contract:
     machine:
@@ -485,7 +485,7 @@ jobs:
       - *setup_env
       - run:
           name: Test
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_private_token_contract.test.ts | ./add_timestamps.sh
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_private_token_contract.test.ts | add_timestamps
 
   e2e-multi-transfer-contract:
     machine:
@@ -496,7 +496,7 @@ jobs:
       - *setup_env
       - run:
           name: Test
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_multi_transfer.test.ts | ./add_timestamps.sh
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_multi_transfer.test.ts | add_timestamps
 
   e2e-block-building:
     machine:
@@ -507,7 +507,7 @@ jobs:
       - *setup_env
       - run:
           name: Test
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_block_building.test.ts | ./add_timestamps.sh
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_block_building.test.ts | add_timestamps
 
   e2e-nested-contract:
     machine:
@@ -518,7 +518,7 @@ jobs:
       - *setup_env
       - run:
           name: Test
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_nested_contract.test.ts | ./add_timestamps.sh
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_nested_contract.test.ts | add_timestamps
 
   e2e-non-contract-account:
     machine:
@@ -529,7 +529,7 @@ jobs:
       - *setup_env
       - run:
           name: Test
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_non_contract_account.test.ts | ./add_timestamps.sh
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_non_contract_account.test.ts | add_timestamps
 
   e2e-cross-chain-messaging:
     machine:
@@ -540,7 +540,7 @@ jobs:
       - *setup_env
       - run:
           name: Test
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_cross_chain_messaging.test.ts | ./add_timestamps.sh
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_cross_chain_messaging.test.ts | add_timestamps
 
   e2e-public-cross-chain-messaging:
     machine:
@@ -551,7 +551,7 @@ jobs:
       - *setup_env
       - run:
           name: Test
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_public_cross_chain_messaging.test.ts | ./add_timestamps.sh
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_public_cross_chain_messaging.test.ts | add_timestamps
 
   e2e-public-to-private-messaging:
     machine:
@@ -562,7 +562,7 @@ jobs:
       - *setup_env
       - run:
           name: Test
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_public_to_private_messaging.test.ts | ./add_timestamps.sh
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_public_to_private_messaging.test.ts | add_timestamps
 
   e2e-account-contracts:
     machine:
@@ -573,7 +573,7 @@ jobs:
       - *setup_env
       - run:
           name: Test
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_account_contracts.test.ts | ./add_timestamps.sh
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_account_contracts.test.ts | add_timestamps
 
   e2e-escrow-contract:
     machine:
@@ -584,7 +584,7 @@ jobs:
       - *setup_env
       - run:
           name: Test
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_escrow_contract.test.ts | ./add_timestamps.sh
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_escrow_contract.test.ts | add_timestamps
 
   e2e-pending-commitments-contract:
     machine:
@@ -595,7 +595,7 @@ jobs:
       - *setup_env
       - run:
           name: Test
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_pending_commitments_contract.test.ts | ./add_timestamps.sh
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_pending_commitments_contract.test.ts | add_timestamps
 
   e2e-ordering:
     machine:
@@ -606,7 +606,7 @@ jobs:
       - *setup_env
       - run:
           name: Test
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_ordering.test.ts | ./add_timestamps.sh
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_ordering.test.ts | add_timestamps
 
   uniswap-trade-on-l1-from-l2:
     machine:
@@ -617,7 +617,7 @@ jobs:
       - *setup_env
       - run:
           name: Test
-          command: cond_run_script end-to-end ./scripts/run_tests_local uniswap_trade_on_l1_from_l2.test.ts | ./add_timestamps.sh
+          command: cond_run_script end-to-end ./scripts/run_tests_local uniswap_trade_on_l1_from_l2.test.ts | add_timestamps
 
   integration-archiver-l1-to-l2:
     machine:
@@ -628,7 +628,7 @@ jobs:
       - *setup_env
       - run:
           name: Test
-          command: cond_run_script end-to-end ./scripts/run_tests_local integration_archiver_l1_to_l2.test.ts | ./add_timestamps.sh
+          command: cond_run_script end-to-end ./scripts/run_tests_local integration_archiver_l1_to_l2.test.ts | add_timestamps
 
   integration-l1-publisher:
     machine:
@@ -639,7 +639,7 @@ jobs:
       - *setup_env
       - run:
           name: Test
-          command: cond_run_script end-to-end ./scripts/run_tests_local integration_l1_publisher.test.ts | ./add_timestamps.sh
+          command: cond_run_script end-to-end ./scripts/run_tests_local integration_l1_publisher.test.ts | add_timestamps
 
   e2e-public-token-contract:
     machine:
@@ -650,7 +650,7 @@ jobs:
       - *setup_env
       - run:
           name: Test
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_public_token_contract.test.ts | ./add_timestamps.sh
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_public_token_contract.test.ts | add_timestamps
 
   e2e-cli:
     machine:
@@ -661,7 +661,7 @@ jobs:
       - *setup_env
       - run:
           name: Test
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_cli.test.ts | ./add_timestamps.sh
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_cli.test.ts | add_timestamps
 
   e2e-p2p:
     machine:
@@ -672,7 +672,7 @@ jobs:
       - *setup_env
       - run:
           name: Test
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_p2p_network.test.ts | ./add_timestamps.sh
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_p2p_network.test.ts | add_timestamps
 
   e2e-card-game:
     machine:
@@ -683,7 +683,7 @@ jobs:
       - *setup_env
       - run:
           name: Test
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_card_game.test.ts | ./add_timestamps.sh
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_card_game.test.ts | add_timestamps
 
   e2e-sandbox-example:
     machine:
@@ -694,7 +694,7 @@ jobs:
       - *setup_env
       - run:
           name: Test
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_sandbox_example.test.ts ./scripts/docker-compose-e2e-sandbox.yml | ./add_timestamps.sh
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_sandbox_example.test.ts ./scripts/docker-compose-e2e-sandbox.yml | add_timestamps
 
   e2e-browser-sandbox:
     machine:
@@ -705,7 +705,7 @@ jobs:
       - *setup_env
       - run:
           name: Test
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_aztec_js_browser.test.ts ./scripts/docker-compose-e2e-sandbox.yml | ./add_timestamps.sh
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_aztec_js_browser.test.ts ./scripts/docker-compose-e2e-sandbox.yml | add_timestamps
 
   aztec-rpc-sandbox:
     machine:
@@ -716,7 +716,7 @@ jobs:
       - *setup_env
       - run:
           name: Test
-          command: cond_run_script end-to-end ./scripts/run_tests_local aztec_rpc_sandbox.test.ts ./scripts/docker-compose-e2e-sandbox.yml | ./add_timestamps.sh
+          command: cond_run_script end-to-end ./scripts/run_tests_local aztec_rpc_sandbox.test.ts ./scripts/docker-compose-e2e-sandbox.yml | add_timestamps
 
   cli-docs-sandbox:
     machine:
@@ -727,7 +727,7 @@ jobs:
       - *setup_env
       - run:
           name: Test
-          command: cond_run_script end-to-end ./scripts/run_tests_local cli_docs_sandbox.test.ts ./scripts/docker-compose-e2e-sandbox.yml | ./add_timestamps.sh
+          command: cond_run_script end-to-end ./scripts/run_tests_local cli_docs_sandbox.test.ts ./scripts/docker-compose-e2e-sandbox.yml | add_timestamps
 
   guides-writing-an-account-contract:
     machine:
@@ -738,7 +738,7 @@ jobs:
       - *setup_env
       - run:
           name: Test
-          command: cond_run_script end-to-end ./scripts/run_tests_local guides/writing_an_account_contract.test.ts | ./add_timestamps.sh
+          command: cond_run_script end-to-end ./scripts/run_tests_local guides/writing_an_account_contract.test.ts | add_timestamps
 
   guides-dapp-testing:
     machine:
@@ -749,7 +749,7 @@ jobs:
       - *setup_env
       - run:
           name: Test
-          command: cond_run_script end-to-end ./scripts/run_tests_local guides/dapp_testing.test.ts ./scripts/docker-compose-e2e-sandbox.yml | ./add_timestamps.sh
+          command: cond_run_script end-to-end ./scripts/run_tests_local guides/dapp_testing.test.ts ./scripts/docker-compose-e2e-sandbox.yml | add_timestamps
 
   guides-sample-dapp:
     machine:
@@ -760,7 +760,7 @@ jobs:
       - *setup_env
       - run:
           name: Test
-          command: cond_run_script end-to-end ./scripts/run_tests_local sample-dapp ./scripts/docker-compose-e2e-sandbox.yml | ./add_timestamps.sh
+          command: cond_run_script end-to-end ./scripts/run_tests_local sample-dapp ./scripts/docker-compose-e2e-sandbox.yml | add_timestamps
 
 # Repeatable config for defining the workflow below.
 tag_regex: &tag_regex /^aztec-packages-v.*/
