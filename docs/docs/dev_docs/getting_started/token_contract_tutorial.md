@@ -257,10 +257,10 @@ contract Token {
         },
         oracle::compute_selector::compute_selector,
         auth::{assert_valid_message_for, assert_valid_public_message_for}
+        types::address::AztecAddress,
     };
 
-    use crate::types::{AztecAddress, TransparentNote, TransparentNoteMethods, TRANSPARENT_NOTE_LEN};
-    use crate::account_interface::AccountContract;
+    use crate::types::{TransparentNote, TransparentNoteMethods, TRANSPARENT_NOTE_LEN};
     use crate::util::{compute_message_hash};
 ```
 
@@ -373,7 +373,7 @@ Copy and paste the body of each function into the appropriate place in your proj
 
 ### Constructor
 
-In the source code, the constructor logic is commented out. I uncommented it here for legibility, but you should comment out the body of the function in your example, otherwise the contract may not compile.
+In the source code, the constructor logic is commented out. I uncommented it here for legibility, but you should comment out the body of the function in your example, otherwise the contract may not successfully deploy.
 
 ```rust
     #[aztec(private)]
