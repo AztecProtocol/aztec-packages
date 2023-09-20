@@ -5,7 +5,6 @@
 
 using namespace proof_system::honk;
 using namespace proof_system::honk::sumcheck;
-using namespace proof_system;
 
 using barretenberg::BarycentricData;
 using barretenberg::PowUnivariate;
