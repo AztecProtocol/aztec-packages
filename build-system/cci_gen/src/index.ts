@@ -26,7 +26,9 @@ function toBuildJob(job: string, { spot }: any) {
   const jobObject = toCircleJob(spot);
   const run: any = jobObject.steps[2].run;
   run.name = "Build";
-  run.command = spot ? `cond_spot_run_build ${job} ${spot}` : `build ${job}`;
+  run.command =
+    (spot ? `cond_spot_run_build ${job} ${spot}` : `build ${job}`) +
+    " | ./add_timestamps.sh";
 
   const jobNode: any = jobObject;
   jobNode.steps[0] = new Alias("checkout");
@@ -40,8 +42,8 @@ function toTestJob(job: string, { spot, command }: any) {
   const run: any = jobObject.steps[2].run;
   run.name = "Test";
   run.command = spot
-    ? `cond_spot_run_test ${job} ${spot} ${command}`
-    : `cond_run_script ${job} ${command}`;
+    ? `cond_spot_run_test ${job} ${spot} ${command} | ./add_timestamps.sh`
+    : `cond_run_script ${job} ${command} | ./add_timestamps.sh`;
 
   const jobNode: any = jobObject;
   jobNode.steps[0] = new Alias("checkout");
