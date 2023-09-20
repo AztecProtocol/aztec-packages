@@ -1,5 +1,5 @@
 import { Contract, ContractDeployer, createAztecRpcClient, getSandboxAccountsWallets } from '@aztec/aztec.js';
-import { TokenContractAbi } from '@aztec/noir-contracts/artifacts';
+import { PublicTokenContractAbi, TokenContractAbi } from '@aztec/noir-contracts/artifacts';
 
 import { writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
@@ -12,12 +12,17 @@ async function main() {
   const [owner] = await getSandboxAccountsWallets(client);
 
   const token = await Contract.deploy(client, TokenContractAbi, []).send().deployed();
-
   await token.withWallet(owner).methods._initialize({ address: owner.getAddress() }).send().wait();
 
-  console.log(`Token deployed at ${token.address.toString()}`);
+  const publicToken = await Contract.deploy(client, PublicTokenContractAbi, []).send().deployed();
 
-  const addresses = { token: token.address.toString() };
+  console.log(`Token deployed at ${token.address.toString()}`);
+  console.log(`Public Token deployed at ${publicToken.address.toString()}`);
+
+  const addresses = { 
+    token: token.address.toString(),
+    publicToken: publicToken.address.toString(),
+  };
   writeFileSync('addresses.json', JSON.stringify(addresses, null, 2));
 }
 // docs:end:dapp-deploy
