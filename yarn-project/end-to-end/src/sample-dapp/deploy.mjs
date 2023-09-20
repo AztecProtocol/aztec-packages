@@ -16,7 +16,7 @@ async function main() {
 
   console.log(`Token deployed at ${token.address.toString()}`);
 
-  const addresses = { 
+  const addresses = {
     token: token.address.toString(),
   };
   writeFileSync('addresses.json', JSON.stringify(addresses, null, 2));
