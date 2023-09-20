@@ -46,24 +46,10 @@ export async function deployInitialSandboxAccounts(aztecRpc: AztecRPC) {
       privateKey,
     };
   });
-  // Attempt to get as much parallelism as possible
-  const deployMethods = await Promise.all(
-    accounts.map(async x => {
-      const deployMethod = await x.account.getDeployMethod();
-      await deployMethod.create({ contractAddressSalt: x.account.salt });
-      await deployMethod.simulate({});
-      await x.account.register();
-      return deployMethod;
-    }),
-  );
-  // Send tx together to try and get them in the same rollup
-  const sentTxs = deployMethods.map(dm => {
-    return dm.send();
-  });
+  // Deploy all accounts in parallel
   await Promise.all(
-    sentTxs.map(async (tx, i) => {
-      const wallet = await accounts[i].account.getWallet();
-      return tx.wait({ wallet });
+    accounts.map(x => {
+      return x.account.waitDeploy();
     }),
   );
   return accounts;
