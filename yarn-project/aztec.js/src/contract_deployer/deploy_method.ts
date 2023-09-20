@@ -128,6 +128,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
   /**
    * Sets the contract address salt.
    * @param salt - The contract address salt.
+   * @remarks Needs to be called if we want to get a complete address before calling the `create` method.
    */
   public setContractAddressSalt(salt?: Fr) {
     if (this.contractAddressSalt) {
@@ -142,6 +143,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
   /**
    * Returns the complete address of the contract.
    * @returns The complete address of the contract.
+   * @remarks Call `setContractAddressSalt` before calling this method in case the create method has not been called yet.
    */
   public async getCompleteAddress(): Promise<CompleteAddress> {
     return (await this.getContractDeploymentInfo()).completeAddress;
