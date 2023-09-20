@@ -12,9 +12,7 @@
 #include "../widgets/transition_widgets/genperm_sort_widget.hpp"
 #include "../widgets/transition_widgets/plookup_arithmetic_widget.hpp"
 #include "../widgets/transition_widgets/plookup_auxiliary_widget.hpp"
-#include "../widgets/transition_widgets/turbo_arithmetic_widget.hpp"
 #include "../widgets/transition_widgets/turbo_logic_widget.hpp"
-#include "../widgets/transition_widgets/turbo_range_widget.hpp"
 #include "./prover_settings.hpp"
 
 namespace proof_system::plonk {
@@ -56,61 +54,6 @@ class standard_verifier_settings : public standard_settings {
 
         return ArithmeticWidget::compute_quotient_evaluation_contribution(
             key, updated_alpha_base, transcript, quotient_numerator_eval);
-    }
-};
-
-class turbo_verifier_settings : public turbo_settings {
-  public:
-    typedef barretenberg::fr fr;
-    typedef barretenberg::g1 g1;
-    typedef transcript::StandardTranscript Transcript;
-    typedef VerifierTurboArithmeticWidget<fr, g1::affine_element, Transcript, turbo_settings> TurboArithmeticWidget;
-    typedef VerifierTurboFixedBaseWidget<fr, g1::affine_element, Transcript, turbo_settings> TurboFixedBaseWidget;
-    typedef VerifierTurboRangeWidget<fr, g1::affine_element, Transcript, turbo_settings> TurboRangeWidget;
-    typedef VerifierTurboLogicWidget<fr, g1::affine_element, Transcript, turbo_settings> TurboLogicWidget;
-    typedef VerifierPermutationWidget<fr, g1::affine_element, Transcript> PermutationWidget;
-
-    static constexpr size_t num_challenge_bytes =
-        16; // Challenges are only 128-bits (16-bytes) to reduce the number of constraints required in the verification
-            // circuit. 128-bits is ample security, given the security of altBN254 snarks is in the low-100-bits.
-    static constexpr transcript::HashType hash_type = transcript::HashType::PedersenBlake3s;
-    static constexpr bool idpolys = false;
-
-    static fr append_scalar_multiplication_inputs(verification_key* key,
-                                                  const fr& alpha_base,
-                                                  const Transcript& transcript,
-                                                  std::map<std::string, fr>& scalars)
-    {
-        auto updated_alpha = PermutationWidget::append_scalar_multiplication_inputs(key, alpha_base, transcript);
-
-        updated_alpha =
-            TurboArithmeticWidget::append_scalar_multiplication_inputs(key, updated_alpha, transcript, scalars);
-        updated_alpha =
-            TurboFixedBaseWidget::append_scalar_multiplication_inputs(key, updated_alpha, transcript, scalars);
-        updated_alpha = TurboRangeWidget::append_scalar_multiplication_inputs(key, updated_alpha, transcript, scalars);
-        updated_alpha = TurboLogicWidget::append_scalar_multiplication_inputs(key, updated_alpha, transcript, scalars);
-
-        return updated_alpha;
-    }
-
-    static barretenberg::fr compute_quotient_evaluation_contribution(verification_key* key,
-                                                                     const barretenberg::fr& alpha_base,
-                                                                     const Transcript& transcript,
-                                                                     barretenberg::fr& quotient_numerator_eval)
-    {
-        auto updated_alpha_base = PermutationWidget::compute_quotient_evaluation_contribution(
-            key, alpha_base, transcript, quotient_numerator_eval, idpolys);
-
-        updated_alpha_base = TurboArithmeticWidget::compute_quotient_evaluation_contribution(
-            key, updated_alpha_base, transcript, quotient_numerator_eval);
-        updated_alpha_base = TurboFixedBaseWidget::compute_quotient_evaluation_contribution(
-            key, updated_alpha_base, transcript, quotient_numerator_eval);
-        updated_alpha_base = TurboRangeWidget::compute_quotient_evaluation_contribution(
-            key, updated_alpha_base, transcript, quotient_numerator_eval);
-        updated_alpha_base = TurboLogicWidget::compute_quotient_evaluation_contribution(
-            key, updated_alpha_base, transcript, quotient_numerator_eval);
-
-        return updated_alpha_base;
     }
 };
 

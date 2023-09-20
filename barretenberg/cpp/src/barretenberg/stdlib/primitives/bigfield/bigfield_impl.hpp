@@ -862,7 +862,7 @@ bigfield<Builder, T> bigfield<Builder, T>::div_check_denominator_nonzero(const s
 /**
  * Compute a * a = c mod p
  *
- * Slightly cheaper than operator* for StandardPlonk and TurboPlonk
+ * Slightly cheaper than operator* for StandardPlonk
  **/
 template <typename Builder, typename T> bigfield<Builder, T> bigfield<Builder, T>::sqr() const
 {

@@ -71,6 +71,7 @@ namespace widget {
  *     Link: https://hackmd.io/MCmV2bipRYelT1WUNLj02g
  *
  **/
+// WORKTODO: I guess the turbo bool can be removed?
 template <class Field, class Getters, typename PolyContainer, bool turbo> class FixedBaseKernel {
   public:
     // UltraPlonkComposer only needs 6 independent relations, (α^5 is not added), but  we accept the tiny inefficiency
@@ -309,21 +310,11 @@ template <class Field, class Getters, typename PolyContainer, bool turbo> class 
 };
 
 template <class Field, class Getters, typename PolyContainer>
-using TurboFixedBaseKernel = FixedBaseKernel<Field, Getters, PolyContainer, true>;
-
-template <class Field, class Getters, typename PolyContainer>
 using UltraFixedBaseKernel = FixedBaseKernel<Field, Getters, PolyContainer, false>;
 } // namespace widget
 
 template <typename Settings>
-using ProverTurboFixedBaseWidget = widget::TransitionWidget<barretenberg::fr, Settings, widget::TurboFixedBaseKernel>;
-
-template <typename Settings>
 using ProverUltraFixedBaseWidget = widget::TransitionWidget<barretenberg::fr, Settings, widget::UltraFixedBaseKernel>;
-
-template <typename Field, typename Group, typename Transcript, typename Settings>
-using VerifierTurboFixedBaseWidget =
-    widget::GenericVerifierWidget<Field, Transcript, Settings, widget::TurboFixedBaseKernel>;
 
 template <typename Field, typename Group, typename Transcript, typename Settings>
 using VerifierUltraFixedBaseWidget =

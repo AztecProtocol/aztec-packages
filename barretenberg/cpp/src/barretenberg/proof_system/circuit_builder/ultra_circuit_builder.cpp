@@ -176,6 +176,7 @@ void UltraCircuitBuilder_<FF>::create_big_add_gate(const add_quad_<FF>& in, cons
  *
  * @param in Structure with variables and witness selector values
  */
+// WORKTODO: not needed?
 template <typename FF> void UltraCircuitBuilder_<FF>::create_big_add_gate_with_bit_extraction(const add_quad_<FF>& in)
 {
     // This method is an artifact of a turbo plonk feature that implicitly extracts
