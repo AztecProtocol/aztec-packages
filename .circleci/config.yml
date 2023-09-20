@@ -1229,8 +1229,8 @@ jobs:
           command: build canary true
 
   run-deployment-canary-uniswap:
-    docker:
-      - image: aztecprotocol/alpine-build-image
+    machine:
+      image: ubuntu-2004:202010-01
     resource_class: large
     steps:
       - *checkout
