@@ -2,7 +2,7 @@
 
 #include "barretenberg/proof_system/relations/relation_types.hpp"
 
-#define ExtendedEdge(Flavor) Flavor::ExtendedEdges<Flavor::MAX_RELATION_LENGTH>
+#define ExtendedEdge(Flavor) Flavor::ProverUnivariates<Flavor::MAX_RELATION_LENGTH>
 #define EvaluationEdge(Flavor) Flavor::ClaimedEvaluations
 #define EntityEdge(Flavor) Flavor::AllEntities<Flavor::FF, Flavor::FF>
 
