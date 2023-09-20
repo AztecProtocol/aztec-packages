@@ -128,7 +128,7 @@ TEST(SumcheckRound, AddTuplesOfTuplesOfUnivariates)
     Univariate<FF, 2> expected_sum_2 = univariate_2 + univariate_5;
     Univariate<FF, 3> expected_sum_3 = univariate_3 + univariate_6;
 
-    // Construct two tuples of tuples
+    // Construct two tuples of tuples of univariates
     auto tuple_of_tuples_1 =
         std::make_tuple(std::make_tuple(univariate_1), std::make_tuple(univariate_2, univariate_3));
     auto tuple_of_tuples_2 =
