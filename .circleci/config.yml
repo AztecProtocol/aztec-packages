@@ -1555,7 +1555,7 @@ workflows:
 
       - build-deployment-canary:
           requires:
-            - e2e-end
+            - yarn-project-base
           <<: *defaults
 
       - run-deployment-canary-uniswap:

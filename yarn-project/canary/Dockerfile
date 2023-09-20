@@ -19,7 +19,7 @@ RUN yarn && yarn build
 
 # Build canary package
 WORKDIR /usr/src/yarn-project/canary
-RUN ./scripts/update_packages.sh $COMMIT_TAG
+RUN ./scripts/update_packages.sh "v0.7.8"
 RUN yarn && yarn build
 
 FROM node:18-alpine
