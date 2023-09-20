@@ -132,7 +132,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    */
   public setContractAddressSalt(salt?: Fr) {
     if (this.contractAddressSalt) {
-      if (salt) {
+      if (salt && !this.contractAddressSalt.equals(salt)) {
         throw new Error(
           `Contract address salt is already set. Current value: ${this.contractAddressSalt}, new value: ${salt}`,
         );
