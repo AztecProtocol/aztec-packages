@@ -59,7 +59,7 @@ As alluded to earlier, a private function operates on private information, and i
 
 Unconstrained functions are are an underlying part of Noir and has a deeper explanation [here](https://noir-lang.org/language_concepts/unconstrained). But in short, they are functions which are not directly constrained and therefore should be seen as untrusted! That they are untrusted means that, for security, the developer must make sure to constrain them when used! 
 
-Beyond using them inside your other functions, they can however be very convenient for providing something that reads storage and apply some logic and returns values to a user interface or similar. Below is a snippet from exposing the `balance_of_private` function from a token implementation, allow a user to easily read their balance. Similar to the `balanceOf` function in the ERC20 standard. 
+Beyond using them inside your other functions, they are convenient for providing an interface that reads storage, applies  logic and returns values to a UI or test. Below is a snippet from exposing the `balance_of_private` function from a token implementation, which allows a user to easily read their balance, similar to the `balanceOf` function in the ERC20 standard. 
 
 #include_code balance_of_private /yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
 
@@ -87,7 +87,7 @@ Oracles introduce **non-determinism** into a circuit, and thus are `unconstraine
 
 ### A few useful inbuilt oracles
 
-- [`compute_selector`](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec-nr/aztec/src/oracle/compute_selector.nr) - Computes the selector of a function. This is useful for when you want to call a function from within a circuit, but don't got an interface at hand and don't want to hardcode the selector in hex.
+- [`compute_selector`](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec-nr/aztec/src/oracle/compute_selector.nr) - Computes the selector of a function. This is useful for when you want to call a function from within a circuit, but don't have an interface at hand and don't want to hardcode the selector in hex.
 - [`debug_log`](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec-nr/aztec/src/oracle/debug_log.nr) - Provides a couple of debug functions that can be used to log information to the console. 
 - [`auth_witness`](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec-nr/aztec/src/oracle/auth_witness.nr) - Provides a way to fetch the authentication witness for a given address. This is useful when building account contracts to support approve-like functionality.
 - [`get_l1_to_l2_message`](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec-nr/aztec/src/oracle/get_l1_to_l2_message.nr) - Useful for application that receive messages from L1 to be consumed on L2, such as token bridges or other cross-chain applications.
@@ -141,7 +141,7 @@ contract Baz {
 }
 ```
 
-When simulating the following call stack, we can execution flow to continue procedurally. The simulator will begin at the account contract's entry point, find a call to `Foo::example_call`, then begin to execute the code there. When the simulator executes the code in contract `Foo`, it will find the further nested call to contract `Bar::nested_call`. It will execute the code in Bar, bringing the return value back to contract `Foo`.
+When simulating the following call stack, we can expect execution flow to continue procedurally. The simulator will begin at the account contract's entry point, find a call to `Foo::example_call`, then begin to execute the code there. When the simulator executes the code in contract `Foo`, it will find the further nested call to contract `Bar::nested_call`. It will execute the code in `Bar`, bringing the return value back to contract `Foo`.
 The same process will be followed for contract `Baz`.
 
 So far the provided example is identical to other executions. Ethereum execution occurs in a similar way, during execution the EVM will execute instructions until it reaches an external call, where it will hop into a new context and execute code there, returning back when it is complete, bringing with it return values from the foreign execution. 
@@ -157,14 +157,14 @@ The orchestration of these calls has an added benefit. All of the nested calls a
 With this intuition in place, lets see how we actually perform the call. To make things easier, we can make a small struct that wraps the calls to something as seen in the `token_interface`s burn function below. This struct is just providing us a clean way to call function, but we could also just call the function directly as it is done in this function. 
 
 :::info
-Note that the function selector is computed using one of the oracles from earlier, and that the first `Field` is wrapped in parenthesis. It is wrapped hence it is a struct and those are outlined in tuple-form for selector computation, `AztecAddress` becomes `(Field)`.
+Note that the function selector is computed using one of the oracles from earlier, and that the first `Field` is wrapped in parenthesis. Structs are outlined in tuple-form for selector computation, so they are wrapped in parenthesis--`AztecAddress` becomes `(Field)`.
 :::
 
 #include_code private_burn_interface /yarn-project/noir-contracts/src/contracts/token_bridge_contract/src/token_interface.nr rust
 
 Using this interface, we can then call it as seen below. All the way down at the bottom we can see that we are calling the `burn` function from the `token_interface` struct.
 
-The snippets is a token bridge that is burning the underlying token and creating a message for L1 to mint some assets to the `recipient` on Ethereum.
+The following snippet is from a token bridge that is burning the underlying token and creating a message for L1 to mint some assets to the `recipient` on Ethereum.
 
 #include_code exit_to_l1_private /yarn-project/noir-contracts/src/contracts/token_bridge_contract/src/main.nr rust
 
