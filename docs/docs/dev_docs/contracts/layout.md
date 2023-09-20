@@ -20,7 +20,7 @@ contract MyContract {
 }
 ```
 :::info A note for vanilla Noir devs
-There is no [`main()`](https://noir-lang.org/getting_started/breakdown/#mainnr) function within a Noir `contract` scope. This is because more than one function of a contract may be called and proven (as opposed to inlined by the compiler).
+There is no [`main()`](https://noir-lang.org/getting_started/breakdown/#mainnr) function within a Noir `contract` scope. More than one function can be an entrypoint.
 :::
 
 ## Directory structure
