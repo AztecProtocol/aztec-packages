@@ -140,7 +140,7 @@ field_t<Builder> keccak<Builder>::normalize_and_rotate(const field_ct& limb, fie
     compute_lookup_witnesses_for_limb.template operator()<right_bits, num_right_tables>(right_normalized);
     compute_lookup_witnesses_for_limb.template operator()<left_bits, num_left_tables>(left_normalized);
 
-    // Call composer method to create plookup constraints.
+    // Call builder method to create plookup constraints.
     // The MultiTable table index can be derived from `lane_idx`
     // Each lane_idx has a different rotation amount, which changes sizes of left/right slices
     // and therefore the selector constants required (i.e. the Q1, Q2, Q3 values in the earlier example)
@@ -320,7 +320,7 @@ template <typename Builder> void keccak<Builder>::theta(keccak_state& internal)
             // | hi | mid | lo | X  |
             // | P0 | P1  | P2 | Y  |
             // To save a gate, we would need to place the wires for the first KECCAK_THETA_OUTPUT plookup gate
-            // at P0, P1, P2. This is fiddly composer logic that is circuit-width-dependent
+            // at P0, P1, P2. This is fiddly builder logic that is circuit-width-dependent
             // (this would save 120 gates per hash block... not worth making the code less readable for that)
             D[i] = plookup_read<Builder>::read_from_1_to_2_table(KECCAK_THETA_OUTPUT, mid);
         } else {

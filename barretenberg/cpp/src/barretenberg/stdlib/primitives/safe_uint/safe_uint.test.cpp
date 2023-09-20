@@ -496,7 +496,7 @@ TYPED_TEST(SafeUintTest, TestOperatorDivRemainderConstraint)
     // // More rudimentary constraint
     // // We constrain divisor - remainder - 1 to be positive to ensure that remainder < divisor.
     // const uint256_t delta = b.get_value() - remainder_val - 1;
-    // const uint32_t delta_idx = composer.add_variable(delta);
+    // const uint32_t delta_idx = builder.add_variable(delta);
 
     // // constraint: other - remainder - delta - 1 == 0
     //         const add_triple delta_gate{ .a = b.get_witness_index(),

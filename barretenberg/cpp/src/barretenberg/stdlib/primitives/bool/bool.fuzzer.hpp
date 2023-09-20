@@ -390,7 +390,7 @@ template <typename Builder> class BoolFuzzBase {
         /* Explicit re-instantiation using the various bit_array constructors */
         ExecutionHandler set(Builder* builder)
         {
-            (void)composer;
+            (void)builder;
             switch (VarianceRNG.next() % 2) {
             case 0:
                 return ExecutionHandler(this->reference_value, bool_t(this->reference_value));
@@ -404,7 +404,7 @@ template <typename Builder> class BoolFuzzBase {
         /**
          * @brief Execute the constant instruction (push constant bool_t to the stack)
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return 0 if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -413,14 +413,14 @@ template <typename Builder> class BoolFuzzBase {
                                               std::vector<ExecutionHandler>& stack,
                                               Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             stack.push_back(bool_t(builder, instruction.arguments.element));
             return 0;
         }
         /**
          * @brief Execute the witness instruction (push witness bool_t to the stack)
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -437,7 +437,7 @@ template <typename Builder> class BoolFuzzBase {
         /**
          * @brief Execute the and operator instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -446,7 +446,7 @@ template <typename Builder> class BoolFuzzBase {
                                          std::vector<ExecutionHandler>& stack,
                                          Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -467,7 +467,7 @@ template <typename Builder> class BoolFuzzBase {
         /**
          * @brief Execute the or operator instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -476,7 +476,7 @@ template <typename Builder> class BoolFuzzBase {
                                         std::vector<ExecutionHandler>& stack,
                                         Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -497,7 +497,7 @@ template <typename Builder> class BoolFuzzBase {
         /**
          * @brief Execute the xor operator instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -506,7 +506,7 @@ template <typename Builder> class BoolFuzzBase {
                                          std::vector<ExecutionHandler>& stack,
                                          Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -527,7 +527,7 @@ template <typename Builder> class BoolFuzzBase {
         /**
          * @brief Execute the NOT instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -536,7 +536,7 @@ template <typename Builder> class BoolFuzzBase {
                                          std::vector<ExecutionHandler>& stack,
                                          Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -556,7 +556,7 @@ template <typename Builder> class BoolFuzzBase {
         /**
          * @brief Execute the SELECT_IF_EQ instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -565,7 +565,7 @@ template <typename Builder> class BoolFuzzBase {
                                                   std::vector<ExecutionHandler>& stack,
                                                   Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -587,7 +587,7 @@ template <typename Builder> class BoolFuzzBase {
         /**
          * @brief Execute the ASSERT_EQUAL  instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -596,7 +596,7 @@ template <typename Builder> class BoolFuzzBase {
                                                   std::vector<ExecutionHandler>& stack,
                                                   Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -609,7 +609,7 @@ template <typename Builder> class BoolFuzzBase {
         /**
          * @brief Execute the SET instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -618,7 +618,7 @@ template <typename Builder> class BoolFuzzBase {
                                          std::vector<ExecutionHandler>& stack,
                                          Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -637,7 +637,7 @@ template <typename Builder> class BoolFuzzBase {
         /**
          * @brief Execute the RANDOMSEED instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -646,7 +646,7 @@ template <typename Builder> class BoolFuzzBase {
                                                 std::vector<ExecutionHandler>& stack,
                                                 Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             (void)stack;
 
             VarianceRNG.reseed(instruction.arguments.randomseed);
@@ -659,14 +659,14 @@ template <typename Builder> class BoolFuzzBase {
      * @brief Check that the resulting values are equal to expected
      *
      * @tparam Builder
-     * @param composer
+     * @param builder
      * @param stack
      * @return true
      * @return false
      */
     inline static bool postProcess(Builder* builder, std::vector<BoolFuzzBase::ExecutionHandler>& stack)
     {
-        (void)composer;
+        (void)builder;
         for (size_t i = 0; i < stack.size(); i++) {
             auto element = stack[i];
             if (element.b.get_value() != element.reference_value) {

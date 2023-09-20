@@ -586,7 +586,7 @@ template <typename Builder> class BitArrayFuzzBase {
         /**
          * @brief Execute the constant instruction (push constant safeuint to the stack)
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return 0 if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -595,14 +595,14 @@ template <typename Builder> class BitArrayFuzzBase {
                                               std::vector<ExecutionHandler>& stack,
                                               Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             stack.push_back(bit_array_t(builder, instruction.arguments.element.as_string()));
             return 0;
         }
         /**
          * @brief Execute the GET_BIT instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -611,7 +611,7 @@ template <typename Builder> class BitArrayFuzzBase {
                                              std::vector<ExecutionHandler>& stack,
                                              Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -631,7 +631,7 @@ template <typename Builder> class BitArrayFuzzBase {
         /**
          * @brief Execute the SET_BIT instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -640,7 +640,7 @@ template <typename Builder> class BitArrayFuzzBase {
                                              std::vector<ExecutionHandler>& stack,
                                              Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -653,7 +653,7 @@ template <typename Builder> class BitArrayFuzzBase {
         /**
          * @brief Execute the SLICE instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -662,7 +662,7 @@ template <typename Builder> class BitArrayFuzzBase {
                                            std::vector<ExecutionHandler>& stack,
                                            Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -682,7 +682,7 @@ template <typename Builder> class BitArrayFuzzBase {
         /**
          * @brief Execute the SET instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -691,7 +691,7 @@ template <typename Builder> class BitArrayFuzzBase {
                                          std::vector<ExecutionHandler>& stack,
                                          Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -710,7 +710,7 @@ template <typename Builder> class BitArrayFuzzBase {
         /**
          * @brief Execute the RANDOMSEED instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -719,7 +719,7 @@ template <typename Builder> class BitArrayFuzzBase {
                                                 std::vector<ExecutionHandler>& stack,
                                                 Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             (void)stack;
 
             VarianceRNG.reseed(instruction.arguments.randomseed);
@@ -732,14 +732,14 @@ template <typename Builder> class BitArrayFuzzBase {
      * @brief Check that the resulting values are equal to expected
      *
      * @tparam Builder
-     * @param composer
+     * @param builder
      * @param stack
      * @return true
      * @return false
      */
     inline static bool postProcess(Builder* builder, std::vector<BitArrayFuzzBase::ExecutionHandler>& stack)
     {
-        (void)composer;
+        (void)builder;
         for (size_t i = 0; i < stack.size(); i++) {
             auto element = stack[i];
             const auto other = from_to<std::string, std::vector<uint8_t>>(element.bit_array.get_witness_as_string());

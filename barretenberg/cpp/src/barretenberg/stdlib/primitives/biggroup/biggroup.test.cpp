@@ -184,7 +184,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
             std::cerr << "gates before mul " << builder.get_num_gates() << std::endl;
             element_ct c = P * x;
-            std::cerr << "composer aftr mul " << builder.get_num_gates() << std::endl;
+            std::cerr << "builder aftr mul " << builder.get_num_gates() << std::endl;
             affine_element c_expected(element(input) * scalar);
 
             fq c_x_result(c.x.get_value().lo);
@@ -478,7 +478,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
             std::cerr << "gates before mul " << builder.get_num_gates() << std::endl;
             element_ct c = element_ct::wnaf_batch_mul({ P }, { x });
-            std::cerr << "composer aftr mul " << builder.get_num_gates() << std::endl;
+            std::cerr << "builder aftr mul " << builder.get_num_gates() << std::endl;
             affine_element c_expected(element(input) * scalar);
 
             fq c_x_result(c.x.get_value().lo);
@@ -548,7 +548,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             std::cerr << "gates before mul " << builder.get_num_gates() << std::endl;
             // Note: need >136 bits to complete this when working over bigfield
             element_ct c = element_ct::template wnaf_batch_mul<128>({ P }, { x });
-            std::cerr << "composer aftr mul " << builder.get_num_gates() << std::endl;
+            std::cerr << "builder aftr mul " << builder.get_num_gates() << std::endl;
             affine_element c_expected(element(input) * scalar);
 
             fq c_x_result(c.x.get_value().lo);
@@ -594,7 +594,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
             std::cerr << "gates before mul " << builder.get_num_gates() << std::endl;
             element_ct c = element_ct::batch_mul({ P1, P2, P3, P4 }, { x1, x2, x3, x4 }, 128);
-            std::cerr << "composer aftr mul " << builder.get_num_gates() << std::endl;
+            std::cerr << "builder aftr mul " << builder.get_num_gates() << std::endl;
 
             element out = input1 * scalar1;
             out += (input2 * scalar2);

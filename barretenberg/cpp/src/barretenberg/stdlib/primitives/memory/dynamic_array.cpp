@@ -16,7 +16,7 @@ namespace stdlib {
  * 2), this will add an additional (maximum_size / 6) gates.
  *
  * @tparam Builder
- * @param composer
+ * @param builder
  * @param maximum_size The maximum size of the array
  */
 template <typename Builder>

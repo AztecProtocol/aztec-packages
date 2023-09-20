@@ -224,7 +224,7 @@ template <typename Builder> class field_t {
     /**
      * normalize returns a field_t element with equivalent value to `this`, but where `multiplicative_constant = 1` and
      *`additive_constant = 0`.
-     * I.e. the returned value is defined entirely by the composer variable that `witness_index` points to (no scaling
+     * I.e. the returned value is defined entirely by the builder variable that `witness_index` points to (no scaling
      * factors).
      *
      * If the witness_index of `this` is ever needed, `normalize` should be called first.
@@ -369,7 +369,7 @@ template <typename Builder> class field_t {
     mutable barretenberg::fr multiplicative_constant;
 
     /**
-     * Every composer object contains a vector `variables` (a.k.a. 'witnesses'); circuit variables that can be
+     * Every builder object contains a vector `variables` (a.k.a. 'witnesses'); circuit variables that can be
      * assigned to wires when creating constraints. `witness_index` describes a location in this container. I.e. it
      * 'points' to a circuit variable.
      *
@@ -388,7 +388,7 @@ template <typename Builder> class field_t {
      * field_t baz = foo * (bar + 7);
      *
      * This will add 3 new circuit witnesses (10, 50, 570) to `variables`. One constraint will also be created, that
-     * validates `baz` has been correctly constructed. The composer will assign `foo, bar, baz` to wires `w_1, w_2, w_3`
+     * validates `baz` has been correctly constructed. The builder will assign `foo, bar, baz` to wires `w_1, w_2, w_3`
      * in a new gate which checks that:
      *
      *      w_1 * w_2 + w_1 * 7 - w_3 = 0

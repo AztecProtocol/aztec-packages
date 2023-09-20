@@ -241,7 +241,7 @@ template <typename Builder> class safe_uint_t {
 
     /**
      * normalize returns a safe_uint_t element where `multiplicative_constant = 1` and `additive_constant = 0`
-     * i.e. the value is defined entirely by the composer variable that `witness_index` points to
+     * i.e. the value is defined entirely by the builder variable that `witness_index` points to
      * If the witness_index is ever needed, `normalize` should be called first
      *
      * Will cost 1 constraint if the field element is not already normalized (or is constant)

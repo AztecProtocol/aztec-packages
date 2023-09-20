@@ -11,7 +11,7 @@ template <typename Builder>
 twin_rom_table<Builder>::twin_rom_table(const std::vector<std::array<field_pt, 2>>& table_entries)
 {
     static_assert(HasPlookup<Builder>);
-    // get the composer context
+    // get the builder context
     for (const auto& entry : table_entries) {
         if (entry[0].get_context() != nullptr) {
             context = entry[0].get_context();
@@ -32,7 +32,7 @@ twin_rom_table<Builder>::twin_rom_table(const std::vector<std::array<field_pt, 2
 
 // initialize the table once we perform a read. This ensures we always have a valid
 // pointer to a Builder.
-// (if both the table entries and the index are constant, we don't need a composer as we
+// (if both the table entries and the index are constant, we don't need a builder as we
 // can directly extract the desired value from `raw_entries`)
 template <typename Builder> void twin_rom_table<Builder>::initialize_table() const
 {

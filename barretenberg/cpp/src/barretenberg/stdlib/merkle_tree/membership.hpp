@@ -18,7 +18,7 @@ template <typename Builder> using bit_vector = std::vector<bool_t<Builder>>;
  * @param index: The index of any leaf in the subtree,
  * @param at_height: The height of the subtree,
  * @param is_updating_tree: set to true if we're updating the tree.
- * @tparam Builder: type of composer.
+ * @tparam Builder: type of builder.
  *
  * @see Check full documentation: https://hackmd.io/2zyJc6QhRuugyH8D78Tbqg?view
  */
@@ -57,7 +57,7 @@ field_t<Builder> compute_subtree_root(hash_path<Builder> const& hashes,
  * @param index: The index of any leaf in the subtree,
  * @param at_height: The height of the subtree,
  * @param is_updating_tree: set to true if we're updating the tree.
- * @tparam Builder: type of composer.
+ * @tparam Builder: type of builder.
  *
  * @see Check full documentation: https://hackmd.io/2zyJc6QhRuugyH8D78Tbqg?view
  */
@@ -83,7 +83,7 @@ bool_t<Builder> check_subtree_membership(field_t<Builder> const& root,
  * @param at_height: The height of the subtree,
  * @param is_updating_tree: set to true if we're updating the tree,
  * @param msg: error message.
- * @tparam Builder: type of composer.
+ * @tparam Builder: type of builder.
  */
 template <typename Builder>
 void assert_check_subtree_membership(field_t<Builder> const& root,
@@ -107,7 +107,7 @@ void assert_check_subtree_membership(field_t<Builder> const& root,
  * @param value: The value of the leaf,
  * @param index: The index of the leaf in the tree,
  * @param is_updating_tree: set to true if we're updating the tree.
- * @tparam Builder: type of composer.
+ * @tparam Builder: type of builder.
  */
 template <typename Builder>
 bool_t<Builder> check_membership(field_t<Builder> const& root,
@@ -129,7 +129,7 @@ bool_t<Builder> check_membership(field_t<Builder> const& root,
  * @param index: The index of the leaf in the tree,
  * @param is_updating_tree: set to true if we're updating the tree,
  * @param msg: error message.
- * @tparam Builder: type of composer.
+ * @tparam Builder: type of builder.
  */
 template <typename Builder>
 void assert_check_membership(field_t<Builder> const& root,
@@ -154,7 +154,7 @@ void assert_check_membership(field_t<Builder> const& root,
  * @param old_value: The value of the leaf before it was updated with new_value,
  * @param index: The index of the leaf in the tree,
  * @param msg: error message.
- * @tparam Builder: type of composer.
+ * @tparam Builder: type of builder.
  */
 template <typename Builder>
 void update_membership(field_t<Builder> const& new_root,
@@ -181,7 +181,7 @@ void update_membership(field_t<Builder> const& new_root,
  * @param old_values: The values of the existing leaves that were updated,
  * @param old_paths: The hash path from the given index right before a given existing leaf is updated,
  * @param old_indicies: Indices of the existing leaves that need to be updated,
- * @tparam Builder: type of composer.
+ * @tparam Builder: type of builder.
  */
 template <typename Builder>
 field_t<Builder> update_memberships(field_t<Builder> old_root,
@@ -213,7 +213,7 @@ field_t<Builder> update_memberships(field_t<Builder> old_root,
  * @param index: The index of any leaf in the subtree,
  * @param at_height: The height of the subtree,
  * @param msg: error message.
- * @tparam Builder: type of composer.
+ * @tparam Builder: type of builder.
  */
 template <typename Builder>
 void update_subtree_membership(field_t<Builder> const& new_root,
@@ -240,7 +240,7 @@ void update_subtree_membership(field_t<Builder> const& new_root,
  * Computes the root of a tree with leaves given as the vector `input`.
  *
  * @param input: vector of leaf values.
- * @tparam Builder: type of composer.
+ * @tparam Builder: type of builder.
  */
 template <typename Builder> field_t<Builder> compute_tree_root(std::vector<field_t<Builder>> const& input)
 {
@@ -263,7 +263,7 @@ template <typename Builder> field_t<Builder> compute_tree_root(std::vector<field
  * Checks if a given root matches the root computed from a set of leaves.
  *
  * @param values: vector of leaf values.
- * @tparam Builder: type of composer.
+ * @tparam Builder: type of builder.
  */
 template <typename Builder>
 bool_t<Builder> check_tree(field_t<Builder> const& root, std::vector<field_t<Builder>> const& values)
@@ -275,7 +275,7 @@ bool_t<Builder> check_tree(field_t<Builder> const& root, std::vector<field_t<Bui
  * Asserts if a given root matches the root computed from a set of leaves.
  *
  * @param values: vector of leaf values.
- * @tparam Builder: type of composer.
+ * @tparam Builder: type of builder.
  */
 template <typename Builder>
 void assert_check_tree(field_t<Builder> const& root, std::vector<field_t<Builder>> const& values)
@@ -293,7 +293,7 @@ void assert_check_tree(field_t<Builder> const& root, std::vector<field_t<Builder
  * @param new_values: The vector of values to be inserted from start_index,
  * @param start_index: The index of any leaf from which new values are inserted,
  * @param msg: error message.
- * @tparam Builder: type of composer.
+ * @tparam Builder: type of builder.
  */
 template <typename Builder>
 void batch_update_membership(field_t<Builder> const& new_root,

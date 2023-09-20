@@ -740,7 +740,7 @@ template <typename Builder> class FieldBase {
              */
             const bool predicate_has_ctx = static_cast<bool>(VarianceRNG.next() % 2);
 
-            return bool_t(predicate_has_ctx ? composer : nullptr, predicate);
+            return bool_t(predicate_has_ctx ? builder : nullptr, predicate);
         }
         field_t f() const
         {
@@ -977,7 +977,7 @@ template <typename Builder> class FieldBase {
         /* Explicit re-instantiation using the various constructors */
         ExecutionHandler set(Builder* builder)
         {
-            (void)composer;
+            (void)builder;
 
             switch (VarianceRNG.next() % 9) {
             case 0:
@@ -1102,7 +1102,7 @@ template <typename Builder> class FieldBase {
         /**
          * @brief Execute the constant instruction (push constant safeuint to the stack)
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return 0 if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -1111,7 +1111,7 @@ template <typename Builder> class FieldBase {
                                               std::vector<ExecutionHandler>& stack,
                                               Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             stack.push_back(
                 ExecutionHandler(instruction.arguments.element, field_t(builder, instruction.arguments.element)));
 #ifdef SHOW_INFORMATION
@@ -1124,7 +1124,7 @@ template <typename Builder> class FieldBase {
         /**
          * @brief Execute the witness instruction (push witness safeuit to the stack)
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -1149,7 +1149,7 @@ template <typename Builder> class FieldBase {
          * @brief Execute the constant_witness instruction (push a safeuint witness equal to the constant to the
          * stack)
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return 0 if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -1170,7 +1170,7 @@ template <typename Builder> class FieldBase {
         /**
          * @brief Execute the multiply instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -1180,7 +1180,7 @@ template <typename Builder> class FieldBase {
                                               Instruction& instruction)
         {
 
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -1206,7 +1206,7 @@ template <typename Builder> class FieldBase {
         /**
          * @brief Execute the addition operator instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -1215,7 +1215,7 @@ template <typename Builder> class FieldBase {
                                          std::vector<ExecutionHandler>& stack,
                                          Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -1242,7 +1242,7 @@ template <typename Builder> class FieldBase {
         /**
          * @brief Execute the SQR  instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -1251,7 +1251,7 @@ template <typename Builder> class FieldBase {
                                          std::vector<ExecutionHandler>& stack,
                                          Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -1277,7 +1277,7 @@ template <typename Builder> class FieldBase {
         /**
          * @brief Execute the ASSERT_EQUAL  instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -1286,7 +1286,7 @@ template <typename Builder> class FieldBase {
                                                   std::vector<ExecutionHandler>& stack,
                                                   Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -1305,7 +1305,7 @@ template <typename Builder> class FieldBase {
         /**
          * @brief Execute the ASSERT_NOT_EQUAL  instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -1314,7 +1314,7 @@ template <typename Builder> class FieldBase {
                                                       std::vector<ExecutionHandler>& stack,
                                                       Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -1333,7 +1333,7 @@ template <typename Builder> class FieldBase {
         /**
          * @brief Execute the ASSERT_ZERO  instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -1342,7 +1342,7 @@ template <typename Builder> class FieldBase {
                                                  std::vector<ExecutionHandler>& stack,
                                                  Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -1364,7 +1364,7 @@ template <typename Builder> class FieldBase {
         /**
          * @brief Execute the ASSERT_NOT_ZERO  instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -1373,7 +1373,7 @@ template <typename Builder> class FieldBase {
                                                      std::vector<ExecutionHandler>& stack,
                                                      Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -1394,7 +1394,7 @@ template <typename Builder> class FieldBase {
         /**
          * @brief Execute the subtraction operator instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -1403,7 +1403,7 @@ template <typename Builder> class FieldBase {
                                               std::vector<ExecutionHandler>& stack,
                                               Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -1429,7 +1429,7 @@ template <typename Builder> class FieldBase {
         /**
          * @brief Execute the division operator instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -1438,7 +1438,7 @@ template <typename Builder> class FieldBase {
                                             std::vector<ExecutionHandler>& stack,
                                             Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -1471,7 +1471,7 @@ template <typename Builder> class FieldBase {
         /**
          * @brief Execute the ADD_TWO instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -1481,7 +1481,7 @@ template <typename Builder> class FieldBase {
                                              std::vector<ExecutionHandler>& stack,
                                              Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -1507,7 +1507,7 @@ template <typename Builder> class FieldBase {
         /**
          * @brief Execute the MADD instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -1517,7 +1517,7 @@ template <typename Builder> class FieldBase {
                                           std::vector<ExecutionHandler>& stack,
                                           Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -1544,7 +1544,7 @@ template <typename Builder> class FieldBase {
         /**
          * @brief Execute the slice instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -1554,7 +1554,7 @@ template <typename Builder> class FieldBase {
                                            std::vector<ExecutionHandler>& stack,
                                            Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -1595,7 +1595,7 @@ template <typename Builder> class FieldBase {
         /**
          * @brief Execute the RANDOMSEED instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -1604,7 +1604,7 @@ template <typename Builder> class FieldBase {
                                                 std::vector<ExecutionHandler>& stack,
                                                 Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             (void)stack;
 
             VarianceRNG.reseed(instruction.arguments.randomseed);
@@ -1613,7 +1613,7 @@ template <typename Builder> class FieldBase {
         /**
          * @brief Execute the COND_NEGATE instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -1622,7 +1622,7 @@ template <typename Builder> class FieldBase {
                                                  std::vector<ExecutionHandler>& stack,
                                                  Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -1647,7 +1647,7 @@ template <typename Builder> class FieldBase {
         /**
          * @brief Execute the COND_SELECT instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -1656,7 +1656,7 @@ template <typename Builder> class FieldBase {
                                                  std::vector<ExecutionHandler>& stack,
                                                  Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -1681,7 +1681,7 @@ template <typename Builder> class FieldBase {
         /**
          * @brief Execute the SELECT_IF_ZERO instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -1690,7 +1690,7 @@ template <typename Builder> class FieldBase {
                                                     std::vector<ExecutionHandler>& stack,
                                                     Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -1715,7 +1715,7 @@ template <typename Builder> class FieldBase {
         /**
          * @brief Execute the SELECT_IF_EQ instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -1724,7 +1724,7 @@ template <typename Builder> class FieldBase {
                                                   std::vector<ExecutionHandler>& stack,
                                                   Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -1749,7 +1749,7 @@ template <typename Builder> class FieldBase {
         /**
          * @brief Execute the SET instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -1758,7 +1758,7 @@ template <typename Builder> class FieldBase {
                                          std::vector<ExecutionHandler>& stack,
                                          Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -1782,7 +1782,7 @@ template <typename Builder> class FieldBase {
         /**
          * @brief Execute the INVERT instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -1791,7 +1791,7 @@ template <typename Builder> class FieldBase {
                                             std::vector<ExecutionHandler>& stack,
                                             Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -1822,14 +1822,14 @@ template <typename Builder> class FieldBase {
      * @brief Check that the resulting values are equal to expected
      *
      * @tparam Builder
-     * @param composer
+     * @param builder
      * @param stack
      * @return true
      * @return false
      */
     inline static bool postProcess(Builder* builder, std::vector<FieldBase::ExecutionHandler>& stack)
     {
-        (void)composer;
+        (void)builder;
         for (size_t i = 0; i < stack.size(); i++) {
             auto element = stack[i];
             if (barretenberg::fr((uint256_t(element.field.get_value()) % barretenberg::fr::modulus)) != element.base) {

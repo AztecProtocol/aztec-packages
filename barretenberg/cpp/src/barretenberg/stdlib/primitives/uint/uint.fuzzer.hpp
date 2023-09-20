@@ -912,7 +912,7 @@ template <typename Builder> class UintFuzzBase {
         /**
          * @brief Execute the constant instruction (push constant safeuint to the stack)
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return 0 if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -927,7 +927,7 @@ template <typename Builder> class UintFuzzBase {
         /**
          * @brief Execute the addition operator instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -936,7 +936,7 @@ template <typename Builder> class UintFuzzBase {
                                          std::vector<ExecutionHandler>& stack,
                                          Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -957,7 +957,7 @@ template <typename Builder> class UintFuzzBase {
         /**
          * @brief Execute the subtraction operator instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -966,7 +966,7 @@ template <typename Builder> class UintFuzzBase {
                                               std::vector<ExecutionHandler>& stack,
                                               Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -987,7 +987,7 @@ template <typename Builder> class UintFuzzBase {
         /**
          * @brief Execute the multiply instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -996,7 +996,7 @@ template <typename Builder> class UintFuzzBase {
                                               std::vector<ExecutionHandler>& stack,
                                               Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -1017,7 +1017,7 @@ template <typename Builder> class UintFuzzBase {
         /**
          * @brief Execute the division operator instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -1026,7 +1026,7 @@ template <typename Builder> class UintFuzzBase {
                                             std::vector<ExecutionHandler>& stack,
                                             Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -1047,7 +1047,7 @@ template <typename Builder> class UintFuzzBase {
         /**
          * @brief Execute the modulo operator instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -1056,7 +1056,7 @@ template <typename Builder> class UintFuzzBase {
                                             std::vector<ExecutionHandler>& stack,
                                             Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -1077,7 +1077,7 @@ template <typename Builder> class UintFuzzBase {
         /**
          * @brief Execute the and operator instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -1086,7 +1086,7 @@ template <typename Builder> class UintFuzzBase {
                                          std::vector<ExecutionHandler>& stack,
                                          Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -1107,7 +1107,7 @@ template <typename Builder> class UintFuzzBase {
         /**
          * @brief Execute the or operator instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -1116,7 +1116,7 @@ template <typename Builder> class UintFuzzBase {
                                         std::vector<ExecutionHandler>& stack,
                                         Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -1137,7 +1137,7 @@ template <typename Builder> class UintFuzzBase {
         /**
          * @brief Execute the xor operator instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -1146,7 +1146,7 @@ template <typename Builder> class UintFuzzBase {
                                          std::vector<ExecutionHandler>& stack,
                                          Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -1167,7 +1167,7 @@ template <typename Builder> class UintFuzzBase {
         /**
          * @brief Execute the GET_BIT instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -1195,7 +1195,7 @@ template <typename Builder> class UintFuzzBase {
         /**
          * @brief Execute the left-shift operator instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -1204,7 +1204,7 @@ template <typename Builder> class UintFuzzBase {
                                          std::vector<ExecutionHandler>& stack,
                                          Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -1224,7 +1224,7 @@ template <typename Builder> class UintFuzzBase {
         /**
          * @brief Execute the right-shift operator instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -1233,7 +1233,7 @@ template <typename Builder> class UintFuzzBase {
                                          std::vector<ExecutionHandler>& stack,
                                          Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -1253,7 +1253,7 @@ template <typename Builder> class UintFuzzBase {
         /**
          * @brief Execute the left-rotate operator instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -1262,7 +1262,7 @@ template <typename Builder> class UintFuzzBase {
                                          std::vector<ExecutionHandler>& stack,
                                          Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -1282,7 +1282,7 @@ template <typename Builder> class UintFuzzBase {
         /**
          * @brief Execute the right-rotate operator instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -1291,7 +1291,7 @@ template <typename Builder> class UintFuzzBase {
                                          std::vector<ExecutionHandler>& stack,
                                          Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -1311,7 +1311,7 @@ template <typename Builder> class UintFuzzBase {
         /**
          * @brief Execute the NOT instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -1320,7 +1320,7 @@ template <typename Builder> class UintFuzzBase {
                                          std::vector<ExecutionHandler>& stack,
                                          Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -1340,7 +1340,7 @@ template <typename Builder> class UintFuzzBase {
         /**
          * @brief Execute the SET instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -1368,7 +1368,7 @@ template <typename Builder> class UintFuzzBase {
         /**
          * @brief Execute the RANDOMSEED instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -1377,7 +1377,7 @@ template <typename Builder> class UintFuzzBase {
                                                 std::vector<ExecutionHandler>& stack,
                                                 Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             (void)stack;
 
             VarianceRNG.reseed(instruction.arguments.randomseed);
@@ -1390,14 +1390,14 @@ template <typename Builder> class UintFuzzBase {
      * @brief Check that the resulting values are equal to expected
      *
      * @tparam Builder
-     * @param composer
+     * @param builder
      * @param stack
      * @return true
      * @return false
      */
     inline static bool postProcess(Builder* builder, std::vector<UintFuzzBase::ExecutionHandler>& stack)
     {
-        (void)composer;
+        (void)builder;
         for (size_t i = 0; i < stack.size(); i++) {
             auto element = stack[i];
             if (element.uint.v8.get_value() != element.ref.v8) {

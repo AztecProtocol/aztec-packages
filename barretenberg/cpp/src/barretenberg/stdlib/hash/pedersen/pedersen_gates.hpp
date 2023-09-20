@@ -40,7 +40,7 @@ template <typename Builder> class pedersen_gates {
             context->create_fixed_group_add_gate(in);
         } else {
 
-            // TODO: not supported by honk composer?
+            // TODO: not supported by honk builder?
             // context->assert_valid_variables({ in.a, in.b, in.c, in.d });
 
             auto row_1 = previous_add_quad;
@@ -247,7 +247,7 @@ template <typename Builder> class pedersen_gates {
             fr q_c = init.q_y_2;
 
             // We will think of s = 1-a_0 as an auxiliary "switch" which is equal to either -x_alpha or 0
-            // during the initialization step, but we will not add this variable to the composer for reasons of
+            // during the initialization step, but we will not add this variable to the builder for reasons of
             // efficiency.
 
             // (ɑ^4 identity) impose 1-a_0 = 0 or -x_alpha

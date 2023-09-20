@@ -15,7 +15,7 @@ using namespace proof_system::plonk;
 
 /**
  * @brief A test fixture that will let us generate VK data and run tests
- * for all composer types
+ * for all builder types
  *
  * @tparam Builder
  */

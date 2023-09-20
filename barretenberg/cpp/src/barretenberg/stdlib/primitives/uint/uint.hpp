@@ -14,7 +14,7 @@ namespace stdlib {
  * @brief A standard library fixed-width unsigned integer type. Useful, e.g., for hashing.
  * Use safe_uint instead if looking to represent integer arithmetic inside of Fr.
  *
- * @tparam Builder The type of the composer context.
+ * @tparam Builder The type of the builder context.
  * @tparam Native   One of the native uint types uintN_t, where N = 8, 16, 32, 64.
  *
  * @details All arithmetic operations in Native is done modulo 2**N, and the same is true for

@@ -278,7 +278,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         c_sqr.set_public();
         field_ct sum_sqrs = a_sqr + b_sqr;
 
-        // composer.assert_equal(sum_sqrs.witness_index, c_sqr.witness_index, "triple is not pythagorean");
+        // builder.assert_equal(sum_sqrs.witness_index, c_sqr.witness_index, "triple is not pythagorean");
         c_sqr.assert_equal(sum_sqrs);
 
         bool verified = builder.check_circuit();

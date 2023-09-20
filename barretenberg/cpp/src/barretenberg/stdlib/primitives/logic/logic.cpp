@@ -11,7 +11,7 @@ namespace proof_system::plonk::stdlib {
 /**
  * @brief A logical AND or XOR over a variable number of bits.
  *
- * @details Defaults to basic Builder method if not using plookup-compatible composer. If the left and right operands
+ * @details Defaults to basic Builder method if not using plookup-compatible builder. If the left and right operands
  * are larger than num_bit, the result will be truncated to num_bits. However, the two operands could be
  * range-constrained to num_bits before the call, which would remove the need to range constrain inside this function.
  *
@@ -102,7 +102,7 @@ field_t<Builder> logic<Builder>::create_logic_constraint(
 
         return res;
     } else {
-        // If the composer doesn't have lookups we call the expensive logic constraint gate
+        // If the builder doesn't have lookups we call the expensive logic constraint gate
         // which creates constraints for each bit. We only create constraints up to num_bits.
         Builder* ctx = a.get_context();
         field_pt a_slice = a.slice(static_cast<uint8_t>(num_bits - 1), 0)[1];

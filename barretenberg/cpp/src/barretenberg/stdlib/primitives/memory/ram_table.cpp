@@ -36,7 +36,7 @@ template <typename Builder> ram_table<Builder>::ram_table(Builder* builder, cons
 template <typename Builder> ram_table<Builder>::ram_table(const std::vector<field_pt>& table_entries)
 {
     static_assert(HasPlookup<Builder>);
-    // get the composer _context
+    // get the builder _context
     for (const auto& entry : table_entries) {
         if (entry.get_context() != nullptr) {
             _context = entry.get_context();
@@ -59,14 +59,14 @@ template <typename Builder> ram_table<Builder>::ram_table(const std::vector<fiel
  * @brief internal method, is used to call Builder methods that will generate RAM table.
  *
  * @details initialize the table once we perform a read. This ensures we always have a pointer to a Builder.
- * (if both the table entries and the index are constant, we don't need a composer as we
+ * (if both the table entries and the index are constant, we don't need a builder as we
  * can directly extract the desired value fram `_raw_entries`)
  *
  * @tparam Builder
  */
 template <typename Builder> void ram_table<Builder>::initialize_table() const
 {
-    if (_ram_table_generated_in_composer) {
+    if (_ram_table_generated_in_builder) {
         return;
     }
     ASSERT(_context != nullptr);
@@ -89,7 +89,7 @@ template <typename Builder> void ram_table<Builder>::initialize_table() const
         }
     }
 
-    _ram_table_generated_in_composer = true;
+    _ram_table_generated_in_builder = true;
 }
 
 /**
@@ -104,7 +104,7 @@ ram_table<Builder>::ram_table(const ram_table& other)
     , _index_initialized(other._index_initialized)
     , _length(other._length)
     , _ram_id(other._ram_id)
-    , _ram_table_generated_in_composer(other._ram_table_generated_in_composer)
+    , _ram_table_generated_in_builder(other._ram_table_generated_in_builder)
     , _all_entries_written_to_with_constant_index(other._all_entries_written_to_with_constant_index)
     , _context(other._context)
 {}
@@ -121,7 +121,7 @@ ram_table<Builder>::ram_table(ram_table&& other)
     , _index_initialized(other._index_initialized)
     , _length(other._length)
     , _ram_id(other._ram_id)
-    , _ram_table_generated_in_composer(other._ram_table_generated_in_composer)
+    , _ram_table_generated_in_builder(other._ram_table_generated_in_builder)
     , _all_entries_written_to_with_constant_index(other._all_entries_written_to_with_constant_index)
     , _context(other._context)
 {}
@@ -139,7 +139,7 @@ template <typename Builder> ram_table<Builder>& ram_table<Builder>::operator=(co
     _length = other._length;
     _ram_id = other._ram_id;
     _index_initialized = other._index_initialized;
-    _ram_table_generated_in_composer = other._ram_table_generated_in_composer;
+    _ram_table_generated_in_builder = other._ram_table_generated_in_builder;
     _all_entries_written_to_with_constant_index = other._all_entries_written_to_with_constant_index;
 
     _context = other._context;
@@ -159,7 +159,7 @@ template <typename Builder> ram_table<Builder>& ram_table<Builder>::operator=(ra
     _length = other._length;
     _ram_id = other._ram_id;
     _index_initialized = other._index_initialized;
-    _ram_table_generated_in_composer = other._ram_table_generated_in_composer;
+    _ram_table_generated_in_builder = other._ram_table_generated_in_builder;
     _all_entries_written_to_with_constant_index = other._all_entries_written_to_with_constant_index;
     _context = other._context;
     return *this;

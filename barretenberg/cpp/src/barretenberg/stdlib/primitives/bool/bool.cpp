@@ -463,22 +463,22 @@ template <typename Builder> void bool_t<Builder>::must_imply(const bool_t& other
 template <typename Builder>
 void bool_t<Builder>::must_imply(const std::vector<std::pair<bool_t, std::string>>& conds) const
 {
-    // Extract the composer
+    // Extract the builder
     const bool_t this_bool = *this;
     Builder* ctx = this_bool.get_context();
-    bool composer_found = (ctx != nullptr);
+    bool builder_found = (ctx != nullptr);
     for (size_t i = 0; i < conds.size(); i++) {
-        if (!composer_found) {
+        if (!builder_found) {
             ctx = conds[i].first.get_context();
-            composer_found = (ctx != nullptr);
+            builder_found = (ctx != nullptr);
         }
     }
 
-    // If no composer is found, all of the bool_t's must be constants.
+    // If no builder is found, all of the bool_t's must be constants.
     // In that case, we enforce a static assertion to check must_imply condition holds.
     // If all of your inputs do this function are constants and they don't obey a condition,
     // this function will panic at those static assertions.
-    if (!composer_found) {
+    if (!builder_found) {
         bool is_const = this_bool.is_constant();
         bool result = !this_bool.get_value();
         bool acc = true;

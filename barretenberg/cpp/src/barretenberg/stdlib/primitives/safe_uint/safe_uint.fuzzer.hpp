@@ -704,7 +704,7 @@ template <typename Builder> class SafeUintFuzzBase {
         /**
          * @brief Execute the constant instruction (push constant safeuint to the stack)
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return 0 if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -713,7 +713,7 @@ template <typename Builder> class SafeUintFuzzBase {
                                               std::vector<ExecutionHandler>& stack,
                                               Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             stack.push_back(suint_t(instruction.arguments.element.value));
 #ifdef SHOW_INFORMATION
             std::cout << "Pushed constant value " << instruction.arguments.element.value << " to position "
@@ -725,7 +725,7 @@ template <typename Builder> class SafeUintFuzzBase {
         /**
          * @brief Execute the witness instruction (push witness safeuit to the stack)
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -757,7 +757,7 @@ template <typename Builder> class SafeUintFuzzBase {
         /**
          * @brief Execute the constant_witness instruction (push a safeuint witness equal to the constant to the stack)
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return 0 if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -776,7 +776,7 @@ template <typename Builder> class SafeUintFuzzBase {
         /**
          * @brief Execute the multiply instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -786,7 +786,7 @@ template <typename Builder> class SafeUintFuzzBase {
                                               Instruction& instruction)
         {
 
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -828,7 +828,7 @@ template <typename Builder> class SafeUintFuzzBase {
         /**
          * @brief Execute the addition operator instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -837,7 +837,7 @@ template <typename Builder> class SafeUintFuzzBase {
                                          std::vector<ExecutionHandler>& stack,
                                          Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -872,7 +872,7 @@ template <typename Builder> class SafeUintFuzzBase {
         /**
          * @brief Execute the subtraction operator instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -881,7 +881,7 @@ template <typename Builder> class SafeUintFuzzBase {
                                               std::vector<ExecutionHandler>& stack,
                                               Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -939,7 +939,7 @@ template <typename Builder> class SafeUintFuzzBase {
         /**
          * @brief Execute the division operator instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -948,7 +948,7 @@ template <typename Builder> class SafeUintFuzzBase {
                                             std::vector<ExecutionHandler>& stack,
                                             Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -1002,7 +1002,7 @@ template <typename Builder> class SafeUintFuzzBase {
         /**
          * @brief Execute the ADD_TWO instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -1012,7 +1012,7 @@ template <typename Builder> class SafeUintFuzzBase {
                                              std::vector<ExecutionHandler>& stack,
                                              Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -1053,7 +1053,7 @@ template <typename Builder> class SafeUintFuzzBase {
         /**
          * @brief Execute the MADD instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -1063,7 +1063,7 @@ template <typename Builder> class SafeUintFuzzBase {
                                           std::vector<ExecutionHandler>& stack,
                                           Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -1106,7 +1106,7 @@ template <typename Builder> class SafeUintFuzzBase {
         /**
          * @brief Execute the SUBTRACT_WITH_CONSTRAINT instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -1116,7 +1116,7 @@ template <typename Builder> class SafeUintFuzzBase {
                                                               std::vector<ExecutionHandler>& stack,
                                                               Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -1161,7 +1161,7 @@ template <typename Builder> class SafeUintFuzzBase {
         /**
          * @brief Execute the DIVIDE_WITH_CONSTRAINTS instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was
@@ -1171,7 +1171,7 @@ template <typename Builder> class SafeUintFuzzBase {
                                                              std::vector<ExecutionHandler>& stack,
                                                              Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -1228,7 +1228,7 @@ template <typename Builder> class SafeUintFuzzBase {
         /**
          * @brief Execute the slice instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -1238,7 +1238,7 @@ template <typename Builder> class SafeUintFuzzBase {
                                            std::vector<ExecutionHandler>& stack,
                                            Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -1278,7 +1278,7 @@ template <typename Builder> class SafeUintFuzzBase {
         /**
          * @brief Execute the RANDOMSEED instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -1287,7 +1287,7 @@ template <typename Builder> class SafeUintFuzzBase {
                                                 std::vector<ExecutionHandler>& stack,
                                                 Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             (void)stack;
 
             VarianceRNG.reseed(instruction.arguments.randomseed);

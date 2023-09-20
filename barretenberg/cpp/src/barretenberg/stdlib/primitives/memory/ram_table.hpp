@@ -52,7 +52,7 @@ template <typename Builder> class ram_table {
     mutable std::vector<bool> _index_initialized;
     size_t _length = 0;
     mutable size_t _ram_id = 0; // Builder identifier for this ROM table
-    mutable bool _ram_table_generated_in_composer = false;
+    mutable bool _ram_table_generated_in_builder = false;
     mutable bool _all_entries_written_to_with_constant_index = false;
     mutable Builder* _context = nullptr;
 };

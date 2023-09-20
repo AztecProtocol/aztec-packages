@@ -579,7 +579,7 @@ template <typename Builder> class ByteArrayFuzzBase {
         /**
          * @brief Execute the constant instruction (push constant safeuint to the stack)
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return 0 if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -588,7 +588,7 @@ template <typename Builder> class ByteArrayFuzzBase {
                                               std::vector<ExecutionHandler>& stack,
                                               Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (static_cast<bool>(VarianceRNG.next() % 2)) {
                 stack.push_back(byte_array_t(builder, instruction.arguments.element.as_vector()));
             } else {
@@ -599,7 +599,7 @@ template <typename Builder> class ByteArrayFuzzBase {
         /**
          * @brief Execute the REVERSE instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -608,7 +608,7 @@ template <typename Builder> class ByteArrayFuzzBase {
                                              std::vector<ExecutionHandler>& stack,
                                              Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -628,7 +628,7 @@ template <typename Builder> class ByteArrayFuzzBase {
         /**
          * @brief Execute the slice instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -638,7 +638,7 @@ template <typename Builder> class ByteArrayFuzzBase {
                                            std::vector<ExecutionHandler>& stack,
                                            Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -659,7 +659,7 @@ template <typename Builder> class ByteArrayFuzzBase {
         /**
          * @brief Execute the GET_BIT instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -668,7 +668,7 @@ template <typename Builder> class ByteArrayFuzzBase {
                                              std::vector<ExecutionHandler>& stack,
                                              Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -688,7 +688,7 @@ template <typename Builder> class ByteArrayFuzzBase {
         /**
          * @brief Execute the SET_BIT instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -697,7 +697,7 @@ template <typename Builder> class ByteArrayFuzzBase {
                                              std::vector<ExecutionHandler>& stack,
                                              Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -710,7 +710,7 @@ template <typename Builder> class ByteArrayFuzzBase {
         /**
          * @brief Execute the ADD (append) instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -719,7 +719,7 @@ template <typename Builder> class ByteArrayFuzzBase {
                                          std::vector<ExecutionHandler>& stack,
                                          Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -740,7 +740,7 @@ template <typename Builder> class ByteArrayFuzzBase {
         /**
          * @brief Execute the SET instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -749,7 +749,7 @@ template <typename Builder> class ByteArrayFuzzBase {
                                          std::vector<ExecutionHandler>& stack,
                                          Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -768,7 +768,7 @@ template <typename Builder> class ByteArrayFuzzBase {
         /**
          * @brief Execute the RANDOMSEED instruction
          *
-         * @param composer
+         * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
@@ -777,7 +777,7 @@ template <typename Builder> class ByteArrayFuzzBase {
                                                 std::vector<ExecutionHandler>& stack,
                                                 Instruction& instruction)
         {
-            (void)composer;
+            (void)builder;
             (void)stack;
 
             VarianceRNG.reseed(instruction.arguments.randomseed);
@@ -790,14 +790,14 @@ template <typename Builder> class ByteArrayFuzzBase {
      * @brief Check that the resulting values are equal to expected
      *
      * @tparam Builder
-     * @param composer
+     * @param builder
      * @param stack
      * @return true
      * @return false
      */
     inline static bool postProcess(Builder* builder, std::vector<ByteArrayFuzzBase::ExecutionHandler>& stack)
     {
-        (void)composer;
+        (void)builder;
         for (size_t i = 0; i < stack.size(); i++) {
             auto element = stack[i];
             if (element.byte_array.get_value() != element.reference_value) {
