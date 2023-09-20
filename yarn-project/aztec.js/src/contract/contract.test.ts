@@ -14,7 +14,7 @@ import {
 
 import { MockProxy, mock } from 'jest-mock-extended';
 
-import { Wallet } from '../aztec_rpc_client/wallet.js';
+import { Wallet } from '../wallet/index.js';
 import { Contract } from './contract.js';
 
 describe('Contract Class', () => {
@@ -28,7 +28,13 @@ describe('Contract Class', () => {
   const mockTxHash = { type: 'TxHash' } as any as TxHash;
   const mockTxReceipt = { type: 'TxReceipt' } as any as TxReceipt;
   const mockViewResultValue = 1;
-  const mockNodeInfo: NodeInfo = { version: 1, chainId: 2, rollupAddress: EthAddress.random(), client: '' };
+  const mockNodeInfo: NodeInfo = {
+    sandboxVersion: 'vx.x.x',
+    compatibleNargoVersion: 'vx.x.x-aztec.x',
+    protocolVersion: 1,
+    chainId: 2,
+    rollupAddress: EthAddress.random(),
+  };
 
   const defaultAbi: ContractAbi = {
     name: 'FooContract',
@@ -102,7 +108,7 @@ describe('Contract Class', () => {
     wallet.getTxReceipt.mockResolvedValue(mockTxReceipt);
     wallet.getNodeInfo.mockResolvedValue(mockNodeInfo);
     wallet.simulateTx.mockResolvedValue(mockTx);
-    wallet.getAccounts.mockResolvedValue([account]);
+    wallet.getRegisteredAccounts.mockResolvedValue([account]);
   });
 
   it('should create and send a contract method tx', async () => {

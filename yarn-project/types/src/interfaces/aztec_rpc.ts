@@ -1,6 +1,7 @@
 import { AztecAddress, EthAddress, Fr, GrumpkinPrivateKey, PartialAddress } from '@aztec/circuits.js';
 import { ContractAbi } from '@aztec/foundation/abi';
 import {
+  AuthWitness,
   CompleteAddress,
   ContractData,
   ExtendedContractData,
@@ -36,21 +37,25 @@ export interface DeployedContract {
  */
 export type NodeInfo = {
   /**
-   * The version number of the node.
+   * Version as tracked in the aztec-packages repository.
    */
-  version: number;
+  sandboxVersion: string;
   /**
-   * The network's chain id.
+   * The nargo version compatible with this sandbox version
+   */
+  compatibleNargoVersion: string;
+  /**
+   * L1 chain id.
    */
   chainId: number;
+  /**
+   * Protocol version.
+   */
+  protocolVersion: number;
   /**
    * The rollup contract address
    */
   rollupAddress: EthAddress;
-  /**
-   * Identifier of the client software.
-   */
-  client: string;
 };
 
 /** Provides up to which block has been synced by different components. */
@@ -71,10 +76,9 @@ export type SyncStatus = {
 export interface AztecRPC {
   /**
    * Insert a witness for a given message hash.
-   * @param messageHash - The message hash to insert witness at
-   * @param witness - The witness to insert
+   * @param authWitness - The auth witness to insert.
    */
-  addAuthWitness(messageHash: Fr, witness: Fr[]): Promise<void>;
+  addAuthWitness(authWitness: AuthWitness): Promise<void>;
 
   /**
    * Registers an account in the Aztec RPC server.
@@ -103,14 +107,14 @@ export interface AztecRPC {
    *
    * @returns A promise that resolves to an array of the accounts registered on this RPC server.
    */
-  getAccounts(): Promise<CompleteAddress[]>;
+  getRegisteredAccounts(): Promise<CompleteAddress[]>;
 
   /**
    * Retrieves the complete address of the account corresponding to the provided aztec address.
    * @param address - The aztec address of the account contract.
    * @returns A promise that resolves to the complete address of the requested account.
    */
-  getAccount(address: AztecAddress): Promise<CompleteAddress | undefined>;
+  getRegisteredAccount(address: AztecAddress): Promise<CompleteAddress | undefined>;
 
   /**
    * Retrieves the list of recipients added to this rpc server.
@@ -186,6 +190,16 @@ export interface AztecRPC {
    * @returns A buffer containing the public storage data at the storage slot.
    */
   getPublicStorageAt(contract: AztecAddress, storageSlot: Fr): Promise<Buffer | undefined>;
+
+  /**
+   * Find the nonce(s) for a note in a tx with given preimage at a specified contract address and storage slot.
+   * @param contract - The contract address of the note.
+   * @param storageSlot - The storage slot of the note.
+   * @param preimage - The note preimage.
+   * @param txHash - The tx hash of the tx containing the note.
+   * @returns The nonces of the note. It's an array because there might be more than one note with the same preimage.
+   */
+  getNoteNonces(contract: AztecAddress, storageSlot: Fr, preimage: NotePreimage, txHash: TxHash): Promise<Fr[]>;
 
   /**
    * Simulate the execution of a view (read-only) function on a deployed contract without actually modifying state.

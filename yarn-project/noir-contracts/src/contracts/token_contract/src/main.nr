@@ -1,5 +1,5 @@
+// docs:start:token_all
 mod types;
-mod account_interface;
 mod util;
 
 // Minimal token implementation that supports `AuthWit` accounts.
@@ -31,11 +31,12 @@ contract Token {
         types::type_serialisation::field_serialisation::{
             FieldSerialisationMethods, FIELD_SERIALISED_LEN,
         },
+        types::address::{AztecAddress},
         oracle::compute_selector::compute_selector,
+        auth::{assert_valid_message_for, assert_valid_public_message_for}
     };
 
-    use crate::types::{AztecAddress, TransparentNote, TransparentNoteMethods, TRANSPARENT_NOTE_LEN};
-    use crate::account_interface::AccountContract;
+    use crate::types::{TransparentNote, TransparentNoteMethods, TRANSPARENT_NOTE_LEN};
     use crate::util::{compute_message_hash};
 
     struct Storage {
@@ -110,16 +111,17 @@ contract Token {
         storage.admin.write(new_admin.address);
     }
 
+    // docs:start:add_minter
     #[aztec(public)]
     fn set_minter(
         minter: AztecAddress,
-        approve: Field,
+        approve: bool,
     ) {
-        assert((approve == 1) | (approve == 0), "not providing boolean");
         let storage = Storage::init(Context::public(&mut context));
         assert(storage.admin.read() == context.msg_sender(), "caller is not admin");
         storage.minters.at(minter.address).write(approve as Field);
     }
+    // docs:end:add_minter
 
     #[aztec(public)]
     fn mint_public(
@@ -153,6 +155,7 @@ contract Token {
         1
     }
 
+    // docs:start:shield
     #[aztec(public)]
     fn shield(
         from: AztecAddress,
@@ -166,7 +169,7 @@ contract Token {
             // The redeem is only spendable once, so we need to ensure that you cannot insert multiple shields from the same message.
             let selector = compute_selector("shield((Field),Field,Field,Field)");
             let message_field = compute_message_hash([context.msg_sender(), context.this_address(), selector, from.address, amount, secret_hash, nonce]);
-            AccountContract::at(from.address).is_valid(Context::public(&mut context), message_field);
+            assert_valid_public_message_for(&mut context, from.address, message_field);
         } else {
             assert(nonce == 0, "invalid nonce");
         }
@@ -181,7 +184,9 @@ contract Token {
         pending_shields.insert_from_public(&mut note);
         1
     }
+    // docs:end:shield
 
+    
     #[aztec(public)]
     fn transfer_public(
         from: AztecAddress,
@@ -194,7 +199,7 @@ contract Token {
         if (from.address != context.msg_sender()) {
             let selector = compute_selector("transfer_public((Field),(Field),Field,Field)");
             let message_field = compute_message_hash([context.msg_sender(), context.this_address(), selector, from.address, to.address, amount, nonce]);
-            AccountContract::at(from.address).is_valid(Context::public(&mut context), message_field);
+            assert_valid_public_message_for(&mut context, from.address, message_field);
         } else {
             assert(nonce == 0, "invalid nonce");
         }
@@ -220,7 +225,7 @@ contract Token {
         if (from.address != context.msg_sender()) {
             let selector = compute_selector("burn_public((Field),Field,Field)");
             let message_field = compute_message_hash([context.msg_sender(), context.this_address(), selector, from.address, amount, nonce]);
-            AccountContract::at(from.address).is_valid(Context::public(&mut context), message_field);
+            assert_valid_public_message_for(&mut context, from.address, message_field);
         } else {
             assert(nonce == 0, "invalid nonce");
         }
@@ -235,6 +240,7 @@ contract Token {
         1
     }
 
+    // docs:start:redeem_shield
     #[aztec(private)]
     fn redeem_shield(
         to: AztecAddress,
@@ -244,14 +250,16 @@ contract Token {
         let storage = Storage::init(Context::private(&mut context));
         let pending_shields = storage.pending_shields;
         let balance = storage.balances.at(to.address);
-        let public_note = TransparentNote::new_from_secret(amount, secret);
+        let mut public_note = TransparentNote::new_from_secret(amount, secret);
         
-        pending_shields.assert_contains_and_remove_publicly_created(public_note);
+        pending_shields.assert_contains_and_remove_publicly_created(&mut public_note);
         increment(balance, amount, to.address);
 
         1
     }
+    // docs:end:redeem_shield
 
+    // docs:start:unshield
     #[aztec(private)]
     fn unshield(
         from: AztecAddress,
@@ -264,7 +272,7 @@ contract Token {
         if (from.address != context.msg_sender()) {
             let selector = compute_selector("unshield((Field),(Field),Field,Field)");
             let message_field = compute_message_hash([context.msg_sender(), context.this_address(), selector, from.address, to.address, amount, nonce]);
-            AccountContract::at(from.address).is_valid(Context::private(&mut context), message_field);
+            assert_valid_message_for(&mut context, from.address, message_field);
         } else {
             assert(nonce == 0, "invalid nonce");
         }
@@ -277,7 +285,9 @@ contract Token {
 
         1
     }
+    // docs:end:unshield
 
+    // docs:start:transfer
     #[aztec(private)]
     fn transfer(
         from: AztecAddress,
@@ -290,7 +300,7 @@ contract Token {
         if (from.address != context.msg_sender()) {
             let selector = compute_selector("transfer((Field),(Field),Field,Field)");
             let message_field = compute_message_hash([context.msg_sender(), context.this_address(), selector, from.address, to.address, amount, nonce]);
-            AccountContract::at(from.address).is_valid(Context::private(&mut context), message_field);
+            assert_valid_message_for(&mut context, from.address, message_field);
         } else {
             assert(nonce == 0, "invalid nonce");
         }
@@ -303,6 +313,7 @@ contract Token {
 
         1
     }
+    // docs:end:transfer
 
     #[aztec(private)]
     fn burn(
@@ -315,7 +326,7 @@ contract Token {
         if (from.address != context.msg_sender()) {
             let selector = compute_selector("burn((Field),Field,Field)");
             let message_field = compute_message_hash([context.msg_sender(), context.this_address(), selector, from.address, amount, nonce]);
-            AccountContract::at(from.address).is_valid(Context::private(&mut context), message_field);
+            assert_valid_message_for(&mut context, from.address, message_field);
         } else {
             assert(nonce == 0, "invalid nonce");
         }
@@ -346,6 +357,7 @@ contract Token {
 
     /// Internal ///
 
+    // docs:start:increase_public_balance
     #[aztec(public)]
     internal fn _increase_public_balance(
         to: AztecAddress,
@@ -355,6 +367,7 @@ contract Token {
         let new_balance = SafeU120::new(storage.public_balances.at(to.address).read()).add(SafeU120::new(amount));
         storage.public_balances.at(to.address).write(new_balance.value as Field);
     }
+    // docs:end:increase_public_balance
 
     #[aztec(public)]
     internal fn _reduce_total_supply(
@@ -385,6 +398,7 @@ contract Token {
         storage.total_supply.read()
     }
 
+    // docs:start:balance_of_private
     unconstrained fn balance_of_private(
         owner: AztecAddress,
     ) -> Field {
@@ -393,6 +407,7 @@ contract Token {
 
         balance_utils::get_balance(owner_balance)
     }
+    // docs:end:balance_of_private
 
     unconstrained fn balance_of_public(
         owner: AztecAddress,
@@ -404,6 +419,7 @@ contract Token {
     // Below this point is the stuff of nightmares.
     // This should ideally not be required. What do we do if vastly different types of preimages?
 
+    // docs:start:compute_note_hash_and_nullifier
     // Computes note hash and nullifier.
     // Note 1: Needs to be defined by every contract producing logs.
     // Note 2: Having it in all the contracts gives us the ability to compute the note hash and nullifier differently for different kind of notes.
@@ -415,5 +431,7 @@ contract Token {
             note_utils::compute_note_hash_and_nullifier(ValueNoteMethods, note_header, preimage)
         }
     }
+    // docs:end:compute_note_hash_and_nullifier
 
 }
+// docs:end:token_all

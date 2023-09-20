@@ -1,5 +1,75 @@
 # Changelog
 
+## [0.7.10](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.7.9...barretenberg.js-v0.7.10) (2023-09-20)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.7.9](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.7.8...barretenberg.js-v0.7.9) (2023-09-19)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.7.8](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.7.7...barretenberg.js-v0.7.8) (2023-09-19)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.7.7](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.7.6...barretenberg.js-v0.7.7) (2023-09-18)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.7.6](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.7.5...barretenberg.js-v0.7.6) (2023-09-18)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.7.5](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.7.4...barretenberg.js-v0.7.5) (2023-09-15)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.7.4](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.7.3...barretenberg.js-v0.7.4) (2023-09-15)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.7.3](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.7.2...barretenberg.js-v0.7.3) (2023-09-15)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.7.2](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.7.1...barretenberg.js-v0.7.2) (2023-09-14)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.7.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.7.0...barretenberg.js-v0.7.1) (2023-09-14)
+
+
+### Miscellaneous
+
+* Move barretenberg to top of repo. Make circuits build off barretenberg build. ([#2221](https://github.com/AztecProtocol/aztec-packages/issues/2221)) ([404ec34](https://github.com/AztecProtocol/aztec-packages/commit/404ec34d38e1a9c3fbe7a3cdb6e88c28f62f72e4))
+
 ## [0.7.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.6.7...barretenberg.js-v0.7.0) (2023-09-13)
 
 

@@ -5,12 +5,14 @@ const lightCodeTheme = require("prism-react-renderer/themes/github");
 const darkCodeTheme = require("prism-react-renderer/themes/dracula");
 const math = require("remark-math");
 const katex = require("rehype-katex");
+const path = require("path");
+const fs = require("fs");
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
   title: "Aztec Docs",
   tagline: "Ethereum, encrypted",
-  url: "https://aztec-docs-dev.netlify.app/",
+  url: "https://docs.aztec.network/",
   baseUrl: "/",
   trailingSlash: false,
   onBrokenLinks: "throw",
@@ -73,6 +75,33 @@ const config = {
     },
   ],
   plugins: [
+    async function loadVersions(context, options) {
+      // ...
+      return {
+        name: "load-versions",
+        async loadContent() {
+          try {
+            const noirVersionPath = path.resolve(
+              __dirname,
+              "../yarn-project/noir-compiler/src/noir-version.json"
+            );
+            const noirVersion = JSON.parse(
+              fs.readFileSync(noirVersionPath).toString()
+            ).tag;
+            return { noir: noirVersion };
+          } catch (err) {
+            throw new Error(
+              `Error loading Noir version from noir-compiler in docusaurus build. Check load-versions in docusaurus.config.js.\n${err}`
+            );
+          }
+        },
+        async contentLoaded({ content, actions }) {
+          // await actions.createData("versions.json", JSON.stringify(content));
+          actions.setGlobalData({ versions: content });
+        },
+        /* other lifecycle API */
+      };
+    },
     [
       "@docusaurus/plugin-ideal-image",
       {
@@ -95,9 +124,9 @@ const config = {
         },
       ],
       algolia: {
-        appId: "YOMNCJ88NY",
-        apiKey: "ef5490899a6f9618f55c7997ba5b35b4",
-        indexName: "aztec--dev",
+        appId: "CL4NK79B0W",
+        apiKey: "21d89dadaa37a4d1b6bf4b17978dcf7f",
+        indexName: "aztec",
       },
       colorMode: {
         defaultMode: "light",
@@ -135,6 +164,10 @@ const config = {
                 label: "Introduction",
                 to: "/",
               },
+              {
+                label: "Developer Quickstart",
+                to: "/dev_docs/getting_started/quickstart",
+              },
             ],
           },
           {
@@ -143,6 +176,10 @@ const config = {
               {
                 label: "Discourse",
                 href: "https://discourse.aztec.network",
+              },
+              {
+                label: "Discord",
+                href: "https://discord.gg/DgWG2DBMyB",
               },
               {
                 label: "Twitter",

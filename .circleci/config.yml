@@ -572,7 +572,7 @@ jobs:
           name: "Build and test"
           command: build aztec-rpc
 
-  aztec-sandbox:
+  aztec-sandbox-base:
     machine:
       image: ubuntu-2004:202010-01
     resource_class: large
@@ -581,7 +581,40 @@ jobs:
       - *setup_env
       - run:
           name: "Build and test"
-          command: force_deploy_build aztec-sandbox
+          command: force_deploy_build aztec-sandbox-base false
+
+  aztec-sandbox-x86_64:
+    machine:
+      image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: force_deploy_build aztec-sandbox false x86_64
+
+  aztec-sandbox-arm64:
+    machine:
+      image: ubuntu-2204:2023.07.1
+    resource_class: arm.large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: force_deploy_build aztec-sandbox false arm64
+
+  aztec-sandbox-ecr-manifest:
+    machine:
+      image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Create ECR manifest"
+          command: create_ecr_manifest aztec-sandbox-base aztec-sandbox x86_64,arm64
 
   circuits-js:
     machine:
@@ -702,9 +735,18 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local e2e_token_contract.test.ts
-          working_directory: yarn-project/end-to-end
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_token_contract.test.ts
 
+  e2e-private-airdrop:
+    machine:
+      image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_private_airdrop.test.ts
 
   e2e-private-token-contract:
     machine:
@@ -1148,6 +1190,7 @@ jobs:
           command: |
             deploy_ecr aztec-sandbox
             deploy_npm aztec-sandbox
+
   deploy-dockerhub:
     machine:
       image: ubuntu-2004:202010-01
@@ -1159,8 +1202,11 @@ jobs:
           name: "deploy-sandbox"
           working_directory: aztec-sandbox
           command: |
-            deploy_ecr aztec-sandbox
-            deploy_dockerhub aztec-sandbox
+            deploy_ecr aztec-sandbox x86_64
+            deploy_ecr aztec-sandbox arm64
+            deploy_dockerhub aztec-sandbox x86_64
+            deploy_dockerhub aztec-sandbox arm64
+            create_dockerhub_manifest aztec-sandbox x86_64,arm64
 
   deploy-end:
     docker:
@@ -1183,37 +1229,37 @@ jobs:
           command: build canary true
 
   run-deployment-canary-uniswap:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
+    resource_class: large
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Test"
-          command: spot_run_test_script ./scripts/run_tests canary uniswap_trade_on_l1_from_l2.test.ts canary docker-compose.yml
+          command: run_script canary ./scripts/run_tests ./src/uniswap_trade_on_l1_from_l2.test.ts canary ./scripts/docker-compose.yml
 
   run-deployment-canary-browser:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
+    resource_class: large
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Test"
-          command: spot_run_test_script ./scripts/run_tests canary aztec_js_browser.test.ts canary docker-compose.yml
+          command: run_script canary ./scripts/run_tests ./src/aztec_js_browser.test.ts canary ./scripts/docker-compose.yml
 
   run-deployment-canary-cli:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
+    resource_class: large
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Test"
-          command: spot_run_test_script ./scripts/run_tests canary cli.test.ts canary docker-compose.yml
+          command: run_script canary ./scripts/run_tests ./src/cli.test.ts canary ./scripts/docker-compose.yml
 
 # Repeatable config for defining the workflow below.
 tag_regex: &tag_regex /^aztec-packages-v.*/
@@ -1375,8 +1421,23 @@ workflows:
       - types: *yarn_project
       - circuits-js: *yarn_project
       - rollup-provider: *yarn_project
-      - aztec-sandbox: *yarn_project
+      - aztec-sandbox-base: *yarn_project
       - canary: *yarn_project
+
+      - aztec-sandbox-x86_64:
+          requires:
+            - aztec-sandbox-base
+          <<: *defaults
+      - aztec-sandbox-arm64:
+          requires:
+            - aztec-sandbox-base
+          <<: *defaults
+
+      - aztec-sandbox-ecr-manifest:
+          requires:
+            - aztec-sandbox-x86_64
+            - aztec-sandbox-arm64
+          <<: *defaults
 
       - e2e-join:
           requires:
@@ -1401,7 +1462,7 @@ workflows:
             - types
             - circuits-js
             - rollup-provider
-            - aztec-sandbox
+            - aztec-sandbox-ecr-manifest
             - canary
           <<: *defaults
 
@@ -1409,6 +1470,7 @@ workflows:
       - e2e-deploy-contract: *e2e_test
       - e2e-lending-contract: *e2e_test
       - e2e-token-contract: *e2e_test
+      - e2e-private-airdrop: *e2e_test
       - e2e-private-token-contract: *e2e_test
       - e2e-sandbox-example: *e2e_test
       - e2e-multi-transfer-contract: *e2e_test
@@ -1444,6 +1506,7 @@ workflows:
             - e2e-deploy-contract
             - e2e-lending-contract
             - e2e-token-contract
+            - e2e-private-airdrop
             - e2e-private-token-contract
             - e2e-sandbox-example
             - e2e-multi-transfer-contract
@@ -1474,7 +1537,7 @@ workflows:
             - guides-sample-dapp
           <<: *defaults
 
-      # Deployment and Canary tests
+        # Deployment and Canary tests
       - deploy-dockerhub:
           requires:
             - e2e-end

@@ -35,6 +35,8 @@
     "l1-artifacts",
     "p2p",
     "p2p-bootstrap",
+    "boxes/blank",
+    "boxes/private-token",
     "prover-client",
     "rollup-provider",
     "aztec-node",

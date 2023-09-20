@@ -1,29 +1,16 @@
 import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecRPCServer } from '@aztec/aztec-rpc';
-import {
-  Account,
-  AuthWitnessAccountContract,
-  AuthWitnessEntrypointWallet,
-  AztecAddress,
-  IAuthWitnessAccountEntrypoint,
-  computeMessageSecretHash,
-} from '@aztec/aztec.js';
-import {
-  CircuitsWasm,
-  CompleteAddress,
-  Fr,
-  FunctionSelector,
-  GeneratorIndex,
-  GrumpkinScalar,
-} from '@aztec/circuits.js';
+import { AccountWallet, computeMessageSecretHash } from '@aztec/aztec.js';
+import { CircuitsWasm, CompleteAddress, Fr, FunctionSelector, GeneratorIndex } from '@aztec/circuits.js';
 import { pedersenPlookupCompressWithHashIndex } from '@aztec/circuits.js/barretenberg';
 import { DebugLogger } from '@aztec/foundation/log';
-import { SchnorrAuthWitnessAccountContract, TokenContract } from '@aztec/noir-contracts/types';
+import { TokenContract } from '@aztec/noir-contracts/types';
 import { AztecRPC, TxStatus } from '@aztec/types';
 
 import { jest } from '@jest/globals';
 
 import { setup } from './fixtures/utils.js';
+import { TokenSimulator } from './simulators/token_simulator.js';
 
 const hashPayload = async (payload: Fr[]) => {
   return pedersenPlookupCompressWithHashIndex(
@@ -35,101 +22,12 @@ const hashPayload = async (payload: Fr[]) => {
 
 const TIMEOUT = 60_000;
 
-class TokenSimulator {
-  private balancesPrivate: Map<AztecAddress, bigint> = new Map();
-  private balancePublic: Map<AztecAddress, bigint> = new Map();
-  public totalSupply: bigint = 0n;
-
-  constructor(protected token: TokenContract, protected logger: DebugLogger, protected accounts: CompleteAddress[]) {}
-
-  public mintPrivate(to: AztecAddress, amount: bigint) {
-    this.totalSupply += amount;
-  }
-
-  public mintPublic(to: AztecAddress, amount: bigint) {
-    this.totalSupply += amount;
-    const value = this.balancePublic.get(to) || 0n;
-    this.balancePublic.set(to, value + amount);
-  }
-
-  public transferPublic(from: AztecAddress, to: AztecAddress, amount: bigint) {
-    const fromBalance = this.balancePublic.get(from) || 0n;
-    this.balancePublic.set(from, fromBalance - amount);
-    expect(fromBalance).toBeGreaterThanOrEqual(amount);
-
-    const toBalance = this.balancePublic.get(to) || 0n;
-    this.balancePublic.set(to, toBalance + amount);
-  }
-
-  public transferPrivate(from: AztecAddress, to: AztecAddress, amount: bigint) {
-    const fromBalance = this.balancesPrivate.get(from) || 0n;
-    expect(fromBalance).toBeGreaterThanOrEqual(amount);
-    this.balancesPrivate.set(from, fromBalance - amount);
-
-    const toBalance = this.balancesPrivate.get(to) || 0n;
-    this.balancesPrivate.set(to, toBalance + amount);
-  }
-
-  public shield(from: AztecAddress, amount: bigint) {
-    const fromBalance = this.balancePublic.get(from) || 0n;
-    expect(fromBalance).toBeGreaterThanOrEqual(amount);
-    this.balancePublic.set(from, fromBalance - amount);
-  }
-
-  public redeemShield(to: AztecAddress, amount: bigint) {
-    const toBalance = this.balancesPrivate.get(to) || 0n;
-    this.balancesPrivate.set(to, toBalance + amount);
-  }
-
-  public unshield(from: AztecAddress, to: AztecAddress, amount: bigint) {
-    const fromBalance = this.balancesPrivate.get(from) || 0n;
-    const toBalance = this.balancePublic.get(to) || 0n;
-    expect(fromBalance).toBeGreaterThanOrEqual(amount);
-    this.balancesPrivate.set(from, fromBalance - amount);
-    this.balancePublic.set(to, toBalance + amount);
-  }
-
-  public burnPrivate(from: AztecAddress, amount: bigint) {
-    const fromBalance = this.balancesPrivate.get(from) || 0n;
-    expect(fromBalance).toBeGreaterThanOrEqual(amount);
-    this.balancesPrivate.set(from, fromBalance - amount);
-
-    this.totalSupply -= amount;
-  }
-
-  public burnPublic(from: AztecAddress, amount: bigint) {
-    const fromBalance = this.balancePublic.get(from) || 0n;
-    expect(fromBalance).toBeGreaterThanOrEqual(amount);
-    this.balancePublic.set(from, fromBalance - amount);
-
-    this.totalSupply -= amount;
-  }
-
-  public balanceOfPublic(address: AztecAddress) {
-    return this.balancePublic.get(address) || 0n;
-  }
-
-  public balanceOfPrivate(address: AztecAddress) {
-    return this.balancesPrivate.get(address) || 0n;
-  }
-
-  public async check() {
-    expect(await this.token.methods.total_supply().view()).toEqual(this.totalSupply);
-
-    // Check that all our public matches
-    for (const { address } of this.accounts) {
-      expect(await this.token.methods.balance_of_public({ address }).view()).toEqual(this.balanceOfPublic(address));
-      expect(await this.token.methods.balance_of_private({ address }).view()).toEqual(this.balanceOfPrivate(address));
-    }
-  }
-}
-
 describe('e2e_token_contract', () => {
   jest.setTimeout(TIMEOUT);
 
   let aztecNode: AztecNodeService | undefined;
   let aztecRpcServer: AztecRPC;
-  let wallets: AuthWitnessEntrypointWallet[];
+  let wallets: AccountWallet[];
   let accounts: CompleteAddress[];
   let logger: DebugLogger;
 
@@ -138,49 +36,18 @@ describe('e2e_token_contract', () => {
   let tokenSim: TokenSimulator;
 
   beforeAll(async () => {
-    ({ aztecNode, aztecRpcServer, logger } = await setup(0));
+    ({ aztecNode, aztecRpcServer, logger, wallets, accounts } = await setup(3));
 
-    {
-      const _accounts = [];
-      for (let i = 0; i < 3; i++) {
-        const privateKey = GrumpkinScalar.random();
-        const account = new Account(aztecRpcServer, privateKey, new AuthWitnessAccountContract(privateKey));
-        const deployTx = await account.deploy();
-        await deployTx.wait({ interval: 0.1 });
-        _accounts.push(account);
-      }
-      wallets = await Promise.all(
-        _accounts.map(
-          async account =>
-            new AuthWitnessEntrypointWallet(
-              aztecRpcServer,
-              (await account.getEntrypoint()) as unknown as IAuthWitnessAccountEntrypoint,
-              await account.getCompleteAddress(),
-            ),
-        ),
-      );
-      //wallet = new AuthWitnessEntrypointWallet(aztecRpcServer, await AuthEntrypointCollection.fromAccounts(_accounts));
-      accounts = await wallets[0].getAccounts();
-    }
+    asset = await TokenContract.deploy(wallets[0]).send().deployed();
+    logger(`Token deployed to ${asset.address}`);
+    tokenSim = new TokenSimulator(
+      asset,
+      logger,
+      accounts.map(a => a.address),
+    );
 
-    {
-      logger(`Deploying token contract`);
-      const tx = TokenContract.deploy(wallets[0]).send();
-      logger(`Tx sent with hash ${await tx.getTxHash()}`);
-      const receipt = await tx.wait();
-      expect(receipt.status).toBe(TxStatus.MINED);
-      logger(`Token deployed to ${receipt.contractAddress}`);
-      asset = await TokenContract.at(receipt.contractAddress!, wallets[0]);
-    }
-
-    tokenSim = new TokenSimulator(asset, logger, accounts);
-
-    {
-      const initializeTx = asset.methods._initialize({ address: accounts[0].address }).send();
-      const receipt = await initializeTx.wait();
-      expect(receipt.status).toBe(TxStatus.MINED);
-      expect(await asset.methods.admin().view()).toBe(accounts[0].address.toBigInt());
-    }
+    await asset.methods._initialize({ address: accounts[0].address }).send().wait();
+    expect(await asset.methods.admin().view()).toBe(accounts[0].address.toBigInt());
 
     asset.abi.functions.forEach(fn => {
       logger(
@@ -212,14 +79,14 @@ describe('e2e_token_contract', () => {
     });
 
     it('Add minter as admin', async () => {
-      const tx = asset.withWallet(wallets[1]).methods.set_minter({ address: accounts[1].address }, 1).send();
+      const tx = asset.withWallet(wallets[1]).methods.set_minter({ address: accounts[1].address }, true).send();
       const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.MINED);
       expect(await asset.methods.is_minter({ address: accounts[1].address }).view()).toBe(true);
     });
 
     it('Revoke minter as admin', async () => {
-      const tx = asset.withWallet(wallets[1]).methods.set_minter({ address: accounts[1].address }, 0).send();
+      const tx = asset.withWallet(wallets[1]).methods.set_minter({ address: accounts[1].address }, false).send();
       const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.MINED);
       expect(await asset.methods.is_minter({ address: accounts[1].address }).view()).toBe(false);
@@ -232,7 +99,7 @@ describe('e2e_token_contract', () => {
         );
       });
       it('Revoke minter not as admin', async () => {
-        await expect(asset.methods.set_minter({ address: accounts[0].address }, 0).simulate()).rejects.toThrowError(
+        await expect(asset.methods.set_minter({ address: accounts[0].address }, false).simulate()).rejects.toThrowError(
           'Assertion failed: caller is not admin',
         );
       });
@@ -299,7 +166,7 @@ describe('e2e_token_contract', () => {
           const tx = asset.methods.mint_private(amount, secretHash).send();
           const receipt = await tx.wait();
           expect(receipt.status).toBe(TxStatus.MINED);
-          tokenSim.mintPrivate(accounts[0].address, amount);
+          tokenSim.mintPrivate(amount);
         });
 
         it('redeem as recipient', async () => {
@@ -401,14 +268,9 @@ describe('e2e_token_contract', () => {
         expect(amount).toBeGreaterThan(0n);
         const nonce = Fr.random();
 
-        // We need to compute the message we want to sign.
+        // We need to compute the message we want to sign and add it to the wallet as approved
         const messageHash = await transferMessageHash(accounts[1], accounts[0], accounts[1], amount, nonce);
-
-        // Add it to the wallet as approved
-        const me = await SchnorrAuthWitnessAccountContract.at(accounts[0].address, wallets[0]);
-        const setValidTx = me.methods.set_is_valid_storage(messageHash, 1).send();
-        const validTxReceipt = await setValidTx.wait();
-        expect(validTxReceipt.status).toBe(TxStatus.MINED);
+        await wallets[0].setPublicAuth(messageHash, true).send().wait();
 
         // Perform the transfer
         const tx = asset
@@ -467,7 +329,7 @@ describe('e2e_token_contract', () => {
                 nonce,
               )
               .simulate(),
-          ).rejects.toThrowError('Assertion failed: invalid call');
+          ).rejects.toThrowError('Assertion failed: Message not authorized by account');
         });
 
         it('transfer more than balance on behalf of other', async () => {
@@ -477,14 +339,9 @@ describe('e2e_token_contract', () => {
           const nonce = Fr.random();
           expect(amount).toBeGreaterThan(0n);
 
-          // We need to compute the message we want to sign.
+          // We need to compute the message we want to sign and add it to the wallet as approved
           const messageHash = await transferMessageHash(accounts[1], accounts[0], accounts[1], amount, nonce);
-
-          // Add it to the wallet as approved
-          const me = await SchnorrAuthWitnessAccountContract.at(accounts[0].address, wallets[0]);
-          const setValidTx = me.methods.set_is_valid_storage(messageHash, 1).send();
-          const validTxReceipt = await setValidTx.wait();
-          expect(validTxReceipt.status).toBe(TxStatus.MINED);
+          await wallets[0].setPublicAuth(messageHash, true).send().wait();
 
           // Perform the transfer
           await expect(
@@ -510,14 +367,9 @@ describe('e2e_token_contract', () => {
           const nonce = Fr.random();
           expect(amount).toBeGreaterThan(0n);
 
-          // We need to compute the message we want to sign.
+          // We need to compute the message we want to sign and add it to the wallet as approved
           const messageHash = await transferMessageHash(accounts[0], accounts[0], accounts[1], amount, nonce);
-
-          // Add it to the wallet as approved
-          const me = await SchnorrAuthWitnessAccountContract.at(accounts[0].address, wallets[0]);
-          const setValidTx = me.methods.set_is_valid_storage(messageHash, 1).send();
-          const validTxReceipt = await setValidTx.wait();
-          expect(validTxReceipt.status).toBe(TxStatus.MINED);
+          await wallets[0].setPublicAuth(messageHash, true).send().wait();
 
           // Perform the transfer
           await expect(
@@ -530,7 +382,7 @@ describe('e2e_token_contract', () => {
                 nonce,
               )
               .simulate(),
-          ).rejects.toThrowError('Assertion failed: invalid call');
+          ).rejects.toThrowError('Assertion failed: Message not authorized by account');
 
           expect(await asset.methods.balance_of_public({ address: accounts[0].address }).view()).toEqual(balance0);
           expect(await asset.methods.balance_of_public({ address: accounts[1].address }).view()).toEqual(balance1);
@@ -543,14 +395,9 @@ describe('e2e_token_contract', () => {
           const nonce = Fr.random();
           expect(amount).toBeGreaterThan(0n);
 
-          // We need to compute the message we want to sign.
+          // We need to compute the message we want to sign and add it to the wallet as approved
           const messageHash = await transferMessageHash(accounts[0], accounts[0], accounts[1], amount, nonce);
-
-          // Add it to the wallet as approved
-          const me = await SchnorrAuthWitnessAccountContract.at(accounts[0].address, wallets[0]);
-          const setValidTx = me.methods.set_is_valid_storage(messageHash, 1).send();
-          const validTxReceipt = await setValidTx.wait();
-          expect(validTxReceipt.status).toBe(TxStatus.MINED);
+          await wallets[0].setPublicAuth(messageHash, true).send().wait();
 
           // Perform the transfer
           await expect(
@@ -563,7 +410,7 @@ describe('e2e_token_contract', () => {
                 nonce,
               )
               .simulate(),
-          ).rejects.toThrowError('Assertion failed: invalid call');
+          ).rejects.toThrowError('Assertion failed: Message not authorized by account');
 
           expect(await asset.methods.balance_of_public({ address: accounts[0].address }).view()).toEqual(balance0);
           expect(await asset.methods.balance_of_public({ address: accounts[1].address }).view()).toEqual(balance1);
@@ -627,14 +474,14 @@ describe('e2e_token_contract', () => {
         const nonce = Fr.random();
         expect(amount).toBeGreaterThan(0n);
 
-        // We need to compute the message we want to sign.
+        // We need to compute the message we want to sign and add it to the wallet as approved
         const messageHash = await transferMessageHash(accounts[1], accounts[0], accounts[1], amount, nonce);
 
         // Both wallets are connected to same node and rpc so we could just insert directly using
         // await wallet.signAndAddAuthWitness(messageHash, );
         // But doing it in two actions to show the flow.
-        const witness = await wallets[0].signAndGetAuthWitness(messageHash);
-        await wallets[1].addAuthWitness(Fr.fromBuffer(messageHash), witness);
+        const witness = await wallets[0].createAuthWitness(messageHash);
+        await wallets[1].addAuthWitness(witness);
 
         // Perform the transfer
         const tx = asset
@@ -685,14 +532,14 @@ describe('e2e_token_contract', () => {
           const nonce = Fr.random();
           expect(amount).toBeGreaterThan(0n);
 
-          // We need to compute the message we want to sign.
+          // We need to compute the message we want to sign and add it to the wallet as approved
           const messageHash = await transferMessageHash(accounts[1], accounts[0], accounts[1], amount, nonce);
 
           // Both wallets are connected to same node and rpc so we could just insert directly using
           // await wallet.signAndAddAuthWitness(messageHash, );
           // But doing it in two actions to show the flow.
-          const witness = await wallets[0].signAndGetAuthWitness(messageHash);
-          await wallets[1].addAuthWitness(Fr.fromBuffer(messageHash), witness);
+          const witness = await wallets[0].createAuthWitness(messageHash);
+          await wallets[1].addAuthWitness(witness);
 
           // Perform the transfer
           await expect(
@@ -718,7 +565,7 @@ describe('e2e_token_contract', () => {
           const nonce = Fr.random();
           expect(amount).toBeGreaterThan(0n);
 
-          // We need to compute the message we want to sign.
+          // We need to compute the message we want to sign and add it to the wallet as approved
           const messageHash = await transferMessageHash(accounts[1], accounts[0], accounts[1], amount, nonce);
 
           await expect(
@@ -735,12 +582,12 @@ describe('e2e_token_contract', () => {
           const nonce = Fr.random();
           expect(amount).toBeGreaterThan(0n);
 
-          // We need to compute the message we want to sign.
+          // We need to compute the message we want to sign and add it to the wallet as approved
           const messageHash = await transferMessageHash(accounts[1], accounts[0], accounts[1], amount, nonce);
           const expectedMessageHash = await transferMessageHash(accounts[2], accounts[0], accounts[1], amount, nonce);
 
-          const witness = await wallets[0].signAndGetAuthWitness(messageHash);
-          await wallets[2].addAuthWitness(Fr.fromBuffer(messageHash), witness);
+          const witness = await wallets[0].createAuthWitness(messageHash);
+          await wallets[2].addAuthWitness(witness);
 
           await expect(
             asset
@@ -812,14 +659,9 @@ describe('e2e_token_contract', () => {
       const nonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);
 
-      // We need to compute the message we want to sign.
+      // We need to compute the message we want to sign and add it to the wallet as approved
       const messageHash = await shieldMessageHash(accounts[1], accounts[0], amount, secretHash, nonce);
-
-      // Add it to the wallet as approved
-      const me = await SchnorrAuthWitnessAccountContract.at(accounts[0].address, wallets[0]);
-      const setValidTx = me.methods.set_is_valid_storage(messageHash, 1).send();
-      const validTxReceipt = await setValidTx.wait();
-      expect(validTxReceipt.status).toBe(TxStatus.MINED);
+      await wallets[0].setPublicAuth(messageHash, true).send().wait();
 
       const tx = asset
         .withWallet(wallets[1])
@@ -881,14 +723,9 @@ describe('e2e_token_contract', () => {
         const nonce = Fr.random();
         expect(amount).toBeGreaterThan(0n);
 
-        // We need to compute the message we want to sign.
+        // We need to compute the message we want to sign and add it to the wallet as approved
         const messageHash = await shieldMessageHash(accounts[1], accounts[0], amount, secretHash, nonce);
-
-        // Add it to the wallet as approved
-        const me = await SchnorrAuthWitnessAccountContract.at(accounts[0].address, wallets[0]);
-        const setValidTx = me.methods.set_is_valid_storage(messageHash, 1).send();
-        const validTxReceipt = await setValidTx.wait();
-        expect(validTxReceipt.status).toBe(TxStatus.MINED);
+        await wallets[0].setPublicAuth(messageHash, true).send().wait();
 
         await expect(
           asset
@@ -904,21 +741,16 @@ describe('e2e_token_contract', () => {
         const nonce = Fr.random();
         expect(amount).toBeGreaterThan(0n);
 
-        // We need to compute the message we want to sign.
+        // We need to compute the message we want to sign and add it to the wallet as approved
         const messageHash = await shieldMessageHash(accounts[1], accounts[0], amount, secretHash, nonce);
-
-        // Add it to the wallet as approved
-        const me = await SchnorrAuthWitnessAccountContract.at(accounts[0].address, wallets[0]);
-        const setValidTx = me.methods.set_is_valid_storage(messageHash, 1).send();
-        const validTxReceipt = await setValidTx.wait();
-        expect(validTxReceipt.status).toBe(TxStatus.MINED);
+        await wallets[0].setPublicAuth(messageHash, true).send().wait();
 
         await expect(
           asset
             .withWallet(wallets[2])
             .methods.shield({ address: accounts[0].address }, amount, secretHash, nonce)
             .simulate(),
-        ).rejects.toThrowError('Assertion failed: invalid call');
+        ).rejects.toThrowError('Assertion failed: Message not authorized by account');
       });
 
       it('on behalf of other (wrong designated caller)', async () => {
@@ -928,21 +760,16 @@ describe('e2e_token_contract', () => {
         const nonce = Fr.random();
         expect(amount).toBeGreaterThan(0n);
 
-        // We need to compute the message we want to sign.
+        // We need to compute the message we want to sign and add it to the wallet as approved
         const messageHash = await shieldMessageHash(accounts[1], accounts[0], amount, secretHash, nonce);
-
-        // Add it to the wallet as approved
-        const me = await SchnorrAuthWitnessAccountContract.at(accounts[0].address, wallets[0]);
-        const setValidTx = me.methods.set_is_valid_storage(messageHash, 1).send();
-        const validTxReceipt = await setValidTx.wait();
-        expect(validTxReceipt.status).toBe(TxStatus.MINED);
+        await wallets[0].setPublicAuth(messageHash, true).send().wait();
 
         await expect(
           asset
             .withWallet(wallets[2])
             .methods.shield({ address: accounts[0].address }, amount, secretHash, nonce)
             .simulate(),
-        ).rejects.toThrowError('Assertion failed: invalid call');
+        ).rejects.toThrowError('Assertion failed: Message not authorized by account');
 
         expect(await asset.methods.balance_of_public({ address: accounts[0].address }).view()).toEqual(balancePub);
         expect(await asset.methods.balance_of_private({ address: accounts[0].address }).view()).toEqual(balancePriv);
@@ -959,7 +786,7 @@ describe('e2e_token_contract', () => {
             .withWallet(wallets[1])
             .methods.shield({ address: accounts[0].address }, amount, secretHash, nonce)
             .simulate(),
-        ).rejects.toThrowError(`Assertion failed: invalid call`);
+        ).rejects.toThrowError(`Assertion failed: Message not authorized by account`);
       });
     });
   });
@@ -976,8 +803,8 @@ describe('e2e_token_contract', () => {
         caller.address.toField(),
         asset.address.toField(),
         FunctionSelector.fromSignature('unshield((Field),(Field),Field,Field)').toField(),
-        accounts[0].address.toField(),
-        accounts[1].address.toField(),
+        from.address.toField(),
+        to.address.toField(),
         new Fr(amount),
         nonce,
       ]);
@@ -1003,14 +830,14 @@ describe('e2e_token_contract', () => {
       const nonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);
 
-      // We need to compute the message we want to sign.
+      // We need to compute the message we want to sign and add it to the wallet as approved
       const messageHash = await unshieldMessageHash(accounts[1], accounts[0], accounts[1], amount, nonce);
 
       // Both wallets are connected to same node and rpc so we could just insert directly using
       // await wallet.signAndAddAuthWitness(messageHash, );
       // But doing it in two actions to show the flow.
-      const witness = await wallets[0].signAndGetAuthWitness(messageHash);
-      await wallets[1].addAuthWitness(Fr.fromBuffer(messageHash), witness);
+      const witness = await wallets[0].createAuthWitness(messageHash);
+      await wallets[1].addAuthWitness(witness);
 
       const tx = asset
         .withWallet(wallets[1])
@@ -1061,14 +888,14 @@ describe('e2e_token_contract', () => {
         const nonce = Fr.random();
         expect(amount).toBeGreaterThan(0n);
 
-        // We need to compute the message we want to sign.
+        // We need to compute the message we want to sign and add it to the wallet as approved
         const messageHash = await unshieldMessageHash(accounts[1], accounts[0], accounts[1], amount, nonce);
 
         // Both wallets are connected to same node and rpc so we could just insert directly using
         // await wallet.signAndAddAuthWitness(messageHash, );
         // But doing it in two actions to show the flow.
-        const witness = await wallets[0].signAndGetAuthWitness(messageHash);
-        await wallets[1].addAuthWitness(Fr.fromBuffer(messageHash), witness);
+        const witness = await wallets[0].createAuthWitness(messageHash);
+        await wallets[1].addAuthWitness(witness);
 
         await expect(
           asset
@@ -1084,15 +911,15 @@ describe('e2e_token_contract', () => {
         const nonce = Fr.random();
         expect(amount).toBeGreaterThan(0n);
 
-        // We need to compute the message we want to sign.
+        // We need to compute the message we want to sign and add it to the wallet as approved
         const messageHash = await unshieldMessageHash(accounts[1], accounts[0], accounts[1], amount, nonce);
         const expectedMessageHash = await unshieldMessageHash(accounts[2], accounts[0], accounts[1], amount, nonce);
 
         // Both wallets are connected to same node and rpc so we could just insert directly using
         // await wallet.signAndAddAuthWitness(messageHash, );
         // But doing it in two actions to show the flow.
-        const witness = await wallets[0].signAndGetAuthWitness(messageHash);
-        await wallets[2].addAuthWitness(Fr.fromBuffer(messageHash), witness);
+        const witness = await wallets[0].createAuthWitness(messageHash);
+        await wallets[2].addAuthWitness(witness);
 
         await expect(
           asset
@@ -1134,14 +961,9 @@ describe('e2e_token_contract', () => {
         expect(amount).toBeGreaterThan(0n);
         const nonce = Fr.random();
 
-        // We need to compute the message we want to sign.
+        // We need to compute the message we want to sign and add it to the wallet as approved
         const messageHash = await burnMessageHash(accounts[1], accounts[0], amount, nonce);
-
-        // Add it to the wallet as approved
-        const me = await SchnorrAuthWitnessAccountContract.at(accounts[0].address, wallets[0]);
-        const setValidTx = me.methods.set_is_valid_storage(messageHash, 1).send();
-        const validTxReceipt = await setValidTx.wait();
-        expect(validTxReceipt.status).toBe(TxStatus.MINED);
+        await wallets[0].setPublicAuth(messageHash, true).send().wait();
 
         const tx = asset
           .withWallet(wallets[1])
@@ -1191,7 +1013,7 @@ describe('e2e_token_contract', () => {
               .withWallet(wallets[1])
               .methods.burn_public({ address: accounts[0].address }, amount, nonce)
               .simulate(),
-          ).rejects.toThrowError('Assertion failed: invalid call');
+          ).rejects.toThrowError('Assertion failed: Message not authorized by account');
         });
 
         it('burn more than balance on behalf of other', async () => {
@@ -1200,14 +1022,9 @@ describe('e2e_token_contract', () => {
           const nonce = Fr.random();
           expect(amount).toBeGreaterThan(0n);
 
-          // We need to compute the message we want to sign.
+          // We need to compute the message we want to sign and add it to the wallet as approved
           const messageHash = await burnMessageHash(accounts[1], accounts[0], amount, nonce);
-
-          // Add it to the wallet as approved
-          const me = await SchnorrAuthWitnessAccountContract.at(accounts[0].address, wallets[0]);
-          const setValidTx = me.methods.set_is_valid_storage(messageHash, 1).send();
-          const validTxReceipt = await setValidTx.wait();
-          expect(validTxReceipt.status).toBe(TxStatus.MINED);
+          await wallets[0].setPublicAuth(messageHash, true).send().wait();
 
           await expect(
             asset
@@ -1223,21 +1040,16 @@ describe('e2e_token_contract', () => {
           const nonce = Fr.random();
           expect(amount).toBeGreaterThan(0n);
 
-          // We need to compute the message we want to sign.
+          // We need to compute the message we want to sign and add it to the wallet as approved
           const messageHash = await burnMessageHash(accounts[0], accounts[0], amount, nonce);
-
-          // Add it to the wallet as approved
-          const me = await SchnorrAuthWitnessAccountContract.at(accounts[0].address, wallets[0]);
-          const setValidTx = me.methods.set_is_valid_storage(messageHash, 1).send();
-          const validTxReceipt = await setValidTx.wait();
-          expect(validTxReceipt.status).toBe(TxStatus.MINED);
+          await wallets[0].setPublicAuth(messageHash, true).send().wait();
 
           await expect(
             asset
               .withWallet(wallets[1])
               .methods.burn_public({ address: accounts[0].address }, amount, nonce)
               .simulate(),
-          ).rejects.toThrowError('Assertion failed: invalid call');
+          ).rejects.toThrowError('Assertion failed: Message not authorized by account');
         });
       });
     });
@@ -1270,14 +1082,14 @@ describe('e2e_token_contract', () => {
         const nonce = Fr.random();
         expect(amount).toBeGreaterThan(0n);
 
-        // We need to compute the message we want to sign.
+        // We need to compute the message we want to sign and add it to the wallet as approved
         const messageHash = await burnMessageHash(accounts[1], accounts[0], amount, nonce);
 
         // Both wallets are connected to same node and rpc so we could just insert directly using
         // await wallet.signAndAddAuthWitness(messageHash, );
         // But doing it in two actions to show the flow.
-        const witness = await wallets[0].signAndGetAuthWitness(messageHash);
-        await wallets[1].addAuthWitness(Fr.fromBuffer(messageHash), witness);
+        const witness = await wallets[0].createAuthWitness(messageHash);
+        await wallets[1].addAuthWitness(witness);
 
         const tx = asset.withWallet(wallets[1]).methods.burn({ address: accounts[0].address }, amount, nonce).send();
         const receipt = await tx.wait();
@@ -1319,14 +1131,14 @@ describe('e2e_token_contract', () => {
           const nonce = Fr.random();
           expect(amount).toBeGreaterThan(0n);
 
-          // We need to compute the message we want to sign.
+          // We need to compute the message we want to sign and add it to the wallet as approved
           const messageHash = await burnMessageHash(accounts[1], accounts[0], amount, nonce);
 
           // Both wallets are connected to same node and rpc so we could just insert directly using
           // await wallet.signAndAddAuthWitness(messageHash, );
           // But doing it in two actions to show the flow.
-          const witness = await wallets[0].signAndGetAuthWitness(messageHash);
-          await wallets[1].addAuthWitness(Fr.fromBuffer(messageHash), witness);
+          const witness = await wallets[0].createAuthWitness(messageHash);
+          await wallets[1].addAuthWitness(witness);
 
           await expect(
             asset.withWallet(wallets[1]).methods.burn({ address: accounts[0].address }, amount, nonce).simulate(),
@@ -1339,7 +1151,7 @@ describe('e2e_token_contract', () => {
           const nonce = Fr.random();
           expect(amount).toBeGreaterThan(0n);
 
-          // We need to compute the message we want to sign.
+          // We need to compute the message we want to sign and add it to the wallet as approved
           const messageHash = await burnMessageHash(accounts[1], accounts[0], amount, nonce);
 
           await expect(
@@ -1353,12 +1165,12 @@ describe('e2e_token_contract', () => {
           const nonce = Fr.random();
           expect(amount).toBeGreaterThan(0n);
 
-          // We need to compute the message we want to sign.
+          // We need to compute the message we want to sign and add it to the wallet as approved
           const messageHash = await burnMessageHash(accounts[1], accounts[0], amount, nonce);
           const expectedMessageHash = await burnMessageHash(accounts[2], accounts[0], amount, nonce);
 
-          const witness = await wallets[0].signAndGetAuthWitness(messageHash);
-          await wallets[2].addAuthWitness(Fr.fromBuffer(messageHash), witness);
+          const witness = await wallets[0].createAuthWitness(messageHash);
+          await wallets[2].addAuthWitness(witness);
 
           await expect(
             asset.withWallet(wallets[2]).methods.burn({ address: accounts[0].address }, amount, nonce).simulate(),
@@ -1372,15 +1184,15 @@ describe('e2e_token_contract', () => {
         const nonce = Fr.random();
         expect(amount).toBeGreaterThan(0n);
 
-        // We need to compute the message we want to sign.
+        // We need to compute the message we want to sign and add it to the wallet as approved
         const messageHash = await burnMessageHash(accounts[1], accounts[0], amount, nonce);
         const expectedMessageHash = await burnMessageHash(accounts[2], accounts[0], amount, nonce);
 
         // Both wallets are connected to same node and rpc so we could just insert directly using
         // await wallet.signAndAddAuthWitness(messageHash, { origin: accounts[0].address });
         // But doing it in two actions to show the flow.
-        const witness = await wallets[0].signAndGetAuthWitness(messageHash);
-        await wallets[2].addAuthWitness(Fr.fromBuffer(messageHash), witness);
+        const witness = await wallets[0].createAuthWitness(messageHash);
+        await wallets[2].addAuthWitness(witness);
 
         await expect(
           asset.withWallet(wallets[2]).methods.burn({ address: accounts[0].address }, amount, nonce).simulate(),

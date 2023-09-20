@@ -6,6 +6,7 @@
 # 2... ARGS: Script and arguments to run.
 #
 # e.g. remote_run_script 1.2.3.4 build my_repo
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
 IP=$1
@@ -26,5 +27,6 @@ ssh -A -F $SSH_CONFIG_PATH $IP "
   export DOCKERHUB_PASSWORD=$DOCKERHUB_PASSWORD
   export ECR_DEPLOY_URL=$ECR_DEPLOY_URL
   export ECR_URL=$ECR_URL
+  export BUILD_SYSTEM_DEBUG=${BUILD_SYSTEM_DEBUG:-}
   ./remote_runner $@
 "
