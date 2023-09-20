@@ -1,7 +1,5 @@
-#include "barretenberg/honk/composer/standard_composer.hpp"
 #include "barretenberg/honk/composer/ultra_composer.hpp"
 #include "barretenberg/honk/proof_system/grand_product_library.hpp"
-#include "barretenberg/proof_system/relations/arithmetic_relation.hpp"
 #include "barretenberg/proof_system/relations/auxiliary_relation.hpp"
 #include "barretenberg/proof_system/relations/ecc_op_queue_relation.hpp"
 #include "barretenberg/proof_system/relations/elliptic_relation.hpp"
@@ -206,49 +204,6 @@ class RelationCorrectnessTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { barretenberg::srs::init_crs_factory("../srs_db/ignition"); }
 };
-
-/**
- * @brief Test the correctness of the Standard Honk relations
- *
- * @details Check that the constraints encoded by the relations are satisfied by the polynomials produced by the
- * Standard Honk Composer for a real circuit.
- *
- * TODO(Kesha): We'll have to update this function once we add zk, since the relation will be incorrect for he first few
- * indices
- *
- */
-TEST_F(RelationCorrectnessTests, StandardRelationCorrectness)
-{
-    using Flavor = flavor::Standard;
-    using FF = typename Flavor::FF;
-
-    // Create a composer and a dummy circuit with a few gates
-    auto builder = proof_system::StandardCircuitBuilder();
-
-    create_some_add_gates<Flavor>(builder);
-
-    // Create a prover (it will compute proving key and witness)
-    auto composer = StandardComposer();
-    auto instance = composer.create_instance(builder);
-    auto proving_key = instance->proving_key;
-    auto circuit_size = proving_key->circuit_size;
-
-    // Generate beta and gamma
-    FF beta = FF::random_element();
-    FF gamma = FF::random_element();
-
-    instance->initialise_prover_polynomials();
-    instance->compute_grand_product_polynomials(beta, gamma);
-
-    // Construct the round for applying sumcheck relations and results for storing computed results
-    auto relations = std::tuple(proof_system::ArithmeticRelation<FF>(), proof_system::PermutationRelation<FF>());
-
-    auto prover_polynomials = instance->prover_polynomials;
-    auto params = instance->relation_parameters;
-    // Check that each relation is satisfied across each row of the prover polynomials
-    check_relation<Flavor>(std::get<0>(relations), circuit_size, prover_polynomials, params);
-    check_relation<Flavor>(std::get<1>(relations), circuit_size, prover_polynomials, params);
-}
 
 /**
  * @brief Test the correctness of the Ultra Honk relations

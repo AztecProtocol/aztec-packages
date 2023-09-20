@@ -1,6 +1,5 @@
 # Each source represents a separate benchmark suite 
 set(BENCHMARK_SOURCES
-standard_honk.bench.cpp
 standard_plonk.bench.cpp
 ultra_honk.bench.cpp
 ultra_plonk.bench.cpp

@@ -202,13 +202,6 @@ std::shared_ptr<typename Flavor::ProvingKey> ProverInstance_<Flavor>::compute_pr
     proving_key = std::make_shared<ProvingKey>(dyadic_circuit_size, num_public_inputs);
     construct_selector_polynomials<Flavor>(circuit, proving_key.get());
 
-    if constexpr (StandardFlavor<Flavor>) {
-        // Compute sigma polynomials (we should update that late)
-        compute_standard_honk_sigma_permutations<Flavor>(circuit, proving_key.get());
-        compute_standard_honk_id_polynomials<Flavor>(proving_key.get());
-        compute_first_and_last_lagrange_polynomials<Flavor>(proving_key.get());
-    }
-
     if constexpr (IsUltraFlavor<Flavor>) {
 
         compute_honk_generalized_sigma_permutations<Flavor>(circuit, proving_key.get());
@@ -510,8 +503,6 @@ std::shared_ptr<typename Flavor::VerificationKey> ProverInstance_<Flavor>::compu
 
 template class ProverInstance_<honk::flavor::Ultra>;
 template class ProverInstance_<honk::flavor::UltraGrumpkin>;
-template class ProverInstance_<honk::flavor::Standard>;
-template class ProverInstance_<honk::flavor::StandardGrumpkin>;
 template class ProverInstance_<honk::flavor::GoblinUltra>;
 
 } // namespace proof_system::honk

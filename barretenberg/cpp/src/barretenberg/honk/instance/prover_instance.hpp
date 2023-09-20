@@ -1,7 +1,5 @@
 #pragma once
 #include "barretenberg/honk/flavor/goblin_ultra.hpp"
-#include "barretenberg/honk/flavor/standard.hpp"
-#include "barretenberg/honk/flavor/standard_grumpkin.hpp"
 #include "barretenberg/honk/flavor/ultra.hpp"
 #include "barretenberg/honk/flavor/ultra_grumpkin.hpp"
 #include "barretenberg/honk/proof_system/folding_result.hpp"
@@ -113,8 +111,6 @@ template <class Flavor> class ProverInstance_ {
 extern template class ProverInstance_<honk::flavor::Ultra>;
 extern template class ProverInstance_<honk::flavor::UltraGrumpkin>;
 extern template class ProverInstance_<honk::flavor::GoblinUltra>;
-extern template class ProverInstance_<honk::flavor::Standard>;
-extern template class ProverInstance_<honk::flavor::StandardGrumpkin>;
 
 using ProverInstance = ProverInstance_<honk::flavor::Ultra>;
 
