@@ -4,7 +4,7 @@ RUN apk update \
     && apk upgrade \
     && apk add --no-cache \
         build-base \
-        clang16 \
+        clang15 \
         cmake \
         ninja \
         git \
