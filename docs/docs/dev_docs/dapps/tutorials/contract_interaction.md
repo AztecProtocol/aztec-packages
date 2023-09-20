@@ -122,19 +122,13 @@ Balance of 0x226f8087792beff8d5009eb94e65d2a4a505b70baf4a9f28d33c8d620b0ba972: 0
 Balance of 0x0e1f60e8566e2c6d32378bdcadb7c63696e853281be798c107266b8c3a88ea9b: 0
 ```
 
-Public functions can emit [unencrypted public logs](../../contracts/events.md#unencrypted-events), which we can query via the RPC Server interface. In particular, the public token contract emits a generic `Coins minted` whenever the `mint` method is called:
+Public functions can emit [unencrypted public logs](../../contracts/events.md#unencrypted-events), which we can query via the RPC Server interface. For example, here we have a `mint` method that emits a generic `Coins minted` whenever it is called:
 
 #include_code unencrypted_log yarn-project/noir-contracts/src/contracts/public_token_contract/src/main.nr rust
 
 We can extend our code by querying the logs emitted on the last block when the minting transaction is mined:
 
 #include_code showLogs yarn-project/end-to-end/src/sample-dapp/index.mjs javascript
-
-Running the code again would now show an extra line with:
-
-```text
-Log: Coins minted
-```
 
 :::info
 At the time of this writing, there is no event-based mechanism in the `aztec.js` library to subscribe to events. The only option to consume them is to poll on every new block detected. This will change in a future version.

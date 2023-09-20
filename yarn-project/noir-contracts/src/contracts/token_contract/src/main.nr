@@ -1,4 +1,4 @@
-// docs:start:all
+// docs:start:token_all
 mod types;
 mod util;
 
@@ -422,4 +422,4 @@ contract Token {
     }
 
 }
-// docs:end:all
+// docs:end:token_all

@@ -26,17 +26,17 @@ safe_math = {  git="https://github.com/AztecProtocol/aztec-nr", tag="master", di
 
 Last, copy-paste the code from the `Token` contract into `contracts/token/main.nr`:
 
-#include_code all yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
+#include_code token_all yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
 
 The `Token` contract also requires two helper files. Copy-them too:
 
 Create `contracts/token/types.nr` and copy-paste the following:
 
-#include_code all yarn-project/noir-contracts/src/contracts/token_contract/src/types.nr rust
+#include_code token_types_all yarn-project/noir-contracts/src/contracts/token_contract/src/types.nr rust
 
 Finally, create `contracts/token/util.nr` and copy-paste the following:
 
-#include_code all yarn-project/noir-contracts/src/contracts/token_contract/src/util.nr rust
+#include_code token_util_all yarn-project/noir-contracts/src/contracts/token_contract/src/util.nr rust
 
 ## Compile your contract
 
@@ -58,20 +58,6 @@ If you are using Typescript, consider including the `--typescript` option to [ge
 
 This should have created an artifact `contracts/token/target/Token.json` with the interface and bytecode for your contract.
 
-## Adding a second contract
-
-For the purposes of this tutorial, we'll set up a second contract: a public token contract. Follow the same steps as above for initialising a new Nargo project, include the dependencies, and copy-paste the following code into `contracts/public_token/main.nr`:
-
-#include_code all yarn-project/noir-contracts/src/contracts/public_token_contract/src/main.nr rust
-
-Compile the contract with the CLI:
-
-```sh
-yarn aztec-cli compile contracts/public_token
-```
-
-With both contracts ready, we'll now proceed to deployment.
-
 ## Deploy your contracts
 
 Let's now write a script for deploying your contracts to the Sandbox. We'll create an RPC client, and then use the `ContractDeployer` class to deploy our contracts, and store the deployment address to a local JSON file.
@@ -83,7 +69,6 @@ Create a new file `src/deploy.mjs`, with a call to a `main` function that we'll 
 import { writeFileSync } from 'fs';
 import { Contract, ContractDeployer, createAztecRpcClient, getSandboxAccountsWallets } from '@aztec/aztec.js';
 import TokenContractAbi from "../contracts/token/target/Token.json" assert { type: "json" };
-import PublicTokenContractAbi from "../contracts/public_token/target/PublicToken.json" assert { type: "json" };
 
 async function main() {}
 
@@ -112,7 +97,6 @@ Run the snippet above as `node src/deploy.mjs`, and you should see the following
 
 ```text
 Token deployed to 0x2950b0f290422ff86b8ee8b91af4417e1464ddfd9dda26de8af52dac9ea4f869
-Public token deployed to 0x2b54f68fd1e18f7dcfa71e3be3c91bb06ecbe727a28d609e964c225a4b5549c8
 ```
 
 ## Next steps
