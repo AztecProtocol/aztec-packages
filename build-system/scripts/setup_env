@@ -97,23 +97,13 @@ if [ -n "$COMMIT_HASH" ]; then
   echo ${BUILD_INSTANCE_KEY:-} | base64 -d > ~/.ssh/build_instance_key
   chmod 600 ~/.ssh/build_instance_key
 
-  declare -A commands
-  commands=(
-    ["debug"]="BUILD_SYSTEM_DEBUG=1"
-    ["rebuild"]="BUILD_SYSTEM_REBUILD=1"
-  )
-
   COMMIT_MESSAGE=`git log -n 1 --pretty=format:"%s" HEAD`
 
-  if [[ $COMMIT_MESSAGE =~ \[ci[[:space:]]([^]]+)\] ]]; then
-    IFS=' ' read -r -a ci_commands <<< "${BASH_REMATCH[1]}"
-    for ci_command in "${ci_commands[@]}"; do
-      if [[ -n ${commands[$ci_command]} ]]; then
-        echo "export ${commands[$ci_command]}" >> "$BASH_ENV"
-      else
-        echo "Unrecognized ci command: $ci_command" >&2
-      fi
-    done
+  if [[ "$COMMIT_MESSAGE" == *"[ci debug]"* ]]; then
+    echo export BUILD_SYSTEM_DEBUG=1 >> $BASH_ENV
+  fi
+  if [[ "$COMMIT_MESSAGE" == *"[ci rebuild]"* ]]; then
+    echo export BUILD_SYSTEM_REBUILD=1 >> $BASH_ENV
   fi
 fi
 
