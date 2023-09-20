@@ -1,4 +1,4 @@
-import { Fr, PublicKey, getContractDeploymentInfo } from '@aztec/circuits.js';
+import { Fr, PublicKey } from '@aztec/circuits.js';
 import { AztecRPC, CompleteAddress, GrumpkinPrivateKey } from '@aztec/types';
 
 import { AccountWallet, ContractDeployer, DeployMethod, WaitOpts, generatePublicKey } from '../../index.js';
@@ -55,14 +55,7 @@ export class AccountManager {
    */
   public async getCompleteAddress(): Promise<CompleteAddress> {
     if (!this.completeAddress) {
-      const encryptionPublicKey = await generatePublicKey(this.encryptionPrivateKey);
-      const contractDeploymentInfo = await getContractDeploymentInfo(
-        this.accountContract.getContractAbi(),
-        await this.accountContract.getDeploymentArgs(),
-        this.salt!,
-        encryptionPublicKey,
-      );
-      this.completeAddress = contractDeploymentInfo.completeAddress;
+      this.completeAddress = await (await this.getDeployMethod()).getCompleteAddress();
     }
     return this.completeAddress;
   }
@@ -98,11 +91,11 @@ export class AccountManager {
   public async getDeployMethod() {
     if (!this.deployMethod) {
       if (!this.salt) throw new Error(`Cannot deploy account contract without known salt.`);
-      await this.register();
       const encryptionPublicKey = await this.getEncryptionPublicKey();
       const deployer = new ContractDeployer(this.accountContract.getContractAbi(), this.rpc, encryptionPublicKey);
       const args = await this.accountContract.getDeploymentArgs();
       this.deployMethod = deployer.deploy(...args);
+      this.deployMethod.setContractAddressSalt(this.salt);
     }
     return this.deployMethod;
   }
@@ -117,8 +110,9 @@ export class AccountManager {
    */
   public async deploy(): Promise<DeployAccountSentTx> {
     const deployMethod = await this.getDeployMethod();
+    await this.register();
     const wallet = await this.getWallet();
-    const sentTx = deployMethod.send({ contractAddressSalt: this.salt });
+    const sentTx = deployMethod.send();
     return new DeployAccountSentTx(wallet, sentTx.getTxHash());
   }
 

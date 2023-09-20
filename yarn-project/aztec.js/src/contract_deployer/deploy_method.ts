@@ -1,6 +1,7 @@
 import {
   CompleteAddress,
   ContractDeploymentData,
+  DeploymentInfo,
   FunctionData,
   TxContext,
   getContractDeploymentInfo,
@@ -34,11 +35,11 @@ export interface DeployOptions extends SendMethodOptions {
  * Extends the ContractFunctionInteraction class.
  */
 export class DeployMethod<TContract extends ContractBase = Contract> extends BaseContractInteraction {
-  /** The complete address of the contract. */
-  public completeAddress?: CompleteAddress = undefined;
-
   /** Constructor function to call. */
   private constructorAbi: FunctionAbi;
+
+  private contractAddressSalt?: Fr;
+  private contractDeploymentInfo?: Promise<DeploymentInfo>;
 
   constructor(private publicKey: PublicKey, private arc: AztecRPC, private abi: ContractAbi, private args: any[] = []) {
     super(arc);
@@ -58,22 +59,17 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    */
   public async create(options: DeployOptions = {}) {
     const portalContract = options.portalContract ?? EthAddress.ZERO;
-    const contractAddressSalt = options.contractAddressSalt ?? Fr.random();
+
+    this.setContractAddressSalt(options.contractAddressSalt);
+    const { completeAddress, constructorHash, functionTreeRoot } = await this.getContractDeploymentInfo();
 
     const { chainId, protocolVersion } = await this.rpc.getNodeInfo();
-
-    const { completeAddress, constructorHash, functionTreeRoot } = await getContractDeploymentInfo(
-      this.abi,
-      this.args,
-      contractAddressSalt,
-      this.publicKey,
-    );
 
     const contractDeploymentData = new ContractDeploymentData(
       this.publicKey,
       constructorHash,
       functionTreeRoot,
-      contractAddressSalt,
+      this.contractAddressSalt!,
       portalContract,
     );
 
@@ -100,7 +96,6 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     });
 
     this.txRequest = txRequest;
-    this.completeAddress = completeAddress;
 
     // TODO: Should we add the contracts to the DB here, or once the tx has been sent or mined?
     await this.rpc.addContracts([{ abi: this.abi, completeAddress, portalContract }]);
@@ -128,5 +123,42 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    */
   public simulate(options: DeployOptions): Promise<Tx> {
     return super.simulate(options);
+  }
+
+  /**
+   * Sets the contract address salt.
+   * @param salt - The contract address salt.
+   */
+  public setContractAddressSalt(salt?: Fr) {
+    if (this.contractAddressSalt) {
+      if (salt) {
+        throw new Error('Contract address salt is already set.');
+      }
+      return;
+    }
+    this.contractAddressSalt = salt ?? Fr.random();
+  }
+
+  /**
+   * Returns the complete address of the contract.
+   * @returns The complete address of the contract.
+   */
+  public async getCompleteAddress(): Promise<CompleteAddress> {
+    return (await this.getContractDeploymentInfo()).completeAddress;
+  }
+
+  private getContractDeploymentInfo(): Promise<DeploymentInfo> {
+    if (!this.contractDeploymentInfo) {
+      if (this.contractAddressSalt === undefined) {
+        throw new Error('Contract address salt is not set.');
+      }
+      this.contractDeploymentInfo = getContractDeploymentInfo(
+        this.abi,
+        this.args,
+        this.contractAddressSalt,
+        this.publicKey,
+      );
+    }
+    return this.contractDeploymentInfo;
   }
 }
