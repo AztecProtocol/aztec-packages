@@ -65,7 +65,7 @@ cd token_contract_tutorial && mkdir contracts && cd contracts
 Create a new Noir project using nargo.
 
 ```bash
-nargo init --name token_contract
+nargo new --contract token_contract
 ```
 
 Your project should look like this:
@@ -88,9 +88,9 @@ compiler_version = "0.1"
 type = "contract"
 
 [dependencies]
-aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="master", directory="yarn-project/aztec-nr/aztec" }
-value_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="master", directory="yarn-project/aztec-nr/value-note"}
-safe_math = { git="https://github.com/AztecProtocol/aztec-packages/", tag="master", directory="yarn-project/aztec-nr/safe-math"}
+aztec = { git = "https://github.com/AztecProtocol/aztec-nr", tag = "master", directory = "aztec" }
+value_note = { git = "https://github.com/AztecProtocol/aztec-nr", tag = "master", directory = "value-note"}
+safe_math = { git = "https://github.com/AztecProtocol/aztec-nr", tag = "master", directory = "safe-math"}
 ```
 
 ## Contract Interface

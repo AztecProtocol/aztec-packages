@@ -67,11 +67,11 @@ Open Nargo.toml that is in the `contracts/example_contract` folder, and add the 
 ```toml
 [dependencies]
 # Framework import
-aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="master", directory="yarn-project/aztec-nr/aztec" }
+aztec = { git = "https://github.com/AztecProtocol/aztec-nr", tag = "master", directory = "aztec" }
 
 # Utility dependencies
-value_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="master", directory="yarn-project/aztec-nr/value-note"}
-safe_math = { git="https://github.com/AztecProtocol/aztec-packages/", tag="master", directory="yarn-project/aztec-nr/safe-math"}
+value_note = { git = "https://github.com/AztecProtocol/aztec-nr", tag = "master", directory = "value-note"}
+safe_math = { git = "https://github.com/AztecProtocol/aztec-nr", tag = "master", directory = "safe-math"}
 ```
 
 You are now ready to write your own contracts!

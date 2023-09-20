@@ -19,9 +19,9 @@ Then, open the `contracts/token/Nargo.toml` configuration file, and add the `azt
 
 ```toml
 [dependencies]
-aztec = { git="https://github.com/AztecProtocol/aztec-nr", tag="master", directory="aztec" }
-value_note = { git="https://github.com/AztecProtocol/aztec-nr", tag="master", directory="value-note" }
-safe_math = {  git="https://github.com/AztecProtocol/aztec-nr", tag="master", directory="safe-math" }
+aztec = { git = "https://github.com/AztecProtocol/aztec-nr", tag = "master", directory = "aztec" }
+value_note = { git = "https://github.com/AztecProtocol/aztec-nr", tag = "master", directory = "value-note"}
+safe_math = { git = "https://github.com/AztecProtocol/aztec-nr", tag = "master", directory = "safe-math"}
 ```
 
 Last, copy-paste the code from the `Token` contract into `contracts/token/main.nr`:
