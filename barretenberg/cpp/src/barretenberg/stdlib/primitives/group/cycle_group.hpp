@@ -27,9 +27,9 @@ concept IsNotUltraArithmetic = (Composer::CIRCUIT_TYPE != CircuitType::ULTRA);
  */
 template <typename Composer> class cycle_group {
   public:
-    using field_t = field_t<Composer>;
-    using bool_t = bool_t<Composer>;
-    using witness_t = witness_t<Composer>;
+    using field_t = stdlib::field_t<Composer>;
+    using bool_t = stdlib::bool_t<Composer>;
+    using witness_t = stdlib::witness_t<Composer>;
     using FF = typename Composer::FF;
     using Curve = typename Composer::EmbeddedCurve;
     using Group = typename Curve::Group;
