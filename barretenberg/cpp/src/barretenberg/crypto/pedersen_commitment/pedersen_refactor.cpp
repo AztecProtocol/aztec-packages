@@ -23,7 +23,7 @@ namespace crypto {
  */
 template <typename Curve>
 typename Curve::AffineElement pedersen_commitment_refactor<Curve>::commit_native(
-    const std::vector<Fq>& inputs, const size_t hash_index, const generator_data* const generator_context)
+    const std::vector<Fq>& inputs, const size_t hash_index, const generator_data<Curve>* const generator_context)
 {
     const auto generators = generator_context->conditional_extend(inputs.size() + hash_index);
     Element result = Group::point_at_infinity;
@@ -49,7 +49,7 @@ typename Curve::AffineElement pedersen_commitment_refactor<Curve>::commit_native
  */
 template <typename Curve>
 typename Curve::AffineElement pedersen_commitment_refactor<Curve>::commit_native(
-    const std::vector<Fr>& inputs, const size_t hash_index, const generator_data* const generator_context)
+    const std::vector<Fr>& inputs, const size_t hash_index, const generator_data<Curve>* const generator_context)
 {
     const auto generators = generator_context->conditional_extend(inputs.size() + hash_index);
     Element result = Group::point_at_infinity;
