@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.7.10](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.7.9...barretenberg-v0.7.10) (2023-09-20)
+
+
+### Miscellaneous
+
+* **barretenberg:** Synchronize aztec-packages versions
+
+## [0.7.9](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.7.8...barretenberg-v0.7.9) (2023-09-19)
+
+
+### Miscellaneous
+
+* **barretenberg:** Synchronize aztec-packages versions
+
+## [0.7.8](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.7.7...barretenberg-v0.7.8) (2023-09-19)
+
+
+### Features
+
+* Allow tracing build system with [debug ci] ([#2389](https://github.com/AztecProtocol/aztec-packages/issues/2389)) ([ce311a9](https://github.com/AztecProtocol/aztec-packages/commit/ce311a9b44a8f0327235ccd3bb8f9a8fca97443e))
+
 ## [0.7.7](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.7.6...barretenberg-v0.7.7) (2023-09-18)
 
 

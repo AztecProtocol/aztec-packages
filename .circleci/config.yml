@@ -810,7 +810,7 @@ defaults: &defaults
 workflows:
   system:
     when:
-      equal: [ system, << pipeline.parameters.workflow >> ]
+      equal: [system, << pipeline.parameters.workflow >>]
     jobs:
       - barretenberg-wasm-linux-clang:
           <<: *defaults

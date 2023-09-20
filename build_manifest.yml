@@ -247,6 +247,12 @@ end-to-end:
     guides-sample-dapp:
       command: ./scripts/run_tests_local sample-dapp ./scripts/docker-compose-e2e-sandbox.yml
 
+canary:
+  buildDir: yarn-project
+  projectDir: yarn-project/canary
+  dependencies:
+    - yarn-project
+
   # tests:
   #   l1-artifacts:
   #     buildDir: yarn-project
@@ -273,9 +279,6 @@ end-to-end:
 #   buildDir: yarn-project
 #   projectDir: yarn-project/canary
 #   dockerfile: Dockerfile.build
-# canary:
-#   buildDir: yarn-project
-#   projectDir: yarn-project/canary
 # circuits.js:
 #   buildDir: yarn-project
 #   projectDir: yarn-project/circuits.js
