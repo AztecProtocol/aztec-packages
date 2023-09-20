@@ -2,7 +2,7 @@
 title: Structure
 ---
 
-A contract is a collection of persistent [state variables](./syntax/state_variables.md), and [functions](./syntax/functions) which may manipulate these variables. Functions and state variables within a contract's scope are said to belong to that contract. A contract can only access and modify its own state. If a contract wishes to access or modify another contract's state, it must make a call to an external function of that other contract. For anything to happen on the Aztec network, an external function of a contract needs to be called.
+A contract is a collection of persistent [state variables](./syntax/state_variables.md), and [functions](./syntax/functions) which may manipulate these variables. Functions and state variables within a contract's scope are said to belong to that contract. A contract can only access and modify its own state. If a contract wishes to access or modify another contract's state, it must make a call to an external function of the other contract. For anything to happen on the Aztec network, an external function of a contract needs to be called.
 
 # Contract
 
@@ -20,7 +20,7 @@ contract MyContract {
 }
 ```
 :::info A note for vanilla Noir devs
-There is no [`main()`](https://noir-lang.org/getting_started/breakdown/#mainnr) function within a Noir `contract` scope. This is because more than one function of a contract may be called and proven as external (as opposed to inlined by the compiler).
+There is no [`main()`](https://noir-lang.org/getting_started/breakdown/#mainnr) function within a Noir `contract` scope. More than one function can be an entrypoint.
 :::
 
 ## Directory structure

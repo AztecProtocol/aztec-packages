@@ -1,6 +1,6 @@
 ---
 title: Functions
-description: This page will go over functions, how private and public functions differ and how then can be used together.
+description: This page covers functions, private and public functions composability, as well as their differences.
 ---
 
 
