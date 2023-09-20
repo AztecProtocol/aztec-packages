@@ -24,7 +24,7 @@ namespace {
 auto& engine = numeric::random::get_debug_engine();
 }
 #pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-local-typedef"
+#pragma GCC diagnostic ignored "-Wunused-local-typedefs"
 
 template <class Composer> class CycleGroupTest : public ::testing::Test {
   public:
