@@ -1,5 +1,4 @@
 import { BlankContract } from '../artifacts/blank.js';
-import { rpcClient } from '../config.js';
 import { callContractFunction, deployContract, getWallet } from '../scripts/index.js';
 import {
   AccountWallet,
@@ -8,6 +7,7 @@ import {
   CompleteAddress,
   Contract,
   Fr,
+  TxStatus,
   Wallet,
   createAztecRpcClient,
   waitForSandbox,
@@ -34,17 +34,6 @@ async function deployZKContract(owner: CompleteAddress, wallet: Wallet, rpcClien
   return contract;
 }
 
-async function call(contractAddress: AztecAddress, testTokenContract: Contract, address: CompleteAddress) {
-  return await callContractFunction(
-    contractAddress,
-    testTokenContract.abi,
-    'getPublicKey',
-    [address.address.toField()],
-    rpcClient,
-    address,
-  );
-}
-
 describe('ZK Contract Tests', () => {
   let wallet: AccountWallet;
   let owner: CompleteAddress;
@@ -66,7 +55,15 @@ describe('ZK Contract Tests', () => {
   }, 60000);
 
   test('call succeeds after deploy', async () => {
-    const callTx = call(contractAddress, contract, owner);
-    await callTx;
+    const callTxReceipt = await callContractFunction(
+      contractAddress,
+      contract.abi,
+      'getPublicKey',
+      [owner.address.toField()],
+      rpcClient,
+      owner,
+    );
+
+    expect(callTxReceipt.status).toBe(TxStatus.MINED);
   }, 40000);
 });
