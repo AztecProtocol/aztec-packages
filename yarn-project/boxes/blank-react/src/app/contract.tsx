@@ -98,6 +98,7 @@ export function Contract({ wallet }: Props) {
               contractAddress={contractAddress}
               contractAbi={contractAbi}
               functionAbi={selectedFunctionAbi}
+              defaultAddress={wallet.address.toString()}
               isLoading={processingFunction === selectedFunctionAbi.name && !hasResult}
               disabled={processingFunction === selectedFunctionAbi.name && hasResult}
               onSubmit={() => handleSubmitForm(selectedFunctionAbi.name)}
@@ -116,6 +117,7 @@ export function Contract({ wallet }: Props) {
           wallet={wallet}
           contractAbi={contractAbi}
           functionAbi={constructorAbi}
+          defaultAddress={wallet.address.toString()}
           buttonText="Deploy"
           isLoading={!!processingFunction && !hasResult}
           disabled={!!processingFunction && hasResult}
