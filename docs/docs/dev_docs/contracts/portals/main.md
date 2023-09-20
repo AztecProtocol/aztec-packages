@@ -47,9 +47,9 @@ Computing the `content` must be done manually in its current form, as we are sti
 
 #include_code claim_public /yarn-project/noir-contracts/src/contracts/token_bridge_contract/src/main.nr rust
 
-Since the message consumption is emitting a nullifier the same message cannot be consumed again. The index in the message tree is used as part of the nullifier computation, ensuring that the same content and secret being inserted will be distinct messages that can each be consumed. Without the index in the nullifier, it would be possible to perform a kind of attack known as `Faerie Gold` attacks where two seemingly good messages are inserted, but only one of them can be consumed later.
-
 After the transaction has been mined, the message is consumed, a nullifier is emitted and the tokens have been minted on Aztec and are ready for claiming.
+
+Since the message consumption is emitting a nullifier the same message cannot be consumed again. The index in the message tree is used as part of the nullifier computation, ensuring that the same content and secret being inserted will be distinct messages that can each be consumed. Without the index in the nullifier, it would be possible to perform a kind of attack known as `Faerie Gold` attacks where two seemingly good messages are inserted, but only one of them can be consumed later.
 
 ## Passing data to L1
 
