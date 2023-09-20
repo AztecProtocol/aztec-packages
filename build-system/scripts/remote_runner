@@ -21,6 +21,7 @@ git checkout FETCH_HEAD
 echo "Git checkout completed."
 
 echo "PWD: $PWD"
+ls -l
 
 BASH_ENV=/tmp/bash_env
 echo "Calling setup env..."
