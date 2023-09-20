@@ -13,7 +13,7 @@ WORKDIR /usr/src/yarn-project/end-to-end
 # Extract canary @aztec dependencies
 RUN ../canary/scripts/extract_packages.sh ../canary/package.json > ./target_pkgs.txt
 # Update end-to-end dependencies with target version
-RUN ./scripts/setup_canary.sh $COMMIT_TAG ./target_pkgs.txt
+RUN ./scripts/setup_canary.sh "v0.7.8" ./target_pkgs.txt
 RUN rm ./target_pkgs.txt
 RUN yarn && yarn build
 
