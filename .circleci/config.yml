@@ -1555,20 +1555,20 @@ workflows:
 
       - build-deployment-canary:
           requires:
-            - yarn-project-base
-          <<: *defaults
+            - deploy-end
+          <<: *deploy_defaults
 
       - run-deployment-canary-uniswap:
           requires:
             - build-deployment-canary
-          <<: *defaults
+          <<: *deploy_defaults
 
       - run-deployment-canary-browser:
           requires:
             - build-deployment-canary
-          <<: *defaults
+          <<: *deploy_defaults
 
       - run-deployment-canary-cli:
           requires:
             - build-deployment-canary
-          <<: *defaults
+          <<: *deploy_defaults
