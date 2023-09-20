@@ -247,7 +247,7 @@ void propagate_valid_public_data_update_requests(Builder& builder,
 }
 
 /**
- * @brief Proagates valid (i.e. non-empty) public data reads from this iteration to the circuit output
+ * @brief Propagates valid (i.e. non-empty) public data reads from this iteration to the circuit output
  * @tparam The type of kernel input
  * @param public_kernel_inputs The inputs to this iteration of the kernel circuit
  * @param circuit_outputs The circuit outputs to be populated
