@@ -84,8 +84,8 @@ function useLastRelease() {
  * Returns the contents of a file. If the build is running for publishing, it will load the contents
  * of the file in the last released version.
  */
-function readFile(filePath, useCurrent) {
-  if (!useCurrent) {
+function readFile(filePath, tag) {
+  if (tag && tag !== "master") {
     try {
       const tag = getLatestTag();
       const root = path.resolve(__dirname, "../../../");
@@ -126,7 +126,8 @@ function extractCodeSnippet(filePath, identifier) {
  * @returns the code snippet, and start and end line numbers which can later be used for creating a link to github source code.
  */
 function doExtractCodeSnippet(filePath, identifier, useCurrent) {
-  let fileContent = readFile(filePath, useCurrent);
+  const tag = useCurrent ? "master" : getLatestTag();
+  let fileContent = readFile(filePath, tag);
   let lineRemovalCount = 0;
   let linesToRemove = [];
 
@@ -225,7 +226,7 @@ function doExtractCodeSnippet(filePath, identifier, useCurrent) {
   // The code snippet might contain some docusaurus highlighting comments for other identifiers. We should remove those.
   codeSnippet = processHighlighting(codeSnippet, identifier);
 
-  return [codeSnippet, startLineNum, endLineNum];
+  return [codeSnippet, startLineNum, endLineNum, tag];
 }
 
 async function processMarkdownFilesInDir(rootDir, docsDir, regex) {
@@ -271,21 +272,23 @@ async function processMarkdownFilesInDir(rootDir, docsDir, regex) {
 
           // Extract the code snippet between the specified comments
           const extracted = extractCodeSnippet(absCodeFilePath, identifier);
-          const [codeSnippet, startLine, endLine] = extracted;
+          const [codeSnippet, startLine, endLine, tag] = extracted;
 
           const relativeCodeFilePath = path.resolve(rootDir, codeFilePath);
-          const url = `https://github.com/AztecProtocol/aztec-packages/blob/master/${relativeCodeFilePath}#L${startLine}-L${endLine}`;
+
+          let urlText = `${relativeCodeFilePath}#L${startLine}-L${endLine}`;
+          if (tag && tag !== "master") urlText += ` (${tag})`;
+          const url = `https://github.com/AztecProtocol/aztec-packages/blob/${tag}/${relativeCodeFilePath}#L${startLine}-L${endLine}`;
 
           const title = noTitle ? "" : `title="${identifier}"`;
           const lineNumbers = noLineNumbers ? "" : "showLineNumbers";
           const source = noSourceLink
             ? ""
-            : `\n> [<sup><sub>Source code: ${url}</sub></sup>](${url})`;
-          let replacement = codeSnippet;
-          if (language !== "raw") {
-            // if we aren't raw mode, wrap in a code block
-            replacement = `\`\`\`${language} ${title} ${lineNumbers} \n${codeSnippet}\n\`\`\`${source}\n`;
-          }
+            : `\n> [<sup><sub>Source code: ${urlText}</sub></sup>](${url})`;
+          const replacement = (language === "raw")
+            ? codeSnippet
+            : `\`\`\`${language} ${title} ${lineNumbers} \n${codeSnippet}\n\`\`\`${source}\n`;
+
           // Replace the include tag with the code snippet
           updatedContent = updatedContent.replace(fullMatch, replacement);
         } catch (error) {
