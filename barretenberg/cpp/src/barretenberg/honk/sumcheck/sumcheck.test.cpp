@@ -23,13 +23,9 @@ namespace test_sumcheck_round {
 barretenberg::Polynomial<FF> random_poly(size_t size)
 {
     auto poly = barretenberg::Polynomial<FF>(size);
-    size_t val = 1;
     for (auto& coeff : poly) {
-        coeff = val++;
+        coeff = FF::random_element();
     }
-    // for (auto& coeff : poly) {
-    //     coeff = FF::random_element();
-    // }
     return poly;
 }
 
@@ -184,7 +180,7 @@ TEST_F(SumcheckTests, Prover)
     }
 }
 
-// TODO(#225): make the inputs to this test more interesting, e.g. num_public_inputs > 0 and non-trivial permutations
+// TODO(#225): make the inputs to this test more interesting, e.g. non-trivial permutations
 TEST_F(SumcheckTests, ProverAndVerifierSimple)
 {
     auto run_test = [](bool expect_verified) {
