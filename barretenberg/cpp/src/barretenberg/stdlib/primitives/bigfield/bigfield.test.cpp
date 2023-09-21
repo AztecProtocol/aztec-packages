@@ -1018,7 +1018,7 @@ TYPED_TEST(stdlib_bigfield, division_context)
 //         EXPECT_EQ(result.hi.data[2], 0ULL);
 //         EXPECT_EQ(result.hi.data[3], 0ULL);
 //     }
-//     composer.process_range_lists();
+//     builder.process_range_lists();
 //     plonk::PlookupProver prover = composer.create_prover();
 //     plonk::PlookupVerifier verifier = composer.create_verifier();
 //     plonk::proof proof = prover.construct_proof();

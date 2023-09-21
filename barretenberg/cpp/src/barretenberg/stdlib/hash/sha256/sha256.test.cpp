@@ -117,7 +117,7 @@ std::array<uint64_t, 8> inner_block(std::array<uint64_t, 64>& w)
 // TEST(stdlib_sha256_plookup, test_round)
 // {
 
-//     auto composer = UltraPlonkBuilder();
+//     auto builder = UltraPlonkBuilder();
 
 //     std::array<uint64_t, 64> w_inputs;
 //     std::array<proof_system::plonk::stdlib::field_t<proof_system::UltraCircuitBuilder>, 64> w_elements;
