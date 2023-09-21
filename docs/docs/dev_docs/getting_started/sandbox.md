@@ -121,7 +121,7 @@ yarn add @aztec/aztec.js @aztec/noir-contracts typescript @types/node
     "build": "yarn clean && tsc -b",
     "build:dev": "tsc -b --watch",
     "clean": "rm -rf ./dest tsconfig.tsbuildinfo",
-    "start": "yarn build && export DEBUG='token' && node ./dest/index.js"
+    "start": "yarn build && DEBUG='token' node ./dest/index.js"
   },
   "dependencies": {
     "@aztec/aztec.js": "^0.7.10",
