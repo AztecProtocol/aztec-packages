@@ -42,7 +42,7 @@ TODO: add information about saved testcases
 You can simply run a fuzzer by executing the built executable, for example,
 
 ```bash
-./bin/stdlib_primitives_bigfield_turbo_fuzzer
+./bin/stdlib_primitives_bigfield_standard_fuzzer
 ```
 
 This is useful if you added a feature/instruction or changed some logic and want to quickly test if there are any really bad bugs.

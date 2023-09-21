@@ -10,9 +10,9 @@
 #include "../widgets/transition_widgets/elliptic_widget.hpp"
 #include "../widgets/transition_widgets/fixed_base_widget.hpp"
 #include "../widgets/transition_widgets/genperm_sort_widget.hpp"
+#include "../widgets/transition_widgets/logic_widget.hpp"
 #include "../widgets/transition_widgets/plookup_arithmetic_widget.hpp"
 #include "../widgets/transition_widgets/plookup_auxiliary_widget.hpp"
-#include "../widgets/transition_widgets/turbo_logic_widget.hpp"
 #include "./prover_settings.hpp"
 
 namespace proof_system::plonk {
@@ -64,7 +64,7 @@ class ultra_verifier_settings : public ultra_settings {
     typedef transcript::StandardTranscript Transcript;
     typedef VerifierPlookupArithmeticWidget<fr, g1::affine_element, Transcript, ultra_settings> PlookupArithmeticWidget;
     typedef VerifierGenPermSortWidget<fr, g1::affine_element, Transcript, ultra_settings> GenPermSortWidget;
-    typedef VerifierTurboLogicWidget<fr, g1::affine_element, Transcript, ultra_settings> TurboLogicWidget;
+    typedef VerifierLogicWidget<fr, g1::affine_element, Transcript, ultra_settings> LogicWidget;
     typedef VerifierPermutationWidget<fr, g1::affine_element, Transcript> PermutationWidget;
     typedef VerifierPlookupWidget<fr, g1::affine_element, Transcript> PlookupWidget;
     typedef VerifierEllipticWidget<fr, g1::affine_element, Transcript, ultra_settings> EllipticWidget;
@@ -120,7 +120,7 @@ class ultra_to_standard_verifier_settings : public ultra_verifier_settings {
     typedef VerifierPlookupArithmeticWidget<fr, g1::affine_element, Transcript, ultra_to_standard_settings>
         PlookupArithmeticWidget;
     typedef VerifierGenPermSortWidget<fr, g1::affine_element, Transcript, ultra_to_standard_settings> GenPermSortWidget;
-    typedef VerifierTurboLogicWidget<fr, g1::affine_element, Transcript, ultra_to_standard_settings> TurboLogicWidget;
+    typedef VerifierLogicWidget<fr, g1::affine_element, Transcript, ultra_to_standard_settings> LogicWidget;
     typedef VerifierPermutationWidget<fr, g1::affine_element, Transcript> PermutationWidget;
     typedef VerifierPlookupWidget<fr, g1::affine_element, Transcript> PlookupWidget;
     typedef VerifierEllipticWidget<fr, g1::affine_element, Transcript, ultra_to_standard_settings> EllipticWidget;
@@ -136,7 +136,7 @@ class ultra_with_keccak_verifier_settings : public ultra_verifier_settings {
     typedef VerifierPlookupArithmeticWidget<fr, g1::affine_element, Transcript, ultra_with_keccak_settings>
         PlookupArithmeticWidget;
     typedef VerifierGenPermSortWidget<fr, g1::affine_element, Transcript, ultra_with_keccak_settings> GenPermSortWidget;
-    typedef VerifierTurboLogicWidget<fr, g1::affine_element, Transcript, ultra_with_keccak_settings> TurboLogicWidget;
+    typedef VerifierLogicWidget<fr, g1::affine_element, Transcript, ultra_with_keccak_settings> LogicWidget;
     typedef VerifierPermutationWidget<fr, g1::affine_element, Transcript> PermutationWidget;
     typedef VerifierPlookupWidget<fr, g1::affine_element, Transcript> PlookupWidget;
     typedef VerifierEllipticWidget<fr, g1::affine_element, Transcript, ultra_with_keccak_settings> EllipticWidget;
