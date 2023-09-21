@@ -29,7 +29,7 @@ if [ -z "$PROJECT_NAME" ]; then
   exit 1
 fi
 
-cd $(git rev-parse --show-toplevel)
+cd "$(dirname "$0")"
 
 source ./build-system/scripts/setup_env $COMMIT_HASH '' mainframe_$USER > /dev/null
 build_local $PROJECT_NAME

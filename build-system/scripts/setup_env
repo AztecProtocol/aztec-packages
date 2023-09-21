@@ -85,9 +85,13 @@ echo export GIT_REPOSITORY_URL=$GIT_REPOSITORY_URL >> $BASH_ENV
 echo export VERSION_TAG=$VERSION_TAG >> $BASH_ENV
 echo export DEPLOY_TAG=$DEPLOY_TAG >> $BASH_ENV
 echo export BRANCH=$BRANCH >> $BASH_ENV
-# Our alpine build image has yq installed, ubuntu build instances use our committed version.
+# Our alpine build image has yq installed, ubuntu build instances download from github.
 if [ ! -f /etc/alpine-release ]; then
-  echo export PATH=$BUILD_SYSTEM_PATH/bin:\$PATH >> $BASH_ENV
+  if [ "$(uname -m)" == "x86_64" ]; then
+    sudo curl -L https://github.com/mikefarah/yq/releases/download/v4.35.1/yq_linux_amd64 > /usr/local/bin/yq
+  else if [ "$(uname -m)" == "aarch64" ]; then
+    sudo curl -L https://github.com/mikefarah/yq/releases/download/v4.35.1/yq_linux_arm64 > /usr/local/bin/yq
+  fi
 fi
 
 # Only run the following if we're the result of a commit (i.e. not being run manually).
