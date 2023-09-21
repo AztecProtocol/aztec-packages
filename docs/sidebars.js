@@ -372,6 +372,201 @@ const sidebars = {
       value: '<span class="sidebar-divider" />',
     },
 
+    // DEVELOPER DOCUMENTATION
+
+    {
+      type: "html",
+      className: "sidebar-title",
+      value: "Developer Documentation",
+      defaultStyle: true,
+    },
+
+    {
+      label: "Getting Started",
+      type: "category",
+      link: {
+        type: "doc",
+        id: "dev_docs/getting_started/main",
+      },
+      items: [
+        "dev_docs/getting_started/quickstart",
+        "dev_docs/getting_started/sandbox",
+        "dev_docs/getting_started/noir_contracts",
+        "dev_docs/getting_started/token_contract_tutorial",
+      ],
+    },
+
+    {
+      label: "Aztec.nr Contracts",
+      type: "category",
+      link: {
+        type: "doc",
+        id: "dev_docs/contracts/main",
+      },
+      items: [
+        "dev_docs/contracts/workflow",
+        "dev_docs/contracts/layout",
+        {
+          label: "Syntax",
+          type: "category",
+          link: {
+            type: "doc",
+            id: "dev_docs/contracts/syntax/main",
+          },
+          items: [
+            "dev_docs/contracts/syntax/storage",
+            "dev_docs/contracts/syntax/state_variables",
+            "dev_docs/contracts/syntax/events",
+            "dev_docs/contracts/syntax/functions",
+            "dev_docs/contracts/syntax/context",
+            "dev_docs/contracts/syntax/globals",
+          ],
+        },
+        {
+          label: "Portals",
+          type: "category",
+          link: {
+            type: "doc",
+            id: "dev_docs/contracts/portals/main",
+          },
+          items: [
+            "dev_docs/contracts/portals/data_structures",
+            "dev_docs/contracts/portals/registry",
+            "dev_docs/contracts/portals/inbox",
+            "dev_docs/contracts/portals/outbox",
+          ],
+        },
+        "dev_docs/contracts/compiling",
+        "dev_docs/contracts/deploying",
+        "dev_docs/contracts/artifacts",
+        // {
+        //   label: "Resources",
+        //   type: "category",
+        //   items: [
+        //     "dev_docs/contracts/resources/style_guide",
+        //     {
+        //       label: "Common Patterns",
+        //       type: "category",
+        //       link: {
+        //         type: "doc",
+        //         id: "dev_docs/contracts/resources/common_patterns/main",
+        //       },
+        //       items: [
+        //         "dev_docs/contracts/resources/common_patterns/sending_tokens_to_user",
+        //         "dev_docs/contracts/resources/common_patterns/sending_tokens_to_contract",
+        //         "dev_docs/contracts/resources/common_patterns/access_control",
+        //         "dev_docs/contracts/resources/common_patterns/interacting_with_l1",
+        //       ],
+        //     },
+        //   ],
+        // },
+        // {
+        //   label: "Security Considerations",
+        //   type: "category",
+        //   items: [
+        //     {
+        //       label: "Breaking changes",
+        //       type: "category",
+        //       link: {
+        //         type: "doc",
+        //         id: "dev_docs/contracts/security/breaking_changes/main",
+        //       },
+        //       items: ["dev_docs/contracts/security/breaking_changes/v0"],
+        //     },
+        //   ],
+        // },
+      ],
+    },
+
+    {
+      label: "Sandbox",
+      type: "category",
+      link: {
+        type: "doc",
+        id: "dev_docs/sandbox/main",
+      },
+      items: ["dev_docs/sandbox/common_errors"],
+    },
+
+    {
+      label: "CLI",
+      type: "category",
+      link: {
+        type: "doc",
+        id: "dev_docs/cli/main",
+      },
+      items: ["dev_docs/cli/cli"],
+    },
+    {
+      label: "DApp Development",
+      type: "category",
+      items: [
+        // {
+        //   label: "API",
+        //   type: "category",
+        //   link: {
+        //     type: "doc",
+        //     id: "dev_docs/dapps/api/main",
+        //   },
+        //   items: [
+        //     "dev_docs/dapps/api/aztec_rpc",
+        //     "dev_docs/dapps/api/contract_interaction",
+        //   ],
+        // },
+        {
+          label: "Tutorials",
+          type: "category",
+          link: {
+            type: "doc",
+            id: "dev_docs/dapps/tutorials/main",
+          },
+          items: [
+            "dev_docs/dapps/tutorials/project_setup",
+            "dev_docs/dapps/tutorials/rpc_server",
+            "dev_docs/dapps/tutorials/contract_deployment",
+            "dev_docs/dapps/tutorials/contract_interaction",
+            "dev_docs/dapps/tutorials/testing",
+          ],
+        },
+      ],
+    },
+
+    {
+      label: "Testing",
+      type: "category",
+      link: {
+        type: "doc",
+        id: "dev_docs/testing/main",
+      },
+      items: ["dev_docs/testing/testing", "dev_docs/testing/cheat_codes"],
+    },
+
+    {
+      label: "Wallets",
+      type: "category",
+      link: {
+        type: "doc",
+        id: "dev_docs/wallets/main",
+      },
+      items: [
+        "dev_docs/wallets/architecture",
+        "dev_docs/wallets/writing_an_account_contract",
+      ],
+    },
+
+    /*    {
+      label: "Security Considerations",
+      type: "category",
+      items: [],
+    },*/
+    "dev_docs/privacy/main",
+    "dev_docs/limitations/main",
+
+    {
+      type: "html",
+      value: '<span class="sidebar-divider" />',
+    },
+
     // MISCELLANEOUS
 
     {
