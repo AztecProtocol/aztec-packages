@@ -16,7 +16,7 @@ export function createAztecNodeRpcServer(node: AztecNode) {
     { AztecAddress, EthAddress, ExtendedContractData, ContractData, Fr, HistoricBlockData, L2Block, L2Tx, TxHash },
     { Tx, L2BlockL2Logs },
     false,
-    // disable private methods and methods not part of the AztecNode interface
+    // disable methods not part of the AztecNode interface
     [
       'start',
       'stop',
@@ -25,8 +25,6 @@ export function createAztecNodeRpcServer(node: AztecNode) {
       'getDataTreePath',
       'getL1ToL2MessageAndIndex',
       'getL1ToL2MessagesTreePath',
-      'getWorldState',
-      'syncWorldState',
     ],
   );
   return rpc;
