@@ -12,16 +12,14 @@ Here we will walkthrough the process of retrieving the Sandbox, installing the c
 
 ## What do you need?
 
-- Node.Js >= v18
+- Node.js >= v18
 - Docker and Docker Compose (Docker Desktop under WSL2 on windows)
 
 That's it...
 
 ## Ok, so how do I try it out?
 
-Well, you can find instructions [at the website](https://sandbox.aztec.network).
-
-Or you can just curl the site instead like this:
+You can just curl the site like this:
 
 ```sh
 /bin/bash -c "$(curl -fsSL 'https://sandbox.aztec.network')"
@@ -37,26 +35,6 @@ It will download and execute a script invoking docker compose with 2 containers:
 Within a few seconds the Sandbox should be up and running!
 
 <Image img={require("/img/sandbox.png")} />
-
-## Great, but what can I do with it?
-
-Aztec's Layer 2 network is a fully programmable combined private/public ZK rollup. To achieve this, the network contains the following primary components:
-
-- Aztec Node - Aggregates all of the 'backend' services necessary for the building and publishing of rollups.
-- Aztec RPC Server - Normally residing with the end client, this decrypts and stores a client's private state, executes simulations and submits transactions to the Aztec Node.
-- Aztec.js - Aztec's client library for interacting with the Aztec RPC Server (think Ethers.js).
-
-All of this is included in the Sandbox, with the exception of Aztec.js which you can use to interact with it.
-
-With the help of Aztec.js you will be able to:
-
-- Create an account
-- Deploy a contract
-- Call view methods on contracts
-- Simulate the calling of contract functions
-- Send transactions to the network
-- Be notified when transactions settle
-- Query chain state such as chain id, block number etc.
 
 ## I have the Sandbox running, show me how to use it
 
@@ -154,21 +132,17 @@ Add a `tsconfig.json` file into the project root, here is an example:
 yarn add @aztec/aztec.js @aztec/noir-contracts
 ```
 
-7. Create an `index.ts` file in the `src` directory and add the following imports:
-
-#include_code imports /yarn-project/end-to-end/src/e2e_sandbox_example.test.ts typescript
-
-Below the imports, set up a function in which we'll add the logic to interact with the Sandbox.
+7. Create an `index.ts` file in the `src` directory with the following sandbox connection setup:
 
 ```ts
-async function main() {}
+#include_code imports /yarn-project/end-to-end/src/e2e_sandbox_example.test.ts raw
+
+async function main() {
+#include_code setup /yarn-project/end-to-end/src/e2e_sandbox_example.test.ts raw
+}
 
 main();
 ```
-
-and the following setup code goes in the `main` function:
-
-#include_code setup /yarn-project/end-to-end/src/e2e_sandbox_example.test.ts typescript
 
 8. Finally, run the package:
 
@@ -271,9 +245,11 @@ We can break this down as follows:
 
 A token contract wouldn't be very useful if you aren't able to query the balance of an account. As part of the deployment, tokens were minted to Alice. We can now call the contract's `balance_of_private()` function to retrieve the balances of the accounts.
 
+Here is the `balance_of_private` code from the contract (no need to paste it into `index.ts`):
+
 #include_code balance_of_private /yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
 
-Call the `balance_of_private` function using the following code:
+Call the `balance_of_private` function using the following code (paste this):
 
 #include_code Balance /yarn-project/end-to-end/src/e2e_sandbox_example.test.ts typescript
 
@@ -311,7 +287,7 @@ Now lets transfer some funds from Alice to Bob by calling the `transfer` functio
 3. The quantity of tokens to be transferred.
 4. The nonce for the [authentication witness](../../concepts//foundation/accounts/main.md#authorizing-actions), or 0 if msg.sender equal sender.
 
-Here is the Noir code for the `transfer` function:
+Here is the Noir code for the `transfer` function (don't paste this into `index.ts`):
 
 #include_code transfer /yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
 
