@@ -638,7 +638,7 @@ jobs:
           name: "Build and test"
           command: build sequencer-client
 
-    boxes:
+  boxes:
     machine:
       image: ubuntu-2004:202010-01
     resource_class: large
@@ -648,7 +648,6 @@ jobs:
       - run:
           name: "Build"
           command: build boxes
-
 
   canary:
     machine:
