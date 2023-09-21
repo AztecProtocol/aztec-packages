@@ -8,12 +8,19 @@ if [ -n "$NETLIFY" ]; then
   cd ..
   echo Working dir $(pwd)
 
+  # Make sure the latest tag is available for loading code snippets from it
+  LAST_TAG="aztec-packages-v$(jq -r '.["."]' .release-please-manifest.json)"
+  echo Fetching latest released tag $LAST_TAG...
+  echo $(git remote -v)
+  git remote add aztec https://github.com/AztecProtocol/aztec-packages.git
+  git fetch aztec refs/tags/$LAST_TAG:refs/tags/$LAST_TAG
+
   # Tweak global tsconfig so we skip tests in all projects
   echo Removing test files from tsconfig...
   jq '. + { "exclude": ["**/*test.ts"] }' yarn-project/tsconfig.json > yarn-project/tsconfig.tmp.json
   mv yarn-project/tsconfig.tmp.json yarn-project/tsconfig.json
 
-  # Install deps
+  # Install deps (maybe we can have netlify download these automatically so they get cached..?)
   echo Installing dependencies...
   (cd yarn-project && yarn)
 
