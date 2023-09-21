@@ -24,16 +24,12 @@ set -e
 PROJECT_NAME=${1:-}
 COMMIT_HASH=$(git rev-parse HEAD)
 
-# If we're calling this script from within a project directory, that's the target project.
 if [ -z "$PROJECT_NAME" ]; then
-  PATH_PREFIX=$(git rev-parse --show-prefix)
-  if [ -n "$PATH_PREFIX" ]; then
-    # We are in a project folder.
-    ONLY_TARGET=${ONLY_TARGET:-true}
-    PROJECT_NAME=$(basename $PATH_PREFIX)
-    cd $(git rev-parse --show-cdup)
-  fi
+  echo "usage: $0 <project_name>"
+  exit 1
 fi
+
+cd $(git rev-parse --show-toplevel)
 
 source ./build-system/scripts/setup_env $COMMIT_HASH '' mainframe_$USER > /dev/null
 build_local $PROJECT_NAME
