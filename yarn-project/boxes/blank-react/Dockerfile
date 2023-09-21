@@ -7,6 +7,8 @@ WORKDIR /usr/src/yarn-project/boxes/blank-react
 RUN yarn cache clean
 RUN yarn workspaces focus --production > /dev/null
 
+
+
 FROM node:18-alpine
 COPY --from=builder /usr/src/yarn-project/boxes/blank-react /usr/src/yarn-project/boxes/blank-react
 WORKDIR /usr/src/yarn-project/boxes/blank-react
