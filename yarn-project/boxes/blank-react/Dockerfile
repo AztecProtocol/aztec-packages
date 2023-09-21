@@ -3,6 +3,7 @@ FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project-base AS builder
 COPY . .
 
 WORKDIR /usr/src/yarn-project/boxes/blank-react
+RUN yarn build && yarn formatting
 
 RUN yarn cache clean
 RUN yarn workspaces focus --production > /dev/null
