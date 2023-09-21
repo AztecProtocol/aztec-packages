@@ -134,6 +134,20 @@ const config = {
         frontmatter: { sidebar_label: "Aztec RPC Server" },
       },
     ],
+    [
+      "@spalladino/docusaurus-plugin-typedoc",
+      {
+        id: "apis/aztec-js",
+        entryPoints: [
+          "../yarn-project/aztec.js/src/contract/index.ts",
+          "../yarn-project/aztec.js/src/account/index.ts",
+        ],
+        tsconfig: "../yarn-project/aztec.js/tsconfig.json",
+        entryPointStrategy: "resolve",
+        out: "apis/aztec-js",
+        disableSources: true,
+      },
+    ],
     // ["./src/plugins/plugin-embed-code", {}],
   ],
   themeConfig:
