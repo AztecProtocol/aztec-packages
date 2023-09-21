@@ -17,13 +17,12 @@ nargo new --contract token
 
 Then, open the `contracts/token/Nargo.toml` configuration file, and add the `aztec.nr` and `value_note` libraries as dependencies:
 
-import { AztecPackagesVersion } from "@site/src/components/Version";
-
-<CodeBlock language="toml">{`[dependencies]
-aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="${AztecPackagesVersion()}", directory="yarn-project/aztec-nr/aztec" }
-value_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="${AztecPackagesVersion()}", directory="yarn-project/aztec-nr/value-note"}
-safe_math = { git="https://github.com/AztecProtocol/aztec-packages/", tag="${AztecPackagesVersion()}", directory="yarn-project/aztec-nr/safe-math"}
-`}</CodeBlock>
+```toml
+[dependencies]
+aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/aztec" }
+value_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/value-note"}
+safe_math = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/safe-math"}
+```
 
 Last, copy-paste the code from the `Token` contract into `contracts/token/main.nr`:
 
@@ -63,7 +62,7 @@ This should have created an artifact `contracts/token/target/Token.json` with th
 
 Let's now write a script for deploying your contracts to the Sandbox. We'll create an RPC client, and then use the `ContractDeployer` class to deploy our contracts, and store the deployment address to a local JSON file.
 
-Create a new file `src/deploy.mjs`, with a call to a `main` function that we'll populate in a second:
+Create a new file `src/deploy.mjs`:
 
 ```js
 // src/deploy.mjs
@@ -71,7 +70,7 @@ import { writeFileSync } from 'fs';
 import { Contract, ContractDeployer, createAztecRpcClient, getSandboxAccountsWallets } from '@aztec/aztec.js';
 import TokenContractAbi from "../contracts/token/target/Token.json" assert { type: "json" };
 
-async function main() {}
+#include_code dapp-deploy yarn-project/end-to-end/src/sample-dapp/deploy.mjs raw
 
 main().catch((err) => {
   console.error(`Error in deployment script: ${err}`);
@@ -79,9 +78,7 @@ main().catch((err) => {
 });
 ```
 
-Now we will import the contract artifacts we have generated plus the dependencies we'll need, and then we can deploy the contracts by adding the following code to the `src/deploy.mjs` file. Here, we are using the `ContractDeployer` class with the compiled artifact to send a new deployment transaction. The `wait` method will block execution until the transaction is successfully mined, and return a receipt with the deployed contract address.
-
-#include_code dapp-deploy yarn-project/end-to-end/src/sample-dapp/deploy.mjs javascript
+We import the contract artifacts we have generated plus the dependencies we'll need, and then we can deploy the contracts by adding the following code to the `src/deploy.mjs` file. Here, we are using the `ContractDeployer` class with the compiled artifact to send a new deployment transaction. The `wait` method will block execution until the transaction is successfully mined, and return a receipt with the deployed contract address.
 
 Note that the token's `_initialize()` method expects an `owner` address to mint an initial set of tokens to. We are using the first account from the Sandbox for this.
 
