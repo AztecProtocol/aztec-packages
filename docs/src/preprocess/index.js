@@ -37,7 +37,7 @@ async function processMarkdownFilesInDir(rootDir, docsDir, regex) {
     }
   }
 
-  return contentUpdates;
+  return Promise.all(contentUpdates);
 }
 
 async function writeProcessedFiles(docsDir, destDir, cachedDestDir, content) {
@@ -113,7 +113,7 @@ async function writeProcessedFiles(docsDir, destDir, cachedDestDir, content) {
     );
   }
 
-  return writePromises;
+  return Promise.all(writePromises);
 }
 
 async function run() {
