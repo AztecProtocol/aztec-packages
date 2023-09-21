@@ -337,6 +337,7 @@ int main(int argc, char* argv[])
         if (command == "info") {
             std::string output_path = getOption(args, "-o", "info.json");
             acvmInfo(output_path);
+            return 0;
         }
 
         init();
