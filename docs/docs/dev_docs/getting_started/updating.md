@@ -45,7 +45,7 @@ npm install -g @aztec/cli
 
 If a specific version was set for the sandbox then we need to install the CLI with the same version:
 ```shell
-npm install -g @aztec/cli@REPLACE_WITH_SANDBOX_VERSION
+npm install -g @aztec/cli@$SANDBOX_VERSION
 ```
 
 E.g.:
@@ -65,7 +65,7 @@ noirup -v COMPATIBLE_NARGO_VERSION
 
 ## Updating Noir framework
 Finally we need to update the Noir framework for Aztec contracts.
-We need to install a version compatible with our `nargo` version.
+We need to install a version compatible with our `nargo` and Sandbox.
 
 To update the framework we will update a tag of the `aztec.nr` dependency in the `Nargo.toml` file to the `SANDBOX_VERSION` from above.
 Find all the dependencies pointing to the directory within `aztec.nr` framework and update the corresponding tag:
