@@ -366,7 +366,24 @@ const sidebars = {
     },*/
     "dev_docs/privacy/main",
     "dev_docs/limitations/main",
+  
+    {
+      type: "html",
+      value: '<span class="sidebar-divider" />',
+    },
 
+    {
+      label: "API Reference",
+      type: "category",
+      items: [
+        {
+          label: "Aztec RPC Server",
+          type: "doc",
+          id: "apis/aztec-rpc/interfaces/AztecRPC",
+        },    
+      ],
+    },
+    
     {
       type: "html",
       value: '<span class="sidebar-divider" />',
