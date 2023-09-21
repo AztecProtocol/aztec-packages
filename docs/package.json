@@ -4,11 +4,10 @@
   "private": true,
   "scripts": {
     "docusaurus": "docusaurus",
-    "start": "yarn prebuild && docusaurus start",
+    "start": "yarn preprocess && yarn typedoc && docusaurus start",
     "start:dev": "concurrently \"yarn preprocess:dev\" \"yarn typedoc:dev\" \"sleep 2 && docusaurus start --host 0.0.0.0\"",
     "start:dev:local": "concurrently \"yarn preprocess:dev\" \"yarn typedoc:dev\" \"sleep 2 && docusaurus start\"",
-    "prebuild": "yarn preprocess && yarn typedoc",
-    "build": "docusaurus build",
+    "build": "./scripts/build.sh",
     "swizzle": "docusaurus swizzle",
     "deploy": "docusaurus deploy",
     "clear": "rm -rf 'processed-docs' 'processed-docs-cache' docs/apis && docusaurus clear",
@@ -18,8 +17,7 @@
     "typedoc": "docusaurus generate-typedoc && cp -a docs/apis processed-docs/",
     "typedoc:dev": "nodemon -w ../yarn-project -e '*.js,*.ts,*.nr,*.md' --exec \"yarn docusaurus generate-typedoc && cp -a docs/apis processed-docs/\"",
     "write-translations": "docusaurus write-translations",
-    "write-heading-ids": "docusaurus write-heading-ids",
-    "update-specs": "./scripts/update_specs.sh"
+    "write-heading-ids": "docusaurus write-heading-ids"
   },
   "dependencies": {
     "@docusaurus/core": "^2.4.1",
