@@ -647,7 +647,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: build boxes
+          command: build boxes-blank-react
 
   canary:
     machine:
