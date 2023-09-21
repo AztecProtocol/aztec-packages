@@ -141,7 +141,9 @@ template <typename Flavor> class SumcheckProverRound {
         // Note: Multithreading is "on" for every round but we reduce the number of threads from the max available based
         // on a specified minimum number of iterations per thread. This eventually leads to the use of a single thread.
         // For now we use a power of 2 number of threads simply to ensure the round size is evenly divided.
-        size_t num_threads = barretenberg::thread_utils::calculate_num_threads_pow2(round_size);
+        size_t min_iterations_per_thread = 1 << 6; // min number of iterations for which we'll spin up a unique thread
+        size_t num_threads =
+            barretenberg::thread_utils::calculate_num_threads_pow2(round_size, min_iterations_per_thread);
         size_t iterations_per_thread = round_size / num_threads; // actual iterations per thread
 
         // Constuct univariate accumulator containers; one per thread

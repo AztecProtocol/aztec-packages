@@ -16,6 +16,13 @@ const size_t DEFAULT_MIN_ITERS_PER_THREAD = 1 << 4;
  */
 size_t calculate_num_threads(size_t num_iterations, size_t min_iterations_per_thread = DEFAULT_MIN_ITERS_PER_THREAD);
 
+/**
+ * @brief calculates number of threads to create based on minimum iterations per thread, guaranteed power of 2
+ * @details Same functionality as `calculate_num_threads` but guaranteed power of 2
+ * @param num_iterations
+ * @param min_iterations_per_thread
+ * @return size_t
+ */
 size_t calculate_num_threads_pow2(size_t num_iterations,
                                   size_t min_iterations_per_thread = DEFAULT_MIN_ITERS_PER_THREAD);
 
