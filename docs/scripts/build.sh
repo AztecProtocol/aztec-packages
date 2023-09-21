@@ -1,6 +1,15 @@
 #!/bin/bash
 set -eo pipefail
 
+# Helper function for building packages in yarn project
+build_package() {
+  local package_name="$1"
+  local build_command="${2:-yarn build}"
+
+  echo "Building $package_name..."
+  (cd "yarn-project/$package_name" && $build_command)
+}
+
 # Build script. If run on Netlify, first it needs to compile all yarn-projects 
 # that are involved in typedoc in order to generate their type information.
 if [ -n "$NETLIFY" ]; then
@@ -19,20 +28,18 @@ if [ -n "$NETLIFY" ]; then
   mv yarn-project/tsconfig.tmp.json yarn-project/tsconfig.json
 
   # Install deps (maybe we can have netlify download these automatically so they get cached..?)
-  echo Installing dependencies...
+  echo Installing yarn-project dependencies...
   (cd yarn-project && yarn)
 
   # Build the required projects for typedoc
-  projects=("aztec-rpc" "aztec.js")
-  for project in "${projects[@]}"; do
-    echo "Building $project..."
-    (cd "yarn-project/$project" && yarn build)
-  done
+  build_package "aztec-rpc"
+  build_package "aztec.js" "yarn build:ts"
 
   # Back to docs site
   cd docs
 
   # Install deps
+  echo Install docs deps...
   yarn
 fi
 
