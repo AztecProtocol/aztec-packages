@@ -54,4 +54,8 @@ jq '{name, version, exports, main, homepage, author, type, license, dependencies
 package.json > $TMP && mv $TMP package.json
 
 # Publish
-npm publish $TAG_ARG --access public
+if [ -n "$COMMIT_TAG" ] ; then 
+  npm publish $TAG_ARG --access public
+else
+  npm publish --dry-run $TAG_ARG --access public
+fi
