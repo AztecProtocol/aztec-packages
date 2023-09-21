@@ -67,15 +67,23 @@ Before writing the contracts, we must add the aztec.nr library. This adds smart 
 
 Open Nargo.toml that is in the `contracts/example_contract` folder, and add the dependency section as follows
 
-<CodeBlock language="toml">{`
+<CodeBlock language="toml">{`[package]
+name = "example_contract"
+authors = [""]
+compiler_version = "0.1"
+type = "contract"
+ 
 [dependencies]
 # Framework import
 aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="${AztecPackagesVersion()}", directory="yarn-project/aztec-nr/aztec" }
- 
 # Utility dependencies
 value_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="${AztecPackagesVersion()}", directory="yarn-project/aztec-nr/value-note"}
 safe_math = { git="https://github.com/AztecProtocol/aztec-packages/", tag="${AztecPackagesVersion()}", directory="yarn-project/aztec-nr/safe-math"}
 `}</CodeBlock>
+
+:::info
+Note: currently the dependency name **_MUST_** be `aztec`. The framework expects this namespace to be available when compiling into contracts. This limitation may be removed in the future.
+:::
 
 You are now ready to write your own contracts!
 
