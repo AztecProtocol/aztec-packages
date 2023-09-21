@@ -366,11 +366,6 @@ const sidebars = {
     },*/
     "dev_docs/privacy/main",
     "dev_docs/limitations/main",
-  
-    {
-      type: "html",
-      value: '<span class="sidebar-divider" />',
-    },
 
     {
       label: "API Reference",
