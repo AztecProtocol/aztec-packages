@@ -45,7 +45,9 @@ TEST(stdlib_schnorr, verify_signature)
             message_string, account.public_key, signature);
         EXPECT_EQ(first_result, true);
 
-        point_ct pub_key{ witness_ct(&composer, account.public_key.x), witness_ct(&composer, account.public_key.y) };
+        cycle_group<Composer> pub_key{ witness_ct(&composer, account.public_key.x),
+                                       witness_ct(&composer, account.public_key.y),
+                                       false };
         signature_bits sig = convert_signature(&composer, signature);
         byte_array_ct message(&composer, message_string);
         verify_signature(message, pub_key, sig);
@@ -86,7 +88,9 @@ TEST(stdlib_schnorr, verify_signature_failure)
     EXPECT_EQ(native_result, false);
 
     // check stdlib verification with account 2 public key fails
-    point_ct pub_key2_ct{ witness_ct(&composer, account2.public_key.x), witness_ct(&composer, account2.public_key.y) };
+    cycle_group<Composer> pub_key2_ct{ witness_ct(&composer, account2.public_key.x),
+                                       witness_ct(&composer, account2.public_key.y),
+                                       false };
     signature_bits sig = convert_signature(&composer, signature);
     byte_array_ct message(&composer, message_string);
     verify_signature(message, pub_key2_ct, sig);
@@ -119,7 +123,9 @@ TEST(stdlib_schnorr, signature_verification_result)
         longer_string, account.public_key, signature);
     EXPECT_EQ(first_result, true);
 
-    point_ct pub_key{ witness_ct(&composer, account.public_key.x), witness_ct(&composer, account.public_key.y) };
+    cycle_group<Composer> pub_key{ witness_ct(&composer, account.public_key.x),
+                                   witness_ct(&composer, account.public_key.y),
+                                   false };
     signature_bits sig = convert_signature(&composer, signature);
     byte_array_ct message(&composer, longer_string);
     bool_ct signature_result = signature_verification_result(message, pub_key, sig);
@@ -161,7 +167,9 @@ TEST(stdlib_schnorr, signature_verification_result_failure)
     EXPECT_EQ(native_result, false);
 
     // check stdlib verification with account 2 public key fails
-    point_ct pub_key2_ct{ witness_ct(&composer, account2.public_key.x), witness_ct(&composer, account2.public_key.y) };
+    cycle_group<Composer> pub_key2_ct{ witness_ct(&composer, account2.public_key.x),
+                                       witness_ct(&composer, account2.public_key.y),
+                                       false };
     signature_bits sig = convert_signature(&composer, signature);
     byte_array_ct message(&composer, message_string);
     bool_ct signature_result = signature_verification_result(message, pub_key2_ct, sig);

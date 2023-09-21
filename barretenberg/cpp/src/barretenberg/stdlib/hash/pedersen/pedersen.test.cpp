@@ -1,6 +1,6 @@
+#include "./pedersen.hpp"
 #include "../../primitives/circuit_builders/circuit_builders.hpp"
-#include "./pedersen_refactor.hpp"
-#include "barretenberg/crypto/pedersen_hash/pedersen_refactor.hpp"
+#include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include <gtest/gtest.h>
 
@@ -43,8 +43,8 @@ TYPED_TEST(PedersenTest, TestHash)
         inputs.emplace_back(field_ct(witness_ct(&composer, element)));
     }
 
-    auto result = stdlib::pedersen_hash_refactor<Composer>::hash(inputs);
-    auto expected = crypto::pedersen_hash_refactor<curve::Grumpkin>::hash(inputs_native);
+    auto result = stdlib::pedersen_hash<Composer>::hash(inputs);
+    auto expected = crypto::pedersen_hash::hash(inputs_native);
 
     EXPECT_EQ(result.get_value(), expected);
 

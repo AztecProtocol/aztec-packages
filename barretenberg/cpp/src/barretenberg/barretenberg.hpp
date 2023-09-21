@@ -36,7 +36,6 @@
 #include "serialize/test_helper.hpp"
 #include "srs/global_crs.hpp"
 #include "stdlib/commitment/pedersen/pedersen.hpp"
-#include "stdlib/commitment/pedersen/pedersen_plookup.hpp"
 #include "stdlib/encryption/ecdsa/ecdsa.hpp"
 #include "stdlib/encryption/schnorr/schnorr.hpp"
 #include "stdlib/hash/blake2s/blake2s.hpp"

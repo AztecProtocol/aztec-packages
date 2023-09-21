@@ -1,12 +1,11 @@
 #pragma once
 
-#include "../field/field.hpp"
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-
-#include "../../hash/pedersen/pedersen.hpp"
-#include "../../hash/pedersen/pedersen_gates.hpp"
 #include "barretenberg/proof_system/plookup_tables/fixed_base/fixed_base_params.hpp"
+#include "barretenberg/stdlib/primitives/bool/bool.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
+#include "barretenberg/stdlib/primitives/field/field.hpp"
 #include <optional>
 
 namespace proof_system::plonk::stdlib {
@@ -204,6 +203,9 @@ template <typename Composer> class cycle_group {
                                  const generator_data* offset_generator_data = &default_offset_generators);
     cycle_group operator*(const cycle_scalar& scalar) const;
     cycle_group& operator*=(const cycle_scalar& scalar);
+    bool_t operator==(const cycle_group& other) const;
+    void assert_equal(const cycle_group& other, std::string const& msg = "cycle_group::assert_equal") const;
+    static cycle_group conditional_assign(const bool_t& predicate, const cycle_group& lhs, const cycle_group& rhs);
     cycle_group operator/(const cycle_scalar& scalar) const;
     Composer* context;
     field_t x;

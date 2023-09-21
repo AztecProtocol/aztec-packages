@@ -2,7 +2,7 @@
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/stdlib/hash/blake2s/blake2s.hpp"
-#include "barretenberg/stdlib/hash/pedersen/pedersen_refactor.hpp"
+#include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
 #include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
 #include <array>
@@ -38,17 +38,16 @@ template <typename C> signature_bits<C> convert_signature(C* context, const cryp
  */
 template <typename C>
 std::array<field_t<C>, 2> verify_signature_internal(const byte_array<C>& message,
-                                                    const point<C>& pub_key,
+                                                    const cycle_group<C>& pub_key,
                                                     const signature_bits<C>& sig)
 {
-    cycle_group<C> key(pub_key.x, pub_key.y, false);
     cycle_group<C> g1(grumpkin::g1::one);
     // compute g1 * sig.s + key * sig,e
 
-    auto x_3 = cycle_group<C>::batch_mul({ sig.s, sig.e }, { g1, key }).x;
+    auto x_3 = cycle_group<C>::batch_mul({ sig.s, sig.e }, { g1, pub_key }).x;
     // build input (pedersen(([s]g + [e]pub).x | pub.x | pub.y) | message) to hash function
     // pedersen hash ([r].x | pub.x) to make sure the size of `hash_input` is <= 64 bytes for a 32 byte message
-    byte_array<C> hash_input(stdlib::pedersen_hash_refactor<C>::hash({ x_3, key.x, key.y }));
+    byte_array<C> hash_input(stdlib::pedersen_hash<C>::hash({ x_3, pub_key.x, pub_key.y }));
     hash_input.write(message);
 
     // compute  e' = hash(([s]g + [e]pub).x | message)
@@ -67,7 +66,7 @@ std::array<field_t<C>, 2> verify_signature_internal(const byte_array<C>& message
  *          e' == e is true.
  */
 template <typename C>
-void verify_signature(const byte_array<C>& message, const point<C>& pub_key, const signature_bits<C>& sig)
+void verify_signature(const byte_array<C>& message, const cycle_group<C>& pub_key, const signature_bits<C>& sig)
 {
     auto [output_lo, output_hi] = verify_signature_internal(message, pub_key, sig);
     output_lo.assert_equal(sig.e.lo, "verify signature failed");
@@ -81,7 +80,7 @@ void verify_signature(const byte_array<C>& message, const point<C>& pub_key, con
  */
 template <typename C>
 bool_t<C> signature_verification_result(const byte_array<C>& message,
-                                        const point<C>& pub_key,
+                                        const cycle_group<C>& pub_key,
                                         const signature_bits<C>& sig)
 {
     auto [output_lo, output_hi] = verify_signature_internal(message, pub_key, sig);

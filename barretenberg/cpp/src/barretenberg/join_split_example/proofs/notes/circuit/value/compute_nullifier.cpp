@@ -2,10 +2,7 @@
 #include "../../constants.hpp"
 #include "barretenberg/join_split_example/types.hpp"
 
-namespace join_split_example {
-namespace proofs {
-namespace notes {
-namespace circuit {
+namespace join_split_example::proofs::notes::circuit {
 
 using namespace barretenberg;
 using namespace proof_system::plonk::stdlib;
@@ -18,8 +15,8 @@ field_ct compute_nullifier(field_ct const& note_commitment,
     // - A user can demonstrate to a 3rd party that they have spent a note, by providing the hashed_private_key and the
     // note_commitment. The 3rd party can then recalculate the nullifier. This does not reveal the underlying
     // account_private_key to the 3rd party.
-    auto hashed_private_key = group_ct::fixed_base_scalar_mul<254>(
-        account_private_key, GeneratorIndex::JOIN_SPLIT_NULLIFIER_ACCOUNT_PRIVATE_KEY);
+    auto hashed_private_key =
+        pedersen_commitment::commit({ account_private_key }, GeneratorIndex::JOIN_SPLIT_NULLIFIER_ACCOUNT_PRIVATE_KEY);
 
     std::vector<field_ct> hash_inputs{
         note_commitment,
@@ -46,7 +43,4 @@ field_ct compute_nullifier(field_ct const& note_commitment,
     return field_ct(blake_result);
 }
 
-} // namespace circuit
-} // namespace notes
-} // namespace proofs
-} // namespace join_split_example
+} // namespace join_split_example::proofs::notes::circuit

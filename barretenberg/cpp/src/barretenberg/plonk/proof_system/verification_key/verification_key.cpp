@@ -1,6 +1,5 @@
 #include "verification_key.hpp"
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
-#include "barretenberg/crypto/pedersen_commitment/pedersen_lookup.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/plonk/proof_system/constants.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
@@ -20,22 +19,14 @@ namespace proof_system::plonk {
  * @return barretenberg::fr compression of the evaluation domain as a field
  */
 barretenberg::fr compress_native_evaluation_domain(barretenberg::evaluation_domain const& domain,
-                                                   proof_system::CircuitType circuit_type)
+                                                   proof_system::CircuitType)
 {
-    barretenberg::fr out;
-    if (circuit_type == proof_system::CircuitType::ULTRA) {
-        out = crypto::pedersen_commitment::lookup::compress_native({
-            domain.root,
-            domain.domain,
-            domain.generator,
-        });
-    } else {
-        out = crypto::pedersen_commitment::compress_native({
-            domain.root,
-            domain.domain,
-            domain.generator,
-        });
-    }
+    barretenberg::fr out = crypto::pedersen_commitment::compress_native({
+        domain.root,
+        domain.domain,
+        domain.generator,
+    });
+
     return out;
 }
 
@@ -75,14 +66,7 @@ barretenberg::fr verification_key_data::compress_native(const size_t hash_index)
 
     write(preimage_data, eval_domain.root);
 
-    barretenberg::fr compressed_key;
-    if (proof_system::CircuitType(circuit_type) == proof_system::CircuitType::ULTRA) {
-        compressed_key = from_buffer<barretenberg::fr>(
-            crypto::pedersen_commitment::lookup::compress_native(preimage_data, hash_index));
-    } else {
-        compressed_key = crypto::pedersen_commitment::compress_native(preimage_data, hash_index);
-    }
-    return compressed_key;
+    return crypto::pedersen_commitment::compress_native(preimage_data, hash_index);
 }
 
 verification_key::verification_key(const size_t num_gates,

@@ -524,13 +524,13 @@ TEST_F(SumcheckTests, RealCircuitUltra)
     const auto input_hi_index = circuit_constructor.add_variable(input_hi);
     const auto input_lo_index = circuit_constructor.add_variable(input_lo);
 
-    const auto sequence_data_hi = plookup::get_lookup_accumulators(plookup::MultiTableId::PEDERSEN_LEFT_HI, input_hi);
-    const auto sequence_data_lo = plookup::get_lookup_accumulators(plookup::MultiTableId::PEDERSEN_LEFT_LO, input_lo);
+    const auto sequence_data_hi = plookup::get_lookup_accumulators(plookup::MultiTableId::FIXED_BASE_LEFT_HI, input_hi);
+    const auto sequence_data_lo = plookup::get_lookup_accumulators(plookup::MultiTableId::FIXED_BASE_LEFT_LO, input_lo);
 
     circuit_constructor.create_gates_from_plookup_accumulators(
-        plookup::MultiTableId::PEDERSEN_LEFT_HI, sequence_data_hi, input_hi_index);
+        plookup::MultiTableId::FIXED_BASE_LEFT_HI, sequence_data_hi, input_hi_index);
     circuit_constructor.create_gates_from_plookup_accumulators(
-        plookup::MultiTableId::PEDERSEN_LEFT_LO, sequence_data_lo, input_lo_index);
+        plookup::MultiTableId::FIXED_BASE_LEFT_LO, sequence_data_lo, input_lo_index);
 
     // Add a sort gate (simply checks that consecutive inputs have a difference of < 4)
     a_idx = circuit_constructor.add_variable(FF(0));
@@ -540,8 +540,9 @@ TEST_F(SumcheckTests, RealCircuitUltra)
     circuit_constructor.create_sort_constraint({ a_idx, b_idx, c_idx, d_idx });
 
     // Add an elliptic curve addition gate
-    grumpkin::g1::affine_element p1 = crypto::generators::get_generator_data({ 0, 0 }).generator;
-    grumpkin::g1::affine_element p2 = crypto::generators::get_generator_data({ 0, 1 }).generator;
+    grumpkin::g1::affine_element p1 = crypto::pedersen_commitment::commit_native({ fr(1) }, 0);
+    grumpkin::g1::affine_element p2 = crypto::pedersen_commitment::commit_native({ fr(1) }, 1);
+    ;
 
     grumpkin::fq beta_scalar = grumpkin::fq::cube_root_of_unity();
     grumpkin::g1::affine_element p2_endo = p2;

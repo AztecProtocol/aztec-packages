@@ -724,7 +724,8 @@ field_t<ComposerContext> field_t<ComposerContext>::conditional_assign(const bool
         return predicate.get_value() ? lhs : rhs;
     }
     // if lhs and rhs are the same witness, just return it!
-    if (lhs.get_witness_index() == rhs.get_witness_index()) {
+    if (lhs.get_witness_index() == rhs.get_witness_index() && (lhs.additive_constant == rhs.additive_constant) &&
+        (lhs.multiplicative_constant == rhs.multiplicative_constant)) {
         return lhs;
     }
     return (lhs - rhs).madd(predicate, rhs);

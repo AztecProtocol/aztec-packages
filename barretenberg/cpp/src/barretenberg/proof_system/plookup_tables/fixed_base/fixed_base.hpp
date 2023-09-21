@@ -2,7 +2,7 @@
 
 #include "../types.hpp"
 #include "./fixed_base_params.hpp"
-#include "barretenberg/crypto/pedersen_hash/pedersen_refactor.hpp"
+#include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 
 namespace plookup::fixed_base {
@@ -18,7 +18,7 @@ class table : public FixedBaseParams {
     using single_lookup_table = std::vector<affine_element>;
     using fixed_base_scalar_mul_tables = std::vector<single_lookup_table>;
     using all_multi_tables = std::array<fixed_base_scalar_mul_tables, NUM_FIXED_BASE_MULTI_TABLES>;
-    using native_pedersen = crypto::pedersen_hash_refactor<curve::Grumpkin>;
+    using native_pedersen = crypto::pedersen_hash;
 
     static inline single_lookup_table generate_single_lookup_table(const affine_element& base_point,
                                                                    const affine_element& offset_generator);

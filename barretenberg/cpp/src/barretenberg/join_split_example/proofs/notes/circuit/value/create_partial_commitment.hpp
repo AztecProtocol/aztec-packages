@@ -3,11 +3,7 @@
 #include "barretenberg/join_split_example/types.hpp"
 #include "barretenberg/stdlib/commitment/pedersen/pedersen.hpp"
 
-namespace join_split_example {
-namespace proofs {
-namespace notes {
-namespace circuit {
-namespace value {
+namespace join_split_example::proofs::notes::circuit::value {
 
 inline auto create_partial_commitment(field_ct const& secret,
                                       point_ct const& owner,
@@ -18,8 +14,4 @@ inline auto create_partial_commitment(field_ct const& secret,
                                          GeneratorIndex::VALUE_NOTE_PARTIAL_COMMITMENT);
 }
 
-} // namespace value
-} // namespace circuit
-} // namespace notes
-} // namespace proofs
-} // namespace join_split_example
+} // namespace join_split_example::proofs::notes::circuit::value

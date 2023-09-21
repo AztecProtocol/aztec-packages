@@ -45,7 +45,7 @@ void generate_test_pedersen_circuit(Builder& builder, size_t num_repetitions)
     plonk::stdlib::field_t<Builder> out(plonk::stdlib::witness_t(&builder, barretenberg::fr::random_element()));
 
     for (size_t i = 0; i < num_repetitions; ++i) {
-        out = proof_system::plonk::stdlib::pedersen_commitment<Builder>::compress(left, out);
+        out = proof_system::plonk::stdlib::pedersen_commitment<Builder>::compress({ left, out });
     }
 }
 
@@ -88,7 +88,7 @@ void native_pedersen_eight_hash_bench(State& state) noexcept
         elements[i] = grumpkin::fq::random_element();
     }
     for (auto _ : state) {
-        crypto::pedersen_commitment::compress_native(elements);
+        crypto::pedersen_commitment::compress_native<8>(elements);
     }
 }
 BENCHMARK(native_pedersen_eight_hash_bench)->MinTime(3);

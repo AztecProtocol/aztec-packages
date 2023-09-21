@@ -2,9 +2,6 @@
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 
-#include "../../hash/pedersen/pedersen.hpp"
-#include "../../hash/pedersen/pedersen_gates.hpp"
-
 #include "./cycle_group.hpp"
 #include "barretenberg/proof_system/plookup_tables/types.hpp"
 #include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
@@ -1319,12 +1316,32 @@ template <typename Composer> cycle_group<Composer>& cycle_group<Composer>::opera
     return *this;
 }
 
+template <typename Composer> bool_t<Composer> cycle_group<Composer>::operator==(const cycle_group& other) const
+{
+    return (x == other.x) && (y == other.y);
+}
+
+template <typename Composer>
+void cycle_group<Composer>::assert_equal(const cycle_group& other, std::string const& msg) const
+{
+    (x.assert_equal(other.x, msg));
+    (y.assert_equal(other.y, msg));
+}
+
 template <typename Composer>
 cycle_group<Composer> cycle_group<Composer>::operator/(const cycle_scalar& /*unused*/) const
 {
     throw_or_abort("Implementation under construction...");
 }
-
+template <typename Composer>
+cycle_group<Composer> cycle_group<Composer>::conditional_assign(const bool_t& predicate,
+                                                                const cycle_group& lhs,
+                                                                const cycle_group& rhs)
+{
+    return { field_t::conditional_assign(predicate, lhs.x, rhs.x),
+             field_t::conditional_assign(predicate, lhs.y, rhs.y),
+             bool_t::conditional_assign(predicate, lhs.is_point_at_infinity(), rhs.is_point_at_infinity()) };
+};
 INSTANTIATE_STDLIB_TYPE(cycle_group);
 
 } // namespace proof_system::plonk::stdlib

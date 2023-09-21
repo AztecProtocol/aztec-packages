@@ -15,8 +15,8 @@ template <typename Builder> void mock_circuit(Builder& builder, std::vector<barr
     for (auto& p : public_inputs) {
         p.set_public();
     }
-    stdlib::pedersen_commitment<Builder>::compress(stdlib::field_t(stdlib::witness_t(&builder, 1)),
-                                                   stdlib::field_t(stdlib::witness_t(&builder, 1)));
+    stdlib::pedersen_commitment<Builder>::compress(
+        { stdlib::field_t(stdlib::witness_t(&builder, 1)), stdlib::field_t(stdlib::witness_t(&builder, 1)) });
 }
 
 } // namespace mock

@@ -73,20 +73,20 @@ TYPED_TEST(ultra_plonk_composer, create_gates_from_plookup_accumulators)
     const auto input_hi_index = builder.add_variable(input_hi);
     const auto input_lo_index = builder.add_variable(input_lo);
 
-    const auto sequence_data_hi = plookup::get_lookup_accumulators(MultiTableId::PEDERSEN_LEFT_HI, input_hi);
-    const auto sequence_data_lo = plookup::get_lookup_accumulators(MultiTableId::PEDERSEN_LEFT_LO, input_lo);
+    const auto sequence_data_hi = plookup::get_lookup_accumulators(MultiTableId::FIXED_BASE_LEFT_HI, input_hi);
+    const auto sequence_data_lo = plookup::get_lookup_accumulators(MultiTableId::FIXED_BASE_LEFT_LO, input_lo);
 
     const auto lookup_witnesses_hi = builder.create_gates_from_plookup_accumulators(
-        MultiTableId::PEDERSEN_LEFT_HI, sequence_data_hi, input_hi_index);
+        MultiTableId::FIXED_BASE_LEFT_HI, sequence_data_hi, input_hi_index);
     const auto lookup_witnesses_lo = builder.create_gates_from_plookup_accumulators(
-        MultiTableId::PEDERSEN_LEFT_LO, sequence_data_lo, input_lo_index);
+        MultiTableId::FIXED_BASE_LEFT_LO, sequence_data_lo, input_lo_index);
 
     std::vector<barretenberg::fr> expected_x;
     std::vector<barretenberg::fr> expected_y;
 
     const size_t num_lookups_hi =
-        (128 + crypto::pedersen_hash::lookup::BITS_PER_TABLE) / crypto::pedersen_hash::lookup::BITS_PER_TABLE;
-    const size_t num_lookups_lo = 126 / crypto::pedersen_hash::lookup::BITS_PER_TABLE;
+        (128 + plookup::FixedBaseParams::BITS_PER_TABLE) / plookup::FixedBaseParams::BITS_PER_TABLE;
+    const size_t num_lookups_lo = 126 / plookup::FixedBaseParams::BITS_PER_TABLE;
     const size_t num_lookups = num_lookups_hi + num_lookups_lo;
 
     EXPECT_EQ(num_lookups_hi, lookup_witnesses_hi[ColumnIdx::C1].size());
@@ -101,7 +101,7 @@ TYPED_TEST(ultra_plonk_composer, create_gates_from_plookup_accumulators)
         const size_t num_rounds = (num_lookups + 1) / 2;
         uint256_t bits(input_value);
 
-        const auto mask = crypto::pedersen_hash::lookup::PEDERSEN_TABLE_SIZE - 1;
+        const auto mask = plookup::FixedBaseParams::MAX_TABLE_SIZE - 1;
 
         for (size_t i = 0; i < num_rounds; ++i) {
             const auto& table = crypto::pedersen_hash::lookup::get_table(i);
@@ -122,7 +122,7 @@ TYPED_TEST(ultra_plonk_composer, create_gates_from_plookup_accumulators)
     }
 
     for (size_t i = num_lookups - 2; i < num_lookups; --i) {
-        expected_scalars[i] += (expected_scalars[i + 1] * crypto::pedersen_hash::lookup::PEDERSEN_TABLE_SIZE);
+        expected_scalars[i] += (expected_scalars[i + 1] * plookup::FixedBaseParams::MAX_TABLE_SIZE);
     }
 
     size_t hi_shift = 126;
@@ -133,7 +133,7 @@ TYPED_TEST(ultra_plonk_composer, create_gates_from_plookup_accumulators)
                   expected_scalars[i]);
         EXPECT_EQ(builder.get_variable(lookup_witnesses_lo[ColumnIdx::C2][i]), expected_x[i]);
         EXPECT_EQ(builder.get_variable(lookup_witnesses_lo[ColumnIdx::C3][i]), expected_y[i]);
-        hi_shift -= crypto::pedersen_hash::lookup::BITS_PER_TABLE;
+        hi_shift -= plookup::FixedBaseParams::BITS_PER_TABLE;
     }
 
     for (size_t i = 0; i < num_lookups_hi; ++i) {
@@ -174,9 +174,10 @@ TYPED_TEST(ultra_plonk_composer, test_elliptic_gate)
     auto builder = UltraCircuitBuilder();
     auto composer = UltraComposer();
 
-    affine_element p1 = crypto::generators::get_generator_data({ 0, 0 }).generator;
+    affine_element p1 = crypto::pedersen_commitment::commit_native({ fr(1) }, 0);
 
-    affine_element p2 = crypto::generators::get_generator_data({ 0, 1 }).generator;
+    affine_element p2 = crypto::pedersen_commitment::commit_native({ fr(1) }, 1);
+    ;
     affine_element p3(element(p1) + element(p2));
 
     uint32_t x1 = builder.add_variable(p1.x);
@@ -228,9 +229,10 @@ TYPED_TEST(ultra_plonk_composer, non_trivial_tag_permutation)
     builder.assign_tag(c_idx, 2);
     builder.assign_tag(d_idx, 2);
 
-    // builder.create_add_gate({ a_idx, b_idx, builder.zero_idx, fr::one(), fr::neg_one(), fr::zero(), fr::zero() });
-    // builder.create_add_gate({ a_idx, b_idx, builder.zero_idx, fr::one(), fr::neg_one(), fr::zero(), fr::zero() });
-    // builder.create_add_gate({ a_idx, b_idx, builder.zero_idx, fr::one(), fr::neg_one(), fr::zero(), fr::zero() });
+    // builder.create_add_gate({ a_idx, b_idx, builder.zero_idx, fr::one(), fr::neg_one(), fr::zero(), fr::zero()
+    // }); builder.create_add_gate({ a_idx, b_idx, builder.zero_idx, fr::one(), fr::neg_one(), fr::zero(),
+    // fr::zero() }); builder.create_add_gate({ a_idx, b_idx, builder.zero_idx, fr::one(), fr::neg_one(),
+    // fr::zero(), fr::zero() });
 
     TestFixture::prove_and_verify(builder, composer, /*expected_result=*/true);
 }
@@ -267,9 +269,10 @@ TYPED_TEST(ultra_plonk_composer, non_trivial_tag_permutation_and_cycles)
     builder.create_add_gate({ c_idx, g_idx, builder.zero_idx, fr::one(), -fr::one(), fr::zero(), fr::zero() });
     builder.create_add_gate({ e_idx, f_idx, builder.zero_idx, fr::one(), -fr::one(), fr::zero(), fr::zero() });
 
-    // builder.create_add_gate({ a_idx, b_idx, builder.zero_idx, fr::one(), fr::neg_one(), fr::zero(), fr::zero() });
-    // builder.create_add_gate({ a_idx, b_idx, builder.zero_idx, fr::one(), fr::neg_one(), fr::zero(), fr::zero() });
-    // builder.create_add_gate({ a_idx, b_idx, builder.zero_idx, fr::one(), fr::neg_one(), fr::zero(), fr::zero() });
+    // builder.create_add_gate({ a_idx, b_idx, builder.zero_idx, fr::one(), fr::neg_one(), fr::zero(), fr::zero()
+    // }); builder.create_add_gate({ a_idx, b_idx, builder.zero_idx, fr::one(), fr::neg_one(), fr::zero(),
+    // fr::zero() }); builder.create_add_gate({ a_idx, b_idx, builder.zero_idx, fr::one(), fr::neg_one(),
+    // fr::zero(), fr::zero() });
 
     TestFixture::prove_and_verify(builder, composer, /*expected_result=*/true);
 }
@@ -316,9 +319,10 @@ TYPED_TEST(ultra_plonk_composer, bad_tag_turbo_permutation)
     builder.create_add_gate({ a_idx, b_idx, builder.zero_idx, 1, 1, 0, 0 });
     builder.create_add_gate({ c_idx, d_idx, builder.zero_idx, 1, 1, 0, -1 });
 
-    // builder.create_add_gate({ a_idx, b_idx, builder.zero_idx, fr::one(), fr::neg_one(), fr::zero(), fr::zero() });
-    // builder.create_add_gate({ a_idx, b_idx, builder.zero_idx, fr::one(), fr::neg_one(), fr::zero(), fr::zero() });
-    // builder.create_add_gate({ a_idx, b_idx, builder.zero_idx, fr::one(), fr::neg_one(), fr::zero(), fr::zero() });
+    // builder.create_add_gate({ a_idx, b_idx, builder.zero_idx, fr::one(), fr::neg_one(), fr::zero(), fr::zero()
+    // }); builder.create_add_gate({ a_idx, b_idx, builder.zero_idx, fr::one(), fr::neg_one(), fr::zero(),
+    // fr::zero() }); builder.create_add_gate({ a_idx, b_idx, builder.zero_idx, fr::one(), fr::neg_one(),
+    // fr::zero(), fr::zero() });
     auto prover = composer.create_prover(builder);
     auto verifier = composer.create_verifier(builder);
 
@@ -345,7 +349,6 @@ TYPED_TEST(ultra_plonk_composer, sort_widget)
 
 TYPED_TEST(ultra_plonk_composer, sort_with_edges_gate)
 {
-
     fr a = fr::one();
     fr b = fr(2);
     fr c = fr(3);
@@ -529,7 +532,6 @@ TYPED_TEST(ultra_plonk_composer, range_constraint)
 
 TYPED_TEST(ultra_plonk_composer, range_with_gates)
 {
-
     auto builder = UltraCircuitBuilder();
     auto composer = UltraComposer();
     auto idx = add_variables(builder, { 1, 2, 3, 4, 5, 6, 7, 8 });

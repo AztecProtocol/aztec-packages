@@ -703,6 +703,7 @@ TEST_F(join_split_tests, test_0_input_notes_and_detect_circuit_change)
 
     auto result = sign_and_verify_logic(tx, user.owner);
 
+    std::cout << "RESULT ERR = " << result.err << std::endl;
     EXPECT_TRUE(result.valid);
 
     // The below part detects any changes in the join-split circuit

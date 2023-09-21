@@ -2,7 +2,7 @@
 #include "./fixed_base.hpp"
 
 #include "barretenberg/common/constexpr_utils.hpp"
-#include "barretenberg/crypto/pedersen_hash/pedersen_refactor.hpp"
+#include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
 #include "barretenberg/numeric/bitop/pow.hpp"
 #include "barretenberg/numeric/bitop/rotate.hpp"
 #include "barretenberg/numeric/bitop/sparse_form.hpp"

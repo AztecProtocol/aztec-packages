@@ -1,46 +1,46 @@
 #pragma once
-#include "../../primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "../../primitives/field/field.hpp"
 #include "../../primitives/point/point.hpp"
-#include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
+#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
 
-namespace proof_system::plonk {
-namespace stdlib {
+#include "../../primitives/circuit_builders/circuit_builders.hpp"
+
+namespace proof_system::plonk::stdlib {
 
 using namespace barretenberg;
+/**
+ * @brief stdlib class that evaluates in-circuit pedersen hashes, consistent with behavior in
+ * crypto::pedersen_hash
+ *
+ * @tparam ComposerContext
+ */
 template <typename ComposerContext> class pedersen_hash {
 
   private:
-    typedef stdlib::field_t<ComposerContext> field_t;
-    typedef stdlib::point<ComposerContext> point;
-    typedef stdlib::bool_t<ComposerContext> bool_t;
-
-  private:
-    static point add_points(const point& first, const point& second);
-
-    static point hash_single_internal(const field_t& in,
-                                      const crypto::generators::generator_index_t hash_index,
-                                      const bool validate_input_is_in_field = true);
+    using field_t = stdlib::field_t<ComposerContext>;
+    using point = stdlib::point<ComposerContext>;
+    using bool_t = stdlib::bool_t<ComposerContext>;
+    using EmbeddedCurve = typename cycle_group<ComposerContext>::Curve;
+    using generator_data = crypto::generator_data<EmbeddedCurve>;
 
   public:
-    static void validate_wnaf_is_in_field(ComposerContext* ctx, const std::vector<uint32_t>& accumulator);
-
-    static point accumulate(const std::vector<point>& to_accumulate);
-
-    static point hash_single(const field_t& in,
-                             const crypto::generators::generator_index_t hash_index,
-                             const bool validate_input_is_in_field = true);
-
-    static point commit_single(const field_t& in,
-                               const crypto::generators::generator_index_t hash_index,
-                               const bool validate_input_is_in_field = true);
-
+    // TODO(@suyash67) as part of refactor project, can we remove this and replace with `hash`
+    // (i.e. simplify the name as we no longer have a need for `hash_single`)
     static field_t hash_multiple(const std::vector<field_t>& in,
-                                 const size_t hash_index = 0,
-                                 const bool validate_inputs_in_field = true);
+                                 size_t hash_index = 0,
+                                 const generator_data* generator_context = generator_data::get_default_generators());
+
+    static field_t hash(const std::vector<field_t>& in,
+                        size_t hash_index = 0,
+                        const generator_data* generator_context = generator_data::get_default_generators());
+
+    static field_t hash_skip_field_validation(
+        const std::vector<field_t>& in,
+        size_t hash_index = 0,
+        const generator_data* generator_context = generator_data::get_default_generators());
 };
 
 EXTERN_STDLIB_TYPE(pedersen_hash);
 
-} // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace proof_system::plonk::stdlib

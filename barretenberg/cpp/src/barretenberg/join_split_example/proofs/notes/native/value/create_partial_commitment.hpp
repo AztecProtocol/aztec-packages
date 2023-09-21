@@ -4,11 +4,7 @@
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 
-namespace join_split_example {
-namespace proofs {
-namespace notes {
-namespace native {
-namespace value {
+namespace join_split_example::proofs::notes::native::value {
 
 inline auto create_partial_commitment(barretenberg::fr const& secret,
                                       grumpkin::g1::affine_element const& owner,
@@ -19,8 +15,4 @@ inline auto create_partial_commitment(barretenberg::fr const& secret,
                                                         GeneratorIndex::VALUE_NOTE_PARTIAL_COMMITMENT);
 }
 
-} // namespace value
-} // namespace native
-} // namespace notes
-} // namespace proofs
-} // namespace join_split_example
+} // namespace join_split_example::proofs::notes::native::value

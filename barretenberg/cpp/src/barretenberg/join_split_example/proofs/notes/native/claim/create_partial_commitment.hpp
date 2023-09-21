@@ -3,11 +3,7 @@
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
 #include "claim_note.hpp"
 
-namespace join_split_example {
-namespace proofs {
-namespace notes {
-namespace native {
-namespace claim {
+namespace join_split_example::proofs::notes::native::claim {
 
 inline auto create_partial_commitment(uint256_t const& deposit_value,
                                       uint256_t const& bridge_call_data,
@@ -19,8 +15,4 @@ inline auto create_partial_commitment(uint256_t const& deposit_value,
         GeneratorIndex::CLAIM_NOTE_PARTIAL_COMMITMENT);
 }
 
-} // namespace claim
-} // namespace native
-} // namespace notes
-} // namespace proofs
-} // namespace join_split_example
+} // namespace join_split_example::proofs::notes::native::claim

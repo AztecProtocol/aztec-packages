@@ -14,7 +14,7 @@ inline void verify_signature(field_ct const& public_value,
                              field_ct const& output_note2_commitment,
                              field_ct const& nullifier1,
                              field_ct const& nullifier2,
-                             point_ct const& owner_pub_key,
+                             group_ct const& owner_pub_key,
                              field_ct const& backward_link,
                              field_ct const& allow_chain,
                              schnorr::signature_bits const& signature)

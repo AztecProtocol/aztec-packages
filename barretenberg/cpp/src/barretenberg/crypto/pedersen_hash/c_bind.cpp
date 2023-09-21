@@ -1,7 +1,7 @@
 #include "c_bind.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/serialize.hpp"
-#include "pedersen_refactor.hpp"
+#include "pedersen.hpp"
 
 extern "C" {
 
@@ -14,7 +14,7 @@ WASM_EXPORT void pedersen_hash_pair(uint8_t const* left, uint8_t const* right, u
 {
     auto lhs = barretenberg::fr::serialize_from_buffer(left);
     auto rhs = barretenberg::fr::serialize_from_buffer(right);
-    auto r = crypto::pedersen_hash_refactor<curve::Grumpkin>::hash_multiple({ lhs, rhs });
+    auto r = crypto::pedersen_hash::hash_multiple({ lhs, rhs });
     barretenberg::fr::serialize_to_buffer(r, result);
 }
 
@@ -22,7 +22,7 @@ WASM_EXPORT void pedersen_hash_multiple(uint8_t const* inputs_buffer, uint8_t* o
 {
     std::vector<grumpkin::fq> to_compress;
     read(inputs_buffer, to_compress);
-    auto r = crypto::pedersen_hash_refactor<curve::Grumpkin>::hash_multiple(to_compress);
+    auto r = crypto::pedersen_hash::hash_multiple(to_compress);
     barretenberg::fr::serialize_to_buffer(r, output);
 }
 
@@ -32,7 +32,7 @@ WASM_EXPORT void pedersen_hash_multiple_with_hash_index(uint8_t const* inputs_bu
 {
     std::vector<grumpkin::fq> to_compress;
     read(inputs_buffer, to_compress);
-    auto r = crypto::pedersen_hash_refactor<curve::Grumpkin>::hash_multiple(to_compress, ntohl(*hash_index));
+    auto r = crypto::pedersen_hash::hash_multiple(to_compress, ntohl(*hash_index));
     barretenberg::fr::serialize_to_buffer(r, output);
 }
 
@@ -50,7 +50,7 @@ WASM_EXPORT void pedersen_hash_to_tree(fr::vec_in_buf data, fr::vec_out_buf out)
     fields.reserve(num_outputs);
 
     for (size_t i = 0; fields.size() < num_outputs; i += 2) {
-        fields.push_back(crypto::pedersen_hash_refactor<curve::Grumpkin>::hash_multiple({ fields[i], fields[i + 1] }));
+        fields.push_back(crypto::pedersen_hash::hash_multiple({ fields[i], fields[i + 1] }));
     }
 
     auto buf_size = 4 + num_outputs * sizeof(grumpkin::fq);

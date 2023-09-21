@@ -41,7 +41,11 @@ field_t<Composer> compute_subtree_root(hash_path<Composer> const& hashes,
         // current iff path_bit If either of these does not hold, then the final computed merkle root will not match
         field_t<Composer> left = field_t<Composer>::conditional_assign(path_bit, hashes[i].first, current);
         field_t<Composer> right = field_t<Composer>::conditional_assign(path_bit, current, hashes[i].second);
-        current = pedersen_hash<Composer>::hash_multiple({ left, right }, 0, is_updating_tree);
+        if (is_updating_tree) {
+            current = pedersen_hash<Composer>::hash({ left, right }, 0);
+        } else {
+            current = pedersen_hash<Composer>::hash_skip_field_validation({ left, right }, 0);
+        }
     }
 
     return current;

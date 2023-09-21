@@ -1,11 +1,9 @@
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
 #include "barretenberg/common/test.hpp"
-#include "barretenberg/crypto/pedersen_commitment/pedersen_lookup.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "pedersen.hpp"
-#include "pedersen_plookup.hpp"
 
 namespace test_stdlib_pedersen {
 using namespace barretenberg;
@@ -15,123 +13,15 @@ auto& engine = numeric::random::get_debug_engine();
 }
 
 template <typename Composer> class stdlib_pedersen : public testing::Test {
-    typedef stdlib::bn254<Composer> curve;
+    using _curve = stdlib::bn254<Composer>;
 
-    typedef typename curve::byte_array_ct byte_array_ct;
-    typedef typename curve::ScalarField fr_ct;
-    typedef typename curve::witness_ct witness_ct;
-    typedef typename curve::public_witness_ct public_witness_ct;
-    typedef typename stdlib::pedersen_commitment<Composer> pedersen_commitment;
+    using byte_array_ct = typename _curve::byte_array_ct;
+    using fr_ct = typename _curve::ScalarField;
+    using witness_ct = typename _curve::witness_ct;
+    using public_witness_ct = typename _curve::public_witness_ct;
+    using pedersen_commitment = typename stdlib::pedersen_commitment<Composer>;
 
   public:
-    static grumpkin::g1::element pedersen_recover(const fr& left_in, const fr& right_in)
-    {
-        bool left_skew = false;
-        bool right_skew = false;
-
-        uint64_t left_wnafs[256] = { 0 };
-        uint64_t right_wnafs[256] = { 0 };
-        fr converted_left = left_in.from_montgomery_form();
-        fr converted_right = right_in.from_montgomery_form();
-
-        uint64_t* left_scalar = &(converted_left.data[0]);
-        uint64_t* right_scalar = &(converted_right.data[0]);
-
-        barretenberg::wnaf::fixed_wnaf<255, 1, 2>(left_scalar, &left_wnafs[0], left_skew, 0);
-        barretenberg::wnaf::fixed_wnaf<255, 1, 2>(right_scalar, &right_wnafs[0], right_skew, 0);
-
-        const auto compute_split_scalar = [](uint64_t* wnafs, const size_t range) {
-            grumpkin::fr result = grumpkin::fr::zero();
-            grumpkin::fr three = grumpkin::fr{ 3, 0, 0, 0 }.to_montgomery_form();
-            for (size_t i = 0; i < range; ++i) {
-                uint64_t entry = wnafs[i];
-                grumpkin::fr prev = result + result;
-                prev = prev + prev;
-                if ((entry & 0xffffff) == 0) {
-                    if (((entry >> 31UL) & 1UL) == 1UL) {
-                        result = prev - grumpkin::fr::one();
-                    } else {
-                        result = prev + grumpkin::fr::one();
-                    }
-                } else {
-                    if (((entry >> 31UL) & 1UL) == 1UL) {
-                        result = prev - three;
-                    } else {
-                        result = prev + three;
-                    }
-                }
-            }
-            return result;
-        };
-
-        grumpkin::fr grumpkin_scalars[4]{ compute_split_scalar(&left_wnafs[0], 126),
-                                          compute_split_scalar(&left_wnafs[126], 2),
-                                          compute_split_scalar(&right_wnafs[0], 126),
-                                          compute_split_scalar(&right_wnafs[126], 2) };
-
-        grumpkin::g1::affine_element grumpkin_points[4]{
-            crypto::generators::get_generator_data(crypto::generators::DEFAULT_GEN_1).generator,
-            crypto::generators::get_generator_data(crypto::generators::DEFAULT_GEN_1).aux_generator,
-            crypto::generators::get_generator_data(crypto::generators::DEFAULT_GEN_2).generator,
-            crypto::generators::get_generator_data(crypto::generators::DEFAULT_GEN_2).aux_generator,
-        };
-
-        grumpkin::g1::element result_points[4]{
-            grumpkin_points[0] * grumpkin_scalars[0],
-            grumpkin_points[1] * grumpkin_scalars[1],
-            grumpkin_points[2] * grumpkin_scalars[2],
-            grumpkin_points[3] * grumpkin_scalars[3],
-        };
-
-        grumpkin::g1::element hash_output_left;
-        grumpkin::g1::element hash_output_right;
-
-        hash_output_left = result_points[0] + result_points[1];
-        hash_output_right = result_points[2] + result_points[3];
-
-        if (left_skew) {
-            grumpkin::g1::affine_element left_skew_gen =
-                crypto::generators::get_generator_data(crypto::generators::DEFAULT_GEN_1).skew_generator;
-            hash_output_left -= left_skew_gen;
-        }
-        if (right_skew) {
-            grumpkin::g1::affine_element right_skew_gen =
-                crypto::generators::get_generator_data(crypto::generators::DEFAULT_GEN_2).skew_generator;
-            hash_output_right -= right_skew_gen;
-        }
-
-        grumpkin::g1::element hash_output;
-        hash_output = hash_output_left + hash_output_right;
-        hash_output = hash_output.normalize();
-
-        return hash_output;
-    }
-
-    static fr wnaf_recover(const fr& scalar)
-    {
-        bool skew = false;
-
-        uint64_t wnafs[256] = { 0 };
-        fr converted_scalar = scalar.from_montgomery_form();
-        barretenberg::wnaf::fixed_wnaf<255, 1, 2>(&(converted_scalar.data[0]), &wnafs[0], skew, 0);
-
-        uint256_t four_power = (uint256_t(1) << 254);
-        uint256_t result = 0;
-        for (size_t i = 0; i < 128; i++) {
-            uint64_t quad = 2 * (wnafs[i] & stdlib::WNAF_MASK) + 1;
-            bool sign = (wnafs[i] >> 31) & 1;
-            if (sign) {
-                result -= uint256_t(quad) * four_power;
-            } else {
-                result += uint256_t(quad) * four_power;
-            }
-            four_power >>= 2;
-        }
-        result -= skew;
-
-        return fr(result);
-    }
-
     static void test_pedersen()
     {
 
@@ -161,16 +51,8 @@ template <typename Composer> class stdlib_pedersen : public testing::Test {
         bool result = composer.check_circuit();
         EXPECT_EQ(result, true);
 
-        auto hash_output = pedersen_recover(left_in, right_in);
-
-        fr recovered_left = wnaf_recover(left_in);
-        fr recovered_right = wnaf_recover(right_in);
-        EXPECT_EQ(left_in, recovered_left);
-        EXPECT_EQ(right_in, recovered_right);
-
-        EXPECT_EQ(out.get_value(), hash_output.x);
-
-        fr compress_native = crypto::pedersen_commitment::compress_native({ left.get_value(), right.get_value() });
+        fr compress_native = crypto::pedersen_commitment<typename curve::Grumpkin>::compress_native(
+            { left.get_value(), right.get_value() });
         EXPECT_EQ(out.get_value(), compress_native);
     }
 
@@ -201,26 +83,7 @@ template <typename Composer> class stdlib_pedersen : public testing::Test {
         bool result = composer.check_circuit();
         EXPECT_EQ(result, true);
 
-        auto hash_output_1_with_zero = pedersen_recover(zero_fr, one_fr);
-        auto hash_output_1_with_r = pedersen_recover(r_fr, one_fr);
-        auto hash_output_2 = pedersen_recover(r_minus_one_fr, r_minus_two_fr);
-
-        EXPECT_EQ(out_1_with_zero.get_value(), hash_output_1_with_zero.x);
-        EXPECT_EQ(out_1_with_r.get_value(), hash_output_1_with_r.x);
-        EXPECT_EQ(out_2.get_value(), hash_output_2.x);
         EXPECT_EQ(bool(out_1_with_zero.get_value() == out_1_with_r.get_value()), true);
-
-        fr recovered_zero = wnaf_recover(zero_fr);
-        fr recovered_r = wnaf_recover(r_fr);
-        fr recovered_one = wnaf_recover(one_fr);
-        fr recovered_r_minus_one = wnaf_recover(r_minus_one_fr);
-        fr recovered_r_minus_two = wnaf_recover(r_minus_two_fr);
-        EXPECT_EQ(zero_fr, recovered_zero);
-        EXPECT_EQ(r_fr, recovered_r);
-        EXPECT_EQ(bool(recovered_zero == recovered_r), true);
-        EXPECT_EQ(one_fr, recovered_one);
-        EXPECT_EQ(r_minus_one_fr, recovered_r_minus_one);
-        EXPECT_EQ(r_minus_two_fr, recovered_r_minus_two);
 
         fr compress_native_1_with_zero =
             crypto::pedersen_commitment::compress_native({ zero.get_value(), one.get_value() });
@@ -387,9 +250,8 @@ template <typename Composer> class stdlib_pedersen : public testing::Test {
     }
 };
 
-typedef testing::
-    Types<proof_system::StandardCircuitBuilder, proof_system::TurboCircuitBuilder, proof_system::UltraCircuitBuilder>
-        CircuitTypes;
+using CircuitTypes = testing::
+    Types<proof_system::StandardCircuitBuilder, proof_system::TurboCircuitBuilder, proof_system::UltraCircuitBuilder>;
 
 TYPED_TEST_SUITE(stdlib_pedersen, CircuitTypes);
 

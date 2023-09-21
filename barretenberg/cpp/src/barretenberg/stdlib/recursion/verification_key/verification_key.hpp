@@ -10,17 +10,13 @@
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
 
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
-#include "barretenberg/crypto/pedersen_commitment/pedersen_lookup.hpp"
 #include "barretenberg/ecc/curves/bn254/fq12.hpp"
 #include "barretenberg/ecc/curves/bn254/pairing.hpp"
 
 #include "../../commitment/pedersen/pedersen.hpp"
-#include "../../commitment/pedersen/pedersen_plookup.hpp"
 #include "../../primitives/curves/bn254.hpp"
 #include "../../primitives/memory/rom_table.hpp"
 #include "../../primitives/uint/uint.hpp"
-
-#include "barretenberg/crypto/pedersen_commitment/convert_buffer_to_field.hpp"
 
 namespace proof_system::plonk {
 namespace stdlib {
@@ -58,12 +54,8 @@ template <class Composer, size_t bits_per_element = 248> struct PedersenPreimage
             }
             preimage_data.push_back(field_pt::accumulate(work_element));
         }
-        if constexpr (HasPlookup<Composer>) {
-            return pedersen_plookup_commitment<Composer>::compress_with_relaxed_range_constraints(preimage_data,
-                                                                                                  hash_index);
-        } else {
-            return pedersen_commitment<Composer>::compress(preimage_data, hash_index);
-        }
+
+        return pedersen_commitment<Composer>::compress(preimage_data, hash_index);
     }
 
     /**
@@ -423,12 +415,8 @@ template <typename Curve> struct verification_key {
         write(preimage_data, key->domain.root);
 
         barretenberg::fr compressed_key;
-        if constexpr (HasPlookup<Composer>) {
-            compressed_key = from_buffer<barretenberg::fr>(
-                crypto::pedersen_commitment::lookup::compress_native(preimage_data, hash_index));
-        } else {
-            compressed_key = crypto::pedersen_commitment::compress_native(preimage_data, hash_index);
-        }
+        compressed_key = crypto::pedersen_commitment::compress_native(preimage_data, hash_index);
+
         return compressed_key;
     }
 

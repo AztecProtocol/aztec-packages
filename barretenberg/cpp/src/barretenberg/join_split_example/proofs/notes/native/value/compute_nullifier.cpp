@@ -17,8 +17,8 @@ fr compute_nullifier(grumpkin::fq const& note_commitment,
                      grumpkin::fr const& account_private_key,
                      const bool is_note_in_use)
 {
-    auto hashed_pk = crypto::generators::fixed_base_scalar_mul<254>(
-        fr(account_private_key), GeneratorIndex::JOIN_SPLIT_NULLIFIER_ACCOUNT_PRIVATE_KEY);
+    auto hashed_pk = crypto::pedersen_commitment::commit_native(
+        { fr(account_private_key) }, GeneratorIndex::JOIN_SPLIT_NULLIFIER_ACCOUNT_PRIVATE_KEY);
 
     std::vector<barretenberg::fr> buf{
         note_commitment,
@@ -27,6 +27,7 @@ fr compute_nullifier(grumpkin::fq const& note_commitment,
         is_note_in_use,
     };
     auto compressed_inputs = crypto::pedersen_commitment::compress_native(buf, GeneratorIndex::JOIN_SPLIT_NULLIFIER);
+
     auto blake_result = blake2::blake2s(to_buffer(compressed_inputs));
 
     return from_buffer<fr>(blake_result);

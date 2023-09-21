@@ -6,7 +6,6 @@
 #include "barretenberg/transcript/transcript.hpp"
 
 #include "../../commitment/pedersen/pedersen.hpp"
-#include "../../commitment/pedersen/pedersen_plookup.hpp"
 #include "../../hash/blake3s/blake3s.hpp"
 #include "../../primitives/bigfield/bigfield.hpp"
 #include "../../primitives/biggroup/biggroup.hpp"
@@ -274,11 +273,9 @@ template <typename Composer> class Transcript {
         };
 
         field_pt base_hash;
-        if constexpr (HasPlookup<Composer>) {
-            base_hash = stdlib::pedersen_plookup_commitment<Composer>::compress(std::vector<field_pt>{ T0 }, 0);
-        } else {
-            base_hash = stdlib::pedersen_commitment<Composer>::compress(std::vector<field_pt>{ T0 }, 0);
-        }
+
+        base_hash = stdlib::pedersen_commitment<Composer>::compress(std::vector<field_pt>{ T0 }, 0);
+
         auto hash_halves = slice_into_halves(base_hash);
         round_challenges_new.push_back(hash_halves[1]);
 
@@ -292,14 +289,9 @@ template <typename Composer> class Transcript {
         // half to get the relevant challenges.
         for (size_t i = 2; i < num_challenges; i += 2) {
             // TODO(@zac-williamson) make this a Poseidon hash not a Pedersen hash
-            field_pt hash_output;
-            if constexpr (HasPlookup<Composer>) {
-                hash_output = stdlib::pedersen_plookup_commitment<Composer>::compress(
-                    std::vector<field_pt>{ (base_hash + field_pt(i / 2)).normalize() }, 0);
-            } else {
-                hash_output = stdlib::pedersen_commitment<Composer>::compress(
-                    std::vector<field_pt>{ (base_hash + field_pt(i / 2)).normalize() }, 0);
-            }
+            field_pt hash_output = stdlib::pedersen_commitment<Composer>::compress(
+                std::vector<field_pt>{ (base_hash + field_pt(i / 2)).normalize() }, 0);
+
             auto hash_halves = slice_into_halves(hash_output);
             round_challenges_new.push_back(hash_halves[1]);
             if (i + 1 < num_challenges) {
