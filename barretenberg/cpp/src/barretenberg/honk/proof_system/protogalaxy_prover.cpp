@@ -2,7 +2,7 @@
 #include "barretenberg/proof_system/flavor/flavor.hpp"
 namespace proof_system::honk {
 template <class Flavor>
-ProtoGalaxyProver_<Flavor>::ProtoGalaxyProver_(std::vector<std::shared_ptr<Instance>> insts)
+ProtoGalaxyProver_<Flavor>::ProtoGalaxyProver_(std::shared_ptr<Instances> insts)
     : instances(insts)
 {}
 
@@ -14,6 +14,7 @@ ProtoGalaxyProver_<Flavor>::ProtoGalaxyProver_(std::vector<std::shared_ptr<Insta
  */
 template <class Flavor> void ProtoGalaxyProver_<Flavor>::prepare_for_folding()
 {
+    // this doesnt work in the current format
     for (const auto& instance : instances) {
         instance->initialise_prover_polynomials();
 

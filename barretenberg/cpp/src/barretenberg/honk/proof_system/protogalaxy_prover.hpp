@@ -6,17 +6,18 @@
 #include "barretenberg/honk/proof_system/folding_result.hpp"
 #include "barretenberg/proof_system/flavor/flavor.hpp"
 namespace proof_system::honk {
-template <class Flavor> class ProtoGalaxyProver_ {
+template <class ProverInstances> class ProtoGalaxyProver_ {
   public:
+    using Flavor = typename ProverInstances::Flavor;
     using FF = typename Flavor::FF;
-    using Instance = ProverInstance_<Flavor>;
+    using Instances = ProverInstances;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
 
-    std::vector<std::shared_ptr<Instance>> instances;
+    std::shared_ptr<Instances> instances;
 
     ProverTranscript<FF> transcript;
 
-    explicit ProtoGalaxyProver_(std::vector<std::shared_ptr<Instance>>);
+    explicit ProtoGalaxyProver_(std::shared_ptr<Instances>);
     ~ProtoGalaxyProver_() = default;
 
     void prepare_for_folding();
@@ -24,7 +25,7 @@ template <class Flavor> class ProtoGalaxyProver_ {
     ProverFoldingResult<Flavor> fold_instances();
 };
 
-extern template class ProtoGalaxyProver_<honk::flavor::Ultra>;
-extern template class ProtoGalaxyProver_<honk::flavor::UltraGrumpkin>;
-extern template class ProtoGalaxyProver_<honk::flavor::GoblinUltra>;
+// extern template class ProtoGalaxyProver_<honk::flavor::Ultra>;
+// extern template class ProtoGalaxyProver_<honk::flavor::UltraGrumpkin>;
+// extern template class ProtoGalaxyProver_<honk::flavor::GoblinUltra>;
 } // namespace proof_system::honk

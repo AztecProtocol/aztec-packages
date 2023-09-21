@@ -8,20 +8,22 @@
 #include "barretenberg/proof_system/flavor/flavor.hpp"
 
 namespace proof_system::honk {
-template <class Flavor> class ProtoGalaxyVerifier_ {
+template <class VerifierInstances> class ProtoGalaxyVerifier_ {
   public:
+    using Flavor = typename VerifierInstances::Flavor;
     using FF = typename Flavor::FF;
     using VerificationKey = typename Flavor::VerificationKey;
     using VerifierInstance = VerifierInstance_<Flavor>;
     std::vector<VerifierInstance> verifier_instances;
     VerifierTranscript<FF> transcript;
 
+    // should the PG verifier be given the VerifierInstances, nah this makes sense yo me
     explicit ProtoGalaxyVerifier_(std::vector<std::shared_ptr<VerificationKey>> vks);
     ~ProtoGalaxyVerifier_() = default;
     VerifierFoldingResult<Flavor> fold_public_parameters(std::vector<uint8_t> fold_data);
 };
 
-extern template class ProtoGalaxyVerifier_<honk::flavor::Ultra>;
-extern template class ProtoGalaxyVerifier_<honk::flavor::UltraGrumpkin>;
-extern template class ProtoGalaxyVerifier_<honk::flavor::GoblinUltra>;
+// extern template class ProtoGalaxyVerifier_<honk::flavor::Ultra>;
+// extern template class ProtoGalaxyVerifier_<honk::flavor::UltraGrumpkin>;
+// extern template class ProtoGalaxyVerifier_<honk::flavor::GoblinUltra>;
 } // namespace proof_system::honk
