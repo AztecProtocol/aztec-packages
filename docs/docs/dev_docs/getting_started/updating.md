@@ -8,6 +8,9 @@ There are 4 components whose versions need to be kept compatible:
 3. Noir compiler `nargo`,
 4. Noir framework for Aztec contracts `aztec.nr`.
 
+Aztec Sandbox, Aztec CLI and `aztec.nr` are using the same versioning scheme and their versions must match.
+The Noir compiler `nargo` has its own versioning scheme and its version must match the compatible nargo version specified in Sandbox.
+
 ## Updating Aztec Sandbox
 To update the sandbox to the latest version, simply run the curl command we used for installation again:
 ```shell
