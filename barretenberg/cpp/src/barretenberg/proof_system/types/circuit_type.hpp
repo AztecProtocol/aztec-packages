@@ -3,7 +3,7 @@
 #include <cstdint>
 
 namespace proof_system {
-enum class CircuitType : uint32_t { STANDARD, TURBO, ULTRA, UNDEFINED };
+enum class CircuitType : uint32_t { STANDARD, ULTRA, UNDEFINED };
 
 template <typename T, typename... U>
 concept IsAnyOf = (std::same_as<T, U> || ...);

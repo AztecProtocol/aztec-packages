@@ -676,7 +676,6 @@ template <typename Builder> class stdlib_uint : public testing::Test {
      *
      * @details Notes that the static casts have to be there becuase of -Wc++11-narrowing flag.
      *
-     * TurboPLONK:     19896 gates
      * StandardPLONK: 210363 gates
      */
     static void test_hash_rounds()
