@@ -1263,8 +1263,8 @@ TYPED_TEST(PolynomialTests, RightShift)
     right_shifted_poly.set_to_right_shifted(poly, shift_magnitude);
     auto shifted_evaluation = right_shifted_poly.evaluate(evaluation_point);
 
-    // reconstruct the unshifted evaluation using that p^{shift}(X)/X^m = p(X), where m is the shift magnitude
-    auto unshifted_eval_reconstructed = shifted_evaluation / evaluation_point.pow(shift_magnitude);
+    // reconstruct the unshifted evaluation using that p^{shift}(X) = p(X)*X^m, where m is the shift magnitude
+    auto shifted_eval_reconstructed = unshifted_evaluation * evaluation_point.pow(shift_magnitude);
 
-    EXPECT_EQ(unshifted_evaluation, unshifted_eval_reconstructed);
+    EXPECT_EQ(shifted_evaluation, shifted_eval_reconstructed);
 }

@@ -268,6 +268,9 @@ Fr Polynomial<Fr>::evaluate_from_fft(const EvaluationDomain<Fr>& large_domain,
     return polynomial_arithmetic::evaluate_from_fft(coefficients_.get(), large_domain, z, small_domain);
 }
 
+// TODO(#723): This method is used for the transcript aggregation protocol. For convenience we currently enforce that
+// the shift is the same size as the input but this does not need to be the case. Revisit the logic/assertions in this
+// method when that issue is addressed.
 template <typename Fr> void Polynomial<Fr>::set_to_right_shifted(std::span<Fr> coeffs_in, size_t shift_size)
 {
     // Ensure we're not trying to shift self
@@ -275,9 +278,9 @@ template <typename Fr> void Polynomial<Fr>::set_to_right_shifted(std::span<Fr> c
 
     auto size_in = coeffs_in.size();
     ASSERT(size_in > 0);
-    ASSERT(shift_size < size_in);
 
     // Ensure that the last shift_size-many input coefficients are zero to ensure no information is lost in the shift.
+    ASSERT(shift_size <= size_in);
     for (size_t i = 0; i < shift_size; ++i) {
         size_t idx = size_in - shift_size - 1;
         ASSERT(coeffs_in[idx].is_zero());

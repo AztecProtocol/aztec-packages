@@ -102,8 +102,6 @@ TEST(UltraCircuitBuilder, GoblinEccOpQueueUltraOps)
         for (size_t j = 0; j < builder.num_ecc_op_gates; ++j) {
             auto op_wire_val = builder.variables[builder.ecc_op_wires[i][j]];
             auto ultra_op_val = ultra_ops[i][j];
-            info("op_wire_val = ", op_wire_val);
-            info("ultra_op_val = ", ultra_op_val);
             ASSERT_EQ(op_wire_val, ultra_op_val);
         }
     }

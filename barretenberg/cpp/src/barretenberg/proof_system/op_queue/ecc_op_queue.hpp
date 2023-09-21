@@ -92,10 +92,10 @@ class ECCOpQueue {
 
     /**
      * @brief TESTING PURPOSES ONLY: Populate ECC op queue with mock data as stand in for "previous circuit" in tests
-     * @details (Issue #723) We currently cannot support Goblin proofs (specifically, transcript aggregation) if there
+     * @details TODO(#723): We currently cannot support Goblin proofs (specifically, transcript aggregation) if there
      * is not existing data in the ECC op queue (since this leads to zero-commitment issues). This method populates the
      * op queue with mock data so that the prover of an arbitrary 'first' circuit can behave as if it were not the
-     * prover over the first circuit in the stack.
+     * prover over the first circuit in the stack. This method should be removed entirely once this is resolved.
      *
      * @param op_queue
      */

@@ -34,6 +34,7 @@ class FullGoblinComposerTests : public ::testing::Test {
     using ECCVMBuilder = proof_system::ECCVMCircuitBuilder<ECCVMFlavor>;
     using ECCVMComposer = proof_system::honk::ECCVMComposer_<ECCVMFlavor>;
     using VMOp = proof_system_eccvm::VMOperation<ECCVMFlavor::CycleGroup>;
+    static constexpr size_t NUM_OP_QUEUE_COLUMNS = proof_system::honk::flavor::GoblinUltra::NUM_WIRES;
 
     /**
      * @brief Generate a simple test circuit with some ECC op gates and conventional arithmetic gates
@@ -44,7 +45,7 @@ class FullGoblinComposerTests : public ::testing::Test {
     {
         // Add some arbitrary ecc op gates
         for (size_t i = 0; i < 3; ++i) {
-            auto point = Point::one() * FF::random_element();
+            auto point = Point::random_element();
             auto scalar = FF::random_element();
             builder.queue_ecc_add_accum(point);
             builder.queue_ecc_mul_accum(point, scalar);
@@ -92,7 +93,7 @@ class FullGoblinComposerTests : public ::testing::Test {
         // Manually compute the op queue transcript commitments (which would normally be done by the prover)
         auto crs_factory_ = barretenberg::srs::get_crs_factory();
         auto commitment_key = CommitmentKey(op_queue->get_current_size(), crs_factory_);
-        std::array<Point, 4> op_queue_commitments;
+        std::array<Point, NUM_OP_QUEUE_COLUMNS> op_queue_commitments;
         size_t idx = 0;
         for (auto& entry : op_queue->get_aggregate_transcript()) {
             op_queue_commitments[idx++] = commitment_key.commit(entry);
@@ -146,6 +147,50 @@ TEST_F(FullGoblinComposerTests, SimpleCircuit)
         auto verifier = composer.create_verifier(builder);
         bool verified = verifier.verify_proof(proof);
         ASSERT_TRUE(verified);
+    }
+}
+
+/**
+ * @brief Check that ECCVM verification fails if ECC op queue operands are tampered with
+ *
+ */
+TEST_F(FullGoblinComposerTests, SimpleCircuitFailureCase)
+{
+    auto op_queue = std::make_shared<proof_system::ECCOpQueue>();
+
+    // Add mock data to op queue to simulate interaction with a "first" circuit
+    perform_op_queue_interactions_for_mock_first_circuit(op_queue);
+
+    // Construct a series of simple Goblin circuits; generate and verify their proofs
+    size_t NUM_CIRCUITS = 3;
+    for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
+        auto builder = GoblinUltraBuilder(op_queue);
+
+        generate_test_circuit(builder);
+
+        auto composer = GoblinUltraComposer();
+        auto instance = composer.create_instance(builder);
+        auto prover = composer.create_prover(instance);
+        auto verifier = composer.create_verifier(instance);
+        auto proof = prover.construct_proof();
+        bool verified = verifier.verify_proof(proof);
+        EXPECT_EQ(verified, true);
+    }
+
+    // Construct an ECCVM circuit then generate and verify its proof
+    {
+        // Instantiate an ECCVM builder with the vm ops stored in the op queue
+        auto builder = ECCVMBuilder(op_queue->raw_ops);
+
+        // Fiddle with one of the operands to trigger a failure
+        builder.vm_operations[0].z1 += 1;
+
+        auto composer = ECCVMComposer();
+        auto prover = composer.create_prover(builder);
+        auto proof = prover.construct_proof();
+        auto verifier = composer.create_verifier(builder);
+        bool verified = verifier.verify_proof(proof);
+        EXPECT_EQ(verified, false);
     }
 }
 

@@ -23,16 +23,15 @@ template <typename FF> void GoblinUltraCircuitBuilder_<FF>::finalize_circuit()
 // TODO(#423): This function adds valid (but arbitrary) gates to ensure that the circuit which includes
 // them will not result in any zero-polynomials. It also ensures that the first coefficient of the wire
 // polynomials is zero, which is required for them to be shiftable.
-// TODO(luke): Add ECC op gate to ensure op wires are non-zero?
 template <typename FF> void GoblinUltraCircuitBuilder_<FF>::add_gates_to_ensure_all_polys_are_non_zero()
 {
     UltraCircuitBuilder_<FF>::add_gates_to_ensure_all_polys_are_non_zero();
 }
 
 /**
- * @brief Add gates for simple point addition without scalar and compute corresponding op natively
+ * @brief Add gates for simple point addition (no mul) and add the raw operation data to the op queue
  *
- * @param point
+ * @param point Point to be added into the accumulator
  */
 template <typename FF>
 ecc_op_tuple GoblinUltraCircuitBuilder_<FF>::queue_ecc_add_accum(const barretenberg::g1::affine_element& point)
@@ -48,11 +47,11 @@ ecc_op_tuple GoblinUltraCircuitBuilder_<FF>::queue_ecc_add_accum(const barretenb
 }
 
 /**
- * @brief Add gates for point mul and add and compute corresponding op natively
+ * @brief Add gates for point mul-then-accumulate and add the raw operation data to the op queue
  *
  * @tparam FF
  * @param point
- * @param scalar
+ * @param scalar The scalar by which point is multiplied prior to being accumulated
  * @return ecc_op_tuple encoding the point and scalar inputs to the mul accum
  */
 template <typename FF>
@@ -70,7 +69,8 @@ ecc_op_tuple GoblinUltraCircuitBuilder_<FF>::queue_ecc_mul_accum(const barretenb
 }
 
 /**
- * @brief Add point equality gates
+ * @brief Add point equality gates based on the current value of the accumulator internal to the op queue and add the
+ * raw operation data to the op queue
  *
  * @return ecc_op_tuple encoding the point to which equality has been asserted
  */
@@ -122,7 +122,7 @@ ecc_op_tuple GoblinUltraCircuitBuilder_<FF>::decompose_ecc_operands(uint32_t op_
     op_queue->ultra_ops[2].emplace_back(x_hi);
     op_queue->ultra_ops[3].emplace_back(y_lo);
 
-    op_queue->ultra_ops[0].emplace_back(this->variables[op_idx]);
+    op_queue->ultra_ops[0].emplace_back(this->zero_idx);
     op_queue->ultra_ops[1].emplace_back(y_hi);
     op_queue->ultra_ops[2].emplace_back(z_1);
     op_queue->ultra_ops[3].emplace_back(z_2);
@@ -153,7 +153,7 @@ template <typename FF> void GoblinUltraCircuitBuilder_<FF>::populate_ecc_op_wire
     ecc_op_wire_3.emplace_back(in.x_hi);
     ecc_op_wire_4.emplace_back(in.y_lo);
 
-    ecc_op_wire_1.emplace_back(in.op); // TODO(luke): second op val is sort of a dummy. use "op" again?
+    ecc_op_wire_1.emplace_back(this->zero_idx);
     ecc_op_wire_2.emplace_back(in.y_hi);
     ecc_op_wire_3.emplace_back(in.z_1);
     ecc_op_wire_4.emplace_back(in.z_2);
