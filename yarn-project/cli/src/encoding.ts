@@ -93,7 +93,7 @@ export function encodeArgs(args: any[], params: ABIParameter[]) {
     throw new Error(
       `Invalid args provided.\nExpected args: [${params
         .map(param => param.name + ': ' + param.type.kind)
-        .join(', ')}]\nReceived args: ${args}`,
+        .join(', ')}]\nReceived args: ${args.join(', ')}`,
     );
   }
   return args.map((arg: any, index) => {
