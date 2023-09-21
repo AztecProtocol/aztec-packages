@@ -2,7 +2,7 @@
 #include "barretenberg/honk/flavor/goblin_ultra.hpp"
 #include "barretenberg/honk/flavor/ultra.hpp"
 #include "barretenberg/honk/flavor/ultra_grumpkin.hpp"
-#include "barretenberg/honk/instance/verifier_instance.hpp"
+#include "barretenberg/honk/instance/instances.hpp"
 #include "barretenberg/honk/proof_system/folding_result.hpp"
 #include "barretenberg/honk/transcript/transcript.hpp"
 #include "barretenberg/proof_system/flavor/flavor.hpp"
@@ -12,9 +12,9 @@ template <class VerifierInstances> class ProtoGalaxyVerifier_ {
   public:
     using Flavor = typename VerifierInstances::Flavor;
     using FF = typename Flavor::FF;
+    using Instance = typename VerifierInstances::Instance;
     using VerificationKey = typename Flavor::VerificationKey;
-    using VerifierInstance = VerifierInstance_<Flavor>;
-    std::vector<VerifierInstance> verifier_instances;
+    VerifierInstances verifier_instances;
     VerifierTranscript<FF> transcript;
 
     // should the PG verifier be given the VerifierInstances, nah this makes sense yo me
@@ -23,7 +23,7 @@ template <class VerifierInstances> class ProtoGalaxyVerifier_ {
     VerifierFoldingResult<Flavor> fold_public_parameters(std::vector<uint8_t> fold_data);
 };
 
-// extern template class ProtoGalaxyVerifier_<honk::flavor::Ultra>;
+extern template class ProtoGalaxyVerifier_<VerifierInstances<honk::flavor::Ultra, 2>>;
 // extern template class ProtoGalaxyVerifier_<honk::flavor::UltraGrumpkin>;
 // extern template class ProtoGalaxyVerifier_<honk::flavor::GoblinUltra>;
 } // namespace proof_system::honk
