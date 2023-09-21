@@ -31,7 +31,7 @@ Now when you run the curl command it will use the version you specified.
 To verify that it's the case check the console output of the curl command.
 You should see the following line:
 ```
-Aztec Sandbox 0.7.7 is now ready for use!
+Setting up Aztec Sandbox v0.7.7 (nargo 0.11.1-aztec.0), please stand by...
 ```
 
 Alternatively you can open a new terminal and use aztec-cli to get the version.
