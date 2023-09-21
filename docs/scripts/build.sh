@@ -11,9 +11,7 @@ if [ -n "$NETLIFY" ]; then
   # Make sure the latest tag is available for loading code snippets from it
   LAST_TAG="aztec-packages-v$(jq -r '.["."]' .release-please-manifest.json)"
   echo Fetching latest released tag $LAST_TAG...
-  echo $(git remote -v)
-  git remote add aztec https://github.com/AztecProtocol/aztec-packages.git
-  git fetch aztec refs/tags/$LAST_TAG:refs/tags/$LAST_TAG
+  git fetch origin refs/tags/$LAST_TAG:refs/tags/$LAST_TAG
 
   # Tweak global tsconfig so we skip tests in all projects
   echo Removing test files from tsconfig...
