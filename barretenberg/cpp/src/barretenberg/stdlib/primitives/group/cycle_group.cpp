@@ -996,14 +996,6 @@ typename cycle_group<Composer>::batch_mul_internal_output cycle_group<Composer>:
 {
     ASSERT(scalars.size() == base_points.size());
 
-    Composer* context = nullptr;
-    for (auto& scalar : scalars) {
-        if (scalar.get_context() != nullptr) {
-            context = scalar.get_context();
-            break;
-        }
-    }
-
     const size_t num_points = base_points.size();
     using MultiTableId = plookup::MultiTableId;
     using ColumnIdx = plookup::ColumnIdx;
