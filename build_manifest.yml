@@ -1,92 +1,49 @@
-# Welcome to build_manifest.yml, for all your building needs!
-# CL: I'm going to write more useful information here, but I haven't yet. Ask me if you have questions.
-barretenberg-wasm-linux-clang:
-  buildDir: barretenberg/cpp
-  dockerfile: dockerfiles/Dockerfile.wasm-linux-clang
-  rebuildPatterns: .rebuild_patterns
-  spot: 64
-
-barretenberg-x86_64-linux-gcc:
-  buildDir: barretenberg/cpp
-  dockerfile: dockerfiles/Dockerfile.x86_64-linux-gcc
-  rebuildPatterns: .rebuild_patterns
-  spot: 64
-
 barretenberg-x86_64-linux-clang:
   buildDir: barretenberg/cpp
   dockerfile: dockerfiles/Dockerfile.x86_64-linux-clang
   rebuildPatterns: .rebuild_patterns
-  spot: 64
+
+barretenberg-x86_64-linux-clang-assert:
+  buildDir: barretenberg/cpp
+  dockerfile: dockerfiles/Dockerfile.x86_64-linux-clang-assert
+  rebuildPatterns: .rebuild_patterns
 
 barretenberg-x86_64-linux-clang-fuzzing:
   buildDir: barretenberg/cpp
   dockerfile: dockerfiles/Dockerfile.x86_64-linux-clang-fuzzing
   rebuildPatterns: .rebuild_patterns
-  spot: 64
 
-# Barretenberg with assertions enabled and tests.
-barretenberg-x86_64-linux-clang-assert:
+barretenberg-x86_64-linux-gcc:
   buildDir: barretenberg/cpp
-  dockerfile: dockerfiles/Dockerfile.x86_64-linux-clang-assert
+  dockerfile: dockerfiles/Dockerfile.x86_64-linux-gcc
   rebuildPatterns: .rebuild_patterns
-  spot: 64
-  tests:
-    barretenberg-stdlib-tests:
-      command: ./scripts/run_tests 1 stdlib-tests
-      spot: 32
-    barretenberg-dsl-tests:
-      command: ./scripts/run_tests 1 dsl_tests
-      spot: 32
-    barretenberg-tests:
-      command: ./scripts/bb-tests.sh
-      spot: 32
-    barretenberg-honk-tests:
-      command: ./scripts/run_tests 1 honk_tests
-      spot: 32
-    barretenberg-proof-system-tests:
-      command: ./scripts/run_tests 1 proof_system_tests
-      spot: 32
-    barretenberg-stdlib-recursion-turbo-tests:
-      command: ./scripts/run_tests 1 stdlib_recursion_tests --gtest_filter=*turbo*
-      spot: 32
-    barretenberg-stdlib-recursion-ultra-tests:
-      command: ./scripts/run_tests 3 stdlib_recursion_tests --gtest_filter=-*turbo*
-      spot: 32
-    barretenberg-join-split-tests:
-      command: ./scripts/run_tests 3 join_split_example_proofs_join_split_tests --gtest_filter=-*full_proof*
-      spot: 32
 
-# The bb acir tests are independently built from the above.
-barretenberg-acir-tests:
-  buildDir: barretenberg/acir_tests
-  dockerfile: Dockerfile.bb
-  spot: 32
-  dependencies:
-    - barretenberg-x86_64-linux-clang-assert
+barretenberg-wasm-linux-clang:
+  buildDir: barretenberg/cpp
+  dockerfile: dockerfiles/Dockerfile.wasm-linux-clang
+  rebuildPatterns: .rebuild_patterns
 
-bb-js:
+bb.js:
   buildDir: barretenberg/ts
   dependencies:
     - barretenberg-wasm-linux-clang
-  tests:
-    bb-js-tests:
-      command: ./scripts/run_tests
-      spot: 32
 
-# The bb.js acir tests are independently built from the above.
-bb-js-acir-tests:
+barretenberg-acir-tests-bb:
+  buildDir: barretenberg/acir_tests
+  dockerfile: Dockerfile.bb
+  dependencies:
+    - barretenberg-x86_64-linux-clang-assert
+
+barretenberg-acir-tests-bb.js:
   buildDir: barretenberg/acir_tests
   dockerfile: Dockerfile.bb.js
-  spot: 32
   dependencies:
-    - bb-js
+    - bb.js
 
-# Circuits
 circuits-wasm-linux-clang:
   buildDir: circuits/cpp
   dockerfile: dockerfiles/Dockerfile.wasm-linux-clang
   rebuildPatterns: .rebuild_patterns
-  spot: 32
   dependencies:
     - barretenberg-wasm-linux-clang
 
@@ -94,19 +51,13 @@ circuits-wasm-linux-clang-assert:
   buildDir: circuits/cpp
   dockerfile: dockerfiles/Dockerfile.wasm-linux-clang-assert
   rebuildPatterns: .rebuild_patterns
-  spot: 32
   dependencies:
     - barretenberg-wasm-linux-clang
-  tests:
-    circuits-wasm-tests:
-      command: ./scripts/run_tests 1 wasm scripts/a3-tests -*.skip*:*.circuit*
-      spot: 32
 
 circuits-x86_64-linux-clang-tidy:
   buildDir: circuits/cpp
   dockerfile: dockerfiles/Dockerfile.x86_64-linux-clang-tidy
   rebuildPatterns: .rebuild_patterns
-  spot: 32
   dependencies:
     - barretenberg-x86_64-linux-clang
 
@@ -114,7 +65,6 @@ circuits-x86_64-linux-clang:
   buildDir: circuits/cpp
   dockerfile: dockerfiles/Dockerfile.x86_64-linux-clang
   rebuildPatterns: .rebuild_patterns
-  spot: 32
   dependencies:
     - barretenberg-x86_64-linux-clang
 
@@ -122,15 +72,9 @@ circuits-x86_64-linux-clang-assert:
   buildDir: circuits/cpp
   dockerfile: dockerfiles/Dockerfile.x86_64-linux-clang-assert
   rebuildPatterns: .rebuild_patterns
-  spot: 32
   dependencies:
     - barretenberg-x86_64-linux-clang
-  tests:
-    circuits-x86_64-tests:
-      command: ./scripts/run_tests 1 x86_64 scripts/a3-tests -*.skip*
-      spot: 32
 
-# Docs kinda do their own thing. Netlify will pull changes and deploy.
 docs:
   buildDir: .
   dockerfile: docs/Dockerfile
@@ -167,164 +111,28 @@ yarn-project-base:
 
 yarn-project:
   buildDir: yarn-project
-  spot: 64
   dependencies:
     - yarn-project-base
     - noir-contracts-build
 
+aztec-sandbox-base:
+  buildDir: yarn-project
+  projectDir: yarn-project/aztec-sandbox
+
 aztec-sandbox:
   buildDir: yarn-project
   projectDir: yarn-project/aztec-sandbox
-  dependencies:
-    - yarn-project
+  dockerfile: Dockerfile.final
 
-end-to-end:
+canary-build:
   buildDir: yarn-project
-  projectDir: yarn-project/end-to-end
-  dependencies:
-    - yarn-project
-  tests:
-    e2e-2-rpc-servers:
-      command: ./scripts/run_tests_local e2e_2_rpc_servers.test.ts
-    e2e-multiple-accounts-1-enc-key:
-      command: ./scripts/run_tests_local e2e_multiple_accounts_1_enc_key.test.ts
-    e2e-deploy-contract:
-      command: ./scripts/run_tests_local e2e_deploy_contract.test.ts
-    e2e-lending-contract:
-      command: ./scripts/run_tests_local e2e_lending_contract.test.ts
-    e2e-token-contract:
-      command: ./scripts/run_tests_local e2e_token_contract.test.ts
-    e2e-private-token-contract:
-      command: ./scripts/run_tests_local e2e_private_token_contract.test.ts
-    e2e-multi-transfer-contract:
-      command: ./scripts/run_tests_local e2e_multi_transfer.test.ts
-    e2e-block-building:
-      command: ./scripts/run_tests_local e2e_block_building.test.ts
-    e2e-nested-contract:
-      command: ./scripts/run_tests_local e2e_nested_contract.test.ts
-    e2e-non-contract-account:
-      command: ./scripts/run_tests_local e2e_non_contract_account.test.ts
-    e2e-cross-chain-messaging:
-      command: ./scripts/run_tests_local e2e_cross_chain_messaging.test.ts
-    e2e-public-cross-chain-messaging:
-      command: ./scripts/run_tests_local e2e_public_cross_chain_messaging.test.ts
-    e2e-public-to-private-messaging:
-      command: ./scripts/run_tests_local e2e_public_to_private_messaging.test.ts
-    e2e-account-contracts:
-      command: ./scripts/run_tests_local e2e_account_contracts.test.ts
-    e2e-escrow-contract:
-      command: ./scripts/run_tests_local e2e_escrow_contract.test.ts
-    e2e-pending-commitments-contract:
-      command: ./scripts/run_tests_local e2e_pending_commitments_contract.test.ts
-    e2e-ordering:
-      command: ./scripts/run_tests_local e2e_ordering.test.ts
-    uniswap-trade-on-l1-from-l2:
-      command: ./scripts/run_tests_local uniswap_trade_on_l1_from_l2.test.ts
-    integration-archiver-l1-to-l2:
-      command: ./scripts/run_tests_local integration_archiver_l1_to_l2.test.ts
-    integration-l1-publisher:
-      command: ./scripts/run_tests_local integration_l1_publisher.test.ts
-    e2e-public-token-contract:
-      command: ./scripts/run_tests_local e2e_public_token_contract.test.ts
-    e2e-cli:
-      command: ./scripts/run_tests_local e2e_cli.test.ts
-    e2e-p2p:
-      command: ./scripts/run_tests_local e2e_p2p_network.test.ts
-    e2e-card-game:
-      command: ./scripts/run_tests_local e2e_card_game.test.ts
-    e2e-sandbox-example:
-      command: ./scripts/run_tests_local e2e_sandbox_example.test.ts ./scripts/docker-compose-e2e-sandbox.yml
-    e2e-browser-sandbox:
-      command: ./scripts/run_tests_local e2e_aztec_js_browser.test.ts ./scripts/docker-compose-e2e-sandbox.yml
-    aztec-rpc-sandbox:
-      command: ./scripts/run_tests_local aztec_rpc_sandbox.test.ts ./scripts/docker-compose-e2e-sandbox.yml
-    cli-docs-sandbox:
-      command: ./scripts/run_tests_local cli_docs_sandbox.test.ts ./scripts/docker-compose-e2e-sandbox.yml
-    guides-writing-an-account-contract:
-      command: ./scripts/run_tests_local guides/writing_an_account_contract.test.ts
-    guides-dapp-testing:
-      command: ./scripts/run_tests_local guides/dapp_testing.test.ts ./scripts/docker-compose-e2e-sandbox.yml
-    guides-sample-dapp:
-      command: ./scripts/run_tests_local sample-dapp ./scripts/docker-compose-e2e-sandbox.yml
+  projectDir: yarn-project/canary
+  dockerfile: Dockerfile.build
 
 canary:
   buildDir: yarn-project
   projectDir: yarn-project/canary
-  dependencies:
-    - yarn-project
 
-  # tests:
-  #   l1-artifacts:
-  #     buildDir: yarn-project
-  #     projectDir: yarn-project/l1-artifacts
-# acir-simulator:
-#   buildDir: yarn-project
-#   projectDir: yarn-project/acir-simulator
-# archiver:
-#   buildDir: yarn-project
-#   projectDir: yarn-project/archiver
-# cli:
-#   buildDir: yarn-project
-#   projectDir: yarn-project/cli
-# aztec-rpc:
-#   buildDir: yarn-project
-#   projectDir: yarn-project/aztec-rpc
-# aztec-sandbox-base:
-#   buildDir: yarn-project
-#   projectDir: yarn-project/aztec-sandbox
-# aztec.js:
-#   buildDir: yarn-project
-#   projectDir: yarn-project/aztec.js
-# canary-build:
-#   buildDir: yarn-project
-#   projectDir: yarn-project/canary
-#   dockerfile: Dockerfile.build
-# circuits.js:
-#   buildDir: yarn-project
-#   projectDir: yarn-project/circuits.js
-# ethereum:
-#   buildDir: yarn-project
-#   projectDir: yarn-project/ethereum
-# foundation:
-#   buildDir: yarn-project
-#   projectDir: yarn-project/foundation
-# key-store:
-#   buildDir: yarn-project
-#   projectDir: yarn-project/key-store
-# merkle-tree:
-#   buildDir: yarn-project
-#   projectDir: yarn-project/merkle-tree
-# noir-contracts:
-#   buildDir: yarn-project
-#   projectDir: yarn-project/noir-contracts
-#   rebuildPatterns:
-#     - ^yarn-project/noir-contracts/
-#     - ^yarn-project/aztec-nr/
-# noir-compiler:
-#   buildDir: yarn-project
-#   projectDir: yarn-project/noir-compiler
-# p2p:
-#   buildDir: yarn-project
-#   projectDir: yarn-project/p2p
-# p2p-bootstrap:
-#   buildDir: yarn-project
-#   projectDir: yarn-project/p2p-bootstrap
-#   dockerfile: ../p2p/Dockerfile
-# prover-client:
-#   buildDir: yarn-project
-#   projectDir: yarn-project/prover-client
-# rollup-provider:
-#   buildDir: yarn-project
-#   projectDir: yarn-project/rollup-provider
-# aztec-node:
-#   buildDir: yarn-project
-#   projectDir: yarn-project/aztec-node
-# sequencer-client:
-#   buildDir: yarn-project
-#   projectDir: yarn-project/sequencer-client
-# types:
-#   buildDir: yarn-project
-#   projectDir: yarn-project/types
-# world-state:
-#   buildDir: yarn-project
-#   projectDir: yarn-project/world-state
+end-to-end:
+  buildDir: yarn-project
+  projectDir: yarn-project/end-to-end
