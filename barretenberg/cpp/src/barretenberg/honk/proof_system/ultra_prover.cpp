@@ -226,6 +226,7 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_op_queue_transc
         // Compute evaluations T_i(\kappa), T_{i-1}(\kappa), t_i^{shift}(\kappa), add to transcript. For each polynomial
         // we add a univariate opening claim {(\kappa, p(\kappa)), p(X)} to the set of claims to be combined in the
         // batch univariate polynomial Q in Shplonk. (The other univariate claims come from the output of Gemini).
+        // TODO(#729): It should be possible to reuse the opening challenge from Gemini rather than generate a new one.
         auto kappa = transcript.get_challenge("kappa");
         auto prev_aggregate_ecc_op_transcript = instance->proving_key->op_queue->get_previous_aggregate_transcript();
         auto aggregate_ecc_op_transcript = instance->proving_key->op_queue->get_aggregate_transcript();
