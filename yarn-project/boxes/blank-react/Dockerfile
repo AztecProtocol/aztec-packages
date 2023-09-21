@@ -3,9 +3,10 @@ FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project-base AS builder
 
 COPY . .
 
-COPY --from=circuits /usr/src/yarn-project/circuits.js/dest /usr/src/yarn-project/circuits.js/dest
+COPY --from=278380418400.dkr.ecr.us-east-2.amazonaws.com/circuits-js /usr/src/yarn-project/circuits.js/dest /usr/src/yarn-project/circuits.js/dest
 
 WORKDIR /usr/src/yarn-project/boxes/blank-react
+RUN yarn 
 RUN yarn build && yarn formatting
 
 RUN yarn cache clean
