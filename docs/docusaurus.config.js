@@ -12,7 +12,7 @@ const fs = require("fs");
 const config = {
   title: "Aztec Docs",
   tagline: "Ethereum, encrypted",
-  url: "https://aztec-docs-dev.netlify.app/",
+  url: "https://docs.aztec.network/",
   baseUrl: "/",
   trailingSlash: false,
   onBrokenLinks: "throw",
@@ -88,7 +88,17 @@ const config = {
             const noirVersion = JSON.parse(
               fs.readFileSync(noirVersionPath).toString()
             ).tag;
-            return { noir: noirVersion };
+            const aztecVersionPath = path.resolve(
+              __dirname,
+              "../.release-please-manifest.json"
+            );
+            const aztecVersion = JSON.parse(
+              fs.readFileSync(aztecVersionPath).toString()
+            )["."];
+            return {
+              noir: noirVersion,
+              "aztec-packages": `aztec-packages-v${aztecVersion}`,
+            };
           } catch (err) {
             throw new Error(
               `Error loading Noir version from noir-compiler in docusaurus build. Check load-versions in docusaurus.config.js.\n${err}`
@@ -124,9 +134,9 @@ const config = {
         },
       ],
       algolia: {
-        appId: "YOMNCJ88NY",
-        apiKey: "ef5490899a6f9618f55c7997ba5b35b4",
-        indexName: "aztec--dev",
+        appId: "CL4NK79B0W",
+        apiKey: "21d89dadaa37a4d1b6bf4b17978dcf7f",
+        indexName: "aztec",
       },
       colorMode: {
         defaultMode: "light",
@@ -235,6 +245,17 @@ const config = {
           {
             className: "code-block-error-line",
             line: "this-will-error",
+          },
+          // This could be used to have release-please modify the current version in code blocks.
+          // However doing so requires to manually add each md file to release-please-config.json/extra-files
+          // which is easy to forget an error prone, so instead we rely on the AztecPackagesVersion() function.
+          {
+            line: "x-release-please-version",
+            block: {
+              start: "x-release-please-start-version",
+              end: "x-release-please-end",
+            },
+            className: "not-allowed-to-be-empty",
           },
         ],
       },
