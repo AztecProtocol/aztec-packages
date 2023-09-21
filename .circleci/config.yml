@@ -1080,7 +1080,7 @@ deploy_defaults: &deploy_defaults
         branch_pattern: "master"
 yarn_project: &yarn_project
   requires:
-    - yarn-project-base
+    - yarn-project
   <<: *defaults
 e2e_test: &e2e_test
   requires:
