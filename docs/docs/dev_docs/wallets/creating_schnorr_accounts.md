@@ -3,7 +3,8 @@ title: Creating Schnorr Accounts
 ---
 
 ## Introduction
-This section shows how to create schnorr account wallets on the Aztec Sandbox. 
+
+This section shows how to create schnorr account wallets on the Aztec Sandbox.
 
 An in-depth explaining about accounts on aztec can be found [here](../../concepts/foundation/accounts/main.md). But creating an account on the Sandbox does 2 things:
 
@@ -11,6 +12,7 @@ An in-depth explaining about accounts on aztec can be found [here](../../concept
 2. Adds your encryption keys to the RPC Server allowing it to decrypt and manage your private state.
 
 ## Pre-requisites
+
 Have a running Sandbox and a repository that interacts with it as explained [here](../getting_started/sandbox.md).
 
 Let's assume you have a file `src/index.ts` from the example used in the Sandbox page.
@@ -21,7 +23,7 @@ Let's assume you have a file `src/index.ts` from the example used in the Sandbox
 
 #include_code imports /yarn-project/end-to-end/src/e2e_sandbox_example.test.ts typescript
 
-2. Code to create an account:
+2. Code to create an account. You must run this inside of a function:
 
 #include_code create_accounts /yarn-project/end-to-end/src/e2e_sandbox_example.test.ts typescript
 
@@ -54,4 +56,5 @@ account contract deployment have been successfully added to the Sandbox.
 If you were looking at your terminal that is running the Sandbox you should have seen a lot of activity. This is because the Sandbox will have simulated the deployment of both contracts, executed the private kernel circuit for each before submitted 2 transactions to the pool. The sequencer will have picked them up and inserted them into a rollup and executed the recursive rollup circuits before publishing the rollup to Anvil. Once this has completed, the rollup is retrieved and pulled down to the internal RPC Server so that any new account state can be decrypted.
 
 ## Next Steps
+
 Check out our section on [Writing your own Account Contract](./writing_an_account_contract.md) leveraging our account abstraction
