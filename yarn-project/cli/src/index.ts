@@ -30,18 +30,13 @@ import {
   getAbiFunction,
   getContractAbi,
   getExampleContractArtifacts,
+  getSaltFromHexString,
   getTxSender,
   prepTx,
+  stripLeadingHex,
 } from './utils.js';
 
 const accountCreationSalt = Fr.ZERO;
-
-const stripLeadingHex = (hex: string) => {
-  if (hex.length > 2 && hex.startsWith('0x')) {
-    return hex.substring(2);
-  }
-  return hex;
-};
 
 const { ETHEREUM_HOST, AZTEC_RPC_HOST, PRIVATE_KEY, API_KEY } = process.env;
 
@@ -160,14 +155,18 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       '-k, --public-key <string>',
       'Optional encryption public key for this address. Set this value only if this contract is expected to receive private notes, which will be encrypted using this public key.',
     )
-    .option('-s, --salt <string>', 'Optional deployment salt as a hex string for generating the deployment address.')
+    .option(
+      '-s, --salt <hex string>',
+      'Optional deployment salt as a hex string for generating the deployment address.',
+      getSaltFromHexString,
+    )
     .action(async (abiPath, options: any) => {
       const contractAbi = await getContractAbi(abiPath, log);
       const constructorAbi = contractAbi.functions.find(({ name }) => name === 'constructor');
 
       const client = await createCompatibleClient(options.rpcUrl, debugLogger);
       const publicKey = options.publicKey ? Point.fromString(options.publicKey) : undefined;
-      const salt = options.salt ? Fr.fromBuffer(Buffer.from(stripLeadingHex(options.salt), 'hex')) : undefined;
+
       const deployer = new ContractDeployer(contractAbi, client, publicKey);
 
       const constructor = getAbiFunction(contractAbi, 'constructor');
@@ -176,7 +175,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       debugLogger(`Input arguments: ${options.args.map((x: any) => `"${x}"`).join(', ')}`);
       const args = encodeArgs(options.args, constructorAbi!.parameters);
       debugLogger(`Encoded arguments: ${args.join(', ')}`);
-      const tx = deployer.deploy(...args).send({ contractAddressSalt: salt });
+      const tx = deployer.deploy(...args).send({ contractAddressSalt: options.salt });
       debugLogger(`Deploy tx sent with hash ${await tx.getTxHash()}`);
       const deployed = await tx.wait();
       log(`\nContract deployed at ${deployed.contractAddress!.toString()}\n`);
