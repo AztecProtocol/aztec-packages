@@ -25,8 +25,7 @@ parameters:
     default: "system"
 
 # This build step checks out the code from the repository. It has a hardcoded readonly key to allow the checkout.
-# Initially it just fetches the repo metadata for the current commit hash to a depth of 50 commits.
-# We need historical commit hashes to calculate diffs between previous and current commits.
+# Initially it just fetches the repo metadata for the current commit hash to a depth of 1 commit.
 # It then checks out the fetched head to actually download the data.
 checkout: &checkout
   run:
@@ -1088,117 +1087,98 @@ jobs:
           name: "foundation"
           working_directory: foundation
           command: |
-            deploy_ecr foundation
             deploy_npm foundation
       - run:
           name: "circuits.js"
           working_directory: circuits.js
           command: |
-            deploy_ecr circuits.js
             deploy_npm circuits.js
       - run:
           name: "types"
           working_directory: types
           command: |
-            deploy_ecr types
             deploy_npm types
       - run:
           name: "aztec.js"
           working_directory: aztec.js
           command: |
-            deploy_ecr aztec.js
             deploy_npm aztec.js
       # Aztec CLI and dependencies
       - run:
           name: "l1-artifacts"
           working_directory: l1-artifacts
           command: |
-            deploy_ecr l1-artifacts
             deploy_npm l1-artifacts
       - run:
           name: "aztec-ethereum"
           working_directory: ethereum
           command: |
-            deploy_ecr ethereum
             deploy_npm ethereum
       - run:
           name: "noir-compiler"
           working_directory: noir-compiler
           command: |
-            deploy_ecr noir-compiler
             deploy_npm noir-compiler
       - run:
           name: "noir-contracts"
           working_directory: noir-contracts
           command: |
-            deploy_ecr noir-contracts
             deploy_npm noir-contracts
       - run:
           name: "cli"
           working_directory: cli
           command: |
-            deploy_ecr cli
             deploy_npm cli
       # Aztec Sandbox and dependencies
       - run:
           name: "aztec-rpc"
           working_directory: aztec-rpc
           command: |
-            deploy_ecr aztec-rpc
             deploy_npm aztec-rpc
       - run:
           name: "acir-simulator"
           working_directory: acir-simulator
           command: |
-            deploy_ecr acir-simulator
             deploy_npm acir-simulator
       - run:
           name: "archiver"
           working_directory: archiver
           command: |
-            deploy_ecr archiver
             deploy_npm archiver
       - run:
           name: "merkle-tree"
           working_directory: merkle-tree
           command: |
-            deploy_ecr merkle-tree
             deploy_npm merkle-tree
       - run:
           name: "p2p"
           working_directory: p2p
           command: |
-            deploy_ecr p2p
             deploy_npm p2p
       - run:
           name: "sequencer-client"
           working_directory: sequencer-client
           command: |
-            deploy_ecr sequencer-client
             deploy_npm sequencer-client
       - run:
           name: "world-state"
           working_directory: world-state
           command: |
-            deploy_ecr world-state
             deploy_npm world-state
       - run:
           name: "key-store"
           working_directory: key-store
           command: |
-            deploy_ecr key-store
             deploy_npm key-store
       - run:
           name: "aztec-node"
           working_directory: aztec-node
           command: |
-            deploy_ecr aztec-node
             deploy_npm aztec-node
       - run:
           name: "aztec-sandbox"
           working_directory: aztec-sandbox
           command: |
-            deploy_ecr aztec-sandbox
             deploy_npm aztec-sandbox
 
   deploy-dockerhub:
@@ -1212,8 +1192,6 @@ jobs:
           name: "deploy-sandbox"
           working_directory: aztec-sandbox
           command: |
-            deploy_ecr aztec-sandbox x86_64
-            deploy_ecr aztec-sandbox arm64
             deploy_dockerhub aztec-sandbox x86_64
             deploy_dockerhub aztec-sandbox arm64
             create_dockerhub_manifest aztec-sandbox x86_64,arm64
