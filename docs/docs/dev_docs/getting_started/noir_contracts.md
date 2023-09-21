@@ -1,5 +1,5 @@
 ---
-title: Aztec.nr Contracts
+title: Aztec.nr Contracts Quickstart
 ---
 
 ## Introduction
@@ -59,16 +59,21 @@ Before writing the contracts, we must add the aztec.nr library. This adds smart 
 
 3. Add aztec.nr library as a dependency to your noir project. Open Nargo.toml that is in the `contracts/example_contract` folder, and add the dependency section as follows:
 
-```
-[package]
+import { AztecPackagesVersion } from "@site/src/components/Version";
+
+<CodeBlock language="toml">{`[package]
 name = "example_contract"
 authors = [""]
 compiler_version = "0.1"
 type = "contract"
-
+ 
 [dependencies]
-aztec = { git="https://github.com/AztecProtocol/aztec-packages", tag="master", directory="yarn-project/aztec-nr/aztec" }
-```
+aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="master", directory="yarn-project/aztec-nr/aztec" }
+`}</CodeBlock>
+
+:::note
+You may need to update your dependencies depending on the contract that you are writing. For example, the token contract [imports more](../getting_started/token_contract_tutorial#project-setup).
+:::
 
 You are now ready to write your own contracts!
 
