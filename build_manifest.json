@@ -153,6 +153,9 @@
     "buildDir": "yarn-project",
     "projectDir": "yarn-project/aztec.js"
   },
+  "boxes": {
+    "buildDir": "yarn-project/boxes"
+  },
   "canary-build": {
     "buildDir": "yarn-project",
     "projectDir": "yarn-project/canary",
