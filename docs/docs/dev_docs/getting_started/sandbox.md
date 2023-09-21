@@ -15,6 +15,7 @@ For a quickstart checkout [the Quickstart section](./quickstart.md)
 Here we will walkthrough the process of retrieving the Sandbox, installing the client libraries and using it to deploy and use a fully private token contract on the Aztec network using Aztec.js.
 
 You can find the [complete tutorial code here](https://github.com/AztecProtocol/dev-rel/tree/main/tutorials/sandbox-tutorial/token).
+
 ## Prerequisites
 
 - Node.js >= v18
@@ -22,7 +23,8 @@ You can find the [complete tutorial code here](https://github.com/AztecProtocol/
 
 That's it...
 
-## Install the Sandbox 
+## Install the Sandbox
+
 In your terminal:
 
 ```sh
@@ -42,7 +44,7 @@ Within a few seconds the Sandbox should be up and running!
 
 ## Project setup
 
-We will deploy a pre-compiled token contract, and send tokens privately, using the Sandbox. 
+We will deploy a pre-compiled token contract, and send tokens privately, using the Sandbox.
 
 :::info
 If you don't want to follow along and copy pasting step-by-step, the full code repository is available [here](https://github.com/AztecProtocol/dev-rel/tree/main/tutorials/sandbox-tutorial/token)
@@ -73,7 +75,7 @@ mkdir src
 4. Add necessary yarn packages (and optionally add typescript too)
 
 ```sh
-yarn add @aztec/aztec.js @aztec/noir-contracts typescript @types/node 
+yarn add @aztec/aztec.js @aztec/noir-contracts typescript @types/node
 ```
 
 5. [Optional] If creating a typescript file, add a `tsconfig.json` file into the project root, here is an example:
@@ -130,26 +132,28 @@ yarn add @aztec/aztec.js @aztec/noir-contracts typescript @types/node
 }
 ```
 
-## Using the sandbox
-1. Create an `index.ts` file in the `src` directory of your project and add the following imports:
+7. Next, install Aztec related dependencies
 
-#include_code imports /yarn-project/end-to-end/src/e2e_sandbox_example.test.ts typescript
+```sh
+yarn add @aztec/aztec.js @aztec/noir-contracts
+```
 
-Below the imports, set up a function in which we'll add the logic to interact with the Sandbox.
+8. Create an `index.ts` file in the `src` directory with the following sandbox connection setup:
 
 ```ts
-async function main() {}
+#include_code imports /yarn-project/end-to-end/src/e2e_sandbox_example.test.ts raw
+
+async function main() {
+#include_code setup /yarn-project/end-to-end/src/e2e_sandbox_example.test.ts raw
+}
 
 main();
 ```
 
-and the following setup code goes in the `main` function:
-
-#include_code setup /yarn-project/end-to-end/src/e2e_sandbox_example.test.ts typescript
-
-2. Run the code:
+9. Finally, run the package:
 
 In the project root, run
+
 ```sh
 yarn start
 ```
@@ -171,6 +175,7 @@ A successful run should show:
 Great! The Sandbox is running and we are able to interact with it.
 
 ## Accounts
+
 The sandbox is preloaded with multiple accounts so you don't have to sit and create them. Let's load these accounts
 
 #include_code load_accounts /yarn-project/end-to-end/src/e2e_sandbox_example.test.ts typescript
