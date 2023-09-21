@@ -25,15 +25,7 @@ function get_deps {
     local PROJECT_DIR=$($0 projectDir $1)
     DEPS=($($CMD $PROJECT_DIR))
   elif [ "$TYPE" == "!!null" ]; then
-    # Execute default script relative to buildDir to retrieve dependencies.
-    local BUILD_DIR=$($0 buildDir $1)
-    local CMD=$BUILD_DIR/scripts/get_dependencies.sh
-    if [ ! -f "$CMD" ]; then
-      DEPS=()
-      return
-    fi
-    local PROJECT_DIR=$($0 projectDir $1)
-    DEPS=($($CMD $PROJECT_DIR))
+    DEPS=()
   elif [ "$TYPE" == "!!seq" ]; then
     DEPS=($(yq -r ".\"$1\".dependencies // [] | .[]" $MANIFEST))
   else
@@ -82,9 +74,8 @@ case "$CMD" in
     ;;
   dependencies)
     # Get dependencies for a given repo. Inclusive of repo itself.
-    # If no entry in the manifest file, attempt to call <projectDir>/scripts/get_dependencies.sh if exists, else empty.
-    # If a string, attempt to call <projectDir>/<string> if exists, else error.
-    # If an array, the array lists the dependencies.
+    # If a string, attempt to execute <projectDir>/<string> if exists to get dependencies, else error.
+    # If an array, the array lists the dependencies (excluding self).
     # Recursively descend "unvisited" dependencies to collect all dependencies.
     declare -A VISITED
     declare -a ALL_DEPS

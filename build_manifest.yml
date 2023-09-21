@@ -118,21 +118,31 @@ yarn-project:
 aztec-sandbox-base:
   buildDir: yarn-project
   projectDir: yarn-project/aztec-sandbox
+  dependencies:
+    - yarn-project
 
 aztec-sandbox:
   buildDir: yarn-project
   projectDir: yarn-project/aztec-sandbox
   dockerfile: Dockerfile.final
+  dependencies:
+    - aztec-sandbox-base
 
 canary-build:
   buildDir: yarn-project
   projectDir: yarn-project/canary
   dockerfile: Dockerfile.build
+  dependencies:
+    - yarn-project
 
 canary:
   buildDir: yarn-project
   projectDir: yarn-project/canary
+  dependencies:
+    - yarn-project
 
 end-to-end:
   buildDir: yarn-project
   projectDir: yarn-project/end-to-end
+  dependencies:
+    - yarn-project
