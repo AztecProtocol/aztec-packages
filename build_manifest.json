@@ -154,7 +154,8 @@
     "projectDir": "yarn-project/aztec.js"
   },
   "boxes-blank-react": {
-    "buildDir": "yarn-project/boxes/blank-react/"
+    "buildDir": "yarn-project",
+    "projectDir": "yarn-project/boxes/blank-react"
   },
   "canary-build": {
     "buildDir": "yarn-project",
