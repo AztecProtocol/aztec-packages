@@ -1431,7 +1431,11 @@ workflows:
       - aztec-rpc: *yarn_project
       - aztec-node: *yarn_project
       - cli: *yarn_project
-      - boxes-blank-react: *yarn_project
+      - boxes-blank-react:
+          requires:
+            - yarn-project-base
+            - circuits-js
+          <<: *defaults
       - key-store: *yarn_project
       - merkle-tree: *yarn_project
       - p2p: *yarn_project

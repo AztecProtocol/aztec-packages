@@ -2,6 +2,9 @@ FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project-base AS builder
 
 COPY . .
 
+FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/circuits.js AS circuits
+COPY --from=circuits /usr/src/yarn-project/circuits.js/dest /usr/src/yarn-project/circuits.js/dest
+
 WORKDIR /usr/src/yarn-project/boxes/blank-react
 RUN yarn build && yarn formatting
 
