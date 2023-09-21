@@ -638,7 +638,7 @@ jobs:
           name: "Build and test"
           command: build sequencer-client
 
-  boxes:
+  boxes-blank-react:
     machine:
       image: ubuntu-2004:202010-01
     resource_class: large
@@ -1431,7 +1431,7 @@ workflows:
       - aztec-rpc: *yarn_project
       - aztec-node: *yarn_project
       - cli: *yarn_project
-      - boxes: *yarn_project
+      - boxes-blank-react: *yarn_project
       - key-store: *yarn_project
       - merkle-tree: *yarn_project
       - p2p: *yarn_project
