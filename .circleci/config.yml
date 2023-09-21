@@ -376,24 +376,24 @@ jobs:
 
   noir-contracts-build:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: ubuntu-2004:202010-01
     resource_class: large
     steps:
       - *checkout
       - *setup_env
       - run:
-          name: Build
+          name: "Build"
           command: build noir-contracts-build | add_timestamps
 
   yarn-project-base:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: ubuntu-2004:202010-01
     resource_class: large
     steps:
       - *checkout
       - *setup_env
       - run:
-          name: Build
+          name: "Build"
           command: build yarn-project-base | add_timestamps
 
   yarn-project:
@@ -814,6 +814,16 @@ jobs:
       - run:
           name: "Test"
           command: cond_run_script end-to-end ./scripts/run_tests_local sample-dapp ./scripts/docker-compose-e2e-sandbox.yml
+
+  guides-up-quick-start:
+    machine:
+      image: ubuntu-2004:202010-01
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_run_script end-to-end ./scripts/run_tests_local guides/up_quick_start.test.ts ./scripts/docker-compose-e2e-sandbox.yml
 
   e2e-canary-test:
     machine:
