@@ -88,8 +88,6 @@ TEST_F(PermutationHelperTests, ComputeHonkStyleSigmaLagrangePolynomialsFromMappi
 TEST_F(PermutationHelperTests, ComputeStandardAuxPolynomials)
 {
     // TODO(#425) Flesh out these tests
-    compute_standard_honk_id_polynomials<Flavor>(proving_key);
-    compute_standard_honk_sigma_permutations<Flavor>(circuit_constructor, proving_key.get());
     compute_first_and_last_lagrange_polynomials<Flavor>(proving_key);
 }
 

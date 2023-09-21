@@ -14,7 +14,7 @@
 
 using namespace proof_system::honk;
 
-namespace test_standard_honk_composer {
+namespace test_eccvm_composer {
 
 template <typename Flavor> class ECCVMComposerTests : public ::testing::Test {
   protected:
@@ -102,4 +102,4 @@ TYPED_TEST(ECCVMComposerTests, EqFails)
     bool verified = verifier.verify_proof(proof);
     ASSERT_FALSE(verified);
 }
-} // namespace test_standard_honk_composer
+} // namespace test_eccvm_composer
