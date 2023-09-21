@@ -249,6 +249,16 @@ export function appFactory(node: AztecNode, prefix: string) {
     ctx.status = 200;
   });
 
+  router.get('/nullifier-index', async (ctx: Koa.Context) => {
+    const nullifier = ctx.query.nullifier!;
+    const index = await node.findNullifierIndex(Fr.fromString(nullifier as string));
+    ctx.set('content-type', 'application/json');
+    ctx.body = {
+      index,
+    };
+    ctx.status = 200;
+  });
+
   router.get('/public-storage-at', async (ctx: Koa.Context) => {
     logger('public-storage-at');
     const address = ctx.query.address!;

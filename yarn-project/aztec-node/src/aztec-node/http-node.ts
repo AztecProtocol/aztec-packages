@@ -318,6 +318,17 @@ export class HttpNode implements AztecNode {
     return Promise.resolve(SiblingPath.fromString(path));
   }
 
+  async findNullifierIndex(nullifier: Fr): Promise<bigint | undefined> {
+    const url = new URL(`${this.baseUrl}/nullifier-index`);
+    url.searchParams.append('nullifier', nullifier.toString());
+    const response = await (await fetch(url.toString())).json();
+    if (!response || !response.index) {
+      return undefined;
+    }
+    const index = response.index as string;
+    return BigInt(index);
+  }
+
   /**
    * Gets the storage value at the given contract slot.
    * @param contract - Address of the contract to query.
