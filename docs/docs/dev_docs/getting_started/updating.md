@@ -24,14 +24,14 @@ If you are unsure what version to use go to [aztec-packages repository](https://
 
 Then set the `SANDBOX_VERSION` environmental variable to the version you want to use. E.g.:
 ```shell
-export SANDBOX_VERSION=0.7.7
+export SANDBOX_VERSION=#include_aztec_short_version
 ```
 
 Now when you run the curl command it will use the version you specified.
 To verify that it's the case check the console output of the curl command.
 You should see the following line:
 ```
-Setting up Aztec Sandbox v0.7.7 (nargo 0.11.1-aztec.0), please stand by...
+Setting up Aztec Sandbox v#include_aztec_short_version (nargo #include_noir_version), please stand by...
 ```
 
 Alternatively you can open a new terminal and use aztec-cli to get the version.
@@ -53,7 +53,7 @@ npm install -g @aztec/cli@$SANDBOX_VERSION
 
 E.g.:
 ```shell
-npm install -g @aztec/cli@0.7.7
+npm install -g @aztec/cli@#include_aztec_short_version
 ```
 
 ## Updating Noir compiler
@@ -80,18 +80,12 @@ value_note = { git="https://github.com/AztecProtocol/aztec-packages", tag="aztec
 ```
 
 To provide you with a concrete example we will update from version `0.7.5`:
-```toml
+```diff
 [dependencies]
-aztec = { git="https://github.com/AztecProtocol/aztec-packages", tag="aztec-packages-v0.7.5", directory="yarn-project/aztec-nr/aztec" }
-value_note = { git="https://github.com/AztecProtocol/aztec-packages", tag="aztec-packages-v0.7.5", directory="yarn-project/aztec-nr/value-note" }
-```
-
-to `0.7.7`:
-
-```toml
-[dependencies]
-aztec = { git="https://github.com/AztecProtocol/aztec-packages", tag="aztec-packages-v0.7.7", directory="yarn-project/aztec-nr/aztec" }
-value_note = { git="https://github.com/AztecProtocol/aztec-packages", tag="aztec-packages-v0.7.7", directory="yarn-project/aztec-nr/value-note" }
+-aztec = { git="https://github.com/AztecProtocol/aztec-packages", tag="aztec-packages-v0.7.5", directory="yarn-project/aztec-nr/aztec" }
++aztec = { git="https://github.com/AztecProtocol/aztec-packages", tag="#include_aztec_version", directory="yarn-project/aztec-nr/aztec" }
+-value_note = { git="https://github.com/AztecProtocol/aztec-packages", tag="aztec-packages-v0.7.5", directory="yarn-project/aztec-nr/value-note" }
++value_note = { git="https://github.com/AztecProtocol/aztec-packages", tag="#include_aztec_version", directory="yarn-project/aztec-nr/value-note" }
 ```
 
 Go to the project directory and try compiling it with `aztec-cli`` to verify that the update was successful:
