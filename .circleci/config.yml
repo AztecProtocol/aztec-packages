@@ -375,15 +375,15 @@ jobs:
           command: build l1-contracts
 
   noir-contracts-build:
-    docker:
-      - image: aztecprotocol/alpine-build-image
+    machine:
+      image: ubuntu-2204:current
     resource_class: small
     steps:
       - *checkout
       - *setup_env
       - run:
           name: Build
-          command: cond_spot_run_build noir-contracts-build 64 | add_timestamps
+          command: build noir-contracts-build | add_timestamps
 
   yarn-project-base:
     machine:

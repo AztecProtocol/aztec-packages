@@ -1,6 +1,5 @@
 import { CircuitsWasm, GrumpkinPrivateKey } from '@aztec/circuits.js';
 import { Grumpkin, pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
-import { Fr } from '@aztec/foundation/fields';
 
 /**
  * A point in the format that Aztec.nr uses.
