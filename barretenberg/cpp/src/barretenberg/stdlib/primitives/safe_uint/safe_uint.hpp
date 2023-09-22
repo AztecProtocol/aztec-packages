@@ -96,67 +96,12 @@ template <typename ComposerContext> class safe_uint_t {
     explicit operator bool_ct() { return bool_ct(value); }
     static safe_uint_t from_witness_index(ComposerContext* parent_context, const uint32_t witness_index);
 
-    /**
-     * @brief Subtraction when you have a pre-determined bound on the difference size
-     * @details Same as operator- except with this pre-determined bound `difference_bit_size`.
-     *
-     * @param other
-     * @param difference_bit_size
-     * @param description
-     * @return safe_uint_t
-     */
+    // Subtraction when you have a pre-determined bound on the difference size
     safe_uint_t subtract(const safe_uint_t& other,
                          const size_t difference_bit_size,
-                         std::string const& description = "") const
-    {
-        ASSERT(difference_bit_size <= MAX_BIT_NUM);
-        ASSERT(!(this->value.is_constant() && other.value.is_constant()));
-        field_ct difference_val = this->value - other.value;
-        // Creates the range constraint that difference_val is in [0, (1<<difference_bit_size) - 1].
-        safe_uint_t<ComposerContext> difference(difference_val, difference_bit_size, format("subtract: ", description));
-        // It is possible for underflow to happen and the range constraint to not catch it.
-        // This is when (a - b) + modulus <= (1<<difference_bit_size) - 1 (or difference.current_max)
-        // Checking that difference.current_max + max of (b - a) >= modulus will ensure that underflow is caught in all
-        // cases
-        if (difference.current_max + other.current_max > MAX_VALUE)
-            throw_or_abort("maximum value exceeded in safe_uint subtract");
-        return difference;
-    }
+                         std::string const& description = "") const;
 
-    /**
-     * @brief Does the minus operator on two safe_uint_t objects
-     * @details First checks the case where both are constants and there is underflow.
-     *          Then, we compute the difference value and create a safe_uint_t from the value
-     *          and with the same max value as `current_max`.
-     *          Constructing the `difference` safe_uint_t will create a range constraint,
-     *          which will catch underflow as long as the difference value does not end up in the range [0,
-     * current_max]. The only case where it is possible that the difference value can end up in this range, is when
-     * `current_max` + `other.current_max` exceeds MAX_VALUE (the modulus - 1), so we throw an error in this case.
-     *
-     * @param other
-     * @return safe_uint_t
-     */
-    safe_uint_t operator-(const safe_uint_t& other) const
-    {
-        // If both are constants and the operation is an underflow, throw an error
-        // Constants are part of the circuit so we can check the case when both are constants and throw an error if
-        // there is underflow.
-        ASSERT(!(this->value.is_constant() && other.value.is_constant() &&
-                 static_cast<uint256_t>(value.get_value()) < static_cast<uint256_t>(other.value.get_value())));
-        field_ct difference_val = this->value - other.value;
-
-        // safe_uint_t constructor creates a range constraint which checks that `difference_val` is within [0,
-        // current_max].
-        safe_uint_t<ComposerContext> difference(difference_val, (size_t)(current_max.get_msb() + 1), "- operator");
-
-        // If we are subtracting a - b and there is an underflow AND the range constraint fails to catch it,
-        // this is equivalent to the condition that (a - b) + modulus <= current_max.
-        // (a-b) is minimized by -other.current_max, so IF current_max + other.current_max >= modulus,
-        // there may be an underflow that the range constraint fails to catch, so we need to throw an error.
-        if (difference.current_max + other.current_max > MAX_VALUE)
-            throw_or_abort("maximum value exceeded in safe_uint minus operator");
-        return difference;
-    }
+    safe_uint_t operator-(const safe_uint_t& other) const;
 
     // division when you have a pre-determined bound on the sizes of the quotient and remainder
     safe_uint_t divide(
@@ -167,60 +112,10 @@ template <typename ComposerContext> class safe_uint_t {
         const std::function<std::pair<uint256_t, uint256_t>(uint256_t, uint256_t)>& get_quotient =
             [](uint256_t val, uint256_t divisor) {
                 return std::make_pair((uint256_t)(val / (uint256_t)divisor), (uint256_t)(val % (uint256_t)divisor));
-            })
-    {
-        ASSERT(this->value.is_constant() == false);
-        ASSERT(quotient_bit_size <= MAX_BIT_NUM);
-        ASSERT(remainder_bit_size <= MAX_BIT_NUM);
-        uint256_t val = this->value.get_value();
-        auto [quotient_val, remainder_val] = get_quotient(val, (uint256_t)other.value.get_value());
-        field_ct quotient_field(witness_t(value.context, quotient_val));
-        field_ct remainder_field(witness_t(value.context, remainder_val));
-        safe_uint_t<ComposerContext> quotient(
-            quotient_field, quotient_bit_size, format("divide method quotient: ", description));
-        safe_uint_t<ComposerContext> remainder(
-            remainder_field, remainder_bit_size, format("divide method remainder: ", description));
-
-        // This line implicitly checks we are not overflowing
-        safe_uint_t int_val = quotient * other + remainder;
-
-        // We constrain divisor - remainder - 1 to be non-negative to ensure that remainder < divisor.
-        // Define remainder_plus_one to avoid multiple subtractions
-        const safe_uint_t<ComposerContext> remainder_plus_one = remainder + 1;
-        // Subtraction of safe_uint_t's imposes the desired range constraint
-        other - remainder_plus_one;
-
-        this->assert_equal(int_val, "divide method quotient and/or remainder incorrect");
-
-        return quotient;
-    }
+            }) const;
 
     // Potentially less efficient than divide function - bounds remainder and quotient by max of this
-    safe_uint_t operator/(const safe_uint_t& other) const
-    {
-        ASSERT(this->value.is_constant() == false);
-        uint256_t val = this->value.get_value();
-        auto [quotient_val, remainder_val] = val.divmod((uint256_t)other.value.get_value());
-        field_ct quotient_field(witness_t(value.context, quotient_val));
-        field_ct remainder_field(witness_t(value.context, remainder_val));
-        safe_uint_t<ComposerContext> quotient(
-            quotient_field, (size_t)(current_max.get_msb() + 1), format("/ operator quotient"));
-        safe_uint_t<ComposerContext> remainder(
-            remainder_field, (size_t)(other.current_max.get_msb() + 1), format("/ operator remainder"));
-
-        // This line implicitly checks we are not overflowing
-        safe_uint_t int_val = quotient * other + remainder;
-
-        // We constrain divisor - remainder - 1 to be non-negative to ensure that remainder < divisor.
-        // // define remainder_plus_one to avoid multiple subtractions
-        const safe_uint_t<ComposerContext> remainder_plus_one = remainder + 1;
-        // // subtraction of safe_uint_t's imposes the desired range constraint
-        other - remainder_plus_one;
-
-        this->assert_equal(int_val, "/ operator quotient and/or remainder incorrect");
-
-        return quotient;
-    }
+    safe_uint_t operator/(const safe_uint_t& other) const;
 
     safe_uint_t add_two(const safe_uint_t& add_a, const safe_uint_t& add_b) const
     {
