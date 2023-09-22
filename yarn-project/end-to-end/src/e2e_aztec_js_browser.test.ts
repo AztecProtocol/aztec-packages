@@ -27,6 +27,7 @@ const pageLogger = createDebugLogger('aztec:canary_aztec.js:web:page');
  *       unexpectedly running in the background. Kill it with `killall chrome`
  */
 const setupApp = () => {
+  logger('forcing a fresh build & run');
   const app = new Koa();
   app.use(serve(path.resolve(__dirname, './web')));
   const server = app.listen(PORT, () => {
