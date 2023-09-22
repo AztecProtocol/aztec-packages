@@ -3,7 +3,7 @@
 To add contracts to your application, we'll start by creating a new `nargo` project. We'll then compile the contracts, and write a simple script to deploy them to our Sandbox.
 
 :::info
-Follow the instructions [here](../../getting_started/noir_contracts.md) to install `nargo` if you haven't done so already.
+Follow the instructions [here](../../contracts/setup.md) to install `nargo` if you haven't done so already.
 :::
 
 ## Initialise nargo project
@@ -17,13 +17,12 @@ nargo new --contract token
 
 Then, open the `contracts/token/Nargo.toml` configuration file, and add the `aztec.nr` and `value_note` libraries as dependencies:
 
-import { AztecPackagesVersion } from "@site/src/components/Version";
-
-<CodeBlock language="toml">{`[dependencies]
-aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="${AztecPackagesVersion()}", directory="yarn-project/aztec-nr/aztec" }
-value_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="${AztecPackagesVersion()}", directory="yarn-project/aztec-nr/value-note"}
-safe_math = { git="https://github.com/AztecProtocol/aztec-packages/", tag="${AztecPackagesVersion()}", directory="yarn-project/aztec-nr/safe-math"}
-`}</CodeBlock>
+```toml
+[dependencies]
+aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/aztec" }
+value_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/value-note"}
+safe_math = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/safe-math"}
+```
 
 Last, copy-paste the code from the `Token` contract into `contracts/token/main.nr`:
 
