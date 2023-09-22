@@ -1,4 +1,4 @@
-# This base dockerfile adds all the remaining source files, performs artifact generation, and builds the project.
+# Runs all our typescript package non-e2e tests.
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/noir-contracts-build as noir
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project-base
 
