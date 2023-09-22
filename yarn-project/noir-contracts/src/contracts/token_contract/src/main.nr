@@ -405,7 +405,6 @@ contract Token {
     // docs:end:total_supply
 
     // docs:start:balance_of_private
-    #[aztec(unconstrained)]
     unconstrained fn balance_of_private(
         owner: AztecAddress,
     ) -> Field {
