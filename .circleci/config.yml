@@ -1024,6 +1024,16 @@ jobs:
           name: "Test"
           command: cond_run_script end-to-end ./scripts/run_tests_local sample-dapp ./scripts/docker-compose-e2e-sandbox.yml
 
+  guides-up-quick-start:
+    machine:
+      image: ubuntu-2004:202010-01
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_run_script end-to-end ./scripts/run_tests_local guides/up_quick_start.test.ts ./scripts/docker-compose-e2e-sandbox.yml
+
   e2e-canary-test:
     machine:
       image: ubuntu-2004:202010-01
@@ -1305,8 +1315,6 @@ workflows:
     when:
       equal: [system, << pipeline.parameters.workflow >>]
     jobs:
-      - build-docs: *defaults
-
       # Barretenberg
       - barretenberg-x86_64-linux-gcc: *defaults
       - barretenberg-x86_64-linux-clang: *defaults
@@ -1399,7 +1407,8 @@ workflows:
             - l1-contracts
             - noir-contracts-build
           <<: *defaults
-
+      
+      - build-docs: *yarn_project
       - aztec-js: *yarn_project
       - end-to-end: *yarn_project
       - ethereum: *yarn_project
@@ -1499,6 +1508,7 @@ workflows:
       - guides-writing-an-account-contract: *e2e_test
       - guides-dapp-testing: *e2e_test
       - guides-sample-dapp: *e2e_test
+      - guides-up-quick-start: *e2e_test
 
       - e2e-end:
           requires:
@@ -1535,6 +1545,7 @@ workflows:
             - guides-writing-an-account-contract
             - guides-dapp-testing
             - guides-sample-dapp
+            - guides-up-quick-start
           <<: *defaults
 
         # Deployment and Canary tests
