@@ -95,13 +95,12 @@ if [ -d $ROOT_PATH/$PROJECT_DIR/terraform ]; then
   popd
 fi
 
-docker system prune
-# # Pull latest parents that are not ours. We also do not want to pull images suffixed by _, this is how we scope intermediate build images.
-# PARENTS=$(cat $DOCKERFILE | sed -n -e 's/^FROM \([^[:space:]]\+\).*/\1/p' | sed '/_$/d' | { grep -v $ECR_DEPLOY_URL || true; } | sort | uniq)
-# for PARENT in $PARENTS; do
-#   [ "$PARENT" == "scratch" ] && continue
-#   fetch_image $PARENT
-# done
+# Pull latest parents that are not ours. We also do not want to pull images suffixed by _, this is how we scope intermediate build images.
+PARENTS=$(cat $DOCKERFILE | sed -n -e 's/^FROM \([^[:space:]]\+\).*/\1/p' | sed '/_$/d' | { grep -v $ECR_DEPLOY_URL || true; } | sort | uniq)
+for PARENT in $PARENTS; do
+  [ "$PARENT" == "scratch" ] && continue
+  fetch_image $PARENT
+done
 
 # For each parent that's ours, pull in the latest image.
 PARENTS=$(cat $DOCKERFILE | sed -n -e "s/^FROM $ECR_DEPLOY_URL\/\([^[:space:]]\+\).*/\1/p")
