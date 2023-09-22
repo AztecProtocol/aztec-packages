@@ -29,7 +29,7 @@ MANIFEST_DEPLOY_URI=$ACCOUNT/$REPOSITORY:$IMAGE_TAG
 MANIFEST_LATEST_URI=$ACCOUNT/$REPOSITORY:latest
 
 # Login to dockerhub.
-docker_login
+dockerhub_login
 
 export DOCKER_CLI_EXPERIMENTAL=enabled
 

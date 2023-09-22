@@ -111,22 +111,9 @@ yarn-project-base:
 
 yarn-project:
   buildDir: yarn-project
-  dockerfile: Dockerfile.build
   dependencies:
     - yarn-project-base
     - noir-contracts-build
-
-yarn-project-test:
-  buildDir: yarn-project
-  dockerfile: Dockerfile.test
-  dependencies:
-    - yarn-project
-
-yarn-project-format:
-  buildDir: yarn-project
-  dockerfile: Dockerfile.format
-  dependencies:
-    - yarn-project
 
 aztec-sandbox-base:
   buildDir: yarn-project

@@ -423,7 +423,7 @@ jobs:
       - *setup_env
       - run:
           name: Build
-          command: build yarn-project-test | add_timestamps
+          command: cond_run_script yarn-project ./scripts/run_tests_local test
 
   aztec-sandbox-base:
     machine:
