@@ -413,7 +413,7 @@ jobs:
       - *setup_env
       - run:
           name: Build
-          command: build yarn-project-format | add_timestamps
+          command: cond_run_container yarn-project formatting
 
   yarn-project-test:
     machine:
@@ -423,7 +423,7 @@ jobs:
       - *setup_env
       - run:
           name: Build
-          command: cond_run_script yarn-project ./scripts/run_tests_local test
+          command: cond_run_container yarn-project test
 
   aztec-sandbox-base:
     machine:
