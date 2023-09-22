@@ -4,8 +4,8 @@ Once you have [compiled](./compiling.md) your contracts you can proceed to deplo
 
 ## Prerequisites
 - aztec-cli installed (go to [CLI main section](../cli/main.md) for installation instructions)
-- contract artifacts ready (go to [Compiling contracts section](../contracts/compiling.md) for instructions on how to compile contracts)
-- aztec-sandbox running (go to [Sandbox section](../sandbox/main.md) for instructions on how to install and run the sandbox)
+- contract artifacts ready (go to [Compiling contracts section](./compiling.md) for instructions on how to compile contracts)
+- aztec-sandbox running (go to [Sandbox section](../getting_started/sandbox.md) for instructions on how to install and run the sandbox)
 
 ## Deploy
 
@@ -116,7 +116,7 @@ await aztecRpc.registerRecipient(completeAddress);
 </TabItem>
 </Tabs>
 
-When you create a new account, it gets automatically registered. It can be verified by calling `aztec-cli get-accounts` OR in aztec.js by using `await aztecRpc.getAccounts()`
+When you create a new account, it gets automatically registered. It can be verified by calling `aztec-cli get-accounts` OR in aztec.js by using `await aztecRpc.getRegisteredAccounts()`
 
 > **NOTE 1**: If we didn't register owner as a recipient we could not encrypt a note for the owner and the contract deployment would fail because constructor execution would fail (we need owner's public key to encrypt a note).
 

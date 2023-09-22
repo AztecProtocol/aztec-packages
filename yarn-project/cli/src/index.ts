@@ -172,11 +172,6 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
 
       const constructor = getAbiFunction(contractAbi, 'constructor');
       if (!constructor) throw new Error(`Constructor not found in contract ABI`);
-      if (constructor.parameters.length !== options.args.length) {
-        throw new Error(
-          `Invalid number of args passed (expected ${constructor.parameters.length} but got ${options.args.length})`,
-        );
-      }
 
       debugLogger(`Input arguments: ${options.args.map((x: any) => `"${x}"`).join(', ')}`);
       const args = encodeArgs(options.args, constructorAbi!.parameters);
@@ -292,7 +287,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', AZTEC_RPC_HOST || 'http://localhost:8080')
     .action(async (options: any) => {
       const client = await createCompatibleClient(options.rpcUrl, debugLogger);
-      const accounts = await client.getAccounts();
+      const accounts = await client.getRegisteredAccounts();
       if (!accounts.length) {
         log('No accounts found.');
       } else {
@@ -311,7 +306,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .action(async (_address, options) => {
       const client = await createCompatibleClient(options.rpcUrl, debugLogger);
       const address = AztecAddress.fromString(_address);
-      const account = await client.getAccount(address);
+      const account = await client.getRegisteredAccount(address);
 
       if (!account) {
         log(`Unknown account ${_address}`);
@@ -376,13 +371,6 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
         log,
       );
 
-      const fnAbi = getAbiFunction(contractAbi, functionName);
-      if (fnAbi.parameters.length !== options.args.length) {
-        throw Error(
-          `Invalid number of args passed. Expected ${fnAbi.parameters.length}; Received: ${options.args.length}`,
-        );
-      }
-
       const privateKey = GrumpkinScalar.fromString(stripLeadingHex(options.privateKey));
 
       const client = await createCompatibleClient(options.rpcUrl, debugLogger);
@@ -410,7 +398,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       "A compiled Aztec.nr contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts",
     )
     .requiredOption('-ca, --contract-address <address>', 'Aztec address of the contract.')
-    .option('-f, --from <string>', 'Public key of the TX viewer. If empty, will try to find account in RPC.')
+    .option('-f, --from <string>', 'Aztec address of the caller. If empty, will use the first account from RPC.')
     .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', AZTEC_RPC_HOST || 'http://localhost:8080')
     .action(async (functionName, options) => {
       const { contractAddress, functionArgs, contractAbi } = await prepTx(

@@ -1,11 +1,12 @@
+import { Button, Loader } from '@aztec/aztec-ui';
 import { AztecAddress, CompleteAddress, Fr } from '@aztec/aztec.js';
 import { ContractAbi, FunctionAbi } from '@aztec/foundation/abi';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import { CONTRACT_ADDRESS_PARAM_NAMES, DEFAULT_PUBLIC_ADDRESS, rpcClient } from '../../config.js';
+import { CONTRACT_ADDRESS_PARAM_NAMES, rpcClient } from '../../config.js';
 import { callContractFunction, deployContract, viewContractFunction } from '../../scripts/index.js';
 import { convertArgs } from '../../scripts/util.js';
-import { Button } from './index.js';
+import styles from './contract_function_form.module.scss';
 
 type NoirFunctionYupSchema = {
   // hack: add `any` at the end to get the array schema to typecheck
@@ -17,14 +18,14 @@ type NoirFunctionFormValues = {
   [key: string]: string | number | number[] | boolean;
 };
 
-function generateYupSchema(functionAbi: FunctionAbi) {
+function generateYupSchema(functionAbi: FunctionAbi, defaultAddress: string) {
   const parameterSchema: NoirFunctionYupSchema = {};
   const initialValues: NoirFunctionFormValues = {};
   for (const param of functionAbi.parameters) {
     if (CONTRACT_ADDRESS_PARAM_NAMES.includes(param.name)) {
-  // these are hex strings instead, but yup doesn't support bigint so we convert back to bigint on execution
+      // these are hex strings instead, but yup doesn't support bigint so we convert back to bigint on execution
       parameterSchema[param.name] = Yup.string().required();
-      initialValues[param.name] = DEFAULT_PUBLIC_ADDRESS;
+      initialValues[param.name] = defaultAddress;
       continue;
     }
     switch (param.type.kind) {
@@ -32,7 +33,7 @@ function generateYupSchema(functionAbi: FunctionAbi) {
         parameterSchema[param.name] = Yup.number().required();
         initialValues[param.name] = 100;
         break;
-    // not really needed for private token, since we hide the nullifier helper method which has the array input
+      // not really needed for private token, since we hide the nullifier helper method which has the array input
       case 'array':
         // eslint-disable-next-line no-case-declarations
         const arrayLength = param.type.length;
@@ -85,7 +86,15 @@ async function handleFunctionCall(
   if (functionAbi.functionType === 'unconstrained') {
     return await viewContractFunction(contractAddress!, contractAbi, functionName, typedArgs, rpcClient, wallet);
   } else {
-    return await callContractFunction(contractAddress!, contractAbi, functionName, typedArgs, rpcClient, wallet);
+    const txnReceipt = await callContractFunction(
+      contractAddress!,
+      contractAbi,
+      functionName,
+      typedArgs,
+      rpcClient,
+      wallet,
+    );
+    return `Transaction ${txnReceipt.status} on block number ${txnReceipt.blockNumber}`;
   }
 }
 
@@ -94,6 +103,7 @@ interface ContractFunctionFormProps {
   contractAddress?: AztecAddress;
   contractAbi: ContractAbi;
   functionAbi: FunctionAbi;
+  defaultAddress: string;
   title?: string;
   buttonText?: string;
   isLoading: boolean;
@@ -108,7 +118,7 @@ export function ContractFunctionForm({
   contractAddress,
   contractAbi,
   functionAbi,
-  title,
+  defaultAddress,
   buttonText = 'Submit',
   isLoading,
   disabled,
@@ -116,7 +126,7 @@ export function ContractFunctionForm({
   onSuccess,
   onError,
 }: ContractFunctionFormProps) {
-  const { validationSchema, initialValues } = generateYupSchema(functionAbi);
+  const { validationSchema, initialValues } = generateYupSchema(functionAbi, defaultAddress);
   const formik = useFormik({
     initialValues: initialValues,
     validationSchema: validationSchema,
@@ -132,37 +142,31 @@ export function ContractFunctionForm({
   });
 
   return (
-    <div className="rounded-sm py-8">
-      <h2 className="py-4 text-lg">{title || `${functionAbi.name} (${functionAbi.functionType})`}</h2>
-      <form onSubmit={formik.handleSubmit} className="flex justify-between items-end py-4">
-        <div className="flex flex-wrap justify-start">
-          {functionAbi.parameters.map(input => (
-            <div key={input.name} className="inline-block text-left p-1">
-              <label htmlFor={input.name} className="block p-1">
-                {input.name} ({input.type.kind})
-              </label>
-              <div className="block p-1">
-                <input
-                  className="border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2"
-                  id={input.name}
-                  name={input.name}
-                  type="text"
-                  onChange={formik.handleChange}
-                  value={formik.values[input.name]}
-                />
-              </div>
-              {formik.touched[input.name] && formik.errors[input.name] && (
-                <div>{formik.errors[input.name]?.toString()}</div>
-              )}
-            </div>
-          ))}
+    <form onSubmit={formik.handleSubmit} className={styles.content}>
+      {functionAbi.parameters.map(input => (
+        <div key={input.name} className={styles.field}>
+          <label className={styles.label} htmlFor={input.name}>
+            {input.name} ({input.type.kind})
+          </label>
+          <input
+            className={styles.input}
+            id={input.name}
+            name={input.name}
+            disabled={isLoading}
+            type="text"
+            onChange={formik.handleChange}
+            value={formik.values[input.name]}
+          />
+          {formik.touched[input.name] && formik.errors[input.name] && (
+            <div>{formik.errors[input.name]?.toString()}</div>
+          )}
         </div>
-        <div className="p-2">
-          <Button isLoading={isLoading} disabled={disabled}>
-            {buttonText}
-          </Button>
-        </div>
-      </form>
-    </div>
+      ))}
+      {isLoading ? (
+        <Loader />
+      ) : (
+        <Button disabled={disabled} text={buttonText} className={styles.actionButton} type="submit" />
+      )}
+    </form>
   );
 }

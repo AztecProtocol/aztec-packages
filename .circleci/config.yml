@@ -671,17 +671,6 @@ jobs:
           name: "Build"
           command: build ethereum
 
-  rollup-provider:
-    machine:
-      image: ubuntu-2004:202010-01
-    resource_class: large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build"
-          command: build rollup-provider
-
   e2e-2-rpc-servers:
     machine:
       image: ubuntu-2004:202010-01
@@ -736,6 +725,17 @@ jobs:
       - run:
           name: "Test"
           command: cond_run_script end-to-end ./scripts/run_tests_local e2e_token_contract.test.ts
+
+  e2e-private-airdrop:
+    machine:
+      image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_private_airdrop.test.ts
 
   e2e-private-token-contract:
     machine:
@@ -1013,6 +1013,16 @@ jobs:
           name: "Test"
           command: cond_run_script end-to-end ./scripts/run_tests_local sample-dapp ./scripts/docker-compose-e2e-sandbox.yml
 
+  guides-up-quick-start:
+    machine:
+      image: ubuntu-2004:202010-01
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_run_script end-to-end ./scripts/run_tests_local guides/up_quick_start.test.ts ./scripts/docker-compose-e2e-sandbox.yml
+
   e2e-canary-test:
     machine:
       image: ubuntu-2004:202010-01
@@ -1218,37 +1228,37 @@ jobs:
           command: build canary true
 
   run-deployment-canary-uniswap:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
+    resource_class: large
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Test"
-          command: spot_run_test_script ./scripts/run_tests canary uniswap_trade_on_l1_from_l2.test.ts canary docker-compose.yml
+          command: run_script canary ./scripts/run_tests ./src/uniswap_trade_on_l1_from_l2.test.ts canary ./scripts/docker-compose.yml
 
   run-deployment-canary-browser:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
+    resource_class: large
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Test"
-          command: spot_run_test_script ./scripts/run_tests canary aztec_js_browser.test.ts canary docker-compose.yml
+          command: run_script canary ./scripts/run_tests ./src/aztec_js_browser.test.ts canary ./scripts/docker-compose.yml
 
   run-deployment-canary-cli:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
+    resource_class: large
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Test"
-          command: spot_run_test_script ./scripts/run_tests canary cli.test.ts canary docker-compose.yml
+          command: run_script canary ./scripts/run_tests ./src/cli.test.ts canary ./scripts/docker-compose.yml
 
 # Repeatable config for defining the workflow below.
 tag_regex: &tag_regex /^aztec-packages-v.*/
@@ -1294,8 +1304,6 @@ workflows:
     when:
       equal: [system, << pipeline.parameters.workflow >>]
     jobs:
-      - build-docs: *defaults
-
       # Barretenberg
       - barretenberg-x86_64-linux-gcc: *defaults
       - barretenberg-x86_64-linux-clang: *defaults
@@ -1388,7 +1396,8 @@ workflows:
             - l1-contracts
             - noir-contracts-build
           <<: *defaults
-
+      
+      - build-docs: *yarn_project
       - aztec-js: *yarn_project
       - end-to-end: *yarn_project
       - ethereum: *yarn_project
@@ -1409,7 +1418,6 @@ workflows:
       - sequencer-client: *yarn_project
       - types: *yarn_project
       - circuits-js: *yarn_project
-      - rollup-provider: *yarn_project
       - aztec-sandbox-base: *yarn_project
       - canary: *yarn_project
 
@@ -1450,7 +1458,6 @@ workflows:
             - sequencer-client
             - types
             - circuits-js
-            - rollup-provider
             - aztec-sandbox-ecr-manifest
             - canary
           <<: *defaults
@@ -1459,6 +1466,7 @@ workflows:
       - e2e-deploy-contract: *e2e_test
       - e2e-lending-contract: *e2e_test
       - e2e-token-contract: *e2e_test
+      - e2e-private-airdrop: *e2e_test
       - e2e-private-token-contract: *e2e_test
       - e2e-sandbox-example: *e2e_test
       - e2e-multi-transfer-contract: *e2e_test
@@ -1487,6 +1495,7 @@ workflows:
       - guides-writing-an-account-contract: *e2e_test
       - guides-dapp-testing: *e2e_test
       - guides-sample-dapp: *e2e_test
+      - guides-up-quick-start: *e2e_test
 
       - e2e-end:
           requires:
@@ -1494,6 +1503,7 @@ workflows:
             - e2e-deploy-contract
             - e2e-lending-contract
             - e2e-token-contract
+            - e2e-private-airdrop
             - e2e-private-token-contract
             - e2e-sandbox-example
             - e2e-multi-transfer-contract
@@ -1522,6 +1532,7 @@ workflows:
             - guides-writing-an-account-contract
             - guides-dapp-testing
             - guides-sample-dapp
+            - guides-up-quick-start
           <<: *defaults
 
         # Deployment and Canary tests

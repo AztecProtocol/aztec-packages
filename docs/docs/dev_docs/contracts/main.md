@@ -1,3 +1,5 @@
+import DocCardList from '@theme/DocCardList';
+
 # Aztec.nr
 
 ## What is Aztec.nr?
@@ -18,25 +20,21 @@ An **Aztec smart contract** is a smart contract with **private** state variables
 
 ## Install Noir
 
-To write an Aztec.nr contract, you need to write Noir, and to write Noir, you need to [install Nargo](https://noir-lang.org/getting_started/nargo_installation).
+To write an Aztec.nr contract, you need to write Noir, which requires a build tool called Nargo:
 
+<InstallNargoInstructions />
+
+:::info
+For those coming from vanilla Noir, the nargo version used for aztec.nr is tracked seaprately to nargo for vanilla noir, so be sure to use the nargo version shown above 
+:::
 ## Install Noir tooling
 
 There are a number of tools to make writing Aztec.nr contracts more pleasant. See [here](https://github.com/noir-lang/awesome-noir#get-coding).
 
-## Quick start
+## Tutorials
 
-:::danger TODO
-Starter kit
-:::
+See the [Standard Token Contract tutorial](../tutorials/writing_token_contract.md) for more info on getting set up to write contracts.
 
+## Learn more
 
-## Example Aztec.nr Contract
-
-In keeping with the origins of blockchain, here's an example of a simple private token contract. Everyone's balances are private.
-
-#include_code easy_private_token_contract /yarn-project/noir-contracts/src/contracts/easy_private_token_contract/src/main.nr rust
-
-:::info Disclaimer
-Please note that any example contract set out herein is provided solely for informational purposes only and does not constitute any inducement to use or deploy. Any implementation of any such contract with an interface or any other infrastructure should be used in accordance with applicable laws and regulations.
-:::
+<DocCardList />

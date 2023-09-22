@@ -1,36 +1,57 @@
-import { L2BlockL2Logs, createAztecRpcClient, getSandboxAccountsWallets } from '@aztec/aztec.js';
+import {
+  Fr,
+  L2BlockL2Logs,
+  computeMessageSecretHash,
+  createAztecRpcClient,
+  getSandboxAccountsWallets,
+} from '@aztec/aztec.js';
 import { fileURLToPath } from '@aztec/foundation/url';
 
-import { getPrivateToken, getPublicToken } from './contracts.mjs';
+import { getToken } from './contracts.mjs';
 
 const { SANDBOX_URL = 'http://localhost:8080' } = process.env;
 
 async function showAccounts(client) {
   // docs:start:showAccounts
-  const accounts = await client.getAccounts();
+  const accounts = await client.getRegisteredAccounts();
   console.log(`User accounts:\n${accounts.map(a => a.address).join('\n')}`);
   // docs:end:showAccounts
 }
 
 async function showPrivateBalances(client) {
   // docs:start:showPrivateBalances
-  const accounts = await client.getAccounts();
-  const privateToken = await getPrivateToken(client);
+  const accounts = await client.getRegisteredAccounts();
+  const token = await getToken(client);
 
   for (const account of accounts) {
     // highlight-next-line:showPrivateBalances
-    const balance = await privateToken.methods.getBalance(account.address).view();
+    const balance = await token.methods.balance_of_private(account.address).view();
     console.log(`Balance of ${account.address}: ${balance}`);
   }
   // docs:end:showPrivateBalances
 }
 
+async function mintPrivateFunds(client) {
+  const [owner] = await getSandboxAccountsWallets(client);
+  const token = await getToken(owner);
+
+  await showPrivateBalances(client);
+
+  const mintAmount = 20n;
+  const secret = Fr.random();
+  const secretHash = await computeMessageSecretHash(secret);
+  await token.methods.mint_private(mintAmount, secretHash).send().wait();
+  await token.methods.redeem_shield(owner.getAddress(), mintAmount, secret).send().wait();
+
+  await showPrivateBalances(client);
+}
+
 async function transferPrivateFunds(client) {
   // docs:start:transferPrivateFunds
   const [owner, recipient] = await getSandboxAccountsWallets(client);
-  const privateToken = await getPrivateToken(owner);
+  const token = await getToken(owner);
 
-  const tx = privateToken.methods.transfer(1n, recipient.getAddress()).send();
+  const tx = token.methods.transfer(owner.getAddress(), recipient.getAddress(), 1n, 0).send();
   console.log(`Sent transfer transaction ${await tx.getTxHash()}`);
   await showPrivateBalances(client);
 
@@ -43,12 +64,12 @@ async function transferPrivateFunds(client) {
 
 async function showPublicBalances(client) {
   // docs:start:showPublicBalances
-  const accounts = await client.getAccounts();
-  const publicToken = await getPublicToken(client);
+  const accounts = await client.getRegisteredAccounts();
+  const token = await getToken(client);
 
   for (const account of accounts) {
     // highlight-next-line:showPublicBalances
-    const balance = await publicToken.methods.publicBalanceOf(account.address).view();
+    const balance = await token.methods.balance_of_public(account.address).view();
     console.log(`Balance of ${account.address}: ${balance}`);
   }
   // docs:end:showPublicBalances
@@ -57,9 +78,9 @@ async function showPublicBalances(client) {
 async function mintPublicFunds(client) {
   // docs:start:mintPublicFunds
   const [owner] = await getSandboxAccountsWallets(client);
-  const publicToken = await getPublicToken(owner);
+  const token = await getToken(owner);
 
-  const tx = publicToken.methods.mint(100n, owner.getAddress()).send();
+  const tx = token.methods.mint_public(owner.getAddress(), 100n).send();
   console.log(`Sent mint transaction ${await tx.getTxHash()}`);
   await showPublicBalances(client);
 
@@ -83,6 +104,8 @@ async function main() {
   console.log(`Connected to chain ${chainId}`);
 
   await showAccounts(client);
+
+  await mintPrivateFunds(client);
 
   await transferPrivateFunds(client);
 
