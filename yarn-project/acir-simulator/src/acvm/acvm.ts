@@ -12,7 +12,7 @@ import {
   WasmBlackBoxFunctionSolver,
   WitnessMap,
   executeCircuitWithBlackBoxSolver,
-} from 'acvm_js';
+} from '@noir-lang/acvm_js';
 
 import { traverseCauseChain } from '../common/errors.js';
 
@@ -38,6 +38,7 @@ type ORACLE_NAMES =
   | 'getSecretKey'
   | 'getNote'
   | 'getNotes'
+  | 'checkNoteHashExists'
   | 'getRandomField'
   | 'notifyCreatedNote'
   | 'notifyNullifiedNote'
@@ -46,7 +47,6 @@ type ORACLE_NAMES =
   | 'enqueuePublicFunctionCall'
   | 'storageRead'
   | 'storageWrite'
-  | 'getCommitment'
   | 'getL1ToL2Message'
   | 'getPortalContractAddress'
   | 'emitEncryptedLog'
@@ -91,7 +91,7 @@ function getSourceCodeLocationsFromOpcodeLocation(
 
     const { path, source } = files[fileId];
 
-    const locationText = source.substring(span.start, span.end + 1);
+    const locationText = source.substring(span.start, span.end);
     const precedingText = source.substring(0, span.start);
     const previousLines = precedingText.split('\n');
     // Lines and columns in stacks are one indexed.

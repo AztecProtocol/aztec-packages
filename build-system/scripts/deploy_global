@@ -1,5 +1,6 @@
 #!/bin/bash
 # Deployment script for global service (e.g. company website and metrics).
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
 REPOSITORY=$1
@@ -22,4 +23,4 @@ deploy_terraform "" ./terraform
 deploy_service $REPOSITORY
 
 # Tag the image as deployed.
-tag_remote_image $REPOSITORY cache-$CONTENT_HASH cache-$CONTENT_HASH-$DEPLOY_TAG-deployed
+retry tag_remote_image $REPOSITORY cache-$CONTENT_HASH cache-$CONTENT_HASH-$DEPLOY_TAG-deployed

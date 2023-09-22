@@ -1,4 +1,4 @@
-# Noir contracts
+# Aztec.nr contracts
 
 This package contains the source code and the Aztec ABIs for the example contracts used in tests.
 
@@ -29,6 +29,13 @@ It has prebuilt binaries and is super easy to install using `noirup`
   ```
   noirup -v aztec
   ```
+
+> Pinning Aztec flavoured noir releases  
+> Aztec noir is released with semver alongside noir. If you would like to pin to a specific version you can run:
+> ```bash
+> noirup -v <noir-version>-aztec.<patch version>
+> ```
+> e.g `noirup -v 0.11.1-aztec.0`
 
 ### Building from source (If working with custom features)
 
@@ -112,7 +119,7 @@ It has prebuilt binaries and is super easy to install using `noirup`
 1. Go to `src/contracts` folder.
 2. Create a new package whose name has to end with **\_contract**. E.g.:
    ```
-   nargo new example_contract
+   nargo new --contract example_contract
    ```
 3. Add the aztec dependency to `nargo.toml`:
 
@@ -122,7 +129,7 @@ It has prebuilt binaries and is super easy to install using `noirup`
    compiler_version = "0.7.1"
 
    [dependencies]
-   aztec = { path = "../../../../noir-libs/noir-aztec" }
+   aztec = { path = "../../../../aztec-nr/aztec" }
    ```
 
 4. Replace the content of the generated `example_contract/src/main.nr` file with your contract code.

@@ -14,7 +14,7 @@ contract Lending {
     use dep::safe_math::SafeU120;
     use dep::std::option::Option;
     use dep::aztec::{
-        context::{PrivateContext, PublicContext},
+        context::{PrivateContext, PublicContext, Context},
         oracle::compute_selector::compute_selector,
         state_vars::{
             map::Map,
@@ -40,57 +40,46 @@ contract Lending {
     }
 
     impl Storage {
-        fn init(
-            private_context: Option<&mut PrivateContext>,
-            public_context: Option<&mut PublicContext>,
-        ) -> pub Self {
+        fn init(context: Context) -> pub Self {
             Storage {
                 collateral_asset: PublicState::new(
-                    private_context,
-                    public_context,
+                    context,
                     1,
                     FieldSerialisationMethods,
                 ),
                 stable_coin: PublicState::new(
-                    private_context,
-                    public_context,
+                    context,
                     2,
                     FieldSerialisationMethods,
                 ),
                 assets: Map::new(
-                    private_context,
-                    public_context,
+                    context,
                     3,
-                    |private_context, public_context, slot| {
+                    |context, slot| {
                         PublicState::new(
-                            private_context,
-                            public_context,
+                            context,
                             slot,
                             AssetSerialisationMethods,
                         )
                     },
                 ),
                 collateral: Map::new(
-                    private_context,
-                    public_context,
+                    context,
                     4,
-                    |private_context, public_context, slot| {
+                    |context, slot| {
                         PublicState::new(
-                            private_context,
-                            public_context,
+                            context,
                             slot,
                             FieldSerialisationMethods,
                         )
                     },
                 ),
                 static_debt: Map::new(
-                    private_context,
-                    public_context,
+                    context,
                     5,
-                    |private_context, public_context, slot| {
+                    |context, slot| {
                         PublicState::new(
-                            private_context,
-                            public_context,
+                            context,
                             slot,
                             FieldSerialisationMethods,
                         )
@@ -118,7 +107,7 @@ contract Lending {
         collateral_asset: Field,
         stable_coin: Field,
     ) -> Field {
-        let storage = Storage::init(Option::none(), Option::some(&mut context));
+        let storage = Storage::init(Context::public(&mut context));
         let asset_loc = storage.assets.at(0);
         let asset = asset_loc.read();
 
@@ -142,7 +131,7 @@ contract Lending {
     // Create a position.
     #[aztec(public)]
     fn update_accumulator() -> Asset {
-        let storage = Storage::init(Option::none(), Option::some(&mut context));
+        let storage = Storage::init(Context::public(&mut context));
 
         let asset_loc = storage.assets.at(0);
         let mut asset = asset_loc.read();
@@ -166,17 +155,17 @@ contract Lending {
         asset
     }
 
-    // This don't need to be on behalf of self. We should be able to repay on behalf of someone else.
     #[aztec(private)]
     fn deposit_private(
-        secret: Field,
-        asset_owner: Field,
-        on_behalf_of: Field,
+        from: Field,
         amount: Field,
+        nonce: Field,
+        secret: Field,
+        on_behalf_of: Field,
         collateral_asset: Field,
     ) {
         let on_behalf_of = compute_identifier(secret, on_behalf_of, context.msg_sender());
-        let _res = Token::at(collateral_asset).unshield(&mut context, asset_owner, context.this_address(), amount);
+        let _res = Token::at(collateral_asset).unshield(&mut context, from, context.this_address(), amount, nonce);
         // _deposit(on_behalf_of, amount, collateral_asset)
         let selector = compute_selector("_deposit(Field,Field,Field)");
         let _callStackItem2 = context.call_public_function(context.this_address(), selector, [on_behalf_of, amount, collateral_asset]);
@@ -184,13 +173,14 @@ contract Lending {
 
     #[aztec(public)]
     fn deposit_public(
-        owner: Field,
         amount: Field,
+        nonce: Field,
+        on_behalf_of: Field,
         collateral_asset: Field,
     ) -> Field {
-        Token::at(collateral_asset).transfer_from_pub(context, context.msg_sender(), context.this_address(), amount);
+        Token::at(collateral_asset).transfer_public(context, context.msg_sender(), context.this_address(), amount, nonce);
         let selector = compute_selector("_deposit(Field,Field,Field)");
-        let return_values = context.call_public_function(context.this_address(), selector, [owner, amount, collateral_asset]);
+        let return_values = context.call_public_function(context.this_address(), selector, [on_behalf_of, amount, collateral_asset]);
         
         return_values[0]
     }
@@ -202,7 +192,7 @@ contract Lending {
         collateral_asset: Field,
     ) -> Field {
         let _asset = Lending::at(context.this_address()).update_accumulator(context);
-        let storage = Storage::init(Option::none(), Option::some(&mut context));
+        let storage = Storage::init(Context::public(&mut context));
 
         let coll_asset = storage.collateral_asset.read();
         assert(coll_asset == collateral_asset);
@@ -245,7 +235,7 @@ contract Lending {
         let asset = Lending::at(context.this_address()).update_accumulator(context);
         let price = PriceFeed::at(asset.oracle_address).get_price(context);
         
-        let storage = Storage::init(Option::none(), Option::some(&mut context));
+        let storage = Storage::init(Context::public(&mut context));
 
         let coll_loc = storage.collateral.at(owner);
         let collateral: Field = coll_loc.read();
@@ -264,7 +254,7 @@ contract Lending {
 
         // @todo @LHerskind Support both shielding and transfers (for now just transfer)
         let collateral_asset = storage.collateral_asset.read();
-        Token::at(collateral_asset).transfer_pub(context, recipient, amount);
+        Token::at(collateral_asset).transfer_public(context, context.this_address(), recipient, amount, 0);
 
         1
     }
@@ -300,7 +290,7 @@ contract Lending {
         let asset = Lending::at(context.this_address()).update_accumulator(context);
         let price = PriceFeed::at(asset.oracle_address).get_price(context);
         
-        let storage = Storage::init(Option::none(), Option::some(&mut context));
+        let storage = Storage::init(Context::public(&mut context));
 
         // Fetch collateral and static_debt, compute health of current position
         let collateral = storage.collateral.at(owner).read() as u120;
@@ -315,33 +305,34 @@ contract Lending {
 
         // @todo @LHerskind Need to support both private and public minting.
         let stable_coin = storage.stable_coin.read();
-        Token::at(stable_coin).owner_mint_pub(context, to, amount);
+        Token::at(stable_coin).mint_public(context, to, amount);
 
         1
     }
 
     #[aztec(private)]
     fn repay_private(
-        secret: Field,
-        asset_owner: Field,
-        on_behalf_of: Field,
+        from: Field,
         amount: Field,
+        nonce: Field,
+        secret: Field,
+        on_behalf_of: Field,
         stable_coin: Field,
     ) {
         let on_behalf_of = compute_identifier(secret, on_behalf_of, context.msg_sender());
-        let _res = Token::at(stable_coin).unshield(&mut context, asset_owner, context.this_address(), amount);
+        let _res = Token::at(stable_coin).burn(&mut context, from, amount, nonce);
         let selector = compute_selector("_repay(Field,Field,Field)");
         let _callStackItem = context.call_public_function(context.this_address(), selector, [on_behalf_of, amount, stable_coin]);
     }
 
     #[aztec(public)]
     fn repay_public(
-        owner: Field,
         amount: Field,
+        nonce: Field,
+        owner: Field,
         stable_coin: Field,
     ) -> Field {
-        // Should probably just burn the tokens actually :thinking:
-        Token::at(stable_coin).transfer_from_pub(context, context.msg_sender(), context.this_address(), amount);
+        Token::at(stable_coin).burn_public(context, context.msg_sender(), amount, nonce);
         let selector = compute_selector("_repay(Field,Field,Field)");
         let return_values = context.call_public_function(context.this_address(), selector, [owner, amount, stable_coin]);
         
@@ -355,7 +346,7 @@ contract Lending {
         stable_coin: Field,
     ) {
         let asset = Lending::at(context.this_address()).update_accumulator(context);
-        let storage = Storage::init(Option::none(), Option::some(&mut context));
+        let storage = Storage::init(Context::public(&mut context));
 
         // To ensure that private is using the correct token.
         assert(stable_coin == storage.stable_coin.read());
@@ -371,14 +362,14 @@ contract Lending {
     unconstrained fn get_asset(
         assetId: Field,
     ) -> Asset {
-        let storage = Storage::init(Option::none(), Option::none());
+        let storage = Storage::init(Context::none());
         storage.assets.at(assetId).read()
     }
 
     unconstrained fn get_position(
         owner: Field,
     ) -> Position {
-        let storage = Storage::init(Option::none(), Option::none());
+        let storage = Storage::init(Context::none());
         let collateral = storage.collateral.at(owner).read();
         let static_debt = storage.static_debt.at(owner).read();
         let asset = storage.assets.at(0).read();
@@ -387,7 +378,7 @@ contract Lending {
     }
 
     unconstrained fn get_assets() -> [Field; 2] {
-        let storage = Storage::init(Option::none(), Option::none());
+        let storage = Storage::init(Context::none());
         [storage.collateral_asset.read(), storage.stable_coin.read()]
     }
 }

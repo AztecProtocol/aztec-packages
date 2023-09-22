@@ -1,8 +1,8 @@
 import { AztecAddress, FunctionData } from '@aztec/circuits.js';
-import { FunctionAbi, FunctionType, encodeArguments } from '@aztec/foundation/abi';
+import { FunctionAbiHeader, FunctionType, encodeArguments } from '@aztec/foundation/abi';
 import { FunctionCall, TxExecutionRequest } from '@aztec/types';
 
-import { Wallet } from '../aztec_rpc_client/wallet.js';
+import { Wallet } from '../wallet/index.js';
 import { BaseContractInteraction, SendMethodOptions } from './base_contract_interaction.js';
 
 export { SendMethodOptions };
@@ -11,12 +11,12 @@ export { SendMethodOptions };
  * Represents the options for a view method in a contract function interaction.
  * Allows specifying the address from which the view method should be called.
  */
-export interface ViewMethodOptions {
+export type ViewMethodOptions = {
   /**
    * The sender's Aztec address.
    */
   from?: AztecAddress;
-}
+};
 
 /**
  * This is the class that is returned when calling e.g. `contract.methods.myMethod(arg0, arg1)`.
@@ -26,7 +26,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
   constructor(
     protected wallet: Wallet,
     protected contractAddress: AztecAddress,
-    protected functionDao: FunctionAbi,
+    protected functionDao: FunctionAbiHeader,
     protected args: any[],
   ) {
     super(wallet);
@@ -38,15 +38,14 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
   /**
    * Create a transaction execution request that represents this call, encoded and authenticated by the
    * user's wallet, ready to be simulated.
-   * @param options - An optional object containing additional configuration for the transaction.
    * @returns A Promise that resolves to a transaction instance.
    */
-  public async create(options: SendMethodOptions = {}): Promise<TxExecutionRequest> {
+  public async create(): Promise<TxExecutionRequest> {
     if (this.functionDao.functionType === FunctionType.UNCONSTRAINED) {
       throw new Error("Can't call `create` on an unconstrained function.");
     }
     if (!this.txRequest) {
-      this.txRequest = await this.wallet.createTxExecutionRequest([this.request()], options);
+      this.txRequest = await this.wallet.createTxExecutionRequest([this.request()]);
     }
     return this.txRequest;
   }

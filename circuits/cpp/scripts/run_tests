@@ -1,4 +1,5 @@
 #!/bin/bash
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
 # To be called from CI for testing with docker and AWS.
@@ -27,15 +28,16 @@ $(aws ecr get-login --region us-east-2 --no-include-email) 2> /dev/null
 
 REPOSITORY="circuits-$ARCH-linux-clang-assert"
 IMAGE_URI=$($(git rev-parse --show-toplevel)/build-system/scripts/calculate_image_uri $REPOSITORY)
-docker pull $IMAGE_URI
+$(git rev-parse --show-toplevel)/build-system/scripts/retry docker pull $IMAGE_URI
 
 # run tests in docker image
 RUN_ARGS="$@" # helper var necessary for some reason to pass all args to docker run
 time docker run --rm -t $IMAGE_URI /bin/sh -c "\
   set -xe; \
+  mv /usr/src/barretenberg /usr/src/circuits/cpp/; \
   cd /usr/src/circuits/cpp/barretenberg/cpp/srs_db; \
-  ln -sf /usr/src/circuits/cpp/barretenberg/cpp/srs_db /usr/src/circuits/cpp/srs_db; \
   ./download_ignition.sh $NUM_TRANSCRIPTS; \
   cd /usr/src/circuits/cpp; \
+  ln -sf /usr/src/circuits/cpp/barretenberg/cpp/srs_db /usr/src/circuits/cpp/srs_db; \
   export PATH=\$PATH:~/.wasmtime/bin/; \
   ./scripts/run_tests_local $RUN_ARGS;"

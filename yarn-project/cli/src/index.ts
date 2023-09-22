@@ -6,16 +6,14 @@ import {
   GrumpkinScalar,
   Point,
   generatePublicKey,
-  getAccountWallets,
   getSchnorrAccount,
   isContractDeployed,
 } from '@aztec/aztec.js';
-import { StructType } from '@aztec/foundation/abi';
+import { StructType, decodeFunctionSignatureWithParameterNames } from '@aztec/foundation/abi';
 import { JsonStringify } from '@aztec/foundation/json-rpc';
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
-import { compileContract } from '@aztec/noir-compiler/cli';
-import { SchnorrAccountContractAbi } from '@aztec/noir-contracts/artifacts';
+import { compileContract, generateNoirInterface, generateTypescriptInterface } from '@aztec/noir-compiler/cli';
 import { CompleteAddress, ContractData, L2BlockL2Logs, TxHash } from '@aztec/types';
 
 import { Command } from 'commander';
@@ -26,6 +24,7 @@ import { mnemonicToAccount } from 'viem/accounts';
 
 import { createCompatibleClient } from './client.js';
 import { encodeArgs, parseStructString } from './encoding.js';
+import { unboxContract } from './unbox.js';
 import {
   deployAztecContracts,
   getAbiFunction,
@@ -113,7 +112,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
         publicKey = await generatePublicKey(key);
       } else {
         const key = GrumpkinScalar.random();
-        privKey = key.toString();
+        privKey = key.toString(true);
         publicKey = await generatePublicKey(key);
       }
       log(`\nPrivate Key: ${privKey}\nPublic Key: ${publicKey.toString()}\n`);
@@ -144,16 +143,16 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       log(`\nCreated new account:\n`);
       log(`Address:         ${address.toString()}`);
       log(`Public key:      ${publicKey.toString()}`);
-      if (!options.privateKey) log(`Private key:     ${privateKey.toString()}`);
+      if (!options.privateKey) log(`Private key:     ${privateKey.toString(true)}`);
       log(`Partial address: ${partialAddress.toString()}`);
     });
 
   program
     .command('deploy')
-    .description('Deploys a compiled Noir contract to Aztec.')
+    .description('Deploys a compiled Aztec.nr contract to Aztec.')
     .argument(
       '<abi>',
-      "A compiled Noir contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts",
+      "A compiled Aztec.nr contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts",
     )
     .option('-a, --args <constructorArgs...>', 'Contract constructor arguments', [])
     .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', AZTEC_RPC_HOST || 'http://localhost:8080')
@@ -173,11 +172,6 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
 
       const constructor = getAbiFunction(contractAbi, 'constructor');
       if (!constructor) throw new Error(`Constructor not found in contract ABI`);
-      if (constructor.parameters.length !== options.args.length) {
-        throw new Error(
-          `Invalid number of args passed (expected ${constructor.parameters.length} but got ${options.args.length})`,
-        );
-      }
 
       debugLogger(`Input arguments: ${options.args.map((x: any) => `"${x}"`).join(', ')}`);
       const args = encodeArgs(options.args, constructorAbi!.parameters);
@@ -293,7 +287,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', AZTEC_RPC_HOST || 'http://localhost:8080')
     .action(async (options: any) => {
       const client = await createCompatibleClient(options.rpcUrl, debugLogger);
-      const accounts = await client.getAccounts();
+      const accounts = await client.getRegisteredAccounts();
       if (!accounts.length) {
         log('No accounts found.');
       } else {
@@ -312,7 +306,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .action(async (_address, options) => {
       const client = await createCompatibleClient(options.rpcUrl, debugLogger);
       const address = AztecAddress.fromString(_address);
-      const account = await client.getAccount(address);
+      const account = await client.getRegisteredAccount(address);
 
       if (!account) {
         log(`Unknown account ${_address}`);
@@ -362,7 +356,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .option('-a, --args [functionArgs...]', 'Function arguments', [])
     .requiredOption(
       '-c, --contract-abi <fileLocation>',
-      "A compiled Noir contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts",
+      "A compiled Aztec.nr contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts",
     )
     .requiredOption('-ca, --contract-address <address>', 'Aztec address of the contract.')
     .option('-k, --private-key <string>', "The sender's private key.", PRIVATE_KEY)
@@ -377,23 +371,10 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
         log,
       );
 
-      const fnAbi = getAbiFunction(contractAbi, functionName);
-      if (fnAbi.parameters.length !== options.args.length) {
-        throw Error(
-          `Invalid number of args passed. Expected ${fnAbi.parameters.length}; Received: ${options.args.length}`,
-        );
-      }
-
       const privateKey = GrumpkinScalar.fromString(stripLeadingHex(options.privateKey));
 
       const client = await createCompatibleClient(options.rpcUrl, debugLogger);
-      const wallet = await getAccountWallets(
-        client,
-        SchnorrAccountContractAbi,
-        [privateKey],
-        [privateKey],
-        [accountCreationSalt],
-      );
+      const wallet = await getSchnorrAccount(client, privateKey, privateKey, accountCreationSalt).getWallet();
       const contract = await Contract.at(contractAddress, contractAbi, wallet);
       const tx = contract.methods[functionName](...functionArgs).send();
       await tx.wait();
@@ -414,10 +395,10 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .option('-a, --args [functionArgs...]', 'Function arguments', [])
     .requiredOption(
       '-c, --contract-abi <fileLocation>',
-      "A compiled Noir contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts",
+      "A compiled Aztec.nr contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts",
     )
     .requiredOption('-ca, --contract-address <address>', 'Aztec address of the contract.')
-    .option('-f, --from <string>', 'Public key of the TX viewer. If empty, will try to find account in RPC.')
+    .option('-f, --from <string>', 'Aztec address of the caller. If empty, will use the first account from RPC.')
     .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', AZTEC_RPC_HOST || 'http://localhost:8080')
     .action(async (functionName, options) => {
       const { contractAddress, functionArgs, contractAbi } = await prepTx(
@@ -446,7 +427,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .argument('<encodedString>', 'The encoded hex string')
     .requiredOption(
       '-c, --contract-abi <fileLocation>',
-      "A compiled Noir contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts",
+      "A compiled Aztec.nr contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts",
     )
     .requiredOption('-p, --parameter <parameterName>', 'The name of the struct parameter to decode into')
     .action(async (encodedString, options) => {
@@ -483,6 +464,18 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     });
 
   program
+    .command('unbox')
+    .description(
+      'Unboxes an example contract from @aztec/boxes.  Also Copies `noir-libs` dependencies and setup simple frontend for the contract using its ABI.',
+    )
+    .argument('<contractName>', 'Name of the contract to unbox, e.g. "PrivateToken"')
+    .argument('[localDirectory]', 'Local directory to unbox to (relative or absolute), defaults to `<contractName>`')
+    .action(async (contractName, localDirectory) => {
+      const unboxTo: string = localDirectory ? localDirectory : contractName;
+      await unboxContract(contractName, unboxTo, version, log);
+    });
+
+  program
     .command('get-node-info')
     .description('Gets the information of an aztec node at a URL.')
     .requiredOption('-u, --rpc-url <string>', 'URL of the Aztec RPC', AZTEC_RPC_HOST || 'http://localhost:8080')
@@ -493,7 +486,30 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       Object.entries(info).map(([key, value]) => log(`${startCase(key)}: ${value}`));
     });
 
+  program
+    .command('inspect-contract')
+    .description('Shows list of external callable functions for a contract')
+    .argument(
+      '<contractAbiFile>',
+      `A compiled Noir contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts`,
+    )
+    .action(async (contractAbiFile: string) => {
+      const contractAbi = await getContractAbi(contractAbiFile, debugLogger);
+      const contractFns = contractAbi.functions.filter(
+        f => !f.isInternal && f.name !== 'compute_note_hash_and_nullifier',
+      );
+      if (contractFns.length === 0) {
+        log(`No external functions found for contract ${contractAbi.name}`);
+      }
+      for (const fn of contractFns) {
+        const signature = decodeFunctionSignatureWithParameterNames(fn.name, fn.parameters);
+        log(`${fn.functionType} ${signature}`);
+      }
+    });
+
   compileContract(program, 'compile', log);
+  generateTypescriptInterface(program, 'generate-typescript', log);
+  generateNoirInterface(program, 'generate-noir-interface', log);
 
   return program;
 }

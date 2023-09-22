@@ -28,14 +28,14 @@ describe('CLI Utils', () => {
     // returns a parsed Aztec Address
     const aztecAddress = AztecAddress.random();
     const result = await getTxSender(client, aztecAddress.toString());
-    expect(client.getAccounts).toHaveBeenCalledTimes(0);
+    expect(client.getRegisteredAccounts).toHaveBeenCalledTimes(0);
     expect(result).toEqual(aztecAddress);
 
     // returns an address found in the aztec client
     const completeAddress = await CompleteAddress.random();
-    client.getAccounts.mockResolvedValueOnce([completeAddress]);
+    client.getRegisteredAccounts.mockResolvedValueOnce([completeAddress]);
     const resultWithoutString = await getTxSender(client);
-    expect(client.getAccounts).toHaveBeenCalled();
+    expect(client.getRegisteredAccounts).toHaveBeenCalled();
     expect(resultWithoutString).toEqual(completeAddress.address);
 
     // throws when invalid parameter passed
@@ -47,7 +47,7 @@ describe('CLI Utils', () => {
     ).rejects.toThrow(`Invalid option 'from' passed: ${errorAddr}`);
 
     // Throws error when no string is passed & no accounts found in RPC
-    client.getAccounts.mockResolvedValueOnce([]);
+    client.getRegisteredAccounts.mockResolvedValueOnce([]);
     await expect(
       (async () => {
         await getTxSender(client);
@@ -62,11 +62,11 @@ describe('CLI Utils', () => {
       addr1.toBigInt(),
       false,
       33n,
-      addr1.toBigInt(),
-      addr2.toBigInt(),
-      addr3.toBigInt(),
-      field.toBigInt(),
-      true,
+      [addr1.toBigInt(), addr2.toBigInt(), addr3.toBigInt()],
+      {
+        subField1: field.toBigInt(),
+        subField2: true,
+      },
     ];
     expect(result).toEqual(exp);
   });
@@ -74,9 +74,7 @@ describe('CLI Utils', () => {
   it('Errors on invalid inputs', () => {
     // invalid number of args
     const args1 = [field.toString(), 'false'];
-    expect(() => encodeArgs(args1, mockContractAbi.functions[1].parameters)).toThrow(
-      'Invalid number of args provided. Expected: 5, received: 2',
-    );
+    expect(() => encodeArgs(args1, mockContractAbi.functions[1].parameters)).toThrow('Invalid args provided');
 
     // invalid array length
     const invalidArray = fieldArray.concat([Fr.random().toString()]);

@@ -18,22 +18,16 @@ export interface NoteData {
   nonce: Fr;
   /** The preimage of the note */
   preimage: Fr[];
-  /** The corresponding nullifier of the note */
+  /** The inner note hash of the note. */
+  innerNoteHash: Fr;
+  /** The corresponding nullifier of the note. Undefined for pending notes. */
   siloedNullifier?: Fr;
   /** The note's leaf index in the private data tree. Undefined for pending notes. */
   index?: bigint;
 }
 
 /**
- * Information about a note needed during execution.
- */
-export interface PendingNoteData extends NoteData {
-  /** The inner note hash (used as a nullified commitment). */
-  innerNoteHash: Fr;
-}
-
-/**
- * The format that noir uses to get L1 to L2 Messages.
+ * The format that Aztec.nr uses to get L1 to L2 Messages.
  */
 export interface MessageLoadOracleInputs {
   /**
@@ -43,22 +37,6 @@ export interface MessageLoadOracleInputs {
   message: Fr[];
   /**
    * The path in the merkle tree to the message.
-   */
-  siblingPath: Fr[];
-  /**
-   * The index of the message commitment in the merkle tree.
-   */
-  index: bigint;
-}
-
-/**
- * The format noir uses to get commitments.
- */
-export interface CommitmentDataOracleInputs {
-  /** The siloed commitment. */
-  commitment: Fr;
-  /**
-   * The path in the merkle tree to the commitment.
    */
   siblingPath: Fr[];
   /**
@@ -90,10 +68,10 @@ export interface DBOracle extends CommitmentsDB {
 
   /**
    * Retrieve the auth witness for a given message hash.
-   * @param message_hash - The message hash.
+   * @param messageHash - The message hash.
    * @returns A Promise that resolves to an array of field elements representing the auth witness.
    */
-  getAuthWitness(message_hash: Fr): Promise<Fr[]>;
+  getAuthWitness(messageHash: Fr): Promise<Fr[]>;
 
   /**
    * Retrieve the secret key associated with a specific public key.

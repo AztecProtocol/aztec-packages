@@ -1,11 +1,12 @@
 {
   "name": "@aztec/aztec.js",
+  "homepage": "https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/aztec.js",
   "version": "0.1.0",
   "type": "module",
   "exports": {
     "node": "./dest/index.js",
-    "default": "./dest/main.js",
-    "import": "./dest/index.js"
+    "import": "./dest/index.js",
+    "default": "./dest/main.js"
   },
   "typedocOptions": {
     "entryPoints": [
@@ -15,11 +16,10 @@
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
-    "prepare": "node ../yarn-project-base/scripts/update_build_manifest.mjs package.json",
-    "prepare:check": "node ../yarn-project-base/scripts/update_build_manifest.mjs package.json --check",
     "build": "yarn clean && tsc -b && webpack",
     "build:web": "webpack",
     "build:dev": "tsc -b --watch",
+    "build:ts": "tsc -b",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T prettier -w ./src",
@@ -32,9 +32,9 @@
   "jest": {
     "preset": "ts-jest/presets/default-esm",
     "moduleNameMapper": {
-      "^(\\.{1,2}/.*)\\.js$": "$1"
+      "^(\\.{1,2}/.*)\\.m?js$": "$1"
     },
-    "testRegex": "./src/.*\\.test\\.ts$",
+    "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
     "rootDir": "./src"
   },
   "dependencies": {

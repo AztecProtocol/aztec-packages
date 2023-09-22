@@ -1,3 +1,4 @@
+// docs:start:all
 contract PublicToken {
     use dep::std::option::Option;
 
@@ -6,7 +7,7 @@ contract PublicToken {
     // docs:end:unencrypted_import
 
     use dep::aztec::{
-        context::{PrivateContext, PublicContext},
+        context::{PrivateContext, PublicContext, Context},
         state_vars::{
             map::Map,
             public_state::PublicState,
@@ -21,22 +22,13 @@ contract PublicToken {
     }
 
     impl Storage {
-        fn init(
-            private_context: Option<&mut PrivateContext>,
-            public_context: Option<&mut PublicContext>,
-        ) -> pub Self {
+        fn init(context: Context) -> pub Self {
             Storage {
                 balances: Map::new(
-                    private_context,
-                    public_context,
+                    context,
                     1,
-                    |private_context, public_context, slot| {
-                        PublicState::new(
-                            private_context,
-                            public_context,
-                            slot,
-                            FieldSerialisationMethods,
-                        )
+                    |context, slot| {
+                        PublicState::new(context, slot, FieldSerialisationMethods)
                     },
                 ),
             }
@@ -44,8 +36,10 @@ contract PublicToken {
     }
 
     // Constructs the contract.
+    // docs:start:empty-constructor
     #[aztec(private)]
     fn constructor() {}
+    // docs:end:empty-constructor
 
     // Mints `amount` of tokens to a `recipient`.
     #[aztec(public)]
@@ -54,11 +48,11 @@ contract PublicToken {
         recipient: Field,
     ) -> Field {
 
-        let storage = Storage::init(Option::none(), Option::some(&mut context));
+        let storage = Storage::init(Context::public(&mut context));
         let recipient_balance = storage.balances.at(recipient);
         let new_amount = recipient_balance.read() + amount;
-        // docs:start:unencrypted_log
         // TODO: Remove return value.
+        // docs:start:unencrypted_log
         let _hash = emit_unencrypted_log("Coins minted");
         // docs:end:unencrypted_log
         recipient_balance.write(new_amount);
@@ -72,7 +66,7 @@ contract PublicToken {
         amount: Field,
         recipient: Field,
     ) -> Field {
-        let storage = Storage::init(Option::none(), Option::some(&mut context));
+        let storage = Storage::init(Context::public(&mut context));
         let sender = context.msg_sender();
 
         let sender_balance = storage.balances.at(sender);
@@ -101,7 +95,8 @@ contract PublicToken {
     unconstrained fn publicBalanceOf(
         owner: Field,
     ) -> Field {
-        let storage = Storage::init(Option::none(), Option::none());
+        let storage = Storage::init(Context::none());
         storage.balances.at(owner).read()
     }
 }
+// docs:end:all

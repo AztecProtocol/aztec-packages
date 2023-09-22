@@ -1,34 +1,28 @@
 import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import { RpcServerConfig, createAztecRPCServer, getConfigEnvVars as getRpcConfigEnvVars } from '@aztec/aztec-rpc';
 import {
-  Account as AztecAccount,
+  AccountWallet,
   AztecAddress,
   CheatCodes,
-  Contract,
-  ContractDeployer,
-  EntrypointCollection,
-  EntrypointWallet,
+  CompleteAddress,
   EthAddress,
   EthCheatCodes,
   Wallet,
+  createAccounts,
   createAztecRpcClient as createJsonRpcClient,
   getL1ContractAddresses,
-  getSandboxAccountsWallet,
-  getUnsafeSchnorrAccount,
-  makeFetch,
+  getSandboxAccountsWallets,
 } from '@aztec/aztec.js';
-import { CompleteAddress, GrumpkinPrivateKey } from '@aztec/circuits.js';
+import { CircuitsWasm, GeneratorIndex } from '@aztec/circuits.js';
+import { pedersenPlookupCompressWithHashIndex } from '@aztec/circuits.js/barretenberg';
 import { DeployL1Contracts, deployL1Contract, deployL1Contracts } from '@aztec/ethereum';
-import { ContractAbi } from '@aztec/foundation/abi';
-import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { PortalERC20Abi, PortalERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
-import { NonNativeTokenContract } from '@aztec/noir-contracts/types';
+import { NonNativeTokenContract, TokenBridgeContract, TokenContract } from '@aztec/noir-contracts/types';
 import { AztecRPC, L2BlockL2Logs, LogType, TxStatus } from '@aztec/types';
 
-import every from 'lodash.every';
-import zipWith from 'lodash.zipwith';
 import {
   Account,
   Chain,
@@ -80,7 +74,7 @@ const createRpcServer = async (
 ): Promise<AztecRPC> => {
   if (SANDBOX_URL) {
     logger(`Creating JSON RPC client to remote host ${SANDBOX_URL}`);
-    const jsonClient = createJsonRpcClient(SANDBOX_URL, makeFetch([1, 2, 3], true));
+    const jsonClient = createJsonRpcClient(SANDBOX_URL);
     await waitForRPCServer(jsonClient, logger);
     logger('JSON RPC client connected to RPC Server');
     return jsonClient;
@@ -130,7 +124,6 @@ const setupL1Contracts = async (l1RpcUrl: string, account: HDAccount, logger: De
 export async function setupAztecRPCServer(
   numberOfAccounts: number,
   aztecNode: AztecNodeService | undefined,
-  firstPrivKey: GrumpkinPrivateKey | null = null,
   logger = getLogger(),
   useLogSuffix = false,
 ): Promise<{
@@ -143,47 +136,33 @@ export async function setupAztecRPCServer(
    */
   accounts: CompleteAddress[];
   /**
-   * The wallet to be used.
+   * The wallets to be used.
    */
-  wallet: Wallet;
+  wallets: AccountWallet[];
   /**
    * Logger instance named as the current test.
    */
   logger: DebugLogger;
 }> {
   const rpcConfig = getRpcConfigEnvVars();
-  const aztecRpcServer = await createRpcServer(rpcConfig, aztecNode, logger, useLogSuffix);
+  const rpc = await createRpcServer(rpcConfig, aztecNode, logger, useLogSuffix);
 
-  const accounts: AztecAccount[] = [];
-
-  const createWalletWithAccounts = async () => {
+  const createWallets = () => {
     if (!SANDBOX_URL) {
       logger('RPC server created, deploying new accounts...');
-
-      // Prepare deployments
-      for (let i = 0; i < numberOfAccounts; ++i) {
-        const privateKey = i === 0 && firstPrivKey !== null ? firstPrivKey! : GrumpkinScalar.random();
-        const account = getUnsafeSchnorrAccount(aztecRpcServer, privateKey);
-        await account.getDeployMethod().then(d => d.simulate({ contractAddressSalt: account.salt }));
-        accounts.push(account);
-      }
-
-      // Send them and await them to be mined
-      const txs = await Promise.all(accounts.map(account => account.deploy()));
-      await Promise.all(txs.map(tx => tx.wait({ interval: 0.1 })));
-      return new EntrypointWallet(aztecRpcServer, await EntrypointCollection.fromAccounts(accounts));
+      return createAccounts(rpc, numberOfAccounts);
     } else {
-      logger('RPC server created, constructing wallet from initial sandbox accounts...');
-      return await getSandboxAccountsWallet(aztecRpcServer);
+      logger('RPC server created, constructing wallets from initial sandbox accounts...');
+      return getSandboxAccountsWallets(rpc);
     }
   };
 
-  const wallet = await createWalletWithAccounts();
+  const wallets = await createWallets();
 
   return {
-    aztecRpcServer: aztecRpcServer!,
-    accounts: await aztecRpcServer!.getAccounts(),
-    wallet,
+    aztecRpcServer: rpc!,
+    accounts: await rpc!.getRegisteredAccounts(),
+    wallets,
     logger,
   };
 }
@@ -217,9 +196,13 @@ export async function setup(
    */
   config: AztecNodeConfig;
   /**
-   * The wallet to be used.
+   * The first wallet to be used.
    */
-  wallet: Wallet;
+  wallet: AccountWallet;
+  /**
+   * The wallets to be used.
+   */
+  wallets: AccountWallet[];
   /**
    * Logger instance named as the current test.
    */
@@ -242,9 +225,6 @@ export async function setup(
   const deployL1ContractsValues = await setupL1Contracts(config.rpcUrl, hdAccount, logger);
   const privKeyRaw = hdAccount.getHdKey().privateKey;
   const publisherPrivKey = privKeyRaw === null ? null : Buffer.from(privKeyRaw);
-  // TODO(#2052): This reduction is not secure enough. TACKLE THIS ISSUE BEFORE MAINNET.
-  const firstRpcAccountPrivKey =
-    publisherPrivKey === null ? null : GrumpkinScalar.fromBufferWithReduction(publisherPrivKey);
 
   config.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
   config.rollupContract = deployL1ContractsValues.rollupAddress;
@@ -253,12 +233,7 @@ export async function setup(
 
   const aztecNode = await createAztecNode(config, logger);
 
-  const { aztecRpcServer, accounts, wallet } = await setupAztecRPCServer(
-    numberOfAccounts,
-    aztecNode,
-    firstRpcAccountPrivKey,
-    logger,
-  );
+  const { aztecRpcServer, accounts, wallets } = await setupAztecRPCServer(numberOfAccounts, aztecNode, logger);
 
   const cheatCodes = await CheatCodes.create(config.rpcUrl, aztecRpcServer!);
 
@@ -268,7 +243,8 @@ export async function setup(
     deployL1ContractsValues,
     accounts,
     config,
-    wallet,
+    wallet: wallets[0],
+    wallets,
     logger,
     cheatCodes,
   };
@@ -289,34 +265,124 @@ export async function setNextBlockTimestamp(rpcUrl: string, timestamp: number) {
 }
 
 /**
- * Deploys a set of contracts to the network.
- * @param wallet - the wallet to make the request.
- * @param abi - contracts to be deployed.
- * @returns The deployed contract instances.
- */
-export async function deployL2Contracts(wallet: Wallet, abis: ContractAbi[]) {
-  const logger = getLogger();
-  const calls = await Promise.all(abis.map(abi => new ContractDeployer(abi, wallet).deploy()));
-  for (const call of calls) await call.create();
-  const txs = await Promise.all(calls.map(c => c.send()));
-  expect(every(await Promise.all(txs.map(tx => tx.isMined({ interval: 0.1 }))))).toBeTruthy();
-  const receipts = await Promise.all(txs.map(tx => tx.getReceipt()));
-  const contracts = zipWith(
-    abis,
-    receipts,
-    async (abi, receipt) => await Contract.at(receipt!.contractAddress!, abi!, wallet),
-  );
-  contracts.forEach(async c => logger(`L2 contract ${(await c).abi.name} deployed at ${(await c).address}`));
-  return contracts;
-}
-
-/**
  * Returns a logger instance for the current test.
  * @returns a logger instance for the current test.
  */
 export function getLogger() {
   const describeBlockName = expect.getState().currentTestName?.split(' ')[0];
   return createDebugLogger('aztec:' + describeBlockName);
+}
+
+/**
+ * Deploy L1 token and portal, initialize portal, deploy a non native l2 token contract, its L2 bridge contract and attach is to the portal.
+ * @param wallet - the wallet instance
+ * @param walletClient - A viem WalletClient.
+ * @param publicClient - A viem PublicClient.
+ * @param rollupRegistryAddress - address of rollup registry to pass to initialize the token portal
+ * @param owner - owner of the L2 contract
+ * @param underlyingERC20Address - address of the underlying ERC20 contract to use (if none supplied, it deploys one)
+ * @returns l2 contract instance, bridge contract instance, token portal instance, token portal address and the underlying ERC20 instance
+ */
+export async function deployAndInitializeStandardizedTokenAndBridgeContracts(
+  wallet: Wallet,
+  walletClient: WalletClient<HttpTransport, Chain, Account>,
+  publicClient: PublicClient<HttpTransport, Chain>,
+  rollupRegistryAddress: EthAddress,
+  owner: AztecAddress,
+  underlyingERC20Address?: EthAddress,
+): Promise<{
+  /**
+   * The L2 token contract instance.
+   */
+  token: TokenContract;
+  /**
+   * The L2 bridge contract instance.
+   */
+  bridge: TokenBridgeContract;
+  /**
+   * The token portal contract address.
+   */
+  tokenPortalAddress: EthAddress;
+  /**
+   * The token portal contract instance
+   */
+  tokenPortal: any;
+  /**
+   * The underlying ERC20 contract instance.
+   */
+  underlyingERC20: any;
+}> {
+  if (!underlyingERC20Address) {
+    underlyingERC20Address = await deployL1Contract(walletClient, publicClient, PortalERC20Abi, PortalERC20Bytecode);
+  }
+  const underlyingERC20 = getContract({
+    address: underlyingERC20Address.toString(),
+    abi: PortalERC20Abi,
+    walletClient,
+    publicClient,
+  });
+
+  // deploy the token portal
+  const tokenPortalAddress = await deployL1Contract(walletClient, publicClient, TokenPortalAbi, TokenPortalBytecode);
+  const tokenPortal = getContract({
+    address: tokenPortalAddress.toString(),
+    abi: TokenPortalAbi,
+    walletClient,
+    publicClient,
+  });
+
+  // deploy l2 token
+  const deployTx = TokenContract.deploy(wallet).send();
+
+  // deploy l2 token bridge and attach to the portal
+  const bridgeTx = TokenBridgeContract.deploy(wallet).send({
+    portalContract: tokenPortalAddress,
+    contractAddressSalt: Fr.random(),
+  });
+
+  // now wait for the deploy txs to be mined. This way we send all tx in the same rollup.
+  const deployReceipt = await deployTx.wait();
+  if (deployReceipt.status !== TxStatus.MINED) throw new Error(`Deploy token tx status is ${deployReceipt.status}`);
+  const token = await TokenContract.at(deployReceipt.contractAddress!, wallet);
+
+  const bridgeReceipt = await bridgeTx.wait();
+  if (bridgeReceipt.status !== TxStatus.MINED) throw new Error(`Deploy bridge tx status is ${bridgeReceipt.status}`);
+  const bridge = await TokenBridgeContract.at(bridgeReceipt.contractAddress!, wallet);
+  await bridge.attach(tokenPortalAddress);
+  const bridgeAddress = bridge.address.toString() as `0x${string}`;
+
+  // initialize l2 token
+  const initializeTx = token.methods._initialize(owner).send();
+
+  // initialize bridge
+  const initializeBridgeTx = bridge.methods._initialize(token.address).send();
+
+  // now we wait for the txs to be mined. This way we send all tx in the same rollup.
+  const initializeReceipt = await initializeTx.wait();
+  if (initializeReceipt.status !== TxStatus.MINED)
+    throw new Error(`Initialize token tx status is ${initializeReceipt.status}`);
+  if ((await token.methods.admin().view()) !== owner.toBigInt()) throw new Error(`Token admin is not ${owner}`);
+
+  const initializeBridgeReceipt = await initializeBridgeTx.wait();
+  if (initializeBridgeReceipt.status !== TxStatus.MINED)
+    throw new Error(`Initialize token bridge tx status is ${initializeBridgeReceipt.status}`);
+  if ((await bridge.methods.token().view()) !== token.address.toBigInt())
+    throw new Error(`Bridge token is not ${token.address}`);
+
+  // make the bridge a minter on the token:
+  const makeMinterTx = token.methods.set_minter(bridge.address, true).send();
+  const makeMinterReceipt = await makeMinterTx.wait();
+  if (makeMinterReceipt.status !== TxStatus.MINED)
+    throw new Error(`Make bridge a minter tx status is ${makeMinterReceipt.status}`);
+  if ((await token.methods.is_minter(bridge.address).view()) === 1n) throw new Error(`Bridge is not a minter`);
+
+  // initialize portal
+  await tokenPortal.write.initialize(
+    [rollupRegistryAddress.toString(), underlyingERC20Address.toString(), bridgeAddress],
+    {} as any,
+  );
+
+  return { token, bridge, tokenPortalAddress, tokenPortal, underlyingERC20 };
 }
 
 /**
@@ -330,6 +396,7 @@ export function getLogger() {
  * @param underlyingERC20Address - address of the underlying ERC20 contract to use (if none supplied, it deploys one)
  * @returns l2 contract instance, token portal instance, token portal address and the underlying ERC20 instance
  */
+// TODO (#2291) DELETE!!!
 export async function deployAndInitializeNonNativeL2TokenContracts(
   wallet: Wallet,
   walletClient: WalletClient<HttpTransport, Chain, Account>,
@@ -423,4 +490,17 @@ export const expectUnencryptedLogsFromLastBlockToBe = async (rpc: AztecRPC, logM
   const asciiLogs = unrolledLogs.map(log => log.toString('ascii'));
 
   expect(asciiLogs).toStrictEqual(logMessages);
+};
+
+/**
+ * Hash a payload to generate a signature on an account contract
+ * @param payload - payload to hash
+ * @returns the hashed message
+ */
+export const hashPayload = async (payload: Fr[]) => {
+  return pedersenPlookupCompressWithHashIndex(
+    await CircuitsWasm.get(),
+    payload.map(fr => fr.toBuffer()),
+    GeneratorIndex.SIGNATURE_PAYLOAD,
+  );
 };

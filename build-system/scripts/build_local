@@ -6,9 +6,10 @@
 # If DOCKERFILE is excluded it tries to default to ./Dockerfile then ./<PROJECT_DIR_NAME>/Dockerfile
 # If REPO is excluded it defaults to PROJECT_DIR_NAME.
 
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
-TARGET_PROJECT=$1
+TARGET_PROJECT=${1:-}
 ONLY_TARGET=${2:-}
 
 if [ -n "${NO_CACHE:-}" ]; then
@@ -18,11 +19,27 @@ fi
 ROOT=$(git rev-parse --show-toplevel)
 source $ROOT/build_manifest.sh
 
+# If given a name, check it exists.
+if [ -n "$TARGET_PROJECT" ]; then
+  EXISTS=0
+  for E in ${PROJECTS[@]}; do
+    ARR=(${E//:/ })
+    PROJECT_DIR_NAME=${ARR[0]}
+    if [ "$PROJECT_DIR_NAME" = "$TARGET_PROJECT" ]; then
+      EXISTS=1
+    fi
+  done
+  if [ "$EXISTS" -eq 0 ]; then
+    echo "Unknown project $TARGET_PROJECT, check build_manifest.sh";
+    exit 1
+  fi
+fi
+
 for E in ${PROJECTS[@]}; do
   ARR=(${E//:/ })
   PROJECT_DIR_NAME=${ARR[0]}
   WORKING_DIR=${ARR[1]}
-  DOCKERFILE=${ARR[2]}
+  DOCKERFILE=${ARR[2]:-Dockerfile}
   REPO=${ARR[3]:-$PROJECT_DIR_NAME}
   LAUNCH=${ARR[4]:-}
 
@@ -52,11 +69,11 @@ for E in ${PROJECTS[@]}; do
   time docker build ${ADDITIONAL_ARGS:-} --build-arg ARG_COMMIT_HASH=$COMMIT_HASH -f $DOCKERFILE -t $ECR_DEPLOY_URL/$REPO:latest .
   docker tag $ECR_DEPLOY_URL/$REPO:latest aztecprotocol/$REPO:latest
 
-  if [ -n "$LAUNCH" ]; then
-    docker run -ti --rm aztecprotocol/$REPO:latest
-  fi
-
   if [ "$PROJECT_DIR_NAME" = "$TARGET_PROJECT" ]; then
+    if [ -n "$LAUNCH" ]; then
+      docker run -ti --rm aztecprotocol/$REPO:latest
+    fi
+
     break
   fi
 

@@ -1,4 +1,5 @@
 #!/bin/bash
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
 REPOSITORY=$1
@@ -26,4 +27,4 @@ for SERVICE in $SERVICES; do
 done
 
 # Tag the image as deployed.
-tag_remote_image $REPOSITORY cache-$CONTENT_HASH cache-$CONTENT_HASH-$DEPLOY_TAG-deployed
+retry tag_remote_image $REPOSITORY cache-$CONTENT_HASH cache-$CONTENT_HASH-$DEPLOY_TAG-deployed

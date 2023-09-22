@@ -1,10 +1,20 @@
 # Aztec Monorepo
 
-All the packages that make up [Aztec](https://docs.aztec.network/what-is-aztec).
+All the packages that make up [Aztec](https://docs.aztec.network).
 
 - [**`circuits`**](/circuits): C++ code for circuits and cryptographic functions
 - [**`l1-contracts`**](/l1-contracts): Solidity code for the Ethereum contracts that process rollups
 - [**`yarn-project`**](/yarn-project): Typescript code for client and backend
+- [**`docs`**](/docs): Documentation source for the docs site
+
+## Popular packages
+
+- [Aztec.nr](./yarn-project/aztec-nr/): A [Noir](https://noir-lang.org) framework for smart contracts on Aztec.
+- [Aztec Sandbox](./yarn-project/aztec-sandbox/): A package for setting up a local dev net, including a local Ethereum network, deployed rollup contracts and Aztec execution environment.
+- [Aztec.js](./yarn-project/aztec.js/): A tool for interacting with the Aztec network. It communicates via the [Aztec RPC Server](./yarn-project/aztec-rpc/).
+- [Aztec Boxes](./yarn-project/boxes/): A minimal framework for building full stack applications for Aztec (using React).
+- [Example contracts](./yarn-project/noir-contracts/): Example contracts for the Aztec network, written in Noir.
+- [End to end tests](./yarn-project/end-to-end/): Integration tests writted in Typescript--a good reference for how to use the packages for specific tasks.
 
 ## Issues Board
 
@@ -18,7 +28,8 @@ To build the C++ code, follow the [instructions in the circuits subdirectory](./
 
 To build Typescript code, make sure to have [`nvm`](https://github.com/nvm-sh/nvm) (node version manager) installed.
 
-To build noir code, make sure that you are using the `aztec` tagged version of nargo. This is the latest pin version the team works on to ensure local and ci environments are in sync. This should be installed through `noir-contracts/bootstrap.sh` and the regular `bootstrap.sh` script. However if you find yourself wanting to update to the latest `aztec` tag outside of these channels, you can run `noirup -v aztec` to manually download the latest binaries.
+To build noir code, make sure that you are using the version from `yarn-project/noir-compiler/src/noir-version.json`.
+Install nargo by running `noirup -v TAG_FROM_THE_FILE`.
 
 ## Continuous Integration
 
@@ -28,7 +39,7 @@ All packages need to be included in the [build manifest](`build_manifest.json`),
 
 ## Debugging
 
-Logging goes through the [`info` and `debug`](circuits/cpp/barretenberg/cpp/src/barretenberg/common/log.hpp) functions in C++, and through the [DebugLogger](yarn-project/foundation/src/log/debug.ts) module in Typescript. To see the log output, set a `DEBUG` environment variable to the name of the module you want to debug, to `aztec:*`, or to `*` to see all logs.
+Logging goes through the [`info` and `debug`](barretenberg/cpp/src/barretenberg/common/log.hpp) functions in C++, and through the [DebugLogger](yarn-project/foundation/src/log/debug.ts) module in Typescript. To see the log output, set a `DEBUG` environment variable to the name of the module you want to debug, to `aztec:*`, or to `*` to see all logs.
 
 ## Releases
 

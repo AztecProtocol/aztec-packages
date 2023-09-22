@@ -2,6 +2,7 @@
 import { deployInitialSandboxAccounts } from '@aztec/aztec.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
+import NoirVersion from '@aztec/noir-compiler/noir-version';
 
 import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
@@ -48,7 +49,7 @@ async function main() {
   const packageJsonPath = resolve(dirname(fileURLToPath(import.meta.url)), '../../package.json');
   const version = JSON.parse(readFileSync(packageJsonPath).toString()).version;
 
-  logger.info(`Setting up Aztec Sandbox v${version}, please stand by...`);
+  logger.info(`Setting up Aztec Sandbox v${version} (nargo ${NoirVersion.tag}), please stand by...`);
 
   const p2pSandbox = P2P_ENABLED === 'true';
   if (p2pSandbox) {
@@ -71,7 +72,7 @@ async function main() {
   logger.info(`Debug logs will be written to ${logPath}`);
   const accountStrings = [`Initial Accounts:\n\n`];
 
-  const registeredAccounts = await rpcServer.getAccounts();
+  const registeredAccounts = await rpcServer.getRegisteredAccounts();
   for (const account of accounts) {
     const completeAddress = await account.account.getCompleteAddress();
     if (registeredAccounts.find(a => a.equals(completeAddress))) {
@@ -81,7 +82,11 @@ async function main() {
       accountStrings.push(` Public Key: ${completeAddress.publicKey.toString()}\n\n`);
     }
   }
-  logger.info(`${splash}\n${github}\n\n`.concat(...accountStrings).concat(`Aztec Sandbox is now ready for use!`));
+  logger.info(
+    `${splash}\n${github}\n\n`
+      .concat(...accountStrings)
+      .concat(`Aztec Sandbox v${version} (nargo ${NoirVersion.tag}) is now ready for use!`),
+  );
 }
 
 main().catch(err => {
