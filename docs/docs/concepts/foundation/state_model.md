@@ -6,8 +6,6 @@ import Disclaimer from '../../misc/common/\_disclaimer.mdx';
 
 <Disclaimer/>
 
-## Public State
-
 ## Private State
 
 Private state must be treated differently from public state and this must be expressed in the semantics of Aztec.nr.
@@ -29,19 +27,17 @@ This is achieved with two main features:
 1. Users sign over transactions, not over specific UTXO's
 2. Aztec.nr contracts support developer defined `unconstrained` getter functions to help dApp's make sense of UTXO's. e.g `getBalance()`. These functions can be called outside of a transaction context to read private state.
 
+## Coming soon
 
-### The lifecycle of a note
+- Public State
+- The lifecycle of a note
+- Custom notes
+- Injection of data by the kernel
+- Nonce & contract address
+- Custom nullifiers
+- Emission of custom note data to L1
+- Decrypting and storing encrypted note data
 
-#### Custom notes
+## Further reading
 
-#### Injection of data by the kernel
-
-Nonce & contract address
-
-#### Custom nullifiers
-
-#### Emission of custom note data to L1
-
-#### Decrypting and storing encrypted note data
-
-Decryption and storing data and validating Note exists and computing nullifier
+Read more about how to leverage the Aztec state model in Aztec contracts [here](../../dev_docs/contracts/syntax/state_variables.md).

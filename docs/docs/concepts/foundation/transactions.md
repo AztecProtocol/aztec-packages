@@ -10,10 +10,4 @@ See [here](https://miro.com/app/board/uXjVMQbDwNk=/?share_link_id=47681418582) f
 
 > Note: the protocol and its implementation are rapidly evolving, so some info in this diagram will be out of date.
 
-## Lifecycle of a private tx
-
-- Describe, in bullet points, the lifecycle
-
-## Lifecycle of a public tx
-
-- Describe, in bullet points, the lifecycle
+See the page on [contract communication](./communication/main.md) for more context on transactions execute.

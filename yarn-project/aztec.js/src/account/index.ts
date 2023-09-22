@@ -1,15 +1,37 @@
+/**
+ * The `account` module provides utilities for managing accounts. The most common methods to use
+ * are {@link getEcdsaAccount} and {@link getSchnorrAccount}, which return {@link AccountManager} instances
+ * using the default ECDSA or Schnorr account implementation respectively. The {@link AccountManager} class then
+ * allows to deploy and register a fresh account, or to obtain a `Wallet` instance out of an account already deployed.
+ *
+ * ```ts
+ * const encryptionPrivateKey = GrumpkinScalar.random();
+ * const signingPrivateKey = GrumpkinScalar.random();
+ * const wallet = getSchnorrAccount(rpc, encryptionPrivateKey, signingPrivateKey).waitDeploy();
+ * ```
+ *
+ * For testing purposes, consider using the {@link createAccount} and {@link createAccounts} methods,
+ * which create, register, and deploy random accounts, and return their associated `Wallet`s.
+ *
+ * For implementing your own account contract, the recommended way is to extend from the base
+ * {@link BaseAccountContract} class.
+ * Read more in {@link https://docs.aztec.network/dev_docs/wallets/writing_an_account_contract | Writing an account contract}.
+ *
+ * @packageDocumentation
+ */
 import { AztecRPC, CompleteAddress, GrumpkinPrivateKey } from '@aztec/types';
 
 import { AccountContract, AccountWallet, AztecAddress, Fr } from '../index.js';
-import { Account } from './account.js';
 import { EcdsaAccountContract } from './contract/ecdsa_account_contract.js';
 import { SchnorrAccountContract } from './contract/schnorr_account_contract.js';
 import { SingleKeyAccountContract } from './contract/single_key_account_contract.js';
+import { AccountManager } from './manager/index.js';
 
-export { Account } from './account.js';
 export * from './contract/index.js';
-export * from './entrypoint/index.js';
-export { CompleteAddress };
+export * from './defaults/index.js';
+export * from './utils.js';
+export { AccountInterface, AuthWitnessProvider } from './interface.js';
+export { AccountManager, CompleteAddress };
 
 /** A contract deployment salt. */
 export type Salt = Fr | number | bigint;
@@ -26,8 +48,8 @@ export function getEcdsaAccount(
   encryptionPrivateKey: GrumpkinPrivateKey,
   signingPrivateKey: Buffer,
   saltOrAddress?: Salt | CompleteAddress,
-): Account {
-  return new Account(rpc, encryptionPrivateKey, new EcdsaAccountContract(signingPrivateKey), saltOrAddress);
+): AccountManager {
+  return new AccountManager(rpc, encryptionPrivateKey, new EcdsaAccountContract(signingPrivateKey), saltOrAddress);
 }
 
 /**
@@ -42,8 +64,8 @@ export function getSchnorrAccount(
   encryptionPrivateKey: GrumpkinPrivateKey,
   signingPrivateKey: GrumpkinPrivateKey,
   saltOrAddress?: Salt | CompleteAddress,
-): Account {
-  return new Account(rpc, encryptionPrivateKey, new SchnorrAccountContract(signingPrivateKey), saltOrAddress);
+): AccountManager {
+  return new AccountManager(rpc, encryptionPrivateKey, new SchnorrAccountContract(signingPrivateKey), saltOrAddress);
 }
 
 /**
@@ -56,8 +78,8 @@ export function getUnsafeSchnorrAccount(
   rpc: AztecRPC,
   encryptionAndSigningPrivateKey: GrumpkinPrivateKey,
   saltOrAddress?: Salt | CompleteAddress,
-): Account {
-  return new Account(
+): AccountManager {
+  return new AccountManager(
     rpc,
     encryptionAndSigningPrivateKey,
     new SingleKeyAccountContract(encryptionAndSigningPrivateKey),
@@ -85,18 +107,18 @@ export function getUnsafeSchnorrWallet(
  * @param rpc - An AztecRPC server instance.
  * @param address - Address for the account.
  * @param accountContract - Account contract implementation.
- * * @returns A wallet for this account that can be used to interact with a contract instance.
+ * @returns A wallet for this account that can be used to interact with a contract instance.
  */
 export async function getWallet(
   rpc: AztecRPC,
   address: AztecAddress,
   accountContract: AccountContract,
 ): Promise<AccountWallet> {
-  const completeAddress = await rpc.getAccount(address);
+  const completeAddress = await rpc.getRegisteredAccount(address);
   if (!completeAddress) {
     throw new Error(`Account ${address} not found`);
   }
   const nodeInfo = await rpc.getNodeInfo();
-  const entrypoint = await accountContract.getEntrypoint(completeAddress, nodeInfo);
-  return new AccountWallet(rpc, entrypoint, completeAddress);
+  const entrypoint = await accountContract.getInterface(completeAddress, nodeInfo);
+  return new AccountWallet(rpc, entrypoint);
 }

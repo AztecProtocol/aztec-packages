@@ -26,10 +26,24 @@ describe('CLI docs sandbox', () => {
   }, 60_000);
 
   const waitForSandboxWithCli = async () => {
+    const docs = `
+// docs:start:node-info
+% aztec-cli get-node-info
+Node Info:
+
+Sandbox Version: #include_aztec_short_version
+Compatible Nargo Version: #include_noir_version
+Chain Id: 31337
+Protocol Version: 1
+Rollup Address: 0x0dcd1bf9a1b36ce34237eeafef220932846bcd82
+// docs:end:node-info
+`;
+
+    const command = docs.split('\n')[2].split('aztec-cli ')[1];
     while (true) {
       resetCli();
       try {
-        await run('get-node-info');
+        await run(command);
         break;
       } catch (err) {
         await sleep(1000);
@@ -90,7 +104,6 @@ EscrowContractAbi
 ImportTestContractAbi
 LendingContractAbi
 MultiTransferContractAbi
-NativeTokenContractAbi
 NonNativeTokenContractAbi
 ParentContractAbi
 PendingCommitmentsContractAbi
@@ -100,10 +113,11 @@ PrivateTokenAirdropContractAbi
 PrivateTokenContractAbi
 PublicTokenContractAbi
 SchnorrAccountContractAbi
-SchnorrAuthWitnessAccountContractAbi
 SchnorrHardcodedAccountContractAbi
 SchnorrSingleKeyAccountContractAbi
+StatefulTestContractAbi
 TestContractAbi
+TokenBridgeContractAbi
 TokenContractAbi
 UniswapContractAbi
 // docs:end:example-contracts
