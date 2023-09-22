@@ -1,9 +1,9 @@
-import { Button, Card, CardTheme, Loader } from '@aztec/aztec-ui';
+import { Button, Loader } from '@aztec/aztec-ui';
 import { AztecAddress, CompleteAddress, Fr } from '@aztec/aztec.js';
 import { ContractAbi, FunctionAbi } from '@aztec/foundation/abi';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import { CONTRACT_ADDRESS_PARAM_NAMES, DEFAULT_PUBLIC_ADDRESS, rpcClient } from '../../config.js';
+import { CONTRACT_ADDRESS_PARAM_NAMES, rpcClient } from '../../config.js';
 import { callContractFunction, deployContract, viewContractFunction } from '../../scripts/index.js';
 import { convertArgs } from '../../scripts/util.js';
 import styles from './contract_function_form.module.scss';
@@ -18,14 +18,14 @@ type NoirFunctionFormValues = {
   [key: string]: string | number | number[] | boolean;
 };
 
-function generateYupSchema(functionAbi: FunctionAbi) {
+function generateYupSchema(functionAbi: FunctionAbi, defaultAddress: string) {
   const parameterSchema: NoirFunctionYupSchema = {};
   const initialValues: NoirFunctionFormValues = {};
   for (const param of functionAbi.parameters) {
     if (CONTRACT_ADDRESS_PARAM_NAMES.includes(param.name)) {
       // these are hex strings instead, but yup doesn't support bigint so we convert back to bigint on execution
       parameterSchema[param.name] = Yup.string().required();
-      initialValues[param.name] = DEFAULT_PUBLIC_ADDRESS;
+      initialValues[param.name] = defaultAddress;
       continue;
     }
     switch (param.type.kind) {
@@ -86,7 +86,15 @@ async function handleFunctionCall(
   if (functionAbi.functionType === 'unconstrained') {
     return await viewContractFunction(contractAddress!, contractAbi, functionName, typedArgs, rpcClient, wallet);
   } else {
-    return await callContractFunction(contractAddress!, contractAbi, functionName, typedArgs, rpcClient, wallet);
+    const txnReceipt = await callContractFunction(
+      contractAddress!,
+      contractAbi,
+      functionName,
+      typedArgs,
+      rpcClient,
+      wallet,
+    );
+    return `Transaction ${txnReceipt.status} on block number ${txnReceipt.blockNumber}`;
   }
 }
 
@@ -95,6 +103,7 @@ interface ContractFunctionFormProps {
   contractAddress?: AztecAddress;
   contractAbi: ContractAbi;
   functionAbi: FunctionAbi;
+  defaultAddress: string;
   title?: string;
   buttonText?: string;
   isLoading: boolean;
@@ -109,6 +118,7 @@ export function ContractFunctionForm({
   contractAddress,
   contractAbi,
   functionAbi,
+  defaultAddress,
   buttonText = 'Submit',
   isLoading,
   disabled,
@@ -116,7 +126,7 @@ export function ContractFunctionForm({
   onSuccess,
   onError,
 }: ContractFunctionFormProps) {
-  const { validationSchema, initialValues } = generateYupSchema(functionAbi);
+  const { validationSchema, initialValues } = generateYupSchema(functionAbi, defaultAddress);
   const formik = useFormik({
     initialValues: initialValues,
     validationSchema: validationSchema,

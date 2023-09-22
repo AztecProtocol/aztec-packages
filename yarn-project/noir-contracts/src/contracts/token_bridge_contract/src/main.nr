@@ -10,8 +10,8 @@ contract TokenBridge {
     use dep::aztec::{
         context::{Context},
         state_vars::{public_state::PublicState},
-        types::type_serialisation::field_serialisation::{
-            FieldSerialisationMethods, FIELD_SERIALISED_LEN,
+        types::type_serialization::field_serialization::{
+            FieldSerializationMethods, FIELD_SERIALIZED_LEN,
         },
         types::address::{AztecAddress, EthereumAddress},
         oracle::compute_selector::compute_selector,
@@ -31,7 +31,7 @@ contract TokenBridge {
                 token: PublicState::new(
                     context,
                     1,
-                    FieldSerialisationMethods,
+                    FieldSerializationMethods,
                 ),
             }
         }
@@ -45,6 +45,7 @@ contract TokenBridge {
         // let _callStackItem = context.call_public_function(context.this_address(), selector, [context.msg_sender()]);
     }
 
+    // docs:start:claim_public
     // Consumes a L1->L2 message and calls the token contract to mint the appropriate amount publicly
     #[aztec(public)]
     fn claim_public(
@@ -65,7 +66,9 @@ contract TokenBridge {
 
         1
     }
+    // docs:end:claim_public
 
+    // docs:start:exit_to_l1_public
     // Burns the appropriate amount of tokens and creates a L2 to L1 withdraw message publicly
     // Requires `msg.sender` to give approval to the bridge to burn tokens on their behalf using witness signatures 
     #[aztec(public)]
@@ -86,6 +89,7 @@ contract TokenBridge {
    
         1
     }
+    // docs:end:exit_to_l1_public
 
     // Consumes a L1->L2 message and calls the token contract to mint the appropriate amount in private assets
     // User needs to call token.redeem_shield() to get the private assets
@@ -114,6 +118,7 @@ contract TokenBridge {
         1
     }
 
+    // docs:start:exit_to_l1_private
     // Burns the appropriate amount of tokens and creates a L2 to L1 withdraw message privately
     // Requires `msg.sender` (caller of the method) to give approval to the bridge to burn tokens on their behalf using witness signatures 
     #[aztec(private)]
@@ -136,6 +141,7 @@ contract TokenBridge {
 
         1
     }
+    /// docs:end:exit_to_l1_private
     
     // /// Unconstrained /// 
 
