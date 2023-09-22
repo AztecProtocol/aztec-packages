@@ -19,7 +19,7 @@ This error occurs when you are trying to interact with a smart contract via an A
 
 This is what the error typically looks like:
 ```
-    Unknown contract 0x1d206be10b873b78b875259e1a8c39e2212e2f181d2fd0b0407446487deba522: add it to Aztec RPC server by calling server.addContracts(...)
+Unknown contract 0x1d206be10b873b78b875259e1a8c39e2212e2f181d2fd0b0407446487deba522: add it to Aztec RPC server by calling server.addContracts(...)
 ```
 
 To execute a transaction, the Aztec RPC Server needs to know the complete address of a contract, portal address (if portal is used) and contract artifacts.
