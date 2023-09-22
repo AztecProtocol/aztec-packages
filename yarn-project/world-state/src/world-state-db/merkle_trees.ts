@@ -45,7 +45,7 @@ import {
 } from './index.js';
 
 /**
- * Data necessary to reinitialise the merkle trees from Db.
+ * Data necessary to reinitialize the merkle trees from Db.
  */
 interface FromDbOptions {
   /**
@@ -67,24 +67,24 @@ export class MerkleTrees implements MerkleTreeDb {
   }
 
   /**
-   * Initialises the collection of Merkle Trees.
+   * initializes the collection of Merkle Trees.
    * @param optionalWasm - WASM instance to use for hashing (if not provided PrimitivesWasm will be used).
-   * @param fromDbOptions - Options to initialise the trees from the database.
+   * @param fromDbOptions - Options to initialize the trees from the database.
    */
   public async init(optionalWasm?: IWasmModule, fromDbOptions?: FromDbOptions) {
     const fromDb = fromDbOptions !== undefined;
-    const initialiseTree = fromDb ? loadTree : newTree;
+    const initializeTree = fromDb ? loadTree : newTree;
 
     const wasm = optionalWasm ?? (await CircuitsWasm.get());
     const hasher = new Pedersen(wasm);
-    const contractTree: AppendOnlyTree = await initialiseTree(
+    const contractTree: AppendOnlyTree = await initializeTree(
       StandardTree,
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.CONTRACT_TREE]}`,
       CONTRACT_TREE_HEIGHT,
     );
-    const nullifierTree = await initialiseTree(
+    const nullifierTree = await initializeTree(
       StandardIndexedTree,
       this.db,
       hasher,
@@ -92,28 +92,28 @@ export class MerkleTrees implements MerkleTreeDb {
       NULLIFIER_TREE_HEIGHT,
       INITIAL_NULLIFIER_TREE_SIZE,
     );
-    const privateDataTree: AppendOnlyTree = await initialiseTree(
+    const privateDataTree: AppendOnlyTree = await initializeTree(
       StandardTree,
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.PRIVATE_DATA_TREE]}`,
       PRIVATE_DATA_TREE_HEIGHT,
     );
-    const publicDataTree: UpdateOnlyTree = await initialiseTree(
+    const publicDataTree: UpdateOnlyTree = await initializeTree(
       SparseTree,
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.PUBLIC_DATA_TREE]}`,
       PUBLIC_DATA_TREE_HEIGHT,
     );
-    const l1Tol2MessagesTree: AppendOnlyTree = await initialiseTree(
+    const l1Tol2MessagesTree: AppendOnlyTree = await initializeTree(
       StandardTree,
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.L1_TO_L2_MESSAGES_TREE]}`,
       L1_TO_L2_MSG_TREE_HEIGHT,
     );
-    const historicBlocksTree: AppendOnlyTree = await initialiseTree(
+    const historicBlocksTree: AppendOnlyTree = await initializeTree(
       StandardTree,
       this.db,
       hasher,
@@ -136,10 +136,10 @@ export class MerkleTrees implements MerkleTreeDb {
   }
 
   /**
-   * Method to asynchronously create and initialise a MerkleTrees instance.
+   * Method to asynchronously create and initialize a MerkleTrees instance.
    * @param db - The db instance to use for data persistance.
    * @param wasm - WASM instance to use for hashing (if not provided PrimitivesWasm will be used).
-   * @returns - A fully initialised MerkleTrees instance.
+   * @returns - A fully initialized MerkleTrees instance.
    */
   public static async new(db: levelup.LevelUp, wasm?: IWasmModule) {
     const merkleTrees = new MerkleTrees(db);

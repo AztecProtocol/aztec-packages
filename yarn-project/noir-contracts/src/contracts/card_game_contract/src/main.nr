@@ -12,12 +12,12 @@ use dep::aztec::{
 use dep::std::option::Option;
 
 use cards::{Deck};
-use game::{Game, GameSerialisationMethods, GAME_SERIALISED_LEN};
+use game::{Game, GameSerialisationMethods, GAME_serializeD_LEN};
 
 struct Storage {
     collections: Map<Deck>,
     game_decks: Map<Map<Deck>>,
-    games: Map<PublicState<Game, GAME_SERIALISED_LEN>>,
+    games: Map<PublicState<Game, GAME_serializeD_LEN>>,
 }
 
 impl Storage {

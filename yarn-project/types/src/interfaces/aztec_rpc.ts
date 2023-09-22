@@ -34,7 +34,7 @@ export interface AztecRPC {
    *
    * @param authWitness - The auth witness to insert. Composed of an identifier, which is the hash of
    * the action to be authorised, and the actual witness as an array of fields, which are to be
-   * deserialised and processed by the account contract.
+   * deserialized and processed by the account contract.
    */
   addAuthWitness(authWitness: AuthWitness): Promise<void>;
 

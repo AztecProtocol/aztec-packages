@@ -8,7 +8,7 @@ import { Fr } from './fields.js';
  * The coordinate value is split across 2 fields to ensure that the max size of a field is not breached.
  * This is achieved by placing the most significant byte of the lower field into the least significant byte of the higher field.
  * Calls to 'toBuffer' or 'toBigInt' undo this change and simply return the original 32 byte value.
- * Calls to 'toFieldsBuffer' will return a 64 bytes buffer containing the serialised fields.
+ * Calls to 'toFieldsBuffer' will return a 64 bytes buffer containing the serialized fields.
  */
 export class Coordinate {
   static ZERO = new Coordinate([Fr.ZERO, Fr.ZERO]);
@@ -37,7 +37,7 @@ export class Coordinate {
   }
 
   /**
-   * Serialises the oblect to buffer of 2 fields.
+   * serializes the oblect to buffer of 2 fields.
    * @returns A buffer serialisation of the object.
    */
   toFieldsBuffer(): Buffer {
@@ -45,7 +45,7 @@ export class Coordinate {
   }
 
   /**
-   * Serialises the coordinate to a single 32 byte buffer.
+   * serializes the coordinate to a single 32 byte buffer.
    * @returns A buffer serialisation of the object.
    */
   toBuffer(): Buffer {

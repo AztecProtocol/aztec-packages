@@ -18,7 +18,7 @@ import { PublicProcessorFactory } from './public_processor.js';
 
 /**
  * Sequencer client
- * - Wins a period of time to become the sequencer (depending on finalised protocol).
+ * - Wins a period of time to become the sequencer (depending on finalized protocol).
  * - Chooses a set of txs from the tx pool to be in the rollup.
  * - Simulate the rollup of txs.
  * - Adds proof requests to the request pool (not for this milestone).

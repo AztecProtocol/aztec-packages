@@ -13,12 +13,12 @@ contract PublicToken {
             public_state::PublicState,
         },
         types::type_serialisation::field_serialisation::{
-            FieldSerialisationMethods, FIELD_SERIALISED_LEN,
+            FieldSerialisationMethods, FIELD_serializeD_LEN,
         },
     };
 
     struct Storage {
-        balances: Map<PublicState<Field, FIELD_SERIALISED_LEN>>,
+        balances: Map<PublicState<Field, FIELD_serializeD_LEN>>,
     }
 
     impl Storage {

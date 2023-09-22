@@ -21,11 +21,11 @@ contract Lending {
             public_state::PublicState,
         },
         types::type_serialisation::{
-            field_serialisation::{FieldSerialisationMethods, FIELD_SERIALISED_LEN},
+            field_serialisation::{FieldSerialisationMethods, FIELD_serializeD_LEN},
             TypeSerialisationInterface,
         },
     };
-    use crate::asset::{ASSET_SERIALISED_LEN, Asset, AssetSerialisationMethods};
+    use crate::asset::{ASSET_serializeD_LEN, Asset, AssetSerialisationMethods};
     use crate::interest_math::compute_multiplier;
     use crate::helpers::{covered_by_collateral, DebtReturn, debt_updates, debt_value, compute_identifier};
     use crate::interfaces::{Token, Lending, PriceFeed};
@@ -34,9 +34,9 @@ contract Lending {
     struct Storage {
         collateral_asset: PublicState<Field, 1>,
         stable_coin: PublicState<Field, 1>,
-        assets: Map<PublicState<Asset, ASSET_SERIALISED_LEN>>,
-        collateral: Map<PublicState<Field, FIELD_SERIALISED_LEN>>,
-        static_debt: Map<PublicState<Field, FIELD_SERIALISED_LEN>>, // abusing keys very heavily
+        assets: Map<PublicState<Asset, ASSET_serializeD_LEN>>,
+        collateral: Map<PublicState<Field, FIELD_serializeD_LEN>>,
+        static_debt: Map<PublicState<Field, FIELD_serializeD_LEN>>, // abusing keys very heavily
     }
 
     impl Storage {

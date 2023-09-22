@@ -73,7 +73,7 @@ export class AztecNodeService implements AztecNode {
   ) {}
 
   /**
-   * Initialises the Aztec Node, wait for component to sync.
+   * initializes the Aztec Node, wait for component to sync.
    * @param config - The configuration to be used by the aztec node.
    * @returns - A fully synced Aztec Node for use in development/testing.
    */

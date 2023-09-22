@@ -7,7 +7,7 @@ mod u32_serialisation;
  */
 // docs:start:TypeSerialisationInterface
 struct TypeSerialisationInterface<T, N> {
-    deserialise: fn ([Field; N]) -> T,
-    serialise: fn (T) -> [Field; N],
+    deserialize: fn ([Field; N]) -> T,
+    serialize: fn (T) -> [Field; N],
 }
 // docs:end:TypeSerialisationInterface

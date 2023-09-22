@@ -32,7 +32,7 @@ function isPrivateCall(functionType: FunctionType) {
 function generateCallStatement(selector: FunctionSelector, functionType: FunctionType) {
   const callMethod = isPrivateCall(functionType) ? 'call_private_function' : 'call_public_function';
   return `
-    context.${callMethod}(self.address, 0x${selector.toString()}, serialised_args)`;
+    context.${callMethod}(self.address, 0x${selector.toString()}, serialized_args)`;
 }
 
 /**
@@ -91,7 +91,7 @@ function generateParameter(param: ABIParameter, functionData: FunctionAbi) {
 }
 
 /**
- * Collects all parameters for a given function and flattens them according to how they should be serialised.
+ * Collects all parameters for a given function and flattens them according to how they should be serialized.
  * @param parameters - Parameters for a function.
  * @returns List of parameters flattened to basic data types.
  */
@@ -123,13 +123,13 @@ function collectParametersForSerialisation(parameters: ABIVariable[]) {
 
 /**
  * Generates Noir code for serialising the parameters into an array of fields.
- * @param parameters - Parameters to serialise.
+ * @param parameters - Parameters to serialize.
  * @returns The serialisation code.
  */
 function generateSerialisation(parameters: ABIParameter[]) {
   const flattened = collectParametersForSerialisation(parameters);
-  const declaration = `    let mut serialised_args = [0; ${flattened.length}];`;
-  const lines = flattened.map((param, i) => `    serialised_args[${i}] = ${param};`);
+  const declaration = `    let mut serialized_args = [0; ${flattened.length}];`;
+  const lines = flattened.map((param, i) => `    serialized_args[${i}] = ${param};`);
   return [declaration, ...lines].join('\n');
 }
 

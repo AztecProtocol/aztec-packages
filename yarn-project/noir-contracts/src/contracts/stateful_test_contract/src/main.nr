@@ -14,13 +14,13 @@ contract StatefulTest {
         },
         state_vars::{map::Map, public_state::PublicState, set::Set},
         types::type_serialisation::field_serialisation::{
-            FieldSerialisationMethods, FIELD_SERIALISED_LEN,
+            FieldSerialisationMethods, FIELD_serializeD_LEN,
         },
     };
 
     struct Storage {
         notes: Map<Set<ValueNote, VALUE_NOTE_LEN>>,
-        public_values: Map<PublicState<Field, FIELD_SERIALISED_LEN>>,
+        public_values: Map<PublicState<Field, FIELD_serializeD_LEN>>,
     }
 
     impl Storage {
