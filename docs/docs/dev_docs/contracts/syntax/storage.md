@@ -51,11 +51,11 @@ No storage values should be initialized at slot `0`. This is a known issue that 
 
 ## Map
 
-A `map` is a state variable that "maps" a key to a value. In Aztec.nr, we keys are `Field`s (or values that are convertible to Fields) and values can be any type - even other maps. The map is a struct defined as follows:
+A `map` is a state variable that "maps" a key to a value. In Aztec.nr, keys are `Field`s (or values that are convertible to Fields) and values can be any type - even other maps. The map is a struct defined as follows:
 
 #include_code map /yarn-project/aztec-nr/aztec/src/state_vars/map.nr rust
 
-It includes a [`Context`](./context.mdx) to be used when dabbling in the private domain, a `storage_lot` to specify where in storage the map is stored, and a `start_var_constructor` which tells the map how it should operate on the underlying type. This includes how to serialize and deserialize the type, as well as how commitments and nullifiers are computed for the type if private.
+It includes a [`Context`](./context.mdx) to be used when dabbling in the private domain, a `storage_slot` to specify where in storage the map is stored, and a `start_var_constructor` which tells the map how it should operate on the underlying type. This includes how to serialize and deserialize the type, as well as how commitments and nullifiers are computed for the type if it's private.
 
 ### `new`
 
@@ -83,7 +83,7 @@ require(minters[msg.sender] == 1, "caller is not minter");
 
 ## Public State Variables
 
-As we have looked seen earlier we got two kinds of state, public and private. We'll start with a look at the public side of things, as this is what behaves closest to what most people are used to from Ethereum and other blockchains.
+As we have seen earlier we have two kinds of state, public and private. We'll start with a look at the public side of things, as this is what will be most familiar for blockchain developers.
 
 To define that a variable is public, it is wrapped in the `PublicState` struct, as defined below:
 
@@ -94,7 +94,7 @@ The `PublicState` struct is generic over the variable type `T` and its serialize
 Currently, the length of the types must be specified when declaring the storage struct but the intention is that this will be inferred in the future.
 :::
 
-The struct contains a `storage_slot` which similarly to Ethereum is used to figure out *where* in the storage the variable is stored. Notice that while we don't have the exact same [state model](./../../../concepts/foundation/state_model.md) as EVM chains it will from the developers points of view work very similar.
+The struct contains a `storage_slot` which, similar to Ethereum, is used to figure out *where* in storage the variable is located. Notice that while we don't have the exact same [state model](./../../../concepts/foundation/state_model.md) as EVM chains it will look similar from the contract developers point of view.
 
 Beyond the struct, the `PublicState` also contains `serialization_methods`, which is a struct with methods that instruct the `PublicState` how to serialize and deserialize the variable.
 
@@ -155,7 +155,7 @@ mapping(address => uint256) internal minters;
 
 Now we have an idea of how to define storage, but storage is not really useful before we start using it, so how can we access it? 
 
-Reading data from storage is somewhat straightforward, on the `PublicState` structs we got a `read` method to read the value at the location in storage and using the specified deserialization method to deserialize it.
+Reading data from storage is straightforward. On the `PublicState` structs we have a `read` method to read the value at the location in storage and using the specified deserialization method to deserialize it. Here is the function definition in the `public_state.nr` source:
 
 #include_code public_state_struct_read /yarn-project/aztec-nr/aztec/src/state_vars/public_state.nr rust
 
@@ -177,7 +177,7 @@ As we saw in the Map earlier, a very similar operation can be done to perform a 
 
 We figured out how to read values, but how do we write them? 
 
-Like reading, it is actually quite straight-forward, we got a `write` method on the `PublicState` struct that takes the value to write as an input, and then shoved this into storage, it uses the serialization method defined earlier to serialize the value which insert (possibly multiple) values into storage.
+Like reading, it is actually quite straight-forward. We have a `write` method on the `PublicState` struct that takes the value to write as an input and saves this in storage. It uses the serialization method defined earlier to serialize the value which inserts (possibly multiple) values into storage.
 
 #include_code public_state_struct_write /yarn-project/aztec-nr/aztec/src/state_vars/public_state.nr rust
 
@@ -223,7 +223,7 @@ A note should conform to the following interface:
 
 The interplay between a private state variable and its notes can be confusing. Here's a summary to aid intuition:
 
-- A private state variable (of type `Singleton`, `ImmutableSingleton` or `Set`) may be declared in [Storage](storage).
+- A private state variable (of type `Singleton`, `ImmutableSingleton` or `Set`) may be declared in storage.
 - Every note contains (as a 'header') the contract address and storage slot of the state variable to which it "belongs". A note is said to "belong" to a private state if the storage slot of the private state matches the storage slot contained in the note's header.
   - Management of this 'header' is abstracted-away from developers who use the `ImmutableSingleton`, `Singleton` and `Set` types.
 - A private state variable is colloquially said to "point" to one or many notes (depending on the type), if those note(s) all "belong" to that private state, and those note(s) haven't-yet been nullified.
@@ -247,7 +247,7 @@ Like for public state, we define the struct to have context, a storage slot and 
 
 #include_code struct /yarn-project/aztec-nr/aztec/src/state_vars/singleton.nr rust
 
-An example of singleton usage in in the account contracts keeping track of public keys. The `Singleton` is added to the `Storage` struct as follows:
+An example of singleton usage in the account contracts is keeping track of public keys. The `Singleton` is added to the `Storage` struct as follows:
 
 #include_code storage-singleton-declaration /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/main.nr rust
 
@@ -261,7 +261,7 @@ As part of the initialization of the `Storage` struct, the `Singleton` is create
 
 ### `initialise`
 
-As mention, the singleton is initialized to create the first note and value. 
+As mention, the singleton is initialized to create the first note and value. Here is the source code for the initialise function:
 
 #include_code initialise /yarn-project/aztec-nr/aztec/src/state_vars/singleton.nr rust
 
@@ -375,7 +375,7 @@ The usage is rather straight-forward and very similar to using the `insert` meth
 
 ### `assert_contains_and_remove`
 
-This function is used to check existence of a note and then remove it without having read the note ahead of time. This can be useful for cases where the user would is providing all the information needed, such as cases where the note was never emitted to the network and thereby available to the wallet.
+This function is used to check existence of a note and then remove it without having read the note ahead of time. This can be useful for cases where the user is providing all the information needed, such as cases where the note was never emitted to the network and thereby available to the wallet.
 
 #include_code assert_contains_and_remove /yarn-project/aztec-nr/aztec/src/state_vars/set.nr rust
 
@@ -399,7 +399,7 @@ The reason we are not reading this note ahead of time is that no [encrypted log]
 
 ### `remove`
 
-Will remove a note from the set if it previously have been read from storage. That being that you have fetched it through a `get_notes` call. This is useful when you want to remove a note that you have previously read from storage to not have to read it again. If you recall from earlier, we are emitting a nullifier when reading values to make sure that they are up to date. 
+Will remove a note from the set if it previously has been read from storage, e.g. you have fetched it through a `get_notes` call. This is useful when you want to remove a note that you have previously read from storage and do not have to read it again. If you recall from earlier, we are emitting a nullifier when reading values to make sure that they are up to date. 
 
 #include_code remove /yarn-project/aztec-nr/aztec/src/state_vars/set.nr rust
 
@@ -522,7 +522,7 @@ We can use it as a filter to further reduce the number of the final notes:
 
 #include_code state_vars-NoteGetterOptionsFilter /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/options.nr rust
 
-One thing to remember is, `filter` will be applied on the notes after they are picked from the database. Therefor, it's possible that the actual notes we end up getting are fewer than the limit.
+One thing to remember is, `filter` will be applied on the notes after they are picked from the database. Therefore, it's possible that the actual notes we end up getting are fewer than the limit.
 
 The limit is `MAX_READ_REQUESTS_PER_CALL` by default. But we can set it to any value "smaller" than that:
 
