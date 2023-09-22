@@ -1,9 +1,9 @@
 FROM ubuntu:lunar
-# RUN apt-get update && apt-get install -y \
-#     jq \
-#     curl \
-#     git \
-#     sed
+RUN apt-get update && apt-get install -y \
+    # jq \
+    curl \
+    git \
+    sed
 WORKDIR /usr/src/yarn-project
 COPY noir-contracts noir-contracts
 COPY noir-compiler noir-compiler
