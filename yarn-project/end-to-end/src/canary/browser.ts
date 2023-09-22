@@ -62,6 +62,7 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
           '--disable-web-security',
           '--disable-features=IsolateOrigins',
           '--disable-site-isolation-trials',
+          '--disable-setuid-sandbox',
           '--disable-gpu',
           '--disable-dev-shm-usage',
           '--disk-cache-dir=/dev/null',
