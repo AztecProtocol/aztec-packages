@@ -243,6 +243,19 @@ class UltraGrumpkin {
         }
 
         ~AllEntities() = default;
+        friend std::ostream& operator<<(std::ostream& os, const AllEntities& a)
+        {
+            os << "{ ";
+            std::ios_base::fmtflags f(os.flags());
+            for (size_t i = 0; i < NUM_ALL_ENTITIES - 1; i++) {
+                os << "e[" << std::setw(2) << i << "] = " << (a._data[i]) << ",\n";
+            }
+            os << "e[" << std::setw(2) << (NUM_ALL_ENTITIES - 1) << "] = " << std::get<NUM_ALL_ENTITIES - 1>(a._data)
+               << " }";
+
+            os.flags(f);
+            return os;
+        }
     };
 
   public:

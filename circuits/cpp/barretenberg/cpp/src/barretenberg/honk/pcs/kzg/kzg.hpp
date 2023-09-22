@@ -6,6 +6,7 @@
 #include "barretenberg/polynomials/polynomial.hpp"
 
 #include <memory>
+#include <string>
 #include <utility>
 
 namespace proof_system::honk::pcs::kzg {
@@ -30,7 +31,8 @@ template <typename Params> class KZG {
     static void compute_opening_proof(std::shared_ptr<CK> ck,
                                       const OpeningPair<Params>& opening_pair,
                                       const Polynomial& polynomial,
-                                      ProverTranscript<Fr>& prover_trancript)
+                                      ProverTranscript<Fr>& prover_trancript,
+                                      std::string quotient_commitment_name = "KZG:W")
     {
         Polynomial quotient(polynomial);
         quotient[0] -= opening_pair.evaluation;
@@ -40,7 +42,7 @@ template <typename Params> class KZG {
         // TODO(#479): for now we compute the KZG commitment directly to unify the KZG and IPA interfaces but in the
         // future we might need to adjust this to use the incoming alternative to work queue (i.e. variation of
         // pthreads) or even the work queue itself
-        prover_trancript.send_to_verifier("KZG:W", quotient_commitment);
+        prover_trancript.send_to_verifier(quotient_commitment_name, quotient_commitment);
     };
 
     /**
@@ -55,9 +57,11 @@ template <typename Params> class KZG {
      */
     static bool verify(std::shared_ptr<VK> vk,
                        const OpeningClaim<Params>& claim,
-                       VerifierTranscript<Fr>& verifier_transcript)
+                       VerifierTranscript<Fr>& verifier_transcript,
+                       std::string quotient_commitment_name = "KZG:W")
     {
-        auto quotient_commitment = verifier_transcript.template receive_from_prover<Commitment>("KZG:W");
+        auto quotient_commitment =
+            verifier_transcript.template receive_from_prover<Commitment>(quotient_commitment_name);
         auto lhs = claim.commitment - (GroupElement::one() * claim.opening_pair.evaluation) +
                    (quotient_commitment * claim.opening_pair.challenge);
         auto rhs = -quotient_commitment;

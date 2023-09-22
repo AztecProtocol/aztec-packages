@@ -131,10 +131,10 @@ class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<arithmetization
         QUOTIENT_HI_LIMBS_RANGE_CONSTRAIN_TAIL,
         RELATION_WIDE_LIMBS, // Limbs for checking the correctness of  mod 2²⁷² relations. TODO(kesha): add range
                              // constraints
-        RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_0_SHIFTED,
-        RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_1_SHIFTED,
-        RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_2_SHIFTED,
-        RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_TAIL_SHIFTED,
+        RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_0,
+        RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_1,
+        RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_2,
+        RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_TAIL,
 
         TOTAL_COUNT
 
@@ -143,13 +143,11 @@ class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<arithmetization
     static constexpr size_t MAX_OPERAND = 3;
     static constexpr size_t NUM_LIMB_BITS = 68;
     static constexpr size_t NUM_Z_LIMBS = 2;
-    static constexpr size_t MICRO_LIMB_BITS = 12;
-    static constexpr size_t LEFTOVER_CHUNK_BITS = 8;
+    static constexpr size_t MICRO_LIMB_BITS = 14;
     static constexpr size_t NUM_MICRO_LIMBS = 6;
     static constexpr size_t NUM_BINARY_LIMBS = 4;
     static constexpr size_t WIDE_RELATION_LIMB_BITS = 72;
     static constexpr auto MICRO_SHIFT = uint256_t(1) << MICRO_LIMB_BITS;
-    static constexpr auto MAXIMUM_LEFTOVER_LIMB_SIZE = (uint256_t(1) << LEFTOVER_CHUNK_BITS) - 1;
     static constexpr size_t NUM_LAST_LIMB_BITS = Fq::modulus.get_msb() + 1 - 3 * NUM_LIMB_BITS;
     static constexpr auto MAX_LOW_WIDE_LIMB_SIZE = (uint256_t(1) << (NUM_LIMB_BITS * 2)) - 1;
     static constexpr auto MAX_HIGH_WIDE_LIMB_SIZE = (uint256_t(1) << (NUM_LIMB_BITS + NUM_LAST_LIMB_BITS)) - 1;
@@ -167,8 +165,6 @@ class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<arithmetization
         Fr(NEGATIVE_PRIME_MODULUS.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4).lo),
         -Fr(Fq::modulus)
     };
-    static constexpr size_t NUM_RELATION_WIDE_LIMB_CONSTRAINTS =
-        1 + RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_TAIL_SHIFTED - RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_0_SHIFTED;
     /**
      * @brief The accumulation input structure contains all the necessary values to initalize an accumulation gate as
      * well as additional values for checking its correctness
@@ -202,11 +198,7 @@ class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<arithmetization
         std::array<Fr, NUM_BINARY_LIMBS + 1> quotient_binary_limbs;
         std::array<std::array<Fr, NUM_MICRO_LIMBS>, NUM_BINARY_LIMBS> quotient_microlimbs;
         std::array<Fr, 2> relation_wide_limbs;
-        std::array<std::array<Fr,
-                              RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_TAIL_SHIFTED -
-                                  RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_0_SHIFTED + 1>,
-                   2>
-            relation_wide_microlimbs;
+        std::array<std::array<Fr, NUM_MICRO_LIMBS>, 2> relation_wide_microlimbs;
 
         // Additional
         std::array<Fr, NUM_BINARY_LIMBS + 1> x_limbs;
@@ -428,22 +420,43 @@ class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<arithmetization
                         wires[starting_wire + i].back(), MICRO_LIMB_BITS, "Range constraint for microlimbs failed");
                 }
             };
+        // We are using some leftover crevices for relation_wide_microlimbs
+        auto low_relation_microlimbs = acc_step.relation_wide_microlimbs[0];
+        auto high_relation_microlimbs = acc_step.relation_wide_microlimbs[1];
+
+        insert_pair_into_wire(
+            RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_0, low_relation_microlimbs[0], high_relation_microlimbs[0]);
+        insert_pair_into_wire(
+            RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_1, low_relation_microlimbs[1], high_relation_microlimbs[1]);
+        insert_pair_into_wire(
+            RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_2, low_relation_microlimbs[2], high_relation_microlimbs[2]);
+        insert_pair_into_wire(
+            RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_TAIL, low_relation_microlimbs[3], high_relation_microlimbs[3]);
+        // Next ones go into top P_x and P_y, current accumulator and quotient
+
+        auto top_p_x_microlimbs = acc_step.P_x_microlimbs[3];
+        top_p_x_microlimbs[NUM_MICRO_LIMBS - 1] = low_relation_microlimbs[4];
+        auto top_p_y_microlimbs = acc_step.P_y_microlimbs[3];
+        top_p_y_microlimbs[NUM_MICRO_LIMBS - 1] = high_relation_microlimbs[4];
+        auto top_current_accumulator_microlimbs = acc_step.current_accumulator_microlimbs[3];
+        top_current_accumulator_microlimbs[NUM_MICRO_LIMBS - 1] = low_relation_microlimbs[5];
+        auto top_quotient_microlimbs = acc_step.quotient_microlimbs[3];
+        top_quotient_microlimbs[NUM_MICRO_LIMBS - 1] = high_relation_microlimbs[5];
+
         lay_limbs_in_row_and_range_constrain(
             acc_step.P_x_microlimbs[0], P_X_LOW_LIMBS_RANGE_CONSTRAINT_0, NUM_MICRO_LIMBS);
         lay_limbs_in_row_and_range_constrain(
             acc_step.P_x_microlimbs[1], P_X_LOW_LIMBS_RANGE_CONSTRAINT_0, NUM_MICRO_LIMBS);
         lay_limbs_in_row_and_range_constrain(
             acc_step.P_x_microlimbs[2], P_X_HIGH_LIMBS_RANGE_CONSTRAINT_0, NUM_MICRO_LIMBS);
-        lay_limbs_in_row_and_range_constrain(
-            acc_step.P_x_microlimbs[3], P_X_HIGH_LIMBS_RANGE_CONSTRAINT_0, NUM_MICRO_LIMBS);
+        lay_limbs_in_row_and_range_constrain(top_p_x_microlimbs, P_X_HIGH_LIMBS_RANGE_CONSTRAINT_0, NUM_MICRO_LIMBS);
         lay_limbs_in_row_and_range_constrain(
             acc_step.P_y_microlimbs[0], P_Y_LOW_LIMBS_RANGE_CONSTRAINT_0, NUM_MICRO_LIMBS);
         lay_limbs_in_row_and_range_constrain(
             acc_step.P_y_microlimbs[1], P_Y_LOW_LIMBS_RANGE_CONSTRAINT_0, NUM_MICRO_LIMBS);
         lay_limbs_in_row_and_range_constrain(
             acc_step.P_y_microlimbs[2], P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_0, NUM_MICRO_LIMBS);
-        lay_limbs_in_row_and_range_constrain(
-            acc_step.P_y_microlimbs[3], P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_0, NUM_MICRO_LIMBS);
+        lay_limbs_in_row_and_range_constrain(top_p_y_microlimbs, P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_0, NUM_MICRO_LIMBS);
         lay_limbs_in_row_and_range_constrain(
             acc_step.z_1_microlimbs[0], Z_LO_LIMBS_RANGE_CONSTRAINT_0, NUM_MICRO_LIMBS);
         lay_limbs_in_row_and_range_constrain(
@@ -461,7 +474,7 @@ class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<arithmetization
         lay_limbs_in_row_and_range_constrain(
             acc_step.current_accumulator_microlimbs[2], ACCUMULATOR_HI_LIMBS_RANGE_CONSTRAINT_0, NUM_MICRO_LIMBS);
         lay_limbs_in_row_and_range_constrain(
-            acc_step.current_accumulator_microlimbs[3], ACCUMULATOR_HI_LIMBS_RANGE_CONSTRAINT_0, NUM_MICRO_LIMBS);
+            top_current_accumulator_microlimbs, ACCUMULATOR_HI_LIMBS_RANGE_CONSTRAINT_0, NUM_MICRO_LIMBS);
         lay_limbs_in_row_and_range_constrain(
             acc_step.quotient_microlimbs[0], QUOTIENT_LO_LIMBS_RANGE_CONSTRAIN_0, NUM_MICRO_LIMBS);
         lay_limbs_in_row_and_range_constrain(
@@ -469,14 +482,14 @@ class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<arithmetization
         lay_limbs_in_row_and_range_constrain(
             acc_step.quotient_microlimbs[2], QUOTIENT_HI_LIMBS_RANGE_CONSTRAIN_0, NUM_MICRO_LIMBS);
         lay_limbs_in_row_and_range_constrain(
-            acc_step.quotient_microlimbs[3], QUOTIENT_HI_LIMBS_RANGE_CONSTRAIN_0, NUM_MICRO_LIMBS);
+            top_quotient_microlimbs, QUOTIENT_HI_LIMBS_RANGE_CONSTRAIN_0, NUM_MICRO_LIMBS);
 
-        lay_limbs_in_row_and_range_constrain(acc_step.relation_wide_microlimbs[0],
-                                             RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_0_SHIFTED,
-                                             NUM_RELATION_WIDE_LIMB_CONSTRAINTS);
-        lay_limbs_in_row_and_range_constrain(acc_step.relation_wide_microlimbs[1],
-                                             RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_0_SHIFTED,
-                                             NUM_RELATION_WIDE_LIMB_CONSTRAINTS);
+        // lay_limbs_in_row_and_range_constrain(acc_step.relation_wide_microlimbs[0],
+        //                                      RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_0_SHIFTED,
+        //                                      NUM_RELATION_WIDE_LIMB_CONSTRAINTS);
+        // lay_limbs_in_row_and_range_constrain(acc_step.relation_wide_microlimbs[1],
+        //                                      RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_0_SHIFTED,
+        //                                      NUM_RELATION_WIDE_LIMB_CONSTRAINTS);
 
         num_gates += 2;
 
@@ -593,7 +606,8 @@ class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<arithmetization
          */
         auto accumulate_limb_from_micro_chunks = [](const std::vector<Fr>& chunks) {
             Fr mini_accumulator(0);
-            for (auto it = chunks.end(); it != chunks.begin();) {
+
+            for (auto it = chunks.end() - 1; it != chunks.begin();) {
                 --it;
                 mini_accumulator = mini_accumulator * MICRO_SHIFT + *it;
             }

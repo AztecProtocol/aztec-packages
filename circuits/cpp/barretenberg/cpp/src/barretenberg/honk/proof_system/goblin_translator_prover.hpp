@@ -35,6 +35,7 @@ template <typename Flavor> class GoblinTranslatorProver_ {
     void execute_relation_check_rounds();
     void execute_univariatization_round();
     void execute_pcs_evaluation_round();
+    void execute_multikzg_opening_round();
     void execute_shplonk_batched_quotient_round();
     void execute_shplonk_partial_evaluation_round();
     void execute_final_pcs_round();

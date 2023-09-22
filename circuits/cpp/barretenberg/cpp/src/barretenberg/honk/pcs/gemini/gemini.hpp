@@ -5,6 +5,7 @@
 #include "barretenberg/honk/transcript/transcript.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 
+#include <tuple>
 #include <vector>
 
 /**
@@ -65,11 +66,11 @@ template <typename Params> struct ProverOutput {
 
 /**
  * @brief Compute powers of challenge ρ
- * 
- * @tparam Fr 
- * @param rho 
- * @param num_powers 
- * @return std::vector<Fr> 
+ *
+ * @tparam Fr
+ * @param rho
+ * @param num_powers
+ * @return std::vector<Fr>
  */
 template <class Fr> inline std::vector<Fr> powers_of_rho(const Fr rho, const size_t num_powers)
 {
@@ -117,13 +118,18 @@ template <typename Params> class GeminiVerifier_ {
     using Fr = typename Params::Fr;
     using GroupElement = typename Params::GroupElement;
     using Commitment = typename Params::Commitment;
+    using BatchCommitmentUpdate = std::tuple<GroupElement, GroupElement>(Fr);
 
   public:
-    static std::vector<OpeningClaim<Params>> reduce_verification(std::span<const Fr> mle_opening_point, /* u */
-                                                           const Fr batched_evaluation,           /* all */
-                                                           GroupElement& batched_f,               /* unshifted */
-                                                           GroupElement& batched_g,               /* to-be-shifted */
-                                                           VerifierTranscript<Fr>& transcript);
+    static std::vector<OpeningClaim<Params>> reduce_verification(
+        std::span<const Fr> mle_opening_point, /* u */
+        const Fr batched_evaluation,           /* all */
+        GroupElement& batched_f,               /* unshifted */
+        GroupElement& batched_g,               /* to-be-shifted */
+        VerifierTranscript<Fr>& transcript,
+        BatchCommitmentUpdate batch_commitment_update = [](Fr) {
+            return std::make_tuple(GroupElement::zero(), GroupElement::zero());
+        });
 
   private:
     static Fr compute_eval_pos(const Fr batched_mle_eval,

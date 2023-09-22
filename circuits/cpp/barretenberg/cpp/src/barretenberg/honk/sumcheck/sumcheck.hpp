@@ -122,7 +122,6 @@ template <typename Flavor> class SumcheckProver {
             ++evaluation_idx;
         }
         transcript.send_to_verifier("Sumcheck:evaluations", multivariate_evaluations._data);
-
         return { multivariate_challenge, multivariate_evaluations };
     };
 

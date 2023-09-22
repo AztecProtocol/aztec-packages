@@ -155,7 +155,46 @@ GoblinTranslatorCircuitBuilder::AccumulationInput generate_witness_values(
         return std::make_tuple(Fr(uint256_t(wide_limb).slice(0, NUM_LIMB_BITS)),
                                Fr(uint256_t(wide_limb).slice(NUM_LIMB_BITS, 2 * NUM_LIMB_BITS)));
     };
+    /**
+     * @brief A method to split a full 68-bit limb into 5 14-bit limb and 1 shifted limb for a more secure constraint
+     *
+     */
     auto split_standard_limb_into_micro_limbs = [](Fr& limb) {
+        static_assert(MICRO_LIMB_BITS == 14);
+        return std::array<Fr, 6>{
+            uint256_t(limb).slice(0, MICRO_LIMB_BITS),
+            uint256_t(limb).slice(MICRO_LIMB_BITS, 2 * MICRO_LIMB_BITS),
+            uint256_t(limb).slice(2 * MICRO_LIMB_BITS, 3 * MICRO_LIMB_BITS),
+            uint256_t(limb).slice(3 * MICRO_LIMB_BITS, 4 * MICRO_LIMB_BITS),
+            uint256_t(limb).slice(4 * MICRO_LIMB_BITS, 5 * MICRO_LIMB_BITS),
+            uint256_t(limb).slice(4 * MICRO_LIMB_BITS, 5 * MICRO_LIMB_BITS)
+                << (MICRO_LIMB_BITS - (NUM_LIMB_BITS % MICRO_LIMB_BITS)),
+        };
+    };
+    /**
+     * @brief A method to split the top 50-bit limb into 4 14-bit limbs and 1 shifted limb for a more secure constraint
+     * (plus there is 1 extra space for other constraints)
+     *
+     */
+    auto split_top_limb_into_micro_limbs = [](Fr& limb) {
+        static_assert(MICRO_LIMB_BITS == 14);
+        return std::array<Fr, 6>{
+            uint256_t(limb).slice(0, MICRO_LIMB_BITS),
+            uint256_t(limb).slice(MICRO_LIMB_BITS, 2 * MICRO_LIMB_BITS),
+            uint256_t(limb).slice(2 * MICRO_LIMB_BITS, 3 * MICRO_LIMB_BITS),
+            uint256_t(limb).slice(3 * MICRO_LIMB_BITS, 4 * MICRO_LIMB_BITS),
+            uint256_t(limb).slice(4 * MICRO_LIMB_BITS, 5 * MICRO_LIMB_BITS),
+            uint256_t(limb).slice(4 * MICRO_LIMB_BITS, 5 * MICRO_LIMB_BITS)
+                << (MICRO_LIMB_BITS - (NUM_LIMB_BITS % MICRO_LIMB_BITS)),
+        };
+    };
+    /**
+     * @brief Split a 72-bit relation limb into 6 14-bit limbs (we can allow the slack here, since we only need to
+     * ensure non-overflow of the modulus)
+     *
+     */
+    auto split_relation_limb_into_micro_limbs = [](Fr& limb) {
+        static_assert(MICRO_LIMB_BITS == 14);
         return std::array<Fr, 6>{
             uint256_t(limb).slice(0, MICRO_LIMB_BITS),
             uint256_t(limb).slice(MICRO_LIMB_BITS, 2 * MICRO_LIMB_BITS),
@@ -256,6 +295,14 @@ GoblinTranslatorCircuitBuilder::AccumulationInput generate_witness_values(
          v_quarted_witnesses[0] * z_2_hi + quotient_witnesses[0] * neg_modulus_limbs[1] +
          quotient_witnesses[1] * neg_modulus_limbs[0] - remainder_witnesses[1]) *
             shift_1; // And this covers the limb shifted by 68
+    // uint256_t mlb = (uint256_t(1) << 68) - 1;
+    // uint256_t maximum_value_lwrl = ((mlb * mlb) * (uint256_t(1) << 68) * 12 + (mlb * mlb) * 6 + 3) >> 136;
+    // We have free space for relations micro limbs in:
+    // 1)p_x_hi_limb
+    // 2)p_y_hi_limb
+    // 3)accumulator_hi_limb
+    // 4)quotient_hi_limb x 2
+    // But this should be more than enough, since we can relax this for relation constraints
     // for (auto& limb : quotient_witnesses) {
     //     info("Q: ", limb);
     // }
@@ -269,13 +316,14 @@ GoblinTranslatorCircuitBuilder::AccumulationInput generate_witness_values(
     //     (low_wide_limb_maximum_value >> (2 * NUM_LIMB_BITS)).lo +
     //     uint256_t(uint64_t((low_wide_limb_maximum_value % uint512_t(1) << (2 * NUM_LIMB_BITS)) != 0));
     // constexpr auto low_wide_limb_range_consraint_size = low_wide_limb_maximum_value_constraint.get_msb() + 1;
-    // info("Low limb range constraint: ", low_wide_limb_range_consraint_size);
-    //  Low bits have to be zero
+    // // info("Low limb range constraint: ", low_wide_limb_range_consraint_size);
+    //   Low bits have to be zero
     ASSERT(uint256_t(low_wide_relation_limb).slice(0, 2 * NUM_LIMB_BITS) == 0);
 
     Fr low_wide_relation_limb_divided = low_wide_relation_limb * shift_2_inverse;
     // We need to range constrain the low_wide_relation_limb_divided
-    // constexpr size_t NUM_LAST_BN254_LIMB_BITS = modulus_u512.get_msb() + 1 - NUM_LIMB_BITS * 3;
+    // constexpr size_t NUM_LAST_BN254_LIMB_BITS =
+    //     GoblinTranslatorCircuitBuilder::MODULUS_U512.get_msb() + 1 - NUM_LIMB_BITS * 3;
 
     // constexpr auto max_high_limb_size = (uint512_t(1) << NUM_LAST_BN254_LIMB_BITS) - 1;
     // constexpr uint512_t high_wide_limb_maximum_value =
@@ -286,7 +334,7 @@ GoblinTranslatorCircuitBuilder::AccumulationInput generate_witness_values(
     //     uint256_t(uint64_t((high_wide_limb_maximum_value % uint512_t(1) << (2 * NUM_LIMB_BITS)) != 0));
     // constexpr auto high_wide_limb_range_constraint_size = high_wide_limb_maximum_value_constraint.get_msb() + 1;
     // info(high_wide_limb_range_constraint_size);
-    //  4 high combinations = 8 ml*ml + 8 ml*last_ml. 2 low combinations = 2*ml*ml + 2*ml*last_ml
+    //   4 high combinations = 8 ml*ml + 8 ml*last_ml. 2 low combinations = 2*ml*ml + 2*ml*last_ml
     Fr high_wide_relation_limb =
         low_wide_relation_limb_divided + previous_accumulator_witnesses[2] * x_witnesses[0] +
         previous_accumulator_witnesses[1] * x_witnesses[1] + previous_accumulator_witnesses[0] * x_witnesses[2] +
@@ -310,7 +358,7 @@ GoblinTranslatorCircuitBuilder::AccumulationInput generate_witness_values(
     // info("Value: ", high_wide_relation_limb);
     // info("Value: ", high_wide_relation_limb * shift_2_inverse);
     ASSERT(uint256_t(high_wide_relation_limb).slice(0, 2 * NUM_LIMB_BITS) == 0);
-
+    auto high_wide_relation_limb_divided = high_wide_relation_limb * shift_2_inverse;
     GoblinTranslatorCircuitBuilder::AccumulationInput input{
         .op_code = op_code,
         .P_x_lo = p_x_lo,
@@ -332,8 +380,9 @@ GoblinTranslatorCircuitBuilder::AccumulationInput generate_witness_values(
         .current_accumulator_microlimbs = {},
         .quotient_binary_limbs = quotient_witnesses,
         .quotient_microlimbs = {},
-        .relation_wide_limbs = { low_wide_relation_limb_divided, high_wide_relation_limb * shift_2_inverse },
-        .relation_wide_microlimbs = { { { 0 } } },
+        .relation_wide_limbs = { low_wide_relation_limb_divided, high_wide_relation_limb_divided },
+        .relation_wide_microlimbs = { split_relation_limb_into_micro_limbs(low_wide_relation_limb_divided),
+                                      split_relation_limb_into_micro_limbs(high_wide_relation_limb_divided) },
         .x_limbs = x_witnesses,
         .v_limbs = v_witnesses,
         .v_squared_limbs = v_squared_witnesses,
@@ -341,25 +390,35 @@ GoblinTranslatorCircuitBuilder::AccumulationInput generate_witness_values(
         .v_quarted_limbs = v_quarted_witnesses,
 
     };
-    for (size_t i = 0; i < GoblinTranslatorCircuitBuilder::NUM_BINARY_LIMBS; i++) {
+
+    auto last_limb_index = GoblinTranslatorCircuitBuilder::NUM_BINARY_LIMBS - 1;
+    for (size_t i = 0; i < last_limb_index; i++) {
         input.P_x_microlimbs[i] = split_standard_limb_into_micro_limbs(input.P_x_limbs[i]);
     }
-    for (size_t i = 0; i < GoblinTranslatorCircuitBuilder::NUM_BINARY_LIMBS; i++) {
+    input.P_x_microlimbs[last_limb_index] = split_top_limb_into_micro_limbs(input.P_x_limbs[last_limb_index]);
+
+    for (size_t i = 0; i < last_limb_index; i++) {
         input.P_y_microlimbs[i] = split_standard_limb_into_micro_limbs(input.P_y_limbs[i]);
     }
+    input.P_y_microlimbs[last_limb_index] = split_top_limb_into_micro_limbs(input.P_y_limbs[last_limb_index]);
 
     for (size_t i = 0; i < GoblinTranslatorCircuitBuilder::NUM_Z_LIMBS; i++) {
         input.z_1_microlimbs[i] = split_standard_limb_into_micro_limbs(input.z_1_limbs[i]);
         input.z_2_microlimbs[i] = split_standard_limb_into_micro_limbs(input.z_2_limbs[i]);
     }
-    for (size_t i = 0; i < GoblinTranslatorCircuitBuilder::NUM_BINARY_LIMBS; i++) {
+    for (size_t i = 0; i < last_limb_index; i++) {
         input.current_accumulator_microlimbs[i] = split_standard_limb_into_micro_limbs(input.current_accumulator[i]);
-        // info("Stored: ", single_accumulation_step.current_accumulator_microlimbs[i][5], " at ", i);
     }
-    for (size_t i = 0; i < GoblinTranslatorCircuitBuilder::NUM_BINARY_LIMBS; i++) {
+
+    input.current_accumulator_microlimbs[last_limb_index] =
+        split_top_limb_into_micro_limbs(input.current_accumulator[last_limb_index]);
+    // TODO(kesha): quotient has to be constrained even further
+    for (size_t i = 0; i < last_limb_index; i++) {
         input.quotient_microlimbs[i] = split_standard_limb_into_micro_limbs(input.quotient_binary_limbs[i]);
         // info("Stored: ", single_accumulation_step.current_accumulator_microlimbs[i][5], " at ", i);
     }
+    input.quotient_microlimbs[last_limb_index] =
+        split_top_limb_into_micro_limbs(input.quotient_binary_limbs[last_limb_index]);
     return input;
 }
 

@@ -145,9 +145,8 @@ std::vector<typename barretenberg::Polynomial<typename Params::Fr>> GeminiProver
  * @param r_challenge univariate opening challenge
  */
 template <typename Params>
-ProverOutput<Params> GeminiProver_<Params>::compute_fold_polynomial_evaluations(std::span<const Fr> mle_opening_point,
-                                                                         std::vector<Polynomial>&& fold_polynomials,
-                                                                         const Fr& r_challenge)
+ProverOutput<Params> GeminiProver_<Params>::compute_fold_polynomial_evaluations(
+    std::span<const Fr> mle_opening_point, std::vector<Polynomial>&& fold_polynomials, const Fr& r_challenge)
 {
 
     using Fr = typename Params::Fr;
@@ -208,11 +207,13 @@ ProverOutput<Params> GeminiProver_<Params>::compute_fold_polynomial_evaluations(
  */
 
 template <typename Params>
-std::vector<OpeningClaim<Params>> GeminiVerifier_<Params>::reduce_verification(std::span<const Fr> mle_opening_point, /* u */
-                                                                const Fr batched_evaluation,           /* all */
-                                                                GroupElement& batched_f,               /* unshifted */
-                                                                GroupElement& batched_g, /* to-be-shifted */
-                                                                VerifierTranscript<Fr>& transcript)
+std::vector<OpeningClaim<Params>> GeminiVerifier_<Params>::reduce_verification(
+    std::span<const Fr> mle_opening_point, /* u */
+    const Fr batched_evaluation,           /* all */
+    GroupElement& batched_f,               /* unshifted */
+    GroupElement& batched_g,               /* to-be-shifted */
+    VerifierTranscript<Fr>& transcript,
+    BatchCommitmentUpdate batch_commitment_update)
 {
 
     using Fr = typename Params::Fr;
@@ -245,6 +246,9 @@ std::vector<OpeningClaim<Params>> GeminiVerifier_<Params>::reduce_verification(s
     // C₀_r_pos = ∑ⱼ ρʲ⋅[fⱼ] + r⁻¹⋅∑ⱼ ρᵏ⁺ʲ [gⱼ]
     // C₀_r_pos = ∑ⱼ ρʲ⋅[fⱼ] - r⁻¹⋅∑ⱼ ρᵏ⁺ʲ [gⱼ]
     auto [c0_r_pos, c0_r_neg] = compute_simulated_commitments(batched_f, batched_g, r);
+    auto [c_0_r_pos_update, c_0_r_neg_update] = batch_commitment_update(r);
+    c0_r_pos += c_0_r_pos_update;
+    c0_r_neg = c_0_r_neg_update;
 
     std::vector<OpeningClaim<Params>> fold_polynomial_opening_claims;
     fold_polynomial_opening_claims.reserve(num_variables + 1);
@@ -273,9 +277,9 @@ std::vector<OpeningClaim<Params>> GeminiVerifier_<Params>::reduce_verification(s
  */
 template <typename Params>
 typename Params::Fr GeminiVerifier_<Params>::compute_eval_pos(const Fr batched_mle_eval,
-                                                     std::span<const Fr> mle_vars,
-                                                     std::span<const Fr> r_squares,
-                                                     std::span<const Fr> fold_polynomial_evals)
+                                                              std::span<const Fr> mle_vars,
+                                                              std::span<const Fr> r_squares,
+                                                              std::span<const Fr> fold_polynomial_evals)
 {
     using Fr = typename Params::Fr;
     const size_t num_variables = mle_vars.size();
@@ -310,8 +314,8 @@ typename Params::Fr GeminiVerifier_<Params>::compute_eval_pos(const Fr batched_m
  * @return std::pair<Commitment, Commitment>  c0_r_pos, c0_r_neg
  */
 template <typename Params>
-std::pair<typename Params::GroupElement, typename Params::GroupElement> GeminiVerifier_<Params>::compute_simulated_commitments(
-    GroupElement& batched_f, GroupElement& batched_g, Fr r)
+std::pair<typename Params::GroupElement, typename Params::GroupElement> GeminiVerifier_<
+    Params>::compute_simulated_commitments(GroupElement& batched_f, GroupElement& batched_g, Fr r)
 {
     // C₀ᵣ₊ = [F] + r⁻¹⋅[G]
     GroupElement C0_r_pos = batched_f;

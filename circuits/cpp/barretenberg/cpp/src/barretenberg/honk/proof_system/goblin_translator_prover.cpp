@@ -121,6 +121,9 @@ GoblinTranslatorProver_<Flavor>::GoblinTranslatorProver_(std::shared_ptr<typenam
     prover_polynomials.relation_wide_limbs_range_constraint_2 = key->relation_wide_limbs_range_constraint_2;
     prover_polynomials.relation_wide_limbs_range_constraint_tail = key->relation_wide_limbs_range_constraint_tail;
     prover_polynomials.concatenated_range_constraints_0 = key->concatenated_range_constraints_0;
+    info("Originalt commitment to concatenated range constraints: ",
+         pcs_commitment_key->commit(prover_polynomials.concatenated_range_constraints_0));
+
     prover_polynomials.concatenated_range_constraints_1 = key->concatenated_range_constraints_1;
     prover_polynomials.concatenated_range_constraints_2 = key->concatenated_range_constraints_2;
     prover_polynomials.concatenated_range_constraints_3 = key->concatenated_range_constraints_3;
@@ -258,6 +261,7 @@ template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_wire_an
     auto wire_polys = key->get_wires();
     auto labels = commitment_labels.get_wires();
     info("Sizes: ", wire_polys.size(), " ", labels.size());
+    info("First commitment to polynomial: ", pcs_commitment_key->commit(wire_polys[0]));
     for (size_t idx = 0; idx < wire_polys.size(); ++idx) {
         queue.add_commitment(wire_polys[idx], labels[idx]);
     }
@@ -313,10 +317,16 @@ template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_univari
     // Batch the unshifted polynomials and the to-be-shifted polynomials using ρ
     Polynomial batched_poly_unshifted(key->circuit_size); // batched unshifted polynomials
     size_t poly_idx = 0;                                  // TODO(#391) zip
+    info("Commitment to concatenated range constraints: ",
+         pcs_commitment_key->commit(prover_polynomials.concatenated_range_constraints_0));
     for (auto& unshifted_poly : prover_polynomials.get_unshifted()) {
         batched_poly_unshifted.add_scaled(unshifted_poly, rhos[poly_idx]);
+
+        // info("Commitment to batched polynomial ", poly_idx, ": ",
+        // pcs_commitment_key->commit(batched_poly_unshifted));
         ++poly_idx;
     }
+    info("Commitment to batched polynomial: ", pcs_commitment_key->commit(batched_poly_unshifted));
 
     Polynomial batched_poly_to_be_shifted(key->circuit_size); // batched to-be-shifted polynomials
     for (auto& to_be_shifted_poly : prover_polynomials.get_to_be_shifted()) {
@@ -324,6 +334,12 @@ template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_univari
         ++poly_idx;
     };
 
+    Polynomial batched_poly_special(key->circuit_size);
+    for (auto& special_polynomial : prover_polynomials.get_special()) {
+        batched_poly_special.add_scaled(special_polynomial, rhos[poly_idx]);
+        ++poly_idx;
+    }
+    batched_poly_unshifted += batched_poly_special;
     // Compute d-1 polynomials Fold^(i), i = 1, ..., d-1.
     fold_polynomials = Gemini::compute_fold_polynomials(
         sumcheck_output.challenge_point, std::move(batched_poly_unshifted), std::move(batched_poly_to_be_shifted));
@@ -353,6 +369,16 @@ template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_pcs_eva
     }
 }
 
+template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_multikzg_opening_round()
+{
+    for (size_t i = 0; i < gemini_output.opening_pairs.size(); i++) {
+        PCS::compute_opening_proof(pcs_commitment_key,
+                                   gemini_output.opening_pairs[i],
+                                   gemini_output.witnesses[i],
+                                   transcript,
+                                   "NOTSHPLONK:" + std::to_string(i));
+    }
+}
 /**
  * - Do Fiat-Shamir to get "nu" challenge.
  * - Compute commitment [Q]_1
@@ -423,6 +449,8 @@ template <typename Flavor> plonk::proof& GoblinTranslatorProver_<Flavor>::constr
     // Compute Fold evaluations
     execute_pcs_evaluation_round();
 
+    execute_multikzg_opening_round();
+    return export_proof();
     // Fiat-Shamir: nu
     // Compute Shplonk batched quotient commitment Q
     execute_shplonk_batched_quotient_round();
