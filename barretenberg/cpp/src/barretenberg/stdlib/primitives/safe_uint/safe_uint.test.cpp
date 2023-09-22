@@ -70,14 +70,17 @@ TYPED_TEST(SafeUintTest, TestMultiplyOperationOutOfRangeFails)
     // Since max is initally set to (1 << 2) - 1 = 3 (as bit range checks are easier than generic integer bounds),
     // should allow largest power of 3 smaller than r iterations, which is 159. Hence below we should exceed r, and
     // expect a throw
+    field_ct a(witness_ct(&composer, 2));
+    suint_ct c(a, 2);
+    suint_ct d(a, 2);
+    // should not fail on 159 iterations, since 3**160 < r < 3**161
+    for (auto i = 0; i < 159; i++) {
+        c = c * d;
+    }
+    EXPECT_TRUE(composer.check_circuit());
     try {
-
-        field_ct a(witness_ct(&composer, 2));
-        suint_ct c(a, 2);
-        suint_ct d(a, 2);
-        for (auto i = 0; i < 160; i++) {
-            c = c * d;
-        }
+        // should throw an overflow error on the 160th iteration
+        c = c * d;
         FAIL() << "Expected out of range error";
     } catch (std::runtime_error const& err) {
         EXPECT_EQ(err.what(), std::string("exceeded modulus in safe_uint class"));
@@ -97,19 +100,16 @@ TYPED_TEST(SafeUintTest, TestMultiplyOperationOnConstantsOutOfRangeFails)
     suint_ct c(a, 2);
     suint_ct d(fr(2));
 
+    // should not fail on 252 iterations
     for (auto i = 0; i < 252; i++) {
         c = c * d;
     }
+    EXPECT_TRUE(composer.check_circuit());
     // Below we should exceed r, and expect a throw
 
     try {
-
-        field_ct a(witness_ct(&composer, 2));
-        suint_ct c(a, 2);
-        suint_ct d(fr(2));
-        for (auto i = 0; i < 253; i++) {
-            c = c * d;
-        }
+        // should fail on the 253rd iteration
+        c = c * d;
         FAIL() << "Expected out of range error";
     } catch (std::runtime_error const& err) {
         EXPECT_EQ(err.what(), std::string("exceeded modulus in safe_uint class"));
@@ -124,15 +124,17 @@ TYPED_TEST(SafeUintTest, TestAddOperationOutOfRangeFails)
     STDLIB_TYPE_ALIASES
     auto composer = Composer();
     // Here we test the addition operator also causes a throw when exceeding r
+    field_ct a(witness_ct(&composer, 2));
+    suint_ct c(a, 2);
+    suint_ct d(a, 2);
+    // should not fail on the initial setup
+    for (auto i = 0; i < 159; i++) {
+        c = c * d;
+    }
+    EXPECT_TRUE(composer.check_circuit());
     try {
-
-        field_ct a(witness_ct(&composer, 2));
-        suint_ct c(a, 2);
-        suint_ct d(a, 2);
-        for (auto i = 0; i < 159; i++) {
-            c = c * d;
-        }
-        c = c + c + c;
+        // should fail when we add and exceed the modulus
+        c = c + c;
         FAIL() << "Expected out of range error";
     } catch (std::runtime_error const& err) {
         EXPECT_EQ(err.what(), std::string("exceeded modulus in safe_uint class"));
