@@ -204,10 +204,6 @@ export class VerificationKey {
           0x00cda5845f23468a13275d18bddae27c6bb189cf9aa95b6a03a0cb6688c7e8d8n,
           0x29639b45cf8607c525cc400b55ebf90205f2f378626dc3406cc59b2d1b474fban,
         ),
-        SIGMA_4: new G1AffineElement(
-          0x2d299e7928496ea2d37f10b43afd6a80c90a33b483090d18069ffa275eedb2fcn,
-          0x2f82121e8de43dc036d99b478b6227ceef34248939987a19011f065d8b5cef5cn,
-        ),
       },
       false,
       times(16, i => i),
