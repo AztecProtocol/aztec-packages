@@ -62,6 +62,9 @@ TYPED_TEST(SafeUintTest, TestConstructorWithValueInRange)
 
 // * OPERATOR
 
+/**
+ * @brief Test that we overflow correctly on the border of 3**160 and 3**161.
+ */
 #if !defined(__wasm__)
 TYPED_TEST(SafeUintTest, TestMultiplyOperationOutOfRangeFails)
 {
@@ -83,12 +86,16 @@ TYPED_TEST(SafeUintTest, TestMultiplyOperationOutOfRangeFails)
         c = c * d;
         FAIL() << "Expected out of range error";
     } catch (std::runtime_error const& err) {
+        EXPECT_TRUE(composer.check_circuit()); // no failing constraints should be created from multiply
         EXPECT_EQ(err.what(), std::string("exceeded modulus in safe_uint class"));
     } catch (...) {
         FAIL() << "Expected std::runtime_error modulus in safe_uint class";
     }
 }
 
+/**
+ * @brief Test that we correctly overflow multiplying by a constant on the border of 2**253 and 2**254.
+ */
 TYPED_TEST(SafeUintTest, TestMultiplyOperationOnConstantsOutOfRangeFails)
 {
     STDLIB_TYPE_ALIASES
@@ -112,6 +119,7 @@ TYPED_TEST(SafeUintTest, TestMultiplyOperationOnConstantsOutOfRangeFails)
         c = c * d;
         FAIL() << "Expected out of range error";
     } catch (std::runtime_error const& err) {
+        EXPECT_TRUE(composer.check_circuit()); // no failing constraint from multiply
         EXPECT_EQ(err.what(), std::string("exceeded modulus in safe_uint class"));
     } catch (...) {
         FAIL() << "Expected std::runtime_error modulus in safe_uint class";
@@ -119,6 +127,9 @@ TYPED_TEST(SafeUintTest, TestMultiplyOperationOnConstantsOutOfRangeFails)
 }
 // + OPERATOR
 
+/**
+ * @brief Test that we correctly overflow on addition on the border of 3**160 and 2 * 3**160.
+ */
 TYPED_TEST(SafeUintTest, TestAddOperationOutOfRangeFails)
 {
     STDLIB_TYPE_ALIASES
@@ -137,14 +148,19 @@ TYPED_TEST(SafeUintTest, TestAddOperationOutOfRangeFails)
         c = c + c;
         FAIL() << "Expected out of range error";
     } catch (std::runtime_error const& err) {
+        EXPECT_TRUE(composer.check_circuit()); // no failing constraints from add or multiply
         EXPECT_EQ(err.what(), std::string("exceeded modulus in safe_uint class"));
     } catch (...) {
         FAIL() << "Expected std::runtime_error modulus in safe_uint class";
     }
 }
 #endif
+
 // SUBTRACT METHOD
 
+/**
+ * @brief Test that we can subtract without underflow successfully.
+ */
 TYPED_TEST(SafeUintTest, TestSubtractMethod)
 {
     STDLIB_TYPE_ALIASES
@@ -154,11 +170,15 @@ TYPED_TEST(SafeUintTest, TestSubtractMethod)
     field_ct b(witness_ct(&composer, 9));
     suint_ct c(a, 2);
     suint_ct d(b, 4);
-    c = d.subtract(c, 3);
+    c = d.subtract(c, 3); // result is 7, which fits in 3 bits and does not fail the range constraint
 
     EXPECT_TRUE(composer.check_circuit());
 }
 
+/**
+ * @brief Test that range constraint fails if the value exceeds the bit limit.
+ * @details difference is 7, which exceeds 2 bits, and causes the circuit to fail.
+ */
 TYPED_TEST(SafeUintTest, TestSubtractMethodMinuedGtLhsFails)
 {
     STDLIB_TYPE_ALIASES
@@ -174,8 +194,12 @@ TYPED_TEST(SafeUintTest, TestSubtractMethodMinuedGtLhsFails)
     EXPECT_FALSE(composer.check_circuit());
 }
 
+/**
+ * @brief Test that underflow is caught in the special case.
+ * @details Should fail because difference.current_max + other.current_max exceeds the MAX_VALUE.
+ */
 #if !defined(__wasm__)
-TYPED_TEST(SafeUintTest, TestSubtractMethodUnderflowFails)
+TYPED_TEST(SafeUintTest, TestSubtractMethodUnderflowFailsSpecial)
 {
     STDLIB_TYPE_ALIASES
     auto composer = Composer();
@@ -195,22 +219,48 @@ TYPED_TEST(SafeUintTest, TestSubtractMethodUnderflowFails)
     }
 }
 #endif
-// - OPERATOR
 
-TYPED_TEST(SafeUintTest, TestMinusOperator)
+/**
+ * @brief Test that underflow is caught in general case.
+ * @details General case refers to when difference.current_max + other.current_max does not exceed MAX_VALUE.
+ */
+#if !defined(__wasm__)
+TYPED_TEST(SafeUintTest, TestSubtractMethodUnderflowFailsGeneral)
 {
     STDLIB_TYPE_ALIASES
     auto composer = Composer();
 
-    field_ct a(witness_ct(&composer, 2));
-    field_ct b(witness_ct(&composer, 9));
-    suint_ct c(a, 2);
-    suint_ct d(b, 4);
-    c = d - c;
+    field_ct a(witness_ct(&composer, 0));
+    field_ct b(witness_ct(&composer, 1));
+    suint_ct c(a, 0);
+    suint_ct d(b, 1);
+    c = c.subtract(d, suint_ct::MAX_BIT_NUM);
+    EXPECT_FALSE(composer.check_circuit());
+}
+#endif
+
+// - OPERATOR
+
+/**
+ * @brief Test that valid minus operation works.
+ */
+TYPED_TEST(SafeUintTest, TestMinusOperator0)
+{
+    STDLIB_TYPE_ALIASES
+    auto composer = Composer();
+
+    field_ct a(witness_ct(&composer, 9));
+    field_ct b(witness_ct(&composer, 2));
+    suint_ct c(a, 4);
+    suint_ct d(b, 2);
+    c = c - d; // 9 - 2 = 7 should not underflow
 
     EXPECT_TRUE(composer.check_circuit());
 }
 
+/**
+ * @brief Test that valid minus operation works on 0.
+ */
 #if !defined(__wasm__)
 TYPED_TEST(SafeUintTest, TestMinusOperator1)
 {
@@ -218,16 +268,20 @@ TYPED_TEST(SafeUintTest, TestMinusOperator1)
     auto composer = Composer();
 
     field_ct a(witness_ct(&composer, 2));
-    field_ct b(witness_ct(&composer, 1));
+    field_ct b(witness_ct(&composer, 2));
     suint_ct c(a, 2);
     suint_ct d(b, 3);
-    c = c - d;
+    c = c - d; // 2 - 2 = 0 should not overflow, even if d has more bits than c.
     EXPECT_TRUE(composer.check_circuit());
 }
 #endif
 
+/**
+ * @brief Test that checks that minus operator underflow is caught in the general case.
+ * @details General case means that the special case does not happen.
+ */
 #if !defined(__wasm__)
-TYPED_TEST(SafeUintTest, TestMinusOperatorUnderflowFails)
+TYPED_TEST(SafeUintTest, TestMinusOperatorUnderflowFailsGeneral0)
 {
     STDLIB_TYPE_ALIASES
     auto composer = Composer();
@@ -236,34 +290,17 @@ TYPED_TEST(SafeUintTest, TestMinusOperatorUnderflowFails)
     field_ct b(witness_ct(&composer, field_ct::modulus / 2));
     suint_ct c(a, 2);
     suint_ct d(b, suint_ct::MAX_BIT_NUM);
-    c = c - d;
+    c = c - d; // generates range constraint that the difference is in [0, 3], which it is not with these witness values
     EXPECT_FALSE(composer.check_circuit());
 }
 #endif
 
+/**
+ * @brief Test that checks that minus operator underflow is caught in the general case.
+ * @details Testing -1 is an underflow.
+ */
 #if !defined(__wasm__)
-TYPED_TEST(SafeUintTest, TestMinusOperatorUnderflowFailsEdge1)
-{
-    STDLIB_TYPE_ALIASES
-    auto composer = Composer();
-
-    field_ct a(witness_ct(&composer, 1));
-    field_ct b(witness_ct(&composer, 0));
-    suint_ct c(a, suint_ct::MAX_BIT_NUM);
-    suint_ct d(b, suint_ct::MAX_BIT_NUM);
-    try {
-        c = c - d;
-        FAIL() << "Expected error to be thrown";
-    } catch (std::runtime_error const& err) {
-        EXPECT_EQ(err.what(), std::string("maximum value exceeded in safe_uint minus operator"));
-    } catch (...) {
-        FAIL() << "Expected no error, got other error";
-    }
-}
-#endif
-
-#if !defined(__wasm__)
-TYPED_TEST(SafeUintTest, TestMinusOperatorUnderflowFails2)
+TYPED_TEST(SafeUintTest, TestMinusOperatorUnderflowFailsGeneral1)
 {
     STDLIB_TYPE_ALIASES
     auto composer = Composer();
@@ -273,7 +310,68 @@ TYPED_TEST(SafeUintTest, TestMinusOperatorUnderflowFails2)
     suint_ct c(a, 2);
     suint_ct d(b, 3);
     c = c - d;
-    EXPECT_FALSE(composer.check_circuit());
+    EXPECT_FALSE(composer.check_circuit()); // underflow should cause range constraint to fail
+}
+#endif
+
+/**
+ * @brief Test that checks that minus operator underflow is caught from special case.
+ * @details Special case refers to the check that current_max + other.current_max > MAX_VALUE, which is a potential
+ * underflow case, that escapes the general check through the range constraint. Throws an error even if it is not an
+ * underflow in some instantiations of the witness values.
+ */
+#if !defined(__wasm__)
+TYPED_TEST(SafeUintTest, TestMinusOperatorUnderflowFailsSpecial0)
+{
+    STDLIB_TYPE_ALIASES
+    auto composer = Composer();
+
+    field_ct a(witness_ct(&composer, 1));
+    field_ct b(witness_ct(&composer, 0));
+    suint_ct c(a, suint_ct::MAX_BIT_NUM);
+    suint_ct d(b, suint_ct::MAX_BIT_NUM);
+    try {
+        c = c - d; // even though this is not an underflow, we cannot distinguish it from an actual underflow because
+                   // the sum of maxes exceeds MAX_VALUE so we must throw an error
+        FAIL() << "Expected error to be thrown";
+    } catch (std::runtime_error const& err) {
+        EXPECT_TRUE(composer.check_circuit()); // no incorrect constraints
+        EXPECT_EQ(err.what(),
+                  std::string("maximum value exceeded in safe_uint minus operator")); // possible underflow is detected
+                                                                                      // with check on maxes
+    } catch (...) {
+        FAIL() << "Expected no error, got other error";
+    }
+}
+#endif
+
+/**
+ * @brief Test that checks that minus operator underflow is caught from special case.
+ * @details Special case refers to the check that current_max + other.current_max > MAX_VALUE, which is a potential
+ * underflow case, that escapes the general check through the range constraint. Also, underflow can actually be detected
+ * from range constraint.
+ */
+#if !defined(__wasm__)
+TYPED_TEST(SafeUintTest, TestMinusOperatorUnderflowFailsSpecial1)
+{
+    STDLIB_TYPE_ALIASES
+    auto composer = Composer();
+
+    field_ct a(witness_ct(&composer, 0));
+    field_ct b(witness_ct(&composer, 1));
+    suint_ct c(a, suint_ct::MAX_BIT_NUM);
+    suint_ct d(b, suint_ct::MAX_BIT_NUM);
+    try {
+        c = c - d; // underflow and error should be thrown
+        FAIL() << "Expected error to be thrown";
+    } catch (std::runtime_error const& err) {
+        EXPECT_FALSE(composer.check_circuit()); // underflow causes failing constraint
+        EXPECT_EQ(err.what(),
+                  std::string("maximum value exceeded in safe_uint minus operator")); // possible underflow is detected
+                                                                                      // with check on maxes
+    } catch (...) {
+        FAIL() << "Expected no error, got other error";
+    }
 }
 #endif
 

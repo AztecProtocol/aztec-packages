@@ -58,8 +58,8 @@ safe_uint_t<ComposerContext> safe_uint_t<ComposerContext>::subtract(const safe_u
  *          and with the same max value as `current_max`.
  *          Constructing the `difference` safe_uint_t will create a range constraint,
  *          which will catch underflow as long as the difference value does not end up in the range [0,
- * current_max]. The only case where it is possible that the difference value can end up in this range, is when
- * `current_max` + `other.current_max` exceeds MAX_VALUE (the modulus - 1), so we throw an error in this case.
+ *          current_max]. The only case where it is possible that the difference value can end up in this range, is when
+ *          `current_max` + `other.current_max` exceeds MAX_VALUE (the modulus - 1), so we throw an error in this case.
  *
  * @tparam ComposerContext
  * @param other
@@ -83,6 +83,8 @@ safe_uint_t<ComposerContext> safe_uint_t<ComposerContext>::operator-(const safe_
     // this is equivalent to the condition that (a - b) + modulus <= current_max.
     // (a-b) is minimized by -other.current_max, so IF current_max + other.current_max >= modulus,
     // there may be an underflow that the range constraint fails to catch, so we need to throw an error.
+    // Note that we will throw an error even if the operation is not an underflow depending on the witnesses
+    // but we cannot distinguish it from a case that underflows, so we must throw an error.
     if (difference.current_max + other.current_max > MAX_VALUE)
         throw_or_abort("maximum value exceeded in safe_uint minus operator");
     return difference;
