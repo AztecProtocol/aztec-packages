@@ -396,15 +396,34 @@ jobs:
           command: build yarn-project-base | add_timestamps
 
   yarn-project:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2204:2023.07.2
     steps:
       - *checkout
       - *setup_env
       - run:
           name: Build
-          command: cond_spot_run_build yarn-project 64 | add_timestamps
+          command: build yarn-project | add_timestamps
+
+  yarn-project-format:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: build yarn-project-format | add_timestamps
+
+  yarn-project-test:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: build yarn-project-test | add_timestamps
 
   aztec-sandbox-base:
     machine:
@@ -1064,6 +1083,14 @@ workflows:
           requires:
             - circuits-wasm-linux-clang
             - l1-contracts
+          <<: *defaults
+      - yarn-project-format:
+          requires:
+            - yarn-project
+          <<: *defaults
+      - yarn-project-test:
+          requires:
+            - yarn-project
           <<: *defaults
       - yarn-project:
           requires:
