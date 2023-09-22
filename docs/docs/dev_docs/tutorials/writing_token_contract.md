@@ -1,7 +1,7 @@
-# Token Contract Tutorial
+# Writing a Standard token contract in Aztec.nr
 
 In this tutorial we will go through writing a standard L2 native token contract
-for the Aztec Network, using the Aztec.nr contract libraries. It is recommended that you go through the [the introduction to contracts](./noir_contracts) section before this tutorial to gain some familiarity with writing Aztec smart contracts.
+for the Aztec Network, using the Aztec.nr contract libraries. It is recommended that you go through the [the introduction to contracts](../contracts/main.md) and [setup instructions](../contracts/setup.md) section before this tutorial to gain some familiarity with writing Aztec smart contracts.
 
 This tutorial is intended to help you get familiar with the Aztec.nr library, Aztec contract syntax and some of the underlying structure of the Aztec network.
 
@@ -14,7 +14,7 @@ In this tutorial you will learn how to:
 - Handle different private note types
 - Pass data between private and public state
 
-We are going to start with a blank project and fill in the code defined [here](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr), and explain what is being added as we go.
+We are going to start with a blank project and fill in the token contract source code defined [here](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr), and explain what is being added as we go.
 
 ## Requirements
 
@@ -22,7 +22,7 @@ You will need to install nargo, the Noir build too. if you are familiar with Rus
 
 <InstallNargoInstructions />
 
-If you've already installed the `aztec-cli`, as described in the quickstart [here](./quickstart#cli), you can check which version of Noir is compatible with your version of the CLI and sandbox by running:
+If you've already installed the `aztec-cli`, as described in the quickstart [here](../getting_started/quickstart.md#cli), you can check which version of Noir is compatible with your version of the CLI and sandbox by running:
 
 ```bash
 aztec-cli get-node-info
@@ -65,7 +65,7 @@ cd token_contract_tutorial && mkdir contracts && cd contracts
 Create a new Noir project using nargo.
 
 ```bash
-nargo init --name token_contract
+nargo new --contract token_contract
 ```
 
 Your project should look like this:
@@ -80,19 +80,18 @@ Your project should look like this:
 
 Add the following dependencies to your Nargo.toml file, below the package information:
 
-import { AztecPackagesVersion } from "@site/src/components/Version";
-
-<CodeBlock language="toml">{`[package]
+```toml
+[package]
 name = "token_contract"
 authors = [""]
 compiler_version = "0.1"
 type = "contract"
- 
+
 [dependencies]
-aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="${AztecPackagesVersion()}", directory="yarn-project/aztec-nr/aztec" }
-value_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="${AztecPackagesVersion()}", directory="yarn-project/aztec-nr/value-note"}
-safe_math = { git="https://github.com/AztecProtocol/aztec-packages/", tag="${AztecPackagesVersion()}", directory="yarn-project/aztec-nr/safe-math"}
-`}</CodeBlock>
+aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/aztec" }
+value_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/value-note"}
+safe_math = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/safe-math"}
+```
 
 ## Contract Interface
 
@@ -466,6 +465,17 @@ A getter function for checking the public balance of the provided Aztec account.
 
 #include_code balance_of_public /yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
 
+#### `compute_note_hash_and_nullifier`
+
+A getter function to compute the note hash and nullifier for notes in the contract's storage.
+
+This must be included in every contract because it depends on the storage slots, which are defined when we set up storage.
+
+#include_code compute_note_hash_and_nullifier /yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
+
+## Compiling
+
+Now that the contract is complete, you should be able to compile it with the `aztec-cli`. See the [CLI page](../cli/main.md) for instructions on setting it up.
 
 ```bash
 aztec-cli compile /path/to/token_contracts_folder
