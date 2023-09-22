@@ -225,6 +225,7 @@ The interplay between a private state variable and its notes can be confusing. H
 
 - A private state variable (of type `Singleton`, `ImmutableSingleton` or `Set`) may be declared in storage.
 - Every note contains (as a 'header') the contract address and storage slot of the state variable to which it "belongs". A note is said to "belong" to a private state if the storage slot of the private state matches the storage slot contained in the note's header.
+  - The header provides information that helps the user interpret the note's data. Without it the user would have to figure out where it belongs by brute-forcing the address and contract space.
   - Management of this 'header' is abstracted-away from developers who use the `ImmutableSingleton`, `Singleton` and `Set` types.
 - A private state variable is colloquially said to "point" to one or many notes (depending on the type), if those note(s) all "belong" to that private state, and those note(s) haven't-yet been nullified.
 - An `ImmutableSingleton` will point to _one_ note over the lifetime of the contract. ("One", hence "Singleton"). This note is a struct of information that is persisted forever.
@@ -413,11 +414,11 @@ This function returns the notes the account has access to:
 
 #include_code get_notes /yarn-project/aztec-nr/aztec/src/state_vars/set.nr rust
 
-There's a limit on the maximum number of notes this function can return at a time. Check [here](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec-nr/aztec/src/constants_gen.nr) and look for `MAX_READ_REQUESTS_PER_CALL` for the up-to-date number.
+Our kernel circuits are constrained to a maximum number of notes this function can return at a time. Check [here](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec-nr/aztec/src/constants_gen.nr) and look for `MAX_READ_REQUESTS_PER_CALL` for the up-to-date number. 
 
-Because of this limit, we should always consider using the second argument `NoteGetterOptions` to target the notes we need, and to reduce the time required to recursively call this function.
+Because of this limit, we should always consider using the second argument `NoteGetterOptions` to limit the number of notes we need to read and constrain in our programs. This is quite important as every extra call increases the time used to prove the program and we don't want to spend more time than necessary.
 
-An example of this is is using the [filter_notes_min_sum](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec-nr/value-note/src/filter.nr) to get "enough" notes to cover a given value. 
+An example of such options is using the [filter_notes_min_sum](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec-nr/value-note/src/filter.nr) to get "enough" notes to cover a given value. Essentially, this function will return just enough notes to cover the amount specified such that we don't need to read all our notes. For users with a lot of notes, this becomes increasingly important. 
 
 #include_code get_notes /yarn-project/aztec-nr/easy-private-state/src/easy_private_state.nr rust
 
@@ -425,6 +426,8 @@ An example of this is is using the [filter_notes_min_sum](https://github.com/Azt
 Functionally similar to [`get_notes`](#get_notes), but executed unconstrained and can be used by the wallet to fetch notes for use by front-ends etc.
 
 #include_code view_notes /yarn-project/aztec-nr/aztec/src/state_vars/set.nr rust
+
+#include_code view_notes /yarn-project/aztec-nr/value-note/src/balance_utils.nr rust
 
 There's also a limit on the maximum number of notes that can be returned in one go. To find the current limit, refer to [this file](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec-nr/aztec/src/constants_gen.nr) and look for `MAX_NOTES_PER_PAGE`.
 
@@ -438,7 +441,7 @@ The `NoteViewerOptions` is essentially similar to the [`NoteGetterOptions`](#not
 
 ### NoteGetterOptions
 
-`NoteGetterOptions` encapsulates a set of configurable options for filtering and retrieving a selection of notes from a data oracle. Developers can design instances of `NoteGetterOptions`, to determine how notes should be filtered and returned to the functions of their smart contracts.
+`NoteGetterOptions` encapsulates a set of configurable options for filtering and retrieving a selection of notes from a [data oracle](./functions.md#oracle-functions). Developers can design instances of `NoteGetterOptions`, to determine how notes should be filtered and returned to the functions of their smart contracts.
 
 #include_code NoteGetterOptions /yarn-project/aztec-nr/aztec/src/note/note_getter_options.nr rust
 
