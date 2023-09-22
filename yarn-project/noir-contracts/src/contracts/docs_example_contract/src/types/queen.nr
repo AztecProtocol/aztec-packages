@@ -1,4 +1,4 @@
-use dep::aztec::types::type_serialization::TypeSerialisationInterface;
+use dep::aztec::types::type_serialization::TypeSerializationInterface;
 
 // docs:start:state_vars-CustomStruct
 struct Queen {
@@ -21,7 +21,7 @@ fn serialize(queen: Queen) -> [Field; QUEEN_SERIALIZED_LEN] {
     [queen.account, queen.points as Field]
 }
 
-global QueenSerialisationMethods = TypeSerialisationInterface {
+global QueenSerializationMethods = TypeSerializationInterface {
     deserialize,
     serialize,
 };

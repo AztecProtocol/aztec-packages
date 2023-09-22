@@ -2,7 +2,7 @@ use crate::entrypoint::EntrypointPayload;
 use crate::context::{PrivateContext, PublicContext, Context};
 use crate::oracle::compute_selector::compute_selector;
 use crate::state_vars::{map::Map, public_state::PublicState};
-use crate::types::type_serialization::bool_serialization::{BoolSerialisationMethods,BOOL_SERIALIZED_LEN};
+use crate::types::type_serialization::bool_serialization::{BoolSerializationMethods,BOOL_SERIALIZED_LEN};
 use crate::auth::IS_VALID_SELECTOR;
 
 struct AccountActions {
@@ -20,7 +20,7 @@ impl AccountActions {
         context,
         approved_action_storage_slot,
         |context, slot| {
-          PublicState::new(context, slot, BoolSerialisationMethods)
+          PublicState::new(context, slot, BoolSerializationMethods)
         },
       ),
     }

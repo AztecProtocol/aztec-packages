@@ -4,7 +4,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { P2P } from '@aztec/p2p';
 import { L1ToL2MessageSource, L2Block, L2BlockSource, MerkleTreeId, Tx } from '@aztec/types';
-import { WorldStateStatus, WorldStateSynchroniser } from '@aztec/world-state';
+import { WorldStateStatus, WorldStateSynchronizer } from '@aztec/world-state';
 
 import times from 'lodash.times';
 
@@ -39,7 +39,7 @@ export class Sequencer {
     private publisher: L1Publisher,
     private globalsBuilder: GlobalVariableBuilder,
     private p2pClient: P2P,
-    private worldState: WorldStateSynchroniser,
+    private worldState: WorldStateSynchronizer,
     private blockBuilder: BlockBuilder,
     private l2BlockSource: L2BlockSource,
     private l1ToL2MessageSource: L1ToL2MessageSource,

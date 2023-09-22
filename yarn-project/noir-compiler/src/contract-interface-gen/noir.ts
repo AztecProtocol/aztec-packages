@@ -95,19 +95,19 @@ function generateParameter(param: ABIParameter, functionData: FunctionAbi) {
  * @param parameters - Parameters for a function.
  * @returns List of parameters flattened to basic data types.
  */
-function collectParametersForSerialisation(parameters: ABIVariable[]) {
+function collectParametersForSerialization(parameters: ABIVariable[]) {
   const flattened: string[] = [];
   for (const parameter of parameters) {
     const { name } = parameter;
     if (parameter.type.kind === 'array') {
       const nestedType = parameter.type.type;
       const nested = times(parameter.type.length, i =>
-        collectParametersForSerialisation([{ name: `${name}[${i}]`, type: nestedType }]),
+        collectParametersForSerialization([{ name: `${name}[${i}]`, type: nestedType }]),
       );
       flattened.push(...nested.flat());
     } else if (parameter.type.kind === 'struct') {
       const nested = parameter.type.fields.map(field =>
-        collectParametersForSerialisation([{ name: `${name}.${field.name}`, type: field.type }]),
+        collectParametersForSerialization([{ name: `${name}.${field.name}`, type: field.type }]),
       );
       flattened.push(...nested.flat());
     } else if (parameter.type.kind === 'string') {
@@ -126,8 +126,8 @@ function collectParametersForSerialisation(parameters: ABIVariable[]) {
  * @param parameters - Parameters to serialize.
  * @returns The serialization code.
  */
-function generateSerialisation(parameters: ABIParameter[]) {
-  const flattened = collectParametersForSerialisation(parameters);
+function generateSerialization(parameters: ABIParameter[]) {
+  const flattened = collectParametersForSerialization(parameters);
   const declaration = `    let mut serialized_args = [0; ${flattened.length}];`;
   const lines = flattened.map((param, i) => `    serialized_args[${i}] = ${param};`);
   return [declaration, ...lines].join('\n');
@@ -142,7 +142,7 @@ function generateSerialisation(parameters: ABIParameter[]) {
 function generateFunctionInterface(functionData: FunctionAbi, kind: 'private' | 'public') {
   const { name, parameters } = functionData;
   const selector = FunctionSelector.fromNameAndParameters(name, parameters);
-  const serialization = generateSerialisation(parameters);
+  const serialization = generateSerialization(parameters);
   const contextType = kind === 'private' ? '&mut PrivateContext' : 'PublicContext';
   const callStatement = generateCallStatement(selector, functionData.functionType);
   const allParams = ['self', `context: ${contextType}`, ...parameters.map(p => generateParameter(p, functionData))];

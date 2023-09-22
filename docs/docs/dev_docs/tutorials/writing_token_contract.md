@@ -269,7 +269,7 @@ You can read more about it [here](../contracts/syntax/storage.md).
 
 Once we have Storage defined, we need to specify how to initialize it. The `init` method creates and initializes an instance of `Storage`. We define an initialization method for each of the storage variables defined above. Storage initialization is generic and can largely be reused for similar types, across different contracts, but it is important to note that each storage variable specifies it's storage slot, starting at 1.
 
-Also, the public storage variables define the type that they store by passing the methods by which they are serialized. Because all `PublicState` in this contract is storing Field elements, each storage variable takes `FieldSerialisationMethods`.
+Also, the public storage variables define the type that they store by passing the methods by which they are serialized. Because all `PublicState` in this contract is storing Field elements, each storage variable takes `FieldSerializationMethods`.
 
 #include_code storage_init /yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
 

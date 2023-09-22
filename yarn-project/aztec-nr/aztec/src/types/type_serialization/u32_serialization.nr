@@ -1,4 +1,4 @@
-use crate::types::type_serialization::TypeSerialisationInterface;
+use crate::types::type_serialization::TypeSerializationInterface;
 
 global U32_SERIALIZED_LEN: Field = 1;
 
@@ -10,7 +10,7 @@ fn serializeU32(value: u32) -> [Field; U32_SERIALIZED_LEN] {
     [value as Field]
 }
 
-global U32SerialisationMethods = TypeSerialisationInterface {
+global U32SerializationMethods = TypeSerializationInterface {
     deserialize: deserializeU32,
     serialize: serializeU32,
 };

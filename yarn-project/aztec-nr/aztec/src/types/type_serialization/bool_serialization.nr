@@ -1,4 +1,4 @@
-use crate::types::type_serialization::TypeSerialisationInterface;
+use crate::types::type_serialization::TypeSerializationInterface;
 
 global BOOL_SERIALIZED_LEN: Field = 1;
 
@@ -10,7 +10,7 @@ fn serializeBool(value: bool) -> [Field; BOOL_SERIALIZED_LEN] {
     [value as Field]
 }
 
-global BoolSerialisationMethods = TypeSerialisationInterface {
+global BoolSerializationMethods = TypeSerializationInterface {
     deserialize: deserializeBool,
     serialize: serializeBool,
 };

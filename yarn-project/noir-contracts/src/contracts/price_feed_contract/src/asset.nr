@@ -1,4 +1,4 @@
-use dep::aztec::types::type_serialization::TypeSerialisationInterface;
+use dep::aztec::types::type_serialization::TypeSerializationInterface;
 
 struct Asset {
     price: u120,
@@ -22,7 +22,7 @@ impl Asset {
     }
 }
 
-global AssetSerialisationMethods = TypeSerialisationInterface {
+global AssetSerializationMethods = TypeSerializationInterface {
     deserialize: deserializeAsset,
     serialize: serializeAsset,
 };

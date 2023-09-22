@@ -30,7 +30,7 @@ contract Token {
         context::{PrivateContext, PublicContext, Context},
         state_vars::{map::Map, public_state::PublicState, set::Set},
         types::type_serialization::field_serialization::{
-            FieldSerialisationMethods, FIELD_SERIALIZED_LEN,
+            FieldSerializationMethods, FIELD_SERIALIZED_LEN,
         },
         types::address::{AztecAddress},
         oracle::compute_selector::compute_selector,
@@ -59,7 +59,7 @@ contract Token {
                 admin: PublicState::new(
                     context,
                     1,
-                    FieldSerialisationMethods,
+                    FieldSerializationMethods,
                 ),
                 minters: Map::new(
                     context,
@@ -68,7 +68,7 @@ contract Token {
                         PublicState::new(
                             context,
                             slot,
-                            FieldSerialisationMethods,
+                            FieldSerializationMethods,
                         )
                     },
                 ),
@@ -82,7 +82,7 @@ contract Token {
                 total_supply: PublicState::new(
                     context,
                     4,
-                    FieldSerialisationMethods,
+                    FieldSerializationMethods,
                 ),
                 pending_shields: Set::new(context, 5, TransparentNoteMethods),
                 public_balances: Map::new(
@@ -92,7 +92,7 @@ contract Token {
                         PublicState::new(
                             context,
                             slot,
-                            FieldSerialisationMethods,
+                            FieldSerializationMethods,
                         )
                     },
                 ),

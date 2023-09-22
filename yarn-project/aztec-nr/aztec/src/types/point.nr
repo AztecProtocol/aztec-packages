@@ -1,4 +1,4 @@
-use crate::types::type_serialization::TypeSerialisationInterface;
+use crate::types::type_serialization::TypeSerializationInterface;
 
 struct Point {
     x: Field,
@@ -24,7 +24,7 @@ fn serializePoint(point: Point) -> [Field; POINT_SERIALIZED_LEN] {
     [point.x, point.y]
 }
 
-global PointSerialisationMethods = TypeSerialisationInterface {
+global PointSerializationMethods = TypeSerializationInterface {
     deserialize: deserializePoint,
     serialize: serializePoint,
 };

@@ -1,12 +1,12 @@
 use crate::context::{Context};
 use crate::oracle::storage::storage_read;
 use crate::oracle::storage::storage_write;
-use crate::types::type_serialization::TypeSerialisationInterface;
+use crate::types::type_serialization::TypeSerializationInterface;
 use dep::std::option::Option;
 
 struct PublicState<T, T_SERIALIZED_LEN> {
     storage_slot: Field,
-    serialization_methods: TypeSerialisationInterface<T, T_SERIALIZED_LEN>,
+    serialization_methods: TypeSerializationInterface<T, T_SERIALIZED_LEN>,
 }
 
 impl<T, T_SERIALIZED_LEN> PublicState<T, T_SERIALIZED_LEN> {
@@ -14,7 +14,7 @@ impl<T, T_SERIALIZED_LEN> PublicState<T, T_SERIALIZED_LEN> {
         // Note: Passing the contexts to new(...) just to have an interface compatible with a Map.
         _: Context,
         storage_slot: Field,
-        serialization_methods: TypeSerialisationInterface<T, T_SERIALIZED_LEN>,
+        serialization_methods: TypeSerializationInterface<T, T_SERIALIZED_LEN>,
     ) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         PublicState {

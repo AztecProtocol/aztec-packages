@@ -12,7 +12,7 @@ use dep::aztec::{
 use dep::std::option::Option;
 
 use cards::{Deck};
-use game::{Game, GameSerialisationMethods, GAME_SERIALIZED_LEN};
+use game::{Game, GameSerializationMethods, GAME_SERIALIZED_LEN};
 
 struct Storage {
     collections: Map<Deck>,
@@ -58,7 +58,7 @@ impl Storage {
                     PublicState::new(
                         context,
                         slot,
-                        GameSerialisationMethods,
+                        GameSerializationMethods,
                     )
                 },
             )

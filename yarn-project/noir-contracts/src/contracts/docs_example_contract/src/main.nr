@@ -14,7 +14,7 @@ contract DocsExample {
     };
     // docs:start:state_vars-PublicStateBoolImport
     use dep::aztec::types::type_serialization::bool_serialization::{
-        BoolSerialisationMethods, BOOL_SERIALIZED_LEN,
+        BoolSerializationMethods, BOOL_SERIALIZED_LEN,
     };
     // docs:end:state_vars-PublicStateBoolImport
     use crate::account_contract_interface::AccountContractInterface;
@@ -23,7 +23,7 @@ contract DocsExample {
     use crate::types::{
         card_note::{CardNote, CardNoteMethods, CARD_NOTE_LEN},
         profile_note::{ProfileNote, ProfileNoteMethods, PROFILE_NOTE_LEN},
-        queen::{Queen, QueenSerialisationMethods, QUEEN_SERIALIZED_LEN},
+        queen::{Queen, QueenSerializationMethods, QUEEN_SERIALIZED_LEN},
         rules_note::{RulesNote, RulesNoteMethods, RULES_NOTE_LEN},
     };
 
@@ -49,12 +49,12 @@ contract DocsExample {
         fn init(context: Context) -> pub Self {
             Storage {
                 // highlight-next-line:state_vars-PublicState
-                locked: PublicState::new(context, 1, BoolSerialisationMethods),
+                locked: PublicState::new(context, 1, BoolSerializationMethods),
                 // highlight-next-line:state_vars-PublicStateCustomStruct
                 queen: PublicState::new(
                     context,
                     2,
-                    QueenSerialisationMethods,
+                    QueenSerializationMethods,
                 ),
                 // highlight-next-line:state_vars-ImmutableSingleton
                 game_rules: ImmutableSingleton::new(context, 3, RulesNoteMethods),

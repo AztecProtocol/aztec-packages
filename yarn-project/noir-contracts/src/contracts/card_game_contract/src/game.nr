@@ -1,4 +1,4 @@
-use dep::aztec::types::type_serialization::TypeSerialisationInterface;
+use dep::aztec::types::type_serialization::TypeSerializationInterface;
 use crate::cards::Card;
 
 global NUMBER_OF_PLAYERS = 2;
@@ -166,7 +166,7 @@ impl Game {
     }
 }
 
-global GameSerialisationMethods = TypeSerialisationInterface {
+global GameSerializationMethods = TypeSerializationInterface {
     deserialize: deserializeGame,
     serialize: serializeGame,
 };

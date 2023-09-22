@@ -464,7 +464,7 @@ struct Storage {
 impl Storage {
     fn init() -> Self {
         Storage {
-            balances: Map::new(1, |slot| PublicState::new(slot, FieldSerialisationMethods)),
+            balances: Map::new(1, |slot| PublicState::new(slot, FieldSerializationMethods)),
         }
     }
 }
@@ -502,7 +502,7 @@ struct Storage {
 impl Storage {
     fn init() -> Self {
         Storage {
-            balances: Map::new(1, |slot| PublicState::new(slot, FieldSerialisationMethods)),
+            balances: Map::new(1, |slot| PublicState::new(slot, FieldSerializationMethods)),
         }
     }
 }

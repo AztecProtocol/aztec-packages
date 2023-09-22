@@ -41,7 +41,7 @@ contract NonNativeToken {
         oracle::compute_selector::compute_selector,
         state_vars::{map::Map, public_state::PublicState, set::Set},
         types::type_serialization::field_serialization::{
-            FieldSerialisationMethods, FIELD_SERIALIZED_LEN,
+            FieldSerializationMethods, FIELD_SERIALIZED_LEN,
         },
     };
 
@@ -69,7 +69,7 @@ contract NonNativeToken {
                         PublicState::new(
                             context,
                             slot,
-                            FieldSerialisationMethods,
+                            FieldSerializationMethods,
                         )
                     },
                 ),

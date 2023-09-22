@@ -1,4 +1,4 @@
-use dep::aztec::types::type_serialization::TypeSerialisationInterface;
+use dep::aztec::types::type_serialization::TypeSerializationInterface;
 
 // Struct to be used to represent "totals". Generally, there should be one per asset.
 // It stores the global values that are shared among all users, such as an accumulator
@@ -40,7 +40,7 @@ impl Asset {
     }
 }
 
-global AssetSerialisationMethods = TypeSerialisationInterface {
+global AssetSerializationMethods = TypeSerializationInterface {
     deserialize: deserializeAsset,
     serialize: serializeAsset,
 };

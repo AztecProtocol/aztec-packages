@@ -10,7 +10,7 @@ contract Child {
             compute_selector::compute_selector,
         },
         state_vars::public_state::PublicState,
-        types::type_serialization::field_serialization::{FieldSerialisationMethods, FIELD_SERIALIZED_LEN},
+        types::type_serialization::field_serialization::{FieldSerializationMethods, FIELD_SERIALIZED_LEN},
     };
 
     struct Storage {
@@ -23,7 +23,7 @@ contract Child {
                 current_value: PublicState::new(
                     context,
                     1,
-                    FieldSerialisationMethods,
+                    FieldSerializationMethods,
                 ),
             }
         }

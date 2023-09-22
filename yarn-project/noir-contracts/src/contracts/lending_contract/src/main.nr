@@ -21,11 +21,11 @@ contract Lending {
             public_state::PublicState,
         },
         types::type_serialization::{
-            field_serialization::{FieldSerialisationMethods, FIELD_SERIALIZED_LEN},
-            TypeSerialisationInterface,
+            field_serialization::{FieldSerializationMethods, FIELD_SERIALIZED_LEN},
+            TypeSerializationInterface,
         },
     };
-    use crate::asset::{ASSET_SERIALIZED_LEN, Asset, AssetSerialisationMethods};
+    use crate::asset::{ASSET_SERIALIZED_LEN, Asset, AssetSerializationMethods};
     use crate::interest_math::compute_multiplier;
     use crate::helpers::{covered_by_collateral, DebtReturn, debt_updates, debt_value, compute_identifier};
     use crate::interfaces::{Token, Lending, PriceFeed};
@@ -45,12 +45,12 @@ contract Lending {
                 collateral_asset: PublicState::new(
                     context,
                     1,
-                    FieldSerialisationMethods,
+                    FieldSerializationMethods,
                 ),
                 stable_coin: PublicState::new(
                     context,
                     2,
-                    FieldSerialisationMethods,
+                    FieldSerializationMethods,
                 ),
                 assets: Map::new(
                     context,
@@ -59,7 +59,7 @@ contract Lending {
                         PublicState::new(
                             context,
                             slot,
-                            AssetSerialisationMethods,
+                            AssetSerializationMethods,
                         )
                     },
                 ),
@@ -70,7 +70,7 @@ contract Lending {
                         PublicState::new(
                             context,
                             slot,
-                            FieldSerialisationMethods,
+                            FieldSerializationMethods,
                         )
                     },
                 ),
@@ -81,7 +81,7 @@ contract Lending {
                         PublicState::new(
                             context,
                             slot,
-                            FieldSerialisationMethods,
+                            FieldSerializationMethods,
                         )
                     },
                 ),

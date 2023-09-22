@@ -22,7 +22,7 @@ In the following example, we define a public state with a boolean type:
 
 #include_code state_vars-PublicState /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/main.nr rust
 
-The BoolSerialisationMethods is part of the Aztec stdlib:
+The BoolSerializationMethods is part of the Aztec stdlib:
 
 #include_code state_vars-PublicStateBoolImport /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/main.nr rust
 
@@ -36,7 +36,7 @@ It's possible to create a public state for any types. Simply define methods that
 
 The methods should be implemented in a struct that conforms to the following interface:
 
-#include_code TypeSerialisationInterface /yarn-project/aztec-nr/aztec/src/types/type_serialization.nr rust
+#include_code TypeSerializationInterface /yarn-project/aztec-nr/aztec/src/types/type_serialization.nr rust
 
 For example, to create a public state for the following type:
 

@@ -13,7 +13,7 @@ contract PublicToken {
             public_state::PublicState,
         },
         types::type_serialization::field_serialization::{
-            FieldSerialisationMethods, FIELD_SERIALIZED_LEN,
+            FieldSerializationMethods, FIELD_SERIALIZED_LEN,
         },
     };
 
@@ -28,7 +28,7 @@ contract PublicToken {
                     context,
                     1,
                     |context, slot| {
-                        PublicState::new(context, slot, FieldSerialisationMethods)
+                        PublicState::new(context, slot, FieldSerializationMethods)
                     },
                 ),
             }

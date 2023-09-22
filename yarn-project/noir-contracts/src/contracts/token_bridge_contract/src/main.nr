@@ -11,7 +11,7 @@ contract TokenBridge {
         context::{Context},
         state_vars::{public_state::PublicState},
         types::type_serialization::field_serialization::{
-            FieldSerialisationMethods, FIELD_SERIALIZED_LEN,
+            FieldSerializationMethods, FIELD_SERIALIZED_LEN,
         },
         types::address::{AztecAddress, EthereumAddress},
         oracle::compute_selector::compute_selector,
@@ -31,7 +31,7 @@ contract TokenBridge {
                 token: PublicState::new(
                     context,
                     1,
-                    FieldSerialisationMethods,
+                    FieldSerializationMethods,
                 ),
             }
         }

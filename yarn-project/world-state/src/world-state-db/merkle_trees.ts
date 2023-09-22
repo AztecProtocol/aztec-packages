@@ -177,7 +177,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param includeUncommitted - Indicates whether to include uncommitted data.
    */
   public async updateHistoricBlocksTree(globalsHash: Fr, includeUncommitted: boolean) {
-    await this.synchronise(() => this._updateHistoricBlocksTree(globalsHash, includeUncommitted));
+    await this.synchronize(() => this._updateHistoricBlocksTree(globalsHash, includeUncommitted));
   }
 
   /**
@@ -185,7 +185,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param globalVariablesHash - The latest global variables hash
    */
   public async updateLatestGlobalVariablesHash(globalVariablesHash: Fr) {
-    return await this.synchronise(() => this._updateLatestGlobalVariablesHash(globalVariablesHash));
+    return await this.synchronize(() => this._updateLatestGlobalVariablesHash(globalVariablesHash));
   }
 
   /**
@@ -193,7 +193,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param includeUncommitted - Indicates whether to include uncommitted data.
    */
   public async getLatestGlobalVariablesHash(includeUncommitted: boolean): Promise<Fr> {
-    return await this.synchronise(() => this._getGlobalVariablesHash(includeUncommitted));
+    return await this.synchronize(() => this._getGlobalVariablesHash(includeUncommitted));
   }
 
   /**
@@ -203,7 +203,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * @returns The tree info for the specified tree.
    */
   public async getTreeInfo(treeId: MerkleTreeId, includeUncommitted: boolean): Promise<TreeInfo> {
-    return await this.synchronise(() => this._getTreeInfo(treeId, includeUncommitted));
+    return await this.synchronize(() => this._getTreeInfo(treeId, includeUncommitted));
   }
 
   /**
@@ -212,7 +212,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * @returns The current roots of the trees.
    */
   public async getTreeRoots(includeUncommitted: boolean): Promise<CurrentTreeRoots> {
-    const roots = await this.synchronise(() => Promise.resolve(this._getAllTreeRoots(includeUncommitted)));
+    const roots = await this.synchronize(() => Promise.resolve(this._getAllTreeRoots(includeUncommitted)));
 
     return {
       privateDataTreeRoot: roots[0],
@@ -255,7 +255,7 @@ export class MerkleTrees implements MerkleTreeDb {
     index: bigint,
     includeUncommitted: boolean,
   ): Promise<Buffer | undefined> {
-    return await this.synchronise(() => this.trees[treeId].getLeafValue(index, includeUncommitted));
+    return await this.synchronize(() => this.trees[treeId].getLeafValue(index, includeUncommitted));
   }
 
   /**
@@ -270,7 +270,7 @@ export class MerkleTrees implements MerkleTreeDb {
     index: bigint,
     includeUncommitted: boolean,
   ): Promise<SiblingPath<N>> {
-    return await this.synchronise(() => this._getSiblingPath(treeId, index, includeUncommitted));
+    return await this.synchronize(() => this._getSiblingPath(treeId, index, includeUncommitted));
   }
 
   /**
@@ -280,7 +280,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * @returns Empty promise.
    */
   public async appendLeaves(treeId: MerkleTreeId, leaves: Buffer[]): Promise<void> {
-    return await this.synchronise(() => this._appendLeaves(treeId, leaves));
+    return await this.synchronize(() => this._appendLeaves(treeId, leaves));
   }
 
   /**
@@ -288,7 +288,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * @returns Empty promise.
    */
   public async commit(): Promise<void> {
-    return await this.synchronise(() => this._commit());
+    return await this.synchronize(() => this._commit());
   }
 
   /**
@@ -296,7 +296,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * @returns Empty promise.
    */
   public async rollback(): Promise<void> {
-    return await this.synchronise(() => this._rollback());
+    return await this.synchronize(() => this._rollback());
   }
 
   /**
@@ -320,7 +320,7 @@ export class MerkleTrees implements MerkleTreeDb {
      */
     alreadyPresent: boolean;
   }> {
-    return await this.synchronise(() =>
+    return await this.synchronize(() =>
       Promise.resolve(this._getIndexedTree(treeId).findIndexOfPreviousValue(value, includeUncommitted)),
     );
   }
@@ -337,7 +337,7 @@ export class MerkleTrees implements MerkleTreeDb {
     index: number,
     includeUncommitted: boolean,
   ): Promise<LeafData | undefined> {
-    return await this.synchronise(() =>
+    return await this.synchronize(() =>
       Promise.resolve(this._getIndexedTree(treeId).getLatestLeafDataCopy(index, includeUncommitted)),
     );
   }
@@ -354,7 +354,7 @@ export class MerkleTrees implements MerkleTreeDb {
     value: Buffer,
     includeUncommitted: boolean,
   ): Promise<bigint | undefined> {
-    return await this.synchronise(async () => {
+    return await this.synchronize(async () => {
       const tree = this.trees[treeId];
       for (let i = 0n; i < tree.getNumLeaves(includeUncommitted); i++) {
         const currentValue = await tree.getLeafValue(i, includeUncommitted);
@@ -374,7 +374,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * @returns Empty promise.
    */
   public async updateLeaf(treeId: IndexedTreeId | PublicTreeId, leaf: LeafData | Buffer, index: bigint): Promise<void> {
-    return await this.synchronise(() => this._updateLeaf(treeId, leaf, index));
+    return await this.synchronize(() => this._updateLeaf(treeId, leaf, index));
   }
 
   /**
@@ -382,7 +382,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param block - The L2 block to handle.
    */
   public async handleL2Block(block: L2Block): Promise<void> {
-    await this.synchronise(() => this._handleL2Block(block));
+    await this.synchronize(() => this._handleL2Block(block));
   }
 
   /**
@@ -408,7 +408,7 @@ export class MerkleTrees implements MerkleTreeDb {
     if (!('batchInsert' in tree)) {
       throw new Error('Tree does not support `batchInsert` method');
     }
-    return await this.synchronise(() => tree.batchInsert(leaves, subtreeHeight));
+    return await this.synchronize(() => tree.batchInsert(leaves, subtreeHeight));
   }
 
   /**
@@ -416,7 +416,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param fn - The function to execute.
    * @returns Promise containing the result of the function.
    */
-  private async synchronise<T>(fn: () => Promise<T>): Promise<T> {
+  private async synchronize<T>(fn: () => Promise<T>): Promise<T> {
     return await this.jobQueue.put(fn);
   }
 
