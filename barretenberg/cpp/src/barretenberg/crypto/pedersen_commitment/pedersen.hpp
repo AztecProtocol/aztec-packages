@@ -81,6 +81,8 @@ template <typename Curve> class generator_data {
 
 template class generator_data<curve::Grumpkin>;
 
+//  constinit generator_data default_generators = generator_data<curve::Grumpkin>();
+
 /**
  * @brief Performs pedersen commitments!
  *
