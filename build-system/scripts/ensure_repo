@@ -28,7 +28,7 @@ REGION=$2
 REFRESH_LIFECYCLE=${3:-}
 
 # Login to ECR.
-ecr_login
+ecr_login $REGION
 
 # Create the repository if it doesn't exist.
 if ! aws ecr describe-repositories --region $REGION --repository-names $REPOSITORY > /dev/null 2>&1; then
