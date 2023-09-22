@@ -71,15 +71,9 @@ Finally we need to update the Noir framework for Aztec contracts.
 We need to install a version compatible with our `nargo` and Sandbox.
 
 To update the framework we will update a tag of the `aztec.nr` dependency in the `Nargo.toml` file to the `SANDBOX_VERSION` from above.
-Find all the dependencies pointing to the directory within `aztec.nr` framework and update the corresponding tag:
+Find all the dependencies pointing to the directory within `aztec.nr` framework and update the corresponding tag.
+E.g.:
 
-```toml
-[dependencies]
-aztec = { git="https://github.com/AztecProtocol/aztec-packages", tag="aztec-packages-v<REPLACE_WITH_NEW_SANDBOX_VERSION>", directory="yarn-project/aztec-nr/aztec" }
-value_note = { git="https://github.com/AztecProtocol/aztec-packages", tag="aztec-packages-v<REPLACE_WITH_NEW_SANDBOX_VERSION>", directory="yarn-project/aztec-nr/value-note" }
-```
-
-To provide you with a concrete example we will update from version `0.7.5`:
 ```diff
 [dependencies]
 -aztec = { git="https://github.com/AztecProtocol/aztec-packages", tag="aztec-packages-v0.7.5", directory="yarn-project/aztec-nr/aztec" }
