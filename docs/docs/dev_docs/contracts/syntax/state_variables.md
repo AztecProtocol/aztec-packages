@@ -4,7 +4,7 @@ title: State Variables
 
 State variables come in two flavours: [**public** state](#publicstatet-t_serialized_len) and [**private** state](#private-state-variables).
 
-## `PublicState<T, T_serializeD_LEN>`
+## `PublicState<T, T_SERIALIZED_LEN>`
 
 Public state is persistent state that is _publicly visible_ to anyone in the world.
 
@@ -12,7 +12,7 @@ For developers coming from other blockchain ecosystems (such as Ethereum), this 
 
 Aztec public state follows an account-based model. That is, each state occupies a leaf in an account-based merkle tree: the public state tree. See [here](/concepts/advanced/data_structures/trees#public-state-tree) for more of the technical details.
 
-The `PublicState<T, T_serializeD_LEN>` struct serves as a wrapper around conventional Noir types `T`, allowing these types to be written to and read from the public state tree.
+The `PublicState<T, T_SERIALIZED_LEN>` struct serves as a wrapper around conventional Noir types `T`, allowing these types to be written to and read from the public state tree.
 
 ### `::new`
 
