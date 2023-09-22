@@ -1,6 +1,6 @@
 FROM ubuntu:lunar
 RUN apt-get update && apt-get install -y \
-    # jq \
+    jq \
     curl \
     git \
     sed
