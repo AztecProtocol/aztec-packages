@@ -10,8 +10,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const PORT = 3000;
 
-const logger = createDebugLogger('aztec:canary_aztec.js:web');
-const pageLogger = createDebugLogger('aztec:canary_aztec.js:web:page');
+const logger = createDebugLogger('aztec:e2e.js:web');
+const pageLogger = createDebugLogger('aztec:e2e.js:web:page');
 /**
  * This test is a bit of a special case as it's relying on sandbox and web browser and not only on anvil and node.js.
  * To run the test, do the following:
@@ -27,7 +27,6 @@ const pageLogger = createDebugLogger('aztec:canary_aztec.js:web:page');
  *       unexpectedly running in the background. Kill it with `killall chrome`
  */
 const setupApp = () => {
-  logger('forcing a fresh build & run');
   const app = new Koa();
   app.use(serve(path.resolve(__dirname, './web')));
   const server = app.listen(PORT, () => {

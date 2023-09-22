@@ -27,6 +27,7 @@ const PORT = 3000;
 
 const { SANDBOX_URL } = process.env;
 
+const logger = AztecJs.createDebugLogger('aztec.js-browser-test');
 const conditionalDescribe = () => (SANDBOX_URL ? describe : describe.skip);
 const privKey = AztecJs.GrumpkinScalar.random();
 
@@ -56,6 +57,7 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
         executablePath: process.env.CHROME_BIN,
         headless: 'new',
         args: [
+          '--single-process',
           '--allow-file-access-from-files',
           '--no-sandbox',
           '--headless',
@@ -72,14 +74,22 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
       page.on('console', msg => {
         pageLogger(msg.text());
       });
+      page.on('error', err => {
+        pageLogger('Error event:', err);
+      });
+
       page.on('pageerror', err => {
         pageLogger.error(err.toString());
       });
-      await page.goto(`http://localhost:${PORT}/index.html`);
+      await page.goto(`http://localhost:${PORT}/index.html`, { waitUntil: 'load', timeout: 0 });
     }, 120_000);
 
     afterAll(async () => {
-      await browser.close();
+      try {
+        await browser.close();
+      } catch (err) {
+        logger('Browser failed to close.', err);
+      }
       server.close();
     });
 

@@ -6140,7 +6140,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"agent-base@npm:^7.0.1, agent-base@npm:^7.0.2, agent-base@npm:^7.1.0":
+"agent-base@npm:^7.0.2, agent-base@npm:^7.1.0":
   version: 7.1.0
   resolution: "agent-base@npm:7.1.0"
   dependencies:
@@ -10861,13 +10861,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"https-proxy-agent@npm:^7.0.0":
-  version: 7.0.1
-  resolution: "https-proxy-agent@npm:7.0.1"
+"https-proxy-agent@npm:^7.0.0, https-proxy-agent@npm:^7.0.2":
+  version: 7.0.2
+  resolution: "https-proxy-agent@npm:7.0.2"
   dependencies:
     agent-base: ^7.0.2
     debug: 4
-  checksum: 2d765c31865071373771f53abdd72912567b76015a4eff61094f586194192950cd89257d50f0e621807a16c083bc8cad5852e3885c6ba154d2ce721a18fac248
+  checksum: 088969a0dd476ea7a0ed0a2cf1283013682b08f874c3bc6696c83fa061d2c157d29ef0ad3eb70a2046010bb7665573b2388d10fdcb3e410a66995e5248444292
   languageName: node
   linkType: hard
 
@@ -14987,18 +14987,18 @@ __metadata:
   linkType: hard
 
 "pac-proxy-agent@npm:^7.0.0":
-  version: 7.0.0
-  resolution: "pac-proxy-agent@npm:7.0.0"
+  version: 7.0.1
+  resolution: "pac-proxy-agent@npm:7.0.1"
   dependencies:
     "@tootallnate/quickjs-emscripten": ^0.23.0
     agent-base: ^7.0.2
     debug: ^4.3.4
     get-uri: ^6.0.1
     http-proxy-agent: ^7.0.0
-    https-proxy-agent: ^7.0.0
+    https-proxy-agent: ^7.0.2
     pac-resolver: ^7.0.0
-    socks-proxy-agent: ^8.0.1
-  checksum: 45fe10ae58b1700d5419a9e5b525fb261b866ed6a65c1382fe45c3d5af9f81d9a58250d407941a363b1955e0315f3d97e02a2f20e4c7e2ba793bd46585db7ec8
+    socks-proxy-agent: ^8.0.2
+  checksum: 3d4aa48ec1c19db10158ecc1c4c9a9f77792294412d225ceb3dfa45d5a06950dca9755e2db0d9b69f12769119bea0adf2b24390d9c73c8d81df75e28245ae451
   languageName: node
   linkType: hard
 
@@ -17008,14 +17008,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"socks-proxy-agent@npm:^8.0.1":
-  version: 8.0.1
-  resolution: "socks-proxy-agent@npm:8.0.1"
+"socks-proxy-agent@npm:^8.0.1, socks-proxy-agent@npm:^8.0.2":
+  version: 8.0.2
+  resolution: "socks-proxy-agent@npm:8.0.2"
   dependencies:
-    agent-base: ^7.0.1
+    agent-base: ^7.0.2
     debug: ^4.3.4
     socks: ^2.7.1
-  checksum: f6538fd16cb545094d20b9a1ae97bb2c4ddd150622ad7cc6b64c89c889d8847b7bac179757838ce5487cbac49a499537e3991c975fe13b152b76b10027470dfb
+  checksum: 4fb165df08f1f380881dcd887b3cdfdc1aba3797c76c1e9f51d29048be6e494c5b06d68e7aea2e23df4572428f27a3ec22b3d7c75c570c5346507433899a4b6d
   languageName: node
   linkType: hard
 
