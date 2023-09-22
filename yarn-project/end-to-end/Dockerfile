@@ -1,4 +1,4 @@
-FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project-base AS builder
+FROM yarn-project-base AS builder
 
 # Copy in the whole of yarn-project.
 COPY . .
@@ -18,7 +18,7 @@ RUN yarn workspaces focus --production > /dev/null
 
 # Create final, minimal size image.
 FROM node:18-alpine
-RUN apk update && apk add --no-cache udev ttf-freefont chromium curl jq bash
+RUN apk update && apk add --no-cache udev ttf-freefont chromium nss freetype harfbuzz ca-certificates curl jq bash
 ENV CHROME_BIN="/usr/bin/chromium-browser" PUPPETEER_SKIP_CHROMIUM_DOWNLOAD="true"
 COPY --from=builder /usr/src /usr/src
 RUN rm /usr/src/yarn-project/end-to-end/src/web/aztec3-circuits.wasm
