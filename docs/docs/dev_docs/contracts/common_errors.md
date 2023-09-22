@@ -12,7 +12,7 @@ This is what the error typically looks like:
 Simulation error: Assertion failed: Balance too low 'sum == amount'
 ```
 
-To address the error find the line in the contract that is throwing the error, and investigate why the condition is not met.
+To address the error. find the line in the contract that is throwing the error and investigate why the condition is not met.
 
 ### Unknown Contract Error
 This error occurs when you are trying to interact with a smart contract via an Aztec RPC Server that does not have the necessary information to execute a transaction.
