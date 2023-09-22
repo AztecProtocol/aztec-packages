@@ -1,4 +1,7 @@
 #!/bin/bash
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
+set -eu
+
 extract_repo yarn-project /usr/src project
 cd project/src/yarn-project
 
