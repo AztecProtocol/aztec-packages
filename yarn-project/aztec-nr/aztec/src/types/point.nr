@@ -11,16 +11,16 @@ impl Point {
     } 
 }
 
-global POINT_serializeD_LEN: Field = 2;
+global POINT_SERIALIZED_LEN: Field = 2;
 
-fn deserializePoint(fields: [Field; POINT_serializeD_LEN]) -> Point {
+fn deserializePoint(fields: [Field; POINT_SERIALIZED_LEN]) -> Point {
     Point {
         x: fields[0],
         y: fields[1],
     }
 }
 
-fn serializePoint(point: Point) -> [Field; POINT_serializeD_LEN] {
+fn serializePoint(point: Point) -> [Field; POINT_SERIALIZED_LEN] {
     [point.x, point.y]
 }
 

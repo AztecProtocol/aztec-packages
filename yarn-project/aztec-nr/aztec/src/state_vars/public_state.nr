@@ -4,17 +4,17 @@ use crate::oracle::storage::storage_write;
 use crate::types::type_serialisation::TypeSerialisationInterface;
 use dep::std::option::Option;
 
-struct PublicState<T, T_serializeD_LEN> {
+struct PublicState<T, T_SERIALIZED_LEN> {
     storage_slot: Field,
-    serialisation_methods: TypeSerialisationInterface<T, T_serializeD_LEN>,
+    serialisation_methods: TypeSerialisationInterface<T, T_SERIALIZED_LEN>,
 }
 
-impl<T, T_serializeD_LEN> PublicState<T, T_serializeD_LEN> {
+impl<T, T_SERIALIZED_LEN> PublicState<T, T_SERIALIZED_LEN> {
     fn new(
         // Note: Passing the contexts to new(...) just to have an interface compatible with a Map.
         _: Context,
         storage_slot: Field,
-        serialisation_methods: TypeSerialisationInterface<T, T_serializeD_LEN>,
+        serialisation_methods: TypeSerialisationInterface<T, T_SERIALIZED_LEN>,
     ) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         PublicState {

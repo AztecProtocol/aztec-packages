@@ -1,12 +1,12 @@
 use crate::types::type_serialisation::TypeSerialisationInterface;
 
-global FIELD_serializeD_LEN: Field = 1;
+global FIELD_SERIALIZED_LEN: Field = 1;
 
-fn deserializeField(fields: [Field; FIELD_serializeD_LEN]) -> Field {
+fn deserializeField(fields: [Field; FIELD_SERIALIZED_LEN]) -> Field {
     fields[0]
 }
 
-fn serializeField(value: Field) -> [Field; FIELD_serializeD_LEN] {
+fn serializeField(value: Field) -> [Field; FIELD_SERIALIZED_LEN] {
     [value]
 }
 

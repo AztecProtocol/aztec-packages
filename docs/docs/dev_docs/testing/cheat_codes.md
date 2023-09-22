@@ -458,7 +458,7 @@ The baseSlot is specified in the Aztec.nr contract.
 
 ```rust
 struct Storage {
-    balances: Map<PublicState<Field, FIELD_serializeD_LEN>>,
+    balances: Map<PublicState<Field, FIELD_SERIALIZED_LEN>>,
 }
 
 impl Storage {
@@ -496,7 +496,7 @@ Note: One Field element occupies a storage slot. Hence, structs with multiple fi
 
 ```rust
 struct Storage {
-    balances: Map<PublicState<Field, FIELD_serializeD_LEN>>,
+    balances: Map<PublicState<Field, FIELD_SERIALIZED_LEN>>,
 }
 
 impl Storage {

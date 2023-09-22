@@ -4,20 +4,20 @@ struct Asset {
     price: u120,
 }
 
-global ASSET_serializeD_LEN: Field = 1;
+global ASSET_SERIALIZED_LEN: Field = 1;
 
-fn deserializeAsset(fields: [Field; ASSET_serializeD_LEN]) -> Asset {
+fn deserializeAsset(fields: [Field; ASSET_SERIALIZED_LEN]) -> Asset {
     Asset {
         price: fields[0] as u120,
     }
 }
 
-fn serializeAsset(asset: Asset) -> [Field; ASSET_serializeD_LEN] {
+fn serializeAsset(asset: Asset) -> [Field; ASSET_SERIALIZED_LEN] {
     [asset.price as Field]
 }
 
 impl Asset {
-    fn serialize(self: Self) -> [Field; ASSET_serializeD_LEN] {
+    fn serialize(self: Self) -> [Field; ASSET_SERIALIZED_LEN] {
         serializeAsset(self)
     }
 }

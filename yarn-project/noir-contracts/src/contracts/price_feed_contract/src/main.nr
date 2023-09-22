@@ -9,11 +9,11 @@ contract PriceFeed {
             public_state::PublicState,
         },
     };
-    use crate::asset::{ASSET_serializeD_LEN, Asset, AssetSerialisationMethods};
+    use crate::asset::{ASSET_SERIALIZED_LEN, Asset, AssetSerialisationMethods};
 
     // Storage structure, containing all storage, and specifying what slots they use.
     struct Storage {
-        assets: Map<PublicState<Asset, ASSET_serializeD_LEN>>,
+        assets: Map<PublicState<Asset, ASSET_SERIALIZED_LEN>>,
     }
 
     impl Storage {

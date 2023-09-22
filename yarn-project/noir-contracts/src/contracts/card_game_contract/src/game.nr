@@ -28,9 +28,9 @@ struct Game {
     current_round: u32,
 }
 
-global GAME_serializeD_LEN: Field = 15;
+global GAME_SERIALIZED_LEN: Field = 15;
 
-fn deserializeGame(fields: [Field; GAME_serializeD_LEN]) -> Game {
+fn deserializeGame(fields: [Field; GAME_SERIALIZED_LEN]) -> Game {
     let players = [
         PlayerEntry {
             address: fields[0],
@@ -58,7 +58,7 @@ fn deserializeGame(fields: [Field; GAME_serializeD_LEN]) -> Game {
     }
 }
 
-fn serializeGame(game: Game) -> [Field; GAME_serializeD_LEN] {
+fn serializeGame(game: Game) -> [Field; GAME_SERIALIZED_LEN] {
     [
         game.players[0].address,
         game.players[0].deck_strength as Field,
@@ -79,7 +79,7 @@ fn serializeGame(game: Game) -> [Field; GAME_serializeD_LEN] {
 }
 
 impl Game {
-    fn serialize(self: Self) -> [Field; GAME_serializeD_LEN] {
+    fn serialize(self: Self) -> [Field; GAME_SERIALIZED_LEN] {
         serializeGame(self)
     }
 

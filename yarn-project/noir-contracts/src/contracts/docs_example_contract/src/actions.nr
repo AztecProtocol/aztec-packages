@@ -6,40 +6,40 @@ use dep::aztec::state_vars::{
     immutable_singleton::ImmutableSingleton, map::Map, public_state::PublicState, set::Set,
     singleton::Singleton,
 };
-use dep::aztec::types::type_serialisation::bool_serialisation::BOOL_serializeD_LEN;
+use dep::aztec::types::type_serialisation::bool_serialisation::BOOL_SERIALIZED_LEN;
 use dep::std::option::Option;
 
 use crate::types::{
     card_note::{CardNote, CARD_NOTE_LEN},
     profile_note::{ProfileNote, PROFILE_NOTE_LEN},
-    queen::{Queen, QUEEN_serializeD_LEN},
+    queen::{Queen, QUEEN_SERIALIZED_LEN},
     rules_note::{RulesNote, RULES_NOTE_LEN},
 };
 
 // docs:start:state_vars-PublicStateRead
-fn is_locked(state_var: PublicState<bool, BOOL_serializeD_LEN>) -> bool {
+fn is_locked(state_var: PublicState<bool, BOOL_SERIALIZED_LEN>) -> bool {
     state_var.read()
 }
 // docs:end:state_vars-PublicStateRead
 
 // docs:start:state_vars-PublicStateWrite
-fn lock(state_var: PublicState<bool, BOOL_serializeD_LEN>) {
+fn lock(state_var: PublicState<bool, BOOL_SERIALIZED_LEN>) {
     state_var.write(true);
 }
 // docs:end:state_vars-PublicStateWrite
 
-fn unlock(state_var: PublicState<bool, BOOL_serializeD_LEN>) {
+fn unlock(state_var: PublicState<bool, BOOL_SERIALIZED_LEN>) {
     state_var.write(false);
 }
 
 // docs:start:state_vars-PublicStateReadCustom
-fn get_current_queen(state_var: PublicState<Queen, QUEEN_serializeD_LEN>) -> Queen {
+fn get_current_queen(state_var: PublicState<Queen, QUEEN_SERIALIZED_LEN>) -> Queen {
     state_var.read()
 }
 // docs:end:state_vars-PublicStateReadCustom
 
 fn can_replace_queen(
-    state_var: PublicState<Queen, QUEEN_serializeD_LEN>,
+    state_var: PublicState<Queen, QUEEN_SERIALIZED_LEN>,
     new_queen: Queen,
 ) -> bool {
     let current_queen = get_current_queen(state_var);
@@ -47,13 +47,13 @@ fn can_replace_queen(
 }
 
 // docs:start:state_vars-PublicStateWriteCustom
-fn replace_queen(state_var: PublicState<Queen, QUEEN_serializeD_LEN>, new_queen: Queen) {
+fn replace_queen(state_var: PublicState<Queen, QUEEN_SERIALIZED_LEN>, new_queen: Queen) {
     state_var.write(new_queen);
 }
 // docs:end:state_vars-PublicStateWriteCustom
 
 // docs:start:state_vars-PublicStateReadWriteCustom
-fn add_points_to_queen(state_var: PublicState<Queen, QUEEN_serializeD_LEN>, new_points: u8) {
+fn add_points_to_queen(state_var: PublicState<Queen, QUEEN_SERIALIZED_LEN>, new_points: u8) {
     let mut queen = state_var.read();
     queen.points += new_points;
     state_var.write(queen);

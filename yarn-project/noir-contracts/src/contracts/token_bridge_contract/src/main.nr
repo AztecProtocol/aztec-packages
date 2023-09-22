@@ -11,7 +11,7 @@ contract TokenBridge {
         context::{Context},
         state_vars::{public_state::PublicState},
         types::type_serialisation::field_serialisation::{
-            FieldSerialisationMethods, FIELD_serializeD_LEN,
+            FieldSerialisationMethods, FIELD_SERIALIZED_LEN,
         },
         types::address::{AztecAddress, EthereumAddress},
         oracle::compute_selector::compute_selector,

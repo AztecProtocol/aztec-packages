@@ -30,7 +30,7 @@ contract Token {
         context::{PrivateContext, PublicContext, Context},
         state_vars::{map::Map, public_state::PublicState, set::Set},
         types::type_serialisation::field_serialisation::{
-            FieldSerialisationMethods, FIELD_serializeD_LEN,
+            FieldSerialisationMethods, FIELD_SERIALIZED_LEN,
         },
         types::address::{AztecAddress},
         oracle::compute_selector::compute_selector,
@@ -43,12 +43,12 @@ contract Token {
 
     // docs:start:storage_struct
     struct Storage {
-        admin: PublicState<Field, FIELD_serializeD_LEN>,
-        minters: Map<PublicState<Field, FIELD_serializeD_LEN>>,
+        admin: PublicState<Field, FIELD_SERIALIZED_LEN>,
+        minters: Map<PublicState<Field, FIELD_SERIALIZED_LEN>>,
         balances: Map<Set<ValueNote, VALUE_NOTE_LEN>>,
-        total_supply: PublicState<Field, FIELD_serializeD_LEN>,
+        total_supply: PublicState<Field, FIELD_SERIALIZED_LEN>,
         pending_shields: Set<TransparentNote, TRANSPARENT_NOTE_LEN>,
-        public_balances: Map<PublicState<Field, FIELD_serializeD_LEN>>,
+        public_balances: Map<PublicState<Field, FIELD_SERIALIZED_LEN>>,
     }
     // docs:end:storage_struct
 

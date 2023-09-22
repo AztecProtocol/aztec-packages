@@ -256,7 +256,7 @@ Below the dependencies, paste the following Storage struct:
 
 Reading through the storage variables:
 
-- `admin` a single Field value stored in public state. `FIELD_serializeD_LEN` indicates the length of the variable, which is 1 in this case because it's a single Field element. A `Field` is basically an unsigned integer with a maximum value determined by the underlying cryptographic curve.
+- `admin` a single Field value stored in public state. `FIELD_SERIALIZED_LEN` indicates the length of the variable, which is 1 in this case because it's a single Field element. A `Field` is basically an unsigned integer with a maximum value determined by the underlying cryptographic curve.
 - `minters` is a mapping of Fields in public state. This will store whether an account is an approved minter on the contract.
 - `balances` is a mapping of private balances. Private balances are stored in a `Set` of `ValueNote`s. The balance is the sum of all of an account's `ValueNote`s.
 - `total_supply` is a Field value stored in public state and represents the total number of tokens minted.

@@ -12,11 +12,11 @@ struct Asset {
     oracle_address: Field,
 }
 
-global ASSET_serializeD_LEN: Field = 4;
+global ASSET_SERIALIZED_LEN: Field = 4;
 
 // Right now we are wasting so many writes. If changing last_updated_ts
 // we will end up rewriting all of them, wasting writes.
-fn deserializeAsset(fields: [Field; ASSET_serializeD_LEN]) -> Asset {
+fn deserializeAsset(fields: [Field; ASSET_SERIALIZED_LEN]) -> Asset {
     Asset {
         interest_accumulator: fields[0] as u120,
         last_updated_ts: fields[1] as u120,
@@ -25,7 +25,7 @@ fn deserializeAsset(fields: [Field; ASSET_serializeD_LEN]) -> Asset {
     }
 }
 
-fn serializeAsset(asset: Asset) -> [Field; ASSET_serializeD_LEN] {
+fn serializeAsset(asset: Asset) -> [Field; ASSET_SERIALIZED_LEN] {
     [
         asset.interest_accumulator as Field,
         asset.last_updated_ts as Field,
@@ -35,7 +35,7 @@ fn serializeAsset(asset: Asset) -> [Field; ASSET_serializeD_LEN] {
 }
 
 impl Asset {
-    fn serialize(self: Self) -> [Field; ASSET_serializeD_LEN] {
+    fn serialize(self: Self) -> [Field; ASSET_SERIALIZED_LEN] {
         serializeAsset(self)
     }
 }
