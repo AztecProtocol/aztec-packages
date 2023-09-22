@@ -40,3 +40,14 @@ Your contract typically needs a public key when it wants to send a note to a rec
 Manually adding the recipient to the Aztec RPC Server should not be required in case the recipient contract has already been deployed and the Aztec RPC Server is fully synced.
 This is because this information is submitted on-chain when the recipient contract is deployed.
 :::
+
+### Unknown account
+This error occurs when your contract is trying to get a secret via the `get_secret` oracle call, but the Aztec RPC Server does not have the secret for the public key.
+
+This is what the error typically looks like:
+```
+Could not process note because of "Error: Unknown account.". Skipping note...
+```
+
+This error might occurr when you register an account only as a recipient and not as an account.
+To address the error, register the account by calling `server.registerAccount(...)`.
