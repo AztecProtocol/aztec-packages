@@ -12,7 +12,7 @@ contract PublicToken {
             map::Map,
             public_state::PublicState,
         },
-        types::type_serialisation::field_serialisation::{
+        types::type_serialization::field_serialization::{
             FieldSerialisationMethods, FIELD_SERIALIZED_LEN,
         },
     };

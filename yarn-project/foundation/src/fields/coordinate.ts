@@ -38,7 +38,7 @@ export class Coordinate {
 
   /**
    * serializes the oblect to buffer of 2 fields.
-   * @returns A buffer serialisation of the object.
+   * @returns A buffer serialization of the object.
    */
   toFieldsBuffer(): Buffer {
     return Buffer.concat([this.fields[0].toBuffer(), this.fields[1].toBuffer()]);
@@ -46,7 +46,7 @@ export class Coordinate {
 
   /**
    * serializes the coordinate to a single 32 byte buffer.
-   * @returns A buffer serialisation of the object.
+   * @returns A buffer serialization of the object.
    */
   toBuffer(): Buffer {
     const buf0 = this.fields[0].toBuffer();

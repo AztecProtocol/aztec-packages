@@ -10,7 +10,7 @@ contract TokenBridge {
     use dep::aztec::{
         context::{Context},
         state_vars::{public_state::PublicState},
-        types::type_serialisation::field_serialisation::{
+        types::type_serialization::field_serialization::{
             FieldSerialisationMethods, FIELD_SERIALIZED_LEN,
         },
         types::address::{AztecAddress, EthereumAddress},

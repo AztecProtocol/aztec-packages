@@ -13,7 +13,7 @@ contract DocsExample {
         },
     };
     // docs:start:state_vars-PublicStateBoolImport
-    use dep::aztec::types::type_serialisation::bool_serialisation::{
+    use dep::aztec::types::type_serialization::bool_serialization::{
         BoolSerialisationMethods, BOOL_SERIALIZED_LEN,
     };
     // docs:end:state_vars-PublicStateBoolImport

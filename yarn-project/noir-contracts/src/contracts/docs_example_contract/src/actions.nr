@@ -6,7 +6,7 @@ use dep::aztec::state_vars::{
     immutable_singleton::ImmutableSingleton, map::Map, public_state::PublicState, set::Set,
     singleton::Singleton,
 };
-use dep::aztec::types::type_serialisation::bool_serialisation::BOOL_SERIALIZED_LEN;
+use dep::aztec::types::type_serialization::bool_serialization::BOOL_SERIALIZED_LEN;
 use dep::std::option::Option;
 
 use crate::types::{

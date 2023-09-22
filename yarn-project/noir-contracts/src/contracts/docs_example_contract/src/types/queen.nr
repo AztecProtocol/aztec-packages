@@ -1,4 +1,4 @@
-use dep::aztec::types::type_serialisation::TypeSerialisationInterface;
+use dep::aztec::types::type_serialization::TypeSerialisationInterface;
 
 // docs:start:state_vars-CustomStruct
 struct Queen {

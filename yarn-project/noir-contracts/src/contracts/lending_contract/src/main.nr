@@ -20,8 +20,8 @@ contract Lending {
             map::Map,
             public_state::PublicState,
         },
-        types::type_serialisation::{
-            field_serialisation::{FieldSerialisationMethods, FIELD_SERIALIZED_LEN},
+        types::type_serialization::{
+            field_serialization::{FieldSerialisationMethods, FIELD_SERIALIZED_LEN},
             TypeSerialisationInterface,
         },
     };

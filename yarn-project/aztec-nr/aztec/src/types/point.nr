@@ -1,4 +1,4 @@
-use crate::types::type_serialisation::TypeSerialisationInterface;
+use crate::types::type_serialization::TypeSerialisationInterface;
 
 struct Point {
     x: Field,

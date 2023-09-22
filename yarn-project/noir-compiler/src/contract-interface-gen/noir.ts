@@ -124,7 +124,7 @@ function collectParametersForSerialisation(parameters: ABIVariable[]) {
 /**
  * Generates Noir code for serialising the parameters into an array of fields.
  * @param parameters - Parameters to serialize.
- * @returns The serialisation code.
+ * @returns The serialization code.
  */
 function generateSerialisation(parameters: ABIParameter[]) {
   const flattened = collectParametersForSerialisation(parameters);
@@ -142,7 +142,7 @@ function generateSerialisation(parameters: ABIParameter[]) {
 function generateFunctionInterface(functionData: FunctionAbi, kind: 'private' | 'public') {
   const { name, parameters } = functionData;
   const selector = FunctionSelector.fromNameAndParameters(name, parameters);
-  const serialisation = generateSerialisation(parameters);
+  const serialization = generateSerialisation(parameters);
   const contextType = kind === 'private' ? '&mut PrivateContext' : 'PublicContext';
   const callStatement = generateCallStatement(selector, functionData.functionType);
   const allParams = ['self', `context: ${contextType}`, ...parameters.map(p => generateParameter(p, functionData))];
@@ -154,7 +154,7 @@ function generateFunctionInterface(functionData: FunctionAbi, kind: 'private' | 
   fn ${name}(
     ${allParams.join(',\n    ')}
   ) ${retType}{
-${serialisation}
+${serialization}
 ${callStatement}
   }
   `;

@@ -1,9 +1,9 @@
-mod bool_serialisation;
-mod field_serialisation;
-mod u32_serialisation;
+mod bool_serialization;
+mod field_serialization;
+mod u32_serialization;
 
 /**
- * Before Noir supports traits, a way of specifying the serialisation and deserialisation methods for a type.
+ * Before Noir supports traits, a way of specifying the serialization and deserialization methods for a type.
  */
 // docs:start:TypeSerialisationInterface
 struct TypeSerialisationInterface<T, N> {

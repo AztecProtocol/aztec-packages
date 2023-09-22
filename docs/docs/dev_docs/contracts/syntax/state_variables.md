@@ -28,7 +28,7 @@ The BoolSerialisationMethods is part of the Aztec stdlib:
 
 It contains methods that instruct its PublicState wrapper how to serialize and deserialize a boolean to and from a Field, which is the data type being saved in the public state tree.
 
-The Aztec stdlib provides serialization methods for various common types. Check [here](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec-nr/aztec/src/types/type_serialisation) for the complete list.
+The Aztec stdlib provides serialization methods for various common types. Check [here](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec-nr/aztec/src/types/type_serialization) for the complete list.
 
 ### Custom types
 
@@ -36,7 +36,7 @@ It's possible to create a public state for any types. Simply define methods that
 
 The methods should be implemented in a struct that conforms to the following interface:
 
-#include_code TypeSerialisationInterface /yarn-project/aztec-nr/aztec/src/types/type_serialisation.nr rust
+#include_code TypeSerialisationInterface /yarn-project/aztec-nr/aztec/src/types/type_serialization.nr rust
 
 For example, to create a public state for the following type:
 

@@ -1,4 +1,4 @@
-use dep::aztec::types::type_serialisation::TypeSerialisationInterface;
+use dep::aztec::types::type_serialization::TypeSerialisationInterface;
 use crate::cards::Card;
 
 global NUMBER_OF_PLAYERS = 2;

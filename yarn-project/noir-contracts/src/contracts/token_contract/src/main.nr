@@ -29,7 +29,7 @@ contract Token {
         },
         context::{PrivateContext, PublicContext, Context},
         state_vars::{map::Map, public_state::PublicState, set::Set},
-        types::type_serialisation::field_serialisation::{
+        types::type_serialization::field_serialization::{
             FieldSerialisationMethods, FIELD_SERIALIZED_LEN,
         },
         types::address::{AztecAddress},
