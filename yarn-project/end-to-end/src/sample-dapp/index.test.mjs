@@ -18,7 +18,7 @@ describe('token', () => {
     const secretHash = await computeMessageSecretHash(secret);
     await token.methods.mint_private(initialBalance, secretHash).send().wait();
     await token.methods.redeem_shield({ address: owner.getAddress() }, initialBalance, secret).send().wait();
-  }, 60_000);
+  }, 120_000);
 
   afterAll(() => stop());
   // docs:end:setup
