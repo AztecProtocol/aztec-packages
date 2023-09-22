@@ -225,10 +225,13 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
         auto constructor_hash = compute_constructor_hash<NT>(function_data, args_hash, private_circuit_vk_hash);
 
         // Derive contract address so that it can be used inside the constructor itself
-        const auto complete_contract_address = compute_complete_address<NT>(
-            msg_sender_pub_key, contract_address_salt, contract_deployment_data.function_tree_root, constructor_hash);
+        contract_address = compute_complete_address<NT>(msg_sender_pub_key,
+                                                        contract_address_salt,
+                                                        contract_deployment_data.function_tree_root,
+                                                        constructor_hash)
+                               .address;
         // update the contract address in the call context now that it is known
-        call_context.storage_contract_address = complete_contract_address.address;
+        call_context.storage_contract_address = contract_address;
     } else {
         const NT::fr& function_tree_root = function_tree_root_from_siblings<NT>(function_data.selector,
                                                                                 function_data.is_internal,
