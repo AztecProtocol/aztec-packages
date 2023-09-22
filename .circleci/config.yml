@@ -397,37 +397,37 @@ jobs:
           command: build yarn-project-base | add_timestamps
 
   yarn-project:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
     steps:
       - *checkout
       - *setup_env
       - run:
           name: Build
-          command: build yarn-project | add_timestamps
+          command: cond_spot_run_build yarn-project 128 | add_timestamps
 
   yarn-project-format:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
     steps:
       - *checkout
       - *setup_env
       - run:
           name: Build
-          command: cond_run_container yarn-project formatting
+          command: cond_spot_run_script yarn-project 32 cond_run_container yarn-project formatting | add_timestamps
 
   yarn-project-test:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
     steps:
       - *checkout
       - *setup_env
       - run:
           name: Build
-          command: cond_run_container yarn-project test
+          command: cond_spot_run_script yarn-project 128 cond_run_container yarn-project test | add_timestamps
 
   aztec-sandbox-base:
     machine:
