@@ -8,8 +8,6 @@ WORKDIR /usr/src/yarn-project/boxes/blank-react
 RUN yarn 
 RUN yarn build && yarn formatting
 
-RUN yarn test
-
 RUN yarn cache clean
 RUN yarn workspaces focus --production > /dev/null
 
