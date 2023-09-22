@@ -9,7 +9,7 @@ import Disclaimer from "../../../misc/common/\_disclaimer.mdx";
 
 ## Indexed Merkle Trees
 
-This article will introduce the concept of an indexed merkle tree, and how it can be used to improve the performance of nullifier trees in circuits. The content was also covered in a presentation with the [Privacy + Scaling Explorations](https://pse.dev/).
+This article will introduce the concept of an indexed merkle tree, and how it can be used to improve the performance of nullifier trees in circuits. The content was also covered in a presentation for the [Privacy + Scaling Explorations team at the Ethereum Foundation](https://pse.dev/).
 
 <iframe width="100%" height="720" src="https://www.youtube-nocookie.com/embed/x_0ZhUKtWSs?si=TmguEhgz4Gu07Dac" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
 
