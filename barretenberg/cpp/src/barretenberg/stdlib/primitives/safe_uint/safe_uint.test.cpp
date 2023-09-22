@@ -186,6 +186,7 @@ TYPED_TEST(SafeUintTest, TestSubtractMethodUnderflowFails)
         c = c.subtract(d, suint_ct::MAX_BIT_NUM);
         FAIL() << "Expected out of range error";
     } catch (std::runtime_error const& err) {
+        EXPECT_TRUE(composer.check_circuit());
         EXPECT_EQ(err.what(), std::string("maximum value exceeded in safe_uint subtract"));
     } catch (...) {
         FAIL() << "Expected std::runtime_error modulus in safe_uint class";
@@ -209,6 +210,21 @@ TYPED_TEST(SafeUintTest, TestMinusOperator)
 }
 
 #if !defined(__wasm__)
+TYPED_TEST(SafeUintTest, TestMinusOperator1)
+{
+    STDLIB_TYPE_ALIASES
+    auto composer = Composer();
+
+    field_ct a(witness_ct(&composer, 2));
+    field_ct b(witness_ct(&composer, 1));
+    suint_ct c(a, 2);
+    suint_ct d(b, 3);
+    c = c - d;
+    EXPECT_TRUE(composer.check_circuit());
+}
+#endif
+
+#if !defined(__wasm__)
 TYPED_TEST(SafeUintTest, TestMinusOperatorUnderflowFails)
 {
     STDLIB_TYPE_ALIASES
@@ -218,13 +234,44 @@ TYPED_TEST(SafeUintTest, TestMinusOperatorUnderflowFails)
     field_ct b(witness_ct(&composer, field_ct::modulus / 2));
     suint_ct c(a, 2);
     suint_ct d(b, suint_ct::MAX_BIT_NUM);
+    c = c - d;
+    EXPECT_FALSE(composer.check_circuit());
+}
+#endif
+
+#if !defined(__wasm__)
+TYPED_TEST(SafeUintTest, TestMinusOperatorUnderflowFailsEdge1)
+{
+    STDLIB_TYPE_ALIASES
+    auto composer = Composer();
+
+    field_ct a(witness_ct(&composer, 1));
+    field_ct b(witness_ct(&composer, 0));
+    suint_ct c(a, suint_ct::MAX_BIT_NUM);
+    suint_ct d(b, suint_ct::MAX_BIT_NUM);
     try {
         c = c - d;
+        FAIL() << "Expected error to be thrown";
     } catch (std::runtime_error const& err) {
         EXPECT_EQ(err.what(), std::string("maximum value exceeded in safe_uint minus operator"));
     } catch (...) {
-        FAIL() << "Expected std::runtime_error modulus in safe_uint class";
+        FAIL() << "Expected no error, got other error";
     }
+}
+#endif
+
+#if !defined(__wasm__)
+TYPED_TEST(SafeUintTest, TestMinusOperatorUnderflowFails2)
+{
+    STDLIB_TYPE_ALIASES
+    auto composer = Composer();
+
+    field_ct a(witness_ct(&composer, 2));
+    field_ct b(witness_ct(&composer, 3));
+    suint_ct c(a, 2);
+    suint_ct d(b, 3);
+    c = c - d;
+    EXPECT_FALSE(composer.check_circuit());
 }
 #endif
 
