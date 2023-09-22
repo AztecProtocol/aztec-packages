@@ -63,7 +63,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       ETHEREUM_HOST || 'http://localhost:8545',
     )
     .option('-a, --api-key <string>', 'Api key for the ethereum host', API_KEY)
-    .option('-p, --private-key <string>', 'The private key to use for deployment', PRIVATE_KEY)
+    .requiredOption('-p, --private-key <string>', 'The private key to use for deployment', PRIVATE_KEY)
     .option(
       '-m, --mnemonic <string>',
       'The mnemonic to use in deployment',
@@ -358,7 +358,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       "A compiled Aztec.nr contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts",
     )
     .requiredOption('-ca, --contract-address <address>', 'Aztec address of the contract.')
-    .option('-k, --private-key <string>', "The sender's private key.", PRIVATE_KEY)
+    .requiredOption('-k, --private-key <string>', "The sender's private key.", PRIVATE_KEY)
     .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', AZTEC_RPC_HOST || 'http://localhost:8080')
 
     .action(async (functionName, options) => {
