@@ -17,8 +17,8 @@
 #include "rollup/root/root_rollup_public_inputs.hpp"
 
 #include "aztec3/circuits/abis/combined_accumulated_data.hpp"
-#include "aztec3/circuits/abis/final_accumulated_data.hpp"
 #include "aztec3/circuits/abis/complete_address.hpp"
+#include "aztec3/circuits/abis/final_accumulated_data.hpp"
 #include "aztec3/circuits/abis/new_contract_data.hpp"
 #include "aztec3/circuits/abis/packers.hpp"
 #include "aztec3/circuits/abis/point.hpp"
@@ -33,9 +33,7 @@
 
 namespace {
 
-using aztec3::circuits::compute_complete_address;
 using aztec3::circuits::compute_constructor_hash;
-using aztec3::circuits::compute_partial_address;
 using aztec3::circuits::abis::CallStackItem;
 using aztec3::circuits::abis::CompleteAddress;
 using aztec3::circuits::abis::ConstantsPacker;
@@ -293,7 +291,7 @@ WASM_EXPORT void abis__hash_constructor(uint8_t const* function_data_buf,
 /**
  * @brief Compute a complete address.
  */
-CBIND(abis__compute_complete_address, aztec3::circuits::compute_complete_address<NT>);
+CBIND(abis__compute_complete_address, aztec3::circuits::abis::CompleteAddress<NT>::compute);
 
 /**
  * @brief Compute a contract address from deployer public key and partial address.
@@ -320,38 +318,6 @@ WASM_EXPORT void abis__compute_contract_address_from_partial(uint8_t const* poin
         aztec3::circuits::compute_contract_address_from_partial(deployer_public_key, partial_address);
 
     NT::fr::serialize_to_buffer(contract_address, output);
-}
-
-/**
- * @brief Compute a partial address
- * This is a WASM-export that can be called from Typescript.
- *
- * @details Computes a partial address by hashing the salt, function tree root and constructor hash
- * Return the serialized results in the `output` buffer.
- *
- * @param contract_address_salt_buf salt value for the contract address
- * @param function_tree_root_buf root value of the contract's function tree
- * @param constructor_hash_buf the hash of the contract constructor's verification key
- * @param output buffer that will contain the output. The serialized contract address.
- * See the link bellow for more details:
- * https://github.com/AztecProtocol/aztec-packages/blob/master/docs/docs/concepts/foundation/accounts/keys.md#addresses-partial-addresses-and-public-keys
- */
-WASM_EXPORT void abis__compute_partial_address(uint8_t const* contract_address_salt_buf,
-                                               uint8_t const* function_tree_root_buf,
-                                               uint8_t const* constructor_hash_buf,
-                                               uint8_t* output)
-{
-    NT::fr contract_address_salt;
-    NT::fr function_tree_root;
-    NT::fr constructor_hash;
-
-    read(contract_address_salt_buf, contract_address_salt);
-    read(function_tree_root_buf, function_tree_root);
-    read(constructor_hash_buf, constructor_hash);
-    NT::fr const partial_address =
-        compute_partial_address<NT>(contract_address_salt, function_tree_root, constructor_hash);
-
-    NT::fr::serialize_to_buffer(partial_address, output);
 }
 
 /**

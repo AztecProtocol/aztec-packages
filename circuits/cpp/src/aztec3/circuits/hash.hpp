@@ -1,6 +1,5 @@
 #pragma once
 
-#include "aztec3/circuits/abis/complete_address.hpp"
 #include "aztec3/circuits/abis/function_data.hpp"
 #include "aztec3/circuits/abis/function_leaf_preimage.hpp"
 #include "aztec3/circuits/abis/function_selector.hpp"
@@ -17,7 +16,6 @@
 
 namespace aztec3::circuits {
 
-using abis::CompleteAddress;
 using abis::FunctionData;
 using abis::FunctionSelector;
 using abis::Point;
@@ -72,25 +70,6 @@ typename NCT::address compute_contract_address_from_partial(Point<NCT> const& po
         partial_address,
     };
     return { NCT::hash(inputs, aztec3::GeneratorIndex::CONTRACT_ADDRESS) };
-}
-
-template <typename NCT> typename aztec3::circuits::abis::CompleteAddress<NCT> compute_complete_address(
-    Point<NCT> const& point,
-    typename NCT::fr const& contract_address_salt,
-    typename NCT::fr const& function_tree_root,
-    typename NCT::fr const& constructor_hash)
-{
-    using fr = typename NCT::fr;
-
-    const fr partial_address =
-        compute_partial_address<NCT>(contract_address_salt, function_tree_root, constructor_hash);
-
-    typename aztec3::circuits::abis::CompleteAddress<NCT> complete_address;
-    complete_address.address = compute_contract_address_from_partial(point, partial_address);
-    complete_address.public_key = point;
-    complete_address.partial_address = partial_address;
-
-    return complete_address;
 }
 
 template <typename NCT> typename NCT::fr compute_commitment_nonce(typename NCT::fr const& first_nullifier,
