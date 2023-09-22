@@ -170,8 +170,8 @@ template <typename Flavor> void create_some_RAM_gates(auto& circuit_builder)
 template <typename Flavor> void create_some_elliptic_curve_addition_gates(auto& circuit_builder)
 {
     // Add an elliptic curve addition gate
-    grumpkin::g1::affine_element p1 = crypto::pedersen_commitment::commit_native({ fr(1) }, 0);
-    grumpkin::g1::affine_element p2 = crypto::pedersen_commitment::commit_native({ fr(1) }, 1);
+    grumpkin::g1::affine_element p1 = crypto::pedersen_commitment::commit_native({ barretenberg::fr(1) }, 0);
+    grumpkin::g1::affine_element p2 = crypto::pedersen_commitment::commit_native({ barretenberg::fr(1) }, 1);
     ;
 
     grumpkin::fq beta_scalar = grumpkin::fq::cube_root_of_unity();

@@ -54,7 +54,6 @@ template <class Composer, size_t bits_per_element = 248> struct PedersenPreimage
             }
             preimage_data.push_back(field_pt::accumulate(work_element));
         }
-
         return pedersen_commitment<Composer>::compress(preimage_data, hash_index);
     }
 
@@ -414,10 +413,7 @@ template <typename Curve> struct verification_key {
 
         write(preimage_data, key->domain.root);
 
-        barretenberg::fr compressed_key;
-        compressed_key = crypto::pedersen_commitment::compress_native(preimage_data, hash_index);
-
-        return compressed_key;
+        return crypto::pedersen_commitment::compress_native(preimage_data, hash_index);
     }
 
   public:

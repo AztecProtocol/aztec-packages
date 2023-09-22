@@ -24,7 +24,7 @@ struct Blake3sHasher {
     static std::array<uint8_t, PRNG_OUTPUT_SIZE> hash(std::vector<uint8_t> const& input);
 };
 
-enum HashType { Keccak256, PedersenBlake3s, PlookupPedersenBlake3s };
+enum HashType { Keccak256, PedersenBlake3s };
 
 /**
  * Transcript is used by the Prover to store round values

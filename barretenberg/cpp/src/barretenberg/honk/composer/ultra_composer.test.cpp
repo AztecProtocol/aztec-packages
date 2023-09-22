@@ -271,8 +271,8 @@ TEST_F(UltraHonkComposerTests, test_elliptic_gate)
     typedef grumpkin::g1::element element;
     auto circuit_builder = proof_system::UltraCircuitBuilder();
 
-    affine_element p1 = crypto::pedersen_commitment::commit_native({ fr(1) }, 0);
-    affine_element p2 = crypto::pedersen_commitment::commit_native({ fr(2) }, 1);
+    affine_element p1 = crypto::pedersen_commitment::commit_native({ barretenberg::fr(1) }, 0);
+    affine_element p2 = crypto::pedersen_commitment::commit_native({ barretenberg::fr(2) }, 1);
 
     affine_element p3(element(p1) + element(p2));
 

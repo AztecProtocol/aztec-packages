@@ -3,6 +3,7 @@
 // TODO(@zac-wiliamson #2341 rename to pedersen.hpp once we migrate to new hash standard)
 
 #include "../generators/generator_data.hpp"
+#include "barretenberg/common/container.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include <array>
@@ -113,6 +114,12 @@ template <typename Curve> class pedersen_commitment_base {
         size_t hash_index = 0,
         const generator_data<Curve>* generator_context = generator_data<Curve>::get_default_generators());
 
+    static Fq compress_native(type_is<Fq> auto&&... inputs)
+    {
+        std::vector<Fq> elements({ std::forward<typeof(inputs)>(inputs)... });
+        return compress_native(elements);
+    }
+
     /**
      * @brief Converts input uint8_t buffers into vector of field elements. Used to hash the Transcript in a
      * SNARK-friendly manner for recursive circuits.
@@ -170,7 +177,7 @@ template <typename Curve> class pedersen_commitment_base {
     template <size_t T> static Fq compress_native(const std::array<Fq, T>& input, const size_t hash_index = 0)
     {
         std::vector<Fq> converted(input.begin(), input.end());
-        return compress_native_buffer_to_field(input, hash_index);
+        return compress_native(converted, hash_index);
     }
     //
 };

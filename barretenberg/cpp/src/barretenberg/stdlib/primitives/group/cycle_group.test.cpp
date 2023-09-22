@@ -14,7 +14,8 @@
     using AffineElement = typename Curve::AffineElement;                                                               \
     using Group = typename Curve::Group;                                                                               \
     using bool_ct = stdlib::bool_t<Composer>;                                                                          \
-    using witness_ct = stdlib::witness_t<Composer>;
+    using witness_ct = stdlib::witness_t<Composer>;                                                                    \
+    using native_hash = typename crypto::pedersen_hash_base<Curve>;
 
 namespace stdlib_cycle_group_tests {
 using namespace barretenberg;
@@ -441,7 +442,7 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
         std::vector<typename Group::subgroup_field> scalars_native;
         Element expected = Group::point_at_infinity;
         for (size_t i = 0; i < num_muls; ++i) {
-            auto element = crypto::pedersen_hash_base<Curve>::get_lhs_generator();
+            auto element = native_hash::get_lhs_generator();
             typename Group::subgroup_field scalar = Group::subgroup_field::random_element(&engine);
 
             // 1: add entry where point is constant, scalar is witness
@@ -451,7 +452,7 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
             scalars_native.emplace_back(scalar);
 
             // 2: add entry where point is constant, scalar is constant
-            element = crypto::pedersen_hash_base<Curve>::get_rhs_generator();
+            element = native_hash::get_rhs_generator();
             expected += (element * scalar);
             points.emplace_back(element);
             scalars.emplace_back(typename cycle_group_ct::cycle_scalar(scalar));
@@ -459,7 +460,7 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
         }
         auto result = cycle_group_ct::batch_mul(scalars, points);
         EXPECT_EQ(result.get_value(), AffineElement(expected));
-        EXPECT_EQ(result.get_value(), crypto::pedersen_commitment<Curve>::commit_native(scalars_native));
+        EXPECT_EQ(result.get_value(), crypto::pedersen_commitment::commit_native(scalars_native));
     }
 
     // case 6, fixed-base MSM with inputs that are combinations of constant and witnesses (some group elements are in
@@ -470,7 +471,7 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
         std::vector<typename Group::subgroup_field> scalars_native;
         Element expected = Group::point_at_infinity;
         for (size_t i = 0; i < num_muls; ++i) {
-            auto element = crypto::pedersen_hash_base<Curve>::get_lhs_generator();
+            auto element = native_hash::get_lhs_generator();
             typename Group::subgroup_field scalar = Group::subgroup_field::random_element(&engine);
 
             // 1: add entry where point is constant, scalar is witness
@@ -480,7 +481,7 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
             scalars_native.emplace_back(scalar);
 
             // 2: add entry where point is constant, scalar is constant
-            element = crypto::pedersen_hash_base<Curve>::get_rhs_generator();
+            element = native_hash::get_rhs_generator();
             expected += (element * scalar);
             points.emplace_back(element);
             scalars.emplace_back(typename cycle_group_ct::cycle_scalar(scalar));
@@ -504,7 +505,7 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
         std::vector<typename cycle_group_ct::cycle_scalar> scalars;
 
         for (size_t i = 0; i < num_muls; ++i) {
-            auto element = crypto::pedersen_hash_base<Curve>::get_lhs_generator();
+            auto element = native_hash::get_lhs_generator();
             typename Group::subgroup_field scalar = 0;
 
             // 1: add entry where point is constant, scalar is witness

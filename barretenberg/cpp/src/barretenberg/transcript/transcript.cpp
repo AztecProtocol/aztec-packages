@@ -221,11 +221,6 @@ void Transcript::apply_fiat_shamir(const std::string& challenge_name /*, const b
         base_hash = Blake3sHasher::hash(compressed_buffer);
         break;
     }
-    case HashType::PlookupPedersenBlake3s: {
-        std::vector<uint8_t> compressed_buffer = to_buffer(crypto::pedersen_commitment::compress_native(buffer));
-        base_hash = Blake3sHasher::hash(compressed_buffer);
-        break;
-    }
     default: {
         throw_or_abort("no hasher was selected for the transcript");
     }
@@ -273,10 +268,6 @@ void Transcript::apply_fiat_shamir(const std::string& challenge_name /*, const b
             break;
         }
         case HashType::PedersenBlake3s: {
-            hash_output = Blake3sHasher::hash(rolling_buffer);
-            break;
-        }
-        case HashType::PlookupPedersenBlake3s: {
             hash_output = Blake3sHasher::hash(rolling_buffer);
             break;
         }

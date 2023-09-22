@@ -51,8 +51,7 @@ template <typename Composer> class stdlib_pedersen : public testing::Test {
         bool result = composer.check_circuit();
         EXPECT_EQ(result, true);
 
-        fr compress_native = crypto::pedersen_commitment<typename curve::Grumpkin>::compress_native(
-            { left.get_value(), right.get_value() });
+        fr compress_native = crypto::pedersen_commitment::compress_native({ left.get_value(), right.get_value() });
         EXPECT_EQ(out.get_value(), compress_native);
     }
 

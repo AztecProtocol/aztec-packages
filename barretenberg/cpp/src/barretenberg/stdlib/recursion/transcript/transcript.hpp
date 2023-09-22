@@ -60,7 +60,7 @@ template <typename Composer> class Transcript {
                const std::vector<field_pt>& field_buffer,
                const size_t num_public_inputs)
         : context(in_context)
-        , transcript_base(input_manifest, transcript::HashType::PlookupPedersenBlake3s, 16)
+        , transcript_base(input_manifest, transcript::HashType::PedersenBlake3s, 16)
         , current_challenge(in_context)
     {
         size_t count = 0;
@@ -272,10 +272,7 @@ template <typename Composer> class Transcript {
             return std::array<field_pt, 2>{ y_lo, y_hi };
         };
 
-        field_pt base_hash;
-
-        base_hash = stdlib::pedersen_commitment<Composer>::compress(std::vector<field_pt>{ T0 }, 0);
-
+        field_pt base_hash = stdlib::pedersen_commitment<Composer>::compress(std::vector<field_pt>{ T0 }, 0);
         auto hash_halves = slice_into_halves(base_hash);
         round_challenges_new.push_back(hash_halves[1]);
 
@@ -291,7 +288,6 @@ template <typename Composer> class Transcript {
             // TODO(@zac-williamson) make this a Poseidon hash not a Pedersen hash
             field_pt hash_output = stdlib::pedersen_commitment<Composer>::compress(
                 std::vector<field_pt>{ (base_hash + field_pt(i / 2)).normalize() }, 0);
-
             auto hash_halves = slice_into_halves(hash_output);
             round_challenges_new.push_back(hash_halves[1]);
             if (i + 1 < num_challenges) {

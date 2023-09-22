@@ -1,8 +1,8 @@
 #include "schnorr.hpp"
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/stdlib/commitment/pedersen/pedersen.hpp"
 #include "barretenberg/stdlib/hash/blake2s/blake2s.hpp"
-#include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
 #include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
 #include <array>
@@ -47,7 +47,7 @@ std::array<field_t<C>, 2> verify_signature_internal(const byte_array<C>& message
     auto x_3 = cycle_group<C>::batch_mul({ sig.s, sig.e }, { g1, pub_key }).x;
     // build input (pedersen(([s]g + [e]pub).x | pub.x | pub.y) | message) to hash function
     // pedersen hash ([r].x | pub.x) to make sure the size of `hash_input` is <= 64 bytes for a 32 byte message
-    byte_array<C> hash_input(stdlib::pedersen_hash<C>::hash({ x_3, pub_key.x, pub_key.y }));
+    byte_array<C> hash_input(pedersen_commitment<C>::compress({ x_3, pub_key.x, pub_key.y }));
     hash_input.write(message);
 
     // compute  e' = hash(([s]g + [e]pub).x | message)
