@@ -1,0 +1,10 @@
+# We use pnp in ci/prod to reduce container sizes and improve ci times.
+# We disable mirroring into the global cache to prevent doubling module size.
+# We use hardlinks in the Dockerfile to recreate the mirror, used by downstream containers to strip dev deps.
+enableMirror: false
+
+plugins:
+  - path: .yarn/plugins/@yarnpkg/plugin-workspace-tools.cjs
+    spec: '@yarnpkg/plugin-workspace-tools'
+
+yarnPath: .yarn/releases/yarn-3.4.1.cjs
