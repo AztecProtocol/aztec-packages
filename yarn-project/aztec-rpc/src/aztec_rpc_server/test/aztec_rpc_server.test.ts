@@ -1,5 +1,5 @@
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
-import { EthAddress } from '@aztec/foundation';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { TestKeyStore } from '@aztec/key-store';
 import { AztecNode, AztecRPC, L2Tx, mockTx } from '@aztec/types';
 
