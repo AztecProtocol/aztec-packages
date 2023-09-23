@@ -60,6 +60,11 @@ template <typename Flavor> class GoblinTranslatorProver_ {
     // Container for d + 1 Fold polynomials produced by Gemini
     std::vector<Polynomial> fold_polynomials;
 
+    // The values of shifted and unshifted batched polynomials before adding special values in Gemini
+    std::vector<Polynomial> fold_polynomial_backups;
+    // Rho challenge needs to be preservedbet ween 2 rounds
+    FF rho;
+
     Polynomial batched_quotient_Q; // batched quotient poly computed by Shplonk
     FF nu_challenge;               // needed in both Shplonk rounds
 

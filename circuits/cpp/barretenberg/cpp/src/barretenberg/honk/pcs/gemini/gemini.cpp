@@ -213,7 +213,8 @@ std::vector<OpeningClaim<Params>> GeminiVerifier_<Params>::reduce_verification(
     GroupElement& batched_f,               /* unshifted */
     GroupElement& batched_g,               /* to-be-shifted */
     VerifierTranscript<Fr>& transcript,
-    BatchCommitmentUpdate batch_commitment_update)
+
+    std::function<std::tuple<GroupElement, GroupElement>(Fr)> batch_commitment_update)
 {
 
     using Fr = typename Params::Fr;
@@ -248,7 +249,7 @@ std::vector<OpeningClaim<Params>> GeminiVerifier_<Params>::reduce_verification(
     auto [c0_r_pos, c0_r_neg] = compute_simulated_commitments(batched_f, batched_g, r);
     auto [c_0_r_pos_update, c_0_r_neg_update] = batch_commitment_update(r);
     c0_r_pos += c_0_r_pos_update;
-    c0_r_neg = c_0_r_neg_update;
+    c0_r_neg += c_0_r_neg_update;
 
     std::vector<OpeningClaim<Params>> fold_polynomial_opening_claims;
     fold_polynomial_opening_claims.reserve(num_variables + 1);

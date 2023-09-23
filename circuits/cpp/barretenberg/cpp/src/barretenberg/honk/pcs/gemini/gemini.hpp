@@ -5,6 +5,7 @@
 #include "barretenberg/honk/transcript/transcript.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 
+#include <functional>
 #include <tuple>
 #include <vector>
 
@@ -118,7 +119,6 @@ template <typename Params> class GeminiVerifier_ {
     using Fr = typename Params::Fr;
     using GroupElement = typename Params::GroupElement;
     using Commitment = typename Params::Commitment;
-    using BatchCommitmentUpdate = std::tuple<GroupElement, GroupElement>(Fr);
 
   public:
     static std::vector<OpeningClaim<Params>> reduce_verification(
@@ -127,7 +127,7 @@ template <typename Params> class GeminiVerifier_ {
         GroupElement& batched_f,               /* unshifted */
         GroupElement& batched_g,               /* to-be-shifted */
         VerifierTranscript<Fr>& transcript,
-        BatchCommitmentUpdate batch_commitment_update = [](Fr) {
+        std::function<std::tuple<GroupElement, GroupElement>(Fr)> batch_commitment_update = [](Fr) {
             return std::make_tuple(GroupElement::zero(), GroupElement::zero());
         });
 

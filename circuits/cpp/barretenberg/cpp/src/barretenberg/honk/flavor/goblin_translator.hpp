@@ -1220,15 +1220,7 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
          *
          * @return std::vector<HandleType>
          */
-        std::vector<HandleType> get_special()
-        {
-            return {
-                concatenated_range_constraints_0,
-                concatenated_range_constraints_1,
-                concatenated_range_constraints_2,
-                concatenated_range_constraints_3,
-            };
-        }
+        std::vector<HandleType> get_special() { return get_concatenated_constraints(); }
 
         std::vector<HandleType> get_unshifted_then_shifted_then_special()
         {

@@ -311,7 +311,7 @@ template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_univari
     const size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
 
     // Generate batching challenge ρ and powers 1,ρ,…,ρᵐ⁻¹
-    FF rho = transcript.get_challenge("rho");
+    rho = transcript.get_challenge("rho");
     std::vector<FF> rhos = pcs::gemini::powers_of_rho(rho, NUM_POLYNOMIALS);
 
     // Batch the unshifted polynomials and the to-be-shifted polynomials using ρ
@@ -326,7 +326,6 @@ template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_univari
         // pcs_commitment_key->commit(batched_poly_unshifted));
         ++poly_idx;
     }
-    info("Commitment to batched polynomial: ", pcs_commitment_key->commit(batched_poly_unshifted));
 
     Polynomial batched_poly_to_be_shifted(key->circuit_size); // batched to-be-shifted polynomials
     for (auto& to_be_shifted_poly : prover_polynomials.get_to_be_shifted()) {
@@ -340,6 +339,8 @@ template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_univari
         ++poly_idx;
     }
     batched_poly_unshifted += batched_poly_special;
+    fold_polynomial_backups.push_back(std::move(batched_poly_special));
+
     // Compute d-1 polynomials Fold^(i), i = 1, ..., d-1.
     fold_polynomials = Gemini::compute_fold_polynomials(
         sumcheck_output.challenge_point, std::move(batched_poly_unshifted), std::move(batched_poly_to_be_shifted));
@@ -358,7 +359,34 @@ template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_univari
  * */
 template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_pcs_evaluation_round()
 {
+
+    const size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
     const FF r_challenge = transcript.get_challenge("Gemini:r");
+    auto r_to_the_mini_circuit_size = r_challenge.pow(Flavor::MINI_CIRCUIT_SIZE);
+    auto powers_of_r = pcs::gemini::powers_of_rho(r_to_the_mini_circuit_size, Flavor::CONCATENATION_INDEX);
+
+    std::vector<FF> rhos = pcs::gemini::powers_of_rho(rho, NUM_POLYNOMIALS);
+    auto concatenation_groups = prover_polynomials.get_concatenation_groups();
+    auto concatenated_polynomials = prover_polynomials.get_special();
+    auto poly_idx = prover_polynomials.get_unshifted_then_shifted().size();
+    info("Before r substitition:");
+    info("A_pos: ", fold_polynomials[0].evaluate(r_challenge));
+    info("Check: ", fold_polynomials[0].evaluate(1));
+    info("A_neg: ", fold_polynomials[1].evaluate(r_challenge));
+    info("Commitment to A_pos: ", pcs_commitment_key->commit(fold_polynomials[0]));
+    for (size_t i = 0; i < concatenated_polynomials.size(); i++) {
+        for (size_t j = 0; j < concatenation_groups[i].size(); j++) {
+            fold_polynomial_backups[0].add_scaled(concatenation_groups[i][j], -powers_of_r[j] * rhos[poly_idx]);
+        }
+        ++poly_idx;
+    }
+    fold_polynomials[0] -= fold_polynomial_backups[0];
+    info("After r substitition:");
+    info("A_pos: ", fold_polynomials[0].evaluate(r_challenge));
+    info("Check: ", fold_polynomials[0].evaluate(1));
+    info("A_neg: ", fold_polynomials[1].evaluate(r_challenge));
+    info("Commitment to A_pos: ", pcs_commitment_key->commit(fold_polynomials[0]));
+
     gemini_output = Gemini::compute_fold_polynomial_evaluations(
         sumcheck_output.challenge_point, std::move(fold_polynomials), r_challenge);
 
@@ -449,10 +477,10 @@ template <typename Flavor> plonk::proof& GoblinTranslatorProver_<Flavor>::constr
     // Compute Fold evaluations
     execute_pcs_evaluation_round();
 
-    execute_multikzg_opening_round();
-    return export_proof();
-    // Fiat-Shamir: nu
-    // Compute Shplonk batched quotient commitment Q
+    // execute_multikzg_opening_round();
+    // return export_proof();
+    //  Fiat-Shamir: nu
+    //  Compute Shplonk batched quotient commitment Q
     execute_shplonk_batched_quotient_round();
     queue.process_queue();
 

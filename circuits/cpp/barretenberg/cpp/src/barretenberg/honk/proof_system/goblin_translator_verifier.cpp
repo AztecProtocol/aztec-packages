@@ -1,6 +1,7 @@
 #include "./goblin_translator_verifier.hpp"
 #include "barretenberg/honk/flavor/goblin_translator.hpp"
 #include "barretenberg/honk/flavor/standard.hpp"
+#include "barretenberg/honk/pcs/gemini/gemini.hpp"
 #include "barretenberg/honk/transcript/transcript.hpp"
 #include "barretenberg/honk/utils/power_polynomial.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
@@ -276,7 +277,7 @@ template <typename Flavor> bool GoblinTranslatorVerifier_<Flavor>::verify_proof(
     // Compute batched multivariate evaluation
     FF batched_evaluation = FF::zero();
     size_t evaluation_idx = 0;
-    for (auto& value : purported_evaluations.get_unshifted_then_shifted()) {
+    for (auto& value : purported_evaluations.get_unshifted_then_shifted_then_special()) {
         batched_evaluation += value * rhos[evaluation_idx];
         ++evaluation_idx;
     }
@@ -306,26 +307,36 @@ template <typename Flavor> bool GoblinTranslatorVerifier_<Flavor>::verify_proof(
     // - d+1 evaluations a_0_pos, and a_l, l = 0:d-1
     auto update_simulated_commitments = [&](FF r_challenge) {
         auto mini_circuit_size = Flavor::MINI_CIRCUIT_SIZE;
-        return std::make_tuple(GroupElement::One(), GroupElement::One());
+        auto r_to_the_mini_circuit_size = r_challenge.pow(mini_circuit_size);
+        auto powers_of_r = pcs::gemini::powers_of_rho(r_to_the_mini_circuit_size, Flavor::CONCATENATION_INDEX);
+        auto positive_accumulator = GroupElement::zero();
+        auto concatenation_groups = commitments.get_concatenation_groups();
+        for (size_t i = 0; i < commitments.get_special().size(); i++) {
+            for (size_t j = 0; j < concatenation_groups[i].size(); j++) {
+                positive_accumulator += concatenation_groups[i][j] * (rhos[commitment_idx] * powers_of_r[j]);
+            }
+            ++commitment_idx;
+        }
+        return std::make_tuple(positive_accumulator, positive_accumulator);
     };
     auto gemini_claim = Gemini::reduce_verification(multivariate_challenge,
                                                     batched_evaluation,
                                                     batched_commitment_unshifted,
                                                     batched_commitment_to_be_shifted,
-                                                    transcript);
+                                                    transcript,
+                                                    update_simulated_commitments);
     // info("Verifier transcript");
     // transcript.print();
-    size_t i = 0;
-    for (auto& claim : gemini_claim) {
-        info("PCS claim ",
-             i,
-             ": ",
-             PCS::verify(pcs_verification_key, claim, transcript, "NOTSHPLONK:" + std::to_string(i)) ? "true" : "false",
-             " / ",
-             claim.commitment);
-        i++;
-    }
-    return false;
+    // size_t i = 0;
+    // for (auto& claim : gemini_claim) {
+    //     info("PCS claim ",
+    //          i,
+    //          ": ",
+    //          PCS::verify(pcs_verification_key, claim, transcript, "NOTSHPLONK:" + std::to_string(i)) ? "true" :
+    //          "false", " / ", claim.commitment);
+    //     i++;
+    // }
+    // return false;
     // Produce a Shplonk claim: commitment [Q] - [Q_z], evaluation zero (at random challenge z)
     auto shplonk_claim = Shplonk::reduce_verification(pcs_verification_key, gemini_claim, transcript);
 
