@@ -39,6 +39,7 @@
     "@aztec/foundation": "workspace:^",
     "@aztec/noir-compiler": "workspace:^",
     "@aztec/noir-contracts": "workspace:^",
+    "@aztec/p2p": "workspace:^",
     "@aztec/types": "workspace:^",
     "commander": "^9.0.0",
     "jszip": "^3.10.1",

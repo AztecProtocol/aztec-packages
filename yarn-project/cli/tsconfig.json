@@ -22,6 +22,9 @@
       "path": "../noir-contracts"
     },
     {
+      "path": "../p2p"
+    },
+    {
       "path": "../types"
     }
   ],

@@ -14,6 +14,7 @@ import { JsonStringify } from '@aztec/foundation/json-rpc';
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
 import { compileContract, generateNoirInterface, generateTypescriptInterface } from '@aztec/noir-compiler/cli';
+import { createLibP2PPeerId } from '@aztec/p2p';
 import { CompleteAddress, ContractData, L2BlockL2Logs, TxHash } from '@aztec/types';
 
 import { Command } from 'commander';
@@ -75,20 +76,19 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       'test test test test test test test test test test test junk',
     )
     .action(async options => {
-      const { rollupAddress, registryAddress, inboxAddress, outboxAddress, contractDeploymentEmitterAddress } =
-        await deployAztecContracts(
-          options.rpcUrl,
-          options.apiKey ?? '',
-          options.privateKey,
-          options.mnemonic,
-          debugLogger,
-        );
+      const { l1ContractAddresses } = await deployAztecContracts(
+        options.rpcUrl,
+        options.apiKey ?? '',
+        options.privateKey,
+        options.mnemonic,
+        debugLogger,
+      );
       log('\n');
-      log(`Rollup Address: ${rollupAddress.toString()}`);
-      log(`Registry Address: ${registryAddress.toString()}`);
-      log(`L1 -> L2 Inbox Address: ${inboxAddress.toString()}`);
-      log(`L2 -> L1 Outbox address: ${outboxAddress.toString()}`);
-      log(`Contract Deployment Emitter Address: ${contractDeploymentEmitterAddress.toString()}`);
+      log(`Rollup Address: ${l1ContractAddresses.rollupAddress?.toString()}`);
+      log(`Registry Address: ${l1ContractAddresses.registryAddress?.toString()}`);
+      log(`L1 -> L2 Inbox Address: ${l1ContractAddresses.inboxAddress?.toString()}`);
+      log(`L2 -> L1 Outbox address: ${l1ContractAddresses.outboxAddress?.toString()}`);
+      log(`Contract Deployment Emitter Address: ${l1ContractAddresses.contractDeploymentEmitterAddress?.toString()}`);
       log('\n');
     });
 
@@ -116,6 +116,16 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
         publicKey = await generatePublicKey(key);
       }
       log(`\nPrivate Key: ${privKey}\nPublic Key: ${publicKey.toString()}\n`);
+    });
+
+  program
+    .command('generate-p2p-private-key')
+    .summary('Generates a LibP2P peer private key.')
+    .description('Generates a private key that can be used for running a node on a LibP2P network.')
+    .action(async () => {
+      const peerId = await createLibP2PPeerId();
+      const exportedPeerId = Buffer.from(peerId.privateKey!).toString('hex');
+      log(`\nPrivate key: ${exportedPeerId}`);
     });
 
   program

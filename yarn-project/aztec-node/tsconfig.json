@@ -34,5 +34,5 @@
       "path": "../world-state"
     }
   ],
-  "include": ["src"]
+  "include": ["src", "../types/src/aztec_node/rpc"]
 }

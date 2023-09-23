@@ -101,9 +101,9 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
     const archiverStore = new MemoryArchiverStore();
     const archiver = new Archiver(
       publicClient,
-      config.rollupContract,
-      config.inboxContract,
-      config.contractDeploymentEmitterContract,
+      config.rollupAddress!,
+      config.inboxAddress!,
+      config.contractDeploymentEmitterAddress!,
       config.searchStartBlock,
       archiverStore,
       config.archiverPollingIntervalMS,

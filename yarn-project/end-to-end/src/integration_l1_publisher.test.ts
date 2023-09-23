@@ -92,21 +92,17 @@ describe('L1Publisher integration', () => {
   beforeEach(async () => {
     deployerAccount = privateKeyToAccount(deployerPK);
     const {
-      rollupAddress: rollupAddress_,
-      inboxAddress: inboxAddress_,
-      outboxAddress: outboxAddress_,
-      contractDeploymentEmitterAddress: contractDeploymentEmitterAddress_,
-      decoderHelperAddress: decoderHelperAddress_,
-      publicClient: publicClient_,
+      l1ContractAddresses,
       walletClient,
+      publicClient: publicClient_,
     } = await deployL1Contracts(config.rpcUrl, deployerAccount, localAnvil, logger, true);
     publicClient = publicClient_;
 
-    rollupAddress = getAddress(rollupAddress_.toString());
-    inboxAddress = getAddress(inboxAddress_.toString());
-    outboxAddress = getAddress(outboxAddress_.toString());
-    contractDeploymentEmitterAddress = getAddress(contractDeploymentEmitterAddress_.toString());
-    decoderHelperAddress = getAddress(decoderHelperAddress_!.toString());
+    rollupAddress = getAddress(l1ContractAddresses.rollupAddress!.toString());
+    inboxAddress = getAddress(l1ContractAddresses.inboxAddress!.toString());
+    outboxAddress = getAddress(l1ContractAddresses.outboxAddress!.toString());
+    contractDeploymentEmitterAddress = getAddress(l1ContractAddresses.contractDeploymentEmitterAddress!.toString());
+    decoderHelperAddress = getAddress(l1ContractAddresses.decoderHelperAddress!.toString());
 
     // Set up contract instances
     rollup = getContract({
@@ -143,9 +139,9 @@ describe('L1Publisher integration', () => {
       rpcUrl: config.rpcUrl,
       apiKey: '',
       requiredConfirmations: 1,
-      rollupContract: EthAddress.fromString(rollupAddress),
-      inboxContract: EthAddress.fromString(inboxAddress),
-      contractDeploymentEmitterContract: EthAddress.fromString(contractDeploymentEmitterAddress),
+      rollupAddress: EthAddress.fromString(rollupAddress),
+      inboxAddress: EthAddress.fromString(inboxAddress),
+      contractDeploymentEmitterAddress: EthAddress.fromString(contractDeploymentEmitterAddress),
       publisherPrivateKey: sequencerPK,
       l1BlockPublishRetryIntervalMS: 100,
     });

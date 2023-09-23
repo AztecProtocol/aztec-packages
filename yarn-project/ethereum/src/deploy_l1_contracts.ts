@@ -31,6 +31,8 @@ import {
 } from 'viem';
 import { HDAccount, PrivateKeyAccount } from 'viem/accounts';
 
+import { L1ContractAddresses } from './l1_contract_addresses.js';
+
 /**
  * Return type of the deployL1Contract function.
  */
@@ -43,30 +45,11 @@ export type DeployL1Contracts = {
    * Public Client Type.
    */
   publicClient: PublicClient<HttpTransport, Chain>;
+
   /**
-   * Rollup Address.
+   * The currently deployed l1 contract addresses
    */
-  rollupAddress: EthAddress;
-  /**
-   * Registry Address.
-   */
-  registryAddress: EthAddress;
-  /**
-   * Inbox Address.
-   */
-  inboxAddress: EthAddress;
-  /**
-   * Outbox Address.
-   */
-  outboxAddress: EthAddress;
-  /**
-   * Data Emitter Address.
-   */
-  contractDeploymentEmitterAddress: EthAddress;
-  /**
-   * Decoder Helper Address.
-   */
-  decoderHelperAddress?: EthAddress;
+  l1ContractAddresses: L1ContractAddresses;
 };
 
 /**
@@ -141,15 +124,19 @@ export const deployL1Contracts = async (
     logger(`Deployed DecoderHelper at ${decoderHelperAddress}`);
   }
 
-  return {
-    walletClient,
-    publicClient,
+  const l1Contracts = {
     rollupAddress,
     registryAddress,
     inboxAddress,
     outboxAddress,
     contractDeploymentEmitterAddress,
     decoderHelperAddress,
+  };
+
+  return {
+    walletClient,
+    publicClient,
+    l1ContractAddresses: l1Contracts,
   };
 };
 

@@ -10,7 +10,7 @@ import { AztecAddress, CompleteAddress, Fr, PublicKey, getContractDeploymentInfo
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { DebugLogger } from '@aztec/foundation/log';
 import { TestContractAbi } from '@aztec/noir-contracts/artifacts';
-import { BootstrapNode, P2PConfig, createLibP2PPeerId, exportLibP2PPeerIdToString } from '@aztec/p2p';
+import { BootstrapNode, P2PConfig, createLibP2PPeerId } from '@aztec/p2p';
 import { AztecRPC, TxStatus } from '@aztec/types';
 
 import { setup } from './fixtures/utils.js';
@@ -57,6 +57,11 @@ describe('e2e_p2p_network', () => {
     const contexts: NodeContext[] = [];
     for (let i = 0; i < NUM_NODES; i++) {
       const node = await createNode(i + 1 + BOOT_NODE_TCP_PORT, bootstrapNodeAddress);
+      await new Promise<void>(resolve =>
+        setTimeout(() => {
+          resolve();
+        }, 100000),
+      );
       const context = await createAztecRpcServerAndSubmitTransactions(node, NUM_TXS_PER_NODE);
       contexts.push(context);
     }
@@ -90,10 +95,10 @@ describe('e2e_p2p_network', () => {
       p2pEnabled: true,
       tcpListenPort: BOOT_NODE_TCP_PORT,
       tcpListenIp: '0.0.0.0',
-      announceHostname: '127.0.0.1',
+      announceHostname: '10.1.0.15',
       announcePort: BOOT_NODE_TCP_PORT,
-      peerIdPrivateKey: exportLibP2PPeerIdToString(peerId),
-      serverMode: true,
+      peerIdPrivateKey: Buffer.from(peerId.privateKey!).toString('hex'),
+      serverMode: false,
       minPeerCount: 10,
       maxPeerCount: 100,
 

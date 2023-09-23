@@ -9,6 +9,7 @@ import {
   L1_TO_L2_MSG_TREE_HEIGHT,
   PRIVATE_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
+import { L1ContractAddresses } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { InMemoryTxPool, P2P, createP2PClient } from '@aztec/p2p';
@@ -57,6 +58,7 @@ export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
  */
 export class AztecNodeService implements AztecNode {
   constructor(
+    protected config: AztecNodeConfig,
     protected p2pClient: P2P,
     protected blockSource: L2BlockSource,
     protected encryptedLogsSource: L2LogsSource,
@@ -83,7 +85,7 @@ export class AztecNodeService implements AztecNode {
 
     // we identify the P2P transaction protocol by using the rollup contract address.
     // this may well change in future
-    config.transactionProtocol = `/aztec/tx/${config.rollupContract.toString()}`;
+    config.transactionProtocol = `/aztec/tx/${config.rollupAddress!.toString()}`;
 
     // create the tx pool and the p2p client, which will need the l2 block source
     const p2pClient = await createP2PClient(config, new InMemoryTxPool(), archiver);
@@ -107,6 +109,7 @@ export class AztecNodeService implements AztecNode {
       archiver,
     );
     return new AztecNodeService(
+      config,
       p2pClient,
       archiver,
       archiver,
@@ -120,6 +123,22 @@ export class AztecNodeService implements AztecNode {
       getGlobalVariableBuilder(config),
       merkleTreesDb,
     );
+  }
+
+  /**
+   * Method to return the currently deployed L1 contract addresses.
+   * @returns - The currently deployed L1 contract addresses.
+   */
+  public getL1ContractAddresses(): Promise<L1ContractAddresses> {
+    const l1Contracts: L1ContractAddresses = {
+      rollupAddress: this.config.rollupAddress,
+      registryAddress: this.config.registryAddress,
+      inboxAddress: this.config.inboxAddress,
+      outboxAddress: this.config.outboxAddress,
+      contractDeploymentEmitterAddress: this.config.contractDeploymentEmitterAddress,
+      decoderHelperAddress: this.config.decoderHelperAddress,
+    };
+    return Promise.resolve(l1Contracts);
   }
 
   /**

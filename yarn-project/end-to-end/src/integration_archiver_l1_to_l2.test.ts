@@ -52,7 +52,7 @@ describe('archiver integration with l1 to l2 messages', () => {
       wallet,
       walletClient,
       publicClient,
-      deployL1ContractsValues!.registryAddress,
+      deployL1ContractsValues!.l1ContractAddresses.registryAddress!,
       initialBalance,
       owner,
     );

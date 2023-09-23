@@ -17,7 +17,7 @@ const log = createDebugLogger('aztec:archiver');
 // eslint-disable-next-line require-await
 async function main() {
   const config = getConfigEnvVars();
-  const { rpcUrl, rollupContract, inboxContract, contractDeploymentEmitterContract, searchStartBlock } = config;
+  const { rpcUrl, rollupAddress, inboxAddress, contractDeploymentEmitterAddress, searchStartBlock } = config;
 
   const publicClient = createPublicClient({
     chain: localhost,
@@ -28,9 +28,9 @@ async function main() {
 
   const archiver = new Archiver(
     publicClient,
-    rollupContract,
-    inboxContract,
-    contractDeploymentEmitterContract,
+    rollupAddress!,
+    inboxAddress!,
+    contractDeploymentEmitterAddress!,
     searchStartBlock,
     archiverStore,
   );

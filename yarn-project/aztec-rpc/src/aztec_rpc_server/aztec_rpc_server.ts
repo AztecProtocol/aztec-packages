@@ -337,10 +337,10 @@ export class AztecRPCServer implements AztecRPC {
   }
 
   public async getNodeInfo(): Promise<NodeInfo> {
-    const [version, chainId, rollupAddress] = await Promise.all([
+    const [version, chainId, contractAddresses] = await Promise.all([
       this.node.getVersion(),
       this.node.getChainId(),
-      this.node.getRollupAddress(),
+      this.node.getL1ContractAddresses(),
     ]);
 
     return {
@@ -348,7 +348,7 @@ export class AztecRPCServer implements AztecRPC {
       compatibleNargoVersion: NoirVersion.tag,
       chainId,
       protocolVersion: version,
-      rollupAddress,
+      l1ContractAddresses: contractAddresses,
     };
   }
 

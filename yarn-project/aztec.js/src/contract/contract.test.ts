@@ -33,7 +33,9 @@ describe('Contract Class', () => {
     compatibleNargoVersion: 'vx.x.x-aztec.x',
     protocolVersion: 1,
     chainId: 2,
-    rollupAddress: EthAddress.random(),
+    l1ContractAddresses: {
+      rollupAddress: EthAddress.random(),
+    },
   };
 
   const defaultAbi: ContractAbi = {

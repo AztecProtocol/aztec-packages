@@ -37,6 +37,8 @@
     "@aztec/key-store": "workspace:^",
     "@aztec/noir-compiler": "workspace:^",
     "@aztec/types": "workspace:^",
+    "koa": "^2.14.2",
+    "koa-router": "^12.0.0",
     "lodash.omit": "^4.5.0",
     "lodash.partition": "^4.6.0",
     "lodash.times": "^4.3.2",

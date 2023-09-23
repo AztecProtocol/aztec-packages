@@ -98,16 +98,19 @@ const setupL1Contracts = async (l1RpcUrl: string, account: HDAccount, logger: De
       chain: localAnvil,
       transport: http(l1RpcUrl),
     });
-    return {
-      rollupAddress: l1Contracts.rollup,
-      registryAddress: l1Contracts.registry,
-      inboxAddress: l1Contracts.inbox,
-      outboxAddress: l1Contracts.outbox,
-      contractDeploymentEmitterAddress: l1Contracts.contractDeploymentEmitter,
-      decoderHelperAddress: l1Contracts.decoderHelper,
+    const contracts: DeployL1Contracts = {
+      l1ContractAddresses: {
+        rollupAddress: l1Contracts.rollup,
+        registryAddress: l1Contracts.registry,
+        inboxAddress: l1Contracts.inbox,
+        outboxAddress: l1Contracts.outbox,
+        contractDeploymentEmitterAddress: l1Contracts.contractDeploymentEmitter,
+        decoderHelperAddress: l1Contracts.decoderHelper,
+      },
       walletClient,
       publicClient,
     };
+    return contracts;
   }
   return await deployL1Contracts(l1RpcUrl, account, localAnvil, logger);
 };
@@ -227,9 +230,10 @@ export async function setup(
   const publisherPrivKey = privKeyRaw === null ? null : Buffer.from(privKeyRaw);
 
   config.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
-  config.rollupContract = deployL1ContractsValues.rollupAddress;
-  config.contractDeploymentEmitterContract = deployL1ContractsValues.contractDeploymentEmitterAddress;
-  config.inboxContract = deployL1ContractsValues.inboxAddress;
+  config.rollupAddress = deployL1ContractsValues.l1ContractAddresses.rollupAddress;
+  config.contractDeploymentEmitterAddress =
+    deployL1ContractsValues.l1ContractAddresses.contractDeploymentEmitterAddress;
+  config.inboxAddress = deployL1ContractsValues.l1ContractAddresses.inboxAddress;
 
   const aztecNode = await createAztecNode(config, logger);
 

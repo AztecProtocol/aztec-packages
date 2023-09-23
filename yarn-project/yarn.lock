@@ -134,10 +134,14 @@ __metadata:
     "@types/memdown": ^3.0.0
     "@types/node": ^18.7.23
     jest: ^29.5.0
+    koa: ^2.14.2
+    koa-router: ^12.0.0
     ts-jest: ^29.1.0
     ts-node: ^10.9.1
     tslib: ^2.4.0
     typescript: ^5.0.4
+  bin:
+    aztec-node: ./dest/bin/index.js
   languageName: unknown
   linkType: soft
 
@@ -160,6 +164,8 @@ __metadata:
     "@types/node": ^18.7.23
     jest: ^29.5.0
     jest-mock-extended: ^3.0.3
+    koa: ^2.14.2
+    koa-router: ^12.0.0
     lodash.omit: ^4.5.0
     lodash.partition: ^4.6.0
     lodash.times: ^4.3.2
@@ -341,6 +347,7 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     "@aztec/noir-compiler": "workspace:^"
     "@aztec/noir-contracts": "workspace:^"
+    "@aztec/p2p": "workspace:^"
     "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
     "@rushstack/eslint-patch": ^1.1.4
@@ -730,6 +737,7 @@ __metadata:
   resolution: "@aztec/types@workspace:types"
   dependencies:
     "@aztec/circuits.js": "workspace:^"
+    "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@jest/globals": ^29.5.0
     "@rushstack/eslint-patch": ^1.1.4

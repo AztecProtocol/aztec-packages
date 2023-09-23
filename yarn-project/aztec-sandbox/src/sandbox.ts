@@ -43,12 +43,14 @@ function retrieveL1Contracts(config: AztecNodeConfig, account: Account): Promise
     transport: http(chain.rpcUrl),
   });
   const contracts: DeployL1Contracts = {
-    rollupAddress: config.rollupContract,
-    registryAddress: EthAddress.fromString(REGISTRY_CONTRACT_ADDRESS),
-    inboxAddress: config.inboxContract,
-    outboxAddress: EthAddress.fromString(OUTBOX_CONTRACT_ADDRESS),
-    contractDeploymentEmitterAddress: config.contractDeploymentEmitterContract,
-    decoderHelperAddress: undefined,
+    l1ContractAddresses: {
+      rollupAddress: config.rollupAddress,
+      registryAddress: EthAddress.fromString(REGISTRY_CONTRACT_ADDRESS),
+      inboxAddress: config.inboxAddress,
+      outboxAddress: EthAddress.fromString(OUTBOX_CONTRACT_ADDRESS),
+      contractDeploymentEmitterAddress: config.contractDeploymentEmitterAddress,
+      decoderHelperAddress: undefined,
+    },
     walletClient,
     publicClient,
   };
@@ -109,9 +111,9 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
     deployL1Contracts(aztecNodeConfig.rpcUrl, hdAccount, localAnvil, logger),
   );
   aztecNodeConfig.publisherPrivateKey = `0x${Buffer.from(privKey!).toString('hex')}`;
-  aztecNodeConfig.rollupContract = l1Contracts.rollupAddress;
-  aztecNodeConfig.contractDeploymentEmitterContract = l1Contracts.contractDeploymentEmitterAddress;
-  aztecNodeConfig.inboxContract = l1Contracts.inboxAddress;
+  aztecNodeConfig.rollupAddress = l1Contracts.l1ContractAddresses.rollupAddress;
+  aztecNodeConfig.contractDeploymentEmitterAddress = l1Contracts.l1ContractAddresses.contractDeploymentEmitterAddress;
+  aztecNodeConfig.inboxAddress = l1Contracts.l1ContractAddresses.inboxAddress;
 
   const node = await AztecNodeService.createAndSync(aztecNodeConfig);
   const rpcServer = await createAztecRPCServer(node, rpcConfig);
@@ -137,9 +139,9 @@ export async function createP2PSandbox() {
   const l1Contracts = await waitThenDeploy(aztecNodeConfig, () =>
     retrieveL1Contracts(aztecNodeConfig, privateKeyAccount),
   );
-  aztecNodeConfig.rollupContract = l1Contracts.rollupAddress;
-  aztecNodeConfig.contractDeploymentEmitterContract = l1Contracts.contractDeploymentEmitterAddress;
-  aztecNodeConfig.inboxContract = l1Contracts.inboxAddress;
+  aztecNodeConfig.rollupAddress = l1Contracts.l1ContractAddresses.rollupAddress;
+  aztecNodeConfig.contractDeploymentEmitterAddress = l1Contracts.l1ContractAddresses.contractDeploymentEmitterAddress;
+  aztecNodeConfig.inboxAddress = l1Contracts.l1ContractAddresses.inboxAddress;
 
   const node = await AztecNodeService.createAndSync(aztecNodeConfig);
   const rpcServer = await createAztecRPCServer(node, rpcConfig);

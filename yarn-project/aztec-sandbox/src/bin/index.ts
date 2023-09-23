@@ -1,4 +1,5 @@
 #!/usr/bin/env -S node --no-warnings
+import { startHttpRpcServer } from '@aztec/aztec-rpc';
 import { deployInitialSandboxAccounts } from '@aztec/aztec.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
@@ -9,7 +10,6 @@ import { dirname, resolve } from 'path';
 
 import { setupFileDebugLog } from '../logging.js';
 import { createP2PSandbox, createSandbox } from '../sandbox.js';
-import { startHttpRpcServer } from '../server.js';
 import { github, splash } from '../splash.js';
 
 const { SERVER_PORT = 8080, P2P_ENABLED = 'false' } = process.env;
@@ -56,7 +56,7 @@ async function main() {
     logger.info(`Setting up Aztec Sandbox as P2P Node`);
   }
 
-  const { l1Contracts, rpcServer, stop, accounts } = await createAndDeploySandbox(p2pSandbox);
+  const { rpcServer, stop, accounts } = await createAndDeploySandbox(p2pSandbox);
 
   const shutdown = async () => {
     logger.info('Shutting down...');
@@ -67,7 +67,7 @@ async function main() {
   process.once('SIGINT', shutdown);
   process.once('SIGTERM', shutdown);
 
-  startHttpRpcServer(rpcServer, l1Contracts, SERVER_PORT);
+  startHttpRpcServer(rpcServer, SERVER_PORT);
   logger.info(`Aztec Sandbox JSON-RPC Server listening on port ${SERVER_PORT}`);
   logger.info(`Debug logs will be written to ${logPath}`);
   const accountStrings = [`Initial Accounts:\n\n`];
