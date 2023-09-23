@@ -231,6 +231,7 @@ export async function setup(
 
   config.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
   config.rollupAddress = deployL1ContractsValues.l1ContractAddresses.rollupAddress;
+  config.registryAddress = deployL1ContractsValues.l1ContractAddresses.registryAddress;
   config.contractDeploymentEmitterAddress =
     deployL1ContractsValues.l1ContractAddresses.contractDeploymentEmitterAddress;
   config.inboxAddress = deployL1ContractsValues.l1ContractAddresses.inboxAddress;

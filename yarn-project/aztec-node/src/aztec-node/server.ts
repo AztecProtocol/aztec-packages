@@ -39,9 +39,9 @@ import {
 } from '@aztec/types';
 import {
   MerkleTrees,
-  ServerWorldStateSynchroniser,
+  ServerWorldStateSynchronizer,
   WorldStateConfig,
-  WorldStateSynchroniser,
+  WorldStateSynchronizer,
   computePublicDataTreeLeafIndex,
   getConfigEnvVars as getWorldStateConfig,
 } from '@aztec/world-state';
@@ -65,7 +65,7 @@ export class AztecNodeService implements AztecNode {
     protected unencryptedLogsSource: L2LogsSource,
     protected contractDataSource: ContractDataSource,
     protected l1ToL2MessageSource: L1ToL2MessageSource,
-    protected worldStateSynchroniser: WorldStateSynchroniser,
+    protected worldStateSynchronizer: WorldStateSynchronizer,
     protected sequencer: SequencerClient,
     protected chainId: number,
     protected version: number,
@@ -75,7 +75,7 @@ export class AztecNodeService implements AztecNode {
   ) {}
 
   /**
-   * Initialises the Aztec Node, wait for component to sync.
+   * initializes the Aztec Node, wait for component to sync.
    * @param config - The configuration to be used by the aztec node.
    * @returns - A fully synced Aztec Node for use in development/testing.
    */
@@ -94,16 +94,16 @@ export class AztecNodeService implements AztecNode {
     const merkleTreesDb = levelup(createMemDown());
     const merkleTrees = await MerkleTrees.new(merkleTreesDb, await CircuitsWasm.get());
     const worldStateConfig: WorldStateConfig = getWorldStateConfig();
-    const worldStateSynchroniser = new ServerWorldStateSynchroniser(merkleTrees, archiver, worldStateConfig);
+    const worldStateSynchronizer = new ServerWorldStateSynchronizer(merkleTrees, archiver, worldStateConfig);
 
     // start both and wait for them to sync from the block source
-    await Promise.all([p2pClient.start(), worldStateSynchroniser.start()]);
+    await Promise.all([p2pClient.start(), worldStateSynchronizer.start()]);
 
     // now create the sequencer
     const sequencer = await SequencerClient.new(
       config,
       p2pClient,
-      worldStateSynchroniser,
+      worldStateSynchronizer,
       archiver,
       archiver,
       archiver,
@@ -116,7 +116,7 @@ export class AztecNodeService implements AztecNode {
       archiver,
       archiver,
       archiver,
-      worldStateSynchroniser,
+      worldStateSynchronizer,
       sequencer,
       config.chainId,
       config.version,
@@ -200,6 +200,10 @@ export class AztecNodeService implements AztecNode {
     return this.blockSource.getRollupAddress();
   }
 
+  public getRegistryAddress(): Promise<EthAddress> {
+    return this.blockSource.getRegistryAddress();
+  }
+
   /**
    * Get the extended contract data for this contract.
    * @param contractAddress - The contract data address.
@@ -250,7 +254,7 @@ export class AztecNodeService implements AztecNode {
   public async stop() {
     await this.sequencer.stop();
     await this.p2pClient.stop();
-    await this.worldStateSynchroniser.stop();
+    await this.worldStateSynchronizer.stop();
     await this.blockSource.stop();
     this.log.info(`Stopped`);
   }
@@ -439,7 +443,7 @@ export class AztecNodeService implements AztecNode {
     } catch (err) {
       this.log.error(`Error getting world state: ${err}`);
     }
-    return this.worldStateSynchroniser.getCommitted();
+    return this.worldStateSynchronizer.getCommitted();
   }
 
   /**
@@ -448,6 +452,6 @@ export class AztecNodeService implements AztecNode {
    */
   async #syncWorldState() {
     const blockSourceHeight = await this.blockSource.getBlockNumber();
-    await this.worldStateSynchroniser.syncImmediate(blockSourceHeight);
+    await this.worldStateSynchronizer.syncImmediate(blockSourceHeight);
   }
 }

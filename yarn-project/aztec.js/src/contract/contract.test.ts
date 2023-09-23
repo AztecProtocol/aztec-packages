@@ -35,6 +35,7 @@ describe('Contract Class', () => {
     chainId: 2,
     l1ContractAddresses: {
       rollupAddress: EthAddress.random(),
+      registryAddress: EthAddress.random(),
     },
   };
 

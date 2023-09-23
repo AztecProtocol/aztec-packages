@@ -65,6 +65,7 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
    * @param publicClient - A client for interacting with the Ethereum node.
    * @param rollupAddress - Ethereum address of the rollup contract.
    * @param inboxAddress - Ethereum address of the inbox contract.
+   * @param registryAddress - Ethereum address of the registry contract.
    * @param contractDeploymentEmitterAddress - Ethereum address of the contractDeploymentEmitter contract.
    * @param searchStartBlock - The L1 block from which to start searching for new blocks.
    * @param pollingIntervalMs - The interval for polling for L1 logs (in milliseconds).
@@ -75,6 +76,7 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
     private readonly publicClient: PublicClient<HttpTransport, Chain>,
     private readonly rollupAddress: EthAddress,
     private readonly inboxAddress: EthAddress,
+    private readonly registryAddress: EthAddress,
     private readonly contractDeploymentEmitterAddress: EthAddress,
     searchStartBlock: number,
     private readonly store: ArchiverDataStore,
@@ -104,6 +106,7 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
       config.rollupAddress!,
       config.inboxAddress!,
       config.contractDeploymentEmitterAddress!,
+      config.registryAddress!,
       config.searchStartBlock,
       archiverStore,
       config.archiverPollingIntervalMS,
@@ -262,6 +265,10 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
 
   public getRollupAddress(): Promise<EthAddress> {
     return Promise.resolve(this.rollupAddress);
+  }
+
+  public getRegistryAddress(): Promise<EthAddress> {
+    return Promise.resolve(this.registryAddress);
   }
 
   /**

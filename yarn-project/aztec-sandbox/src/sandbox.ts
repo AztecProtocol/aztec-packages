@@ -114,6 +114,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
   aztecNodeConfig.rollupAddress = l1Contracts.l1ContractAddresses.rollupAddress;
   aztecNodeConfig.contractDeploymentEmitterAddress = l1Contracts.l1ContractAddresses.contractDeploymentEmitterAddress;
   aztecNodeConfig.inboxAddress = l1Contracts.l1ContractAddresses.inboxAddress;
+  aztecNodeConfig.registryAddress = l1Contracts.l1ContractAddresses.registryAddress;
 
   const node = await AztecNodeService.createAndSync(aztecNodeConfig);
   const rpcServer = await createAztecRPCServer(node, rpcConfig);
@@ -142,6 +143,7 @@ export async function createP2PSandbox() {
   aztecNodeConfig.rollupAddress = l1Contracts.l1ContractAddresses.rollupAddress;
   aztecNodeConfig.contractDeploymentEmitterAddress = l1Contracts.l1ContractAddresses.contractDeploymentEmitterAddress;
   aztecNodeConfig.inboxAddress = l1Contracts.l1ContractAddresses.inboxAddress;
+  aztecNodeConfig.registryAddress = l1Contracts.l1ContractAddresses.registryAddress;
 
   const node = await AztecNodeService.createAndSync(aztecNodeConfig);
   const rpcServer = await createAztecRPCServer(node, rpcConfig);
