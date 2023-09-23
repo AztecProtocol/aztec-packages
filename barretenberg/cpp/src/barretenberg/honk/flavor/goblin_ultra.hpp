@@ -2,7 +2,7 @@
 #include "barretenberg/honk/pcs/kzg/kzg.hpp"
 #include "barretenberg/honk/transcript/transcript.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
-#include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
+#include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
 #include "barretenberg/proof_system/flavor/flavor.hpp"
 #include "barretenberg/proof_system/relations/auxiliary_relation.hpp"
 #include "barretenberg/proof_system/relations/ecc_op_queue_relation.hpp"
@@ -16,13 +16,13 @@ namespace proof_system::honk::flavor {
 
 class GoblinUltra {
   public:
-    using CircuitBuilder = UltraCircuitBuilder;
+    using CircuitBuilder = GoblinUltraCircuitBuilder;
     using Curve = curve::BN254;
-    using PCS = pcs::kzg::KZG<Curve>;
+    using FF = Curve::ScalarField;
     using GroupElement = Curve::Element;
     using Commitment = Curve::AffineElement;
     using CommitmentHandle = Curve::AffineElement;
-    using FF = Curve::ScalarField;
+    using PCS = pcs::kzg::KZG<Curve>;
     using Polynomial = barretenberg::Polynomial<FF>;
     using PolynomialHandle = std::span<FF>;
     using CommitmentKey = pcs::CommitmentKey<Curve>;
@@ -287,6 +287,8 @@ class GoblinUltra {
         std::vector<uint32_t> memory_write_records;
 
         size_t num_ecc_op_gates; // needed to determine public input offset
+
+        std::shared_ptr<ECCOpQueue> op_queue;
 
         // The plookup wires that store plookup read data.
         std::array<PolynomialHandle, 3> get_table_column_wires() { return { w_l, w_r, w_o }; };
