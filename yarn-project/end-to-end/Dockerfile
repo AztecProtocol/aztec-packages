@@ -1,12 +1,17 @@
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project AS builder
+
+# Build aztec.js web.
+WORKDIR /usr/src/yarn-project/aztec.js
+RUN yarn build:web
+
 WORKDIR /usr/src/yarn-project/end-to-end
 # Prune dev dependencies. See comment in yarn-project-base/Dockerfile.
 RUN yarn cache clean && yarn workspaces focus --production > /dev/null && rm -rf /usr/src/.yarn
 
 # Create final, minimal size image.
 FROM node:18-alpine
-# RUN apk update && apk add --no-cache udev ttf-freefont chromium curl jq bash
-# ENV CHROME_BIN="/usr/bin/chromium-browser"
+RUN apk update && apk add --no-cache chromium
+ENV CHROME_BIN="/usr/bin/chromium-browser"
 COPY --from=builder /usr/src /usr/src
 # RUN rm /usr/src/yarn-project/end-to-end/src/web/aztec3-circuits.wasm
 # RUN rm /usr/src/yarn-project/end-to-end/src/web/main.js
