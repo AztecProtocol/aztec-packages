@@ -647,108 +647,168 @@ void compute_honk_generalized_sigma_permutations(const typename Flavor::CircuitB
         proving_key->get_id_polynomials(), mapping.ids, proving_key);
 }
 
+/**
+ * @brief Compute new polynomials which are the concatenated versions of other polynomials
+ *
+ * @details Multilinear PCS allow to provide openings for concatenated polynomials in an easy way by combining
+ * commitments. This method creates concatenated version of polynomials we won't need to commit to.
+ *
+ * @tparam Flavor
+ * @tparam StorageHandle
+ * @param proving_key Can be a proving_key or an AllEntities object
+ */
 template <typename Flavor, typename StorageHandle> void compute_concatenated_polynomials(StorageHandle* proving_key)
 {
+    // Concatenation groups are vectors of polynomials that are concatenated together
     auto concatenation_groups = proving_key->get_concatenation_groups();
+
+    // Resulting concatenated polynomials
     auto targets = proving_key->get_concatenation_targets();
+
+    // A function that produces 1 concatenated polynomials
+    // TODO(kesha): This can be optimized to use more cores. Currently uses at maximum 4
     auto ordering_function = [&](size_t i) {
         auto my_group = concatenation_groups[i];
         auto& current_target = targets[i];
 
+        // For each polynomial in group
         for (size_t j = 0; j < my_group.size(); j++) {
-
             auto starting_write_offset = current_target.begin();
             auto finishing_read_offset = my_group[j].begin();
             std::advance(starting_write_offset, j * Flavor::MINI_CIRCUIT_SIZE);
             std::advance(finishing_read_offset, Flavor::MINI_CIRCUIT_SIZE);
+            // Copy into appropriate position in the concatenated polynomial
             std::copy(my_group[j].begin(), finishing_read_offset, starting_write_offset);
         }
     };
     parallel_for(concatenation_groups.size(), ordering_function);
 }
+
 /**
- * @brief Compute range constrain permutation
+ * @brief Compute denominator polynomials for Goblin Translator's range constraint permutation
  *
+ * @tparam Flavor
+ * @tparam StorageHandle
+ * @param proving_key
  */
 template <typename Flavor, typename StorageHandle>
 void compute_goblin_translator_range_constraint_ordered_polynomials(StorageHandle* proving_key)
 {
     // We need to prove that all the range constrain wires indeed have values within the given range (unless changed - 0
-    // to 4095). To do this, we use several virtual concatenated wires, each of which represents a subset or original
-    // wires (W_cc0 (concatenated constraints 0)). We also generate several new polynomials of the same length as
-    // concatenated ones. These polynomials have values within range, but they are also constrained by the sort
-    // relation, which ensures that sequential values differ by not more than 3, the first value is the maximum and the
-    // last value is zero (leaving zeroes in the end enables us to implement certain optimizations in sumcheck).
+    // to (2¹⁴ - 1)). To do this, we use several virtual concatenated wires, each of which represents a subset or
+    // original wires (concatenated_range_constraints_<i>). We also generate several new polynomials of the same length
+    // as concatenated ones. These polynomials have values within range, but they are also constrained by the
+    // GoblinTranslator's GenPermSort relation, which ensures that sequential values differ by not more than 3, the last
+    // value is the maximum and the first value is zero (zero at the start allows us not to dance around shifts).
     //
-    // Ideally, we could simply rearrange the values in W_cc0,..., W_cck and get W_oc0,...,W_ock (ordered constraints),
-    // but we could get the worst case scenario: each value in W_cc0,... is maximum value. What can we do in that case?
-    // We still have to add (max_range/3)+1 values (1366 for 4095) to each of the ordered wires for the sort constrain
-    // to hold.  So we also need a W_extra_denominator to store k*1395 values that couldn't go in + 1396 connecting
-    // values. To counteract the extra (k+1)*1396 values needed for denominator sort constraints we we need a polynomial
-    // W_extra_numerator. So we can construct a proof when (k+1)*(Max/3 +1) < concatenated size
+    // Ideally, we could simply rearrange the values in concatenated_.._0 ,..., concatenated_.._3 and get denominator
+    // polynomials (ordered_constraints), but we could get the worst case scenario: each value in the polynomials is
+    // maximum value. What can we do in that case? We still have to add (max_range/3)+1 values  to each of the ordered
+    // wires for the sort constraint to hold.  So we also need a and extra denominator to store k(max_range/3 + 1)
+    // values that couldn't go in + (max_range/3+  1) connecting values. To counteract the extra (k+1)*(max_range/3+1)
+    // values needed for denominator sort constraints we need a polynomial in the numerator . So we can construct a
+    // proof when (k+1)*(Max/3 +1) < concatenated size
+
+    using FF = typename Flavor::FF;
+    // Get constants
     auto sort_step = Flavor::SORT_STEP;
     auto num_concatenated_wires = Flavor::NUM_CONCATENATED_WIRES;
     auto full_circuit_size = Flavor::FULL_CIRCUIT_SIZE;
     auto mini_circuit_size = Flavor::MINI_CIRCUIT_SIZE;
-    using FF = typename Flavor::FF;
-    uint32_t MAX_VALUE = (1 << Flavor::MICRO_LIMB_BITS) - 1;
-    size_t sorted_elements_count = (MAX_VALUE / sort_step) + 1 + (MAX_VALUE % sort_step == 0 ? 0 : 1);
-    ASSERT((num_concatenated_wires + 1) * sorted_elements_count < full_circuit_size);
 
+    // The value we have to end polynomials with
+    uint32_t MAX_VALUE = (1 << Flavor::MICRO_LIMB_BITS) - 1;
+
+    // Number of elements needed to go from 0 to MAX_VALUE with our step
+    size_t sorted_elements_count = (MAX_VALUE / sort_step) + 1 + (MAX_VALUE % sort_step == 0 ? 0 : 1);
+
+    // Check if we can construct these polynomials
+    static_assert((num_concatenated_wires + 1) * sorted_elements_count < full_circuit_size);
+
+    // First use integers (easier to sort)
     std::vector<size_t> sorted_elements(sorted_elements_count);
 
+    // Fill with necessary steps
     sorted_elements[0] = MAX_VALUE;
     for (size_t i = 1; i < sorted_elements_count; i++) {
         sorted_elements[i] = (sorted_elements_count - 1 - i) * sort_step;
     }
+
     std::vector<std::vector<uint32_t>> ordered_vectors_uint(num_concatenated_wires);
-    //    num_concatenated_wires, barretenberg::Polynomial<FF>(full_circuit_size));
     auto ordered_constraint_polynomials = std::vector{ &proving_key->ordered_range_constraints_0,
                                                        &proving_key->ordered_range_constraints_1,
                                                        &proving_key->ordered_range_constraints_2,
                                                        &proving_key->ordered_range_constraints_3 };
     std::vector<size_t> extra_denominator_uint(full_circuit_size);
     auto concatenation_groups = proving_key->get_concatenation_groups();
+
+    // A function that transfers elements from each of polynomials in the chosen concatenation group in the uint ordered
+    // polynomials
     auto ordering_function = [&](size_t i) {
+        // Get the group and the main target vector
         auto my_group = concatenation_groups[i];
         auto& current_vector = ordered_vectors_uint[i];
         current_vector.resize(Flavor::FULL_CIRCUIT_SIZE);
+
+        // Calculate how much space there is for values from the original polynomials
         auto free_space_before_runway = full_circuit_size - sorted_elements_count;
-        size_t denominator_offset = i * sorted_elements_count;
+
+        // Calculate the offset of this group's overflowing elements in the extra denominator polynomial
+        size_t extra_denominator_offset = i * sorted_elements_count;
+
+        // Go through each polynomial in the concatenation group
         for (size_t j = 0; j < Flavor::CONCATENATION_INDEX; j++) {
+
+            // Calculate the offset in the target vector
             auto current_offset = j * mini_circuit_size;
+            // For each element in the polynomial
             for (size_t k = 0; k < mini_circuit_size; k++) {
+
+                // Put it it the target polynomial
                 if ((current_offset + k) < free_space_before_runway) {
                     current_vector[current_offset + k] = static_cast<uint32_t>(uint256_t(my_group[j][k]).data[0]);
+
+                    // Or in the extra one if there is no space left
                 } else {
-                    extra_denominator_uint[denominator_offset] =
+                    extra_denominator_uint[extra_denominator_offset] =
                         static_cast<uint32_t>(uint256_t(my_group[j][k]).data[0]);
-                    denominator_offset++;
+                    extra_denominator_offset++;
                 }
             }
         }
+        // Copy the steps into the target polynomial
         auto starting_write_offset = current_vector.begin();
         std::advance(starting_write_offset, free_space_before_runway);
         std::copy(sorted_elements.cbegin(), sorted_elements.cend(), starting_write_offset);
+
+        // Sort the polynomial in nondescending order
         std::sort(current_vector.begin(), current_vector.end());
 
-        // ordered_constraint_polynomials[i] = std::move(Polynomial<FF>(full_circuit_size));
+        // Copy the values into the actual polynomial
         std::transform(current_vector.cbegin(),
                        current_vector.cend(),
                        (*ordered_constraint_polynomials[i]).begin(),
                        [](uint32_t in) { return FF(in); });
     };
+
+    // Construct the first 4 polynomials
     parallel_for(num_concatenated_wires, ordering_function);
     ordered_vectors_uint.clear();
+
     auto sorted_element_insertion_offset = extra_denominator_uint.begin();
     std::advance(sorted_element_insertion_offset, num_concatenated_wires * sorted_elements_count);
+
+    // Add steps to the extra denominator polynomial
     std::copy(sorted_elements.cbegin(), sorted_elements.cend(), sorted_element_insertion_offset);
+
+    // Sort it
 #ifdef NO_TBB
     std::sort(extra_denominator_uint.begin(), extra_denominator_uint.end());
 #else
     std::sort(std::execution::par_unseq, extra_denominator_uint.begin(), extra_denominator.end());
 #endif
 
+    // And copy it to the actual polynomial
     std::transform(extra_denominator_uint.cbegin(),
                    extra_denominator_uint.cend(),
                    proving_key->ordered_range_constraints_4.begin(),
