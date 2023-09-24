@@ -39,6 +39,7 @@ GoblinTranslatorProver_<Flavor>::GoblinTranslatorProver_(std::shared_ptr<typenam
     , queue(commitment_key, transcript)
     , pcs_commitment_key(commitment_key)
 {
+    // Copy all polynomials from the proving key
     prover_polynomials.op = key->op;
     prover_polynomials.x_lo_y_hi = key->x_lo_y_hi;
     prover_polynomials.x_hi_z_1 = key->x_hi_z_1;
@@ -121,9 +122,6 @@ GoblinTranslatorProver_<Flavor>::GoblinTranslatorProver_(std::shared_ptr<typenam
     prover_polynomials.relation_wide_limbs_range_constraint_2 = key->relation_wide_limbs_range_constraint_2;
     prover_polynomials.relation_wide_limbs_range_constraint_tail = key->relation_wide_limbs_range_constraint_tail;
     prover_polynomials.concatenated_range_constraints_0 = key->concatenated_range_constraints_0;
-    info("Originalt commitment to concatenated range constraints: ",
-         pcs_commitment_key->commit(prover_polynomials.concatenated_range_constraints_0));
-
     prover_polynomials.concatenated_range_constraints_1 = key->concatenated_range_constraints_1;
     prover_polynomials.concatenated_range_constraints_2 = key->concatenated_range_constraints_2;
     prover_polynomials.concatenated_range_constraints_3 = key->concatenated_range_constraints_3;
@@ -243,14 +241,13 @@ GoblinTranslatorProver_<Flavor>::GoblinTranslatorProver_(std::shared_ptr<typenam
 }
 
 /**
- * @brief Add circuit size, public input size, and public inputs to transcript
+ * @brief Add circuit size and values used in the relations to the transcript
  *
  */
 template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_preamble_round()
 {
     const auto circuit_size = static_cast<uint32_t>(key->circuit_size);
 
-    // TODO(kesha) replace with actual circuit size
     transcript.send_to_verifier("circuit_size", circuit_size);
     transcript.send_to_verifier("evaluation_input_x", key->evaluation_input_x);
     transcript.send_to_verifier("batching_challenge_v", key->batching_challenge_v);
@@ -262,11 +259,9 @@ template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_preambl
  */
 template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_wire_and_sorted_constraints_commitments_round()
 {
-    // Commit to the first three wire polynomials; the fourth is committed to after the addition of memory records.
+    // Commit to all wire polynomials
     auto wire_polys = key->get_wires();
     auto labels = commitment_labels.get_wires();
-    info("Sizes: ", wire_polys.size(), " ", labels.size());
-    info("First commitment to polynomial: ", pcs_commitment_key->commit(wire_polys[0]));
     for (size_t idx = 0; idx < wire_polys.size(); ++idx) {
         queue.add_commitment(wire_polys[idx], labels[idx]);
     }
@@ -289,7 +284,6 @@ template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_grand_p
     // Compute constraint permutation grand product
     grand_product_library::compute_grand_products<Flavor>(key, prover_polynomials, relation_parameters);
 
-    info("Z_PERM", prover_polynomials.z_perm[Flavor::FULL_CIRCUIT_SIZE - 1]);
     queue.add_commitment(key->z_perm, commitment_labels.z_perm);
 }
 
@@ -322,13 +316,9 @@ template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_univari
     // Batch the unshifted polynomials and the to-be-shifted polynomials using ρ
     Polynomial batched_poly_unshifted(key->circuit_size); // batched unshifted polynomials
     size_t poly_idx = 0;                                  // TODO(#391) zip
-    info("Commitment to concatenated range constraints: ",
-         pcs_commitment_key->commit(prover_polynomials.concatenated_range_constraints_0));
     for (auto& unshifted_poly : prover_polynomials.get_unshifted()) {
         batched_poly_unshifted.add_scaled(unshifted_poly, rhos[poly_idx]);
 
-        // info("Commitment to batched polynomial ", poly_idx, ": ",
-        // pcs_commitment_key->commit(batched_poly_unshifted));
         ++poly_idx;
     }
 
@@ -344,6 +334,8 @@ template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_univari
         ++poly_idx;
     }
     batched_poly_unshifted += batched_poly_special;
+
+    // We need to save the backup of this polynomial, because we'll need to update the first 2 polynomials
     fold_polynomial_backups.push_back(std::move(batched_poly_special));
 
     // Compute d-1 polynomials Fold^(i), i = 1, ..., d-1.
@@ -367,18 +359,22 @@ template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_pcs_eva
 
     const size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
     const FF r_challenge = transcript.get_challenge("Gemini:r");
+
     auto r_to_the_mini_circuit_size = r_challenge.pow(Flavor::MINI_CIRCUIT_SIZE);
+    // Compute {1, rᵐˢ, r²ᵐˢ, ... }
     auto powers_of_r = pcs::gemini::powers_of_rho(r_to_the_mini_circuit_size, Flavor::CONCATENATION_INDEX);
 
     std::vector<FF> rhos = pcs::gemini::powers_of_rho(rho, NUM_POLYNOMIALS);
+
     auto concatenation_groups = prover_polynomials.get_concatenation_groups();
     auto concatenated_polynomials = prover_polynomials.get_special();
     auto poly_idx = prover_polynomials.get_unshifted_then_shifted().size();
-    info("Before r substitition:");
-    info("A_pos: ", fold_polynomials[0].evaluate(r_challenge));
-    info("Check: ", fold_polynomials[0].evaluate(1));
-    info("A_neg: ", fold_polynomials[1].evaluate(r_challenge));
-    info("Commitment to A_pos: ", pcs_commitment_key->commit(fold_polynomials[0]));
+
+    // We don't commit to the concatenated polynomials, because we can simply open the sum of Commitments of their parts
+    // multiplied by appropriate powers of r. However, originally the folding polynomials were constructed from
+    // concatenated versions. While the actual folded polynomials have commitments to their exact coefficients, the
+    // first 2 batched polynomials do not, so we have to replace the contribution of concatenated polynomials by the
+    // appropriate contributions of original polynomials
     for (size_t i = 0; i < concatenated_polynomials.size(); i++) {
         for (size_t j = 0; j < concatenation_groups[i].size(); j++) {
             fold_polynomial_backups[0].add_scaled(concatenation_groups[i][j], -powers_of_r[j] * rhos[poly_idx]);
@@ -386,11 +382,7 @@ template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_pcs_eva
         ++poly_idx;
     }
     fold_polynomials[0] -= fold_polynomial_backups[0];
-    info("After r substitition:");
-    info("A_pos: ", fold_polynomials[0].evaluate(r_challenge));
-    info("Check: ", fold_polynomials[0].evaluate(1));
-    info("A_neg: ", fold_polynomials[1].evaluate(r_challenge));
-    info("Commitment to A_pos: ", pcs_commitment_key->commit(fold_polynomials[0]));
+    fold_polynomial_backups.clear();
 
     gemini_output = Gemini::compute_fold_polynomial_evaluations(
         sumcheck_output.challenge_point, std::move(fold_polynomials), r_challenge);
@@ -402,16 +394,6 @@ template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_pcs_eva
     }
 }
 
-template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_multikzg_opening_round()
-{
-    for (size_t i = 0; i < gemini_output.opening_pairs.size(); i++) {
-        PCS::compute_opening_proof(pcs_commitment_key,
-                                   gemini_output.opening_pairs[i],
-                                   gemini_output.witnesses[i],
-                                   transcript,
-                                   "NOTSHPLONK:" + std::to_string(i));
-    }
-}
 /**
  * - Do Fiat-Shamir to get "nu" challenge.
  * - Compute commitment [Q]_1
@@ -446,7 +428,6 @@ template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_shplonk
 template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_final_pcs_round()
 {
     PCS::compute_opening_proof(pcs_commitment_key, shplonk_output.opening_pair, shplonk_output.witness, transcript);
-    // queue.add_commitment(quotient_W, "KZG:W");
 }
 
 template <typename Flavor> plonk::proof& GoblinTranslatorProver_<Flavor>::export_proof()
@@ -464,7 +445,7 @@ template <typename Flavor> plonk::proof& GoblinTranslatorProver_<Flavor>::constr
     execute_wire_and_sorted_constraints_commitments_round();
     queue.process_queue();
 
-    // Fiat-Shamir: beta & gamma
+    // Fiat-Shamir: gamma
     // Compute grand product(s) and commitments.
     execute_grand_product_computation_round();
     queue.process_queue();

@@ -711,16 +711,16 @@ void compute_goblin_translator_range_constraint_ordered_polynomials(StorageHandl
 
     using FF = typename Flavor::FF;
     // Get constants
-    auto sort_step = Flavor::SORT_STEP;
-    auto num_concatenated_wires = Flavor::NUM_CONCATENATED_WIRES;
-    auto full_circuit_size = Flavor::FULL_CIRCUIT_SIZE;
-    auto mini_circuit_size = Flavor::MINI_CIRCUIT_SIZE;
+    constexpr auto sort_step = Flavor::SORT_STEP;
+    constexpr auto num_concatenated_wires = Flavor::NUM_CONCATENATED_WIRES;
+    constexpr auto full_circuit_size = Flavor::FULL_CIRCUIT_SIZE;
+    constexpr auto mini_circuit_size = Flavor::MINI_CIRCUIT_SIZE;
 
+    constexpr uint32_t max_value = (1 << Flavor::MICRO_LIMB_BITS) - 1;
     // The value we have to end polynomials with
-    uint32_t MAX_VALUE = (1 << Flavor::MICRO_LIMB_BITS) - 1;
 
     // Number of elements needed to go from 0 to MAX_VALUE with our step
-    size_t sorted_elements_count = (MAX_VALUE / sort_step) + 1 + (MAX_VALUE % sort_step == 0 ? 0 : 1);
+    constexpr size_t sorted_elements_count = (max_value / sort_step) + 1 + (max_value % sort_step == 0 ? 0 : 1);
 
     // Check if we can construct these polynomials
     static_assert((num_concatenated_wires + 1) * sorted_elements_count < full_circuit_size);
@@ -729,7 +729,7 @@ void compute_goblin_translator_range_constraint_ordered_polynomials(StorageHandl
     std::vector<size_t> sorted_elements(sorted_elements_count);
 
     // Fill with necessary steps
-    sorted_elements[0] = MAX_VALUE;
+    sorted_elements[0] = max_value;
     for (size_t i = 1; i < sorted_elements_count; i++) {
         sorted_elements[i] = (sorted_elements_count - 1 - i) * sort_step;
     }

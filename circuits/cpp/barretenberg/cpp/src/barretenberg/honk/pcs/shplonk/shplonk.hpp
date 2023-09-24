@@ -166,9 +166,6 @@ template <typename Params> class ShplonkVerifier_ {
                                                     VerifierTranscript<Fr>& transcript)
     {
         const size_t num_claims = claims.size();
-        for (size_t i = 0; i < num_claims; i++) {
-            info("Claim ", i, ": ", claims[i]);
-        }
 
         const Fr nu = transcript.get_challenge("Shplonk:nu");
 
@@ -206,7 +203,6 @@ template <typename Params> class ShplonkVerifier_ {
             // G₀ += ρʲ / ( r − xⱼ ) ⋅ vⱼ
             G_commitment_constant += scaling_factor * opening_pair.evaluation;
             // [G] -= ρʲ / ( r − xⱼ )⋅[fⱼ]
-            info("Commitment", commitment);
             G_commitment -= commitment * scaling_factor;
 
             current_nu *= nu;
