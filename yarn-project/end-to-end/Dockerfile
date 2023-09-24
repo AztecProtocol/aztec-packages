@@ -1,6 +1,6 @@
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project AS builder
-# Prune dev dependencies and remove global cache. See comment in base image.
 WORKDIR /usr/src/yarn-project/end-to-end
+# Prune dev dependencies. See comment in yarn-project-base/Dockerfile.
 RUN yarn cache clean && yarn workspaces focus --production > /dev/null && rm -rf /usr/src/.yarn
 
 # Create final, minimal size image.
