@@ -13,6 +13,9 @@
       "path": "../circuits.js"
     },
     {
+      "path": "../ethereum"
+    },
+    {
       "path": "../foundation"
     },
     {
@@ -32,9 +35,6 @@
     },
     {
       "path": "../world-state"
-    },
-    {
-      "path": "../ethereum"
     }
   ],
   "include": ["src", "../types/src/aztec_node/rpc"]
