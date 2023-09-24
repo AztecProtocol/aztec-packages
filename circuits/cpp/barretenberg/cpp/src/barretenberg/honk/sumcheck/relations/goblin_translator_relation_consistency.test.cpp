@@ -1,6 +1,7 @@
 #include "../polynomials/barycentric_data.hpp"
 #include "../polynomials/univariate.hpp"
 #include "barretenberg/honk/flavor/goblin_translator.hpp"
+#include "barretenberg/honk/sumcheck/relations/translator_gen_perm_sort_relation.hpp"
 #include "permutation_relation.hpp"
 #include "relation_parameters.hpp"
 
@@ -175,6 +176,11 @@ class GoblinTranslatorRelationConsistency : public testing::Test {
     }
 };
 
+/**
+ * @brief Test fo the GoblinTranslator Permutation Relation, which is one of the components used to prove values are
+ * range constrained
+ *
+ */
 TEST_F(GoblinTranslatorRelationConsistency, PermutationRelation)
 {
     using Flavor = honk::flavor::GoblinTranslatorBasic;
@@ -201,22 +207,26 @@ TEST_F(GoblinTranslatorRelationConsistency, PermutationRelation)
             }
             compute_mock_extended_edges<FULL_RELATION_LENGTH>(extended_edges, input_polynomials);
         };
-        auto relation = GoblinPermutationRelation<FF>();
 
+        auto relation = GoblinTranslatorPermutationRelation<FF>();
+
+        // We only use γ in the relation, because we don't care about ordering of the permutations. We only need to make
+        // sure that the set of values in concatenated range contraints + the extra numerator is identical to the sum
+        // set of ordered range constraints
         const auto& gamma = relation_parameters.gamma;
 
         // Manually compute the expected edge contribution
-        const auto& w_concatenated_range_constraints_0 = extended_edges.concatenated_range_constraints_0;
-        const auto& w_concatenated_range_constraints_1 = extended_edges.concatenated_range_constraints_1;
-        const auto& w_concatenated_range_constraints_2 = extended_edges.concatenated_range_constraints_2;
-        const auto& w_concatenated_range_constraints_3 = extended_edges.concatenated_range_constraints_3;
-        const auto& w_ordered_range_constraints_0 = extended_edges.ordered_range_constraints_0;
-        const auto& w_ordered_range_constraints_1 = extended_edges.ordered_range_constraints_1;
-        const auto& w_ordered_range_constraints_2 = extended_edges.ordered_range_constraints_2;
-        const auto& w_ordered_range_constraints_3 = extended_edges.ordered_range_constraints_3;
-        const auto& w_ordered_extra_range_constraints_numerator =
+        const auto& concatenated_range_constraints_0 = extended_edges.concatenated_range_constraints_0;
+        const auto& concatenated_range_constraints_1 = extended_edges.concatenated_range_constraints_1;
+        const auto& concatenated_range_constraints_2 = extended_edges.concatenated_range_constraints_2;
+        const auto& concatenated_range_constraints_3 = extended_edges.concatenated_range_constraints_3;
+        const auto& ordered_range_constraints_0 = extended_edges.ordered_range_constraints_0;
+        const auto& ordered_range_constraints_1 = extended_edges.ordered_range_constraints_1;
+        const auto& ordered_range_constraints_2 = extended_edges.ordered_range_constraints_2;
+        const auto& ordered_range_constraints_3 = extended_edges.ordered_range_constraints_3;
+        const auto& ordered_range_constraints_4 = extended_edges.ordered_range_constraints_4;
+        const auto& ordered_extra_range_constraints_numerator =
             extended_edges.ordered_extra_range_constraints_numerator;
-        const auto& w_ordered_range_constraints_4 = extended_edges.ordered_range_constraints_4;
         const auto& z_perm = extended_edges.z_perm;
         const auto& z_perm_shift = extended_edges.z_perm_shift;
         const auto& lagrange_first = extended_edges.lagrange_first;
@@ -227,13 +237,102 @@ TEST_F(GoblinTranslatorRelationConsistency, PermutationRelation)
         auto expected_full_length_univariates = std::array<Univariate<FF, FULL_RELATION_LENGTH>, NUM_SUBRELATIONS>();
 
         expected_full_length_univariates[0] =
-            (z_perm + lagrange_first) * (w_concatenated_range_constraints_0 + gamma) *
-                (w_concatenated_range_constraints_1 + gamma) * (w_concatenated_range_constraints_2 + gamma) *
-                (w_concatenated_range_constraints_3 + gamma) * (w_ordered_extra_range_constraints_numerator + gamma) -
-            (z_perm_shift + lagrange_last) * (w_ordered_range_constraints_0 + gamma) *
-                (w_ordered_range_constraints_1 + gamma) * (w_ordered_range_constraints_2 + gamma) *
-                (w_ordered_range_constraints_3 + gamma) * (w_ordered_range_constraints_4 + gamma);
+            (z_perm + lagrange_first) * (concatenated_range_constraints_0 + gamma) *
+                (concatenated_range_constraints_1 + gamma) * (concatenated_range_constraints_2 + gamma) *
+                (concatenated_range_constraints_3 + gamma) * (ordered_extra_range_constraints_numerator + gamma) -
+            (z_perm_shift + lagrange_last) * (ordered_range_constraints_0 + gamma) *
+                (ordered_range_constraints_1 + gamma) * (ordered_range_constraints_2 + gamma) *
+                (ordered_range_constraints_3 + gamma) * (ordered_range_constraints_4 + gamma);
         expected_full_length_univariates[1] = z_perm_shift * lagrange_last;
+
+        validate_evaluations(expected_full_length_univariates, relation, extended_edges, relation_parameters);
+    };
+    run_test(/* is_random_input=*/true);
+    run_test(/* is_random_input=*/false);
+};
+
+/**
+ * @brief Check the consistency of GoblinTranslator General Permutation Sort Relation
+ *
+ * @details The relation is used to ensure that all the values in a ordered_range_constraints polynomials form a
+ * sequence from 0 to MAX_VALUE in each of the polynomials
+ *
+ */
+TEST_F(GoblinTranslatorRelationConsistency, GenPermSortRelation)
+{
+    using Flavor = honk::flavor::GoblinTranslatorBasic;
+    using FF = typename Flavor::FF;
+    static constexpr size_t FULL_RELATION_LENGTH = 7;
+    using ExtendedEdges = typename Flavor::template ExtendedEdges<FULL_RELATION_LENGTH>;
+    static const size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
+
+    const auto relation_parameters = compute_mock_relation_parameters();
+    auto run_test = [&relation_parameters](bool is_random_input) {
+        ExtendedEdges extended_edges;
+        std::array<Univariate<FF, INPUT_UNIVARIATE_LENGTH>, NUM_POLYNOMIALS> input_polynomials;
+        if (!is_random_input) {
+            // evaluation form, i.e. input_univariate(0) = 1, input_univariate(1) = 2,.. The polynomial is x+1.
+            for (size_t i = 0; i < NUM_POLYNOMIALS; ++i) {
+                input_polynomials[i] = Univariate<FF, INPUT_UNIVARIATE_LENGTH>({ 1, 2 });
+            }
+            compute_mock_extended_edges<FULL_RELATION_LENGTH>(extended_edges, input_polynomials);
+        } else {
+            // input_univariates are random polynomials of degree one
+            for (size_t i = 0; i < NUM_POLYNOMIALS; ++i) {
+                input_polynomials[i] =
+                    Univariate<FF, INPUT_UNIVARIATE_LENGTH>({ FF::random_element(), FF::random_element() });
+            }
+            compute_mock_extended_edges<FULL_RELATION_LENGTH>(extended_edges, input_polynomials);
+        };
+        auto relation = GoblinTranslatorGenPermSortRelation<FF>();
+
+        const auto& w_ordered_range_constraints_0 = extended_edges.ordered_range_constraints_0;
+        const auto& w_ordered_range_constraints_1 = extended_edges.ordered_range_constraints_1;
+        const auto& w_ordered_range_constraints_2 = extended_edges.ordered_range_constraints_2;
+        const auto& w_ordered_range_constraints_3 = extended_edges.ordered_range_constraints_3;
+        const auto& w_ordered_range_constraints_4 = extended_edges.ordered_range_constraints_4;
+        const auto& w_ordered_range_constraints_0_shift = extended_edges.ordered_range_constraints_0_shift;
+        const auto& w_ordered_range_constraints_1_shift = extended_edges.ordered_range_constraints_1_shift;
+        const auto& w_ordered_range_constraints_2_shift = extended_edges.ordered_range_constraints_2_shift;
+        const auto& w_ordered_range_constraints_3_shift = extended_edges.ordered_range_constraints_3_shift;
+        const auto& w_ordered_range_constraints_4_shift = extended_edges.ordered_range_constraints_4_shift;
+        const auto& lagrange_last = extended_edges.lagrange_last;
+
+        // Compute expected full length Univariates using straight forward expressions
+        constexpr std::size_t NUM_SUBRELATIONS = std::tuple_size_v<decltype(relation)::RelationUnivariates>;
+        auto expected_full_length_univariates = std::array<Univariate<FF, FULL_RELATION_LENGTH>, NUM_SUBRELATIONS>();
+
+        const auto minus_one = FF(-1);
+        const auto minus_two = FF(-2);
+        const auto minus_three = FF(-3);
+        const auto maximum_value = -FF((1 << Flavor::MICRO_LIMB_BITS) - 1);
+
+        // First compute individual deltas
+        const auto delta_1 = w_ordered_range_constraints_0_shift - w_ordered_range_constraints_0;
+        const auto delta_2 = w_ordered_range_constraints_1_shift - w_ordered_range_constraints_1;
+        const auto delta_3 = w_ordered_range_constraints_2_shift - w_ordered_range_constraints_2;
+        const auto delta_4 = w_ordered_range_constraints_3_shift - w_ordered_range_constraints_3;
+        const auto delta_5 = w_ordered_range_constraints_4_shift - w_ordered_range_constraints_4;
+
+        const auto not_last = lagrange_last + minus_one;
+
+        // Check the delta is {0,1,2,3}
+        auto delta_in_range = [not_last, minus_one, minus_two, minus_three](auto delta) {
+            return not_last * delta * (delta + minus_one) * (delta + minus_two) * (delta + minus_three);
+        };
+        // Check delta correctness
+        expected_full_length_univariates[0] = delta_in_range(delta_1);
+        expected_full_length_univariates[1] = delta_in_range(delta_2);
+        expected_full_length_univariates[2] = delta_in_range(delta_3);
+        expected_full_length_univariates[3] = delta_in_range(delta_4);
+        expected_full_length_univariates[4] = delta_in_range(delta_5);
+        // Check that the last value is MAXIMUM
+        expected_full_length_univariates[5] = lagrange_last * (w_ordered_range_constraints_0 + maximum_value);
+        expected_full_length_univariates[6] = lagrange_last * (w_ordered_range_constraints_1 + maximum_value);
+        expected_full_length_univariates[7] = lagrange_last * (w_ordered_range_constraints_2 + maximum_value);
+        expected_full_length_univariates[8] = lagrange_last * (w_ordered_range_constraints_3 + maximum_value);
+        expected_full_length_univariates[9] = lagrange_last * (w_ordered_range_constraints_4 + maximum_value);
+        // We don't check that the first value is zero, because the shift mechanism already ensures it
 
         validate_evaluations(expected_full_length_univariates, relation, extended_edges, relation_parameters);
     };

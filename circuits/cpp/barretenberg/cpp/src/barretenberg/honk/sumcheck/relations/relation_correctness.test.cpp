@@ -1,6 +1,8 @@
+#include <algorithm>
 #include <cstdint>
 #include <gtest/gtest.h>
 
+#include "barretenberg/common/thread.hpp"
 #include "barretenberg/honk/composer/standard_composer.hpp"
 #include "barretenberg/honk/composer/ultra_composer.hpp"
 #include "barretenberg/honk/flavor/goblin_translator.hpp"
@@ -14,6 +16,7 @@
 #include "barretenberg/honk/sumcheck/relations/lookup_relation.hpp"
 #include "barretenberg/honk/sumcheck/relations/permutation_relation.hpp"
 #include "barretenberg/honk/sumcheck/relations/relation_parameters.hpp"
+#include "barretenberg/honk/sumcheck/relations/translator_gen_perm_sort_relation.hpp"
 #include "barretenberg/honk/sumcheck/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/numeric/uint128/uint128.hpp"
@@ -62,15 +65,9 @@ template <typename Flavor> void check_relation(auto relation, auto circuit_size,
 
         // Evaluate each constraint in the relation and check that each is satisfied
         relation.add_full_relation_value_contribution(result, evaluations_at_index_i, params);
-        if (i > ((1 << 15) - 2)) {
-            info("Index: ", i);
-        }
         // info("Index: ", i);
         for (auto& element : result) {
             // info(element);
-            if (i > ((1 << 15) - 2)) {
-                info(element);
-            }
             ASSERT_EQ(element, 0);
         }
     }
@@ -564,7 +561,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorPermutationRelationCorrectness)
     // Create a prover (it will compute proving key and witness)
     auto circuit_size = Flavor::MINI_CIRCUIT_SIZE * Flavor::CONCATENATION_INDEX;
 
-    fr gamma = fr::one();
+    FF gamma = FF::random_element();
 
     // Compute public input delta
     sumcheck::RelationParameters<FF> params{
@@ -589,42 +586,214 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorPermutationRelationCorrectness)
     prover_polynomials.lagrange_last[circuit_size - 1] = 1;
     info(prover_polynomials.lagrange_first[0]);
     info(prover_polynomials.lagrange_last[circuit_size - 1]);
-    for (size_t i = 0; i < 0; i++) {
-        prover_polynomials.concatenated_range_constraints_0[i] =
+    for (size_t i = 0; i < Flavor::MINI_CIRCUIT_SIZE; i++) {
+        prover_polynomials.p_x_low_limbs_range_constraint_0[i] =
             engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.concatenated_range_constraints_1[i] =
+        prover_polynomials.p_x_low_limbs_range_constraint_1[i] =
             engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.concatenated_range_constraints_2[i] =
+        prover_polynomials.p_x_low_limbs_range_constraint_2[i] =
             engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.concatenated_range_constraints_3[i] =
+        prover_polynomials.p_x_low_limbs_range_constraint_3[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.p_x_low_limbs_range_constraint_4[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.p_x_low_limbs_range_constraint_tail[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.p_x_high_limbs_range_constraint_0[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.p_x_high_limbs_range_constraint_1[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.p_x_high_limbs_range_constraint_2[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.p_x_high_limbs_range_constraint_3[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.p_x_high_limbs_range_constraint_4[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.p_x_high_limbs_range_constraint_tail[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.p_y_low_limbs_range_constraint_0[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.p_y_low_limbs_range_constraint_1[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.p_y_low_limbs_range_constraint_2[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.p_y_low_limbs_range_constraint_3[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.p_y_low_limbs_range_constraint_4[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.p_y_low_limbs_range_constraint_tail[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.p_y_high_limbs_range_constraint_0[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.p_y_high_limbs_range_constraint_1[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.p_y_high_limbs_range_constraint_2[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.p_y_high_limbs_range_constraint_3[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.p_y_high_limbs_range_constraint_4[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.p_y_high_limbs_range_constraint_tail[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.z_lo_limbs_range_constraint_0[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.z_lo_limbs_range_constraint_1[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.z_lo_limbs_range_constraint_2[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.z_lo_limbs_range_constraint_3[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.z_lo_limbs_range_constraint_4[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.z_lo_limbs_range_constraint_tail[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.z_hi_limbs_range_constraint_0[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.z_hi_limbs_range_constraint_1[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.z_hi_limbs_range_constraint_2[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.z_hi_limbs_range_constraint_3[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.z_hi_limbs_range_constraint_4[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.z_hi_limbs_range_constraint_tail[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.accumulator_lo_limbs_range_constraint_0[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.accumulator_lo_limbs_range_constraint_1[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.accumulator_lo_limbs_range_constraint_2[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.accumulator_lo_limbs_range_constraint_3[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.accumulator_lo_limbs_range_constraint_4[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.accumulator_lo_limbs_range_constraint_tail[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.accumulator_hi_limbs_range_constraint_0[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.accumulator_hi_limbs_range_constraint_1[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.accumulator_hi_limbs_range_constraint_2[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.accumulator_hi_limbs_range_constraint_3[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.accumulator_hi_limbs_range_constraint_4[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.accumulator_hi_limbs_range_constraint_tail[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.quotient_lo_limbs_range_constraint_0[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.quotient_lo_limbs_range_constraint_1[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.quotient_lo_limbs_range_constraint_2[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.quotient_lo_limbs_range_constraint_3[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.quotient_lo_limbs_range_constraint_4[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.quotient_lo_limbs_range_constraint_tail[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.quotient_hi_limbs_range_constraint_0[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.quotient_hi_limbs_range_constraint_1[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.quotient_hi_limbs_range_constraint_2[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.quotient_hi_limbs_range_constraint_3[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.quotient_hi_limbs_range_constraint_4[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.quotient_hi_limbs_range_constraint_tail[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.relation_wide_limbs_range_constraint_0[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.relation_wide_limbs_range_constraint_1[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.relation_wide_limbs_range_constraint_2[i] =
+            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        prover_polynomials.relation_wide_limbs_range_constraint_tail[i] =
             engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
     }
-    // prover_polynomials.concatenated_range_constraints_0 = temporary_polynomial;
-    // prover_polynomials.concatenated_range_constraints_1 = temporary_polynomial;
-    // prover_polynomials.concatenated_range_constraints_2 = temporary_polynomial;
-    // prover_polynomials.concatenated_range_constraints_3 = temporary_polynomial;
-    // prover_polynomials.ordered_range_constraints_0 = temporary_polynomial;
-    // prover_polynomials.ordered_range_constraints_1 = temporary_polynomial;
-    // prover_polynomials.ordered_range_constraints_2 = temporary_polynomial;
-    // prover_polynomials.ordered_range_constraints_3 = temporary_polynomial;
-    // prover_polynomials.ordered_extra_range_constraints_numerator = temporary_polynomial;
-    // prover_polynomials.ordered_range_constraints_4 = temporary_polynomial;
-    // prover_polynomials.z_perm = temporary_polynomial;
-    // prover_polynomials.z_perm_shift = temporary_polynomial;
 
-    // Compute grand product polynomials for permutation + lookup
     compute_goblin_translator_range_constraint_ordered_polynomials<Flavor>(&prover_polynomials);
     compute_extra_range_constraint_numerator<Flavor>(&prover_polynomials);
-    grand_product_library::compute_grand_product<Flavor, sumcheck::GoblinPermutationRelation<FF>>(
+    compute_concatenated_polynomials<Flavor>(&prover_polynomials);
+    grand_product_library::compute_grand_product<Flavor, sumcheck::GoblinTranslatorPermutationRelation<FF>>(
         circuit_size, prover_polynomials, params);
     prover_polynomials.z_perm_shift = polynomial_container[Flavor::ALL_ENTITIES_IDS::Z_PERM].shifted();
-    // for (size_t i = 0; i < circuit_size; i++) {
-    //     info(i, " : ", prover_polynomials.ordered_extra_range_constraints_numerator[i]);
-    // }
     // Construct the round for applying sumcheck relations and results for storing computed results
-    auto relations = std::tuple(honk::sumcheck::GoblinPermutationRelation<FF>());
+    auto relations = std::tuple(honk::sumcheck::GoblinTranslatorPermutationRelation<FF>());
     // Check that each relation is satisfied across each row of the prover polynomials
     check_relation<Flavor>(std::get<0>(relations), circuit_size, prover_polynomials, params);
 }
+TEST_F(RelationCorrectnessTests, GoblinTranslatorGenPermSortRelationCorrectness)
+{
+    using Flavor = honk::flavor::GoblinTranslatorBasic;
+    using FF = typename Flavor::FF;
+    using ProverPolynomials = typename Flavor::ProverPolynomials;
+    auto& engine = numeric::random::get_debug_engine();
+    // Create a prover (it will compute proving key and witness)
+    const auto circuit_size = Flavor::MINI_CIRCUIT_SIZE * Flavor::CONCATENATION_INDEX;
+    const auto sort_step = Flavor::SORT_STEP;
+    const auto max_value = (1 << Flavor::MICRO_LIMB_BITS) - 1;
+    // Compute public input delta
+    sumcheck::RelationParameters<FF> params{
+        .eta = 0,
+        .beta = 0,
+        .gamma = 0,
+        .public_input_delta = 0,
+        .lookup_grand_product_delta = 0,
+    };
+    // Compute sorted witness-table accumulator
+    ProverPolynomials prover_polynomials;
+    std::vector<Polynomial<FF>> polynomial_container;
+    for (size_t i = 0; i < prover_polynomials.size(); i++) {
+        Polynomial<FF> temporary_polynomial(circuit_size);
+        polynomial_container.push_back(temporary_polynomial);
+        prover_polynomials[i] = polynomial_container[i];
+    }
+    prover_polynomials.lagrange_first[0] = 1;
+    prover_polynomials.lagrange_last[circuit_size - 1] = 1;
+    auto sorted_elements_count = (max_value / sort_step) + 1;
+    std::vector<uint64_t> vector_for_sorting(circuit_size);
+    for (size_t i = 0; i < sorted_elements_count - 1; i++) {
+        vector_for_sorting[i] = i * sort_step;
+    }
+    vector_for_sorting[sorted_elements_count - 1] = max_value;
+    for (size_t i = sorted_elements_count; i < circuit_size; i++) {
+        vector_for_sorting[i] = engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+    }
 
+    auto polynomial_pointers = std::vector{ &prover_polynomials.ordered_range_constraints_0,
+                                            &prover_polynomials.ordered_range_constraints_1,
+                                            &prover_polynomials.ordered_range_constraints_2,
+                                            &prover_polynomials.ordered_range_constraints_3,
+                                            &prover_polynomials.ordered_range_constraints_4 };
+    std::sort(vector_for_sorting.begin(), vector_for_sorting.end());
+    std::transform(vector_for_sorting.cbegin(),
+                   vector_for_sorting.cend(),
+                   prover_polynomials.ordered_range_constraints_0.begin(),
+                   [](uint64_t in) { return FF(in); });
+    parallel_for(4, [&](size_t i) {
+        std::copy(prover_polynomials.ordered_range_constraints_0.begin(),
+                  prover_polynomials.ordered_range_constraints_0.end(),
+                  polynomial_pointers[i + 1]->begin());
+    });
+    prover_polynomials.ordered_range_constraints_0_shift =
+        polynomial_container[Flavor::ORDERED_RANGE_CONSTRAINTS_0].shifted();
+    prover_polynomials.ordered_range_constraints_1_shift =
+        polynomial_container[Flavor::ORDERED_RANGE_CONSTRAINTS_1].shifted();
+    prover_polynomials.ordered_range_constraints_2_shift =
+        polynomial_container[Flavor::ORDERED_RANGE_CONSTRAINTS_2].shifted();
+    prover_polynomials.ordered_range_constraints_3_shift =
+        polynomial_container[Flavor::ORDERED_RANGE_CONSTRAINTS_3].shifted();
+    prover_polynomials.ordered_range_constraints_4_shift =
+        polynomial_container[Flavor::ORDERED_RANGE_CONSTRAINTS_4].shifted();
+    // Construct the round for applying sumcheck relations and results for storing computed results
+    auto relations = std::tuple(honk::sumcheck::GoblinTranslatorGenPermSortRelation<FF>());
+    // Check that each relation is satisfied across each row of the prover polynomials
+    check_relation<Flavor>(std::get<0>(relations), circuit_size, prover_polynomials, params);
+}
 } // namespace test_honk_relations

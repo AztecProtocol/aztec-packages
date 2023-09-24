@@ -210,7 +210,7 @@ template <typename FF> class UltraPermutationRelationBase {
     };
 };
 
-template <typename FF> class GoblinPermutationRelationBase {
+template <typename FF> class GoblinTranslatorPermutationRelationBase {
   public:
     // 1 + polynomial degree of this relation
     static constexpr size_t RELATION_LENGTH = 7;
@@ -314,5 +314,6 @@ template <typename FF> using PermutationRelation = RelationWrapper<FF, Permutati
 
 template <typename FF> using UltraPermutationRelation = RelationWrapper<FF, UltraPermutationRelationBase>;
 
-template <typename FF> using GoblinPermutationRelation = RelationWrapper<FF, GoblinPermutationRelationBase>;
+template <typename FF>
+using GoblinTranslatorPermutationRelation = RelationWrapper<FF, GoblinTranslatorPermutationRelationBase>;
 } // namespace proof_system::honk::sumcheck

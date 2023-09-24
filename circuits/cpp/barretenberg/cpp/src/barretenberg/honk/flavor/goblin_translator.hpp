@@ -263,9 +263,10 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
     static constexpr size_t NUM_WITNESS_ENTITIES =
         ALL_ENTITIES_IDS::TOTAL_COUNT - (ALL_ENTITIES_IDS::Z_PERM_SHIFT - ALL_ENTITIES_IDS::Z_PERM);
 
-    using GrandProductRelations = std::tuple<sumcheck::GoblinPermutationRelation<FF>>;
+    using GrandProductRelations = std::tuple<sumcheck::GoblinTranslatorPermutationRelation<FF>>;
     // define the tuple of Relations that comprise the Sumcheck relation
-    using Relations = std::tuple<sumcheck::TranslatorGenPermSortRelation<FF>, sumcheck::GoblinPermutationRelation<FF>>;
+    using Relations = std::tuple<sumcheck::GoblinTranslatorGenPermSortRelation<FF>,
+                                 sumcheck::GoblinTranslatorPermutationRelation<FF>>;
 
     static constexpr size_t MAX_RELATION_LENGTH = get_max_relation_length<Relations>();
 
@@ -859,7 +860,13 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
                      ordered_range_constraints_3,
                      ordered_range_constraints_4 };
         };
-
+        std::vector<HandleType> get_concatenation_targets()
+        {
+            return { concatenated_range_constraints_0,
+                     concatenated_range_constraints_1,
+                     concatenated_range_constraints_2,
+                     concatenated_range_constraints_3 };
+        }
         std::vector<std::vector<HandleType>> get_concatenation_groups()
         {
             return {
@@ -944,12 +951,13 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
                      concatenated_range_constraints_2,
                      concatenated_range_constraints_3 };
         };
-        std::vector<HandleType> get_ordered_concatenated_constraints()
+        std::vector<HandleType> get_ordered_constraints()
         {
             return { ordered_range_constraints_0,
                      ordered_range_constraints_1,
                      ordered_range_constraints_2,
-                     ordered_range_constraints_3 };
+                     ordered_range_constraints_3,
+                     ordered_range_constraints_4 };
         };
 
         // Gemini-specific getters.

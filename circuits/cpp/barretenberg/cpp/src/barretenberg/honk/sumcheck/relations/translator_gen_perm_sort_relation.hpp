@@ -8,7 +8,7 @@
 
 namespace proof_system::honk::sumcheck {
 
-template <typename FF> class TranslatorGenPermSortRelationBase {
+template <typename FF> class GoblinTranslatorGenPermSortRelationBase {
   public:
     // 1 + polynomial degree of this relation
     static constexpr size_t RELATION_LENGTH = 6; // degree((LAGRANGE_LAST-1)D(D - 1)(D - 2)(D - 3)) = 5
@@ -138,6 +138,7 @@ template <typename FF> class TranslatorGenPermSortRelationBase {
 }
 ;
 
-template <typename FF> using TranslatorGenPermSortRelation = RelationWrapper<FF, TranslatorGenPermSortRelationBase>;
+template <typename FF>
+using GoblinTranslatorGenPermSortRelation = RelationWrapper<FF, GoblinTranslatorGenPermSortRelationBase>;
 
 } // namespace proof_system::honk::sumcheck
