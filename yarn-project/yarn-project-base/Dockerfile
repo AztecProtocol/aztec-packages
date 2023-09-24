@@ -36,12 +36,12 @@
 # That's all we want to do here r.e. dependency installation. In yarn-project we will:
 #  - Copy in the rest of the workspace files.
 #  - Perform any code generation steps that require the workspace code (generate L2 contract wrappers).
-#  - Builds all the code, and runs formatting checks.
+#  - Build all the code, and runs formatting checks.
 #  - Enable yarn pnp by replacing .yarnrc.yml with .yarnrc.prod.yml.
 #  - Perform a final yarn install to remove all node_modules folders and generate .pnp.cjs etc.
 #  - Create the final slim yarn-project image by copying /usr/src into a fresh image.
 #
-# When we build a downstream docker images, we:
+# When we build a downstream docker image, we:
 #  - Do any project specific work in a "builder" stage.
 #  - Erase the local cache with a `yarn cache clean`. Files will remain in global cache due to hard link.
 #  - Do a `yarn workspaces focus --production` to install production dependencies from the global to local cache.

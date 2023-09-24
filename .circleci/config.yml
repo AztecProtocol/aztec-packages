@@ -253,7 +253,7 @@ jobs:
 
   bb-js:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     resource_class: large
     steps:
       - *checkout
@@ -365,7 +365,7 @@ jobs:
 
   l1-contracts:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     resource_class: large
     steps:
       - *checkout
@@ -376,7 +376,7 @@ jobs:
 
   noir-contracts-build:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     resource_class: large
     steps:
       - *checkout
@@ -387,7 +387,7 @@ jobs:
 
   yarn-project-base:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     resource_class: large
     steps:
       - *checkout
@@ -409,7 +409,7 @@ jobs:
 
   aztec-sandbox-base:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     resource_class: large
     steps:
       - *checkout
@@ -420,7 +420,7 @@ jobs:
 
   aztec-sandbox-x86_64:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     resource_class: large
     steps:
       - *checkout
@@ -431,7 +431,7 @@ jobs:
 
   aztec-sandbox-arm64:
     machine:
-      image: ubuntu-2204:2023.07.1
+      image: ubuntu-2204:2023.07.2
     resource_class: arm.large
     steps:
       - *checkout
@@ -446,7 +446,7 @@ jobs:
 
   aztec-sandbox-ecr-manifest:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     resource_class: large
     steps:
       - *checkout
@@ -457,7 +457,7 @@ jobs:
 
   canary:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     resource_class: large
     steps:
       - *checkout
@@ -468,7 +468,7 @@ jobs:
 
   end-to-end:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     resource_class: large
     steps:
       - *checkout
@@ -479,7 +479,7 @@ jobs:
 
   e2e-2-rpc-servers:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     resource_class: large
     steps:
       - *checkout
@@ -490,7 +490,7 @@ jobs:
 
   e2e-multiple-accounts-1-enc-key:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     resource_class: large
     steps:
       - *checkout
@@ -501,7 +501,7 @@ jobs:
 
   e2e-deploy-contract:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     resource_class: large
     steps:
       - *checkout
@@ -512,7 +512,7 @@ jobs:
 
   e2e-lending-contract:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     resource_class: large
     steps:
       - *checkout
@@ -523,7 +523,7 @@ jobs:
 
   e2e-token-contract:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     resource_class: large
     steps:
       - *checkout
@@ -534,7 +534,7 @@ jobs:
 
   e2e-private-airdrop:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     resource_class: large
     steps:
       - *checkout
@@ -545,7 +545,7 @@ jobs:
 
   e2e-private-token-contract:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     resource_class: large
     steps:
       - *checkout
@@ -556,7 +556,7 @@ jobs:
 
   e2e-sandbox-example:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     steps:
       - *checkout
       - *setup_env
@@ -566,7 +566,7 @@ jobs:
 
   e2e-multi-transfer-contract:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     steps:
       - *checkout
       - *setup_env
@@ -576,7 +576,7 @@ jobs:
 
   e2e-block-building:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     resource_class: large
     steps:
       - *checkout
@@ -587,7 +587,7 @@ jobs:
 
   e2e-nested-contract:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     resource_class: large
     steps:
       - *checkout
@@ -598,7 +598,7 @@ jobs:
 
   e2e-non-contract-account:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     resource_class: large
     steps:
       - *checkout
@@ -609,7 +609,7 @@ jobs:
 
   e2e-cross-chain-messaging:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     resource_class: large
     steps:
       - *checkout
@@ -620,7 +620,7 @@ jobs:
 
   e2e-public-cross-chain-messaging:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     resource_class: large
     steps:
       - *checkout
@@ -631,7 +631,7 @@ jobs:
 
   e2e-public-to-private-messaging:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     resource_class: large
     steps:
       - *checkout
@@ -642,7 +642,7 @@ jobs:
 
   e2e-account-contracts:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     resource_class: large
     steps:
       - *checkout
@@ -653,7 +653,7 @@ jobs:
 
   e2e-escrow-contract:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     steps:
       - *checkout
       - *setup_env
@@ -663,7 +663,7 @@ jobs:
 
   e2e-pending-commitments-contract:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     resource_class: large
     steps:
       - *checkout
@@ -674,7 +674,7 @@ jobs:
 
   e2e-ordering:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     resource_class: large
     steps:
       - *checkout
@@ -685,7 +685,7 @@ jobs:
 
   uniswap-trade-on-l1-from-l2:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     resource_class: large
     steps:
       - *checkout
@@ -696,7 +696,7 @@ jobs:
 
   integration-archiver-l1-to-l2:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     resource_class: large
     steps:
       - *checkout
@@ -707,7 +707,7 @@ jobs:
 
   integration-l1-publisher:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     resource_class: large
     steps:
       - *checkout
@@ -718,7 +718,7 @@ jobs:
 
   e2e-public-token-contract:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     resource_class: large
     steps:
       - *checkout
@@ -729,7 +729,7 @@ jobs:
 
   e2e-cli:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     resource_class: large
     steps:
       - *checkout
@@ -740,7 +740,7 @@ jobs:
 
   e2e-p2p:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     steps:
       - *checkout
       - *setup_env
@@ -750,7 +750,7 @@ jobs:
 
   e2e-browser-sandbox:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     steps:
       - *checkout
       - *setup_env
@@ -760,7 +760,7 @@ jobs:
 
   e2e-card-game:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     steps:
       - *checkout
       - *setup_env
@@ -770,7 +770,7 @@ jobs:
 
   aztec-rpc-sandbox:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     steps:
       - *checkout
       - *setup_env
@@ -780,7 +780,7 @@ jobs:
 
   cli-docs-sandbox:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     steps:
       - *checkout
       - *setup_env
@@ -790,7 +790,7 @@ jobs:
 
   guides-writing-an-account-contract:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     resource_class: large
     steps:
       - *checkout
@@ -801,7 +801,7 @@ jobs:
 
   guides-dapp-testing:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     steps:
       - *checkout
       - *setup_env
@@ -811,7 +811,7 @@ jobs:
 
   guides-sample-dapp:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     steps:
       - *checkout
       - *setup_env
@@ -821,7 +821,7 @@ jobs:
 
   guides-up-quick-start:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     steps:
       - *checkout
       - *setup_env
@@ -831,7 +831,7 @@ jobs:
 
   e2e-canary-test:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     steps:
       - *checkout
       - *setup_env
@@ -841,7 +841,7 @@ jobs:
 
   build-docs:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     resource_class: large
     steps:
       - *checkout
@@ -873,7 +873,7 @@ jobs:
 
   deploy-npm:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     resource_class: medium
     steps:
       - *checkout
@@ -998,7 +998,7 @@ jobs:
 
   deploy-dockerhub:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     resource_class: medium
     steps:
       - *checkout
@@ -1024,7 +1024,7 @@ jobs:
 
   build-deployment-canary:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     resource_class: large
     steps:
       - *checkout
@@ -1035,7 +1035,7 @@ jobs:
 
   run-deployment-canary-uniswap:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     resource_class: large
     steps:
       - *checkout
@@ -1046,7 +1046,7 @@ jobs:
 
   run-deployment-canary-browser:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     resource_class: large
     steps:
       - *checkout
@@ -1057,7 +1057,7 @@ jobs:
 
   run-deployment-canary-cli:
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2204:2023.07.2
     resource_class: large
     steps:
       - *checkout
