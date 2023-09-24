@@ -22,7 +22,6 @@
 set -e
 
 PROJECT_NAME=${1:-}
-# COMMIT_HASH=$(git rev-parse HEAD)
 
 if [ -z "$PROJECT_NAME" ]; then
   echo "usage: $0 <project_name>"
