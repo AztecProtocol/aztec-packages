@@ -57,11 +57,6 @@ describe('e2e_p2p_network', () => {
     const contexts: NodeContext[] = [];
     for (let i = 0; i < NUM_NODES; i++) {
       const node = await createNode(i + 1 + BOOT_NODE_TCP_PORT, bootstrapNodeAddress);
-      await new Promise<void>(resolve =>
-        setTimeout(() => {
-          resolve();
-        }, 100000),
-      );
       const context = await createAztecRpcServerAndSubmitTransactions(node, NUM_TXS_PER_NODE);
       contexts.push(context);
     }
