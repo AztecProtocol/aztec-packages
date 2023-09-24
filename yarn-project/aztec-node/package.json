@@ -40,6 +40,8 @@
     "@aztec/sequencer-client": "workspace:^",
     "@aztec/types": "workspace:^",
     "@aztec/world-state": "workspace:^",
+    "levelup": "^5.1.1",
+    "memdown": "^6.1.1",
     "tslib": "^2.4.0"
   },
   "devDependencies": {

@@ -1,16 +1,16 @@
 {
   "name": "@aztec/aztec3-packages",
-  "packageManager": "yarn@3.4.1",
+  "packageManager": "yarn@3.6.3",
   "private": true,
   "scripts": {
     "prepare": "node ./yarn-project-base/scripts/update_package_jsons.mjs && yarn workspaces foreach run prepare && workspaces-to-typescript-project-references --tsconfigPath tsconfig.json && prettier -w */tsconfig.json",
     "prepare:check": "node ./yarn-project-base/scripts/update_package_jsons.mjs --check && workspaces-to-typescript-project-references --check --tsconfigPath tsconfig.json",
     "docs": "typedoc --out docs/dist && cd docs && yarn serve",
-    "formatting": "yarn workspaces foreach -p -v run formatting",
+    "formatting": "yarn workspaces foreach -p -j unlimited -v run formatting",
     "formatting:fix": "yarn workspaces foreach -p -v run formatting:fix",
     "lint": "yarn eslint --cache --ignore-pattern l1-artifacts .",
     "format": "yarn prettier --cache -w .",
-    "test": "yarn workspaces foreach --exclude @aztec/aztec3-packages --exclude @aztec/end-to-end --exclude @aztec/canary --exclude private-token -p -v run test",
+    "test": "yarn workspaces foreach --exclude @aztec/aztec3-packages --exclude @aztec/end-to-end --exclude @aztec/canary --exclude private-token -p -j unlimited -v run test",
     "build": "yarn workspace @aztec/l1-artifacts build && tsc -b tsconfig.json",
     "build:dev": "yarn workspace @aztec/l1-artifacts build && tsc -b tsconfig.json --watch",
     "clean": "yarn workspaces foreach -p -v run clean"
