@@ -416,7 +416,7 @@ jobs:
       - *setup_env
       - run:
           name: Build
-          command: cond_spot_run_script yarn-project 64 cond_run_container yarn-project test | add_timestamps
+          command: cond_spot_run_container yarn-project 64 test | add_timestamps
 
   aztec-sandbox-base:
     machine:
