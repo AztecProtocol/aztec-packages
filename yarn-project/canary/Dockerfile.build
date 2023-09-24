@@ -1,4 +1,5 @@
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project AS builder
+WORKDIR /usr/src/yarn-project/canary
 # Prune dev dependencies. See comment in yarn-project-base/Dockerfile.
 RUN yarn cache clean && yarn workspaces focus --production > /dev/null && rm -rf /usr/src/.yarn
 
