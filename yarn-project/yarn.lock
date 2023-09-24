@@ -152,6 +152,7 @@ __metadata:
   dependencies:
     "@aztec/acir-simulator": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
+    "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/key-store": "workspace:^"
     "@aztec/noir-compiler": "workspace:^"
@@ -176,6 +177,8 @@ __metadata:
     tslib: ^2.4.0
     typescript: ^5.0.4
     viem: ^1.2.5
+  bin:
+    aztec-rpc: ./dest/bin/index.js
   languageName: unknown
   linkType: soft
 

@@ -19,7 +19,6 @@ import { CompleteAddress, ContractData, L2BlockL2Logs, TxHash } from '@aztec/typ
 
 import { Command } from 'commander';
 import { readFileSync } from 'fs';
-import startCase from 'lodash.startcase';
 import { dirname, resolve } from 'path';
 import { mnemonicToAccount } from 'viem/accounts';
 
