@@ -64,7 +64,7 @@ void prove_and_verify(auto& circuit_constructor, auto& composer, bool expected_r
     //     add_to_denominator(proving_key->ordered_range_constraints_1, i);
     //     add_to_denominator(proving_key->ordered_range_constraints_2, i);
     //     add_to_denominator(proving_key->ordered_range_constraints_3, i);
-    //     add_to_denominator(proving_key->ordered_extra_range_constraints_denominator, i);
+    //     add_to_denominator(proving_key->ordered_range_constraints_4, i);
     //     add_to_numerator(proving_key->ordered_extra_range_constraints_numerator, i);
     // }
     // for (size_t i = 0; i < (1 << 12); i++) {

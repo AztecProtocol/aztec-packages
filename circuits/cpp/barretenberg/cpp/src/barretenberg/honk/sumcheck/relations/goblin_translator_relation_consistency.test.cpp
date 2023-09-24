@@ -216,8 +216,7 @@ TEST_F(GoblinTranslatorRelationConsistency, PermutationRelation)
         const auto& w_ordered_range_constraints_3 = extended_edges.ordered_range_constraints_3;
         const auto& w_ordered_extra_range_constraints_numerator =
             extended_edges.ordered_extra_range_constraints_numerator;
-        const auto& w_ordered_extra_range_constraints_denominator =
-            extended_edges.ordered_extra_range_constraints_denominator;
+        const auto& w_ordered_range_constraints_4 = extended_edges.ordered_range_constraints_4;
         const auto& z_perm = extended_edges.z_perm;
         const auto& z_perm_shift = extended_edges.z_perm_shift;
         const auto& lagrange_first = extended_edges.lagrange_first;
@@ -233,7 +232,7 @@ TEST_F(GoblinTranslatorRelationConsistency, PermutationRelation)
                 (w_concatenated_range_constraints_3 + gamma) * (w_ordered_extra_range_constraints_numerator + gamma) -
             (z_perm_shift + lagrange_last) * (w_ordered_range_constraints_0 + gamma) *
                 (w_ordered_range_constraints_1 + gamma) * (w_ordered_range_constraints_2 + gamma) *
-                (w_ordered_range_constraints_3 + gamma) * (w_ordered_extra_range_constraints_denominator + gamma);
+                (w_ordered_range_constraints_3 + gamma) * (w_ordered_range_constraints_4 + gamma);
         expected_full_length_univariates[1] = z_perm_shift * lagrange_last;
 
         validate_evaluations(expected_full_length_univariates, relation, extended_edges, relation_parameters);

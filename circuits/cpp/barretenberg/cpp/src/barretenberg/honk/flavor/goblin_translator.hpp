@@ -7,9 +7,9 @@
 #include "barretenberg/honk/sumcheck/polynomials/univariate.hpp"
 #include "barretenberg/honk/sumcheck/relations/auxiliary_relation.hpp"
 #include "barretenberg/honk/sumcheck/relations/elliptic_relation.hpp"
-#include "barretenberg/honk/sumcheck/relations/gen_perm_sort_relation.hpp"
 #include "barretenberg/honk/sumcheck/relations/lookup_relation.hpp"
 #include "barretenberg/honk/sumcheck/relations/permutation_relation.hpp"
+#include "barretenberg/honk/sumcheck/relations/translator_gen_perm_sort_relation.hpp"
 #include "barretenberg/honk/sumcheck/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/honk/transcript/transcript.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
@@ -128,7 +128,7 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
         ORDERED_RANGE_CONSTRAINTS_1,
         ORDERED_RANGE_CONSTRAINTS_2,
         ORDERED_RANGE_CONSTRAINTS_3,
-        ORDERED_EXTRA_RANGE_CONSTRAINTS_DENOMINATOR,
+        ORDERED_RANGE_CONSTRAINTS_4,
         Z_PERM,
         /*All the shift stuff*/
         X_LO_Y_HI_SHIFT,
@@ -211,6 +211,12 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
         RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_1_SHIFT,
         RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_2_SHIFT,
         RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_TAIL_SHIFT,
+        ORDERED_RANGE_CONSTRAINTS_0_SHIFT,
+        ORDERED_RANGE_CONSTRAINTS_1_SHIFT,
+        ORDERED_RANGE_CONSTRAINTS_2_SHIFT,
+        ORDERED_RANGE_CONSTRAINTS_3_SHIFT,
+        ORDERED_RANGE_CONSTRAINTS_4_SHIFT,
+
         Z_PERM_SHIFT,
         /*All precomputed stuff*/
         LAGRANGE_FIRST,
@@ -259,7 +265,7 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
 
     using GrandProductRelations = std::tuple<sumcheck::GoblinPermutationRelation<FF>>;
     // define the tuple of Relations that comprise the Sumcheck relation
-    using Relations = std::tuple<sumcheck::GoblinPermutationRelation<FF>>;
+    using Relations = std::tuple<sumcheck::TranslatorGenPermSortRelation<FF>, sumcheck::GoblinPermutationRelation<FF>>;
 
     static constexpr size_t MAX_RELATION_LENGTH = get_max_relation_length<Relations>();
 
@@ -389,7 +395,7 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
         DataType& ordered_range_constraints_1 = std::get<86>(this->_data);
         DataType& ordered_range_constraints_2 = std::get<87>(this->_data);
         DataType& ordered_range_constraints_3 = std::get<88>(this->_data);
-        DataType& ordered_extra_range_constraints_denominator = std::get<89>(this->_data);
+        DataType& ordered_range_constraints_4 = std::get<89>(this->_data);
         DataType& z_perm = std::get<90>(this->_data);
 
         std::vector<HandleType> get_wires() override
@@ -479,7 +485,7 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
                      ordered_range_constraints_1,
                      ordered_range_constraints_2,
                      ordered_range_constraints_3,
-                     ordered_extra_range_constraints_denominator };
+                     ordered_range_constraints_4 };
         };
 
         std::vector<HandleType> get_concatenation_targets()
@@ -669,7 +675,7 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
         DataType& ordered_range_constraints_1 = std::get<86>(this->_data);
         DataType& ordered_range_constraints_2 = std::get<87>(this->_data);
         DataType& ordered_range_constraints_3 = std::get<88>(this->_data);
-        DataType& ordered_extra_range_constraints_denominator = std::get<89>(this->_data);
+        DataType& ordered_range_constraints_4 = std::get<89>(this->_data);
         DataType& z_perm = std::get<90>(this->_data);
         DataType& x_lo_y_hi_shift = std::get<91>(this->_data);
         DataType& x_hi_z_1_shift = std::get<92>(this->_data);
@@ -751,12 +757,17 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
         DataType& relation_wide_limbs_range_constraint_1_shift = std::get<168>(this->_data);
         DataType& relation_wide_limbs_range_constraint_2_shift = std::get<169>(this->_data);
         DataType& relation_wide_limbs_range_constraint_tail_shift = std::get<170>(this->_data);
-        DataType& z_perm_shift = std::get<171>(this->_data);
-        DataType& lagrange_first = std::get<172>(this->_data);
-        DataType& lagrange_last = std::get<173>(this->_data);
-        DataType& lagrange_odd = std::get<174>(this->_data);
-        DataType& lagrange_even = std::get<175>(this->_data);
-        DataType& ordered_extra_range_constraints_numerator = std::get<176>(this->_data);
+        DataType& ordered_range_constraints_0_shift = std::get<171>(this->_data);
+        DataType& ordered_range_constraints_1_shift = std::get<172>(this->_data);
+        DataType& ordered_range_constraints_2_shift = std::get<173>(this->_data);
+        DataType& ordered_range_constraints_3_shift = std::get<174>(this->_data);
+        DataType& ordered_range_constraints_4_shift = std::get<175>(this->_data);
+        DataType& z_perm_shift = std::get<176>(this->_data);
+        DataType& lagrange_first = std::get<177>(this->_data);
+        DataType& lagrange_last = std::get<178>(this->_data);
+        DataType& lagrange_odd = std::get<179>(this->_data);
+        DataType& lagrange_even = std::get<180>(this->_data);
+        DataType& ordered_extra_range_constraints_numerator = std::get<181>(this->_data);
 
         std::vector<HandleType> get_wires() override
         {
@@ -846,7 +857,7 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
                      ordered_range_constraints_1,
                      ordered_range_constraints_2,
                      ordered_range_constraints_3,
-                     ordered_extra_range_constraints_denominator };
+                     ordered_range_constraints_4 };
         };
 
         std::vector<std::vector<HandleType>> get_concatenation_groups()
@@ -1030,7 +1041,7 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
                 ordered_range_constraints_1,
                 ordered_range_constraints_2,
                 ordered_range_constraints_3,
-                ordered_extra_range_constraints_denominator,
+                ordered_range_constraints_4,
                 z_perm,
 
                 lagrange_first,
@@ -1124,6 +1135,12 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
                 relation_wide_limbs_range_constraint_1,
                 relation_wide_limbs_range_constraint_2,
                 relation_wide_limbs_range_constraint_tail,
+                ordered_range_constraints_0,
+                ordered_range_constraints_1,
+                ordered_range_constraints_2,
+                ordered_range_constraints_3,
+                ordered_range_constraints_4,
+
                 z_perm,
             };
         };
@@ -1210,6 +1227,12 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
                 relation_wide_limbs_range_constraint_1_shift,
                 relation_wide_limbs_range_constraint_2_shift,
                 relation_wide_limbs_range_constraint_tail_shift,
+                ordered_range_constraints_0_shift,
+                ordered_range_constraints_1_shift,
+                ordered_range_constraints_2_shift,
+                ordered_range_constraints_3_shift,
+                ordered_range_constraints_4_shift,
+
                 z_perm_shift,
             };
         };
@@ -1449,7 +1472,7 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
             this->ordered_range_constraints_1 = "ORDERED_RANGE_CONSTRAINTS_1";
             this->ordered_range_constraints_2 = "ORDERED_RANGE_CONSTRAINTS_2";
             this->ordered_range_constraints_3 = "ORDERED_RANGE_CONSTRAINTS_3";
-            this->ordered_extra_range_constraints_denominator = "ORDERED_EXTRA_RANGE_CONSTRAINTS_DENOMINATOR";
+            this->ordered_range_constraints_4 = "ORDERED_RANGE_CONSTRAINTS_4";
             this->z_perm = "Z_PERM";
             this->x_lo_y_hi_shift = "X_LO_Y_HI_SHIFT";
             this->x_hi_z_1_shift = "X_HI_Z_1_SHIFT";

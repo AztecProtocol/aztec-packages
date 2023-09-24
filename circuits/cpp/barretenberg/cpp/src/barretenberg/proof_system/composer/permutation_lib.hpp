@@ -535,42 +535,50 @@ template <typename Flavor> inline void compute_first_and_last_lagrange_polynomia
 /**
  * @brief Compute the extra numerator for Goblin range constraint argument
  *
+ * @details Goblin proves that several polynomials contain only values in a certain range through 2 relations:
+ * 1) A grand product
+ * 2) A relation enforcing a range on the polynomial
+ *
+ * We take the values from 4 polynomials, and spread them into 5 polynomials + add all the steps from MAX_VALUE to 0. We
+ * order these polynomials and use them in the denominator of the grand product, at the same time checking that they go
+ * from MAX_VALUE to 0. To counteract the added steps we also generate an extra range constraint numerator, which
+ * contains 5 MAX_VALUE, 5 (MAX_VALUE-STEP),... values
+ *
  * @param key Proving key where we will save the polynomials
  */
 template <typename Flavor> inline void compute_extra_range_constraint_numerator(auto proving_key)
 {
 
+    // Get the full goblin circuits size (this is the length of concatenated range constraint polynomials)
     auto full_circuit_size = Flavor::FULL_CIRCUIT_SIZE;
-    auto& extra_range_constraint_numerator = proving_key->ordered_extra_range_constraints_numerator;
-
     auto sort_step = Flavor::SORT_STEP;
     auto num_concatenated_wires = Flavor::NUM_CONCATENATED_WIRES;
 
+    auto& extra_range_constraint_numerator = proving_key->ordered_extra_range_constraints_numerator;
+
     uint32_t MAX_VALUE = (1 << Flavor::MICRO_LIMB_BITS) - 1;
+    // Calculate how many elements there are in the sequence MAX_VALUE, MAX_VALUE - 3,...,0
     size_t sorted_elements_count = (MAX_VALUE / sort_step) + 1 + (MAX_VALUE % sort_step == 0 ? 0 : 1);
+
+    // Check that we can fit every element in the polynomial
     ASSERT((num_concatenated_wires + 1) * sorted_elements_count < full_circuit_size);
 
     std::vector<size_t> sorted_elements(sorted_elements_count);
 
+    // Calculate the sequence in integers
     sorted_elements[0] = MAX_VALUE;
     for (size_t i = 1; i < sorted_elements_count; i++) {
         sorted_elements[i] = (sorted_elements_count - 1 - i) * sort_step;
     }
-    using FF = typename Flavor::FF;
 
-    std::transform(sorted_elements.cbegin(),
-                   sorted_elements.cend(),
-                   extra_range_constraint_numerator.begin(),
-                   [](size_t i) { return FF(i); });
-    auto read_end_offset = extra_range_constraint_numerator.begin();
-    std::advance(read_end_offset, sorted_elements_count);
-    for (size_t i = 1; i < (num_concatenated_wires + 1); i++) {
-
-        auto starting_write_offset = extra_range_constraint_numerator.begin();
-        std::advance(starting_write_offset, i * sorted_elements_count);
-
-        std::copy(extra_range_constraint_numerator.begin(), read_end_offset, starting_write_offset);
-    }
+    // TODO(kesha): can be parallelized further. This will use at most 5 threads
+    auto fill_with_shift = [&](size_t shift) {
+        for (size_t i = 0; i < sorted_elements_count; i++) {
+            extra_range_constraint_numerator[shift + i * (num_concatenated_wires + 1)] = sorted_elements[i];
+        }
+    };
+    // Fill polynomials with a sequence, where each element is repeated num_concatenated_wires+1 times
+    parallel_for(num_concatenated_wires + 1, fill_with_shift);
 }
 
 /**
@@ -699,7 +707,7 @@ void compute_goblin_translator_range_constraint_ordered_polynomials(StorageHandl
                                                        &proving_key->ordered_range_constraints_1,
                                                        &proving_key->ordered_range_constraints_2,
                                                        &proving_key->ordered_range_constraints_3 };
-    std::vector<size_t> extra_denominator_uint((num_concatenated_wires + 1) * sorted_elements_count);
+    std::vector<size_t> extra_denominator_uint(full_circuit_size);
     auto concatenation_groups = proving_key->get_concatenation_groups();
     auto ordering_function = [&](size_t i) {
         auto my_group = concatenation_groups[i];
@@ -722,7 +730,7 @@ void compute_goblin_translator_range_constraint_ordered_polynomials(StorageHandl
         auto starting_write_offset = current_vector.begin();
         std::advance(starting_write_offset, free_space_before_runway);
         std::copy(sorted_elements.cbegin(), sorted_elements.cend(), starting_write_offset);
-        std::sort(current_vector.rbegin(), current_vector.rend());
+        std::sort(current_vector.begin(), current_vector.end());
 
         // ordered_constraint_polynomials[i] = std::move(Polynomial<FF>(full_circuit_size));
         std::transform(current_vector.cbegin(),
@@ -736,14 +744,14 @@ void compute_goblin_translator_range_constraint_ordered_polynomials(StorageHandl
     std::advance(sorted_element_insertion_offset, num_concatenated_wires * sorted_elements_count);
     std::copy(sorted_elements.cbegin(), sorted_elements.cend(), sorted_element_insertion_offset);
 #ifdef NO_TBB
-    std::sort(extra_denominator_uint.rbegin(), extra_denominator_uint.rend());
+    std::sort(extra_denominator_uint.begin(), extra_denominator_uint.end());
 #else
-    std::sort(std::execution::par_unseq, extra_denominator_uint.rbegin(), extra_denominator)yubt.rend());
+    std::sort(std::execution::par_unseq, extra_denominator_uint.begin(), extra_denominator.end());
 #endif
 
     std::transform(extra_denominator_uint.cbegin(),
                    extra_denominator_uint.cend(),
-                   proving_key->ordered_extra_range_constraints_denominator.begin(),
+                   proving_key->ordered_range_constraints_4.begin(),
                    [](uint32_t in) { return FF(in); });
 }
 } // namespace proof_system

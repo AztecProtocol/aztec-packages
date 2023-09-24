@@ -131,7 +131,7 @@ GoblinTranslatorProver_<Flavor>::GoblinTranslatorProver_(std::shared_ptr<typenam
     prover_polynomials.ordered_range_constraints_1 = key->ordered_range_constraints_1;
     prover_polynomials.ordered_range_constraints_2 = key->ordered_range_constraints_2;
     prover_polynomials.ordered_range_constraints_3 = key->ordered_range_constraints_3;
-    prover_polynomials.ordered_extra_range_constraints_denominator = key->ordered_extra_range_constraints_denominator;
+    prover_polynomials.ordered_range_constraints_4 = key->ordered_range_constraints_4;
     prover_polynomials.x_lo_y_hi_shift = key->x_lo_y_hi.shifted();
     prover_polynomials.x_hi_z_1_shift = key->x_hi_z_1.shifted();
     prover_polynomials.y_lo_z_2_shift = key->y_lo_z_2.shifted();
@@ -230,6 +230,11 @@ GoblinTranslatorProver_<Flavor>::GoblinTranslatorProver_(std::shared_ptr<typenam
         key->relation_wide_limbs_range_constraint_2.shifted();
     prover_polynomials.relation_wide_limbs_range_constraint_tail_shift =
         key->relation_wide_limbs_range_constraint_tail.shifted();
+    prover_polynomials.ordered_range_constraints_0_shift = key->ordered_range_constraints_0.shifted();
+    prover_polynomials.ordered_range_constraints_1_shift = key->ordered_range_constraints_1.shifted();
+    prover_polynomials.ordered_range_constraints_2_shift = key->ordered_range_constraints_2.shifted();
+    prover_polynomials.ordered_range_constraints_3_shift = key->ordered_range_constraints_3.shifted();
+    prover_polynomials.ordered_range_constraints_4_shift = key->ordered_range_constraints_4.shifted();
     prover_polynomials.lagrange_first = key->lagrange_first;
     prover_polynomials.lagrange_last = key->lagrange_last;
     prover_polynomials.lagrange_odd = key->lagrange_odd;

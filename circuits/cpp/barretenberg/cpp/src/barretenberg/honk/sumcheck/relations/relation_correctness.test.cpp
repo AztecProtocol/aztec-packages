@@ -608,7 +608,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorPermutationRelationCorrectness)
     // prover_polynomials.ordered_range_constraints_2 = temporary_polynomial;
     // prover_polynomials.ordered_range_constraints_3 = temporary_polynomial;
     // prover_polynomials.ordered_extra_range_constraints_numerator = temporary_polynomial;
-    // prover_polynomials.ordered_extra_range_constraints_denominator = temporary_polynomial;
+    // prover_polynomials.ordered_range_constraints_4 = temporary_polynomial;
     // prover_polynomials.z_perm = temporary_polynomial;
     // prover_polynomials.z_perm_shift = temporary_polynomial;
 

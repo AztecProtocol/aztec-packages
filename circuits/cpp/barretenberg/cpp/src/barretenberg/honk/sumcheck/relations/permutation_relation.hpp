@@ -254,14 +254,13 @@ template <typename FF> class GoblinPermutationRelationBase {
         auto w_ordered_range_constraints_1 = get_view<FF, AccumulatorTypes>(input.ordered_range_constraints_1, index);
         auto w_ordered_range_constraints_2 = get_view<FF, AccumulatorTypes>(input.ordered_range_constraints_2, index);
         auto w_ordered_range_constraints_3 = get_view<FF, AccumulatorTypes>(input.ordered_range_constraints_3, index);
-        auto w_ordered_extra_range_constraints_denominator =
-            get_view<FF, AccumulatorTypes>(input.ordered_extra_range_constraints_denominator, index);
+        auto w_ordered_range_constraints_4 = get_view<FF, AccumulatorTypes>(input.ordered_range_constraints_4, index);
 
         const auto& gamma = relation_parameters.gamma;
 
         return (w_ordered_range_constraints_0 + gamma) * (w_ordered_range_constraints_1 + gamma) *
                (w_ordered_range_constraints_2 + gamma) * (w_ordered_range_constraints_3 + gamma) *
-               (w_ordered_extra_range_constraints_denominator + gamma);
+               (w_ordered_range_constraints_4 + gamma);
     }
     /**
      * @brief Compute contribution of the permutation relation for a given edge (internal function)

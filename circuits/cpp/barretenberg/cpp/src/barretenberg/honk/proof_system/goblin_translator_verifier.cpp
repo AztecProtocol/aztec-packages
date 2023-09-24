@@ -232,8 +232,8 @@ template <typename Flavor> bool GoblinTranslatorVerifier_<Flavor>::verify_proof(
         transcript.template receive_from_prover<Commitment>(commitment_labels.ordered_range_constraints_2);
     commitments.ordered_range_constraints_3 =
         transcript.template receive_from_prover<Commitment>(commitment_labels.ordered_range_constraints_3);
-    commitments.ordered_extra_range_constraints_denominator = transcript.template receive_from_prover<Commitment>(
-        commitment_labels.ordered_extra_range_constraints_denominator);
+    commitments.ordered_range_constraints_4 =
+        transcript.template receive_from_prover<Commitment>(commitment_labels.ordered_range_constraints_4);
 
     // Get permutation challenges
     auto [gamma] = transcript.get_challenges("gamma");
