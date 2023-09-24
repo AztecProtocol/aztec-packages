@@ -13,7 +13,7 @@ import {
   range,
 } from '@aztec/circuits.js';
 import { fr, makeNewContractData, makeProof } from '@aztec/circuits.js/factories';
-import { deployL1Contracts } from '@aztec/ethereum';
+import { L1ContractAddresses, deployL1Contracts } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -137,14 +137,19 @@ describe('L1Publisher integration', () => {
 
     l2Proof = Buffer.alloc(0);
 
+    const l1Contracts = new L1ContractAddresses(
+      EthAddress.fromString(rollupAddress),
+      EthAddress.fromString(registryAddress),
+      EthAddress.fromString(inboxAddress),
+      undefined,
+      EthAddress.fromString(contractDeploymentEmitterAddress),
+    );
+
     publisher = getL1Publisher({
       rpcUrl: config.rpcUrl,
       apiKey: '',
       requiredConfirmations: 1,
-      rollupAddress: EthAddress.fromString(rollupAddress),
-      inboxAddress: EthAddress.fromString(inboxAddress),
-      contractDeploymentEmitterAddress: EthAddress.fromString(contractDeploymentEmitterAddress),
-      registryAddress: EthAddress.fromString(registryAddress),
+      l1Contracts,
       publisherPrivateKey: sequencerPK,
       l1BlockPublishRetryIntervalMS: 100,
     });

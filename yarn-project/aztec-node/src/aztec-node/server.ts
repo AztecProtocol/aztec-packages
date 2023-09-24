@@ -84,7 +84,7 @@ export class AztecNodeService implements AztecNode {
 
     // we identify the P2P transaction protocol by using the rollup contract address.
     // this may well change in future
-    config.transactionProtocol = `/aztec/tx/${config.rollupAddress!.toString()}`;
+    config.transactionProtocol = `/aztec/tx/${config.l1Contracts.rollupAddress!.toString()}`;
 
     // create the tx pool and the p2p client, which will need the l2 block source
     const p2pClient = await createP2PClient(config, new InMemoryTxPool(), archiver);
@@ -129,15 +129,7 @@ export class AztecNodeService implements AztecNode {
    * @returns - The currently deployed L1 contract addresses.
    */
   public getL1ContractAddresses(): Promise<L1ContractAddresses> {
-    const l1Contracts: L1ContractAddresses = {
-      rollupAddress: this.config.rollupAddress,
-      registryAddress: this.config.registryAddress,
-      inboxAddress: this.config.inboxAddress,
-      outboxAddress: this.config.outboxAddress,
-      contractDeploymentEmitterAddress: this.config.contractDeploymentEmitterAddress,
-      decoderHelperAddress: this.config.decoderHelperAddress,
-    };
-    return Promise.resolve(l1Contracts);
+    return Promise.resolve(this.config.l1Contracts);
   }
 
   /**

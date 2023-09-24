@@ -1,7 +1,7 @@
 #!/usr/bin/env -S node --no-warnings
 import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import { EthAddress, createAztecRPCServer, getConfigEnvVars as getRpcConfigEnvVars } from '@aztec/aztec-rpc';
-import { DeployL1Contracts, createEthereumChain, deployL1Contracts } from '@aztec/ethereum';
+import { DeployL1Contracts, L1ContractAddresses, createEthereumChain, deployL1Contracts } from '@aztec/ethereum';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 
@@ -42,15 +42,16 @@ function retrieveL1Contracts(config: AztecNodeConfig, account: Account): Promise
     chain: chain.chainInfo,
     transport: http(chain.rpcUrl),
   });
+  const l1Contracts = new L1ContractAddresses(
+    config.l1Contracts.rollupAddress,
+    EthAddress.fromString(REGISTRY_CONTRACT_ADDRESS),
+    config.l1Contracts.inboxAddress,
+    EthAddress.fromString(OUTBOX_CONTRACT_ADDRESS),
+    config.l1Contracts.contractDeploymentEmitterAddress,
+    undefined,
+  );
   const contracts: DeployL1Contracts = {
-    l1ContractAddresses: {
-      rollupAddress: config.rollupAddress,
-      registryAddress: EthAddress.fromString(REGISTRY_CONTRACT_ADDRESS),
-      inboxAddress: config.inboxAddress,
-      outboxAddress: EthAddress.fromString(OUTBOX_CONTRACT_ADDRESS),
-      contractDeploymentEmitterAddress: config.contractDeploymentEmitterAddress,
-      decoderHelperAddress: undefined,
-    },
+    l1ContractAddresses: l1Contracts,
     walletClient,
     publicClient,
   };
@@ -111,10 +112,11 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
     deployL1Contracts(aztecNodeConfig.rpcUrl, hdAccount, localAnvil, logger),
   );
   aztecNodeConfig.publisherPrivateKey = `0x${Buffer.from(privKey!).toString('hex')}`;
-  aztecNodeConfig.rollupAddress = l1Contracts.l1ContractAddresses.rollupAddress;
-  aztecNodeConfig.contractDeploymentEmitterAddress = l1Contracts.l1ContractAddresses.contractDeploymentEmitterAddress;
-  aztecNodeConfig.inboxAddress = l1Contracts.l1ContractAddresses.inboxAddress;
-  aztecNodeConfig.registryAddress = l1Contracts.l1ContractAddresses.registryAddress;
+  aztecNodeConfig.l1Contracts.rollupAddress = l1Contracts.l1ContractAddresses.rollupAddress;
+  aztecNodeConfig.l1Contracts.contractDeploymentEmitterAddress =
+    l1Contracts.l1ContractAddresses.contractDeploymentEmitterAddress;
+  aztecNodeConfig.l1Contracts.inboxAddress = l1Contracts.l1ContractAddresses.inboxAddress;
+  aztecNodeConfig.l1Contracts.registryAddress = l1Contracts.l1ContractAddresses.registryAddress;
 
   const node = await AztecNodeService.createAndSync(aztecNodeConfig);
   const rpcServer = await createAztecRPCServer(node, rpcConfig);
@@ -140,10 +142,11 @@ export async function createP2PSandbox() {
   const l1Contracts = await waitThenDeploy(aztecNodeConfig, () =>
     retrieveL1Contracts(aztecNodeConfig, privateKeyAccount),
   );
-  aztecNodeConfig.rollupAddress = l1Contracts.l1ContractAddresses.rollupAddress;
-  aztecNodeConfig.contractDeploymentEmitterAddress = l1Contracts.l1ContractAddresses.contractDeploymentEmitterAddress;
-  aztecNodeConfig.inboxAddress = l1Contracts.l1ContractAddresses.inboxAddress;
-  aztecNodeConfig.registryAddress = l1Contracts.l1ContractAddresses.registryAddress;
+  aztecNodeConfig.l1Contracts.rollupAddress = l1Contracts.l1ContractAddresses.rollupAddress;
+  aztecNodeConfig.l1Contracts.contractDeploymentEmitterAddress =
+    l1Contracts.l1ContractAddresses.contractDeploymentEmitterAddress;
+  aztecNodeConfig.l1Contracts.inboxAddress = l1Contracts.l1ContractAddresses.inboxAddress;
+  aztecNodeConfig.l1Contracts.registryAddress = l1Contracts.l1ContractAddresses.registryAddress;
 
   const node = await AztecNodeService.createAndSync(aztecNodeConfig);
   const rpcServer = await createAztecRPCServer(node, rpcConfig);

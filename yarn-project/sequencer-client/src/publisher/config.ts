@@ -3,7 +3,7 @@ import { L1ContractAddresses } from '@aztec/ethereum';
 /**
  * The configuration of the rollup transaction publisher.
  */
-export interface TxSenderConfig extends L1ContractAddresses {
+export interface TxSenderConfig {
   /**
    * The private key to be used by the publisher.
    */
@@ -23,6 +23,11 @@ export interface TxSenderConfig extends L1ContractAddresses {
    * The number of confirmations required.
    */
   requiredConfirmations: number;
+
+  /**
+   * The deployed l1 contract addresses
+   */
+  l1Contracts: L1ContractAddresses;
 }
 
 /**

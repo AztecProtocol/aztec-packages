@@ -492,8 +492,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .action(async options => {
       const client = await createCompatibleClient(options.rpcUrl, debugLogger);
       const info = await client.getNodeInfo();
-      log(`\nNode Info:\n`);
-      Object.entries(info).map(([key, value]) => log(`${startCase(key)}: ${value}`));
+      log(`\nNode Info:\n`, info.toReadableString());
     });
 
   program

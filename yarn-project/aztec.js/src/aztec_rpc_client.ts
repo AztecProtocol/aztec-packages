@@ -6,6 +6,7 @@ import {
   ContractData,
   ExtendedContractData,
   L2BlockL2Logs,
+  NodeInfo,
   NotePreimage,
   Tx,
   TxExecutionRequest,
@@ -32,7 +33,7 @@ export const createAztecRpcClient = (url: string, fetch = makeFetch([1, 2, 3], t
       NotePreimage,
       AuthWitness,
     },
-    { Tx, TxReceipt, L2BlockL2Logs },
+    { Tx, TxReceipt, L2BlockL2Logs, NodeInfo },
     false,
     fetch,
   );

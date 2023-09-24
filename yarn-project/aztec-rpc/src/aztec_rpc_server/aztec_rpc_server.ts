@@ -343,13 +343,7 @@ export class AztecRPCServer implements AztecRPC {
       this.node.getL1ContractAddresses(),
     ]);
 
-    return {
-      sandboxVersion: this.sandboxVersion,
-      compatibleNargoVersion: NoirVersion.tag,
-      chainId,
-      protocolVersion: version,
-      l1ContractAddresses: contractAddresses,
-    };
+    return new NodeInfo(this.sandboxVersion, NoirVersion.tag, chainId, version, contractAddresses);
   }
 
   /**

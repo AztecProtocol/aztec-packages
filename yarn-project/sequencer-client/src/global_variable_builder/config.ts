@@ -3,7 +3,7 @@ import { L1ContractAddresses } from '@aztec/ethereum';
 /**
  * Configuration of the L1GlobalReader.
  */
-export interface GlobalReaderConfig extends L1ContractAddresses {
+export interface GlobalReaderConfig {
   /**
    * The RPC Url of the ethereum host.
    */
@@ -12,4 +12,9 @@ export interface GlobalReaderConfig extends L1ContractAddresses {
    * The API key of the ethereum host.
    */
   apiKey?: string;
+
+  /**
+   * The deployed l1 contract addresses
+   */
+  l1Contracts: L1ContractAddresses;
 }

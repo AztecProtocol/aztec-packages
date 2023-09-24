@@ -1,4 +1,5 @@
 import { AztecAddress, CompleteAddress, EthAddress } from '@aztec/circuits.js';
+import { L1ContractAddresses } from '@aztec/ethereum';
 import { ABIParameterVisibility, ContractAbi, FunctionType } from '@aztec/foundation/abi';
 import {
   DeployedContract,
@@ -28,16 +29,13 @@ describe('Contract Class', () => {
   const mockTxHash = { type: 'TxHash' } as any as TxHash;
   const mockTxReceipt = { type: 'TxReceipt' } as any as TxReceipt;
   const mockViewResultValue = 1;
-  const mockNodeInfo: NodeInfo = {
-    sandboxVersion: 'vx.x.x',
-    compatibleNargoVersion: 'vx.x.x-aztec.x',
-    protocolVersion: 1,
-    chainId: 2,
-    l1ContractAddresses: {
-      rollupAddress: EthAddress.random(),
-      registryAddress: EthAddress.random(),
-    },
-  };
+  const mockNodeInfo: NodeInfo = new NodeInfo(
+    'vx.x.x',
+    'vx.x.x-aztec.x',
+    1,
+    2,
+    new L1ContractAddresses(EthAddress.random(), EthAddress.random()),
+  );
 
   const defaultAbi: ContractAbi = {
     name: 'FooContract',

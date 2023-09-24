@@ -124,14 +124,14 @@ export const deployL1Contracts = async (
     logger(`Deployed DecoderHelper at ${decoderHelperAddress}`);
   }
 
-  const l1Contracts = {
+  const l1Contracts = new L1ContractAddresses(
     rollupAddress,
     registryAddress,
     inboxAddress,
     outboxAddress,
     contractDeploymentEmitterAddress,
     decoderHelperAddress,
-  };
+  );
 
   return {
     walletClient,

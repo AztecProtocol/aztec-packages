@@ -1,4 +1,5 @@
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
+import { L1ContractAddresses } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { TestKeyStore } from '@aztec/key-store';
 import { AztecNode, AztecRPC, L2Tx, mockTx } from '@aztec/types';
@@ -22,9 +23,7 @@ async function createAztecRpcServer(): Promise<AztecRPC> {
   node.getBlockNumber.mockResolvedValue(2);
   node.getVersion.mockResolvedValue(1);
   node.getChainId.mockResolvedValue(1);
-  const mockedContracts = {
-    rollupAddress: EthAddress.random(),
-  };
+  const mockedContracts = new L1ContractAddresses(EthAddress.random());
   node.getL1ContractAddresses.mockResolvedValue(mockedContracts);
 
   return new AztecRPCServer(keyStore, node, db, config);

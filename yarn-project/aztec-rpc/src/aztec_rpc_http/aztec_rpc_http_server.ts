@@ -1,3 +1,4 @@
+import { L1ContractAddresses } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
 import { JsonRpcServer } from '@aztec/foundation/json-rpc/server';
@@ -9,6 +10,7 @@ import {
   ExtendedContractData,
   L2Block,
   L2BlockL2Logs,
+  NodeInfo,
   NotePreimage,
   Tx,
   TxExecutionRequest,
@@ -45,7 +47,7 @@ export function getHttpRpcServer(aztecRpcServer: AztecRPC): JsonRpcServer {
       AuthWitness,
       L2Block,
     },
-    { Tx, TxReceipt, L2BlockL2Logs },
+    { Tx, TxReceipt, L2BlockL2Logs, NodeInfo, L1ContractAddresses },
     false,
     ['start', 'stop'],
   );

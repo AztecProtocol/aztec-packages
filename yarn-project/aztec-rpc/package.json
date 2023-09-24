@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "type": "module",
   "exports": "./dest/index.js",
+  "bin": "./dest/bin/index.js",
   "typedocOptions": {
     "entryPoints": [
       "./src/index.ts"
@@ -17,7 +18,7 @@
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T prettier -w ./src",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --passWithNoTests",
-    "start:http": "DEBUG='aztec:*' && node ./dest/aztec_rpc_http/aztec_rpc_http_server.js"
+    "start": "DEBUG='aztec:*' && node ./dest/bin/index.js"
   },
   "inherits": [
     "../package.common.json"

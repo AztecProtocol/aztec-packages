@@ -11,7 +11,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 /**
  * The archiver configuration.
  */
-export interface ArchiverConfig extends L1ContractAddresses {
+export interface ArchiverConfig {
   /**
    * The url of the Ethereum RPC node.
    */
@@ -36,6 +36,11 @@ export interface ArchiverConfig extends L1ContractAddresses {
    * Eth block from which we start scanning for L2Blocks.
    */
   searchStartBlock: number;
+
+  /**
+   * The deployed L1 contract addresses
+   */
+  l1Contracts: L1ContractAddresses;
 }
 
 /**
@@ -55,17 +60,19 @@ export function getConfigEnvVars(): ArchiverConfig {
     INBOX_CONTRACT_ADDRESS,
     REGISTRY_CONTRACT_ADDRESS,
   } = process.env;
+  const addresses = new L1ContractAddresses(
+    ROLLUP_CONTRACT_ADDRESS ? EthAddress.fromString(ROLLUP_CONTRACT_ADDRESS) : EthAddress.ZERO,
+    REGISTRY_CONTRACT_ADDRESS ? EthAddress.fromString(REGISTRY_CONTRACT_ADDRESS) : EthAddress.ZERO,
+    INBOX_CONTRACT_ADDRESS ? EthAddress.fromString(INBOX_CONTRACT_ADDRESS) : EthAddress.ZERO,
+    undefined,
+    CONTRACT_DEPLOYMENT_EMITTER_ADDRESS ? EthAddress.fromString(CONTRACT_DEPLOYMENT_EMITTER_ADDRESS) : EthAddress.ZERO,
+  );
   return {
     rpcUrl: ETHEREUM_HOST || 'http://127.0.0.1:8545/',
     archiverPollingIntervalMS: ARCHIVER_POLLING_INTERVAL_MS ? +ARCHIVER_POLLING_INTERVAL_MS : 1_000,
     viemPollingIntervalMS: ARCHIVER_VIEM_POLLING_INTERVAL_MS ? +ARCHIVER_VIEM_POLLING_INTERVAL_MS : 1_000,
-    rollupAddress: ROLLUP_CONTRACT_ADDRESS ? EthAddress.fromString(ROLLUP_CONTRACT_ADDRESS) : EthAddress.ZERO,
-    inboxAddress: INBOX_CONTRACT_ADDRESS ? EthAddress.fromString(INBOX_CONTRACT_ADDRESS) : EthAddress.ZERO,
-    registryAddress: REGISTRY_CONTRACT_ADDRESS ? EthAddress.fromString(REGISTRY_CONTRACT_ADDRESS) : EthAddress.ZERO,
-    contractDeploymentEmitterAddress: CONTRACT_DEPLOYMENT_EMITTER_ADDRESS
-      ? EthAddress.fromString(CONTRACT_DEPLOYMENT_EMITTER_ADDRESS)
-      : EthAddress.ZERO,
     searchStartBlock: SEARCH_START_BLOCK ? +SEARCH_START_BLOCK : 0,
     apiKey: API_KEY,
+    l1Contracts: addresses,
   };
 }

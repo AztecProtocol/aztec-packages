@@ -12,8 +12,8 @@ import {
   TxReceipt,
 } from '@aztec/types';
 
+import { NodeInfo } from '../node-info/node-info.js';
 import { DeployedContract } from './deployed-contract.js';
-import { NodeInfo } from './node-info.js';
 import { SyncStatus } from './sync-status.js';
 
 // docs:start:rpc-interface

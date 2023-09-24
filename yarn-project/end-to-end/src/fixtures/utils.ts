@@ -10,7 +10,6 @@ import {
   Wallet,
   createAccounts,
   createAztecRpcClient as createJsonRpcClient,
-  getL1ContractAddresses,
   getSandboxAccountsWallets,
 } from '@aztec/aztec.js';
 import { CircuitsWasm, GeneratorIndex } from '@aztec/circuits.js';
@@ -85,33 +84,6 @@ const createRpcServer = async (
 };
 
 const setupL1Contracts = async (l1RpcUrl: string, account: HDAccount, logger: DebugLogger) => {
-  if (SANDBOX_URL) {
-    logger(`Retrieving contract addresses from ${SANDBOX_URL}`);
-    const l1Contracts = await getL1ContractAddresses(SANDBOX_URL);
-
-    const walletClient = createWalletClient<HttpTransport, Chain, HDAccount>({
-      account,
-      chain: localAnvil,
-      transport: http(l1RpcUrl),
-    });
-    const publicClient = createPublicClient({
-      chain: localAnvil,
-      transport: http(l1RpcUrl),
-    });
-    const contracts: DeployL1Contracts = {
-      l1ContractAddresses: {
-        rollupAddress: l1Contracts.rollup,
-        registryAddress: l1Contracts.registry,
-        inboxAddress: l1Contracts.inbox,
-        outboxAddress: l1Contracts.outbox,
-        contractDeploymentEmitterAddress: l1Contracts.contractDeploymentEmitter,
-        decoderHelperAddress: l1Contracts.decoderHelper,
-      },
-      walletClient,
-      publicClient,
-    };
-    return contracts;
-  }
   return await deployL1Contracts(l1RpcUrl, account, localAnvil, logger);
 };
 
@@ -225,16 +197,50 @@ export async function setup(
   const logger = getLogger();
   const hdAccount = mnemonicToAccount(MNEMONIC);
 
+  if (SANDBOX_URL) {
+    // we are setting up against the sandbox, l1 contracts are already deployed
+    const { aztecRpcServer, accounts, wallets } = await setupAztecRPCServer(numberOfAccounts, undefined, logger);
+    logger(`Retrieving contract addresses from ${SANDBOX_URL}`);
+    const l1Contracts = (await aztecRpcServer.getNodeInfo()).l1ContractAddresses;
+
+    const walletClient = createWalletClient<HttpTransport, Chain, HDAccount>({
+      account: hdAccount,
+      chain: localAnvil,
+      transport: http(config.rpcUrl),
+    });
+    const publicClient = createPublicClient({
+      chain: localAnvil,
+      transport: http(config.rpcUrl),
+    });
+    const deployL1ContractsValues: DeployL1Contracts = {
+      l1ContractAddresses: l1Contracts,
+      walletClient,
+      publicClient,
+    };
+    const cheatCodes = await CheatCodes.create(config.rpcUrl, aztecRpcServer!);
+    return {
+      aztecNode: undefined,
+      aztecRpcServer,
+      deployL1ContractsValues,
+      accounts,
+      config,
+      wallet: wallets[0],
+      wallets,
+      logger,
+      cheatCodes,
+    };
+  }
+
   const deployL1ContractsValues = await setupL1Contracts(config.rpcUrl, hdAccount, logger);
   const privKeyRaw = hdAccount.getHdKey().privateKey;
   const publisherPrivKey = privKeyRaw === null ? null : Buffer.from(privKeyRaw);
 
   config.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
-  config.rollupAddress = deployL1ContractsValues.l1ContractAddresses.rollupAddress;
-  config.registryAddress = deployL1ContractsValues.l1ContractAddresses.registryAddress;
-  config.contractDeploymentEmitterAddress =
+  config.l1Contracts.rollupAddress = deployL1ContractsValues.l1ContractAddresses.rollupAddress;
+  config.l1Contracts.registryAddress = deployL1ContractsValues.l1ContractAddresses.registryAddress;
+  config.l1Contracts.contractDeploymentEmitterAddress =
     deployL1ContractsValues.l1ContractAddresses.contractDeploymentEmitterAddress;
-  config.inboxAddress = deployL1ContractsValues.l1ContractAddresses.inboxAddress;
+  config.l1Contracts.inboxAddress = deployL1ContractsValues.l1ContractAddresses.inboxAddress;
 
   const aztecNode = await createAztecNode(config, logger);
 

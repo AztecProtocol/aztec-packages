@@ -1,4 +1,5 @@
 import { HistoricBlockData } from '@aztec/circuits.js';
+import { L1ContractAddresses } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -15,7 +16,7 @@ export function createAztecNodeRpcClient(url: string, fetch = defaultFetch): Azt
   const rpcClient = createJsonRpcClient<AztecNode>(
     url,
     { AztecAddress, EthAddress, ExtendedContractData, ContractData, Fr, HistoricBlockData, L2Block, L2Tx, TxHash },
-    { Tx, L2BlockL2Logs },
+    { Tx, L2BlockL2Logs, L1ContractAddresses },
     false,
     fetch,
   );
