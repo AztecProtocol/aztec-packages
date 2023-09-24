@@ -59,7 +59,7 @@
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/circuits-wasm-linux-clang as circuits
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/l1-contracts as contracts
 
-FROM node:18-alpine AS builder
+FROM node:18-alpine
 RUN apk update && apk add --no-cache bash jq
 WORKDIR /usr/src/yarn-project
 

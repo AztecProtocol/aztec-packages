@@ -1,35 +1,33 @@
 # The aim here is to not have to maintain a list of projects in either the Dockerfile or this ignore file.
-# This context should only contain precisely what's needed.
-#
-# This took a fair bit of trial and error to get the right result. If you need to meddle, try:
-#  - Commenting out everything after the COPY . . in the dockerfile.
-#  - ONLY_TARGET=1 ../bootstrap_docker.sh yarn-project-base && docker run -ti --rm 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project-base:latest sh -c 'du -ha .'
+# We need to be careful not to exclude the project directories, as you cannot then use a wildcard in a negation
+# to re-include needed files. Here we use */* which doesn't exclude the directories themselves, but rather
+# the files within those directories. As we haven't excluded anything in the root, we manually exclude root files.
+*/*
+.*
+README.md
+bootstrap.sh
 
-# Exclude everything to start.
-*
+# This is a sticking point, due to the project being under it's own dir.
+# Need to unexclude the dir and then exclude it's files.
+# TODO: These boxes might be better outside the workspace where they have their own dependencies
+# as they're meant to be consumers of the project, not a part of it.
+!boxes/private-token
+!boxes/blank
+boxes/*/*
 
-# Unexclude package.json, tsconfig.json and yarn.lock files.
-!package.json
-!package.common.json
-!*/package.json
-!*/package.local.json
-!*/*/package.json
+# Unexclude package.json and yarn.lock files, for detecting any dependency changes.
+!**/package.json
+!**/package.*.json
 !yarn.lock
-!tsconfig.json
-!*/tsconfig.json
-!*/*/tsconfig.json
 
 # Unexclude parts of yarn related config as this also affects how dependencies are installed.
 !.yarnrc.yml
-!.yarnrc.prod.yml
 !.yarn/plugins
 !.yarn/releases
+
+# Unexclude tsconfig files for running project reference checks.
+!**/tsconfig.json
 
 # Unexclude scripts we use in the Dockerfile.
 !yarn-project-base/scripts
 !l1-artifacts/scripts
-
-# Re-exclude any node_modules stuff (matters when building locally when you have a node_modules).
-# Yes, we need to explicitly exclude what we unexcluded above. Just putting node_modules doesn't help here.
-node_modules/*/package.json
-node_modules/*/tsconfig.json
