@@ -234,9 +234,14 @@ export class Sequencer {
 
     // Process txs until we get to maxTxsPerBlock, rejecting double spends in the process
     for (const tx of txs) {
-      if (await this.isTxDoubleSpend(tx, thisBlockNullifiers)) {
+      if (await this.isTxDoubleSpend(tx)) {
         this.log(`Deleting double spend tx ${await Tx.getHash(tx)}`);
         doubleSpendTxs.push(tx);
+        continue;
+      } else if (this.isTxDoubleSpendSameBlock(tx, thisBlockNullifiers)) {
+        // We don't drop these txs from the p2p pool immediately since they become valid
+        // again if the current block fails to be published for some reason.
+        this.log(`Skipping tx with double-spend for this same block ${await Tx.getHash(tx)}`);
         continue;
       }
 
@@ -301,13 +306,29 @@ export class Sequencer {
   }
 
   /**
+   * Returns true if one of the tx nullifiers exist on the block being built.
+   * @param tx - The tx to test.
+   * @param thisBlockNullifiers - The nullifiers added so far.
+   */
+  protected isTxDoubleSpendSameBlock(tx: Tx | ProcessedTx, thisBlockNullifiers: Set<bigint>): boolean {
+    // We only consider non-empty nullifiers
+    const newNullifiers = tx.data.end.newNullifiers.filter(n => !n.isZero());
+
+    for (const nullifier of newNullifiers) {
+      if (thisBlockNullifiers.has(nullifier.toBigInt())) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
    * Returns true if one of the transaction nullifiers exist.
    * Nullifiers prevent double spends in a private context.
    * @param tx - The transaction.
-   * @param thisBlockNullifiers - Array of nullifiers already added this block.
    * @returns Whether this is a problematic double spend that the L1 contract would reject.
    */
-  protected async isTxDoubleSpend(tx: Tx | ProcessedTx, thisBlockNullifiers: Set<bigint>): Promise<boolean> {
+  protected async isTxDoubleSpend(tx: Tx | ProcessedTx): Promise<boolean> {
     // We only consider non-empty nullifiers
     const newNullifiers = tx.data.end.newNullifiers.filter(n => !n.isZero());
 
@@ -319,11 +340,7 @@ export class Sequencer {
       // TODO(AD): this is an exhaustive search currently
       const db = this.worldState.getLatest();
       const indexInDb = await db.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
-      if (indexInDb !== undefined || thisBlockNullifiers.has(nullifier.toBigInt())) {
-        // Our nullifier tree or transient nullifier set has this nullifier already
-        // so this transaction is a double spend / not well-formed
-        return true;
-      }
+      if (indexInDb !== undefined) return true;
     }
     return false;
   }
