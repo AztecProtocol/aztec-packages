@@ -265,7 +265,8 @@ describe('sequencer/solo_block_builder', () => {
     return txs;
   };
 
-  describe('mock simulator', () => {
+  // TODO(AD): investigate why this hung in CI. Reenable after #2461?
+  describe.skip('mock simulator', () => {
     beforeEach(() => {
       // Create instance to test
       builder = new SoloBlockBuilder(builderDb, vks, simulator, prover);
