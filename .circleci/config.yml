@@ -477,28 +477,6 @@ jobs:
           name: "Create ECR manifest"
           command: create_ecr_manifest aztec-sandbox-base aztec-sandbox x86_64,arm64
 
-  circuits-js:
-    machine:
-      image: ubuntu-2004:202010-01
-    resource_class: large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build and test"
-          command: build circuits.js
-
-  sequencer-client:
-    machine:
-      image: ubuntu-2004:202010-01
-    resource_class: large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build and test"
-          command: build sequencer-client
-
   boxes-blank-react:
     machine:
       image: ubuntu-2004:202010-01
@@ -922,7 +900,7 @@ jobs:
       - run:
           name: "Build docs"
           command: build docs
-
+:18
   e2e-join:
     docker:
       - image: cimg/base:2023.09
@@ -1178,6 +1156,12 @@ workflows:
           requires:
             - aztec-sandbox-x86_64
             - aztec-sandbox-arm64
+          <<: *defaults
+
+      - boxes-blank-react:
+          requires:
+            - yarn-project-base
+            - circuits-js
           <<: *defaults
 
       - e2e-join:
