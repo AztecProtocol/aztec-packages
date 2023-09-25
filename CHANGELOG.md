@@ -1,5 +1,71 @@
 # Changelog
 
+## [0.7.10](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.7.9...aztec-packages-v0.7.10) (2023-09-20)
+
+
+### Features
+
+* Aztec-cli unbox "really empty box" ([#2388](https://github.com/AztecProtocol/aztec-packages/issues/2388)) ([b57182d](https://github.com/AztecProtocol/aztec-packages/commit/b57182d6dff9fc27d5fb555a4c4cb948d9e5cc55))
+* **docs:** Document noir macros  ([#2016](https://github.com/AztecProtocol/aztec-packages/issues/2016)) ([1f1a17f](https://github.com/AztecProtocol/aztec-packages/commit/1f1a17fe056d8898c4c065fb6244e53da04800cb))
+* **docs:** Include aztec rpc interface typedoc output in docs ([#2255](https://github.com/AztecProtocol/aztec-packages/issues/2255)) ([62c9e9b](https://github.com/AztecProtocol/aztec-packages/commit/62c9e9bfdc9535ccfc6bd76782971e22478a7784))
+* **token portal standard:** Create a token portal standard ([#2351](https://github.com/AztecProtocol/aztec-packages/issues/2351)) ([426a3ea](https://github.com/AztecProtocol/aztec-packages/commit/426a3ea6a5c3529b4edaea94affaece97d39a35b))
+
+
+### Bug Fixes
+
+* **build:** Fix build system post deployment tests ([#2420](https://github.com/AztecProtocol/aztec-packages/issues/2420)) ([d509dc3](https://github.com/AztecProtocol/aztec-packages/commit/d509dc359c4cd9dc37492a434a1eb3813c002839))
+* CLI encoding for arrays and structs ([#2407](https://github.com/AztecProtocol/aztec-packages/issues/2407)) ([85283bd](https://github.com/AztecProtocol/aztec-packages/commit/85283bdd5b0916c207dca11ad17338f524ae18f6))
+* Correct sandbox addresses in up-quick-start test ([#2412](https://github.com/AztecProtocol/aztec-packages/issues/2412)) ([974d859](https://github.com/AztecProtocol/aztec-packages/commit/974d85922fc11734c543e7ce9fe7edaad527bd69))
+* **docs:** Revert include aztec rpc interface typedoc output in docs ([#2255](https://github.com/AztecProtocol/aztec-packages/issues/2255)) ([f852432](https://github.com/AztecProtocol/aztec-packages/commit/f85243298ef2a5c01764e592c6f6ea50d835bf07))
+* Handle falsy bigints in json-rpc ([#2403](https://github.com/AztecProtocol/aztec-packages/issues/2403)) ([d100650](https://github.com/AztecProtocol/aztec-packages/commit/d100650d107b6685e17fcdbbf68363505c5ed0ed)), closes [#2402](https://github.com/AztecProtocol/aztec-packages/issues/2402)
+* **nargo_check.sh:** UNIX standard grep ([#2396](https://github.com/AztecProtocol/aztec-packages/issues/2396)) ([02e788a](https://github.com/AztecProtocol/aztec-packages/commit/02e788a8e39c7fcb5c75a6aaf4ceb705a8ebaa4a))
+
+
+### Miscellaneous
+
+* **docs:** Note getter options ([#2411](https://github.com/AztecProtocol/aztec-packages/issues/2411)) ([8a95d8c](https://github.com/AztecProtocol/aztec-packages/commit/8a95d8cb6287689b90149b44968cab4ba3e13e28))
+* Update docs url in config  ([#2386](https://github.com/AztecProtocol/aztec-packages/issues/2386)) ([e44066d](https://github.com/AztecProtocol/aztec-packages/commit/e44066da3cca70a8494c6822b3bc231679acaf16))
+
+## [0.7.9](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.7.8...aztec-packages-v0.7.9) (2023-09-19)
+
+
+### Bug Fixes
+
+* Don't cache contract witnesses ([#2398](https://github.com/AztecProtocol/aztec-packages/issues/2398)) ([1092060](https://github.com/AztecProtocol/aztec-packages/commit/1092060ec88e4d9d48b9bbaf1345cf058003cc82)), closes [#2397](https://github.com/AztecProtocol/aztec-packages/issues/2397)
+
+## [0.7.8](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.7.7...aztec-packages-v0.7.8) (2023-09-19)
+
+
+### Features
+
+* `NodeInfo` cleanup ([#2370](https://github.com/AztecProtocol/aztec-packages/issues/2370)) ([89fe978](https://github.com/AztecProtocol/aztec-packages/commit/89fe978b12919b7b4838b95438635f8489d27229))
+* Allow custom ports in sandbox ([#2393](https://github.com/AztecProtocol/aztec-packages/issues/2393)) ([41ef378](https://github.com/AztecProtocol/aztec-packages/commit/41ef378a01db6a87a8620d7fb676784222a3b7f4))
+* Allow tracing build system with [debug ci] ([#2389](https://github.com/AztecProtocol/aztec-packages/issues/2389)) ([ce311a9](https://github.com/AztecProtocol/aztec-packages/commit/ce311a9b44a8f0327235ccd3bb8f9a8fca97443e))
+* **docs:** Show current noir version for aztec in docs ([#2379](https://github.com/AztecProtocol/aztec-packages/issues/2379)) ([5c7b2ab](https://github.com/AztecProtocol/aztec-packages/commit/5c7b2ab566fc6ce870c7d6f121f86b721bf3e660))
+
+
+### Bug Fixes
+
+* Build script exiting on failed grep ([#2384](https://github.com/AztecProtocol/aztec-packages/issues/2384)) ([e70a781](https://github.com/AztecProtocol/aztec-packages/commit/e70a781765a83cbe45e78e3a560bd6191fd9211e))
+* Bump e2e_sandbox_example.test.ts timeout ([#2391](https://github.com/AztecProtocol/aztec-packages/issues/2391)) ([9a1bb62](https://github.com/AztecProtocol/aztec-packages/commit/9a1bb6282b8df4d4b1eb7d2df8e4197e29032ba2))
+* Compile script for the unboxed project ([#2380](https://github.com/AztecProtocol/aztec-packages/issues/2380)) ([2801da2](https://github.com/AztecProtocol/aztec-packages/commit/2801da2c5a307f8bc5691f73f9273391345acf59))
+* **Docs:** Nargo.toml docs fix ([#2334](https://github.com/AztecProtocol/aztec-packages/issues/2334)) ([af24b5a](https://github.com/AztecProtocol/aztec-packages/commit/af24b5a12f04ff97333a7631fe634f1440c9df35))
+* Force_deploy_build error ([#2375](https://github.com/AztecProtocol/aztec-packages/issues/2375)) ([4d1cbf9](https://github.com/AztecProtocol/aztec-packages/commit/4d1cbf9742cb2a39e936a971e2f954d362f8f08b))
+* Propagate [debug ci] thru spot ([#2395](https://github.com/AztecProtocol/aztec-packages/issues/2395)) ([fe5eedd](https://github.com/AztecProtocol/aztec-packages/commit/fe5eedd202ab26d3e27a195f482ea3e75df74d9b))
+* Remove non-npm packages from end-to-end during canary flow ([#2394](https://github.com/AztecProtocol/aztec-packages/issues/2394)) ([e3f97f2](https://github.com/AztecProtocol/aztec-packages/commit/e3f97f26f016025353851327e24adbb8e752301f))
+* Update aztec sandbox getting started markdown ([#2374](https://github.com/AztecProtocol/aztec-packages/issues/2374)) ([a3c6bcf](https://github.com/AztecProtocol/aztec-packages/commit/a3c6bcf88ea1003b3f134cbd29ae1a39680f5b9f))
+
+
+### Miscellaneous
+
+* Adds on-brand design to private token project ([#2355](https://github.com/AztecProtocol/aztec-packages/issues/2355)) ([072e313](https://github.com/AztecProtocol/aztec-packages/commit/072e313515871b54473ee7662f5bdd4bfa21e3e7))
+* Docs restructure ([#2322](https://github.com/AztecProtocol/aztec-packages/issues/2322)) ([1368b55](https://github.com/AztecProtocol/aztec-packages/commit/1368b55d0a9bc9ea61e29bb095ca62aa6902645f))
+
+
+### Documentation
+
+* Updated noirup command ([#2339](https://github.com/AztecProtocol/aztec-packages/issues/2339)) ([5308c21](https://github.com/AztecProtocol/aztec-packages/commit/5308c21d4dc225233af8ae584c471e7bed5d9381))
+
 ## [0.7.7](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.7.6...aztec-packages-v0.7.7) (2023-09-18)
 
 

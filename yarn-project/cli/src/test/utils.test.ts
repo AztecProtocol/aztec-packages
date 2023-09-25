@@ -62,11 +62,11 @@ describe('CLI Utils', () => {
       addr1.toBigInt(),
       false,
       33n,
-      addr1.toBigInt(),
-      addr2.toBigInt(),
-      addr3.toBigInt(),
-      field.toBigInt(),
-      true,
+      [addr1.toBigInt(), addr2.toBigInt(), addr3.toBigInt()],
+      {
+        subField1: field.toBigInt(),
+        subField2: true,
+      },
     ];
     expect(result).toEqual(exp);
   });
@@ -74,9 +74,7 @@ describe('CLI Utils', () => {
   it('Errors on invalid inputs', () => {
     // invalid number of args
     const args1 = [field.toString(), 'false'];
-    expect(() => encodeArgs(args1, mockContractAbi.functions[1].parameters)).toThrow(
-      'Invalid number of args provided. Expected: 5, received: 2',
-    );
+    expect(() => encodeArgs(args1, mockContractAbi.functions[1].parameters)).toThrow('Invalid args provided');
 
     // invalid array length
     const invalidArray = fieldArray.concat([Fr.random().toString()]);

@@ -1,3 +1,4 @@
+// docs:start:token_types_all
 use dep::std::hash::pedersen;
 use dep::std::hash::pedersen_with_separator;
 use dep::aztec::note::{
@@ -8,54 +9,6 @@ use dep::aztec::note::{
 use dep::aztec::constants_gen::GENERATOR_INDEX__L1_TO_L2_MESSAGE_SECRET;
 
 global TRANSPARENT_NOTE_LEN: Field = 2;
-
-
-
-struct AztecAddress {
-  address: Field
-}
-
-impl AztecAddress {
-  fn new(address: Field) -> Self {
-    Self {
-      address
-    }
-  }
-
-  fn serialize(self: Self) -> [Field; 1] {
-    [self.address]
-  }
-
-  fn deserialize(fields: [Field; 1]) -> Self {
-    Self {
-      address: fields[0]
-    }
-  }
-}
-
-struct EthereumAddress {
-  address: Field
-}
-
-impl EthereumAddress {
-  fn new(address: Field) -> Self {
-    Self {
-      address
-    }
-  }
-
-
-  fn serialize(self: Self) -> [Field; 1] {
-    [self.address]
-  }
-
-  fn deserialize(fields: [Field; 1]) -> Self {
-    Self {
-      address: fields[0]
-    }
-  }
-}
-
 
 
 // Transparent note represents a note that is created in the clear (public execution),
@@ -174,3 +127,4 @@ global TransparentNoteMethods = NoteInterface {
     get_header,
     set_header,
 };
+// docs:end:token_types_all
