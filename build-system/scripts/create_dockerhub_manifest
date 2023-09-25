@@ -23,7 +23,7 @@ ACCOUNT="aztecprotocol"
 USERNAME="aztecprotocolci"
 
 # Extract the version, if valid; exit otherwise.
-IMAGE_TAG=$(extract_tag_version $REPOSITORY "true")
+IMAGE_TAG=$(extract_tag_version $REPOSITORY true)
 
 MANIFEST_DEPLOY_URI=$ACCOUNT/$REPOSITORY:$IMAGE_TAG
 MANIFEST_LATEST_URI=$ACCOUNT/$REPOSITORY:latest
