@@ -5,8 +5,11 @@ WORKDIR /usr/src/yarn-project/aztec.js
 RUN yarn build:web
 
 WORKDIR /usr/src/yarn-project/end-to-end
-# Prune dev dependencies. See comment in yarn-project-base/Dockerfile.
-RUN yarn cache clean && yarn workspaces focus --production > /dev/null && rm -rf /usr/src/.yarn
+# Productionify. See comment in yarn-project-base/Dockerfile.
+RUN yarn cache clean && \
+    mv ../.yarnrc.prod.yml ../.yarnrc.yml && \
+    yarn workspaces focus --production > /dev/null && \
+    rm -rf /usr/src/.yarn
 
 # Create final, minimal size image.
 # TODO: Not very minimal as chromium adds about 500MB of bloat :/ Separate or install at test runtime?

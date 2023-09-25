@@ -14,8 +14,11 @@ RUN if [[ -n "${COMMIT_TAG}" ]]; then \
   jq --arg v ${COMMIT_TAG} '.version = $v' package.json > _temp && mv _temp package.json; \
   fi
 
-# Prune dev dependencies. See comment in yarn-project-base/Dockerfile.
-RUN yarn cache clean && yarn workspaces focus --production > /dev/null && rm -rf /usr/src/.yarn
+# Productionify. See comment in yarn-project-base/Dockerfile.
+RUN yarn cache clean && \
+    mv ../.yarnrc.prod.yml ../.yarnrc.yml && \
+    yarn workspaces focus --production > /dev/null && \
+    rm -rf /usr/src/.yarn
 
 # Create final, minimal size image.
 FROM node:18-alpine

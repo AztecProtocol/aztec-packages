@@ -407,6 +407,17 @@ jobs:
           name: Build
           command: cond_spot_run_build yarn-project 64 | add_timestamps
 
+  yarn-project-formatting:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Check Formatting
+          command: cond_run_container yarn-project formatting | add_timestamps
+
   yarn-project-tests:
     docker:
       - image: aztecprotocol/alpine-build-image
@@ -415,7 +426,7 @@ jobs:
       - *checkout
       - *setup_env
       - run:
-          name: Build
+          name: Test
           command: cond_spot_run_container yarn-project 64 test | add_timestamps
 
   aztec-sandbox-base:
@@ -1104,6 +1115,10 @@ workflows:
           requires:
             - yarn-project-base
             - noir-contracts-build
+          <<: *defaults
+      - yarn-project-formatting:
+          requires:
+            - yarn-project
           <<: *defaults
       - yarn-project-tests:
           requires:

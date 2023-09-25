@@ -38,16 +38,19 @@
 #  - Perform any code generation steps that require the workspace code (generate L2 contract wrappers).
 #  - Build all the code, and runs formatting checks.
 #  - Enable yarn pnp by replacing .yarnrc.yml with .yarnrc.prod.yml.
-#  - Perform a final yarn install to remove all node_modules folders and generate .pnp.cjs etc.
-#  - Create the final slim yarn-project image by copying /usr/src into a fresh image.
 #
 # When we build a downstream docker image, we:
 #  - Do any project specific work in a "builder" stage.
 #  - Erase the local cache with a `yarn cache clean`. Files will remain in global cache due to hard link.
+#  - Copy ../.yarnrc.prod.yml to ../.yarnrc.yml to enable pnp.
 #  - Do a `yarn workspaces focus --production` to install production dependencies from the global to local cache.
+#    This will also strip away the node_modules folders due to pnp being enabled.
 #  - Remove the global cache from /usr/src/.yarn.
 #  - The above can be done with:
-#      RUN yarn cache clean && yarn workspaces focus --production > /dev/null && rm -rf /usr/src/.yarn
+#      RUN yarn cache clean && \
+#          mv ../.yarnrc.prod.yml ../.yarnrc.yml && \
+#          yarn workspaces focus --production > /dev/null && \
+#          rm -rf /usr/src/.yarn
 #  - Create final slim image by copying /usr/src into a fresh image.
 #
 # At the time of writing the following 3 images have the following sizes:
