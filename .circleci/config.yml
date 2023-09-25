@@ -650,7 +650,7 @@ jobs:
           command: build boxes-blank-react
       - run:
           name: "Test"
-          command: ls && ./run_tests
+          command: run_script boxes/blank-react ./run_tests
 
   canary:
     machine:
