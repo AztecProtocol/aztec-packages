@@ -1,5 +1,6 @@
 #include "sumcheck_round.hpp"
 #include "barretenberg/honk/flavor/ultra.hpp"
+#include "barretenberg/proof_system/relations/utils.hpp"
 
 #include <gtest/gtest.h>
 
@@ -12,6 +13,7 @@ using barretenberg::Univariate;
 
 using Flavor = flavor::Ultra;
 using FF = typename Flavor::FF;
+using Utils = barretenberg::RelationUtils<Flavor>;
 
 namespace test_sumcheck_round {
 
@@ -83,7 +85,8 @@ TEST(SumcheckRound, TuplesOfEvaluationArrays)
     FF challenge = 5;
     FF running_challenge = 1;
     FF result = 0;
-    SumcheckVerifierRound<Flavor>::scale_and_batch_elements(tuple_of_arrays, challenge, running_challenge, result);
+    SumcheckVerifierRound<Flavor>::scale_and_batch_elements(
+        tuple_of_arrays, challenge, running_challenge, result);
 
     // Repeat the batching process manually
     auto result_expected =

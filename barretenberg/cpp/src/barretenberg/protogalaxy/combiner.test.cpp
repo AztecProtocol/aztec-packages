@@ -1,11 +1,11 @@
 #include "barretenberg/protogalaxy/combiner.hpp"
-#include "barretenberg/honk/flavor/standard.hpp"
+#include "barretenberg/honk/flavor/ultra.hpp"
 #include "barretenberg/honk/utils/testing.hpp"
 #include "barretenberg/proof_system/relations/relation_parameters.hpp"
 #include <gtest/gtest.h>
 
 namespace barretenberg::test_protogalaxy_prover {
-using Flavor = proof_system::honk::flavor::Standard;
+using Flavor = proof_system::honk::flavor::Ultra;
 using Polynomial = typename Flavor::Polynomial;
 using FF = typename Flavor::FF;
 using RelationParameters = proof_system::RelationParameters<FF>;
@@ -32,8 +32,8 @@ TEST(Protogalaxy, Combiner)
             }
 
             auto result = prover.compute_combiner(instances, relation_parameters, pow_univariate, alpha);
-            auto expected_result = barretenberg::Univariate<FF, 6>(
-                std::array<FF, 6>{ 21150, 3778492, 30367578, 117758328, 322795030, 721196340 });
+            auto expected_result = barretenberg::Univariate<FF, 7>(
+                std::array<FF, 7>{ 21150, 3778492, 30367578, 117758328, 322795030, 721196340 , 0});
             EXPECT_EQ(result, expected_result);
         } else {
             Instances<Flavor, NUM_INSTANCES> instances;
@@ -89,7 +89,7 @@ TEST(Protogalaxy, Combiner)
             EXPECT_EQ(instances[1].w_r[1], FF(5));
 
             auto result = prover.compute_combiner(instances, relation_parameters, pow_univariate, alpha);
-            auto expected_result = barretenberg::Univariate<FF, 6>(std::array<FF, 6>{ 0, 0, 0, 0, 0, 0 }); // WORKTODO
+            auto expected_result = barretenberg::Univariate<FF, 7>(std::array<FF, 7>{ 0, 0, 0, 0, 0, 0, 0 }); // WORKTODO
             EXPECT_EQ(result, expected_result);
         }
     };
