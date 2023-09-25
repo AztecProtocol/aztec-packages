@@ -27,7 +27,7 @@ REPOSITORY=$1
 REGION=$2
 REFRESH_LIFECYCLE=${3:-}
 
-function docker_login() {
+function ecr_login() {
   # Retries up to 3 times with 10 second intervals
   for i in $(seq 1 3); do
     aws ecr get-login-password --region $REGION \
@@ -38,8 +38,8 @@ function docker_login() {
   exit 1
 }
 
-# Login to dockerhub.
-docker_login
+# Login to ECR.
+ecr_login
 
 # Create the repository if it doesn't exist.
 if ! aws ecr describe-repositories --region $REGION --repository-names $REPOSITORY > /dev/null 2>&1; then
