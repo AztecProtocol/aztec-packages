@@ -1,8 +1,7 @@
-FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/circuits.js AS circuits
-FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project-base AS builder
+FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project AS builder
 
 COPY . .
-COPY --from=circuits /usr/src/yarn-project/circuits.js/dest /usr/src/yarn-project/circuits.js/dest
+# COPY /usr/src/yarn-project/circuits.js/dest /usr/src/yarn-project/circuits.js/dest
 
 WORKDIR /usr/src/yarn-project/boxes/blank-react
 RUN yarn 
