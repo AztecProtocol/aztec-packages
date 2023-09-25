@@ -649,7 +649,7 @@ jobs:
           name: "Build"
           command: build boxes-blank-react
       - run:
-          name: "Test"
+          name: "Test via adhoc script"
           command: run_script boxes-blank-react ./run_tests
 
   canary:
