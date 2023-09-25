@@ -114,6 +114,4 @@ extern template class ProverInstance_<honk::flavor::GoblinUltra>;
 extern template class ProverInstance_<honk::flavor::Standard>;
 extern template class ProverInstance_<honk::flavor::StandardGrumpkin>;
 
-using ProverInstance = ProverInstance_<honk::flavor::Ultra>;
-
 } // namespace proof_system::honk

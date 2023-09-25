@@ -16,7 +16,8 @@ template <class ProverInstances> class ProtoGalaxyProver_ {
 
     ProverTranscript<FF> transcript;
 
-    explicit ProtoGalaxyProver_(ProverInstances);
+    ProtoGalaxyProver_(ProverInstances insts)
+        : instances(insts){};
     ~ProtoGalaxyProver_() = default;
 
     void prepare_for_folding();
@@ -25,6 +26,6 @@ template <class ProverInstances> class ProtoGalaxyProver_ {
 };
 
 extern template class ProtoGalaxyProver_<ProverInstances<honk::flavor::Ultra, 2>>;
-// extern template class ProtoGalaxyProver_<honk::flavor::UltraGrumpkin>;
-// extern template class ProtoGalaxyProver_<honk::flavor::GoblinUltra>;
+extern template class ProtoGalaxyProver_<ProverInstances<honk::flavor::UltraGrumpkin, 2>>;
+extern template class ProtoGalaxyProver_<ProverInstances<honk::flavor::GoblinUltra, 2>>;
 } // namespace proof_system::honk

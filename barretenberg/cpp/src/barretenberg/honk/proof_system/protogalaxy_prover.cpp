@@ -1,10 +1,6 @@
 #include "protogalaxy_prover.hpp"
 #include "barretenberg/proof_system/flavor/flavor.hpp"
 namespace proof_system::honk {
-template <class ProverInstances>
-ProtoGalaxyProver_<ProverInstances>::ProtoGalaxyProver_(ProverInstances insts)
-    : instances(insts)
-{}
 
 /**
  * @brief Prior to folding we need to add all the public inputs to the transcript, labelled by their corresponding
@@ -51,8 +47,6 @@ ProverFoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverI
     return res;
 }
 template class ProtoGalaxyProver_<ProverInstances<honk::flavor::Ultra, 2>>;
-// template class ProtoGalaxyProver_<honk::flavor::Ultra>;
-// template class ProtoGalaxyProver_<honk::flavor::UltraGrumpkin>;
-// template class ProtoGalaxyProver_<honk::flavor::GoblinUltra>;
-
+template class ProtoGalaxyProver_<ProverInstances<honk::flavor::UltraGrumpkin, 2>>;
+template class ProtoGalaxyProver_<ProverInstances<honk::flavor::GoblinUltra, 2>>;
 } // namespace proof_system::honk

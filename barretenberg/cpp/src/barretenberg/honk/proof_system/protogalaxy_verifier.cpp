@@ -2,17 +2,6 @@
 #include "barretenberg/honk/utils/grand_product_delta.hpp"
 namespace proof_system::honk {
 template <class VerifierInstances>
-ProtoGalaxyVerifier_<VerifierInstances>::ProtoGalaxyVerifier_(std::vector<std::shared_ptr<VerificationKey>> vks)
-{
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/391): simplify code with C++23 features
-    for (const auto& vk : vks) {
-        Instance inst;
-        inst.verification_key = std::move(vk);
-        verifier_instances.emplace_back(inst);
-    }
-}
-
-template <class VerifierInstances>
 VerifierFoldingResult<typename VerifierInstances::Flavor> ProtoGalaxyVerifier_<
     VerifierInstances>::fold_public_parameters(std::vector<uint8_t> fold_data)
 {
@@ -47,6 +36,6 @@ VerifierFoldingResult<typename VerifierInstances::Flavor> ProtoGalaxyVerifier_<
 }
 
 template class ProtoGalaxyVerifier_<proof_system::honk::VerifierInstances<honk::flavor::Ultra, 2>>;
-// template class ProtoGalaxyVerifier_<honk::flavor::UltraGrumpkin>;
-// template class ProtoGalaxyVerifier_<honk::flavor::GoblinUltra>;
+template class ProtoGalaxyVerifier_<proof_system::honk::VerifierInstances<honk::flavor::UltraGrumpkin, 2>>;
+template class ProtoGalaxyVerifier_<proof_system::honk::VerifierInstances<honk::flavor::GoblinUltra, 2>>;
 } // namespace proof_system::honk

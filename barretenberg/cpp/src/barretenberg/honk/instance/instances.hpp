@@ -6,7 +6,7 @@ namespace proof_system::honk {
 template <typename Flavor_, size_t NUM_> struct ProverInstances {
     using Flavor = Flavor_;
     using Instance = ProverInstance_<Flavor>;
-    using ArrayType = std::array<Instance, NUM_>;
+    using ArrayType = std::array<std::shared_ptr<Instance>, NUM_>;
 
   public:
     static constexpr size_t NUM = NUM_;
@@ -14,13 +14,18 @@ template <typename Flavor_, size_t NUM_> struct ProverInstances {
     Instance const& operator[](size_t idx) const { return _data[idx]; }
     typename ArrayType::iterator begin() { return _data.begin(); };
     typename ArrayType::iterator end() { return _data.end(); };
-    ProverInstances()
-        : _data({ 0, 0, 0, 0, 0 }){};
-    ~ProverInstances();
+    ProverInstances(std::vector<std::shared_ptr<Instance>> data)
+    {
+        ASSERT(data.size() == NUM);
+        for (size_t idx = 0; idx < data.size(); idx++) {
+            _data[idx] = std::move(data[idx]);
+        }
+    };
 };
 
 template <typename Flavor_, size_t NUM_> struct VerifierInstances {
     using Flavor = Flavor_;
+    using VerificationKey = typename Flavor::VerificationKey;
     using Instance = VerifierInstance_<Flavor>;
     using ArrayType = std::array<Instance, NUM_>;
 
@@ -30,6 +35,14 @@ template <typename Flavor_, size_t NUM_> struct VerifierInstances {
     Instance const& operator[](size_t idx) const { return _data[idx]; }
     typename ArrayType::iterator begin() { return _data.begin(); };
     typename ArrayType::iterator end() { return _data.end(); };
-    ~VerifierInstances();
+    VerifierInstances(std::vector<std::shared_ptr<VerificationKey>> vks)
+    {
+        ASSERT(vks.size() == NUM);
+        for (size_t idx = 0; idx < vks.size(); idx++) {
+            Instance inst;
+            inst.verification_key = std::move(vks[idx]);
+            _data[idx] = inst;
+        }
+    };
 };
 } // namespace proof_system::honk

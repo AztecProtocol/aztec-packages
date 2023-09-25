@@ -354,9 +354,10 @@ TEST_F(UltraTranscriptTests, FoldingManifestTest)
     auto composer = UltraComposer();
     auto instance_one = composer.create_instance(builder_one);
     auto instance_two = composer.create_instance(builder_two);
-    ProverInstances<Flavor, 2> insts;
-    insts[0] = instance_one;
-    insts[1] = instance_two;
+
+    std::vector<std::shared_ptr<ProverInstance_<Flavor>>> insts;
+    insts.emplace_back(instance_one);
+    insts.emplace_back(instance_two);
     auto prover = composer.create_folding_prover(insts);
     auto verifier = composer.create_folding_verifier(insts);
 

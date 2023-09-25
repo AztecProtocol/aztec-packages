@@ -18,12 +18,13 @@ template <class VerifierInstances> class ProtoGalaxyVerifier_ {
     VerifierTranscript<FF> transcript;
 
     // should the PG verifier be given the VerifierInstances, nah this makes sense yo me
-    explicit ProtoGalaxyVerifier_(std::vector<std::shared_ptr<VerificationKey>> vks);
+    ProtoGalaxyVerifier_(VerifierInstances insts)
+        : verifier_instances(insts){};
     ~ProtoGalaxyVerifier_() = default;
     VerifierFoldingResult<Flavor> fold_public_parameters(std::vector<uint8_t> fold_data);
 };
 
 extern template class ProtoGalaxyVerifier_<VerifierInstances<honk::flavor::Ultra, 2>>;
-// extern template class ProtoGalaxyVerifier_<honk::flavor::UltraGrumpkin>;
-// extern template class ProtoGalaxyVerifier_<honk::flavor::GoblinUltra>;
+extern template class ProtoGalaxyVerifier_<VerifierInstances<honk::flavor::UltraGrumpkin, 2>>;
+extern template class ProtoGalaxyVerifier_<VerifierInstances<honk::flavor::GoblinUltra, 2>>;
 } // namespace proof_system::honk
