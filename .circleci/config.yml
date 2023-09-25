@@ -889,7 +889,7 @@ jobs:
 
   e2e-join:
     docker:
-      - image: cimg/base:2023.09
+      - image: cimg/base:2023.09-20.04
     resource_class: small
     steps:
       - run:
