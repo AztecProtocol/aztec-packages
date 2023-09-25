@@ -65,7 +65,7 @@ describe('e2e_cross_chain_messaging', () => {
     await crossChainTestHarness?.stop();
   });
 
-  it.skip('Milestone 2: Deposit funds from L1 -> L2 and withdraw back to L1', async () => {
+  it('Milestone 2: Deposit funds from L1 -> L2 and withdraw back to L1', async () => {
     // Generate a claim secret using pedersen
     const l1TokenBalance = 1000000n;
     const bridgeAmount = 100n;
@@ -97,9 +97,9 @@ describe('e2e_cross_chain_messaging', () => {
     // 3. Consume L1-> L2 message and mint private tokens on L2
     await crossChainTestHarness.consumeMessageOnAztecAndMintSecretly(
       bridgeAmount,
+      secretHashForRedeemingMintedNotes,
       messageKey,
       secretForL2MessageConsumption,
-      secretHashForRedeemingMintedNotes,
     );
     // tokens were minted privately in a TransparentNote which the owner (person who knows the secret) must redeem:
     await crossChainTestHarness.redeemShieldPrivatelyOnL2(bridgeAmount, secretForRedeemingMintedNotes);
@@ -168,7 +168,7 @@ describe('e2e_cross_chain_messaging', () => {
         .methods.claim_private(
           bridgeAmount,
           secretHashForL2MessageConsumption,
-          { address: ethAccount.toField() },
+          ethAccount,
           messageKey,
           secretForL2MessageConsumption,
         )
@@ -181,7 +181,7 @@ describe('e2e_cross_chain_messaging', () => {
       .methods.claim_private(
         bridgeAmount,
         secretHashForRedeemingMintedNotes,
-        { address: ethAccount.toField() },
+        ethAccount,
         messageKey,
         secretForL2MessageConsumption,
       )
@@ -212,13 +212,7 @@ describe('e2e_cross_chain_messaging', () => {
     await expect(
       l2Bridge
         .withWallet(user1Wallet)
-        .methods.exit_to_l1_private(
-          { address: ethAccount.toField() },
-          { address: l2Token.address },
-          withdrawAmount,
-          { address: EthAddress.ZERO.toField() },
-          nonce,
-        )
+        .methods.exit_to_l1_private(ethAccount, l2Token.address, withdrawAmount, EthAddress.ZERO, nonce)
         .simulate(),
     ).rejects.toThrowError(`Unknown auth witness for message hash 0x${expectedBurnMessageHash.toString('hex')}`);
   });

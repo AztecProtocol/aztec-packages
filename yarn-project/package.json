@@ -23,6 +23,7 @@
     "aztec-sandbox",
     "aztec.js",
     "boxes/blank",
+    "boxes/blank-react",
     "boxes/private-token",
     "canary",
     "circuits.js",
