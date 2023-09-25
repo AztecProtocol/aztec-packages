@@ -122,7 +122,7 @@ for PARENT in $PARENTS; do
 done
 
 echo "Extracting commit tag version..."
-COMMIT_TAG_VERSION=$(extract_tag_version $REPOSITORY "false")
+COMMIT_TAG_VERSION=$(extract_tag_version $REPOSITORY false)
 
 # Pull, build and push each named stage to cache.
 STAGE_CACHE_FROM=""
