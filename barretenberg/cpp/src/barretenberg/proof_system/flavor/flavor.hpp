@@ -259,7 +259,8 @@ class UltraGrumpkin;
 class ECCVM;
 class ECCVMGrumpkin;
 class GoblinUltra;
-class UltraRecursive;
+template <typename BuilderType> class UltraRecursive_;
+template <typename BuilderType> class GoblinUltraRecursive_;
 } // namespace proof_system::honk::flavor
 
 // Forward declare plonk flavors
@@ -283,20 +284,23 @@ template <typename T>
 concept IsPlonkFlavor = IsAnyOf<T, plonk::flavor::Standard, plonk::flavor::Turbo, plonk::flavor::Ultra>;
 
 template <typename T> 
-concept IsHonkFlavor = IsAnyOf<T, honk::flavor::Standard, honk::flavor::Ultra, honk::flavor::StandardGrumpkin, honk::flavor::UltraGrumpkin, honk::flavor::GoblinUltra>;
+concept IsHonkFlavor = IsAnyOf<T, honk::flavor::Ultra, honk::flavor::UltraGrumpkin, honk::flavor::GoblinUltra>;
 
 template <typename T> 
 concept IsUltraFlavor = IsAnyOf<T, honk::flavor::Ultra, honk::flavor::UltraGrumpkin, honk::flavor::GoblinUltra>;
 
 template <typename T> 
-concept IsGoblinFlavor = IsAnyOf<T, honk::flavor::GoblinUltra>;
+concept IsGoblinFlavor = IsAnyOf<T, honk::flavor::GoblinUltra,
+                                    honk::flavor::GoblinUltraRecursive_<UltraCircuitBuilder>, 
+                                    honk::flavor::GoblinUltraRecursive_<GoblinUltraCircuitBuilder>>;
 
 template <typename T> 
-concept IsRecursiveFlavor = IsAnyOf<T, honk::flavor::UltraRecursive>;
+concept IsRecursiveFlavor = IsAnyOf<T, honk::flavor::UltraRecursive_<UltraCircuitBuilder>, 
+                                       honk::flavor::UltraRecursive_<GoblinUltraCircuitBuilder>, 
+                                       honk::flavor::GoblinUltraRecursive_<UltraCircuitBuilder>, 
+                                       honk::flavor::GoblinUltraRecursive_<GoblinUltraCircuitBuilder>>;
 
-template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, honk::flavor::StandardGrumpkin, honk::flavor::UltraGrumpkin>;
-
-template <typename T> concept StandardFlavor = IsAnyOf<T, honk::flavor::Standard,  honk::flavor::StandardGrumpkin>;
+template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, honk::flavor::UltraGrumpkin>;
 
 template <typename T> concept UltraFlavor = IsAnyOf<T, honk::flavor::Ultra, honk::flavor::UltraGrumpkin, honk::flavor::GoblinUltra>;
 
