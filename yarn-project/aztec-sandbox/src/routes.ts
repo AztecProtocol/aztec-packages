@@ -4,11 +4,10 @@ import Koa from 'koa';
 import Router from 'koa-router';
 
 /**
- * Creates a router for helper API endpoints of the Aztec RPC Server.
- * @param aztecNode - An instance of the aztec node.
- * @param config - The aztec node's configuration variables.
+ * Creates a router for helper API endpoints.
+ * @param l1Contracts - Object containing L1 contract addresses.
  */
-export function createApiRouter(l1Contracts: DeployL1Contracts) {
+export function createHelperRouter(l1Contracts: DeployL1Contracts) {
   const router = new Router({ prefix: '/api' });
   router.get('/status', (ctx: Koa.Context) => {
     // TODO: add `status` to Aztec node.
