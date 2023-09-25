@@ -89,7 +89,7 @@ To define that a variable is public, it is wrapped in the `PublicState` struct, 
 
 #include_code public_state_struct /yarn-project/aztec-nr/aztec/src/state_vars/public_state.nr rust
 
-The `PublicState` struct is generic over the variable type `T` and its serialized size `T_SERIALISED_LEN`. 
+The `PublicState` struct is generic over the variable type `T` and its serialized size `T_SERIALIZED_LEN`. 
 :::info
 Currently, the length of the types must be specified when declaring the storage struct but the intention is that this will be inferred in the future.
 :::
@@ -98,7 +98,7 @@ The struct contains a `storage_slot` which, similar to Ethereum, is used to figu
 
 Beyond the struct, the `PublicState` also contains `serialization_methods`, which is a struct with methods that instruct the `PublicState` how to serialize and deserialize the variable.
 
-#include_code TypeSerialisationInterface /yarn-project/aztec-nr/aztec/src/types/type_serialisation.nr rust
+#include_code TypeSerializationInterface /yarn-project/aztec-nr/aztec/src/types/type_serialization.nr rust
 
 :::info
 The British haven't surrendered fully to US spelling, so serialization is currently inconsistent.
@@ -106,7 +106,7 @@ The British haven't surrendered fully to US spelling, so serialization is curren
 
 The Aztec.nr library provides serialization methods for various common types. As an example, the Field serialization methods are defined as follows:
 
-#include_code field_serialization /yarn-project/aztec-nr/aztec/src/types/type_serialisation/field_serialisation.nr rust
+#include_code field_serialization /yarn-project/aztec-nr/aztec/src/types/type_serialization/field_serialization.nr rust
 
 
 :::info
@@ -260,15 +260,15 @@ As part of the initialization of the `Storage` struct, the `Singleton` is create
 
 #include_code start_vars_singleton /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/main.nr rust
 
-### `initialise`
+### `initialize`
 
-As mention, the singleton is initialized to create the first note and value. Here is the source code for the initialise function:
+As mention, the singleton is initialized to create the first note and value. Here is the source code for the initialize function:
 
-#include_code initialise /yarn-project/aztec-nr/aztec/src/state_vars/singleton.nr rust
+#include_code initialize /yarn-project/aztec-nr/aztec/src/state_vars/singleton.nr rust
 
 When this function is called, a nullifier of the storage slot is created, preventing this Singleton from being initialized again.
 
-Unlike public states, which have a default initial value of `0` (or many zeros, in the case of a struct, array or map), a private state (of type `Singleton`, `ImmutableSingleton` or `Set`) does not have a default initial value. The `initialise` method (or `insert`, in the case of a `Set`) must be called.
+Unlike public states, which have a default initial value of `0` (or many zeros, in the case of a struct, array or map), a private state (of type `Singleton`, `ImmutableSingleton` or `Set`) does not have a default initial value. The `initialize` method (or `insert`, in the case of a `Set`) must be called.
 
 :::info
 Extend on what happens if you try to use non-initialized state.
@@ -310,13 +310,13 @@ As part of the initialization of the `Storage` struct, the `Singleton` is create
 
 #include_code storage_init /yarn-project/noir-contracts/src/contracts/schnorr_account_contract/src/main.nr rust
 
-### `initialise`
+### `initialize`
 
-#include_code initialise /yarn-project/aztec-nr/aztec/src/state_vars/immutable_singleton.nr rust
+#include_code initialize /yarn-project/aztec-nr/aztec/src/state_vars/immutable_singleton.nr rust
 
-Set the value of an ImmutableSingleton by calling the `initialise` method:
+Set the value of an ImmutableSingleton by calling the `initialize` method:
 
-#include_code initialise /yarn-project/noir-contracts/src/contracts/schnorr_account_contract/src/main.nr rust
+#include_code initialize /yarn-project/noir-contracts/src/contracts/schnorr_account_contract/src/main.nr rust
 
 Once initialized, an ImmutableSingleton's value remains unchangeable. This method can only be called once.
 
@@ -475,11 +475,11 @@ Several methods are available on `NoteGetterOptions` to construct the options in
 
 #### `fn new() -> NoteGetterOptions<Note, N, Field>`
 
-This function initialises a `NoteGetterOptions` that simply returns the maximum number of notes allowed in a call.
+This function initializes a `NoteGetterOptions` that simply returns the maximum number of notes allowed in a call.
 
 #### `fn with_filter(filter, filter_args) -> NoteGetterOptions<Note, N, FILTER_ARGS>`
 
-This function initialises a `NoteGetterOptions` with a [`filter`](#filter-fn-optionnote-max_read_requests_per_call-filter_args---optionnote-max_read_requests_per_call) and [`filter_args`](#filter_args-filter_args).
+This function initializes a `NoteGetterOptions` with a [`filter`](#filter-fn-optionnote-max_read_requests_per_call-filter_args---optionnote-max_read_requests_per_call) and [`filter_args`](#filter_args-filter_args).
 
 #### `.select`
 
