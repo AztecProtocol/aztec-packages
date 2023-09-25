@@ -11,7 +11,7 @@ describe('token', () => {
     recipient = await createAccount(rpc);
 
     token = await Contract.deploy(owner, TokenContractAbi, []).send().deployed();
-    await token.methods._initialize({ address: owner.getAddress() }).send().wait();
+    await token.methods._initialize(owner.getAddress()).send().wait();
 
     const initialBalance = 20n;
     const secret = Fr.random();
@@ -25,12 +25,9 @@ describe('token', () => {
 
   // docs:start:test
   it('increases recipient funds on transfer', async () => {
-    expect(await token.methods.balance_of_private({ address: recipient.getAddress() }).view()).toEqual(0n);
-    await token.methods
-      .transfer({ address: owner.getAddress() }, { address: recipient.getAddress() }, 20n, 0)
-      .send()
-      .wait();
-    expect(await token.methods.balance_of_private({ address: recipient.getAddress() }).view()).toEqual(20n);
+    expect(await token.methods.balance_of_private(recipient.getAddress()).view()).toEqual(0n);
+    await token.methods.transfer(owner.getAddress(), recipient.getAddress(), 20n, 0).send().wait();
+    expect(await token.methods.balance_of_private(recipient.getAddress()).view()).toEqual(20n);
   });
   // docs:end:test
 });
