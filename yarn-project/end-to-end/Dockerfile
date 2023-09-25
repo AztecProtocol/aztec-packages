@@ -17,22 +17,24 @@ RUN yarn cache clean
 RUN yarn workspaces focus --production > /dev/null
 
 # Create final, minimal size image.
-FROM ghcr.io/puppeteer/puppeteer:20.9.0
-# RUN apk update && apk add --no-cache udev ttf-freefont google-chrome
-RUN ls /usr/bin/google-chrome-stable
-ENV CHROME_BIN="/usr/bin/google-chrome-stable" PUPPETEER_SKIP_CHROMIUM_DOWNLOAD="true"
+FROM node:18-alpine
+RUN apk add --no-cache \
+  chromium \
+  chromium-chromedriver \
+  nss \
+  freetype \
+  harfbuzz \
+  ca-certificates \
+  ttf-freefont \
+  dbus
+
+ENV CHROME_BIN="/usr/bin/chromium-browser" PUPPETEER_SKIP_CHROMIUM_DOWNLOAD="true"
 COPY --from=builder /usr/src /usr/src
 
-# Use root to delete files
-USER root
 RUN rm /usr/src/yarn-project/end-to-end/src/web/aztec3-circuits.wasm
 RUN rm /usr/src/yarn-project/end-to-end/src/web/main.js
 COPY --from=builder /usr/src/circuits/cpp/build-wasm/bin/aztec3-circuits.wasm /usr/src/yarn-project/end-to-end/src/web/aztec3-circuits.wasm
 COPY --from=builder /usr/src/yarn-project/aztec.js/dest/main.js /usr/src/yarn-project/end-to-end/src/web/main.js
 WORKDIR /usr/src/yarn-project/end-to-end
 
-# Use suggested user by puppeteer
-USER pptruser
-
-# Run everything after as non-privileged user.
 ENTRYPOINT ["yarn", "test"]

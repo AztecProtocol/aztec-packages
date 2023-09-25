@@ -56,9 +56,13 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
       app.use(serve(path.resolve(__dirname, './web')));
 
       browser = await launch({
+        devtools: false,
         executablePath: process.env.CHROME_BIN,
-        headless: 'new',
+        headless: true,
+        dumpio: true,
         args: [
+          '--use-fake-device-for-media-stream',
+          '--use-fake-ui-for-media-stream',
           '--single-process',
           '--allow-file-access-from-files',
           '--no-sandbox',
@@ -69,7 +73,9 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
           '--disable-setuid-sandbox',
           '--disable-gpu',
           '--disable-dev-shm-usage',
+          '--disable-sync',
           '--disk-cache-dir=/dev/null',
+          '--no-zygote',
         ],
       });
       page = await browser.newPage();

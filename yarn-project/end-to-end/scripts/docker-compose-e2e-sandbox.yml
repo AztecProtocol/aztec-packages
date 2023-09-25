@@ -13,7 +13,7 @@ services:
       - '8545:8545'
 
   sandbox:
-    image: aztecprotocol/aztec-sandbox:latest
+    image: sandbox
     environment:
       DEBUG: 'aztec:*'
       ETHEREUM_HOST: http://fork:8545
@@ -29,10 +29,12 @@ services:
       - '8080:8080'
 
   end-to-end:
-    image: aztecprotocol/end-to-end:latest
+    image: e2e
+    volumes:
+      - /var/run/dbus/system_bus_socket:/var/run/dbus/system_bus_socket
     environment:
       ETHEREUM_HOST: http://fork:8545
       CHAIN_ID: 31337
       SANDBOX_URL: http://sandbox:8080
       SEARCH_START_BLOCK: ${FORK_BLOCK_NUMBER:-0}
-    command: ${TEST:-./src/e2e_deploy_contract.test.ts}
+    command: ${TEST:-./src/e2e_aztec_js_browser.test.ts}
