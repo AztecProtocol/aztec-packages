@@ -900,7 +900,7 @@ jobs:
       - run:
           name: "Build docs"
           command: build docs
-:18
+
   e2e-join:
     docker:
       - image: cimg/base:2023.09
