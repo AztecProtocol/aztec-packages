@@ -35,7 +35,7 @@ VerifierFoldingResult<typename VerifierInstances::Flavor> ProtoGalaxyVerifier_<
     return res;
 }
 
-template class ProtoGalaxyVerifier_<proof_system::honk::VerifierInstances<honk::flavor::Ultra, 2>>;
-template class ProtoGalaxyVerifier_<proof_system::honk::VerifierInstances<honk::flavor::UltraGrumpkin, 2>>;
-template class ProtoGalaxyVerifier_<proof_system::honk::VerifierInstances<honk::flavor::GoblinUltra, 2>>;
+template class ProtoGalaxyVerifier_<VerifierInstances_<honk::flavor::Ultra, 2>>;
+template class ProtoGalaxyVerifier_<VerifierInstances_<honk::flavor::UltraGrumpkin, 2>>;
+template class ProtoGalaxyVerifier_<VerifierInstances_<honk::flavor::GoblinUltra, 2>>;
 } // namespace proof_system::honk

@@ -24,7 +24,7 @@ template <class VerifierInstances> class ProtoGalaxyVerifier_ {
     VerifierFoldingResult<Flavor> fold_public_parameters(std::vector<uint8_t> fold_data);
 };
 
-extern template class ProtoGalaxyVerifier_<VerifierInstances<honk::flavor::Ultra, 2>>;
-extern template class ProtoGalaxyVerifier_<VerifierInstances<honk::flavor::UltraGrumpkin, 2>>;
-extern template class ProtoGalaxyVerifier_<VerifierInstances<honk::flavor::GoblinUltra, 2>>;
+extern template class ProtoGalaxyVerifier_<VerifierInstances_<honk::flavor::Ultra, 2>>;
+extern template class ProtoGalaxyVerifier_<VerifierInstances_<honk::flavor::UltraGrumpkin, 2>>;
+extern template class ProtoGalaxyVerifier_<VerifierInstances_<honk::flavor::GoblinUltra, 2>>;
 } // namespace proof_system::honk

@@ -25,8 +25,8 @@ template <UltraFlavor Flavor> class UltraComposer_ {
     using Instance = ProverInstance_<Flavor>;
 
     static constexpr size_t NUM_FOLDING = 2;
-    using ProverInstances = ProverInstances<Flavor, NUM_FOLDING>;
-    using VerifierInstances = VerifierInstances<Flavor, NUM_FOLDING>;
+    using ProverInstances = ProverInstances_<Flavor, NUM_FOLDING>;
+    using VerifierInstances = VerifierInstances_<Flavor, NUM_FOLDING>;
 
     // offset due to placing zero wires at the start of execution trace
     static constexpr size_t num_zero_rows = Flavor::has_zero_row ? 1 : 0;

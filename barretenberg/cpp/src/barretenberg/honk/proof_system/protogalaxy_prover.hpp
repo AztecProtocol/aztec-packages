@@ -25,7 +25,7 @@ template <class ProverInstances> class ProtoGalaxyProver_ {
     ProverFoldingResult<Flavor> fold_instances();
 };
 
-extern template class ProtoGalaxyProver_<ProverInstances<honk::flavor::Ultra, 2>>;
-extern template class ProtoGalaxyProver_<ProverInstances<honk::flavor::UltraGrumpkin, 2>>;
-extern template class ProtoGalaxyProver_<ProverInstances<honk::flavor::GoblinUltra, 2>>;
+extern template class ProtoGalaxyProver_<ProverInstances_<honk::flavor::Ultra, 2>>;
+extern template class ProtoGalaxyProver_<ProverInstances_<honk::flavor::UltraGrumpkin, 2>>;
+extern template class ProtoGalaxyProver_<ProverInstances_<honk::flavor::GoblinUltra, 2>>;
 } // namespace proof_system::honk

@@ -46,7 +46,7 @@ ProverFoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverI
     res.folding_data = transcript.proof_data;
     return res;
 }
-template class ProtoGalaxyProver_<ProverInstances<honk::flavor::Ultra, 2>>;
-template class ProtoGalaxyProver_<ProverInstances<honk::flavor::UltraGrumpkin, 2>>;
-template class ProtoGalaxyProver_<ProverInstances<honk::flavor::GoblinUltra, 2>>;
+template class ProtoGalaxyProver_<ProverInstances_<honk::flavor::Ultra, 2>>;
+template class ProtoGalaxyProver_<ProverInstances_<honk::flavor::UltraGrumpkin, 2>>;
+template class ProtoGalaxyProver_<ProverInstances_<honk::flavor::GoblinUltra, 2>>;
 } // namespace proof_system::honk
