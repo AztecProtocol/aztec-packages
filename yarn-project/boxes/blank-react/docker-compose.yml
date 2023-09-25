@@ -27,8 +27,8 @@ services:
   boxes-blank-react:
     image: aztecprotocol/yarn-project:latest
     entrypoint: sh
-    command: yarn test:ci
+    command: -c "cd boxes/blank-react && yarn test:ci"
     environment:
-      ETHEREUM_HOST: http://fork:8545
+      ETHEREUM_HOST: http://ethereum:8545
       CHAIN_ID: 31337
-      SANDBOX_URL: http://sandbox:8080
+      SANDBOX_URL: http://aztec:8080
