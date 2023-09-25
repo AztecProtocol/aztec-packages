@@ -19,13 +19,14 @@ RUN yarn tsc -b
 RUN yarn formatting
 
 # We're happy. We now now enable pnp and create a slimmed down final image.
-# This significantly improves build times and results in smaller final containers for users to download.
-# Don't sacrifice this unless you've really hit some kind of wall.
+# This improves build times and results in smaller final containers for users to download.
 # This effectively removes all the node_modules folders, just leaving the zipped packages in the global/local caches.
+# Don't sacrifice this unless you've really hit some kind of wall caused by pnp, but if so, you can just comment out.
 RUN mv .yarnrc.prod.yml .yarnrc.yml && yarn
 
 # Create final slim image.
 FROM node:18-alpine
+RUN apk update && apk add --no-cache bash jq
 COPY --from=builder /usr/src /usr/src
 WORKDIR /usr/src/yarn-project
 ENTRYPOINT ["yarn"]
