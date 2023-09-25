@@ -118,6 +118,6 @@ if [[ -n "$ARCH" ]]; then
   IMAGE_COMMIT_URI=$IMAGE_COMMIT_URI-$ARCH
 fi
 echo "Building image: $IMAGE_COMMIT_URI"
-docker build -t $IMAGE_COMMIT_URI -f $DOCKERFILE $CACHE_FROM --build-arg COMMIT_TAG=$COMMIT_TAG_VERSION --build-arg ARG_CONTENT_HASH=$CONTENT_HASH .
+docker build -t $IMAGE_COMMIT_URI -f $DOCKERFILE --build-arg COMMIT_TAG=$COMMIT_TAG_VERSION --build-arg ARG_CONTENT_HASH=$CONTENT_HASH .
 echo "Pushing image: $IMAGE_COMMIT_URI"
 retry docker push $IMAGE_COMMIT_URI > /dev/null 2>&1
