@@ -389,9 +389,6 @@ jobs:
     machine:
       image: ubuntu-2204:2023.07.2
     resource_class: xlarge
-    steps:
-      - *checkout
-      - *setup_env
       - run:
           name: "Build"
           command: build yarn-project-base | add_timestamps
