@@ -194,11 +194,7 @@ In contrast to public state, private state is persistent state that is **not** v
 
 The value of a private state variable can either be shared via an [encrypted log](./events.md#encrypted-events), or offchain via web2, or completely offline: it's up to the app developer.
 
-<!-- TODO: insert link in italics above -->
-
 Aztec private state follows a utxo-based model. That is, a private state's current value is represented as one or many [notes](#notes). Each note is stored as an individual leaf in a utxo-based merkle tree: the [private state tree](./../../../concepts/foundation/state_model.md).
-
-<!-- TODO: insert link in italics above -->
 
 To greatly simplify the experience of writing private state, Aztec.nr provides three different types of private state variable:
 
