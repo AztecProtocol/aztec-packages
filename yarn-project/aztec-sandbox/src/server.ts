@@ -7,7 +7,7 @@ import { createHelperRouter } from './routes.js';
 
 /**
  * Creates an http server that forwards calls to the underlying instance and starts it on the given port.
- * @param instance - RPC server that answers queries to the created HTTP server.
+ * @param instance - Instance to wrap in a JSON-RPC server.
  * @param deployedL1Contracts - Info on L1 deployed contracts.
  * @param port - Port to listen in.
  * @returns A running http server.
