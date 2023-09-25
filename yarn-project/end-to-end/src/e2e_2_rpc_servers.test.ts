@@ -72,9 +72,12 @@ describe('e2e_2_rpc_servers', () => {
     tokenAddress: AztecAddress,
     owner: AztecAddress,
     expectedBalance: bigint,
+    checkIfSynchronized = true,
   ) => {
-    // First wait until the corresponding RPC server has synchronized the account
-    await awaitUserSynchronized(wallet, owner);
+    if (checkIfSynchronized) {
+      // First wait until the corresponding RPC server has synchronized the account
+      await awaitUserSynchronized(wallet, owner);
+    }
 
     // Then check the balance
     const contractWithWallet = await TokenContract.at(tokenAddress, wallet);
@@ -203,7 +206,7 @@ describe('e2e_2_rpc_servers', () => {
     expect(storedValue).toBe(newValueToSet);
   });
 
-  it.only('private state is "zero" when Aztec RPC Server does not have the account private key', async () => {
+  it('private state is "zero" when Aztec RPC Server does not have the account private key', async () => {
     const userABalance = 100n;
     const userBBalance = 150n;
 
@@ -227,19 +230,17 @@ describe('e2e_2_rpc_servers', () => {
     // Mint tokens to user B
     await mintTokens(contractWithWalletA, userB.address, userBBalance);
 
-    // Ensure that both servers are synchronized
-    await awaitServerSynchronized(aztecRpcServerA);
-    await awaitServerSynchronized(aztecRpcServerB);
-
     // Check that user A balance is 100 on server A
     await expectTokenBalance(walletA, completeTokenAddress.address, userA.address, userABalance);
     // Check that user B balance is 150 on server B
     await expectTokenBalance(walletB, completeTokenAddress.address, userB.address, userBBalance);
 
     // CHECK THAT PRIVATE BALANCES ARE 0 WHEN ACCOUNT'S PRIVATE KEYS ARE NOT REGISTERED
+    // Note: Not checking if the account is synchronized because it is not registered as an account (it would throw).
+    const checkIfSynchronized = false;
     // Check that user A balance is 0 on server B
-    await expectTokenBalance(walletB, completeTokenAddress.address, userA.address, 0n);
+    await expectTokenBalance(walletB, completeTokenAddress.address, userA.address, 0n, checkIfSynchronized);
     // Check that user B balance is 0 on server A
-    await expectTokenBalance(walletA, completeTokenAddress.address, userB.address, 0n);
+    await expectTokenBalance(walletA, completeTokenAddress.address, userB.address, 0n, checkIfSynchronized);
   });
 });
