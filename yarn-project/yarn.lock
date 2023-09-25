@@ -6357,6 +6357,7 @@ __metadata:
     "@aztec/circuits.js": "workspace:^"
     "@aztec/cli": "workspace:^"
     "@aztec/foundation": "workspace:^"
+    "@aztec/types": "workspace:^"
     "@types/node": ^20.5.9
     "@types/react": ^18.2.15
     "@types/react-dom": ^18.2.7
@@ -14332,6 +14333,7 @@ __metadata:
     "@aztec/circuits.js": "workspace:^"
     "@aztec/cli": "workspace:^"
     "@aztec/foundation": "workspace:^"
+    "@aztec/types": "workspace:^"
     "@types/node": ^20.5.9
     "@types/react": ^18.2.15
     "@types/react-dom": ^18.2.7
