@@ -85,8 +85,7 @@ TEST(SumcheckRound, TuplesOfEvaluationArrays)
     FF challenge = 5;
     FF running_challenge = 1;
     FF result = 0;
-    SumcheckVerifierRound<Flavor>::scale_and_batch_elements(
-        tuple_of_arrays, challenge, running_challenge, result);
+    SumcheckVerifierRound<Flavor>::scale_and_batch_elements(tuple_of_arrays, challenge, running_challenge, result);
 
     // Repeat the batching process manually
     auto result_expected =
