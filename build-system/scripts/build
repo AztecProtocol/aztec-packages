@@ -94,7 +94,7 @@ if [ -d $ROOT_PATH/$PROJECT_DIR/terraform ]; then
 fi
 
 # For each dependency, pull in the latest image and give it correct tag.
-for PARENT_REPO in $(query_manifest dependencies $REPOSITORY) do
+for PARENT_REPO in $(query_manifest dependencies $REPOSITORY); do
   PARENT_CONTENT_HASH=$(calculate_content_hash $PARENT_REPO)
   # There must be a parent image to continue.
   if [ -z "$PARENT_CONTENT_HASH" ]; then
