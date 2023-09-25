@@ -13,7 +13,17 @@ using RelationParameters = proof_system::RelationParameters<FF>;
 TEST(Protogalaxy, Combiner)
 {
     constexpr size_t NUM_INSTANCES = 2;
-    auto run_test = [](bool is_random_input) {
+
+    const auto restrict_to_standard_arithmetic_relation = [](auto& polys) {
+        std::fill(polys.q_arith.begin(), polys.q_arith.end(), 1);
+        std::fill(polys.q_sort.begin(), polys.q_sort.end(), 0);
+        std::fill(polys.q_elliptic.begin(), polys.q_elliptic.end(), 0);
+        std::fill(polys.q_aux.begin(), polys.q_aux.end(), 0);
+        std::fill(polys.q_lookup.begin(), polys.q_lookup.end(), 0);
+        std::fill(polys.q_4.begin(), polys.q_4.end(), 0);
+    };
+
+    auto run_test = [&](bool is_random_input) {
         if (is_random_input) {
             Instances<Flavor, NUM_INSTANCES> instances;
             std::array<std::array<Polynomial, Flavor::NUM_ALL_ENTITIES>, NUM_INSTANCES> storage_arrays;
@@ -25,15 +35,23 @@ TEST(Protogalaxy, Combiner)
             size_t instance_idx = 0;
             for (auto& instance : instances) {
                 auto [storage, prover_polynomials] = proof_system::honk::get_sequential_prover_polynomials<Flavor>(
-                    /*log_circuit_size=*/1, instance_idx * 64);
+                    /*log_circuit_size=*/1, instance_idx * 128);
+                restrict_to_standard_arithmetic_relation(prover_polynomials);
                 storage_arrays[instance_idx] = std::move(storage);
                 instance = prover_polynomials;
                 instance_idx++;
             }
 
             auto result = prover.compute_combiner(instances, relation_parameters, pow_univariate, alpha);
-            auto expected_result = barretenberg::Univariate<FF, 7>(
-                std::array<FF, 7>{ 21150, 3778492, 30367578, 117758328, 322795030, 721196340 , 0});
+            auto expected_result =
+                barretenberg::Univariate<FF, 7>(std::array<FF, 7>{ 87706,
+                                                                   27289140,
+                                                                   229355214,
+                                                                   905031784,
+                                                                   static_cast<uint64_t>(2504059650),
+                                                                   static_cast<uint64_t>(5627174556),
+                                                                   static_cast<uint64_t>(11026107190) });
+
             EXPECT_EQ(result, expected_result);
         } else {
             Instances<Flavor, NUM_INSTANCES> instances;
@@ -47,6 +65,7 @@ TEST(Protogalaxy, Combiner)
             for (auto& instance : instances) {
                 auto [storage, prover_polynomials] =
                     proof_system::honk::get_zero_prover_polynomials<Flavor>(/*log_circuit_size=*/1);
+                restrict_to_standard_arithmetic_relation(prover_polynomials);
                 storage_arrays[instance_idx] = std::move(storage);
                 instance = prover_polynomials;
                 instance_idx++;
@@ -89,7 +108,8 @@ TEST(Protogalaxy, Combiner)
             EXPECT_EQ(instances[1].w_r[1], FF(5));
 
             auto result = prover.compute_combiner(instances, relation_parameters, pow_univariate, alpha);
-            auto expected_result = barretenberg::Univariate<FF, 7>(std::array<FF, 7>{ 0, 0, 0, 0, 0, 0, 0 }); // WORKTODO
+            auto expected_result =
+                barretenberg::Univariate<FF, 7>(std::array<FF, 7>{ 0, 0, 0, 0, 0, 0, 0 }); // WORKTODO
             EXPECT_EQ(result, expected_result);
         }
     };
