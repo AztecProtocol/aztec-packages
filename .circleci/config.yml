@@ -1158,7 +1158,10 @@ workflows:
             - aztec-sandbox-arm64
           <<: *defaults
 
-      - boxes-blank-react: *yarn_project
+      - boxes-blank-react:
+          requires:
+            - aztec-sandbox-x86_64
+          <<: *defaults
 
       - e2e-join:
           requires:
