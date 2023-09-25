@@ -1,17 +1,23 @@
 import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecRPCServer, EthAddress, Fr } from '@aztec/aztec-rpc';
-import { AztecAddress, Wallet } from '@aztec/aztec.js';
+import { AztecAddress, Wallet, computeMessageSecretHash } from '@aztec/aztec.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { toBigInt } from '@aztec/foundation/serialize';
-import { ChildContract, PrivateTokenContract } from '@aztec/noir-contracts/types';
+import { ChildContract, TokenContract } from '@aztec/noir-contracts/types';
 import { AztecRPC, CompleteAddress, TxStatus } from '@aztec/types';
+
+import { jest } from '@jest/globals';
 
 import { expectsNumOfEncryptedLogsInTheLastBlockToBe, setup, setupAztecRPCServer } from './fixtures/utils.js';
 
 const { SANDBOX_URL = '' } = process.env;
 
+const TIMEOUT = 60_000;
+
 describe('e2e_2_rpc_servers', () => {
+  jest.setTimeout(TIMEOUT);
+
   let aztecNode: AztecNodeService | undefined;
   let aztecRpcServerA: AztecRPC;
   let aztecRpcServerB: AztecRPC;
@@ -54,11 +60,11 @@ describe('e2e_2_rpc_servers', () => {
     }
   });
 
-  const awaitUserSynchronised = async (wallet: Wallet, owner: AztecAddress) => {
-    const isUserSynchronised = async () => {
-      return await wallet.isAccountStateSynchronised(owner);
+  const awaitUserSynchronized = async (wallet: Wallet, owner: AztecAddress) => {
+    const isUserSynchronized = async () => {
+      return await wallet.isAccountStateSynchronized(owner);
     };
-    await retryUntil(isUserSynchronised, `synch of user ${owner.toString()}`, 10);
+    await retryUntil(isUserSynchronized, `synch of user ${owner.toString()}`, 10);
   };
 
   const expectTokenBalance = async (
@@ -66,23 +72,42 @@ describe('e2e_2_rpc_servers', () => {
     tokenAddress: AztecAddress,
     owner: AztecAddress,
     expectedBalance: bigint,
+    checkIfSynchronized = true,
   ) => {
-    // First wait until the corresponding RPC server has synchronised the account
-    await awaitUserSynchronised(wallet, owner);
+    if (checkIfSynchronized) {
+      // First wait until the corresponding RPC server has synchronized the account
+      await awaitUserSynchronized(wallet, owner);
+    }
 
     // Then check the balance
-    const contractWithWallet = await PrivateTokenContract.at(tokenAddress, wallet);
-    const balance = await contractWithWallet.methods.getBalance(owner).view({ from: owner });
+    const contractWithWallet = await TokenContract.at(tokenAddress, wallet);
+    const balance = await contractWithWallet.methods.balance_of_private(owner).view({ from: owner });
     logger(`Account ${owner} balance: ${balance}`);
     expect(balance).toBe(expectedBalance);
   };
 
-  const deployPrivateTokenContract = async (initialBalance: bigint, owner: AztecAddress) => {
-    logger(`Deploying PrivateToken contract...`);
-    const contract = await PrivateTokenContract.deploy(walletA, initialBalance, owner).send().deployed();
+  const deployTokenContract = async (initialAdminBalance: bigint, admin: AztecAddress) => {
+    logger(`Deploying Token contract...`);
+    const contract = await TokenContract.deploy(walletA).send().deployed();
+    expect((await contract.methods._initialize(admin).send().wait()).status).toBe(TxStatus.MINED);
+
+    if (initialAdminBalance > 0n) {
+      await mintTokens(contract, admin, initialAdminBalance);
+    }
+
     logger('L2 contract deployed');
 
     return contract.completeAddress;
+  };
+
+  const mintTokens = async (contract: TokenContract, recipient: AztecAddress, balance: bigint) => {
+    const secret = Fr.random();
+    const secretHash = await computeMessageSecretHash(secret);
+
+    expect((await contract.methods.mint_private(balance, secretHash).send().wait()).status).toEqual(TxStatus.MINED);
+    expect((await contract.methods.redeem_shield(recipient, balance, secret).send().wait()).status).toEqual(
+      TxStatus.MINED,
+    );
   };
 
   it('transfers fund from user A to B via RPC server A followed by transfer from B to A via RPC server B', async () => {
@@ -90,7 +115,7 @@ describe('e2e_2_rpc_servers', () => {
     const transferAmount1 = 654n;
     const transferAmount2 = 323n;
 
-    const completeTokenAddress = await deployPrivateTokenContract(initialBalance, userA.address);
+    const completeTokenAddress = await deployTokenContract(initialBalance, userA.address);
     const tokenAddress = completeTokenAddress.address;
 
     // Add account B to wallet A
@@ -98,10 +123,10 @@ describe('e2e_2_rpc_servers', () => {
     // Add account A to wallet B
     await aztecRpcServerB.registerRecipient(userA);
 
-    // Add privateToken to RPC server B
+    // Add token to RPC server B (RPC server A already has it because it was deployed through it)
     await aztecRpcServerB.addContracts([
       {
-        abi: PrivateTokenContract.abi,
+        abi: TokenContract.abi,
         completeAddress: completeTokenAddress,
         portalContract: EthAddress.ZERO,
       },
@@ -113,12 +138,11 @@ describe('e2e_2_rpc_servers', () => {
     await expectsNumOfEncryptedLogsInTheLastBlockToBe(aztecNode, 1);
 
     // Transfer funds from A to B via RPC server A
-    const contractWithWalletA = await PrivateTokenContract.at(tokenAddress, walletA);
-    const txAToB = contractWithWalletA.methods.transfer(transferAmount1, userB.address).send();
-
-    await txAToB.isMined({ interval: 0.1 });
-    const receiptAToB = await txAToB.getReceipt();
-
+    const contractWithWalletA = await TokenContract.at(tokenAddress, walletA);
+    const receiptAToB = await contractWithWalletA.methods
+      .transfer(userA.address, userB.address, transferAmount1, 0)
+      .send()
+      .wait();
     expect(receiptAToB.status).toBe(TxStatus.MINED);
 
     // Check balances and logs are as expected
@@ -127,8 +151,11 @@ describe('e2e_2_rpc_servers', () => {
     await expectsNumOfEncryptedLogsInTheLastBlockToBe(aztecNode, 2);
 
     // Transfer funds from B to A via RPC server B
-    const contractWithWalletB = await PrivateTokenContract.at(tokenAddress, walletB);
-    await contractWithWalletB.methods.transfer(transferAmount2, userA.address).send().wait({ interval: 0.1 });
+    const contractWithWalletB = await TokenContract.at(tokenAddress, walletB);
+    await contractWithWalletB.methods
+      .transfer(userB.address, userA.address, transferAmount2, 0)
+      .send()
+      .wait({ interval: 0.1 });
 
     // Check balances and logs are as expected
     await expectTokenBalance(walletA, tokenAddress, userA.address, initialBalance - transferAmount1 + transferAmount2);
@@ -144,11 +171,11 @@ describe('e2e_2_rpc_servers', () => {
     return contract.completeAddress;
   };
 
-  const awaitServerSynchronised = async (server: AztecRPC) => {
-    const isServerSynchronised = async () => {
-      return await server.isGlobalStateSynchronised();
+  const awaitServerSynchronized = async (server: AztecRPC) => {
+    const isServerSynchronized = async () => {
+      return await server.isGlobalStateSynchronized();
     };
-    await retryUntil(isServerSynchronised, 'server sync', 10);
+    await retryUntil(isServerSynchronized, 'server sync', 10);
   };
 
   const getChildStoredValue = (child: { address: AztecAddress }, aztecRpcServer: AztecRPC) =>
@@ -157,7 +184,7 @@ describe('e2e_2_rpc_servers', () => {
   it('user calls a public function on a contract deployed by a different user using a different RPC server', async () => {
     const childCompleteAddress = await deployChildContractViaServerA();
 
-    await awaitServerSynchronised(aztecRpcServerA);
+    await awaitServerSynchronized(aztecRpcServerA);
 
     // Add Child to RPC server B
     await aztecRpcServerB.addContracts([
@@ -173,9 +200,47 @@ describe('e2e_2_rpc_servers', () => {
     const childContractWithWalletB = await ChildContract.at(childCompleteAddress.address, walletB);
     await childContractWithWalletB.methods.pubIncValue(newValueToSet).send().wait({ interval: 0.1 });
 
-    await awaitServerSynchronised(aztecRpcServerA);
+    await awaitServerSynchronized(aztecRpcServerA);
 
-    const storedValue = await getChildStoredValue({ address: childCompleteAddress.address }, aztecRpcServerB);
+    const storedValue = await getChildStoredValue(childCompleteAddress, aztecRpcServerB);
     expect(storedValue).toBe(newValueToSet);
-  }, 60_000);
+  });
+
+  it('private state is "zero" when Aztec RPC Server does not have the account private key', async () => {
+    const userABalance = 100n;
+    const userBBalance = 150n;
+
+    const completeTokenAddress = await deployTokenContract(userABalance, userA.address);
+    const contractWithWalletA = await TokenContract.at(completeTokenAddress.address, walletA);
+
+    // Add account B to wallet A
+    await aztecRpcServerA.registerRecipient(userB);
+    // Add account A to wallet B
+    await aztecRpcServerB.registerRecipient(userA);
+
+    // Add token to RPC server B (RPC server A already has it because it was deployed through it)
+    await aztecRpcServerB.addContracts([
+      {
+        abi: TokenContract.abi,
+        completeAddress: completeTokenAddress,
+        portalContract: EthAddress.ZERO,
+      },
+    ]);
+
+    // Mint tokens to user B
+    await mintTokens(contractWithWalletA, userB.address, userBBalance);
+
+    // Check that user A balance is 100 on server A
+    await expectTokenBalance(walletA, completeTokenAddress.address, userA.address, userABalance);
+    // Check that user B balance is 150 on server B
+    await expectTokenBalance(walletB, completeTokenAddress.address, userB.address, userBBalance);
+
+    // CHECK THAT PRIVATE BALANCES ARE 0 WHEN ACCOUNT'S PRIVATE KEYS ARE NOT REGISTERED
+    // Note: Not checking if the account is synchronized because it is not registered as an account (it would throw).
+    const checkIfSynchronized = false;
+    // Check that user A balance is 0 on server B
+    await expectTokenBalance(walletB, completeTokenAddress.address, userA.address, 0n, checkIfSynchronized);
+    // Check that user B balance is 0 on server A
+    await expectTokenBalance(walletA, completeTokenAddress.address, userB.address, 0n, checkIfSynchronized);
+  });
 });

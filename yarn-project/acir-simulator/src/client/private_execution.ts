@@ -73,7 +73,9 @@ export class PrivateFunctionExecution {
         return toACVMField(await this.context.packedArgsCache.pack(args.map(fromACVMField)));
       },
       getAuthWitness: async ([messageHash]) => {
-        return (await this.context.db.getAuthWitness(fromACVMField(messageHash))).map(toACVMField);
+        const witness = await this.context.getAuthWitness(fromACVMField(messageHash));
+        if (!witness) throw new Error(`Authorization not found for message hash ${fromACVMField(messageHash)}`);
+        return witness.map(toACVMField);
       },
       getSecretKey: ([ownerX], [ownerY]) => this.context.getSecretKey(this.contractAddress, ownerX, ownerY),
       getPublicKey: async ([acvmAddress]) => {
@@ -99,10 +101,12 @@ export class PrivateFunctionExecution {
         this.context.handleNewNote(this.contractAddress, storageSlot, preimage, innerNoteHash);
         return Promise.resolve(ZERO_ACVM_FIELD);
       },
-      notifyNullifiedNote: async ([slot], [innerNullifier], [innerNoteHash]) => {
-        await this.context.handleNullifiedNote(this.contractAddress, slot, innerNullifier, innerNoteHash);
+      notifyNullifiedNote: async ([innerNullifier], [innerNoteHash]) => {
+        await this.context.handleNullifiedNote(this.contractAddress, innerNullifier, innerNoteHash);
         return Promise.resolve(ZERO_ACVM_FIELD);
       },
+      checkNoteHashExists: ([nonce], [innerNoteHash]) =>
+        this.context.checkNoteHashExists(this.contractAddress, nonce, innerNoteHash),
       callPrivateFunction: async ([acvmContractAddress], [acvmFunctionSelector], [acvmArgsHash]) => {
         const contractAddress = fromACVMField(acvmContractAddress);
         const functionSelector = fromACVMField(acvmFunctionSelector);
@@ -125,7 +129,6 @@ export class PrivateFunctionExecution {
       getL1ToL2Message: ([msgKey]) => {
         return this.context.getL1ToL2Message(fromACVMField(msgKey));
       },
-      getCommitment: ([commitment]) => this.context.getCommitment(this.contractAddress, commitment),
       debugLog: (...args) => {
         this.log(oracleDebugCallToFormattedStr(args));
         return Promise.resolve(ZERO_ACVM_FIELD);

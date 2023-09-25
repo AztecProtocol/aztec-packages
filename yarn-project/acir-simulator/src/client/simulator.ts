@@ -68,7 +68,9 @@ export class AcirSimulator {
     }
 
     if (request.origin !== contractAddress) {
-      this.log.warn('Request origin does not match contract address in simulation');
+      this.log.warn(
+        `Request origin does not match contract address in simulation. Request origin: ${request.origin}, contract address: ${contractAddress}`,
+      );
     }
 
     const curve = await Grumpkin.new();
@@ -90,6 +92,7 @@ export class AcirSimulator {
         historicBlockData,
         await PackedArgsCache.create(request.packedArguments),
         new ExecutionNoteCache(),
+        request.authWitnesses,
       ),
       entryPointABI,
       contractAddress,
@@ -145,6 +148,7 @@ export class AcirSimulator {
         historicBlockData,
         await PackedArgsCache.create([]),
         new ExecutionNoteCache(),
+        [],
       ),
       entryPointABI,
       contractAddress,
@@ -177,7 +181,7 @@ export class AcirSimulator {
     let abi: FunctionAbiWithDebugMetadata | undefined = undefined;
 
     // Brute force
-    for (let i = 0; i < MAX_NOTE_FIELDS_LENGTH; i++) {
+    for (let i = notePreimage.length; i < MAX_NOTE_FIELDS_LENGTH; i++) {
       const signature = `compute_note_hash_and_nullifier(Field,Field,Field,[Field;${i}])`;
       const selector = FunctionSelector.fromSignature(signature);
       try {

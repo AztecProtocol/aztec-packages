@@ -1,10 +1,20 @@
 # Aztec Monorepo
 
-All the packages that make up [Aztec](https://docs.aztec.network/what-is-aztec).
+All the packages that make up [Aztec](https://docs.aztec.network).
 
 - [**`circuits`**](/circuits): C++ code for circuits and cryptographic functions
 - [**`l1-contracts`**](/l1-contracts): Solidity code for the Ethereum contracts that process rollups
 - [**`yarn-project`**](/yarn-project): Typescript code for client and backend
+- [**`docs`**](/docs): Documentation source for the docs site
+
+## Popular packages
+
+- [Aztec.nr](./yarn-project/aztec-nr/): A [Noir](https://noir-lang.org) framework for smart contracts on Aztec.
+- [Aztec Sandbox](./yarn-project/aztec-sandbox/): A package for setting up a local dev net, including a local Ethereum network, deployed rollup contracts and Aztec execution environment.
+- [Aztec.js](./yarn-project/aztec.js/): A tool for interacting with the Aztec network. It communicates via the [Aztec RPC Server](./yarn-project/aztec-rpc/).
+- [Aztec Boxes](./yarn-project/boxes/): A minimal framework for building full stack applications for Aztec (using React).
+- [Example contracts](./yarn-project/noir-contracts/): Example contracts for the Aztec network, written in Noir.
+- [End to end tests](./yarn-project/end-to-end/): Integration tests writted in Typescript--a good reference for how to use the packages for specific tasks.
 
 ## Issues Board
 
@@ -18,13 +28,23 @@ To build the C++ code, follow the [instructions in the circuits subdirectory](./
 
 To build Typescript code, make sure to have [`nvm`](https://github.com/nvm-sh/nvm) (node version manager) installed.
 
-To build noir code, make sure that you are using the `aztec` tagged version of nargo. This is the latest pin version the team works on to ensure local and ci environments are in sync. This should be installed through `noir-contracts/bootstrap.sh` and the regular `bootstrap.sh` script. However if you find yourself wanting to update to the latest `aztec` tag outside of these channels, you can run `noirup -v aztec` to manually download the latest binaries.
+To build noir code, make sure that you are using the version from `yarn-project/noir-compiler/src/noir-version.json`.
+Install nargo by running `noirup -v TAG_FROM_THE_FILE`.
 
 ## Continuous Integration
 
 This repository uses CircleCI for continuous integration. Build steps are managed using [`build-system`](https://github.com/AztecProtocol/build-system). Small packages are built and tested as part of a docker build operation, while larger ones and end-to-end tests spin up a large AWS spot instance. Each successful build step creates a new docker image that gets tagged with the package name and commit.
 
 All packages need to be included in the [build manifest](`build_manifest.json`), which declares what paths belong to each package, as well as dependencies between packages. When the CI runs, if none of the rebuild patterns or dependencies were changed, then the build step is skipped and the last successful image is re-tagged with the current commit. Read more on the [`build-system`](https://github.com/AztecProtocol/build-system) repository README.
+
+It is faster to debug CI failures within a persistent ssh session compared to pushing and waiting.  You can create a session with "Rerun step with SSH" on CircleCI which will generate an ssh command for debugging on a worker.  Run that command locally and then do
+```bash
+cd project
+./build-system/scripts/setup_env "$(git rev-parse HEAD)" "" "" ""
+source /tmp/.bash_env*
+{start testing your CI commands here}
+```
+This provide an interactive environment for debugging the CI test.
 
 ## Debugging
 

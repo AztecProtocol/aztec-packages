@@ -40,15 +40,15 @@ contract NonNativeToken {
         },
         oracle::compute_selector::compute_selector,
         state_vars::{map::Map, public_state::PublicState, set::Set},
-        types::type_serialisation::field_serialisation::{
-            FieldSerialisationMethods, FIELD_SERIALISED_LEN,
+        types::type_serialization::field_serialization::{
+            FieldSerializationMethods, FIELD_SERIALIZED_LEN,
         },
     };
 
     struct Storage {
         balances: Map<Set<ValueNote, VALUE_NOTE_LEN>>,
         pending_shields: Set<TransparentNote, TRANSPARENT_NOTE_LEN>,
-        public_balances: Map<PublicState<Field, FIELD_SERIALISED_LEN>>,
+        public_balances: Map<PublicState<Field, FIELD_SERIALIZED_LEN>>,
     }
 
     impl Storage {
@@ -69,7 +69,7 @@ contract NonNativeToken {
                         PublicState::new(
                             context,
                             slot,
-                            FieldSerialisationMethods,
+                            FieldSerializationMethods,
                         )
                     },
                 ),
@@ -96,7 +96,6 @@ contract NonNativeToken {
     fn mint(
         amount: Field,
         owner: Field,
-        // This field should be hidden
         msg_key: Field,
         secret: Field,
         canceller: Field,
@@ -106,7 +105,7 @@ contract NonNativeToken {
         let content_hash = get_mint_content_hash(amount, owner, canceller);
 
         // Get the l1 message from an oracle call
-        context.consume_l1_to_l2_message(inputs, msg_key, content_hash, secret);
+        context.consume_l1_to_l2_message(msg_key, content_hash, secret);
 
         let balance = storage.balances.at(owner);
         increment(balance, amount, owner);
@@ -141,7 +140,6 @@ contract NonNativeToken {
     fn mintPublic(
         amount: Field,
         owner_address: Field,
-        // This field should be hidden
         msg_key: Field,
         secret: Field,
         canceller: Field,
@@ -248,10 +246,10 @@ contract NonNativeToken {
         let storage = Storage::init(Context::private(&mut context));
         let pending_shields = storage.pending_shields;
 
-        let public_note = TransparentNote::new_from_secret(amount, secret);
+        let mut public_note = TransparentNote::new_from_secret(amount, secret);
 
         // Ensure that the note exists in the tree and remove it.
-        pending_shields.assert_contains_and_remove_publicly_created(public_note);
+        pending_shields.assert_contains_and_remove_publicly_created(&mut public_note);
 
         // Mint the tokens
         let balance = storage.balances.at(owner);

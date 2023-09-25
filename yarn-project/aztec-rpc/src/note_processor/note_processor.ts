@@ -45,13 +45,13 @@ export class NoteProcessor {
   ) {}
 
   /**
-   * Check if the NoteProcessor is synchronised with the remote block number.
+   * Check if the NoteProcessor is synchronized with the remote block number.
    * The function queries the remote block number from the AztecNode and compares it with the syncedToBlock value in the NoteProcessor.
-   * If the values are equal, then the NoteProcessor is considered to be synchronised, otherwise not.
+   * If the values are equal, then the NoteProcessor is considered to be synchronized, otherwise not.
    *
-   * @returns A boolean indicating whether the NoteProcessor is synchronised with the remote block number or not.
+   * @returns A boolean indicating whether the NoteProcessor is synchronized with the remote block number or not.
    */
-  public async isSynchronised() {
+  public async isSynchronized() {
     const remoteBlockNumber = await this.node.getBlockNumber();
     return this.syncedToBlock === remoteBlockNumber;
   }
@@ -111,18 +111,21 @@ export class NoteProcessor {
         // Note: Each tx generates a `TxL2Logs` object and for this reason we can rely on its index corresponding
         //       to the index of a tx in a block.
         const txFunctionLogs = txLogs[indexOfTxInABlock].functionLogs;
+        const excludedIndices: Set<number> = new Set();
         for (const functionLogs of txFunctionLogs) {
           for (const logs of functionLogs.logs) {
             const noteSpendingInfo = NoteSpendingInfo.fromEncryptedBuffer(logs, privateKey, curve);
             if (noteSpendingInfo) {
               // We have successfully decrypted the data.
               try {
-                const { index, nonce, innerNoteHash, siloedNullifier } = await this.findNoteIndexAndNullifier(
-                  dataStartIndexForTx,
+                const { commitmentIndex, nonce, innerNoteHash, siloedNullifier } = await this.findNoteIndexAndNullifier(
                   newCommitments,
                   newNullifiers[0],
                   noteSpendingInfo,
+                  excludedIndices,
                 );
+                const index = BigInt(dataStartIndexForTx + commitmentIndex);
+                excludedIndices.add(commitmentIndex);
                 noteSpendingInfoDaos.push({
                   ...noteSpendingInfo,
                   nonce,
@@ -158,17 +161,19 @@ export class NoteProcessor {
    * The nullifier is calculated using the private key of the account,
    * contract address, and note preimage associated with the noteSpendingInfo.
    * This method assists in identifying spent commitments in the private state.
-   * @param dataStartIndex - First index of the commitments in the tx in the private data tree.
    * @param commitments - Commitments in the tx. One of them should be the note's commitment.
    * @param firstNullifier - First nullifier in the tx.
    * @param noteSpendingInfo - An instance of NoteSpendingInfo containing transaction details.
-   * @returns A Fr instance representing the computed nullifier.
+   * @param excludedIndices - Indices that have been assigned a note in the same tx. Notes in a tx can have the same
+   * NoteSpendingInfo. We need to find a different index for each replicate.
+   * @returns Information for a decrypted note, including the index of its commitment, nonce, inner note
+   * hash, and the siloed nullifier. Throw if cannot find the nonce for the note.
    */
   private async findNoteIndexAndNullifier(
-    dataStartIndex: number,
     commitments: Fr[],
     firstNullifier: Fr,
     { contractAddress, storageSlot, notePreimage }: NoteSpendingInfo,
+    excludedIndices: Set<number>,
   ) {
     const wasm = await CircuitsWasm.get();
     let commitmentIndex = 0;
@@ -178,27 +183,21 @@ export class NoteProcessor {
     let uniqueSiloedNoteHash: Fr | undefined;
     let innerNullifier: Fr | undefined;
     for (; commitmentIndex < commitments.length; ++commitmentIndex) {
+      if (excludedIndices.has(commitmentIndex)) continue;
+
       const commitment = commitments[commitmentIndex];
       if (commitment.equals(Fr.ZERO)) break;
 
       const expectedNonce = computeCommitmentNonce(wasm, firstNullifier, commitmentIndex);
-      const {
-        innerNoteHash: innerNoteHashTmp,
-        siloedNoteHash: siloedNoteHashTmp,
-        uniqueSiloedNoteHash: uniqueSiloedNoteHashTmp,
-        innerNullifier: innerNullifierTmp,
-      } = await this.simulator.computeNoteHashAndNullifier(
-        contractAddress,
-        expectedNonce,
-        storageSlot,
-        notePreimage.items,
-      );
-      siloedNoteHash = siloedNoteHashTmp;
-      if (commitment.equals(uniqueSiloedNoteHashTmp)) {
+      ({ innerNoteHash, siloedNoteHash, uniqueSiloedNoteHash, innerNullifier } =
+        await this.simulator.computeNoteHashAndNullifier(
+          contractAddress,
+          expectedNonce,
+          storageSlot,
+          notePreimage.items,
+        ));
+      if (commitment.equals(uniqueSiloedNoteHash)) {
         nonce = expectedNonce;
-        innerNoteHash = innerNoteHashTmp;
-        uniqueSiloedNoteHash = uniqueSiloedNoteHashTmp;
-        innerNullifier = innerNullifierTmp;
         break;
       }
     }
@@ -226,10 +225,9 @@ https://github.com/AztecProtocol/aztec-packages/issues/1641`;
     }
 
     return {
-      index: BigInt(dataStartIndex + commitmentIndex),
+      commitmentIndex,
       nonce,
       innerNoteHash: innerNoteHash!,
-      uniqueSiloedNoteHash: uniqueSiloedNoteHash!,
       siloedNullifier: siloNullifier(wasm, contractAddress, innerNullifier!),
     };
   }

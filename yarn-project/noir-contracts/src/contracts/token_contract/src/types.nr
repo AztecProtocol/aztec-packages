@@ -1,3 +1,4 @@
+// docs:start:token_types_all
 use dep::std::hash::pedersen;
 use dep::std::hash::pedersen_with_separator;
 use dep::aztec::note::{
@@ -10,60 +11,12 @@ use dep::aztec::constants_gen::GENERATOR_INDEX__L1_TO_L2_MESSAGE_SECRET;
 global TRANSPARENT_NOTE_LEN: Field = 2;
 
 
-
-struct AztecAddress {
-  address: Field
-}
-
-impl AztecAddress {
-  fn new(address: Field) -> Self {
-    Self {
-      address
-    }
-  }
-
-  fn serialize(self: Self) -> [Field; 1] {
-    [self.address]
-  }
-
-  fn deserialize(fields: [Field; 1]) -> Self {
-    Self {
-      address: fields[0]
-    }
-  }
-}
-
-struct EthereumAddress {
-  address: Field
-}
-
-impl EthereumAddress {
-  fn new(address: Field) -> Self {
-    Self {
-      address
-    }
-  }
-
-
-  fn serialize(self: Self) -> [Field; 1] {
-    [self.address]
-  }
-
-  fn deserialize(fields: [Field; 1]) -> Self {
-    Self {
-      address: fields[0]
-    }
-  }
-}
-
-
-
 // Transparent note represents a note that is created in the clear (public execution),
 // but can only be spent by those that know the preimage of the "secret_hash"
 struct TransparentNote {
     amount: Field,
     secret_hash: Field,
-    // the fields below are not serialised/deserialised
+    // the fields below are not serialized/deserialized
     secret: Field,
     header: NoteHeader,
 }
@@ -95,11 +48,11 @@ impl TransparentNote {
 
     // STANDARD NOTE_INTERFACE FUNCTIONS
 
-    fn serialise(self) -> [Field; TRANSPARENT_NOTE_LEN] {
+    fn serialize(self) -> [Field; TRANSPARENT_NOTE_LEN] {
         [self.amount, self.secret_hash]
     }
 
-    fn deserialise(preimage: [Field; TRANSPARENT_NOTE_LEN]) -> Self {
+    fn deserialize(preimage: [Field; TRANSPARENT_NOTE_LEN]) -> Self {
         TransparentNote {
             amount: preimage[0],
             secret_hash: preimage[1],
@@ -142,12 +95,12 @@ impl TransparentNote {
     }
 }
 
-fn deserialise(preimage: [Field; TRANSPARENT_NOTE_LEN]) -> TransparentNote {
-    TransparentNote::deserialise(preimage)
+fn deserialize(preimage: [Field; TRANSPARENT_NOTE_LEN]) -> TransparentNote {
+    TransparentNote::deserialize(preimage)
 }
 
-fn serialise(note: TransparentNote) -> [Field; TRANSPARENT_NOTE_LEN] {
-    note.serialise()
+fn serialize(note: TransparentNote) -> [Field; TRANSPARENT_NOTE_LEN] {
+    note.serialize()
 }
 
 fn compute_note_hash(note: TransparentNote) -> Field {
@@ -167,10 +120,11 @@ fn set_header(note: &mut TransparentNote, header: NoteHeader) {
 }
 
 global TransparentNoteMethods = NoteInterface {
-    deserialise,
-    serialise,
+    deserialize,
+    serialize,
     compute_note_hash,
     compute_nullifier,
     get_header,
     set_header,
 };
+// docs:end:token_types_all

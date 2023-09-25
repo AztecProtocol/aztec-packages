@@ -93,10 +93,14 @@ export interface StructType extends BasicType<'struct'> {
    * The fields of the struct.
    */
   fields: ABIVariable[];
+  /**
+   * Fully qualified name of the struct.
+   */
+  path: string;
 }
 
 /**
- * Noir function types.
+ * Aztec.nr function types.
  */
 export enum FunctionType {
   SECRET = 'secret',
@@ -105,9 +109,9 @@ export enum FunctionType {
 }
 
 /**
- * The ABI entry of a function.
+ * The ABI entry of a function without including bytecode and verification key.
  */
-export interface FunctionAbi {
+export interface FunctionAbiHeader {
   /**
    * The name of the function.
    */
@@ -128,6 +132,12 @@ export interface FunctionAbi {
    * The types of the return values.
    */
   returnTypes: ABIType[];
+}
+
+/**
+ * The ABI entry of a function.
+ */
+export interface FunctionAbi extends FunctionAbiHeader {
   /**
    * The ACIR bytecode of the function.
    */
