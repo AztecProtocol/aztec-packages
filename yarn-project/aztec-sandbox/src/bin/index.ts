@@ -12,7 +12,7 @@ import { setupFileDebugLog } from '../logging.js';
 import { createP2PSandbox, createSandbox } from '../sandbox.js';
 import { github, splash } from '../splash.js';
 
-const { SERVER_PORT = 8080, P2P_ENABLED = 'false' } = process.env;
+const { SERVER_PORT = 8080 } = process.env;
 
 const logger = createDebugLogger('aztec:sandbox');
 
@@ -51,12 +51,7 @@ async function main() {
 
   logger.info(`Setting up Aztec Sandbox v${version} (nargo ${NoirVersion.tag}), please stand by...`);
 
-  const p2pSandbox = P2P_ENABLED === 'true';
-  if (p2pSandbox) {
-    logger.info(`Setting up Aztec Sandbox as P2P Node`);
-  }
-
-  const { rpcServer, stop, accounts } = await createAndDeploySandbox(p2pSandbox);
+  const { rpcServer, stop, accounts } = await createAndDeploySandbox(false);
 
   const shutdown = async () => {
     logger.info('Shutting down...');
