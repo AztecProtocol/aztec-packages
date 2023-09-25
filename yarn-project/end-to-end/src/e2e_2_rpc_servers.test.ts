@@ -7,11 +7,17 @@ import { toBigInt } from '@aztec/foundation/serialize';
 import { ChildContract, TokenContract } from '@aztec/noir-contracts/types';
 import { AztecRPC, CompleteAddress, TxStatus } from '@aztec/types';
 
+import { jest } from '@jest/globals';
+
 import { expectsNumOfEncryptedLogsInTheLastBlockToBe, setup, setupAztecRPCServer } from './fixtures/utils.js';
 
 const { SANDBOX_URL = '' } = process.env;
 
+const TIMEOUT = 60_000;
+
 describe('e2e_2_rpc_servers', () => {
+  jest.setTimeout(TIMEOUT);
+
   let aztecNode: AztecNodeService | undefined;
   let aztecRpcServerA: AztecRPC;
   let aztecRpcServerB: AztecRPC;
@@ -77,24 +83,28 @@ describe('e2e_2_rpc_servers', () => {
     expect(balance).toBe(expectedBalance);
   };
 
-  const deployTokenContract = async (initialBalance: bigint, owner: AztecAddress) => {
+  const deployTokenContract = async (initialAdminBalance: bigint, admin: AztecAddress) => {
     logger(`Deploying Token contract...`);
     const contract = await TokenContract.deploy(walletA).send().deployed();
-    expect((await contract.methods._initialize(owner).send().wait()).status).toBe(TxStatus.MINED);
+    expect((await contract.methods._initialize(admin).send().wait()).status).toBe(TxStatus.MINED);
 
-    const secret = Fr.random();
-    const secretHash = await computeMessageSecretHash(secret);
-
-    expect((await contract.methods.mint_private(initialBalance, secretHash).send().wait()).status).toEqual(
-      TxStatus.MINED,
-    );
-    expect((await contract.methods.redeem_shield(owner, initialBalance, secret).send().wait()).status).toEqual(
-      TxStatus.MINED,
-    );
+    if (initialAdminBalance > 0n) {
+      await mintTokens(contract, admin, initialAdminBalance);
+    }
 
     logger('L2 contract deployed');
 
     return contract.completeAddress;
+  };
+
+  const mintTokens = async (contract: TokenContract, recipient: AztecAddress, balance: bigint) => {
+    const secret = Fr.random();
+    const secretHash = await computeMessageSecretHash(secret);
+
+    expect((await contract.methods.mint_private(balance, secretHash).send().wait()).status).toEqual(TxStatus.MINED);
+    expect((await contract.methods.redeem_shield(recipient, balance, secret).send().wait()).status).toEqual(
+      TxStatus.MINED,
+    );
   };
 
   it('transfers fund from user A to B via RPC server A followed by transfer from B to A via RPC server B', async () => {
@@ -191,5 +201,45 @@ describe('e2e_2_rpc_servers', () => {
 
     const storedValue = await getChildStoredValue(childCompleteAddress, aztecRpcServerB);
     expect(storedValue).toBe(newValueToSet);
-  }, 60_000);
+  });
+
+  it.only('private state is "zero" when Aztec RPC Server does not have the account private key', async () => {
+    const userABalance = 100n;
+    const userBBalance = 150n;
+
+    const completeTokenAddress = await deployTokenContract(userABalance, userA.address);
+    const contractWithWalletA = await TokenContract.at(completeTokenAddress.address, walletA);
+
+    // Add account B to wallet A
+    await aztecRpcServerA.registerRecipient(userB);
+    // Add account A to wallet B
+    await aztecRpcServerB.registerRecipient(userA);
+
+    // Add token to RPC server B
+    await aztecRpcServerB.addContracts([
+      {
+        abi: TokenContract.abi,
+        completeAddress: completeTokenAddress,
+        portalContract: EthAddress.ZERO,
+      },
+    ]);
+
+    // Mint tokens to user B
+    await mintTokens(contractWithWalletA, userB.address, userBBalance);
+
+    // Ensure that both servers are synchronized
+    await awaitServerSynchronized(aztecRpcServerA);
+    await awaitServerSynchronized(aztecRpcServerB);
+
+    // Check that user A balance is 100 on server A
+    await expectTokenBalance(walletA, completeTokenAddress.address, userA.address, userABalance);
+    // Check that user B balance is 150 on server B
+    await expectTokenBalance(walletB, completeTokenAddress.address, userB.address, userBBalance);
+
+    // CHECK THAT PRIVATE BALANCES ARE 0 WHEN ACCOUNT'S PRIVATE KEYS ARE NOT REGISTERED
+    // Check that user A balance is 0 on server B
+    await expectTokenBalance(walletB, completeTokenAddress.address, userA.address, 0n);
+    // Check that user B balance is 0 on server A
+    await expectTokenBalance(walletA, completeTokenAddress.address, userB.address, 0n);
+  });
 });
