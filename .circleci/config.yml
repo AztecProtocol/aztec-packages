@@ -85,7 +85,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_spot_run_build barretenberg-wasm-linux-clang 64
+          command: cond_spot_run_build barretenberg-wasm-linux-clang 128
 
   barretenberg-x86_64-linux-gcc:
     docker:
@@ -96,7 +96,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_spot_run_build barretenberg-x86_64-linux-gcc 64
+          command: cond_spot_run_build barretenberg-x86_64-linux-gcc 128
 
   barretenberg-x86_64-linux-clang:
     docker:
@@ -107,7 +107,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_spot_run_build barretenberg-x86_64-linux-clang 64
+          command: cond_spot_run_build barretenberg-x86_64-linux-clang 128
 
   barretenberg-x86_64-linux-clang-fuzzing:
     docker:
@@ -118,7 +118,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_spot_run_build barretenberg-x86_64-linux-clang-fuzzing 64
+          command: cond_spot_run_build barretenberg-x86_64-linux-clang-fuzzing 128
 
   barretenberg-x86_64-linux-clang-assert:
     docker:
@@ -129,7 +129,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_spot_run_build barretenberg-x86_64-linux-clang-assert 64
+          command: cond_spot_run_build barretenberg-x86_64-linux-clang-assert 128
 
   barretenberg-stdlib-tests:
     docker:
@@ -293,7 +293,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_spot_run_build circuits-wasm-linux-clang 64
+          command: cond_spot_run_build circuits-wasm-linux-clang 32
 
   circuits-wasm-linux-clang-assert:
     docker:
@@ -304,7 +304,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_spot_run_build circuits-wasm-linux-clang-assert 64
+          command: cond_spot_run_build circuits-wasm-linux-clang-assert 32
 
   circuits-x86_64-linux-clang-tidy:
     docker:
@@ -315,7 +315,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_spot_run_build circuits-x86_64-linux-clang-tidy 64
+          command: cond_spot_run_build circuits-x86_64-linux-clang-tidy 32
 
   circuits-x86_64-linux-clang:
     docker:
@@ -326,7 +326,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_spot_run_build circuits-x86_64-linux-clang 64
+          command: cond_spot_run_build circuits-x86_64-linux-clang 32
 
   circuits-x86_64-linux-clang-assert:
     docker:
@@ -337,7 +337,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_spot_run_build circuits-x86_64-linux-clang-assert 64
+          command: cond_spot_run_build circuits-x86_64-linux-clang-assert 32
 
   circuits-wasm-tests:
     docker:
@@ -382,7 +382,7 @@ jobs:
       - *checkout
       - *setup_env
       - run:
-          name: "Build"
+          name: Build
           command: build noir-contracts-build | add_timestamps
 
   yarn-project-base:
@@ -397,15 +397,15 @@ jobs:
           command: build yarn-project-base | add_timestamps
 
   yarn-project:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: large
     steps:
       - *checkout
       - *setup_env
       - run:
           name: Build
-          command: cond_spot_run_build yarn-project 64 | add_timestamps
+          command: build yarn-project | add_timestamps
 
   yarn-project-tests:
     docker:
@@ -568,6 +568,7 @@ jobs:
   e2e-sandbox-example:
     machine:
       image: ubuntu-2204:2023.07.2
+    resource_class: large
     steps:
       - *checkout
       - *setup_env
@@ -578,6 +579,7 @@ jobs:
   e2e-multi-transfer-contract:
     machine:
       image: ubuntu-2204:2023.07.2
+    resource_class: large
     steps:
       - *checkout
       - *setup_env
@@ -665,6 +667,7 @@ jobs:
   e2e-escrow-contract:
     machine:
       image: ubuntu-2204:2023.07.2
+    resource_class: large
     steps:
       - *checkout
       - *setup_env
@@ -752,6 +755,7 @@ jobs:
   e2e-p2p:
     machine:
       image: ubuntu-2204:2023.07.2
+    resource_class: large
     steps:
       - *checkout
       - *setup_env
@@ -762,6 +766,7 @@ jobs:
   e2e-browser-sandbox:
     machine:
       image: ubuntu-2204:2023.07.2
+    resource_class: large
     steps:
       - *checkout
       - *setup_env
@@ -772,6 +777,7 @@ jobs:
   e2e-card-game:
     machine:
       image: ubuntu-2204:2023.07.2
+    resource_class: large
     steps:
       - *checkout
       - *setup_env
@@ -782,6 +788,7 @@ jobs:
   aztec-rpc-sandbox:
     machine:
       image: ubuntu-2204:2023.07.2
+    resource_class: large
     steps:
       - *checkout
       - *setup_env
@@ -792,6 +799,7 @@ jobs:
   cli-docs-sandbox:
     machine:
       image: ubuntu-2204:2023.07.2
+    resource_class: large
     steps:
       - *checkout
       - *setup_env
@@ -813,6 +821,7 @@ jobs:
   guides-dapp-testing:
     machine:
       image: ubuntu-2204:2023.07.2
+    resource_class: large
     steps:
       - *checkout
       - *setup_env
@@ -823,6 +832,7 @@ jobs:
   guides-sample-dapp:
     machine:
       image: ubuntu-2204:2023.07.2
+    resource_class: large
     steps:
       - *checkout
       - *setup_env
@@ -833,6 +843,7 @@ jobs:
   guides-up-quick-start:
     machine:
       image: ubuntu-2204:2023.07.2
+    resource_class: large
     steps:
       - *checkout
       - *setup_env
@@ -843,6 +854,7 @@ jobs:
   e2e-canary-test:
     machine:
       image: ubuntu-2204:2023.07.2
+    resource_class: large
     steps:
       - *checkout
       - *setup_env
@@ -866,7 +878,7 @@ jobs:
 
   e2e-join:
     docker:
-      - image: cimg/base:current
+      - image: cimg/base:2023.09
     resource_class: small
     steps:
       - run:
@@ -875,7 +887,7 @@ jobs:
 
   e2e-end:
     docker:
-      - image: cimg/base:current
+      - image: cimg/base:2023.09
     resource_class: small
     steps:
       - run:
@@ -891,121 +903,8 @@ jobs:
       - *setup_env
       # Aztec.js and dependencies
       - run:
-          name: "foundation"
-          working_directory: foundation
-          command: |
-            deploy_ecr foundation
-            deploy_npm foundation
-      - run:
-          name: "circuits.js"
-          working_directory: circuits.js
-          command: |
-            deploy_ecr circuits.js
-            deploy_npm circuits.js
-      - run:
-          name: "types"
-          working_directory: types
-          command: |
-            deploy_ecr types
-            deploy_npm types
-      - run:
-          name: "aztec.js"
-          working_directory: aztec.js
-          command: |
-            deploy_ecr aztec.js
-            deploy_npm aztec.js
-      # Aztec CLI and dependencies
-      - run:
-          name: "l1-artifacts"
-          working_directory: l1-artifacts
-          command: |
-            deploy_ecr l1-artifacts
-            deploy_npm l1-artifacts
-      - run:
-          name: "aztec-ethereum"
-          working_directory: ethereum
-          command: |
-            deploy_ecr ethereum
-            deploy_npm ethereum
-      - run:
-          name: "noir-compiler"
-          working_directory: noir-compiler
-          command: |
-            deploy_ecr noir-compiler
-            deploy_npm noir-compiler
-      - run:
-          name: "noir-contracts"
-          working_directory: noir-contracts
-          command: |
-            deploy_ecr noir-contracts
-            deploy_npm noir-contracts
-      - run:
-          name: "cli"
-          working_directory: cli
-          command: |
-            deploy_ecr cli
-            deploy_npm cli
-      # Aztec Sandbox and dependencies
-      - run:
-          name: "aztec-rpc"
-          working_directory: aztec-rpc
-          command: |
-            deploy_ecr aztec-rpc
-            deploy_npm aztec-rpc
-      - run:
-          name: "acir-simulator"
-          working_directory: acir-simulator
-          command: |
-            deploy_ecr acir-simulator
-            deploy_npm acir-simulator
-      - run:
-          name: "archiver"
-          working_directory: archiver
-          command: |
-            deploy_ecr archiver
-            deploy_npm archiver
-      - run:
-          name: "merkle-tree"
-          working_directory: merkle-tree
-          command: |
-            deploy_ecr merkle-tree
-            deploy_npm merkle-tree
-      - run:
-          name: "p2p"
-          working_directory: p2p
-          command: |
-            deploy_ecr p2p
-            deploy_npm p2p
-      - run:
-          name: "sequencer-client"
-          working_directory: sequencer-client
-          command: |
-            deploy_ecr sequencer-client
-            deploy_npm sequencer-client
-      - run:
-          name: "world-state"
-          working_directory: world-state
-          command: |
-            deploy_ecr world-state
-            deploy_npm world-state
-      - run:
-          name: "key-store"
-          working_directory: key-store
-          command: |
-            deploy_ecr key-store
-            deploy_npm key-store
-      - run:
-          name: "aztec-node"
-          working_directory: aztec-node
-          command: |
-            deploy_ecr aztec-node
-            deploy_npm aztec-node
-      - run:
-          name: "aztec-sandbox"
-          working_directory: aztec-sandbox
-          command: |
-            deploy_ecr aztec-sandbox
-            deploy_npm aztec-sandbox
+          name: "yarn-project"
+          command: yarn-project/deploy_npm.sh
 
   deploy-dockerhub:
     machine:
@@ -1018,15 +917,13 @@ jobs:
           name: "deploy-sandbox"
           working_directory: aztec-sandbox
           command: |
-            deploy_ecr aztec-sandbox x86_64
-            deploy_ecr aztec-sandbox arm64
             deploy_dockerhub aztec-sandbox x86_64
             deploy_dockerhub aztec-sandbox arm64
             create_dockerhub_manifest aztec-sandbox x86_64,arm64
 
   deploy-end:
     docker:
-      - image: cimg/base:current
+      - image: cimg/base:2023.09
     resource_class: small
     steps:
       - run:
@@ -1090,19 +987,6 @@ defaults: &defaults
     - slack/notify:
         event: fail
         branch_pattern: "master"
-deploy_defaults: &deploy_defaults
-  filters:
-    tags:
-      only: *tag_regex
-    branches:
-      ignore: /.*/
-  context:
-    - build
-    - slack
-  post-steps:
-    - slack/notify:
-        event: fail
-        branch_pattern: "master"
 yarn_project: &yarn_project
   requires:
     - yarn-project
@@ -1121,8 +1005,6 @@ workflows:
     when:
       equal: [system, << pipeline.parameters.workflow >>]
     jobs:
-      - build-docs: *defaults
-
       # Barretenberg
       - barretenberg-x86_64-linux-gcc: *defaults
       - barretenberg-x86_64-linux-clang: *defaults
@@ -1274,6 +1156,7 @@ workflows:
       - guides-writing-an-account-contract: *e2e_test
       - guides-dapp-testing: *e2e_test
       - guides-sample-dapp: *e2e_test
+      - guides-up-quick-start: *e2e_test
 
       - e2e-end:
           requires:
@@ -1310,40 +1193,41 @@ workflows:
             - guides-writing-an-account-contract
             - guides-dapp-testing
             - guides-sample-dapp
+            - guides-up-quick-start
           <<: *defaults
 
         # Deployment and Canary tests
       - deploy-dockerhub:
           requires:
             - e2e-end
-          <<: *deploy_defaults
+          <<: *defaults
       - deploy-npm:
           requires:
             - e2e-end
-          <<: *deploy_defaults
+          <<: *defaults
 
       - deploy-end:
           requires:
             - deploy-dockerhub
             - deploy-npm
-          <<: *deploy_defaults
+          <<: *defaults
 
       - build-deployment-canary:
           requires:
             - deploy-end
-          <<: *deploy_defaults
+          <<: *defaults
 
       - run-deployment-canary-uniswap:
           requires:
             - build-deployment-canary
-          <<: *deploy_defaults
+          <<: *defaults
 
       - run-deployment-canary-browser:
           requires:
             - build-deployment-canary
-          <<: *deploy_defaults
+          <<: *defaults
 
       - run-deployment-canary-cli:
           requires:
             - build-deployment-canary
-          <<: *deploy_defaults
+          <<: *defaults
