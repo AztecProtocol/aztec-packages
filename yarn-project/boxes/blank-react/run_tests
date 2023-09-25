@@ -4,6 +4,9 @@
 [ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
+# Run in script path.
+cd `dirname $0`
+
 export COMPOSE_FILE=${1:-docker-compose.yml}
 
 echo 'getting docker login'
@@ -12,10 +15,12 @@ aws ecr get-login-password --region $ECR_DEPLOY_REGION | docker login --username
 export PATH="$PATH:$(git rev-parse --show-toplevel)/build-system/scripts"
 
 echo 'pulling docker image for sandbox'
-retry docker pull $($calculate_image_uri aztec-sandbox)
-retry docker tag $($calculate_image_uri aztec-sandbox) aztecprotocol/$REPO:latest
+for REPO in aztec-sandbox boxes-blank-react; do
+  retry docker pull $($calculate_image_uri $REPO)
+  retry docker tag $($calculate_image_uri $REPO) aztecprotocol/$REPO:latest
+done
+retry docker pull $(calculate_image_uri aztec-sandbox)
+retry docker tag $(calculate_image_uri aztec-sandbox) aztecprotocol/aztec-sandbox:latest
 
 docker-compose rm -f
-docker-compose -f $COMPOSE_FILE up
-yarn test
-docker-compose down
+docker-compose -f $COMPOSE_FILE up --exit-code-from boxes-blank-react

@@ -650,7 +650,7 @@ jobs:
           command: build boxes-blank-react
       - run:
           name: "Test via adhoc script"
-          command: run_script boxes-blank-react ./run_tests
+          command: ./yarn-project/boxes/blank-react/run_tests
 
   canary:
     machine:
