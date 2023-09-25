@@ -152,7 +152,7 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     }
     // TODO(luke): The powers_of_rho fctn does not set the context of rhos[0] = FF(1) so we do it explicitly here. Can
     // we do something silly like set it to rho.pow(0) in the fctn to make it work both native and stdlib?
-    scalars_unshifted[0] = FF::from_witness(builder, 1);
+    scalars_unshifted[0] = FF(builder, 1);
 
     // Batch the commitments to the unshifted and to-be-shifted polynomials using powers of rho
     auto batched_commitment_unshifted = GroupElement::batch_mul(commitments.get_unshifted(), scalars_unshifted);

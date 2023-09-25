@@ -53,9 +53,6 @@ class StandardTranscript : public Transcript {
                                                           const std::string& challenge_map_name) const;
 
     std::vector<uint8_t> export_transcript() const { return Transcript::export_transcript(); }
-
-    // TODO(luke): temporary function for debugging
-    barretenberg::fr get_mock_challenge() { return barretenberg::fr::random_element(); };
 };
 
 } // namespace transcript

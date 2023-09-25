@@ -1,5 +1,6 @@
 #pragma once
 
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/proof_system/types/circuit_type.hpp"
 #include <array>
 #include <string>
@@ -141,7 +142,6 @@ static constexpr PolynomialDescriptor ultra_polynomial_manifest[ULTRA_MANIFEST_S
 
 // Simple class allowing for access to a polynomial manifest based on composer type
 class PolynomialManifest {
-    // TODO(luke): make this object iterable, i.e. compatible with range-based for loop
   private:
     std::vector<PolynomialDescriptor> manifest;
 
@@ -164,8 +164,7 @@ class PolynomialManifest {
             break;
         };
         default: {
-            // TODO(luke): reinstate this. Was getting "use of undeclared identifier" error for 'throw_or_abort'.
-            // throw_or_abort("Received invalid composer type");
+            throw_or_abort("Received invalid composer type");
         }
         };
     }
