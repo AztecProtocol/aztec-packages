@@ -27,7 +27,6 @@ const PORT = 3000;
 
 const { SANDBOX_URL } = process.env;
 
-
 const logger = AztecJs.createDebugLogger('aztec.js-browser-test');
 
 const conditionalDescribe = () => (SANDBOX_URL ? describe : describe.skip);
@@ -35,7 +34,7 @@ const conditionalDescribe = () => (SANDBOX_URL ? describe : describe.skip);
 const privKey = AztecJs.GrumpkinScalar.random();
 
 export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugLogger) =>
-  describe.skip('e2e_aztec.js_browser', () => {
+  conditionalDescribe()('e2e_aztec.js_browser', () => {
     const initialBalance = 33n;
     const transferAmount = 3n;
 
