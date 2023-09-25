@@ -130,6 +130,12 @@ aztec-sandbox:
   dependencies:
     - aztec-sandbox-base
 
+boxes-blank-react:
+  buildDir: yarn-project
+  projectDir: yarn-project/boxes/blank-react
+  dependencies:
+    - yarn-project
+
 canary-build:
   buildDir: yarn-project
   projectDir: yarn-project/canary

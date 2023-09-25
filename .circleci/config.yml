@@ -484,9 +484,9 @@ jobs:
     steps:
       - *checkout
       - *setup_env
-      - run:
-          name: "Build"
-          command: build boxes-blank-react
+      # - run:
+      #     name: "Build"
+      #     command: build boxes-blank-react
       - run:
           name: "Test via adhoc script"
           command: ./yarn-project/boxes/blank-react/run_tests
