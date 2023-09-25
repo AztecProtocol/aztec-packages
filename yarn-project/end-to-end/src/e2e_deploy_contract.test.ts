@@ -14,7 +14,7 @@ describe('e2e_deploy_contract', () => {
   let teardown: () => Promise<void>;
 
   beforeEach(async () => {
-    ({ aztecRpcServer, accounts, logger, wallet } = await setup());
+    ({ teardown, aztecRpcServer, accounts, logger, wallet } = await setup());
   }, 100_000);
 
   afterEach(() => teardown());
