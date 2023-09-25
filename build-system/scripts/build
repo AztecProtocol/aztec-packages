@@ -58,7 +58,7 @@ function try_fetch_image() {
   return 0
 }
 
-docker_login
+ecr_login
 
 # Ensure ECR repository exists.
 retry ensure_repo $REPOSITORY $ECR_REGION refresh_lifecycle

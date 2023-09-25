@@ -85,7 +85,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_spot_run_build barretenberg-wasm-linux-clang 64
+          command: cond_spot_run_build barretenberg-wasm-linux-clang 128
 
   barretenberg-x86_64-linux-gcc:
     docker:
@@ -96,7 +96,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_spot_run_build barretenberg-x86_64-linux-gcc 64
+          command: cond_spot_run_build barretenberg-x86_64-linux-gcc 128
 
   barretenberg-x86_64-linux-clang:
     docker:
@@ -107,7 +107,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_spot_run_build barretenberg-x86_64-linux-clang 64
+          command: cond_spot_run_build barretenberg-x86_64-linux-clang 128
 
   barretenberg-x86_64-linux-clang-fuzzing:
     docker:
@@ -118,7 +118,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_spot_run_build barretenberg-x86_64-linux-clang-fuzzing 64
+          command: cond_spot_run_build barretenberg-x86_64-linux-clang-fuzzing 128
 
   barretenberg-x86_64-linux-clang-assert:
     docker:
@@ -129,7 +129,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_spot_run_build barretenberg-x86_64-linux-clang-assert 64
+          command: cond_spot_run_build barretenberg-x86_64-linux-clang-assert 128
 
   barretenberg-stdlib-tests:
     docker:
@@ -293,7 +293,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_spot_run_build circuits-wasm-linux-clang 64
+          command: cond_spot_run_build circuits-wasm-linux-clang 32
 
   circuits-wasm-linux-clang-assert:
     docker:
@@ -304,7 +304,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_spot_run_build circuits-wasm-linux-clang-assert 64
+          command: cond_spot_run_build circuits-wasm-linux-clang-assert 32
 
   circuits-x86_64-linux-clang-tidy:
     docker:
@@ -315,7 +315,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_spot_run_build circuits-x86_64-linux-clang-tidy 64
+          command: cond_spot_run_build circuits-x86_64-linux-clang-tidy 32
 
   circuits-x86_64-linux-clang:
     docker:
@@ -326,7 +326,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_spot_run_build circuits-x86_64-linux-clang 64
+          command: cond_spot_run_build circuits-x86_64-linux-clang 32
 
   circuits-x86_64-linux-clang-assert:
     docker:
@@ -337,7 +337,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_spot_run_build circuits-x86_64-linux-clang-assert 64
+          command: cond_spot_run_build circuits-x86_64-linux-clang-assert 32
 
   circuits-wasm-tests:
     docker:
@@ -377,6 +377,7 @@ jobs:
   noir-contracts-build:
     machine:
       image: ubuntu-2204:2023.07.2
+    resource_class: large
     steps:
       - *checkout
       - *setup_env
@@ -387,7 +388,7 @@ jobs:
   yarn-project-base:
     machine:
       image: ubuntu-2204:2023.07.2
-    resource_class: large
+    resource_class: xlarge
     steps:
       - *checkout
       - *setup_env
@@ -396,6 +397,17 @@ jobs:
           command: build yarn-project-base | add_timestamps
 
   yarn-project:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: build yarn-project | add_timestamps
+
+  yarn-project-format:
     docker:
       - image: aztecprotocol/alpine-build-image
     resource_class: small
@@ -404,7 +416,18 @@ jobs:
       - *setup_env
       - run:
           name: Build
-          command: cond_spot_run_build yarn-project 64 | add_timestamps
+          command: cond_spot_run_script yarn-project 32 cond_run_container yarn-project formatting | add_timestamps
+
+  yarn-project-test:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: cond_spot_run_script yarn-project 64 cond_run_container yarn-project test | add_timestamps
 
   aztec-sandbox-base:
     machine:
@@ -556,6 +579,7 @@ jobs:
   e2e-sandbox-example:
     machine:
       image: ubuntu-2204:2023.07.2
+    resource_class: large
     steps:
       - *checkout
       - *setup_env
@@ -566,6 +590,7 @@ jobs:
   e2e-multi-transfer-contract:
     machine:
       image: ubuntu-2204:2023.07.2
+    resource_class: large
     steps:
       - *checkout
       - *setup_env
@@ -653,6 +678,7 @@ jobs:
   e2e-escrow-contract:
     machine:
       image: ubuntu-2204:2023.07.2
+    resource_class: large
     steps:
       - *checkout
       - *setup_env
@@ -740,6 +766,7 @@ jobs:
   e2e-p2p:
     machine:
       image: ubuntu-2204:2023.07.2
+    resource_class: large
     steps:
       - *checkout
       - *setup_env
@@ -750,6 +777,7 @@ jobs:
   e2e-browser-sandbox:
     machine:
       image: ubuntu-2204:2023.07.2
+    resource_class: large
     steps:
       - *checkout
       - *setup_env
@@ -760,6 +788,7 @@ jobs:
   e2e-card-game:
     machine:
       image: ubuntu-2204:2023.07.2
+    resource_class: large
     steps:
       - *checkout
       - *setup_env
@@ -770,6 +799,7 @@ jobs:
   aztec-rpc-sandbox:
     machine:
       image: ubuntu-2204:2023.07.2
+    resource_class: large
     steps:
       - *checkout
       - *setup_env
@@ -780,6 +810,7 @@ jobs:
   cli-docs-sandbox:
     machine:
       image: ubuntu-2204:2023.07.2
+    resource_class: large
     steps:
       - *checkout
       - *setup_env
@@ -801,6 +832,7 @@ jobs:
   guides-dapp-testing:
     machine:
       image: ubuntu-2204:2023.07.2
+    resource_class: large
     steps:
       - *checkout
       - *setup_env
@@ -811,6 +843,7 @@ jobs:
   guides-sample-dapp:
     machine:
       image: ubuntu-2204:2023.07.2
+    resource_class: large
     steps:
       - *checkout
       - *setup_env
@@ -821,6 +854,7 @@ jobs:
   guides-up-quick-start:
     machine:
       image: ubuntu-2204:2023.07.2
+    resource_class: large
     steps:
       - *checkout
       - *setup_env
@@ -831,6 +865,7 @@ jobs:
   e2e-canary-test:
     machine:
       image: ubuntu-2204:2023.07.2
+    resource_class: large
     steps:
       - *checkout
       - *setup_env
@@ -1062,6 +1097,14 @@ workflows:
           requires:
             - circuits-wasm-linux-clang
             - l1-contracts
+          <<: *defaults
+      - yarn-project-format:
+          requires:
+            - yarn-project
+          <<: *defaults
+      - yarn-project-test:
+          requires:
+            - yarn-project
           <<: *defaults
       - yarn-project:
           requires:
