@@ -7,7 +7,7 @@ set -eu
 export COMPOSE_FILE=${1:-docker-compose.yml}
 
 echo 'getting docker login'
-aws ecr get-login-password --region $ECR_DEPLOY_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT.dkr.ecr.$REGION.amazonaws.com 2> /dev/null
+aws ecr get-login-password --region $ECR_DEPLOY_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT.dkr.ecr.$ECR_DEPLOY_REGION.amazonaws.com 2> /dev/null
 
 export PATH="$PATH:$(git rev-parse --show-toplevel)/build-system/scripts"
 
