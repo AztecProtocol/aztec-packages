@@ -397,15 +397,15 @@ jobs:
           command: build yarn-project-base | add_timestamps
 
   yarn-project:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
     steps:
       - *checkout
       - *setup_env
       - run:
           name: Build
-          command: build yarn-project | add_timestamps
+          command: cond_spot_run_build yarn-project 64 | add_timestamps
 
   yarn-project-tests:
     docker:
