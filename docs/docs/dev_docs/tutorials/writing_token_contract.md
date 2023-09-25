@@ -242,7 +242,7 @@ We are also importing types from a `types.nr` file. Copy [this file](https://git
 
 ### Note on private state
 
-Private state in Aztec is all [UTXOs](https://en.wikipedia.org/wiki/Unspent_transaction_output) under the hood. Handling UTXOs is largely abstracted away from developers, but there are some unique things for developers to be aware of when creating and managing private state in an Aztec contract. See [State Variables](../contracts/syntax/state_variables) to learn more about public and private state in Aztec.
+Private state in Aztec is all [UTXOs](https://en.wikipedia.org/wiki/Unspent_transaction_output) under the hood. Handling UTXOs is largely abstracted away from developers, but there are some unique things for developers to be aware of when creating and managing private state in an Aztec contract. See [State Variables](../contracts/syntax/storage.md) to learn more about public and private state in Aztec.
 
 Copy [`util.nr`](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-contracts/src/contracts/token_contract/src/util.nr) into `token_contract_tutorial/contracts/src` as well. The function defined in `util.nr` will be helpful for generating message hashes that are used when communicating between contracts.
 
@@ -256,7 +256,7 @@ Below the dependencies, paste the following Storage struct:
 
 Reading through the storage variables:
 
-- `admin` a single Field value stored in public state. `FIELD_SERIALISED_LEN` indicates the length of the variable, which is 1 in this case because it's a single Field element. A `Field` is basically an unsigned integer with a maximum value determined by the underlying cryptographic curve.
+- `admin` a single Field value stored in public state. `FIELD_SERIALIZED_LEN` indicates the length of the variable, which is 1 in this case because it's a single Field element. A `Field` is basically an unsigned integer with a maximum value determined by the underlying cryptographic curve.
 - `minters` is a mapping of Fields in public state. This will store whether an account is an approved minter on the contract.
 - `balances` is a mapping of private balances. Private balances are stored in a `Set` of `ValueNote`s. The balance is the sum of all of an account's `ValueNote`s.
 - `total_supply` is a Field value stored in public state and represents the total number of tokens minted.
@@ -269,7 +269,7 @@ You can read more about it [here](../contracts/syntax/storage.md).
 
 Once we have Storage defined, we need to specify how to initialize it. The `init` method creates and initializes an instance of `Storage`. We define an initialization method for each of the storage variables defined above. Storage initialization is generic and can largely be reused for similar types, across different contracts, but it is important to note that each storage variable specifies it's storage slot, starting at 1.
 
-Also, the public storage variables define the type that they store by passing the methods by which they are serialized. Because all `PublicState` in this contract is storing Field elements, each storage variable takes `FieldSerialisationMethods`.
+Also, the public storage variables define the type that they store by passing the methods by which they are serialized. Because all `PublicState` in this contract is storing Field elements, each storage variable takes `FieldSerializationMethods`.
 
 #include_code storage_init /yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
 
