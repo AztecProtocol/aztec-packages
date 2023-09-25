@@ -998,6 +998,19 @@ defaults: &defaults
     - slack/notify:
         event: fail
         branch_pattern: "master"
+deploy_defaults: &deploy_defaults
+  filters:
+    tags:
+      only: *tag_regex
+    branches:
+      ignore: /.*/
+  context:
+    - build
+    - slack
+  post-steps:
+    - slack/notify:
+        event: fail
+        branch_pattern: "master"
 yarn_project: &yarn_project
   requires:
     - yarn-project
@@ -1215,34 +1228,34 @@ workflows:
       - deploy-dockerhub:
           requires:
             - e2e-end
-          <<: *defaults
+          <<: *deploy_defaults
       - deploy-npm:
           requires:
             - e2e-end
-          <<: *defaults
+          <<: *deploy_defaults
 
       - deploy-end:
           requires:
             - deploy-dockerhub
             - deploy-npm
-          <<: *defaults
+          <<: *deploy_defaults
 
       - build-deployment-canary:
           requires:
             - deploy-end
-          <<: *defaults
+          <<: *deploy_defaults
 
       - run-deployment-canary-uniswap:
           requires:
             - build-deployment-canary
-          <<: *defaults
+          <<: *deploy_defaults
 
       - run-deployment-canary-browser:
           requires:
             - build-deployment-canary
-          <<: *defaults
+          <<: *deploy_defaults
 
       - run-deployment-canary-cli:
           requires:
             - build-deployment-canary
-          <<: *defaults
+          <<: *deploy_defaults
