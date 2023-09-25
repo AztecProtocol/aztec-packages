@@ -123,7 +123,7 @@ resource "aws_ecs_task_definition" "aztec-node-1" {
       },
       {
         "name": "SEQ_MIN_TX_PER_BLOCK",
-        "value": "32"
+        "value": "4"
       },
       {
         "name": "SEQ_PUBLISHER_PRIVATE_KEY",
