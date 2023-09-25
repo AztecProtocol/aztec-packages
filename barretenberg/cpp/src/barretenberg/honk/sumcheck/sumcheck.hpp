@@ -1,7 +1,6 @@
 #pragma once
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
-#include "barretenberg/honk/proof_system/prover.hpp"
 #include "barretenberg/honk/sumcheck/sumcheck_output.hpp"
 #include "barretenberg/honk/transcript/transcript.hpp"
 #include "barretenberg/honk/utils/grand_product_delta.hpp"
@@ -206,6 +205,7 @@ template <typename Flavor> class SumcheckVerifier {
             round.compute_next_target_sum(round_univariate, round_challenge);
             pow_univariate.partially_evaluate(round_challenge);
 
+            // TODO(#726): Properly handle this in the recursive setting.
             if (!verified) {
                 return std::nullopt;
             }

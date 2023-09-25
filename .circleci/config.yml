@@ -1110,8 +1110,6 @@ workflows:
     when:
       equal: [system, << pipeline.parameters.workflow >>]
     jobs:
-      - build-docs: *defaults
-
       # Barretenberg
       - barretenberg-x86_64-linux-gcc: *defaults
       - barretenberg-x86_64-linux-clang: *defaults
@@ -1259,6 +1257,7 @@ workflows:
       - guides-writing-an-account-contract: *e2e_test
       - guides-dapp-testing: *e2e_test
       - guides-sample-dapp: *e2e_test
+      - guides-up-quick-start: *e2e_test
 
       - e2e-end:
           requires:
@@ -1295,6 +1294,7 @@ workflows:
             - guides-writing-an-account-contract
             - guides-dapp-testing
             - guides-sample-dapp
+            - guides-up-quick-start
           <<: *defaults
 
         # Deployment and Canary tests
