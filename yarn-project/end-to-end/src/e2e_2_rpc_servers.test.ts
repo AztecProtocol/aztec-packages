@@ -123,7 +123,7 @@ describe('e2e_2_rpc_servers', () => {
     // Add account A to wallet B
     await aztecRpcServerB.registerRecipient(userA);
 
-    // Add token to RPC server B
+    // Add token to RPC server B (RPC server A already has it because it was deployed through it)
     await aztecRpcServerB.addContracts([
       {
         abi: TokenContract.abi,
@@ -218,7 +218,7 @@ describe('e2e_2_rpc_servers', () => {
     // Add account A to wallet B
     await aztecRpcServerB.registerRecipient(userA);
 
-    // Add token to RPC server B
+    // Add token to RPC server B (RPC server A already has it because it was deployed through it)
     await aztecRpcServerB.addContracts([
       {
         abi: TokenContract.abi,
