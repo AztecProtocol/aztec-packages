@@ -13,6 +13,7 @@ bootstrap.sh
 # as they're meant to be consumers of the project, not a part of it.
 !boxes/private-token
 !boxes/blank
+!boxes/blank-react
 boxes/*/*
 
 # Unexclude package.json and yarn.lock files, for detecting any dependency changes.

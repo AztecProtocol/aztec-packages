@@ -82,6 +82,8 @@ docs:
     - ^docs/
     - ^.*.cpp$
     - ^.*.ts$
+    - ^.release-please-manifest.json$
+    - ^.*/noir-version.json$
 
 l1-contracts:
   buildDir: l1-contracts

@@ -16,15 +16,9 @@ export async function callContractFunction(
   // TODO: switch to the generated typescript class?
   const contract = await Contract.at(address, abi, selectedWallet);
 
-  const returnVal = await contract.methods[functionName](...typedArgs)
+  const returnVal = contract.methods[functionName](...typedArgs)
     .send()
     .wait();
 
-  if (returnVal.error) {
-    throw new Error(returnVal.error);
-  }
-
-  return `Transaction (${returnVal.txHash}) ${returnVal.status} on block ${
-    returnVal.blockNumber
-  } (hash ${returnVal.blockHash?.toString('hex')})!`;
+  return await returnVal;
 }

@@ -19,6 +19,9 @@ RUN ./scripts/update_packages.sh "$COMMIT_TAG"
 RUN yarn && yarn build
 
 FROM node:18-alpine
+RUN apk update && apk add --no-cache udev ttf-freefont chromium curl jq bash
+ENV CHROME_BIN="/usr/bin/chromium-browser" PUPPETEER_SKIP_CHROMIUM_DOWNLOAD="true"
+
 COPY --from=builder /usr/src/ /usr/src/
 WORKDIR /usr/src/yarn-project/canary
 
