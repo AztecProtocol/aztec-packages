@@ -30,4 +30,3 @@ services:
       ETHEREUM_HOST: http://fork:8545
       CHAIN_ID: 31337
       SANDBOX_URL: http://sandbox:8080
-    command: yarn test
