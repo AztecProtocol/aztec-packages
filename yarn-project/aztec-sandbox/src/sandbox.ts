@@ -1,6 +1,6 @@
 #!/usr/bin/env -S node --no-warnings
 import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
-import { EthAddress, createAztecRPCServer, getConfigEnvVars as getRpcConfigEnvVars } from '@aztec/aztec-rpc';
+import { createAztecRPCServer, getConfigEnvVars as getRpcConfigEnvVars } from '@aztec/aztec-rpc';
 import { DeployL1Contracts, L1ContractAddresses, createEthereumChain, deployL1Contracts } from '@aztec/ethereum';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
@@ -18,11 +18,7 @@ import {
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
-const {
-  MNEMONIC = 'test test test test test test test test test test test junk',
-  OUTBOX_CONTRACT_ADDRESS = '',
-  REGISTRY_CONTRACT_ADDRESS = '',
-} = process.env;
+const { MNEMONIC = 'test test test test test test test test test test test junk' } = process.env;
 
 const logger = createDebugLogger('aztec:sandbox');
 
@@ -44,9 +40,9 @@ function retrieveL1Contracts(config: AztecNodeConfig, account: Account): Promise
   });
   const l1Contracts = new L1ContractAddresses(
     config.l1Contracts.rollupAddress,
-    EthAddress.fromString(REGISTRY_CONTRACT_ADDRESS),
+    config.l1Contracts.registryAddress,
     config.l1Contracts.inboxAddress,
-    EthAddress.fromString(OUTBOX_CONTRACT_ADDRESS),
+    config.l1Contracts.outboxAddress,
     config.l1Contracts.contractDeploymentEmitterAddress,
     undefined,
   );

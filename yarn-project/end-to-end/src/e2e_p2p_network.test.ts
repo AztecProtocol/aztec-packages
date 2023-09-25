@@ -90,7 +90,7 @@ describe('e2e_p2p_network', () => {
       p2pEnabled: true,
       tcpListenPort: BOOT_NODE_TCP_PORT,
       tcpListenIp: '0.0.0.0',
-      announceHostname: '10.1.0.15',
+      announceHostname: '127.0.0.1',
       announcePort: BOOT_NODE_TCP_PORT,
       peerIdPrivateKey: Buffer.from(peerId.privateKey!).toString('hex'),
       serverMode: false,
