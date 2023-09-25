@@ -6,7 +6,7 @@ import { startHttpRpcServer } from '../aztec_rpc_http/index.js';
 import { createAztecRPCServer } from '../aztec_rpc_server/index.js';
 import { getConfigEnvVars } from '../config/index.js';
 
-const { SERVER_PORT = 8081, AZTEC_NODE_RPC_URL = '' } = process.env;
+const { SERVER_PORT = 8080, AZTEC_NODE_RPC_URL = '' } = process.env;
 
 const logger = createDebugLogger('aztec:rpc_server');
 

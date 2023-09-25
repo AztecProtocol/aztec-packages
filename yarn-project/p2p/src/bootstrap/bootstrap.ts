@@ -38,7 +38,7 @@ export class BootstrapNode {
       peerId,
       addresses: {
         listen: [`/ip4/${tcpListenIp}/tcp/${tcpListenPort}`],
-        announce: [`/ip4/${announceHostname}/tcp/${announcePort ?? tcpListenPort}`],
+        announce: announceHostname ? [`/ip4/${announceHostname}/tcp/${announcePort ?? tcpListenPort}`] : [],
       },
       transports: [tcp()],
       streamMuxers: [yamux(), mplex()],

@@ -124,7 +124,8 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .action(async () => {
       const peerId = await createLibP2PPeerId();
       const exportedPeerId = Buffer.from(peerId.privateKey!).toString('hex');
-      log(`\nPrivate key: ${exportedPeerId}`);
+      log(`Private key: ${exportedPeerId}`);
+      log(`Peer Id: ${peerId}`);
     });
 
   program

@@ -8,7 +8,7 @@ import Router from 'koa-router';
 
 import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '../index.js';
 
-const { SERVER_PORT = 8080, API_PREFIX = '' } = process.env;
+const { SERVER_PORT = 8081, API_PREFIX = '' } = process.env;
 
 const logger = createDebugLogger('aztec:node');
 
