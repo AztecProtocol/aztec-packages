@@ -17,4 +17,6 @@ RUN rm -rf noir-contracts/target
 # Build the entire project.
 RUN yarn tsc -b
 
+FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project-base
+COPY --from=builder /usr/src/yarn-project /usr/src/yarn-project
 ENTRYPOINT ["yarn"]

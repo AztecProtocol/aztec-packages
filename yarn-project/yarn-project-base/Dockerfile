@@ -10,9 +10,6 @@
 #    Dockerfile.dockerignore is tailored to specifically only bring in files needed to install the dependencies.
 #    NOTE: For this dockerignore file to be used, you MUST be using BUILDKIT in more recent versions of Docker.
 #          Best to make sure you're on docker >= 24. On mainframe run `restart_docker`, it should auto-upgrade.
-#  - A non pnp install is many 100's of MBs larger, impacting build times and bloating the final container size.
-#    We use .yarnrc.prod.yml to enable pnp in docker. This file is simply copied over the top of .yarnrc.yml.
-#    Tooling such as prettier/eslint is a pain with pnp, so we only want to enable it towards the end of the build.
 #  - We want to disable yarn from accessing the net after initial package download as it prevents a class of build bugs.
 #  - We want to prune dev dependencies as this can significantly reduce the final container size even further.
 #    Yarn devs won't provide the ability to prune dev dependencies from the local project cache:
@@ -20,45 +17,29 @@
 #    This means we need a global cache, so we can clean the cache and reinstall prod modules without re-downloading.
 #  - The default global cache and local cache are simply copies, not hardlinks, thus doubling the storage of modules.
 #    To work around, we will construct a global cache from the local cache using hard links (requires a hacky rename).
-#  - Hardlinks created in layers different to the layer in which the file is initially created, end up as copies as well!
-#    To work around, we recreate the global cache as hardlinks in the same layer that the local cache is populated.
-#    As file creation and hardlinks are created within the same layer it takes no additional space.
-#  - If hardlinked files are COPY'd in independent layers, then again you end up with copies, doubling the storage.
-#    To work around, we co-locate both the global and local cache under /usr/src, so they can both be copied at the
-#    same time when dealing with multi-stage docker builds.
+#    We do this in the same layer the original file is created, otherwise overlayfs creates a copy anyway.
+#    At time of writing this shaves off around 150MB. Not a big deal but a harmless trick for now.
 #
-# So, here in the base image we do a regular non-pnp, big 'ol node_modules install.
-#  - /usr/src/.yarn/cache (global cache) is populated with zipped packages.
+# So, here in the base image we yarn install.
+#  - /root/.yarn/berry/cache (global cache) is populated with zipped packages.
 #  - /usr/src/yarn-project/.yarn/cache (project local cache) is populated with copy of zipped packages.
-#  - Packages are unzipped into various node_modules folders, taking lots of space.
+#  - Packages are unzipped into various node_modules folders.
 #  - We then erase the global cache, and recreate each file as a hard link, reducing the zipped package storage by half.
 #
 # That's all we want to do here r.e. dependency installation. In yarn-project we will:
 #  - Copy in the rest of the workspace files.
 #  - Perform any code generation steps that require the workspace code (generate L2 contract wrappers).
-#  - Build all the code, and runs formatting checks.
-#  - Enable yarn pnp by replacing .yarnrc.yml with .yarnrc.prod.yml.
+#  - Build all the TypeScript.
 #
 # When we build a downstream docker image, we:
-#  - Do any project specific work in a "builder" stage.
-#  - Erase the local cache with a `yarn cache clean`. Files will remain in global cache due to hard link.
-#  - Copy ../.yarnrc.prod.yml to ../.yarnrc.yml to enable pnp.
+#  - FROM yarn-project as builder, to get the entire built project.
+#  - Do any project specific work.
+#  - Erase the local cache with a `yarn cache clean`. Files will remain in global cache.
 #  - Do a `yarn workspaces focus --production` to install production dependencies from the global to local cache.
-#    This will also strip away the node_modules folders due to pnp being enabled.
-#  - Remove the global cache from /usr/src/.yarn.
 #  - The above can be done with:
-#      RUN yarn cache clean && \
-#          mv ../.yarnrc.prod.yml ../.yarnrc.yml && \
-#          yarn workspaces focus --production > /dev/null && \
-#          rm -rf /usr/src/.yarn
+#      RUN yarn cache clean && yarn workspaces focus --production
 #  - Create final slim image by copying /usr/src into a fresh image.
 #
-# At the time of writing the following 3 images have the following sizes:
-#  - yarn-project-base: 1.11GB
-#  - yarn-project: 467MB
-#  - end-to-end: 360MB
-#
-# This is probably near optimal.
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/circuits-wasm-linux-clang as circuits
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/l1-contracts as contracts
 
@@ -69,17 +50,14 @@ WORKDIR /usr/src/yarn-project
 # The dockerignore file ensures the context only contains package.json and tsconfig.json files.
 COPY . .
 
-# Co-locate the global cache in /usr/src so we can carry both caches in one COPY.
-RUN echo "globalFolder: /usr/src/.yarn" >> .yarnrc.yml
-
-# Install packages using classic node_modules and rebuild the global cache with hard links.
+# Install packages and rebuild the global cache with hard links.
 # TODO: Puppeteer is adding ~300MB to this image due to chrome download (part of e2e).
 #       Switch to using puppeteer-core then it won't download chrome. For now just erase.
 RUN yarn --immutable && rm -rf /root/.cache/puppeteer && /bin/bash -c '\
-  rm -rf /usr/src/.yarn/cache/* && \
+  rm -rf /root/.yarn/berry/cache/* && \
   cd .yarn/cache && \
   for F in *; do \
-    [[ $F =~ (.*-) ]] && ln $F /usr/src/.yarn/cache/${BASH_REMATCH[1]}8.zip; \
+    [[ $F =~ (.*-) ]] && ln $F /root/.yarn/berry/cache/${BASH_REMATCH[1]}8.zip; \
   done'
 
 # If everything's worked properly, we should no longer need access to the network.

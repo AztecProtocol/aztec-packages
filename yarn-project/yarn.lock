@@ -122,6 +122,7 @@ __metadata:
   dependencies:
     "@aztec/archiver": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
+    "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/l1-artifacts": "workspace:^"
     "@aztec/merkle-tree": "workspace:^"
@@ -136,43 +137,16 @@ __metadata:
     "@types/memdown": ^3.0.0
     "@types/node": ^18.7.23
     jest: ^29.5.0
+    koa: ^2.14.2
+    koa-router: ^12.0.0
     levelup: ^5.1.1
     memdown: ^6.1.1
     ts-jest: ^29.1.0
     ts-node: ^10.9.1
     tslib: ^2.4.0
     typescript: ^5.0.4
-  languageName: unknown
-  linkType: soft
-
-"@aztec/aztec-rpc@workspace:^, @aztec/aztec-rpc@workspace:aztec-rpc":
-  version: 0.0.0-use.local
-  resolution: "@aztec/aztec-rpc@workspace:aztec-rpc"
-  dependencies:
-    "@aztec/acir-simulator": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
-    "@aztec/foundation": "workspace:^"
-    "@aztec/key-store": "workspace:^"
-    "@aztec/noir-compiler": "workspace:^"
-    "@aztec/types": "workspace:^"
-    "@jest/globals": ^29.5.0
-    "@rushstack/eslint-patch": ^1.1.4
-    "@types/jest": ^29.5.0
-    "@types/lodash.omit": ^4.5.7
-    "@types/lodash.partition": ^4.6.0
-    "@types/lodash.times": ^4.3.7
-    "@types/node": ^18.7.23
-    jest: ^29.5.0
-    jest-mock-extended: ^3.0.3
-    lodash.omit: ^4.5.0
-    lodash.partition: ^4.6.0
-    lodash.times: ^4.3.2
-    sha3: ^2.1.4
-    ts-jest: ^29.1.0
-    ts-node: ^10.9.1
-    tslib: ^2.4.0
-    typescript: ^5.0.4
-    viem: ^1.2.5
+  bin:
+    aztec-node: ./dest/bin/index.js
   languageName: unknown
   linkType: soft
 
@@ -181,7 +155,6 @@ __metadata:
   resolution: "@aztec/aztec-sandbox@workspace:aztec-sandbox"
   dependencies:
     "@aztec/aztec-node": "workspace:^"
-    "@aztec/aztec-rpc": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/ethereum": "workspace:^"
@@ -189,6 +162,7 @@ __metadata:
     "@aztec/l1-artifacts": "workspace:^"
     "@aztec/noir-compiler": "workspace:^"
     "@aztec/noir-contracts": "workspace:^"
+    "@aztec/pxe": "workspace:^"
     "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
     "@types/jest": ^29.5.0
@@ -232,6 +206,7 @@ __metadata:
   resolution: "@aztec/aztec.js@workspace:aztec.js"
   dependencies:
     "@aztec/circuits.js": "workspace:^"
+    "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
@@ -344,10 +319,12 @@ __metadata:
     "@aztec/aztec.js": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
+    "@aztec/l1-artifacts": "workspace:^"
     "@aztec/noir-compiler": "workspace:^"
     "@aztec/noir-contracts": "workspace:^"
     "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
+    "@libp2p/peer-id-factory": ^3.0.4
     "@rushstack/eslint-patch": ^1.1.4
     "@types/jest": ^29.5.0
     "@types/lodash.startcase": ^4.4.7
@@ -384,7 +361,6 @@ __metadata:
   dependencies:
     "@aztec/archiver": "workspace:^"
     "@aztec/aztec-node": "workspace:^"
-    "@aztec/aztec-rpc": "workspace:^"
     "@aztec/aztec-sandbox": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
@@ -394,6 +370,7 @@ __metadata:
     "@aztec/l1-artifacts": "workspace:^"
     "@aztec/noir-contracts": "workspace:^"
     "@aztec/p2p": "workspace:^"
+    "@aztec/pxe": "workspace:^"
     "@aztec/sequencer-client": "workspace:^"
     "@aztec/types": "workspace:^"
     "@aztec/world-state": "workspace:^"
@@ -420,7 +397,7 @@ __metadata:
     lodash.times: ^4.3.2
     lodash.zip: ^4.2.0
     lodash.zipwith: ^4.2.0
-    puppeteer: ^20.9.0
+    puppeteer: ^21.3.4
     string-argv: ^0.3.2
     ts-jest: ^29.1.0
     ts-node: ^10.9.1
@@ -435,7 +412,6 @@ __metadata:
   resolution: "@aztec/ethereum@workspace:ethereum"
   dependencies:
     "@aztec/foundation": "workspace:^"
-    "@aztec/l1-artifacts": "workspace:^"
     "@jest/globals": ^29.5.0
     "@rushstack/eslint-patch": ^1.1.4
     "@types/jest": ^29.5.0
@@ -484,7 +460,7 @@ __metadata:
     eslint-plugin-tsdoc: ^0.2.17
     hash.js: ^1.1.7
     jest: ^29.5.0
-    koa: ^2.14.1
+    koa: ^2.14.2
     koa-bodyparser: ^4.4.0
     koa-compress: ^5.1.0
     koa-router: ^12.0.0
@@ -692,6 +668,42 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@aztec/pxe@workspace:^, @aztec/pxe@workspace:pxe":
+  version: 0.0.0-use.local
+  resolution: "@aztec/pxe@workspace:pxe"
+  dependencies:
+    "@aztec/acir-simulator": "workspace:^"
+    "@aztec/circuits.js": "workspace:^"
+    "@aztec/ethereum": "workspace:^"
+    "@aztec/foundation": "workspace:^"
+    "@aztec/key-store": "workspace:^"
+    "@aztec/noir-compiler": "workspace:^"
+    "@aztec/types": "workspace:^"
+    "@jest/globals": ^29.5.0
+    "@rushstack/eslint-patch": ^1.1.4
+    "@types/jest": ^29.5.0
+    "@types/lodash.omit": ^4.5.7
+    "@types/lodash.partition": ^4.6.0
+    "@types/lodash.times": ^4.3.7
+    "@types/node": ^18.7.23
+    jest: ^29.5.0
+    jest-mock-extended: ^3.0.3
+    koa: ^2.14.2
+    koa-router: ^12.0.0
+    lodash.omit: ^4.5.0
+    lodash.partition: ^4.6.0
+    lodash.times: ^4.3.2
+    sha3: ^2.1.4
+    ts-jest: ^29.1.0
+    ts-node: ^10.9.1
+    tslib: ^2.4.0
+    typescript: ^5.0.4
+    viem: ^1.2.5
+  bin:
+    pxe: ./dest/bin/index.js
+  languageName: unknown
+  linkType: soft
+
 "@aztec/sequencer-client@workspace:^, @aztec/sequencer-client@workspace:sequencer-client":
   version: 0.0.0-use.local
   resolution: "@aztec/sequencer-client@workspace:sequencer-client"
@@ -739,6 +751,7 @@ __metadata:
   resolution: "@aztec/types@workspace:types"
   dependencies:
     "@aztec/circuits.js": "workspace:^"
+    "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@jest/globals": ^29.5.0
     "@rushstack/eslint-patch": ^1.1.4
@@ -2687,6 +2700,22 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@libp2p/crypto@npm:^2.0.4":
+  version: 2.0.4
+  resolution: "@libp2p/crypto@npm:2.0.4"
+  dependencies:
+    "@libp2p/interface": ^0.1.2
+    "@noble/curves": ^1.1.0
+    "@noble/hashes": ^1.3.1
+    multiformats: ^12.0.1
+    node-forge: ^1.1.0
+    protons-runtime: ^5.0.0
+    uint8arraylist: ^2.4.3
+    uint8arrays: ^4.0.6
+  checksum: 1e0a0e8006e9ca7caaec16ce94d193063749fc7f62a7b3d0b4469915e2837c380987baa400a9f35ee13c23783f8317f8bc58b8ed647a5b4bf55635a2a909ae97
+  languageName: node
+  linkType: hard
+
 "@libp2p/interface-connection@npm:^5.0.0":
   version: 5.1.1
   resolution: "@libp2p/interface-connection@npm:5.1.1"
@@ -3010,6 +3039,21 @@ __metadata:
     uint8arraylist: ^2.4.3
     uint8arrays: ^4.0.6
   checksum: 093530837f0d73fc6cb40c168c10c4bc2f196783b089c1006b9958b5ad86b93963de9fccf18159ce60afad01896c549bee5e368283fba288d9abf2598c7a6ea5
+  languageName: node
+  linkType: hard
+
+"@libp2p/peer-id-factory@npm:^3.0.4":
+  version: 3.0.4
+  resolution: "@libp2p/peer-id-factory@npm:3.0.4"
+  dependencies:
+    "@libp2p/crypto": ^2.0.4
+    "@libp2p/interface": ^0.1.2
+    "@libp2p/peer-id": ^3.0.2
+    multiformats: ^12.0.1
+    protons-runtime: ^5.0.0
+    uint8arraylist: ^2.4.3
+    uint8arrays: ^4.0.6
+  checksum: 40c534029bfa8d9b98119ee2c0ce3c0c91bcf7280028e7ba8bfe4da2a90de53014791d75c8d1400877919f748918704276b6e3337c5128975842c0593464fda9
   languageName: node
   linkType: hard
 
@@ -3540,25 +3584,20 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@puppeteer/browsers@npm:1.4.6":
-  version: 1.4.6
-  resolution: "@puppeteer/browsers@npm:1.4.6"
+"@puppeteer/browsers@npm:1.7.1":
+  version: 1.7.1
+  resolution: "@puppeteer/browsers@npm:1.7.1"
   dependencies:
     debug: 4.3.4
     extract-zip: 2.0.1
     progress: 2.0.3
-    proxy-agent: 6.3.0
+    proxy-agent: 6.3.1
     tar-fs: 3.0.4
     unbzip2-stream: 1.4.3
     yargs: 17.7.1
-  peerDependencies:
-    typescript: ">= 4.7.4"
-  peerDependenciesMeta:
-    typescript:
-      optional: true
   bin:
     browsers: lib/cjs/main-cli.js
-  checksum: 29569dd8a8a41737bb0dd40cce6279cfc8764afc6242d2f9d8ae610bed7e466fc77eeb27b9b3ac53dd04927a1a0e26389f282f6ba057210979b36ab455009d64
+  checksum: fb7cf7773a1aed4e34ce0952dbf9609a164e624d4f8e1f342b816fe3e983888d7a7b2fbafc963559e96cb5bca0d75fb9c81f2097f9b1f5478a0f1cc7cbc12dff
   languageName: node
   linkType: hard
 
@@ -7580,14 +7619,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"chromium-bidi@npm:0.4.16":
-  version: 0.4.16
-  resolution: "chromium-bidi@npm:0.4.16"
+"chromium-bidi@npm:0.4.28":
+  version: 0.4.28
+  resolution: "chromium-bidi@npm:0.4.28"
   dependencies:
-    mitt: 3.0.0
+    mitt: 3.0.1
+    urlpattern-polyfill: 9.0.0
   peerDependencies:
     devtools-protocol: "*"
-  checksum: 9cbb362fdf589dbdfd1618499c5bbdac45a3aa1291c1d2faa2f1ea3768738677985175d1bb1511dfe3e188bc78e6ea2acb453564ece7e09f535bbcd2253ce06a
+  checksum: d8ac0aefcf11ebd744e0b97ecded9dac5c03ab55f46267570cdf1b780ad1e05e8cf6987b65178bda99a1ef1ea1bc59721bda85008283ca5f145912b9e1bf578d
   languageName: node
   linkType: hard
 
@@ -8089,15 +8129,20 @@ __metadata:
   languageName: node
   linkType: hard
 
-"cosmiconfig@npm:8.2.0":
-  version: 8.2.0
-  resolution: "cosmiconfig@npm:8.2.0"
+"cosmiconfig@npm:8.3.6":
+  version: 8.3.6
+  resolution: "cosmiconfig@npm:8.3.6"
   dependencies:
-    import-fresh: ^3.2.1
+    import-fresh: ^3.3.0
     js-yaml: ^4.1.0
-    parse-json: ^5.0.0
+    parse-json: ^5.2.0
     path-type: ^4.0.0
-  checksum: 836d5d8efa750f3fb17b03d6ca74cd3154ed025dffd045304b3ef59637f662bde1e5dc88f8830080d180ec60841719cf4ea2ce73fb21ec694b16865c478ff297
+  peerDependencies:
+    typescript: ">=4.9.5"
+  peerDependenciesMeta:
+    typescript:
+      optional: true
+  checksum: dc339ebea427898c9e03bf01b56ba7afbac07fc7d2a2d5a15d6e9c14de98275a9565da949375aee1809591c152c0a3877bb86dbeaf74d5bd5aaa79955ad9e7a0
   languageName: node
   linkType: hard
 
@@ -8615,10 +8660,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"devtools-protocol@npm:0.0.1147663":
-  version: 0.0.1147663
-  resolution: "devtools-protocol@npm:0.0.1147663"
-  checksum: 0631f2b6c6cd7f56e7d62a85bfc291f7e167f0f2de90969ef61fb24e2bd546b2e9530043d2bc3fe6c4d7a9e00473004272d2c2832a10a05e4b75c03a22f549fc
+"devtools-protocol@npm:0.0.1179426":
+  version: 0.0.1179426
+  resolution: "devtools-protocol@npm:0.0.1179426"
+  checksum: 38a091bde42d7d0f8e5e6c7a445db6a56d7b80f21f51de47ed1316123f70b2256aa6fe0d87fbe37bcc4928c0b9245e28a17fb7fbf8d8622156ae36870b26c1ed
   languageName: node
   linkType: hard
 
@@ -10897,7 +10942,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"https-proxy-agent@npm:^7.0.0, https-proxy-agent@npm:^7.0.2":
+"https-proxy-agent@npm:^7.0.2":
   version: 7.0.2
   resolution: "https-proxy-agent@npm:7.0.2"
   dependencies:
@@ -13143,7 +13188,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"koa@npm:^2.14.1, koa@npm:^2.14.2":
+"koa@npm:^2.14.2":
   version: 2.14.2
   resolution: "koa@npm:2.14.2"
   dependencies:
@@ -14218,10 +14263,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"mitt@npm:3.0.0":
-  version: 3.0.0
-  resolution: "mitt@npm:3.0.0"
-  checksum: f7be5049d27d18b1dbe9408452d66376fa60ae4a79fe9319869d1b90ae8cbaedadc7e9dab30b32d781411256d468be5538996bb7368941c09009ef6bbfa6bfc7
+"mitt@npm:3.0.1":
+  version: 3.0.1
+  resolution: "mitt@npm:3.0.1"
+  checksum: b55a489ac9c2949ab166b7f060601d3b6d893a852515ae9eca4e11df01c013876df777ea109317622b5c1c60e8aae252558e33c8c94e14124db38f64a39614b1
   languageName: node
   linkType: hard
 
@@ -15022,7 +15067,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"pac-proxy-agent@npm:^7.0.0":
+"pac-proxy-agent@npm:^7.0.1":
   version: 7.0.1
   resolution: "pac-proxy-agent@npm:7.0.1"
   dependencies:
@@ -15661,19 +15706,19 @@ __metadata:
   languageName: node
   linkType: hard
 
-"proxy-agent@npm:6.3.0":
-  version: 6.3.0
-  resolution: "proxy-agent@npm:6.3.0"
+"proxy-agent@npm:6.3.1":
+  version: 6.3.1
+  resolution: "proxy-agent@npm:6.3.1"
   dependencies:
     agent-base: ^7.0.2
     debug: ^4.3.4
     http-proxy-agent: ^7.0.0
-    https-proxy-agent: ^7.0.0
+    https-proxy-agent: ^7.0.2
     lru-cache: ^7.14.1
-    pac-proxy-agent: ^7.0.0
+    pac-proxy-agent: ^7.0.1
     proxy-from-env: ^1.1.0
-    socks-proxy-agent: ^8.0.1
-  checksum: e3fb0633d665e352ed4efe23ae5616b8301423dfa4ff1c5975d093da8a636181a97391f7a91c6a7ffae17c1a305df855e95507f73bcdafda8876198c64b88f5b
+    socks-proxy-agent: ^8.0.2
+  checksum: 31030da419da31809340ac2521090c9a5bf4fe47a944843f829b3502883208c8586a468955e64b694140a41d70af6f45cf4793f5efd4a6f3ed94e5ac8023e36d
   languageName: node
   linkType: hard
 
@@ -15740,33 +15785,28 @@ __metadata:
   languageName: node
   linkType: hard
 
-"puppeteer-core@npm:20.9.0":
-  version: 20.9.0
-  resolution: "puppeteer-core@npm:20.9.0"
+"puppeteer-core@npm:21.3.5":
+  version: 21.3.5
+  resolution: "puppeteer-core@npm:21.3.5"
   dependencies:
-    "@puppeteer/browsers": 1.4.6
-    chromium-bidi: 0.4.16
+    "@puppeteer/browsers": 1.7.1
+    chromium-bidi: 0.4.28
     cross-fetch: 4.0.0
     debug: 4.3.4
-    devtools-protocol: 0.0.1147663
-    ws: 8.13.0
-  peerDependencies:
-    typescript: ">= 4.7.4"
-  peerDependenciesMeta:
-    typescript:
-      optional: true
-  checksum: d298598445b0f2032c02d0ed7d1d18a8d2d2fcaf6fc31fc96e93e2669a7fc6fbee0338bd9b8c8f8822887f18a8fb680b77bb56e96fe1928baadb52292bbd93b4
+    devtools-protocol: 0.0.1179426
+    ws: 8.14.2
+  checksum: c2e904e59c9d58ada08016ff893c6b574ab36848db8e0f214b6c02fef446cfa142d346384cb2bb49c39df45622caf6ef813e7cc10f613024e595aa4406fb77bc
   languageName: node
   linkType: hard
 
-"puppeteer@npm:^20.9.0":
-  version: 20.9.0
-  resolution: "puppeteer@npm:20.9.0"
+"puppeteer@npm:^21.3.4":
+  version: 21.3.5
+  resolution: "puppeteer@npm:21.3.5"
   dependencies:
-    "@puppeteer/browsers": 1.4.6
-    cosmiconfig: 8.2.0
-    puppeteer-core: 20.9.0
-  checksum: c328eca0a649d5e5d68ee2874c25254b8498ab8bbfa1731b444c2dd69380c2f6df1741b3ad427d448fb8e5bcdd259cc9c1ed749dddfc634a64a6a607403fe53c
+    "@puppeteer/browsers": 1.7.1
+    cosmiconfig: 8.3.6
+    puppeteer-core: 21.3.5
+  checksum: 0bb3f0f2dead30f4a18b94066d73e27a0ec418ba3e1b73fc882ba4b747405c91ee2592eef0137b984f26bca5e52007543ecd01d1ac843dd68b8d78489a296f69
   languageName: node
   linkType: hard
 
@@ -17036,7 +17076,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"socks-proxy-agent@npm:^8.0.1, socks-proxy-agent@npm:^8.0.2":
+"socks-proxy-agent@npm:^8.0.2":
   version: 8.0.2
   resolution: "socks-proxy-agent@npm:8.0.2"
   dependencies:
@@ -18454,6 +18494,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"urlpattern-polyfill@npm:9.0.0":
+  version: 9.0.0
+  resolution: "urlpattern-polyfill@npm:9.0.0"
+  checksum: d3658b78a10eaee514c464f5a4336c408c70cf01e9b915cb1df5892b3c49003d1ed4042dc72d1b18493b8b847883e84fbf2bf358abb5dff84b2725d5e8463bcb
+  languageName: node
+  linkType: hard
+
 "use-callback-ref@npm:^1.3.0":
   version: 1.3.0
   resolution: "use-callback-ref@npm:1.3.0"
@@ -19188,9 +19235,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ws@npm:8.13.0, ws@npm:^8.13.0":
-  version: 8.13.0
-  resolution: "ws@npm:8.13.0"
+"ws@npm:8.14.2":
+  version: 8.14.2
+  resolution: "ws@npm:8.14.2"
   peerDependencies:
     bufferutil: ^4.0.1
     utf-8-validate: ">=5.0.2"
@@ -19199,7 +19246,7 @@ __metadata:
       optional: true
     utf-8-validate:
       optional: true
-  checksum: 53e991bbf928faf5dc6efac9b8eb9ab6497c69feeb94f963d648b7a3530a720b19ec2e0ec037344257e05a4f35bd9ad04d9de6f289615ffb133282031b18c61c
+  checksum: 3ca0dad26e8cc6515ff392b622a1467430814c463b3368b0258e33696b1d4bed7510bc7030f7b72838b9fdeb8dbd8839cbf808367d6aae2e1d668ce741d4308b
   languageName: node
   linkType: hard
 
@@ -19215,6 +19262,21 @@ __metadata:
     utf-8-validate:
       optional: true
   checksum: c3c100a181b731f40b7f2fddf004aa023f79d64f489706a28bc23ff88e87f6a64b3c6651fbec3a84a53960b75159574d7a7385709847a62ddb7ad6af76f49138
+  languageName: node
+  linkType: hard
+
+"ws@npm:^8.13.0":
+  version: 8.13.0
+  resolution: "ws@npm:8.13.0"
+  peerDependencies:
+    bufferutil: ^4.0.1
+    utf-8-validate: ">=5.0.2"
+  peerDependenciesMeta:
+    bufferutil:
+      optional: true
+    utf-8-validate:
+      optional: true
+  checksum: 53e991bbf928faf5dc6efac9b8eb9ab6497c69feeb94f963d648b7a3530a720b19ec2e0ec037344257e05a4f35bd9ad04d9de6f289615ffb133282031b18c61c
   languageName: node
   linkType: hard
 
