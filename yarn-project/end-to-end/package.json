@@ -57,6 +57,7 @@
     "lodash.times": "^4.3.2",
     "lodash.zip": "^4.2.0",
     "lodash.zipwith": "^4.2.0",
+    "memdown": "^6.1.1",
     "puppeteer": "^21.3.4",
     "string-argv": "^0.3.2",
     "ts-jest": "^29.1.0",
@@ -68,6 +69,7 @@
   "devDependencies": {
     "@rushstack/eslint-patch": "^1.1.4",
     "@types/lodash.compact": "^3.0.7",
+    "@types/memdown": "^3.0.2",
     "concurrently": "^7.6.0"
   },
   "files": [
