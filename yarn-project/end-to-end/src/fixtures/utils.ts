@@ -93,24 +93,6 @@ const createAztecNode = async (
   return await AztecNodeService.createAndSync(nodeConfig);
 };
 
-const createRpcServer = async (
-  rpcConfig: RpcServerConfig,
-  aztecNode: AztecNodeService | undefined,
-  logger: DebugLogger,
-  useLogSuffix?: boolean | string,
-): Promise<AztecRPC> => {
-  if (SANDBOX_URL) {
-    logger(`Creating JSON RPC client to remote host ${SANDBOX_URL}`);
-    const jsonClient = createJsonRpcClient(SANDBOX_URL);
-    await waitForRPCServer(jsonClient, logger);
-    logger('JSON RPC client connected to RPC Server');
-    return jsonClient;
-  } else if (!aztecNode) {
-    throw new Error('Invalid aztec node when creating RPC server');
-  }
-  return createAztecRPCServer(aztecNode, rpcConfig, {}, useLogSuffix);
-};
-
 export const setupL1Contracts = async (
   l1RpcUrl: string,
   account: HDAccount | PrivateKeyAccount,
@@ -159,7 +141,7 @@ export const setupL1Contracts = async (
  */
 export async function setupAztecRPCServer(
   numberOfAccounts: number,
-  aztecNode: AztecNodeService | undefined,
+  aztecNode: AztecNodeService,
   logger = getLogger(),
   useLogSuffix = false,
 ): Promise<{
@@ -181,19 +163,9 @@ export async function setupAztecRPCServer(
   logger: DebugLogger;
 }> {
   const rpcConfig = getRpcConfigEnvVars();
-  const rpc = await createRpcServer(rpcConfig, aztecNode, logger, useLogSuffix);
+  const rpc = await createAztecRPCServer(aztecNode, rpcConfig, {}, useLogSuffix);
 
-  const createWallets = () => {
-    if (!SANDBOX_URL) {
-      logger('RPC server created, deploying new accounts...');
-      return createAccounts(rpc, numberOfAccounts);
-    } else {
-      logger('RPC server created, constructing wallets from initial sandbox accounts...');
-      return getSandboxAccountsWallets(rpc);
-    }
-  };
-
-  const wallets = await createWallets();
+  const wallets = await createAccounts(rpc, numberOfAccounts);
 
   return {
     aztecRpcServer: rpc!,
@@ -208,19 +180,18 @@ export async function setupAztecRPCServer(
  * @param account - The account for use in create viem wallets.
  * @param config - The aztec Node Configuration
  * @param logger - The logger to be used
- * @param numberOfAccounts - The number of accounts to create on the sandbox
  * @returns RPC Client, viwm wallets, contract addreses etc.
  */
-async function setupWithSandbox(
-  account: Account,
-  config: AztecNodeConfig,
-  logger: DebugLogger,
-  numberOfAccounts: number,
-) {
+async function setupWithSandbox(account: Account, config: AztecNodeConfig, logger: DebugLogger) {
   // we are setting up against the sandbox, l1 contracts are already deployed
-  const { aztecRpcServer, accounts, wallets } = await setupAztecRPCServer(numberOfAccounts, undefined, logger);
+  logger(`Creating JSON RPC client to remote host ${SANDBOX_URL}`);
+  const jsonClient = createJsonRpcClient(SANDBOX_URL);
+  await waitForRPCServer(jsonClient, logger);
+  logger('JSON RPC client connected to RPC Server');
   logger(`Retrieving contract addresses from ${SANDBOX_URL}`);
-  const l1Contracts = (await aztecRpcServer.getNodeInfo()).l1ContractAddresses;
+  const l1Contracts = (await jsonClient.getNodeInfo()).l1ContractAddresses;
+  logger('RPC server created, constructing wallets from initial sandbox accounts...');
+  const wallets = await getSandboxAccountsWallets(jsonClient);
 
   const walletClient = createWalletClient<HttpTransport, Chain, HDAccount>({
     account,
@@ -236,15 +207,13 @@ async function setupWithSandbox(
     walletClient,
     publicClient,
   };
-  const cheatCodes = await CheatCodes.create(config.rpcUrl, aztecRpcServer!);
-  const teardown = async () => {
-    if (aztecRpcServer instanceof AztecRPCServer) await aztecRpcServer?.stop();
-  };
+  const cheatCodes = await CheatCodes.create(config.rpcUrl, jsonClient!);
+  const teardown = () => Promise.resolve();
   return {
     aztecNode: undefined,
-    aztecRpcServer,
+    aztecRpcServer: jsonClient,
     deployL1ContractsValues,
-    accounts,
+    accounts: await jsonClient!.getRegisteredAccounts(),
     config,
     wallet: wallets[0],
     wallets,
@@ -315,7 +284,7 @@ export async function setup(
 
   if (SANDBOX_URL) {
     // we are setting up against the sandbox, l1 contracts are already deployed
-    return await setupWithSandbox(hdAccount, config, logger, numberOfAccounts);
+    return await setupWithSandbox(hdAccount, config, logger);
   }
 
   const deployL1ContractsValues = await setupL1Contracts(config.rpcUrl, hdAccount, logger);
@@ -331,7 +300,7 @@ export async function setup(
 
   const aztecNode = await createAztecNode(config, logger);
 
-  const { aztecRpcServer, accounts, wallets } = await setupAztecRPCServer(numberOfAccounts, aztecNode, logger);
+  const { aztecRpcServer, accounts, wallets } = await setupAztecRPCServer(numberOfAccounts, aztecNode!, logger);
 
   const cheatCodes = await CheatCodes.create(config.rpcUrl, aztecRpcServer!);
 
