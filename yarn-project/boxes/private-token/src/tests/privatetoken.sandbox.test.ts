@@ -14,7 +14,7 @@ import { PrivateTokenContract } from '../artifacts/private_token.js';
 import { rpcClient } from '../config.js';
 import { callContractFunction, deployContract, getWallet, viewContractFunction } from '../scripts/index.js';
 
-const logger = createDebugLogger('aztec:private-token-box-test');
+const logger = createDebugLogger('aztec:private-token-box-sandbox-test');
 
 const INITIAL_BALANCE = 444n;
 const TRANSFER_AMOUNT = 44n;
