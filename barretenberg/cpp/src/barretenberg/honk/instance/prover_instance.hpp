@@ -29,8 +29,6 @@ template <class Flavor> class ProverInstance_ {
     using Polynomial = typename Flavor::Polynomial;
 
   public:
-    // offset due to placing zero wires at the start of execution trace
-
     std::shared_ptr<ProvingKey> proving_key;
     std::shared_ptr<VerificationKey> verification_key;
     std::shared_ptr<CommitmentKey> commitment_key;
@@ -40,9 +38,13 @@ template <class Flavor> class ProverInstance_ {
     // The number of public inputs has to be the same for all instances because they are
     // folded element by element.
     std::vector<FF> public_inputs;
+    // offset due to placing zero wires at the start of execution trace
+    // this value is only set for Instances constructed from circuits, this concept doesn't exist for accumulated
+    // instances
     size_t pub_inputs_offset = 0;
     proof_system::RelationParameters<FF> relation_parameters;
     std::vector<uint32_t> recursive_proof_public_input_indices;
+    // only set for the accumulated instances
     FoldingParameters folding_params;
 
     ProverInstance_(Circuit& circuit)

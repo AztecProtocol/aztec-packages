@@ -301,7 +301,7 @@ class Ultra {
                                       barretenberg::Univariate<FF, MAX_RELATION_LENGTH>>;
 
     /**
-     * @brief A container for the polynomials evaluations produced during sumcheck, which are purported to be the
+     * @brief A container for the polynomials evaluations produced during sumcheck, which are claimed to be the
      * evaluations of polynomials committed in earlier rounds.
      */
     class ClaimedEvaluations : public AllEntities<FF, FF> {
@@ -393,7 +393,8 @@ class Ultra {
 
     class FoldingParameters {
       public:
-        FF gate_separation_challenge;
+        // we need this because the nice relation between deltas does not apply to beta as well
+        std::vector<FF> gate_separation_challenges;
         FF target_sum;
     };
 };
