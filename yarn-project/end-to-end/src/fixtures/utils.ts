@@ -1,5 +1,5 @@
 import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
-import { AztecRPCServer, createAztecRPCServer, getConfigEnvVars as getRpcConfigEnvVars } from '@aztec/aztec-rpc';
+import { AztecRPCServer, createAztecRPCServer, getConfigEnvVars as getRpcConfigEnvVars } from '@aztec/pxe';
 import {
   AccountWallet,
   AztecAddress,
@@ -42,6 +42,12 @@ import {
   TokenPortalBytecode,
 } from '@aztec/l1-artifacts';
 import { NonNativeTokenContract, TokenBridgeContract, TokenContract } from '@aztec/noir-contracts/types';
+import {
+  AztecRPCServer,
+  RpcServerConfig,
+  createAztecRPCServer,
+  getConfigEnvVars as getRpcConfigEnvVars,
+} from '@aztec/pxe';
 import { AztecRPC, L2BlockL2Logs, LogType, TxStatus } from '@aztec/types';
 
 import {
