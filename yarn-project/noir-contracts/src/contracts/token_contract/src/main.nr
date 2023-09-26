@@ -36,7 +36,7 @@ contract Token {
     use crate::types::{
         transparent_note::{TransparentNote, TransparentNoteMethods, TRANSPARENT_NOTE_LEN},
         token_note::{TokenNote, TokenNoteMethods, TOKEN_NOTE_LEN},
-        balance_set::{BalanceSet},
+        balances_map::{BalancesMap},
         safe_u120_serialization::{SafeU120SerializationMethods, SAFE_U120_SERIALIZED_LEN}
     };
     use crate::util::{compute_message_hash};
@@ -51,7 +51,7 @@ contract Token {
         minters: Map<PublicState<bool, BOOL_SERIALIZED_LEN>>,
         // docs:end:storage_minters
         // docs:start:storage_balances
-        balances: Map<BalanceSet>,
+        balances: BalancesMap,
         // docs:end:storage_balances
         total_supply: PublicState<SafeU120, SAFE_U120_SERIALIZED_LEN>,
         // docs:start:storage_pending_shields
@@ -63,7 +63,7 @@ contract Token {
 
     // docs:start:storage_init
     impl Storage {
-        fn init(context: Context) -> Self {
+        fn init(context: Context) -> pub Self {
             Storage {
                 // docs:start:storage_admin_init
                 admin: PublicState::new(
@@ -85,13 +85,7 @@ contract Token {
                     },
                 ),
                 // docs:end:storage_minters_init
-                balances: Map::new(
-                    context,
-                    3,
-                    |context, slot| {
-                        BalanceSet::new(context, slot)
-                    },
-                ),
+                balances: BalancesMap::new(context, 3),
                 total_supply: PublicState::new(
                     context,
                     4,
@@ -280,14 +274,13 @@ contract Token {
         secret: Field,
     ) -> Field {
         let pending_shields = storage.pending_shields;
-        let balance = storage.balances.at(to.address);
         let mut public_note = TransparentNote::new_from_secret(amount, secret);
         
         // docs:start:assert_contains_and_remove_publicly_created
         pending_shields.assert_contains_and_remove_publicly_created(&mut public_note);
         // docs:end:assert_contains_and_remove_publicly_created
 
-        balance.add(SafeU120::new(amount), to.address);
+        storage.balances.at(to).add(SafeU120::new(amount));
 
         1
     }
@@ -309,8 +302,7 @@ contract Token {
             assert(nonce == 0, "invalid nonce");
         }
 
-        let from_balance = storage.balances.at(from.address);
-        from_balance.sub(SafeU120::new(amount), from.address);
+        storage.balances.at(from).sub(SafeU120::new(amount));
 
         let selector = compute_selector("_increase_public_balance((Field),Field)");
         let _void = context.call_public_function(context.this_address(), selector, [to.address, amount]);
@@ -335,12 +327,9 @@ contract Token {
             assert(nonce == 0, "invalid nonce");
         }
 
-        let from_balance = storage.balances.at(from.address);
-        let to_balance = storage.balances.at(to.address);
-
         let amount = SafeU120::new(amount);
-        from_balance.sub(amount, from.address);
-        to_balance.add(amount, to.address);
+        storage.balances.at(from).sub(amount);
+        storage.balances.at(to).add(amount);
 
         1
     }
@@ -361,8 +350,7 @@ contract Token {
             assert(nonce == 0, "invalid nonce");
         }
 
-        let from_balance = storage.balances.at(from.address);
-        from_balance.sub(SafeU120::new(amount), from.address);
+        storage.balances.at(from).sub(SafeU120::new(amount));
 
         let selector = compute_selector("_reduce_total_supply(Field)");
         let _void = context.call_public_function(context.this_address(), selector, [amount]);
@@ -436,8 +424,7 @@ contract Token {
     unconstrained fn balance_of_private(
         owner: AztecAddress,
     ) -> u120 {
-        let owner_balance = storage.balances.at(owner.address);
-        owner_balance.balance_of().value
+        storage.balances.at(owner).balance_of().value
     }
     // docs:end:balance_of_private
 

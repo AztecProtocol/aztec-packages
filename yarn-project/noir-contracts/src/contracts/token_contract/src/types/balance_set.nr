@@ -5,6 +5,7 @@ use dep::aztec::{
   constants_gen::MAX_READ_REQUESTS_PER_CALL,
   state_vars::set::Set,
   log::emit_encrypted_log,
+  types::address::AztecAddress,
 };
 use dep::aztec::note::{
     note_getter::view_notes,
@@ -24,13 +25,17 @@ use dep::aztec::oracle::{
 
 use crate::types::token_note::{TokenNote, TOKEN_NOTE_LEN, TokenNoteMethods};
 
+// A set implementing standard manipulation of balances.
+// Does not require spending key, but only knowledge.
+// Spending key requirement should be enforced by the contract using this.
 struct BalanceSet {
   context: Context,
+  owner: AztecAddress,
   set: Set<TokenNote, TOKEN_NOTE_LEN>
 }
 
 impl BalanceSet {
-  fn new(context: Context, storage_slot: Field) -> Self {
+  fn new(context: Context, owner: AztecAddress, storage_slot: Field) -> Self {
     assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
     let set = Set {
         context,
@@ -39,6 +44,7 @@ impl BalanceSet {
     };
     Self {
         context,
+        owner,
         set,
     }
   }
@@ -67,8 +73,8 @@ impl BalanceSet {
       balance
   }
 
-    fn add(self: Self, addend: SafeU120, owner: Field) {
-        let mut addend_note = TokenNote::new(addend, owner);
+    fn add(self: Self, addend: SafeU120) {
+        let mut addend_note = TokenNote::new(addend, self.owner);
 
         // docs:start:insert
         self.set.insert(&mut addend_note);
@@ -80,7 +86,7 @@ impl BalanceSet {
         );
     }
 
-     fn sub(self: Self, subtrahend: SafeU120, owner: Field) {
+     fn sub(self: Self, subtrahend: SafeU120) {
         // docs:start:get_notes
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, subtrahend);
         let maybe_notes = self.set.get_notes(options);
@@ -91,12 +97,10 @@ impl BalanceSet {
             if maybe_notes[i].is_some() {
                 let note = maybe_notes[i].unwrap_unchecked();
 
-                // Ensure the notes are actually owned by the owner (to prevent user from generating a valid proof while
-                // spending someone else's notes).
-                // TODO: Get back to this, should already be constrained somewhere else?
-                assert(note.owner == owner);
-
                 // Removes the note from the owner's set of notes.
+                // This will call the the `compute_nullifer` function of the `token_note`
+                // which require knowledge of the secret key (currently the users encryption key).
+                // The contract logic must ensure that the spending key is used as well.
                 // docs:start:remove
                 self.set.remove(note);
                 // docs:end:remove
@@ -107,9 +111,10 @@ impl BalanceSet {
 
         // This is to provide a nicer error msg,
         // without it minuend-subtrahend would still catch it, but more generic error then.
+        // without the == true, it includes 'minuend.ge(subtrahend)' as part of the error.
         assert(minuend.ge(subtrahend) == true, "Balance too low");
 
-        self.add(minuend.sub(subtrahend), owner);
+        self.add(minuend.sub(subtrahend));
     }
 }
 

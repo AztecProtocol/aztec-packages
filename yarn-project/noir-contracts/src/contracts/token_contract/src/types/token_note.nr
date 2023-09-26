@@ -9,6 +9,7 @@ use dep::aztec::{
     state_vars::set::Set,
     log::emit_encrypted_log
 };
+use dep::aztec::types::address::AztecAddress;
 use dep::aztec::oracle::{
     rand::rand,
     get_secret_key::get_secret_key,
@@ -26,7 +27,7 @@ struct TokenNote {
     // the provider of secrets for the nullifier. The owner (recipient) to ensure that the note 
     // can be privately spent. When nullifier secret and encryption private key is same 
     // we can simply use the owner for this one.
-    owner: Field,
+    owner: AztecAddress,
     // randomness of the note to hide contents.
     randomness: Field,
     // the note header (contract_address, nonce, storage_slot)
@@ -34,7 +35,7 @@ struct TokenNote {
 }
 
 impl TokenNote {
-    fn new(amount: SafeU120, owner: Field) -> Self {
+    fn new(amount: SafeU120, owner: AztecAddress) -> Self {
         Self {
             amount,
             owner,
@@ -44,13 +45,13 @@ impl TokenNote {
     }
 
     fn serialize(self) -> [Field; TOKEN_NOTE_LEN] {
-        [self.amount.value as Field, self.owner, self.randomness]
+        [self.amount.value as Field, self.owner.address, self.randomness]
     }
 
     fn deserialize(preimage: [Field; TOKEN_NOTE_LEN]) -> Self {
         Self {
             amount: SafeU120::new(preimage[0]),
-            owner: preimage[1],
+            owner: AztecAddress::new(preimage[1]),
             randomness: preimage[2],
             header: NoteHeader::empty(),
         }
@@ -60,7 +61,7 @@ impl TokenNote {
         // TODO(#1205) Should use a non-zero generator index.
         dep::std::hash::pedersen([
             self.amount.value as Field, 
-            self.owner,
+            self.owner.address as Field,
             self.randomness,
         ])[0]
     }
@@ -68,8 +69,7 @@ impl TokenNote {
     // docs:start:nullifier
     fn compute_nullifier(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_read_or_nullify(TokenNoteMethods, self);
-        // The secret must be constrained, otherwise easy to double-spend
-        let secret = get_secret_key(self.owner);
+        let secret = get_secret_key(self.owner.address);
         // TODO(#1205) Should use a non-zero generator index.
         dep::std::hash::pedersen([
             note_hash_for_nullify,
@@ -93,7 +93,7 @@ impl TokenNote {
       if !self.amount.is_zero() {
           // docs:start:encrypted
           let application_contract_address = (*context).this_address();
-          let encryption_pub_key = get_public_key(self.owner);
+          let encryption_pub_key = get_public_key(self.owner.address);
           let encrypted_data = (*self).serialize();
 
           emit_encrypted_log(
