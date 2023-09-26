@@ -83,11 +83,11 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
         debugLogger,
       );
       log('\n');
-      log(`Rollup Address: ${l1ContractAddresses.rollupAddress?.toString()}`);
-      log(`Registry Address: ${l1ContractAddresses.registryAddress?.toString()}`);
-      log(`L1 -> L2 Inbox Address: ${l1ContractAddresses.inboxAddress?.toString()}`);
-      log(`L2 -> L1 Outbox address: ${l1ContractAddresses.outboxAddress?.toString()}`);
-      log(`Contract Deployment Emitter Address: ${l1ContractAddresses.contractDeploymentEmitterAddress?.toString()}`);
+      log(`Rollup Address: ${l1ContractAddresses.rollupAddress.toString()}`);
+      log(`Registry Address: ${l1ContractAddresses.registryAddress.toString()}`);
+      log(`L1 -> L2 Inbox Address: ${l1ContractAddresses.inboxAddress.toString()}`);
+      log(`L2 -> L1 Outbox address: ${l1ContractAddresses.outboxAddress.toString()}`);
+      log(`Contract Deployment Emitter Address: ${l1ContractAddresses.contractDeploymentEmitterAddress.toString()}`);
       log('\n');
     });
 
