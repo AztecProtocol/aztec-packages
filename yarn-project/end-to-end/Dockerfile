@@ -38,7 +38,4 @@ COPY --from=builder /usr/src/yarn-project/aztec.js/dest/main.js /usr/src/yarn-pr
 
 WORKDIR /usr/src/yarn-project/end-to-end
 
-# Will only be used by browser tests, but ensure permissions are set correctly.
-RUN chmod +x scripts/start_e2e_ci_browser.sh
-
 ENTRYPOINT ["yarn", "test"]
