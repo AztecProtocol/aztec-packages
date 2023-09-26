@@ -109,9 +109,9 @@ TEST_F(SumcheckTests, PolynomialNormalization)
 
     auto output = sumcheck.prove(full_polynomials, {});
 
-    FF u_0 = output.challenge_point[0];
-    FF u_1 = output.challenge_point[1];
-    FF u_2 = output.challenge_point[2];
+    FF u_0 = output.challenge[0];
+    FF u_1 = output.challenge[1];
+    FF u_2 = output.challenge[2];
 
     /* sumcheck.prove() terminates with sumcheck.multivariates.folded_polynoimals as an array such that
      * sumcheck.multivariates.folded_polynoimals[i][0] is the evaluatioin of the i'th multivariate at the vector of
@@ -163,8 +163,8 @@ TEST_F(SumcheckTests, Prover)
     auto sumcheck = SumcheckProver<Flavor>(multivariate_n, transcript);
 
     auto output = sumcheck.prove(full_polynomials, {});
-    FF u_0 = output.challenge_point[0];
-    FF u_1 = output.challenge_point[1];
+    FF u_0 = output.challenge[0];
+    FF u_1 = output.challenge[1];
     std::vector<FF> expected_values;
     for (auto& polynomial : full_polynomials) {
         // using knowledge of inputs here to derive the evaluation
@@ -176,7 +176,7 @@ TEST_F(SumcheckTests, Prover)
     }
 
     for (size_t poly_idx = 0; poly_idx < NUM_POLYNOMIALS; poly_idx++) {
-        EXPECT_EQ(output.purported_evaluations[poly_idx], expected_values[poly_idx]);
+        EXPECT_EQ(output.claimed_evaluations[poly_idx], expected_values[poly_idx]);
     }
 }
 

@@ -183,7 +183,7 @@ template <typename BuilderType> class RecursiveVerifierTest : public testing::Te
 
     /**
      * @brief Construct a verifier circuit for a proof whose data has been tampered with. Expect failure
-     * TODO(#656): For now we get a "bad" proof by arbitrarily tampering with bits in a valid proof. It would be
+     * TODO(bberg #656): For now we get a "bad" proof by arbitrarily tampering with bits in a valid proof. It would be
      * much nicer to explicitly change meaningful components, e.g. such that one of the multilinear evaluations is
      * wrong. This is difficult now but should be straightforward if the proof is a struct.
      */
