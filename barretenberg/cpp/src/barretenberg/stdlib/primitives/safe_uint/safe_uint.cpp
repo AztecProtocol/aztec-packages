@@ -52,12 +52,12 @@ safe_uint_t<ComposerContext> safe_uint_t<ComposerContext>::subtract(const safe_u
 }
 
 /**
- * @brief Does the minus operator on two safe_uint_t objects
- * @details First checks the case where both are constants and there is underflow.
- *          Then, we compute the difference value and create a safe_uint_t from the value
- *          and with the same max value as `current_max`.
+ * @brief Subtraction on two safe_uint_t objects
+ * @details The function first checks the case when both operands are constants and there is underflow. 
+ *          Then, it computes the difference and create a safe_uint_t from its value
+ *          with the same max value as `current_max`.
  *          Constructing the `difference` safe_uint_t will create a range constraint,
- *          which will catch underflow as long as the difference value does not end up in the range [0,
+ *          which catches underflow as long as the difference value does not end up in the range [0,
  *          current_max]. The only case where it is possible that the difference value can end up in this range, is when
  *          `current_max` + `other.current_max` exceeds MAX_VALUE (the modulus - 1), so we throw an error in this case.
  *
@@ -79,7 +79,8 @@ safe_uint_t<ComposerContext> safe_uint_t<ComposerContext>::operator-(const safe_
     // current_max].
     safe_uint_t<ComposerContext> difference(difference_val, (size_t)(current_max.get_msb() + 1), "- operator");
 
-    // If we are subtracting a - b and there is an underflow AND the range constraint fails to catch it,
+    // Call the two operands a and b. If this operations is underflow and the range constraint fails to catch it,
+    // this means that (a-b) + modulus is IN the range [0, current_max]
     // this is equivalent to the condition that (a - b) + modulus <= current_max.
     // (a-b) is minimized by -other.current_max, so IF current_max + other.current_max >= modulus,
     // there may be an underflow that the range constraint fails to catch, so we need to throw an error.
