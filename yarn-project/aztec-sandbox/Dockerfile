@@ -15,10 +15,7 @@ RUN if [[ -n "${COMMIT_TAG}" ]]; then \
   fi
 
 # Productionify. See comment in yarn-project-base/Dockerfile.
-RUN yarn cache clean && \
-    mv ../.yarnrc.prod.yml ../.yarnrc.yml && \
-    yarn workspaces focus --production > /dev/null && \
-    rm -rf /usr/src/.yarn
+RUN yarn cache clean && yarn workspaces focus --production
 
 # Create final, minimal size image.
 FROM node:18-alpine
