@@ -178,9 +178,9 @@
       "generator": "Unix Makefiles",
       "inherits": "clang16",
       "environment": {
-        "CFLAGS": "-fxray-instrument -fxray-instruction-threshold=1",
-        "CXXFLAGS": "-fxray-instrument -fxray-instruction-threshold=1",
-        "LDFLAGS": "-fxray-instrument -fxray-instruction-threshold=1"
+        "CFLAGS": "-fxray-instrument -fxray-instruction-threshold=1 -O2 -g",
+        "CXXFLAGS": "-fxray-instrument -fxray-instruction-threshold=1 -O2 -g",
+        "LDFLAGS": "-fxray-instrument -fxray-instruction-threshold=1 -O2 -g"
       },
       "cacheVariables": {
         "MULTITHREADING": "OFF"
