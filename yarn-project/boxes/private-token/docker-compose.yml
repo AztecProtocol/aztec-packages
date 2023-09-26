@@ -27,7 +27,7 @@ services:
   boxes-blank:
     image: aztecprotocol/yarn-project:latest
     entrypoint: sh
-    command: -c "cd boxes/private-token && yarn test:ci"
+    command: -c "cd boxes/private-token && yarn test:integration"
     environment:
       ETHEREUM_HOST: http://ethereum:8545
       CHAIN_ID: 31337
