@@ -27,17 +27,7 @@ import {
   makeSelector,
 } from '@aztec/circuits.js/factories';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import {
-  ContractDataSource,
-  EncodedContractFunction,
-  ExtendedContractData,
-  FunctionCall,
-  FunctionL2Logs,
-  SiblingPath,
-  Tx,
-  TxL2Logs,
-  mockTx,
-} from '@aztec/types';
+import { ExtendedContractData, FunctionCall, FunctionL2Logs, SiblingPath, Tx, TxL2Logs, mockTx } from '@aztec/types';
 import { MerkleTreeOperations, TreeInfo } from '@aztec/world-state';
 
 import { MockProxy, mock } from 'jest-mock-extended';
@@ -52,10 +42,7 @@ describe('public_processor', () => {
   let db: MockProxy<MerkleTreeOperations>;
   let publicExecutor: MockProxy<PublicExecutor>;
   let publicProver: MockProxy<PublicProver>;
-  let contractDataSource: MockProxy<ContractDataSource>;
 
-  let publicFunction: EncodedContractFunction;
-  let contractData: ExtendedContractData;
   let proof: Proof;
   let root: Buffer;
 
@@ -65,18 +52,13 @@ describe('public_processor', () => {
     db = mock<MerkleTreeOperations>();
     publicExecutor = mock<PublicExecutor>();
     publicProver = mock<PublicProver>();
-    contractDataSource = mock<ContractDataSource>();
 
-    contractData = ExtendedContractData.random();
-    publicFunction = EncodedContractFunction.random();
     proof = makeEmptyProof();
     root = Buffer.alloc(32, 5);
 
     publicProver.getPublicCircuitProof.mockResolvedValue(proof);
     publicProver.getPublicKernelCircuitProof.mockResolvedValue(proof);
     db.getTreeInfo.mockResolvedValue({ root } as TreeInfo);
-    contractDataSource.getExtendedContractData.mockResolvedValue(contractData);
-    contractDataSource.getPublicFunction.mockResolvedValue(publicFunction);
   });
 
   describe('with mock circuits', () => {
@@ -89,7 +71,6 @@ describe('public_processor', () => {
         publicExecutor,
         publicKernel,
         publicProver,
-        contractDataSource,
         GlobalVariables.empty(),
         HistoricBlockData.empty(),
       );
@@ -145,7 +126,6 @@ describe('public_processor', () => {
         publicExecutor,
         publicKernel,
         publicProver,
-        contractDataSource,
         GlobalVariables.empty(),
         HistoricBlockData.empty(),
       );

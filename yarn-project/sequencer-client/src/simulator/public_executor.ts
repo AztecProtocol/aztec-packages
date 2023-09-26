@@ -6,7 +6,7 @@ import {
   PublicStateDB,
 } from '@aztec/acir-simulator';
 import { AztecAddress, CircuitsWasm, EthAddress, Fr, FunctionSelector, HistoricBlockData } from '@aztec/circuits.js';
-import { ContractDataSource, L1ToL2MessageSource, MerkleTreeId } from '@aztec/types';
+import { ContractDataSource, ExtendedContractData, L1ToL2MessageSource, MerkleTreeId } from '@aztec/types';
 import { MerkleTreeOperations, computePublicDataTreeLeafIndex } from '@aztec/world-state';
 
 /**
@@ -20,28 +20,37 @@ export function getPublicExecutor(
   contractDataSource: ContractDataSource,
   l1toL2MessageSource: L1ToL2MessageSource,
   blockData: HistoricBlockData,
+  newContracts: ExtendedContractData[] = [],
 ) {
   return new PublicExecutor(
     new WorldStatePublicDB(merkleTree),
-    new ContractsDataSourcePublicDB(contractDataSource),
+    new ContractsDataSourcePublicDB(contractDataSource, newContracts),
     new WorldStateDB(merkleTree, l1toL2MessageSource),
     blockData,
   );
 }
 
 /**
- * Implements the PublicContractsDB using a ContractDataSource.
+ * Implements the PublicContractsDB using a ContractDataSource and a set of new contracts.
  */
 class ContractsDataSourcePublicDB implements PublicContractsDB {
-  constructor(private db: ContractDataSource) {}
+  constructor(private db: ContractDataSource, private newContracts: ExtendedContractData[] = []) {}
   async getBytecode(address: AztecAddress, selector: FunctionSelector): Promise<Buffer | undefined> {
-    return (await this.db.getPublicFunction(address, selector))?.bytecode;
+    const contractData = await this.#getContractData(address);
+    return contractData?.getPublicFunction(selector)?.bytecode;
   }
   async getIsInternal(address: AztecAddress, selector: FunctionSelector): Promise<boolean | undefined> {
-    return (await this.db.getPublicFunction(address, selector))?.isInternal;
+    const contractData = await this.#getContractData(address);
+    return contractData?.getPublicFunction(selector)?.isInternal;
   }
   async getPortalContractAddress(address: AztecAddress): Promise<EthAddress | undefined> {
-    return (await this.db.getContractData(address))?.portalContractAddress;
+    const contractData = await this.#getContractData(address);
+    return contractData?.contractData.portalContractAddress;
+  }
+
+  #getContractData(contractAddress: AztecAddress): Promise<ExtendedContractData | undefined> {
+    const contract = this.newContracts.find(c => c.contractData.contractAddress.equals(contractAddress));
+    return Promise.resolve(contract ?? this.db.getExtendedContractData(contractAddress));
   }
 }
 

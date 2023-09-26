@@ -3,7 +3,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { P2P } from '@aztec/p2p';
-import { L1ToL2MessageSource, L2Block, L2BlockSource, MerkleTreeId, Tx } from '@aztec/types';
+import { ContractDataSource, L1ToL2MessageSource, L2Block, L2BlockSource, MerkleTreeId, Tx } from '@aztec/types';
 import { WorldStateStatus, WorldStateSynchronizer } from '@aztec/world-state';
 
 import times from 'lodash.times';
@@ -41,6 +41,7 @@ export class Sequencer {
     private blockBuilder: BlockBuilder,
     private l2BlockSource: L2BlockSource,
     private l1ToL2MessageSource: L1ToL2MessageSource,
+    private contractDataSource: ContractDataSource,
     private publicProcessorFactory: PublicProcessorFactory,
     config: SequencerConfig,
     private log = createDebugLogger('aztec:sequencer'),
@@ -136,7 +137,11 @@ export class Sequencer {
 
       // Process txs and drop the ones that fail processing
       // We create a fresh processor each time to reset any cached state (eg storage writes)
-      const processor = await this.publicProcessorFactory.create(prevGlobalVariables, newGlobalVariables);
+      const processor = await this.publicProcessorFactory.create(
+        prevGlobalVariables,
+        newGlobalVariables,
+        validTxs.flatMap(tx => tx.newContracts),
+      );
       const [processedTxs, failedTxs] = await processor.process(validTxs);
       if (failedTxs.length > 0) {
         const failedTxData = failedTxs.map(fail => fail.tx);
