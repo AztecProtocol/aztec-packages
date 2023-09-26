@@ -84,7 +84,7 @@ export class AztecNodeService implements AztecNode {
 
     // we identify the P2P transaction protocol by using the rollup contract address.
     // this may well change in future
-    config.transactionProtocol = `/aztec/tx/${config.l1Contracts.rollupAddress!.toString()}`;
+    config.transactionProtocol = `/aztec/tx/${config.l1Contracts.rollupAddress.toString()}`;
 
     // create the tx pool and the p2p client, which will need the l2 block source
     const p2pClient = await createP2PClient(config, new InMemoryTxPool(), archiver);

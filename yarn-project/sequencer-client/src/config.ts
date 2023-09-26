@@ -36,14 +36,17 @@ export function getConfigEnvVars(): SequencerClientConfig {
       ? SEQ_PUBLISHER_PRIVATE_KEY.replace('0x', '')
       : '0000000000000000000000000000000000000000000000000000000000000000'
   }`;
-
-  const addresses = new L1ContractAddresses(
-    ROLLUP_CONTRACT_ADDRESS ? EthAddress.fromString(ROLLUP_CONTRACT_ADDRESS) : EthAddress.ZERO,
-    REGISTRY_CONTRACT_ADDRESS ? EthAddress.fromString(REGISTRY_CONTRACT_ADDRESS) : EthAddress.ZERO,
-    INBOX_CONTRACT_ADDRESS ? EthAddress.fromString(INBOX_CONTRACT_ADDRESS) : EthAddress.ZERO,
-    undefined,
-    CONTRACT_DEPLOYMENT_EMITTER_ADDRESS ? EthAddress.fromString(CONTRACT_DEPLOYMENT_EMITTER_ADDRESS) : EthAddress.ZERO,
-  );
+  // Populate the relevant addresses for use by the sequencer
+  const addresses: L1ContractAddresses = {
+    rollupAddress: ROLLUP_CONTRACT_ADDRESS ? EthAddress.fromString(ROLLUP_CONTRACT_ADDRESS) : EthAddress.ZERO,
+    registryAddress: REGISTRY_CONTRACT_ADDRESS ? EthAddress.fromString(REGISTRY_CONTRACT_ADDRESS) : EthAddress.ZERO,
+    inboxAddress: INBOX_CONTRACT_ADDRESS ? EthAddress.fromString(INBOX_CONTRACT_ADDRESS) : EthAddress.ZERO,
+    outboxAddress: EthAddress.ZERO,
+    contractDeploymentEmitterAddress: CONTRACT_DEPLOYMENT_EMITTER_ADDRESS
+      ? EthAddress.fromString(CONTRACT_DEPLOYMENT_EMITTER_ADDRESS)
+      : EthAddress.ZERO,
+    decoderHelperAddress: EthAddress.ZERO,
+  };
 
   return {
     rpcUrl: ETHEREUM_HOST ? ETHEREUM_HOST : '',

@@ -154,16 +154,12 @@ resource "aws_ecs_task_definition" "aztec-node-1" {
         "value": "15918000"
       },
       {
-        "name": "P2P_TCP_LISTEN_PORT",
-        "value": "40401"
-      },
-      {
         "name": "P2P_ENABLED",
         "value": "false"
       },
       {
-        "name": "BOOTSTRAP_NODES",
-        "value": "/ip4/44.201.46.76/tcp/40400/p2p/12D3KooWGBpbC6qQFkaCYphjNeY6sV99o4SnEWyTeBigoVriDn4D"
+        "name": "CHAIN_ID",
+        "value": "${var.CHAIN_ID}"
       }
     ],
     "logConfiguration": {

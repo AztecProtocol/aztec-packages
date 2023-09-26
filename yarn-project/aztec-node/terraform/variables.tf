@@ -21,3 +21,8 @@ variable "INBOX_CONTRACT_ADDRESS" {
 variable "SEQ_PUBLISHER_PRIVATE_KEY" {
   type = string
 }
+
+variable "CHAIN_ID" {
+  type = string
+}
+ 

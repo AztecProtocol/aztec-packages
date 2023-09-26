@@ -28,10 +28,10 @@ async function main() {
 
   const archiver = new Archiver(
     publicClient,
-    l1Contracts.rollupAddress!,
-    l1Contracts.inboxAddress!,
-    l1Contracts.registryAddress!,
-    l1Contracts.contractDeploymentEmitterAddress!,
+    l1Contracts.rollupAddress,
+    l1Contracts.inboxAddress,
+    l1Contracts.registryAddress,
+    l1Contracts.contractDeploymentEmitterAddress,
     searchStartBlock,
     archiverStore,
   );

@@ -1,9 +1,28 @@
 #!/usr/bin/env -S node --no-warnings
 import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import { createAztecRPCServer, getConfigEnvVars as getRpcConfigEnvVars } from '@aztec/aztec-rpc';
-import { DeployL1Contracts, L1ContractAddresses, createEthereumChain, deployL1Contracts } from '@aztec/ethereum';
+import {
+  DeployL1Contracts,
+  L1ContractAddresses,
+  L1ContractArtifactsForDeployment,
+  createEthereumChain,
+  deployL1Contracts,
+} from '@aztec/ethereum';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
+import {
+  ContractDeploymentEmitterAbi,
+  ContractDeploymentEmitterBytecode,
+  InboxAbi,
+  InboxBytecode,
+  OutboxAbi,
+  OutboxBytecode,
+  RegistryAbi,
+  RegistryBytecode,
+  RollupAbi,
+  RollupBytecode,
+} from '@aztec/l1-artifacts';
 
 import {
   Account,
@@ -38,14 +57,14 @@ function retrieveL1Contracts(config: AztecNodeConfig, account: Account): Promise
     chain: chain.chainInfo,
     transport: http(chain.rpcUrl),
   });
-  const l1Contracts = new L1ContractAddresses(
-    config.l1Contracts.rollupAddress,
-    config.l1Contracts.registryAddress,
-    config.l1Contracts.inboxAddress,
-    config.l1Contracts.outboxAddress,
-    config.l1Contracts.contractDeploymentEmitterAddress,
-    undefined,
-  );
+  const l1Contracts: L1ContractAddresses = {
+    rollupAddress: config.l1Contracts.rollupAddress,
+    registryAddress: config.l1Contracts.registryAddress,
+    inboxAddress: config.l1Contracts.inboxAddress,
+    outboxAddress: config.l1Contracts.outboxAddress,
+    contractDeploymentEmitterAddress: config.l1Contracts.contractDeploymentEmitterAddress,
+    decoderHelperAddress: EthAddress.ZERO,
+  };
   const contracts: DeployL1Contracts = {
     l1ContractAddresses: l1Contracts,
     walletClient,
@@ -104,8 +123,31 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
   const hdAccount = mnemonicToAccount(config.l1Mnemonic ?? MNEMONIC);
   const privKey = hdAccount.getHdKey().privateKey;
 
+  const l1Artifacts: L1ContractArtifactsForDeployment = {
+    contractDeploymentEmitter: {
+      contractAbi: ContractDeploymentEmitterAbi,
+      contractBytecode: ContractDeploymentEmitterBytecode,
+    },
+    registry: {
+      contractAbi: RegistryAbi,
+      contractBytecode: RegistryBytecode,
+    },
+    inbox: {
+      contractAbi: InboxAbi,
+      contractBytecode: InboxBytecode,
+    },
+    outbox: {
+      contractAbi: OutboxAbi,
+      contractBytecode: OutboxBytecode,
+    },
+    rollup: {
+      contractAbi: RollupAbi,
+      contractBytecode: RollupBytecode,
+    },
+  };
+
   const l1Contracts = await waitThenDeploy(aztecNodeConfig, () =>
-    deployL1Contracts(aztecNodeConfig.rpcUrl, hdAccount, localAnvil, logger),
+    deployL1Contracts(aztecNodeConfig.rpcUrl, hdAccount, localAnvil, logger, l1Artifacts),
   );
   aztecNodeConfig.publisherPrivateKey = `0x${Buffer.from(privKey!).toString('hex')}`;
   aztecNodeConfig.l1Contracts.rollupAddress = l1Contracts.l1ContractAddresses.rollupAddress;

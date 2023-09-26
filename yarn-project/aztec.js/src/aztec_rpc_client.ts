@@ -33,7 +33,7 @@ export const createAztecRpcClient = (url: string, fetch = makeFetch([1, 2, 3], t
       NotePreimage,
       AuthWitness,
     },
-    { Tx, TxReceipt, L2BlockL2Logs, NodeInfo },
+    { Tx, TxReceipt, L2BlockL2Logs },
     false,
     fetch,
   );

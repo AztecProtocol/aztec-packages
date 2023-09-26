@@ -23,7 +23,14 @@ async function createAztecRpcServer(): Promise<AztecRPC> {
   node.getBlockNumber.mockResolvedValue(2);
   node.getVersion.mockResolvedValue(1);
   node.getChainId.mockResolvedValue(1);
-  const mockedContracts = new L1ContractAddresses(EthAddress.random());
+  const mockedContracts: L1ContractAddresses = {
+    rollupAddress: EthAddress.random(),
+    registryAddress: EthAddress.random(),
+    inboxAddress: EthAddress.random(),
+    outboxAddress: EthAddress.random(),
+    contractDeploymentEmitterAddress: EthAddress.random(),
+    decoderHelperAddress: EthAddress.random(),
+  };
   node.getL1ContractAddresses.mockResolvedValue(mockedContracts);
 
   return new AztecRPCServer(keyStore, node, db, config);

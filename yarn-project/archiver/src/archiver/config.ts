@@ -60,13 +60,17 @@ export function getConfigEnvVars(): ArchiverConfig {
     INBOX_CONTRACT_ADDRESS,
     REGISTRY_CONTRACT_ADDRESS,
   } = process.env;
-  const addresses = new L1ContractAddresses(
-    ROLLUP_CONTRACT_ADDRESS ? EthAddress.fromString(ROLLUP_CONTRACT_ADDRESS) : EthAddress.ZERO,
-    REGISTRY_CONTRACT_ADDRESS ? EthAddress.fromString(REGISTRY_CONTRACT_ADDRESS) : EthAddress.ZERO,
-    INBOX_CONTRACT_ADDRESS ? EthAddress.fromString(INBOX_CONTRACT_ADDRESS) : EthAddress.ZERO,
-    undefined,
-    CONTRACT_DEPLOYMENT_EMITTER_ADDRESS ? EthAddress.fromString(CONTRACT_DEPLOYMENT_EMITTER_ADDRESS) : EthAddress.ZERO,
-  );
+  // Populate the relevant addresses for use by the archiver.
+  const addresses: L1ContractAddresses = {
+    rollupAddress: ROLLUP_CONTRACT_ADDRESS ? EthAddress.fromString(ROLLUP_CONTRACT_ADDRESS) : EthAddress.ZERO,
+    registryAddress: REGISTRY_CONTRACT_ADDRESS ? EthAddress.fromString(REGISTRY_CONTRACT_ADDRESS) : EthAddress.ZERO,
+    inboxAddress: INBOX_CONTRACT_ADDRESS ? EthAddress.fromString(INBOX_CONTRACT_ADDRESS) : EthAddress.ZERO,
+    outboxAddress: EthAddress.ZERO,
+    contractDeploymentEmitterAddress: CONTRACT_DEPLOYMENT_EMITTER_ADDRESS
+      ? EthAddress.fromString(CONTRACT_DEPLOYMENT_EMITTER_ADDRESS)
+      : EthAddress.ZERO,
+    decoderHelperAddress: EthAddress.ZERO,
+  };
   return {
     rpcUrl: ETHEREUM_HOST || 'http://127.0.0.1:8545/',
     archiverPollingIntervalMS: ARCHIVER_POLLING_INTERVAL_MS ? +ARCHIVER_POLLING_INTERVAL_MS : 1_000,

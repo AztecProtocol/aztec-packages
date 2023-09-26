@@ -56,13 +56,13 @@ export class ViemTxSender implements L1PublisherTxSender {
     });
 
     this.rollupContract = getContract({
-      address: getAddress(l1Contracts.rollupAddress!.toString()),
+      address: getAddress(l1Contracts.rollupAddress.toString()),
       abi: RollupAbi,
       publicClient: this.publicClient,
       walletClient,
     });
     this.contractDeploymentEmitterContract = getContract({
-      address: getAddress(l1Contracts.contractDeploymentEmitterAddress!.toString()),
+      address: getAddress(l1Contracts.contractDeploymentEmitterAddress.toString()),
       abi: ContractDeploymentEmitterAbi,
       publicClient: this.publicClient,
       walletClient,

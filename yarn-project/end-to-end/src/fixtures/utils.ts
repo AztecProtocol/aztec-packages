@@ -14,11 +14,33 @@ import {
 } from '@aztec/aztec.js';
 import { CircuitsWasm, GeneratorIndex } from '@aztec/circuits.js';
 import { pedersenPlookupCompressWithHashIndex } from '@aztec/circuits.js/barretenberg';
-import { DeployL1Contracts, deployL1Contract, deployL1Contracts } from '@aztec/ethereum';
+import {
+  DeployL1Contracts,
+  L1ContractArtifactsForDeployment,
+  deployL1Contract,
+  deployL1Contracts,
+} from '@aztec/ethereum';
 import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
-import { PortalERC20Abi, PortalERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
+import {
+  ContractDeploymentEmitterAbi,
+  ContractDeploymentEmitterBytecode,
+  DecoderHelperAbi,
+  DecoderHelperBytecode,
+  InboxAbi,
+  InboxBytecode,
+  OutboxAbi,
+  OutboxBytecode,
+  PortalERC20Abi,
+  PortalERC20Bytecode,
+  RegistryAbi,
+  RegistryBytecode,
+  RollupAbi,
+  RollupBytecode,
+  TokenPortalAbi,
+  TokenPortalBytecode,
+} from '@aztec/l1-artifacts';
 import { NonNativeTokenContract, TokenBridgeContract, TokenContract } from '@aztec/noir-contracts/types';
 import { AztecRPC, L2BlockL2Logs, LogType, TxStatus } from '@aztec/types';
 
@@ -27,6 +49,7 @@ import {
   Chain,
   HDAccount,
   HttpTransport,
+  PrivateKeyAccount,
   PublicClient,
   WalletClient,
   createPublicClient,
@@ -83,8 +106,41 @@ const createRpcServer = async (
   return createAztecRPCServer(aztecNode, rpcConfig, {}, useLogSuffix);
 };
 
-const setupL1Contracts = async (l1RpcUrl: string, account: HDAccount, logger: DebugLogger) => {
-  return await deployL1Contracts(l1RpcUrl, account, localAnvil, logger);
+export const setupL1Contracts = async (
+  l1RpcUrl: string,
+  account: HDAccount | PrivateKeyAccount,
+  logger: DebugLogger,
+  deployDecoderHelper = false,
+) => {
+  const l1Artifacts: L1ContractArtifactsForDeployment = {
+    contractDeploymentEmitter: {
+      contractAbi: ContractDeploymentEmitterAbi,
+      contractBytecode: ContractDeploymentEmitterBytecode,
+    },
+    registry: {
+      contractAbi: RegistryAbi,
+      contractBytecode: RegistryBytecode,
+    },
+    inbox: {
+      contractAbi: InboxAbi,
+      contractBytecode: InboxBytecode,
+    },
+    outbox: {
+      contractAbi: OutboxAbi,
+      contractBytecode: OutboxBytecode,
+    },
+    rollup: {
+      contractAbi: RollupAbi,
+      contractBytecode: RollupBytecode,
+    },
+  };
+  if (deployDecoderHelper) {
+    l1Artifacts.decoderHelper = {
+      contractAbi: DecoderHelperAbi,
+      contractBytecode: DecoderHelperBytecode,
+    };
+  }
+  return await deployL1Contracts(l1RpcUrl, account, localAnvil, logger, l1Artifacts);
 };
 
 /**

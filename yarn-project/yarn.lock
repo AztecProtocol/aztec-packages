@@ -354,6 +354,7 @@ __metadata:
     "@aztec/aztec.js": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
+    "@aztec/l1-artifacts": "workspace:^"
     "@aztec/noir-compiler": "workspace:^"
     "@aztec/noir-contracts": "workspace:^"
     "@aztec/p2p": "workspace:^"
@@ -444,7 +445,6 @@ __metadata:
   resolution: "@aztec/ethereum@workspace:ethereum"
   dependencies:
     "@aztec/foundation": "workspace:^"
-    "@aztec/l1-artifacts": "workspace:^"
     "@jest/globals": ^29.5.0
     "@rushstack/eslint-patch": ^1.1.4
     "@types/jest": ^29.5.0

@@ -33,7 +33,7 @@ export class ViemReader implements L1GlobalReader {
     });
 
     this.rollupContract = getContract({
-      address: getAddress(l1Contracts.rollupAddress!.toString()),
+      address: getAddress(l1Contracts.rollupAddress.toString()),
       abi: RollupAbi,
       publicClient: this.publicClient,
     });

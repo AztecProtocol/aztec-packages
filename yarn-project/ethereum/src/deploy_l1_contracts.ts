@@ -1,19 +1,5 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { DebugLogger } from '@aztec/foundation/log';
-import {
-  ContractDeploymentEmitterAbi,
-  ContractDeploymentEmitterBytecode,
-  DecoderHelperAbi,
-  DecoderHelperBytecode,
-  InboxAbi,
-  InboxBytecode,
-  OutboxAbi,
-  OutboxBytecode,
-  RegistryAbi,
-  RegistryBytecode,
-  RollupAbi,
-  RollupBytecode,
-} from '@aztec/l1-artifacts';
 
 import type { Abi, Narrow } from 'abitype';
 import {
@@ -53,12 +39,56 @@ export type DeployL1Contracts = {
 };
 
 /**
+ * Contract artifacts
+ */
+export interface ContractArtifacts {
+  /**
+   * The conttract abi.
+   */
+  contractAbi: Narrow<Abi | readonly unknown[]>;
+  /**
+   * The contract bytecode
+   */
+  contractBytecode: Hex;
+}
+
+/**
+ * All L1 Contract Artifacts for deployment
+ */
+export interface L1ContractArtifactsForDeployment {
+  /**
+   * Contract deployment emitter artifacts
+   */
+  contractDeploymentEmitter: ContractArtifacts;
+  /**
+   * Decoder contract artifacts
+   */
+  decoderHelper?: ContractArtifacts;
+  /**
+   * Inbox contract artifacts
+   */
+  inbox: ContractArtifacts;
+  /**
+   * Outbox contract artifacts
+   */
+  outbox: ContractArtifacts;
+  /**
+   * Registry contract artifacts
+   */
+  registry: ContractArtifacts;
+  /**
+   * Rollup contract artifacts
+   */
+  rollup: ContractArtifacts;
+}
+
+/**
  * Deploys the aztec L1 contracts; Rollup, Contract Deployment Emitter & (optionally) Decoder Helper.
  * @param rpcUrl - URL of the ETH RPC to use for deployment.
  * @param account - Private Key or HD Account that will deploy the contracts.
  * @param chain - The chain instance to deploy to.
  * @param logger - A logger object.
- * @param deployDecoderHelper - Boolean, whether to deploy the decoder helper or not.
+ * @param contractsToDeploy - The set of L1 artifacts to be deployed
  * @returns A list of ETH addresses of the deployed contracts.
  */
 export const deployL1Contracts = async (
@@ -66,7 +96,7 @@ export const deployL1Contracts = async (
   account: HDAccount | PrivateKeyAccount,
   chain: Chain,
   logger: DebugLogger,
-  deployDecoderHelper = false,
+  contractsToDeploy: L1ContractArtifactsForDeployment,
 ): Promise<DeployL1Contracts> => {
   logger('Deploying contracts...');
 
@@ -80,28 +110,45 @@ export const deployL1Contracts = async (
     transport: http(rpcUrl),
   });
 
-  const registryAddress = await deployL1Contract(walletClient, publicClient, RegistryAbi, RegistryBytecode);
+  const registryAddress = await deployL1Contract(
+    walletClient,
+    publicClient,
+    contractsToDeploy.registry.contractAbi,
+    contractsToDeploy.registry.contractBytecode,
+  );
   logger(`Deployed Registry at ${registryAddress}`);
 
-  const inboxAddress = await deployL1Contract(walletClient, publicClient, InboxAbi, InboxBytecode, [
-    getAddress(registryAddress.toString()),
-  ]);
+  const inboxAddress = await deployL1Contract(
+    walletClient,
+    publicClient,
+    contractsToDeploy.inbox.contractAbi,
+    contractsToDeploy.inbox.contractBytecode,
+    [getAddress(registryAddress.toString())],
+  );
   logger(`Deployed Inbox at ${inboxAddress}`);
 
-  const outboxAddress = await deployL1Contract(walletClient, publicClient, OutboxAbi, OutboxBytecode, [
-    getAddress(registryAddress.toString()),
-  ]);
+  const outboxAddress = await deployL1Contract(
+    walletClient,
+    publicClient,
+    contractsToDeploy.outbox.contractAbi,
+    contractsToDeploy.outbox.contractBytecode,
+    [getAddress(registryAddress.toString())],
+  );
   logger(`Deployed Outbox at ${outboxAddress}`);
 
-  const rollupAddress = await deployL1Contract(walletClient, publicClient, RollupAbi, RollupBytecode, [
-    getAddress(registryAddress.toString()),
-  ]);
+  const rollupAddress = await deployL1Contract(
+    walletClient,
+    publicClient,
+    contractsToDeploy.rollup.contractAbi,
+    contractsToDeploy.rollup.contractBytecode,
+    [getAddress(registryAddress.toString())],
+  );
   logger(`Deployed Rollup at ${rollupAddress}`);
 
   // We need to call a function on the registry to set the various contract addresses.
   const registryContract = getContract({
     address: getAddress(registryAddress.toString()),
-    abi: RegistryAbi,
+    abi: contractsToDeploy.registry.contractAbi,
     publicClient,
     walletClient,
   });
@@ -113,25 +160,30 @@ export const deployL1Contracts = async (
   const contractDeploymentEmitterAddress = await deployL1Contract(
     walletClient,
     publicClient,
-    ContractDeploymentEmitterAbi,
-    ContractDeploymentEmitterBytecode,
+    contractsToDeploy.contractDeploymentEmitter.contractAbi,
+    contractsToDeploy.contractDeploymentEmitter.contractBytecode,
   );
   logger(`Deployed contract deployment emitter at ${contractDeploymentEmitterAddress}`);
 
   let decoderHelperAddress: EthAddress | undefined;
-  if (deployDecoderHelper) {
-    decoderHelperAddress = await deployL1Contract(walletClient, publicClient, DecoderHelperAbi, DecoderHelperBytecode);
+  if (contractsToDeploy.decoderHelper) {
+    decoderHelperAddress = await deployL1Contract(
+      walletClient,
+      publicClient,
+      contractsToDeploy.decoderHelper.contractAbi,
+      contractsToDeploy.decoderHelper.contractBytecode,
+    );
     logger(`Deployed DecoderHelper at ${decoderHelperAddress}`);
   }
 
-  const l1Contracts = new L1ContractAddresses(
+  const l1Contracts: L1ContractAddresses = {
     rollupAddress,
     registryAddress,
     inboxAddress,
     outboxAddress,
     contractDeploymentEmitterAddress,
-    decoderHelperAddress,
-  );
+    decoderHelperAddress: decoderHelperAddress ?? EthAddress.ZERO,
+  };
 
   return {
     walletClient,

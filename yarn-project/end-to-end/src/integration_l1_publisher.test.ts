@@ -13,8 +13,6 @@ import {
   range,
 } from '@aztec/circuits.js';
 import { fr, makeNewContractData, makeProof } from '@aztec/circuits.js/factories';
-import { L1ContractAddresses, deployL1Contracts } from '@aztec/ethereum';
-import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { to2Fields } from '@aztec/foundation/serialize';
@@ -49,7 +47,7 @@ import {
 } from 'viem';
 import { PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 
-import { localAnvil } from './fixtures/fixtures.js';
+import { setupL1Contracts } from './fixtures/utils.js';
 
 // Accounts 4 and 5 of Anvil default startup with mnemonic: 'test test test test test test test test test test test junk'
 const sequencerPK = '0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a';
@@ -96,15 +94,15 @@ describe('L1Publisher integration', () => {
       l1ContractAddresses,
       walletClient,
       publicClient: publicClient_,
-    } = await deployL1Contracts(config.rpcUrl, deployerAccount, localAnvil, logger, true);
+    } = await setupL1Contracts(config.rpcUrl, deployerAccount, logger, true);
     publicClient = publicClient_;
 
-    rollupAddress = getAddress(l1ContractAddresses.rollupAddress!.toString());
-    inboxAddress = getAddress(l1ContractAddresses.inboxAddress!.toString());
-    outboxAddress = getAddress(l1ContractAddresses.outboxAddress!.toString());
-    contractDeploymentEmitterAddress = getAddress(l1ContractAddresses.contractDeploymentEmitterAddress!.toString());
-    decoderHelperAddress = getAddress(l1ContractAddresses.decoderHelperAddress!.toString());
-    registryAddress = getAddress(l1ContractAddresses.registryAddress!.toString());
+    rollupAddress = getAddress(l1ContractAddresses.rollupAddress.toString());
+    inboxAddress = getAddress(l1ContractAddresses.inboxAddress.toString());
+    outboxAddress = getAddress(l1ContractAddresses.outboxAddress.toString());
+    contractDeploymentEmitterAddress = getAddress(l1ContractAddresses.contractDeploymentEmitterAddress.toString());
+    decoderHelperAddress = getAddress(l1ContractAddresses.decoderHelperAddress.toString());
+    registryAddress = getAddress(l1ContractAddresses.registryAddress.toString());
 
     // Set up contract instances
     rollup = getContract({
@@ -137,19 +135,11 @@ describe('L1Publisher integration', () => {
 
     l2Proof = Buffer.alloc(0);
 
-    const l1Contracts = new L1ContractAddresses(
-      EthAddress.fromString(rollupAddress),
-      EthAddress.fromString(registryAddress),
-      EthAddress.fromString(inboxAddress),
-      undefined,
-      EthAddress.fromString(contractDeploymentEmitterAddress),
-    );
-
     publisher = getL1Publisher({
       rpcUrl: config.rpcUrl,
       apiKey: '',
       requiredConfirmations: 1,
-      l1Contracts,
+      l1Contracts: l1ContractAddresses,
       publisherPrivateKey: sequencerPK,
       l1BlockPublishRetryIntervalMS: 100,
     });
