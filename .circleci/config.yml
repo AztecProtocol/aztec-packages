@@ -465,6 +465,39 @@ jobs:
           name: "Create ECR manifest"
           command: create_ecr_manifest aztec-sandbox-base aztec-sandbox x86_64,arm64
 
+  boxes-blank-react:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test via adhoc script"
+          command: ./yarn-project/boxes/blank-react/run_tests
+
+  boxes-blank:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test via adhoc script"
+          command: ./yarn-project/boxes/blank/run_tests
+
+  boxes-private-token:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test via adhoc script"
+          command: ./yarn-project/boxes/private-token/run_tests
+
   canary:
     machine:
       image: ubuntu-2204:2023.07.2
@@ -771,7 +804,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_aztec_js_browser.test.ts ./scripts/docker-compose-e2e-sandbox.yml
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_aztec_js_browser.test.ts ./scripts/docker-compose-e2e-sandbox-browser.yml
 
   e2e-card-game:
     machine:
@@ -784,7 +817,7 @@ jobs:
           name: "Test"
           command: cond_run_script end-to-end ./scripts/run_tests_local e2e_card_game.test.ts
 
-  aztec-rpc-sandbox:
+  pxe-sandbox:
     machine:
       image: ubuntu-2204:2023.07.2
     resource_class: large
@@ -960,7 +993,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: run_script canary ./scripts/run_tests ./src/aztec_js_browser.test.ts canary ./scripts/docker-compose.yml
+          command: run_script canary ./scripts/run_tests ./src/aztec_js_browser.test.ts canary ./scripts/docker-compose-browser.yml
 
   run-deployment-canary-cli:
     machine:
@@ -1131,6 +1164,21 @@ workflows:
             - aztec-sandbox-arm64
           <<: *defaults
 
+      - boxes-blank-react:
+          requires:
+            - aztec-sandbox-x86_64
+          <<: *defaults
+
+      - boxes-blank:
+          requires:
+            - aztec-sandbox-x86_64
+          <<: *defaults
+
+      - boxes-private-token:
+          requires:
+            - aztec-sandbox-x86_64
+          <<: *defaults
+
       - e2e-join:
           requires:
             - end-to-end
@@ -1166,7 +1214,7 @@ workflows:
       - e2e-canary-test: *e2e_test
       - e2e-browser-sandbox: *e2e_test
       - e2e-card-game: *e2e_test
-      - aztec-rpc-sandbox: *e2e_test
+      - pxe-sandbox: *e2e_test
       - cli-docs-sandbox: *e2e_test
       - guides-writing-an-account-contract: *e2e_test
       - guides-dapp-testing: *e2e_test
@@ -1203,7 +1251,7 @@ workflows:
             - e2e-browser-sandbox
             - e2e-canary-test
             - e2e-card-game
-            - aztec-rpc-sandbox
+            - pxe-sandbox
             - cli-docs-sandbox
             - guides-writing-an-account-contract
             - guides-dapp-testing

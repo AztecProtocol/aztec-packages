@@ -1,10 +1,10 @@
 import { AztecNodeService } from '@aztec/aztec-node';
-import { AztecRPCServer, EthAddress, Fr } from '@aztec/aztec-rpc';
 import { AztecAddress, Wallet, computeMessageSecretHash } from '@aztec/aztec.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { toBigInt } from '@aztec/foundation/serialize';
 import { ChildContract, TokenContract } from '@aztec/noir-contracts/types';
+import { AztecRPCServer, EthAddress, Fr } from '@aztec/pxe';
 import { AztecRPC, CompleteAddress, TxStatus } from '@aztec/types';
 
 import { jest } from '@jest/globals';
@@ -26,6 +26,7 @@ describe('e2e_2_rpc_servers', () => {
   let userA: CompleteAddress;
   let userB: CompleteAddress;
   let logger: DebugLogger;
+  let teardownA: () => Promise<void>;
 
   beforeEach(async () => {
     // this test can't be run against the sandbox as it requires 2 RPC servers
@@ -39,6 +40,7 @@ describe('e2e_2_rpc_servers', () => {
       accounts,
       wallets: [walletA],
       logger,
+      teardown: teardownA,
     } = await setup(1));
     [userA] = accounts;
 
@@ -51,13 +53,8 @@ describe('e2e_2_rpc_servers', () => {
   }, 100_000);
 
   afterEach(async () => {
-    await aztecNode?.stop();
-    if (aztecRpcServerA instanceof AztecRPCServer) {
-      await aztecRpcServerA?.stop();
-    }
-    if (aztecRpcServerB instanceof AztecRPCServer) {
-      await aztecRpcServerB?.stop();
-    }
+    await teardownA();
+    if (aztecRpcServerB instanceof AztecRPCServer) await aztecRpcServerB.stop();
   });
 
   const awaitUserSynchronized = async (wallet: Wallet, owner: AztecAddress) => {
