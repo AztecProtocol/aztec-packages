@@ -16,5 +16,5 @@
       "path": "../foundation"
     }
   ],
-  "include": ["src", "../aztec-node/src/aztec-node/http_rpc_server.ts"]
+  "include": ["src"]
 }
