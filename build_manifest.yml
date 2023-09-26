@@ -136,6 +136,18 @@ boxes-blank-react:
   dependencies:
     - aztec-sandbox
 
+boxes-blank:
+  buildDir: yarn-project
+  projectDir: yarn-project/boxes/blank
+  dependencies:
+    - aztec-sandbox
+
+boxes-private-token:
+  buildDir: yarn-project
+  projectDir: yarn-project/boxes/private-token
+  dependencies:
+    - aztec-sandbox
+
 canary-build:
   buildDir: yarn-project
   projectDir: yarn-project/canary
