@@ -1,10 +1,5 @@
 import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
-import {
-  AztecRPCServer,
-  RpcServerConfig,
-  createAztecRPCServer,
-  getConfigEnvVars as getRpcConfigEnvVars,
-} from '@aztec/aztec-rpc';
+import { AztecRPCServer, createAztecRPCServer, getConfigEnvVars as getRpcConfigEnvVars } from '@aztec/aztec-rpc';
 import {
   AccountWallet,
   AztecAddress,
