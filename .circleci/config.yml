@@ -1169,6 +1169,16 @@ workflows:
             - aztec-sandbox-x86_64
           <<: *defaults
 
+      - boxes-blank:
+          requires:
+            - aztec-sandbox-x86_64
+          <<: *defaults
+
+      - boxes-private-token:
+          requires:
+            - aztec-sandbox-x86_64
+          <<: *defaults
+
       - e2e-join:
           requires:
             - end-to-end
