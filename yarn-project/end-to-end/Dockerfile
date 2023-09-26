@@ -19,6 +19,7 @@ RUN yarn workspaces focus --production > /dev/null
 # Create final, minimal size image.
 FROM node:18-alpine
 RUN apk update && apk add --no-cache \
+  bash \
   chromium \
   chromium-chromedriver \
   nss \

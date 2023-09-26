@@ -13,7 +13,7 @@ services:
       - '8545:8545'
 
   sandbox:
-    image: sandbox
+    image: aztecprotocol/aztec-sandbox:latest
     environment:
       DEBUG: 'aztec:*'
       ETHEREUM_HOST: http://fork:8545
@@ -29,7 +29,7 @@ services:
       - '8080:8080'
 
   end-to-end:
-    image: e2e
+    image: aztecprotocol/end-to-end:latest
     environment:
       ETHEREUM_HOST: http://fork:8545
       CHAIN_ID: 31337
