@@ -19,7 +19,7 @@ const logger = createDebugLogger('aztec:sandbox');
 /**
  * Creates the sandbox from provided config and deploys any initial L1 and L2 contracts
  */
-async function createAndDeploySandbox() {
+async function createAndInitialiseSandbox() {
   const { l1Contracts, rpcServer, stop } = await createSandbox();
   logger.info('Setting up test accounts...');
   const accounts = await deployInitialSandboxAccounts(rpcServer);
@@ -41,7 +41,7 @@ async function main() {
 
   logger.info(`Setting up Aztec Sandbox v${version} (nargo ${NoirVersion.tag}), please stand by...`);
 
-  const { rpcServer, stop, accounts } = await createAndDeploySandbox();
+  const { rpcServer, stop, accounts } = await createAndInitialiseSandbox();
 
   const shutdown = async () => {
     logger.info('Shutting down...');
