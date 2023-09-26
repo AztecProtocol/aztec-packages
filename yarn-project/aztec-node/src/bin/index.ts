@@ -1,12 +1,11 @@
 #!/usr/bin/env -S node --no-warnings
 import { createDebugLogger } from '@aztec/foundation/log';
-import { createAztecNodeRpcServer } from '@aztec/types';
 
 import http from 'http';
 import Koa from 'koa';
 import Router from 'koa-router';
 
-import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '../index.js';
+import { AztecNodeConfig, AztecNodeService, getConfigEnvVars, createAztecNodeRpcServer } from '../index.js';
 
 const { SERVER_PORT = 8081, API_PREFIX = '' } = process.env;
 
