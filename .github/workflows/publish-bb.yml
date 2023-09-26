@@ -156,7 +156,7 @@ jobs:
       # We need clang 15 because barretenberg uses concepts.
       # clang 15 is the similar to Apple clang 14.
       - name: Select Xcode version
-        run: sudo xcode-select -switch /Applications/Xcode_14.3.1.app
+        run: sudo xcode-select -switch /Applications/Xcode_14*
 
       - name: Create Mac Build Environment
         run: brew install cmake ninja
