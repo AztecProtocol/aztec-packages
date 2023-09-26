@@ -327,7 +327,7 @@ export class AztecNodeService implements AztecNode {
    * @returns The index of the given leaf in the nullifier tree or undefined if not found.
    */
   public async findNullifierIndex(nullifier: Fr): Promise<bigint | undefined> {
-    const committedDb = await this.getWorldState();
+    const committedDb = await this.#getWorldState();
     return committedDb.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
   }
 
