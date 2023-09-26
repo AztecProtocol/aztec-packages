@@ -3,12 +3,10 @@ import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/azte
 import { createAztecRPCServer, getConfigEnvVars as getRpcConfigEnvVars } from '@aztec/aztec-rpc';
 import {
   DeployL1Contracts,
-  L1ContractAddresses,
   L1ContractArtifactsForDeployment,
   createEthereumChain,
   deployL1Contracts,
 } from '@aztec/ethereum';
-import { EthAddress } from '@aztec/foundation/eth-address';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import {
@@ -24,17 +22,8 @@ import {
   RollupBytecode,
 } from '@aztec/l1-artifacts';
 
-import {
-  Account,
-  Chain,
-  HDAccount,
-  HttpTransport,
-  createPublicClient,
-  createWalletClient,
-  http,
-  http as httpViemTransport,
-} from 'viem';
-import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
+import { createPublicClient, http as httpViemTransport } from 'viem';
+import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 const { MNEMONIC = 'test test test test test test test test test test test junk' } = process.env;
@@ -42,36 +31,6 @@ const { MNEMONIC = 'test test test test test test test test test test test junk'
 const logger = createDebugLogger('aztec:sandbox');
 
 const localAnvil = foundry;
-
-/**
- * Helper function that retrieves the addresses of configured deployed contracts.
- */
-function retrieveL1Contracts(config: AztecNodeConfig, account: Account): Promise<DeployL1Contracts> {
-  const chain = createEthereumChain(config.rpcUrl, config.apiKey);
-  const walletClient = createWalletClient<HttpTransport, Chain, HDAccount>({
-    account,
-    chain: chain.chainInfo,
-    transport: http(chain.rpcUrl),
-  });
-  const publicClient = createPublicClient({
-    chain: chain.chainInfo,
-    transport: http(chain.rpcUrl),
-  });
-  const l1Contracts: L1ContractAddresses = {
-    rollupAddress: config.l1Contracts.rollupAddress,
-    registryAddress: config.l1Contracts.registryAddress,
-    inboxAddress: config.l1Contracts.inboxAddress,
-    outboxAddress: config.l1Contracts.outboxAddress,
-    contractDeploymentEmitterAddress: config.l1Contracts.contractDeploymentEmitterAddress,
-    decoderHelperAddress: EthAddress.ZERO,
-  };
-  const contracts: DeployL1Contracts = {
-    l1ContractAddresses: l1Contracts,
-    walletClient,
-    publicClient,
-  };
-  return Promise.resolve(contracts);
-}
 
 /**
  * Helper function that waits for the Ethereum RPC server to respond before deploying L1 contracts.
