@@ -1,6 +1,6 @@
 #!/bin/sh
 
-TEST=${2:-./src/e2e_aztec_js_browser.test.ts}
+TEST=${1:-./src/e2e_aztec_js_browser.test.ts}
 
 apk add dbus
 
