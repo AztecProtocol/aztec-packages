@@ -5,13 +5,14 @@ import {
   CompleteAddress,
   Contract,
   Fr,
+  TxStatus,
   Wallet,
   createAztecRpcClient,
   waitForSandbox,
 } from '@aztec/aztec.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { BlankContract } from '../artifacts/blank.js';
-import { callContractFunction, deployContract, getWallet, rpcClient } from '../index.js';
+import { callContractFunction, deployContract, getWallet } from '../index.js';
 const logger = createDebugLogger('aztec:blank-box-test');
 
 // assumes sandbox is running locally, which this script does not trigger
@@ -28,19 +29,7 @@ async function deployZKContract(owner: CompleteAddress, wallet: Wallet, rpcClien
   const contractAddress = await deployContract(owner, BlankContract.abi, [], Fr.random(), rpcClient);
 
   logger(`L2 contract deployed at ${contractAddress}`);
-  const contract = await BlankContract.at(contractAddress, wallet);
-  return contract;
-}
-
-async function call(contractAddress: AztecAddress, testTokenContract: Contract, address: CompleteAddress) {
-  return await callContractFunction(
-    contractAddress,
-    testTokenContract.abi,
-    'getPublicKey',
-    [address.address.toField()],
-    rpcClient,
-    address,
-  );
+  return BlankContract.at(contractAddress, wallet);
 }
 
 describe('ZK Contract Tests', () => {
@@ -64,7 +53,14 @@ describe('ZK Contract Tests', () => {
   }, 60000);
 
   test('call succeeds after deploy', async () => {
-    const callTx = call(contractAddress, contract, owner);
-    await callTx;
+    const callTxReceipt = await callContractFunction(
+      contractAddress,
+      contract.abi,
+      'getPublicKey',
+      [owner.address.toField()],
+      rpcClient,
+      owner,
+    );
+    expect(callTxReceipt.status).toBe(TxStatus.MINED);
   }, 40000);
 });

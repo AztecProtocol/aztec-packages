@@ -1,4 +1,5 @@
-import { EthAddress, HistoricBlockData } from '@aztec/circuits.js';
+import { HistoricBlockData } from '@aztec/circuits.js';
+import { L1ContractAddresses } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
@@ -16,12 +17,17 @@ import {
   Tx,
   TxHash,
 } from '../index.js';
+import { NullifierProvider } from './nullifier_provider.js';
 
 /**
  * The aztec node.
  * We will probably implement the additional interfaces by means other than Aztec Node as it's currently a privacy leak
  */
-export interface AztecNode extends DataCommitmentProvider, L1ToL2MessageProvider, ContractCommitmentProvider {
+export interface AztecNode
+  extends DataCommitmentProvider,
+    L1ToL2MessageProvider,
+    ContractCommitmentProvider,
+    NullifierProvider {
   /**
    * Method to determine if the node is ready to accept transactions.
    * @returns - Flag indicating the readiness for tx submission.
@@ -62,10 +68,10 @@ export interface AztecNode extends DataCommitmentProvider, L1ToL2MessageProvider
   getChainId(): Promise<number>;
 
   /**
-   * Method to fetch the rollup contract address at the base-layer.
-   * @returns The rollup address.
+   * Method to fetch the currently deployed l1 contract addresses.
+   * @returns The deployed contract addresses.
    */
-  getRollupAddress(): Promise<EthAddress>;
+  getL1ContractAddresses(): Promise<L1ContractAddresses>;
 
   /**
    * Get the extended contract data for this contract.
