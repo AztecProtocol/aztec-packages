@@ -66,8 +66,6 @@ describe('L1Publisher integration', () => {
   let rollupAddress: Address;
   let inboxAddress: Address;
   let outboxAddress: Address;
-  let registryAddress: Address;
-  let contractDeploymentEmitterAddress: Address;
   let decoderHelperAddress: Address;
 
   let rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>;
@@ -100,9 +98,7 @@ describe('L1Publisher integration', () => {
     rollupAddress = getAddress(l1ContractAddresses.rollupAddress.toString());
     inboxAddress = getAddress(l1ContractAddresses.inboxAddress.toString());
     outboxAddress = getAddress(l1ContractAddresses.outboxAddress.toString());
-    contractDeploymentEmitterAddress = getAddress(l1ContractAddresses.contractDeploymentEmitterAddress.toString());
     decoderHelperAddress = getAddress(l1ContractAddresses.decoderHelperAddress.toString());
-    registryAddress = getAddress(l1ContractAddresses.registryAddress.toString());
 
     // Set up contract instances
     rollup = getContract({

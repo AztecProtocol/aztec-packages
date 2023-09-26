@@ -6,7 +6,6 @@ import {
   ContractData,
   ExtendedContractData,
   L2BlockL2Logs,
-  NodeInfo,
   NotePreimage,
   Tx,
   TxExecutionRequest,

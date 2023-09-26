@@ -71,7 +71,7 @@ export default {
       stream: require.resolve('stream-browserify'),
       string_decoder: require.resolve('string_decoder/'),
       tty: require.resolve('tty-browserify'),
-      http: require.resolve('stream-http'),
+      //http: require.resolve('stream-http'),
       zlib: require.resolve('browserify-zlib'),
       assert: require.resolve('assert/'),
       querystring: require.resolve('querystring-es3'),
