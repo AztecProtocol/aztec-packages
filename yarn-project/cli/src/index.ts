@@ -14,9 +14,9 @@ import { JsonStringify } from '@aztec/foundation/json-rpc';
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
 import { compileContract, generateNoirInterface, generateTypescriptInterface } from '@aztec/noir-compiler/cli';
-import { createLibP2PPeerId } from '@aztec/p2p';
 import { CompleteAddress, ContractData, L2BlockL2Logs, TxHash } from '@aztec/types';
 
+import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import { Command } from 'commander';
 import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
@@ -122,7 +122,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .summary('Generates a LibP2P peer private key.')
     .description('Generates a private key that can be used for running a node on a LibP2P network.')
     .action(async () => {
-      const peerId = await createLibP2PPeerId();
+      const peerId = await createSecp256k1PeerId();
       const exportedPeerId = Buffer.from(peerId.privateKey!).toString('hex');
       log(`Private key: ${exportedPeerId}`);
       log(`Peer Id: ${peerId}`);
