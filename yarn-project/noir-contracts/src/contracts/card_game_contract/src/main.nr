@@ -1,9 +1,6 @@
 mod cards;
 mod game;
 
-
-
-
 contract CardGame {
     use dep::aztec::{
         context::Context,
