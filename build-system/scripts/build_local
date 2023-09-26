@@ -63,15 +63,30 @@ for E in "${PROJECTS[@]}"; do
     fi
   fi
 
+  IMAGE_URI=$(calculate_image_uri $REPO)
+  ARR=(${IMAGE_URI//:/ })
+  REPO=${ARR[0]}
+  TAG=${ARR[1]}
+
   echo
   echo
   echo
-  echo "*** Building $PROJECT_DIR_NAME:$DOCKERFILE -> $REPO ***"
+  echo "*** Repository: $REPO"
+  echo "*** Tag: $TAG"
+  echo "*** Dockerfile: $DOCKERFILE"
   echo "*** Context: $PWD"
   echo
 
-  docker build ${ADDITIONAL_ARGS:-} --build-arg ARG_COMMIT_HASH=$COMMIT_HASH -f $DOCKERFILE -t $ECR_DEPLOY_URL/$REPO:latest .
-  docker tag $ECR_DEPLOY_URL/$REPO:latest aztecprotocol/$REPO:latest
+  if docker image ls --format "{{.Repository}}:{{.Tag}}" | grep -q -w $IMAGE_URI; then
+    echo "Image exists locally. Skipping."
+  else
+    if ecr_login && image_exists $REPO $TAG ; then
+      docker pull $IMAGE_URI
+    else
+      docker build ${ADDITIONAL_ARGS:-} --build-arg ARG_COMMIT_HASH=$COMMIT_HASH -f $DOCKERFILE -t $IMAGE_URI .
+      docker tag $IMAGE_URI aztecprotocol/$REPO:latest
+    fi
+  fi
 
   if [ "$PROJECT_DIR_NAME" = "$TARGET_PROJECT" ]; then
     if [ -n "$LAUNCH" ]; then
