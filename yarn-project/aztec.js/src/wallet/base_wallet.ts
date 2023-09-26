@@ -7,6 +7,7 @@ import {
   ExtendedContractData,
   FunctionCall,
   L2BlockL2Logs,
+  L2Tx,
   NodeInfo,
   NotePreimage,
   SyncStatus,
@@ -61,6 +62,9 @@ export abstract class BaseWallet implements Wallet {
   sendTx(tx: Tx): Promise<TxHash> {
     return this.rpc.sendTx(tx);
   }
+  getTx(txHash: TxHash): Promise<L2Tx | undefined> {
+    return this.rpc.getTx(txHash);
+  }
   getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
     return this.rpc.getTxReceipt(txHash);
   }
@@ -94,11 +98,11 @@ export abstract class BaseWallet implements Wallet {
   getNodeInfo(): Promise<NodeInfo> {
     return this.rpc.getNodeInfo();
   }
-  isGlobalStateSynchronised() {
-    return this.rpc.isGlobalStateSynchronised();
+  isGlobalStateSynchronized() {
+    return this.rpc.isGlobalStateSynchronized();
   }
-  isAccountStateSynchronised(account: AztecAddress) {
-    return this.rpc.isAccountStateSynchronised(account);
+  isAccountStateSynchronized(account: AztecAddress) {
+    return this.rpc.isAccountStateSynchronized(account);
   }
   getSyncStatus(): Promise<SyncStatus> {
     return this.rpc.getSyncStatus();

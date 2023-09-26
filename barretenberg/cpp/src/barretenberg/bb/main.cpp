@@ -1,3 +1,4 @@
+#include "config.hpp"
 #include "get_bytecode.hpp"
 #include "get_crs.hpp"
 #include "get_witness.hpp"
@@ -332,6 +333,17 @@ int main(int argc, char* argv[])
         std::string vk_path = getOption(args, "-k", "./target/vk");
         CRS_PATH = getOption(args, "-c", "./crs");
         bool recursive = flagPresent(args, "-r") || flagPresent(args, "--recursive");
+
+        // Skip CRS initialization for any command which doesn't require the CRS.
+        if (command == "--version") {
+            writeStringToStdout(BB_VERSION);
+            return 0;
+        } else if (command == "info") {
+            std::string output_path = getOption(args, "-o", "info.json");
+            acvmInfo(output_path);
+            return 0;
+        }
+
         init();
 
         if (command == "prove_and_verify") {
@@ -355,9 +367,6 @@ int main(int argc, char* argv[])
         } else if (command == "vk_as_fields") {
             std::string output_path = getOption(args, "-o", vk_path + "_fields.json");
             vkAsFields(vk_path, output_path);
-        } else if (command == "info") {
-            std::string output_path = getOption(args, "-o", "info.json");
-            acvmInfo(output_path);
         } else {
             std::cerr << "Unknown command: " << command << "\n";
             return 1;

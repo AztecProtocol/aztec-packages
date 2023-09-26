@@ -1,5 +1,10 @@
 import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
-import { RpcServerConfig, createAztecRPCServer, getConfigEnvVars as getRpcConfigEnvVars } from '@aztec/aztec-rpc';
+import {
+  AztecRPCServer,
+  RpcServerConfig,
+  createAztecRPCServer,
+  getConfigEnvVars as getRpcConfigEnvVars,
+} from '@aztec/aztec-rpc';
 import {
   AccountWallet,
   AztecAddress,
@@ -211,6 +216,10 @@ export async function setup(
    * The cheat codes.
    */
   cheatCodes: CheatCodes;
+  /**
+   * Function to stop the started services.
+   */
+  teardown: () => Promise<void>;
 }> {
   const config = getConfigEnvVars();
 
@@ -230,12 +239,18 @@ export async function setup(
   config.rollupContract = deployL1ContractsValues.rollupAddress;
   config.contractDeploymentEmitterContract = deployL1ContractsValues.contractDeploymentEmitterAddress;
   config.inboxContract = deployL1ContractsValues.inboxAddress;
+  config.registryContract = deployL1ContractsValues.registryAddress;
 
   const aztecNode = await createAztecNode(config, logger);
 
   const { aztecRpcServer, accounts, wallets } = await setupAztecRPCServer(numberOfAccounts, aztecNode, logger);
 
   const cheatCodes = await CheatCodes.create(config.rpcUrl, aztecRpcServer!);
+
+  const teardown = async () => {
+    await aztecNode?.stop();
+    if (aztecRpcServer instanceof AztecRPCServer) await aztecRpcServer?.stop();
+  };
 
   return {
     aztecNode,
@@ -247,6 +262,7 @@ export async function setup(
     wallets,
     logger,
     cheatCodes,
+    teardown,
   };
 }
 
