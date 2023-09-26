@@ -204,6 +204,57 @@ export async function setupAztecRPCServer(
 }
 
 /**
+ * Function to setup the test against a running sandbox.
+ * @param account - The account for use in create viem wallets.
+ * @param config - The aztec Node Configuration
+ * @param logger - The logger to be used
+ * @param numberOfAccounts - The number of accounts to create on the sandbox
+ * @returns RPC Client, viwm wallets, contract addreses etc.
+ */
+async function setupWithSandbox(
+  account: Account,
+  config: AztecNodeConfig,
+  logger: DebugLogger,
+  numberOfAccounts: number,
+) {
+  // we are setting up against the sandbox, l1 contracts are already deployed
+  const { aztecRpcServer, accounts, wallets } = await setupAztecRPCServer(numberOfAccounts, undefined, logger);
+  logger(`Retrieving contract addresses from ${SANDBOX_URL}`);
+  const l1Contracts = (await aztecRpcServer.getNodeInfo()).l1ContractAddresses;
+
+  const walletClient = createWalletClient<HttpTransport, Chain, HDAccount>({
+    account,
+    chain: localAnvil,
+    transport: http(config.rpcUrl),
+  });
+  const publicClient = createPublicClient({
+    chain: localAnvil,
+    transport: http(config.rpcUrl),
+  });
+  const deployL1ContractsValues: DeployL1Contracts = {
+    l1ContractAddresses: l1Contracts,
+    walletClient,
+    publicClient,
+  };
+  const cheatCodes = await CheatCodes.create(config.rpcUrl, aztecRpcServer!);
+  const teardown = async () => {
+    if (aztecRpcServer instanceof AztecRPCServer) await aztecRpcServer?.stop();
+  };
+  return {
+    aztecNode: undefined,
+    aztecRpcServer,
+    deployL1ContractsValues,
+    accounts,
+    config,
+    wallet: wallets[0],
+    wallets,
+    logger,
+    cheatCodes,
+    teardown,
+  };
+}
+
+/**
  * Sets up the environment for the end-to-end tests.
  * @param numberOfAccounts - The number of new accounts to be created once the RPC server is initiated.
  */
@@ -264,36 +315,7 @@ export async function setup(
 
   if (SANDBOX_URL) {
     // we are setting up against the sandbox, l1 contracts are already deployed
-    const { aztecRpcServer, accounts, wallets } = await setupAztecRPCServer(numberOfAccounts, undefined, logger);
-    logger(`Retrieving contract addresses from ${SANDBOX_URL}`);
-    const l1Contracts = (await aztecRpcServer.getNodeInfo()).l1ContractAddresses;
-
-    const walletClient = createWalletClient<HttpTransport, Chain, HDAccount>({
-      account: hdAccount,
-      chain: localAnvil,
-      transport: http(config.rpcUrl),
-    });
-    const publicClient = createPublicClient({
-      chain: localAnvil,
-      transport: http(config.rpcUrl),
-    });
-    const deployL1ContractsValues: DeployL1Contracts = {
-      l1ContractAddresses: l1Contracts,
-      walletClient,
-      publicClient,
-    };
-    const cheatCodes = await CheatCodes.create(config.rpcUrl, aztecRpcServer!);
-    return {
-      aztecNode: undefined,
-      aztecRpcServer,
-      deployL1ContractsValues,
-      accounts,
-      config,
-      wallet: wallets[0],
-      wallets,
-      logger,
-      cheatCodes,
-    };
+    return await setupWithSandbox(hdAccount, config, logger, numberOfAccounts);
   }
 
   const deployL1ContractsValues = await setupL1Contracts(config.rpcUrl, hdAccount, logger);
