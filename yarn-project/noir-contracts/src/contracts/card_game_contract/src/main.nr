@@ -46,14 +46,14 @@ contract CardGame {
         PLAYABLE_CARDS,
         PlayerEntry,
         Game,
-        GameSerialisationMethods,
-        GAME_SERIALISED_LEN
+        GameSerializationMethods,
+        GAME_SERIALIZED_LEN
     };
     
     struct Storage {
         collections: Map<Deck>,
         game_decks: Map<Map<Deck>>,
-        games: Map<PublicState<Game, GAME_SERIALISED_LEN>>,
+        games: Map<PublicState<Game, GAME_SERIALIZED_LEN>>,
     }
 
     impl Storage {
@@ -94,7 +94,7 @@ contract CardGame {
                         PublicState::new(
                             context,
                             slot,
-                            GameSerialisationMethods,
+                            GameSerializationMethods,
                         )
                     },
                 )
