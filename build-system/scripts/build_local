@@ -63,7 +63,7 @@ for E in "${PROJECTS[@]}"; do
     fi
   fi
 
-  IMAGE_URI=$(calculate_image_uri $REPO)
+  IMAGE_URI=$(CONSIDER_WORKING=1 calculate_image_uri $REPO)
   ARR=(${IMAGE_URI//:/ })
   REPO=${ARR[0]}
   TAG=${ARR[1]}

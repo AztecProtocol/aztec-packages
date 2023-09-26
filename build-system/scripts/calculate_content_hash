@@ -11,9 +11,45 @@ REBUILD_PATTERNS=$(query_manifest rebuildPatterns $REPOSITORY)
 
 AWK_PATTERN=$(echo $REBUILD_PATTERNS | sed 's/ /|/g')
 cd "$(git rev-parse --show-toplevel)"
+
 # an example line is
 #   100644 da9ae2e020ea7fe3505488bbafb39adc7191559b 0       yarn-project/world-state/tsconfig.json
 # this format is beneficial as it grabs the hashes from git efficiently
 # we will next filter by our rebuild patterns
 # then we pipe the hash portion of each file to git hash-object to produce our content hash
-git ls-tree -r $COMMIT_HASH | awk -v pattern="($AWK_PATTERN)" '$4 ~ pattern {print $3}' | git hash-object --stdin
+if [ -z "${CONSIDER_WORKING:-}" ]; then
+  git ls-tree -r $COMMIT_HASH | awk -v pattern="($AWK_PATTERN)" '$4 ~ pattern {print $3}' | git hash-object --stdin
+else
+  # Create a temporary file using mktemp
+  temp_file=$(mktemp)
+
+  # Populate the temporary file with hashes from the commit
+  git ls-tree -r $COMMIT_HASH | awk -v pattern="($AWK_PATTERN)" '$4 ~ pattern {print $3 " " $4}' > "$temp_file"
+
+  # Get a list of filenames from git diff-index that match AWK_PATTERN
+  grep_pattern=$(git diff-index --name-status $COMMIT_HASH | awk -v pattern="($AWK_PATTERN)" '$2 ~ pattern {printf "%s$|", $2}')
+  grep_pattern=${grep_pattern%|}  # Remove the trailing '|'
+
+  # Use grep to exclude lines in the temporary file that match filenames from the list
+  grep -vE "$grep_pattern" "$temp_file" > "${temp_file}.tmp" && mv "${temp_file}.tmp" "$temp_file"
+
+  # Loop over the M|A files to append their new hashes
+  git diff-index --name-status $COMMIT_HASH | while read -r status file; do
+      if [[ $file =~ $AWK_PATTERN && ($status == "M" || $status == "A") ]]; then
+          echo "$(git hash-object "$file") $file" >> "$temp_file"
+      fi
+  done
+
+  # Add hashes for untracked files
+  git ls-files --others --exclude-standard | while read -r file; do
+      if [[ $file =~ $AWK_PATTERN ]]; then
+          echo "$(git hash-object "$file") $file" >> "$temp_file"
+      fi
+  done
+
+  # Sort the temporary file by filename, extract hashes, and compute the final "CONTENT_HASH"
+  sort -k2 "$temp_file" | awk '{print $1}' | git hash-object --stdin
+
+  # Cleanup
+  rm "$temp_file"
+fi
