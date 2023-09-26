@@ -9,7 +9,7 @@ import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
 
 import { setupFileDebugLog } from '../logging.js';
-import { createP2PSandbox, createSandbox } from '../sandbox.js';
+import { createSandbox } from '../sandbox.js';
 import { github, splash } from '../splash.js';
 
 const { SERVER_PORT = 8080 } = process.env;
@@ -18,26 +18,16 @@ const logger = createDebugLogger('aztec:sandbox');
 
 /**
  * Creates the sandbox from provided config and deploys any initial L1 and L2 contracts
- * @param isP2PSandbox - Flag indicating if this sandbox is to connect to a P2P network
  */
-async function createAndDeploySandbox(isP2PSandbox: boolean) {
-  if (!isP2PSandbox) {
-    const { l1Contracts, rpcServer, stop } = await createSandbox();
-    logger.info('Setting up test accounts...');
-    const accounts = await deployInitialSandboxAccounts(rpcServer);
-    return {
-      l1Contracts,
-      rpcServer,
-      stop,
-      accounts,
-    };
-  }
-  const { l1Contracts, rpcServer, stop } = await createP2PSandbox();
+async function createAndDeploySandbox() {
+  const { l1Contracts, rpcServer, stop } = await createSandbox();
+  logger.info('Setting up test accounts...');
+  const accounts = await deployInitialSandboxAccounts(rpcServer);
   return {
     l1Contracts,
     rpcServer,
     stop,
-    accounts: [],
+    accounts,
   };
 }
 
@@ -51,7 +41,7 @@ async function main() {
 
   logger.info(`Setting up Aztec Sandbox v${version} (nargo ${NoirVersion.tag}), please stand by...`);
 
-  const { rpcServer, stop, accounts } = await createAndDeploySandbox(false);
+  const { rpcServer, stop, accounts } = await createAndDeploySandbox();
 
   const shutdown = async () => {
     logger.info('Shutting down...');

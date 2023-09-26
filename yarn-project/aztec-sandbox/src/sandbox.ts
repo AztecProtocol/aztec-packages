@@ -166,33 +166,3 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
 
   return { node, rpcServer, l1Contracts, stop };
 }
-
-/**
- * Create and start a new Aztec Node and RPC Server. Designed for interaction with a node network.
- * Does not start any HTTP services nor populate any initial accounts.
- * @param config - Optional Sandbox settings.
- */
-export async function createP2PSandbox() {
-  const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars() };
-  const rpcConfig = getRpcConfigEnvVars();
-  const privateKeyAccount = privateKeyToAccount(aztecNodeConfig.publisherPrivateKey);
-
-  const l1Contracts = await waitThenDeploy(aztecNodeConfig, () =>
-    retrieveL1Contracts(aztecNodeConfig, privateKeyAccount),
-  );
-  aztecNodeConfig.l1Contracts.rollupAddress = l1Contracts.l1ContractAddresses.rollupAddress;
-  aztecNodeConfig.l1Contracts.contractDeploymentEmitterAddress =
-    l1Contracts.l1ContractAddresses.contractDeploymentEmitterAddress;
-  aztecNodeConfig.l1Contracts.inboxAddress = l1Contracts.l1ContractAddresses.inboxAddress;
-  aztecNodeConfig.l1Contracts.registryAddress = l1Contracts.l1ContractAddresses.registryAddress;
-
-  const node = await AztecNodeService.createAndSync(aztecNodeConfig);
-  const rpcServer = await createAztecRPCServer(node, rpcConfig);
-
-  const stop = async () => {
-    await rpcServer.stop();
-    await node.stop();
-  };
-
-  return { node, rpcServer, l1Contracts, stop };
-}
