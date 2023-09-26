@@ -3,7 +3,6 @@
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
 #include "barretenberg/proof_system/circuit_builder/standard_circuit_builder.hpp"
-#include "barretenberg/proof_system/circuit_builder/turbo_circuit_builder.hpp"
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 #include "barretenberg/srs/factories/file_crs_factory.hpp"
 
@@ -15,13 +14,13 @@ using namespace proof_system::plonk;
 
 /**
  * @brief A test fixture that will let us generate VK data and run tests
- * for all composer types
+ * for all builder types
  *
- * @tparam Composer
+ * @tparam Builder
  */
-template <typename Composer> class VerificationKeyFixture : public testing::Test {
+template <typename Builder> class VerificationKeyFixture : public testing::Test {
   public:
-    using Curve = proof_system::plonk::stdlib::bn254<Composer>;
+    using Curve = proof_system::plonk::stdlib::bn254<Builder>;
     using RecursVk = proof_system::plonk::stdlib::recursion::verification_key<Curve>;
 
     static void SetUpTestSuite() { barretenberg::srs::init_crs_factory("../srs_db/ignition"); }
@@ -34,7 +33,7 @@ template <typename Composer> class VerificationKeyFixture : public testing::Test
     static verification_key_data rand_vk_data()
     {
         verification_key_data vk_data;
-        vk_data.circuit_type = static_cast<uint32_t>(Composer::CIRCUIT_TYPE);
+        vk_data.circuit_type = static_cast<uint32_t>(Builder::CIRCUIT_TYPE);
         vk_data.circuit_size = 1024; // not random - must be power of 2
         vk_data.num_public_inputs = engine.get_random_uint32();
         vk_data.commitments["test1"] = g1::element::random_element();
@@ -45,8 +44,7 @@ template <typename Composer> class VerificationKeyFixture : public testing::Test
     }
 };
 
-using CircuitTypes = testing::
-    Types<proof_system::StandardCircuitBuilder, proof_system::TurboCircuitBuilder, proof_system::UltraCircuitBuilder>;
+using CircuitTypes = testing::Types<proof_system::StandardCircuitBuilder, proof_system::UltraCircuitBuilder>;
 TYPED_TEST_SUITE(VerificationKeyFixture, CircuitTypes);
 
 TYPED_TEST(VerificationKeyFixture, vk_data_vs_recursion_compress_native)
