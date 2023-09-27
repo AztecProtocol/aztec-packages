@@ -1,6 +1,5 @@
 #pragma once
 #include <benchmark/benchmark.h>
-#include <xray/xray_log_interface.h>
 
 #include "barretenberg/honk/composer/ultra_composer.hpp"
 #include "barretenberg/proof_system/types/circuit_type.hpp"
@@ -16,28 +15,6 @@
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/packed_byte_array/packed_byte_array.hpp"
 #include "barretenberg/stdlib/primitives/witness/witness.hpp"
-
-void xray_start()
-{
-    auto select_status = __xray_log_select_mode("xray-basic");
-    if (select_status != XRayLogRegisterStatus::XRAY_REGISTRATION_OK) {
-        throw std::runtime_error("Failed to select xray-basic mode");
-    }
-
-    auto config_status = __xray_log_init_mode("xray-basic", "verbosity=1");
-    if (config_status != XRayLogInitStatus::XRAY_LOG_INITIALIZED) {
-        throw std::runtime_error("Failed to initialize xray-basic mode");
-    }
-}
-
-void xray_stop()
-{
-    auto fin_status = __xray_log_finalize();
-    if (fin_status != XRayLogInitStatus::XRAY_LOG_FINALIZED) {
-        throw std::runtime_error("Failed to finalize the log");
-    }
-    __xray_remove_log_impl();
-}
 
 using namespace benchmark;
 
@@ -213,14 +190,12 @@ void construct_proof_with_specified_num_gates(State& state,
     auto num_gates = static_cast<size_t>(1 << (size_t)state.range(0));
     for (auto _ : state) {
         // Constuct circuit and prover; don't include this part in measurement
-        xray_stop();
         state.PauseTiming();
         auto builder = typename Composer::CircuitBuilder();
         test_circuit_function(builder, num_gates);
 
         auto composer = Composer();
         auto ext_prover = composer.create_prover(builder);
-        xray_start();
         state.ResumeTiming();
 
         // Construct proof
@@ -245,10 +220,8 @@ void construct_proof_with_specified_num_iterations(State& state,
 {
     barretenberg::srs::init_crs_factory("../srs_db/ignition");
     auto num_iterations = static_cast<size_t>(state.range(0));
-    xray_start(); // hack
     for (auto _ : state) {
         // Constuct circuit and prover; don't include this part in measurement
-        xray_stop();
         state.PauseTiming();
         auto builder = typename Composer::CircuitBuilder();
         test_circuit_function(builder, num_iterations);
@@ -257,7 +230,6 @@ void construct_proof_with_specified_num_iterations(State& state,
         if constexpr (proof_system::IsAnyOf<Composer, proof_system::honk::UltraComposer>) {
             auto instance = composer.create_instance(builder);
             auto ext_prover = composer.create_prover(instance);
-            xray_start();
             state.ResumeTiming();
 
             // Construct proof
@@ -265,7 +237,6 @@ void construct_proof_with_specified_num_iterations(State& state,
 
         } else {
             auto ext_prover = composer.create_prover(builder);
-            xray_start();
             state.ResumeTiming();
 
             // Construct proof
