@@ -8,7 +8,7 @@ import {
 import { ContractAbi, FunctionAbi, encodeArguments } from '@aztec/foundation/abi';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { AztecRPC, PackedArguments, PublicKey, Tx, TxExecutionRequest } from '@aztec/types';
+import { PXE, PackedArguments, PublicKey, Tx, TxExecutionRequest } from '@aztec/types';
 
 import { BaseContractInteraction } from '../contract/base_contract_interaction.js';
 import { Contract, ContractBase, SendMethodOptions } from '../contract/index.js';
@@ -40,7 +40,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
   /** Constructor function to call. */
   private constructorAbi: FunctionAbi;
 
-  constructor(private publicKey: PublicKey, private arc: AztecRPC, private abi: ContractAbi, private args: any[] = []) {
+  constructor(private publicKey: PublicKey, private arc: PXE, private abi: ContractAbi, private args: any[] = []) {
     super(arc);
     const constructorAbi = abi.functions.find(f => f.name === 'constructor');
     if (!constructorAbi) throw new Error('Cannot find constructor in the ABI.');

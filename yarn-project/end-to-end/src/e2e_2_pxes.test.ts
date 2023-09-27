@@ -4,12 +4,12 @@ import { DebugLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { toBigInt } from '@aztec/foundation/serialize';
 import { ChildContract, TokenContract } from '@aztec/noir-contracts/types';
-import { AztecRPCServer, EthAddress, Fr } from '@aztec/pxe';
-import { AztecRPC, CompleteAddress, TxStatus } from '@aztec/types';
+import { EthAddress, Fr, PXEService } from '@aztec/pxe';
+import { CompleteAddress, PXE, TxStatus } from '@aztec/types';
 
 import { jest } from '@jest/globals';
 
-import { expectsNumOfEncryptedLogsInTheLastBlockToBe, setup, setupAztecRPCServer } from './fixtures/utils.js';
+import { expectsNumOfEncryptedLogsInTheLastBlockToBe, setup, setupPXEService } from './fixtures/utils.js';
 
 const { SANDBOX_URL = '' } = process.env;
 
@@ -19,8 +19,8 @@ describe('e2e_2_rpc_servers', () => {
   jest.setTimeout(TIMEOUT);
 
   let aztecNode: AztecNodeService | undefined;
-  let aztecRpcServerA: AztecRPC;
-  let aztecRpcServerB: AztecRPC;
+  let aztecRpcServerA: PXE;
+  let aztecRpcServerB: PXE;
   let walletA: Wallet;
   let walletB: Wallet;
   let userA: CompleteAddress;
@@ -48,13 +48,13 @@ describe('e2e_2_rpc_servers', () => {
       aztecRpcServer: aztecRpcServerB,
       accounts: accounts,
       wallets: [walletB],
-    } = await setupAztecRPCServer(1, aztecNode!, undefined, true));
+    } = await setupPXEService(1, aztecNode!, undefined, true));
     [userB] = accounts;
   }, 100_000);
 
   afterEach(async () => {
     await teardownA();
-    if (aztecRpcServerB instanceof AztecRPCServer) await aztecRpcServerB.stop();
+    if (aztecRpcServerB instanceof PXEService) await aztecRpcServerB.stop();
   });
 
   const awaitUserSynchronized = async (wallet: Wallet, owner: AztecAddress) => {
@@ -168,14 +168,14 @@ describe('e2e_2_rpc_servers', () => {
     return contract.completeAddress;
   };
 
-  const awaitServerSynchronized = async (server: AztecRPC) => {
+  const awaitServerSynchronized = async (server: PXE) => {
     const isServerSynchronized = async () => {
       return await server.isGlobalStateSynchronized();
     };
     await retryUntil(isServerSynchronized, 'server sync', 10);
   };
 
-  const getChildStoredValue = (child: { address: AztecAddress }, aztecRpcServer: AztecRPC) =>
+  const getChildStoredValue = (child: { address: AztecAddress }, aztecRpcServer: PXE) =>
     aztecRpcServer.getPublicStorageAt(child.address, new Fr(1)).then(x => toBigInt(x!));
 
   it('user calls a public function on a contract deployed by a different user using a different RPC server', async () => {
@@ -203,7 +203,7 @@ describe('e2e_2_rpc_servers', () => {
     expect(storedValue).toBe(newValueToSet);
   });
 
-  it('private state is "zero" when Aztec RPC Server does not have the account private key', async () => {
+  it('private state is "zero" when Private Execution Environment (PXE) does not have the account private key', async () => {
     const userABalance = 100n;
     const userBBalance = 150n;
 

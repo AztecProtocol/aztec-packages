@@ -1,4 +1,4 @@
-import { AztecAddress, AztecRPC, Fr } from '@aztec/aztec.js';
+import { AztecAddress, Fr, PXE } from '@aztec/aztec.js';
 import { L1ContractArtifactsForDeployment, createEthereumChain, deployL1Contracts } from '@aztec/ethereum';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
@@ -125,12 +125,12 @@ export async function getContractAbi(fileDir: string, log: LogFn) {
 
 /**
  * Utility to select a TX sender either from user input
- * or from the first account that is found in an Aztec RPC instance.
- * @param client - The Aztec RPC instance that will be checked for an account.
+ * or from the first account that is found in an PXE instance.
+ * @param client - The PXE instance that will be checked for an account.
  * @param _from - The user input.
  * @returns An Aztec address. Will throw if one can't be found in either options.
  */
-export async function getTxSender(client: AztecRPC, _from?: string) {
+export async function getTxSender(client: PXE, _from?: string) {
   let from: AztecAddress;
   if (_from) {
     try {
@@ -141,7 +141,7 @@ export async function getTxSender(client: AztecRPC, _from?: string) {
   } else {
     const accounts = await client.getRegisteredAccounts();
     if (!accounts.length) {
-      throw new Error('No accounts found in Aztec RPC instance.');
+      throw new Error('No accounts found in PXE instance.');
     }
     from = accounts[0].address;
   }

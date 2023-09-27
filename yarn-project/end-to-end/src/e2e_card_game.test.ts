@@ -1,7 +1,7 @@
 import { AccountWallet, AztecAddress, Wallet, deployInitialSandboxAccounts } from '@aztec/aztec.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { CardGameContract } from '@aztec/noir-contracts/types';
-import { AztecRPC } from '@aztec/types';
+import { PXE } from '@aztec/types';
 
 import { setup } from './fixtures/utils.js';
 
@@ -44,7 +44,7 @@ function unwrapOptions<T>(options: NoirOption<T>[]): T[] {
 const GAME_ID = 42;
 
 describe('e2e_card_game', () => {
-  let aztecRpcServer: AztecRPC;
+  let aztecRpcServer: PXE;
   let logger: DebugLogger;
   let teardown: () => Promise<void>;
 

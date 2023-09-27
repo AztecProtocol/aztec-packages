@@ -351,9 +351,9 @@ const sidebars = {
       type: "category",
       items: [
         {
-          label: "Aztec RPC Server",
+          label: "Private Execution Environment (PXE)",
           type: "doc",
-          id: "apis/pxe/interfaces/AztecRPC",
+          id: "apis/pxe/interfaces/PXE",
         },
         {
           label: "Aztec.js",

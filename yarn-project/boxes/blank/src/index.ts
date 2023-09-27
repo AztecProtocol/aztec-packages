@@ -1,13 +1,13 @@
 import {
   AccountWallet,
   AztecAddress,
-  AztecRPC,
+  PXE,
   CompleteAddress,
   Contract,
   DeployMethod,
   Fr,
   TxReceipt,
-  createAztecRpcClient,
+  createPXEClient,
   getSandboxAccountsWallets,
 } from '@aztec/aztec.js';
 import { ContractAbi, FunctionAbi, encodeArguments } from '@aztec/foundation/abi';
@@ -16,7 +16,7 @@ import { BlankContractAbi } from './artifacts/blank.js';
 export const contractAbi: ContractAbi = BlankContractAbi;
 
 export const SANDBOX_URL: string = process.env.SANDBOX_URL || 'http://localhost:8080';
-export const rpcClient: AztecRPC = createAztecRpcClient(SANDBOX_URL);
+export const rpcClient: PXE = createPXEClient(SANDBOX_URL);
 
 export const CONTRACT_ADDRESS_PARAM_NAMES = ['owner', 'contract_address', 'recipient'];
 export const FILTERED_FUNCTION_NAMES = [];
@@ -81,7 +81,7 @@ export async function callContractFunction(
   abi: ContractAbi,
   functionName: string,
   typedArgs: any[], // for the exposed functions, this is an array of field elements Fr[]
-  rpc: AztecRPC,
+  rpc: PXE,
   wallet: CompleteAddress,
 ): Promise<FieldsOf<TxReceipt>> {
   // selectedWallet is how we specify the "sender" of the transaction
@@ -103,7 +103,7 @@ export async function callContractFunction(
  * @param rpc
  * @returns
  */
-export async function getWallet(account: CompleteAddress, rpc: AztecRPC): Promise<AccountWallet> {
+export async function getWallet(account: CompleteAddress, rpc: PXE): Promise<AccountWallet> {
   const accountWallets: AccountWallet[] = await getSandboxAccountsWallets(rpc);
   const selectedWallet: AccountWallet = accountWallets.find(w => w.getAddress().equals(account.address))!;
   if (!selectedWallet) {
@@ -117,7 +117,7 @@ export async function deployContract(
   contractAbi: ContractAbi,
   typedArgs: Fr[], // encode prior to passing in
   salt: Fr,
-  client: AztecRPC,
+  client: PXE,
 ): Promise<AztecAddress> {
   const tx = new DeployMethod(activeWallet.publicKey, client, contractAbi, typedArgs).send({
     contractAddressSalt: salt,

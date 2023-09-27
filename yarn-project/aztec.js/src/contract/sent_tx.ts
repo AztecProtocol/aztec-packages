@@ -1,6 +1,6 @@
 import { FieldsOf } from '@aztec/circuits.js';
 import { retryUntil } from '@aztec/foundation/retry';
-import { AztecRPC, TxHash, TxReceipt, TxStatus } from '@aztec/types';
+import { PXE, TxHash, TxReceipt, TxStatus } from '@aztec/types';
 
 import every from 'lodash.every';
 
@@ -24,11 +24,11 @@ const DefaultWaitOpts: WaitOpts = {
 };
 
 /**
- * The SentTx class represents a sent transaction through the AztecRPCClient, providing methods to fetch
+ * The SentTx class represents a sent transaction through the PXEClient, providing methods to fetch
  * its hash, receipt, and mining status.
  */
 export class SentTx {
-  constructor(protected arc: AztecRPC, protected txHashPromise: Promise<TxHash>) {}
+  constructor(protected arc: PXE, protected txHashPromise: Promise<TxHash>) {}
 
   /**
    * Retrieves the transaction hash of the SentTx instance.
@@ -43,7 +43,7 @@ export class SentTx {
   /**
    * Retrieve the transaction receipt associated with the current SentTx instance.
    * The function fetches the transaction hash using 'getTxHash' and then queries
-   * the AztecRPCClient to get the corresponding transaction receipt.
+   * the PXEClient to get the corresponding transaction receipt.
    *
    * @returns A promise that resolves to a TxReceipt object representing the fetched transaction receipt.
    */

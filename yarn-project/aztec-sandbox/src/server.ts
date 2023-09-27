@@ -1,5 +1,5 @@
-import { getHttpRpcServer } from '@aztec/pxe';
-import { AztecRPC } from '@aztec/types';
+import { createPxeRpcServer } from '@aztec/pxe';
+import { PXE } from '@aztec/types';
 
 import http from 'http';
 
@@ -11,8 +11,8 @@ import { createApiRouter } from './routes.js';
  * @param port - Port to listen in.
  * @returns A running http server.
  */
-export function startHttpRpcServer(aztecRpcServer: AztecRPC, port: string | number): http.Server {
-  const rpcServer = getHttpRpcServer(aztecRpcServer);
+export function startHttpRpcServer(aztecRpcServer: PXE, port: string | number): http.Server {
+  const rpcServer = createPxeRpcServer(aztecRpcServer);
 
   const app = rpcServer.getApp();
   const apiRouter = createApiRouter();

@@ -7,8 +7,8 @@ import { sha256ToField } from '@aztec/foundation/crypto';
 import { DebugLogger } from '@aztec/foundation/log';
 import { OutboxAbi } from '@aztec/l1-artifacts';
 import { TokenBridgeContract, TokenContract } from '@aztec/noir-contracts/types';
-import { AztecRPCServer } from '@aztec/pxe';
-import { AztecRPC, TxStatus } from '@aztec/types';
+import { PXEService } from '@aztec/pxe';
+import { PXE, TxStatus } from '@aztec/types';
 
 import { Chain, HttpTransport, PublicClient, getContract } from 'viem';
 
@@ -21,7 +21,7 @@ import { deployAndInitializeStandardizedTokenAndBridgeContracts } from './utils.
 export class CrossChainTestHarness {
   static async new(
     aztecNode: AztecNodeService | undefined,
-    aztecRpcServer: AztecRPC,
+    aztecRpcServer: PXE,
     deployL1ContractsValues: DeployL1Contracts,
     accounts: CompleteAddress[],
     wallet: Wallet,
@@ -91,7 +91,7 @@ export class CrossChainTestHarness {
     /** AztecNode. */
     public aztecNode: AztecNodeService | undefined,
     /** AztecRpcServer. */
-    public aztecRpcServer: AztecRPC,
+    public aztecRpcServer: PXE,
     /** CheatCodes. */
     public cc: CheatCodes,
     /** Accounts. */
@@ -335,7 +335,7 @@ export class CrossChainTestHarness {
 
   async stop() {
     await this.aztecNode?.stop();
-    if (this.aztecRpcServer instanceof AztecRPCServer) {
+    if (this.aztecRpcServer instanceof PXEService) {
       await this.aztecRpcServer?.stop();
     }
   }

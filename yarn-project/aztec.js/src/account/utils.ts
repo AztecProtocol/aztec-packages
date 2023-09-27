@@ -1,5 +1,5 @@
 import { CompleteAddress, GrumpkinScalar } from '@aztec/circuits.js';
-import { AztecRPC } from '@aztec/types';
+import { PXE } from '@aztec/types';
 
 import { getSchnorrAccount } from '../index.js';
 import { AccountWallet } from '../wallet/account_wallet.js';
@@ -9,7 +9,7 @@ import { AccountWallet } from '../wallet/account_wallet.js';
  * @param rpc - RPC client.
  * @returns - A wallet for a fresh account.
  */
-export function createAccount(rpc: AztecRPC): Promise<AccountWallet> {
+export function createAccount(rpc: PXE): Promise<AccountWallet> {
   return getSchnorrAccount(rpc, GrumpkinScalar.random(), GrumpkinScalar.random()).waitDeploy();
 }
 
@@ -18,7 +18,7 @@ export function createAccount(rpc: AztecRPC): Promise<AccountWallet> {
  * @param rpc - RPC client.
  * @returns Complete address of the registered recipient.
  */
-export async function createRecipient(rpc: AztecRPC): Promise<CompleteAddress> {
+export async function createRecipient(rpc: PXE): Promise<CompleteAddress> {
   const completeAddress = await CompleteAddress.random();
   await rpc.registerRecipient(completeAddress);
   return completeAddress;
@@ -30,7 +30,7 @@ export async function createRecipient(rpc: AztecRPC): Promise<CompleteAddress> {
  * @param numberOfAccounts - How many accounts to create.
  * @returns The created account wallets.
  */
-export async function createAccounts(rpc: AztecRPC, numberOfAccounts = 1): Promise<AccountWallet[]> {
+export async function createAccounts(rpc: PXE, numberOfAccounts = 1): Promise<AccountWallet[]> {
   const accounts = [];
 
   // Prepare deployments

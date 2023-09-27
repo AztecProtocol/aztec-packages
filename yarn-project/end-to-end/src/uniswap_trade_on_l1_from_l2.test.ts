@@ -5,7 +5,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { DebugLogger } from '@aztec/foundation/log';
 import { UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-artifacts';
 import { UniswapContract } from '@aztec/noir-contracts/types';
-import { AztecRPC, CompleteAddress, TxStatus } from '@aztec/types';
+import { CompleteAddress, PXE, TxStatus } from '@aztec/types';
 
 import { getContract, parseEther } from 'viem';
 
@@ -32,7 +32,7 @@ describe.skip('uniswap_trade_on_l1_from_l2', () => {
   const DAI_ADDRESS: EthAddress = EthAddress.fromString('0x6B175474E89094C44Da98b954EedeAC495271d0F');
 
   let aztecNode: AztecNodeService | undefined;
-  let aztecRpcServer: AztecRPC;
+  let aztecRpcServer: PXE;
   let wallet: Wallet;
   let accounts: CompleteAddress[];
   let logger: DebugLogger;

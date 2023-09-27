@@ -20,7 +20,7 @@ import {
   RollupAbi,
   RollupBytecode,
 } from '@aztec/l1-artifacts';
-import { createAztecRPCServer, getConfigEnvVars as getRpcConfigEnvVars } from '@aztec/pxe';
+import { createPXEService, getConfigEnvVars as getRpcConfigEnvVars } from '@aztec/pxe';
 
 import { createPublicClient, http as httpViemTransport } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
@@ -116,7 +116,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
   aztecNodeConfig.l1Contracts.registryAddress = l1Contracts.l1ContractAddresses.registryAddress;
 
   const node = await AztecNodeService.createAndSync(aztecNodeConfig);
-  const rpcServer = await createAztecRPCServer(node, rpcConfig);
+  const rpcServer = await createPXEService(node, rpcConfig);
 
   const stop = async () => {
     await rpcServer.stop();

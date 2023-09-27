@@ -131,7 +131,7 @@ const config = {
         entryPointStrategy: "expand",
         out: "apis/pxe",
         disableSources: true,
-        frontmatter: { sidebar_label: "Aztec RPC Server" },
+        frontmatter: { sidebar_label: "Private Execution Environment (PXE)" },
       },
     ],
     [

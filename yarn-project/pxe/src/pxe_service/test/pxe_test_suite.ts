@@ -1,17 +1,11 @@
 import { AztecAddress, CompleteAddress, Fr, FunctionData, Point, TxContext } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { ConstantKeyPair } from '@aztec/key-store';
-import {
-  AztecRPC,
-  DeployedContract,
-  INITIAL_L2_BLOCK_NUM,
-  TxExecutionRequest,
-  randomDeployedContract,
-} from '@aztec/types';
+import { DeployedContract, INITIAL_L2_BLOCK_NUM, PXE, TxExecutionRequest, randomDeployedContract } from '@aztec/types';
 
-export const aztecRpcTestSuite = (testName: string, aztecRpcSetup: () => Promise<AztecRPC>) => {
+export const pxeTestSuite = (testName: string, aztecRpcSetup: () => Promise<PXE>) => {
   describe(testName, () => {
-    let rpc: AztecRPC;
+    let rpc: PXE;
 
     beforeAll(async () => {
       rpc = await aztecRpcSetup();

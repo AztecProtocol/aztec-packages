@@ -1,4 +1,4 @@
-import { AztecRPC, NodeInfo } from '@aztec/types';
+import { NodeInfo, PXE } from '@aztec/types';
 
 import { MockProxy, mock } from 'jest-mock-extended';
 
@@ -6,10 +6,10 @@ import { checkServerVersion } from './client.js';
 
 describe('client', () => {
   describe('checkServerVersion', () => {
-    let rpc: MockProxy<AztecRPC>;
+    let rpc: MockProxy<PXE>;
 
     beforeEach(() => {
-      rpc = mock<AztecRPC>();
+      rpc = mock<PXE>();
     });
 
     it('checks versions match', async () => {

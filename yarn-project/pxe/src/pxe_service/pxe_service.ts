@@ -27,7 +27,6 @@ import NoirVersion from '@aztec/noir-compiler/noir-version';
 import {
   AuthWitness,
   AztecNode,
-  AztecRPC,
   ContractDao,
   ContractData,
   DeployedContract,
@@ -41,6 +40,7 @@ import {
   LogType,
   NodeInfo,
   NotePreimage,
+  PXE,
   PublicKey,
   SimulationError,
   Tx,
@@ -54,7 +54,7 @@ import {
   toContractDao,
 } from '@aztec/types';
 
-import { RpcServerConfig, getPackageInfo } from '../config/index.js';
+import { PXEServiceConfig, getPackageInfo } from '../config/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { Database } from '../database/index.js';
 import { KernelOracle } from '../kernel_oracle/index.js';
@@ -63,9 +63,9 @@ import { getAcirSimulator } from '../simulator/index.js';
 import { Synchronizer } from '../synchronizer/index.js';
 
 /**
- * A remote Aztec RPC Client implementation.
+ * A Private Execution Environment (PXE) implementation.
  */
-export class AztecRPCServer implements AztecRPC {
+export class PXEService implements PXE {
   private synchronizer: Synchronizer;
   private contractDataOracle: ContractDataOracle;
   private simulator: AcirSimulator;
@@ -76,10 +76,10 @@ export class AztecRPCServer implements AztecRPC {
     private keyStore: KeyStore,
     private node: AztecNode,
     private db: Database,
-    private config: RpcServerConfig,
+    private config: PXEServiceConfig,
     logSuffix?: string,
   ) {
-    this.log = createDebugLogger(logSuffix ? `aztec:rpc_server_${logSuffix}` : `aztec:rpc_server`);
+    this.log = createDebugLogger(logSuffix ? `aztec:pxe_service_${logSuffix}` : `aztec:pxe_service`);
     this.synchronizer = new Synchronizer(node, db, logSuffix);
     this.contractDataOracle = new ContractDataOracle(db, node);
     this.simulator = getAcirSimulator(db, node, node, node, keyStore, this.contractDataOracle);
@@ -88,7 +88,7 @@ export class AztecRPCServer implements AztecRPC {
   }
 
   /**
-   * Starts the Aztec RPC server by beginning the synchronisation process between the Aztec node and the database.
+   * Starts the PXE Service by beginning the synchronisation process between the Aztec node and the database.
    *
    * @returns A promise that resolves when the server has started successfully.
    */
@@ -99,7 +99,7 @@ export class AztecRPCServer implements AztecRPC {
   }
 
   /**
-   * Stops the Aztec RPC server, halting processing of new transactions and shutting down the synchronizer.
+   * Stops the PXE Service, halting processing of new transactions and shutting down the synchronizer.
    * This function ensures that all ongoing tasks are completed before stopping the server.
    * It is useful for gracefully shutting down the server during maintenance or restarts.
    *
@@ -365,7 +365,7 @@ export class AztecRPCServer implements AztecRPC {
   async #getFunctionCall(functionName: string, args: any[], to: AztecAddress): Promise<FunctionCall> {
     const contract = await this.db.getContract(to);
     if (!contract) {
-      throw new Error(`Unknown contract ${to}: add it to Aztec RPC server by calling server.addContracts(...)`);
+      throw new Error(`Unknown contract ${to}: add it to PXE Service by calling server.addContracts(...)`);
     }
 
     const functionDao = contract.functions.find(f => f.name === functionName);

@@ -1,13 +1,13 @@
 import {
   AccountWallet,
   AztecAddress,
-  AztecRPC,
+  PXE,
   CompleteAddress,
   Contract,
   Fr,
   TxStatus,
   Wallet,
-  createAztecRpcClient,
+  createPXEClient,
   waitForSandbox,
 } from '@aztec/aztec.js';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -19,12 +19,12 @@ const logger = createDebugLogger('aztec:blank-box-test');
 // as well as anvil.  anvil can be started with yarn test:integration
 const setupSandbox = async () => {
   const { SANDBOX_URL = 'http://localhost:8080' } = process.env;
-  const aztecRpc = createAztecRpcClient(SANDBOX_URL);
+  const aztecRpc = createPXEClient(SANDBOX_URL);
   await waitForSandbox(aztecRpc);
   return aztecRpc;
 };
 
-async function deployZKContract(owner: CompleteAddress, wallet: Wallet, rpcClient: AztecRPC) {
+async function deployZKContract(owner: CompleteAddress, wallet: Wallet, rpcClient: PXE) {
   logger('Deploying Blank contract...');
   const contractAddress = await deployContract(owner, BlankContract.abi, [], Fr.random(), rpcClient);
 
@@ -39,7 +39,7 @@ describe('ZK Contract Tests', () => {
   let _account3: CompleteAddress;
   let contract: Contract;
   let contractAddress: AztecAddress;
-  let rpcClient: AztecRPC;
+  let rpcClient: PXE;
 
   beforeAll(async () => {
     rpcClient = await setupSandbox();

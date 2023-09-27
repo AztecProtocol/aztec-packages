@@ -1,4 +1,4 @@
-import { AztecAddress, AztecRPC, CompleteAddress, DebugLogger, Fr, computeMessageSecretHash } from '@aztec/aztec.js';
+import { AztecAddress, CompleteAddress, DebugLogger, Fr, PXE, computeMessageSecretHash } from '@aztec/aztec.js';
 import { getProgram } from '@aztec/cli';
 
 import stringArgv from 'string-argv';
@@ -9,14 +9,14 @@ const TRANSFER_BALANCE = 3000;
 
 export const cliTestSuite = (
   name: string,
-  setup: () => Promise<AztecRPC>,
+  setup: () => Promise<PXE>,
   cleanup: () => Promise<void>,
   debug: DebugLogger,
   rpcUrl = 'http://localhost:8080',
 ) =>
   describe(name, () => {
     let cli: ReturnType<typeof getProgram>;
-    let aztecRpcClient: AztecRPC;
+    let aztecRpcClient: PXE;
     let existingAccounts: CompleteAddress[];
     let contractAddress: AztecAddress;
     let log: (...args: any[]) => void;

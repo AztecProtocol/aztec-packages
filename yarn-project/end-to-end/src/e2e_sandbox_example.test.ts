@@ -1,10 +1,10 @@
 // docs:start:imports
 import {
-  AztecRPC,
   Fr,
+  PXE,
   computeMessageSecretHash,
-  createAztecRpcClient,
   createDebugLogger,
+  createPXEClient,
   getSandboxAccountsWallets,
   getSchnorrAccount,
   waitForSandbox,
@@ -21,8 +21,8 @@ describe('e2e_sandbox_example', () => {
     ////////////// CREATE THE CLIENT INTERFACE AND CONTACT THE SANDBOX //////////////
     const logger = createDebugLogger('token');
 
-    // We create AztecRPC client connected to the sandbox URL
-    const aztecRpc = createAztecRpcClient(SANDBOX_URL);
+    // We create PXE client connected to the sandbox URL
+    const aztecRpc = createPXEClient(SANDBOX_URL);
     // Wait for sandbox to be ready
     await waitForSandbox(aztecRpc);
 
@@ -137,8 +137,8 @@ describe('e2e_sandbox_example', () => {
 
   it('can create accounts on the sandbox', async () => {
     const logger = createDebugLogger('token');
-    // We create AztecRPC client connected to the sandbox URL
-    const aztecRpc = createAztecRpcClient(SANDBOX_URL);
+    // We create PXE client connected to the sandbox URL
+    const aztecRpc = createPXEClient(SANDBOX_URL);
     // Wait for sandbox to be ready
     await waitForSandbox(aztecRpc);
 
@@ -146,7 +146,7 @@ describe('e2e_sandbox_example', () => {
     ////////////// CREATE SOME ACCOUNTS WITH SCHNORR SIGNERS //////////////
     // Creates new accounts using an account contract that verifies schnorr signatures
     // Returns once the deployment transactions have settled
-    const createSchnorrAccounts = async (numAccounts: number, aztecRpc: AztecRPC) => {
+    const createSchnorrAccounts = async (numAccounts: number, aztecRpc: PXE) => {
       const accountManagers = Array(numAccounts)
         .fill(0)
         .map(() =>

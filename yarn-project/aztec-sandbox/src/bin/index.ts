@@ -3,7 +3,7 @@ import { deployInitialSandboxAccounts } from '@aztec/aztec.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
 import NoirVersion from '@aztec/noir-compiler/noir-version';
-import { startHttpRpcServer } from '@aztec/pxe';
+import { startPxeHttpServer } from '@aztec/pxe';
 
 import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
@@ -52,7 +52,7 @@ async function main() {
   process.once('SIGINT', shutdown);
   process.once('SIGTERM', shutdown);
 
-  startHttpRpcServer(rpcServer, SERVER_PORT);
+  startPxeHttpServer(rpcServer, SERVER_PORT);
   logger.info(`Aztec Sandbox JSON-RPC Server listening on port ${SERVER_PORT}`);
   logger.info(`Debug logs will be written to ${logPath}`);
   const accountStrings = [`Initial Accounts:\n\n`];

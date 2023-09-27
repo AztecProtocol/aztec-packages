@@ -3,12 +3,12 @@ import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { DebugLogger } from '@aztec/foundation/log';
 import { toBigInt } from '@aztec/foundation/serialize';
 import { ChildContract, ImportTestContract, ParentContract, TestContract } from '@aztec/noir-contracts/types';
-import { AztecRPC, L2BlockL2Logs } from '@aztec/types';
+import { L2BlockL2Logs, PXE } from '@aztec/types';
 
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_nested_contract', () => {
-  let aztecRpcServer: AztecRPC;
+  let aztecRpcServer: PXE;
   let wallet: Wallet;
   let logger: DebugLogger;
   let teardown: () => Promise<void>;

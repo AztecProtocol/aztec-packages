@@ -19,7 +19,7 @@
  *
  * @packageDocumentation
  */
-import { AztecRPC, CompleteAddress, GrumpkinPrivateKey } from '@aztec/types';
+import { CompleteAddress, GrumpkinPrivateKey, PXE } from '@aztec/types';
 
 import { AccountContract, AccountWallet, AztecAddress, Fr } from '../index.js';
 import { EcdsaAccountContract } from './contract/ecdsa_account_contract.js';
@@ -38,13 +38,13 @@ export type Salt = Fr | number | bigint;
 
 /**
  * Creates an Account that relies on an ECDSA signing key for authentication.
- * @param rpc - An AztecRPC server instance.
+ * @param rpc - An PXE server instance.
  * @param encryptionPrivateKey - Grumpkin key used for note encryption.
  * @param signingPrivateKey - Secp256k1 key used for signing transactions.
  * @param saltOrAddress - Deployment salt or complete address if account contract is already deployed.
  */
 export function getEcdsaAccount(
-  rpc: AztecRPC,
+  rpc: PXE,
   encryptionPrivateKey: GrumpkinPrivateKey,
   signingPrivateKey: Buffer,
   saltOrAddress?: Salt | CompleteAddress,
@@ -54,13 +54,13 @@ export function getEcdsaAccount(
 
 /**
  * Creates an Account that relies on a Grumpkin signing key for authentication.
- * @param rpc - An AztecRPC server instance.
+ * @param rpc - An PXE server instance.
  * @param encryptionPrivateKey - Grumpkin key used for note encryption.
  * @param signingPrivateKey - Grumpkin key used for signing transactions.
  * @param saltOrAddress - Deployment salt or complete address if account contract is already deployed.
  */
 export function getSchnorrAccount(
-  rpc: AztecRPC,
+  rpc: PXE,
   encryptionPrivateKey: GrumpkinPrivateKey,
   signingPrivateKey: GrumpkinPrivateKey,
   saltOrAddress?: Salt | CompleteAddress,
@@ -70,12 +70,12 @@ export function getSchnorrAccount(
 
 /**
  * Creates an Account that uses the same Grumpkin key for encryption and authentication.
- * @param rpc - An AztecRPC server instance.
+ * @param rpc - An PXE server instance.
  * @param encryptionAndSigningPrivateKey - Grumpkin key used for note encryption and signing transactions.
  * @param saltOrAddress - Deployment salt or complete address if account contract is already deployed.
  */
 export function getUnsafeSchnorrAccount(
-  rpc: AztecRPC,
+  rpc: PXE,
   encryptionAndSigningPrivateKey: GrumpkinPrivateKey,
   saltOrAddress?: Salt | CompleteAddress,
 ): AccountManager {
@@ -89,13 +89,13 @@ export function getUnsafeSchnorrAccount(
 
 /**
  * Gets a wallet for an already registered account using Schnorr signatures with a single key for encryption and authentication.
- * @param rpc - An AztecRPC server instance.
+ * @param rpc - An PXE server instance.
  * @param address - Address for the account.
  * @param signingPrivateKey - Grumpkin key used for note encryption and signing transactions.
  * @returns A wallet for this account that can be used to interact with a contract instance.
  */
 export function getUnsafeSchnorrWallet(
-  rpc: AztecRPC,
+  rpc: PXE,
   address: AztecAddress,
   signingKey: GrumpkinPrivateKey,
 ): Promise<AccountWallet> {
@@ -104,13 +104,13 @@ export function getUnsafeSchnorrWallet(
 
 /**
  * Gets a wallet for an already registered account.
- * @param rpc - An AztecRPC server instance.
+ * @param rpc - An PXE server instance.
  * @param address - Address for the account.
  * @param accountContract - Account contract implementation.
  * @returns A wallet for this account that can be used to interact with a contract instance.
  */
 export async function getWallet(
-  rpc: AztecRPC,
+  rpc: PXE,
   address: AztecAddress,
   accountContract: AccountContract,
 ): Promise<AccountWallet> {

@@ -1,9 +1,9 @@
 import {
   AccountContract,
   AccountManager,
-  AztecRPC,
   EcdsaAccountContract,
   Fr,
+  PXE,
   SchnorrAccountContract,
   SingleKeyAccountContract,
   Wallet,
@@ -19,7 +19,7 @@ import { setup } from './fixtures/utils.js';
 function itShouldBehaveLikeAnAccountContract(
   getAccountContract: (encryptionKey: GrumpkinPrivateKey) => AccountContract,
   walletSetup: (
-    rpc: AztecRPC,
+    rpc: PXE,
     encryptionPrivateKey: GrumpkinPrivateKey,
     accountContract: AccountContract,
     address?: CompleteAddress,
@@ -77,7 +77,7 @@ function itShouldBehaveLikeAnAccountContract(
 
 describe('e2e_account_contracts', () => {
   const base = async (
-    rpc: AztecRPC,
+    rpc: PXE,
     encryptionPrivateKey: GrumpkinPrivateKey,
     accountContract: AccountContract,
     address?: CompleteAddress,

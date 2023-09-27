@@ -3,7 +3,7 @@ import { pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
 import { toBigIntBE, toHex } from '@aztec/foundation/bigint-buffer';
 import { keccak } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AztecRPC, NotePreimage } from '@aztec/types';
+import { NotePreimage, PXE } from '@aztec/types';
 
 import fs from 'fs';
 
@@ -22,7 +22,7 @@ export class CheatCodes {
     public aztec: AztecCheatCodes,
   ) {}
 
-  static async create(rpcUrl: string, aztecRpc: AztecRPC): Promise<CheatCodes> {
+  static async create(rpcUrl: string, aztecRpc: PXE): Promise<CheatCodes> {
     const ethCheatCodes = new EthCheatCodes(rpcUrl);
     const aztecCheatCodes = new AztecCheatCodes(aztecRpc, await CircuitsWasm.get(), ethCheatCodes);
     return new CheatCodes(ethCheatCodes, aztecCheatCodes);
@@ -211,7 +211,7 @@ export class AztecCheatCodes {
     /**
      * The RPC client to use for interacting with the chain
      */
-    public aztecRpc: AztecRPC,
+    public aztecRpc: PXE,
     /**
      * The circuits wasm module used for pedersen hashing
      */

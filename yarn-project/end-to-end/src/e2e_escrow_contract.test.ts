@@ -3,12 +3,12 @@ import { CompleteAddress, Fr, GrumpkinPrivateKey, GrumpkinScalar, getContractDep
 import { DebugLogger } from '@aztec/foundation/log';
 import { EscrowContractAbi } from '@aztec/noir-contracts/artifacts';
 import { EscrowContract, TokenContract } from '@aztec/noir-contracts/types';
-import { AztecRPC, PublicKey, TxStatus } from '@aztec/types';
+import { PXE, PublicKey, TxStatus } from '@aztec/types';
 
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_escrow_contract', () => {
-  let aztecRpcServer: AztecRPC;
+  let aztecRpcServer: PXE;
   let wallet: AccountWallet;
   let recipientWallet: AccountWallet;
   let accounts: CompleteAddress[];

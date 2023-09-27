@@ -2,12 +2,12 @@ import { AztecAddress, Contract, ContractDeployer, Fr, Wallet, isContractDeploye
 import { CompleteAddress, getContractDeploymentInfo } from '@aztec/circuits.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { TestContractAbi } from '@aztec/noir-contracts/artifacts';
-import { AztecRPC, TxStatus } from '@aztec/types';
+import { PXE, TxStatus } from '@aztec/types';
 
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_deploy_contract', () => {
-  let aztecRpcServer: AztecRPC;
+  let aztecRpcServer: PXE;
   let accounts: CompleteAddress[];
   let logger: DebugLogger;
   let wallet: Wallet;

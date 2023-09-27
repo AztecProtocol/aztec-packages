@@ -4,7 +4,7 @@ import {
   EthAddress,
   Fr,
   computeMessageSecretHash,
-  createAztecRpcClient,
+  createPXEClient,
   createRecipient,
   getL1ContractAddresses,
   getUnsafeSchnorrAccount,
@@ -13,7 +13,7 @@ import { GrumpkinScalar } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-artifacts';
 import { NonNativeTokenContract, UniswapContract } from '@aztec/noir-contracts/types';
-import { AztecRPC, TxStatus } from '@aztec/types';
+import { PXE, TxStatus } from '@aztec/types';
 
 import { createPublicClient, createWalletClient, getContract, http, parseEther } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
@@ -55,7 +55,7 @@ if (Number(await publicClient.getBlockNumber()) < EXPECTED_FORKED_BLOCK) {
 
 const ethAccount = EthAddress.fromString((await walletClient.getAddresses())[0]);
 
-const aztecRpcClient = createAztecRpcClient(aztecRpcUrl);
+const aztecRpcClient = createPXEClient(aztecRpcUrl);
 let wallet: AccountWallet;
 
 /**
@@ -132,12 +132,12 @@ async function deployAllContracts(owner: AztecAddress) {
   };
 }
 
-const getL2BalanceOf = async (aztecRpcClient: AztecRPC, owner: AztecAddress, l2Contract: NonNativeTokenContract) => {
+const getL2BalanceOf = async (aztecRpcClient: PXE, owner: AztecAddress, l2Contract: NonNativeTokenContract) => {
   return await l2Contract.methods.getBalance(owner).view({ from: owner });
 };
 
 const logExpectedBalanceOnL2 = async (
-  aztecRpcClient: AztecRPC,
+  aztecRpcClient: PXE,
   owner: AztecAddress,
   expectedBalance: bigint,
   l2Contract: NonNativeTokenContract,
@@ -147,7 +147,7 @@ const logExpectedBalanceOnL2 = async (
 };
 
 const transferWethOnL2 = async (
-  _aztecRpcClient: AztecRPC,
+  _aztecRpcClient: PXE,
   wethL2Contract: NonNativeTokenContract,
   ownerAddress: AztecAddress,
   receiver: AztecAddress,

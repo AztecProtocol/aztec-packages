@@ -3,13 +3,13 @@ import { AztecAddress, Wallet, computeMessageSecretHash, generatePublicKey, getS
 import { Fr, GrumpkinScalar } from '@aztec/circuits.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts/types';
-import { AztecRPC, TxStatus } from '@aztec/types';
+import { PXE, TxStatus } from '@aztec/types';
 
 import { expectsNumOfEncryptedLogsInTheLastBlockToBe, setup } from './fixtures/utils.js';
 
 describe('e2e_multiple_accounts_1_enc_key', () => {
   let aztecNode: AztecNodeService | undefined;
-  let aztecRpcServer: AztecRPC;
+  let aztecRpcServer: PXE;
   const wallets: Wallet[] = [];
   const accounts: AztecAddress[] = [];
   let logger: DebugLogger;
@@ -97,7 +97,7 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
   };
 
   /**
-   * Tests the ability of the Aztec RPC server to handle multiple accounts under the same encryption key.
+   * Tests the ability of the Private Execution Environment (PXE) to handle multiple accounts under the same encryption key.
    */
   it('spends notes from multiple account under the same encryption key', async () => {
     const transferAmount1 = 654n; // account 0 -> account 1

@@ -20,12 +20,12 @@ import { SyncStatus } from './sync-status.js';
 
 // docs:start:rpc-interface
 /**
- * The Aztec RPC Server runs locally for each user, providing functionality for all the operations
+ * Private Execution Environment (PXE) runs locally for each user, providing functionality for all the operations
  * needed to interact with the Aztec network, including account management, private data management,
  * transaction local simulation, and access to an Aztec node. This interface, as part of a Wallet,
  * is exposed to dapps for interacting with the network on behalf of the user.
  */
-export interface AztecRPC {
+export interface PXE {
   /**
    * Insert an auth witness for a given message hash. Auth witnesses are used to authorise actions on
    * behalf of a user. For instance, a token transfer initiated by a different address may request
@@ -41,7 +41,7 @@ export interface AztecRPC {
   addAuthWitness(authWitness: AuthWitness): Promise<void>;
 
   /**
-   * Registers a user account in the Aztec RPC server given its master encryption private key.
+   * Registers a user account in PXE given its master encryption private key.
    * Once a new account is registered, the RPC server will trial-decrypt all published notes on
    * the chain and store those that correspond to the registered account.
    *
@@ -52,7 +52,7 @@ export interface AztecRPC {
   registerAccount(privKey: GrumpkinPrivateKey, partialAddress: PartialAddress): Promise<void>;
 
   /**
-   * Registers a recipient in the Aztec RPC server. This is required when sending encrypted notes to
+   * Registers a recipient in PXE. This is required when sending encrypted notes to
    * a user who hasn't deployed their account contract yet. Since their account is not deployed, their
    * encryption public key has not been broadcasted, so we need to manually register it on the RPC server
    * in order to be able to encrypt data for this recipient.

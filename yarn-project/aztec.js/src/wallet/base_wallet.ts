@@ -1,7 +1,6 @@
 import { AztecAddress, Fr, GrumpkinPrivateKey, PartialAddress, Point } from '@aztec/circuits.js';
 import {
   AuthWitness,
-  AztecRPC,
   ContractData,
   DeployedContract,
   ExtendedContractData,
@@ -10,6 +9,7 @@ import {
   L2Tx,
   NodeInfo,
   NotePreimage,
+  PXE,
   SyncStatus,
   Tx,
   TxExecutionRequest,
@@ -24,7 +24,7 @@ import { Wallet } from './index.js';
  * A base class for Wallet implementations
  */
 export abstract class BaseWallet implements Wallet {
-  constructor(protected readonly rpc: AztecRPC) {}
+  constructor(protected readonly rpc: PXE) {}
 
   abstract getCompleteAddress(): CompleteAddress;
 

@@ -7,7 +7,7 @@
 
 * Aztec-cli unbox "really empty box" ([#2388](https://github.com/AztecProtocol/aztec-packages/issues/2388)) ([b57182d](https://github.com/AztecProtocol/aztec-packages/commit/b57182d6dff9fc27d5fb555a4c4cb948d9e5cc55))
 * **docs:** Document noir macros  ([#2016](https://github.com/AztecProtocol/aztec-packages/issues/2016)) ([1f1a17f](https://github.com/AztecProtocol/aztec-packages/commit/1f1a17fe056d8898c4c065fb6244e53da04800cb))
-* **docs:** Include aztec rpc interface typedoc output in docs ([#2255](https://github.com/AztecProtocol/aztec-packages/issues/2255)) ([62c9e9b](https://github.com/AztecProtocol/aztec-packages/commit/62c9e9bfdc9535ccfc6bd76782971e22478a7784))
+* **docs:** Include PXE interface typedoc output in docs ([#2255](https://github.com/AztecProtocol/aztec-packages/issues/2255)) ([62c9e9b](https://github.com/AztecProtocol/aztec-packages/commit/62c9e9bfdc9535ccfc6bd76782971e22478a7784))
 * **token portal standard:** Create a token portal standard ([#2351](https://github.com/AztecProtocol/aztec-packages/issues/2351)) ([426a3ea](https://github.com/AztecProtocol/aztec-packages/commit/426a3ea6a5c3529b4edaea94affaece97d39a35b))
 
 
@@ -16,7 +16,7 @@
 * **build:** Fix build system post deployment tests ([#2420](https://github.com/AztecProtocol/aztec-packages/issues/2420)) ([d509dc3](https://github.com/AztecProtocol/aztec-packages/commit/d509dc359c4cd9dc37492a434a1eb3813c002839))
 * CLI encoding for arrays and structs ([#2407](https://github.com/AztecProtocol/aztec-packages/issues/2407)) ([85283bd](https://github.com/AztecProtocol/aztec-packages/commit/85283bdd5b0916c207dca11ad17338f524ae18f6))
 * Correct sandbox addresses in up-quick-start test ([#2412](https://github.com/AztecProtocol/aztec-packages/issues/2412)) ([974d859](https://github.com/AztecProtocol/aztec-packages/commit/974d85922fc11734c543e7ce9fe7edaad527bd69))
-* **docs:** Revert include aztec rpc interface typedoc output in docs ([#2255](https://github.com/AztecProtocol/aztec-packages/issues/2255)) ([f852432](https://github.com/AztecProtocol/aztec-packages/commit/f85243298ef2a5c01764e592c6f6ea50d835bf07))
+* **docs:** Revert include PXE interface typedoc output in docs ([#2255](https://github.com/AztecProtocol/aztec-packages/issues/2255)) ([f852432](https://github.com/AztecProtocol/aztec-packages/commit/f85243298ef2a5c01764e592c6f6ea50d835bf07))
 * Handle falsy bigints in json-rpc ([#2403](https://github.com/AztecProtocol/aztec-packages/issues/2403)) ([d100650](https://github.com/AztecProtocol/aztec-packages/commit/d100650d107b6685e17fcdbbf68363505c5ed0ed)), closes [#2402](https://github.com/AztecProtocol/aztec-packages/issues/2402)
 * **nargo_check.sh:** UNIX standard grep ([#2396](https://github.com/AztecProtocol/aztec-packages/issues/2396)) ([02e788a](https://github.com/AztecProtocol/aztec-packages/commit/02e788a8e39c7fcb5c75a6aaf4ceb705a8ebaa4a))
 
@@ -385,7 +385,7 @@
 
 ### Features
 
-* `CompleteAddress` type and overall AztecRPC refactor ([#1524](https://github.com/AztecProtocol/aztec-packages/issues/1524)) ([aa2c74c](https://github.com/AztecProtocol/aztec-packages/commit/aa2c74c8503469630611b7004c4052b80b5fe815))
+* `CompleteAddress` type and overall PXE refactor ([#1524](https://github.com/AztecProtocol/aztec-packages/issues/1524)) ([aa2c74c](https://github.com/AztecProtocol/aztec-packages/commit/aa2c74c8503469630611b7004c4052b80b5fe815))
 * `FunctionSelector` type ([#1518](https://github.com/AztecProtocol/aztec-packages/issues/1518)) ([942f705](https://github.com/AztecProtocol/aztec-packages/commit/942f7058adc706924ff26d2490bec7f7d57d7149)), closes [#1424](https://github.com/AztecProtocol/aztec-packages/issues/1424)
 * `GrumpkinScalar` type ([#1919](https://github.com/AztecProtocol/aztec-packages/issues/1919)) ([3a9238a](https://github.com/AztecProtocol/aztec-packages/commit/3a9238a99a32259d8d6b85df6335a002c7bab354))
 * **892:** Add hints for matching transient read requests with correspondi… ([#1995](https://github.com/AztecProtocol/aztec-packages/issues/1995)) ([0955bb7](https://github.com/AztecProtocol/aztec-packages/commit/0955bb7b0903b12c4f041096d51a1dbb48f6359d))
@@ -568,7 +568,7 @@
 
 ### Miscellaneous
 
-* `AztecRPC` API using sandbox ([#1568](https://github.com/AztecProtocol/aztec-packages/issues/1568)) ([b2662db](https://github.com/AztecProtocol/aztec-packages/commit/b2662dbc45b0149b380ae3c88d058b70174266cb))
+* `PXE` API using sandbox ([#1568](https://github.com/AztecProtocol/aztec-packages/issues/1568)) ([b2662db](https://github.com/AztecProtocol/aztec-packages/commit/b2662dbc45b0149b380ae3c88d058b70174266cb))
 * **1074:** Remove read request data from final private kernel circuit public inputs ([#1840](https://github.com/AztecProtocol/aztec-packages/issues/1840)) ([c61557a](https://github.com/AztecProtocol/aztec-packages/commit/c61557ae926f89cead7306368197fdbe8f23dd6d))
 * **1407:** Remove forwarding witnesses ([#1930](https://github.com/AztecProtocol/aztec-packages/issues/1930)) ([cc8bc8f](https://github.com/AztecProtocol/aztec-packages/commit/cc8bc8f48b175479e1c4dfbcf9b92159f096c2cf)), closes [#1407](https://github.com/AztecProtocol/aztec-packages/issues/1407)
 * **1879:** Add use of PrivateKernelPublicInputs in TS whenever relevant ([#1911](https://github.com/AztecProtocol/aztec-packages/issues/1911)) ([8d5f548](https://github.com/AztecProtocol/aztec-packages/commit/8d5f548e42d627da1685820f99fc28ff5f47abbe))
@@ -582,7 +582,7 @@
 * Add tests that check ordering of public state updates ([#1661](https://github.com/AztecProtocol/aztec-packages/issues/1661)) ([5b9aedd](https://github.com/AztecProtocol/aztec-packages/commit/5b9aeddd4a1bffcf9015786819dd3f6c1ff66fb4))
 * Add todo for using generator indices in note commitment and nullifier computation. ([#1762](https://github.com/AztecProtocol/aztec-packages/issues/1762)) ([2db6728](https://github.com/AztecProtocol/aztec-packages/commit/2db6728fcaf75ce8c98d821b65695543bb0c82a2))
 * Another pedantic change to public state naming ([#1359](https://github.com/AztecProtocol/aztec-packages/issues/1359)) ([cb77440](https://github.com/AztecProtocol/aztec-packages/commit/cb774405e89c71a622e32b51032aa761cd767959))
-* Aztec RPC interface cleanup ([#1423](https://github.com/AztecProtocol/aztec-packages/issues/1423)) ([1a6168a](https://github.com/AztecProtocol/aztec-packages/commit/1a6168abc9cdc092cf7c9843191194c9b90adae7))
+* PXE interface cleanup ([#1423](https://github.com/AztecProtocol/aztec-packages/issues/1423)) ([1a6168a](https://github.com/AztecProtocol/aztec-packages/commit/1a6168abc9cdc092cf7c9843191194c9b90adae7))
 * **Aztec.nr:** Remove implicit imports ([#1901](https://github.com/AztecProtocol/aztec-packages/issues/1901)) ([c7d5190](https://github.com/AztecProtocol/aztec-packages/commit/c7d5190e48771c334bfa7062c361bcd623faa318))
 * **Aztec.nr:** Remove the open keyword from public functions ([#1917](https://github.com/AztecProtocol/aztec-packages/issues/1917)) ([4db8603](https://github.com/AztecProtocol/aztec-packages/commit/4db8603a4ee293c64a67be5ba74072bd654c7ec5))
 * **bb:** Refactor bb CLI interface ([#1672](https://github.com/AztecProtocol/aztec-packages/issues/1672)) ([a5bf6e0](https://github.com/AztecProtocol/aztec-packages/commit/a5bf6e008b19127bf15c8b12a5a699182b7ff4e7)), closes [#1671](https://github.com/AztecProtocol/aztec-packages/issues/1671)

@@ -1,11 +1,11 @@
-import { AztecRPC, TxHash, TxReceipt, TxStatus } from '@aztec/types';
+import { PXE, TxHash, TxReceipt, TxStatus } from '@aztec/types';
 
 import { MockProxy, mock } from 'jest-mock-extended';
 
 import { SentTx } from './sent_tx.js';
 
 describe('SentTx', () => {
-  let rpc: MockProxy<AztecRPC>;
+  let rpc: MockProxy<PXE>;
   let txHashPromise: Promise<TxHash>;
 
   let sentTx: SentTx;

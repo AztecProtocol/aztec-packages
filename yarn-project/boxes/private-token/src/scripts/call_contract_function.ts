@@ -1,4 +1,4 @@
-import { AztecAddress, AztecRPC, CompleteAddress, Contract } from '@aztec/aztec.js';
+import { AztecAddress, PXE, CompleteAddress, Contract } from '@aztec/aztec.js';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { getWallet } from './util.js';
 
@@ -7,7 +7,7 @@ export async function callContractFunction(
   abi: ContractAbi,
   functionName: string,
   typedArgs: any[], // for the exposed functions, this is an array of field elements Fr[]
-  rpc: AztecRPC,
+  rpc: PXE,
   wallet: CompleteAddress,
 ) {
   // selectedWallet is how we specify the "sender" of the transaction

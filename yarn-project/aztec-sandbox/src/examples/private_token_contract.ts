@@ -3,7 +3,7 @@ import {
   AztecAddress,
   Contract,
   GrumpkinScalar,
-  createAztecRpcClient,
+  createPXEClient,
   createRecipient,
   getUnsafeSchnorrAccount,
 } from '@aztec/aztec.js';
@@ -16,7 +16,7 @@ export const privateKey = GrumpkinScalar.fromString('ac0974bec39a17e36ba4a6b4d23
 
 const url = 'http://localhost:8080';
 
-const aztecRpcClient = createAztecRpcClient(url);
+const aztecRpcClient = createPXEClient(url);
 let wallet: AccountWallet;
 
 const INITIAL_BALANCE = 333n;

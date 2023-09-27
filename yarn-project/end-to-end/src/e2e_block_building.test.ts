@@ -4,14 +4,14 @@ import { pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
 import { DebugLogger } from '@aztec/foundation/log';
 import { TestContractAbi } from '@aztec/noir-contracts/artifacts';
 import { TestContract } from '@aztec/noir-contracts/types';
-import { AztecRPC, TxStatus } from '@aztec/types';
+import { PXE, TxStatus } from '@aztec/types';
 
 import times from 'lodash.times';
 
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_block_building', () => {
-  let aztecRpcServer: AztecRPC;
+  let aztecRpcServer: PXE;
   let logger: DebugLogger;
   let wallet: Wallet;
   let teardown: () => Promise<void>;

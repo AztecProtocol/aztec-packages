@@ -1,4 +1,4 @@
-import { AztecRPC, createAztecRpcClient } from '@aztec/aztec.js';
+import { PXE, createPXEClient } from '@aztec/aztec.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
 
@@ -7,20 +7,20 @@ import { dirname, resolve } from 'path';
 import { gtr, ltr, satisfies, valid } from 'semver';
 
 /**
- * Creates an Aztec RPC client with a given set of retries on non-server errors.
- * @param rpcUrl - URL of the RPC server.
- * @returns An RPC client.
+ * Creates a PXE client with a given set of retries on non-server errors.
+ * @param rpcUrl - URL of the RPC server wrapping the PXE.
+ * @returns A PXE client.
  */
 export function createClient(rpcUrl: string) {
-  return createAztecRpcClient(rpcUrl);
+  return createPXEClient(rpcUrl);
 }
 
 /**
- * Creates an Aztec RPC client with a given set of retries on non-server errors.
- * Checks that the RPC server matches the expected version, and warns if not.
- * @param rpcUrl - URL of the RPC server.
+ * Creates a PXE client with a given set of retries on non-server errors.
+ * Checks that PXE matches the expected version, and warns if not.
+ * @param rpcUrl - URL of the RPC server wrapping the PXE.
  * @param logger - Debug logger to warn version incompatibilities.
- * @returns An RPC client.
+ * @returns A PXE client.
  */
 export async function createCompatibleClient(rpcUrl: string, logger: DebugLogger) {
   const client = createClient(rpcUrl);
@@ -45,13 +45,13 @@ export async function createCompatibleClient(rpcUrl: string, logger: DebugLogger
 class VersionMismatchError extends Error {}
 
 /**
- * Checks that the RPC server version matches the expected one by this CLI. Throws if not.
- * @param rpc - RPC server connection.
+ * Checks that Private Execution Environment (PXE) version matches the expected one by this CLI. Throws if not.
+ * @param pxe - PXE client.
  * @param expectedVersionRange - Expected version by CLI.
  */
-export async function checkServerVersion(rpc: AztecRPC, expectedVersionRange: string) {
+export async function checkServerVersion(pxe: PXE, expectedVersionRange: string) {
   const serverName = 'Aztec Sandbox';
-  const { sandboxVersion } = await rpc.getNodeInfo();
+  const { sandboxVersion } = await pxe.getNodeInfo();
   if (!sandboxVersion) {
     throw new VersionMismatchError(`Couldn't determine ${serverName} version. You may run into issues.`);
   }

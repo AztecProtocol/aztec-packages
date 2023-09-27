@@ -2,14 +2,14 @@ import { CheatCodes, Wallet } from '@aztec/aztec.js';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { TestContract } from '@aztec/noir-contracts/types';
 import { EthAddress } from '@aztec/pxe';
-import { AztecRPC, TxStatus } from '@aztec/types';
+import { PXE, TxStatus } from '@aztec/types';
 
 import { Account, Chain, HttpTransport, PublicClient, WalletClient, getAddress, getContract, parseEther } from 'viem';
 
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_cheat_codes', () => {
-  let aztecRpcServer: AztecRPC;
+  let aztecRpcServer: PXE;
   let wallet: Wallet;
   let cc: CheatCodes;
   let teardown: () => Promise<void>;

@@ -5,7 +5,7 @@ import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { DebugLogger } from '@aztec/foundation/log';
 import { TestContractAbi } from '@aztec/noir-contracts/artifacts';
 import { BootstrapNode, P2PConfig, createLibP2PPeerId } from '@aztec/p2p';
-import { AztecRPCServer, ConstantKeyPair, createAztecRPCServer, getConfigEnvVars as getRpcConfig } from '@aztec/pxe';
+import { ConstantKeyPair, PXEService, createPXEService, getConfigEnvVars as getRpcConfig } from '@aztec/pxe';
 import { TxStatus } from '@aztec/types';
 
 import { setup } from './fixtures/utils.js';
@@ -17,7 +17,7 @@ const BOOT_NODE_TCP_PORT = 40400;
 
 interface NodeContext {
   node: AztecNodeService;
-  rpcServer: AztecRPCServer;
+  rpcServer: PXEService;
   txs: SentTx[];
   account: AztecAddress;
 }
@@ -112,9 +112,9 @@ describe('e2e_p2p_network', () => {
     return await AztecNodeService.createAndSync(newConfig);
   };
 
-  // submits a set of transactions to the provided aztec rpc server
+  // submits a set of transactions to the provided Private Execution Environment (PXE)
   const submitTxsTo = async (
-    aztecRpcServer: AztecRPCServer,
+    aztecRpcServer: PXEService,
     account: AztecAddress,
     numTxs: number,
     publicKey: PublicKey,
@@ -139,13 +139,13 @@ describe('e2e_p2p_network', () => {
     return txs;
   };
 
-  // creates an instance of the aztec rpc server and submit a given number of transactions to it.
+  // creates an instance of the PXE and submit a given number of transactions to it.
   const createAztecRpcServerAndSubmitTransactions = async (
     node: AztecNodeService,
     numTxs: number,
   ): Promise<NodeContext> => {
     const rpcConfig = getRpcConfig();
-    const aztecRpcServer = await createAztecRPCServer(node, rpcConfig, {}, true);
+    const aztecRpcServer = await createPXEService(node, rpcConfig, {}, true);
 
     const keyPair = ConstantKeyPair.random(await Grumpkin.new());
     const completeAddress = await CompleteAddress.fromPrivateKeyAndPartialAddress(

@@ -4,13 +4,13 @@ import { Fr, FunctionSelector } from '@aztec/circuits.js';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { toBigInt } from '@aztec/foundation/serialize';
 import { ChildContract, ParentContract } from '@aztec/noir-contracts/types';
-import { AztecRPC, L2BlockL2Logs, TxStatus } from '@aztec/types';
+import { L2BlockL2Logs, PXE, TxStatus } from '@aztec/types';
 
 import { setup } from './fixtures/utils.js';
 
 // See https://github.com/AztecProtocol/aztec-packages/issues/1601
 describe('e2e_ordering', () => {
-  let aztecRpcServer: AztecRPC;
+  let aztecRpcServer: PXE;
   let wallet: Wallet;
   let teardown: () => Promise<void>;
 

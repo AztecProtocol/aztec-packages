@@ -2,13 +2,13 @@ import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecAddress, SignerlessWallet, Wallet } from '@aztec/aztec.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { PokeableTokenContract } from '@aztec/noir-contracts/types';
-import { AztecRPC, CompleteAddress, TxStatus } from '@aztec/types';
+import { CompleteAddress, PXE, TxStatus } from '@aztec/types';
 
 import { expectsNumOfEncryptedLogsInTheLastBlockToBe, setup } from './fixtures/utils.js';
 
 describe('e2e_non_contract_account', () => {
   let aztecNode: AztecNodeService | undefined;
-  let aztecRpcServer: AztecRPC;
+  let aztecRpcServer: PXE;
   let wallet: Wallet;
   let sender: AztecAddress;
   let recipient: AztecAddress;

@@ -1,13 +1,13 @@
 import { createSandbox } from '@aztec/aztec-sandbox';
 import {
   AccountWallet,
-  AztecRPC,
   CheatCodes,
   Fr,
   L2BlockL2Logs,
+  PXE,
   computeMessageSecretHash,
   createAccount,
-  createAztecRpcClient,
+  createPXEClient,
   getSandboxAccountsWallets,
   waitForSandbox,
 } from '@aztec/aztec.js';
@@ -19,7 +19,7 @@ const { SANDBOX_URL = 'http://localhost:8080', ETHEREUM_HOST = 'http://localhost
 describe('guides/dapp/testing', () => {
   describe('on in-proc sandbox', () => {
     describe('private token contract', () => {
-      let rpc: AztecRPC;
+      let rpc: PXE;
       let stop: () => Promise<void>;
       let owner: AccountWallet;
       let recipient: AccountWallet;
@@ -52,19 +52,19 @@ describe('guides/dapp/testing', () => {
 
   describe('on local sandbox', () => {
     beforeAll(async () => {
-      const rpc = createAztecRpcClient(SANDBOX_URL);
+      const rpc = createPXEClient(SANDBOX_URL);
       await waitForSandbox(rpc);
     });
 
     // docs:start:sandbox-example
     describe('private token contract', () => {
-      let rpc: AztecRPC;
+      let rpc: PXE;
       let owner: AccountWallet;
       let recipient: AccountWallet;
       let token: TokenContract;
 
       beforeEach(async () => {
-        rpc = createAztecRpcClient(SANDBOX_URL);
+        rpc = createPXEClient(SANDBOX_URL);
         owner = await createAccount(rpc);
         recipient = await createAccount(rpc);
         token = await TokenContract.deploy(owner).send().deployed();
@@ -83,14 +83,14 @@ describe('guides/dapp/testing', () => {
     // docs:end:sandbox-example
 
     describe('private token contract with initial accounts', () => {
-      let rpc: AztecRPC;
+      let rpc: PXE;
       let owner: AccountWallet;
       let recipient: AccountWallet;
       let token: TokenContract;
 
       beforeEach(async () => {
         // docs:start:use-existing-wallets
-        rpc = createAztecRpcClient(SANDBOX_URL);
+        rpc = createPXEClient(SANDBOX_URL);
         [owner, recipient] = await getSandboxAccountsWallets(rpc);
         token = await TokenContract.deploy(owner).send().deployed();
         await token.methods._initialize(owner.getAddress()).send().wait();
@@ -108,13 +108,13 @@ describe('guides/dapp/testing', () => {
     });
 
     describe('cheats', () => {
-      let rpc: AztecRPC;
+      let rpc: PXE;
       let owner: AccountWallet;
       let testContract: TestContract;
       let cheats: CheatCodes;
 
       beforeAll(async () => {
-        rpc = createAztecRpcClient(SANDBOX_URL);
+        rpc = createPXEClient(SANDBOX_URL);
         owner = await createAccount(rpc);
         testContract = await TestContract.deploy(owner).send().deployed();
         cheats = await CheatCodes.create(ETHEREUM_HOST, rpc);
@@ -130,7 +130,7 @@ describe('guides/dapp/testing', () => {
     });
 
     describe('assertions', () => {
-      let rpc: AztecRPC;
+      let rpc: PXE;
       let owner: AccountWallet;
       let recipient: AccountWallet;
       let testContract: TestContract;
@@ -139,7 +139,7 @@ describe('guides/dapp/testing', () => {
       let ownerSlot: Fr;
 
       beforeAll(async () => {
-        rpc = createAztecRpcClient(SANDBOX_URL);
+        rpc = createPXEClient(SANDBOX_URL);
         owner = await createAccount(rpc);
         recipient = await createAccount(rpc);
         testContract = await TestContract.deploy(owner).send().deployed();

@@ -5,8 +5,8 @@ import {
   TxStatus,
   Wallet,
   computeMessageSecretHash,
-  createAztecRpcClient,
   createDebugLogger,
+  createPXEClient,
   getL1ContractAddresses,
   getSandboxAccountsWallets,
   sleep,
@@ -50,7 +50,7 @@ const ethRpcUrl = ETHEREUM_HOST;
 
 const hdAccount = mnemonicToAccount(MNEMONIC);
 
-const aztecRpcClient = createAztecRpcClient(aztecRpcUrl);
+const aztecRpcClient = createPXEClient(aztecRpcUrl);
 let wallet: Wallet;
 
 /**

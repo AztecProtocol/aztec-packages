@@ -1,14 +1,14 @@
 import { AztecAddress, Wallet } from '@aztec/aztec.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { PublicTokenContract } from '@aztec/noir-contracts/types';
-import { AztecRPC, CompleteAddress, TxStatus } from '@aztec/types';
+import { CompleteAddress, PXE, TxStatus } from '@aztec/types';
 
 import times from 'lodash.times';
 
 import { expectUnencryptedLogsFromLastBlockToBe, setup } from './fixtures/utils.js';
 
 describe('e2e_public_token_contract', () => {
-  let aztecRpcServer: AztecRPC;
+  let aztecRpcServer: PXE;
   let wallet: Wallet;
   let logger: DebugLogger;
   let recipient: AztecAddress;

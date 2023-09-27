@@ -4,7 +4,7 @@ import { sleep } from '@aztec/foundation/sleep';
 import zip from 'lodash.zip';
 
 import SchnorrAccountContractAbi from '../abis/schnorr_account_contract.json' assert { type: 'json' };
-import { AccountWallet, AztecRPC, createAztecRpcClient, getSchnorrAccount } from '../index.js';
+import { AccountWallet, PXE, createPXEClient, getSchnorrAccount } from '../index.js';
 
 export const INITIAL_SANDBOX_ENCRYPTION_KEYS = [
   GrumpkinScalar.fromString('2153536ff6628eee01cf4024889ff977a18d9fa61d0e414422f7681cf085c281'),
@@ -22,10 +22,10 @@ export const { SANDBOX_URL = 'http://localhost:8080' } = process.env;
 
 /**
  * Gets a collection of wallets for the Aztec accounts that are initially stored in the sandbox.
- * @param aztecRpc - An instance of the Aztec RPC interface.
+ * @param aztecRpc - A PXE instance.PXE
  * @returns A set of AccountWallet implementations for each of the initial accounts.
  */
-export function getSandboxAccountsWallets(aztecRpc: AztecRPC): Promise<AccountWallet[]> {
+export function getSandboxAccountsWallets(aztecRpc: PXE): Promise<AccountWallet[]> {
   return Promise.all(
     zip(INITIAL_SANDBOX_ENCRYPTION_KEYS, INITIAL_SANDBOX_SIGNING_KEYS, INITIAL_SANDBOX_SALTS).map(
       ([encryptionKey, signingKey, salt]) => getSchnorrAccount(aztecRpc, encryptionKey!, signingKey!, salt).getWallet(),
@@ -35,10 +35,10 @@ export function getSandboxAccountsWallets(aztecRpc: AztecRPC): Promise<AccountWa
 
 /**
  * Deploys the initial set of schnorr signature accounts to the sandbox
- * @param aztecRpc - An instance of the Aztec RPC interface.
+ * @param aztecRpc - A PXE instance.PXE
  * @returns The set of deployed Account objects and associated private encryption keys
  */
-export async function deployInitialSandboxAccounts(aztecRpc: AztecRPC) {
+export async function deployInitialSandboxAccounts(aztecRpc: PXE) {
   const accounts = INITIAL_SANDBOX_ENCRYPTION_KEYS.map((privateKey, i) => {
     const account = getSchnorrAccount(aztecRpc, privateKey, INITIAL_SANDBOX_SIGNING_KEYS[i], INITIAL_SANDBOX_SALTS[i]);
     return {
@@ -72,8 +72,8 @@ export async function deployInitialSandboxAccounts(aztecRpc: AztecRPC) {
  * Function to wait until the sandbox becomes ready for use.
  * @param rpc - The rpc client connected to the sandbox.
  */
-export async function waitForSandbox(rpc?: AztecRPC) {
-  rpc = rpc ?? createAztecRpcClient(SANDBOX_URL);
+export async function waitForSandbox(rpc?: PXE) {
+  rpc = rpc ?? createPXEClient(SANDBOX_URL);
   while (true) {
     try {
       await rpc.getNodeInfo();

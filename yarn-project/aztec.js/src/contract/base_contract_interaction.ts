@@ -1,4 +1,4 @@
-import { AztecRPC, Tx, TxExecutionRequest } from '@aztec/types';
+import { PXE, Tx, TxExecutionRequest } from '@aztec/types';
 
 import { SentTx } from './sent_tx.js';
 
@@ -21,7 +21,7 @@ export abstract class BaseContractInteraction {
   protected tx?: Tx;
   protected txRequest?: TxExecutionRequest;
 
-  constructor(protected rpc: AztecRPC) {}
+  constructor(protected rpc: PXE) {}
 
   /**
    * Create a transaction execution request ready to be simulated.

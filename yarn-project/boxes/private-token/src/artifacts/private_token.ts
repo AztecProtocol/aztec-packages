@@ -13,7 +13,7 @@ import {
 } from '@aztec/aztec.js';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { Point } from '@aztec/foundation/fields';
-import { AztecRPC, PublicKey } from '@aztec/types';
+import { PXE, PublicKey } from '@aztec/types';
 
 import PrivateTokenContractAbiJson from './private_token_contract.json' assert { type: 'json' };
 
@@ -54,7 +54,7 @@ export class PrivateTokenContract extends ContractBase {
   /**
    * Creates a tx to deploy a new instance of this contract.
    */
-  public static deploy(rpc: AztecRPC, initial_supply: FieldLike, owner: FieldLike) {
+  public static deploy(rpc: PXE, initial_supply: FieldLike, owner: FieldLike) {
     return new DeployMethod<PrivateTokenContract>(
       Point.ZERO,
       rpc,
@@ -66,7 +66,7 @@ export class PrivateTokenContract extends ContractBase {
   /**
    * Creates a tx to deploy a new instance of this contract using the specified public key to derive the address.
    */
-  public static deployWithPublicKey(rpc: AztecRPC, publicKey: PublicKey, initial_supply: FieldLike, owner: FieldLike) {
+  public static deployWithPublicKey(rpc: PXE, publicKey: PublicKey, initial_supply: FieldLike, owner: FieldLike) {
     return new DeployMethod<PrivateTokenContract>(
       publicKey,
       rpc,

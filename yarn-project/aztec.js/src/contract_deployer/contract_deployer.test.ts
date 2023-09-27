@@ -1,13 +1,13 @@
 import { EthAddress, Fr, Point } from '@aztec/circuits.js';
 import { ContractAbi, FunctionType } from '@aztec/foundation/abi';
-import { AztecRPC, PublicKey, Tx, TxHash, TxReceipt } from '@aztec/types';
+import { PXE, PublicKey, Tx, TxHash, TxReceipt } from '@aztec/types';
 
 import { MockProxy, mock } from 'jest-mock-extended';
 
 import { ContractDeployer } from './contract_deployer.js';
 
 describe.skip('Contract Deployer', () => {
-  let arc: MockProxy<AztecRPC>;
+  let arc: MockProxy<PXE>;
 
   const abi: ContractAbi = {
     name: 'MyContract',
@@ -33,7 +33,7 @@ describe.skip('Contract Deployer', () => {
   const mockTxReceipt = { type: 'TxReceipt' } as any as TxReceipt;
 
   beforeEach(() => {
-    arc = mock<AztecRPC>();
+    arc = mock<PXE>();
     arc.sendTx.mockResolvedValue(mockTxHash);
     arc.getTxReceipt.mockResolvedValue(mockTxReceipt);
   });

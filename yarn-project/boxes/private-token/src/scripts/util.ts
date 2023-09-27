@@ -1,6 +1,6 @@
 import { AccountWallet, Fr, getSandboxAccountsWallets } from '@aztec/aztec.js';
 import { FunctionAbi, encodeArguments } from '@aztec/foundation/abi';
-import { AztecRPC, CompleteAddress } from '@aztec/types';
+import { PXE, CompleteAddress } from '@aztec/types';
 
 export function convertArgs(functionAbi: FunctionAbi, args: any): Fr[] {
   const untypedArgs = functionAbi.parameters.map(param => {
@@ -26,7 +26,7 @@ export function convertArgs(functionAbi: FunctionAbi, args: any): Fr[] {
  * @param rpc
  * @returns
  */
-export async function getWallet(account: CompleteAddress, rpc: AztecRPC): Promise<AccountWallet> {
+export async function getWallet(account: CompleteAddress, rpc: PXE): Promise<AccountWallet> {
   const accountWallets: AccountWallet[] = await getSandboxAccountsWallets(rpc);
   const selectedWallet: AccountWallet = accountWallets.find(w => w.getAddress().equals(account.address))!;
   if (!selectedWallet) {
