@@ -75,16 +75,6 @@ circuits-x86_64-linux-clang-assert:
   dependencies:
     - barretenberg-x86_64-linux-clang
 
-docs:
-  buildDir: .
-  dockerfile: docs/Dockerfile
-  rebuildPatterns:
-    - ^docs/
-    - ^.*.cpp$
-    - ^.*.ts$
-    - ^.release-please-manifest.json$
-    - ^.*/noir-version.json$
-
 l1-contracts:
   buildDir: l1-contracts
 
@@ -98,8 +88,6 @@ noir-contracts-build:
   rebuildPatterns:
     - ^yarn-project/noir-contracts/
     - ^yarn-project/aztec-nr/
-  # Prevent automatic querying of get_dependencies.sh script. Needed because this looks like a yarn project.
-  dependencies: []
 
 yarn-project-base:
   buildDir: yarn-project
@@ -113,6 +101,9 @@ yarn-project-base:
 
 yarn-project:
   buildDir: yarn-project
+  rebuildPatterns:
+    - ^yarn-project/.*\\.(ts|js|cjs|mjs|json|html)$
+    - ^yarn-project/Dockerfile
   dependencies:
     - yarn-project-base
     - noir-contracts-build
@@ -130,6 +121,24 @@ aztec-sandbox:
   dependencies:
     - aztec-sandbox-base
 
+boxes-blank-react:
+  buildDir: yarn-project
+  projectDir: yarn-project/boxes/blank-react
+  dependencies:
+    - aztec-sandbox
+
+boxes-blank:
+  buildDir: yarn-project
+  projectDir: yarn-project/boxes/blank
+  dependencies:
+    - aztec-sandbox
+
+boxes-private-token:
+  buildDir: yarn-project
+  projectDir: yarn-project/boxes/private-token
+  dependencies:
+    - aztec-sandbox
+
 canary-build:
   buildDir: yarn-project
   projectDir: yarn-project/canary
@@ -146,5 +155,17 @@ canary:
 end-to-end:
   buildDir: yarn-project
   projectDir: yarn-project/end-to-end
+  dependencies:
+    - yarn-project
+
+docs:
+  buildDir: .
+  dockerfile: docs/Dockerfile
+  rebuildPatterns:
+    - ^docs/
+    - ^.*.cpp$
+    - ^.*.ts$
+    - ^.release-please-manifest.json$
+    - ^.*/noir-version.json$
   dependencies:
     - yarn-project

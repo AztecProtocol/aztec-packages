@@ -191,18 +191,6 @@ jobs:
           command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 1 proof_system_tests
       - *save_logs
 
-  barretenberg-stdlib-recursion-turbo-tests:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Test"
-          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 1 stdlib_recursion_tests --gtest_filter=*turbo*
-      - *save_logs
-
   barretenberg-stdlib-recursion-ultra-tests:
     docker:
       - image: aztecprotocol/alpine-build-image
@@ -388,7 +376,7 @@ jobs:
   yarn-project-base:
     machine:
       image: ubuntu-2204:2023.07.2
-    resource_class: xlarge
+    resource_class: large
     steps:
       - *checkout
       - *setup_env
@@ -407,18 +395,18 @@ jobs:
           name: Build
           command: build yarn-project | add_timestamps
 
-  yarn-project-format:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+  yarn-project-formatting:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: large
     steps:
       - *checkout
       - *setup_env
       - run:
-          name: Build
-          command: cond_spot_run_script yarn-project 32 cond_run_container yarn-project formatting | add_timestamps
+          name: Check Formatting
+          command: cond_run_container yarn-project formatting | add_timestamps
 
-  yarn-project-test:
+  yarn-project-tests:
     docker:
       - image: aztecprotocol/alpine-build-image
     resource_class: small
@@ -426,8 +414,8 @@ jobs:
       - *checkout
       - *setup_env
       - run:
-          name: Build
-          command: cond_spot_run_script yarn-project 64 cond_run_container yarn-project test | add_timestamps
+          name: Test
+          command: cond_spot_run_container yarn-project 64 test | add_timestamps
 
   aztec-sandbox-base:
     machine:
@@ -477,6 +465,39 @@ jobs:
           name: "Create ECR manifest"
           command: create_ecr_manifest aztec-sandbox-base aztec-sandbox x86_64,arm64
 
+  boxes-blank-react:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test via adhoc script"
+          command: ./yarn-project/boxes/blank-react/run_tests
+
+  boxes-blank:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test via adhoc script"
+          command: ./yarn-project/boxes/blank/run_tests
+
+  boxes-private-token:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test via adhoc script"
+          command: ./yarn-project/boxes/private-token/run_tests
+
   canary:
     machine:
       image: ubuntu-2204:2023.07.2
@@ -499,7 +520,7 @@ jobs:
           name: "Build"
           command: build end-to-end
 
-  e2e-2-rpc-servers:
+  e2e-2-pxes:
     machine:
       image: ubuntu-2204:2023.07.2
     resource_class: large
@@ -508,7 +529,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_2_rpc_servers.test.ts
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_2_pxes.test.ts
 
   e2e-multiple-accounts-1-enc-key:
     machine:
@@ -783,7 +804,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_aztec_js_browser.test.ts ./scripts/docker-compose-e2e-sandbox.yml
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_aztec_js_browser.test.ts ./scripts/docker-compose-e2e-sandbox-browser.yml
 
   e2e-card-game:
     machine:
@@ -796,7 +817,7 @@ jobs:
           name: "Test"
           command: cond_run_script end-to-end ./scripts/run_tests_local e2e_card_game.test.ts
 
-  aztec-rpc-sandbox:
+  pxe-sandbox:
     machine:
       image: ubuntu-2204:2023.07.2
     resource_class: large
@@ -805,7 +826,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_run_script end-to-end ./scripts/run_tests_local aztec_rpc_sandbox.test.ts ./scripts/docker-compose-e2e-sandbox.yml
+          command: cond_run_script end-to-end ./scripts/run_tests_local pxe_sandbox.test.ts ./scripts/docker-compose-e2e-sandbox.yml
 
   cli-docs-sandbox:
     machine:
@@ -972,7 +993,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: run_script canary ./scripts/run_tests ./src/aztec_js_browser.test.ts canary ./scripts/docker-compose.yml
+          command: run_script canary ./scripts/run_tests ./src/aztec_js_browser.test.ts canary ./scripts/docker-compose-browser.yml
 
   run-deployment-canary-cli:
     machine:
@@ -1040,14 +1061,12 @@ workflows:
       - barretenberg-dsl-tests: *bb_test
       - barretenberg-tests: *bb_test
       - barretenberg-stdlib-tests: *bb_test
-      - barretenberg-stdlib-recursion-turbo-tests: *bb_test
       - barretenberg-stdlib-recursion-ultra-tests: *bb_test
       - barretenberg-join-split-tests: *bb_test
       # - barretenberg-benchmark-aggregator:
       #     requires:
       #       - barretenberg-tests
       #       - barretenberg-stdlib-tests
-      #       - barretenberg-stdlib-recursion-turbo-tests
       #       - barretenberg-stdlib-recursion-ultra-tests
       #       - barretenberg-join-split-tests
       #     filters:
@@ -1111,23 +1130,24 @@ workflows:
             - circuits-wasm-linux-clang
             - l1-contracts
           <<: *defaults
-      - yarn-project-format:
-          requires:
-            - yarn-project
-          <<: *defaults
-      - yarn-project-test:
-          requires:
-            - yarn-project
-          <<: *defaults
       - yarn-project:
           requires:
             - yarn-project-base
             - noir-contracts-build
           <<: *defaults
+      - yarn-project-formatting:
+          requires:
+            - yarn-project
+          <<: *defaults
+      - yarn-project-tests:
+          requires:
+            - yarn-project
+          <<: *defaults
 
       - end-to-end: *yarn_project
       - aztec-sandbox-base: *yarn_project
       - canary: *yarn_project
+      - build-docs: *yarn_project
 
       - aztec-sandbox-x86_64:
           requires:
@@ -1144,6 +1164,21 @@ workflows:
             - aztec-sandbox-arm64
           <<: *defaults
 
+      - boxes-blank-react:
+          requires:
+            - aztec-sandbox-x86_64
+          <<: *defaults
+
+      - boxes-blank:
+          requires:
+            - aztec-sandbox-x86_64
+          <<: *defaults
+
+      - boxes-private-token:
+          requires:
+            - aztec-sandbox-x86_64
+          <<: *defaults
+
       - e2e-join:
           requires:
             - end-to-end
@@ -1151,7 +1186,7 @@ workflows:
             - canary
           <<: *defaults
 
-      - e2e-2-rpc-servers: *e2e_test
+      - e2e-2-pxes: *e2e_test
       - e2e-deploy-contract: *e2e_test
       - e2e-lending-contract: *e2e_test
       - e2e-token-contract: *e2e_test
@@ -1179,7 +1214,7 @@ workflows:
       - e2e-canary-test: *e2e_test
       - e2e-browser-sandbox: *e2e_test
       - e2e-card-game: *e2e_test
-      - aztec-rpc-sandbox: *e2e_test
+      - pxe-sandbox: *e2e_test
       - cli-docs-sandbox: *e2e_test
       - guides-writing-an-account-contract: *e2e_test
       - guides-dapp-testing: *e2e_test
@@ -1188,7 +1223,7 @@ workflows:
 
       - e2e-end:
           requires:
-            - e2e-2-rpc-servers
+            - e2e-2-pxes
             - e2e-deploy-contract
             - e2e-lending-contract
             - e2e-token-contract
@@ -1216,7 +1251,7 @@ workflows:
             - e2e-browser-sandbox
             - e2e-canary-test
             - e2e-card-game
-            - aztec-rpc-sandbox
+            - pxe-sandbox
             - cli-docs-sandbox
             - guides-writing-an-account-contract
             - guides-dapp-testing

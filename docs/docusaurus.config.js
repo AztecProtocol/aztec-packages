@@ -123,19 +123,19 @@ const config = {
       },
     ],
     [
-      "@spalladino/docusaurus-plugin-typedoc",
+      "docusaurus-plugin-typedoc",
       {
-        id: "apis/aztec-rpc",
-        entryPoints: ["../yarn-project/types/src/interfaces/aztec_rpc.ts"],
+        id: "apis/pxe",
+        entryPoints: ["../yarn-project/types/src/interfaces/pxe.ts"],
         tsconfig: "../yarn-project/types/tsconfig.json",
         entryPointStrategy: "expand",
-        out: "apis/aztec-rpc",
+        out: "apis/pxe",
         disableSources: true,
-        frontmatter: { sidebar_label: "Aztec RPC Server" },
+        frontmatter: { sidebar_label: "Private Execution Environment (PXE)" },
       },
     ],
     [
-      "@spalladino/docusaurus-plugin-typedoc",
+      "docusaurus-plugin-typedoc",
       {
         id: "apis/aztec-js",
         entryPoints: [

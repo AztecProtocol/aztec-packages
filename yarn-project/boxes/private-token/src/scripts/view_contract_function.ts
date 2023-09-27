@@ -1,19 +1,18 @@
-import { AztecAddress, AztecRPC, CompleteAddress, Contract } from '@aztec/aztec.js';
-import { ContractAbi } from '@aztec/foundation/abi';
 import { getWallet } from './util.js';
+import { AztecAddress, PXE, CompleteAddress, Contract } from '@aztec/aztec.js';
+import { ContractAbi } from '@aztec/foundation/abi';
 
 export async function viewContractFunction(
   address: AztecAddress,
   abi: ContractAbi,
   functionName: string,
   typedArgs: any[],
-  rpc: AztecRPC,
+  pxe: PXE,
   wallet: CompleteAddress,
 ) {
   // we specify the account that is calling the view function by passing in the wallet to the Contract
-  const selectedWallet = await getWallet(wallet, rpc);
+  const selectedWallet = await getWallet(wallet, pxe);
   const contract = await Contract.at(address, abi, selectedWallet);
 
-  const viewResult = await contract.methods[functionName](...typedArgs).view({ from: wallet.address });
-  return viewResult;
+  return await contract.methods[functionName](...typedArgs).view({ from: wallet.address });
 }
