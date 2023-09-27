@@ -28,9 +28,9 @@ For this guide, the following Aztec packages are used:
 ### Initialisation
 
 ```ts
-import { createAztecRpcClient, CheatCodes } from "@aztec/aztec.js";
+import { createPXEClient, CheatCodes } from "@aztec/aztec.js";
 const aztecRpcUrl = "http://localhost:8080";
-const aztecRpcClient = createAztecRpcClient(aztecRpcUrl);
+const aztecRpcClient = createPXEClient(aztecRpcUrl);
 const cc = await CheatCodes.create(aztecRpcUrl, aztecRpcClient);
 ```
 

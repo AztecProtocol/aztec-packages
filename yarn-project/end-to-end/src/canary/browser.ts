@@ -90,8 +90,8 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
     it('Creates an account', async () => {
       const result = await page.evaluate(
         async (rpcUrl, privateKeyString) => {
-          const { GrumpkinScalar, createPXEClient: createAztecRpcClient, getUnsafeSchnorrAccount } = window.AztecJs;
-          const client = createAztecRpcClient(rpcUrl!);
+          const { GrumpkinScalar, createPXEClient: createPXEClient, getUnsafeSchnorrAccount } = window.AztecJs;
+          const client = createPXEClient(rpcUrl!);
           const privateKey = GrumpkinScalar.fromString(privateKeyString);
           const account = getUnsafeSchnorrAccount(client, privateKey);
           await account.waitDeploy();
@@ -115,8 +115,8 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
     it("Gets the owner's balance", async () => {
       const result = await page.evaluate(
         async (rpcUrl, contractAddress, TokenContractAbi) => {
-          const { Contract, AztecAddress, createPXEClient: createAztecRpcClient } = window.AztecJs;
-          const client = createAztecRpcClient(rpcUrl!);
+          const { Contract, AztecAddress, createPXEClient: createPXEClient } = window.AztecJs;
+          const client = createPXEClient(rpcUrl!);
           const owner = (await client.getRegisteredAccounts())[0].address;
           const [wallet] = await AztecJs.getSandboxAccountsWallets(client);
           const contract = await Contract.at(AztecAddress.fromString(contractAddress), TokenContractAbi, wallet);
@@ -134,8 +134,8 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
       const result = await page.evaluate(
         async (rpcUrl, contractAddress, transferAmount, TokenContractAbi) => {
           console.log(`Starting transfer tx`);
-          const { AztecAddress, Contract, createPXEClient: createAztecRpcClient } = window.AztecJs;
-          const client = createAztecRpcClient(rpcUrl!);
+          const { AztecAddress, Contract, createPXEClient: createPXEClient } = window.AztecJs;
+          const client = createPXEClient(rpcUrl!);
           const accounts = await client.getRegisteredAccounts();
           const receiver = accounts[1].address;
           const [wallet] = await AztecJs.getSandboxAccountsWallets(client);
@@ -158,14 +158,14 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
           const {
             GrumpkinScalar,
             DeployMethod,
-            createPXEClient: createAztecRpcClient,
+            createPXEClient: createPXEClient,
             getUnsafeSchnorrAccount,
             Contract,
             Fr,
             computeMessageSecretHash,
             getSandboxAccountsWallets,
           } = window.AztecJs;
-          const client = createAztecRpcClient(rpcUrl!);
+          const client = createPXEClient(rpcUrl!);
           let accounts = await client.getRegisteredAccounts();
           if (accounts.length === 0) {
             // This test needs an account for deployment. We create one in case there is none available in the RPC server.

@@ -8,7 +8,7 @@ In this section, we'll connect to the Sandbox from our project.
 
 ## Create RPC client
 
-We'll use the `createAztecRpcClient` function from `aztec.js` to connect to the Sandbox, which by default runs on `localhost:8080`. To test the connection works, we'll request and print the node's chain id.
+We'll use the `createPXEClient` function from `aztec.js` to connect to the Sandbox, which by default runs on `localhost:8080`. To test the connection works, we'll request and print the node's chain id.
 
 Let's create our first file `src/index.mjs` with the following contents:
 

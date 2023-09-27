@@ -2,7 +2,7 @@ import {
   Fr,
   L2BlockL2Logs,
   computeMessageSecretHash,
-  createAztecRpcClient,
+  createPXEClient,
   getSandboxAccountsWallets,
 } from '@aztec/aztec.js';
 import { fileURLToPath } from '@aztec/foundation/url';
@@ -99,7 +99,7 @@ async function mintPublicFunds(client) {
 }
 
 async function main() {
-  const client = createAztecRpcClient(SANDBOX_URL);
+  const client = createPXEClient(SANDBOX_URL);
   const { chainId } = await client.getNodeInfo();
   console.log(`Connected to chain ${chainId}`);
 

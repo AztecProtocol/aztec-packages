@@ -1,4 +1,4 @@
-import { Contract, ContractDeployer, createAztecRpcClient, getSandboxAccountsWallets } from '@aztec/aztec.js';
+import { Contract, ContractDeployer, createPXEClient, getSandboxAccountsWallets } from '@aztec/aztec.js';
 import { TokenContractAbi } from '@aztec/noir-contracts/artifacts';
 
 import { writeFileSync } from 'fs';
@@ -8,7 +8,7 @@ import { fileURLToPath } from 'url';
 const { SANDBOX_URL = 'http://localhost:8080' } = process.env;
 
 async function main() {
-  const client = createAztecRpcClient(SANDBOX_URL);
+  const client = createPXEClient(SANDBOX_URL);
   const [owner] = await getSandboxAccountsWallets(client);
 
   const token = await Contract.deploy(client, TokenContractAbi, []).send().deployed();
