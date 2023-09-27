@@ -18,9 +18,9 @@ The account interface is used for creating an _execution request_ out of one or 
 
 Refer to the page on [writing an account contract](./writing_an_account_contract.md) for an example on how to implement this interface.
 
-## RPC interface
+## PXE interface
 
-A wallet exposes the RPC interface to dapps by running an PXE instance. The PXE requires a keystore and a database implementation for storing keys, private state, and recipient encryption public keys.
+A wallet exposes the PXE interface to dapps by running an PXE instance. The PXE requires a keystore and a database implementation for storing keys, private state, and recipient encryption public keys.
 
 #include_code pxe-interface /yarn-project/types/src/interfaces/pxe.ts typescript
 

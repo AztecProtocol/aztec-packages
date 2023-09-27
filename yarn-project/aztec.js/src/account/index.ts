@@ -7,7 +7,7 @@
  * ```ts
  * const encryptionPrivateKey = GrumpkinScalar.random();
  * const signingPrivateKey = GrumpkinScalar.random();
- * const wallet = getSchnorrAccount(rpc, encryptionPrivateKey, signingPrivateKey).waitDeploy();
+ * const wallet = getSchnorrAccount(pxe, encryptionPrivateKey, signingPrivateKey).waitDeploy();
  * ```
  *
  * For testing purposes, consider using the {@link createAccount} and {@link createAccounts} methods,
@@ -38,49 +38,49 @@ export type Salt = Fr | number | bigint;
 
 /**
  * Creates an Account that relies on an ECDSA signing key for authentication.
- * @param rpc - An PXE server instance.
+ * @param pxe - An PXE server instance.
  * @param encryptionPrivateKey - Grumpkin key used for note encryption.
  * @param signingPrivateKey - Secp256k1 key used for signing transactions.
  * @param saltOrAddress - Deployment salt or complete address if account contract is already deployed.
  */
 export function getEcdsaAccount(
-  rpc: PXE,
+  pxe: PXE,
   encryptionPrivateKey: GrumpkinPrivateKey,
   signingPrivateKey: Buffer,
   saltOrAddress?: Salt | CompleteAddress,
 ): AccountManager {
-  return new AccountManager(rpc, encryptionPrivateKey, new EcdsaAccountContract(signingPrivateKey), saltOrAddress);
+  return new AccountManager(pxe, encryptionPrivateKey, new EcdsaAccountContract(signingPrivateKey), saltOrAddress);
 }
 
 /**
  * Creates an Account that relies on a Grumpkin signing key for authentication.
- * @param rpc - An PXE server instance.
+ * @param pxe - An PXE server instance.
  * @param encryptionPrivateKey - Grumpkin key used for note encryption.
  * @param signingPrivateKey - Grumpkin key used for signing transactions.
  * @param saltOrAddress - Deployment salt or complete address if account contract is already deployed.
  */
 export function getSchnorrAccount(
-  rpc: PXE,
+  pxe: PXE,
   encryptionPrivateKey: GrumpkinPrivateKey,
   signingPrivateKey: GrumpkinPrivateKey,
   saltOrAddress?: Salt | CompleteAddress,
 ): AccountManager {
-  return new AccountManager(rpc, encryptionPrivateKey, new SchnorrAccountContract(signingPrivateKey), saltOrAddress);
+  return new AccountManager(pxe, encryptionPrivateKey, new SchnorrAccountContract(signingPrivateKey), saltOrAddress);
 }
 
 /**
  * Creates an Account that uses the same Grumpkin key for encryption and authentication.
- * @param rpc - An PXE server instance.
+ * @param pxe - An PXE server instance.
  * @param encryptionAndSigningPrivateKey - Grumpkin key used for note encryption and signing transactions.
  * @param saltOrAddress - Deployment salt or complete address if account contract is already deployed.
  */
 export function getUnsafeSchnorrAccount(
-  rpc: PXE,
+  pxe: PXE,
   encryptionAndSigningPrivateKey: GrumpkinPrivateKey,
   saltOrAddress?: Salt | CompleteAddress,
 ): AccountManager {
   return new AccountManager(
-    rpc,
+    pxe,
     encryptionAndSigningPrivateKey,
     new SingleKeyAccountContract(encryptionAndSigningPrivateKey),
     saltOrAddress,
@@ -89,36 +89,36 @@ export function getUnsafeSchnorrAccount(
 
 /**
  * Gets a wallet for an already registered account using Schnorr signatures with a single key for encryption and authentication.
- * @param rpc - An PXE server instance.
+ * @param pxe - An PXE server instance.
  * @param address - Address for the account.
  * @param signingPrivateKey - Grumpkin key used for note encryption and signing transactions.
  * @returns A wallet for this account that can be used to interact with a contract instance.
  */
 export function getUnsafeSchnorrWallet(
-  rpc: PXE,
+  pxe: PXE,
   address: AztecAddress,
   signingKey: GrumpkinPrivateKey,
 ): Promise<AccountWallet> {
-  return getWallet(rpc, address, new SingleKeyAccountContract(signingKey));
+  return getWallet(pxe, address, new SingleKeyAccountContract(signingKey));
 }
 
 /**
  * Gets a wallet for an already registered account.
- * @param rpc - An PXE server instance.
+ * @param pxe - PXE Service instance.
  * @param address - Address for the account.
  * @param accountContract - Account contract implementation.
  * @returns A wallet for this account that can be used to interact with a contract instance.
  */
 export async function getWallet(
-  rpc: PXE,
+  pxe: PXE,
   address: AztecAddress,
   accountContract: AccountContract,
 ): Promise<AccountWallet> {
-  const completeAddress = await rpc.getRegisteredAccount(address);
+  const completeAddress = await pxe.getRegisteredAccount(address);
   if (!completeAddress) {
     throw new Error(`Account ${address} not found`);
   }
-  const nodeInfo = await rpc.getNodeInfo();
+  const nodeInfo = await pxe.getNodeInfo();
   const entrypoint = await accountContract.getInterface(completeAddress, nodeInfo);
-  return new AccountWallet(rpc, entrypoint);
+  return new AccountWallet(pxe, entrypoint);
 }

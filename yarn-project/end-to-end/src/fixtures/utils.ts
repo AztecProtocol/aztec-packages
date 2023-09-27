@@ -41,7 +41,7 @@ import {
   TokenPortalBytecode,
 } from '@aztec/l1-artifacts';
 import { NonNativeTokenContract, TokenBridgeContract, TokenContract } from '@aztec/noir-contracts/types';
-import { PXEService, createPXEService, getPXEServiceConfig as getRpcConfigEnvVars } from '@aztec/pxe';
+import { PXEService, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 import { L2BlockL2Logs, LogType, PXE, TxStatus } from '@aztec/types';
 
 import {
@@ -157,8 +157,8 @@ export async function setupPXEService(
    */
   logger: DebugLogger;
 }> {
-  const rpcConfig = getRpcConfigEnvVars();
-  const pxe = await createPXEService(aztecNode, rpcConfig, {}, useLogSuffix);
+  const pxeServiceConfig = getPXEServiceConfig();
+  const pxe = await createPXEService(aztecNode, pxeServiceConfig, {}, useLogSuffix);
 
   const wallets = await createAccounts(pxe, numberOfAccounts);
 

@@ -20,7 +20,7 @@ import {
   RollupAbi,
   RollupBytecode,
 } from '@aztec/l1-artifacts';
-import { createPXEService, getPXEServiceConfig as getRpcConfigEnvVars } from '@aztec/pxe';
+import { createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 
 import { createPublicClient, http as httpViemTransport } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
@@ -78,7 +78,7 @@ export type SandboxConfig = AztecNodeConfig & {
  */
 export async function createSandbox(config: Partial<SandboxConfig> = {}) {
   const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars(), ...config };
-  const pxeServiceConfig = getRpcConfigEnvVars();
+  const pxeServiceConfig = getPXEServiceConfig();
   const hdAccount = mnemonicToAccount(config.l1Mnemonic ?? MNEMONIC);
   const privKey = hdAccount.getHdKey().privateKey;
 

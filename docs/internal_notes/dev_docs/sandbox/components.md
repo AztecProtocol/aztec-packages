@@ -141,7 +141,7 @@ Implementation notes for this milestone:
 
 Implements:
 
-- `P` (The server is a client, when used directly)
+- `PXE` (The server is a client, when used directly)
 
 Injected:
 
