@@ -12,6 +12,8 @@ import {
   PublicCallRequest,
   PublicKey,
   TxContext,
+  nonEmptySideEffects,
+  sideEffectArrayToValueArray,
 } from '@aztec/circuits.js';
 import {
   computeCallStackItemHash,
@@ -177,7 +179,7 @@ describe('Private Execution test suite', () => {
       const result = await runSimulator({ abi, txContext });
 
       const emptyCommitments = new Array(MAX_NEW_COMMITMENTS_PER_CALL).fill(Fr.ZERO);
-      expect(result.callStackItem.publicInputs.newCommitments).toEqual(emptyCommitments);
+      expect(sideEffectArrayToValueArray(result.callStackItem.publicInputs.newCommitments)).toEqual(emptyCommitments);
       expect(result.callStackItem.publicInputs.contractDeploymentData).toEqual(contractDeploymentData);
     });
   });
@@ -273,7 +275,7 @@ describe('Private Execution test suite', () => {
       const newNote = result.newNotes[0];
       expect(newNote.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner.toField(), circuitsWasm));
 
-      const newCommitments = result.callStackItem.publicInputs.newCommitments.filter(field => !field.equals(Fr.ZERO));
+      const newCommitments = sideEffectArrayToValueArray(nonEmptySideEffects(result.callStackItem.publicInputs.newCommitments));
       expect(newCommitments).toHaveLength(1);
 
       const [commitment] = newCommitments;
@@ -291,7 +293,7 @@ describe('Private Execution test suite', () => {
       const newNote = result.newNotes[0];
       expect(newNote.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner.toField(), circuitsWasm));
 
-      const newCommitments = result.callStackItem.publicInputs.newCommitments.filter(field => !field.equals(Fr.ZERO));
+      const newCommitments = sideEffectArrayToValueArray(nonEmptySideEffects(result.callStackItem.publicInputs.newCommitments));
       expect(newCommitments).toHaveLength(1);
 
       const [commitment] = newCommitments;
@@ -319,7 +321,7 @@ describe('Private Execution test suite', () => {
       const result = await runSimulator({ args, abi, msgSender: owner });
 
       // The two notes were nullified
-      const newNullifiers = result.callStackItem.publicInputs.newNullifiers.filter(field => !field.equals(Fr.ZERO));
+      const newNullifiers = sideEffectArrayToValueArray(nonEmptySideEffects(result.callStackItem.publicInputs.newNullifiers));
       expect(newNullifiers).toHaveLength(consumedNotes.length);
       expect(newNullifiers).toEqual(expect.arrayContaining(consumedNotes.map(n => n.innerNullifier)));
 
@@ -327,7 +329,7 @@ describe('Private Execution test suite', () => {
       const [changeNote, recipientNote] = result.newNotes;
       expect(recipientNote.storageSlot).toEqual(recipientStorageSlot);
 
-      const newCommitments = result.callStackItem.publicInputs.newCommitments.filter(field => !field.equals(Fr.ZERO));
+      const newCommitments = sideEffectArrayToValueArray(nonEmptySideEffects(result.callStackItem.publicInputs.newCommitments));
       expect(newCommitments).toHaveLength(2);
 
       const [changeNoteCommitment, recipientNoteCommitment] = newCommitments;
@@ -341,7 +343,7 @@ describe('Private Execution test suite', () => {
       expect(recipientNote.preimage[0]).toEqual(new Fr(amountToTransfer));
       expect(changeNote.preimage[0]).toEqual(new Fr(40n));
 
-      const readRequests = result.callStackItem.publicInputs.readRequests.filter(field => !field.equals(Fr.ZERO));
+      const readRequests = sideEffectArrayToValueArray(nonEmptySideEffects(result.callStackItem.publicInputs.readRequests));
       expect(readRequests).toHaveLength(consumedNotes.length);
       expect(readRequests).toEqual(expect.arrayContaining(consumedNotes.map(n => n.uniqueSiloedNoteHash)));
     });
@@ -364,7 +366,7 @@ describe('Private Execution test suite', () => {
       const args = [amountToTransfer, recipient];
       const result = await runSimulator({ args, abi, msgSender: owner });
 
-      const newNullifiers = result.callStackItem.publicInputs.newNullifiers.filter(field => !field.equals(Fr.ZERO));
+      const newNullifiers = sideEffectArrayToValueArray(nonEmptySideEffects(result.callStackItem.publicInputs.newNullifiers));
       expect(newNullifiers).toEqual(consumedNotes.map(n => n.innerNullifier));
 
       expect(result.newNotes).toHaveLength(2);
@@ -390,11 +392,11 @@ describe('Private Execution test suite', () => {
       });
 
       // Check a nullifier has been inserted.
-      const newNullifiers = result.callStackItem.publicInputs.newNullifiers.filter(field => !field.equals(Fr.ZERO));
+      const newNullifiers = sideEffectArrayToValueArray(nonEmptySideEffects(result.callStackItem.publicInputs.newNullifiers));
       expect(newNullifiers).toHaveLength(1);
 
       // Check the read request was inserted successfully.
-      const readRequests = result.callStackItem.publicInputs.readRequests.filter(field => !field.equals(Fr.ZERO));
+      const readRequests = sideEffectArrayToValueArray(nonEmptySideEffects(result.callStackItem.publicInputs.readRequests));
       const siloedNoteHash = siloCommitment(circuitsWasm, contractAddress, innerNoteHash);
       const uniqueSiloedNoteHash = computeUniqueCommitment(circuitsWasm, nonce, siloedNoteHash);
       expect(readRequests).toEqual([uniqueSiloedNoteHash]);
@@ -492,7 +494,7 @@ describe('Private Execution test suite', () => {
       const newNote = result.newNotes[0];
       expect(newNote.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner.toField(), circuitsWasm));
 
-      const newCommitments = result.callStackItem.publicInputs.newCommitments.filter(field => !field.equals(Fr.ZERO));
+      const newCommitments = sideEffectArrayToValueArray(nonEmptySideEffects(result.callStackItem.publicInputs.newCommitments));
       expect(newCommitments).toHaveLength(1);
 
       const [commitment] = newCommitments;
@@ -510,7 +512,7 @@ describe('Private Execution test suite', () => {
       const newNote = result.newNotes[0];
       expect(newNote.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner.toField(), circuitsWasm));
 
-      const newCommitments = result.callStackItem.publicInputs.newCommitments.filter(field => !field.equals(Fr.ZERO));
+      const newCommitments = sideEffectArrayToValueArray(nonEmptySideEffects(result.callStackItem.publicInputs.newCommitments));
       expect(newCommitments).toHaveLength(1);
 
       const [commitment] = newCommitments;
@@ -538,7 +540,7 @@ describe('Private Execution test suite', () => {
       const result = await runSimulator({ args, abi, msgSender: owner });
 
       // The two notes were nullified
-      const newNullifiers = result.callStackItem.publicInputs.newNullifiers.filter(field => !field.equals(Fr.ZERO));
+      const newNullifiers = sideEffectArrayToValueArray(nonEmptySideEffects(result.callStackItem.publicInputs.newNullifiers));
       expect(newNullifiers).toHaveLength(consumedNotes.length);
       expect(newNullifiers).toEqual(expect.arrayContaining(consumedNotes.map(n => n.innerNullifier)));
 
@@ -546,7 +548,7 @@ describe('Private Execution test suite', () => {
       const [changeNote, recipientNote] = result.newNotes;
       expect(recipientNote.storageSlot).toEqual(recipientStorageSlot);
 
-      const newCommitments = result.callStackItem.publicInputs.newCommitments.filter(field => !field.equals(Fr.ZERO));
+      const newCommitments = sideEffectArrayToValueArray(nonEmptySideEffects(result.callStackItem.publicInputs.newCommitments));
       expect(newCommitments).toHaveLength(2);
 
       const [changeNoteCommitment, recipientNoteCommitment] = newCommitments;
@@ -560,7 +562,7 @@ describe('Private Execution test suite', () => {
       expect(recipientNote.preimage[0]).toEqual(new Fr(amountToTransfer));
       expect(changeNote.preimage[0]).toEqual(new Fr(40n));
 
-      const readRequests = result.callStackItem.publicInputs.readRequests.filter(field => !field.equals(Fr.ZERO));
+      const readRequests = sideEffectArrayToValueArray(nonEmptySideEffects(result.callStackItem.publicInputs.readRequests));
       expect(readRequests).toHaveLength(consumedNotes.length);
       expect(readRequests).toEqual(expect.arrayContaining(consumedNotes.map(n => n.uniqueSiloedNoteHash)));
     });
@@ -583,7 +585,7 @@ describe('Private Execution test suite', () => {
       const args = [recipient, amountToTransfer];
       const result = await runSimulator({ args, abi, msgSender: owner });
 
-      const newNullifiers = result.callStackItem.publicInputs.newNullifiers.filter(field => !field.equals(Fr.ZERO));
+      const newNullifiers = sideEffectArrayToValueArray(nonEmptySideEffects(result.callStackItem.publicInputs.newNullifiers));
       expect(newNullifiers).toEqual(consumedNotes.map(n => n.innerNullifier));
 
       expect(result.newNotes).toHaveLength(2);
@@ -718,7 +720,7 @@ describe('Private Execution test suite', () => {
       const result = await runSimulator({ contractAddress, abi, args });
 
       // Check a nullifier has been inserted
-      const newNullifiers = result.callStackItem.publicInputs.newNullifiers.filter(field => !field.equals(Fr.ZERO));
+      const newNullifiers = sideEffectArrayToValueArray(nonEmptySideEffects(result.callStackItem.publicInputs.newNullifiers));
       expect(newNullifiers).toHaveLength(1);
     });
 
@@ -742,11 +744,11 @@ describe('Private Execution test suite', () => {
       });
 
       // Check a nullifier has been inserted.
-      const newNullifiers = result.callStackItem.publicInputs.newNullifiers.filter(field => !field.equals(Fr.ZERO));
+      const newNullifiers = sideEffectArrayToValueArray(nonEmptySideEffects(result.callStackItem.publicInputs.newNullifiers));
       expect(newNullifiers).toHaveLength(1);
 
       // Check the commitment read request was created successfully.
-      const readRequests = result.callStackItem.publicInputs.readRequests.filter(field => !field.equals(Fr.ZERO));
+      const readRequests = sideEffectArrayToValueArray(nonEmptySideEffects(result.callStackItem.publicInputs.readRequests));
       expect(readRequests).toHaveLength(1);
       expect(readRequests[0]).toEqual(siloedNoteHash);
     });
@@ -787,6 +789,7 @@ describe('Private Execution test suite', () => {
           isContractDeployment: false,
           isDelegateCall: false,
           isStaticCall: false,
+          startSideEffectCounter: Fr.ZERO, // TODO(dbanks12): set this to the right value
         }),
         sideEffectCounter: 0,
       });
@@ -843,7 +846,7 @@ describe('Private Execution test suite', () => {
 
       expect(note.preimage[0]).toEqual(new Fr(amountToTransfer));
 
-      const newCommitments = result.callStackItem.publicInputs.newCommitments.filter(field => !field.equals(Fr.ZERO));
+      const newCommitments = sideEffectArrayToValueArray(nonEmptySideEffects(result.callStackItem.publicInputs.newCommitments));
       expect(newCommitments).toHaveLength(1);
 
       const commitment = newCommitments[0];
@@ -852,13 +855,13 @@ describe('Private Execution test suite', () => {
       expect(commitment).toEqual(innerNoteHash);
 
       // read request should match innerNoteHash for pending notes (there is no nonce, so can't compute "unique" hash)
-      const readRequest = result.callStackItem.publicInputs.readRequests[0];
+      const readRequest = result.callStackItem.publicInputs.readRequests[0].value;
       expect(readRequest).toEqual(innerNoteHash);
 
       const gotNoteValue = result.callStackItem.publicInputs.returnValues[0].value;
       expect(gotNoteValue).toEqual(amountToTransfer);
 
-      const nullifier = result.callStackItem.publicInputs.newNullifiers[0];
+      const nullifier = result.callStackItem.publicInputs.newNullifiers[0].value;
       expect(nullifier).toEqual(
         await acirSimulator.computeInnerNullifier(contractAddress, Fr.ZERO, note.storageSlot, note.preimage),
       );
@@ -909,9 +912,7 @@ describe('Private Execution test suite', () => {
 
       expect(note.preimage[0]).toEqual(new Fr(amountToTransfer));
 
-      const newCommitments = execInsert.callStackItem.publicInputs.newCommitments.filter(
-        field => !field.equals(Fr.ZERO),
-      );
+      const newCommitments = sideEffectArrayToValueArray(nonEmptySideEffects(execInsert.callStackItem.publicInputs.newCommitments));
       expect(newCommitments).toHaveLength(1);
 
       const commitment = newCommitments[0];
@@ -920,14 +921,14 @@ describe('Private Execution test suite', () => {
       expect(commitment).toEqual(innerNoteHash);
 
       // read request should match innerNoteHash for pending notes (there is no nonce, so can't compute "unique" hash)
-      const readRequest = execGetThenNullify.callStackItem.publicInputs.readRequests[0];
+      const readRequest = execGetThenNullify.callStackItem.publicInputs.readRequests[0].value;
       expect(readRequest).toEqual(innerNoteHash);
 
       const gotNoteValue = execGetThenNullify.callStackItem.publicInputs.returnValues[0].value;
       expect(gotNoteValue).toEqual(amountToTransfer);
 
       const nonce = Fr.ZERO;
-      const nullifier = execGetThenNullify.callStackItem.publicInputs.newNullifiers[0];
+      const nullifier = execGetThenNullify.callStackItem.publicInputs.newNullifiers[0].value;
       expect(nullifier).toEqual(
         await acirSimulator.computeInnerNullifier(contractAddress, nonce, note.storageSlot, note.preimage),
       );
@@ -958,7 +959,7 @@ describe('Private Execution test suite', () => {
 
       expect(note.preimage[0]).toEqual(new Fr(amountToTransfer));
 
-      const newCommitments = result.callStackItem.publicInputs.newCommitments.filter(field => !field.equals(Fr.ZERO));
+      const newCommitments = sideEffectArrayToValueArray(nonEmptySideEffects(result.callStackItem.publicInputs.newCommitments));
       expect(newCommitments).toHaveLength(1);
 
       const commitment = newCommitments[0];
@@ -966,7 +967,7 @@ describe('Private Execution test suite', () => {
       expect(commitment).toEqual(await acirSimulator.computeInnerNoteHash(contractAddress, storageSlot, note.preimage));
 
       // read requests should be empty
-      const readRequest = result.callStackItem.publicInputs.readRequests[0].value;
+      const readRequest = result.callStackItem.publicInputs.readRequests[0].value.value; // .value once to get Fr from SideEffect, twice to get inner value from Fr
       expect(readRequest).toEqual(0n);
 
       // should get note value 0 because it actually gets a fake note since the real one hasn't been inserted yet!
@@ -974,7 +975,7 @@ describe('Private Execution test suite', () => {
       expect(gotNoteValue).toEqual(0n);
 
       // there should be no nullifiers
-      const nullifier = result.callStackItem.publicInputs.newNullifiers[0].value;
+      const nullifier = result.callStackItem.publicInputs.newNullifiers[0].value.value; // .value once to get Fr from SideEffect, twice to get inner value from Fr
       expect(nullifier).toEqual(0n);
     });
   });

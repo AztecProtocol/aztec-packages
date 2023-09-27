@@ -16,6 +16,9 @@ import {
   PrivateCircuitPublicInputs,
   PublicCircuitPublicInputs,
   RETURN_VALUES_LENGTH,
+  SideEffect,
+  SideEffectLinkedToNoteHash,
+  SideEffectWithRange,
 } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -101,6 +104,45 @@ export class PublicInputsReader {
     }
     return array as Tuple<Fr, N>;
   }
+
+  /**
+   * Reads an array of SideEffects from the public inputs.
+   * @param length - The length of the array.
+   * @returns The array of SideEffects.
+   */
+  public readSideEffectArray<N extends number>(length: N): Tuple<SideEffect, N> {
+    const array: SideEffect[] = [];
+    for (let i = 0; i < length; i++) {
+      array.push(new SideEffect(this.readField(), this.readField()));
+    }
+    return array as Tuple<SideEffect, N>;
+  }
+
+  /**
+   * Reads an array of SideEffectLinkedToNoteHashes from the public inputs.
+   * @param length - The length of the array.
+   * @returns The array of SideEffectLinkedToNoteHashes.
+   */
+  public readSideEffectLinkedToNoteHashArray<N extends number>(length: N): Tuple<SideEffectLinkedToNoteHash, N> {
+    const array: SideEffectLinkedToNoteHash[] = [];
+    for (let i = 0; i < length; i++) {
+      array.push(new SideEffectLinkedToNoteHash(this.readField(), this.readField(), this.readField()));
+    }
+    return array as Tuple<SideEffectLinkedToNoteHash, N>;
+  }
+
+  /**
+   * Reads an array of SideEffectWithRanges from the public inputs.
+   * @param length - The length of the array.
+   * @returns The array of SideEffectWithRanges.
+   */
+  public readSideEffectWithRangeArray<N extends number>(length: N): Tuple<SideEffectWithRange, N> {
+    const array: SideEffectWithRange[] = [];
+    for (let i = 0; i < length; i++) {
+      array.push(new SideEffectWithRange(this.readField(), this.readField(), this.readField()));
+    }
+    return array as Tuple<SideEffectWithRange, N>;
+  }
 }
 
 /**
@@ -122,17 +164,18 @@ export function extractPrivateCircuitPublicInputs(
     frToBoolean(witnessReader.readField()),
     frToBoolean(witnessReader.readField()),
     frToBoolean(witnessReader.readField()),
+    witnessReader.readField(),
   );
 
   const argsHash = witnessReader.readField();
   const returnValues = witnessReader.readFieldArray(RETURN_VALUES_LENGTH);
-  const readRequests = witnessReader.readFieldArray(MAX_READ_REQUESTS_PER_CALL);
-  const newCommitments = witnessReader.readFieldArray(MAX_NEW_COMMITMENTS_PER_CALL);
-  const newNullifiers = witnessReader.readFieldArray(MAX_NEW_NULLIFIERS_PER_CALL);
+  const readRequests = witnessReader.readSideEffectArray(MAX_READ_REQUESTS_PER_CALL);
+  const newCommitments = witnessReader.readSideEffectArray(MAX_NEW_COMMITMENTS_PER_CALL);
+  const newNullifiers = witnessReader.readSideEffectLinkedToNoteHashArray(MAX_NEW_NULLIFIERS_PER_CALL);
   const nullifiedCommitments = witnessReader.readFieldArray(MAX_NEW_NULLIFIERS_PER_CALL);
-  const privateCallStack = witnessReader.readFieldArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL);
-  const publicCallStack = witnessReader.readFieldArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
-  const newL2ToL1Msgs = witnessReader.readFieldArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL);
+  const privateCallStack = witnessReader.readSideEffectWithRangeArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL);
+  const publicCallStack = witnessReader.readSideEffectWithRangeArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
+  const newL2ToL1Msgs = witnessReader.readSideEffectArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL);
 
   const encryptedLogsHash = witnessReader.readFieldArray(NUM_FIELDS_PER_SHA256);
   const unencryptedLogsHash = witnessReader.readFieldArray(NUM_FIELDS_PER_SHA256);
@@ -199,6 +242,7 @@ export function extractPublicCircuitPublicInputs(partialWitness: ACVMWitness, ac
     frToBoolean(witnessReader.readField()),
     frToBoolean(witnessReader.readField()),
     frToBoolean(witnessReader.readField()),
+    witnessReader.readField(),
   );
 
   const argsHash = witnessReader.readField();
@@ -221,10 +265,10 @@ export function extractPublicCircuitPublicInputs(partialWitness: ACVMWitness, ac
     contractStorageReads[i] = request;
   }
 
-  const publicCallStack = witnessReader.readFieldArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
-  const newCommitments = witnessReader.readFieldArray(MAX_NEW_COMMITMENTS_PER_CALL);
-  const newNullifiers = witnessReader.readFieldArray(MAX_NEW_NULLIFIERS_PER_CALL);
-  const newL2ToL1Msgs = witnessReader.readFieldArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL);
+  const publicCallStack = witnessReader.readSideEffectWithRangeArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
+  const newCommitments = witnessReader.readSideEffectArray(MAX_NEW_COMMITMENTS_PER_CALL);
+  const newNullifiers = witnessReader.readSideEffectLinkedToNoteHashArray(MAX_NEW_NULLIFIERS_PER_CALL);
+  const newL2ToL1Msgs = witnessReader.readSideEffectArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL);
 
   const unencryptedLogsHash = witnessReader.readFieldArray(NUM_FIELDS_PER_SHA256);
   const unencryptedLogPreimagesLength = witnessReader.readField();

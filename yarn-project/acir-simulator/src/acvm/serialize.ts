@@ -15,6 +15,7 @@ import { ACVMField, toACVMField } from './acvm.js';
 // Utilities to write TS classes to ACVM Field arrays
 // In the order that the ACVM expects them
 
+
 /**
  * Converts a function data to ACVM fields.
  * @param functionData - The function data to convert.
@@ -89,13 +90,13 @@ export function toACVMPublicInputs(publicInputs: PrivateCircuitPublicInputs): AC
     toACVMField(publicInputs.argsHash),
 
     ...publicInputs.returnValues.map(toACVMField),
-    ...publicInputs.readRequests.map(toACVMField),
-    ...publicInputs.newCommitments.map(toACVMField),
-    ...publicInputs.newNullifiers.map(toACVMField),
+    ...publicInputs.readRequests.flatMap(x => x.toFieldArray().map(toACVMField)),
+    ...publicInputs.newCommitments.flatMap(x => x.toFieldArray().map(toACVMField)),
+    ...publicInputs.newNullifiers.flatMap(x => x.toFieldArray().map(toACVMField)),
     ...publicInputs.nullifiedCommitments.map(toACVMField),
-    ...publicInputs.privateCallStack.map(toACVMField),
-    ...publicInputs.publicCallStack.map(toACVMField),
-    ...publicInputs.newL2ToL1Msgs.map(toACVMField),
+    ...publicInputs.privateCallStack.flatMap(x => x.toFieldArray().map(toACVMField)),
+    ...publicInputs.publicCallStack.flatMap(x => x.toFieldArray().map(toACVMField)),
+    ...publicInputs.newL2ToL1Msgs.flatMap(x => x.toFieldArray().map(toACVMField)),
     ...publicInputs.encryptedLogsHash.map(toACVMField),
     ...publicInputs.unencryptedLogsHash.map(toACVMField),
 

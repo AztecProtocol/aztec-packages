@@ -3,11 +3,26 @@ import { BufferReader } from '@aztec/foundation/serialize';
 import { serializeToBuffer } from '../utils/serialize.js';
 import { Fr } from './index.js';
 
+
+/**
+ * Essential members and functions of all SideEffect variants
+ */
+interface SideEffectType {
+  /** The actual value associated with the SideEffect */
+  value: Fr,
+  /** Convert to a buffer */
+  toBuffer(): Buffer;
+  /** Convert to a field array */
+  toFieldArray(): Fr[];
+  /** Are all of the fields of the SideEffect zero? */
+  isEmpty(): boolean;
+}
+
 /**
  * Side-effect object consisting of a value and a counter.
  * cpp/src/aztec3/circuits/abis/side_effects.hpp.
  */
-export class SideEffect {
+export class SideEffect implements SideEffectType {
   constructor(
     /**
      * The value of the side-effect object.
@@ -25,6 +40,14 @@ export class SideEffect {
    */
   toBuffer(): Buffer {
     return serializeToBuffer(this.value, this.sideEffectCounter);
+  }
+
+  /**
+   * Convert to an array of fields.
+   * @returns The array of fields.
+   */
+  toFieldArray(): Fr[] {
+    return [this.value, this.sideEffectCounter];
   }
 
   /**
@@ -52,13 +75,14 @@ export class SideEffect {
     const reader = BufferReader.asReader(buffer);
     return new SideEffect(reader.readFr(), reader.readFr());
   }
+
 }
 
 /**
  * Side-effect object consisting of a value, a start counter and an end counter.
  * cpp/src/aztec3/circuits/abis/side_effects.hpp.
  */
-export class SideEffectWithRange {
+export class SideEffectWithRange implements SideEffectType {
   constructor(
     /**
      * The value of the side-effect object.
@@ -80,6 +104,14 @@ export class SideEffectWithRange {
    */
   toBuffer(): Buffer {
     return serializeToBuffer(this.value, this.startSideEffectCounter, this.endSideEffectCounter);
+  }
+
+  /**
+   * Convert to an array of fields.
+   * @returns The array of fields.
+   */
+  toFieldArray(): Fr[] {
+    return [this.value, this.startSideEffectCounter, this.endSideEffectCounter];
   }
 
   /**
@@ -113,7 +145,7 @@ export class SideEffectWithRange {
  * Side-effect object consisting of a value, a start counter and an end counter.
  * cpp/src/aztec3/circuits/abis/side_effects.hpp.
  */
-export class SideEffectLinkedToNoteHash {
+export class SideEffectLinkedToNoteHash implements SideEffectType {
   constructor(
     /**
      * The value of the side-effect object.
@@ -135,6 +167,14 @@ export class SideEffectLinkedToNoteHash {
    */
   toBuffer(): Buffer {
     return serializeToBuffer(this.value, this.noteHash, this.sideEffectCounter);
+  }
+
+  /**
+   * Convert to an array of fields.
+   * @returns The array of fields.
+   */
+  toFieldArray(): Fr[] {
+    return [this.value, this.noteHash, this.sideEffectCounter];
   }
 
   /**
@@ -162,4 +202,23 @@ export class SideEffectLinkedToNoteHash {
     const reader = BufferReader.asReader(buffer);
     return new SideEffectLinkedToNoteHash(reader.readFr(), reader.readFr(), reader.readFr());
   }
+
+}
+
+/**
+ * Convert an array of side effects to an array only non-empty side effects.
+ * @param sideEffects - array to be converted
+ * @returns the array of the non-empty side effects
+ */
+export function nonEmptySideEffects(sideEffects: SideEffectType[]): SideEffectType[]{
+  return sideEffects.filter!(sideEffect => !sideEffect.isEmpty());
+}
+
+/**
+ * Convert an array of side effects to an array of their values.
+ * @param sideEffects - array to be converted
+ * @returns the array of field values (excluding SideEffect metadata like counter)
+ */
+export function sideEffectArrayToValueArray(sideEffects: SideEffectType[]): Fr[] {
+  return sideEffects.map(sideEffect => sideEffect.value);
 }

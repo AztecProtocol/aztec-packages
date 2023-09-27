@@ -83,6 +83,7 @@ export class AcirSimulator {
       false,
       false,
       request.functionData.isConstructor,
+      Fr.ZERO, // TODO(dbanks12): need to pass in the correct value here
     );
 
     const execution = new PrivateFunctionExecution(
@@ -139,6 +140,7 @@ export class AcirSimulator {
       false,
       false,
       request.functionData.isConstructor,
+      Fr.ZERO, // TODO(dbanks12): need to pass in the correct value here
     );
 
     const execution = new UnconstrainedFunctionExecution(

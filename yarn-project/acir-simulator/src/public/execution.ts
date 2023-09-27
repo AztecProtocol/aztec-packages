@@ -7,6 +7,8 @@ import {
   FunctionData,
   PublicDataRead,
   PublicDataUpdateRequest,
+  SideEffect,
+  SideEffectLinkedToNoteHash,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeIndex, computePublicDataTreeValue } from '@aztec/circuits.js/abis';
 import { IWasmModule } from '@aztec/foundation/wasm';
@@ -21,11 +23,11 @@ export interface PublicExecutionResult {
   /** The return values of the function. */
   returnValues: Fr[];
   /** The new commitments to be inserted into the commitments tree. */
-  newCommitments: Fr[];
+  newCommitments: SideEffect[];
   /** The new l2 to l1 messages generated in this call. */
-  newL2ToL1Messages: Fr[];
+  newL2ToL1Messages: SideEffect[];
   /** The new nullifiers to be inserted into the nullifier tree. */
-  newNullifiers: Fr[];
+  newNullifiers: SideEffectLinkedToNoteHash[];
   /** The contract storage reads performed by the function. */
   contractStorageReads: ContractStorageRead[];
   /** The contract storage update requests performed by the function. */

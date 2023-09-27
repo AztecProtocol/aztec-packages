@@ -74,6 +74,7 @@ describe('ACIR public execution simulator', () => {
           isContractDeployment: false,
           isDelegateCall: false,
           isStaticCall: false,
+          startSideEffectCounter: Fr.ZERO,
         });
 
         publicContracts.getBytecode.mockResolvedValue(Buffer.from(mintAbi.bytecode, 'base64'));
@@ -122,6 +123,7 @@ describe('ACIR public execution simulator', () => {
           isContractDeployment: false,
           isDelegateCall: false,
           isStaticCall: false,
+          startSideEffectCounter: Fr.ZERO,
         });
 
         recipientStorageSlot = computeSlotForMapping(new Fr(1n), recipient.toField(), circuitsWasm);
@@ -226,6 +228,7 @@ describe('ACIR public execution simulator', () => {
           isContractDeployment: false,
           isDelegateCall: false,
           isStaticCall: false,
+          startSideEffectCounter: Fr.ZERO,
         });
 
         // eslint-disable-next-line require-await
@@ -294,6 +297,7 @@ describe('ACIR public execution simulator', () => {
         isContractDeployment: false,
         isDelegateCall: false,
         isStaticCall: false,
+        startSideEffectCounter: Fr.ZERO,
       });
 
       publicContracts.getBytecode.mockResolvedValue(Buffer.from(shieldAbi.bytecode, 'base64'));
@@ -326,6 +330,7 @@ describe('ACIR public execution simulator', () => {
         isContractDeployment: false,
         isDelegateCall: false,
         isStaticCall: false,
+        startSideEffectCounter: Fr.ZERO,
       });
 
       publicContracts.getBytecode.mockResolvedValue(Buffer.from(createL2ToL1MessagePublicAbi.bytecode, 'base64'));
@@ -378,6 +383,7 @@ describe('ACIR public execution simulator', () => {
         isContractDeployment: false,
         isDelegateCall: false,
         isStaticCall: false,
+        startSideEffectCounter: Fr.ZERO,
       });
 
       publicContracts.getBytecode.mockResolvedValue(Buffer.from(mintPublicAbi.bytecode, 'base64'));
@@ -410,6 +416,7 @@ describe('ACIR public execution simulator', () => {
         isContractDeployment: false,
         isDelegateCall: false,
         isStaticCall: false,
+        startSideEffectCounter: Fr.ZERO,
       });
 
       publicContracts.getBytecode.mockResolvedValue(Buffer.from(createNullifierPublicAbi.bytecode, 'base64'));

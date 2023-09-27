@@ -240,6 +240,7 @@ export class PrivateFunctionExecution {
       this.callContext.isDelegateCall,
       this.callContext.isStaticCall,
       this.callContext.isContractDeployment,
+      this.callContext.startSideEffectCounter,
 
       ...blockData.toArray(),
 
@@ -252,6 +253,8 @@ export class PrivateFunctionExecution {
 
       this.context.txContext.chainId,
       this.context.txContext.version,
+
+      this.sideEffectCounter,
 
       ...this.context.packedArgsCache.unpack(this.argsHash),
     ];
@@ -350,6 +353,7 @@ export class PrivateFunctionExecution {
       isDelegateCall,
       isStaticCall,
       false,
+      Fr.ZERO, // TODO(dbanks12): need to pass in the correct value here
     );
   }
 }

@@ -437,7 +437,6 @@ impl PrivateContext {
             end_side_effect_counter: self.side_effect_counter,
         };
         self.public_call_stack.push(side_effect);
-        self.private_call_stack.push(side_effect);
     }
 }
 

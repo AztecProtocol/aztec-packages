@@ -1,4 +1,4 @@
-import { CircuitsWasm, HistoricBlockData, ReadRequestMembershipWitness, TxContext } from '@aztec/circuits.js';
+import { CircuitsWasm, HistoricBlockData, ReadRequestMembershipWitness, SideEffect, TxContext } from '@aztec/circuits.js';
 import { computeUniqueCommitment, siloCommitment } from '@aztec/circuits.js/abis';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
@@ -96,11 +96,11 @@ export class ClientTxExecutionContext {
    * @param readRequests - Note hashed of the notes being read.
    * @returns An array of partially filled in read request membership witnesses.
    */
-  public getReadRequestPartialWitnesses(readRequests: Fr[]) {
+  public getReadRequestPartialWitnesses(readRequests: SideEffect[]) {
     return readRequests
-      .filter(r => !r.isZero())
+      .filter(r => !r.isEmpty())
       .map(r => {
-        const index = this.gotNotes.get(r.value);
+        const index = this.gotNotes.get(r.value.value); // .value once for field in SideEffect, second time for bigint value of field
         return index !== undefined
           ? ReadRequestMembershipWitness.empty(index)
           : ReadRequestMembershipWitness.emptyTransient();
