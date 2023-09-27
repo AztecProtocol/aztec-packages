@@ -54,15 +54,15 @@ export class BlankContract extends ContractBase {
   /**
    * Creates a tx to deploy a new instance of this contract.
    */
-  public static deploy(rpc: PXE) {
-    return new DeployMethod<BlankContract>(Point.ZERO, rpc, BlankContractAbi, Array.from(arguments).slice(1));
+  public static deploy(pxe: PXE) {
+    return new DeployMethod<BlankContract>(Point.ZERO, pxe, BlankContractAbi, Array.from(arguments).slice(1));
   }
 
   /**
    * Creates a tx to deploy a new instance of this contract using the specified public key to derive the address.
    */
-  public static deployWithPublicKey(rpc: PXE, publicKey: PublicKey) {
-    return new DeployMethod<BlankContract>(publicKey, rpc, BlankContractAbi, Array.from(arguments).slice(2));
+  public static deployWithPublicKey(pxe: PXE, publicKey: PublicKey) {
+    return new DeployMethod<BlankContract>(publicKey, pxe, BlankContractAbi, Array.from(arguments).slice(2));
   }
 
   /**

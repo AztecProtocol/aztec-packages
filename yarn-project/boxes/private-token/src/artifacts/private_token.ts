@@ -54,10 +54,10 @@ export class PrivateTokenContract extends ContractBase {
   /**
    * Creates a tx to deploy a new instance of this contract.
    */
-  public static deploy(rpc: PXE, initial_supply: FieldLike, owner: FieldLike) {
+  public static deploy(pxe: PXE, initial_supply: FieldLike, owner: FieldLike) {
     return new DeployMethod<PrivateTokenContract>(
       Point.ZERO,
-      rpc,
+      pxe,
       PrivateTokenContractAbi,
       Array.from(arguments).slice(1),
     );
@@ -66,10 +66,10 @@ export class PrivateTokenContract extends ContractBase {
   /**
    * Creates a tx to deploy a new instance of this contract using the specified public key to derive the address.
    */
-  public static deployWithPublicKey(rpc: PXE, publicKey: PublicKey, initial_supply: FieldLike, owner: FieldLike) {
+  public static deployWithPublicKey(pxe: PXE, publicKey: PublicKey, initial_supply: FieldLike, owner: FieldLike) {
     return new DeployMethod<PrivateTokenContract>(
       publicKey,
-      rpc,
+      pxe,
       PrivateTokenContractAbi,
       Array.from(arguments).slice(2),
     );

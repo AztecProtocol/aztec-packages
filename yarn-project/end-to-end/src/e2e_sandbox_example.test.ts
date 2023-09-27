@@ -73,7 +73,7 @@ describe('e2e_sandbox_example', () => {
     await tokenContractAlice.methods.redeem_shield(alice, initialSupply, secret).send().wait();
     // docs:end:Deployment
 
-    // ensure that token contract is registered in the rpc
+    // ensure that token contract is registered in PXE
     expect(await pxe.getContracts()).toEqual(expect.arrayContaining([contract.address]));
 
     // docs:start:Balance

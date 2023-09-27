@@ -3,7 +3,7 @@ import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 
 /**
- * Configuration settings for the RPC Server.
+ * Configuration settings for the PXE Service.
  */
 export interface PXEServiceConfig {
   /**
@@ -13,9 +13,9 @@ export interface PXEServiceConfig {
 }
 
 /**
- * Creates an instance of SequencerClientConfig out of environment variables using sensible defaults for integration testing if not set.
+ * Creates an instance of PXEServiceConfig out of environment variables using sensible defaults for integration testing if not set.
  */
-export function getConfigEnvVars(): PXEServiceConfig {
+export function getPXEServiceConfig(): PXEServiceConfig {
   const { PXE_SERVICE_BLOCK_POLLING_INTERVAL_MS } = process.env;
 
   return {

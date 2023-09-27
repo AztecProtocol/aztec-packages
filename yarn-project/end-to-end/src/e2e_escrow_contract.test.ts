@@ -35,7 +35,7 @@ describe('e2e_escrow_contract', () => {
     owner = accounts[0].address;
     recipient = accounts[1].address;
 
-    // Generate private key for escrow contract, register key in rpc server, and deploy
+    // Generate private key for escrow contract, register key in pxe service, and deploy
     // Note that we need to register it first if we want to emit an encrypted note for it in the constructor
     escrowPrivateKey = GrumpkinScalar.random();
     escrowPublicKey = await generatePublicKey(escrowPrivateKey);

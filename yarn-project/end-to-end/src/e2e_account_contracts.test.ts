@@ -19,7 +19,7 @@ import { setup } from './fixtures/utils.js';
 function itShouldBehaveLikeAnAccountContract(
   getAccountContract: (encryptionKey: GrumpkinPrivateKey) => AccountContract,
   walletSetup: (
-    rpc: PXE,
+    pxe: PXE,
     encryptionPrivateKey: GrumpkinPrivateKey,
     accountContract: AccountContract,
     address?: CompleteAddress,
@@ -77,12 +77,12 @@ function itShouldBehaveLikeAnAccountContract(
 
 describe('e2e_account_contracts', () => {
   const base = async (
-    rpc: PXE,
+    pxe: PXE,
     encryptionPrivateKey: GrumpkinPrivateKey,
     accountContract: AccountContract,
     address?: CompleteAddress,
   ) => {
-    const account = new AccountManager(rpc, encryptionPrivateKey, accountContract, address);
+    const account = new AccountManager(pxe, encryptionPrivateKey, accountContract, address);
     const wallet = !address ? await account.deploy().then(tx => tx.getWallet()) : await account.getWallet();
     return { account, wallet };
   };

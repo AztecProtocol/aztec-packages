@@ -81,11 +81,11 @@ export async function callContractFunction(
   abi: ContractAbi,
   functionName: string,
   typedArgs: any[], // for the exposed functions, this is an array of field elements Fr[]
-  rpc: PXE,
+  pxe: PXE,
   wallet: CompleteAddress,
 ): Promise<FieldsOf<TxReceipt>> {
   // selectedWallet is how we specify the "sender" of the transaction
-  const selectedWallet = await getWallet(wallet, rpc);
+  const selectedWallet = await getWallet(wallet, pxe);
 
   // TODO: switch to the generated typescript class?
   const contract = await Contract.at(address, abi, selectedWallet);
@@ -100,11 +100,11 @@ export async function callContractFunction(
  * while the "wallet" has the account's private key and is used to sign transactions
  * we need the "wallet" to actually submit transactions using the "account" identity
  * @param account
- * @param rpc
+ * @param pxe
  * @returns
  */
-export async function getWallet(account: CompleteAddress, rpc: PXE): Promise<AccountWallet> {
-  const accountWallets: AccountWallet[] = await getSandboxAccountsWallets(rpc);
+export async function getWallet(account: CompleteAddress, pxe: PXE): Promise<AccountWallet> {
+  const accountWallets: AccountWallet[] = await getSandboxAccountsWallets(pxe);
   const selectedWallet: AccountWallet = accountWallets.find(w => w.getAddress().equals(account.address))!;
   if (!selectedWallet) {
     throw new Error(`Wallet for account ${account.address.toShortString()} not found in the RPC server.`);

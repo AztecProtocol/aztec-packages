@@ -7,11 +7,11 @@ export async function callContractFunction(
   abi: ContractAbi,
   functionName: string,
   typedArgs: any[], // for the exposed functions, this is an array of field elements Fr[]
-  rpc: PXE,
+  pxe: PXE,
   wallet: CompleteAddress,
 ) {
   // selectedWallet is how we specify the "sender" of the transaction
-  const selectedWallet = await getWallet(wallet, rpc);
+  const selectedWallet = await getWallet(wallet, pxe);
 
   // TODO: switch to the generated typescript class?
   const contract = await Contract.at(address, abi, selectedWallet);

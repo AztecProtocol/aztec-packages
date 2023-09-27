@@ -41,7 +41,7 @@ import {
   TokenPortalBytecode,
 } from '@aztec/l1-artifacts';
 import { NonNativeTokenContract, TokenBridgeContract, TokenContract } from '@aztec/noir-contracts/types';
-import { PXEService, createPXEService, getConfigEnvVars as getRpcConfigEnvVars } from '@aztec/pxe';
+import { PXEService, createPXEService, getPXEServiceConfig as getRpcConfigEnvVars } from '@aztec/pxe';
 import { L2BlockL2Logs, LogType, PXE, TxStatus } from '@aztec/types';
 
 import {
@@ -158,13 +158,13 @@ export async function setupPXEService(
   logger: DebugLogger;
 }> {
   const rpcConfig = getRpcConfigEnvVars();
-  const rpc = await createPXEService(aztecNode, rpcConfig, {}, useLogSuffix);
+  const pxe = await createPXEService(aztecNode, rpcConfig, {}, useLogSuffix);
 
-  const wallets = await createAccounts(rpc, numberOfAccounts);
+  const wallets = await createAccounts(pxe, numberOfAccounts);
 
   return {
-    pxe: rpc!,
-    accounts: await rpc!.getRegisteredAccounts(),
+    pxe,
+    accounts: await pxe.getRegisteredAccounts(),
     wallets,
     logger,
   };
@@ -532,7 +532,7 @@ export const expectsNumOfEncryptedLogsInTheLastBlockToBe = async (
   numEncryptedLogs: number,
 ) => {
   if (!aztecNode) {
-    // An api for retrieving encrypted logs does not exist on the rpc server so we have to use the node
+    // An api for retrieving encrypted logs does not exist on the PXE Service so we have to use the node
     // This means we can't perform this check if there is no node
     return;
   }
@@ -544,15 +544,15 @@ export const expectsNumOfEncryptedLogsInTheLastBlockToBe = async (
 
 /**
  * Checks that the last block contains the given expected unencrypted log messages.
- * @param rpc - The instance of PXE for retrieving the logs.
+ * @param pxe - The instance of PXE for retrieving the logs.
  * @param logMessages - The set of expected log messages.
  */
-export const expectUnencryptedLogsFromLastBlockToBe = async (rpc: PXE, logMessages: string[]) => {
+export const expectUnencryptedLogsFromLastBlockToBe = async (pxe: PXE, logMessages: string[]) => {
   // docs:start:get_logs
   // Get the latest block number to retrieve logs from
-  const l2BlockNum = await rpc.getBlockNumber();
+  const l2BlockNum = await pxe.getBlockNumber();
   // Get the unencrypted logs from the last block
-  const unencryptedLogs = await rpc.getUnencryptedLogs(l2BlockNum, 1);
+  const unencryptedLogs = await pxe.getUnencryptedLogs(l2BlockNum, 1);
   // docs:end:get_logs
   const unrolledLogs = L2BlockL2Logs.unrollLogs(unencryptedLogs);
   const asciiLogs = unrolledLogs.map(log => log.toString('ascii'));

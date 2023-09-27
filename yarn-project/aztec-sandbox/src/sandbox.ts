@@ -20,7 +20,7 @@ import {
   RollupAbi,
   RollupBytecode,
 } from '@aztec/l1-artifacts';
-import { createPXEService, getConfigEnvVars as getRpcConfigEnvVars } from '@aztec/pxe';
+import { createPXEService, getPXEServiceConfig as getRpcConfigEnvVars } from '@aztec/pxe';
 
 import { createPublicClient, http as httpViemTransport } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
@@ -78,7 +78,7 @@ export type SandboxConfig = AztecNodeConfig & {
  */
 export async function createSandbox(config: Partial<SandboxConfig> = {}) {
   const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars(), ...config };
-  const rpcConfig = getRpcConfigEnvVars();
+  const pxeServiceConfig = getRpcConfigEnvVars();
   const hdAccount = mnemonicToAccount(config.l1Mnemonic ?? MNEMONIC);
   const privKey = hdAccount.getHdKey().privateKey;
 
@@ -116,12 +116,12 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
   aztecNodeConfig.l1Contracts.registryAddress = l1Contracts.l1ContractAddresses.registryAddress;
 
   const node = await AztecNodeService.createAndSync(aztecNodeConfig);
-  const rpcServer = await createPXEService(node, rpcConfig);
+  const pxe = await createPXEService(node, pxeServiceConfig);
 
   const stop = async () => {
-    await rpcServer.stop();
+    await pxe.stop();
     await node.stop();
   };
 
-  return { node, rpcServer, l1Contracts, stop };
+  return { node, pxe, l1Contracts, stop };
 }

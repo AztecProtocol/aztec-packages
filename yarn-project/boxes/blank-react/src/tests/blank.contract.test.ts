@@ -14,7 +14,7 @@ import {
 } from '@aztec/aztec.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 
-const logger = createDebugLogger('aztec:http-rpc-client');
+const logger = createDebugLogger('aztec:http-pxe-client');
 
 // assumes sandbox is running locally, which this script does not trigger
 // as well as anvil.  anvil can be started with yarn test:integration

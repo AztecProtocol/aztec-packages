@@ -5,7 +5,7 @@ import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { DebugLogger } from '@aztec/foundation/log';
 import { TestContractAbi } from '@aztec/noir-contracts/artifacts';
 import { BootstrapNode, P2PConfig, createLibP2PPeerId } from '@aztec/p2p';
-import { ConstantKeyPair, PXEService, createPXEService, getConfigEnvVars as getRpcConfig } from '@aztec/pxe';
+import { ConstantKeyPair, PXEService, createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe';
 import { TxStatus } from '@aztec/types';
 
 import { setup } from './fixtures/utils.js';
