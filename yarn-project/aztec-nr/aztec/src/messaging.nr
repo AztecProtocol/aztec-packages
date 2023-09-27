@@ -1,7 +1,5 @@
 mod l1_to_l2_message;
-mod l1_to_l2_message_getter_data;
 
-use l1_to_l2_message_getter_data::make_l1_to_l2_message_getter_data;
 use crate::messaging::l1_to_l2_message::L1ToL2Message;
 
 use crate::constants_gen::{

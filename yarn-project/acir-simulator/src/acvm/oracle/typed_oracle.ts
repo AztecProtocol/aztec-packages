@@ -113,6 +113,10 @@ export abstract class TypedOracle {
     throw new Error('Not available.');
   }
 
+  checkL1ToL2MessageExists(_msgKey: Fr): Promise<boolean> {
+    throw new Error('Not available.');
+  }
+
   getPortalContractAddress(_contractAddress: AztecAddress): Promise<EthAddress> {
     throw new Error('Not available.');
   }

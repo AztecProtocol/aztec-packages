@@ -54,6 +54,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * They should act as references for the read requests output by an app circuit via public inputs.
    */
   private gotNotes: Map<bigint, bigint> = new Map();
+  private gotL1toL2Messages: Map<bigint, bigint> = new Map();
   private encryptedLogs: Buffer[] = [];
   private unencryptedLogs: Buffer[] = [];
   private nestedExecutions: ExecutionResult[] = [];
