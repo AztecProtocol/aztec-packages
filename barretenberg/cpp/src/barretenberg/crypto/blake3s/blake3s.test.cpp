@@ -1,5 +1,4 @@
 #include "blake3s.hpp"
-#include "../blake2s/blake2s.hpp"
 
 #include <gtest/gtest.h>
 
@@ -380,19 +379,33 @@ test_vector test_vectors[] = {
       } },
 };
 
-std::vector<uint8_t> test_input(size_t input_len)
-{
-    std::vector<uint8_t> input;
-    for (size_t i = 0; i < input_len; ++i) {
-        input.push_back(uint8_t(i % 251));
-    }
-    return input;
-}
-
 TEST(misc_blake3s, test_vectors)
 {
     for (auto v : test_vectors) {
         std::vector<uint8_t> input(v.input.begin(), v.input.end());
         EXPECT_EQ(blake3::blake3s(input), v.output);
     }
+}
+
+template <size_t S> constexpr std::array<uint8_t, S> convert(const std::string_view& in)
+{
+    std::array<uint8_t, S> output;
+    for (size_t i = 0; i < S; ++i) {
+        output[i] = (const unsigned char)in[i];
+    }
+    return output;
+}
+
+TEST(misc_blake3s, test_constexpr)
+{
+    // N.B. cannot iterate over `test_vectors` and call blake3s_constexpr; the input string_view objects are
+    // variable-length, which forces `std::array::operator[]` to use non-constexpr version
+    constexpr std::string_view input = "abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789";
+    constexpr std::array<uint8_t, input.size()> input_array = convert<input.size()>(input);
+    constexpr std::array<uint8_t, 32> result = blake3::blake3s_constexpr(&input_array[0], input.size());
+    const std::array<uint8_t, 32> expected = {
+        0xAA, 0x60, 0x21, 0x6D, 0xE8, 0x21, 0x17, 0x5F, 0x97, 0x3E, 0x38, 0x26, 0xED, 0x7A, 0x0B, 0x74,
+        0x31, 0xEC, 0x87, 0xE8, 0xE2, 0x19, 0x2E, 0x80, 0x24, 0x12, 0x53, 0xB2, 0xA9, 0x4D, 0xB0, 0x11,
+    };
+    EXPECT_EQ(result, expected);
 }

@@ -1,3 +1,4 @@
+#pragma once
 /*
     BLAKE3 reference source code package - C implementations
 
@@ -34,7 +35,7 @@
 #include <string.h>
 #include <type_traits>
 
-#include "blake3-impl.hpp"
+#include "blake3s.hpp"
 
 namespace blake3 {
 
@@ -43,7 +44,7 @@ namespace blake3 {
  * constant parameters and fewer rounds.
  *
  */
-void g(uint32_t* state, size_t a, size_t b, size_t c, size_t d, uint32_t x, uint32_t y)
+constexpr void g(uint32_t* state, size_t a, size_t b, size_t c, size_t d, uint32_t x, uint32_t y)
 {
     state[a] = state[a] + state[b] + x;
     state[d] = rotr32(state[d] ^ state[a], 16);
@@ -55,7 +56,7 @@ void g(uint32_t* state, size_t a, size_t b, size_t c, size_t d, uint32_t x, uint
     state[b] = rotr32(state[b] ^ state[c], 7);
 }
 
-void round_fn(uint32_t state[16], const uint32_t* msg, size_t round)
+constexpr void round_fn(uint32_t state[16], const uint32_t* msg, size_t round)
 {
     // Select the message schedule based on the round.
     const uint8_t* schedule = MSG_SCHEDULE[round];
@@ -73,7 +74,7 @@ void round_fn(uint32_t state[16], const uint32_t* msg, size_t round)
     g(state, 3, 4, 9, 14, msg[schedule[14]], msg[schedule[15]]);
 }
 
-void compress_pre(
+constexpr void compress_pre(
     uint32_t state[16], const uint32_t cv[8], const uint8_t block[BLAKE3_BLOCK_LEN], uint8_t block_len, uint8_t flags)
 {
     uint32_t block_words[16];
@@ -120,7 +121,10 @@ void compress_pre(
     round_fn(state, &block_words[0], 6);
 }
 
-void blake3_compress_in_place(uint32_t cv[8], const uint8_t block[BLAKE3_BLOCK_LEN], uint8_t block_len, uint8_t flags)
+constexpr void blake3_compress_in_place(uint32_t cv[8],
+                                        const uint8_t block[BLAKE3_BLOCK_LEN],
+                                        uint8_t block_len,
+                                        uint8_t flags)
 {
     uint32_t state[16];
     compress_pre(state, cv, block, block_len, flags);
@@ -134,7 +138,7 @@ void blake3_compress_in_place(uint32_t cv[8], const uint8_t block[BLAKE3_BLOCK_L
     cv[7] = state[7] ^ state[15];
 }
 
-void blake3_compress_xof(
+constexpr void blake3_compress_xof(
     const uint32_t cv[8], const uint8_t block[BLAKE3_BLOCK_LEN], uint8_t block_len, uint8_t flags, uint8_t out[64])
 {
     uint32_t state[16];
@@ -163,7 +167,7 @@ const char* blake3_version(void)
     return BLAKE3_VERSION_STRING;
 }
 
-uint8_t maybe_start_flag(const blake3_hasher* self)
+constexpr uint8_t maybe_start_flag(const blake3_hasher* self)
 {
     if (self->blocks_compressed == 0) {
         return CHUNK_START;
@@ -179,10 +183,10 @@ typedef struct output_t__ {
     uint8_t flags;
 } output_t;
 
-output_t make_output(const uint32_t input_cv[8],
-                     const uint8_t block[BLAKE3_BLOCK_LEN],
-                     uint8_t block_len,
-                     uint8_t flags)
+constexpr output_t make_output(const uint32_t input_cv[8],
+                               const uint8_t block[BLAKE3_BLOCK_LEN],
+                               uint8_t block_len,
+                               uint8_t flags)
 {
     output_t ret;
     for (size_t i = 0; i < (BLAKE3_OUT_LEN >> 2); ++i) {
@@ -196,7 +200,7 @@ output_t make_output(const uint32_t input_cv[8],
     return ret;
 }
 
-void blake3_hasher_init(blake3_hasher* self)
+constexpr void blake3_hasher_init(blake3_hasher* self)
 {
     for (size_t i = 0; i < (BLAKE3_KEY_LEN >> 2); ++i) {
         self->key[i] = IV[i];
@@ -210,7 +214,7 @@ void blake3_hasher_init(blake3_hasher* self)
     self->flags = 0;
 }
 
-void blake3_hasher_update(blake3_hasher* self, const uint8_t* input, size_t input_len)
+constexpr void blake3_hasher_update(blake3_hasher* self, const uint8_t* input, size_t input_len)
 {
     if (input_len == 0) {
         return;
@@ -237,7 +241,7 @@ void blake3_hasher_update(blake3_hasher* self, const uint8_t* input, size_t inpu
     input_len -= take;
 }
 
-void blake3_hasher_finalize(const blake3_hasher* self, uint8_t* out)
+constexpr void blake3_hasher_finalize(const blake3_hasher* self, uint8_t* out)
 {
     uint8_t block_flags = self->flags | maybe_start_flag(self) | CHUNK_END;
     output_t output = make_output(self->cv, self->buf, self->buf_len, block_flags);
@@ -257,6 +261,17 @@ std::vector<uint8_t> blake3s(std::vector<uint8_t> const& input)
     blake3_hasher_update(&hasher, (const uint8_t*)input.data(), input.size());
 
     std::vector<uint8_t> output(BLAKE3_OUT_LEN);
+    blake3_hasher_finalize(&hasher, &output[0]);
+    return output;
+}
+
+constexpr std::array<uint8_t, BLAKE3_OUT_LEN> blake3s_constexpr(const uint8_t* input, const size_t input_size)
+{
+    blake3_hasher hasher;
+    blake3_hasher_init(&hasher);
+    blake3_hasher_update(&hasher, input, input_size);
+
+    std::array<uint8_t, BLAKE3_OUT_LEN> output;
     blake3_hasher_finalize(&hasher, &output[0]);
     return output;
 }

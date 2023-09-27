@@ -1,3 +1,4 @@
+#pragma once
 /*
     BLAKE3 reference source code package - C implementations
 
@@ -17,9 +18,6 @@
     https://github.com/BLAKE3-team/BLAKE3.
 */
 
-#ifndef BLAKE3_IMPL_H
-#define BLAKE3_IMPL_H
-
 #include <assert.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -31,18 +29,18 @@
 namespace blake3 {
 
 // Right rotates 32 bit inputs
-uint32_t rotr32(uint32_t w, uint32_t c)
+constexpr uint32_t rotr32(uint32_t w, uint32_t c)
 {
     return (w >> c) | (w << (32 - c));
 }
 
-uint32_t load32(const void* src)
+constexpr uint32_t load32(const uint8_t* src)
 {
     const uint8_t* p = (const uint8_t*)src;
     return ((uint32_t)(p[0]) << 0) | ((uint32_t)(p[1]) << 8) | ((uint32_t)(p[2]) << 16) | ((uint32_t)(p[3]) << 24);
 }
 
-void load_key_words(const uint8_t key[BLAKE3_KEY_LEN], uint32_t key_words[8])
+constexpr void load_key_words(const uint8_t key[BLAKE3_KEY_LEN], uint32_t key_words[8])
 {
     key_words[0] = load32(&key[0 * 4]);
     key_words[1] = load32(&key[1 * 4]);
@@ -54,7 +52,7 @@ void load_key_words(const uint8_t key[BLAKE3_KEY_LEN], uint32_t key_words[8])
     key_words[7] = load32(&key[7 * 4]);
 }
 
-void store32(void* dst, uint32_t w)
+constexpr void store32(uint8_t* dst, uint32_t w)
 {
     uint8_t* p = (uint8_t*)dst;
     p[0] = (uint8_t)(w >> 0);
@@ -63,7 +61,7 @@ void store32(void* dst, uint32_t w)
     p[3] = (uint8_t)(w >> 24);
 }
 
-void store_cv_words(uint8_t bytes_out[32], uint32_t cv_words[8])
+constexpr void store_cv_words(uint8_t bytes_out[32], uint32_t cv_words[8])
 {
     store32(&bytes_out[0 * 4], cv_words[0]);
     store32(&bytes_out[1 * 4], cv_words[1]);
@@ -77,4 +75,4 @@ void store_cv_words(uint8_t bytes_out[32], uint32_t cv_words[8])
 
 } // namespace blake3
 
-#endif /* BLAKE3_IMPL_H */
+#include "blake3s.tcc"
