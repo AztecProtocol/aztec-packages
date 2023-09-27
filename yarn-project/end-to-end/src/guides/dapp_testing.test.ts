@@ -30,6 +30,7 @@ describe('guides/dapp/testing', () => {
         ({ pxe, stop } = await createSandbox());
         // docs:end:in-proc-sandbox
         owner = await createAccount(pxe);
+        recipient = await createAccount(pxe);
         token = await TokenContract.deploy(owner, owner.getCompleteAddress()).send().deployed();
       }, 60_000);
 

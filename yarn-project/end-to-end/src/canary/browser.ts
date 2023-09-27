@@ -173,7 +173,7 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
             await getUnsafeSchnorrAccount(pxe, privateKey).waitDeploy();
             accounts = await pxe.getRegisteredAccounts();
           }
-          const [owner] = await getSandboxAccountsWallets(client);
+          const [owner] = await getSandboxAccountsWallets(pxe);
           const tx = new DeployMethod(accounts[0].publicKey, pxe, TokenContractAbi, [
             owner.getCompleteAddress(),
           ]).send();
