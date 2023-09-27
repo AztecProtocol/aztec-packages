@@ -60,7 +60,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     const portalContract = options.portalContract ?? EthAddress.ZERO;
     const contractAddressSalt = options.contractAddressSalt ?? Fr.random();
 
-    const { chainId, protocolVersion } = await this.rpc.getNodeInfo();
+    const { chainId, protocolVersion } = await this.pxe.getNodeInfo();
 
     const { completeAddress, constructorHash, functionTreeRoot } = await getContractDeploymentInfo(
       this.abi,
@@ -103,7 +103,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     this.completeAddress = completeAddress;
 
     // TODO: Should we add the contracts to the DB here, or once the tx has been sent or mined?
-    await this.rpc.addContracts([{ abi: this.abi, completeAddress, portalContract }]);
+    await this.pxe.addContracts([{ abi: this.abi, completeAddress, portalContract }]);
 
     return this.txRequest;
   }

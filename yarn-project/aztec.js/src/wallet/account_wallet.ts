@@ -10,8 +10,8 @@ import { BaseWallet } from './base_wallet.js';
  * A wallet implementation that forwards authentication requests to a provided account.
  */
 export class AccountWallet extends BaseWallet {
-  constructor(rpc: PXE, protected account: AccountInterface) {
-    super(rpc);
+  constructor(pxe: PXE, protected account: AccountInterface) {
+    super(pxe);
   }
 
   createTxExecutionRequest(execs: FunctionCall[]): Promise<TxExecutionRequest> {
@@ -21,7 +21,7 @@ export class AccountWallet extends BaseWallet {
   async createAuthWitness(message: Fr | Buffer): Promise<AuthWitness> {
     message = Buffer.isBuffer(message) ? Fr.fromBuffer(message) : message;
     const witness = await this.account.createAuthWitness(message);
-    await this.rpc.addAuthWitness(witness);
+    await this.pxe.addAuthWitness(witness);
     return witness;
   }
 

@@ -12,7 +12,7 @@ import { GrumpkinPrivateKey } from '@aztec/types';
 
 const encryptionPrivateKey = GrumpkinPrivateKey.random();
 const signingPrivateKey = GrumpkinPrivateKey.random();
-const wallet = getSchnorrAccount(rpc, encryptionPrivateKey, signingPrivateKey).waitDeploy();
+const wallet = getSchnorrAccount(pxe, encryptionPrivateKey, signingPrivateKey).waitDeploy();
 console.log(`New account deployed at ${wallet.getAddress()}`);
 ```
 

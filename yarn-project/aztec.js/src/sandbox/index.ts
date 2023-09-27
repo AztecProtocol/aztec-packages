@@ -22,25 +22,25 @@ export const { SANDBOX_URL = 'http://localhost:8080' } = process.env;
 
 /**
  * Gets a collection of wallets for the Aztec accounts that are initially stored in the sandbox.
- * @param aztecRpc - A PXE instance.PXE
+ * @param pxe - A PXE instance.
  * @returns A set of AccountWallet implementations for each of the initial accounts.
  */
-export function getSandboxAccountsWallets(aztecRpc: PXE): Promise<AccountWallet[]> {
+export function getSandboxAccountsWallets(pxe: PXE): Promise<AccountWallet[]> {
   return Promise.all(
     zip(INITIAL_SANDBOX_ENCRYPTION_KEYS, INITIAL_SANDBOX_SIGNING_KEYS, INITIAL_SANDBOX_SALTS).map(
-      ([encryptionKey, signingKey, salt]) => getSchnorrAccount(aztecRpc, encryptionKey!, signingKey!, salt).getWallet(),
+      ([encryptionKey, signingKey, salt]) => getSchnorrAccount(pxe, encryptionKey!, signingKey!, salt).getWallet(),
     ),
   );
 }
 
 /**
  * Deploys the initial set of schnorr signature accounts to the sandbox
- * @param aztecRpc - A PXE instance.PXE
+ * @param pxe - A PXE instance.
  * @returns The set of deployed Account objects and associated private encryption keys
  */
-export async function deployInitialSandboxAccounts(aztecRpc: PXE) {
+export async function deployInitialSandboxAccounts(pxe: PXE) {
   const accounts = INITIAL_SANDBOX_ENCRYPTION_KEYS.map((privateKey, i) => {
-    const account = getSchnorrAccount(aztecRpc, privateKey, INITIAL_SANDBOX_SIGNING_KEYS[i], INITIAL_SANDBOX_SALTS[i]);
+    const account = getSchnorrAccount(pxe, privateKey, INITIAL_SANDBOX_SIGNING_KEYS[i], INITIAL_SANDBOX_SALTS[i]);
     return {
       account,
       privateKey,
@@ -70,13 +70,13 @@ export async function deployInitialSandboxAccounts(aztecRpc: PXE) {
 
 /**
  * Function to wait until the sandbox becomes ready for use.
- * @param rpc - The rpc client connected to the sandbox.
+ * @param pxe - The pxe client connected to the sandbox.
  */
-export async function waitForSandbox(rpc?: PXE) {
-  rpc = rpc ?? createPXEClient(SANDBOX_URL);
+export async function waitForSandbox(pxe?: PXE) {
+  pxe = pxe ?? createPXEClient(SANDBOX_URL);
   while (true) {
     try {
-      await rpc.getNodeInfo();
+      await pxe.getNodeInfo();
       break;
     } catch (err) {
       await sleep(1000);

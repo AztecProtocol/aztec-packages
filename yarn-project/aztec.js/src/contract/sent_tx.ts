@@ -11,7 +11,7 @@ export type WaitOpts = {
   /** The time interval (in seconds) between retries to fetch the transaction receipt. Defaults to 1. */
   interval?: number;
   /**
-   * Whether to wait for the RPC server to sync all notes up to the block in which this tx was mined.
+   * Whether to wait for the PXE Service to sync all notes up to the block in which this tx was mined.
    * If false, then any queries that depend on state set by this transaction may return stale data. Defaults to true.
    **/
   waitForNotesSync?: boolean;
@@ -92,7 +92,7 @@ export class SentTx {
         // If we don't care about waiting for notes to be synced, return the receipt
         const waitForNotesSync = opts?.waitForNotesSync ?? DefaultWaitOpts.waitForNotesSync;
         if (!waitForNotesSync) return txReceipt;
-        // Check if all sync blocks on the rpc server are greater or equal than the block in which the tx was mined
+        // Check if all sync blocks on the PXE Service are greater or equal than the block in which the tx was mined
         const { blocks, notes } = await this.arc.getSyncStatus();
         const targetBlock = txReceipt.blockNumber!;
         const areNotesSynced = blocks >= targetBlock && every(notes, block => block >= targetBlock);
