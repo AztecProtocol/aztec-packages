@@ -17,7 +17,7 @@ template <size_t S> constexpr std::array<uint8_t, S> convert(const std::string_v
 {
     std::array<uint8_t, S> output;
     for (size_t i = 0; i < S; ++i) {
-        output[i] = static_cast<const unsigned char>(in[i]);
+        output[i] = static_cast<unsigned char>(in[i]);
     }
     return output;
 }
