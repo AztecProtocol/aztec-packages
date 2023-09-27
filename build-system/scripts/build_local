@@ -63,30 +63,53 @@ for E in "${PROJECTS[@]}"; do
     fi
   fi
 
-  IMAGE_URI=$(CONSIDER_WORKING=1 calculate_image_uri $REPO)
-  ARR=(${IMAGE_URI//:/ })
-  REPO=${ARR[0]}
+  # TODO: Move everything to aztecprotocol/*
+  DEPLOY_IMAGE_URI=$ECR_DEPLOY_URL/$REPO:latest
+  CACHE_IMAGE_URI=$(calculate_image_uri $REPO)
+  ARR=(${CACHE_IMAGE_URI//:/ })
+  REPO_URI=${ARR[0]}
   TAG=${ARR[1]}
 
+  BLUE="\033[94m"
+  BOLD="\033[1m"
+  RESET="\033[0m"
+
   echo
   echo
   echo
-  echo "*** Repository: $REPO"
-  echo "*** Tag: $TAG"
-  echo "*** Dockerfile: $DOCKERFILE"
-  echo "*** Context: $PWD"
+  echo -e "${BOLD}Repository${RESET}: ${BOLD}${BLUE}$REPO${RESET}"
+  echo -e "${BOLD}Cache Image URI${RESET}: $REPO_URI:$TAG"
+  echo -e "${BOLD}Deploy Image URI${RESET}: $DEPLOY_IMAGE_URI"
+  echo -e "${BOLD}Dockerfile${RESET}: $DOCKERFILE"
+  echo -e "${BOLD}Context${RESET}: $PWD"
   echo
 
-  if docker image ls --format "{{.Repository}}:{{.Tag}}" | grep -q -w $IMAGE_URI; then
-    echo "Image exists locally. Skipping."
+  GREP_PATTERN=$(query_manifest rebuildPatterns $REPO | tr '\n' '|')
+  # Remove the trailing '|'.
+  GREP_PATTERN=${GREP_PATTERN%|}
+
+  # Ensure index is updated before we call git diff-index.
+  git status > /dev/null
+
+  if (git diff-index --name-only HEAD; git ls-files --others --exclude-standard) | grep -qE "$GREP_PATTERN"; then
+    echo "Project has modifications. Building..."
+    docker build ${ADDITIONAL_ARGS:-} --build-arg ARG_COMMIT_HASH=$COMMIT_HASH -f $DOCKERFILE -t $DEPLOY_IMAGE_URI .
   else
-    if ecr_login && image_exists $REPO $TAG ; then
-      docker pull $IMAGE_URI
+    if docker image ls --format "{{.Repository}}:{{.Tag}}" | grep -q -w $CACHE_IMAGE_URI; then
+      echo "Image exists locally. Tagging as $DEPLOY_IMAGE_URI"
+      docker tag $CACHE_IMAGE_URI $DEPLOY_IMAGE_URI
     else
-      docker build ${ADDITIONAL_ARGS:-} --build-arg ARG_COMMIT_HASH=$COMMIT_HASH -f $DOCKERFILE -t $IMAGE_URI .
-      docker tag $IMAGE_URI aztecprotocol/$REPO:latest
+      if ecr_login && image_exists $REPO_URI $TAG ; then
+        docker pull $CACHE_IMAGE_URI
+      else
+        docker build ${ADDITIONAL_ARGS:-} --build-arg ARG_COMMIT_HASH=$COMMIT_HASH -f $DOCKERFILE -t $CACHE_IMAGE_URI .
+        docker tag $CACHE_IMAGE_URI $DEPLOY_IMAGE_URI
+      fi
     fi
   fi
+
+  # Retag for aztecprotocol dockerhub.
+  docker tag $DEPLOY_IMAGE_URI aztecprotocol/$REPO:latest
 
   if [ "$PROJECT_DIR_NAME" = "$TARGET_PROJECT" ]; then
     if [ -n "$LAUNCH" ]; then
