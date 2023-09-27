@@ -47,7 +47,7 @@ const completeAddress = CompleteAddress.create(
   publicKey,
   partialKey
 );
-await aztecRpc.registerRecipient(completeAddress);
+await pxe.registerRecipient(completeAddress);
 ```
 
 </TabItem>

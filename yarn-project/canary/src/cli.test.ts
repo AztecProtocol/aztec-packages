@@ -6,9 +6,9 @@ const { SANDBOX_URL = 'http://localhost:8080' } = process.env;
 const debug = createDebugLogger('aztec:canary_cli');
 
 const setupRPC = async () => {
-  const aztecRpcClient = createPXEClient(SANDBOX_URL, makeFetch([1, 2, 3, 4, 5], true));
-  await waitForSandbox(aztecRpcClient);
-  return aztecRpcClient;
+  const pxeClient = createPXEClient(SANDBOX_URL, makeFetch([1, 2, 3, 4, 5], true));
+  await waitForSandbox(pxeClient);
+  return pxeClient;
 };
 
 cliTestSuite('CLI Canary', setupRPC, () => Promise.resolve(), debug, SANDBOX_URL);

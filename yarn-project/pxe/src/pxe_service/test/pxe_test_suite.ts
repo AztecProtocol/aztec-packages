@@ -3,12 +3,12 @@ import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { ConstantKeyPair } from '@aztec/key-store';
 import { DeployedContract, INITIAL_L2_BLOCK_NUM, PXE, TxExecutionRequest, randomDeployedContract } from '@aztec/types';
 
-export const pxeTestSuite = (testName: string, aztecRpcSetup: () => Promise<PXE>) => {
+export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => {
   describe(testName, () => {
     let rpc: PXE;
 
     beforeAll(async () => {
-      rpc = await aztecRpcSetup();
+      rpc = await pxeSetup();
     }, 120_000);
 
     it('registers an account and returns it as an account only and not as a recipient', async () => {

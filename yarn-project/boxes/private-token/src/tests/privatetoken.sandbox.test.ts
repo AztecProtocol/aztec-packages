@@ -24,9 +24,9 @@ const MINT_AMOUNT = 11n;
 // as well as anvil.  anvil can be started with yarn test:integration
 const setupSandbox = async () => {
   const { SANDBOX_URL = 'http://localhost:8080' } = process.env;
-  const aztecRpc = createPXEClient(SANDBOX_URL);
-  await waitForSandbox(aztecRpc);
-  return aztecRpc;
+  const pxe = createPXEClient(SANDBOX_URL);
+  await waitForSandbox(pxe);
+  return pxe;
 };
 
 async function deployZKContract(owner: CompleteAddress, wallet: Wallet, rpcClient: PXE) {

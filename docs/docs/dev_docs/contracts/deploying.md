@@ -41,7 +41,7 @@ Now you can import it to easily deploy and interact with the contract.
 ```ts
 import { ExampleContract } from './Example.js';
 
-const tx = ExampleContract.deploy(aztecRpc).send();
+const tx = ExampleContract.deploy(pxe).send();
 await tx.wait({ interval: 0.5 });
 const receipt = await tx.getReceipt();
 const exampleContract = await ExampleContract.at(receipt.contractAddress!, myWallet);
@@ -78,7 +78,7 @@ By default is set to a random value.
 Set it, if you need a deterministic contract address (same functionality as Ethereum's `CREATE2` opcode).
 
 ```ts
-const tx = ExampleContract.deploy(aztecRpc).send({ 
+const tx = ExampleContract.deploy(pxe).send({ 
     portalContract: EthAddress.from("0x1234..."),
     contractAddressSalt: new Fr(3n),
 });
@@ -109,14 +109,14 @@ const publicKey = Point.fromString("0x26e193aef4f83c70651485b5526c6d01a36d763223
 const partialAddress = Fr.fromString("0x200e9a6c2d2e8352012e51c6637659713d336405c29386c7c4ac56779ab54fa7");
 
 const completeAddress = CompleteAddress.create(aztecAddress, publicKey, partialKey); 
-await aztecRpc.registerRecipient(completeAddress);
+await pxe.registerRecipient(completeAddress);
 ```
 
 
 </TabItem>
 </Tabs>
 
-When you create a new account, it gets automatically registered. It can be verified by calling `aztec-cli get-accounts` OR in aztec.js by using `await aztecRpc.getRegisteredAccounts()`
+When you create a new account, it gets automatically registered. It can be verified by calling `aztec-cli get-accounts` OR in aztec.js by using `await pxe.getRegisteredAccounts()`
 
 > **NOTE 1**: If we didn't register owner as a recipient we could not encrypt a note for the owner and the contract deployment would fail because constructor execution would fail (we need owner's public key to encrypt a note).
 

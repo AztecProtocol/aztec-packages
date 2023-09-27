@@ -21,7 +21,7 @@ Responsibilities:
 - Holds and never exposes private keys.
 - Provides sign/decrypt functionality.
 
-### AztecRpcClient (Previously Wallet/Private Client)
+### PXEClient
 
 Responsibilities:
 
@@ -141,7 +141,7 @@ Implementation notes for this milestone:
 
 Implements:
 
-- `AztecRpcClient` (The server is a client, when used directly)
+- `P` (The server is a client, when used directly)
 
 Injected:
 
