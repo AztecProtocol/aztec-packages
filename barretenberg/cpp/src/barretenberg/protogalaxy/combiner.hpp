@@ -88,7 +88,7 @@ template <typename Flavor, typename Instances> class ProtogalaxyProver {
         // WORKTODO: Parallelize this
         std::vector<FF> pow_challenges(common_circuit_size);
         pow_challenges[0] =
-            pow_univariate.partial_evaluation_constant; // LEFTOFFHERE: segfault here; need nonempty polynomials!
+            pow_univariate.partial_evaluation_constant;
         for (size_t i = 1; i < common_circuit_size; ++i) {
             pow_challenges[i] = pow_challenges[i - 1] * pow_univariate.zeta_pow;
         }
@@ -110,7 +110,7 @@ template <typename Flavor, typename Instances> class ProtogalaxyProver {
             Utils::zero_univariates(accum);
         }
 
-        // Constuct extended edge containers; one per thread
+        // Constuct extended univariates containers; one per thread
         std::vector<ExtendedUnivariates> extended_univariates;
         extended_univariates.resize(num_threads);
 
@@ -129,7 +129,7 @@ template <typename Flavor, typename Instances> class ProtogalaxyProver {
                 // scale it by the pow polynomial's constant and zeta power "c_l ⋅ ζ_{l+1}ⁱ"
                 // and add it to the accumulators for Sˡ(Xₗ)
                 accumulate_relation_univariates(thread_univariate_accumulators[thread_idx],
-                                                extended_univariates[thread_idx],
+                                                                extended_univariates[thread_idx],
                                                 relation_parameters,
                                                 pow_challenge);
             }
@@ -137,7 +137,7 @@ template <typename Flavor, typename Instances> class ProtogalaxyProver {
 
         // Accumulate the per-thread univariate accumulators into a single set of accumulators
         for (auto& accumulators : thread_univariate_accumulators) {
-            Utils::add_nested_tuples(univariate_accumulators, accumulators);
+                        Utils::add_nested_tuples(univariate_accumulators, accumulators);
         }
         // Batch the univariate contributions from each sub-relation to obtain the round univariate
         return Utils::template batch_over_relations<RandomExtendedUnivariate>(

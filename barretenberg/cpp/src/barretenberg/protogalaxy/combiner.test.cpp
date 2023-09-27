@@ -15,12 +15,14 @@ TEST(Protogalaxy, Combiner)
     constexpr size_t NUM_INSTANCES = 2;
 
     const auto restrict_to_standard_arithmetic_relation = [](auto& polys) {
-        std::fill(polys.q_arith.begin(), polys.q_arith.end(), 1);
+        std::fill(polys.q_arith.begin(), polys.q_arith.end(), 1); // LEFTOFFHERE what
         std::fill(polys.q_sort.begin(), polys.q_sort.end(), 0);
         std::fill(polys.q_elliptic.begin(), polys.q_elliptic.end(), 0);
         std::fill(polys.q_aux.begin(), polys.q_aux.end(), 0);
         std::fill(polys.q_lookup.begin(), polys.q_lookup.end(), 0);
         std::fill(polys.q_4.begin(), polys.q_4.end(), 0);
+        std::fill(polys.w_4.begin(), polys.w_4.end(), 0);
+        std::fill(polys.w_4_shift.begin(), polys.w_4_shift.end(), 0);
     };
 
     auto run_test = [&](bool is_random_input) {
@@ -56,7 +58,7 @@ TEST(Protogalaxy, Combiner)
         } else {
             Instances<Flavor, NUM_INSTANCES> instances;
             std::array<std::array<Polynomial, Flavor::NUM_ALL_ENTITIES>, NUM_INSTANCES> storage_arrays;
-            auto relation_parameters = RelationParameters();
+            auto relation_parameters = RelationParameters::get_random();
             ProtogalaxyProver<Flavor, Instances<Flavor, NUM_INSTANCES>> prover;
             auto pow_univariate = PowUnivariate<FF>(/*zeta_pow=*/2);
             auto alpha = FF(0); // focus on the arithmetic relation only
@@ -65,7 +67,6 @@ TEST(Protogalaxy, Combiner)
             for (auto& instance : instances) {
                 auto [storage, prover_polynomials] =
                     proof_system::honk::get_zero_prover_polynomials<Flavor>(/*log_circuit_size=*/1);
-                restrict_to_standard_arithmetic_relation(prover_polynomials);
                 storage_arrays[instance_idx] = std::move(storage);
                 instance = prover_polynomials;
                 instance_idx++;
@@ -80,36 +81,43 @@ TEST(Protogalaxy, Combiner)
                 polys.q_o[idx] = -1;
             };
 
+            const auto create_mul_gate = [](auto& polys, const size_t idx, FF w_l, FF w_r) {
+                polys.w_l[idx] = w_l;
+                polys.w_r[idx] = w_r;
+                polys.w_o[idx] = w_l * w_r;
+                polys.q_m[idx] = 1;
+                polys.q_o[idx] = -1;
+            };
+
             create_add_gate(instances[0], 0, 1, 2);
-            create_add_gate(instances[0], 1, 2, 3);
+            create_add_gate(instances[0], 1, 0, 4);
             create_add_gate(instances[1], 0, 3, 4);
-            create_add_gate(instances[1], 1, 4, 5);
+            create_mul_gate(instances[1], 1, 1, 4);
 
-            /* Instance 0                               Instance 1
-                w_l w_r w_o q_m q_l q_r q_o q_c          w_l w_r w_o q_m q_l q_r q_o q_c
-                1   2   3   0   1   1   -1  0            3   4   7   0   1   1   -1  0
-                2   3   5   0   1   1   -1  0            4   5  10   0   1   1   -1  1        */
+            restrict_to_standard_arithmetic_relation(instances[0]);
+            restrict_to_standard_arithmetic_relation(instances[1]);
 
-            /* Lagrange-combined values, row index 0    Lagrange-combined values, row index 1
-                in    0    1    2    3    4    5         in    0    1    2    3    4    5
-                w_l   1    3    5    7    9   11         w_l   2    4    6    8   10   12
-                w_r   2    4    6    8   10   12         w_r   3    5    7    9   11   13
-                w_o   3    7   11   15   19   23         w_o   5   10   15   20   25   30
-                q_m   0    0    0    0    0    0         q_m   0    0    0    0    0    0
-                q_l   1    1    1    1    1    1         q_l   1    1    1    1    1    1
-                q_r   1    1    1    1    1    1         q_r   1    1s    1    1    1    1
-                q_o  -1   -1   -1   -1   -1   -1         q_o  -1   -1   -1   -1   -1   -1
-                q_c   0    0    0    0    0    0         q_c   0    1    2    3    4    5     */
+            /* Instance 0                                    Instance 1
+                w_l w_r w_o q_m q_l q_r q_o q_c               w_l w_r w_o q_m q_l q_r q_o q_c
+                1   2   3   0   1   1   -1  0                 3   4   7   0   1   1   -1  0
+                0   4   4   0   1   1   -1  0                 1   4   4   1   0   0   -1  0             */
 
-            /* sanity check */
-            EXPECT_EQ(instances[0].q_c[0], FF(0));
-            EXPECT_EQ(instances[0].w_o[1], FF(5));
-            EXPECT_EQ(instances[1].q_m[0], FF(0));
-            EXPECT_EQ(instances[1].w_r[1], FF(5));
+            /* Lagrange-combined values, row index 0         Lagrange-combined values, row index 1
+                in    0    1    2    3    4    5    6        in    0    1    2    3    4    5    6
+                w_l   1    3    5    7    9   11   13        w_l   0    1    2    3    4    5    6
+                w_r   2    4    6    8   10   12   14        w_r   4    4    4    4    4    4    4
+                w_o   3    7   11   15   19   23   27        w_o   4    4    4    4    4    4    0
+                q_m   0    0    0    0    0    0    0        q_m   0    1    2    3    4    5    6
+                q_l   1    1    1    1    1    1    1        q_l   1    0   -1   -2   -3   -4   -5
+                q_r   1    1    1    1    1    1    1        q_r   1    0   -1   -2   -3   -4   -5
+                q_o  -1   -1   -1   -1   -1   -1   -1        q_o  -1   -1   -1   -1   -1   -1   -1
+                q_c   0    0    0    0    0    0    0        q_c   0    0    0    0    0    0    0
+
+            relation value:
+                      0    0    0    0    0    0    0              0    0    6   18   36   60   90      */
 
             auto result = prover.compute_combiner(instances, relation_parameters, pow_univariate, alpha);
-            auto expected_result =
-                barretenberg::Univariate<FF, 7>(std::array<FF, 7>{ 0, 0, 0, 0, 0, 0, 0 }); // WORKTODO
+            auto expected_result = barretenberg::Univariate<FF, 7>(std::array<FF, 7>{ 0, 0, 36, 144, 360, 720, 1260 });
             EXPECT_EQ(result, expected_result);
         }
     };
