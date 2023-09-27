@@ -86,14 +86,7 @@ async function handleFunctionCall(
   if (functionAbi.functionType === 'unconstrained') {
     return await viewContractFunction(contractAddress!, contractAbi, functionName, typedArgs, pxe, wallet);
   } else {
-    const txnReceipt = await callContractFunction(
-      contractAddress!,
-      contractAbi,
-      functionName,
-      typedArgs,
-      pxe,
-      wallet,
-    );
+    const txnReceipt = await callContractFunction(contractAddress!, contractAbi, functionName, typedArgs, pxe, wallet);
     return `Transaction ${txnReceipt.status} on block number ${txnReceipt.blockNumber}`;
   }
 }

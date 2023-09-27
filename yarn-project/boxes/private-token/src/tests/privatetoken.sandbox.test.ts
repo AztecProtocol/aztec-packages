@@ -42,14 +42,7 @@ async function deployZKContract(owner: CompleteAddress, wallet: Wallet, pxe: PXE
 async function getBalance(contractAddress: AztecAddress, privateTokenContract: Contract, owner: CompleteAddress) {
   const typedArgs = [owner.address.toField()];
 
-  return await viewContractFunction(
-    contractAddress,
-    privateTokenContract.abi,
-    'getBalance',
-    typedArgs,
-    pxe,
-    owner,
-  );
+  return await viewContractFunction(contractAddress, privateTokenContract.abi, 'getBalance', typedArgs, pxe, owner);
 }
 
 async function mint(
