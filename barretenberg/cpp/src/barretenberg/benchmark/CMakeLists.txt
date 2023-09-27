@@ -1,5 +1,6 @@
 add_subdirectory(decrypt_bench)
 add_subdirectory(pippenger_bench)
 add_subdirectory(plonk_bench)
+add_subdirectory(profiling)
 add_subdirectory(honk_bench)
 add_subdirectory(relations_bench)
