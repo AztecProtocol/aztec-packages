@@ -1,4 +1,6 @@
+#pragma once
 #include <benchmark/benchmark.h>
+#include <xray/xray_interface.h>
 
 #include "barretenberg/honk/composer/ultra_composer.hpp"
 #include "barretenberg/proof_system/types/circuit_type.hpp"
@@ -189,12 +191,14 @@ void construct_proof_with_specified_num_gates(State& state,
     auto num_gates = static_cast<size_t>(1 << (size_t)state.range(0));
     for (auto _ : state) {
         // Constuct circuit and prover; don't include this part in measurement
+        __xray_log_select_mode("xray-none");
         state.PauseTiming();
         auto builder = typename Composer::CircuitBuilder();
         test_circuit_function(builder, num_gates);
 
         auto composer = Composer();
         auto ext_prover = composer.create_prover(builder);
+        __xray_log_select_mode("xray-basic");
         state.ResumeTiming();
 
         // Construct proof
@@ -221,6 +225,7 @@ void construct_proof_with_specified_num_iterations(State& state,
     auto num_iterations = static_cast<size_t>(state.range(0));
     for (auto _ : state) {
         // Constuct circuit and prover; don't include this part in measurement
+        __xray_log_select_mode("xray-none");
         state.PauseTiming();
         auto builder = typename Composer::CircuitBuilder();
         test_circuit_function(builder, num_iterations);
@@ -229,6 +234,7 @@ void construct_proof_with_specified_num_iterations(State& state,
         if constexpr (proof_system::IsAnyOf<Composer, proof_system::honk::UltraComposer>) {
             auto instance = composer.create_instance(builder);
             auto ext_prover = composer.create_prover(instance);
+            __xray_log_select_mode("xray-basic");
             state.ResumeTiming();
 
             // Construct proof
@@ -236,6 +242,7 @@ void construct_proof_with_specified_num_iterations(State& state,
 
         } else {
             auto ext_prover = composer.create_prover(builder);
+            __xray_log_select_mode("xray-basic");
             state.ResumeTiming();
 
             // Construct proof
