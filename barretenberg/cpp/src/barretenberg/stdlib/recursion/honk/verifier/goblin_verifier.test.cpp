@@ -218,4 +218,6 @@ HEAVY_TYPED_TEST(GoblinRecursiveVerifierTest, SingleRecursiveVerification)
     TestFixture::test_recursive_verification();
 };
 
+// Add a test here
+
 } // namespace proof_system::plonk::stdlib::recursion::honk
