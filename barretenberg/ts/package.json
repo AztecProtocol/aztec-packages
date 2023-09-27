@@ -4,17 +4,15 @@
   "homepage": "https://github.com/AztecProtocol/aztec-packages/tree/master/barretenberg/ts",
   "license": "MIT",
   "type": "module",
-  "types": "./cjs-entry/index.d.ts",
+  "types": "./dest/node-cjs/index.d.ts",
   "exports": {
     ".": {
-      "require": "./cjs-entry/index.cjs",
+      "require": "./dest/node-cjs/index.js",
       "browser": "./dest/browser/index.js",
       "default": "./dest/node/index.js"
     }
   },
-  "bin": {
-    "bb.js": "./dest/node/main.js"
-  },
+  "bin": "./dest/node/main.js",
   "files": [
     "src/",
     "dest/",
@@ -22,11 +20,12 @@
     "README.md"
   ],
   "scripts": {
-    "clean": "rm -rf ./dest .tsbuildinfo",
-    "build": "yarn clean && yarn build:wasm && yarn build:ts",
+    "clean": "rm -rf ./dest .tsbuildinfo*",
+    "build": "yarn clean && yarn build:wasm && yarn build:ts && yarn build:ts:cjs",
     "build:dev": "tsc -b --watch",
     "build:wasm": "cd ../cpp && cmake --preset wasm-threads && cmake --build --preset wasm-threads && cmake --preset wasm && cmake --build --preset wasm && ./scripts/strip-wasm.sh",
     "build:ts": "tsc -b && cp ./src/barretenberg-threads.wasm ./dest/node && webpack && chmod +x ./dest/node/main.js",
+    "build:ts:cjs": "tsc -b tsconfig.cjs.json && cp ./src/barretenberg-threads.wasm ./dest/node-cjs && ./scripts/write_package_type.sh",
     "build:bindings": "cd .. && ./scripts/bindgen.sh",
     "formatting": "prettier --check ./src && eslint --max-warnings 0 ./src",
     "formatting:fix": "prettier -w ./src",
