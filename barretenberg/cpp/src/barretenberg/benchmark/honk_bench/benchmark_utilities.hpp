@@ -39,11 +39,11 @@ void xray_start()
 void xray_stop()
 {
     __xray_log_finalize();
-    auto select_status = __xray_log_select_mode("xray-none");
+    auto select_status = __xray_log_select_mode("");
     if (select_status != XRayLogRegisterStatus::XRAY_REGISTRATION_OK) {
         throw std::runtime_error("Failed to select xray-none mode");
     }
-    auto config_status = __xray_log_init_mode("xray-none", "verbosity=1");
+    auto config_status = __xray_log_init_mode("", "verbosity=1");
     if (config_status != XRayLogInitStatus::XRAY_LOG_INITIALIZED) {
         throw std::runtime_error("Failed to initialize xray-none mode");
     }
