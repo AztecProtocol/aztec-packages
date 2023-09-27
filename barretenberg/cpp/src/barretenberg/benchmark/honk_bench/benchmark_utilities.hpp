@@ -249,6 +249,7 @@ void construct_proof_with_specified_num_iterations(State& state,
 {
     barretenberg::srs::init_crs_factory("../srs_db/ignition");
     auto num_iterations = static_cast<size_t>(state.range(0));
+    xray_start(); // hack
     for (auto _ : state) {
         // Constuct circuit and prover; don't include this part in measurement
         xray_stop();
