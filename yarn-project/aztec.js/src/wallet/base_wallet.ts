@@ -1,4 +1,4 @@
-import { AztecAddress, Fr, GrumpkinPrivateKey, PartialAddress } from '@aztec/circuits.js';
+import { AztecAddress, Fr, GrumpkinPrivateKey, PartialAddress, Point } from '@aztec/circuits.js';
 import {
   AuthWitness,
   AztecRPC,
@@ -7,6 +7,7 @@ import {
   ExtendedContractData,
   FunctionCall,
   L2BlockL2Logs,
+  L2Tx,
   NodeInfo,
   NotePreimage,
   SyncStatus,
@@ -61,6 +62,9 @@ export abstract class BaseWallet implements Wallet {
   sendTx(tx: Tx): Promise<TxHash> {
     return this.rpc.sendTx(tx);
   }
+  getTx(txHash: TxHash): Promise<L2Tx | undefined> {
+    return this.rpc.getTx(txHash);
+  }
   getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
     return this.rpc.getTxReceipt(txHash);
   }
@@ -69,6 +73,9 @@ export abstract class BaseWallet implements Wallet {
   }
   getPublicStorageAt(contract: AztecAddress, storageSlot: Fr): Promise<any> {
     return this.rpc.getPublicStorageAt(contract, storageSlot);
+  }
+  addNote(contract: AztecAddress, storageSlot: Fr, preimage: NotePreimage, nonce: Fr, account: Point): Promise<void> {
+    return this.rpc.addNote(contract, storageSlot, preimage, nonce, account);
   }
   getNoteNonces(contract: AztecAddress, storageSlot: Fr, preimage: NotePreimage, txHash: TxHash): Promise<Fr[]> {
     return this.rpc.getNoteNonces(contract, storageSlot, preimage, txHash);
@@ -91,11 +98,11 @@ export abstract class BaseWallet implements Wallet {
   getNodeInfo(): Promise<NodeInfo> {
     return this.rpc.getNodeInfo();
   }
-  isGlobalStateSynchronised() {
-    return this.rpc.isGlobalStateSynchronised();
+  isGlobalStateSynchronized() {
+    return this.rpc.isGlobalStateSynchronized();
   }
-  isAccountStateSynchronised(account: AztecAddress) {
-    return this.rpc.isAccountStateSynchronised(account);
+  isAccountStateSynchronized(account: AztecAddress) {
+    return this.rpc.isAccountStateSynchronized(account);
   }
   getSyncStatus(): Promise<SyncStatus> {
     return this.rpc.getSyncStatus();

@@ -56,15 +56,12 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
         executablePath: process.env.CHROME_BIN,
         headless: 'new',
         args: [
-          '--allow-file-access-from-files',
           '--no-sandbox',
           '--headless',
-          '--disable-web-security',
-          '--disable-features=IsolateOrigins',
-          '--disable-site-isolation-trials',
           '--disable-gpu',
           '--disable-dev-shm-usage',
-          '--disk-cache-dir=/dev/null',
+          '--disable-software-rasterizer',
+          '--remote-debugging-port=9222',
         ],
       });
       page = await browser.newPage();

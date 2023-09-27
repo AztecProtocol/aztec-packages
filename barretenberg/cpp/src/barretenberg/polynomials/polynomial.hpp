@@ -150,6 +150,18 @@ template <typename Fr> class Polynomial {
     }
 
     /**
+     * @brief Set self to the right shift of input coefficients
+     * @details Set the size of self to match the input then set coefficients equal to right shift of input. Note: The
+     * shifted result is constructed with its first shift-many coefficients equal to zero, so we assert that the last
+     * shift-size many input coefficients are equal to zero to ensure that the relationship f(X) = f_{shift}(X)/X^m
+     * holds. This is analagous to asserting the first coefficient is 0 in our left-shift-by-one method.
+     *
+     * @param coeffs_in
+     * @param shift_size
+     */
+    void set_to_right_shifted(std::span<Fr> coeffs_in, size_t shift_size = 1);
+
+    /**
      * @brief adds the polynomial q(X) 'other', multiplied by a scaling factor.
      *
      * @param other q(X)
@@ -176,7 +188,7 @@ template <typename Fr> class Polynomial {
      *
      * @param scaling_factor s
      */
-    Polynomial& operator*=(const Fr scaling_facor);
+    Polynomial& operator*=(const Fr scaling_factor);
 
     /**
      * @brief evaluates p(X) = ∑ᵢ aᵢ⋅Xⁱ considered as multi-linear extension p(X₀,…,Xₘ₋₁) = ∑ᵢ aᵢ⋅Lᵢ(X₀,…,Xₘ₋₁)

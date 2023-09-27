@@ -1,17 +1,12 @@
 import { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import {
-  AztecRPCServer,
-  ConstantKeyPair,
-  createAztecRPCServer,
-  getConfigEnvVars as getRpcConfig,
-} from '@aztec/aztec-rpc';
 import { ContractDeployer, SentTx, isContractDeployed } from '@aztec/aztec.js';
 import { AztecAddress, CompleteAddress, Fr, PublicKey, getContractDeploymentInfo } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { DebugLogger } from '@aztec/foundation/log';
 import { TestContractAbi } from '@aztec/noir-contracts/artifacts';
-import { BootstrapNode, P2PConfig, createLibP2PPeerId, exportLibP2PPeerIdToString } from '@aztec/p2p';
-import { AztecRPC, TxStatus } from '@aztec/types';
+import { BootstrapNode, P2PConfig, createLibP2PPeerId } from '@aztec/p2p';
+import { AztecRPCServer, ConstantKeyPair, createAztecRPCServer, getConfigEnvVars as getRpcConfig } from '@aztec/pxe';
+import { TxStatus } from '@aztec/types';
 
 import { setup } from './fixtures/utils.js';
 
@@ -28,21 +23,14 @@ interface NodeContext {
 }
 
 describe('e2e_p2p_network', () => {
-  let aztecNode: AztecNodeService | undefined;
-  let aztecRpcServer: AztecRPC;
   let config: AztecNodeConfig;
   let logger: DebugLogger;
-
+  let teardown: () => Promise<void>;
   beforeEach(async () => {
-    ({ aztecNode, aztecRpcServer, config, logger } = await setup(0));
+    ({ teardown, config, logger } = await setup(0));
   }, 100_000);
 
-  afterEach(async () => {
-    await aztecNode?.stop();
-    if (aztecRpcServer instanceof AztecRPCServer) {
-      await aztecRpcServer?.stop();
-    }
-  });
+  afterEach(() => teardown());
 
   it('should rollup txs from all peers', async () => {
     // create the bootstrap node for the network
@@ -92,8 +80,8 @@ describe('e2e_p2p_network', () => {
       tcpListenIp: '0.0.0.0',
       announceHostname: '127.0.0.1',
       announcePort: BOOT_NODE_TCP_PORT,
-      peerIdPrivateKey: exportLibP2PPeerIdToString(peerId),
-      serverMode: true,
+      peerIdPrivateKey: Buffer.from(peerId.privateKey!).toString('hex'),
+      serverMode: false,
       minPeerCount: 10,
       maxPeerCount: 100,
 

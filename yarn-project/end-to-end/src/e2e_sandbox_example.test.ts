@@ -5,8 +5,8 @@ import {
   computeMessageSecretHash,
   createAztecRpcClient,
   createDebugLogger,
-  getSchnorrAccount,
   getSandboxAccountsWallets,
+  getSchnorrAccount,
   waitForSandbox,
 } from '@aztec/aztec.js';
 import { GrumpkinScalar } from '@aztec/circuits.js';
@@ -33,7 +33,7 @@ describe('e2e_sandbox_example', () => {
 
     expect(typeof nodeInfo.protocolVersion).toBe('number');
     expect(typeof nodeInfo.chainId).toBe('number');
-    expect(typeof nodeInfo.rollupAddress).toBe('object');
+    expect(typeof nodeInfo.l1ContractAddresses.rollupAddress).toBe('object');
 
     // For the sandbox quickstart we just want to show them preloaded accounts (since it is a quickstart)
     // We show creation of accounts in a later test
@@ -47,7 +47,7 @@ describe('e2e_sandbox_example', () => {
     logger(`Loaded alice's account at ${alice.toShortString()}`);
     logger(`Loaded bob's account at ${bob.toShortString()}`);
     // docs:end:load_accounts
-    
+
     // docs:start:Deployment
     ////////////// DEPLOY OUR TOKEN CONTRACT //////////////
 

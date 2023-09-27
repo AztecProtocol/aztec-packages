@@ -1,131 +1,74 @@
-# Update this counter to trigger a rebuild when needed: 1
+# This base Dockerfile is for:
+#  - Caching the workspace dependencies.
+#  - Running workspace checks (package.json inheritence, tsconfig.json project references).
+#  - Bringing in any upstream artefacts such as circuits.wasm and L1 contracts.
+#  - Performing any code generation that doesn't require the workspace code to do so (generate L1 artefacts).
+#
+# When installing workspace dependencies, there are issues with doing this naively:
+#  - We only ever want to re-download and install workspace dependencies in the event that they change.
+#    If a developer only changes some code, we want this step of the build to become a noop and to reuse existing image.
+#    Dockerfile.dockerignore is tailored to specifically only bring in files needed to install the dependencies.
+#    NOTE: For this dockerignore file to be used, you MUST be using BUILDKIT in more recent versions of Docker.
+#          Best to make sure you're on docker >= 24. On mainframe run `restart_docker`, it should auto-upgrade.
+#  - We want to disable yarn from accessing the net after initial package download as it prevents a class of build bugs.
+#  - We want to prune dev dependencies as this can significantly reduce the final container size even further.
+#    Yarn devs won't provide the ability to prune dev dependencies from the local project cache:
+#      https://github.com/yarnpkg/berry/issues/1789
+#    This means we need a global cache, so we can clean the cache and reinstall prod modules without re-downloading.
+#  - The default global cache and local cache are simply copies, not hardlinks, thus doubling the storage of modules.
+#    To work around, we will construct a global cache from the local cache using hard links (requires a hacky rename).
+#    We do this in the same layer the original file is created, otherwise overlayfs creates a copy anyway.
+#    At time of writing this shaves off around 150MB. Not a big deal but a harmless trick for now.
+#
+# So, here in the base image we yarn install.
+#  - /root/.yarn/berry/cache (global cache) is populated with zipped packages.
+#  - /usr/src/yarn-project/.yarn/cache (project local cache) is populated with copy of zipped packages.
+#  - Packages are unzipped into various node_modules folders.
+#  - We then erase the global cache, and recreate each file as a hard link, reducing the zipped package storage by half.
+#
+# That's all we want to do here r.e. dependency installation. In yarn-project we will:
+#  - Copy in the rest of the workspace files.
+#  - Perform any code generation steps that require the workspace code (generate L2 contract wrappers).
+#  - Build all the TypeScript.
+#
+# When we build a downstream docker image, we:
+#  - FROM yarn-project as builder, to get the entire built project.
+#  - Do any project specific work.
+#  - Erase the local cache with a `yarn cache clean`. Files will remain in global cache.
+#  - Do a `yarn workspaces focus --production` to install production dependencies from the global to local cache.
+#  - The above can be done with:
+#      RUN yarn cache clean && yarn workspaces focus --production
+#  - Create final slim image by copying /usr/src into a fresh image.
+#
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/circuits-wasm-linux-clang as circuits
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/l1-contracts as contracts
-FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/noir-contracts-build as noir
 
-FROM node:18-alpine AS builder_
-RUN apk update && apk add --no-cache build-base git python3 curl bash jq sed
-COPY --from=contracts /usr/src/l1-contracts/out /usr/src/l1-contracts/out
-
-COPY --from=circuits /usr/src/circuits/cpp/build-wasm/bin/aztec3-circuits.wasm /usr/src/circuits/cpp/build-wasm/bin/aztec3-circuits.wasm
-COPY --from=circuits /usr/src/circuits/cpp/build-wasm/bin/aztec3-circuits.wasm /usr/src/barretenberg/cpp/build-wasm/bin/primitives.wasm
-COPY --from=circuits /usr/src/barretenberg/cpp/srs_db/download_ignition.sh /usr/src/barretenberg/cpp/srs_db/download_ignition.sh
-WORKDIR /usr/src/barretenberg/cpp/srs_db
-RUN ./download_ignition.sh 1
-
+FROM node:18-alpine
+RUN apk update && apk add --no-cache bash jq
 WORKDIR /usr/src/yarn-project
 
-# We only want to copy the package.json's, to ensure we only rebuild this image if project dependencies changed.
-COPY acir-simulator/package.json acir-simulator/package.json
-COPY archiver/package.json archiver/package.json
-COPY cli/package.json cli/package.json
-COPY aztec-rpc/package.json aztec-rpc/package.json
-COPY aztec-node/package.json aztec-node/package.json
-COPY aztec-sandbox/package.json aztec-sandbox/package.json
-COPY aztec.js/package.json aztec.js/package.json
-COPY aztec.js/package.local.json aztec.js/package.local.json
-COPY canary/package.json canary/package.json
-COPY boxes/private-token/package.json boxes/private-token/package.json
-COPY boxes/blank-react/package.json boxes/blank-react/package.json
-COPY boxes/blank/package.json boxes/blank/package.json
-COPY docs/package.json docs/package.json
-COPY end-to-end/package.json end-to-end/package.json
-COPY ethereum/package.json ethereum/package.json
-COPY foundation/package.json foundation/package.json
-COPY key-store/package.json key-store/package.json
-COPY merkle-tree/package.json merkle-tree/package.json
-COPY merkle-tree/package.local.json merkle-tree/package.local.json
-COPY noir-contracts/package.json noir-contracts/package.json
-COPY noir-compiler/package.json noir-compiler/package.json
-COPY l1-artifacts/package.json l1-artifacts/package.json
-COPY circuits.js/package.json circuits.js/package.json
-COPY p2p/package.json p2p/package.json
-COPY p2p-bootstrap/package.json p2p-bootstrap/package.json
-COPY prover-client/package.json prover-client/package.json
-COPY rollup-provider/package.json rollup-provider/package.json
-COPY sequencer-client/package.json sequencer-client/package.json
-COPY types/package.json types/package.json
-COPY world-state/package.json world-state/package.json
-COPY yarn-project-base/package.json yarn-project-base/package.json
+# The dockerignore file ensures the context only contains package.json and tsconfig.json files.
+COPY . .
 
-# Copy root files.
-COPY package.json package.*.json tsconfig.json yarn.lock .yarnrc.yml ./
-COPY .yarn .yarn
+# Install packages and rebuild the global cache with hard links.
+# TODO: Puppeteer is adding ~300MB to this image due to chrome download (part of e2e).
+#       Switch to using puppeteer-core then it won't download chrome. For now just erase.
+RUN yarn --immutable && rm -rf /root/.cache/puppeteer && /bin/bash -c '\
+  rm -rf /root/.yarn/berry/cache/* && \
+  cd .yarn/cache && \
+  for F in *; do \
+    [[ $F =~ (.*-) ]] && ln $F /root/.yarn/berry/cache/${BASH_REMATCH[1]}8.zip; \
+  done'
 
-# Although we're attempting to be "zero-install", in practice we still need to build arch specific packages.
-RUN yarn --immutable
 # If everything's worked properly, we should no longer need access to the network.
 RUN echo "enableNetwork: false" >> .yarnrc.yml
 
-# Yarn devs won't provide an extremely simple and useful feature of pruning dev dependencies from the local cache:
-# https://github.com/yarnpkg/berry/issues/1789
-#
-# To work around this, we will construct a global cache from the local cache using hard links (requires a hacky rename).
-# When we build an upstream docker image, we:
-# - Do the build.
-# - Erase the local cache with a `yarn cache clean`. Files remain in global cache due to hard link.
-# - Do a `yarn workspaces focus --production` to install production dependencies from the global cache, to .yarn/cache
-# - A final stage of the build strips away the global cache.
-RUN /bin/bash -c '\
-  [ -d /root/.yarn/berry/cache ] && exit 0; \
-  cd .yarn/cache && \
-  mkdir -p /root/.yarn/berry/cache && \
-  for F in *; do \
-  [[ $F =~ (.*-) ]] && ln $F /root/.yarn/berry/cache/${BASH_REMATCH[1]}8.zip; \
-  done'
-
-# Copy tsconfig to check dependencies
-COPY acir-simulator/tsconfig.json acir-simulator/tsconfig.json
-COPY archiver/tsconfig.json archiver/tsconfig.json
-COPY aztec-rpc/tsconfig.json aztec-rpc/tsconfig.json
-COPY aztec-node/tsconfig.json aztec-node/tsconfig.json
-COPY aztec-sandbox/tsconfig.json aztec-sandbox/tsconfig.json
-COPY aztec.js/tsconfig.json aztec.js/tsconfig.json
-COPY canary/tsconfig.json canary/tsconfig.json
-COPY cli/tsconfig.json cli/tsconfig.json
-COPY end-to-end/tsconfig.json end-to-end/tsconfig.json
-COPY ethereum/tsconfig.json ethereum/tsconfig.json
-COPY foundation/tsconfig.json foundation/tsconfig.json
-COPY key-store/tsconfig.json key-store/tsconfig.json
-COPY merkle-tree/tsconfig.json merkle-tree/tsconfig.json
-COPY noir-compiler/tsconfig.json noir-compiler/tsconfig.json
-COPY noir-contracts/tsconfig.json noir-contracts/tsconfig.json
-COPY l1-artifacts/tsconfig.json l1-artifacts/tsconfig.json
-COPY circuits.js/tsconfig.json circuits.js/tsconfig.json
-COPY p2p/tsconfig.json p2p/tsconfig.json
-COPY p2p-bootstrap/tsconfig.json p2p-bootstrap/tsconfig.json
-COPY prover-client/tsconfig.json prover-client/tsconfig.json
-COPY sequencer-client/tsconfig.json sequencer-client/tsconfig.json
-COPY rollup-provider/tsconfig.json rollup-provider/tsconfig.json
-COPY types/tsconfig.json types/tsconfig.json
-COPY world-state/tsconfig.json world-state/tsconfig.json
-
-# Check that dependencies config are up to date
-COPY yarn-project-base/scripts yarn-project-base/scripts
+# Check package.json inheritence and tsconfig project references.
 RUN yarn prepare:check
 
-# Generate TS-importable contract artifacts
-COPY l1-artifacts/scripts/generate-artifacts.sh l1-artifacts/scripts/generate-artifacts.sh
-WORKDIR /usr/src/yarn-project/l1-artifacts
-RUN ./scripts/generate-artifacts.sh
+# Bring in circuits wasms.
+COPY --from=circuits /usr/src/circuits/cpp/build-wasm/bin /usr/src/circuits/cpp/build-wasm/bin
 
-WORKDIR /usr/src/yarn-project
-
-# Generate Aztec.nr contract artifacts
-FROM builder_ as noir_types
-COPY . .
-COPY --from=noir /usr/src/yarn-project/noir-contracts/src/contracts /usr/src/yarn-project/noir-contracts/src/contracts
-COPY --from=noir /usr/src/yarn-project/noir-contracts/target /usr/src/yarn-project/noir-contracts/target
-WORKDIR /usr/src/yarn-project/noir-contracts
-
-# Run yarn build to have the json ABIs available for the types generator
-RUN yarn build
-RUN ./scripts/types_all.sh
-# Run yarn build again to build the types
-RUN yarn build
-
-# Take Aztec.nr contract artifacts into the final build image
-FROM builder_ as final
-COPY . .
-COPY --from=noir_types /usr/src/yarn-project/noir-contracts/src/artifacts /usr/src/yarn-project/noir-contracts/src/artifacts
-COPY --from=noir_types /usr/src/yarn-project/noir-contracts/src/types /usr/src/yarn-project/noir-contracts/src/types
+# Generate L1 contract TypeScript artifacts.
+COPY --from=contracts /usr/src/l1-contracts/out /usr/src/l1-contracts/out
+RUN cd l1-artifacts && ./scripts/generate-artifacts.sh
