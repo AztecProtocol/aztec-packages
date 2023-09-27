@@ -63,11 +63,11 @@ import { MNEMONIC, localAnvil } from './fixtures.js';
 
 const { SANDBOX_URL = '' } = process.env;
 
-export const waitForRPCServer = async (rpcServer: PXE, logger: DebugLogger) => {
+export const waitForRPCServer = async (pxe: PXE, logger: DebugLogger) => {
   await retryUntil(async () => {
     try {
       logger('Attempting to contact RPC Server...');
-      await rpcServer.getNodeInfo();
+      await pxe.getNodeInfo();
       return true;
     } catch (error) {
       logger('Failed to contact RPC Server!');
@@ -455,7 +455,7 @@ export async function deployAndInitializeStandardizedTokenAndBridgeContracts(
 
 /**
  * Deploy L1 token and portal, initialize portal, deploy a non native l2 token contract and attach is to the portal.
- * @param pxeService - Private Execution Environment (PXE) instance
+ * @param wallet - Aztec wallet instance.
  * @param walletClient - A viem WalletClient.
  * @param publicClient - A viem PublicClient.
  * @param rollupRegistryAddress - address of rollup registry to pass to initialize the token portal

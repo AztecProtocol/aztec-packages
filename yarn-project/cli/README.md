@@ -262,7 +262,7 @@ aztec-cli register-recipient -p 0x20d9d93c4a9eb2b4bdb70ead07d28d1edb74bfd78443a8
 
 ### get-accounts
 
-Gets all the Aztec accounts stored in a PXE
+Gets all the Aztec accounts stored in a PXE.
 
 Syntax:
 

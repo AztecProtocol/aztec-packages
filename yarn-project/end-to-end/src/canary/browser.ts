@@ -91,9 +91,9 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
       const result = await page.evaluate(
         async (rpcUrl, privateKeyString) => {
           const { GrumpkinScalar, createPXEClient: createPXEClient, getUnsafeSchnorrAccount } = window.AztecJs;
-          const client = createPXEClient(rpcUrl!);
+          const pxe = createPXEClient(rpcUrl!);
           const privateKey = GrumpkinScalar.fromString(privateKeyString);
-          const account = getUnsafeSchnorrAccount(client, privateKey);
+          const account = getUnsafeSchnorrAccount(pxe, privateKey);
           await account.waitDeploy();
           const completeAddress = await account.getCompleteAddress();
           const addressString = completeAddress.address.toString();
@@ -116,9 +116,9 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
       const result = await page.evaluate(
         async (rpcUrl, contractAddress, TokenContractAbi) => {
           const { Contract, AztecAddress, createPXEClient: createPXEClient } = window.AztecJs;
-          const client = createPXEClient(rpcUrl!);
-          const owner = (await client.getRegisteredAccounts())[0].address;
-          const [wallet] = await AztecJs.getSandboxAccountsWallets(client);
+          const pxe = createPXEClient(rpcUrl!);
+          const owner = (await pxe.getRegisteredAccounts())[0].address;
+          const [wallet] = await AztecJs.getSandboxAccountsWallets(pxe);
           const contract = await Contract.at(AztecAddress.fromString(contractAddress), TokenContractAbi, wallet);
           const balance = await contract.methods.balance_of_private(owner).view({ from: owner });
           return balance;
@@ -135,10 +135,10 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
         async (rpcUrl, contractAddress, transferAmount, TokenContractAbi) => {
           console.log(`Starting transfer tx`);
           const { AztecAddress, Contract, createPXEClient: createPXEClient } = window.AztecJs;
-          const client = createPXEClient(rpcUrl!);
-          const accounts = await client.getRegisteredAccounts();
+          const pxe = createPXEClient(rpcUrl!);
+          const accounts = await pxe.getRegisteredAccounts();
           const receiver = accounts[1].address;
-          const [wallet] = await AztecJs.getSandboxAccountsWallets(client);
+          const [wallet] = await AztecJs.getSandboxAccountsWallets(pxe);
           const contract = await Contract.at(AztecAddress.fromString(contractAddress), TokenContractAbi, wallet);
           await contract.methods.transfer(accounts[0].address, receiver, transferAmount, 0).send().wait();
           console.log(`Transferred ${transferAmount} tokens to new Account`);
@@ -165,16 +165,16 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
             computeMessageSecretHash,
             getSandboxAccountsWallets,
           } = window.AztecJs;
-          const client = createPXEClient(rpcUrl!);
-          let accounts = await client.getRegisteredAccounts();
+          const pxe = createPXEClient(rpcUrl!);
+          let accounts = await pxe.getRegisteredAccounts();
           if (accounts.length === 0) {
             // This test needs an account for deployment. We create one in case there is none available in the RPC server.
             const privateKey = GrumpkinScalar.fromString(privateKeyString);
-            await getUnsafeSchnorrAccount(client, privateKey).waitDeploy();
-            accounts = await client.getRegisteredAccounts();
+            await getUnsafeSchnorrAccount(pxe, privateKey).waitDeploy();
+            accounts = await pxe.getRegisteredAccounts();
           }
-          const [owner] = await getSandboxAccountsWallets(client);
-          const tx = new DeployMethod(accounts[0].publicKey, client, TokenContractAbi).send();
+          const [owner] = await getSandboxAccountsWallets(pxe);
+          const tx = new DeployMethod(accounts[0].publicKey, pxe, TokenContractAbi).send();
           await tx.wait();
           const receipt = await tx.getReceipt();
           console.log(`Contract Deployed: ${receipt.contractAddress}`);

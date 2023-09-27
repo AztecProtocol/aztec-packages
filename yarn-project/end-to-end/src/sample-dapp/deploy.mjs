@@ -8,10 +8,10 @@ import { fileURLToPath } from 'url';
 const { SANDBOX_URL = 'http://localhost:8080' } = process.env;
 
 async function main() {
-  const client = createPXEClient(SANDBOX_URL);
-  const [owner] = await getSandboxAccountsWallets(client);
+  const pxe = createPXEClient(SANDBOX_URL);
+  const [owner] = await getSandboxAccountsWallets(pxe);
 
-  const token = await Contract.deploy(client, TokenContractAbi, []).send().deployed();
+  const token = await Contract.deploy(pxe, TokenContractAbi, []).send().deployed();
   await token.withWallet(owner).methods._initialize(owner.getAddress()).send().wait();
 
   console.log(`Token deployed at ${token.address.toString()}`);
