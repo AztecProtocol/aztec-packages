@@ -66,10 +66,10 @@ export async function deployAndInitializeTokenAndBridgeContracts(
   });
 
   // deploy l2 token
-  const deployTx = TokenContract.deploy(wallet).send();
+  const deployTx = TokenContract.deploy(wallet, wallet.getCompleteAddress()).send();
 
   // deploy l2 token bridge and attach to the portal
-  const bridgeTx = TokenBridgeContract.deploy(wallet).send({
+  const bridgeTx = TokenBridgeContract.deploy(wallet, wallet.getCompleteAddress()).send({
     portalContract: tokenPortalAddress,
     contractAddressSalt: Fr.random(),
   });

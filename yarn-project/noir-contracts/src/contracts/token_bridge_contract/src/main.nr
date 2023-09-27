@@ -39,9 +39,9 @@ contract TokenBridge {
 
     // Constructs the contract.
     #[aztec(private)]
-    fn constructor() {
+    fn constructor(token: AztecAddress) {
         let selector = compute_selector("_initialize((Field))");
-        let _callStackItem = context.call_public_function(context.this_address(), selector, [context.msg_sender()]);
+        let _callStackItem = context.call_public_function(context.this_address(), selector, token.serialize());
     }
 
     // docs:start:claim_public
