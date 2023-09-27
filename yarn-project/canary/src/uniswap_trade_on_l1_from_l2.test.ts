@@ -35,6 +35,9 @@ const logger = createDebugLogger('aztec:canary');
 
 const { SANDBOX_URL = 'http://localhost:8080', ETHEREUM_HOST = 'http://localhost:8545' } = process.env;
 
+// eslint-disable-next-line no-console
+console.log('SANDBOX_URL', SANDBOX_URL, 'ETHEREUM_HOST', ETHEREUM_HOST);
+
 export const MNEMONIC = 'test test test test test test test test test test test junk';
 
 const INITIAL_BALANCE = 333n;
@@ -158,7 +161,7 @@ const transferWethOnL2 = async (
 };
 
 // TODO(2167) - Fix this! Adapt to new portal standard and new cross chain harness.
-describe.skip('uniswap_trade_on_l1_from_l2', () => {
+describe('uniswap_trade_on_l1_from_l2', () => {
   let ethAccount = EthAddress.ZERO;
   let publicClient: PublicClient<HttpTransport, Chain>;
   let walletClient: WalletClient<HttpTransport, Chain, HDAccount>;
