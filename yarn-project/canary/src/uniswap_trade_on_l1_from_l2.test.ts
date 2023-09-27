@@ -71,7 +71,7 @@ async function deployAllContracts(
     ownerWallet,
     walletClient,
     publicClient,
-    l1ContractsAddresses!.registry,
+    l1ContractsAddresses!.registryAddress,
     ownerAddress,
     DAI_ADDRESS,
   );
@@ -85,7 +85,7 @@ async function deployAllContracts(
     ownerWallet,
     walletClient,
     publicClient,
-    l1ContractsAddresses!.registry,
+    l1ContractsAddresses!.registryAddress,
     ownerAddress,
     WETH9_ADDRESS,
   );
@@ -116,7 +116,7 @@ async function deployAllContracts(
   await uniswapL2Contract.attach(uniswapPortalAddress);
 
   await uniswapPortal.write.initialize(
-    [l1ContractsAddresses!.registry.toString(), uniswapL2Contract.address.toString()],
+    [l1ContractsAddresses!.registryAddress.toString(), uniswapL2Contract.address.toString()],
     {} as any,
   );
 
@@ -286,7 +286,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
     const { result: messageKeyHex } = await wethTokenPortal.simulate.depositToAztecPrivate(args, {
       account: ownerEthAddress.toString(),
     } as any);
-    await wethTokenPortal.write.depositToAztecPublic(args, {} as any);
+    await wethTokenPortal.write.depositToAztecPrivate(args, {} as any);
 
     const currentL1Balance = await wethContract.read.balanceOf([ownerEthAddress.toString()]);
     logger(`Initial Balance: ${currentL1Balance}. Should be: ${wethL1BeforeBalance - wethAmountToBridge}`);
