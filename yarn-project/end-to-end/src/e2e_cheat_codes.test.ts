@@ -1,7 +1,7 @@
-import { EthAddress } from '@aztec/aztec-rpc';
 import { CheatCodes, Wallet } from '@aztec/aztec.js';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { TestContract } from '@aztec/noir-contracts/types';
+import { EthAddress } from '@aztec/pxe';
 import { AztecRPC, TxStatus } from '@aztec/types';
 
 import { Account, Chain, HttpTransport, PublicClient, WalletClient, getAddress, getContract, parseEther } from 'viem';
@@ -24,7 +24,7 @@ describe('e2e_cheat_codes', () => {
 
     walletClient = deployL1ContractsValues.walletClient;
     publicClient = deployL1ContractsValues.publicClient;
-    rollupAddress = deployL1ContractsValues.rollupAddress;
+    rollupAddress = deployL1ContractsValues.l1ContractAddresses.rollupAddress;
   }, 100_000);
 
   afterAll(() => teardown());
