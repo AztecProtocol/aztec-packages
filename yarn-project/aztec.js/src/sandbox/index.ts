@@ -22,7 +22,7 @@ export const { SANDBOX_URL = 'http://localhost:8080' } = process.env;
 
 /**
  * Gets a collection of wallets for the Aztec accounts that are initially stored in the sandbox.
- * @param pxe - A PXE instance.
+ * @param pxe - PXE instance.
  * @returns A set of AccountWallet implementations for each of the initial accounts.
  */
 export function getSandboxAccountsWallets(pxe: PXE): Promise<AccountWallet[]> {
@@ -35,7 +35,7 @@ export function getSandboxAccountsWallets(pxe: PXE): Promise<AccountWallet[]> {
 
 /**
  * Deploys the initial set of schnorr signature accounts to the sandbox
- * @param pxe - A PXE instance.
+ * @param pxe - PXE instance.
  * @returns The set of deployed Account objects and associated private encryption keys
  */
 export async function deployInitialSandboxAccounts(pxe: PXE) {

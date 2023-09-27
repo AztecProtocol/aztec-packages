@@ -7,7 +7,7 @@ export async function deployContract(
   contractAbi: ContractAbi,
   typedArgs: Fr[], // encode prior to passing in
   salt: Fr,
-  client: PXE,
+  pxe: PXE,
 ): Promise<AztecAddress> {
   const tx = new DeployMethod(activeWallet.publicKey, client, contractAbi, typedArgs).send({
     contractAddressSalt: salt,

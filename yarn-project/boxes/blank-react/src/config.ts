@@ -7,7 +7,7 @@ import { ContractAbi } from '@aztec/foundation/abi';
 export const contractAbi: ContractAbi = BlankContractAbi;
 
 export const SANDBOX_URL: string = process.env.SANDBOX_URL || 'http://localhost:8080';
-export const rpcClient: PXE = createPXEClient(SANDBOX_URL);
+export const pxe: PXE = createPXEClient(SANDBOX_URL);
 
 export const CONTRACT_ADDRESS_PARAM_NAMES = ['address'];
 export const FILTERED_FUNCTION_NAMES = [];

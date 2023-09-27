@@ -24,11 +24,11 @@ const DefaultWaitOpts: WaitOpts = {
 };
 
 /**
- * The SentTx class represents a sent transaction through the PXEClient, providing methods to fetch
+ * The SentTx class represents a sent transaction through the PXE, providing methods to fetch
  * its hash, receipt, and mining status.
  */
 export class SentTx {
-  constructor(protected arc: PXE, protected txHashPromise: Promise<TxHash>) {}
+  constructor(protected pxe: PXE, protected txHashPromise: Promise<TxHash>) {}
 
   /**
    * Retrieves the transaction hash of the SentTx instance.
@@ -43,13 +43,13 @@ export class SentTx {
   /**
    * Retrieve the transaction receipt associated with the current SentTx instance.
    * The function fetches the transaction hash using 'getTxHash' and then queries
-   * the PXEClient to get the corresponding transaction receipt.
+   * the PXE to get the corresponding transaction receipt.
    *
    * @returns A promise that resolves to a TxReceipt object representing the fetched transaction receipt.
    */
   public async getReceipt(): Promise<TxReceipt> {
     const txHash = await this.getTxHash();
-    return await this.arc.getTxReceipt(txHash);
+    return await this.pxe.getTxReceipt(txHash);
   }
 
   /**
@@ -84,7 +84,7 @@ export class SentTx {
     const txHash = await this.getTxHash();
     return await retryUntil(
       async () => {
-        const txReceipt = await this.arc.getTxReceipt(txHash);
+        const txReceipt = await this.pxe.getTxReceipt(txHash);
         // If receipt is not yet available, try again
         if (txReceipt.status === TxStatus.PENDING) return undefined;
         // If the tx was dropped, return it
@@ -93,7 +93,7 @@ export class SentTx {
         const waitForNotesSync = opts?.waitForNotesSync ?? DefaultWaitOpts.waitForNotesSync;
         if (!waitForNotesSync) return txReceipt;
         // Check if all sync blocks on the PXE Service are greater or equal than the block in which the tx was mined
-        const { blocks, notes } = await this.arc.getSyncStatus();
+        const { blocks, notes } = await this.pxe.getSyncStatus();
         const targetBlock = txReceipt.blockNumber!;
         const areNotesSynced = blocks >= targetBlock && every(notes, block => block >= targetBlock);
         return areNotesSynced ? txReceipt : undefined;

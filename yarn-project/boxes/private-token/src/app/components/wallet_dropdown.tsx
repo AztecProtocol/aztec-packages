@@ -1,4 +1,4 @@
-import { rpcClient } from '../../config.js';
+import { pxe } from '../../config.js';
 import { Copy } from './copy.js';
 import { Select } from './select.js';
 import styles from './wallet_dropdown.module.scss';
@@ -20,7 +20,7 @@ export function WalletDropdown({ selected, onSelectChange, onError }: Props) {
       return;
     }
     const loadOptions = async () => {
-      const fetchedOptions = await rpcClient.getRegisteredAccounts();
+      const fetchedOptions = await pxe.getRegisteredAccounts();
       setOptions(fetchedOptions);
       onSelectChange(fetchedOptions[0]);
     };

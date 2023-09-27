@@ -40,8 +40,8 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
   /** Constructor function to call. */
   private constructorAbi: FunctionAbi;
 
-  constructor(private publicKey: PublicKey, private arc: PXE, private abi: ContractAbi, private args: any[] = []) {
-    super(arc);
+  constructor(private publicKey: PublicKey, protected pxe: PXE, private abi: ContractAbi, private args: any[] = []) {
+    super(pxe);
     const constructorAbi = abi.functions.find(f => f.name === 'constructor');
     if (!constructorAbi) throw new Error('Cannot find constructor in the ABI.');
     this.constructorAbi = constructorAbi;
@@ -118,7 +118,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    */
   public send(options: DeployOptions = {}): DeploySentTx<TContract> {
     const txHashPromise = super.send(options).getTxHash();
-    return new DeploySentTx(this.abi, this.arc, txHashPromise);
+    return new DeploySentTx(this.abi, this.pxe, txHashPromise);
   }
 
   /**

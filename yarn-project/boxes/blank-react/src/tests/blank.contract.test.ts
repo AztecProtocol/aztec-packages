@@ -26,9 +26,9 @@ const setupSandbox = async () => {
   return pxe;
 };
 
-async function deployZKContract(owner: CompleteAddress, wallet: Wallet, rpcClient: PXE) {
+async function deployZKContract(owner: CompleteAddress, wallet: Wallet, pxe: PXE) {
   logger('Deploying Blank contract...');
-  const contractAddress = await deployContract(owner, BlankContract.abi, [], Fr.random(), rpcClient);
+  const contractAddress = await deployContract(owner, BlankContract.abi, [], Fr.random(), pxe);
 
   logger(`L2 contract deployed at ${contractAddress}`);
   return BlankContract.at(contractAddress, wallet);
@@ -41,16 +41,16 @@ describe('ZK Contract Tests', () => {
   let _account3: CompleteAddress;
   let contract: Contract;
   let contractAddress: AztecAddress;
-  let rpcClient: PXE;
+  let pxe: PXE;
 
   beforeAll(async () => {
-    rpcClient = await setupSandbox();
-    const accounts = await rpcClient.getRegisteredAccounts();
+    pxe = await setupSandbox();
+    const accounts = await pxe.getRegisteredAccounts();
     [owner, _account2, _account3] = accounts;
 
-    wallet = await getWallet(owner, rpcClient);
+    wallet = await getWallet(owner, pxe);
 
-    contract = await deployZKContract(owner, wallet, rpcClient);
+    contract = await deployZKContract(owner, wallet, pxe);
     contractAddress = contract.address;
   }, 60000);
 
@@ -60,7 +60,7 @@ describe('ZK Contract Tests', () => {
       contract.abi,
       'getPublicKey',
       [owner.address.toField()],
-      rpcClient,
+      pxe,
       owner,
     );
 

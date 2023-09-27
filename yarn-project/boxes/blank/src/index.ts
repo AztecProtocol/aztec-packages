@@ -16,7 +16,7 @@ import { BlankContractAbi } from './artifacts/blank.js';
 export const contractAbi: ContractAbi = BlankContractAbi;
 
 export const SANDBOX_URL: string = process.env.SANDBOX_URL || 'http://localhost:8080';
-export const rpcClient: PXE = createPXEClient(SANDBOX_URL);
+export const pxe: PXE = createPXEClient(SANDBOX_URL);
 
 export const CONTRACT_ADDRESS_PARAM_NAMES = ['owner', 'contract_address', 'recipient'];
 export const FILTERED_FUNCTION_NAMES = [];
@@ -40,21 +40,21 @@ if (typeof document !== 'undefined') {
 
 export async function handleDeployClick(): Promise<string> {
   console.log('Deploying Contract');
-  const [wallet, ..._rest] = await getSandboxAccountsWallets(rpcClient);
+  const [wallet, ..._rest] = await getSandboxAccountsWallets(pxe);
 
   const contractAztecAddress = await deployContract(
     wallet.getCompleteAddress(),
     contractAbi,
     [],
     Fr.random(),
-    rpcClient,
+    pxe,
   );
 
   return contractAztecAddress.toString();
 }
 
 export async function handleInteractClick(contractAddress: string) {
-  const [wallet, ..._rest] = await getSandboxAccountsWallets(rpcClient);
+  const [wallet, ..._rest] = await getSandboxAccountsWallets(pxe);
   const callArgs = { address: wallet.getCompleteAddress().address };
   const getPkAbi = getFunctionAbi(BlankContractAbi, 'getPublicKey');
   const typedArgs = convertArgs(getPkAbi, callArgs);
@@ -65,7 +65,7 @@ export async function handleInteractClick(contractAddress: string) {
     contractAbi,
     'getPublicKey',
     typedArgs,
-    rpcClient,
+    pxe,
     wallet.getCompleteAddress(),
   );
 }
@@ -117,9 +117,9 @@ export async function deployContract(
   contractAbi: ContractAbi,
   typedArgs: Fr[], // encode prior to passing in
   salt: Fr,
-  client: PXE,
+  pxe: PXE,
 ): Promise<AztecAddress> {
-  const tx = new DeployMethod(activeWallet.publicKey, client, contractAbi, typedArgs).send({
+  const tx = new DeployMethod(activeWallet.publicKey, pxe, contractAbi, typedArgs).send({
     contractAddressSalt: salt,
   });
   await tx.wait();

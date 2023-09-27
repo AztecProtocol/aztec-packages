@@ -8,28 +8,19 @@ import { gtr, ltr, satisfies, valid } from 'semver';
 
 /**
  * Creates a PXE client with a given set of retries on non-server errors.
- * @param rpcUrl - URL of the RPC server wrapping the PXE.
- * @returns A PXE client.
- */
-export function createClient(rpcUrl: string) {
-  return createPXEClient(rpcUrl);
-}
-
-/**
- * Creates a PXE client with a given set of retries on non-server errors.
  * Checks that PXE matches the expected version, and warns if not.
  * @param rpcUrl - URL of the RPC server wrapping the PXE.
  * @param logger - Debug logger to warn version incompatibilities.
  * @returns A PXE client.
  */
 export async function createCompatibleClient(rpcUrl: string, logger: DebugLogger) {
-  const client = createClient(rpcUrl);
+  const pxe = createPXEClient(rpcUrl);
   const packageJsonPath = resolve(dirname(fileURLToPath(import.meta.url)), '../package.json');
   const packageJsonContents = JSON.parse(readFileSync(packageJsonPath).toString());
   const expectedVersionRange = packageJsonContents.version; // During sandbox, we'll expect exact matches
 
   try {
-    await checkServerVersion(client, expectedVersionRange);
+    await checkServerVersion(pxe, expectedVersionRange);
   } catch (err) {
     if (err instanceof VersionMismatchError) {
       logger.warn(err.message);
@@ -38,7 +29,7 @@ export async function createCompatibleClient(rpcUrl: string, logger: DebugLogger
     }
   }
 
-  return client;
+  return pxe;
 }
 
 /** Mismatch between server and client versions. */

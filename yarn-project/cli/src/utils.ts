@@ -21,7 +21,6 @@ import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
 import { encodeArgs } from './encoding.js';
 
-export { createClient } from './client.js';
 /**
  * Helper type to dynamically import contracts.
  */
@@ -126,11 +125,11 @@ export async function getContractAbi(fileDir: string, log: LogFn) {
 /**
  * Utility to select a TX sender either from user input
  * or from the first account that is found in an PXE instance.
- * @param client - The PXE instance that will be checked for an account.
+ * @param pxe - The PXE instance that will be checked for an account.
  * @param _from - The user input.
  * @returns An Aztec address. Will throw if one can't be found in either options.
  */
-export async function getTxSender(client: PXE, _from?: string) {
+export async function getTxSender(pxe: PXE, _from?: string) {
   let from: AztecAddress;
   if (_from) {
     try {
@@ -139,7 +138,7 @@ export async function getTxSender(client: PXE, _from?: string) {
       throw new Error(`Invalid option 'from' passed: ${_from}`);
     }
   } else {
-    const accounts = await client.getRegisteredAccounts();
+    const accounts = await pxe.getRegisteredAccounts();
     if (!accounts.length) {
       throw new Error('No accounts found in PXE instance.');
     }
