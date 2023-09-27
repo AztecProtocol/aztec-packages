@@ -1,6 +1,6 @@
+import { getWallet } from './util.js';
 import { AztecAddress, PXE, CompleteAddress, Contract } from '@aztec/aztec.js';
 import { ContractAbi } from '@aztec/foundation/abi';
-import { getWallet } from './util.js';
 
 export async function callContractFunction(
   address: AztecAddress,
