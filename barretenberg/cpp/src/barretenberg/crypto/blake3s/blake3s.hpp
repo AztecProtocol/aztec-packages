@@ -64,7 +64,6 @@ using out_array = std::array<uint8_t, BLAKE3_OUT_LEN>;
 static constexpr key_array IV = { 0x6A09E667UL, 0xBB67AE85UL, 0x3C6EF372UL, 0xA54FF53AUL,
                                   0x510E527FUL, 0x9B05688CUL, 0x1F83D9ABUL, 0x5BE0CD19UL };
 
-// static constexpr uint8_t MSG_SCHEDULE[7][16] = {
 static constexpr std::array<uint8_t, 16> MSG_SCHEDULE_0 = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
 static constexpr std::array<uint8_t, 16> MSG_SCHEDULE_1 = { 2, 6, 3, 10, 7, 0, 4, 13, 1, 11, 12, 5, 9, 14, 15, 8 };
 static constexpr std::array<uint8_t, 16> MSG_SCHEDULE_2 = { 3, 4, 10, 12, 13, 2, 7, 14, 6, 5, 9, 0, 11, 15, 8, 1 };
