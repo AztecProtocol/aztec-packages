@@ -2,13 +2,13 @@
 import { createDebugLogger } from '@aztec/foundation/log';
 import { createAztecNodeRpcClient } from '@aztec/types';
 
+import { getConfigEnvVars } from '../config/index.js';
 import { startPXEHttpServer } from '../pxe_http/index.js';
 import { createPXEService } from '../pxe_service/index.js';
-import { getConfigEnvVars } from '../config/index.js';
 
 const { SERVER_PORT = 8080, AZTEC_NODE_RPC_URL = '' } = process.env;
 
-const logger = createDebugLogger('aztec:rpc_server');
+const logger = createDebugLogger('aztec:pxe_service');
 
 /**
  * Create and start a new PXE HTTP Server

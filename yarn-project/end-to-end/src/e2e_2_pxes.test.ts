@@ -15,7 +15,7 @@ const { SANDBOX_URL = '' } = process.env;
 
 const TIMEOUT = 60_000;
 
-describe('e2e_2_rpc_servers', () => {
+describe('e2e_2_pxes', () => {
   jest.setTimeout(TIMEOUT);
 
   let aztecNode: AztecNodeService | undefined;
