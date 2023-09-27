@@ -513,7 +513,6 @@ template <typename Flavor> class ECCVMCircuitBuilder {
         rows.z_perm_shift = typename Flavor::Polynomial(rows.z_perm.shifted());
 
         const auto evaluate_relation = [&]<typename Relation>(const std::string& relation_name) {
-            auto relation = Relation();
             typename Relation::RelationValues result;
             for (auto& r : result) {
                 r = 0;
@@ -525,7 +524,7 @@ template <typename Flavor> class ECCVMCircuitBuilder {
                 for (size_t j = 0; j < NUM_POLYNOMIALS; ++j) {
                     row[j] = rows[j][i];
                 }
-                relation.add_full_relation_value_contribution(result, row, params, 1);
+                Relation::template accumulate<typename Relation::ValueAccumulatorsAndViews>(result, row, params, 1);
 
                 bool x = true;
                 for (size_t j = 0; j < NUM_SUBRELATIONS; ++j) {
@@ -553,7 +552,7 @@ template <typename Flavor> class ECCVMCircuitBuilder {
         result =
             result && evaluate_relation.template operator()<honk::sumcheck::ECCVMSetRelation<FF>>("ECCVMSetRelation");
 
-        auto lookup_relation = honk::sumcheck::ECCVMLookupRelation<FF>();
+        using LookupRelation = honk::sumcheck::ECCVMLookupRelation<FF>;
         typename honk::sumcheck::ECCVMLookupRelation<typename Flavor::FF>::RelationValues lookup_result;
         for (auto& r : lookup_result) {
             r = 0;
@@ -564,7 +563,8 @@ template <typename Flavor> class ECCVMCircuitBuilder {
                 row[j] = rows[j][i];
             }
             {
-                lookup_relation.add_full_relation_value_contribution(lookup_result, row, params, 1);
+                LookupRelation::template accumulate<typename LookupRelation::ValueAccumulatorsAndViews>(
+                    lookup_result, row, params, 1);
             }
         }
         for (auto r : lookup_result) {

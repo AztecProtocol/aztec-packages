@@ -101,7 +101,8 @@ class UltraRelationConsistency : public testing::Test {
     {
         typename Relation::RelationValues accumulator;
         std::fill(accumulator.begin(), accumulator.end(), FF(0));
-        Relation::add_full_relation_value_contribution(accumulator, input_elements, parameters);
+        Relation::template accumulate<typename Relation::ValueAccumulatorsAndViews>(
+            accumulator, input_elements, parameters, 1);
         EXPECT_EQ(accumulator, expected_values);
     };
 };

@@ -29,7 +29,7 @@ void ensure_non_zero(auto& polynomial)
  * @tparam relation_idx Index into a tuple of provided relations
  * @tparam Flavor
  */
-template <typename Flavor> void check_relation(auto relation, auto circuit_size, auto polynomials, auto params)
+template <typename Flavor, typename Relation> void check_relation(auto circuit_size, auto polynomials, auto params)
 {
     using ClaimedEvaluations = typename Flavor::ClaimedEvaluations;
     for (size_t i = 0; i < circuit_size; i++) {
@@ -43,14 +43,15 @@ template <typename Flavor> void check_relation(auto relation, auto circuit_size,
         }
 
         // Define the appropriate RelationValues type for this relation and initialize to zero
-        using RelationValues = typename decltype(relation)::RelationValues;
+        using RelationValues = typename Relation::RelationValues;
         RelationValues result;
         for (auto& element : result) {
             element = 0;
         }
 
         // Evaluate each constraint in the relation and check that each is satisfied
-        relation.add_full_relation_value_contribution(result, evaluations_at_index_i, params);
+        Relation::template accumulate<typename Relation::ValueAccumulatorsAndViews>(
+            result, evaluations_at_index_i, params, 1);
         for (auto& element : result) {
             ASSERT_EQ(element, 0);
         }
@@ -253,22 +254,17 @@ TEST_F(RelationCorrectnessTests, UltraRelationCorrectness)
     ensure_non_zero(proving_key->q_aux);
 
     // Construct the round for applying sumcheck relations and results for storing computed results
-    auto relations = std::tuple(proof_system::UltraArithmeticRelation<FF>(),
-                                proof_system::UltraPermutationRelation<FF>(),
-                                proof_system::LookupRelation<FF>(),
-                                proof_system::GenPermSortRelation<FF>(),
-                                proof_system::EllipticRelation<FF>(),
-                                proof_system::AuxiliaryRelation<FF>());
+    using Relations = typename Flavor::Relations;
 
     auto prover_polynomials = instance->prover_polynomials;
     auto params = instance->relation_parameters;
     // Check that each relation is satisfied across each row of the prover polynomials
-    check_relation<Flavor>(std::get<0>(relations), circuit_size, prover_polynomials, params);
-    check_relation<Flavor>(std::get<1>(relations), circuit_size, prover_polynomials, params);
-    check_relation<Flavor>(std::get<2>(relations), circuit_size, prover_polynomials, params);
-    check_relation<Flavor>(std::get<3>(relations), circuit_size, prover_polynomials, params);
-    check_relation<Flavor>(std::get<4>(relations), circuit_size, prover_polynomials, params);
-    check_relation<Flavor>(std::get<5>(relations), circuit_size, prover_polynomials, params);
+    check_relation<Flavor, std::tuple_element_t<0, Relations>>(circuit_size, prover_polynomials, params);
+    check_relation<Flavor, std::tuple_element_t<1, Relations>>(circuit_size, prover_polynomials, params);
+    check_relation<Flavor, std::tuple_element_t<2, Relations>>(circuit_size, prover_polynomials, params);
+    check_relation<Flavor, std::tuple_element_t<3, Relations>>(circuit_size, prover_polynomials, params);
+    check_relation<Flavor, std::tuple_element_t<4, Relations>>(circuit_size, prover_polynomials, params);
+    check_relation<Flavor, std::tuple_element_t<5, Relations>>(circuit_size, prover_polynomials, params);
 }
 
 TEST_F(RelationCorrectnessTests, GoblinUltraRelationCorrectness)
@@ -311,25 +307,18 @@ TEST_F(RelationCorrectnessTests, GoblinUltraRelationCorrectness)
     ensure_non_zero(proving_key->q_aux);
 
     // Construct the round for applying sumcheck relations and results for storing computed results
-    auto relations = std::tuple(proof_system::UltraArithmeticRelation<FF>(),
-                                proof_system::UltraPermutationRelation<FF>(),
-                                proof_system::LookupRelation<FF>(),
-                                proof_system::GenPermSortRelation<FF>(),
-                                proof_system::EllipticRelation<FF>(),
-                                proof_system::AuxiliaryRelation<FF>(),
-                                proof_system::EccOpQueueRelation<FF>());
-
+    using Relations = typename Flavor::Relations;
     auto prover_polynomials = instance->prover_polynomials;
     auto params = instance->relation_parameters;
 
     // Check that each relation is satisfied across each row of the prover polynomials
-    check_relation<Flavor>(std::get<0>(relations), circuit_size, prover_polynomials, params);
-    check_relation<Flavor>(std::get<1>(relations), circuit_size, prover_polynomials, params);
-    check_relation<Flavor>(std::get<2>(relations), circuit_size, prover_polynomials, params);
-    check_relation<Flavor>(std::get<3>(relations), circuit_size, prover_polynomials, params);
-    check_relation<Flavor>(std::get<4>(relations), circuit_size, prover_polynomials, params);
-    check_relation<Flavor>(std::get<5>(relations), circuit_size, prover_polynomials, params);
-    check_relation<Flavor>(std::get<6>(relations), circuit_size, prover_polynomials, params);
+    check_relation<Flavor, std::tuple_element_t<0, Relations>>(circuit_size, prover_polynomials, params);
+    check_relation<Flavor, std::tuple_element_t<1, Relations>>(circuit_size, prover_polynomials, params);
+    check_relation<Flavor, std::tuple_element_t<2, Relations>>(circuit_size, prover_polynomials, params);
+    check_relation<Flavor, std::tuple_element_t<3, Relations>>(circuit_size, prover_polynomials, params);
+    check_relation<Flavor, std::tuple_element_t<4, Relations>>(circuit_size, prover_polynomials, params);
+    check_relation<Flavor, std::tuple_element_t<5, Relations>>(circuit_size, prover_polynomials, params);
+    check_relation<Flavor, std::tuple_element_t<6, Relations>>(circuit_size, prover_polynomials, params);
 }
 
 } // namespace test_honk_relations

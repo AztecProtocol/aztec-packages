@@ -108,23 +108,6 @@ template <typename RelationImpl> class Relation : public RelationImpl {
     using RelationValues = typename ValueAccumulatorsAndViews::Accumulators;
     static constexpr size_t RELATION_LENGTH = RelationImpl::RELATION_LENGTH;
 
-    static inline void add_edge_contribution(RelationUnivariates& accumulator,
-                                             const auto& input,
-                                             const RelationParameters<FF>& relation_parameters,
-                                             const FF& scaling_factor)
-    {
-        Relation::template accumulate<UnivariateAccumulatorsAndViews>(
-            accumulator, input, relation_parameters, scaling_factor);
-    }
-
-    static void add_full_relation_value_contribution(RelationValues& accumulator,
-                                                     auto& input,
-                                                     const RelationParameters<FF>& relation_parameters,
-                                                     const FF& scaling_factor = 1)
-    {
-        Relation::template accumulate<ValueAccumulatorsAndViews>(
-            accumulator, input, relation_parameters, scaling_factor);
-    }
     /**
      * @brief Check is subrelation is linearly independent
      * Method is active if relation has SUBRELATION_LINEARLY_INDEPENDENT array defined

@@ -39,9 +39,8 @@ template <typename Flavor, typename Relation> void execute_relation(::benchmark:
     RelationValues accumulator;
     // Evaluate each constraint in the relation and check that each is satisfied
 
-    Relation relation;
     for (auto _ : state) {
-        relation.add_full_relation_value_contribution(accumulator, new_value, params);
+        Relation::template accumulate<typename Relation::ValueAccumulatorsAndViews>(accumulator, new_value, params, 1);
     }
 }
 
