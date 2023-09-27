@@ -1,6 +1,6 @@
 #pragma once
 
-#include "barretenberg/common/throw_or_abort.hpp"
+// #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/proof_system/types/circuit_type.hpp"
 #include <array>
 #include <string>
@@ -164,7 +164,7 @@ class PolynomialManifest {
             break;
         };
         default: {
-            throw_or_abort("Received invalid composer type");
+            // throw_or_abort("Received invalid composer type");
         }
         };
     }
