@@ -10,6 +10,7 @@ import { AztecNode, FunctionCall, TxExecutionRequest } from '@aztec/types';
 import { WasmBlackBoxFunctionSolver, createBlackBoxSolver } from '@noir-lang/acvm_js';
 
 import { createSimulationError } from '../common/errors.js';
+import { SideEffectCounter } from '../common/index.js';
 import { PackedArgsCache } from '../common/packed_args_cache.js';
 import { ClientExecutionContext } from './client_execution_context.js';
 import { DBOracle, FunctionAbiWithDebugMetadata } from './db_oracle.js';
@@ -92,9 +93,9 @@ export class AcirSimulator {
       callContext,
       historicBlockData,
       request.authWitnesses,
-      0,
       await PackedArgsCache.create(request.packedArguments),
       new ExecutionNoteCache(),
+      new SideEffectCounter(),
       this.db,
       curve,
     );

@@ -14,7 +14,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { FunctionL2Logs } from '@aztec/types';
 
 import { TypedOracle, toACVMWitness } from '../acvm/index.js';
-import { PackedArgsCache } from '../common/index.js';
+import { PackedArgsCache, SideEffectCounter } from '../common/index.js';
 import { CommitmentsDB, PublicContractsDB, PublicStateDB } from './db.js';
 import { PublicExecution, PublicExecutionResult } from './execution.js';
 import { executePublicFunction } from './executor.js';
@@ -36,11 +36,11 @@ export class PublicExecutionContext extends TypedOracle {
     private readonly historicBlockData: HistoricBlockData,
     private readonly globalVariables: GlobalVariables,
     private readonly packedArgsCache: PackedArgsCache,
+    private readonly sideEffectCounter: SideEffectCounter,
     private readonly stateDb: PublicStateDB,
     private readonly contractsDb: PublicContractsDB,
     private readonly commitmentsDb: CommitmentsDB,
-    private sideEffectCounter: number = 0,
-    private log = createDebugLogger('aztec:simulator:public-execution'),
+    private log = createDebugLogger('aztec:simulator:public_execution_context'),
   ) {
     super();
     this.storageActions = new ContractStorageActionsCollector(stateDb, execution.contractAddress);
@@ -163,7 +163,8 @@ export class PublicExecutionContext extends TypedOracle {
     const values = [];
     for (let i = 0; i < Number(numberOfElements); i++) {
       const storageSlot = new Fr(startStorageSlot.value + BigInt(i));
-      const value = await this.storageActions.read(storageSlot, this.sideEffectCounter++); // update the sideEffectCounter after assigning its current value to storage action
+      const sideEffectCounter = this.sideEffectCounter.count();
+      const value = await this.storageActions.read(storageSlot, sideEffectCounter);
       this.log(`Oracle storage read: slot=${storageSlot.toString()} value=${value.toString()}`);
       values.push(value);
     }
@@ -180,7 +181,8 @@ export class PublicExecutionContext extends TypedOracle {
     for (let i = 0; i < values.length; i++) {
       const storageSlot = new Fr(startStorageSlot.value + BigInt(i));
       const newValue = values[i];
-      await this.storageActions.write(storageSlot, newValue, this.sideEffectCounter++); // update the sideEffectCounter after assigning its current value to storage action
+      const sideEffectCounter = this.sideEffectCounter.count();
+      await this.storageActions.write(storageSlot, newValue, sideEffectCounter);
       await this.stateDb.storageWrite(this.execution.contractAddress, storageSlot, newValue);
       this.log(`Oracle storage write: slot=${storageSlot.toString()} value=${newValue.toString()}`);
       newValues.push(newValue);
@@ -237,10 +239,10 @@ export class PublicExecutionContext extends TypedOracle {
       this.historicBlockData,
       this.globalVariables,
       this.packedArgsCache,
+      this.sideEffectCounter,
       this.stateDb,
       this.contractsDb,
       this.commitmentsDb,
-      this.sideEffectCounter,
       this.log,
     );
 

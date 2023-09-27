@@ -17,6 +17,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { AuthWitness, FunctionL2Logs, NotePreimage, NoteSpendingInfo } from '@aztec/types';
 
 import { NoteData, toACVMWitness } from '../acvm/index.js';
+import { SideEffectCounter } from '../common/index.js';
 import { PackedArgsCache } from '../common/packed_args_cache.js';
 import { DBOracle } from './db_oracle.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';
@@ -61,9 +62,9 @@ export class ClientExecutionContext extends ViewDataOracle {
     protected readonly historicBlockData: HistoricBlockData,
     /** List of transient auth witnesses to be used during this simulation */
     protected readonly authWitnesses: AuthWitness[],
-    private sideEffectCounter: number,
     private readonly packedArgsCache: PackedArgsCache,
     private readonly noteCache: ExecutionNoteCache,
+    private readonly sideEffectCounter: SideEffectCounter,
     protected readonly db: DBOracle,
     private readonly curve: Grumpkin,
     protected log = createDebugLogger('aztec:simulator:client_execution_context'),
@@ -372,9 +373,9 @@ export class ClientExecutionContext extends ViewDataOracle {
       derivedCallContext,
       this.historicBlockData,
       this.authWitnesses,
-      this.sideEffectCounter,
       this.packedArgsCache,
       this.noteCache,
+      this.sideEffectCounter,
       this.db,
       this.curve,
     );
@@ -384,7 +385,6 @@ export class ClientExecutionContext extends ViewDataOracle {
       targetAbi,
       targetContractAddress,
       targetFunctionData,
-      this.log,
     );
 
     this.nestedExecutions.push(childExecutionResult);
@@ -409,12 +409,13 @@ export class ClientExecutionContext extends ViewDataOracle {
     const targetAbi = await this.db.getFunctionABI(targetContractAddress, functionSelector);
     const derivedCallContext = await this.deriveCallContext(targetContractAddress, false, false);
     const args = this.packedArgsCache.unpack(argsHash);
+    const sideEffectCounter = this.sideEffectCounter.count();
     const enqueuedRequest = PublicCallRequest.from({
       args,
       callContext: derivedCallContext,
       functionData: FunctionData.fromAbi(targetAbi),
       contractAddress: targetContractAddress,
-      sideEffectCounter: this.sideEffectCounter++, // update after assigning current value to call
+      sideEffectCounter,
     });
 
     // TODO($846): if enqueued public calls are associated with global
@@ -422,7 +423,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     // side-effects occurred in the TX. Ultimately the private kernel should
     // just output everything in the proper order without any counters.
     this.log(
-      `Enqueued call to public function (with side-effect counter #${enqueuedRequest.sideEffectCounter}) ${targetContractAddress}:${functionSelector}`,
+      `Enqueued call to public function (with side-effect counter #${sideEffectCounter}) ${targetContractAddress}:${functionSelector}`,
     );
 
     this.enqueuedPublicFunctionCalls.push(enqueuedRequest);
