@@ -100,7 +100,7 @@ constexpr void blake3_compress_xof(
     const uint32_t cv[8], const uint8_t block[BLAKE3_BLOCK_LEN], uint8_t block_len, uint8_t flags, uint8_t out[64]);
 
 constexpr std::array<uint8_t, BLAKE3_OUT_LEN> blake3s_constexpr(const uint8_t* input, size_t input_size);
-std::vector<uint8_t> blake3s(std::vector<uint8_t> const& input);
+inline std::vector<uint8_t> blake3s(std::vector<uint8_t> const& input);
 
 } // namespace blake3
 
