@@ -376,7 +376,7 @@ jobs:
   yarn-project-base:
     machine:
       image: ubuntu-2204:2023.07.2
-    resource_class: xlarge
+    resource_class: large
     steps:
       - *checkout
       - *setup_env
@@ -395,18 +395,18 @@ jobs:
           name: Build
           command: build yarn-project | add_timestamps
 
-  yarn-project-format:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+  yarn-project-formatting:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: large
     steps:
       - *checkout
       - *setup_env
       - run:
-          name: Build
-          command: cond_spot_run_script yarn-project 32 cond_run_container yarn-project formatting | add_timestamps
+          name: Check Formatting
+          command: cond_run_container yarn-project formatting | add_timestamps
 
-  yarn-project-test:
+  yarn-project-tests:
     docker:
       - image: aztecprotocol/alpine-build-image
     resource_class: small
@@ -414,8 +414,8 @@ jobs:
       - *checkout
       - *setup_env
       - run:
-          name: Build
-          command: cond_spot_run_script yarn-project 64 cond_run_container yarn-project test | add_timestamps
+          name: Test
+          command: cond_spot_run_container yarn-project 64 test | add_timestamps
 
   aztec-sandbox-base:
     machine:
@@ -520,7 +520,7 @@ jobs:
           name: "Build"
           command: build end-to-end
 
-  e2e-2-rpc-servers:
+  e2e-2-pxes:
     machine:
       image: ubuntu-2204:2023.07.2
     resource_class: large
@@ -529,7 +529,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_2_rpc_servers.test.ts
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_2_pxes.test.ts
 
   e2e-multiple-accounts-1-enc-key:
     machine:
@@ -826,7 +826,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_run_script end-to-end ./scripts/run_tests_local aztec_rpc_sandbox.test.ts ./scripts/docker-compose-e2e-sandbox.yml
+          command: cond_run_script end-to-end ./scripts/run_tests_local pxe_sandbox.test.ts ./scripts/docker-compose-e2e-sandbox.yml
 
   cli-docs-sandbox:
     machine:
@@ -1130,18 +1130,18 @@ workflows:
             - circuits-wasm-linux-clang
             - l1-contracts
           <<: *defaults
-      - yarn-project-format:
-          requires:
-            - yarn-project
-          <<: *defaults
-      - yarn-project-test:
-          requires:
-            - yarn-project
-          <<: *defaults
       - yarn-project:
           requires:
             - yarn-project-base
             - noir-contracts-build
+          <<: *defaults
+      - yarn-project-formatting:
+          requires:
+            - yarn-project
+          <<: *defaults
+      - yarn-project-tests:
+          requires:
+            - yarn-project
           <<: *defaults
 
       - end-to-end: *yarn_project
@@ -1186,7 +1186,7 @@ workflows:
             - canary
           <<: *defaults
 
-      - e2e-2-rpc-servers: *e2e_test
+      - e2e-2-pxes: *e2e_test
       - e2e-deploy-contract: *e2e_test
       - e2e-lending-contract: *e2e_test
       - e2e-token-contract: *e2e_test
@@ -1223,7 +1223,7 @@ workflows:
 
       - e2e-end:
           requires:
-            - e2e-2-rpc-servers
+            - e2e-2-pxes
             - e2e-deploy-contract
             - e2e-lending-contract
             - e2e-token-contract

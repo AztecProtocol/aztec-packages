@@ -293,13 +293,8 @@ Public functions are declared with the `#[aztec(public)]` macro above the functi
 
 As described in the [execution contexts section above](#execution-contexts), public function logic and transaction information is transparent to the world. Public functions update public state, but can be used to prepare data to be used in a private context, as we will go over below (e.g. see the [shield](#shield) function).
 
-Every public function initializes storage using the public context like so:
 
-```rust
-let storage = Storage::init(Context::public(&mut context));
-```
-
-After this, storage is referenced as `storage.variable`. We won't go over this step in any of the following function descriptions.
+Storage is referenced as `storage.variable`.
 
 #### `set_admin`
 
@@ -374,13 +369,7 @@ Private functions are declared with the `#[aztec(private)]` macro above the func
 
 As described in the [execution contexts section above](#execution-contexts), private function logic and transaction information is hidden from the world and is executed on user devices. Private functions update private state, but can pass data to the public execution context (e.g. see the [`unshield`](#unshield) function).
 
-Every private function initializes storage using the private context like so:
-
-```rust
-let storage = Storage::init(Context::private(&mut context));
-```
-
-After this, storage is referenced as `storage.variable`. We won't go over this step in any of the following function descriptions.
+Storage is referenced as `storage.variable`.
 
 #### `redeem_shield`
 
@@ -466,7 +455,7 @@ A getter function for checking the token `total_supply`.
 
 #### `balance_of_private`
 
-A getter function for checking the private balance of the provided Aztec account. Note that the [Aztec RPC Server](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/pxe) must have access to the `owner`s decryption keys in order to decrypt their notes.
+A getter function for checking the private balance of the provided Aztec account. Note that the [Private Execution Environment (PXE)](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/pxe) must have access to the `owner`s decryption keys in order to decrypt their notes.
 
 #include_code balance_of_private /yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
 
