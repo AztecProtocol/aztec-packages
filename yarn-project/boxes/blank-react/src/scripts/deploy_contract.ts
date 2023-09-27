@@ -9,7 +9,7 @@ export async function deployContract(
   salt: Fr,
   pxe: PXE,
 ): Promise<AztecAddress> {
-  const tx = new DeployMethod(activeWallet.publicKey, client, contractAbi, typedArgs).send({
+  const tx = new DeployMethod(activeWallet.publicKey, pxe, contractAbi, typedArgs).send({
     contractAddressSalt: salt,
   });
   await tx.wait();
