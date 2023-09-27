@@ -76,7 +76,7 @@ struct blake3_hasher {
     uint8_t flags = 0;
 };
 
-const char* blake3_version(void)
+inline const char* blake3_version(void)
 {
     return BLAKE3_VERSION_STRING;
 }
