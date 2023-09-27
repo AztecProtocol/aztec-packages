@@ -19,6 +19,7 @@
 
 void xray_start()
 {
+    auto fin_status = __xray_log_finalize();
     auto select_status = __xray_log_select_mode("xray-basic");
     if (select_status != XRayLogRegisterStatus::XRAY_REGISTRATION_OK) {
         throw std::runtime_error("Failed to select xray-basic mode");
@@ -29,17 +30,22 @@ void xray_start()
         throw std::runtime_error("Failed to initialize xray-basic mode");
     }
 
-    auto patch_status = __xray_patch();
-    if (patch_status != XRayPatchingStatus::SUCCESS) {
-        throw std::runtime_error("Failed to patch the instrumentation points");
-    }
+    // auto patch_status = __xray_patch();
+    // if (patch_status != XRayPatchingStatus::SUCCESS) {
+    //     throw std::runtime_error("Failed to patch the instrumentation points");
+    // }
 }
 
 void xray_stop()
 {
     auto fin_status = __xray_log_finalize();
-    if (fin_status != XRayLogInitStatus::XRAY_LOG_FINALIZED) {
-        throw std::runtime_error("Failed to finalize the log");
+    auto select_status = __xray_log_select_mode("xray-none");
+    if (select_status != XRayLogRegisterStatus::XRAY_REGISTRATION_OK) {
+        throw std::runtime_error("Failed to select xray-none mode");
+    }
+    auto config_status = __xray_log_init_mode("xray-none", "verbosity=1");
+    if (config_status != XRayLogInitStatus::XRAY_LOG_INITIALIZED) {
+        throw std::runtime_error("Failed to initialize xray-none mode");
     }
 }
 
