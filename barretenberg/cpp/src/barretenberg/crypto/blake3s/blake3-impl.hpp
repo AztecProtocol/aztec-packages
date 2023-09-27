@@ -18,6 +18,9 @@
     https://github.com/BLAKE3-team/BLAKE3.
 */
 
+#ifndef BLAKE3_IMPL_H
+#define BLAKE3_IMPL_H
+
 #include <assert.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -76,3 +79,5 @@ constexpr void store_cv_words(uint8_t bytes_out[32], uint32_t cv_words[8])
 } // namespace blake3
 
 #include "blake3s.tcc"
+
+#endif
