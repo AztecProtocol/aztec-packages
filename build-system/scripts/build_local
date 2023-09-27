@@ -70,7 +70,9 @@ for E in "${PROJECTS[@]}"; do
   REPO_URI=${ARR[0]}
   TAG=${ARR[1]}
 
+  GREEN="\033[32m"
   BLUE="\033[94m"
+  YELLOW="\033[93m"
   BOLD="\033[1m"
   RESET="\033[0m"
 
@@ -92,11 +94,11 @@ for E in "${PROJECTS[@]}"; do
   git status > /dev/null
 
   if (git diff-index --name-only HEAD; git ls-files --others --exclude-standard) | grep -qE "$GREP_PATTERN"; then
-    echo "Project has modifications. Building..."
+    echo -e "${YELLOW}Project or dependency has local modifications! Building...${RESET}"
     docker build ${ADDITIONAL_ARGS:-} --build-arg ARG_COMMIT_HASH=$COMMIT_HASH -f $DOCKERFILE -t $DEPLOY_IMAGE_URI .
   else
     if docker image ls --format "{{.Repository}}:{{.Tag}}" | grep -q -w $CACHE_IMAGE_URI; then
-      echo "Image exists locally. Tagging as $DEPLOY_IMAGE_URI"
+      echo -e "${GREEN}Image exists locally. Tagging as $DEPLOY_IMAGE_URI${RESET}"
       docker tag $CACHE_IMAGE_URI $DEPLOY_IMAGE_URI
     else
       if ecr_login && image_exists $REPO_URI $TAG ; then
