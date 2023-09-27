@@ -309,7 +309,7 @@ Finally, the contract has a `mint` function that can be used to generate new tok
 
 Here is the Noir code:
 
-#include_code mint /yarn-project/noir-contracts/src/contracts/private_token_contract/src/main.nr rust
+#include_code mint_private /yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
 
 Let's mint some tokens to Bob's account using Typescript, add this to `index.ts`:
 
