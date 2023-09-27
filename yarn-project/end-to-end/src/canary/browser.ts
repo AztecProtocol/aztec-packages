@@ -168,7 +168,7 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
           const pxe = createPXEClient(rpcUrl!);
           let accounts = await pxe.getRegisteredAccounts();
           if (accounts.length === 0) {
-            // This test needs an account for deployment. We create one in case there is none available in the RPC server.
+            // This test needs an account for deployment. We create one in case there is none available in the PXE.
             const privateKey = GrumpkinScalar.fromString(privateKeyString);
             await getUnsafeSchnorrAccount(pxe, privateKey).waitDeploy();
             accounts = await pxe.getRegisteredAccounts();

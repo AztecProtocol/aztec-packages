@@ -63,14 +63,14 @@ import { MNEMONIC, localAnvil } from './fixtures.js';
 
 const { SANDBOX_URL = '' } = process.env;
 
-export const waitForRPCServer = async (pxe: PXE, logger: DebugLogger) => {
+export const waitForPXE = async (pxe: PXE, logger: DebugLogger) => {
   await retryUntil(async () => {
     try {
-      logger('Attempting to contact RPC Server...');
+      logger('Attempting to contact PXE...');
       await pxe.getNodeInfo();
       return true;
     } catch (error) {
-      logger('Failed to contact RPC Server!');
+      logger('Failed to contact PXE!');
     }
     return undefined;
   }, 'RPC Get Node Info');
@@ -127,11 +127,11 @@ export const setupL1Contracts = async (
 
 /**
  * Sets up Private Execution Environment (PXE).
- * @param numberOfAccounts - The number of new accounts to be created once the RPC server is initiated.
+ * @param numberOfAccounts - The number of new accounts to be created once the PXE is initiated.
  * @param aztecNode - The instance of an aztec node, if one is required
  * @param firstPrivKey - The private key of the first account to be created.
  * @param logger - The logger to be used.
- * @param useLogSuffix - Whether to add a randomly generated suffix to the RPC server debug logs.
+ * @param useLogSuffix - Whether to add a randomly generated suffix to the PXE debug logs.
  * @returns Private Execution Environment (PXE), accounts, wallets and logger.
  */
 export async function setupPXEService(
@@ -145,7 +145,7 @@ export async function setupPXEService(
    */
   pxe: PXE;
   /**
-   * The accounts created by the RPC server.
+   * The accounts created by the PXE.
    */
   accounts: CompleteAddress[];
   /**
@@ -181,11 +181,11 @@ async function setupWithSandbox(account: Account, config: AztecNodeConfig, logge
   // we are setting up against the sandbox, l1 contracts are already deployed
   logger(`Creating JSON RPC client to remote host ${SANDBOX_URL}`);
   const jsonClient = createJsonRpcClient(SANDBOX_URL);
-  await waitForRPCServer(jsonClient, logger);
-  logger('JSON RPC client connected to RPC Server');
+  await waitForPXE(jsonClient, logger);
+  logger('JSON RPC client connected to PXE');
   logger(`Retrieving contract addresses from ${SANDBOX_URL}`);
   const l1Contracts = (await jsonClient.getNodeInfo()).l1ContractAddresses;
-  logger('RPC server created, constructing wallets from initial sandbox accounts...');
+  logger('PXE created, constructing wallets from initial sandbox accounts...');
   const wallets = await getSandboxAccountsWallets(jsonClient);
 
   const walletClient = createWalletClient<HttpTransport, Chain, HDAccount>({
@@ -220,7 +220,7 @@ async function setupWithSandbox(account: Account, config: AztecNodeConfig, logge
 
 /**
  * Sets up the environment for the end-to-end tests.
- * @param numberOfAccounts - The number of new accounts to be created once the RPC server is initiated.
+ * @param numberOfAccounts - The number of new accounts to be created once the PXE is initiated.
  */
 export async function setup(
   numberOfAccounts = 1,
@@ -239,7 +239,7 @@ export async function setup(
    */
   deployL1ContractsValues: DeployL1Contracts;
   /**
-   * The accounts created by the RPC server.
+   * The accounts created by the PXE.
    */
   accounts: CompleteAddress[];
   /**

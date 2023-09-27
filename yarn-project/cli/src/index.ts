@@ -131,7 +131,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
   program
     .command('create-account')
     .description(
-      'Creates an aztec account that can be used for sending transactions. Registers the account on the RPC server and deploys an account contract. Uses a Schnorr single-key account which uses the same key for encryption and authentication (not secure for production usage).',
+      'Creates an aztec account that can be used for sending transactions. Registers the account on the PXE and deploys an account contract. Uses a Schnorr single-key account which uses the same key for encryption and authentication (not secure for production usage).',
     )
     .summary('Creates an aztec account that can be used for sending transactions.')
     .option(

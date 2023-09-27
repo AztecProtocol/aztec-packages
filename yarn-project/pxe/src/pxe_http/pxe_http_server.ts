@@ -54,8 +54,8 @@ export function createPXERpcServer(pxeService: PXE): JsonRpcServer {
 }
 
 /**
- * Creates an http server that forwards calls to the rpc server and starts it on the given port.
- * @param pxeService - RPC server that answers queries to the created HTTP server.
+ * Creates an http server that forwards calls to the PXE and starts it on the given port.
+ * @param pxeService - PXE that answers queries to the created HTTP server.
  * @param port - Port to listen in.
  * @returns A running http server.
  */

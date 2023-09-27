@@ -15,7 +15,7 @@ interface CreatePXEServiceOptions {
    */
   keyStore?: KeyStore;
   /**
-   * Storage for the RPC server.
+   * Storage for the PXE.
    */
   db?: Database;
 }

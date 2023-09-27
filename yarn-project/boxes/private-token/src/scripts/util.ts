@@ -30,7 +30,7 @@ export async function getWallet(account: CompleteAddress, pxe: PXE): Promise<Acc
   const accountWallets: AccountWallet[] = await getSandboxAccountsWallets(pxe);
   const selectedWallet: AccountWallet = accountWallets.find(w => w.getAddress().equals(account.address))!;
   if (!selectedWallet) {
-    throw new Error(`Wallet for account ${account.address.toShortString()} not found in the RPC server.`);
+    throw new Error(`Wallet for account ${account.address.toShortString()} not found in the PXE.`);
   }
   return selectedWallet;
 }

@@ -72,7 +72,7 @@ export type SandboxConfig = AztecNodeConfig & {
 };
 
 /**
- * Create and start a new Aztec Node and RPC Server. Deploys L1 contracts.
+ * Create and start a new Aztec Node and PXE. Deploys L1 contracts.
  * Does not start any HTTP services nor populate any initial accounts.
  * @param config - Optional Sandbox settings.
  */

@@ -238,7 +238,7 @@ aztec-cli get-contract-data 0x123456789abcdef123456789abcdef12345678
 
 ### register-recipient
 
-Register a recipient account on the RPC server (called recipient because we can only send notes to this account and not receive them via this RPC server).
+Register a recipient account on the PXE (called recipient because we can only send notes to this account and not receive them via this PXE).
 To read about how keys are generated and used, head to our docs [here](https://github.com/AztecProtocol/aztec-packages/blob/master/docs/docs/aztec/developer/wallet-providers/keys.md#addresses-partial-addresses-and-public-keys).
 
 Syntax:
