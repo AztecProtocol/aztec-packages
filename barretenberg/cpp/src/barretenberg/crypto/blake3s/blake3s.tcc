@@ -162,11 +162,6 @@ constexpr void blake3_compress_xof(
     store32(&out[15 * 4], state[15] ^ cv[7]);
 }
 
-const char* blake3_version(void)
-{
-    return BLAKE3_VERSION_STRING;
-}
-
 constexpr uint8_t maybe_start_flag(const blake3_hasher* self)
 {
     if (self->blocks_compressed == 0) {

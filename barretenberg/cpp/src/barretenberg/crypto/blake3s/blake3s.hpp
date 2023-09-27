@@ -76,7 +76,10 @@ struct blake3_hasher {
     uint8_t flags = 0;
 };
 
-const char* blake3_version(void);
+const char* blake3_version(void)
+{
+    return BLAKE3_VERSION_STRING;
+}
 
 constexpr void blake3_hasher_init(blake3_hasher* self);
 constexpr void blake3_hasher_update(blake3_hasher* self, const uint8_t* input, size_t input_len);
