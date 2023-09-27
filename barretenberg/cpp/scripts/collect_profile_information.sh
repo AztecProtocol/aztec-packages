@@ -19,5 +19,8 @@ XRAY_OPTIONS="patch_premain=true xray_mode=xray-basic verbosity=1" ./bin/ultra_h
 # Process benchmark file.
 llvm-xray-16 stack xray-log.ultra_honk_bench.* \
   --instr_map=./bin/ultra_plonk_bench --stack-format=flame --aggregation-type=time --all-stacks \
-   | ../scripts/corrector_of_llvm_xray_stack_flame/target/debug/corrector-of-llvm-xray-stack-flame \
    | ../scripts/flamegraph.pl > xray.svg
+   #| ../scripts/corrector_of_llvm_xray_stack_flame/target/debug/corrector-of-llvm-xray-stack-flame \
+
+llvm-xray-16 account xray-log.ultra_honk_bench.* \
+  --instr_map=./bin/ultra_plonk_bench > xray.account
