@@ -61,7 +61,7 @@ contract TokenPortal {
    * @param _amount - The amount to deposit
    * @param _deadline - The timestamp after which the entry can be cancelled
    * @param _secretHashForL2MessageConsumption - The hash of the secret consumable L1 to L2 message. The hash should be 254 bits (so it can fit in a Field element)
-   * @param _secretHashForL2MessageConsumption - The hash of the secret to redeem minted notes privately on Aztec. The hash should be 254 bits (so it can fit in a Field element)
+   * @param _secretHashForRedeemingMintedNotes - The hash of the secret to redeem minted notes privately on Aztec. The hash should be 254 bits (so it can fit in a Field element)
    * @param _canceller - The address that can cancel the L1 to L2 message
    * @return The key of the entry in the Inbox
    */
