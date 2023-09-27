@@ -124,7 +124,7 @@ export async function getContractAbi(fileDir: string, log: LogFn) {
 
 /**
  * Utility to select a TX sender either from user input
- * or from the first account that is found in an PXE instance.
+ * or from the first account that is found in a PXE instance.
  * @param pxe - The PXE instance that will be checked for an account.
  * @param _from - The user input.
  * @returns An Aztec address. Will throw if one can't be found in either options.

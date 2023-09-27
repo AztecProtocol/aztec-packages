@@ -50,7 +50,7 @@ const ethRpcUrl = ETHEREUM_HOST;
 
 const hdAccount = mnemonicToAccount(MNEMONIC);
 
-const pxeClient = createPXEClient(pxeRpcUrl);
+const pxe = createPXEClient(pxeRpcUrl);
 let wallet: Wallet;
 
 /**
@@ -107,7 +107,7 @@ async function deployAllContracts(
   });
 
   // deploy l2 uniswap contract and attach to portal
-  const tx = UniswapContract.deploy(pxeClient).send({
+  const tx = UniswapContract.deploy(pxe).send({
     portalContract: uniswapPortalAddress,
   });
   await tx.isMined();
@@ -163,7 +163,7 @@ describe.skip('uniswap_trade_on_l1_from_l2', () => {
   let publicClient: PublicClient<HttpTransport, Chain>;
   let walletClient: WalletClient<HttpTransport, Chain, HDAccount>;
   beforeAll(async () => {
-    await waitForSandbox(pxeClient);
+    await waitForSandbox(pxe);
 
     walletClient = createWalletClient({
       account: hdAccount,
@@ -184,7 +184,7 @@ describe.skip('uniswap_trade_on_l1_from_l2', () => {
   it('should uniswap trade on L1 from L2 funds privately (swaps WETH -> DAI)', async () => {
     logger('Running L1/L2 messaging test on HTTP interface.');
 
-    [wallet] = await getSandboxAccountsWallets(pxeClient);
+    [wallet] = await getSandboxAccountsWallets(pxe);
     const accounts = await wallet.getRegisteredAccounts();
     const owner = accounts[0].address;
     const receiver = accounts[1].address;

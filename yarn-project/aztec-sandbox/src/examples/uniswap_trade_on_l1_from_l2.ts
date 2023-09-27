@@ -55,7 +55,7 @@ if (Number(await publicClient.getBlockNumber()) < EXPECTED_FORKED_BLOCK) {
 
 const ethAccount = EthAddress.fromString((await walletClient.getAddresses())[0]);
 
-const pxeClient = createPXEClient(pxeRpcUrl);
+const pxe = createPXEClient(pxeRpcUrl);
 let wallet: AccountWallet;
 
 /**
@@ -108,7 +108,7 @@ async function deployAllContracts(owner: AztecAddress) {
   });
 
   // deploy l2 uniswap contract and attach to portal
-  const tx = UniswapContract.deploy(pxeClient).send({ portalContract: uniswapPortalAddress });
+  const tx = UniswapContract.deploy(pxe).send({ portalContract: uniswapPortalAddress });
   await tx.isMined({ interval: 0.5 });
   const receipt = await tx.getReceipt();
   const uniswapL2Contract = await UniswapContract.at(receipt.contractAddress!, wallet);
@@ -132,22 +132,22 @@ async function deployAllContracts(owner: AztecAddress) {
   };
 }
 
-const getL2BalanceOf = async (pxeClient: PXE, owner: AztecAddress, l2Contract: NonNativeTokenContract) => {
+const getL2BalanceOf = async (pxe: PXE, owner: AztecAddress, l2Contract: NonNativeTokenContract) => {
   return await l2Contract.methods.getBalance(owner).view({ from: owner });
 };
 
 const logExpectedBalanceOnL2 = async (
-  pxeClient: PXE,
+  pxe: PXE,
   owner: AztecAddress,
   expectedBalance: bigint,
   l2Contract: NonNativeTokenContract,
 ) => {
-  const balance = await getL2BalanceOf(pxeClient, owner, l2Contract);
+  const balance = await getL2BalanceOf(pxe, owner, l2Contract);
   logger(`Account ${owner} balance: ${balance}. Expected to be: ${expectedBalance}`);
 };
 
 const transferWethOnL2 = async (
-  _pxeClient: PXE,
+  _pxe: PXE,
   wethL2Contract: NonNativeTokenContract,
   ownerAddress: AztecAddress,
   receiver: AztecAddress,
@@ -166,9 +166,9 @@ const transferWethOnL2 = async (
 async function main() {
   logger('Running L1/L2 messaging test on HTTP interface.');
 
-  wallet = await getUnsafeSchnorrAccount(pxeClient, privateKey).waitDeploy();
+  wallet = await getUnsafeSchnorrAccount(pxe, privateKey).waitDeploy();
   const owner = wallet.getCompleteAddress();
-  const receiver = await createRecipient(pxeClient);
+  const receiver = await createRecipient(pxe);
 
   const result = await deployAllContracts(owner.address);
   const {
@@ -213,7 +213,7 @@ async function main() {
   await delay(5000);
   // send a transfer tx to force through rollup with the message included
   const transferAmount = 1n;
-  await transferWethOnL2(pxeClient, wethL2Contract, owner.address, receiver.address, transferAmount);
+  await transferWethOnL2(pxe, wethL2Contract, owner.address, receiver.address, transferAmount);
 
   // 3. Claim WETH on L2
   logger('Minting weth on L2');
@@ -228,8 +228,8 @@ async function main() {
   // await expectBalanceOnL2(ownerAddress, wethAmountToBridge + initialBalance - transferAmount, wethL2Contract);
 
   // Store balances
-  const wethBalanceBeforeSwap = await getL2BalanceOf(pxeClient, owner.address, wethL2Contract);
-  const daiBalanceBeforeSwap = await getL2BalanceOf(pxeClient, owner.address, daiL2Contract);
+  const wethBalanceBeforeSwap = await getL2BalanceOf(pxe, owner.address, wethL2Contract);
+  const daiBalanceBeforeSwap = await getL2BalanceOf(pxe, owner.address, daiL2Contract);
 
   // 4. Send L2 to L1 message to withdraw funds and another message to swap assets.
   logger('Send L2 tx to withdraw WETH to uniswap portal and send message to swap assets on L1');
@@ -257,7 +257,7 @@ async function main() {
   logger(`Withdraw receipt status: ${withdrawReceipt.status} should be ${TxStatus.MINED}`);
 
   // check weth balance of owner on L2 (we first bridged `wethAmountToBridge` into L2 and now withdrew it!)
-  await logExpectedBalanceOnL2(pxeClient, owner.address, INITIAL_BALANCE - transferAmount, wethL2Contract);
+  await logExpectedBalanceOnL2(pxe, owner.address, INITIAL_BALANCE - transferAmount, wethL2Contract);
 
   // 5. Consume L2 to L1 message by calling uniswapPortal.swap()
   logger('Execute withdraw and swap on the uniswapPortal!');
@@ -294,7 +294,7 @@ async function main() {
   // Wait for the archiver to process the message
   await delay(5000);
   // send a transfer tx to force through rollup with the message included
-  await transferWethOnL2(pxeClient, wethL2Contract, owner.address, receiver.address, transferAmount);
+  await transferWethOnL2(pxe, wethL2Contract, owner.address, receiver.address, transferAmount);
 
   // 6. claim dai on L2
   logger('Consuming messages to mint dai on L2');
@@ -306,10 +306,10 @@ async function main() {
   const daiMintTxReceipt = await daiMintTx.getReceipt();
   // expect(daiMintTxReceipt.status).toBe(TxStatus.MINED);
   logger(`DAI mint TX status: ${daiMintTxReceipt.status} should be ${TxStatus.MINED}`);
-  await logExpectedBalanceOnL2(pxeClient, owner.address, INITIAL_BALANCE + BigInt(daiAmountToBridge), daiL2Contract);
+  await logExpectedBalanceOnL2(pxe, owner.address, INITIAL_BALANCE + BigInt(daiAmountToBridge), daiL2Contract);
 
-  const wethBalanceAfterSwap = await getL2BalanceOf(pxeClient, owner.address, wethL2Contract);
-  const daiBalanceAfterSwap = await getL2BalanceOf(pxeClient, owner.address, daiL2Contract);
+  const wethBalanceAfterSwap = await getL2BalanceOf(pxe, owner.address, wethL2Contract);
+  const daiBalanceAfterSwap = await getL2BalanceOf(pxe, owner.address, daiL2Contract);
 
   logger('WETH balance before swap: ', wethBalanceBeforeSwap.toString());
   logger('DAI balance before swap  : ', daiBalanceBeforeSwap.toString());
