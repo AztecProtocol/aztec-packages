@@ -17,6 +17,32 @@
 #include "barretenberg/stdlib/primitives/packed_byte_array/packed_byte_array.hpp"
 #include "barretenberg/stdlib/primitives/witness/witness.hpp"
 
+void xray_start()
+{
+    auto select_status = __xray_log_select_mode("xray-basic");
+    if (select_status != XRayLogRegisterStatus::XRAY_REGISTRATION_OK) {
+        throw std::runtime_error("Failed to select xray-basic mode");
+    }
+
+    auto config_status = __xray_log_init_mode("xray-basic", "verbosity=1");
+    if (config_status != XRayLogInitStatus::XRAY_LOG_INITIALIZED) {
+        throw std::runtime_error("Failed to initialize xray-basic mode");
+    }
+
+    auto patch_status = __xray_patch();
+    if (patch_status != XRayPatchingStatus::SUCCESS) {
+        throw std::runtime_error("Failed to patch the instrumentation points");
+    }
+}
+
+void xray_stop()
+{
+    auto fin_status = __xray_log_finalize();
+    if (fin_status != XRayLogInitStatus::XRAY_LOG_FINALIZED) {
+        throw std::runtime_error("Failed to finalize the log");
+    }
+}
+
 using namespace benchmark;
 
 namespace bench_utils {
@@ -191,14 +217,14 @@ void construct_proof_with_specified_num_gates(State& state,
     auto num_gates = static_cast<size_t>(1 << (size_t)state.range(0));
     for (auto _ : state) {
         // Constuct circuit and prover; don't include this part in measurement
-        __xray_log_select_mode("xray-none");
+        xray_stop();
         state.PauseTiming();
         auto builder = typename Composer::CircuitBuilder();
         test_circuit_function(builder, num_gates);
 
         auto composer = Composer();
         auto ext_prover = composer.create_prover(builder);
-        __xray_log_select_mode("xray-basic");
+        xray_start();
         state.ResumeTiming();
 
         // Construct proof
@@ -225,7 +251,7 @@ void construct_proof_with_specified_num_iterations(State& state,
     auto num_iterations = static_cast<size_t>(state.range(0));
     for (auto _ : state) {
         // Constuct circuit and prover; don't include this part in measurement
-        __xray_log_select_mode("xray-none");
+        xray_stop();
         state.PauseTiming();
         auto builder = typename Composer::CircuitBuilder();
         test_circuit_function(builder, num_iterations);
@@ -234,7 +260,7 @@ void construct_proof_with_specified_num_iterations(State& state,
         if constexpr (proof_system::IsAnyOf<Composer, proof_system::honk::UltraComposer>) {
             auto instance = composer.create_instance(builder);
             auto ext_prover = composer.create_prover(instance);
-            __xray_log_select_mode("xray-basic");
+            xray_start();
             state.ResumeTiming();
 
             // Construct proof
@@ -242,7 +268,7 @@ void construct_proof_with_specified_num_iterations(State& state,
 
         } else {
             auto ext_prover = composer.create_prover(builder);
-            __xray_log_select_mode("xray-basic");
+            xray_start();
             state.ResumeTiming();
 
             // Construct proof
