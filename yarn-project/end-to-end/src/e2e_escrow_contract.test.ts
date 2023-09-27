@@ -49,9 +49,7 @@ describe('e2e_escrow_contract', () => {
     logger(`Escrow contract deployed at ${escrowContract.address}`);
 
     // Deploy Private Token contract and mint funds for the escrow contract
-    token = await TokenContract.deploy(wallet).send().deployed();
-
-    expect((await token.methods._initialize(owner).send().wait()).status).toBe(TxStatus.MINED);
+    token = await TokenContract.deploy(wallet, wallet.getCompleteAddress()).send().deployed();
 
     const secret = Fr.random();
     const secretHash = await computeMessageSecretHash(secret);

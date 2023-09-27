@@ -30,9 +30,7 @@ describe('guides/dapp/testing', () => {
         ({ pxe, stop } = await createSandbox());
         // docs:end:in-proc-sandbox
         owner = await createAccount(pxe);
-        recipient = await createAccount(pxe);
-        token = await TokenContract.deploy(owner).send().deployed();
-        await token.methods._initialize(owner.getAddress()).send().wait();
+        token = await TokenContract.deploy(owner, owner.getCompleteAddress()).send().deployed();
       }, 60_000);
 
       // docs:start:stop-in-proc-sandbox
@@ -67,8 +65,7 @@ describe('guides/dapp/testing', () => {
         pxe = createPXEClient(SANDBOX_URL);
         owner = await createAccount(pxe);
         recipient = await createAccount(pxe);
-        token = await TokenContract.deploy(owner).send().deployed();
-        await token.methods._initialize(owner.getAddress()).send().wait();
+        token = await TokenContract.deploy(owner, owner.getCompleteAddress()).send().deployed();
       }, 30_000);
 
       it('increases recipient funds on mint', async () => {
@@ -92,8 +89,7 @@ describe('guides/dapp/testing', () => {
         // docs:start:use-existing-wallets
         pxe = createPXEClient(SANDBOX_URL);
         [owner, recipient] = await getSandboxAccountsWallets(pxe);
-        token = await TokenContract.deploy(owner).send().deployed();
-        await token.methods._initialize(owner.getAddress()).send().wait();
+        token = await TokenContract.deploy(owner, owner.getCompleteAddress()).send().deployed();
         // docs:end:use-existing-wallets
       }, 30_000);
 
@@ -143,8 +139,7 @@ describe('guides/dapp/testing', () => {
         owner = await createAccount(pxe);
         recipient = await createAccount(pxe);
         testContract = await TestContract.deploy(owner).send().deployed();
-        token = await TokenContract.deploy(owner).send().deployed();
-        await token.methods._initialize(owner.getAddress()).send().wait();
+        token = await TokenContract.deploy(owner, owner.getCompleteAddress()).send().deployed();
         const secret = Fr.random();
         const secretHash = await computeMessageSecretHash(secret);
         await token.methods.mint_private(100n, secretHash).send().wait();

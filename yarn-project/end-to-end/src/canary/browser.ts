@@ -173,14 +173,15 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
             await getUnsafeSchnorrAccount(pxe, privateKey).waitDeploy();
             accounts = await pxe.getRegisteredAccounts();
           }
-          const [owner] = await getSandboxAccountsWallets(pxe);
-          const tx = new DeployMethod(accounts[0].publicKey, pxe, TokenContractAbi).send();
+          const [owner] = await getSandboxAccountsWallets(client);
+          const tx = new DeployMethod(accounts[0].publicKey, pxe, TokenContractAbi, [
+            owner.getCompleteAddress(),
+          ]).send();
           await tx.wait();
           const receipt = await tx.getReceipt();
           console.log(`Contract Deployed: ${receipt.contractAddress}`);
 
           const token = await Contract.at(receipt.contractAddress!, TokenContractAbi, owner);
-          await token.methods._initialize(owner.getAddress()).send().wait();
           const secret = Fr.random();
           const secretHash = await computeMessageSecretHash(secret);
           await token.methods.mint_private(initialBalance, secretHash).send().wait();

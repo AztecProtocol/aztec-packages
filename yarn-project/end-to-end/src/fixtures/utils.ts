@@ -400,7 +400,7 @@ export async function deployAndInitializeTokenAndBridgeContracts(
   });
 
   // deploy l2 token
-  const deployTx = TokenContract.deploy(wallet).send();
+  const deployTx = TokenContract.deploy(wallet, wallet.getCompleteAddress()).send();
 
   // deploy l2 token bridge and attach to the portal
   const bridgeTx = TokenBridgeContract.deploy(wallet).send({
@@ -419,16 +419,9 @@ export async function deployAndInitializeTokenAndBridgeContracts(
   await bridge.attach(tokenPortalAddress);
   const bridgeAddress = bridge.address.toString() as `0x${string}`;
 
-  // initialize l2 token
-  const initializeTx = token.methods._initialize(owner).send();
-
   // initialize bridge
   const initializeBridgeTx = bridge.methods._initialize(token.address).send();
 
-  // now we wait for the txs to be mined. This way we send all tx in the same rollup.
-  const initializeReceipt = await initializeTx.wait();
-  if (initializeReceipt.status !== TxStatus.MINED)
-    throw new Error(`Initialize token tx status is ${initializeReceipt.status}`);
   if ((await token.methods.admin().view()) !== owner.toBigInt()) throw new Error(`Token admin is not ${owner}`);
 
   const initializeBridgeReceipt = await initializeBridgeTx.wait();

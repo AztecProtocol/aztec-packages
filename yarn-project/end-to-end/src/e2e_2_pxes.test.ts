@@ -85,8 +85,7 @@ describe('e2e_2_pxes', () => {
 
   const deployTokenContract = async (initialAdminBalance: bigint, admin: AztecAddress) => {
     logger(`Deploying Token contract...`);
-    const contract = await TokenContract.deploy(walletA).send().deployed();
-    expect((await contract.methods._initialize(admin).send().wait()).status).toBe(TxStatus.MINED);
+    const contract = await TokenContract.deploy(walletA, walletA.getCompleteAddress()).send().deployed();
 
     if (initialAdminBalance > 0n) {
       await mintTokens(contract, admin, initialAdminBalance);
