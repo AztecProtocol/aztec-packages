@@ -57,6 +57,7 @@ fn ensure_note_hash_exists<Note, N>(
     context.push_read_request(note_hash_for_read_request);
 }
 
+// reference: same pattern, but for l1_to_l2 messages
 fn get_note<Note, N>(
     context: &mut PrivateContext,
     storage_slot: Field,
@@ -64,7 +65,10 @@ fn get_note<Note, N>(
 ) -> Note {
     let note = get_note_internal(storage_slot, note_interface);
 
+    
+    // checks return value correct
     check_note_header(*context, storage_slot, note_interface, note);
+
 
     let note_hash_for_read_request = compute_note_hash_for_read_or_nullify(note_interface, note);
 

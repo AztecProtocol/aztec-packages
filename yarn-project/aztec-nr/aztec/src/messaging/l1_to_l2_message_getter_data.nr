@@ -19,6 +19,7 @@ fn l1_to_l2_message_getter_len() -> Field {
 fn make_l1_to_l2_message_getter_data<N>(fields: [Field; N], start: Field, secret: Field) -> L1ToL2MessageGetterData {
     L1ToL2MessageGetterData {
         message: L1ToL2Message::deserialize(arr_copy_slice(fields, [0; L1_TO_L2_MESSAGE_LENGTH], start), secret, fields[start + L1_TO_L2_MESSAGE_LENGTH]),
+        // we dont need the sibling_path anymore (or the leaf_index or root, so delete these 3 from this noir function)
         leaf_index: fields[start + L1_TO_L2_MESSAGE_LENGTH],
         sibling_path: arr_copy_slice(fields, [0; L1_TO_L2_MSG_TREE_HEIGHT], L1_TO_L2_MESSAGE_LENGTH + 1),
         root: fields[start + L1_TO_L2_MESSAGE_LENGTH + L1_TO_L2_MSG_TREE_HEIGHT + 1],

@@ -26,6 +26,12 @@ import { pickNotes } from './pick_notes.js';
 import { executePrivateFunction } from './private_execution.js';
 import { ViewDataOracle } from './view_data_oracle.js';
 
+// like ReadRequestMembershipWitness, need to provide hash path for each l1 to l2 message
+// move it outside of the noir.
+// the simulator will have to cache the data, and then add to execution result
+// so it can be included in the public inputs of the proof
+// thats how we pass into the private kernel circuit (need to update private kernel circuit)
+
 /**
  * The execution context for a client tx simulation.
  */

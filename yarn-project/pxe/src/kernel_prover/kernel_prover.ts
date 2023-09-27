@@ -131,6 +131,10 @@ export class KernelProver {
           .map(() => ReadRequestMembershipWitness.empty(BigInt(0))),
       );
 
+      // do something similar for l1 to l2 message witnesses
+
+      // cpp still needs to check existence of path/leaf in the tree
+
       const privateCallData = await this.createPrivateCallData(
         currentExecution,
         readRequestMembershipWitnesses,
