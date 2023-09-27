@@ -8,7 +8,7 @@ import { PXE, PublicKey, TxStatus } from '@aztec/types';
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_escrow_contract', () => {
-  let aztecRpcServer: PXE;
+  let pxe: PXE;
   let wallet: AccountWallet;
   let recipientWallet: AccountWallet;
   let accounts: CompleteAddress[];
@@ -27,7 +27,7 @@ describe('e2e_escrow_contract', () => {
     // Setup environment
     ({
       teardown,
-      aztecRpcServer,
+      pxe,
       accounts,
       wallets: [wallet, recipientWallet],
       logger,
@@ -41,7 +41,7 @@ describe('e2e_escrow_contract', () => {
     escrowPublicKey = await generatePublicKey(escrowPrivateKey);
     const salt = Fr.random();
     const deployInfo = await getContractDeploymentInfo(EscrowContractAbi, [owner], salt, escrowPublicKey);
-    await aztecRpcServer.registerAccount(escrowPrivateKey, deployInfo.completeAddress.partialAddress);
+    await pxe.registerAccount(escrowPrivateKey, deployInfo.completeAddress.partialAddress);
 
     escrowContract = await EscrowContract.deployWithPublicKey(wallet, escrowPublicKey, owner)
       .send({ contractAddressSalt: salt })

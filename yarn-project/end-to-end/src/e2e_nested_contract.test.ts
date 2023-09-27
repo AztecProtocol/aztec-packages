@@ -8,13 +8,13 @@ import { L2BlockL2Logs, PXE } from '@aztec/types';
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_nested_contract', () => {
-  let aztecRpcServer: PXE;
+  let pxe: PXE;
   let wallet: Wallet;
   let logger: DebugLogger;
   let teardown: () => Promise<void>;
 
   beforeEach(async () => {
-    ({ teardown, aztecRpcServer, wallet, logger } = await setup());
+    ({ teardown, pxe, wallet, logger } = await setup());
   }, 100_000);
 
   afterEach(() => teardown());
@@ -29,7 +29,7 @@ describe('e2e_nested_contract', () => {
     }, 100_000);
 
     const getChildStoredValue = (child: { address: AztecAddress }) =>
-      aztecRpcServer.getPublicStorageAt(child.address, new Fr(1)).then(x => toBigInt(x!));
+      pxe.getPublicStorageAt(child.address, new Fr(1)).then(x => toBigInt(x!));
 
     it('performs nested calls', async () => {
       await parentContract.methods

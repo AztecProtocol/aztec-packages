@@ -37,7 +37,7 @@ function itShouldBehaveLikeAnAccountContract(
       encryptionPrivateKey = GrumpkinScalar.random();
 
       ({ account, wallet } = await walletSetup(
-        context.aztecRpcServer,
+        context.pxe,
         encryptionPrivateKey,
         getAccountContract(encryptionPrivateKey),
       ));
@@ -53,16 +53,16 @@ function itShouldBehaveLikeAnAccountContract(
     }, 60_000);
 
     it('calls a public function', async () => {
-      const { logger, aztecRpcServer } = context;
+      const { logger, pxe } = context;
       logger('Calling public function...');
       await child.methods.pubIncValue(42).send().wait({ interval: 0.1 });
-      expect(toBigInt((await aztecRpcServer.getPublicStorageAt(child.address, new Fr(1)))!)).toEqual(42n);
+      expect(toBigInt((await pxe.getPublicStorageAt(child.address, new Fr(1)))!)).toEqual(42n);
     }, 60_000);
 
     it('fails to call a function using an invalid signature', async () => {
       const accountAddress = await account.getCompleteAddress();
       const { wallet: invalidWallet } = await walletSetup(
-        context.aztecRpcServer,
+        context.pxe,
         encryptionPrivateKey,
         getAccountContract(GrumpkinScalar.random()),
         accountAddress,

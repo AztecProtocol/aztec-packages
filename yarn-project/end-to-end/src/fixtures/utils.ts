@@ -143,7 +143,7 @@ export async function setupPXEService(
   /**
    * The PXE instance.
    */
-  aztecRpcServer: PXE;
+  pxe: PXE;
   /**
    * The accounts created by the RPC server.
    */
@@ -163,7 +163,7 @@ export async function setupPXEService(
   const wallets = await createAccounts(rpc, numberOfAccounts);
 
   return {
-    aztecRpcServer: rpc!,
+    pxe: rpc!,
     accounts: await rpc!.getRegisteredAccounts(),
     wallets,
     logger,
@@ -206,7 +206,7 @@ async function setupWithSandbox(account: Account, config: AztecNodeConfig, logge
   const teardown = () => Promise.resolve();
   return {
     aztecNode: undefined,
-    aztecRpcServer: jsonClient,
+    pxe: jsonClient,
     deployL1ContractsValues,
     accounts: await jsonClient!.getRegisteredAccounts(),
     config,
@@ -233,7 +233,7 @@ export async function setup(
   /**
    * The Private Execution Environment (PXE).
    */
-  aztecRpcServer: PXE;
+  pxe: PXE;
   /**
    * Return values from deployL1Contracts function.
    */
@@ -295,18 +295,18 @@ export async function setup(
 
   const aztecNode = await createAztecNode(config, logger);
 
-  const { aztecRpcServer, accounts, wallets } = await setupPXEService(numberOfAccounts, aztecNode!, logger);
+  const { pxe, accounts, wallets } = await setupPXEService(numberOfAccounts, aztecNode!, logger);
 
-  const cheatCodes = await CheatCodes.create(config.rpcUrl, aztecRpcServer!);
+  const cheatCodes = await CheatCodes.create(config.rpcUrl, pxe!);
 
   const teardown = async () => {
     await aztecNode?.stop();
-    if (aztecRpcServer instanceof PXEService) await aztecRpcServer?.stop();
+    if (pxe instanceof PXEService) await pxe?.stop();
   };
 
   return {
     aztecNode,
-    aztecRpcServer,
+    pxe,
     deployL1ContractsValues,
     accounts,
     config,
@@ -455,7 +455,7 @@ export async function deployAndInitializeStandardizedTokenAndBridgeContracts(
 
 /**
  * Deploy L1 token and portal, initialize portal, deploy a non native l2 token contract and attach is to the portal.
- * @param aztecRpcServer - Private Execution Environment (PXE) instance
+ * @param pxeService - Private Execution Environment (PXE) instance
  * @param walletClient - A viem WalletClient.
  * @param publicClient - A viem PublicClient.
  * @param rollupRegistryAddress - address of rollup registry to pass to initialize the token portal

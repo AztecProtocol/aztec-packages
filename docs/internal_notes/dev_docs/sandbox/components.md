@@ -136,8 +136,7 @@ Implementation notes for this milestone:
 - Exposes a single account, created by a private key given in the ctor, that defaults to some test key.
 - Can be used as both the spending and decryption key for early development.
 
-### AztecRpcServer (Previously Wallet/Private Client)
-
+### Private Execution Environment (PXE)
 ![](https://hackmd.io/_uploads/ryS0sOLyh.png)
 
 Implements:

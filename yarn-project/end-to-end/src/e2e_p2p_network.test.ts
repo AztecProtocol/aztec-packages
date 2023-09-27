@@ -113,17 +113,12 @@ describe('e2e_p2p_network', () => {
   };
 
   // submits a set of transactions to the provided Private Execution Environment (PXE)
-  const submitTxsTo = async (
-    aztecRpcServer: PXEService,
-    account: AztecAddress,
-    numTxs: number,
-    publicKey: PublicKey,
-  ) => {
+  const submitTxsTo = async (pxe: PXEService, account: AztecAddress, numTxs: number, publicKey: PublicKey) => {
     const txs: SentTx[] = [];
     for (let i = 0; i < numTxs; i++) {
       const salt = Fr.random();
       const origin = (await getContractDeploymentInfo(TestContractAbi, [], salt, publicKey)).completeAddress.address;
-      const deployer = new ContractDeployer(TestContractAbi, aztecRpcServer, publicKey);
+      const deployer = new ContractDeployer(TestContractAbi, pxe, publicKey);
       const tx = deployer.deploy().send({ contractAddressSalt: salt });
       logger(`Tx sent with hash ${await tx.getTxHash()}`);
       const receipt = await tx.getReceipt();
@@ -145,20 +140,20 @@ describe('e2e_p2p_network', () => {
     numTxs: number,
   ): Promise<NodeContext> => {
     const rpcConfig = getRpcConfig();
-    const aztecRpcServer = await createPXEService(node, rpcConfig, {}, true);
+    const pxe = await createPXEService(node, rpcConfig, {}, true);
 
     const keyPair = ConstantKeyPair.random(await Grumpkin.new());
     const completeAddress = await CompleteAddress.fromPrivateKeyAndPartialAddress(
       await keyPair.getPrivateKey(),
       Fr.random(),
     );
-    await aztecRpcServer.registerAccount(await keyPair.getPrivateKey(), completeAddress.partialAddress);
+    await pxe.registerAccount(await keyPair.getPrivateKey(), completeAddress.partialAddress);
 
-    const txs = await submitTxsTo(aztecRpcServer, completeAddress.address, numTxs, completeAddress.publicKey);
+    const txs = await submitTxsTo(pxe, completeAddress.address, numTxs, completeAddress.publicKey);
     return {
       txs,
       account: completeAddress.address,
-      rpcServer: aztecRpcServer,
+      rpcServer: pxe,
       node,
     };
   };

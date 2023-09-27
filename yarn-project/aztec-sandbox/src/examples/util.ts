@@ -7,7 +7,7 @@ import { Account, Chain, Hex, HttpTransport, PublicClient, WalletClient, getCont
 
 /**
  * Deploy L1 token and portal, initialize portal, deploy a non native l2 token contract and attach is to the portal.
- * @param aztecRpcServer - Private Execution Environment (PXE) instance
+ * @param pxeServicerivate Execution Environment (PXE) instance
  * @param walletClient - A viem WalletClient.
  * @param publicClient - A viem PublicClient.
  * @param rollupRegistryAddress - address of rollup registry to pass to initialize the token portal

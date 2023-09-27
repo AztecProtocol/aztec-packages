@@ -28,9 +28,9 @@ export const localAnvil = foundry;
  * Wraps an instance of Private Execution Environment (PXE) implementation to a JSON RPC HTTP interface.
  * @returns A new instance of the HTTP server.
  */
-export function createPxeRpcServer(aztecRpcServer: PXE): JsonRpcServer {
+export function createPxeRpcServer(pxeService: PXE): JsonRpcServer {
   return new JsonRpcServer(
-    aztecRpcServer,
+    pxeService,
     {
       CompleteAddress,
       AztecAddress,
@@ -55,12 +55,12 @@ export function createPxeRpcServer(aztecRpcServer: PXE): JsonRpcServer {
 
 /**
  * Creates an http server that forwards calls to the rpc server and starts it on the given port.
- * @param aztecRpcServer - RPC server that answers queries to the created HTTP server.
+ * @param pxeService - RPC server that answers queries to the created HTTP server.
  * @param port - Port to listen in.
  * @returns A running http server.
  */
-export function startPxeHttpServer(aztecRpcServer: PXE, port: string | number): http.Server {
-  const rpcServer = createPxeRpcServer(aztecRpcServer);
+export function startPxeHttpServer(pxeService: PXE, port: string | number): http.Server {
+  const rpcServer = createPxeRpcServer(pxeService);
 
   const app = rpcServer.getApp();
   const httpServer = http.createServer(app.callback());

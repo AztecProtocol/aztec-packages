@@ -21,7 +21,7 @@ import { deployAndInitializeStandardizedTokenAndBridgeContracts } from './utils.
 export class CrossChainTestHarness {
   static async new(
     aztecNode: AztecNodeService | undefined,
-    aztecRpcServer: PXE,
+    pxeService: PXE,
     deployL1ContractsValues: DeployL1Contracts,
     accounts: CompleteAddress[],
     wallet: Wallet,
@@ -69,7 +69,7 @@ export class CrossChainTestHarness {
 
     return new CrossChainTestHarness(
       aztecNode,
-      aztecRpcServer,
+      pxeService,
       cheatCodes,
       accounts,
       logger,
@@ -90,8 +90,8 @@ export class CrossChainTestHarness {
   constructor(
     /** AztecNode. */
     public aztecNode: AztecNodeService | undefined,
-    /** AztecRpcServer. */
-    public aztecRpcServer: PXE,
+    /** Private Execution Environment (PXE). */
+    public pxeService: PXE,
     /** CheatCodes. */
     public cc: CheatCodes,
     /** Accounts. */
@@ -271,7 +271,7 @@ export class CrossChainTestHarness {
 
   async checkEntryIsNotInOutbox(withdrawAmount: bigint, callerOnL1: EthAddress = EthAddress.ZERO): Promise<Fr> {
     this.logger('Ensure that the entry is not in outbox yet');
-    const contractData = await this.aztecRpcServer.getContractData(this.l2Bridge.address);
+    const contractData = await this.pxeService.getContractData(this.l2Bridge.address);
     // 0xb460af94, selector for "withdraw(uint256,address,address)"
     const content = sha256ToField(
       Buffer.concat([
@@ -335,8 +335,8 @@ export class CrossChainTestHarness {
 
   async stop() {
     await this.aztecNode?.stop();
-    if (this.aztecRpcServer instanceof PXEService) {
-      await this.aztecRpcServer?.stop();
+    if (this.pxeService instanceof PXEService) {
+      await this.pxeService?.stop();
     }
   }
 }

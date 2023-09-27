@@ -20,7 +20,7 @@ describe('e2e_public_to_private_messaging', () => {
   beforeEach(async () => {
     const {
       aztecNode: aztecNode_,
-      aztecRpcServer: aztecRpcServer_,
+      pxe: pxe_,
       deployL1ContractsValues,
       accounts,
       wallet,
@@ -30,7 +30,7 @@ describe('e2e_public_to_private_messaging', () => {
     } = await setup(2);
     crossChainTestHarness = await CrossChainTestHarness.new(
       aztecNode_,
-      aztecRpcServer_,
+      pxe_,
       deployL1ContractsValues,
       accounts,
       wallet,
