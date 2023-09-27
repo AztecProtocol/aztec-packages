@@ -18,7 +18,7 @@ import { DeployedContract } from './deployed-contract.js';
 import { NodeInfo } from './node-info.js';
 import { SyncStatus } from './sync-status.js';
 
-// docs:start:rpc-interface
+// docs:start:pxe-interface
 /**
  * Private Execution Environment (PXE) runs locally for each user, providing functionality for all the operations
  * needed to interact with the Aztec network, including account management, private data management,
@@ -278,4 +278,4 @@ export interface PXE {
    */
   getSyncStatus(): Promise<SyncStatus>;
 }
-// docs:end:rpc-interface
+// docs:end:pxe-interface

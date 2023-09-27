@@ -22,7 +22,7 @@ Refer to the page on [writing an account contract](./writing_an_account_contract
 
 A wallet exposes the RPC interface to dapps by running an PXE instance. The PXE requires a keystore and a database implementation for storing keys, private state, and recipient encryption public keys.
 
-#include_code rpc-interface /yarn-project/types/src/interfaces/aztec_rpc.ts typescript
+#include_code pxe-interface /yarn-project/types/src/interfaces/pxe.ts typescript
 
 
 
