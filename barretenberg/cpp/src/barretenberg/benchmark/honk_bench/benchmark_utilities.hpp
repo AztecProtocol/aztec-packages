@@ -1,6 +1,6 @@
 #pragma once
 #include <benchmark/benchmark.h>
-#include <xray/xray_interface.h>
+#include <xray/xray_log_interface.h>
 
 #include "barretenberg/honk/composer/ultra_composer.hpp"
 #include "barretenberg/proof_system/types/circuit_type.hpp"
