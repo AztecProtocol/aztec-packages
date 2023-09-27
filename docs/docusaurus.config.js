@@ -126,7 +126,7 @@ const config = {
       "@spalladino/docusaurus-plugin-typedoc",
       {
         id: "apis/pxe",
-        entryPoints: ["../yarn-project/types/src/interfaces/aztec_rpc.ts"],
+        entryPoints: ["../yarn-project/types/src/interfaces/pxe.ts"],
         tsconfig: "../yarn-project/types/tsconfig.json",
         entryPointStrategy: "expand",
         out: "apis/pxe",

@@ -218,7 +218,7 @@ const sidebars = {
           },
           items: [
             "dev_docs/tutorials/writing_dapp/project_setup",
-            "dev_docs/tutorials/writing_dapp/rpc_server",
+            "dev_docs/tutorials/writing_dapp/pxe_service",
             "dev_docs/tutorials/writing_dapp/contract_deployment",
             "dev_docs/tutorials/writing_dapp/contract_interaction",
             "dev_docs/tutorials/writing_dapp/testing",
