@@ -2,16 +2,27 @@
 
 #include <gtest/gtest.h>
 
+#include "barretenberg/common/constexpr_utils.hpp"
+#include <array>
 #include <iostream>
 #include <memory>
 #include <vector>
 
 struct test_vector {
-    std::string input;
-    std::vector<uint8_t> output;
+    std::string_view input;
+    std::array<uint8_t, 32> output;
 };
 
-test_vector test_vectors[] = {
+template <size_t S> constexpr std::array<uint8_t, S> convert(const std::string_view& in)
+{
+    std::array<uint8_t, S> output;
+    for (size_t i = 0; i < S; ++i) {
+        output[i] = (const unsigned char)in[i];
+    }
+    return output;
+}
+
+static constexpr test_vector test_vectors[] = {
     { "",
       {
           0xAF, 0x13, 0x49, 0xB9, 0xF5, 0xF9, 0xA1, 0xA6, 0xA0, 0x40, 0x4D, 0xEA, 0x36, 0xDC, 0xC9, 0x49,
@@ -381,31 +392,23 @@ test_vector test_vectors[] = {
 
 TEST(misc_blake3s, test_vectors)
 {
-    for (auto v : test_vectors) {
+    barretenberg::constexpr_for<0, 1, 72>([&]<size_t index>() {
+        constexpr auto v = test_vectors[index];
         std::vector<uint8_t> input(v.input.begin(), v.input.end());
-        EXPECT_EQ(blake3::blake3s(input), v.output);
-    }
-}
+        auto result_vector = blake3::blake3s(input);
+        std::array<uint8_t, 32> result;
+        std::copy(result_vector.begin(), result_vector.end(), result.begin());
 
-template <size_t S> constexpr std::array<uint8_t, S> convert(const std::string_view& in)
-{
-    std::array<uint8_t, S> output;
-    for (size_t i = 0; i < S; ++i) {
-        output[i] = (const unsigned char)in[i];
-    }
-    return output;
-}
+        EXPECT_EQ(result, v.output);
 
-TEST(misc_blake3s, test_constexpr)
-{
-    // N.B. cannot iterate over `test_vectors` and call blake3s_constexpr; the input string_view objects are
-    // variable-length, which forces `std::array::operator[]` to use non-constexpr version
-    constexpr std::string_view input = "abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789";
-    constexpr std::array<uint8_t, input.size()> input_array = convert<input.size()>(input);
-    constexpr std::array<uint8_t, 32> result = blake3::blake3s_constexpr(&input_array[0], input.size());
-    const std::array<uint8_t, 32> expected = {
-        0xAA, 0x60, 0x21, 0x6D, 0xE8, 0x21, 0x17, 0x5F, 0x97, 0x3E, 0x38, 0x26, 0xED, 0x7A, 0x0B, 0x74,
-        0x31, 0xEC, 0x87, 0xE8, 0xE2, 0x19, 0x2E, 0x80, 0x24, 0x12, 0x53, 0xB2, 0xA9, 0x4D, 0xB0, 0x11,
-    };
-    EXPECT_EQ(result, expected);
+        // There's no such thing as a compile-time pointer to &input_array[0] if array is empty.
+        // We use `dummy_array` as a workaround for this edge-case
+        constexpr std::array<uint8_t, 1> dummy_array{ 0 };
+        constexpr size_t S = index > 0 ? v.input.size() : 1;
+        constexpr std::array<uint8_t, S> input_array = index > 0 ? convert<S>(v.input) : dummy_array;
+        constexpr std::array<uint8_t, 32> result_constexpr =
+            blake3::blake3s_constexpr(&input_array[0], index > 0 ? S : 0);
+        EXPECT_EQ(result_constexpr, v.output);
+        static_assert(result_constexpr == v.output);
+    });
 }
