@@ -19,7 +19,7 @@
 
 void xray_start()
 {
-    auto fin_status = __xray_log_finalize();
+    __xray_log_finalize();
     auto select_status = __xray_log_select_mode("xray-basic");
     if (select_status != XRayLogRegisterStatus::XRAY_REGISTRATION_OK) {
         throw std::runtime_error("Failed to select xray-basic mode");
@@ -38,7 +38,7 @@ void xray_start()
 
 void xray_stop()
 {
-    auto fin_status = __xray_log_finalize();
+    __xray_log_finalize();
     auto select_status = __xray_log_select_mode("xray-none");
     if (select_status != XRayLogRegisterStatus::XRAY_REGISTRATION_OK) {
         throw std::runtime_error("Failed to select xray-none mode");
