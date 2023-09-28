@@ -214,7 +214,6 @@ template <typename Composer> class cycle_group {
     bool _is_constant;
     Composer* context;
 
-  private:
     static batch_mul_internal_output _variable_base_batch_mul_internal(std::span<cycle_scalar> scalars,
                                                                        std::span<cycle_group> base_points,
                                                                        std::span<AffineElement> offset_generators,
