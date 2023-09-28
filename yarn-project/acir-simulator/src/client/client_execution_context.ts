@@ -349,7 +349,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    */
   async callPrivateFunction(targetContractAddress: AztecAddress, functionSelector: FunctionSelector, argsHash: Fr) {
     this.log(
-      `Calling private function ${this.contractAddress}:${functionSelector} from ${this.callContext.storageContractAddress}`,
+      `Calling private function ${targetContractAddress}:${functionSelector} from ${this.callContext.storageContractAddress}`,
     );
 
     const targetAbi = await this.db.getFunctionABI(targetContractAddress, functionSelector);

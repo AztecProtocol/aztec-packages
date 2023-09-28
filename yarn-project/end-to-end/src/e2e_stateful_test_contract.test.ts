@@ -1,7 +1,7 @@
 /* eslint-disable camelcase */
 import { AztecNodeService } from '@aztec/aztec-node';
-import { CheatCodes, Fr, Wallet } from '@aztec/aztec.js';
-import { CircuitsWasm, CompleteAddress } from '@aztec/circuits.js';
+import { CheatCodes, Fr, TxStatus, Wallet } from '@aztec/aztec.js';
+import { CircuitsWasm, CompleteAddress, FunctionSelector } from '@aztec/circuits.js';
 import { pedersenHashInputs, pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
 import { StatefulTestContract } from '@aztec/noir-contracts/types';
 import { PXE } from '@aztec/types';
@@ -52,7 +52,7 @@ describe('e2e_deploy_contract', () => {
     };
 
     const circuitsWasm = await CircuitsWasm.get();
-    
+
     // These functions should be the same after modifications to underlying.
     const h1 = (a: Fr, b: Fr) => Fr.fromBuffer(pedersenPlookupCommitInputs(circuitsWasm, [a.toBuffer(), b.toBuffer()])); // Matches noir
     const h2 = (a: Fr, b: Fr) => Fr.fromBuffer(pedersenHashInputs(circuitsWasm, [a.toBuffer(), b.toBuffer()])); // Matches kernel and circuits
@@ -87,5 +87,15 @@ describe('e2e_deploy_contract', () => {
     expect(historic.privateDataTreeRoot).toEqual(myRootPedersenCommit);
     expect(historic.privateDataTreeRoot).toEqual(myRootPedersenHash);
     expect(historic.privateDataTreeRoot).toEqual(new Fr(root));
-  });
+
+    const isIncludedTx = statefulContract.methods.is_included_in_history(valueNote).send();
+    const isIncludedReceipt = await isIncludedTx.wait();
+    expect(isIncludedReceipt.status).toEqual(TxStatus.MINED);
+
+    const badValueNote = { ...valueNote, owner: 100n };
+    const badCommitment = new Fr(await statefulContract.methods.get_commitment(badValueNote).view());
+    await expect(statefulContract.methods.is_included_in_history(badValueNote).simulate()).rejects.toThrowError(
+      `Commitment ${badCommitment} not found in private data tree`,
+    );
+  }, 30_000);
 });

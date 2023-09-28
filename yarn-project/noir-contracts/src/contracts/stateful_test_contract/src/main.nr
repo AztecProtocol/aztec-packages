@@ -1,4 +1,5 @@
 mod historic_commitment_oracle;
+mod almost_value_note;
 
 // A contract used for testing a random hodgepodge of small features from simulator and end-to-end tests.
 contract StatefulTest {
@@ -23,6 +24,7 @@ contract StatefulTest {
     use dep::aztec::constants_gen::PRIVATE_DATA_TREE_HEIGHT;
     use crate::historic_commitment_oracle::{get_private_data_sibling_witness, PrivateDataMembershipWitness};
     use dep::aztec::note::utils::compute_note_hash_for_read_or_nullify;
+    use crate::almost_value_note::AlmostValueNote;
 
     struct Storage {
         notes: Map<Set<ValueNote, VALUE_NOTE_LEN>>,
@@ -86,6 +88,18 @@ contract StatefulTest {
 
         let recipient_notes = storage.notes.at(recipient);
         increment(recipient_notes, amount, recipient);
+    }
+
+    // We cannot use valueNote directly because of its serialize here. Unconstrained are different.
+    #[aztec(private)]
+    fn is_included_in_history(
+        note: AlmostValueNote
+    ) {
+        let note = note.to_value_note();
+        let commitment = compute_note_hash_for_read_or_nullify(ValueNoteMethods, note);
+        let witness = get_private_data_sibling_witness(commitment);
+        let root = compute_merkle_root(commitment, witness.index, witness.path);
+        assert(context.block_data.private_data_tree_root == root, "Note is not included in history");
     }
 
     unconstrained fn get_path(
