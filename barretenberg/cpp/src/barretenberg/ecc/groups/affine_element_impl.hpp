@@ -248,49 +248,46 @@ affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::hash_to_curve(uint64_t seed
 }
 
 template <class Fq, class Fr, class T>
-template <typename>
-affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::hash_to_curve(const std::vector<uint8_t>& seed) noexcept
+affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::hash_to_curve(const std::vector<uint8_t>& seed,
+                                                                   uint8_t attempt_count) noexcept
+    requires SupportsHashToCurve<T>
+
 {
     std::vector<uint8_t> target_seed(seed);
-
-    // expand by 33 bytes to cover incremental hash attempts
+    // expand by 2 bytes to cover incremental hash attempts
     const size_t seed_size = seed.size();
-    for (size_t i = 0; i < 33; ++i) {
-        target_seed.emplace_back(0);
+    for (size_t i = 0; i < 2; ++i) {
+        target_seed.push_back(0);
     }
-    uint16_t attempt_counter = 0;
-
-    while (true) {
-        auto hi = static_cast<uint8_t>(attempt_counter >> static_cast<uint16_t>(8));
-        auto lo = static_cast<uint8_t>(attempt_counter & static_cast<uint16_t>(0xff));
-        target_seed[seed_size] = hi;
-        target_seed[seed_size + 1] = lo;
-        target_seed[target_seed.size() - 1] = 0;
-        std::array<uint8_t, 32> hash_hi = sha256::sha256(target_seed);
-        target_seed[target_seed.size() - 1] = 1;
-        std::array<uint8_t, 32> hash_lo = sha256::sha256(target_seed);
-        std::vector<uint8_t> gg(hash_hi.begin(), hash_hi.end());
-        std::vector<uint8_t> ff(hash_lo.begin(), hash_lo.end());
-        uint256_t x_lo = 0;
-        uint256_t x_hi = 0;
-        // uint8_t* f = &hash_lo[0];
-        // uint8_t* g = &hash_hi[0];
-        read(ff, x_lo);
-        read(gg, x_hi);
-        // numeric::read(*f, x_lo);
-        // numeric::read(*g, x_hi);
-        uint512_t x_full(x_lo, x_hi);
-        Fq x(x_full);
-        bool sign_bit = false;
-        sign_bit = x_hi.get_bit(0);
-        std::optional<affine_element> result = derive_from_x_coordinate(x, sign_bit);
-
-        if (result.has_value()) {
-            return result.value();
-        }
-        attempt_counter++;
+    target_seed[seed_size] = attempt_count;
+    target_seed.back() = 0;
+    const auto hash_hi = sha256::sha256(target_seed);
+    target_seed.back() = 1;
+    const auto hash_lo = sha256::sha256(target_seed);
+    // custom serialize methods as common/serialize.hpp is not constexpr
+    // (next PR will make this method constexpr)
+    const auto read_uint256 = [](const uint8_t* in) {
+        const auto read_limb = [](const uint8_t* in, uint64_t& out) {
+            for (size_t i = 0; i < 8; ++i) {
+                out += static_cast<uint64_t>(in[i]) << ((7 - i) * 8);
+            }
+        };
+        uint256_t out = 0;
+        read_limb(&in[0], out.data[3]);
+        read_limb(&in[8], out.data[2]);
+        read_limb(&in[16], out.data[1]);
+        read_limb(&in[24], out.data[0]);
+        return out;
+    };
+    // interpret 64 byte hash output as a uint512_t, reduce to Fq element
+    //(512 bits of entropy ensures result is not biased as 512 >> Fq::modulus.get_msb())
+    Fq x(uint512_t(read_uint256(&hash_lo[0]), read_uint256(&hash_hi[0])));
+    bool sign_bit = hash_hi[0] > 127;
+    std::optional<affine_element> result = derive_from_x_coordinate(x, sign_bit);
+    if (result.has_value()) {
+        return result.value();
     }
-    return affine_element(0, 0);
+    return hash_to_curve(seed, attempt_count + 1);
 }
 
 template <typename Fq, typename Fr, typename T>
