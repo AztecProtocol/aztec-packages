@@ -1,1 +1,0 @@
-barretenberg_module(crypto_blake3sTEMP crypto_blake2s)
