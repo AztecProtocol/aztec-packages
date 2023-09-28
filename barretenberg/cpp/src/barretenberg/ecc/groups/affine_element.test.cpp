@@ -130,5 +130,4 @@ TEST(AffineElement, Msgpack)
     auto [actual, expected] = msgpack_roundtrip(secp256k1::g1::affine_element{ 1, 1 });
     EXPECT_EQ(actual, expected);
 }
-
 } // namespace TestAffineElement

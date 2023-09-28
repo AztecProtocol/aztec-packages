@@ -6,7 +6,6 @@
 #include "./wnaf.hpp"
 #include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/crypto/blake3s/blake3s.hpp"
-#include "barretenberg/crypto/sha256/sha256.hpp"
 #include <array>
 #include <cinttypes>
 #include <cstdint>
@@ -43,7 +42,6 @@ template <typename _coordinate_field, typename _subgroup_field, typename GroupPa
     static constexpr element point_at_infinity = one.set_infinity();
     static constexpr affine_element affine_one{ GroupParams::one_x, GroupParams::one_y };
     static constexpr affine_element affine_point_at_infinity = affine_one.set_infinity();
-
     static constexpr coordinate_field curve_a = GroupParams::a;
     static constexpr coordinate_field curve_b = GroupParams::b;
 
@@ -53,13 +51,13 @@ template <typename _coordinate_field, typename _subgroup_field, typename GroupPa
      * ALGORITHM DESCRIPTION:
      *      1. Each generator has an associated "generator index" described by its location in the vector
      *      2. a 64-byte preimage buffer is generated with the following structure:
-     *          bytes 0-31: SHA256 hash of domain_separator
+     *          bytes 0-31: BLAKE3 hash of domain_separator
      *          bytes 32-63: generator index in big-endian form
      *      3. The hash-to-curve algorithm is used to hash the above into a group element:
      *           a. iterate `count` upwards from `0`
      *           b. append `count` to the preimage buffer as a 32-byte integer in big-endian form
-     *           c. compute SHA256 hash of concat(preimage buffer, 0)
-     *           d. compute SHA256 hash of concat(preimage buffer, 1)
+     *           c. compute BLAKE3 hash of concat(preimage buffer, 0)
+     *           d. compute BLAKE3 hash of concat(preimage buffer, 1)
      *           e. interpret (c, d) as (hi, low) limbs of a 512-bit integer
      *           f. reduce 512-bit integer modulo coordinate_field to produce x-coordinate
      *           g. attempt to derive y-coordinate. If not successful go to step (a) and continue
@@ -68,7 +66,7 @@ template <typename _coordinate_field, typename _subgroup_field, typename GroupPa
      *           j. return (x, y)
      *
      * NOTE: The domain separator is included to ensure that it is possible to derive independent sets of
-     * index-addressable generators. NOTE: we produce 64 bytes of SHA256 output when producing x-coordinate field
+     * index-addressable generators. NOTE: we produce 64 bytes of BLAKE3 output when producing x-coordinate field
      * element, to ensure that x-coordinate is uniformly randomly distributed in the field. Using a 256-bit input adds
      * significant bias when reducing modulo a ~256-bit coordinate_field NOTE: We ensure y-parity is linked to preimage
      * hash because there is no canonical deterministic square root algorithm (i.e. if a field element has a square
@@ -111,14 +109,6 @@ template <typename _coordinate_field, typename _subgroup_field, typename GroupPa
             domain_bytes.emplace_back(static_cast<unsigned char>(i));
         }
         return derive_generators(domain_bytes, num_generators, starting_index);
-    }
-    template <size_t S> constexpr std::array<uint8_t, S> convert(const std::string_view& in)
-    {
-        std::array<uint8_t, S> output;
-        for (size_t i = 0; i < S; ++i) {
-            output[i] = static_cast<unsigned char>(in[i]);
-        }
-        return output;
     }
 
     BBERG_INLINE static void conditional_negate_affine(const affine_element* src,
