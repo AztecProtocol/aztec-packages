@@ -174,7 +174,7 @@ template <typename Flavor> void GoblinTranslatorComposer_<Flavor>::compute_witne
     proving_key->relation_wide_limbs_range_constraint_0 = wire_polynomials[77];
     proving_key->relation_wide_limbs_range_constraint_1 = wire_polynomials[78];
     proving_key->relation_wide_limbs_range_constraint_2 = wire_polynomials[79];
-    proving_key->relation_wide_limbs_range_constraint_tail = wire_polynomials[80];
+    proving_key->relation_wide_limbs_range_constraint_3 = wire_polynomials[80];
     compute_concatenated_polynomials<Flavor>(proving_key.get());
     compute_goblin_translator_range_constraint_ordered_polynomials<Flavor>(proving_key.get());
     computed_witness = true;
@@ -232,7 +232,7 @@ std::shared_ptr<typename Flavor::ProvingKey> GoblinTranslatorComposer_<Flavor>::
     proving_key.get()->batching_challenge_v = circuit_builder.batching_challenge_v;
     info(proving_key.get()->circuit_size);
     compute_first_and_last_lagrange_polynomials<Flavor>(proving_key.get());
-    compute_odd_and_even_lagrange_polynomials<Flavor>(proving_key.get());
+    compute_short_odd_and_even_lagrange_polynomials<Flavor>(proving_key.get());
     compute_extra_range_constraint_numerator<Flavor>(proving_key.get());
 
     return proving_key;

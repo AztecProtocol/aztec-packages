@@ -120,7 +120,7 @@ GoblinTranslatorProver_<Flavor>::GoblinTranslatorProver_(std::shared_ptr<typenam
     prover_polynomials.relation_wide_limbs_range_constraint_0 = key->relation_wide_limbs_range_constraint_0;
     prover_polynomials.relation_wide_limbs_range_constraint_1 = key->relation_wide_limbs_range_constraint_1;
     prover_polynomials.relation_wide_limbs_range_constraint_2 = key->relation_wide_limbs_range_constraint_2;
-    prover_polynomials.relation_wide_limbs_range_constraint_tail = key->relation_wide_limbs_range_constraint_tail;
+    prover_polynomials.relation_wide_limbs_range_constraint_3 = key->relation_wide_limbs_range_constraint_3;
     prover_polynomials.concatenated_range_constraints_0 = key->concatenated_range_constraints_0;
     prover_polynomials.concatenated_range_constraints_1 = key->concatenated_range_constraints_1;
     prover_polynomials.concatenated_range_constraints_2 = key->concatenated_range_constraints_2;
@@ -226,8 +226,8 @@ GoblinTranslatorProver_<Flavor>::GoblinTranslatorProver_(std::shared_ptr<typenam
         key->relation_wide_limbs_range_constraint_1.shifted();
     prover_polynomials.relation_wide_limbs_range_constraint_2_shift =
         key->relation_wide_limbs_range_constraint_2.shifted();
-    prover_polynomials.relation_wide_limbs_range_constraint_tail_shift =
-        key->relation_wide_limbs_range_constraint_tail.shifted();
+    prover_polynomials.relation_wide_limbs_range_constraint_3_shift =
+        key->relation_wide_limbs_range_constraint_3.shifted();
     prover_polynomials.ordered_range_constraints_0_shift = key->ordered_range_constraints_0.shifted();
     prover_polynomials.ordered_range_constraints_1_shift = key->ordered_range_constraints_1.shifted();
     prover_polynomials.ordered_range_constraints_2_shift = key->ordered_range_constraints_2.shifted();

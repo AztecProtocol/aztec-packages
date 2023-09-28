@@ -222,8 +222,8 @@ template <typename Flavor> bool GoblinTranslatorVerifier_<Flavor>::verify_proof(
         transcript.template receive_from_prover<Commitment>(commitment_labels.relation_wide_limbs_range_constraint_1);
     commitments.relation_wide_limbs_range_constraint_2 =
         transcript.template receive_from_prover<Commitment>(commitment_labels.relation_wide_limbs_range_constraint_2);
-    commitments.relation_wide_limbs_range_constraint_tail = transcript.template receive_from_prover<Commitment>(
-        commitment_labels.relation_wide_limbs_range_constraint_tail);
+    commitments.relation_wide_limbs_range_constraint_3 =
+        transcript.template receive_from_prover<Commitment>(commitment_labels.relation_wide_limbs_range_constraint_3);
     commitments.ordered_range_constraints_0 =
         transcript.template receive_from_prover<Commitment>(commitment_labels.ordered_range_constraints_0);
     commitments.ordered_range_constraints_1 =

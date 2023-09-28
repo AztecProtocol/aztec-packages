@@ -715,7 +715,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorPermutationRelationCorrectness)
             engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
         prover_polynomials.relation_wide_limbs_range_constraint_2[i] =
             engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.relation_wide_limbs_range_constraint_tail[i] =
+        prover_polynomials.relation_wide_limbs_range_constraint_3[i] =
             engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
     }
 

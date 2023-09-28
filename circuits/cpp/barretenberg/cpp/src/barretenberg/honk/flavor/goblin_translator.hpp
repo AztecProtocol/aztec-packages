@@ -5,12 +5,9 @@
 #include "barretenberg/honk/pcs/kzg/kzg.hpp"
 #include "barretenberg/honk/sumcheck/polynomials/barycentric_data.hpp"
 #include "barretenberg/honk/sumcheck/polynomials/univariate.hpp"
-#include "barretenberg/honk/sumcheck/relations/auxiliary_relation.hpp"
-#include "barretenberg/honk/sumcheck/relations/elliptic_relation.hpp"
-#include "barretenberg/honk/sumcheck/relations/lookup_relation.hpp"
+#include "barretenberg/honk/sumcheck/relations/goblin_translator_decomposition_relation.hpp"
 #include "barretenberg/honk/sumcheck/relations/permutation_relation.hpp"
 #include "barretenberg/honk/sumcheck/relations/translator_gen_perm_sort_relation.hpp"
-#include "barretenberg/honk/sumcheck/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/honk/transcript/transcript.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
@@ -118,7 +115,7 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
         RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_0,
         RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_1,
         RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_2,
-        RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_TAIL,
+        RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_3,
         /* At this point the wires themselves are over*/
         CONCATENATED_RANGE_CONSTRAINTS_0,
         CONCATENATED_RANGE_CONSTRAINTS_1,
@@ -210,7 +207,7 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
         RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_0_SHIFT,
         RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_1_SHIFT,
         RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_2_SHIFT,
-        RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_TAIL_SHIFT,
+        RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_3_SHIFT,
         ORDERED_RANGE_CONSTRAINTS_0_SHIFT,
         ORDERED_RANGE_CONSTRAINTS_1_SHIFT,
         ORDERED_RANGE_CONSTRAINTS_2_SHIFT,
@@ -265,7 +262,8 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
 
     using GrandProductRelations = std::tuple<sumcheck::GoblinTranslatorPermutationRelation<FF>>;
     // define the tuple of Relations that comprise the Sumcheck relation
-    using Relations = std::tuple<sumcheck::GoblinTranslatorGenPermSortRelation<FF>,
+    using Relations = std::tuple<sumcheck::GoblinTranslatorDecompositionRelation<FF>,
+                                 sumcheck::GoblinTranslatorGenPermSortRelation<FF>,
                                  sumcheck::GoblinTranslatorPermutationRelation<FF>>;
 
     static constexpr size_t MAX_RELATION_LENGTH = get_max_relation_length<Relations>();
@@ -387,7 +385,7 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
         DataType& relation_wide_limbs_range_constraint_0 = std::get<77>(this->_data);
         DataType& relation_wide_limbs_range_constraint_1 = std::get<78>(this->_data);
         DataType& relation_wide_limbs_range_constraint_2 = std::get<79>(this->_data);
-        DataType& relation_wide_limbs_range_constraint_tail = std::get<80>(this->_data);
+        DataType& relation_wide_limbs_range_constraint_3 = std::get<80>(this->_data);
         DataType& concatenated_range_constraints_0 = std::get<81>(this->_data);
         DataType& concatenated_range_constraints_1 = std::get<82>(this->_data);
         DataType& concatenated_range_constraints_2 = std::get<83>(this->_data);
@@ -481,7 +479,7 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
                      relation_wide_limbs_range_constraint_0,
                      relation_wide_limbs_range_constraint_1,
                      relation_wide_limbs_range_constraint_2,
-                     relation_wide_limbs_range_constraint_tail,
+                     relation_wide_limbs_range_constraint_3,
                      ordered_range_constraints_0,
                      ordered_range_constraints_1,
                      ordered_range_constraints_2,
@@ -569,7 +567,7 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
                     relation_wide_limbs_range_constraint_0,
                     relation_wide_limbs_range_constraint_1,
                     relation_wide_limbs_range_constraint_2,
-                    relation_wide_limbs_range_constraint_tail,
+                    relation_wide_limbs_range_constraint_3,
                 },
             };
         };
@@ -667,7 +665,7 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
         DataType& relation_wide_limbs_range_constraint_0 = std::get<77>(this->_data);
         DataType& relation_wide_limbs_range_constraint_1 = std::get<78>(this->_data);
         DataType& relation_wide_limbs_range_constraint_2 = std::get<79>(this->_data);
-        DataType& relation_wide_limbs_range_constraint_tail = std::get<80>(this->_data);
+        DataType& relation_wide_limbs_range_constraint_3 = std::get<80>(this->_data);
         DataType& concatenated_range_constraints_0 = std::get<81>(this->_data);
         DataType& concatenated_range_constraints_1 = std::get<82>(this->_data);
         DataType& concatenated_range_constraints_2 = std::get<83>(this->_data);
@@ -757,7 +755,7 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
         DataType& relation_wide_limbs_range_constraint_0_shift = std::get<167>(this->_data);
         DataType& relation_wide_limbs_range_constraint_1_shift = std::get<168>(this->_data);
         DataType& relation_wide_limbs_range_constraint_2_shift = std::get<169>(this->_data);
-        DataType& relation_wide_limbs_range_constraint_tail_shift = std::get<170>(this->_data);
+        DataType& relation_wide_limbs_range_constraint_3_shift = std::get<170>(this->_data);
         DataType& ordered_range_constraints_0_shift = std::get<171>(this->_data);
         DataType& ordered_range_constraints_1_shift = std::get<172>(this->_data);
         DataType& ordered_range_constraints_2_shift = std::get<173>(this->_data);
@@ -853,7 +851,7 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
                      relation_wide_limbs_range_constraint_0,
                      relation_wide_limbs_range_constraint_1,
                      relation_wide_limbs_range_constraint_2,
-                     relation_wide_limbs_range_constraint_tail,
+                     relation_wide_limbs_range_constraint_3,
                      ordered_range_constraints_0,
                      ordered_range_constraints_1,
                      ordered_range_constraints_2,
@@ -940,7 +938,7 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
                     relation_wide_limbs_range_constraint_0,
                     relation_wide_limbs_range_constraint_1,
                     relation_wide_limbs_range_constraint_2,
-                    relation_wide_limbs_range_constraint_tail,
+                    relation_wide_limbs_range_constraint_3,
                 },
             };
         }
@@ -1044,7 +1042,7 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
                 relation_wide_limbs_range_constraint_0,
                 relation_wide_limbs_range_constraint_1,
                 relation_wide_limbs_range_constraint_2,
-                relation_wide_limbs_range_constraint_tail,
+                relation_wide_limbs_range_constraint_3,
                 ordered_range_constraints_0,
                 ordered_range_constraints_1,
                 ordered_range_constraints_2,
@@ -1142,7 +1140,7 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
                 relation_wide_limbs_range_constraint_0,
                 relation_wide_limbs_range_constraint_1,
                 relation_wide_limbs_range_constraint_2,
-                relation_wide_limbs_range_constraint_tail,
+                relation_wide_limbs_range_constraint_3,
                 ordered_range_constraints_0,
                 ordered_range_constraints_1,
                 ordered_range_constraints_2,
@@ -1234,7 +1232,7 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
                 relation_wide_limbs_range_constraint_0_shift,
                 relation_wide_limbs_range_constraint_1_shift,
                 relation_wide_limbs_range_constraint_2_shift,
-                relation_wide_limbs_range_constraint_tail_shift,
+                relation_wide_limbs_range_constraint_3_shift,
                 ordered_range_constraints_0_shift,
                 ordered_range_constraints_1_shift,
                 ordered_range_constraints_2_shift,
@@ -1471,7 +1469,7 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
             this->relation_wide_limbs_range_constraint_0 = "RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_0";
             this->relation_wide_limbs_range_constraint_1 = "RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_1";
             this->relation_wide_limbs_range_constraint_2 = "RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_2";
-            this->relation_wide_limbs_range_constraint_tail = "RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_TAIL";
+            this->relation_wide_limbs_range_constraint_3 = "RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_2";
             this->concatenated_range_constraints_0 = "CONCATENATED_RANGE_CONSTRAINTS_0";
             this->concatenated_range_constraints_1 = "CONCATENATED_RANGE_CONSTRAINTS_1";
             this->concatenated_range_constraints_2 = "CONCATENATED_RANGE_CONSTRAINTS_2";

@@ -268,11 +268,11 @@ GoblinTranslatorCircuitBuilder::AccumulationInput generate_witness_values(
     uint512_t quotient = quotient_by_modulus / uint512_t(Fq::modulus);
     // constexpr uint512_t MAX_CONSTRAINED_SIZE = uint512_t(1) << 254;
     // constexpr uint512_t MAX_Z_SIZE = uint512_t(1) << (NUM_LIMB_BITS * 2);
-    //  numeric::uint1024_t max_quotient =
-    //      (uint1024_t(MAX_CONSTRAINED_SIZE) * MAX_CONSTRAINED_SIZE * 3 + MAX_Z_SIZE * MAX_CONSTRAINED_SIZE * 2 + 4) /
-    //      modulus_u512;
-    //  info("Max quotient: ", max_quotient);
-    //  info("Max quotient range constraint: ", max_quotient.get_msb() + 1);
+    // numeric::uint1024_t max_quotient =
+    //     (uint1024_t(MAX_CONSTRAINED_SIZE) * MAX_CONSTRAINED_SIZE * 3 + MAX_Z_SIZE * MAX_CONSTRAINED_SIZE * 2 + 4) /
+    //     GoblinTranslatorCircuitBuilder::MODULUS_U512;
+    // info("Max quotient: ", max_quotient);
+    // info("Max quotient range constraint: ", max_quotient.get_msb() + 1);
 
     auto [remainder_0, remainder_1, remainder_2, remainder_3, remainder_prime] = base_element_to_bigfield(remainder);
     std::array<Fr, 5> remainder_witnesses = { remainder_0, remainder_1, remainder_2, remainder_3, remainder_prime };
