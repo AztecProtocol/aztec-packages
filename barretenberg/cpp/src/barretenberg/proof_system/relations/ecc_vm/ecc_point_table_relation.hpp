@@ -21,7 +21,15 @@ template <typename FF_> class ECCVMPointTableRelationBase {
     // 1 + polynomial degree of this relation
     static constexpr size_t RELATION_LENGTH = 6;
 
-    // blarp... add
+    static constexpr std::array<size_t, 6> LENGTHS = {
+        6, // arithmetic sub-relation
+        6, // arithmetic sub-relation
+        6, // arithmetic sub-relation
+        6, // arithmetic sub-relation
+        6, // arithmetic sub-relation
+        6  // arithmetic sub-relation
+    };
+
     static constexpr size_t LEN_1 = 6; // arithmetic sub-relation
     template <template <size_t...> typename AccumulatorTypesContainer>
     using GetAccumulatorTypes = AccumulatorTypesContainer<LEN_1, LEN_1, LEN_1, LEN_1, LEN_1, LEN_1>;

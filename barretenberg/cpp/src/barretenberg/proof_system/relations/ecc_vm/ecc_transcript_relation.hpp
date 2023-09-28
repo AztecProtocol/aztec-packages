@@ -31,6 +31,44 @@ template <typename FF_> class ECCVMTranscriptRelationBase {
     using FF = FF_;
     static constexpr size_t RELATION_LENGTH = 6;
 
+    static constexpr std::array<size_t, 35> LENGTHS = {
+        6, // arithmetic sub-relation
+        6, // arithmetic sub-relation
+        6, // arithmetic sub-relation
+        6, // arithmetic sub-relation
+        6, // arithmetic sub-relation
+        6, // arithmetic sub-relation
+        6, // arithmetic sub-relation
+        6, // arithmetic sub-relation
+        6, // arithmetic sub-relation
+        6, // arithmetic sub-relation
+        6, // arithmetic sub-relation
+        6, // arithmetic sub-relation
+        6, // arithmetic sub-relation
+        6, // arithmetic sub-relation
+        6, // arithmetic sub-relation
+        6, // arithmetic sub-relation
+        6, // arithmetic sub-relation
+        6, // arithmetic sub-relation
+        6, // arithmetic sub-relation
+        6, // arithmetic sub-relation
+        6, // arithmetic sub-relation
+        6, // arithmetic sub-relation
+        6, // arithmetic sub-relation
+        6, // arithmetic sub-relation
+        6, // arithmetic sub-relation
+        6, // arithmetic sub-relation
+        6, // arithmetic sub-relation
+        6, // arithmetic sub-relation
+        6, // arithmetic sub-relation
+        6, // arithmetic sub-relation
+        6, // arithmetic sub-relation
+        6, // arithmetic sub-relation
+        6, // arithmetic sub-relation
+        6, // arithmetic sub-relation
+        6, // arithmetic sub-relation
+    };
+
     static constexpr size_t LEN_1 = 6; // arithmetic sub-relation
     template <template <size_t...> typename AccumulatorTypesContainer>
     using GetAccumulatorTypes = AccumulatorTypesContainer<LEN_1,

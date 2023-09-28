@@ -11,6 +11,11 @@ template <typename FF_> class EllipticRelationImpl {
     // 1 + polynomial degree of this relation
     static constexpr size_t RELATION_LENGTH = 6; // degree(q_elliptic * q_beta * x^3) = 5
 
+    static constexpr std::array<size_t, 2> LENGTHS{
+        6, // x-coordinate sub-relation
+        5  // y-coordinate sub-relation
+    };
+
     static constexpr size_t LEN_1 = 6; // x-coordinate sub-relation
     static constexpr size_t LEN_2 = 5; // y-coordinate sub-relation
     template <template <size_t...> typename SubrelationAccumulatorsTemplate>

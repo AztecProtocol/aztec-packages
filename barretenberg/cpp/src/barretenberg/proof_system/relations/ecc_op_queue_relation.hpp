@@ -10,6 +10,17 @@ template <typename FF_> class EccOpQueueRelationImpl {
     // 1 + polynomial degree of this relation
     static constexpr size_t RELATION_LENGTH = 3; // degree(q * (w - w_op_queue)) = 2
 
+    static constexpr std::array<size_t, 8> LENGTHS{
+        3, // wire - op-queue-wire consistency sub-relation 1
+        3, // wire - op-queue-wire consistency sub-relation 2
+        3, // wire - op-queue-wire consistency sub-relation 3
+        3, // wire - op-queue-wire consistency sub-relation 4
+        3, // op-queue-wire vanishes sub-relation 1
+        3, // op-queue-wire vanishes sub-relation 2
+        3, // op-queue-wire vanishes sub-relation 3
+        3  // op-queue-wire vanishes sub-relation 4
+    };
+
     static constexpr size_t LEN_1 = 3; // wire - op-queue-wire consistency sub-relation 1
     static constexpr size_t LEN_2 = 3; // wire - op-queue-wire consistency sub-relation 2
     static constexpr size_t LEN_3 = 3; // wire - op-queue-wire consistency sub-relation 3

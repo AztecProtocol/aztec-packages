@@ -11,6 +11,13 @@ template <typename FF_> class GenPermSortRelationImpl {
     // 1 + polynomial degree of this relation
     static constexpr size_t RELATION_LENGTH = 6; // degree(q_sort * D(D - 1)(D - 2)(D - 3)) = 5
 
+    static constexpr std::array<size_t, 4> LENGTHS{
+        6, // range constrain sub-relation 1
+        6, // range constrain sub-relation 2
+        6, // range constrain sub-relation 3
+        6  // range constrain sub-relation 4
+    };
+
     static constexpr size_t LEN_1 = 6; // range constrain sub-relation 1
     static constexpr size_t LEN_2 = 6; // range constrain sub-relation 2
     static constexpr size_t LEN_3 = 6; // range constrain sub-relation 3

@@ -1,5 +1,5 @@
 #pragma once
-#include "barretenberg/polynomials/univariate.hpp"
+#include "nested_containers.hpp"
 #include "relation_parameters.hpp"
 
 namespace barretenberg {
@@ -104,8 +104,9 @@ template <typename RelationImpl> class Relation : public RelationImpl {
     using ValueAccumulatorsAndViews =
         typename RelationImpl::template GetAccumulatorTypes<ValueAccumulatorsAndViewsTemplate>;
 
-    using TupleOfUnivariatesOverSubrelations = typename UnivariateAccumulatorsAndViews::Accumulators;
-    using TupleOfValuesOverSubrelations = typename ValueAccumulatorsAndViews::Accumulators;
+    using TupleOfUnivariatesOverSubrelations = TupleOfUnivariates<FF, RelationImpl::LENGTHS>;
+    using TupleOfValuesOverSubrelations = ArrayOfValues<FF, RelationImpl::LENGTHS>;
+
     static constexpr size_t RELATION_LENGTH = RelationImpl::RELATION_LENGTH;
 
     /**

@@ -11,6 +11,11 @@ template <typename FF_> class UltraPermutationRelationImpl {
     // 1 + polynomial degree of this relation
     static constexpr size_t RELATION_LENGTH = 6;
 
+    static constexpr std::array<size_t, 2> LENGTHS{
+        6, // grand product construction sub-relation
+        3  // left-shiftable polynomial sub-relation
+    };
+
     static constexpr size_t LEN_1 = 6; // grand product construction sub-relation
     static constexpr size_t LEN_2 = 3; // left-shiftable polynomial sub-relation
     template <template <size_t...> typename SubrelationAccumulatorsTemplate>
