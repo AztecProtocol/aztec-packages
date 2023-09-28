@@ -104,8 +104,8 @@ template <typename RelationImpl> class Relation : public RelationImpl {
     using ValueAccumulatorsAndViews =
         typename RelationImpl::template GetAccumulatorTypes<ValueAccumulatorsAndViewsTemplate>;
 
-    using RelationUnivariates = typename UnivariateAccumulatorsAndViews::Accumulators;
-    using RelationValues = typename ValueAccumulatorsAndViews::Accumulators;
+    using TupleOfUnivariatesOverSubrelations = typename UnivariateAccumulatorsAndViews::Accumulators;
+    using TupleOfValuesOverSubrelations = typename ValueAccumulatorsAndViews::Accumulators;
     static constexpr size_t RELATION_LENGTH = RelationImpl::RELATION_LENGTH;
 
     /**

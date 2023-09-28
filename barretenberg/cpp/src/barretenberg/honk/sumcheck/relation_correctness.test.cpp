@@ -42,9 +42,9 @@ template <typename Flavor, typename Relation> void check_relation(auto circuit_s
             ++poly_idx;
         }
 
-        // Define the appropriate RelationValues type for this relation and initialize to zero
-        using RelationValues = typename Relation::RelationValues;
-        RelationValues result;
+        // Define the appropriate TupleOfValuesOverSubrelations type for this relation and initialize to zero
+        using TupleOfValuesOverSubrelations = typename Relation::TupleOfValuesOverSubrelations;
+        TupleOfValuesOverSubrelations result;
         for (auto& element : result) {
             element = 0;
         }

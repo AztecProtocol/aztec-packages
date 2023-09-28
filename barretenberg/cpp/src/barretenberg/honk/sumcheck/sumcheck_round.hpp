@@ -54,7 +54,7 @@ namespace proof_system::honk::sumcheck {
 template <typename Flavor> class SumcheckProverRound {
 
     using Relations = typename Flavor::Relations;
-    using RelationUnivariates = typename Flavor::RelationUnivariates;
+    using TupleOfTupleOfUnivariates = typename Flavor::TupleOfTupleOfUnivariates;
 
   public:
     using FF = typename Flavor::FF;
@@ -67,7 +67,7 @@ template <typename Flavor> class SumcheckProverRound {
     static constexpr size_t MAX_RELATION_LENGTH = Flavor::MAX_RELATION_LENGTH;
     static constexpr size_t MAX_RANDOM_RELATION_LENGTH = Flavor::MAX_RANDOM_RELATION_LENGTH;
 
-    RelationUnivariates univariate_accumulators;
+    TupleOfTupleOfUnivariates univariate_accumulators;
 
     // TODO(#224)(Cody): this should go away
     barretenberg::BarycentricData<FF, 2, MAX_RELATION_LENGTH> barycentric_2_to_max;
@@ -146,7 +146,7 @@ template <typename Flavor> class SumcheckProverRound {
         size_t iterations_per_thread = round_size / num_threads; // actual iterations per thread
 
         // Constuct univariate accumulator containers; one per thread
-        std::vector<RelationUnivariates> thread_univariate_accumulators(num_threads);
+        std::vector<TupleOfTupleOfUnivariates> thread_univariate_accumulators(num_threads);
         for (auto& accum : thread_univariate_accumulators) {
             zero_univariates(accum);
         }
@@ -203,7 +203,7 @@ template <typename Flavor> class SumcheckProverRound {
      * appropriate scaling factors, produces S_l.
      */
     template <size_t relation_idx = 0>
-    void accumulate_relation_univariates(RelationUnivariates& univariate_accumulators,
+    void accumulate_relation_univariates(TupleOfTupleOfUnivariates& univariate_accumulators,
                                          const auto& extended_edges,
                                          const proof_system::RelationParameters<FF>& relation_parameters,
                                          const FF& scaling_factor)
@@ -220,9 +220,8 @@ template <typename Flavor> class SumcheckProverRound {
     }
 
   public:
-    // TODO(luke): Potentially make RelationUnivarites (tuple of tuples of Univariates) a class and make these utility
-    // functions class methods. Alternatively, move all of these tuple utilities (and the ones living elsewhere) to
-    // their own module.
+    // TODO(luke): Potentially make TupleOfTupleOfUnivariates a class and make these utility functions class methods.
+    // Alternatively, move all of these tuple utilities (and the ones living elsewhere) to their own module.
     /**
      * Utility methods for tuple of tuples of Univariates
      */
@@ -368,7 +367,7 @@ template <typename Flavor> class SumcheckProverRound {
 template <typename Flavor> class SumcheckVerifierRound {
 
     using Relations = typename Flavor::Relations;
-    using RelationEvaluations = typename Flavor::RelationValues;
+    using TupleOfTupleOfValues = typename Flavor::TupleOfTupleOfValues;
 
   public:
     using FF = typename Flavor::FF;
@@ -381,7 +380,7 @@ template <typename Flavor> class SumcheckVerifierRound {
 
     FF target_total_sum = 0;
 
-    RelationEvaluations relation_evaluations;
+    TupleOfTupleOfValues relation_evaluations;
 
     // Verifier constructor
     explicit SumcheckVerifierRound() { zero_elements(relation_evaluations); };

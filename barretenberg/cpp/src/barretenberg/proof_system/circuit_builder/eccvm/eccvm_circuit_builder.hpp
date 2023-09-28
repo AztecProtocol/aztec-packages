@@ -513,7 +513,7 @@ template <typename Flavor> class ECCVMCircuitBuilder {
         rows.z_perm_shift = typename Flavor::Polynomial(rows.z_perm.shifted());
 
         const auto evaluate_relation = [&]<typename Relation>(const std::string& relation_name) {
-            typename Relation::RelationValues result;
+            typename Relation::TupleOfValuesOverSubrelations result;
             for (auto& r : result) {
                 r = 0;
             }
@@ -553,7 +553,7 @@ template <typename Flavor> class ECCVMCircuitBuilder {
             result && evaluate_relation.template operator()<honk::sumcheck::ECCVMSetRelation<FF>>("ECCVMSetRelation");
 
         using LookupRelation = honk::sumcheck::ECCVMLookupRelation<FF>;
-        typename honk::sumcheck::ECCVMLookupRelation<typename Flavor::FF>::RelationValues lookup_result;
+        typename honk::sumcheck::ECCVMLookupRelation<typename Flavor::FF>::TupleOfValuesOverSubrelations lookup_result;
         for (auto& r : lookup_result) {
             r = 0;
         }
