@@ -61,6 +61,12 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .default('http://localhost:8080')
     .makeOptionMandatory(true);
 
+  const createPrivateKeyOption = (description: string, mandatory: boolean) =>
+    new Option('-k, --private-key <string>', description)
+      .env('PRIVATE_KEY')
+      .argParser(parsePrivateKey)
+      .makeOptionMandatory(mandatory);
+
   program
     .command('deploy-l1-contracts')
     .description('Deploys all necessary Ethereum contracts for Aztec.')
@@ -137,12 +143,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     )
     .summary('Creates an aztec account that can be used for sending transactions.')
     .addOption(
-      new Option(
-        '-k, --private-key <string>',
-        'Private key for note encryption and transaction signing. Uses random by default.',
-      )
-        .env('PRIVATE_KEY')
-        .argParser(parsePrivateKey),
+      createPrivateKeyOption('Private key for note encryption and transaction signing. Uses random by default.', false),
     )
     .addOption(pxeOption)
     .action(async options => {
@@ -384,12 +385,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       "A compiled Aztec.nr contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts",
     )
     .requiredOption('-ca, --contract-address <address>', 'Aztec address of the contract.', parseAztecAddress)
-    .addOption(
-      new Option('-k, --private-key <string>', "The sender's private key.")
-        .env('PRIVATE_KEY')
-        .argParser(parsePrivateKey)
-        .makeOptionMandatory(true),
-    )
+    .addOption(createPrivateKeyOption("The sender's private key.", true))
     .addOption(pxeOption)
     .option('--no-wait', 'Print transaction hash without waiting for it to be mined')
     .action(async (functionName, options) => {
