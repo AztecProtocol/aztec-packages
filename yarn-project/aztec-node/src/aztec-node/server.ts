@@ -391,7 +391,7 @@ export class AztecNodeService implements AztecNode {
       this.contractDataSource,
       this.l1ToL2MessageSource,
     );
-    const processor = await publicProcessorFactory.create(prevGlobalVariables, newGlobalVariables, tx.newContracts);
+    const processor = await publicProcessorFactory.create(prevGlobalVariables, newGlobalVariables);
     const [, failedTxs] = await processor.process([tx]);
     if (failedTxs.length) {
       throw failedTxs[0].error;

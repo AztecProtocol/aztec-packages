@@ -6,7 +6,7 @@ import {
   PublicStateDB,
 } from '@aztec/acir-simulator';
 import { AztecAddress, CircuitsWasm, EthAddress, Fr, FunctionSelector, HistoricBlockData } from '@aztec/circuits.js';
-import { ContractDataSource, ExtendedContractData, L1ToL2MessageSource, MerkleTreeId } from '@aztec/types';
+import { ContractDataSource, ExtendedContractData, L1ToL2MessageSource, MerkleTreeId, Tx } from '@aztec/types';
 import { MerkleTreeOperations, computePublicDataTreeLeafIndex } from '@aztec/world-state';
 
 /**
@@ -17,14 +17,13 @@ import { MerkleTreeOperations, computePublicDataTreeLeafIndex } from '@aztec/wor
  */
 export function getPublicExecutor(
   merkleTree: MerkleTreeOperations,
-  contractDataSource: ContractDataSource,
+  publicContractsDB: PublicContractsDB,
   l1toL2MessageSource: L1ToL2MessageSource,
   blockData: HistoricBlockData,
-  newContracts: ExtendedContractData[] = [],
 ) {
   return new PublicExecutor(
     new WorldStatePublicDB(merkleTree),
-    new ContractsDataSourcePublicDB(contractDataSource, newContracts),
+    publicContractsDB,
     new WorldStateDB(merkleTree, l1toL2MessageSource),
     blockData,
   );
@@ -33,24 +32,46 @@ export function getPublicExecutor(
 /**
  * Implements the PublicContractsDB using a ContractDataSource and a set of new contracts.
  */
-class ContractsDataSourcePublicDB implements PublicContractsDB {
-  constructor(private db: ContractDataSource, private newContracts: ExtendedContractData[] = []) {}
-  async getBytecode(address: AztecAddress, selector: FunctionSelector): Promise<Buffer | undefined> {
-    const contractData = await this.#getContractData(address);
-    return contractData?.getPublicFunction(selector)?.bytecode;
-  }
-  async getIsInternal(address: AztecAddress, selector: FunctionSelector): Promise<boolean | undefined> {
-    const contractData = await this.#getContractData(address);
-    return contractData?.getPublicFunction(selector)?.isInternal;
-  }
-  async getPortalContractAddress(address: AztecAddress): Promise<EthAddress | undefined> {
-    const contractData = await this.#getContractData(address);
-    return contractData?.contractData.portalContractAddress;
+export class ContractsDataSourcePublicDB implements PublicContractsDB {
+  cache = new Map<string, ExtendedContractData>();
+
+  constructor(private db: ContractDataSource) {}
+
+  /**
+   * Add new contracts from a transaction
+   * @param tx - The transaction to add contracts from.
+   */
+  public addNewContracts(tx: Tx): Promise<void> {
+    for (const contract of tx.newContracts) {
+      this.cache.set(contract.contractData.contractAddress.toString(), contract);
+    }
+
+    return Promise.resolve();
   }
 
-  #getContractData(contractAddress: AztecAddress): Promise<ExtendedContractData | undefined> {
-    const contract = this.newContracts.find(c => c.contractData.contractAddress.equals(contractAddress));
-    return Promise.resolve(contract ?? this.db.getExtendedContractData(contractAddress));
+  /**
+   * Removes new contracts added from transactions
+   */
+  public clearTxContracts(): Promise<void> {
+    this.cache.clear();
+    return Promise.resolve();
+  }
+
+  async getBytecode(address: AztecAddress, selector: FunctionSelector): Promise<Buffer | undefined> {
+    const contract = await this.#getContract(address);
+    return contract?.getPublicFunction(selector)?.bytecode;
+  }
+  async getIsInternal(address: AztecAddress, selector: FunctionSelector): Promise<boolean | undefined> {
+    const contract = await this.#getContract(address);
+    return contract?.getPublicFunction(selector)?.isInternal;
+  }
+  async getPortalContractAddress(address: AztecAddress): Promise<EthAddress | undefined> {
+    const contract = await this.#getContract(address);
+    return contract?.contractData.portalContractAddress;
+  }
+
+  async #getContract(address: AztecAddress): Promise<ExtendedContractData | undefined> {
+    return this.cache.get(address.toString()) ?? (await this.db.getExtendedContractData(address));
   }
 }
 

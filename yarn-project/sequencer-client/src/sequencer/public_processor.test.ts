@@ -35,6 +35,7 @@ import times from 'lodash.times';
 
 import { PublicProver } from '../prover/index.js';
 import { PublicKernelCircuitSimulator } from '../simulator/index.js';
+import { ContractsDataSourcePublicDB } from '../simulator/public_executor.js';
 import { WasmPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';
 import { PublicProcessor } from './public_processor.js';
 
@@ -42,6 +43,7 @@ describe('public_processor', () => {
   let db: MockProxy<MerkleTreeOperations>;
   let publicExecutor: MockProxy<PublicExecutor>;
   let publicProver: MockProxy<PublicProver>;
+  let publicContractsDB: MockProxy<ContractsDataSourcePublicDB>;
 
   let proof: Proof;
   let root: Buffer;
@@ -52,6 +54,7 @@ describe('public_processor', () => {
     db = mock<MerkleTreeOperations>();
     publicExecutor = mock<PublicExecutor>();
     publicProver = mock<PublicProver>();
+    publicContractsDB = mock<ContractsDataSourcePublicDB>();
 
     proof = makeEmptyProof();
     root = Buffer.alloc(32, 5);
@@ -73,6 +76,7 @@ describe('public_processor', () => {
         publicProver,
         GlobalVariables.empty(),
         HistoricBlockData.empty(),
+        publicContractsDB,
       );
     });
 
@@ -128,6 +132,7 @@ describe('public_processor', () => {
         publicProver,
         GlobalVariables.empty(),
         HistoricBlockData.empty(),
+        publicContractsDB,
       );
     });
 

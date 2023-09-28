@@ -137,11 +137,7 @@ export class Sequencer {
 
       // Process txs and drop the ones that fail processing
       // We create a fresh processor each time to reset any cached state (eg storage writes)
-      const processor = await this.publicProcessorFactory.create(
-        prevGlobalVariables,
-        newGlobalVariables,
-        validTxs.flatMap(tx => tx.newContracts),
-      );
+      const processor = await this.publicProcessorFactory.create(prevGlobalVariables, newGlobalVariables);
       const [processedTxs, failedTxs] = await processor.process(validTxs);
       if (failedTxs.length > 0) {
         const failedTxData = failedTxs.map(fail => fail.tx);

@@ -70,7 +70,7 @@ describe('sequencer', () => {
     });
 
     publicProcessorFactory = mock<PublicProcessorFactory>({
-      create: (_a, _b_, _c) => Promise.resolve(publicProcessor),
+      create: (_a, _b_) => Promise.resolve(publicProcessor),
     });
 
     l2BlockSource = mock<L2BlockSource>({
