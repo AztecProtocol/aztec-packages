@@ -47,25 +47,6 @@ template <typename _coordinate_field, typename _subgroup_field, typename GroupPa
     static constexpr coordinate_field curve_a = GroupParams::a;
     static constexpr coordinate_field curve_b = GroupParams::b;
 
-    // TODO(@zac-wiliamson #2341 remove this method once we migrate to new hash standard)
-    // (and rename derive_generators_secure to derive_generators)
-    template <size_t N> static inline auto derive_generators()
-    {
-        std::array<affine_element, N> generators;
-        size_t count = 0;
-        uint8_t seed = 0;
-        while (count < N) {
-            ++seed;
-            auto candidate = affine_element::hash_to_curve({ seed });
-            if (candidate.on_curve() && !candidate.is_point_at_infinity()) {
-                generators[count] = candidate;
-                ++count;
-            }
-        }
-
-        return generators;
-    }
-
     /**
      * @brief Derives generator points via hash-to-curve
      *
@@ -96,12 +77,13 @@ template <typename _coordinate_field, typename _subgroup_field, typename GroupPa
      * @param domain_separator
      * @return std::vector<affine_element>
      */
-    inline static std::vector<affine_element> derive_generators_secure(const std::vector<uint8_t>& domain_separator,
-                                                                       const size_t num_generators,
-                                                                       const size_t starting_index = 0)
+    inline static constexpr std::vector<affine_element> derive_generators(
+        const std::vector<uint8_t>& domain_separator_bytes,
+        const size_t num_generators,
+        const size_t starting_index = 0)
     {
         std::vector<affine_element> result;
-        std::array<uint8_t, 32> domain_hash = sha256::sha256(domain_separator);
+        const auto domain_hash = blake3::blake3s_constexpr(&domain_separator_bytes[0], domain_separator_bytes.size());
         std::vector<uint8_t> generator_preimage;
         generator_preimage.reserve(64);
         std::copy(domain_hash.begin(), domain_hash.end(), std::back_inserter(generator_preimage));
@@ -120,6 +102,16 @@ template <typename _coordinate_field, typename _subgroup_field, typename GroupPa
         return result;
     }
 
+    inline static constexpr std::vector<affine_element> derive_generators(const std::string_view& domain_separator,
+                                                                          const size_t num_generators,
+                                                                          const size_t starting_index = 0)
+    {
+        std::vector<uint8_t> domain_bytes;
+        for (char i : domain_separator) {
+            domain_bytes.emplace_back(static_cast<unsigned char>(i));
+        }
+        return derive_generators(domain_bytes, num_generators, starting_index);
+    }
     template <size_t S> constexpr std::array<uint8_t, S> convert(const std::string_view& in)
     {
         std::array<uint8_t, S> output;
@@ -127,33 +119,6 @@ template <typename _coordinate_field, typename _subgroup_field, typename GroupPa
             output[i] = static_cast<unsigned char>(in[i]);
         }
         return output;
-    }
-
-    template <size_t N>
-    inline static constexpr std::array<affine_element, N> derive_generators_secure(const std::string_view& in)
-    {
-        std::vector<uint8_t> domain_bytes;
-        for (char i : in) {
-            domain_bytes.emplace_back(static_cast<unsigned char>(i));
-        }
-        std::array<uint8_t, 32> domain_hash = blake3::blake3s_constexpr(&domain_bytes[0], domain_bytes.size());
-        std::vector<uint8_t> generator_preimage;
-        generator_preimage.reserve(64);
-        std::copy(domain_hash.begin(), domain_hash.end(), std::back_inserter(generator_preimage));
-        for (size_t i = 0; i < 32; ++i) {
-            generator_preimage.emplace_back(0);
-        }
-        std::array<affine_element, N> result;
-        for (size_t i = 0; i < N; ++i) {
-            auto generator_index = static_cast<uint32_t>(i);
-            uint32_t mask = 0xff;
-            generator_preimage[32] = static_cast<uint8_t>(generator_index >> 24);
-            generator_preimage[33] = static_cast<uint8_t>((generator_index >> 16) & mask);
-            generator_preimage[34] = static_cast<uint8_t>((generator_index >> 8) & mask);
-            generator_preimage[35] = static_cast<uint8_t>(generator_index & mask);
-            result[i] = (affine_element::hash_to_curve(generator_preimage));
-        }
-        return result;
     }
 
     BBERG_INLINE static void conditional_negate_affine(const affine_element* src,

@@ -13,7 +13,7 @@ field_t<C> pedersen_hash<C>::hash(const std::vector<field_t>& inputs, const Gene
     using cycle_scalar = typename cycle_group::cycle_scalar;
     using Curve = EmbeddedCurve;
 
-    auto base_points = context.generators->get(inputs.size(), context.offset, context.domain_separator);
+    const auto base_points = context.generators->get(inputs.size(), context.offset, context.domain_separator);
 
     std::vector<cycle_scalar> scalars;
     std::vector<cycle_group> points;
@@ -39,7 +39,7 @@ field_t<C> pedersen_hash<C>::hash_skip_field_validation(const std::vector<field_
     using cycle_scalar = typename cycle_group::cycle_scalar;
     using Curve = EmbeddedCurve;
 
-    auto base_points = context.generators->get(inputs.size(), context.offset, context.domain_separator);
+    const auto base_points = context.generators->get(inputs.size(), context.offset, context.domain_separator);
 
     std::vector<cycle_scalar> scalars;
     std::vector<cycle_group> points;

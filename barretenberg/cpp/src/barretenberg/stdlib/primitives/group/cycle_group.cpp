@@ -882,7 +882,7 @@ template <typename Composer>
 typename cycle_group<Composer>::batch_mul_internal_output cycle_group<Composer>::_variable_base_batch_mul_internal(
     const std::span<cycle_scalar> scalars,
     const std::span<cycle_group> base_points,
-    const std::span<AffineElement> offset_generators,
+    const std::span<AffineElement const> offset_generators,
     const bool unconditional_add)
 {
     ASSERT(scalars.size() == base_points.size());
@@ -981,14 +981,14 @@ typename cycle_group<Composer>::batch_mul_internal_output cycle_group<Composer>:
  * @tparam Composer
  * @param scalars
  * @param base_points
- * @param off
+ * @param
  * @return cycle_group<Composer>::batch_mul_internal_output
  */
 template <typename Composer>
 typename cycle_group<Composer>::batch_mul_internal_output cycle_group<Composer>::_fixed_base_batch_mul_internal(
     const std::span<cycle_scalar> scalars,
     const std::span<AffineElement> base_points,
-    [[maybe_unused]] const std::span<AffineElement> off)
+    const std::span<AffineElement const> /*unused*/)
     requires IsUltraArithmetic<Composer>
 {
     ASSERT(scalars.size() == base_points.size());
@@ -1061,7 +1061,7 @@ template <typename Composer>
 typename cycle_group<Composer>::batch_mul_internal_output cycle_group<Composer>::_fixed_base_batch_mul_internal(
     const std::span<cycle_scalar> scalars,
     const std::span<AffineElement> base_points,
-    const std::span<AffineElement> offset_generators)
+    const std::span<AffineElement const> offset_generators)
     requires IsNotUltraArithmetic<Composer>
 
 {
@@ -1169,7 +1169,7 @@ typename cycle_group<Composer>::batch_mul_internal_output cycle_group<Composer>:
 template <typename Composer>
 cycle_group<Composer> cycle_group<Composer>::batch_mul(const std::vector<cycle_scalar>& scalars,
                                                        const std::vector<cycle_group>& base_points,
-                                                       const generator_data* const offset_generator_data)
+                                                       const GeneratorContext context)
 {
     ASSERT(scalars.size() == base_points.size());
 
@@ -1240,8 +1240,8 @@ cycle_group<Composer> cycle_group<Composer>::batch_mul(const std::vector<cycle_s
     // Compute all required offset generators.
     const size_t num_offset_generators =
         variable_base_points.size() + fixed_base_points.size() + has_variable_points + has_fixed_points;
-    std::vector<AffineElement> offset_generators =
-        offset_generator_data->conditional_extend(num_offset_generators).generators;
+    const std::span<AffineElement const> offset_generators =
+        context.generators->get(num_offset_generators, 0, OFFSET_GENERATOR_DOMAIN_SEPARATOR);
 
     cycle_group result;
     if (has_fixed_points) {
@@ -1252,7 +1252,7 @@ cycle_group<Composer> cycle_group<Composer>::batch_mul(const std::vector<cycle_s
     }
 
     if (has_variable_points) {
-        std::span<AffineElement> offset_generators_for_variable_base_batch_mul{
+        std::span<AffineElement const> offset_generators_for_variable_base_batch_mul{
             offset_generators.data() + fixed_base_points.size(), offset_generators.size() - fixed_base_points.size()
         };
         const auto [variable_accumulator, offset_generator_delta] =

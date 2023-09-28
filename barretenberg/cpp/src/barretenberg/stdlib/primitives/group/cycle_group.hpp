@@ -34,7 +34,7 @@ template <typename Composer> class cycle_group {
     using Group = typename Curve::Group;
     using Element = typename Curve::Element;
     using AffineElement = typename Curve::AffineElement;
-    using generator_data = crypto::generator_data<Curve>;
+    using GeneratorContext = crypto::GeneratorContext<Curve>;
     using ScalarField = typename Curve::ScalarField;
 
     static constexpr size_t STANDARD_NUM_TABLE_BITS = 1;
@@ -43,12 +43,9 @@ template <typename Composer> class cycle_group {
     static constexpr size_t TABLE_BITS = IS_ULTRA ? ULTRA_NUM_TABLE_BITS : STANDARD_NUM_TABLE_BITS;
     static constexpr size_t NUM_BITS = ScalarField::modulus.get_msb() + 1;
     static constexpr size_t NUM_ROUNDS = (NUM_BITS + TABLE_BITS - 1) / TABLE_BITS;
-    inline static const std::string OFFSET_GENERATOR_DOMAIN_SEPARATOR = "cycle_group_offset_generator";
+    inline static constexpr std::string_view OFFSET_GENERATOR_DOMAIN_SEPARATOR = "cycle_group_offset_generator";
 
   private:
-    inline static const generator_data default_offset_generators =
-        generator_data(generator_data::DEFAULT_NUM_GENERATORS, OFFSET_GENERATOR_DOMAIN_SEPARATOR);
-
   public:
     /**
      * @brief cycle_scalar represents a member of the cycle curve SCALAR FIELD.
@@ -200,7 +197,7 @@ template <typename Composer> class cycle_group {
     cycle_group& operator-=(const cycle_group& other);
     static cycle_group batch_mul(const std::vector<cycle_scalar>& scalars,
                                  const std::vector<cycle_group>& base_points,
-                                 const generator_data* offset_generator_data = &default_offset_generators);
+                                 GeneratorContext context = {});
     cycle_group operator*(const cycle_scalar& scalar) const;
     cycle_group& operator*=(const cycle_scalar& scalar);
     bool_t operator==(const cycle_group& other) const;
@@ -217,16 +214,16 @@ template <typename Composer> class cycle_group {
 
     static batch_mul_internal_output _variable_base_batch_mul_internal(std::span<cycle_scalar> scalars,
                                                                        std::span<cycle_group> base_points,
-                                                                       std::span<AffineElement> offset_generators,
+                                                                       std::span<AffineElement const> offset_generators,
                                                                        bool unconditional_add);
 
     static batch_mul_internal_output _fixed_base_batch_mul_internal(std::span<cycle_scalar> scalars,
                                                                     std::span<AffineElement> base_points,
-                                                                    std::span<AffineElement> offset_generators)
+                                                                    std::span<AffineElement const> offset_generators)
         requires IsUltraArithmetic<Composer>;
     static batch_mul_internal_output _fixed_base_batch_mul_internal(std::span<cycle_scalar> scalars,
                                                                     std::span<AffineElement> base_points,
-                                                                    std::span<AffineElement> offset_generators)
+                                                                    std::span<AffineElement const> offset_generators)
         requires IsNotUltraArithmetic<Composer>;
 };
 

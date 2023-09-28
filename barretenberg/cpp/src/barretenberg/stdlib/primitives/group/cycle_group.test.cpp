@@ -14,9 +14,7 @@
     using AffineElement = typename Curve::AffineElement;                                                               \
     using Group = typename Curve::Group;                                                                               \
     using bool_ct = stdlib::bool_t<Composer>;                                                                          \
-    using witness_ct = stdlib::witness_t<Composer>;                                                                    \
-    using native_hash = typename crypto::pedersen_hash_base<Curve>;
-
+    using witness_ct = stdlib::witness_t<Composer>;
 namespace stdlib_cycle_group_tests {
 using namespace barretenberg;
 using namespace proof_system::plonk;
@@ -439,24 +437,24 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
     {
         std::vector<cycle_group_ct> points;
         std::vector<typename cycle_group_ct::cycle_scalar> scalars;
-        std::vector<typename Group::subgroup_field> scalars_native;
+        std::vector<typename Group::coordinate_field> scalars_native;
         Element expected = Group::point_at_infinity;
         for (size_t i = 0; i < num_muls; ++i) {
-            auto element = native_hash::get_lhs_generator();
+            auto element = plookup::fixed_base::table::get_lhs_generator();
             typename Group::subgroup_field scalar = Group::subgroup_field::random_element(&engine);
 
             // 1: add entry where point is constant, scalar is witness
             expected += (element * scalar);
             points.emplace_back(element);
             scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&composer, scalar));
-            scalars_native.emplace_back(scalar);
+            scalars_native.emplace_back(uint256_t(scalar));
 
             // 2: add entry where point is constant, scalar is constant
-            element = native_hash::get_rhs_generator();
+            element = plookup::fixed_base::table::get_rhs_generator();
             expected += (element * scalar);
             points.emplace_back(element);
             scalars.emplace_back(typename cycle_group_ct::cycle_scalar(scalar));
-            scalars_native.emplace_back(scalar);
+            scalars_native.emplace_back(uint256_t(scalar));
         }
         auto result = cycle_group_ct::batch_mul(scalars, points);
         EXPECT_EQ(result.get_value(), AffineElement(expected));
@@ -471,7 +469,7 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
         std::vector<typename Group::subgroup_field> scalars_native;
         Element expected = Group::point_at_infinity;
         for (size_t i = 0; i < num_muls; ++i) {
-            auto element = native_hash::get_lhs_generator();
+            auto element = plookup::fixed_base::table::get_lhs_generator();
             typename Group::subgroup_field scalar = Group::subgroup_field::random_element(&engine);
 
             // 1: add entry where point is constant, scalar is witness
@@ -481,7 +479,7 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
             scalars_native.emplace_back(scalar);
 
             // 2: add entry where point is constant, scalar is constant
-            element = native_hash::get_rhs_generator();
+            element = plookup::fixed_base::table::get_rhs_generator();
             expected += (element * scalar);
             points.emplace_back(element);
             scalars.emplace_back(typename cycle_group_ct::cycle_scalar(scalar));
@@ -505,7 +503,7 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
         std::vector<typename cycle_group_ct::cycle_scalar> scalars;
 
         for (size_t i = 0; i < num_muls; ++i) {
-            auto element = native_hash::get_lhs_generator();
+            auto element = plookup::fixed_base::table::get_lhs_generator();
             typename Group::subgroup_field scalar = 0;
 
             // 1: add entry where point is constant, scalar is witness

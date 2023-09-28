@@ -13,7 +13,7 @@ template <typename Curve> class generator_data {
     using Group = typename Curve::Group;
     using AffineElement = typename Curve::AffineElement;
     using GeneratorList = std::vector<AffineElement>;
-    using GeneratorView = std::span<AffineElement>;
+    using GeneratorView = std::span<AffineElement const>;
     static inline constexpr size_t DEFAULT_NUM_GENERATORS = 32;
     static inline constexpr std::string_view DEFAULT_DOMAIN_SEPARATOR = "DEFAULT_DOMAIN_SEPARATOR";
     inline constexpr generator_data() = default;
@@ -23,8 +23,14 @@ template <typename Curve> class generator_data {
      * this prevents us from having to derive generators at runtime
      *
      */
-    static inline constexpr std::array<AffineElement, DEFAULT_NUM_GENERATORS> precomputed_generators =
-        Group::template derive_generators_secure<DEFAULT_NUM_GENERATORS>(DEFAULT_DOMAIN_SEPARATOR);
+    static inline constexpr std::array<AffineElement, DEFAULT_NUM_GENERATORS> precomputed_generators = []() {
+        std::vector<AffineElement> res = Group::derive_generators(DEFAULT_DOMAIN_SEPARATOR, DEFAULT_NUM_GENERATORS, 0);
+        std::array<AffineElement, DEFAULT_NUM_GENERATORS> output;
+        for (size_t i = 0; i < res.size(); ++i) {
+            output[i] = res[i];
+        }
+        return output;
+    }();
 
     [[nodiscard]] inline GeneratorView get(const size_t num_generators,
                                            const size_t generator_offset = 0,
@@ -32,7 +38,7 @@ template <typename Curve> class generator_data {
     {
         const bool is_default_domain = domain_separator == DEFAULT_DOMAIN_SEPARATOR;
         if (is_default_domain && (num_generators + generator_offset) < DEFAULT_NUM_GENERATORS) {
-            return GeneratorView(&precomputed_generators[generator_offset], num_generators);
+            return GeneratorView{ precomputed_generators.data() + generator_offset, num_generators };
         }
 
         if (!generator_map.has_value()) {
@@ -43,31 +49,31 @@ template <typename Curve> class generator_data {
         // Case 2: we want default generators, but more than we precomputed at compile time. If we have not yet copied
         // the default generators into the map, do so.
         if (is_default_domain && !initialized_precomputed_generators) {
-            map.insert({ DEFAULT_DOMAIN_SEPARATOR,
+            map.insert({ std::string(DEFAULT_DOMAIN_SEPARATOR),
                          GeneratorList(precomputed_generators.begin(), precomputed_generators.end()) });
             initialized_precomputed_generators = true;
         }
 
         // if the generator map does not contain our desired generators, add entry into map
-        if (!map.contains(domain_separator)) {
+        if (!map.contains(std::string(domain_separator))) {
             map.insert({
-                domain_separator,
-                Group::derive_generators_secure(domain_separator, num_generators + generator_offset, 0),
+                std::string(domain_separator),
+                Group::derive_generators(domain_separator, num_generators + generator_offset, 0),
             });
         }
 
-        GeneratorList& generators = map.at(domain_separator);
+        GeneratorList& generators = map.at(std::string(domain_separator));
 
         // If the current GeneratorList does not contain enough generators, extend it
         if (num_generators + generator_offset > generators.size()) {
             const size_t num_extra_generators = num_generators + generator_offset - generators.size();
             GeneratorList extended_generators =
-                Group::derive_generators_secure(domain_separator, num_extra_generators, generators.size());
+                Group::derive_generators(domain_separator, num_extra_generators, generators.size());
             generators.reserve(num_generators + generator_offset);
             std::copy(extended_generators.begin(), extended_generators.end(), std::back_inserter(generators));
         }
 
-        return GeneratorView(&generators[generator_offset], num_generators);
+        return GeneratorView{ generators.data() + generator_offset, num_generators };
     }
 
     static inline generator_data* get_default_generators() { return &default_data; }

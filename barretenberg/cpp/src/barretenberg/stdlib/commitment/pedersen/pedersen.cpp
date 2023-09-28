@@ -13,7 +13,7 @@ cycle_group<C> pedersen_commitment<C>::commit(const std::vector<field_t>& inputs
     using cycle_group = cycle_group<C>;
     using cycle_scalar = typename cycle_group::cycle_scalar;
 
-    auto base_points = context.generators->get(inputs.size(), context.offset, context.domain_separator);
+    const auto base_points = context.generators->get(inputs.size(), context.offset, context.domain_separator);
 
     std::vector<cycle_scalar> scalars;
     std::vector<cycle_group> points;

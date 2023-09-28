@@ -1042,7 +1042,7 @@ TEST_F(join_split_tests, test_total_output_value_larger_than_total_input_value_f
 TEST_F(join_split_tests, test_different_input_note_owners_fails)
 {
     join_split_tx tx = simple_setup({ 1, 2 });
-    tx.input_note[0].owner = grumpkin::g1::affine_element::hash_to_curve(1);
+    tx.input_note[0].owner = grumpkin::g1::affine_element::hash_to_curve({ 1 });
 
     auto result = sign_and_verify_logic(tx, user.owner);
     EXPECT_FALSE(result.valid);
@@ -1179,7 +1179,7 @@ TEST_F(join_split_tests, test_spend_registered_notes_with_owner_key_fails)
 TEST_F(join_split_tests, test_wrong_alias_hash_fails)
 {
     join_split_tx tx = simple_setup({ 2, 3 }, ACCOUNT_INDEX, 1);
-    tx.alias_hash = join_split_example::fixtures::generate_alias_hash("chicken");
+    tx.alias_hash = join_split_example::fixtures::generate_alias_hash("derive_generators");
 
     auto result = sign_and_verify_logic(tx, user.owner);
     EXPECT_FALSE(result.valid);
