@@ -1,6 +1,7 @@
 #pragma once
 
 #include "barretenberg/plonk/proof_system/constants.hpp"
+#include <array>
 #include <barretenberg/common/assert.hpp>
 #include <cstddef>
 #include <cstdint>
@@ -56,6 +57,7 @@ struct FixedBaseParams {
     {
         return (num_bits / BITS_PER_TABLE) + ((num_bits % BITS_PER_TABLE == 0) ? 0 : 1);
     }
+
     /**
      * @brief For a given multitable index, how many scalar mul bits are we traversing with our multitable?
      *
@@ -65,9 +67,10 @@ struct FixedBaseParams {
     static constexpr size_t get_num_bits_of_multi_table(const size_t multitable_index)
     {
         ASSERT(multitable_index < NUM_FIXED_BASE_MULTI_TABLES);
-        // This...is very hacky.
-        const bool is_lo_multi_table = (multitable_index & 1) == 0;
-        return is_lo_multi_table ? BITS_PER_LO_SCALAR : BITS_PER_HI_SCALAR;
+        constexpr std::array<size_t, 4> MULTI_TABLE_BIT_LENGTHS{
+            BITS_PER_LO_SCALAR, BITS_PER_HI_SCALAR, BITS_PER_LO_SCALAR, BITS_PER_HI_SCALAR
+        };
+        return MULTI_TABLE_BIT_LENGTHS[multitable_index];
     }
 };
 } // namespace plookup
