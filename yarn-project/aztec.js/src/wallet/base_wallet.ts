@@ -1,14 +1,15 @@
-import { AztecAddress, Fr, GrumpkinPrivateKey, PartialAddress } from '@aztec/circuits.js';
+import { AztecAddress, Fr, GrumpkinPrivateKey, PartialAddress, Point } from '@aztec/circuits.js';
 import {
   AuthWitness,
-  AztecRPC,
   ContractData,
   DeployedContract,
   ExtendedContractData,
   FunctionCall,
   L2BlockL2Logs,
+  L2Tx,
   NodeInfo,
   NotePreimage,
+  PXE,
   SyncStatus,
   Tx,
   TxExecutionRequest,
@@ -23,7 +24,7 @@ import { Wallet } from './index.js';
  * A base class for Wallet implementations
  */
 export abstract class BaseWallet implements Wallet {
-  constructor(protected readonly rpc: AztecRPC) {}
+  constructor(protected readonly pxe: PXE) {}
 
   abstract getCompleteAddress(): CompleteAddress;
 
@@ -32,75 +33,81 @@ export abstract class BaseWallet implements Wallet {
   abstract createAuthWitness(message: Fr): Promise<AuthWitness>;
 
   registerAccount(privKey: GrumpkinPrivateKey, partialAddress: PartialAddress): Promise<void> {
-    return this.rpc.registerAccount(privKey, partialAddress);
+    return this.pxe.registerAccount(privKey, partialAddress);
   }
   registerRecipient(account: CompleteAddress): Promise<void> {
-    return this.rpc.registerRecipient(account);
+    return this.pxe.registerRecipient(account);
   }
   getRegisteredAccounts(): Promise<CompleteAddress[]> {
-    return this.rpc.getRegisteredAccounts();
+    return this.pxe.getRegisteredAccounts();
   }
   getRegisteredAccount(address: AztecAddress): Promise<CompleteAddress | undefined> {
-    return this.rpc.getRegisteredAccount(address);
+    return this.pxe.getRegisteredAccount(address);
   }
   getRecipients(): Promise<CompleteAddress[]> {
-    return this.rpc.getRecipients();
+    return this.pxe.getRecipients();
   }
   getRecipient(address: AztecAddress): Promise<CompleteAddress | undefined> {
-    return this.rpc.getRecipient(address);
+    return this.pxe.getRecipient(address);
   }
   addContracts(contracts: DeployedContract[]): Promise<void> {
-    return this.rpc.addContracts(contracts);
+    return this.pxe.addContracts(contracts);
   }
   getContracts(): Promise<AztecAddress[]> {
-    return this.rpc.getContracts();
+    return this.pxe.getContracts();
   }
   simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx> {
-    return this.rpc.simulateTx(txRequest, simulatePublic);
+    return this.pxe.simulateTx(txRequest, simulatePublic);
   }
   sendTx(tx: Tx): Promise<TxHash> {
-    return this.rpc.sendTx(tx);
+    return this.pxe.sendTx(tx);
+  }
+  getTx(txHash: TxHash): Promise<L2Tx | undefined> {
+    return this.pxe.getTx(txHash);
   }
   getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
-    return this.rpc.getTxReceipt(txHash);
+    return this.pxe.getTxReceipt(txHash);
   }
   getPrivateStorageAt(owner: AztecAddress, contract: AztecAddress, storageSlot: Fr): Promise<NotePreimage[]> {
-    return this.rpc.getPrivateStorageAt(owner, contract, storageSlot);
+    return this.pxe.getPrivateStorageAt(owner, contract, storageSlot);
   }
   getPublicStorageAt(contract: AztecAddress, storageSlot: Fr): Promise<any> {
-    return this.rpc.getPublicStorageAt(contract, storageSlot);
+    return this.pxe.getPublicStorageAt(contract, storageSlot);
+  }
+  addNote(contract: AztecAddress, storageSlot: Fr, preimage: NotePreimage, nonce: Fr, account: Point): Promise<void> {
+    return this.pxe.addNote(contract, storageSlot, preimage, nonce, account);
   }
   getNoteNonces(contract: AztecAddress, storageSlot: Fr, preimage: NotePreimage, txHash: TxHash): Promise<Fr[]> {
-    return this.rpc.getNoteNonces(contract, storageSlot, preimage, txHash);
+    return this.pxe.getNoteNonces(contract, storageSlot, preimage, txHash);
   }
   viewTx(functionName: string, args: any[], to: AztecAddress, from?: AztecAddress | undefined): Promise<any> {
-    return this.rpc.viewTx(functionName, args, to, from);
+    return this.pxe.viewTx(functionName, args, to, from);
   }
   getExtendedContractData(contractAddress: AztecAddress): Promise<ExtendedContractData | undefined> {
-    return this.rpc.getExtendedContractData(contractAddress);
+    return this.pxe.getExtendedContractData(contractAddress);
   }
   getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined> {
-    return this.rpc.getContractData(contractAddress);
+    return this.pxe.getContractData(contractAddress);
   }
   getUnencryptedLogs(from: number, limit: number): Promise<L2BlockL2Logs[]> {
-    return this.rpc.getUnencryptedLogs(from, limit);
+    return this.pxe.getUnencryptedLogs(from, limit);
   }
   getBlockNumber(): Promise<number> {
-    return this.rpc.getBlockNumber();
+    return this.pxe.getBlockNumber();
   }
   getNodeInfo(): Promise<NodeInfo> {
-    return this.rpc.getNodeInfo();
+    return this.pxe.getNodeInfo();
   }
-  isGlobalStateSynchronised() {
-    return this.rpc.isGlobalStateSynchronised();
+  isGlobalStateSynchronized() {
+    return this.pxe.isGlobalStateSynchronized();
   }
-  isAccountStateSynchronised(account: AztecAddress) {
-    return this.rpc.isAccountStateSynchronised(account);
+  isAccountStateSynchronized(account: AztecAddress) {
+    return this.pxe.isAccountStateSynchronized(account);
   }
   getSyncStatus(): Promise<SyncStatus> {
-    return this.rpc.getSyncStatus();
+    return this.pxe.getSyncStatus();
   }
   addAuthWitness(authWitness: AuthWitness) {
-    return this.rpc.addAuthWitness(authWitness);
+    return this.pxe.addAuthWitness(authWitness);
   }
 }

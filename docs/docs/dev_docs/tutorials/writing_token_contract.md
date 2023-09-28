@@ -1,6 +1,6 @@
-# Writing a Standard token contract in Aztec.nr
+# Writing a token contract in Aztec.nr
 
-In this tutorial we will go through writing a standard L2 native token contract
+In this tutorial we will go through writing an L2 native token contract
 for the Aztec Network, using the Aztec.nr contract libraries. It is recommended that you go through the [the introduction to contracts](../contracts/main.md) and [setup instructions](../contracts/setup.md) section before this tutorial to gain some familiarity with writing Aztec smart contracts.
 
 This tutorial is intended to help you get familiar with the Aztec.nr library, Aztec contract syntax and some of the underlying structure of the Aztec network.
@@ -38,7 +38,7 @@ Node Info:
 Version: 1
 Chain Id: 31337
 Rollup Address: 0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9
-Client: aztec-rpc@0.7.5
+Client: pxe@0.7.5
 Compatible Nargo Version: 0.11.1-aztec.0
 ```
 
@@ -242,7 +242,7 @@ We are also importing types from a `types.nr` file. Copy [this file](https://git
 
 ### Note on private state
 
-Private state in Aztec is all [UTXOs](https://en.wikipedia.org/wiki/Unspent_transaction_output) under the hood. Handling UTXOs is largely abstracted away from developers, but there are some unique things for developers to be aware of when creating and managing private state in an Aztec contract. See [State Variables](../contracts/syntax/state_variables) to learn more about public and private state in Aztec.
+Private state in Aztec is all [UTXOs](https://en.wikipedia.org/wiki/Unspent_transaction_output) under the hood. Handling UTXOs is largely abstracted away from developers, but there are some unique things for developers to be aware of when creating and managing private state in an Aztec contract. See [State Variables](../contracts/syntax/storage.md) to learn more about public and private state in Aztec.
 
 Copy [`util.nr`](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-contracts/src/contracts/token_contract/src/util.nr) into `token_contract_tutorial/contracts/src` as well. The function defined in `util.nr` will be helpful for generating message hashes that are used when communicating between contracts.
 
@@ -256,7 +256,7 @@ Below the dependencies, paste the following Storage struct:
 
 Reading through the storage variables:
 
-- `admin` a single Field value stored in public state. `FIELD_SERIALISED_LEN` indicates the length of the variable, which is 1 in this case because it's a single Field element. A `Field` is basically an unsigned integer with a maximum value determined by the underlying cryptographic curve.
+- `admin` a single Field value stored in public state. `FIELD_SERIALIZED_LEN` indicates the length of the variable, which is 1 in this case because it's a single Field element. A `Field` is basically an unsigned integer with a maximum value determined by the underlying cryptographic curve.
 - `minters` is a mapping of Fields in public state. This will store whether an account is an approved minter on the contract.
 - `balances` is a mapping of private balances. Private balances are stored in a `Set` of `ValueNote`s. The balance is the sum of all of an account's `ValueNote`s.
 - `total_supply` is a Field value stored in public state and represents the total number of tokens minted.
@@ -269,7 +269,7 @@ You can read more about it [here](../contracts/syntax/storage.md).
 
 Once we have Storage defined, we need to specify how to initialize it. The `init` method creates and initializes an instance of `Storage`. We define an initialization method for each of the storage variables defined above. Storage initialization is generic and can largely be reused for similar types, across different contracts, but it is important to note that each storage variable specifies it's storage slot, starting at 1.
 
-Also, the public storage variables define the type that they store by passing the methods by which they are serialized. Because all `PublicState` in this contract is storing Field elements, each storage variable takes `FieldSerialisationMethods`.
+Also, the public storage variables define the type that they store by passing the methods by which they are serialized. Because all `PublicState` in this contract is storing Field elements, each storage variable takes `FieldSerializationMethods`.
 
 #include_code storage_init /yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
 
@@ -293,13 +293,8 @@ Public functions are declared with the `#[aztec(public)]` macro above the functi
 
 As described in the [execution contexts section above](#execution-contexts), public function logic and transaction information is transparent to the world. Public functions update public state, but can be used to prepare data to be used in a private context, as we will go over below (e.g. see the [shield](#shield) function).
 
-Every public function initializes storage using the public context like so:
 
-```rust
-let storage = Storage::init(Context::public(&mut context));
-```
-
-After this, storage is referenced as `storage.variable`. We won't go over this step in any of the following function descriptions.
+Storage is referenced as `storage.variable`.
 
 #### `set_admin`
 
@@ -374,13 +369,7 @@ Private functions are declared with the `#[aztec(private)]` macro above the func
 
 As described in the [execution contexts section above](#execution-contexts), private function logic and transaction information is hidden from the world and is executed on user devices. Private functions update private state, but can pass data to the public execution context (e.g. see the [`unshield`](#unshield) function).
 
-Every private function initializes storage using the private context like so:
-
-```rust
-let storage = Storage::init(Context::private(&mut context));
-```
-
-After this, storage is referenced as `storage.variable`. We won't go over this step in any of the following function descriptions.
+Storage is referenced as `storage.variable`.
 
 #### `redeem_shield`
 
@@ -466,7 +455,7 @@ A getter function for checking the token `total_supply`.
 
 #### `balance_of_private`
 
-A getter function for checking the private balance of the provided Aztec account. Note that the [Aztec RPC Server](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/aztec-rpc) must have access to the `owner`s decryption keys in order to decrypt their notes.
+A getter function for checking the private balance of the provided Aztec account. Note that the [Private Execution Environment (PXE)](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/pxe) must have access to the `owner`s decryption keys in order to decrypt their notes.
 
 #include_code balance_of_private /yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
 
@@ -502,6 +491,6 @@ https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/end-to-
 
 ### Token Bridge Contract
 
-The [token bridge tutorial](https://github.com/AztecProtocol/dev-rel/tree/main/tutorials/token-bridge-standard) is a great follow up to this one.
+The [token bridge tutorial](https://github.com/AztecProtocol/dev-rel/tree/main/tutorials/token-bridge) is a great follow up to this one.
 
 It builds on the Token contract described here and goes into more detail about Aztec contract composability and Ethereum (L1) and Aztec (L2) cross-chain messaging.

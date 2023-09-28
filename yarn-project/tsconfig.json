@@ -22,7 +22,7 @@
     { "path": "archiver/tsconfig.json" },
     { "path": "aztec.js/tsconfig.json" },
     { "path": "aztec-node/tsconfig.json" },
-    { "path": "aztec-rpc/tsconfig.json" },
+    { "path": "pxe/tsconfig.json" },
     { "path": "aztec-sandbox/tsconfig.json" },
     { "path": "canary/tsconfig.json" },
     { "path": "circuits.js/tsconfig.json" },
@@ -37,7 +37,6 @@
     { "path": "p2p/tsconfig.json" },
     { "path": "p2p-bootstrap/tsconfig.json" },
     { "path": "prover-client/tsconfig.json" },
-    { "path": "rollup-provider/tsconfig.json" },
     { "path": "sequencer-client/tsconfig.json" },
     { "path": "types/tsconfig.json" },
     { "path": "world-state/tsconfig.json" }

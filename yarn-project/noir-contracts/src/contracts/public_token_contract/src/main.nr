@@ -12,13 +12,13 @@ contract PublicToken {
             map::Map,
             public_state::PublicState,
         },
-        types::type_serialisation::field_serialisation::{
-            FieldSerialisationMethods, FIELD_SERIALISED_LEN,
+        types::type_serialization::field_serialization::{
+            FieldSerializationMethods, FIELD_SERIALIZED_LEN,
         },
     };
 
     struct Storage {
-        balances: Map<PublicState<Field, FIELD_SERIALISED_LEN>>,
+        balances: Map<PublicState<Field, FIELD_SERIALIZED_LEN>>,
     }
 
     impl Storage {
@@ -28,7 +28,7 @@ contract PublicToken {
                     context,
                     1,
                     |context, slot| {
-                        PublicState::new(context, slot, FieldSerialisationMethods)
+                        PublicState::new(context, slot, FieldSerializationMethods)
                     },
                 ),
             }
@@ -48,7 +48,7 @@ contract PublicToken {
         recipient: Field,
     ) -> Field {
 
-        let storage = Storage::init(Context::public(&mut context));
+        
         let recipient_balance = storage.balances.at(recipient);
         let new_amount = recipient_balance.read() + amount;
         // TODO: Remove return value.
@@ -66,7 +66,7 @@ contract PublicToken {
         amount: Field,
         recipient: Field,
     ) -> Field {
-        let storage = Storage::init(Context::public(&mut context));
+        
         let sender = context.msg_sender();
 
         let sender_balance = storage.balances.at(sender);
@@ -95,7 +95,7 @@ contract PublicToken {
     unconstrained fn publicBalanceOf(
         owner: Field,
     ) -> Field {
-        let storage = Storage::init(Context::none());
+        
         storage.balances.at(owner).read()
     }
 }

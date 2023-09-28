@@ -1,7 +1,6 @@
 #pragma once
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
-#include "barretenberg/honk/proof_system/prover.hpp"
 #include "barretenberg/honk/sumcheck/sumcheck_output.hpp"
 #include "barretenberg/honk/transcript/transcript.hpp"
 #include "barretenberg/honk/utils/grand_product_delta.hpp"
@@ -173,8 +172,7 @@ template <typename Flavor> class SumcheckVerifier {
      * @param relation_parameters
      * @param transcript
      */
-    std::optional<SumcheckOutput<Flavor>> verify(const proof_system::RelationParameters<FF>& relation_parameters,
-                                                 auto& transcript)
+    SumcheckOutput<Flavor> verify(const proof_system::RelationParameters<FF>& relation_parameters, auto& transcript)
     {
         bool verified(true);
 
@@ -205,10 +203,6 @@ template <typename Flavor> class SumcheckVerifier {
 
             round.compute_next_target_sum(round_univariate, round_challenge);
             pow_univariate.partially_evaluate(round_challenge);
-
-            if (!verified) {
-                return std::nullopt;
-            }
         }
 
         // Final round
@@ -225,11 +219,8 @@ template <typename Flavor> class SumcheckVerifier {
             checked = (full_honk_relation_purported_value == round.target_total_sum);
         }
         verified = verified && checked;
-        if (!verified) {
-            return std::nullopt;
-        }
 
-        return SumcheckOutput<Flavor>{ multivariate_challenge, purported_evaluations };
+        return SumcheckOutput<Flavor>{ multivariate_challenge, purported_evaluations, verified };
     };
 };
 } // namespace proof_system::honk::sumcheck

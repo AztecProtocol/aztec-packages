@@ -1,12 +1,14 @@
 FROM ubuntu:lunar AS builder
-RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y build-essential wget git libssl-dev cmake ninja-build curl
-RUN curl https://wasmtime.dev/install.sh -sSf | bash /dev/stdin --version v3.0.1
+RUN apt-get update && apt-get install -y build-essential git cmake ninja-build curl
 WORKDIR /usr/src/barretenberg/cpp
 COPY ./scripts/install-wasi-sdk.sh ./scripts/install-wasi-sdk.sh
 RUN ./scripts/install-wasi-sdk.sh
 COPY . .
-RUN cmake --preset wasm && cmake --build --preset wasm
-RUN cmake --preset wasm-threads && cmake --build --preset wasm-threads
+# Building both wasm's in parallel reduces build from 120s to 80s.
+RUN (cmake --preset wasm && cmake --build --preset wasm) & \
+    (cmake --preset wasm-threads && cmake --build --preset wasm-threads) & \
+    wait
+
 
 FROM scratch
 WORKDIR /usr/src/barretenberg/cpp

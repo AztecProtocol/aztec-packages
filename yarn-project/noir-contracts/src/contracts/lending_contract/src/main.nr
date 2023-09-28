@@ -20,12 +20,12 @@ contract Lending {
             map::Map,
             public_state::PublicState,
         },
-        types::type_serialisation::{
-            field_serialisation::{FieldSerialisationMethods, FIELD_SERIALISED_LEN},
-            TypeSerialisationInterface,
+        types::type_serialization::{
+            field_serialization::{FieldSerializationMethods, FIELD_SERIALIZED_LEN},
+            TypeSerializationInterface,
         },
     };
-    use crate::asset::{ASSET_SERIALISED_LEN, Asset, AssetSerialisationMethods};
+    use crate::asset::{ASSET_SERIALIZED_LEN, Asset, AssetSerializationMethods};
     use crate::interest_math::compute_multiplier;
     use crate::helpers::{covered_by_collateral, DebtReturn, debt_updates, debt_value, compute_identifier};
     use crate::interfaces::{Token, Lending, PriceFeed};
@@ -34,9 +34,9 @@ contract Lending {
     struct Storage {
         collateral_asset: PublicState<Field, 1>,
         stable_coin: PublicState<Field, 1>,
-        assets: Map<PublicState<Asset, ASSET_SERIALISED_LEN>>,
-        collateral: Map<PublicState<Field, FIELD_SERIALISED_LEN>>,
-        static_debt: Map<PublicState<Field, FIELD_SERIALISED_LEN>>, // abusing keys very heavily
+        assets: Map<PublicState<Asset, ASSET_SERIALIZED_LEN>>,
+        collateral: Map<PublicState<Field, FIELD_SERIALIZED_LEN>>,
+        static_debt: Map<PublicState<Field, FIELD_SERIALIZED_LEN>>, // abusing keys very heavily
     }
 
     impl Storage {
@@ -45,12 +45,12 @@ contract Lending {
                 collateral_asset: PublicState::new(
                     context,
                     1,
-                    FieldSerialisationMethods,
+                    FieldSerializationMethods,
                 ),
                 stable_coin: PublicState::new(
                     context,
                     2,
-                    FieldSerialisationMethods,
+                    FieldSerializationMethods,
                 ),
                 assets: Map::new(
                     context,
@@ -59,7 +59,7 @@ contract Lending {
                         PublicState::new(
                             context,
                             slot,
-                            AssetSerialisationMethods,
+                            AssetSerializationMethods,
                         )
                     },
                 ),
@@ -70,7 +70,7 @@ contract Lending {
                         PublicState::new(
                             context,
                             slot,
-                            FieldSerialisationMethods,
+                            FieldSerializationMethods,
                         )
                     },
                 ),
@@ -81,7 +81,7 @@ contract Lending {
                         PublicState::new(
                             context,
                             slot,
-                            FieldSerialisationMethods,
+                            FieldSerializationMethods,
                         )
                     },
                 ),
@@ -107,7 +107,7 @@ contract Lending {
         collateral_asset: Field,
         stable_coin: Field,
     ) -> Field {
-        let storage = Storage::init(Context::public(&mut context));
+        
         let asset_loc = storage.assets.at(0);
         let asset = asset_loc.read();
 
@@ -131,7 +131,7 @@ contract Lending {
     // Create a position.
     #[aztec(public)]
     fn update_accumulator() -> Asset {
-        let storage = Storage::init(Context::public(&mut context));
+        
 
         let asset_loc = storage.assets.at(0);
         let mut asset = asset_loc.read();
@@ -192,7 +192,7 @@ contract Lending {
         collateral_asset: Field,
     ) -> Field {
         let _asset = Lending::at(context.this_address()).update_accumulator(context);
-        let storage = Storage::init(Context::public(&mut context));
+        
 
         let coll_asset = storage.collateral_asset.read();
         assert(coll_asset == collateral_asset);
@@ -235,7 +235,7 @@ contract Lending {
         let asset = Lending::at(context.this_address()).update_accumulator(context);
         let price = PriceFeed::at(asset.oracle_address).get_price(context);
         
-        let storage = Storage::init(Context::public(&mut context));
+        
 
         let coll_loc = storage.collateral.at(owner);
         let collateral: Field = coll_loc.read();
@@ -290,7 +290,7 @@ contract Lending {
         let asset = Lending::at(context.this_address()).update_accumulator(context);
         let price = PriceFeed::at(asset.oracle_address).get_price(context);
         
-        let storage = Storage::init(Context::public(&mut context));
+        
 
         // Fetch collateral and static_debt, compute health of current position
         let collateral = storage.collateral.at(owner).read() as u120;
@@ -346,7 +346,7 @@ contract Lending {
         stable_coin: Field,
     ) {
         let asset = Lending::at(context.this_address()).update_accumulator(context);
-        let storage = Storage::init(Context::public(&mut context));
+        
 
         // To ensure that private is using the correct token.
         assert(stable_coin == storage.stable_coin.read());
@@ -362,14 +362,14 @@ contract Lending {
     unconstrained fn get_asset(
         assetId: Field,
     ) -> Asset {
-        let storage = Storage::init(Context::none());
+        
         storage.assets.at(assetId).read()
     }
 
     unconstrained fn get_position(
         owner: Field,
     ) -> Position {
-        let storage = Storage::init(Context::none());
+        
         let collateral = storage.collateral.at(owner).read();
         let static_debt = storage.static_debt.at(owner).read();
         let asset = storage.assets.at(0).read();
@@ -378,7 +378,7 @@ contract Lending {
     }
 
     unconstrained fn get_assets() -> [Field; 2] {
-        let storage = Storage::init(Context::none());
+        
         [storage.collateral_asset.read(), storage.stable_coin.read()]
     }
 }

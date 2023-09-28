@@ -1,11 +1,11 @@
-import { AztecAddress, CompleteAddress } from '@aztec/aztec.js';
-import { FunctionAbi } from '@aztec/foundation/abi';
-import { ReactNode, useState } from 'react';
 import { FILTERED_FUNCTION_NAMES, contractAbi } from '../config.js';
+import { Copy } from './components/copy.js';
 import { ContractFunctionForm, Popup } from './components/index.js';
 import styles from './contract.module.scss';
 import { Button, ButtonSize, ButtonTheme, Card, CardTheme, ImageButton, ImageButtonIcon } from '@aztec/aztec-ui';
-import { Copy } from './components/copy.js';
+import { AztecAddress, CompleteAddress } from '@aztec/aztec.js';
+import { FunctionAbi } from '@aztec/foundation/abi';
+import { ReactNode, useState } from 'react';
 
 const functionTypeSortOrder = {
   secret: 0,
@@ -31,7 +31,7 @@ export function Contract({ wallet }: Props) {
     setResult(`Contract deployed at: ${address}`);
   };
   const handleResult = (returnValues: any) => {
-    // TODO: Serialise returnValues to string according to the returnTypes defined in the function abi.
+    // TODO: serialize returnValues to string according to the returnTypes defined in the function abi.
     setResult(`Return values: ${returnValues}`);
   };
   const handleClosePopup = () => {
@@ -98,6 +98,7 @@ export function Contract({ wallet }: Props) {
               contractAddress={contractAddress}
               contractAbi={contractAbi}
               functionAbi={selectedFunctionAbi}
+              defaultAddress={wallet.address.toString()}
               isLoading={processingFunction === selectedFunctionAbi.name && !hasResult}
               disabled={processingFunction === selectedFunctionAbi.name && hasResult}
               onSubmit={() => handleSubmitForm(selectedFunctionAbi.name)}
@@ -116,6 +117,7 @@ export function Contract({ wallet }: Props) {
           wallet={wallet}
           contractAbi={contractAbi}
           functionAbi={constructorAbi}
+          defaultAddress={wallet.address.toString()}
           buttonText="Deploy"
           isLoading={!!processingFunction && !hasResult}
           disabled={!!processingFunction && hasResult}

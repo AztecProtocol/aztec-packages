@@ -1,19 +1,19 @@
 import { AztecNodeService } from '@aztec/aztec-node';
-import { AztecRPCServer } from '@aztec/aztec-rpc';
 import { AztecAddress, Wallet, computeMessageSecretHash, generatePublicKey, getSchnorrAccount } from '@aztec/aztec.js';
 import { Fr, GrumpkinScalar } from '@aztec/circuits.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts/types';
-import { AztecRPC, TxStatus } from '@aztec/types';
+import { PXE, TxStatus } from '@aztec/types';
 
 import { expectsNumOfEncryptedLogsInTheLastBlockToBe, setup } from './fixtures/utils.js';
 
 describe('e2e_multiple_accounts_1_enc_key', () => {
   let aztecNode: AztecNodeService | undefined;
-  let aztecRpcServer: AztecRPC;
+  let pxe: PXE;
   const wallets: Wallet[] = [];
   const accounts: AztecAddress[] = [];
   let logger: DebugLogger;
+  let teardown: () => Promise<void>;
 
   let tokenAddress: AztecAddress;
 
@@ -21,14 +21,14 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
   const numAccounts = 3;
 
   beforeEach(async () => {
-    ({ aztecNode, aztecRpcServer, logger } = await setup(0));
+    ({ teardown, aztecNode, pxe, logger } = await setup(0));
 
     const encryptionPrivateKey = GrumpkinScalar.random();
 
     for (let i = 0; i < numAccounts; i++) {
       logger(`Deploying account contract ${i}/3...`);
       const signingPrivateKey = GrumpkinScalar.random();
-      const account = getSchnorrAccount(aztecRpcServer, encryptionPrivateKey, signingPrivateKey);
+      const account = getSchnorrAccount(pxe, encryptionPrivateKey, signingPrivateKey);
       const wallet = await account.waitDeploy({ interval: 0.1 });
       const { address } = await account.getCompleteAddress();
       wallets.push(wallet);
@@ -38,7 +38,7 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
 
     // Verify that all accounts use the same encryption key
     const encryptionPublicKey = await generatePublicKey(encryptionPrivateKey);
-    for (const account of await aztecRpcServer.getRegisteredAccounts()) {
+    for (const account of await pxe.getRegisteredAccounts()) {
       expect(account.publicKey).toEqual(encryptionPublicKey);
     }
 
@@ -58,12 +58,7 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
     );
   }, 100_000);
 
-  afterEach(async () => {
-    await aztecNode?.stop();
-    if (aztecRpcServer instanceof AztecRPCServer) {
-      await aztecRpcServer?.stop();
-    }
-  });
+  afterEach(() => teardown());
 
   const expectBalance = async (userIndex: number, expectedBalance: bigint) => {
     const wallet = wallets[userIndex];
@@ -102,7 +97,7 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
   };
 
   /**
-   * Tests the ability of the Aztec RPC server to handle multiple accounts under the same encryption key.
+   * Tests the ability of the Private eXecution Environment (PXE) to handle multiple accounts under the same encryption key.
    */
   it('spends notes from multiple account under the same encryption key', async () => {
     const transferAmount1 = 654n; // account 0 -> account 1

@@ -11,7 +11,7 @@ All the packages that make up [Aztec](https://docs.aztec.network).
 
 - [Aztec.nr](./yarn-project/aztec-nr/): A [Noir](https://noir-lang.org) framework for smart contracts on Aztec.
 - [Aztec Sandbox](./yarn-project/aztec-sandbox/): A package for setting up a local dev net, including a local Ethereum network, deployed rollup contracts and Aztec execution environment.
-- [Aztec.js](./yarn-project/aztec.js/): A tool for interacting with the Aztec network. It communicates via the [Aztec RPC Server](./yarn-project/aztec-rpc/).
+- [Aztec.js](./yarn-project/aztec.js/): A tool for interacting with the Aztec network. It communicates via the [Private Execution Environment (PXE)](./yarn-project/pxe/).
 - [Aztec Boxes](./yarn-project/boxes/): A minimal framework for building full stack applications for Aztec (using React).
 - [Example contracts](./yarn-project/noir-contracts/): Example contracts for the Aztec network, written in Noir.
 - [End to end tests](./yarn-project/end-to-end/): Integration tests writted in Typescript--a good reference for how to use the packages for specific tasks.
@@ -36,6 +36,15 @@ Install nargo by running `noirup -v TAG_FROM_THE_FILE`.
 This repository uses CircleCI for continuous integration. Build steps are managed using [`build-system`](https://github.com/AztecProtocol/build-system). Small packages are built and tested as part of a docker build operation, while larger ones and end-to-end tests spin up a large AWS spot instance. Each successful build step creates a new docker image that gets tagged with the package name and commit.
 
 All packages need to be included in the [build manifest](`build_manifest.json`), which declares what paths belong to each package, as well as dependencies between packages. When the CI runs, if none of the rebuild patterns or dependencies were changed, then the build step is skipped and the last successful image is re-tagged with the current commit. Read more on the [`build-system`](https://github.com/AztecProtocol/build-system) repository README.
+
+It is faster to debug CI failures within a persistent ssh session compared to pushing and waiting.  You can create a session with "Rerun step with SSH" on CircleCI which will generate an ssh command for debugging on a worker.  Run that command locally and then do
+```bash
+cd project
+./build-system/scripts/setup_env "$(git rev-parse HEAD)" "" "" ""
+source /tmp/.bash_env*
+{start testing your CI commands here}
+```
+This provide an interactive environment for debugging the CI test.
 
 ## Debugging
 
