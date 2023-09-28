@@ -154,11 +154,11 @@ export class CrossChainTestHarness {
 
     this.logger('Sending messages to L1 portal to be consumed publicly');
     const args = [
-      this.ownerAddress.toString(),
       bridgeAmount,
+      this.ownerAddress.toString(),
+      this.ethAccount.toString(),
       deadline,
       secretHash.toString(true),
-      this.ethAccount.toString(),
     ] as const;
     const { result: messageKeyHex } = await this.tokenPortal.simulate.depositToAztecPublic(args, {
       account: this.ethAccount.toString(),
@@ -181,10 +181,10 @@ export class CrossChainTestHarness {
     this.logger('Sending messages to L1 portal to be consumed privately');
     const args = [
       bridgeAmount,
-      deadline,
-      secretHashForL2MessageConsumption.toString(true),
       secretHashForRedeemingMintedNotes.toString(true),
       this.ethAccount.toString(),
+      deadline,
+      secretHashForL2MessageConsumption.toString(true),
     ] as const;
     const { result: messageKeyHex } = await this.tokenPortal.simulate.depositToAztecPrivate(args, {
       account: this.ethAccount.toString(),

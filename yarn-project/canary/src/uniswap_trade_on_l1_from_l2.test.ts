@@ -278,10 +278,10 @@ describe('uniswap_trade_on_l1_from_l2', () => {
     logger('Sending messages to L1 portal');
     const args = [
       wethAmountToBridge,
-      deadline,
-      secretHashForMintingWeth.toString(true),
       secretHashForRedeemingWeth.toString(true),
       ownerEthAddress.toString(),
+      deadline,
+      secretHashForMintingWeth.toString(true),
     ] as const;
     const { result: messageKeyHex } = await wethTokenPortal.simulate.depositToAztecPrivate(args, {
       account: ownerEthAddress.toString(),
@@ -369,7 +369,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
     const swapArgs = [
       wethTokenPortalAddress.toString(),
       wethAmountToBridge,
-      3000,
+      uniswapFeeTier,
       daiTokenPortalAddress.toString(),
       minimumOutputAmount,
       secretHashForRedeemingDai.toString(true),
@@ -377,14 +377,13 @@ describe('uniswap_trade_on_l1_from_l2', () => {
       deadline,
       ownerEthAddress.toString(),
       true,
-      true,
     ] as const;
-    const { result: depositDaiMessageKeyHex } = await uniswapPortal.simulate.swap(swapArgs, {
+    const { result: depositDaiMessageKeyHex } = await uniswapPortal.simulate.swapPrivate(swapArgs, {
       account: ownerEthAddress.toString(),
     } as any);
 
     // this should also insert a message into the inbox.
-    await uniswapPortal.write.swap(swapArgs, {} as any);
+    await uniswapPortal.write.swapPrivate(swapArgs, {} as any);
     const depositDaiMessageKey = Fr.fromString(depositDaiMessageKeyHex);
 
     // weth was swapped to dai and send to portal
