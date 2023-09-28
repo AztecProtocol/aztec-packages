@@ -134,7 +134,7 @@ TEST(utils_array_validation, test_vector_all_zeros)
     const size_t SIZE = 64;
     std::array<barretenberg::fr, SIZE> test_vec{};
     DummyCircuitBuilder dummyBuilder("Builder for array validation test vectors");
-    validate_array(dummyBuilder, test_vec, "Test vector all zeros");
+    validate_array(dummyBuilder, test_vec, "Test vector with all zeros");
 
     EXPECT_FALSE(dummyBuilder.failed()) << dummyBuilder.get_first_failure();
 }
@@ -150,7 +150,7 @@ TEST(utils_array_validation, test_vector_all_non_zeros)
     }
 
     DummyCircuitBuilder dummyBuilder("Builder for array validation test vectors");
-    validate_array(dummyBuilder, test_vec, "Test vector all non zeros");
+    validate_array(dummyBuilder, test_vec, "Test vector with all non zeros");
 
     EXPECT_FALSE(dummyBuilder.failed()) << dummyBuilder.get_first_failure();
 }
@@ -166,7 +166,7 @@ TEST(utils_array_validation, test_vector_valid_one_zero)
     }
 
     DummyCircuitBuilder dummyBuilder("Builder for array validation test vectors");
-    validate_array(dummyBuilder, test_vec, "Test vector a single zero at the end");
+    validate_array(dummyBuilder, test_vec, "Test vector with a single zero at the end");
 
     EXPECT_FALSE(dummyBuilder.failed()) << dummyBuilder.get_first_failure();
 }
@@ -177,7 +177,7 @@ TEST(utils_array_validation, test_vector_valid_one_non_zero)
     std::array<barretenberg::fr, SIZE> test_vec{};
     test_vec[0] = fr(124);
     DummyCircuitBuilder dummyBuilder("Builder for array validation test vectors");
-    validate_array(dummyBuilder, test_vec, "Test vector a single non-zero at the beginning");
+    validate_array(dummyBuilder, test_vec, "Test vector with a single non-zero at the beginning");
 
     EXPECT_FALSE(dummyBuilder.failed()) << dummyBuilder.get_first_failure();
 }
@@ -193,7 +193,7 @@ TEST(utils_array_validation, test_vector_invalid_one_zero_middle)
     }
     test_vec[67] = fr(0);
     DummyCircuitBuilder dummyBuilder("Builder for array validation test vectors");
-    validate_array(dummyBuilder, test_vec, "Test vector a single zero in the middle");
+    validate_array(dummyBuilder, test_vec, "Test vector with a single zero in the middle");
 
     EXPECT_TRUE(dummyBuilder.failed());
 }
@@ -209,7 +209,7 @@ TEST(utils_array_validation, test_vector_invalid_one_zero_beginning)
     }
     test_vec[0] = fr(0);
     DummyCircuitBuilder dummyBuilder("Builder for array validation test vectors");
-    validate_array(dummyBuilder, test_vec, "Test vector a single zero at the beginning");
+    validate_array(dummyBuilder, test_vec, "Test vector with a single zero at the beginning");
 
     EXPECT_TRUE(dummyBuilder.failed());
 }
@@ -252,7 +252,7 @@ TEST(utils_array_validation, test_vector_invalid_alternate)
         gen = 2437 * gen % 2314;
     }
     DummyCircuitBuilder dummyBuilder("Builder for array validation test vectors");
-    validate_array(dummyBuilder, test_vec, "Test vector consisting in alternating zero and non-zero values.");
+    validate_array(dummyBuilder, test_vec, "Test vector with alternating zero and non-zero values.");
 
     EXPECT_TRUE(dummyBuilder.failed());
 }
