@@ -163,10 +163,14 @@ export class Oracle {
     return toACVMField(0);
   }
 
-  emitUnencryptedLog(message: ACVMField[]): ACVMField {
+  emitUnencryptedLog([contractAddress]: ACVMField[], [eventSelector]: ACVMField[], message: ACVMField[]): ACVMField {
     // https://github.com/AztecProtocol/aztec-packages/issues/885
     const log = Buffer.concat(message.map(charBuffer => convertACVMFieldToBuffer(charBuffer).subarray(-1)));
-    this.typedOracle.emitUnencryptedLog(log);
+    this.typedOracle.emitUnencryptedLog(
+      AztecAddress.fromString(contractAddress),
+      FunctionSelector.fromField(fromACVMField(eventSelector)), // TODO: should we rename FunctionSelector to Selector?
+      log,
+    );
     return toACVMField(0);
   }
 
