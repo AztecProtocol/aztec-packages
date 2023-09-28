@@ -12,7 +12,9 @@
       "default": "./dest/node/index.js"
     }
   },
-  "bin": "./dest/node/main.js",
+  "bin": {
+    "bb.js": "./dest/node/main.js"
+  },
   "files": [
     "src/",
     "dest/",
@@ -21,11 +23,11 @@
   ],
   "scripts": {
     "clean": "rm -rf ./dest .tsbuildinfo*",
-    "build": "yarn clean && yarn build:wasm && yarn build:ts && yarn build:ts:cjs",
-    "build:dev": "tsc -b --watch",
-    "build:wasm": "cd ../cpp && cmake --preset wasm-threads && cmake --build --preset wasm-threads && cmake --preset wasm && cmake --build --preset wasm && ./scripts/strip-wasm.sh",
-    "build:ts": "tsc -b && cp ./src/barretenberg-threads.wasm ./dest/node && webpack && chmod +x ./dest/node/main.js",
-    "build:ts:cjs": "tsc -b tsconfig.cjs.json && cp ./src/barretenberg-threads.wasm ./dest/node-cjs && ./scripts/write_package_type.sh",
+    "build": "yarn clean && yarn build:wasm && yarn build:esm && yarn build:cjs && yarn build:browser",
+    "build:wasm": "./scripts/build_wasm.sh",
+    "build:esm": "tsc -b && chmod +x ./dest/node/main.js",
+    "build:cjs": "tsc -b tsconfig.cjs.json && ./scripts/cjs_postprocess.sh",
+    "build:browser": "webpack",
     "build:bindings": "cd .. && ./scripts/bindgen.sh",
     "formatting": "prettier --check ./src && eslint --max-warnings 0 ./src",
     "formatting:fix": "prettier -w ./src",

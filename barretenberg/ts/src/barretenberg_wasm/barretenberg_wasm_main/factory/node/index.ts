@@ -4,11 +4,11 @@ import { fileURLToPath } from 'url';
 
 function getCurrentDir() {
   if (typeof __dirname !== 'undefined') {
-    return __dirname; // CJS
+    return __dirname;
   } else {
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
-    return dirname(fileURLToPath(import.meta.url)); // ESM
+    return dirname(fileURLToPath(import.meta.url));
   }
 }
 
