@@ -367,10 +367,10 @@ cycle_group<Composer> cycle_group<Composer>::unconditional_subtract(const cycle_
  * @return cycle_group<Composer>
  */
 template <typename Composer>
-cycle_group<Composer> cycle_group<Composer>::constrained_unconditional_add(const cycle_group& other) const
+cycle_group<Composer> cycle_group<Composer>::checked_unconditional_add(const cycle_group& other) const
 {
     field_t x_delta = x - other.x;
-    x_delta.assert_is_not_zero("cycle_group::constrained_unconditional_add, x-coordinate collision");
+    x_delta.assert_is_not_zero("cycle_group::checked_unconditional_add, x-coordinate collision");
     return unconditional_add(other);
 }
 
@@ -387,10 +387,10 @@ cycle_group<Composer> cycle_group<Composer>::constrained_unconditional_add(const
  * @return cycle_group<Composer>
  */
 template <typename Composer>
-cycle_group<Composer> cycle_group<Composer>::constrained_unconditional_subtract(const cycle_group& other) const
+cycle_group<Composer> cycle_group<Composer>::checked_unconditional_subtract(const cycle_group& other) const
 {
     field_t x_delta = x - other.x;
-    x_delta.assert_is_not_zero("cycle_group::constrained_unconditional_subtract, x-coordinate collision");
+    x_delta.assert_is_not_zero("cycle_group::checked_unconditional_subtract, x-coordinate collision");
     return unconditional_subtract(other);
 }
 
@@ -805,7 +805,7 @@ cycle_group<Composer>::straus_lookup_table::straus_lookup_table(Composer* contex
     field_t modded_y = field_t::conditional_assign(base_point.is_point_at_infinity(), fallback_point.y, base_point.y);
     cycle_group modded_base_point(modded_x, modded_y, false);
     for (size_t i = 1; i < table_size; ++i) {
-        auto add_output = point_table[i - 1].constrained_unconditional_add(modded_base_point);
+        auto add_output = point_table[i - 1].checked_unconditional_add(modded_base_point);
         field_t x = field_t::conditional_assign(base_point.is_point_at_infinity(), offset_generator.x, add_output.x);
         field_t y = field_t::conditional_assign(base_point.is_point_at_infinity(), offset_generator.y, add_output.y);
         point_table[i] = cycle_group(x, y, false);
@@ -866,7 +866,7 @@ cycle_group<Composer> cycle_group<Composer>::straus_lookup_table::read(const fie
  *          If Composer is not ULTRA, number of bits per Straus round = 1,
  *          which reduces to the basic double-and-add algorithm
  *
- * @details If `unconditional_add = true`, we use `::unconditional_add` instead of `::constrained_unconditional_add`.
+ * @details If `unconditional_add = true`, we use `::unconditional_add` instead of `::checked_unconditional_add`.
  *          Use with caution! Only should be `true` if we're doing an ULTRA fixed-base MSM so we know the points cannot
  *          collide with the offset generators.
  *
@@ -1266,7 +1266,7 @@ cycle_group<Composer> cycle_group<Composer>::batch_mul(const std::vector<cycle_s
         offset_accumulator += offset_generator_delta;
         if (has_fixed_points) {
             result = can_unconditional_add ? result.unconditional_add(variable_accumulator)
-                                           : result.constrained_unconditional_add(variable_accumulator);
+                                           : result.checked_unconditional_add(variable_accumulator);
         } else {
             result = variable_accumulator;
         }

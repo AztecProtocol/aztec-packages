@@ -101,7 +101,7 @@ TYPED_TEST(CycleGroupTest, TestConstrainedUnconditionalAddSucceed)
     // case 1. valid unconditional add
     cycle_group_ct a = cycle_group_ct::from_witness(&composer, lhs);
     cycle_group_ct b = cycle_group_ct::from_witness(&composer, rhs);
-    cycle_group_ct c = a.constrained_unconditional_add(b);
+    cycle_group_ct c = a.checked_unconditional_add(b);
     AffineElement expected(Element(lhs) + Element(rhs));
     AffineElement result = c.get_value();
     EXPECT_EQ(result, expected);
@@ -121,7 +121,7 @@ TYPED_TEST(CycleGroupTest, TestConstrainedUnconditionalAddFail)
     // case 2. invalid unconditional add
     cycle_group_ct a = cycle_group_ct::from_witness(&composer, lhs);
     cycle_group_ct b = cycle_group_ct::from_witness(&composer, rhs);
-    a.constrained_unconditional_add(b);
+    a.checked_unconditional_add(b);
 
     EXPECT_TRUE(composer.failed());
 
@@ -235,7 +235,7 @@ TYPED_TEST(CycleGroupTest, TestConstrainedUnconditionalSubtractSucceed)
     // case 1. valid unconditional add
     cycle_group_ct a = cycle_group_ct::from_witness(&composer, lhs);
     cycle_group_ct b = cycle_group_ct::from_witness(&composer, rhs);
-    cycle_group_ct c = a.constrained_unconditional_subtract(b);
+    cycle_group_ct c = a.checked_unconditional_subtract(b);
     AffineElement expected(Element(lhs) - Element(rhs));
     AffineElement result = c.get_value();
     EXPECT_EQ(result, expected);
@@ -255,7 +255,7 @@ TYPED_TEST(CycleGroupTest, TestConstrainedUnconditionalSubtractFail)
     // case 2. invalid unconditional add
     cycle_group_ct a = cycle_group_ct::from_witness(&composer, lhs);
     cycle_group_ct b = cycle_group_ct::from_witness(&composer, rhs);
-    a.constrained_unconditional_subtract(b);
+    a.checked_unconditional_subtract(b);
 
     EXPECT_TRUE(composer.failed());
 
