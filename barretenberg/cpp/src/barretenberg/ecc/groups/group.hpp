@@ -5,6 +5,7 @@
 #include "./element.hpp"
 #include "./wnaf.hpp"
 #include "barretenberg/common/constexpr_utils.hpp"
+#include "barretenberg/crypto/blake3s/blake3s.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include <array>
 #include <cinttypes>
@@ -52,10 +53,10 @@ template <typename _coordinate_field, typename _subgroup_field, typename GroupPa
     {
         std::array<affine_element, N> generators;
         size_t count = 0;
-        size_t seed = 0;
+        uint8_t seed = 0;
         while (count < N) {
             ++seed;
-            auto candidate = affine_element::hash_to_curve(seed);
+            auto candidate = affine_element::hash_to_curve({ seed });
             if (candidate.on_curve() && !candidate.is_point_at_infinity()) {
                 generators[count] = candidate;
                 ++count;
@@ -119,25 +120,39 @@ template <typename _coordinate_field, typename _subgroup_field, typename GroupPa
         return result;
     }
 
-    inline static affine_element get_secure_generator_from_index(size_t generator_index,
-                                                                 const std::string& domain_separator)
+    template <size_t S> constexpr std::array<uint8_t, S> convert(const std::string_view& in)
     {
-        std::array<uint8_t, 32> domain_hash = sha256::sha256(domain_separator);
+        std::array<uint8_t, S> output;
+        for (size_t i = 0; i < S; ++i) {
+            output[i] = static_cast<unsigned char>(in[i]);
+        }
+        return output;
+    }
+
+    template <size_t N>
+    inline static constexpr std::array<affine_element, N> derive_generators_secure(const std::string_view& in)
+    {
+        std::vector<uint8_t> domain_bytes;
+        for (char i : in) {
+            domain_bytes.emplace_back(static_cast<unsigned char>(i));
+        }
+        std::array<uint8_t, 32> domain_hash = blake3::blake3s_constexpr(&domain_bytes[0], domain_bytes.size());
         std::vector<uint8_t> generator_preimage;
         generator_preimage.reserve(64);
         std::copy(domain_hash.begin(), domain_hash.end(), std::back_inserter(generator_preimage));
         for (size_t i = 0; i < 32; ++i) {
             generator_preimage.emplace_back(0);
         }
-        auto gen_idx = static_cast<uint32_t>(generator_index);
-        uint32_t mask = 0xff;
-        generator_preimage[32] = static_cast<uint8_t>(gen_idx >> 24);
-        generator_preimage[33] = static_cast<uint8_t>((gen_idx >> 16) & mask);
-        generator_preimage[34] = static_cast<uint8_t>((gen_idx >> 8) & mask);
-        generator_preimage[35] = static_cast<uint8_t>(gen_idx & mask);
-        auto result = affine_element::hash_to_curve(generator_preimage);
-        ASSERT(result.x != 0);
-        ASSERT(result.y != 0);
+        std::array<affine_element, N> result;
+        for (size_t i = 0; i < N; ++i) {
+            auto generator_index = static_cast<uint32_t>(i);
+            uint32_t mask = 0xff;
+            generator_preimage[32] = static_cast<uint8_t>(generator_index >> 24);
+            generator_preimage[33] = static_cast<uint8_t>((generator_index >> 16) & mask);
+            generator_preimage[34] = static_cast<uint8_t>((generator_index >> 8) & mask);
+            generator_preimage[35] = static_cast<uint8_t>(generator_index & mask);
+            result[i] = (affine_element::hash_to_curve(generator_preimage));
+        }
         return result;
     }
 

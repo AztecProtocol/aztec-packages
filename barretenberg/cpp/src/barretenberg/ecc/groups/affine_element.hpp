@@ -6,6 +6,10 @@
 #include <vector>
 
 namespace barretenberg::group_elements {
+
+template <typename T>
+concept SupportsHashToCurve = T::can_hash_to_curve;
+
 template <typename Fq, typename Fr, typename Params> class alignas(64) affine_element {
   public:
     using in_buf = const uint8_t*;
@@ -82,11 +86,11 @@ template <typename Fq, typename Fr, typename Params> class alignas(64) affine_el
      *
      * @return A point on the curve corresponding to the given seed
      */
-    template <typename = typename std::enable_if<Params::can_hash_to_curve>>
-    static affine_element hash_to_curve(uint64_t seed) noexcept;
+    // template <typename = typename std::enable_if<Params::can_hash_to_curve>>
+    // static affine_element hash_to_curve(uint64_t seed) noexcept;
 
-    template <typename = typename std::enable_if<Params::can_hash_to_curve>>
-    static affine_element hash_to_curve(const std::vector<uint8_t>& seed) noexcept;
+    static constexpr affine_element hash_to_curve(const std::vector<uint8_t>& seed) noexcept
+        requires SupportsHashToCurve<Params>;
 
     constexpr bool operator==(const affine_element& other) const noexcept;
 

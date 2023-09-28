@@ -13,8 +13,9 @@ using fr = barretenberg::fr;
 
 inline fr compute_account_alias_hash_nullifier(fr const& alias_hash)
 {
-    return crypto::pedersen_commitment::compress_native(std::vector<fr>{ alias_hash },
-                                                        notes::GeneratorIndex::ACCOUNT_ALIAS_HASH_NULLIFIER);
+    return crypto::pedersen_commitment::compress_native(
+        std::vector<fr>{ alias_hash },
+        crypto::GeneratorContext<curve::Grumpkin>(notes::GeneratorIndex::ACCOUNT_ALIAS_HASH_NULLIFIER));
 }
 
 } // namespace account

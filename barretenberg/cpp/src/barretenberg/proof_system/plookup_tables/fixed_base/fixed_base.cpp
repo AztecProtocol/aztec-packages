@@ -103,9 +103,9 @@ grumpkin::g1::affine_element table::generate_generator_offset(const grumpkin::g1
  * @return true
  * @return false
  */
-bool table::lookup_table_exists_for_point(const grumpkin::g1::affine_element& input)
+bool table::lookup_table_exists_for_point(const affine_element& input)
 {
-    return (input == native_pedersen::get_lhs_generator() || input == native_pedersen::get_rhs_generator());
+    return (input == get_lhs_generator() || input == get_rhs_generator());
 }
 
 /**
@@ -118,10 +118,10 @@ bool table::lookup_table_exists_for_point(const grumpkin::g1::affine_element& in
 std::optional<std::array<MultiTableId, 2>> table::get_lookup_table_ids_for_point(
     const grumpkin::g1::affine_element& input)
 {
-    if (input == native_pedersen::get_lhs_generator()) {
+    if (input == get_lhs_generator()) {
         return { { FIXED_BASE_LEFT_LO, FIXED_BASE_LEFT_HI } };
     }
-    if (input == native_pedersen::get_rhs_generator()) {
+    if (input == get_rhs_generator()) {
         return { { FIXED_BASE_RIGHT_LO, FIXED_BASE_RIGHT_HI } };
     }
     return {};

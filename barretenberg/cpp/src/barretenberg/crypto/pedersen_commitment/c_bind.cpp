@@ -28,7 +28,10 @@ WASM_EXPORT void pedersen___compress_with_hash_index(fr::vec_in_buf inputs_buffe
 {
     std::vector<grumpkin::fq> to_compress;
     read(inputs_buffer, to_compress);
-    auto r = crypto::pedersen_commitment::compress_native(to_compress, ntohl(*hash_index));
+    const size_t generator_offset = ntohl(*hash_index);
+    crypto::GeneratorContext<curve::Grumpkin> ctx; // todo fix
+    ctx.offset = generator_offset;
+    auto r = crypto::pedersen_commitment::compress_native(to_compress, ctx);
     barretenberg::fr::serialize_to_buffer(r, output);
 }
 

@@ -22,23 +22,13 @@ template <typename ComposerContext> class pedersen_hash {
     using point = stdlib::point<ComposerContext>;
     using bool_t = stdlib::bool_t<ComposerContext>;
     using EmbeddedCurve = typename cycle_group<ComposerContext>::Curve;
-    using generator_data = crypto::generator_data<EmbeddedCurve>;
+    using GeneratorContext = crypto::GeneratorContext<EmbeddedCurve>;
 
   public:
-    // TODO(@suyash67) as part of refactor project, can we remove this and replace with `hash`
-    // (i.e. simplify the name as we no longer have a need for `hash_single`)
-    static field_t hash_multiple(const std::vector<field_t>& in,
-                                 size_t hash_index = 0,
-                                 const generator_data* generator_context = generator_data::get_default_generators());
+    static field_t hash(const std::vector<field_t>& in, GeneratorContext context = {});
 
-    static field_t hash(const std::vector<field_t>& in,
-                        size_t hash_index = 0,
-                        const generator_data* generator_context = generator_data::get_default_generators());
-
-    static field_t hash_skip_field_validation(
-        const std::vector<field_t>& in,
-        size_t hash_index = 0,
-        const generator_data* generator_context = generator_data::get_default_generators());
+    // TODO health warnings!
+    static field_t hash_skip_field_validation(const std::vector<field_t>& in, GeneratorContext context = {});
 };
 
 EXTERN_STDLIB_TYPE(pedersen_hash);

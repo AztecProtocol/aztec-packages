@@ -1,7 +1,7 @@
 #pragma once
 #include "./element.hpp"
+#include "barretenberg/crypto/blake3s/blake3s.hpp"
 #include "barretenberg/crypto/keccak/keccak.hpp"
-#include "barretenberg/crypto/sha256/sha256.hpp"
 
 namespace barretenberg::group_elements {
 template <class Fq, class Fr, class T>
@@ -219,35 +219,37 @@ constexpr std::optional<affine_element<Fq, Fr, T>> affine_element<Fq, Fr, T>::de
     return std::nullopt;
 }
 
-template <class Fq, class Fr, class T>
-template <typename>
-affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::hash_to_curve(uint64_t seed) noexcept
-{
-    static_assert(static_cast<bool>(T::can_hash_to_curve));
+// template <class Fq, class Fr, class T>
+// template <typename>
+// affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::hash_to_curve(uint64_t seed) noexcept
+// {
+//     static_assert(static_cast<bool>(T::can_hash_to_curve));
 
-    Fq input(seed, 0, 0, 0);
-    keccak256 c = hash_field_element(&input.data[0]);
-    uint256_t hash{ c.word64s[0], c.word64s[1], c.word64s[2], c.word64s[3] };
+//     Fq input(seed, 0, 0, 0);
+//     keccak256 c = hash_field_element(&input.data[0]);
+//     uint256_t hash{ c.word64s[0], c.word64s[1], c.word64s[2], c.word64s[3] };
 
-    uint256_t x_coordinate = hash;
+//     uint256_t x_coordinate = hash;
 
-    if constexpr (Fq::modulus.data[3] < 0x8000000000000000ULL) {
-        x_coordinate.data[3] = x_coordinate.data[3] & (~0x8000000000000000ULL);
-    }
+//     if constexpr (Fq::modulus.data[3] < 0x8000000000000000ULL) {
+//         x_coordinate.data[3] = x_coordinate.data[3] & (~0x8000000000000000ULL);
+//     }
 
-    bool y_bit = hash.get_bit(255);
+//     bool y_bit = hash.get_bit(255);
 
-    std::optional<affine_element> result = derive_from_x_coordinate(x_coordinate, y_bit);
+//     std::optional<affine_element> result = derive_from_x_coordinate(x_coordinate, y_bit);
 
-    if (result.has_value()) {
-        return result.value();
-    }
-    return affine_element(0, 0);
-}
+//     if (result.has_value()) {
+//         return result.value();
+//     }
+//     return affine_element(0, 0);
+// }
 
-template <class Fq, class Fr, class T>
-template <typename>
-affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::hash_to_curve(const std::vector<uint8_t>& seed) noexcept
+template <class Fq, class Fr, class Params>
+constexpr affine_element<Fq, Fr, Params> affine_element<Fq, Fr, Params>::hash_to_curve(
+    const std::vector<uint8_t>& seed) noexcept
+    requires SupportsHashToCurve<Params>
+
 {
     std::vector<uint8_t> target_seed(seed);
 
@@ -264,19 +266,30 @@ affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::hash_to_curve(const std::ve
         target_seed[seed_size] = hi;
         target_seed[seed_size + 1] = lo;
         target_seed[target_seed.size() - 1] = 0;
-        std::array<uint8_t, 32> hash_hi = sha256::sha256(target_seed);
+        std::array<uint8_t, 32> hash_hi = blake3::blake3s_constexpr(&target_seed[0], target_seed.size());
         target_seed[target_seed.size() - 1] = 1;
-        std::array<uint8_t, 32> hash_lo = sha256::sha256(target_seed);
+        std::array<uint8_t, 32> hash_lo = blake3::blake3s_constexpr(&target_seed[0], target_seed.size());
+        // todo: get rid of these?
+
+        const auto read_limb = [](const uint8_t* in) {
+            uint64_t out = 0;
+            for (size_t i = 0; i < 8; ++i) {
+                out += static_cast<uint64_t>(in[i]) << ((7 - i) * 8);
+            }
+            return out;
+        };
+        const auto read_uint256 = [&](const uint8_t* in) {
+            uint256_t out = 0;
+            out.data[3] = read_limb(&in[0]);
+            out.data[2] = read_limb(&in[8]);
+            out.data[1] = read_limb(&in[16]);
+            out.data[0] = read_limb(&in[24]);
+            return out;
+        };
         std::vector<uint8_t> gg(hash_hi.begin(), hash_hi.end());
         std::vector<uint8_t> ff(hash_lo.begin(), hash_lo.end());
-        uint256_t x_lo = 0;
-        uint256_t x_hi = 0;
-        // uint8_t* f = &hash_lo[0];
-        // uint8_t* g = &hash_hi[0];
-        read(ff, x_lo);
-        read(gg, x_hi);
-        // numeric::read(*f, x_lo);
-        // numeric::read(*g, x_hi);
+        uint256_t x_lo = read_uint256(&hash_lo[0]);
+        uint256_t x_hi = read_uint256(&hash_hi[0]);
         uint512_t x_full(x_lo, x_hi);
         Fq x(x_full);
         bool sign_bit = false;

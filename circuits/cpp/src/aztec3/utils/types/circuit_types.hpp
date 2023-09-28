@@ -97,7 +97,7 @@ template <typename Builder> struct CircuitTypes {
     static fr merkle_hash(fr left, fr right)
     {
         // use 0-generator for internal merkle hashing
-        return plonk::stdlib::pedersen_hash<Builder>::hash_multiple({ left, right }, 0);
+        return plonk::stdlib::pedersen_hash<Builder>::hash({ left, right }, 0);
     };
 
     static grumpkin_point commit(const std::vector<fr>& inputs, const size_t hash_index = 0)

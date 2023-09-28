@@ -15,7 +15,7 @@ inline barretenberg::fr hash_pair_native(barretenberg::fr const& lhs, barretenbe
     return crypto::pedersen_hash::hash({ lhs, rhs }); // uses lookup tables
 }
 
-inline barretenberg::fr hash_multiple_native(std::vector<barretenberg::fr> const& inputs)
+inline barretenberg::fr hash_native(std::vector<barretenberg::fr> const& inputs)
 {
     return crypto::pedersen_hash::hash(inputs); // uses lookup tables
 }

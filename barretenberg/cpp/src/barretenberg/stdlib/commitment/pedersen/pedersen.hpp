@@ -11,17 +11,12 @@ template <typename ComposerContext> class pedersen_commitment {
     using bool_t = stdlib::bool_t<ComposerContext>;
     using field_t = stdlib::field_t<ComposerContext>;
     using EmbeddedCurve = typename cycle_group<ComposerContext>::Curve;
-    using generator_data = crypto::generator_data<EmbeddedCurve>;
+    using GeneratorContext = crypto::GeneratorContext<EmbeddedCurve>;
 
   public:
-    static cycle_group<ComposerContext> commit(
-        const std::vector<field_t>& inputs,
-        size_t hash_index = 0,
-        const generator_data* generator_context = generator_data::get_default_generators());
+    static cycle_group<ComposerContext> commit(const std::vector<field_t>& inputs, GeneratorContext context = {});
 
-    static field_t compress(const std::vector<field_t>& inputs,
-                            size_t hash_index = 0,
-                            const generator_data* generator_context = generator_data::get_default_generators());
+    static field_t compress(const std::vector<field_t>& inputs, GeneratorContext context = {});
 
     // TODO: kill?
     static field_t compress(type_is<field_t> auto&&... inputs)

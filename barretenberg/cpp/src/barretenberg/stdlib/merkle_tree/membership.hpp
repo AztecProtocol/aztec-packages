@@ -255,7 +255,7 @@ template <typename Composer> field_t<Composer> compute_tree_root(std::vector<fie
     while (layer.size() > 1) {
         std::vector<field_t<Composer>> next_layer(layer.size() / 2);
         for (size_t i = 0; i < next_layer.size(); ++i) {
-            next_layer[i] = pedersen_hash<Composer>::hash_multiple({ layer[i * 2], layer[i * 2 + 1] });
+            next_layer[i] = pedersen_hash<Composer>::hash({ layer[i * 2], layer[i * 2 + 1] });
         }
         layer = std::move(next_layer);
     }

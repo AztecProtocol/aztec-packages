@@ -1,7 +1,5 @@
 #pragma once
 
-// TODO(@zac-wiliamson #2341 rename to pedersen.hpp once we migrate to new hash standard)
-
 #include "../generators/generator_data.hpp"
 #include "barretenberg/common/container.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
@@ -24,62 +22,62 @@ namespace crypto {
  *          This is because this class is intended to be used as a `static` member of other classes to provide lists
  * of precomputed generators. Mutating static member variables is *not* thread safe!
  */
-template <typename Curve> class generator_data {
-  public:
-    using Group = typename Curve::Group;
-    using AffineElement = typename Curve::AffineElement;
-    static inline constexpr size_t DEFAULT_NUM_GENERATORS = 32;
-    static inline const std::string DEFAULT_DOMAIN_SEPARATOR = "default_domain_separator";
-    inline generator_data(const size_t num_generators = DEFAULT_NUM_GENERATORS,
-                          const std::string& domain_separator = DEFAULT_DOMAIN_SEPARATOR)
-        : _domain_separator(domain_separator)
-        , _domain_separator_bytes(domain_separator.begin(), domain_separator.end())
-        , _size(num_generators){};
+// template <typename Curve> class generator_data {
+//   public:
+//     using Group = typename Curve::Group;
+//     using AffineElement = typename Curve::AffineElement;
+//     static inline constexpr size_t DEFAULT_NUM_GENERATORS = 32;
+//     static inline const std::string DEFAULT_DOMAIN_SEPARATOR = "default_domain_separator";
+//     inline generator_data(const size_t num_generators = DEFAULT_NUM_GENERATORS,
+//                           const std::string& domain_separator = DEFAULT_DOMAIN_SEPARATOR)
+//         : _domain_separator(domain_separator)
+//         , _domain_separator_bytes(domain_separator.begin(), domain_separator.end())
+//         , _size(num_generators){};
 
-    [[nodiscard]] inline std::string domain_separator() const { return _domain_separator; }
-    [[nodiscard]] inline size_t size() const { return _size; }
-    [[nodiscard]] inline AffineElement get(const size_t index, const size_t offset = 0) const
-    {
-        ASSERT(index + offset <= _size);
-        return generators[index + offset];
-    }
+//     [[nodiscard]] inline std::string domain_separator() const { return _domain_separator; }
+//     [[nodiscard]] inline size_t size() const { return _size; }
+//     [[nodiscard]] inline AffineElement get(const size_t index, const size_t offset = 0) const
+//     {
+//         ASSERT(index + offset <= _size);
+//         return generators[index + offset];
+//     }
 
-    /**
-     * @brief If more generators than `_size` are required, this method will return a new `generator_data` object
-     *        with the required generators.
-     *
-     * @note Question: is this a good pattern to support? Ideally downstream code would ensure their
-     *       `generator_data` object is sufficiently large to cover potential needs.
-     *       But if we did not support this pattern, it would make downstream code more complex as each method that
-     *       uses `generator_data` would have to perform this accounting logic.
-     *
-     * @param target_num_generators
-     * @return generator_data
-     */
-    [[nodiscard]] inline generator_data conditional_extend(const size_t target_num_generators) const
-    {
-        if (target_num_generators <= _size) {
-            return *this;
-        }
-        return { target_num_generators, _domain_separator };
-    }
+//     /**
+//      * @brief If more generators than `_size` are required, this method will return a new `generator_data` object
+//      *        with the required generators.
+//      *
+//      * @note Question: is this a good pattern to support? Ideally downstream code would ensure their
+//      *       `generator_data` object is sufficiently large to cover potential needs.
+//      *       But if we did not support this pattern, it would make downstream code more complex as each method that
+//      *       uses `generator_data` would have to perform this accounting logic.
+//      *
+//      * @param target_num_generators
+//      * @return generator_data
+//      */
+//     [[nodiscard]] inline generator_data conditional_extend(const size_t target_num_generators) const
+//     {
+//         if (target_num_generators <= _size) {
+//             return *this;
+//         }
+//         return { target_num_generators, _domain_separator };
+//     }
 
-  private:
-    std::string _domain_separator;
-    std::vector<uint8_t> _domain_separator_bytes;
-    size_t _size;
-    // ordering of static variable initialization is undefined, so we make `default_generators` private
-    // and only accessible via `get_default_generators()`, which ensures var will be initialized at the cost of some
-    // small runtime checks
-    inline static const generator_data default_generators =
-        generator_data(generator_data::DEFAULT_NUM_GENERATORS, generator_data::DEFAULT_DOMAIN_SEPARATOR);
+//   private:
+//     std::string _domain_separator;
+//     std::vector<uint8_t> _domain_separator_bytes;
+//     size_t _size;
+//     // ordering of static variable initialization is undefined, so we make `default_generators` private
+//     // and only accessible via `get_default_generators()`, which ensures var will be initialized at the cost of some
+//     // small runtime checks
+//     inline static const generator_data default_generators =
+//         generator_data(generator_data::DEFAULT_NUM_GENERATORS, generator_data::DEFAULT_DOMAIN_SEPARATOR);
 
-  public:
-    inline static const generator_data* get_default_generators() { return &default_generators; }
-    const std::vector<AffineElement> generators = (Group::derive_generators_secure(_domain_separator_bytes, _size));
-};
+//   public:
+//     inline static const generator_data* get_default_generators() { return &default_generators; }
+//     const std::vector<AffineElement> generators = (Group::derive_generators_secure(_domain_separator_bytes, _size));
+// };
 
-template class generator_data<curve::Grumpkin>;
+// template class generator_data<curve::Grumpkin>;
 
 //  constinit generator_data default_generators = generator_data<curve::Grumpkin>();
 
@@ -100,21 +98,11 @@ template <typename Curve> class pedersen_commitment_base {
     using Fr = typename Curve::ScalarField;
     using Fq = typename Curve::BaseField;
     using Group = typename Curve::Group;
+    using GeneratorContext = typename crypto::GeneratorContext<Curve>;
 
-    static AffineElement commit_native(
-        const std::vector<Fq>& inputs,
-        size_t hash_index = 0,
-        const generator_data<Curve>* generator_context = generator_data<Curve>::get_default_generators());
+    static AffineElement commit_native(const std::vector<Fq>& inputs, GeneratorContext context = {});
 
-    static AffineElement commit_native(
-        const std::vector<Fr>& inputs,
-        size_t hash_index = 0,
-        const generator_data<Curve>* generator_context = generator_data<Curve>::get_default_generators());
-
-    static Fq compress_native(
-        const std::vector<Fq>& inputs,
-        size_t hash_index = 0,
-        const generator_data<Curve>* generator_context = generator_data<Curve>::get_default_generators());
+    static Fq compress_native(const std::vector<Fq>& inputs, GeneratorContext context = {});
 
     static Fq compress_native(type_is<Fq> auto&&... inputs)
     {
@@ -136,7 +124,7 @@ template <typename Curve> class pedersen_commitment_base {
     {
         const size_t num_bytes = input.size();
         const size_t bytes_per_element = 31;
-        size_t num_elements = (num_bytes % bytes_per_element != 0) + (num_bytes / bytes_per_element);
+        size_t num_elements = static_cast<size_t>(num_bytes % bytes_per_element != 0) + (num_bytes / bytes_per_element);
 
         const auto slice = [](const std::vector<uint8_t>& data, const size_t start, const size_t slice_size) {
             uint256_t result(0);
@@ -167,7 +155,9 @@ template <typename Curve> class pedersen_commitment_base {
     static Fq compress_native_buffer_to_field(const std::vector<uint8_t>& input, const size_t hash_index)
     {
         const auto elements = convert_buffer_to_field(input);
-        Fq result_fq = compress_native(elements, hash_index);
+        GeneratorContext base = {}; // todo remove
+        base.offset = hash_index;
+        Fq result_fq = compress_native(elements, base);
         return result_fq;
     }
 
@@ -179,7 +169,9 @@ template <typename Curve> class pedersen_commitment_base {
     template <size_t T> static Fq compress_native(const std::array<Fq, T>& input, const size_t hash_index = 0)
     {
         std::vector<Fq> converted(input.begin(), input.end());
-        return compress_native(converted, hash_index);
+        GeneratorContext base = {}; // todo remove
+        base.offset = hash_index;
+        return compress_native(converted, base);
     }
     //
 };

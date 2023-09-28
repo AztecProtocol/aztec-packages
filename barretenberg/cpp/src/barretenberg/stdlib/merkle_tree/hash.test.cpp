@@ -20,7 +20,7 @@ TEST(stdlib_merkle_tree_hash, compress_native_vs_circuit)
     fr x = uint256_t(0x5ec473eb273a8011, 0x50160109385471ca, 0x2f3095267e02607d, 0x02586f4a39e69b86);
     Composer composer = Composer();
     witness_ct y = witness_ct(&composer, x);
-    field_ct z = pedersen_hash<Composer>::hash_multiple({ y, y });
+    field_ct z = pedersen_hash<Composer>::hash({ y, y });
     auto zz = merkle_tree::hash_pair_native(x, x);
 
     EXPECT_EQ(z.get_value(), zz);

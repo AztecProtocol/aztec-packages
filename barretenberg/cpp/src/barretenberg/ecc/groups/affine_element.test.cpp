@@ -130,4 +130,18 @@ TEST(AffineElement, Msgpack)
     auto [actual, expected] = msgpack_roundtrip(secp256k1::g1::affine_element{ 1, 1 });
     EXPECT_EQ(actual, expected);
 }
+
+// Regression test to ensure that the point at infinity is not equal to its coordinate-wise reduction, which may lie
+// on the curve, depending on the y-coordinate.
+TEST(AffineElement, HashToCurve)
+{
+    constexpr grumpkin::g1::affine_element result_a = grumpkin::g1::affine_element::hash_to_curve({ 0, 1, 2, 3 });
+    const grumpkin::g1::affine_element result_b = grumpkin::g1::affine_element::hash_to_curve({ 0, 1, 2, 3 });
+    static_assert(result_a.on_curve());
+
+    static constexpr auto foo = grumpkin::g1::derive_generators_secure<4>("hello");
+    static_assert(foo[3].on_curve());
+    EXPECT_EQ(result_a, result_b);
+}
+
 } // namespace TestAffineElement
