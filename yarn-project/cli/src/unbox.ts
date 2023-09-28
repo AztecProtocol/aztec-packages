@@ -311,12 +311,9 @@ export async function unboxContract(
 
   const tag = `${GITHUB_TAG_PREFIX}-v${packageVersion}`;
   // downloads the selected contract's relevant folder in @aztec/boxes/{contract_name}
-  // and the noir source code from `noir-contracts` into `${outputDirectoryName}/src/contracts`
-  // if not present in the box
   await downloadContractAndBoxFromGithub(tag, contractName, outputPath, log);
-  log('downloaded from github, updating package configs');
   // make adjustments for packaging to work as a standalone, as opposed to part of yarn workspace
-  // as in the monorepo source files
+  // as in the monorepo source files.  replace things like "workspace^" with the actual version number
   await updatePackagingConfigurations(packageVersion, tag, outputPath, log);
 
   log('');
