@@ -464,14 +464,10 @@ template <typename FF> void UltraCircuitBuilder_<FF>::create_ecc_add_gate(const 
 }
 
 /**
- * @brief Create an elliptic curve addition gate
+ * @brief Create an elliptic curve doubling gate
  *
- * @details x and y are defined over scalar field. Addition can handle applying the curve endomorphism to one of the
- * points being summed at the time of addition.
  *
- * @param in Elliptic curve point addition gate parameters, including the the affine coordinates of the two points being
- * added, the resulting point coordinates and the selector values that describe whether the endomorphism is used on the
- * second point and whether it is negated.
+ * @param in Elliptic curve point doubling gate parameters
  */
 template <typename FF> void UltraCircuitBuilder_<FF>::create_ecc_dbl_gate(const ecc_dbl_gate_<FF>& in)
 {
