@@ -135,8 +135,7 @@ template <typename _coordinate_field, typename _subgroup_field, typename GroupPa
         generator_preimage[33] = static_cast<uint8_t>((gen_idx >> 16) & mask);
         generator_preimage[34] = static_cast<uint8_t>((gen_idx >> 8) & mask);
         generator_preimage[35] = static_cast<uint8_t>(gen_idx & mask);
-        auto result = affine_element::hash_to_curve(generator_preimage);
-        return result;
+        return affine_element::hash_to_curve(generator_preimage);
     }
 
     BBERG_INLINE static void conditional_negate_affine(const affine_element* src,
