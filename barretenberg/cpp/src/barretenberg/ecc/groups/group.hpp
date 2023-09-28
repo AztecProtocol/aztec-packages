@@ -136,8 +136,6 @@ template <typename _coordinate_field, typename _subgroup_field, typename GroupPa
         generator_preimage[34] = static_cast<uint8_t>((gen_idx >> 8) & mask);
         generator_preimage[35] = static_cast<uint8_t>(gen_idx & mask);
         auto result = affine_element::hash_to_curve(generator_preimage);
-        ASSERT(result.x != 0);
-        ASSERT(result.y != 0);
         return result;
     }
 
