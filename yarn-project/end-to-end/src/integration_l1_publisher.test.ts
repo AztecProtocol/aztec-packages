@@ -33,7 +33,7 @@ import { MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 
 import { beforeEach, describe, expect, it } from '@jest/globals';
 import { default as levelup } from 'levelup';
-import { default as memdown } from 'memdown';
+import memdown from 'memdown';
 import {
   Address,
   Chain,
