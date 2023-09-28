@@ -233,7 +233,7 @@ async function updatePackageJsonVersions(packageVersion: string, outputPath: str
   const noirVersionContent = await fs.readFile(noirVersionPath, 'utf-8');
   const noirVersionJSON = JSON.parse(noirVersionContent);
   const noirTag = noirVersionJSON.tag;
-  packageData.scripts['install:noir'] = packageData.scripts['install:noir'].replace('aztec', `${noirTag}`);
+  packageData.scripts['install:noir'] = packageData.scripts['install:noir'].replace('NOIR_VERSION', `${noirTag}`);
   log(`Updated Noir version to: ${noirTag}`);
 
   // modify the version of the sandbox to pull - it's set to "latest" version in the monorepo,
