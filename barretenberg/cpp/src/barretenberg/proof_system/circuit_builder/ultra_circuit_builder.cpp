@@ -483,7 +483,6 @@ template <typename FF> void UltraCircuitBuilder_<FF>::create_ecc_dbl_gate(const 
     can_fuse_into_previous_gate = can_fuse_into_previous_gate && (w_r[this->num_gates - 1] == in.x1);
     can_fuse_into_previous_gate = can_fuse_into_previous_gate && (w_o[this->num_gates - 1] == in.y1);
 
-    // q_elliptic_double.emplace_back(1);
     if (can_fuse_into_previous_gate) {
         q_elliptic_double[this->num_gates - 1] = 1;
     } else {
