@@ -130,6 +130,10 @@ export class Oracle {
     return toAcvmL1ToL2MessageLoadOracleInputs(message, root);
   }
 
+  async getDataTreePath([commitment]: ACVMField[]): Promise<ACVMField[]> {
+    return (await this.typedOracle.getDataTreePath(fromACVMField(commitment))).map(toACVMField);
+  }
+
   async getPortalContractAddress([aztecAddress]: ACVMField[]): Promise<ACVMField> {
     const contractAddress = AztecAddress.fromString(aztecAddress);
     const portalContactAddress = await this.typedOracle.getPortalContractAddress(contractAddress);

@@ -1,6 +1,9 @@
+mod historic_commitment_oracle;
+
 // A contract used for testing a random hodgepodge of small features from simulator and end-to-end tests.
 contract StatefulTest {
     use dep::std::option::Option;
+    use dep::std::merkle::compute_merkle_root;
     use dep::value_note::{
         balance_utils,
         utils::{increment, decrement},
@@ -17,6 +20,9 @@ contract StatefulTest {
             FieldSerializationMethods, FIELD_SERIALIZED_LEN,
         },
     };
+    use dep::aztec::constants_gen::PRIVATE_DATA_TREE_HEIGHT;
+    use crate::historic_commitment_oracle::{get_private_data_sibling_witness, PrivateDataMembershipWitness};
+    use dep::aztec::note::utils::compute_note_hash_for_read_or_nullify;
 
     struct Storage {
         notes: Map<Set<ValueNote, VALUE_NOTE_LEN>>,
@@ -80,6 +86,28 @@ contract StatefulTest {
 
         let recipient_notes = storage.notes.at(recipient);
         increment(recipient_notes, amount, recipient);
+    }
+
+    unconstrained fn get_path(
+        note: ValueNote
+    ) -> [Field; PRIVATE_DATA_TREE_HEIGHT] {
+        // compute the commitment 
+        let commitment = compute_note_hash_for_read_or_nullify(ValueNoteMethods, note);
+        let witness = get_private_data_sibling_witness(commitment);
+        witness.path
+    }
+
+    unconstrained fn get_commitment(
+        note: ValueNote
+    ) -> Field {
+        compute_note_hash_for_read_or_nullify(ValueNoteMethods, note)
+    }
+
+    unconstrained fn get_root(note: ValueNote) -> Field {
+        // compute the commitment 
+        let commitment = compute_note_hash_for_read_or_nullify(ValueNoteMethods, note);
+        let witness = get_private_data_sibling_witness(commitment);
+        compute_merkle_root(commitment, witness.index, witness.path)
     }
 
     unconstrained fn summed_values(

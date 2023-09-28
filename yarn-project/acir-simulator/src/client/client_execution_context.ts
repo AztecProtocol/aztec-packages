@@ -275,7 +275,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       noteHashToLookUp = computeUniqueCommitment(wasm, nonce, noteHashToLookUp);
     }
 
-    const index = await this.db.getCommitmentIndex(noteHashToLookUp);
+    const index = await this.db.findCommitmentIndex(noteHashToLookUp.toBuffer());
     const exists = index !== undefined;
     if (exists) {
       this.gotNotes.set(noteHashToLookUp.value, index);

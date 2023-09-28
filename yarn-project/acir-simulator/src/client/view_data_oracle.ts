@@ -114,7 +114,7 @@ export class ViewDataOracle extends TypedOracle {
       noteHashToLookUp = computeUniqueCommitment(wasm, nonce, noteHashToLookUp);
     }
 
-    const index = await this.db.getCommitmentIndex(noteHashToLookUp);
+    const index = await this.db.findCommitmentIndex(noteHashToLookUp.toBuffer());
     return index !== undefined;
   }
 
@@ -126,6 +126,20 @@ export class ViewDataOracle extends TypedOracle {
   public async getL1ToL2Message(msgKey: Fr) {
     const message = await this.db.getL1ToL2Message(msgKey);
     return { ...message, root: this.historicBlockData.l1ToL2MessagesTreeRoot };
+  }
+
+  /**
+   * Fetches the index and data tree path for a commitment
+   * @param commitment - The commitment
+   * @returns The index and data tree path
+   */
+  public async getDataTreePath(commitment: Fr): Promise<Fr[]> {
+    const index = await this.db.findCommitmentIndex(commitment.toBuffer());
+    if (!index) {
+      throw new Error(`Commitment ${commitment} not found in private data tree`);
+    }
+    const path = await this.db.getDataTreePath(index);
+    return [new Fr(index), ...path.toFieldArray()];
   }
 
   /**

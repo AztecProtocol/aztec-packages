@@ -113,6 +113,10 @@ export abstract class TypedOracle {
     throw new Error('Not available.');
   }
 
+  getDataTreePath(_commitment: Fr): Promise<Fr[]> {
+    throw new Error('Not available.');
+  }
+
   getPortalContractAddress(_contractAddress: AztecAddress): Promise<EthAddress> {
     throw new Error('Not available.');
   }

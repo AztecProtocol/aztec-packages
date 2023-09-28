@@ -99,11 +99,15 @@ export class SimulatorOracle implements DBOracle {
 
   /**
    * Gets the index of a commitment in the private data tree.
-   * @param commitment - The commitment.
+   * @param leafValue - The commitment buffer.
    * @returns - The index of the commitment. Undefined if it does not exist in the tree.
    */
-  async getCommitmentIndex(commitment: Fr) {
-    return await this.dataTreeProvider.findCommitmentIndex(commitment.toBuffer());
+  async findCommitmentIndex(leafValue: Buffer) {
+    return await this.dataTreeProvider.findCommitmentIndex(leafValue);
+  }
+
+  async getDataTreePath(leafIndex: bigint) {
+    return await this.dataTreeProvider.getDataTreePath(leafIndex);
   }
 
   /**

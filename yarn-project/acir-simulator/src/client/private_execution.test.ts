@@ -382,7 +382,7 @@ describe('Private Execution test suite', () => {
       const nonce = new Fr(1n);
       const customNoteHash = hash([toBufferBE(amount, 32), secret.toBuffer()]);
       const innerNoteHash = Fr.fromBuffer(hash([storageSlot.toBuffer(), customNoteHash]));
-      oracle.getCommitmentIndex.mockResolvedValue(2n);
+      oracle.findCommitmentIndex.mockResolvedValue(2n);
 
       const result = await runSimulator({
         abi,
@@ -734,7 +734,7 @@ describe('Private Execution test suite', () => {
       const storageSlot = new Fr(2);
       const innerNoteHash = hash([storageSlot.toBuffer(), noteHash.toBuffer()]);
       const siloedNoteHash = siloCommitment(wasm, contractAddress, Fr.fromBuffer(innerNoteHash));
-      oracle.getCommitmentIndex.mockResolvedValue(0n);
+      oracle.findCommitmentIndex.mockResolvedValue(0n);
 
       const result = await runSimulator({
         abi,

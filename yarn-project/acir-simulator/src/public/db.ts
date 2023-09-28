@@ -1,6 +1,7 @@
 import { EthAddress, FunctionSelector } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
+import { DataCommitmentProvider } from '@aztec/types';
 
 import { MessageLoadOracleInputs } from '../acvm/index.js';
 
@@ -55,7 +56,7 @@ export interface PublicContractsDB {
 }
 
 /** Database interface for providing access to commitment tree and l1 to l2 messages tree (append only data trees). */
-export interface CommitmentsDB {
+export interface CommitmentsDB extends DataCommitmentProvider {
   /**
    * Gets a confirmed L1 to L2 message for the given message key.
    * TODO(Maddiaa): Can be combined with aztec-node method that does the same thing.
@@ -63,11 +64,4 @@ export interface CommitmentsDB {
    * @returns - The l1 to l2 message object
    */
   getL1ToL2Message(msgKey: Fr): Promise<MessageLoadOracleInputs>;
-
-  /**
-   * Gets the index of a commitment in the private data tree.
-   * @param commitment - The commitment.
-   * @returns - The index of the commitment. Undefined if it does not exist in the tree.
-   */
-  getCommitmentIndex(commitment: Fr): Promise<bigint | undefined>;
 }
