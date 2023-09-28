@@ -63,27 +63,27 @@ describe('Archiver', () => {
         blocks[1].newL1ToL2Messages.map(key => key.toString(true)),
       ),
       makeL1ToL2MessageAddedEvents(
-        1000n,
+        2501n,
         blocks[2].newL1ToL2Messages.map(key => key.toString(true)),
       ),
-      makeL1ToL2MessageAddedEvents(102n, [
+      makeL1ToL2MessageAddedEvents(2502n, [
         messageToCancel1,
         messageToCancel2,
         messageToStayPending1,
         messageToStayPending2,
       ]),
     ];
-    publicClient.getBlockNumber.mockResolvedValueOnce(2500n).mockResolvedValueOnce(2501n).mockResolvedValueOnce(2502n);
+    publicClient.getBlockNumber.mockResolvedValueOnce(2500n).mockResolvedValueOnce(2600n).mockResolvedValueOnce(2700n);
     // logs should be created in order of how archiver syncs.
     publicClient.getLogs
       .mockResolvedValueOnce(l1ToL2MessageAddedEvents.slice(0, 2).flat())
       .mockResolvedValueOnce([]) // no messages to cancel
       .mockResolvedValueOnce([makeL2BlockProcessedEvent(101n, 1n)])
-      .mockResolvedValueOnce([makeContractDeploymentEvent(103n, blocks[0])])
+      .mockResolvedValueOnce([makeContractDeploymentEvent(103n, blocks[0])]) // the first loop of the archiver ends here at block 2500
       .mockResolvedValueOnce(l1ToL2MessageAddedEvents.slice(2, 4).flat())
-      .mockResolvedValueOnce(makeL1ToL2MessageCancelledEvents(1100n, l1ToL2MessagesToCancel))
-      .mockResolvedValueOnce([makeL2BlockProcessedEvent(1101n, 2n), makeL2BlockProcessedEvent(1150n, 3n)])
-      .mockResolvedValueOnce([makeContractDeploymentEvent(1102n, blocks[1])])
+      .mockResolvedValueOnce(makeL1ToL2MessageCancelledEvents(2503n, l1ToL2MessagesToCancel))
+      .mockResolvedValueOnce([makeL2BlockProcessedEvent(2510n, 2n), makeL2BlockProcessedEvent(2520n, 3n)])
+      .mockResolvedValueOnce([makeContractDeploymentEvent(2540n, blocks[1])])
       .mockResolvedValue([]);
     rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
 
