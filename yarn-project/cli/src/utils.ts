@@ -1,14 +1,26 @@
-import { AztecAddress, AztecRPC } from '@aztec/aztec.js';
-import { createEthereumChain, deployL1Contracts } from '@aztec/ethereum';
+import { AztecAddress, Fr, PXE } from '@aztec/aztec.js';
+import { L1ContractArtifactsForDeployment, createEthereumChain, deployL1Contracts } from '@aztec/ethereum';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
+import {
+  ContractDeploymentEmitterAbi,
+  ContractDeploymentEmitterBytecode,
+  InboxAbi,
+  InboxBytecode,
+  OutboxAbi,
+  OutboxBytecode,
+  RegistryAbi,
+  RegistryBytecode,
+  RollupAbi,
+  RollupBytecode,
+} from '@aztec/l1-artifacts';
 
+import { InvalidArgumentError } from 'commander';
 import fs from 'fs';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
 import { encodeArgs } from './encoding.js';
 
-export { createClient } from './client.js';
 /**
  * Helper type to dynamically import contracts.
  */
@@ -46,7 +58,29 @@ export async function deployAztecContracts(
 ) {
   const account = !privateKey ? mnemonicToAccount(mnemonic!) : privateKeyToAccount(`0x${privateKey}`);
   const chain = createEthereumChain(rpcUrl, apiKey);
-  return await deployL1Contracts(chain.rpcUrl, account, chain.chainInfo, debugLogger);
+  const l1Artifacts: L1ContractArtifactsForDeployment = {
+    contractDeploymentEmitter: {
+      contractAbi: ContractDeploymentEmitterAbi,
+      contractBytecode: ContractDeploymentEmitterBytecode,
+    },
+    registry: {
+      contractAbi: RegistryAbi,
+      contractBytecode: RegistryBytecode,
+    },
+    inbox: {
+      contractAbi: InboxAbi,
+      contractBytecode: InboxBytecode,
+    },
+    outbox: {
+      contractAbi: OutboxAbi,
+      contractBytecode: OutboxBytecode,
+    },
+    rollup: {
+      contractAbi: RollupAbi,
+      contractBytecode: RollupBytecode,
+    },
+  };
+  return await deployL1Contracts(chain.rpcUrl, account, chain.chainInfo, debugLogger, l1Artifacts);
 }
 
 /**
@@ -90,12 +124,12 @@ export async function getContractAbi(fileDir: string, log: LogFn) {
 
 /**
  * Utility to select a TX sender either from user input
- * or from the first account that is found in an Aztec RPC instance.
- * @param client - The Aztec RPC instance that will be checked for an account.
+ * or from the first account that is found in a PXE instance.
+ * @param pxe - The PXE instance that will be checked for an account.
  * @param _from - The user input.
  * @returns An Aztec address. Will throw if one can't be found in either options.
  */
-export async function getTxSender(client: AztecRPC, _from?: string) {
+export async function getTxSender(pxe: PXE, _from?: string) {
   let from: AztecAddress;
   if (_from) {
     try {
@@ -104,9 +138,9 @@ export async function getTxSender(client: AztecRPC, _from?: string) {
       throw new Error(`Invalid option 'from' passed: ${_from}`);
     }
   } else {
-    const accounts = await client.getRegisteredAccounts();
+    const accounts = await pxe.getRegisteredAccounts();
     if (!accounts.length) {
-      throw new Error('No accounts found in Aztec RPC instance.');
+      throw new Error('No accounts found in PXE instance.');
     }
     from = accounts[0].address;
   }
@@ -140,4 +174,37 @@ export async function prepTx(
   const functionArgs = encodeArgs(_functionArgs, functionAbi.parameters);
 
   return { contractAddress, functionArgs, contractAbi };
+}
+
+/**
+ * Removes the leading 0x from a hex string. If no leading 0x is found the string is returned unchanged.
+ * @param hex - A hex string
+ * @returns A new string with leading 0x removed
+ */
+export const stripLeadingHex = (hex: string) => {
+  if (hex.length > 2 && hex.startsWith('0x')) {
+    return hex.substring(2);
+  }
+  return hex;
+};
+
+/**
+ * Parses a hex encoded string to an Fr integer to be used as salt
+ * @param str - Hex encoded string
+ * @returns A integer to be used as salt
+ */
+export function getSaltFromHexString(str: string): Fr {
+  const hex = stripLeadingHex(str);
+
+  // ensure it's a hex string
+  if (!hex.match(/^[0-9a-f]+$/i)) {
+    throw new InvalidArgumentError('Invalid hex string');
+  }
+
+  // pad it so that we may read it as a buffer.
+  // Buffer needs _exactly_ two hex characters per byte
+  const padded = hex.length % 2 === 1 ? '0' + hex : hex;
+
+  // finally, turn it into an integer
+  return Fr.fromBuffer(Buffer.from(padded, 'hex'));
 }

@@ -37,14 +37,14 @@ contract EasyPrivateToken {
     }
 
     /**
-     * Initialise the contract's initial state variables.
+     * initialize the contract's initial state variables.
      */ 
     #[aztec(private)]
     fn constructor(
         initial_supply: u120, 
         owner: Field,
     ) {
-        let storage = Storage::init(Context::private(&mut context));
+        
         let balances = storage.balances;
 
         balances.at(owner).add(initial_supply, owner);
@@ -56,7 +56,7 @@ contract EasyPrivateToken {
         amount: u120, 
         owner: Field,
     )  {
-        let storage = Storage::init(Context::private(&mut context));
+        
         let balances = storage.balances;
 
         balances.at(owner).add(amount, owner);
@@ -69,7 +69,7 @@ contract EasyPrivateToken {
         sender: Field, 
         recipient: Field,
     ) {
-        let storage = Storage::init(Context::private(&mut context));
+        
         let balances = storage.balances;
 
         balances.at(sender).sub(amount, sender);
@@ -80,7 +80,7 @@ contract EasyPrivateToken {
     unconstrained fn getBalance(
         owner: Field,
     ) -> Field {
-        let storage = Storage::init(Context::none());
+        
         let balances = storage.balances;
 
         // Return the sum of all notes in the set.

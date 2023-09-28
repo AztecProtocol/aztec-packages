@@ -1,5 +1,4 @@
 .yarn
-!/.yarn/cache
 !/.yarn/patches
 !/.yarn/plugins
 !/.yarn/releases
@@ -7,10 +6,12 @@
 !/.yarn/versions
 
 */data*
-*/dest
-*/.tsbuildinfo
+**/dest
+**/*.tsbuildinfo
 **/Dockerfile*
 **/node_modules
+Dockerfile
 
 noir-contracts/src/types
 noir-contracts/src/artifacts
+noir-contracts/target

@@ -2,13 +2,13 @@ import { Archiver } from '@aztec/archiver';
 import {
   CONTRACT_TREE_HEIGHT,
   CircuitsWasm,
-  EthAddress,
   Fr,
   GlobalVariables,
   HistoricBlockData,
   L1_TO_L2_MSG_TREE_HEIGHT,
   PRIVATE_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
+import { L1ContractAddresses } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { InMemoryTxPool, P2P, createP2PClient } from '@aztec/p2p';
@@ -38,9 +38,9 @@ import {
 } from '@aztec/types';
 import {
   MerkleTrees,
-  ServerWorldStateSynchroniser,
+  ServerWorldStateSynchronizer,
   WorldStateConfig,
-  WorldStateSynchroniser,
+  WorldStateSynchronizer,
   computePublicDataTreeLeafIndex,
   getConfigEnvVars as getWorldStateConfig,
 } from '@aztec/world-state';
@@ -57,13 +57,14 @@ export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
  */
 export class AztecNodeService implements AztecNode {
   constructor(
+    protected config: AztecNodeConfig,
     protected p2pClient: P2P,
     protected blockSource: L2BlockSource,
     protected encryptedLogsSource: L2LogsSource,
     protected unencryptedLogsSource: L2LogsSource,
     protected contractDataSource: ContractDataSource,
     protected l1ToL2MessageSource: L1ToL2MessageSource,
-    protected worldStateSynchroniser: WorldStateSynchroniser,
+    protected worldStateSynchronizer: WorldStateSynchronizer,
     protected sequencer: SequencerClient,
     protected chainId: number,
     protected version: number,
@@ -73,7 +74,7 @@ export class AztecNodeService implements AztecNode {
   ) {}
 
   /**
-   * Initialises the Aztec Node, wait for component to sync.
+   * initializes the Aztec Node, wait for component to sync.
    * @param config - The configuration to be used by the aztec node.
    * @returns - A fully synced Aztec Node for use in development/testing.
    */
@@ -83,7 +84,7 @@ export class AztecNodeService implements AztecNode {
 
     // we identify the P2P transaction protocol by using the rollup contract address.
     // this may well change in future
-    config.transactionProtocol = `/aztec/tx/${config.rollupContract.toString()}`;
+    config.transactionProtocol = `/aztec/tx/${config.l1Contracts.rollupAddress.toString()}`;
 
     // create the tx pool and the p2p client, which will need the l2 block source
     const p2pClient = await createP2PClient(config, new InMemoryTxPool(), archiver);
@@ -92,34 +93,43 @@ export class AztecNodeService implements AztecNode {
     const merkleTreesDb = levelup(createMemDown());
     const merkleTrees = await MerkleTrees.new(merkleTreesDb, await CircuitsWasm.get());
     const worldStateConfig: WorldStateConfig = getWorldStateConfig();
-    const worldStateSynchroniser = new ServerWorldStateSynchroniser(merkleTrees, archiver, worldStateConfig);
+    const worldStateSynchronizer = new ServerWorldStateSynchronizer(merkleTrees, archiver, worldStateConfig);
 
     // start both and wait for them to sync from the block source
-    await Promise.all([p2pClient.start(), worldStateSynchroniser.start()]);
+    await Promise.all([p2pClient.start(), worldStateSynchronizer.start()]);
 
     // now create the sequencer
     const sequencer = await SequencerClient.new(
       config,
       p2pClient,
-      worldStateSynchroniser,
+      worldStateSynchronizer,
       archiver,
       archiver,
       archiver,
     );
     return new AztecNodeService(
+      config,
       p2pClient,
       archiver,
       archiver,
       archiver,
       archiver,
       archiver,
-      worldStateSynchroniser,
+      worldStateSynchronizer,
       sequencer,
       config.chainId,
       config.version,
       getGlobalVariableBuilder(config),
       merkleTreesDb,
     );
+  }
+
+  /**
+   * Method to return the currently deployed L1 contract addresses.
+   * @returns - The currently deployed L1 contract addresses.
+   */
+  public getL1ContractAddresses(): Promise<L1ContractAddresses> {
+    return Promise.resolve(this.config.l1Contracts);
   }
 
   /**
@@ -174,14 +184,6 @@ export class AztecNodeService implements AztecNode {
   }
 
   /**
-   * Method to fetch the rollup contract address at the base-layer.
-   * @returns The rollup address.
-   */
-  public getRollupAddress(): Promise<EthAddress> {
-    return this.blockSource.getRollupAddress();
-  }
-
-  /**
    * Get the extended contract data for this contract.
    * @param contractAddress - The contract data address.
    * @returns The extended contract data or undefined if not found.
@@ -231,7 +233,7 @@ export class AztecNodeService implements AztecNode {
   public async stop() {
     await this.sequencer.stop();
     await this.p2pClient.stop();
-    await this.worldStateSynchroniser.stop();
+    await this.worldStateSynchronizer.stop();
     await this.blockSource.stop();
     this.log.info(`Stopped`);
   }
@@ -315,6 +317,16 @@ export class AztecNodeService implements AztecNode {
   public async getL1ToL2MessagesTreePath(leafIndex: bigint): Promise<SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
     const committedDb = await this.#getWorldState();
     return committedDb.getSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGES_TREE, leafIndex);
+  }
+
+  /**
+   * Find the index of the given nullifier.
+   * @param nullifier - The nullifier to search for.
+   * @returns The index of the given leaf in the nullifier tree or undefined if not found.
+   */
+  public async findNullifierIndex(nullifier: Fr): Promise<bigint | undefined> {
+    const committedDb = await this.#getWorldState();
+    return committedDb.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
   }
 
   /**
@@ -420,7 +432,7 @@ export class AztecNodeService implements AztecNode {
     } catch (err) {
       this.log.error(`Error getting world state: ${err}`);
     }
-    return this.worldStateSynchroniser.getCommitted();
+    return this.worldStateSynchronizer.getCommitted();
   }
 
   /**
@@ -429,6 +441,6 @@ export class AztecNodeService implements AztecNode {
    */
   async #syncWorldState() {
     const blockSourceHeight = await this.blockSource.getBlockNumber();
-    await this.worldStateSynchroniser.syncImmediate(blockSourceHeight);
+    await this.worldStateSynchronizer.syncImmediate(blockSourceHeight);
   }
 }

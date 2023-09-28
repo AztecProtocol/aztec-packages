@@ -32,8 +32,7 @@ export type UInt32 = number;
  */
 export enum CircuitType {
   STANDARD = 0,
-  TURBO = 1,
-  ULTRA = 2,
+  ULTRA = 1,
 }
 
 /**
@@ -44,3 +43,8 @@ export enum RollupTypes {
   Merge = 1,
   Root = 2,
 }
+
+/**
+ * String encoding of serialised buffer data
+ */
+export const STRING_ENCODING: BufferEncoding = 'hex';

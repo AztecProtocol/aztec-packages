@@ -223,9 +223,9 @@ impl TestContractPrivateContextInterface {
     self,
     context: &mut PrivateContext
   ) {
-    let mut serialised_args = [0; 0];
+    let mut serialized_args = [0; 0];
 
-    context.call_public_function(self.address, 0x46be982e, serialised_args)
+    context.call_public_function(self.address, 0x46be982e, serialized_args)
   }
   
 }
@@ -249,9 +249,9 @@ impl TestContractPublicContextInterface {
     self,
     context: PublicContext
   ) -> [Field; RETURN_VALUES_LENGTH] {
-    let mut serialised_args = [0; 0];
+    let mut serialized_args = [0; 0];
 
-    context.call_public_function(self.address, 0x46be982e, serialised_args)
+    context.call_public_function(self.address, 0x46be982e, serialized_args)
   }
   
 }
@@ -267,10 +267,10 @@ exports[`noir-compiler using nargo binary generates typescript interface 1`] = `
 /* eslint-disable */
 import { AztecAddress, CompleteAddress, ContractBase, ContractFunctionInteraction, ContractMethod, DeployMethod, FieldLike, Wallet } from '@aztec/aztec.js';
 import { Fr, Point } from '@aztec/foundation/fields';
-import { AztecRPC, PublicKey } from '@aztec/types';
+import { PXE, PublicKey } from '@aztec/types';
 import { ContractAbi } from '@aztec/foundation/abi';
 import TestContractContractAbiJson from '../target/test.json' assert { type: 'json' };
-export const TestContractContractAbi = TestContractContractAbiJson as unknown as ContractAbi;
+export const TestContractContractAbi = TestContractContractAbiJson as ContractAbi;
 
 /**
  * Type-safe interface for contract TestContract;
@@ -311,14 +311,14 @@ export class TestContractContract extends ContractBase {
   /**
    * Creates a tx to deploy a new instance of this contract.
    */
-  public static deploy(rpc: AztecRPC, pub_param: FieldLike) {
+  public static deploy(rpc: PXE, pub_param: FieldLike) {
     return new DeployMethod<TestContractContract>(Point.ZERO, rpc, TestContractContractAbi, Array.from(arguments).slice(1));
   }
 
   /**
    * Creates a tx to deploy a new instance of this contract using the specified public key to derive the address.
    */
-  public static deployWithPublicKey(rpc: AztecRPC, publicKey: PublicKey, pub_param: FieldLike) {
+  public static deployWithPublicKey(rpc: PXE, publicKey: PublicKey, pub_param: FieldLike) {
     return new DeployMethod<TestContractContract>(publicKey, rpc, TestContractContractAbi, Array.from(arguments).slice(2));
   }
   

@@ -14,10 +14,10 @@
 namespace proof_system::plonk {
 namespace stdlib {
 
-template <typename ComposerContext> class safe_uint_t {
+template <typename Builder> class safe_uint_t {
   private:
-    typedef field_t<ComposerContext> field_ct;
-    typedef bool_t<ComposerContext> bool_ct;
+    typedef field_t<Builder> field_ct;
+    typedef bool_t<Builder> bool_ct;
     // this constructor is private since we only want the operators to be able to define a positive int without a range
     // check.
     safe_uint_t(field_ct const& value, uint256_t current_max, size_t safety)
@@ -77,11 +77,10 @@ template <typename ComposerContext> class safe_uint_t {
         , current_max(other.current_max)
     {}
 
-    static safe_uint_t<ComposerContext> create_constant_witness(ComposerContext* parent_context,
-                                                                barretenberg::fr const& value)
+    static safe_uint_t<Builder> create_constant_witness(Builder* parent_context, barretenberg::fr const& value)
 
     {
-        witness_t<ComposerContext> out(parent_context, value);
+        witness_t<Builder> out(parent_context, value);
         parent_context->assert_equal_constant(out.witness_index, value);
         return safe_uint_t(value, uint256_t(value), IS_UNSAFE);
     }
@@ -94,7 +93,7 @@ template <typename ComposerContext> class safe_uint_t {
     {}
 
     explicit operator bool_ct() { return bool_ct(value); }
-    static safe_uint_t from_witness_index(ComposerContext* parent_context, const uint32_t witness_index);
+    static safe_uint_t from_witness_index(Builder* parent_context, const uint32_t witness_index);
 
     // Subtraction when you have a pre-determined bound on the difference size
     safe_uint_t subtract(const safe_uint_t& other,
@@ -160,7 +159,7 @@ template <typename ComposerContext> class safe_uint_t {
         return *this;
     }
 
-    std::array<safe_uint_t<ComposerContext>, 3> slice(const uint8_t msb, const uint8_t lsb) const;
+    std::array<safe_uint_t<Builder>, 3> slice(const uint8_t msb, const uint8_t lsb) const;
     void set_public() const { value.set_public(); }
     operator field_ct() { return value; }
     operator field_ct() const { return value; }
@@ -171,7 +170,7 @@ template <typename ComposerContext> class safe_uint_t {
 
     /**
      * normalize returns a safe_uint_t element where `multiplicative_constant = 1` and `additive_constant = 0`
-     * i.e. the value is defined entirely by the composer variable that `witness_index` points to
+     * i.e. the value is defined entirely by the builder variable that `witness_index` points to
      * If the witness_index is ever needed, `normalize` should be called first
      *
      * Will cost 1 constraint if the field element is not already normalized (or is constant)
@@ -180,7 +179,7 @@ template <typename ComposerContext> class safe_uint_t {
 
     barretenberg::fr get_value() const;
 
-    ComposerContext* get_context() const { return value.context; }
+    Builder* get_context() const { return value.context; }
 
     /**
      * is_zero will return a bool_ct, and add constraints that enforce its correctness
@@ -206,8 +205,7 @@ template <typename ComposerContext> class safe_uint_t {
     uint32_t get_witness_index() const { return value.get_witness_index(); }
 };
 
-template <typename ComposerContext>
-inline std::ostream& operator<<(std::ostream& os, safe_uint_t<ComposerContext> const& v)
+template <typename Builder> inline std::ostream& operator<<(std::ostream& os, safe_uint_t<Builder> const& v)
 {
     return os << v.value;
 }

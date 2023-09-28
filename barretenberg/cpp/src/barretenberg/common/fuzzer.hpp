@@ -1,7 +1,6 @@
 #pragma once
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/proof_system/circuit_builder/standard_circuit_builder.hpp"
-#include "barretenberg/proof_system/circuit_builder/turbo_circuit_builder.hpp"
 #include <concepts>
 
 // NOLINTBEGIN(cppcoreguidelines-macro-usage, google-runtime-int)
@@ -680,7 +679,7 @@ class ArithmeticFuzzHelper {
 };
 
 template <template <typename> class Fuzzer, typename Composer>
-constexpr void RunWithComposer(const uint8_t* Data, const size_t Size, FastRandom& VarianceRNG)
+constexpr void RunWithBuilder(const uint8_t* Data, const size_t Size, FastRandom& VarianceRNG)
 {
     VarianceRNG.reseed(0);
     auto instructions = ArithmeticFuzzHelper<Fuzzer<Composer>>::parseDataIntoInstructions(Data, Size);
@@ -688,13 +687,10 @@ constexpr void RunWithComposer(const uint8_t* Data, const size_t Size, FastRando
 }
 
 template <template <typename> class Fuzzer, uint64_t Composers>
-constexpr void RunWithComposers(const uint8_t* Data, const size_t Size, FastRandom& VarianceRNG)
+constexpr void RunWithBuilders(const uint8_t* Data, const size_t Size, FastRandom& VarianceRNG)
 {
     if (Composers & 1) {
-        RunWithComposer<Fuzzer, proof_system::StandardCircuitBuilder>(Data, Size, VarianceRNG);
-    }
-    if (Composers & 2) {
-        RunWithComposer<Fuzzer, proof_system::TurboCircuitBuilder>(Data, Size, VarianceRNG);
+        RunWithBuilder<Fuzzer, proof_system::StandardCircuitBuilder>(Data, Size, VarianceRNG);
     }
 }
 

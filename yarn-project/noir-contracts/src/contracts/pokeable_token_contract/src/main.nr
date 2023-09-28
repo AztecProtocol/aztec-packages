@@ -50,13 +50,13 @@ contract PokeableToken {
         sender: Field,
         recipient: Field
     )  {
-        let storage = Storage::init(Context::private(&mut context));
+        
 
         let mut sender_note = AddressNote::new(sender);
         let mut recipient_note = AddressNote::new(recipient);
 
-        storage.sender.initialise(&mut sender_note);
-        storage.recipient.initialise(&mut recipient_note);
+        storage.sender.initialize(&mut sender_note);
+        storage.recipient.initialize(&mut recipient_note);
 
         // Insert new note to a set of user notes and emit the newly created encrypted note preimage via oracle call.
         let sender_balance = storage.balances.at(sender);
@@ -69,7 +69,7 @@ contract PokeableToken {
         sender: Field,
         recipient: Field
     ) {
-        let storage = Storage::init(Context::private(&mut context));
+        
 
         // TODO: This check is not satisfying constraints
         // let mut sender_note = AddressNote::new(sender);
@@ -107,7 +107,7 @@ contract PokeableToken {
     unconstrained fn getBalance(
         sender: Field,
     ) -> Field {
-        let storage = Storage::init(Context::none());
+        
 
         // Get the set of notes owned by the user.
         let sender_balance = storage.balances.at(sender);

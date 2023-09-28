@@ -6,9 +6,9 @@ To add contracts to your application, we'll start by creating a new `nargo` proj
 Follow the instructions [here](../../contracts/setup.md) to install `nargo` if you haven't done so already.
 :::
 
-## Initialise nargo project
+## initialize nargo project
 
-Create a new `contracts` folder, and from there, initialise a new project called `token`:
+Create a new `contracts` folder, and from there, initialize a new project called `token`:
 
 ```sh
 mkdir contracts && cd contracts
@@ -67,7 +67,7 @@ Create a new file `src/deploy.mjs`:
 ```js
 // src/deploy.mjs
 import { writeFileSync } from 'fs';
-import { Contract, ContractDeployer, createAztecRpcClient, getSandboxAccountsWallets } from '@aztec/aztec.js';
+import { Contract, ContractDeployer, createPXEClient, getSandboxAccountsWallets } from '@aztec/aztec.js';
 import TokenContractAbi from "../contracts/token/target/Token.json" assert { type: "json" };
 
 #include_code dapp-deploy yarn-project/end-to-end/src/sample-dapp/deploy.mjs raw
