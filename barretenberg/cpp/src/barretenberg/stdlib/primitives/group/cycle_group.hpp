@@ -205,14 +205,16 @@ template <typename Composer> class cycle_group {
     cycle_group operator*(const cycle_scalar& scalar) const;
     cycle_group& operator*=(const cycle_scalar& scalar);
     cycle_group operator/(const cycle_scalar& scalar) const;
-    Composer* context;
+
     field_t x;
     field_t y;
 
   private:
     bool_t _is_infinity;
     bool _is_constant;
+    Composer* context;
 
+  private:
     static batch_mul_internal_output _variable_base_batch_mul_internal(std::span<cycle_scalar> scalars,
                                                                        std::span<cycle_group> base_points,
                                                                        std::span<AffineElement> offset_generators,

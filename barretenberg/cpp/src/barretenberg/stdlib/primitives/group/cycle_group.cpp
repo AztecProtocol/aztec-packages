@@ -12,11 +12,11 @@ namespace proof_system::plonk::stdlib {
 
 template <typename Composer>
 cycle_group<Composer>::cycle_group(Composer* _context)
-    : context(_context)
-    , x(0)
+    : x(0)
     , y(0)
     , _is_infinity(true)
     , _is_constant(true)
+    , context(_context)
 {}
 
 /**
@@ -28,16 +28,19 @@ cycle_group<Composer>::cycle_group(Composer* _context)
  */
 template <typename Composer>
 cycle_group<Composer>::cycle_group(field_t _x, field_t _y, bool_t is_infinity)
-    : context(_x.get_context() == nullptr
-                  ? _y.get_context() == nullptr
-                        ? is_infinity.get_context() == nullptr ? nullptr : is_infinity.get_context()
-                        : _y.get_context()
-                  : _x.get_context())
-    , x(_x.normalize())
+    : x(_x.normalize())
     , y(_y.normalize())
     , _is_infinity(is_infinity)
     , _is_constant(_x.is_constant() && _y.is_constant() && is_infinity.is_constant())
-{}
+{
+    if (_x.get_context() != nullptr) {
+        context = _x.get_context();
+    } else if (_y.get_context() != nullptr) {
+        context = _y.get_context();
+    } else {
+        context = is_infinity.get_context();
+    }
+}
 
 /**
  * @brief Construct a new cycle group<Composer>::cycle group object
@@ -54,11 +57,11 @@ cycle_group<Composer>::cycle_group(field_t _x, field_t _y, bool_t is_infinity)
  */
 template <typename Composer>
 cycle_group<Composer>::cycle_group(const FF& _x, const FF& _y, bool is_infinity)
-    : context(nullptr)
-    , x(_x)
+    : x(_x)
     , y(_y)
     , _is_infinity(is_infinity)
     , _is_constant(true)
+    , context(nullptr)
 {
     ASSERT(get_value().on_curve());
 }
@@ -74,17 +77,17 @@ cycle_group<Composer>::cycle_group(const FF& _x, const FF& _y, bool is_infinity)
  */
 template <typename Composer>
 cycle_group<Composer>::cycle_group(const AffineElement& _in)
-    : context(nullptr)
-    , x(_in.x)
+    : x(_in.x)
     , y(_in.y)
     , _is_infinity(_in.is_point_at_infinity())
     , _is_constant(true)
+    , context(nullptr)
 {}
 
 /**
  * @brief Converts an AffineElement into a circuit witness.
  *
- * @details Somewhat expensive as we do an on-curve check and `_is_infiity` is a witness and not a constant.
+ * @details Somewhat expensive as we do an on-curve check and `_is_infinity` is a witness and not a constant.
  *          If an element is being converted where it is known the element is on the curve and/or cannot be point at
  *          infinity, it is best to use other methods (e.g. direct conversion of field_t coordinates)
  *
@@ -136,10 +139,7 @@ template <typename Composer> Composer* cycle_group<Composer>::get_context(const 
     if (get_context() != nullptr) {
         return get_context();
     }
-    if (other.get_context() != nullptr) {
-        return other.get_context();
-    }
-    return nullptr;
+    return other.get_context();
 }
 
 template <typename Composer> typename cycle_group<Composer>::AffineElement cycle_group<Composer>::get_value() const
