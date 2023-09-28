@@ -553,6 +553,18 @@ jobs:
           name: "Test"
           command: cond_run_script end-to-end ./scripts/run_tests_local e2e_deploy_contract.test.ts
 
+  e2e-stateful-test-contract:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_stateful_test_contract.test.ts
+
+
   e2e-lending-contract:
     machine:
       image: ubuntu-2204:2023.07.2

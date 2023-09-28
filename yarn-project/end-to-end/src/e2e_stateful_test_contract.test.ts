@@ -1,9 +1,8 @@
 /* eslint-disable camelcase */
-import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
+import { AztecNodeService } from '@aztec/aztec-node';
 import { CheatCodes, Fr, Wallet } from '@aztec/aztec.js';
 import { CircuitsWasm, CompleteAddress } from '@aztec/circuits.js';
 import { pedersenHashInputs, pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
-import { DebugLogger } from '@aztec/foundation/log';
 import { StatefulTestContract } from '@aztec/noir-contracts/types';
 import { PXE } from '@aztec/types';
 
@@ -13,7 +12,6 @@ describe('e2e_deploy_contract', () => {
   let aztecNode: AztecNodeService | undefined;
   let pxe: PXE;
   let accounts: CompleteAddress[];
-  let logger: DebugLogger;
   let wallet: Wallet;
   let teardown: () => Promise<void>;
   let cheatCodes: CheatCodes;
@@ -21,7 +19,7 @@ describe('e2e_deploy_contract', () => {
   let statefulContract: StatefulTestContract;
 
   beforeEach(async () => {
-    ({ teardown, aztecNode, pxe, accounts, logger, wallet, cheatCodes } = await setup());
+    ({ teardown, aztecNode, pxe, accounts, wallet, cheatCodes } = await setup());
     statefulContract = await StatefulTestContract.deploy(wallet, accounts[0].address, 1).send().deployed();
   }, 100_000);
 
@@ -32,8 +30,6 @@ describe('e2e_deploy_contract', () => {
       throw new Error('No aztec node');
     }
     const owner = accounts[0].address;
-
-    console.log(`Historic: ${(await aztecNode.getHistoricBlockData()).privateDataTreeRoot.toBigInt()}`);
 
     const tx = statefulContract.methods.create_note(owner, 99n).send();
     const receipt = await tx.wait();
@@ -55,47 +51,41 @@ describe('e2e_deploy_contract', () => {
       },
     };
 
-    const commitment = new Fr(await statefulContract.methods.get_commitment(valueNote).view());
-    console.log(`Commitment: ${commitment}`);
-
-    const index = await aztecNode.findCommitmentIndex(commitment.toBuffer());
-    console.log(`Index: ${index}`);
-
     const circuitsWasm = await CircuitsWasm.get();
-    // pedersenPlookupCommitInputs
-    // const h = (a: Fr, b: Fr) => Fr.fromBuffer(pedersenPlookupCommitInputs(circuitsWasm, [a.toBuffer(), b.toBuffer()]));
-    const h = (a: Fr, b: Fr) => Fr.fromBuffer(pedersenHashInputs(circuitsWasm, [a.toBuffer(), b.toBuffer()]));
+    
+    // These functions should be the same after modifications to underlying.
+    const h1 = (a: Fr, b: Fr) => Fr.fromBuffer(pedersenPlookupCommitInputs(circuitsWasm, [a.toBuffer(), b.toBuffer()])); // Matches noir
+    const h2 = (a: Fr, b: Fr) => Fr.fromBuffer(pedersenHashInputs(circuitsWasm, [a.toBuffer(), b.toBuffer()])); // Matches kernel and circuits
 
+    const commitment = new Fr(await statefulContract.methods.get_commitment(valueNote).view());
+    const index = await aztecNode.findCommitmentIndex(commitment.toBuffer());
     const path = await statefulContract.methods.get_path(valueNote).view();
-    console.log(`Path: `, path);
+    const root = await statefulContract.methods.get_root(valueNote).view(); // computes root in noir using path
 
-    const historic = await aztecNode.getHistoricBlockData();
-    const root = await statefulContract.methods.get_root(valueNote).view();
-    console.log(`Historic: ${historic.privateDataTreeRoot.toBigInt()}, our computed: ${root}`);
-
-    // Computing the root from path, using the `pedersenHashInputs`
-    // crypto::pedersen_hash::lookup::hash_multiple function.
-    // Noir is using:
-    // crypto::pedersen_commitment::lookup::compress_native
-    const rootFromPath = (leaf: Fr, index: bigint, path: any[]) => {
+    const rootFromPath = (leaf: Fr, index: bigint, path: any[], hash: (a: Fr, b: Fr) => Fr) => {
       const temps: bigint[] = [];
       let node = leaf;
       let i = index;
       for (const sibling of path) {
         if (i % 2n === 0n) {
-          node = h(node, new Fr(sibling));
+          node = hash(node, new Fr(sibling));
         } else {
-          node = h(new Fr(sibling), node);
+          node = hash(new Fr(sibling), node);
         }
 
         temps.push(node.toBigInt());
         i /= 2n;
       }
-      console.log(temps);
       return node;
     };
 
-    const myRoot = rootFromPath(commitment, index ?? 0n, path.slice());
-    console.log(`Historic: ${historic.privateDataTreeRoot.toBigInt()}, myroot: ${myRoot.toBigInt()}`);
+    const myRootPedersenCommit = rootFromPath(commitment, index ?? 0n, path.slice(), h1);
+    const myRootPedersenHash = rootFromPath(commitment, index ?? 0n, path.slice(), h2);
+
+    const historic = await aztecNode.getHistoricBlockData();
+
+    expect(historic.privateDataTreeRoot).toEqual(myRootPedersenCommit);
+    expect(historic.privateDataTreeRoot).toEqual(myRootPedersenHash);
+    expect(historic.privateDataTreeRoot).toEqual(new Fr(root));
   });
 });
