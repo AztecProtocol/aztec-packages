@@ -416,7 +416,9 @@ template <typename Composer> cycle_group<Composer> cycle_group<Composer>::operat
     auto y1 = y;
     auto x2 = other.x;
     auto y2 = other.y;
-    auto x_diff = x2.add_two(-x1, x_coordinates_match); // todo document this oddity
+    // if x_coordinates match, lambda triggers a divide by zero error.
+    // Adding in `x_coordinates_match` ensures that lambda will always be well-formed
+    auto x_diff = x2.add_two(-x1, x_coordinates_match);
     auto lambda = (y2 - y1) / x_diff;
     auto x3 = lambda.madd(lambda, -(x2 + x1));
     auto y3 = lambda.madd(x1 - x3, -y1);
@@ -759,7 +761,7 @@ cycle_group<Composer>::straus_scalar_slice::straus_scalar_slice(Composer* contex
 template <typename Composer>
 std::optional<field_t<Composer>> cycle_group<Composer>::straus_scalar_slice::read(size_t index)
 {
-
+    return std::nullopt;
     if (index >= slices.size()) {
         return {};
     }
@@ -1314,6 +1316,7 @@ template <typename Composer> cycle_group<Composer>& cycle_group<Composer>::opera
 template <typename Composer>
 cycle_group<Composer> cycle_group<Composer>::operator/(const cycle_scalar& /*unused*/) const
 {
+    // TODO(@kevaundray solve the discrete logarithm problem)
     throw_or_abort("Implementation under construction...");
 }
 
