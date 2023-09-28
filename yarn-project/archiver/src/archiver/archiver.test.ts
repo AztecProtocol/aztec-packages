@@ -175,7 +175,13 @@ describe('Archiver', () => {
     publicClient.getBlockNumber.mockResolvedValue(102n);
     // add all of the L1 to L2 messages to the mock
     publicClient.getLogs
-      .mockResolvedValueOnce(l1ToL2MessageAddedEvents.flat())
+      .mockImplementationOnce((args?: any) => {
+        return Promise.resolve(
+          l1ToL2MessageAddedEvents
+            .flat()
+            .filter(x => x.blockNumber! >= args.fromBlock && x.blockNumber! < args.toBlock),
+        );
+      })
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([makeL2BlockProcessedEvent(70n, 1n), makeL2BlockProcessedEvent(80n, 2n)])
       .mockResolvedValue([]);
