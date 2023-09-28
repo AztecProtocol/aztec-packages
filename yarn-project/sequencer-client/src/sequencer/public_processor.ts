@@ -119,6 +119,7 @@ export class PublicProcessor {
     for (const tx of txs) {
       this.log(`Processing tx ${await tx.getTxHash()}`);
       try {
+        // add new contracts to the contracts db so that their functions may be found and called
         await this.publicContractsDB.addNewContracts(tx);
         result.push(await this.processTx(tx));
       } catch (err) {
@@ -127,8 +128,8 @@ export class PublicProcessor {
           tx,
           error: err instanceof Error ? err : new Error('Unknown error'),
         });
-      } finally {
-        await this.publicContractsDB.clearTxContracts();
+        // remove contracts on failure
+        await this.publicContractsDB.removeNewContracts(tx);
       }
     }
 

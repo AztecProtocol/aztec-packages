@@ -30,7 +30,8 @@ export function getPublicExecutor(
 }
 
 /**
- * Implements the PublicContractsDB using a ContractDataSource and a set of new contracts.
+ * Implements the PublicContractsDB using a ContractDataSource.
+ * Progresively records contracts in transaction as they are processed in a block.
  */
 export class ContractsDataSourcePublicDB implements PublicContractsDB {
   cache = new Map<string, ExtendedContractData>();
@@ -51,9 +52,12 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
 
   /**
    * Removes new contracts added from transactions
+   * @param tx - The tx's contracts to be removed
    */
-  public clearTxContracts(): Promise<void> {
-    this.cache.clear();
+  public removeNewContracts(tx: Tx): Promise<void> {
+    for (const contract of tx.newContracts) {
+      this.cache.delete(contract.contractData.contractAddress.toString());
+    }
     return Promise.resolve();
   }
 
