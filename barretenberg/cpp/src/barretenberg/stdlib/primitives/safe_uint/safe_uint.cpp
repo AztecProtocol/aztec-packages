@@ -66,9 +66,7 @@ safe_uint_t<Builder> safe_uint_t<Builder>::subtract(const safe_uint_t& other,
  */
 template <typename Builder> safe_uint_t<Builder> safe_uint_t<Builder>::operator-(const safe_uint_t& other) const
 {
-    // If both are constants and the operation is an underflow, throw an error
-    // Constants are part of the circuit so we can check the case when both are constants and throw an error if
-    // there is underflow.
+    // If both are constants and the operation is an underflow, throw an error since circuit itself underflows
     ASSERT(!(this->value.is_constant() && other.value.is_constant() &&
              static_cast<uint256_t>(value.get_value()) < static_cast<uint256_t>(other.value.get_value())));
     field_ct difference_val = this->value - other.value;
@@ -78,12 +76,14 @@ template <typename Builder> safe_uint_t<Builder> safe_uint_t<Builder>::operator-
     safe_uint_t<Builder> difference(difference_val, (size_t)(current_max.get_msb() + 1), "- operator");
 
     // Call the two operands a and b. If this operations is underflow and the range constraint fails to catch it,
-    // this means that (a-b) + modulus is IN the range [0, current_max]
-    // this is equivalent to the condition that (a - b) + modulus <= current_max.
-    // (a-b) is minimized by -other.current_max, so IF current_max + other.current_max >= modulus,
-    // there may be an underflow that the range constraint fails to catch, so we need to throw an error.
-    // Note that we will throw an error even if the operation is not an underflow depending on the witnesses
-    // but we cannot distinguish it from a case that underflows, so we must throw an error.
+    // this means that (a-b) + modulus is IN the range [0, a.current_max].
+    // This is equivalent to the condition that (a - b) + modulus <= a.current_max.
+    // IF b.current_max >= modulus - a.current_max, then it is possible for this condition to be true
+    // because we can let a be 0, and b be b.current_max -> (0 - b.current_max) + modulus <= a.current_max is true.
+    // IF b.current_max < modulus - a.current_max, it is impossible for underflow to happen, no matter how you set a and
+    // b. Therefore, we check that b.current_max >= modulus - a.current_max, which is equivalent to
+    // difference.current_max + other.current_max > MAX_VALUE Note that we will throw an error sometimes even if a-b is
+    // not an underflow but we cannot distinguish it from a case that underflows, so we must throw an error.
     if (difference.current_max + other.current_max > MAX_VALUE)
         throw_or_abort("maximum value exceeded in safe_uint minus operator");
     return difference;

@@ -160,7 +160,7 @@ TYPED_TEST(SafeUintTest, TestAddOperationOutOfRangeFails)
 /**
  * @brief Test that we can subtract without underflow successfully.
  */
-TYPED_TEST(SafeUintTest, TestSubtractMethod)
+TYPED_TEST(SafeUintTest, TestSubtract)
 {
     STDLIB_TYPE_ALIASES
     auto builder = Builder();
@@ -178,7 +178,7 @@ TYPED_TEST(SafeUintTest, TestSubtractMethod)
  * @brief Test that range constraint fails if the value exceeds the bit limit.
  * @details difference is 7, which exceeds 2 bits, and causes the circuit to fail.
  */
-TYPED_TEST(SafeUintTest, TestSubtractMethodMinuedGtLhsFails)
+TYPED_TEST(SafeUintTest, TestSubtractResultOutOfRange)
 {
     STDLIB_TYPE_ALIASES
     auto builder = Builder();
@@ -194,11 +194,31 @@ TYPED_TEST(SafeUintTest, TestSubtractMethodMinuedGtLhsFails)
 }
 
 /**
- * @brief Test that underflow is caught in the special case.
- * @details Should fail because difference.current_max + other.current_max exceeds the MAX_VALUE.
+ * @brief Test that underflow is caught in general case.
+ * @details General case refers to when difference.current_max + other.current_max does not exceed MAX_VALUE
+ *          and underflow is caught by range constraint.
  */
 #if !defined(__wasm__)
-TYPED_TEST(SafeUintTest, TestSubtractMethodUnderflowFailsSpecial)
+TYPED_TEST(SafeUintTest, TestSubtractUnderflowGeneral)
+{
+    STDLIB_TYPE_ALIASES
+    auto builder = Builder();
+
+    field_ct a(witness_ct(&builder, 0));
+    field_ct b(witness_ct(&builder, 1));
+    suint_ct c(a, 0);
+    suint_ct d(b, 1);
+    c = c.subtract(d, suint_ct::MAX_BIT_NUM);
+    EXPECT_FALSE(builder.check_circuit());
+}
+#endif
+
+/**
+ * @brief Test that underflow is caught in the special case.
+ * @details Should throw an error because difference.current_max + other.current_max exceeds the MAX_VALUE.
+ */
+#if !defined(__wasm__)
+TYPED_TEST(SafeUintTest, TestSubtractUnderflowSpecial)
 {
     STDLIB_TYPE_ALIASES
     auto builder = Builder();
@@ -219,31 +239,12 @@ TYPED_TEST(SafeUintTest, TestSubtractMethodUnderflowFailsSpecial)
 }
 #endif
 
-/**
- * @brief Test that underflow is caught in general case.
- * @details General case refers to when difference.current_max + other.current_max does not exceed MAX_VALUE.
- */
-#if !defined(__wasm__)
-TYPED_TEST(SafeUintTest, TestSubtractMethodUnderflowFailsGeneral)
-{
-    STDLIB_TYPE_ALIASES
-    auto builder = Builder();
-
-    field_ct a(witness_ct(&builder, 0));
-    field_ct b(witness_ct(&builder, 1));
-    suint_ct c(a, 0);
-    suint_ct d(b, 1);
-    c = c.subtract(d, suint_ct::MAX_BIT_NUM);
-    EXPECT_FALSE(builder.check_circuit());
-}
-#endif
-
 // - OPERATOR
 
 /**
  * @brief Test that valid minus operation works.
  */
-TYPED_TEST(SafeUintTest, TestMinusOperator0)
+TYPED_TEST(SafeUintTest, TestMinusOperator1)
 {
     STDLIB_TYPE_ALIASES
     auto builder = Builder();
@@ -261,7 +262,7 @@ TYPED_TEST(SafeUintTest, TestMinusOperator0)
  * @brief Test that valid minus operation works on 0.
  */
 #if !defined(__wasm__)
-TYPED_TEST(SafeUintTest, TestMinusOperator1)
+TYPED_TEST(SafeUintTest, TestMinusOperator2)
 {
     STDLIB_TYPE_ALIASES
     auto builder = Builder();
@@ -280,7 +281,7 @@ TYPED_TEST(SafeUintTest, TestMinusOperator1)
  * @details General case means that the special case does not happen.
  */
 #if !defined(__wasm__)
-TYPED_TEST(SafeUintTest, TestMinusOperatorUnderflowFailsGeneral0)
+TYPED_TEST(SafeUintTest, TestMinusUnderflowGeneral1)
 {
     STDLIB_TYPE_ALIASES
     auto builder = Builder();
@@ -299,7 +300,7 @@ TYPED_TEST(SafeUintTest, TestMinusOperatorUnderflowFailsGeneral0)
  * @details Testing -1 is an underflow.
  */
 #if !defined(__wasm__)
-TYPED_TEST(SafeUintTest, TestMinusOperatorUnderflowFailsGeneral1)
+TYPED_TEST(SafeUintTest, TestMinusUnderflowGeneral2)
 {
     STDLIB_TYPE_ALIASES
     auto builder = Builder();
@@ -320,7 +321,7 @@ TYPED_TEST(SafeUintTest, TestMinusOperatorUnderflowFailsGeneral1)
  * underflow in some instantiations of the witness values.
  */
 #if !defined(__wasm__)
-TYPED_TEST(SafeUintTest, TestMinusOperatorUnderflowFailsSpecial0)
+TYPED_TEST(SafeUintTest, TestMinusUnderflowSpecial1)
 {
     STDLIB_TYPE_ALIASES
     auto builder = Builder();
@@ -351,7 +352,7 @@ TYPED_TEST(SafeUintTest, TestMinusOperatorUnderflowFailsSpecial0)
  * from range constraint.
  */
 #if !defined(__wasm__)
-TYPED_TEST(SafeUintTest, TestMinusOperatorUnderflowFailsSpecial1)
+TYPED_TEST(SafeUintTest, TestMinusUnderflowSpecial2)
 {
     STDLIB_TYPE_ALIASES
     auto builder = Builder();
