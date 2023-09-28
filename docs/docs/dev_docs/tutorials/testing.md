@@ -157,7 +157,7 @@ At the time of this writing, only unencrypted events can be queried directly. En
 
 #### Querying unencrypted logs
 
-We can query PXE for the unencrypted logs emitted in the block where our transaction is mined. Note that logs need to be unrolled and formatted as strings for consumption.
+We can query the PXE for the unencrypted logs emitted in the block where our transaction is mined. Note that logs need to be unrolled and formatted as strings for consumption.
 
 #include_code unencrypted-logs /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
 
