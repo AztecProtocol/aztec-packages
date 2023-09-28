@@ -52,9 +52,10 @@ export async function retrieveBlocks(
     if (searchStartBlock > searchEndBlock) {
       break;
     }
-    const unfilteredLogs = await getL2BlockProcessedLogs(publicClient, rollupAddress, searchStartBlock);
+    const unfilteredLogs = await getL2BlockProcessedLogs(publicClient, rollupAddress, searchStartBlock, searchEndBlock);
+    // ensure we only pulled logs from the expected block range
     const l2BlockProcessedLogs = unfilteredLogs.filter(
-      log => log.blockNumber !== null && log.blockNumber <= searchEndBlock,
+      log => log.blockNumber !== null && log.blockNumber >= searchStartBlock && log.blockNumber <= searchEndBlock,
     );
     if (l2BlockProcessedLogs.length === 0) {
       break;
@@ -95,9 +96,11 @@ export async function retrieveNewContractData(
       publicClient,
       contractDeploymentEmitterAddress,
       searchStartBlock,
+      searchEndBlock,
     );
+    // ensure we only pulled logs from the expected block range
     const contractDataLogs = unfilteredLogs.filter(
-      log => log.blockNumber !== null && log.blockNumber <= searchEndBlock,
+      log => log.blockNumber !== null && log.blockNumber >= searchStartBlock && log.blockNumber <= searchEndBlock,
     );
     if (contractDataLogs.length === 0) {
       break;
@@ -130,9 +133,15 @@ export async function retrieveNewPendingL1ToL2Messages(
     if (searchStartBlock > searchEndBlock) {
       break;
     }
-    const unfilteredLogs = await getPendingL1ToL2MessageLogs(publicClient, inboxAddress, searchStartBlock);
+    const unfilteredLogs = await getPendingL1ToL2MessageLogs(
+      publicClient,
+      inboxAddress,
+      searchStartBlock,
+      searchEndBlock,
+    );
+    // ensure we only pulled logs from the expected block range
     const newL1ToL2MessageLogs = unfilteredLogs.filter(
-      log => log.blockNumber !== null && log.blockNumber <= searchEndBlock,
+      log => log.blockNumber !== null && log.blockNumber >= searchStartBlock && log.blockNumber <= searchEndBlock,
     );
     const newL1ToL2Messages = processPendingL1ToL2MessageAddedLogs(newL1ToL2MessageLogs);
     retrievedNewL1ToL2Messages.push(...newL1ToL2Messages);
@@ -163,9 +172,15 @@ export async function retrieveNewCancelledL1ToL2Messages(
     if (searchStartBlock > searchEndBlock) {
       break;
     }
-    const unfilteredLogs = await getL1ToL2MessageCancelledLogs(publicClient, inboxAddress, searchStartBlock);
+    const unfilteredLogs = await getL1ToL2MessageCancelledLogs(
+      publicClient,
+      inboxAddress,
+      searchStartBlock,
+      searchEndBlock,
+    );
+    // ensure we only pulled logs from the expected block range
     const newL1ToL2MessageCancelledLogs = unfilteredLogs.filter(
-      log => log.blockNumber !== null && log.blockNumber <= searchEndBlock,
+      log => log.blockNumber !== null && log.blockNumber >= searchStartBlock && log.blockNumber <= searchEndBlock,
     );
     const newCancelledL1ToL2Messages = processCancelledL1ToL2MessagesLogs(newL1ToL2MessageCancelledLogs);
     retrievedNewCancelledL1ToL2Messages.push(...newCancelledL1ToL2Messages);
