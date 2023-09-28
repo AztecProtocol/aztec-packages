@@ -211,6 +211,8 @@ constexpr std::optional<affine_element<Fq, Fr, T>> affine_element<Fq, Fr, T>::de
     auto [found_root, y] = yy.sqrt();
 
     if (found_root) {
+        // This is for determinism; a different sqrt algorithm could give -y instead of y and so this parity check
+        // allows all algorithms to get the "same" y
         if (uint256_t(y).get_bit(0) != sign_bit) {
             y = -y;
         }
