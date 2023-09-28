@@ -1313,8 +1313,7 @@ template <typename Composer> cycle_group<Composer>& cycle_group<Composer>::opera
     return *this;
 }
 
-template <typename Composer>
-cycle_group<Composer> cycle_group<Composer>::operator/(const cycle_scalar& /*unused*/) const
+template <typename Composer> cycle_group<Composer> cycle_group<Composer>::operator/(const cycle_group& /*unused*/) const
 {
     // TODO(@kevaundray solve the discrete logarithm problem)
     throw_or_abort("Implementation under construction...");

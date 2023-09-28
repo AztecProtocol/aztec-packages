@@ -204,7 +204,7 @@ template <typename Composer> class cycle_group {
                                  const generator_data* offset_generator_data = &default_offset_generators);
     cycle_group operator*(const cycle_scalar& scalar) const;
     cycle_group& operator*=(const cycle_scalar& scalar);
-    cycle_group operator/(const cycle_scalar& scalar) const;
+    cycle_group operator/(const cycle_group& other) const;
 
     field_t x;
     field_t y;
