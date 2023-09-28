@@ -124,7 +124,7 @@ std::optional<std::array<MultiTableId, 2>> table::get_lookup_table_ids_for_point
     if (input == native_pedersen::get_rhs_generator()) {
         return { { FIXED_BASE_RIGHT_LO, FIXED_BASE_RIGHT_HI } };
     }
-    return {};
+    return std::nullopt;
 }
 
 /**
@@ -149,7 +149,7 @@ std::optional<grumpkin::g1::affine_element> table::get_generator_offset_for_tabl
     if (table_id == FIXED_BASE_RIGHT_HI) {
         return fixed_base_table_offset_generators[3];
     }
-    return {};
+    return std::nullopt;
 }
 
 using function_ptr = std::array<barretenberg::fr, 2> (*)(const std::array<uint64_t, 2>);
@@ -193,7 +193,7 @@ BasicTable table::generate_basic_fixed_base_table(BasicTableId id, size_t basic_
     const bool is_small_table = (multitable_bits - bits_covered_by_previous_tables_in_multitable) < BITS_PER_TABLE;
     const size_t table_bits =
         is_small_table ? multitable_bits - bits_covered_by_previous_tables_in_multitable : BITS_PER_TABLE;
-    const size_t table_size = static_cast<size_t>(1ULL << table_bits);
+    const auto table_size = static_cast<size_t>(1ULL << table_bits);
     BasicTable table;
     table.id = id;
     table.table_index = basic_table_index;
