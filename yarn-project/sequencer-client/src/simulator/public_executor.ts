@@ -44,7 +44,13 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
    */
   public addNewContracts(tx: Tx): Promise<void> {
     for (const contract of tx.newContracts) {
-      this.cache.set(contract.contractData.contractAddress.toString(), contract);
+      const contractAddress = contract.contractData.contractAddress;
+
+      if (contractAddress.isZero()) {
+        continue;
+      }
+
+      this.cache.set(contractAddress.toString(), contract);
     }
 
     return Promise.resolve();
@@ -56,7 +62,13 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
    */
   public removeNewContracts(tx: Tx): Promise<void> {
     for (const contract of tx.newContracts) {
-      this.cache.delete(contract.contractData.contractAddress.toString());
+      const contractAddress = contract.contractData.contractAddress;
+
+      if (contractAddress.isZero()) {
+        continue;
+      }
+
+      this.cache.delete(contractAddress.toString());
     }
     return Promise.resolve();
   }
