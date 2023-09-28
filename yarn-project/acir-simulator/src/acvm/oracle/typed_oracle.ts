@@ -129,7 +129,7 @@ export abstract class TypedOracle {
     throw new Error('Not available.');
   }
 
-  emitUnencryptedLog(_log: Buffer): void {
+  emitUnencryptedLog(_contractAddress: AztecAddress, _eventSelector: FunctionSelector, _log: Buffer): void {
     throw new Error('Not available.');
   }
 

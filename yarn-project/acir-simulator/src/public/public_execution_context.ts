@@ -136,10 +136,13 @@ export class PublicExecutionContext extends TypedOracle {
 
   /**
    * Emit an unencrypted log.
+   * @param contractAddress - The address of the contract emitting the log.
+   * @param eventSelector - The event selector of the log.
    * @param log - The unencrypted log to be emitted.
    */
-  public emitUnencryptedLog(log: Buffer) {
+  public emitUnencryptedLog(contractAddress: AztecAddress, eventSelector: FunctionSelector, log: Buffer) {
     // https://github.com/AztecProtocol/aztec-packages/issues/885
+    // TODO: #2586, #2587
     this.unencryptedLogs.push(log);
     this.log(`Emitted unencrypted log: "${log.toString('ascii')}"`);
   }
