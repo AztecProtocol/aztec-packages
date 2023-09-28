@@ -9,7 +9,7 @@ Let's start by showing our user's private balance for the token across their acc
 #include_code balance_of_private yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
 
 :::info
-Note that this function will only return a valid response for accounts registered in the Private eXecution Service (PXE), since it requires access to the [user's private state](../../wallets/main.md#private-state). In other words, you cannot query the private balance of another user for the token contract.
+Note that this function will only return a valid response for accounts registered in the Private eXecution Environment (PXE), since it requires access to the [user's private state](../../wallets/main.md#private-state). In other words, you cannot query the private balance of another user for the token contract.
 :::
 
 To do this, let's first initialize a new `Contract` instance using `aztec.js` that represents our deployed token contracts. Create a new `src/contracts.mjs` file with the imports for our artifacts and other dependencies:
