@@ -1,7 +1,7 @@
 /**
  * A callable logger instance.
  */
-export type LogFn = (...args: any[]) => void;
+export type LogFn = (msg: string) => void;
 
 export * from './console.js';
 export * from './debug.js';

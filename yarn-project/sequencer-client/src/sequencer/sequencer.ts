@@ -173,8 +173,7 @@ export class Sequencer {
       await this.publishL2Block(block);
       this.log.info(`Submitted rollup block ${block.number} with ${processedValidTxs.length} transactions`);
     } catch (err) {
-      this.log.error(err);
-      this.log.error(`Rolling back world state DB`);
+      this.log.error(`Rolling back world state DB due to error assembling block`, err);
       await this.worldState.getLatest().rollback();
     }
   }

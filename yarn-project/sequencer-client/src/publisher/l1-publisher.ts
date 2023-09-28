@@ -210,7 +210,7 @@ export class L1Publisher implements L2BlockReceiver {
       try {
         return await this.txSender.sendProcessTx(encodedData);
       } catch (err) {
-        this.log(`ROLLUP PUBLISH FAILED`, err);
+        this.log.error(`Rollup publish failed`, err);
         return undefined;
       }
     }

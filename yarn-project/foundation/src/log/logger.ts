@@ -16,10 +16,13 @@ type LogLevel = (typeof LogLevels)[number];
 const envLogLevel = process.env.LOG_LEVEL?.toLowerCase() as LogLevel;
 const currentLevel = LogLevels.includes(envLogLevel) ? envLogLevel : DefaultLogLevel;
 
+/** Log function that accepts an exception object */
+type ErrorLogFn = (msg: string, err?: Error | unknown) => void;
+
 /**
  * Logger that supports multiple severity levels.
  */
-export type Logger = { [K in LogLevel]: LogFn };
+export type Logger = { [K in LogLevel]: LogFn } & { /** Error log function */ error: ErrorLogFn };
 
 /**
  * Logger that supports multiple severity levels and can be called directly to issue a debug statement.
@@ -40,17 +43,17 @@ export function createDebugLogger(name: string): DebugLogger {
 
   const logger = {
     silent: () => {},
-    error: (...args: any[]) => logWithDebug(debugLogger, 'error', args),
-    warn: (...args: any[]) => logWithDebug(debugLogger, 'warn', args),
-    info: (...args: any[]) => logWithDebug(debugLogger, 'info', args),
-    verbose: (...args: any[]) => logWithDebug(debugLogger, 'verbose', args),
-    debug: (...args: any[]) => logWithDebug(debugLogger, 'debug', args),
+    error: (msg: string, err?: Error | unknown) => logWithDebug(debugLogger, 'error', formatError(msg, err)),
+    warn: (msg: string) => logWithDebug(debugLogger, 'warn', msg),
+    info: (msg: string) => logWithDebug(debugLogger, 'info', msg),
+    verbose: (msg: string) => logWithDebug(debugLogger, 'verbose', msg),
+    debug: (msg: string) => logWithDebug(debugLogger, 'debug', msg),
   };
-  return Object.assign((...args: any[]) => logWithDebug(debugLogger, 'debug', args), logger);
+  return Object.assign((msg: string) => logWithDebug(debugLogger, 'debug', msg), logger);
 }
 
 /** A callback to capture all logs. */
-export type LogHandler = (level: LogLevel, namespace: string, args: any[]) => void;
+export type LogHandler = (level: LogLevel, namespace: string, msg: string) => void;
 
 const logHandlers: LogHandler[] = [];
 
@@ -68,14 +71,14 @@ export function onLog(handler: LogHandler) {
  * @param level - Intended log level.
  * @param args - Args to log.
  */
-function logWithDebug(debug: debug.Debugger, level: LogLevel, args: any[]) {
+function logWithDebug(debug: debug.Debugger, level: LogLevel, msg: string) {
   for (const handler of logHandlers) {
-    handler(level, debug.namespace, args);
+    handler(level, debug.namespace, msg);
   }
   if (debug.enabled) {
-    debug(args[0], ...args.slice(1));
+    debug(msg);
   } else if (LogLevels.indexOf(level) <= LogLevels.indexOf(currentLevel) && process.env.NODE_ENV !== 'test') {
-    printLog([getPrefix(debug, level), ...args]);
+    printLog(`${getPrefix(debug, level)} ${msg}`);
   }
 }
 
@@ -96,9 +99,20 @@ function getPrefix(debugLogger: debug.Debugger, level: LogLevel) {
 
 /**
  * Outputs to console error.
- * @param args - Args to log.
+ * @param msg - What to log.
  */
-function printLog(args: any[]) {
+function printLog(msg: string) {
   // eslint-disable-next-line no-console
-  console.error(...args);
+  console.error(msg);
+}
+
+/**
+ * Concatenates a log message and an exception.
+ * @param msg - Log message
+ * @param err - Error to log
+ * @returns A string with both the log message and the error message.
+ */
+function formatError(msg: string, err?: Error | unknown): string {
+  const errStr = err && [(err as Error).name, (err as Error).message].filter(x => !!x).join(' ');
+  return err ? `${msg}: ${errStr || err}` : msg;
 }
