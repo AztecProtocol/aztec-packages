@@ -24,16 +24,19 @@ let contractAddress: string = '';
 if (typeof document !== 'undefined') {
   document.getElementById('deploy')?.addEventListener('click', async () => {
     contractAddress = await handleDeployClick();
+    // eslint-disable-next-line no-console
     console.log('Deploy Succeeded, contract deployed at', contractAddress);
   });
 
   document.getElementById('interact')?.addEventListener('click', async () => {
     const interactionResult = await handleInteractClick(contractAddress);
+    // eslint-disable-next-line no-console
     console.log('Interaction transaction succeeded', interactionResult);
   });
 }
 
 export async function handleDeployClick(): Promise<string> {
+  // eslint-disable-next-line no-console
   console.log('Deploying Contract');
   const [wallet, ..._rest] = await getSandboxAccountsWallets(pxe);
 
@@ -47,6 +50,8 @@ export async function handleInteractClick(contractAddress: string) {
   const callArgs = { address: wallet.getCompleteAddress().address };
   const getPkAbi = getFunctionAbi(BlankContractAbi, 'getPublicKey');
   const typedArgs = convertArgs(getPkAbi, callArgs);
+
+  // eslint-disable-next-line no-console
   console.log('Interacting with Contract');
 
   return await callContractFunction(
