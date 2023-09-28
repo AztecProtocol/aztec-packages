@@ -1,10 +1,4 @@
 #include "./pedersen.hpp"
-#include <iostream>
-#ifndef NO_OMP_MULTITHREADING
-#include <omp.h>
-#endif
-
-// TODO(@zac-wiliamson #2341 rename to pedersen.cpp once we migrate to new hash standard)
 
 namespace crypto {
 
@@ -25,17 +19,16 @@ namespace crypto {
  * @return Fq (i.e. SNARK circuit scalar field, when hashing using a curve defined over the SNARK circuit scalar field)
  */
 template <typename Curve>
-typename Curve::BaseField pedersen_hash_base<Curve>::hash(const std::vector<Fq>& inputs, const GeneratorContext context)
+typename Curve::BaseField pedersen_hash_base<Curve>::hash(const std::vector<Fq>& inputs,
+                                                          const GeneratorContext<Curve> context)
 {
     const auto generators = context.generators->get(inputs.size(), context.offset, context.domain_separator);
 
     Element result = length_generator * Fr(inputs.size());
-
     for (size_t i = 0; i < inputs.size(); ++i) {
         result += generators[i] * Fr(static_cast<uint256_t>(inputs[i]));
     }
-    result = result.normalize();
-    return result.x;
+    return result.normalize().x;
 }
 
 template class pedersen_hash_base<curve::Grumpkin>;

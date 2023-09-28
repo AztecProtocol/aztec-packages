@@ -31,12 +31,6 @@ template <typename Curve> class pedersen_commitment_base {
 
     static Fq compress_native(const std::vector<Fq>& inputs, GeneratorContext context = {});
 
-    static Fq compress_native(type_is<Fq> auto&&... inputs)
-    {
-        std::vector<Fq> elements({ std::forward<typeof(inputs)>(inputs)... });
-        return compress_native(elements);
-    }
-
     /**
      * @brief Converts input uint8_t buffers into vector of field elements. Used to hash the Transcript in a
      * SNARK-friendly manner for recursive circuits.
@@ -100,7 +94,6 @@ template <typename Curve> class pedersen_commitment_base {
         base.offset = hash_index;
         return compress_native(converted, base);
     }
-    //
 };
 
 extern template class pedersen_commitment_base<curve::Grumpkin>;

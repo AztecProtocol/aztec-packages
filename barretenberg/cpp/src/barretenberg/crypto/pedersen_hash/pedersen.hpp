@@ -1,13 +1,8 @@
 #pragma once
 
-// TODO(@zac-wiliamson #2341 rename to pedersen.hpp once we migrate to new hash standard)
-
-#include "../pedersen_commitment/pedersen.hpp"
+#include "../generators/generator_data.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-#include <array>
-
 namespace crypto {
-
 /**
  * @brief Performs pedersen hashes!
  *
@@ -32,14 +27,10 @@ template <typename Curve> class pedersen_hash_base {
     using Fq = typename Curve::BaseField;
     using Fr = typename Curve::ScalarField;
     using Group = typename Curve::Group;
-    using GeneratorContext = typename crypto::GeneratorContext<Curve>;
-
     inline static constexpr AffineElement length_generator = Group::derive_generators("pedersen_hash_length", 1)[0];
-
-    static Fq hash(const std::vector<Fq>& inputs, GeneratorContext context = {});
+    static Fq hash(const std::vector<Fq>& inputs, typename crypto::GeneratorContext<Curve> context = {});
 };
 
 extern template class pedersen_hash_base<curve::Grumpkin>;
-
 using pedersen_hash = pedersen_hash_base<curve::Grumpkin>;
 } // namespace crypto
