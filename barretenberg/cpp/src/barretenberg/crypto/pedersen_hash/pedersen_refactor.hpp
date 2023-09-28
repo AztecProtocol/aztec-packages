@@ -15,7 +15,7 @@ namespace crypto {
  *
  * To hash to a size-n list of field elements `x`, we return the X-coordinate of:
  *
- *      Hash(x) = n.[h] + Commit(x)
+ *      Hash(x) = n.[h] + x_0. [g_0] + x_1 . [g_1] +... + x_n . [g_n]
  *
  * Where `g` is a list of generator points defined by `generator_data`
  * And `h` is a unique generator whose domain separator is the string `pedersen_hash_length`.
