@@ -158,7 +158,7 @@ join_split_outputs join_split_circuit_component(join_split_inputs const& inputs)
         (inputs.allow_chain == 0 || allow_chain_1 || allow_chain_2).assert_equal(true, "allow_chain out of range");
 
         // When allowing chaining, ensure propagation is to one's self (and not to some other user).
-        point_ct self = input_note_1.owner;
+        group_ct self = input_note_1.owner;
         allow_chain_1.must_imply(output_note_1.owner == self, "inter-user chaining disallowed");
         allow_chain_2.must_imply(output_note_2.owner == self, "inter-user chaining disallowed");
 

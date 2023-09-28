@@ -6,7 +6,7 @@
 namespace join_split_example::proofs::notes::circuit::value {
 
 inline auto create_partial_commitment(field_ct const& secret,
-                                      point_ct const& owner,
+                                      group_ct const& owner,
                                       bool_ct const& account_required,
                                       field_ct const& creator_pubkey)
 {

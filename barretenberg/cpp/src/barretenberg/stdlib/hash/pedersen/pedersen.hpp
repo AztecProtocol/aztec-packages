@@ -1,6 +1,5 @@
 #pragma once
 #include "../../primitives/field/field.hpp"
-#include "../../primitives/point/point.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
 
@@ -19,7 +18,6 @@ template <typename ComposerContext> class pedersen_hash {
 
   private:
     using field_t = stdlib::field_t<ComposerContext>;
-    using point = stdlib::point<ComposerContext>;
     using bool_t = stdlib::bool_t<ComposerContext>;
     using EmbeddedCurve = typename cycle_group<ComposerContext>::Curve;
     using GeneratorContext = crypto::GeneratorContext<EmbeddedCurve>;

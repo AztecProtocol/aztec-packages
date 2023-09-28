@@ -8,7 +8,7 @@ namespace join_split_example::proofs::notes::circuit::value {
 using namespace proof_system::plonk::stdlib;
 
 struct value_note {
-    point_ct owner;
+    group_ct owner;
     suint_ct value;
     field_ct secret;
     suint_ct asset_id;

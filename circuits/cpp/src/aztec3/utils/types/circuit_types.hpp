@@ -28,8 +28,7 @@ template <typename Builder> struct CircuitTypes {
 
     // typedef fq grumpkin_fr;
     // typedef fr grumpkin_fq;
-    using grumpkin_point = stdlib::point<Builder>;  // affine
-    using grumpkin_group = stdlib::group<Builder>;
+    using grumpkin_point = stdlib::cycle_group<Builder>;  // affine
 
     using bn254 = stdlib::bn254<Builder>;
     // typedef bn254::g1_ct bn254_point;

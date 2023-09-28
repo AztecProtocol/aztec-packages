@@ -21,7 +21,6 @@ struct NativeTypes {
     // typedef fr grumpkin_fq;
     using grumpkin_point = grumpkin::g1::affine_element;
     // typedef grumpkin::g1::element grumpkin_jac_point;
-    using grumpkin_group = grumpkin::g1;
 
     using bn254_point = barretenberg::g1::affine_element;
     // typedef barretenberg::g1::element bn254_jac_point;

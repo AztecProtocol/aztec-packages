@@ -48,7 +48,7 @@ template <typename Builder> typename CT<Builder>::uint32 to_ct(Builder& builder,
 template <typename Builder>
 typename CT<Builder>::grumpkin_point to_ct(Builder& builder, typename NT::grumpkin_point const& e)
 {
-    return plonk::stdlib::create_point_witness<Builder, typename NT::grumpkin_point>(builder, e, true);
+    return plonk::stdlib::cycle_group<Builder>::from_witness(builder, e);
 };
 
 template <typename Builder> typename CT<Builder>::bn254_point to_ct(Builder& builder, typename NT::bn254_point const& e)

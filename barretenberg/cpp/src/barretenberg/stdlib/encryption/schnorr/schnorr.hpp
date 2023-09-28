@@ -2,11 +2,9 @@
 #include "../../primitives/bool/bool.hpp"
 #include "../../primitives/byte_array/byte_array.hpp"
 #include "../../primitives/field/field.hpp"
-#include "../../primitives/group/group.hpp"
-#include "../../primitives/point/point.hpp"
+#include "../../primitives/group/cycle_group.hpp"
 #include "../../primitives/witness/witness.hpp"
 #include "barretenberg/crypto/schnorr/schnorr.hpp"
-#include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
 
 namespace proof_system::plonk::stdlib::schnorr {
 
