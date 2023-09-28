@@ -127,6 +127,77 @@ describe('Archiver', () => {
 
     await archiver.stop();
   }, 10_000);
+
+  it('does not sync past current block number', async () => {
+    const numL2BlocksInTest = 2;
+    const archiver = new Archiver(
+      publicClient,
+      EthAddress.fromString(rollupAddress),
+      EthAddress.fromString(inboxAddress),
+      EthAddress.fromString(registryAddress),
+      EthAddress.fromString(contractDeploymentEmitterAddress),
+      0,
+      archiverStore,
+      1000,
+    );
+
+    let latestBlockNum = await archiver.getBlockNumber();
+    expect(latestBlockNum).toEqual(0);
+
+    const createL1ToL2Messages = () => {
+      return [Fr.random().toString(true), Fr.random().toString(true)];
+    };
+
+    const blocks = blockNums.map(x => L2Block.random(x, 4, x, x + 1, x * 2, x * 3));
+    const rollupTxs = blocks.map(makeRollupTx);
+    // `L2Block.random(x)` creates some l1 to l2 messages. We add those,
+    // since it is expected by the test that these would be consumed.
+    // Archiver removes such messages from pending store.
+    // Also create some more messages to cancel and some that will stay pending.
+
+    const additionalL1ToL2MessagesBlock102 = createL1ToL2Messages();
+    const additionalL1ToL2MessagesBlock103 = createL1ToL2Messages();
+
+    const l1ToL2MessageAddedEvents = [
+      makeL1ToL2MessageAddedEvents(
+        100n,
+        blocks[0].newL1ToL2Messages.map(key => key.toString(true)),
+      ),
+      makeL1ToL2MessageAddedEvents(
+        101n,
+        blocks[1].newL1ToL2Messages.map(key => key.toString(true)),
+      ),
+      makeL1ToL2MessageAddedEvents(102n, additionalL1ToL2MessagesBlock102),
+      makeL1ToL2MessageAddedEvents(103n, additionalL1ToL2MessagesBlock103),
+    ];
+
+    // Here we set the current L1 block number to 102. L1 to L2 messages after this should not be read.
+    publicClient.getBlockNumber.mockResolvedValue(102n);
+    // add all of the L1 to L2 messages to the mock
+    publicClient.getLogs
+      .mockResolvedValueOnce(l1ToL2MessageAddedEvents.flat())
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([makeL2BlockProcessedEvent(70n, 1n), makeL2BlockProcessedEvent(80n, 2n)])
+      .mockResolvedValue([]);
+    rollupTxs.slice(0, numL2BlocksInTest).forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
+
+    await archiver.start(false);
+
+    // Wait until block 3 is processed. If this won't happen the test will fail with timeout.
+    while ((await archiver.getBlockNumber()) !== numL2BlocksInTest) {
+      await sleep(100);
+    }
+
+    latestBlockNum = await archiver.getBlockNumber();
+    expect(latestBlockNum).toEqual(numL2BlocksInTest);
+
+    // Check that the only pending L1 to L2 messages are those from eth bock 102
+    const expectedPendingMessageKeys = additionalL1ToL2MessagesBlock102;
+    const actualPendingMessageKeys = (await archiver.getPendingL1ToL2Messages(100)).map(key => key.toString(true));
+    expect(actualPendingMessageKeys).toEqual(expectedPendingMessageKeys);
+
+    await archiver.stop();
+  }, 10_000);
 });
 
 /**
