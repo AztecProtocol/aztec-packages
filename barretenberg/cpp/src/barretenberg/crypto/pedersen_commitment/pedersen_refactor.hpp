@@ -103,11 +103,6 @@ template <typename Curve> class pedersen_commitment_refactor {
         const std::vector<Fq>& inputs,
         size_t hash_index = 0,
         const generator_data<Curve>* generator_context = generator_data<Curve>::get_default_generators());
-
-    static AffineElement commit_native(
-        const std::vector<Fr>& inputs,
-        size_t hash_index = 0,
-        const generator_data<Curve>* generator_context = generator_data<Curve>::get_default_generators());
 };
 
 extern template class pedersen_commitment_refactor<curve::Grumpkin>;
