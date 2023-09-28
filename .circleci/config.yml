@@ -1200,6 +1200,7 @@ workflows:
 
       - e2e-2-pxes: *e2e_test
       - e2e-deploy-contract: *e2e_test
+      - e2e-stateful-test-contract: e2e_test
       - e2e-lending-contract: *e2e_test
       - e2e-token-contract: *e2e_test
       - e2e-private-airdrop: *e2e_test
@@ -1237,6 +1238,7 @@ workflows:
           requires:
             - e2e-2-pxes
             - e2e-deploy-contract
+            - e2e-stateful-test-contract
             - e2e-lending-contract
             - e2e-token-contract
             - e2e-private-airdrop
