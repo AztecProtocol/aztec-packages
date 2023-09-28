@@ -12,7 +12,7 @@ import { PXE, TxStatus } from '@aztec/types';
 
 import { Chain, HttpTransport, PublicClient, getContract } from 'viem';
 
-import { deployAndInitializeStandardizedTokenAndBridgeContracts } from './utils.js';
+import { deployAndInitializeTokenAndBridgeContracts } from './utils.js';
 
 /**
  * A Class for testing cross chain interactions, contains common interactions
@@ -43,7 +43,7 @@ export class CrossChainTestHarness {
 
     // Deploy and initialize all required contracts
     logger('Deploying and initializing token, portal and its bridge...');
-    const contracts = await deployAndInitializeStandardizedTokenAndBridgeContracts(
+    const contracts = await deployAndInitializeTokenAndBridgeContracts(
       wallet,
       walletClient,
       publicClient,

@@ -30,7 +30,7 @@ import {
 import { mnemonicToAccount } from 'viem/accounts';
 import { Chain, foundry } from 'viem/chains';
 
-import { deployAndInitializeStandardizedTokenAndBridgeContracts, deployL1Contract, hashPayload } from './utils.js';
+import { deployAndInitializeTokenAndBridgeContracts, deployL1Contract, hashPayload } from './utils.js';
 
 const logger = createDebugLogger('aztec:canary');
 
@@ -67,7 +67,7 @@ async function deployAllContracts(
 ) {
   const l1ContractsAddresses = await getL1ContractAddresses(pxeRpcUrl);
   logger('Deploying DAI Portal, initializing and deploying l2 contract...');
-  const daiContracts = await deployAndInitializeStandardizedTokenAndBridgeContracts(
+  const daiContracts = await deployAndInitializeTokenAndBridgeContracts(
     ownerWallet,
     walletClient,
     publicClient,
@@ -81,7 +81,7 @@ async function deployAllContracts(
   const daiTokenPortalAddress = daiContracts.tokenPortalAddress;
 
   logger('Deploying WETH Portal, initializing and deploying l2 contract...');
-  const wethContracts = await deployAndInitializeStandardizedTokenAndBridgeContracts(
+  const wethContracts = await deployAndInitializeTokenAndBridgeContracts(
     ownerWallet,
     walletClient,
     publicClient,
@@ -296,8 +296,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
     // Wait for the archiver to process the message
     await sleep(5000);
     // send a transfer tx to force through rollup with the message included
-    const transferAmount = 0n;
-    await transferWethOnL2(wethL2Contract, ownerAddress, receiver, transferAmount);
+    await transferWethOnL2(wethL2Contract, ownerAddress, receiver, 0n);
 
     // 3. Claim WETH on L2
     logger('Minting weth on L2');
@@ -310,11 +309,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
       secretForMintingWeth,
     );
     await redeemShieldPrivatelyOnL2(wethL2Contract, ownerAddress, wethAmountToBridge, secretForRedeemingWeth);
-    await expectPrivateBalanceOnL2(
-      ownerAddress,
-      wethAmountToBridge + BigInt(ownerInitialBalance) - transferAmount,
-      wethL2Contract,
-    );
+    await expectPrivateBalanceOnL2(ownerAddress, wethAmountToBridge + BigInt(ownerInitialBalance), wethL2Contract);
 
     // Store balances
     const wethL2BalanceBeforeSwap = await getL2PrivateBalanceOf(ownerAddress, wethL2Contract);
@@ -397,7 +392,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
     // Wait for the archiver to process the message
     await sleep(5000);
     // send a transfer tx to force through rollup with the message included
-    await transferWethOnL2(wethL2Contract, ownerAddress, receiver, transferAmount);
+    await transferWethOnL2(wethL2Contract, ownerAddress, receiver, 0n);
 
     // 7. claim dai on L2
     logger('Consuming messages to mint dai on L2');

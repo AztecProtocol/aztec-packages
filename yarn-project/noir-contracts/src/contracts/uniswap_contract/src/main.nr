@@ -21,7 +21,7 @@ contract Uniswap {
     };
     
     use crate::interfaces::{Token, TokenBridge};
-    use crate::util::{compute_message_hash, compute_swap_content_hash};
+    use crate::util::{compute_message_hash, compute_swap_private_content_hash};
 
     struct Storage {
         // like with account contracts, stores the approval message on a slot and tracks if they are active
@@ -68,10 +68,6 @@ contract Uniswap {
         caller_on_L1: EthereumAddress, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
     ) -> Field {
 
-        // Assert that user provided token address is same as expected by token bridge.
-        // we can't directly use `input_asset_bridge.token` because that is a public method and public can't return data to private
-        context.call_public_function(context.this_address(), compute_selector("_assert_token_is_same(Field,Field)"), [input_asset.address, input_asset_bridge.address]);
-
         // Transfer funds to this contract
         Token::at(input_asset.address).unshield(
             &mut context,
@@ -84,8 +80,8 @@ contract Uniswap {
         // Approve bridge to burn this contract's funds and exit to L1 Uniswap Portal
         context.call_public_function(
             context.this_address(), 
-            compute_selector("_approve_bridge_and_exit_input_asset_to_L1((Field),Field)"), 
-            [input_asset_bridge.address, input_amount],
+            compute_selector("_approve_bridge_and_exit_input_asset_to_L1((Field),(Field),Field)"), 
+            [input_asset.address, input_asset_bridge.address, input_amount],
         );
 
         // Create swap message and send to Outbox for Uniswap Portal
@@ -95,8 +91,7 @@ contract Uniswap {
         assert(input_asset_bridge_portal_address != 0, "L1 portal address of input_asset's bridge is 0");
         assert(output_asset_bridge_portal_address != 0, "L1 portal address of output_asset's bridge is 0");
 
-        let content_hash = compute_swap_content_hash(
-            true,
+        let content_hash = compute_swap_private_content_hash(
             input_asset_bridge_portal_address,
             input_amount,
             uniswap_fee_tier,
@@ -132,15 +127,17 @@ contract Uniswap {
     // this method is used for both private and public swaps.
     #[aztec(public)]
     internal fn _approve_bridge_and_exit_input_asset_to_L1(
+        token: AztecAddress,
         token_bridge: AztecAddress, 
         amount: Field,
     ) {
-        let token = TokenBridge::at(token_bridge.address).token(context);
+        // Assert that user provided token address is same as expected by token bridge.
+        assert(token.address == (TokenBridge::at(token_bridge.address).token(context)), "input_asset address is not the same as seen in the bridge contract");
         
         // approve bridge to burn this contract's funds (required when exiting on L1, as it burns funds on L2):
         let nonce_for_burn_approval = storage.nonce_for_burn_approval.read();
         let selector = compute_selector("burn_public((Field),Field,Field)");
-        let message_hash = compute_message_hash([token_bridge.address, token, selector, context.this_address(), amount, nonce_for_burn_approval]);
+        let message_hash = compute_message_hash([token_bridge.address, token.address, selector, context.this_address(), amount, nonce_for_burn_approval]);
         storage.approved_action.at(message_hash).write(true);
 
         // increment nonce_for_burn_approval so it won't be used again
@@ -154,10 +151,5 @@ contract Uniswap {
             context.this_portal_address(),
             nonce_for_burn_approval,
         );
-    }
-
-    #[aztec(public)]
-    internal fn _assert_token_is_same(token: Field, token_bridge: Field) {
-        assert(token == (TokenBridge::at(token_bridge).token(context)), "input_asset address is not the same as seen in the bridge contract");
     }
 }
