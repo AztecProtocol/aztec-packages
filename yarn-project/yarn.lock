@@ -384,7 +384,6 @@ __metadata:
     "@types/koa": ^2.13.9
     "@types/koa-static": ^4.0.2
     "@types/levelup": ^5.1.2
-    "@types/lodash.compact": ^3.0.7
     "@types/lodash.every": ^4.6.7
     "@types/lodash.times": ^4.3.7
     "@types/lodash.zip": ^4.2.7
