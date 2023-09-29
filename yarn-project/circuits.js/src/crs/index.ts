@@ -136,12 +136,11 @@ export class Crs {
   /**
    * The path to our SRS object, assuming that we are in the aztec3-packages folder structure.
    */
-  private devPath =
-    dirname(fileURLToPath(import.meta.url)) + '/../../../../barretenberg/cpp/srs_db/ignition/monomial/transcript00.dat';
+  private devPath = '/../../../../barretenberg/cpp/srs_db/ignition/monomial/transcript00.dat';
   /**
    * The path of our SRS object, if we downloaded on init.
    */
-  private localPath = `${dirname(fileURLToPath(import.meta.url))}/transcript00.dat`;
+  private localPath = `/transcript00.dat`;
 
   constructor(
     /**
@@ -155,8 +154,8 @@ export class Crs {
     private readonly saveOnFile = true,
   ) {
     if (isNode) {
-      const existsDev = existsSync(this.devPath);
-      const existsLocal = existsSync(this.localPath);
+      const existsDev = existsSync(dirname(fileURLToPath(import.meta.url)) + this.devPath);
+      const existsLocal = existsSync(dirname(fileURLToPath(import.meta.url)) + this.localPath);
 
       if (existsDev) {
         this.crs = new FileCrs(numPoints, this.devPath);
@@ -176,18 +175,19 @@ export class Crs {
   async init() {
     await this.crs.init();
     if (isNode) {
+      const localPath = dirname(fileURLToPath(import.meta.url)) + this.localPath;
       // save downloaded CRS on file
-      if (this.saveOnFile && !existsSync(this.localPath)) {
+      if (this.saveOnFile && !existsSync(localPath)) {
         const g1Data = this.crs.getG1Data();
         try {
-          writeFileSync(this.localPath, Buffer.from(g1Data));
+          writeFileSync(localPath, Buffer.from(g1Data));
         } catch (error) {
           this.logger.warn('Failed to save CRS data: ', error);
         }
 
         const g2Data = this.crs.getG2Data();
         try {
-          appendFileSync(this.localPath, Buffer.from(g2Data));
+          appendFileSync(localPath, Buffer.from(g2Data));
         } catch (error) {
           this.logger.warn('Failed to append to CRS data: ', error);
         }
