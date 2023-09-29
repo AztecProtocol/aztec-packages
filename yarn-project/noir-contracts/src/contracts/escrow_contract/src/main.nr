@@ -41,10 +41,8 @@ contract Escrow {
     fn constructor(
         owner: pub Field
     ) {
-        let storage = Storage::init(Context::private(&mut context));
-
         let this = context.this_address();
-
+        
         // Create a new note and add it to the owners set.
         let mut note = AddressNote::new(owner, this);
 
@@ -55,7 +53,7 @@ contract Escrow {
             this,
             storage.owners.storage_slot,
             get_public_key(this),
-            note.serialise(),
+            note.serialize(),
         );
     }
     // docs:end:constructor
@@ -69,7 +67,7 @@ contract Escrow {
     ) {
         let this = context.this_address();
         let sender = context.msg_sender();
-        let storage = Storage::init(Context::private(&mut context));
+        
         
         // We don't remove note from the owners set. If a note exists, the owner and recipient are legit.
         let options = NoteGetterOptions::new().select(0, sender).select(1, this).set_limit(1);

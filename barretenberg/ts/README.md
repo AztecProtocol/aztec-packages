@@ -104,15 +104,6 @@ in size) is loaded and keeps page load times responsive.
 const { Barretenberg, RawBuffer, Crs } = await import('@aztec/bb.js');
 ```
 
-### CommonJS Usage
-
-The import syntax is slightly different in a CommonJS environment.
-
-```typescript
-const { loadModule } = await import('@aztec/bb.js');
-const { Barretenberg, RawBuffer, Crs } = await loadModule();
-```
-
 ## Development
 
 Create a symlink to the root script `bb.js-dev` in your path. You can now run the current state of the code from
@@ -123,4 +114,4 @@ If you change the C++ code run `yarn build:wasm` to rebuild the webassembly.
 To run the tests run `yarn test`.
 
 To run a continuous "stress test" run `yarn simple_test` to do 10 full pk/proof/vk iterations. This is useful for
-inspecting memory growth as the we continuously use the library.
+inspecting memory growth as we continuously use the library.

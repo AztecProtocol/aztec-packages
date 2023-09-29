@@ -1,4 +1,5 @@
 import { AztecAddress, CompleteAddress, EthAddress } from '@aztec/circuits.js';
+import { L1ContractAddresses } from '@aztec/ethereum';
 import { ABIParameterVisibility, ContractAbi, FunctionType } from '@aztec/foundation/abi';
 import {
   DeployedContract,
@@ -28,12 +29,20 @@ describe('Contract Class', () => {
   const mockTxHash = { type: 'TxHash' } as any as TxHash;
   const mockTxReceipt = { type: 'TxReceipt' } as any as TxReceipt;
   const mockViewResultValue = 1;
+  const l1Addresses: L1ContractAddresses = {
+    rollupAddress: EthAddress.random(),
+    registryAddress: EthAddress.random(),
+    inboxAddress: EthAddress.random(),
+    outboxAddress: EthAddress.random(),
+    contractDeploymentEmitterAddress: EthAddress.random(),
+    decoderHelperAddress: EthAddress.random(),
+  };
   const mockNodeInfo: NodeInfo = {
     sandboxVersion: 'vx.x.x',
     compatibleNargoVersion: 'vx.x.x-aztec.x',
-    protocolVersion: 1,
-    chainId: 2,
-    rollupAddress: EthAddress.random(),
+    chainId: 1,
+    protocolVersion: 2,
+    l1ContractAddresses: l1Addresses,
   };
 
   const defaultAbi: ContractAbi = {
@@ -147,7 +156,7 @@ describe('Contract Class', () => {
     expect(() => fooContract.methods.baz().view()).toThrow();
   });
 
-  it('should add contract and dependencies to aztec rpc', async () => {
+  it('should add contract and dependencies to PXE', async () => {
     const entry: DeployedContract = {
       abi: randomContractAbi(),
       completeAddress: resolvedExtendedContractData.getCompleteAddress(),

@@ -167,7 +167,7 @@ A successful run should show:
     rollupAddress: EthAddress {
       buffer: <Buffer cf 7e d3 ac ca 5a 46 7e 9e 70 4c 70 3e 8d 87 f6 34 fb 0f c9>
     },
-    client: 'aztec-rpc@0.1.0',
+    client: 'pxe@0.1.0',
     compatibleNargoVersion: '0.11.1-aztec.0'
   }
 ```
@@ -201,7 +201,7 @@ Now that we have our accounts loaded, let's move on to deploy our pre-compiled t
     rollupAddress: EthAddress {
       buffer: <Buffer cf 7e d3 ac ca 5a 46 7e 9e 70 4c 70 3e 8d 87 f6 34 fb 0f c9>
     },
-    client: 'aztec-rpc@0.1.0',
+    client: 'pxe@0.1.0',
     compatibleNargoVersion: '0.11.1-aztec.0'
   }
   token Creating accounts using schnorr signers... +3ms
@@ -243,7 +243,7 @@ Running now should yield output:
     rollupAddress: EthAddress {
       buffer: <Buffer cf 7e d3 ac ca 5a 46 7e 9e 70 4c 70 3e 8d 87 f6 34 fb 0f c9>
     },
-    client: 'aztec-rpc@0.1.0',
+    client: 'pxe@0.1.0',
     compatibleNargoVersion: '0.11.1-aztec.0'
   }
   token Creating accounts using schnorr signers... +3ms
@@ -258,6 +258,9 @@ Running now should yield output:
 In this section, we created 2 instances of the `TokenContract` contract abstraction, one for each of our deployed accounts. This contract abstraction offers a Typescript interface reflecting the abi of the contract. We then call `getBalance()` as a `view` method. View methods can be thought as read-only. No transaction is submitted as a result but a user's state can be queried.
 
 We can see that each account has the expected balance of tokens.
+
+### Diagram of calling an unconstrained (view) function
+<img src="/img/sandbox_unconstrained_function.svg" alt="Unconstrained function call" />
 
 ## Creating and submitting transactions
 
@@ -285,7 +288,7 @@ Our output should now look like this:
     rollupAddress: EthAddress {
       buffer: <Buffer cf 7e d3 ac ca 5a 46 7e 9e 70 4c 70 3e 8d 87 f6 34 fb 0f c9>
     },
-    client: 'aztec-rpc@0.1.0',
+    client: 'pxe@0.1.0',
     compatibleNargoVersion: '0.11.1-aztec.0'
   }
   token Creating accounts using schnorr signers... +3ms
@@ -324,7 +327,7 @@ Our complete output should now be:
     rollupAddress: EthAddress {
       buffer: <Buffer cf 7e d3 ac ca 5a 46 7e 9e 70 4c 70 3e 8d 87 f6 34 fb 0f c9>
     },
-    client: 'aztec-rpc@0.1.0',
+    client: 'pxe@0.1.0',
     compatibleNargoVersion: '0.11.1-aztec.0'
   }
   token Creating accounts using schnorr signers... +3ms
@@ -345,6 +348,9 @@ Our complete output should now be:
 That's it! We have successfully deployed a private token contract to an instance of the Aztec network and mined private state-transitioning transactions. We have also queried the resulting state all via the interfaces provided by the contract.
 
 You can find the [complete tutorial code here](https://github.com/AztecProtocol/dev-rel/tree/main/tutorials/sandbox-tutorial/token).
+
+### Diagram of sending a transaction
+<img src="/img/sandbox_sending_a_tx.svg" alt="Sending a transaction" />
 
 ## Next Steps
 

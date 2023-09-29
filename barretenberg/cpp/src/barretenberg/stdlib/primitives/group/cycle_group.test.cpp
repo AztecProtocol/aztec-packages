@@ -45,8 +45,7 @@ template <class Composer> class CycleGroupTest : public ::testing::Test {
     };
 };
 
-using CircuitTypes = ::testing::
-    Types<proof_system::StandardCircuitBuilder, proof_system::TurboCircuitBuilder, proof_system::UltraCircuitBuilder>;
+using CircuitTypes = ::testing::Types<proof_system::StandardCircuitBuilder, proof_system::UltraCircuitBuilder>;
 TYPED_TEST_SUITE(CycleGroupTest, CircuitTypes);
 
 TYPED_TEST(CycleGroupTest, TestDbl)
@@ -100,7 +99,7 @@ TYPED_TEST(CycleGroupTest, TestConstrainedUnconditionalAddSucceed)
     // case 1. valid unconditional add
     cycle_group_ct a = cycle_group_ct::from_witness(&composer, lhs);
     cycle_group_ct b = cycle_group_ct::from_witness(&composer, rhs);
-    cycle_group_ct c = a.constrained_unconditional_add(b);
+    cycle_group_ct c = a.checked_unconditional_add(b);
     AffineElement expected(Element(lhs) + Element(rhs));
     AffineElement result = c.get_value();
     EXPECT_EQ(result, expected);
@@ -120,7 +119,7 @@ TYPED_TEST(CycleGroupTest, TestConstrainedUnconditionalAddFail)
     // case 2. invalid unconditional add
     cycle_group_ct a = cycle_group_ct::from_witness(&composer, lhs);
     cycle_group_ct b = cycle_group_ct::from_witness(&composer, rhs);
-    a.constrained_unconditional_add(b);
+    a.checked_unconditional_add(b);
 
     EXPECT_TRUE(composer.failed());
 
@@ -234,7 +233,7 @@ TYPED_TEST(CycleGroupTest, TestConstrainedUnconditionalSubtractSucceed)
     // case 1. valid unconditional add
     cycle_group_ct a = cycle_group_ct::from_witness(&composer, lhs);
     cycle_group_ct b = cycle_group_ct::from_witness(&composer, rhs);
-    cycle_group_ct c = a.constrained_unconditional_subtract(b);
+    cycle_group_ct c = a.checked_unconditional_subtract(b);
     AffineElement expected(Element(lhs) - Element(rhs));
     AffineElement result = c.get_value();
     EXPECT_EQ(result, expected);
@@ -254,7 +253,7 @@ TYPED_TEST(CycleGroupTest, TestConstrainedUnconditionalSubtractFail)
     // case 2. invalid unconditional add
     cycle_group_ct a = cycle_group_ct::from_witness(&composer, lhs);
     cycle_group_ct b = cycle_group_ct::from_witness(&composer, rhs);
-    a.constrained_unconditional_subtract(b);
+    a.checked_unconditional_subtract(b);
 
     EXPECT_TRUE(composer.failed());
 

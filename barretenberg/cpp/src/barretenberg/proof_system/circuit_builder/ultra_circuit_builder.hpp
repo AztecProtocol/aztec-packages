@@ -37,11 +37,6 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
     // number of gates created per non-native field operation in process_non_native_field_multiplications
     static constexpr size_t GATES_PER_NON_NATIVE_FIELD_MULTIPLICATION_ARITHMETIC = 7;
 
-    size_t num_ecc_op_gates = 0; // number of ecc op "gates" (rows); these are placed at the start of the circuit
-
-    // Stores record of ecc operations and performs corresponding native operations internally
-    ECCOpQueue op_queue;
-
     struct non_native_field_witnesses {
         // first 4 array elements = limbs
         // 5th element = prime basis limb
@@ -547,14 +542,6 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
     WireVector& w_o = std::get<2>(this->wires);
     WireVector& w_4 = std::get<3>(this->wires);
 
-    // Wires storing ecc op queue data; values are indices into the variables array
-    std::array<WireVector, arithmetization::Ultra<FF>::NUM_WIRES> ecc_op_wires;
-
-    WireVector& ecc_op_wire_1 = std::get<0>(ecc_op_wires);
-    WireVector& ecc_op_wire_2 = std::get<1>(ecc_op_wires);
-    WireVector& ecc_op_wire_3 = std::get<2>(ecc_op_wires);
-    WireVector& ecc_op_wire_4 = std::get<3>(ecc_op_wires);
-
     SelectorVector& q_m = this->selectors.q_m;
     SelectorVector& q_c = this->selectors.q_c;
     SelectorVector& q_1 = this->selectors.q_1;
@@ -713,21 +700,8 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
 
     uint32_t put_constant_variable(const FF& variable);
 
-    /**
-     * ** Goblin Methods ** (methods for add ecc op queue gates)
-     * TODO(#705): Consider isolating/modularizing the goblin builder functionality
-     **/
-    ecc_op_tuple queue_ecc_add_accum(const g1::affine_element& point);
-    ecc_op_tuple queue_ecc_mul_accum(const g1::affine_element& point, const fr& scalar);
-    ecc_op_tuple queue_ecc_eq();
-
-  private:
-    void populate_ecc_op_wires(const ecc_op_tuple& in);
-    ecc_op_tuple make_ecc_op_tuple(uint32_t op, const g1::affine_element& point, const fr& scalar = fr::zero());
-
   public:
     size_t get_num_constant_gates() const override { return 0; }
-
     /**
      * @brief Get the final number of gates in a circuit, which consists of the sum of:
      * 1) Current number number of actual gates
@@ -843,7 +817,7 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
         size_t ramcount = 0;
         size_t nnfcount = 0;
         get_num_gates_split_into_components(count, rangecount, romcount, ramcount, nnfcount);
-        return count + romcount + ramcount + rangecount + nnfcount + num_ecc_op_gates;
+        return count + romcount + ramcount + rangecount + nnfcount;
     }
 
     /**
@@ -882,145 +856,11 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
         size_t nnfcount = 0;
         get_num_gates_split_into_components(count, rangecount, romcount, ramcount, nnfcount);
 
-        size_t total = count + romcount + ramcount + rangecount + num_ecc_op_gates;
+        size_t total = count + romcount + ramcount + rangecount;
         std::cout << "gates = " << total << " (arith " << count << ", rom " << romcount << ", ram " << ramcount
-                  << ", range " << rangecount << ", non native field gates " << nnfcount << ", goblin ecc op gates "
-                  << num_ecc_op_gates << "), pubinp = " << this->public_inputs.size() << std::endl;
+                  << ", range " << rangecount << ", non native field gates " << nnfcount
+                  << "), pubinp = " << this->public_inputs.size() << std::endl;
     }
-    // /**
-    //  * @brief Get the final number of gates in a circuit, which consists of the sum of:
-    //  * 1) Current number number of actual gates
-    //  * 2) Number of public inputs, as we'll need to add a gate for each of them
-    //  * 3) Number of Rom array-associated gates
-    //  * 4) Number of range-list associated gates
-    //  * 5) Number of non-native field multiplication gates.
-    //  *
-    //  *
-    //  * @param count return arument, number of existing gates
-    //  * @param rangecount return argument, extra gates due to range checks
-    //  * @param romcount return argument, extra gates due to rom reads
-    //  * @param ramcount return argument, extra gates due to ram read/writes
-    //  * @param nnfcount return argument, extra gates due to queued non native field gates
-    //  */
-    // void get_num_gates_split_into_components(
-    //     size_t& count, size_t& rangecount, size_t& romcount, size_t& ramcount, size_t& nnfcount) const
-    // {
-    //     count = num_gates;
-    //     // each ROM gate adds +1 extra gate due to the rom reads being copied to a sorted list set
-    //     for (size_t i = 0; i < rom_arrays.size(); ++i) {
-    //         for (size_t j = 0; j < rom_arrays[i].state.size(); ++j) {
-    //             if (rom_arrays[i].state[j][0] == UNINITIALIZED_MEMORY_RECORD) {
-    //                 romcount += 2;
-    //             }
-    //         }
-    //         romcount += (rom_arrays[i].records.size());
-    //         romcount += 1; // we add an addition gate after procesing a rom array
-    //     }
-
-    //     constexpr size_t gate_width = ultra_settings::program_width;
-    //     // each RAM gate adds +2 extra gates due to the ram reads being copied to a sorted list set,
-    //     // as well as an extra gate to validate timestamps
-    //     std::vector<size_t> ram_timestamps;
-    //     std::vector<size_t> ram_range_sizes;
-    //     std::vector<size_t> ram_range_exists;
-    //     for (size_t i = 0; i < ram_arrays.size(); ++i) {
-    //         for (size_t j = 0; j < ram_arrays[i].state.size(); ++j) {
-    //             if (ram_arrays[i].state[j] == UNINITIALIZED_MEMORY_RECORD) {
-    //                 ramcount += NUMBER_OF_GATES_PER_RAM_ACCESS;
-    //             }
-    //         }
-    //         ramcount += (ram_arrays[i].records.size() * NUMBER_OF_GATES_PER_RAM_ACCESS);
-    //         ramcount += NUMBER_OF_ARITHMETIC_GATES_PER_RAM_ARRAY; // we add an addition gate after procesing a
-    //         ram array
-
-    //         // there will be 'max_timestamp' number of range checks, need to calculate.
-    //         const auto max_timestamp = ram_arrays[i].access_count - 1;
-
-    //         // if a range check of length `max_timestamp` already exists, we are double counting.
-    //         // We record `ram_timestamps` to detect and correct for this error when we process range lists.
-    //         ram_timestamps.push_back(max_timestamp);
-    //         size_t padding = (gate_width - (max_timestamp % gate_width)) % gate_width;
-    //         if (max_timestamp == gate_width)
-    //             padding += gate_width;
-    //         const size_t ram_range_check_list_size = max_timestamp + padding;
-
-    //         size_t ram_range_check_gate_count = (ram_range_check_list_size / gate_width);
-    //         ram_range_check_gate_count += 1; // we need to add 1 extra addition gates for every distinct range
-    //         list
-
-    //         ram_range_sizes.push_back(ram_range_check_gate_count);
-    //         ram_range_exists.push_back(false);
-    //         // rangecount += ram_range_check_gate_count;
-    //     }
-    //     for (const auto& list : range_lists) {
-    //         auto list_size = list.second.variable_indices.size();
-    //         size_t padding = (gate_width - (list.second.variable_indices.size() % gate_width)) % gate_width;
-    //         if (list.second.variable_indices.size() == gate_width)
-    //             padding += gate_width;
-    //         list_size += padding;
-
-    //         for (size_t i = 0; i < ram_timestamps.size(); ++i) {
-    //             if (list.second.target_range == ram_timestamps[i]) {
-    //                 ram_range_exists[i] = true;
-    //             }
-    //         }
-    //         rangecount += (list_size / gate_width);
-    //         rangecount += 1; // we need to add 1 extra addition gates for every distinct range list
-    //     }
-    //     // update rangecount to include the ram range checks the composer will eventually be creating
-    //     for (size_t i = 0; i < ram_range_sizes.size(); ++i) {
-    //         if (!ram_range_exists[i]) {
-    //             rangecount += ram_range_sizes[i];
-    //         }
-    //     }
-    //     std::vector<cached_non_native_field_multiplication> nnf_copy(cached_non_native_field_multiplications);
-    //     // update nnfcount
-    //     std::sort(nnf_copy.begin(), nnf_copy.end());
-
-    //     auto last = std::unique(nnf_copy.begin(), nnf_copy.end());
-    //     const size_t num_nnf_ops = static_cast<size_t>(std::distance(nnf_copy.begin(), last));
-    //     nnfcount = num_nnf_ops * GATES_PER_NON_NATIVE_FIELD_MULTIPLICATION_ARITHMETIC;
-    // }
-
-    // /**
-    //  * @brief Get the final number of gates in a circuit, which consists of the sum of:
-    //  * 1) Current number number of actual gates
-    //  * 2) Number of public inputs, as we'll need to add a gate for each of them
-    //  * 3) Number of Rom array-associated gates
-    //  * 4) Number of range-list associated gates
-    //  * 5) Number of non-native field multiplication gates.
-    //  *
-    //  * @return size_t
-    //  */
-    // virtual size_t get_num_gates() const override
-    // {
-    //     // if circuit finalised already added extra gates
-    //     if (circuit_finalised) {
-    //         return num_gates;
-    //     }
-    //     size_t count = 0;
-    //     size_t rangecount = 0;
-    //     size_t romcount = 0;
-    //     size_t ramcount = 0;
-    //     size_t nnfcount = 0;
-    //     get_num_gates_split_into_components(count, rangecount, romcount, ramcount, nnfcount);
-    //     return count + romcount + ramcount + rangecount + nnfcount;
-    // }
-
-    // virtual void print_num_gates() const override
-    // {
-    //     size_t count = 0;
-    //     size_t rangecount = 0;
-    //     size_t romcount = 0;
-    //     size_t ramcount = 0;
-    //     size_t nnfcount = 0;
-    //     get_num_gates_split_into_components(count, rangecount, romcount, ramcount, nnfcount);
-
-    //     size_t total = count + romcount + ramcount + rangecount;
-    //     std::cout << "gates = " << total << " (arith " << count << ", rom " << romcount << ", ram " << ramcount
-    //               << ", range " << rangecount << ", non native field gates " << nnfcount
-    //               << "), pubinp = " << public_inputs.size() << std::endl;
-    // }
 
     void assert_equal_constant(const uint32_t a_idx, const FF& b, std::string const& msg = "assert equal constant")
     {

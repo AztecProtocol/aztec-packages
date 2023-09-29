@@ -13,14 +13,14 @@ contract StatefulTest {
             utils as note_utils,
         },
         state_vars::{map::Map, public_state::PublicState, set::Set},
-        types::type_serialisation::field_serialisation::{
-            FieldSerialisationMethods, FIELD_SERIALISED_LEN,
+        types::type_serialization::field_serialization::{
+            FieldSerializationMethods, FIELD_SERIALIZED_LEN,
         },
     };
 
     struct Storage {
         notes: Map<Set<ValueNote, VALUE_NOTE_LEN>>,
-        public_values: Map<PublicState<Field, FIELD_SERIALISED_LEN>>,
+        public_values: Map<PublicState<Field, FIELD_SERIALIZED_LEN>>,
     }
 
     impl Storage {
@@ -40,7 +40,7 @@ contract StatefulTest {
                         PublicState::new(
                             context,
                             slot,
-                            FieldSerialisationMethods,
+                            FieldSerializationMethods,
                         )
                     },
                 ),
@@ -50,7 +50,7 @@ contract StatefulTest {
 
     #[aztec(private)]
     fn constructor(owner: Field, value: Field) {
-        let storage = Storage::init(Context::private(&mut context));
+        
         let loc = storage.notes.at(owner);
         increment(loc, value, owner);
     }
@@ -60,7 +60,7 @@ contract StatefulTest {
         owner: Field,
         value: Field, 
     )  {
-        let storage = Storage::init(Context::private(&mut context));
+        
         if (value != 0){
             let loc = storage.notes.at(owner);
             increment(loc, value, owner);
@@ -72,7 +72,7 @@ contract StatefulTest {
         recipient: Field,
         amount: Field, 
     )  {
-        let storage = Storage::init(Context::private(&mut context));
+        
         let sender = context.msg_sender();
 
         let sender_notes = storage.notes.at(sender);
@@ -85,7 +85,7 @@ contract StatefulTest {
     unconstrained fn summed_values(
         owner: Field,
     ) -> Field {
-        let storage = Storage::init(Context::none());
+        
         let owner_balance = storage.notes.at(owner);
 
         // Return the sum of all notes in the set.

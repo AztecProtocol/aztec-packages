@@ -6,24 +6,17 @@
 
 namespace proof_system::plonk::stdlib {
 
-template <typename ComposerContext> class pedersen_commitment {
+template <typename CircuitBuilder> class pedersen_commitment {
   private:
-    using bool_t = stdlib::bool_t<ComposerContext>;
-    using field_t = stdlib::field_t<ComposerContext>;
-    using EmbeddedCurve = typename cycle_group<ComposerContext>::Curve;
+    using bool_t = stdlib::bool_t<CircuitBuilder>;
+    using field_t = stdlib::field_t<CircuitBuilder>;
+    using EmbeddedCurve = typename cycle_group<CircuitBuilder>::Curve;
     using GeneratorContext = crypto::GeneratorContext<EmbeddedCurve>;
 
   public:
-    static cycle_group<ComposerContext> commit(const std::vector<field_t>& inputs, GeneratorContext context = {});
+    static cycle_group<CircuitBuilder> commit(const std::vector<field_t>& inputs, GeneratorContext context = {});
 
     static field_t compress(const std::vector<field_t>& inputs, GeneratorContext context = {});
-
-    // TODO: kill?
-    static field_t compress(type_is<field_t> auto&&... inputs)
-    {
-        std::vector<field_t> elements({ std::forward<typeof(inputs)>(inputs)... });
-        return compress(elements);
-    }
 
     /**
      * Compress a byte_array.
@@ -32,7 +25,7 @@ template <typename ComposerContext> class pedersen_commitment {
      * This is because we require the inputs to regular pedersen compression function are nonzero (we use this method to
      * hash the base layer of our merkle trees)
      */
-    static field_t compress(const byte_array<ComposerContext>& input)
+    static field_t compress(const byte_array<CircuitBuilder>& input)
     {
         const size_t num_bytes = input.size();
         const size_t bytes_per_element = 31;

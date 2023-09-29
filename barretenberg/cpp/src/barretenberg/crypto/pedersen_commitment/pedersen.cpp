@@ -1,5 +1,3 @@
-// TODO(@zac-wiliamson #2341 rename to pedersen.cpp once we migrate to new hash standard)
-
 #include "./pedersen.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"

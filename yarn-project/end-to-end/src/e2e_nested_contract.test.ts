@@ -1,30 +1,23 @@
-import { AztecNodeService } from '@aztec/aztec-node';
-import { AztecRPCServer } from '@aztec/aztec-rpc';
 import { AztecAddress, BatchCall, Fr, Wallet } from '@aztec/aztec.js';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { DebugLogger } from '@aztec/foundation/log';
 import { toBigInt } from '@aztec/foundation/serialize';
 import { ChildContract, ImportTestContract, ParentContract, TestContract } from '@aztec/noir-contracts/types';
-import { AztecRPC, L2BlockL2Logs } from '@aztec/types';
+import { L2BlockL2Logs, PXE } from '@aztec/types';
 
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_nested_contract', () => {
-  let aztecNode: AztecNodeService | undefined;
-  let aztecRpcServer: AztecRPC;
+  let pxe: PXE;
   let wallet: Wallet;
   let logger: DebugLogger;
+  let teardown: () => Promise<void>;
 
   beforeEach(async () => {
-    ({ aztecNode, aztecRpcServer, wallet, logger } = await setup());
+    ({ teardown, pxe, wallet, logger } = await setup());
   }, 100_000);
 
-  afterEach(async () => {
-    await aztecNode?.stop();
-    if (aztecRpcServer instanceof AztecRPCServer) {
-      await aztecRpcServer?.stop();
-    }
-  });
+  afterEach(() => teardown());
 
   describe('parent manually calls child', () => {
     let parentContract: ParentContract;
@@ -36,7 +29,7 @@ describe('e2e_nested_contract', () => {
     }, 100_000);
 
     const getChildStoredValue = (child: { address: AztecAddress }) =>
-      aztecRpcServer.getPublicStorageAt(child.address, new Fr(1)).then(x => toBigInt(x!));
+      pxe.getPublicStorageAt(child.address, new Fr(1)).then(x => toBigInt(x!));
 
     it('performs nested calls', async () => {
       await parentContract.methods

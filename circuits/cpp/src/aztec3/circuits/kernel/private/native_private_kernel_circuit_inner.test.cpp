@@ -189,8 +189,7 @@ TEST_F(native_private_kernel_inner_tests, private_function_incorrect_function_le
               "computed_contract_tree_root doesn't match purported_contract_tree_root");
 }
 
-// TODO(suyash): Disabled until https://github.com/AztecProtocol/aztec-packages/issues/499 is resolved.
-TEST_F(native_private_kernel_inner_tests, DISABLED_private_function_incorrect_call_stack_item_hash_fails)
+TEST_F(native_private_kernel_inner_tests, private_function_incorrect_call_stack_item_hash_fails)
 {
     auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
 
@@ -205,8 +204,6 @@ TEST_F(native_private_kernel_inner_tests, DISABLED_private_function_incorrect_ca
     EXPECT_TRUE(builder.failed());
     EXPECT_EQ(builder.get_first_failure().code,
               CircuitErrorCode::PRIVATE_KERNEL__CALCULATED_PRIVATE_CALL_HASH_AND_PROVIDED_PRIVATE_CALL_HASH_MISMATCH);
-    EXPECT_EQ(builder.get_first_failure().message,
-              "calculated private_call_hash does not match provided private_call_hash at the top of the call stack");
 }
 
 TEST_F(native_private_kernel_inner_tests, private_kernel_should_fail_if_aggregating_too_many_commitments)
@@ -746,6 +743,22 @@ TEST_F(native_private_kernel_inner_tests, native_logs_are_hashed_as_expected)
                                                                          unencrypted_logs_hash[1] });
 
     ASSERT_EQ(public_inputs.end.unencrypted_logs_hash, expected_unencrypted_logs_hash);
+}
+
+TEST_F(native_private_kernel_inner_tests, 0th_nullifier_zero_fails)
+{
+    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
+
+    // Change the 0th nullifier to be zero.
+    private_inputs.previous_kernel.public_inputs.end.new_nullifiers[0] = 0;
+
+    // Invoke the native private kernel circuit
+    DummyBuilder builder = DummyBuilder("private_kernel_tests__0th_nullifier_zero_fails");
+    native_private_kernel_circuit_inner(builder, private_inputs);
+
+    // Assertion checks
+    EXPECT_TRUE(builder.failed());
+    EXPECT_EQ(builder.get_first_failure().code, CircuitErrorCode::PRIVATE_KERNEL__0TH_NULLLIFIER_IS_ZERO);
 }
 
 }  // namespace aztec3::circuits::kernel::private_kernel

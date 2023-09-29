@@ -28,10 +28,10 @@ For this guide, the following Aztec packages are used:
 ### Initialisation
 
 ```ts
-import { createAztecRpcClient, CheatCodes } from "@aztec/aztec.js";
-const aztecRpcUrl = "http://localhost:8080";
-const aztecRpcClient = createAztecRpcClient(aztecRpcUrl);
-const cc = await CheatCodes.create(aztecRpcUrl, aztecRpcClient);
+import { createPXEClient, CheatCodes } from "@aztec/aztec.js";
+const pxeRpcUrl = "http://localhost:8080";
+const pxe = createPXEClient(pxeRpcUrl);
+const cc = await CheatCodes.create(pxeRpcUrl, pxe);
 ```
 
 There are two properties of the CheatCodes class - `eth` and `aztec` for cheatcodes relating to the Ethereum blockchain (L1) and the Aztec network (L2) respectively.
@@ -458,13 +458,13 @@ The baseSlot is specified in the Aztec.nr contract.
 
 ```rust
 struct Storage {
-    balances: Map<PublicState<Field, FIELD_SERIALISED_LEN>>,
+    balances: Map<PublicState<Field, FIELD_SERIALIZED_LEN>>,
 }
 
 impl Storage {
     fn init() -> Self {
         Storage {
-            balances: Map::new(1, |slot| PublicState::new(slot, FieldSerialisationMethods)),
+            balances: Map::new(1, |slot| PublicState::new(slot, FieldSerializationMethods)),
         }
     }
 }
@@ -496,13 +496,13 @@ Note: One Field element occupies a storage slot. Hence, structs with multiple fi
 
 ```rust
 struct Storage {
-    balances: Map<PublicState<Field, FIELD_SERIALISED_LEN>>,
+    balances: Map<PublicState<Field, FIELD_SERIALIZED_LEN>>,
 }
 
 impl Storage {
     fn init() -> Self {
         Storage {
-            balances: Map::new(1, |slot| PublicState::new(slot, FieldSerialisationMethods)),
+            balances: Map::new(1, |slot| PublicState::new(slot, FieldSerializationMethods)),
         }
     }
 }

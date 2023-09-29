@@ -12,14 +12,14 @@ using namespace barretenberg;
  * @brief stdlib class that evaluates in-circuit pedersen hashes, consistent with behavior in
  * crypto::pedersen_hash
  *
- * @tparam ComposerContext
+ * @tparam Builder
  */
-template <typename ComposerContext> class pedersen_hash {
+template <typename Builder> class pedersen_hash {
 
   private:
-    using field_t = stdlib::field_t<ComposerContext>;
-    using bool_t = stdlib::bool_t<ComposerContext>;
-    using EmbeddedCurve = typename cycle_group<ComposerContext>::Curve;
+    using field_t = stdlib::field_t<Builder>;
+    using bool_t = stdlib::bool_t<Builder>;
+    using EmbeddedCurve = typename cycle_group<Builder>::Curve;
     using GeneratorContext = crypto::GeneratorContext<EmbeddedCurve>;
 
   public:

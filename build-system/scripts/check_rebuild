@@ -9,14 +9,12 @@ REPOSITORY=$2
 # If given nothing, then exit with failure to rebuild
 [ -n "$TAG" ] || exit 1
 
+# Have we requested a rebuild via [ci rebuild] or [ci rebuild <job>] commit message?
+[[ "$COMMIT_MESSAGE" == *"[ci rebuild $REPOSITORY]"* ]] && exit 1
+[[ "$COMMIT_MESSAGE" == *"[ci rebuild]"* ]] && exit 1
+
 if ! image_exists $REPOSITORY $TAG; then
-  echo "Rebuild required."
-  exit 1
-elif image_exists $REPOSITORY tainted; then
-  # If a tainted tag exists, remove it and exit with failure to rebuild.
-  echo "$REPOSITORY has been tainted. Will rebuild."
   exit 1
 else
-  echo "No rebuild required."
   exit 0
 fi

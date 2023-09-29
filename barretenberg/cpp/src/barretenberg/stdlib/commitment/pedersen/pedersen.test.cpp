@@ -5,27 +5,27 @@
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "pedersen.hpp"
 
-namespace test_stdlib_pedersen {
+namespace test_StdlibPedersen {
 using namespace barretenberg;
 using namespace proof_system::plonk;
 namespace {
 auto& engine = numeric::random::get_debug_engine();
 }
 
-template <typename Composer> class stdlib_pedersen : public testing::Test {
-    using _curve = stdlib::bn254<Composer>;
+template <typename Builder> class StdlibPedersen : public testing::Test {
+    using _curve = stdlib::bn254<Builder>;
 
     using byte_array_ct = typename _curve::byte_array_ct;
     using fr_ct = typename _curve::ScalarField;
     using witness_ct = typename _curve::witness_ct;
     using public_witness_ct = typename _curve::public_witness_ct;
-    using pedersen_commitment = typename stdlib::pedersen_commitment<Composer>;
+    using pedersen_commitment = typename stdlib::pedersen_commitment<Builder>;
 
   public:
     static void test_pedersen()
     {
 
-        Composer composer;
+        Builder builder;
 
         fr left_in = fr::random_element();
         fr right_in = fr::random_element();
@@ -38,17 +38,17 @@ template <typename Composer> class stdlib_pedersen : public testing::Test {
             right_in += fr::one();
         }
 
-        fr_ct left = public_witness_ct(&composer, left_in);
-        fr_ct right = witness_ct(&composer, right_in);
+        fr_ct left = public_witness_ct(&builder, left_in);
+        fr_ct right = witness_ct(&builder, right_in);
 
-        composer.fix_witness(left.witness_index, left.get_value());
-        composer.fix_witness(right.witness_index, right.get_value());
+        builder.fix_witness(left.witness_index, left.get_value());
+        builder.fix_witness(right.witness_index, right.get_value());
 
         fr_ct out = pedersen_commitment::compress(left, right);
 
-        info("composer gates = ", composer.get_num_gates());
+        info("num gates = ", builder.get_num_gates());
 
-        bool result = composer.check_circuit();
+        bool result = builder.check_circuit();
         EXPECT_EQ(result, true);
 
         fr compress_native = crypto::pedersen_commitment::compress_native({ left.get_value(), right.get_value() });
@@ -57,7 +57,7 @@ template <typename Composer> class stdlib_pedersen : public testing::Test {
 
     static void test_pedersen_edge_cases()
     {
-        Composer composer;
+        Builder builder;
 
         fr zero_fr = fr::zero();
         fr one_fr = fr::one();
@@ -65,11 +65,11 @@ template <typename Composer> class stdlib_pedersen : public testing::Test {
         fr r_minus_two_fr = fr::modulus - 2;
         fr r_fr = fr::modulus;
 
-        fr_ct zero = witness_ct(&composer, zero_fr);
-        fr_ct one = witness_ct(&composer, one_fr);
-        fr_ct r_minus_one = witness_ct(&composer, r_minus_one_fr);
-        fr_ct r_minus_two = witness_ct(&composer, r_minus_two_fr);
-        fr_ct r = witness_ct(&composer, r_fr);
+        fr_ct zero = witness_ct(&builder, zero_fr);
+        fr_ct one = witness_ct(&builder, one_fr);
+        fr_ct r_minus_one = witness_ct(&builder, r_minus_one_fr);
+        fr_ct r_minus_two = witness_ct(&builder, r_minus_two_fr);
+        fr_ct r = witness_ct(&builder, r_fr);
 
         fr_ct out_1_with_zero = pedersen_commitment::compress(zero, one);
         fr_ct out_1_with_r = pedersen_commitment::compress(r, one);
@@ -77,9 +77,9 @@ template <typename Composer> class stdlib_pedersen : public testing::Test {
         fr_ct out_with_zero = pedersen_commitment::compress(out_1_with_zero, out_2);
         fr_ct out_with_r = pedersen_commitment::compress(out_1_with_r, out_2);
 
-        info("composer gates = ", composer.get_num_gates());
+        info("num gates = ", builder.get_num_gates());
 
-        bool result = composer.check_circuit();
+        bool result = builder.check_circuit();
         EXPECT_EQ(result, true);
 
         EXPECT_EQ(bool(out_1_with_zero.get_value() == out_1_with_r.get_value()), true);
@@ -104,7 +104,7 @@ template <typename Composer> class stdlib_pedersen : public testing::Test {
 
     static void test_pedersen_large()
     {
-        Composer composer;
+        Builder builder;
 
         fr left_in = fr::random_element();
         fr right_in = fr::random_element();
@@ -115,18 +115,18 @@ template <typename Composer> class stdlib_pedersen : public testing::Test {
         if ((right_in.from_montgomery_form().data[0] & 1) == 0) {
             right_in += fr::one();
         }
-        fr_ct left = witness_ct(&composer, left_in);
-        fr_ct right = witness_ct(&composer, right_in);
+        fr_ct left = witness_ct(&builder, left_in);
+        fr_ct right = witness_ct(&builder, right_in);
 
         for (size_t i = 0; i < 256; ++i) {
             left = pedersen_commitment::compress(left, right);
         }
 
-        composer.set_public_input(left.witness_index);
+        builder.set_public_input(left.witness_index);
 
-        info("composer gates = ", composer.get_num_gates());
+        info("num gates = ", builder.get_num_gates());
 
-        bool result = composer.check_circuit();
+        bool result = builder.check_circuit();
         EXPECT_EQ(result, true);
     }
 
@@ -134,7 +134,7 @@ template <typename Composer> class stdlib_pedersen : public testing::Test {
     {
         const size_t num_input_bytes = 351;
 
-        Composer composer;
+        Builder builder;
 
         std::vector<uint8_t> input;
         input.reserve(num_input_bytes);
@@ -144,20 +144,20 @@ template <typename Composer> class stdlib_pedersen : public testing::Test {
 
         fr expected = crypto::pedersen_commitment::compress_native(input);
 
-        byte_array_ct circuit_input(&composer, input);
+        byte_array_ct circuit_input(&builder, input);
         auto result = pedersen_commitment::compress(circuit_input);
 
         EXPECT_EQ(result.get_value(), expected);
 
-        info("composer gates = ", composer.get_num_gates());
+        info("num gates = ", builder.get_num_gates());
 
-        bool proof_result = composer.check_circuit();
+        bool proof_result = builder.check_circuit();
         EXPECT_EQ(proof_result, true);
     }
 
     static void test_multi_compress()
     {
-        Composer composer;
+        Builder builder;
 
         for (size_t i = 0; i < 7; ++i) {
             std::vector<barretenberg::fr> inputs;
@@ -191,7 +191,7 @@ template <typename Composer> class stdlib_pedersen : public testing::Test {
             }
             std::vector<fr_ct> witnesses;
             for (auto input : inputs) {
-                witnesses.push_back(witness_ct(&composer, input));
+                witnesses.push_back(witness_ct(&builder, input));
             }
 
             barretenberg::fr expected = crypto::pedersen_commitment::compress_native(inputs);
@@ -200,23 +200,23 @@ template <typename Composer> class stdlib_pedersen : public testing::Test {
             EXPECT_EQ(result.get_value(), expected);
         }
 
-        info("composer gates = ", composer.get_num_gates());
+        info("num gates = ", builder.get_num_gates());
 
-        bool proof_result = composer.check_circuit();
+        bool proof_result = builder.check_circuit();
         EXPECT_EQ(proof_result, true);
     }
 
     static void test_compress_eight()
     {
-        Composer composer;
+        Builder builder;
 
         std::vector<grumpkin::fq> inputs;
         inputs.reserve(8);
-        std::vector<stdlib::field_t<Composer>> witness_inputs;
+        std::vector<stdlib::field_t<Builder>> witness_inputs;
 
         for (size_t i = 0; i < 8; ++i) {
             inputs.emplace_back(barretenberg::fr::random_element());
-            witness_inputs.emplace_back(witness_ct(&composer, inputs[i]));
+            witness_inputs.emplace_back(witness_ct(&builder, inputs[i]));
         }
 
         constexpr size_t hash_idx = 10;
@@ -228,17 +228,17 @@ template <typename Composer> class stdlib_pedersen : public testing::Test {
 
     static void test_compress_constants()
     {
-        Composer composer;
+        Builder builder;
 
         std::vector<barretenberg::fr> inputs;
-        std::vector<stdlib::field_t<Composer>> witness_inputs;
+        std::vector<stdlib::field_t<Builder>> witness_inputs;
 
         for (size_t i = 0; i < 8; ++i) {
             inputs.push_back(barretenberg::fr::random_element());
             if (i % 2 == 1) {
-                witness_inputs.push_back(witness_ct(&composer, inputs[i]));
+                witness_inputs.push_back(witness_ct(&builder, inputs[i]));
             } else {
-                witness_inputs.push_back(fr_ct(&composer, inputs[i]));
+                witness_inputs.push_back(fr_ct(&builder, inputs[i]));
             }
         }
 
@@ -249,44 +249,43 @@ template <typename Composer> class stdlib_pedersen : public testing::Test {
     }
 };
 
-using CircuitTypes = testing::
-    Types<proof_system::StandardCircuitBuilder, proof_system::TurboCircuitBuilder, proof_system::UltraCircuitBuilder>;
+using CircuitTypes = testing::Types<proof_system::StandardCircuitBuilder, proof_system::UltraCircuitBuilder>;
 
-TYPED_TEST_SUITE(stdlib_pedersen, CircuitTypes);
+TYPED_TEST_SUITE(StdlibPedersen, CircuitTypes);
 
-TYPED_TEST(stdlib_pedersen, small)
+TYPED_TEST(StdlibPedersen, Small)
 {
     TestFixture::test_pedersen();
 };
 
-TYPED_TEST(stdlib_pedersen, edge_cases)
+TYPED_TEST(StdlibPedersen, EdgeCases)
 {
     TestFixture::test_pedersen_edge_cases();
 };
 
-HEAVY_TYPED_TEST(stdlib_pedersen, large)
+HEAVY_TYPED_TEST(StdlibPedersen, Large)
 {
     TestFixture::test_pedersen_large();
 };
 
-TYPED_TEST(stdlib_pedersen, compress_byte_array)
+TYPED_TEST(StdlibPedersen, CompressByteArray)
 {
     TestFixture::test_compress_byte_array();
 };
 
-TYPED_TEST(stdlib_pedersen, multi_compress)
+TYPED_TEST(StdlibPedersen, MultiCompress)
 {
     TestFixture::test_multi_compress();
 };
 
-TYPED_TEST(stdlib_pedersen, compress_eight)
+TYPED_TEST(StdlibPedersen, CompressEight)
 {
     TestFixture::test_compress_eight();
 };
 
-TYPED_TEST(stdlib_pedersen, compress_constants)
+TYPED_TEST(StdlibPedersen, CompressConstants)
 {
     TestFixture::test_compress_constants();
 };
 
-} // namespace test_stdlib_pedersen
+} // namespace test_StdlibPedersen

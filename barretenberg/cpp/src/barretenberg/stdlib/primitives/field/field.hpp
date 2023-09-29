@@ -6,41 +6,44 @@
 
 namespace proof_system::plonk::stdlib {
 
-template <typename ComposerContext> class bool_t;
-template <typename ComposerContext> class field_t {
+template <typename Builder> class bool_t;
+template <typename Builder> class field_t {
   public:
-    field_t(ComposerContext* parent_context = nullptr);
-    field_t(ComposerContext* parent_context, const barretenberg::fr& value);
+    field_t(Builder* parent_context = nullptr);
+    field_t(Builder* parent_context, const barretenberg::fr& value);
+
     field_t(const int value)
         : context(nullptr)
+        , witness_index(IS_CONSTANT)
     {
         additive_constant = barretenberg::fr(value);
         multiplicative_constant = barretenberg::fr(0);
-        witness_index = IS_CONSTANT;
     }
 
+    // NOLINTNEXTLINE(google-runtime-int) intended behaviour
     field_t(const unsigned long long value)
         : context(nullptr)
+        , witness_index(IS_CONSTANT)
     {
         additive_constant = barretenberg::fr(value);
         multiplicative_constant = barretenberg::fr(0);
-        witness_index = IS_CONSTANT;
     }
 
     field_t(const unsigned int value)
         : context(nullptr)
+        , witness_index(IS_CONSTANT)
     {
         additive_constant = barretenberg::fr(value);
         multiplicative_constant = barretenberg::fr(0);
-        witness_index = IS_CONSTANT;
     }
 
+    // NOLINTNEXTLINE(google-runtime-int) intended behaviour
     field_t(const unsigned long value)
         : context(nullptr)
+        , witness_index(IS_CONSTANT)
     {
         additive_constant = barretenberg::fr(value);
         multiplicative_constant = barretenberg::fr(0);
-        witness_index = IS_CONSTANT;
     }
 
     field_t(const barretenberg::fr& value)
@@ -57,7 +60,7 @@ template <typename ComposerContext> class field_t {
         , witness_index(IS_CONSTANT)
     {}
 
-    field_t(const witness_t<ComposerContext>& value);
+    field_t(const witness_t<Builder>& value);
 
     field_t(const field_t& other)
         : context(other.context)
@@ -73,16 +76,18 @@ template <typename ComposerContext> class field_t {
         , witness_index(other.witness_index)
     {}
 
-    field_t(const bool_t<ComposerContext>& other);
+    field_t(const bool_t<Builder>& other);
+
+    ~field_t() = default;
 
     ~field_t() = default;
 
     static constexpr bool is_composite = false;
     static constexpr uint256_t modulus = barretenberg::fr::modulus;
 
-    static field_t from_witness_index(ComposerContext* parent_context, uint32_t witness_index);
+    static field_t from_witness_index(Builder* parent_context, uint32_t witness_index);
 
-    explicit operator bool_t<ComposerContext>() const;
+    explicit operator bool_t<Builder>() const;
 
     field_t& operator=(const field_t& other)
     {
@@ -105,9 +110,9 @@ template <typename ComposerContext> class field_t {
         return *this;
     }
 
-    static field_t copy_as_new_witness(ComposerContext& context, field_t const& other)
+    static field_t copy_as_new_witness(Builder& context, field_t const& other)
     {
-        auto result = field_t<ComposerContext>(witness_t<ComposerContext>(&context, other.get_value()));
+        auto result = field_t<Builder>(witness_t<Builder>(&context, other.get_value()));
         result.assert_equal(other, "field_t::copy_as_new_witness, assert_equal");
         return result;
     }
@@ -178,7 +183,7 @@ template <typename ComposerContext> class field_t {
         return result;
     }
 
-    field_t conditional_negate(const bool_t<ComposerContext>& predicate) const;
+    field_t conditional_negate(const bool_t<Builder>& predicate) const;
 
     void assert_equal(const field_t& rhs, std::string const& msg = "field_t::assert_equal") const;
 
@@ -186,15 +191,15 @@ template <typename ComposerContext> class field_t {
 
     void assert_is_in_set(const std::vector<field_t>& set, std::string const& msg = "field_t::assert_not_in_set") const;
 
-    static field_t conditional_assign(const bool_t<ComposerContext>& predicate, const field_t& lhs, const field_t& rhs);
+    static field_t conditional_assign(const bool_t<Builder>& predicate, const field_t& lhs, const field_t& rhs);
 
     static std::array<field_t, 4> preprocess_two_bit_table(const field_t& T0,
                                                            const field_t& T1,
                                                            const field_t& T2,
                                                            const field_t& T3);
     static field_t select_from_two_bit_table(const std::array<field_t, 4>& table,
-                                             const bool_t<ComposerContext>& t1,
-                                             const bool_t<ComposerContext>& t0);
+                                             const bool_t<Builder>& t1,
+                                             const bool_t<Builder>& t0);
 
     static std::array<field_t, 8> preprocess_three_bit_table(const field_t& T0,
                                                              const field_t& T1,
@@ -205,9 +210,9 @@ template <typename ComposerContext> class field_t {
                                                              const field_t& T6,
                                                              const field_t& T7);
     static field_t select_from_three_bit_table(const std::array<field_t, 8>& table,
-                                               const bool_t<ComposerContext>& t2,
-                                               const bool_t<ComposerContext>& t1,
-                                               const bool_t<ComposerContext>& t0);
+                                               const bool_t<Builder>& t2,
+                                               const bool_t<Builder>& t1,
+                                               const bool_t<Builder>& t0);
 
     static void evaluate_linear_identity(const field_t& a, const field_t& b, const field_t& c, const field_t& d);
     static void evaluate_polynomial_identity(const field_t& a, const field_t& b, const field_t& c, const field_t& d);
@@ -216,19 +221,19 @@ template <typename ComposerContext> class field_t {
 
     /**
      * multiply *this by `to_mul` and add `to_add`
-     * One `madd` call costs 1 constraint for Turbo plonk and Ultra plonk
+     * One `madd` call costs 1 constraint for Ultra plonk
      * */
     field_t madd(const field_t& to_mul, const field_t& to_add) const;
 
-    // add_two costs 1 constraint for turbo/ultra plonk
+    // add_two costs 1 constraint for ultra plonk
     field_t add_two(const field_t& add_a, const field_t& add_b) const;
-    bool_t<ComposerContext> operator==(const field_t& other) const;
-    bool_t<ComposerContext> operator!=(const field_t& other) const;
+    bool_t<Builder> operator==(const field_t& other) const;
+    bool_t<Builder> operator!=(const field_t& other) const;
 
     /**
      * normalize returns a field_t element with equivalent value to `this`, but where `multiplicative_constant = 1` and
      *`additive_constant = 0`.
-     * I.e. the returned value is defined entirely by the composer variable that `witness_index` points to (no scaling
+     * I.e. the returned value is defined entirely by the builder variable that `witness_index` points to (no scaling
      * factors).
      *
      * If the witness_index of `this` is ever needed, `normalize` should be called first.
@@ -242,7 +247,7 @@ template <typename ComposerContext> class field_t {
 
     barretenberg::fr get_value() const;
 
-    ComposerContext* get_context() const { return context; }
+    Builder* get_context() const { return context; }
 
     /**
      * Slices a `field_t` at given indices (msb, lsb) both included in the slice,
@@ -254,7 +259,7 @@ template <typename ComposerContext> class field_t {
      * is_zero will return a bool_t, and add constraints that enforce its correctness
      * N.B. If you want to ENFORCE that a field_t object is zero, use `assert_is_zero`
      **/
-    bool_t<ComposerContext> is_zero() const;
+    bool_t<Builder> is_zero() const;
 
     void create_range_constraint(size_t num_bits, std::string const& msg = "field_t::range_constraint") const;
     void assert_is_not_zero(std::string const& msg = "field_t::assert_is_not_zero") const;
@@ -266,17 +271,17 @@ template <typename ComposerContext> class field_t {
      * Create a witness form a constant. This way the value of the witness is fixed and public (public, because the
      * value becomes hard-coded as an element of the q_c selector vector).
      */
-    void convert_constant_to_fixed_witness(ComposerContext* ctx)
+    void convert_constant_to_fixed_witness(Builder* ctx)
     {
         ASSERT(witness_index == IS_CONSTANT);
         context = ctx;
-        (*this) = field_t<ComposerContext>(witness_t<ComposerContext>(context, get_value()));
+        (*this) = field_t<Builder>(witness_t<Builder>(context, get_value()));
         context->fix_witness(witness_index, get_value());
     }
 
-    static field_t from_witness(ComposerContext* ctx, const barretenberg::fr& input)
+    static field_t from_witness(Builder* ctx, const barretenberg::fr& input)
     {
-        return field_t(witness_t<ComposerContext>(ctx, input));
+        return field_t(witness_t<Builder>(ctx, input));
     }
 
     /**
@@ -292,11 +297,11 @@ template <typename ComposerContext> class field_t {
 
     uint32_t get_witness_index() const { return witness_index; }
 
-    std::vector<bool_t<ComposerContext>> decompose_into_bits(
+    std::vector<bool_t<Builder>> decompose_into_bits(
         size_t num_bits = 256,
-        std::function<witness_t<ComposerContext>(ComposerContext* ctx, uint64_t, uint256_t)> get_bit =
-            [](ComposerContext* ctx, uint64_t j, const uint256_t& val) {
-                return witness_t<ComposerContext>(ctx, val.get_bit(j));
+        std::function<witness_t<Builder>(Builder* ctx, uint64_t, uint256_t)> get_bit =
+            [](Builder* ctx, uint64_t j, const uint256_t& val) {
+                return witness_t<Builder>(ctx, val.get_bit(j));
             }) const;
 
     /**
@@ -304,13 +309,13 @@ template <typename ComposerContext> class field_t {
      *        This method *assumes* that both a and b are < 2^{input_bits} - 1
      *        i.e. it is not checked here, we assume this has been done previously
      *
-     * @tparam Composer
+     * @tparam Builder
      * @tparam input_bits
      * @param a
      * @param b
-     * @return bool_t<Composer>
+     * @return bool_t<Builder>
      */
-    template <size_t num_bits> bool_t<ComposerContext> ranged_less_than(const field_t<ComposerContext>& other) const
+    template <size_t num_bits> bool_t<Builder> ranged_less_than(const field_t<Builder>& other) const
     {
         const auto& a = (*this);
         const auto& b = other;
@@ -328,13 +333,13 @@ template <typename ComposerContext> class field_t {
         // b - a + (K - 1) - (K).q = r
         uint256_t range_constant = (uint256_t(1) << num_bits);
         bool predicate_witness = uint256_t(a.get_value()) < uint256_t(b.get_value());
-        bool_t<ComposerContext> predicate(witness_t<ComposerContext>(ctx, predicate_witness));
+        bool_t<Builder> predicate(witness_t<Builder>(ctx, predicate_witness));
         field_t predicate_valid = b.add_two(-(a) + range_constant - 1, -field_t(predicate) * range_constant);
         predicate_valid.create_range_constraint(num_bits);
         return predicate;
     }
 
-    mutable ComposerContext* context = nullptr;
+    mutable Builder* context = nullptr;
 
     /**
      * `additive_constant` and `multiplicative_constant` are constant scaling factors applied to a field_t object.
@@ -375,7 +380,7 @@ template <typename ComposerContext> class field_t {
     mutable barretenberg::fr multiplicative_constant;
 
     /**
-     * Every composer object contains a vector `variables` (a.k.a. 'witnesses'); circuit variables that can be
+     * Every builder object contains a vector `variables` (a.k.a. 'witnesses'); circuit variables that can be
      * assigned to wires when creating constraints. `witness_index` describes a location in this container. I.e. it
      * 'points' to a circuit variable.
      *
@@ -394,7 +399,7 @@ template <typename ComposerContext> class field_t {
      * field_t baz = foo * (bar + 7);
      *
      * This will add 3 new circuit witnesses (10, 50, 570) to `variables`. One constraint will also be created, that
-     * validates `baz` has been correctly constructed. The composer will assign `foo, bar, baz` to wires `w_1, w_2, w_3`
+     * validates `baz` has been correctly constructed. The builder will assign `foo, bar, baz` to wires `w_1, w_2, w_3`
      * in a new gate which checks that:
      *
      *      w_1 * w_2 + w_1 * 7 - w_3 = 0
@@ -418,7 +423,7 @@ template <typename ComposerContext> class field_t {
     mutable uint32_t witness_index = IS_CONSTANT;
 };
 
-template <typename ComposerContext> inline std::ostream& operator<<(std::ostream& os, field_t<ComposerContext> const& v)
+template <typename Builder> inline std::ostream& operator<<(std::ostream& os, field_t<Builder> const& v)
 {
     return os << v.get_value();
 }

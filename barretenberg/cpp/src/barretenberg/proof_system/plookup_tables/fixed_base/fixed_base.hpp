@@ -19,7 +19,6 @@ class table : public FixedBaseParams {
     using single_lookup_table = std::vector<affine_element>;
     using fixed_base_scalar_mul_tables = std::vector<single_lookup_table>;
     using all_multi_tables = std::array<fixed_base_scalar_mul_tables, NUM_FIXED_BASE_MULTI_TABLES>;
-    using native_pedersen = crypto::pedersen_hash;
 
     static constexpr affine_element get_lhs_generator()
     {

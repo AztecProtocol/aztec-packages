@@ -6,10 +6,8 @@
 #include <vector>
 
 namespace barretenberg::group_elements {
-
 template <typename T>
 concept SupportsHashToCurve = T::can_hash_to_curve;
-
 template <typename Fq, typename Fr, typename Params> class alignas(64) affine_element {
   public:
     using in_buf = const uint8_t*;

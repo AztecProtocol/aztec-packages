@@ -15,10 +15,10 @@ using namespace proof_system::plonk;
 using namespace plookup;
 
 // Defining ultra-specific types for local testing.
-using Composer = proof_system::UltraCircuitBuilder;
-using field_ct = stdlib::field_t<Composer>;
-using witness_ct = stdlib::witness_t<Composer>;
-using plookup_read = proof_system::plonk::stdlib::plookup_read<Composer>;
+using Builder = proof_system::UltraCircuitBuilder;
+using field_ct = stdlib::field_t<Builder>;
+using witness_ct = stdlib::witness_t<Builder>;
+using plookup_read = proof_system::plonk::stdlib::plookup_read<Builder>;
 namespace {
 auto& engine = numeric::random::get_debug_engine();
 }
@@ -26,21 +26,21 @@ auto& engine = numeric::random::get_debug_engine();
 // TODO FIX FIX
 // TEST(stdlib_plookup, pedersen_lookup_left)
 // {
-//     Composer composer = Composer();
+//     Builder builder = Builder();
 
 //     barretenberg::fr input_value = fr::random_element();
-//     field_ct input_hi = witness_ct(&composer, uint256_t(input_value).slice(126, 256));
-//     field_ct input_lo = witness_ct(&composer, uint256_t(input_value).slice(0, 126));
+//     field_ct input_hi = witness_ct(&builder, uint256_t(input_value).slice(126, 256));
+//     field_ct input_lo = witness_ct(&builder, uint256_t(input_value).slice(0, 126));
 
-//     const auto lookup_hi = plookup_read::get_lookup_accumulators(MultiTableId::FIXED_BASE_LEFT_HI, input_hi);
-//     const auto lookup_lo = plookup_read::get_lookup_accumulators(MultiTableId::FIXED_BASE_LEFT_LO, input_lo);
+//     const auto lookup_hi = plookup_read::get_lookup_accumulators(MultiTableId::PEDERSEN_LEFT_HI, input_hi);
+//     const auto lookup_lo = plookup_read::get_lookup_accumulators(MultiTableId::PEDERSEN_LEFT_LO, input_lo);
 
 //     std::vector<barretenberg::fr> expected_x;
 //     std::vector<barretenberg::fr> expected_y;
 
 //     const size_t num_lookups_hi =
-//         (128 + plookup::FixedBaseParams::BITS_PER_TABLE) / plookup::FixedBaseParams::BITS_PER_TABLE;
-//     const size_t num_lookups_lo = 126 / plookup::FixedBaseParams::BITS_PER_TABLE;
+//         (128 + crypto::pedersen_hash::lookup::BITS_PER_TABLE) / crypto::pedersen_hash::lookup::BITS_PER_TABLE;
+//     const size_t num_lookups_lo = 126 / crypto::pedersen_hash::lookup::BITS_PER_TABLE;
 
 //     EXPECT_EQ(num_lookups_hi, lookup_hi[ColumnIdx::C1].size());
 //     EXPECT_EQ(num_lookups_lo, lookup_lo[ColumnIdx::C1].size());
@@ -55,21 +55,22 @@ auto& engine = numeric::random::get_debug_engine();
 //         const size_t num_rounds = (num_lookups + 1) / 2;
 //         uint256_t bits(input_value);
 
-//         const auto mask = plookup::FixedBaseParams::MAX_TABLE_SIZE - 1;
+//         const auto mask = crypto::pedersen_hash::lookup::PEDERSEN_TABLE_SIZE - 1;
 
 //         for (size_t i = 0; i < num_rounds; ++i) {
 //             const auto& table = crypto::pedersen_hash::lookup::get_table(i);
 //             const size_t index = i * 2;
 
 //             size_t slice_a =
-//                 static_cast<size_t>(((bits >> (index * plookup::FixedBaseParams::BITS_PER_TABLE)) & mask).data[0]);
+//                 static_cast<size_t>(((bits >> (index * crypto::pedersen_hash::lookup::BITS_PER_TABLE)) &
+//                 mask).data[0]);
 //             expected_x[index] = (table[slice_a].x);
 //             expected_y[index] = (table[slice_a].y);
 //             expected_scalars[index] = slice_a;
 
 //             if (i < 14) {
 //                 size_t slice_b = static_cast<size_t>(
-//                     ((bits >> ((index + 1) * plookup::FixedBaseParams::BITS_PER_TABLE)) & mask).data[0]);
+//                     ((bits >> ((index + 1) * crypto::pedersen_hash::lookup::BITS_PER_TABLE)) & mask).data[0]);
 //                 expected_x[index + 1] = (table[slice_b].x);
 //                 expected_y[index + 1] = (table[slice_b].y);
 //                 expected_scalars[index + 1] = slice_b;
@@ -78,7 +79,7 @@ auto& engine = numeric::random::get_debug_engine();
 //     }
 
 //     for (size_t i = num_lookups - 2; i < num_lookups; --i) {
-//         expected_scalars[i] += (expected_scalars[i + 1] * plookup::FixedBaseParams::MAX_TABLE_SIZE);
+//         expected_scalars[i] += (expected_scalars[i + 1] * crypto::pedersen_hash::lookup::PEDERSEN_TABLE_SIZE);
 //     }
 //     size_t hi_shift = 126;
 //     const fr hi_cumulative = lookup_hi[ColumnIdx::C1][0].get_value();
@@ -87,7 +88,7 @@ auto& engine = numeric::random::get_debug_engine();
 //         EXPECT_EQ(lookup_lo[ColumnIdx::C1][i].get_value() + (hi_cumulative * hi_mult), expected_scalars[i]);
 //         EXPECT_EQ(lookup_lo[ColumnIdx::C2][i].get_value(), expected_x[i]);
 //         EXPECT_EQ(lookup_lo[ColumnIdx::C3][i].get_value(), expected_y[i]);
-//         hi_shift -= plookup::FixedBaseParams::BITS_PER_TABLE;
+//         hi_shift -= crypto::pedersen_hash::lookup::BITS_PER_TABLE;
 //     }
 //     for (size_t i = 0; i < num_lookups_hi; ++i) {
 //         EXPECT_EQ(lookup_hi[ColumnIdx::C1][i].get_value(), expected_scalars[i + num_lookups_lo]);
@@ -95,28 +96,28 @@ auto& engine = numeric::random::get_debug_engine();
 //         EXPECT_EQ(lookup_hi[ColumnIdx::C3][i].get_value(), expected_y[i + num_lookups_lo]);
 //     }
 
-//     bool result = composer.check_circuit();
+//     bool result = builder.check_circuit();
 
 //     EXPECT_EQ(result, true);
 // }
 
 // TEST(stdlib_plookup, pedersen_lookup_right)
 // {
-//     Composer composer = Composer();
+//     Builder builder = Builder();
 
 //     barretenberg::fr input_value = fr::random_element();
-//     field_ct input_hi = witness_ct(&composer, uint256_t(input_value).slice(126, 256));
-//     field_ct input_lo = witness_ct(&composer, uint256_t(input_value).slice(0, 126));
+//     field_ct input_hi = witness_ct(&builder, uint256_t(input_value).slice(126, 256));
+//     field_ct input_lo = witness_ct(&builder, uint256_t(input_value).slice(0, 126));
 
-//     const auto lookup_hi = plookup_read::get_lookup_accumulators(MultiTableId::FIXED_BASE_RIGHT_HI, input_hi);
-//     const auto lookup_lo = plookup_read::get_lookup_accumulators(MultiTableId::FIXED_BASE_RIGHT_LO, input_lo);
+//     const auto lookup_hi = plookup_read::get_lookup_accumulators(MultiTableId::PEDERSEN_RIGHT_HI, input_hi);
+//     const auto lookup_lo = plookup_read::get_lookup_accumulators(MultiTableId::PEDERSEN_RIGHT_LO, input_lo);
 
 //     std::vector<barretenberg::fr> expected_x;
 //     std::vector<barretenberg::fr> expected_y;
 
 //     const size_t num_lookups_hi =
-//         (128 + plookup::FixedBaseParams::BITS_PER_TABLE) / plookup::FixedBaseParams::BITS_PER_TABLE;
-//     const size_t num_lookups_lo = 126 / plookup::FixedBaseParams::BITS_PER_TABLE;
+//         (128 + crypto::pedersen_hash::lookup::BITS_PER_TABLE) / crypto::pedersen_hash::lookup::BITS_PER_TABLE;
+//     const size_t num_lookups_lo = 126 / crypto::pedersen_hash::lookup::BITS_PER_TABLE;
 
 //     EXPECT_EQ(num_lookups_hi, lookup_hi[ColumnIdx::C1].size());
 //     EXPECT_EQ(num_lookups_lo, lookup_lo[ColumnIdx::C1].size());
@@ -131,21 +132,22 @@ auto& engine = numeric::random::get_debug_engine();
 //         const size_t num_rounds = (num_lookups + 1) / 2;
 //         uint256_t bits(input_value);
 
-//         const auto mask = plookup::FixedBaseParams::MAX_TABLE_SIZE - 1;
+//         const auto mask = crypto::pedersen_hash::lookup::PEDERSEN_TABLE_SIZE - 1;
 
 //         for (size_t i = 0; i < num_rounds; ++i) {
 //             const auto& table = crypto::pedersen_hash::lookup::get_table(i + num_rounds);
 //             const size_t index = i * 2;
 
 //             size_t slice_a =
-//                 static_cast<size_t>(((bits >> (index * plookup::FixedBaseParams::BITS_PER_TABLE)) & mask).data[0]);
+//                 static_cast<size_t>(((bits >> (index * crypto::pedersen_hash::lookup::BITS_PER_TABLE)) &
+//                 mask).data[0]);
 //             expected_x[index] = (table[slice_a].x);
 //             expected_y[index] = (table[slice_a].y);
 //             expected_scalars[index] = slice_a;
 
 //             if (i < 14) {
 //                 size_t slice_b = static_cast<size_t>(
-//                     ((bits >> ((index + 1) * plookup::FixedBaseParams::BITS_PER_TABLE)) & mask).data[0]);
+//                     ((bits >> ((index + 1) * crypto::pedersen_hash::lookup::BITS_PER_TABLE)) & mask).data[0]);
 //                 expected_x[index + 1] = (table[slice_b].x);
 //                 expected_y[index + 1] = (table[slice_b].y);
 //                 expected_scalars[index + 1] = slice_b;
@@ -154,7 +156,7 @@ auto& engine = numeric::random::get_debug_engine();
 //     }
 
 //     for (size_t i = num_lookups - 2; i < num_lookups; --i) {
-//         expected_scalars[i] += (expected_scalars[i + 1] * plookup::FixedBaseParams::MAX_TABLE_SIZE);
+//         expected_scalars[i] += (expected_scalars[i + 1] * crypto::pedersen_hash::lookup::PEDERSEN_TABLE_SIZE);
 //     }
 //     size_t hi_shift = 126;
 //     const fr hi_cumulative = lookup_hi[ColumnIdx::C1][0].get_value();
@@ -163,7 +165,7 @@ auto& engine = numeric::random::get_debug_engine();
 //         EXPECT_EQ(lookup_lo[ColumnIdx::C1][i].get_value() + (hi_cumulative * hi_mult), expected_scalars[i]);
 //         EXPECT_EQ(lookup_lo[ColumnIdx::C2][i].get_value(), expected_x[i]);
 //         EXPECT_EQ(lookup_lo[ColumnIdx::C3][i].get_value(), expected_y[i]);
-//         hi_shift -= plookup::FixedBaseParams::BITS_PER_TABLE;
+//         hi_shift -= crypto::pedersen_hash::lookup::BITS_PER_TABLE;
 //     }
 //     for (size_t i = 0; i < num_lookups_hi; ++i) {
 //         EXPECT_EQ(lookup_hi[ColumnIdx::C1][i].get_value(), expected_scalars[i + num_lookups_lo]);
@@ -171,22 +173,22 @@ auto& engine = numeric::random::get_debug_engine();
 //         EXPECT_EQ(lookup_hi[ColumnIdx::C3][i].get_value(), expected_y[i + num_lookups_lo]);
 //     }
 
-//     bool result = composer.check_circuit();
+//     bool result = builder.check_circuit();
 
 //     EXPECT_EQ(result, true);
 // }
 
 TEST(stdlib_plookup, uint32_xor)
 {
-    Composer composer = Composer();
+    Builder builder = Builder();
 
     const size_t num_lookups = (32 + 5) / 6;
 
     uint256_t left_value = (engine.get_random_uint256() & 0xffffffffULL);
     uint256_t right_value = (engine.get_random_uint256() & 0xffffffffULL);
 
-    field_ct left = witness_ct(&composer, barretenberg::fr(left_value));
-    field_ct right = witness_ct(&composer, barretenberg::fr(right_value));
+    field_ct left = witness_ct(&builder, barretenberg::fr(left_value));
+    field_ct right = witness_ct(&builder, barretenberg::fr(right_value));
 
     const auto lookup = plookup_read::get_lookup_accumulators(MultiTableId::UINT32_XOR, left, right, true);
 
@@ -215,22 +217,22 @@ TEST(stdlib_plookup, uint32_xor)
         EXPECT_EQ(lookup[ColumnIdx::C3][i].get_value(), barretenberg::fr(out_expected[i]));
     }
 
-    bool result = composer.check_circuit();
+    bool result = builder.check_circuit();
 
     EXPECT_EQ(result, true);
 }
 
 TEST(stdlib_plookup, blake2s_xor_rotate_16)
 {
-    Composer composer = Composer();
+    Builder builder = Builder();
 
     const size_t num_lookups = 6;
 
     uint256_t left_value = (engine.get_random_uint256() & 0xffffffffULL);
     uint256_t right_value = (engine.get_random_uint256() & 0xffffffffULL);
 
-    field_ct left = witness_ct(&composer, barretenberg::fr(left_value));
-    field_ct right = witness_ct(&composer, barretenberg::fr(right_value));
+    field_ct left = witness_ct(&builder, barretenberg::fr(left_value));
+    field_ct right = witness_ct(&builder, barretenberg::fr(right_value));
 
     const auto lookup = plookup_read::get_lookup_accumulators(MultiTableId::BLAKE_XOR_ROTATE_16, left, right, true);
 
@@ -286,22 +288,22 @@ TEST(stdlib_plookup, blake2s_xor_rotate_16)
     uint32_t xor_rotate_output = numeric::rotate32(uint32_t(left_value) ^ uint32_t(right_value), 16);
     EXPECT_EQ(barretenberg::fr(uint256_t(xor_rotate_output)), lookup_output);
 
-    bool result = composer.check_circuit();
+    bool result = builder.check_circuit();
 
     EXPECT_EQ(result, true);
 }
 
 TEST(stdlib_plookup, blake2s_xor_rotate_8)
 {
-    Composer composer = Composer();
+    Builder builder = Builder();
 
     const size_t num_lookups = 6;
 
     uint256_t left_value = (engine.get_random_uint256() & 0xffffffffULL);
     uint256_t right_value = (engine.get_random_uint256() & 0xffffffffULL);
 
-    field_ct left = witness_ct(&composer, barretenberg::fr(left_value));
-    field_ct right = witness_ct(&composer, barretenberg::fr(right_value));
+    field_ct left = witness_ct(&builder, barretenberg::fr(left_value));
+    field_ct right = witness_ct(&builder, barretenberg::fr(right_value));
 
     const auto lookup = plookup_read::get_lookup_accumulators(MultiTableId::BLAKE_XOR_ROTATE_8, left, right, true);
 
@@ -346,22 +348,22 @@ TEST(stdlib_plookup, blake2s_xor_rotate_8)
     uint32_t xor_rotate_output = numeric::rotate32(uint32_t(left_value) ^ uint32_t(right_value), 8);
     EXPECT_EQ(barretenberg::fr(uint256_t(xor_rotate_output)), lookup_output);
 
-    bool result = composer.check_circuit();
+    bool result = builder.check_circuit();
 
     EXPECT_EQ(result, true);
 }
 
 TEST(stdlib_plookup, blake2s_xor_rotate_7)
 {
-    Composer composer = Composer();
+    Builder builder = Builder();
 
     const size_t num_lookups = 6;
 
     uint256_t left_value = (engine.get_random_uint256() & 0xffffffffULL);
     uint256_t right_value = (engine.get_random_uint256() & 0xffffffffULL);
 
-    field_ct left = witness_ct(&composer, barretenberg::fr(left_value));
-    field_ct right = witness_ct(&composer, barretenberg::fr(right_value));
+    field_ct left = witness_ct(&builder, barretenberg::fr(left_value));
+    field_ct right = witness_ct(&builder, barretenberg::fr(right_value));
 
     const auto lookup = plookup_read::get_lookup_accumulators(MultiTableId::BLAKE_XOR_ROTATE_7, left, right, true);
 
@@ -406,22 +408,22 @@ TEST(stdlib_plookup, blake2s_xor_rotate_7)
     uint32_t xor_rotate_output = numeric::rotate32(uint32_t(left_value) ^ uint32_t(right_value), 7);
     EXPECT_EQ(barretenberg::fr(uint256_t(xor_rotate_output)), lookup_output);
 
-    bool result = composer.check_circuit();
+    bool result = builder.check_circuit();
 
     EXPECT_EQ(result, true);
 }
 
 TEST(stdlib_plookup, blake2s_xor)
 {
-    Composer composer = Composer();
+    Builder builder = Builder();
 
     const size_t num_lookups = 6;
 
     uint256_t left_value = (engine.get_random_uint256() & 0xffffffffULL);
     uint256_t right_value = (engine.get_random_uint256() & 0xffffffffULL);
 
-    field_ct left = witness_ct(&composer, barretenberg::fr(left_value));
-    field_ct right = witness_ct(&composer, barretenberg::fr(right_value));
+    field_ct left = witness_ct(&builder, barretenberg::fr(left_value));
+    field_ct right = witness_ct(&builder, barretenberg::fr(right_value));
 
     const auto lookup = plookup_read::get_lookup_accumulators(MultiTableId::BLAKE_XOR, left, right, true);
 
@@ -469,22 +471,22 @@ TEST(stdlib_plookup, blake2s_xor)
         EXPECT_EQ(lookup[ColumnIdx::C3][i].get_value(), barretenberg::fr(out_expected[i]));
     }
 
-    bool result = composer.check_circuit();
+    bool result = builder.check_circuit();
 
     EXPECT_EQ(result, true);
 }
 
 TEST(stdlib_plookup, uint32_and)
 {
-    Composer composer = Composer();
+    Builder builder = Builder();
 
     const size_t num_lookups = (32 + 5) / 6;
 
     uint256_t left_value = (engine.get_random_uint256() & 0xffffffffULL);
     uint256_t right_value = (engine.get_random_uint256() & 0xffffffffULL);
 
-    field_ct left = witness_ct(&composer, barretenberg::fr(left_value));
-    field_ct right = witness_ct(&composer, barretenberg::fr(right_value));
+    field_ct left = witness_ct(&builder, barretenberg::fr(left_value));
+    field_ct right = witness_ct(&builder, barretenberg::fr(right_value));
 
     const auto lookup = plookup_read::get_lookup_accumulators(MultiTableId::UINT32_AND, left, right, true);
     const auto left_slices = numeric::slice_input(left_value, 1 << 6, num_lookups);
@@ -511,15 +513,15 @@ TEST(stdlib_plookup, uint32_and)
         EXPECT_EQ(lookup[ColumnIdx::C3][i].get_value(), barretenberg::fr(out_expected[i]));
     }
 
-    bool result = composer.check_circuit();
+    bool result = builder.check_circuit();
 
     EXPECT_EQ(result, true);
 }
 
 TEST(stdlib_plookup, secp256k1_generator)
 {
-    using curve = stdlib::secp256k1<Composer>;
-    Composer composer = Composer();
+    using curve = stdlib::secp256k1<Builder>;
+    Builder builder = Builder();
 
     uint256_t input_value = (engine.get_random_uint256() >> 128);
 
@@ -541,7 +543,7 @@ TEST(stdlib_plookup, secp256k1_generator)
 
     std::vector<field_ct> circuit_naf_values;
     for (size_t i = 0; i < naf_values.size(); ++i) {
-        circuit_naf_values.emplace_back(witness_ct(&composer, naf_values[i]));
+        circuit_naf_values.emplace_back(witness_ct(&builder, naf_values[i]));
     }
 
     std::vector<field_ct> accumulators;
@@ -554,7 +556,7 @@ TEST(stdlib_plookup, secp256k1_generator)
     EXPECT_EQ(accumulator_field.get_value(), barretenberg::fr(input_value) + barretenberg::fr(skew));
 
     for (size_t i = 0; i < 256; ++i) {
-        field_ct index(witness_ct(&composer, barretenberg::fr(i)));
+        field_ct index(witness_ct(&builder, barretenberg::fr(i)));
         const auto xlo = plookup_read::read_pair_from_table(MultiTableId::SECP256K1_XLO, index);
         const auto xhi = plookup_read::read_pair_from_table(MultiTableId::SECP256K1_XHI, index);
         const auto ylo = plookup_read::read_pair_from_table(MultiTableId::SECP256K1_YLO, index);
@@ -600,14 +602,14 @@ TEST(stdlib_plookup, secp256k1_generator)
     }
 
     if (skew) {
-        accumulator = accumulator - curve::g1_ct::one(&composer);
+        accumulator = accumulator - curve::g1_ct::one(&builder);
     }
 
     curve::g1::affine_element result = accumulator.get_value();
     curve::g1::affine_element expected(curve::g1::one * input_value);
     EXPECT_EQ(result, expected);
 
-    bool proof_result = composer.check_circuit();
+    bool proof_result = builder.check_circuit();
     EXPECT_EQ(proof_result, true);
 }
 

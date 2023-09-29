@@ -16,21 +16,21 @@
 #include "../verification_key/verification_key.hpp"
 
 namespace proof_system::plonk::stdlib::recursion {
-template <typename Composer> class Transcript {
+template <typename Builder> class Transcript {
   public:
-    using field_pt = field_t<Composer>;
-    using witness_pt = witness_t<Composer>;
-    using fq_pt = bigfield<Composer, barretenberg::Bn254FqParams>;
-    using group_pt = element<Composer, fq_pt, field_pt, barretenberg::g1>;
-    using Key = verification_key<stdlib::bn254<Composer>>;
+    using field_pt = field_t<Builder>;
+    using witness_pt = witness_t<Builder>;
+    using fq_pt = bigfield<Builder, barretenberg::Bn254FqParams>;
+    using group_pt = element<Builder, fq_pt, field_pt, barretenberg::g1>;
+    using Key = verification_key<stdlib::bn254<Builder>>;
 
-    Transcript(Composer* in_context, const transcript::Manifest input_manifest)
+    Transcript(Builder* in_context, const transcript::Manifest input_manifest)
         : context(in_context)
         , transcript_base(input_manifest, transcript::HashType::PedersenBlake3s, 16)
         , current_challenge(in_context)
     {}
 
-    Transcript(Composer* in_context,
+    Transcript(Builder* in_context,
                const std::vector<uint8_t>& input_transcript,
                const transcript::Manifest input_manifest)
         : context(in_context)
@@ -40,8 +40,8 @@ template <typename Composer> class Transcript {
     {
         // for (size_t i = 0; i < input_transcript.size(); ++i)
         // {
-        //     field_t<Composer> data(witness_pt<Composer>(context, input_transcript[i]));
-        //     transcript_bytes.write(byte_array<Composer>(data));
+        //     field_t<Builder> data(witness_pt<Builder>(context, input_transcript[i]));
+        //     transcript_bytes.write(byte_array<Builder>(data));
         // }
     }
 
@@ -55,7 +55,7 @@ template <typename Composer> class Transcript {
      * @param field_buffer
      * @param num_public_inputs
      */
-    Transcript(Composer* in_context,
+    Transcript(Builder* in_context,
                const transcript::Manifest input_manifest,
                const std::vector<field_pt>& field_buffer,
                const size_t num_public_inputs)
@@ -184,7 +184,7 @@ template <typename Composer> class Transcript {
         // while we could store more *bits*, we want `preimage_buffer` to mirror how data is formatted
         // when we serialize field/group elements natively (i.e. a byte array)
         static constexpr size_t NUM_BITS_PER_PREIMAGE_ELEMENT = 31UL * 8UL;
-        PedersenPreimageBuilder<Composer, NUM_BITS_PER_PREIMAGE_ELEMENT> preimage_buffer(context);
+        PedersenPreimageBuilder<Builder, NUM_BITS_PER_PREIMAGE_ELEMENT> preimage_buffer(context);
         if (current_round > 0) {
             preimage_buffer.add_element(current_challenge);
         }
@@ -255,7 +255,7 @@ template <typename Composer> class Transcript {
             field_pt borrow = field_pt::from_witness(context, need_borrow);
 
             // directly call `create_new_range_constraint` to avoid creating an arithmetic gate
-            if constexpr (HasPlookup<Composer>) {
+            if constexpr (HasPlookup<Builder>) {
                 context->create_new_range_constraint(borrow.get_witness_index(), 1, "borrow");
             } else {
                 context->create_range_constraint(borrow.get_witness_index(), 1, "borrow");
@@ -272,7 +272,7 @@ template <typename Composer> class Transcript {
             return std::array<field_pt, 2>{ y_lo, y_hi };
         };
 
-        field_pt base_hash = stdlib::pedersen_commitment<Composer>::compress(std::vector<field_pt>{ T0 }, 0);
+        field_pt base_hash = stdlib::pedersen_commitment<Builder>::compress(std::vector<field_pt>{ T0 }, 0);
         auto hash_halves = slice_into_halves(base_hash);
         round_challenges_new.push_back(hash_halves[1]);
 
@@ -286,7 +286,7 @@ template <typename Composer> class Transcript {
         // half to get the relevant challenges.
         for (size_t i = 2; i < num_challenges; i += 2) {
             // TODO(@zac-williamson) make this a Poseidon hash not a Pedersen hash
-            field_pt hash_output = stdlib::pedersen_commitment<Composer>::compress(
+            field_pt hash_output = stdlib::pedersen_commitment<Builder>::compress(
                 std::vector<field_pt>{ (base_hash + field_pt(i / 2)).normalize() }, 0);
             auto hash_halves = slice_into_halves(hash_output);
             round_challenges_new.push_back(hash_halves[1]);
@@ -382,9 +382,9 @@ template <typename Composer> class Transcript {
         return result;
     }
 
-    static fq_pt convert_fq(Composer* ctx, const barretenberg::fq& input) { return fq_pt::from_witness(ctx, input); };
+    static fq_pt convert_fq(Builder* ctx, const barretenberg::fq& input) { return fq_pt::from_witness(ctx, input); };
 
-    static group_pt convert_g1(Composer* ctx, const barretenberg::g1::affine_element& input)
+    static group_pt convert_g1(Builder* ctx, const barretenberg::g1::affine_element& input)
     {
         return group_pt::from_witness(ctx, input);
     };
@@ -394,7 +394,7 @@ template <typename Composer> class Transcript {
         return transcript_base.get_num_challenges(challenge_name);
     }
 
-    Composer* context;
+    Builder* context;
 
   private:
     transcript::Transcript transcript_base;

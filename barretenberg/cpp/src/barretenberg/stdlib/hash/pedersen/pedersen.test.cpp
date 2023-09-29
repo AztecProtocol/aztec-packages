@@ -4,7 +4,7 @@
 #include "barretenberg/numeric/random/engine.hpp"
 #include <gtest/gtest.h>
 
-#define STDLIB_TYPE_ALIASES using Composer = TypeParam;
+#define STDLIB_TYPE_ALIASES using Builder = TypeParam;
 
 namespace stdlib_pedersen_tests {
 using namespace barretenberg;
@@ -14,23 +14,22 @@ namespace {
 auto& engine = numeric::random::get_debug_engine();
 }
 
-template <class Composer> class PedersenTest : public ::testing::Test {
+template <class Builder> class PedersenTest : public ::testing::Test {
   public:
     static void SetUpTestSuite(){
 
     };
 };
 
-using CircuitTypes = ::testing::
-    Types<proof_system::StandardCircuitBuilder, proof_system::TurboCircuitBuilder, proof_system::UltraCircuitBuilder>;
+using CircuitTypes = ::testing::Types<proof_system::StandardCircuitBuilder, proof_system::UltraCircuitBuilder>;
 TYPED_TEST_SUITE(PedersenTest, CircuitTypes);
 
 TYPED_TEST(PedersenTest, TestHash)
 {
     STDLIB_TYPE_ALIASES;
-    using field_ct = stdlib::field_t<Composer>;
-    using witness_ct = stdlib::witness_t<Composer>;
-    auto composer = Composer();
+    using field_ct = stdlib::field_t<Builder>;
+    using witness_ct = stdlib::witness_t<Builder>;
+    auto composer = Builder();
 
     const size_t num_inputs = 10;
 
@@ -43,7 +42,7 @@ TYPED_TEST(PedersenTest, TestHash)
         inputs.emplace_back(field_ct(witness_ct(&composer, element)));
     }
 
-    auto result = stdlib::pedersen_hash<Composer>::hash(inputs);
+    auto result = stdlib::pedersen_hash<Builder>::hash(inputs);
     auto expected = crypto::pedersen_hash::hash(inputs_native);
 
     EXPECT_EQ(result.get_value(), expected);

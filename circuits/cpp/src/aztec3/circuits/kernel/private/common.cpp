@@ -2,6 +2,7 @@
 
 #include "init.hpp"
 
+#include "aztec3/circuits/abis/complete_address.hpp"
 #include "aztec3/circuits/abis/contract_deployment_data.hpp"
 #include "aztec3/circuits/abis/function_data.hpp"
 #include "aztec3/circuits/abis/kernel_circuit_public_inputs.hpp"
@@ -111,6 +112,13 @@ void common_validate_read_requests(DummyBuilder& builder,
             // that a non-transient read_request was derived from the proper/current contract address?
         }
     }
+}
+
+void common_validate_0th_nullifier(DummyBuilder& builder, CombinedAccumulatedData<NT> const& end)
+{
+    builder.do_assert(end.new_nullifiers[0] != 0,
+                      "The 0th nullifier in the accumulated nullifier array is zero",
+                      CircuitErrorCode::PRIVATE_KERNEL__0TH_NULLLIFIER_IS_ZERO);
 }
 
 void common_update_end_values(DummyBuilder& builder,
@@ -288,10 +296,11 @@ void common_contract_logic(DummyBuilder& builder,
         auto constructor_hash =
             compute_constructor_hash(function_data, private_call_public_inputs.args_hash, private_call_vk_hash);
 
-        auto const new_contract_address = compute_contract_address<NT>(contract_dep_data.deployer_public_key,
-                                                                       contract_dep_data.contract_address_salt,
-                                                                       contract_dep_data.function_tree_root,
-                                                                       constructor_hash);
+        auto const new_contract_address = abis::CompleteAddress<NT>::compute(contract_dep_data.deployer_public_key,
+                                                                             contract_dep_data.contract_address_salt,
+                                                                             contract_dep_data.function_tree_root,
+                                                                             constructor_hash)
+                                              .address;
 
         // Add new contract data if its a contract deployment function
         NewContractData<NT> const native_new_contract_data{ new_contract_address,
