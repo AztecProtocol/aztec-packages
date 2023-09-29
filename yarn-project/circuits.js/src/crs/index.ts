@@ -154,13 +154,15 @@ export class Crs {
     private readonly saveOnFile = true,
   ) {
     if (isNode) {
-      const existsDev = existsSync(dirname(fileURLToPath(import.meta.url)) + this.devPath);
-      const existsLocal = existsSync(dirname(fileURLToPath(import.meta.url)) + this.localPath);
+      const devPath = dirname(fileURLToPath(import.meta.url)) + this.devPath;
+      const localPath = dirname(fileURLToPath(import.meta.url)) + this.localPath;
+      const existsDev = existsSync(devPath);
+      const existsLocal = existsSync(localPath);
 
       if (existsDev) {
-        this.crs = new FileCrs(numPoints, this.devPath);
+        this.crs = new FileCrs(numPoints, devPath);
       } else if (existsLocal) {
-        this.crs = new FileCrs(numPoints, this.localPath);
+        this.crs = new FileCrs(numPoints, localPath);
       } else {
         this.crs = new NetCrs(numPoints);
       }
