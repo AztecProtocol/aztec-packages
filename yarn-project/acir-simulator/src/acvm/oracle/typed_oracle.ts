@@ -113,7 +113,7 @@ export abstract class TypedOracle {
     throw new Error('Not available.');
   }
 
-  getMembershipWitness(_commitment: Fr): Promise<Fr[]> {
+  getMembershipWitness(_leafValue: Fr): Promise<Fr[]> {
     throw new Error('Not available.');
   }
 
