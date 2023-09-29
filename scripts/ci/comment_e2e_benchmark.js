@@ -131,8 +131,12 @@ async function sendGitHubRequest(url, method = "GET", data = null) {
 }
 
 async function main() {
-  const existingComment = await getExistingComment();
-  await upsertComment(existingComment?.id);
+  try {
+    const existingComment = await getExistingComment();
+    await upsertComment(existingComment?.id);
+  } catch (err) {
+    console.error(`Error during execution. Failing silently.`, err);
+  }
 }
 
 main();
