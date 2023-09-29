@@ -56,6 +56,7 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
         executablePath: process.env.CHROME_BIN,
         headless: 'new',
         args: [
+          // are these settings enough?
           '--no-sandbox',
           '--headless',
           '--disable-gpu',
