@@ -244,7 +244,7 @@ TYPED_TEST(SafeUintTest, TestSubtractUnderflowSpecial)
 /**
  * @brief Test that valid minus operation works.
  */
-TYPED_TEST(SafeUintTest, TestMinusOperator1)
+TYPED_TEST(SafeUintTest, TestMinusOperator)
 {
     STDLIB_TYPE_ALIASES
     auto builder = Builder();
@@ -262,7 +262,7 @@ TYPED_TEST(SafeUintTest, TestMinusOperator1)
  * @brief Test that valid minus operation works on 0.
  */
 #if !defined(__wasm__)
-TYPED_TEST(SafeUintTest, TestMinusOperator2)
+TYPED_TEST(SafeUintTest, TestMinusOperatorValidOnZero)
 {
     STDLIB_TYPE_ALIASES
     auto builder = Builder();
