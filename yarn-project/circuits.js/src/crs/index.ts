@@ -1,7 +1,8 @@
+import { createDebugLogger } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
 
 import isNode from 'detect-node';
-import { existsSync } from 'fs';
+import { appendFileSync, existsSync, writeFileSync } from 'fs';
 import { open } from 'fs/promises';
 import { dirname } from 'path';
 
@@ -26,7 +27,6 @@ export class NetCrs {
     // We need numPoints number of g1 points.
     const g1Start = 28;
     const g1End = g1Start + this.numPoints * 64 - 1;
-
     // Download required range of data.
     const response = await fetch('https://aztec-ignition.s3.amazonaws.com/MAIN%20IGNITION/monomial/transcript00.dat', {
       headers: {
@@ -132,21 +132,39 @@ export class FileCrs {
  */
 export class Crs {
   private crs: FileCrs | NetCrs;
+  private logger = createDebugLogger('circuits:crs');
+  /**
+   * The path to our SRS object, assuming that we are in the aztec3-packages folder structure.
+   */
+  private devPath =
+    dirname(fileURLToPath(import.meta.url)) + '/../../../../barretenberg/cpp/srs_db/ignition/monomial/transcript00.dat';
+  /**
+   * The path of our SRS object, if we downloaded on init.
+   */
+  private localPath = `${dirname(fileURLToPath(import.meta.url))}/transcript00.dat`;
 
   constructor(
     /**
      * The number of circuit gates.
      */
     public readonly numPoints: number,
+
+    /**
+     * Option to save downloaded SRS on file.
+     */
+    private readonly saveOnFile = true,
   ) {
     if (isNode) {
-      /**
-       * The path to our SRS object, assuming that we are in the aztec3-packages folder structure.
-       */
-      const SRS_DEV_PATH =
-        dirname(fileURLToPath(import.meta.url)) +
-        '/../../../../barretenberg/cpp/srs_db/ignition/monomial/transcript00.dat';
-      this.crs = existsSync(SRS_DEV_PATH) ? new FileCrs(numPoints, SRS_DEV_PATH) : new NetCrs(numPoints);
+      const existsDev = existsSync(this.devPath);
+      const existsLocal = existsSync(this.localPath);
+
+      if (existsDev) {
+        this.crs = new FileCrs(numPoints, this.devPath);
+      } else if (existsLocal) {
+        this.crs = new FileCrs(numPoints, this.localPath);
+      } else {
+        this.crs = new NetCrs(numPoints);
+      }
     } else {
       this.crs = new NetCrs(numPoints);
     }
@@ -157,6 +175,23 @@ export class Crs {
    */
   async init() {
     await this.crs.init();
+
+    // save downloaded CRS on file
+    if (this.saveOnFile && !existsSync(this.localPath)) {
+      const g1Data = this.crs.getG1Data();
+      try {
+        writeFileSync(this.localPath, Buffer.from(g1Data));
+      } catch (error) {
+        this.logger.warn('Failed to save CRS data: ', error);
+      }
+
+      const g2Data = this.crs.getG2Data();
+      try {
+        appendFileSync(this.localPath, Buffer.from(g2Data));
+      } catch (error) {
+        this.logger.warn('Failed to append to CRS data: ', error);
+      }
+    }
   }
 
   /**
