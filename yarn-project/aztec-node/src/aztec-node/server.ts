@@ -265,15 +265,6 @@ export class AztecNodeService implements AztecNode {
   }
 
   /**
-   * Find the index of the given contract.
-   * @param leafValue - The value to search for.
-   * @returns The index of the given leaf in the contracts tree or undefined if not found.
-   */
-  public async findContractIndex(leafValue: Buffer): Promise<bigint | undefined> {
-    return await this.findLeafIndex(MerkleTreeId.CONTRACT_TREE, leafValue);
-  }
-
-  /**
    * Returns the sibling path for the given index in the contract tree.
    * @param leafIndex - The index of the leaf for which the sibling path is required.
    * @returns The sibling path for the leaf index.
@@ -281,15 +272,6 @@ export class AztecNodeService implements AztecNode {
   public async getContractPath(leafIndex: bigint): Promise<SiblingPath<typeof CONTRACT_TREE_HEIGHT>> {
     const committedDb = await this.#getWorldState();
     return committedDb.getSiblingPath(MerkleTreeId.CONTRACT_TREE, leafIndex);
-  }
-
-  /**
-   * Find the index of the given commitment.
-   * @param leafValue - The value to search for.
-   * @returns The index of the given leaf in the private data tree or undefined if not found.
-   */
-  public async findCommitmentIndex(leafValue: Buffer): Promise<bigint | undefined> {
-    return await this.findLeafIndex(MerkleTreeId.PRIVATE_DATA_TREE, leafValue);
   }
 
   /**
@@ -323,15 +305,6 @@ export class AztecNodeService implements AztecNode {
   public async getL1ToL2MessagesTreePath(leafIndex: bigint): Promise<SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
     const committedDb = await this.#getWorldState();
     return committedDb.getSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGES_TREE, leafIndex);
-  }
-
-  /**
-   * Find the index of the given nullifier.
-   * @param nullifier - The nullifier to search for.
-   * @returns The index of the given leaf in the nullifier tree or undefined if not found.
-   */
-  public async findNullifierIndex(nullifier: Fr): Promise<bigint | undefined> {
-    return await this.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
   }
 
   /**

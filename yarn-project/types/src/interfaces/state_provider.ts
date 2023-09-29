@@ -17,13 +17,6 @@ export interface StateInfoProvider {
   findLeafIndex(treeId: MerkleTreeId, leafValue: Buffer): Promise<bigint | undefined>;
 
   /**
-   * Find the index of the given contract.
-   * @param leafValue - The value to search for.
-   * @returns The index of the given leaf in the contracts tree or undefined if not found.
-   */
-  findContractIndex(leafValue: Buffer): Promise<bigint | undefined>;
-
-  /**
    * Returns the sibling path for the given index in the contract tree.
    * @param leafIndex - The index of the leaf for which the sibling path is required.
    * @returns The sibling path for the leaf index.
@@ -31,25 +24,11 @@ export interface StateInfoProvider {
   getContractPath(leafIndex: bigint): Promise<SiblingPath<typeof CONTRACT_TREE_HEIGHT>>;
 
   /**
-   * Find the index of the given commitment.
-   * @param leafValue - The value to search for.
-   * @returns The index of the given leaf of undefined if not found.
-   */
-  findCommitmentIndex(leafValue: Buffer): Promise<bigint | undefined>;
-
-  /**
    * Returns the sibling path for the given index in the data tree.
    * @param leafIndex - The index of the leaf for which the sibling path is required.
    * @returns The sibling path for the leaf index.
    */
   getDataTreePath(leafIndex: bigint): Promise<SiblingPath<typeof PRIVATE_DATA_TREE_HEIGHT>>;
-
-  /**
-   * Find the index of the given nullifier.
-   * @param nullifier - The nullifier to search for.
-   * @returns The index of the given leaf of undefined if not found.
-   */
-  findNullifierIndex(nullifier: Fr): Promise<bigint | undefined>;
 
   /**
    * Gets a confirmed/consumed L1 to L2 message for the given message key (throws if not found).

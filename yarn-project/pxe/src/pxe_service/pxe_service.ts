@@ -38,6 +38,7 @@ import {
   L2BlockL2Logs,
   L2Tx,
   LogType,
+  MerkleTreeId,
   NodeInfo,
   NotePreimage,
   PXE,
@@ -212,14 +213,14 @@ export class PXEService implements PXE {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
     // This can always be `uniqueSiloedNoteHash` once notes added from public also include nonces.
     const noteHashToLookUp = nonce.isZero() ? siloedNoteHash : uniqueSiloedNoteHash;
-    const index = await this.node.findCommitmentIndex(noteHashToLookUp.toBuffer());
+    const index = await this.node.findLeafIndex(MerkleTreeId.PRIVATE_DATA_TREE, noteHashToLookUp.toBuffer());
     if (index === undefined) {
       throw new Error('Note does not exist.');
     }
 
     const wasm = await CircuitsWasm.get();
     const siloedNullifier = siloNullifier(wasm, contractAddress, innerNullifier!);
-    const nullifierIndex = await this.node.findNullifierIndex(siloedNullifier);
+    const nullifierIndex = await this.node.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, siloedNullifier.toBuffer());
     if (nullifierIndex !== undefined) {
       throw new Error('The note has been destroyed.');
     }

@@ -24,7 +24,7 @@ import {
 } from '@aztec/circuits.js/abis';
 import { ContractAbi, FunctionSelector } from '@aztec/foundation/abi';
 import { assertLength } from '@aztec/foundation/serialize';
-import { AztecNode, ContractDao, PublicKey, StateInfoProvider } from '@aztec/types';
+import { AztecNode, ContractDao, MerkleTreeId, PublicKey, StateInfoProvider } from '@aztec/types';
 
 /**
  * The ContractTree class represents a Merkle tree of functions for a particular contract.
@@ -229,7 +229,10 @@ export class ContractTree {
       const root = await this.getFunctionTreeRoot();
       const newContractData = new NewContractData(completeAddress.address, portalContract, root);
       const commitment = computeContractLeaf(this.wasm, newContractData);
-      this.contractIndex = await this.stateInfoProvider.findContractIndex(commitment.toBuffer());
+      this.contractIndex = await this.stateInfoProvider.findLeafIndex(
+        MerkleTreeId.CONTRACT_TREE,
+        commitment.toBuffer(),
+      );
       if (this.contractIndex === undefined) {
         throw new Error(
           `Failed to find contract at ${completeAddress.address} with portal ${portalContract} resulting in commitment ${commitment}.`,
