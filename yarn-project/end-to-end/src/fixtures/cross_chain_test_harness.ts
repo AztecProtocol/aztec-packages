@@ -8,7 +8,7 @@ import { DebugLogger } from '@aztec/foundation/log';
 import { OutboxAbi } from '@aztec/l1-artifacts';
 import { TokenBridgeContract, TokenContract } from '@aztec/noir-contracts/types';
 import { PXEService } from '@aztec/pxe';
-import { PXE, TxStatus } from '@aztec/types';
+import { NotePreimage, PXE, TxStatus } from '@aztec/types';
 
 import { Chain, HttpTransport, PublicClient, getContract } from 'viem';
 
@@ -195,6 +195,7 @@ export class CrossChainTestHarness {
   }
 
   async mintTokensPublicOnL2(amount: bigint) {
+    this.logger('Minting tokens on L2 publicly');
     const tx = this.l2Token.methods.mint_public(this.ownerAddress, amount).send();
     const receipt = await tx.wait();
     expect(receipt.status).toBe(TxStatus.MINED);
@@ -312,9 +313,21 @@ export class CrossChainTestHarness {
   }
 
   async shieldFundsOnL2(shieldAmount: bigint, secretHash: Fr) {
+    this.logger('Shielding funds on L2');
     const shieldTx = this.l2Token.methods.shield(this.ownerAddress, shieldAmount, secretHash, 0).send();
     const shieldReceipt = await shieldTx.wait();
     expect(shieldReceipt.status).toBe(TxStatus.MINED);
+
+    this.logger('Adding note to PXE');
+    const storageSlot = new Fr(5);
+    const preimage = new NotePreimage([new Fr(shieldAmount), secretHash]);
+    const [nonce] = await this.pxeService.getNoteNonces(
+      this.l2Token.address,
+      storageSlot,
+      preimage,
+      shieldReceipt.txHash,
+    );
+    await this.pxeService.addNote(this.l2Token.address, storageSlot, preimage, nonce, this.ownerPub);
   }
 
   async redeemShieldPrivatelyOnL2(shieldAmount: bigint, secret: Fr) {

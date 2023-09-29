@@ -62,7 +62,6 @@ describe('private airdrop', () => {
 
   const claimToken = async (accountIndex: number, claim: Claim, txHash: TxHash, nonceIndex = 0) => {
     const contract = contracts[accountIndex];
-    const account = accounts[accountIndex].address;
     const wallet = wallets[accountIndex];
     const nonces = await wallet.getNoteNonces(contract.address, claimsStorageSlot, claim.preimage, txHash);
 
@@ -71,7 +70,11 @@ describe('private airdrop', () => {
     expect(nonces.length).toBe(numNonces);
     expect(nonces[nonceIndex]).not.toEqual(Fr.ZERO);
 
-    return contract.methods.claim(claim.amount, claim.secret, account, nonces[nonceIndex]).send().wait();
+    const nonce = nonces[nonceIndex];
+    const { publicKey } = wallet.getCompleteAddress();
+    await wallet.addNote(contract.address, claimsStorageSlot, claim.preimage, nonce, publicKey);
+
+    return contract.methods.claim(claim.amount, claim.secret).send().wait();
   };
 
   it('should create claim notes for any accounts to claim', async () => {

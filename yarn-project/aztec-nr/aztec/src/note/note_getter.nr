@@ -10,7 +10,6 @@ use crate::context::PrivateContext;
 use crate::note::{
     note_getter_options::{NoteGetterOptions, Select, Sort},
     note_interface::NoteInterface,
-    note_header::NoteHeader,
     note_viewer_options::NoteViewerOptions,
     utils::compute_note_hash_for_read_or_nullify,
     utils::compute_inner_note_hash,

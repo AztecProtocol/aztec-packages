@@ -58,6 +58,7 @@ impl<Note, N> Set<Note, N> {
     }
     // docs:end:insert_from_public
     
+    // DEPRECATED
     // docs:start:assert_contains_and_remove
     fn assert_contains_and_remove(self, note: &mut Note, nonce: Field) {
         // Initialize header of note. Must be done before computing note hashes as it initializes the:
@@ -69,7 +70,8 @@ impl<Note, N> Set<Note, N> {
         let note_header = NoteHeader{
             contract_address: context.this_address(),
             storage_slot: self.storage_slot,
-            nonce
+            nonce,
+            is_transient: false,
         };
         set_header(note, note_header);
 
@@ -88,6 +90,7 @@ impl<Note, N> Set<Note, N> {
     }
     // docs:end:assert_contains_and_remove
 
+    // DEPRECATED
     // docs:start:assert_contains_and_remove_publicly_created
     // NOTE: this function should ONLY be used for PUBLICLY-CREATED note hashes!
     // WARNING: function will be deprecated/removed eventually once public kernel applies nonces.
@@ -100,7 +103,8 @@ impl<Note, N> Set<Note, N> {
         let mut note_header = NoteHeader{
             contract_address: context.this_address(),
             storage_slot: self.storage_slot,
-            nonce
+            nonce,
+            is_transient: false,
         };
         set_header(note, note_header);
 

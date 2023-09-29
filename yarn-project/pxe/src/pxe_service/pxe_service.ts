@@ -224,7 +224,6 @@ export class PXEService implements PXE {
       throw new Error('The note has been destroyed.');
     }
 
-    // TODO - Should not modify the db while syncing.
     await this.db.addNoteSpendingInfo({
       contractAddress,
       storageSlot,
@@ -258,16 +257,23 @@ export class PXEService implements PXE {
       if (commitment.equals(Fr.ZERO)) break;
 
       const nonce = computeCommitmentNonce(wasm, firstNullifier, i);
-      const { uniqueSiloedNoteHash } = await this.simulator.computeNoteHashAndNullifier(
+      const { siloedNoteHash, uniqueSiloedNoteHash } = await this.simulator.computeNoteHashAndNullifier(
         contractAddress,
         nonce,
         storageSlot,
         preimage.items,
       );
+      // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
+      // Remove this once notes added from public also include nonces.
+      if (commitment.equals(siloedNoteHash)) {
+        nonces.push(Fr.ZERO);
+        break;
+      }
       if (commitment.equals(uniqueSiloedNoteHash)) {
         nonces.push(nonce);
       }
     }
+
     return nonces;
   }
 

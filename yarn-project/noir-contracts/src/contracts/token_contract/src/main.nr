@@ -24,6 +24,7 @@ contract Token {
 
     use dep::aztec::{
         note::{
+            note_getter_options::NoteGetterOptions,
             note_header::NoteHeader,
             utils as note_utils,
         },
@@ -280,12 +281,13 @@ contract Token {
         secret: Field,
     ) -> Field {
         let pending_shields = storage.pending_shields;
+        let secret_hash = TransparentNote::compute_secret_hash(secret);
+        let options = NoteGetterOptions::new().select(0, amount).select(1, secret_hash).set_limit(1);
+        let notes = pending_shields.get_notes(options);
+        let note = notes[0].unwrap_unchecked();
+        pending_shields.remove(note);
+
         let balance = storage.balances.at(to.address);
-        let mut public_note = TransparentNote::new_from_secret(amount, secret);
-        
-        // docs:start:assert_contains_and_remove_publicly_created
-        pending_shields.assert_contains_and_remove_publicly_created(&mut public_note);
-        // docs:end:assert_contains_and_remove_publicly_created
         increment(balance, amount, to.address);
 
         1
@@ -457,7 +459,7 @@ contract Token {
     // Note 1: Needs to be defined by every contract producing logs.
     // Note 2: Having it in all the contracts gives us the ability to compute the note hash and nullifier differently for different kind of notes.
     unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; VALUE_NOTE_LEN]) -> [Field; 4] {
-        let note_header = NoteHeader { contract_address, nonce, storage_slot };
+        let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
         if (storage_slot == 5) {
             note_utils::compute_note_hash_and_nullifier(TransparentNoteMethods, note_header, preimage)
         } else {
