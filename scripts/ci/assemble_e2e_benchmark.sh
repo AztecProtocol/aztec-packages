@@ -13,7 +13,7 @@ BENCHMARK_FILE_JSON="benchmark.json"
 
 mkdir -p $LOG_FOLDER
 
-aws s3 cp "s3://${BUCKET_NAME}/commits/${COMMIT_HASH}/" $LOG_FOLDER  --include "bench*.jsonl" --recursive
+aws s3 cp "s3://${BUCKET_NAME}/commits/${COMMIT_HASH}/" $LOG_FOLDER --exclude '*' --include 'bench*.jsonl' --recursive
 
 node scripts/ci/aggregate_e2e_benchmark.js
 echo "generated: $BENCHMARK_FILE_JSON"
