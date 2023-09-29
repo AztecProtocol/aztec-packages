@@ -26,9 +26,9 @@ function getContent() {
   });
 
   return `
-# Benchmark results
+## Benchmark results
 
-### On rollup published to L1
+### Rollup published to L1
 
 ${header}
 ${separator}
@@ -83,12 +83,12 @@ async function sendGitHubRequest(url, method = "GET", data = null) {
   const apiUrl = url.startsWith("http") ? url : `https://api.github.com${url}`;
   const headers = {
     Authorization: `Bearer ${GITHUB_TOKEN}`,
+    Accept: "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
     "User-Agent": OWNER,
   };
   if (data) headers["Content-Type"] = "application/json";
-
   const requestOptions = { method, headers };
-  if (data) requestOptions.body = JSON.stringify(data);
 
   return new Promise((resolve, reject) => {
     const req = https.request(apiUrl, requestOptions, (res) => {
@@ -125,6 +125,7 @@ async function sendGitHubRequest(url, method = "GET", data = null) {
       reject(error);
     });
 
+    if (data) req.write(JSON.stringify(data));
     req.end();
   });
 }
