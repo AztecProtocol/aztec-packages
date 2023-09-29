@@ -438,7 +438,7 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
     {
         std::vector<cycle_group_ct> points;
         std::vector<typename cycle_group_ct::cycle_scalar> scalars;
-        std::vector<typename Group::subgroup_field> scalars_native;
+        std::vector<typename Group::coordinate_field> scalars_native;
         Element expected = Group::point_at_infinity;
         for (size_t i = 0; i < num_muls; ++i) {
             auto element = crypto::pedersen_hash_refactor<Curve>::get_lhs_generator();
@@ -448,14 +448,14 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
             expected += (element * scalar);
             points.emplace_back(element);
             scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&composer, scalar));
-            scalars_native.emplace_back(scalar);
+            scalars_native.emplace_back(uint256_t(scalar));
 
             // 2: add entry where point is constant, scalar is constant
             element = crypto::pedersen_hash_refactor<Curve>::get_rhs_generator();
             expected += (element * scalar);
             points.emplace_back(element);
             scalars.emplace_back(typename cycle_group_ct::cycle_scalar(scalar));
-            scalars_native.emplace_back(scalar);
+            scalars_native.emplace_back(uint256_t(scalar));
         }
         auto result = cycle_group_ct::batch_mul(scalars, points);
         EXPECT_EQ(result.get_value(), AffineElement(expected));
