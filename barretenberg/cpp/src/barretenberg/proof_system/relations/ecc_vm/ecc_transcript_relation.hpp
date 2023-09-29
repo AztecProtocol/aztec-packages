@@ -69,9 +69,9 @@ template <typename FF_> class ECCVMTranscriptRelationBase {
                                                           LEN_1,
                                                           LEN_1>;
 
-    template <typename AccumulatorTypes, typename PolynomialTypes>
+    template <typename AccumulatorTypes>
     static void accumulate(typename AccumulatorTypes::Accumulators& /*unused*/,
-                           const PolynomialTypes& /*unused*/,
+                           const auto& /*unused*/,
                            const RelationParameters<FF>& /*unused*/,
                            const FF& /*unused*/);
 

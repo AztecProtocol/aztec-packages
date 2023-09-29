@@ -31,7 +31,7 @@ void ensure_non_zero(auto& polynomial)
  */
 template <typename Flavor> void check_relation(auto relation, auto circuit_size, auto polynomials, auto params)
 {
-    using ClaimedEvaluations = typename Flavor::ClaimedEvaluations;
+    using ClaimedEvaluations = typename Flavor::ProverPolynomialsEvaluations;
     for (size_t i = 0; i < circuit_size; i++) {
 
         // Extract an array containing all the polynomial evaluations at a given row i

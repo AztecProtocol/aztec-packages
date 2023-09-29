@@ -30,7 +30,7 @@ template <typename Flavor, typename Relation> void execute_relation(::benchmark:
         .public_input_delta = public_input_delta,
     };
 
-    using ClaimedEvaluations = typename Flavor::ClaimedEvaluations;
+    using ClaimedEvaluations = typename Flavor::ProverPolynomialsEvaluations;
     using RelationValues = typename Relation::RelationValues;
 
     // Extract an array containing all the polynomial evaluations at a given row i

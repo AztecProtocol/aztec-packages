@@ -5,11 +5,15 @@
 #include "barretenberg/honk/instance/instances.hpp"
 #include "barretenberg/honk/proof_system/folding_result.hpp"
 #include "barretenberg/proof_system/flavor/flavor.hpp"
+#include "barretenberg/proof_system/relations/utils.hpp"
 namespace proof_system::honk {
 template <class ProverInstances> class ProtoGalaxyProver_ {
   public:
     using Flavor = typename ProverInstances::Flavor;
     using Instance = typename ProverInstances::Instance;
+    using Utils = barretenberg::RelationUtils<Flavor>;
+    using RowEvaluations = typename Flavor::ProverPolynomialsEvaluations;
+    using RelationEvaluations = typename Flavor::RelationValues;
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
 
@@ -22,34 +26,83 @@ template <class ProverInstances> class ProtoGalaxyProver_ {
 
     void prepare_for_folding();
 
-    std::vector<FF> compute_round_challenge_pows(size_t instance_size, FF round_challenge)
+    // compute the deltas in the paper
+    std::vector<FF> compute_round_challenge_pows(size_t size, FF round_challenge)
     {
-        std::vector<FF> pows(instance_size);
+        std::vector<FF> pows(size);
         pows[0] = round_challenge;
-        for (size_t i = 1; i < instance_size; i++) {
+        for (size_t i = 1; i < size; i++) {
             pows[i] = pows[i - 1].sqr();
         }
         return pows;
     }
 
-    // degree of G can be found at compile time but that is not the case for degree of F
-    // need a function that returns me all the f_i(prover polynomials of inst i)
-    // I guess in perturbator we just take stuff from the first instance which would make the most sense
-    // and then \vec{beta} is part of instance?
-    // retur
-    std::vector<FF> compute_perturbator([[maybe_unused]] std::vector<FF> round_challenge_pows)
+    RowEvaluations get_row(Instance accumulator, size_t row)
     {
-        auto accumulator = instances[0];
+        RowEvaluations row_evals;
+        size_t idx = 0;
+        for (auto& poly : accumulator.prover_polynomials) {
+            row_evals[idx] = poly[row];
+            idx++;
+        }
+        return row_evals;
+    }
+
+    Instance get_accumulator() { return instances[0]; }
+
+    // the pow in sumcheck will be replaced with the pow in protogalaxy!!!!!!!!
+    // here we don't have the pow polynomial extra parameter because the gate separation challenge is a polynomial for
+    // perturbator and it's going to be added later
+    FF compute_full_honk_relation_row_value(RowEvaluations row_evaluations,
+                                            FF alpha,
+                                            const proof_system::RelationParameters<FF>& relation_parameters)
+    {
+        RelationEvaluations relation_evaluations;
+        Utils::zero_elements(relation_evaluations);
+
+        // TODO: we add the gate separation challenge as a univariate later
+        // We will have to change the power polynomial in sumcheck to respect the structure of PG rather than what we
+        // currently have
+        Utils::template accumulate_relation_evaluations<>(
+            row_evaluations, relation_evaluations, relation_parameters, FF(1));
+
+        // Not sure what this running challenge is we have to investigate
+        auto running_challenge = FF(1);
+        auto output = FF(0);
+        Utils::scale_and_batch_elements(relation_evaluations, alpha, running_challenge, output);
+        return output;
+    }
+
+    // We return the evaluate of perturbator at 0,..,log(n) where n is the circuit size
+    std::vector<FF> compute_perturbator(Instance accumulator, std::vector<FF> deltas, FF alpha)
+    {
         // all the prover polynomials should have the same length
         auto instance_size = accumulator.prover_polynomials[0].size();
         auto log_instance_size = static_cast<size_t>(numeric::get_msb(instance_size));
         std::vector<FF> perturbator_univariate(log_instance_size);
+        std::vector<FF> full_honk_evaluations(instance_size);
         for (size_t idx = 0; idx < instance_size; idx++) {
 
-            // AccumulatorAndViews because all relations are extended to the highest degree but there's no need for
-            // it(?)
-            // f_i(w) cant be only one value, it's actually a vector ???
+            auto row_evaluations = get_row(accumulator, idx);
+            auto full_honk_at_row =
+                compute_full_honk_relation_row_value(row_evaluations, alpha, accumulator.relation_parameters);
+            // this is f_i(w) where idx=i
+            full_honk_evaluations[idx] = full_honk_at_row;
         }
+
+        auto betas = accumulator.folding_params.gate_separation_challenges;
+
+        // note: the tree technique can probably/maybe be done with apply tuples sth but
+
+        auto point = FF(1);
+        std::vector<FF> labels(log_instance_size);
+        for (size_t idx = 0; idx < log_instance_size; idx++) {
+            labels[idx] = betas[idx] + point * deltas[idx];
+        }
+        auto eval_at_point = FF(0);
+        for (size_t idx = 0; idx < instance_size; idx++) {
+        }
+        return perturbator_univariate;
     };
 
     ProverFoldingResult<Flavor> fold_instances();

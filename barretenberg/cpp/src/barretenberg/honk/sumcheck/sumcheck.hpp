@@ -15,7 +15,7 @@ template <typename Flavor> class SumcheckProver {
   public:
     using FF = typename Flavor::FF;
     using PartiallyEvaluatedMultivariates = typename Flavor::PartiallyEvaluatedMultivariates;
-    using ClaimedEvaluations = typename Flavor::ClaimedEvaluations;
+    using ClaimedEvaluations = typename Flavor::ProverPolynomialsEvaluations;
 
     ProverTranscript<FF>& transcript;
     const size_t multivariate_n;
@@ -151,7 +151,7 @@ template <typename Flavor> class SumcheckVerifier {
   public:
     using Utils = barretenberg::RelationUtils<Flavor>;
     using FF = typename Flavor::FF;
-    using ClaimedEvaluations = typename Flavor::ClaimedEvaluations;
+    using ClaimedEvaluations = typename Flavor::ProverPolynomialsEvaluations;
 
     static constexpr size_t MAX_RANDOM_RELATION_LENGTH = Flavor::MAX_RANDOM_RELATION_LENGTH;
     static constexpr size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
@@ -210,7 +210,7 @@ template <typename Flavor> class SumcheckVerifier {
         ClaimedEvaluations purported_evaluations =
             transcript.template receive_from_prover<std::array<FF, NUM_POLYNOMIALS>>("Sumcheck:evaluations");
 
-        FF full_honk_relation_purported_value = Utils::compute_full_honk_relation_purported_value(
+        FF full_honk_relation_purported_value = round.compute_full_honk_relation_purported_value(
             purported_evaluations._data, relation_parameters, pow_univariate, alpha);
 
         bool checked = false;

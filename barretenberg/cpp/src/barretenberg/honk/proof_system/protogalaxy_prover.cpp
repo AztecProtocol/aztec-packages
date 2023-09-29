@@ -42,6 +42,12 @@ template <class ProverInstances>
 ProverFoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstances>::fold_instances()
 {
     prepare_for_folding();
+    auto [alpha, delta] = transcript.get_challenges("alpha", "delta");
+    auto accumulator = get_accumulator();
+    auto instance_size = accumulator.prover_polynomials[0].size();
+    auto log_instance_size = static_cast<size_t>(numeric::get_msb(instance_size));
+    auto deltas = compute_round_challenge_pows(log_instance_size, delta);
+    auto perturbator_evaluations = compute_perturbator(accumulator, deltas, alpha);
     ProverFoldingResult<Flavor> res;
     res.folding_data = transcript.proof_data;
     return res;

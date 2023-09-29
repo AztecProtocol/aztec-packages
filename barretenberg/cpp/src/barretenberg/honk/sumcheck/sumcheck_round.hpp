@@ -373,7 +373,7 @@ template <typename Flavor> class SumcheckVerifierRound {
 
   public:
     using FF = typename Flavor::FF;
-    using ClaimedEvaluations = typename Flavor::ClaimedEvaluations;
+    using ClaimedEvaluations = typename Flavor::ProverPolynomialsEvaluations;
 
     bool round_failed = false;
 
@@ -382,10 +382,11 @@ template <typename Flavor> class SumcheckVerifierRound {
 
     FF target_total_sum = 0;
 
+    Relations relations;
     RelationEvaluations relation_evaluations;
 
     // Verifier constructor
-    explicit SumcheckVerifierRound() { zero_elements(relation_evaluations); };
+    explicit SumcheckVerifierRound() { Utils::zero_elements(relation_evaluations); };
 
     bool check_sum(barretenberg::Univariate<FF, MAX_RANDOM_RELATION_LENGTH>& univariate)
     {
@@ -425,6 +426,33 @@ template <typename Flavor> class SumcheckVerifierRound {
         target_total_sum = barycentric.evaluate(univariate, round_challenge);
 
         return target_total_sum;
+    }
+
+    /**
+     * @brief Calculate the contribution of each relation to the expected value of the full Honk relation.
+     *
+     * @details For each relation, use the purported values (supplied by the prover) of the multivariates to calculate
+     * a contribution to the purported value of the full Honk relation. These are stored in `evaluations`. Adding these
+     * together, with appropriate scaling factors, produces the expected value of the full Honk relation. This value is
+     * checked against the final value of the target total sum, defined as sigma_d.
+     */
+    // also copy paste in PG
+    // so instead of having claimed evaluations of each relation in part  you have the actual evaluations
+    // kill the pow_univariat
+    FF compute_full_honk_relation_purported_value(ClaimedEvaluations purported_evaluations,
+                                                  const proof_system::RelationParameters<FF>& relation_parameters,
+                                                  const barretenberg::PowUnivariate<FF>& pow_univariate,
+                                                  const FF alpha)
+    {
+        Utils::template accumulate_relation_evaluations<>(purported_evaluations,
+                                                          relation_evaluations,
+                                                          relation_parameters,
+                                                          pow_univariate.partial_evaluation_constant);
+
+        auto running_challenge = FF(1);
+        auto output = FF(0);
+        Utils::scale_and_batch_elements(relation_evaluations, alpha, running_challenge, output);
+        return output;
     }
 };
 } // namespace proof_system::honk::sumcheck

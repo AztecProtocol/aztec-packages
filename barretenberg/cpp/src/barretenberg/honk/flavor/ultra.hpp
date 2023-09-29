@@ -301,14 +301,18 @@ class Ultra {
                                       barretenberg::Univariate<FF, MAX_RELATION_LENGTH>>;
 
     /**
-     * @brief A container for the polynomials evaluations produced during sumcheck, which are claimed to be the
-     * evaluations of polynomials committed in earlier rounds.
+     * @brief A container storing evaluations of all prover polynomials at one point.
+     * In sumcheck, this data structure represents the evaluations produced during sumcheck, which are claimed to be the
+     * evaluations of prover polynomials commited in earilier rounds
+     * In protogalaxy, it's used to store the evaluations for each point on the boolean hypercurbe, so one
+     * ProverPolynomailsEvaluation object represents evaluations of one row in the execution trace.
+     *
      */
-    class ClaimedEvaluations : public AllEntities<FF, FF> {
+    class ProverPolynomialsEvaluations : public AllEntities<FF, FF> {
       public:
         using Base = AllEntities<FF, FF>;
         using Base::Base;
-        ClaimedEvaluations(std::array<FF, NUM_ALL_ENTITIES> _data_in) { this->_data = _data_in; }
+        ProverPolynomialsEvaluations(std::array<FF, NUM_ALL_ENTITIES> _data_in) { this->_data = _data_in; }
     };
 
     /**
@@ -394,6 +398,7 @@ class Ultra {
     class FoldingParameters {
       public:
         // we need this because the nice relation between deltas does not apply to beta as well
+        // these are the betas
         std::vector<FF> gate_separation_challenges;
         FF target_sum;
     };

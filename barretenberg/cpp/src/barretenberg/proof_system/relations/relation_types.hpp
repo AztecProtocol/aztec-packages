@@ -117,10 +117,10 @@ template <typename RelationImpl> class Relation : public RelationImpl {
             accumulator, input, relation_parameters, scaling_factor);
     }
 
-    static void add_full_relation_value_contribution(RelationValues& accumulator,
-                                                     auto& input,
-                                                     const RelationParameters<FF>& relation_parameters,
-                                                     const FF& scaling_factor = 1)
+    static inline void add_full_relation_value_contribution(RelationValues& accumulator,
+                                                            auto& input,
+                                                            const RelationParameters<FF>& relation_parameters,
+                                                            const FF& scaling_factor = 1)
     {
         Relation::template accumulate<ValueAccumulatorsAndViews>(
             accumulator, input, relation_parameters, scaling_factor);

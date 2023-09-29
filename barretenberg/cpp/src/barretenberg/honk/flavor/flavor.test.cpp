@@ -34,7 +34,7 @@ TEST(Flavor, Getters)
     Flavor::VerificationKey verification_key;
     Flavor::ProverPolynomials prover_polynomials;
     Flavor::ExtendedEdges<Flavor::NUM_ALL_ENTITIES> edges;
-    Flavor::ClaimedEvaluations evals;
+    Flavor::ProverPolynomialsEvaluations evals;
     Flavor::CommitmentLabels commitment_labels;
 
     // Globals are also available through STL container sizes

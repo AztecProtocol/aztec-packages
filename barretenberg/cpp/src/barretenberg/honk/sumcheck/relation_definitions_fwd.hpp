@@ -3,7 +3,7 @@
 #include "barretenberg/proof_system/relations/relation_types.hpp"
 
 #define ExtendedEdge(Flavor) Flavor::ExtendedEdges<Flavor::MAX_RELATION_LENGTH>
-#define EvaluationEdge(Flavor) Flavor::ClaimedEvaluations
+#define EvaluationEdge(Flavor) Flavor::ProverPolynomialsEvaluations
 #define EntityEdge(Flavor) Flavor::AllEntities<Flavor::FF, Flavor::FF>
 
 #define ADD_EDGE_CONTRIBUTION(...) _ADD_EDGE_CONTRIBUTION(__VA_ARGS__)
