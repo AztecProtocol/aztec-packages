@@ -47,23 +47,4 @@ describe('benchmarks/publish_rollup', () => {
   afterEach(async () => {
     await context.teardown();
   }, 60_000);
-
-  // afterAll(() => {
-  //   const results = {
-  //     l1_rollup_calldata_size_in_bytes: {} as MetricValues,
-  //     l1_rollup_calldata_gas: {} as MetricValues,
-  //     l1_rollup_execution_gas: {} as MetricValues,
-  //   };
-
-  //   for (const size of ROLLUP_SIZES) {
-  //     const stat = stats.find(stat => stat.txCount === size);
-  //     if (!stat) throw new Error(`Could not find stat for size ${size} (got ${stats.map(s => s.txCount).join(', ')})`);
-  //     results.l1_rollup_calldata_gas[size] = stat.calldataGas;
-  //     results.l1_rollup_calldata_size_in_bytes[size] = stat.calldataSize;
-  //     results.l1_rollup_execution_gas[size] = Number(stat.gasUsed);
-  //     context.logger(`Stats for rollup of size ${size}`, stat);
-  //   }
-
-  //   writeFileSync(BENCHMARK_FILE, JSON.stringify(results, null, 2));
-  // });
 });
