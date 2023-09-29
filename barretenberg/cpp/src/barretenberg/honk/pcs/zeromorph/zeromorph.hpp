@@ -91,23 +91,30 @@ template <typename Curve> class ZeroMorphProver {
      * @param quotients
      * @param y_challenge
      * @param x_challenge
-     * @param N
      * @return Polynomial Degree check polynomial \zeta_x such that \zeta_x(x) = 0
      */
-    static Polynomial compute_partially_evaluated_degree_check_polynomial(
-        Polynomial& batched_quotient, std::vector<Polynomial>& quotients, Fr y_challenge, Fr x_challenge, size_t N)
+    static Polynomial compute_partially_evaluated_degree_check_polynomial(Polynomial& batched_quotient,
+                                                                          std::vector<Polynomial>& quotients,
+                                                                          Fr y_challenge,
+                                                                          Fr x_challenge)
     {
-        (void)batched_quotient;
-        (void)y_challenge;
-        (void)x_challenge;
+        size_t N = batched_quotient.size();
 
-        // Partially evaluated degree check polynomial \zeta_x
-        auto result = Polynomial(N);
+        // Initialize partially evaluated degree check polynomial \zeta_x to \hat{q}
+        auto result = batched_quotient;
 
-        // WORKTODO: Compute partially evaluated degree check polynomial q - \sum_k y^k * x^{N - d_k - 1} * q_k
+        size_t k = 0;
+        auto y_power = Fr(1); // y^k
         for (auto& quotient : quotients) {
-            // Simply add y^k*x^{N - d_k - 1}q_k into q
-            (void)quotient;
+            // Accumulate y^k * x^{N - d_k - 1} * q_k into \hat{q}
+            size_t deg_k = (1 << k) - 1;
+            auto x_power = x_challenge.pow(N - deg_k - 1);
+            // size_t offset = N - deg_k - 1;
+            for (size_t idx = 0; idx < deg_k + 1; ++idx) {
+                result[idx] += y_power * x_power * quotient[idx];
+            }
+            y_power *= y_challenge; // update batching scalar y^k
+            k++;
         }
 
         return result;
@@ -128,19 +135,29 @@ template <typename Curve> class ZeroMorphProver {
     static Polynomial compute_partially_evaluated_zeromorph_identity_polynomial(Polynomial& input_polynomial,
                                                                                 std::vector<Polynomial>& quotients,
                                                                                 Fr v_evaluation,
+                                                                                std::span<Fr> u_challenge,
                                                                                 Fr x_challenge)
     {
-        (void)input_polynomial;
-        (void)v_evaluation;
-        (void)x_challenge;
         size_t N = input_polynomial.size();
 
         // Partially evaluated zeromorph identity polynomial Z_x
-        auto result = Polynomial(N);
+        auto result = input_polynomial;
+        result[0] -= v_evaluation; // f - v
 
-        // WORKTODO: Compute partially evaluated degree check polynomial q - \sum_k y^k * x^{N - d_k - 1} * q_k
+        size_t k = 0;
+        auto x_power = x_challenge; // x^{2^k}
         for (auto& quotient : quotients) {
-            (void)quotient;
+
+            auto numerator = x_challenge.pow(N) - 1;                             // x^N - 1
+            auto phi_term_1 = numerator / (x_challenge.pow((1 << (k + 1)) - 1)); // \Phi_{n-k-1}(x^{2^{k + 1}})
+            auto phi_term_2 = numerator / (x_challenge.pow((1 << k) - 1));       // \Phi_{n-k}(x^{2^k})
+
+            auto scalar = x_power * phi_term_1 - u_challenge[k] * phi_term_2;
+            for (size_t idx = 0; idx < (1 << k); ++idx) {
+                result[idx] += scalar * quotient[idx];
+            }
+            x_power = x_challenge.pow(1 << k); // x^{2^k}
+            k++;
         }
 
         return result;
