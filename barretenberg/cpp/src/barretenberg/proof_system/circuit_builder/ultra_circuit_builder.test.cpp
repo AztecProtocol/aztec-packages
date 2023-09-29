@@ -194,6 +194,7 @@ TEST(ultra_circuit_constructor, test_elliptic_double_gate)
     bool result = circuit_constructor.check_circuit();
 
     EXPECT_EQ(result, true);
+    EXPECT_TRUE(saved_state.is_same_state(circuit_constructor));
 }
 
 TEST(ultra_circuit_constructor, non_trivial_tag_permutation)
