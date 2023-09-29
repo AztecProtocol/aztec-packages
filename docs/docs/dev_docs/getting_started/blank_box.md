@@ -91,13 +91,19 @@ The contract ABI (Application Binary Interface) is generated from the contract a
 
 ### Global variables
 
-The Sandbox runs on `localhost:8080` by default. With the `SANDBOX_URL`, we set up an Aztec RPC Client, which provides access to accounts and their private state. The RPC client will help facilitate deployments and interactions (reads and writes) with deployed contracts.
+The Sandbox runs on `localhost:8080` by default. With the `SANDBOX_URL`, we set up an Aztec Private Execution Client (PXE), which provides access to accounts and their private state. The PXE client helps facilitate deployments and interactions (reads and writes) with deployed contracts.
 
 ### Deployment
 
 `index.ts` imports from [`@aztec/aztec.js`](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/aztec.js). It also imports the `BlankContractAbi`, which is generated from the contract defined in `./src/contracts/src/main.nr`.
 
-To deploy, it gets one of the pre-funded wallets that comes with the Sandbox with `getSandboxAccountsWallets`. Using the funded
+To deploy, it gets one of the pre-initialized wallets that comes with the Sandbox with `getSandboxAccountsWallets`. Using that wallet, the contract ABI, optional salt (used to deterministically calculate the contract address, like [CREATE2 in Ethereum](https://docs.openzeppelin.com/cli/2.8/deploying-with-create2)), and the PXE, we can create a contract deployment transaction and send it to the sandbox network. The constructor defined in the Blank contract doesn't take any arguments, so we pass an empty array.
+
+With the web interface running, open your browser dev tools console, click the "Deploy" button and see the successfully deployed contract address. In the terminal or Docker logs where your sandbox is running, you will see transaction and block production info printed.
+
+### Interaction
+
+Once a contract is deployed, you can interact with it by clicking the "Interact" button. This will call the `getPublicKey` function on the `Blank` contract. For this call we need to pass the contract, the contract abi, the name of the function to call, the arguments for the function, the PXE and the wallet from which to make the transaction, see `callContractFunction`.
 
 ### Compiling Contracts
 
