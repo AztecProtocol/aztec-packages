@@ -56,7 +56,7 @@ export interface PublicContractsDB {
 }
 
 /** Database interface for providing access to commitment tree and l1 to l2 messages tree (append only data trees). */
-export interface CommitmentsDB extends DataCommitmentProvider {
+export interface CommitmentsDB {
   /**
    * Gets a confirmed L1 to L2 message for the given message key.
    * TODO(Maddiaa): Can be combined with aztec-node method that does the same thing.
@@ -64,4 +64,11 @@ export interface CommitmentsDB extends DataCommitmentProvider {
    * @returns - The l1 to l2 message object
    */
   getL1ToL2Message(msgKey: Fr): Promise<MessageLoadOracleInputs>;
+
+  /**
+   * Find the index of the given commitment.
+   * @param leafValue - The value to search for.
+   * @returns The index of the given leaf of undefined if not found.
+   */
+  findCommitmentIndex(leafValue: Buffer): Promise<bigint | undefined>;
 }

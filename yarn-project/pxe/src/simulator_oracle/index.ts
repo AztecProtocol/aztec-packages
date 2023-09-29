@@ -103,11 +103,7 @@ export class SimulatorOracle implements DBOracle {
    * @returns - The index of the commitment. Undefined if it does not exist in the tree.
    */
   async findCommitmentIndex(leafValue: Buffer) {
-    return await this.dataTreeProvider.findCommitmentIndex(leafValue);
-  }
-
-  async getDataTreePath(leafIndex: bigint) {
-    return await this.dataTreeProvider.getDataTreePath(leafIndex);
+    return await this.findLeafIndex(MerkleTreeId.PRIVATE_DATA_TREE, leafValue);
   }
 
   public async findLeafIndex(treeId: MerkleTreeId, leafValue: Buffer): Promise<bigint | undefined> {
