@@ -37,7 +37,7 @@ This quickstart walks you through installing the Sandbox, deploying your first N
 - Node.js >= v18 (recommend installing with [nvm](https://github.com/nvm-sh/nvm))
 - Docker and Docker Compose (Docker Desktop under WSL2 on windows)
 
-## Installation
+## Sandbox Installation
 
 You can run the Sandbox using either Docker or npm.
 
@@ -69,7 +69,7 @@ You will also need an Ethereum node like Anvil or Hardhat running locally on por
 npx @aztec/aztec-sandbox
 ```
 
-### CLI
+## CLI Installation
 
 To interact with the sandbox now that it's running locally, install the [Aztec CLI](https://www.npmjs.com/package/@aztec/cli):
 
@@ -117,4 +117,3 @@ Aztec's Layer 2 network is a fully programmable combined private/public ZK rollu
 - Private Execution Environment (PXE) - Normally residing with the end client, this decrypts and stores a client's private state, executes simulations and submits transactions to the Aztec Node.
 - [Aztec.js](./sandbox) - Aztec's client library for interacting with the PXE (think Ethers.js).
 - [Aztec.nr](../contracts/main.md) - Aztec's smart contract framework
-

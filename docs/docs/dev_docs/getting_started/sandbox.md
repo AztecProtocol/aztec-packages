@@ -260,6 +260,7 @@ In this section, we created 2 instances of the `TokenContract` contract abstract
 We can see that each account has the expected balance of tokens.
 
 ### Diagram of calling an unconstrained (view) function
+
 <img src="/img/sandbox_unconstrained_function.svg" alt="Unconstrained function call" />
 
 ## Creating and submitting transactions
@@ -312,7 +313,7 @@ Finally, the contract has a `mint` function that can be used to generate new tok
 
 Here is the Noir code:
 
-#include_code mint /yarn-project/noir-contracts/src/contracts/private_token_contract/src/main.nr rust
+#include_code mint_private /yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
 
 Let's mint some tokens to Bob's account using Typescript, add this to `index.ts`:
 
@@ -350,6 +351,7 @@ That's it! We have successfully deployed a private token contract to an instance
 You can find the [complete tutorial code here](https://github.com/AztecProtocol/dev-rel/tree/main/tutorials/sandbox-tutorial/token).
 
 ### Diagram of sending a transaction
+
 <img src="/img/sandbox_sending_a_tx.svg" alt="Sending a transaction" />
 
 ## Next Steps
