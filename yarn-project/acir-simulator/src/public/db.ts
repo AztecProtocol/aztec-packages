@@ -1,7 +1,6 @@
 import { EthAddress, FunctionSelector } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { DataCommitmentProvider } from '@aztec/types';
 
 import { MessageLoadOracleInputs } from '../acvm/index.js';
 
