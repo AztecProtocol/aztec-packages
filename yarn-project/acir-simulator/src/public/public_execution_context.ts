@@ -1,10 +1,4 @@
-import {
-  CallContext,
-  FunctionData,
-  FunctionSelector,
-  GlobalVariables,
-  HistoricBlockData
-} from '@aztec/circuits.js';
+import { CallContext, FunctionData, FunctionSelector, GlobalVariables, HistoricBlockData } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
