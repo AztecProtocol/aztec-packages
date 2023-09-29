@@ -23,6 +23,9 @@ aws s3 cp $BENCHMARK_FILE_JSON "s3://${BUCKET_NAME}/commits/${COMMIT_HASH}/${BEN
 if [ "${CIRCLE_BRANCH:-}" = "master" ]; then
   aws s3 cp $BENCHMARK_FILE_JSON "s3://${BUCKET_NAME}/benchmarks-v1/${COMMIT_HASH}.json"
   aws s3 cp $BENCHMARK_FILE_JSON "s3://${BUCKET_NAME}/benchmarks-v1/master.json"
+else
+  node scripts/ci/comment_e2e_benchmark.js
+  echo "commented on pr"
 fi
 
 
