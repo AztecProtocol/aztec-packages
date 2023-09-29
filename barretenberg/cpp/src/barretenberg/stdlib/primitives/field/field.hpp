@@ -80,8 +80,6 @@ template <typename Builder> class field_t {
 
     ~field_t() = default;
 
-    ~field_t() = default;
-
     static constexpr bool is_composite = false;
     static constexpr uint256_t modulus = barretenberg::fr::modulus;
 

@@ -203,14 +203,14 @@ template <typename Composer> class cycle_group {
     bool_t operator==(const cycle_group& other) const;
     void assert_equal(const cycle_group& other, std::string const& msg = "cycle_group::assert_equal") const;
     static cycle_group conditional_assign(const bool_t& predicate, const cycle_group& lhs, const cycle_group& rhs);
-    cycle_group operator/(const cycle_scalar& scalar) const;
-    Composer* context;
+    cycle_group operator/(const cycle_group& other) const;
     field_t x;
     field_t y;
 
   private:
     bool_t _is_infinity;
     bool _is_constant;
+    Composer* context;
 
     static batch_mul_internal_output _variable_base_batch_mul_internal(std::span<cycle_scalar> scalars,
                                                                        std::span<cycle_group> base_points,
