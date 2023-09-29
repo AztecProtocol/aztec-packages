@@ -125,18 +125,18 @@ void common_validate_read_requests(DummyBuilder& builder,
  */
 void common_validate_arrays(DummyBuilder& builder, PrivateCircuitPublicInputs<NT> const& app_public_inputs)
 {
-    // The following arrays (new_commitments, etc...) are passed to push_array_to_array()
-    // routines which rely on the passed arrays to be well-formed.
+    // Each of the following arrays is expected to be zero-padded.
+    // In addition, some of the following arrays (new_commitments, etc...) are passed
+    // to push_array_to_array() routines which rely on the passed arrays to be well-formed.
+    validate_array(builder, app_public_inputs.return_values, "Return values");
+    validate_array(builder, app_public_inputs.read_requests, "Read requests");
     validate_array(builder, app_public_inputs.new_commitments, "New commitments");
     validate_array(builder, app_public_inputs.new_nullifiers, "New nullifiers");
     validate_array(builder, app_public_inputs.nullified_commitments, "Nullified commitments");
     validate_array(builder, app_public_inputs.private_call_stack, "Private Call Stack");
     validate_array(builder, app_public_inputs.public_call_stack, "Public Call Stack");
     validate_array(builder, app_public_inputs.new_l2_to_l1_msgs, "New L2 to L1 messages");
-    // return_values are not used in private kernel circuit and therefore not validated.
     // encrypted_logs_hash and unencrypted_logs_hash have their own integrity checks.
-    // read_requests are processed through a loop over the whole array and therefore do not
-    // rely on the array to be right-zero padded.
 }
 
 void common_validate_0th_nullifier(DummyBuilder& builder, CombinedAccumulatedData<NT> const& end)

@@ -206,6 +206,34 @@ TEST_F(native_private_kernel_inner_tests, private_function_incorrect_call_stack_
               CircuitErrorCode::PRIVATE_KERNEL__CALCULATED_PRIVATE_CALL_HASH_AND_PROVIDED_PRIVATE_CALL_HASH_MISMATCH);
 }
 
+TEST_F(native_private_kernel_inner_tests, input_validation_malformed_arrays_return_values)
+{
+    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
+
+    std::array<fr, RETURN_VALUES_LENGTH> malformed_return_values{ fr(0), fr(0), fr(553) };
+    private_inputs.private_call.call_stack_item.public_inputs.return_values = malformed_return_values;
+
+    DummyBuilder builder = DummyBuilder("private_kernel_tests__input_validation_malformed_arrays_return_values");
+    native_private_kernel_circuit_inner(builder, private_inputs);
+
+    EXPECT_EQ(builder.failed(), true);
+    EXPECT_EQ(builder.get_first_failure().code, CircuitErrorCode::ARRAY_NOT_ZERO_RIGHT_PADDED);
+}
+
+TEST_F(native_private_kernel_inner_tests, input_validation_malformed_arrays_read_requests)
+{
+    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
+
+    std::array<fr, MAX_READ_REQUESTS_PER_CALL> malformed_read_requests{ fr(0), fr(9123), fr(0), fr(12) };
+    private_inputs.private_call.call_stack_item.public_inputs.read_requests = malformed_read_requests;
+
+    DummyBuilder builder = DummyBuilder("private_kernel_tests__input_validation_malformed_arrays_read_requests");
+    native_private_kernel_circuit_inner(builder, private_inputs);
+
+    EXPECT_EQ(builder.failed(), true);
+    EXPECT_EQ(builder.get_first_failure().code, CircuitErrorCode::ARRAY_NOT_ZERO_RIGHT_PADDED);
+}
+
 TEST_F(native_private_kernel_inner_tests, input_validation_malformed_arrays_commitments)
 {
     auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
@@ -219,6 +247,7 @@ TEST_F(native_private_kernel_inner_tests, input_validation_malformed_arrays_comm
     EXPECT_EQ(builder.failed(), true);
     EXPECT_EQ(builder.get_first_failure().code, CircuitErrorCode::ARRAY_NOT_ZERO_RIGHT_PADDED);
 }
+
 TEST_F(native_private_kernel_inner_tests, input_validation_malformed_arrays_nullifiers)
 {
     auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
