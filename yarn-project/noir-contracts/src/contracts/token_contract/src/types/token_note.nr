@@ -31,6 +31,7 @@ struct TokenNote {
     // randomness of the note to hide contents.
     randomness: Field,
     // the note header (contract_address, nonce, storage_slot)
+    // included in the note such that it becomes part of encrypted logs for later use.
     header: NoteHeader,
 }
 

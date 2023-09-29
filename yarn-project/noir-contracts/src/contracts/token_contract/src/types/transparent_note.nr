@@ -15,8 +15,9 @@ global TRANSPARENT_NOTE_LEN: Field = 2;
 struct TransparentNote {
     amount: Field,
     secret_hash: Field,
-    // the fields below are not serialized/deserialized
+    // the secret is just here for ease of use and won't be (de)serialized
     secret: Field,
+    // header is just here to satisfy the NoteInterface
     header: NoteHeader,
 }
 
@@ -69,8 +70,7 @@ impl TransparentNote {
     }
 
     fn compute_nullifier(self) -> Field {
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386): should use
-        // `compute_note_hash_for_read_or_nullify` once public functions inject nonce!
+        // TODO(#1386): should use `compute_note_hash_for_read_or_nullify` once public functions inject nonce!
         let siloed_note_hash = compute_siloed_note_hash(TransparentNoteMethods, self);
         // TODO(#1205) Should use a non-zero generator index.
         pedersen([self.secret, siloed_note_hash])[0]
