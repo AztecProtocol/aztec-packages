@@ -120,7 +120,6 @@ impl BalanceSet {
 
 fn filter_notes_min_sum(notes: [Option<TokenNote>; MAX_READ_REQUESTS_PER_CALL], min_sum: SafeU120) -> [Option<TokenNote>; MAX_READ_REQUESTS_PER_CALL] {
     let mut selected = [Option::none(); MAX_READ_REQUESTS_PER_CALL];
-    //let min_sum = SafeU120::new(min_sum);
     let mut sum = SafeU120::min();
     for i in 0..notes.len() {
         if notes[i].is_some() & sum.lt(min_sum) {
