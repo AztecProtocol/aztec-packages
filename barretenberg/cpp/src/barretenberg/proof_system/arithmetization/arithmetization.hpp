@@ -125,7 +125,7 @@ template <typename _FF> class Turbo : public Arithmetization</*NUM_WIRES =*/4, /
     };
 };
 
-template <typename _FF> class Ultra : public Arithmetization</*NUM_WIRES =*/4, /*num_selectors =*/11> {
+template <typename _FF> class Ultra : public Arithmetization</*NUM_WIRES =*/4, /*num_selectors =*/12> {
   public:
     using FF = _FF;
     struct Selectors : SelectorsBase<FF, num_selectors> {
