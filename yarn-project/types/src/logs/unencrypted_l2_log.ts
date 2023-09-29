@@ -32,7 +32,21 @@ export class UnencryptedL2Log {
    * @returns A buffer containing the serialized log.
    */
   public toBuffer(): Buffer {
-    return Buffer.concat([this.contractAddress.toBuffer(), this.selector.toBuffer(), serializeBufferToVector(this.data)]);
+    return Buffer.concat([
+      this.contractAddress.toBuffer(),
+      this.selector.toBuffer(),
+      serializeBufferToVector(this.data),
+    ]);
+  }
+
+  /**
+   * Serializes log to a human readable string.
+   * @returns A human readable representation of the log.
+   */
+  public toHumanReadable(): string {
+    return `UnencryptedL2Log(contractAddress: ${this.contractAddress.toString()}, selector: ${this.selector.toString()}, data: ${this.data.toString(
+      'hex',
+    )})`;
   }
 
   /**
