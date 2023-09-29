@@ -175,21 +175,22 @@ export class Crs {
    */
   async init() {
     await this.crs.init();
+    if (isNode) {
+      // save downloaded CRS on file
+      if (this.saveOnFile && !existsSync(this.localPath)) {
+        const g1Data = this.crs.getG1Data();
+        try {
+          writeFileSync(this.localPath, Buffer.from(g1Data));
+        } catch (error) {
+          this.logger.warn('Failed to save CRS data: ', error);
+        }
 
-    // save downloaded CRS on file
-    if (this.saveOnFile && !existsSync(this.localPath)) {
-      const g1Data = this.crs.getG1Data();
-      try {
-        writeFileSync(this.localPath, Buffer.from(g1Data));
-      } catch (error) {
-        this.logger.warn('Failed to save CRS data: ', error);
-      }
-
-      const g2Data = this.crs.getG2Data();
-      try {
-        appendFileSync(this.localPath, Buffer.from(g2Data));
-      } catch (error) {
-        this.logger.warn('Failed to append to CRS data: ', error);
+        const g2Data = this.crs.getG2Data();
+        try {
+          appendFileSync(this.localPath, Buffer.from(g2Data));
+        } catch (error) {
+          this.logger.warn('Failed to append to CRS data: ', error);
+        }
       }
     }
   }
