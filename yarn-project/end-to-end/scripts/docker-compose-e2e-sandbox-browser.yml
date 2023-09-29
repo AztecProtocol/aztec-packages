@@ -31,6 +31,7 @@ services:
   end-to-end:
     image: aztecprotocol/end-to-end:latest
     environment:
+      BENCHMARK: true
       DEBUG: ${DEBUG:-'aztec:*'}
       ETHEREUM_HOST: http://fork:8545
       CHAIN_ID: 31337
