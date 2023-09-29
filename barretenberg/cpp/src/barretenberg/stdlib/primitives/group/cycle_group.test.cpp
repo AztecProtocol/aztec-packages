@@ -46,8 +46,7 @@ template <class Composer> class CycleGroupTest : public ::testing::Test {
     };
 };
 
-using CircuitTypes = ::testing::
-    Types<proof_system::StandardCircuitBuilder, proof_system::TurboCircuitBuilder, proof_system::UltraCircuitBuilder>;
+using CircuitTypes = ::testing::Types<proof_system::StandardCircuitBuilder, proof_system::UltraCircuitBuilder>;
 TYPED_TEST_SUITE(CycleGroupTest, CircuitTypes);
 
 TYPED_TEST(CycleGroupTest, TestDbl)

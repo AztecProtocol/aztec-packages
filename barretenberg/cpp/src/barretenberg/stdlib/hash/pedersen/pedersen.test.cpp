@@ -21,8 +21,7 @@ template <class Composer> class PedersenTest : public ::testing::Test {
     };
 };
 
-using CircuitTypes = ::testing::
-    Types<proof_system::StandardCircuitBuilder, proof_system::TurboCircuitBuilder, proof_system::UltraCircuitBuilder>;
+using CircuitTypes = ::testing::Types<proof_system::StandardCircuitBuilder, proof_system::UltraCircuitBuilder>;
 TYPED_TEST_SUITE(PedersenTest, CircuitTypes);
 
 TYPED_TEST(PedersenTest, TestHash)
