@@ -30,20 +30,23 @@ template <typename Curve> class ZeroMorphProver {
     static std::vector<Polynomial> compute_multivariate_quotients(std::span<Fr> input_polynomial,
                                                                   std::span<Fr> u_challenge)
     {
-        size_t log_n = numeric::get_msb(input_polynomial.size());
+        size_t n = input_polynomial.size();
+        size_t log_n = numeric::get_msb(n);
 
         // Define the vector of quotients q_k, k = 0, ..., log_n-1
-        std::vector<Polynomial> multilinear_quotients;
-        multilinear_quotients.reserve(log_n);
+        std::vector<Polynomial> quotients;
+        quotients.reserve(log_n);
 
         // WORKTODO: Actually compute the q_k here!
-        size_t k = 0;
-        for (auto& quotient : multilinear_quotients) {
+        for (size_t k = 0; k < log_n; ++k) {
             (void)u_challenge;
-            quotient = Polynomial(1 << k); // deg(q_k) = 2^k - 1
+            // Note: in reality we want polys of size 2^k but for convenience use size n for now
+            // quotient = Polynomial(1 << k); // deg(q_k) = 2^k - 1
+            quotients.emplace_back(Polynomial(n)); // deg(q_k) = 2^k - 1
+            quotients[k][0] = k;                   // add an arbitrary non-zero coefficient
         }
 
-        return multilinear_quotients;
+        return quotients;
     }
 
     /**

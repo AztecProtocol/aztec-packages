@@ -27,32 +27,47 @@ TYPED_TEST_SUITE(ZeroMorphTest, CurveTypes);
  */
 TYPED_TEST(ZeroMorphTest, QuotientConstruction)
 {
+    // Define some useful type aliases
     using ZeroMorphProver = ZeroMorphProver<TypeParam>;
-    size_t n = 16;
-    size_t log_n = numeric::get_msb(n);
+    using Fr = typename TypeParam::ScalarField;
+    using Polynomial = barretenberg::Polynomial<Fr>;
+
+    // Define size parameters
+    size_t N = 16;
+    size_t log_N = numeric::get_msb(N);
 
     // Construct a random multilinear polynomial f, and (u,v) such that f(u) = v.
-    auto multilinear_f = this->random_polynomial(n);
-    auto u_challenge = this->random_evaluation_point(log_n);
-    auto v_evaluation = multilinear_f.evaluate_mle(u_challenge);
-    (void)v_evaluation;
+    Polynomial multilinear_f = this->random_polynomial(N);
+    std::vector<Fr> u_challenge = this->random_evaluation_point(log_N);
+    Fr v_evaluation = multilinear_f.evaluate_mle(u_challenge);
 
     // Compute the multilinear quotients q_k = q_k(X_0, ..., X_{k-1})
-    auto quotients = ZeroMorphProver::compute_multivariate_quotients(multilinear_f, u_challenge);
+    std::vector<Polynomial> quotients = ZeroMorphProver::compute_multivariate_quotients(multilinear_f, u_challenge);
 
-    // WORKTODO: show that the q_k were properly constructed by showing that, for a random multilinear challenge z, the
-    // following holds: f(z) - v = \sum_{k=0}^{d-1} (z_k - u_k)q_k(z)
-    auto z_challenge = this->random_evaluation_point(log_n);
+    // Show that the q_k were properly constructed by showing that, for a random multilinear challenge z, the
+    // following holds: f(z) - v - \sum_{k=0}^{d-1} (z_k - u_k)q_k(z) = 0
+    std::vector<Fr> z_challenge = this->random_evaluation_point(log_N);
 
-    EXPECT_TRUE(true);
+    Fr result = multilinear_f.evaluate_mle(z_challenge);
+    result -= v_evaluation;
+    for (size_t k = 0; k < log_N; ++k) {
+        // result = result - (z_k - u_k) * q_k(z)
+        result -= (z_challenge[k] - u_challenge[k]) * quotients[k].evaluate_mle(z_challenge);
+    }
+
+    EXPECT_EQ(result, 0);
 }
 
+/**
+ * @brief Full Prover/Verifier protocol for proving multilinear evaluation f(u) = v
+ *
+ */
 TYPED_TEST(ZeroMorphTest, Single)
 {
     using Fr = typename TypeParam::ScalarField;
     using Commitment = typename TypeParam::AffineElement;
     using ZeroMorphProver = ZeroMorphProver<TypeParam>;
-    size_t N_max = 25; // ???
+    size_t N_max = 32; // mock
     size_t n = 16;
     size_t log_n = numeric::get_msb(n);
 
