@@ -59,6 +59,45 @@ TYPED_TEST(ZeroMorphTest, QuotientConstruction)
 }
 
 /**
+ * @brief Test function for constructing batched lifted degree quotient \hat{q}
+ *
+ */
+TYPED_TEST(ZeroMorphTest, BatchedLiftedDegreeQuotient)
+{
+    // Define some useful type aliases
+    using ZeroMorphProver = ZeroMorphProver<TypeParam>;
+    using Fr = typename TypeParam::ScalarField;
+    using Polynomial = barretenberg::Polynomial<Fr>;
+
+    const size_t N = 8;
+
+    // Define some mock q_k with deg(q_k) = 2^k - 1
+    std::array<Fr, N> poly_0 = { 1, 0, 0, 0, 0, 0, 0, 0 };
+    std::array<Fr, N> poly_1 = { 2, 3, 0, 0, 0, 0, 0, 0 };
+    std::array<Fr, N> poly_2 = { 4, 5, 6, 7, 0, 0, 0, 0 };
+
+    auto q_0 = Polynomial{ poly_0 };
+    auto q_1 = Polynomial{ poly_1 };
+    auto q_2 = Polynomial{ poly_2 };
+
+    std::vector<Polynomial> quotients = { q_0, q_1, q_2 };
+    auto y_challenge = Fr::random_element();
+
+    auto batched_quotient = ZeroMorphProver::compute_batched_lifted_degree_quotient(quotients, y_challenge, N);
+
+    // Now explicitly define q_k_lifted = X^{N-2^k} * q_k and compute the expected batched result
+    auto batched_quotient_expected = Polynomial(N);
+    std::array<Fr, N> q_0_lifted = { 0, 0, 0, 0, 0, 0, 0, 1 };
+    std::array<Fr, N> q_1_lifted = { 0, 0, 0, 0, 0, 0, 2, 3 };
+    std::array<Fr, N> q_2_lifted = { 0, 0, 0, 0, 4, 5, 6, 7 };
+    batched_quotient_expected += q_0_lifted;
+    batched_quotient_expected.add_scaled(q_1_lifted, y_challenge);
+    batched_quotient_expected.add_scaled(q_2_lifted, y_challenge * y_challenge);
+
+    EXPECT_EQ(batched_quotient, batched_quotient_expected);
+}
+
+/**
  * @brief Full Prover/Verifier protocol for proving multilinear evaluation f(u) = v
  *
  */
@@ -97,6 +136,7 @@ TYPED_TEST(ZeroMorphTest, Single)
 
     // Get challenge y
     auto y_challenge = prover_transcript.get_challenge("ZM:y");
+    (void)y_challenge;
 
     // Compute the batched, lifted-degree quotient \hat{q}
     auto batched_quotient = ZeroMorphProver::compute_batched_lifted_degree_quotient(quotients, y_challenge, n);

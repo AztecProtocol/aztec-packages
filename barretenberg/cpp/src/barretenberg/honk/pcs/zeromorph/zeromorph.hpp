@@ -30,20 +30,21 @@ template <typename Curve> class ZeroMorphProver {
     static std::vector<Polynomial> compute_multivariate_quotients(std::span<Fr> input_polynomial,
                                                                   std::span<Fr> u_challenge)
     {
-        size_t n = input_polynomial.size();
-        size_t log_n = numeric::get_msb(n);
+        size_t N = input_polynomial.size();
+        size_t log_N = numeric::get_msb(N);
 
         // Define the vector of quotients q_k, k = 0, ..., log_n-1
         std::vector<Polynomial> quotients;
-        quotients.reserve(log_n);
+        quotients.reserve(log_N);
 
         // WORKTODO: Actually compute the q_k here!
-        for (size_t k = 0; k < log_n; ++k) {
+        for (size_t k = 0; k < log_N; ++k) {
             (void)u_challenge;
             // Note: in reality we want polys of size 2^k but for convenience use size n for now
             // quotient = Polynomial(1 << k); // deg(q_k) = 2^k - 1
-            quotients.emplace_back(Polynomial(n)); // deg(q_k) = 2^k - 1
-            quotients[k][0] = k;                   // add an arbitrary non-zero coefficient
+            quotients.emplace_back(Polynomial(N)); // deg(q_k) = N - 1
+            // add an arbitrary non-zero coefficient to each poly to avoid point at infinity
+            quotients[k][0] = Fr::random_element();
         }
 
         return quotients;
@@ -60,15 +61,21 @@ template <typename Curve> class ZeroMorphProver {
                                                              Fr y_challenge,
                                                              size_t N)
     {
-        (void)y_challenge;
-
         // Batched lifted degree quotient polynomial
         auto result = Polynomial(N);
 
-        // WORKTODO: Compute q = \sum_k y^k * X^{N - d_k - 1} * q_k
+        // Compute q = \sum_k y^k * X^{N - d_k - 1} * q_k
+        size_t k = 0;
+        auto scalar = Fr(1); // y^k
         for (auto& quotient : quotients) {
-            // Simply accumulate y^k*q_k into q, at the index offset N - d_k - 1
-            (void)quotient;
+            // Accumulate y^k*q_k into q, at the index offset N - d_k - 1
+            size_t deg_k = (1 << k) - 1;
+            size_t offset = N - deg_k - 1;
+            for (size_t idx = 0; idx < deg_k + 1; ++idx) {
+                result[offset + idx] += scalar * quotient[idx];
+            }
+            scalar *= y_challenge; // update batching scalar y^k
+            k++;
         }
 
         return result;
