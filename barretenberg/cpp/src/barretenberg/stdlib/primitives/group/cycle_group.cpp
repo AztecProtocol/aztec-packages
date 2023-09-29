@@ -761,9 +761,8 @@ cycle_group<Composer>::straus_scalar_slice::straus_scalar_slice(Composer* contex
 template <typename Composer>
 std::optional<field_t<Composer>> cycle_group<Composer>::straus_scalar_slice::read(size_t index)
 {
-    return std::nullopt;
     if (index >= slices.size()) {
-        return {};
+        return std::nullopt;
     }
     return slices[index];
 }
