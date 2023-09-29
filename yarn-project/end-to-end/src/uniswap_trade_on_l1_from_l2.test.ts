@@ -64,7 +64,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
       wallets,
       logger: logger_,
       cheatCodes,
-    } = await setup(2, dumpedState);
+    } = await setup(2, { stateLoad: dumpedState });
     const walletClient = deployL1ContractsValues.walletClient;
     const publicClient = deployL1ContractsValues.publicClient;
 

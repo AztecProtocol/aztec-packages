@@ -2,22 +2,22 @@ import debug from 'debug';
 import isNode from 'detect-node';
 import { isatty } from 'tty';
 
-import { LogFn } from './index.js';
+import { LogData, LogFn } from './index.js';
 
 // Matches a subset of Winston log levels
 const LogLevels = ['silent', 'error', 'warn', 'info', 'verbose', 'debug'] as const;
-const DefaultLogLevel = 'info' as const;
+const DefaultLogLevel = process.env.NODE_ENV === 'test' ? ('silent' as const) : ('info' as const);
 
 /**
  * A valid log severity level.
  */
-type LogLevel = (typeof LogLevels)[number];
+export type LogLevel = (typeof LogLevels)[number];
 
 const envLogLevel = process.env.LOG_LEVEL?.toLowerCase() as LogLevel;
 const currentLevel = LogLevels.includes(envLogLevel) ? envLogLevel : DefaultLogLevel;
 
 /** Log function that accepts an exception object */
-type ErrorLogFn = (msg: string, err?: Error | unknown) => void;
+type ErrorLogFn = (msg: string, err?: Error | unknown, data?: LogData) => void;
 
 /**
  * Logger that supports multiple severity levels.
@@ -43,17 +43,17 @@ export function createDebugLogger(name: string): DebugLogger {
 
   const logger = {
     silent: () => {},
-    error: (msg: string, err?: Error | unknown) => logWithDebug(debugLogger, 'error', formatError(msg, err)),
-    warn: (msg: string) => logWithDebug(debugLogger, 'warn', msg),
-    info: (msg: string) => logWithDebug(debugLogger, 'info', msg),
-    verbose: (msg: string) => logWithDebug(debugLogger, 'verbose', msg),
-    debug: (msg: string) => logWithDebug(debugLogger, 'debug', msg),
+    error: (msg: string, err?: unknown, data?: LogData) => logWithDebug(debugLogger, 'error', fmtErr(msg, err), data),
+    warn: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'warn', msg, data),
+    info: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'info', msg, data),
+    verbose: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'verbose', msg, data),
+    debug: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'debug', msg, data),
   };
-  return Object.assign((msg: string) => logWithDebug(debugLogger, 'debug', msg), logger);
+  return Object.assign((msg: string, data?: LogData) => logWithDebug(debugLogger, 'debug', msg, data), logger);
 }
 
 /** A callback to capture all logs. */
-export type LogHandler = (level: LogLevel, namespace: string, msg: string) => void;
+export type LogHandler = (level: LogLevel, namespace: string, msg: string, data?: LogData) => void;
 
 const logHandlers: LogHandler[] = [];
 
@@ -71,14 +71,16 @@ export function onLog(handler: LogHandler) {
  * @param level - Intended log level.
  * @param args - Args to log.
  */
-function logWithDebug(debug: debug.Debugger, level: LogLevel, msg: string) {
+function logWithDebug(debug: debug.Debugger, level: LogLevel, msg: string, data?: LogData) {
   for (const handler of logHandlers) {
-    handler(level, debug.namespace, msg);
+    handler(level, debug.namespace, msg, data);
   }
+
+  const msgWithData = data ? `${msg} ${fmtLogData(data)}` : msg;
   if (debug.enabled) {
-    debug(msg);
-  } else if (LogLevels.indexOf(level) <= LogLevels.indexOf(currentLevel) && process.env.NODE_ENV !== 'test') {
-    printLog(`${getPrefix(debug, level)} ${msg}`);
+    debug(msgWithData);
+  } else if (LogLevels.indexOf(level) <= LogLevels.indexOf(currentLevel)) {
+    printLog(`${getPrefix(debug, level)} ${msgWithData}`);
   }
 }
 
@@ -112,7 +114,17 @@ function printLog(msg: string) {
  * @param err - Error to log
  * @returns A string with both the log message and the error message.
  */
-function formatError(msg: string, err?: Error | unknown): string {
+function fmtErr(msg: string, err?: Error | unknown): string {
   const errStr = err && [(err as Error).name, (err as Error).message].filter(x => !!x).join(' ');
   return err ? `${msg}: ${errStr || err}` : msg;
+}
+
+/**
+ * Formats structured log data as a string for console output.
+ * @param data - Optional log data.
+ */
+function fmtLogData(data?: LogData): string {
+  return Object.entries(data ?? {})
+    .map(([key, value]) => `${key}=${value}`)
+    .join(' ');
 }
