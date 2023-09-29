@@ -54,8 +54,7 @@ async function getExistingComment() {
     const comments = JSON.parse(response);
     return comments.find((comment) => comment.body.includes(COMMENT_MARK));
   } catch (error) {
-    console.error("Error checking for existing comments:", error.message);
-    process.exit(1);
+    throw new Error("Error checking for existing comments: " + error.message);
   }
 }
 
@@ -73,8 +72,7 @@ async function upsertComment(existingCommentId) {
     await sendGitHubRequest(requestUrl, requestMethod, commentData);
     console.log("Comment added or updated successfully.");
   } catch (error) {
-    console.error("Error adding or updating comment:", error.message);
-    process.exit(1);
+    throw new Error("Error adding or updating comment: " + error.message);
   }
 }
 
