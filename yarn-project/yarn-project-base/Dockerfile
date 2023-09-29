@@ -40,8 +40,8 @@
 #      RUN yarn cache clean && yarn workspaces focus --production
 #  - Create final slim image by copying /usr/src into a fresh image.
 #
-FROM circuits-wasm-linux-clang as circuits
-FROM l1-contracts as contracts
+FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/circuits-wasm-linux-clang as circuits
+FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/l1-contracts as contracts
 
 FROM node:18-alpine
 RUN apk update && apk add --no-cache bash jq
@@ -58,7 +58,7 @@ RUN yarn --immutable && rm -rf /root/.cache/puppeteer && /bin/bash -c '\
   rm -rf /root/.yarn/berry/cache/* && \
   cd .yarn/cache && \
   for F in *; do \
-  [[ $F =~ (.*-) ]] && ln $F /root/.yarn/berry/cache/${BASH_REMATCH[1]}8.zip; \
+    [[ $F =~ (.*-) ]] && ln $F /root/.yarn/berry/cache/${BASH_REMATCH[1]}8.zip; \
   done'
 
 # If everything's worked properly, we should no longer need access to the network.
@@ -69,9 +69,6 @@ RUN yarn prepare:check
 
 # Bring in circuits wasms.
 COPY --from=circuits /usr/src/circuits/cpp/build-wasm/bin /usr/src/circuits/cpp/build-wasm/bin
-# Bring in download ignition script.
-COPY --from=circuits /usr/src/barretenberg/cpp/srs_db /usr/src/barretenberg/cpp/srs_db
-RUN ls /usr/src/barretenberg/cpp/srs_db
 
 # Generate L1 contract TypeScript artifacts.
 COPY --from=contracts /usr/src/l1-contracts/out /usr/src/l1-contracts/out
