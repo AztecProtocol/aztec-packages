@@ -8,12 +8,12 @@ struct PrivateDataMembershipWitness {
     path: [Field; PRIVATE_DATA_TREE_HEIGHT],
 }
 
-#[oracle(getDataTreePath)]
-fn get_private_data_sibling_witness_oracle(_commitment: Field) -> [Field; PRIVATE_DATA_MEMBERSHIP_WITNESS_LEN] {}
+#[oracle(getMembershipWitness)]
+fn get_private_data_membership_witness_oracle(_commitment: Field) -> [Field; PRIVATE_DATA_MEMBERSHIP_WITNESS_LEN] {}
 
-unconstrained fn get_private_data_sibling_witness(commitment: Field) -> PrivateDataMembershipWitness {
+unconstrained fn get_private_data_membership_witness(commitment: Field) -> PrivateDataMembershipWitness {
     assert(PRIVATE_DATA_MEMBERSHIP_WITNESS_LEN == PRIVATE_DATA_TREE_HEIGHT + 1);
-    let fields = get_private_data_sibling_witness_oracle(commitment);
+    let fields = get_private_data_membership_witness_oracle(commitment);
     PrivateDataMembershipWitness {
         index: fields[0],
         path: arr_copy_slice(fields, [0; PRIVATE_DATA_TREE_HEIGHT], 1)

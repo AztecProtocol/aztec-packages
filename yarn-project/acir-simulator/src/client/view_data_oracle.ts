@@ -130,13 +130,14 @@ export class ViewDataOracle extends TypedOracle {
 
   /**
    * Fetches the index and data tree path for a commitment
-   * @param commitment - The commitment
+   * @param leafValue - The commitment
    * @returns The index and data tree path
    */
-  public async getDataTreePath(commitment: Fr): Promise<Fr[]> {
-    const index = await this.db.findCommitmentIndex(commitment.toBuffer());
+  public async getMembershipWitness(leafValue: Fr): Promise<Fr[]> {
+    // @todo @lherskind #2572
+    const index = await this.db.findCommitmentIndex(leafValue.toBuffer());
     if (!index) {
-      throw new Error(`Commitment ${commitment} not found in private data tree`);
+      throw new Error(`Leaf value: ${leafValue} not found in private data tree`);
     }
     const path = await this.db.getDataTreePath(index);
     return [new Fr(index), ...path.toFieldArray()];

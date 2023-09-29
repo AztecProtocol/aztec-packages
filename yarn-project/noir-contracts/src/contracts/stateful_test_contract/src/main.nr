@@ -22,7 +22,7 @@ contract StatefulTest {
         },
     };
     use dep::aztec::constants_gen::PRIVATE_DATA_TREE_HEIGHT;
-    use crate::historic_commitment_oracle::{get_private_data_sibling_witness, PrivateDataMembershipWitness};
+    use crate::historic_commitment_oracle::{get_private_data_membership_witness, PrivateDataMembershipWitness};
     use dep::aztec::note::utils::compute_note_hash_for_read_or_nullify;
     use crate::almost_value_note::AlmostValueNote;
 
@@ -97,7 +97,7 @@ contract StatefulTest {
     ) {
         let note = note.to_value_note();
         let commitment = compute_note_hash_for_read_or_nullify(ValueNoteMethods, note);
-        let witness = get_private_data_sibling_witness(commitment);
+        let witness = get_private_data_membership_witness(commitment);
         let root = compute_merkle_root(commitment, witness.index, witness.path);
         assert(context.block_data.private_data_tree_root == root, "Note is not included in history");
     }
@@ -107,7 +107,7 @@ contract StatefulTest {
     ) -> [Field; PRIVATE_DATA_TREE_HEIGHT] {
         // compute the commitment 
         let commitment = compute_note_hash_for_read_or_nullify(ValueNoteMethods, note);
-        let witness = get_private_data_sibling_witness(commitment);
+        let witness = get_private_data_membership_witness(commitment);
         witness.path
     }
 
@@ -120,7 +120,7 @@ contract StatefulTest {
     unconstrained fn get_root(note: ValueNote) -> Field {
         // compute the commitment 
         let commitment = compute_note_hash_for_read_or_nullify(ValueNoteMethods, note);
-        let witness = get_private_data_sibling_witness(commitment);
+        let witness = get_private_data_membership_witness(commitment);
         compute_merkle_root(commitment, witness.index, witness.path)
     }
 

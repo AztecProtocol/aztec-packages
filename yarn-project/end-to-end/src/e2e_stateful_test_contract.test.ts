@@ -93,9 +93,9 @@ describe('e2e_deploy_contract', () => {
     expect(isIncludedReceipt.status).toEqual(TxStatus.MINED);
 
     const badValueNote = { ...valueNote, owner: 100n };
-    const badCommitment = new Fr(await statefulContract.methods.get_commitment(badValueNote).view());
+    const badLeafValue = new Fr(await statefulContract.methods.get_commitment(badValueNote).view());
     await expect(statefulContract.methods.is_included_in_history(badValueNote).simulate()).rejects.toThrowError(
-      `Commitment ${badCommitment} not found in private data tree`,
+      `Leaf value: ${badLeafValue} not found in private data tree`,
     );
   }, 30_000);
 });
