@@ -9,10 +9,10 @@ Let's start by showing our user's private balance for the token across their acc
 #include_code balance_of_private yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
 
 :::info
-Note that this function will only return a valid response for accounts registered in the RPC Server, since it requires access to the [user's private state](../../wallets/main.md#private-state). In other words, you cannot query the private balance of another user for the token contract.
+Note that this function will only return a valid response for accounts registered in the Private eXecution Environment (PXE), since it requires access to the [user's private state](../../wallets/main.md#private-state). In other words, you cannot query the private balance of another user for the token contract.
 :::
 
-To do this, let's first initialise a new `Contract` instance using `aztec.js` that represents our deployed token contracts. Create a new `src/contracts.mjs` file with the imports for our artifacts and other dependencies:
+To do this, let's first initialize a new `Contract` instance using `aztec.js` that represents our deployed token contracts. Create a new `src/contracts.mjs` file with the imports for our artifacts and other dependencies:
 
 ```js
 // src/contracts.mjs
@@ -43,9 +43,9 @@ Balance of 0x0e1f60e8566e2c6d32378bdcadb7c63696e853281be798c107266b8c3a88ea9b: 0
 
 ## Transferring private tokens
 
-Now that we can see the balance for each user, let's transfer tokens from one account to another. To do this, we will first need access to a `Wallet` object. This wraps access to an RPC Server and also provides an interface to craft and sign transactions on behalf of one of the user accounts.
+Now that we can see the balance for each user, let's transfer tokens from one account to another. To do this, we will first need access to a `Wallet` object. This wraps access to an PXE and also provides an interface to craft and sign transactions on behalf of one of the user accounts.
 
-We can initialise a wallet using one of the `getAccount` methods from `aztec.js`, along with the corresponding signing and encryption keys:
+We can initialize a wallet using one of the `getAccount` methods from `aztec.js`, along with the corresponding signing and encryption keys:
 
 ```js
 import { getSchnorrAccount } from "@aztec/aztec.js";
@@ -56,17 +56,17 @@ const wallet = await getSchnorrAccount(
 ).getWallet();
 ```
 
-For ease of use, `aztec.js` also ships with a helper `getSandboxAccountsWallets` method that returns a wallet for each of the pre-initialised accounts in the Sandbox, so you can send transactions as any of them. 
+For ease of use, `aztec.js` also ships with a helper `getSandboxAccountsWallets` method that returns a wallet for each of the pre-initialized accounts in the Sandbox, so you can send transactions as any of them. 
 
 ```js
 import { getSandboxAccountsWallets } from '@aztec/aztec.js';
 ```
 
-We'll use one of these wallets to initialise the `Contract` instance that represents our private token contract, so every transaction sent through it will be sent through that wallet.
+We'll use one of these wallets to initialize the `Contract` instance that represents our private token contract, so every transaction sent through it will be sent through that wallet.
 
 #include_code transferPrivateFunds yarn-project/end-to-end/src/sample-dapp/index.mjs javascript
 
-Let's go step-by-step on this snippet. We first get wallets for two of the Sandbox accounts, and name them `owner` and `recipient`. Then, we initialise the private token `Contract` instance using the `owner` wallet, meaning that any transactions sent through it will have the `owner` as sender.
+Let's go step-by-step on this snippet. We first get wallets for two of the Sandbox accounts, and name them `owner` and `recipient`. Then, we initialize the private token `Contract` instance using the `owner` wallet, meaning that any transactions sent through it will have the `owner` as sender.
 
 Next, we send a transfer transaction, moving 1 unit of balance to the `recipient` account address. This has no immediate effect, since the transaction first needs to be simulated locally and then submitted and mined. Only once this has finished we can query the balances again and see the effect of our transaction. We are using a `showPrivateBalances` helper function here which has the code we wrote in the section above.
 
@@ -98,7 +98,7 @@ While they are [fundamentally differently](../../../concepts/foundation/state_mo
 #include_code showPublicBalances yarn-project/end-to-end/src/sample-dapp/index.mjs javascript
 
 :::info
-Since this is a public token contract we are working with, we can now query the balance for any address, not just those registered in our local RPC Server. We can also send funds to addresses for which we don't know their [public encryption key](../../../concepts/foundation/accounts/keys.md#encryption-keys).
+Since this is a public token contract we are working with, we can now query the balance for any address, not just those registered in our local PXE. We can also send funds to addresses for which we don't know their [public encryption key](../../../concepts/foundation/accounts/keys.md#encryption-keys).
 :::
 
 Here, since the public token contract does not mint any initial funds upon deployment, the balances for all of our user's accounts will be zero. But we can send a transaction to mint tokens to change this, using very similar code to the one for sending private funds:
@@ -121,7 +121,7 @@ Balance of 0x226f8087792beff8d5009eb94e65d2a4a505b70baf4a9f28d33c8d620b0ba972: 0
 Balance of 0x0e1f60e8566e2c6d32378bdcadb7c63696e853281be798c107266b8c3a88ea9b: 0
 ```
 
-Public functions can emit [unencrypted public logs](../../contracts/syntax/events.md#unencrypted-events), which we can query via the RPC Server interface. In particular, the public token contract emits a generic `Coins minted` whenever the `mint` method is called:
+Public functions can emit [unencrypted public logs](../../contracts/syntax/events.md#unencrypted-events), which we can query via the PXE interface. In particular, the public token contract emits a generic `Coins minted` whenever the `mint` method is called:
 
 #include_code unencrypted_log yarn-project/noir-contracts/src/contracts/public_token_contract/src/main.nr rust
 

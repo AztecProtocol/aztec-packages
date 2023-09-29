@@ -55,7 +55,7 @@ contract PendingCommitments {
         amount: Field,
         owner: Field,
     ) -> Field {
-        let storage = Storage::init(Context::private(&mut context));
+        
 
         let owner_balance = storage.balances.at(owner);
         let mut note = ValueNote::new(amount, owner);
@@ -67,7 +67,7 @@ contract PendingCommitments {
             context.inputs.call_context.storage_contract_address,
             owner_balance.storage_slot,
             get_public_key(owner),
-            note.serialise(),
+            note.serialize(),
         );
 
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, amount);
@@ -89,7 +89,7 @@ contract PendingCommitments {
         amount: Field,
         owner: Field,
     ) -> Field {
-        let storage = Storage::init(Context::private(&mut context));
+        
 
         let owner_balance = storage.balances.at(owner);
 
@@ -108,7 +108,7 @@ contract PendingCommitments {
             context.inputs.call_context.storage_contract_address,
             owner_balance.storage_slot,
             get_public_key(owner),
-            note.serialise(),
+            note.serialize(),
         );
 
         0
@@ -127,7 +127,7 @@ contract PendingCommitments {
         amount: Field,
         owner: Field,
     ) {
-        let storage = Storage::init(Context::private(&mut context));
+        
 
         let owner_balance = storage.balances.at(owner);
         let mut note = ValueNote::new(amount, owner);
@@ -139,7 +139,7 @@ contract PendingCommitments {
             context.inputs.call_context.storage_contract_address,
             owner_balance.storage_slot,
             get_public_key(owner),
-            note.serialise(),
+            note.serialize(),
         );
     }
 
@@ -149,7 +149,7 @@ contract PendingCommitments {
         expected_value: Field,
         owner: Field,
     ) -> Field {
-        let storage = Storage::init(Context::private(&mut context));
+        
 
         let owner_balance = storage.balances.at(owner);
 
@@ -168,7 +168,7 @@ contract PendingCommitments {
     fn get_note_zero_balance(
         owner: Field,
     ) {
-        let storage = Storage::init(Context::private(&mut context));
+        
 
         let owner_balance = storage.balances.at(owner);
 

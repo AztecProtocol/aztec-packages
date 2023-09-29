@@ -21,7 +21,7 @@ Responsibilities:
 - Holds and never exposes private keys.
 - Provides sign/decrypt functionality.
 
-### AztecRpcClient (Previously Wallet/Private Client)
+### PXEClient
 
 Responsibilities:
 
@@ -136,13 +136,12 @@ Implementation notes for this milestone:
 - Exposes a single account, created by a private key given in the ctor, that defaults to some test key.
 - Can be used as both the spending and decryption key for early development.
 
-### AztecRpcServer (Previously Wallet/Private Client)
-
+### Private Execution Environment (PXE)
 ![](https://hackmd.io/_uploads/ryS0sOLyh.png)
 
 Implements:
 
-- `AztecRpcClient` (The server is a client, when used directly)
+- `PXE` (The server is a client, when used directly)
 
 Injected:
 
@@ -223,7 +222,7 @@ Implementation notes for this milestone:
 
 Responsibilities:
 
-- Wins a period of time to become the sequencer (depending on finalised protocol).
+- Wins a period of time to become the sequencer (depending on finalized protocol).
 - Chooses a set of txs from the tx pool to be in the rollup.
 - Simulate the rollup of txs.
 - Adds proof requests to the request pool (not for this milestone).
