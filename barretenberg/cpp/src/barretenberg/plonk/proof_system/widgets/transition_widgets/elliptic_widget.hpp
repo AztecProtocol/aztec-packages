@@ -78,8 +78,9 @@ template <class Field, class Getters, typename PolyContainer> class EllipticKern
     inline static std::set<PolynomialIndex> const& get_required_polynomial_ids()
     {
         static const std::set<PolynomialIndex> required_polynomial_ids = {
-            PolynomialIndex::Q_1, PolynomialIndex::Q_3, PolynomialIndex::Q_4, PolynomialIndex::Q_ELLIPTIC,
-            PolynomialIndex::W_1, PolynomialIndex::W_2, PolynomialIndex::W_3, PolynomialIndex::W_4
+            PolynomialIndex::Q_1,        PolynomialIndex::Q_3,      PolynomialIndex::Q_4,
+            PolynomialIndex::Q_ELLIPTIC, PolynomialIndex::Q_DOUBLE, PolynomialIndex::W_1,
+            PolynomialIndex::W_2,        PolynomialIndex::W_3,      PolynomialIndex::W_4
         };
         return required_polynomial_ids;
     }
@@ -106,6 +107,9 @@ template <class Field, class Getters, typename PolyContainer> class EllipticKern
         const Field& x_3 = Getters::template get_value<EvaluationType::SHIFTED, PolynomialIndex::W_2>(polynomials, i);
         const Field& y_3 = Getters::template get_value<EvaluationType::SHIFTED, PolynomialIndex::W_3>(polynomials, i);
 
+        Field x_identity = 0;
+        Field y_identity = 0;
+
         // Endomorphism coefficient for when we add and multiply by beta at the same time
         const Field& q_beta =
             Getters::template get_value<EvaluationType::NON_SHIFTED, PolynomialIndex::Q_3>(polynomials, i);
@@ -130,11 +134,13 @@ template <class Field, class Getters, typename PolyContainer> class EllipticKern
         beta_sqr_term *= q_beta_sqr;                      // β^2 * x_2^2 * (x_3 - x_1)
         sign_term *= q_sign;                              // 2 * y_1 * y_2 * sign
         leftovers *= x_2;                                 // x_2^3
-        leftovers += x_1.sqr() * (x_3 + x_1);             // x_2^3 + x_1 * (x_3 + x_1)
-        leftovers -= (y_2.sqr() + y_1.sqr());             // x_2^3 + x_1 * (x_3 + x_1) - y_2^2 - y_1^2
+        Field x_1_sqr = x_1.sqr();
+        leftovers += x_1_sqr * (x_3 + x_1); // x_2^3 + x_1 * (x_3 + x_1)
+        Field y_1_sqr = y_1.sqr();
+        leftovers -= (y_2.sqr() + y_1_sqr); // x_2^3 + x_1 * (x_3 + x_1) - y_2^2 - y_1^2
 
         // Can be found in class description
-        Field x_identity = beta_term + beta_sqr_term + sign_term + leftovers;
+        x_identity = beta_term + beta_sqr_term + sign_term + leftovers;
         x_identity *= challenges.alpha_powers[0];
 
         beta_term = x_2 * (y_3 + y_1) * q_beta;  // β * x_2 * (y_3 + y_1)
@@ -142,10 +148,26 @@ template <class Field, class Getters, typename PolyContainer> class EllipticKern
         // TODO: remove extra additions if we decide to stay with this implementation
         leftovers = -x_1 * (y_3 + y_1) + y_1 * (x_1 - x_3); // -x_1 * y_3 - x_1 * y_1 + y_1 * x_1 - y_1 * x_3
 
-        Field y_identity = beta_term + sign_term + leftovers;
+        y_identity = beta_term + sign_term + leftovers;
         y_identity *= challenges.alpha_powers[1];
 
+        Field curve_b = grumpkin::g1::curve_b;
+        Field x_pow_4 = (y_1_sqr - curve_b) * x_1;
+        Field y_1_sqr_mul_4 = y_1_sqr + y_1_sqr;
+        y_1_sqr_mul_4 += y_1_sqr_mul_4;
+        Field x_1_pow_4_mul_9 = x_pow_4;
+        x_1_pow_4_mul_9 += x_1_pow_4_mul_9;
+        x_1_pow_4_mul_9 += x_1_pow_4_mul_9;
+        x_1_pow_4_mul_9 += x_1_pow_4_mul_9;
+        x_1_pow_4_mul_9 += x_pow_4;
+        Field x_1_sqr_mul_3 = x_1_sqr + x_1_sqr + x_1_sqr;
+        Field x_double_identity = (x_3 + x_1 + x_1) * y_1_sqr_mul_4 - x_1_pow_4_mul_9;
+        Field y_double_identity = x_1_sqr_mul_3 * (x_1 - x_3) - (y_1 + y_1) * (y_1 + y_3);
+
+        x_double_identity *= challenges.alpha_powers[2];
+        y_double_identity *= challenges.alpha_powers[3];
         linear_terms[0] = x_identity + y_identity;
+        linear_terms[1] = x_double_identity + y_double_identity;
     }
 
     /**
@@ -163,7 +185,10 @@ template <class Field, class Getters, typename PolyContainer> class EllipticKern
     {
         const Field& q_elliptic =
             Getters::template get_value<EvaluationType::NON_SHIFTED, PolynomialIndex::Q_ELLIPTIC>(polynomials, i);
-        return linear_terms[0] * q_elliptic;
+        const Field& q_double =
+            Getters::template get_value<EvaluationType::NON_SHIFTED, PolynomialIndex::Q_DOUBLE>(polynomials, i);
+
+        return linear_terms[0] * q_elliptic + linear_terms[1] * q_double;
     }
 
     inline static void compute_non_linear_terms(PolyContainer&, const challenge_array&, Field&, const size_t = 0) {}
@@ -179,6 +204,7 @@ template <class Field, class Getters, typename PolyContainer> class EllipticKern
                                                    const challenge_array&)
     {
         scalars["Q_ELLIPTIC"] += linear_terms[0];
+        scalars["Q_DOUBLE"] += linear_terms[1];
     }
 };
 

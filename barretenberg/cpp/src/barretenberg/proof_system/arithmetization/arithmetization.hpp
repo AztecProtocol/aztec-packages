@@ -138,9 +138,9 @@ template <typename _FF> class Ultra : public Arithmetization</*NUM_WIRES =*/4, /
         std::vector<FF, barretenberg::ContainerSlabAllocator<FF>>& q_arith = std::get<6>(this->_data);
         std::vector<FF, barretenberg::ContainerSlabAllocator<FF>>& q_sort = std::get<7>(this->_data);
         std::vector<FF, barretenberg::ContainerSlabAllocator<FF>>& q_elliptic = std::get<8>(this->_data);
-        std::vector<FF, barretenberg::ContainerSlabAllocator<FF>>& q_aux = std::get<9>(this->_data);
-        std::vector<FF, barretenberg::ContainerSlabAllocator<FF>>& q_lookup_type = std::get<10>(this->_data);
-        std::vector<FF, barretenberg::ContainerSlabAllocator<FF>>& q_elliptic_double = std::get<11>(this->_data);
+        std::vector<FF, barretenberg::ContainerSlabAllocator<FF>>& q_double = std::get<9>(this->_data);
+        std::vector<FF, barretenberg::ContainerSlabAllocator<FF>>& q_aux = std::get<10>(this->_data);
+        std::vector<FF, barretenberg::ContainerSlabAllocator<FF>>& q_lookup_type = std::get<11>(this->_data);
         Selectors()
             : SelectorsBase<FF, num_selectors>(){};
         Selectors(const Selectors& other)
@@ -158,9 +158,9 @@ template <typename _FF> class Ultra : public Arithmetization</*NUM_WIRES =*/4, /
             this->q_arith = std::get<6>(this->_data);
             this->q_sort = std::get<7>(this->_data);
             this->q_elliptic = std::get<8>(this->_data);
-            this->q_aux = std::get<9>(this->_data);
-            this->q_lookup_type = std::get<10>(this->_data);
-            this->q_elliptic_double = std::get<11>(this->_data);
+            this->q_double = std::get<9>(this->_data);
+            this->q_aux = std::get<10>(this->_data);
+            this->q_lookup_type = std::get<11>(this->_data);
         };
         Selectors& operator=(Selectors&& other)
         {

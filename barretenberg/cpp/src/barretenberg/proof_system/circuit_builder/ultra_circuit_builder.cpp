@@ -78,7 +78,7 @@ template <typename FF> void UltraCircuitBuilder_<FF>::add_gates_to_ensure_all_po
     q_lookup_type.emplace_back(0);
     q_elliptic.emplace_back(1);
     q_aux.emplace_back(1);
-    q_elliptic_double.emplace_back(1);
+    q_double.emplace_back(1);
     ++this->num_gates;
 
     // Some relations depend on wire shifts so we add another gate with
@@ -136,7 +136,7 @@ template <typename FF> void UltraCircuitBuilder_<FF>::create_add_gate(const add_
     q_sort.emplace_back(0);
     q_lookup_type.emplace_back(0);
     q_elliptic.emplace_back(0);
-    q_elliptic_double.emplace_back(0);
+    q_double.emplace_back(0);
     q_aux.emplace_back(0);
     ++this->num_gates;
 }
@@ -167,7 +167,7 @@ void UltraCircuitBuilder_<FF>::create_big_add_gate(const add_quad_<FF>& in, cons
     q_sort.emplace_back(0);
     q_lookup_type.emplace_back(0);
     q_elliptic.emplace_back(0);
-    q_elliptic_double.emplace_back(0);
+    q_double.emplace_back(0);
     q_aux.emplace_back(0);
     ++this->num_gates;
 }
@@ -259,7 +259,7 @@ template <typename FF> void UltraCircuitBuilder_<FF>::create_big_mul_gate(const 
     q_sort.emplace_back(0);
     q_lookup_type.emplace_back(0);
     q_elliptic.emplace_back(0);
-    q_elliptic_double.emplace_back(0);
+    q_double.emplace_back(0);
     q_aux.emplace_back(0);
     ++this->num_gates;
 }
@@ -284,7 +284,7 @@ template <typename FF> void UltraCircuitBuilder_<FF>::create_balanced_add_gate(c
     q_sort.emplace_back(0);
     q_lookup_type.emplace_back(0);
     q_elliptic.emplace_back(0);
-    q_elliptic_double.emplace_back(0);
+    q_double.emplace_back(0);
     q_aux.emplace_back(0);
     ++this->num_gates;
     // Why 3? TODO: return to this
@@ -325,7 +325,7 @@ template <typename FF> void UltraCircuitBuilder_<FF>::create_mul_gate(const mul_
     q_sort.emplace_back(0);
     q_lookup_type.emplace_back(0);
     q_elliptic.emplace_back(0);
-    q_elliptic_double.emplace_back(0);
+    q_double.emplace_back(0);
     q_aux.emplace_back(0);
     ++this->num_gates;
 }
@@ -353,7 +353,7 @@ template <typename FF> void UltraCircuitBuilder_<FF>::create_bool_gate(const uin
     q_4.emplace_back(0);
     q_lookup_type.emplace_back(0);
     q_elliptic.emplace_back(0);
-    q_elliptic_double.emplace_back(0);
+    q_double.emplace_back(0);
     q_aux.emplace_back(0);
     ++this->num_gates;
 }
@@ -383,7 +383,7 @@ template <typename FF> void UltraCircuitBuilder_<FF>::create_poly_gate(const pol
     q_4.emplace_back(0);
     q_lookup_type.emplace_back(0);
     q_elliptic.emplace_back(0);
-    q_elliptic_double.emplace_back(0);
+    q_double.emplace_back(0);
     q_aux.emplace_back(0);
     ++this->num_gates;
 }
@@ -439,7 +439,7 @@ template <typename FF> void UltraCircuitBuilder_<FF>::create_ecc_add_gate(const 
         q_sort.emplace_back(0);
         q_lookup_type.emplace_back(0);
         q_elliptic.emplace_back(1);
-        q_elliptic_double.emplace_back(0);
+        q_double.emplace_back(0);
         q_aux.emplace_back(0);
         ++this->num_gates;
     }
@@ -457,7 +457,7 @@ template <typename FF> void UltraCircuitBuilder_<FF>::create_ecc_add_gate(const 
     q_sort.emplace_back(0);
     q_lookup_type.emplace_back(0);
     q_elliptic.emplace_back(0);
-    q_elliptic_double.emplace_back(0);
+    q_double.emplace_back(0);
     q_aux.emplace_back(0);
     ++this->num_gates;
 }
@@ -483,13 +483,13 @@ template <typename FF> void UltraCircuitBuilder_<FF>::create_ecc_dbl_gate(const 
     can_fuse_into_previous_gate = can_fuse_into_previous_gate && (w_o[this->num_gates - 1] == in.y1);
 
     if (can_fuse_into_previous_gate) {
-        q_elliptic_double[this->num_gates - 1] = 1;
+        q_double[this->num_gates - 1] = 1;
     } else {
         w_r.emplace_back(in.x1);
         w_o.emplace_back(in.y1);
         w_l.emplace_back(this->zero_idx);
         w_4.emplace_back(this->zero_idx);
-        q_elliptic_double.emplace_back(1);
+        q_double.emplace_back(1);
         q_m.emplace_back(0);
         q_1.emplace_back(0);
         q_2.emplace_back(0);
@@ -508,7 +508,7 @@ template <typename FF> void UltraCircuitBuilder_<FF>::create_ecc_dbl_gate(const 
     w_o.emplace_back(in.y3);
     w_l.emplace_back(this->zero_idx);
     w_4.emplace_back(this->zero_idx);
-    q_elliptic_double.emplace_back(0);
+    q_double.emplace_back(0);
     q_m.emplace_back(0);
     q_1.emplace_back(0);
     q_2.emplace_back(0);
@@ -547,7 +547,7 @@ template <typename FF> void UltraCircuitBuilder_<FF>::fix_witness(const uint32_t
     q_sort.emplace_back(0);
     q_lookup_type.emplace_back(0);
     q_elliptic.emplace_back(0);
-    q_elliptic_double.emplace_back(0);
+    q_double.emplace_back(0);
     q_aux.emplace_back(0);
     ++this->num_gates;
 }
@@ -620,7 +620,7 @@ plookup::ReadData<uint32_t> UltraCircuitBuilder_<FF>::create_gates_from_plookup_
         q_4.emplace_back(0);
         q_sort.emplace_back(0);
         q_elliptic.emplace_back(0);
-        q_elliptic_double.emplace_back(0);
+        q_double.emplace_back(0);
         q_aux.emplace_back(0);
         ++this->num_gates;
     }
@@ -930,7 +930,7 @@ void UltraCircuitBuilder_<FF>::create_sort_constraint(const std::vector<uint32_t
         q_4.emplace_back(0);
         q_sort.emplace_back(1);
         q_elliptic.emplace_back(0);
-        q_elliptic_double.emplace_back(0);
+        q_double.emplace_back(0);
         q_lookup_type.emplace_back(0);
         q_aux.emplace_back(0);
     }
@@ -949,7 +949,7 @@ void UltraCircuitBuilder_<FF>::create_sort_constraint(const std::vector<uint32_t
     q_4.emplace_back(0);
     q_sort.emplace_back(0);
     q_elliptic.emplace_back(0);
-    q_elliptic_double.emplace_back(0);
+    q_double.emplace_back(0);
     q_lookup_type.emplace_back(0);
     q_aux.emplace_back(0);
 }
@@ -983,7 +983,7 @@ void UltraCircuitBuilder_<FF>::create_dummy_constraints(const std::vector<uint32
         q_4.emplace_back(0);
         q_sort.emplace_back(0);
         q_elliptic.emplace_back(0);
-        q_elliptic_double.emplace_back(0);
+        q_double.emplace_back(0);
         q_lookup_type.emplace_back(0);
         q_aux.emplace_back(0);
     }
@@ -1015,7 +1015,7 @@ void UltraCircuitBuilder_<FF>::create_sort_constraint_with_edges(const std::vect
     q_4.emplace_back(0);
     q_sort.emplace_back(1);
     q_elliptic.emplace_back(0);
-    q_elliptic_double.emplace_back(0);
+    q_double.emplace_back(0);
     q_lookup_type.emplace_back(0);
     q_aux.emplace_back(0);
     // enforce range check for middle rows
@@ -1035,7 +1035,7 @@ void UltraCircuitBuilder_<FF>::create_sort_constraint_with_edges(const std::vect
         q_4.emplace_back(0);
         q_sort.emplace_back(1);
         q_elliptic.emplace_back(0);
-        q_elliptic_double.emplace_back(0);
+        q_double.emplace_back(0);
         q_lookup_type.emplace_back(0);
         q_aux.emplace_back(0);
     }
@@ -1055,7 +1055,7 @@ void UltraCircuitBuilder_<FF>::create_sort_constraint_with_edges(const std::vect
         q_4.emplace_back(0);
         q_sort.emplace_back(1);
         q_elliptic.emplace_back(0);
-        q_elliptic_double.emplace_back(0);
+        q_double.emplace_back(0);
         q_lookup_type.emplace_back(0);
         q_aux.emplace_back(0);
     }
@@ -1076,7 +1076,7 @@ void UltraCircuitBuilder_<FF>::create_sort_constraint_with_edges(const std::vect
     q_4.emplace_back(0);
     q_sort.emplace_back(0);
     q_elliptic.emplace_back(0);
-    q_elliptic_double.emplace_back(0);
+    q_double.emplace_back(0);
     q_lookup_type.emplace_back(0);
     q_aux.emplace_back(0);
 }
@@ -1184,7 +1184,7 @@ template <typename FF> void UltraCircuitBuilder_<FF>::apply_aux_selectors(const 
     q_sort.emplace_back(0);
     q_lookup_type.emplace_back(0);
     q_elliptic.emplace_back(0);
-    q_elliptic_double.emplace_back(0);
+    q_double.emplace_back(0);
     switch (type) {
     case AUX_SELECTORS::LIMB_ACCUMULATE_1: {
         q_1.emplace_back(0);
@@ -1850,7 +1850,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<FF>::evaluate_non_native_field_addi
         q_sort.emplace_back(0);
         q_lookup_type.emplace_back(0);
         q_elliptic.emplace_back(0);
-        q_elliptic_double.emplace_back(0);
+        q_double.emplace_back(0);
         q_aux.emplace_back(0);
     }
 
@@ -1972,7 +1972,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<FF>::evaluate_non_native_field_subt
         q_sort.emplace_back(0);
         q_lookup_type.emplace_back(0);
         q_elliptic.emplace_back(0);
-        q_elliptic_double.emplace_back(0);
+        q_double.emplace_back(0);
         q_aux.emplace_back(0);
     }
 
@@ -3208,7 +3208,7 @@ inline FF UltraCircuitBuilder_<FF>::compute_auxilary_identity(FF q_aux_value,
  * @return fr
  */
 template <typename FF>
-inline FF UltraCircuitBuilder_<FF>::compute_elliptic_double_identity(FF q_elliptic_double_value,
+inline FF UltraCircuitBuilder_<FF>::compute_elliptic_double_identity(FF q_double_value,
                                                                      FF w_2_value,
                                                                      FF w_3_value,
                                                                      FF w_2_shifted_value,
@@ -3236,7 +3236,7 @@ inline FF UltraCircuitBuilder_<FF>::compute_elliptic_double_identity(FF q_ellipt
     const FF x_pow_2 = (x1 * x1);
     const FF y_relation = x_pow_2 * (x1 - x3) * 3 - (y1 + y1) * (y1 + y3);
 
-    return q_elliptic_double_value * alpha_base * (x_relation + y_relation * alpha);
+    return q_double_value * alpha_base * (x_relation + y_relation * alpha);
 }
 
 /**
@@ -3342,7 +3342,7 @@ template <typename FF> bool UltraCircuitBuilder_<FF>::check_circuit()
         FF q_elliptic_value;
         FF q_sort_value;
         FF q_lookup_type_value;
-        FF q_elliptic_double_value;
+        FF q_double_value;
         FF q_1_value;
         FF q_2_value;
         FF q_3_value;
@@ -3360,7 +3360,7 @@ template <typename FF> bool UltraCircuitBuilder_<FF>::check_circuit()
         q_elliptic_value = q_elliptic[i];
         q_sort_value = q_sort[i];
         q_lookup_type_value = q_lookup_type[i];
-        q_elliptic_double_value = q_elliptic_double[i];
+        q_double_value = q_double[i];
         q_1_value = q_1[i];
         q_2_value = q_2[i];
         q_3_value = q_3[i];
@@ -3500,7 +3500,7 @@ template <typename FF> bool UltraCircuitBuilder_<FF>::check_circuit()
                 break;
             }
         }
-        if (!compute_elliptic_double_identity(q_elliptic_double_value,
+        if (!compute_elliptic_double_identity(q_double_value,
                                               w_2_value,
                                               w_3_value,
                                               w_2_shifted_value,

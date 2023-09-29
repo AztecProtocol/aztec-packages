@@ -214,10 +214,8 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
 
     inline std::vector<std::string> ultra_selector_names()
     {
-        std::vector<std::string> result{
-            "q_m",     "q_c",    "q_1",        "q_2",   "q_3",        "q_4",
-            "q_arith", "q_sort", "q_elliptic", "q_aux", "table_type", "q_elliptic_double"
-        };
+        std::vector<std::string> result{ "q_m",     "q_c",    "q_1",        "q_2",      "q_3",   "q_4",
+                                         "q_arith", "q_sort", "q_elliptic", "q_double", "q_aux", "table_type" };
         return result;
     }
     struct non_native_field_multiplication_cross_terms {
@@ -266,7 +264,7 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
         SelectorVector q_elliptic;
         SelectorVector q_aux;
         SelectorVector q_lookup_type;
-        SelectorVector q_elliptic_double;
+        SelectorVector q_double;
         uint32_t current_tag = DUMMY_TAG;
         std::map<uint32_t, uint32_t> tau;
 
@@ -319,7 +317,7 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
             stored_state.q_elliptic = builder.q_elliptic;
             stored_state.q_aux = builder.q_aux;
             stored_state.q_lookup_type = builder.q_lookup_type;
-            stored_state.q_elliptic_double = builder.q_elliptic_double;
+            stored_state.q_double = builder.q_double;
             stored_state.current_tag = builder.current_tag;
             stored_state.tau = builder.tau;
 
@@ -419,7 +417,7 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
             builder->q_elliptic.resize(num_gates);
             builder->q_aux.resize(num_gates);
             builder->q_lookup_type.resize(num_gates);
-            builder->q_elliptic_double.resize(num_gates);
+            builder->q_double.resize(num_gates);
         }
         /**
          * @brief Checks that the circuit state is the same as the stored circuit's one
@@ -496,7 +494,7 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
             if (!(q_lookup_type == builder.q_lookup_type)) {
                 return false;
             }
-            if (!(q_elliptic_double == builder.q_elliptic_double)) {
+            if (!(q_double == builder.q_double)) {
                 return false;
             }
             if (!(current_tag == builder.current_tag)) {
@@ -553,7 +551,7 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
     SelectorVector& q_elliptic = this->selectors.q_elliptic;
     SelectorVector& q_aux = this->selectors.q_aux;
     SelectorVector& q_lookup_type = this->selectors.q_lookup_type;
-    SelectorVector& q_elliptic_double = this->selectors.q_elliptic_double;
+    SelectorVector& q_double = this->selectors.q_double;
 
     // These are variables that we have used a gate on, to enforce that they are
     // equal to a defined value.
@@ -1046,7 +1044,7 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
                                      FF w_1_shifted_value,
                                      FF alpha_base,
                                      FF alpha) const;
-    FF compute_elliptic_double_identity(FF q_elliptic_double_value,
+    FF compute_elliptic_double_identity(FF q_double_value,
                                         FF w_2_value,
                                         FF w_3_value,
                                         FF w_2_shifted_value,

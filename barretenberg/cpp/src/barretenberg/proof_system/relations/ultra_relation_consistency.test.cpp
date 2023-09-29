@@ -12,6 +12,7 @@
  *
  */
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/proof_system/relations/auxiliary_relation.hpp"
 #include "barretenberg/proof_system/relations/elliptic_relation.hpp"
 #include "barretenberg/proof_system/relations/gen_perm_sort_relation.hpp"
@@ -56,6 +57,7 @@ struct InputElements {
     FF& q_arith = std::get<6>(_data);
     FF& q_sort = std::get<7>(_data);
     FF& q_elliptic = std::get<8>(_data);
+    FF& q_double = std::get<9>(_data);
     FF& q_aux = std::get<9>(_data);
     FF& q_lookup = std::get<10>(_data);
     FF& sigma_1 = std::get<11>(_data);
@@ -335,6 +337,7 @@ TEST_F(UltraRelationConsistency, EllipticRelation)
         const auto& q_beta = input_elements.q_o;
         const auto& q_beta_sqr = input_elements.q_4;
         const auto& q_elliptic = input_elements.q_elliptic;
+        const auto& q_double = input_elements.q_double;
 
         RelationValues expected_values;
         // Compute x/y coordinate identities
@@ -352,6 +355,25 @@ TEST_F(UltraRelationConsistency, EllipticRelation)
 
         expected_values[0] = x_identity * q_elliptic;
         expected_values[1] = y_identity * q_elliptic;
+
+        // Contribution 3
+        auto x_1_sqr = x_1 * x_1;
+        auto y_1_sqr = y_1 * y_1;
+        auto curve_b = grumpkin::g1::curve_b;
+        auto x_pow_4 = (y_1_sqr - curve_b) * x_1;
+        auto y_1_sqr_mul_4 = y_1_sqr + y_1_sqr;
+        y_1_sqr_mul_4 += y_1_sqr_mul_4;
+        auto x_1_pow_4_mul_9 = x_pow_4;
+        x_1_pow_4_mul_9 += x_1_pow_4_mul_9;
+        x_1_pow_4_mul_9 += x_1_pow_4_mul_9;
+        x_1_pow_4_mul_9 += x_1_pow_4_mul_9;
+        x_1_pow_4_mul_9 += x_pow_4;
+        auto x_1_sqr_mul_3 = x_1_sqr + x_1_sqr + x_1_sqr;
+        auto x_double_identity = (x_3 + x_1 + x_1) * y_1_sqr_mul_4 - x_1_pow_4_mul_9;
+        auto y_double_identity = x_1_sqr_mul_3 * (x_1 - x_3) - (y_1 + y_1) * (y_1 + y_3);
+
+        expected_values[0] = x_double_identity * q_double;
+        expected_values[1] = y_double_identity * q_double;
 
         const auto parameters = RelationParameters<FF>::get_random();
 

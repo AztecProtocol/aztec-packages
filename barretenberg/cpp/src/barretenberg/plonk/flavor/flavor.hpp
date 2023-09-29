@@ -108,6 +108,7 @@ class Ultra {
                       { "q_arith", fr_size, false, 13 },
                       { "q_sort", fr_size, false, 14 },     // *
                       { "q_elliptic", fr_size, false, 15 }, // *
+                      { "q_double", fr_size, false, 30 },   // *
                       { "q_aux", fr_size, false, 16 },
                       { "sigma_1", fr_size, false, 17 },
                       { "sigma_2", fr_size, false, 18 },
