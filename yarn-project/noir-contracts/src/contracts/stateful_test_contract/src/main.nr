@@ -1,4 +1,4 @@
-mod historic_commitment_oracle;
+mod historic_membership_oracle;
 mod almost_value_note;
 
 // A contract used for testing a random hodgepodge of small features from simulator and end-to-end tests.
@@ -22,7 +22,7 @@ contract StatefulTest {
         },
     };
     use dep::aztec::constants_gen::PRIVATE_DATA_TREE_HEIGHT;
-    use crate::historic_commitment_oracle::{get_private_data_membership_witness, PrivateDataMembershipWitness};
+    use crate::historic_membership_oracle::{get_private_data_membership_witness, PrivateDataMembershipWitness};
     use dep::aztec::note::utils::compute_note_hash_for_read_or_nullify;
     use crate::almost_value_note::AlmostValueNote;
 

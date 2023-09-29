@@ -4,6 +4,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { MerkleTreeId } from '@aztec/types';
 
 import { ACVMField } from '../acvm.js';
 import { convertACVMFieldToBuffer, fromACVMField } from '../deserialize.js';
@@ -130,8 +131,9 @@ export class Oracle {
     return toAcvmL1ToL2MessageLoadOracleInputs(message, root);
   }
 
-  async getMembershipWitness([leafValue]: ACVMField[]): Promise<ACVMField[]> {
-    return (await this.typedOracle.getMembershipWitness(fromACVMField(leafValue))).map(toACVMField);
+  async getMembershipWitness([treeId]: ACVMField[], [leafValue]: ACVMField[]): Promise<ACVMField[]> {
+    const merkleTreeId: MerkleTreeId = Number(fromACVMField(treeId).toBigInt());
+    return (await this.typedOracle.getMembershipWitness(merkleTreeId, fromACVMField(leafValue))).map(toACVMField);
   }
 
   async getPortalContractAddress([aztecAddress]: ACVMField[]): Promise<ACVMField> {

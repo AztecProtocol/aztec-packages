@@ -9,7 +9,7 @@ import {
   HistoricBlockData,
   PublicKey,
 } from '@aztec/circuits.js';
-import { DataCommitmentProvider, KeyStore, L1ToL2MessageProvider } from '@aztec/types';
+import { DataCommitmentProvider, KeyStore, L1ToL2MessageProvider, MerkleTreeId } from '@aztec/types';
 
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { Database } from '../database/index.js';
@@ -108,6 +108,25 @@ export class SimulatorOracle implements DBOracle {
 
   async getDataTreePath(leafIndex: bigint) {
     return await this.dataTreeProvider.getDataTreePath(leafIndex);
+  }
+
+  public async findLeafIndex(treeId: MerkleTreeId, leafValue: Buffer): Promise<bigint | undefined> {
+    switch (treeId) {
+      case MerkleTreeId.PRIVATE_DATA_TREE:
+        return await this.dataTreeProvider.findCommitmentIndex(leafValue);
+      default:
+        throw new Error('Not implemented');
+    }
+  }
+
+  public async getSiblingPath(treeId: MerkleTreeId, leafIndex: bigint): Promise<Fr[]> {
+    // @todo This is doing a nasty workaround as http_rpc_client was not happy about a generic `getSiblingPath` function being exposed.
+    switch (treeId) {
+      case MerkleTreeId.PRIVATE_DATA_TREE:
+        return (await this.dataTreeProvider.getDataTreePath(leafIndex)).toFieldArray();
+      default:
+        throw new Error('Not implemented');
+    }
   }
 
   /**

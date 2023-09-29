@@ -3,7 +3,7 @@ import { computeUniqueCommitment, siloCommitment } from '@aztec/circuits.js/abis
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AuthWitness, AztecNode, CompleteAddress } from '@aztec/types';
+import { AuthWitness, AztecNode, CompleteAddress, MerkleTreeId } from '@aztec/types';
 
 import { NoteData, TypedOracle } from '../acvm/index.js';
 import { DBOracle } from './db_oracle.js';
@@ -129,18 +129,18 @@ export class ViewDataOracle extends TypedOracle {
   }
 
   /**
-   * Fetches the index and data tree path for a commitment
-   * @param leafValue - The commitment
-   * @returns The index and data tree path
+   * Fetches the index and sibling path for a leaf value
+   * @param treeId - The tree id
+   * @param leafValue - The leaf value
+   * @returns The index and sibling path concatenated [index, sibling_path]
    */
-  public async getMembershipWitness(leafValue: Fr): Promise<Fr[]> {
-    // @todo @lherskind #2572
-    const index = await this.db.findCommitmentIndex(leafValue.toBuffer());
+  public async getMembershipWitness(treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[]> {
+    const index = await this.db.findLeafIndex(treeId, leafValue.toBuffer());
     if (!index) {
-      throw new Error(`Leaf value: ${leafValue} not found in private data tree`);
+      throw new Error(`Leaf value: ${leafValue} not found in tree ${treeId}`);
     }
-    const path = await this.db.getDataTreePath(index);
-    return [new Fr(index), ...path.toFieldArray()];
+    const siblingPath = await this.db.getSiblingPath(treeId, index);
+    return [new Fr(index), ...siblingPath];
   }
 
   /**

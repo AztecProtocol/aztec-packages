@@ -3,6 +3,7 @@ import { FunctionAbi, FunctionDebugMetadata, FunctionSelector } from '@aztec/fou
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
+import { MerkleTreeId } from '@aztec/types';
 
 import { NoteData } from '../acvm/index.js';
 import { CommitmentsDB } from '../public/index.js';
@@ -84,4 +85,19 @@ export interface DBOracle extends CommitmentsDB {
    * @returns A Promise that resolves to a HistoricBlockData object.
    */
   getHistoricBlockData(): Promise<HistoricBlockData>;
+
+  /**
+   * Fetch the index of the leaf in the respective tree
+   * @param treeId - The id of the tree to search.
+   * @param leafValue - The leaf value buffer.
+   * @returns - The index of the leaf. Undefined if it does not exist in the tree.
+   */
+  findLeafIndex(treeId: MerkleTreeId, leafValue: Buffer): Promise<bigint | undefined>;
+
+  /**
+   * Fetch the sibling path of the leaf in the respective tree
+   * @param treeId - The id of the tree to search.
+   * @param leafIndex - The index of the leaf.
+   */
+  getSiblingPath(treeId: MerkleTreeId, leafIndex: bigint): Promise<Fr[]>;
 }

@@ -4,7 +4,7 @@ import { CheatCodes, Fr, TxStatus, Wallet } from '@aztec/aztec.js';
 import { CircuitsWasm, CompleteAddress, FunctionSelector } from '@aztec/circuits.js';
 import { pedersenHashInputs, pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
 import { StatefulTestContract } from '@aztec/noir-contracts/types';
-import { PXE } from '@aztec/types';
+import { MerkleTreeId, PXE } from '@aztec/types';
 
 import { setup } from './fixtures/utils.js';
 
@@ -25,7 +25,7 @@ describe('e2e_deploy_contract', () => {
 
   afterEach(() => teardown());
 
-  it('Try to get a witness', async () => {
+  it('Check commitment inclusion in historic data', async () => {
     if (!aztecNode) {
       throw new Error('No aztec node');
     }
@@ -95,7 +95,7 @@ describe('e2e_deploy_contract', () => {
     const badValueNote = { ...valueNote, owner: 100n };
     const badLeafValue = new Fr(await statefulContract.methods.get_commitment(badValueNote).view());
     await expect(statefulContract.methods.is_included_in_history(badValueNote).simulate()).rejects.toThrowError(
-      `Leaf value: ${badLeafValue} not found in private data tree`,
+      `Leaf value: ${badLeafValue} not found in tree ${MerkleTreeId.PRIVATE_DATA_TREE}`,
     );
   }, 30_000);
 });
