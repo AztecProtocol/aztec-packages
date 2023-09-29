@@ -175,7 +175,7 @@ export async function setupPXEService(
  * @param account - The account for use in create viem wallets.
  * @param config - The aztec Node Configuration
  * @param logger - The logger to be used
- * @returns RPC Client, viwm wallets, contract addreses etc.
+ * @returns Private eXecution Environment (PXE) client, viem wallets, contract addreses etc.
  */
 async function setupWithSandbox(account: Account, config: AztecNodeConfig, logger: DebugLogger) {
   // we are setting up against the sandbox, l1 contracts are already deployed
@@ -351,7 +351,7 @@ export function getLogger() {
  * @param underlyingERC20Address - address of the underlying ERC20 contract to use (if none supplied, it deploys one)
  * @returns l2 contract instance, bridge contract instance, token portal instance, token portal address and the underlying ERC20 instance
  */
-export async function deployAndInitializeStandardizedTokenAndBridgeContracts(
+export async function deployAndInitializeTokenAndBridgeContracts(
   wallet: Wallet,
   walletClient: WalletClient<HttpTransport, Chain, Account>,
   publicClient: PublicClient<HttpTransport, Chain>,
