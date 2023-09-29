@@ -16,7 +16,11 @@
 #include "barretenberg/proof_system/types/circuit_type.hpp"
 #include "circuit_builder_base.hpp"
 #include <array>
+#include <bits/iterator_concepts.h>
 #include <cstddef>
+#include <cstdlib>
+#include <iterator>
+#include <tuple>
 namespace proof_system {
 class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<arithmetization::GoblinTranslator> {
     // We don't need templating for Goblin
@@ -134,7 +138,7 @@ class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<arithmetization
         RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_0,
         RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_1,
         RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_2,
-        RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_TAIL,
+        RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_3,
 
         TOTAL_COUNT
 
@@ -142,13 +146,13 @@ class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<arithmetization
     static constexpr size_t DEFAULT_PLOOKUP_RANGE_STEP_SIZE = 12;
     static constexpr size_t MAX_OPERAND = 3;
     static constexpr size_t NUM_LIMB_BITS = 68;
+    static constexpr size_t NUM_LAST_LIMB_BITS = Fq::modulus.get_msb() + 1 - 3 * NUM_LIMB_BITS;
     static constexpr size_t NUM_Z_LIMBS = 2;
     static constexpr size_t MICRO_LIMB_BITS = 14;
     static constexpr size_t NUM_MICRO_LIMBS = 6;
     static constexpr size_t NUM_BINARY_LIMBS = 4;
     static constexpr size_t WIDE_RELATION_LIMB_BITS = 72;
     static constexpr auto MICRO_SHIFT = uint256_t(1) << MICRO_LIMB_BITS;
-    static constexpr size_t NUM_LAST_LIMB_BITS = Fq::modulus.get_msb() + 1 - 3 * NUM_LIMB_BITS;
     static constexpr auto MAX_LOW_WIDE_LIMB_SIZE = (uint256_t(1) << (NUM_LIMB_BITS * 2)) - 1;
     static constexpr auto MAX_HIGH_WIDE_LIMB_SIZE = (uint256_t(1) << (NUM_LIMB_BITS + NUM_LAST_LIMB_BITS)) - 1;
     static constexpr auto SHIFT_1 = uint256_t(1) << NUM_LIMB_BITS;
@@ -431,11 +435,12 @@ class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<arithmetization
         insert_pair_into_wire(
             RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_2, low_relation_microlimbs[2], high_relation_microlimbs[2]);
         insert_pair_into_wire(
-            RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_TAIL, low_relation_microlimbs[3], high_relation_microlimbs[3]);
+            RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_3, low_relation_microlimbs[3], high_relation_microlimbs[3]);
         // Next ones go into top P_x and P_y, current accumulator and quotient
 
         auto top_p_x_microlimbs = acc_step.P_x_microlimbs[3];
         top_p_x_microlimbs[NUM_MICRO_LIMBS - 1] = low_relation_microlimbs[4];
+
         auto top_p_y_microlimbs = acc_step.P_y_microlimbs[3];
         top_p_y_microlimbs[NUM_MICRO_LIMBS - 1] = high_relation_microlimbs[4];
         auto top_current_accumulator_microlimbs = acc_step.current_accumulator_microlimbs[3];
@@ -604,10 +609,11 @@ class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<arithmetization
          * create range constraints
          *
          */
-        auto accumulate_limb_from_micro_chunks = [](const std::vector<Fr>& chunks) {
+        auto accumulate_limb_from_micro_chunks = [](const std::vector<Fr>& chunks, const int skipped_at_end = 1) {
             Fr mini_accumulator(0);
-
-            for (auto it = chunks.end() - 1; it != chunks.begin();) {
+            auto end = chunks.end();
+            std::advance(end, -skipped_at_end);
+            for (auto it = end; it != chunks.begin();) {
                 --it;
                 mini_accumulator = mini_accumulator * MICRO_SHIFT + *it;
             }
@@ -726,38 +732,76 @@ class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<arithmetization
                       check_wide_limb_into_binary_limb_relation({ z_2 }, z_2_binary_limbs))) {
                     return false;
                 }
-
+                enum LimbSeriesType { STANDARD_COORDINATE, Z_SCALAR, QUOTIENT };
                 // Check that limbs have been decomposed into microlimbs correctly
                 // value = ∑ (2ˡ)ⁱ⋅ chunkᵢ, where 2ˡ is the shift
                 auto check_micro_limb_decomposition_correctness =
                     [&accumulate_limb_from_micro_chunks](const std::vector<Fr>& binary_limbs,
-                                                         const std::vector<std::vector<Fr>>& micro_limbs) {
+                                                         const std::vector<std::vector<Fr>>& micro_limbs,
+                                                         const LimbSeriesType limb_series_type) {
                         ASSERT(binary_limbs.size() == micro_limbs.size());
-                        for (size_t i = 0; i < binary_limbs.size(); i++) {
-                            if (binary_limbs[i] != accumulate_limb_from_micro_chunks(micro_limbs[i])) {
+                        const size_t SKIPPED_FOR_LOW_LIMBS = 1;
+                        for (size_t i = 0; i < binary_limbs.size() - 1; i++) {
+                            if (binary_limbs[i] !=
+                                accumulate_limb_from_micro_chunks(micro_limbs[i], SKIPPED_FOR_LOW_LIMBS)) {
                                 return false;
                             }
                         }
+                        const size_t SKIPPED_FOR_STANDARD = 2;
+                        const size_t SKIPPED_FOR_Z_SCALARS = 1;
+                        const size_t SKIPPED_FOR_QUOTIENT = 2;
+                        switch (limb_series_type) {
+                        case STANDARD_COORDINATE:
+                            if (binary_limbs[binary_limbs.size() - 1] !=
+                                accumulate_limb_from_micro_chunks(micro_limbs[binary_limbs.size() - 1],
+                                                                  SKIPPED_FOR_STANDARD)) {
+                                info("Here1");
+                                return false;
+                            }
+                            break;
+                        case Z_SCALAR:
+                            if (binary_limbs[binary_limbs.size() - 1] !=
+                                accumulate_limb_from_micro_chunks(micro_limbs[binary_limbs.size() - 1],
+                                                                  SKIPPED_FOR_Z_SCALARS)) {
+                                info("Here2");
+                                return false;
+                            }
+                            break;
+                        case QUOTIENT:
+                            if (binary_limbs[binary_limbs.size() - 1] !=
+                                accumulate_limb_from_micro_chunks(micro_limbs[binary_limbs.size() - 1],
+                                                                  SKIPPED_FOR_QUOTIENT)) {
+                                info("Here3");
+                                return false;
+                            }
+                            break;
+                        default:
+                            abort();
+                        }
+
                         return true;
                     };
                 // Check all micro limb decompositions
-                if (!check_micro_limb_decomposition_correctness(p_x_binary_limbs, p_x_micro_chunks)) {
+                if (!check_micro_limb_decomposition_correctness(
+                        p_x_binary_limbs, p_x_micro_chunks, STANDARD_COORDINATE)) {
                     return false;
                 }
-                if (!check_micro_limb_decomposition_correctness(p_y_binary_limbs, p_y_micro_chunks)) {
+                if (!check_micro_limb_decomposition_correctness(
+                        p_y_binary_limbs, p_y_micro_chunks, STANDARD_COORDINATE)) {
                     return false;
                 }
-                if (!check_micro_limb_decomposition_correctness(z_1_binary_limbs, z_1_micro_chunks)) {
+                if (!check_micro_limb_decomposition_correctness(z_1_binary_limbs, z_1_micro_chunks, Z_SCALAR)) {
                     return false;
                 }
-                if (!check_micro_limb_decomposition_correctness(z_2_binary_limbs, z_2_micro_chunks)) {
+                if (!check_micro_limb_decomposition_correctness(z_2_binary_limbs, z_2_micro_chunks, Z_SCALAR)) {
                     return false;
                 }
-                if (!check_micro_limb_decomposition_correctness(current_accumulator_binary_limbs,
-                                                                current_accumulator_micro_chunks)) {
+                if (!check_micro_limb_decomposition_correctness(
+                        current_accumulator_binary_limbs, current_accumulator_micro_chunks, STANDARD_COORDINATE)) {
                     return false;
                 }
-                if (!check_micro_limb_decomposition_correctness(quotient_binary_limbs, quotient_micro_chunks)) {
+                if (!check_micro_limb_decomposition_correctness(
+                        quotient_binary_limbs, quotient_micro_chunks, QUOTIENT)) {
                     return false;
                 }
 

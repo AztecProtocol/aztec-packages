@@ -582,20 +582,20 @@ template <typename Flavor> inline void compute_extra_range_constraint_numerator(
 }
 
 /**
- * @brief Compute odd and even largrange polynomials and put them in the polynomial cache
+ * @brief Compute odd and even largrange polynomials (up to mini_circuit length) and put them in the polynomial cache
  *
  * @param key Proving key where we will save the polynomials
  */
-template <typename Flavor> inline void compute_odd_and_even_lagrange_polynomials(auto proving_key)
+template <typename Flavor> inline void compute_short_odd_and_even_lagrange_polynomials(auto proving_key)
 
 {
     const size_t n = proving_key->circuit_size;
     typename Flavor::Polynomial lagrange_polynomial_odd(n);
     typename Flavor::Polynomial lagrange_polynomial_even(n);
 
-    for (size_t i = 0; i < n; i += 2) {
-        lagrange_polynomial_odd[i + 1] = 1;
-        lagrange_polynomial_even[i] = 1;
+    for (size_t i = 1; i < Flavor::MINI_CIRCUIT_SIZE - 1; i += 2) {
+        lagrange_polynomial_odd[i] = 1;
+        lagrange_polynomial_even[i + 1] = 1;
     }
     proving_key->lagrange_odd = lagrange_polynomial_odd;
 

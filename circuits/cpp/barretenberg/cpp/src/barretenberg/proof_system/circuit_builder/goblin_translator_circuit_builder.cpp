@@ -115,7 +115,11 @@ GoblinTranslatorCircuitBuilder::AccumulationInput generate_witness_values(
     Fr op_code, Fr p_x_lo, Fr p_x_hi, Fr p_y_lo, Fr p_y_hi, Fr z_1, Fr z_2, Fq previous_accumulator, Fq v, Fq x)
 {
     constexpr size_t NUM_LIMB_BITS = GoblinTranslatorCircuitBuilder::NUM_LIMB_BITS;
+    constexpr size_t NUM_LAST_LIMB_BITS = GoblinTranslatorCircuitBuilder::NUM_LAST_LIMB_BITS;
     constexpr size_t MICRO_LIMB_BITS = GoblinTranslatorCircuitBuilder::MICRO_LIMB_BITS;
+    constexpr size_t TOP_STANDARD_MICROLIMB_BITS = NUM_LAST_LIMB_BITS % MICRO_LIMB_BITS;
+    // constexpr size_t TOP_Z_MICROLIMB_BITS = (127 % NUM_LIMB_BITS) % MICRO_LIMB_BITS;
+    constexpr size_t TOP_QUOTIENT_MICROLIMB_BITS = (256 % NUM_LIMB_BITS) % MICRO_LIMB_BITS;
     constexpr auto shift_1 = GoblinTranslatorCircuitBuilder::SHIFT_1;
     constexpr auto shift_2 = GoblinTranslatorCircuitBuilder::SHIFT_2;
     // constexpr auto modulus_u512 = GoblinTranslatorCircuitBuilder::MODULUS_U512;
@@ -171,23 +175,47 @@ GoblinTranslatorCircuitBuilder::AccumulationInput generate_witness_values(
                 << (MICRO_LIMB_BITS - (NUM_LIMB_BITS % MICRO_LIMB_BITS)),
         };
     };
+
     /**
      * @brief A method to split the top 50-bit limb into 4 14-bit limbs and 1 shifted limb for a more secure constraint
      * (plus there is 1 extra space for other constraints)
      *
      */
-    auto split_top_limb_into_micro_limbs = [](Fr& limb) {
+    // auto split_top_limb_into_micro_limbs = [](Fr& limb) {
+    //     static_assert(MICRO_LIMB_BITS == 14);
+    //     return std::array<Fr, 6>{ uint256_t(limb).slice(0, MICRO_LIMB_BITS),
+    //                               uint256_t(limb).slice(MICRO_LIMB_BITS, 2 * MICRO_LIMB_BITS),
+    //                               uint256_t(limb).slice(2 * MICRO_LIMB_BITS, 3 * MICRO_LIMB_BITS),
+    //                               uint256_t(limb).slice(3 * MICRO_LIMB_BITS, 4 * MICRO_LIMB_BITS),
+    //                               0, // uint256_t(limb).slice(4 * MICRO_LIMB_BITS, 5 * MICRO_LIMB_BITS),
+    //                               0 };
+    // };
+    auto split_top_limb_into_micro_limbs = [](Fr& limb, size_t last_limb_bits) {
         static_assert(MICRO_LIMB_BITS == 14);
-        return std::array<Fr, 6>{
-            uint256_t(limb).slice(0, MICRO_LIMB_BITS),
-            uint256_t(limb).slice(MICRO_LIMB_BITS, 2 * MICRO_LIMB_BITS),
-            uint256_t(limb).slice(2 * MICRO_LIMB_BITS, 3 * MICRO_LIMB_BITS),
-            uint256_t(limb).slice(3 * MICRO_LIMB_BITS, 4 * MICRO_LIMB_BITS),
-            uint256_t(limb).slice(4 * MICRO_LIMB_BITS, 5 * MICRO_LIMB_BITS),
-            uint256_t(limb).slice(4 * MICRO_LIMB_BITS, 5 * MICRO_LIMB_BITS)
-                << (MICRO_LIMB_BITS - (NUM_LIMB_BITS % MICRO_LIMB_BITS)),
-        };
+        return std::array<Fr, 6>{ uint256_t(limb).slice(0, MICRO_LIMB_BITS),
+                                  uint256_t(limb).slice(MICRO_LIMB_BITS, 2 * MICRO_LIMB_BITS),
+                                  uint256_t(limb).slice(2 * MICRO_LIMB_BITS, 3 * MICRO_LIMB_BITS),
+                                  uint256_t(limb).slice(3 * MICRO_LIMB_BITS, 4 * MICRO_LIMB_BITS),
+                                  uint256_t(limb).slice(3 * MICRO_LIMB_BITS, 4 * MICRO_LIMB_BITS)
+                                      << (MICRO_LIMB_BITS - (last_limb_bits % MICRO_LIMB_BITS)),
+                                  0 };
     };
+    // /**
+    //  * @brief A method to split the top 50-bit limb into 4 14-bit limbs and 1 shifted limb for a more secure
+    //  constraint
+    //  * (plus there is 1 extra space for other constraints)
+    //  *
+    //  */
+    // auto split_top_limb_into_micro_limbs = [](Fr& limb) {
+    //     static_assert(MICRO_LIMB_BITS == 14);
+    //     return std::array<Fr, 6>{ uint256_t(limb).slice(0, MICRO_LIMB_BITS),
+    //                               uint256_t(limb).slice(MICRO_LIMB_BITS, 2 * MICRO_LIMB_BITS),
+    //                               uint256_t(limb).slice(2 * MICRO_LIMB_BITS, 3 * MICRO_LIMB_BITS),
+    //                               uint256_t(limb).slice(3 * MICRO_LIMB_BITS, 4 * MICRO_LIMB_BITS),
+    //                               uint256_t(limb).slice(3 * MICRO_LIMB_BITS, 4 * MICRO_LIMB_BITS)
+    //                                   << (MICRO_LIMB_BITS - (NUM_LAST_LIMB_BITS % MICRO_LIMB_BITS)),
+    //                               0 };
+    // };
     /**
      * @brief Split a 72-bit relation limb into 6 14-bit limbs (we can allow the slack here, since we only need to
      * ensure non-overflow of the modulus)
@@ -395,12 +423,14 @@ GoblinTranslatorCircuitBuilder::AccumulationInput generate_witness_values(
     for (size_t i = 0; i < last_limb_index; i++) {
         input.P_x_microlimbs[i] = split_standard_limb_into_micro_limbs(input.P_x_limbs[i]);
     }
-    input.P_x_microlimbs[last_limb_index] = split_top_limb_into_micro_limbs(input.P_x_limbs[last_limb_index]);
+    input.P_x_microlimbs[last_limb_index] =
+        split_top_limb_into_micro_limbs(input.P_x_limbs[last_limb_index], TOP_STANDARD_MICROLIMB_BITS);
 
     for (size_t i = 0; i < last_limb_index; i++) {
         input.P_y_microlimbs[i] = split_standard_limb_into_micro_limbs(input.P_y_limbs[i]);
     }
-    input.P_y_microlimbs[last_limb_index] = split_top_limb_into_micro_limbs(input.P_y_limbs[last_limb_index]);
+    input.P_y_microlimbs[last_limb_index] =
+        split_top_limb_into_micro_limbs(input.P_y_limbs[last_limb_index], TOP_STANDARD_MICROLIMB_BITS);
 
     for (size_t i = 0; i < GoblinTranslatorCircuitBuilder::NUM_Z_LIMBS; i++) {
         input.z_1_microlimbs[i] = split_standard_limb_into_micro_limbs(input.z_1_limbs[i]);
@@ -411,14 +441,14 @@ GoblinTranslatorCircuitBuilder::AccumulationInput generate_witness_values(
     }
 
     input.current_accumulator_microlimbs[last_limb_index] =
-        split_top_limb_into_micro_limbs(input.current_accumulator[last_limb_index]);
+        split_top_limb_into_micro_limbs(input.current_accumulator[last_limb_index], TOP_STANDARD_MICROLIMB_BITS);
     // TODO(kesha): quotient has to be constrained even further
     for (size_t i = 0; i < last_limb_index; i++) {
         input.quotient_microlimbs[i] = split_standard_limb_into_micro_limbs(input.quotient_binary_limbs[i]);
         // info("Stored: ", single_accumulation_step.current_accumulator_microlimbs[i][5], " at ", i);
     }
     input.quotient_microlimbs[last_limb_index] =
-        split_top_limb_into_micro_limbs(input.quotient_binary_limbs[last_limb_index]);
+        split_top_limb_into_micro_limbs(input.quotient_binary_limbs[last_limb_index], TOP_QUOTIENT_MICROLIMB_BITS);
     return input;
 }
 

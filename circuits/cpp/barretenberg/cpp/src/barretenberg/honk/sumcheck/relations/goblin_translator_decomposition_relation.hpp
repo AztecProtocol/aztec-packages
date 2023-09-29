@@ -17,6 +17,8 @@ template <typename FF> class GoblinTranslatorDecompositionRelationBase {
     static constexpr auto SHIFTx3 = FF(uint256_t(1) << (14 * 3));
     static constexpr auto SHIFTx4 = FF(uint256_t(1) << (14 * 4));
     static constexpr auto SHIFTx5 = FF(uint256_t(1) << (14 * 5));
+    static constexpr auto SHIFT_12_TO_14 = FF(4);
+    static constexpr auto SHIFT_8_TO_14 = FF(64);
     static constexpr size_t LEN_1 = 3;  // range constrain sub-relation 1
     static constexpr size_t LEN_2 = 3;  // range constrain sub-relation 2
     static constexpr size_t LEN_3 = 3;  // range constrain sub-relation 3
@@ -39,6 +41,11 @@ template <typename FF> class GoblinTranslatorDecompositionRelationBase {
     static constexpr size_t LEN_20 = 3; // range constrain sub-relation 4
     static constexpr size_t LEN_21 = 3; // range constrain sub-relation 4
     static constexpr size_t LEN_22 = 3; // range constrain sub-relation 4
+    static constexpr size_t LEN_23 = 3; // range constrain sub-relation 4
+    static constexpr size_t LEN_24 = 3; // range constrain sub-relation 4
+    static constexpr size_t LEN_25 = 3; // range constrain sub-relation 4
+    static constexpr size_t LEN_26 = 3; // range constrain sub-relation 4
+
     // static constexpr size_t LEN_3 = 6;  // range constrain sub-relation 3
     // static constexpr size_t LEN_4 = 6;  // range constrain sub-relation 4
     // static constexpr size_t LEN_5 = 6;  // range constrain sub-relation 4
@@ -69,7 +76,11 @@ template <typename FF> class GoblinTranslatorDecompositionRelationBase {
                                                            LEN_19,
                                                            LEN_20,
                                                            LEN_21,
-                                                           LEN_22>;
+                                                           LEN_22,
+                                                           LEN_23,
+                                                           LEN_24,
+                                                           LEN_25,
+                                                           LEN_26>;
     /**
      * @brief Expression for the generalized permutation sort gate.
      * @details The relation enforces 2 constraints on each of the ordered_range_constraints wires:
@@ -202,8 +213,8 @@ template <typename FF> class GoblinTranslatorDecompositionRelationBase {
                 View(extended_edges.accumulator_hi_limbs_range_constraint_2_shift);
             auto accumulator_hi_limbs_range_constraint_3_shift =
                 View(extended_edges.accumulator_hi_limbs_range_constraint_3_shift);
-            auto accumulator_hi_limbs_range_constraint_4_shift =
-                View(extended_edges.accumulator_hi_limbs_range_constraint_4_shift);
+            // auto accumulator_hi_limbs_range_constraint_4_shift =
+            //     View(extended_edges.accumulator_hi_limbs_range_constraint_4_shift);
 
             auto quotient_lo_binary_limbs = View(extended_edges.quotient_lo_binary_limbs);
             auto quotient_lo_limbs_range_constraint_0 = View(extended_edges.quotient_lo_limbs_range_constraint_0);
@@ -240,8 +251,8 @@ template <typename FF> class GoblinTranslatorDecompositionRelationBase {
                 View(extended_edges.quotient_hi_limbs_range_constraint_2_shift);
             auto quotient_hi_limbs_range_constraint_3_shift =
                 View(extended_edges.quotient_hi_limbs_range_constraint_3_shift);
-            auto quotient_hi_limbs_range_constraint_4_shift =
-                View(extended_edges.quotient_hi_limbs_range_constraint_4_shift);
+            // auto quotient_hi_limbs_range_constraint_4_shift =
+            //     View(extended_edges.quotient_hi_limbs_range_constraint_4_shift);
 
             auto relation_wide_limbs = View(extended_edges.relation_wide_limbs);
             auto relation_wide_limbs_range_constraint_0 = View(extended_edges.relation_wide_limbs_range_constraint_0);
@@ -270,6 +281,12 @@ template <typename FF> class GoblinTranslatorDecompositionRelationBase {
 
             auto quotient_hi_limbs_range_constraint_tail_shift =
                 View(extended_edges.quotient_hi_limbs_range_constraint_tail_shift);
+
+            auto p_x_low_limbs_range_constraint_tail = View(extended_edges.p_x_low_limbs_range_constraint_tail);
+            auto p_x_low_limbs_range_constraint_tail_shift =
+                View(extended_edges.p_x_low_limbs_range_constraint_tail_shift);
+            auto p_x_high_limbs_range_constraint_tail = View(extended_edges.p_x_high_limbs_range_constraint_tail);
+            auto p_x_high_limbs_range_constraint_4_shift = View(extended_edges.p_x_high_limbs_range_constraint_4_shift);
 
             auto lagrange_odd = View(extended_edges.lagrange_odd);
 
@@ -419,8 +436,7 @@ template <typename FF> class GoblinTranslatorDecompositionRelationBase {
             auto tmp_16 = ((accumulator_hi_limbs_range_constraint_0_shift +
                             accumulator_hi_limbs_range_constraint_1_shift * SHIFT +
                             accumulator_hi_limbs_range_constraint_2_shift * SHIFTx2 +
-                            accumulator_hi_limbs_range_constraint_3_shift * SHIFTx3 +
-                            accumulator_hi_limbs_range_constraint_4_shift * SHIFTx4) -
+                            accumulator_hi_limbs_range_constraint_3_shift * SHIFTx3) -
                            accumulators_binary_limbs_3);
             tmp_16 *= lagrange_odd;
             tmp_16 *= scaling_factor;
@@ -459,8 +475,7 @@ template <typename FF> class GoblinTranslatorDecompositionRelationBase {
             auto tmp_20 =
                 ((quotient_hi_limbs_range_constraint_0_shift + quotient_hi_limbs_range_constraint_1_shift * SHIFT +
                   quotient_hi_limbs_range_constraint_2_shift * SHIFTx2 +
-                  quotient_hi_limbs_range_constraint_3_shift * SHIFTx3 +
-                  quotient_hi_limbs_range_constraint_4_shift * SHIFTx4) -
+                  quotient_hi_limbs_range_constraint_3_shift * SHIFTx3) -
                  quotient_hi_binary_limbs_shift);
             tmp_20 *= lagrange_odd;
             tmp_20 *= scaling_factor;
@@ -488,6 +503,34 @@ template <typename FF> class GoblinTranslatorDecompositionRelationBase {
             tmp_22 *= lagrange_odd;
             tmp_22 *= scaling_factor;
             std::get<21>(accumulators) += tmp_22;
+
+            // Contributions enfocing a reduced range constraint on high limbs
+            // Contribution 23
+            auto tmp_23 = p_x_low_limbs_range_constraint_4 * SHIFT_12_TO_14 - p_x_low_limbs_range_constraint_tail;
+            tmp_23 *= lagrange_odd;
+            tmp_23 *= scaling_factor;
+            std::get<22>(accumulators) += tmp_23;
+
+            // Contribution 24
+            auto tmp_24 =
+                p_x_low_limbs_range_constraint_4_shift * SHIFT_12_TO_14 - p_x_low_limbs_range_constraint_tail_shift;
+            tmp_24 *= lagrange_odd;
+            tmp_24 *= scaling_factor;
+            std::get<23>(accumulators) += tmp_24;
+
+            // Contribution 25
+            auto tmp_25 = p_x_high_limbs_range_constraint_4 * SHIFT_12_TO_14 - p_x_high_limbs_range_constraint_tail;
+            tmp_25 *= lagrange_odd;
+            tmp_25 *= scaling_factor;
+            std::get<24>(accumulators) += tmp_25;
+
+            // Contribution 26
+            auto tmp_26 =
+                (p_x_high_limbs_range_constraint_3_shift * SHIFT_8_TO_14 - p_x_high_limbs_range_constraint_4_shift);
+
+            tmp_26 *= lagrange_odd;
+            tmp_26 *= scaling_factor;
+            std::get<25>(accumulators) += tmp_26;
 
         }; // namespace proof_system::honk::sumcheck
     };
