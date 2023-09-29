@@ -38,4 +38,4 @@ services:
       BOOTSTRAP_NODES: '/ip4/p2p-bootstrap/tcp/40400/p2p/12D3KooWGBpbC6qQFkaCYphjNeY6sV99o4SnEWyTeBigoVriDn4D'
     command: ${TEST:-./src/e2e_p2p_network.test.ts}
     volumes:
-      - ./log:/usr/src/yarn-project/end-to-end/log:rw
+      - ../log:/usr/src/yarn-project/end-to-end/log:rw
