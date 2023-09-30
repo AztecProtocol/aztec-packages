@@ -146,8 +146,8 @@ TYPED_TEST(ZeroMorphTest, PartiallyEvaluatedQuotientZeta)
 
 /**
  * @brief Demonstrate formulas for efficiently computing \Phi_k(x) = \sum_{i=0}^{k-1}x^i
- * @details \Phi_k(x) = \sum_{i=0}^{k-1}x^i = (x^{2^n} - 1) / (x - 1)
- *
+ * @details \Phi_k(x) = \sum_{i=0}^{k-1}x^i
+ *                    = (x^{2^k} - 1) / (x - 1)
  */
 TYPED_TEST(ZeroMorphTest, PhiEvaluation)
 {
@@ -166,7 +166,7 @@ TYPED_TEST(ZeroMorphTest, PhiEvaluation)
         EXPECT_EQ(efficient, expected);
     }
 
-    // \Phi_{n-k-1}(x^{2^{k + 1}})
+    // \Phi_{n-k-1}(x^{2^{k + 1}}) = (x^{2^n} - 1) / (x^{2^{k + 1}} - 1)
     {
         auto x_challenge = Fr::random_element();
 
