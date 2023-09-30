@@ -111,7 +111,7 @@ template <typename Curve> class ZeroMorphProver {
             auto x_power = x_challenge.pow(N - deg_k - 1);
             // size_t offset = N - deg_k - 1;
             for (size_t idx = 0; idx < deg_k + 1; ++idx) {
-                result[idx] += y_power * x_power * quotient[idx];
+                result[idx] -= y_power * x_power * quotient[idx];
             }
             y_power *= y_challenge; // update batching scalar y^k
             k++;
@@ -139,6 +139,7 @@ template <typename Curve> class ZeroMorphProver {
                                                                                 Fr x_challenge)
     {
         size_t N = input_polynomial.size();
+        auto numerator = x_challenge.pow(N) - 1; // x^N - 1
 
         // Partially evaluated zeromorph identity polynomial Z_x
         auto result = input_polynomial;
@@ -147,16 +148,16 @@ template <typename Curve> class ZeroMorphProver {
         size_t k = 0;
         auto x_power = x_challenge; // x^{2^k}
         for (auto& quotient : quotients) {
+            x_power = x_challenge.pow(1 << k); // x^{2^k}
 
-            auto numerator = x_challenge.pow(N) - 1;                             // x^N - 1
-            auto phi_term_1 = numerator / (x_challenge.pow((1 << (k + 1)) - 1)); // \Phi_{n-k-1}(x^{2^{k + 1}})
-            auto phi_term_2 = numerator / (x_challenge.pow((1 << k) - 1));       // \Phi_{n-k}(x^{2^k})
+            auto phi_term_1 = numerator / (x_challenge.pow(1 << (k + 1)) - 1); // \Phi_{n-k-1}(x^{2^{k + 1}})
+            auto phi_term_2 = numerator / (x_challenge.pow(1 << k) - 1);       // \Phi_{n-k}(x^{2^k})
 
+            // x^{2^k} * \Phi_{n-k-1}(x^{2^{k+1}}) - u_k *  \Phi_{n-k}(x^{2^k})
             auto scalar = x_power * phi_term_1 - u_challenge[k] * phi_term_2;
             for (size_t idx = 0; idx < (1 << k); ++idx) {
-                result[idx] += scalar * quotient[idx];
+                result[idx] -= scalar * quotient[idx];
             }
-            x_power = x_challenge.pow(1 << k); // x^{2^k}
             k++;
         }
 
