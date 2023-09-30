@@ -57,6 +57,13 @@ export class BootstrapNode {
         protocolPrefix: 'aztec',
         clientMode: false,
       }),
+      // The autonat service seems quite problematic in that using it seems to cause a lot of attempts
+      // to dial ephemeral ports. I suspect that it works better if you can get the uPNPnat service to
+      // work as then you would have a permanent port to be dialled.
+      // Alas, I struggled to get this to work reliablyeither.
+      // autoNAT: autoNATService({
+      //   protocolPrefix: 'aztec',
+      // }),
     };
 
     this.node = await createLibp2p({

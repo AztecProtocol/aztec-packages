@@ -14,7 +14,6 @@ import { createFromJSON, createSecp256k1PeerId, exportToProtobuf } from '@libp2p
 import { tcp } from '@libp2p/tcp';
 import { pipe } from 'it-pipe';
 import { Libp2p, Libp2pOptions, ServiceFactoryMap, createLibp2p } from 'libp2p';
-import { autoNATService } from 'libp2p/autonat';
 import { identifyService } from 'libp2p/identify';
 
 import { P2PConfig } from '../config.js';
@@ -141,7 +140,6 @@ export class LibP2PService implements P2PService {
    */
   public static async new(config: P2PConfig, txPool: TxPool) {
     const {
-      enableNat,
       tcpListenIp,
       tcpListenPort,
       announceHostname,
@@ -184,11 +182,16 @@ export class LibP2PService implements P2PService {
       }),
     };
 
-    if (enableNat) {
-      services.nat = autoNATService({
-        protocolPrefix: 'aztec',
-      });
-    }
+    // The autonat service seems quite problematic in that using it seems to cause a lot of attempts
+    // to dial ephemeral ports. I suspect that it works better if you can get the uPNPnat service to
+    // work as then you would have a permanent port to be dialled.
+    // Alas, I struggled to get this to work reliably either.
+    // if (enableNat) {
+    //   services.autoNAT = autoNATService({
+    //     protocolPrefix: 'aztec',
+    //   });
+    //   services.uPnPNAT = uPnPNATService();
+    // }
 
     const node = await createLibp2p({
       ...opts,
