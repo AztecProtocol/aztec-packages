@@ -452,5 +452,6 @@ contract Token {
             note_utils::compute_note_hash_and_nullifier(TokenNoteMethods, note_header, preimage)
         }
     }
+    // docs:end:compute_note_hash_and_nullifier
 }
 // docs:end:token_all

@@ -1,5 +1,5 @@
 import { AztecNodeService } from '@aztec/aztec-node';
-import { CheatCodes, Wallet, computeMessageSecretHash } from '@aztec/aztec.js';
+import { CheatCodes, TxHash, Wallet, computeMessageSecretHash } from '@aztec/aztec.js';
 import { AztecAddress, CompleteAddress, EthAddress, Fr, PublicKey } from '@aztec/circuits.js';
 import { DeployL1Contracts } from '@aztec/ethereum';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
@@ -227,6 +227,8 @@ export class CrossChainTestHarness {
       .send();
     const consumptionReceipt = await consumptionTx.wait();
     expect(consumptionReceipt.status).toBe(TxStatus.MINED);
+
+    await this.addPendingShieldNoteToPXE(bridgeAmount, secretHashForRedeemingMintedNotes, consumptionReceipt.txHash);
   }
 
   async consumeMessageOnAztecAndMintPublicly(bridgeAmount: bigint, messageKey: Fr, secret: Fr) {
@@ -322,10 +324,14 @@ export class CrossChainTestHarness {
     const shieldReceipt = await shieldTx.wait();
     expect(shieldReceipt.status).toBe(TxStatus.MINED);
 
+    await this.addPendingShieldNoteToPXE(shieldAmount, secretHash, shieldReceipt.txHash);
+  }
+
+  async addPendingShieldNoteToPXE(shieldAmount: bigint, secretHash: Fr, txHash: TxHash) {
     this.logger('Adding note to PXE');
     const storageSlot = new Fr(5);
     const preimage = new NotePreimage([new Fr(shieldAmount), secretHash]);
-    await this.pxeService.addNote(this.ownerAddress, this.l2Token.address, storageSlot, preimage, shieldReceipt.txHash);
+    await this.pxeService.addNote(this.ownerAddress, this.l2Token.address, storageSlot, preimage, txHash);
   }
 
   async redeemShieldPrivatelyOnL2(shieldAmount: bigint, secret: Fr) {
