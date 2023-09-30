@@ -41,7 +41,6 @@ import {
   NodeInfo,
   NotePreimage,
   PXE,
-  PublicKey,
   SimulationError,
   Tx,
   TxExecutionRequest,
@@ -200,12 +199,25 @@ export class PXEService implements PXE {
   }
 
   public async addNote(
+    account: AztecAddress,
     contractAddress: AztecAddress,
     storageSlot: Fr,
     preimage: NotePreimage,
-    nonce: Fr,
-    account: PublicKey,
+    txHash: TxHash,
+    nonce?: Fr,
   ) {
+    const { publicKey } = (await this.db.getCompleteAddress(account)) ?? {};
+    if (!publicKey) {
+      throw new Error('Unknown account.');
+    }
+
+    if (!nonce) {
+      [nonce] = await this.getNoteNonces(contractAddress, storageSlot, preimage, txHash);
+    }
+    if (!nonce) {
+      throw new Error(`Cannot find the note in tx: ${txHash}.`);
+    }
+
     const { innerNoteHash, siloedNoteHash, uniqueSiloedNoteHash, innerNullifier } =
       await this.simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, preimage.items);
 
@@ -232,7 +244,7 @@ export class PXEService implements PXE {
       innerNoteHash,
       siloedNullifier,
       index,
-      publicKey: account,
+      publicKey,
     });
   }
 

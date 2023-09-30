@@ -1,8 +1,7 @@
-import { CompleteAddress, TxHash, Wallet } from '@aztec/aztec.js';
+import { CompleteAddress, NotePreimage, TxHash, Wallet } from '@aztec/aztec.js';
 import { Fr, MAX_NEW_COMMITMENTS_PER_CALL } from '@aztec/circuits.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { PrivateTokenAirdropContract } from '@aztec/noir-contracts/types';
-import { NotePreimage } from '@aztec/types';
 
 import { setup } from './fixtures/utils.js';
 
@@ -62,6 +61,7 @@ describe('private airdrop', () => {
 
   const claimToken = async (accountIndex: number, claim: Claim, txHash: TxHash, nonceIndex = 0) => {
     const contract = contracts[accountIndex];
+    const account = accounts[accountIndex].address;
     const wallet = wallets[accountIndex];
     const nonces = await wallet.getNoteNonces(contract.address, claimsStorageSlot, claim.preimage, txHash);
 
@@ -71,8 +71,7 @@ describe('private airdrop', () => {
     expect(nonces[nonceIndex]).not.toEqual(Fr.ZERO);
 
     const nonce = nonces[nonceIndex];
-    const { publicKey } = wallet.getCompleteAddress();
-    await wallet.addNote(contract.address, claimsStorageSlot, claim.preimage, nonce, publicKey);
+    await wallet.addNote(account, contract.address, claimsStorageSlot, claim.preimage, txHash, nonce);
 
     return contract.methods.claim(claim.amount, claim.secret).send().wait();
   };
