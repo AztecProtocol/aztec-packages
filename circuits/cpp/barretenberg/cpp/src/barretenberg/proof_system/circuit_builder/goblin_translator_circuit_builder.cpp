@@ -118,7 +118,7 @@ GoblinTranslatorCircuitBuilder::AccumulationInput generate_witness_values(
     constexpr size_t NUM_LAST_LIMB_BITS = GoblinTranslatorCircuitBuilder::NUM_LAST_LIMB_BITS;
     constexpr size_t MICRO_LIMB_BITS = GoblinTranslatorCircuitBuilder::MICRO_LIMB_BITS;
     constexpr size_t TOP_STANDARD_MICROLIMB_BITS = NUM_LAST_LIMB_BITS % MICRO_LIMB_BITS;
-    // constexpr size_t TOP_Z_MICROLIMB_BITS = (127 % NUM_LIMB_BITS) % MICRO_LIMB_BITS;
+    constexpr size_t TOP_Z_MICROLIMB_BITS = (128 % NUM_LIMB_BITS) % MICRO_LIMB_BITS;
     constexpr size_t TOP_QUOTIENT_MICROLIMB_BITS = (256 % NUM_LIMB_BITS) % MICRO_LIMB_BITS;
     constexpr auto shift_1 = GoblinTranslatorCircuitBuilder::SHIFT_1;
     constexpr auto shift_2 = GoblinTranslatorCircuitBuilder::SHIFT_2;
@@ -199,6 +199,16 @@ GoblinTranslatorCircuitBuilder::AccumulationInput generate_witness_values(
                                   uint256_t(limb).slice(3 * MICRO_LIMB_BITS, 4 * MICRO_LIMB_BITS)
                                       << (MICRO_LIMB_BITS - (last_limb_bits % MICRO_LIMB_BITS)),
                                   0 };
+    };
+    auto split_top_z_limb_into_micro_limbs = [](Fr& limb, size_t last_limb_bits) {
+        static_assert(MICRO_LIMB_BITS == 14);
+        return std::array<Fr, 6>{ uint256_t(limb).slice(0, MICRO_LIMB_BITS),
+                                  uint256_t(limb).slice(MICRO_LIMB_BITS, 2 * MICRO_LIMB_BITS),
+                                  uint256_t(limb).slice(2 * MICRO_LIMB_BITS, 3 * MICRO_LIMB_BITS),
+                                  uint256_t(limb).slice(3 * MICRO_LIMB_BITS, 4 * MICRO_LIMB_BITS),
+                                  uint256_t(limb).slice(4 * MICRO_LIMB_BITS, 5 * MICRO_LIMB_BITS),
+                                  uint256_t(limb).slice(4 * MICRO_LIMB_BITS, 5 * MICRO_LIMB_BITS)
+                                      << (MICRO_LIMB_BITS - (last_limb_bits % MICRO_LIMB_BITS)) };
     };
     // /**
     //  * @brief A method to split the top 50-bit limb into 4 14-bit limbs and 1 shifted limb for a more secure
@@ -432,10 +442,14 @@ GoblinTranslatorCircuitBuilder::AccumulationInput generate_witness_values(
     input.P_y_microlimbs[last_limb_index] =
         split_top_limb_into_micro_limbs(input.P_y_limbs[last_limb_index], TOP_STANDARD_MICROLIMB_BITS);
 
-    for (size_t i = 0; i < GoblinTranslatorCircuitBuilder::NUM_Z_LIMBS; i++) {
+    for (size_t i = 0; i < GoblinTranslatorCircuitBuilder::NUM_Z_LIMBS - 1; i++) {
         input.z_1_microlimbs[i] = split_standard_limb_into_micro_limbs(input.z_1_limbs[i]);
         input.z_2_microlimbs[i] = split_standard_limb_into_micro_limbs(input.z_2_limbs[i]);
     }
+    input.z_1_microlimbs[GoblinTranslatorCircuitBuilder::NUM_Z_LIMBS - 1] = split_top_z_limb_into_micro_limbs(
+        input.z_1_limbs[GoblinTranslatorCircuitBuilder::NUM_Z_LIMBS - 1], TOP_Z_MICROLIMB_BITS);
+    input.z_2_microlimbs[GoblinTranslatorCircuitBuilder::NUM_Z_LIMBS - 1] = split_top_z_limb_into_micro_limbs(
+        input.z_2_limbs[GoblinTranslatorCircuitBuilder::NUM_Z_LIMBS - 1], TOP_Z_MICROLIMB_BITS);
     for (size_t i = 0; i < last_limb_index; i++) {
         input.current_accumulator_microlimbs[i] = split_standard_limb_into_micro_limbs(input.current_accumulator[i]);
     }
