@@ -33,19 +33,6 @@ unconstrained fn notify_nullified_note<N>(
     notify_nullified_note_oracle(nullifier, inner_note_hash)
 }
 
-#[oracle(checkNoteHashExists)]
-fn check_note_hash_exists_oracle<N>(
-    _nonce: Field,
-    _inner_note_hash: Field,
-) -> Field {}
-
-unconstrained fn check_note_hash_exists(
-    nonce: Field,
-    inner_note_hash: Field,
-) -> bool {
-    check_note_hash_exists_oracle(nonce, inner_note_hash) == 1
-}
-
 #[oracle(getNotes)]
 fn get_notes_oracle<N, S>(
     _storage_slot: Field,

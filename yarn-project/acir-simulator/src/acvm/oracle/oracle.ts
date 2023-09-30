@@ -108,11 +108,6 @@ export class Oracle {
     return returnData.concat(paddedZeros);
   }
 
-  checkNoteHashExists(): ACVMField {
-    throw new Error(`"assert_contains_and_remove" and "assert_contains_and_remove_publicly_created" have been deprecated.
-Please call PXE.addNote() to add a note to the database. Then use Set.get_notes() and Set.remove() in your contract to verify and remove a note.`);
-  }
-
   notifyCreatedNote([storageSlot]: ACVMField[], preimage: ACVMField[], [innerNoteHash]: ACVMField[]): ACVMField {
     this.typedOracle.notifyCreatedNote(
       fromACVMField(storageSlot),
