@@ -178,18 +178,19 @@ template <typename Curve> class ZeroMorphProver {
      * @return Polynomial
      */
     static Polynomial compute_batched_evaluation_and_degree_check_quotient(
-        Polynomial& Z_x, Polynomial& zeta_x, Fr x_challenge, Fr z_challenge, size_t N_max)
+        Polynomial& zeta_x, Polynomial& Z_x, Fr x_challenge, Fr z_challenge, size_t N_max)
     {
-        (void)Z_x;
-        (void)zeta_x;
-        (void)x_challenge;
-        (void)z_challenge;
         (void)N_max;
 
-        size_t N = Z_x.size();
+        auto q_zeta = zeta_x.factor_roots(x_challenge);
+        auto q_Z = Z_x.factor_roots(x_challenge);
 
         // Partially evaluated zeromorph identity polynomial Z_x
-        auto result = Polynomial(N);
+        auto result = q_zeta;
+        result.add_scaled(q_Z, z_challenge);
+
+        // WORKTODO: it wouldn't make sense to store the massive poly that results from shifting by N_{max}-(N-1). Can
+        // we just compute the shifted commitment without ever storing the shifted poly explicitly?
 
         return result;
     }
