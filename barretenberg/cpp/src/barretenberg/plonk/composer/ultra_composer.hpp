@@ -27,7 +27,8 @@ class UltraComposer {
     std::shared_ptr<plonk::verification_key> circuit_verification_key;
 
     // The crs_factory holds the path to the srs and exposes methods to extract the srs elements
-    std::shared_ptr<barretenberg::srs::factories::CrsFactory<Curve>> crs_factory_;
+    std::shared_ptr<barretenberg::srs::factories::CrsFactory<Curve>> crs_factory_ =
+        barretenberg::srs::get_crs_factory();
 
     bool computed_witness = false;
 
@@ -37,8 +38,7 @@ class UltraComposer {
     // vanishing_polynomial cannot be trivially fetched here, I am directly setting this to 4 - 1 = 3.
     static constexpr size_t s_randomness = 3;
 
-    UltraComposer()
-        : UltraComposer("../srs_db/ignition"){};
+    UltraComposer() = default;
 
     UltraComposer(std::string const& crs_path)
         : UltraComposer(std::make_unique<barretenberg::srs::factories::FileCrsFactory<Curve>>(crs_path)){};
