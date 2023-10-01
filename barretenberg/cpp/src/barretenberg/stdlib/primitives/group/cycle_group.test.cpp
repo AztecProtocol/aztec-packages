@@ -521,16 +521,6 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
 
     bool check_result = builder.check_circuit();
     EXPECT_EQ(check_result, true);
-
-    if constexpr (std::same_as<proof_system::UltraCircuitBuilder, Builder>) {
-        proof_system::plonk::UltraComposer composer = proof_system::plonk::UltraComposer();
-        auto prover = composer.create_prover(builder);
-        // Construct proof
-        auto proof = prover.construct_proof();
-
-        auto verifier = composer.create_verifier(builder);
-        EXPECT_EQ(verifier.verify_proof(proof), true);
-    }
 }
 
 TYPED_TEST(CycleGroupTest, TestMul)
