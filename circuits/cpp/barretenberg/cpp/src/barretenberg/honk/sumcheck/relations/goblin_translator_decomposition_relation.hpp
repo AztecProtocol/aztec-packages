@@ -580,7 +580,7 @@ template <typename FF> class GoblinTranslatorDecompositionRelationBase {
             tmp_20 *= scaling_factor;
             std::get<19>(accumulators) += tmp_20;
 
-            // Contribution 21 , quotient highest limb decomposition
+            // Contribution 21 ,
             auto tmp_21 =
                 ((relation_wide_limbs_range_constraint_0 + relation_wide_limbs_range_constraint_1 * MICRO_LIMB_SHIFT +
                   relation_wide_limbs_range_constraint_2 * MICRO_LIMB_SHIFTx2 +
