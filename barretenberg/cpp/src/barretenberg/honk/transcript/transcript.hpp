@@ -85,17 +85,17 @@ template <typename FF> class BaseTranscript {
      */
     [[nodiscard]] std::array<uint8_t, HASH_OUTPUT_SIZE> get_next_challenge_buffer() const
     {
+        // Empty buffer to compare against
+        std::array<uint8_t, HASH_OUTPUT_SIZE> empty_challenge_buffer{};
         // Prevent challenge generation if nothing was sent by the prover.
-        ASSERT(!current_round_data.empty());
+        ASSERT(!(current_round_data.empty() && previous_challenge_buffer == empty_challenge_buffer));
 
         // concatenate the hash of the previous round (if not the first round) with the current round data.
         // TODO(Adrian): Do we want to use a domain separator as the initial challenge buffer?
         // We could be cheeky and use the hash of the manifest as domain separator, which would prevent us from having
         // to domain separate all the data. (See https://safe-hash.dev)
         std::vector<uint8_t> full_buffer;
-        if (round_number > 0) {
-            full_buffer.insert(full_buffer.end(), previous_challenge_buffer.begin(), previous_challenge_buffer.end());
-        }
+        full_buffer.insert(full_buffer.end(), previous_challenge_buffer.begin(), previous_challenge_buffer.end());
         full_buffer.insert(full_buffer.end(), current_round_data.begin(), current_round_data.end());
 
         // Pre-hash the full buffer to minimize the amount of data passed to the cryptographic hash function.
@@ -145,26 +145,22 @@ template <typename FF> class BaseTranscript {
         manifest.add_challenge(round_number, labels...);
 
         // Compute the new challenge buffer from which we derive the challenges.
-        auto next_challenge_buffer = get_next_challenge_buffer();
 
         // Create challenges from bytes.
         std::array<FF, num_challenges> challenges{};
 
-        std::array<uint8_t, sizeof(FF)> field_element_buffer{};
-        std::copy_n(next_challenge_buffer.begin(), HASH_OUTPUT_SIZE, field_element_buffer.begin());
-
-        challenges[0] = from_buffer<FF>(field_element_buffer);
-
-        // TODO(#583): rework the transcript to have a better structure and be able to produce a variable amount of
-        // challenges that are not powers of each other
-        for (size_t i = 1; i < num_challenges; i++) {
-            challenges[i] = challenges[i - 1] * challenges[0];
+        // Generate the challenges by iteratively hashing over the previous challenge.
+        for (size_t i = 0; i < num_challenges; i++) {
+            auto next_challenge_buffer = get_next_challenge_buffer(); // get next challenge buffer
+            current_round_data.clear();                               // clear round data after generating challenge
+            std::array<uint8_t, sizeof(FF)> field_element_buffer{};
+            std::copy_n(next_challenge_buffer.begin(), HASH_OUTPUT_SIZE, field_element_buffer.begin());
+            challenges[i] = from_buffer<FF>(field_element_buffer);
+            previous_challenge_buffer = next_challenge_buffer; // update previous challenge buffer
         }
 
         // Prepare for next round.
         ++round_number;
-        current_round_data.clear();
-        previous_challenge_buffer = next_challenge_buffer;
 
         return challenges;
     }
