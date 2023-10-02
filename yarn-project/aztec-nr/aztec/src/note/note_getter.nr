@@ -29,6 +29,21 @@ fn check_note_header<Note, N>(
     assert(header.storage_slot == storage_slot);
 }
 
+fn check_note_fields<Note, N>(
+    note_interface: NoteInterface<Note, N>,
+    note: Note,
+    selects: BoundedVec<Option<Select>, N>,
+) {
+    if selects.len != 0 {
+        let serialize = note_interface.serialize;
+        let fields = serialize(note);
+        for i in 0..selects.len {
+            let select = selects.get(i).unwrap_unchecked();
+            assert(fields[select.field_index] == select.value, "Mismatch return note field.");
+        }
+    }
+}
+
 fn get_note<Note, N>(
     context: &mut PrivateContext,
     storage_slot: Field,
@@ -51,18 +66,25 @@ fn get_notes<Note, N, FILTER_ARGS>(
     options: NoteGetterOptions<Note, N, FILTER_ARGS>,
 ) -> [Option<Note>; MAX_READ_REQUESTS_PER_CALL] {
     let opt_notes = get_notes_internal(storage_slot, note_interface, options);
+    let mut num_notes = 0;
     for i in 0..opt_notes.len() {
         let opt_note = opt_notes[i];
         if opt_note.is_some() {
             let note = opt_note.unwrap_unchecked();
             check_note_header(*context, storage_slot, note_interface, note);
+            check_note_fields(note_interface, note, options.selects);
 
             let note_hash_for_read_request = compute_note_hash_for_read_or_nullify(note_interface, note);
             // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1410): test to ensure
             // failure if malicious oracle injects 0 nonce here for a "pre-existing" note.
             context.push_read_request(note_hash_for_read_request);
+
+            num_notes += 1;
         };
     };
+    if options.limit != 0 {
+        assert(num_notes <= options.limit, "Invalid number of return notes.");
+    }
     opt_notes
 }
 
