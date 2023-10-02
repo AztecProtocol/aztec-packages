@@ -41,13 +41,14 @@ WASM_EXPORT void acir_get_verification_key(in_ptr acir_composer_ptr, uint8_t** o
 
 WASM_EXPORT void acir_verify_proof(in_ptr acir_composer_ptr,
                                    uint8_t const* public_inputs_buf,
-                                   uint8_t const* proof_buf,
+                                   uint8_t const* proof_without_public_inputs_buf,
                                    bool const* is_recursive,
                                    bool* result);
 
 WASM_EXPORT void acir_get_solidity_verifier(in_ptr acir_composer_ptr, out_str_buf out);
 
 WASM_EXPORT void acir_serialize_proof_into_fields(in_ptr acir_composer_ptr,
+                                                  uint8_t const* public_inputs_buf,
                                                   uint8_t const* proof_buf,
                                                   uint32_t const* num_inner_public_inputs,
                                                   fr::vec_out_buf out);

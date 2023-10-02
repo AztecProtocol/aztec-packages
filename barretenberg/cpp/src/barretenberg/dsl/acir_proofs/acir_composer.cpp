@@ -147,7 +147,7 @@ std::pair<std::vector<uint8_t>, std::vector<uint8_t>> AcirComposer::create_proof
     auto num_public_inputs = static_cast<uint32_t>(constraint_system.public_inputs.size());
 
     auto [proof_without_public_inputs, public_inputs] = splitVector(proof, num_public_inputs);
-    return { proof_without_public_inputs, public_inputs };
+    return { public_inputs, proof_without_public_inputs };
 }
 
 std::shared_ptr<proof_system::plonk::verification_key> AcirComposer::init_verification_key()
@@ -210,9 +210,12 @@ std::string AcirComposer::get_solidity_verifier()
  * @param proof
  * @param num_inner_public_inputs - number of public inputs on the proof being serialized
  */
-std::vector<barretenberg::fr> AcirComposer::serialize_proof_into_fields(std::vector<uint8_t> const& proof,
-                                                                        size_t num_inner_public_inputs)
+std::vector<barretenberg::fr> AcirComposer::serialize_proof_into_fields(
+    std::vector<uint8_t> const& public_inputs,
+    std::vector<uint8_t> const& proof_without_public_inputs,
+    size_t num_inner_public_inputs) // TODO: remove this, can be derived from public_inputs
 {
+    auto proof = concatenateVectors(public_inputs, proof_without_public_inputs);
     transcript::StandardTranscript transcript(proof,
                                               acir_format::Composer::create_manifest(num_inner_public_inputs),
                                               transcript::HashType::PlookupPedersenBlake3s,
