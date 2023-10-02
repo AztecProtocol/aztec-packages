@@ -400,7 +400,7 @@ export async function deployAndInitializeTokenAndBridgeContracts(
   });
 
   // deploy l2 token
-  const deployTx = TokenContract.deploy(wallet, wallet.getCompleteAddress()).send();
+  const deployTx = TokenContract.deploy(wallet, owner).send();
 
   // now wait for the deploy txs to be mined. This way we send all tx in the same rollup.
   const deployReceipt = await deployTx.wait();
