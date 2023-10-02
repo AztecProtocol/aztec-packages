@@ -33,7 +33,7 @@ function getWitness(witnessPath: string) {
   return decompressed;
 }
 
-function publicInputsPathFromProofPath(proofPath: string) { 
+function publicInputsPathFromProofPath(proofPath: string) {
   return proofPath + '-public_inputs';
 }
 
@@ -134,7 +134,7 @@ export async function prove(
 
       writeFileSync(publicInputsPath, publicInputs);
       writeFileSync(outputProofPath, proofWithOutPublicInputs);
-      
+
       debug(`proof written to: ${outputProofPath}`);
       debug(`public inputs written to: ${publicInputsPath}`);
     }
