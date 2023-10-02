@@ -17,8 +17,8 @@ if [ "${CIRCLE_BRANCH:-}" = "master" ]; then
   BENCHMARK_TARGET_FILE="benchmarks-v1/master/$COMMIT_HASH.json"
   BENCHMARK_LATEST_FILE="benchmarks-v1/latest.json"
 elif [ -n "${CIRCLE_PULL_REQUEST:-}" ]; then
-  LOG_SOURCE_FOLDER="logs-v1/pulls/$CIRCLE_PULL_REQUEST"
-  BENCHMARK_TARGET_FILE="benchmarks-v1/pulls/$CIRCLE_PULL_REQUEST.json"
+  LOG_SOURCE_FOLDER="logs-v1/pulls/${CIRCLE_PULL_REQUEST##*/}"
+  BENCHMARK_TARGET_FILE="benchmarks-v1/pulls/${CIRCLE_PULL_REQUEST##*/}.json"
 else
   echo "Can only run benchmark aggregation on master or on a PR. Ensure CIRCLE_BRANCH or CIRCLE_PULL_REQUEST are set."
   exit 1

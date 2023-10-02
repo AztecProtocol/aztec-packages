@@ -21,7 +21,7 @@ fi
 if [ "${CIRCLE_BRANCH:-}" = "master" ]; then
   TARGET_FOLDER="logs-v1/master/$COMMIT_HASH/"
 elif [ -n "${CIRCLE_PULL_REQUEST:-}" ]; then
-  TARGET_FOLDER="logs-v1/pulls/$CIRCLE_PULL_REQUEST"
+  TARGET_FOLDER="logs-v1/pulls/${CIRCLE_PULL_REQUEST##*/}"
 fi
 
 if [ -n "${TARGET_FOLDER:-}" ]; then
