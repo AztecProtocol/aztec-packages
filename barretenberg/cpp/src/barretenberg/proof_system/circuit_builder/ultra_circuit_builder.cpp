@@ -3402,8 +3402,7 @@ template <typename FF> bool UltraCircuitBuilder_<FF>::check_circuit()
         }
         if (!compute_elliptic_identity(q_elliptic_value,
                                        q_1_value,
-                                       q_3_value,
-                                       q_4_value,
+                                       q_m_value,
                                        w_2_value,
                                        w_3_value,
                                        w_1_shifted_value,
