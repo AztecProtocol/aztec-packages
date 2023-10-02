@@ -4,9 +4,6 @@
 #include <string>
 #include <vector>
 
-template <typename TypeToCheck, typename TypeToCheckAgainst>
-concept type_is = std::same_as<std::remove_cvref_t<TypeToCheck>, TypeToCheckAgainst>;
-
 template <typename C> C slice(C const& container, size_t start)
 {
     auto b = container.begin();

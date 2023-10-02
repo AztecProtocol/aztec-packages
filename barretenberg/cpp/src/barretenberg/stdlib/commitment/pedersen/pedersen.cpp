@@ -26,11 +26,11 @@ cycle_group<C> pedersen_commitment<C>::commit(const std::vector<field_t>& inputs
     return cycle_group::batch_mul(scalars, points);
 }
 
-template <typename C>
-field_t<C> pedersen_commitment<C>::compress(const std::vector<field_t>& inputs, const GeneratorContext context)
-{
-    return commit(inputs, context).x;
-}
+// template <typename C>
+// field_t<C> pedersen_commitment<C>::compress(const std::vector<field_t>& inputs, const GeneratorContext context)
+// {
+//     return commit(inputs, context).x;
+// }
 INSTANTIATE_STDLIB_TYPE(pedersen_commitment);
 
 } // namespace proof_system::plonk::stdlib

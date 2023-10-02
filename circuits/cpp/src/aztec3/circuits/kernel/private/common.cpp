@@ -287,7 +287,7 @@ void common_contract_logic(DummyBuilder& builder,
     const auto& portal_contract_address = private_call.portal_contract_address;
 
     const auto private_call_vk_hash =
-        stdlib::recursion::verification_key<CT::bn254>::compress_native(private_call.vk, GeneratorIndex::VK);
+        stdlib::recursion::verification_key<CT::bn254>::hash_native(private_call.vk, GeneratorIndex::VK);
 
     const auto is_contract_deployment = public_inputs.constants.tx_context.is_contract_deployment_tx;
 

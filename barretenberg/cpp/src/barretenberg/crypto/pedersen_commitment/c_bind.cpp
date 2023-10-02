@@ -1,6 +1,7 @@
 // TODO(@zac-wiliamson #2341 delete this file and rename c_bind_new to c_bind once we have migrated to new hash standard
 
 #include "c_bind.hpp"
+#include "../pedersen_hash/pedersen.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "pedersen.hpp"
 
@@ -12,7 +13,7 @@ WASM_EXPORT void pedersen___compress_fields(fr::in_buf left, fr::in_buf right, f
 {
     auto lhs = barretenberg::fr::serialize_from_buffer(left);
     auto rhs = barretenberg::fr::serialize_from_buffer(right);
-    auto r = crypto::pedersen_commitment::compress_native({ lhs, rhs });
+    auto r = crypto::pedersen_hash::hash({ lhs, rhs });
     barretenberg::fr::serialize_to_buffer(r, result);
 }
 
@@ -20,7 +21,7 @@ WASM_EXPORT void pedersen___compress(fr::vec_in_buf inputs_buffer, fr::out_buf o
 {
     std::vector<grumpkin::fq> to_compress;
     read(inputs_buffer, to_compress);
-    auto r = crypto::pedersen_commitment::compress_native(to_compress);
+    auto r = crypto::pedersen_hash::hash(to_compress);
     barretenberg::fr::serialize_to_buffer(r, output);
 }
 
@@ -33,7 +34,7 @@ WASM_EXPORT void pedersen___compress_with_hash_index(fr::vec_in_buf inputs_buffe
     const size_t generator_offset = ntohl(*hash_index);
     crypto::GeneratorContext<curve::Grumpkin> ctx; // todo fix
     ctx.offset = generator_offset;
-    auto r = crypto::pedersen_commitment::compress_native(to_compress, ctx);
+    auto r = crypto::pedersen_hash::hash(to_compress, ctx);
     barretenberg::fr::serialize_to_buffer(r, output);
 }
 
@@ -50,7 +51,7 @@ WASM_EXPORT void pedersen___buffer_to_field(uint8_t const* data, fr::out_buf r)
 {
     std::vector<uint8_t> to_compress;
     read(data, to_compress);
-    auto output = crypto::pedersen_commitment::compress_native(to_compress);
+    auto output = crypto::pedersen_hash::hash_buffer(to_compress);
     write(r, output);
 }
 }

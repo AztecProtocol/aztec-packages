@@ -1,5 +1,5 @@
 #include "verification_key.hpp"
-#include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
+#include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/plonk/proof_system/constants.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
@@ -18,10 +18,9 @@ namespace proof_system::plonk {
  * @param circuit_type to use when choosing pedersen compression function
  * @return barretenberg::fr compression of the evaluation domain as a field
  */
-barretenberg::fr compress_native_evaluation_domain(barretenberg::evaluation_domain const& domain,
-                                                   proof_system::CircuitType)
+barretenberg::fr hash_native_evaluation_domain(barretenberg::evaluation_domain const& domain, proof_system::CircuitType)
 {
-    barretenberg::fr out = crypto::pedersen_commitment::compress_native({
+    barretenberg::fr out = crypto::pedersen_hash::hash({
         domain.root,
         domain.domain,
         domain.generator,
@@ -40,7 +39,7 @@ barretenberg::fr compress_native_evaluation_domain(barretenberg::evaluation_doma
  * @param hash_index generator index to use during pedersen compression
  * @returns a field containing the compression
  */
-barretenberg::fr verification_key_data::compress_native(const size_t hash_index) const
+barretenberg::fr verification_key_data::hash_native(const size_t hash_index) const
 {
     barretenberg::evaluation_domain eval_domain = barretenberg::evaluation_domain(circuit_size);
 
@@ -66,7 +65,7 @@ barretenberg::fr verification_key_data::compress_native(const size_t hash_index)
 
     write(preimage_data, eval_domain.root);
 
-    return crypto::pedersen_commitment::compress_native(preimage_data, hash_index);
+    return crypto::pedersen_hash::hash_buffer(preimage_data, hash_index);
 }
 
 verification_key::verification_key(const size_t num_gates,
@@ -109,7 +108,7 @@ verification_key::verification_key(const verification_key& other)
     , recursive_proof_public_input_indices(other.recursive_proof_public_input_indices)
 {}
 
-verification_key::verification_key(verification_key&& other)
+verification_key::verification_key(verification_key&& other) noexcept
     : circuit_type(other.circuit_type)
     , circuit_size(other.circuit_size)
     , log_circuit_size(numeric::get_msb(other.circuit_size))
@@ -122,7 +121,7 @@ verification_key::verification_key(verification_key&& other)
     , recursive_proof_public_input_indices(other.recursive_proof_public_input_indices)
 {}
 
-verification_key& verification_key::operator=(verification_key&& other)
+verification_key& verification_key::operator=(verification_key&& other) noexcept
 {
     circuit_type = other.circuit_type;
     circuit_size = other.circuit_size;

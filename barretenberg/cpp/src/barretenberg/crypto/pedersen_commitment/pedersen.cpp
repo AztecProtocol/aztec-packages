@@ -30,23 +30,5 @@ typename Curve::AffineElement pedersen_commitment_base<Curve>::commit_native(con
     return result.normalize();
 }
 
-/**
- * @brief Given a vector of fields, generate a pedersen commitment using the indexed generators.
- *
- * @details This method uses `ScalarField` members as inputs. This aligns with what we expect for a "canonical"
- * elliptic curve commitment function. However, when creating grumpkin commitments inside a BN254 SNARK crcuit it is not
- * efficient to pack data into grumpkin::fr elements, as grumpkin::fq is the native field of BN254 circuits.
- *
- * @note This method is used currently for tests. If we find no downstream use for it by Jan 2024, delete!
- * @param inputs
- * @param context
- * @return Curve::AffineElement
- */
-template <typename Curve>
-typename Curve::BaseField pedersen_commitment_base<Curve>::compress_native(const std::vector<Fq>& inputs,
-                                                                           const GeneratorContext context)
-{
-    return commit_native(inputs, context).x;
-}
 template class pedersen_commitment_base<curve::Grumpkin>;
 } // namespace crypto

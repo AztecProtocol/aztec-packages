@@ -24,7 +24,7 @@ template <typename Builder> class Transcript {
     using group_pt = element<Builder, fq_pt, field_pt, barretenberg::g1>;
     using Key = verification_key<stdlib::bn254<Builder>>;
 
-    Transcript(Builder* in_context, const transcript::Manifest input_manifest)
+    Transcript(Builder* in_context, const transcript::Manifest& input_manifest)
         : context(in_context)
         , transcript_base(input_manifest, transcript::HashType::PedersenBlake3s, 16)
         , current_challenge(in_context)
@@ -32,7 +32,7 @@ template <typename Builder> class Transcript {
 
     Transcript(Builder* in_context,
                const std::vector<uint8_t>& input_transcript,
-               const transcript::Manifest input_manifest)
+               const transcript::Manifest& input_manifest)
         : context(in_context)
         , transcript_base(input_transcript, input_manifest, transcript::HashType::PedersenBlake3s, 16)
         , current_challenge(in_context)
@@ -56,7 +56,7 @@ template <typename Builder> class Transcript {
      * @param num_public_inputs
      */
     Transcript(Builder* in_context,
-               const transcript::Manifest input_manifest,
+               const transcript::Manifest& input_manifest,
                const std::vector<field_pt>& field_buffer,
                const size_t num_public_inputs)
         : context(in_context)
@@ -230,7 +230,7 @@ template <typename Builder> class Transcript {
         std::vector<field_pt> round_challenges_new;
 
         field_pt T0;
-        T0 = preimage_buffer.compress(0);
+        T0 = preimage_buffer.hash(0);
 
         // helper method to slice a challenge into 128-bit slices
         const auto slice_into_halves = [&](const field_pt& in, const size_t low_bits = 128) {
@@ -272,7 +272,7 @@ template <typename Builder> class Transcript {
             return std::array<field_pt, 2>{ y_lo, y_hi };
         };
 
-        field_pt base_hash = stdlib::pedersen_commitment<Builder>::compress(std::vector<field_pt>{ T0 }, 0);
+        field_pt base_hash = stdlib::pedersen_hash<Builder>::hash(std::vector<field_pt>{ T0 }, 0);
         auto hash_halves = slice_into_halves(base_hash);
         round_challenges_new.push_back(hash_halves[1]);
 
@@ -286,7 +286,7 @@ template <typename Builder> class Transcript {
         // half to get the relevant challenges.
         for (size_t i = 2; i < num_challenges; i += 2) {
             // TODO(@zac-williamson) make this a Poseidon hash not a Pedersen hash
-            field_pt hash_output = stdlib::pedersen_commitment<Builder>::compress(
+            field_pt hash_output = stdlib::pedersen_hash<Builder>::hash(
                 std::vector<field_pt>{ (base_hash + field_pt(i / 2)).normalize() }, 0);
             auto hash_halves = slice_into_halves(hash_output);
             round_challenges_new.push_back(hash_halves[1]);
@@ -328,8 +328,8 @@ template <typename Builder> class Transcript {
         std::vector<barretenberg::fr> values = many_from_buffer<fr>(transcript_base.get_element(element_name));
         std::vector<field_pt> result;
 
-        for (size_t i = 0; i < values.size(); ++i) {
-            result.push_back(witness_pt(context, values[i]));
+        for (auto& value : values) {
+            result.push_back(witness_pt(context, value));
         }
 
         field_vector_keys.push_back(element_name);

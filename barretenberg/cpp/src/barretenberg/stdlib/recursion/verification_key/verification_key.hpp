@@ -9,26 +9,24 @@
 
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
 
-#include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
+#include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
 #include "barretenberg/ecc/curves/bn254/fq12.hpp"
 #include "barretenberg/ecc/curves/bn254/pairing.hpp"
 
-#include "../../commitment/pedersen/pedersen.hpp"
 #include "../../primitives/curves/bn254.hpp"
 #include "../../primitives/memory/rom_table.hpp"
 #include "../../primitives/uint/uint.hpp"
+#include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
 
-namespace proof_system::plonk {
-namespace stdlib {
-namespace recursion {
+namespace proof_system::plonk::stdlib::recursion {
 
 /**
- * @brief Constructs a packed buffer of field elements to be fed into a Pedersen compress function
+ * @brief Constructs a packed buffer of field elements to be fed into a Pedersen hash function
  *        Goal is to concatenate multiple inputs together into a single field element if the inputs are known to be
  * small. Produces a vector of field elements where the maximum number of bits per element is `bits_per_element`.
  *
- * @details When calling `pedersen::compress` on the final buffer, we can skip the range checks normally performed in
- * the compress method, because we know the sums of the scalar slices cannot exceed the field modulus. This requires
+ * @details When calling `pedersen::hash` on the final buffer, we can skip the range checks normally performed in
+ * the hash method, because we know the sums of the scalar slices cannot exceed the field modulus. This requires
  * `bits_per_element < modulus bits`
  * @tparam Builder
  * @tparam bits_per_element
@@ -42,7 +40,7 @@ template <class Builder, size_t bits_per_element = 248> struct PedersenPreimageB
     PedersenPreimageBuilder(Builder* ctx = nullptr)
         : context(ctx){};
 
-    field_pt compress(const size_t hash_index)
+    field_pt hash(const size_t hash_index)
     {
         // we can only use relaxed range checks in pedersen::compress iff bits_per_element < modulus bits
         static_assert(bits_per_element < uint256_t(barretenberg::fr::modulus).get_msb());
@@ -55,7 +53,8 @@ template <class Builder, size_t bits_per_element = 248> struct PedersenPreimageB
             preimage_data.push_back(field_pt::accumulate(work_element));
         }
         // TODO(@zac-williamson this used to use relaxed range constraints hmm?)
-        return pedersen_commitment<Builder>::compress(preimage_data, hash_index);
+        return pedersen_hash<Builder>::hash(preimage_data,
+                                            typename crypto::GeneratorContext<curve::Grumpkin>(hash_index));
     }
 
     /**
@@ -120,7 +119,7 @@ template <class Builder, size_t bits_per_element = 248> struct PedersenPreimageB
         field_pt hi = witness_t(context, barretenberg::fr(element_u256.slice(lo_bits, 256)));
         lo.create_range_constraint(lo_bits);
         hi.create_range_constraint(hi_bits);
-        field_pt shift(context, barretenberg::fr(uint256_t(1ULL) << (uint64_t)lo_bits));
+        field_pt shift(context, barretenberg::fr(uint256_t(1ULL) << static_cast<uint64_t>(lo_bits)));
         if (!element.is_constant() || !lo.is_constant() || !hi.is_constant()) {
             lo.add_two(hi * shift, -element).assert_equal(0);
         }
@@ -161,8 +160,9 @@ template <class Builder, size_t bits_per_element = 248> struct PedersenPreimageB
         } else {
             work_element.emplace_back(hi);
             preimage_data.push_back(field_pt::accumulate(work_element));
-            field_t lo_shift(context,
-                             barretenberg::fr(uint256_t(1ULL) << ((bits_per_element - (uint64_t)current_bit_counter))));
+            field_t lo_shift(
+                context,
+                barretenberg::fr(uint256_t(1ULL) << ((bits_per_element - static_cast<uint64_t>(current_bit_counter)))));
             work_element = std::vector<field_pt>();
             work_element.emplace_back(lo * lo_shift);
         }
@@ -323,14 +323,14 @@ template <typename Curve> struct verification_key {
 
     void validate_key_is_in_set(const std::vector<std::shared_ptr<plonk::verification_key>>& keys_in_set)
     {
-        const auto circuit_key_compressed = compress();
+        const auto circuit_key_compressed = hash();
         bool found = false;
         // if we're using Plookup, use a ROM table to index the keys
         if constexpr (HasPlookup<Builder>) {
             field_t<Builder> key_index(witness_t<Builder>(context, 0));
             std::vector<field_t<Builder>> compressed_keys;
             for (size_t i = 0; i < keys_in_set.size(); ++i) {
-                barretenberg::fr compressed = compress_native(keys_in_set[i]);
+                barretenberg::fr compressed = hash_native(keys_in_set[i]);
                 compressed_keys.emplace_back(compressed);
                 if (compressed == circuit_key_compressed.get_value()) {
                     key_index = witness_t<Builder>(context, i);
@@ -348,7 +348,7 @@ template <typename Curve> struct verification_key {
         } else {
             bool_t<Builder> is_valid(false);
             for (const auto& key : keys_in_set) {
-                barretenberg::fr compressed = compress_native(key);
+                barretenberg::fr compressed = hash_native(key);
                 is_valid = is_valid || (circuit_key_compressed == compressed);
             }
 
@@ -357,7 +357,7 @@ template <typename Curve> struct verification_key {
     }
 
   public:
-    field_t<Builder> compress(size_t const hash_index = 0)
+    field_t<Builder> hash(size_t const hash_index = 0)
     {
         PedersenPreimageBuilder<Builder> preimage_buffer(context);
 
@@ -385,12 +385,12 @@ template <typename Curve> struct verification_key {
             preimage_buffer.add_element_with_existing_range_constraint(x.binary_basis_limbs[0].element, limb_bits);
         }
         preimage_buffer.add_element(domain.root);
-        field_t<Builder> compressed_key = preimage_buffer.compress(hash_index);
-        return compressed_key;
+        field_t<Builder> hashed_key = preimage_buffer.hash(hash_index);
+        return hashed_key;
     }
 
-    static barretenberg::fr compress_native(const std::shared_ptr<plonk::verification_key>& key,
-                                            const size_t hash_index = 0)
+    static barretenberg::fr hash_native(const std::shared_ptr<plonk::verification_key>& key,
+                                        const size_t hash_index = 0)
     {
         std::vector<uint8_t> preimage_data;
 
@@ -414,10 +414,9 @@ template <typename Curve> struct verification_key {
 
         write(preimage_data, key->domain.root);
 
-        return crypto::pedersen_commitment::compress_native(preimage_data, hash_index);
+        return crypto::pedersen_hash::hash_buffer(preimage_data, hash_index);
     }
 
-  public:
     // Circuit Types:
     field_t<Builder> n;
     field_t<Builder> num_public_inputs;
@@ -439,6 +438,4 @@ template <typename Curve> struct verification_key {
     Builder* context;
 };
 
-} // namespace recursion
-} // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace proof_system::plonk::stdlib::recursion

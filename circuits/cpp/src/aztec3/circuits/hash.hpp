@@ -47,7 +47,7 @@ template <typename NCT> typename NCT::fr compute_constructor_hash(FunctionData<N
         constructor_vk_hash,
     };
 
-    return NCT::compress(inputs, aztec3::GeneratorIndex::CONSTRUCTOR);
+    return NCT::hash(inputs, aztec3::GeneratorIndex::CONSTRUCTOR);
 }
 
 template <typename NCT> typename NCT::fr compute_partial_address(typename NCT::fr const& contract_address_salt,
@@ -122,7 +122,7 @@ typename NCT::fr silo_nullifier(typename NCT::address const& contract_address, t
     };
 
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1475): use hash here (everywhere?)
-    return NCT::compress(inputs, aztec3::GeneratorIndex::OUTER_NULLIFIER);
+    return NCT::hash(inputs, aztec3::GeneratorIndex::OUTER_NULLIFIER);
 }
 
 
@@ -140,7 +140,7 @@ template <typename NCT> typename NCT::fr compute_block_hash(typename NCT::fr con
         contract_tree_root, l1_to_l2_data_tree_root, public_data_tree_root,
     };
 
-    return NCT::compress(inputs, aztec3::GeneratorIndex::BLOCK_HASH);
+    return NCT::hash(inputs, aztec3::GeneratorIndex::BLOCK_HASH);
 }
 
 template <typename NCT>
@@ -158,7 +158,7 @@ typename NCT::fr compute_block_hash_with_globals(abis::GlobalVariables<NCT> cons
         contract_tree_root, l1_to_l2_data_tree_root, public_data_tree_root,
     };
 
-    return NCT::compress(inputs, aztec3::GeneratorIndex::BLOCK_HASH);
+    return NCT::hash(inputs, aztec3::GeneratorIndex::BLOCK_HASH);
 }
 
 template <typename NCT> typename NCT::fr compute_globals_hash(abis::GlobalVariables<NCT> const& globals)
@@ -384,7 +384,7 @@ template <typename NCT> typename NCT::fr compute_public_data_tree_value(typename
 template <typename NCT> typename NCT::fr compute_public_data_tree_index(typename NCT::fr const& contract_address,
                                                                         typename NCT::fr const& storage_slot)
 {
-    return NCT::compress({ contract_address, storage_slot }, GeneratorIndex::PUBLIC_LEAF_INDEX);
+    return NCT::hash({ contract_address, storage_slot }, GeneratorIndex::PUBLIC_LEAF_INDEX);
 }
 
 template <typename NCT> typename NCT::fr compute_l2_to_l1_hash(typename NCT::address const& contract_address,

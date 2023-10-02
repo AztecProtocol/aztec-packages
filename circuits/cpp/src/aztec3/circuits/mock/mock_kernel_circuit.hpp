@@ -44,7 +44,7 @@ KernelCircuitPublicInputs<NT> mock_kernel_circuit(Builder& builder, KernelCircui
     // contains_recursive_proof to be false.
     builder.contains_recursive_proof = false;
 
-    plonk::stdlib::pedersen_commitment<Builder>::compress(fr(witness_t(&builder, 1)), fr(witness_t(&builder, 1)));
+    plonk::stdlib::pedersen_commitment<Builder>::hash({ fr(witness_t(&builder, 1)), fr(witness_t(&builder, 1)) });
     return public_inputs.template to_native_type<Builder>();
 }
 

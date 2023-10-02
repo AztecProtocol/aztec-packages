@@ -38,35 +38,24 @@ struct NativeTypes {
     using VK = plonk::verification_key;
     using Proof = plonk::proof;
 
-    /// TODO: lots of these compress / commit functions aren't actually used: remove them.
+    /// TODO: lots of these hash / commit functions aren't actually used: remove them.
 
-    // Define the 'native' version of the function `compress`, with the name `compress`:
-    static fr compress(const std::vector<fr>& inputs, const size_t hash_index = 0)
-    {
-        return crypto::pedersen_commitment::compress_native(inputs, hash_index);
-    }
-
+    // Define the 'native' version of the function `hash`, with the name `hash`:
     static fr hash(const std::vector<fr>& inputs, const size_t hash_index = 0)
     {
-        return crypto::pedersen_commitment::compress_native(inputs, hash_index);
-    }
-
-    template <size_t SIZE> static fr compress(std::array<fr, SIZE> const& inputs, const size_t hash_index = 0)
-    {
-        std::vector<fr> const inputs_vec(std::begin(inputs), std::end(inputs));
-        return crypto::pedersen_commitment::compress_native(inputs_vec, hash_index);
+        return crypto::pedersen_hash::hash(inputs, hash_index);
     }
 
     template <size_t SIZE> static fr hash(std::array<fr, SIZE> const& inputs, const size_t hash_index = 0)
     {
         std::vector<fr> const inputs_vec(std::begin(inputs), std::end(inputs));
-        return crypto::pedersen_commitment::compress_native(inputs_vec, hash_index);
+        return crypto::pedersen_hash::hash(inputs_vec, hash_index);
     }
 
-    static fr compress(const std::vector<std::pair<fr, crypto::generators::generator_index_t>>& input_pairs)
-    {
-        return crypto::pedersen_commitment::compress_native(input_pairs);
-    }
+    // static fr hash(const std::vector<std::pair<fr, crypto::generators::generator_index_t>>& input_pairs)
+    // {
+    //     return crypto::pedersen_hash::hash(input_pairs);
+    // }
 
     /**
      * @brief Compute the hash for a pair of left and right nodes in a merkle tree.
@@ -82,7 +71,7 @@ struct NativeTypes {
     {
         // use 0-generator for internal merkle hashing
         // use lookup namespace since we now use ultraplonk
-        return crypto::pedersen_hash::lookup::hash({ left, right }, 0);
+        return crypto::pedersen_hash::hash({ left, right });
     }
 
     static grumpkin_point commit(const std::vector<fr>& inputs, const size_t hash_index = 0)
@@ -90,10 +79,11 @@ struct NativeTypes {
         return crypto::pedersen_commitment::commit_native(inputs, hash_index);
     }
 
-    static grumpkin_point commit(const std::vector<std::pair<fr, crypto::generators::generator_index_t>>& input_pairs)
-    {
-        return crypto::pedersen_commitment::commit_native(input_pairs);
-    }
+    // static grumpkin_point commit(const std::vector<std::pair<fr, crypto::generators::generator_index_t>>&
+    // input_pairs)
+    // {
+    //     return crypto::pedersen_commitment::commit_native(input_pairs);
+    // }
 
     static byte_array blake2s(const byte_array& input)
     {

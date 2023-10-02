@@ -310,9 +310,8 @@ TEST_F(SumcheckTests, RealCircuitUltra)
     builder.create_sort_constraint({ a_idx, b_idx, c_idx, d_idx });
 
     // Add an elliptic curve addition gate
-    grumpkin::g1::affine_element p1 = crypto::pedersen_commitment::commit_native({ barretenberg::fr(1) }, 0);
-    grumpkin::g1::affine_element p2 = crypto::pedersen_commitment::commit_native({ barretenberg::fr(1) }, 1);
-    ;
+    grumpkin::g1::affine_element p1 = grumpkin::g1::affine_element::random_element();
+    grumpkin::g1::affine_element p2 = grumpkin::g1::affine_element::random_element();
 
     grumpkin::fq beta_scalar = grumpkin::fq::cube_root_of_unity();
     grumpkin::g1::affine_element p2_endo = p2;

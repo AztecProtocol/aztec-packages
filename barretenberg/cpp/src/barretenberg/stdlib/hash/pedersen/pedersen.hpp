@@ -1,6 +1,7 @@
 #pragma once
-#include "../../primitives/field/field.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
+#include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
 
 #include "../../primitives/circuit_builders/circuit_builders.hpp"
@@ -24,9 +25,9 @@ template <typename Builder> class pedersen_hash {
 
   public:
     static field_t hash(const std::vector<field_t>& in, GeneratorContext context = {});
-
     // TODO health warnings!
     static field_t hash_skip_field_validation(const std::vector<field_t>& in, GeneratorContext context = {});
+    static field_t hash_buffer(const stdlib::byte_array<Builder>& input, GeneratorContext context = {});
 };
 
 EXTERN_STDLIB_TYPE(pedersen_hash);

@@ -1,6 +1,6 @@
 #pragma once
 #include "barretenberg/common/map.hpp"
-#include "barretenberg/stdlib/commitment/pedersen/pedersen.hpp"
+#include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 namespace join_split_example {
 namespace proofs {
@@ -15,7 +15,7 @@ template <typename Builder> void mock_circuit(Builder& builder, std::vector<barr
     for (auto& p : public_inputs) {
         p.set_public();
     }
-    stdlib::pedersen_commitment<Builder>::compress(
+    stdlib::pedersen_hash<Builder>::hash(
         { stdlib::field_t(stdlib::witness_t(&builder, 1)), stdlib::field_t(stdlib::witness_t(&builder, 1)) });
 }
 

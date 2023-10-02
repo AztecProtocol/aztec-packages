@@ -1264,7 +1264,7 @@ cycle_group<Composer> cycle_group<Composer>::batch_mul(const std::vector<cycle_s
         offset_accumulator += offset_generator_delta;
         if (has_fixed_points) {
             result = can_unconditional_add ? result.unconditional_add(variable_accumulator)
-                                           : result.constrained_unconditional_add(variable_accumulator);
+                                           : result.checked_unconditional_add(variable_accumulator);
         } else {
             result = variable_accumulator;
         }

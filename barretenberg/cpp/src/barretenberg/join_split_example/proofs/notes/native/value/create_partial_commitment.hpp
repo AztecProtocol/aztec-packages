@@ -1,7 +1,7 @@
 #pragma once
 #include "../../constants.hpp"
 #include "barretenberg/common/serialize.hpp"
-#include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
+#include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 
 namespace join_split_example::proofs::notes::native::value {
@@ -11,8 +11,8 @@ inline auto create_partial_commitment(barretenberg::fr const& secret,
                                       bool account_required,
                                       barretenberg::fr const& creator_pubkey)
 {
-    return crypto::pedersen_commitment::compress_native({ secret, owner.x, owner.y, account_required, creator_pubkey },
-                                                        GeneratorIndex::VALUE_NOTE_PARTIAL_COMMITMENT);
+    return crypto::pedersen_hash::hash({ secret, owner.x, owner.y, account_required, creator_pubkey },
+                                       GeneratorIndex::VALUE_NOTE_PARTIAL_COMMITMENT);
 }
 
 } // namespace join_split_example::proofs::notes::native::value
