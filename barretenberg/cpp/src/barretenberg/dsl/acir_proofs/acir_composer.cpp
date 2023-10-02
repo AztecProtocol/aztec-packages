@@ -17,6 +17,60 @@ AcirComposer::AcirComposer(size_t size_hint, bool verbose)
     , verbose_(verbose)
 {}
 
+/**
+ * @brief Splits a vector into two vectors,
+ * the first containing the first 32 * k elements, and the second containing
+ * the rest.
+ *
+ * @param original - The original vector to split
+ * @param k - The number of 32 bytes to remove
+ * @return std::pair<std::vector<uint8_t>, std::vector<uint8_t>>
+ */
+std::pair<std::vector<uint8_t>, std::vector<uint8_t>> splitVector(std::vector<uint8_t>& original, uint32_t k)
+{
+    uint32_t elementsToRemove = 32 * k;
+
+    if (original.size() < elementsToRemove) {
+        throw_or_abort("Not enough elements in the original vector");
+    }
+    auto elementsToRemoveLong = static_cast<long>(elementsToRemove);
+    std::vector<uint8_t> removed(original.begin(), original.begin() + elementsToRemoveLong);
+    original = std::vector<uint8_t>(original.begin() + elementsToRemoveLong, original.end());
+
+    return { original, removed };
+}
+
+/**
+ * @brief Splits the proof into two vectors.
+ *
+ * Barretenberg returns a proof that is concatenated with the public inputs.
+ * This function splits the proof into two vectors, one containing the public inputs,
+ * and the other containing the proof without the public inputs.
+ *
+ * @param proof - proof with the public inputs preprended
+ * @param num_public_inputs - the number of public inputs prepended to the proof
+ * @return std::pair<std::vector<uint8_t>, std::vector<uint8_t>>
+ */
+std::pair<std::vector<uint8_t>, std::vector<uint8_t>> split_proof(std::vector<uint8_t>& proof,
+                                                                  uint32_t num_public_inputs)
+{
+    auto [proof_without_public_inputs, public_inputs] = splitVector(proof, num_public_inputs);
+    return { public_inputs, proof_without_public_inputs };
+}
+
+std::vector<uint8_t> concatenateVectors(const std::vector<uint8_t>& firstVector,
+                                        const std::vector<uint8_t>& secondVector)
+{
+    std::vector<uint8_t> concatenatedVector;
+
+    concatenatedVector.reserve(firstVector.size() + secondVector.size());
+
+    concatenatedVector.insert(concatenatedVector.end(), firstVector.begin(), firstVector.end());
+    concatenatedVector.insert(concatenatedVector.end(), secondVector.begin(), secondVector.end());
+
+    return concatenatedVector;
+}
+
 void AcirComposer::create_circuit(acir_format::acir_format& constraint_system)
 {
     builder_ = acir_format::create_circuit(constraint_system, size_hint_);
@@ -52,7 +106,7 @@ void AcirComposer::init_proving_key(
     proving_key_ = composer_.compute_proving_key(builder_);
 }
 
-std::vector<uint8_t> AcirComposer::create_proof(
+std::pair<std::vector<uint8_t>, std::vector<uint8_t>> AcirComposer::create_proof(
     std::shared_ptr<barretenberg::srs::factories::CrsFactory<curve::BN254>> const& crs_factory,
     acir_format::acir_format& constraint_system,
     acir_format::WitnessVector& witness,
@@ -97,57 +151,9 @@ std::vector<uint8_t> AcirComposer::create_proof(
         proof = prover.construct_proof().proof_data;
     }
     vinfo("done.");
-    return proof;
-}
 
-/**
- * @brief Splits a vector into two vectors,
- * the first containing the first 32 * k elements, and the second containing
- * the rest.
- *
- * @param original - The original vector to split
- * @param k - The number of 32 bytes to remove
- * @return std::pair<std::vector<uint8_t>, std::vector<uint8_t>>
- */
-std::pair<std::vector<uint8_t>, std::vector<uint8_t>> splitVector(std::vector<uint8_t>& original, uint32_t k)
-{
-    uint32_t elementsToRemove = 32 * k;
-
-    if (original.size() < elementsToRemove) {
-        throw_or_abort("Not enough elements in the original vector");
-    }
-    auto elementsToRemoveLong = static_cast<long>(elementsToRemove);
-    std::vector<uint8_t> removed(original.begin(), original.begin() + elementsToRemoveLong);
-    original = std::vector<uint8_t>(original.begin() + elementsToRemoveLong, original.end());
-
-    return { original, removed };
-}
-
-std::vector<uint8_t> concatenateVectors(const std::vector<uint8_t>& firstVector,
-                                        const std::vector<uint8_t>& secondVector)
-{
-    std::vector<uint8_t> concatenatedVector;
-
-    concatenatedVector.reserve(firstVector.size() + secondVector.size());
-
-    concatenatedVector.insert(concatenatedVector.end(), firstVector.begin(), firstVector.end());
-    concatenatedVector.insert(concatenatedVector.end(), secondVector.begin(), secondVector.end());
-
-    return concatenatedVector;
-}
-
-// This splits the proof and public inputs into two vectors.
-std::pair<std::vector<uint8_t>, std::vector<uint8_t>> AcirComposer::create_proof_public_splitted(
-    std::shared_ptr<barretenberg::srs::factories::CrsFactory<curve::BN254>> const& crs_factory,
-    acir_format::acir_format& constraint_system,
-    acir_format::WitnessVector& witness,
-    bool is_recursive)
-{
-    auto proof = create_proof(crs_factory, constraint_system, witness, is_recursive);
     auto num_public_inputs = static_cast<uint32_t>(constraint_system.public_inputs.size());
-
-    auto [proof_without_public_inputs, public_inputs] = splitVector(proof, num_public_inputs);
-    return { public_inputs, proof_without_public_inputs };
+    return split_proof(proof, num_public_inputs);
 }
 
 std::shared_ptr<proof_system::plonk::verification_key> AcirComposer::init_verification_key()
@@ -167,8 +173,13 @@ void AcirComposer::load_verification_key(
     composer_ = acir_format::Composer(proving_key_, verification_key_);
 }
 
-bool AcirComposer::verify_proof(std::vector<uint8_t> const& proof, bool is_recursive)
+bool AcirComposer::verify_proof(std::vector<uint8_t> const& public_inputs,
+                                std::vector<uint8_t> const& proof_without_public_inputs,
+                                bool is_recursive)
 {
+
+    auto proof = concatenateVectors(public_inputs, proof_without_public_inputs);
+
     if (!verification_key_) {
         vinfo("computing verification key...");
         verification_key_ = composer_.compute_verification_key(builder_);
@@ -185,14 +196,6 @@ bool AcirComposer::verify_proof(std::vector<uint8_t> const& proof, bool is_recur
         auto verifier = composer_.create_ultra_with_keccak_verifier(builder_);
         return verifier.verify_proof({ proof });
     }
-}
-
-bool AcirComposer::verify_proof_splitted(std::vector<uint8_t> const& public_inputs,
-                                         std::vector<uint8_t> const& proof,
-                                         bool is_recursive)
-{
-    auto proof_with_public_inputs = concatenateVectors(public_inputs, proof);
-    return verify_proof(proof_with_public_inputs, is_recursive);
 }
 
 std::string AcirComposer::get_solidity_verifier()

@@ -49,8 +49,8 @@ WASM_EXPORT void acir_create_proof(in_ptr acir_composer_ptr,
     auto constraint_system = acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec));
     auto witness = acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec));
 
-    auto [public_inputs, proof_without_public_inputs] = acir_composer->create_proof_public_splitted(
-        barretenberg::srs::get_crs_factory(), constraint_system, witness, *is_recursive);
+    auto [public_inputs, proof_without_public_inputs] =
+        acir_composer->create_proof(barretenberg::srs::get_crs_factory(), constraint_system, witness, *is_recursive);
     *out_public_inputs = to_heap_buffer(public_inputs);
     *out_proof_without_public_inputs = to_heap_buffer(proof_without_public_inputs);
 }
@@ -85,7 +85,7 @@ WASM_EXPORT void acir_verify_proof(in_ptr acir_composer_ptr,
     auto acir_composer = reinterpret_cast<acir_proofs::AcirComposer*>(*acir_composer_ptr);
     auto public_inputs = from_buffer<std::vector<uint8_t>>(public_inputs_buf);
     auto proof_without_public_inputs = from_buffer<std::vector<uint8_t>>(proof_without_public_inputs_buf);
-    *result = acir_composer->verify_proof_splitted(public_inputs, proof_without_public_inputs, *is_recursive);
+    *result = acir_composer->verify_proof(public_inputs, proof_without_public_inputs, *is_recursive);
 }
 
 WASM_EXPORT void acir_get_solidity_verifier(in_ptr acir_composer_ptr, out_str_buf out)
