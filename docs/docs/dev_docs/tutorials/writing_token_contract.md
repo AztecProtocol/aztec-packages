@@ -1,6 +1,6 @@
-# Writing a Standard token contract in Aztec.nr
+# Writing a token contract in Aztec.nr
 
-In this tutorial we will go through writing a standard L2 native token contract
+In this tutorial we will go through writing an L2 native token contract
 for the Aztec Network, using the Aztec.nr contract libraries. It is recommended that you go through the [the introduction to contracts](../contracts/main.md) and [setup instructions](../contracts/setup.md) section before this tutorial to gain some familiarity with writing Aztec smart contracts.
 
 This tutorial is intended to help you get familiar with the Aztec.nr library, Aztec contract syntax and some of the underlying structure of the Aztec network.
@@ -14,7 +14,7 @@ In this tutorial you will learn how to:
 - Handle different private note types
 - Pass data between private and public state
 
-We are going to start with a blank project and fill in the token contract source code defined [here](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr), and explain what is being added as we go.
+We are going to start with a blank project and fill in the token contract source code defined on Github [here](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr), and explain what is being added as we go.
 
 ## Requirements
 
@@ -38,7 +38,7 @@ Node Info:
 Version: 1
 Chain Id: 31337
 Rollup Address: 0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9
-Client: aztec-rpc@0.7.5
+Client: pxe@0.7.5
 Compatible Nargo Version: 0.11.1-aztec.0
 ```
 
@@ -228,23 +228,27 @@ The `compute_note_hash_and_nullifier` function allows contract devs to specify h
 
 Before we can implement the functions, we need set up the contract storage, and before we do that we need to import the appropriate dependencies.
 
+:::info Copy required files
+
+We will be going over the code in `main.nr` [here](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/noir-contracts/src/contracts/token_contract/src). If you are following along and want to compile `main.nr` yourself, you need to add the other files in the directory as they contain imports that are used in `main.nr`.
+
+:::
+
 Just below the contract definition, add the following imports:
 
 #include_code imports /yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
 
-We are importing the Option type, items from the `value_note` library to help manage private value storage, note utilities, context (for managing private and public execution contexts), `state_vars` for helping manage state, `types` for data manipulation and `oracle` for help passing data from the private to public execution context. We also import the `auth` [library](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec-nr/aztec/src/auth.nr) to handle token authorizations from [Account Contracts](../../concepts/foundation/accounts/main). Check out the Account Contract with AuthWitness [here](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-contracts/src/contracts/schnorr_auth_witness_account_contract/src/main.nr).
+We are importing the Option type, items from the `value_note` library to help manage private value storage, note utilities, context (for managing private and public execution contexts), `state_vars` for helping manage state, `types` for data manipulation and `oracle` for help passing data from the private to public execution context. We also import the `auth` [library](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec-nr/aztec/src/auth.nr) to handle token authorizations from [Account Contracts](../../concepts/foundation/accounts/main). Check out the Account Contract with AuthWitness [here](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-contracts/src/contracts/schnorr_single_key_account_contract/src/main.nr).
 
 [SafeU120](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec-nr/safe-math/src/safe_u120.nr) is a library to do safe math operations on unsigned integers that protects against overflows and underflows.
 
 For more detail on execution contexts, see [Contract Communitaction](../../concepts/foundation/communication/main).
 
-We are also importing types from a `types.nr` file. Copy [this file](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-contracts/src/contracts/token_contract/src/types.nr) into your `token_contract_tutorial/contracts/src` directory next to main.nr. The main thing to note from this types file is the `TransparentNote` definition. This defines how the contract moves value from the public domain into the private domain. It is similar to the `value_note` that we imported, but with some modifications namely, instead of a defined `owner`, it allows anyone that can produce the pre-image to the stored `secret_hash` to spend the note.
+We are also importing types from a `types.nr` file. The main thing to note from this types file is the `TransparentNote` definition. This defines how the contract moves value from the public domain into the private domain. It is similar to the `value_note` that we imported, but with some modifications namely, instead of a defined `owner`, it allows anyone that can produce the pre-image to the stored `secret_hash` to spend the note.
 
 ### Note on private state
 
 Private state in Aztec is all [UTXOs](https://en.wikipedia.org/wiki/Unspent_transaction_output) under the hood. Handling UTXOs is largely abstracted away from developers, but there are some unique things for developers to be aware of when creating and managing private state in an Aztec contract. See [State Variables](../contracts/syntax/storage.md) to learn more about public and private state in Aztec.
-
-Copy [`util.nr`](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-contracts/src/contracts/token_contract/src/util.nr) into `token_contract_tutorial/contracts/src` as well. The function defined in `util.nr` will be helpful for generating message hashes that are used when communicating between contracts.
 
 ## Contract Storage
 
@@ -293,13 +297,7 @@ Public functions are declared with the `#[aztec(public)]` macro above the functi
 
 As described in the [execution contexts section above](#execution-contexts), public function logic and transaction information is transparent to the world. Public functions update public state, but can be used to prepare data to be used in a private context, as we will go over below (e.g. see the [shield](#shield) function).
 
-Every public function initializes storage using the public context like so:
-
-```rust
-let storage = Storage::init(Context::public(&mut context));
-```
-
-After this, storage is referenced as `storage.variable`. We won't go over this step in any of the following function descriptions.
+Storage is referenced as `storage.variable`.
 
 #### `set_admin`
 
@@ -374,13 +372,7 @@ Private functions are declared with the `#[aztec(private)]` macro above the func
 
 As described in the [execution contexts section above](#execution-contexts), private function logic and transaction information is hidden from the world and is executed on user devices. Private functions update private state, but can pass data to the public execution context (e.g. see the [`unshield`](#unshield) function).
 
-Every private function initializes storage using the private context like so:
-
-```rust
-let storage = Storage::init(Context::private(&mut context));
-```
-
-After this, storage is referenced as `storage.variable`. We won't go over this step in any of the following function descriptions.
+Storage is referenced as `storage.variable`.
 
 #### `redeem_shield`
 
@@ -466,7 +458,7 @@ A getter function for checking the token `total_supply`.
 
 #### `balance_of_private`
 
-A getter function for checking the private balance of the provided Aztec account. Note that the [Aztec RPC Server](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/aztec-rpc) must have access to the `owner`s decryption keys in order to decrypt their notes.
+A getter function for checking the private balance of the provided Aztec account. Note that the [Private Execution Environment (PXE)](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/pxe) must have access to the `owner`s decryption keys in order to decrypt their notes.
 
 #include_code balance_of_private /yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
 
@@ -502,6 +494,6 @@ https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/end-to-
 
 ### Token Bridge Contract
 
-The [token bridge tutorial](https://github.com/AztecProtocol/dev-rel/tree/main/tutorials/token-bridge-standard) is a great follow up to this one.
+The [token bridge tutorial](https://github.com/AztecProtocol/dev-rel/tree/main/tutorials/token-bridge) is a great follow up to this one.
 
 It builds on the Token contract described here and goes into more detail about Aztec contract composability and Ethereum (L1) and Aztec (L2) cross-chain messaging.

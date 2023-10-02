@@ -36,14 +36,7 @@ impl Storage {
 }
 ```
 
-To use storage in functions, e.g., functions where you would read or write storage, you need to initialize the struct first, and then you can read and write afterwards. Below are snippets for initializing in private and public functions.
-
-#include_code private_init_storage /yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
-#include_code public_init_storage /yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
-
-:::info
-https://github.com/AztecProtocol/aztec-packages/pull/2406 is removing the need to explicitly initialize the storage in each function before reading or writing. This will be updated in the docs once the PR is merged.
-:::
+If you have defined a `Storage` struct following this naming scheme, then it will be made available to you through the reserved `storage` keyword within your contract functions.
 
 :::warning Using slot `0` is not supported!
 No storage values should be initialized at slot `0`. This is a known issue that will be fixed in the future.
@@ -78,7 +71,7 @@ This function behaves similarly for both private and public maps. An example cou
 Above, we are specifying that we want to get the storage in the Map `at` the `msg_sender()`, read the value stored and check that `msg_sender()` is indeed a minter. Doing a similar operation in Solidity code would look like:
 
 ```solidity
-require(minters[msg.sender] == 1, "caller is not minter");
+require(minters[msg.sender], "caller is not minter");
 ```
 
 ## Public State Variables
@@ -148,7 +141,7 @@ In this case, specifying that we are dealing with a map of Fields, and that it s
 
 This would be similar to the following in solidity:
 ```solidity
-mapping(address => uint256) internal minters;
+mapping(address => bool) internal minters;
 ```
 
 ### `read`
@@ -166,7 +159,7 @@ For our `admin` example from earlier, this could be used as follows to check tha
 #include_code read_admin /yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
 
 
-#### Reading from out `minters` example
+#### Reading from our `minters` example
 
 As we saw in the Map earlier, a very similar operation can be done to perform a lookup in a map. 
 

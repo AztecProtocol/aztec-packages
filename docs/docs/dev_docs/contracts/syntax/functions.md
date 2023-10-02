@@ -114,7 +114,7 @@ Oracles introduce **non-determinism** into a circuit, and thus are `unconstraine
 ### Private -> Private
 
 In Aztec Private to Private function calls are handled by the [private kernel circuit](../../../concepts/advanced/circuits/kernels/private_kernel.md), and take place on the user's device.
-Behind the scenes, the `Aztec RPC Server` (the beating heart of Aztec that runs in your wallet) will execute all of the functions in the desired order "simulating" them in sequence. For example, a very common use-case of Private to Private interaction is calling another private function from an `account contract` (Account contracts are a general concept, more information about them can be found [here](../../wallets/writing_an_account_contract.md)).
+Behind the scenes, the `Private Execution Environment (PXE)` (the beating heart of Aztec that runs in your wallet) will execute all of the functions in the desired order "simulating" them in sequence. For example, a very common use-case of Private to Private interaction is calling another private function from an `account contract` (Account contracts are a general concept, more information about them can be found [here](../../wallets/writing_an_account_contract.md)).
 
 Take, for example, the following call stack:
 
@@ -299,6 +299,14 @@ Each Aztec function has access to a [context](./context.mdx) object. This object
 
 As previously mentioned we use the kernel to pass information between circuits. This means that the return values of functions must also be passed to the kernel (where they can be later passed on to another function).
 We achieve this by pushing return values to the execution context, which we then pass to the kernel.
+
+**Making the contract's storage available**
+#include_code storage-example-context /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/main.nr rust
+
+When a [`Storage` struct](./storage.md) is declared within a contract, the `storage` keyword is made available. As shown in the macro expansion above, this calls the init function on the storage struct with the current function's context.
+
+Any state variables declared in the `Storage` struct can now be accessed as normal struct members.
+
 
 **Returning the function context to the kernel.**
 #include_code context-example-finish /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/main.nr rust

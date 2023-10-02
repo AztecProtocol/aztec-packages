@@ -214,8 +214,10 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
 
     inline std::vector<std::string> ultra_selector_names()
     {
-        std::vector<std::string> result{ "q_m",     "q_c",    "q_1",        "q_2",   "q_3",       "q_4",
-                                         "q_arith", "q_sort", "q_elliptic", "q_aux", "table_type" };
+        std::vector<std::string> result{
+            "q_m",     "q_c",    "q_1",        "q_2",   "q_3",        "q_4",
+            "q_arith", "q_sort", "q_elliptic", "q_aux", "table_type", "q_elliptic_double"
+        };
         return result;
     }
     struct non_native_field_multiplication_cross_terms {
@@ -264,6 +266,7 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
         SelectorVector q_elliptic;
         SelectorVector q_aux;
         SelectorVector q_lookup_type;
+        SelectorVector q_elliptic_double;
         uint32_t current_tag = DUMMY_TAG;
         std::map<uint32_t, uint32_t> tau;
 
@@ -316,6 +319,7 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
             stored_state.q_elliptic = builder.q_elliptic;
             stored_state.q_aux = builder.q_aux;
             stored_state.q_lookup_type = builder.q_lookup_type;
+            stored_state.q_elliptic_double = builder.q_elliptic_double;
             stored_state.current_tag = builder.current_tag;
             stored_state.tau = builder.tau;
 
@@ -415,6 +419,7 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
             builder->q_elliptic.resize(num_gates);
             builder->q_aux.resize(num_gates);
             builder->q_lookup_type.resize(num_gates);
+            builder->q_elliptic_double.resize(num_gates);
         }
         /**
          * @brief Checks that the circuit state is the same as the stored circuit's one
@@ -491,6 +496,9 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
             if (!(q_lookup_type == builder.q_lookup_type)) {
                 return false;
             }
+            if (!(q_elliptic_double == builder.q_elliptic_double)) {
+                return false;
+            }
             if (!(current_tag == builder.current_tag)) {
                 return false;
             }
@@ -545,6 +553,7 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
     SelectorVector& q_elliptic = this->selectors.q_elliptic;
     SelectorVector& q_aux = this->selectors.q_aux;
     SelectorVector& q_lookup_type = this->selectors.q_lookup_type;
+    SelectorVector& q_elliptic_double = this->selectors.q_elliptic_double;
 
     // These are variables that we have used a gate on, to enforce that they are
     // equal to a defined value.
@@ -642,6 +651,7 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
     void create_bool_gate(const uint32_t a) override;
     void create_poly_gate(const poly_triple_<FF>& in) override;
     void create_ecc_add_gate(const ecc_add_gate_<FF>& in);
+    void create_ecc_dbl_gate(const ecc_dbl_gate_<FF>& in);
 
     void fix_witness(const uint32_t witness_index, const FF& witness_value);
 
@@ -851,140 +861,6 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
                   << ", range " << rangecount << ", non native field gates " << nnfcount
                   << "), pubinp = " << this->public_inputs.size() << std::endl;
     }
-    // /**
-    //  * @brief Get the final number of gates in a circuit, which consists of the sum of:
-    //  * 1) Current number number of actual gates
-    //  * 2) Number of public inputs, as we'll need to add a gate for each of them
-    //  * 3) Number of Rom array-associated gates
-    //  * 4) Number of range-list associated gates
-    //  * 5) Number of non-native field multiplication gates.
-    //  *
-    //  *
-    //  * @param count return arument, number of existing gates
-    //  * @param rangecount return argument, extra gates due to range checks
-    //  * @param romcount return argument, extra gates due to rom reads
-    //  * @param ramcount return argument, extra gates due to ram read/writes
-    //  * @param nnfcount return argument, extra gates due to queued non native field gates
-    //  */
-    // void get_num_gates_split_into_components(
-    //     size_t& count, size_t& rangecount, size_t& romcount, size_t& ramcount, size_t& nnfcount) const
-    // {
-    //     count = num_gates;
-    //     // each ROM gate adds +1 extra gate due to the rom reads being copied to a sorted list set
-    //     for (size_t i = 0; i < rom_arrays.size(); ++i) {
-    //         for (size_t j = 0; j < rom_arrays[i].state.size(); ++j) {
-    //             if (rom_arrays[i].state[j][0] == UNINITIALIZED_MEMORY_RECORD) {
-    //                 romcount += 2;
-    //             }
-    //         }
-    //         romcount += (rom_arrays[i].records.size());
-    //         romcount += 1; // we add an addition gate after procesing a rom array
-    //     }
-
-    //     constexpr size_t gate_width = ultra_settings::program_width;
-    //     // each RAM gate adds +2 extra gates due to the ram reads being copied to a sorted list set,
-    //     // as well as an extra gate to validate timestamps
-    //     std::vector<size_t> ram_timestamps;
-    //     std::vector<size_t> ram_range_sizes;
-    //     std::vector<size_t> ram_range_exists;
-    //     for (size_t i = 0; i < ram_arrays.size(); ++i) {
-    //         for (size_t j = 0; j < ram_arrays[i].state.size(); ++j) {
-    //             if (ram_arrays[i].state[j] == UNINITIALIZED_MEMORY_RECORD) {
-    //                 ramcount += NUMBER_OF_GATES_PER_RAM_ACCESS;
-    //             }
-    //         }
-    //         ramcount += (ram_arrays[i].records.size() * NUMBER_OF_GATES_PER_RAM_ACCESS);
-    //         ramcount += NUMBER_OF_ARITHMETIC_GATES_PER_RAM_ARRAY; // we add an addition gate after procesing a
-    //         ram array
-
-    //         // there will be 'max_timestamp' number of range checks, need to calculate.
-    //         const auto max_timestamp = ram_arrays[i].access_count - 1;
-
-    //         // if a range check of length `max_timestamp` already exists, we are double counting.
-    //         // We record `ram_timestamps` to detect and correct for this error when we process range lists.
-    //         ram_timestamps.push_back(max_timestamp);
-    //         size_t padding = (gate_width - (max_timestamp % gate_width)) % gate_width;
-    //         if (max_timestamp == gate_width)
-    //             padding += gate_width;
-    //         const size_t ram_range_check_list_size = max_timestamp + padding;
-
-    //         size_t ram_range_check_gate_count = (ram_range_check_list_size / gate_width);
-    //         ram_range_check_gate_count += 1; // we need to add 1 extra addition gates for every distinct range
-    //         list
-
-    //         ram_range_sizes.push_back(ram_range_check_gate_count);
-    //         ram_range_exists.push_back(false);
-    //         // rangecount += ram_range_check_gate_count;
-    //     }
-    //     for (const auto& list : range_lists) {
-    //         auto list_size = list.second.variable_indices.size();
-    //         size_t padding = (gate_width - (list.second.variable_indices.size() % gate_width)) % gate_width;
-    //         if (list.second.variable_indices.size() == gate_width)
-    //             padding += gate_width;
-    //         list_size += padding;
-
-    //         for (size_t i = 0; i < ram_timestamps.size(); ++i) {
-    //             if (list.second.target_range == ram_timestamps[i]) {
-    //                 ram_range_exists[i] = true;
-    //             }
-    //         }
-    //         rangecount += (list_size / gate_width);
-    //         rangecount += 1; // we need to add 1 extra addition gates for every distinct range list
-    //     }
-    //     // update rangecount to include the ram range checks the composer will eventually be creating
-    //     for (size_t i = 0; i < ram_range_sizes.size(); ++i) {
-    //         if (!ram_range_exists[i]) {
-    //             rangecount += ram_range_sizes[i];
-    //         }
-    //     }
-    //     std::vector<cached_non_native_field_multiplication> nnf_copy(cached_non_native_field_multiplications);
-    //     // update nnfcount
-    //     std::sort(nnf_copy.begin(), nnf_copy.end());
-
-    //     auto last = std::unique(nnf_copy.begin(), nnf_copy.end());
-    //     const size_t num_nnf_ops = static_cast<size_t>(std::distance(nnf_copy.begin(), last));
-    //     nnfcount = num_nnf_ops * GATES_PER_NON_NATIVE_FIELD_MULTIPLICATION_ARITHMETIC;
-    // }
-
-    // /**
-    //  * @brief Get the final number of gates in a circuit, which consists of the sum of:
-    //  * 1) Current number number of actual gates
-    //  * 2) Number of public inputs, as we'll need to add a gate for each of them
-    //  * 3) Number of Rom array-associated gates
-    //  * 4) Number of range-list associated gates
-    //  * 5) Number of non-native field multiplication gates.
-    //  *
-    //  * @return size_t
-    //  */
-    // virtual size_t get_num_gates() const override
-    // {
-    //     // if circuit finalised already added extra gates
-    //     if (circuit_finalised) {
-    //         return num_gates;
-    //     }
-    //     size_t count = 0;
-    //     size_t rangecount = 0;
-    //     size_t romcount = 0;
-    //     size_t ramcount = 0;
-    //     size_t nnfcount = 0;
-    //     get_num_gates_split_into_components(count, rangecount, romcount, ramcount, nnfcount);
-    //     return count + romcount + ramcount + rangecount + nnfcount;
-    // }
-
-    // virtual void print_num_gates() const override
-    // {
-    //     size_t count = 0;
-    //     size_t rangecount = 0;
-    //     size_t romcount = 0;
-    //     size_t ramcount = 0;
-    //     size_t nnfcount = 0;
-    //     get_num_gates_split_into_components(count, rangecount, romcount, ramcount, nnfcount);
-
-    //     size_t total = count + romcount + ramcount + rangecount;
-    //     std::cout << "gates = " << total << " (arith " << count << ", rom " << romcount << ", ram " << ramcount
-    //               << ", range " << rangecount << ", non native field gates " << nnfcount
-    //               << "), pubinp = " << public_inputs.size() << std::endl;
-    // }
 
     void assert_equal_constant(const uint32_t a_idx, const FF& b, std::string const& msg = "assert equal constant")
     {
@@ -1170,6 +1046,13 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
                                      FF w_1_shifted_value,
                                      FF alpha_base,
                                      FF alpha) const;
+    FF compute_elliptic_double_identity(FF q_elliptic_double_value,
+                                        FF w_2_value,
+                                        FF w_3_value,
+                                        FF w_2_shifted_value,
+                                        FF w_3_shifted_value,
+                                        FF alpha_base,
+                                        FF alpha) const;
 
     bool check_circuit();
 };

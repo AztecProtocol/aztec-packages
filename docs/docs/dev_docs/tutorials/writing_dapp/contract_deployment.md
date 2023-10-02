@@ -32,7 +32,7 @@ The `Token` contract also requires two helper files. Copy-them too:
 
 Create `contracts/token/types.nr` and copy-paste the following:
 
-#include_code token_types_all yarn-project/noir-contracts/src/contracts/token_contract/src/types.nr rust
+#include_code token_types_all yarn-project/noir-contracts/src/contracts/token_contract/src/types/transparent_note.nr rust
 
 Finally, create `contracts/token/util.nr` and copy-paste the following:
 
@@ -60,14 +60,14 @@ This should have created an artifact `contracts/token/target/Token.json` with th
 
 ## Deploy your contracts
 
-Let's now write a script for deploying your contracts to the Sandbox. We'll create an RPC client, and then use the `ContractDeployer` class to deploy our contracts, and store the deployment address to a local JSON file.
+Let's now write a script for deploying your contracts to the Sandbox. We'll create a Private eXecution Environment (PXE) client, and then use the `ContractDeployer` class to deploy our contracts, and store the deployment address to a local JSON file.
 
 Create a new file `src/deploy.mjs`:
 
 ```js
 // src/deploy.mjs
 import { writeFileSync } from 'fs';
-import { Contract, ContractDeployer, createAztecRpcClient, getSandboxAccountsWallets } from '@aztec/aztec.js';
+import { Contract, ContractDeployer, createPXEClient, getSandboxAccountsWallets } from '@aztec/aztec.js';
 import TokenContractAbi from "../contracts/token/target/Token.json" assert { type: "json" };
 
 #include_code dapp-deploy yarn-project/end-to-end/src/sample-dapp/deploy.mjs raw

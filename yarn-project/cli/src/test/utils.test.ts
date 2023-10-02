@@ -1,15 +1,15 @@
 import { AztecAddress, Fr } from '@aztec/aztec.js';
-import { AztecRPC, CompleteAddress } from '@aztec/types';
+import { CompleteAddress, PXE } from '@aztec/types';
 
 import { InvalidArgumentError } from 'commander';
 import { MockProxy, mock } from 'jest-mock-extended';
 
 import { encodeArgs } from '../encoding.js';
-import { getSaltFromHexString, getTxSender, stripLeadingHex } from '../utils.js';
+import { getTxSender, parseSaltFromHexString, stripLeadingHex } from '../utils.js';
 import { mockContractAbi } from './mocks.js';
 
 describe('CLI Utils', () => {
-  let client: MockProxy<AztecRPC>;
+  let client: MockProxy<PXE>;
 
   // test values
   const addr1 = AztecAddress.random();
@@ -23,7 +23,7 @@ describe('CLI Utils', () => {
     subField2: 'true',
   };
   beforeEach(() => {
-    client = mock<AztecRPC>();
+    client = mock<PXE>();
   });
   it('Gets a txSender correctly or throw error', async () => {
     // returns a parsed Aztec Address
@@ -53,7 +53,7 @@ describe('CLI Utils', () => {
       (async () => {
         await getTxSender(client);
       })(),
-    ).rejects.toThrow('No accounts found in Aztec RPC instance.');
+    ).rejects.toThrow('No accounts found in PXE instance.');
   });
 
   it('Encodes args correctly', () => {
@@ -141,7 +141,7 @@ describe('CLI Utils', () => {
     });
   });
 
-  describe('getSaltFromHex', () => {
+  describe('parseSaltFromHexString', () => {
     it.each([
       ['0', Fr.ZERO],
       ['0x0', Fr.ZERO],
@@ -152,11 +152,11 @@ describe('CLI Utils', () => {
       ['0xa', new Fr(0xa)],
       ['fff', new Fr(0xfff)],
     ])('correctly generates salt from a hex string', (hex, expected) => {
-      expect(getSaltFromHexString(hex)).toEqual(expected);
+      expect(parseSaltFromHexString(hex)).toEqual(expected);
     });
 
     it.each(['foo', '', ' ', ' 0x1', '01foo', 'foo1', '0xfoo'])('throws an error for invalid hex strings', str => {
-      expect(() => getSaltFromHexString(str)).toThrow(InvalidArgumentError);
+      expect(() => parseSaltFromHexString(str)).toThrow(InvalidArgumentError);
     });
   });
 });

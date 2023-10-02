@@ -1,19 +1,19 @@
 import { AztecNodeService } from '@aztec/aztec-node';
-import { AztecRPCServer } from '@aztec/aztec-rpc';
 import { AztecAddress, SignerlessWallet, Wallet } from '@aztec/aztec.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { PokeableTokenContract } from '@aztec/noir-contracts/types';
-import { AztecRPC, CompleteAddress, TxStatus } from '@aztec/types';
+import { CompleteAddress, PXE, TxStatus } from '@aztec/types';
 
 import { expectsNumOfEncryptedLogsInTheLastBlockToBe, setup } from './fixtures/utils.js';
 
 describe('e2e_non_contract_account', () => {
   let aztecNode: AztecNodeService | undefined;
-  let aztecRpcServer: AztecRPC;
+  let pxe: PXE;
   let wallet: Wallet;
   let sender: AztecAddress;
   let recipient: AztecAddress;
   let pokerWallet: Wallet;
+  let teardown: () => Promise<void>;
 
   let logger: DebugLogger;
 
@@ -23,13 +23,13 @@ describe('e2e_non_contract_account', () => {
 
   beforeEach(async () => {
     let accounts: CompleteAddress[];
-    ({ aztecNode, aztecRpcServer, accounts, wallet, logger } = await setup(2));
+    ({ teardown, aztecNode, pxe, accounts, wallet, logger } = await setup(2));
     sender = accounts[0].address;
     recipient = accounts[1].address;
-    pokerWallet = new SignerlessWallet(aztecRpcServer);
+    pokerWallet = new SignerlessWallet(pxe);
 
     logger(`Deploying L2 contract...`);
-    const tx = PokeableTokenContract.deploy(aztecRpcServer, initialBalance, sender, recipient).send();
+    const tx = PokeableTokenContract.deploy(pxe, initialBalance, sender, recipient).send();
     await tx.isMined({ interval: 0.1 });
     const receipt = await tx.getReceipt();
     expect(receipt.status).toEqual(TxStatus.MINED);
@@ -37,12 +37,7 @@ describe('e2e_non_contract_account', () => {
     contract = await PokeableTokenContract.at(receipt.contractAddress!, wallet);
   }, 100_000);
 
-  afterEach(async () => {
-    await aztecNode?.stop();
-    if (aztecRpcServer instanceof AztecRPCServer) {
-      await aztecRpcServer?.stop();
-    }
-  });
+  afterEach(() => teardown());
 
   const expectBalance = async (owner: AztecAddress, expectedBalance: bigint) => {
     const balance = await contract.methods.getBalance(owner).view({ from: owner });

@@ -1,7 +1,7 @@
 import { AztecNodeService } from '@aztec/aztec-node';
-import { AztecRPCServer, getHttpRpcServer } from '@aztec/aztec-rpc';
 import { startHttpRpcServer } from '@aztec/aztec-sandbox';
-import { AztecRPC, createDebugLogger } from '@aztec/aztec.js';
+import { PXE, createDebugLogger } from '@aztec/aztec.js';
+import { PXEService, createPXERpcServer } from '@aztec/pxe';
 
 import { cliTestSuite } from './canary/cli.js';
 import { setup as e2eSetup } from './fixtures/utils.js';
@@ -12,22 +12,21 @@ const debug = createDebugLogger('aztec:e2e_cli');
 
 let http: ReturnType<typeof startHttpRpcServer>;
 let aztecNode: AztecNodeService | undefined;
-let aztecRpcServer: AztecRPC;
+let pxe: PXE;
 
 const testSetup = async () => {
   const context = await e2eSetup(2);
   debug(`Environment set up`);
-  const { deployL1ContractsValues } = context;
-  ({ aztecNode, aztecRpcServer } = context);
-  http = startHttpRpcServer(aztecRpcServer, getHttpRpcServer, deployL1ContractsValues, HTTP_PORT);
+  ({ aztecNode, pxe } = context);
+  http = startHttpRpcServer(pxe, createPXERpcServer, HTTP_PORT);
   debug(`HTTP RPC server started in port ${HTTP_PORT}`);
-  return aztecRpcServer;
+  return pxe;
 };
 
 const testCleanup = async () => {
   http.close();
   await aztecNode?.stop();
-  await (aztecRpcServer as AztecRPCServer).stop();
+  await (pxe as PXEService).stop();
 };
 
 cliTestSuite('E2E CLI Test', testSetup, testCleanup, createDebugLogger('aztec:e2e_cli'), RPC_URL);

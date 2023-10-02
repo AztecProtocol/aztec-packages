@@ -1,4 +1,4 @@
-import { createMemDown, getConfigEnvVars } from '@aztec/aztec-node';
+import { getConfigEnvVars } from '@aztec/aztec-node';
 import {
   AztecAddress,
   GlobalVariables,
@@ -13,8 +13,6 @@ import {
   range,
 } from '@aztec/circuits.js';
 import { fr, makeNewContractData, makeProof } from '@aztec/circuits.js/factories';
-import { deployL1Contracts } from '@aztec/ethereum';
-import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { to2Fields } from '@aztec/foundation/serialize';
@@ -35,6 +33,7 @@ import { MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 
 import { beforeEach, describe, expect, it } from '@jest/globals';
 import { default as levelup } from 'levelup';
+import memdown from 'memdown';
 import {
   Address,
   Chain,
@@ -49,7 +48,7 @@ import {
 } from 'viem';
 import { PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 
-import { localAnvil } from './fixtures/fixtures.js';
+import { setupL1Contracts } from './fixtures/utils.js';
 
 // Accounts 4 and 5 of Anvil default startup with mnemonic: 'test test test test test test test test test test test junk'
 const sequencerPK = '0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a';
@@ -68,8 +67,6 @@ describe('L1Publisher integration', () => {
   let rollupAddress: Address;
   let inboxAddress: Address;
   let outboxAddress: Address;
-  let registryAddress: Address;
-  let contractDeploymentEmitterAddress: Address;
   let decoderHelperAddress: Address;
 
   let rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>;
@@ -93,23 +90,16 @@ describe('L1Publisher integration', () => {
   beforeEach(async () => {
     deployerAccount = privateKeyToAccount(deployerPK);
     const {
-      rollupAddress: rollupAddress_,
-      inboxAddress: inboxAddress_,
-      outboxAddress: outboxAddress_,
-      registryAddress: registryAddress_,
-      contractDeploymentEmitterAddress: contractDeploymentEmitterAddress_,
-      decoderHelperAddress: decoderHelperAddress_,
-      publicClient: publicClient_,
+      l1ContractAddresses,
       walletClient,
-    } = await deployL1Contracts(config.rpcUrl, deployerAccount, localAnvil, logger, true);
+      publicClient: publicClient_,
+    } = await setupL1Contracts(config.rpcUrl, deployerAccount, logger, true);
     publicClient = publicClient_;
 
-    rollupAddress = getAddress(rollupAddress_.toString());
-    inboxAddress = getAddress(inboxAddress_.toString());
-    outboxAddress = getAddress(outboxAddress_.toString());
-    registryAddress = getAddress(registryAddress_.toString());
-    contractDeploymentEmitterAddress = getAddress(contractDeploymentEmitterAddress_.toString());
-    decoderHelperAddress = getAddress(decoderHelperAddress_!.toString());
+    rollupAddress = getAddress(l1ContractAddresses.rollupAddress.toString());
+    inboxAddress = getAddress(l1ContractAddresses.inboxAddress.toString());
+    outboxAddress = getAddress(l1ContractAddresses.outboxAddress.toString());
+    decoderHelperAddress = getAddress(l1ContractAddresses.decoderHelperAddress.toString());
 
     // Set up contract instances
     rollup = getContract({
@@ -134,7 +124,7 @@ describe('L1Publisher integration', () => {
       publicClient,
     });
 
-    builderDb = await MerkleTrees.new(levelup(createMemDown())).then(t => t.asLatest());
+    builderDb = await MerkleTrees.new(levelup((memdown as any)())).then(t => t.asLatest());
     const vks = getVerificationKeys();
     const simulator = await WasmRollupCircuitSimulator.new();
     const prover = new EmptyRollupProver();
@@ -146,10 +136,7 @@ describe('L1Publisher integration', () => {
       rpcUrl: config.rpcUrl,
       apiKey: '',
       requiredConfirmations: 1,
-      rollupContract: EthAddress.fromString(rollupAddress),
-      inboxContract: EthAddress.fromString(inboxAddress),
-      registryContract: EthAddress.fromString(registryAddress),
-      contractDeploymentEmitterContract: EthAddress.fromString(contractDeploymentEmitterAddress),
+      l1Contracts: l1ContractAddresses,
       publisherPrivateKey: sequencerPK,
       l1BlockPublishRetryIntervalMS: 100,
     });

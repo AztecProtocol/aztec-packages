@@ -1,5 +1,4 @@
 import { AztecNodeService } from '@aztec/aztec-node';
-import { AztecRPCServer } from '@aztec/aztec-rpc';
 import { CheatCodes, Wallet, computeMessageSecretHash } from '@aztec/aztec.js';
 import { AztecAddress, CompleteAddress, EthAddress, Fr, PublicKey } from '@aztec/circuits.js';
 import { DeployL1Contracts } from '@aztec/ethereum';
@@ -8,11 +7,12 @@ import { sha256ToField } from '@aztec/foundation/crypto';
 import { DebugLogger } from '@aztec/foundation/log';
 import { OutboxAbi } from '@aztec/l1-artifacts';
 import { TokenBridgeContract, TokenContract } from '@aztec/noir-contracts/types';
-import { AztecRPC, TxStatus } from '@aztec/types';
+import { PXEService } from '@aztec/pxe';
+import { PXE, TxStatus } from '@aztec/types';
 
 import { Chain, HttpTransport, PublicClient, getContract } from 'viem';
 
-import { deployAndInitializeStandardizedTokenAndBridgeContracts } from './utils.js';
+import { deployAndInitializeTokenAndBridgeContracts } from './utils.js';
 
 /**
  * A Class for testing cross chain interactions, contains common interactions
@@ -21,7 +21,7 @@ import { deployAndInitializeStandardizedTokenAndBridgeContracts } from './utils.
 export class CrossChainTestHarness {
   static async new(
     aztecNode: AztecNodeService | undefined,
-    aztecRpcServer: AztecRPC,
+    pxeService: PXE,
     deployL1ContractsValues: DeployL1Contracts,
     accounts: CompleteAddress[],
     wallet: Wallet,
@@ -36,18 +36,18 @@ export class CrossChainTestHarness {
     const [owner, receiver] = accounts;
 
     const outbox = getContract({
-      address: deployL1ContractsValues.outboxAddress.toString(),
+      address: deployL1ContractsValues.l1ContractAddresses.outboxAddress!.toString(),
       abi: OutboxAbi,
       publicClient,
     });
 
     // Deploy and initialize all required contracts
     logger('Deploying and initializing token, portal and its bridge...');
-    const contracts = await deployAndInitializeStandardizedTokenAndBridgeContracts(
+    const contracts = await deployAndInitializeTokenAndBridgeContracts(
       wallet,
       walletClient,
       publicClient,
-      deployL1ContractsValues!.registryAddress,
+      deployL1ContractsValues!.l1ContractAddresses.registryAddress!,
       owner.address,
       underlyingERC20Address,
     );
@@ -69,7 +69,7 @@ export class CrossChainTestHarness {
 
     return new CrossChainTestHarness(
       aztecNode,
-      aztecRpcServer,
+      pxeService,
       cheatCodes,
       accounts,
       logger,
@@ -90,8 +90,8 @@ export class CrossChainTestHarness {
   constructor(
     /** AztecNode. */
     public aztecNode: AztecNodeService | undefined,
-    /** AztecRpcServer. */
-    public aztecRpcServer: AztecRPC,
+    /** Private eXecution Environment (PXE). */
+    public pxeService: PXE,
     /** CheatCodes. */
     public cc: CheatCodes,
     /** Accounts. */
@@ -154,11 +154,11 @@ export class CrossChainTestHarness {
 
     this.logger('Sending messages to L1 portal to be consumed publicly');
     const args = [
-      this.ownerAddress.toString(),
       bridgeAmount,
+      this.ownerAddress.toString(),
+      this.ethAccount.toString(),
       deadline,
       secretHash.toString(true),
-      this.ethAccount.toString(),
     ] as const;
     const { result: messageKeyHex } = await this.tokenPortal.simulate.depositToAztecPublic(args, {
       account: this.ethAccount.toString(),
@@ -181,10 +181,10 @@ export class CrossChainTestHarness {
     this.logger('Sending messages to L1 portal to be consumed privately');
     const args = [
       bridgeAmount,
-      deadline,
-      secretHashForL2MessageConsumption.toString(true),
       secretHashForRedeemingMintedNotes.toString(true),
       this.ethAccount.toString(),
+      deadline,
+      secretHashForL2MessageConsumption.toString(true),
     ] as const;
     const { result: messageKeyHex } = await this.tokenPortal.simulate.depositToAztecPrivate(args, {
       account: this.ethAccount.toString(),
@@ -264,14 +264,18 @@ export class CrossChainTestHarness {
     expect(balance).toBe(expectedBalance);
   }
 
+  async getL2PublicBalanceOf(owner: AztecAddress) {
+    return await this.l2Token.methods.balance_of_public(owner).view();
+  }
+
   async expectPublicBalanceOnL2(owner: AztecAddress, expectedBalance: bigint) {
-    const balance = await this.l2Token.methods.balance_of_public(owner).view({ from: owner });
+    const balance = await this.getL2PublicBalanceOf(owner);
     expect(balance).toBe(expectedBalance);
   }
 
   async checkEntryIsNotInOutbox(withdrawAmount: bigint, callerOnL1: EthAddress = EthAddress.ZERO): Promise<Fr> {
     this.logger('Ensure that the entry is not in outbox yet');
-    const contractData = await this.aztecRpcServer.getContractData(this.l2Bridge.address);
+    const contractData = await this.pxeService.getContractData(this.l2Bridge.address);
     // 0xb460af94, selector for "withdraw(uint256,address,address)"
     const content = sha256ToField(
       Buffer.concat([
@@ -335,8 +339,8 @@ export class CrossChainTestHarness {
 
   async stop() {
     await this.aztecNode?.stop();
-    if (this.aztecRpcServer instanceof AztecRPCServer) {
-      await this.aztecRpcServer?.stop();
+    if (this.pxeService instanceof PXEService) {
+      await this.pxeService?.stop();
     }
   }
 }

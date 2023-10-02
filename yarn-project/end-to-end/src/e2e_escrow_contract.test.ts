@@ -1,21 +1,19 @@
-import { AztecNodeService } from '@aztec/aztec-node';
-import { AztecRPCServer } from '@aztec/aztec-rpc';
 import { AccountWallet, AztecAddress, BatchCall, computeMessageSecretHash, generatePublicKey } from '@aztec/aztec.js';
 import { CompleteAddress, Fr, GrumpkinPrivateKey, GrumpkinScalar, getContractDeploymentInfo } from '@aztec/circuits.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { EscrowContractAbi } from '@aztec/noir-contracts/artifacts';
 import { EscrowContract, TokenContract } from '@aztec/noir-contracts/types';
-import { AztecRPC, PublicKey, TxStatus } from '@aztec/types';
+import { PXE, PublicKey, TxStatus } from '@aztec/types';
 
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_escrow_contract', () => {
-  let aztecNode: AztecNodeService | undefined;
-  let aztecRpcServer: AztecRPC;
+  let pxe: PXE;
   let wallet: AccountWallet;
   let recipientWallet: AccountWallet;
   let accounts: CompleteAddress[];
   let logger: DebugLogger;
+  let teardown: () => Promise<void>;
 
   let token: TokenContract;
   let escrowContract: EscrowContract;
@@ -28,8 +26,8 @@ describe('e2e_escrow_contract', () => {
   beforeEach(async () => {
     // Setup environment
     ({
-      aztecNode,
-      aztecRpcServer,
+      teardown,
+      pxe,
       accounts,
       wallets: [wallet, recipientWallet],
       logger,
@@ -37,13 +35,13 @@ describe('e2e_escrow_contract', () => {
     owner = accounts[0].address;
     recipient = accounts[1].address;
 
-    // Generate private key for escrow contract, register key in rpc server, and deploy
+    // Generate private key for escrow contract, register key in pxe service, and deploy
     // Note that we need to register it first if we want to emit an encrypted note for it in the constructor
     escrowPrivateKey = GrumpkinScalar.random();
     escrowPublicKey = await generatePublicKey(escrowPrivateKey);
     const salt = Fr.random();
     const deployInfo = await getContractDeploymentInfo(EscrowContractAbi, [owner], salt, escrowPublicKey);
-    await aztecRpcServer.registerAccount(escrowPrivateKey, deployInfo.completeAddress.partialAddress);
+    await pxe.registerAccount(escrowPrivateKey, deployInfo.completeAddress.partialAddress);
 
     escrowContract = await EscrowContract.deployWithPublicKey(wallet, escrowPublicKey, owner)
       .send({ contractAddressSalt: salt })
@@ -66,10 +64,7 @@ describe('e2e_escrow_contract', () => {
     logger(`Token contract deployed at ${token.address}`);
   }, 100_000);
 
-  afterEach(async () => {
-    await aztecNode?.stop();
-    if (aztecRpcServer instanceof AztecRPCServer) await aztecRpcServer.stop();
-  }, 30_000);
+  afterEach(() => teardown(), 30_000);
 
   const expectBalance = async (who: AztecAddress, expectedBalance: bigint) => {
     const balance = await token.methods.balance_of_private(who).view({ from: who });

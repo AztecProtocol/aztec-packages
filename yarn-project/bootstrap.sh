@@ -17,7 +17,7 @@ set -eu
 yarn install --immutable
 
 # Build the necessary dependencies for Aztec.nr contracts typegen.
-for DIR in foundation noir-compiler circuits.js; do
+for DIR in foundation noir-compiler; do
   echo "Building $DIR..."
   cd $DIR
   yarn build
