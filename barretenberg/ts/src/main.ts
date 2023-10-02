@@ -93,7 +93,7 @@ export async function proveAndVerify(bytecodePath: string, witnessPath: string, 
     );
 
     debug(`verifying...`);
-    const verified = await api.acirVerifyProof(acirComposer, publicInputs, proofWithOutPublicInputs, isRecursive);
+    const verified = await api.acirVerifyProof(acirComposer, proofWithOutPublicInputs, publicInputs, isRecursive);
     debug(`verified: ${verified}`);
     return verified;
   } finally {
@@ -216,6 +216,7 @@ export async function proofAsFields(proofPath: string, vkPath: string, outputPat
   const { api, acirComposer } = await initLite();
 
   try {
+    // This should get the public inputs too
     debug('serializing proof byte array into field elements');
     const numPublicInputs = readFileSync(vkPath).readUint32BE(8);
     const proofAsFields = await api.acirSerializeProofIntoFields(
