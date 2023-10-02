@@ -118,7 +118,7 @@ contract Uniswap {
     }
 
     #[aztec(private)]
-    fn swap(
+    fn swap_private(
         input_asset: AztecAddress, // since private, we pass here and later assert that this is as expected by input_bridge
         input_asset_bridge: AztecAddress, 
         input_amount: Field,
