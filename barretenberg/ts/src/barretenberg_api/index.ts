@@ -295,12 +295,12 @@ export class BarretenbergApi {
   async acirVerifyProof(
     acirComposerPtr: Ptr,
     publicInputsBuf: Uint8Array,
-    proofBuf: Uint8Array,
+    proofWithoutPublicInputsBuf: Uint8Array,
     isRecursive: boolean,
   ): Promise<boolean> {
     const result = await this.binder.callWasmExport(
       'acir_verify_proof',
-      [acirComposerPtr, publicInputsBuf, proofBuf, isRecursive],
+      [acirComposerPtr, publicInputsBuf, proofWithoutPublicInputsBuf, isRecursive],
       [BoolDeserializer()],
     );
     return result[0];
@@ -317,12 +317,13 @@ export class BarretenbergApi {
 
   async acirSerializeProofIntoFields(
     acirComposerPtr: Ptr,
+    publicInputsBuf: Uint8Array,
     proofBuf: Uint8Array,
     numInnerPublicInputs: number,
   ): Promise<Fr[]> {
     const result = await this.binder.callWasmExport(
       'acir_serialize_proof_into_fields',
-      [acirComposerPtr, proofBuf, numInnerPublicInputs],
+      [acirComposerPtr, publicInputsBuf, proofBuf, numInnerPublicInputs],
       [VectorDeserializer(Fr)],
     );
     return result[0];
