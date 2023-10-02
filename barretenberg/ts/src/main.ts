@@ -33,6 +33,10 @@ function getWitness(witnessPath: string) {
   return decompressed;
 }
 
+function publicInputsPathFromProofPath(proofPath: string) { 
+  return proofPath + '-public_inputs';
+}
+
 async function computeCircuitSize(bytecodePath: string, api: Barretenberg) {
   debug(`computing circuit size...`);
   const bytecode = getBytecode(bytecodePath);
@@ -106,7 +110,7 @@ export async function prove(
   witnessPath: string,
   crsPath: string,
   isRecursive: boolean,
-  outputPath: string,
+  outputProofPath: string,
 ) {
   const { api, acirComposer } = await init(bytecodePath, crsPath);
   try {
@@ -121,14 +125,18 @@ export async function prove(
     );
     debug(`done.`);
 
-    if (outputPath === '-') {
+    if (outputProofPath === '-') {
       process.stdout.write(publicInputs);
       process.stdout.write(proofWithOutPublicInputs);
       debug(`proof written to stdout`);
     } else {
-      writeFileSync(outputPath + '-public_inputs', publicInputs);
-      writeFileSync(outputPath, proofWithOutPublicInputs);
-      debug(`proof written to: ${outputPath}`);
+      const publicInputsPath = publicInputsPathFromProofPath(outputProofPath);
+
+      writeFileSync(publicInputsPath, publicInputs);
+      writeFileSync(outputProofPath, proofWithOutPublicInputs);
+      
+      debug(`proof written to: ${outputProofPath}`);
+      debug(`public inputs written to: ${publicInputsPath}`);
     }
   } finally {
     await api.destroy();
@@ -159,9 +167,10 @@ export async function verify(proofPath: string, isRecursive: boolean, vkPath: st
   const { api, acirComposer } = await initLite();
   try {
     await api.acirLoadVerificationKey(acirComposer, new RawBuffer(readFileSync(vkPath)));
+    const publicInputsPath = publicInputsPathFromProofPath(proofPath);
     const verified = await api.acirVerifyProof(
       acirComposer,
-      readFileSync(proofPath + '-public_inputs'),
+      readFileSync(publicInputsPath),
       readFileSync(proofPath),
       isRecursive,
     );
@@ -218,9 +227,10 @@ export async function proofAsFields(proofPath: string, vkPath: string, outputPat
   try {
     debug('serializing proof byte array into field elements');
     const numPublicInputs = readFileSync(vkPath).readUint32BE(8);
+    const publicInputsPath = publicInputsPathFromProofPath(proofPath);
     const proofAsFields = await api.acirSerializeProofIntoFields(
       acirComposer,
-      readFileSync(proofPath + '-public_inputs'),
+      readFileSync(publicInputsPath),
       readFileSync(proofPath),
       numPublicInputs,
     );
