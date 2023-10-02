@@ -227,4 +227,12 @@ contract Uniswap {
     internal fn _assert_token_is_same(token: Field, token_bridge: Field) {
         assert(token == (TokenBridge::at(token_bridge).token(context)), "input_asset address is not the same as seen in the bridge contract");
     }
+
+    // /// Unconstrained /// 
+
+    // this method exists solely for e2e tests to test that nonce gets incremented each time.
+    unconstrained fn nonce_for_burn_approval() -> Field {
+        storage.nonce_for_burn_approval.read()
+    }
+
 }
