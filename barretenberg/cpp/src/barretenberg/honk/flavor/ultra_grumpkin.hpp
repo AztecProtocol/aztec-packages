@@ -311,11 +311,11 @@ class UltraGrumpkin {
      * @brief A container for the polynomials evaluations produced during sumcheck, which are purported to be the
      * evaluations of polynomials committed in earlier rounds.
      */
-    class ClaimedEvaluations : public AllEntities<FF, FF> {
+    class AllValues : public AllEntities<FF, FF> {
       public:
         using Base = AllEntities<FF, FF>;
         using Base::Base;
-        ClaimedEvaluations(std::array<FF, NUM_ALL_ENTITIES> _data_in) { this->_data = _data_in; }
+        AllValues(std::array<FF, NUM_ALL_ENTITIES> _data_in) { this->_data = _data_in; }
     };
 
     /**

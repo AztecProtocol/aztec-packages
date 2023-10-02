@@ -272,9 +272,32 @@ class Ultra {
     using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment, CommitmentHandle>>;
 
     /**
+     * @brief WORKTODO
+     *
+     */
+    class AllValues : public AllEntities<FF, FF> {
+      public:
+        using Base = AllEntities<FF, FF>;
+        using Base::Base;
+        AllValues(std::array<FF, NUM_ALL_ENTITIES> _data_in) { this->_data = _data_in; }
+    };
+    
+    /**
      * @brief A container for polynomials handles; only stores spans.
      */
-    using ProverPolynomials = AllEntities<PolynomialHandle, PolynomialHandle>;
+    class ProverPolynomials : public AllEntities<PolynomialHandle, PolynomialHandle> {
+      public:
+        AllValues get_row(const size_t row_idx)
+        {
+            AllValues result;
+            size_t column_idx = 0; // WORKTODO zips
+            for (auto& column : this->_data) {
+                result[column_idx] = column[row_idx];
+                column_idx++;
+            }
+            return result;
+        }
+    };
 
     /**
      * @brief A container for storing the partially evaluated multivariates produced by sumcheck.
@@ -299,17 +322,6 @@ class Ultra {
     template <size_t MAX_RELATION_LENGTH>
     using ExtendedEdges = AllEntities<barretenberg::Univariate<FF, MAX_RELATION_LENGTH>,
                                       barretenberg::Univariate<FF, MAX_RELATION_LENGTH>>;
-
-    /**
-     * @brief A container for the polynomials evaluations produced during sumcheck, which are purported to be the
-     * evaluations of polynomials committed in earlier rounds.
-     */
-    class ClaimedEvaluations : public AllEntities<FF, FF> {
-      public:
-        using Base = AllEntities<FF, FF>;
-        using Base::Base;
-        ClaimedEvaluations(std::array<FF, NUM_ALL_ENTITIES> _data_in) { this->_data = _data_in; }
-    };
 
     /**
      * @brief A container for commitment labels.

@@ -30,11 +30,11 @@ template <typename Flavor, typename Relation> void execute_relation(::benchmark:
         .public_input_delta = public_input_delta,
     };
 
-    using ClaimedEvaluations = typename Flavor::ClaimedEvaluations;
+    using AllValues = typename Flavor::AllValues;
     using TupleOfValuesOverSubrelations = typename Relation::TupleOfValuesOverSubrelations;
 
     // Extract an array containing all the polynomial evaluations at a given row i
-    ClaimedEvaluations new_value;
+    AllValues new_value;
     // Define the appropriate TupleOfValuesOverSubrelations type for this relation and initialize to zero
     TupleOfValuesOverSubrelations accumulator;
     // Evaluate each constraint in the relation and check that each is satisfied

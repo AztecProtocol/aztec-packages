@@ -15,7 +15,7 @@ template <typename Flavor> class SumcheckProver {
   public:
     using FF = typename Flavor::FF;
     using PartiallyEvaluatedMultivariates = typename Flavor::PartiallyEvaluatedMultivariates;
-    using ClaimedEvaluations = typename Flavor::ClaimedEvaluations;
+    using ClaimedEvaluations = typename Flavor::AllValues;
 
     ProverTranscript<FF>& transcript;
     const size_t multivariate_n;
@@ -150,7 +150,7 @@ template <typename Flavor> class SumcheckVerifier {
 
   public:
     using FF = typename Flavor::FF;
-    using ClaimedEvaluations = typename Flavor::ClaimedEvaluations;
+    using ClaimedEvaluations = typename Flavor::AllValues;
 
     static constexpr size_t MAX_RANDOM_RELATION_LENGTH = Flavor::MAX_RANDOM_RELATION_LENGTH;
     static constexpr size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;

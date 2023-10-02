@@ -68,7 +68,7 @@ void compute_grand_product(const size_t circuit_size,
         const size_t end = (thread_idx + 1) * block_size;
         for (size_t i = start; i < end; ++i) {
 
-            typename Flavor::ClaimedEvaluations evaluations;
+            typename Flavor::AllValues evaluations;
             for (size_t k = 0; k < Flavor::NUM_ALL_ENTITIES; ++k) {
                 evaluations[k] = full_polynomials[k].size() > i ? full_polynomials[k][i] : 0;
             }

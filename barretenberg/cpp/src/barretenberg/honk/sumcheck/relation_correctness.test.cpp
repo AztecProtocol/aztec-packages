@@ -31,11 +31,11 @@ void ensure_non_zero(auto& polynomial)
  */
 template <typename Flavor, typename Relation> void check_relation(auto circuit_size, auto polynomials, auto params)
 {
-    using ClaimedEvaluations = typename Flavor::ClaimedEvaluations;
+    using AllValues = typename Flavor::AllValues;
     for (size_t i = 0; i < circuit_size; i++) {
 
         // Extract an array containing all the polynomial evaluations at a given row i
-        ClaimedEvaluations evaluations_at_index_i;
+        AllValues evaluations_at_index_i;
         size_t poly_idx = 0;
         for (auto& poly : polynomials) {
             evaluations_at_index_i[poly_idx] = poly[i];

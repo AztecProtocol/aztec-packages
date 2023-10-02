@@ -371,7 +371,7 @@ template <typename Flavor> class SumcheckVerifierRound {
 
   public:
     using FF = typename Flavor::FF;
-    using ClaimedEvaluations = typename Flavor::ClaimedEvaluations;
+    using ClaimedEvaluations = typename Flavor::AllValues;
 
     bool round_failed = false;
 
