@@ -278,7 +278,6 @@ template <class Flavor> void ProverInstance_<Flavor>::initialise_prover_polynomi
     prover_polynomials.q_arith = proving_key->q_arith;
     prover_polynomials.q_sort = proving_key->q_sort;
     prover_polynomials.q_elliptic = proving_key->q_elliptic;
-    prover_polynomials.q_double = proving_key->q_double;
     prover_polynomials.q_aux = proving_key->q_aux;
     prover_polynomials.q_lookup = proving_key->q_lookup;
     prover_polynomials.sigma_4 = proving_key->sigma_4;
@@ -452,7 +451,6 @@ std::shared_ptr<typename Flavor::VerificationKey> ProverInstance_<Flavor>::compu
     verification_key->q_arith = commitment_key->commit(proving_key->q_arith);
     verification_key->q_sort = commitment_key->commit(proving_key->q_sort);
     verification_key->q_elliptic = commitment_key->commit(proving_key->q_elliptic);
-    verification_key->q_double = commitment_key->commit(proving_key->q_double);
     verification_key->q_aux = commitment_key->commit(proving_key->q_aux);
     verification_key->q_lookup = commitment_key->commit(proving_key->q_lookup);
     verification_key->sigma_4 = commitment_key->commit(proving_key->sigma_4);

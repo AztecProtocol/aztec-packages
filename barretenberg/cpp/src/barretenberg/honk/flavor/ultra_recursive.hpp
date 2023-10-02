@@ -61,10 +61,10 @@ template <typename BuilderType> class UltraRecursive_ {
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
     // Note: this number does not include the individual sorted list polynomials.
-    static constexpr size_t NUM_ALL_ENTITIES = 44;
+    static constexpr size_t NUM_ALL_ENTITIES = 43;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 26;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 25;
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = 11;
 
@@ -104,27 +104,26 @@ template <typename BuilderType> class UltraRecursive_ {
         DataType& q_arith = std::get<6>(this->_data);
         DataType& q_sort = std::get<7>(this->_data);
         DataType& q_elliptic = std::get<8>(this->_data);
-        DataType& q_double = std::get<9>(this->_data);
-        DataType& q_aux = std::get<10>(this->_data);
-        DataType& q_lookup = std::get<11>(this->_data);
-        DataType& sigma_1 = std::get<12>(this->_data);
-        DataType& sigma_2 = std::get<13>(this->_data);
-        DataType& sigma_3 = std::get<14>(this->_data);
-        DataType& sigma_4 = std::get<15>(this->_data);
-        DataType& id_1 = std::get<16>(this->_data);
-        DataType& id_2 = std::get<17>(this->_data);
-        DataType& id_3 = std::get<18>(this->_data);
-        DataType& id_4 = std::get<19>(this->_data);
-        DataType& table_1 = std::get<20>(this->_data);
-        DataType& table_2 = std::get<21>(this->_data);
-        DataType& table_3 = std::get<22>(this->_data);
-        DataType& table_4 = std::get<23>(this->_data);
-        DataType& lagrange_first = std::get<24>(this->_data);
-        DataType& lagrange_last = std::get<25>(this->_data);
+        DataType& q_aux = std::get<9>(this->_data);
+        DataType& q_lookup = std::get<10>(this->_data);
+        DataType& sigma_1 = std::get<11>(this->_data);
+        DataType& sigma_2 = std::get<12>(this->_data);
+        DataType& sigma_3 = std::get<13>(this->_data);
+        DataType& sigma_4 = std::get<14>(this->_data);
+        DataType& id_1 = std::get<15>(this->_data);
+        DataType& id_2 = std::get<16>(this->_data);
+        DataType& id_3 = std::get<17>(this->_data);
+        DataType& id_4 = std::get<18>(this->_data);
+        DataType& table_1 = std::get<19>(this->_data);
+        DataType& table_2 = std::get<20>(this->_data);
+        DataType& table_3 = std::get<21>(this->_data);
+        DataType& table_4 = std::get<22>(this->_data);
+        DataType& lagrange_first = std::get<23>(this->_data);
+        DataType& lagrange_last = std::get<24>(this->_data);
 
         std::vector<HandleType> get_selectors() override
         {
-            return { q_m, q_c, q_l, q_r, q_o, q_4, q_arith, q_sort, q_elliptic, q_double, q_aux, q_lookup };
+            return { q_m, q_c, q_l, q_r, q_o, q_4, q_arith, q_sort, q_elliptic, q_aux, q_lookup };
         };
         std::vector<HandleType> get_sigma_polynomials() override { return { sigma_1, sigma_2, sigma_3, sigma_4 }; };
         std::vector<HandleType> get_id_polynomials() override { return { id_1, id_2, id_3, id_4 }; };
@@ -177,51 +176,49 @@ template <typename BuilderType> class UltraRecursive_ {
         DataType& q_arith = std::get<6>(this->_data);
         DataType& q_sort = std::get<7>(this->_data);
         DataType& q_elliptic = std::get<8>(this->_data);
-        DataType& q_double = std::get<9>(this->_data);
-        DataType& q_aux = std::get<10>(this->_data);
-        DataType& q_lookup = std::get<11>(this->_data);
-        DataType& sigma_1 = std::get<12>(this->_data);
-        DataType& sigma_2 = std::get<13>(this->_data);
-        DataType& sigma_3 = std::get<14>(this->_data);
-        DataType& sigma_4 = std::get<15>(this->_data);
-        DataType& id_1 = std::get<16>(this->_data);
-        DataType& id_2 = std::get<17>(this->_data);
-        DataType& id_3 = std::get<18>(this->_data);
-        DataType& id_4 = std::get<19>(this->_data);
-        DataType& table_1 = std::get<20>(this->_data);
-        DataType& table_2 = std::get<21>(this->_data);
-        DataType& table_3 = std::get<22>(this->_data);
-        DataType& table_4 = std::get<23>(this->_data);
-        DataType& lagrange_first = std::get<24>(this->_data);
-        DataType& lagrange_last = std::get<25>(this->_data);
-        DataType& w_l = std::get<26>(this->_data);
-        DataType& w_r = std::get<27>(this->_data);
-        DataType& w_o = std::get<28>(this->_data);
-        DataType& w_4 = std::get<29>(this->_data);
-        DataType& sorted_accum = std::get<30>(this->_data);
-        DataType& z_perm = std::get<31>(this->_data);
-        DataType& z_lookup = std::get<32>(this->_data);
-        DataType& table_1_shift = std::get<33>(this->_data);
-        DataType& table_2_shift = std::get<34>(this->_data);
-        DataType& table_3_shift = std::get<35>(this->_data);
-        DataType& table_4_shift = std::get<36>(this->_data);
-        DataType& w_l_shift = std::get<37>(this->_data);
-        DataType& w_r_shift = std::get<38>(this->_data);
-        DataType& w_o_shift = std::get<39>(this->_data);
-        DataType& w_4_shift = std::get<40>(this->_data);
-        DataType& sorted_accum_shift = std::get<41>(this->_data);
-        DataType& z_perm_shift = std::get<42>(this->_data);
-        DataType& z_lookup_shift = std::get<43>(this->_data);
+        DataType& q_aux = std::get<9>(this->_data);
+        DataType& q_lookup = std::get<10>(this->_data);
+        DataType& sigma_1 = std::get<11>(this->_data);
+        DataType& sigma_2 = std::get<12>(this->_data);
+        DataType& sigma_3 = std::get<13>(this->_data);
+        DataType& sigma_4 = std::get<14>(this->_data);
+        DataType& id_1 = std::get<15>(this->_data);
+        DataType& id_2 = std::get<16>(this->_data);
+        DataType& id_3 = std::get<17>(this->_data);
+        DataType& id_4 = std::get<18>(this->_data);
+        DataType& table_1 = std::get<19>(this->_data);
+        DataType& table_2 = std::get<20>(this->_data);
+        DataType& table_3 = std::get<21>(this->_data);
+        DataType& table_4 = std::get<22>(this->_data);
+        DataType& lagrange_first = std::get<23>(this->_data);
+        DataType& lagrange_last = std::get<24>(this->_data);
+        DataType& w_l = std::get<25>(this->_data);
+        DataType& w_r = std::get<26>(this->_data);
+        DataType& w_o = std::get<27>(this->_data);
+        DataType& w_4 = std::get<28>(this->_data);
+        DataType& sorted_accum = std::get<29>(this->_data);
+        DataType& z_perm = std::get<30>(this->_data);
+        DataType& z_lookup = std::get<31>(this->_data);
+        DataType& table_1_shift = std::get<32>(this->_data);
+        DataType& table_2_shift = std::get<33>(this->_data);
+        DataType& table_3_shift = std::get<34>(this->_data);
+        DataType& table_4_shift = std::get<35>(this->_data);
+        DataType& w_l_shift = std::get<36>(this->_data);
+        DataType& w_r_shift = std::get<37>(this->_data);
+        DataType& w_o_shift = std::get<38>(this->_data);
+        DataType& w_4_shift = std::get<39>(this->_data);
+        DataType& sorted_accum_shift = std::get<40>(this->_data);
+        DataType& z_perm_shift = std::get<41>(this->_data);
+        DataType& z_lookup_shift = std::get<42>(this->_data);
 
         std::vector<HandleType> get_wires() override { return { w_l, w_r, w_o, w_4 }; };
         // Gemini-specific getters.
         std::vector<HandleType> get_unshifted() override
         {
-            return {
-                q_c,      q_l,   q_r,      q_o,          q_4,     q_m,     q_arith,        q_sort,        q_elliptic,
-                q_double, q_aux, q_lookup, sigma_1,      sigma_2, sigma_3, sigma_4,        id_1,          id_2,
-                id_3,     id_4,  table_1,  table_2,      table_3, table_4, lagrange_first, lagrange_last, w_l,
-                w_r,      w_o,   w_4,      sorted_accum, z_perm,  z_lookup
+            return { q_c,           q_l,   q_r,      q_o,     q_4,     q_m,          q_arith, q_sort,
+                     q_elliptic,    q_aux, q_lookup, sigma_1, sigma_2, sigma_3,      sigma_4, id_1,
+                     id_2,          id_3,  id_4,     table_1, table_2, table_3,      table_4, lagrange_first,
+                     lagrange_last, w_l,   w_r,      w_o,     w_4,     sorted_accum, z_perm,  z_lookup
 
             };
         };
@@ -291,7 +288,6 @@ template <typename BuilderType> class UltraRecursive_ {
             this->q_arith = Commitment::from_witness(builder, native_key->q_arith);
             this->q_sort = Commitment::from_witness(builder, native_key->q_sort);
             this->q_elliptic = Commitment::from_witness(builder, native_key->q_elliptic);
-            this->q_double = Commitment::from_witness(builder, native_key->q_double);
             this->q_aux = Commitment::from_witness(builder, native_key->q_aux);
             this->q_lookup = Commitment::from_witness(builder, native_key->q_lookup);
             this->sigma_1 = Commitment::from_witness(builder, native_key->sigma_1);
@@ -350,7 +346,6 @@ template <typename BuilderType> class UltraRecursive_ {
             this->q_arith = "__Q_ARITH";
             this->q_sort = "__Q_SORT";
             this->q_elliptic = "__Q_ELLIPTIC";
-            this->q_double = "__Q_DOUBLE";
             this->q_aux = "__Q_AUX";
             this->q_lookup = "__Q_LOOKUP";
             this->sigma_1 = "__SIGMA_1";
@@ -383,7 +378,6 @@ template <typename BuilderType> class UltraRecursive_ {
             this->q_arith = verification_key->q_arith;
             this->q_sort = verification_key->q_sort;
             this->q_elliptic = verification_key->q_elliptic;
-            this->q_double = verification_key->q_double;
             this->q_aux = verification_key->q_aux;
             this->q_lookup = verification_key->q_lookup;
             this->sigma_1 = verification_key->sigma_1;

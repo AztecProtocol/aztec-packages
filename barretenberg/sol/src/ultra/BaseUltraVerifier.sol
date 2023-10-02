@@ -58,14 +58,12 @@ abstract contract BaseUltraVerifier {
     uint256 internal constant ID3_Y_LOC = 0x960;
     uint256 internal constant ID4_X_LOC = 0x980;
     uint256 internal constant ID4_Y_LOC = 0x9a0;
-    uint256 internal constant QDOUBLE_X_LOC = 0x9c0;
-    uint256 internal constant QDOUBLE_Y_LOC = 0x9e0;
-    uint256 internal constant CONTAINS_RECURSIVE_PROOF_LOC = 0xa00;
-    uint256 internal constant RECURSIVE_PROOF_PUBLIC_INPUT_INDICES_LOC = 0xa20;
-    uint256 internal constant G2X_X0_LOC = 0xa40;
-    uint256 internal constant G2X_X1_LOC = 0xa60;
-    uint256 internal constant G2X_Y0_LOC = 0xa80;
-    uint256 internal constant G2X_Y1_LOC = 0xaa0;
+    uint256 internal constant CONTAINS_RECURSIVE_PROOF_LOC = 0x9c0;
+    uint256 internal constant RECURSIVE_PROOF_PUBLIC_INPUT_INDICES_LOC = 0x9e0;
+    uint256 internal constant G2X_X0_LOC = 0xa00;
+    uint256 internal constant G2X_X1_LOC = 0xa20;
+    uint256 internal constant G2X_Y0_LOC = 0xa40;
+    uint256 internal constant G2X_Y1_LOC = 0xa60;
 
     // ### PROOF DATA MEMORY LOCATIONS
     uint256 internal constant W1_X_LOC = 0x1200;
@@ -132,7 +130,6 @@ abstract contract BaseUltraVerifier {
     uint256 internal constant TABLE2_OMEGA_EVAL_LOC = 0x20e0;
     uint256 internal constant TABLE3_OMEGA_EVAL_LOC = 0x2100;
     uint256 internal constant TABLE4_OMEGA_EVAL_LOC = 0x2120;
-    uint256 internal constant QDOUBLE_EVAL_LOC = 0x2140;
 
     uint256 internal constant PI_Z_X_LOC = 0x2300;
     uint256 internal constant PI_Z_Y_LOC = 0x2320;
@@ -257,7 +254,6 @@ abstract contract BaseUltraVerifier {
 
     uint256 internal constant QUOTIENT_EVAL_LOC = 0x3760;
     uint256 internal constant ZERO_POLY_INVERSE_LOC = 0x3780;
-   // uint256 internal constant DOUBLE_IDENTITY = 0x37a0;
 
     // when hashing public inputs we use memory at NU_CHALLENGE_INPUT_LOC_A, as the hash input size is unknown at compile time
     uint256 internal constant NU_CHALLENGE_INPUT_LOC_A = 0x37a0;
@@ -272,13 +268,13 @@ abstract contract BaseUltraVerifier {
 
     uint256 internal constant ETA_INPUT_LENGTH = 0xc0; // W1, W2, W3 = 6 * 0x20 bytes
 
-    // We need to hash 42 field elements when generating the NU challenge
+    // We need to hash 41 field elements when generating the NU challenge
     // w1, w2, w3, w4, s, z, z_lookup, q1, q2, q3, q4, qm, qc, qarith (14)
-    // qsort, qelliptic, q_double, qaux, sigma1, sigma2, sigma, sigma4, (7)
+    // qsort, qelliptic, qaux, sigma1, sigma2, sigma, sigma4, (7)
     // table1, table2, table3, table4, tabletype, id1, id2, id3, id4, (9)
     // w1_omega, w2_omega, w3_omega, w4_omega, s_omega, z_omega, z_lookup_omega, (7)
     // table1_omega, table2_omega, table3_omega, table4_omega (4)
-    uint256 internal constant NU_INPUT_LENGTH = 0x540; // 0x540 = 42 * 0x20
+    uint256 internal constant NU_INPUT_LENGTH = 0x520; // 0x520 = 41 * 0x20
 
     // There are ELEVEN G1 group elements added into the transcript in the `beta` round, that we need to skip over
     // W1, W2, W3, W4, S, Z, Z_LOOKUP, T1, T2, T3, T4
@@ -295,9 +291,6 @@ abstract contract BaseUltraVerifier {
     error MOD_EXP_FAILURE();
     error EC_SCALAR_MUL_FAILURE();
     error PROOF_FAILURE();
-
-bytes4 internal constant ERR_S = 0xf7b44074;
-error ERR(bytes32,bytes32,bytes32);
 
     function getVerificationKeyHash() public pure virtual returns (bytes32);
 
@@ -376,45 +369,44 @@ error ERR(bytes32,bytes32,bytes32);
                 mstore(QARITH_EVAL_LOC, mod(calldataload(add(data_ptr, 0x460)), p))
                 mstore(QSORT_EVAL_LOC, mod(calldataload(add(data_ptr, 0x480)), p))
                 mstore(QELLIPTIC_EVAL_LOC, mod(calldataload(add(data_ptr, 0x4a0)), p))
-                mstore(QDOUBLE_EVAL_LOC, mod(calldataload(add(data_ptr, 0x4c0)), p))
-                mstore(QAUX_EVAL_LOC, mod(calldataload(add(data_ptr, 0x4e0)), p))
+                mstore(QAUX_EVAL_LOC, mod(calldataload(add(data_ptr, 0x4c0)), p))
 
-                mstore(SIGMA1_EVAL_LOC, mod(calldataload(add(data_ptr, 0x500)), p))
-                mstore(SIGMA2_EVAL_LOC, mod(calldataload(add(data_ptr, 0x520)), p))
+                mstore(SIGMA1_EVAL_LOC, mod(calldataload(add(data_ptr, 0x4e0)), p))
+                mstore(SIGMA2_EVAL_LOC, mod(calldataload(add(data_ptr, 0x500)), p))
 
-                mstore(SIGMA3_EVAL_LOC, mod(calldataload(add(data_ptr, 0x540)), p))
-                mstore(SIGMA4_EVAL_LOC, mod(calldataload(add(data_ptr, 0x560)), p))
+                mstore(SIGMA3_EVAL_LOC, mod(calldataload(add(data_ptr, 0x520)), p))
+                mstore(SIGMA4_EVAL_LOC, mod(calldataload(add(data_ptr, 0x540)), p))
 
-                mstore(TABLE1_EVAL_LOC, mod(calldataload(add(data_ptr, 0x580)), p))
-                mstore(TABLE2_EVAL_LOC, mod(calldataload(add(data_ptr, 0x5a0)), p))
-                mstore(TABLE3_EVAL_LOC, mod(calldataload(add(data_ptr, 0x5c0)), p))
-                mstore(TABLE4_EVAL_LOC, mod(calldataload(add(data_ptr, 0x5e0)), p))
-                mstore(TABLE_TYPE_EVAL_LOC, mod(calldataload(add(data_ptr, 0x600)), p))
+                mstore(TABLE1_EVAL_LOC, mod(calldataload(add(data_ptr, 0x560)), p))
+                mstore(TABLE2_EVAL_LOC, mod(calldataload(add(data_ptr, 0x580)), p))
+                mstore(TABLE3_EVAL_LOC, mod(calldataload(add(data_ptr, 0x5a0)), p))
+                mstore(TABLE4_EVAL_LOC, mod(calldataload(add(data_ptr, 0x5c0)), p))
+                mstore(TABLE_TYPE_EVAL_LOC, mod(calldataload(add(data_ptr, 0x5e0)), p))
 
-                mstore(ID1_EVAL_LOC, mod(calldataload(add(data_ptr, 0x620)), p))
-                mstore(ID2_EVAL_LOC, mod(calldataload(add(data_ptr, 0x640)), p))
-                mstore(ID3_EVAL_LOC, mod(calldataload(add(data_ptr, 0x660)), p))
-                mstore(ID4_EVAL_LOC, mod(calldataload(add(data_ptr, 0x680)), p))
+                mstore(ID1_EVAL_LOC, mod(calldataload(add(data_ptr, 0x600)), p))
+                mstore(ID2_EVAL_LOC, mod(calldataload(add(data_ptr, 0x620)), p))
+                mstore(ID3_EVAL_LOC, mod(calldataload(add(data_ptr, 0x640)), p))
+                mstore(ID4_EVAL_LOC, mod(calldataload(add(data_ptr, 0x660)), p))
 
-                mstore(W1_OMEGA_EVAL_LOC, mod(calldataload(add(data_ptr, 0x6a0)), p))
-                mstore(W2_OMEGA_EVAL_LOC, mod(calldataload(add(data_ptr, 0x6c0)), p))
-                mstore(W3_OMEGA_EVAL_LOC, mod(calldataload(add(data_ptr, 0x6e0)), p))
-                mstore(W4_OMEGA_EVAL_LOC, mod(calldataload(add(data_ptr, 0x700)), p))
-                mstore(S_OMEGA_EVAL_LOC, mod(calldataload(add(data_ptr, 0x720)), p))
+                mstore(W1_OMEGA_EVAL_LOC, mod(calldataload(add(data_ptr, 0x680)), p))
+                mstore(W2_OMEGA_EVAL_LOC, mod(calldataload(add(data_ptr, 0x6a0)), p))
+                mstore(W3_OMEGA_EVAL_LOC, mod(calldataload(add(data_ptr, 0x6c0)), p))
+                mstore(W4_OMEGA_EVAL_LOC, mod(calldataload(add(data_ptr, 0x6e0)), p))
+                mstore(S_OMEGA_EVAL_LOC, mod(calldataload(add(data_ptr, 0x700)), p))
 
-                mstore(Z_OMEGA_EVAL_LOC, mod(calldataload(add(data_ptr, 0x740)), p))
+                mstore(Z_OMEGA_EVAL_LOC, mod(calldataload(add(data_ptr, 0x720)), p))
 
-                mstore(Z_LOOKUP_OMEGA_EVAL_LOC, mod(calldataload(add(data_ptr, 0x760)), p))
-                mstore(TABLE1_OMEGA_EVAL_LOC, mod(calldataload(add(data_ptr, 0x780)), p))
-                mstore(TABLE2_OMEGA_EVAL_LOC, mod(calldataload(add(data_ptr, 0x7a0)), p))
-                mstore(TABLE3_OMEGA_EVAL_LOC, mod(calldataload(add(data_ptr, 0x7c0)), p))
-                mstore(TABLE4_OMEGA_EVAL_LOC, mod(calldataload(add(data_ptr, 0x7e0)), p))
+                mstore(Z_LOOKUP_OMEGA_EVAL_LOC, mod(calldataload(add(data_ptr, 0x740)), p))
+                mstore(TABLE1_OMEGA_EVAL_LOC, mod(calldataload(add(data_ptr, 0x760)), p))
+                mstore(TABLE2_OMEGA_EVAL_LOC, mod(calldataload(add(data_ptr, 0x780)), p))
+                mstore(TABLE3_OMEGA_EVAL_LOC, mod(calldataload(add(data_ptr, 0x7a0)), p))
+                mstore(TABLE4_OMEGA_EVAL_LOC, mod(calldataload(add(data_ptr, 0x7c0)), p))
 
-                mstore(PI_Z_Y_LOC, mod(calldataload(add(data_ptr, 0x800)), q))
-                mstore(PI_Z_X_LOC, mod(calldataload(add(data_ptr, 0x820)), q))
+                mstore(PI_Z_Y_LOC, mod(calldataload(add(data_ptr, 0x7e0)), q))
+                mstore(PI_Z_X_LOC, mod(calldataload(add(data_ptr, 0x800)), q))
 
-                mstore(PI_Z_OMEGA_Y_LOC, mod(calldataload(add(data_ptr, 0x840)), q))
-                mstore(PI_Z_OMEGA_X_LOC, mod(calldataload(add(data_ptr, 0x860)), q))
+                mstore(PI_Z_OMEGA_Y_LOC, mod(calldataload(add(data_ptr, 0x820)), q))
+                mstore(PI_Z_OMEGA_X_LOC, mod(calldataload(add(data_ptr, 0x840)), q))
             }
 
             /**
@@ -517,7 +509,6 @@ error ERR(bytes32,bytes32,bytes32);
                 challenge := keccak256(0x00, 0xa0)
                 mstore(C_ALPHA_LOC, mod(challenge, p))
 
-
                 /**
                  * Compute and store some powers of alpha for future computations
                  */
@@ -545,7 +536,6 @@ error ERR(bytes32,bytes32,bytes32);
                 mstore(C_ZETA_LOC, mod(challenge, p))
                 mstore(C_CURRENT_LOC, challenge)
             }
-
 
             /**
              * EVALUATE FIELD OPERATIONS
@@ -1167,96 +1157,69 @@ error ERR(bytes32,bytes32,bytes32);
                  * sign_term += sign_term
                  * sign_term *= q_sign
                  */
+                let x_diff := addmod(mload(X2_EVAL_LOC), sub(p, mload(X1_EVAL_LOC)), p)
+                let y2_sqr := mulmod(mload(Y2_EVAL_LOC), mload(Y2_EVAL_LOC), p)
+                let y1_sqr := mulmod(mload(Y1_EVAL_LOC), mload(Y1_EVAL_LOC), p)
+                let y1y2 := mulmod(mulmod(mload(Y1_EVAL_LOC), mload(Y2_EVAL_LOC), p), mload(QSIGN_LOC), p)
 
-                let endo_term :=
+                let x_add_identity :=
+                    addmod(
+                        mulmod(
+                            addmod(mload(X3_EVAL_LOC), addmod(mload(X2_EVAL_LOC), mload(X1_EVAL_LOC), p), p),
+                            mulmod(x_diff, x_diff, p),
+                            p
+                        ),
+                        addmod(
+                            sub(
+                                p,
+                                addmod(y2_sqr, y1_sqr, p)
+                            ),
+                            addmod(y1y2, y1y2, p),
+                            p
+                        ),
+                        p
+                    )
+                x_add_identity :=
                     mulmod(
                         mulmod(
-                            mulmod(sub(p, mload(X2_EVAL_LOC)), mload(X1_EVAL_LOC), p),
-                            addmod(addmod(mload(X3_EVAL_LOC), mload(X3_EVAL_LOC), p), mload(X1_EVAL_LOC), p),
-                            p
-                        ),
-                        mload(QBETA_LOC),
-                        p
-                    )
-
-                let endo_sqr_term := mulmod(mload(X2_EVAL_LOC), mload(X2_EVAL_LOC), p)
-                endo_sqr_term := mulmod(endo_sqr_term, addmod(mload(X3_EVAL_LOC), sub(p, mload(X1_EVAL_LOC)), p), p)
-                endo_sqr_term := mulmod(endo_sqr_term, mload(QBETA_SQR_LOC), p)
-
-                let leftovers := mulmod(mload(X2_EVAL_LOC), mload(X2_EVAL_LOC), p)
-                leftovers := mulmod(leftovers, mload(X2_EVAL_LOC), p)
-                leftovers :=
-                    addmod(
-                        leftovers,
-                        mulmod(
-                            mulmod(mload(X1_EVAL_LOC), mload(X1_EVAL_LOC), p),
-                            addmod(mload(X3_EVAL_LOC), mload(X1_EVAL_LOC), p),
-                            p
-                        ),
-                        p
-                    )
-                leftovers :=
-                    addmod(
-                        leftovers,
-                        sub(
-                            p,
+                            x_add_identity,
                             addmod(
-                                mulmod(mload(Y2_EVAL_LOC), mload(Y2_EVAL_LOC), p),
-                                mulmod(mload(Y1_EVAL_LOC), mload(Y1_EVAL_LOC), p),
+                                1,
+                                sub(p, mload(QM_EVAL_LOC)),
                                 p
-                            )
-                        ),
-                        p
-                    )
-
-                let sign_term := mulmod(mload(Y2_EVAL_LOC), mload(Y1_EVAL_LOC), p)
-                sign_term := addmod(sign_term, sign_term, p)
-                sign_term := mulmod(sign_term, mload(QSIGN_LOC), p)
-
-                /**
-                 * x_identity = endo_term + endo_sqr_term + sign_term + leftovers
-                 * x_identity *= alpha_base
-                 * endo_term = (x_2 * q_beta) * (y_3 + y_1)
-                 * sign_term = -((y2 * q_sign) * (x_1 + x_3))
-                 * leftovers = - x1 * (y_3 + y_1) + y_1 * (x_1 - x_3)
-                 * y_identity = (endo_term + sign_term + leftovers) * (alpha_base * α)
-                 */
-
-                let x_identity := addmod(addmod(endo_term, endo_sqr_term, p), addmod(sign_term, leftovers, p), p)
-                x_identity := mulmod(x_identity, mload(C_ALPHA_BASE_LOC), p)
-                endo_term :=
-                    mulmod(
-                        mulmod(mload(X2_EVAL_LOC), mload(QBETA_LOC), p),
-                        addmod(mload(Y3_EVAL_LOC), mload(Y1_EVAL_LOC), p),
-                        p
-                    )
-                sign_term :=
-                    sub(
-                        p,
-                        mulmod(
-                            mulmod(mload(Y2_EVAL_LOC), mload(QSIGN_LOC), p),
-                            addmod(mload(X1_EVAL_LOC), sub(p, mload(X3_EVAL_LOC)), p),
+                            ),
                             p
-                        )
-                    )
-                leftovers :=
-                    addmod(
-                        sub(p, mulmod(mload(X1_EVAL_LOC), addmod(mload(Y3_EVAL_LOC), mload(Y1_EVAL_LOC), p), p)),
-                        mulmod(mload(Y1_EVAL_LOC), addmod(mload(X1_EVAL_LOC), sub(p, mload(X3_EVAL_LOC)), p), p),
+                        ),
+                        mload(C_ALPHA_BASE_LOC),
                         p
                     )
-                let y_identity :=
+
+                let y1_plus_y3 := addmod(
+                    mload(Y1_EVAL_LOC),
+                    mload(Y3_EVAL_LOC),
+                    p
+                )
+                let y_diff := addmod(mulmod(mload(Y2_EVAL_LOC), mload(QSIGN_LOC), p), sub(p, mload(Y1_EVAL_LOC)), p)
+                let y_add_identity :=
+                    addmod(
+                        mulmod(y1_plus_y3, x_diff, p),
+                        mulmod(addmod(mload(X3_EVAL_LOC), sub(p, mload(X1_EVAL_LOC)), p), y_diff, p),
+                        p
+                    )
+                y_add_identity :=
                     mulmod(
-                        addmod(addmod(endo_term, sign_term, p), leftovers, p),
+                        mulmod(y_add_identity, addmod(1, sub(p, mload(QM_EVAL_LOC)), p), p),
                         mulmod(mload(C_ALPHA_BASE_LOC), mload(C_ALPHA_LOC), p),
                         p
                     )
 
                 // ELLIPTIC_IDENTITY = (x_identity + y_identity) * Q_ELLIPTIC_EVAL
-                mstore(ELLIPTIC_IDENTITY, mulmod(addmod(x_identity, y_identity, p), mload(QELLIPTIC_EVAL_LOC), p))
-
-
-               /**
+                mstore(
+                    ELLIPTIC_IDENTITY, mulmod(addmod(x_add_identity, y_add_identity, p), mload(QELLIPTIC_EVAL_LOC), p)
+                )
+            }
+            {
+                /**
                  * x_pow_4 = (y_1_sqr - curve_b) * x_1;
                  * y_1_sqr_mul_4 = y_1_sqr + y_1_sqr;
                  * y_1_sqr_mul_4 += y_1_sqr_mul_4;
@@ -1269,22 +1232,24 @@ error ERR(bytes32,bytes32,bytes32);
                  * x_double_identity = (x_3 + x_1 + x_1) * y_1_sqr_mul_4 - x_1_pow_4_mul_9;
                  * y_double_identity = x_1_sqr_mul_3 * (x_1 - x_3) - (y_1 + y_1) * (y_1 + y_3);
                  */
-                {
-                    let x1_sqr := mulmod(mload(X1_EVAL_LOC), mload(X1_EVAL_LOC), p)
-                    let y1_sqr := mulmod(mload(Y1_EVAL_LOC), mload(Y1_EVAL_LOC), p)
-                    let x_pow_4 := mulmod(addmod(y1_sqr, 17, p), mload(X1_EVAL_LOC), p)
-                    let y1_sqr_mul_4 := mulmod(y1_sqr, 4, p)
-                    let x1_pow_4_mul_9 := mulmod(x_pow_4, 9, p)
-                    let x1_sqr_mul_3 := mulmod(x1_sqr, 3, p)
-                    let x_double_identity := addmod(
-                        mulmod(addmod(mload(X3_EVAL_LOC), addmod(mload(X1_EVAL_LOC), mload(X1_EVAL_LOC), p), p), y1_sqr_mul_4, p),
-                        sub(
-                            p,
-                            x1_pow_4_mul_9
+                let x1_sqr := mulmod(mload(X1_EVAL_LOC), mload(X1_EVAL_LOC), p)
+                let y1_sqr := mulmod(mload(Y1_EVAL_LOC), mload(Y1_EVAL_LOC), p)
+                let x_pow_4 := mulmod(addmod(y1_sqr, 17, p), mload(X1_EVAL_LOC), p)
+                let y1_sqr_mul_4 := mulmod(y1_sqr, 4, p)
+                let x1_pow_4_mul_9 := mulmod(x_pow_4, 9, p)
+                let x1_sqr_mul_3 := mulmod(x1_sqr, 3, p)
+                let x_double_identity :=
+                    addmod(
+                        mulmod(
+                            addmod(mload(X3_EVAL_LOC), addmod(mload(X1_EVAL_LOC), mload(X1_EVAL_LOC), p), p),
+                            y1_sqr_mul_4,
+                            p
                         ),
+                        sub(p, x1_pow_4_mul_9),
                         p
                     )
-                    let y_double_identity := addmod(
+                let y_double_identity :=
+                    addmod(
                         mulmod(x1_sqr_mul_3, addmod(mload(X1_EVAL_LOC), sub(p, mload(X3_EVAL_LOC)), p), p),
                         sub(
                             p,
@@ -1296,21 +1261,20 @@ error ERR(bytes32,bytes32,bytes32);
                         ),
                         p
                     )
-                    x_double_identity :=
-                        mulmod(x_double_identity, mulmod(mload(C_ALPHA_BASE_LOC), mload(C_ALPHA_SQR_LOC), p), p)
-                    y_double_identity :=
-                        mulmod(y_double_identity, mulmod(mload(C_ALPHA_BASE_LOC), mload(C_ALPHA_CUBE_LOC), p), p)
-
-                    // ELLIPTIC_IDENTITY += (x_double_identity + y_double_identity) * Q_DOUBLE_EVAL
-                    mstore(
-                        ELLIPTIC_IDENTITY,
-                        addmod(
-                            mload(ELLIPTIC_IDENTITY),
-                            mulmod(addmod(x_double_identity, y_double_identity, p), mload(QDOUBLE_EVAL_LOC), p),
-                            p
-                        )
+                x_double_identity := mulmod(x_double_identity, mload(C_ALPHA_BASE_LOC), p)
+                y_double_identity :=
+                    mulmod(y_double_identity, mulmod(mload(C_ALPHA_BASE_LOC), mload(C_ALPHA_LOC), p), p)
+                x_double_identity := mulmod(x_double_identity, mload(QM_EVAL_LOC), p)
+                y_double_identity := mulmod(y_double_identity, mload(QM_EVAL_LOC), p)
+                // ELLIPTIC_IDENTITY += (x_double_identity + y_double_identity) * Q_DOUBLE_EVAL
+                mstore(
+                    ELLIPTIC_IDENTITY,
+                    addmod(
+                        mload(ELLIPTIC_IDENTITY),
+                        mulmod(addmod(x_double_identity, y_double_identity, p), mload(QELLIPTIC_EVAL_LOC), p),
+                        p
                     )
-                }
+                )
 
                 // update alpha
                 mstore(C_ALPHA_BASE_LOC, mulmod(mload(C_ALPHA_BASE_LOC), mload(C_ALPHA_QUAD_LOC), p))
@@ -1626,16 +1590,16 @@ error ERR(bytes32,bytes32,bytes32);
                             addmod(
                                 addmod(
                                     addmod(
-                                            addmod(mload(PERMUTATION_IDENTITY), mload(PLOOKUP_IDENTITY), p),
-                                            mload(ARITHMETIC_IDENTITY),
-                                            p
-                                        ),
-                                        mload(SORT_IDENTITY),
+                                        addmod(mload(PERMUTATION_IDENTITY), mload(PLOOKUP_IDENTITY), p),
+                                        mload(ARITHMETIC_IDENTITY),
                                         p
                                     ),
-                                    mload(ELLIPTIC_IDENTITY),
+                                    mload(SORT_IDENTITY),
                                     p
                                 ),
+                                mload(ELLIPTIC_IDENTITY),
+                                p
+                            ),
                             mload(AUX_IDENTITY),
                             p
                         ),
@@ -1724,7 +1688,8 @@ error ERR(bytes32,bytes32,bytes32);
                 mstore8(0x20, 0x1d)
                 mstore(C_V29_LOC, mod(keccak256(0x00, 0x21), p))
 
-                mstore8(0x20, 0x1e)
+                // @follow-up - Why are both v29 and v30 using appending 0x1d to the prior challenge and hashing, should it not change?
+                mstore8(0x20, 0x1d)
                 challenge := keccak256(0x00, 0x21)
                 mstore(C_V30_LOC, mod(challenge, p))
 
@@ -2053,22 +2018,6 @@ error ERR(bytes32,bytes32,bytes32);
             // accumulator = accumulator + accumulator_2
             success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
 
-            // VALIDATE QDOUBLE
-            {
-                let x := mload(QDOUBLE_X_LOC)
-                let y := mload(QDOUBLE_Y_LOC)
-                let xx := mulmod(x, x, q)
-                // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
-                mstore(0x00, x)
-                mstore(0x20, y)
-            }
-            mstore(0x40, mload(C_V30_LOC))
-            // accumulator_2 = v30.[DOUBLE]
-            success := and(success, staticcall(gas(), 7, 0x00, 0x60, ACCUMULATOR2_X_LOC, 0x40))
-            // accumulator = accumulator + accumulator_2
-            success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
-
             // VALIDATE QAUX
             {
                 let x := mload(QAUX_X_LOC)
@@ -2383,7 +2332,6 @@ error ERR(bytes32,bytes32,bytes32);
                  * batch_evaluation += v13 * QARITH_EVAL
                  * batch_evaluation += v14 * QSORT_EVAL_LOC
                  * batch_evaluation += v15 * QELLIPTIC_EVAL_LOC
-                 * batch_evaluation += v30 * QDOUBLE_EVAL_LOC
                  * batch_evaluation += v16 * QAUX_EVAL_LOC
                  * batch_evaluation += v17 * SIGMA1_EVAL_LOC
                  * batch_evaluation += v18 * SIGMA2_EVAL_LOC
@@ -2399,7 +2347,6 @@ error ERR(bytes32,bytes32,bytes32);
                 batch_evaluation := addmod(batch_evaluation, mulmod(mload(C_V13_LOC), mload(QARITH_EVAL_LOC), p), p)
                 batch_evaluation := addmod(batch_evaluation, mulmod(mload(C_V14_LOC), mload(QSORT_EVAL_LOC), p), p)
                 batch_evaluation := addmod(batch_evaluation, mulmod(mload(C_V15_LOC), mload(QELLIPTIC_EVAL_LOC), p), p)
-                batch_evaluation := addmod(batch_evaluation, mulmod(mload(C_V30_LOC), mload(QDOUBLE_EVAL_LOC), p), p)
                 batch_evaluation := addmod(batch_evaluation, mulmod(mload(C_V16_LOC), mload(QAUX_EVAL_LOC), p), p)
                 batch_evaluation := addmod(batch_evaluation, mulmod(mload(C_V17_LOC), mload(SIGMA1_EVAL_LOC), p), p)
                 batch_evaluation := addmod(batch_evaluation, mulmod(mload(C_V18_LOC), mload(SIGMA2_EVAL_LOC), p), p)

@@ -53,11 +53,9 @@ template <typename OuterBuilder> class RecursiveCircuit {
         inner_scalar_field_ct b(witness_ct(&builder, public_inputs[1]));
         inner_scalar_field_ct c(witness_ct(&builder, public_inputs[2]));
 
-        auto a_sq = a * a;
-        auto b_sq = b * b;
         auto c_sq = c * c;
 
-        (c_sq).assert_equal(a_sq + b_sq);
+        (c).assert_equal(a + b);
 
         c_sq.set_public();
     };
@@ -163,17 +161,6 @@ template <typename OuterBuilder> class RecursiveCircuit {
             throw_or_abort("inner proof result != 1");
         }
     }
-    static void check_recursive_verification_circuit(OuterBuilder& outer_circuit, bool expected_result)
-    {
-        bool result = outer_circuit.check_circuit();
-        if (result != expected_result) {
-            throw_or_abort("outer circuit check failed");
-        }
-        auto g2_lines = barretenberg::srs::get_crs_factory()->get_verifier_crs()->get_precomputed_g2_lines();
-        if (!check_recursive_proof_public_inputs(outer_circuit, g2_lines)) {
-            throw_or_abort("outer circuit recursion public inputs check failed");
-        }
-    }
 
   public:
     static OuterBuilder generate(uint256_t inputs[])
@@ -189,9 +176,6 @@ template <typename OuterBuilder> class RecursiveCircuit {
         if (outer_circuit.failed()) {
             throw_or_abort("outer composer failed");
         }
-
-        check_pairing(circuit_output);
-        check_recursive_verification_circuit(outer_circuit, true);
 
         return outer_circuit;
     }

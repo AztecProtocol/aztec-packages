@@ -214,8 +214,8 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
 
     inline std::vector<std::string> ultra_selector_names()
     {
-        std::vector<std::string> result{ "q_m",     "q_c",    "q_1",        "q_2",      "q_3",   "q_4",
-                                         "q_arith", "q_sort", "q_elliptic", "q_double", "q_aux", "table_type" };
+        std::vector<std::string> result{ "q_m",     "q_c",    "q_1",        "q_2",   "q_3",       "q_4",
+                                         "q_arith", "q_sort", "q_elliptic", "q_aux", "table_type" };
         return result;
     }
     struct non_native_field_multiplication_cross_terms {
@@ -264,7 +264,6 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
         SelectorVector q_elliptic;
         SelectorVector q_aux;
         SelectorVector q_lookup_type;
-        SelectorVector q_double;
         uint32_t current_tag = DUMMY_TAG;
         std::map<uint32_t, uint32_t> tau;
 
@@ -317,7 +316,6 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
             stored_state.q_elliptic = builder.q_elliptic;
             stored_state.q_aux = builder.q_aux;
             stored_state.q_lookup_type = builder.q_lookup_type;
-            stored_state.q_double = builder.q_double;
             stored_state.current_tag = builder.current_tag;
             stored_state.tau = builder.tau;
 
@@ -417,7 +415,6 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
             builder->q_elliptic.resize(num_gates);
             builder->q_aux.resize(num_gates);
             builder->q_lookup_type.resize(num_gates);
-            builder->q_double.resize(num_gates);
         }
         /**
          * @brief Checks that the circuit state is the same as the stored circuit's one
@@ -429,75 +426,95 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
         template <typename CircuitBuilder> bool is_same_state(const CircuitBuilder& builder)
         {
             if (!(public_inputs == builder.public_inputs)) {
+                std::cout << "pubinp" << std::endl;
                 return false;
             }
             if (!(variables == builder.variables)) {
+                std::cout << "variables" << std::endl;
                 return false;
             }
             if (!(next_var_index == builder.next_var_index)) {
+                std::cout << "next var indx" << std::endl;
                 return false;
             }
             if (!(prev_var_index == builder.prev_var_index)) {
+                std::cout << "prev var idx" << std::endl;
                 return false;
             }
             if (!(real_variable_index == builder.real_variable_index)) {
+                std::cout << "real var idx" << std::endl;
                 return false;
             }
             if (!(real_variable_tags == builder.real_variable_tags)) {
+                std::cout << "var tags" << std::endl;
                 return false;
             }
             if (!(constant_variable_indices == builder.constant_variable_indices)) {
+                std::cout << "const var idx" << std::endl;
                 return false;
             }
             if (!(w_l == builder.w_l)) {
+                std::cout << "wl" << std::endl;
                 return false;
             }
             if (!(w_r == builder.w_r)) {
+                std::cout << "wr" << std::endl;
                 return false;
             }
             if (!(w_o == builder.w_o)) {
+                std::cout << "wo" << std::endl;
                 return false;
             }
             if (!(w_4 == builder.w_4)) {
+                std::cout << "w4" << std::endl;
                 return false;
             }
             if (!(q_m == builder.q_m)) {
+                std::cout << "qm" << std::endl;
                 return false;
             }
             if (!(q_c == builder.q_c)) {
+                std::cout << "qc" << std::endl;
                 return false;
             }
             if (!(q_1 == builder.q_1)) {
+                std::cout << "q1" << std::endl;
                 return false;
             }
             if (!(q_2 == builder.q_2)) {
+                std::cout << "q2" << std::endl;
                 return false;
             }
             if (!(q_3 == builder.q_3)) {
+                std::cout << "q3" << std::endl;
                 return false;
             }
             if (!(q_4 == builder.q_4)) {
+                std::cout << "q4" << std::endl;
                 return false;
             }
             if (!(q_arith == builder.q_arith)) {
+                std::cout << "qarith" << std::endl;
                 return false;
             }
             if (!(q_sort == builder.q_sort)) {
+                std::cout << "qsort" << std::endl;
                 return false;
             }
             if (!(q_elliptic == builder.q_elliptic)) {
+                std::cout << "qelliptifc" << std::endl;
                 return false;
             }
             if (!(q_aux == builder.q_aux)) {
+                std::cout << "qaux" << std::endl;
                 return false;
             }
             if (!(q_lookup_type == builder.q_lookup_type)) {
-                return false;
-            }
-            if (!(q_double == builder.q_double)) {
+                std::cout << "qlookuptype" << std::endl;
                 return false;
             }
             if (!(current_tag == builder.current_tag)) {
+                std::cout << "current tag" << std::endl;
                 return false;
             }
             if (!(tau == builder.tau)) {
@@ -526,6 +543,7 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
                 return false;
             }
             if (!(circuit_finalised == builder.circuit_finalised)) {
+                std::cout << "finalised" << std::endl;
                 return false;
             }
             return true;
@@ -551,7 +569,6 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
     SelectorVector& q_elliptic = this->selectors.q_elliptic;
     SelectorVector& q_aux = this->selectors.q_aux;
     SelectorVector& q_lookup_type = this->selectors.q_lookup_type;
-    SelectorVector& q_double = this->selectors.q_double;
 
     // These are variables that we have used a gate on, to enforce that they are
     // equal to a defined value.
@@ -1026,8 +1043,7 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
                                  FF eta) const;
     FF compute_elliptic_identity(FF q_elliptic_value,
                                  FF q_1_value,
-                                 FF q_3_value,
-                                 FF q_4_value,
+                                 FF q_m_value,
                                  FF w_2_value,
                                  FF w_3_value,
                                  FF w_1_shifted_value,
@@ -1044,13 +1060,6 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
                                      FF w_1_shifted_value,
                                      FF alpha_base,
                                      FF alpha) const;
-    FF compute_elliptic_double_identity(FF q_double_value,
-                                        FF w_2_value,
-                                        FF w_3_value,
-                                        FF w_2_shifted_value,
-                                        FF w_3_shifted_value,
-                                        FF alpha_base,
-                                        FF alpha) const;
 
     bool check_circuit();
 };

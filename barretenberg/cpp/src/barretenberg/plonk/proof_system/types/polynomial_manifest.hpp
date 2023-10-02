@@ -31,7 +31,6 @@ enum PolynomialIndex {
     TABLE_INDEX,
     TABLE_TYPE,
     Q_ELLIPTIC,
-    Q_DOUBLE,
     Q_AUX,
     SIGMA_1,
     SIGMA_2,
@@ -106,7 +105,7 @@ static constexpr PolynomialDescriptor standard_polynomial_manifest[STANDARD_MANI
     PolynomialDescriptor("SIGMA_3", "sigma_3", false, PERMUTATION, SIGMA_3), //
 };
 
-static constexpr size_t ULTRA_MANIFEST_SIZE = 31;
+static constexpr size_t ULTRA_MANIFEST_SIZE = 30;
 static constexpr PolynomialDescriptor ultra_polynomial_manifest[ULTRA_MANIFEST_SIZE]{
     PolynomialDescriptor("W_1", "w_1", true, WITNESS, W_1),                         //
     PolynomialDescriptor("W_2", "w_2", true, WITNESS, W_2),                         //
@@ -124,7 +123,6 @@ static constexpr PolynomialDescriptor ultra_polynomial_manifest[ULTRA_MANIFEST_S
     PolynomialDescriptor("Q_ARITHMETIC", "q_arith", false, SELECTOR, Q_ARITHMETIC), //
     PolynomialDescriptor("Q_SORT", "q_sort", false, SELECTOR, Q_SORT),              //
     PolynomialDescriptor("Q_ELLIPTIC", "q_elliptic", false, SELECTOR, Q_ELLIPTIC),  //
-    PolynomialDescriptor("Q_DOUBLE", "q_double", false, SELECTOR, Q_DOUBLE),        //
     PolynomialDescriptor("Q_AUX", "q_aux", false, SELECTOR, Q_AUX),                 //
     PolynomialDescriptor("SIGMA_1", "sigma_1", false, PERMUTATION, SIGMA_1),        //
     PolynomialDescriptor("SIGMA_2", "sigma_2", false, PERMUTATION, SIGMA_2),        //

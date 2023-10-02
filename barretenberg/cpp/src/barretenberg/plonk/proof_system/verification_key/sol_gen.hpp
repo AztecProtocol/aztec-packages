@@ -119,14 +119,13 @@ inline void output_vk_sol_ultra(std::ostream& os, std::shared_ptr<plonk::verific
     print_g1("0x580", "0x5a0", key->commitments.at("ID_2"), "vk.ID2");
     print_g1("0x5c0", "0x5e0", key->commitments.at("ID_3"), "vk.ID3");
     print_g1("0x600", "0x620", key->commitments.at("ID_4"), "vk.ID4");
-    print_g1("0x640", "0x660", key->commitments.at("Q_DOUBLE"), "vk.Q_DOUBLE");
     os <<
-        "            mstore(add(_vk, 0x680), " << (key->contains_recursive_proof ? "0x01" : "0x00") << ") // vk.contains_recursive_proof\n"
-        "            mstore(add(_vk, 0x6a0), " << (key->contains_recursive_proof ? key->recursive_proof_public_input_indices[0] : 0) << ") // vk.recursive_proof_public_input_indices\n"
-        "            mstore(add(_vk, 0x6c0), " <<  key->reference_string->get_g2x().x.c1 << ") // vk.g2_x.X.c1 \n"
-        "            mstore(add(_vk, 0x6e0), " <<  key->reference_string->get_g2x().x.c0 << ") // vk.g2_x.X.c0 \n"
-        "            mstore(add(_vk, 0x700), " <<  key->reference_string->get_g2x().y.c1 << ") // vk.g2_x.Y.c1 \n"
-        "            mstore(add(_vk, 0x720), " <<  key->reference_string->get_g2x().y.c0 << ") // vk.g2_x.Y.c0 \n"
+        "            mstore(add(_vk, 0x640), " << (key->contains_recursive_proof ? "0x01" : "0x00") << ") // vk.contains_recursive_proof\n"
+        "            mstore(add(_vk, 0x660), " << (key->contains_recursive_proof ? key->recursive_proof_public_input_indices[0] : 0) << ") // vk.recursive_proof_public_input_indices\n"
+        "            mstore(add(_vk, 0x680), " <<  key->reference_string->get_g2x().x.c1 << ") // vk.g2_x.X.c1 \n"
+        "            mstore(add(_vk, 0x6a0), " <<  key->reference_string->get_g2x().x.c0 << ") // vk.g2_x.X.c0 \n"
+        "            mstore(add(_vk, 0x6c0), " <<  key->reference_string->get_g2x().y.c1 << ") // vk.g2_x.Y.c1 \n"
+        "            mstore(add(_vk, 0x6e0), " <<  key->reference_string->get_g2x().y.c0 << ") // vk.g2_x.Y.c0 \n"
         "            mstore(_omegaInverseLoc, " << key->domain.root_inverse << ") // vk.work_root_inverse\n"
         "        }\n"
         "    }\n"
