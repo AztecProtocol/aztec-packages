@@ -126,7 +126,7 @@ export async function prove(
       process.stdout.write(proofWithOutPublicInputs);
       debug(`proof written to stdout`);
     } else {
-      writeFileSync(outputPath + '-public_inputs', proofWithOutPublicInputs);
+      writeFileSync(outputPath + '-public_inputs', publicInputs);
       writeFileSync(outputPath, proofWithOutPublicInputs);
       debug(`proof written to: ${outputPath}`);
     }
