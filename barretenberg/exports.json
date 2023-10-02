@@ -714,7 +714,7 @@
         "type": "const uint8_t *"
       },
       {
-        "name": "proof_buf",
+        "name": "proof_without_public_inputs_buf",
         "type": "const uint8_t *"
       },
       {
@@ -752,6 +752,10 @@
       {
         "name": "acir_composer_ptr",
         "type": "in_ptr"
+      },
+      {
+        "name": "public_inputs_buf",
+        "type": "const uint8_t *"
       },
       {
         "name": "proof_buf",
