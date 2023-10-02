@@ -938,7 +938,7 @@ jobs:
           name: "yarn-project"
           command: yarn-project/deploy_npm.sh
 
-  deploy-dockerhub:
+  deploy-dockerhub-sandbox:
     machine:
       image: ubuntu-2204:2023.07.2
     resource_class: medium
@@ -952,6 +952,21 @@ jobs:
             deploy_dockerhub aztec-sandbox x86_64
             deploy_dockerhub aztec-sandbox arm64
             create_dockerhub_manifest aztec-sandbox x86_64,arm64
+
+  deploy-dockerhub-pxe:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: medium
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "deploy-pxe"
+          working_directory: pxe
+          command: |
+            deploy_dockerhub pxe x86_64
+            deploy_dockerhub pxe arm64
+            create_dockerhub_manifest pxe x86_64,arm64
 
   deploy-end:
     docker:
@@ -1260,7 +1275,11 @@ workflows:
           <<: *defaults
 
         # Deployment and Canary tests
-      - deploy-dockerhub:
+      - deploy-dockerhub-sandbox:
+          requires:
+            - e2e-end
+          <<: *deploy_defaults
+      - deploy-dockerhub-pxe:
           requires:
             - e2e-end
           <<: *deploy_defaults
@@ -1271,7 +1290,8 @@ workflows:
 
       - deploy-end:
           requires:
-            - deploy-dockerhub
+            - deploy-dockerhub-sandbox
+            - deploy-dockerhub-pxe
             - deploy-npm
           <<: *deploy_defaults
 
