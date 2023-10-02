@@ -225,6 +225,8 @@ void proofAsFields(const std::string& proof_path, std::string const& vk_path, co
 {
     auto acir_composer = new acir_proofs::AcirComposer(MAX_CIRCUIT_SIZE, verbose);
     auto vk_data = from_buffer<plonk::verification_key_data>(read_file(vk_path));
+    vinfo("vk_data.num_public_inputs");
+    vinfo(vk_data.num_public_inputs);
     auto data = acir_composer->serialize_proof_into_fields(read_file(proof_path), vk_data.num_public_inputs);
     auto json = format("[", join(map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
 
