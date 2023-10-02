@@ -138,9 +138,15 @@ bool verify(const std::string& proof_path, bool recursive, const std::string& vk
     auto vk_data = from_buffer<plonk::verification_key_data>(read_file(vk_path));
     acir_composer->load_verification_key(barretenberg::srs::get_crs_factory(), std::move(vk_data));
 
+    // If the number of public inputs is 0, then read_file will trigger a failure
+    // because the file will be empty.
     auto public_inputs_path = proof_path + "-public_inputs";
-    auto verified =
-        acir_composer->verify_proof_splitted(read_file(public_inputs_path), read_file(proof_path), recursive);
+    std::vector<uint8_t> pub_inputs_file;
+    if (vk_data.num_public_inputs != 0) {
+        pub_inputs_file = read_file(public_inputs_path);
+    }
+    auto proof_path_file = read_file(proof_path);
+    auto verified = acir_composer->verify_proof_splitted(pub_inputs_file, proof_path_file, recursive);
 
     vinfo("verified: ", verified);
 
