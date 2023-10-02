@@ -20,6 +20,8 @@ cd ignition
 mkdir -p monomial
 cd monomial
 NUM=${1:-19}
+RANGE_START=${2:-}
+RANGE_END=${3:-}
 
 if command -v sha256sum > /dev/null; then
   SHASUM=sha256sum
@@ -33,7 +35,16 @@ checksum() {
 }
 
 download() {
-  curl https://aztec-ignition.s3-eu-west-2.amazonaws.com/MAIN%20IGNITION/monomial/transcript${1}.dat > transcript${1}.dat
+  # Initialize an empty variable for the Range header
+  RANGE_HEADER=""
+  
+  # If both RANGE_START and RANGE_END are set, add them to the Range header
+  if [ -n "$RANGE_START" ] && [ -n "$RANGE_END" ]; then
+    RANGE_HEADER="-H Range:bytes=$RANGE_START-$RANGE_END"
+  fi
+  
+  # Download the file
+  curl $RANGE_HEADER https://aztec-ignition.s3-eu-west-2.amazonaws.com/MAIN%20IGNITION/monomial/transcript${1}.dat > transcript${1}.dat
 }
 
 for TRANSCRIPT in $(seq 0 $NUM); do

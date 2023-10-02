@@ -2,7 +2,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
 
 import isNode from 'detect-node';
-import { appendFileSync, existsSync, writeFileSync } from 'fs';
+import { existsSync } from 'fs';
 import { open } from 'fs/promises';
 import { dirname } from 'path';
 
@@ -43,7 +43,8 @@ export class NetCrs {
    * Download the G2 points data.
    */
   async downloadG2Data() {
-    const g2Start = 28 + 5040001 * 64;
+    const g2Start = 28 + 5_040_001 * 64; // = 322_560_092
+
     const g2End = g2Start + 128 - 1;
 
     const response2 = await fetch('https://aztec-ignition.s3.amazonaws.com/MAIN%20IGNITION/monomial/transcript00.dat', {
@@ -85,6 +86,7 @@ export class FileCrs {
      */
     public readonly numPoints: number,
     private path: string,
+    private readonly offsetStart = true,
   ) {}
 
   /**
@@ -92,10 +94,10 @@ export class FileCrs {
    */
   async init() {
     // We need numPoints number of g1 points.
-    const g1Start = 28;
+    const g1Start = this.offsetStart ? 28 : 0;
     const g1Length = this.numPoints * 64;
 
-    const g2Start = 28 + 5040001 * 64;
+    const g2Start = 28 + 5_040_001 * 64; // = 322_560_092
     const g2Length = 128;
     // Lazily seek our data
     const fileHandle = await open(this.path, 'r');
@@ -104,7 +106,7 @@ export class FileCrs {
       await fileHandle.read(this.data, 0, g1Length, g1Start);
 
       this.g2Data = Buffer.alloc(g2Length);
-      await fileHandle.read(this.g2Data, 0, g2Length, g2Start);
+      await fileHandle.read(this.g2Data, 0, g2Length, this.offsetStart ? g2Start : g1Start + g1Length);
     } finally {
       await fileHandle.close();
     }
@@ -162,7 +164,7 @@ export class Crs {
       if (existsDev) {
         this.crs = new FileCrs(numPoints, devPath);
       } else if (existsLocal) {
-        this.crs = new FileCrs(numPoints, localPath);
+        this.crs = new FileCrs(numPoints, localPath, false);
       } else {
         this.crs = new NetCrs(numPoints);
       }
@@ -180,18 +182,22 @@ export class Crs {
       const localPath = dirname(fileURLToPath(import.meta.url)) + this.localPath;
       // save downloaded CRS on file
       if (this.saveOnFile && !existsSync(localPath)) {
-        const g1Data = this.crs.getG1Data();
+        const fileHandle = await open(localPath, 'w');
+        const g1Data = Buffer.from(this.crs.getG1Data());
         try {
-          writeFileSync(localPath, Buffer.from(g1Data));
+          await fileHandle.write(g1Data);
         } catch (error) {
           this.logger.warn('Failed to save CRS data: ', error);
         }
 
-        const g2Data = this.crs.getG2Data();
+        const g2Data = Buffer.from(this.crs.getG2Data());
         try {
-          appendFileSync(localPath, Buffer.from(g2Data));
+          await fileHandle.write(g2Data, 0, g2Data.length, g1Data.length);
+          // appendFileSync(localPath, Buffer.from(g2Data));
         } catch (error) {
-          this.logger.warn('Failed to append to CRS data: ', error);
+          this.logger.warn('Failed to append G2 data: ', error);
+        } finally {
+          await fileHandle.close();
         }
       }
     }
