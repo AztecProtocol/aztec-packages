@@ -44,9 +44,9 @@ No storage values should be initialized at slot `0` - storage slots begin at `1`
 
 ## Storage Slots
 
-Internally, Aztec keeps contract state in a storage slot key value store of type `Map<Field, Field>`, stored as a (contract specific) merkle tree. For now, storage slot positions for each variable must be explicitly assigned inside the `Storage impl`. Except for `Map` types, storage is in contiguous blocks, so you must calculate how many slots each public variable requires, and increment the next variable's slot by this amount.
+Each contract's state is represented with a storage slot key value store of type `Map<Field, Field>`. For now, storage slot positions for each variable must be explicitly assigned inside the `Storage impl`. Except for `Map` types, storage is in contiguous blocks, so you must calculate how many slots each public variable requires, and increment the next variable's slot by this amount.
 
-In defining contract storage, `Map`s can be treated as occupying only 1 storage slot (its "base_slot"), because the actual values are stored in derived slots calculated as `pedersen_hash(base_slot, key)`.
+When assigning contract storage slots, `Map`s are treated as occupying only 1 storage slot (its "base_slot"), because the actual values are stored in derived slots calculated as `map_value_storage_slot = pedersen_hash(base_slot, key)`.
 
 :::info
 Private variables only require one single slot, because all notes are linked to contract state through a single `storage slot` attribute in their header.
@@ -54,7 +54,9 @@ Private variables only require one single slot, because all notes are linked to 
 
 We currently do not support any "packing" type optimizations as in most EVM languages.
 
-Contract global state is aggregated as a single large merkle tree, with each contract's storate tree merkle root stored as the leaf in this tree, taking the contract address as the leaf index.
+Storage in Aztec is actually implemented as a single global merkle tree, with each contract's internal storage slot combined with its contract address to generate its position in the global tree as `global_storage_slot = pedersen_hash(contract_storage_slot, contract_address)`.
+
+Note: The choice of hash function is subject to change in later versions.
 
 ## Map
 
