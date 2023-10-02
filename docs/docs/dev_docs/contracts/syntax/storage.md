@@ -389,7 +389,6 @@ The usage is rather straight-forward and very similar to using the `insert` meth
 
 #include_code insert_from_public /yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
 
-
 ### `remove`
 
 Will remove a note from the set if it previously has been read from storage, e.g. you have fetched it through a `get_notes` call. This is useful when you want to remove a note that you have previously read from storage and do not have to read it again. If you recall from earlier, we are emitting a nullifier when reading values to make sure that they are up to date.
