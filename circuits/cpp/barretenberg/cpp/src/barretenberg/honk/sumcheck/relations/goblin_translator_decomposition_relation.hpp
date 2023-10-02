@@ -414,7 +414,6 @@ template <typename FF> class GoblinTranslatorDecompositionRelationBase {
             tmp_4 *= lagrange_odd;
             tmp_4 *= scaling_factor;
             std::get<3>(accumulators) += tmp_4;
-
             // Contribution 5 , P_y lowest limb decomposition
             auto tmp_5 = ((p_y_low_limbs_range_constraint_0 + p_y_low_limbs_range_constraint_1 * MICRO_LIMB_SHIFT +
                            p_y_low_limbs_range_constraint_2 * MICRO_LIMB_SHIFTx2 +

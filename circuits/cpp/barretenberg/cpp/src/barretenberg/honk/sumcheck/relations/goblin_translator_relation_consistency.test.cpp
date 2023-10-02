@@ -2,7 +2,7 @@
 #include "../polynomials/univariate.hpp"
 #include "barretenberg/honk/flavor/goblin_translator.hpp"
 #include "barretenberg/honk/sumcheck/relations/goblin_translator_decomposition_relation.hpp"
-#include "barretenberg/honk/sumcheck/relations/translator_gen_perm_sort_relation.hpp"
+#include "barretenberg/honk/sumcheck/relations/goblin_translator_gen_perm_sort_relation.hpp"
 #include "permutation_relation.hpp"
 #include "relation_parameters.hpp"
 

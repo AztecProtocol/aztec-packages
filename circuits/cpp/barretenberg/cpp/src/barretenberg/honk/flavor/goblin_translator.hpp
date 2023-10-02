@@ -6,8 +6,9 @@
 #include "barretenberg/honk/sumcheck/polynomials/barycentric_data.hpp"
 #include "barretenberg/honk/sumcheck/polynomials/univariate.hpp"
 #include "barretenberg/honk/sumcheck/relations/goblin_translator_decomposition_relation.hpp"
+#include "barretenberg/honk/sumcheck/relations/goblin_translator_extra_relations.hpp"
+#include "barretenberg/honk/sumcheck/relations/goblin_translator_gen_perm_sort_relation.hpp"
 #include "barretenberg/honk/sumcheck/relations/permutation_relation.hpp"
-#include "barretenberg/honk/sumcheck/relations/translator_gen_perm_sort_relation.hpp"
 #include "barretenberg/honk/transcript/transcript.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
@@ -264,7 +265,9 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
     // define the tuple of Relations that comprise the Sumcheck relation
     using Relations = std::tuple<sumcheck::GoblinTranslatorDecompositionRelation<FF>,
                                  sumcheck::GoblinTranslatorGenPermSortRelation<FF>,
-                                 sumcheck::GoblinTranslatorPermutationRelation<FF>>;
+                                 sumcheck::GoblinTranslatorPermutationRelation<FF>,
+                                 sumcheck::GoblinTranslatorOpRangeConstraintRelation<FF>,
+                                 sumcheck::GoblinTranslatorAccumulatorTransferRelation<FF>>;
 
     static constexpr size_t MAX_RELATION_LENGTH = get_max_relation_length<Relations>();
 
