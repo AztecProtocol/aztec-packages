@@ -7,7 +7,7 @@ import times from 'lodash.times';
 
 import { setup } from '../fixtures/utils.js';
 
-const ROLLUP_SIZES = process.env.ROLLUP_SIZES ? process.env.ROLLUP_SIZES.split(',').map(Number) : [8, 32];
+const ROLLUP_SIZES = process.env.ROLLUP_SIZES ? process.env.ROLLUP_SIZES.split(',').map(Number) : [8, 32, 128];
 
 describe('benchmarks/publish_rollup', () => {
   let context: Awaited<ReturnType<typeof setup>>;
