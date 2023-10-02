@@ -76,12 +76,9 @@ template <typename FF_> class UltraArithmeticRelationImpl {
     void static new_accumulate(TupleOverSubrelations& evals,
                                const auto& extended_edges,
                                const RelationParameters<FF>&,
-                               const FF& scaling_factor){
-        // OPTIMIZATION?: Karatsuba in general, at least for some degrees?
-        //       See https://hackmd.io/xGLuj6biSsCjzQnYN-pEiA?both
-        // clang-format off
-        // Contribution 1
-        {   
+                               const FF& scaling_factor)
+    {
+        [&]() {
             using Accumulator = std::tuple_element_t<0, TupleOverSubrelations>;
             using View = typename Accumulator::View;
             auto w_l = View(extended_edges.w_l);
@@ -105,9 +102,9 @@ template <typename FF_> class UltraArithmeticRelationImpl {
             tmp *= q_arith;
             tmp *= scaling_factor;
             std::get<0>(evals) += tmp;
-        }
-        // Contribution 2
-        {
+        }();
+        
+        [&]() {
             using Accumulator = std::tuple_element_t<1, TupleOverSubrelations>;
             using View = typename Accumulator::View;
             auto w_l = View(extended_edges.w_l);
@@ -122,7 +119,7 @@ template <typename FF_> class UltraArithmeticRelationImpl {
             tmp *= q_arith;
             tmp *= scaling_factor;
             std::get<1>(evals) += tmp;
-        }
+        }();
     };
 
     template <typename AccumulatorTypes>
@@ -179,5 +176,3 @@ template <typename FF_> class UltraArithmeticRelationImpl {
 
 template <typename FF> using UltraArithmeticRelation = Relation<UltraArithmeticRelationImpl<FF>>;
 } // namespace proof_system
-
-// clang-format on

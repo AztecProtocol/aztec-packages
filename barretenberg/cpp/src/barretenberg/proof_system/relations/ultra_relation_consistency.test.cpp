@@ -106,16 +106,16 @@ class UltraRelationConsistency : public testing::Test {
         EXPECT_EQ(accumulator, expected_values);
     };
 
-    // template <typename Relation>
-    // static void new_validate_relation_execution(const auto& expected_values,
-    //                                             const InputElements& input_elements,
-    //                                             const auto& parameters)
-    // {
-    //     typename Relation::TupleOfValuesOverSubrelations accumulator;
-    //     std::fill(accumulator.begin(), accumulator.end(), FF(0));
-    //     Relation::new_accumulate(accumulator, input_elements, parameters, 1);
-    //     EXPECT_EQ(accumulator, expected_values);
-    // };
+    template <typename Relation>
+    static void new_validate_relation_execution(const auto& expected_values,
+                                                const InputElements& input_elements,
+                                                const auto& parameters)
+    {
+        typename Relation::TupleOfValuesOverSubrelations accumulator;
+        std::fill(accumulator.begin(), accumulator.end(), FF(0));
+        Relation::new_accumulate(accumulator, input_elements, parameters, 1);
+        EXPECT_EQ(accumulator, expected_values);
+    };
 };
 
 TEST_F(UltraRelationConsistency, UltraArithmeticRelation)
@@ -156,8 +156,8 @@ TEST_F(UltraRelationConsistency, UltraArithmeticRelation)
 
         const auto parameters = RelationParameters<FF>::get_random();
 
-        validate_relation_execution<Relation>(expected_values, input_elements, parameters);
-        // new_validate_relation_execution<Relation>(expected_values, input_elements, parameters);
+        // validate_relation_execution<Relation>(expected_values, input_elements, parameters);
+        new_validate_relation_execution<Relation>(expected_values, input_elements, parameters);
     };
     run_test(/*random_inputs=*/false);
     run_test(/*random_inputs=*/true);
