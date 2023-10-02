@@ -236,12 +236,16 @@ void contract(const std::string& output_path, const std::string& vk_path)
 void proofAsFields(const std::string& proof_path, std::string const& vk_path, const std::string& output_path)
 {
 
-    auto public_inputs_file = proof_path + "-public_inputs";
+    auto vk_data = from_buffer<plonk::verification_key_data>(read_file(vk_path));
+
+    auto public_inputs_path = proof_path + "-public_inputs";
     auto proof = read_file(proof_path);
-    auto public_inputs = read_file(public_inputs_file);
+    std::vector<uint8_t> public_inputs;
+    if (vk_data.num_public_inputs != 0) {
+        public_inputs = read_file(public_inputs_path);
+    }
 
     auto acir_composer = new acir_proofs::AcirComposer(MAX_CIRCUIT_SIZE, verbose);
-    auto vk_data = from_buffer<plonk::verification_key_data>(read_file(vk_path));
     auto data = acir_composer->serialize_proof_into_fields(public_inputs, proof, vk_data.num_public_inputs);
     auto json = format("[", join(map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
 
