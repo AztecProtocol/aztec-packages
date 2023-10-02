@@ -7,6 +7,7 @@
 #include <barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp>
 #include <barretenberg/dsl/acir_proofs/acir_composer.hpp>
 #include <barretenberg/srs/global_crs.hpp>
+#include <cstddef>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -36,6 +37,28 @@ acir_format::acir_format get_constraint_system(std::string const& bytecode_path)
 {
     auto bytecode = get_bytecode(bytecode_path);
     return acir_format::circuit_buf_to_acir_format(bytecode);
+}
+
+std::vector<uint8_t> read_public_inputs(std::string const& public_inputs_path, size_t num_public_inputs)
+{
+    // If the number of public inputs is 0, then read_file will trigger a failure
+    // because the file will be empty.
+    if (num_public_inputs == 0) {
+        return {};
+    }
+    return read_file(public_inputs_path);
+}
+
+// When given a proof path, we simply append "-public_inputs" to it.
+// to derive a file path for the public inputs.
+//
+// The alternative is to have the user pass in a path for their proof
+// and a path for their public inputs. This is more verbose and
+// its likely that the user will want their public inputs to be
+// in the same directory as their proof.
+std::string public_inputs_path_from_proof_path(std::string const& proof_path)
+{
+    return proof_path + "-public_inputs";
 }
 
 /**
@@ -87,13 +110,15 @@ void prove(const std::string& bytecodePath,
         acir_composer->create_proof_public_splitted(srs::get_crs_factory(), constraint_system, witness, recursive);
 
     if (outputProofPath == "-") {
-        writeRawBytesToStdout(proof_without_public_inputs);
         writeRawBytesToStdout(public_inputs);
+        writeRawBytesToStdout(proof_without_public_inputs);
         vinfo("proof and public inputs written to stdout");
     } else {
+        auto outputPublicInputsPath = public_inputs_path_from_proof_path(outputProofPath);
+        write_file(outputPublicInputsPath, public_inputs);
         write_file(outputProofPath, proof_without_public_inputs);
-        write_file(outputProofPath + "-public_inputs", public_inputs);
-        vinfo("proof and public inputs written to: ", outputProofPath);
+        vinfo("proof written to: ", outputProofPath);
+        vinfo("public inputs written to: ", outputPublicInputsPath);
     }
 }
 
@@ -138,15 +163,10 @@ bool verify(const std::string& proof_path, bool recursive, const std::string& vk
     auto vk_data = from_buffer<plonk::verification_key_data>(read_file(vk_path));
     acir_composer->load_verification_key(barretenberg::srs::get_crs_factory(), std::move(vk_data));
 
-    // If the number of public inputs is 0, then read_file will trigger a failure
-    // because the file will be empty.
-    auto public_inputs_path = proof_path + "-public_inputs";
-    std::vector<uint8_t> pub_inputs_file;
-    if (vk_data.num_public_inputs != 0) {
-        pub_inputs_file = read_file(public_inputs_path);
-    }
-    auto proof_path_file = read_file(proof_path);
-    auto verified = acir_composer->verify_proof_splitted(pub_inputs_file, proof_path_file, recursive);
+    auto public_inputs_path = public_inputs_path_from_proof_path(proof_path);
+    std::vector<uint8_t> public_inputs = read_public_inputs(public_inputs_path, vk_data.num_public_inputs);
+    auto proof_without_public_inputs = read_file(proof_path);
+    auto verified = acir_composer->verify_proof_splitted(public_inputs, proof_without_public_inputs, recursive);
 
     vinfo("verified: ", verified);
 
@@ -235,15 +255,11 @@ void contract(const std::string& output_path, const std::string& vk_path)
  */
 void proofAsFields(const std::string& proof_path, std::string const& vk_path, const std::string& output_path)
 {
-
     auto vk_data = from_buffer<plonk::verification_key_data>(read_file(vk_path));
 
-    auto public_inputs_path = proof_path + "-public_inputs";
+    auto public_inputs_path = public_inputs_path_from_proof_path(proof_path);
     auto proof = read_file(proof_path);
-    std::vector<uint8_t> public_inputs;
-    if (vk_data.num_public_inputs != 0) {
-        public_inputs = read_file(public_inputs_path);
-    }
+    std::vector<uint8_t> public_inputs = read_public_inputs(public_inputs_path, vk_data.num_public_inputs);
 
     auto acir_composer = new acir_proofs::AcirComposer(MAX_CIRCUIT_SIZE, verbose);
     auto data = acir_composer->serialize_proof_into_fields(public_inputs, proof, vk_data.num_public_inputs);
