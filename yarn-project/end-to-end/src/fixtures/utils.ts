@@ -8,7 +8,7 @@ import {
   EthCheatCodes,
   Wallet,
   createAccounts,
-  createPXEClient as createJsonRpcClient,
+  createPXEClient,
   getSandboxAccountsWallets,
 } from '@aztec/aztec.js';
 import { CircuitsWasm, GeneratorIndex } from '@aztec/circuits.js';
@@ -42,7 +42,7 @@ import {
 } from '@aztec/l1-artifacts';
 import { NonNativeTokenContract, TokenBridgeContract, TokenContract } from '@aztec/noir-contracts/types';
 import { PXEService, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
-import { L2BlockL2Logs, LogType, PXE, TxStatus } from '@aztec/types';
+import { AztecNode, L2BlockL2Logs, LogType, PXE, TxStatus, createAztecNodeRpcClient } from '@aztec/types';
 
 import {
   Account,
@@ -76,10 +76,7 @@ export const waitForPXE = async (pxe: PXE, logger: DebugLogger) => {
   }, 'RPC Get Node Info');
 };
 
-const createAztecNode = async (
-  nodeConfig: AztecNodeConfig,
-  logger: DebugLogger,
-): Promise<AztecNodeService | undefined> => {
+const createAztecNode = async (nodeConfig: AztecNodeConfig, logger: DebugLogger): Promise<AztecNode | undefined> => {
   if (SANDBOX_URL) {
     logger(`Not creating Aztec Node as we are running against a sandbox at ${SANDBOX_URL}`);
     return undefined;
@@ -136,7 +133,7 @@ export const setupL1Contracts = async (
  */
 export async function setupPXEService(
   numberOfAccounts: number,
-  aztecNode: AztecNodeService,
+  aztecNode: AztecNode,
   logger = getLogger(),
   useLogSuffix = false,
 ): Promise<{
@@ -175,18 +172,20 @@ export async function setupPXEService(
  * @param account - The account for use in create viem wallets.
  * @param config - The aztec Node Configuration
  * @param logger - The logger to be used
- * @returns Private eXecution Environment (PXE) client, viem wallets, contract addreses etc.
+ * @returns Private eXecution Environment (PXE) client, viem wallets, contract addresses etc.
  */
 async function setupWithSandbox(account: Account, config: AztecNodeConfig, logger: DebugLogger) {
   // we are setting up against the sandbox, l1 contracts are already deployed
-  logger(`Creating JSON RPC client to remote host ${SANDBOX_URL}`);
-  const jsonClient = createJsonRpcClient(SANDBOX_URL);
-  await waitForPXE(jsonClient, logger);
+  logger(`Creating Aztec Node client to remote host ${SANDBOX_URL}`);
+  const aztecNode = createAztecNodeRpcClient('http://localhost:8079');
+  logger(`Creating PXE client to remote host ${SANDBOX_URL}`);
+  const pxeClient = createPXEClient(SANDBOX_URL);
+  await waitForPXE(pxeClient, logger);
   logger('JSON RPC client connected to PXE');
   logger(`Retrieving contract addresses from ${SANDBOX_URL}`);
-  const l1Contracts = (await jsonClient.getNodeInfo()).l1ContractAddresses;
+  const l1Contracts = (await pxeClient.getNodeInfo()).l1ContractAddresses;
   logger('PXE created, constructing wallets from initial sandbox accounts...');
-  const wallets = await getSandboxAccountsWallets(jsonClient);
+  const wallets = await getSandboxAccountsWallets(pxeClient);
 
   const walletClient = createWalletClient<HttpTransport, Chain, HDAccount>({
     account,
@@ -202,13 +201,13 @@ async function setupWithSandbox(account: Account, config: AztecNodeConfig, logge
     walletClient,
     publicClient,
   };
-  const cheatCodes = await CheatCodes.create(config.rpcUrl, jsonClient!);
+  const cheatCodes = await CheatCodes.create(config.rpcUrl, pxeClient!);
   const teardown = () => Promise.resolve();
   return {
-    aztecNode: undefined,
-    pxe: jsonClient,
+    aztecNode,
+    pxe: pxeClient,
     deployL1ContractsValues,
-    accounts: await jsonClient!.getRegisteredAccounts(),
+    accounts: await pxeClient!.getRegisteredAccounts(),
     config,
     wallet: wallets[0],
     wallets,
@@ -229,7 +228,7 @@ export async function setup(
   /**
    * The Aztec Node service.
    */
-  aztecNode: AztecNodeService | undefined;
+  aztecNode: AztecNode | undefined;
   /**
    * The Private eXecution Environment (PXE).
    */
@@ -300,7 +299,7 @@ export async function setup(
   const cheatCodes = await CheatCodes.create(config.rpcUrl, pxe!);
 
   const teardown = async () => {
-    await aztecNode?.stop();
+    if (aztecNode instanceof AztecNodeService) await aztecNode?.stop();
     if (pxe instanceof PXEService) await pxe?.stop();
   };
 
@@ -528,7 +527,7 @@ export function delay(ms: number): Promise<void> {
  * @param numEncryptedLogs - The number of expected logs.
  */
 export const expectsNumOfEncryptedLogsInTheLastBlockToBe = async (
-  aztecNode: AztecNodeService | undefined,
+  aztecNode: AztecNode | undefined,
   numEncryptedLogs: number,
 ) => {
   if (!aztecNode) {
