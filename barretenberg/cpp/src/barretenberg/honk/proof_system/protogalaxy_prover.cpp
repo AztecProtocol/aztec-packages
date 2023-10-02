@@ -48,6 +48,8 @@ ProverFoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverI
     auto log_instance_size = static_cast<size_t>(numeric::get_msb(instance_size));
     auto deltas = compute_round_challenge_pows(log_instance_size, delta);
     auto perturbator_evaluations = compute_perturbator(accumulator, deltas, alpha);
+    // auto evaluation_point = transcript.get_challenge("evaluation_point");
+    // apply barycentric evaluation to get F(alpha)
     ProverFoldingResult<Flavor> res;
     res.folding_data = transcript.proof_data;
     return res;

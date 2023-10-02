@@ -92,15 +92,28 @@ template <class ProverInstances> class ProtoGalaxyProver_ {
 
         auto betas = accumulator.folding_params.gate_separation_challenges;
 
-        // note: the tree technique can probably/maybe be done with apply tuples sth but
-
-        auto point = FF(1);
-        std::vector<FF> labels(log_instance_size);
-        for (size_t idx = 0; idx < log_instance_size; idx++) {
-            labels[idx] = betas[idx] + point * deltas[idx];
-        }
-        auto eval_at_point = FF(0);
-        for (size_t idx = 0; idx < instance_size; idx++) {
+        // note: the tree technique can probably/maybe be done with apply tuples sth, check later
+        for (size_t point = 1; point <= log_instance_size; point++) {
+            std::vector<FF> labels(log_instance_size, 0);
+            for (size_t idx = 0; idx < log_instance_size; idx++) {
+                labels[idx] = betas[idx] + point * deltas[idx];
+            }
+            auto eval_at_point = FF(0);
+            for (size_t idx = 0; idx < instance_size; idx++) {
+                auto res = full_honk_evaluations[idx];
+                auto j = idx;
+                auto iter = 0;
+                while (j > 0) {
+                    if ((j & 1) == 1) {
+                        res *= labels[iter];
+                        iter++;
+                        j >>= 1;
+                    }
+                }
+                eval_at_point += res;
+            }
+            perturbator_univariate[point] = eval_at_point;
+            transcript.send_to_verifier("perturbator_eval_" + std::to_string(point), point);
         }
         return perturbator_univariate;
     };
