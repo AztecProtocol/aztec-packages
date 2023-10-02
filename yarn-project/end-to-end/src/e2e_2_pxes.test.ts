@@ -1,11 +1,10 @@
-import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecAddress, NotePreimage, Wallet, computeMessageSecretHash } from '@aztec/aztec.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { toBigInt } from '@aztec/foundation/serialize';
 import { ChildContract, TokenContract } from '@aztec/noir-contracts/types';
 import { EthAddress, Fr, PXEService } from '@aztec/pxe';
-import { CompleteAddress, PXE, TxStatus } from '@aztec/types';
+import { AztecNode, CompleteAddress, PXE, TxStatus } from '@aztec/types';
 
 import { jest } from '@jest/globals';
 
@@ -18,7 +17,7 @@ const TIMEOUT = 60_000;
 describe('e2e_2_pxes', () => {
   jest.setTimeout(TIMEOUT);
 
-  let aztecNode: AztecNodeService | undefined;
+  let aztecNode: AztecNode | undefined;
   let pxeA: PXE;
   let pxeB: PXE;
   let walletA: Wallet;
