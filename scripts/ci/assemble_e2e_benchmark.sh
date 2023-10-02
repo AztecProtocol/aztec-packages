@@ -55,8 +55,7 @@ fi
 
 # If on a pull request, comment on it
 if [ -n "${CIRCLE_PULL_REQUEST:-}" ]; then
-  node scripts/ci/comment_e2e_benchmark.js
-  echo "commented on pr $CIRCLE_PULL_REQUEST"
+  (node scripts/ci/comment_e2e_benchmark.js && echo "commented on pr $CIRCLE_PULL_REQUEST") || echo "failed commenting on pr"
 fi
 
 

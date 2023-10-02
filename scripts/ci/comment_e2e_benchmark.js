@@ -133,7 +133,8 @@ async function main() {
     const existingComment = await getExistingComment();
     await upsertComment(existingComment?.id);
   } catch (err) {
-    console.error(`Error during execution. Failing silently.`, err);
+    console.error(`error while commenting on pull request:`, err);
+    process.exit(1);
   }
 }
 
