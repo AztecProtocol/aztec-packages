@@ -145,7 +145,7 @@ void common_validate_arrays(DummyBuilder& builder, PrivateCircuitPublicInputs<NT
  * @param builder
  * @param end Reference to previous_kernel.public_inputs.end.
  */
-void common_validate_end_arrays(DummyBuilder& builder, CombinedAccumulatedData<NT> const& end)
+void common_validate_previous_kernel_arrays(DummyBuilder& builder, CombinedAccumulatedData<NT> const& end)
 {
     // Each of the following arrays is expected to be zero-padded.
     validate_array(builder, end.read_requests, "Accumulated data - Read Requests");
@@ -157,17 +157,17 @@ void common_validate_end_arrays(DummyBuilder& builder, CombinedAccumulatedData<N
     validate_array(builder, end.new_l2_to_l1_msgs, "Accumulated data - New L2 to L1 messages");
 }
 
-void common_validate_0th_nullifier(DummyBuilder& builder, CombinedAccumulatedData<NT> const& end)
+void common_validate_previous_kernel_0th_nullifier(DummyBuilder& builder, CombinedAccumulatedData<NT> const& end)
 {
     builder.do_assert(end.new_nullifiers[0] != 0,
                       "The 0th nullifier in the accumulated nullifier array is zero",
                       CircuitErrorCode::PRIVATE_KERNEL__0TH_NULLLIFIER_IS_ZERO);
 }
 
-void common_validate_end_values(DummyBuilder& builder, CombinedAccumulatedData<NT> const& end)
+void common_validate_previous_kernel_values(DummyBuilder& builder, CombinedAccumulatedData<NT> const& end)
 {
-    common_validate_end_arrays(builder, end);
-    common_validate_0th_nullifier(builder, end);
+    common_validate_previous_kernel_arrays(builder, end);
+    common_validate_previous_kernel_0th_nullifier(builder, end);
 }
 
 void common_update_end_values(DummyBuilder& builder,
