@@ -142,7 +142,7 @@ export class Crs {
   /**
    * The path of our SRS object, if we downloaded on init.
    */
-  private localPath = `/transcript00.dat`;
+  private localPath = `/../../resources/ignition/monomial/transcript00.dat`;
 
   constructor(
     /**
