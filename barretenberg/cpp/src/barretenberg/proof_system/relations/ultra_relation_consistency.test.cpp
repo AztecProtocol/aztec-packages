@@ -372,8 +372,8 @@ TEST_F(UltraRelationConsistency, EllipticRelation)
         auto x_double_identity = (x_3 + x_1 + x_1) * y_1_sqr_mul_4 - x_1_pow_4_mul_9;
         auto y_double_identity = x_1_sqr_mul_3 * (x_1 - x_3) - (y_1 + y_1) * (y_1 + y_3);
 
-        expected_values[0] = x_double_identity * q_double;
-        expected_values[1] = y_double_identity * q_double;
+        expected_values[2] = x_double_identity * q_double;
+        expected_values[3] = y_double_identity * q_double;
 
         const auto parameters = RelationParameters<FF>::get_random();
 
