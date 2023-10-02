@@ -1,7 +1,6 @@
 // docs:start:token_all
 // docs:start:imports
 mod types;
-mod util;
 
 // Minimal token implementation that supports `AuthWit` accounts.
 // The auth message follows a similar pattern to the cross-chain message and includes a designated caller.
@@ -18,10 +17,12 @@ contract Token {
 
     use dep::aztec::{
         note::{
+            note_getter_options::NoteGetterOptions,
             note_header::NoteHeader,
             utils as note_utils,
         },
         context::{PrivateContext, PublicContext, Context},
+        hash::{compute_message_hash, compute_secret_hash},
         state_vars::{map::Map, public_state::PublicState, set::Set},
         types::type_serialization::{
             field_serialization::{FieldSerializationMethods, FIELD_SERIALIZED_LEN},
@@ -39,7 +40,6 @@ contract Token {
         balances_map::{BalancesMap},
         safe_u120_serialization::{SafeU120SerializationMethods, SAFE_U120_SERIALIZED_LEN}
     };
-    use crate::util::{compute_message_hash};
     // docs:end::imports
 
     // docs:start:storage_struct
@@ -274,11 +274,11 @@ contract Token {
         secret: Field,
     ) -> Field {
         let pending_shields = storage.pending_shields;
-        let mut public_note = TransparentNote::new_from_secret(amount, secret);
-        
-        // docs:start:assert_contains_and_remove_publicly_created
-        pending_shields.assert_contains_and_remove_publicly_created(&mut public_note);
-        // docs:end:assert_contains_and_remove_publicly_created
+        let secret_hash = compute_secret_hash(secret);
+        let options = NoteGetterOptions::new().select(0, amount).select(1, secret_hash).set_limit(1);
+        let notes = pending_shields.get_notes(options);
+        let note = notes[0].unwrap_unchecked();
+        pending_shields.remove(note);
 
         storage.balances.at(to).add(SafeU120::new(amount));
 
@@ -444,7 +444,7 @@ contract Token {
     // Note 1: Needs to be defined by every contract producing logs.
     // Note 2: Having it in all the contracts gives us the ability to compute the note hash and nullifier differently for different kind of notes.
     unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; TOKEN_NOTE_LEN]) -> [Field; 4] {
-        let note_header = NoteHeader { contract_address, nonce, storage_slot };
+        let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
         if (storage_slot == 5) {
             note_utils::compute_note_hash_and_nullifier(TransparentNoteMethods, note_header, preimage)
         } else {
@@ -452,6 +452,5 @@ contract Token {
         }
     }
     // docs:end:compute_note_hash_and_nullifier
-
 }
 // docs:end:token_all

@@ -38,10 +38,10 @@ import {
   L2BlockL2Logs,
   L2Tx,
   LogType,
+  MerkleTreeId,
   NodeInfo,
   NotePreimage,
   PXE,
-  PublicKey,
   SimulationError,
   Tx,
   TxExecutionRequest,
@@ -82,7 +82,7 @@ export class PXEService implements PXE {
     this.log = createDebugLogger(logSuffix ? `aztec:pxe_service_${logSuffix}` : `aztec:pxe_service`);
     this.synchronizer = new Synchronizer(node, db, logSuffix);
     this.contractDataOracle = new ContractDataOracle(db, node);
-    this.simulator = getAcirSimulator(db, node, node, node, keyStore, this.contractDataOracle);
+    this.simulator = getAcirSimulator(db, node, keyStore, this.contractDataOracle);
 
     this.sandboxVersion = getPackageInfo().version;
   }
@@ -200,31 +200,43 @@ export class PXEService implements PXE {
   }
 
   public async addNote(
+    account: AztecAddress,
     contractAddress: AztecAddress,
     storageSlot: Fr,
     preimage: NotePreimage,
-    nonce: Fr,
-    account: PublicKey,
+    txHash: TxHash,
+    nonce?: Fr,
   ) {
+    const { publicKey } = (await this.db.getCompleteAddress(account)) ?? {};
+    if (!publicKey) {
+      throw new Error('Unknown account.');
+    }
+
+    if (!nonce) {
+      [nonce] = await this.getNoteNonces(contractAddress, storageSlot, preimage, txHash);
+    }
+    if (!nonce) {
+      throw new Error(`Cannot find the note in tx: ${txHash}.`);
+    }
+
     const { innerNoteHash, siloedNoteHash, uniqueSiloedNoteHash, innerNullifier } =
       await this.simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, preimage.items);
 
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
     // This can always be `uniqueSiloedNoteHash` once notes added from public also include nonces.
     const noteHashToLookUp = nonce.isZero() ? siloedNoteHash : uniqueSiloedNoteHash;
-    const index = await this.node.findCommitmentIndex(noteHashToLookUp.toBuffer());
+    const index = await this.node.findLeafIndex(MerkleTreeId.PRIVATE_DATA_TREE, noteHashToLookUp.toBuffer());
     if (index === undefined) {
       throw new Error('Note does not exist.');
     }
 
     const wasm = await CircuitsWasm.get();
     const siloedNullifier = siloNullifier(wasm, contractAddress, innerNullifier!);
-    const nullifierIndex = await this.node.findNullifierIndex(siloedNullifier);
+    const nullifierIndex = await this.node.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, siloedNullifier.toBuffer());
     if (nullifierIndex !== undefined) {
       throw new Error('The note has been destroyed.');
     }
 
-    // TODO - Should not modify the db while syncing.
     await this.db.addNoteSpendingInfo({
       contractAddress,
       storageSlot,
@@ -233,7 +245,7 @@ export class PXEService implements PXE {
       innerNoteHash,
       siloedNullifier,
       index,
-      publicKey: account,
+      publicKey,
     });
   }
 
@@ -258,16 +270,23 @@ export class PXEService implements PXE {
       if (commitment.equals(Fr.ZERO)) break;
 
       const nonce = computeCommitmentNonce(wasm, firstNullifier, i);
-      const { uniqueSiloedNoteHash } = await this.simulator.computeNoteHashAndNullifier(
+      const { siloedNoteHash, uniqueSiloedNoteHash } = await this.simulator.computeNoteHashAndNullifier(
         contractAddress,
         nonce,
         storageSlot,
         preimage.items,
       );
+      // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
+      // Remove this once notes added from public also include nonces.
+      if (commitment.equals(siloedNoteHash)) {
+        nonces.push(Fr.ZERO);
+        break;
+      }
       if (commitment.equals(uniqueSiloedNoteHash)) {
         nonces.push(nonce);
       }
     }
+
     return nonces;
   }
 

@@ -2,7 +2,7 @@
 title: Storage
 ---
 
-In an Aztec.nr contract, storage is contained in a single struct containining both public and private state variables.
+In an Aztec.nr contract, storage is contained in a single struct that containins both public and private state variables.
 
 Public state variables can be read by anyone, while private state variables can only be read by their owner (or people whom the owner has shared the decrypted data/note viewing key with).
 
@@ -135,6 +135,7 @@ When declaring the storage for `T` as a persistent public storage variable, we u
 
 #### Single value example
 
+
 Say that we wish to add `admin` public state variable into our storage struct. In the struct we can define it as:
 
 #include_code storage_admin /yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
@@ -144,6 +145,7 @@ And then when initializing it in the `Storage::init` function we can do:
 #include_code storage_admin_init /yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
 
 We have specified that we are storing a `Field` that should be placed in storage slot `1`. This is just a single value, and is similar to the following in solidity:
+
 
 ```solidity
 address internal admin;
@@ -387,29 +389,6 @@ The usage is rather straight-forward and very similar to using the `insert` meth
 
 #include_code insert_from_public /yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
 
-### `assert_contains_and_remove`
-
-This function is used to check existence of a note and then remove it without having read the note ahead of time. This can be useful for cases where the user is providing all the information needed, such as cases where the note was never emitted to the network and thereby available to the wallet.
-
-#include_code assert_contains_and_remove /yarn-project/aztec-nr/aztec/src/state_vars/set.nr rust
-
-<!---
-@LHerskind
-I don't see why this one is actually needed and could not be deprecated down the line.
-Allow insertions into the rpc database and this one can be removed.
--->
-
-### `assert_contains_and_remove_publicly_created`
-
-Like above, this is used to ensure that the message exists in the data tree and then consume it. However, it differs slightly since there is currently a difference between notes that have been inserted from public and private execution. This means that you currently must use this function to consume and nullify a note that was created in a public function. This will be fixed in the future.
-
-#include_code assert_contains_and_remove_publicly_created /yarn-project/aztec-nr/aztec/src/state_vars/set.nr rust
-
-While this might look intimidating, the use of the function is rather easy, and is used in the following way:
-
-#include_code assert_contains_and_remove_publicly_created /yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
-
-The reason we are not reading this note ahead of time is that no [encrypted log](./events.md#encrypted-events) was emitted for this note, since it was created in public thereby making the encrypted log useless (everyone saw the content ahead of time).
 
 ### `remove`
 
