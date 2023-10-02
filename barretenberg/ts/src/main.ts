@@ -85,10 +85,15 @@ export async function proveAndVerify(bytecodePath: string, witnessPath: string, 
     debug(`creating proof...`);
     const bytecode = getBytecode(bytecodePath);
     const witness = getWitness(witnessPath);
-    const [publicInputs, proofWithOutPublicInputs] = await api.acirCreateProof(acirComposer, bytecode, witness, isRecursive);
+    const [publicInputs, proofWithOutPublicInputs] = await api.acirCreateProof(
+      acirComposer,
+      bytecode,
+      witness,
+      isRecursive,
+    );
 
     debug(`verifying...`);
-    const verified = await api.acirVerifyProof(acirComposer, publicInputs, proofWithOutPublicInputs,isRecursive);
+    const verified = await api.acirVerifyProof(acirComposer, publicInputs, proofWithOutPublicInputs, isRecursive);
     debug(`verified: ${verified}`);
     return verified;
   } finally {
@@ -108,7 +113,12 @@ export async function prove(
     debug(`creating proof...`);
     const bytecode = getBytecode(bytecodePath);
     const witness = getWitness(witnessPath);
-    const [publicInputs, proofWithOutPublicInputs] = await api.acirCreateProof(acirComposer, bytecode, witness, isRecursive);
+    const [publicInputs, proofWithOutPublicInputs] = await api.acirCreateProof(
+      acirComposer,
+      bytecode,
+      witness,
+      isRecursive,
+    );
     debug(`done.`);
 
     if (outputPath === '-') {
@@ -116,7 +126,7 @@ export async function prove(
       process.stdout.write(proofWithOutPublicInputs);
       debug(`proof written to stdout`);
     } else {
-      writeFileSync(outputPath+"-public_inputs", proofWithOutPublicInputs);
+      writeFileSync(outputPath + '-public_inputs', proofWithOutPublicInputs);
       writeFileSync(outputPath, proofWithOutPublicInputs);
       debug(`proof written to: ${outputPath}`);
     }
@@ -149,7 +159,12 @@ export async function verify(proofPath: string, isRecursive: boolean, vkPath: st
   const { api, acirComposer } = await initLite();
   try {
     await api.acirLoadVerificationKey(acirComposer, new RawBuffer(readFileSync(vkPath)));
-    const verified = await api.acirVerifyProof(acirComposer, readFileSync(proofPath+"-public_inputs"),readFileSync(proofPath), isRecursive);
+    const verified = await api.acirVerifyProof(
+      acirComposer,
+      readFileSync(proofPath + '-public_inputs'),
+      readFileSync(proofPath),
+      isRecursive,
+    );
     debug(`verified: ${verified}`);
     return verified;
   } finally {
