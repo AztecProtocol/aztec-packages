@@ -121,6 +121,10 @@ impl PrivateContext {
         self.inputs.private_global_variables.version
     }
 
+    fn selector(self) -> Field {
+        self.inputs.call_context.function_selector
+    }
+
     fn finish(self) -> abi::PrivateCircuitPublicInputs {
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
         let encrypted_logs_hash = [0; NUM_FIELDS_PER_SHA256];
@@ -475,6 +479,10 @@ impl PublicContext {
 
     fn version(self) -> Field {
         self.inputs.public_global_variables.version
+    }
+
+    fn selector(self) -> Field {
+        self.inputs.call_context.function_selector
     }
 
     fn block_number(self) -> Field {
