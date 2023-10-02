@@ -78,19 +78,22 @@ bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessP
 void prove(const std::string& bytecodePath,
            const std::string& witnessPath,
            bool recursive,
-           const std::string& outputPath)
+           const std::string& outputProofPath)
 {
     auto acir_composer = new acir_proofs::AcirComposer(MAX_CIRCUIT_SIZE, verbose);
     auto constraint_system = get_constraint_system(bytecodePath);
     auto witness = get_witness(witnessPath);
-    auto proof = acir_composer->create_proof(srs::get_crs_factory(), constraint_system, witness, recursive);
+    auto [proof_without_public_inputs, public_inputs] =
+        acir_composer->create_proof_public_splitted(srs::get_crs_factory(), constraint_system, witness, recursive);
 
-    if (outputPath == "-") {
-        writeRawBytesToStdout(proof);
-        vinfo("proof written to stdout");
+    if (outputProofPath == "-") {
+        writeRawBytesToStdout(proof_without_public_inputs);
+        writeRawBytesToStdout(public_inputs);
+        vinfo("proof and public inputs written to stdout");
     } else {
-        write_file(outputPath, proof);
-        vinfo("proof written to: ", outputPath);
+        write_file(outputProofPath, proof_without_public_inputs);
+        write_file(outputProofPath + "-public_inputs", public_inputs);
+        vinfo("proof and public inputs written to: ", outputProofPath);
     }
 }
 
@@ -134,7 +137,10 @@ bool verify(const std::string& proof_path, bool recursive, const std::string& vk
     auto acir_composer = new acir_proofs::AcirComposer(MAX_CIRCUIT_SIZE, verbose);
     auto vk_data = from_buffer<plonk::verification_key_data>(read_file(vk_path));
     acir_composer->load_verification_key(barretenberg::srs::get_crs_factory(), std::move(vk_data));
-    auto verified = acir_composer->verify_proof(read_file(proof_path), recursive);
+
+    auto public_inputs_path = proof_path + "-public_inputs";
+    auto verified =
+        acir_composer->verify_proof_splitted(read_file(public_inputs_path), read_file(proof_path), recursive);
 
     vinfo("verified: ", verified);
 
