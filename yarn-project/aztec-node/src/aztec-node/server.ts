@@ -54,7 +54,7 @@ import { openDb } from './db.js';
  * The aztec node.
  */
 export class AztecNodeService implements AztecNode {
-  constructor(
+  private constructor(
     protected config: AztecNodeConfig,
     protected p2pClient: P2P,
     protected blockSource: L2BlockSource,
@@ -69,7 +69,16 @@ export class AztecNodeService implements AztecNode {
     protected globalVariableBuilder: GlobalVariableBuilder,
     protected merkleTreesDb: levelup.LevelUp,
     private log = createDebugLogger('aztec:node'),
-  ) {}
+  ) {
+    const message =
+      `Started Aztec Node with contracts - \n` +
+      `Rollup: ${config.l1Contracts.rollupAddress.toString()}` +
+      `Registry: ${config.l1Contracts.registryAddress.toString()}` +
+      `Inbox: ${config.l1Contracts.inboxAddress.toString()}` +
+      `Outbox: ${config.l1Contracts.outboxAddress.toString()}` +
+      `Contract Emitter: ${config.l1Contracts.contractDeploymentEmitterAddress.toString()}`;
+    this.log(message);
+  }
 
   /**
    * initializes the Aztec Node, wait for component to sync.

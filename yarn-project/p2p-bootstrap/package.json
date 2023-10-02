@@ -27,6 +27,8 @@
     "@aztec/foundation": "workspace:^",
     "@aztec/p2p": "workspace:^",
     "dotenv": "^16.0.3",
+    "koa": "^2.14.2",
+    "koa-router": "^12.0.0",
     "tslib": "^2.4.0"
   },
   "devDependencies": {
