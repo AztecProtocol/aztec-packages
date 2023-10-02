@@ -665,6 +665,8 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
     /**
      * @brief A container for polynomials produced after the first round of sumcheck.
      * @todo TODO(#394) Use polynomial classes for guaranteed memory alignment.
+     * WORKTODO: This name doesn't make much sense. But this class should go away anyway.
+     *           Should just repurpose ClaimedEvaluations?
      */
     using RowPolynomials = AllEntities<FF, FF>;
 

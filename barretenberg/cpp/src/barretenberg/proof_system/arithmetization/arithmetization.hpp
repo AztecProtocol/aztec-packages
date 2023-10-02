@@ -176,6 +176,13 @@ template <typename _FF> class Ultra : public Arithmetization</*NUM_WIRES =*/4, /
         // ~Selectors() = default;
     };
 };
+
+class BabyVM : public Arithmetization</*NUM_WIRES =*/5, /*num_selectors =*/0> {
+  public:
+    using FF = barretenberg::fr;
+    struct Selectors {};
+};
+
 class GoblinTranslator : public Arithmetization</*NUM_WIRES =*/78, /*num_selectors =*/0> {
   public:
     // Dirty hack

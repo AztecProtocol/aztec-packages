@@ -523,6 +523,8 @@ template <typename Flavor> class ECCVMCircuitBuilder {
             for (size_t i = 0; i < num_rows; ++i) {
                 typename Flavor::RowPolynomials row;
                 for (size_t j = 0; j < NUM_POLYNOMIALS; ++j) {
+                    // WORKTODO: Confusing naming here:
+                    // "Populate the the j-th row polynomial with the i-th entry of the j-th raw polynomial."
                     row[j] = rows[j][i];
                 }
                 relation.add_full_relation_value_contribution(result, row, params, 1);
