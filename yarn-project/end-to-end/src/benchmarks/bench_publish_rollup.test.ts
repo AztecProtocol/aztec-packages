@@ -20,7 +20,7 @@ describe('benchmarks/publish_rollup', () => {
     token = await TokenContract.deploy(context.wallet).send().deployed();
     [owner, recipient] = context.accounts.map(a => a.address);
     await token.methods._initialize(owner).send().wait();
-    await token.methods.mint_public(owner, 100000n).send().wait();
+    await token.methods.mint_public(owner, 20000n).send().wait();
     await context.aztecNode?.getSequencer().stop();
   }, 60_000);
 

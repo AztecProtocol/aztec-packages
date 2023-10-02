@@ -24,7 +24,7 @@ elif [ -n "${CIRCLE_PULL_REQUEST:-}" ]; then
   TARGET_FOLDER="logs-v1/pulls/$CIRCLE_PULL_REQUEST"
 fi
 
-if [ -n "${TARGET_FOLDER:-}"]; then
+if [ -n "${TARGET_FOLDER:-}" ]; then
   aws s3 cp $LOG_FOLDER "s3://${BUCKET_NAME}/${TARGET_FOLDER}"  --include "*.jsonl" --recursive
 else
   echo Skipping upload since no target folder was defined
