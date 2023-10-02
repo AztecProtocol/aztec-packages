@@ -154,6 +154,8 @@ KernelCircuitPublicInputsFinal<NT> native_private_kernel_circuit_ordering(
     // We'll be pushing data to this during execution of this circuit.
     KernelCircuitPublicInputsFinal<NT> public_inputs{};
 
+    common_validate_end_values(builder, private_inputs.previous_kernel.public_inputs.end);
+
     // Do this before any functions can modify the inputs.
     initialise_end_values(private_inputs.previous_kernel, public_inputs);
 
