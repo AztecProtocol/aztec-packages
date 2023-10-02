@@ -24,7 +24,7 @@ TEST(BabyVMTraceBuilderTests, Basic)
         trace.mul_accumulate(b);
         trace.mul_accumulate(x);
         trace.add_accumulate(a);
-        trace.eq_and_reset(expected);
+        trace.eq_and_reset(1);
 
         bool result = trace.check_gates();
         EXPECT_EQ(result, expected_result);

@@ -30,13 +30,13 @@ template <typename FF_> class BabyVMRelationImpl {
 
     /**
      * @brief Expression for the BabyVMMultiplication gate.
-     * @details The relation is defined as, for some challenge c,
+     * @details The relation is defined as, for some challenge c (the scaling factor),
      *
-     *     c^0 + (1 - q_mul) *      q_mul
-     *     c^1 + (1 - q_add) *      q_add
-     *     c^2 + (1 - q_add) * (1 - q_mul) * (accumulator - scalar)
-     *     c^3 + (1 - q_mul) *      q_add  * (accumulator - (previous_accumulator + scalar))
-     *     c^4 + (1 - q_add) *      q_mul  * (accumulator - (previous_accumulator * scalar))
+     *     c^0 * (1 - q_mul) *      q_mul
+     *   + c^1 * (1 - q_add) *      q_add
+     *   + c^2 * (1 - q_add) * (1 - q_mul) * (accumulator - scalar)
+     *   + c^3 * (1 - q_mul) *      q_add  * (accumulator - (previous_accumulator + scalar))
+     *   + c^4 * (1 - q_add) *      q_mul  * (accumulator - (previous_accumulator * scalar))
      *
      * @param accumulator the term being calculated by a sequence of calls to this function
      * @param new_term the term added to the accumulator in this iteration of the function
@@ -80,6 +80,7 @@ template <typename FF_> class BabyVMRelationImpl {
             auto tmp = (FF(1) - q_add);
             tmp *= (FF(1) - q_mul);
             tmp *= (accumulator - scalar);
+            tmp *= scaling_factor;
             std::get<2>(accumulators) += tmp;
         }();
 
@@ -88,6 +89,7 @@ template <typename FF_> class BabyVMRelationImpl {
             auto tmp = (FF(1) - q_mul);
             tmp *= q_add;
             tmp *= (accumulator - (previous_accumulator + scalar));
+            tmp *= scaling_factor;
             std::get<3>(accumulators) += tmp;
         }();
 
@@ -96,6 +98,7 @@ template <typename FF_> class BabyVMRelationImpl {
             auto tmp = (FF(1) - q_add);
             tmp *= q_mul;
             tmp *= (accumulator - (previous_accumulator * scalar));
+            tmp *= scaling_factor;
             std::get<4>(accumulators) += tmp;
         }();
     };
