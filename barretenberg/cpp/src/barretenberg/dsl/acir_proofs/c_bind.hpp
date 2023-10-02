@@ -27,10 +27,11 @@ WASM_EXPORT void acir_init_proving_key(in_ptr acir_composer_ptr, uint8_t const* 
  * to pass it in everytime.
  */
 WASM_EXPORT void acir_create_proof(in_ptr acir_composer_ptr,
-                                   uint8_t const* constraint_system_buf,
-                                   uint8_t const* witness_buf,
+                                   uint8_t const* acir_vec,
+                                   uint8_t const* witness_vec,
                                    bool const* is_recursive,
-                                   uint8_t** out);
+                                   uint8_t** out_public_inputs,
+                                   uint8_t** out_proof_without_public_inputs);
 
 WASM_EXPORT void acir_load_verification_key(in_ptr acir_composer_ptr, uint8_t const* vk_buf);
 
@@ -39,6 +40,7 @@ WASM_EXPORT void acir_init_verification_key(in_ptr acir_composer_ptr);
 WASM_EXPORT void acir_get_verification_key(in_ptr acir_composer_ptr, uint8_t** out);
 
 WASM_EXPORT void acir_verify_proof(in_ptr acir_composer_ptr,
+                                   uint8_t const* public_inputs_buf,
                                    uint8_t const* proof_buf,
                                    bool const* is_recursive,
                                    bool* result);
