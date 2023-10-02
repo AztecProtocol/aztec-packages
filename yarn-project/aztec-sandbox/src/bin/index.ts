@@ -14,7 +14,7 @@ import { createSandbox } from '../sandbox.js';
 import { startHttpRpcServer } from '../server.js';
 import { github, splash } from '../splash.js';
 
-const { NODE_PORT = 8079, SERVER_PORT = 8080 } = process.env;
+const { AZTEC_NODE_PORT = 8079, PXE_PORT = 8080 } = process.env;
 
 const logger = createDebugLogger('aztec:sandbox');
 
@@ -56,9 +56,9 @@ async function main() {
   process.once('SIGTERM', shutdown);
 
   startHttpRpcServer(node, createAztecNodeRpcServer, 8079);
-  logger.info(`Aztec Node JSON-RPC Server listening on port ${NODE_PORT}`);
-  startHttpRpcServer(pxe, createPXERpcServer, SERVER_PORT);
-  logger.info(`Aztec Sandbox JSON-RPC Server listening on port ${SERVER_PORT}`);
+  logger.info(`Aztec Node JSON-RPC Server listening on port ${AZTEC_NODE_PORT}`);
+  startHttpRpcServer(pxe, createPXERpcServer, PXE_PORT);
+  logger.info(`PXE JSON-RPC Server listening on port ${PXE_PORT}`);
   logger.info(`Debug logs will be written to ${logPath}`);
   const accountStrings = [`Initial Accounts:\n\n`];
 
