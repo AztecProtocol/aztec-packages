@@ -79,8 +79,10 @@ bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessP
     auto acir_composer = new acir_proofs::AcirComposer(MAX_CIRCUIT_SIZE, verbose);
     auto constraint_system = get_constraint_system(bytecodePath);
     auto witness = get_witness(witnessPath);
-    auto proof = acir_composer->create_proof(srs::get_crs_factory(), constraint_system, witness, recursive);
-    auto verified = acir_composer->verify_proof(proof, recursive);
+    auto [public_inputs, proof_without_public_inputs] =
+        acir_composer->create_proof(srs::get_crs_factory(), constraint_system, witness, recursive);
+
+    auto verified = acir_composer->verify_proof(public_inputs, proof_without_public_inputs, recursive);
 
     vinfo("verified: ", verified);
     return verified;
@@ -96,7 +98,7 @@ bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessP
  * @param bytecodePath Path to the file containing the serialized circuit
  * @param witnessPath Path to the file containing the serialized witness
  * @param recursive Whether to use recursive proof generation of non-recursive
- * @param outputPath Path to write the proof to
+ * @param outputProofPath Path to write the proof to - The proof does not contain public inputs
  */
 void prove(const std::string& bytecodePath,
            const std::string& witnessPath,
@@ -107,7 +109,7 @@ void prove(const std::string& bytecodePath,
     auto constraint_system = get_constraint_system(bytecodePath);
     auto witness = get_witness(witnessPath);
     auto [public_inputs, proof_without_public_inputs] =
-        acir_composer->create_proof_public_splitted(srs::get_crs_factory(), constraint_system, witness, recursive);
+        acir_composer->create_proof(srs::get_crs_factory(), constraint_system, witness, recursive);
 
     if (outputProofPath == "-") {
         writeRawBytesToStdout(public_inputs);
@@ -151,7 +153,7 @@ void gateCount(const std::string& bytecodePath)
  * - proc_exit: A boolean value is returned indicating whether the proof is valid.
  *   an exit code of 0 will be returned for success and 1 for failure.
  *
- * @param proof_path Path to the file containing the serialized proof
+ * @param proof_path Path to the file containing the serialized proof without public inputs preprended
  * @param recursive Whether to use recursive proof generation of non-recursive
  * @param vk_path Path to the file containing the serialized verification key
  * @return true If the proof is valid
@@ -166,7 +168,7 @@ bool verify(const std::string& proof_path, bool recursive, const std::string& vk
     auto public_inputs_path = public_inputs_path_from_proof_path(proof_path);
     std::vector<uint8_t> public_inputs = read_public_inputs(public_inputs_path, vk_data.num_public_inputs);
     auto proof_without_public_inputs = read_file(proof_path);
-    auto verified = acir_composer->verify_proof_splitted(public_inputs, proof_without_public_inputs, recursive);
+    auto verified = acir_composer->verify_proof(public_inputs, proof_without_public_inputs, recursive);
 
     vinfo("verified: ", verified);
 
