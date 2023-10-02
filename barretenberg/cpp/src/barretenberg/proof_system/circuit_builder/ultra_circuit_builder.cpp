@@ -3367,7 +3367,9 @@ template <typename FF> bool UltraCircuitBuilder_<FF>::check_circuit()
                                          arithmetic_base,
                                          alpha)
                  .is_zero()) {
+#ifndef FUZZING
             info("Arithemtic identity fails at gate ", i);
+#endif
             result = false;
             break;
         }
@@ -3391,14 +3393,17 @@ template <typename FF> bool UltraCircuitBuilder_<FF>::check_circuit()
                                        alpha,
                                        eta)
                  .is_zero()) {
+#ifndef FUZZING
             info("Auxilary identity fails at gate ", i);
+#endif
 
             result = false;
             break;
         }
         if (!compute_elliptic_identity(q_elliptic_value,
                                        q_1_value,
-                                       q_m_value,
+                                       q_3_value,
+                                       q_4_value,
                                        w_2_value,
                                        w_3_value,
                                        w_1_shifted_value,
@@ -3408,14 +3413,18 @@ template <typename FF> bool UltraCircuitBuilder_<FF>::check_circuit()
                                        elliptic_base,
                                        alpha)
                  .is_zero()) {
+#ifndef FUZZING
             info("Elliptic identity fails at gate ", i);
+#endif
             result = false;
             break;
         }
         if (!compute_genperm_sort_identity(
                  q_sort_value, w_1_value, w_2_value, w_3_value, w_4_value, w_1_shifted_value, genperm_sort_base, alpha)
                  .is_zero()) {
+#ifndef FUZZING
             info("Genperm sort identity fails at gate ", i);
+#endif
 
             result = false;
             break;
@@ -3425,16 +3434,21 @@ template <typename FF> bool UltraCircuitBuilder_<FF>::check_circuit()
                                                      w_2_value + q_m_value * w_2_shifted_value,
                                                      w_3_value + q_c_value * w_3_shifted_value,
                                                      q_3_value))) {
+#ifndef FUZZING
                 info("Lookup fails at gate ", i);
+#endif
+
                 result = false;
                 break;
             }
         }
     }
     if (left_tag_product != right_tag_product) {
+#ifndef FUZZING
         if (result) {
             info("Tag permutation failed");
         }
+#endif
 
         result = false;
     }
