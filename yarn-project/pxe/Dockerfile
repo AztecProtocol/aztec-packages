@@ -8,11 +8,6 @@ RUN if [[ -n "${COMMIT_TAG}" ]]; then \
   jq --arg v ${COMMIT_TAG} '.version = $v' package.json > _temp && mv _temp package.json; \
   fi
 
-WORKDIR /usr/src/yarn-project/pxe
-RUN if [[ -n "${COMMIT_TAG}" ]]; then \
-  jq --arg v ${COMMIT_TAG} '.version = $v' package.json > _temp && mv _temp package.json; \
-  fi
-
 # Productionify. See comment in yarn-project-base/Dockerfile.
 RUN yarn cache clean && yarn workspaces focus --production
 
