@@ -344,7 +344,7 @@ program
   .description('Return the proof as fields elements')
   .requiredOption('-p, --proof-path <path>', 'Specify the proof path')
   .requiredOption('-o, --output-path <path>', 'Specify the JSON path to write the proof fields')
-  .action(async ({ proofPath,  outputPath }) => {
+  .action(async ({ proofPath, outputPath }) => {
     handleGlobalOptions();
     await proofAsFields(proofPath, outputPath);
   });
