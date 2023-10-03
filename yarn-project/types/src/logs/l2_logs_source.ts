@@ -1,3 +1,6 @@
+import { AztecAddress, FunctionSelector } from '@aztec/circuits.js';
+
+import { ExtendedUnencryptedL2Log } from './extended_unencrypted_l2_log.js';
 import { L2BlockL2Logs } from './l2_block_l2_logs.js';
 import { LogType } from './log_type.js';
 
@@ -13,6 +16,21 @@ export interface L2LogsSource {
    * @returns The requested logs.
    */
   getLogs(from: number, limit: number, logType: LogType): Promise<L2BlockL2Logs[]>;
+
+  /**
+   * Gets up to `limit` amount of logs starting from `from` from contract `contractAddress` and event defined by `selector`.
+   * @param from - Number of the L2 block to which corresponds the first logs to be returned.
+   * @param limit - The maximum number of logs to return.
+   * @param contractAddress - The contract address to filter logs by.
+   * @param selector - The event selector to filter logs by.
+   * @returns The requested logs.
+   */
+  getUnencryptedLogs(
+    from: number,
+    limit: number,
+    contractAddress: AztecAddress,
+    selector: FunctionSelector,
+  ): Promise<ExtendedUnencryptedL2Log[]>;
 
   /**
    * Starts the encrypted logs source.
