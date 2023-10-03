@@ -428,6 +428,50 @@ template <typename Fr> Fr Polynomial<Fr>::evaluate_mle(std::span<const Fr> evalu
     return result;
 }
 
+template <typename Fr> Polynomial<Fr> Polynomial<Fr>::partial_evaluate_mle(std::span<const Fr> evaluation_points) const
+{
+    // Get size of partial evaluation point u = (u_0,...,u_{m-1})
+    const size_t m = evaluation_points.size();
+
+    // WORKTODO: Assert that the size of the polynomial being evaluated is a power of 2 and > (1 << m)
+    ASSERT(size_ >= static_cast<size_t>(1 << m));
+    size_t n = numeric::get_msb(size_);
+
+    // we do m rounds l = 0,...,m-1.
+    // in round l, n_l is the size of the buffer containing the polynomial partially evaluated
+    // at u_0,..., u_l in variables X_{n-l-1}, ..., X_{n-1}.
+    // in round 0, this is half the size of the original polynomial
+    size_t n_l = 1 << (n - 1);
+
+    // temporary buffer of half the size of the polynomial
+    pointer tmp_ptr = allocate_aligned_memory(sizeof(Fr) * n_l);
+    auto tmp = tmp_ptr.get();
+
+    Fr* prev = coefficients_.get();
+
+    // Evaluate variable X_{n-1} at u_{m-1}
+    Fr u_l = evaluation_points[m - 1];
+    for (size_t i = 0; i < n_l; ++i) {
+        tmp[i] = prev[i] + u_l * (prev[i + n_l] - prev[i]);
+    }
+    // Evaluate m-1 variables X_{n-l-1}, ..., X_{n-2} at m-1 remaining values u_0,...,u_{m-2})
+    for (size_t l = 1; l < m; ++l) {
+        n_l = 1 << (n - l - 1);
+        u_l = evaluation_points[m - l - 1];
+        for (size_t i = 0; i < n_l; ++i) {
+            tmp[i] = tmp[i] + u_l * (tmp[i + n_l] - tmp[i]);
+        }
+    }
+
+    // Construct resulting polynomial g(X_0,…,X_{n-m-1})) = p(X_0,…,X_{n-m-1},u_0,...u_{m-1}) from buffer
+    auto result = Polynomial<Fr>(n_l);
+    for (size_t idx = 0; idx < n_l; ++idx) {
+        result[idx] = tmp[idx];
+    }
+
+    return result;
+}
+
 template <typename Fr> typename Polynomial<Fr>::pointer Polynomial<Fr>::allocate_aligned_memory(const size_t size) const
 {
     return std::static_pointer_cast<Fr[]>(get_mem_slab(size));
