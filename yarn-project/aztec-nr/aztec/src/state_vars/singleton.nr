@@ -10,11 +10,19 @@ use crate::oracle;
 use dep::std::hash::pedersen_with_separator;
 use dep::std::option::Option;
 
+fn compute_singleton_initialisation_nullifier(storage_slot: Field) -> Field {
+    pedersen_with_separator(
+        [storage_slot],
+        GENERATOR_INDEX__INITIALISATION_NULLIFIER,
+    )[0]
+}
+
 // docs:start:struct
 struct Singleton<Note, N> {
     context: Option<&mut PrivateContext>,
     storage_slot: Field,
     note_interface: NoteInterface<Note, N>,
+    compute_initialisation_nullifier: fn (Field) -> Field,
 }
 // docs:end:struct
 
@@ -30,36 +38,33 @@ impl<Note, N> Singleton<Note, N> {
             context: context.private,
             storage_slot,
             note_interface,
+            compute_initialisation_nullifier: compute_singleton_initialisation_nullifier,
         }
     }
     // docs:end:new
 
     unconstrained fn is_initialized(self) -> bool {
-        let nullifier = self.compute_initialisation_nullifier();
+        let compute_initialisation_nullifier = self.compute_initialisation_nullifier;
+        let nullifier = compute_initialisation_nullifier(self.storage_slot);
         oracle::notes::is_nullifier_emitted(nullifier)
     }
 
     // docs:start:initialize
     fn initialize(self, note: &mut Note) {
-        let context = self.context.unwrap();
+        let context = self.context.unwrap_unchecked();
+
         // Nullify the storage slot.
-        let nullifier = self.compute_initialisation_nullifier();
+        let compute_initialisation_nullifier = self.compute_initialisation_nullifier;
+        let nullifier = compute_initialisation_nullifier(self.storage_slot);
         context.push_new_nullifier(nullifier, EMPTY_NULLIFIED_COMMITMENT);
 
         create_note(context, self.storage_slot, note, self.note_interface);
     }
     // docs:end:initialize
 
-    fn compute_initialisation_nullifier(self) -> Field {
-        pedersen_with_separator(
-            [self.storage_slot],
-            GENERATOR_INDEX__INITIALISATION_NULLIFIER,
-        )[0]
-    }
-
     // docs:start:replace
     fn replace(self, new_note: &mut Note) {
-        let context = self.context.unwrap();
+        let context = self.context.unwrap_unchecked();
         let prev_note = get_note(context, self.storage_slot, self.note_interface);
 
         // Nullify previous note.
@@ -72,7 +77,7 @@ impl<Note, N> Singleton<Note, N> {
 
     // docs:start:get_note
     fn get_note(self) -> Note {
-        let context = self.context.unwrap();
+        let context = self.context.unwrap_unchecked();
         let mut note = get_note(context, self.storage_slot, self.note_interface);
 
         // Nullify current note to make sure it's reading the latest note.
