@@ -56,9 +56,9 @@ The position of each note in the UTXO tree does not matter - the relationship to
 :::info
 Private variables only require one single slot, because all notes are linked their contract variable through the `storage slot` attribute in their note header (which also contains the contract address and nonce). :::
 
-We currently do not support any "packing" type optimizations as in most EVM languages.
+We currently do not support any "bit packing" type optimizations as in most EVM languages.
 
-Note: The choice of hash function is subject to change in later versions.
+Note: The choice of hash function for global slot position is subject to change in later versions.
 
 ## Map
 
