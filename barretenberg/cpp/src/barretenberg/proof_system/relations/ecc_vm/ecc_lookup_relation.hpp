@@ -28,21 +28,7 @@ template <typename FF_> class ECCVMLookupRelationBase {
     template <template <size_t...> typename AccumulatorTypesContainer>
     using GetAccumulatorTypes = AccumulatorTypesContainer<LEN_1, LEN_2>;
 
-    template <typename T> using GetAccumulators0Old = typename std::tuple_element_t<0, typename T::Accumulators>;
-    template <typename T> using GetAccumulators0New = typename std::tuple_element_t<0, T>;
-
     static constexpr std::array<bool, 2> SUBRELATION_LINEARLY_INDEPENDENT = { true, false };
-
-    template <typename AccumulatorTypes>
-    static GetAccumulators0Old<AccumulatorTypes> convert_to_wnaf(const auto& s0, const auto& s1)
-    {
-        auto t = s0 + s0;
-        t += t;
-        t += s1;
-
-        auto naf = t + t - 15;
-        return naf;
-    }
 
     template <typename AllValues> static bool lookup_exists_at_row(const AllValues& row)
 
@@ -59,46 +45,38 @@ template <typename FF_> class ECCVMLookupRelationBase {
      * @param index
      * @return Univariate
      */
-    template <typename AccumulatorTypes, size_t read_index>
-    static GetAccumulators0Old<AccumulatorTypes> compute_read_term_predicate(const auto& extended_edges,
-                                                                             const RelationParameters<FF>& /*unused*/,
-                                                                             const size_t index = 0)
+    template <typename Accumulator0, size_t read_index> static Accumulator0 compute_read_term_predicate(const auto& in)
 
     {
+        using View = typename Accumulator0::View;
+
         if constexpr (read_index == 0) {
-            return GetAccumulators0Old<AccumulatorTypes>(
-                get_view<FF, AccumulatorTypes>(extended_edges.msm_add1, index));
+            return Accumulator0(View(in.msm_add1));
         }
         if constexpr (read_index == 1) {
-            return GetAccumulators0Old<AccumulatorTypes>(
-                get_view<FF, AccumulatorTypes>(extended_edges.msm_add2, index));
+            return Accumulator0(View(in.msm_add2));
         }
         if constexpr (read_index == 2) {
-            return GetAccumulators0Old<AccumulatorTypes>(
-                get_view<FF, AccumulatorTypes>(extended_edges.msm_add3, index));
+            return Accumulator0(View(in.msm_add3));
         }
         if constexpr (read_index == 3) {
-            return GetAccumulators0Old<AccumulatorTypes>(
-                get_view<FF, AccumulatorTypes>(extended_edges.msm_add4, index));
+            return Accumulator0(View(in.msm_add4));
         }
-        return GetAccumulators0Old<AccumulatorTypes>(1);
+        return Accumulator0(1);
     }
 
-    template <typename AccumulatorTypes, size_t write_index>
-    static GetAccumulators0Old<AccumulatorTypes> compute_write_term_predicate(const auto& extended_edges,
-                                                                              const RelationParameters<FF>& /*unused*/,
-                                                                              const size_t index = 0)
-
+    template <typename Accumulator0, size_t write_index>
+    static Accumulator0 compute_write_term_predicate(const auto& in)
     {
+        using View = typename Accumulator0::View;
+
         if constexpr (write_index == 0) {
-            return GetAccumulators0Old<AccumulatorTypes>(
-                get_view<FF, AccumulatorTypes>(extended_edges.precompute_select, index));
+            return Accumulator0(View(in.precompute_select));
         }
         if constexpr (write_index == 1) {
-            return GetAccumulators0Old<AccumulatorTypes>(
-                get_view<FF, AccumulatorTypes>(extended_edges.precompute_select, index));
+            return Accumulator0(View(in.precompute_select));
         }
-        return GetAccumulators0Old<AccumulatorTypes>(1);
+        return Accumulator0(1);
     }
 
     template <typename Accumulator0, size_t write_index, typename AllEntities>

@@ -26,13 +26,13 @@ void ECCVMLookupRelationBase<FF>::accumulate(typename AccumulatorTypes::Accumula
                                              const FF& scaling_factor)
 {
     using View = typename std::tuple_element_t<0, typename AccumulatorTypes::AccumulatorViews>;
-    using Accumulator = typename std::tuple_element_t<0, typename AccumulatorTypes::Accumulators>;
+    using Accumulator0 = typename std::tuple_element_t<0, typename AccumulatorTypes::Accumulators>;
 
     auto lookup_inverses = View(extended_edges.lookup_inverses);
 
     constexpr size_t NUM_TOTAL_TERMS = READ_TERMS + WRITE_TERMS;
-    std::array<Accumulator, NUM_TOTAL_TERMS> lookup_terms;
-    std::array<Accumulator, NUM_TOTAL_TERMS> denominator_accumulator;
+    std::array<Accumulator0, NUM_TOTAL_TERMS> lookup_terms;
+    std::array<Accumulator0, NUM_TOTAL_TERMS> denominator_accumulator;
 
     // The lookup relation = \sum_j (1 / read_term[j]) - \sum_k (read_counts[k] / write_term[k])
     // To get the inverses (1 / read_term[i]), (1 / write_term[i]), we have a commitment to the product of all inverses
@@ -41,9 +41,9 @@ void ECCVMLookupRelationBase<FF>::accumulate(typename AccumulatorTypes::Accumula
     // i.e. (1 / read_term[i]) = lookup_inverse * \prod_{j /ne i} (read_term[j]) * \prod_k (write_term[k])
     //      (1 / write_term[i]) = lookup_inverse * \prod_j (read_term[j]) * \prod_{k ne i} (write_term[k])
     barretenberg::constexpr_for<0, READ_TERMS, 1>(
-        [&]<size_t i>() { lookup_terms[i] = compute_read_term<Accumulator, i>(extended_edges, relation_params); });
+        [&]<size_t i>() { lookup_terms[i] = compute_read_term<Accumulator0, i>(extended_edges, relation_params); });
     barretenberg::constexpr_for<0, WRITE_TERMS, 1>([&]<size_t i>() {
-        lookup_terms[i + READ_TERMS] = compute_write_term<Accumulator, i>(extended_edges, relation_params);
+        lookup_terms[i + READ_TERMS] = compute_write_term<Accumulator0, i>(extended_edges, relation_params);
     });
 
     barretenberg::constexpr_for<0, NUM_TOTAL_TERMS, 1>(
@@ -52,7 +52,7 @@ void ECCVMLookupRelationBase<FF>::accumulate(typename AccumulatorTypes::Accumula
     barretenberg::constexpr_for<0, NUM_TOTAL_TERMS - 1, 1>(
         [&]<size_t i>() { denominator_accumulator[i + 1] *= denominator_accumulator[i]; });
 
-    auto inverse_accumulator = Accumulator(lookup_inverses); // denominator_accumulator[NUM_TOTAL_TERMS - 1];
+    auto inverse_accumulator = Accumulator0(lookup_inverses); // denominator_accumulator[NUM_TOTAL_TERMS - 1];
 
     const auto row_has_write = View(extended_edges.precompute_select);
     const auto row_has_read = View(extended_edges.msm_add) + View(extended_edges.msm_skew);
@@ -73,14 +73,13 @@ void ECCVMLookupRelationBase<FF>::accumulate(typename AccumulatorTypes::Accumula
     // degree of relation at this point = NUM_TOTAL_TERMS + 1
     barretenberg::constexpr_for<0, READ_TERMS, 1>([&]<size_t i>() {
         std::get<1>(accumulator) +=
-            compute_read_term_predicate<AccumulatorTypes, i>(extended_edges, relation_params, 0) *
-            denominator_accumulator[i];
+            compute_read_term_predicate<Accumulator0, i>(extended_edges) * denominator_accumulator[i];
     });
 
     // each predicate is degree-1, `lookup_read_counts` is degree-1
     // degree of relation = NUM_TOTAL_TERMS + 2 = 6 + 2
     barretenberg::constexpr_for<0, WRITE_TERMS, 1>([&]<size_t i>() {
-        const auto p = compute_write_term_predicate<AccumulatorTypes, i>(extended_edges, relation_params, 0);
+        const auto p = compute_write_term_predicate<Accumulator0, i>(extended_edges);
         const auto lookup_read_count = View(extended_edges.template lookup_read_counts<i>());
         std::get<1>(accumulator) -= p * (denominator_accumulator[i + READ_TERMS] * lookup_read_count);
     });
