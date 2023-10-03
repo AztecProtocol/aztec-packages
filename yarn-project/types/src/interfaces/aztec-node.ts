@@ -6,6 +6,7 @@ import { Fr } from '@aztec/foundation/fields';
 import {
   ContractData,
   ExtendedContractData,
+  ExtendedUnencryptedL2Log,
   L2Block,
   L2BlockL2Logs,
   L2Tx,

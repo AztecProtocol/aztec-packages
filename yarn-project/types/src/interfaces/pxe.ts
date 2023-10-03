@@ -10,7 +10,7 @@ import {
   Tx,
   TxExecutionRequest,
   TxHash,
-  TxReceipt
+  TxReceipt,
 } from '@aztec/types';
 
 import { DeployedContract } from './deployed-contract.js';
