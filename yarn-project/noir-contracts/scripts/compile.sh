@@ -24,6 +24,9 @@ build() {
 
   # If the compilation fails, rerun the compilation with 'nargo' and show the compiler output.
   nargo compile --package $CONTRACT_FOLDER --output-debug;
+
+  # copy the source code to other subpackages as needed
+  NODE_OPTIONS=--no-warnings yarn ts-node --esm src/scripts/copy_source.ts $CONTRACT_NAME
 }
 
 # Check nargo version
