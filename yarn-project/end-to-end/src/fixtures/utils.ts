@@ -70,7 +70,7 @@ const getAztecNodeUrl = () => {
   const url = new URL(PXE_URL);
   url.port = '8079';
   return url.toString();
-}
+};
 
 export const waitForPXE = async (pxe: PXE, logger: DebugLogger) => {
   await retryUntil(async () => {
