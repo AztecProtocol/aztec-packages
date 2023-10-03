@@ -181,9 +181,9 @@ template <typename FF_> class ECCVMLookupRelationBase {
      * @param index
      * @return Univariate
      */
-    template <typename TupleOverSubrelations, size_t read_index>
+    template <typename TupleOverSubrelations, size_t read_index, typename AllEntities>
     static std::tuple_element_t<0, TupleOverSubrelations> compute_read_term(
-        const auto& in, const RelationParameters<FF>& relation_params)
+        const AllEntities& in, const RelationParameters<FF>& relation_params)
     {
         using Accumulator0 = std::tuple_element_t<0, TupleOverSubrelations>;
         using View = typename Accumulator0::View;

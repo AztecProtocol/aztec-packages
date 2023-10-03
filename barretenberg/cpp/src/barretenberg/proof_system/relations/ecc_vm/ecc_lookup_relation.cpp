@@ -42,8 +42,7 @@ void ECCVMLookupRelationBase<FF>::accumulate(typename AccumulatorTypes::Accumula
     //      (1 / write_term[i]) = lookup_inverse * \prod_j (read_term[j]) * \prod_{k ne i} (write_term[k])
     barretenberg::constexpr_for<0, READ_TERMS, 1>([&]<size_t i>() {
         lookup_terms[i] =
-            compute_read_term<typename AccumulatorTypes::Accumulators, i /* , decltype(extended_edges) */>(
-                extended_edges, relation_params);
+            compute_read_term<typename AccumulatorTypes::Accumulators, i>(extended_edges, relation_params);
     });
     barretenberg::constexpr_for<0, WRITE_TERMS, 1>([&]<size_t i>() {
         lookup_terms[i + READ_TERMS] = compute_write_term<AccumulatorTypes, i>(extended_edges, relation_params, 0);
