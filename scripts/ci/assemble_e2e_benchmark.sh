@@ -13,7 +13,7 @@ BENCHMARK_FILE_JSON="benchmark.json"
 
 # Adapted from yarn-project/end-to-end/scripts/upload_logs_to_s3.sh
 if [ "${CIRCLE_BRANCH:-}" = "master" ]; then
-  LOG_SOURCE_FOLDER="logs-v1/master/$COMMIT_HASH/"
+  LOG_SOURCE_FOLDER="logs-v1/master/$COMMIT_HASH"
   BENCHMARK_TARGET_FILE="benchmarks-v1/master/$COMMIT_HASH.json"
   BENCHMARK_LATEST_FILE="benchmarks-v1/latest.json"
 elif [ -n "${CIRCLE_PULL_REQUEST:-}" ]; then
@@ -36,8 +36,8 @@ aws s3 cp "s3://${BUCKET_NAME}/${LOG_SOURCE_FOLDER}/" $LOG_FOLDER --exclude '*' 
 # to find the latest log files for the unchanged benchmarks.
 EXPECTED_BENCHMARK_COUNT=$(find yarn-project/end-to-end/src -type f -name "bench*.test.ts" | wc -l)
 DOWNLOADED_BENCHMARK_COUNT=$(find $LOG_FOLDER -type f -name "*.jsonl" | wc -l)
-if [ "$DOWNLOADED_BENCHMARK_COUNT" -lt "$EXPECTED_BENCHMARK_COUNT"]; then
-  echo Found $DOWNLOADED_BENCHMARK_COUNT out of $EXPECTED_BENCHMARK_COUNT benchmark log files. Exiting.
+if [ "$DOWNLOADED_BENCHMARK_COUNT" -lt "$EXPECTED_BENCHMARK_COUNT" ]; then
+  echo Found $DOWNLOADED_BENCHMARK_COUNT out of $EXPECTED_BENCHMARK_COUNT benchmark log files in s3://${BUCKET_NAME}/${LOG_SOURCE_FOLDER}/. Exiting.
   exit 0
 fi
 
