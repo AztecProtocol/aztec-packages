@@ -20,5 +20,5 @@ $BIN verify -k vk -p proof $FLAGS
 # Grep to determine success.
 $BIN contract -k vk $BFLAG -o - | grep "Verification Key Hash" > /dev/null
 # Use jq to determine success.
-$BIN proof_as_fields -k vk -p proof -o - | jq . > /dev/null
+$BIN proof_as_fields -p proof -o - | jq . > /dev/null
 $BIN vk_as_fields -k vk -o - > vk_as_fields | jq . > /dev/null
