@@ -27,14 +27,14 @@ async function runTest(
   );
 
   const acirComposer = await api.acirNewAcirComposer(CIRCUIT_SIZE);
-  const [publicInputs, proofWithOutPublicInputs] = await api.acirCreateProof(
+  const [publicInputs, proof] = await api.acirCreateProof(
     acirComposer,
     bytecode,
     witness,
     true
   );
   debug(`verifying...`);
-  const verified = await api.acirVerifyProof(acirComposer, publicInputs, proofWithOutPublicInputs, true);
+  const verified = await api.acirVerifyProof(acirComposer, publicInputs, proof, true);
   debug(`verified: ${verified}`);
 
   await api.destroy();

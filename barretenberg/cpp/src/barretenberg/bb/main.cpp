@@ -79,10 +79,10 @@ bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessP
     auto acir_composer = new acir_proofs::AcirComposer(MAX_CIRCUIT_SIZE, verbose);
     auto constraint_system = get_constraint_system(bytecodePath);
     auto witness = get_witness(witnessPath);
-    auto [public_inputs, proof_without_public_inputs] =
+    auto [public_inputs, proof] =
         acir_composer->create_proof(srs::get_crs_factory(), constraint_system, witness, recursive);
 
-    auto verified = acir_composer->verify_proof(public_inputs, proof_without_public_inputs, recursive);
+    auto verified = acir_composer->verify_proof(public_inputs, proof, recursive);
 
     vinfo("verified: ", verified);
     return verified;
@@ -108,17 +108,17 @@ void prove(const std::string& bytecodePath,
     auto acir_composer = new acir_proofs::AcirComposer(MAX_CIRCUIT_SIZE, verbose);
     auto constraint_system = get_constraint_system(bytecodePath);
     auto witness = get_witness(witnessPath);
-    auto [public_inputs, proof_without_public_inputs] =
+    auto [public_inputs, proof] =
         acir_composer->create_proof(srs::get_crs_factory(), constraint_system, witness, recursive);
 
     if (outputProofPath == "-") {
         writeRawBytesToStdout(public_inputs);
-        writeRawBytesToStdout(proof_without_public_inputs);
+        writeRawBytesToStdout(proof);
         vinfo("proof and public inputs written to stdout");
     } else {
         auto outputPublicInputsPath = public_inputs_path_from_proof_path(outputProofPath);
         write_file(outputPublicInputsPath, public_inputs);
-        write_file(outputProofPath, proof_without_public_inputs);
+        write_file(outputProofPath, proof);
         vinfo("proof written to: ", outputProofPath);
         vinfo("public inputs written to: ", outputPublicInputsPath);
     }
@@ -167,8 +167,8 @@ bool verify(const std::string& proof_path, bool recursive, const std::string& vk
 
     auto public_inputs_path = public_inputs_path_from_proof_path(proof_path);
     std::vector<uint8_t> public_inputs = read_public_inputs(public_inputs_path, vk_data.num_public_inputs);
-    auto proof_without_public_inputs = read_file(proof_path);
-    auto verified = acir_composer->verify_proof(public_inputs, proof_without_public_inputs, recursive);
+    auto proof = read_file(proof_path);
+    auto verified = acir_composer->verify_proof(public_inputs, proof, recursive);
 
     vinfo("verified: ", verified);
 

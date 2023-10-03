@@ -89,7 +89,7 @@ export async function proveAndVerify(bytecodePath: string, witnessPath: string, 
     debug(`creating proof...`);
     const bytecode = getBytecode(bytecodePath);
     const witness = getWitness(witnessPath);
-    const [publicInputs, proofWithOutPublicInputs] = await api.acirCreateProof(
+    const [publicInputs, proof] = await api.acirCreateProof(
       acirComposer,
       bytecode,
       witness,
@@ -97,7 +97,7 @@ export async function proveAndVerify(bytecodePath: string, witnessPath: string, 
     );
 
     debug(`verifying...`);
-    const verified = await api.acirVerifyProof(acirComposer, publicInputs, proofWithOutPublicInputs, isRecursive);
+    const verified = await api.acirVerifyProof(acirComposer, publicInputs, proof, isRecursive);
     debug(`verified: ${verified}`);
     return verified;
   } finally {
@@ -117,7 +117,7 @@ export async function prove(
     debug(`creating proof...`);
     const bytecode = getBytecode(bytecodePath);
     const witness = getWitness(witnessPath);
-    const [publicInputs, proofWithOutPublicInputs] = await api.acirCreateProof(
+    const [publicInputs, proof] = await api.acirCreateProof(
       acirComposer,
       bytecode,
       witness,
@@ -127,13 +127,13 @@ export async function prove(
 
     if (outputProofPath === '-') {
       process.stdout.write(publicInputs);
-      process.stdout.write(proofWithOutPublicInputs);
+      process.stdout.write(proof);
       debug(`proof written to stdout`);
     } else {
       const publicInputsPath = publicInputsPathFromProofPath(outputProofPath);
 
       writeFileSync(publicInputsPath, publicInputs);
-      writeFileSync(outputProofPath, proofWithOutPublicInputs);
+      writeFileSync(outputProofPath, proof);
 
       debug(`proof written to: ${outputProofPath}`);
       debug(`public inputs written to: ${publicInputsPath}`);
