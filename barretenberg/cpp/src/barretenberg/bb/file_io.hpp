@@ -6,6 +6,7 @@
 
 inline std::streamsize get_file_size(const std::string& filename)
 {
+    // Open the file in binary mode and move to the end.
     std::ifstream file(filename, std::ios::binary | std::ios::ate);
     if (!file) {
         throw std::runtime_error("Unable to open file: " + filename);
@@ -22,7 +23,7 @@ inline std::vector<uint8_t> read_file(const std::string& filename)
         throw std::runtime_error("File is empty or there's an error reading it: " + filename);
     }
 
-    std::vector<uint8_t> fileData((size_t)size);
+    std::vector<uint8_t> fileData(static_cast<size_t>(size));
 
     // Since the file was closed after getting its size,
     // we need to open it again.
