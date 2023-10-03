@@ -36,7 +36,7 @@ using MerkleTree = stdlib::merkle_tree::MerkleTree<MemoryStore>;
 using NullifierTree = stdlib::merkle_tree::NullifierMemoryTree;
 using NullifierLeaf = stdlib::merkle_tree::nullifier_leaf;
 
-using KernelData = aztec3::circuits::abis::PreviousKernelData<NT>;
+using KernelData = aztec3::circuits::abis::PreviousPublicKernelData<NT>;
 
 using aztec3::circuits::abis::MembershipWitness;
 using aztec3::circuits::abis::PreviousRollupData;

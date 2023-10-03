@@ -5,10 +5,10 @@
 #include "aztec3/circuits/abis/append_only_tree_snapshot.hpp"
 #include "aztec3/circuits/abis/combined_accumulated_data.hpp"
 #include "aztec3/circuits/abis/global_variables.hpp"
-#include "aztec3/circuits/abis/kernel_circuit_public_inputs.hpp"
 #include "aztec3/circuits/abis/membership_witness.hpp"
 #include "aztec3/circuits/abis/new_contract_data.hpp"
-#include "aztec3/circuits/abis/previous_kernel_data.hpp"
+#include "aztec3/circuits/abis/previous_public_kernel_data.hpp"
+#include "aztec3/circuits/abis/private_kernel_public_inputs.hpp"
 #include "aztec3/circuits/abis/public_data_read.hpp"
 #include "aztec3/circuits/hash.hpp"
 #include "aztec3/circuits/kernel/private/utils.hpp"
@@ -31,7 +31,7 @@
 namespace {
 
 
-using aztec3::circuits::abis::PreviousKernelData;
+using aztec3::circuits::abis::PreviousPublicKernelData;
 
 
 // using aztec3::circuits::mock::mock_circuit;
@@ -179,7 +179,7 @@ TEST_F(base_rollup_tests, native_contract_leaf_inserted)
         .next_available_leaf_index = 2,
     };
 
-    std::array<PreviousKernelData<NT>, 2> kernel_data = { get_empty_kernel(), get_empty_kernel() };
+    std::array<PreviousPublicKernelData<NT>, 2> kernel_data = { get_empty_kernel(), get_empty_kernel() };
     kernel_data[0].public_inputs.end.new_contracts[0] = new_contract;
     BaseRollupInputs inputs = base_rollup_inputs_from_kernels(kernel_data);
 
@@ -199,7 +199,7 @@ TEST_F(base_rollup_tests, native_contract_leaf_inserted_in_non_empty_snapshot_tr
     DummyCircuitBuilder builder =
         DummyCircuitBuilder("base_rollup_tests__native_contract_leaf_inserted_in_non_empty_snapshot_tree");
     // Same as before except our start_contract_snapshot_tree is not empty
-    std::array<PreviousKernelData<NT>, 2> kernel_data = { get_empty_kernel(), get_empty_kernel() };
+    std::array<PreviousPublicKernelData<NT>, 2> kernel_data = { get_empty_kernel(), get_empty_kernel() };
 
     // Create a "mock" contract deployment
     NewContractData<NT> new_contract = {
@@ -257,7 +257,7 @@ TEST_F(base_rollup_tests, native_new_commitments_tree)
     // Create 4 new mock commitments. Add them to kernel data.
     // Then get sibling path so we can verify insert them into the tree.
 
-    std::array<PreviousKernelData<NT>, 2> kernel_data = { get_empty_kernel(), get_empty_kernel() };
+    std::array<PreviousPublicKernelData<NT>, 2> kernel_data = { get_empty_kernel(), get_empty_kernel() };
     std::array<NT::fr, MAX_NEW_COMMITMENTS_PER_TX* 2> new_commitments = { 0, 1, 2, 3, 4, 5, 6, 7 };
     for (uint8_t i = 0; i < 2; i++) {
         std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> kernel_commitments;
@@ -335,7 +335,7 @@ TEST_F(base_rollup_tests, native_new_nullifier_tree_empty)
      * RUN
      */
     DummyCircuitBuilder builder = DummyCircuitBuilder("base_rollup_tests__native_new_nullifier_tree_empty");
-    std::array<PreviousKernelData<NT>, 2> const kernel_data = { get_empty_kernel(), get_empty_kernel() };
+    std::array<PreviousPublicKernelData<NT>, 2> const kernel_data = { get_empty_kernel(), get_empty_kernel() };
     BaseRollupInputs const empty_inputs = base_rollup_inputs_from_kernels(kernel_data);
 
     BaseOrMergeRollupPublicInputs const outputs =
@@ -373,7 +373,7 @@ void nullifier_insertion_test(std::array<fr, MAX_NEW_NULLIFIERS_PER_TX * 2> new_
     auto end_nullifier_tree_snapshot = nullifier_tree.get_snapshot();
 
     DummyCircuitBuilder builder = DummyCircuitBuilder("base_rollup_tests__nullifier_insertion_test");
-    std::array<PreviousKernelData<NT>, 2> kernel_data = { get_empty_kernel(), get_empty_kernel() };
+    std::array<PreviousPublicKernelData<NT>, 2> kernel_data = { get_empty_kernel(), get_empty_kernel() };
     for (uint8_t i = 0; i < 2; i++) {
         std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> kernel_nullifiers;
         for (uint8_t j = 0; j < MAX_NEW_NULLIFIERS_PER_TX; j++) {
@@ -587,7 +587,7 @@ TEST_F(base_rollup_tests, native_calldata_hash)
 {
     // Execute the base rollup circuit with nullifiers, commitments and a contract deployment. Then check the
     // calldata hash against the expected value.
-    std::array<PreviousKernelData<NT>, 2> kernel_data = { get_empty_kernel(), get_empty_kernel() };
+    std::array<PreviousPublicKernelData<NT>, 2> kernel_data = { get_empty_kernel(), get_empty_kernel() };
 
     // Commitments inserted are [1,2,3,4,5,6,7,8 ...]. Nullifiers inserted are [8,9,10,11,12,13,14,15 ...]
     for (size_t i = 0; i < 2; ++i) {
@@ -635,7 +635,7 @@ TEST_F(base_rollup_tests, native_compute_membership_historic_blocks_tree_negativ
     // Test membership works for empty trees
     DummyCircuitBuilder builder =
         DummyCircuitBuilder("base_rollup_tests__native_compute_membership_historic_private_data_negative");
-    std::array<PreviousKernelData<NT>, 2> const kernel_data = { get_empty_kernel(), get_empty_kernel() };
+    std::array<PreviousPublicKernelData<NT>, 2> const kernel_data = { get_empty_kernel(), get_empty_kernel() };
     BaseRollupInputs inputs = base_rollup_inputs_from_kernels(kernel_data);
 
     MemoryStore blocks_store;
@@ -750,7 +750,7 @@ TEST_F(base_rollup_tests, native_single_public_state_read)
         .value = fr(42),
     };
 
-    std::array<PreviousKernelData<NT>, 2> kernel_data = { get_empty_kernel(), get_empty_kernel() };
+    std::array<PreviousPublicKernelData<NT>, 2> kernel_data = { get_empty_kernel(), get_empty_kernel() };
     kernel_data[0].public_inputs.end.public_data_reads[0] = data_read;
     auto inputs = test_utils::utils::base_rollup_inputs_from_kernels(
         kernel_data, private_data_tree, contract_tree, public_data_tree, l1_to_l2_messages_tree);
@@ -788,7 +788,7 @@ TEST_F(base_rollup_tests, native_single_public_state_write)
         .new_value = fr(42),
     };
 
-    std::array<PreviousKernelData<NT>, 2> kernel_data = { get_empty_kernel(), get_empty_kernel() };
+    std::array<PreviousPublicKernelData<NT>, 2> kernel_data = { get_empty_kernel(), get_empty_kernel() };
     kernel_data[0].public_inputs.end.public_data_update_requests[0] = data_write;
 
     auto inputs = test_utils::utils::base_rollup_inputs_from_kernels(
@@ -820,7 +820,7 @@ TEST_F(base_rollup_tests, native_multiple_public_state_read_writes)
     MemoryStore l1_to_l2_messages_tree_store;
     MerkleTree l1_to_l2_messages_tree(l1_to_l2_messages_tree_store, L1_TO_L2_MSG_TREE_HEIGHT);
 
-    std::array<PreviousKernelData<NT>, 2> kernel_data = { get_empty_kernel(), get_empty_kernel() };
+    std::array<PreviousPublicKernelData<NT>, 2> kernel_data = { get_empty_kernel(), get_empty_kernel() };
 
     // We set up reads and writes such that the right tx will read or write to indices already modified by the left
     // tx
@@ -877,7 +877,7 @@ TEST_F(base_rollup_tests, native_multiple_public_state_read_writes)
 //         .value = fr(42),
 //     };
 
-//     std::array<PreviousKernelData<NT>, 2> kernel_data = { get_empty_kernel(), get_empty_kernel() };
+//     std::array<PreviousPublicKernelData<NT>, 2> kernel_data = { get_empty_kernel(), get_empty_kernel() };
 //     kernel_data[0].public_inputs.end.public_data_reads[0] = data_read;
 //     auto inputs = test_utils::utils::base_rollup_inputs_from_kernels(
 //         kernel_data, private_data_tree, contract_tree, public_data_tree, l1_to_l2_messages_tree);

@@ -484,7 +484,7 @@ PrivateKernelInputsInner<NT> do_private_call_get_kernel_inputs_inner(
 
     auto const& private_circuit_public_inputs = private_call_data.call_stack_item.public_inputs;
     // Get dummy previous kernel
-    auto mock_previous_kernel = utils::dummy_previous_kernel(is_circuit);
+    auto mock_previous_kernel = utils::dummy_previous_private_kernel(is_circuit);
     // Fill in some important fields in public inputs
     mock_previous_kernel.public_inputs.end.private_call_stack = initial_kernel_private_call_stack;
     mock_previous_kernel.public_inputs.constants = CombinedConstantData<NT>{
@@ -525,7 +525,7 @@ PrivateKernelInputsInner<NT> do_private_call_get_kernel_inputs_inner(
  * @param public_inputs that contain the expected new contract address
  */
 bool validate_deployed_contract_address(PrivateKernelInputsInit<NT> const& private_inputs,
-                                        KernelCircuitPublicInputs<NT> const& public_inputs)
+                                        PrivateKernelPublicInputs<NT> const& public_inputs)
 {
     auto tx_request = private_inputs.tx_request;
     auto cdd = private_inputs.tx_request.tx_context.contract_deployment_data;
@@ -544,7 +544,7 @@ bool validate_deployed_contract_address(PrivateKernelInputsInit<NT> const& priva
     return (public_inputs.end.new_contracts[0].contract_address.to_field() == expected_contract_address);
 }
 
-bool validate_no_new_deployed_contract(KernelCircuitPublicInputs<NT> const& public_inputs)
+bool validate_no_new_deployed_contract(PrivateKernelPublicInputs<NT> const& public_inputs)
 {
     return (public_inputs.end.new_contracts == CombinedAccumulatedData<NT>{}.new_contracts);
 }

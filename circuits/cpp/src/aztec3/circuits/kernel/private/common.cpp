@@ -5,10 +5,10 @@
 #include "aztec3/circuits/abis/complete_address.hpp"
 #include "aztec3/circuits/abis/contract_deployment_data.hpp"
 #include "aztec3/circuits/abis/function_data.hpp"
-#include "aztec3/circuits/abis/kernel_circuit_public_inputs.hpp"
 #include "aztec3/circuits/abis/new_contract_data.hpp"
 #include "aztec3/circuits/abis/private_circuit_public_inputs.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_call_data.hpp"
+#include "aztec3/circuits/abis/private_kernel_public_inputs.hpp"
 #include "aztec3/circuits/abis/read_request_membership_witness.hpp"
 #include "aztec3/circuits/hash.hpp"
 #include "aztec3/constants.hpp"
@@ -21,8 +21,8 @@ using aztec3::circuits::abis::CompleteAddress;
 using aztec3::circuits::abis::ContractDeploymentData;
 using aztec3::circuits::abis::ContractLeafPreimage;
 using aztec3::circuits::abis::FunctionData;
-using aztec3::circuits::abis::KernelCircuitPublicInputs;
 using aztec3::circuits::abis::NewContractData;
+using aztec3::circuits::abis::PrivateKernelPublicInputs;
 using aztec3::circuits::abis::ReadRequestMembershipWitness;
 
 using aztec3::utils::array_push;
@@ -172,7 +172,7 @@ void common_validate_previous_kernel_values(DummyBuilder& builder, CombinedAccum
 
 void common_update_end_values(DummyBuilder& builder,
                               PrivateCallData<NT> const& private_call,
-                              KernelCircuitPublicInputs<NT>& public_inputs)
+                              PrivateKernelPublicInputs<NT>& public_inputs)
 {
     const auto private_call_public_inputs = private_call.call_stack_item.public_inputs;
 
@@ -327,7 +327,7 @@ void common_update_end_values(DummyBuilder& builder,
 
 void common_contract_logic(DummyBuilder& builder,
                            PrivateCallData<NT> const& private_call,
-                           KernelCircuitPublicInputs<NT>& public_inputs,
+                           PrivateKernelPublicInputs<NT>& public_inputs,
                            ContractDeploymentData<NT> const& contract_dep_data,
                            FunctionData<NT> const& function_data)
 {

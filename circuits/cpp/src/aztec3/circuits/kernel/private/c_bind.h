@@ -4,7 +4,8 @@
 #include <cstddef>
 #include <cstdint>
 
-CBIND_DECL(private_kernel__dummy_previous_kernel);
+CBIND_DECL(private_kernel__dummy_previous_private_kernel);
+CBIND_DECL(private_kernel__dummy_previous_public_kernel);
 CBIND_DECL(private_kernel__sim_init);
 CBIND_DECL(private_kernel__sim_inner);
 CBIND_DECL(private_kernel__sim_ordering);

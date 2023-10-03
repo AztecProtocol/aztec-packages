@@ -100,7 +100,7 @@ void assert_equal_constants(DummyBuilder& builder,
  * @return calldata hash stored in 2 fields
  */
 std::array<fr, NUM_FIELDS_PER_SHA256> compute_kernels_calldata_hash(
-    std::array<abis::PreviousKernelData<NT>, 2> kernel_data)
+    std::array<abis::PreviousPublicKernelData<NT>, 2> kernel_data)
 {
     // Compute calldata hashes
     // Consist of 2 kernels

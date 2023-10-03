@@ -28,7 +28,7 @@ using DummyCircuitBuilder = aztec3::utils::DummyCircuitBuilder;
 
 using Aggregator = aztec3::circuits::recursion::Aggregator;
 using AppendOnlyTreeSnapshot = aztec3::circuits::abis::AppendOnlyTreeSnapshot<NT>;
-using KernelData = aztec3::circuits::abis::PreviousKernelData<NT>;
+using KernelData = aztec3::circuits::abis::PreviousPublicKernelData<NT>;
 
 using NullifierLeafPreimage = aztec3::circuits::abis::NullifierLeafPreimage<NT>;
 
@@ -43,7 +43,7 @@ using aztec3::circuits::abis::PreviousRollupData;
 
 using nullifier_tree_testing_values = std::tuple<BaseRollupInputs, AppendOnlyTreeSnapshot, AppendOnlyTreeSnapshot>;
 
-using aztec3::circuits::kernel::private_kernel::utils::dummy_previous_kernel;
+using aztec3::circuits::kernel::private_kernel::utils::dummy_previous_public_kernel;
 }  // namespace
 
 namespace aztec3::circuits::rollup::test_utils::utils {
@@ -67,7 +67,7 @@ std::vector<uint8_t> get_empty_calldata_leaf()
 
 KernelData get_empty_kernel()
 {
-    return dummy_previous_kernel();
+    return dummy_previous_public_kernel();
 }
 
 std::array<fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP> get_empty_l1_to_l2_messages()

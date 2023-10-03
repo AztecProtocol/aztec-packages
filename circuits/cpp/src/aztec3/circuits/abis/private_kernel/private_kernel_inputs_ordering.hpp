@@ -1,7 +1,7 @@
 #pragma once
 
 #include "private_call_data.hpp"
-#include "../previous_kernel_data.hpp"
+#include "../previous_private_kernel_data.hpp"
 
 #include "aztec3/constants.hpp"
 #include "aztec3/utils/types/circuit_types.hpp"
@@ -19,7 +19,7 @@ template <typename NCT> struct PrivateKernelInputsOrdering {
     using fr = typename NCT::fr;
     using boolean = typename NCT::boolean;
 
-    PreviousKernelData<NCT> previous_kernel{};
+    PreviousPrivateKernelData<NCT> previous_kernel{};
 
     std::array<fr, MAX_READ_REQUESTS_PER_TX> read_commitment_hints{};
     std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> nullifier_commitment_hints{};

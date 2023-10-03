@@ -1,5 +1,4 @@
 #pragma once
-#include "aztec3/circuits/abis/kernel_circuit_public_inputs.hpp"
 #include "aztec3/utils/types/circuit_types.hpp"
 #include "aztec3/utils/types/native_types.hpp"
 
@@ -11,14 +10,13 @@ auto& engine = numeric::random::get_debug_engine();
 
 namespace aztec3::circuits::mock {
 
-using aztec3::circuits::abis::KernelCircuitPublicInputs;
 using NT = aztec3::utils::types::NativeTypes;
 using aztec3::utils::types::CircuitTypes;
 using plonk::stdlib::pedersen_commitment;
 using plonk::stdlib::witness_t;
 
-template <typename Builder>
-KernelCircuitPublicInputs<NT> mock_kernel_circuit(Builder& builder, KernelCircuitPublicInputs<NT> const& _public_inputs)
+template <typename Builder, typename KernelPublicInputs>
+KernelPublicInputs mock_kernel_circuit(Builder& builder, KernelPublicInputs const& _public_inputs)
 {
     typedef CircuitTypes<Builder> CT;
     typedef typename CT::fr fr;

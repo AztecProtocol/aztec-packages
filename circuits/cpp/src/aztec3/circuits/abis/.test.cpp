@@ -1,5 +1,4 @@
 #include "index.hpp"
-#include "previous_kernel_data.hpp"
 
 #include "aztec3/circuits/abis/combined_accumulated_data.hpp"
 

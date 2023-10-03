@@ -22,7 +22,6 @@ using aztec3::circuits::apps::test_apps::escrow::deposit;
 using aztec3::circuits::kernel::private_kernel::testing_harness::do_private_call_get_kernel_inputs_inner;
 using aztec3::circuits::kernel::private_kernel::testing_harness::get_random_reads;
 using aztec3::circuits::kernel::private_kernel::testing_harness::validate_no_new_deployed_contract;
-
 using aztec3::utils::array_length;
 using aztec3::utils::CircuitErrorCode;
 
@@ -453,8 +452,8 @@ TEST_F(native_private_kernel_inner_tests, private_kernel_should_fail_if_aggregat
  */
 TEST_F(native_private_kernel_inner_tests, cbind_private_kernel__dummy_previous_kernel)
 {
-    auto func = [] { return aztec3::circuits::kernel::private_kernel::utils::dummy_previous_kernel(); };
-    auto [actual, expected] = call_func_and_wrapper(func, private_kernel__dummy_previous_kernel);
+    auto func = [] { return aztec3::circuits::kernel::private_kernel::utils::dummy_previous_private_kernel(); };
+    auto [actual, expected] = call_func_and_wrapper(func, private_kernel__dummy_previous_private_kernel);
     // TODO(AD): investigate why direct operator== didn't work
     std::stringstream actual_ss;
     std::stringstream expected_ss;

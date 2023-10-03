@@ -1,10 +1,10 @@
 #include "common.hpp"
 #include "init.hpp"
 
-#include "aztec3/circuits/abis/kernel_circuit_public_inputs.hpp"
 #include "aztec3/circuits/abis/new_contract_data.hpp"
-#include "aztec3/circuits/abis/previous_kernel_data.hpp"
+#include "aztec3/circuits/abis/previous_private_kernel_data.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_kernel_inputs_inner.hpp"
+#include "aztec3/circuits/abis/private_kernel_public_inputs.hpp"
 #include "aztec3/utils/array.hpp"
 #include "aztec3/utils/dummy_circuit_builder.hpp"
 
@@ -12,8 +12,8 @@ namespace {
 using NT = aztec3::utils::types::NativeTypes;
 
 using aztec3::circuits::abis::ContractLeafPreimage;
-using aztec3::circuits::abis::KernelCircuitPublicInputs;
-using aztec3::circuits::abis::PreviousKernelData;
+using aztec3::circuits::abis::PreviousPrivateKernelData;
+using aztec3::circuits::abis::PrivateKernelPublicInputs;
 using aztec3::circuits::abis::private_kernel::PrivateKernelInputsInner;
 using aztec3::circuits::kernel::private_kernel::common_initialise_end_values;
 using aztec3::utils::array_length;
@@ -21,7 +21,8 @@ using aztec3::utils::array_pop;
 using aztec3::utils::CircuitErrorCode;
 using aztec3::utils::DummyCircuitBuilder;
 
-void initialise_end_values(PreviousKernelData<NT> const& previous_kernel, KernelCircuitPublicInputs<NT>& public_inputs)
+void initialise_end_values(PreviousPrivateKernelData<NT> const& previous_kernel,
+                           PrivateKernelPublicInputs<NT>& public_inputs)
 {
     common_initialise_end_values(previous_kernel, public_inputs);
 
@@ -93,11 +94,11 @@ void validate_inputs(DummyCircuitBuilder& builder, PrivateKernelInputsInner<NT> 
                       CircuitErrorCode::PRIVATE_KERNEL__PRIVATE_CALL_STACK_EMPTY);
 }
 
-KernelCircuitPublicInputs<NT> native_private_kernel_circuit_inner(DummyCircuitBuilder& builder,
+PrivateKernelPublicInputs<NT> native_private_kernel_circuit_inner(DummyCircuitBuilder& builder,
                                                                   PrivateKernelInputsInner<NT> const& private_inputs)
 {
     // We'll be pushing data to this during execution of this circuit.
-    KernelCircuitPublicInputs<NT> public_inputs{};
+    PrivateKernelPublicInputs<NT> public_inputs{};
 
     common_validate_previous_kernel_values(builder, private_inputs.previous_kernel.public_inputs.end);
 

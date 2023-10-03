@@ -12,7 +12,7 @@ namespace {
 using NT = aztec3::utils::types::NativeTypes;
 
 using aztec3::circuits::abis::CombinedConstantData;
-using aztec3::circuits::abis::KernelCircuitPublicInputs;
+using aztec3::circuits::abis::PrivateKernelPublicInputs;
 using aztec3::circuits::abis::private_kernel::PrivateKernelInputsInit;
 using aztec3::utils::array_push;
 using aztec3::utils::CircuitErrorCode;
@@ -21,7 +21,7 @@ using aztec3::utils::is_array_empty;
 
 
 void initialise_end_values(PrivateKernelInputsInit<NT> const& private_inputs,
-                           KernelCircuitPublicInputs<NT>& public_inputs)
+                           PrivateKernelPublicInputs<NT>& public_inputs)
 {
     // Define the constants data.
     auto const& private_call_public_inputs = private_inputs.private_call.call_stack_item.public_inputs;
@@ -96,7 +96,7 @@ void validate_inputs(DummyCircuitBuilder& builder, PrivateKernelInputsInit<NT> c
 
 void update_end_values(DummyCircuitBuilder& builder,
                        PrivateKernelInputsInit<NT> const& private_inputs,
-                       KernelCircuitPublicInputs<NT>& public_inputs)
+                       PrivateKernelPublicInputs<NT>& public_inputs)
 {
     // We only initialized constants member of public_inputs so far. Therefore, there must not be any
     // new nullifiers or logs as part of public_inputs.
@@ -145,11 +145,11 @@ void update_end_values(DummyCircuitBuilder& builder,
     // https://github.com/AztecProtocol/aztec-packages/issues/660
 }
 
-KernelCircuitPublicInputs<NT> native_private_kernel_circuit_initial(DummyCircuitBuilder& builder,
+PrivateKernelPublicInputs<NT> native_private_kernel_circuit_initial(DummyCircuitBuilder& builder,
                                                                     PrivateKernelInputsInit<NT> const& private_inputs)
 {
     // We'll be pushing data to this during execution of this circuit.
-    KernelCircuitPublicInputs<NT> public_inputs{};
+    PrivateKernelPublicInputs<NT> public_inputs{};
 
     // Do this before any functions can modify the inputs.
     initialise_end_values(private_inputs, public_inputs);

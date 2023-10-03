@@ -16,7 +16,7 @@ describe('structs/kernel', () => {
     const previousKernelData = makePreviousKernelData();
     await expectSerializeToMatchSnapshot(
       previousKernelData.toBuffer(),
-      'abis__test_roundtrip_serialize_previous_kernel_data',
+      'abis__test_roundtrip_serialize_previous_private_kernel_data',
     );
   });
 

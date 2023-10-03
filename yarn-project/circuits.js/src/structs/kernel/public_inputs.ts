@@ -6,7 +6,7 @@ import { CombinedConstantData } from './combined_constant_data.js';
 
 /**
  * Public inputs of the public and private kernel circuits.
- * @see circuits/cpp/src/aztec3/circuits/abis/kernel_circuit_public_inputs.hpp
+ * @see circuits/cpp/src/aztec3/circuits/abis/private_kernel_public_inputs.hpp
  */
 export class KernelCircuitPublicInputs {
   constructor(

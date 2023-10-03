@@ -19,7 +19,7 @@ using aztec3::circuits::rollup::test_utils::utils::get_merge_rollup_inputs;
 
 using NT = aztec3::utils::types::NativeTypes;
 
-using KernelData = aztec3::circuits::abis::PreviousKernelData<NT>;
+using KernelData = aztec3::circuits::abis::PreviousPublicKernelData<NT>;
 
 }  // namespace
 namespace aztec3::circuits::rollup::merge::native_merge_rollup_circuit {

@@ -2,12 +2,12 @@
 #include "init.hpp"
 
 #include "aztec3/circuits/abis/contract_deployment_data.hpp"
-#include "aztec3/circuits/abis/kernel_circuit_public_inputs.hpp"
 #include "aztec3/circuits/abis/membership_witness.hpp"
 #include "aztec3/circuits/abis/private_circuit_public_inputs.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_call_data.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_kernel_inputs_init.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_kernel_inputs_inner.hpp"
+#include "aztec3/circuits/abis/private_kernel_public_inputs.hpp"
 #include "aztec3/circuits/abis/read_request_membership_witness.hpp"
 #include "aztec3/circuits/abis/tx_request.hpp"
 #include "aztec3/circuits/hash.hpp"
@@ -24,9 +24,9 @@ namespace {
 using aztec3::circuits::compute_empty_sibling_path;
 using aztec3::circuits::abis::ContractDeploymentData;
 using aztec3::circuits::abis::FunctionLeafPreimage;
-using aztec3::circuits::abis::KernelCircuitPublicInputs;
 using aztec3::circuits::abis::NewContractData;
 using aztec3::circuits::abis::OptionalPrivateCircuitPublicInputs;
+using aztec3::circuits::abis::PrivateKernelPublicInputs;
 using aztec3::circuits::abis::ReadRequestMembershipWitness;
 using aztec3::circuits::abis::TxRequest;
 using aztec3::circuits::abis::private_kernel::PrivateCallData;
@@ -187,7 +187,7 @@ PrivateKernelInputsInit<NT> do_private_call_get_kernel_inputs_init(
  * @return true or false
  */
 bool validate_deployed_contract_address(PrivateKernelInputsInit<NT> const& private_inputs,
-                                        KernelCircuitPublicInputs<NT> const& public_inputs);
+                                        PrivateKernelPublicInputs<NT> const& public_inputs);
 
 /**
  * @brief Checks if there is no newly deployed contract
@@ -195,6 +195,6 @@ bool validate_deployed_contract_address(PrivateKernelInputsInit<NT> const& priva
  * @param public_inputs that contain the expected new contract deployment data
  * @return true or false
  */
-bool validate_no_new_deployed_contract(KernelCircuitPublicInputs<NT> const& public_inputs);
+bool validate_no_new_deployed_contract(PrivateKernelPublicInputs<NT> const& public_inputs);
 
 }  // namespace aztec3::circuits::kernel::private_kernel::testing_harness

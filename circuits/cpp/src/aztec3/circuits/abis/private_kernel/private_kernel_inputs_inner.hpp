@@ -1,7 +1,7 @@
 #pragma once
 
 #include "private_call_data.hpp"
-#include "../previous_kernel_data.hpp"
+#include "../previous_private_kernel_data.hpp"
 
 #include "aztec3/utils/types/circuit_types.hpp"
 #include "aztec3/utils/types/native_types.hpp"
@@ -18,7 +18,7 @@ template <typename NCT> struct PrivateKernelInputsInner {
     using fr = typename NCT::fr;
     using boolean = typename NCT::boolean;
 
-    PreviousKernelData<NCT> previous_kernel{};
+    PreviousPrivateKernelData<NCT> previous_kernel{};
     PrivateCallData<NCT> private_call{};
 
     // For serialization, update with new fields

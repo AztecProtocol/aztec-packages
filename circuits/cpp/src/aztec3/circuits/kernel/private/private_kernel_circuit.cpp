@@ -1,9 +1,9 @@
 #include "init.hpp"
 
 #include "aztec3/circuits/abis/complete_address.hpp"
-#include "aztec3/circuits/abis/kernel_circuit_public_inputs.hpp"
 #include "aztec3/circuits/abis/new_contract_data.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_kernel_inputs_inner.hpp"
+#include "aztec3/circuits/abis/private_kernel_public_inputs.hpp"
 #include "aztec3/circuits/hash.hpp"
 #include "aztec3/constants.hpp"
 
@@ -11,8 +11,8 @@
 
 namespace aztec3::circuits::kernel::private_kernel {
 
-using aztec3::circuits::abis::KernelCircuitPublicInputs;
 using aztec3::circuits::abis::NewContractData;
+using aztec3::circuits::abis::PrivateKernelPublicInputs;
 using aztec3::circuits::abis::private_kernel::PrivateKernelInputsInner;
 
 using plonk::stdlib::array_length;
@@ -50,7 +50,7 @@ CT::AggregationObject verify_proofs(Builder& builder, PrivateKernelInputsInner<C
  * @param public_inputs should be empty here since it is being initialized in this call
  */
 void initialise_end_values(PrivateKernelInputsInner<CT> const& private_inputs,
-                           KernelCircuitPublicInputs<CT>& public_inputs)
+                           PrivateKernelPublicInputs<CT>& public_inputs)
 {
     // TODO: Ensure public inputs is empty here
     public_inputs.constants = private_inputs.previous_kernel.public_inputs.constants;
@@ -81,7 +81,7 @@ void initialise_end_values(PrivateKernelInputsInner<CT> const& private_inputs,
  * and update its running callstack with all items in the current private-circuit/function's
  * callstack.
  */
-void update_end_values(PrivateKernelInputsInner<CT> const& private_inputs, KernelCircuitPublicInputs<CT>& public_inputs)
+void update_end_values(PrivateKernelInputsInner<CT> const& private_inputs, PrivateKernelPublicInputs<CT>& public_inputs)
 {
     const auto private_call_public_inputs = private_inputs.private_call.call_stack_item.public_inputs;
 
@@ -307,14 +307,14 @@ void validate_inputs(PrivateKernelInputsInner<CT> const& private_inputs, bool fi
 // TODO: decide what to return.
 // TODO: is there a way to identify whether an input has not been used by ths circuit? This would help us more-safely
 // ensure we're constraining everything.
-KernelCircuitPublicInputs<NT> private_kernel_circuit(Builder& builder,
+PrivateKernelPublicInputs<NT> private_kernel_circuit(Builder& builder,
                                                      PrivateKernelInputsInner<NT> const& _private_inputs,
                                                      bool first_iteration)
 {
     const PrivateKernelInputsInner<CT> private_inputs = _private_inputs.to_circuit_type(builder);
 
     // We'll be pushing data to this during execution of this circuit.
-    KernelCircuitPublicInputs<CT> public_inputs = KernelCircuitPublicInputs<NT>{}.to_circuit_type(builder);
+    PrivateKernelPublicInputs<CT> public_inputs = PrivateKernelPublicInputs<NT>{}.to_circuit_type(builder);
 
     // Do this before any functions can modify the inputs.
     initialise_end_values(private_inputs, public_inputs);

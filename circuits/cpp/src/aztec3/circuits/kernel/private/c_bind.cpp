@@ -22,13 +22,16 @@ using aztec3::circuits::abis::private_kernel::PrivateKernelInputsOrdering;
 using aztec3::circuits::kernel::private_kernel::native_private_kernel_circuit_initial;
 using aztec3::circuits::kernel::private_kernel::native_private_kernel_circuit_inner;
 using aztec3::circuits::kernel::private_kernel::native_private_kernel_circuit_ordering;
-using aztec3::circuits::kernel::private_kernel::utils::dummy_previous_kernel;
+using aztec3::circuits::kernel::private_kernel::utils::dummy_previous_private_kernel;
+using aztec3::circuits::kernel::private_kernel::utils::dummy_previous_public_kernel;
 
 }  // namespace
 
 // WASM Cbinds
 
-CBIND(private_kernel__dummy_previous_kernel, []() { return dummy_previous_kernel(); });
+CBIND(private_kernel__dummy_previous_public_kernel, []() { return dummy_previous_public_kernel(); });
+
+CBIND(private_kernel__dummy_previous_private_kernel, []() { return dummy_previous_private_kernel(); });
 
 CBIND(private_kernel__sim_init, [](PrivateKernelInputsInit<NT> private_inputs) {
     DummyCircuitBuilder builder = DummyCircuitBuilder("private_kernel__sim_init");

@@ -1,5 +1,5 @@
 #pragma once
-#include "aztec3/circuits/abis/kernel_circuit_public_inputs.hpp"
+#include "aztec3/circuits/abis/private_kernel_public_inputs.hpp"
 #include "aztec3/utils/types/circuit_types.hpp"
 #include "aztec3/utils/types/convert.hpp"
 #include "aztec3/utils/types/native_types.hpp"
@@ -13,13 +13,13 @@ using aztec3::utils::types::NativeTypes;
 using std::is_same;
 
 // @todo Naming should not be previous. Annoying.
-template <typename NCT> struct PreviousKernelData {
+template <typename NCT> struct PreviousPrivateKernelData {
     using fr = typename NCT::fr;
     using boolean = typename NCT::boolean;
     using VK = typename NCT::VK;
     using uint32 = typename NCT::uint32;
 
-    KernelCircuitPublicInputs<NCT> public_inputs{};  // TODO: not needed as already contained in proof?
+    PrivateKernelPublicInputs<NCT> public_inputs{};  // TODO: not needed as already contained in proof?
     NativeTypes::Proof proof{};  // TODO: how to express proof as native/circuit type when it gets used as a buffer?
     std::shared_ptr<VK> vk;
 
@@ -30,7 +30,7 @@ template <typename NCT> struct PreviousKernelData {
 
     // for serialization, update with new fields
     MSGPACK_FIELDS(public_inputs, proof, vk, vk_index, vk_path);
-    boolean operator==(PreviousKernelData<NCT> const& other) const
+    boolean operator==(PreviousPrivateKernelData<NCT> const& other) const
     {
         // WARNING: proof not checked!
         return public_inputs == other.public_inputs &&
@@ -39,7 +39,7 @@ template <typename NCT> struct PreviousKernelData {
     };
 
     // WARNING: the `proof` does NOT get converted!
-    template <typename Builder> PreviousKernelData<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const
+    template <typename Builder> PreviousPrivateKernelData<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const
     {
         typedef CircuitTypes<Builder> CT;
         static_assert((std::is_same<NativeTypes, NCT>::value));
@@ -47,7 +47,7 @@ template <typename NCT> struct PreviousKernelData {
         // Capture the circuit builder:
         auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(builder, e); };
 
-        PreviousKernelData<CircuitTypes<Builder>> data = {
+        PreviousPrivateKernelData<CircuitTypes<Builder>> data = {
             public_inputs.to_circuit_type(builder),
             proof,  // Notice: not converted! Stays as native.
             CT::VK::from_witness(&builder, vk),
@@ -57,17 +57,5 @@ template <typename NCT> struct PreviousKernelData {
 
         return data;
     };
-
-};  // namespace aztec3::circuits::abis::private_kernel
-
-template <typename B> inline void read(B& buf, verification_key& key)
-{
-    using serialize::read;
-    // TODO(AD): We read this as if it were verification_key_data.
-    // TODO(AD): This seems like it could be rethought.
-    verification_key_data data;
-    read(buf, data);
-    key = verification_key{ std::move(data), barretenberg::srs::get_crs_factory()->get_verifier_crs() };
-}
-
+};
 }  // namespace aztec3::circuits::abis

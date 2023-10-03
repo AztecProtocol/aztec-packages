@@ -5,9 +5,9 @@
 #include "aztec3/circuits/abis/append_only_tree_snapshot.hpp"
 #include "aztec3/circuits/abis/combined_accumulated_data.hpp"
 #include "aztec3/circuits/abis/global_variables.hpp"
-#include "aztec3/circuits/abis/kernel_circuit_public_inputs.hpp"
 #include "aztec3/circuits/abis/new_contract_data.hpp"
-#include "aztec3/circuits/abis/previous_kernel_data.hpp"
+#include "aztec3/circuits/abis/previous_public_kernel_data.hpp"
+#include "aztec3/circuits/abis/private_kernel_public_inputs.hpp"
 #include "aztec3/circuits/abis/rollup/merge/previous_rollup_data.hpp"
 #include "aztec3/circuits/hash.hpp"
 #include "aztec3/circuits/kernel/private/utils.hpp"
@@ -28,10 +28,6 @@
 #include <vector>
 
 namespace {
-
-
-using aztec3::circuits::abis::PreviousKernelData;
-
 
 // using aztec3::circuits::mock::mock_circuit;
 using aztec3::circuits::rollup::test_utils::utils::compare_field_hash_to_expected;
@@ -55,7 +51,7 @@ using aztec3::circuits::abis::NewContractData;
 using MemoryStore = stdlib::merkle_tree::MemoryStore;
 using MerkleTree = stdlib::merkle_tree::MerkleTree<MemoryStore>;
 
-using KernelData = aztec3::circuits::abis::PreviousKernelData<NT>;
+using KernelData = aztec3::circuits::abis::PreviousPublicKernelData<NT>;
 }  // namespace
 
 namespace aztec3::circuits::rollup::root::native_root_rollup_circuit {

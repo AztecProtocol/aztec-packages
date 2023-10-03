@@ -1,3 +1,5 @@
+#include "utils.hpp"
+
 #include "index.hpp"
 #include "init.hpp"
 
@@ -12,7 +14,8 @@
 namespace {
 using NT = aztec3::utils::types::NativeTypes;
 using AggregationObject = aztec3::utils::types::NativeTypes::AggregationObject;
-using aztec3::circuits::abis::PreviousKernelData;
+using aztec3::circuits::abis::PreviousPrivateKernelData;
+using aztec3::circuits::abis::PreviousPublicKernelData;
 using aztec3::circuits::mock::mock_kernel_circuit;
 
 }  // namespace
@@ -101,16 +104,16 @@ std::shared_ptr<NT::VK> fake_vk()
 }
 
 /**
- * @brief Create a dummy "previous kernel"
+ * @brief Create a dummy "previous private kernel"
  *
- * @details For use in the first iteration of the  kernel circuit
+ * @details For use in the first iteration of the kernel circuit
  *
  * @param real_vk_proof should the vk and proof included be real and usable by real circuits?
- * @return PreviousKernelData<NT> the previous kernel data for use in the kernel circuit
+ * @return PreviousPrivateKernelData<NT> the previous kernel data for use in the kernel circuit
  */
-PreviousKernelData<NT> dummy_previous_kernel(bool real_vk_proof = false)
+PreviousPrivateKernelData<NT> dummy_previous_private_kernel(bool real_vk_proof)
 {
-    PreviousKernelData<NT> const init_previous_kernel{};
+    PreviousPrivateKernelData<NT> const init_previous_kernel{};
 
     auto crs_factory = barretenberg::srs::get_crs_factory();
     Builder mock_kernel_builder;
@@ -121,14 +124,48 @@ PreviousKernelData<NT> dummy_previous_kernel(bool real_vk_proof = false)
 
     std::shared_ptr<NT::VK> const mock_kernel_vk = real_vk_proof ? get_verification_key_from_file() : fake_vk();
 
-    PreviousKernelData<NT> previous_kernel = {
+    PreviousPrivateKernelData<NT> previous_kernel = {
         .public_inputs = mock_kernel_public_inputs,
         .proof = mock_kernel_proof,
         .vk = mock_kernel_vk,
     };
 
     // TODO(rahul) assertions don't work in wasm and it isn't worth updating barratenberg to handle our error code
-    // mechanism. Apparently we are getting rid of this function (dummy_previous_kernel()) soon anyway.
+    // mechanism. Apparently we are getting rid of this function (dummy_previous_private_kernel()) soon anyway.
+    assert(!mock_kernel_builder.failed());
+
+    return previous_kernel;
+}
+
+/**
+ * @brief Create a dummy "previous public kernel"
+ *
+ * @details For use in the first iteration of the  kernel circuit
+ *
+ * @param real_vk_proof should the vk and proof included be real and usable by real circuits?
+ * @return PreviousPublicKernelData<NT> the previous kernel data for use in the kernel circuit
+ */
+PreviousPublicKernelData<NT> dummy_previous_public_kernel(bool real_vk_proof)
+{
+    PreviousPublicKernelData<NT> const init_previous_kernel{};
+
+    auto crs_factory = barretenberg::srs::get_crs_factory();
+    Builder mock_kernel_builder;
+    auto mock_kernel_public_inputs = mock_kernel_circuit(mock_kernel_builder, init_previous_kernel.public_inputs);
+
+    NT::Proof const mock_kernel_proof =
+        real_vk_proof ? get_proof_from_file() : NT::Proof{ .proof_data = std::vector<uint8_t>(64, 0) };
+
+    std::shared_ptr<NT::VK> const mock_kernel_vk = real_vk_proof ? get_verification_key_from_file() : fake_vk();
+
+    PreviousPublicKernelData<NT> previous_kernel = {
+        .public_inputs = mock_kernel_public_inputs,
+        .proof = mock_kernel_proof,
+        .vk = mock_kernel_vk,
+    };
+
+    // TODO(rahul) assertions don't work in wasm and it isn't worth updating barratenberg to handle our error code
+    // mechanism. Apparently we are getting rid of this function (dummy_previous_public_kernel()) soon anyway.
     assert(!mock_kernel_builder.failed());
 
     return previous_kernel;

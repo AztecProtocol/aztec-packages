@@ -1,7 +1,7 @@
 #pragma once
 #include "function_data.hpp"
-#include "kernel_circuit_public_inputs.hpp"
 #include "private_circuit_public_inputs.hpp"
+#include "private_kernel_public_inputs.hpp"
 #include "public_circuit_public_inputs.hpp"
 
 #include "aztec3/circuits/abis/types.hpp"
