@@ -274,4 +274,5 @@ template <typename Builder, std::size_t SIZE> std::array<std::optional<typename 
     return map(arr, ref_to_nt);
 };
 
+
 }  // namespace aztec3::utils::types

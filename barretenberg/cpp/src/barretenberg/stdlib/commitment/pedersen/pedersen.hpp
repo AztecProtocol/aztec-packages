@@ -12,9 +12,11 @@ template <typename CircuitBuilder> class pedersen_commitment {
     using field_t = stdlib::field_t<CircuitBuilder>;
     using EmbeddedCurve = typename cycle_group<CircuitBuilder>::Curve;
     using GeneratorContext = crypto::GeneratorContext<EmbeddedCurve>;
+    using cycle_group = stdlib::cycle_group<CircuitBuilder>;
 
   public:
-    static cycle_group<CircuitBuilder> commit(const std::vector<field_t>& inputs, GeneratorContext context = {});
+    static cycle_group commit(const std::vector<field_t>& inputs, GeneratorContext context = {});
+    static cycle_group commit(const std::vector<std::pair<field_t, GeneratorContext>>& input_pairs);
 };
 
 EXTERN_STDLIB_TYPE(pedersen_commitment);

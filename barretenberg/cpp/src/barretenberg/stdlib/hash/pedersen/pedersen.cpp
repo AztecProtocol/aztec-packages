@@ -8,8 +8,6 @@ using namespace proof_system;
 template <typename C>
 field_t<C> pedersen_hash<C>::hash(const std::vector<field_t>& inputs, const GeneratorContext context)
 {
-
-    using cycle_group = cycle_group<C>;
     using cycle_scalar = typename cycle_group::cycle_scalar;
     using Curve = EmbeddedCurve;
 
@@ -34,8 +32,6 @@ template <typename C>
 field_t<C> pedersen_hash<C>::hash_skip_field_validation(const std::vector<field_t>& inputs,
                                                         const GeneratorContext context)
 {
-
-    using cycle_group = cycle_group<C>;
     using cycle_scalar = typename cycle_group::cycle_scalar;
     using Curve = EmbeddedCurve;
 
@@ -67,7 +63,7 @@ field_t<C> pedersen_hash<C>::hash_buffer(const stdlib::byte_array<C>& input, Gen
 {
     const size_t num_bytes = input.size();
     const size_t bytes_per_element = 31;
-    size_t num_elements = (num_bytes % bytes_per_element != 0) + (num_bytes / bytes_per_element);
+    size_t num_elements = static_cast<size_t>(num_bytes % bytes_per_element != 0) + (num_bytes / bytes_per_element);
 
     std::vector<field_t> elements;
     for (size_t i = 0; i < num_elements; ++i) {
@@ -91,6 +87,24 @@ field_t<C> pedersen_hash<C>::hash_buffer(const stdlib::byte_array<C>& input, Gen
     return output;
 }
 
+template <typename C>
+field_t<C> pedersen_hash<C>::hash(const std::vector<std::pair<field_t, GeneratorContext>>& input_pairs)
+{
+
+    using cycle_scalar = typename cycle_group::cycle_scalar;
+
+    std::vector<cycle_scalar> scalars;
+    std::vector<cycle_group> points;
+    scalars.emplace_back(cycle_scalar::create_from_bn254_scalar(field_t(input_pairs.size())));
+    points.emplace_back(crypto::pedersen_hash_base<EmbeddedCurve>::length_generator);
+    for (auto& [scalar, context] : input_pairs) {
+        scalars.emplace_back(cycle_scalar::create_from_bn254_scalar(scalar));
+        // constructs constant cycle_group objects (non-witness)
+        points.emplace_back(context.generators->get(1, context.offset, context.domain_separator)[0]);
+    }
+
+    return cycle_group::batch_mul(scalars, points).x;
+}
 INSTANTIATE_STDLIB_TYPE(pedersen_hash);
 
 } // namespace proof_system::plonk::stdlib

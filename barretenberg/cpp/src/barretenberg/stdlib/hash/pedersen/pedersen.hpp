@@ -22,12 +22,14 @@ template <typename Builder> class pedersen_hash {
     using bool_t = stdlib::bool_t<Builder>;
     using EmbeddedCurve = typename cycle_group<Builder>::Curve;
     using GeneratorContext = crypto::GeneratorContext<EmbeddedCurve>;
+    using cycle_group = stdlib::cycle_group<Builder>;
 
   public:
     static field_t hash(const std::vector<field_t>& in, GeneratorContext context = {});
     // TODO health warnings!
     static field_t hash_skip_field_validation(const std::vector<field_t>& in, GeneratorContext context = {});
     static field_t hash_buffer(const stdlib::byte_array<Builder>& input, GeneratorContext context = {});
+    static field_t hash(const std::vector<std::pair<field_t, GeneratorContext>>& input_pairs);
 };
 
 EXTERN_STDLIB_TYPE(pedersen_hash);

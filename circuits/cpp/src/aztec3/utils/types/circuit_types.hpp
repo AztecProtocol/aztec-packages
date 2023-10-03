@@ -1,7 +1,6 @@
 #pragma once
 
 // TODO(dbanks12) consider removing this include which is used by consumers of circuit_types.hpp
-#include "native_types.hpp"
 
 #include "aztec3/constants.hpp"
 
@@ -14,59 +13,81 @@ namespace aztec3::utils::types {
 
 template <typename Builder> struct CircuitTypes {
     // Basic uint types
-    using boolean = stdlib::bool_t<Builder>;
-    using uint8 = stdlib::uint8<Builder>;
-    using uint16 = stdlib::uint16<Builder>;
-    using uint32 = stdlib::uint32<Builder>;
-    using uint64 = stdlib::uint64<Builder>;
+    using boolean = plonk::stdlib::bool_t<Builder>;
+    using uint8 = plonk::stdlib::uint8<Builder>;
+    using uint16 = plonk::stdlib::uint16<Builder>;
+    using uint32 = plonk::stdlib::uint32<Builder>;
+    using uint64 = plonk::stdlib::uint64<Builder>;
 
     // Types related to the bn254 curve
-    using fr = stdlib::field_t<Builder>;
-    using safe_fr = stdlib::safe_uint_t<Builder>;
-    using address = stdlib::address_t<Builder>;
-    using fq = stdlib::bigfield<Builder, barretenberg::Bn254FqParams>;
+    using fr = plonk::stdlib::field_t<Builder>;
+    using safe_fr = plonk::stdlib::safe_uint_t<Builder>;
+    using address = plonk::stdlib::address_t<Builder>;
+    using fq = plonk::stdlib::bigfield<Builder, barretenberg::Bn254FqParams>;
 
-    using witness = stdlib::witness_t<Builder>;
+    using witness = plonk::stdlib::witness_t<Builder>;
 
     // typedef fq grumpkin_fr;
     // typedef fr grumpkin_fq;
-    using grumpkin_point = stdlib::cycle_group<Builder>;  // affine
+    using grumpkin_point = plonk::stdlib::cycle_group<Builder>;  // affine
 
-    using bn254 = stdlib::bn254<Builder>;
+    using bn254 = plonk::stdlib::bn254<Builder>;
     // typedef bn254::g1_ct bn254_point;
-    using bn254_point = stdlib::element<Builder, fq, fr, barretenberg::g1>;  // affine
+    using bn254_point = plonk::stdlib::element<Builder, fq, fr, barretenberg::g1>;  // affine
 
-    using bit_array = stdlib::bit_array<Builder>;
-    using byte_array = stdlib::byte_array<Builder>;
-    using packed_byte_array = stdlib::packed_byte_array<Builder>;
+    using bit_array = plonk::stdlib::bit_array<Builder>;
+    using byte_array = plonk::stdlib::byte_array<Builder>;
+    using packed_byte_array = plonk::stdlib::packed_byte_array<Builder>;
 
-    using schnorr_signature = stdlib::schnorr::signature_bits<Builder>;
-    using ecdsa_signature = stdlib::ecdsa::signature<Builder>;
+    using schnorr_signature = plonk::stdlib::schnorr::signature_bits<Builder>;
+    using ecdsa_signature = plonk::stdlib::ecdsa::signature<Builder>;
 
-    using AggregationObject = stdlib::recursion::aggregation_state<bn254>;
-    using VK = stdlib::recursion::verification_key<bn254>;
+    using AggregationObject = plonk::stdlib::recursion::aggregation_state<bn254>;
+    using VK = plonk::stdlib::recursion::verification_key<bn254>;
     // Notice: no CircuitType for a Proof: we only ever handle native; the verify_proof() function swallows the
     // 'circuit-type-ness' of the proof.
 
+
+    static std::string get_domain_separator(const size_t hash_index)
+    {
+        return std::string("__AZTEC_") + generatorIndexDomain(static_cast<GeneratorIndex>(hash_index));
+    }
+
+    static crypto::GeneratorContext<curve::Grumpkin> get_context(const size_t hash_index)
+    {
+        crypto::GeneratorContext<curve::Grumpkin> result;
+        result.domain_separator = get_domain_separator(hash_index);
+        return result;
+    }
     /// TODO: lots of these compress / commit functions aren't actually used: remove them.
 
-    // Define the 'circuit' version of the function `compress`, with the name `compress`:
+    // Define the 'circuit' version of the function `hash`, with the name `hash`:
     static fr hash(std::vector<fr> const& inputs, const size_t hash_index = 0)
     {
-        return plonk::stdlib::pedersen_commitment<Builder>::hash(inputs, hash_index);
+        return plonk::stdlib::pedersen_hash<Builder>::hash(inputs, get_context(hash_index));
     }
 
-    template <size_t SIZE> static fr hash(std::array<fr, SIZE> const& inputs, const size_t hash_index = 0)
-    {
-        std::vector<fr> const inputs_vec(std::begin(inputs), std::end(inputs));
-        return plonk::stdlib::pedersen_commitment<Builder>::hash(inputs_vec, hash_index);
-    }
 
     static fr hash(std::vector<fr> const& inputs,
                    std::vector<size_t> const& hash_sub_indices,
                    const size_t hash_index = 0)
     {
-        return plonk::stdlib::pedersen_commitment<Builder>::hash(inputs, hash_sub_indices, hash_index);
+        return plonk::stdlib::pedersen_hash<Builder>::hash(inputs, hash_sub_indices, get_context(hash_index));
+    }
+
+    static fr hash(const std::vector<std::pair<fr, generator_index_t>>& input_pairs)
+    {
+        std::vector<std::pair<fr, crypto::GeneratorContext<curve::Grumpkin>>> context_pairs;
+
+        for (const auto& [scalar, indices] : input_pairs) {
+            auto [index, subindex] = indices;
+            // TODO(@dbanks12)  I think this mirrors the functionality of pre-refactor generators, but feels wrong.
+            //       if StorageSlotGeneratorIndex is being used to uniquely define a list of generators, should these
+            //       enums not be a part of the GeneratorIndex enum? )
+            crypto::GeneratorContext<curve::Grumpkin> context(subindex, get_domain_separator(index));
+            context_pairs.emplace_back(scalar, context);
+        }
+        return plonk::stdlib::pedersen_hash<Builder>::hash(context_pairs);
     }
 
     /**
@@ -92,7 +113,18 @@ template <typename Builder> struct CircuitTypes {
 
     static grumpkin_point commit(const std::vector<std::pair<fr, generator_index_t>>& input_pairs)
     {
-        return plonk::stdlib::pedersen_commitment<Builder>::commit(input_pairs);
+        std::vector<std::pair<fr, crypto::GeneratorContext<curve::Grumpkin>>> context_pairs;
+
+        for (const auto& [scalar, indices] : input_pairs) {
+            auto [index, subindex] = indices;
+            // TODO(@dbanks12)  I think this mirrors the functionality of pre-refactor generators, but feels wrong.
+            //       if StorageSlotGeneratorIndex is being used to uniquely define a list of generators, should these
+            //       enums not be a part of the GeneratorIndex enum? )
+            auto domain_separator = std::string("__AZTEC_") + generatorIndexDomain(static_cast<GeneratorIndex>(index));
+            crypto::GeneratorContext<curve::Grumpkin> context(subindex, domain_separator);
+            context_pairs.emplace_back(scalar, context);
+        }
+        return plonk::stdlib::pedersen_commitment<Builder>::commit(context_pairs);
     };
 
     static byte_array blake2s(const byte_array& input) { return plonk::stdlib::blake2s(input); }

@@ -16,7 +16,7 @@ namespace aztec3 {
  */
 constexpr size_t log2(size_t input)
 {
-    return numeric::get_msb64(static_cast<uint64_t>(input));
+    return static_cast<size_t>(numeric::get_msb64(static_cast<uint64_t>(input)));
     //   return (input < 2) ? 0 : 1 + log2(input / 2);
 }
 
@@ -188,7 +188,7 @@ enum GeneratorIndex {
     NUMBER_OF_INDICES,
 };
 
-static constexpr std::string generatorIndexDomain(GeneratorIndex& idx)
+static constexpr std::string generatorIndexDomain(GeneratorIndex idx)
 {
     switch (idx) {
         case COMMITMENT:
@@ -271,6 +271,7 @@ enum StorageSlotGeneratorIndex {
     MAPPING_SLOT,
     MAPPING_SLOT_PLACEHOLDER,
 };
+
 
 // Enumerate the hash_sub_indices which are used for committing to private state note preimages.
 // Start from 1.

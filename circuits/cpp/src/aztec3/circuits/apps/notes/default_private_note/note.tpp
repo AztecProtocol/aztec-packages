@@ -156,7 +156,7 @@ typename CircuitTypes<Builder>::fr DefaultPrivateNote<Builder, V>::compute_nulli
 
     // We compress the hash_inputs with Pedersen, because that's cheaper (constraint-wise) than compressing
     // the data directly with Blake2s in the next step.
-    const fr compressed_inputs = CT::compress(hash_inputs, GeneratorIndex::NULLIFIER);
+    const fr compressed_inputs = CT::hash(hash_inputs, GeneratorIndex::NULLIFIER);
 
     // Blake2s hash the compressed result. Without this it's possible to leak info from the pedersen
     // compression.

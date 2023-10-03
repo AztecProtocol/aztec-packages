@@ -133,7 +133,7 @@ TEST(abi_tests, hash_vk)
     NT::fr const got_hash = NT::fr::serialize_from_buffer(output.data());
 
     // Calculate the expected hash in-test
-    NT::fr const expected_hash = vk_data.compress_native(aztec3::GeneratorIndex::VK);
+    NT::fr const expected_hash = vk_data.hash_native(aztec3::GeneratorIndex::VK);
 
     // Confirm cbind output == expected hash
     EXPECT_EQ(got_hash, expected_hash);

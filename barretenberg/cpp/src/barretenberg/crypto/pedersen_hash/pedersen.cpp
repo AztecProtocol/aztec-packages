@@ -1,4 +1,5 @@
 #include "./pedersen.hpp"
+#include "../pedersen_commitment/pedersen.hpp"
 
 namespace crypto {
 
@@ -55,16 +56,10 @@ std::vector<typename Curve::BaseField> pedersen_hash_base<Curve>::convert_buffer
  * @return Fq (i.e. SNARK circuit scalar field, when hashing using a curve defined over the SNARK circuit scalar field)
  */
 template <typename Curve>
-typename Curve::BaseField pedersen_hash_base<Curve>::hash(const std::vector<Fq>& inputs,
-                                                          const GeneratorContext<Curve> context)
+typename Curve::BaseField pedersen_hash_base<Curve>::hash(const std::vector<Fq>& inputs, const GeneratorContext context)
 {
-    const auto generators = context.generators->get(inputs.size(), context.offset, context.domain_separator);
-
     Element result = length_generator * Fr(inputs.size());
-    for (size_t i = 0; i < inputs.size(); ++i) {
-        result += generators[i] * Fr(static_cast<uint256_t>(inputs[i]));
-    }
-    return result.normalize().x;
+    return (result + pedersen_commitment_base<Curve>::commit_native(inputs, context)).normalize().x;
 }
 
 /**
@@ -72,9 +67,17 @@ typename Curve::BaseField pedersen_hash_base<Curve>::hash(const std::vector<Fq>&
  */
 template <typename Curve>
 typename Curve::BaseField pedersen_hash_base<Curve>::hash_buffer(const std::vector<uint8_t>& input,
-                                                                 const GeneratorContext<Curve> context)
+                                                                 const GeneratorContext context)
 {
     return hash(convert_buffer(input), context);
+}
+
+template <typename Curve>
+typename Curve::BaseField pedersen_hash_base<Curve>::hash(
+    const std::vector<std::pair<Fq, GeneratorContext>>& input_pairs)
+{
+    Element result = length_generator * Fr(input_pairs.size());
+    return (result + pedersen_commitment_base<Curve>::commit_native(input_pairs)).normalize().x;
 }
 
 template class pedersen_hash_base<curve::Grumpkin>;
