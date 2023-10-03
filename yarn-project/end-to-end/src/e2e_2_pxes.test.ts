@@ -10,8 +10,6 @@ import { jest } from '@jest/globals';
 
 import { expectsNumOfEncryptedLogsInTheLastBlockToBe, setup, setupPXEService } from './fixtures/utils.js';
 
-const { SANDBOX_URL = '' } = process.env;
-
 const TIMEOUT = 60_000;
 
 describe('e2e_2_pxes', () => {
@@ -28,10 +26,6 @@ describe('e2e_2_pxes', () => {
   let teardownA: () => Promise<void>;
 
   beforeEach(async () => {
-    // this test can't be run against the sandbox as it requires 2 PXEs
-    if (SANDBOX_URL) {
-      throw new Error(`Test can't be run against the sandbox as 2 PXEs are required`);
-    }
     let accounts: CompleteAddress[] = [];
     ({
       aztecNode,
