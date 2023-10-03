@@ -53,58 +53,60 @@ template <typename Builder> struct CircuitTypes {
     {
         return plonk::stdlib::pedersen_commitment<Builder>::hash(inputs, hash_index);
     }
-]
+
     template <size_t SIZE> static fr hash(std::array<fr, SIZE> const& inputs, const size_t hash_index = 0)
-{
-    std::vector<fr> const inputs_vec(std::begin(inputs), std::end(inputs));
-    return plonk::stdlib::pedersen_commitment<Builder>::hash(inputs_vec, hash_index);
-}
+    {
+        std::vector<fr> const inputs_vec(std::begin(inputs), std::end(inputs));
+        return plonk::stdlib::pedersen_commitment<Builder>::hash(inputs_vec, hash_index);
+    }
 
-template <size_t SIZE> static fr hash(std::array<fr, SIZE> const& inputs, const size_t hash_index = 0)
-{
-    std::vector<fr> const inputs_vec(std::begin(inputs), std::end(inputs));
-    return plonk::stdlib::pedersen_plookup_commitment<Builder>::hash(inputs_vec, hash_index);
-}
+    template <size_t SIZE> static fr hash(std::array<fr, SIZE> const& inputs, const size_t hash_index = 0)
+    {
+        std::vector<fr> const inputs_vec(std::begin(inputs), std::end(inputs));
+        return plonk::stdlib::pedersen_plookup_commitment<Builder>::hash(inputs_vec, hash_index);
+    }
 
-static fr hash(std::vector<fr> const& inputs, std::vector<size_t> const& hash_sub_indices, const size_t hash_index = 0)
-{
-    return plonk::stdlib::pedersen_commitment<Builder>::hash(inputs, hash_sub_indices, hash_index);
-}
+    static fr hash(std::vector<fr> const& inputs,
+                   std::vector<size_t> const& hash_sub_indices,
+                   const size_t hash_index = 0)
+    {
+        return plonk::stdlib::pedersen_commitment<Builder>::hash(inputs, hash_sub_indices, hash_index);
+    }
 
-static fr hash(const std::vector<std::pair<fr, crypto::generators::generator_index_t>>& input_pairs)
-{
-    return plonk::stdlib::pedersen_commitment<Builder>::hash(input_pairs);
-};
+    static fr hash(const std::vector<std::pair<fr, crypto::generators::generator_index_t>>& input_pairs)
+    {
+        return plonk::stdlib::pedersen_commitment<Builder>::hash(input_pairs);
+    };
 
-/**
- * @brief Compute the hash for a pair of left and right nodes in a merkle tree.
- *
- * @details Compress the two nodes using the default/0-generator which is reserved
- * for internal merkle hashing.
- *
- * @param left The left child node
- * @param right The right child node
- * @return The computed Merkle tree hash for the given pair of nodes
- */
-static fr merkle_hash(fr left, fr right)
-{
-    // use 0-generator for internal merkle hashing
-    return plonk::stdlib::pedersen_hash<Builder>::hash({ left, right }, 0);
-};
+    /**
+     * @brief Compute the hash for a pair of left and right nodes in a merkle tree.
+     *
+     * @details Compress the two nodes using the default/0-generator which is reserved
+     * for internal merkle hashing.
+     *
+     * @param left The left child node
+     * @param right The right child node
+     * @return The computed Merkle tree hash for the given pair of nodes
+     */
+    static fr merkle_hash(fr left, fr right)
+    {
+        // use 0-generator for internal merkle hashing
+        return plonk::stdlib::pedersen_hash<Builder>::hash({ left, right }, 0);
+    };
 
-static grumpkin_point commit(const std::vector<fr>& inputs, const size_t hash_index = 0)
-{
-    return plonk::stdlib::pedersen_commitment<Builder>::commit(inputs, hash_index);
-};
+    static grumpkin_point commit(const std::vector<fr>& inputs, const size_t hash_index = 0)
+    {
+        return plonk::stdlib::pedersen_commitment<Builder>::commit(inputs, hash_index);
+    };
 
-static grumpkin_point commit(const std::vector<std::pair<fr, crypto::generators::generator_index_t>>& input_pairs)
-{
-    return plonk::stdlib::pedersen_commitment<Builder>::commit(input_pairs);
-};
+    static grumpkin_point commit(const std::vector<std::pair<fr, crypto::generators::generator_index_t>>& input_pairs)
+    {
+        return plonk::stdlib::pedersen_commitment<Builder>::commit(input_pairs);
+    };
 
-static byte_array blake2s(const byte_array& input) { return plonk::stdlib::blake2s(input); }
+    static byte_array blake2s(const byte_array& input) { return plonk::stdlib::blake2s(input); }
 
-static byte_array blake3s(const byte_array& input) { return plonk::stdlib::blake3s(input); }
+    static byte_array blake3s(const byte_array& input) { return plonk::stdlib::blake3s(input); }
 };
 
 }  // namespace aztec3::utils::types
