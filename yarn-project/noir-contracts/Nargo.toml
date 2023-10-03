@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "src/contracts/card_game_contract", 
+    "src/contracts/blank_contract", 
     "src/contracts/child_contract", 
     "src/contracts/docs_example_contract",
     "src/contracts/easy_private_token_contract",
