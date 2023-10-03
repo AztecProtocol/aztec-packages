@@ -114,7 +114,7 @@ contract Token {
     #[aztec(private)]
     fn constructor(admin: AztecAddress) {
         let selector = compute_selector("_initialize((Field))");
-        let _callStackItem = context.call_public_function(context.this_address(), selector, admin.serialize());
+        context.call_public_function(context.this_address(), selector, [admin.address]);
     }
     // docs:end:constructor
 
