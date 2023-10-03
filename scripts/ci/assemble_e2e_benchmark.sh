@@ -19,9 +19,12 @@ if [ "${CIRCLE_BRANCH:-}" = "master" ]; then
 elif [ -n "${CIRCLE_PULL_REQUEST:-}" ]; then
   LOG_SOURCE_FOLDER="logs-v1/pulls/${CIRCLE_PULL_REQUEST##*/}"
   BENCHMARK_TARGET_FILE="benchmarks-v1/pulls/${CIRCLE_PULL_REQUEST##*/}.json"
+elif [ -n "${CIRCLE_TAG:-}" ]; then
+  echo "Skipping benchmark run for ${CIRCLE_TAG} tagged release."
+  exit 0
 else
-  echo "Can only run benchmark aggregation on master or on a PR. Ensure CIRCLE_BRANCH or CIRCLE_PULL_REQUEST are set."
-  exit 1
+  echo "Skipping benchmark run on branch ${CIRCLE_BRANCH:-unknown}."
+  exit 0
 fi
 
 # Download benchmark log files from S3 LOG_SOURCE_FOLDER into local LOG_FOLDER
