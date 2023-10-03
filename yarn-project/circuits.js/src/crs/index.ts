@@ -4,7 +4,7 @@ import { fileURLToPath } from '@aztec/foundation/url';
 import isNode from 'detect-node';
 import { existsSync } from 'fs';
 import { open } from 'fs/promises';
-import { dirname } from 'path';
+import { dirname, join } from 'path';
 
 /**
  * Downloader for CRS from the web or local.
@@ -156,8 +156,8 @@ export class Crs {
     private readonly saveOnFile = true,
   ) {
     if (isNode) {
-      const devPath = dirname(fileURLToPath(import.meta.url)) + this.devPath;
-      const localPath = dirname(fileURLToPath(import.meta.url)) + this.localPath;
+      const devPath = join(fileURLToPath(import.meta.url), this.devPath);
+      const localPath = join(dirname(fileURLToPath(import.meta.url)), this.localPath);
       const existsDev = existsSync(devPath);
       const existsLocal = existsSync(localPath);
 
@@ -186,16 +186,16 @@ export class Crs {
         const g1Data = Buffer.from(this.crs.getG1Data());
         try {
           await fileHandle.write(g1Data);
-        } catch (error) {
-          this.logger.warn('Failed to save CRS data: ', error);
+        } catch (err: any) {
+          this.logger.warn('Failed to save CRS data: ', err.message);
         }
 
         const g2Data = Buffer.from(this.crs.getG2Data());
         try {
           await fileHandle.write(g2Data, 0, g2Data.length, g1Data.length);
           // appendFileSync(localPath, Buffer.from(g2Data));
-        } catch (error) {
-          this.logger.warn('Failed to append G2 data: ', error);
+        } catch (err: any) {
+          this.logger.warn('Failed to append G2 data: ', err.message);
         } finally {
           await fileHandle.close();
         }
