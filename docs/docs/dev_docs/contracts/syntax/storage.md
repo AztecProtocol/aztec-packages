@@ -44,17 +44,19 @@ No storage values should be initialized at slot `0` - storage slots begin at `1`
 
 ## Storage Slots
 
-Each contract's state is represented with a storage slot key value store of type `Map<Field, Field>`. For now, storage slot positions for each variable must be explicitly assigned inside the `Storage impl`. Except for `Map` types, storage is in contiguous blocks, so you must calculate how many slots each public variable requires, and increment the next variable's slot by this amount.
+Public state in Aztec is implemented as a single global merkle tree of depth 254, with each contract's internal storage slot combined with its contract address to generate its position in the global tree as `global_storage_slot = pedersen_hash(contract_storage_slot, contract_address)`.
 
-When assigning contract storage slots, `Map`s are treated as occupying only 1 storage slot (its "base_slot"), because the actual values are stored in derived slots calculated as `map_value_storage_slot = pedersen_hash(base_slot, key)`.
+A contract's state is represented by mapping its own storage slots to each variable. For now, storage slot positions for each variable must be explicitly assigned inside the `Storage impl`. Although variables can be arrays or structs that are stored internally as contiguous blocks, each variable in the storage definition takes just 1 block, so in practice you can increment the storage slot by 1 each time you add another variable, whether it is public or private.
+
+When assigning contract storage slots, `Map`s are also treated as occupying only 1 storage slot (its "base_slot"), because the actual values in the global state tree are stored in derived slots calculated as `map_value_storage_slot = pedersen_hash(base_slot, key)`.
+
+Private state is stored in a separate UTXO tree (a second nullifier tree tracks which notes have been spent - each note's nullifier is calculated deterministically from its contents.) A contract's private variables may be associated with 0, 1, or multiple notes in the UTXO tree.
+The position of each note in the tree does not matter - the relationship to contract state is contained through the note header. Each private variable's storage slot is contained in a contract's bytecode, but they do not appear at all in the global storage tree.
 
 :::info
-Private variables only require one single slot, because all notes are linked to contract state through a single `storage slot` attribute in their header.
-:::
+Private variables only require one single slot, because all notes are linked their contract variable through the `storage slot` attribute in their note header (which also contains the contract address and nonce). :::
 
 We currently do not support any "packing" type optimizations as in most EVM languages.
-
-Storage in Aztec is implemented as a single global merkle tree, with each contract's internal storage slot combined with its contract address to generate its position in the global tree as `global_storage_slot = pedersen_hash(contract_storage_slot, contract_address)`.
 
 Note: The choice of hash function is subject to change in later versions.
 
@@ -135,7 +137,6 @@ When declaring the storage for `T` as a persistent public storage variable, we u
 
 #### Single value example
 
-
 Say that we wish to add `admin` public state variable into our storage struct. In the struct we can define it as:
 
 #include_code storage_admin /yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
@@ -145,7 +146,6 @@ And then when initializing it in the `Storage::init` function we can do:
 #include_code storage_admin_init /yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
 
 We have specified that we are storing a `Field` that should be placed in storage slot `1`. This is just a single value, and is similar to the following in solidity:
-
 
 ```solidity
 address internal admin;
