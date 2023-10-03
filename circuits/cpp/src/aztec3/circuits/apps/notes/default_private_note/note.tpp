@@ -20,7 +20,6 @@ namespace aztec3::circuits::apps::notes {
 
 using aztec3::GeneratorIndex;
 
-using crypto::generators::generator_index_t;
 
 using aztec3::utils::types::CircuitTypes;
 using aztec3::utils::types::NativeTypes;

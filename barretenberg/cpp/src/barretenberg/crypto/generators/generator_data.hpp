@@ -136,5 +136,9 @@ template <typename Curve> struct GeneratorContext {
     GeneratorContext() = default;
     GeneratorContext(size_t hash_index)
         : offset(hash_index){};
+    GeneratorContext(size_t _offset, std::string_view _domain_separator)
+        : offset(_offset)
+        , domain_separator(_domain_separator)
+    {}
 };
 } // namespace crypto

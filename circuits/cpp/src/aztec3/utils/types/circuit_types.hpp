@@ -3,6 +3,8 @@
 // TODO(dbanks12) consider removing this include which is used by consumers of circuit_types.hpp
 #include "native_types.hpp"
 
+#include "aztec3/constants.hpp"
+
 #include <barretenberg/barretenberg.hpp>
 
 using namespace proof_system::plonk;
@@ -86,6 +88,11 @@ template <typename Builder> struct CircuitTypes {
     static grumpkin_point commit(const std::vector<fr>& inputs, const size_t hash_index = 0)
     {
         return plonk::stdlib::pedersen_commitment<Builder>::commit(inputs, hash_index);
+    };
+
+    static grumpkin_point commit(const std::vector<std::pair<fr, generator_index_t>>& input_pairs)
+    {
+        return plonk::stdlib::pedersen_commitment<Builder>::commit(input_pairs);
     };
 
     static byte_array blake2s(const byte_array& input) { return plonk::stdlib::blake2s(input); }
