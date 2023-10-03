@@ -5,8 +5,11 @@
 #include "barretenberg/honk/transcript/transcript.hpp"
 #include "barretenberg/honk/utils/power_polynomial.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
 #include <algorithm>
+#include <cstdlib>
 #include <string>
+#include <vector>
 
 using namespace barretenberg;
 using namespace proof_system::honk::sumcheck;
@@ -52,6 +55,7 @@ template <typename Flavor> bool GoblinTranslatorVerifier_<Flavor>::verify_proof(
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
 
+    const size_t NUM_LIMB_BITS = Flavor::NUM_LIMB_BITS;
     RelationParameters<FF> relation_parameters;
 
     transcript = VerifierTranscript<FF>{ proof.proof_data };
@@ -61,10 +65,30 @@ template <typename Flavor> bool GoblinTranslatorVerifier_<Flavor>::verify_proof(
 
     // TODO(Adrian): Change the initialization of the transcript to take the VK hash?
     const auto circuit_size = transcript.template receive_from_prover<uint32_t>("circuit_size");
-    const auto evaluation_input_x = transcript.template receive_from_prover<BF>("evaluation_input_x");
-    const auto batching_challenge_v = transcript.template receive_from_prover<BF>("batching_challenge_v");
-    (void)evaluation_input_x;
-    (void)batching_challenge_v;
+    evaluation_input_x = transcript.template receive_from_prover<BF>("evaluation_input_x");
+    batching_challenge_v = transcript.template receive_from_prover<BF>("batching_challenge_v");
+    auto uint_evaluation_input = uint256_t(evaluation_input_x);
+    relation_parameters.evaluation_input_x = { uint_evaluation_input.slice(0, NUM_LIMB_BITS),
+                                               uint_evaluation_input.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2),
+                                               uint_evaluation_input.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3),
+                                               uint_evaluation_input.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4) };
+    std::vector<uint256_t> uint_batching_challenge_powers;
+    uint_batching_challenge_powers.emplace_back(batching_challenge_v);
+    auto running_power = batching_challenge_v * batching_challenge_v;
+    uint_batching_challenge_powers.emplace_back(running_power);
+    running_power *= batching_challenge_v;
+    uint_batching_challenge_powers.emplace_back(running_power);
+    running_power *= batching_challenge_v;
+    uint_batching_challenge_powers.emplace_back(running_power);
+
+    for (size_t i = 0; i < 4; i++) {
+        relation_parameters.batching_challenge_v[i] = {
+            uint_batching_challenge_powers[i].slice(0, NUM_LIMB_BITS),
+            uint_batching_challenge_powers[i].slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2),
+            uint_batching_challenge_powers[i].slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3),
+            uint_batching_challenge_powers[i].slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4),
+        };
+    }
     if (circuit_size != key->circuit_size) {
         return false;
     }
@@ -245,9 +269,6 @@ template <typename Flavor> bool GoblinTranslatorVerifier_<Flavor>::verify_proof(
 
     // Get commitment to permutation and lookup grand products
     commitments.z_perm = transcript.template receive_from_prover<Commitment>(commitment_labels.z_perm);
-    info("Commitment before: ", commitments.get_unshifted()[0]);
-    info("Label:", commitment_labels.get_unshifted()[0]);
-    ASSERT(commitments.get_wires()[0] == commitments.get_unshifted()[0]);
     // Execute Sumcheck Verifier
     auto sumcheck = SumcheckVerifier<Flavor>(circuit_size, transcript);
 

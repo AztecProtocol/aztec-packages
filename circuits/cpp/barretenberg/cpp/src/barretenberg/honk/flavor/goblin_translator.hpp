@@ -8,6 +8,7 @@
 #include "barretenberg/honk/sumcheck/relations/goblin_translator_decomposition_relation.hpp"
 #include "barretenberg/honk/sumcheck/relations/goblin_translator_extra_relations.hpp"
 #include "barretenberg/honk/sumcheck/relations/goblin_translator_gen_perm_sort_relation.hpp"
+#include "barretenberg/honk/sumcheck/relations/goblin_translator_main_relation.hpp"
 #include "barretenberg/honk/sumcheck/relations/permutation_relation.hpp"
 #include "barretenberg/honk/transcript/transcript.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
@@ -221,6 +222,7 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
         LAGRANGE_LAST,
         LAGRANGE_ODD,
         LAGRANGE_EVEN,
+        LAGRANGE_SECOND_TO_LAST_IN_MINICIRCUIT,
         ORDERED_EXTRA_RANGE_CONSTRAINTS_NUMERATOR,
         TOTAL_COUNT
 
@@ -249,6 +251,8 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
     static constexpr size_t SORT_STEP = 3;
     static constexpr size_t MICRO_LIMB_BITS = CircuitBuilder::MICRO_LIMB_BITS;
+    static constexpr auto NEGATIVE_MODULUS_LIMBS = CircuitBuilder::NEGATIVE_MODULUS_LIMBS;
+    static constexpr size_t NUM_LIMB_BITS = 68;
 
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
@@ -267,7 +271,8 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
                                  sumcheck::GoblinTranslatorGenPermSortRelation<FF>,
                                  sumcheck::GoblinTranslatorPermutationRelation<FF>,
                                  sumcheck::GoblinTranslatorOpRangeConstraintRelation<FF>,
-                                 sumcheck::GoblinTranslatorAccumulatorTransferRelation<FF>>;
+                                 sumcheck::GoblinTranslatorAccumulatorTransferRelation<FF>,
+                                 sumcheck::GoblinTranslatorMainRelation<FF>>;
 
     static constexpr size_t MAX_RELATION_LENGTH = get_max_relation_length<Relations>();
 
@@ -295,7 +300,8 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
         DataType& lagrange_last = std::get<1>(this->_data);
         DataType& lagrange_odd = std::get<2>(this->_data);
         DataType& lagrange_even = std::get<3>(this->_data);
-        DataType& ordered_extra_range_constraints_numerator = std::get<4>(this->_data);
+        DataType& lagrange_second_to_last_in_minicircuit = std::get<4>(this->_data);
+        DataType& ordered_extra_range_constraints_numerator = std::get<5>(this->_data);
         std::vector<HandleType> get_selectors() { return {}; };
         std::vector<HandleType> get_sigma_polynomials() { return {}; };
         std::vector<HandleType> get_id_polynomials() { return {}; };
@@ -769,7 +775,8 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
         DataType& lagrange_last = std::get<178>(this->_data);
         DataType& lagrange_odd = std::get<179>(this->_data);
         DataType& lagrange_even = std::get<180>(this->_data);
-        DataType& ordered_extra_range_constraints_numerator = std::get<181>(this->_data);
+        DataType& lagrange_second_to_last_in_minicircuit = std::get<181>(this->_data);
+        DataType& ordered_extra_range_constraints_numerator = std::get<182>(this->_data);
 
         std::vector<HandleType> get_wires() override
         {
@@ -1483,6 +1490,7 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
             this->lagrange_last = "__LAGRANGE_LAST";
             this->lagrange_odd = "__LAGRANGE_ODD";
             this->lagrange_even = "__LAGRANGE_EVEN";
+            this->lagrange_even = "__LAGRANGE_SECOND_TO_LAST_IN_MINICIRCUIT";
             this->ordered_extra_range_constraints_numerator = "__ORDERED_EXTRA_RANGE_CONSTRAINTS_NUMERATOR";
         };
     };
@@ -1497,6 +1505,7 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
             this->lagrange_last = verification_key->lagrange_last;
             this->lagrange_odd = verification_key->lagrange_odd;
             this->lagrange_even = verification_key->lagrange_even;
+            this->lagrange_second_to_last_in_minicircuit = verification_key->lagrange_second_to_last_in_minicircuit;
             this->ordered_extra_range_constraints_numerator =
                 verification_key->ordered_extra_range_constraints_numerator;
         }

@@ -237,7 +237,15 @@ GoblinTranslatorProver_<Flavor>::GoblinTranslatorProver_(std::shared_ptr<typenam
     prover_polynomials.lagrange_last = key->lagrange_last;
     prover_polynomials.lagrange_odd = key->lagrange_odd;
     prover_polynomials.lagrange_even = key->lagrange_even;
+    prover_polynomials.lagrange_second_to_last_in_minicircuit = key->lagrange_second_to_last_in_minicircuit;
     prover_polynomials.ordered_extra_range_constraints_numerator = key->ordered_extra_range_constraints_numerator;
+
+    // for (size_t i = 0; i < key->circuit_size; i += 2) {
+    //     if ((prover_polynomials.p_x_high_limbs_range_constraint_3_shift[i + 1] * 64 -
+    //          prover_polynomials.p_x_high_limbs_range_constraint_4_shift[i + 1]) != 0) {
+    //         info("Expression fails at ", i);
+    //     }
+    // }
 }
 
 /**
@@ -275,12 +283,34 @@ template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_grand_p
 {
     // Compute and store parameters required by relations in Sumcheck
     auto [gamma] = transcript.get_challenges("gamma");
-
+    const size_t NUM_LIMB_BITS = Flavor::NUM_LIMB_BITS;
     relation_parameters.beta = 0;
     relation_parameters.gamma = gamma;
     relation_parameters.public_input_delta = 0;
     relation_parameters.lookup_grand_product_delta = 0;
+    auto uint_evaluation_input = uint256_t(key->evaluation_input_x);
+    relation_parameters.evaluation_input_x = { uint_evaluation_input.slice(0, NUM_LIMB_BITS),
+                                               uint_evaluation_input.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2),
+                                               uint_evaluation_input.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3),
+                                               uint_evaluation_input.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4) };
+    std::vector<uint256_t> uint_batching_challenge_powers;
+    auto batching_challenge_v = key->batching_challenge_v;
+    uint_batching_challenge_powers.emplace_back(batching_challenge_v);
+    auto running_power = batching_challenge_v * batching_challenge_v;
+    uint_batching_challenge_powers.emplace_back(running_power);
+    running_power *= batching_challenge_v;
+    uint_batching_challenge_powers.emplace_back(running_power);
+    running_power *= batching_challenge_v;
+    uint_batching_challenge_powers.emplace_back(running_power);
 
+    for (size_t i = 0; i < 4; i++) {
+        relation_parameters.batching_challenge_v[i] = {
+            uint_batching_challenge_powers[i].slice(0, NUM_LIMB_BITS),
+            uint_batching_challenge_powers[i].slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2),
+            uint_batching_challenge_powers[i].slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3),
+            uint_batching_challenge_powers[i].slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4),
+        };
+    }
     // Compute constraint permutation grand product
     grand_product_library::compute_grand_products<Flavor>(key, prover_polynomials, relation_parameters);
 

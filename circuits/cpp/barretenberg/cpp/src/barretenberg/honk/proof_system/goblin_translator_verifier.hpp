@@ -9,6 +9,7 @@
 namespace proof_system::honk {
 template <typename Flavor> class GoblinTranslatorVerifier_ {
     using FF = typename Flavor::FF;
+    using BF = typename Flavor::BF;
     using Commitment = typename Flavor::Commitment;
     using VerificationKey = typename Flavor::VerificationKey;
     using PCSVerificationKey = typename Flavor::PCSParams::VerificationKey;
@@ -22,7 +23,8 @@ template <typename Flavor> class GoblinTranslatorVerifier_ {
     ~GoblinTranslatorVerifier_() = default;
 
     bool verify_proof(const plonk::proof& proof);
-
+    BF evaluation_input_x = BF::zero();
+    BF batching_challenge_v = BF::zero();
     std::shared_ptr<VerificationKey> key;
     std::map<std::string, Commitment> commitments;
     std::map<std::string, FF> pcs_fr_elements;
