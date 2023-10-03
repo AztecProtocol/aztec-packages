@@ -1,13 +1,12 @@
 import { AccountWallet, CheatCodes, Fr, SentTx, computeMessageSecretHash } from '@aztec/aztec.js';
-import { CircuitsWasm, CompleteAddress, FunctionSelector, GeneratorIndex } from '@aztec/circuits.js';
-import { pedersenPlookupCompressWithHashIndex } from '@aztec/circuits.js/barretenberg';
+import { CompleteAddress } from '@aztec/circuits.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { LendingContract, PriceFeedContract, TokenContract } from '@aztec/noir-contracts/types';
 import { NotePreimage, TxStatus } from '@aztec/types';
 
 import { jest } from '@jest/globals';
 
-import { setup } from './fixtures/utils.js';
+import { computeAuthWitHash, setup } from './fixtures/utils.js';
 import { LendingAccount, LendingSimulator, TokenSimulator } from './simulators/index.js';
 
 describe('e2e_lending_contract', () => {
@@ -99,14 +98,6 @@ describe('e2e_lending_contract', () => {
     await lendingSim.check();
   });
 
-  const hashPayload = async (payload: Fr[]) => {
-    return pedersenPlookupCompressWithHashIndex(
-      await CircuitsWasm.get(),
-      payload.map(fr => fr.toBuffer()),
-      GeneratorIndex.SIGNATURE_PAYLOAD,
-    );
-  };
-
   it('Mint assets for later usage', async () => {
     await waitForSuccess(priceFeedContract.methods.set_price(0n, 2n * 10n ** 9n).send());
 
@@ -151,15 +142,13 @@ describe('e2e_lending_contract', () => {
     it('Depositing 🥸 : 💰 -> 🏦', async () => {
       const depositAmount = 420n;
       const nonce = Fr.random();
-      const messageHash = await hashPayload([
-        lendingContract.address.toField(),
-        collateralAsset.address.toField(),
-        FunctionSelector.fromSignature('unshield((Field),(Field),Field,Field)').toField(),
-        lendingAccount.address.toField(),
-        lendingContract.address.toField(),
-        new Fr(depositAmount),
-        nonce,
-      ]);
+      const messageHash = await computeAuthWitHash(
+        lendingContract.address,
+        collateralAsset.methods
+          .unshield(lendingAccount.address, lendingContract.address, depositAmount, nonce)
+          .request(),
+      );
+
       await wallet.createAuthWitness(Fr.fromBuffer(messageHash));
       await lendingSim.progressTime(TIME_JUMP);
       lendingSim.depositPrivate(lendingAccount.address, await lendingAccount.key(), depositAmount);
@@ -187,15 +176,12 @@ describe('e2e_lending_contract', () => {
     it('Depositing 🥸 on behalf of recipient: 💰 -> 🏦', async () => {
       const depositAmount = 421n;
       const nonce = Fr.random();
-      const messageHash = await hashPayload([
-        lendingContract.address.toField(),
-        collateralAsset.address.toField(),
-        FunctionSelector.fromSignature('unshield((Field),(Field),Field,Field)').toField(),
-        lendingAccount.address.toField(),
-        lendingContract.address.toField(),
-        new Fr(depositAmount),
-        nonce,
-      ]);
+      const messageHash = await computeAuthWitHash(
+        lendingContract.address,
+        collateralAsset.methods
+          .unshield(lendingAccount.address, lendingContract.address, depositAmount, nonce)
+          .request(),
+      );
       await wallet.createAuthWitness(Fr.fromBuffer(messageHash));
 
       await lendingSim.progressTime(TIME_JUMP);
@@ -224,15 +210,12 @@ describe('e2e_lending_contract', () => {
       const depositAmount = 211n;
 
       const nonce = Fr.random();
-      const messageHash = await hashPayload([
-        lendingContract.address.toField(),
-        collateralAsset.address.toField(),
-        FunctionSelector.fromSignature('transfer_public((Field),(Field),Field,Field)').toField(),
-        lendingAccount.address.toField(),
-        lendingContract.address.toField(),
-        new Fr(depositAmount),
-        nonce,
-      ]);
+      const messageHash = await computeAuthWitHash(
+        lendingContract.address,
+        collateralAsset.methods
+          .transfer_public(lendingAccount.address, lendingContract.address, depositAmount, nonce)
+          .request(),
+      );
 
       // Add it to the wallet as approved
       await wallet.setPublicAuth(messageHash, true).send().wait();
@@ -305,14 +288,10 @@ describe('e2e_lending_contract', () => {
     it('Repay 🥸 : 🍌 -> 🏦', async () => {
       const repayAmount = 20n;
       const nonce = Fr.random();
-      const messageHash = await hashPayload([
-        lendingContract.address.toField(),
-        stableCoin.address.toField(),
-        FunctionSelector.fromSignature('burn((Field),Field,Field)').toField(),
-        lendingAccount.address.toField(),
-        new Fr(repayAmount),
-        nonce,
-      ]);
+      const messageHash = await computeAuthWitHash(
+        lendingContract.address,
+        stableCoin.methods.burn(lendingAccount.address, repayAmount, nonce).request(),
+      );
       await wallet.createAuthWitness(Fr.fromBuffer(messageHash));
 
       await lendingSim.progressTime(TIME_JUMP);
@@ -335,14 +314,10 @@ describe('e2e_lending_contract', () => {
     it('Repay 🥸  on behalf of public: 🍌 -> 🏦', async () => {
       const repayAmount = 21n;
       const nonce = Fr.random();
-      const messageHash = await hashPayload([
-        lendingContract.address.toField(),
-        stableCoin.address.toField(),
-        FunctionSelector.fromSignature('burn((Field),Field,Field)').toField(),
-        lendingAccount.address.toField(),
-        new Fr(repayAmount),
-        nonce,
-      ]);
+      const messageHash = await computeAuthWitHash(
+        lendingContract.address,
+        stableCoin.methods.burn(lendingAccount.address, repayAmount, nonce).request(),
+      );
       await wallet.createAuthWitness(Fr.fromBuffer(messageHash));
 
       await lendingSim.progressTime(TIME_JUMP);
@@ -366,14 +341,10 @@ describe('e2e_lending_contract', () => {
       const repayAmount = 20n;
 
       const nonce = Fr.random();
-      const messageHash = await hashPayload([
-        lendingContract.address.toField(),
-        stableCoin.address.toField(),
-        FunctionSelector.fromSignature('burn_public((Field),Field,Field)').toField(),
-        lendingAccount.address.toField(),
-        new Fr(repayAmount),
-        nonce,
-      ]);
+      const messageHash = await computeAuthWitHash(
+        lendingContract.address,
+        stableCoin.methods.burn_public(lendingAccount.address, repayAmount, nonce).request(),
+      );
 
       // Add it to the wallet as approved
       await wallet.setPublicAuth(messageHash, true).send().wait();

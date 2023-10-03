@@ -44,9 +44,11 @@ import { NonNativeTokenContract, TokenBridgeContract, TokenContract } from '@azt
 import { PXEService, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 import {
   AztecNode,
+  FunctionCall,
   L2BlockL2Logs,
   LogType,
   PXE,
+  PackedArguments,
   TxStatus,
   UnencryptedL2Log,
   createAztecNodeRpcClient,
@@ -563,4 +565,19 @@ export const hashPayload = async (payload: Fr[]) => {
     payload.map(fr => fr.toBuffer()),
     GeneratorIndex.SIGNATURE_PAYLOAD,
   );
+};
+
+/**
+ * Compute an authentication witness message hash from a caller and a request
+ * @param caller - The caller approved to make the call
+ * @param request - The request to be made (function call)
+ * @returns The message hash for the witness
+ */
+export const computeAuthWitHash = async (caller: AztecAddress, request: FunctionCall) => {
+  return await hashPayload([
+    caller.toField(),
+    request.to.toField(),
+    request.functionData.selector.toField(),
+    (await PackedArguments.fromArgs(request.args, await CircuitsWasm.get())).hash,
+  ]);
 };
