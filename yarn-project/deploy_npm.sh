@@ -48,14 +48,6 @@ function deploy_package() {
   jq '{name, version, exports, main, homepage, author, type, license, dependencies, description, bin} | with_entries( select( .value != null ) )' \
   package.json > $TMP && mv $TMP package.json
   
-  # Download ignition for circuits.js
-  if [[ "$REPOSITORY" == "circuits.js" ]]; then
-    echo "Downloading minimal SRS ignition data..."
-    cd resources
-    ./download_ignition.sh 0 28 3200027
-    ./download_ignition.sh 0 322560092 322560219 true
-  fi
-  
   # Publish
   if [ -n "$COMMIT_TAG" ] ; then
     npm publish $TAG_ARG --access public

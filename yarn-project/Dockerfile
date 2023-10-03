@@ -22,5 +22,10 @@ COPY --from=builder /usr/src/yarn-project /usr/src/yarn-project
 
 # Download minimal CRS requirements
 COPY --from=builder /usr/src/barretenberg/cpp/srs_db/download_ignition.sh /usr/src/yarn-project/circuits.js/resources/download_ignition.sh
+WORKDIR /usr/src/yarn-project/circuits.js/resources
+RUN ./download_ignition.sh 0 28 3200027
+RUN ./download_ignition.sh 0 322560092 322560219 true
+
+WORKDIR /usr/src/yarn-project
 
 ENTRYPOINT ["yarn"]
