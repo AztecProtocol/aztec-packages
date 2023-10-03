@@ -33,14 +33,14 @@ std::pair<std::vector<uint8_t>, std::vector<uint8_t>> split_proof(std::vector<ui
                                                                   uint32_t num_public_inputs)
 {
 
-    uint32_t elementsToRemove = 32 * num_public_inputs;
+    uint32_t numBytesToRemove = 32 * num_public_inputs;
 
-    if (proof.size() < elementsToRemove) {
-        throw_or_abort("Not enough elements in the original vector");
+    if (proof.size() < numBytesToRemove) {
+        throw_or_abort("Not enough bytes in the proof to remove the desired number of public inputs.");
     }
 
-    std::vector<uint8_t> public_inputs = slice(proof, 0, elementsToRemove);
-    std::vector<uint8_t> proof_without_public_inputs = slice(proof, elementsToRemove);
+    std::vector<uint8_t> public_inputs = slice(proof, 0, numBytesToRemove);
+    std::vector<uint8_t> proof_without_public_inputs = slice(proof, numBytesToRemove);
 
     return { public_inputs, proof_without_public_inputs };
 }
