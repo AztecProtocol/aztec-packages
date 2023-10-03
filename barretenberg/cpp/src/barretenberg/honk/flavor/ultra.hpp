@@ -396,6 +396,69 @@ class Ultra {
         FF gate_separation_challenge;
         FF target_sum;
     };
+
+    class Transcript : public BaseTranscript<FF> {
+      public:
+        uint32_t circuit_size;
+        uint32_t public_input_size;
+        uint32_t pub_inputs_offset;
+        FF public_input_0;
+        GroupElement w_l_comm;
+        GroupElement w_r_comm;
+        GroupElement w_o_comm;
+        GroupElement sorted_accum_comm;
+        GroupElement w_4_comm;
+        GroupElement z_perm_comm;
+        GroupElement z_lookup_comm;
+        std::vector<barretenberg::Univariate<FF, MAX_RELATION_LENGTH>> sumcheck_univariates;
+        std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
+        std::vector<GroupElement> gemini_univariate_comms;
+        std::vector<FF> gemini_a_evals;
+        GroupElement shplonk_q_comm;
+        GroupElement kzg_w_comm;
+
+        std::vector<std::tuple<std::string, void*, size_t>> ordered_objects;
+        Transcript(uint32_t circuit_size)
+        {
+            // construct the vector
+            auto log_n = numeric::get_msb(circuit_size);
+            // resize the vectors to be the correct size based on circuit size
+            sumcheck_univariates.resize(log_n);
+            gemini_univariate_comms.resize(log_n);
+            gemini_a_evals.resize(log_n);
+
+            ordered_objects.emplace_back("circuit_size", &circuit_size, sizeof(uint32_t));
+            ordered_objects.emplace_back("public_input_size", &public_input_size, sizeof(uint32_t));
+            ordered_objects.emplace_back("pub_inputs_offset", &pub_inputs_offset, sizeof(uint32_t));
+            ordered_objects.emplace_back("public_input_0", &public_input_0, sizeof(FF));
+            ordered_objects.emplace_back("w_l_comm", &w_l_comm, sizeof(GroupElement));
+            ordered_objects.emplace_back("w_r_comm", &w_r_comm, sizeof(GroupElement));
+            ordered_objects.emplace_back("w_o_comm", &w_o_comm, sizeof(GroupElement));
+            ordered_objects.emplace_back("sorted_accum_comm", &sorted_accum_comm, sizeof(GroupElement));
+            ordered_objects.emplace_back("w_4_comm", &w_4_comm, sizeof(GroupElement));
+            ordered_objects.emplace_back("z_perm_comm", &z_perm_comm, sizeof(GroupElement));
+            ordered_objects.emplace_back("z_lookup_comm", &z_lookup_comm, sizeof(GroupElement));
+            for (size_t i = 0; i < log_n; ++i) {
+                std::string idx = std::to_string(i);
+                ordered_objects.emplace_back("sumcheck_univariate_" + idx,
+                                             &sumcheck_univariates[i],
+                                             sizeof(Univariate<FF, MAX_RELATION_LENGTH>));
+            }
+            ordered_objects.emplace_back(
+                "sumcheck_evaluations", &sumcheck_evaluations, sizeof(std::array<FF, NUM_ALL_ENTITIES>));
+            for (size_t i = 0; i < log_n; ++i) {
+                std::string idx = std::to_string(i);
+                ordered_objects.emplace_back(
+                    "gemini_univariate_comm_" + idx, &gemini_univariate_comms[i], sizeof(GroupElement));
+            }
+            for (size_t i = 0; i < log_n; ++i) {
+                std::string idx = std::to_string(i);
+                ordered_objects.emplace_back("gemini_a_eval_" + idx, &gemini_a_evals[i], sizeof(FF));
+            }
+            ordered_objects.emplace_back("shplonk_q_comm", &shplonk_q_comm, sizeof(GroupElement));
+            ordered_objects.emplace_back("kzg_w_comm", &kzg_w_comm, sizeof(GroupElement));
+        }
+    };
 };
 
 } // namespace proof_system::honk::flavor
