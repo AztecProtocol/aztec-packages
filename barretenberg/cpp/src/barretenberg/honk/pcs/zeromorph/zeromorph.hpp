@@ -23,28 +23,50 @@ template <typename Curve> class ZeroMorphProver {
      *
      *  f(X_0, ..., X_{d-1}) - v = \sum_{k=0}^{d-1} (X_k - u_k)q_k(X_0, ..., X_{k-1})
      *
+     * The polynomials q_k can be computed explicitly as the difference of the partial evaluation of f in the last k
+     * variables at, respectively, u'' = (u_k + 1, u_{k+1}, ..., u_{n-1}) and u' = (u_{n-k-1}, ..., u_{n-1}). I.e.
+     *
+     *  q_k(X_0, ..., X_{k-1}) = f(X_0,...,X_{k-1}, u'') - f(X_0,...,X_{k-1}, u')
+     *
+     * TODO(#739): This method has been designed for clarity at the expense of efficiency. Implement the highly
+     * efficient algorithm detailed in the latest versions of the ZeroMorph paper.
      * @param input_polynomial Multilinear polynomial f(X_0, ..., X_{d-1})
      * @param u_challenge Multivariate challenge u = (u_0, ..., u_{d-1})
-     * @return std::vector<Polynomial>
+     * @return std::vector<Polynomial> The quotients q_k
      */
-    static std::vector<Polynomial> compute_multivariate_quotients(std::span<Fr> input_polynomial,
-                                                                  std::span<Fr> u_challenge)
+    static std::vector<Polynomial> compute_multilinear_quotients(std::span<Fr> input_poly, std::span<Fr> u_challenge)
     {
+        auto input_polynomial = Polynomial(input_poly);
         size_t N = input_polynomial.size();
         size_t log_N = numeric::get_msb(N);
 
         // Define the vector of quotients q_k, k = 0, ..., log_n-1
         std::vector<Polynomial> quotients;
-        quotients.reserve(log_N);
-
-        // WORKTODO: Actually compute the q_k here!
         for (size_t k = 0; k < log_N; ++k) {
-            (void)u_challenge;
-            // Note: in reality we want polys of size 2^k but for convenience use size n for now
-            // quotient = Polynomial(1 << k); // deg(q_k) = 2^k - 1
-            quotients.emplace_back(Polynomial(N)); // deg(q_k) = N - 1
-            // add an arbitrary non-zero coefficient to each poly to avoid point at infinity
-            quotients[k][0] = Fr::random_element();
+            size_t size = 1 << k;
+            quotients.emplace_back(Polynomial(size));
+        }
+
+        // Note: we compute the q_k in reverse order, i.e. q_{n-1}, ..., q_0
+        for (size_t k = 0; k < log_N; ++k) {
+            // Define partial evaluation point u' = (u_{n-k-1}, ..., u_{n-1})
+            auto partial_size = static_cast<std::ptrdiff_t>(k + 1);
+            std::vector<Fr> u_partial(u_challenge.end() - partial_size, u_challenge.end());
+
+            // Compute f' = f(X_0,...,X_{k-1}, u')
+            auto f_1 = input_polynomial.partial_evaluate_mle(u_partial);
+
+            // Increment first element to get altered partial evaluation point u'' = (u_k + 1, u_{k+1}, ..., u_{n-1})
+            u_partial[0] += 1;
+
+            // Compute f'' = f(X_0,...,X_{k-1}, u'')
+            auto f_2 = input_polynomial.partial_evaluate_mle(u_partial);
+
+            // Compute q_k = f''(X_0,...,X_{k-1}) - f'(X_0,...,X_{k-1})
+            auto q_k = f_2;
+            q_k -= f_1;
+
+            quotients[log_N - k - 1] = q_k; // deg(q_k) = N - 1
         }
 
         return quotients;
