@@ -89,12 +89,7 @@ export async function proveAndVerify(bytecodePath: string, witnessPath: string, 
     debug(`creating proof...`);
     const bytecode = getBytecode(bytecodePath);
     const witness = getWitness(witnessPath);
-    const [publicInputs, proof] = await api.acirCreateProof(
-      acirComposer,
-      bytecode,
-      witness,
-      isRecursive,
-    );
+    const [publicInputs, proof] = await api.acirCreateProof(acirComposer, bytecode, witness, isRecursive);
 
     debug(`verifying...`);
     const verified = await api.acirVerifyProof(acirComposer, publicInputs, proof, isRecursive);
@@ -117,12 +112,7 @@ export async function prove(
     debug(`creating proof...`);
     const bytecode = getBytecode(bytecodePath);
     const witness = getWitness(witnessPath);
-    const [publicInputs, proof] = await api.acirCreateProof(
-      acirComposer,
-      bytecode,
-      witness,
-      isRecursive,
-    );
+    const [publicInputs, proof] = await api.acirCreateProof(acirComposer, bytecode, witness, isRecursive);
     debug(`done.`);
 
     if (outputProofPath === '-') {
