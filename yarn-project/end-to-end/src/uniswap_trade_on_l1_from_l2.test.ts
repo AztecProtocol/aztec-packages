@@ -1,4 +1,3 @@
-import { AztecNodeService } from '@aztec/aztec-node';
 import { AccountWallet, AztecAddress } from '@aztec/aztec.js';
 import { Fr, FunctionSelector } from '@aztec/circuits.js';
 import { deployL1Contract } from '@aztec/ethereum';
