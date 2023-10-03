@@ -6,7 +6,7 @@
 # 4. Pushes the manifest list
 
 [ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
-set -e
+set -eu
 
 REPOSITORY=$1
 ARCH_LIST=$2
@@ -32,4 +32,4 @@ done
 IFS=$OLD_IFS
 unset OLD_IFS
 
-docker manifest push --purge $FINAL
+docker manifest push --purge $IMAGE_URI
