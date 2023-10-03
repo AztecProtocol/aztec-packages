@@ -19,32 +19,6 @@ AcirComposer::AcirComposer(size_t size_hint, bool verbose)
 {}
 
 /**
- * @brief Splits a vector into two vectors,
- * the first containing the first 32 * k elements, and the second containing
- * the rest.
- *
- * @param original - The original vector to split
- * @param k - The number of 32 bytes to remove
- * @return std::pair<std::vector<uint8_t>, std::vector<uint8_t>>
- */
-std::pair<std::vector<uint8_t>, std::vector<uint8_t>> splitVector(const std::vector<uint8_t>& original, uint32_t k)
-{
-    uint32_t elementsToRemove = 32 * k;
-
-    if (original.size() < elementsToRemove) {
-        throw_or_abort("Not enough elements in the original vector");
-    }
-
-    std::vector<uint8_t> removed = slice(original, 0, elementsToRemove);
-    std::vector<uint8_t> rest = slice(original, elementsToRemove);
-
-    return {
-        rest,
-        removed,
-    };
-}
-
-/**
  * @brief Splits the proof into two vectors.
  *
  * Barretenberg returns a proof that is concatenated with the public inputs.
@@ -58,14 +32,17 @@ std::pair<std::vector<uint8_t>, std::vector<uint8_t>> splitVector(const std::vec
 std::pair<std::vector<uint8_t>, std::vector<uint8_t>> split_proof(std::vector<uint8_t>& proof,
                                                                   uint32_t num_public_inputs)
 {
-    auto [proof_without_public_inputs, public_inputs] = splitVector(proof, num_public_inputs);
-    return { public_inputs, proof_without_public_inputs };
-}
 
-std::vector<uint8_t> concatenateVectors(const std::vector<uint8_t>& firstVector,
-                                        const std::vector<uint8_t>& secondVector)
-{
-    return join({ firstVector, secondVector });
+    uint32_t elementsToRemove = 32 * num_public_inputs;
+
+    if (proof.size() < elementsToRemove) {
+        throw_or_abort("Not enough elements in the original vector");
+    }
+
+    std::vector<uint8_t> public_inputs = slice(proof, 0, elementsToRemove);
+    std::vector<uint8_t> proof_without_public_inputs = slice(proof, elementsToRemove);
+
+    return { public_inputs, proof_without_public_inputs };
 }
 
 void AcirComposer::create_circuit(acir_format::acir_format& constraint_system)
@@ -174,8 +151,7 @@ bool AcirComposer::verify_proof(std::vector<uint8_t> const& public_inputs,
                                 std::vector<uint8_t> const& proof_without_public_inputs,
                                 bool is_recursive)
 {
-
-    auto proof = concatenateVectors(public_inputs, proof_without_public_inputs);
+    auto proof = join({ public_inputs, proof_without_public_inputs });
 
     if (!verification_key_) {
         vinfo("computing verification key...");
@@ -214,7 +190,7 @@ std::vector<barretenberg::fr> AcirComposer::serialize_proof_into_fields(std::vec
                                                                         std::vector<uint8_t> const& proof)
 {
     auto num_inner_public_inputs = public_inputs.size() / 32;
-    transcript::StandardTranscript transcript(concatenateVectors(public_inputs, proof),
+    transcript::StandardTranscript transcript(join({ public_inputs, proof }),
                                               acir_format::Composer::create_manifest(num_inner_public_inputs),
                                               transcript::HashType::PlookupPedersenBlake3s,
                                               16);
