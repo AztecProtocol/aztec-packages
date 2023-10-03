@@ -654,7 +654,7 @@
         "type": "uint8_t **"
       },
       {
-        "name": "out_proof_without_public_inputs",
+        "name": "out_proof",
         "type": "uint8_t **"
       }
     ],
@@ -714,7 +714,7 @@
         "type": "const uint8_t *"
       },
       {
-        "name": "proof_without_public_inputs_buf",
+        "name": "proof_buf",
         "type": "const uint8_t *"
       },
       {
@@ -760,10 +760,6 @@
       {
         "name": "proof_buf",
         "type": "const uint8_t *"
-      },
-      {
-        "name": "num_inner_public_inputs",
-        "type": "const uint32_t *"
       }
     ],
     "outArgs": [
