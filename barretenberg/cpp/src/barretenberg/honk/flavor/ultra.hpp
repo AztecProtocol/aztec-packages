@@ -458,6 +458,9 @@ class Ultra {
             ordered_objects.emplace_back("shplonk_q_comm", &shplonk_q_comm, sizeof(GroupElement));
             ordered_objects.emplace_back("kzg_w_comm", &kzg_w_comm, sizeof(GroupElement));
         }
+        bool check_current_object(std::string object_name) const;
+        template <typename T> void send_to_verifier(std::string object_name, T object);
+        template <typename T> T receive_from_verifier(std::string object_name);
     };
 };
 
