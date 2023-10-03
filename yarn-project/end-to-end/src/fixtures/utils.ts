@@ -42,8 +42,9 @@ import {
 } from '@aztec/l1-artifacts';
 import { NonNativeTokenContract, TokenBridgeContract, TokenContract } from '@aztec/noir-contracts/types';
 import { PXEService, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
-import { L2BlockL2Logs, LogType, PXE, TxStatus } from '@aztec/types';
+import { L2BlockL2Logs, LogType, PXE, TxStatus, UnencryptedL2Log } from '@aztec/types';
 
+import * as path from 'path';
 import {
   Account,
   Chain,
@@ -60,6 +61,7 @@ import {
 import { mnemonicToAccount } from 'viem/accounts';
 
 import { MNEMONIC, localAnvil } from './fixtures.js';
+import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
 
 const { SANDBOX_URL = '' } = process.env;
 
@@ -218,60 +220,50 @@ async function setupWithSandbox(account: Account, config: AztecNodeConfig, logge
   };
 }
 
+/** Options for the e2e tests setup */
+type SetupOptions = { /** State load */ stateLoad?: string } & Partial<AztecNodeConfig>;
+
+/** Context for an end-to-end test as returned by the `setup` function */
+export type EndToEndContext = {
+  /** The Aztec Node service. */
+  aztecNode: AztecNodeService | undefined;
+  /** The Private eXecution Environment (PXE). */
+  pxe: PXE;
+  /** Return values from deployL1Contracts function. */
+  deployL1ContractsValues: DeployL1Contracts;
+  /** The accounts created by the PXE. */
+  accounts: CompleteAddress[];
+  /** The Aztec Node configuration. */
+  config: AztecNodeConfig;
+  /** The first wallet to be used. */
+  wallet: AccountWallet;
+  /** The wallets to be used. */
+  wallets: AccountWallet[];
+  /** Logger instance named as the current test. */
+  logger: DebugLogger;
+  /** The cheat codes. */
+  cheatCodes: CheatCodes;
+  /** Function to stop the started services. */
+  teardown: () => Promise<void>;
+};
+
 /**
  * Sets up the environment for the end-to-end tests.
  * @param numberOfAccounts - The number of new accounts to be created once the PXE is initiated.
+ * @param opts - Options to pass to the node initialisation and to the setup script.
  */
-export async function setup(
-  numberOfAccounts = 1,
-  stateLoad: string | undefined = undefined,
-): Promise<{
-  /**
-   * The Aztec Node service.
-   */
-  aztecNode: AztecNodeService | undefined;
-  /**
-   * The Private eXecution Environment (PXE).
-   */
-  pxe: PXE;
-  /**
-   * Return values from deployL1Contracts function.
-   */
-  deployL1ContractsValues: DeployL1Contracts;
-  /**
-   * The accounts created by the PXE.
-   */
-  accounts: CompleteAddress[];
-  /**
-   * The Aztec Node configuration.
-   */
-  config: AztecNodeConfig;
-  /**
-   * The first wallet to be used.
-   */
-  wallet: AccountWallet;
-  /**
-   * The wallets to be used.
-   */
-  wallets: AccountWallet[];
-  /**
-   * Logger instance named as the current test.
-   */
-  logger: DebugLogger;
-  /**
-   * The cheat codes.
-   */
-  cheatCodes: CheatCodes;
-  /**
-   * Function to stop the started services.
-   */
-  teardown: () => Promise<void>;
-}> {
-  const config = getConfigEnvVars();
+export async function setup(numberOfAccounts = 1, opts: SetupOptions = {}): Promise<EndToEndContext> {
+  const config = { ...getConfigEnvVars(), ...opts };
 
-  if (stateLoad) {
+  // Enable logging metrics to a local file named after the test suite
+  if (isMetricsLoggingRequested()) {
+    const filename = path.join('log', getJobName() + '.jsonl');
+    setupMetricsLogger(filename);
+  }
+
+  if (opts.stateLoad) {
     const ethCheatCodes = new EthCheatCodes(config.rpcUrl);
-    await ethCheatCodes.loadChainState(stateLoad);
+    await ethCheatCodes.loadChainState(opts.stateLoad);
   }
 
   const logger = getLogger();
@@ -332,12 +324,17 @@ export async function setNextBlockTimestamp(rpcUrl: string, timestamp: number) {
   });
 }
 
+/** Returns the job name for the current test. */
+function getJobName() {
+  return process.env.JOB_NAME ?? expect.getState().currentTestName?.split(' ')[0].replaceAll('/', '_') ?? 'unknown';
+}
+
 /**
  * Returns a logger instance for the current test.
  * @returns a logger instance for the current test.
  */
 export function getLogger() {
-  const describeBlockName = expect.getState().currentTestName?.split(' ')[0];
+  const describeBlockName = expect.getState().currentTestName?.split(' ')[0].replaceAll('/', ':');
   return createDebugLogger('aztec:' + describeBlockName);
 }
 
@@ -400,40 +397,26 @@ export async function deployAndInitializeTokenAndBridgeContracts(
   });
 
   // deploy l2 token
-  const deployTx = TokenContract.deploy(wallet).send();
-
-  // deploy l2 token bridge and attach to the portal
-  const bridgeTx = TokenBridgeContract.deploy(wallet).send({
-    portalContract: tokenPortalAddress,
-    contractAddressSalt: Fr.random(),
-  });
+  const deployTx = TokenContract.deploy(wallet, owner).send();
 
   // now wait for the deploy txs to be mined. This way we send all tx in the same rollup.
   const deployReceipt = await deployTx.wait();
   if (deployReceipt.status !== TxStatus.MINED) throw new Error(`Deploy token tx status is ${deployReceipt.status}`);
   const token = await TokenContract.at(deployReceipt.contractAddress!, wallet);
 
+  // deploy l2 token bridge and attach to the portal
+  const bridgeTx = TokenBridgeContract.deploy(wallet, token.address).send({
+    portalContract: tokenPortalAddress,
+    contractAddressSalt: Fr.random(),
+  });
   const bridgeReceipt = await bridgeTx.wait();
   if (bridgeReceipt.status !== TxStatus.MINED) throw new Error(`Deploy bridge tx status is ${bridgeReceipt.status}`);
   const bridge = await TokenBridgeContract.at(bridgeReceipt.contractAddress!, wallet);
   await bridge.attach(tokenPortalAddress);
   const bridgeAddress = bridge.address.toString() as `0x${string}`;
 
-  // initialize l2 token
-  const initializeTx = token.methods._initialize(owner).send();
-
-  // initialize bridge
-  const initializeBridgeTx = bridge.methods._initialize(token.address).send();
-
-  // now we wait for the txs to be mined. This way we send all tx in the same rollup.
-  const initializeReceipt = await initializeTx.wait();
-  if (initializeReceipt.status !== TxStatus.MINED)
-    throw new Error(`Initialize token tx status is ${initializeReceipt.status}`);
   if ((await token.methods.admin().view()) !== owner.toBigInt()) throw new Error(`Token admin is not ${owner}`);
 
-  const initializeBridgeReceipt = await initializeBridgeTx.wait();
-  if (initializeBridgeReceipt.status !== TxStatus.MINED)
-    throw new Error(`Initialize token bridge tx status is ${initializeBridgeReceipt.status}`);
   if ((await bridge.methods.token().view()) !== token.address.toBigInt())
     throw new Error(`Bridge token is not ${token.address}`);
 
@@ -554,8 +537,8 @@ export const expectUnencryptedLogsFromLastBlockToBe = async (pxe: PXE, logMessag
   // Get the unencrypted logs from the last block
   const unencryptedLogs = await pxe.getUnencryptedLogs(l2BlockNum, 1);
   // docs:end:get_logs
-  const unrolledLogs = L2BlockL2Logs.unrollLogs(unencryptedLogs);
-  const asciiLogs = unrolledLogs.map(log => log.toString('ascii'));
+  const unrolledLogs = L2BlockL2Logs.unrollLogs(unencryptedLogs).map(log => UnencryptedL2Log.fromBuffer(log));
+  const asciiLogs = unrolledLogs.map(log => log.data.toString('ascii'));
 
   expect(asciiLogs).toStrictEqual(logMessages);
 };

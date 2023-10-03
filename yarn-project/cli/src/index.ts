@@ -3,6 +3,7 @@ import {
   ContractDeployer,
   Fr,
   GrumpkinScalar,
+  NotePreimage,
   generatePublicKey,
   getSchnorrAccount,
   isContractDeployed,
@@ -18,6 +19,7 @@ import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import { Command, Option } from 'commander';
 import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
+import { format } from 'util';
 import { mnemonicToAccount } from 'viem/accounts';
 
 import { createCompatibleClient } from './client.js';
@@ -30,6 +32,8 @@ import {
   getExampleContractArtifacts,
   getTxSender,
   parseAztecAddress,
+  parseField,
+  parseFields,
   parsePartialAddress,
   parsePrivateKey,
   parsePublicKey,
@@ -437,7 +441,22 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       const client = await createCompatibleClient(options.rpcUrl, debugLogger);
       const from = await getTxSender(client, options.from);
       const result = await client.viewTx(functionName, functionArgs, options.contractAddress, from);
-      log('\nView result: ', result, '\n');
+      log(format('\nView result: ', result, '\n'));
+    });
+
+  program
+    .command('add-note')
+    .description('Adds a note to the database in the PXE.')
+    .argument('<address>', 'The Aztec address of the note owner.', parseAztecAddress)
+    .argument('<contractAddress>', 'Aztec address of the contract.', parseAztecAddress)
+    .argument('<storageSlot>', 'The storage slot of the note.', parseField)
+    .argument('<txHash>', 'The tx hash of the tx containing the note.', parseTxHash)
+    .requiredOption('-p, --preimage [notePreimage...]', 'Note preimage.', [])
+    .addOption(pxeOption)
+    .action(async (address, contractAddress, storageSlot, txHash, options) => {
+      const preimage = new NotePreimage(parseFields(options.preimage));
+      const client = await createCompatibleClient(options.rpcUrl, debugLogger);
+      await client.addNote(address, contractAddress, storageSlot, preimage, txHash);
     });
 
   // Helper for users to decode hex strings into structs if needed.
