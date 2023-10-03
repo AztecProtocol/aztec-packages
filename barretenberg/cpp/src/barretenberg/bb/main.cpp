@@ -58,7 +58,7 @@ std::vector<uint8_t> read_public_inputs(std::string const& public_inputs_path, s
 // in the same directory as their proof.
 std::string public_inputs_path_from_proof_path(std::string const& proof_path)
 {
-    return proof_path + "-public_inputs";
+    return proof_path + "_public_inputs";
 }
 
 /**
