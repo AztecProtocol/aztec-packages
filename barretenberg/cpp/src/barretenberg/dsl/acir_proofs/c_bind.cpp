@@ -11,9 +11,13 @@
 #include <cstdint>
 #include <memory>
 
-WASM_EXPORT void acir_get_circuit_sizes(uint8_t const* acir_vec, uint32_t* exact, uint32_t* total, uint32_t* subgroup)
+WASM_EXPORT void acir_get_circuit_sizes(uint8_t const* constraint_system_buf,
+                                        uint32_t* exact,
+                                        uint32_t* total,
+                                        uint32_t* subgroup)
 {
-    auto constraint_system = acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec));
+    auto constraint_system =
+        acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(constraint_system_buf));
     auto composer = acir_format::create_circuit(constraint_system, 1 << 19);
     *exact = htonl((uint32_t)composer.get_num_gates());
     *total = htonl((uint32_t)composer.get_total_circuit_size());
@@ -39,15 +43,16 @@ WASM_EXPORT void acir_init_proving_key(in_ptr acir_composer_ptr, uint8_t const* 
 }
 
 WASM_EXPORT void acir_create_proof(in_ptr acir_composer_ptr,
-                                   uint8_t const* acir_vec,
-                                   uint8_t const* witness_vec,
+                                   uint8_t const* constraint_system_buf,
+                                   uint8_t const* witness_buf,
                                    bool const* is_recursive,
                                    uint8_t** out_public_inputs,
                                    uint8_t** out_proof)
 {
     auto acir_composer = reinterpret_cast<acir_proofs::AcirComposer*>(*acir_composer_ptr);
-    auto constraint_system = acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec));
-    auto witness = acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec));
+    auto constraint_system =
+        acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(constraint_system_buf));
+    auto witness = acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_buf));
 
     auto [public_inputs, proof] =
         acir_composer->create_proof(barretenberg::srs::get_crs_factory(), constraint_system, witness, *is_recursive);

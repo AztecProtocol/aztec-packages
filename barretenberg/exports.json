@@ -636,11 +636,11 @@
         "type": "in_ptr"
       },
       {
-        "name": "acir_vec",
+        "name": "constraint_system_buf",
         "type": "const uint8_t *"
       },
       {
-        "name": "witness_vec",
+        "name": "witness_buf",
         "type": "const uint8_t *"
       },
       {

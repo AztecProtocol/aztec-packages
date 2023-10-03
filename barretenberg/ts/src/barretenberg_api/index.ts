@@ -261,13 +261,13 @@ export class BarretenbergApi {
 
   async acirCreateProof(
     acirComposerPtr: Ptr,
-    acirVec: Uint8Array,
-    witnessVec: Uint8Array,
+    constraintSystemBuf: Uint8Array,
+    witnessBuf: Uint8Array,
     isRecursive: boolean,
   ): Promise<[Uint8Array, Uint8Array]> {
     const result = await this.binder.callWasmExport(
       'acir_create_proof',
-      [acirComposerPtr, acirVec, witnessVec, isRecursive],
+      [acirComposerPtr, constraintSystemBuf, witnessBuf, isRecursive],
       [BufferDeserializer(), BufferDeserializer()],
     );
     return result as any;
