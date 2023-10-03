@@ -145,6 +145,9 @@ template <typename OuterBuilder> class RecursiveCircuit {
 
             return (result == pairing_target_field::one());
         }
+        if (builder.contains_recursive_proof && builder.recursive_proof_public_input_indices.size() != 16) {
+            return false;
+        }
         return true;
     }
     static void check_pairing(const circuit_outputs& circuit_output)
