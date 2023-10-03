@@ -17,8 +17,8 @@ describe('benchmarks/publish_rollup', () => {
 
   beforeEach(async () => {
     context = await setup(2, { maxTxsPerBlock: 1024 });
-    token = await TokenContract.deploy(context.wallet, owner).send().deployed();
     [owner, recipient] = context.accounts.map(a => a.address);
+    token = await TokenContract.deploy(context.wallet, owner).send().deployed();
     await token.methods.mint_public(owner, 10000n).send().wait();
     await context.aztecNode?.getSequencer().stop();
   }, 60_000);
