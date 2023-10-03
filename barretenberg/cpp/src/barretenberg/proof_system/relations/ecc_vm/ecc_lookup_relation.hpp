@@ -27,12 +27,14 @@ template <typename FF_> class ECCVMLookupRelationBase {
     static constexpr size_t LEN_2 = RELATION_LENGTH; // left-shiftable polynomial sub-relation
     template <template <size_t...> typename AccumulatorTypesContainer>
     using GetAccumulatorTypes = AccumulatorTypesContainer<LEN_1, LEN_2>;
-    template <typename T> using Accumulator = typename std::tuple_element<0, typename T::Accumulators>::type;
+
+    template <typename T> using GetAccumulators0Old = typename std::tuple_element_t<0, typename T::Accumulators>;
+    template <typename T> using GetAccumulators0New = typename std::tuple_element_t<0, T>;
 
     static constexpr std::array<bool, 2> SUBRELATION_LINEARLY_INDEPENDENT = { true, false };
 
     template <typename AccumulatorTypes>
-    static Accumulator<AccumulatorTypes> convert_to_wnaf(const auto& s0, const auto& s1)
+    static GetAccumulators0Old<AccumulatorTypes> convert_to_wnaf(const auto& s0, const auto& s1)
     {
         auto t = s0 + s0;
         t += t;
@@ -58,47 +60,51 @@ template <typename FF_> class ECCVMLookupRelationBase {
      * @return Univariate
      */
     template <typename AccumulatorTypes, size_t read_index>
-    static Accumulator<AccumulatorTypes> compute_read_term_predicate(const auto& extended_edges,
-                                                                     const RelationParameters<FF>& /*unused*/,
-                                                                     const size_t index = 0)
+    static GetAccumulators0Old<AccumulatorTypes> compute_read_term_predicate(const auto& extended_edges,
+                                                                             const RelationParameters<FF>& /*unused*/,
+                                                                             const size_t index = 0)
 
     {
         if constexpr (read_index == 0) {
-            return Accumulator<AccumulatorTypes>(get_view<FF, AccumulatorTypes>(extended_edges.msm_add1, index));
+            return GetAccumulators0Old<AccumulatorTypes>(
+                get_view<FF, AccumulatorTypes>(extended_edges.msm_add1, index));
         }
         if constexpr (read_index == 1) {
-            return Accumulator<AccumulatorTypes>(get_view<FF, AccumulatorTypes>(extended_edges.msm_add2, index));
+            return GetAccumulators0Old<AccumulatorTypes>(
+                get_view<FF, AccumulatorTypes>(extended_edges.msm_add2, index));
         }
         if constexpr (read_index == 2) {
-            return Accumulator<AccumulatorTypes>(get_view<FF, AccumulatorTypes>(extended_edges.msm_add3, index));
+            return GetAccumulators0Old<AccumulatorTypes>(
+                get_view<FF, AccumulatorTypes>(extended_edges.msm_add3, index));
         }
         if constexpr (read_index == 3) {
-            return Accumulator<AccumulatorTypes>(get_view<FF, AccumulatorTypes>(extended_edges.msm_add4, index));
+            return GetAccumulators0Old<AccumulatorTypes>(
+                get_view<FF, AccumulatorTypes>(extended_edges.msm_add4, index));
         }
-        return Accumulator<AccumulatorTypes>(1);
+        return GetAccumulators0Old<AccumulatorTypes>(1);
     }
 
     template <typename AccumulatorTypes, size_t write_index>
-    static Accumulator<AccumulatorTypes> compute_write_term_predicate(const auto& extended_edges,
-                                                                      const RelationParameters<FF>& /*unused*/,
-                                                                      const size_t index = 0)
+    static GetAccumulators0Old<AccumulatorTypes> compute_write_term_predicate(const auto& extended_edges,
+                                                                              const RelationParameters<FF>& /*unused*/,
+                                                                              const size_t index = 0)
 
     {
         if constexpr (write_index == 0) {
-            return Accumulator<AccumulatorTypes>(
+            return GetAccumulators0Old<AccumulatorTypes>(
                 get_view<FF, AccumulatorTypes>(extended_edges.precompute_select, index));
         }
         if constexpr (write_index == 1) {
-            return Accumulator<AccumulatorTypes>(
+            return GetAccumulators0Old<AccumulatorTypes>(
                 get_view<FF, AccumulatorTypes>(extended_edges.precompute_select, index));
         }
-        return Accumulator<AccumulatorTypes>(1);
+        return GetAccumulators0Old<AccumulatorTypes>(1);
     }
 
     template <typename AccumulatorTypes, size_t write_index>
-    static Accumulator<AccumulatorTypes> compute_write_term(const auto& extended_edges,
-                                                            const RelationParameters<FF>& relation_params,
-                                                            const size_t index = 0)
+    static GetAccumulators0Old<AccumulatorTypes> compute_write_term(const auto& extended_edges,
+                                                                    const RelationParameters<FF>& relation_params,
+                                                                    const size_t index = 0)
     {
         static_assert(write_index < WRITE_TERMS);
 
@@ -163,7 +169,7 @@ template <typename FF_> class ECCVMLookupRelationBase {
         if constexpr (write_index == 1) {
             return negative_term; // degree 1
         }
-        return Accumulator<AccumulatorTypes>(1);
+        return GetAccumulators0Old<AccumulatorTypes>(1);
     }
 
     /**
@@ -175,11 +181,13 @@ template <typename FF_> class ECCVMLookupRelationBase {
      * @param index
      * @return Univariate
      */
-    template <typename AccumulatorTypes, size_t read_index>
-    static Accumulator<AccumulatorTypes> compute_read_term(const auto& extended_edges,
-                                                           const RelationParameters<FF>& relation_params,
-                                                           const size_t index = 0)
+    template <typename TupleOverSubrelations, size_t read_index>
+    static std::tuple_element_t<0, TupleOverSubrelations> compute_read_term(
+        const auto& in, const RelationParameters<FF>& relation_params)
     {
+        using Accumulator0 = std::tuple_element_t<0, TupleOverSubrelations>;
+        using View = typename Accumulator0::View;
+
         // read term:
         // pc, slice, x, y
         static_assert(read_index < READ_TERMS);
@@ -187,20 +195,20 @@ template <typename FF_> class ECCVMLookupRelationBase {
         const auto& beta = relation_params.beta;
         const auto& beta_sqr = relation_params.beta_sqr;
         const auto& beta_cube = relation_params.beta_cube;
-        const auto& msm_pc = get_view<FF, AccumulatorTypes>(extended_edges.msm_pc, index);
-        const auto& msm_count = get_view<FF, AccumulatorTypes>(extended_edges.msm_count, index);
-        const auto& msm_slice1 = get_view<FF, AccumulatorTypes>(extended_edges.msm_slice1, index);
-        const auto& msm_slice2 = get_view<FF, AccumulatorTypes>(extended_edges.msm_slice2, index);
-        const auto& msm_slice3 = get_view<FF, AccumulatorTypes>(extended_edges.msm_slice3, index);
-        const auto& msm_slice4 = get_view<FF, AccumulatorTypes>(extended_edges.msm_slice4, index);
-        const auto& msm_x1 = get_view<FF, AccumulatorTypes>(extended_edges.msm_x1, index);
-        const auto& msm_x2 = get_view<FF, AccumulatorTypes>(extended_edges.msm_x2, index);
-        const auto& msm_x3 = get_view<FF, AccumulatorTypes>(extended_edges.msm_x3, index);
-        const auto& msm_x4 = get_view<FF, AccumulatorTypes>(extended_edges.msm_x4, index);
-        const auto& msm_y1 = get_view<FF, AccumulatorTypes>(extended_edges.msm_y1, index);
-        const auto& msm_y2 = get_view<FF, AccumulatorTypes>(extended_edges.msm_y2, index);
-        const auto& msm_y3 = get_view<FF, AccumulatorTypes>(extended_edges.msm_y3, index);
-        const auto& msm_y4 = get_view<FF, AccumulatorTypes>(extended_edges.msm_y4, index);
+        const auto& msm_pc = View(in.msm_pc);
+        const auto& msm_count = View(in.msm_count);
+        const auto& msm_slice1 = View(in.msm_slice1);
+        const auto& msm_slice2 = View(in.msm_slice2);
+        const auto& msm_slice3 = View(in.msm_slice3);
+        const auto& msm_slice4 = View(in.msm_slice4);
+        const auto& msm_x1 = View(in.msm_x1);
+        const auto& msm_x2 = View(in.msm_x2);
+        const auto& msm_x3 = View(in.msm_x3);
+        const auto& msm_x4 = View(in.msm_x4);
+        const auto& msm_y1 = View(in.msm_y1);
+        const auto& msm_y2 = View(in.msm_y2);
+        const auto& msm_y3 = View(in.msm_y3);
+        const auto& msm_y4 = View(in.msm_y4);
 
         // how do we get pc value
         // row pc = value of pc after msm
@@ -227,7 +235,7 @@ template <typename FF_> class ECCVMLookupRelationBase {
         if constexpr (read_index == 3) {
             return read_term4; // degree 1
         }
-        return Accumulator<AccumulatorTypes>(1);
+        return Accumulator0(1);
     }
 
     /**

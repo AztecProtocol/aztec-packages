@@ -29,25 +29,27 @@ void compute_logderivative_inverse(typename Flavor::ProverPolynomials& polynomia
                                    const size_t circuit_size)
 {
     using FF = typename Flavor::FF;
-    using Accumulator = typename Relation::ValueAccumulatorsAndViews;
+    using AccumulatorsAndViews = typename Relation::ValueAccumulatorsAndViews;
     constexpr size_t READ_TERMS = Relation::READ_TERMS;
     constexpr size_t WRITE_TERMS = Relation::WRITE_TERMS;
     auto& inverse_polynomial = polynomials.lookup_inverses;
 
     auto lookup_relation = Relation();
     for (size_t i = 0; i < circuit_size; ++i) {
-        bool has_inverse = lookup_relation.lookup_exists_at_row(polynomials.get_row(i));
+        auto row = polynomials.get_row(i);
+        bool has_inverse = lookup_relation.lookup_exists_at_row(row);
         if (!has_inverse) {
             continue;
         }
         FF denominator = 1;
         barretenberg::constexpr_for<0, READ_TERMS, 1>([&]<size_t read_index> {
-            auto denominator_term = lookup_relation.template compute_read_term<Accumulator, read_index>(
-                polynomials, relation_parameters, i);
+            auto denominator_term =
+                lookup_relation.template compute_read_term<typename AccumulatorsAndViews::Accumulators, read_index>(
+                    row, relation_parameters);
             denominator *= denominator_term;
         });
         barretenberg::constexpr_for<0, WRITE_TERMS, 1>([&]<size_t write_index> {
-            auto denominator_term = lookup_relation.template compute_write_term<Accumulator, write_index>(
+            auto denominator_term = lookup_relation.template compute_write_term<AccumulatorsAndViews, write_index>(
                 polynomials, relation_parameters, i);
             denominator *= denominator_term;
         });
