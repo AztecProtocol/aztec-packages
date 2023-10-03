@@ -44,7 +44,7 @@ std::vector<uint8_t> read_public_inputs(std::string const& public_inputs_path)
     // If the number of public inputs is 0, then read_file will trigger a failure
     // because the file will be empty. We therefore check if the file is empty
     // before trying to read it.
-    if (get_file_size(public_inputs_path) <= 0) {
+    if (get_file_size(public_inputs_path) == 0) {
         return {};
     }
     return read_file(public_inputs_path);
