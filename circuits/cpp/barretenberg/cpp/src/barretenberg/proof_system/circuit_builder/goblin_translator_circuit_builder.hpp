@@ -40,6 +40,7 @@ class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<arithmetization
 
   public:
     static constexpr CircuitType CIRCUIT_TYPE = CircuitType::CUSTOM;
+    Fq accumulation_result = Fq::zero();
     /**
      * We won't need these standard gates that are defined as virtual in circuit builder base
      *

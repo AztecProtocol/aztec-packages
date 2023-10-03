@@ -592,6 +592,7 @@ template <typename Flavor> inline void compute_short_odd_and_even_lagrange_polyn
     const size_t n = proving_key->circuit_size;
     typename Flavor::Polynomial lagrange_polynomial_odd(n);
     typename Flavor::Polynomial lagrange_polynomial_even(n);
+    typename Flavor::Polynomial lagrange_polynomial_second(n);
     typename Flavor::Polynomial lagrange_polynomial_second_to_last_in_minicircuit(n);
 
     for (size_t i = 1; i < Flavor::MINI_CIRCUIT_SIZE - 1; i += 2) {
@@ -601,8 +602,10 @@ template <typename Flavor> inline void compute_short_odd_and_even_lagrange_polyn
     proving_key->lagrange_odd = lagrange_polynomial_odd;
 
     proving_key->lagrange_even = lagrange_polynomial_even;
-    lagrange_polynomial_second_to_last_in_minicircuit[Flavor::MINI_CIRCUIT_SIZE - 2];
+    lagrange_polynomial_second[1] = 1;
+    lagrange_polynomial_second_to_last_in_minicircuit[Flavor::MINI_CIRCUIT_SIZE - 2] = 1;
     proving_key->lagrange_second_to_last_in_minicircuit = lagrange_polynomial_second_to_last_in_minicircuit;
+    proving_key->lagrange_second = lagrange_polynomial_second;
 }
 
 /**

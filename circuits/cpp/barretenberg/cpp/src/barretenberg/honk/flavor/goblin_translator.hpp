@@ -222,6 +222,7 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
         LAGRANGE_LAST,
         LAGRANGE_ODD,
         LAGRANGE_EVEN,
+        LAGRANGE_SECOND,
         LAGRANGE_SECOND_TO_LAST_IN_MINICIRCUIT,
         ORDERED_EXTRA_RANGE_CONSTRAINTS_NUMERATOR,
         TOTAL_COUNT
@@ -300,8 +301,9 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
         DataType& lagrange_last = std::get<1>(this->_data);
         DataType& lagrange_odd = std::get<2>(this->_data);
         DataType& lagrange_even = std::get<3>(this->_data);
-        DataType& lagrange_second_to_last_in_minicircuit = std::get<4>(this->_data);
-        DataType& ordered_extra_range_constraints_numerator = std::get<5>(this->_data);
+        DataType& lagrange_second = std::get<4>(this->_data);
+        DataType& lagrange_second_to_last_in_minicircuit = std::get<5>(this->_data);
+        DataType& ordered_extra_range_constraints_numerator = std::get<6>(this->_data);
         std::vector<HandleType> get_selectors() { return {}; };
         std::vector<HandleType> get_sigma_polynomials() { return {}; };
         std::vector<HandleType> get_id_polynomials() { return {}; };
@@ -775,8 +777,9 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
         DataType& lagrange_last = std::get<178>(this->_data);
         DataType& lagrange_odd = std::get<179>(this->_data);
         DataType& lagrange_even = std::get<180>(this->_data);
-        DataType& lagrange_second_to_last_in_minicircuit = std::get<181>(this->_data);
-        DataType& ordered_extra_range_constraints_numerator = std::get<182>(this->_data);
+        DataType& lagrange_second = std::get<181>(this->_data);
+        DataType& lagrange_second_to_last_in_minicircuit = std::get<182>(this->_data);
+        DataType& ordered_extra_range_constraints_numerator = std::get<183>(this->_data);
 
         std::vector<HandleType> get_wires() override
         {
@@ -1064,6 +1067,8 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
                 lagrange_last,
                 lagrange_odd,
                 lagrange_even,
+                lagrange_second,
+                lagrange_second_to_last_in_minicircuit,
                 ordered_extra_range_constraints_numerator,
 
             };
@@ -1490,7 +1495,8 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
             this->lagrange_last = "__LAGRANGE_LAST";
             this->lagrange_odd = "__LAGRANGE_ODD";
             this->lagrange_even = "__LAGRANGE_EVEN";
-            this->lagrange_even = "__LAGRANGE_SECOND_TO_LAST_IN_MINICIRCUIT";
+            this->lagrange_second = "__LAGRANGE_SECOND";
+            this->lagrange_second_to_last_in_minicircuit = "__LAGRANGE_SECOND_TO_LAST_IN_MINICIRCUIT";
             this->ordered_extra_range_constraints_numerator = "__ORDERED_EXTRA_RANGE_CONSTRAINTS_NUMERATOR";
         };
     };
@@ -1505,6 +1511,7 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
             this->lagrange_last = verification_key->lagrange_last;
             this->lagrange_odd = verification_key->lagrange_odd;
             this->lagrange_even = verification_key->lagrange_even;
+            this->lagrange_second = verification_key->lagrange_second;
             this->lagrange_second_to_last_in_minicircuit = verification_key->lagrange_second_to_last_in_minicircuit;
             this->ordered_extra_range_constraints_numerator =
                 verification_key->ordered_extra_range_constraints_numerator;

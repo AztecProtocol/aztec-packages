@@ -499,7 +499,9 @@ void GoblinTranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(ECCOpQueue& 
     using Fq = barretenberg::fq;
     std::vector<Fq> accumulator_trace;
     Fq current_accumulator(0);
-
+    if (ecc_op_queue.raw_ops.empty()) {
+        return;
+    }
     for (size_t i = 0; i < ecc_op_queue.raw_ops.size(); i++) {
         auto& ecc_op = ecc_op_queue.raw_ops[ecc_op_queue.raw_ops.size() - 1 - i];
         current_accumulator *= x;
@@ -508,6 +510,7 @@ void GoblinTranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(ECCOpQueue& 
              v * (ecc_op.base_point.x + v * (ecc_op.base_point.y + v * (ecc_op.scalar_1 + v * ecc_op.scalar_2))));
         accumulator_trace.push_back(current_accumulator);
     }
+
     accumulator_trace.pop_back();
     for (auto& raw_op : ecc_op_queue.raw_ops) {
         Fq previous_accumulator = 0;

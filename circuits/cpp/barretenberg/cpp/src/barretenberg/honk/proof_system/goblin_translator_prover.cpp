@@ -237,15 +237,9 @@ GoblinTranslatorProver_<Flavor>::GoblinTranslatorProver_(std::shared_ptr<typenam
     prover_polynomials.lagrange_last = key->lagrange_last;
     prover_polynomials.lagrange_odd = key->lagrange_odd;
     prover_polynomials.lagrange_even = key->lagrange_even;
+    prover_polynomials.lagrange_second = key->lagrange_second;
     prover_polynomials.lagrange_second_to_last_in_minicircuit = key->lagrange_second_to_last_in_minicircuit;
     prover_polynomials.ordered_extra_range_constraints_numerator = key->ordered_extra_range_constraints_numerator;
-
-    // for (size_t i = 0; i < key->circuit_size; i += 2) {
-    //     if ((prover_polynomials.p_x_high_limbs_range_constraint_3_shift[i + 1] * 64 -
-    //          prover_polynomials.p_x_high_limbs_range_constraint_4_shift[i + 1]) != 0) {
-    //         info("Expression fails at ", i);
-    //     }
-    // }
 }
 
 /**
@@ -255,10 +249,17 @@ GoblinTranslatorProver_<Flavor>::GoblinTranslatorProver_(std::shared_ptr<typenam
 template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_preamble_round()
 {
     const auto circuit_size = static_cast<uint32_t>(key->circuit_size);
-
+    const auto SHIFT = uint256_t(1) << Flavor::NUM_LIMB_BITS;
+    const auto SHIFTx2 = uint256_t(1) << (Flavor::NUM_LIMB_BITS * 2);
+    const auto SHIFTx3 = uint256_t(1) << (Flavor::NUM_LIMB_BITS * 3);
+    const auto accumulated_result = typename Flavor::BF(uint256_t(key->accumulators_binary_limbs_0[1]) +
+                                                        uint256_t(key->accumulators_binary_limbs_1[1]) * SHIFT +
+                                                        uint256_t(key->accumulators_binary_limbs_2[1]) * SHIFTx2 +
+                                                        uint256_t(key->accumulators_binary_limbs_3[1]) * SHIFTx3);
     transcript.send_to_verifier("circuit_size", circuit_size);
     transcript.send_to_verifier("evaluation_input_x", key->evaluation_input_x);
     transcript.send_to_verifier("batching_challenge_v", key->batching_challenge_v);
+    transcript.send_to_verifier("accumulated_result", accumulated_result);
 }
 
 /**
@@ -293,6 +294,12 @@ template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_grand_p
                                                uint_evaluation_input.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2),
                                                uint_evaluation_input.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3),
                                                uint_evaluation_input.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4) };
+
+    relation_parameters.accumulated_result = { key->accumulators_binary_limbs_0[1],
+                                               key->accumulators_binary_limbs_1[1],
+                                               key->accumulators_binary_limbs_2[1],
+                                               key->accumulators_binary_limbs_3[1] };
+
     std::vector<uint256_t> uint_batching_challenge_powers;
     auto batching_challenge_v = key->batching_challenge_v;
     uint_batching_challenge_powers.emplace_back(batching_challenge_v);

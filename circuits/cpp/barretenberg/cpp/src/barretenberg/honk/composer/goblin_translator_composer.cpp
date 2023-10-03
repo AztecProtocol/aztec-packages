@@ -262,6 +262,7 @@ std::shared_ptr<typename Flavor::VerificationKey> GoblinTranslatorComposer_<Flav
     verification_key->lagrange_last = commitment_key->commit(proving_key->lagrange_last);
     verification_key->lagrange_odd = commitment_key->commit(proving_key->lagrange_odd);
     verification_key->lagrange_even = commitment_key->commit(proving_key->lagrange_even);
+    verification_key->lagrange_second = commitment_key->commit(proving_key->lagrange_second);
     verification_key->lagrange_second_to_last_in_minicircuit =
         commitment_key->commit(proving_key->lagrange_second_to_last_in_minicircuit);
     verification_key->ordered_extra_range_constraints_numerator =

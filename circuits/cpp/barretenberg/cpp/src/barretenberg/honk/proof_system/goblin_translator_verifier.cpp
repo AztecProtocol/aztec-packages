@@ -67,11 +67,16 @@ template <typename Flavor> bool GoblinTranslatorVerifier_<Flavor>::verify_proof(
     const auto circuit_size = transcript.template receive_from_prover<uint32_t>("circuit_size");
     evaluation_input_x = transcript.template receive_from_prover<BF>("evaluation_input_x");
     batching_challenge_v = transcript.template receive_from_prover<BF>("batching_challenge_v");
+    const auto uint_accumulated_result = uint256_t(transcript.template receive_from_prover<BF>("accumulated_result"));
     auto uint_evaluation_input = uint256_t(evaluation_input_x);
     relation_parameters.evaluation_input_x = { uint_evaluation_input.slice(0, NUM_LIMB_BITS),
                                                uint_evaluation_input.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2),
                                                uint_evaluation_input.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3),
                                                uint_evaluation_input.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4) };
+    relation_parameters.accumulated_result = { uint_accumulated_result.slice(0, NUM_LIMB_BITS),
+                                               uint_accumulated_result.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2),
+                                               uint_accumulated_result.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3),
+                                               uint_accumulated_result.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4) };
     std::vector<uint256_t> uint_batching_challenge_powers;
     uint_batching_challenge_powers.emplace_back(batching_challenge_v);
     auto running_power = batching_challenge_v * batching_challenge_v;
