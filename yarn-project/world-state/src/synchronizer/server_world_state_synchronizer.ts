@@ -180,6 +180,7 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
   /**
    * Handles a list of L2 blocks (i.e. Inserts the new commitments into the merkle tree).
    * @param l2Blocks - The L2 blocks to handle.
+   * @returns Whether the block handled was produced by this same node.
    */
   private async handleL2Blocks(l2Blocks: L2Block[]) {
     for (const l2Block of l2Blocks) {

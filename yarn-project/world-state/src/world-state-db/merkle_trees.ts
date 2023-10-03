@@ -381,6 +381,7 @@ export class MerkleTrees implements MerkleTreeDb {
   /**
    * Handles a single L2 block (i.e. Inserts the new commitments into the merkle tree).
    * @param block - The L2 block to handle.
+   * @returns Whether the block handled was produced by this same node.
    */
   public async handleL2Block(block: L2Block): Promise<HandleL2BlockResult> {
     return await this.synchronize(() => this._handleL2Block(block));

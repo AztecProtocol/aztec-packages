@@ -12,8 +12,8 @@ const {
   L1_ROLLUP_CALLDATA_GAS,
   L1_ROLLUP_EXECUTION_GAS,
   L2_BLOCK_PROCESSING_TIME,
-  ROLLUP_BLOCK_SYNCED,
-  ROLLUP_PUBLISHED_TO_L1,
+  L2_BLOCK_SYNCED,
+  L2_BLOCK_PUBLISHED_TO_L1,
   ROLLUP_SIZES,
   BENCHMARK_FILE_JSON,
 } = require("./benchmark_shared.js");
@@ -58,9 +58,9 @@ function processRollupBlockSynced(entry, results) {
 // Processes a parsed entry from a logfile and updates results
 function processEntry(entry, results) {
   switch (entry.eventName) {
-    case ROLLUP_PUBLISHED_TO_L1:
+    case L2_BLOCK_PUBLISHED_TO_L1:
       return processRollupPublished(entry, results);
-    case ROLLUP_BLOCK_SYNCED:
+    case L2_BLOCK_SYNCED:
       return processRollupBlockSynced(entry, results);
     default:
       return;
