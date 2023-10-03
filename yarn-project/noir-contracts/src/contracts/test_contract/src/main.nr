@@ -7,9 +7,9 @@ contract Test {
         oracle::{
             get_public_key::get_public_key,
             context::get_portal_address,
-            rand::rand,
-            logs::emit_unencrypted_log
+            rand::rand
         },
+        log::emit_unencrypted_log,
         types::vec::BoundedVec,
         constants_gen::EMPTY_NULLIFIED_COMMITMENT,
     };
@@ -103,7 +103,7 @@ contract Test {
         let note = DummyNote::new(amount, secretHash);
         
         // Public oracle call to emit new commitment.
-        context.push_new_nullifier(note.get_commitment(), 0);
+        context.push_new_nullifier(note.get_commitment(), EMPTY_NULLIFIED_COMMITMENT);
     }
 
     // Forcefully emits a nullifier (for testing purposes)
@@ -127,8 +127,8 @@ contract Test {
     fn emit_unencrypted(
         value: Field
     ) -> Field {
-        let _hash = emit_unencrypted_log(value);
-        _hash[0]
+        emit_unencrypted_log(&mut context, value);
+        0
     }
     // docs:end:emit_unencrypted_log
 

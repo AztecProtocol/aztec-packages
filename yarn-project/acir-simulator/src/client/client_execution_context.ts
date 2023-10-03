@@ -11,10 +11,11 @@ import {
 } from '@aztec/circuits.js';
 import { computeUniqueCommitment, siloCommitment } from '@aztec/circuits.js/abis';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
+import { FunctionAbi } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AuthWitness, FunctionL2Logs, NotePreimage, NoteSpendingInfo } from '@aztec/types';
+import { AuthWitness, FunctionL2Logs, NotePreimage, NoteSpendingInfo, UnencryptedL2Log } from '@aztec/types';
 
 import { NoteData, toACVMWitness } from '../acvm/index.js';
 import { SideEffectCounter } from '../common/index.js';
@@ -49,7 +50,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    */
   private gotNotes: Map<bigint, bigint> = new Map();
   private encryptedLogs: Buffer[] = [];
-  private unencryptedLogs: Buffer[] = [];
+  private unencryptedLogs: UnencryptedL2Log[] = [];
   private nestedExecutions: ExecutionResult[] = [];
   private enqueuedPublicFunctionCalls: PublicCallRequest[] = [];
 
@@ -85,6 +86,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       this.callContext.msgSender,
       this.callContext.storageContractAddress,
       this.callContext.portalContractAddress,
+      this.callContext.functionSelector.toField(),
       this.callContext.isDelegateCall,
       this.callContext.isStaticCall,
       this.callContext.isContractDeployment,
@@ -146,7 +148,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * Return the encrypted logs emitted during this execution.
    */
   public getUnencryptedLogs() {
-    return new FunctionL2Logs(this.unencryptedLogs);
+    return new FunctionL2Logs(this.unencryptedLogs.map(log => log.toBuffer()));
   }
 
   /**
@@ -227,60 +229,19 @@ export class ClientExecutionContext extends ViewDataOracle {
         .join(', ')}`,
     );
 
-    // TODO: notice, that if we don't have a note in our DB, we don't know how big the preimage needs to be, and so we don't actually know how many dummy notes to return, or big to make those dummy notes, or where to position `is_some` booleans to inform the noir program that _all_ the notes should be dummies.
-    // By a happy coincidence, a `0` field is interpreted as `is_none`, and since in this case (of an empty db) we'll return all zeros (paddedZeros), the noir program will treat the returned data as all dummies, but this is luck. Perhaps a preimage size should be conveyed by the get_notes Aztec.nr oracle?
-    const preimageLength = notes?.[0]?.preimage.length ?? 0;
-    if (
-      !notes.every(({ preimage }) => {
-        return preimageLength === preimage.length;
-      })
-    ) {
-      throw new Error('Preimages for a particular note type should all be the same length');
-    }
-
     const wasm = await CircuitsWasm.get();
     notes.forEach(n => {
       if (n.index !== undefined) {
         const siloedNoteHash = siloCommitment(wasm, n.contractAddress, n.innerNoteHash);
         const uniqueSiloedNoteHash = computeUniqueCommitment(wasm, n.nonce, siloedNoteHash);
-        this.gotNotes.set(uniqueSiloedNoteHash.value, n.index);
+        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
+        // Should always be uniqueSiloedNoteHash when publicly created notes include nonces.
+        const noteHashForReadRequest = n.nonce.isZero() ? siloedNoteHash : uniqueSiloedNoteHash;
+        this.gotNotes.set(noteHashForReadRequest.value, n.index);
       }
     });
 
     return notes;
-  }
-
-  /**
-   * Fetches a path to prove existence of a commitment in the db, given its contract side commitment (before silo).
-   * @param nonce - The nonce of the note.
-   * @param innerNoteHash - The inner note hash of the note.
-   * @returns 1 if (persistent or transient) note hash exists, 0 otherwise. Value is in ACVMField form.
-   */
-  public async checkNoteHashExists(nonce: Fr, innerNoteHash: Fr): Promise<boolean> {
-    if (nonce.isZero()) {
-      // If nonce is 0, we are looking for a new note created in this transaction.
-      const exists = this.noteCache.checkNoteExists(this.contractAddress, innerNoteHash);
-      if (exists) {
-        return true;
-      }
-      // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
-      // Currently it can also be a note created from public if nonce is 0.
-      // If we can't find a matching new note, keep looking for the match from the notes created in previous transactions.
-    }
-
-    // If nonce is zero, SHOULD only be able to reach this point if note was publicly created
-    const wasm = await CircuitsWasm.get();
-    let noteHashToLookUp = siloCommitment(wasm, this.contractAddress, innerNoteHash);
-    if (!nonce.isZero()) {
-      noteHashToLookUp = computeUniqueCommitment(wasm, nonce, noteHashToLookUp);
-    }
-
-    const index = await this.db.getCommitmentIndex(noteHashToLookUp);
-    const exists = index !== undefined;
-    if (exists) {
-      this.gotNotes.set(noteHashToLookUp.value, index);
-    }
-    return exists;
   }
 
   /**
@@ -335,9 +296,9 @@ export class ClientExecutionContext extends ViewDataOracle {
    * Emit an unencrypted log.
    * @param log - The unencrypted log to be emitted.
    */
-  public emitUnencryptedLog(log: Buffer) {
+  public emitUnencryptedLog(log: UnencryptedL2Log) {
     this.unencryptedLogs.push(log);
-    this.log(`Emitted unencrypted log: "${log.toString('ascii')}"`);
+    this.log(`Emitted unencrypted log: "${log.toHumanReadable()}"`);
   }
 
   /**
@@ -364,7 +325,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       this.txContext.version,
     );
 
-    const derivedCallContext = await this.deriveCallContext(targetContractAddress, false, false);
+    const derivedCallContext = await this.deriveCallContext(targetContractAddress, targetAbi, false, false);
 
     const context = new ClientExecutionContext(
       targetContractAddress,
@@ -407,7 +368,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     argsHash: Fr,
   ): Promise<PublicCallRequest> {
     const targetAbi = await this.db.getFunctionABI(targetContractAddress, functionSelector);
-    const derivedCallContext = await this.deriveCallContext(targetContractAddress, false, false);
+    const derivedCallContext = await this.deriveCallContext(targetContractAddress, targetAbi, false, false);
     const args = this.packedArgsCache.unpack(argsHash);
     const sideEffectCounter = this.sideEffectCounter.count();
     const enqueuedRequest = PublicCallRequest.from({
@@ -433,18 +394,24 @@ export class ClientExecutionContext extends ViewDataOracle {
 
   /**
    * Derives the call context for a nested execution.
-   * @param parentContext - The parent call context.
    * @param targetContractAddress - The address of the contract being called.
+   * @param targetAbi - The ABI of the function being called.
    * @param isDelegateCall - Whether the call is a delegate call.
    * @param isStaticCall - Whether the call is a static call.
    * @returns The derived call context.
    */
-  private async deriveCallContext(targetContractAddress: AztecAddress, isDelegateCall = false, isStaticCall = false) {
+  private async deriveCallContext(
+    targetContractAddress: AztecAddress,
+    targetAbi: FunctionAbi,
+    isDelegateCall = false,
+    isStaticCall = false,
+  ) {
     const portalContractAddress = await this.db.getPortalContractAddress(targetContractAddress);
     return new CallContext(
       this.contractAddress,
       targetContractAddress,
       portalContractAddress,
+      FunctionSelector.fromNameAndParameters(targetAbi.name, targetAbi.parameters),
       isDelegateCall,
       isStaticCall,
       false,
