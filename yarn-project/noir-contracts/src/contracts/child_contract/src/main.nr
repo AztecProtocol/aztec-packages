@@ -5,16 +5,14 @@ contract Child {
     use dep::aztec::{
         abi::CallContext,
         context::{PrivateContext, PublicContext, Context},
-        oracle::{
-            logs::emit_unencrypted_log,
-            compute_selector::compute_selector,
-        },
+        oracle::compute_selector::compute_selector,
+        log::emit_unencrypted_log,
         state_vars::public_state::PublicState,
-        types::type_serialisation::field_serialisation::{FieldSerialisationMethods, FIELD_SERIALISED_LEN},
+        types::type_serialization::field_serialization::{FieldSerializationMethods, FIELD_SERIALIZED_LEN},
     };
 
     struct Storage {
-        current_value: PublicState<Field, FIELD_SERIALISED_LEN>,
+        current_value: PublicState<Field, FIELD_SERIALIZED_LEN>,
     }
 
     impl Storage {
@@ -23,7 +21,7 @@ contract Child {
                 current_value: PublicState::new(
                     context,
                     1,
-                    FieldSerialisationMethods,
+                    FieldSerializationMethods,
                 ),
             }
         }
@@ -65,9 +63,9 @@ contract Child {
     // Sets `current_value` to `new_value`
     #[aztec(public)]
     fn pubSetValue(new_value: Field) -> Field {
-        let storage = Storage::init(Context::public(&mut context));
+        
         storage.current_value.write(new_value);
-        let _hash = emit_unencrypted_log(new_value);
+        emit_unencrypted_log(&mut context, new_value);
         
         new_value
     }
@@ -75,10 +73,10 @@ contract Child {
     // Increments `current_value` by `new_value`
     #[aztec(public)]
     fn pubIncValue(new_value: Field) -> Field {
-        let storage = Storage::init(Context::public(&mut context));
+        
         let old_value = storage.current_value.read();
         storage.current_value.write(old_value + new_value);
-        let _hash = emit_unencrypted_log(new_value);
+        emit_unencrypted_log(&mut context, new_value);
 
         new_value
     }
@@ -86,11 +84,11 @@ contract Child {
     // Increments `current_value` by `new_value`. Can only be called from this contract.
     #[aztec(public)] 
     fn pubIncValueInternal(new_value: Field) -> Field {
-        let storage = Storage::init(Context::public(&mut context));
+        
         check_sender(inputs.call_context);
         let old_value = storage.current_value.read();
         storage.current_value.write(old_value + new_value);
-        let _hash = emit_unencrypted_log(new_value);
+        emit_unencrypted_log(&mut context, new_value);
         
         new_value
     }
@@ -100,16 +98,16 @@ contract Child {
         let pubSetValueSelector = compute_selector("pubSetValue(Field)");
         let _ret = context.call_public_function(context.this_address(), pubSetValueSelector, [10]);
 
-        let storage = Storage::init(Context::public(&mut context));
+        
         storage.current_value.write(20);
-        let _hash = emit_unencrypted_log(20);
+        emit_unencrypted_log(&mut context, 20);
     }
 
     #[aztec(public)]
     fn setValueTwiceWithNestedLast() {
-        let storage = Storage::init(Context::public(&mut context));
+        
         storage.current_value.write(20);
-        let _hash = emit_unencrypted_log(20);
+        emit_unencrypted_log(&mut context, 20);
 
         let pubSetValueSelector = compute_selector("pubSetValue(Field)");
         let _ret = context.call_public_function(context.this_address(), pubSetValueSelector, [10]);

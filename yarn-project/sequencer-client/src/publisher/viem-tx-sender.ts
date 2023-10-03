@@ -1,7 +1,7 @@
 import { createEthereumChain } from '@aztec/ethereum';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { ContractDeploymentEmitterAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { ExtendedContractData } from '@aztec/types';
+import { BLOB_SIZE_IN_BYTES, ExtendedContractData } from '@aztec/types';
 
 import {
   GetContractReturnType,
@@ -41,13 +41,7 @@ export class ViemTxSender implements L1PublisherTxSender {
   private account: PrivateKeyAccount;
 
   constructor(config: TxSenderConfig) {
-    const {
-      rpcUrl,
-      apiKey,
-      publisherPrivateKey,
-      rollupContract: rollupContractAddress,
-      contractDeploymentEmitterContract: contractDeploymentEmitterContractAddress,
-    } = config;
+    const { rpcUrl, apiKey, publisherPrivateKey, l1Contracts } = config;
     const chain = createEthereumChain(rpcUrl, apiKey);
     this.account = privateKeyToAccount(publisherPrivateKey);
     const walletClient = createWalletClient({
@@ -62,13 +56,13 @@ export class ViemTxSender implements L1PublisherTxSender {
     });
 
     this.rollupContract = getContract({
-      address: getAddress(rollupContractAddress.toString()),
+      address: getAddress(l1Contracts.rollupAddress.toString()),
       abi: RollupAbi,
       publicClient: this.publicClient,
       walletClient,
     });
     this.contractDeploymentEmitterContract = getContract({
-      address: getAddress(contractDeploymentEmitterContractAddress.toString()),
+      address: getAddress(l1Contracts.contractDeploymentEmitterAddress.toString()),
       abi: ContractDeploymentEmitterAbi,
       publicClient: this.publicClient,
       walletClient,
@@ -140,6 +134,9 @@ export class ViemTxSender implements L1PublisherTxSender {
         extendedContractData.publicKey.y.toString(true),
         `0x${extendedContractData.bytecode.toString('hex')}`,
       ] as const;
+
+      const codeSize = extendedContractData.bytecode.length;
+      this.log(`Bytecode is ${codeSize} bytes and require ${codeSize / BLOB_SIZE_IN_BYTES} blobs`);
 
       const gas = await this.contractDeploymentEmitterContract.estimateGas.emitContractDeployment(args, {
         account: this.account,

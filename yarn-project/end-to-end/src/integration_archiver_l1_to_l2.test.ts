@@ -1,7 +1,6 @@
 import { Archiver } from '@aztec/archiver';
-import { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import { AztecRPCServer } from '@aztec/aztec-rpc';
-import { AztecAddress, AztecRPC, CompleteAddress, Wallet, computeMessageSecretHash } from '@aztec/aztec.js';
+import { AztecNodeConfig } from '@aztec/aztec-node';
+import { AztecAddress, CompleteAddress, Wallet, computeMessageSecretHash } from '@aztec/aztec.js';
 import { DeployL1Contracts } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -12,13 +11,13 @@ import { Chain, HttpTransport, PublicClient } from 'viem';
 
 import { delay, deployAndInitializeNonNativeL2TokenContracts, setNextBlockTimestamp, setup } from './fixtures/utils.js';
 
+// TODO (#2291) - Replace with token bridge standard
 describe('archiver integration with l1 to l2 messages', () => {
-  let aztecNode: AztecNodeService | undefined;
-  let aztecRpcServer: AztecRPC;
   let wallet: Wallet;
   let archiver: Archiver;
   let logger: DebugLogger;
   let config: AztecNodeConfig;
+  let teardown: () => Promise<void>;
 
   let l2Contract: NonNativeTokenContract;
   let ethAccount: EthAddress;
@@ -35,7 +34,7 @@ describe('archiver integration with l1 to l2 messages', () => {
   beforeEach(async () => {
     let deployL1ContractsValues: DeployL1Contracts | undefined;
     let accounts: CompleteAddress[];
-    ({ aztecNode, aztecRpcServer, wallet, deployL1ContractsValues, accounts, config, logger } = await setup(2));
+    ({ teardown, wallet, deployL1ContractsValues, accounts, config, logger } = await setup(2));
     archiver = await Archiver.createAndSync(config);
 
     const walletClient = deployL1ContractsValues.walletClient;
@@ -51,7 +50,7 @@ describe('archiver integration with l1 to l2 messages', () => {
       wallet,
       walletClient,
       publicClient,
-      deployL1ContractsValues!.registryAddress,
+      deployL1ContractsValues!.l1ContractAddresses.registryAddress!,
       initialBalance,
       owner,
     );
@@ -65,10 +64,7 @@ describe('archiver integration with l1 to l2 messages', () => {
 
   afterEach(async () => {
     await archiver.stop();
-    await aztecNode?.stop();
-    if (aztecRpcServer instanceof AztecRPCServer) {
-      await aztecRpcServer?.stop();
-    }
+    await teardown();
   }, 30_000);
 
   const expectBalance = async (owner: AztecAddress, expectedBalance: bigint) => {
@@ -98,8 +94,8 @@ describe('archiver integration with l1 to l2 messages', () => {
     const mintAmount = 100n;
 
     logger('Sending messages to L1 portal');
-    const args = [owner.toString(), mintAmount, deadline, secretString, ethAccount.toString()] as const;
-    await tokenPortal.write.depositToAztec(args, {} as any);
+    const args = [mintAmount, owner.toString(), ethAccount.toString(), deadline, secretString] as const;
+    await tokenPortal.write.depositToAztecPublic(args, {} as any);
     expect(await underlyingERC20.read.balanceOf([ethAccount.toString()])).toBe(1000000n - mintAmount);
 
     // Wait for the archiver to process the message
@@ -110,8 +106,8 @@ describe('archiver integration with l1 to l2 messages', () => {
 
     // cancel the message
     logger('cancelling the l1 to l2 message');
-    const argsCancel = [owner.toString(), 100n, deadline, secretString, 0n] as const;
-    await tokenPortal.write.cancelL1ToAztecMessage(argsCancel, { gas: 1_000_000n } as any);
+    const argsCancel = [mintAmount, owner.toString(), deadline, secretString, 0n] as const;
+    await tokenPortal.write.cancelL1ToAztecMessagePublic(argsCancel, { gas: 1_000_000n } as any);
     expect(await underlyingERC20.read.balanceOf([ethAccount.toString()])).toBe(1000000n);
     // let archiver sync up
     await delay(5000);

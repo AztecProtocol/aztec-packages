@@ -32,7 +32,7 @@ function isPrivateCall(functionType: FunctionType) {
 function generateCallStatement(selector: FunctionSelector, functionType: FunctionType) {
   const callMethod = isPrivateCall(functionType) ? 'call_private_function' : 'call_public_function';
   return `
-    context.${callMethod}(self.address, 0x${selector.toString()}, serialised_args)`;
+    context.${callMethod}(self.address, 0x${selector.toString()}, serialized_args)`;
 }
 
 /**
@@ -91,23 +91,23 @@ function generateParameter(param: ABIParameter, functionData: FunctionAbi) {
 }
 
 /**
- * Collects all parameters for a given function and flattens them according to how they should be serialised.
+ * Collects all parameters for a given function and flattens them according to how they should be serialized.
  * @param parameters - Parameters for a function.
  * @returns List of parameters flattened to basic data types.
  */
-function collectParametersForSerialisation(parameters: ABIVariable[]) {
+function collectParametersForSerialization(parameters: ABIVariable[]) {
   const flattened: string[] = [];
   for (const parameter of parameters) {
     const { name } = parameter;
     if (parameter.type.kind === 'array') {
       const nestedType = parameter.type.type;
       const nested = times(parameter.type.length, i =>
-        collectParametersForSerialisation([{ name: `${name}[${i}]`, type: nestedType }]),
+        collectParametersForSerialization([{ name: `${name}[${i}]`, type: nestedType }]),
       );
       flattened.push(...nested.flat());
     } else if (parameter.type.kind === 'struct') {
       const nested = parameter.type.fields.map(field =>
-        collectParametersForSerialisation([{ name: `${name}.${field.name}`, type: field.type }]),
+        collectParametersForSerialization([{ name: `${name}.${field.name}`, type: field.type }]),
       );
       flattened.push(...nested.flat());
     } else if (parameter.type.kind === 'string') {
@@ -123,26 +123,26 @@ function collectParametersForSerialisation(parameters: ABIVariable[]) {
 
 /**
  * Generates Noir code for serialising the parameters into an array of fields.
- * @param parameters - Parameters to serialise.
- * @returns The serialisation code.
+ * @param parameters - Parameters to serialize.
+ * @returns The serialization code.
  */
-function generateSerialisation(parameters: ABIParameter[]) {
-  const flattened = collectParametersForSerialisation(parameters);
-  const declaration = `    let mut serialised_args = [0; ${flattened.length}];`;
-  const lines = flattened.map((param, i) => `    serialised_args[${i}] = ${param};`);
+function generateSerialization(parameters: ABIParameter[]) {
+  const flattened = collectParametersForSerialization(parameters);
+  const declaration = `    let mut serialized_args = [0; ${flattened.length}];`;
+  const lines = flattened.map((param, i) => `    serialized_args[${i}] = ${param};`);
   return [declaration, ...lines].join('\n');
 }
 
 /**
- * Generate a function interface for a particular function of the Noir Contract being processed. This function will be a method of the ContractInterface struct being created here.
- * @param functionData - Data relating to the function, which can be used to generate a callable Noir Function.
+ * Generate a function interface for a particular function of the Aztec.nr Contract being processed. This function will be a method of the ContractInterface struct being created here.
+ * @param functionData - Data relating to the function, which can be used to generate a callable Aztec.nr Function.
  * @param kind - Whether this interface will be used from private or public functions.
  * @returns A code string.
  */
 function generateFunctionInterface(functionData: FunctionAbi, kind: 'private' | 'public') {
   const { name, parameters } = functionData;
   const selector = FunctionSelector.fromNameAndParameters(name, parameters);
-  const serialisation = generateSerialisation(parameters);
+  const serialization = generateSerialization(parameters);
   const contextType = kind === 'private' ? '&mut PrivateContext' : 'PublicContext';
   const callStatement = generateCallStatement(selector, functionData.functionType);
   const allParams = ['self', `context: ${contextType}`, ...parameters.map(p => generateParameter(p, functionData))];
@@ -154,7 +154,7 @@ function generateFunctionInterface(functionData: FunctionAbi, kind: 'private' | 
   fn ${name}(
     ${allParams.join(',\n    ')}
   ) ${retType}{
-${serialisation}
+${serialization}
 ${callStatement}
   }
   `;
@@ -272,7 +272,7 @@ ${contractImpl}
 
 /**
  * Generates the Noir code to represent an interface for calling a contract.
- * @param abi - The compiled Noir artifact.
+ * @param abi - The compiled Aztec.nr artifact.
  * @returns The corresponding ts code.
  */
 export function generateNoirContractInterface(abi: ContractAbi) {

@@ -1,9 +1,8 @@
 import { CompleteAddress, FunctionData, HistoricBlockData } from '@aztec/circuits.js';
 import { FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
-import { PrivateTokenContractAbi } from '@aztec/noir-contracts/artifacts';
+import { StatefulTestContractAbi } from '@aztec/noir-contracts/artifacts';
 import { FunctionCall } from '@aztec/types';
 
 import { mock } from 'jest-mock-extended';
@@ -39,9 +38,9 @@ describe('Unconstrained Execution test suite', () => {
       });
     });
 
-    it('should run the getBalance function', async () => {
+    it('should run the summed_values function', async () => {
       const contractAddress = AztecAddress.random();
-      const abi = PrivateTokenContractAbi.functions.find(f => f.name === 'getBalance')!;
+      const abi = StatefulTestContractAbi.functions.find(f => f.name === 'summed_values')!;
 
       const preimages = [...Array(5).fill(buildNote(1n, owner)), ...Array(2).fill(buildNote(2n, owner))];
 
@@ -65,13 +64,7 @@ describe('Unconstrained Execution test suite', () => {
         args: encodeArguments(abi, [owner]),
       };
 
-      const result = await acirSimulator.runUnconstrained(
-        execRequest,
-        AztecAddress.random(),
-        abi,
-        AztecAddress.random(),
-        EthAddress.ZERO,
-      );
+      const result = await acirSimulator.runUnconstrained(execRequest, abi, AztecAddress.random());
 
       expect(result).toEqual(9n);
     }, 30_000);

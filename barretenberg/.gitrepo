@@ -1,0 +1,12 @@
+; DO NOT EDIT (unless you know what you are doing)
+;
+; This subdirectory is a git "subrepo", and this file is maintained by the
+; git-subrepo command. See https://github.com/ingydotnet/git-subrepo#readme
+;
+[subrepo]
+	remote = https://github.com/AztecProtocol/barretenberg
+	branch = master
+	commit = 26b8a574b99b2faba7cb41deeab463b22822756b
+	parent = b93654d1c215b4d7c3dd2fc9b663370d70623dde
+	method = merge
+	cmdver = 0.4.6

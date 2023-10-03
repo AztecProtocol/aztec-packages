@@ -1,7 +1,6 @@
 #!/bin/bash
-# Fails if any files matching the rebuild patterns, have changed since the base commit.
 # If this script fails (nonzero exit), then the caller should rebuild.
-# The rebuild patterns are taken from the build manifest (computed from set of dependencies).
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -euo pipefail
 
 TAG=$1
@@ -10,14 +9,12 @@ REPOSITORY=$2
 # If given nothing, then exit with failure to rebuild
 [ -n "$TAG" ] || exit 1
 
+# Have we requested a rebuild via [ci rebuild] or [ci rebuild <job>] commit message?
+[[ "$COMMIT_MESSAGE" == *"[ci rebuild $REPOSITORY]"* ]] && exit 1
+[[ "$COMMIT_MESSAGE" == *"[ci rebuild]"* ]] && exit 1
+
 if ! image_exists $REPOSITORY $TAG; then
-  echo "Rebuild required."
-  exit 1
-elif image_exists $REPOSITORY tainted; then
-  # If a tainted tag exists, remove it exit with failure to rebuild.
-  echo "$REPOSITORY has been tainted. Will rebuild."
   exit 1
 else
-  echo "No rebuild required."
   exit 0
 fi

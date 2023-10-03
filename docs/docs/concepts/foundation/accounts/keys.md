@@ -69,21 +69,22 @@ The privacy master key is used to derive encryption keys. Encryption keys, as th
 
 In a future version, encryption keys will be differentiated between incoming and outgoing. When sending a note to another user, the sender will use the recipient's incoming encryption key for encrypting the data for them, and will optionally use their own outgoing encryption key for encrypting any data about the destination of that note. This is useful for reconstructing transaction history from on-chain data. For example, during a token transfer, the token contract may dictate that the sender encrypts the note with value with the recipient's incoming key, but also records the transfer with its own outgoing key for bookkeeping purposes.
 
-An application in Noir can access the encryption public key for a given address using the oracle call `get_public_key`, which you can then use for calls such as `emit_encrypted_log`:
+An application in Aztec.nr can access the encryption public key for a given address using the oracle call `get_public_key`, which you can then use for calls such as `emit_encrypted_log`:
 
-#include_code encrypted /yarn-project/noir-libs/value-note/src/utils.nr rust
+#include_code encrypted /yarn-project/aztec-nr/value-note/src/utils.nr rust
 
 :::info
-In order to be able to provide the public encryption key for a given address, that public key needs to have been registered in advance. At the moment, there is no broadcasting mechanism for public keys, which means that you will need to manually register all addresses you intend to send encrypted notes to. You can do this via the `registerRecipient` method of the Aztec RPC server, callable either via aztec.js or the CLI. Note that any accounts you own that have been added to the RPC server are automatically registered.
+In order to be able to provide the public encryption key for a given address, that public key needs to have been registered in advance. At the moment, there is no broadcasting mechanism for public keys, which means that you will need to manually register all addresses you intend to send encrypted notes to. You can do this via the `registerRecipient` method of the Private Execution Environment (PXE), callable either via aztec.js or the CLI.
+Note that any accounts you own that have been added to the PXE are automatically registered.
 :::
 
 ### Nullifier secrets
 
 In addition to deriving encryption keys, the privacy master key is used for deriving nullifier secrets. Whenever a private note is consumed, a nullifier deterministically derived from it is emitted. This mechanisms prevents double-spends, since nullifiers are checked by the protocol to be unique. Now, in order to preserve privacy, a third party should not be able to link a note commitment to its nullifier - this link is enforced by the note implementation. Therefore, calculating the nullifier for a note requires a secret from its owner.
 
-An application in Noir can request a nullifier from the current user for computing the nullifier of a note via the `get_secret_key` oracle call:
+An application in Aztec.nr can request a nullifier from the current user for computing the nullifier of a note via the `get_secret_key` oracle call:
 
-#include_code nullifier /yarn-project/noir-libs/value-note/src/value_note.nr rust
+#include_code nullifier /yarn-project/aztec-nr/value-note/src/value_note.nr rust
 
 ### Scoped keys
 

@@ -2,18 +2,34 @@
 import { deployInitialSandboxAccounts } from '@aztec/aztec.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
+import NoirVersion from '@aztec/noir-compiler/noir-version';
+import { startPXEHttpServer } from '@aztec/pxe';
 
 import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
 
 import { setupFileDebugLog } from '../logging.js';
 import { createSandbox } from '../sandbox.js';
-import { startHttpRpcServer } from '../server.js';
 import { github, splash } from '../splash.js';
 
 const { SERVER_PORT = 8080 } = process.env;
 
 const logger = createDebugLogger('aztec:sandbox');
+
+/**
+ * Creates the sandbox from provided config and deploys any initial L1 and L2 contracts
+ */
+async function createAndInitialiseSandbox() {
+  const { l1Contracts, pxe, stop } = await createSandbox();
+  logger.info('Setting up test accounts...');
+  const accounts = await deployInitialSandboxAccounts(pxe);
+  return {
+    l1Contracts,
+    pxe,
+    stop,
+    accounts,
+  };
+}
 
 /**
  * Create and start a new Aztec RCP HTTP Server
@@ -23,12 +39,9 @@ async function main() {
   const packageJsonPath = resolve(dirname(fileURLToPath(import.meta.url)), '../../package.json');
   const version = JSON.parse(readFileSync(packageJsonPath).toString()).version;
 
-  logger.info(`Setting up Aztec Sandbox v${version}, please stand by...`);
+  logger.info(`Setting up Aztec Sandbox v${version} (nargo ${NoirVersion.tag}), please stand by...`);
 
-  const { l1Contracts, rpcServer, stop } = await createSandbox();
-
-  logger.info('Setting up test accounts...');
-  const accounts = await deployInitialSandboxAccounts(rpcServer);
+  const { pxe, stop, accounts } = await createAndInitialiseSandbox();
 
   const shutdown = async () => {
     logger.info('Shutting down...');
@@ -39,12 +52,12 @@ async function main() {
   process.once('SIGINT', shutdown);
   process.once('SIGTERM', shutdown);
 
-  startHttpRpcServer(rpcServer, l1Contracts, SERVER_PORT);
+  startPXEHttpServer(pxe, SERVER_PORT);
   logger.info(`Aztec Sandbox JSON-RPC Server listening on port ${SERVER_PORT}`);
   logger.info(`Debug logs will be written to ${logPath}`);
   const accountStrings = [`Initial Accounts:\n\n`];
 
-  const registeredAccounts = await rpcServer.getAccounts();
+  const registeredAccounts = await pxe.getRegisteredAccounts();
   for (const account of accounts) {
     const completeAddress = await account.account.getCompleteAddress();
     if (registeredAccounts.find(a => a.equals(completeAddress))) {
@@ -55,7 +68,9 @@ async function main() {
     }
   }
   logger.info(
-    `${splash}\n${github}\n\n`.concat(...accountStrings).concat(`Aztec Sandbox v${version} is now ready for use!`),
+    `${splash}\n${github}\n\n`
+      .concat(...accountStrings)
+      .concat(`Aztec Sandbox v${version} (nargo ${NoirVersion.tag}) is now ready for use!`),
   );
 }
 

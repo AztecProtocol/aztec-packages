@@ -3,7 +3,7 @@ contract PublicToken {
     use dep::std::option::Option;
 
     // docs:start:unencrypted_import
-    use dep::aztec::oracle::logs::emit_unencrypted_log;
+    use dep::aztec::log::emit_unencrypted_log;
     // docs:end:unencrypted_import
 
     use dep::aztec::{
@@ -12,13 +12,13 @@ contract PublicToken {
             map::Map,
             public_state::PublicState,
         },
-        types::type_serialisation::field_serialisation::{
-            FieldSerialisationMethods, FIELD_SERIALISED_LEN,
+        types::type_serialization::field_serialization::{
+            FieldSerializationMethods, FIELD_SERIALIZED_LEN,
         },
     };
 
     struct Storage {
-        balances: Map<PublicState<Field, FIELD_SERIALISED_LEN>>,
+        balances: Map<PublicState<Field, FIELD_SERIALIZED_LEN>>,
     }
 
     impl Storage {
@@ -28,7 +28,7 @@ contract PublicToken {
                     context,
                     1,
                     |context, slot| {
-                        PublicState::new(context, slot, FieldSerialisationMethods)
+                        PublicState::new(context, slot, FieldSerializationMethods)
                     },
                 ),
             }
@@ -36,8 +36,10 @@ contract PublicToken {
     }
 
     // Constructs the contract.
+    // docs:start:empty-constructor
     #[aztec(private)]
     fn constructor() {}
+    // docs:end:empty-constructor
 
     // Mints `amount` of tokens to a `recipient`.
     #[aztec(public)]
@@ -46,12 +48,12 @@ contract PublicToken {
         recipient: Field,
     ) -> Field {
 
-        let storage = Storage::init(Context::public(&mut context));
+        
         let recipient_balance = storage.balances.at(recipient);
         let new_amount = recipient_balance.read() + amount;
         // TODO: Remove return value.
         // docs:start:unencrypted_log
-        let _hash = emit_unencrypted_log("Coins minted");
+        emit_unencrypted_log(&mut context, "Coins minted");
         // docs:end:unencrypted_log
         recipient_balance.write(new_amount);
 
@@ -64,7 +66,7 @@ contract PublicToken {
         amount: Field,
         recipient: Field,
     ) -> Field {
-        let storage = Storage::init(Context::public(&mut context));
+        
         let sender = context.msg_sender();
 
         let sender_balance = storage.balances.at(sender);
@@ -79,7 +81,7 @@ contract PublicToken {
         if (current_sender_balance as u126 > amount as u126) {
             sender_balance.write(current_sender_balance - amount);
             // TODO: Compiler complains if we don't assign the result of the write to anything
-            let _hash = emit_unencrypted_log("Coins transferred");
+            emit_unencrypted_log(&mut context, "Coins transferred");
             let amount = current_recipient_balance + amount;
             recipient_balance.write(amount);
             return_value = amount;
@@ -93,7 +95,7 @@ contract PublicToken {
     unconstrained fn publicBalanceOf(
         owner: Field,
     ) -> Field {
-        let storage = Storage::init(Context::none());
+        
         storage.balances.at(owner).read()
     }
 }

@@ -35,8 +35,6 @@
     "./committable": "./dest/committable/index.js"
   },
   "scripts": {
-    "prepare": "node ../yarn-project-base/scripts/update_build_manifest.mjs package.json",
-    "prepare:check": "node ../yarn-project-base/scripts/update_build_manifest.mjs package.json --check",
     "build": "yarn clean && tsc -b",
     "build:dev": "tsc -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
@@ -60,7 +58,7 @@
     "debug": "^4.3.4",
     "detect-node": "^2.1.0",
     "hash.js": "^1.1.7",
-    "koa": "^2.14.1",
+    "koa": "^2.14.2",
     "koa-bodyparser": "^4.4.0",
     "koa-compress": "^5.1.0",
     "koa-router": "^12.0.0",

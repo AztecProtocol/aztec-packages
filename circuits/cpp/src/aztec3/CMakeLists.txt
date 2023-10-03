@@ -1,3 +1,9 @@
+if (WASM)
+    link_directories(${CMAKE_SOURCE_DIR}/barretenberg/cpp/build-wasm/lib)
+else()
+    link_directories(${CMAKE_SOURCE_DIR}/barretenberg/cpp/build/lib)
+endif()
+
 add_subdirectory(circuits)
 add_subdirectory(oracle)
 add_subdirectory(dbs)
@@ -24,5 +30,4 @@ if (WASM)
         # TODO revisit implications of whole-archive
         -nostartfiles -Wl,--whole-archive -Wl,--no-entry -Wl,--export-dynamic -Wl,--import-memory -Wl,--allow-undefined -Wl,--stack-first -Wl,-z,stack-size=1048576
     )
-
 endif()

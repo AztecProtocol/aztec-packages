@@ -14,30 +14,28 @@
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
-    "prepare": "node ../yarn-project-base/scripts/update_build_manifest.mjs package.json",
     "build": "yarn clean && tsc -b",
     "start": "node --no-warnings ./dest/bin",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T prettier -w ./src",
-    "prepare:check": "node ../yarn-project-base/scripts/update_build_manifest.mjs package.json --check",
     "build:dev": "tsc -b --watch",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --passWithNoTests",
-    "run:example:token": "DEBUG='aztec:*' node ./dest/examples/private_token_contract.js",
-    "run:example:uniswap": "DEBUG='aztec:*' node ./dest/examples/uniswap_trade_on_l1_from_l2.js"
+    "run:example:token": "DEBUG='aztec:*' node ./dest/examples/private_token_contract.js"
   },
   "inherits": [
     "../package.common.json"
   ],
   "dependencies": {
     "@aztec/aztec-node": "workspace:^",
-    "@aztec/aztec-rpc": "workspace:^",
     "@aztec/aztec.js": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
+    "@aztec/noir-compiler": "workspace:^",
     "@aztec/noir-contracts": "workspace:^",
+    "@aztec/pxe": "workspace:^",
     "@aztec/types": "workspace:^",
     "abitype": "^0.8.11",
     "koa": "^2.14.2",

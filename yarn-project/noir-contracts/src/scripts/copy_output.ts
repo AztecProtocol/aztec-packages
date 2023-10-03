@@ -20,7 +20,6 @@ const PROJECT_CONTRACTS = [
   { name: 'SchnorrSingleKeyAccount', target: '../aztec.js/src/abis/', exclude: [] },
   { name: 'SchnorrAccount', target: '../aztec.js/src/abis/', exclude: [] },
   { name: 'EcdsaAccount', target: '../aztec.js/src/abis/', exclude: [] },
-  { name: 'SchnorrAuthWitnessAccount', target: '../aztec.js/src/abis/', exclude: [] },
 ];
 
 const INTERFACE_CONTRACTS = ['private_token', 'private_token_airdrop', 'non_native_token', 'test'];
@@ -50,19 +49,18 @@ const main = () => {
   if (!name) throw new Error(`Missing argument contract name`);
 
   const projectName = `${snakeCase(name)}_contract`;
-  const projectDirPath = `src/contracts/${projectName}`;
 
   const contractName = upperFirst(camelCase(name));
   const artifactFile = `${projectName}-${contractName}.json`;
 
-  const buildJsonFilePath = `${projectDirPath}/target/${artifactFile}`;
+  const buildJsonFilePath = `./target/${artifactFile}`;
   const buildJson = JSON.parse(readFileSync(buildJsonFilePath).toString());
 
   const debugArtifactFile = `debug_${artifactFile}`;
   let debug = undefined;
 
   try {
-    const debugJsonFilePath = `${projectDirPath}/target/${debugArtifactFile}`;
+    const debugJsonFilePath = `./target/${debugArtifactFile}`;
     const debugJson = JSON.parse(readFileSync(debugJsonFilePath).toString());
     if (debugJson) {
       debug = debugJson;
@@ -89,14 +87,15 @@ const main = () => {
   writeFileSync(tsInterfaceDestFilePath, generateTypescriptContractInterface(artifactJson, tsAbiImportPath));
   log(`Written ${tsInterfaceDestFilePath}`);
 
-  // Write a .nr contract interface, for consumption by other Noir Contracts
+  // Write a .nr contract interface, for consumption by other Aztec.nr contracts
   if (INTERFACE_CONTRACTS.includes(name)) {
+    const projectDirPath = `src/contracts/${projectName}`;
     const noirInterfaceDestFilePath = `${projectDirPath}/src/interface.nr`;
     try {
       writeFileSync(noirInterfaceDestFilePath, generateNoirContractInterface(artifactJson));
       log(`Written ${noirInterfaceDestFilePath}`);
     } catch (err) {
-      log(`Error generating noir interface for ${name}: ${err}`);
+      log(`Error generating Aztec.nr interface for ${name}: ${err}`);
     }
   }
 };

@@ -7,10 +7,43 @@ import {
   PrivateCircuitPublicInputs,
   PublicCallRequest,
 } from '@aztec/circuits.js';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 
-import { CommitmentDataOracleInputs, MessageLoadOracleInputs } from '../client/db_oracle.js';
-import { ACVMField, toACVMField } from './acvm.js';
+import { ACVMField } from './acvm.js';
+import { MessageLoadOracleInputs } from './oracle/index.js';
+
+/**
+ * Adapts the buffer to the field size.
+ * @param originalBuf - The buffer to adapt.
+ * @returns The adapted buffer.
+ */
+function adaptBufferSize(originalBuf: Buffer) {
+  const buffer = Buffer.alloc(Fr.SIZE_IN_BYTES);
+  if (originalBuf.length > buffer.length) {
+    throw new Error('Buffer does not fit in field');
+  }
+  originalBuf.copy(buffer, buffer.length - originalBuf.length);
+  return buffer;
+}
+
+/**
+ * Converts a value to an ACVM field.
+ * @param value - The value to convert.
+ * @returns The ACVM field.
+ */
+export function toACVMField(value: AztecAddress | EthAddress | Fr | Buffer | boolean | number | bigint): ACVMField {
+  let buffer;
+  if (Buffer.isBuffer(value)) {
+    buffer = value;
+  } else if (typeof value === 'boolean' || typeof value === 'number' || typeof value === 'bigint') {
+    buffer = new Fr(value).toBuffer();
+  } else {
+    buffer = value.toBuffer();
+  }
+  return `0x${adaptBufferSize(buffer).toString('hex')}`;
+}
 
 // Utilities to write TS classes to ACVM Field arrays
 // In the order that the ACVM expects them
@@ -127,11 +160,11 @@ export function toAcvmCallPrivateStackItem(item: PrivateCallStackItem): ACVMFiel
 
 /**
  * Converts a public call stack item with the request for executing a public function to
- * a set of ACVM fields accepted by the enqueue_public_function_call_oracle Noir function.
+ * a set of ACVM fields accepted by the enqueue_public_function_call_oracle Aztec.nr function.
  * Note that only the fields related to the request are serialized: those related to the result
  * are empty since this is just an execution request, so we don't send them to the circuit.
  * @param item - The public call stack item to serialize to be passed onto Noir.
- * @returns The fields expected by the enqueue_public_function_call_oracle Noir function.
+ * @returns The fields expected by the enqueue_public_function_call_oracle Aztec.nr function.
  */
 export async function toAcvmEnqueuePublicFunctionResult(item: PublicCallRequest): Promise<ACVMField[]> {
   return [
@@ -156,23 +189,6 @@ export function toAcvmL1ToL2MessageLoadOracleInputs(
     ...messageLoadOracleInputs.message.map(f => toACVMField(f)),
     toACVMField(messageLoadOracleInputs.index),
     ...messageLoadOracleInputs.siblingPath.map(f => toACVMField(f)),
-    toACVMField(l1ToL2MessagesTreeRoot),
-  ];
-}
-
-/**
- * Converts the result of loading commitments to ACVM fields.
- * @param commitmentLoadOracleInputs - The result of loading messages to convert.
- * @param l1ToL2MessagesTreeRoot - The L1 to L2 messages tree root
- * @returns The Message Oracle Fields.
- */
-export function toAcvmCommitmentLoadOracleInputs(
-  messageLoadOracleInputs: CommitmentDataOracleInputs,
-  l1ToL2MessagesTreeRoot: Fr,
-): ACVMField[] {
-  return [
-    toACVMField(messageLoadOracleInputs.commitment),
-    toACVMField(messageLoadOracleInputs.index),
     toACVMField(l1ToL2MessagesTreeRoot),
   ];
 }

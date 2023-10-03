@@ -1,8 +1,8 @@
 import { AztecAddress, FunctionData } from '@aztec/circuits.js';
-import { FunctionAbi, FunctionType, encodeArguments } from '@aztec/foundation/abi';
+import { FunctionAbiHeader, FunctionType, encodeArguments } from '@aztec/foundation/abi';
 import { FunctionCall, TxExecutionRequest } from '@aztec/types';
 
-import { Wallet } from '../aztec_rpc_client/wallet.js';
+import { Wallet } from '../wallet/index.js';
 import { BaseContractInteraction, SendMethodOptions } from './base_contract_interaction.js';
 
 export { SendMethodOptions };
@@ -11,12 +11,12 @@ export { SendMethodOptions };
  * Represents the options for a view method in a contract function interaction.
  * Allows specifying the address from which the view method should be called.
  */
-export interface ViewMethodOptions {
+export type ViewMethodOptions = {
   /**
    * The sender's Aztec address.
    */
   from?: AztecAddress;
-}
+};
 
 /**
  * This is the class that is returned when calling e.g. `contract.methods.myMethod(arg0, arg1)`.
@@ -26,7 +26,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
   constructor(
     protected wallet: Wallet,
     protected contractAddress: AztecAddress,
-    protected functionDao: FunctionAbi,
+    protected functionDao: FunctionAbiHeader,
     protected args: any[],
   ) {
     super(wallet);

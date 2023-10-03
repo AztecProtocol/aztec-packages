@@ -11,10 +11,12 @@ import {
   Address,
   AppendOnlyTreeSnapshot,
   BaseOrMergeRollupPublicInputs,
+  BaseRollupInputs,
   CallContext,
   CircuitError,
   CombinedAccumulatedData,
   CombinedConstantData,
+  CompleteAddress,
   ConstantRollupData,
   ContractDeploymentData,
   ContractStorageRead,
@@ -35,6 +37,7 @@ import {
   MergeRollupInputs,
   NativeAggregationState,
   NewContractData,
+  NullifierLeafPreimage,
   OptionallyRevealedData,
   Point,
   PreviousKernelData,
@@ -61,6 +64,70 @@ import {
   isCircuitError,
   toBuffer,
 } from './types.js';
+
+interface MsgpackPoint {
+  x: Buffer;
+  y: Buffer;
+}
+
+export function toPoint(o: MsgpackPoint): Point {
+  if (o.x === undefined) {
+    throw new Error('Expected x in Point deserialization');
+  }
+  if (o.y === undefined) {
+    throw new Error('Expected y in Point deserialization');
+  }
+  return new Point(Fr.fromBuffer(o.x), Fr.fromBuffer(o.y));
+}
+
+export function fromPoint(o: Point): MsgpackPoint {
+  if (o.x === undefined) {
+    throw new Error('Expected x in Point serialization');
+  }
+  if (o.y === undefined) {
+    throw new Error('Expected y in Point serialization');
+  }
+  return {
+    x: toBuffer(o.x),
+    y: toBuffer(o.y),
+  };
+}
+
+interface MsgpackCompleteAddress {
+  address: Buffer;
+  public_key: MsgpackPoint;
+  partial_address: Buffer;
+}
+
+export function toCompleteAddress(o: MsgpackCompleteAddress): CompleteAddress {
+  if (o.address === undefined) {
+    throw new Error('Expected address in CompleteAddress deserialization');
+  }
+  if (o.public_key === undefined) {
+    throw new Error('Expected public_key in CompleteAddress deserialization');
+  }
+  if (o.partial_address === undefined) {
+    throw new Error('Expected partial_address in CompleteAddress deserialization');
+  }
+  return new CompleteAddress(Address.fromBuffer(o.address), toPoint(o.public_key), Fr.fromBuffer(o.partial_address));
+}
+
+export function fromCompleteAddress(o: CompleteAddress): MsgpackCompleteAddress {
+  if (o.address === undefined) {
+    throw new Error('Expected address in CompleteAddress serialization');
+  }
+  if (o.publicKey === undefined) {
+    throw new Error('Expected publicKey in CompleteAddress serialization');
+  }
+  if (o.partialAddress === undefined) {
+    throw new Error('Expected partialAddress in CompleteAddress serialization');
+  }
+  return {
+    address: toBuffer(o.address),
+    public_key: fromPoint(o.publicKey),
+    partial_address: toBuffer(o.partialAddress),
+  };
+}
 
 interface MsgpackGlobalVariables {
   chain_id: Buffer;
@@ -697,34 +764,6 @@ export function fromHistoricBlockData(o: HistoricBlockData): MsgpackHistoricBloc
     private_kernel_vk_tree_root: toBuffer(o.privateKernelVkTreeRoot),
     public_data_tree_root: toBuffer(o.publicDataTreeRoot),
     global_variables_hash: toBuffer(o.globalVariablesHash),
-  };
-}
-
-interface MsgpackPoint {
-  x: Buffer;
-  y: Buffer;
-}
-
-export function toPoint(o: MsgpackPoint): Point {
-  if (o.x === undefined) {
-    throw new Error('Expected x in Point deserialization');
-  }
-  if (o.y === undefined) {
-    throw new Error('Expected y in Point deserialization');
-  }
-  return new Point(Fr.fromBuffer(o.x), Fr.fromBuffer(o.y));
-}
-
-export function fromPoint(o: Point): MsgpackPoint {
-  if (o.x === undefined) {
-    throw new Error('Expected x in Point serialization');
-  }
-  if (o.y === undefined) {
-    throw new Error('Expected y in Point serialization');
-  }
-  return {
-    x: toBuffer(o.x),
-    y: toBuffer(o.y),
   };
 }
 
@@ -2264,6 +2303,42 @@ export function fromAppendOnlyTreeSnapshot(o: AppendOnlyTreeSnapshot): MsgpackAp
   };
 }
 
+interface MsgpackNullifierLeafPreimage {
+  leaf_value: Buffer;
+  next_value: Buffer;
+  next_index: number;
+}
+
+export function toNullifierLeafPreimage(o: MsgpackNullifierLeafPreimage): NullifierLeafPreimage {
+  if (o.leaf_value === undefined) {
+    throw new Error('Expected leaf_value in NullifierLeafPreimage deserialization');
+  }
+  if (o.next_value === undefined) {
+    throw new Error('Expected next_value in NullifierLeafPreimage deserialization');
+  }
+  if (o.next_index === undefined) {
+    throw new Error('Expected next_index in NullifierLeafPreimage deserialization');
+  }
+  return new NullifierLeafPreimage(Fr.fromBuffer(o.leaf_value), Fr.fromBuffer(o.next_value), o.next_index);
+}
+
+export function fromNullifierLeafPreimage(o: NullifierLeafPreimage): MsgpackNullifierLeafPreimage {
+  if (o.leafValue === undefined) {
+    throw new Error('Expected leafValue in NullifierLeafPreimage serialization');
+  }
+  if (o.nextValue === undefined) {
+    throw new Error('Expected nextValue in NullifierLeafPreimage serialization');
+  }
+  if (o.nextIndex === undefined) {
+    throw new Error('Expected nextIndex in NullifierLeafPreimage serialization');
+  }
+  return {
+    leaf_value: toBuffer(o.leafValue),
+    next_value: toBuffer(o.nextValue),
+    next_index: o.nextIndex,
+  };
+}
+
 interface MsgpackConstantRollupData {
   start_historic_blocks_tree_roots_snapshot: MsgpackAppendOnlyTreeSnapshot;
   private_kernel_vk_tree_root: Buffer;
@@ -2328,6 +2403,172 @@ export function fromConstantRollupData(o: ConstantRollupData): MsgpackConstantRo
     base_rollup_vk_hash: toBuffer(o.baseRollupVkHash),
     merge_rollup_vk_hash: toBuffer(o.mergeRollupVkHash),
     global_variables: fromGlobalVariables(o.globalVariables),
+  };
+}
+
+interface MsgpackBaseRollupInputs {
+  kernel_data: Tuple<MsgpackPreviousKernelData, 2>;
+  start_private_data_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
+  start_nullifier_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
+  start_contract_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
+  start_public_data_tree_root: Buffer;
+  start_historic_blocks_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
+  low_nullifier_leaf_preimages: Tuple<MsgpackNullifierLeafPreimage, 128>;
+  low_nullifier_membership_witness: Tuple<MsgpackMembershipWitness16, 128>;
+  new_commitments_subtree_sibling_path: Tuple<Buffer, 25>;
+  new_nullifiers_subtree_sibling_path: Tuple<Buffer, 9>;
+  new_contracts_subtree_sibling_path: Tuple<Buffer, 15>;
+  new_public_data_update_requests_sibling_paths: Tuple<Tuple<Buffer, 254>, 32>;
+  new_public_data_reads_sibling_paths: Tuple<Tuple<Buffer, 254>, 32>;
+  historic_blocks_tree_root_membership_witnesses: Tuple<MsgpackMembershipWitness16, 2>;
+  constants: MsgpackConstantRollupData;
+}
+
+export function toBaseRollupInputs(o: MsgpackBaseRollupInputs): BaseRollupInputs {
+  if (o.kernel_data === undefined) {
+    throw new Error('Expected kernel_data in BaseRollupInputs deserialization');
+  }
+  if (o.start_private_data_tree_snapshot === undefined) {
+    throw new Error('Expected start_private_data_tree_snapshot in BaseRollupInputs deserialization');
+  }
+  if (o.start_nullifier_tree_snapshot === undefined) {
+    throw new Error('Expected start_nullifier_tree_snapshot in BaseRollupInputs deserialization');
+  }
+  if (o.start_contract_tree_snapshot === undefined) {
+    throw new Error('Expected start_contract_tree_snapshot in BaseRollupInputs deserialization');
+  }
+  if (o.start_public_data_tree_root === undefined) {
+    throw new Error('Expected start_public_data_tree_root in BaseRollupInputs deserialization');
+  }
+  if (o.start_historic_blocks_tree_snapshot === undefined) {
+    throw new Error('Expected start_historic_blocks_tree_snapshot in BaseRollupInputs deserialization');
+  }
+  if (o.low_nullifier_leaf_preimages === undefined) {
+    throw new Error('Expected low_nullifier_leaf_preimages in BaseRollupInputs deserialization');
+  }
+  if (o.low_nullifier_membership_witness === undefined) {
+    throw new Error('Expected low_nullifier_membership_witness in BaseRollupInputs deserialization');
+  }
+  if (o.new_commitments_subtree_sibling_path === undefined) {
+    throw new Error('Expected new_commitments_subtree_sibling_path in BaseRollupInputs deserialization');
+  }
+  if (o.new_nullifiers_subtree_sibling_path === undefined) {
+    throw new Error('Expected new_nullifiers_subtree_sibling_path in BaseRollupInputs deserialization');
+  }
+  if (o.new_contracts_subtree_sibling_path === undefined) {
+    throw new Error('Expected new_contracts_subtree_sibling_path in BaseRollupInputs deserialization');
+  }
+  if (o.new_public_data_update_requests_sibling_paths === undefined) {
+    throw new Error('Expected new_public_data_update_requests_sibling_paths in BaseRollupInputs deserialization');
+  }
+  if (o.new_public_data_reads_sibling_paths === undefined) {
+    throw new Error('Expected new_public_data_reads_sibling_paths in BaseRollupInputs deserialization');
+  }
+  if (o.historic_blocks_tree_root_membership_witnesses === undefined) {
+    throw new Error('Expected historic_blocks_tree_root_membership_witnesses in BaseRollupInputs deserialization');
+  }
+  if (o.constants === undefined) {
+    throw new Error('Expected constants in BaseRollupInputs deserialization');
+  }
+  return new BaseRollupInputs(
+    mapTuple(o.kernel_data, (v: MsgpackPreviousKernelData) => toPreviousKernelData(v)),
+    toAppendOnlyTreeSnapshot(o.start_private_data_tree_snapshot),
+    toAppendOnlyTreeSnapshot(o.start_nullifier_tree_snapshot),
+    toAppendOnlyTreeSnapshot(o.start_contract_tree_snapshot),
+    Fr.fromBuffer(o.start_public_data_tree_root),
+    toAppendOnlyTreeSnapshot(o.start_historic_blocks_tree_snapshot),
+    mapTuple(o.low_nullifier_leaf_preimages, (v: MsgpackNullifierLeafPreimage) => toNullifierLeafPreimage(v)),
+    mapTuple(o.low_nullifier_membership_witness, (v: MsgpackMembershipWitness16) => toMembershipWitness16(v)),
+    mapTuple(o.new_commitments_subtree_sibling_path, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.new_nullifiers_subtree_sibling_path, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.new_contracts_subtree_sibling_path, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.new_public_data_update_requests_sibling_paths, (v: Tuple<Buffer, 254>) =>
+      mapTuple(v, (v: Buffer) => Fr.fromBuffer(v)),
+    ),
+    mapTuple(o.new_public_data_reads_sibling_paths, (v: Tuple<Buffer, 254>) =>
+      mapTuple(v, (v: Buffer) => Fr.fromBuffer(v)),
+    ),
+    mapTuple(o.historic_blocks_tree_root_membership_witnesses, (v: MsgpackMembershipWitness16) =>
+      toMembershipWitness16(v),
+    ),
+    toConstantRollupData(o.constants),
+  );
+}
+
+export function fromBaseRollupInputs(o: BaseRollupInputs): MsgpackBaseRollupInputs {
+  if (o.kernelData === undefined) {
+    throw new Error('Expected kernelData in BaseRollupInputs serialization');
+  }
+  if (o.startPrivateDataTreeSnapshot === undefined) {
+    throw new Error('Expected startPrivateDataTreeSnapshot in BaseRollupInputs serialization');
+  }
+  if (o.startNullifierTreeSnapshot === undefined) {
+    throw new Error('Expected startNullifierTreeSnapshot in BaseRollupInputs serialization');
+  }
+  if (o.startContractTreeSnapshot === undefined) {
+    throw new Error('Expected startContractTreeSnapshot in BaseRollupInputs serialization');
+  }
+  if (o.startPublicDataTreeRoot === undefined) {
+    throw new Error('Expected startPublicDataTreeRoot in BaseRollupInputs serialization');
+  }
+  if (o.startHistoricBlocksTreeSnapshot === undefined) {
+    throw new Error('Expected startHistoricBlocksTreeSnapshot in BaseRollupInputs serialization');
+  }
+  if (o.lowNullifierLeafPreimages === undefined) {
+    throw new Error('Expected lowNullifierLeafPreimages in BaseRollupInputs serialization');
+  }
+  if (o.lowNullifierMembershipWitness === undefined) {
+    throw new Error('Expected lowNullifierMembershipWitness in BaseRollupInputs serialization');
+  }
+  if (o.newCommitmentsSubtreeSiblingPath === undefined) {
+    throw new Error('Expected newCommitmentsSubtreeSiblingPath in BaseRollupInputs serialization');
+  }
+  if (o.newNullifiersSubtreeSiblingPath === undefined) {
+    throw new Error('Expected newNullifiersSubtreeSiblingPath in BaseRollupInputs serialization');
+  }
+  if (o.newContractsSubtreeSiblingPath === undefined) {
+    throw new Error('Expected newContractsSubtreeSiblingPath in BaseRollupInputs serialization');
+  }
+  if (o.newPublicDataUpdateRequestsSiblingPaths === undefined) {
+    throw new Error('Expected newPublicDataUpdateRequestsSiblingPaths in BaseRollupInputs serialization');
+  }
+  if (o.newPublicDataReadsSiblingPaths === undefined) {
+    throw new Error('Expected newPublicDataReadsSiblingPaths in BaseRollupInputs serialization');
+  }
+  if (o.historicBlocksTreeRootMembershipWitnesses === undefined) {
+    throw new Error('Expected historicBlocksTreeRootMembershipWitnesses in BaseRollupInputs serialization');
+  }
+  if (o.constants === undefined) {
+    throw new Error('Expected constants in BaseRollupInputs serialization');
+  }
+  return {
+    kernel_data: mapTuple(o.kernelData, (v: PreviousKernelData) => fromPreviousKernelData(v)),
+    start_private_data_tree_snapshot: fromAppendOnlyTreeSnapshot(o.startPrivateDataTreeSnapshot),
+    start_nullifier_tree_snapshot: fromAppendOnlyTreeSnapshot(o.startNullifierTreeSnapshot),
+    start_contract_tree_snapshot: fromAppendOnlyTreeSnapshot(o.startContractTreeSnapshot),
+    start_public_data_tree_root: toBuffer(o.startPublicDataTreeRoot),
+    start_historic_blocks_tree_snapshot: fromAppendOnlyTreeSnapshot(o.startHistoricBlocksTreeSnapshot),
+    low_nullifier_leaf_preimages: mapTuple(o.lowNullifierLeafPreimages, (v: NullifierLeafPreimage) =>
+      fromNullifierLeafPreimage(v),
+    ),
+    low_nullifier_membership_witness: mapTuple(o.lowNullifierMembershipWitness, (v: MembershipWitness16) =>
+      fromMembershipWitness16(v),
+    ),
+    new_commitments_subtree_sibling_path: mapTuple(o.newCommitmentsSubtreeSiblingPath, (v: Fr) => toBuffer(v)),
+    new_nullifiers_subtree_sibling_path: mapTuple(o.newNullifiersSubtreeSiblingPath, (v: Fr) => toBuffer(v)),
+    new_contracts_subtree_sibling_path: mapTuple(o.newContractsSubtreeSiblingPath, (v: Fr) => toBuffer(v)),
+    new_public_data_update_requests_sibling_paths: mapTuple(
+      o.newPublicDataUpdateRequestsSiblingPaths,
+      (v: Tuple<Fr, 254>) => mapTuple(v, (v: Fr) => toBuffer(v)),
+    ),
+    new_public_data_reads_sibling_paths: mapTuple(o.newPublicDataReadsSiblingPaths, (v: Tuple<Fr, 254>) =>
+      mapTuple(v, (v: Fr) => toBuffer(v)),
+    ),
+    historic_blocks_tree_root_membership_witnesses: mapTuple(
+      o.historicBlocksTreeRootMembershipWitnesses,
+      (v: MembershipWitness16) => fromMembershipWitness16(v),
+    ),
+    constants: fromConstantRollupData(o.constants),
   };
 }
 
@@ -2884,6 +3125,22 @@ export function fromRootRollupPublicInputs(o: RootRollupPublicInputs): MsgpackRo
   };
 }
 
+export function abisComputeCompleteAddress(
+  wasm: IWasmModule,
+  arg0: Point,
+  arg1: Fr,
+  arg2: Fr,
+  arg3: Fr,
+): CompleteAddress {
+  return toCompleteAddress(
+    callCbind(wasm, 'abis__compute_complete_address', [
+      fromPoint(arg0),
+      toBuffer(arg1),
+      toBuffer(arg2),
+      toBuffer(arg3),
+    ]),
+  );
+}
 export function abisComputeCommitmentNonce(wasm: IWasmModule, arg0: Fr, arg1: Fr): Fr {
   return Fr.fromBuffer(callCbind(wasm, 'abis__compute_commitment_nonce', [toBuffer(arg0), toBuffer(arg1)]));
 }
@@ -2979,6 +3236,12 @@ export function publicKernelSim(wasm: IWasmModule, arg0: PublicKernelInputs): Ci
   return ((v: MsgpackCircuitError | MsgpackKernelCircuitPublicInputs) =>
     isCircuitError(v) ? toCircuitError(v) : toKernelCircuitPublicInputs(v))(
     callCbind(wasm, 'public_kernel__sim', [fromPublicKernelInputs(arg0)]),
+  );
+}
+export function baseRollupSim(wasm: IWasmModule, arg0: BaseRollupInputs): CircuitError | BaseOrMergeRollupPublicInputs {
+  return ((v: MsgpackCircuitError | MsgpackBaseOrMergeRollupPublicInputs) =>
+    isCircuitError(v) ? toCircuitError(v) : toBaseOrMergeRollupPublicInputs(v))(
+    callCbind(wasm, 'base_rollup__sim', [fromBaseRollupInputs(arg0)]),
   );
 }
 export function mergeRollupSim(

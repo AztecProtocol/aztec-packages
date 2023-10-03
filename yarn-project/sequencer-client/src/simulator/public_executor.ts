@@ -1,5 +1,4 @@
 import {
-  CommitmentDataOracleInputs,
   CommitmentsDB,
   MessageLoadOracleInputs,
   PublicContractsDB,
@@ -7,8 +6,7 @@ import {
   PublicStateDB,
 } from '@aztec/acir-simulator';
 import { AztecAddress, CircuitsWasm, EthAddress, Fr, FunctionSelector, HistoricBlockData } from '@aztec/circuits.js';
-import { siloCommitment } from '@aztec/circuits.js/abis';
-import { ContractDataSource, L1ToL2MessageSource, MerkleTreeId } from '@aztec/types';
+import { ContractDataSource, ExtendedContractData, L1ToL2MessageSource, MerkleTreeId, Tx } from '@aztec/types';
 import { MerkleTreeOperations, computePublicDataTreeLeafIndex } from '@aztec/world-state';
 
 /**
@@ -19,13 +17,13 @@ import { MerkleTreeOperations, computePublicDataTreeLeafIndex } from '@aztec/wor
  */
 export function getPublicExecutor(
   merkleTree: MerkleTreeOperations,
-  contractDataSource: ContractDataSource,
+  publicContractsDB: PublicContractsDB,
   l1toL2MessageSource: L1ToL2MessageSource,
   blockData: HistoricBlockData,
 ) {
   return new PublicExecutor(
     new WorldStatePublicDB(merkleTree),
-    new ContractsDataSourcePublicDB(contractDataSource),
+    publicContractsDB,
     new WorldStateDB(merkleTree, l1toL2MessageSource),
     blockData,
   );
@@ -33,17 +31,63 @@ export function getPublicExecutor(
 
 /**
  * Implements the PublicContractsDB using a ContractDataSource.
+ * Progresively records contracts in transaction as they are processed in a block.
  */
-class ContractsDataSourcePublicDB implements PublicContractsDB {
+export class ContractsDataSourcePublicDB implements PublicContractsDB {
+  cache = new Map<string, ExtendedContractData>();
+
   constructor(private db: ContractDataSource) {}
+
+  /**
+   * Add new contracts from a transaction
+   * @param tx - The transaction to add contracts from.
+   */
+  public addNewContracts(tx: Tx): Promise<void> {
+    for (const contract of tx.newContracts) {
+      const contractAddress = contract.contractData.contractAddress;
+
+      if (contractAddress.isZero()) {
+        continue;
+      }
+
+      this.cache.set(contractAddress.toString(), contract);
+    }
+
+    return Promise.resolve();
+  }
+
+  /**
+   * Removes new contracts added from transactions
+   * @param tx - The tx's contracts to be removed
+   */
+  public removeNewContracts(tx: Tx): Promise<void> {
+    for (const contract of tx.newContracts) {
+      const contractAddress = contract.contractData.contractAddress;
+
+      if (contractAddress.isZero()) {
+        continue;
+      }
+
+      this.cache.delete(contractAddress.toString());
+    }
+    return Promise.resolve();
+  }
+
   async getBytecode(address: AztecAddress, selector: FunctionSelector): Promise<Buffer | undefined> {
-    return (await this.db.getPublicFunction(address, selector))?.bytecode;
+    const contract = await this.#getContract(address);
+    return contract?.getPublicFunction(selector)?.bytecode;
   }
   async getIsInternal(address: AztecAddress, selector: FunctionSelector): Promise<boolean | undefined> {
-    return (await this.db.getPublicFunction(address, selector))?.isInternal;
+    const contract = await this.#getContract(address);
+    return contract?.getPublicFunction(selector)?.isInternal;
   }
   async getPortalContractAddress(address: AztecAddress): Promise<EthAddress | undefined> {
-    return (await this.db.getContractData(address))?.portalContractAddress;
+    const contract = await this.#getContract(address);
+    return contract?.contractData.portalContractAddress;
+  }
+
+  async #getContract(address: AztecAddress): Promise<ExtendedContractData | undefined> {
+    return this.cache.get(address.toString()) ?? (await this.db.getExtendedContractData(address));
   }
 }
 
@@ -100,19 +144,7 @@ export class WorldStateDB implements CommitmentsDB {
     };
   }
 
-  public async getCommitmentOracle(address: AztecAddress, innerCommitment: Fr): Promise<CommitmentDataOracleInputs> {
-    const siloedCommitment = siloCommitment(await CircuitsWasm.get(), address, innerCommitment);
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386): shoild be
-    // unique commitment that exists in tree (should be siloed and then made unique via
-    // nonce).  Once public kernel or base rollup circuit injects nonces, this can be updated
-    // to use uniqueSiloedCommitment.
-    const index = (await this.db.findLeafIndex(MerkleTreeId.PRIVATE_DATA_TREE, siloedCommitment.toBuffer()))!;
-    const siblingPath = await this.db.getSiblingPath(MerkleTreeId.PRIVATE_DATA_TREE, index);
-
-    return {
-      commitment: siloedCommitment,
-      siblingPath: siblingPath.toFieldArray(),
-      index,
-    };
+  public async getCommitmentIndex(commitment: Fr): Promise<bigint | undefined> {
+    return await this.db.findLeafIndex(MerkleTreeId.PRIVATE_DATA_TREE, commitment.toBuffer());
   }
 }

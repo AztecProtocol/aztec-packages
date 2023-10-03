@@ -11,8 +11,6 @@
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
-    "prepare": "node ../yarn-project-base/scripts/update_build_manifest.mjs package.json",
-    "prepare:check": "node ../yarn-project-base/scripts/update_build_manifest.mjs package.json --check",
     "build": "yarn clean && tsc -b",
     "build:dev": "tsc -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
@@ -27,7 +25,6 @@
   ],
   "dependencies": {
     "@aztec/foundation": "workspace:^",
-    "@aztec/l1-artifacts": "workspace:^",
     "dotenv": "^16.0.3",
     "tslib": "^2.4.0",
     "viem": "^1.2.5"

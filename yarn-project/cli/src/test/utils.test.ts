@@ -1,14 +1,15 @@
 import { AztecAddress, Fr } from '@aztec/aztec.js';
-import { AztecRPC, CompleteAddress } from '@aztec/types';
+import { CompleteAddress, PXE } from '@aztec/types';
 
+import { InvalidArgumentError } from 'commander';
 import { MockProxy, mock } from 'jest-mock-extended';
 
 import { encodeArgs } from '../encoding.js';
-import { getTxSender } from '../utils.js';
+import { getTxSender, parseSaltFromHexString, stripLeadingHex } from '../utils.js';
 import { mockContractAbi } from './mocks.js';
 
 describe('CLI Utils', () => {
-  let client: MockProxy<AztecRPC>;
+  let client: MockProxy<PXE>;
 
   // test values
   const addr1 = AztecAddress.random();
@@ -22,20 +23,20 @@ describe('CLI Utils', () => {
     subField2: 'true',
   };
   beforeEach(() => {
-    client = mock<AztecRPC>();
+    client = mock<PXE>();
   });
   it('Gets a txSender correctly or throw error', async () => {
     // returns a parsed Aztec Address
     const aztecAddress = AztecAddress.random();
     const result = await getTxSender(client, aztecAddress.toString());
-    expect(client.getAccounts).toHaveBeenCalledTimes(0);
+    expect(client.getRegisteredAccounts).toHaveBeenCalledTimes(0);
     expect(result).toEqual(aztecAddress);
 
     // returns an address found in the aztec client
     const completeAddress = await CompleteAddress.random();
-    client.getAccounts.mockResolvedValueOnce([completeAddress]);
+    client.getRegisteredAccounts.mockResolvedValueOnce([completeAddress]);
     const resultWithoutString = await getTxSender(client);
-    expect(client.getAccounts).toHaveBeenCalled();
+    expect(client.getRegisteredAccounts).toHaveBeenCalled();
     expect(resultWithoutString).toEqual(completeAddress.address);
 
     // throws when invalid parameter passed
@@ -47,12 +48,12 @@ describe('CLI Utils', () => {
     ).rejects.toThrow(`Invalid option 'from' passed: ${errorAddr}`);
 
     // Throws error when no string is passed & no accounts found in RPC
-    client.getAccounts.mockResolvedValueOnce([]);
+    client.getRegisteredAccounts.mockResolvedValueOnce([]);
     await expect(
       (async () => {
         await getTxSender(client);
       })(),
-    ).rejects.toThrow('No accounts found in Aztec RPC instance.');
+    ).rejects.toThrow('No accounts found in PXE instance.');
   });
 
   it('Encodes args correctly', () => {
@@ -62,11 +63,11 @@ describe('CLI Utils', () => {
       addr1.toBigInt(),
       false,
       33n,
-      addr1.toBigInt(),
-      addr2.toBigInt(),
-      addr3.toBigInt(),
-      field.toBigInt(),
-      true,
+      [addr1.toBigInt(), addr2.toBigInt(), addr3.toBigInt()],
+      {
+        subField1: field.toBigInt(),
+        subField2: true,
+      },
     ];
     expect(result).toEqual(exp);
   });
@@ -74,9 +75,7 @@ describe('CLI Utils', () => {
   it('Errors on invalid inputs', () => {
     // invalid number of args
     const args1 = [field.toString(), 'false'];
-    expect(() => encodeArgs(args1, mockContractAbi.functions[1].parameters)).toThrow(
-      'Invalid number of args provided. Expected: 5, received: 2',
-    );
+    expect(() => encodeArgs(args1, mockContractAbi.functions[1].parameters)).toThrow('Invalid args provided');
 
     // invalid array length
     const invalidArray = fieldArray.concat([Fr.random().toString()]);
@@ -129,5 +128,35 @@ describe('CLI Utils', () => {
     expect(() => encodeArgs(args6, mockContractAbi.functions[1].parameters)).toThrow(
       'Invalid value passed for integerParam. Could not parse foo as an integer.',
     );
+  });
+
+  describe('stripLeadingHex', () => {
+    it.each([
+      ['0x1', '1'],
+      ['1', '1'],
+      ['0x00', '00'],
+      ['00', '00'],
+    ])('removes optional leading hex', (hex, expected) => {
+      expect(stripLeadingHex(hex)).toEqual(expected);
+    });
+  });
+
+  describe('parseSaltFromHexString', () => {
+    it.each([
+      ['0', Fr.ZERO],
+      ['0x0', Fr.ZERO],
+      ['00', Fr.ZERO],
+      ['1', new Fr(1)],
+      ['0x1', new Fr(1)],
+      ['0x01', new Fr(1)],
+      ['0xa', new Fr(0xa)],
+      ['fff', new Fr(0xfff)],
+    ])('correctly generates salt from a hex string', (hex, expected) => {
+      expect(parseSaltFromHexString(hex)).toEqual(expected);
+    });
+
+    it.each(['foo', '', ' ', ' 0x1', '01foo', 'foo1', '0xfoo'])('throws an error for invalid hex strings', str => {
+      expect(() => parseSaltFromHexString(str)).toThrow(InvalidArgumentError);
+    });
   });
 });

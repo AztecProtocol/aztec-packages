@@ -1,0 +1,23 @@
+FROM ubuntu:lunar AS builder
+RUN apt-get update && apt-get install -y build-essential git cmake ninja-build curl
+WORKDIR /usr/src/barretenberg/cpp
+COPY ./scripts/install-wasi-sdk.sh ./scripts/install-wasi-sdk.sh
+RUN ./scripts/install-wasi-sdk.sh
+COPY . .
+# Building both wasm's in parallel reduces build from 120s to 80s.
+RUN (cmake --preset wasm && cmake --build --preset wasm) & \
+    (cmake --preset wasm-threads && cmake --build --preset wasm-threads) & \
+    wait
+
+
+FROM scratch
+WORKDIR /usr/src/barretenberg/cpp
+COPY . .
+COPY --from=builder /usr/src/barretenberg/cpp/build-wasm/bin/barretenberg.wasm /usr/src/barretenberg/cpp/build-wasm/bin/barretenberg.wasm
+COPY --from=builder /usr/src/barretenberg/cpp/build-wasm-threads/bin/barretenberg.wasm /usr/src/barretenberg/cpp/build-wasm-threads/bin/barretenberg.wasm
+# Copy libs for consuming projects.
+COPY --from=builder /usr/src/barretenberg/cpp/build-wasm/lib/libbarretenberg.a /usr/src/barretenberg/cpp/build-wasm/lib/libbarretenberg.a
+COPY --from=builder /usr/src/barretenberg/cpp/build-wasm/lib/libwasi.a /usr/src/barretenberg/cpp/build-wasm/lib/libwasi.a
+COPY --from=builder /usr/src/barretenberg/cpp/build-wasm/lib/libenv.a /usr/src/barretenberg/cpp/build-wasm/lib/libenv.a
+# Copy wasi-sdk so that consuming projects have the toolchain available.
+COPY --from=builder /usr/src/barretenberg/cpp/src/wasi-sdk-20.0 /usr/src/barretenberg/cpp/src/wasi-sdk-20.0

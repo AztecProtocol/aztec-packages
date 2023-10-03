@@ -20,13 +20,16 @@
   },
   "references": [
     {
+      "path": "../circuits.js"
+    },
+    {
       "path": "../aztec.js"
     },
     {
       "path": "../cli"
     },
     {
-      "path": "../foundation"
+      "path": "../end-to-end"
     },
     {
       "path": "../l1-artifacts"
