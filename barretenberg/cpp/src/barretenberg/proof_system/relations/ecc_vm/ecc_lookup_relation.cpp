@@ -25,8 +25,8 @@ void ECCVMLookupRelationBase<FF>::accumulate(typename AccumulatorTypes::Accumula
                                              const RelationParameters<FF>& relation_params,
                                              const FF& scaling_factor)
 {
-    using View = typename std::tuple_element<0, typename AccumulatorTypes::AccumulatorViews>::type;
-    using Accumulator = typename std::tuple_element<0, typename AccumulatorTypes::Accumulators>::type;
+    using View = typename std::tuple_element_t<0, typename AccumulatorTypes::AccumulatorViews>;
+    using Accumulator = typename std::tuple_element_t<0, typename AccumulatorTypes::Accumulators>;
 
     auto lookup_inverses = View(extended_edges.lookup_inverses);
 
@@ -40,13 +40,10 @@ void ECCVMLookupRelationBase<FF>::accumulate(typename AccumulatorTypes::Accumula
     // The purpose of this next section is to derive individual inverse terms using `lookup_inverses`
     // i.e. (1 / read_term[i]) = lookup_inverse * \prod_{j /ne i} (read_term[j]) * \prod_k (write_term[k])
     //      (1 / write_term[i]) = lookup_inverse * \prod_j (read_term[j]) * \prod_{k ne i} (write_term[k])
-    barretenberg::constexpr_for<0, READ_TERMS, 1>([&]<size_t i>() {
-        lookup_terms[i] =
-            compute_read_term<typename AccumulatorTypes::Accumulators, i>(extended_edges, relation_params);
-    });
+    barretenberg::constexpr_for<0, READ_TERMS, 1>(
+        [&]<size_t i>() { lookup_terms[i] = compute_read_term<Accumulator, i>(extended_edges, relation_params); });
     barretenberg::constexpr_for<0, WRITE_TERMS, 1>([&]<size_t i>() {
-        lookup_terms[i + READ_TERMS] =
-            compute_write_term<typename AccumulatorTypes::Accumulators, i>(extended_edges, relation_params);
+        lookup_terms[i + READ_TERMS] = compute_write_term<Accumulator, i>(extended_edges, relation_params);
     });
 
     barretenberg::constexpr_for<0, NUM_TOTAL_TERMS, 1>(

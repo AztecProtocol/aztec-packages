@@ -29,7 +29,7 @@ void compute_logderivative_inverse(typename Flavor::ProverPolynomials& polynomia
                                    const size_t circuit_size)
 {
     using FF = typename Flavor::FF;
-    using AccumulatorsAndViews = typename Relation::ValueAccumulatorsAndViews;
+    using Accumulator0 = std::tuple_element_t<0, typename Relation::ValueAccumulatorsAndViews::Accumulators>;
     constexpr size_t READ_TERMS = Relation::READ_TERMS;
     constexpr size_t WRITE_TERMS = Relation::WRITE_TERMS;
     auto& inverse_polynomial = polynomials.lookup_inverses;
@@ -44,14 +44,12 @@ void compute_logderivative_inverse(typename Flavor::ProverPolynomials& polynomia
         FF denominator = 1;
         barretenberg::constexpr_for<0, READ_TERMS, 1>([&]<size_t read_index> {
             auto denominator_term =
-                lookup_relation.template compute_read_term<typename AccumulatorsAndViews::Accumulators, read_index>(
-                    row, relation_parameters);
+                lookup_relation.template compute_read_term<Accumulator0, read_index>(row, relation_parameters);
             denominator *= denominator_term;
         });
         barretenberg::constexpr_for<0, WRITE_TERMS, 1>([&]<size_t write_index> {
             auto denominator_term =
-                lookup_relation.template compute_write_term<typename AccumulatorsAndViews::Accumulators, write_index>(
-                    row, relation_parameters);
+                lookup_relation.template compute_write_term<Accumulator0, write_index>(row, relation_parameters);
             denominator *= denominator_term;
         });
         inverse_polynomial[i] = denominator;

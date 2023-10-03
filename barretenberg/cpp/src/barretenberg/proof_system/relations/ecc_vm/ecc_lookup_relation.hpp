@@ -101,11 +101,9 @@ template <typename FF_> class ECCVMLookupRelationBase {
         return GetAccumulators0Old<AccumulatorTypes>(1);
     }
 
-    template <typename TupleOverSubrelations, size_t write_index, typename AllEntities>
-    static std::tuple_element_t<0, TupleOverSubrelations> compute_write_term(
-        const AllEntities& in, const RelationParameters<FF>& relation_params)
+    template <typename Accumulator0, size_t write_index, typename AllEntities>
+    static Accumulator0 compute_write_term(const AllEntities& in, const RelationParameters<FF>& relation_params)
     {
-        using Accumulator0 = std::tuple_element_t<0, TupleOverSubrelations>;
         using View = typename Accumulator0::View;
 
         static_assert(write_index < WRITE_TERMS);
@@ -183,11 +181,9 @@ template <typename FF_> class ECCVMLookupRelationBase {
      * @param index
      * @return Univariate
      */
-    template <typename TupleOverSubrelations, size_t read_index, typename AllEntities>
-    static std::tuple_element_t<0, TupleOverSubrelations> compute_read_term(
-        const AllEntities& in, const RelationParameters<FF>& relation_params)
+    template <typename Accumulator0, size_t read_index, typename AllEntities>
+    static Accumulator0 compute_read_term(const AllEntities& in, const RelationParameters<FF>& relation_params)
     {
-        using Accumulator0 = std::tuple_element_t<0, TupleOverSubrelations>;
         using View = typename Accumulator0::View;
 
         // read term:
