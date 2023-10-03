@@ -2,7 +2,7 @@
 title: Storage
 ---
 
-In an Aztec.nr contract, storage is contained in a single struct that containins both public and private state variables.
+In an Aztec.nr contract, storage is contained in a single struct that contains both public and private state variables.
 
 Public state variables can be read by anyone, while private state variables can only be read by their owner (or people whom the owner has shared the decrypted data/note viewing key with).
 
