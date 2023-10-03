@@ -49,8 +49,9 @@ void compute_logderivative_inverse(typename Flavor::ProverPolynomials& polynomia
             denominator *= denominator_term;
         });
         barretenberg::constexpr_for<0, WRITE_TERMS, 1>([&]<size_t write_index> {
-            auto denominator_term = lookup_relation.template compute_write_term<AccumulatorsAndViews, write_index>(
-                polynomials, relation_parameters, i);
+            auto denominator_term =
+                lookup_relation.template compute_write_term<typename AccumulatorsAndViews::Accumulators, write_index>(
+                    row, relation_parameters);
             denominator *= denominator_term;
         });
         inverse_polynomial[i] = denominator;

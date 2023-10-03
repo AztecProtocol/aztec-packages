@@ -101,11 +101,13 @@ template <typename FF_> class ECCVMLookupRelationBase {
         return GetAccumulators0Old<AccumulatorTypes>(1);
     }
 
-    template <typename AccumulatorTypes, size_t write_index>
-    static GetAccumulators0Old<AccumulatorTypes> compute_write_term(const auto& extended_edges,
-                                                                    const RelationParameters<FF>& relation_params,
-                                                                    const size_t index = 0)
+    template <typename TupleOverSubrelations, size_t write_index, typename AllEntities>
+    static std::tuple_element_t<0, TupleOverSubrelations> compute_write_term(
+        const AllEntities& in, const RelationParameters<FF>& relation_params)
     {
+        using Accumulator0 = std::tuple_element_t<0, TupleOverSubrelations>;
+        using View = typename Accumulator0::View;
+
         static_assert(write_index < WRITE_TERMS);
 
         // what are we looking up?
@@ -125,10 +127,10 @@ template <typename FF_> class ECCVMLookupRelationBase {
         // 15 -> 15[P]
         // negative points map pc, round, x, -y
         // positive points map pc, 15 - (round * 2), x, y
-        const auto& precompute_pc = get_view<FF, AccumulatorTypes>(extended_edges.precompute_pc, index);
-        const auto& tx = get_view<FF, AccumulatorTypes>(extended_edges.precompute_tx, index);
-        const auto& ty = get_view<FF, AccumulatorTypes>(extended_edges.precompute_ty, index);
-        const auto& precompute_round = get_view<FF, AccumulatorTypes>(extended_edges.precompute_round, index);
+        const auto& precompute_pc = View(in.precompute_pc);
+        const auto& tx = View(in.precompute_tx);
+        const auto& ty = View(in.precompute_ty);
+        const auto& precompute_round = View(in.precompute_round);
         const auto& gamma = relation_params.gamma;
         const auto& beta = relation_params.beta;
         const auto& beta_sqr = relation_params.beta_sqr;
@@ -169,7 +171,7 @@ template <typename FF_> class ECCVMLookupRelationBase {
         if constexpr (write_index == 1) {
             return negative_term; // degree 1
         }
-        return GetAccumulators0Old<AccumulatorTypes>(1);
+        return Accumulator0(1);
     }
 
     /**
