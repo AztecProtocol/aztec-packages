@@ -34,7 +34,7 @@ function getWitness(witnessPath: string) {
 }
 
 function publicInputsPathFromProofPath(proofPath: string) {
-  return proofPath + '-public_inputs';
+  return proofPath + '_public_inputs';
 }
 
 async function computeCircuitSize(bytecodePath: string, api: Barretenberg) {
@@ -343,11 +343,10 @@ program
   .command('proof_as_fields')
   .description('Return the proof as fields elements')
   .requiredOption('-p, --proof-path <path>', 'Specify the proof path')
-  .requiredOption('-k, --vk-path <path>', 'Path to verification key.')
   .requiredOption('-o, --output-path <path>', 'Specify the JSON path to write the proof fields')
-  .action(async ({ proofPath, vkPath, outputPath }) => {
+  .action(async ({ proofPath,  outputPath }) => {
     handleGlobalOptions();
-    await proofAsFields(proofPath, vkPath, outputPath);
+    await proofAsFields(proofPath, outputPath);
   });
 
 program
