@@ -14,6 +14,7 @@ template <typename FF> class GoblinTranslatorMainRelationBase {
     static constexpr size_t NUM_LIMB_BITS = 68;
     static constexpr FF shift = FF(uint256_t(1) << NUM_LIMB_BITS);
     static constexpr FF shiftx2 = FF(uint256_t(1) << (NUM_LIMB_BITS * 2));
+    static constexpr FF shiftx3 = FF(uint256_t(1) << (NUM_LIMB_BITS * 3));
     static constexpr uint512_t MODULUS_U512 = uint512_t(curve::BN254::BaseField::modulus);
     static constexpr uint512_t BINARY_BASIS_MODULUS = uint512_t(1) << (NUM_LIMB_BITS << 2);
     static constexpr uint512_t NEGATIVE_PRIME_MODULUS = BINARY_BASIS_MODULUS - MODULUS_U512;
@@ -30,8 +31,9 @@ template <typename FF> class GoblinTranslatorMainRelationBase {
     static constexpr size_t RELATION_LENGTH = 3; // degree((LAGRANGE_LAST-1)D(D - 1)(D - 2)(D - 3)) = 5
     static constexpr size_t LEN_1 = 3;           // range constrain sub-relation 1
     static constexpr size_t LEN_2 = 3;           // range constrain sub-relation 1
+    static constexpr size_t LEN_3 = 3;           // range constrain sub-relation 1
     template <template <size_t...> typename AccumulatorTypesContainer>
-    using AccumulatorTypesBase = AccumulatorTypesContainer<LEN_1, LEN_2>;
+    using AccumulatorTypesBase = AccumulatorTypesContainer<LEN_1, LEN_2, LEN_3>;
 
     /**
      * @brief Expression for the generalized permutation sort gate.
@@ -149,6 +151,50 @@ template <typename FF> class GoblinTranslatorMainRelationBase {
         tmp_2 *= lagrange_odd;
         tmp_2 *= scaling_factor;
         std::get<1>(accumulators) += tmp_2;
+        auto reconstructed_p_x =
+            (p_x_low_limbs + p_x_low_limbs_shift * shift + p_x_high_limbs * shiftx2 + p_x_high_limbs_shift * shiftx3);
+        auto reconstructed_p_y =
+            (p_y_low_limbs + p_y_low_limbs_shift * shift + p_y_high_limbs * shiftx2 + p_y_high_limbs_shift * shiftx3);
+        auto reconstructed_previous_accumulator =
+            (accumulators_binary_limbs_0_shift + accumulators_binary_limbs_1_shift * shift +
+             accumulators_binary_limbs_2_shift * shiftx2 + accumulators_binary_limbs_3_shift * shiftx3);
+        auto reconstructed_current_accumulator =
+            (accumulators_binary_limbs_0 + accumulators_binary_limbs_1 * shift + accumulators_binary_limbs_2 * shiftx2 +
+             accumulators_binary_limbs_3 * shiftx3);
+        auto reconstructed_z1 = (z_lo_limbs + z_hi_limbs * shift);
+        auto reconstructed_z2 = (z_lo_limbs_shift + z_hi_limbs_shift * shift);
+        auto reconstructed_quotient = (quotient_lo_binary_limbs + quotient_lo_binary_limbs_shift * shift +
+                                       quotient_hi_binary_limbs * shiftx2 + quotient_hi_binary_limbs_shift * shiftx3);
+        // TODO: just supply reconstructed challenges, we don't need to reconstruct them here
+        auto reconstructed_batching_evaluation_v =
+            (relation_parameters.batching_challenge_v[0][0] + relation_parameters.batching_challenge_v[0][1] * shift +
+             relation_parameters.batching_challenge_v[0][2] * shiftx2 +
+             relation_parameters.batching_challenge_v[0][3] * shiftx3);
+        auto reconstructed_batching_evaluation_v2 =
+            (relation_parameters.batching_challenge_v[1][0] + relation_parameters.batching_challenge_v[1][1] * shift +
+             relation_parameters.batching_challenge_v[1][2] * shiftx2 +
+             relation_parameters.batching_challenge_v[1][3] * shiftx3);
+        auto reconstructed_batching_evaluation_v3 =
+            (relation_parameters.batching_challenge_v[2][0] + relation_parameters.batching_challenge_v[2][1] * shift +
+             relation_parameters.batching_challenge_v[2][2] * shiftx2 +
+             relation_parameters.batching_challenge_v[2][3] * shiftx3);
+        auto reconstructed_batching_evaluation_v4 =
+            (relation_parameters.batching_challenge_v[3][0] + relation_parameters.batching_challenge_v[3][1] * shift +
+             relation_parameters.batching_challenge_v[3][2] * shiftx2 +
+             relation_parameters.batching_challenge_v[3][3] * shiftx3);
+        auto reconstructed_evaluation_input_x =
+            (relation_parameters.evaluation_input_x[0] + relation_parameters.evaluation_input_x[1] * shift +
+             relation_parameters.evaluation_input_x[2] * shiftx2 + relation_parameters.evaluation_input_x[3] * shiftx3);
+
+        auto tmp_3 = reconstructed_previous_accumulator * reconstructed_evaluation_input_x + op +
+                     reconstructed_p_x * reconstructed_batching_evaluation_v +
+                     reconstructed_p_y * reconstructed_batching_evaluation_v2 +
+                     reconstructed_z1 * reconstructed_batching_evaluation_v3 +
+                     reconstructed_z2 * reconstructed_batching_evaluation_v4 +
+                     reconstructed_quotient * NEGATIVE_MODULUS_LIMBS[4] - reconstructed_current_accumulator;
+        tmp_3 *= lagrange_odd;
+        tmp_3 *= scaling_factor;
+        std::get<2>(accumulators) += tmp_3;
     };
 };
 template <typename FF> using GoblinTranslatorMainRelation = RelationWrapper<FF, GoblinTranslatorMainRelationBase>;
