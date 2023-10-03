@@ -39,11 +39,12 @@ acir_format::acir_format get_constraint_system(std::string const& bytecode_path)
     return acir_format::circuit_buf_to_acir_format(bytecode);
 }
 
-std::vector<uint8_t> read_public_inputs(std::string const& public_inputs_path, size_t num_public_inputs)
+std::vector<uint8_t> read_public_inputs(std::string const& public_inputs_path)
 {
     // If the number of public inputs is 0, then read_file will trigger a failure
-    // because the file will be empty.
-    if (num_public_inputs == 0) {
+    // because the file will be empty. We therefore check if the file is empty
+    // before trying to read it.
+    if (get_file_size(public_inputs_path) <= 0) {
         return {};
     }
     return read_file(public_inputs_path);
@@ -166,7 +167,7 @@ bool verify(const std::string& proof_path, bool recursive, const std::string& vk
     acir_composer->load_verification_key(barretenberg::srs::get_crs_factory(), std::move(vk_data));
 
     auto public_inputs_path = public_inputs_path_from_proof_path(proof_path);
-    std::vector<uint8_t> public_inputs = read_public_inputs(public_inputs_path, vk_data.num_public_inputs);
+    std::vector<uint8_t> public_inputs = read_public_inputs(public_inputs_path);
     auto proof = read_file(proof_path);
     auto verified = acir_composer->verify_proof(public_inputs, proof, recursive);
 
@@ -252,16 +253,14 @@ void contract(const std::string& output_path, const std::string& vk_path)
  *
  *
  * @param proof_path Path to the file containing the serialized proof
- * @param vk_path Path to the file containing the serialized verification key
  * @param output_path Path to write the proof to
  */
-void proofAsFields(const std::string& proof_path, std::string const& vk_path, const std::string& output_path)
+void proofAsFields(const std::string& proof_path, const std::string& output_path)
 {
-    auto vk_data = from_buffer<plonk::verification_key_data>(read_file(vk_path));
 
     auto public_inputs_path = public_inputs_path_from_proof_path(proof_path);
     auto proof = read_file(proof_path);
-    std::vector<uint8_t> public_inputs = read_public_inputs(public_inputs_path, vk_data.num_public_inputs);
+    std::vector<uint8_t> public_inputs = read_public_inputs(public_inputs_path);
 
     auto acir_composer = new acir_proofs::AcirComposer(MAX_CIRCUIT_SIZE, verbose);
     auto data = acir_composer->serialize_proof_into_fields(public_inputs, proof);
@@ -402,7 +401,7 @@ int main(int argc, char* argv[])
             writeVk(bytecode_path, output_path);
         } else if (command == "proof_as_fields") {
             std::string output_path = getOption(args, "-o", proof_path + "_fields.json");
-            proofAsFields(proof_path, vk_path, output_path);
+            proofAsFields(proof_path, output_path);
         } else if (command == "vk_as_fields") {
             std::string output_path = getOption(args, "-o", vk_path + "_fields.json");
             vkAsFields(vk_path, output_path);
