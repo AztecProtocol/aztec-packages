@@ -8,7 +8,7 @@ use crate::constants_gen::{
 };
 use crate::context::PrivateContext;
 use crate::note::{
-    note_getter_options::{NoteGetterOptions, Select, Sort},
+    note_getter_options::{NoteGetterOptions, Select, Sort, SortOrder},
     note_interface::NoteInterface,
     note_viewer_options::NoteViewerOptions,
     utils::compute_note_hash_for_read_or_nullify,
@@ -29,17 +29,25 @@ fn check_note_header<Note, N>(
     assert(header.storage_slot == storage_slot);
 }
 
-fn check_note_fields<Note, N>(
-    note_interface: NoteInterface<Note, N>,
-    note: Note,
+fn check_note_fields<N>(
+    fields: [Field; N],
     selects: BoundedVec<Option<Select>, N>,
 ) {
-    if selects.len != 0 {
-        let serialize = note_interface.serialize;
-        let fields = serialize(note);
-        for i in 0..selects.len {
-            let select = selects.get(i).unwrap_unchecked();
-            assert(fields[select.field_index] == select.value, "Mismatch return note field.");
+    for i in 0..selects.len {
+        let select = selects.get_unchecked(i).unwrap_unchecked();
+        assert(fields[select.field_index] == select.value, "Mismatch return note field.");
+    }
+}
+
+fn check_notes_order<N>(fields_0: [Field; N], fields_1: [Field; N], sorts: BoundedVec<Option<Sort>, N>) {
+    for i in 0..sorts.len {
+        let sort = sorts.get_unchecked(i).unwrap_unchecked();
+        let eq = fields_0[sort.field_index] == fields_1[sort.field_index];
+        let lt = fields_0[sort.field_index] as u120 < fields_1[sort.field_index] as u120;
+        if sort.order == SortOrder.ASC {
+            assert(eq | lt, "Return notes not sorted in ascending order.");
+        } else if !eq {
+            assert(!lt, "Return notes not sorted in descending order.");
         }
     }
 }
@@ -67,12 +75,19 @@ fn get_notes<Note, N, FILTER_ARGS>(
 ) -> [Option<Note>; MAX_READ_REQUESTS_PER_CALL] {
     let opt_notes = get_notes_internal(storage_slot, note_interface, options);
     let mut num_notes = 0;
+    let mut prev_fields = [0; N];
     for i in 0..opt_notes.len() {
         let opt_note = opt_notes[i];
         if opt_note.is_some() {
             let note = opt_note.unwrap_unchecked();
+            let serialize = note_interface.serialize;
+            let fields = serialize(note);
             check_note_header(*context, storage_slot, note_interface, note);
-            check_note_fields(note_interface, note, options.selects);
+            check_note_fields(fields, options.selects);
+            if i != 0 {
+                check_notes_order(prev_fields, fields, options.sorts);
+            }
+            prev_fields = fields;
 
             let note_hash_for_read_request = compute_note_hash_for_read_or_nullify(note_interface, note);
             // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1410): test to ensure
