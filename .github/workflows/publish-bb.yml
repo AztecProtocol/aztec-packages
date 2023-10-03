@@ -107,7 +107,7 @@ jobs:
       - name: Compile Typescript
         run: |
           cd barretenberg/ts
-          yarn install && yarn && SKIP_CPP_BUILD=1 yarn build
+          yarn install && yarn && SKIP_CPP_BUILD=0 yarn build
 
       - name: Tar and GZip barretenberg.wasm
         working-directory: barretenberg/cpp/build-wasm/bin
