@@ -2,7 +2,14 @@ import { Fr } from '@aztec/foundation/fields';
 import { LowLeafWitnessData } from '@aztec/merkle-tree';
 import { L2Block, MerkleTreeId, SiblingPath } from '@aztec/types';
 
-import { CurrentTreeRoots, LeafData, MerkleTreeDb, MerkleTreeOperations, TreeInfo } from '../index.js';
+import {
+  CurrentTreeRoots,
+  HandleL2BlockResult,
+  LeafData,
+  MerkleTreeDb,
+  MerkleTreeOperations,
+  TreeInfo,
+} from '../index.js';
 
 /**
  * Wraps a MerkleTreeDbOperations to call all functions with a preset includeUncommitted flag.
@@ -144,7 +151,7 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
    * @param block - The L2 block to handle.
    * @returns Empty promise.
    */
-  public handleL2Block(block: L2Block): Promise<void> {
+  public handleL2Block(block: L2Block): Promise<HandleL2BlockResult> {
     return this.trees.handleL2Block(block);
   }
 
