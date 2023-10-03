@@ -1,27 +1,32 @@
 #pragma once
 #include <barretenberg/common/log.hpp>
+#include <cstdint>
 #include <fstream>
 #include <vector>
 
-inline std::vector<uint8_t> read_file(const std::string& filename)
+inline std::streamsize get_file_size(const std::string& filename)
 {
-    // Open the file in binary mode and move to the end.
     std::ifstream file(filename, std::ios::binary | std::ios::ate);
     if (!file) {
         throw std::runtime_error("Unable to open file: " + filename);
     }
 
-    // Get the file size.
-    std::streamsize size = file.tellg();
+    return file.tellg();
+}
+
+inline std::vector<uint8_t> read_file(const std::string& filename)
+{
+    std::streamsize size = get_file_size(filename);
+
     if (size <= 0) {
         throw std::runtime_error("File is empty or there's an error reading it: " + filename);
     }
 
-    // Create a vector with enough space for the file data.
     std::vector<uint8_t> fileData((size_t)size);
 
-    // Go back to the start of the file and read all its contents.
-    file.seekg(0, std::ios::beg);
+    // Since the file was closed after getting its size,
+    // we need to open it again.
+    std::ifstream file(filename, std::ios::binary);
     file.read(reinterpret_cast<char*>(fileData.data()), size);
 
     return fileData;
