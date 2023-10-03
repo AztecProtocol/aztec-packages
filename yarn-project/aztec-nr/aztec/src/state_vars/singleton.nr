@@ -1,3 +1,4 @@
+use dep::std::option::Option;
 use crate::constants_gen::{EMPTY_NULLIFIED_COMMITMENT, GENERATOR_INDEX__INITIALISATION_NULLIFIER};
 use crate::context::{PrivateContext, PublicContext, Context};
 use crate::note::{
@@ -6,15 +7,25 @@ use crate::note::{
     note_interface::NoteInterface,
     note_viewer_options::NoteViewerOptions,
 };
-use crate::oracle;
+use crate::oracle::{
+    get_secret_key::get_secret_key,
+    notes::is_nullifier_emitted,
+};
 use dep::std::hash::pedersen_with_separator;
-use dep::std::option::Option;
 
-fn compute_singleton_initialisation_nullifier(storage_slot: Field) -> Field {
-    pedersen_with_separator(
-        [storage_slot],
-        GENERATOR_INDEX__INITIALISATION_NULLIFIER,
-    )[0]
+fn compute_singleton_initialization_nullifier(storage_slot: Field, owner: Option<Field>) -> Field {
+    if owner.is_some() {
+        let secret = get_secret_key(owner.unwrap_unchecked());
+        pedersen_with_separator(
+            [storage_slot, secret.low, secret.high],
+            GENERATOR_INDEX__INITIALISATION_NULLIFIER,
+        )[0]
+    } else {
+        pedersen_with_separator(
+            [storage_slot],
+            GENERATOR_INDEX__INITIALISATION_NULLIFIER,
+        )[0]
+    }
 }
 
 // docs:start:struct
@@ -22,7 +33,7 @@ struct Singleton<Note, N> {
     context: Option<&mut PrivateContext>,
     storage_slot: Field,
     note_interface: NoteInterface<Note, N>,
-    compute_initialisation_nullifier: fn (Field) -> Field,
+    compute_initialization_nullifier: fn (Field, Option<Field>) -> Field,
 }
 // docs:end:struct
 
@@ -38,24 +49,24 @@ impl<Note, N> Singleton<Note, N> {
             context: context.private,
             storage_slot,
             note_interface,
-            compute_initialisation_nullifier: compute_singleton_initialisation_nullifier,
+            compute_initialization_nullifier: compute_singleton_initialization_nullifier,
         }
     }
     // docs:end:new
 
-    unconstrained fn is_initialized(self) -> bool {
-        let compute_initialisation_nullifier = self.compute_initialisation_nullifier;
-        let nullifier = compute_initialisation_nullifier(self.storage_slot);
-        oracle::notes::is_nullifier_emitted(nullifier)
+    unconstrained fn is_initialized(self, owner: Option<Field>) -> bool {
+        let compute_initialization_nullifier = self.compute_initialization_nullifier;
+        let nullifier = compute_initialization_nullifier(self.storage_slot, owner);
+        is_nullifier_emitted(nullifier)
     }
 
     // docs:start:initialize
-    fn initialize(self, note: &mut Note) {
+    fn initialize(self, note: &mut Note, owner: Option<Field>) {
         let context = self.context.unwrap_unchecked();
 
         // Nullify the storage slot.
-        let compute_initialisation_nullifier = self.compute_initialisation_nullifier;
-        let nullifier = compute_initialisation_nullifier(self.storage_slot);
+        let compute_initialization_nullifier = self.compute_initialization_nullifier;
+        let nullifier = compute_initialization_nullifier(self.storage_slot, owner);
         context.push_new_nullifier(nullifier, EMPTY_NULLIFIED_COMMITMENT);
 
         create_note(context, self.storage_slot, note, self.note_interface);

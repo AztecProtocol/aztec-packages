@@ -8,14 +8,14 @@ use crate::note::{
     note_viewer_options::NoteViewerOptions,
 };
 use crate::oracle;
-use crate::state_vars::singleton::compute_singleton_initialisation_nullifier;
+use crate::state_vars::singleton::compute_singleton_initialization_nullifier;
 
 // docs:start:struct
 struct ImmutableSingleton<Note, N> {
     context: Option<&mut PrivateContext>,
     storage_slot: Field,
     note_interface: NoteInterface<Note, N>,
-    compute_initialisation_nullifier: fn (Field) -> Field,
+    compute_initialization_nullifier: fn (Field, Option<Field>) -> Field,
 }
 // docs:end:struct
 
@@ -31,24 +31,24 @@ impl<Note, N> ImmutableSingleton<Note, N> {
             context: context.private,
             storage_slot,
             note_interface,
-            compute_initialisation_nullifier: compute_singleton_initialisation_nullifier,
+            compute_initialization_nullifier: compute_singleton_initialization_nullifier,
         }
     }
     // docs:end:new
 
-    unconstrained fn is_initialized(self) -> bool {
-        let compute_initialisation_nullifier = self.compute_initialisation_nullifier;
-        let nullifier = compute_initialisation_nullifier(self.storage_slot);
+    unconstrained fn is_initialized(self, owner: Option<Field>) -> bool {
+        let compute_initialization_nullifier = self.compute_initialization_nullifier;
+        let nullifier = compute_initialization_nullifier(self.storage_slot, owner);
         oracle::notes::is_nullifier_emitted(nullifier)
     }
 
     // docs:start:initialize
-    fn initialize(self, note: &mut Note) {
+    fn initialize(self, note: &mut Note, owner: Option<Field>) {
         let context = self.context.unwrap_unchecked();
 
         // Nullify the storage slot.
-        let compute_initialisation_nullifier = self.compute_initialisation_nullifier;
-        let nullifier = compute_initialisation_nullifier(self.storage_slot);
+        let compute_initialization_nullifier = self.compute_initialization_nullifier;
+        let nullifier = compute_initialization_nullifier(self.storage_slot, owner);
         context.push_new_nullifier(nullifier, EMPTY_NULLIFIED_COMMITMENT);
 
         create_note(
