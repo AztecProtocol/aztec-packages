@@ -144,6 +144,7 @@ ECCVMProver_<Flavor>::ECCVMProver_(std::shared_ptr<typename Flavor::ProvingKey> 
     prover_polynomials.lookup_inverses = key->lookup_inverses;
     key->z_perm = Polynomial(key->circuit_size);
     prover_polynomials.z_perm = key->z_perm;
+    prover_polynomials.z_perm_shift = key->z_perm; // WORKTODO
 }
 
 /**

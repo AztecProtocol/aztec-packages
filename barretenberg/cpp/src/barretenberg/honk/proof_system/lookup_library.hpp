@@ -24,7 +24,7 @@ namespace proof_system::honk::lookup_library {
  *
  */
 template <typename Flavor, typename Relation>
-void compute_logderivative_inverse(auto& polynomials,
+void compute_logderivative_inverse(typename Flavor::ProverPolynomials& polynomials,
                                    proof_system::RelationParameters<typename Flavor::FF>& relation_parameters,
                                    const size_t circuit_size)
 {
@@ -36,8 +36,7 @@ void compute_logderivative_inverse(auto& polynomials,
 
     auto lookup_relation = Relation();
     for (size_t i = 0; i < circuit_size; ++i) {
-        bool has_inverse =
-            lookup_relation.template lookup_exists_at_row_index<Accumulator>(polynomials, relation_parameters, i);
+        bool has_inverse = lookup_relation.lookup_exists_at_row(polynomials.get_row(i));
         if (!has_inverse) {
             continue;
         }

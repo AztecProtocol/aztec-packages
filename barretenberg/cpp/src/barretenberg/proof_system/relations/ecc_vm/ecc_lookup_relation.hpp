@@ -42,25 +42,10 @@ template <typename FF_> class ECCVMLookupRelationBase {
         return naf;
     }
 
-    /**
-     * @brief
-     *
-     * @tparam read_index
-     * @param extended_edges
-     * @param relation_params
-     * @param index
-     * @return Univariate
-     */
-    template <typename AccumulatorTypes>
-    static bool lookup_exists_at_row_index(const auto& extended_edges,
-                                           const RelationParameters<FF>& /*unused*/,
-                                           const size_t index = 0)
+    template <typename AllValues> static bool lookup_exists_at_row(const AllValues& row)
 
     {
-        auto msm_add = get_view<FF, AccumulatorTypes>(extended_edges.msm_add, index);
-        auto msm_skew = get_view<FF, AccumulatorTypes>(extended_edges.msm_skew, index);
-        auto precompute_select = get_view<FF, AccumulatorTypes>(extended_edges.precompute_select, index);
-        return (msm_add == 1) || (msm_skew == 1) || (precompute_select == 1);
+        return (row.msm_add == 1) || (row.msm_skew == 1) || (row.precompute_select == 1);
     }
 
     /**

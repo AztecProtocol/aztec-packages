@@ -650,11 +650,6 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
     using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment, CommitmentHandle>>;
 
     /**
-     * @brief A container for polynomials handles; only stores spans.
-     */
-    using ProverPolynomials = AllEntities<PolynomialHandle, PolynomialHandle>;
-
-    /**
      * @brief A container for polynomials produced after the first round of sumcheck.
      * @todo TODO(#394) Use polynomial classes for guaranteed memory alignment.
      */
@@ -701,6 +696,23 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
         using Base = AllEntities<FF, FF>;
         using Base::Base;
         AllValues(std::array<FF, NUM_ALL_ENTITIES> _data_in) { this->_data = _data_in; }
+    };
+
+    /**
+     * @brief A container for polynomials handles; only stores spans.
+     */
+    class ProverPolynomials : public AllEntities<PolynomialHandle, PolynomialHandle> {
+      public:
+        AllValues get_row(const size_t row_idx)
+        {
+            AllValues result;
+            size_t column_idx = 0; // WORKTODO zips
+            for (auto& column : this->_data) {
+                result[column_idx] = column[row_idx];
+                column_idx++;
+            }
+            return result;
+        }
     };
 
     /**
