@@ -1,4 +1,5 @@
 #include "acir_composer.hpp"
+#include "barretenberg/common/container.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
@@ -26,18 +27,21 @@ AcirComposer::AcirComposer(size_t size_hint, bool verbose)
  * @param k - The number of 32 bytes to remove
  * @return std::pair<std::vector<uint8_t>, std::vector<uint8_t>>
  */
-std::pair<std::vector<uint8_t>, std::vector<uint8_t>> splitVector(std::vector<uint8_t>& original, uint32_t k)
+std::pair<std::vector<uint8_t>, std::vector<uint8_t>> splitVector(const std::vector<uint8_t>& original, uint32_t k)
 {
     uint32_t elementsToRemove = 32 * k;
 
     if (original.size() < elementsToRemove) {
         throw_or_abort("Not enough elements in the original vector");
     }
-    auto elementsToRemoveLong = static_cast<long>(elementsToRemove);
-    std::vector<uint8_t> removed(original.begin(), original.begin() + elementsToRemoveLong);
-    original = std::vector<uint8_t>(original.begin() + elementsToRemoveLong, original.end());
 
-    return { original, removed };
+    std::vector<uint8_t> removed = slice(original, 0, elementsToRemove);
+    std::vector<uint8_t> rest = slice(original, elementsToRemove);
+
+    return {
+        rest,
+        removed,
+    };
 }
 
 /**
@@ -61,14 +65,7 @@ std::pair<std::vector<uint8_t>, std::vector<uint8_t>> split_proof(std::vector<ui
 std::vector<uint8_t> concatenateVectors(const std::vector<uint8_t>& firstVector,
                                         const std::vector<uint8_t>& secondVector)
 {
-    std::vector<uint8_t> concatenatedVector;
-
-    concatenatedVector.reserve(firstVector.size() + secondVector.size());
-
-    concatenatedVector.insert(concatenatedVector.end(), firstVector.begin(), firstVector.end());
-    concatenatedVector.insert(concatenatedVector.end(), secondVector.begin(), secondVector.end());
-
-    return concatenatedVector;
+    return join({ firstVector, secondVector });
 }
 
 void AcirComposer::create_circuit(acir_format::acir_format& constraint_system)
