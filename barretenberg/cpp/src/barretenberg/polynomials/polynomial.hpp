@@ -206,6 +206,18 @@ template <typename Fr> class Polynomial {
     Fr evaluate_mle(std::span<const Fr> evaluation_points, bool shift = false) const;
 
     /**
+     * @brief Partially evaluates in the last k variables a polynomial interpreted as a multilinear extension.
+     *
+     * @details Partially evaluates p(X) = (a_0, ..., a_{2^n-1}) considered as multilinear extension p(X_0,…,X_{n-1}) =
+     * \sum_i a_i*L_i(X_0,…,X_{n-1}) at u = (u_0,…,u_{m-1}), m < n, in the last m variables X_n-m,…,X_{n-1}. The result
+     * is a multilinear polynomial in n-m variables g(X_0,…,X_{n-m-1})) = p(X_0,…,X_{n-m-1},u_0,...u_{m-1}).
+     *
+     * @param evaluation_points an MLE partial evaluation point u = (u_0,…,u_{m-1})
+     * @return Polynomial<Fr> g(X_0,…,X_{n-m-1})) = p(X_0,…,X_{n-m-1},u_0,...u_{m-1})
+     */
+    Polynomial<Fr> partial_evaluate_mle(std::span<const Fr> evaluation_points) const;
+
+    /**
      * @brief Divides p(X) by (X-r₁)⋯(X−rₘ) in-place.
      * Assumes that p(rⱼ)=0 for all j
      *
