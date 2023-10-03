@@ -73,9 +73,9 @@ void compute_grand_product(const size_t circuit_size,
                 evaluations[k] = full_polynomials[k].size() > i ? full_polynomials[k][i] : 0;
             }
             numerator[i] = GrandProdRelation::template compute_grand_product_numerator<ValueAccumulatorsAndViews>(
-                evaluations, relation_parameters, 0);
+                evaluations, relation_parameters);
             denominator[i] = GrandProdRelation::template compute_grand_product_denominator<ValueAccumulatorsAndViews>(
-                evaluations, relation_parameters, 0);
+                evaluations, relation_parameters);
         }
     });
 

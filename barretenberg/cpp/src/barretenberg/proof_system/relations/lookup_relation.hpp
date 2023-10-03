@@ -67,8 +67,10 @@ template <typename FF_> class LookupRelationImpl {
      */
     template <typename AccumulatorTypes>
     inline static Accumulator<AccumulatorTypes> compute_grand_product_numerator(
-        const auto& extended_edges, const RelationParameters<FF>& relation_parameters, const size_t index)
+        const auto& extended_edges, const RelationParameters<FF>& relation_parameters)
     {
+        using View = typename std::tuple_element_t<0, typename AccumulatorTypes::AccumulatorViews>;
+
         const auto& beta = relation_parameters.beta;
         const auto& gamma = relation_parameters.gamma;
         const auto& eta = relation_parameters.eta;
@@ -78,29 +80,29 @@ template <typename FF_> class LookupRelationImpl {
         const auto one_plus_beta = FF(1) + beta;
         const auto gamma_by_one_plus_beta = gamma * one_plus_beta;
 
-        auto w_1 = get_view<FF, AccumulatorTypes>(extended_edges.w_l, index);
-        auto w_2 = get_view<FF, AccumulatorTypes>(extended_edges.w_r, index);
-        auto w_3 = get_view<FF, AccumulatorTypes>(extended_edges.w_o, index);
+        auto w_1 = View(extended_edges.w_l);
+        auto w_2 = View(extended_edges.w_r);
+        auto w_3 = View(extended_edges.w_o);
 
-        auto w_1_shift = get_view<FF, AccumulatorTypes>(extended_edges.w_l_shift, index);
-        auto w_2_shift = get_view<FF, AccumulatorTypes>(extended_edges.w_r_shift, index);
-        auto w_3_shift = get_view<FF, AccumulatorTypes>(extended_edges.w_o_shift, index);
+        auto w_1_shift = View(extended_edges.w_l_shift);
+        auto w_2_shift = View(extended_edges.w_r_shift);
+        auto w_3_shift = View(extended_edges.w_o_shift);
 
-        auto table_1 = get_view<FF, AccumulatorTypes>(extended_edges.table_1, index);
-        auto table_2 = get_view<FF, AccumulatorTypes>(extended_edges.table_2, index);
-        auto table_3 = get_view<FF, AccumulatorTypes>(extended_edges.table_3, index);
-        auto table_4 = get_view<FF, AccumulatorTypes>(extended_edges.table_4, index);
+        auto table_1 = View(extended_edges.table_1);
+        auto table_2 = View(extended_edges.table_2);
+        auto table_3 = View(extended_edges.table_3);
+        auto table_4 = View(extended_edges.table_4);
 
-        auto table_1_shift = get_view<FF, AccumulatorTypes>(extended_edges.table_1_shift, index);
-        auto table_2_shift = get_view<FF, AccumulatorTypes>(extended_edges.table_2_shift, index);
-        auto table_3_shift = get_view<FF, AccumulatorTypes>(extended_edges.table_3_shift, index);
-        auto table_4_shift = get_view<FF, AccumulatorTypes>(extended_edges.table_4_shift, index);
+        auto table_1_shift = View(extended_edges.table_1_shift);
+        auto table_2_shift = View(extended_edges.table_2_shift);
+        auto table_3_shift = View(extended_edges.table_3_shift);
+        auto table_4_shift = View(extended_edges.table_4_shift);
 
-        auto table_index = get_view<FF, AccumulatorTypes>(extended_edges.q_o, index);
-        auto column_1_step_size = get_view<FF, AccumulatorTypes>(extended_edges.q_r, index);
-        auto column_2_step_size = get_view<FF, AccumulatorTypes>(extended_edges.q_m, index);
-        auto column_3_step_size = get_view<FF, AccumulatorTypes>(extended_edges.q_c, index);
-        auto q_lookup = get_view<FF, AccumulatorTypes>(extended_edges.q_lookup, index);
+        auto table_index = View(extended_edges.q_o);
+        auto column_1_step_size = View(extended_edges.q_r);
+        auto column_2_step_size = View(extended_edges.q_m);
+        auto column_3_step_size = View(extended_edges.q_c);
+        auto q_lookup = View(extended_edges.q_lookup);
 
         // (w_1 + q_2*w_1_shift) + η(w_2 + q_m*w_2_shift) + η²(w_3 + q_c*w_3_shift) + η³q_index.
         auto wire_accum = (w_1 + column_1_step_size * w_1_shift) + (w_2 + column_2_step_size * w_2_shift) * eta +
@@ -131,8 +133,10 @@ template <typename FF_> class LookupRelationImpl {
      */
     template <typename AccumulatorTypes>
     inline static Accumulator<AccumulatorTypes> compute_grand_product_denominator(
-        const auto& extended_edges, const RelationParameters<FF>& relation_parameters, const size_t index)
+        const auto& extended_edges, const RelationParameters<FF>& relation_parameters)
     {
+        using View = typename std::tuple_element_t<0, typename AccumulatorTypes::AccumulatorViews>;
+
         const auto& beta = relation_parameters.beta;
         const auto& gamma = relation_parameters.gamma;
 
@@ -140,8 +144,8 @@ template <typename FF_> class LookupRelationImpl {
         const auto gamma_by_one_plus_beta = gamma * one_plus_beta;
 
         // Contribution (1)
-        auto s_accum = get_view<FF, AccumulatorTypes>(extended_edges.sorted_accum, index);
-        auto s_accum_shift = get_view<FF, AccumulatorTypes>(extended_edges.sorted_accum_shift, index);
+        auto s_accum = View(extended_edges.sorted_accum);
+        auto s_accum_shift = View(extended_edges.sorted_accum_shift);
 
         auto tmp = (s_accum + s_accum_shift * beta + gamma_by_one_plus_beta);
         return tmp;
@@ -183,9 +187,8 @@ template <typename FF_> class LookupRelationImpl {
             auto lagrange_first = View(extended_edges.lagrange_first);
             auto lagrange_last = View(extended_edges.lagrange_last);
 
-            const auto lhs = compute_grand_product_numerator<AccumulatorTypes>(extended_edges, relation_parameters, 0);
-            const auto rhs =
-                compute_grand_product_denominator<AccumulatorTypes>(extended_edges, relation_parameters, 0);
+            const auto lhs = compute_grand_product_numerator<AccumulatorTypes>(extended_edges, relation_parameters);
+            const auto rhs = compute_grand_product_denominator<AccumulatorTypes>(extended_edges, relation_parameters);
 
             const auto tmp =
                 lhs * (z_lookup + lagrange_first) - rhs * (z_lookup_shift + lagrange_last * grand_product_delta);
