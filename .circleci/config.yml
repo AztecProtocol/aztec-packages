@@ -452,7 +452,7 @@ jobs:
       - *setup_env
       - run:
           name: "Create ECR manifest"
-          command: create_ecr_manifest aztec-sandbox-base aztec-sandbox x86_64,arm64
+          command: create_ecr_manifest aztec-sandbox x86_64,arm64
 
   boxes-blank-react:
     machine:
