@@ -13,7 +13,7 @@ import {
 import { GrumpkinScalar } from '@aztec/circuits.js';
 import { TokenContract } from '@aztec/noir-contracts/types';
 
-const { SANDBOX_URL = 'http://localhost:8080' } = process.env;
+const { PXE_URL = 'http://localhost:8080' } = process.env;
 // docs:end:imports
 
 describe('e2e_sandbox_example', () => {
@@ -23,7 +23,7 @@ describe('e2e_sandbox_example', () => {
     const logger = createDebugLogger('token');
 
     // We create PXE client connected to the sandbox URL
-    const pxe = createPXEClient(SANDBOX_URL);
+    const pxe = createPXEClient(PXE_URL);
     // Wait for sandbox to be ready
     await waitForSandbox(pxe);
 
@@ -148,7 +148,7 @@ describe('e2e_sandbox_example', () => {
   it('can create accounts on the sandbox', async () => {
     const logger = createDebugLogger('token');
     // We create PXE client connected to the sandbox URL
-    const pxe = createPXEClient(SANDBOX_URL);
+    const pxe = createPXEClient(PXE_URL);
     // Wait for sandbox to be ready
     await waitForSandbox(pxe);
 

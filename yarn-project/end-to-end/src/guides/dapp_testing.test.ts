@@ -15,7 +15,7 @@ import {
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { TestContract, TokenContract } from '@aztec/noir-contracts/types';
 
-const { SANDBOX_URL = 'http://localhost:8080', ETHEREUM_HOST = 'http://localhost:8545' } = process.env;
+const { PXE_URL = 'http://localhost:8080', ETHEREUM_HOST = 'http://localhost:8545' } = process.env;
 
 describe('guides/dapp/testing', () => {
   describe('on in-proc sandbox', () => {
@@ -61,7 +61,7 @@ describe('guides/dapp/testing', () => {
 
   describe('on local sandbox', () => {
     beforeAll(async () => {
-      const pxe = createPXEClient(SANDBOX_URL);
+      const pxe = createPXEClient(PXE_URL);
       await waitForSandbox(pxe);
     });
 
@@ -73,7 +73,7 @@ describe('guides/dapp/testing', () => {
       let token: TokenContract;
 
       beforeEach(async () => {
-        pxe = createPXEClient(SANDBOX_URL);
+        pxe = createPXEClient(PXE_URL);
         owner = await createAccount(pxe);
         recipient = await createAccount(pxe);
         token = await TokenContract.deploy(owner).send().deployed();
@@ -107,7 +107,7 @@ describe('guides/dapp/testing', () => {
 
       beforeEach(async () => {
         // docs:start:use-existing-wallets
-        pxe = createPXEClient(SANDBOX_URL);
+        pxe = createPXEClient(PXE_URL);
         [owner, recipient] = await getSandboxAccountsWallets(pxe);
         token = await TokenContract.deploy(owner).send().deployed();
         await token.methods._initialize(owner.getAddress()).send().wait();
@@ -138,7 +138,7 @@ describe('guides/dapp/testing', () => {
       let cheats: CheatCodes;
 
       beforeAll(async () => {
-        pxe = createPXEClient(SANDBOX_URL);
+        pxe = createPXEClient(PXE_URL);
         owner = await createAccount(pxe);
         testContract = await TestContract.deploy(owner).send().deployed();
         cheats = await CheatCodes.create(ETHEREUM_HOST, pxe);
@@ -163,7 +163,7 @@ describe('guides/dapp/testing', () => {
       let ownerSlot: Fr;
 
       beforeAll(async () => {
-        pxe = createPXEClient(SANDBOX_URL);
+        pxe = createPXEClient(PXE_URL);
         owner = await createAccount(pxe);
         recipient = await createAccount(pxe);
         testContract = await TestContract.deploy(owner).send().deployed();

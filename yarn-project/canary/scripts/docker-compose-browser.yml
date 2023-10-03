@@ -33,5 +33,5 @@ services:
     environment:
       ETHEREUM_HOST: http://fork:8545
       CHAIN_ID: 31337
-      SANDBOX_URL: http://sandbox:8080
+      PXE_URL: http://sandbox:8080
     command: ['./scripts/start_e2e_ci_browser.sh', './src/aztec_js_browser.test.ts']

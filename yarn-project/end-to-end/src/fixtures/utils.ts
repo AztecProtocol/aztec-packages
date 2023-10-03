@@ -61,7 +61,16 @@ import { mnemonicToAccount } from 'viem/accounts';
 
 import { MNEMONIC, localAnvil } from './fixtures.js';
 
-const { SANDBOX_URL = '' } = process.env;
+const { PXE_URL = '', AZTEC_NODE_URL = '' } = process.env;
+
+const getAztecNodeUrl = () => {
+  if (AZTEC_NODE_URL) return AZTEC_NODE_URL;
+
+  // If AZTEC_NODE_URL is not set, we assume that the PXE is running on the same host as the Aztec Node and use the default port
+  const url = new URL(PXE_URL);
+  url.port = '8079';
+  return url.toString();
+}
 
 export const waitForPXE = async (pxe: PXE, logger: DebugLogger) => {
   await retryUntil(async () => {
@@ -74,15 +83,6 @@ export const waitForPXE = async (pxe: PXE, logger: DebugLogger) => {
     }
     return undefined;
   }, 'RPC Get Node Info');
-};
-
-const createAztecNode = async (nodeConfig: AztecNodeConfig, logger: DebugLogger): Promise<AztecNode | undefined> => {
-  if (SANDBOX_URL) {
-    logger(`Not creating Aztec Node as we are running against a sandbox at ${SANDBOX_URL}`);
-    return undefined;
-  }
-  logger('Creating and synching an aztec node...');
-  return await AztecNodeService.createAndSync(nodeConfig);
 };
 
 export const setupL1Contracts = async (
@@ -176,13 +176,14 @@ export async function setupPXEService(
  */
 async function setupWithSandbox(account: Account, config: AztecNodeConfig, logger: DebugLogger) {
   // we are setting up against the sandbox, l1 contracts are already deployed
-  logger(`Creating Aztec Node client to remote host ${SANDBOX_URL}`);
-  const aztecNode = createAztecNodeRpcClient('http://localhost:8079');
-  logger(`Creating PXE client to remote host ${SANDBOX_URL}`);
-  const pxeClient = createPXEClient(SANDBOX_URL);
+  const aztecNodeUrl = getAztecNodeUrl();
+  logger(`Creating Aztec Node client to remote host ${aztecNodeUrl}`);
+  const aztecNode = createAztecNodeRpcClient(aztecNodeUrl);
+  logger(`Creating PXE client to remote host ${PXE_URL}`);
+  const pxeClient = createPXEClient(PXE_URL);
   await waitForPXE(pxeClient, logger);
   logger('JSON RPC client connected to PXE');
-  logger(`Retrieving contract addresses from ${SANDBOX_URL}`);
+  logger(`Retrieving contract addresses from ${PXE_URL}`);
   const l1Contracts = (await pxeClient.getNodeInfo()).l1ContractAddresses;
   logger('PXE created, constructing wallets from initial sandbox accounts...');
   const wallets = await getSandboxAccountsWallets(pxeClient);
@@ -276,7 +277,7 @@ export async function setup(
   const logger = getLogger();
   const hdAccount = mnemonicToAccount(MNEMONIC);
 
-  if (SANDBOX_URL) {
+  if (PXE_URL) {
     // we are setting up against the sandbox, l1 contracts are already deployed
     return await setupWithSandbox(hdAccount, config, logger);
   }
@@ -292,7 +293,8 @@ export async function setup(
     deployL1ContractsValues.l1ContractAddresses.contractDeploymentEmitterAddress;
   config.l1Contracts.inboxAddress = deployL1ContractsValues.l1ContractAddresses.inboxAddress;
 
-  const aztecNode = await createAztecNode(config, logger);
+  logger('Creating and synching an aztec node...');
+  const aztecNode = await AztecNodeService.createAndSync(config);
 
   const { pxe, accounts, wallets } = await setupPXEService(numberOfAccounts, aztecNode!, logger);
 
