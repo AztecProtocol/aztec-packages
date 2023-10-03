@@ -265,6 +265,12 @@ Unlike public states, which have a default initial value of `0` (or many zeros, 
 Extend on what happens if you try to use non-initialized state.
 :::
 
+### `is_initialized`
+
+An unconstrained method to check whether the Singleton has been initialized or not.
+
+#include_code is_initialized /yarn-project/aztec-nr/aztec/src/state_vars/singleton.nr rust
+
 ### `replace`
 
 To update the value of a `Singleton`, we can use the `replace` method. The method takes a new note as input, and replaces the current note with the new one. It emits a nullifier for the old value, and inserts the new note into the data tree.
@@ -312,6 +318,12 @@ Set the value of an ImmutableSingleton by calling the `initialize` method:
 #include_code initialize /yarn-project/noir-contracts/src/contracts/schnorr_account_contract/src/main.nr rust
 
 Once initialized, an ImmutableSingleton's value remains unchangeable. This method can only be called once.
+
+### `is_initialized`
+
+An unconstrained method to check if the ImmutableSingleton has been initialized.
+
+#include_code is_initialized /yarn-project/aztec-nr/aztec/src/state_vars/immutable_singleton.nr rust
 
 ### `get_note`
 

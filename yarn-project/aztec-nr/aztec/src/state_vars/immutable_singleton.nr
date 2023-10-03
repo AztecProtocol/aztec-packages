@@ -7,7 +7,7 @@ use crate::note::{
     note_interface::NoteInterface,
     note_viewer_options::NoteViewerOptions,
 };
-use crate::oracle;
+use crate::oracle::notes::check_nullifier_exists;
 use crate::state_vars::singleton::compute_singleton_initialization_nullifier;
 
 // docs:start:struct
@@ -36,11 +36,13 @@ impl<Note, N> ImmutableSingleton<Note, N> {
     }
     // docs:end:new
 
+    // docs:start:is_initialized
     unconstrained fn is_initialized(self, owner: Option<Field>) -> bool {
         let compute_initialization_nullifier = self.compute_initialization_nullifier;
         let nullifier = compute_initialization_nullifier(self.storage_slot, owner);
-        oracle::notes::is_nullifier_emitted(nullifier)
+        check_nullifier_exists(nullifier)
     }
+    // docs:end:is_initialized
 
     // docs:start:initialize
     fn initialize(self, note: &mut Note, owner: Option<Field>) {

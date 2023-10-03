@@ -9,7 +9,7 @@ use crate::note::{
 };
 use crate::oracle::{
     get_secret_key::get_secret_key,
-    notes::is_nullifier_emitted,
+    notes::check_nullifier_exists,
 };
 use dep::std::hash::pedersen_with_separator;
 
@@ -54,11 +54,13 @@ impl<Note, N> Singleton<Note, N> {
     }
     // docs:end:new
 
+    // docs:start:is_initialized
     unconstrained fn is_initialized(self, owner: Option<Field>) -> bool {
         let compute_initialization_nullifier = self.compute_initialization_nullifier;
         let nullifier = compute_initialization_nullifier(self.storage_slot, owner);
-        is_nullifier_emitted(nullifier)
+        check_nullifier_exists(nullifier)
     }
+    // docs:end:is_initialized
 
     // docs:start:initialize
     fn initialize(self, note: &mut Note, owner: Option<Field>) {
