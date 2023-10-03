@@ -7,6 +7,7 @@
 #include "aztec3/circuits/abis/function_data.hpp"
 #include "aztec3/circuits/abis/kernel_circuit_public_inputs.hpp"
 #include "aztec3/circuits/abis/new_contract_data.hpp"
+#include "aztec3/circuits/abis/private_circuit_public_inputs.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_call_data.hpp"
 #include "aztec3/circuits/abis/read_request_membership_witness.hpp"
 #include "aztec3/circuits/hash.hpp"
@@ -16,6 +17,7 @@
 
 using DummyBuilder = aztec3::utils::DummyCircuitBuilder;
 
+using aztec3::circuits::abis::CompleteAddress;
 using aztec3::circuits::abis::ContractDeploymentData;
 using aztec3::circuits::abis::ContractLeafPreimage;
 using aztec3::circuits::abis::FunctionData;
@@ -26,6 +28,7 @@ using aztec3::circuits::abis::ReadRequestMembershipWitness;
 using aztec3::utils::array_push;
 using aztec3::utils::is_array_empty;
 using aztec3::utils::push_array_to_array;
+using aztec3::utils::validate_array;
 using DummyBuilder = aztec3::utils::DummyCircuitBuilder;
 using CircuitErrorCode = aztec3::utils::CircuitErrorCode;
 using aztec3::circuits::abis::private_kernel::PrivateCallData;
@@ -114,11 +117,57 @@ void common_validate_read_requests(DummyBuilder& builder,
     }
 }
 
-void common_validate_0th_nullifier(DummyBuilder& builder, CombinedAccumulatedData<NT> const& end)
+/**
+ * @brief We validate that relevant arrays assumed to be zero-padded on the right comply to this format.
+ *
+ * @param builder
+ * @param app_public_inputs Reference to the private_circuit_public_inputs of the current kernel iteration.
+ */
+void common_validate_arrays(DummyBuilder& builder, PrivateCircuitPublicInputs<NT> const& app_public_inputs)
+{
+    // Each of the following arrays is expected to be zero-padded.
+    // In addition, some of the following arrays (new_commitments, etc...) are passed
+    // to push_array_to_array() routines which rely on the passed arrays to be well-formed.
+    validate_array(builder, app_public_inputs.return_values, "App public inputs - Return values");
+    validate_array(builder, app_public_inputs.read_requests, "App public inputs - Read requests");
+    validate_array(builder, app_public_inputs.new_commitments, "App public inputs - New commitments");
+    validate_array(builder, app_public_inputs.new_nullifiers, "App public inputs - New nullifiers");
+    validate_array(builder, app_public_inputs.nullified_commitments, "App public inputs - Nullified commitments");
+    validate_array(builder, app_public_inputs.private_call_stack, "App public inputs - Private call stack");
+    validate_array(builder, app_public_inputs.public_call_stack, "App public inputs - Public call stack");
+    validate_array(builder, app_public_inputs.new_l2_to_l1_msgs, "App public inputs - New L2 to L1 messages");
+    // encrypted_logs_hash and unencrypted_logs_hash have their own integrity checks.
+}
+
+/**
+ * @brief We validate that relevant arrays assumed to be zero-padded on the right comply to this format.
+ *
+ * @param builder
+ * @param end Reference to previous_kernel.public_inputs.end.
+ */
+void common_validate_previous_kernel_arrays(DummyBuilder& builder, CombinedAccumulatedData<NT> const& end)
+{
+    // Each of the following arrays is expected to be zero-padded.
+    validate_array(builder, end.read_requests, "Accumulated data - Read Requests");
+    validate_array(builder, end.new_commitments, "Accumulated data - New commitments");
+    validate_array(builder, end.new_nullifiers, "Accumulated data - New nullifiers");
+    validate_array(builder, end.nullified_commitments, "Accumulated data - Nullified commitments");
+    validate_array(builder, end.private_call_stack, "Accumulated data - Private call stack");
+    validate_array(builder, end.public_call_stack, "Accumulated data - Public call stack");
+    validate_array(builder, end.new_l2_to_l1_msgs, "Accumulated data - New L2 to L1 messages");
+}
+
+void common_validate_previous_kernel_0th_nullifier(DummyBuilder& builder, CombinedAccumulatedData<NT> const& end)
 {
     builder.do_assert(end.new_nullifiers[0] != 0,
                       "The 0th nullifier in the accumulated nullifier array is zero",
                       CircuitErrorCode::PRIVATE_KERNEL__0TH_NULLLIFIER_IS_ZERO);
+}
+
+void common_validate_previous_kernel_values(DummyBuilder& builder, CombinedAccumulatedData<NT> const& end)
+{
+    common_validate_previous_kernel_arrays(builder, end);
+    common_validate_previous_kernel_0th_nullifier(builder, end);
 }
 
 void common_update_end_values(DummyBuilder& builder,
@@ -296,10 +345,10 @@ void common_contract_logic(DummyBuilder& builder,
         auto constructor_hash =
             compute_constructor_hash(function_data, private_call_public_inputs.args_hash, private_call_vk_hash);
 
-        auto const new_contract_address = abis::CompleteAddress<NT>::compute(contract_dep_data.deployer_public_key,
-                                                                             contract_dep_data.contract_address_salt,
-                                                                             contract_dep_data.function_tree_root,
-                                                                             constructor_hash)
+        auto const new_contract_address = CompleteAddress<NT>::compute(contract_dep_data.deployer_public_key,
+                                                                       contract_dep_data.contract_address_salt,
+                                                                       contract_dep_data.function_tree_root,
+                                                                       constructor_hash)
                                               .address;
 
         // Add new contract data if its a contract deployment function
