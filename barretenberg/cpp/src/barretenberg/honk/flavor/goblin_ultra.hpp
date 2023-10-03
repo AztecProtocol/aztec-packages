@@ -436,7 +436,7 @@ class GoblinUltra {
 
     class FoldingParameters {
       public:
-        FF gate_separation_challenge;
+        std::vector<FF> gate_separation_challenges;
         FF target_sum;
     };
 };

@@ -37,18 +37,18 @@ template <class ProverInstances> class ProtoGalaxyProver_ {
         return pows;
     }
 
-    RowEvaluations get_row(Instance accumulator, size_t row)
+    RowEvaluations get_row(std::shared_ptr<Instance> accumulator, size_t row)
     {
         RowEvaluations row_evals;
         size_t idx = 0;
-        for (auto& poly : accumulator.prover_polynomials) {
+        for (auto& poly : accumulator->prover_polynomials) {
             row_evals[idx] = poly[row];
             idx++;
         }
         return row_evals;
     }
 
-    Instance get_accumulator() { return instances[0]; }
+    std::shared_ptr<Instance> get_accumulator() { return instances[0]; }
 
     // the pow in sumcheck will be replaced with the pow in protogalaxy!!!!!!!!
     // here we don't have the pow polynomial extra parameter because the gate separation challenge is a polynomial for
@@ -74,10 +74,10 @@ template <class ProverInstances> class ProtoGalaxyProver_ {
     }
 
     // We return the evaluate of perturbator at 0,..,log(n) where n is the circuit size
-    std::vector<FF> compute_perturbator(Instance accumulator, std::vector<FF> deltas, FF alpha)
+    std::vector<FF> compute_perturbator(std::shared_ptr<Instance> accumulator, std::vector<FF> deltas, FF alpha)
     {
         // all the prover polynomials should have the same length
-        auto instance_size = accumulator.prover_polynomials[0].size();
+        auto instance_size = accumulator->prover_polynomials[0].size();
         auto log_instance_size = static_cast<size_t>(numeric::get_msb(instance_size));
         std::vector<FF> perturbator_univariate(log_instance_size);
         std::vector<FF> full_honk_evaluations(instance_size);
@@ -85,24 +85,24 @@ template <class ProverInstances> class ProtoGalaxyProver_ {
 
             auto row_evaluations = get_row(accumulator, idx);
             auto full_honk_at_row =
-                compute_full_honk_relation_row_value(row_evaluations, alpha, accumulator.relation_parameters);
+                compute_full_honk_relation_row_value(row_evaluations, alpha, accumulator->relation_parameters);
             // this is f_i(w) where idx=i
             full_honk_evaluations[idx] = full_honk_at_row;
         }
 
-        auto betas = accumulator.folding_params.gate_separation_challenges;
+        auto betas = accumulator->folding_params.gate_separation_challenges;
 
         // note: the tree technique can probably/maybe be done with apply tuples sth, check later
         for (size_t point = 1; point <= log_instance_size; point++) {
             std::vector<FF> labels(log_instance_size, 0);
             for (size_t idx = 0; idx < log_instance_size; idx++) {
-                labels[idx] = betas[idx] + point * deltas[idx];
+                labels[idx] = betas[idx] + FF(point) * deltas[idx];
             }
             auto eval_at_point = FF(0);
             for (size_t idx = 0; idx < instance_size; idx++) {
                 auto res = full_honk_evaluations[idx];
                 auto j = idx;
-                auto iter = 0;
+                size_t iter = 0;
                 while (j > 0) {
                     if ((j & 1) == 1) {
                         res *= labels[iter];
@@ -113,7 +113,7 @@ template <class ProverInstances> class ProtoGalaxyProver_ {
                 eval_at_point += res;
             }
             perturbator_univariate[point] = eval_at_point;
-            transcript.send_to_verifier("perturbator_eval_" + std::to_string(point), point);
+            transcript.send_to_verifier("perturbator_eval_" + std::to_string(point), eval_at_point);
         }
         return perturbator_univariate;
     };

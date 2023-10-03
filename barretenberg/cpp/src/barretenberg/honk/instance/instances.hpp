@@ -11,7 +11,7 @@ template <typename Flavor_, size_t NUM_> struct ProverInstances_ {
   public:
     static constexpr size_t NUM = NUM_;
     ArrayType _data;
-    Instance const& operator[](size_t idx) const { return _data[idx]; }
+    std::shared_ptr<Instance> const& operator[](size_t idx) const { return _data[idx]; }
     typename ArrayType::iterator begin() { return _data.begin(); };
     typename ArrayType::iterator end() { return _data.end(); };
     ProverInstances_(std::vector<std::shared_ptr<Instance>> data)
@@ -32,7 +32,7 @@ template <typename Flavor_, size_t NUM_> struct VerifierInstances_ {
   public:
     static constexpr size_t NUM = NUM_;
     ArrayType _data;
-    Instance const& operator[](size_t idx) const { return _data[idx]; }
+    std::shared_ptr<Instance> const& operator[](size_t idx) const { return _data[idx]; }
     typename ArrayType::iterator begin() { return _data.begin(); };
     typename ArrayType::iterator end() { return _data.end(); };
     VerifierInstances_(std::vector<std::shared_ptr<VerificationKey>> vks)
