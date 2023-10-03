@@ -57,7 +57,6 @@ struct InputElements {
     FF& q_arith = std::get<6>(_data);
     FF& q_sort = std::get<7>(_data);
     FF& q_elliptic = std::get<8>(_data);
-    FF& q_double = std::get<9>(_data);
     FF& q_aux = std::get<9>(_data);
     FF& q_lookup = std::get<10>(_data);
     FF& sigma_1 = std::get<11>(_data);

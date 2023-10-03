@@ -285,6 +285,9 @@ abstract contract BaseUltraVerifier {
     uint256 internal constant LIMB_SIZE = 0x100000000000000000; // 2<<68
     uint256 internal constant SUBLIMB_SHIFT = 0x4000; // 2<<14
 
+    // y^2 = x^3 + ax + b
+    // for Grumpkin, a = 0 and b = -17. We use b in a custom gate relation that evaluates elliptic curve arithmetic
+    uint256 internal constant GRUMPKIN_CURVE_B_PARAMETER_NEGATED = 17;
     error PUBLIC_INPUT_COUNT_INVALID(uint256 expected, uint256 actual);
     error PUBLIC_INPUT_INVALID_BN128_G1_POINT();
     error PUBLIC_INPUT_GE_P();
@@ -1157,6 +1160,7 @@ abstract contract BaseUltraVerifier {
                  * sign_term += sign_term
                  * sign_term *= q_sign
                  */
+                // q_elliptic * (x3 + x2 + x1)(x2 - x1)(x2 - x1) - y2^2 - y1^2 + 2(y2y1)*q_sign = 0
                 let x_diff := addmod(mload(X2_EVAL_LOC), sub(p, mload(X1_EVAL_LOC)), p)
                 let y2_sqr := mulmod(mload(Y2_EVAL_LOC), mload(Y2_EVAL_LOC), p)
                 let y1_sqr := mulmod(mload(Y1_EVAL_LOC), mload(Y1_EVAL_LOC), p)
@@ -1194,6 +1198,7 @@ abstract contract BaseUltraVerifier {
                         p
                     )
 
+                // q_elliptic * (x3 + x2 + x1)(x2 - x1)(x2 - x1) - y2^2 - y1^2 + 2(y2y1)*q_sign = 0
                 let y1_plus_y3 := addmod(
                     mload(Y1_EVAL_LOC),
                     mload(Y3_EVAL_LOC),
@@ -1232,9 +1237,10 @@ abstract contract BaseUltraVerifier {
                  * x_double_identity = (x_3 + x_1 + x_1) * y_1_sqr_mul_4 - x_1_pow_4_mul_9;
                  * y_double_identity = x_1_sqr_mul_3 * (x_1 - x_3) - (y_1 + y_1) * (y_1 + y_3);
                  */
+                // (x3 + x1 + x1) (4y1*y1) - 9 * x1 * x1 * x1 * x1 = 0
                 let x1_sqr := mulmod(mload(X1_EVAL_LOC), mload(X1_EVAL_LOC), p)
                 let y1_sqr := mulmod(mload(Y1_EVAL_LOC), mload(Y1_EVAL_LOC), p)
-                let x_pow_4 := mulmod(addmod(y1_sqr, 17, p), mload(X1_EVAL_LOC), p)
+                let x_pow_4 := mulmod(addmod(y1_sqr, GRUMPKIN_CURVE_B_PARAMETER_NEGATED, p), mload(X1_EVAL_LOC), p)
                 let y1_sqr_mul_4 := mulmod(y1_sqr, 4, p)
                 let x1_pow_4_mul_9 := mulmod(x_pow_4, 9, p)
                 let x1_sqr_mul_3 := mulmod(x1_sqr, 3, p)
@@ -1248,6 +1254,7 @@ abstract contract BaseUltraVerifier {
                         sub(p, x1_pow_4_mul_9),
                         p
                     )
+                // (y1 + y1) (2y1) - (3 * x1 * x1)(x1 - x3) = 0
                 let y_double_identity :=
                     addmod(
                         mulmod(x1_sqr_mul_3, addmod(mload(X1_EVAL_LOC), sub(p, mload(X3_EVAL_LOC)), p), p),

@@ -111,6 +111,8 @@ template <class Field, class Getters, typename PolyContainer> class EllipticKern
         const Field& q_sign =
             Getters::template get_value<EvaluationType::NON_SHIFTED, PolynomialIndex::Q_1>(polynomials, i);
 
+        // ecc add gate is active when q_elliptic = 1 and q_m = 0
+        // ecc double gate is active when q_elliptic = 1 and q_m = 1
         const Field& q_is_double =
             Getters::template get_value<EvaluationType::NON_SHIFTED, PolynomialIndex::Q_M>(polynomials, i);
 
@@ -120,9 +122,6 @@ template <class Field, class Getters, typename PolyContainer> class EllipticKern
         Field y1y2 = y_1 * y_2 * q_sign;
         Field x_identity_add = (x_3 + x_2 + x_1) * x_diff.sqr() - y1_sqr - y2_sqr + y1y2 + y1y2;
         Field y_identity_add = (y_3 + y_1) * x_diff + (x_3 - x_1) * (y_2 * q_sign - y_1);
-
-        x_identity_add *= (-q_is_double + 1) * challenges.alpha_powers[0];
-        y_identity_add *= (-q_is_double + 1) * challenges.alpha_powers[1];
 
         // x-coordinate identity
         // (x3 + 2x1)(4y^2) - (9x^4) = 0
@@ -136,10 +135,11 @@ template <class Field, class Getters, typename PolyContainer> class EllipticKern
         const Field x_pow_2 = (x_1 * x_1);
         Field y_identity_double = x_pow_2 * (x_1 - x_3) * 3 - (y_1 + y_1) * (y_1 + y_3);
 
-        x_identity_double *= q_is_double * challenges.alpha_powers[0];
-        y_identity_double *= q_is_double * challenges.alpha_powers[1];
-
-        linear_terms[0] = x_identity_add + x_identity_double + y_identity_add + y_identity_double;
+        auto x_identity =
+            (q_is_double * (x_identity_double - x_identity_add) + x_identity_add) * challenges.alpha_powers[0];
+        auto y_identity =
+            (q_is_double * (y_identity_double - y_identity_add) + y_identity_add) * challenges.alpha_powers[1];
+        linear_terms[0] = x_identity + y_identity;
     }
 
     /**
