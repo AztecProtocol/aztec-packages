@@ -211,15 +211,13 @@ std::string AcirComposer::get_solidity_verifier()
  *        Use this method to get the witness values!
  *
  * @param proof
- * @param num_inner_public_inputs - number of public inputs on the proof being serialized
+ * @param public_inputs - number of public inputs associated with the proof
  */
-std::vector<barretenberg::fr> AcirComposer::serialize_proof_into_fields(
-    std::vector<uint8_t> const& public_inputs,
-    std::vector<uint8_t> const& proof_without_public_inputs,
-    size_t num_inner_public_inputs) // TODO: remove this, can be derived from public_inputs
+std::vector<barretenberg::fr> AcirComposer::serialize_proof_into_fields(std::vector<uint8_t> const& public_inputs,
+                                                                        std::vector<uint8_t> const& proof)
 {
-    auto proof = concatenateVectors(public_inputs, proof_without_public_inputs);
-    transcript::StandardTranscript transcript(proof,
+    auto num_inner_public_inputs = public_inputs.size() / 32;
+    transcript::StandardTranscript transcript(concatenateVectors(public_inputs, proof),
                                               acir_format::Composer::create_manifest(num_inner_public_inputs),
                                               transcript::HashType::PlookupPedersenBlake3s,
                                               16);

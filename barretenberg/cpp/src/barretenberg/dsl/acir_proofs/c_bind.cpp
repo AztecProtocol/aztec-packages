@@ -43,16 +43,16 @@ WASM_EXPORT void acir_create_proof(in_ptr acir_composer_ptr,
                                    uint8_t const* witness_vec,
                                    bool const* is_recursive,
                                    uint8_t** out_public_inputs,
-                                   uint8_t** out_proof_without_public_inputs)
+                                   uint8_t** out_proof)
 {
     auto acir_composer = reinterpret_cast<acir_proofs::AcirComposer*>(*acir_composer_ptr);
     auto constraint_system = acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec));
     auto witness = acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec));
 
-    auto [public_inputs, proof_without_public_inputs] =
+    auto [public_inputs, proof] =
         acir_composer->create_proof(barretenberg::srs::get_crs_factory(), constraint_system, witness, *is_recursive);
     *out_public_inputs = to_heap_buffer(public_inputs);
-    *out_proof_without_public_inputs = to_heap_buffer(proof_without_public_inputs);
+    *out_proof = to_heap_buffer(proof);
 }
 
 WASM_EXPORT void acir_load_verification_key(in_ptr acir_composer_ptr, uint8_t const* vk_buf)
@@ -78,14 +78,14 @@ WASM_EXPORT void acir_get_verification_key(in_ptr acir_composer_ptr, uint8_t** o
 
 WASM_EXPORT void acir_verify_proof(in_ptr acir_composer_ptr,
                                    uint8_t const* public_inputs_buf,
-                                   uint8_t const* proof_without_public_inputs_buf,
+                                   uint8_t const* proof_buf,
                                    bool const* is_recursive,
                                    bool* result)
 {
     auto acir_composer = reinterpret_cast<acir_proofs::AcirComposer*>(*acir_composer_ptr);
     auto public_inputs = from_buffer<std::vector<uint8_t>>(public_inputs_buf);
-    auto proof_without_public_inputs = from_buffer<std::vector<uint8_t>>(proof_without_public_inputs_buf);
-    *result = acir_composer->verify_proof(public_inputs, proof_without_public_inputs, *is_recursive);
+    auto proof = from_buffer<std::vector<uint8_t>>(proof_buf);
+    *result = acir_composer->verify_proof(public_inputs, proof, *is_recursive);
 }
 
 WASM_EXPORT void acir_get_solidity_verifier(in_ptr acir_composer_ptr, out_str_buf out)
@@ -98,14 +98,12 @@ WASM_EXPORT void acir_get_solidity_verifier(in_ptr acir_composer_ptr, out_str_bu
 WASM_EXPORT void acir_serialize_proof_into_fields(in_ptr acir_composer_ptr,
                                                   uint8_t const* public_inputs_buf,
                                                   uint8_t const* proof_buf,
-                                                  uint32_t const* num_inner_public_inputs,
                                                   fr::vec_out_buf out)
 {
     auto acir_composer = reinterpret_cast<acir_proofs::AcirComposer*>(*acir_composer_ptr);
     auto public_inputs = from_buffer<std::vector<uint8_t>>(proof_buf);
     auto proof = from_buffer<std::vector<uint8_t>>(public_inputs_buf);
-    auto proof_as_fields =
-        acir_composer->serialize_proof_into_fields(public_inputs, proof, ntohl(*num_inner_public_inputs));
+    auto proof_as_fields = acir_composer->serialize_proof_into_fields(public_inputs, proof);
 
     *out = to_heap_buffer(proof_as_fields);
 }
