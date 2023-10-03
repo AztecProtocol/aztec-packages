@@ -40,7 +40,7 @@ describe('e2e_token_contract', () => {
   beforeAll(async () => {
     ({ teardown, logger, wallets, accounts } = await setup(3));
 
-    asset = await TokenContract.deploy(wallets[0], wallets[0].getCompleteAddress()).send().deployed();
+    asset = await TokenContract.deploy(wallets[0], accounts[0]).send().deployed();
     logger(`Token deployed to ${asset.address}`);
     tokenSim = new TokenSimulator(
       asset,

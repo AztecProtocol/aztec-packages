@@ -50,14 +50,14 @@ describe('e2e_lending_contract', () => {
 
     {
       logger(`Deploying collateral asset feed contract...`);
-      const receipt = await waitForSuccess(TokenContract.deploy(wallet, wallet.getCompleteAddress()).send());
+      const receipt = await waitForSuccess(TokenContract.deploy(wallet, accounts[0]).send());
       logger(`Collateral asset deployed to ${receipt.contractAddress}`);
       collateralAsset = await TokenContract.at(receipt.contractAddress!, wallet);
     }
 
     {
       logger(`Deploying stable coin contract...`);
-      const receipt = await waitForSuccess(TokenContract.deploy(wallet, wallet.getCompleteAddress()).send());
+      const receipt = await waitForSuccess(TokenContract.deploy(wallet, accounts[0]).send());
       logger(`Stable coin asset deployed to ${receipt.contractAddress}`);
       stableCoin = await TokenContract.at(receipt.contractAddress!, wallet);
     }

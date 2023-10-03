@@ -50,7 +50,7 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
     }
 
     logger(`Deploying Token...`);
-    const token = await TokenContract.deploy(wallets[0], wallets[0].getCompleteAddress()).send().deployed();
+    const token = await TokenContract.deploy(wallets[0], accounts[0]).send().deployed();
     tokenAddress = token.address;
     logger(`Token deployed at ${tokenAddress}`);
 
