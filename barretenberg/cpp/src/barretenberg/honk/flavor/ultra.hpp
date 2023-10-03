@@ -281,7 +281,7 @@ class Ultra {
         using Base::Base;
         AllValues(std::array<FF, NUM_ALL_ENTITIES> _data_in) { this->_data = _data_in; }
     };
-    
+
     /**
      * @brief A container for polynomials handles; only stores spans.
      */

@@ -103,7 +103,7 @@ template <typename FF_> class UltraArithmeticRelationImpl {
             tmp *= scaling_factor;
             std::get<0>(evals) += tmp;
         }();
-        
+
         [&]() {
             using Accumulator = std::tuple_element_t<1, TupleOverSubrelations>;
             using View = typename Accumulator::View;
