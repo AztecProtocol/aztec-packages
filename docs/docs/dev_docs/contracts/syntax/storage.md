@@ -54,7 +54,7 @@ Private variables only require one single slot, because all notes are linked to 
 
 We currently do not support any "packing" type optimizations as in most EVM languages.
 
-Storage in Aztec is actually implemented as a single global merkle tree, with each contract's internal storage slot combined with its contract address to generate its position in the global tree as `global_storage_slot = pedersen_hash(contract_storage_slot, contract_address)`.
+Storage in Aztec is implemented as a single global merkle tree, with each contract's internal storage slot combined with its contract address to generate its position in the global tree as `global_storage_slot = pedersen_hash(contract_storage_slot, contract_address)`.
 
 Note: The choice of hash function is subject to change in later versions.
 
