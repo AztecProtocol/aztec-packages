@@ -221,18 +221,16 @@ export async function writeVk(bytecodePath: string, crsPath: string, outputPath:
   }
 }
 
-export async function proofAsFields(proofPath: string, vkPath: string, outputPath: string) {
+export async function proofAsFields(proofPath: string, outputPath: string) {
   const { api, acirComposer } = await initLite();
 
   try {
     debug('serializing proof byte array into field elements');
-    const numPublicInputs = readFileSync(vkPath).readUint32BE(8);
     const publicInputsPath = publicInputsPathFromProofPath(proofPath);
     const proofAsFields = await api.acirSerializeProofIntoFields(
       acirComposer,
       readFileSync(publicInputsPath),
       readFileSync(proofPath),
-      numPublicInputs,
     );
     const jsonProofAsFields = JSON.stringify(proofAsFields.map(f => f.toString()));
 

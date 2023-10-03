@@ -264,7 +264,7 @@ void proofAsFields(const std::string& proof_path, std::string const& vk_path, co
     std::vector<uint8_t> public_inputs = read_public_inputs(public_inputs_path, vk_data.num_public_inputs);
 
     auto acir_composer = new acir_proofs::AcirComposer(MAX_CIRCUIT_SIZE, verbose);
-    auto data = acir_composer->serialize_proof_into_fields(public_inputs, proof, vk_data.num_public_inputs);
+    auto data = acir_composer->serialize_proof_into_fields(public_inputs, proof);
     auto json = format("[", join(map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
 
     if (output_path == "-") {
