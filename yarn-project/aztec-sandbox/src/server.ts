@@ -5,6 +5,7 @@ import http from 'http';
 /**
  * Creates an http server that forwards calls to the underlying instance and starts it on the given port.
  * @param instance - Instance to wrap in a JSON-RPC server.
+ * @param jsonRpcFactoryFunc - Function that wraps the instance in a JSON-RPC server.
  * @param port - Port to listen in.
  * @returns A running http server.
  */
