@@ -82,14 +82,11 @@ template <typename _coordinate_field, typename _subgroup_field, typename GroupPa
         const size_t num_generators,
         const size_t starting_index = 0)
     {
-        std::vector<affine_element> result;
+        std::vector<affine_element> result(starting_index + num_generators);
         const auto domain_hash = blake3::blake3s_constexpr(&domain_separator_bytes[0], domain_separator_bytes.size());
-        std::vector<uint8_t> generator_preimage;
+        std::vector<uint8_t> generator_preimage(64);
         generator_preimage.reserve(64);
         std::copy(domain_hash.begin(), domain_hash.end(), std::back_inserter(generator_preimage));
-        for (size_t i = 0; i < 32; ++i) {
-            generator_preimage.emplace_back(0);
-        }
         for (size_t i = starting_index; i < starting_index + num_generators; ++i) {
             auto generator_index = static_cast<uint32_t>(i);
             uint32_t mask = 0xff;
@@ -97,7 +94,7 @@ template <typename _coordinate_field, typename _subgroup_field, typename GroupPa
             generator_preimage[33] = static_cast<uint8_t>((generator_index >> 16) & mask);
             generator_preimage[34] = static_cast<uint8_t>((generator_index >> 8) & mask);
             generator_preimage[35] = static_cast<uint8_t>(generator_index & mask);
-            result.push_back(affine_element::hash_to_curve(generator_preimage));
+            result[i] = (affine_element::hash_to_curve(generator_preimage));
         }
         return result;
     }
