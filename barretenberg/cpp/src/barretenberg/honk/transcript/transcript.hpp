@@ -79,24 +79,34 @@ template <typename FF> class BaseTranscript {
     TranscriptManifest manifest;
 
     /**
-     * @brief Compute c_next = H( Compress(c_prev || round_buffer) )
-     *
+     * @brief Compute next challenge c_next = H( Compress(c_prev || round_buffer) )
+     * @details This function computes a new challenge for the current round using the previous challenge
+     *          and the current round data, if they are exist.
+     *          It clears the current_round_data if nonempty after computing the challenge to minimize how much we
+     * compress. It also sets previous_challenge_buffer to the current challenge buffer to set up next function call.
      * @return std::array<uint8_t, HASH_OUTPUT_SIZE>
      */
-    [[nodiscard]] std::array<uint8_t, HASH_OUTPUT_SIZE> get_next_challenge_buffer() const
+    [[nodiscard]] std::array<uint8_t, HASH_OUTPUT_SIZE> get_next_challenge_buffer()
     {
         // Empty buffer to compare against
         std::array<uint8_t, HASH_OUTPUT_SIZE> empty_challenge_buffer{};
-        // Prevent challenge generation if nothing was sent by the prover.
-        ASSERT(!(current_round_data.empty() && previous_challenge_buffer == empty_challenge_buffer));
+        bool no_previous_challenge = (previous_challenge_buffer == empty_challenge_buffer);
+        // Prevent challenge generation if nothing was sent by the prover AND this is the first challenge we're
+        // generating.
+        ASSERT(!(current_round_data.empty() && no_previous_challenge));
 
-        // concatenate the hash of the previous round (if not the first round) with the current round data.
+        // concatenate the previous challenge (if this is not the first challenge) with the current round data.
         // TODO(Adrian): Do we want to use a domain separator as the initial challenge buffer?
         // We could be cheeky and use the hash of the manifest as domain separator, which would prevent us from having
         // to domain separate all the data. (See https://safe-hash.dev)
         std::vector<uint8_t> full_buffer;
-        full_buffer.insert(full_buffer.end(), previous_challenge_buffer.begin(), previous_challenge_buffer.end());
-        full_buffer.insert(full_buffer.end(), current_round_data.begin(), current_round_data.end());
+        if (!no_previous_challenge) {
+            full_buffer.insert(full_buffer.end(), previous_challenge_buffer.begin(), previous_challenge_buffer.end());
+        }
+        if (!current_round_data.empty()) {
+            full_buffer.insert(full_buffer.end(), current_round_data.begin(), current_round_data.end());
+            current_round_data.clear(); // clear the round data buffer since it has been used
+        }
 
         // Pre-hash the full buffer to minimize the amount of data passed to the cryptographic hash function.
         // Only a collision-resistant hash-function like Pedersen is required for this step.
@@ -109,7 +119,8 @@ template <typename FF> class BaseTranscript {
 
         std::array<uint8_t, HASH_OUTPUT_SIZE> new_challenge_buffer;
         std::copy_n(base_hash.begin(), HASH_OUTPUT_SIZE, new_challenge_buffer.begin());
-
+        // update previous challenge buffer for next time we call this function
+        previous_challenge_buffer = new_challenge_buffer;
         return new_challenge_buffer;
     };
 
@@ -152,11 +163,9 @@ template <typename FF> class BaseTranscript {
         // Generate the challenges by iteratively hashing over the previous challenge.
         for (size_t i = 0; i < num_challenges; i++) {
             auto next_challenge_buffer = get_next_challenge_buffer(); // get next challenge buffer
-            current_round_data.clear();                               // clear round data after generating challenge
             std::array<uint8_t, sizeof(FF)> field_element_buffer{};
             std::copy_n(next_challenge_buffer.begin(), HASH_OUTPUT_SIZE, field_element_buffer.begin());
             challenges[i] = from_buffer<FF>(field_element_buffer);
-            previous_challenge_buffer = next_challenge_buffer; // update previous challenge buffer
         }
 
         // Prepare for next round.
