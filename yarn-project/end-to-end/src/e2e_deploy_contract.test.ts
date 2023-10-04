@@ -1,7 +1,7 @@
 import { AztecAddress, Contract, ContractDeployer, EthAddress, Fr, Wallet, isContractDeployed } from '@aztec/aztec.js';
 import { CompleteAddress, getContractDeploymentInfo } from '@aztec/circuits.js';
 import { DebugLogger } from '@aztec/foundation/log';
-import { TestContractArtifact } from '@aztec/noir-contracts/artifacts';
+import { TestAssertContractArtifact, TestContractArtifact } from '@aztec/noir-contracts/artifacts';
 import { PXE, TxStatus } from '@aztec/types';
 
 import { setup } from './fixtures/utils.js';
@@ -127,5 +127,28 @@ describe('e2e_deploy_contract', () => {
     expect((await pxe.getExtendedContractData(contractAddress))?.contractData.portalContractAddress.toString()).toEqual(
       portalContract.toString(),
     );
+  });
+
+  it('it should not deploy a contract which failed the public part of the execution', async () => {
+    // This test requires at least another good transaction to go through in the same block as the bad one.
+    // I deployed the same contract again but it could really be any valid transaction here.
+    const goodDeploy = new ContractDeployer(TestAssertContractArtifact, wallet).deploy(0);
+    const badDeploy = new ContractDeployer(TestAssertContractArtifact, wallet).deploy(1);
+
+    const [goodTx, badTx] = [
+      goodDeploy.send({ skipPublicSimulation: true }),
+      badDeploy.send({ skipPublicSimulation: true }),
+    ];
+
+    const [goodTxPromiseResult, badTxReceiptResult] = await Promise.allSettled([goodTx.wait(), badTx.wait()]);
+
+    expect(goodTxPromiseResult.status).toBe('fulfilled');
+    expect(badTxReceiptResult.status).toBe('rejected');
+
+    await expect(pxe.getExtendedContractData(goodDeploy.completeAddress!.address)).resolves.toBeDefined();
+    await expect(pxe.getExtendedContractData(goodDeploy.completeAddress!.address)).resolves.toBeDefined();
+
+    await expect(pxe.getContractData(badDeploy.completeAddress!.address)).resolves.toBeUndefined();
+    await expect(pxe.getExtendedContractData(badDeploy.completeAddress!.address)).resolves.toBeUndefined();
   });
 });
