@@ -243,8 +243,10 @@ template <class Params_> struct alignas(32) field {
      *
      * @return <true, root> if the element is a quadratic remainder, <false, 0> if it's not
      */
-    constexpr std::pair<bool, field> sqrt() const noexcept;
-
+    constexpr std::pair<bool, field> sqrt() const noexcept
+        requires((Params_::modulus_0 & 0x3UL) == 0x3UL);
+    constexpr std::pair<bool, field> sqrt() const noexcept
+        requires((Params_::modulus_0 & 0x3UL) != 0x3UL);
     BBERG_INLINE constexpr void self_neg() noexcept;
 
     BBERG_INLINE constexpr void self_to_montgomery_form() noexcept;
