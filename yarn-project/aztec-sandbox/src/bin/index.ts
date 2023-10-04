@@ -55,7 +55,7 @@ async function main() {
   process.once('SIGINT', shutdown);
   process.once('SIGTERM', shutdown);
 
-  startHttpRpcServer(node, createAztecNodeRpcServer, 8079);
+  startHttpRpcServer(node, createAztecNodeRpcServer, AZTEC_NODE_PORT);
   logger.info(`Aztec Node JSON-RPC Server listening on port ${AZTEC_NODE_PORT}`);
   startHttpRpcServer(pxe, createPXERpcServer, PXE_PORT);
   logger.info(`PXE JSON-RPC Server listening on port ${PXE_PORT}`);
