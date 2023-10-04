@@ -377,6 +377,10 @@ TYPED_TEST(ZeroMorphTest, ProveAndVerifySingle)
         EXPECT_EQ(prover_transcript.get_manifest(), verifier_transcript.get_manifest());
 
         // Construct inputs and perform pairing check to verify claimed evaluation
+        // Note: The pairing check (without the degree check component X^{N_max-N-1}) can be expressed naturally as
+        // e(C_{\zeta,Z}, [1]_2) = e(pi, [X - x]_2). This can be rearranged (e.g. see the plonk paper) as
+        // e(C_{\zeta,Z} - x*pi, [1]_2) * e(-pi, [X]_2) = 1, or
+        // e(P_0, [1]_2) * e(P_1, [X]_2) = 1
         auto P0 = C_zeta_Z + C_pi * x_challenge;
         auto P1 = -C_pi;
         auto verified = this->vk()->pairing_check(P0, P1);

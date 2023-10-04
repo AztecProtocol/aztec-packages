@@ -3,6 +3,7 @@
 #include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/thread_utils.hpp"
+#include "barretenberg/numeric/bitop/pow.hpp"
 #include "polynomial_arithmetic.hpp"
 #include <cstddef>
 #include <fcntl.h>
@@ -422,7 +423,8 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::partial_evaluate_mle(std::
     // Get size of partial evaluation point u = (u_0,...,u_{m-1})
     const size_t m = evaluation_points.size();
 
-    // WORKTODO: Assert that the size of the polynomial being evaluated is a power of 2 and > (1 << m)
+    // Assert that the size of the polynomial being evaluated is a power of 2 greater than (1 << m)
+    ASSERT(numeric::is_power_of_two(size_));
     ASSERT(size_ >= static_cast<size_t>(1 << m));
     size_t n = numeric::get_msb(size_);
 
