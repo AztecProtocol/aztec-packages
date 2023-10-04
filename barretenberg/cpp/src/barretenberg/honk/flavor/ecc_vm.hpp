@@ -655,8 +655,33 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
      */
     using FoldedPolynomials = AllEntities<std::vector<FF>, PolynomialHandle>;
 
-    using RawPolynomials = AllEntities<Polynomial, PolynomialHandle>;
+    /**
+     * @brief A container for the polynomials evaluations produced during sumcheck, which are purported to be the
+     * evaluations of polynomials committed in earlier rounds.
+     */
+    class AllValues : public AllEntities<FF, FF> {
+      public:
+        using Base = AllEntities<FF, FF>;
+        using Base::Base;
+        AllValues(std::array<FF, NUM_ALL_ENTITIES> _data_in) { this->_data = _data_in; }
+    };
 
+    /**
+     * @brief A container for polynomials handles; only stores spans.
+     */
+    class RawPolynomials : public AllEntities<Polynomial, PolynomialHandle> {
+      public:
+        AllValues get_row(const size_t row_idx)
+        {
+            AllValues result;
+            size_t column_idx = 0; // WORKTODO zips
+            for (auto& column : this->_data) {
+                result[column_idx] = column[row_idx];
+                column_idx++;
+            }
+            return result;
+        }
+    };
     /**
      * @brief A container for polynomials produced after the first round of sumcheck.
      * @todo TODO(#394) Use polynomial classes for guaranteed memory alignment.
@@ -686,17 +711,6 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
     template <size_t MAX_RELATION_LENGTH>
     using ExtendedEdges = AllEntities<barretenberg::Univariate<FF, MAX_RELATION_LENGTH>,
                                       barretenberg::Univariate<FF, MAX_RELATION_LENGTH>>;
-
-    /**
-     * @brief A container for the polynomials evaluations produced during sumcheck, which are purported to be the
-     * evaluations of polynomials committed in earlier rounds.
-     */
-    class AllValues : public AllEntities<FF, FF> {
-      public:
-        using Base = AllEntities<FF, FF>;
-        using Base::Base;
-        AllValues(std::array<FF, NUM_ALL_ENTITIES> _data_in) { this->_data = _data_in; }
-    };
 
     /**
      * @brief A container for polynomials handles; only stores spans.

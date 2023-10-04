@@ -24,7 +24,7 @@ namespace proof_system::honk::lookup_library {
  *
  */
 template <typename Flavor, typename Relation>
-void compute_logderivative_inverse(typename Flavor::ProverPolynomials& polynomials,
+void compute_logderivative_inverse(auto& polynomials, // FullPolynomials or RawPolynomials
                                    proof_system::RelationParameters<typename Flavor::FF>& relation_parameters,
                                    const size_t circuit_size)
 {
