@@ -22,7 +22,7 @@ describe('benchmarks/publish_rollup', () => {
     context = await setup(2, { maxTxsPerBlock: 1024 });
 
     if (!(context.aztecNode instanceof AztecNodeService)) throw new Error('Aztec node is not a service');
-    sequencer = context.aztecNode!.getSequencer();
+    sequencer = context.aztecNode!.getSequencer()!;
 
     [owner, recipient] = context.accounts.map(a => a.address);
     token = await TokenContract.deploy(context.wallet, owner).send().deployed();
@@ -34,23 +34,29 @@ describe('benchmarks/publish_rollup', () => {
     `publishes a rollup with %d txs`,
     async (txCount: number) => {
       context.logger(`Assembling rollup with ${txCount} txs`);
-      // Simulate and simultaneously send %d txs. These should not yet be processed since sequencer is stopped.
+      // Simulate and simultaneously send ROLLUP_SIZE txs. These should not yet be processed since sequencer is stopped.
       const calls = times(txCount, () => token.methods.transfer_public(owner, recipient, 1, 0));
       calls.forEach(call => call.simulate({ skipPublicSimulation: true }));
       const sentTxs = calls.map(call => call.send());
+
       // Awaiting txHash waits until the aztec node has received the tx into its p2p pool
       await Promise.all(sentTxs.map(tx => tx.getTxHash()));
       // And then wait a bit more just in case
       await sleep(100);
+
       // Restart sequencer to process all txs together
       sequencer.restart();
-      // Wait for the last tx to be processed
+      // Wait for the last tx to be processed and finish the current node
       await sentTxs[sentTxs.length - 1].wait({ timeout: 600_00 });
+      await context.teardown();
+
+      // Create a new aztec node to measure sync time of the block
+      context.logger(`Starting new aztec node`);
+      const node = await AztecNodeService.createAndSync({ ...context.config, disableSequencer: true });
+      // Force a sync with world state to ensure new node has caught up before killing it
+      await node.getTreeRoots();
+      await node.stop();
     },
     10 * 60_000,
   );
-
-  afterEach(async () => {
-    await context.teardown();
-  }, 60_000);
 });
