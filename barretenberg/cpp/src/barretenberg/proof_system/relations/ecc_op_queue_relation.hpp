@@ -117,6 +117,74 @@ template <typename FF_> class EccOpQueueRelationImpl {
         tmp *= scaling_factor;
         std::get<7>(accumulators) += tmp;
     };
+
+    template <typename TupleOverRelations>
+    void static new_accumulate(TupleOverRelations& accumulators,
+                               const auto& extended_edges,
+                               const RelationParameters<FF>&,
+                               const FF& scaling_factor)
+    {
+        // OPTIMIZATION?: Karatsuba in general, at least for some degrees?
+        //       See https://hackmd.io/xGLuj6biSsCjzQnYN-pEiA?both
+        using Accumulator = std::tuple_element_t<0, TupleOverRelations>;
+        using View = typename Accumulator::View;
+        auto w_1 = View(extended_edges.w_l);
+        auto w_2 = View(extended_edges.w_r);
+        auto w_3 = View(extended_edges.w_o);
+        auto w_4 = View(extended_edges.w_4);
+        auto op_wire_1 = View(extended_edges.ecc_op_wire_1);
+        auto op_wire_2 = View(extended_edges.ecc_op_wire_2);
+        auto op_wire_3 = View(extended_edges.ecc_op_wire_3);
+        auto op_wire_4 = View(extended_edges.ecc_op_wire_4);
+        auto lagrange_ecc_op = View(extended_edges.lagrange_ecc_op);
+
+        // If lagrange_ecc_op is the indicator for ecc_op_gates, this is the indicator for the complement
+        auto complement_ecc_op = lagrange_ecc_op * FF(-1) + FF(1);
+
+        // Contribution (1)
+        auto tmp = op_wire_1 - w_1;
+        tmp *= lagrange_ecc_op;
+        tmp *= scaling_factor;
+        std::get<0>(accumulators) += tmp;
+
+        // Contribution (2)
+        tmp = op_wire_2 - w_2;
+        tmp *= lagrange_ecc_op;
+        tmp *= scaling_factor;
+        std::get<1>(accumulators) += tmp;
+
+        // Contribution (3)
+        tmp = op_wire_3 - w_3;
+        tmp *= lagrange_ecc_op;
+        tmp *= scaling_factor;
+        std::get<2>(accumulators) += tmp;
+
+        // Contribution (4)
+        tmp = op_wire_4 - w_4;
+        tmp *= lagrange_ecc_op;
+        tmp *= scaling_factor;
+        std::get<3>(accumulators) += tmp;
+
+        // Contribution (5)
+        tmp = op_wire_1 * complement_ecc_op;
+        tmp *= scaling_factor;
+        std::get<4>(accumulators) += tmp;
+
+        // Contribution (6)
+        tmp = op_wire_2 * complement_ecc_op;
+        tmp *= scaling_factor;
+        std::get<5>(accumulators) += tmp;
+
+        // Contribution (7)
+        tmp = op_wire_3 * complement_ecc_op;
+        tmp *= scaling_factor;
+        std::get<6>(accumulators) += tmp;
+
+        // Contribution (8)
+        tmp = op_wire_4 * complement_ecc_op;
+        tmp *= scaling_factor;
+        std::get<7>(accumulators) += tmp;
+    };
 };
 
 template <typename FF> using EccOpQueueRelation = Relation<EccOpQueueRelationImpl<FF>>;
