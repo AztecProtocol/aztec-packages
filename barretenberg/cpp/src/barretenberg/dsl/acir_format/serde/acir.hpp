@@ -5521,48 +5521,56 @@ Circuit::Opcode::MemoryInit serde::Deserializable<Circuit::Opcode::MemoryInit>::
     return obj;
 }
 
-
 namespace Circuit {
 
-    inline bool operator==(const Opcode::AssertEq &lhs, const Opcode::AssertEq &rhs) {
-        if (!(lhs.lhs == rhs.lhs)) { return false; }
-        if (!(lhs.rhs == rhs.rhs)) { return false; }
-        return true;
+inline bool operator==(const Opcode::AssertEq& lhs, const Opcode::AssertEq& rhs)
+{
+    if (!(lhs.lhs == rhs.lhs)) {
+        return false;
     }
+    if (!(lhs.rhs == rhs.rhs)) {
+        return false;
+    }
+    return true;
+}
 
-    inline std::vector<uint8_t> Opcode::AssertEq::bincodeSerialize() const {
-        auto serializer = serde::BincodeSerializer();
-        serde::Serializable<Opcode::AssertEq>::serialize(*this, serializer);
-        return std::move(serializer).bytes();
-    }
+inline std::vector<uint8_t> Opcode::AssertEq::bincodeSerialize() const
+{
+    auto serializer = serde::BincodeSerializer();
+    serde::Serializable<Opcode::AssertEq>::serialize(*this, serializer);
+    return std::move(serializer).bytes();
+}
 
-    inline Opcode::AssertEq Opcode::AssertEq::bincodeDeserialize(std::vector<uint8_t> input) {
-        auto deserializer = serde::BincodeDeserializer(input);
-        auto value = serde::Deserializable<Opcode::AssertEq>::deserialize(deserializer);
-        if (deserializer.get_buffer_offset() < input.size()) {
-            throw serde::deserialization_error("Some input bytes were not read");
-        }
-        return value;
+inline Opcode::AssertEq Opcode::AssertEq::bincodeDeserialize(std::vector<uint8_t> input)
+{
+    auto deserializer = serde::BincodeDeserializer(input);
+    auto value = serde::Deserializable<Opcode::AssertEq>::deserialize(deserializer);
+    if (deserializer.get_buffer_offset() < input.size()) {
+        throw serde::deserialization_error("Some input bytes were not read");
     }
+    return value;
+}
 
 } // end of namespace Circuit
 
 template <>
 template <typename Serializer>
-void serde::Serializable<Circuit::Opcode::AssertEq>::serialize(const Circuit::Opcode::AssertEq &obj, Serializer &serializer) {
+void serde::Serializable<Circuit::Opcode::AssertEq>::serialize(const Circuit::Opcode::AssertEq& obj,
+                                                               Serializer& serializer)
+{
     serde::Serializable<decltype(obj.lhs)>::serialize(obj.lhs, serializer);
     serde::Serializable<decltype(obj.rhs)>::serialize(obj.rhs, serializer);
 }
 
 template <>
 template <typename Deserializer>
-Circuit::Opcode::AssertEq serde::Deserializable<Circuit::Opcode::AssertEq>::deserialize(Deserializer &deserializer) {
+Circuit::Opcode::AssertEq serde::Deserializable<Circuit::Opcode::AssertEq>::deserialize(Deserializer& deserializer)
+{
     Circuit::Opcode::AssertEq obj;
     obj.lhs = serde::Deserializable<decltype(obj.lhs)>::deserialize(deserializer);
     obj.rhs = serde::Deserializable<decltype(obj.rhs)>::deserialize(deserializer);
     return obj;
 }
-
 
 namespace Circuit {
 
