@@ -21,9 +21,6 @@ const PROJECT_CONTRACTS = [
   { name: 'SchnorrSingleKeyAccount', target: '../aztec.js/src/abis/', exclude: [] },
   { name: 'SchnorrAccount', target: '../aztec.js/src/abis/', exclude: [] },
   { name: 'EcdsaAccount', target: '../aztec.js/src/abis/', exclude: [] },
-  { name: 'PrivateToken', target: '../boxes/private-token/src/artifacts', exclude: [] },
-  { name: 'Blank', target: '../boxes/blank/src/artifacts', exclude: [] },
-  { name: 'Blank', target: '../boxes/blank-react/src/artifacts', exclude: [] },
 ];
 
 const INTERFACE_CONTRACTS = ['private_token', 'private_token_airdrop', 'non_native_token', 'test'];
