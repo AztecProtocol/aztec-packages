@@ -426,13 +426,11 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::partial_evaluate_mle(std::
     ASSERT(size_ >= static_cast<size_t>(1 << m));
     size_t n = numeric::get_msb(size_);
 
-    // we do m rounds l = 0,...,m-1.
-    // in round l, n_l is the size of the buffer containing the polynomial partially evaluated
-    // at u_0,..., u_l in variables X_{n-l-1}, ..., X_{n-1}.
-    // in round 0, this is half the size of the original polynomial
+    // Partial evaluation is done in m rounds l = 0,...,m-1. At the end of round l, the polynomial has been partially
+    // evaluated at u_{m-l-1}, ..., u_{m-1} in variables X_{n-l-1}, ..., X_{n-1}. The size of this polynomial is n_l.
     size_t n_l = 1 << (n - 1);
 
-    // temporary buffer of half the size of the polynomial
+    // Temporary buffer of half the size of the polynomial
     pointer tmp_ptr = allocate_aligned_memory(sizeof(Fr) * n_l);
     auto tmp = tmp_ptr.get();
 

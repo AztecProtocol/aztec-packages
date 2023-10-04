@@ -91,7 +91,7 @@ template <typename Curve> class ZeroMorphProver {
         auto scalar = Fr(1); // y^k
         for (auto& quotient : quotients) {
             // Accumulate y^k*q_k into q, at the index offset N - d_k - 1
-            size_t deg_k = (1ULL << k) - 1;
+            auto deg_k = static_cast<size_t>((1 << k) - 1);
             size_t offset = N - deg_k - 1;
             for (size_t idx = 0; idx < deg_k + 1; ++idx) {
                 result[offset + idx] += scalar * quotient[idx];
@@ -129,9 +129,8 @@ template <typename Curve> class ZeroMorphProver {
         auto y_power = Fr(1); // y^k
         for (auto& quotient : quotients) {
             // Accumulate y^k * x^{N - d_k - 1} * q_k into \hat{q}
-            size_t deg_k = (1 << k) - 1;
-            auto x_power = x_challenge.pow(N - deg_k - 1);
-            // size_t offset = N - deg_k - 1;
+            auto deg_k = static_cast<size_t>((1 << k) - 1);
+            auto x_power = x_challenge.pow(N - deg_k - 1); // x^{N - d_k - 1}
             for (size_t idx = 0; idx < deg_k + 1; ++idx) {
                 result[idx] -= y_power * x_power * quotient[idx];
             }
