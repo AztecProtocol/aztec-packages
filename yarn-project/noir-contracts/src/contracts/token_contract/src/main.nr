@@ -35,8 +35,8 @@ contract Token {
 
     use dep::authwit::{
         auth::{
-            assert_current_call_is_valid_for, 
-            assert_current_call_is_valid_for_public, 
+            assert_current_call_valid_authwit, 
+            assert_current_call_valid_authwit_public, 
         },
     };
 
@@ -199,7 +199,7 @@ contract Token {
     ) -> Field {
         if (from.address != context.msg_sender()) {
             // The redeem is only spendable once, so we need to ensure that you cannot insert multiple shields from the same message.
-            assert_current_call_is_valid_for_public(&mut context, from);
+            assert_current_call_valid_authwit_public(&mut context, from);
         } else {
             assert(nonce == 0, "invalid nonce");
         }
@@ -225,7 +225,7 @@ contract Token {
         nonce: Field,
     ) -> Field {
         if (from.address != context.msg_sender()) {
-            assert_current_call_is_valid_for_public(&mut context, from);
+            assert_current_call_valid_authwit_public(&mut context, from);
         } else {
             assert(nonce == 0, "invalid nonce");
         }
@@ -249,7 +249,7 @@ contract Token {
         nonce: Field,
     ) -> Field {
         if (from.address != context.msg_sender()) {
-            assert_current_call_is_valid_for_public(&mut context, from);
+            assert_current_call_valid_authwit_public(&mut context, from);
         } else {
             assert(nonce == 0, "invalid nonce");
         }
@@ -294,7 +294,7 @@ contract Token {
         nonce: Field,
     ) -> Field {
         if (from.address != context.msg_sender()) {
-            assert_current_call_is_valid_for(&mut context, from);
+            assert_current_call_valid_authwit(&mut context, from);
         } else {
             assert(nonce == 0, "invalid nonce");
         }
@@ -317,7 +317,7 @@ contract Token {
         nonce: Field,
     ) -> Field {
         if (from.address != context.msg_sender()) {
-            assert_current_call_is_valid_for(&mut context, from);
+            assert_current_call_valid_authwit(&mut context, from);
         } else {
             assert(nonce == 0, "invalid nonce");
         }
@@ -338,7 +338,7 @@ contract Token {
         nonce: Field,
     ) -> Field {
         if (from.address != context.msg_sender()) {
-            assert_current_call_is_valid_for(&mut context, from);
+            assert_current_call_valid_authwit(&mut context, from);
         } else {
             assert(nonce == 0, "invalid nonce");
         }

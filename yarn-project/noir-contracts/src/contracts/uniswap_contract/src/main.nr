@@ -18,7 +18,7 @@ contract Uniswap {
         },
     };
 
-    use dep::authwit::auth::{IS_VALID_SELECTOR, assert_current_call_is_valid_for_public, compute_authwit_message_hash};
+    use dep::authwit::auth::{IS_VALID_SELECTOR, assert_current_call_valid_authwit_public, compute_authwit_message_hash};
     
     use crate::interfaces::{Token, TokenBridge};
     use crate::util::{compute_swap_private_content_hash, compute_swap_public_content_hash};
@@ -71,7 +71,7 @@ contract Uniswap {
     ) -> Field {
 
         if (sender.address != context.msg_sender()) {
-            assert_current_call_is_valid_for_public(&mut context, sender);
+            assert_current_call_valid_authwit_public(&mut context, sender);
         }
 
         let input_asset = AztecAddress::new(TokenBridge::at(input_asset_bridge.address).token(context));
