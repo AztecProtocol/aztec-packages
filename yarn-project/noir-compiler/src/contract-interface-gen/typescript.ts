@@ -152,6 +152,11 @@ function generateAbiGetter(name: string) {
  * @returns Code.
  */
 function generateAbiStatement(name: string, abiImportPath: string) {
+  if (abiImportPath === `${name}.json`) {
+    // relative path edge case, prepending ./ for local import - the upstream logic just does
+    // `${name}.json`, which is not a valid import for a file in the same directory
+    abiImportPath = `./${name}.json`;
+  }
   const stmts = [
     `import ${name}ContractAbiJson from '${abiImportPath}' assert { type: 'json' };`,
     `export const ${name}ContractAbi = ${name}ContractAbiJson as ContractAbi;`,
