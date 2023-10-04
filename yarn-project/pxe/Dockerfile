@@ -7,14 +7,8 @@ FROM node:18-alpine as builder
 RUN apk add jq
 COPY --from=yarn-project /usr/src/ /usr/src/
 
-# Update pxe version if COMMIT_TAG has been used.
+# Update pxe version if COMMIT_TAG has been used
 WORKDIR /usr/src/yarn-project/pxe
-RUN if [[ -n "${COMMIT_TAG}" ]]; then \
-  jq --arg v ${COMMIT_TAG} '.version = $v' package.json > _temp && mv _temp package.json; \
-  fi
-
-# Update sandbox version if COMMIT_TAG has been used.
-WORKDIR /usr/src/yarn-project/aztec-sandbox
 RUN if [[ -n "${COMMIT_TAG}" ]]; then \
   jq --arg v ${COMMIT_TAG} '.version = $v' package.json > _temp && mv _temp package.json; \
   fi
@@ -25,7 +19,7 @@ RUN yarn cache clean && yarn workspaces focus --production
 # Create final, minimal size image.
 FROM node:18-alpine
 COPY --from=builder /usr/src/ /usr/src/
-WORKDIR /usr/src/yarn-project/aztec-sandbox
+WORKDIR /usr/src/yarn-project/pxe
 ENTRYPOINT ["yarn"]
 CMD [ "start" ]
-EXPOSE 8079 8080
+EXPOSE 8081
