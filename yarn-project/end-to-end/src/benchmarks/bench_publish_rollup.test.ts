@@ -1,8 +1,9 @@
 /* eslint-disable camelcase */
 import { AztecNodeService } from '@aztec/aztec-node';
-import { AztecAddress } from '@aztec/aztec.js';
+import { AztecAddress, BatchCall } from '@aztec/aztec.js';
 import { sleep } from '@aztec/foundation/sleep';
-import { TokenContract } from '@aztec/noir-contracts/types';
+import { BenchmarkingContract } from '@aztec/noir-contracts/types';
+import { SequencerClient } from '@aztec/sequencer-client';
 
 import times from 'lodash.times';
 
@@ -12,24 +13,33 @@ const ROLLUP_SIZES = process.env.ROLLUP_SIZES ? process.env.ROLLUP_SIZES.split('
 
 describe('benchmarks/publish_rollup', () => {
   let context: Awaited<ReturnType<typeof setup>>;
-  let token: TokenContract;
+  let contract: BenchmarkingContract;
   let owner: AztecAddress;
-  let recipient: AztecAddress;
+  let sequencer: SequencerClient;
 
   beforeEach(async () => {
     context = await setup(2, { maxTxsPerBlock: 1024 });
-    [owner, recipient] = context.accounts.map(a => a.address);
-    token = await TokenContract.deploy(context.wallet, owner).send().deployed();
-    await token.methods.mint_public(owner, 10000n).send().wait();
-    await context.aztecNode?.getSequencer()!.stop();
+    [owner] = context.accounts.map(a => a.address);
+    contract = await BenchmarkingContract.deploy(context.wallet).send().deployed();
+    sequencer = (context.aztecNode as AztecNodeService).getSequencer()!;
+    await sequencer.stop();
   }, 60_000);
+
+  const makeBatchCall = (i: number) =>
+    new BatchCall(context.wallet, [
+      contract.methods.create_note(owner, i).request(),
+      contract.methods.increment_balance(owner, i).request(),
+    ]);
 
   it.each(ROLLUP_SIZES)(
     `publishes a rollup with %d txs`,
     async (txCount: number) => {
       context.logger(`Assembling rollup with ${txCount} txs`);
-      // Simulate and simultaneously send ROLLUP_SIZE txs. These should not yet be processed since sequencer is stopped.
-      const calls = times(txCount, () => token.methods.transfer_public(owner, recipient, 1, 0));
+      // Simulate and simultaneously send %d txs. These should not yet be processed since sequencer is stopped.
+      // Each tx has a private execution (account entrypoint), a nested private call (create_note),
+      // a public call (increment_balance), and a nested public call (broadcast). These include
+      // emitting one private note and one unencrypted log, two storage reads and one write.
+      const calls = times(txCount, makeBatchCall);
       calls.forEach(call => call.simulate({ skipPublicSimulation: true }));
       const sentTxs = calls.map(call => call.send());
 
@@ -39,7 +49,7 @@ describe('benchmarks/publish_rollup', () => {
       await sleep(100);
 
       // Restart sequencer to process all txs together
-      context.aztecNode?.getSequencer()!.restart();
+      sequencer.restart();
       // Wait for the last tx to be processed and finish the current node
       await sentTxs[sentTxs.length - 1].wait({ timeout: 600_00 });
       await context.teardown();
