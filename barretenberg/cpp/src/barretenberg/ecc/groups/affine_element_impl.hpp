@@ -225,10 +225,12 @@ constexpr affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::hash_to_curve(con
     requires SupportsHashToCurve<T>
 
 {
-    std::vector<uint8_t> target_seed(seed.size() + 2);
-    std::copy(seed.begin(), seed.end(), target_seed.begin());
+    std::vector<uint8_t> target_seed(seed);
     // expand by 2 bytes to cover incremental hash attempts
     const size_t seed_size = seed.size();
+    for (size_t i = 0; i < 2; ++i) {
+        target_seed.push_back(0);
+    }
     target_seed[seed_size] = attempt_count;
     target_seed[seed_size + 1] = 0;
     const auto hash_hi = blake3::blake3s_constexpr(&target_seed[0], target_seed.size());
