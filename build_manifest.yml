@@ -107,18 +107,17 @@ yarn-project:
     - yarn-project-base
     - noir-contracts-build
 
-aztec-sandbox-base:
+aztec-sandbox:
   buildDir: yarn-project
   projectDir: yarn-project/aztec-sandbox
   dependencies:
     - yarn-project
 
-aztec-sandbox:
+pxe:
   buildDir: yarn-project
-  projectDir: yarn-project/aztec-sandbox
-  dockerfile: Dockerfile.final
+  projectDir: yarn-project/pxe
   dependencies:
-    - aztec-sandbox-base
+    - yarn-project
 
 boxes-blank-react:
   buildDir: yarn-project

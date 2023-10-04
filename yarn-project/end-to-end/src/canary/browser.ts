@@ -25,9 +25,9 @@ const __dirname = dirname(__filename);
 
 const PORT = 3000;
 
-const { SANDBOX_URL } = process.env;
+const { PXE_URL } = process.env;
 
-const conditionalDescribe = () => (SANDBOX_URL ? describe : describe.skip);
+const conditionalDescribe = () => (PXE_URL ? describe : describe.skip);
 const privKey = AztecJs.GrumpkinScalar.random();
 
 export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugLogger) =>
@@ -46,7 +46,7 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
 
     beforeAll(async () => {
       server = setup();
-      testClient = AztecJs.createPXEClient(SANDBOX_URL!);
+      testClient = AztecJs.createPXEClient(PXE_URL!);
       await AztecJs.waitForSandbox(testClient);
 
       app = new Koa();
@@ -100,7 +100,7 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
           console.log(`Created Account: ${addressString}`);
           return addressString;
         },
-        SANDBOX_URL,
+        PXE_URL,
         privKey.toString(),
       );
       const accounts = await testClient.getRegisteredAccounts();
@@ -123,7 +123,7 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
           const balance = await contract.methods.balance_of_private(owner).view({ from: owner });
           return balance;
         },
-        SANDBOX_URL,
+        PXE_URL,
         (await getTokenAddress()).toString(),
         TokenContractAbi,
       );
@@ -144,7 +144,7 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
           console.log(`Transferred ${transferAmount} tokens to new Account`);
           return await contract.methods.balance_of_private(receiver).view({ from: receiver });
         },
-        SANDBOX_URL,
+        PXE_URL,
         (await getTokenAddress()).toString(),
         transferAmount,
         TokenContractAbi,
@@ -176,13 +176,14 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
           }
           const [owner] = await getSandboxAccountsWallets(pxe);
           const ownerAddress = owner.getAddress();
-          const tx = new DeployMethod(accounts[0].publicKey, pxe, TokenContractAbi).send();
+          const tx = new DeployMethod(accounts[0].publicKey, pxe, TokenContractAbi, [
+            owner.getCompleteAddress(),
+          ]).send();
           await tx.wait();
           const receipt = await tx.getReceipt();
           console.log(`Contract Deployed: ${receipt.contractAddress}`);
 
           const token = await Contract.at(receipt.contractAddress!, TokenContractAbi, owner);
-          await token.methods._initialize(ownerAddress).send().wait();
           const secret = Fr.random();
           const secretHash = await computeMessageSecretHash(secret);
           const mintPrivateReceipt = await token.methods.mint_private(initialBalance, secretHash).send().wait();
@@ -195,7 +196,7 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
 
           return receipt.txHash.toString();
         },
-        SANDBOX_URL,
+        PXE_URL,
         privKey.toString(),
         initialBalance,
         TokenContractAbi,

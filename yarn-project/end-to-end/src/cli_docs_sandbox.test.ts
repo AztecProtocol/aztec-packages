@@ -3,23 +3,22 @@ import { getProgram } from '@aztec/cli';
 import { TxHash } from '@aztec/types';
 
 import stringArgv from 'string-argv';
-import { format } from 'util';
 
 const debug = createDebugLogger('aztec:e2e_cli');
 
-const { SANDBOX_URL = 'http://localhost:8080' } = process.env;
+const { PXE_URL = 'http://localhost:8080' } = process.env;
 
 describe('CLI docs sandbox', () => {
   let cli: ReturnType<typeof getProgram>;
-  let log: (...args: any[]) => void;
+  let log: (msg: string) => void;
 
   // All logs emitted by the cli will be collected here, and reset between tests
   const logs: string[] = [];
 
   beforeAll(async () => {
-    log = (...args: any[]) => {
-      logs.push(format(...args));
-      debug(...args);
+    log = (msg: string) => {
+      logs.push(msg);
+      debug(msg);
     };
 
     await waitForSandboxWithCli();
@@ -65,7 +64,7 @@ Rollup Address: 0x0dcd1bf9a1b36ce34237eeafef220932846bcd82
   const run = (cmd: string, addRpcUrl = true) => {
     const args = stringArgv(cmd, 'node', 'dest/bin/index.js');
     if (addRpcUrl) {
-      args.push('--rpc-url', SANDBOX_URL);
+      args.push('--rpc-url', PXE_URL);
     }
     return cli.parseAsync(args);
   };

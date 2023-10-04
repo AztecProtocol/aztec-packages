@@ -4,6 +4,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { UnencryptedL2Log } from '@aztec/types';
 
 import { ACVMField } from '../acvm.js';
 import { convertACVMFieldToBuffer, fromACVMField } from '../deserialize.js';
@@ -122,6 +123,11 @@ export class Oracle {
     return toACVMField(0);
   }
 
+  async checkNullifierExists([innerNullifier]: ACVMField[]): Promise<ACVMField> {
+    const exists = await this.typedOracle.checkNullifierExists(fromACVMField(innerNullifier));
+    return toACVMField(exists);
+  }
+
   async getL1ToL2Message([msgKey]: ACVMField[]): Promise<ACVMField[]> {
     const { root, ...message } = await this.typedOracle.getL1ToL2Message(fromACVMField(msgKey));
     return toAcvmL1ToL2MessageLoadOracleInputs(message, root);
@@ -160,9 +166,15 @@ export class Oracle {
     return toACVMField(0);
   }
 
-  emitUnencryptedLog(message: ACVMField[]): ACVMField {
+  emitUnencryptedLog([contractAddress]: ACVMField[], [eventSelector]: ACVMField[], message: ACVMField[]): ACVMField {
     // https://github.com/AztecProtocol/aztec-packages/issues/885
-    const log = Buffer.concat(message.map(charBuffer => convertACVMFieldToBuffer(charBuffer).subarray(-1)));
+    const logPayload = Buffer.concat(message.map(charBuffer => convertACVMFieldToBuffer(charBuffer).subarray(-1)));
+    const log = new UnencryptedL2Log(
+      AztecAddress.fromString(contractAddress),
+      FunctionSelector.fromField(fromACVMField(eventSelector)),
+      logPayload,
+    );
+
     this.typedOracle.emitUnencryptedLog(log);
     return toACVMField(0);
   }
