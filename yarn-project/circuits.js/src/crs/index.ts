@@ -180,8 +180,9 @@ export class Crs {
     await this.crs.init();
     if (isNode) {
       const localPath = dirname(fileURLToPath(import.meta.url)) + this.localPath;
-      // save downloaded CRS on file
-      if (this.saveOnFile && !existsSync(localPath)) {
+      const devPath = join(fileURLToPath(import.meta.url), this.devPath);
+      // save downloaded CRS on file if we don't have a local or dev version
+      if (this.saveOnFile && !existsSync(localPath) && !existsSync(devPath)) {
         const dir = localPath.substring(0, localPath.lastIndexOf('/'));
         await mkdir(dir, { recursive: true });
 
