@@ -3,7 +3,7 @@ import { fileURLToPath } from '@aztec/foundation/url';
 
 import isNode from 'detect-node';
 import { existsSync } from 'fs';
-import { open } from 'fs/promises';
+import { mkdir, open } from 'fs/promises';
 import { dirname, join } from 'path';
 
 /**
@@ -182,6 +182,9 @@ export class Crs {
       const localPath = dirname(fileURLToPath(import.meta.url)) + this.localPath;
       // save downloaded CRS on file
       if (this.saveOnFile && !existsSync(localPath)) {
+        const dir = localPath.substring(0, localPath.lastIndexOf('/'));
+        await mkdir(dir, { recursive: true });
+
         const fileHandle = await open(localPath, 'w');
         const g1Data = Buffer.from(this.crs.getG1Data());
         try {
