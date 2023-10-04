@@ -16,7 +16,7 @@ template <typename FF_> class EllipticRelationImpl {
 
     static constexpr std::array<size_t, 2> LENGTHS{
         6, // x-coordinate sub-relation
-        5  // y-coordinate sub-relation
+        6, // y-coordinate sub-relation
     };
 
     static constexpr size_t LEN_1 = 6; // x-coordinate sub-relation
