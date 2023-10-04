@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.8.4](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.8.3...aztec-packages-v0.8.4) (2023-10-04)
+
+
+### Bug Fixes
+
+* `deploy_dockerhub.sh` permissions ([#2682](https://github.com/AztecProtocol/aztec-packages/issues/2682)) ([628127d](https://github.com/AztecProtocol/aztec-packages/commit/628127dec9a8903e6d03672d65dab3a195079d9c))
+* Deploy npm fixes ([#2685](https://github.com/AztecProtocol/aztec-packages/issues/2685)) ([0b788c6](https://github.com/AztecProtocol/aztec-packages/commit/0b788c615d037754244803c57c1d59dbf8559b88))
+* Foundation package is not private ([71d6cda](https://github.com/AztecProtocol/aztec-packages/commit/71d6cda350242c5f0228653111adee09619eafe3))
+
+## [0.8.3](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.8.2...aztec-packages-v0.8.3) (2023-10-04)
+
+
+### Bug Fixes
+
+* Do not depend on npx for check rebuild script ([#2681](https://github.com/AztecProtocol/aztec-packages/issues/2681)) ([20ffbbc](https://github.com/AztecProtocol/aztec-packages/commit/20ffbbc2d906f92f345fae1d6c62954b49fb1c90))
+* Remove package json properties whitelist ([#2680](https://github.com/AztecProtocol/aztec-packages/issues/2680)) ([ef499a0](https://github.com/AztecProtocol/aztec-packages/commit/ef499a06f5fcf545e4c8bad6fd59d5f9376c863c))
+
+
+### Miscellaneous
+
+* Update authwit computation ([#2651](https://github.com/AztecProtocol/aztec-packages/issues/2651)) ([fdbe2b2](https://github.com/AztecProtocol/aztec-packages/commit/fdbe2b2c6a3fc9918921bde5dadbe4d37a64ce11)), closes [#2448](https://github.com/AztecProtocol/aztec-packages/issues/2448)
+
 ## [0.8.2](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.8.1...aztec-packages-v0.8.2) (2023-10-04)
 
 
