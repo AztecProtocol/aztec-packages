@@ -46,7 +46,7 @@ impl<Note, N> ImmutableSingleton<Note, N> {
 
     // docs:start:initialize
     fn initialize(self, note: &mut Note, owner: Option<Field>) {
-        let context = self.context.unwrap_unchecked();
+        let context = self.context.unwrap();
 
         // Nullify the storage slot.
         let compute_initialization_nullifier = self.compute_initialization_nullifier;
@@ -64,7 +64,7 @@ impl<Note, N> ImmutableSingleton<Note, N> {
 
     // docs:start:get_note
     fn get_note(self) -> Note {
-        let context = self.context.unwrap_unchecked();
+        let context = self.context.unwrap();
         let storage_slot = self.storage_slot;
         get_note(context, storage_slot, self.note_interface)
     }

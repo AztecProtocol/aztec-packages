@@ -64,7 +64,7 @@ impl<Note, N> Singleton<Note, N> {
 
     // docs:start:initialize
     fn initialize(self, note: &mut Note, owner: Option<Field>) {
-        let context = self.context.unwrap_unchecked();
+        let context = self.context.unwrap();
 
         // Nullify the storage slot.
         let compute_initialization_nullifier = self.compute_initialization_nullifier;
@@ -77,7 +77,7 @@ impl<Note, N> Singleton<Note, N> {
 
     // docs:start:replace
     fn replace(self, new_note: &mut Note) {
-        let context = self.context.unwrap_unchecked();
+        let context = self.context.unwrap();
         let prev_note = get_note(context, self.storage_slot, self.note_interface);
 
         // Nullify previous note.
@@ -90,7 +90,7 @@ impl<Note, N> Singleton<Note, N> {
 
     // docs:start:get_note
     fn get_note(self) -> Note {
-        let context = self.context.unwrap_unchecked();
+        let context = self.context.unwrap();
         let mut note = get_note(context, self.storage_slot, self.note_interface);
 
         // Nullify current note to make sure it's reading the latest note.
