@@ -181,25 +181,26 @@ resource "aws_lb_target_group" "aztec-bootstrap-1-target-group" {
   vpc_id      = data.terraform_remote_state.setup_iac.outputs.vpc_id
 }
 
-resource "aws_lb_listener" "aztec-bootstrap-1-tcp-listener" {
-  load_balancer_arn = data.terraform_remote_state.aztec-network_iac.outputs.nlb_arn
-  port              = "${var.BOOTNODE_1_LISTEN_PORT}"
-  protocol          = "TCP"
+## The following has been commented out and setup manually as terraform (or the aws provider version we are using) has a bug
+# resource "aws_lb_listener" "aztec-bootstrap-1-tcp-listener" {
+#   load_balancer_arn = data.terraform_remote_state.aztec-network_iac.outputs.nlb_arn
+#   port              = "${var.BOOTNODE_1_LISTEN_PORT}"
+#   protocol          = "TCP"
 
-  tags = {
-    name = "aztec-bootstrap-1-target-group"
-  }
+#   tags = {
+#     name = "aztec-bootstrap-1-target-group"
+#   }
 
-  default_action {
-    type = "forward"
+#   default_action {
+#     type = "forward"
 
-    forward {
-      target_group {
-        arn = aws_lb_target_group.aztec-bootstrap-1-target-group.arn
-      }
-    }
-  }
-}
+#     forward {
+#       target_group {
+#         arn    = aws_lb_target_group.aztec-bootstrap-1-target-group.arn
+#       }
+#     }
+#   }
+# }
 
 resource "aws_cloudwatch_log_group" "aztec-bootstrap-2-log-group" {
   name              = "/fargate/service/${var.DEPLOY_TAG}/aztec-bootstrap-2"
@@ -329,3 +330,32 @@ resource "aws_ecs_service" "aztec-bootstrap-2" {
 
   task_definition = aws_ecs_task_definition.aztec-bootstrap-2.family
 }
+
+resource "aws_lb_target_group" "aztec-bootstrap-2-target-group" {
+  name        = "aztec-bootstrap-2-target-group"
+  port        = "${var.BOOTNODE_2_LISTEN_PORT}"
+  protocol    = "TCP"
+  target_type = "ip"
+  vpc_id      = data.terraform_remote_state.setup_iac.outputs.vpc_id
+}
+
+## The following has been commented out and setup manually as terraform (or the aws provider version we are using) has a bug
+# resource "aws_lb_listener" "aztec-bootstrap-2-tcp-listener" {
+#   load_balancer_arn = data.terraform_remote_state.aztec-network_iac.outputs.nlb_arn
+#   port              = "${var.BOOTNODE_2_LISTEN_PORT}"
+#   protocol          = "TCP"
+
+#   tags = {
+#     name = "aztec-bootstrap-2-tcp-listener"
+#   }
+
+#   default_action {
+#     type = "forward"
+
+#     forward {
+#       target_group {
+#         arn    = aws_lb_target_group.aztec-bootstrap-2-target-group.arn
+#       }
+#     }
+#   }
+# }

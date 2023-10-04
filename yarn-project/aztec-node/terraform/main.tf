@@ -101,7 +101,7 @@ resource "aws_ecs_task_definition" "aztec-node-1" {
         "value": "production"
       },
       {
-        "name": "AZTEC_NODE_PORT",
+        "name": "SERVER_PORT",
         "value": "80"
       },
       {
@@ -260,6 +260,35 @@ resource "aws_lb_listener_rule" "api-1" {
     }
   }
 }
+
+resource "aws_lb_target_group" "aztec-node-1-target-group" {
+  name        = "aztec-node-1-target-group"
+  port        = "${var.NODE_1_TCP_PORT}"
+  protocol    = "TCP"
+  target_type = "ip"
+  vpc_id      = data.terraform_remote_state.setup_iac.outputs.vpc_id
+}
+
+## The following has been commented out and setup manually as terraform (or the aws provider version we are using) has a bug
+# resource "aws_lb_listener" "aztec-node-1-tcp-listener" {
+#   load_balancer_arn = data.terraform_remote_state.aztec-network_iac.outputs.nlb_arn
+#   port              = "${var.NODE_1_TCP_PORT}"
+#   protocol          = "TCP"
+
+#   tags = {
+#     name = "aztec-node-1-tcp-listener"
+#   }
+
+#   default_action {
+#     type = "forward"
+
+#     forward {
+#       target_group {
+#         arn    = aws_lb_target_group.aztec-bootstrap-1-target-group.arn
+#       }
+#     }
+#   }
+# }
 
 resource "aws_cloudwatch_log_group" "aztec-node-log-group-2" {
   name              = "/fargate/service/${var.DEPLOY_TAG}/aztec-node-2"
@@ -486,3 +515,32 @@ resource "aws_lb_listener_rule" "api-2" {
     }
   }
 }
+
+resource "aws_lb_target_group" "aztec-node-2-target-group" {
+  name        = "aztec-node-2-target-group"
+  port        = "${var.NODE_2_TCP_PORT}"
+  protocol    = "TCP"
+  target_type = "ip"
+  vpc_id      = data.terraform_remote_state.setup_iac.outputs.vpc_id
+}
+
+## The following has been commented out and setup manually as terraform (or the aws provider version we are using) has a bug
+# resource "aws_lb_listener" "aztec-node-2-tcp-listener" {
+#   load_balancer_arn = data.terraform_remote_state.aztec-network_iac.outputs.nlb_arn
+#   port              = "${var.NODE_2_TCP_PORT}"
+#   protocol          = "TCP"
+
+#   tags = {
+#     name = "aztec-node-2-tcp-listener"
+#   }
+
+#   default_action {
+#     type = "forward"
+
+#     forward {
+#       target_group {
+#         arn    = aws_lb_target_group.aztec-bootstrap-2-target-group.arn
+#       }
+#     }
+#   }
+# }
