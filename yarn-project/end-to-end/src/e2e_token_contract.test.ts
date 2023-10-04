@@ -1,11 +1,18 @@
-import { AccountWallet, NotePreimage, TxHash, TxStatus, computeMessageSecretHash } from '@aztec/aztec.js';
+import {
+  AccountWallet,
+  NotePreimage,
+  TxHash,
+  TxStatus,
+  computeAuthWitHash,
+  computeMessageSecretHash,
+} from '@aztec/aztec.js';
 import { CompleteAddress, Fr, FunctionSelector } from '@aztec/circuits.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts/types';
 
 import { jest } from '@jest/globals';
 
-import { computeAuthWitHash, setup } from './fixtures/utils.js';
+import { setup } from './fixtures/utils.js';
 import { TokenSimulator } from './simulators/token_simulator.js';
 
 const TIMEOUT = 90_000;

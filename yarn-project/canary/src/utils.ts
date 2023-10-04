@@ -136,16 +136,3 @@ export async function deployL1Contract(
 
   return EthAddress.fromString(receipt.contractAddress!);
 }
-
-/**
- * Hash a payload to generate a signature on an account contract
- * @param payload - payload to hash
- * @returns the hashed message
- */
-export const hashPayload = async (payload: Fr[]) => {
-  return pedersenPlookupCompressWithHashIndex(
-    await CircuitsWasm.get(),
-    payload.map(fr => fr.toBuffer()),
-    GeneratorIndex.SIGNATURE_PAYLOAD,
-  );
-};

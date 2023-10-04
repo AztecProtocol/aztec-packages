@@ -1,4 +1,4 @@
-import { AccountWallet, AztecAddress } from '@aztec/aztec.js';
+import { AccountWallet, AztecAddress, computeAuthWitHash } from '@aztec/aztec.js';
 import { Fr } from '@aztec/circuits.js';
 import { deployL1Contract } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -10,7 +10,7 @@ import { AztecNode, PXE, TxStatus } from '@aztec/types';
 import { getContract, parseEther } from 'viem';
 
 import { CrossChainTestHarness } from './fixtures/cross_chain_test_harness.js';
-import { computeAuthWitHash, delay, setup } from './fixtures/utils.js';
+import { delay, setup } from './fixtures/utils.js';
 
 // PSA: This tests works on forked mainnet. There is a dump of the data in `dumpedState` such that we
 // don't need to burn through RPC requests.

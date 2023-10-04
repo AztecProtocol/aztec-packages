@@ -1,4 +1,4 @@
-import { AccountWallet, CheatCodes, Fr, SentTx, computeMessageSecretHash } from '@aztec/aztec.js';
+import { AccountWallet, CheatCodes, Fr, SentTx, computeAuthWitHash, computeMessageSecretHash } from '@aztec/aztec.js';
 import { CompleteAddress } from '@aztec/circuits.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { LendingContract, PriceFeedContract, TokenContract } from '@aztec/noir-contracts/types';
@@ -6,7 +6,7 @@ import { NotePreimage, TxStatus } from '@aztec/types';
 
 import { jest } from '@jest/globals';
 
-import { computeAuthWitHash, setup } from './fixtures/utils.js';
+import { setup } from './fixtures/utils.js';
 import { LendingAccount, LendingSimulator, TokenSimulator } from './simulators/index.js';
 
 describe('e2e_lending_contract', () => {
