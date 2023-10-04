@@ -10,6 +10,7 @@ import {
   L2Block,
   L2BlockL2Logs,
   L2Tx,
+  LogFilter,
   LogType,
   MerkleTreeId,
   StateInfoProvider,
@@ -92,19 +93,11 @@ export interface AztecNode extends StateInfoProvider {
   getLogs(from: number, limit: number, logType: LogType): Promise<L2BlockL2Logs[]>;
 
   /**
-   * Gets up to `limit` amount of logs starting from `from` from contract `contractAddress` and event defined by `selector`.
-   * @param from - Number of the L2 block to which corresponds the first logs to be returned.
-   * @param limit - The maximum number of logs to return.
-   * @param contractAddress - The contract address to filter logs by.
-   * @param selector - The event selector to filter logs by.
+   * Gets unencrypted logs based on the provided filter.
+   * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  getUnencryptedLogs(
-    from: number,
-    limit: number,
-    contractAddress: AztecAddress,
-    selector: FunctionSelector,
-  ): Promise<ExtendedUnencryptedL2Log[]>;
+  getUnencryptedLogs(filter: LogFilter): Promise<ExtendedUnencryptedL2Log[]>;
 
   /**
    * Method to submit a transaction to the p2p pool.

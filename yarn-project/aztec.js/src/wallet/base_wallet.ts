@@ -1,4 +1,4 @@
-import { AztecAddress, Fr, FunctionSelector, GrumpkinPrivateKey, PartialAddress } from '@aztec/circuits.js';
+import { AztecAddress, Fr, GrumpkinPrivateKey, PartialAddress } from '@aztec/circuits.js';
 import {
   AuthWitness,
   ContractData,
@@ -6,8 +6,8 @@ import {
   ExtendedContractData,
   ExtendedUnencryptedL2Log,
   FunctionCall,
-  L2BlockL2Logs,
   L2Tx,
+  LogFilter,
   NodeInfo,
   NotePreimage,
   PXE,
@@ -97,13 +97,8 @@ export abstract class BaseWallet implements Wallet {
   getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined> {
     return this.pxe.getContractData(contractAddress);
   }
-  public getUnencryptedLogs(
-    from: number,
-    limit: number,
-    contractAddress: AztecAddress,
-    selector: FunctionSelector,
-  ): Promise<ExtendedUnencryptedL2Log[]> {
-    return this.pxe.getUnencryptedLogs(from, limit, contractAddress, selector);
+  getUnencryptedLogs(filter: LogFilter): Promise<ExtendedUnencryptedL2Log[]> {
+    return this.pxe.getUnencryptedLogs(filter);
   }
   getBlockNumber(): Promise<number> {
     return this.pxe.getBlockNumber();

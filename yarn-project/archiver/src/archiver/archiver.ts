@@ -10,6 +10,7 @@ import {
   ContractDataSource,
   EncodedContractFunction,
   ExtendedContractData,
+  ExtendedUnencryptedL2Log,
   INITIAL_L2_BLOCK_NUM,
   L1ToL2Message,
   L1ToL2MessageSource,
@@ -18,6 +19,7 @@ import {
   L2BlockSource,
   L2LogsSource,
   L2Tx,
+  LogFilter,
   LogType,
   TxHash,
 } from '@aztec/types';
@@ -387,6 +389,15 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
    */
   public getLogs(from: number, limit: number, logType: LogType): Promise<L2BlockL2Logs[]> {
     return this.store.getLogs(from, limit, logType);
+  }
+
+  /**
+   * Gets unencrypted logs based on the provided filter.
+   * @param filter - The filter to apply to the logs.
+   * @returns The requested logs.
+   */
+  getUnencryptedLogs(filter: LogFilter): Promise<ExtendedUnencryptedL2Log[]> {
+    return this.store.getUnencryptedLogs(filter);
   }
 
   /**

@@ -12,7 +12,6 @@ import {
   CompleteAddress,
   EthAddress,
   FunctionData,
-  FunctionSelector,
   GrumpkinPrivateKey,
   KernelCircuitPublicInputsFinal,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
@@ -37,7 +36,7 @@ import {
   KeyStore,
   L2Block,
   L2Tx,
-  LogType,
+  LogFilter,
   MerkleTreeId,
   NodeInfo,
   NotePreimage,
@@ -386,20 +385,12 @@ export class PXEService implements PXE {
   }
 
   /**
-   * Gets up to `limit` amount of logs starting from `from` from contract `contractAddress` and event defined by `selector`.
-   * @param from - Number of the L2 block to which corresponds the first logs to be returned.
-   * @param limit - The maximum number of logs to return.
-   * @param contractAddress - The contract address to filter logs by.
-   * @param selector - The event selector to filter logs by.
+   * Gets unencrypted logs based on the provided filter.
+   * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  public getUnencryptedLogs(
-    from: number,
-    limit: number,
-    contractAddress: AztecAddress,
-    selector: FunctionSelector,
-  ): Promise<ExtendedUnencryptedL2Log[]> {
-    return this.node.getUnencryptedLogs(from, limit, contractAddress, selector);
+  public getUnencryptedLogs(filter: LogFilter): Promise<ExtendedUnencryptedL2Log[]> {
+    return this.node.getUnencryptedLogs(filter);
   }
 
   async #getFunctionCall(functionName: string, args: any[], to: AztecAddress): Promise<FunctionCall> {

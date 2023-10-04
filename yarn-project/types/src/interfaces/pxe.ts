@@ -1,4 +1,4 @@
-import { AztecAddress, Fr, FunctionSelector, GrumpkinPrivateKey, PartialAddress } from '@aztec/circuits.js';
+import { AztecAddress, Fr, GrumpkinPrivateKey, PartialAddress } from '@aztec/circuits.js';
 import {
   AuthWitness,
   CompleteAddress,
@@ -6,6 +6,7 @@ import {
   ExtendedContractData,
   ExtendedUnencryptedL2Log,
   L2Tx,
+  LogFilter,
   NotePreimage,
   Tx,
   TxExecutionRequest,
@@ -231,19 +232,11 @@ export interface PXE {
   getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined>;
 
   /**
-   * Gets up to `limit` amount of logs starting from `from` from contract `contractAddress` and event defined by `selector`.
-   * @param from - Number of the L2 block to which corresponds the first logs to be returned.
-   * @param limit - The maximum number of logs to return.
-   * @param contractAddress - The contract address to filter logs by.
-   * @param selector - The event selector to filter logs by.
+   * Gets unencrypted logs based on the provided filter.
+   * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  getUnencryptedLogs(
-    from: number,
-    limit: number,
-    contractAddress: AztecAddress,
-    selector: FunctionSelector,
-  ): Promise<ExtendedUnencryptedL2Log[]>;
+  getUnencryptedLogs(filter: LogFilter): Promise<ExtendedUnencryptedL2Log[]>;
 
   /**
    * Fetches the current block number.

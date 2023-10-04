@@ -3,11 +3,13 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import {
   ContractData,
   ExtendedContractData,
+  ExtendedUnencryptedL2Log,
   INITIAL_L2_BLOCK_NUM,
   L1ToL2Message,
   L2Block,
   L2BlockL2Logs,
   L2Tx,
+  LogFilter,
   LogType,
   TxHash,
 } from '@aztec/types';
@@ -93,6 +95,13 @@ export interface ArchiverDataStore {
    * @returns The requested logs.
    */
   getLogs(from: number, limit: number, logType: LogType): Promise<L2BlockL2Logs[]>;
+
+  /**
+   * Gets unencrypted logs based on the provided filter.
+   * @param filter - The filter to apply to the logs.
+   * @returns The requested logs.
+   */
+  getUnencryptedLogs(filter: LogFilter): Promise<ExtendedUnencryptedL2Log[]>;
 
   /**
    * Add new extended contract data from an L2 block to the store's list.
@@ -345,6 +354,39 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     const startIndex = from - INITIAL_L2_BLOCK_NUM;
     const endIndex = startIndex + limit;
     return Promise.resolve(logs.slice(startIndex, endIndex));
+  }
+
+  /**
+   * Gets unencrypted logs based on the provided filter.
+   * @param filter - The filter to apply to the logs.
+   * @returns The requested logs.
+   */
+  getUnencryptedLogs(filter: LogFilter): Promise<ExtendedUnencryptedL2Log[]> {
+    const MAX_LOGS = 1000;
+
+    const fromBlockIndex = (filter.fromBlock || INITIAL_L2_BLOCK_NUM) - INITIAL_L2_BLOCK_NUM;
+    if (fromBlockIndex > this.unencryptedLogs.length) {
+      return Promise.resolve([]);
+    }
+
+    const toBlockIndex =
+      Math.min(filter.toBlock || this.unencryptedLogs.length, this.unencryptedLogs.length) - INITIAL_L2_BLOCK_NUM;
+    if (toBlockIndex < fromBlockIndex) {
+      return Promise.resolve([]);
+    }
+
+    const limit = Math.min(filter.limit || MAX_LOGS, MAX_LOGS);
+    const contractAddress = filter.contractAddress;
+    const selector = filter.selector;
+
+    const logs: ExtendedUnencryptedL2Log[] = [];
+
+    for (let i = fromBlockIndex; i < toBlockIndex; i++) {
+      const _logs = this.unencryptedLogs[i];
+      // TODO
+    }
+
+    return Promise.resolve(logs);
   }
 
   /**
