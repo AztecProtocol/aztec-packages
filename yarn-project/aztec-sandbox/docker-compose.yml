@@ -25,8 +25,8 @@ services:
       - ./log:/usr/src/yarn-project/aztec-sandbox/log:rw
 
   otterscan:
-    image: otterscan/otterscan:v2.0.0
-    platform: linux/amd64
+    image: otterscan/otterscan:develop
+    # platform: linux/amd64
     ports:
       - "5100:80"
     container_name: otterscan
