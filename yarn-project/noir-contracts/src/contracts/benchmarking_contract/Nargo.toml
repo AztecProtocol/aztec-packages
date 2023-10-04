@@ -1,9 +1,9 @@
 [package]
-name = "schnorr_single_key_account_contract"
+name = "benchmarking_contract"
 authors = [""]
 compiler_version = "0.1"
 type = "contract"
 
 [dependencies]
 aztec = { path = "../../../../aztec-nr/aztec" }
-authwit = { path = "../../../../aztec-nr/authwit" }
+value_note = { path = "../../../../aztec-nr/value-note" }
