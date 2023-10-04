@@ -22,4 +22,4 @@ COPY --from=builder /usr/src/ /usr/src/
 WORKDIR /usr/src/yarn-project/aztec-sandbox
 ENTRYPOINT ["yarn"]
 CMD [ "start" ]
-EXPOSE 8080
+EXPOSE 8079 8080

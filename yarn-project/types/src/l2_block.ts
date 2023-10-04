@@ -558,9 +558,7 @@ export class L2Block {
     const logFieldName = logType === LogType.ENCRYPTED ? 'newEncryptedLogs' : 'newUnencryptedLogs';
 
     if (this[logFieldName]) {
-      if (this[logFieldName] === logs) {
-        // Comparing objects only by references is enough in this case since this should occur only when exactly
-        // the same object is passed in and not a copy.
+      if (this[logFieldName]?.equals(logs)) {
         L2Block.logger(`${logFieldName} logs already attached`);
         return;
       }
@@ -807,6 +805,21 @@ export class L2Block {
     return Array(this.numberOfTxs)
       .fill(0)
       .map((_, i) => this.getTx(i));
+  }
+
+  /**
+   * Returns stats used for logging.
+   * @returns Stats on tx count, number, and log size and count.
+   */
+  getStats() {
+    return {
+      txCount: this.numberOfTxs,
+      blockNumber: this.number,
+      encryptedLogCount: this.newEncryptedLogs?.getTotalLogCount() ?? 0,
+      unencryptedLogCount: this.newUnencryptedLogs?.getTotalLogCount() ?? 0,
+      encryptedLogSize: this.newEncryptedLogs?.getSerializedLength() ?? 0,
+      unencryptedLogSize: this.newUnencryptedLogs?.getSerializedLength() ?? 0,
+    };
   }
 
   /**

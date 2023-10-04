@@ -1,4 +1,3 @@
-import { AztecNodeService } from '@aztec/aztec-node';
 import { AccountWallet, AztecAddress } from '@aztec/aztec.js';
 import { Fr, FunctionSelector } from '@aztec/circuits.js';
 import { deployL1Contract } from '@aztec/ethereum';
@@ -6,7 +5,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { DebugLogger } from '@aztec/foundation/log';
 import { UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-artifacts';
 import { UniswapContract } from '@aztec/noir-contracts/types';
-import { PXE, TxStatus } from '@aztec/types';
+import { AztecNode, PXE, TxStatus } from '@aztec/types';
 
 import { getContract, parseEther } from 'viem';
 
@@ -31,7 +30,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
   const WETH9_ADDRESS: EthAddress = EthAddress.fromString('0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2');
   const DAI_ADDRESS: EthAddress = EthAddress.fromString('0x6B175474E89094C44Da98b954EedeAC495271d0F');
 
-  let aztecNode: AztecNodeService | undefined;
+  let aztecNode: AztecNode | undefined;
   let pxe: PXE;
   let logger: DebugLogger;
   let teardown: () => Promise<void>;
@@ -64,7 +63,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
       wallets,
       logger: logger_,
       cheatCodes,
-    } = await setup(2, dumpedState);
+    } = await setup(2, { stateLoad: dumpedState });
     const walletClient = deployL1ContractsValues.walletClient;
     const publicClient = deployL1ContractsValues.publicClient;
 
@@ -272,11 +271,11 @@ describe('uniswap_trade_on_l1_from_l2', () => {
     const wethL2BalanceAfterSwap = await wethCrossChainHarness.getL2PrivateBalanceOf(ownerAddress);
     const daiL2BalanceAfterSwap = await daiCrossChainHarness.getL2PrivateBalanceOf(ownerAddress);
 
-    logger('WETH balance before swap: ', wethL2BalanceBeforeSwap.toString());
-    logger('DAI balance before swap  : ', daiL2BalanceBeforeSwap.toString());
+    logger('WETH balance before swap: ' + wethL2BalanceBeforeSwap.toString());
+    logger('DAI balance before swap  : ' + daiL2BalanceBeforeSwap.toString());
     logger('***** 🧚‍♀️ SWAP L2 assets on L1 Uniswap 🧚‍♀️ *****');
-    logger('WETH balance after swap : ', wethL2BalanceAfterSwap.toString());
-    logger('DAI balance after swap  : ', daiL2BalanceAfterSwap.toString());
+    logger('WETH balance after swap : ' + wethL2BalanceAfterSwap.toString());
+    logger('DAI balance after swap  : ' + daiL2BalanceAfterSwap.toString());
   }, 140_000);
 
   it('should uniswap trade on L1 from L2 funds publicly (swaps WETH -> DAI)', async () => {
