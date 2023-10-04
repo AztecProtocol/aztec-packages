@@ -89,8 +89,11 @@ template <typename Flavor> void create_some_lookup_gates(auto& circuit_builder)
     using FF = typename Flavor::FF;
     // Add some lookup gates (related to pedersen hashing)
     auto pedersen_input_value = FF::random_element();
-    const auto input_hi = uint256_t(pedersen_input_value).slice(126, 256);
-    const auto input_lo = uint256_t(pedersen_input_value).slice(0, 126);
+    const auto input_hi =
+        uint256_t(pedersen_input_value)
+            .slice(plookup::fixed_base::table::BITS_PER_LO_SCALAR,
+                   plookup::fixed_base::table::BITS_PER_LO_SCALAR + plookup::fixed_base::table::BITS_PER_HI_SCALAR);
+    const auto input_lo = uint256_t(pedersen_input_value).slice(0, plookup::fixed_base::table::BITS_PER_LO_SCALAR);
     const auto input_hi_index = circuit_builder.add_variable(input_hi);
     const auto input_lo_index = circuit_builder.add_variable(input_lo);
 

@@ -3,6 +3,7 @@
 #include "barretenberg/honk/composer/ultra_composer.hpp"
 #include "barretenberg/honk/proof_system/grand_product_library.hpp"
 #include "barretenberg/honk/transcript/transcript.hpp"
+#include "barretenberg/proof_system/plookup_tables/fixed_base/fixed_base.hpp"
 #include "barretenberg/proof_system/relations/auxiliary_relation.hpp"
 #include "barretenberg/proof_system/relations/elliptic_relation.hpp"
 #include "barretenberg/proof_system/relations/gen_perm_sort_relation.hpp"
@@ -289,8 +290,11 @@ TEST_F(SumcheckTests, RealCircuitUltra)
 
     // Add some lookup gates (related to pedersen hashing)
     auto pedersen_input_value = FF::random_element();
-    const FF input_hi = uint256_t(pedersen_input_value).slice(126, 256);
-    const FF input_lo = uint256_t(pedersen_input_value).slice(0, 126);
+    const FF input_hi =
+        uint256_t(pedersen_input_value)
+            .slice(plookup::fixed_base::table::BITS_PER_LO_SCALAR,
+                   plookup::fixed_base::table::BITS_PER_LO_SCALAR + plookup::fixed_base::table::BITS_PER_HI_SCALAR);
+    const FF input_lo = uint256_t(pedersen_input_value).slice(0, plookup::fixed_base::table::BITS_PER_LO_SCALAR);
     const auto input_hi_index = builder.add_variable(input_hi);
     const auto input_lo_index = builder.add_variable(input_lo);
 
