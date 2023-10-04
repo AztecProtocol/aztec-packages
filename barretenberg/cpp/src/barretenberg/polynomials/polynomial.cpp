@@ -69,17 +69,6 @@ Polynomial<Fr>::Polynomial(std::span<const Fr> coefficients)
 }
 
 template <typename Fr>
-Polynomial<Fr>::Polynomial(std::initializer_list<Fr> coefficients)
-    : size_(coefficients.size())
-{
-    coefficients_ = allocate_aligned_memory(sizeof(Fr) * capacity());
-    memcpy(static_cast<void*>(coefficients_.get()),
-           static_cast<void const*>(coefficients.begin()),
-           sizeof(Fr) * coefficients.size());
-    zero_memory_beyond(size_);
-}
-
-template <typename Fr>
 Polynomial<Fr>::Polynomial(std::span<const Fr> interpolation_points, std::span<const Fr> evaluations)
     : Polynomial(interpolation_points.size())
 {

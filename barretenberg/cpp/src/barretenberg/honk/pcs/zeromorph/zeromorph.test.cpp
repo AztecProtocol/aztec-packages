@@ -93,20 +93,29 @@ TYPED_TEST(ZeroMorphTest, BatchedLiftedDegreeQuotient)
     const size_t N = 8;
 
     // Define some mock q_k with deg(q_k) = 2^k - 1
-    Polynomial q_0 = { 1, 0, 0, 0, 0, 0, 0, 0 };
-    Polynomial q_1 = { 2, 3, 0, 0, 0, 0, 0, 0 };
-    Polynomial q_2 = { 4, 5, 6, 7, 0, 0, 0, 0 };
-
+    std::array<Fr, N> data_0 = { 1, 0, 0, 0, 0, 0, 0, 0 };
+    std::array<Fr, N> data_1 = { 2, 3, 0, 0, 0, 0, 0, 0 };
+    std::array<Fr, N> data_2 = { 4, 5, 6, 7, 0, 0, 0, 0 };
+    Polynomial q_0(data_0);
+    Polynomial q_1(data_1);
+    Polynomial q_2(data_2);
     std::vector<Polynomial> quotients = { q_0, q_1, q_2 };
+
     auto y_challenge = Fr::random_element();
 
+    // Compute batched quotient \hat{q} using the prover method
     auto batched_quotient = ZeroMorphProver::compute_batched_lifted_degree_quotient(quotients, y_challenge, N);
 
     // Now explicitly define q_k_lifted = X^{N-2^k} * q_k and compute the expected batched result
+    std::array<Fr, N> data_0_lifted = { 0, 0, 0, 0, 0, 0, 0, 1 };
+    std::array<Fr, N> data_1_lifted = { 0, 0, 0, 0, 0, 0, 2, 3 };
+    std::array<Fr, N> data_2_lifted = { 0, 0, 0, 0, 4, 5, 6, 7 };
+    Polynomial q_0_lifted(data_0_lifted);
+    Polynomial q_1_lifted(data_1_lifted);
+    Polynomial q_2_lifted(data_2_lifted);
+
+    // Explicitly compute \hat{q}
     auto batched_quotient_expected = Polynomial(N);
-    Polynomial q_0_lifted = { 0, 0, 0, 0, 0, 0, 0, 1 };
-    Polynomial q_1_lifted = { 0, 0, 0, 0, 0, 0, 2, 3 };
-    Polynomial q_2_lifted = { 0, 0, 0, 0, 4, 5, 6, 7 };
     batched_quotient_expected += q_0_lifted;
     batched_quotient_expected.add_scaled(q_1_lifted, y_challenge);
     batched_quotient_expected.add_scaled(q_2_lifted, y_challenge * y_challenge);
@@ -128,11 +137,14 @@ TYPED_TEST(ZeroMorphTest, PartiallyEvaluatedQuotientZeta)
     const size_t N = 8;
 
     // Define some mock q_k with deg(q_k) = 2^k - 1
-    Polynomial q_0 = { 1, 0, 0, 0, 0, 0, 0, 0 };
-    Polynomial q_1 = { 2, 3, 0, 0, 0, 0, 0, 0 };
-    Polynomial q_2 = { 4, 5, 6, 7, 0, 0, 0, 0 };
-
+    std::array<Fr, N> data_0 = { 1, 0, 0, 0, 0, 0, 0, 0 };
+    std::array<Fr, N> data_1 = { 2, 3, 0, 0, 0, 0, 0, 0 };
+    std::array<Fr, N> data_2 = { 4, 5, 6, 7, 0, 0, 0, 0 };
+    Polynomial q_0(data_0);
+    Polynomial q_1(data_1);
+    Polynomial q_2(data_2);
     std::vector<Polynomial> quotients = { q_0, q_1, q_2 };
+
     auto y_challenge = Fr::random_element();
 
     auto batched_quotient = ZeroMorphProver::compute_batched_lifted_degree_quotient(quotients, y_challenge, N);
@@ -213,10 +225,12 @@ TYPED_TEST(ZeroMorphTest, PartiallyEvaluatedQuotientZ)
     Fr v_evaluation = multilinear_f.evaluate_mle(u_challenge);
 
     // Define some mock q_k with deg(q_k) = 2^k - 1
-    Polynomial q_0 = { 1, 0, 0, 0, 0, 0, 0, 0 };
-    Polynomial q_1 = { 2, 3, 0, 0, 0, 0, 0, 0 };
-    Polynomial q_2 = { 4, 5, 6, 7, 0, 0, 0, 0 };
-
+    std::array<Fr, N> data_0 = { 1, 0, 0, 0, 0, 0, 0, 0 };
+    std::array<Fr, N> data_1 = { 2, 3, 0, 0, 0, 0, 0, 0 };
+    std::array<Fr, N> data_2 = { 4, 5, 6, 7, 0, 0, 0, 0 };
+    Polynomial q_0(data_0);
+    Polynomial q_1(data_1);
+    Polynomial q_2(data_2);
     std::vector<Polynomial> quotients = { q_0, q_1, q_2 };
 
     auto x_challenge = Fr::random_element();
@@ -243,7 +257,7 @@ TYPED_TEST(ZeroMorphTest, PartiallyEvaluatedQuotientZ)
  * @brief Full Prover/Verifier protocol for proving multilinear evaluation f(u) = v
  *
  */
-TYPED_TEST(ZeroMorphTest, Single)
+TYPED_TEST(ZeroMorphTest, ProveAndVerifySingle)
 {
     using Fr = typename TypeParam::ScalarField;
     using Commitment = typename TypeParam::AffineElement;
