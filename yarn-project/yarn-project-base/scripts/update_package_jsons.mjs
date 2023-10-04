@@ -30,6 +30,11 @@ function getUpdatedValue(source, target, key) {
   const value = source[key];
   if (typeof value === 'object' && !Array.isArray(value)) {
     return { ...target[key], ...value };
+    // merge required files if a project requires more than what's in common
+  } else if (key === 'files') {
+    console.log(target[key], value);
+    const res = [...target[key], ...value];
+    return Array.from(new Set(res));
   } else {
     return value;
   }
