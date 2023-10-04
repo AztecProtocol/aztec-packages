@@ -285,7 +285,7 @@ TEST_F(UltraRelationConsistency, LookupRelation)
         auto contribution_2 = z_lookup_shift * lagrange_last;
         expected_values[1] = contribution_2;
 
-        validate_relation_execution<Relation>(expected_values, input_elements, parameters);
+        new_validate_relation_execution<Relation>(expected_values, input_elements, parameters);
     };
     run_test(/*random_inputs=*/false);
     run_test(/*random_inputs=*/true);
