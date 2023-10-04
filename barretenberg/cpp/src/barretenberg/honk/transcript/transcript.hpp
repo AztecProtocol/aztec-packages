@@ -45,7 +45,7 @@ class TranscriptManifest {
     {
         manifest[round].challenge_label = { labels... };
     }
-    void add_entry(size_t round, std::string element_label, size_t element_size)
+    void add_entry(size_t round, const std::string& element_label, size_t element_size)
     {
         manifest[round].entries.emplace_back(element_label, element_size);
     }
@@ -67,9 +67,14 @@ template <typename FF> class BaseTranscript {
     // TODO(Adrian): Make these tweakable
   public:
     static constexpr size_t HASH_OUTPUT_SIZE = 32;
+    BaseTranscript() = default;
+
+    BaseTranscript(uint32_t circuit_size) { setUpStructure(circuit_size); }
 
   private:
     static constexpr size_t MIN_BYTES_PER_CHALLENGE = 128 / 8; // 128 bit challenges
+
+    size_t num_objects_processed = 0;
 
     size_t round_number = 0;
     std::array<uint8_t, HASH_OUTPUT_SIZE> previous_challenge_buffer{}; // default-initialized to zeros
@@ -77,6 +82,20 @@ template <typename FF> class BaseTranscript {
 
     // "Manifest" object that records a summary of the transcript interactions
     TranscriptManifest manifest;
+
+    void setUpStructure(uint32_t circuit_size);
+
+    /**
+     * @brief Checks that the current object is the expected next one.
+     *
+     * @param object_name
+     * @return bool
+     */
+    [[nodiscard]] bool check_current_object(const std::string& object_name) const
+    {
+        ASSERT(num_objects_processed < ordered_objects.size());
+        return (get<0>(ordered_objects[num_objects_processed]) == object_name);
+    }
 
     /**
      * @brief Compute c_next = H( Compress(c_prev || round_buffer) )
@@ -114,6 +133,12 @@ template <typename FF> class BaseTranscript {
     };
 
   protected:
+    // Enum to deal with various types in Transcript
+    enum TranscriptObjectType { UInt32Obj, FieldElementObj, GroupElementObj, SumcheckUnivariateObj, SumcheckEvalObj };
+
+    // List of objects in the transcript by name, pointer, and size in bytes
+    std::vector<std::tuple<std::string, void*, TranscriptObjectType>> ordered_objects;
+
     /**
      * @brief Adds challenge elements to the current_round_buffer and updates the manifest.
      *
@@ -129,6 +154,23 @@ template <typename FF> class BaseTranscript {
     }
 
   public:
+    template <typename T> void send_to_verifier(std::string object_name, T object)
+    {
+        if (!check_current_object(object_name)) {
+            throw_or_abort("Object being sent is not expected.");
+        }
+        object;
+        // set the current object pointed to by ordered_objects as object
+
+        ++num_objects_processed;
+    }
+    template <typename T> T receive_from_verifier(std::string object_name)
+    {
+        if (!check_current_object(object_name)) {
+            throw_or_abort("Object being sent is not expected.");
+        }
+    }
+
     /**
      * @brief After all the prover messages have been sent, finalize the round by hashing all the data and then create
      * the number of requested challenges which will be increasing powers of the first challenge.  Finally, reset the
@@ -225,7 +267,7 @@ template <class FF> class VerifierTranscript : public BaseTranscript<FF> {
 
     /// Contains the raw data sent by the prover.
     std::vector<uint8_t> proof_data_;
-    size_t num_bytes_read_ = 0;
+    uint32_t num_bytes_read_ = 0;
 
   public:
     VerifierTranscript() = default;

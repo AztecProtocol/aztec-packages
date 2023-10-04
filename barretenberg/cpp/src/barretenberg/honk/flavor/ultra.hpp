@@ -417,8 +417,8 @@ class Ultra {
         GroupElement shplonk_q_comm;
         GroupElement kzg_w_comm;
 
-        std::vector<std::tuple<std::string, void*, size_t>> ordered_objects;
-        Transcript(uint32_t circuit_size)
+      private:
+        void setUpStructure(uint32_t circuit_size)
         {
             // construct the vector
             auto log_n = numeric::get_msb(circuit_size);
@@ -427,40 +427,35 @@ class Ultra {
             gemini_univariate_comms.resize(log_n);
             gemini_a_evals.resize(log_n);
 
-            ordered_objects.emplace_back("circuit_size", &circuit_size, sizeof(uint32_t));
-            ordered_objects.emplace_back("public_input_size", &public_input_size, sizeof(uint32_t));
-            ordered_objects.emplace_back("pub_inputs_offset", &pub_inputs_offset, sizeof(uint32_t));
-            ordered_objects.emplace_back("public_input_0", &public_input_0, sizeof(FF));
-            ordered_objects.emplace_back("w_l_comm", &w_l_comm, sizeof(GroupElement));
-            ordered_objects.emplace_back("w_r_comm", &w_r_comm, sizeof(GroupElement));
-            ordered_objects.emplace_back("w_o_comm", &w_o_comm, sizeof(GroupElement));
-            ordered_objects.emplace_back("sorted_accum_comm", &sorted_accum_comm, sizeof(GroupElement));
-            ordered_objects.emplace_back("w_4_comm", &w_4_comm, sizeof(GroupElement));
-            ordered_objects.emplace_back("z_perm_comm", &z_perm_comm, sizeof(GroupElement));
-            ordered_objects.emplace_back("z_lookup_comm", &z_lookup_comm, sizeof(GroupElement));
-            for (size_t i = 0; i < log_n; ++i) {
-                std::string idx = std::to_string(i);
-                ordered_objects.emplace_back("sumcheck_univariate_" + idx,
-                                             &sumcheck_univariates[i],
-                                             sizeof(Univariate<FF, MAX_RELATION_LENGTH>));
-            }
-            ordered_objects.emplace_back(
-                "sumcheck_evaluations", &sumcheck_evaluations, sizeof(std::array<FF, NUM_ALL_ENTITIES>));
+            ordered_objects.emplace_back("circuit_size", &circuit_size, UInt32Obj);
+            ordered_objects.emplace_back("public_input_size", &public_input_size, UInt32Obj);
+            ordered_objects.emplace_back("pub_inputs_offset", &pub_inputs_offset, UInt32Obj);
+            ordered_objects.emplace_back("public_input_0", &public_input_0, FieldElementObj);
+            ordered_objects.emplace_back("w_l_comm", &w_l_comm, GroupElementObj);
+            ordered_objects.emplace_back("w_r_comm", &w_r_comm, GroupElementObj);
+            ordered_objects.emplace_back("w_o_comm", &w_o_comm, GroupElementObj);
+            ordered_objects.emplace_back("sorted_accum_comm", &sorted_accum_comm, GroupElementObj);
+            ordered_objects.emplace_back("w_4_comm", &w_4_comm, GroupElementObj);
+            ordered_objects.emplace_back("z_perm_comm", &z_perm_comm, GroupElementObj);
+            ordered_objects.emplace_back("z_lookup_comm", &z_lookup_comm, GroupElementObj);
             for (size_t i = 0; i < log_n; ++i) {
                 std::string idx = std::to_string(i);
                 ordered_objects.emplace_back(
-                    "gemini_univariate_comm_" + idx, &gemini_univariate_comms[i], sizeof(GroupElement));
+                    "sumcheck_univariate_" + idx, &sumcheck_univariates[i], SumcheckUnivariateObj);
+            }
+            ordered_objects.emplace_back("sumcheck_evaluations", &sumcheck_evaluations, SumcheckEvalObj);
+            for (size_t i = 0; i < log_n; ++i) {
+                std::string idx = std::to_string(i);
+                ordered_objects.emplace_back(
+                    "gemini_univariate_comm_" + idx, &gemini_univariate_comms[i], GroupElementObj);
             }
             for (size_t i = 0; i < log_n; ++i) {
                 std::string idx = std::to_string(i);
-                ordered_objects.emplace_back("gemini_a_eval_" + idx, &gemini_a_evals[i], sizeof(FF));
+                ordered_objects.emplace_back("gemini_a_eval_" + idx, &gemini_a_evals[i], FieldElementObj);
             }
-            ordered_objects.emplace_back("shplonk_q_comm", &shplonk_q_comm, sizeof(GroupElement));
-            ordered_objects.emplace_back("kzg_w_comm", &kzg_w_comm, sizeof(GroupElement));
+            ordered_objects.emplace_back("shplonk_q_comm", &shplonk_q_comm, GroupElementObj);
+            ordered_objects.emplace_back("kzg_w_comm", &kzg_w_comm, GroupElementObj);
         }
-        bool check_current_object(std::string object_name) const;
-        template <typename T> void send_to_verifier(std::string object_name, T object);
-        template <typename T> T receive_from_verifier(std::string object_name);
     };
 };
 
