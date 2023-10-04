@@ -113,6 +113,12 @@ aztec-sandbox:
   dependencies:
     - yarn-project
 
+pxe:
+  buildDir: yarn-project
+  projectDir: yarn-project/pxe
+  dependencies:
+    - yarn-project
+
 boxes-blank-react:
   buildDir: yarn-project
   projectDir: yarn-project/boxes/blank-react

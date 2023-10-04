@@ -443,7 +443,33 @@ jobs:
             echo "export DOCKER_BUILDKIT=" > $BASH_ENV
             build aztec-sandbox false arm64
 
-  aztec-sandbox-ecr-manifest:
+  pxe-x86_64:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: build pxe false x86_64
+
+  pxe-arm64:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: arm.large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          # We need to force not to use docker buildkit because for some reason on arm only, it ends up making a call
+          # out to eu-west2 despite the image being locally tagged, resulting in unauthorised 401. Weird docker bug?
+          command: |
+            echo "export DOCKER_BUILDKIT=" > $BASH_ENV
+            build pxe false arm64
+
+  ecr-manifest:
     machine:
       image: ubuntu-2204:2023.07.2
     resource_class: large
@@ -452,7 +478,9 @@ jobs:
       - *setup_env
       - run:
           name: "Create ECR manifest"
-          command: create_ecr_manifest aztec-sandbox x86_64,arm64
+          command: |
+            create_ecr_manifest aztec-sandbox x86_64,arm64
+            create_ecr_manifest pxe x86_64,arm64
 
   boxes-blank-react:
     machine:
@@ -926,7 +954,10 @@ jobs:
       - run:
           name: "Benchmark"
           command: cond_run_script end-to-end ./scripts/run_tests_local benchmarks/bench_publish_rollup.test.ts
-          environment: { DEBUG: "aztec:benchmarks:*,aztec:sequencer" }
+          environment:
+            {
+              DEBUG: "aztec:benchmarks:*,aztec:sequencer,aztec:world_state,aztec:merkle_trees",
+            }
 
   build-docs:
     machine:
@@ -982,7 +1013,7 @@ jobs:
           name: "yarn-project"
           command: yarn-project/deploy_npm.sh
 
-  deploy-dockerhub:
+  deploy-dockerhub-sandbox:
     machine:
       image: ubuntu-2204:2023.07.2
     resource_class: medium
@@ -996,6 +1027,21 @@ jobs:
             deploy_dockerhub aztec-sandbox x86_64
             deploy_dockerhub aztec-sandbox arm64
             create_dockerhub_manifest aztec-sandbox x86_64,arm64
+
+  deploy-dockerhub-pxe:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: medium
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "deploy-pxe"
+          working_directory: pxe
+          command: |
+            deploy_dockerhub pxe x86_64
+            deploy_dockerhub pxe arm64
+            create_dockerhub_manifest pxe x86_64,arm64
 
   deploy-end:
     docker:
@@ -1205,10 +1251,22 @@ workflows:
           requires:
             - yarn-project
           <<: *defaults
-      - aztec-sandbox-ecr-manifest:
+
+      - pxe-x86_64:
+          requires:
+            - yarn-project
+          <<: *defaults
+      - pxe-arm64:
+          requires:
+            - yarn-project
+          <<: *defaults
+
+      - ecr-manifest:
           requires:
             - aztec-sandbox-x86_64
             - aztec-sandbox-arm64
+            - pxe-x86_64
+            - pxe-arm64
           <<: *defaults
 
       - boxes-blank-react:
@@ -1229,7 +1287,7 @@ workflows:
       - e2e-join:
           requires:
             - end-to-end
-            - aztec-sandbox-ecr-manifest
+            - ecr-manifest
             - canary
           <<: *defaults
 
@@ -1314,7 +1372,11 @@ workflows:
           <<: *defaults
 
         # Deployment and Canary tests
-      - deploy-dockerhub:
+      - deploy-dockerhub-sandbox:
+          requires:
+            - e2e-end
+          <<: *deploy_defaults
+      - deploy-dockerhub-pxe:
           requires:
             - e2e-end
           <<: *deploy_defaults
@@ -1325,7 +1387,8 @@ workflows:
 
       - deploy-end:
           requires:
-            - deploy-dockerhub
+            - deploy-dockerhub-sandbox
+            - deploy-dockerhub-pxe
             - deploy-npm
           <<: *deploy_defaults
 

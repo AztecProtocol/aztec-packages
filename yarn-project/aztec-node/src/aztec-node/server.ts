@@ -63,7 +63,7 @@ export class AztecNodeService implements AztecNode {
     protected readonly contractDataSource: ContractDataSource,
     protected readonly l1ToL2MessageSource: L1ToL2MessageSource,
     protected readonly worldStateSynchronizer: WorldStateSynchronizer,
-    protected readonly sequencer: SequencerClient,
+    protected readonly sequencer: SequencerClient | undefined,
     protected readonly chainId: number,
     protected readonly version: number,
     protected readonly globalVariableBuilder: GlobalVariableBuilder,
@@ -97,14 +97,10 @@ export class AztecNodeService implements AztecNode {
     await Promise.all([p2pClient.start(), worldStateSynchronizer.start()]);
 
     // now create the sequencer
-    const sequencer = await SequencerClient.new(
-      config,
-      p2pClient,
-      worldStateSynchronizer,
-      archiver,
-      archiver,
-      archiver,
-    );
+    const sequencer = config.disableSequencer
+      ? undefined
+      : await SequencerClient.new(config, p2pClient, worldStateSynchronizer, archiver, archiver, archiver);
+
     return new AztecNodeService(
       config,
       p2pClient,
@@ -126,7 +122,7 @@ export class AztecNodeService implements AztecNode {
    * Returns the sequencer client instance.
    * @returns The sequencer client instance.
    */
-  public getSequencer(): SequencerClient {
+  public getSequencer(): SequencerClient | undefined {
     return this.sequencer;
   }
 
@@ -237,7 +233,8 @@ export class AztecNodeService implements AztecNode {
    * Method to stop the aztec node.
    */
   public async stop() {
-    await this.sequencer.stop();
+    this.log.info(`Stopping`);
+    await this.sequencer?.stop();
     await this.p2pClient.stop();
     await this.worldStateSynchronizer.stop();
     await this.blockSource.stop();
@@ -302,7 +299,7 @@ export class AztecNodeService implements AztecNode {
     // todo: #697 - make this one lookup.
     const index = (await this.findLeafIndex(MerkleTreeId.L1_TO_L2_MESSAGES_TREE, messageKey.toBuffer()))!;
     const message = await this.l1ToL2MessageSource.getConfirmedL1ToL2Message(messageKey);
-    return Promise.resolve({ message, index });
+    return Promise.resolve(new L1ToL2MessageAndIndex(index, message));
   }
 
   /**
