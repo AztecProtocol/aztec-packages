@@ -83,6 +83,18 @@ export class TxL2Logs {
   }
 
   /**
+   * Unrolls logs from this tx.
+   * @returns Unrolled logs.
+   */
+  public unrollLogs(): Buffer[] {
+    const logs = [];
+    for (const functionLog of this.functionLogs) {
+      logs.push(...functionLog.logs);
+    }
+    return logs;
+  }
+
+  /**
    * Convert a plain JSON object to a TxL2Logs class object.
    * @param obj - A plain TxL2Logs JSON object.
    * @returns A TxL2Logs class object.

@@ -7,11 +7,13 @@ import {
   INITIAL_L2_BLOCK_NUM,
   L1ToL2Message,
   L2Block,
+  L2BlockContext,
   L2BlockL2Logs,
   L2Tx,
   LogFilter,
   LogType,
   TxHash,
+  UnencryptedL2Log,
 } from '@aztec/types';
 
 import { L1ToL2MessageStore, PendingL1ToL2MessageStore } from './l1_to_l2_message_store.js';
@@ -382,8 +384,22 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     const logs: ExtendedUnencryptedL2Log[] = [];
 
     for (let i = fromBlockIndex; i < toBlockIndex; i++) {
-      const _logs = this.unencryptedLogs[i];
-      // TODO
+      const blockContext = new L2BlockContext(this.l2Blocks[i]);
+      const blockLogs = this.unencryptedLogs[i];
+      for (let j = 0; j < blockLogs.txLogs.length; j++) {
+        const txLogs = blockLogs.txLogs[j].unrollLogs().map(log => UnencryptedL2Log.fromBuffer(log));
+        for (const log of txLogs) {
+          if (
+            (!contractAddress || log.contractAddress.equals(contractAddress)) &&
+            (!selector || log.selector.equals(selector))
+          ) {
+            logs.push(new ExtendedUnencryptedL2Log(blockContext.block.number, blockContext.getTxHash(j), log));
+            if (logs.length === limit) {
+              return Promise.resolve(logs);
+            }
+          }
+        }
+      }
     }
 
     return Promise.resolve(logs);

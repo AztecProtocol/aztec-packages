@@ -86,9 +86,7 @@ export class L2BlockL2Logs {
     const logs: Buffer[] = [];
     for (const blockLog of blockLogs) {
       for (const txLog of blockLog.txLogs) {
-        for (const functionLog of txLog.functionLogs) {
-          logs.push(...functionLog.logs);
-        }
+        logs.push(...txLog.unrollLogs());
       }
     }
     return logs;
