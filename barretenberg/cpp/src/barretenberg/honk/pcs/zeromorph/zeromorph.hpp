@@ -7,6 +7,11 @@
  */
 namespace proof_system::honk::pcs::zeromorph {
 
+/**
+ * @brief Prover for ZeroMorph multilinear PCS
+ *
+ * @tparam Curve
+ */
 template <typename Curve> class ZeroMorphProver {
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
@@ -44,10 +49,10 @@ template <typename Curve> class ZeroMorphProver {
         std::vector<Polynomial> quotients;
         for (size_t k = 0; k < log_N; ++k) {
             size_t size = 1 << k;
-            quotients.emplace_back(Polynomial(size));
+            quotients.emplace_back(Polynomial(size)); // degree 2^k - 1
         }
 
-        // Note: we compute the q_k in reverse order, i.e. q_{n-1}, ..., q_0
+        // Compute the q_k in reverse order, i.e. q_{n-1}, ..., q_0
         for (size_t k = 0; k < log_N; ++k) {
             // Define partial evaluation point u' = (u_{n-k-1}, ..., u_{n-1})
             auto partial_size = static_cast<std::ptrdiff_t>(k + 1);
@@ -66,14 +71,14 @@ template <typename Curve> class ZeroMorphProver {
             auto q_k = f_2;
             q_k -= f_1;
 
-            quotients[log_N - k - 1] = q_k; // deg(q_k) = N - 1
+            quotients[log_N - k - 1] = q_k;
         }
 
         return quotients;
     }
 
     /**
-     * @brief Construct batched, lifted-degree univariate quotient
+     * @brief Construct batched, lifted-degree univariate quotient q = \sum_k y^k * X^{N - d_k - 1} * q_k
      *
      * @param quotients Polynomials q_k, interpreted as univariates; deg(q_k) = 2^k - 1
      * @param N
@@ -90,7 +95,8 @@ template <typename Curve> class ZeroMorphProver {
         size_t k = 0;
         auto scalar = Fr(1); // y^k
         for (auto& quotient : quotients) {
-            // Accumulate y^k*q_k into q, at the index offset N - d_k - 1
+            // Rather than explicitly computing the shift X^{N - d_k - 1} * q_k, simply accumulate y^k*q_k into q, at
+            // the index offset N - d_k - 1
             auto deg_k = static_cast<size_t>((1 << k) - 1);
             size_t offset = N - deg_k - 1;
             for (size_t idx = 0; idx < deg_k + 1; ++idx) {
@@ -121,21 +127,20 @@ template <typename Curve> class ZeroMorphProver {
                                                                           Fr x_challenge)
     {
         size_t N = batched_quotient.size();
+        size_t log_N = quotients.size();
 
         // Initialize partially evaluated degree check polynomial \zeta_x to \hat{q}
         auto result = batched_quotient;
 
-        size_t k = 0;
         auto y_power = Fr(1); // y^k
-        for (auto& quotient : quotients) {
+        for (size_t k = 0; k < log_N; ++k) {
             // Accumulate y^k * x^{N - d_k - 1} * q_k into \hat{q}
             auto deg_k = static_cast<size_t>((1 << k) - 1);
             auto x_power = x_challenge.pow(N - deg_k - 1); // x^{N - d_k - 1}
-            for (size_t idx = 0; idx < deg_k + 1; ++idx) {
-                result[idx] -= y_power * x_power * quotient[idx];
-            }
+
+            result.add_scaled(quotients[k], -y_power * x_power);
+
             y_power *= y_challenge; // update batching scalar y^k
-            k++;
         }
 
         return result;
@@ -145,7 +150,7 @@ template <typename Curve> class ZeroMorphProver {
      * @brief Compute partially evaluated zeromorph identity polynomial Z_x
      * @details Compute Z_x, where
      *
-     *     Z_x = f - v - \sum_k (x^{2^k}\Phi_{n-k-1}(x^{2^{k-1}}) - u_k\Phi_{n-k}(x^{2^k})) * q_k
+     *  Z_x = f - v*\Phi_n(x) - \sum_k (x^{2^k}\Phi_{n-k-1}(x^{2^{k-1}}) - u_k\Phi_{n-k}(x^{2^k})) * q_k
      *
      * @param input_polynomial
      * @param quotients
@@ -160,27 +165,28 @@ template <typename Curve> class ZeroMorphProver {
                                                                                 Fr x_challenge)
     {
         size_t N = input_polynomial.size();
+        size_t log_N = quotients.size();
         auto numerator = x_challenge.pow(N) - 1; // x^N - 1
 
         // Partially evaluated zeromorph identity polynomial Z_x
         auto result = input_polynomial;
-        auto Phi_n_x = numerator / (x_challenge - 1);
-        result[0] -= v_evaluation * Phi_n_x; // f - v * \Phi_n(x)
+        auto phi_n_x = numerator / (x_challenge - 1);
+        result[0] -= v_evaluation * phi_n_x; // f - v * \Phi_n(x)
 
-        size_t k = 0;
         auto x_power = x_challenge; // x^{2^k}
-        for (auto& quotient : quotients) {
+        for (size_t k = 0; k < log_N; ++k) {
             x_power = x_challenge.pow(1 << k); // x^{2^k}
 
-            auto phi_term_1 = numerator / (x_challenge.pow(1 << (k + 1)) - 1); // \Phi_{n-k-1}(x^{2^{k + 1}})
-            auto phi_term_2 = numerator / (x_challenge.pow(1 << k) - 1);       // \Phi_{n-k}(x^{2^k})
+            // \Phi_{n-k-1}(x^{2^{k + 1}})
+            auto phi_term_1 = numerator / (x_challenge.pow(1 << (k + 1)) - 1);
+
+            // \Phi_{n-k}(x^{2^k})
+            auto phi_term_2 = numerator / (x_challenge.pow(1 << k) - 1);
 
             // x^{2^k} * \Phi_{n-k-1}(x^{2^{k+1}}) - u_k *  \Phi_{n-k}(x^{2^k})
             auto scalar = x_power * phi_term_1 - u_challenge[k] * phi_term_2;
-            for (size_t idx = 0; idx < (1 << k); ++idx) {
-                result[idx] -= scalar * quotient[idx];
-            }
-            k++;
+
+            result.add_scaled(quotients[k], -scalar);
         }
 
         return result;
