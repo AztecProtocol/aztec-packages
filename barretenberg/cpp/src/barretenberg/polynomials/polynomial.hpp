@@ -30,9 +30,6 @@ template <typename Fr> class Polynomial {
     // Create a polynomial from the given fields.
     Polynomial(std::span<const Fr> coefficients);
 
-    // Construct from initializer list, e.g. Polynomial poly = {1, 2, 3}
-    Polynomial(std::initializer_list<Fr> coefficients);
-
     // Allow polynomials to be entirely reset/dormant
     Polynomial() = default;
 

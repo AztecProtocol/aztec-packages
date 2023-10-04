@@ -12,8 +12,8 @@ template <typename Curve> class ZeroMorphProver {
     using Commitment = typename Curve::AffineElement;
     using Polynomial = barretenberg::Polynomial<Fr>;
 
-    // WORKTODO: whats the real number? 25?
-    // Number of G1 elements in the srs. (It is not possible to commit to polynomials of degree > N_max-1).
+    // TODO(#742): Set this N_max to be the number of G1 elements in the mocked zeromorph SRS once it's in place. (Then,
+    // eventually, set it based on the real SRS).
     static const size_t N_max = 1 << 10;
 
   public:
@@ -217,7 +217,7 @@ template <typename Curve> class ZeroMorphProver {
         auto batched_quotient = zeta_x;
         batched_quotient.add_scaled(Z_x, z_challenge);
 
-        // TODO(ISSUE#): To complete the degree check, we need to commit to (q_{\zeta} + z*q_Z)*X^{N_max - N - 1}.
+        // TODO(#742): To complete the degree check, we need to commit to (q_{\zeta} + z*q_Z)*X^{N_max - N - 1}.
         // Verification then requires a pairing check similar to the standard KZG check but with [1]_2 replaced by
         // [X^{N_max - N -1}]_2. Two issues: A) we do not have an SRS with these G2 elements (so need to generate a fake
         // setup until we can do the real thing), and B) its not clear to me how to update our pairing algorithms to do
