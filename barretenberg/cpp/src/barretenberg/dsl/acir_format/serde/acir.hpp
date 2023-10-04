@@ -5546,7 +5546,7 @@ inline Opcode::AssertEq Opcode::AssertEq::bincodeDeserialize(std::vector<uint8_t
     auto deserializer = serde::BincodeDeserializer(input);
     auto value = serde::Deserializable<Opcode::AssertEq>::deserialize(deserializer);
     if (deserializer.get_buffer_offset() < input.size()) {
-        throw serde::deserialization_error("Some input bytes were not read");
+        throw_or_abort("Some input bytes were not read");
     }
     return value;
 }
