@@ -1,6 +1,7 @@
 import {
   Fr,
   L2BlockL2Logs,
+  NotePreimage,
   computeMessageSecretHash,
   createPXEClient,
   getSandboxAccountsWallets,
@@ -9,7 +10,7 @@ import { fileURLToPath } from '@aztec/foundation/url';
 
 import { getToken } from './contracts.mjs';
 
-const { SANDBOX_URL = 'http://localhost:8080' } = process.env;
+const { PXE_URL = 'http://localhost:8080' } = process.env;
 
 async function showAccounts(pxe) {
   // docs:start:showAccounts
@@ -40,7 +41,12 @@ async function mintPrivateFunds(pxe) {
   const mintAmount = 20n;
   const secret = Fr.random();
   const secretHash = await computeMessageSecretHash(secret);
-  await token.methods.mint_private(mintAmount, secretHash).send().wait();
+  const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
+
+  const storageSlot = new Fr(5);
+  const preimage = new NotePreimage([new Fr(mintAmount), secretHash]);
+  await pxe.addNote(owner.getAddress(), token.address, storageSlot, preimage, receipt.txHash);
+
   await token.methods.redeem_shield(owner.getAddress(), mintAmount, secret).send().wait();
 
   await showPrivateBalances(pxe);
@@ -99,7 +105,7 @@ async function mintPublicFunds(pxe) {
 }
 
 async function main() {
-  const pxe = createPXEClient(SANDBOX_URL);
+  const pxe = createPXEClient(PXE_URL);
   const { chainId } = await pxe.getNodeInfo();
   console.log(`Connected to chain ${chainId}`);
 

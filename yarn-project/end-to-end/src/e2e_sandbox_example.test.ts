@@ -1,6 +1,7 @@
 // docs:start:imports
 import {
   Fr,
+  NotePreimage,
   PXE,
   computeMessageSecretHash,
   createDebugLogger,
@@ -12,7 +13,9 @@ import {
 import { GrumpkinScalar } from '@aztec/circuits.js';
 import { TokenContract } from '@aztec/noir-contracts/types';
 
-const { SANDBOX_URL = 'http://localhost:8080' } = process.env;
+import { format } from 'util';
+
+const { PXE_URL = 'http://localhost:8080' } = process.env;
 // docs:end:imports
 
 describe('e2e_sandbox_example', () => {
@@ -22,13 +25,13 @@ describe('e2e_sandbox_example', () => {
     const logger = createDebugLogger('token');
 
     // We create PXE client connected to the sandbox URL
-    const pxe = createPXEClient(SANDBOX_URL);
+    const pxe = createPXEClient(PXE_URL);
     // Wait for sandbox to be ready
     await waitForSandbox(pxe);
 
     const nodeInfo = await pxe.getNodeInfo();
 
-    logger('Aztec Sandbox Info ', nodeInfo);
+    logger(format('Aztec Sandbox Info ', nodeInfo));
     // docs:end:setup
 
     expect(typeof nodeInfo.protocolVersion).toBe('number');
@@ -55,13 +58,12 @@ describe('e2e_sandbox_example', () => {
     const initialSupply = 1_000_000n;
 
     logger(`Deploying token contract minting an initial ${initialSupply} tokens to Alice...`);
-    const contract = await TokenContract.deploy(pxe).send().deployed();
+    const contract = await TokenContract.deploy(pxe, alice).send().deployed();
 
     // Create the contract abstraction and link to Alice's wallet for future signing
     const tokenContractAlice = await TokenContract.at(contract.address, accounts[0]);
 
-    // Initialize the contract and add Bob as a minter
-    await tokenContractAlice.methods._initialize(alice).send().wait();
+    // add Bob as a minter
     await tokenContractAlice.methods.set_minter(bob, true).send().wait();
 
     logger(`Contract successfully deployed at address ${contract.address.toShortString()}`);
@@ -69,7 +71,12 @@ describe('e2e_sandbox_example', () => {
     const secret = Fr.random();
     const secretHash = await computeMessageSecretHash(secret);
 
-    await tokenContractAlice.methods.mint_private(initialSupply, secretHash).send().wait();
+    const receipt = await tokenContractAlice.methods.mint_private(initialSupply, secretHash).send().wait();
+
+    const pendingShieldsStorageSlot = new Fr(5); // The storage slot of `pending_shields` is 5.
+    const preimage = new NotePreimage([new Fr(initialSupply), secretHash]);
+    await pxe.addNote(alice, contract.address, pendingShieldsStorageSlot, preimage, receipt.txHash);
+
     await tokenContractAlice.methods.redeem_shield(alice, initialSupply, secret).send().wait();
     // docs:end:Deployment
 
@@ -120,7 +127,11 @@ describe('e2e_sandbox_example', () => {
     // Now mint some further funds for Bob
     const mintQuantity = 10_000n;
     logger(`Minting ${mintQuantity} tokens to Bob...`);
-    await tokenContractBob.methods.mint_private(mintQuantity, secretHash).send().wait();
+    const mintPrivateReceipt = await tokenContractBob.methods.mint_private(mintQuantity, secretHash).send().wait();
+
+    const bobPendingShield = new NotePreimage([new Fr(mintQuantity), secretHash]);
+    await pxe.addNote(bob, contract.address, pendingShieldsStorageSlot, bobPendingShield, mintPrivateReceipt.txHash);
+
     await tokenContractBob.methods.redeem_shield(bob, mintQuantity, secret).send().wait();
 
     // Check the new balances
@@ -138,7 +149,7 @@ describe('e2e_sandbox_example', () => {
   it('can create accounts on the sandbox', async () => {
     const logger = createDebugLogger('token');
     // We create PXE client connected to the sandbox URL
-    const pxe = createPXEClient(SANDBOX_URL);
+    const pxe = createPXEClient(PXE_URL);
     // Wait for sandbox to be ready
     await waitForSandbox(pxe);
 

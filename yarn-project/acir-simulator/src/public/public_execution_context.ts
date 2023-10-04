@@ -1,17 +1,9 @@
-import {
-  CallContext,
-  CircuitsWasm,
-  FunctionData,
-  FunctionSelector,
-  GlobalVariables,
-  HistoricBlockData,
-} from '@aztec/circuits.js';
-import { siloCommitment } from '@aztec/circuits.js/abis';
+import { CallContext, FunctionData, FunctionSelector, GlobalVariables, HistoricBlockData } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { FunctionL2Logs } from '@aztec/types';
+import { FunctionL2Logs, UnencryptedL2Log } from '@aztec/types';
 
 import { TypedOracle, toACVMWitness } from '../acvm/index.js';
 import { PackedArgsCache, SideEffectCounter } from '../common/index.js';
@@ -26,7 +18,7 @@ import { ContractStorageActionsCollector } from './state_actions.js';
 export class PublicExecutionContext extends TypedOracle {
   private storageActions: ContractStorageActionsCollector;
   private nestedExecutions: PublicExecutionResult[] = [];
-  private unencryptedLogs: Buffer[] = [];
+  private unencryptedLogs: UnencryptedL2Log[] = [];
 
   constructor(
     /**
@@ -61,6 +53,7 @@ export class PublicExecutionContext extends TypedOracle {
       callContext.msgSender,
       callContext.storageContractAddress,
       callContext.portalContractAddress,
+      callContext.functionSelector.toField(),
       callContext.isDelegateCall,
       callContext.isStaticCall,
       callContext.isContractDeployment,
@@ -89,7 +82,7 @@ export class PublicExecutionContext extends TypedOracle {
    * Return the encrypted logs emitted during this execution.
    */
   public getUnencryptedLogs() {
-    return new FunctionL2Logs(this.unencryptedLogs);
+    return new FunctionL2Logs(this.unencryptedLogs.map(log => log.toBuffer()));
   }
 
   /**
@@ -120,28 +113,13 @@ export class PublicExecutionContext extends TypedOracle {
   }
 
   /**
-   * Fetches a path to prove existence of a commitment in the db, given its contract side commitment (before silo).
-   * @param nonce - The nonce of the note.
-   * @param innerNoteHash - The inner note hash of the note.
-   * @returns 1 if (persistent or transient) note hash exists, 0 otherwise. Value is in ACVMField form.
-   */
-  public async checkNoteHashExists(nonce: Fr, innerNoteHash: Fr): Promise<boolean> {
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
-    // Once public kernel or base rollup circuit injects nonces, this can be updated to use uniqueSiloedCommitment.
-    const wasm = await CircuitsWasm.get();
-    const siloedNoteHash = siloCommitment(wasm, this.execution.contractAddress, innerNoteHash);
-    const index = await this.commitmentsDb.getCommitmentIndex(siloedNoteHash);
-    return index !== undefined;
-  }
-
-  /**
    * Emit an unencrypted log.
    * @param log - The unencrypted log to be emitted.
    */
-  public emitUnencryptedLog(log: Buffer) {
-    // https://github.com/AztecProtocol/aztec-packages/issues/885
+  public emitUnencryptedLog(log: UnencryptedL2Log) {
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/885)
     this.unencryptedLogs.push(log);
-    this.log(`Emitted unencrypted log: "${log.toString('ascii')}"`);
+    this.log(`Emitted unencrypted log: "${log.toHumanReadable()}"`);
   }
 
   /**
@@ -220,6 +198,7 @@ export class PublicExecutionContext extends TypedOracle {
       msgSender: this.execution.contractAddress,
       portalContractAddress: portalAddress,
       storageContractAddress: targetContractAddress,
+      functionSelector,
       isContractDeployment: false,
       isDelegateCall: false,
       isStaticCall: false,

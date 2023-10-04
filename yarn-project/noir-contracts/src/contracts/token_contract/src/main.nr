@@ -1,7 +1,6 @@
 // docs:start:token_all
 // docs:start:imports
 mod types;
-mod util;
 
 // Minimal token implementation that supports `AuthWit` accounts.
 // The auth message follows a similar pattern to the cross-chain message and includes a designated caller.
@@ -18,10 +17,12 @@ contract Token {
 
     use dep::aztec::{
         note::{
+            note_getter_options::NoteGetterOptions,
             note_header::NoteHeader,
             utils as note_utils,
         },
         context::{PrivateContext, PublicContext, Context},
+        hash::{compute_message_hash, compute_secret_hash},
         state_vars::{map::Map, public_state::PublicState, set::Set},
         types::type_serialization::{
             field_serialization::{FieldSerializationMethods, FIELD_SERIALIZED_LEN},
@@ -39,7 +40,6 @@ contract Token {
         balances_map::{BalancesMap},
         safe_u120_serialization::{SafeU120SerializationMethods, SAFE_U120_SERIALIZED_LEN}
     };
-    use crate::util::{compute_message_hash};
     // docs:end::imports
 
     // docs:start:storage_struct
@@ -112,10 +112,9 @@ contract Token {
 
     // docs:start:constructor
     #[aztec(private)]
-    fn constructor() {
-        // Currently not possible to execute public calls from constructor as code not yet available to sequencer.
-        // let selector = compute_selector("_initialize((Field))");
-        // let _callStackItem = context.call_public_function(context.this_address(), selector, [context.msg_sender()]);
+    fn constructor(admin: AztecAddress) {
+        let selector = compute_selector("_initialize((Field))");
+        context.call_public_function(context.this_address(), selector, [admin.address]);
     }
     // docs:end:constructor
 
@@ -194,8 +193,7 @@ contract Token {
     ) -> Field {
         if (from.address != context.msg_sender()) {
             // The redeem is only spendable once, so we need to ensure that you cannot insert multiple shields from the same message.
-            let selector = compute_selector("shield((Field),Field,Field,Field)");
-            let message_field = compute_message_hash([context.msg_sender(), context.this_address(), selector, from.address, amount, secret_hash, nonce]);
+            let message_field = compute_message_hash([context.msg_sender(), context.this_address(), context.selector(), from.address, amount, secret_hash, nonce]);
             assert_valid_public_message_for(&mut context, from.address, message_field);
         } else {
             assert(nonce == 0, "invalid nonce");
@@ -222,8 +220,7 @@ contract Token {
         nonce: Field,
     ) -> Field {
         if (from.address != context.msg_sender()) {
-            let selector = compute_selector("transfer_public((Field),(Field),Field,Field)");
-            let message_field = compute_message_hash([context.msg_sender(), context.this_address(), selector, from.address, to.address, amount, nonce]);
+            let message_field = compute_message_hash([context.msg_sender(), context.this_address(), context.selector(), from.address, to.address, amount, nonce]);
             assert_valid_public_message_for(&mut context, from.address, message_field);
         } else {
             assert(nonce == 0, "invalid nonce");
@@ -248,8 +245,7 @@ contract Token {
         nonce: Field,
     ) -> Field {
         if (from.address != context.msg_sender()) {
-            let selector = compute_selector("burn_public((Field),Field,Field)");
-            let message_field = compute_message_hash([context.msg_sender(), context.this_address(), selector, from.address, amount, nonce]);
+            let message_field = compute_message_hash([context.msg_sender(), context.this_address(), context.selector(), from.address, amount, nonce]);
             assert_valid_public_message_for(&mut context, from.address, message_field);
         } else {
             assert(nonce == 0, "invalid nonce");
@@ -274,11 +270,11 @@ contract Token {
         secret: Field,
     ) -> Field {
         let pending_shields = storage.pending_shields;
-        let mut public_note = TransparentNote::new_from_secret(amount, secret);
-        
-        // docs:start:assert_contains_and_remove_publicly_created
-        pending_shields.assert_contains_and_remove_publicly_created(&mut public_note);
-        // docs:end:assert_contains_and_remove_publicly_created
+        let secret_hash = compute_secret_hash(secret);
+        let options = NoteGetterOptions::new().select(0, amount).select(1, secret_hash).set_limit(1);
+        let notes = pending_shields.get_notes(options);
+        let note = notes[0].unwrap_unchecked();
+        pending_shields.remove(note);
 
         storage.balances.at(to).add(SafeU120::new(amount));
 
@@ -295,8 +291,7 @@ contract Token {
         nonce: Field,
     ) -> Field {
         if (from.address != context.msg_sender()) {
-            let selector = compute_selector("unshield((Field),(Field),Field,Field)");
-            let message_field = compute_message_hash([context.msg_sender(), context.this_address(), selector, from.address, to.address, amount, nonce]);
+            let message_field = compute_message_hash([context.msg_sender(), context.this_address(), context.selector(), from.address, to.address, amount, nonce]);
             assert_valid_message_for(&mut context, from.address, message_field);
         } else {
             assert(nonce == 0, "invalid nonce");
@@ -320,8 +315,7 @@ contract Token {
         nonce: Field,
     ) -> Field {
         if (from.address != context.msg_sender()) {
-            let selector = compute_selector("transfer((Field),(Field),Field,Field)");
-            let message_field = compute_message_hash([context.msg_sender(), context.this_address(), selector, from.address, to.address, amount, nonce]);
+            let message_field = compute_message_hash([context.msg_sender(), context.this_address(), context.selector(), from.address, to.address, amount, nonce]);
             assert_valid_message_for(&mut context, from.address, message_field);
         } else {
             assert(nonce == 0, "invalid nonce");
@@ -334,7 +328,7 @@ contract Token {
         1
     }
     // docs:end:transfer
-    
+
     // docs:start:burn
     #[aztec(private)]
     fn burn(
@@ -343,8 +337,7 @@ contract Token {
         nonce: Field,
     ) -> Field {
         if (from.address != context.msg_sender()) {
-            let selector = compute_selector("burn((Field),Field,Field)");
-            let message_field = compute_message_hash([context.msg_sender(), context.this_address(), selector, from.address, amount, nonce]);
+            let message_field = compute_message_hash([context.msg_sender(), context.this_address(), context.selector(), from.address, amount, nonce]);
             assert_valid_message_for(&mut context, from.address, message_field);
         } else {
             assert(nonce == 0, "invalid nonce");
@@ -359,14 +352,9 @@ contract Token {
     }
     // docs:end:burn
 
-    /// SHOULD BE Internal ///
-
     // docs:start:initialize
-    // We cannot do this from the constructor currently 
-    // Since this should be internal, for now, we ignore the safety checks of it, as they are 
-    // enforced by it being internal and only called from the constructor.
     #[aztec(public)]
-    fn _initialize(
+    internal fn _initialize(
         new_admin: AztecAddress,
     ) {
         storage.admin.write(new_admin);
@@ -398,7 +386,7 @@ contract Token {
     }
     // docs:end:reduce_total_supply
 
-    /// Unconstrained /// 
+    /// Unconstrained ///
 
     // docs:start:admin
     unconstrained fn admin() -> Field {
@@ -444,7 +432,7 @@ contract Token {
     // Note 1: Needs to be defined by every contract producing logs.
     // Note 2: Having it in all the contracts gives us the ability to compute the note hash and nullifier differently for different kind of notes.
     unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; TOKEN_NOTE_LEN]) -> [Field; 4] {
-        let note_header = NoteHeader { contract_address, nonce, storage_slot };
+        let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
         if (storage_slot == 5) {
             note_utils::compute_note_hash_and_nullifier(TransparentNoteMethods, note_header, preimage)
         } else {
@@ -452,6 +440,5 @@ contract Token {
         }
     }
     // docs:end:compute_note_hash_and_nullifier
-
 }
 // docs:end:token_all
