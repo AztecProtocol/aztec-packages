@@ -1,6 +1,4 @@
 import { AztecAddress, EthAddress, Fr, TxStatus, Wallet } from '@aztec/aztec.js';
-import { CircuitsWasm, GeneratorIndex } from '@aztec/circuits.js';
-import { pedersenPlookupCompressWithHashIndex } from '@aztec/circuits.js/barretenberg';
 import { PortalERC20Abi, PortalERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
 import { TokenBridgeContract, TokenContract } from '@aztec/noir-contracts/types';
 
