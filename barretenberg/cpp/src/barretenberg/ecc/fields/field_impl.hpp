@@ -1,12 +1,10 @@
 #pragma once
-#include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include <memory>
 #include <span>
-#include <string>
 #include <type_traits>
 #include <vector>
 
@@ -342,6 +340,7 @@ template <class T> constexpr void field<T>::self_reduce_once() noexcept
 
 template <class T> constexpr field<T> field<T>::pow(const uint256_t& exponent) const noexcept
 {
+
     field accumulator{ data[0], data[1], data[2], data[3] };
     field to_mul{ data[0], data[1], data[2], data[3] };
     const uint64_t maximum_set_bit = exponent.get_msb();
