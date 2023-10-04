@@ -3,7 +3,6 @@ import {
   CONTRACT_TREE_HEIGHT,
   CircuitsWasm,
   Fr,
-  FunctionSelector,
   GlobalVariables,
   HistoricBlockData,
   L1_TO_L2_MSG_TREE_HEIGHT,
@@ -33,6 +32,7 @@ import {
   L2BlockSource,
   L2LogsSource,
   L2Tx,
+  LogFilter,
   LogType,
   MerkleTreeId,
   SiblingPath,
@@ -228,20 +228,12 @@ export class AztecNodeService implements AztecNode {
   }
 
   /**
-   * Gets up to `limit` amount of logs starting from `from` from contract `contractAddress` and event defined by `selector`.
-   * @param from - Number of the L2 block to which corresponds the first logs to be returned.
-   * @param limit - The maximum number of logs to return.
-   * @param contractAddress - The contract address to filter logs by.
-   * @param selector - The event selector to filter logs by.
+   * Gets unencrypted logs based on the provided filter.
+   * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  public getUnencryptedLogs(
-    from: number,
-    limit: number,
-    contractAddress: AztecAddress,
-    selector: FunctionSelector,
-  ): Promise<ExtendedUnencryptedL2Log[]> {
-    return this.unencryptedLogsSource.getUnencryptedLogs(from, limit, contractAddress, selector);
+  getUnencryptedLogs(filter: LogFilter): Promise<ExtendedUnencryptedL2Log[]> {
+    return this.unencryptedLogsSource.getUnencryptedLogs(filter);
   }
 
   /**

@@ -1,4 +1,5 @@
 import { AztecAddress, Fr, GrumpkinScalar, PXE, Point, TxHash } from '@aztec/aztec.js';
+import { FunctionSelector } from '@aztec/circuits.js';
 import { L1ContractArtifactsForDeployment, createEthereumChain, deployL1Contracts } from '@aztec/ethereum';
 import { ContractArtifact } from '@aztec/foundation/abi';
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
@@ -207,6 +208,52 @@ export function parseAztecAddress(address: string): AztecAddress {
   } catch {
     throw new InvalidArgumentError(`Invalid address: ${address}`);
   }
+}
+
+/**
+ * Parses an AztecAddress from a string. Throws InvalidArgumentError if the string is not a valid.
+ * @param address - A serialised Aztec address
+ * @returns An Aztec address
+ */
+export function parseOptionalAztecAddress(address: string): AztecAddress | undefined {
+  if (!address) {
+    return undefined;
+  }
+  return parseAztecAddress(address);
+}
+
+/**
+ * Parses a selector from a string. Throws InvalidArgumentError if the string is not a valid.
+ * @param selector - A serialised selector.
+ * @returns A selector.
+ */
+export function parseOptionalSelector(selector: string): FunctionSelector | undefined {
+  if (!selector) {
+    return undefined;
+  }
+  try {
+    return FunctionSelector.fromString(selector);
+  } catch {
+    throw new InvalidArgumentError(`Invalid selector: ${selector}`);
+  }
+}
+
+/**
+ * Parses a string into an integer or returns undefined if the input is falsy.
+ *
+ * @param value - The string to parse into an integer.
+ * @returns The parsed integer, or undefined if the input string is falsy.
+ * @throws If the input is not a valid integer.
+ */
+export function parseOptionalInteger(value: string): number | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const parsed = parseInt(value, 10);
+  if (isNaN(parsed)) {
+    throw new InvalidArgumentError(`Invalid integer: ${value}`);
+  }
+  return parsed;
 }
 
 /**

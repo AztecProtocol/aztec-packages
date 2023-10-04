@@ -13,7 +13,7 @@ import { JsonStringify } from '@aztec/foundation/json-rpc';
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
 import { compileContract, generateNoirInterface, generateTypescriptInterface } from '@aztec/noir-compiler/cli';
-import { CompleteAddress, ContractData, L2BlockL2Logs } from '@aztec/types';
+import { CompleteAddress, ContractData, L2BlockL2Logs, LogFilter } from '@aztec/types';
 
 import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import { Command, Option } from 'commander';
@@ -34,6 +34,9 @@ import {
   parseAztecAddress,
   parseField,
   parseFields,
+  parseOptionalAztecAddress,
+  parseOptionalInteger,
+  parseOptionalSelector,
   parsePartialAddress,
   parsePrivateKey,
   parsePublicKey,
@@ -289,21 +292,31 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
   program
     .command('get-logs')
     .description('Gets all the unencrypted logs from L2 blocks in the range specified.')
-    .option('-f, --from <blockNum>', 'Initial block number for getting logs (defaults to 1).')
-    .option('-l, --limit <blockCount>', 'How many blocks to fetch (defaults to 100).')
+    .option(
+      '-f, --fromBlock <blockNum>',
+      'Initial block number for getting logs (defaults to 1).',
+      parseOptionalInteger,
+    )
+    .option('-t, --toBlock <blockNum>', 'Up to which block to fetch logs (defaults to latest).', parseOptionalInteger)
+    .option(
+      '-l, --limit <logCount>',
+      'How many logs to fetch (defaults to maximum value of 1000).',
+      parseOptionalInteger,
+    )
+    .option('-c, --contractAddress <contractAddress>', 'Contract address to filter logs by.', parseOptionalAztecAddress)
+    .option('-s, --selector <selector>', 'Event selector to filter logs by.', parseOptionalSelector)
     .addOption(pxeOption)
-    .action(async options => {
-      const { from, limit } = options;
-      const fromBlock = from ? parseInt(from) : 1;
-      const limitCount = limit ? parseInt(limit) : 100;
+    .action(async ({ fromBlock, toBlock, limit, contractAddress, selector, rpcUrl }) => {
+      const client = await createCompatibleClient(rpcUrl, debugLogger);
 
-      const client = await createCompatibleClient(options.rpcUrl, debugLogger);
-      const logs = await client.getUnencryptedLogs(fromBlock, limitCount);
+      const filter: LogFilter = { fromBlock, toBlock, limit, contractAddress, selector };
+      const logs = await client.getUnencryptedLogs(filter);
+
       if (!logs.length) {
-        log(`No logs found in blocks ${fromBlock} to ${fromBlock + limitCount}`);
+        log(`No logs found in blocks ${fromBlock} to ${toBlock}`);
       } else {
         log('Logs found: \n');
-        L2BlockL2Logs.unrollLogs(logs).forEach(fnLog => log(`${fnLog.toString('ascii')}\n`));
+        logs.forEach(unencryptedLog => log(`${unencryptedLog.log.data.toString('ascii')}\n`));
       }
     });
 
