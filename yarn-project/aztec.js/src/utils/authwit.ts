@@ -4,7 +4,7 @@ import { FunctionCall, PackedArguments } from '@aztec/types';
 
 /**
  * Compute an authentication witness message hash from a caller and a request
- * H(caller, target, selector, args_hash)
+ * H(caller: AztecAddress, target: AztecAddress, selector: Field, args_hash: Field)
  * @param caller - The caller approved to make the call
  * @param request - The request to be made (function call)
  * @returns The message hash for the witness
