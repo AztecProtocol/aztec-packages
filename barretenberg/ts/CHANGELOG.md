@@ -1,5 +1,65 @@
 # Changelog
 
+## [0.8.6](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.8.5...barretenberg.js-v0.8.6) (2023-10-04)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.8.5](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.8.4...barretenberg.js-v0.8.5) (2023-10-04)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.8.4](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.8.3...barretenberg.js-v0.8.4) (2023-10-04)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.8.3](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.8.2...barretenberg.js-v0.8.3) (2023-10-04)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.8.2](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.8.1...barretenberg.js-v0.8.2) (2023-10-04)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.8.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.8.0...barretenberg.js-v0.8.1) (2023-10-03)
+
+
+### Bug Fixes
+
+* Remove -u from build_wasm script so that we can skip the build when SKIP_CPP_BUILD is unset ([#2649](https://github.com/AztecProtocol/aztec-packages/issues/2649)) ([84b8ff4](https://github.com/AztecProtocol/aztec-packages/commit/84b8ff4b46e1f542209c1f35a33b7cffdc083f04))
+
+## [0.8.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.7.10...barretenberg.js-v0.8.0) (2023-10-03)
+
+
+### ⚠ BREAKING CHANGES
+
+* Gates command should always return 8 bytes ([#2631](https://github.com/AztecProtocol/aztec-packages/issues/2631))
+
+### Bug Fixes
+
+* Gates command should always return 8 bytes ([#2631](https://github.com/AztecProtocol/aztec-packages/issues/2631)) ([9668165](https://github.com/AztecProtocol/aztec-packages/commit/9668165372c4f5170aa7c4f161e031da0c845649))
+
+
+### Miscellaneous
+
+* Provide cross compile to cjs. ([#2566](https://github.com/AztecProtocol/aztec-packages/issues/2566)) ([47d0d37](https://github.com/AztecProtocol/aztec-packages/commit/47d0d376727dfcb798af4ea019dfc23a9a57b6ca))
+* Remove `BarretenbergBinderSync` import from typescript bindgen file ([#2607](https://github.com/AztecProtocol/aztec-packages/issues/2607)) ([43af1a3](https://github.com/AztecProtocol/aztec-packages/commit/43af1a35c1bbe55cab102bef21375dd9986202ea))
+* Typo ([#2546](https://github.com/AztecProtocol/aztec-packages/issues/2546)) ([8656a3b](https://github.com/AztecProtocol/aztec-packages/commit/8656a3b1f4fce63c3acaed6e81ae77632df05ef5))
+
 ## [0.7.10](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.7.9...barretenberg.js-v0.7.10) (2023-09-20)
 
 

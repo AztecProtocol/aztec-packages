@@ -13,7 +13,9 @@ import {
 import { GrumpkinScalar } from '@aztec/circuits.js';
 import { TokenContract } from '@aztec/noir-contracts/types';
 
-const { SANDBOX_URL = 'http://localhost:8080' } = process.env;
+import { format } from 'util';
+
+const { PXE_URL = 'http://localhost:8080' } = process.env;
 // docs:end:imports
 
 describe('e2e_sandbox_example', () => {
@@ -23,13 +25,13 @@ describe('e2e_sandbox_example', () => {
     const logger = createDebugLogger('token');
 
     // We create PXE client connected to the sandbox URL
-    const pxe = createPXEClient(SANDBOX_URL);
+    const pxe = createPXEClient(PXE_URL);
     // Wait for sandbox to be ready
     await waitForSandbox(pxe);
 
     const nodeInfo = await pxe.getNodeInfo();
 
-    logger('Aztec Sandbox Info ', nodeInfo);
+    logger(format('Aztec Sandbox Info ', nodeInfo));
     // docs:end:setup
 
     expect(typeof nodeInfo.protocolVersion).toBe('number');
@@ -56,13 +58,12 @@ describe('e2e_sandbox_example', () => {
     const initialSupply = 1_000_000n;
 
     logger(`Deploying token contract minting an initial ${initialSupply} tokens to Alice...`);
-    const contract = await TokenContract.deploy(pxe).send().deployed();
+    const contract = await TokenContract.deploy(pxe, alice).send().deployed();
 
     // Create the contract abstraction and link to Alice's wallet for future signing
     const tokenContractAlice = await TokenContract.at(contract.address, accounts[0]);
 
-    // Initialize the contract and add Bob as a minter
-    await tokenContractAlice.methods._initialize(alice).send().wait();
+    // add Bob as a minter
     await tokenContractAlice.methods.set_minter(bob, true).send().wait();
 
     logger(`Contract successfully deployed at address ${contract.address.toShortString()}`);
@@ -148,7 +149,7 @@ describe('e2e_sandbox_example', () => {
   it('can create accounts on the sandbox', async () => {
     const logger = createDebugLogger('token');
     // We create PXE client connected to the sandbox URL
-    const pxe = createPXEClient(SANDBOX_URL);
+    const pxe = createPXEClient(PXE_URL);
     // Wait for sandbox to be ready
     await waitForSandbox(pxe);
 
