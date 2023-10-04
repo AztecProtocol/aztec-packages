@@ -1369,11 +1369,7 @@ workflows:
           <<: *defaults
 
         # Deployment and Canary tests
-      - deploy-dockerhub-sandbox:
-          requires:
-            - e2e-end
-          <<: *deploy_defaults
-      - deploy-dockerhub-pxe:
+      - deploy-dockerhub:
           requires:
             - e2e-end
           <<: *deploy_defaults
@@ -1384,8 +1380,7 @@ workflows:
 
       - deploy-end:
           requires:
-            - deploy-dockerhub-sandbox
-            - deploy-dockerhub-pxe
+            - deploy-dockerhub
             - deploy-npm
           <<: *deploy_defaults
 
