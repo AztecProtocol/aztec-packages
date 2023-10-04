@@ -211,7 +211,7 @@ template <typename Fr> class Polynomial {
      *
      * @note Intuitively, partially evaluating in one variable collapses the hypercube in one dimension, halving the
      * number of coefficients needed to represent the result. To partially evaluate starting with the first variable (as
-     * is done in evaluate_mle), the vector of coefficents is halved by combining consecutive rows in a pairwise
+     * is done in evaluate_mle), the vector of coefficents is halved by combining adjacent rows in a pairwise
      * fashion (similar to what is done in Sumcheck via "edges"). To evaluate starting from the last variable, we
      * instead bisect the whole vector and combine the two halves. I.e. rather than coefficents being combined with
      * their immediate neighbor, they are combined with the coefficient that lives n/2 indices away.
