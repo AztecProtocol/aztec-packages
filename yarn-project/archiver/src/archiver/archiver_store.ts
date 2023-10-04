@@ -163,7 +163,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   /**
    * An array containing all the L2 blocks that have been fetched so far.
    */
-  private l2Blocks: L2Block[] = [];
+  private l2BlockContexts: L2BlockContext[] = [];
 
   /**
    * An array containing all the L2 Txs in the L2 blocks that have been fetched so far.
@@ -211,7 +211,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @returns True if the operation is successful (always in this implementation).
    */
   public addL2Blocks(blocks: L2Block[]): Promise<boolean> {
-    this.l2Blocks.push(...blocks);
+    this.l2BlockContexts.push(...blocks.map(block => new L2BlockContext(block)));
     this.l2Txs.push(...blocks.flatMap(b => b.getTxs()));
     return Promise.resolve(true);
   }
@@ -298,12 +298,12 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     if (limit < 1) {
       throw new Error(`Invalid block range from: ${from}, limit: ${limit}`);
     }
-    if (from < INITIAL_L2_BLOCK_NUM || from > this.l2Blocks.length) {
+    if (from < INITIAL_L2_BLOCK_NUM || from > this.l2BlockContexts.length) {
       return Promise.resolve([]);
     }
     const startIndex = from - INITIAL_L2_BLOCK_NUM;
     const endIndex = startIndex + limit;
-    return Promise.resolve(this.l2Blocks.slice(startIndex, endIndex));
+    return Promise.resolve(this.l2BlockContexts.slice(startIndex, endIndex).map(blockContext => blockContext.block));
   }
 
   /**
@@ -384,7 +384,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     const logs: ExtendedUnencryptedL2Log[] = [];
 
     for (let i = fromBlockIndex; i < toBlockIndex; i++) {
-      const blockContext = new L2BlockContext(this.l2Blocks[i]);
+      const blockContext = this.l2BlockContexts[i];
       const blockLogs = this.unencryptedLogs[i];
       for (let j = 0; j < blockLogs.txLogs.length; j++) {
         const txLogs = blockLogs.txLogs[j].unrollLogs().map(log => UnencryptedL2Log.fromBuffer(log));
@@ -421,7 +421,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @returns All extended contract data in the block (if found).
    */
   public getExtendedContractDataInBlock(blockNum: number): Promise<ExtendedContractData[]> {
-    if (blockNum > this.l2Blocks.length) {
+    if (blockNum > this.l2BlockContexts.length) {
       return Promise.resolve([]);
     }
     return Promise.resolve(this.extendedContractDataByBlock[blockNum] || []);
@@ -437,8 +437,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     if (contractAddress.isZero()) {
       return Promise.resolve(undefined);
     }
-    for (const block of this.l2Blocks) {
-      for (const contractData of block.newContractData) {
+    for (const blockContext of this.l2BlockContexts) {
+      for (const contractData of blockContext.block.newContractData) {
         if (contractData.contractAddress.equals(contractAddress)) {
           return Promise.resolve(contractData);
         }
@@ -454,10 +454,10 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @returns ContractData with the portal address (if we didn't throw an error).
    */
   public getContractDataInBlock(l2BlockNum: number): Promise<ContractData[] | undefined> {
-    if (l2BlockNum > this.l2Blocks.length) {
+    if (l2BlockNum > this.l2BlockContexts.length) {
       return Promise.resolve([]);
     }
-    const block = this.l2Blocks[l2BlockNum];
+    const block = this.l2BlockContexts[l2BlockNum].block;
     return Promise.resolve(block.newContractData);
   }
 
@@ -466,8 +466,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @returns The number of the latest L2 block processed.
    */
   public getBlockNumber(): Promise<number> {
-    if (this.l2Blocks.length === 0) return Promise.resolve(INITIAL_L2_BLOCK_NUM - 1);
-    return Promise.resolve(this.l2Blocks[this.l2Blocks.length - 1].number);
+    if (this.l2BlockContexts.length === 0) return Promise.resolve(INITIAL_L2_BLOCK_NUM - 1);
+    return Promise.resolve(this.l2BlockContexts[this.l2BlockContexts.length - 1].block.number);
   }
 
   /**
@@ -475,6 +475,6 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @returns The length of L2 Blocks array.
    */
   public getBlocksLength(): number {
-    return this.l2Blocks.length;
+    return this.l2BlockContexts.length;
   }
 }
