@@ -387,7 +387,7 @@ TEST_F(UltraRelationConsistency, EllipticRelation)
 
         const auto parameters = RelationParameters<FF>::get_random();
 
-        validate_relation_execution<Relation>(expected_values, input_elements, parameters);
+        new_validate_relation_execution<Relation>(expected_values, input_elements, parameters);
     };
     run_test(/*random_inputs=*/false);
     run_test(/*random_inputs=*/true);
