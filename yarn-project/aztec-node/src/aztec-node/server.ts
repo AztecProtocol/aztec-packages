@@ -72,10 +72,10 @@ export class AztecNodeService implements AztecNode {
   ) {
     const message =
       `Started Aztec Node with contracts - \n` +
-      `Rollup: ${config.l1Contracts.rollupAddress.toString()}` +
-      `Registry: ${config.l1Contracts.registryAddress.toString()}` +
-      `Inbox: ${config.l1Contracts.inboxAddress.toString()}` +
-      `Outbox: ${config.l1Contracts.outboxAddress.toString()}` +
+      `Rollup: ${config.l1Contracts.rollupAddress.toString()}\n` +
+      `Registry: ${config.l1Contracts.registryAddress.toString()}\n` +
+      `Inbox: ${config.l1Contracts.inboxAddress.toString()}\n` +
+      `Outbox: ${config.l1Contracts.outboxAddress.toString()}\n` +
       `Contract Emitter: ${config.l1Contracts.contractDeploymentEmitterAddress.toString()}`;
     this.log(message);
   }
