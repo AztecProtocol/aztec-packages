@@ -157,7 +157,6 @@ TEST_F(UltraRelationConsistency, UltraArithmeticRelation)
 
         const auto parameters = RelationParameters<FF>::get_random();
 
-        // validate_relation_execution<Relation>(expected_values, input_elements, parameters);
         new_validate_relation_execution<Relation>(expected_values, input_elements, parameters);
     };
     run_test(/*random_inputs=*/false);
@@ -207,7 +206,7 @@ TEST_F(UltraRelationConsistency, UltraPermutationRelation)
         auto contribution_2 = z_perm_shift * lagrange_last;
         expected_values[1] = contribution_2;
 
-        validate_relation_execution<Relation>(expected_values, input_elements, parameters);
+        new_validate_relation_execution<Relation>(expected_values, input_elements, parameters);
     };
     run_test(/*random_inputs=*/false);
     run_test(/*random_inputs=*/true);
