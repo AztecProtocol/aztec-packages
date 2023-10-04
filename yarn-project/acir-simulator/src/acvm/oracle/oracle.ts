@@ -4,6 +4,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { UnencryptedL2Log } from '@aztec/types';
 
 import { ACVMField } from '../acvm.js';
 import { convertACVMFieldToBuffer, fromACVMField } from '../deserialize.js';
@@ -80,35 +81,32 @@ export class Oracle {
       +offset,
     );
 
+    const preimageLength = notes?.[0]?.preimage.length ?? 0;
+    if (!notes.every(({ preimage }) => preimageLength === preimage.length)) {
+      throw new Error('Preimages for a particular note type should all be the same length.');
+    }
+
     const contractAddress = notes[0]?.contractAddress ?? Fr.ZERO;
 
-    const isSome = new Fr(1); // Boolean. Indicates whether the Noir Option<Note>::is_some();
-    const realNotePreimages = notes.flatMap(({ nonce, preimage }) => [nonce, isSome, ...preimage]);
-    const preimageLength = notes[0]?.preimage.length ?? 0;
-    const returnHeaderLength = 2; // is for the header values: `notes.length` and `contractAddress`.
-    const extraPreimageLength = 2; // is for the nonce and isSome fields.
-    const extendedPreimageLength = preimageLength + extraPreimageLength;
-    const numRealNotes = notes.length;
-    const numReturnNotes = Math.floor((+returnSize - returnHeaderLength) / extendedPreimageLength);
-    const numDummyNotes = numReturnNotes - numRealNotes;
+    // Values indicates whether the note is settled or transient.
+    const noteTypes = {
+      isSettled: new Fr(0),
+      isTransient: new Fr(1),
+    };
+    const flattenData = notes.flatMap(({ nonce, preimage, index }) => [
+      nonce,
+      index === undefined ? noteTypes.isTransient : noteTypes.isSettled,
+      ...preimage,
+    ]);
 
-    const dummyNotePreimage = Array(extendedPreimageLength).fill(Fr.ZERO);
-    const dummyNotePreimages = Array(numDummyNotes)
-      .fill(dummyNotePreimage)
-      .flatMap(note => note);
+    const returnFieldSize = +returnSize;
+    const returnData = [notes.length, contractAddress, ...flattenData].map(v => toACVMField(v));
+    if (returnData.length > returnFieldSize) {
+      throw new Error(`Return data size too big. Maximum ${returnFieldSize} fields. Got ${flattenData.length}.`);
+    }
 
-    const paddedZeros = Array(
-      Math.max(0, +returnSize - returnHeaderLength - realNotePreimages.length - dummyNotePreimages.length),
-    ).fill(Fr.ZERO);
-
-    return [notes.length, contractAddress, ...realNotePreimages, ...dummyNotePreimages, ...paddedZeros].map(v =>
-      toACVMField(v),
-    );
-  }
-
-  async checkNoteHashExists([nonce]: ACVMField[], [innerNoteHash]: ACVMField[]): Promise<ACVMField> {
-    const exists = await this.typedOracle.checkNoteHashExists(fromACVMField(nonce), fromACVMField(innerNoteHash));
-    return toACVMField(exists);
+    const paddedZeros = Array(returnFieldSize - returnData.length).fill(toACVMField(0));
+    return returnData.concat(paddedZeros);
   }
 
   notifyCreatedNote([storageSlot]: ACVMField[], preimage: ACVMField[], [innerNoteHash]: ACVMField[]): ACVMField {
@@ -123,6 +121,11 @@ export class Oracle {
   async notifyNullifiedNote([innerNullifier]: ACVMField[], [innerNoteHash]: ACVMField[]): Promise<ACVMField> {
     await this.typedOracle.notifyNullifiedNote(fromACVMField(innerNullifier), fromACVMField(innerNoteHash));
     return toACVMField(0);
+  }
+
+  async checkNullifierExists([innerNullifier]: ACVMField[]): Promise<ACVMField> {
+    const exists = await this.typedOracle.checkNullifierExists(fromACVMField(innerNullifier));
+    return toACVMField(exists);
   }
 
   async getL1ToL2Message([msgKey]: ACVMField[]): Promise<ACVMField[]> {
@@ -163,9 +166,15 @@ export class Oracle {
     return toACVMField(0);
   }
 
-  emitUnencryptedLog(message: ACVMField[]): ACVMField {
+  emitUnencryptedLog([contractAddress]: ACVMField[], [eventSelector]: ACVMField[], message: ACVMField[]): ACVMField {
     // https://github.com/AztecProtocol/aztec-packages/issues/885
-    const log = Buffer.concat(message.map(charBuffer => convertACVMFieldToBuffer(charBuffer).subarray(-1)));
+    const logPayload = Buffer.concat(message.map(charBuffer => convertACVMFieldToBuffer(charBuffer).subarray(-1)));
+    const log = new UnencryptedL2Log(
+      AztecAddress.fromString(contractAddress),
+      FunctionSelector.fromField(fromACVMField(eventSelector)),
+      logPayload,
+    );
+
     this.typedOracle.emitUnencryptedLog(log);
     return toACVMField(0);
   }

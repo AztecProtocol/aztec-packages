@@ -7,18 +7,19 @@ contract EcdsaAccount {
     use dep::std::option::Option;
     use dep::aztec::{
         abi::CallContext,
-        constants_gen::GENERATOR_INDEX__SIGNATURE_PAYLOAD,
         context::{PrivateContext, PublicContext, Context},
-        entrypoint::{EntrypointPayload, ENTRYPOINT_PAYLOAD_SIZE},
         log::emit_encrypted_log,
         note::{
             note_header::NoteHeader,
             utils as note_utils,
         },
         oracle::get_public_key::get_public_key,
-        oracle::auth_witness::get_auth_witness,
         state_vars::immutable_singleton::ImmutableSingleton,
+    };
+    use dep::authwit:: {
+        entrypoint::{ EntrypointPayload, ENTRYPOINT_PAYLOAD_SIZE },
         account::AccountActions,
+        auth_witness::get_auth_witness,
     };
 
     use crate::ecdsa_public_key_note::{
@@ -45,11 +46,9 @@ contract EcdsaAccount {
         signing_pub_key_x: pub [u8;32],
         signing_pub_key_y: pub [u8;32],
     ) {
-        
-        
         let this = context.this_address();
         let mut pub_key_note = EcdsaPublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this);
-        storage.public_key.initialize(&mut pub_key_note);
+        storage.public_key.initialize(&mut pub_key_note, Option::none());
         
         emit_encrypted_log(
             &mut context,
@@ -109,7 +108,7 @@ contract EcdsaAccount {
     // Note 2: Having it in all the contracts gives us the ability to compute the note hash and nullifier differently for different kind of notes.
     unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; ECDSA_PUBLIC_KEY_NOTE_LEN]) -> [Field; 4] {
         assert(storage_slot == 1);
-        let note_header = NoteHeader { contract_address, nonce, storage_slot };
+        let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
         note_utils::compute_note_hash_and_nullifier(EcdsaPublicKeyNoteInterface, note_header, preimage)
     }
 }

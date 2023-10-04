@@ -1,5 +1,5 @@
 import { AztecNodeService } from '@aztec/aztec-node';
-import { CheatCodes, Wallet, computeMessageSecretHash } from '@aztec/aztec.js';
+import { CheatCodes, TxHash, Wallet, computeMessageSecretHash } from '@aztec/aztec.js';
 import { AztecAddress, CompleteAddress, EthAddress, Fr, PublicKey } from '@aztec/circuits.js';
 import { DeployL1Contracts } from '@aztec/ethereum';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
@@ -8,11 +8,11 @@ import { DebugLogger } from '@aztec/foundation/log';
 import { OutboxAbi } from '@aztec/l1-artifacts';
 import { TokenBridgeContract, TokenContract } from '@aztec/noir-contracts/types';
 import { PXEService } from '@aztec/pxe';
-import { PXE, TxStatus } from '@aztec/types';
+import { AztecNode, NotePreimage, PXE, TxStatus } from '@aztec/types';
 
 import { Chain, HttpTransport, PublicClient, getContract } from 'viem';
 
-import { deployAndInitializeStandardizedTokenAndBridgeContracts } from './utils.js';
+import { deployAndInitializeTokenAndBridgeContracts } from './utils.js';
 
 /**
  * A Class for testing cross chain interactions, contains common interactions
@@ -20,7 +20,7 @@ import { deployAndInitializeStandardizedTokenAndBridgeContracts } from './utils.
  */
 export class CrossChainTestHarness {
   static async new(
-    aztecNode: AztecNodeService | undefined,
+    aztecNode: AztecNode | undefined,
     pxeService: PXE,
     deployL1ContractsValues: DeployL1Contracts,
     accounts: CompleteAddress[],
@@ -43,7 +43,7 @@ export class CrossChainTestHarness {
 
     // Deploy and initialize all required contracts
     logger('Deploying and initializing token, portal and its bridge...');
-    const contracts = await deployAndInitializeStandardizedTokenAndBridgeContracts(
+    const contracts = await deployAndInitializeTokenAndBridgeContracts(
       wallet,
       walletClient,
       publicClient,
@@ -89,7 +89,7 @@ export class CrossChainTestHarness {
   }
   constructor(
     /** AztecNode. */
-    public aztecNode: AztecNodeService | undefined,
+    public aztecNode: AztecNode | undefined,
     /** Private eXecution Environment (PXE). */
     public pxeService: PXE,
     /** CheatCodes. */
@@ -132,7 +132,7 @@ export class CrossChainTestHarness {
     this.logger("Generating a claim secret using pedersen's hash function");
     const secret = Fr.random();
     const secretHash = await computeMessageSecretHash(secret);
-    this.logger('Generated claim secret: ', secretHash.toString(true));
+    this.logger('Generated claim secret: ' + secretHash.toString(true));
     return [secret, secretHash];
   }
 
@@ -154,11 +154,11 @@ export class CrossChainTestHarness {
 
     this.logger('Sending messages to L1 portal to be consumed publicly');
     const args = [
-      this.ownerAddress.toString(),
       bridgeAmount,
+      this.ownerAddress.toString(),
+      this.ethAccount.toString(),
       deadline,
       secretHash.toString(true),
-      this.ethAccount.toString(),
     ] as const;
     const { result: messageKeyHex } = await this.tokenPortal.simulate.depositToAztecPublic(args, {
       account: this.ethAccount.toString(),
@@ -181,10 +181,10 @@ export class CrossChainTestHarness {
     this.logger('Sending messages to L1 portal to be consumed privately');
     const args = [
       bridgeAmount,
-      deadline,
-      secretHashForL2MessageConsumption.toString(true),
       secretHashForRedeemingMintedNotes.toString(true),
       this.ethAccount.toString(),
+      deadline,
+      secretHashForL2MessageConsumption.toString(true),
     ] as const;
     const { result: messageKeyHex } = await this.tokenPortal.simulate.depositToAztecPrivate(args, {
       account: this.ethAccount.toString(),
@@ -195,6 +195,7 @@ export class CrossChainTestHarness {
   }
 
   async mintTokensPublicOnL2(amount: bigint) {
+    this.logger('Minting tokens on L2 publicly');
     const tx = this.l2Token.methods.mint_public(this.ownerAddress, amount).send();
     const receipt = await tx.wait();
     expect(receipt.status).toBe(TxStatus.MINED);
@@ -226,6 +227,8 @@ export class CrossChainTestHarness {
       .send();
     const consumptionReceipt = await consumptionTx.wait();
     expect(consumptionReceipt.status).toBe(TxStatus.MINED);
+
+    await this.addPendingShieldNoteToPXE(bridgeAmount, secretHashForRedeemingMintedNotes, consumptionReceipt.txHash);
   }
 
   async consumeMessageOnAztecAndMintPublicly(bridgeAmount: bigint, messageKey: Fr, secret: Fr) {
@@ -264,8 +267,12 @@ export class CrossChainTestHarness {
     expect(balance).toBe(expectedBalance);
   }
 
+  async getL2PublicBalanceOf(owner: AztecAddress) {
+    return await this.l2Token.methods.balance_of_public(owner).view();
+  }
+
   async expectPublicBalanceOnL2(owner: AztecAddress, expectedBalance: bigint) {
-    const balance = await this.l2Token.methods.balance_of_public(owner).view({ from: owner });
+    const balance = await this.getL2PublicBalanceOf(owner);
     expect(balance).toBe(expectedBalance);
   }
 
@@ -312,9 +319,19 @@ export class CrossChainTestHarness {
   }
 
   async shieldFundsOnL2(shieldAmount: bigint, secretHash: Fr) {
+    this.logger('Shielding funds on L2');
     const shieldTx = this.l2Token.methods.shield(this.ownerAddress, shieldAmount, secretHash, 0).send();
     const shieldReceipt = await shieldTx.wait();
     expect(shieldReceipt.status).toBe(TxStatus.MINED);
+
+    await this.addPendingShieldNoteToPXE(shieldAmount, secretHash, shieldReceipt.txHash);
+  }
+
+  async addPendingShieldNoteToPXE(shieldAmount: bigint, secretHash: Fr, txHash: TxHash) {
+    this.logger('Adding note to PXE');
+    const storageSlot = new Fr(5);
+    const preimage = new NotePreimage([new Fr(shieldAmount), secretHash]);
+    await this.pxeService.addNote(this.ownerAddress, this.l2Token.address, storageSlot, preimage, txHash);
   }
 
   async redeemShieldPrivatelyOnL2(shieldAmount: bigint, secret: Fr) {
@@ -334,7 +351,7 @@ export class CrossChainTestHarness {
   }
 
   async stop() {
-    await this.aztecNode?.stop();
+    if (this.aztecNode instanceof AztecNodeService) await this.aztecNode?.stop();
     if (this.pxeService instanceof PXEService) {
       await this.pxeService?.stop();
     }

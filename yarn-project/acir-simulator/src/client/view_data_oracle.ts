@@ -1,5 +1,5 @@
 import { CircuitsWasm, HistoricBlockData, PublicKey } from '@aztec/circuits.js';
-import { computeUniqueCommitment, siloCommitment } from '@aztec/circuits.js/abis';
+import { siloNullifier } from '@aztec/circuits.js/abis';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -101,20 +101,14 @@ export class ViewDataOracle extends TypedOracle {
   }
 
   /**
-   * Fetches a path to prove existence of a commitment in the db, given its contract side commitment (before silo).
-   * @param nonce - The nonce of the note.
-   * @param innerNoteHash - The inner note hash of the note.
-   * @returns 1 if (persistent or transient) note hash exists, 0 otherwise. Value is in ACVMField form.
+   * Check if a nullifier exists in the nullifier tree.
+   * @param innerNullifier - The inner nullifier.
+   * @returns A boolean indicating whether the nullifier exists in the tree or not.
    */
-  public async checkNoteHashExists(nonce: Fr, innerNoteHash: Fr): Promise<boolean> {
-    // If nonce is zero, SHOULD only be able to reach this point if note was publicly created
+  public async checkNullifierExists(innerNullifier: Fr) {
     const wasm = await CircuitsWasm.get();
-    let noteHashToLookUp = siloCommitment(wasm, this.contractAddress, innerNoteHash);
-    if (!nonce.isZero()) {
-      noteHashToLookUp = computeUniqueCommitment(wasm, nonce, noteHashToLookUp);
-    }
-
-    const index = await this.db.getCommitmentIndex(noteHashToLookUp);
+    const nullifier = siloNullifier(wasm, this.contractAddress, innerNullifier!);
+    const index = await this.db.getNullifierIndex(nullifier);
     return index !== undefined;
   }
 

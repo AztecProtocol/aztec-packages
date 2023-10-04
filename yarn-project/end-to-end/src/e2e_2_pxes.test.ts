@@ -1,24 +1,21 @@
-import { AztecNodeService } from '@aztec/aztec-node';
-import { AztecAddress, Wallet, computeMessageSecretHash } from '@aztec/aztec.js';
+import { AztecAddress, NotePreimage, Wallet, computeMessageSecretHash } from '@aztec/aztec.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { toBigInt } from '@aztec/foundation/serialize';
 import { ChildContract, TokenContract } from '@aztec/noir-contracts/types';
 import { EthAddress, Fr, PXEService } from '@aztec/pxe';
-import { CompleteAddress, PXE, TxStatus } from '@aztec/types';
+import { AztecNode, CompleteAddress, PXE, TxStatus } from '@aztec/types';
 
 import { jest } from '@jest/globals';
 
 import { expectsNumOfEncryptedLogsInTheLastBlockToBe, setup, setupPXEService } from './fixtures/utils.js';
-
-const { SANDBOX_URL = '' } = process.env;
 
 const TIMEOUT = 60_000;
 
 describe('e2e_2_pxes', () => {
   jest.setTimeout(TIMEOUT);
 
-  let aztecNode: AztecNodeService | undefined;
+  let aztecNode: AztecNode | undefined;
   let pxeA: PXE;
   let pxeB: PXE;
   let walletA: Wallet;
@@ -29,10 +26,6 @@ describe('e2e_2_pxes', () => {
   let teardownA: () => Promise<void>;
 
   beforeEach(async () => {
-    // this test can't be run against the sandbox as it requires 2 PXEs
-    if (SANDBOX_URL) {
-      throw new Error(`Test can't be run against the sandbox as 2 PXEs are required`);
-    }
     let accounts: CompleteAddress[] = [];
     ({
       aztecNode,
@@ -83,13 +76,12 @@ describe('e2e_2_pxes', () => {
     expect(balance).toBe(expectedBalance);
   };
 
-  const deployTokenContract = async (initialAdminBalance: bigint, admin: AztecAddress) => {
+  const deployTokenContract = async (initialAdminBalance: bigint, admin: AztecAddress, pxe: PXE) => {
     logger(`Deploying Token contract...`);
-    const contract = await TokenContract.deploy(walletA).send().deployed();
-    expect((await contract.methods._initialize(admin).send().wait()).status).toBe(TxStatus.MINED);
+    const contract = await TokenContract.deploy(walletA, admin).send().deployed();
 
     if (initialAdminBalance > 0n) {
-      await mintTokens(contract, admin, initialAdminBalance);
+      await mintTokens(contract, admin, initialAdminBalance, pxe);
     }
 
     logger('L2 contract deployed');
@@ -97,11 +89,17 @@ describe('e2e_2_pxes', () => {
     return contract.completeAddress;
   };
 
-  const mintTokens = async (contract: TokenContract, recipient: AztecAddress, balance: bigint) => {
+  const mintTokens = async (contract: TokenContract, recipient: AztecAddress, balance: bigint, pxe: PXE) => {
     const secret = Fr.random();
     const secretHash = await computeMessageSecretHash(secret);
 
-    expect((await contract.methods.mint_private(balance, secretHash).send().wait()).status).toEqual(TxStatus.MINED);
+    const receipt = await contract.methods.mint_private(balance, secretHash).send().wait();
+    expect(receipt.status).toEqual(TxStatus.MINED);
+
+    const storageSlot = new Fr(5);
+    const preimage = new NotePreimage([new Fr(balance), secretHash]);
+    await pxe.addNote(recipient, contract.address, storageSlot, preimage, receipt.txHash);
+
     expect((await contract.methods.redeem_shield(recipient, balance, secret).send().wait()).status).toEqual(
       TxStatus.MINED,
     );
@@ -112,7 +110,7 @@ describe('e2e_2_pxes', () => {
     const transferAmount1 = 654n;
     const transferAmount2 = 323n;
 
-    const completeTokenAddress = await deployTokenContract(initialBalance, userA.address);
+    const completeTokenAddress = await deployTokenContract(initialBalance, userA.address, pxeA);
     const tokenAddress = completeTokenAddress.address;
 
     // Add account B to wallet A
@@ -207,7 +205,7 @@ describe('e2e_2_pxes', () => {
     const userABalance = 100n;
     const userBBalance = 150n;
 
-    const completeTokenAddress = await deployTokenContract(userABalance, userA.address);
+    const completeTokenAddress = await deployTokenContract(userABalance, userA.address, pxeA);
     const contractWithWalletA = await TokenContract.at(completeTokenAddress.address, walletA);
 
     // Add account B to wallet A
@@ -225,7 +223,7 @@ describe('e2e_2_pxes', () => {
     ]);
 
     // Mint tokens to user B
-    await mintTokens(contractWithWalletA, userB.address, userBBalance);
+    await mintTokens(contractWithWalletA, userB.address, userBBalance, pxeA);
 
     // Check that user A balance is 100 on server A
     await expectTokenBalance(walletA, completeTokenAddress.address, userA.address, userABalance);

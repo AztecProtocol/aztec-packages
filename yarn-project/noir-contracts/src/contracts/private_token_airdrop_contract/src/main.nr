@@ -18,7 +18,7 @@ contract PrivateTokenAirdrop {
             note_header::NoteHeader,
             utils as note_utils,
         },
-        log::emit_unencrypted_log,
+        log::emit_unencrypted_log_from_private,
     };
 
     use crate::claim_note::{ClaimNote, ClaimNoteMethods, CLAIM_NOTE_LEN};
@@ -51,8 +51,6 @@ contract PrivateTokenAirdrop {
         initial_supply: Field, 
         owner: Field
     ) {
-        
-
         // Insert new note to a set of user notes and emit the newly created encrypted note preimage via oracle call.
         let owner_balance = storage.balances.at(owner);
         if (initial_supply != 0) {
@@ -66,8 +64,6 @@ contract PrivateTokenAirdrop {
         amount: Field, 
         owner: Field
     ) {
-        
-
         // Insert new note to a set of user notes and emit the newly created encrypted note preimage via oracle call.
         let owner_balance = storage.balances.at(owner);
         increment(owner_balance, amount, owner);
@@ -80,7 +76,6 @@ contract PrivateTokenAirdrop {
         amount: Field,
         owner: Field,
     ) {
-        
         let msg_sender = context.msg_sender();
         let this_address = context.this_address();
 
@@ -109,8 +104,6 @@ contract PrivateTokenAirdrop {
         amount: Field, 
         recipient: Field,
     ) {
-        
-
         let sender = context.msg_sender();
         let sender_balance = storage.balances.at(sender);
 
@@ -139,7 +132,6 @@ contract PrivateTokenAirdrop {
         amounts: [Field; MAX_NEW_COMMITMENTS_PER_CALL],
         secrets: [Field; MAX_NEW_COMMITMENTS_PER_CALL],
     ) {
-        
         let sender = context.msg_sender();
 
         // Pick from the set of sender's notes to spend amount.
@@ -159,21 +151,20 @@ contract PrivateTokenAirdrop {
     }
 
     #[aztec(private)]
-    fn claim(
-        amount: Field,
-        secret: Field,
-        owner: Field,
-        nonce: Field,
-    ) {
-        
+    fn claim(amount: Field, secret: Field) {
+        let owner = context.msg_sender();
 
-        // Remove the claim note if it exists in the set.
-        let mut note = ClaimNote::new(amount, secret);
-        storage.claims.assert_contains_and_remove(&mut note, nonce);
+        // Find a claim note with the exact amount (field_index = 0) and secret (field_index = 1).
+        let options = NoteGetterOptions::new().select(0, amount).select(1, secret).set_limit(1);
+        let opt_notes = storage.claims.get_notes(options);
+        let note = opt_notes[0].unwrap_unchecked();
+
+        // Remove the claim note from the set.
+        storage.claims.remove(note);
 
         // Send the value note.
         let balance = storage.balances.at(owner);
-        increment(balance, amount, owner);
+        increment(balance, note.value, owner);
     }
 
     // Transfers `amounts` of tokens from `sender` to 3 `recipients`. 
@@ -186,8 +177,6 @@ contract PrivateTokenAirdrop {
         recipients: [Field; 3],
         spend_note_offset: u32,
     ) {
-        
-
         // Gets the set of sender's notes and picks 4 of those based on the offset.
         // Spends the first of those 4 notes.
         let sender_balance = storage.balances.at(sender);
@@ -220,15 +209,13 @@ contract PrivateTokenAirdrop {
         // In this example, we emit the first output note's commitment to ensure that the unencrypted log
         // for each call to this function is distinct. This is done to detect any issues while collecting 
         // logs when building a transaction. See: https://github.com/AztecProtocol/aztec-packages/issues/987
-        emit_unencrypted_log(&mut context, context.new_commitments.storage[0]);
+        emit_unencrypted_log_from_private(&mut context, context.new_commitments.storage[0]);
     }
 
     // Helper function to get the balance of a user ("unconstrained" is a Noir alternative of Solidity's "view" function).
     unconstrained fn getBalance(
         owner: Field,
     ) -> Field {
-        
-
         // Get the set of notes owned by the user.
         let owner_balance = storage.balances.at(owner);
 
@@ -240,7 +227,7 @@ contract PrivateTokenAirdrop {
     // Note 1: Needs to be defined by every contract producing logs.
     // Note 2: Having it in all the contracts gives us the ability to compute the note hash and nullifier differently for different kind of notes.
     unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; VALUE_NOTE_LEN]) -> [Field; 4] {
-        let note_header = NoteHeader { contract_address, nonce, storage_slot };
+        let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
         if (storage_slot == 2) {
             note_utils::compute_note_hash_and_nullifier(ClaimNoteMethods, note_header, preimage)
         } else {

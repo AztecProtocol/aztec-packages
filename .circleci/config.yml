@@ -417,17 +417,6 @@ jobs:
           name: Test
           command: cond_spot_run_container yarn-project 64 test | add_timestamps
 
-  aztec-sandbox-base:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build and test"
-          command: force_deploy_build aztec-sandbox-base false
-
   aztec-sandbox-x86_64:
     machine:
       image: ubuntu-2204:2023.07.2
@@ -437,7 +426,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build and test"
-          command: force_deploy_build aztec-sandbox false x86_64
+          command: build aztec-sandbox false x86_64
 
   aztec-sandbox-arm64:
     machine:
@@ -452,9 +441,35 @@ jobs:
           # out to eu-west2 despite the image being locally tagged, resulting in unauthorised 401. Weird docker bug?
           command: |
             echo "export DOCKER_BUILDKIT=" > $BASH_ENV
-            force_deploy_build aztec-sandbox false arm64
+            build aztec-sandbox false arm64
 
-  aztec-sandbox-ecr-manifest:
+  pxe-x86_64:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: build pxe false x86_64
+
+  pxe-arm64:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: arm.large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          # We need to force not to use docker buildkit because for some reason on arm only, it ends up making a call
+          # out to eu-west2 despite the image being locally tagged, resulting in unauthorised 401. Weird docker bug?
+          command: |
+            echo "export DOCKER_BUILDKIT=" > $BASH_ENV
+            build pxe false arm64
+
+  ecr-manifest:
     machine:
       image: ubuntu-2204:2023.07.2
     resource_class: large
@@ -463,7 +478,9 @@ jobs:
       - *setup_env
       - run:
           name: "Create ECR manifest"
-          command: create_ecr_manifest aztec-sandbox-base aztec-sandbox x86_64,arm64
+          command: |
+            create_ecr_manifest aztec-sandbox x86_64,arm64
+            create_ecr_manifest pxe x86_64,arm64
 
   boxes-blank-react:
     machine:
@@ -530,6 +547,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_run_script end-to-end ./scripts/run_tests_local e2e_2_pxes.test.ts
+          environment: { DEBUG: "aztec:*" }
 
   e2e-multiple-accounts-1-enc-key:
     machine:
@@ -541,6 +559,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_run_script end-to-end ./scripts/run_tests_local e2e_multiple_accounts_1_enc_key.test.ts
+          environment: { DEBUG: "aztec:*" }
 
   e2e-deploy-contract:
     machine:
@@ -552,6 +571,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_run_script end-to-end ./scripts/run_tests_local e2e_deploy_contract.test.ts
+          environment: { DEBUG: "aztec:*" }
 
   e2e-lending-contract:
     machine:
@@ -563,6 +583,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_run_script end-to-end ./scripts/run_tests_local e2e_lending_contract.test.ts
+          environment: { DEBUG: "aztec:*" }
 
   e2e-token-contract:
     machine:
@@ -574,6 +595,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_run_script end-to-end ./scripts/run_tests_local e2e_token_contract.test.ts
+          environment: { DEBUG: "aztec:*" }
 
   e2e-private-airdrop:
     machine:
@@ -585,6 +607,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_run_script end-to-end ./scripts/run_tests_local e2e_private_airdrop.test.ts
+          environment: { DEBUG: "aztec:*" }
 
   e2e-private-token-contract:
     machine:
@@ -596,6 +619,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_run_script end-to-end ./scripts/run_tests_local e2e_private_token_contract.test.ts
+          environment: { DEBUG: "aztec:*" }
 
   e2e-sandbox-example:
     machine:
@@ -607,6 +631,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_run_script end-to-end ./scripts/run_tests_local e2e_sandbox_example.test.ts ./scripts/docker-compose-e2e-sandbox.yml
+          environment: { DEBUG: "aztec:*" }
 
   e2e-multi-transfer-contract:
     machine:
@@ -618,6 +643,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_run_script end-to-end ./scripts/run_tests_local e2e_multi_transfer.test.ts
+          environment: { DEBUG: "aztec:*" }
 
   e2e-block-building:
     machine:
@@ -629,6 +655,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_run_script end-to-end ./scripts/run_tests_local e2e_block_building.test.ts
+          environment: { DEBUG: "aztec:*" }
 
   e2e-nested-contract:
     machine:
@@ -640,6 +667,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_run_script end-to-end ./scripts/run_tests_local e2e_nested_contract.test.ts
+          environment: { DEBUG: "aztec:*" }
 
   e2e-non-contract-account:
     machine:
@@ -651,6 +679,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_run_script end-to-end ./scripts/run_tests_local e2e_non_contract_account.test.ts
+          environment: { DEBUG: "aztec:*" }
 
   e2e-cross-chain-messaging:
     machine:
@@ -662,6 +691,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_run_script end-to-end ./scripts/run_tests_local e2e_cross_chain_messaging.test.ts
+          environment: { DEBUG: "aztec:*" }
 
   e2e-public-cross-chain-messaging:
     machine:
@@ -673,6 +703,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_run_script end-to-end ./scripts/run_tests_local e2e_public_cross_chain_messaging.test.ts
+          environment: { DEBUG: "aztec:*" }
 
   e2e-public-to-private-messaging:
     machine:
@@ -684,6 +715,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_run_script end-to-end ./scripts/run_tests_local e2e_public_to_private_messaging.test.ts
+          environment: { DEBUG: "aztec:*" }
 
   e2e-account-contracts:
     machine:
@@ -695,6 +727,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_run_script end-to-end ./scripts/run_tests_local e2e_account_contracts.test.ts
+          environment: { DEBUG: "aztec:*" }
 
   e2e-escrow-contract:
     machine:
@@ -706,6 +739,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_run_script end-to-end ./scripts/run_tests_local e2e_escrow_contract.test.ts
+          environment: { DEBUG: "aztec:*" }
 
   e2e-pending-commitments-contract:
     machine:
@@ -717,6 +751,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_run_script end-to-end ./scripts/run_tests_local e2e_pending_commitments_contract.test.ts
+          environment: { DEBUG: "aztec:*" }
 
   e2e-ordering:
     machine:
@@ -728,6 +763,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_run_script end-to-end ./scripts/run_tests_local e2e_ordering.test.ts
+          environment: { DEBUG: "aztec:*" }
 
   uniswap-trade-on-l1-from-l2:
     machine:
@@ -739,6 +775,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_run_script end-to-end ./scripts/run_tests_local uniswap_trade_on_l1_from_l2.test.ts
+          environment: { DEBUG: "aztec:*" }
 
   integration-archiver-l1-to-l2:
     machine:
@@ -750,6 +787,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_run_script end-to-end ./scripts/run_tests_local integration_archiver_l1_to_l2.test.ts
+          environment: { DEBUG: "aztec:*" }
 
   integration-l1-publisher:
     machine:
@@ -761,6 +799,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_run_script end-to-end ./scripts/run_tests_local integration_l1_publisher.test.ts
+          environment: { DEBUG: "aztec:*" }
 
   e2e-public-token-contract:
     machine:
@@ -772,6 +811,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_run_script end-to-end ./scripts/run_tests_local e2e_public_token_contract.test.ts
+          environment: { DEBUG: "aztec:*" }
 
   e2e-cli:
     machine:
@@ -783,6 +823,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_run_script end-to-end ./scripts/run_tests_local e2e_cli.test.ts
+          environment: { DEBUG: "aztec:*" }
 
   e2e-p2p:
     machine:
@@ -794,6 +835,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_run_script end-to-end ./scripts/run_tests_local e2e_p2p_network.test.ts
+          environment: { DEBUG: "aztec:*" }
 
   e2e-browser-sandbox:
     machine:
@@ -805,6 +847,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_run_script end-to-end ./scripts/run_tests_local e2e_aztec_js_browser.test.ts ./scripts/docker-compose-e2e-sandbox-browser.yml
+          environment: { DEBUG: "aztec:*" }
 
   e2e-card-game:
     machine:
@@ -816,6 +859,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_run_script end-to-end ./scripts/run_tests_local e2e_card_game.test.ts
+          environment: { DEBUG: "aztec:*" }
 
   pxe-sandbox:
     machine:
@@ -827,6 +871,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_run_script end-to-end ./scripts/run_tests_local pxe_sandbox.test.ts ./scripts/docker-compose-e2e-sandbox.yml
+          environment: { DEBUG: "aztec:*" }
 
   cli-docs-sandbox:
     machine:
@@ -838,6 +883,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_run_script end-to-end ./scripts/run_tests_local cli_docs_sandbox.test.ts ./scripts/docker-compose-e2e-sandbox.yml
+          environment: { DEBUG: "aztec:*" }
 
   guides-writing-an-account-contract:
     machine:
@@ -849,6 +895,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_run_script end-to-end ./scripts/run_tests_local guides/writing_an_account_contract.test.ts
+          environment: { DEBUG: "aztec:*" }
 
   guides-dapp-testing:
     machine:
@@ -860,6 +907,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_run_script end-to-end ./scripts/run_tests_local guides/dapp_testing.test.ts ./scripts/docker-compose-e2e-sandbox.yml
+          environment: { DEBUG: "aztec:*" }
 
   guides-sample-dapp:
     machine:
@@ -871,6 +919,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_run_script end-to-end ./scripts/run_tests_local sample-dapp ./scripts/docker-compose-e2e-sandbox.yml
+          environment: { DEBUG: "aztec:*" }
 
   guides-up-quick-start:
     machine:
@@ -882,6 +931,7 @@ jobs:
       - run:
           name: "Test"
           command: cond_run_script end-to-end ./scripts/run_tests_local guides/up_quick_start.test.ts ./scripts/docker-compose-e2e-sandbox.yml
+          environment: { DEBUG: "aztec:*" }
 
   e2e-canary-test:
     machine:
@@ -893,6 +943,21 @@ jobs:
       - run:
           name: "Test"
           command: cond_run_script canary-build ./scripts/run_tests uniswap_trade_on_l1_from_l2.test.ts canary-build ./scripts/docker-compose-e2e-sandbox.yml
+
+  bench-publish-rollup:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Benchmark"
+          command: cond_run_script end-to-end ./scripts/run_tests_local benchmarks/bench_publish_rollup.test.ts
+          environment:
+            {
+              DEBUG: "aztec:benchmarks:*,aztec:sequencer,aztec:world_state,aztec:merkle_trees",
+            }
 
   build-docs:
     machine:
@@ -926,6 +991,16 @@ jobs:
           name: "Noop"
           command: echo Noop
 
+  bench-summary:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Assemble benchmark summary from uploaded logs"
+          command: ./scripts/ci/assemble_e2e_benchmark.sh
+
   deploy-npm:
     machine:
       image: ubuntu-2204:2023.07.2
@@ -946,12 +1021,8 @@ jobs:
       - *checkout
       - *setup_env
       - run:
-          name: "deploy-sandbox"
-          working_directory: aztec-sandbox
-          command: |
-            deploy_dockerhub aztec-sandbox x86_64
-            deploy_dockerhub aztec-sandbox arm64
-            create_dockerhub_manifest aztec-sandbox x86_64,arm64
+          name: "Deploy to dockerhub"
+          command: yarn-project/deploy_dockerhub.sh
 
   deploy-end:
     docker:
@@ -1032,10 +1103,6 @@ deploy_defaults: &deploy_defaults
     - slack/notify:
         event: fail
         branch_pattern: "master"
-yarn_project: &yarn_project
-  requires:
-    - yarn-project
-  <<: *defaults
 e2e_test: &e2e_test
   requires:
     - e2e-join
@@ -1144,24 +1211,43 @@ workflows:
             - yarn-project
           <<: *defaults
 
-      - end-to-end: *yarn_project
-      - aztec-sandbox-base: *yarn_project
-      - canary: *yarn_project
-      - build-docs: *yarn_project
+      - end-to-end:
+          requires:
+            - yarn-project
+          <<: *defaults
+      - canary:
+          requires:
+            - yarn-project
+          <<: *defaults
+      - build-docs:
+          requires:
+            - yarn-project
+          <<: *defaults
 
       - aztec-sandbox-x86_64:
           requires:
-            - aztec-sandbox-base
+            - yarn-project
           <<: *defaults
       - aztec-sandbox-arm64:
           requires:
-            - aztec-sandbox-base
+            - yarn-project
           <<: *defaults
 
-      - aztec-sandbox-ecr-manifest:
+      - pxe-x86_64:
+          requires:
+            - yarn-project
+          <<: *defaults
+      - pxe-arm64:
+          requires:
+            - yarn-project
+          <<: *defaults
+
+      - ecr-manifest:
           requires:
             - aztec-sandbox-x86_64
             - aztec-sandbox-arm64
+            - pxe-x86_64
+            - pxe-arm64
           <<: *defaults
 
       - boxes-blank-react:
@@ -1182,7 +1268,7 @@ workflows:
       - e2e-join:
           requires:
             - end-to-end
-            - aztec-sandbox-ecr-manifest
+            - ecr-manifest
             - canary
           <<: *defaults
 
@@ -1220,6 +1306,7 @@ workflows:
       - guides-dapp-testing: *e2e_test
       - guides-sample-dapp: *e2e_test
       - guides-up-quick-start: *e2e_test
+      - bench-publish-rollup: *e2e_test
 
       - e2e-end:
           requires:
@@ -1257,6 +1344,12 @@ workflows:
             - guides-dapp-testing
             - guides-sample-dapp
             - guides-up-quick-start
+            - bench-publish-rollup
+          <<: *defaults
+
+      - bench-summary:
+          requires:
+            - e2e-end
           <<: *defaults
 
         # Deployment and Canary tests

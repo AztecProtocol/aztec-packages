@@ -50,13 +50,11 @@ contract PokeableToken {
         sender: Field,
         recipient: Field
     )  {
-        
-
         let mut sender_note = AddressNote::new(sender);
         let mut recipient_note = AddressNote::new(recipient);
 
-        storage.sender.initialize(&mut sender_note);
-        storage.recipient.initialize(&mut recipient_note);
+        storage.sender.initialize(&mut sender_note, Option::none());
+        storage.recipient.initialize(&mut recipient_note, Option::none());
 
         // Insert new note to a set of user notes and emit the newly created encrypted note preimage via oracle call.
         let sender_balance = storage.balances.at(sender);
@@ -69,8 +67,6 @@ contract PokeableToken {
         sender: Field,
         recipient: Field
     ) {
-        
-
         // TODO: This check is not satisfying constraints
         // let mut sender_note = AddressNote::new(sender);
         // storage.sender.assert_contains(&mut context, &mut sender_note);
@@ -107,8 +103,6 @@ contract PokeableToken {
     unconstrained fn getBalance(
         sender: Field,
     ) -> Field {
-        
-
         // Get the set of notes owned by the user.
         let sender_balance = storage.balances.at(sender);
 
@@ -120,7 +114,7 @@ contract PokeableToken {
     // Note 1: Needs to be defined by every contract producing logs.
     // Note 2: Having it in all the contracts gives us the ability to compute the note hash and nullifier differently for different kind of notes.
     unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; VALUE_NOTE_LEN]) -> [Field; 4] {
-        let note_header = NoteHeader { contract_address, nonce, storage_slot };
+        let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
         if (storage_slot == 1) | (storage_slot == 2) {
             note_utils::compute_note_hash_and_nullifier(AddressNoteMethods, note_header, preimage)
         } else {

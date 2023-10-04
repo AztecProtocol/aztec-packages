@@ -1,4 +1,4 @@
-import { AztecAddress, Fr, PXE } from '@aztec/aztec.js';
+import { AztecAddress, Fr, GrumpkinScalar, PXE, Point, TxHash } from '@aztec/aztec.js';
 import { L1ContractArtifactsForDeployment, createEthereumChain, deployL1Contracts } from '@aztec/ethereum';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
@@ -135,7 +135,7 @@ export async function getTxSender(pxe: PXE, _from?: string) {
     try {
       from = AztecAddress.fromString(_from);
     } catch {
-      throw new Error(`Invalid option 'from' passed: ${_from}`);
+      throw new InvalidArgumentError(`Invalid option 'from' passed: ${_from}`);
     }
   } else {
     const accounts = await pxe.getRegisteredAccounts();
@@ -150,30 +150,18 @@ export async function getTxSender(pxe: PXE, _from?: string) {
 /**
  * Performs necessary checks, conversions & operations to call a contract fn from the CLI.
  * @param contractFile - Directory of the compiled contract ABI.
- * @param _contractAddress - Aztec Address of the contract.
+ * @param contractAddress - Aztec Address of the contract.
  * @param functionName - Name of the function to be called.
  * @param _functionArgs - Arguments to call the function with.
  * @param log - Logger instance that will output to the CLI
  * @returns Formatted contract address, function arguments and caller's aztec address.
  */
-export async function prepTx(
-  contractFile: string,
-  _contractAddress: string,
-  functionName: string,
-  _functionArgs: string[],
-  log: LogFn,
-) {
-  let contractAddress;
-  try {
-    contractAddress = AztecAddress.fromString(_contractAddress);
-  } catch {
-    throw new Error(`Unable to parse contract address ${_contractAddress}.`);
-  }
+export async function prepTx(contractFile: string, functionName: string, _functionArgs: string[], log: LogFn) {
   const contractAbi = await getContractAbi(contractFile, log);
   const functionAbi = getAbiFunction(contractAbi, functionName);
   const functionArgs = encodeArgs(_functionArgs, functionAbi.parameters);
 
-  return { contractAddress, functionArgs, contractAbi };
+  return { functionArgs, contractAbi };
 }
 
 /**
@@ -193,7 +181,7 @@ export const stripLeadingHex = (hex: string) => {
  * @param str - Hex encoded string
  * @returns A integer to be used as salt
  */
-export function getSaltFromHexString(str: string): Fr {
+export function parseSaltFromHexString(str: string): Fr {
   const hex = stripLeadingHex(str);
 
   // ensure it's a hex string
@@ -207,4 +195,116 @@ export function getSaltFromHexString(str: string): Fr {
 
   // finally, turn it into an integer
   return Fr.fromBuffer(Buffer.from(padded, 'hex'));
+}
+
+/**
+ * Parses an AztecAddress from a string. Throws InvalidArgumentError if the string is not a valid.
+ * @param address - A serialised Aztec address
+ * @returns An Aztec address
+ */
+export function parseAztecAddress(address: string): AztecAddress {
+  try {
+    return AztecAddress.fromString(address);
+  } catch {
+    throw new InvalidArgumentError(`Invalid address: ${address}`);
+  }
+}
+
+/**
+ * Parses a TxHash from a string. Throws InvalidArgumentError if the string is not a valid.
+ * @param txHash - A transaction hash
+ * @returns A TxHash instance
+ */
+export function parseTxHash(txHash: string): TxHash {
+  try {
+    return TxHash.fromString(txHash);
+  } catch {
+    throw new InvalidArgumentError(`Invalid transaction hash: ${txHash}`);
+  }
+}
+
+/**
+ * Parses a public key from a string. Throws InvalidArgumentError if the string is not a valid.
+ * @param publicKey - A public key
+ * @returns A Point instance
+ */
+export function parsePublicKey(publicKey: string): Point {
+  try {
+    return Point.fromString(publicKey);
+  } catch (err) {
+    throw new InvalidArgumentError(`Invalid public key: ${publicKey}`);
+  }
+}
+
+/**
+ * Parses a partial address from a string. Throws InvalidArgumentError if the string is not a valid.
+ * @param address - A partial address
+ * @returns A Fr instance
+ */
+export function parsePartialAddress(address: string): Fr {
+  try {
+    return Fr.fromString(address);
+  } catch (err) {
+    throw new InvalidArgumentError(`Invalid partial address: ${address}`);
+  }
+}
+
+/**
+ * Parses a private key from a string. Throws InvalidArgumentError if the string is not a valid.
+ * @param privateKey - A string
+ * @returns A private key
+ */
+export function parsePrivateKey(privateKey: string): GrumpkinScalar {
+  try {
+    const value = GrumpkinScalar.fromString(privateKey);
+    // most likely a badly formatted key was passed
+    if (value.isZero()) {
+      throw new Error('Private key must not be zero');
+    }
+
+    return value;
+  } catch (err) {
+    throw new InvalidArgumentError(`Invalid private key: ${privateKey}`);
+  }
+}
+
+/**
+ * Parses a field from a string. Throws InvalidArgumentError if the string is not a valid field value.
+ * @param field - A string representing the field.
+ * @returns A field.
+ */
+export function parseField(field: string): Fr {
+  try {
+    const isHex = field.startsWith('0x') || field.match(new RegExp(`^[0-9a-f]{${Fr.SIZE_IN_BYTES * 2}}$`, 'i'));
+    if (isHex) {
+      return Fr.fromString(field);
+    }
+
+    if (['true', 'false'].includes(field)) {
+      return new Fr(field === 'true');
+    }
+
+    const isNumber = +field || field === '0';
+    if (isNumber) {
+      return new Fr(BigInt(field));
+    }
+
+    const isBigInt = field.endsWith('n');
+    if (isBigInt) {
+      return new Fr(BigInt(field.replace(/n$/, '')));
+    }
+
+    return new Fr(BigInt(field));
+  } catch (err) {
+    throw new InvalidArgumentError(`Invalid field: ${field}`);
+  }
+}
+
+/**
+ * Parses an array of strings to Frs.
+ * @param fields - An array of strings representing the fields.
+ * @returns An array of Frs.
+ */
+export function parseFields(fields: string[]): Fr[] {
+  return fields.map(parseField);
 }

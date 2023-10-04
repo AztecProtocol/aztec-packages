@@ -8,11 +8,9 @@ import {
   EthCheatCodes,
   Wallet,
   createAccounts,
-  createPXEClient as createJsonRpcClient,
+  createPXEClient,
   getSandboxAccountsWallets,
 } from '@aztec/aztec.js';
-import { CircuitsWasm, GeneratorIndex } from '@aztec/circuits.js';
-import { pedersenPlookupCompressWithHashIndex } from '@aztec/circuits.js/barretenberg';
 import {
   DeployL1Contracts,
   L1ContractArtifactsForDeployment,
@@ -42,8 +40,17 @@ import {
 } from '@aztec/l1-artifacts';
 import { NonNativeTokenContract, TokenBridgeContract, TokenContract } from '@aztec/noir-contracts/types';
 import { PXEService, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
-import { L2BlockL2Logs, LogType, PXE, TxStatus } from '@aztec/types';
+import {
+  AztecNode,
+  L2BlockL2Logs,
+  LogType,
+  PXE,
+  TxStatus,
+  UnencryptedL2Log,
+  createAztecNodeRpcClient,
+} from '@aztec/types';
 
+import * as path from 'path';
 import {
   Account,
   Chain,
@@ -60,8 +67,18 @@ import {
 import { mnemonicToAccount } from 'viem/accounts';
 
 import { MNEMONIC, localAnvil } from './fixtures.js';
+import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
 
-const { SANDBOX_URL = '' } = process.env;
+const { PXE_URL = '', AZTEC_NODE_URL = '' } = process.env;
+
+const getAztecNodeUrl = () => {
+  if (AZTEC_NODE_URL) return AZTEC_NODE_URL;
+
+  // If AZTEC_NODE_URL is not set, we assume that the PXE is running on the same host as the Aztec Node and use the default port
+  const url = new URL(PXE_URL);
+  url.port = '8079';
+  return url.toString();
+};
 
 export const waitForPXE = async (pxe: PXE, logger: DebugLogger) => {
   await retryUntil(async () => {
@@ -74,18 +91,6 @@ export const waitForPXE = async (pxe: PXE, logger: DebugLogger) => {
     }
     return undefined;
   }, 'RPC Get Node Info');
-};
-
-const createAztecNode = async (
-  nodeConfig: AztecNodeConfig,
-  logger: DebugLogger,
-): Promise<AztecNodeService | undefined> => {
-  if (SANDBOX_URL) {
-    logger(`Not creating Aztec Node as we are running against a sandbox at ${SANDBOX_URL}`);
-    return undefined;
-  }
-  logger('Creating and synching an aztec node...');
-  return await AztecNodeService.createAndSync(nodeConfig);
 };
 
 export const setupL1Contracts = async (
@@ -136,7 +141,7 @@ export const setupL1Contracts = async (
  */
 export async function setupPXEService(
   numberOfAccounts: number,
-  aztecNode: AztecNodeService,
+  aztecNode: AztecNode,
   logger = getLogger(),
   useLogSuffix = false,
 ): Promise<{
@@ -175,18 +180,21 @@ export async function setupPXEService(
  * @param account - The account for use in create viem wallets.
  * @param config - The aztec Node Configuration
  * @param logger - The logger to be used
- * @returns RPC Client, viwm wallets, contract addreses etc.
+ * @returns Private eXecution Environment (PXE) client, viem wallets, contract addresses etc.
  */
 async function setupWithSandbox(account: Account, config: AztecNodeConfig, logger: DebugLogger) {
   // we are setting up against the sandbox, l1 contracts are already deployed
-  logger(`Creating JSON RPC client to remote host ${SANDBOX_URL}`);
-  const jsonClient = createJsonRpcClient(SANDBOX_URL);
-  await waitForPXE(jsonClient, logger);
+  const aztecNodeUrl = getAztecNodeUrl();
+  logger(`Creating Aztec Node client to remote host ${aztecNodeUrl}`);
+  const aztecNode = createAztecNodeRpcClient(aztecNodeUrl);
+  logger(`Creating PXE client to remote host ${PXE_URL}`);
+  const pxeClient = createPXEClient(PXE_URL);
+  await waitForPXE(pxeClient, logger);
   logger('JSON RPC client connected to PXE');
-  logger(`Retrieving contract addresses from ${SANDBOX_URL}`);
-  const l1Contracts = (await jsonClient.getNodeInfo()).l1ContractAddresses;
+  logger(`Retrieving contract addresses from ${PXE_URL}`);
+  const l1Contracts = (await pxeClient.getNodeInfo()).l1ContractAddresses;
   logger('PXE created, constructing wallets from initial sandbox accounts...');
-  const wallets = await getSandboxAccountsWallets(jsonClient);
+  const wallets = await getSandboxAccountsWallets(pxeClient);
 
   const walletClient = createWalletClient<HttpTransport, Chain, HDAccount>({
     account,
@@ -202,13 +210,13 @@ async function setupWithSandbox(account: Account, config: AztecNodeConfig, logge
     walletClient,
     publicClient,
   };
-  const cheatCodes = await CheatCodes.create(config.rpcUrl, jsonClient!);
+  const cheatCodes = await CheatCodes.create(config.rpcUrl, pxeClient!);
   const teardown = () => Promise.resolve();
   return {
-    aztecNode: undefined,
-    pxe: jsonClient,
+    aztecNode,
+    pxe: pxeClient,
     deployL1ContractsValues,
-    accounts: await jsonClient!.getRegisteredAccounts(),
+    accounts: await pxeClient!.getRegisteredAccounts(),
     config,
     wallet: wallets[0],
     wallets,
@@ -218,66 +226,56 @@ async function setupWithSandbox(account: Account, config: AztecNodeConfig, logge
   };
 }
 
+/** Options for the e2e tests setup */
+type SetupOptions = { /** State load */ stateLoad?: string } & Partial<AztecNodeConfig>;
+
+/** Context for an end-to-end test as returned by the `setup` function */
+export type EndToEndContext = {
+  /** The Aztec Node service or client a connected to it. */
+  aztecNode: AztecNode | undefined;
+  /** The Private eXecution Environment (PXE). */
+  pxe: PXE;
+  /** Return values from deployL1Contracts function. */
+  deployL1ContractsValues: DeployL1Contracts;
+  /** The accounts created by the PXE. */
+  accounts: CompleteAddress[];
+  /** The Aztec Node configuration. */
+  config: AztecNodeConfig;
+  /** The first wallet to be used. */
+  wallet: AccountWallet;
+  /** The wallets to be used. */
+  wallets: AccountWallet[];
+  /** Logger instance named as the current test. */
+  logger: DebugLogger;
+  /** The cheat codes. */
+  cheatCodes: CheatCodes;
+  /** Function to stop the started services. */
+  teardown: () => Promise<void>;
+};
+
 /**
  * Sets up the environment for the end-to-end tests.
  * @param numberOfAccounts - The number of new accounts to be created once the PXE is initiated.
+ * @param opts - Options to pass to the node initialisation and to the setup script.
  */
-export async function setup(
-  numberOfAccounts = 1,
-  stateLoad: string | undefined = undefined,
-): Promise<{
-  /**
-   * The Aztec Node service.
-   */
-  aztecNode: AztecNodeService | undefined;
-  /**
-   * The Private eXecution Environment (PXE).
-   */
-  pxe: PXE;
-  /**
-   * Return values from deployL1Contracts function.
-   */
-  deployL1ContractsValues: DeployL1Contracts;
-  /**
-   * The accounts created by the PXE.
-   */
-  accounts: CompleteAddress[];
-  /**
-   * The Aztec Node configuration.
-   */
-  config: AztecNodeConfig;
-  /**
-   * The first wallet to be used.
-   */
-  wallet: AccountWallet;
-  /**
-   * The wallets to be used.
-   */
-  wallets: AccountWallet[];
-  /**
-   * Logger instance named as the current test.
-   */
-  logger: DebugLogger;
-  /**
-   * The cheat codes.
-   */
-  cheatCodes: CheatCodes;
-  /**
-   * Function to stop the started services.
-   */
-  teardown: () => Promise<void>;
-}> {
-  const config = getConfigEnvVars();
+export async function setup(numberOfAccounts = 1, opts: SetupOptions = {}): Promise<EndToEndContext> {
+  const config = { ...getConfigEnvVars(), ...opts };
 
-  if (stateLoad) {
+  // Enable logging metrics to a local file named after the test suite
+  if (isMetricsLoggingRequested()) {
+    const filename = path.join('log', getJobName() + '.jsonl');
+    setupMetricsLogger(filename);
+  }
+
+  if (opts.stateLoad) {
     const ethCheatCodes = new EthCheatCodes(config.rpcUrl);
-    await ethCheatCodes.loadChainState(stateLoad);
+    await ethCheatCodes.loadChainState(opts.stateLoad);
   }
 
   const logger = getLogger();
   const hdAccount = mnemonicToAccount(MNEMONIC);
 
-  if (SANDBOX_URL) {
+  if (PXE_URL) {
     // we are setting up against the sandbox, l1 contracts are already deployed
     return await setupWithSandbox(hdAccount, config, logger);
   }
@@ -293,14 +291,15 @@ export async function setup(
     deployL1ContractsValues.l1ContractAddresses.contractDeploymentEmitterAddress;
   config.l1Contracts.inboxAddress = deployL1ContractsValues.l1ContractAddresses.inboxAddress;
 
-  const aztecNode = await createAztecNode(config, logger);
+  logger('Creating and synching an aztec node...');
+  const aztecNode = await AztecNodeService.createAndSync(config);
 
   const { pxe, accounts, wallets } = await setupPXEService(numberOfAccounts, aztecNode!, logger);
 
   const cheatCodes = await CheatCodes.create(config.rpcUrl, pxe!);
 
   const teardown = async () => {
-    await aztecNode?.stop();
+    if (aztecNode instanceof AztecNodeService) await aztecNode?.stop();
     if (pxe instanceof PXEService) await pxe?.stop();
   };
 
@@ -332,12 +331,17 @@ export async function setNextBlockTimestamp(rpcUrl: string, timestamp: number) {
   });
 }
 
+/** Returns the job name for the current test. */
+function getJobName() {
+  return process.env.JOB_NAME ?? expect.getState().currentTestName?.split(' ')[0].replaceAll('/', '_') ?? 'unknown';
+}
+
 /**
  * Returns a logger instance for the current test.
  * @returns a logger instance for the current test.
  */
 export function getLogger() {
-  const describeBlockName = expect.getState().currentTestName?.split(' ')[0];
+  const describeBlockName = expect.getState().currentTestName?.split(' ')[0].replaceAll('/', ':');
   return createDebugLogger('aztec:' + describeBlockName);
 }
 
@@ -351,7 +355,7 @@ export function getLogger() {
  * @param underlyingERC20Address - address of the underlying ERC20 contract to use (if none supplied, it deploys one)
  * @returns l2 contract instance, bridge contract instance, token portal instance, token portal address and the underlying ERC20 instance
  */
-export async function deployAndInitializeStandardizedTokenAndBridgeContracts(
+export async function deployAndInitializeTokenAndBridgeContracts(
   wallet: Wallet,
   walletClient: WalletClient<HttpTransport, Chain, Account>,
   publicClient: PublicClient<HttpTransport, Chain>,
@@ -400,40 +404,26 @@ export async function deployAndInitializeStandardizedTokenAndBridgeContracts(
   });
 
   // deploy l2 token
-  const deployTx = TokenContract.deploy(wallet).send();
-
-  // deploy l2 token bridge and attach to the portal
-  const bridgeTx = TokenBridgeContract.deploy(wallet).send({
-    portalContract: tokenPortalAddress,
-    contractAddressSalt: Fr.random(),
-  });
+  const deployTx = TokenContract.deploy(wallet, owner).send();
 
   // now wait for the deploy txs to be mined. This way we send all tx in the same rollup.
   const deployReceipt = await deployTx.wait();
   if (deployReceipt.status !== TxStatus.MINED) throw new Error(`Deploy token tx status is ${deployReceipt.status}`);
   const token = await TokenContract.at(deployReceipt.contractAddress!, wallet);
 
+  // deploy l2 token bridge and attach to the portal
+  const bridgeTx = TokenBridgeContract.deploy(wallet, token.address).send({
+    portalContract: tokenPortalAddress,
+    contractAddressSalt: Fr.random(),
+  });
   const bridgeReceipt = await bridgeTx.wait();
   if (bridgeReceipt.status !== TxStatus.MINED) throw new Error(`Deploy bridge tx status is ${bridgeReceipt.status}`);
   const bridge = await TokenBridgeContract.at(bridgeReceipt.contractAddress!, wallet);
   await bridge.attach(tokenPortalAddress);
   const bridgeAddress = bridge.address.toString() as `0x${string}`;
 
-  // initialize l2 token
-  const initializeTx = token.methods._initialize(owner).send();
-
-  // initialize bridge
-  const initializeBridgeTx = bridge.methods._initialize(token.address).send();
-
-  // now we wait for the txs to be mined. This way we send all tx in the same rollup.
-  const initializeReceipt = await initializeTx.wait();
-  if (initializeReceipt.status !== TxStatus.MINED)
-    throw new Error(`Initialize token tx status is ${initializeReceipt.status}`);
   if ((await token.methods.admin().view()) !== owner.toBigInt()) throw new Error(`Token admin is not ${owner}`);
 
-  const initializeBridgeReceipt = await initializeBridgeTx.wait();
-  if (initializeBridgeReceipt.status !== TxStatus.MINED)
-    throw new Error(`Initialize token bridge tx status is ${initializeBridgeReceipt.status}`);
   if ((await bridge.methods.token().view()) !== token.address.toBigInt())
     throw new Error(`Bridge token is not ${token.address}`);
 
@@ -528,7 +518,7 @@ export function delay(ms: number): Promise<void> {
  * @param numEncryptedLogs - The number of expected logs.
  */
 export const expectsNumOfEncryptedLogsInTheLastBlockToBe = async (
-  aztecNode: AztecNodeService | undefined,
+  aztecNode: AztecNode | undefined,
   numEncryptedLogs: number,
 ) => {
   if (!aztecNode) {
@@ -554,21 +544,8 @@ export const expectUnencryptedLogsFromLastBlockToBe = async (pxe: PXE, logMessag
   // Get the unencrypted logs from the last block
   const unencryptedLogs = await pxe.getUnencryptedLogs(l2BlockNum, 1);
   // docs:end:get_logs
-  const unrolledLogs = L2BlockL2Logs.unrollLogs(unencryptedLogs);
-  const asciiLogs = unrolledLogs.map(log => log.toString('ascii'));
+  const unrolledLogs = L2BlockL2Logs.unrollLogs(unencryptedLogs).map(log => UnencryptedL2Log.fromBuffer(log));
+  const asciiLogs = unrolledLogs.map(log => log.data.toString('ascii'));
 
   expect(asciiLogs).toStrictEqual(logMessages);
-};
-
-/**
- * Hash a payload to generate a signature on an account contract
- * @param payload - payload to hash
- * @returns the hashed message
- */
-export const hashPayload = async (payload: Fr[]) => {
-  return pedersenPlookupCompressWithHashIndex(
-    await CircuitsWasm.get(),
-    payload.map(fr => fr.toBuffer()),
-    GeneratorIndex.SIGNATURE_PAYLOAD,
-  );
 };

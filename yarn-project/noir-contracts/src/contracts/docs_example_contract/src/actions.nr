@@ -62,7 +62,7 @@ fn add_points_to_queen(state_var: PublicState<Queen, QUEEN_SERIALIZED_LEN>, new_
 
 // docs:start:state_vars-SingletonInit
 fn init_legendary_card(state_var: Singleton<CardNote, CARD_NOTE_LEN>, card: &mut CardNote) {
-    state_var.initialize(card);
+    state_var.initialize(card, Option::some(card.owner));
 }
 // docs:end:state_vars-SingletonInit
 
@@ -83,7 +83,7 @@ fn init_game_rules(
     state_var: ImmutableSingleton<RulesNote, RULES_NOTE_LEN>,
     rules: &mut RulesNote,
 ) {
-    state_var.initialize(rules);
+    state_var.initialize(rules, Option::none());
 }
 // docs:end:state_vars-ImmutableSingletonInit
 
@@ -145,23 +145,13 @@ unconstrained fn get_total_points(
     total_points
 }
 
-// docs:start:state_vars-SetContains
-fn assert_contains_card<RERUEN_LEN, FILTER_PARAMS>(
-    state_var: Set<CardNote, CARD_NOTE_LEN>,
-    card: &mut CardNote,
-    nonce: Field,
-) {
-    state_var.assert_contains_and_remove(card, nonce);
-}
-// docs:end:state_vars-SetContains
-
 // docs:start:state_vars-MapAtSingletonInit
 fn add_new_profile(
     state_var: Map<Singleton<ProfileNote, PROFILE_NOTE_LEN>>,
     account: Field,
     profile: &mut ProfileNote,
 ) {
-    state_var.at(account).initialize(profile);
+    state_var.at(account).initialize(profile, Option::some(account));
 }
 // docs:end:state_vars-MapAtSingletonInit
 

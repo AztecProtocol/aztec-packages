@@ -1,5 +1,6 @@
 import { BufferReader, serializeToBuffer } from '@aztec/circuits.js/utils';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 
@@ -21,21 +22,45 @@ export interface L1ToL2MessageSource {
    * @returns The confirmed L1 to L2 message (throws if not found)
    */
   getConfirmedL1ToL2Message(messageKey: Fr): Promise<L1ToL2Message>;
+
+  /**
+   * Gets the number of the latest L2 block processed by the implementation.
+   * @returns The number of the latest L2 block processed by the implementation.
+   */
+  getBlockNumber(): Promise<number>;
 }
 
 /**
  * L1AndL2Message and Index (in the merkle tree) as one type
  */
-export type L1ToL2MessageAndIndex = {
-  /**
-   * The message.
-   */
-  message: L1ToL2Message;
-  /**
-   * the index in the L1 to L2 Message tree.
-   */
-  index: bigint;
-};
+export class L1ToL2MessageAndIndex {
+  constructor(
+    /** the index in the L1 to L2 Message tree. */
+    public readonly index: bigint,
+    /** The message. */
+    public readonly message: L1ToL2Message,
+  ) {}
+
+  toBuffer(): Buffer {
+    return Buffer.concat([toBufferBE(this.index, 32), this.message.toBuffer()]);
+  }
+
+  toString(): string {
+    return this.toBuffer().toString('hex');
+  }
+
+  static fromString(data: string): L1ToL2MessageAndIndex {
+    const buffer = Buffer.from(data, 'hex');
+    return L1ToL2MessageAndIndex.fromBuffer(buffer);
+  }
+
+  static fromBuffer(buffer: Buffer | BufferReader) {
+    const reader = BufferReader.asReader(buffer);
+    const index = toBigIntBE(reader.readBytes(32));
+    const message = L1ToL2Message.fromBuffer(reader);
+    return new L1ToL2MessageAndIndex(index, message);
+  }
+}
 
 /**
  * The format of an L1 to L2 Message.

@@ -36,7 +36,11 @@ It will download and execute a script invoking docker compose with 2 containers:
 - Anvil
 - Aztec Sandbox
 
-2 ports will need to be opened on your system in order for you to interact with the sandbox. The first port is for Anvil, it defaults to 8545 and can be overridden by specifying a value in the environment variable `SANDBOX_ANVIL_PORT`. The second is the sandbox RPC host port. It defaults to value 8080 but can be overridden with environment variable `SANDBOX_RPC_PORT`.
+3 ports will need to be opened on your system in order for you to interact with the sandbox.
+The first port is for Anvil, it defaults to 8545 and can be overridden by specifying a value in the environment variable `SANDBOX_ANVIL_PORT`.
+The second one is sandbox Aztec Node port, it defaults to 8079 and can be overridden by specifying a value in the environment variable `SANDBOX_AZTEC_NODE_PORT`.
+The third is the sandbox PXE port.
+It defaults to value 8080 but can be overridden with environment variable `SANDBOX_PXE_PORT`.
 
 Within a few seconds the Sandbox should be up and running!
 
@@ -259,6 +263,9 @@ In this section, we created 2 instances of the `TokenContract` contract abstract
 
 We can see that each account has the expected balance of tokens.
 
+### Diagram of calling an unconstrained (view) function
+<img src="/img/sandbox_unconstrained_function.svg" alt="Unconstrained function call" />
+
 ## Creating and submitting transactions
 
 Now lets transfer some funds from Alice to Bob by calling the `transfer` function on the contract. This function takes 4 arguments:
@@ -345,6 +352,9 @@ Our complete output should now be:
 That's it! We have successfully deployed a private token contract to an instance of the Aztec network and mined private state-transitioning transactions. We have also queried the resulting state all via the interfaces provided by the contract.
 
 You can find the [complete tutorial code here](https://github.com/AztecProtocol/dev-rel/tree/main/tutorials/sandbox-tutorial/token).
+
+### Diagram of sending a transaction
+<img src="/img/sandbox_sending_a_tx.svg" alt="Sending a transaction" />
 
 ## Next Steps
 

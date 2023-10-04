@@ -393,11 +393,11 @@ template <typename FF> void UltraCircuitBuilder_<FF>::create_poly_gate(const pol
 template <typename FF> void UltraCircuitBuilder_<FF>::create_ecc_add_gate(const ecc_add_gate_<FF>& in)
 {
     /**
+     * gate structure:
      * | 1  | 2  | 3  | 4  |
-     * | a1 | a2 | x1 | y1 |
-     * | x2 | y2 | x3 | y3 |
-     * | -- | -- | x4 | y4 |
-     *
+     * | -- | x1 | y1 | -- |
+     * | x2 | x3 | y3 | y2 |
+     * we can chain successive ecc_add_gates if x3 y3 of previous gate equals x1 y1 of current gate
      **/
 
     this->assert_valid_variables({ in.x1, in.x2, in.x3, in.y1, in.y2, in.y3 });
@@ -409,13 +409,20 @@ template <typename FF> void UltraCircuitBuilder_<FF>::create_ecc_add_gate(const 
     can_fuse_into_previous_gate = can_fuse_into_previous_gate && (q_4[this->num_gates - 1] == 0);
     can_fuse_into_previous_gate = can_fuse_into_previous_gate && (q_1[this->num_gates - 1] == 0);
     can_fuse_into_previous_gate = can_fuse_into_previous_gate && (q_arith[this->num_gates - 1] == 0);
+    can_fuse_into_previous_gate = can_fuse_into_previous_gate && (q_m[this->num_gates - 1] == 0);
 
+    // TODO(@zac-williamson #2608 remove endomorphism coefficient)
+    bool endomorphism_present = in.endomorphism_coefficient != 1;
     if (can_fuse_into_previous_gate) {
-
         q_3[this->num_gates - 1] = in.endomorphism_coefficient;
         q_4[this->num_gates - 1] = in.endomorphism_coefficient.sqr();
         q_1[this->num_gates - 1] = in.sign_coefficient;
-        q_elliptic[this->num_gates - 1] = 1;
+
+        // TODO(@zac-williamson #2608) Change this back to 1 when pedersen refactor is complete.
+        // This is temporary stopgap. We can't support both a double gate and support the ecc enodmorphism
+        // without pushing the degree of the constraint above 5, which breaks ultraplonk.
+        // The pedersen refactor will remove all uses of the endomorphism
+        q_elliptic[this->num_gates - 1] = endomorphism_present ? 0 : 1;
     } else {
         w_l.emplace_back(this->zero_idx);
         w_r.emplace_back(in.x1);
@@ -431,15 +438,82 @@ template <typename FF> void UltraCircuitBuilder_<FF>::create_ecc_add_gate(const 
         q_c.emplace_back(0);
         q_sort.emplace_back(0);
         q_lookup_type.emplace_back(0);
-        q_elliptic.emplace_back(1);
+
+        // TODO(@zac-williamson #2608) Change this back to 1 when pedersen refactor is complete.
+        // This is temporary stopgap. We can't support both a double gate and support the ecc enodmorphism
+        // without pushing the degree of the constraint above 5, which breaks ultraplonk.
+        // The pedersen refactor will remove all uses of the endomorphism
+        q_elliptic.emplace_back(endomorphism_present ? 0 : 1);
         q_aux.emplace_back(0);
         ++this->num_gates;
     }
-
     w_l.emplace_back(in.x2);
     w_4.emplace_back(in.y2);
     w_r.emplace_back(in.x3);
     w_o.emplace_back(in.y3);
+    q_m.emplace_back(0);
+    q_1.emplace_back(0);
+    q_2.emplace_back(0);
+    q_3.emplace_back(0);
+    q_c.emplace_back(0);
+    q_arith.emplace_back(0);
+    q_4.emplace_back(0);
+    q_sort.emplace_back(0);
+    q_lookup_type.emplace_back(0);
+    q_elliptic.emplace_back(0);
+    q_aux.emplace_back(0);
+    ++this->num_gates;
+}
+
+/**
+ * @brief Create an elliptic curve doubling gate
+ *
+ *
+ * @param in Elliptic curve point doubling gate parameters
+ */
+template <typename FF> void UltraCircuitBuilder_<FF>::create_ecc_dbl_gate(const ecc_dbl_gate_<FF>& in)
+{
+    /**
+     * gate structure:
+     * | 1  | 2  | 3  | 4  |
+     * | -  | x1 | y1 | -  |
+     * | -  | x3 | y3 | -  |
+     * we can chain an ecc_add_gate + an ecc_dbl_gate if x3 y3 of previous add_gate equals x1 y1 of current gate
+     * can also chain double gates together
+     **/
+    bool can_fuse_into_previous_gate = true;
+    can_fuse_into_previous_gate = can_fuse_into_previous_gate && (w_r[this->num_gates - 1] == in.x1);
+    can_fuse_into_previous_gate = can_fuse_into_previous_gate && (w_o[this->num_gates - 1] == in.y1);
+    can_fuse_into_previous_gate = can_fuse_into_previous_gate && (q_arith[this->num_gates - 1] == 0);
+    can_fuse_into_previous_gate = can_fuse_into_previous_gate && (q_lookup_type[this->num_gates - 1] == 0);
+    can_fuse_into_previous_gate = can_fuse_into_previous_gate && (q_aux[this->num_gates - 1] == 0);
+
+    if (can_fuse_into_previous_gate) {
+        q_elliptic[this->num_gates - 1] = 1;
+        q_m[this->num_gates - 1] = 1;
+    } else {
+        w_r.emplace_back(in.x1);
+        w_o.emplace_back(in.y1);
+        w_l.emplace_back(this->zero_idx);
+        w_4.emplace_back(this->zero_idx);
+        q_elliptic.emplace_back(1);
+        q_m.emplace_back(1);
+        q_1.emplace_back(0);
+        q_2.emplace_back(0);
+        q_3.emplace_back(0);
+        q_c.emplace_back(0);
+        q_arith.emplace_back(0);
+        q_4.emplace_back(0);
+        q_sort.emplace_back(0);
+        q_lookup_type.emplace_back(0);
+        q_aux.emplace_back(0);
+        ++this->num_gates;
+    }
+
+    w_r.emplace_back(in.x3);
+    w_o.emplace_back(in.y3);
+    w_l.emplace_back(this->zero_idx);
+    w_4.emplace_back(this->zero_idx);
     q_m.emplace_back(0);
     q_1.emplace_back(0);
     q_2.emplace_back(0);
@@ -2766,8 +2840,7 @@ inline FF UltraCircuitBuilder_<FF>::compute_genperm_sort_identity(FF q_sort_valu
 template <typename FF>
 inline FF UltraCircuitBuilder_<FF>::compute_elliptic_identity(FF q_elliptic_value,
                                                               FF q_1_value,
-                                                              FF q_3_value,
-                                                              FF q_4_value,
+                                                              FF q_m_value,
                                                               FF w_2_value,
                                                               FF w_3_value,
                                                               FF w_1_shifted_value,
@@ -2777,45 +2850,43 @@ inline FF UltraCircuitBuilder_<FF>::compute_elliptic_identity(FF q_elliptic_valu
                                                               FF alpha_base,
                                                               FF alpha) const
 {
-    // TODO(kesha): Can this be implemented more efficiently?
-    // It seems that Zac wanted to group the elements by selectors to use several linear terms initially,
-    // but in the end we are using one, so there is no reason why we can't optimize computation in another way
     const FF x_1 = w_2_value;
     const FF y_1 = w_3_value;
     const FF x_2 = w_1_shifted_value;
     const FF y_2 = w_4_shifted_value;
     const FF x_3 = w_2_shifted_value;
     const FF y_3 = w_3_shifted_value;
-    const FF q_beta = q_3_value;
-    const FF q_beta_sqr = q_4_value;
     const FF q_sign = q_1_value;
+    const FF q_is_double = q_m_value;
+    constexpr FF curve_b = CircuitBuilderBase<arithmetization::Ultra<FF>>::EmbeddedCurve::Group::curve_b;
+    static_assert(CircuitBuilderBase<arithmetization::Ultra<FF>>::EmbeddedCurve::Group::curve_a == 0);
 
-    FF beta_term = -x_2 * x_1 * (x_3 + x_3 + x_1); // -x_1 * x_2 * (2 * x_3 + x_1)
-    FF beta_sqr_term = x_2.sqr();                  // x_2^2
-    FF leftovers = beta_sqr_term;                  // x_2^2
-    beta_sqr_term *= (x_3 - x_1);                  // x_2^2 * (x_3 - x_1)
-    FF sign_term = y_2 * y_1;                      // y_1 * y_2
-    sign_term += sign_term;                        // 2 * y_1 * y_2
-    beta_term *= q_beta;                           // -β * x_1 * x_2 * (2 * x_3 + x_1)
-    beta_sqr_term *= q_beta_sqr;                   // β^2 * x_2^2 * (x_3 - x_1)
-    sign_term *= q_sign;                           // 2 * y_1 * y_2 * sign
-    leftovers *= x_2;                              // x_2^3
-    leftovers += x_1.sqr() * (x_3 + x_1);          // x_2^3 + x_1 * (x_3 + x_1)
-    leftovers -= (y_2.sqr() + y_1.sqr());          // x_2^3 + x_1 * (x_3 + x_1) - y_2^2 - y_1^2
+    FF x_diff = x_2 - x_1;
+    FF y1_sqr = y_1.sqr();
+    FF y2_sqr = y_2.sqr();
+    FF y1y2 = y_1 * y_2 * q_sign;
+    FF x_relation_add = (x_3 + x_2 + x_1) * x_diff.sqr() - y1_sqr - y2_sqr + y1y2 + y1y2;
+    FF y_relation_add = (y_3 + y_1) * x_diff + (x_3 - x_1) * (y_2 * q_sign - y_1);
 
-    // Can be found in class description
-    FF x_identity = beta_term + beta_sqr_term + sign_term + leftovers;
-    x_identity *= alpha_base;
+    x_relation_add *= (-q_is_double + 1) * alpha_base * alpha;
+    y_relation_add *= (-q_is_double + 1) * alpha_base * alpha;
 
-    beta_term = x_2 * (y_3 + y_1) * q_beta;  // β * x_2 * (y_3 + y_1)
-    sign_term = -y_2 * (x_1 - x_3) * q_sign; // - signt * y_2 * (x_1 - x_3)
-    // TODO: remove extra additions if we decide to stay with this implementation
-    leftovers = -x_1 * (y_3 + y_1) + y_1 * (x_1 - x_3); // -x_1 * y_3 - x_1 * y_1 + y_1 * x_1 - y_1 * x_3
+    // x-coordinate relation
+    // (x3 + 2x1)(4y^2) - (9x^4) = 0
+    // This is degree 4...but
+    // we can use x^3 = y^2 - b
+    // (x3 + 2x1)(4y ^ 2) - (9x(y ^ 2 - b)) is degree 3
+    const FF x_pow_4 = (y_1 * y_1 - curve_b) * x_1;
+    FF x_relation_double = (x_3 + x_1 + x_1) * (y_1 + y_1) * (y_1 + y_1) - x_pow_4 * FF(9);
 
-    FF y_identity = beta_term + sign_term + leftovers;
-    y_identity *= alpha_base * alpha;
+    // Y relation: (x1 - x3)(3x^2) - (2y1)(y1 + y3) = 0
+    const FF x_pow_2 = (x_1 * x_1);
+    FF y_relation_double = x_pow_2 * (x_1 - x_3) * 3 - (y_1 + y_1) * (y_1 + y_3);
 
-    return q_elliptic_value * (x_identity + y_identity);
+    x_relation_double *= q_is_double * alpha_base;
+    y_relation_double *= q_is_double * alpha_base * alpha;
+
+    return q_elliptic_value * (x_relation_add + y_relation_add + x_relation_double + y_relation_double);
 }
 
 /**
@@ -3332,8 +3403,7 @@ template <typename FF> bool UltraCircuitBuilder_<FF>::check_circuit()
         }
         if (!compute_elliptic_identity(q_elliptic_value,
                                        q_1_value,
-                                       q_3_value,
-                                       q_4_value,
+                                       q_m_value,
                                        w_2_value,
                                        w_3_value,
                                        w_1_shifted_value,
