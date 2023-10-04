@@ -50,7 +50,7 @@ if [ -z "$STANDALONE" ]; then
 fi
 
 # Filter on whitelist of properties.
-jq '{name, version, exports, main, homepage, author, type, license, dependencies, description, bin} | with_entries( select( .value != null ) )' \
+jq '{name, version, exports, main, homepage, author, type, license, dependencies, description, bin, engine, types} | with_entries( select( .value != null ) )' \
 package.json > $TMP && mv $TMP package.json
 
 # Publish if we have a commit tag
