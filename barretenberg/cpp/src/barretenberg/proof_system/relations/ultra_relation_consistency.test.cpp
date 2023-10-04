@@ -556,7 +556,7 @@ TEST_F(UltraRelationConsistency, AuxiliaryRelation)
         expected_values[4] *= q_aux;
         expected_values[5] *= q_aux;
 
-        validate_relation_execution<Relation>(expected_values, input_elements, parameters);
+        new_validate_relation_execution<Relation>(expected_values, input_elements, parameters);
     };
     run_test(/*random_inputs=*/false);
     run_test(/*random_inputs=*/true);
