@@ -1,4 +1,4 @@
-import { AccountWallet, AztecAddress, computeAuthWitHash } from '@aztec/aztec.js';
+import { AccountWallet, AztecAddress, computeAuthWitMessageHash } from '@aztec/aztec.js';
 import { Fr } from '@aztec/circuits.js';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { DebugLogger } from '@aztec/foundation/log';
@@ -94,7 +94,7 @@ describe('e2e_public_cross_chain_messaging', () => {
     // 4. Give approval to bridge to burn owner's funds:
     const withdrawAmount = 9n;
     const nonce = Fr.random();
-    const burnMessageHash = await computeAuthWitHash(
+    const burnMessageHash = await computeAuthWitMessageHash(
       l2Bridge.address,
       l2Token.methods.burn_public(ownerAddress, withdrawAmount, nonce).request(),
     );

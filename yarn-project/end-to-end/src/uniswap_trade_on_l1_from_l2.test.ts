@@ -1,4 +1,4 @@
-import { AccountWallet, AztecAddress, computeAuthWitHash } from '@aztec/aztec.js';
+import { AccountWallet, AztecAddress, computeAuthWitMessageHash } from '@aztec/aztec.js';
 import { Fr } from '@aztec/circuits.js';
 import { deployL1Contract } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -179,7 +179,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
     // 3. Owner gives uniswap approval to unshield funds to self on its behalf
     logger('Approving uniswap to unshield funds to self on my behalf');
     const nonceForWETHUnshieldApproval = new Fr(2n);
-    const unshieldToUniswapMessageHash = await computeAuthWitHash(
+    const unshieldToUniswapMessageHash = await computeAuthWitMessageHash(
       uniswapL2Contract.address,
       wethCrossChainHarness.l2Token.methods
         .unshield(ownerAddress, uniswapL2Contract.address, wethAmountToBridge, nonceForWETHUnshieldApproval)
@@ -312,7 +312,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
 
     // 3. Owner gives uniswap approval to transfer funds on its behalf
     const nonceForWETHTransferApproval = new Fr(2n);
-    const transferMessageHash = await computeAuthWitHash(
+    const transferMessageHash = await computeAuthWitMessageHash(
       uniswapL2Contract.address,
       wethCrossChainHarness.l2Token.methods
         .transfer_public(ownerAddress, uniswapL2Contract.address, wethAmountToBridge, nonceForWETHTransferApproval)
@@ -344,7 +344,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
         ownerEthAddress,
         nonceForSwap,
       );
-    const swapMessageHash = await computeAuthWitHash(sponsorAddress, action.request());
+    const swapMessageHash = await computeAuthWitMessageHash(sponsorAddress, action.request());
     await ownerWallet.setPublicAuth(swapMessageHash, true).send().wait();
 
     // 4.2 Call swap_public from user2 on behalf of owner

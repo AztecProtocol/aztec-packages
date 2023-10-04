@@ -34,7 +34,7 @@ fn assert_current_call_is_valid_for_public(context: &mut PublicContext, whom: Az
   assert_valid_public_message_for(context, whom, message_hash);
 }
 
-fn compute_message_hash<N>(caller: AztecAddress, target: AztecAddress, selector: Field, args: [Field; N]) -> Field {
+fn compute_authwit_message_hash<N>(caller: AztecAddress, target: AztecAddress, selector: Field, args: [Field; N]) -> Field {
   let args_hash = hash_args(args);
   pedersen_with_separator([caller.address, target.address, selector, args_hash], GENERATOR_INDEX__SIGNATURE_PAYLOAD)[0]
 }

@@ -18,7 +18,7 @@ contract Uniswap {
         },
     };
 
-    use dep::authwit::auth::{IS_VALID_SELECTOR, assert_current_call_is_valid_for_public, compute_message_hash};
+    use dep::authwit::auth::{IS_VALID_SELECTOR, assert_current_call_is_valid_for_public, compute_authwit_message_hash};
     
     use crate::interfaces::{Token, TokenBridge};
     use crate::util::{compute_swap_private_content_hash, compute_swap_public_content_hash};
@@ -206,7 +206,7 @@ contract Uniswap {
         // approve bridge to burn this contract's funds (required when exiting on L1, as it burns funds on L2):
         let nonce_for_burn_approval = storage.nonce_for_burn_approval.read();
         let selector = compute_selector("burn_public((Field),Field,Field)");
-        let message_hash = compute_message_hash(token_bridge, token, selector, [context.this_address(), amount, nonce_for_burn_approval]);
+        let message_hash = compute_authwit_message_hash(token_bridge, token, selector, [context.this_address(), amount, nonce_for_burn_approval]);
         storage.approved_action.at(message_hash).write(true);
 
         // increment nonce_for_burn_approval so it won't be used again

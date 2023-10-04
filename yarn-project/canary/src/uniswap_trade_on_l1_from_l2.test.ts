@@ -6,7 +6,7 @@ import {
   NotePreimage,
   TxHash,
   TxStatus,
-  computeAuthWitHash,
+  computeAuthWitMessageHash,
   computeMessageSecretHash,
   createDebugLogger,
   createPXEClient,
@@ -335,7 +335,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
     // 4. Owner gives uniswap approval to unshield funds to self on its behalf
     logger('Approving uniswap to unshield funds to self on my behalf');
     const nonceForWETHUnshieldApproval = new Fr(2n);
-    const unshieldToUniswapMessageHash = await computeAuthWitHash(
+    const unshieldToUniswapMessageHash = await computeAuthWitMessageHash(
       uniswapL2Contract.address,
       wethL2Contract.methods
         .unshield(ownerAddress, uniswapL2Contract.address, wethAmountToBridge, nonceForWETHUnshieldApproval)

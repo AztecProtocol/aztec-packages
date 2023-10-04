@@ -9,7 +9,7 @@ import { FunctionCall, PackedArguments } from '@aztec/types';
  * @param request - The request to be made (function call)
  * @returns The message hash for the witness
  */
-export const computeAuthWitHash = async (caller: AztecAddress, request: FunctionCall) => {
+export const computeAuthWitMessageHash = async (caller: AztecAddress, request: FunctionCall) => {
   const wasm = await CircuitsWasm.get();
   return pedersenPlookupCompressWithHashIndex(
     wasm,

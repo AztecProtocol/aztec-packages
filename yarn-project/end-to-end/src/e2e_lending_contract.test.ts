@@ -1,4 +1,11 @@
-import { AccountWallet, CheatCodes, Fr, SentTx, computeAuthWitHash, computeMessageSecretHash } from '@aztec/aztec.js';
+import {
+  AccountWallet,
+  CheatCodes,
+  Fr,
+  SentTx,
+  computeAuthWitMessageHash,
+  computeMessageSecretHash,
+} from '@aztec/aztec.js';
 import { CompleteAddress } from '@aztec/circuits.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { LendingContract, PriceFeedContract, TokenContract } from '@aztec/noir-contracts/types';
@@ -142,7 +149,7 @@ describe('e2e_lending_contract', () => {
     it('Depositing 🥸 : 💰 -> 🏦', async () => {
       const depositAmount = 420n;
       const nonce = Fr.random();
-      const messageHash = await computeAuthWitHash(
+      const messageHash = await computeAuthWitMessageHash(
         lendingContract.address,
         collateralAsset.methods
           .unshield(lendingAccount.address, lendingContract.address, depositAmount, nonce)
@@ -176,7 +183,7 @@ describe('e2e_lending_contract', () => {
     it('Depositing 🥸 on behalf of recipient: 💰 -> 🏦', async () => {
       const depositAmount = 421n;
       const nonce = Fr.random();
-      const messageHash = await computeAuthWitHash(
+      const messageHash = await computeAuthWitMessageHash(
         lendingContract.address,
         collateralAsset.methods
           .unshield(lendingAccount.address, lendingContract.address, depositAmount, nonce)
@@ -210,7 +217,7 @@ describe('e2e_lending_contract', () => {
       const depositAmount = 211n;
 
       const nonce = Fr.random();
-      const messageHash = await computeAuthWitHash(
+      const messageHash = await computeAuthWitMessageHash(
         lendingContract.address,
         collateralAsset.methods
           .transfer_public(lendingAccount.address, lendingContract.address, depositAmount, nonce)
@@ -288,7 +295,7 @@ describe('e2e_lending_contract', () => {
     it('Repay 🥸 : 🍌 -> 🏦', async () => {
       const repayAmount = 20n;
       const nonce = Fr.random();
-      const messageHash = await computeAuthWitHash(
+      const messageHash = await computeAuthWitMessageHash(
         lendingContract.address,
         stableCoin.methods.burn(lendingAccount.address, repayAmount, nonce).request(),
       );
@@ -314,7 +321,7 @@ describe('e2e_lending_contract', () => {
     it('Repay 🥸  on behalf of public: 🍌 -> 🏦', async () => {
       const repayAmount = 21n;
       const nonce = Fr.random();
-      const messageHash = await computeAuthWitHash(
+      const messageHash = await computeAuthWitMessageHash(
         lendingContract.address,
         stableCoin.methods.burn(lendingAccount.address, repayAmount, nonce).request(),
       );
@@ -341,7 +348,7 @@ describe('e2e_lending_contract', () => {
       const repayAmount = 20n;
 
       const nonce = Fr.random();
-      const messageHash = await computeAuthWitHash(
+      const messageHash = await computeAuthWitMessageHash(
         lendingContract.address,
         stableCoin.methods.burn_public(lendingAccount.address, repayAmount, nonce).request(),
       );
