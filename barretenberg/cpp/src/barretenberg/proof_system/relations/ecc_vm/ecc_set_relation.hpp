@@ -43,13 +43,11 @@ template <typename FF_> class ECCVMSetRelationBase {
 
     template <typename AccumulatorTypes>
     static Accumulator<AccumulatorTypes> compute_permutation_numerator(const auto& extended_edges,
-                                                                       const RelationParameters<FF>& relation_params,
-                                                                       size_t index = 0);
+                                                                       const RelationParameters<FF>& relation_params);
 
     template <typename AccumulatorTypes>
     static Accumulator<AccumulatorTypes> compute_permutation_denominator(const auto& extended_edges,
-                                                                         const RelationParameters<FF>& relation_params,
-                                                                         size_t index = 0);
+                                                                         const RelationParameters<FF>& relation_params);
 
     template <typename AccumulatorTypes>
     static void accumulate(typename AccumulatorTypes::Accumulators& accumulator,

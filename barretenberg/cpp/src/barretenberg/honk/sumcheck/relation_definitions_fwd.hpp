@@ -21,8 +21,8 @@
     Preface template RelationBase<Flavor::FF>::template Accumulator<                                                   \
         proof_system::Relation<RelationBase<Flavor::FF>>::AccumulatorType>                                             \
     RelationBase<Flavor::FF>::MethodName<proof_system::Relation<RelationBase<Flavor::FF>>::AccumulatorType,            \
-                                         EdgeType(Flavor)>(                                                            \
-        EdgeType(Flavor) const&, RelationParameters<Flavor::FF> const&, size_t const);
+                                         EdgeType(Flavor)>(EdgeType(Flavor) const&,                                    \
+                                                           RelationParameters<Flavor::FF> const&);
 
 #define SUMCHECK_RELATION_CLASS(...) _SUMCHECK_RELATION_CLASS(__VA_ARGS__)
 #define _SUMCHECK_RELATION_CLASS(Preface, RelationBase, Flavor)                                                        \

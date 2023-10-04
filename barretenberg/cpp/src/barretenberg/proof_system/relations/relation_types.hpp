@@ -34,49 +34,6 @@ concept HasSubrelationLinearlyIndependentMember = requires(T) {
  */
 
 /**
- * @brief Getter method that will return `input[index]` iff `input` is a std::span container
- *
- * @return requires
- */
-template <typename FF, typename AccumulatorTypes, typename T>
-    requires std::is_same<std::span<FF>, T>::value
-inline typename std::tuple_element<0, typename AccumulatorTypes::AccumulatorViews>::type get_view(const T& input,
-                                                                                                  const size_t index)
-{
-    return input[index];
-}
-
-/**
- * @brief Getter method that will return `input[index]` iff `input` is a Polynomial container
- *
- * @tparam FF
- * @tparam TypeMuncher
- * @tparam T
- * @param input
- * @param index
- * @return requires
- */
-template <typename FF, typename AccumulatorTypes, typename T>
-    requires std::is_same<barretenberg::Polynomial<FF>, T>::value
-inline typename std::tuple_element<0, typename AccumulatorTypes::AccumulatorViews>::type get_view(const T& input,
-                                                                                                  const size_t index)
-{
-    return input[index];
-}
-
-/**
- * @brief Getter method that will return `input[index]` iff `input` is not a std::span or a Polynomial container
- *
- * @return requires
- */
-template <typename FF, typename AccumulatorTypes, typename T>
-inline typename std::tuple_element<0, typename AccumulatorTypes::AccumulatorViews>::type get_view(
-    const T& input, const size_t /*unused*/)
-{
-    return typename std::tuple_element<0, typename AccumulatorTypes::AccumulatorViews>::type(input);
-}
-
-/**
  * @brief A wrapper for Relations to expose methods used by the Sumcheck prover or verifier to add the contribution of
  * a given relation to the corresponding accumulator.
  *

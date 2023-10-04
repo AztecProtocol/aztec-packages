@@ -74,9 +74,9 @@ void compute_permutation_grand_product(const size_t circuit_size,
                 evaluations[k] = full_polynomials[k].size() > i ? full_polynomials[k][i] : 0;
             }
             numerator[i] = PermutationRelation::template compute_permutation_numerator<ValueAccumulatorsAndViews>(
-                evaluations, relation_parameters, i);
+                evaluations, relation_parameters);
             denominator[i] = PermutationRelation::template compute_permutation_denominator<ValueAccumulatorsAndViews>(
-                evaluations, relation_parameters, i);
+                evaluations, relation_parameters);
         }
     });
 
