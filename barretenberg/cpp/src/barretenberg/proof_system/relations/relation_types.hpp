@@ -61,6 +61,16 @@ template <typename RelationImpl> class Relation : public RelationImpl {
     using ValueAccumulatorsAndViews =
         typename RelationImpl::template GetAccumulatorTypes<ValueAccumulatorsAndViewsTemplate>;
 
+    using UnivariateAccumulators =
+        typename RelationImpl::template GetAccumulatorTypes<UnivariateAccumulatorsAndViewsTemplate>::Accumulators;
+    // In the case of the value accumulator types, only the number of subrelations (not their lengths) has an effect.
+    using ValueAccumulators =
+        typename RelationImpl::template GetAccumulatorTypes<ValueAccumulatorsAndViewsTemplate>::Accumulators;
+
+    using UnivariateAccumulator0 = std::tuple_element_t<0, UnivariateAccumulators>;
+    // In the case of the value accumulator types, only the number of subrelations (not their lengths) has an effect.
+    using ValueAccumulator0 = std::tuple_element_t<0, ValueAccumulators>;
+
     using TupleOfUnivariatesOverSubrelations = TupleOfUnivariates<FF, RelationImpl::LENGTHS>;
     using TupleOfValuesOverSubrelations = ArrayOfValues<FF, RelationImpl::LENGTHS>;
 

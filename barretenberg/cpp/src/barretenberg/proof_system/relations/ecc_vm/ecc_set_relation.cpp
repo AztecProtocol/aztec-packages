@@ -34,11 +34,10 @@ namespace proof_system::honk::sumcheck {
  * @return ECCVMSetRelationBase<FF>::template Accumulator<AccumulatorTypes>
  */
 template <typename FF>
-template <typename AccumulatorTypes>
-typename ECCVMSetRelationBase<FF>::template Accumulator<AccumulatorTypes> ECCVMSetRelationBase<
-    FF>::compute_permutation_numerator(const auto& extended_edges, const RelationParameters<FF>& relation_params)
+template <typename Accumulator>
+Accumulator ECCVMSetRelationBase<FF>::compute_permutation_numerator(const auto& extended_edges,
+                                                                    const RelationParameters<FF>& relation_params)
 {
-    using Accumulator = typename std::tuple_element_t<0, typename AccumulatorTypes::Accumulators>;
     using View = typename Accumulator::View;
 
     const auto& precompute_round = View(extended_edges.precompute_round);
@@ -136,14 +135,14 @@ typename ECCVMSetRelationBase<FF>::template Accumulator<AccumulatorTypes> ECCVMS
         auto adjusted_skew = precompute_skew * negative_inverse_seven;
 
         const auto& wnaf_scalar_sum = View(extended_edges.precompute_scalar_sum);
-        const auto w0 = convert_to_wnaf<AccumulatorTypes>(View(extended_edges.precompute_s1hi),
-                                                          View(extended_edges.precompute_s1lo));
-        const auto w1 = convert_to_wnaf<AccumulatorTypes>(View(extended_edges.precompute_s2hi),
-                                                          View(extended_edges.precompute_s2lo));
-        const auto w2 = convert_to_wnaf<AccumulatorTypes>(View(extended_edges.precompute_s3hi),
-                                                          View(extended_edges.precompute_s3lo));
-        const auto w3 = convert_to_wnaf<AccumulatorTypes>(View(extended_edges.precompute_s4hi),
-                                                          View(extended_edges.precompute_s4lo));
+        const auto w0 =
+            convert_to_wnaf<Accumulator>(View(extended_edges.precompute_s1hi), View(extended_edges.precompute_s1lo));
+        const auto w1 =
+            convert_to_wnaf<Accumulator>(View(extended_edges.precompute_s2hi), View(extended_edges.precompute_s2lo));
+        const auto w2 =
+            convert_to_wnaf<Accumulator>(View(extended_edges.precompute_s3hi), View(extended_edges.precompute_s3lo));
+        const auto w3 =
+            convert_to_wnaf<Accumulator>(View(extended_edges.precompute_s4hi), View(extended_edges.precompute_s4lo));
 
         auto row_slice = w0;
         row_slice += row_slice;
@@ -233,11 +232,10 @@ typename ECCVMSetRelationBase<FF>::template Accumulator<AccumulatorTypes> ECCVMS
 }
 
 template <typename FF>
-template <typename AccumulatorTypes>
-typename ECCVMSetRelationBase<FF>::template Accumulator<AccumulatorTypes> ECCVMSetRelationBase<
-    FF>::compute_permutation_denominator(const auto& extended_edges, const RelationParameters<FF>& relation_params)
+template <typename Accumulator>
+Accumulator ECCVMSetRelationBase<FF>::compute_permutation_denominator(const auto& extended_edges,
+                                                                      const RelationParameters<FF>& relation_params)
 {
-    using Accumulator = typename std::tuple_element_t<0, typename AccumulatorTypes::Accumulators>;
     using View = typename Accumulator::View;
 
     // TODO(@zac-williamson). The degree of this contribution is 17! makes overall relation degree 19.
@@ -372,21 +370,20 @@ typename ECCVMSetRelationBase<FF>::template Accumulator<AccumulatorTypes> ECCVMS
  * @param scaling_factor optional term to scale the evaluation before adding to evals.
  */
 template <typename FF>
-template <typename AccumulatorTypes>
-void ECCVMSetRelationBase<FF>::accumulate(typename AccumulatorTypes::Accumulators& accumulator,
+template <typename TupleOverRelations>
+void ECCVMSetRelationBase<FF>::accumulate(TupleOverRelations& accumulator,
                                           const auto& extended_edges,
                                           const RelationParameters<FF>& relation_params,
                                           const FF& scaling_factor)
 {
-    using View = typename std::tuple_element<0, typename AccumulatorTypes::AccumulatorViews>::type;
-    using Accumulator = typename std::tuple_element<0, typename AccumulatorTypes::Accumulators>::type;
+    using Accumulator = typename std::tuple_element_t<0, TupleOverRelations>;
+    using View = typename Accumulator::View;
 
     // degree-11
-    Accumulator numerator_evaluation = compute_permutation_numerator<AccumulatorTypes>(extended_edges, relation_params);
+    Accumulator numerator_evaluation = compute_permutation_numerator<Accumulator>(extended_edges, relation_params);
 
     // degree-17
-    Accumulator denominator_evaluation =
-        compute_permutation_denominator<AccumulatorTypes>(extended_edges, relation_params);
+    Accumulator denominator_evaluation = compute_permutation_denominator<Accumulator>(extended_edges, relation_params);
 
     const auto& lagrange_first = View(extended_edges.lagrange_first);
     const auto& lagrange_last = View(extended_edges.lagrange_last);

@@ -37,14 +37,14 @@ namespace proof_system::honk::sumcheck {
  * @param scaling_factor optional term to scale the evaluation before adding to evals.
  */
 template <typename FF>
-template <typename AccumulatorTypes>
-void ECCVMMSMRelationBase<FF>::accumulate(typename AccumulatorTypes::Accumulators& accumulator,
+template <typename TupleOverRelations>
+void ECCVMMSMRelationBase<FF>::accumulate(TupleOverRelations& accumulator,
                                           const auto& extended_edges,
                                           const RelationParameters<FF>& /*unused*/,
                                           const FF& scaling_factor)
 {
-    using View = typename std::tuple_element<0, typename AccumulatorTypes::AccumulatorViews>::type;
-    using Accumulator = typename std::tuple_element<0, typename AccumulatorTypes::Accumulators>::type;
+    using Accumulator = typename std::tuple_element_t<0, TupleOverRelations>;
+    using View = typename Accumulator::View;
 
     const auto& x1 = View(extended_edges.msm_x1);
     const auto& y1 = View(extended_edges.msm_y1);

@@ -42,14 +42,15 @@ namespace proof_system::honk::permutation_library {
  *
  * Note: Step (3) utilizes Montgomery batch inversion to replace n-many inversions with
  */
-template <typename Flavor, typename PermutationRelation>
+// WORKTODO: relation with compute_grand_product in grand_product_library.hpp
+template <typename Flavor, typename GrandProdRelation>
 void compute_permutation_grand_product(const size_t circuit_size,
                                        auto& full_polynomials,
                                        proof_system::RelationParameters<typename Flavor::FF>& relation_parameters)
 {
     using FF = typename Flavor::FF;
     using Polynomial = typename Flavor::Polynomial;
-    using ValueAccumulatorsAndViews = typename PermutationRelation::ValueAccumulatorsAndViews;
+    using Accumulator = std::tuple_element_t<0, typename GrandProdRelation::ValueAccumulators>;
 
     // Allocate numerator/denominator polynomials that will serve as scratch space
     // TODO(zac) we can re-use the permutation polynomial as the numerator polynomial.
@@ -58,7 +59,7 @@ void compute_permutation_grand_product(const size_t circuit_size,
     Polynomial denominator = Polynomial{ circuit_size };
 
     // Step (1)
-    // Populate `numerator` and `denominator` with the algebra described by PermutationRelation
+    // Populate `numerator` and `denominator` with the algebra described by GrandProdRelation
     static constexpr size_t MIN_CIRCUIT_SIZE_TO_MULTITHREAD = 64;
     const size_t num_threads = circuit_size >= MIN_CIRCUIT_SIZE_TO_MULTITHREAD
                                    ? (circuit_size >= get_num_cpus_pow2() ? get_num_cpus_pow2() : 1)
@@ -73,9 +74,9 @@ void compute_permutation_grand_product(const size_t circuit_size,
             for (size_t k = 0; k < Flavor::NUM_ALL_ENTITIES; ++k) {
                 evaluations[k] = full_polynomials[k].size() > i ? full_polynomials[k][i] : 0;
             }
-            numerator[i] = PermutationRelation::template compute_permutation_numerator<ValueAccumulatorsAndViews>(
-                evaluations, relation_parameters);
-            denominator[i] = PermutationRelation::template compute_permutation_denominator<ValueAccumulatorsAndViews>(
+            numerator[i] = GrandProdRelation::template compute_permutation_numerator<Accumulator>(evaluations,
+                                                                                                  relation_parameters);
+            denominator[i] = GrandProdRelation::template compute_permutation_denominator<Accumulator>(
                 evaluations, relation_parameters);
         }
     });
@@ -128,7 +129,7 @@ void compute_permutation_grand_product(const size_t circuit_size,
     });
 
     // Step (3) Compute z_perm[i] = numerator[i] / denominator[i]
-    auto& grand_product_polynomial = PermutationRelation::get_grand_product_polynomial(full_polynomials);
+    auto& grand_product_polynomial = GrandProdRelation::get_grand_product_polynomial(full_polynomials);
     grand_product_polynomial[0] = 0;
     parallel_for(num_threads, [&](size_t thread_idx) {
         const size_t start = thread_idx * block_size;

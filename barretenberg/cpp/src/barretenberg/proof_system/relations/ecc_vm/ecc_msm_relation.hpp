@@ -119,10 +119,10 @@ template <typename FF_> class ECCVMMSMRelationBase {
                                                           LEN_1,
                                                           LEN_1>;
 
-    template <typename AccumulatorTypes>
-    static void accumulate(typename AccumulatorTypes::Accumulators& accumulator,
+    template <typename TupleOverRelations>
+    static void accumulate(TupleOverRelations& accumulator,
                            const auto& extended_edges,
-                           const RelationParameters<FF>& /*unused*/,
+                           const RelationParameters<FF>& /* unused */,
                            const FF& scaling_factor);
 };
 

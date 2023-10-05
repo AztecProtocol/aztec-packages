@@ -36,13 +36,14 @@ namespace proof_system::honk::sumcheck {
  * @tparam AccumulatorTypes
  */
 template <typename FF>
-template <typename AccumulatorTypes>
-void ECCVMWnafRelationBase<FF>::accumulate(typename AccumulatorTypes::Accumulators& accumulator,
+template <typename TupleOverRelations>
+void ECCVMWnafRelationBase<FF>::accumulate(TupleOverRelations& accumulator,
                                            const auto& extended_edges,
                                            const RelationParameters<FF>& /*unused*/,
                                            const FF& scaling_factor)
 {
-    using View = typename std::tuple_element<0, typename AccumulatorTypes::AccumulatorViews>::type;
+    using Accumulator = std::tuple_element_t<0, TupleOverRelations>;
+    using View = typename Accumulator::View;
     auto scalar_sum = View(extended_edges.precompute_scalar_sum);
     auto scalar_sum_new = View(extended_edges.precompute_scalar_sum_shift);
     auto q_transition = View(extended_edges.precompute_point_transition);

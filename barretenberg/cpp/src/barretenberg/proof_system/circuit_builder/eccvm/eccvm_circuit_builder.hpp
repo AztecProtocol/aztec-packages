@@ -524,7 +524,7 @@ template <typename Flavor> class ECCVMCircuitBuilder {
                 for (size_t j = 0; j < NUM_POLYNOMIALS; ++j) {
                     row[j] = rows[j][i];
                 }
-                Relation::template accumulate<typename Relation::ValueAccumulatorsAndViews>(result, row, params, 1);
+                Relation::template accumulate<typename Relation::ValueAccumulators>(result, row, params, 1);
 
                 bool x = true;
                 for (size_t j = 0; j < NUM_SUBRELATIONS; ++j) {
@@ -563,7 +563,7 @@ template <typename Flavor> class ECCVMCircuitBuilder {
                 row[j] = rows[j][i];
             }
             {
-                LookupRelation::template accumulate<typename LookupRelation::ValueAccumulatorsAndViews>(
+                LookupRelation::template accumulate<typename LookupRelation::ValueAccumulators>(
                     lookup_result, row, params, 1);
             }
         }

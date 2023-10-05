@@ -31,14 +31,14 @@ namespace proof_system::honk::sumcheck {
  * @tparam PolynomialTypes
  */
 template <typename FF>
-template <typename AccumulatorTypes, typename PolynomialTypes>
-void ECCVMTranscriptRelationBase<FF>::accumulate(typename AccumulatorTypes::Accumulators& accumulator,
+template <typename TupleOverRelations, typename PolynomialTypes>
+void ECCVMTranscriptRelationBase<FF>::accumulate(TupleOverRelations& accumulator,
                                                  const PolynomialTypes& extended_edges,
                                                  const RelationParameters<FF>& /*unused*/,
                                                  const FF& scaling_factor)
 {
-    using View = typename std::tuple_element<0, typename AccumulatorTypes::AccumulatorViews>::type;
-    using Accumulator = typename std::tuple_element<0, typename AccumulatorTypes::Accumulators>::type;
+    using Accumulator = typename std::tuple_element_t<0, TupleOverRelations>;
+    using View = typename Accumulator::View;
 
     auto z1 = View(extended_edges.transcript_z1);
     auto z2 = View(extended_edges.transcript_z2);

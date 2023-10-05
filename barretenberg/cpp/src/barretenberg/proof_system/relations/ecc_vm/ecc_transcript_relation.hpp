@@ -107,11 +107,11 @@ template <typename FF_> class ECCVMTranscriptRelationBase {
                                                           LEN_1,
                                                           LEN_1>;
 
-    template <typename AccumulatorTypes, typename PolynomialTypes>
-    static void accumulate(typename AccumulatorTypes::Accumulators& /*unused*/,
-                           const PolynomialTypes& /*unused*/,
-                           const RelationParameters<FF>& /*unused*/,
-                           const FF& /*unused*/);
+    template <typename TupleOverRelations>
+    static void accumulate(TupleOverRelations& accumulator,
+                           const auto& extended_edges,
+                           const RelationParameters<FF>& /* unused */,
+                           const FF& scaling_factor);
 
     // TODO(@zac-williamson #2609 find more generic way of doing this)
     static constexpr FF get_curve_b()

@@ -52,7 +52,7 @@ void compute_grand_product(const size_t circuit_size,
 {
     using FF = typename Flavor::FF;
     using Polynomial = typename Flavor::Polynomial;
-    using ValueAccumulatorsAndViews = typename GrandProdRelation::ValueAccumulatorsAndViews;
+    using Accumulator = std::tuple_element_t<0, typename GrandProdRelation::ValueAccumulators>;
 
     // Allocate numerator/denominator polynomials that will serve as scratch space
     // TODO(zac) we can re-use the permutation polynomial as the numerator polynomial. Reduces readability
@@ -71,9 +71,9 @@ void compute_grand_product(const size_t circuit_size,
             for (size_t k = 0; k < Flavor::NUM_ALL_ENTITIES; ++k) {
                 evaluations[k] = full_polynomials[k].size() > i ? full_polynomials[k][i] : 0;
             }
-            numerator[i] = GrandProdRelation::template compute_grand_product_numerator<ValueAccumulatorsAndViews>(
+            numerator[i] = GrandProdRelation::template compute_grand_product_numerator<Accumulator>(
                 evaluations, relation_parameters);
-            denominator[i] = GrandProdRelation::template compute_grand_product_denominator<ValueAccumulatorsAndViews>(
+            denominator[i] = GrandProdRelation::template compute_grand_product_denominator<Accumulator>(
                 evaluations, relation_parameters);
         }
     });

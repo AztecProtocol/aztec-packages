@@ -25,10 +25,8 @@ template <typename FF_> class ECCVMSetRelationBase {
     static constexpr size_t LEN_2 = RELATION_LENGTH; // left-shiftable polynomial sub-relation
     template <template <size_t...> typename AccumulatorTypesContainer>
     using GetAccumulatorTypes = AccumulatorTypesContainer<LEN_1, LEN_1>;
-    template <typename T> using Accumulator = typename std::tuple_element<0, typename T::Accumulators>::type;
 
-    template <typename AccumulatorTypes>
-    static Accumulator<AccumulatorTypes> convert_to_wnaf(const auto& s0, const auto& s1)
+    template <typename Accumulator> static Accumulator convert_to_wnaf(const auto& s0, const auto& s1)
     {
         auto t = s0 + s0;
         t += t;
@@ -41,16 +39,16 @@ template <typename FF_> class ECCVMSetRelationBase {
     inline static auto& get_grand_product_polynomial(auto& input) { return input.z_perm; }
     inline static auto& get_shifted_grand_product_polynomial(auto& input) { return input.z_perm_shift; }
 
-    template <typename AccumulatorTypes>
-    static Accumulator<AccumulatorTypes> compute_permutation_numerator(const auto& extended_edges,
-                                                                       const RelationParameters<FF>& relation_params);
+    template <typename Accumulator>
+    static Accumulator compute_permutation_numerator(const auto& extended_edges,
+                                                     const RelationParameters<FF>& relation_params);
 
-    template <typename AccumulatorTypes>
-    static Accumulator<AccumulatorTypes> compute_permutation_denominator(const auto& extended_edges,
-                                                                         const RelationParameters<FF>& relation_params);
+    template <typename Accumulator>
+    static Accumulator compute_permutation_denominator(const auto& extended_edges,
+                                                       const RelationParameters<FF>& relation_params);
 
-    template <typename AccumulatorTypes>
-    static void accumulate(typename AccumulatorTypes::Accumulators& accumulator,
+    template <typename TupleOverRelations>
+    static void accumulate(TupleOverRelations& accumulator,
                            const auto& extended_edges,
                            const RelationParameters<FF>& relation_params,
                            const FF& scaling_factor);

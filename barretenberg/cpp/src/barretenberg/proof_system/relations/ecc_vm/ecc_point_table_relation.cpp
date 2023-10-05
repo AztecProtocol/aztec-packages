@@ -18,13 +18,14 @@ namespace proof_system::honk::sumcheck {
  * @param scaling_factor optional term to scale the evaluation before adding to evals.
  */
 template <typename FF>
-template <typename AccumulatorTypes>
-void ECCVMPointTableRelationBase<FF>::accumulate(typename AccumulatorTypes::Accumulators& accumulator,
+template <typename TupleOverRelations>
+void ECCVMPointTableRelationBase<FF>::accumulate(TupleOverRelations& accumulator,
                                                  const auto& extended_edges,
                                                  const RelationParameters<FF>& /*unused*/,
                                                  const FF& scaling_factor)
 {
-    using View = typename std::tuple_element<0, typename AccumulatorTypes::AccumulatorViews>::type;
+    using Accumulator = typename std::tuple_element_t<0, TupleOverRelations>;
+    using View = typename Accumulator::View;
     const auto& Tx = View(extended_edges.precompute_tx);
     const auto& Tx_shift = View(extended_edges.precompute_tx_shift);
     const auto& Ty = View(extended_edges.precompute_ty);

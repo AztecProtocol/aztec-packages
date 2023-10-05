@@ -5,7 +5,7 @@
 namespace proof_system {
 
 // Generic templates for constructing a container of containers of varying length,
-// where the various lengths are specified in an arrayz.
+// where the various lengths are specified in an array.
 template <template <typename, size_t> typename InnerContainer,
           typename ValueType,
           auto LENGTHS,
