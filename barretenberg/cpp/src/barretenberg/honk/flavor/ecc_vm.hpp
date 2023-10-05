@@ -76,8 +76,8 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
     // static_assert(instantiate_barycentric_utils<FF, MAX_RANDOM_RELATION_LENGTH>());
 
     // define the containers for storing the contributions from each relation in Sumcheck
-    using TupleOfTupleOfUnivariates = decltype(create_relation_univariates_container<FF, Relations>());
-    using TupleOfTupleOfValues = decltype(create_relation_values_container<FF, Relations>());
+    using TupleOfTuplesOfUnivariates = decltype(create_relation_univariates_container<FF, Relations>());
+    using TupleOfTuplesOfValues = decltype(create_relation_values_container<FF, Relations>());
 
   private:
     /**

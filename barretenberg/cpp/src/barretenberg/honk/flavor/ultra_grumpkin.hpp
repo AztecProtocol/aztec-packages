@@ -70,8 +70,8 @@ class UltraGrumpkin {
     static constexpr size_t NUM_RELATIONS = std::tuple_size<Relations>::value;
 
     // define the container for storing the univariate contribution from each relation in Sumcheck
-    using TupleOfTupleOfUnivariates = decltype(create_relation_univariates_container<FF, Relations>());
-    using TupleOfTupleOfValues = decltype(create_relation_values_container<FF, Relations>());
+    using TupleOfTuplesOfUnivariates = decltype(create_relation_univariates_container<FF, Relations>());
+    using TupleOfTuplesOfValues = decltype(create_relation_values_container<FF, Relations>());
 
     // Whether or not the first row of the execution trace is reserved for 0s to enable shifts
     static constexpr bool has_zero_row = true;
