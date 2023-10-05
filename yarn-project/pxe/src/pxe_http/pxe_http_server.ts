@@ -1,3 +1,4 @@
+import { FunctionSelector } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
 import { JsonRpcServer } from '@aztec/foundation/json-rpc/server';
@@ -39,6 +40,7 @@ export function createPXERpcServer(pxeService: PXE): JsonRpcServer {
       ContractData,
       ExtendedContractData,
       ExtendedUnencryptedL2Log,
+      FunctionSelector,
       TxHash,
       EthAddress,
       Point,

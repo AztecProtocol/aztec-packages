@@ -1,4 +1,12 @@
-import { AztecAddress, CompleteAddress, EthAddress, Fr, GrumpkinScalar, Point } from '@aztec/circuits.js';
+import {
+  AztecAddress,
+  CompleteAddress,
+  EthAddress,
+  Fr,
+  FunctionSelector,
+  GrumpkinScalar,
+  Point,
+} from '@aztec/circuits.js';
 import { createJsonRpcClient, makeFetch } from '@aztec/foundation/json-rpc/client';
 import {
   AuthWitness,
@@ -22,6 +30,7 @@ export const createPXEClient = (url: string, fetch = makeFetch([1, 2, 3], true))
     url,
     {
       CompleteAddress,
+      FunctionSelector,
       AztecAddress,
       TxExecutionRequest,
       ContractData,
