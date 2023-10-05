@@ -13,11 +13,6 @@ template <typename FF_> class UltraPermutationRelationImpl {
         3  // left-shiftable polynomial sub-relation
     };
 
-    static constexpr size_t LEN_1 = 6; // grand product construction sub-relation
-    static constexpr size_t LEN_2 = 3; // left-shiftable polynomial sub-relation
-    template <template <size_t...> typename SubrelationAccumulatorsTemplate>
-    using GetAccumulatorTypes = SubrelationAccumulatorsTemplate<LEN_1, LEN_2>;
-
     inline static auto& get_grand_product_polynomial(auto& input) { return input.z_perm; }
     inline static auto& get_shifted_grand_product_polynomial(auto& input) { return input.z_perm_shift; }
 

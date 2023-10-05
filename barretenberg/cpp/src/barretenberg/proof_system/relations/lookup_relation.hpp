@@ -28,12 +28,6 @@ template <typename FF_> class LookupRelationImpl {
         3  // left-shiftable polynomial sub-relation
     };
 
-    static constexpr size_t LEN_1 = 6; // grand product construction sub-relation
-    static constexpr size_t LEN_2 = 3; // left-shiftable polynomial sub-relation
-    template <template <size_t...> typename SubrelationAccumulatorsTemplate>
-    using GetAccumulatorTypes = SubrelationAccumulatorsTemplate<LEN_1, LEN_2>;
-    template <typename T> using GetAccumulator0 = typename std::tuple_element_t<0, typename T::Accumulators>;
-
     /**
      * @brief Get the grand product polynomial object (either from the proving key or AllEntities depending on context)
      *

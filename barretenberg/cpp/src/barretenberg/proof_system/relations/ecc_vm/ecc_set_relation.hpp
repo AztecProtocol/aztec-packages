@@ -19,11 +19,6 @@ template <typename FF_> class ECCVMSetRelationBase {
         19  // left-shiftable polynomial sub-relation
     };
 
-    static constexpr size_t LEN_1 = 19; // grand product construction sub-relation
-    static constexpr size_t LEN_2 = 19; // left-shiftable polynomial sub-relation
-    template <template <size_t...> typename AccumulatorTypesContainer>
-    using GetAccumulatorTypes = AccumulatorTypesContainer<LEN_1, LEN_1>;
-
     template <typename Accumulator> static Accumulator convert_to_wnaf(const auto& s0, const auto& s1)
     {
         auto t = s0 + s0;

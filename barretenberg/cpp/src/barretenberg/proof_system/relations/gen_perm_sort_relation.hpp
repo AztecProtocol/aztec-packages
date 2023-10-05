@@ -15,13 +15,6 @@ template <typename FF_> class GenPermSortRelationImpl {
         6  // range constrain sub-relation 4
     };
 
-    static constexpr size_t LEN_1 = 6; // range constrain sub-relation 1
-    static constexpr size_t LEN_2 = 6; // range constrain sub-relation 2
-    static constexpr size_t LEN_3 = 6; // range constrain sub-relation 3
-    static constexpr size_t LEN_4 = 6; // range constrain sub-relation 4
-    template <template <size_t...> typename SubrelationAccumulatorsTemplate>
-    using GetAccumulatorTypes = SubrelationAccumulatorsTemplate<LEN_1, LEN_2, LEN_3, LEN_4>;
-
     /**
      * @brief Expression for the generalized permutation sort gate.
      * @details The relation is defined as C(extended_edges(X)...) =

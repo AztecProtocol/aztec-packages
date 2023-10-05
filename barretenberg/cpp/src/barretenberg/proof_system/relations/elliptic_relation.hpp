@@ -16,11 +16,6 @@ template <typename FF_> class EllipticRelationImpl {
         6, // y-coordinate sub-relation
     };
 
-    static constexpr size_t LEN_1 = 6; // x-coordinate sub-relation
-    static constexpr size_t LEN_2 = 6; // y-coordinate sub-relation
-    template <template <size_t...> typename SubrelationAccumulatorsTemplate>
-    using GetAccumulatorTypes = SubrelationAccumulatorsTemplate<LEN_1, LEN_2>;
-
     // TODO(@zac-williamson #2609 find more generic way of doing this)
     static constexpr FF get_curve_b()
     {

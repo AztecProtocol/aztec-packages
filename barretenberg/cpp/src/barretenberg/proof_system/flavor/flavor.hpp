@@ -243,7 +243,7 @@ template <class FF, typename Tuple, std::size_t Index = 0> static constexpr auto
     if constexpr (Index >= std::tuple_size<Tuple>::value) {
         return std::tuple<>{}; // Return empty when reach end of the tuple
     } else {
-        using Values = std::tuple_element_t<Index, Tuple>::ArrayOfValuesOverSubrelations;
+        using Values = typename std::tuple_element_t<Index, Tuple>::ArrayOfValuesOverSubrelations;
         return std::tuple_cat(std::tuple<Values>{}, create_relation_values_container<FF, Tuple, Index + 1>());
     }
 }

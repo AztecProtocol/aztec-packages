@@ -23,11 +23,6 @@ template <typename FF_> class ECCVMLookupRelationBase {
         LENGTH  // left-shiftable polynomial sub-relation
     };
 
-    static constexpr size_t LEN_1 = LENGTH; // grand product construction sub-relation
-    static constexpr size_t LEN_2 = LENGTH; // left-shiftable polynomial sub-relation
-    template <template <size_t...> typename AccumulatorTypesContainer>
-    using GetAccumulatorTypes = AccumulatorTypesContainer<LEN_1, LEN_2>;
-
     static constexpr std::array<bool, 2> SUBRELATION_LINEARLY_INDEPENDENT = { true, false };
 
     template <typename AllValues> static bool lookup_exists_at_row(const AllValues& row)

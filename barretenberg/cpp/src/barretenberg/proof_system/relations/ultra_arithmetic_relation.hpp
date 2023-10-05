@@ -13,11 +13,6 @@ template <typename FF_> class UltraArithmeticRelationImpl {
         5  // secondary arithmetic sub-relation
     };
 
-    static constexpr size_t LEN_1 = 6; // primary arithmetic sub-relation
-    static constexpr size_t LEN_2 = 5; // secondary arithmetic sub-relation
-    template <template <size_t...> typename SubrelationAccumulatorsTemplate>
-    using GetAccumulatorTypes = SubrelationAccumulatorsTemplate<LEN_1, LEN_2>;
-
     /**
      * @brief Expression for the Ultra Arithmetic gate.
      * @details This relation encapsulates several idenitities, toggled by the value of q_arith in [0, 1, 2, 3, ...].

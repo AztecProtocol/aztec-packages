@@ -38,8 +38,6 @@ template <typename FF_> class ECCVMMSMRelationBase {
   public:
     using FF = FF_;
 
-    static constexpr size_t LEN_1 = 8; // arithmetic sub-relation
-
     static constexpr std::array<size_t, 36> SUBRELATION_LENGTHS{
         8, // arithmetic sub-relation
         8, // arithmetic sub-relation
@@ -78,44 +76,6 @@ template <typename FF_> class ECCVMMSMRelationBase {
         8, // arithmetic sub-relation
         8  // arithmetic sub-relation
     };
-
-    template <template <size_t...> typename AccumulatorTypesContainer>
-    using GetAccumulatorTypes = AccumulatorTypesContainer<LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1>;
 
     template <typename TupleOverRelations>
     static void accumulate(TupleOverRelations& accumulator,

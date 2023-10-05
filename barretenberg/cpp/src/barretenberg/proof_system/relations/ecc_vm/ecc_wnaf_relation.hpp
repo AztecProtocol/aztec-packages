@@ -35,8 +35,6 @@ template <typename FF_> class ECCVMWnafRelationBase {
   public:
     using FF = FF_;
 
-    static constexpr size_t LEN_1 = 5;
-
     static constexpr std::array<size_t, 21> SUBRELATION_LENGTHS{
         5, // no description
         5, // no description
@@ -60,29 +58,6 @@ template <typename FF_> class ECCVMWnafRelationBase {
         5, // no description
         5, // no description
     };
-
-    template <template <size_t...> typename AccumulatorTypesContainer>
-    using GetAccumulatorTypes = AccumulatorTypesContainer<LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1,
-                                                          LEN_1>;
 
     template <typename TupleOverRelations>
     static void accumulate(TupleOverRelations& accumulator,

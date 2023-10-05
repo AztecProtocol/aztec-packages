@@ -19,17 +19,6 @@ template <typename FF_> class EccOpQueueRelationImpl {
         3  // op-queue-wire vanishes sub-relation 4
     };
 
-    static constexpr size_t LEN_1 = 3; // wire - op-queue-wire consistency sub-relation 1
-    static constexpr size_t LEN_2 = 3; // wire - op-queue-wire consistency sub-relation 2
-    static constexpr size_t LEN_3 = 3; // wire - op-queue-wire consistency sub-relation 3
-    static constexpr size_t LEN_4 = 3; // wire - op-queue-wire consistency sub-relation 4
-    static constexpr size_t LEN_5 = 3; // op-queue-wire vanishes sub-relation 1
-    static constexpr size_t LEN_6 = 3; // op-queue-wire vanishes sub-relation 2
-    static constexpr size_t LEN_7 = 3; // op-queue-wire vanishes sub-relation 3
-    static constexpr size_t LEN_8 = 3; // op-queue-wire vanishes sub-relation 4
-    template <template <size_t...> typename SubrelationAccumulatorsTemplate>
-    using GetAccumulatorTypes = SubrelationAccumulatorsTemplate<LEN_1, LEN_2, LEN_3, LEN_4, LEN_5, LEN_6, LEN_7, LEN_8>;
-
     /**
      * @brief Expression for the generalized permutation sort gate.
      * @details The relation is defined as C(extended_edges(X)...) =
