@@ -5,57 +5,70 @@ set -eu
 extract_repo yarn-project /usr/src project
 cd project/src/yarn-project
 
-echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > .npmrc
+echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >.npmrc
+
+# This is to be used with the 'canary' tag for testing, and then 'latest' for making it public
+DIST_TAG=${1:-}
 
 function deploy_package() {
-    REPOSITORY=$1
-    cd $REPOSITORY
+  REPOSITORY=$1
+  cd $REPOSITORY
 
-    VERSION=$(extract_tag_version $REPOSITORY true)
-    echo "Deploying $REPOSITORY $VERSION"
+  PACKAGE_NAME=$(jq -r '.name' package.json)
 
-    # If the commit tag itself has a dist-tag (e.g. v2.1.0-testnet.123), extract the dist-tag.
-    TAG=$(echo "$VERSION" | grep -oP ".*-\K(.*)(?=\.\d+)" || true)
-    TAG_ARG=""
-    if [ -n "$TAG" ]; then
-        TAG_ARG="--tag $TAG"
-    fi
+  VERSION=$(extract_tag_version $REPOSITORY true)
+  echo "Deploying $REPOSITORY $VERSION $DIST_TAG"
 
-    PUBLISHED_VERSION=$(npm show . version ${TAG_ARG:-} 2> /dev/null) || true
-    HIGHER_VERSION=$(npx semver ${VERSION} ${PUBLISHED_VERSION} | tail -1)
+  if [ -n "$DIST_TAG" ]; then
+    TAG_ARG="--tag $DIST_TAG"
+  fi
 
-    # If there is already a published package equal to given version, assume this is a re-run of a deploy, and early out.
-    if [ "$VERSION" == "$PUBLISHED_VERSION" ]; then
-        echo "Tagged version $VERSION is equal to published version $PUBLISHED_VERSION. Skipping publish."
-        exit 0
-    fi
+  PUBLISHED_VERSION=$(npm show . version ${TAG_ARG:-} 2>/dev/null) || true
+  HIGHER_VERSION=$(npx semver ${VERSION} ${PUBLISHED_VERSION} | tail -1)
 
-    # If the published version is > the given version, something's gone wrong.
-    if [ "$VERSION" != "$HIGHER_VERSION" ]; then
-        echo "Tagged version $VERSION is lower than published version $PUBLISHED_VERSION."
-        exit 1
-    fi
+  # Check if there is already a published package equal to given version, assume this is a re-run of a deploy
+  if [ "$VERSION" == "$PUBLISHED_VERSION" ]; then
+    echo "Tagged ${DIST_TAG:+ $DIST_TAG}version $VERSION is equal to published ${DIST_TAG:+ $DIST_TAG}version $PUBLISHED_VERSION."
+    echo "Skipping publish."
+    exit 0
+  fi
 
-    # Update the package version in package.json.
-    TMP=$(mktemp)
-    jq --arg v $VERSION '.version = $v' package.json > $TMP && mv $TMP package.json
+  # If the published version is > the given version, something's gone wrong.
+  if [ "$VERSION" != "$HIGHER_VERSION" ]; then
+    echo "Tagged version $VERSION is lower than published version $PUBLISHED_VERSION."
+    exit 1
+  fi
 
-    if [ -z "${STANDALONE:-}" ]; then
+  # Update the package version in package.json.
+  TMP=$(mktemp)
+  jq --arg v $VERSION '.version = $v' package.json >$TMP && mv $TMP package.json
+
+  if [ -z "${STANDALONE:-}" ]; then
     # Update each dependent @aztec package version in package.json.
     for PKG in $(jq --raw-output ".dependencies | keys[] | select(contains(\"@aztec/\"))" package.json); do
-        jq --arg v $VERSION ".dependencies[\"$PKG\"] = \$v" package.json > $TMP && mv $TMP package.json
+      jq --arg v $VERSION ".dependencies[\"$PKG\"] = \$v" package.json >$TMP && mv $TMP package.json
     done
-    fi
+  fi
 
-    # Publish
-    if [ -n "${COMMIT_TAG:-}" ] ; then 
+  # Publish
+  if [ -n "${COMMIT_TAG:-}" ]; then
+    if [ "$DIST_TAG" == "latest" ]; then
+      # Check if version exists
+      # npm show . version --tag canary
+      if npm view "$PACKAGE_NAME@$VERSION" version >/dev/null 2>&1; then
+        # Tag the existing version
+        npm dist-tag add $PACKAGE_NAME@$VERSION $DIST_TAG
+      else
+        # Publish new verison
         npm publish $TAG_ARG --access public
-    else
-        npm publish --dry-run $TAG_ARG --access public
+      fi
     fi
+  else
+    npm publish --dry-run $TAG_ARG --access public
+  fi
 
-    # Back to root
-    cd ..
+  # Back to root
+  cd ..
 }
 
 deploy_package foundation

@@ -1,3 +1,4 @@
+#!/bin/bash
 set -eu
 
 COMMIT_TAG=$1
@@ -17,7 +18,7 @@ echo "Updating Aztec dependencies to version $VERSION"
 
 TMP=$(mktemp)
 for PKG in $(jq --raw-output ".dependencies | keys[] | select(contains(\"@aztec/\") and (. != \"@aztec/end-to-end\"))" package.json); do
-  jq --arg v $VERSION ".dependencies[\"$PKG\"] = \$v" package.json > $TMP && mv $TMP package.json
+  jq --arg v $VERSION ".dependencies[\"$PKG\"] = \$v" package.json >$TMP && mv $TMP package.json
 done
 
-jq ".references = []" tsconfig.json > $TMP && mv $TMP tsconfig.json
+jq ".references = []" tsconfig.json >$TMP && mv $TMP tsconfig.json

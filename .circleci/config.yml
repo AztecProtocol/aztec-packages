@@ -1001,6 +1001,19 @@ jobs:
           name: "Assemble benchmark summary from uploaded logs"
           command: ./scripts/ci/assemble_e2e_benchmark.sh
 
+  deploy-npm-canary:
+    # Deploys next version as 'next' to be used in canary tests
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: medium
+    steps:
+      - *checkout
+      - *setup_env
+      # Aztec.js and dependencies
+      - run:
+          name: "yarn-project"
+          command: yarn-project/deploy_npm.sh next
+
   deploy-npm:
     machine:
       image: ubuntu-2204:2023.07.2
@@ -1011,7 +1024,7 @@ jobs:
       # Aztec.js and dependencies
       - run:
           name: "yarn-project"
-          command: yarn-project/deploy_npm.sh
+          command: yarn-project/deploy_npm.sh latest
 
   deploy-dockerhub:
     machine:
