@@ -71,7 +71,8 @@ template <typename FF> class BaseTranscript {
   private:
     static constexpr size_t MIN_BYTES_PER_CHALLENGE = 128 / 8; // 128 bit challenges
 
-    size_t round_number = 0;
+    size_t round_number = 0;        // current round for manifest
+    bool is_first_challenge = true; // indicates if this is the first challenge this transcript is generating
     std::array<uint8_t, HASH_OUTPUT_SIZE> previous_challenge_buffer{}; // default-initialized to zeros
     std::vector<uint8_t> current_round_data;
 
@@ -88,20 +89,23 @@ template <typename FF> class BaseTranscript {
      */
     [[nodiscard]] std::array<uint8_t, HASH_OUTPUT_SIZE> get_next_challenge_buffer()
     {
-        // Empty buffer to compare against
-        std::array<uint8_t, HASH_OUTPUT_SIZE> empty_challenge_buffer{};
-        bool no_previous_challenge = (previous_challenge_buffer == empty_challenge_buffer);
-        // Prevent challenge generation if nothing was sent by the prover AND this is the first challenge we're
-        // generating.
-        ASSERT(!(current_round_data.empty() && no_previous_challenge));
+        // Prevent challenge generation if this is the first challenge we're generating,
+        // AND nothing was sent by the prover.
+        if (is_first_challenge) {
+            ASSERT(!current_round_data.empty());
+        }
 
         // concatenate the previous challenge (if this is not the first challenge) with the current round data.
         // TODO(Adrian): Do we want to use a domain separator as the initial challenge buffer?
         // We could be cheeky and use the hash of the manifest as domain separator, which would prevent us from having
         // to domain separate all the data. (See https://safe-hash.dev)
         std::vector<uint8_t> full_buffer;
-        if (!no_previous_challenge) {
+        if (!is_first_challenge) {
+            // if not the first challenge, we can use the previous_challenge_buffer
             full_buffer.insert(full_buffer.end(), previous_challenge_buffer.begin(), previous_challenge_buffer.end());
+        } else {
+            // Update is_first_challenge for the future
+            is_first_challenge = false;
         }
         if (!current_round_data.empty()) {
             full_buffer.insert(full_buffer.end(), current_round_data.begin(), current_round_data.end());
@@ -168,6 +172,8 @@ template <typename FF> class BaseTranscript {
             auto next_challenge_buffer = get_next_challenge_buffer(); // get next challenge buffer
             std::array<uint8_t, sizeof(FF)> field_element_buffer{};
             // copy half of the hash to lower 128 bits of challenge
+            // Note: because of how read() from buffers to fields works (in field_declarations.hpp),
+            // we use the later half of the buffer
             std::copy_n(next_challenge_buffer.begin(),
                         HASH_OUTPUT_SIZE / 2,
                         field_element_buffer.begin() + HASH_OUTPUT_SIZE / 2);
