@@ -25,6 +25,14 @@ export class ExtendedUnencryptedL2Log {
   }
 
   /**
+   * Serializes log to a string.
+   * @returns A string containing the serialized log.
+   */
+  public toString(): string {
+    return this.toBuffer().toString('hex');
+  }
+
+  /**
    * Deserializes log from a buffer.
    * @param buffer - The buffer or buffer reader containing the log.
    * @returns Deserialized instance of `Log`.
@@ -37,5 +45,15 @@ export class ExtendedUnencryptedL2Log {
     const log = UnencryptedL2Log.fromBuffer(reader);
 
     return new ExtendedUnencryptedL2Log(blockNumber, txHash, log);
+  }
+
+  /**
+   * Deserializes `ExtendedUnencryptedL2Log` object from a hex string representation.
+   * @param data - A hex string representation of the log.
+   * @returns An `ExtendedUnencryptedL2Log` object.
+   */
+  public static fromString(data: string): ExtendedUnencryptedL2Log {
+    const buffer = Buffer.from(data, 'hex');
+    return ExtendedUnencryptedL2Log.fromBuffer(buffer);
   }
 }
