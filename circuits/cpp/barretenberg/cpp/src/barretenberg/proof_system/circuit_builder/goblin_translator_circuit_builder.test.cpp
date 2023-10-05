@@ -156,10 +156,13 @@ TEST(TranslatorCircuitBuilder, CircuitBuilderBaseCase)
     // using Fq = ::curve::BN254::BaseField;
 
     constexpr size_t NUM_LIMB_BITS = GoblinTranslatorCircuitBuilder::NUM_LIMB_BITS;
+    constexpr size_t NUM_Z_TOP_LIMB__BITS = 60;
 
     Fr op;
     op = Fr(engine.get_random_uint8() & 3);
-    auto get_random_wide_limb = []() { return Fr(engine.get_random_uint256().slice(0, 2 * NUM_LIMB_BITS)); };
+    auto get_random_wide_limb = []() {
+        return Fr(engine.get_random_uint256().slice(0, NUM_LIMB_BITS + NUM_Z_TOP_LIMB__BITS));
+    };
     //  auto get_random_shortened_wide_limb = []() { return uint256_t(Fq::random_element()) >> (NUM_LIMB_BITS * 2); };
     Fq p_x = Fq::random_element();
     Fr p_x_lo = uint256_t(p_x).slice(0, 2 * NUM_LIMB_BITS);
