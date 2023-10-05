@@ -198,9 +198,10 @@ export function parseSaltFromHexString(str: string): Fr {
 }
 
 /**
- * Parses an AztecAddress from a string. Throws InvalidArgumentError if the string is not a valid.
+ * Parses an AztecAddress from a string.
  * @param address - A serialised Aztec address
  * @returns An Aztec address
+ * @throws InvalidArgumentError if the input string is not valid.
  */
 export function parseAztecAddress(address: string): AztecAddress {
   try {
@@ -211,9 +212,10 @@ export function parseAztecAddress(address: string): AztecAddress {
 }
 
 /**
- * Parses an AztecAddress from a string. Throws InvalidArgumentError if the string is not a valid.
+ * Parses an AztecAddress from a string.
  * @param address - A serialised Aztec address
  * @returns An Aztec address
+ * @throws InvalidArgumentError if the input string is not valid.
  */
 export function parseOptionalAztecAddress(address: string): AztecAddress | undefined {
   if (!address) {
@@ -223,9 +225,10 @@ export function parseOptionalAztecAddress(address: string): AztecAddress | undef
 }
 
 /**
- * Parses a selector from a string. Throws InvalidArgumentError if the string is not a valid.
+ * Parses a selector from a string.
  * @param selector - A serialised selector.
  * @returns A selector.
+ * @throws InvalidArgumentError if the input string is not valid.
  */
 export function parseOptionalSelector(selector: string): FunctionSelector | undefined {
   if (!selector) {
@@ -257,9 +260,10 @@ export function parseOptionalInteger(value: string): number | undefined {
 }
 
 /**
- * Parses a TxHash from a string. Throws InvalidArgumentError if the string is not a valid.
+ * Parses a TxHash from a string.
  * @param txHash - A transaction hash
  * @returns A TxHash instance
+ * @throws InvalidArgumentError if the input string is not valid.
  */
 export function parseTxHash(txHash: string): TxHash {
   try {
@@ -270,9 +274,24 @@ export function parseTxHash(txHash: string): TxHash {
 }
 
 /**
- * Parses a public key from a string. Throws InvalidArgumentError if the string is not a valid.
+ * Parses an optional TxHash from a string.
+ * Calls parseTxHash internally.
+ * @param txHash - A transaction hash
+ * @returns A TxHash instance, or undefined if the input string is falsy.
+ * @throws InvalidArgumentError if the input string is not valid.
+ */
+export function parseOptionalTxHash(txHash: string): TxHash | undefined {
+  if (!txHash) {
+    return undefined;
+  }
+  return parseTxHash(txHash);
+}
+
+/**
+ * Parses a public key from a string.
  * @param publicKey - A public key
  * @returns A Point instance
+ * @throws InvalidArgumentError if the input string is not valid.
  */
 export function parsePublicKey(publicKey: string): Point {
   try {
@@ -283,9 +302,10 @@ export function parsePublicKey(publicKey: string): Point {
 }
 
 /**
- * Parses a partial address from a string. Throws InvalidArgumentError if the string is not a valid.
+ * Parses a partial address from a string.
  * @param address - A partial address
  * @returns A Fr instance
+ * @throws InvalidArgumentError if the input string is not valid.
  */
 export function parsePartialAddress(address: string): Fr {
   try {
@@ -296,9 +316,10 @@ export function parsePartialAddress(address: string): Fr {
 }
 
 /**
- * Parses a private key from a string. Throws InvalidArgumentError if the string is not a valid.
+ * Parses a private key from a string.
  * @param privateKey - A string
  * @returns A private key
+ * @throws InvalidArgumentError if the input string is not valid.
  */
 export function parsePrivateKey(privateKey: string): GrumpkinScalar {
   try {
@@ -315,9 +336,10 @@ export function parsePrivateKey(privateKey: string): GrumpkinScalar {
 }
 
 /**
- * Parses a field from a string. Throws InvalidArgumentError if the string is not a valid field value.
+ * Parses a field from a string.
  * @param field - A string representing the field.
  * @returns A field.
+ * @throws InvalidArgumentError if the input string is not valid.
  */
 export function parseField(field: string): Fr {
   try {

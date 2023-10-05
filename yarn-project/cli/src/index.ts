@@ -37,6 +37,7 @@ import {
   parseOptionalAztecAddress,
   parseOptionalInteger,
   parseOptionalSelector,
+  parseOptionalTxHash,
   parsePartialAddress,
   parsePrivateKey,
   parsePublicKey,
@@ -292,6 +293,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
   program
     .command('get-logs')
     .description('Gets all the unencrypted logs from L2 blocks in the range specified.')
+    .option('-tx, --txHash <txHash>', 'A transaction hash to get the receipt for.', parseOptionalTxHash)
     .option(
       '-f, --fromBlock <blockNum>',
       'Initial block number for getting logs (defaults to 1).',
@@ -306,14 +308,18 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .option('-c, --contractAddress <contractAddress>', 'Contract address to filter logs by.', parseOptionalAztecAddress)
     .option('-s, --selector <selector>', 'Event selector to filter logs by.', parseOptionalSelector)
     .addOption(pxeOption)
-    .action(async ({ fromBlock, toBlock, limit, contractAddress, selector, rpcUrl }) => {
+    .action(async ({ txHash, fromBlock, toBlock, limit, contractAddress, selector, rpcUrl }) => {
       const client = await createCompatibleClient(rpcUrl, debugLogger);
 
-      const filter: LogFilter = { fromBlock, toBlock, limit, contractAddress, selector };
+      const filter: LogFilter = { txHash, fromBlock, toBlock, limit, contractAddress, selector };
       const logs = await client.getUnencryptedLogs(filter);
 
       if (!logs.length) {
-        log(`No logs found in blocks ${fromBlock} to ${toBlock ?? 'latest'}`);
+        const filterOptions = Object.entries(filter)
+          .filter(([, value]) => value !== undefined)
+          .map(([key, value]) => `${key}: ${value}`)
+          .join(', ');
+        log(`No logs found for filter: {${filterOptions}}`);
       } else {
         log('Logs found: \n');
         logs.forEach(unencryptedLog => log(unencryptedLog.toHumanReadable()));

@@ -362,9 +362,16 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * Gets unencrypted logs based on the provided filter.
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
+   * @throws If txHash and block range are both defined.
    */
   getUnencryptedLogs(filter: LogFilter): Promise<ExtendedUnencryptedL2Log[]> {
     const MAX_LOGS = 1000;
+
+    if (filter.txHash && (filter.fromBlock || filter.toBlock)) {
+      throw new Error('Cannot filter by txHash and block range at the same time');
+    }
+
+    const txHash = filter.txHash;
 
     const fromBlockIndex = (filter.fromBlock || INITIAL_L2_BLOCK_NUM) - INITIAL_L2_BLOCK_NUM;
     if (fromBlockIndex > this.unencryptedLogs.length) {
@@ -389,6 +396,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
         const txLogs = blockLogs.txLogs[j].unrollLogs().map(log => UnencryptedL2Log.fromBuffer(log));
         for (const log of txLogs) {
           if (
+            (!txHash || blockContext.getTxHash(j).equals(txHash)) &&
             (!contractAddress || log.contractAddress.equals(contractAddress)) &&
             (!selector || log.selector.equals(selector))
           ) {
