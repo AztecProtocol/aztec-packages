@@ -84,7 +84,7 @@ const sidebars = {
         },
         "concepts/foundation/contracts",
         "concepts/foundation/transactions",
-        // "concepts/foundation/blocks",
+        "concepts/foundation/sequencer",
         // "concepts/foundation/globals",
         {
           label: "Communication",
@@ -169,6 +169,8 @@ const sidebars = {
         },
         "concepts/advanced/public_vm",
         "concepts/advanced/contract_creation",
+        "concepts/advanced/sequencer_selection",
+        "concepts/advanced/acir_simulator",
       ],
     },
 

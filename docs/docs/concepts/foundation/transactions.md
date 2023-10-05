@@ -2,12 +2,8 @@
 title: Transactions
 ---
 
-import Disclaimer from '../../misc/common/\_disclaimer.mdx';
+<a href="https://raw.githubusercontent.com/AztecProtocol/aztec-packages/2fa143e4d88b3089ebbe2a9e53645edf66157dc8/docs/static/img/sandbox_sending_a_tx.svg"><img src="/img/sandbox_sending_a_tx.svg" alt="Sending a transaction" /></a>
 
-<Disclaimer/>
+See [this diagram](https://raw.githubusercontent.com/AztecProtocol/aztec-packages/2fa143e4d88b3089ebbe2a9e53645edf66157dc8/docs/static/img/sandbox_sending_a_tx.svg) for an in-depth overview of the transaction execution process. It highlights 3 different types of transaction execution: contract deployments, private transactions and public transactions.
 
-See [here](https://miro.com/app/board/uXjVMQbDwNk=/?share_link_id=47681418582) for a gigantic diagram (readonly) showing the flow from user to L2, to L1, back to user.
-
-> Note: the protocol and its implementation are rapidly evolving, so some info in this diagram will be out of date.
-
-See the page on [contract communication](./communication/main.md) for more context on transactions execute.
+See the page on [contract communication](./communication/main.md) for more context on transactions execution.

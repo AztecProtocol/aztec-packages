@@ -2,10 +2,6 @@
 title: State Model
 ---
 
-import Disclaimer from '../../misc/common/\_disclaimer.mdx';
-
-<Disclaimer/>
-
 ## Private State
 
 Private state must be treated differently from public state and this must be expressed in the semantics of Aztec.nr.
