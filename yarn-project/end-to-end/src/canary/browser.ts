@@ -119,8 +119,9 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
           const pxe = createPXEClient(rpcUrl!);
           const [wallet] = await AztecJs.getSandboxAccountsWallets(pxe);
           const completeAddress: AztecJs.CompleteAddress = wallet.getCompleteAddress();
-          const [address, pubKey] = [completeAddress.address, completeAddress.publicKey];
-          return [completeAddress, address, pubKey];
+          const address = wallet.getAddress();
+          const addressString = completeAddress.toString();
+          return [completeAddress, address, addressString];
         },
         PXE_URL,
         (await getTokenAddress()).toString(),
