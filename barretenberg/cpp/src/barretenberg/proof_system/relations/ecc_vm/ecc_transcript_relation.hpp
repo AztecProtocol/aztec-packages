@@ -29,9 +29,8 @@ namespace proof_system::honk::sumcheck {
 template <typename FF_> class ECCVMTranscriptRelationBase {
   public:
     using FF = FF_;
-    static constexpr size_t RELATION_LENGTH = 6;
 
-    static constexpr std::array<size_t, 35> LENGTHS = {
+    static constexpr std::array<size_t, 35> SUBRELATION_LENGTHS{
         6, // arithmetic sub-relation
         6, // arithmetic sub-relation
         6, // arithmetic sub-relation

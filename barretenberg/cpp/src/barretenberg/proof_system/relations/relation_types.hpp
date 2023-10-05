@@ -1,6 +1,7 @@
 #pragma once
 #include "nested_containers.hpp"
 #include "relation_parameters.hpp"
+#include <algorithm>
 
 namespace barretenberg {
 template <typename FF> class Polynomial;
@@ -44,8 +45,11 @@ template <typename RelationImpl> class Relation : public RelationImpl {
   public:
     using FF = typename RelationImpl::FF;
 
-    using TupleOfUnivariatesOverSubrelations = TupleOfUnivariates<FF, RelationImpl::LENGTHS>;
-    using ArrayOfValuesOverSubrelations = ArrayOfValues<FF, RelationImpl::LENGTHS>;
+    static constexpr size_t RELATION_LENGTH =
+        *std::max_element(RelationImpl::SUBRELATION_LENGTHS.begin(), RelationImpl::SUBRELATION_LENGTHS.end());
+
+    using TupleOfUnivariatesOverSubrelations = TupleOfUnivariates<FF, RelationImpl::SUBRELATION_LENGTHS>;
+    using ArrayOfValuesOverSubrelations = ArrayOfValues<FF, RelationImpl::SUBRELATION_LENGTHS>;
 
     using UnivariateAccumulator0 = std::tuple_element_t<0, TupleOfUnivariatesOverSubrelations>;
     using ValueAccumulator0 = std::tuple_element_t<0, ArrayOfValuesOverSubrelations>;

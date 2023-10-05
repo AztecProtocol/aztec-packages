@@ -18,10 +18,8 @@ namespace proof_system::honk::sumcheck {
 template <typename FF_> class ECCVMPointTableRelationBase {
   public:
     using FF = FF_;
-    // 1 + polynomial degree of this relation
-    static constexpr size_t RELATION_LENGTH = 6;
 
-    static constexpr std::array<size_t, 6> LENGTHS = {
+    static constexpr std::array<size_t, 6> SUBRELATION_LENGTHS{
         6, // arithmetic sub-relation
         6, // arithmetic sub-relation
         6, // arithmetic sub-relation

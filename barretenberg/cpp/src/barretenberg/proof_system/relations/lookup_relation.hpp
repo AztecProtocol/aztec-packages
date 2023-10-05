@@ -23,11 +23,7 @@ template <typename FF_> class LookupRelationImpl {
   public:
     using FF = FF_;
 
-    // 1 + polynomial degree of this relation
-    // WORKTODO: calculate this dynamically now
-    static constexpr size_t RELATION_LENGTH = 6; // deg(z_lookup * column_selector * wire * q_lookup * table) = 5
-
-    static constexpr std::array<size_t, 2> LENGTHS{
+    static constexpr std::array<size_t, 2> SUBRELATION_LENGTHS{
         6, // grand product construction sub-relation
         3  // left-shiftable polynomial sub-relation
     };

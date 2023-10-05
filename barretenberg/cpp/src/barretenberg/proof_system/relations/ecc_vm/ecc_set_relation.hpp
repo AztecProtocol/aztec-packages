@@ -13,16 +13,14 @@ namespace proof_system::honk::sumcheck {
 template <typename FF_> class ECCVMSetRelationBase {
   public:
     using FF = FF_;
-    // 1 + polynomial degree of this relation
-    static constexpr size_t RELATION_LENGTH = 19;
 
-    static constexpr std::array<size_t, 2> LENGTHS = {
-        RELATION_LENGTH, // grand product construction sub-relation
-        RELATION_LENGTH  // left-shiftable polynomial sub-relation
+    static constexpr std::array<size_t, 2> SUBRELATION_LENGTHS{
+        19, // grand product construction sub-relation
+        19  // left-shiftable polynomial sub-relation
     };
 
-    static constexpr size_t LEN_1 = RELATION_LENGTH; // grand product construction sub-relation
-    static constexpr size_t LEN_2 = RELATION_LENGTH; // left-shiftable polynomial sub-relation
+    static constexpr size_t LEN_1 = 19; // grand product construction sub-relation
+    static constexpr size_t LEN_2 = 19; // left-shiftable polynomial sub-relation
     template <template <size_t...> typename AccumulatorTypesContainer>
     using GetAccumulatorTypes = AccumulatorTypesContainer<LEN_1, LEN_1>;
 

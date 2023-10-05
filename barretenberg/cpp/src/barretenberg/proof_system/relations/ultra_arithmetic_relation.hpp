@@ -8,10 +8,7 @@ template <typename FF_> class UltraArithmeticRelationImpl {
   public:
     using FF = FF_;
 
-    // 1 + polynomial degree of this relation
-    static constexpr size_t RELATION_LENGTH = 6; // degree(q_arith^2 * q_m * w_r * w_l) = 5
-
-    static constexpr std::array<size_t, 2> LENGTHS{
+    static constexpr std::array<size_t, 2> SUBRELATION_LENGTHS{
         6, // primary arithmetic sub-relation
         5  // secondary arithmetic sub-relation
     };

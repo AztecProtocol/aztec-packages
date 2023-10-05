@@ -7,10 +7,8 @@ namespace proof_system {
 template <typename FF_> class EccOpQueueRelationImpl {
   public:
     using FF = FF_;
-    // 1 + polynomial degree of this relation
-    static constexpr size_t RELATION_LENGTH = 3; // degree(q * (w - w_op_queue)) = 2
 
-    static constexpr std::array<size_t, 8> LENGTHS{
+    static constexpr std::array<size_t, 8> SUBRELATION_LENGTHS{
         3, // wire - op-queue-wire consistency sub-relation 1
         3, // wire - op-queue-wire consistency sub-relation 2
         3, // wire - op-queue-wire consistency sub-relation 3

@@ -37,12 +37,10 @@ namespace proof_system::honk::sumcheck {
 template <typename FF_> class ECCVMMSMRelationBase {
   public:
     using FF = FF_;
-    // 1 + polynomial degree of this relation
-    static constexpr size_t RELATION_LENGTH = 8;
 
     static constexpr size_t LEN_1 = 8; // arithmetic sub-relation
 
-    static constexpr std::array<size_t, 36> LENGTHS{
+    static constexpr std::array<size_t, 36> SUBRELATION_LENGTHS{
         8, // arithmetic sub-relation
         8, // arithmetic sub-relation
         8, // arithmetic sub-relation

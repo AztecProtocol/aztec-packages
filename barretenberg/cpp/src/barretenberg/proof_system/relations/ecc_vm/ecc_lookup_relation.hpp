@@ -16,15 +16,15 @@ template <typename FF_> class ECCVMLookupRelationBase {
     static constexpr size_t READ_TERMS = 4;
     static constexpr size_t WRITE_TERMS = 2;
     // 1 + polynomial degree of this relation
-    static constexpr size_t RELATION_LENGTH = READ_TERMS + WRITE_TERMS + 3; // 9
+    static constexpr size_t LENGTH = READ_TERMS + WRITE_TERMS + 3; // 9
 
-    static constexpr std::array<size_t, 2> LENGTHS{
-        RELATION_LENGTH, // grand product construction sub-relation
-        RELATION_LENGTH  // left-shiftable polynomial sub-relation
+    static constexpr std::array<size_t, 2> SUBRELATION_LENGTHS{
+        LENGTH, // grand product construction sub-relation
+        LENGTH  // left-shiftable polynomial sub-relation
     };
 
-    static constexpr size_t LEN_1 = RELATION_LENGTH; // grand product construction sub-relation
-    static constexpr size_t LEN_2 = RELATION_LENGTH; // left-shiftable polynomial sub-relation
+    static constexpr size_t LEN_1 = LENGTH; // grand product construction sub-relation
+    static constexpr size_t LEN_2 = LENGTH; // left-shiftable polynomial sub-relation
     template <template <size_t...> typename AccumulatorTypesContainer>
     using GetAccumulatorTypes = AccumulatorTypesContainer<LEN_1, LEN_2>;
 
