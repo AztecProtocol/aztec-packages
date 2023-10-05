@@ -1,4 +1,4 @@
-import { FunctionSelector, HistoricBlockData } from '@aztec/circuits.js';
+import { HistoricBlockData } from '@aztec/circuits.js';
 import { L1ContractAddresses } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';

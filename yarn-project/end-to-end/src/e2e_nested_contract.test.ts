@@ -3,7 +3,7 @@ import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { DebugLogger } from '@aztec/foundation/log';
 import { toBigInt } from '@aztec/foundation/serialize';
 import { ChildContract, ImportTestContract, ParentContract, TestContract } from '@aztec/noir-contracts/types';
-import { L2BlockL2Logs, PXE, UnencryptedL2Log } from '@aztec/types';
+import { PXE } from '@aztec/types';
 
 import { setup } from './fixtures/utils.js';
 

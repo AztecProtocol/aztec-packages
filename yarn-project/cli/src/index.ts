@@ -13,7 +13,7 @@ import { JsonStringify } from '@aztec/foundation/json-rpc';
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
 import { compileContract, generateNoirInterface, generateTypescriptInterface } from '@aztec/noir-compiler/cli';
-import { CompleteAddress, ContractData, L2BlockL2Logs, LogFilter } from '@aztec/types';
+import { CompleteAddress, ContractData, LogFilter } from '@aztec/types';
 
 import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import { Command, Option } from 'commander';
