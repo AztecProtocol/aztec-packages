@@ -40,7 +40,7 @@ template <typename Flavor, typename Relation> void execute_relation(::benchmark:
     // Evaluate each constraint in the relation and check that each is satisfied
 
     for (auto _ : state) {
-        Relation::template accumulate<typename Relation::ValueAccumulatorsAndViews>(accumulator, new_value, params, 1);
+        Relation::template accumulate<typename Relation::ValueAccumulators>(accumulator, new_value, params, 1);
     }
 }
 

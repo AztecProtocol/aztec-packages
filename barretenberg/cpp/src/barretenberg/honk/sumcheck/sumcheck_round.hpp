@@ -209,7 +209,7 @@ template <typename Flavor> class SumcheckProverRound {
                                          const FF& scaling_factor)
     {
         using Relation = std::tuple_element_t<relation_idx, Relations>;
-        Relation::template accumulate<typename Relation::UnivariateAccumulatorsAndViews>(
+        Relation::template accumulate<typename Relation::UnivariateAccumulators>(
             std::get<relation_idx>(univariate_accumulators), extended_edges, relation_parameters, scaling_factor);
 
         // Repeat for the next relation.
@@ -469,7 +469,7 @@ template <typename Flavor> class SumcheckVerifierRound {
                                          const FF& partial_evaluation_constant)
     {
         using Relation = std::tuple_element_t<relation_idx, Relations>;
-        Relation::template accumulate<typename Relation::ValueAccumulatorsAndViews>(
+        Relation::template accumulate<typename Relation::ValueAccumulators>(
             std::get<relation_idx>(relation_evaluations),
             purported_evaluations,
             relation_parameters,

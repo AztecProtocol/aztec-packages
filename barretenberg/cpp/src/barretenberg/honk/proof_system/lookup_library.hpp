@@ -29,7 +29,7 @@ void compute_logderivative_inverse(auto& polynomials, // FullPolynomials or RawP
                                    const size_t circuit_size)
 {
     using FF = typename Flavor::FF;
-    using Accumulator0 = std::tuple_element_t<0, typename Relation::ValueAccumulatorsAndViews::Accumulators>;
+    using Accumulator0 = typename Relation::ValueAccumulator0;
     constexpr size_t READ_TERMS = Relation::READ_TERMS;
     constexpr size_t WRITE_TERMS = Relation::WRITE_TERMS;
     auto& inverse_polynomial = polynomials.lookup_inverses;
