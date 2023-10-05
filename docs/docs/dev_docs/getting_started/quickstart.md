@@ -36,6 +36,10 @@ This quickstart walks you through installing the Sandbox, deploying your first N
 
 The sandbox contains a local ethereum instance running [Anvil](https://book.getfoundry.sh/anvil/), a local instance of the Aztec rollup, an aztec private execution client for handling user transactions and state, and, if using Docker, an (Otterscan)[https://github.com/otterscan/otterscan] block explorer for the local ethereum network.
 
+These provide a self contained environment which deploys Aztec on a local (empty) ethereum network, creates 3 smart contract wallet accounts on the rollup, and allows transactions to be processed on the local Aztec sequencer.
+
+The current sandbox does not generate or verify proofs, but provides a working end to end developer flow for writing and interacting with Aztec.nr smart contracts.
+
 ## Requirements
 
 - Node.js >= v18 (recommend installing with [nvm](https://github.com/nvm-sh/nvm))
