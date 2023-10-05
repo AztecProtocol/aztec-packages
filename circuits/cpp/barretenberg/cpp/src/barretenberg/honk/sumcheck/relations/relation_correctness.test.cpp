@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <gtest/gtest.h>
 #include <sys/types.h>
+#include <unordered_set>
 
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/honk/composer/standard_composer.hpp"
@@ -817,6 +818,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorDecompositionRelationCorrectnes
     using Flavor = honk::flavor::GoblinTranslatorBasic;
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
+    using ProverPolynomialIds = typename Flavor::ProverPolynomialIds;
     auto& engine = numeric::random::get_debug_engine();
     // Create a prover (it will compute proving key and witness)
     auto circuit_size = Flavor::FULL_CIRCUIT_SIZE;
@@ -833,11 +835,29 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorDecompositionRelationCorrectnes
 
     // Create storage for polynomials
     ProverPolynomials prover_polynomials;
+    ProverPolynomialIds prover_polynomial_ids;
     std::vector<Polynomial<FF>> polynomial_container;
+    std::vector<size_t> polynomial_ids;
     for (size_t i = 0; i < prover_polynomials.size(); i++) {
         Polynomial<FF> temporary_polynomial(circuit_size);
         polynomial_container.push_back(temporary_polynomial);
-        prover_polynomials[i] = polynomial_container[i];
+        polynomial_ids.push_back(i);
+        prover_polynomial_ids[i] = polynomial_ids[i];
+    }
+    auto shifted_ids = prover_polynomial_ids.get_shifted();
+    std::unordered_set<size_t> shifted_id_set;
+    for (auto& id : shifted_ids) {
+        shifted_id_set.emplace(id);
+    }
+    for (size_t i = 0; i < prover_polynomials.size(); i++) {
+        if (!shifted_id_set.contains(i)) {
+            prover_polynomials[i] = polynomial_container[i];
+        }
+    }
+    for (size_t i = 0; i < shifted_ids.size(); i++) {
+        auto shifted_id = shifted_ids[i];
+        auto to_be_shifted_id = prover_polynomial_ids.get_to_be_shifted()[i];
+        prover_polynomials[shifted_id] = polynomial_container[to_be_shifted_id].shifted();
     }
 
     // Fill in lagrange odd polynomial (the only non-witness one we are using)
@@ -1090,297 +1110,6 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorDecompositionRelationCorrectnes
                                 prover_polynomials.relation_wide_limbs_range_constraint_3[i + 1],
                                 prover_polynomials.p_y_high_limbs_range_constraint_tail[i + 1],
                                 prover_polynomials.quotient_hi_limbs_range_constraint_tail[i + 1]);
-
-        // This section is just copying data, because there is no nice way to get shifted polynomials
-        // programmatically
-        prover_polynomials.x_lo_y_hi_shift[i - 1] = prover_polynomials.x_lo_y_hi[i];
-        prover_polynomials.x_lo_y_hi_shift[i] = prover_polynomials.x_lo_y_hi[i + 1];
-        prover_polynomials.x_hi_z_1_shift[i - 1] = prover_polynomials.x_hi_z_1[i];
-        prover_polynomials.x_hi_z_1_shift[i] = prover_polynomials.x_hi_z_1[i + 1];
-        prover_polynomials.y_lo_z_2_shift[i - 1] = prover_polynomials.y_lo_z_2[i];
-        prover_polynomials.y_lo_z_2_shift[i] = prover_polynomials.y_lo_z_2[i + 1];
-        prover_polynomials.p_x_low_limbs_shift[i - 1] = prover_polynomials.p_x_low_limbs[i];
-        prover_polynomials.p_x_low_limbs_shift[i] = prover_polynomials.p_x_low_limbs[i + 1];
-        prover_polynomials.p_x_low_limbs_range_constraint_0_shift[i - 1] =
-            prover_polynomials.p_x_low_limbs_range_constraint_0[i];
-        prover_polynomials.p_x_low_limbs_range_constraint_0_shift[i] =
-            prover_polynomials.p_x_low_limbs_range_constraint_0[i + 1];
-        prover_polynomials.p_x_low_limbs_range_constraint_1_shift[i - 1] =
-            prover_polynomials.p_x_low_limbs_range_constraint_1[i];
-        prover_polynomials.p_x_low_limbs_range_constraint_1_shift[i] =
-            prover_polynomials.p_x_low_limbs_range_constraint_1[i + 1];
-        prover_polynomials.p_x_low_limbs_range_constraint_2_shift[i - 1] =
-            prover_polynomials.p_x_low_limbs_range_constraint_2[i];
-        prover_polynomials.p_x_low_limbs_range_constraint_2_shift[i] =
-            prover_polynomials.p_x_low_limbs_range_constraint_2[i + 1];
-        prover_polynomials.p_x_low_limbs_range_constraint_3_shift[i - 1] =
-            prover_polynomials.p_x_low_limbs_range_constraint_3[i];
-        prover_polynomials.p_x_low_limbs_range_constraint_3_shift[i] =
-            prover_polynomials.p_x_low_limbs_range_constraint_3[i + 1];
-        prover_polynomials.p_x_low_limbs_range_constraint_4_shift[i - 1] =
-            prover_polynomials.p_x_low_limbs_range_constraint_4[i];
-        prover_polynomials.p_x_low_limbs_range_constraint_4_shift[i] =
-            prover_polynomials.p_x_low_limbs_range_constraint_4[i + 1];
-        prover_polynomials.p_x_low_limbs_range_constraint_tail_shift[i - 1] =
-            prover_polynomials.p_x_low_limbs_range_constraint_tail[i];
-        prover_polynomials.p_x_low_limbs_range_constraint_tail_shift[i] =
-            prover_polynomials.p_x_low_limbs_range_constraint_tail[i + 1];
-        prover_polynomials.p_x_high_limbs_shift[i - 1] = prover_polynomials.p_x_high_limbs[i];
-        prover_polynomials.p_x_high_limbs_shift[i] = prover_polynomials.p_x_high_limbs[i + 1];
-        prover_polynomials.p_x_high_limbs_range_constraint_0_shift[i - 1] =
-            prover_polynomials.p_x_high_limbs_range_constraint_0[i];
-        prover_polynomials.p_x_high_limbs_range_constraint_0_shift[i] =
-            prover_polynomials.p_x_high_limbs_range_constraint_0[i + 1];
-        prover_polynomials.p_x_high_limbs_range_constraint_1_shift[i - 1] =
-            prover_polynomials.p_x_high_limbs_range_constraint_1[i];
-        prover_polynomials.p_x_high_limbs_range_constraint_1_shift[i] =
-            prover_polynomials.p_x_high_limbs_range_constraint_1[i + 1];
-        prover_polynomials.p_x_high_limbs_range_constraint_2_shift[i - 1] =
-            prover_polynomials.p_x_high_limbs_range_constraint_2[i];
-        prover_polynomials.p_x_high_limbs_range_constraint_2_shift[i] =
-            prover_polynomials.p_x_high_limbs_range_constraint_2[i + 1];
-        prover_polynomials.p_x_high_limbs_range_constraint_3_shift[i - 1] =
-            prover_polynomials.p_x_high_limbs_range_constraint_3[i];
-        prover_polynomials.p_x_high_limbs_range_constraint_3_shift[i] =
-            prover_polynomials.p_x_high_limbs_range_constraint_3[i + 1];
-        prover_polynomials.p_x_high_limbs_range_constraint_4_shift[i - 1] =
-            prover_polynomials.p_x_high_limbs_range_constraint_4[i];
-        prover_polynomials.p_x_high_limbs_range_constraint_4_shift[i] =
-            prover_polynomials.p_x_high_limbs_range_constraint_4[i + 1];
-        prover_polynomials.p_x_high_limbs_range_constraint_tail_shift[i - 1] =
-            prover_polynomials.p_x_high_limbs_range_constraint_tail[i];
-        prover_polynomials.p_x_high_limbs_range_constraint_tail_shift[i] =
-            prover_polynomials.p_x_high_limbs_range_constraint_tail[i + 1];
-        prover_polynomials.p_y_low_limbs_shift[i - 1] = prover_polynomials.p_y_low_limbs[i];
-        prover_polynomials.p_y_low_limbs_shift[i] = prover_polynomials.p_y_low_limbs[i + 1];
-        prover_polynomials.p_y_low_limbs_range_constraint_0_shift[i - 1] =
-            prover_polynomials.p_y_low_limbs_range_constraint_0[i];
-        prover_polynomials.p_y_low_limbs_range_constraint_0_shift[i] =
-            prover_polynomials.p_y_low_limbs_range_constraint_0[i + 1];
-        prover_polynomials.p_y_low_limbs_range_constraint_1_shift[i - 1] =
-            prover_polynomials.p_y_low_limbs_range_constraint_1[i];
-        prover_polynomials.p_y_low_limbs_range_constraint_1_shift[i] =
-            prover_polynomials.p_y_low_limbs_range_constraint_1[i + 1];
-        prover_polynomials.p_y_low_limbs_range_constraint_2_shift[i - 1] =
-            prover_polynomials.p_y_low_limbs_range_constraint_2[i];
-        prover_polynomials.p_y_low_limbs_range_constraint_2_shift[i] =
-            prover_polynomials.p_y_low_limbs_range_constraint_2[i + 1];
-        prover_polynomials.p_y_low_limbs_range_constraint_3_shift[i - 1] =
-            prover_polynomials.p_y_low_limbs_range_constraint_3[i];
-        prover_polynomials.p_y_low_limbs_range_constraint_3_shift[i] =
-            prover_polynomials.p_y_low_limbs_range_constraint_3[i + 1];
-        prover_polynomials.p_y_low_limbs_range_constraint_4_shift[i - 1] =
-            prover_polynomials.p_y_low_limbs_range_constraint_4[i];
-        prover_polynomials.p_y_low_limbs_range_constraint_4_shift[i] =
-            prover_polynomials.p_y_low_limbs_range_constraint_4[i + 1];
-        prover_polynomials.p_y_low_limbs_range_constraint_tail_shift[i - 1] =
-            prover_polynomials.p_y_low_limbs_range_constraint_tail[i];
-        prover_polynomials.p_y_low_limbs_range_constraint_tail_shift[i] =
-            prover_polynomials.p_y_low_limbs_range_constraint_tail[i + 1];
-        prover_polynomials.p_y_high_limbs_shift[i - 1] = prover_polynomials.p_y_high_limbs[i];
-        prover_polynomials.p_y_high_limbs_shift[i] = prover_polynomials.p_y_high_limbs[i + 1];
-        prover_polynomials.p_y_high_limbs_range_constraint_0_shift[i - 1] =
-            prover_polynomials.p_y_high_limbs_range_constraint_0[i];
-        prover_polynomials.p_y_high_limbs_range_constraint_0_shift[i] =
-            prover_polynomials.p_y_high_limbs_range_constraint_0[i + 1];
-        prover_polynomials.p_y_high_limbs_range_constraint_1_shift[i - 1] =
-            prover_polynomials.p_y_high_limbs_range_constraint_1[i];
-        prover_polynomials.p_y_high_limbs_range_constraint_1_shift[i] =
-            prover_polynomials.p_y_high_limbs_range_constraint_1[i + 1];
-        prover_polynomials.p_y_high_limbs_range_constraint_2_shift[i - 1] =
-            prover_polynomials.p_y_high_limbs_range_constraint_2[i];
-        prover_polynomials.p_y_high_limbs_range_constraint_2_shift[i] =
-            prover_polynomials.p_y_high_limbs_range_constraint_2[i + 1];
-        prover_polynomials.p_y_high_limbs_range_constraint_3_shift[i - 1] =
-            prover_polynomials.p_y_high_limbs_range_constraint_3[i];
-        prover_polynomials.p_y_high_limbs_range_constraint_3_shift[i] =
-            prover_polynomials.p_y_high_limbs_range_constraint_3[i + 1];
-        prover_polynomials.p_y_high_limbs_range_constraint_4_shift[i - 1] =
-            prover_polynomials.p_y_high_limbs_range_constraint_4[i];
-        prover_polynomials.p_y_high_limbs_range_constraint_4_shift[i] =
-            prover_polynomials.p_y_high_limbs_range_constraint_4[i + 1];
-        prover_polynomials.p_y_high_limbs_range_constraint_tail_shift[i - 1] =
-            prover_polynomials.p_y_high_limbs_range_constraint_tail[i];
-        prover_polynomials.p_y_high_limbs_range_constraint_tail_shift[i] =
-            prover_polynomials.p_y_high_limbs_range_constraint_tail[i + 1];
-        prover_polynomials.z_lo_limbs_shift[i - 1] = prover_polynomials.z_lo_limbs[i];
-        prover_polynomials.z_lo_limbs_shift[i] = prover_polynomials.z_lo_limbs[i + 1];
-        prover_polynomials.z_lo_limbs_range_constraint_0_shift[i - 1] =
-            prover_polynomials.z_lo_limbs_range_constraint_0[i];
-        prover_polynomials.z_lo_limbs_range_constraint_0_shift[i] =
-            prover_polynomials.z_lo_limbs_range_constraint_0[i + 1];
-        prover_polynomials.z_lo_limbs_range_constraint_1_shift[i - 1] =
-            prover_polynomials.z_lo_limbs_range_constraint_1[i];
-        prover_polynomials.z_lo_limbs_range_constraint_1_shift[i] =
-            prover_polynomials.z_lo_limbs_range_constraint_1[i + 1];
-        prover_polynomials.z_lo_limbs_range_constraint_2_shift[i - 1] =
-            prover_polynomials.z_lo_limbs_range_constraint_2[i];
-        prover_polynomials.z_lo_limbs_range_constraint_2_shift[i] =
-            prover_polynomials.z_lo_limbs_range_constraint_2[i + 1];
-        prover_polynomials.z_lo_limbs_range_constraint_3_shift[i - 1] =
-            prover_polynomials.z_lo_limbs_range_constraint_3[i];
-        prover_polynomials.z_lo_limbs_range_constraint_3_shift[i] =
-            prover_polynomials.z_lo_limbs_range_constraint_3[i + 1];
-        prover_polynomials.z_lo_limbs_range_constraint_4_shift[i - 1] =
-            prover_polynomials.z_lo_limbs_range_constraint_4[i];
-        prover_polynomials.z_lo_limbs_range_constraint_4_shift[i] =
-            prover_polynomials.z_lo_limbs_range_constraint_4[i + 1];
-        prover_polynomials.z_lo_limbs_range_constraint_tail_shift[i - 1] =
-            prover_polynomials.z_lo_limbs_range_constraint_tail[i];
-        prover_polynomials.z_lo_limbs_range_constraint_tail_shift[i] =
-            prover_polynomials.z_lo_limbs_range_constraint_tail[i + 1];
-        prover_polynomials.z_hi_limbs_shift[i - 1] = prover_polynomials.z_hi_limbs[i];
-        prover_polynomials.z_hi_limbs_shift[i] = prover_polynomials.z_hi_limbs[i + 1];
-        prover_polynomials.z_hi_limbs_range_constraint_0_shift[i - 1] =
-            prover_polynomials.z_hi_limbs_range_constraint_0[i];
-        prover_polynomials.z_hi_limbs_range_constraint_0_shift[i] =
-            prover_polynomials.z_hi_limbs_range_constraint_0[i + 1];
-        prover_polynomials.z_hi_limbs_range_constraint_1_shift[i - 1] =
-            prover_polynomials.z_hi_limbs_range_constraint_1[i];
-        prover_polynomials.z_hi_limbs_range_constraint_1_shift[i] =
-            prover_polynomials.z_hi_limbs_range_constraint_1[i + 1];
-        prover_polynomials.z_hi_limbs_range_constraint_2_shift[i - 1] =
-            prover_polynomials.z_hi_limbs_range_constraint_2[i];
-        prover_polynomials.z_hi_limbs_range_constraint_2_shift[i] =
-            prover_polynomials.z_hi_limbs_range_constraint_2[i + 1];
-        prover_polynomials.z_hi_limbs_range_constraint_3_shift[i - 1] =
-            prover_polynomials.z_hi_limbs_range_constraint_3[i];
-        prover_polynomials.z_hi_limbs_range_constraint_3_shift[i] =
-            prover_polynomials.z_hi_limbs_range_constraint_3[i + 1];
-        prover_polynomials.z_hi_limbs_range_constraint_4_shift[i - 1] =
-            prover_polynomials.z_hi_limbs_range_constraint_4[i];
-        prover_polynomials.z_hi_limbs_range_constraint_4_shift[i] =
-            prover_polynomials.z_hi_limbs_range_constraint_4[i + 1];
-        prover_polynomials.z_hi_limbs_range_constraint_tail_shift[i - 1] =
-            prover_polynomials.z_hi_limbs_range_constraint_tail[i];
-        prover_polynomials.z_hi_limbs_range_constraint_tail_shift[i] =
-            prover_polynomials.z_hi_limbs_range_constraint_tail[i + 1];
-        prover_polynomials.accumulators_binary_limbs_0_shift[i - 1] = prover_polynomials.accumulators_binary_limbs_0[i];
-        prover_polynomials.accumulators_binary_limbs_0_shift[i] = prover_polynomials.accumulators_binary_limbs_0[i + 1];
-        prover_polynomials.accumulators_binary_limbs_1_shift[i - 1] = prover_polynomials.accumulators_binary_limbs_1[i];
-        prover_polynomials.accumulators_binary_limbs_1_shift[i] = prover_polynomials.accumulators_binary_limbs_1[i + 1];
-        prover_polynomials.accumulators_binary_limbs_2_shift[i - 1] = prover_polynomials.accumulators_binary_limbs_2[i];
-        prover_polynomials.accumulators_binary_limbs_2_shift[i] = prover_polynomials.accumulators_binary_limbs_2[i + 1];
-        prover_polynomials.accumulators_binary_limbs_3_shift[i - 1] = prover_polynomials.accumulators_binary_limbs_3[i];
-        prover_polynomials.accumulators_binary_limbs_3_shift[i] = prover_polynomials.accumulators_binary_limbs_3[i + 1];
-        prover_polynomials.accumulator_lo_limbs_range_constraint_0_shift[i - 1] =
-            prover_polynomials.accumulator_lo_limbs_range_constraint_0[i];
-        prover_polynomials.accumulator_lo_limbs_range_constraint_0_shift[i] =
-            prover_polynomials.accumulator_lo_limbs_range_constraint_0[i + 1];
-        prover_polynomials.accumulator_lo_limbs_range_constraint_1_shift[i - 1] =
-            prover_polynomials.accumulator_lo_limbs_range_constraint_1[i];
-        prover_polynomials.accumulator_lo_limbs_range_constraint_1_shift[i] =
-            prover_polynomials.accumulator_lo_limbs_range_constraint_1[i + 1];
-        prover_polynomials.accumulator_lo_limbs_range_constraint_2_shift[i - 1] =
-            prover_polynomials.accumulator_lo_limbs_range_constraint_2[i];
-        prover_polynomials.accumulator_lo_limbs_range_constraint_2_shift[i] =
-            prover_polynomials.accumulator_lo_limbs_range_constraint_2[i + 1];
-        prover_polynomials.accumulator_lo_limbs_range_constraint_3_shift[i - 1] =
-            prover_polynomials.accumulator_lo_limbs_range_constraint_3[i];
-        prover_polynomials.accumulator_lo_limbs_range_constraint_3_shift[i] =
-            prover_polynomials.accumulator_lo_limbs_range_constraint_3[i + 1];
-        prover_polynomials.accumulator_lo_limbs_range_constraint_4_shift[i - 1] =
-            prover_polynomials.accumulator_lo_limbs_range_constraint_4[i];
-        prover_polynomials.accumulator_lo_limbs_range_constraint_4_shift[i] =
-            prover_polynomials.accumulator_lo_limbs_range_constraint_4[i + 1];
-        prover_polynomials.accumulator_lo_limbs_range_constraint_tail_shift[i - 1] =
-            prover_polynomials.accumulator_lo_limbs_range_constraint_tail[i];
-        prover_polynomials.accumulator_lo_limbs_range_constraint_tail_shift[i] =
-            prover_polynomials.accumulator_lo_limbs_range_constraint_tail[i + 1];
-        prover_polynomials.accumulator_hi_limbs_range_constraint_0_shift[i - 1] =
-            prover_polynomials.accumulator_hi_limbs_range_constraint_0[i];
-        prover_polynomials.accumulator_hi_limbs_range_constraint_0_shift[i] =
-            prover_polynomials.accumulator_hi_limbs_range_constraint_0[i + 1];
-        prover_polynomials.accumulator_hi_limbs_range_constraint_1_shift[i - 1] =
-            prover_polynomials.accumulator_hi_limbs_range_constraint_1[i];
-        prover_polynomials.accumulator_hi_limbs_range_constraint_1_shift[i] =
-            prover_polynomials.accumulator_hi_limbs_range_constraint_1[i + 1];
-        prover_polynomials.accumulator_hi_limbs_range_constraint_2_shift[i - 1] =
-            prover_polynomials.accumulator_hi_limbs_range_constraint_2[i];
-        prover_polynomials.accumulator_hi_limbs_range_constraint_2_shift[i] =
-            prover_polynomials.accumulator_hi_limbs_range_constraint_2[i + 1];
-        prover_polynomials.accumulator_hi_limbs_range_constraint_3_shift[i - 1] =
-            prover_polynomials.accumulator_hi_limbs_range_constraint_3[i];
-        prover_polynomials.accumulator_hi_limbs_range_constraint_3_shift[i] =
-            prover_polynomials.accumulator_hi_limbs_range_constraint_3[i + 1];
-        prover_polynomials.accumulator_hi_limbs_range_constraint_4_shift[i - 1] =
-            prover_polynomials.accumulator_hi_limbs_range_constraint_4[i];
-        prover_polynomials.accumulator_hi_limbs_range_constraint_4_shift[i] =
-            prover_polynomials.accumulator_hi_limbs_range_constraint_4[i + 1];
-        prover_polynomials.accumulator_hi_limbs_range_constraint_tail_shift[i - 1] =
-            prover_polynomials.accumulator_hi_limbs_range_constraint_tail[i];
-        prover_polynomials.accumulator_hi_limbs_range_constraint_tail_shift[i] =
-            prover_polynomials.accumulator_hi_limbs_range_constraint_tail[i + 1];
-        prover_polynomials.quotient_lo_binary_limbs_shift[i - 1] = prover_polynomials.quotient_lo_binary_limbs[i];
-        prover_polynomials.quotient_lo_binary_limbs_shift[i] = prover_polynomials.quotient_lo_binary_limbs[i + 1];
-        prover_polynomials.quotient_hi_binary_limbs_shift[i - 1] = prover_polynomials.quotient_hi_binary_limbs[i];
-        prover_polynomials.quotient_hi_binary_limbs_shift[i] = prover_polynomials.quotient_hi_binary_limbs[i + 1];
-        prover_polynomials.quotient_lo_limbs_range_constraint_0_shift[i - 1] =
-            prover_polynomials.quotient_lo_limbs_range_constraint_0[i];
-        prover_polynomials.quotient_lo_limbs_range_constraint_0_shift[i] =
-            prover_polynomials.quotient_lo_limbs_range_constraint_0[i + 1];
-        prover_polynomials.quotient_lo_limbs_range_constraint_1_shift[i - 1] =
-            prover_polynomials.quotient_lo_limbs_range_constraint_1[i];
-        prover_polynomials.quotient_lo_limbs_range_constraint_1_shift[i] =
-            prover_polynomials.quotient_lo_limbs_range_constraint_1[i + 1];
-        prover_polynomials.quotient_lo_limbs_range_constraint_2_shift[i - 1] =
-            prover_polynomials.quotient_lo_limbs_range_constraint_2[i];
-        prover_polynomials.quotient_lo_limbs_range_constraint_2_shift[i] =
-            prover_polynomials.quotient_lo_limbs_range_constraint_2[i + 1];
-        prover_polynomials.quotient_lo_limbs_range_constraint_3_shift[i - 1] =
-            prover_polynomials.quotient_lo_limbs_range_constraint_3[i];
-        prover_polynomials.quotient_lo_limbs_range_constraint_3_shift[i] =
-            prover_polynomials.quotient_lo_limbs_range_constraint_3[i + 1];
-        prover_polynomials.quotient_lo_limbs_range_constraint_4_shift[i - 1] =
-            prover_polynomials.quotient_lo_limbs_range_constraint_4[i];
-        prover_polynomials.quotient_lo_limbs_range_constraint_4_shift[i] =
-            prover_polynomials.quotient_lo_limbs_range_constraint_4[i + 1];
-        prover_polynomials.quotient_lo_limbs_range_constraint_tail_shift[i - 1] =
-            prover_polynomials.quotient_lo_limbs_range_constraint_tail[i];
-        prover_polynomials.quotient_lo_limbs_range_constraint_tail_shift[i] =
-            prover_polynomials.quotient_lo_limbs_range_constraint_tail[i + 1];
-        prover_polynomials.quotient_hi_limbs_range_constraint_0_shift[i - 1] =
-            prover_polynomials.quotient_hi_limbs_range_constraint_0[i];
-        prover_polynomials.quotient_hi_limbs_range_constraint_0_shift[i] =
-            prover_polynomials.quotient_hi_limbs_range_constraint_0[i + 1];
-        prover_polynomials.quotient_hi_limbs_range_constraint_1_shift[i - 1] =
-            prover_polynomials.quotient_hi_limbs_range_constraint_1[i];
-        prover_polynomials.quotient_hi_limbs_range_constraint_1_shift[i] =
-            prover_polynomials.quotient_hi_limbs_range_constraint_1[i + 1];
-        prover_polynomials.quotient_hi_limbs_range_constraint_2_shift[i - 1] =
-            prover_polynomials.quotient_hi_limbs_range_constraint_2[i];
-        prover_polynomials.quotient_hi_limbs_range_constraint_2_shift[i] =
-            prover_polynomials.quotient_hi_limbs_range_constraint_2[i + 1];
-        prover_polynomials.quotient_hi_limbs_range_constraint_3_shift[i - 1] =
-            prover_polynomials.quotient_hi_limbs_range_constraint_3[i];
-        prover_polynomials.quotient_hi_limbs_range_constraint_3_shift[i] =
-            prover_polynomials.quotient_hi_limbs_range_constraint_3[i + 1];
-        prover_polynomials.quotient_hi_limbs_range_constraint_4_shift[i - 1] =
-            prover_polynomials.quotient_hi_limbs_range_constraint_4[i];
-        prover_polynomials.quotient_hi_limbs_range_constraint_4_shift[i] =
-            prover_polynomials.quotient_hi_limbs_range_constraint_4[i + 1];
-        prover_polynomials.quotient_hi_limbs_range_constraint_tail_shift[i - 1] =
-            prover_polynomials.quotient_hi_limbs_range_constraint_tail[i];
-        prover_polynomials.quotient_hi_limbs_range_constraint_tail_shift[i] =
-            prover_polynomials.quotient_hi_limbs_range_constraint_tail[i + 1];
-        prover_polynomials.relation_wide_limbs_shift[i - 1] = prover_polynomials.relation_wide_limbs[i];
-        prover_polynomials.relation_wide_limbs_shift[i] = prover_polynomials.relation_wide_limbs[i + 1];
-        prover_polynomials.relation_wide_limbs_range_constraint_0_shift[i - 1] =
-            prover_polynomials.relation_wide_limbs_range_constraint_0[i];
-        prover_polynomials.relation_wide_limbs_range_constraint_0_shift[i] =
-            prover_polynomials.relation_wide_limbs_range_constraint_0[i + 1];
-        prover_polynomials.relation_wide_limbs_range_constraint_1_shift[i - 1] =
-            prover_polynomials.relation_wide_limbs_range_constraint_1[i];
-        prover_polynomials.relation_wide_limbs_range_constraint_1_shift[i] =
-            prover_polynomials.relation_wide_limbs_range_constraint_1[i + 1];
-        prover_polynomials.relation_wide_limbs_range_constraint_2_shift[i - 1] =
-            prover_polynomials.relation_wide_limbs_range_constraint_2[i];
-        prover_polynomials.relation_wide_limbs_range_constraint_2_shift[i] =
-            prover_polynomials.relation_wide_limbs_range_constraint_2[i + 1];
-        prover_polynomials.relation_wide_limbs_range_constraint_3_shift[i - 1] =
-            prover_polynomials.relation_wide_limbs_range_constraint_3[i];
-        prover_polynomials.relation_wide_limbs_range_constraint_3_shift[i] =
-            prover_polynomials.relation_wide_limbs_range_constraint_3[i + 1];
     }
 
     // Construct the round for applying sumcheck relations and results for storing computed results

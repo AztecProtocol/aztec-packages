@@ -1,3 +1,4 @@
+#include "sumcheck.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/honk/composer/standard_composer.hpp"
 #include "barretenberg/honk/composer/ultra_composer.hpp"
@@ -14,7 +15,6 @@
 #include "barretenberg/transcript/transcript_wrappers.hpp"
 #include "relations/arithmetic_relation.hpp"
 #include "relations/permutation_relation.hpp"
-#include "sumcheck.hpp"
 #include <array>
 #include <cstddef>
 #include <cstdint>

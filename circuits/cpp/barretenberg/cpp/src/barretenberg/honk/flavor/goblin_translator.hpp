@@ -1359,6 +1359,11 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
     using ProverPolynomials = AllEntities<PolynomialHandle, PolynomialHandle>;
 
     /**
+     * @brief A container for easier mapping of polynomials
+     */
+    using ProverPolynomialIds = AllEntities<size_t, size_t>;
+
+    /**
      * @brief A container for storing the partially evaluated multivariates produced by sumcheck.
      */
     class PartiallyEvaluatedMultivariates : public AllEntities<Polynomial, PolynomialHandle> {
