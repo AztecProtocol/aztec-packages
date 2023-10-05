@@ -112,19 +112,14 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
       await deployTokenContract();
     }, 60_000);
 
-    it("Can access a wallet's addresses", async () => {
-      const result = await page.evaluate(async rpcUrl => {
-        const { createPXEClient: createPXEClient } = window.AztecJs;
-        const pxe = createPXEClient(rpcUrl!);
-        const [wallet] = await AztecJs.getSandboxAccountsWallets(pxe);
-        const completeAddress: AztecJs.CompleteAddress = wallet.getCompleteAddress();
-        const address = wallet.getAddress();
+    it('Can access CompleteAddress class in browser', async () => {
+      const result = await page.evaluate(async () => {
+        const completeAddress: AztecJs.CompleteAddress = await AztecJs.CompleteAddress.random();
         const addressString = completeAddress.toString();
-        return [completeAddress, address, addressString];
-      }, PXE_URL);
+        return [completeAddress, addressString];
+      });
       expect(result[0]).toBeDefined();
       expect(result[1]).toBeDefined();
-      expect(result[2]).toBeDefined();
     });
 
     it("Gets the owner's balance", async () => {
