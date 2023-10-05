@@ -41,34 +41,13 @@ concept HasSubrelationLinearlyIndependentMember = requires(T) {
  * @tparam RelationImpl Base class that implements the arithmetic for a given relation (or set of sub-relations)
  */
 template <typename RelationImpl> class Relation : public RelationImpl {
-  private:
-    using FF = typename RelationImpl::FF;
-    template <size_t... subrelation_lengths> struct UnivariateAccumulatorsAndViewsTemplate {
-        using Accumulators = std::tuple<barretenberg::Univariate<FF, subrelation_lengths>...>;
-        using AccumulatorViews = std::tuple<barretenberg::UnivariateView<FF, subrelation_lengths>...>;
-    };
-    template <size_t... subrelation_lengths> struct ValueAccumulatorsAndViewsTemplate {
-        using Accumulators = std::array<FF, sizeof...(subrelation_lengths)>;
-        using AccumulatorViews = std::array<FF, sizeof...(subrelation_lengths)>; // there is no "view" type here
-    };
-
   public:
-    // Each `RelationImpl` defines a template `GetAccumulatorTypes` that supplies the `subrelation_lengths` parameters
-    // of the different `AccumulatorsAndViewsTemplate`s.
-    using UnivariateAccumulatorsAndViews =
-        typename RelationImpl::template GetAccumulatorTypes<UnivariateAccumulatorsAndViewsTemplate>;
-    // In the case of the value accumulator types, only the number of subrelations (not their lengths) has an effect.
-    using ValueAccumulatorsAndViews =
-        typename RelationImpl::template GetAccumulatorTypes<ValueAccumulatorsAndViewsTemplate>;
+    using FF = typename RelationImpl::FF;
 
-    using UnivariateAccumulators =
-        typename RelationImpl::template GetAccumulatorTypes<UnivariateAccumulatorsAndViewsTemplate>::Accumulators;
-    // In the case of the value accumulator types, only the number of subrelations (not their lengths) has an effect.
-    using ValueAccumulators =
-        typename RelationImpl::template GetAccumulatorTypes<ValueAccumulatorsAndViewsTemplate>::Accumulators;
+    using UnivariateAccumulators = TupleOfUnivariates<FF, RelationImpl::LENGTHS>;
+    using ValueAccumulators = ArrayOfValues<FF, RelationImpl::LENGTHS>;
 
     using UnivariateAccumulator0 = std::tuple_element_t<0, UnivariateAccumulators>;
-    // In the case of the value accumulator types, only the number of subrelations (not their lengths) has an effect.
     using ValueAccumulator0 = std::tuple_element_t<0, ValueAccumulators>;
 
     using TupleOfUnivariatesOverSubrelations = TupleOfUnivariates<FF, RelationImpl::LENGTHS>;
