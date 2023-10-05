@@ -130,6 +130,10 @@ resource "aws_ecs_task_definition" "aztec-bootstrap-1" {
         "value": "true"
       },
       {
+        "name": "API_PREFIX",
+        "value": "/${var.DEPLOY_TAG}/aztec-bootstrap-1"
+      },
+      {
         "name": "SERVER_PORT",
         "value": "80"
       }
@@ -170,6 +174,12 @@ resource "aws_ecs_service" "aztec-bootstrap-1" {
     container_port = 80
   }
 
+  load_balancer {
+    target_group_arn = aws_lb_target_group.aztec-bootstrap-1-target-group.id
+    container_name   = "${var.DEPLOY_TAG}-aztec-bootstrap-1"
+    container_port   = var.BOOTNODE_1_LISTEN_PORT
+  }
+
   task_definition = aws_ecs_task_definition.aztec-bootstrap-1.family
 }
 
@@ -179,6 +189,17 @@ resource "aws_lb_target_group" "aztec-bootstrap-1-target-group" {
   protocol    = "TCP"
   target_type = "ip"
   vpc_id      = data.terraform_remote_state.setup_iac.outputs.vpc_id
+
+  health_check {
+    protocol            = "HTTP"
+    path                = "/${var.DEPLOY_TAG}/aztec-bootstrap-1/status"
+    matcher             = "200"
+    interval            = 10
+    healthy_threshold   = 2
+    unhealthy_threshold = 5
+    timeout             = 5
+    port                = 80
+  }
 }
 
 ## The following has been commented out and setup manually as terraform (or the aws provider version we are using) has a bug

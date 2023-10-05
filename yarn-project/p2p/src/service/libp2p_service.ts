@@ -83,7 +83,7 @@ export class LibP2PService implements P2PService {
     }
     const { enableNat, tcpListenIp, tcpListenPort, announceHostname, announcePort } = this.config;
     this.logger(`Starting P2P node on ${tcpListenIp}:${tcpListenPort}`);
-    if (announceHostname) this.logger(`Announcing at ${announceHostname}:${announcePort ?? tcpListenPort}`);
+    if (announceHostname) this.logger(`Announcing at ${announceHostname}/tcp/${announcePort ?? tcpListenPort}`);
     if (enableNat) this.logger(`Enabling NAT in libp2p module`);
 
     this.node.addEventListener('peer:discovery', evt => {
@@ -156,7 +156,7 @@ export class LibP2PService implements P2PService {
       peerId,
       addresses: {
         listen: [`/ip4/${tcpListenIp}/tcp/${tcpListenPort}`],
-        announce: announceHostname ? [`/ip4/${announceHostname}/tcp/${announcePort ?? tcpListenPort}`] : [],
+        announce: announceHostname ? [`${announceHostname}/tcp/${announcePort ?? tcpListenPort}`] : [],
       },
       transports: [tcp()],
       streamMuxers: [yamux(), mplex()],

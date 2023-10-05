@@ -34,6 +34,15 @@ data "terraform_remote_state" "aztec2_iac" {
   }
 }
 
+data "terraform_remote_state" "aztec-network_iac" {
+  backend = "s3"
+  config = {
+    bucket = "aztec-terraform"
+    key    = "aztec-network/iac"
+    region = "eu-west-2"
+  }
+}
+
 
 resource "aws_cloudwatch_log_group" "aztec-node-log-group-1" {
   name              = "/fargate/service/${var.DEPLOY_TAG}/aztec-node-1"
@@ -101,7 +110,7 @@ resource "aws_ecs_task_definition" "aztec-node-1" {
         "value": "production"
       },
       {
-        "name": "SERVER_PORT",
+        "name": "AZTEC_NODE_PORT",
         "value": "80"
       },
       {
@@ -163,6 +172,14 @@ resource "aws_ecs_task_definition" "aztec-node-1" {
       {
         "name": "P2P_TCP_LISTEN_IP",
         "value": "0.0.0.0"
+      },
+      {
+        "name": "P2P_ANNOUNCE_HOSTNAME",
+        "value": "/dns4/${data.terraform_remote_state.aztec-network_iac.outputs.nlb_dns}"
+      },
+      {
+        "name": "P2P_ANNOUNCE_PORT",
+        "value": "${var.NODE_1_TCP_PORT}"
       },
       {
         "name": "BOOTSTRAP_NODES",
@@ -356,7 +373,7 @@ resource "aws_ecs_task_definition" "aztec-node-2" {
         "value": "production"
       },
       {
-        "name": "SERVER_PORT",
+        "name": "AZTEC_NODE_PORT",
         "value": "80"
       },
       {
@@ -418,6 +435,14 @@ resource "aws_ecs_task_definition" "aztec-node-2" {
       {
         "name": "P2P_TCP_LISTEN_IP",
         "value": "0.0.0.0"
+      },
+      {
+        "name": "P2P_ANNOUNCE_HOSTNAME",
+        "value": "/dns4/${data.terraform_remote_state.aztec-network_iac.outputs.nlb_dns}"
+      },
+      {
+        "name": "P2P_ANNOUNCE_PORT",
+        "value": "${var.NODE_2_TCP_PORT}"
       },
       {
         "name": "BOOTSTRAP_NODES",

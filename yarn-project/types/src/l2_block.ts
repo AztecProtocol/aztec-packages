@@ -345,10 +345,6 @@ export class L2Block {
    * @returns The encoded L2 block data.
    */
   encode(): Buffer {
-    if (this.newEncryptedLogs === undefined || this.newUnencryptedLogs === undefined) {
-      throw new Error('newEncryptedLogs and newUnencryptedLogs must be defined when encoding L2BlockData');
-    }
-
     return serializeToBuffer(
       this.globalVariables,
       this.startPrivateDataTreeSnapshot,
@@ -376,8 +372,6 @@ export class L2Block {
       this.newContractData,
       this.newL1ToL2Messages.length,
       this.newL1ToL2Messages,
-      this.newEncryptedLogs,
-      this.newUnencryptedLogs,
     );
   }
 
@@ -423,8 +417,6 @@ export class L2Block {
       newContracts: this.newContracts.map(c => c.toString()),
       newContractData: this.newContractData.map(c => c.toString()),
       newL1ToL2Messages: this.newL1ToL2Messages.map(m => m.toString()),
-      newEncryptedLogs: this.newEncryptedLogs?.toJSON() ?? null,
-      newUnencryptedLogs: this.newUnencryptedLogs?.toJSON() ?? null,
     };
   }
 
@@ -457,8 +449,6 @@ export class L2Block {
     const newContractData = reader.readArray(newContracts.length, ContractData);
     // TODO(sean): could an optimisation of this be that it is encoded such that zeros are assumed
     const newL1ToL2Messages = reader.readVector(Fr);
-    const newEncryptedLogs = reader.readObject(L2BlockL2Logs);
-    const newUnencryptedLogs = reader.readObject(L2BlockL2Logs);
 
     return L2Block.fromFields({
       number,
@@ -482,8 +472,6 @@ export class L2Block {
       newContracts,
       newContractData,
       newL1ToL2Messages,
-      newEncryptedLogs,
-      newUnencryptedLogs,
     });
   }
 
