@@ -160,8 +160,8 @@ template <typename FF_> class LookupRelationImpl {
      * @param parameters contains beta, gamma, and public_input_delta, ....
      * @param scaling_factor optional term to scale the evaluation before adding to evals.
      */
-    template <typename TupleOverSubrelations, typename AllEntities>
-    void static accumulate(TupleOverSubrelations& accumulators,
+    template <typename ContainerOverSubrelations, typename AllEntities>
+    void static accumulate(ContainerOverSubrelations& accumulators,
                            const AllEntities& new_term,
                            const RelationParameters<FF>& relation_parameters,
                            const FF& scaling_factor)
@@ -169,7 +169,7 @@ template <typename FF_> class LookupRelationImpl {
         const auto& grand_product_delta = relation_parameters.lookup_grand_product_delta;
 
         [&]() {
-            using Accumulator = std::tuple_element_t<0, TupleOverSubrelations>;
+            using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
             using View = typename Accumulator::View;
 
             auto z_lookup = View(new_term.z_lookup);
@@ -187,7 +187,7 @@ template <typename FF_> class LookupRelationImpl {
         }();
 
         [&]() {
-            using Accumulator = std::tuple_element_t<1, TupleOverSubrelations>;
+            using Accumulator = std::tuple_element_t<1, ContainerOverSubrelations>;
             using View = typename Accumulator::View;
             auto z_lookup_shift = View(new_term.z_lookup_shift);
             auto lagrange_last = View(new_term.lagrange_last);

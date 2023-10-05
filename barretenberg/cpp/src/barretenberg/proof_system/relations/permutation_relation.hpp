@@ -72,8 +72,8 @@ template <typename FF_> class UltraPermutationRelationImpl {
      * @param parameters contains beta, gamma, and public_input_delta, ....
      * @param scaling_factor optional term to scale the evaluation before adding to evals.
      */
-    template <typename TupleOverSubrelations, typename AllEntities>
-    inline static void accumulate(TupleOverSubrelations& accumulators,
+    template <typename ContainerOverSubrelations, typename AllEntities>
+    inline static void accumulate(ContainerOverSubrelations& accumulators,
                                   const AllEntities& in,
                                   const RelationParameters<FF>& relation_parameters,
                                   const FF& scaling_factor)
@@ -82,7 +82,7 @@ template <typename FF_> class UltraPermutationRelationImpl {
 
         // Contribution (1)
         {
-            using Accumulator = std::tuple_element_t<0, TupleOverSubrelations>;
+            using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
             using View = typename Accumulator::View;
             auto z_perm = View(in.z_perm);
             auto z_perm_shift = View(in.z_perm_shift);
@@ -98,7 +98,7 @@ template <typename FF_> class UltraPermutationRelationImpl {
         }
         // Contribution (2)
         {
-            using Accumulator = std::tuple_element_t<1, TupleOverSubrelations>;
+            using Accumulator = std::tuple_element_t<1, ContainerOverSubrelations>;
             using View = typename Accumulator::View;
             auto z_perm_shift = View(in.z_perm_shift);
             auto lagrange_last = View(in.lagrange_last);

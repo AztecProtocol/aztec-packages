@@ -222,8 +222,8 @@ template <typename FF_> class ECCVMLookupRelationBase {
      * @param relation_params contains beta, gamma, and public_input_delta, ....
      * @param scaling_factor optional term to scale the evaluation before adding to evals.
      */
-    template <typename TupleOverSubrelations, typename AllEntities>
-    static void accumulate(TupleOverSubrelations& accumulator,
+    template <typename ContainerOverSubrelations, typename AllEntities>
+    static void accumulate(ContainerOverSubrelations& accumulator,
                            const AllEntities& in,
                            const RelationParameters<FF>& relation_params,
                            const FF& /*unused*/);

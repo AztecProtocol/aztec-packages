@@ -40,8 +40,8 @@ template <typename FF_> class ECCVMSetRelationBase {
     static Accumulator compute_permutation_denominator(const AllEntities& in,
                                                        const RelationParameters<FF>& relation_params);
 
-    template <typename TupleOverSubrelations, typename AllEntities>
-    static void accumulate(TupleOverSubrelations& accumulator,
+    template <typename ContainerOverSubrelations, typename AllEntities>
+    static void accumulate(ContainerOverSubrelations& accumulator,
                            const AllEntities& in,
                            const RelationParameters<FF>& relation_params,
                            const FF& scaling_factor);

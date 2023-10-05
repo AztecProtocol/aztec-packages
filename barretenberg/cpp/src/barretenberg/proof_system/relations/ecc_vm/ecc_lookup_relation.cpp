@@ -19,13 +19,13 @@ namespace proof_system::honk::sumcheck {
  * @param scaling_factor optional term to scale the evaluation before adding to evals.
  */
 template <typename FF>
-template <typename TupleOverSubrelations, typename AllEntities>
-void ECCVMLookupRelationBase<FF>::accumulate(TupleOverSubrelations& accumulator,
+template <typename ContainerOverSubrelations, typename AllEntities>
+void ECCVMLookupRelationBase<FF>::accumulate(ContainerOverSubrelations& accumulator,
                                              const AllEntities& in,
                                              const RelationParameters<FF>& relation_params,
                                              [[maybe_unused]] const FF& scaling_factor)
 {
-    using Accumulator = typename std::tuple_element_t<0, TupleOverSubrelations>;
+    using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
     using View = typename Accumulator::View;
 
     auto lookup_inverses = View(in.lookup_inverses);

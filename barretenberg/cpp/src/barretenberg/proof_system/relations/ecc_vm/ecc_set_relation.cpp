@@ -366,13 +366,13 @@ Accumulator ECCVMSetRelationBase<FF>::compute_permutation_denominator(const AllE
  * @param scaling_factor optional term to scale the evaluation before adding to evals.
  */
 template <typename FF>
-template <typename TupleOverSubrelations, typename AllEntities>
-void ECCVMSetRelationBase<FF>::accumulate(TupleOverSubrelations& accumulator,
+template <typename ContainerOverSubrelations, typename AllEntities>
+void ECCVMSetRelationBase<FF>::accumulate(ContainerOverSubrelations& accumulator,
                                           const AllEntities& in,
                                           const RelationParameters<FF>& relation_params,
                                           const FF& scaling_factor)
 {
-    using Accumulator = typename std::tuple_element_t<0, TupleOverSubrelations>;
+    using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
     using View = typename Accumulator::View;
 
     // degree-11

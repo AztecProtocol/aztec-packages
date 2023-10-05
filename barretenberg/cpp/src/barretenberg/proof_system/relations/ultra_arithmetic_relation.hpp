@@ -64,14 +64,14 @@ template <typename FF_> class UltraArithmeticRelationImpl {
      * @param parameters contains beta, gamma, and public_input_delta, ....
      * @param scaling_factor optional term to scale the evaluation before adding to evals.
      */
-    template <typename TupleOverSubrelations, typename AllEntities>
-    void static accumulate(TupleOverSubrelations& evals,
+    template <typename ContainerOverSubrelations, typename AllEntities>
+    void static accumulate(ContainerOverSubrelations& evals,
                            const AllEntities& in,
                            const RelationParameters<FF>&,
                            const FF& scaling_factor)
     {
         [&]() {
-            using Accumulator = std::tuple_element_t<0, TupleOverSubrelations>;
+            using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
             using View = typename Accumulator::View;
             auto w_l = View(in.w_l);
             auto w_r = View(in.w_r);
@@ -97,7 +97,7 @@ template <typename FF_> class UltraArithmeticRelationImpl {
         }();
 
         [&]() {
-            using Accumulator = std::tuple_element_t<1, TupleOverSubrelations>;
+            using Accumulator = std::tuple_element_t<1, ContainerOverSubrelations>;
             using View = typename Accumulator::View;
             auto w_l = View(in.w_l);
             auto w_4 = View(in.w_4);

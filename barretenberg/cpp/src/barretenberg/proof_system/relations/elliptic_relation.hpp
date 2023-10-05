@@ -38,8 +38,8 @@ template <typename FF_> class EllipticRelationImpl {
      * @param parameters contains beta, gamma, and public_input_delta, ....
      * @param scaling_factor optional term to scale the evaluation before adding to evals.
      */
-    template <typename TupleOverSubrelations, typename AllEntities>
-    static void accumulate(TupleOverSubrelations& accumulators,
+    template <typename ContainerOverSubrelations, typename AllEntities>
+    static void accumulate(ContainerOverSubrelations& accumulators,
                            const AllEntities& in,
                            const RelationParameters<FF>&,
                            const FF& scaling_factor)
@@ -48,7 +48,7 @@ template <typename FF_> class EllipticRelationImpl {
         // replace old addition relations with these ones and
         // remove endomorphism coefficient in ecc add gate(not used))
 
-        using Accumulator = typename std::tuple_element_t<0, TupleOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
         using View = typename Accumulator::View;
         auto x_1 = View(in.w_r);
         auto y_1 = View(in.w_o);
