@@ -656,8 +656,7 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
     using FoldedPolynomials = AllEntities<std::vector<FF>, PolynomialHandle>;
 
     /**
-     * @brief A container for the polynomials evaluations produced during sumcheck, which are purported to be the
-     * evaluations of polynomials committed in earlier rounds.
+     * @brief A field element for each entity of the flavor.
      */
     class AllValues : public AllEntities<FF, FF> {
       public:

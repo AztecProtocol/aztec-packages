@@ -273,7 +273,6 @@ class Ultra {
 
     /**
      * @brief A field element for each entity of the flavor.
-     *
      */
     class AllValues : public AllEntities<FF, FF> {
       public:
