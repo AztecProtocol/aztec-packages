@@ -185,15 +185,32 @@ TEST_F(UltraTranscriptTests, VerifierManifestConsistency)
     }
 }
 
+/**
+ * @brief Check that multiple challenges can be generated and sanity check
+ * @details We generate 6 challenges that are each 128 bits, and check that they are not 0.
+ *
+ */
 TEST_F(UltraTranscriptTests, ChallengeGenerationTest)
 {
+    // initialized with random value sent to verifier
     auto transcript = ProverTranscript<FF>::init_empty();
+    // test a bunch of challenges
     auto challenges = transcript.get_challenges("a", "b", "c", "d", "e", "f");
     // print challenges and check they are not 0
     for (size_t i = 0; i < challenges.size(); ++i) {
         info("Challenge ", i, ": ", challenges[i]);
         ASSERT_NE(challenges[i], 0) << "Challenge " << i << " is 0";
     }
+    constexpr uint32_t random_val{ 17 }; // arbitrary
+    transcript.send_to_verifier("random val", random_val);
+    // test more challenges
+    auto [a, b, c] = transcript.get_challenges("a", "b", "c");
+    info("Challenge a: ", a);
+    info("Challenge b: ", b);
+    info("Challenge c: ", c);
+    ASSERT_NE(a, 0) << "Challenge a is 0";
+    ASSERT_NE(b, 0) << "Challenge a is 0";
+    ASSERT_NE(b, 0) << "Challenge a is 0";
 }
 
 TEST_F(UltraTranscriptTests, FoldingManifestTest)
