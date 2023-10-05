@@ -371,8 +371,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
       return Promise.resolve([]);
     }
 
-    const toBlockIndex =
-      Math.min(filter.toBlock || this.unencryptedLogs.length, this.unencryptedLogs.length) - INITIAL_L2_BLOCK_NUM;
+    const toBlockIndex = (filter.toBlock || this.unencryptedLogs.length + INITIAL_L2_BLOCK_NUM) - INITIAL_L2_BLOCK_NUM;
     if (toBlockIndex < fromBlockIndex) {
       return Promise.resolve([]);
     }
