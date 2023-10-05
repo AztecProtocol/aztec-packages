@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.8.7](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.8.6...aztec-packages-v0.8.7) (2023-10-04)
+
+
+### Bug Fixes
+
+* Copy over wasm in yarn-project ([#2693](https://github.com/AztecProtocol/aztec-packages/issues/2693)) ([033e234](https://github.com/AztecProtocol/aztec-packages/commit/033e2340d53c425b2c76563d2bfda814b4c9cc06))
+
+## [0.8.6](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.8.5...aztec-packages-v0.8.6) (2023-10-04)
+
+
+### Bug Fixes
+
+* Do not fail if npm package has not yet been deployed ([#2690](https://github.com/AztecProtocol/aztec-packages/issues/2690)) ([4a52888](https://github.com/AztecProtocol/aztec-packages/commit/4a52888273610134db63c208ed9ea66e58f55585))
+
+## [0.8.5](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.8.4...aztec-packages-v0.8.5) (2023-10-04)
+
+
+### Bug Fixes
+
+* Ensure resources ignition directory exists ([#2684](https://github.com/AztecProtocol/aztec-packages/issues/2684)) ([f4f2cd0](https://github.com/AztecProtocol/aztec-packages/commit/f4f2cd04523381824c4e930af81cec79cc50eef9))
+* Include resources folder in circuits.js package.json ([#2689](https://github.com/AztecProtocol/aztec-packages/issues/2689)) ([34ed2c2](https://github.com/AztecProtocol/aztec-packages/commit/34ed2c2d4a8e12b649f428dd655a840a1282b69a))
+* Npm publish order ([#2687](https://github.com/AztecProtocol/aztec-packages/issues/2687)) ([876c0b1](https://github.com/AztecProtocol/aztec-packages/commit/876c0b1cccbe69d97964d9e90201ffd26adaca3d))
+
 ## [0.8.4](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.8.3...aztec-packages-v0.8.4) (2023-10-04)
 
 
