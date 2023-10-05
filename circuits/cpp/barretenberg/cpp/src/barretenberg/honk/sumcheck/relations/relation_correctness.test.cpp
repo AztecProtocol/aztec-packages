@@ -590,136 +590,75 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorPermutationRelationCorrectness)
     prover_polynomials.lagrange_first[0] = 1;
     prover_polynomials.lagrange_last[circuit_size - 1] = 1;
     // Put random values in all the non-concatenated constraint polynomials used to range constrain the values
-    for (size_t i = 0; i < Flavor::MINI_CIRCUIT_SIZE; i++) {
-        prover_polynomials.p_x_low_limbs_range_constraint_0[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.p_x_low_limbs_range_constraint_1[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.p_x_low_limbs_range_constraint_2[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.p_x_low_limbs_range_constraint_3[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.p_x_low_limbs_range_constraint_4[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.p_x_low_limbs_range_constraint_tail[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.p_x_high_limbs_range_constraint_0[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.p_x_high_limbs_range_constraint_1[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.p_x_high_limbs_range_constraint_2[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.p_x_high_limbs_range_constraint_3[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.p_x_high_limbs_range_constraint_4[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.p_x_high_limbs_range_constraint_tail[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.p_y_low_limbs_range_constraint_0[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.p_y_low_limbs_range_constraint_1[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.p_y_low_limbs_range_constraint_2[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.p_y_low_limbs_range_constraint_3[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.p_y_low_limbs_range_constraint_4[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.p_y_low_limbs_range_constraint_tail[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.p_y_high_limbs_range_constraint_0[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.p_y_high_limbs_range_constraint_1[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.p_y_high_limbs_range_constraint_2[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.p_y_high_limbs_range_constraint_3[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.p_y_high_limbs_range_constraint_4[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.p_y_high_limbs_range_constraint_tail[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.z_lo_limbs_range_constraint_0[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.z_lo_limbs_range_constraint_1[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.z_lo_limbs_range_constraint_2[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.z_lo_limbs_range_constraint_3[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.z_lo_limbs_range_constraint_4[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.z_lo_limbs_range_constraint_tail[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.z_hi_limbs_range_constraint_0[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.z_hi_limbs_range_constraint_1[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.z_hi_limbs_range_constraint_2[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.z_hi_limbs_range_constraint_3[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.z_hi_limbs_range_constraint_4[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.z_hi_limbs_range_constraint_tail[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.accumulator_lo_limbs_range_constraint_0[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.accumulator_lo_limbs_range_constraint_1[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.accumulator_lo_limbs_range_constraint_2[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.accumulator_lo_limbs_range_constraint_3[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.accumulator_lo_limbs_range_constraint_4[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.accumulator_lo_limbs_range_constraint_tail[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.accumulator_hi_limbs_range_constraint_0[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.accumulator_hi_limbs_range_constraint_1[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.accumulator_hi_limbs_range_constraint_2[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.accumulator_hi_limbs_range_constraint_3[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.accumulator_hi_limbs_range_constraint_4[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.accumulator_hi_limbs_range_constraint_tail[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.quotient_lo_limbs_range_constraint_0[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.quotient_lo_limbs_range_constraint_1[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.quotient_lo_limbs_range_constraint_2[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.quotient_lo_limbs_range_constraint_3[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.quotient_lo_limbs_range_constraint_4[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.quotient_lo_limbs_range_constraint_tail[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.quotient_hi_limbs_range_constraint_0[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.quotient_hi_limbs_range_constraint_1[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.quotient_hi_limbs_range_constraint_2[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.quotient_hi_limbs_range_constraint_3[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.quotient_hi_limbs_range_constraint_4[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.quotient_hi_limbs_range_constraint_tail[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.relation_wide_limbs_range_constraint_0[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.relation_wide_limbs_range_constraint_1[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.relation_wide_limbs_range_constraint_2[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-        prover_polynomials.relation_wide_limbs_range_constraint_3[i] =
-            engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
-    }
+    auto fill_polynomial_with_random_14_bit_values = [&](auto& polynomial) {
+        for (size_t i = 0; i < Flavor::MINI_CIRCUIT_SIZE; i++) {
+            polynomial[i] = engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        }
+    };
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_x_low_limbs_range_constraint_0);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_x_low_limbs_range_constraint_1);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_x_low_limbs_range_constraint_2);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_x_low_limbs_range_constraint_3);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_x_low_limbs_range_constraint_4);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_x_low_limbs_range_constraint_tail);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_x_high_limbs_range_constraint_0);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_x_high_limbs_range_constraint_1);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_x_high_limbs_range_constraint_2);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_x_high_limbs_range_constraint_3);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_x_high_limbs_range_constraint_4);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_x_high_limbs_range_constraint_tail);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_y_low_limbs_range_constraint_0);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_y_low_limbs_range_constraint_1);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_y_low_limbs_range_constraint_2);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_y_low_limbs_range_constraint_3);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_y_low_limbs_range_constraint_4);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_y_low_limbs_range_constraint_tail);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_y_high_limbs_range_constraint_0);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_y_high_limbs_range_constraint_1);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_y_high_limbs_range_constraint_2);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_y_high_limbs_range_constraint_3);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_y_high_limbs_range_constraint_4);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_y_high_limbs_range_constraint_tail);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.z_lo_limbs_range_constraint_0);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.z_lo_limbs_range_constraint_1);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.z_lo_limbs_range_constraint_2);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.z_lo_limbs_range_constraint_3);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.z_lo_limbs_range_constraint_4);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.z_lo_limbs_range_constraint_tail);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.z_hi_limbs_range_constraint_0);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.z_hi_limbs_range_constraint_1);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.z_hi_limbs_range_constraint_2);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.z_hi_limbs_range_constraint_3);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.z_hi_limbs_range_constraint_4);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.z_hi_limbs_range_constraint_tail);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.accumulator_lo_limbs_range_constraint_0);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.accumulator_lo_limbs_range_constraint_1);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.accumulator_lo_limbs_range_constraint_2);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.accumulator_lo_limbs_range_constraint_3);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.accumulator_lo_limbs_range_constraint_4);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.accumulator_lo_limbs_range_constraint_tail);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.accumulator_hi_limbs_range_constraint_0);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.accumulator_hi_limbs_range_constraint_1);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.accumulator_hi_limbs_range_constraint_2);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.accumulator_hi_limbs_range_constraint_3);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.accumulator_hi_limbs_range_constraint_4);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.accumulator_hi_limbs_range_constraint_tail);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.quotient_lo_limbs_range_constraint_0);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.quotient_lo_limbs_range_constraint_1);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.quotient_lo_limbs_range_constraint_2);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.quotient_lo_limbs_range_constraint_3);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.quotient_lo_limbs_range_constraint_4);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.quotient_lo_limbs_range_constraint_tail);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.quotient_hi_limbs_range_constraint_0);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.quotient_hi_limbs_range_constraint_1);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.quotient_hi_limbs_range_constraint_2);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.quotient_hi_limbs_range_constraint_3);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.quotient_hi_limbs_range_constraint_4);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.quotient_hi_limbs_range_constraint_tail);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.relation_wide_limbs_range_constraint_0);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.relation_wide_limbs_range_constraint_1);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.relation_wide_limbs_range_constraint_2);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.relation_wide_limbs_range_constraint_3);
 
     // Compute ordered range constraint polynomials that go in the denominator of the grand product polynomial
     compute_goblin_translator_range_constraint_ordered_polynomials<Flavor>(&prover_polynomials);
