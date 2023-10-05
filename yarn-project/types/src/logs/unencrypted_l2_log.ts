@@ -45,7 +45,7 @@ export class UnencryptedL2Log {
    */
   public toHumanReadable(): string {
     return `UnencryptedL2Log(contractAddress: ${this.contractAddress.toString()}, selector: ${this.selector.toString()}, data: ${this.data.toString(
-      'hex',
+      'ascii',
     )})`;
   }
 

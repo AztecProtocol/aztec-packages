@@ -33,6 +33,14 @@ export class ExtendedUnencryptedL2Log {
   }
 
   /**
+   * Serializes log to a human readable string.
+   * @returns A human readable representation of the log.
+   */
+    public toHumanReadable(): string {
+      return `${this.log.toHumanReadable()} (blockNumber: ${this.blockNumber}, txHash: ${this.txHash.toString()})`;
+    }
+
+  /**
    * Deserializes log from a buffer.
    * @param buffer - The buffer or buffer reader containing the log.
    * @returns Deserialized instance of `Log`.

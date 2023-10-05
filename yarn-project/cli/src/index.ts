@@ -313,10 +313,10 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       const logs = await client.getUnencryptedLogs(filter);
 
       if (!logs.length) {
-        log(`No logs found in blocks ${fromBlock} to ${toBlock}`);
+        log(`No logs found in blocks ${fromBlock} to ${toBlock ?? 'latest'}`);
       } else {
         log('Logs found: \n');
-        logs.forEach(unencryptedLog => log(`${unencryptedLog.log.data.toString('ascii')}\n`));
+        logs.forEach(unencryptedLog => log(unencryptedLog.toHumanReadable()));
       }
     });
 
