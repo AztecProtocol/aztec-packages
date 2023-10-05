@@ -17,7 +17,10 @@ export class UnencryptedL2Log {
      * TODO: Optimize this once it makes sense.
      */
     public readonly contractAddress: AztecAddress,
-    /** Selector of the event/log topic. */
+    /**
+     * Selector of the event/log topic.
+     * TODO: https://github.com/AztecProtocol/aztec-packages/issues/2704
+     */
     public readonly selector: FunctionSelector,
     /** The data contents of the log. */
     public readonly data: Buffer,
