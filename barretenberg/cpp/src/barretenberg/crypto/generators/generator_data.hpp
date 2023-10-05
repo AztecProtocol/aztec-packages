@@ -133,7 +133,7 @@ template <typename Curve> class generator_data {
 
 template <typename Curve> struct GeneratorContext {
     size_t offset = 0;
-    std::string_view domain_separator = generator_data<Curve>::DEFAULT_DOMAIN_SEPARATOR;
+    std::string domain_separator = std::string(generator_data<Curve>::DEFAULT_DOMAIN_SEPARATOR);
     generator_data<Curve>* generators = generator_data<Curve>::get_default_generators();
 
     GeneratorContext() = default;
