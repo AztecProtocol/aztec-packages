@@ -300,18 +300,13 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       parseOptionalInteger,
     )
     .option('-t, --toBlock <blockNum>', 'Up to which block to fetch logs (defaults to latest).', parseOptionalInteger)
-    .option(
-      '-l, --limit <logCount>',
-      'How many logs to fetch (defaults to maximum value of 1000).',
-      parseOptionalInteger,
-    )
     .option('-c, --contractAddress <contractAddress>', 'Contract address to filter logs by.', parseOptionalAztecAddress)
     .option('-s, --selector <selector>', 'Event selector to filter logs by.', parseOptionalSelector)
     .addOption(pxeOption)
-    .action(async ({ txHash, fromBlock, toBlock, limit, contractAddress, selector, rpcUrl }) => {
+    .action(async ({ txHash, fromBlock, toBlock, contractAddress, selector, rpcUrl }) => {
       const client = await createCompatibleClient(rpcUrl, debugLogger);
 
-      const filter: LogFilter = { txHash, fromBlock, toBlock, limit, contractAddress, selector };
+      const filter: LogFilter = { txHash, fromBlock, toBlock, contractAddress, selector };
       const logs = await client.getUnencryptedLogs(filter);
 
       if (!logs.length) {

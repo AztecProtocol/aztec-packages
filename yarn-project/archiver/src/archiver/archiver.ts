@@ -102,7 +102,7 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
       transport: http(chain.rpcUrl),
       pollingInterval: config.viemPollingIntervalMS,
     });
-    const archiverStore = new MemoryArchiverStore();
+    const archiverStore = new MemoryArchiverStore(config.maxLogs ?? 1000);
     const archiver = new Archiver(
       publicClient,
       config.l1Contracts.rollupAddress,

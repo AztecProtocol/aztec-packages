@@ -6,7 +6,7 @@ describe('Archiver Memory Store', () => {
   let archiverStore: ArchiverDataStore;
 
   beforeEach(() => {
-    archiverStore = new MemoryArchiverStore();
+    archiverStore = new MemoryArchiverStore(1000);
   });
 
   it('can store and retrieve blocks', async () => {
@@ -34,7 +34,7 @@ describe('Archiver Memory Store', () => {
       .fill(0)
       .map(_ => L2BlockL2Logs.random(6, 3, 2));
     await archiverStore.addLogs(logs, logType);
-    // Offset indices by INTIAL_L2_BLOCK_NUM to ensure we are correctly aligned
+    // Offset indices by INITIAL_L2_BLOCK_NUM to ensure we are correctly aligned
     for (const [from, limit] of [
       [0 + INITIAL_L2_BLOCK_NUM, 10],
       [3 + INITIAL_L2_BLOCK_NUM, 3],

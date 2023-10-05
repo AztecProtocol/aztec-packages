@@ -15,8 +15,6 @@ export type LogFilter = {
   fromBlock?: number;
   /** The block number until which to fetch logs (not inclusive). */
   toBlock?: number;
-  /** Maximum number of logs to fetch. */
-  limit?: number;
   /** The contract address to filter logs by. */
   contractAddress?: AztecAddress;
   /** The event selector to filter logs by. */

@@ -203,7 +203,10 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    */
   private pendingL1ToL2Messages: PendingL1ToL2MessageStore = new PendingL1ToL2MessageStore();
 
-  constructor() {}
+  constructor(
+    /** The max number of logs that can be obtained in 1 "getUnencryptedLogs" call. */
+    public readonly maxLogs: number,
+  ) {}
 
   /**
    * Append new blocks to the store's list.
@@ -365,8 +368,6 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @throws If txHash and block range are both defined.
    */
   getUnencryptedLogs(filter: LogFilter): Promise<ExtendedUnencryptedL2Log[]> {
-    const MAX_LOGS = 1000;
-
     if (filter.txHash && (filter.fromBlock || filter.toBlock)) {
       throw new Error('Cannot filter by txHash and block range at the same time');
     }
@@ -386,7 +387,6 @@ export class MemoryArchiverStore implements ArchiverDataStore {
       return Promise.resolve([]);
     }
 
-    const limit = Math.min(filter.limit || MAX_LOGS, MAX_LOGS);
     const contractAddress = filter.contractAddress;
     const selector = filter.selector;
 
@@ -404,7 +404,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
             (!selector || log.selector.equals(selector))
           ) {
             logs.push(new ExtendedUnencryptedL2Log(blockContext.block.number, blockContext.getTxHash(j), log));
-            if (logs.length === limit) {
+            if (logs.length === this.maxLogs) {
               return Promise.resolve(logs);
             }
           }
