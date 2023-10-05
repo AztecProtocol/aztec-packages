@@ -26,18 +26,21 @@ template <class ProverInstances> class ProtoGalaxyProver_ {
 
     void prepare_for_folding();
 
-    // compute the deltas in the paper
-    std::vector<FF> compute_round_challenge_pows(size_t size, FF round_challenge)
+    /**
+     * @brief For a new round challenge δ at each iteration of the ProtoGalaxy protocol, compute the vector
+     * [δ, δ^2,..., δ^t] where t = logn and n is the size of the instance.
+     */
+    static std::vector<FF> compute_round_challenge_pows(size_t log_instance_size, FF round_challenge)
     {
-        std::vector<FF> pows(size);
+        std::vector<FF> pows(log_instance_size);
         pows[0] = round_challenge;
-        for (size_t i = 1; i < size; i++) {
+        for (size_t i = 1; i < log_instance_size; i++) {
             pows[i] = pows[i - 1].sqr();
         }
         return pows;
     }
 
-    RowEvaluations get_row(std::shared_ptr<Instance> accumulator, size_t row)
+    static RowEvaluations get_execution_row(std::shared_ptr<Instance> accumulator, size_t row)
     {
         RowEvaluations row_evals;
         size_t idx = 0;
@@ -50,73 +53,76 @@ template <class ProverInstances> class ProtoGalaxyProver_ {
 
     std::shared_ptr<Instance> get_accumulator() { return instances[0]; }
 
-    // the pow in sumcheck will be replaced with the pow in protogalaxy!!!!!!!!
-    // here we don't have the pow polynomial extra parameter because the gate separation challenge is a polynomial for
-    // perturbator and it's going to be added later
-    FF compute_full_honk_relation_row_value(RowEvaluations row_evaluations,
-                                            FF alpha,
-                                            const proof_system::RelationParameters<FF>& relation_parameters)
+    /**
+     * @brief Given the evaluations of all the prover polynomials at row i and the parameters that help establish each
+     * subrelation is independently valid, compute the value of the full Honk relation for that specific row (this is
+     * f_i(ω) in the paper)
+     */
+    static FF compute_full_honk_relation_row_value(RowEvaluations row_evaluations,
+                                                   FF alpha,
+                                                   const proof_system::RelationParameters<FF>& relation_parameters);
+    // TODO: make this more memory efficient
+    static std::vector<FF> compute_level(size_t level,
+                                         std::vector<FF> betas,
+                                         std::vector<FF> deltas,
+                                         std::vector<std::vector<FF>> prev_level_coeffs)
     {
-        RelationEvaluations relation_evaluations;
-        Utils::zero_elements(relation_evaluations);
+        // if we are at level t in the tree, where t = logn and n is the instance size we have reached the root which
+        // contains the coefficients of the perturbator polynomial
+        if (level == betas.size()) {
+            return prev_level_coeffs[0];
+        }
 
-        // TODO: we add the gate separation challenge as a univariate later
-        // We will have to change the power polynomial in sumcheck to respect the structure of PG rather than what we
-        // currently have
-        Utils::template accumulate_relation_evaluations<>(
-            row_evaluations, relation_evaluations, relation_parameters, FF(1));
-
-        // Not sure what this running challenge is we have to investigate
-        auto running_challenge = FF(1);
-        auto output = FF(0);
-        Utils::scale_and_batch_elements(relation_evaluations, alpha, running_challenge, output);
-        return output;
+        auto degree = level + 1;
+        auto prev_level_width = prev_level_coeffs.size();
+        // we need degree + 1 terms to represent intermediate polynomials
+        std::vector<std::vector<FF>> level_coeffs(prev_level_width / 2, std::vector<FF>(degree + 1, 0));
+        for (size_t node = 0; node < prev_level_width; node += 2) {
+            auto parent = node / 2;
+            std::copy(prev_level_coeffs[node].begin(), prev_level_coeffs[node].end(), level_coeffs[parent].begin());
+            for (size_t d = 0; d < degree; d++) {
+                level_coeffs[parent][d] += prev_level_coeffs[node + 1][d] * betas[level];
+                level_coeffs[parent][d + 1] += prev_level_coeffs[node + 1][d] * deltas[level];
+            }
+        }
+        return compute_level(level + 1, betas, deltas, level_coeffs);
     }
 
-    // We return the evaluate of perturbator at 0,..,log(n) where n is the circuit size
-    std::vector<FF> compute_perturbator(std::shared_ptr<Instance> accumulator, std::vector<FF> deltas, FF alpha)
+    static std::vector<FF> construct_perturbator_coeffs(std::vector<FF> betas,
+                                                        std::vector<FF> deltas,
+                                                        std::vector<FF> full_honk_evaluations)
     {
-        // all the prover polynomials should have the same length
+        // figure out how to make this not take so much memory
+        auto width = full_honk_evaluations.size();
+        std::vector<std::vector<FF>> first_level_coeffs(width / 2, std::vector<FF>(2, 0));
+        for (size_t node = 0; node < width; node += 2) {
+            auto idx = node / 2;
+            first_level_coeffs[idx][0] = full_honk_evaluations[node] + full_honk_evaluations[node + 1] * betas[0];
+            first_level_coeffs[idx][1] = full_honk_evaluations[node + 1] * deltas[0];
+        }
+        return compute_level(1, betas, deltas, first_level_coeffs);
+    }
+
+    // Compute the power perturbator polynomial in coefficient form
+    static std::vector<FF> compute_perturbator(std::shared_ptr<Instance> accumulator, std::vector<FF> deltas, FF alpha)
+    {
         auto instance_size = accumulator->prover_polynomials[0].size();
-        auto log_instance_size = static_cast<size_t>(numeric::get_msb(instance_size));
-        std::vector<FF> perturbator_univariate(log_instance_size);
+        auto const log_instance_size = static_cast<size_t>(numeric::get_msb(instance_size));
+        assert(deltas.size() == log_instance_size);
+
         std::vector<FF> full_honk_evaluations(instance_size);
         for (size_t idx = 0; idx < instance_size; idx++) {
 
-            auto row_evaluations = get_row(accumulator, idx);
+            auto row_evaluations = get_execution_row(accumulator, idx);
             auto full_honk_at_row =
                 compute_full_honk_relation_row_value(row_evaluations, alpha, accumulator->relation_parameters);
-            // this is f_i(w) where idx=i
             full_honk_evaluations[idx] = full_honk_at_row;
         }
-
+        info(full_honk_evaluations);
         auto betas = accumulator->folding_params.gate_separation_challenges;
-
-        // note: the tree technique can probably/maybe be done with apply tuples sth, check later
-        for (size_t point = 1; point <= log_instance_size; point++) {
-            std::vector<FF> labels(log_instance_size, 0);
-            for (size_t idx = 0; idx < log_instance_size; idx++) {
-                labels[idx] = betas[idx] + FF(point) * deltas[idx];
-            }
-            auto eval_at_point = FF(0);
-            for (size_t idx = 0; idx < instance_size; idx++) {
-                auto res = full_honk_evaluations[idx];
-                auto j = idx;
-                size_t iter = 0;
-                while (j > 0) {
-                    if ((j & 1) == 1) {
-                        res *= labels[iter];
-                        iter++;
-                        j >>= 1;
-                    }
-                }
-                eval_at_point += res;
-            }
-            perturbator_univariate[point] = eval_at_point;
-            transcript.send_to_verifier("perturbator_eval_" + std::to_string(point), eval_at_point);
-        }
-        return perturbator_univariate;
-    };
+        assert(betas.size() == log_instance_size);
+        return construct_perturbator_coeffs(betas, deltas, full_honk_evaluations);
+    }
 
     ProverFoldingResult<Flavor> fold_instances();
 };

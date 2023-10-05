@@ -37,6 +37,26 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepa
     }
 }
 
+template <class ProverInstances>
+typename ProverInstances::Flavor::FF ProtoGalaxyProver_<ProverInstances>::compute_full_honk_relation_row_value(
+    RowEvaluations row_evaluations, FF alpha, const proof_system::RelationParameters<FF>& relation_parameters)
+{
+    RelationEvaluations relation_evaluations;
+    Utils::zero_elements(relation_evaluations);
+
+    // TODO: we add the gate separation challenge as a univariate later
+    // We will have to change the power polynomial in sumcheck to respect the structure of PG rather than what we
+    // currently have
+    Utils::template accumulate_relation_evaluations<>(
+        row_evaluations, relation_evaluations, relation_parameters, FF(1));
+
+    // Not sure what this running challenge is we have to investigate
+    auto running_challenge = FF(1);
+    auto output = FF(0);
+    Utils::scale_and_batch_elements(relation_evaluations, alpha, running_challenge, output);
+    return output;
+}
+
 // TODO(#689): implement this function
 template <class ProverInstances>
 ProverFoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstances>::fold_instances()
@@ -47,9 +67,13 @@ ProverFoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverI
     auto instance_size = accumulator->prover_polynomials[0].size();
     auto log_instance_size = static_cast<size_t>(numeric::get_msb(instance_size));
     auto deltas = compute_round_challenge_pows(log_instance_size, delta);
+    // deltas need to be added to transcript
     auto perturbator_evaluations = compute_perturbator(accumulator, deltas, alpha);
+    // evals are added to the transcript asw  well
     // auto evaluation_point = transcript.get_challenge("evaluation_point");
-    // apply barycentric evaluation to get F(alpha)
+    // apply barycentric evaluation to get F(alpha)-  this is on the verifier side as well and it's okay cus it's only
+    // logarithm work
+
     ProverFoldingResult<Flavor> res;
     res.folding_data = transcript.proof_data;
     return res;
