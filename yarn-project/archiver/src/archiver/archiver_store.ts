@@ -373,7 +373,10 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
     const txHash = filter.txHash;
 
-    const fromBlockIndex = (filter.fromBlock || INITIAL_L2_BLOCK_NUM) - INITIAL_L2_BLOCK_NUM;
+    const fromBlockIndex = filter.fromBlock === undefined ? 0 : filter.fromBlock - INITIAL_L2_BLOCK_NUM;
+    if (fromBlockIndex < 0) {
+      throw new Error(`"fromBlock" (${filter.fromBlock}) smaller than genesis block number (${INITIAL_L2_BLOCK_NUM}).`);
+    }
     if (fromBlockIndex > this.unencryptedLogs.length) {
       return Promise.resolve([]);
     }

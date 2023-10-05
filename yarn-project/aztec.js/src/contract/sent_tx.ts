@@ -1,6 +1,6 @@
 import { FieldsOf } from '@aztec/circuits.js';
 import { retryUntil } from '@aztec/foundation/retry';
-import { PXE, TxHash, TxReceipt, TxStatus } from '@aztec/types';
+import { ExtendedUnencryptedL2Log, PXE, TxHash, TxReceipt, TxStatus } from '@aztec/types';
 
 import every from 'lodash.every';
 
@@ -78,6 +78,14 @@ export class SentTx {
   public async isMined(opts?: WaitOpts): Promise<boolean> {
     const receipt = await this.waitForReceipt(opts);
     return receipt.status === TxStatus.MINED;
+  }
+
+  /**
+   * Gets unencrypted logs emitted by this tx.
+   * @returns The requested logs.
+   */
+  public async getUnencryptedLogs(): Promise<ExtendedUnencryptedL2Log[]> {
+    return this.pxe.getUnencryptedLogs({ txHash: await this.getTxHash() });
   }
 
   protected async waitForReceipt(opts?: WaitOpts): Promise<TxReceipt> {

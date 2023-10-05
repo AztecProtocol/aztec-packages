@@ -6,6 +6,7 @@ import {
   CompleteAddress,
   EthAddress,
   EthCheatCodes,
+  SentTx,
   Wallet,
   createAccounts,
   createPXEClient,
@@ -514,7 +515,19 @@ export const expectsNumOfEncryptedLogsInTheLastBlockToBe = async (
 
 /**
  * Checks that the last block contains the given expected unencrypted log messages.
- * @param pxe - The instance of PXE for retrieving the logs.
+ * @param tx - An instance of SentTx for which to retrieve the logs.
+ * @param logMessages - The set of expected log messages.
+ */
+export const expectUnencryptedLogsInTxToBe = async (tx: SentTx, logMessages: string[]) => {
+  const unencryptedLogs = await tx.getUnencryptedLogs();
+  const asciiLogs = unencryptedLogs.map(extendedLog => extendedLog.log.data.toString('ascii'));
+
+  expect(asciiLogs).toStrictEqual(logMessages);
+};
+
+/**
+ * Checks that the last block contains the given expected unencrypted log messages.
+ * @param pxe - An instance of PXE for retrieving the logs.
  * @param logMessages - The set of expected log messages.
  */
 export const expectUnencryptedLogsFromLastBlockToBe = async (pxe: PXE, logMessages: string[]) => {
