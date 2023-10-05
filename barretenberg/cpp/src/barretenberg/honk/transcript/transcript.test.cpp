@@ -189,11 +189,9 @@ TEST_F(UltraTranscriptTests, ChallengeGenerationTest)
 {
     auto transcript = ProverTranscript<FF>::init_empty();
     auto challenges = transcript.get_challenges("a", "b", "c", "d", "e", "f");
+    // print challenges and check they are not 0
     for (size_t i = 0; i < challenges.size(); ++i) {
         info("Challenge ", i, ": ", challenges[i]);
-    }
-    // check that they are not all 0
-    for (size_t i = 0; i < challenges.size(); ++i) {
         ASSERT_NE(challenges[i], 0) << "Challenge " << i << " is 0";
     }
 }

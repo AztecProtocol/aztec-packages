@@ -169,6 +169,8 @@ template <typename FF> class BaseTranscript {
             auto next_challenge_buffer = get_next_challenge_buffer(); // get next challenge buffer
             std::array<uint8_t, sizeof(FF)> field_element_buffer{};
             std::copy_n(next_challenge_buffer.begin(), HASH_OUTPUT_SIZE, field_element_buffer.begin());
+            // set upper half to 0 to make challenge 128 bits
+            std::fill_n(field_element_buffer.begin(), HASH_OUTPUT_SIZE / 2, 0);
             challenges[i] = from_buffer<FF>(field_element_buffer);
         }
 
