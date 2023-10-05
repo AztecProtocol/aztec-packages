@@ -3,7 +3,10 @@ import {
   AztecAddress,
   EthAddress,
   Fr,
+  NotePreimage,
+  TxHash,
   TxStatus,
+  computeAuthWitMessageHash,
   computeMessageSecretHash,
   createDebugLogger,
   createPXEClient,
@@ -12,7 +15,6 @@ import {
   sleep,
   waitForSandbox,
 } from '@aztec/aztec.js';
-import { FunctionSelector } from '@aztec/circuits.js';
 import { UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-artifacts';
 import { TokenBridgeContract, TokenContract, UniswapContract } from '@aztec/noir-contracts/types';
 
@@ -30,11 +32,11 @@ import {
 import { mnemonicToAccount } from 'viem/accounts';
 import { Chain, foundry } from 'viem/chains';
 
-import { deployAndInitializeTokenAndBridgeContracts, deployL1Contract, hashPayload } from './utils.js';
+import { deployAndInitializeTokenAndBridgeContracts, deployL1Contract } from './utils.js';
 
 const logger = createDebugLogger('aztec:canary');
 
-const { SANDBOX_URL = 'http://localhost:8080', ETHEREUM_HOST = 'http://localhost:8545' } = process.env;
+const { PXE_URL = 'http://localhost:8080', ETHEREUM_HOST = 'http://localhost:8545' } = process.env;
 
 export const MNEMONIC = 'test test test test test test test test test test test junk';
 
@@ -43,7 +45,7 @@ const DAI_ADDRESS = EthAddress.fromString('0x6B175474E89094C44Da98b954EedeAC4952
 
 const EXPECTED_FORKED_BLOCK = 17514288;
 
-const pxeRpcUrl = SANDBOX_URL;
+const pxeRpcUrl = PXE_URL;
 const ethRpcUrl = ETHEREUM_HOST;
 
 const hdAccount = mnemonicToAccount(MNEMONIC);
@@ -194,6 +196,7 @@ const consumeMessageOnAztecAndMintSecretly = async (
     .send();
   const consumptionReceipt = await consumptionTx.wait();
   expect(consumptionReceipt.status).toBe(TxStatus.MINED);
+  return consumptionReceipt.txHash;
 };
 
 const redeemShieldPrivatelyOnL2 = async (
@@ -201,7 +204,14 @@ const redeemShieldPrivatelyOnL2 = async (
   to: AztecAddress,
   shieldAmount: bigint,
   secret: Fr,
+  secretHash: Fr,
+  txHash: TxHash,
 ) => {
+  // Add the note to the pxe.
+  const storageSlot = new Fr(5);
+  const preimage = new NotePreimage([new Fr(shieldAmount), secretHash]);
+  await pxe.addNote(to, l2Contract.address, storageSlot, preimage, txHash);
+
   logger('Spending commitment in private call');
   const privateTx = l2Contract.methods.redeem_shield(to, shieldAmount, secret).send();
   const privateReceipt = await privateTx.wait();
@@ -300,7 +310,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
 
     // 3. Claim WETH on L2
     logger('Minting weth on L2');
-    await consumeMessageOnAztecAndMintSecretly(
+    const redeemingWethTxHash = await consumeMessageOnAztecAndMintSecretly(
       wethL2Bridge,
       wethAmountToBridge,
       secretHashForRedeemingWeth,
@@ -308,7 +318,14 @@ describe('uniswap_trade_on_l1_from_l2', () => {
       messageKey,
       secretForMintingWeth,
     );
-    await redeemShieldPrivatelyOnL2(wethL2Contract, ownerAddress, wethAmountToBridge, secretForRedeemingWeth);
+    await redeemShieldPrivatelyOnL2(
+      wethL2Contract,
+      ownerAddress,
+      wethAmountToBridge,
+      secretForRedeemingWeth,
+      secretHashForRedeemingWeth,
+      redeemingWethTxHash,
+    );
     await expectPrivateBalanceOnL2(ownerAddress, wethAmountToBridge + BigInt(ownerInitialBalance), wethL2Contract);
 
     // Store balances
@@ -318,15 +335,12 @@ describe('uniswap_trade_on_l1_from_l2', () => {
     // 4. Owner gives uniswap approval to unshield funds to self on its behalf
     logger('Approving uniswap to unshield funds to self on my behalf');
     const nonceForWETHUnshieldApproval = new Fr(2n);
-    const unshieldToUniswapMessageHash = await hashPayload([
-      uniswapL2Contract.address.toField(),
-      wethL2Contract.address.toField(),
-      FunctionSelector.fromSignature('unshield((Field),(Field),Field,Field)').toField(),
-      ownerAddress.toField(),
-      uniswapL2Contract.address.toField(),
-      new Fr(wethAmountToBridge),
-      nonceForWETHUnshieldApproval,
-    ]);
+    const unshieldToUniswapMessageHash = await computeAuthWitMessageHash(
+      uniswapL2Contract.address,
+      wethL2Contract.methods
+        .unshield(ownerAddress, uniswapL2Contract.address, wethAmountToBridge, nonceForWETHUnshieldApproval)
+        .request(),
+    );
     await ownerWallet.createAuthWitness(Fr.fromBuffer(unshieldToUniswapMessageHash));
 
     // 5. Swap on L1 - sends L2 to L1 message to withdraw WETH to L1 and another message to swap assets.
@@ -396,7 +410,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
 
     // 7. claim dai on L2
     logger('Consuming messages to mint dai on L2');
-    await consumeMessageOnAztecAndMintSecretly(
+    const redeemingDaiTxHash = await consumeMessageOnAztecAndMintSecretly(
       daiL2Bridge,
       daiAmountToBridge,
       secretHashForRedeemingDai,
@@ -404,16 +418,23 @@ describe('uniswap_trade_on_l1_from_l2', () => {
       depositDaiMessageKey,
       secretForDepositingSwappedDai,
     );
-    await redeemShieldPrivatelyOnL2(daiL2Contract, ownerAddress, daiAmountToBridge, secretForRedeemingDai);
+    await redeemShieldPrivatelyOnL2(
+      daiL2Contract,
+      ownerAddress,
+      daiAmountToBridge,
+      secretForRedeemingDai,
+      secretHashForRedeemingDai,
+      redeemingDaiTxHash,
+    );
     await expectPrivateBalanceOnL2(ownerAddress, daiL2BalanceBeforeSwap + daiAmountToBridge, daiL2Contract);
 
     const wethL2BalanceAfterSwap = await getL2PrivateBalanceOf(ownerAddress, wethL2Contract);
     const daiL2BalanceAfterSwap = await getL2PrivateBalanceOf(ownerAddress, daiL2Contract);
 
-    logger('WETH balance before swap: ', wethL2BalanceBeforeSwap.toString());
-    logger('DAI balance before swap  : ', daiL2BalanceBeforeSwap.toString());
+    logger('WETH balance before swap: ' + wethL2BalanceBeforeSwap.toString());
+    logger('DAI balance before swap  : ' + daiL2BalanceBeforeSwap.toString());
     logger('***** 🧚‍♀️ SWAP L2 assets on L1 Uniswap 🧚‍♀️ *****');
-    logger('WETH balance after swap : ', wethL2BalanceAfterSwap.toString());
-    logger('DAI balance after swap  : ', daiL2BalanceAfterSwap.toString());
+    logger('WETH balance after swap : ' + wethL2BalanceAfterSwap.toString());
+    logger('DAI balance after swap  : ' + daiL2BalanceAfterSwap.toString());
   }, 140_000);
 });

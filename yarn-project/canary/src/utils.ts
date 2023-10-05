@@ -1,6 +1,4 @@
 import { AztecAddress, EthAddress, Fr, TxStatus, Wallet } from '@aztec/aztec.js';
-import { CircuitsWasm, GeneratorIndex } from '@aztec/circuits.js';
-import { pedersenPlookupCompressWithHashIndex } from '@aztec/circuits.js/barretenberg';
 import { PortalERC20Abi, PortalERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
 import { TokenBridgeContract, TokenContract } from '@aztec/noir-contracts/types';
 
@@ -66,40 +64,27 @@ export async function deployAndInitializeTokenAndBridgeContracts(
   });
 
   // deploy l2 token
-  const deployTx = TokenContract.deploy(wallet).send();
-
-  // deploy l2 token bridge and attach to the portal
-  const bridgeTx = TokenBridgeContract.deploy(wallet).send({
-    portalContract: tokenPortalAddress,
-    contractAddressSalt: Fr.random(),
-  });
+  const deployTx = TokenContract.deploy(wallet, owner).send();
 
   // now wait for the deploy txs to be mined. This way we send all tx in the same rollup.
   const deployReceipt = await deployTx.wait();
   if (deployReceipt.status !== TxStatus.MINED) throw new Error(`Deploy token tx status is ${deployReceipt.status}`);
   const token = await TokenContract.at(deployReceipt.contractAddress!, wallet);
 
+  // deploy l2 token bridge and attach to the portal
+  const bridgeTx = TokenBridgeContract.deploy(wallet, token.address).send({
+    portalContract: tokenPortalAddress,
+    contractAddressSalt: Fr.random(),
+  });
+
   const bridgeReceipt = await bridgeTx.wait();
-  if (bridgeReceipt.status !== TxStatus.MINED) throw new Error(`Deploy bridge tx status is ${bridgeReceipt.status}`);
   const bridge = await TokenBridgeContract.at(bridgeReceipt.contractAddress!, wallet);
   await bridge.attach(tokenPortalAddress);
   const bridgeAddress = bridge.address.toString() as `0x${string}`;
 
-  // initialize l2 token
-  const initializeTx = token.methods._initialize(owner).send();
-
-  // initialize bridge
-  const initializeBridgeTx = bridge.methods._initialize(token.address).send();
-
   // now we wait for the txs to be mined. This way we send all tx in the same rollup.
-  const initializeReceipt = await initializeTx.wait();
-  if (initializeReceipt.status !== TxStatus.MINED)
-    throw new Error(`Initialize token tx status is ${initializeReceipt.status}`);
   if ((await token.methods.admin().view()) !== owner.toBigInt()) throw new Error(`Token admin is not ${owner}`);
 
-  const initializeBridgeReceipt = await initializeBridgeTx.wait();
-  if (initializeBridgeReceipt.status !== TxStatus.MINED)
-    throw new Error(`Initialize token bridge tx status is ${initializeBridgeReceipt.status}`);
   if ((await bridge.methods.token().view()) !== token.address.toBigInt())
     throw new Error(`Bridge token is not ${token.address}`);
 
@@ -149,16 +134,3 @@ export async function deployL1Contract(
 
   return EthAddress.fromString(receipt.contractAddress!);
 }
-
-/**
- * Hash a payload to generate a signature on an account contract
- * @param payload - payload to hash
- * @returns the hashed message
- */
-export const hashPayload = async (payload: Fr[]) => {
-  return pedersenPlookupCompressWithHashIndex(
-    await CircuitsWasm.get(),
-    payload.map(fr => fr.toBuffer()),
-    GeneratorIndex.SIGNATURE_PAYLOAD,
-  );
-};
