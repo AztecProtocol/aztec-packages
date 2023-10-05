@@ -100,7 +100,7 @@ class UltraRelationConsistency : public testing::Test {
                                             const InputElements& input_elements,
                                             const auto& parameters)
     {
-        typename Relation::TupleOfValuesOverSubrelations accumulator;
+        typename Relation::ArrayOfValuesOverSubrelations accumulator;
         std::fill(accumulator.begin(), accumulator.end(), FF(0));
         Relation::accumulate(accumulator, input_elements, parameters, 1);
         EXPECT_EQ(accumulator, expected_values);
@@ -111,7 +111,7 @@ TEST_F(UltraRelationConsistency, UltraArithmeticRelation)
 {
     const auto run_test = [](bool random_inputs) {
         using Relation = UltraArithmeticRelation<FF>;
-        using TupleOfValuesOverSubrelations = typename Relation::TupleOfValuesOverSubrelations;
+        using ArrayOfValuesOverSubrelations = typename Relation::ArrayOfValuesOverSubrelations;
 
         const InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
         const auto& w_1 = input_elements.w_l;
@@ -128,7 +128,7 @@ TEST_F(UltraRelationConsistency, UltraArithmeticRelation)
         const auto& q_c = input_elements.q_c;
         const auto& q_arith = input_elements.q_arith;
 
-        TupleOfValuesOverSubrelations expected_values;
+        ArrayOfValuesOverSubrelations expected_values;
         static const FF neg_half = FF(-2).invert();
 
         // Contribution 1
@@ -155,7 +155,7 @@ TEST_F(UltraRelationConsistency, UltraPermutationRelation)
 {
     const auto run_test = [](bool random_inputs) {
         using Relation = UltraPermutationRelation<FF>;
-        using TupleOfValuesOverSubrelations = typename Relation::TupleOfValuesOverSubrelations;
+        using ArrayOfValuesOverSubrelations = typename Relation::ArrayOfValuesOverSubrelations;
 
         const InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
         const auto& w_1 = input_elements.w_l;
@@ -175,7 +175,7 @@ TEST_F(UltraRelationConsistency, UltraPermutationRelation)
         const auto& lagrange_first = input_elements.lagrange_first;
         const auto& lagrange_last = input_elements.lagrange_last;
 
-        TupleOfValuesOverSubrelations expected_values;
+        ArrayOfValuesOverSubrelations expected_values;
 
         const auto parameters = RelationParameters<FF>::get_random();
         const auto& beta = parameters.beta;
@@ -204,7 +204,7 @@ TEST_F(UltraRelationConsistency, LookupRelation)
 {
     const auto run_test = [](bool random_inputs) {
         using Relation = LookupRelation<FF>;
-        using TupleOfValuesOverSubrelations = typename Relation::TupleOfValuesOverSubrelations;
+        using ArrayOfValuesOverSubrelations = typename Relation::ArrayOfValuesOverSubrelations;
 
         const InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
         const auto& w_1 = input_elements.w_l;
@@ -239,7 +239,7 @@ TEST_F(UltraRelationConsistency, LookupRelation)
         const auto& lagrange_first = input_elements.lagrange_first;
         const auto& lagrange_last = input_elements.lagrange_last;
 
-        TupleOfValuesOverSubrelations expected_values;
+        ArrayOfValuesOverSubrelations expected_values;
 
         const auto parameters = RelationParameters<FF>::get_random();
 
@@ -282,7 +282,7 @@ TEST_F(UltraRelationConsistency, GenPermSortRelation)
 {
     const auto run_test = [](bool random_inputs) {
         using Relation = GenPermSortRelation<FF>;
-        using TupleOfValuesOverSubrelations = typename Relation::TupleOfValuesOverSubrelations;
+        using ArrayOfValuesOverSubrelations = typename Relation::ArrayOfValuesOverSubrelations;
 
         const InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
         const auto& w_1 = input_elements.w_l;
@@ -302,7 +302,7 @@ TEST_F(UltraRelationConsistency, GenPermSortRelation)
         auto contribution_3 = delta_3 * (delta_3 - 1) * (delta_3 - 2) * (delta_3 - 3);
         auto contribution_4 = delta_4 * (delta_4 - 1) * (delta_4 - 2) * (delta_4 - 3);
 
-        TupleOfValuesOverSubrelations expected_values;
+        ArrayOfValuesOverSubrelations expected_values;
 
         expected_values[0] = contribution_1 * q_sort;
         expected_values[1] = contribution_2 * q_sort;
@@ -321,7 +321,7 @@ TEST_F(UltraRelationConsistency, EllipticRelation)
 {
     const auto run_test = [](bool random_inputs) {
         using Relation = EllipticRelation<FF>;
-        using TupleOfValuesOverSubrelations = typename Relation::TupleOfValuesOverSubrelations;
+        using ArrayOfValuesOverSubrelations = typename Relation::ArrayOfValuesOverSubrelations;
 
         const InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
         const auto& x_1 = input_elements.w_r;
@@ -336,7 +336,7 @@ TEST_F(UltraRelationConsistency, EllipticRelation)
         const auto& q_elliptic = input_elements.q_elliptic;
         const auto& q_is_double = input_elements.q_m;
 
-        TupleOfValuesOverSubrelations expected_values;
+        ArrayOfValuesOverSubrelations expected_values;
         // Compute x/y coordinate identities
 
         {
@@ -384,7 +384,7 @@ TEST_F(UltraRelationConsistency, AuxiliaryRelation)
 {
     const auto run_test = [](bool random_inputs) {
         using Relation = AuxiliaryRelation<FF>;
-        using TupleOfValuesOverSubrelations = typename Relation::TupleOfValuesOverSubrelations;
+        using ArrayOfValuesOverSubrelations = typename Relation::ArrayOfValuesOverSubrelations;
 
         const InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
         const auto& w_1 = input_elements.w_l;
@@ -414,7 +414,7 @@ TEST_F(UltraRelationConsistency, AuxiliaryRelation)
         const auto parameters = RelationParameters<FF>::get_random();
         const auto& eta = parameters.eta;
 
-        TupleOfValuesOverSubrelations expected_values;
+        ArrayOfValuesOverSubrelations expected_values;
         /**
          * Non native field arithmetic gate 2
          *

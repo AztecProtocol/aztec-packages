@@ -25,9 +25,9 @@
 
 #define SUMCHECK_RELATION_CLASS(...) _SUMCHECK_RELATION_CLASS(__VA_ARGS__)
 #define _SUMCHECK_RELATION_CLASS(Preface, RelationBase, Flavor)                                                        \
-    ACCUMULATE(Preface, RelationBase, Flavor, UnivariateAccumulators, ExtendedEdge)                                    \
-    ACCUMULATE(Preface, RelationBase, Flavor, ValueAccumulators, EvaluationEdge)                                       \
-    ACCUMULATE(Preface, RelationBase, Flavor, ValueAccumulators, EntityEdge)
+    ACCUMULATE(Preface, RelationBase, Flavor, TupleOfUnivariatesOverSubrelations, ExtendedEdge)                        \
+    ACCUMULATE(Preface, RelationBase, Flavor, ArrayOfValuesOverSubrelations, EvaluationEdge)                           \
+    ACCUMULATE(Preface, RelationBase, Flavor, ArrayOfValuesOverSubrelations, EntityEdge)
 
 #define DECLARE_SUMCHECK_RELATION_CLASS(RelationBase, Flavor) SUMCHECK_RELATION_CLASS(extern, RelationBase, Flavor)
 #define DEFINE_SUMCHECK_RELATION_CLASS(RelationBase, Flavor) SUMCHECK_RELATION_CLASS(, RelationBase, Flavor)

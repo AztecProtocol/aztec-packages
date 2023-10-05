@@ -42,15 +42,16 @@ template <typename Flavor, typename Relation> void check_relation(auto circuit_s
             ++poly_idx;
         }
 
-        // Define the appropriate TupleOfValuesOverSubrelations type for this relation and initialize to zero
-        using TupleOfValuesOverSubrelations = typename Relation::TupleOfValuesOverSubrelations;
-        TupleOfValuesOverSubrelations result;
+        // Define the appropriate ArrayOfValuesOverSubrelations type for this relation and initialize to zero
+        using ArrayOfValuesOverSubrelations = typename Relation::ArrayOfValuesOverSubrelations;
+        ArrayOfValuesOverSubrelations result;
         for (auto& element : result) {
             element = 0;
         }
 
         // Evaluate each constraint in the relation and check that each is satisfied
-        Relation::template accumulate<typename Relation::ValueAccumulators>(result, evaluations_at_index_i, params, 1);
+        Relation::template accumulate<typename Relation::ArrayOfValuesOverSubrelations>(
+            result, evaluations_at_index_i, params, 1);
         for (auto& element : result) {
             ASSERT_EQ(element, 0);
         }

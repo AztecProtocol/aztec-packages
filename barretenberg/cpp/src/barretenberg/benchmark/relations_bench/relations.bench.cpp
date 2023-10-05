@@ -31,16 +31,17 @@ template <typename Flavor, typename Relation> void execute_relation(::benchmark:
     };
 
     using AllValues = typename Flavor::AllValues;
-    using TupleOfValuesOverSubrelations = typename Relation::TupleOfValuesOverSubrelations;
+    using ArrayOfValuesOverSubrelations = typename Relation::ArrayOfValuesOverSubrelations;
 
     // Extract an array containing all the polynomial evaluations at a given row i
     AllValues new_value;
-    // Define the appropriate TupleOfValuesOverSubrelations type for this relation and initialize to zero
-    TupleOfValuesOverSubrelations accumulator;
+    // Define the appropriate ArrayOfValuesOverSubrelations type for this relation and initialize to zero
+    ArrayOfValuesOverSubrelations accumulator;
     // Evaluate each constraint in the relation and check that each is satisfied
 
     for (auto _ : state) {
-        Relation::template accumulate<typename Relation::ValueAccumulators>(accumulator, new_value, params, 1);
+        Relation::template accumulate<typename Relation::ArrayOfValuesOverSubrelations>(
+            accumulator, new_value, params, 1);
     }
 }
 

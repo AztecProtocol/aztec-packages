@@ -44,16 +44,11 @@ template <typename RelationImpl> class Relation : public RelationImpl {
   public:
     using FF = typename RelationImpl::FF;
 
-    using UnivariateAccumulators = TupleOfUnivariates<FF, RelationImpl::LENGTHS>;
-    using ValueAccumulators = ArrayOfValues<FF, RelationImpl::LENGTHS>;
-
-    using UnivariateAccumulator0 = std::tuple_element_t<0, UnivariateAccumulators>;
-    using ValueAccumulator0 = std::tuple_element_t<0, ValueAccumulators>;
-
     using TupleOfUnivariatesOverSubrelations = TupleOfUnivariates<FF, RelationImpl::LENGTHS>;
-    using TupleOfValuesOverSubrelations = ArrayOfValues<FF, RelationImpl::LENGTHS>;
+    using ArrayOfValuesOverSubrelations = ArrayOfValues<FF, RelationImpl::LENGTHS>;
 
-    static constexpr size_t RELATION_LENGTH = RelationImpl::RELATION_LENGTH;
+    using UnivariateAccumulator0 = std::tuple_element_t<0, TupleOfUnivariatesOverSubrelations>;
+    using ValueAccumulator0 = std::tuple_element_t<0, ArrayOfValuesOverSubrelations>;
 
     /**
      * @brief Check is subrelation is linearly independent
