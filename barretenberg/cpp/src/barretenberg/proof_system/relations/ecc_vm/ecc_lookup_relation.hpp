@@ -31,16 +31,8 @@ template <typename FF_> class ECCVMLookupRelationBase {
         return (row.msm_add == 1) || (row.msm_skew == 1) || (row.precompute_select == 1);
     }
 
-    /**
-     * @brief
-     *
-     * @tparam read_index
-     * @param in
-     * @param relation_params
-     * @param index
-     * @return Univariate
-     */
-    template <typename Accumulator0, size_t read_index> static Accumulator0 compute_read_term_predicate(const auto& in)
+    template <typename Accumulator0, size_t read_index, typename AllEntities>
+    static Accumulator0 compute_read_term_predicate(const AllEntities& in)
 
     {
         using View = typename Accumulator0::View;
@@ -60,8 +52,8 @@ template <typename FF_> class ECCVMLookupRelationBase {
         return Accumulator0(1);
     }
 
-    template <typename Accumulator0, size_t write_index>
-    static Accumulator0 compute_write_term_predicate(const auto& in)
+    template <typename Accumulator0, size_t write_index, typename AllEntities>
+    static Accumulator0 compute_write_term_predicate(const AllEntities& in)
     {
         using View = typename Accumulator0::View;
 
@@ -69,7 +61,7 @@ template <typename FF_> class ECCVMLookupRelationBase {
             return Accumulator0(View(in.precompute_select));
         }
         if constexpr (write_index == 1) {
-            return Accumulator0(View(in.precompute_select));
+            return Accumulator0(View(in.precompute_select)); // WORKTODO is this a bug?
         }
         return Accumulator0(1);
     }

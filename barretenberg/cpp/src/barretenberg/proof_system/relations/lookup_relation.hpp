@@ -54,7 +54,6 @@ template <typename FF_> class LookupRelationImpl {
      * @param new_term
      * @param relation_parameters
      * @param index If calling this method over vector inputs, index >= 0
-     * @return GetAccumulator0<AccumulatorTypes> either Univariate or FF depending on context
      */
     template <typename Accumulator, typename AllEntities>
     inline static Accumulator compute_grand_product_numerator(const AllEntities& new_term,
@@ -119,7 +118,6 @@ template <typename FF_> class LookupRelationImpl {
      * @param new_term
      * @param relation_parameters
      * @param index
-     * @return GetAccumulator0<AccumulatorTypes> either Univariate or FF depending on context
      */
     template <typename Accumulator, typename AllEntities>
     inline static Accumulator compute_grand_product_denominator(const AllEntities& in,

@@ -96,7 +96,7 @@ struct InputElements {
 class UltraRelationConsistency : public testing::Test {
   public:
     template <typename Relation>
-    static void validate_relation_execution(const auto& expected_values,
+    static void validate_relation_execution(const typename Relation::ArrayOfValuesOverSubrelations& expected_values,
                                             const InputElements& input_elements,
                                             const auto& parameters)
     {
