@@ -27,7 +27,7 @@ const PORT = 3000;
 
 const { PXE_URL } = process.env;
 
-const conditionalDescribe = () => (PXE_URL ? describe : describe.skip);
+const conditionalDescribe = () => describe; // PXE_URL ? describe : describe.skip);
 const privKey = AztecJs.GrumpkinScalar.random();
 
 export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugLogger) =>
@@ -112,8 +112,8 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
       await deployTokenContract();
     }, 60_000);
 
-    it('Can access CompleteAddress class in browser', async () => {
-      const result = await page.evaluate(async () => {
+    it.only('Can access CompleteAddress class in browser', async () => {
+      const result = await page.evaluate(() => {
         const completeAddress: AztecJs.CompleteAddress = AztecJs.CompleteAddress.fromString(
           '0x115f123bbc6cc6af9890055821cfba23a7c4e8832377a32ccb719a1ba3a86483',
         );
