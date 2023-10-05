@@ -2,6 +2,8 @@ import { ContractAbi } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { PublicKey } from '@aztec/types';
 
+
+
 import { DeployMethod, Point } from '../index.js';
 import { Wallet } from '../wallet/index.js';
 import { ContractBase } from './contract_base.js';
@@ -19,6 +21,7 @@ export class Contract extends ContractBase {
    * @param address - The deployed contract's address.
    * @param abi - The Application Binary Interface for the contract.
    * @param wallet - The wallet to use when interacting with the contract.
+   * @param portalContract - The portal contract address on L1, if any.
    * @returns A promise that resolves to a new Contract instance.
    */
   public static async at(address: AztecAddress, abi: ContractAbi, wallet: Wallet): Promise<Contract> {
@@ -26,7 +29,12 @@ export class Contract extends ContractBase {
     if (extendedContractData === undefined) {
       throw new Error('Contract ' + address.toString() + ' is not deployed');
     }
-    return new Contract(extendedContractData.getCompleteAddress(), abi, wallet);
+    return new Contract(
+      extendedContractData.getCompleteAddress(),
+      abi,
+      wallet,
+      extendedContractData.contractData.portalContractAddress,
+    );
   }
 
   /**
