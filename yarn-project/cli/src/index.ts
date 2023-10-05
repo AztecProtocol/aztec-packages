@@ -11,6 +11,7 @@ import {
 import { StructType, decodeFunctionSignatureWithParameterNames } from '@aztec/foundation/abi';
 import { JsonStringify } from '@aztec/foundation/json-rpc';
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
+import { RunningPromise } from '@aztec/foundation/running-promise';
 import { fileURLToPath } from '@aztec/foundation/url';
 import { compileContract, generateNoirInterface, generateTypescriptInterface } from '@aztec/noir-compiler/cli';
 import { CompleteAddress, ContractData, LogFilter } from '@aztec/types';
@@ -303,21 +304,39 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .option('-c, --contractAddress <contractAddress>', 'Contract address to filter logs by.', parseOptionalAztecAddress)
     .option('-s, --selector <selector>', 'Event selector to filter logs by.', parseOptionalSelector)
     .addOption(pxeOption)
-    .action(async ({ txHash, fromBlock, toBlock, contractAddress, selector, rpcUrl }) => {
+    .option('--follow', 'If set, will keep polling for new logs until interrupted.')
+    .action(async ({ txHash, fromBlock, toBlock, contractAddress, selector, rpcUrl, follow }) => {
       const client = await createCompatibleClient(rpcUrl, debugLogger);
 
-      const filter: LogFilter = { txHash, fromBlock, toBlock, contractAddress, selector };
-      const logs = await client.getUnencryptedLogs(filter);
+      if (follow) {
+        if (txHash) throw Error('Cannot use --follow with --txHash');
+        if (toBlock) throw Error('Cannot use --follow with --toBlock');
+      }
 
-      if (!logs.length) {
-        const filterOptions = Object.entries(filter)
-          .filter(([, value]) => value !== undefined)
-          .map(([key, value]) => `${key}: ${value}`)
-          .join(', ');
-        log(`No logs found for filter: {${filterOptions}}`);
+      const filter: LogFilter = { txHash, fromBlock, toBlock, contractAddress, selector };
+
+      const fetchLogs = async () => {
+        const logs = await client.getUnencryptedLogs(filter);
+
+        if (!logs.length) {
+          const filterOptions = Object.entries(filter)
+            .filter(([, value]) => value !== undefined)
+            .map(([key, value]) => `${key}: ${value}`)
+            .join(', ');
+          if (!follow) log(`No logs found for filter: {${filterOptions}}`);
+        } else {
+          if (!follow) log('Logs found: \n');
+          logs.forEach(unencryptedLog => log(unencryptedLog.toHumanReadable()));
+          // Set `fromBlock` to the block number of the next block after the block of last log we fetched.
+          filter.fromBlock = logs[logs.length - 1].blockNumber + 1;
+        }
+      };
+
+      if (follow) {
+        log('Fetching logs...');
+        new RunningPromise(fetchLogs, 1000).start();
       } else {
-        log('Logs found: \n');
-        logs.forEach(unencryptedLog => log(unencryptedLog.toHumanReadable()));
+        await fetchLogs();
       }
     });
 
