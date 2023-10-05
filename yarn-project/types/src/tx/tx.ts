@@ -115,7 +115,7 @@ export class Tx {
 
   /**
    * Gets unencrypted logs emitted by this tx.
-   * @param logsSource - An instance of L2LogsSource which can be used to obtain the logs.
+   * @param logsSource - An instance of `L2LogsSource` which can be used to obtain the logs.
    * @returns The requested logs.
    */
   public async getUnencryptedLogs(logsSource: L2LogsSource): Promise<ExtendedUnencryptedL2Log[]> {
