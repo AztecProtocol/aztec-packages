@@ -21,7 +21,7 @@ template <typename FF_> class EccOpQueueRelationImpl {
 
     /**
      * @brief Expression for the generalized permutation sort gate.
-     * @details The relation is defined as C(extended_edges(X)...) =
+     * @details The relation is defined as C(in(X)...) =
      *    \alpha_{base} *
      *       ( \Sum_{i=0}^3 \alpha^i * (w_i - w_{op,i}) * \chi_{ecc_op} +
      *         \Sum_{i=0}^3 \alpha^{i+4} w_{op,i} * \bar{\chi}_{ecc_op} )
@@ -33,30 +33,30 @@ template <typename FF_> class EccOpQueueRelationImpl {
      * ecc op wires over the portion of the execution trace representing ECC op queue gates. The next four check
      * that the op wire polynomials are identically zero everywhere else.
      *
-     * @param evals transformed to `evals + C(extended_edges(X)...)*scaling_factor`
-     * @param extended_edges an std::array containing the fully extended Univariate edges.
+     * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
+     * @param in an std::array containing the fully extended Univariate edges.
      * @param parameters contains beta, gamma, and public_input_delta, ....
      * @param scaling_factor optional term to scale the evaluation before adding to evals.
      */
-    template <typename TupleOverRelations>
-    void static accumulate(TupleOverRelations& accumulators,
-                           const auto& extended_edges,
+    template <typename TupleOverSubrelations, typename AllEntities>
+    void static accumulate(TupleOverSubrelations& accumulators,
+                           const AllEntities& in,
                            const RelationParameters<FF>&,
                            const FF& scaling_factor)
     {
         // OPTIMIZATION?: Karatsuba in general, at least for some degrees?
         //       See https://hackmd.io/xGLuj6biSsCjzQnYN-pEiA?both
-        using Accumulator = std::tuple_element_t<0, TupleOverRelations>;
+        using Accumulator = std::tuple_element_t<0, TupleOverSubrelations>;
         using View = typename Accumulator::View;
-        auto w_1 = View(extended_edges.w_l);
-        auto w_2 = View(extended_edges.w_r);
-        auto w_3 = View(extended_edges.w_o);
-        auto w_4 = View(extended_edges.w_4);
-        auto op_wire_1 = View(extended_edges.ecc_op_wire_1);
-        auto op_wire_2 = View(extended_edges.ecc_op_wire_2);
-        auto op_wire_3 = View(extended_edges.ecc_op_wire_3);
-        auto op_wire_4 = View(extended_edges.ecc_op_wire_4);
-        auto lagrange_ecc_op = View(extended_edges.lagrange_ecc_op);
+        auto w_1 = View(in.w_l);
+        auto w_2 = View(in.w_r);
+        auto w_3 = View(in.w_o);
+        auto w_4 = View(in.w_4);
+        auto op_wire_1 = View(in.ecc_op_wire_1);
+        auto op_wire_2 = View(in.ecc_op_wire_2);
+        auto op_wire_3 = View(in.ecc_op_wire_3);
+        auto op_wire_4 = View(in.ecc_op_wire_4);
+        auto lagrange_ecc_op = View(in.lagrange_ecc_op);
 
         // If lagrange_ecc_op is the indicator for ecc_op_gates, this is the indicator for the complement
         auto complement_ecc_op = lagrange_ecc_op * FF(-1) + FF(1);

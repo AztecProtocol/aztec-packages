@@ -59,9 +59,9 @@ template <typename FF_> class ECCVMWnafRelationBase {
         5, // no description
     };
 
-    template <typename TupleOverRelations>
-    static void accumulate(TupleOverRelations& accumulator,
-                           const auto& extended_edges,
+    template <typename TupleOverSubrelations, typename AllEntities>
+    static void accumulate(TupleOverSubrelations& accumulator,
+                           const AllEntities& in,
                            const RelationParameters<FF>& /* unused */,
                            const FF& scaling_factor);
 };

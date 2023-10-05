@@ -35,7 +35,7 @@ template <typename FF_> class ECCVMLookupRelationBase {
      * @brief
      *
      * @tparam read_index
-     * @param extended_edges
+     * @param in
      * @param relation_params
      * @param index
      * @return Univariate
@@ -149,7 +149,7 @@ template <typename FF_> class ECCVMLookupRelationBase {
      * @brief
      *
      * @tparam read_index
-     * @param extended_edges
+     * @param in
      * @param relation_params
      * @param index
      * @return Univariate
@@ -217,14 +217,14 @@ template <typename FF_> class ECCVMLookupRelationBase {
      * write source: { precompute_round, precompute_tx, precompute_ty }
      * Table reads: ECCVMMSM columns. Each row adds up to 4 points into MSM accumulator
      * read source: { msm_slice1, msm_x1, msm_y1 }, ..., { msm_slice4, msm_x4, msm_y4 }
-     * @param accumulator transformed to `evals + C(extended_edges(X)...)*scaling_factor`
-     * @param extended_edges an std::array containing the fully extended Accumulator edges.
+     * @param accumulator transformed to `evals + C(in(X)...)*scaling_factor`
+     * @param in an std::array containing the fully extended Accumulator edges.
      * @param relation_params contains beta, gamma, and public_input_delta, ....
      * @param scaling_factor optional term to scale the evaluation before adding to evals.
      */
-    template <typename TupleOverRelations>
-    static void accumulate(TupleOverRelations& accumulator,
-                           const auto& extended_edges,
+    template <typename TupleOverSubrelations, typename AllEntities>
+    static void accumulate(TupleOverSubrelations& accumulator,
+                           const AllEntities& in,
                            const RelationParameters<FF>& relation_params,
                            const FF& /*unused*/);
 };

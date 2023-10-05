@@ -47,14 +47,14 @@ template <typename FF_> class AuxiliaryRelationImpl {
      *
      * N.B.2 The q_c selector is used to store circuit-specific values in the RAM/ROM access gate
      *
-     * @param evals transformed to `evals + C(extended_edges(X)...)*scaling_factor`
-     * @param extended_edges an std::array containing the fully extended Univariate edges.
+     * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
+     * @param in an std::array containing the fully extended Univariate edges.
      * @param parameters contains beta, gamma, and public_input_delta, ....
      * @param scaling_factor optional term to scale the evaluation before adding to evals.
      */
-    template <typename TupleOverSubrelations>
+    template <typename TupleOverSubrelations, typename AllEntities>
     inline static void accumulate(TupleOverSubrelations& accumulators,
-                                  const auto& extended_edges,
+                                  const AllEntities& in,
                                   const RelationParameters<FF>& relation_parameters,
                                   const FF& scaling_factor)
     {
@@ -64,23 +64,23 @@ template <typename FF_> class AuxiliaryRelationImpl {
         using Accumulator = typename std::tuple_element_t<0, TupleOverSubrelations>;
         using View = typename Accumulator::View;
 
-        auto w_1 = View(extended_edges.w_l);
-        auto w_2 = View(extended_edges.w_r);
-        auto w_3 = View(extended_edges.w_o);
-        auto w_4 = View(extended_edges.w_4);
-        auto w_1_shift = View(extended_edges.w_l_shift);
-        auto w_2_shift = View(extended_edges.w_r_shift);
-        auto w_3_shift = View(extended_edges.w_o_shift);
-        auto w_4_shift = View(extended_edges.w_4_shift);
+        auto w_1 = View(in.w_l);
+        auto w_2 = View(in.w_r);
+        auto w_3 = View(in.w_o);
+        auto w_4 = View(in.w_4);
+        auto w_1_shift = View(in.w_l_shift);
+        auto w_2_shift = View(in.w_r_shift);
+        auto w_3_shift = View(in.w_o_shift);
+        auto w_4_shift = View(in.w_4_shift);
 
-        auto q_1 = View(extended_edges.q_l);
-        auto q_2 = View(extended_edges.q_r);
-        auto q_3 = View(extended_edges.q_o);
-        auto q_4 = View(extended_edges.q_4);
-        auto q_m = View(extended_edges.q_m);
-        auto q_c = View(extended_edges.q_c);
-        auto q_arith = View(extended_edges.q_arith);
-        auto q_aux = View(extended_edges.q_aux);
+        auto q_1 = View(in.q_l);
+        auto q_2 = View(in.q_r);
+        auto q_3 = View(in.q_o);
+        auto q_4 = View(in.q_4);
+        auto q_m = View(in.q_m);
+        auto q_c = View(in.q_c);
+        auto q_arith = View(in.q_arith);
+        auto q_aux = View(in.q_aux);
 
         const FF LIMB_SIZE(uint256_t(1) << 68);
         const FF SUBLIMB_SHIFT(uint256_t(1) << 14);

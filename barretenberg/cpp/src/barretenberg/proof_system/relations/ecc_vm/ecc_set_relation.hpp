@@ -32,17 +32,17 @@ template <typename FF_> class ECCVMSetRelationBase {
     inline static auto& get_grand_product_polynomial(auto& input) { return input.z_perm; }
     inline static auto& get_shifted_grand_product_polynomial(auto& input) { return input.z_perm_shift; }
 
-    template <typename Accumulator>
-    static Accumulator compute_permutation_numerator(const auto& extended_edges,
+    template <typename Accumulator, typename AllEntities>
+    static Accumulator compute_permutation_numerator(const AllEntities& in,
                                                      const RelationParameters<FF>& relation_params);
 
-    template <typename Accumulator>
-    static Accumulator compute_permutation_denominator(const auto& extended_edges,
+    template <typename Accumulator, typename AllEntities>
+    static Accumulator compute_permutation_denominator(const AllEntities& in,
                                                        const RelationParameters<FF>& relation_params);
 
-    template <typename TupleOverRelations>
-    static void accumulate(TupleOverRelations& accumulator,
-                           const auto& extended_edges,
+    template <typename TupleOverSubrelations, typename AllEntities>
+    static void accumulate(TupleOverSubrelations& accumulator,
+                           const AllEntities& in,
                            const RelationParameters<FF>& relation_params,
                            const FF& scaling_factor);
 };

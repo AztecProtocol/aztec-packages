@@ -29,8 +29,8 @@ namespace proof_system::honk::sumcheck {
  * If skew_i == 1, [Acc] = [Acc] - [P_i] for all i in [0, ..., k - 1]
  *
  * The relations in ECCVMMSMRelationBase constrain the ADDITION, DOUBLE and SKEW rounds
- * @param evals transformed to `evals + C(extended_edges(X)...)*scaling_factor`
- * @param extended_edges an std::array containing the fully extended Accumulator edges.
+ * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
+ * @param in an std::array containing the fully extended Accumulator edges.
  * @param parameters contains beta, gamma, and public_input_delta, ....
  * @param scaling_factor optional term to scale the evaluation before adding to evals.
  */
@@ -77,9 +77,9 @@ template <typename FF_> class ECCVMMSMRelationBase {
         8  // arithmetic sub-relation
     };
 
-    template <typename TupleOverRelations>
-    static void accumulate(TupleOverRelations& accumulator,
-                           const auto& extended_edges,
+    template <typename TupleOverSubrelations, typename AllEntities>
+    static void accumulate(TupleOverSubrelations& accumulator,
+                           const AllEntities& in,
                            const RelationParameters<FF>& /* unused */,
                            const FF& scaling_factor);
 };

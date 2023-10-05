@@ -56,8 +56,8 @@ template <typename FF_> class LookupRelationImpl {
      * @param index If calling this method over vector inputs, index >= 0
      * @return GetAccumulator0<AccumulatorTypes> either Univariate or FF depending on context
      */
-    template <typename Accumulator>
-    inline static Accumulator compute_grand_product_numerator(const auto& new_term,
+    template <typename Accumulator, typename AllEntities>
+    inline static Accumulator compute_grand_product_numerator(const AllEntities& new_term,
                                                               const RelationParameters<FF>& relation_parameters)
     {
         const auto& beta = relation_parameters.beta;
@@ -121,8 +121,8 @@ template <typename FF_> class LookupRelationImpl {
      * @param index
      * @return GetAccumulator0<AccumulatorTypes> either Univariate or FF depending on context
      */
-    template <typename Accumulator>
-    inline static Accumulator compute_grand_product_denominator(const auto& extended_edges,
+    template <typename Accumulator, typename AllEntities>
+    inline static Accumulator compute_grand_product_denominator(const AllEntities& in,
                                                                 const RelationParameters<FF>& relation_parameters)
     {
 
@@ -135,8 +135,8 @@ template <typename FF_> class LookupRelationImpl {
         using View = typename Accumulator::View;
 
         // Contribution (1)
-        auto s_accum = View(extended_edges.sorted_accum);
-        auto s_accum_shift = View(extended_edges.sorted_accum_shift);
+        auto s_accum = View(in.sorted_accum);
+        auto s_accum_shift = View(in.sorted_accum_shift);
 
         auto tmp = (s_accum + s_accum_shift * beta + gamma_by_one_plus_beta);
         return tmp;
@@ -160,9 +160,9 @@ template <typename FF_> class LookupRelationImpl {
      * @param parameters contains beta, gamma, and public_input_delta, ....
      * @param scaling_factor optional term to scale the evaluation before adding to evals.
      */
-    template <typename TupleOverSubrelations>
+    template <typename TupleOverSubrelations, typename AllEntities>
     void static accumulate(TupleOverSubrelations& accumulators,
-                           const auto& new_term,
+                           const AllEntities& new_term,
                            const RelationParameters<FF>& relation_parameters,
                            const FF& scaling_factor)
     {

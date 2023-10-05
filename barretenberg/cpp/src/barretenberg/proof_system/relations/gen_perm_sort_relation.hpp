@@ -17,7 +17,7 @@ template <typename FF_> class GenPermSortRelationImpl {
 
     /**
      * @brief Expression for the generalized permutation sort gate.
-     * @details The relation is defined as C(extended_edges(X)...) =
+     * @details The relation is defined as C(in(X)...) =
      *    q_sort * \sum{ i = [0, 3]} \alpha^i D_i(D_i - 1)(D_i - 2)(D_i - 3)
      *      where
      *      D_0 = w_2 - w_1
@@ -25,25 +25,25 @@ template <typename FF_> class GenPermSortRelationImpl {
      *      D_2 = w_4 - w_3
      *      D_3 = w_1_shift - w_4
      *
-     * @param evals transformed to `evals + C(extended_edges(X)...)*scaling_factor`
-     * @param extended_edges an std::array containing the fully extended Univariate edges.
+     * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
+     * @param in an std::array containing the fully extended Univariate edges.
      * @param parameters contains beta, gamma, and public_input_delta, ....
      * @param scaling_factor optional term to scale the evaluation before adding to evals.
      */
-    template <typename TupleOverSubrelations>
+    template <typename TupleOverSubrelations, typename AllEntities>
     void static accumulate(TupleOverSubrelations& accumulators,
-                           const auto& extended_edges,
+                           const AllEntities& in,
                            const RelationParameters<FF>&,
                            const FF& scaling_factor)
     {
         using Accumulator = std::tuple_element_t<0, TupleOverSubrelations>;
         using View = typename Accumulator::View;
-        auto w_1 = View(extended_edges.w_l);
-        auto w_2 = View(extended_edges.w_r);
-        auto w_3 = View(extended_edges.w_o);
-        auto w_4 = View(extended_edges.w_4);
-        auto w_1_shift = View(extended_edges.w_l_shift);
-        auto q_sort = View(extended_edges.q_sort);
+        auto w_1 = View(in.w_l);
+        auto w_2 = View(in.w_r);
+        auto w_3 = View(in.w_o);
+        auto w_4 = View(in.w_4);
+        auto w_1_shift = View(in.w_l_shift);
+        auto q_sort = View(in.q_sort);
 
         static const FF minus_one = FF(-1);
         static const FF minus_two = FF(-2);

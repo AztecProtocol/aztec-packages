@@ -10,8 +10,8 @@ namespace proof_system::honk::sumcheck {
  * table out of the following points: { -15[P], -13[P], -11[P], -9[P], -7[P], -5[P], -3[P], -[P] }
  * ECCVMPointTableRelationBase defines relations that define the lookup table.
  *
- * @param evals transformed to `evals + C(extended_edges(X)...)*scaling_factor`
- * @param extended_edges an std::array containing the fully extended Accumulator edges.
+ * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
+ * @param in an std::array containing the fully extended Accumulator edges.
  * @param parameters contains beta, gamma, and public_input_delta, ....
  * @param scaling_factor optional term to scale the evaluation before adding to evals.
  */
@@ -28,9 +28,9 @@ template <typename FF_> class ECCVMPointTableRelationBase {
         6  // arithmetic sub-relation
     };
 
-    template <typename TupleOverRelations>
-    static void accumulate(TupleOverRelations& accumulator,
-                           const auto& extended_edges,
+    template <typename TupleOverSubrelations, typename AllEntities>
+    static void accumulate(TupleOverSubrelations& accumulator,
+                           const AllEntities& in,
                            const RelationParameters<FF>& /* unused */,
                            const FF& scaling_factor);
 };

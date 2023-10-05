@@ -68,9 +68,9 @@ template <typename FF_> class ECCVMTranscriptRelationBase {
         6, // arithmetic sub-relation
     };
 
-    template <typename TupleOverRelations>
-    static void accumulate(TupleOverRelations& accumulator,
-                           const auto& extended_edges,
+    template <typename TupleOverSubrelations, typename AllEntities>
+    static void accumulate(TupleOverSubrelations& accumulator,
+                           const AllEntities& in,
                            const RelationParameters<FF>& /* unused */,
                            const FF& scaling_factor);
 
