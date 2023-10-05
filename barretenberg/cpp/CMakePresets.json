@@ -76,16 +76,25 @@
       }
     },
     {
-      "name": "gcc10",
-      "displayName": "Build with GCC-10",
-      "description": "Build with globally installed GCC-10",
+      "name": "gcc9",
+      "displayName": "Build with GCC-9",
+      "description": "Build with globally installed GCC-9",
       "inherits": "default",
       "environment": {
-        "CC": "gcc-10",
-        "CXX": "g++-10"
+        "CC": "gcc-9",
+        "CXX": "g++-9"
       }
     },
     {
+      "name": "gcc13",
+      "displayName": "Build with GCC-13",
+      "description": "Build with globally installed GCC-13",
+      "inherits": "default",
+      "environment": {
+        "CC": "gcc-13",
+        "CXX": "g++-13"
+      }
+    },    {
       "name": "bench",
       "displayName": "Build benchmarks",
       "description": "Build default preset but with a special benchmark directory",
@@ -204,9 +213,14 @@
       "configurePreset": "gcc"
     },
     {
-      "name": "gcc10",
+      "name": "gcc9",
       "inherits": "default",
-      "configurePreset": "gcc10"
+      "configurePreset": "gcc9"
+    },
+    {
+      "name": "gcc13",
+      "inherits": "default",
+      "configurePreset": "gcc13"
     },
     {
       "name": "bench",
@@ -289,9 +303,14 @@
       "configurePreset": "gcc"
     },
     {
-      "name": "gcc10",
+      "name": "gcc9",
       "inherits": "default",
-      "configurePreset": "gcc10"
+      "configurePreset": "gcc9"
+    },
+    {
+      "name": "gcc13",
+      "inherits": "default",
+      "configurePreset": "gcc13"
     },
     {
       "name": "bench",
