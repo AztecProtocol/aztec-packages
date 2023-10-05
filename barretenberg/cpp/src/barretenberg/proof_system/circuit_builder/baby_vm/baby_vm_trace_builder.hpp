@@ -20,7 +20,6 @@ class BabyVMTraceBuilder : public ExecutionTraceBuilderBase<arithmetization::Bab
     std::vector<Row> rows;
     // WORKTODO: instead store columns as vectors? This is what we do with circuit builders.
 
-
     // EXERCISE NOTE: In practice, some operations will span multiple execution trace rows.
     void add_accumulate(const FF& to_add)
     {
