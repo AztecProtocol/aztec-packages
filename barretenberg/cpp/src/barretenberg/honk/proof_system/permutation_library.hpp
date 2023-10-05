@@ -42,7 +42,6 @@ namespace proof_system::honk::permutation_library {
  *
  * Note: Step (3) utilizes Montgomery batch inversion to replace n-many inversions with
  */
-// WORKTODO: relation with compute_grand_product in grand_product_library.hpp
 template <typename Flavor, typename GrandProdRelation>
 void compute_permutation_grand_product(const size_t circuit_size,
                                        auto& full_polynomials,

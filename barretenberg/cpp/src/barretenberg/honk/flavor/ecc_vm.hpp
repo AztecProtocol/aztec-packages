@@ -674,7 +674,7 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
         AllValues get_row(const size_t row_idx)
         {
             AllValues result;
-            size_t column_idx = 0; // WORKTODO zips
+            size_t column_idx = 0; // // TODO(https://github.com/AztecProtocol/barretenberg/issues/391) zip
             for (auto& column : this->_data) {
                 result[column_idx] = column[row_idx];
                 column_idx++;
@@ -720,7 +720,7 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
         AllValues get_row(const size_t row_idx)
         {
             AllValues result;
-            size_t column_idx = 0; // WORKTODO zips
+            size_t column_idx = 0; // TODO(https://github.com/AztecProtocol/barretenberg/issues/391) zip
             for (auto& column : this->_data) {
                 result[column_idx] = column[row_idx];
                 column_idx++;

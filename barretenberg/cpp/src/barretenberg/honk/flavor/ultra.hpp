@@ -272,7 +272,7 @@ class Ultra {
     using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment, CommitmentHandle>>;
 
     /**
-     * @brief WORKTODO
+     * @brief A field element for each entity of the flavor.
      *
      */
     class AllValues : public AllEntities<FF, FF> {
@@ -290,7 +290,7 @@ class Ultra {
         AllValues get_row(const size_t row_idx)
         {
             AllValues result;
-            size_t column_idx = 0; // WORKTODO zips
+            size_t column_idx = 0; // TODO(https://github.com/AztecProtocol/barretenberg/issues/391) zip
             for (auto& column : this->_data) {
                 result[column_idx] = column[row_idx];
                 column_idx++;
