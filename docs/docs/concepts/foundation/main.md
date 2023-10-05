@@ -29,7 +29,7 @@ A user of the Aztec network will interact with the network through Aztec.js. Azt
 
 The PXE provides a secure environment for the execution of sensitive operations, ensuring private information and decrypted data are not accessible to unauthorized applications. It hides the details of the [state model](./state_model.md) from end users, but the state model is important for Aztec developers to understand as it has implications for [private/public execution](./communication/public_private_calls.md) and [L1/L2 communication](./communication/cross_chain_calls.md). The PXE also includes the [ACIR Simulator](../advanced/acir_simulator.md) for private executions and the KeyStore for secure key management.
 
-Procedurally, the PXE sends results of private function execution and requests for public function executions to the [sequencer](./sequencer.md), which will update the state of the rollup.
+Procedurally, the PXE sends results of private function execution and requests for public function executions to the [sequencer](./nodes_clients/sequencer.md), which will update the state of the rollup.
 
 ### Sequencer
 
@@ -46,6 +46,6 @@ Here are links to pages with more information about the network components menti
   - [Dapp tutorial](../../dev_docs/tutorials/writing_dapp/pxe_service.md)
   - [API reference](../../apis/pxe/index.md)
 - [Private Kernel Circuit](../advanced/circuits/kernels/private_kernel.md)
-- [Sequencer](./sequencer.md)
+- [Sequencer](./nodes_clients/sequencer.md)
 - Prover Network (coming soon<sup>tm</sup>)
 - [Rollup Circuit](../advanced/circuits/rollup_circuits/main.md) -- a component of the rollup contract
