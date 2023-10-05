@@ -418,6 +418,41 @@ class Ultra {
         GroupElement kzg_w_comm;
 
       private:
+        template <typename T> inline TranscriptObjectType convertTypeToEnum([[maybe_unused]] T _)
+        {
+            if constexpr (std::same_as<T, uint32_t>) {
+                return UInt32Obj;
+            } else if constexpr (std::same_as<T, FF>) {
+                return FieldElementObj;
+            } else if constexpr (std::same_as<T, GroupElement>) {
+                return GroupElementObj;
+            } else if constexpr (std::same_as<T, Univariate<FF, MAX_RELATION_LENGTH>>) {
+                return SumcheckUnivariateObj;
+            } else if constexpr (std::same_as<T, std::array<FF, NUM_ALL_ENTITIES>>) {
+                return SumcheckEvalObj;
+            } else {
+                throw std::runtime_error("Unknown type");
+            }
+        }
+
+        template <typename T> T convertTypeFromEnum(TranscriptObjectType enum_type, void* obj)
+        {
+            switch (enum_type) {
+            case UInt32Obj:
+                return (static_cast<uint32_t*>(obj));
+            case FieldElementObj:
+                return (static_cast<FF*>(obj));
+            case GroupElementObj:
+                return (static_cast<GroupElement*>(obj));
+            case SumcheckUnivariateObj:
+                return (static_cast<Univariate<FF, MAX_RELATION_LENGTH>*>(obj));
+            case SumcheckEvalObj:
+                return (static_cast<std::array<FF, NUM_ALL_ENTITIES>*>(obj));
+            default:
+                throw std::runtime_error("Unknown type");
+            }
+        }
+
         void setUpStructure(uint32_t circuit_size)
         {
             // construct the vector
@@ -427,34 +462,37 @@ class Ultra {
             gemini_univariate_comms.resize(log_n);
             gemini_a_evals.resize(log_n);
 
-            ordered_objects.emplace_back("circuit_size", &circuit_size, UInt32Obj);
-            ordered_objects.emplace_back("public_input_size", &public_input_size, UInt32Obj);
-            ordered_objects.emplace_back("pub_inputs_offset", &pub_inputs_offset, UInt32Obj);
-            ordered_objects.emplace_back("public_input_0", &public_input_0, FieldElementObj);
-            ordered_objects.emplace_back("w_l_comm", &w_l_comm, GroupElementObj);
-            ordered_objects.emplace_back("w_r_comm", &w_r_comm, GroupElementObj);
-            ordered_objects.emplace_back("w_o_comm", &w_o_comm, GroupElementObj);
-            ordered_objects.emplace_back("sorted_accum_comm", &sorted_accum_comm, GroupElementObj);
-            ordered_objects.emplace_back("w_4_comm", &w_4_comm, GroupElementObj);
-            ordered_objects.emplace_back("z_perm_comm", &z_perm_comm, GroupElementObj);
-            ordered_objects.emplace_back("z_lookup_comm", &z_lookup_comm, GroupElementObj);
+            ordered_objects.emplace_back("circuit_size", &circuit_size, convertTypeToEnum(circuit_size));
+            ordered_objects.emplace_back("public_input_size", &public_input_size, convertTypeToEnum(public_input_size));
+            ordered_objects.emplace_back("pub_inputs_offset", &pub_inputs_offset, convertTypeToEnum(pub_inputs_offset));
+            ordered_objects.emplace_back("public_input_0", &public_input_0, convertTypeToEnum(public_input_0));
+            ordered_objects.emplace_back("w_l_comm", &w_l_comm, convertTypeToEnum(w_l_comm));
+            ordered_objects.emplace_back("w_r_comm", &w_r_comm, convertTypeToEnum(w_r_comm));
+            ordered_objects.emplace_back("w_o_comm", &w_o_comm, convertTypeToEnum(w_o_comm));
+            ordered_objects.emplace_back("sorted_accum_comm", &sorted_accum_comm, convertTypeToEnum(sorted_accum_comm));
+            ordered_objects.emplace_back("w_4_comm", &w_4_comm, convertTypeToEnum(w_4_comm));
+            ordered_objects.emplace_back("z_perm_comm", &z_perm_comm, convertTypeToEnum(z_perm_comm));
+            ordered_objects.emplace_back("z_lookup_comm", &z_lookup_comm, convertTypeToEnum(z_lookup_comm));
             for (size_t i = 0; i < log_n; ++i) {
                 std::string idx = std::to_string(i);
                 ordered_objects.emplace_back(
-                    "sumcheck_univariate_" + idx, &sumcheck_univariates[i], SumcheckUnivariateObj);
+                    "sumcheck_univariate_" + idx, &sumcheck_univariates[i], convertTypeToEnum(sumcheck_univariates[i]));
             }
-            ordered_objects.emplace_back("sumcheck_evaluations", &sumcheck_evaluations, SumcheckEvalObj);
+            ordered_objects.emplace_back(
+                "sumcheck_evaluations", &sumcheck_evaluations, convertTypeToEnum(sumcheck_evaluations));
+            for (size_t i = 0; i < log_n; ++i) {
+                std::string idx = std::to_string(i);
+                ordered_objects.emplace_back("gemini_univariate_comm_" + idx,
+                                             &gemini_univariate_comms[i],
+                                             convertTypeToEnum(gemini_univariate_comms[i]));
+            }
             for (size_t i = 0; i < log_n; ++i) {
                 std::string idx = std::to_string(i);
                 ordered_objects.emplace_back(
-                    "gemini_univariate_comm_" + idx, &gemini_univariate_comms[i], GroupElementObj);
+                    "gemini_a_eval_" + idx, &gemini_a_evals[i], convertTypeToEnum(gemini_a_evals[i]));
             }
-            for (size_t i = 0; i < log_n; ++i) {
-                std::string idx = std::to_string(i);
-                ordered_objects.emplace_back("gemini_a_eval_" + idx, &gemini_a_evals[i], FieldElementObj);
-            }
-            ordered_objects.emplace_back("shplonk_q_comm", &shplonk_q_comm, GroupElementObj);
-            ordered_objects.emplace_back("kzg_w_comm", &kzg_w_comm, GroupElementObj);
+            ordered_objects.emplace_back("shplonk_q_comm", &shplonk_q_comm, convertTypeToEnum(shplonk_q_comm));
+            ordered_objects.emplace_back("kzg_w_comm", &kzg_w_comm, convertTypeToEnum(kzg_w_comm));
         }
     };
 };

@@ -136,6 +136,11 @@ template <typename FF> class BaseTranscript {
     // Enum to deal with various types in Transcript
     enum TranscriptObjectType { UInt32Obj, FieldElementObj, GroupElementObj, SumcheckUnivariateObj, SumcheckEvalObj };
 
+    // conversion mapping from type to TranscriptObjectType enum object
+    template <typename T> inline TranscriptObjectType convertTypeToEnum([[maybe_unused]] T _);
+    // conversion mapping from TranscriptObjectType enum object to type
+    template <typename T> T convertTypeFromEnum(TranscriptObjectType enum_type);
+
     // List of objects in the transcript by name, pointer, and size in bytes
     std::vector<std::tuple<std::string, void*, TranscriptObjectType>> ordered_objects;
 
