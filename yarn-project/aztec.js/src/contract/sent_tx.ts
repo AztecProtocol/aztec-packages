@@ -1,6 +1,5 @@
-import { FieldsOf } from '@aztec/circuits.js';
 import { retryUntil } from '@aztec/foundation/retry';
-import { PXE, TxHash, TxReceipt, TxStatus } from '@aztec/types';
+import { FieldsOf, PXE, TxHash, TxReceipt, TxStatus } from '@aztec/types';
 
 import every from 'lodash.every';
 
