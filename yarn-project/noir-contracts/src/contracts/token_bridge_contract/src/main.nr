@@ -86,7 +86,7 @@ contract TokenBridge {
         1
     }
     // docs:end:exit_to_l1_public
-
+    // docs:start:claim_private
     // Consumes a L1->L2 message and calls the token contract to mint the appropriate amount in private assets
     // User needs to call token.redeem_shield() to get the private assets
     #[aztec(private)]
@@ -113,6 +113,7 @@ contract TokenBridge {
 
         1
     }
+    // docs:end:claim_private
 
     // docs:start:exit_to_l1_private
     // Burns the appropriate amount of tokens and creates a L2 to L1 withdraw message privately
@@ -157,6 +158,7 @@ contract TokenBridge {
         storage.token.write(token.address);
     }
 
+    // docs:start:call_mint_on_token
     // This is a public call as we need to read from public storage.
     // Also, note that user hashes their secret in private and only sends the hash in public
     // meaning only user can `redeem_shield` at a later time with their secret.
@@ -164,9 +166,13 @@ contract TokenBridge {
     internal fn _call_mint_on_token(amount: Field, secret_hash: Field){
         Token::at(storage.token.read()).mint_private(context, amount, secret_hash);
     }
+    // docs:end:call_mint_on_token
 
+    // docs:start:assert_token_is_same
     #[aztec(public)]
     internal fn _assert_token_is_same(token: Field) {
         assert(storage.token.read() == token, "Token address is not the same as seen in storage");
     }
+    // docs:end:assert_token_is_same
+
 }

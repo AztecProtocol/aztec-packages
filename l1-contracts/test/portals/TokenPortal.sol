@@ -58,6 +58,7 @@ contract TokenPortal {
   }
   // docs:end:deposit_public
 
+  // docs:start:deposit_private
   /**
    * @notice Deposit funds into the portal and adds an L2 message which can only be consumed privately on Aztec
    * @param _amount - The amount to deposit
@@ -96,6 +97,7 @@ contract TokenPortal {
       actor, _deadline, contentHash, _secretHashForL2MessageConsumption
     );
   }
+  // docs:end:deposit_private
 
   // docs:start:token_portal_cancel
   /**
