@@ -25,14 +25,17 @@ import {
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MembershipWitness,
-  PreviousKernelData,
+  PreviousPrivateKernelData,
+  PreviousPublicKernelData,
+  PrivateKernelPublicInputs,
   Proof,
   PublicCallData,
   PublicCallStackItem,
   PublicCircuitPublicInputs,
   PublicDataRead,
   PublicDataUpdateRequest,
-  PublicKernelInputs,
+  PublicKernelInputsInit,
+  PublicKernelInputsInner,
   PublicKernelPublicInputs,
   RETURN_VALUES_LENGTH,
   VK_TREE_HEIGHT,
@@ -162,10 +165,9 @@ export class PublicProcessor {
     this.log(`Executing enqueued public calls for tx ${await tx.getTxHash()}`);
     if (!tx.enqueuedPublicFunctionCalls) throw new Error(`Missing preimages for enqueued public calls`);
 
-    let kernelOutput = new KernelCircuitPublicInputs(
+    let kernelOutput = new PublicKernelPublicInputs(
       CombinedAccumulatedData.fromFinalAccumulatedData(tx.data.end),
       tx.data.constants,
-      tx.data.isPrivate,
     );
     let kernelProof = tx.proof;
     const newUnencryptedFunctionLogs: FunctionL2Logs[] = [];
@@ -224,24 +226,37 @@ export class PublicProcessor {
   ): Promise<KernelCircuitPublicInputs> {
     if (previousOutput?.isPrivate && previousProof) {
       // Run the public kernel circuit with previous private kernel
-      const previousKernel = this.getPreviousKernelData(previousOutput, previousProof);
-      const inputs = new PublicKernelInputs(previousKernel, callData);
-      return this.publicKernel.publicKernelCircuitPrivateInput(inputs);
+      const previousKernel = this.getPreviousPrivateKernelData(previousOutput, previousProof);
+      const inputs = new PublicKernelInputsInit(previousKernel, callData);
+      return this.publicKernel.publicKernelInitCircuit(inputs);
     } else if (previousOutput && previousProof) {
       // Run the public kernel circuit with previous public kernel
-      const previousKernel = this.getPreviousKernelData(previousOutput, previousProof);
-      const inputs = new PublicKernelInputs(previousKernel, callData);
-      return this.publicKernel.publicKernelCircuitNonFirstIteration(inputs);
+      const previousKernel = this.getPreviousPublicKernelData(previousOutput, previousProof);
+      const inputs = new PublicKernelInputsInner(previousKernel, callData);
+      return this.publicKernel.publicKernelInnerCircuit(inputs);
     } else {
       throw new Error(`No public kernel circuit for inputs`);
     }
   }
 
-  protected getPreviousKernelData(previousOutput: KernelCircuitPublicInputs, previousProof: Proof): PreviousKernelData {
+  protected getPreviousPrivateKernelData(
+    previousOutput: PrivateKernelPublicInputs,
+    previousProof: Proof,
+  ): PreviousPrivateKernelData {
     const vk = getVerificationKeys().publicKernelCircuit;
     const vkIndex = 0;
     const vkSiblingPath = MembershipWitness.random(VK_TREE_HEIGHT).siblingPath;
-    return new PreviousKernelData(previousOutput, previousProof, vk, vkIndex, vkSiblingPath);
+    return new PreviousPrivateKernelData(previousOutput, previousProof, vk, vkIndex, vkSiblingPath);
+  }
+
+  protected getPreviousPublicKernelData(
+    previousOutput: KernelCircuitPublicInputs,
+    previousProof: Proof,
+  ): PreviousPublicKernelData {
+    const vk = getVerificationKeys().publicKernelCircuit;
+    const vkIndex = 0;
+    const vkSiblingPath = MembershipWitness.random(VK_TREE_HEIGHT).siblingPath;
+    return new PreviousPublicKernelData(previousOutput, previousProof, vk, vkIndex, vkSiblingPath);
   }
 
   protected async getPublicCircuitPublicInputs(result: PublicExecutionResult) {

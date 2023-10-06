@@ -16,7 +16,7 @@ import {
 import { FieldsOf } from '../../utils/jsUtils.js';
 import { serializeToBuffer } from '../../utils/serialize.js';
 import { GlobalVariables } from '../global_variables.js';
-import { PreviousKernelData } from '../kernel/previous_kernel_data.js';
+import { PreviousPublicKernelData } from '../kernel/previous_kernel_data.js';
 import { MembershipWitness } from '../membership_witness.js';
 import { UInt32 } from '../shared.js';
 import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
@@ -122,7 +122,7 @@ export class BaseRollupInputs {
     /**
      * Data of the 2 kernels that preceded this base rollup circuit.
      */
-    public kernelData: Tuple<PreviousKernelData, typeof KERNELS_PER_BASE_ROLLUP>,
+    public kernelData: Tuple<PreviousPublicKernelData, typeof KERNELS_PER_BASE_ROLLUP>,
     /**
      * Snapshot of the private data tree at the start of the base rollup circuit.
      */

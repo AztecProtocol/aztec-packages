@@ -3,37 +3,26 @@
 #include "common.hpp"
 #include "init.hpp"
 
-#include "aztec3/circuits/abis/private_kernel_public_inputs.hpp"
 #include "aztec3/circuits/abis/public_kernel/public_kernel_inputs_inner.hpp"
 #include "aztec3/utils/dummy_circuit_builder.hpp"
 
-// Purpose of this anonymous namespace is to avoid to clash with the validate_inputs()
-// counterpart defined in native_public_kernel_circuit_private_previous_kernel.cpp
-namespace {
+namespace aztec3::circuits::kernel::public_kernel {
+
 using CircuitErrorCode = aztec3::utils::CircuitErrorCode;
 using aztec3::circuits::kernel::public_kernel::NT;
 using DummyBuilder = aztec3::utils::DummyCircuitBuilder;
-using aztec3::circuits::abis::public_kernel::PublicKernelInputsInner;
-
-/**
- * @brief Validates the kernel circuit inputs specific to having a public previous kernel
- * @param builder The circuit builder
- * @param public_kernel_inputs The inputs to this iteration of the kernel circuit
- */
-void validate_inputs(DummyBuilder& builder, PublicKernelInputsInner<NT> const& public_kernel_inputs)
-{
-    const auto& previous_kernel = public_kernel_inputs.previous_kernel.public_inputs;
-    builder.do_assert(previous_kernel.is_private == false,
-                      "Previous kernel must be public when in this public kernel version",
-                      CircuitErrorCode::PUBLIC_KERNEL__PREVIOUS_KERNEL_NOT_PUBLIC);
-}
-}  // namespace
-
-namespace aztec3::circuits::kernel::public_kernel {
-
 using aztec3::circuits::abis::PublicKernelPublicInputs;
+using aztec3::circuits::abis::public_kernel::PublicKernelInputsInner;
 using aztec3::circuits::kernel::public_kernel::common_validate_kernel_execution;
 
+void initialise_end_values(PublicKernelInputsInner<NT> const& private_inputs,
+                           PublicKernelPublicInputs<NT>& public_inputs)
+{
+    common_initialise_end_values(private_inputs, public_inputs);
+    const auto& start = private_inputs.previous_kernel.public_inputs.end;
+    public_inputs.end.public_data_update_requests = start.public_data_update_requests;
+    public_inputs.end.public_data_reads = start.public_data_reads;
+}
 
 /**
  * @brief Entry point for the native public kernel circuit with a public previous kernel
@@ -48,13 +37,13 @@ PublicKernelPublicInputs<NT> native_public_kernel_circuit_public_previous_kernel
     PublicKernelPublicInputs<NT> public_inputs{};
 
     // initialise the end state with our provided previous kernel state
-    common_initialise_end_values(public_kernel_inputs, public_inputs);
+    initialise_end_values(public_kernel_inputs, public_inputs);
 
     // validate the inputs common to all invocation circumstances
     common_validate_inputs(builder, public_kernel_inputs);
 
     // validate the inputs unique to having a previous public kernel
-    validate_inputs(builder, public_kernel_inputs);
+    // TODO: Nothing specific to validate here?
 
     // validate the kernel execution common to all invocation circumstances
     common_validate_kernel_execution(builder, public_kernel_inputs);

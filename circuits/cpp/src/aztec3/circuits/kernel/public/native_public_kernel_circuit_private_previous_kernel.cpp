@@ -27,9 +27,6 @@ void validate_inputs(DummyBuilder& builder, PublicKernelInputsInit<NT> const& pu
                       "Private call stack must be empty when executing in the public kernel (i.e. all private calls "
                       "must have been completed)",
                       CircuitErrorCode::PUBLIC_KERNEL__NON_EMPTY_PRIVATE_CALL_STACK);
-    builder.do_assert(public_kernel_inputs.previous_kernel.public_inputs.is_private == true,
-                      "Previous kernel must be private when in this public kernel version",
-                      CircuitErrorCode::PUBLIC_KERNEL__PREVIOUS_KERNEL_NOT_PRIVATE);
 }
 }  // namespace
 

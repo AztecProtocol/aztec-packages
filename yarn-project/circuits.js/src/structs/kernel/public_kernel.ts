@@ -1,28 +1,21 @@
 import { Fr } from '@aztec/foundation/fields';
 import { Tuple } from '@aztec/foundation/serialize';
 
-import {
-  MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
-  MAX_PUBLIC_DATA_READS_PER_TX,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  PUBLIC_DATA_TREE_HEIGHT,
-} from '../../cbind/constants.gen.js';
-import { assertMemberLength } from '../../utils/jsUtils.js';
+import { MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL } from '../../cbind/constants.gen.js';
 import { serializeToBuffer } from '../../utils/serialize.js';
 import { PublicCallStackItem } from '../call_stack_item.js';
-import { MembershipWitness } from '../membership_witness.js';
 import { Proof } from '../proof.js';
-import { PreviousKernelData } from './previous_kernel_data.js';
+import { PreviousPrivateKernelDataFinal, PreviousPublicKernelData } from './previous_kernel_data.js';
 
 /**
- * Inputs to the public kernel circuit.
+ * Inputs to the public init kernel circuit init (first iteration).
  */
-export class PublicKernelInputs {
+export class PublicKernelInputsInit {
   constructor(
     /**
      * Kernels are recursive and this is the data from the previous kernel.
      */
-    public readonly previousKernel: PreviousKernelData,
+    public readonly previousKernel: PreviousPrivateKernelDataFinal,
     /**
      * Public calldata assembled from the execution result and proof.
      */
@@ -35,39 +28,22 @@ export class PublicKernelInputs {
 }
 
 /**
- // eslint-disable-next-line tsdoc/syntax
- * TODO: POSSIBLY OBSOLETE --\> DELETE OR DOCUMENT.
+ * Inputs to the public inner kernel circuit (subsequent iteration).
  */
-export class WitnessedPublicCallData {
+export class PublicKernelInputsInner {
   constructor(
     /**
-     * TODO.
+     * Kernels are recursive and this is the data from the previous kernel.
+     */
+    public readonly previousKernel: PreviousPublicKernelData,
+    /**
+     * Public calldata assembled from the execution result and proof.
      */
     public readonly publicCall: PublicCallData,
-    /**
-     * TODO.
-     */
-    public readonly updateRequestsHashPaths: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>[],
-    /**
-     * TODO.
-     */
-    public readonly readsHashPaths: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>[],
-    /**
-     * TODO.
-     */
-    public readonly publicDataTreeRoot: Fr,
-  ) {
-    assertMemberLength(this, 'updateRequestsHashPaths', MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX);
-    assertMemberLength(this, 'readsHashPaths', MAX_PUBLIC_DATA_READS_PER_TX);
-  }
+  ) {}
 
   toBuffer() {
-    return serializeToBuffer(
-      this.publicCall,
-      this.updateRequestsHashPaths,
-      this.readsHashPaths,
-      this.publicDataTreeRoot,
-    );
+    return serializeToBuffer(this.previousKernel, this.publicCall);
   }
 }
 
@@ -96,9 +72,7 @@ export class PublicCallData {
      * Hash of the L2 contract bytecode.
      */
     public readonly bytecodeHash: Fr,
-  ) {
-    assertMemberLength(this, 'publicCallStackPreimages', MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
-  }
+  ) {}
 
   toBuffer() {
     return serializeToBuffer(

@@ -21,10 +21,8 @@ template <typename NCT> struct PublicKernelPublicInputs {
     CombinedAccumulatedData<NCT> end{};
     CombinedConstantData<NCT> constants{};
 
-    boolean is_private = false;  // TODO: might need to instantiate from witness!
-
     // for serialization, update with new fields
-    MSGPACK_FIELDS(end, constants, is_private);
+    MSGPACK_FIELDS(end, constants);
 
     boolean operator==(PublicKernelPublicInputs<NCT> const& other) const
     {
@@ -35,14 +33,9 @@ template <typename NCT> struct PublicKernelPublicInputs {
     {
         static_assert((std::is_same<NativeTypes, NCT>::value));
 
-        // Capture the circuit builder:
-        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(builder, e); };
-
         PublicKernelPublicInputs<CircuitTypes<Builder>> private_inputs = {
             end.to_circuit_type(builder),
             constants.to_circuit_type(builder),
-
-            to_ct(is_private),
         };
 
         return private_inputs;
@@ -51,14 +44,11 @@ template <typename NCT> struct PublicKernelPublicInputs {
     template <typename Builder> PublicKernelPublicInputs<NativeTypes> to_native_type() const
     {
         static_assert(std::is_same<CircuitTypes<Builder>, NCT>::value);
-        auto to_nt = [&](auto& e) { return aztec3::utils::types::to_nt<Builder>(e); };
         auto to_native_type = []<typename T>(T& e) { return e.template to_native_type<Builder>(); };
 
         PublicKernelPublicInputs<NativeTypes> pis = {
             to_native_type(end),
             to_native_type(constants),
-
-            to_nt(is_private),
         };
 
         return pis;
@@ -70,8 +60,6 @@ template <typename NCT> struct PublicKernelPublicInputs {
 
         end.set_public();
         constants.set_public();
-
-        fr(is_private).set_public();
     }
 };
 

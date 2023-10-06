@@ -23,6 +23,7 @@
 #include "aztec3/circuits/abis/point.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_kernel_inputs_init.hpp"
 #include "aztec3/circuits/abis/public_kernel/public_kernel_inputs_init.hpp"
+#include "aztec3/circuits/abis/public_kernel/public_kernel_inputs_inner.hpp"
 #include "aztec3/circuits/abis/tx_request.hpp"
 #include "aztec3/circuits/abis/types.hpp"
 #include "aztec3/circuits/hash.hpp"
@@ -498,6 +499,12 @@ WASM_EXPORT const char* abis__test_roundtrip_serialize_previous_private_kernel_d
     return as_string_output<aztec3::circuits::abis::PreviousPrivateKernelData<NT>>(kernel_data_buf, size);
 }
 
+WASM_EXPORT const char* abis__test_roundtrip_serialize_previous_public_kernel_data(uint8_t const* kernel_data_buf,
+                                                                                   uint32_t* size)
+{
+    return as_string_output<aztec3::circuits::abis::PreviousPublicKernelData<NT>>(kernel_data_buf, size);
+}
+
 WASM_EXPORT const char* abis__test_roundtrip_serialize_base_or_merge_rollup_public_inputs(
     uint8_t const* rollup_inputs_buf, uint32_t* size)
 {
@@ -553,21 +560,32 @@ WASM_EXPORT const char* abis__test_roundtrip_serialize_private_kernel_inputs_ini
     return as_string_output<aztec3::circuits::abis::private_kernel::PrivateKernelInputsInit<NT>>(input, size);
 }
 
-WASM_EXPORT const char* abis__test_roundtrip_serialize_kernel_circuit_public_inputs(uint8_t const* input,
-                                                                                    uint32_t* size)
+WASM_EXPORT const char* abis__test_roundtrip_serialize_private_kernel_circuit_public_inputs(uint8_t const* input,
+                                                                                            uint32_t* size)
 {
     return as_string_output<aztec3::circuits::abis::PrivateKernelPublicInputs<NT>>(input, size);
 }
 
-WASM_EXPORT const char* abis__test_roundtrip_serialize_kernel_circuit_public_inputs_final(uint8_t const* input,
-                                                                                          uint32_t* size)
+WASM_EXPORT const char* abis__test_roundtrip_serialize_private_kernel_circuit_public_inputs_final(uint8_t const* input,
+                                                                                                  uint32_t* size)
 {
     return as_string_output<aztec3::circuits::abis::PrivateKernelPublicInputsFinal<NT>>(input, size);
+}
+
+WASM_EXPORT const char* abis__test_roundtrip_serialize_public_kernel_circuit_public_inputs(uint8_t const* input,
+                                                                                           uint32_t* size)
+{
+    return as_string_output<aztec3::circuits::abis::PublicKernelPublicInputs<NT>>(input, size);
 }
 
 WASM_EXPORT const char* abis__test_roundtrip_serialize_public_kernel_inputs_init(uint8_t const* input, uint32_t* size)
 {
     return as_string_output<aztec3::circuits::abis::public_kernel::PublicKernelInputsInit<NT>>(input, size);
+}
+
+WASM_EXPORT const char* abis__test_roundtrip_serialize_public_kernel_inputs_inner(uint8_t const* input, uint32_t* size)
+{
+    return as_string_output<aztec3::circuits::abis::public_kernel::PublicKernelInputsInner<NT>>(input, size);
 }
 
 WASM_EXPORT const char* abis__test_roundtrip_serialize_function_leaf_preimage(uint8_t const* function_leaf_preimage_buf,

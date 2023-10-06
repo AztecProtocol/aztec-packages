@@ -1,8 +1,8 @@
 #pragma once
 
 #include "public_call_data.hpp"
-#include "../previous_public_kernel_data.hpp"
 
+#include "aztec3/circuits/abis/previous_private_kernel_data_final.hpp"
 #include "aztec3/utils/types/circuit_types.hpp"
 #include "aztec3/utils/types/native_types.hpp"
 
@@ -10,6 +10,7 @@
 
 namespace aztec3::circuits::abis::public_kernel {
 
+using ::aztec3::circuits::abis::PreviousPrivateKernelDataFinal;
 using aztec3::utils::types::CircuitTypes;
 using aztec3::utils::types::NativeTypes;
 using std::is_same;
@@ -18,7 +19,7 @@ template <typename NCT> struct PublicKernelInputsInit {
     using fr = typename NCT::fr;
     using boolean = typename NCT::boolean;
 
-    PreviousPublicKernelData<NCT> previous_kernel{};
+    PreviousPrivateKernelDataFinal<NCT> previous_kernel{};
     PublicCallData<NCT> public_call{};
 
     // for serialization, update with new fields

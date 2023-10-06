@@ -25,7 +25,7 @@ import {
   PRIVATE_DATA_SUBTREE_HEIGHT,
   PRIVATE_DATA_SUBTREE_SIBLING_PATH_LENGTH,
   PUBLIC_DATA_TREE_HEIGHT,
-  PreviousKernelData,
+  PreviousPublicKernelData,
   PreviousRollupData,
   Proof,
   ROLLUP_VK_TREE_HEIGHT,
@@ -511,7 +511,7 @@ export class SoloBlockBuilder implements BlockBuilder {
   }
 
   protected getKernelDataFor(tx: ProcessedTx) {
-    return new PreviousKernelData(
+    return new PreviousPublicKernelData(
       tx.data,
       tx.proof,
 

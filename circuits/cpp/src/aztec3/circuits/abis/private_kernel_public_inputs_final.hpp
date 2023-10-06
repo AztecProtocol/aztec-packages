@@ -21,10 +21,8 @@ template <typename NCT> struct PrivateKernelPublicInputsFinal {
     FinalAccumulatedData<NCT> end{};
     CombinedConstantData<NCT> constants{};
 
-    boolean is_private = true;  // TODO: might need to instantiate from witness!
-
     // for serialization, update with new fields
-    MSGPACK_FIELDS(end, constants, is_private);
+    MSGPACK_FIELDS(end, constants);
 
     boolean operator==(PrivateKernelPublicInputsFinal<NCT> const& other) const
     {
@@ -42,8 +40,6 @@ template <typename NCT> struct PrivateKernelPublicInputsFinal {
         PrivateKernelPublicInputsFinal<CircuitTypes<Builder>> private_inputs = {
             end.to_circuit_type(builder),
             constants.to_circuit_type(builder),
-
-            to_ct(is_private),
         };
 
         return private_inputs;
@@ -58,8 +54,6 @@ template <typename NCT> struct PrivateKernelPublicInputsFinal {
         PrivateKernelPublicInputsFinal<NativeTypes> pis = {
             to_native_type(end),
             to_native_type(constants),
-
-            to_nt(is_private),
         };
 
         return pis;
@@ -71,8 +65,6 @@ template <typename NCT> struct PrivateKernelPublicInputsFinal {
 
         end.set_public();
         constants.set_public();
-
-        fr(is_private).set_public();
     }
 };
 

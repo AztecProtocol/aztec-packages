@@ -83,9 +83,6 @@ void validate_inputs(DummyCircuitBuilder& builder, PrivateKernelInputsInner<NT> 
 
     NT::fr const start_private_call_stack_length = array_length(start.private_call_stack);
 
-    builder.do_assert(private_inputs.previous_kernel.public_inputs.is_private == true,
-                      "Cannot verify a non-private kernel snark in the private kernel circuit",
-                      CircuitErrorCode::PRIVATE_KERNEL__NON_PRIVATE_KERNEL_VERIFIED_WITH_PRIVATE_KERNEL);
     builder.do_assert(this_call_stack_item.function_data.is_constructor == false,
                       "A constructor must be executed as the first tx in the recursion",
                       CircuitErrorCode::PRIVATE_KERNEL__CONSTRUCTOR_EXECUTED_IN_RECURSION);

@@ -31,7 +31,6 @@ import {
   HISTORIC_BLOCKS_TREE_HEIGHT,
   HistoricBlockData,
   KERNELS_PER_BASE_ROLLUP,
-  KernelCircuitPublicInputs,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   MAX_NEW_COMMITMENTS_PER_CALL,
   MAX_NEW_COMMITMENTS_PER_TX,
@@ -67,13 +66,15 @@ import {
   PRIVATE_DATA_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
   Point,
-  PreviousKernelData,
+  PreviousPrivateKernelData,
+  PreviousPublicKernelData,
   PreviousRollupData,
   PrivateCallData,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
   PrivateKernelInputsInit,
   PrivateKernelInputsInner,
+  PrivateKernelPublicInputs,
   PrivateKernelPublicInputsFinal,
   Proof,
   PublicCallData,
@@ -82,7 +83,7 @@ import {
   PublicCircuitPublicInputs,
   PublicDataRead,
   PublicDataUpdateRequest,
-  PublicKernelInputs,
+  PublicKernelPublicInputs,
   RETURN_VALUES_LENGTH,
   ROLLUP_VK_TREE_HEIGHT,
   ReadRequestMembershipWitness,
@@ -93,10 +94,11 @@ import {
   TxRequest,
   VK_TREE_HEIGHT,
   VerificationKey,
-  WitnessedPublicCallData,
   makeHalfFullTuple,
   makeTuple,
   range,
+  PublicKernelInputsInner,
+  PublicKernelInputsInit,
 } from '../index.js';
 import { GlobalVariables } from '../structs/global_variables.js';
 
@@ -343,16 +345,21 @@ export function makePublicCircuitPublicInputs(
 }
 
 /**
- * Creates arbitrary kernel circuit public inputs.
- * @param seed - The seed to use for generating the kernel circuit public inputs.
- * @returns Kernel circuit public inputs.
+ * Creates arbitrary private kernel circuit public inputs.
+ * @param seed - The seed to use for generating the private kernel circuit public inputs.
+ * @returns Private kernel circuit public inputs.
  */
-export function makeKernelPublicInputs(seed = 1, fullAccumulatedData = true): KernelCircuitPublicInputs {
-  return new KernelCircuitPublicInputs(
-    makeAccumulatedData(seed, fullAccumulatedData),
-    makeConstantData(seed + 0x100),
-    true,
-  );
+export function makePrivateKernelPublicInputs(seed = 1, fullAccumulatedData = true): PrivateKernelPublicInputs {
+  return new PrivateKernelPublicInputs(makeAccumulatedData(seed, fullAccumulatedData), makeConstantData(seed + 0x100));
+}
+
+/**
+ * Creates arbitrary public kernel circuit public inputs.
+ * @param seed - The seed to use for generating the public kernel circuit public inputs.
+ * @returns Public kernel circuit public inputs.
+ */
+export function makePublicKernelPublicInputs(seed = 1, fullAccumulatedData = true): PublicKernelPublicInputs {
+  return new PublicKernelPublicInputs(makeAccumulatedData(seed, fullAccumulatedData), makeConstantData(seed + 0x100));
 }
 
 /**
@@ -448,14 +455,36 @@ export function makePoint(seed = 1): Point {
 }
 
 /**
- * Makes arbitrary previous kernel data.
- * @param seed - The seed to use for generating the previous kernel data.
- * @param kernelPublicInputs - The kernel public inputs to use for generating the previous kernel data.
- * @returns A previous kernel data.
+ * Makes arbitrary previous private kernel data.
+ * @param seed - The seed to use for generating the previous private kernel data.
+ * @param kernelPublicInputs - The private kernel public inputs to use for generating the previous private kernel data.
+ * @returns A previous private kernel data.
  */
-export function makePreviousKernelData(seed = 1, kernelPublicInputs?: KernelCircuitPublicInputs): PreviousKernelData {
-  return new PreviousKernelData(
-    kernelPublicInputs ?? makeKernelPublicInputs(seed, true),
+export function makePreviousPrivateKernelData(
+  seed = 1,
+  privateKernelPublicInputs?: PrivateKernelPublicInputs,
+): PreviousPrivateKernelData {
+  return new PreviousPrivateKernelData(
+    privateKernelPublicInputs ?? makePrivateKernelPublicInputs(seed, true),
+    new Proof(Buffer.alloc(16, seed + 0x80)),
+    makeVerificationKey(),
+    0x42,
+    makeTuple(VK_TREE_HEIGHT, fr, 0x1000),
+  );
+}
+
+/**
+ * Makes arbitrary previous public kernel data.
+ * @param seed - The seed to use for generating the previous public kernel data.
+ * @param publicKernelPublicInputs - The public kernel public inputs to use for generating the previous public kernel data.
+ * @returns A previous public kernel data.
+ */
+export function makePreviousPublicKernelData(
+  seed = 1,
+  publicKernelPublicInputs?: PublicKernelPublicInputs,
+): PreviousPublicKernelData {
+  return new PreviousPublicKernelData(
+    publicKernelPublicInputs ?? makePublicKernelPublicInputs(seed, true),
     new Proof(Buffer.alloc(16, seed + 0x80)),
     makeVerificationKey(),
     0x42,
@@ -487,7 +516,7 @@ export function makePrivateKernelInputsInit(seed = 1): PrivateKernelInputsInit {
  * @returns Private kernel inputs.
  */
 export function makePrivateKernelInputsInner(seed = 1): PrivateKernelInputsInner {
-  return new PrivateKernelInputsInner(makePreviousKernelData(seed), makePrivateCallData(seed + 0x1000));
+  return new PrivateKernelInputsInner(makePreviousPrivateKernelData(seed), makePrivateCallData(seed + 0x1000));
 }
 
 /**
@@ -548,51 +577,67 @@ export async function makePublicCallData(seed = 1, full = false): Promise<Public
 }
 
 /**
- * Makes arbitrary witnessed public call data.
- * @param seed - The seed to use for generating the witnessed public call data.
- * @returns A witnessed public call data.
+ * Makes arbitrary public init kernel inputs.
+ * @param seed - The seed to use for generating the public init kernel inputs.
+ * @returns Public init kernel inputs.
  */
-export async function makeWitnessedPublicCallData(seed = 1): Promise<WitnessedPublicCallData> {
-  return new WitnessedPublicCallData(
-    await makePublicCallData(seed),
-    range(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, seed + 0x100).map(x =>
-      makeMembershipWitness(PUBLIC_DATA_TREE_HEIGHT, x),
-    ),
-    makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, x => makeMembershipWitness(PUBLIC_DATA_TREE_HEIGHT, x), seed + 0x200),
-    fr(seed + 0x300),
-  );
+export async function makePublicKernelInputsInit(seed = 1): Promise<PublicKernelInputsInit> {
+  return new PublicKernelInputsInit(makePreviousPrivateKernelData(seed), await makePublicCallData(seed + 0x1000));
 }
 
 /**
- * Makes arbitrary public kernel inputs.
- * @param seed - The seed to use for generating the public kernel inputs.
- * @returns Public kernel inputs.
+ * Makes arbitrary public inner kernel inputs.
+ * @param seed - The seed to use for generating the public inner kernel inputs.
+ * @returns Public inner kernel inputs.
  */
-export async function makePublicKernelInputs(seed = 1): Promise<PublicKernelInputs> {
-  return new PublicKernelInputs(makePreviousKernelData(seed), await makePublicCallData(seed + 0x1000));
+export async function makePublicKernelInputsInner(seed = 1): Promise<PublicKernelInputsInner> {
+  return new PublicKernelInputsInner(makePreviousPublicKernelData(seed), await makePublicCallData(seed + 0x1000));
 }
 
 /**
- * Makes arbitrary public kernel inputs.
- * @param seed - The seed to use for generating the public kernel inputs.
+ * Makes arbitrary public init kernel inputs.
+ * @param seed - The seed to use for generating the public init kernel inputs.
  * @param tweak - An optional function to tweak the output before computing hashes.
- * @returns Public kernel inputs.
+ * @returns Public init kernel inputs.
  */
-export async function makePublicKernelInputsWithTweak(
+export async function makePublicKernelInputsInitWithTweak(
   seed = 1,
-  tweak?: (publicKernelInputs: PublicKernelInputs) => void,
-): Promise<PublicKernelInputs> {
-  const kernelCircuitPublicInputs = makeKernelPublicInputs(seed, false);
-  const publicKernelInputs = new PublicKernelInputs(
-    makePreviousKernelData(seed, kernelCircuitPublicInputs),
+  tweak?: (publicKernelInputsInit: PublicKernelInputsInit) => void,
+): Promise<PublicKernelInputsInit> {
+  const kernelCircuitPublicInputs = makePrivateKernelPublicInputs(seed, false);
+  const publicKernelInputsInit = new PublicKernelInputsInit(
+    makePreviousPrivateKernelData(seed, kernelCircuitPublicInputs),
     await makePublicCallData(seed + 0x1000),
   );
-  if (tweak) tweak(publicKernelInputs);
+  if (tweak) tweak(publicKernelInputsInit);
   // Set the call stack item for this circuit iteration at the top of the call stack
   const wasm = await CircuitsWasm.get();
-  publicKernelInputs.previousKernel.publicInputs.end.publicCallStack[MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX - 1] =
-    computeCallStackItemHash(wasm, publicKernelInputs.publicCall.callStackItem);
-  return publicKernelInputs;
+  publicKernelInputsInit.previousKernel.publicInputs.end.publicCallStack[MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX - 1] =
+    computeCallStackItemHash(wasm, publicKernelInputsInit.publicCall.callStackItem);
+  return publicKernelInputsInit;
+}
+
+/**
+ * Makes arbitrary public inner kernel inputs.
+ * @param seed - The seed to use for generating the public inner kernel inputs.
+ * @param tweak - An optional function to tweak the output before computing hashes.
+ * @returns Public inner kernel inputs.
+ */
+export async function makePublicKernelInputsInnerWithTweak(
+  seed = 1,
+  tweak?: (publicKernelInputsInner: PublicKernelInputsInner) => void,
+): Promise<PublicKernelInputsInner> {
+  const kernelCircuitPublicInputs = makePublicKernelPublicInputs(seed, false);
+  const publicKernelInputsInner = new PublicKernelInputsInner(
+    makePreviousPublicKernelData(seed, kernelCircuitPublicInputs),
+    await makePublicCallData(seed + 0x1000),
+  );
+  if (tweak) tweak(publicKernelInputsInner);
+  // Set the call stack item for this circuit iteration at the top of the call stack
+  const wasm = await CircuitsWasm.get();
+  publicKernelInputsInner.previousKernel.publicInputs.end.publicCallStack[MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX - 1] =
+    computeCallStackItemHash(wasm, publicKernelInputsInner.publicCall.callStackItem);
+  return publicKernelInputsInner;
 }
 
 /**
@@ -892,7 +937,7 @@ export function makeMergeRollupInputs(seed = 0): MergeRollupInputs {
  * @returns A base rollup inputs.
  */
 export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
-  const kernelData = makeTuple(KERNELS_PER_BASE_ROLLUP, x => makePreviousKernelData(seed + (x + 1) * 0x100));
+  const kernelData = makeTuple(KERNELS_PER_BASE_ROLLUP, x => makePreviousPublicKernelData(seed + (x + 1) * 0x100));
 
   const startPrivateDataTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x100);
   const startNullifierTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x200);

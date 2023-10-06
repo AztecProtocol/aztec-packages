@@ -8,7 +8,7 @@ import { CombinedConstantData } from './combined_constant_data.js';
  * Public inputs of the final ordering private kernel circuit.
  * @see circuits/cpp/src/aztec3/circuits/abis/private_kernel_public_inputs_final.hpp
  */
-export class KernelCircuitPublicInputsFinal {
+export class PrivateKernelPublicInputsFinal {
   constructor(
     /**
      * Final data accumulated for ordering private kernel circuit.
@@ -18,14 +18,10 @@ export class KernelCircuitPublicInputsFinal {
      * Data which is not modified by the circuits.
      */
     public constants: CombinedConstantData,
-    /**
-     * Indicates whether the input is for a private or public kernel.
-     */
-    public isPrivate: boolean,
   ) {}
 
   toBuffer() {
-    return serializeToBuffer(this.end, this.constants, this.isPrivate);
+    return serializeToBuffer(this.end, this.constants);
   }
 
   /**
@@ -33,25 +29,15 @@ export class KernelCircuitPublicInputsFinal {
    * @param buffer - Buffer or reader to read from.
    * @returns A new instance of KernelCircuitPublicInputsFinal.
    */
-  static fromBuffer(buffer: Buffer | BufferReader): KernelCircuitPublicInputsFinal {
+  static fromBuffer(buffer: Buffer | BufferReader): PrivateKernelPublicInputsFinal {
     const reader = BufferReader.asReader(buffer);
-    return new KernelCircuitPublicInputsFinal(
+    return new PrivateKernelPublicInputsFinal(
       reader.readObject(FinalAccumulatedData),
       reader.readObject(CombinedConstantData),
-      reader.readBoolean(),
     );
   }
 
   static empty() {
-    return new KernelCircuitPublicInputsFinal(FinalAccumulatedData.empty(), CombinedConstantData.empty(), true);
-  }
-}
-
-/**
- * Public inputs of the final private kernel circuit.
- */
-export class PrivateKernelPublicInputsFinal extends KernelCircuitPublicInputsFinal {
-  constructor(end: FinalAccumulatedData, constants: CombinedConstantData) {
-    super(end, constants, true);
+    return new PrivateKernelPublicInputsFinal(FinalAccumulatedData.empty(), CombinedConstantData.empty());
   }
 }

@@ -1,12 +1,12 @@
 import {
   CircuitError,
   CircuitsWasm,
-  KernelCircuitPublicInputs,
-  KernelCircuitPublicInputsFinal,
-  PrivateCircuitPublicInputs,
+  PrivateKernelPublicInputsFinal,
+  PrivateKernelPublicInputs,
   PrivateKernelInputsInit,
   PrivateKernelInputsInner,
   PrivateKernelInputsOrdering,
+  PrivateCircuitPublicInputs,
   Proof,
   makeEmptyProof,
   privateKernelSimInit,
@@ -29,7 +29,7 @@ export interface ProofOutput {
    * Note: C++ side does not define the specific data structure PrivateKernelPublicInputs and therefore
    * would not generate a binding in circuits.gen.ts.
    */
-  publicInputs: KernelCircuitPublicInputs;
+  publicInputs: PrivateKernelPublicInputs;
   /**
    * The zk-SNARK proof for the kernel execution.
    */
@@ -46,7 +46,7 @@ export interface ProofOutputFinal {
    * Note: C++ side does not define the specific data structure PrivateKernelPublicInputsFinal and therefore
    * would not generate a binding in circuits.gen.ts.
    */
-  publicInputs: KernelCircuitPublicInputsFinal;
+  publicInputs: PrivateKernelPublicInputsFinal;
   /**
    * The zk-SNARK proof for the kernel execution.
    */

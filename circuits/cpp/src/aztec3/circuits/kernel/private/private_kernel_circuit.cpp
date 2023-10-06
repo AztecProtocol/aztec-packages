@@ -284,8 +284,6 @@ void validate_inputs(PrivateKernelInputsInner<CT> const& private_inputs, bool fi
 
     // Recursive Case
     std::vector<std::pair<CT::boolean, std::string>> const recursive_case_conditions{
-        { private_inputs.previous_kernel.public_inputs.is_private == true,
-          "Cannot verify a non-private kernel snark in the private kernel circuit" },
         { this_call_stack_item.function_data.is_constructor == false,
           "A constructor must be executed as the first tx in the recursion" },
         { start_private_call_stack_length != 0,

@@ -2,7 +2,8 @@ import {
   BaseOrMergeRollupPublicInputs,
   BaseRollupInputs,
   MergeRollupInputs,
-  PublicKernelInputs,
+  PublicKernelInputsInit,
+  PublicKernelInputsInner,
   PublicKernelPublicInputs,
   RootRollupInputs,
   RootRollupPublicInputs,
@@ -41,11 +42,11 @@ export interface PublicKernelCircuitSimulator {
    * @param inputs - Inputs to the circuit.
    * @returns The public inputs as outputs of the simulation.
    */
-  publicKernelCircuitPrivateInput(inputs: PublicKernelInputs): Promise<PublicKernelPublicInputs>;
+  publicKernelInitCircuit(inputs: PublicKernelInputsInit): Promise<PublicKernelPublicInputs>;
   /**
    * Simulates the public kernel circuit (with no previous public kernel circuit run) from its inputs.
    * @param inputs - Inputs to the circuit.
    * @returns The public inputs as outputs of the simulation.
    */
-  publicKernelCircuitNonFirstIteration(inputs: PublicKernelInputs): Promise<PublicKernelPublicInputs>;
+  publicKernelInnerCircuit(inputs: PublicKernelInputsInner): Promise<PublicKernelPublicInputs>;
 }

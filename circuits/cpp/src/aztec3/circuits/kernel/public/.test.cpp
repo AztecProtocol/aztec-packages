@@ -7,6 +7,7 @@
 #include "aztec3/circuits/abis/combined_accumulated_data.hpp"
 #include "aztec3/circuits/abis/combined_constant_data.hpp"
 #include "aztec3/circuits/abis/contract_storage_update_request.hpp"
+#include "aztec3/circuits/abis/final_accumulated_data.hpp"
 #include "aztec3/circuits/abis/previous_private_kernel_data.hpp"
 #include "aztec3/circuits/abis/private_kernel_public_inputs.hpp"
 #include "aztec3/circuits/abis/public_kernel/public_call_data.hpp"
@@ -33,6 +34,7 @@ using aztec3::circuits::abis::CombinedAccumulatedData;
 using aztec3::circuits::abis::CombinedConstantData;
 using aztec3::circuits::abis::ContractStorageRead;
 using aztec3::circuits::abis::ContractStorageUpdateRequest;
+using aztec3::circuits::abis::FinalAccumulatedData;
 using aztec3::circuits::abis::HistoricBlockData;
 using aztec3::circuits::abis::NewContractData;
 using aztec3::circuits::abis::OptionallyRevealedData;
@@ -409,6 +411,28 @@ CombinedAccumulatedData<NT> get_combined_accumulated_data(NT::uint32& seed,
     };
 }
 
+FinalAccumulatedData<NT> get_final_accumulated_data(NT::uint32& seed, NT::fr const& call_stack_item_hash)
+{
+    std::array<NT::fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX> public_call_stack{};
+    public_call_stack[0] = call_stack_item_hash;
+
+    return FinalAccumulatedData<NT>{
+        .new_commitments = array_of_values<MAX_NEW_COMMITMENTS_PER_TX>(seed, MAX_NEW_COMMITMENTS_PER_TX / 2),
+        .new_nullifiers = array_of_values<MAX_NEW_NULLIFIERS_PER_TX>(seed, MAX_NEW_NULLIFIERS_PER_TX / 2),
+        .private_call_stack = array_of_values<MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>(seed, 0),
+        .public_call_stack = public_call_stack,
+        .new_l2_to_l1_msgs = array_of_values<MAX_NEW_L2_TO_L1_MSGS_PER_TX>(seed, MAX_NEW_L2_TO_L1_MSGS_PER_TX / 2),
+        .encrypted_logs_hash = array_of_values<NUM_FIELDS_PER_SHA256>(
+            seed, NUM_FIELDS_PER_SHA256),  // only private kernel is producing encrypted logs
+        .unencrypted_logs_hash = array_of_values<NUM_FIELDS_PER_SHA256>(seed, NUM_FIELDS_PER_SHA256),
+        .encrypted_log_preimages_length = ++seed,
+        .unencrypted_log_preimages_length = ++seed,
+        .new_contracts = std::array<NewContractData<NT>, MAX_NEW_CONTRACTS_PER_TX>(),
+        .optionally_revealed_data =
+            std::array<OptionallyRevealedData<NT>, MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX>(),
+    };
+}
+
 /**
  * @brief Generates the inputs to the init public kernel circuit
  *
@@ -420,7 +444,7 @@ PublicKernelInputsInit<NT> get_public_kernel_inputs_init()
     auto public_call_data = get_public_call_data(seed);
 
     auto end_constants = get_combined_constant_data(seed);
-    auto end_accumulated_data = get_combined_accumulated_data(seed, public_call_data.call_stack_item.hash(), true);
+    auto end_accumulated_data = get_final_accumulated_data(seed, public_call_data.call_stack_item.hash());
 
     PublicKernelInputsInit<NT> kernel_inputs = {
         .public_call = public_call_data,
@@ -428,7 +452,6 @@ PublicKernelInputsInit<NT> get_public_kernel_inputs_init()
 
     kernel_inputs.previous_kernel.public_inputs.end = end_accumulated_data;
     kernel_inputs.previous_kernel.public_inputs.constants = end_constants;
-    kernel_inputs.previous_kernel.public_inputs.is_private = true;
 
     return kernel_inputs;
 }  // namespace aztec3::circuits::kernel::public_kernel
@@ -452,7 +475,6 @@ PublicKernelInputsInner<NT> get_public_kernel_inputs_inner()
 
     kernel_inputs.previous_kernel.public_inputs.end = end_accumulated_data;
     kernel_inputs.previous_kernel.public_inputs.constants = end_constants;
-    kernel_inputs.previous_kernel.public_inputs.is_private = false;
 
     return kernel_inputs;
 }  // namespace aztec3::circuits::kernel::public_kernel
@@ -541,7 +563,6 @@ TEST(public_kernel_tests, only_valid_public_data_reads_should_be_propagated)
     ASSERT_EQ(dummyBuilder.get_first_failure(), utils::CircuitError::no_error());
     ASSERT_FALSE(dummyBuilder.failed());
 
-    ASSERT_FALSE(public_inputs.is_private);
     ASSERT_EQ(public_inputs.constants.tx_context, inputs.previous_kernel.public_inputs.constants.tx_context);
 
     for (size_t i = 0; i < MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL; i++) {
@@ -586,7 +607,6 @@ TEST(public_kernel_tests, only_valid_update_requests_should_be_propagated)
     ASSERT_EQ(dummyBuilder.get_first_failure(), utils::CircuitError::no_error());
     ASSERT_FALSE(dummyBuilder.failed());
 
-    ASSERT_FALSE(public_inputs.is_private);
     ASSERT_EQ(public_inputs.constants.tx_context, inputs.previous_kernel.public_inputs.constants.tx_context);
 
     for (size_t i = 0; i < MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL; i++) {
@@ -972,7 +992,6 @@ TEST(public_kernel_tests, private_previous_kernel_non_private_previous_kernel_sh
     DummyBuilder dummyBuilder =
         DummyBuilder("public_kernel_tests__private_previous_kernel_non_private_previous_kernel_should_fail");
     PublicKernelInputsInit<NT> inputs = get_public_kernel_inputs_init();
-    inputs.previous_kernel.public_inputs.is_private = false;
     auto public_inputs = native_public_kernel_circuit_private_previous_kernel(dummyBuilder, inputs);
     ASSERT_TRUE(dummyBuilder.failed());
     ASSERT_EQ(dummyBuilder.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__PREVIOUS_KERNEL_NOT_PRIVATE);
@@ -1036,7 +1055,6 @@ TEST(public_kernel_tests, public_previous_kernel_private_previous_kernel_should_
     DummyBuilder dummyBuilder =
         DummyBuilder("public_kernel_tests__public_previous_kernel_private_previous_kernel_should_fail");
     PublicKernelInputsInner<NT> inputs = get_public_kernel_inputs_inner();
-    inputs.previous_kernel.public_inputs.is_private = true;
     auto public_inputs = native_public_kernel_circuit_public_previous_kernel(dummyBuilder, inputs);
     ASSERT_TRUE(dummyBuilder.failed());
     ASSERT_EQ(dummyBuilder.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__PREVIOUS_KERNEL_NOT_PUBLIC);

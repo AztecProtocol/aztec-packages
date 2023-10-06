@@ -29,8 +29,6 @@ import {
   G1AffineElement,
   GlobalVariables,
   HistoricBlockData,
-  KernelCircuitPublicInputs,
-  KernelCircuitPublicInputsFinal,
   MembershipWitness4,
   MembershipWitness8,
   MembershipWitness16,
@@ -40,7 +38,9 @@ import {
   NullifierLeafPreimage,
   OptionallyRevealedData,
   Point,
-  PreviousKernelData,
+  PreviousPrivateKernelData,
+  PreviousPrivateKernelDataFinal,
+  PreviousPublicKernelData,
   PreviousRollupData,
   PrivateCallData,
   PrivateCallStackItem,
@@ -48,13 +48,17 @@ import {
   PrivateKernelInputsInit,
   PrivateKernelInputsInner,
   PrivateKernelInputsOrdering,
+  PrivateKernelPublicInputs,
+  PrivateKernelPublicInputsFinal,
   Proof,
   PublicCallData,
   PublicCallStackItem,
   PublicCircuitPublicInputs,
   PublicDataRead,
   PublicDataUpdateRequest,
-  PublicKernelInputs,
+  PublicKernelInputsInit,
+  PublicKernelInputsInner,
+  PublicKernelPublicInputs,
   ReadRequestMembershipWitness,
   RootRollupInputs,
   RootRollupPublicInputs,
@@ -920,43 +924,31 @@ export function fromCombinedConstantData(o: CombinedConstantData): MsgpackCombin
   };
 }
 
-interface MsgpackKernelCircuitPublicInputs {
+interface MsgpackPublicKernelPublicInputs {
   end: MsgpackCombinedAccumulatedData;
   constants: MsgpackCombinedConstantData;
-  is_private: boolean;
 }
 
-export function toKernelCircuitPublicInputs(o: MsgpackKernelCircuitPublicInputs): KernelCircuitPublicInputs {
+export function toPublicKernelPublicInputs(o: MsgpackPublicKernelPublicInputs): PublicKernelPublicInputs {
   if (o.end === undefined) {
-    throw new Error('Expected end in KernelCircuitPublicInputs deserialization');
+    throw new Error('Expected end in PublicKernelPublicInputs deserialization');
   }
   if (o.constants === undefined) {
-    throw new Error('Expected constants in KernelCircuitPublicInputs deserialization');
+    throw new Error('Expected constants in PublicKernelPublicInputs deserialization');
   }
-  if (o.is_private === undefined) {
-    throw new Error('Expected is_private in KernelCircuitPublicInputs deserialization');
-  }
-  return new KernelCircuitPublicInputs(
-    toCombinedAccumulatedData(o.end),
-    toCombinedConstantData(o.constants),
-    o.is_private,
-  );
+  return new PublicKernelPublicInputs(toCombinedAccumulatedData(o.end), toCombinedConstantData(o.constants));
 }
 
-export function fromKernelCircuitPublicInputs(o: KernelCircuitPublicInputs): MsgpackKernelCircuitPublicInputs {
+export function fromPublicKernelPublicInputs(o: PublicKernelPublicInputs): MsgpackPublicKernelPublicInputs {
   if (o.end === undefined) {
-    throw new Error('Expected end in KernelCircuitPublicInputs serialization');
+    throw new Error('Expected end in PublicKernelPublicInputs serialization');
   }
   if (o.constants === undefined) {
-    throw new Error('Expected constants in KernelCircuitPublicInputs serialization');
-  }
-  if (o.isPrivate === undefined) {
-    throw new Error('Expected isPrivate in KernelCircuitPublicInputs serialization');
+    throw new Error('Expected constants in PublicKernelPublicInputs serialization');
   }
   return {
     end: fromCombinedAccumulatedData(o.end),
     constants: fromCombinedConstantData(o.constants),
-    is_private: o.isPrivate,
   };
 }
 
@@ -1027,32 +1019,32 @@ export function fromVerificationKeyData(o: VerificationKeyData): MsgpackVerifica
   };
 }
 
-interface MsgpackPreviousKernelData {
-  public_inputs: MsgpackKernelCircuitPublicInputs;
+interface MsgpackPreviousPublicKernelData {
+  public_inputs: MsgpackPublicKernelPublicInputs;
   proof: Buffer;
   vk: MsgpackVerificationKeyData;
   vk_index: number;
   vk_path: Tuple<Buffer, 3>;
 }
 
-export function toPreviousKernelData(o: MsgpackPreviousKernelData): PreviousKernelData {
+export function toPreviousPublicKernelData(o: MsgpackPreviousPublicKernelData): PreviousPublicKernelData {
   if (o.public_inputs === undefined) {
-    throw new Error('Expected public_inputs in PreviousKernelData deserialization');
+    throw new Error('Expected public_inputs in PreviousPublicKernelData deserialization');
   }
   if (o.proof === undefined) {
-    throw new Error('Expected proof in PreviousKernelData deserialization');
+    throw new Error('Expected proof in PreviousPublicKernelData deserialization');
   }
   if (o.vk === undefined) {
-    throw new Error('Expected vk in PreviousKernelData deserialization');
+    throw new Error('Expected vk in PreviousPublicKernelData deserialization');
   }
   if (o.vk_index === undefined) {
-    throw new Error('Expected vk_index in PreviousKernelData deserialization');
+    throw new Error('Expected vk_index in PreviousPublicKernelData deserialization');
   }
   if (o.vk_path === undefined) {
-    throw new Error('Expected vk_path in PreviousKernelData deserialization');
+    throw new Error('Expected vk_path in PreviousPublicKernelData deserialization');
   }
-  return new PreviousKernelData(
-    toKernelCircuitPublicInputs(o.public_inputs),
+  return new PreviousPublicKernelData(
+    toPublicKernelPublicInputs(o.public_inputs),
     Proof.fromMsgpackBuffer(o.proof),
     toVerificationKeyData(o.vk),
     o.vk_index,
@@ -1060,24 +1052,110 @@ export function toPreviousKernelData(o: MsgpackPreviousKernelData): PreviousKern
   );
 }
 
-export function fromPreviousKernelData(o: PreviousKernelData): MsgpackPreviousKernelData {
+export function fromPreviousPublicKernelData(o: PreviousPublicKernelData): MsgpackPreviousPublicKernelData {
   if (o.publicInputs === undefined) {
-    throw new Error('Expected publicInputs in PreviousKernelData serialization');
+    throw new Error('Expected publicInputs in PreviousPublicKernelData serialization');
   }
   if (o.proof === undefined) {
-    throw new Error('Expected proof in PreviousKernelData serialization');
+    throw new Error('Expected proof in PreviousPublicKernelData serialization');
   }
   if (o.vk === undefined) {
-    throw new Error('Expected vk in PreviousKernelData serialization');
+    throw new Error('Expected vk in PreviousPublicKernelData serialization');
   }
   if (o.vkIndex === undefined) {
-    throw new Error('Expected vkIndex in PreviousKernelData serialization');
+    throw new Error('Expected vkIndex in PreviousPublicKernelData serialization');
   }
   if (o.vkPath === undefined) {
-    throw new Error('Expected vkPath in PreviousKernelData serialization');
+    throw new Error('Expected vkPath in PreviousPublicKernelData serialization');
   }
   return {
-    public_inputs: fromKernelCircuitPublicInputs(o.publicInputs),
+    public_inputs: fromPublicKernelPublicInputs(o.publicInputs),
+    proof: o.proof.toMsgpackBuffer(),
+    vk: fromVerificationKeyData(o.vk),
+    vk_index: o.vkIndex,
+    vk_path: mapTuple(o.vkPath, (v: Fr) => toBuffer(v)),
+  };
+}
+
+interface MsgpackPrivateKernelPublicInputs {
+  end: MsgpackCombinedAccumulatedData;
+  constants: MsgpackCombinedConstantData;
+}
+
+export function toPrivateKernelPublicInputs(o: MsgpackPrivateKernelPublicInputs): PrivateKernelPublicInputs {
+  if (o.end === undefined) {
+    throw new Error('Expected end in PrivateKernelPublicInputs deserialization');
+  }
+  if (o.constants === undefined) {
+    throw new Error('Expected constants in PrivateKernelPublicInputs deserialization');
+  }
+  return new PrivateKernelPublicInputs(toCombinedAccumulatedData(o.end), toCombinedConstantData(o.constants));
+}
+
+export function fromPrivateKernelPublicInputs(o: PrivateKernelPublicInputs): MsgpackPrivateKernelPublicInputs {
+  if (o.end === undefined) {
+    throw new Error('Expected end in PrivateKernelPublicInputs serialization');
+  }
+  if (o.constants === undefined) {
+    throw new Error('Expected constants in PrivateKernelPublicInputs serialization');
+  }
+  return {
+    end: fromCombinedAccumulatedData(o.end),
+    constants: fromCombinedConstantData(o.constants),
+  };
+}
+
+interface MsgpackPreviousPrivateKernelData {
+  public_inputs: MsgpackPrivateKernelPublicInputs;
+  proof: Buffer;
+  vk: MsgpackVerificationKeyData;
+  vk_index: number;
+  vk_path: Tuple<Buffer, 3>;
+}
+
+export function toPreviousPrivateKernelData(o: MsgpackPreviousPrivateKernelData): PreviousPrivateKernelData {
+  if (o.public_inputs === undefined) {
+    throw new Error('Expected public_inputs in PreviousPrivateKernelData deserialization');
+  }
+  if (o.proof === undefined) {
+    throw new Error('Expected proof in PreviousPrivateKernelData deserialization');
+  }
+  if (o.vk === undefined) {
+    throw new Error('Expected vk in PreviousPrivateKernelData deserialization');
+  }
+  if (o.vk_index === undefined) {
+    throw new Error('Expected vk_index in PreviousPrivateKernelData deserialization');
+  }
+  if (o.vk_path === undefined) {
+    throw new Error('Expected vk_path in PreviousPrivateKernelData deserialization');
+  }
+  return new PreviousPrivateKernelData(
+    toPrivateKernelPublicInputs(o.public_inputs),
+    Proof.fromMsgpackBuffer(o.proof),
+    toVerificationKeyData(o.vk),
+    o.vk_index,
+    mapTuple(o.vk_path, (v: Buffer) => Fr.fromBuffer(v)),
+  );
+}
+
+export function fromPreviousPrivateKernelData(o: PreviousPrivateKernelData): MsgpackPreviousPrivateKernelData {
+  if (o.publicInputs === undefined) {
+    throw new Error('Expected publicInputs in PreviousPrivateKernelData serialization');
+  }
+  if (o.proof === undefined) {
+    throw new Error('Expected proof in PreviousPrivateKernelData serialization');
+  }
+  if (o.vk === undefined) {
+    throw new Error('Expected vk in PreviousPrivateKernelData serialization');
+  }
+  if (o.vkIndex === undefined) {
+    throw new Error('Expected vkIndex in PreviousPrivateKernelData serialization');
+  }
+  if (o.vkPath === undefined) {
+    throw new Error('Expected vkPath in PreviousPrivateKernelData serialization');
+  }
+  return {
+    public_inputs: fromPrivateKernelPublicInputs(o.publicInputs),
     proof: o.proof.toMsgpackBuffer(),
     vk: fromVerificationKeyData(o.vk),
     vk_index: o.vkIndex,
@@ -1702,7 +1780,7 @@ export function fromCircuitError(o: CircuitError): MsgpackCircuitError {
 }
 
 interface MsgpackPrivateKernelInputsInner {
-  previous_kernel: MsgpackPreviousKernelData;
+  previous_kernel: MsgpackPreviousPrivateKernelData;
   private_call: MsgpackPrivateCallData;
 }
 
@@ -1713,7 +1791,10 @@ export function toPrivateKernelInputsInner(o: MsgpackPrivateKernelInputsInner): 
   if (o.private_call === undefined) {
     throw new Error('Expected private_call in PrivateKernelInputsInner deserialization');
   }
-  return new PrivateKernelInputsInner(toPreviousKernelData(o.previous_kernel), toPrivateCallData(o.private_call));
+  return new PrivateKernelInputsInner(
+    toPreviousPrivateKernelData(o.previous_kernel),
+    toPrivateCallData(o.private_call),
+  );
 }
 
 export function fromPrivateKernelInputsInner(o: PrivateKernelInputsInner): MsgpackPrivateKernelInputsInner {
@@ -1724,13 +1805,13 @@ export function fromPrivateKernelInputsInner(o: PrivateKernelInputsInner): Msgpa
     throw new Error('Expected privateCall in PrivateKernelInputsInner serialization');
   }
   return {
-    previous_kernel: fromPreviousKernelData(o.previousKernel),
+    previous_kernel: fromPreviousPrivateKernelData(o.previousKernel),
     private_call: fromPrivateCallData(o.privateCall),
   };
 }
 
 interface MsgpackPrivateKernelInputsOrdering {
-  previous_kernel: MsgpackPreviousKernelData;
+  previous_kernel: MsgpackPreviousPrivateKernelData;
   read_commitment_hints: Tuple<Buffer, 128>;
   nullifier_commitment_hints: Tuple<Buffer, 64>;
 }
@@ -1746,7 +1827,7 @@ export function toPrivateKernelInputsOrdering(o: MsgpackPrivateKernelInputsOrder
     throw new Error('Expected nullifier_commitment_hints in PrivateKernelInputsOrdering deserialization');
   }
   return new PrivateKernelInputsOrdering(
-    toPreviousKernelData(o.previous_kernel),
+    toPreviousPrivateKernelData(o.previous_kernel),
     mapTuple(o.read_commitment_hints, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.nullifier_commitment_hints, (v: Buffer) => Fr.fromBuffer(v)),
   );
@@ -1763,7 +1844,7 @@ export function fromPrivateKernelInputsOrdering(o: PrivateKernelInputsOrdering):
     throw new Error('Expected nullifierCommitmentHints in PrivateKernelInputsOrdering serialization');
   }
   return {
-    previous_kernel: fromPreviousKernelData(o.previousKernel),
+    previous_kernel: fromPreviousPrivateKernelData(o.previousKernel),
     read_commitment_hints: mapTuple(o.readCommitmentHints, (v: Fr) => toBuffer(v)),
     nullifier_commitment_hints: mapTuple(o.nullifierCommitmentHints, (v: Fr) => toBuffer(v)),
   };
@@ -1901,47 +1982,97 @@ export function fromFinalAccumulatedData(o: FinalAccumulatedData): MsgpackFinalA
   };
 }
 
-interface MsgpackKernelCircuitPublicInputsFinal {
+interface MsgpackPrivateKernelPublicInputsFinal {
   end: MsgpackFinalAccumulatedData;
   constants: MsgpackCombinedConstantData;
-  is_private: boolean;
 }
 
-export function toKernelCircuitPublicInputsFinal(
-  o: MsgpackKernelCircuitPublicInputsFinal,
-): KernelCircuitPublicInputsFinal {
+export function toPrivateKernelPublicInputsFinal(
+  o: MsgpackPrivateKernelPublicInputsFinal,
+): PrivateKernelPublicInputsFinal {
   if (o.end === undefined) {
-    throw new Error('Expected end in KernelCircuitPublicInputsFinal deserialization');
+    throw new Error('Expected end in PrivateKernelPublicInputsFinal deserialization');
   }
   if (o.constants === undefined) {
-    throw new Error('Expected constants in KernelCircuitPublicInputsFinal deserialization');
+    throw new Error('Expected constants in PrivateKernelPublicInputsFinal deserialization');
   }
-  if (o.is_private === undefined) {
-    throw new Error('Expected is_private in KernelCircuitPublicInputsFinal deserialization');
-  }
-  return new KernelCircuitPublicInputsFinal(
-    toFinalAccumulatedData(o.end),
-    toCombinedConstantData(o.constants),
-    o.is_private,
-  );
+  return new PrivateKernelPublicInputsFinal(toFinalAccumulatedData(o.end), toCombinedConstantData(o.constants));
 }
 
-export function fromKernelCircuitPublicInputsFinal(
-  o: KernelCircuitPublicInputsFinal,
-): MsgpackKernelCircuitPublicInputsFinal {
+export function fromPrivateKernelPublicInputsFinal(
+  o: PrivateKernelPublicInputsFinal,
+): MsgpackPrivateKernelPublicInputsFinal {
   if (o.end === undefined) {
-    throw new Error('Expected end in KernelCircuitPublicInputsFinal serialization');
+    throw new Error('Expected end in PrivateKernelPublicInputsFinal serialization');
   }
   if (o.constants === undefined) {
-    throw new Error('Expected constants in KernelCircuitPublicInputsFinal serialization');
-  }
-  if (o.isPrivate === undefined) {
-    throw new Error('Expected isPrivate in KernelCircuitPublicInputsFinal serialization');
+    throw new Error('Expected constants in PrivateKernelPublicInputsFinal serialization');
   }
   return {
     end: fromFinalAccumulatedData(o.end),
     constants: fromCombinedConstantData(o.constants),
-    is_private: o.isPrivate,
+  };
+}
+
+interface MsgpackPreviousPrivateKernelDataFinal {
+  public_inputs: MsgpackPrivateKernelPublicInputsFinal;
+  proof: Buffer;
+  vk: MsgpackVerificationKeyData;
+  vk_index: number;
+  vk_path: Tuple<Buffer, 3>;
+}
+
+export function toPreviousPrivateKernelDataFinal(
+  o: MsgpackPreviousPrivateKernelDataFinal,
+): PreviousPrivateKernelDataFinal {
+  if (o.public_inputs === undefined) {
+    throw new Error('Expected public_inputs in PreviousPrivateKernelDataFinal deserialization');
+  }
+  if (o.proof === undefined) {
+    throw new Error('Expected proof in PreviousPrivateKernelDataFinal deserialization');
+  }
+  if (o.vk === undefined) {
+    throw new Error('Expected vk in PreviousPrivateKernelDataFinal deserialization');
+  }
+  if (o.vk_index === undefined) {
+    throw new Error('Expected vk_index in PreviousPrivateKernelDataFinal deserialization');
+  }
+  if (o.vk_path === undefined) {
+    throw new Error('Expected vk_path in PreviousPrivateKernelDataFinal deserialization');
+  }
+  return new PreviousPrivateKernelDataFinal(
+    toPrivateKernelPublicInputsFinal(o.public_inputs),
+    Proof.fromMsgpackBuffer(o.proof),
+    toVerificationKeyData(o.vk),
+    o.vk_index,
+    mapTuple(o.vk_path, (v: Buffer) => Fr.fromBuffer(v)),
+  );
+}
+
+export function fromPreviousPrivateKernelDataFinal(
+  o: PreviousPrivateKernelDataFinal,
+): MsgpackPreviousPrivateKernelDataFinal {
+  if (o.publicInputs === undefined) {
+    throw new Error('Expected publicInputs in PreviousPrivateKernelDataFinal serialization');
+  }
+  if (o.proof === undefined) {
+    throw new Error('Expected proof in PreviousPrivateKernelDataFinal serialization');
+  }
+  if (o.vk === undefined) {
+    throw new Error('Expected vk in PreviousPrivateKernelDataFinal serialization');
+  }
+  if (o.vkIndex === undefined) {
+    throw new Error('Expected vkIndex in PreviousPrivateKernelDataFinal serialization');
+  }
+  if (o.vkPath === undefined) {
+    throw new Error('Expected vkPath in PreviousPrivateKernelDataFinal serialization');
+  }
+  return {
+    public_inputs: fromPrivateKernelPublicInputsFinal(o.publicInputs),
+    proof: o.proof.toMsgpackBuffer(),
+    vk: fromVerificationKeyData(o.vk),
+    vk_index: o.vkIndex,
+    vk_path: mapTuple(o.vkPath, (v: Fr) => toBuffer(v)),
   };
 }
 
@@ -2256,30 +2387,61 @@ export function fromPublicCallData(o: PublicCallData): MsgpackPublicCallData {
   };
 }
 
-interface MsgpackPublicKernelInputs {
-  previous_kernel: MsgpackPreviousKernelData;
+interface MsgpackPublicKernelInputsInit {
+  previous_kernel: MsgpackPreviousPrivateKernelDataFinal;
   public_call: MsgpackPublicCallData;
 }
 
-export function toPublicKernelInputs(o: MsgpackPublicKernelInputs): PublicKernelInputs {
+export function toPublicKernelInputsInit(o: MsgpackPublicKernelInputsInit): PublicKernelInputsInit {
   if (o.previous_kernel === undefined) {
-    throw new Error('Expected previous_kernel in PublicKernelInputs deserialization');
+    throw new Error('Expected previous_kernel in PublicKernelInputsInit deserialization');
   }
   if (o.public_call === undefined) {
-    throw new Error('Expected public_call in PublicKernelInputs deserialization');
+    throw new Error('Expected public_call in PublicKernelInputsInit deserialization');
   }
-  return new PublicKernelInputs(toPreviousKernelData(o.previous_kernel), toPublicCallData(o.public_call));
+  return new PublicKernelInputsInit(
+    toPreviousPrivateKernelDataFinal(o.previous_kernel),
+    toPublicCallData(o.public_call),
+  );
 }
 
-export function fromPublicKernelInputs(o: PublicKernelInputs): MsgpackPublicKernelInputs {
+export function fromPublicKernelInputsInit(o: PublicKernelInputsInit): MsgpackPublicKernelInputsInit {
   if (o.previousKernel === undefined) {
-    throw new Error('Expected previousKernel in PublicKernelInputs serialization');
+    throw new Error('Expected previousKernel in PublicKernelInputsInit serialization');
   }
   if (o.publicCall === undefined) {
-    throw new Error('Expected publicCall in PublicKernelInputs serialization');
+    throw new Error('Expected publicCall in PublicKernelInputsInit serialization');
   }
   return {
-    previous_kernel: fromPreviousKernelData(o.previousKernel),
+    previous_kernel: fromPreviousPrivateKernelDataFinal(o.previousKernel),
+    public_call: fromPublicCallData(o.publicCall),
+  };
+}
+
+interface MsgpackPublicKernelInputsInner {
+  previous_kernel: MsgpackPreviousPublicKernelData;
+  public_call: MsgpackPublicCallData;
+}
+
+export function toPublicKernelInputsInner(o: MsgpackPublicKernelInputsInner): PublicKernelInputsInner {
+  if (o.previous_kernel === undefined) {
+    throw new Error('Expected previous_kernel in PublicKernelInputsInner deserialization');
+  }
+  if (o.public_call === undefined) {
+    throw new Error('Expected public_call in PublicKernelInputsInner deserialization');
+  }
+  return new PublicKernelInputsInner(toPreviousPublicKernelData(o.previous_kernel), toPublicCallData(o.public_call));
+}
+
+export function fromPublicKernelInputsInner(o: PublicKernelInputsInner): MsgpackPublicKernelInputsInner {
+  if (o.previousKernel === undefined) {
+    throw new Error('Expected previousKernel in PublicKernelInputsInner serialization');
+  }
+  if (o.publicCall === undefined) {
+    throw new Error('Expected publicCall in PublicKernelInputsInner serialization');
+  }
+  return {
+    previous_kernel: fromPreviousPublicKernelData(o.previousKernel),
     public_call: fromPublicCallData(o.publicCall),
   };
 }
@@ -2416,7 +2578,7 @@ export function fromConstantRollupData(o: ConstantRollupData): MsgpackConstantRo
 }
 
 interface MsgpackBaseRollupInputs {
-  kernel_data: Tuple<MsgpackPreviousKernelData, 2>;
+  kernel_data: Tuple<MsgpackPreviousPublicKernelData, 2>;
   start_private_data_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
   start_nullifier_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
   start_contract_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
@@ -2480,7 +2642,7 @@ export function toBaseRollupInputs(o: MsgpackBaseRollupInputs): BaseRollupInputs
     throw new Error('Expected constants in BaseRollupInputs deserialization');
   }
   return new BaseRollupInputs(
-    mapTuple(o.kernel_data, (v: MsgpackPreviousKernelData) => toPreviousKernelData(v)),
+    mapTuple(o.kernel_data, (v: MsgpackPreviousPublicKernelData) => toPreviousPublicKernelData(v)),
     toAppendOnlyTreeSnapshot(o.start_private_data_tree_snapshot),
     toAppendOnlyTreeSnapshot(o.start_nullifier_tree_snapshot),
     toAppendOnlyTreeSnapshot(o.start_contract_tree_snapshot),
@@ -2551,7 +2713,7 @@ export function fromBaseRollupInputs(o: BaseRollupInputs): MsgpackBaseRollupInpu
     throw new Error('Expected constants in BaseRollupInputs serialization');
   }
   return {
-    kernel_data: mapTuple(o.kernelData, (v: PreviousKernelData) => fromPreviousKernelData(v)),
+    kernel_data: mapTuple(o.kernelData, (v: PreviousPublicKernelData) => fromPreviousPublicKernelData(v)),
     start_private_data_tree_snapshot: fromAppendOnlyTreeSnapshot(o.startPrivateDataTreeSnapshot),
     start_nullifier_tree_snapshot: fromAppendOnlyTreeSnapshot(o.startNullifierTreeSnapshot),
     start_contract_tree_snapshot: fromAppendOnlyTreeSnapshot(o.startContractTreeSnapshot),
@@ -3211,40 +3373,55 @@ export function abisComputePublicDataTreeValue(wasm: IWasmModule, arg0: Fr): Fr 
 export function abisComputePublicDataTreeIndex(wasm: IWasmModule, arg0: Address, arg1: Fr): Fr {
   return Fr.fromBuffer(callCbind(wasm, 'abis__compute_public_data_tree_index', [toBuffer(arg0), toBuffer(arg1)]));
 }
-export function privateKernelDummyPreviousKernel(wasm: IWasmModule): PreviousKernelData {
-  return toPreviousKernelData(callCbind(wasm, 'private_kernel__dummy_previous_kernel', []));
+export function privateKernelDummyPreviousPublicKernel(wasm: IWasmModule): PreviousPublicKernelData {
+  return toPreviousPublicKernelData(callCbind(wasm, 'private_kernel__dummy_previous_public_kernel', []));
+}
+export function privateKernelDummyPreviousPrivateKernel(wasm: IWasmModule): PreviousPrivateKernelData {
+  return toPreviousPrivateKernelData(callCbind(wasm, 'private_kernel__dummy_previous_private_kernel', []));
 }
 export function privateKernelSimInit(
   wasm: IWasmModule,
   arg0: PrivateKernelInputsInit,
-): CircuitError | KernelCircuitPublicInputs {
-  return ((v: MsgpackCircuitError | MsgpackKernelCircuitPublicInputs) =>
-    isCircuitError(v) ? toCircuitError(v) : toKernelCircuitPublicInputs(v))(
+): CircuitError | PrivateKernelPublicInputs {
+  return ((v: MsgpackCircuitError | MsgpackPrivateKernelPublicInputs) =>
+    isCircuitError(v) ? toCircuitError(v) : toPrivateKernelPublicInputs(v))(
     callCbind(wasm, 'private_kernel__sim_init', [fromPrivateKernelInputsInit(arg0)]),
   );
 }
 export function privateKernelSimInner(
   wasm: IWasmModule,
   arg0: PrivateKernelInputsInner,
-): CircuitError | KernelCircuitPublicInputs {
-  return ((v: MsgpackCircuitError | MsgpackKernelCircuitPublicInputs) =>
-    isCircuitError(v) ? toCircuitError(v) : toKernelCircuitPublicInputs(v))(
+): CircuitError | PrivateKernelPublicInputs {
+  return ((v: MsgpackCircuitError | MsgpackPrivateKernelPublicInputs) =>
+    isCircuitError(v) ? toCircuitError(v) : toPrivateKernelPublicInputs(v))(
     callCbind(wasm, 'private_kernel__sim_inner', [fromPrivateKernelInputsInner(arg0)]),
   );
 }
 export function privateKernelSimOrdering(
   wasm: IWasmModule,
   arg0: PrivateKernelInputsOrdering,
-): CircuitError | KernelCircuitPublicInputsFinal {
-  return ((v: MsgpackCircuitError | MsgpackKernelCircuitPublicInputsFinal) =>
-    isCircuitError(v) ? toCircuitError(v) : toKernelCircuitPublicInputsFinal(v))(
+): CircuitError | PrivateKernelPublicInputsFinal {
+  return ((v: MsgpackCircuitError | MsgpackPrivateKernelPublicInputsFinal) =>
+    isCircuitError(v) ? toCircuitError(v) : toPrivateKernelPublicInputsFinal(v))(
     callCbind(wasm, 'private_kernel__sim_ordering', [fromPrivateKernelInputsOrdering(arg0)]),
   );
 }
-export function publicKernelSim(wasm: IWasmModule, arg0: PublicKernelInputs): CircuitError | KernelCircuitPublicInputs {
-  return ((v: MsgpackCircuitError | MsgpackKernelCircuitPublicInputs) =>
-    isCircuitError(v) ? toCircuitError(v) : toKernelCircuitPublicInputs(v))(
-    callCbind(wasm, 'public_kernel__sim', [fromPublicKernelInputs(arg0)]),
+export function publicKernelInitSim(
+  wasm: IWasmModule,
+  arg0: PublicKernelInputsInit,
+): CircuitError | PublicKernelPublicInputs {
+  return ((v: MsgpackCircuitError | MsgpackPublicKernelPublicInputs) =>
+    isCircuitError(v) ? toCircuitError(v) : toPublicKernelPublicInputs(v))(
+    callCbind(wasm, 'public_kernel_init__sim', [fromPublicKernelInputsInit(arg0)]),
+  );
+}
+export function publicKernelInnerSim(
+  wasm: IWasmModule,
+  arg0: PublicKernelInputsInner,
+): CircuitError | PublicKernelPublicInputs {
+  return ((v: MsgpackCircuitError | MsgpackPublicKernelPublicInputs) =>
+    isCircuitError(v) ? toCircuitError(v) : toPublicKernelPublicInputs(v))(
+    callCbind(wasm, 'public_kernel_inner__sim', [fromPublicKernelInputsInner(arg0)]),
   );
 }
 export function baseRollupSim(wasm: IWasmModule, arg0: BaseRollupInputs): CircuitError | BaseOrMergeRollupPublicInputs {

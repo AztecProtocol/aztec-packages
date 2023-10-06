@@ -476,7 +476,7 @@ PrivateKernelInputsInner<NT> do_private_call_get_kernel_inputs_inner(
     };
 
     //***************************************************************************
-    // We mock a kernel circuit proof to initialize ipnut required by an inner call
+    // We mock a kernel circuit proof to initialize input required by an inner call
     //***************************************************************************
 
     std::array<NT::fr, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX> initial_kernel_private_call_stack{};
@@ -495,7 +495,6 @@ PrivateKernelInputsInner<NT> do_private_call_get_kernel_inputs_inner(
             },
         .tx_context = tx_context,
     };
-    mock_previous_kernel.public_inputs.is_private = true;
     mock_previous_kernel.public_inputs.end.encrypted_logs_hash = public_inputs_encrypted_logs_hash;
     mock_previous_kernel.public_inputs.end.unencrypted_logs_hash = public_inputs_unencrypted_logs_hash;
     mock_previous_kernel.public_inputs.end.encrypted_log_preimages_length =

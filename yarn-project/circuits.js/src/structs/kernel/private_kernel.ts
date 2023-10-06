@@ -17,7 +17,7 @@ import { Proof } from '../proof.js';
 import { ReadRequestMembershipWitness } from '../read_request_membership_witness.js';
 import { TxRequest } from '../tx_request.js';
 import { VerificationKey } from '../verification_key.js';
-import { PreviousKernelData } from './previous_kernel_data.js';
+import { PreviousPrivateKernelData } from './previous_kernel_data.js';
 
 /**
  * Private call data.
@@ -129,7 +129,7 @@ export class PrivateKernelInputsInner {
     /**
      * The previous kernel data (dummy if this is the first kernel).
      */
-    public previousKernel: PreviousKernelData,
+    public previousKernel: PreviousPrivateKernelData,
     /**
      * Private calldata corresponding to this iteration of the kernel.
      */
@@ -153,7 +153,7 @@ export class PrivateKernelInputsOrdering {
     /**
      * The previous kernel data
      */
-    public previousKernel: PreviousKernelData,
+    public previousKernel: PreviousPrivateKernelData,
     /**
      * Contains hints for the transient read requests to localize corresponding commitments.
      */

@@ -12,7 +12,7 @@ import {
   CompleteAddress,
   FunctionData,
   GrumpkinPrivateKey,
-  KernelCircuitPublicInputsFinal,
+  PrivateKernelPublicInputsFinal,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   PartialAddress,
   PublicCallRequest,
@@ -613,7 +613,7 @@ export class PXEService implements PXE {
   // See https://github.com/AztecProtocol/aztec-packages/issues/1615
   // TODO(#757): Enforce proper ordering of enqueued public calls
   private async patchPublicCallStackOrdering(
-    publicInputs: KernelCircuitPublicInputsFinal,
+    publicInputs: PrivateKernelPublicInputsFinal,
     enqueuedPublicCalls: PublicCallRequest[],
   ) {
     const callToHash = (call: PublicCallRequest) => call.toPublicCallStackItem().then(item => item.hash());

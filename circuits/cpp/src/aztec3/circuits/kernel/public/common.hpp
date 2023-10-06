@@ -45,9 +45,6 @@ template <typename KernelInput> void common_initialise_end_values(KernelInput co
 
     end.optionally_revealed_data = start.optionally_revealed_data;
 
-    end.public_data_update_requests = start.public_data_update_requests;
-    end.public_data_reads = start.public_data_reads;
-
     // Public kernel does not modify encrypted logs values --> we just copy them to output
     end.encrypted_logs_hash = start.encrypted_logs_hash;
     end.encrypted_log_preimages_length = start.encrypted_log_preimages_length;
@@ -486,7 +483,6 @@ void common_update_public_end_values(Builder& builder,
                                      PublicKernelPublicInputs<NT>& circuit_outputs)
 {
     // Updates the circuit outputs with new state changes, call stack etc
-    circuit_outputs.is_private = false;
 
     // If this call is a static call, certain operations are disallowed, such as creating new state.
     perform_static_call_checks(builder, public_kernel_inputs);

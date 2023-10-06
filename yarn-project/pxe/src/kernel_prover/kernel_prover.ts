@@ -10,7 +10,7 @@ import {
   MAX_READ_REQUESTS_PER_CALL,
   MAX_READ_REQUESTS_PER_TX,
   MembershipWitness,
-  PreviousKernelData,
+  PreviousPrivateKernelData,
   PrivateCallData,
   PrivateCallStackItem,
   PrivateKernelInputsInit,
@@ -141,7 +141,7 @@ export class KernelProver {
         output = await this.proofCreator.createProofInit(new PrivateKernelInputsInit(txRequest, privateCallData));
       } else {
         const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(previousVerificationKey);
-        const previousKernelData = new PreviousKernelData(
+        const previousKernelData = new PreviousPrivateKernelData(
           output.publicInputs,
           output.proof,
           previousVerificationKey,
@@ -160,7 +160,7 @@ export class KernelProver {
     }
 
     const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(previousVerificationKey);
-    const previousKernelData = new PreviousKernelData(
+    const previousKernelData = new PreviousPrivateKernelData(
       output.publicInputs,
       output.proof,
       previousVerificationKey,
