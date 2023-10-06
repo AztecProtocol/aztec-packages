@@ -168,7 +168,7 @@ std::vector<CyclicPermutation> compute_wire_copy_cycles(const typename Flavor::C
  *
  * @tparam program_width The number of wires
  * @tparam generalized (bool) Triggers use of gen perm tags and computation of id mappings when true
- * @tparam CircuitBuilder The class that holds basic circuitl ogic
+ * @tparam CircuitBuilder The class that holds basic circuit logic
  * @param circuit_constructor Circuit-containing object
  * @param key Pointer to the proving key
  * @return PermutationMapping sigma mapping (and id mapping if generalized == true)

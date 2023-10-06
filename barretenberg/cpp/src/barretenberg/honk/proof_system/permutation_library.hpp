@@ -37,7 +37,7 @@ namespace proof_system::honk::permutation_library {
  *                B(h)
  *
  * Step 1) Compute 2 length-n polynomials A, B
- * Step 2) Compute 2 length-n polynomials numerator = ∏ A(j), nenominator = ∏ B(j)
+ * Step 2) Compute 2 length-n polynomials numerator = ∏ A(j), denominator = ∏ B(j)
  * Step 3) Compute Z_perm[i + 1] = numerator[i] / denominator[i] (recall: Z_perm[0] = 1)
  *
  * Note: Step (3) utilizes Montgomery batch inversion to replace n-many inversions with

@@ -636,7 +636,7 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
         using Base::Base;
 
         // The plookup wires that store plookup read data.
-        std::array<PolynomialHandle, 3> get_table_column_wires() { return {}; };
+        std::array<PolynomialHandle, 0> get_table_column_wires() { return {}; };
     };
 
     /**

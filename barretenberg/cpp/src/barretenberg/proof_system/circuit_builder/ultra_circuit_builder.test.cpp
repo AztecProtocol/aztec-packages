@@ -185,6 +185,7 @@ TEST(ultra_circuit_constructor, test_elliptic_double_gate)
 
 TEST(ultra_circuit_constructor, non_trivial_tag_permutation)
 {
+    // The
     UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
     fr a = fr::random_element();
     fr b = -a;
@@ -218,6 +219,7 @@ TEST(ultra_circuit_constructor, non_trivial_tag_permutation)
     EXPECT_EQ(circuit_constructor.check_circuit(), false);
 }
 
+// NOTE: is this test bogus, the value of h_idx is not used anywhere, why is it assigned if it is not given a tag
 TEST(ultra_circuit_constructor, non_trivial_tag_permutation_and_cycles)
 {
     UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
