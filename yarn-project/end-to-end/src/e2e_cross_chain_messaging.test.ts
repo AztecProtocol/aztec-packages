@@ -215,7 +215,7 @@ describe('e2e_cross_chain_messaging', () => {
     const bridgeAmount = 100n;
     await crossChainTestHarness.mintTokensOnL1(bridgeAmount);
 
-    // 2. Deposit tokens to the TokenPortal
+    // 2. Deposit tokens to the TokenPortal privately
     const [secretForL2MessageConsumption, secretHashForL2MessageConsumption] =
       await crossChainTestHarness.generateClaimSecret();
 
@@ -232,7 +232,7 @@ describe('e2e_cross_chain_messaging', () => {
     // Perform an unrelated transaction on L2 to progress the rollup. Here we mint public tokens.
     await crossChainTestHarness.performL2Transfer(0n);
 
-    // 3. Consume L1-> L2 message and mint private tokens on L2
+    // 3. Consume L1-> L2 message and try to mint publicly on L2  - should fail
     await expect(
       l2Bridge
         .withWallet(user2Wallet)

@@ -432,7 +432,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
   // Edge cases for the private flow:
   // note - tests for uniswapPortal.sol and minting asset on L2 are covered in other tests.
 
-  it("uniswap contract can't unshield if I don't give the right approval", async () => {
+  it('swap_private reverts without unshield approval', async () => {
     // swap should fail since no withdraw approval to uniswap:
     const nonceForWETHUnshieldApproval = new Fr(2n);
 
@@ -500,9 +500,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
           ownerEthAddress,
         )
         .simulate(),
-    ).rejects.toThrowError(
-      `Assertion failed: input_asset address is not the same as seen in the bridge contract 'token == (TokenBridge::at(token_bridge).token(context)'`,
-    );
+    ).rejects.toThrowError('Assertion failed: input_asset address is not the same as seen in the bridge contract');
   });
 
   // edge cases for public flow:
@@ -580,7 +578,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
     );
   });
 
-  it("uniswap contract can't transfer to itself if I don't give the approval", async () => {
+  it("uniswap can't pull funds without transfer approval", async () => {
     // swap should fail since no transfer approval to uniswap:
     const nonceForWETHTransferApproval = new Fr(4n);
 

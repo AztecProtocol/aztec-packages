@@ -75,7 +75,7 @@ contract Uniswap {
             assert_current_call_valid_authwit_public(&mut context, sender);
         }
 
-        let input_asset = AztecAddress::new(TokenBridge::at(input_asset_bridge.address).token(context));
+        let input_asset = TokenBridge::at(input_asset_bridge.address).token(context);
 
         // Transfer funds to this contract
         Token::at(input_asset.address).transfer_public(
@@ -138,7 +138,7 @@ contract Uniswap {
 
         // Assert that user provided token address is same as expected by token bridge.
         // we can't directly use `input_asset_bridge.token` because that is a public method and public can't return data to private
-        context.call_public_function(context.this_address(), compute_selector("_assert_token_is_same(Field,Field)"), [input_asset.address, input_asset_bridge.address]);
+        context.call_public_function(context.this_address(), compute_selector("_assert_token_is_same((Field),(Field))"), [input_asset.address, input_asset_bridge.address]);
 
         // Transfer funds to this contract
         Token::at(input_asset.address).unshield(
@@ -224,8 +224,8 @@ contract Uniswap {
     }
 
     #[aztec(public)]
-    internal fn _assert_token_is_same(token: Field, token_bridge: Field) {
-        assert(token == (TokenBridge::at(token_bridge).token(context)), "input_asset address is not the same as seen in the bridge contract");
+    internal fn _assert_token_is_same(token: AztecAddress, token_bridge: AztecAddress) {
+        assert(token.eq(TokenBridge::at(token_bridge.address).token(context)), "input_asset address is not the same as seen in the bridge contract");
     }
 
     // /// Unconstrained /// 
