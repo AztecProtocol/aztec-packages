@@ -11,7 +11,7 @@ import {
 import { StructType, decodeFunctionSignatureWithParameterNames } from '@aztec/foundation/abi';
 import { JsonStringify } from '@aztec/foundation/json-rpc';
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
-import { RunningPromise } from '@aztec/foundation/running-promise';
+import { sleep } from '@aztec/foundation/sleep';
 import { fileURLToPath } from '@aztec/foundation/url';
 import { compileContract, generateNoirInterface, generateTypescriptInterface } from '@aztec/noir-compiler/cli';
 import { CompleteAddress, ContractData, LogFilter } from '@aztec/types';
@@ -334,7 +334,10 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
 
       if (follow) {
         log('Fetching logs...');
-        new RunningPromise(fetchLogs, 1000).start();
+        while (true) {
+          await fetchLogs();
+          await sleep(1000);
+        }
       } else {
         await fetchLogs();
       }
