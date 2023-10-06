@@ -17,10 +17,13 @@ namespace proof_system {
 template <typename Flavor> class ECCVMCircuitBuilder {
   public:
     using CycleGroup = typename Flavor::CycleGroup;
-    using CycleScalar = typename CycleGroup::subgroup_field;
     using FF = typename Flavor::FF;
+    using Polynomial = typename Flavor::Polynomial;
+
+    using CycleScalar = typename CycleGroup::subgroup_field;
     using Element = typename CycleGroup::element;
     using AffineElement = typename CycleGroup::affine_element;
+
     static constexpr size_t NUM_SCALAR_BITS = proof_system_eccvm::NUM_SCALAR_BITS;
     static constexpr size_t WNAF_SLICE_BITS = proof_system_eccvm::WNAF_SLICE_BITS;
     static constexpr size_t NUM_WNAF_SLICES = proof_system_eccvm::NUM_WNAF_SLICES;
@@ -36,8 +39,7 @@ template <typename Flavor> class ECCVMCircuitBuilder {
     using VMOperation = proof_system_eccvm::VMOperation<CycleGroup>;
     std::vector<VMOperation> vm_operations;
     using ScalarMul = proof_system_eccvm::ScalarMul<CycleGroup>;
-    using RawPolynomials = typename Flavor::RawPolynomials;
-    using Polynomial = barretenberg::Polynomial<FF>;
+    using AllPolynomials = typename Flavor::AllPolynomials;
 
     ECCVMCircuitBuilder() = default;
 
@@ -312,9 +314,9 @@ template <typename Flavor> class ECCVMCircuitBuilder {
      (reads come from msm_x/y1, msm_x/y2)
      *          lookup_read_counts_1: stores number of times a point has been read from a Straus precomputation table
      (reads come from msm_x/y3, msm_x/y4)
-     * @return RawPolynomials
+     * @return AllPolynomials
      */
-    RawPolynomials compute_full_polynomials()
+    AllPolynomials finalize()
     {
         const auto msms = get_msms();
         const auto flattened_muls = get_flattened_scalar_muls(msms);
@@ -336,7 +338,7 @@ template <typename Flavor> class ECCVMCircuitBuilder {
         const auto num_rows_log2 = static_cast<size_t>(numeric::get_msb64(num_rows));
         size_t num_rows_pow2 = 1UL << (num_rows_log2 + (1UL << num_rows_log2 == num_rows ? 0 : 1));
 
-        RawPolynomials rows;
+        AllPolynomials rows;
         for (size_t j = 0; j < NUM_POLYNOMIALS; ++j) {
             rows[j] = Polynomial(num_rows_pow2);
         }
@@ -452,32 +454,31 @@ template <typename Flavor> class ECCVMCircuitBuilder {
             rows.msm_slice4[i] = msm_state[i].add_state[3].slice;
         }
 
-        rows.transcript_mul_shift = typename Flavor::Polynomial(rows.transcript_mul.shifted());
-        rows.transcript_msm_count_shift = typename Flavor::Polynomial(rows.transcript_msm_count.shifted());
-        rows.transcript_accumulator_x_shift = typename Flavor::Polynomial(rows.transcript_accumulator_x.shifted());
-        rows.transcript_accumulator_y_shift = typename Flavor::Polynomial(rows.transcript_accumulator_y.shifted());
-        rows.precompute_scalar_sum_shift = typename Flavor::Polynomial(rows.precompute_scalar_sum.shifted());
-        rows.precompute_s1hi_shift = typename Flavor::Polynomial(rows.precompute_s1hi.shifted());
-        rows.precompute_dx_shift = typename Flavor::Polynomial(rows.precompute_dx.shifted());
-        rows.precompute_dy_shift = typename Flavor::Polynomial(rows.precompute_dy.shifted());
-        rows.precompute_tx_shift = typename Flavor::Polynomial(rows.precompute_tx.shifted());
-        rows.precompute_ty_shift = typename Flavor::Polynomial(rows.precompute_ty.shifted());
-        rows.msm_transition_shift = typename Flavor::Polynomial(rows.msm_transition.shifted());
-        rows.msm_add_shift = typename Flavor::Polynomial(rows.msm_add.shifted());
-        rows.msm_double_shift = typename Flavor::Polynomial(rows.msm_double.shifted());
-        rows.msm_skew_shift = typename Flavor::Polynomial(rows.msm_skew.shifted());
-        rows.msm_accumulator_x_shift = typename Flavor::Polynomial(rows.msm_accumulator_x.shifted());
-        rows.msm_accumulator_y_shift = typename Flavor::Polynomial(rows.msm_accumulator_y.shifted());
-        rows.msm_count_shift = typename Flavor::Polynomial(rows.msm_count.shifted());
-        rows.msm_round_shift = typename Flavor::Polynomial(rows.msm_round.shifted());
-        rows.msm_add1_shift = typename Flavor::Polynomial(rows.msm_add1.shifted());
-        rows.msm_pc_shift = typename Flavor::Polynomial(rows.msm_pc.shifted());
-        rows.precompute_pc_shift = typename Flavor::Polynomial(rows.precompute_pc.shifted());
-        rows.transcript_pc_shift = typename Flavor::Polynomial(rows.transcript_pc.shifted());
-        rows.precompute_round_shift = typename Flavor::Polynomial(rows.precompute_round.shifted());
-        rows.transcript_accumulator_empty_shift =
-            typename Flavor::Polynomial(rows.transcript_accumulator_empty.shifted());
-        rows.precompute_select_shift = typename Flavor::Polynomial(rows.precompute_select.shifted());
+        rows.transcript_mul_shift = Polynomial(rows.transcript_mul.shifted());
+        rows.transcript_msm_count_shift = Polynomial(rows.transcript_msm_count.shifted());
+        rows.transcript_accumulator_x_shift = Polynomial(rows.transcript_accumulator_x.shifted());
+        rows.transcript_accumulator_y_shift = Polynomial(rows.transcript_accumulator_y.shifted());
+        rows.precompute_scalar_sum_shift = Polynomial(rows.precompute_scalar_sum.shifted());
+        rows.precompute_s1hi_shift = Polynomial(rows.precompute_s1hi.shifted());
+        rows.precompute_dx_shift = Polynomial(rows.precompute_dx.shifted());
+        rows.precompute_dy_shift = Polynomial(rows.precompute_dy.shifted());
+        rows.precompute_tx_shift = Polynomial(rows.precompute_tx.shifted());
+        rows.precompute_ty_shift = Polynomial(rows.precompute_ty.shifted());
+        rows.msm_transition_shift = Polynomial(rows.msm_transition.shifted());
+        rows.msm_add_shift = Polynomial(rows.msm_add.shifted());
+        rows.msm_double_shift = Polynomial(rows.msm_double.shifted());
+        rows.msm_skew_shift = Polynomial(rows.msm_skew.shifted());
+        rows.msm_accumulator_x_shift = Polynomial(rows.msm_accumulator_x.shifted());
+        rows.msm_accumulator_y_shift = Polynomial(rows.msm_accumulator_y.shifted());
+        rows.msm_count_shift = Polynomial(rows.msm_count.shifted());
+        rows.msm_round_shift = Polynomial(rows.msm_round.shifted());
+        rows.msm_add1_shift = Polynomial(rows.msm_add1.shifted());
+        rows.msm_pc_shift = Polynomial(rows.msm_pc.shifted());
+        rows.precompute_pc_shift = Polynomial(rows.precompute_pc.shifted());
+        rows.transcript_pc_shift = Polynomial(rows.transcript_pc.shifted());
+        rows.precompute_round_shift = Polynomial(rows.precompute_round.shifted());
+        rows.transcript_accumulator_empty_shift = Polynomial(rows.transcript_accumulator_empty.shifted());
+        rows.precompute_select_shift = Polynomial(rows.precompute_select.shifted());
         return rows;
     }
 
@@ -501,16 +502,16 @@ template <typename Flavor> class ECCVMCircuitBuilder {
             .eccvm_set_permutation_delta = eccvm_set_permutation_delta,
         };
 
-        auto rows = compute_full_polynomials();
-        const size_t num_rows = rows[0].size();
+        auto polynomials = finalize();
+        const size_t num_rows = polynomials[0].size();
         proof_system::honk::lookup_library::compute_logderivative_inverse<Flavor,
                                                                           honk::sumcheck::ECCVMLookupRelation<FF>>(
-            rows, params, num_rows);
+            polynomials, params, num_rows);
 
         honk::permutation_library::compute_permutation_grand_product<Flavor, honk::sumcheck::ECCVMSetRelation<FF>>(
-            num_rows, rows, params);
+            num_rows, polynomials, params);
 
-        rows.z_perm_shift = typename Flavor::Polynomial(rows.z_perm.shifted());
+        polynomials.z_perm_shift = Polynomial(polynomials.z_perm.shifted());
 
         const auto evaluate_relation = [&]<typename Relation>(const std::string& relation_name) {
             typename Relation::ArrayOfValuesOverSubrelations result;
@@ -520,11 +521,7 @@ template <typename Flavor> class ECCVMCircuitBuilder {
             constexpr size_t NUM_SUBRELATIONS = result.size();
 
             for (size_t i = 0; i < num_rows; ++i) {
-                typename Flavor::RowPolynomials row;
-                for (size_t j = 0; j < NUM_POLYNOMIALS; ++j) {
-                    row[j] = rows[j][i];
-                }
-                Relation::accumulate(result, row, params, 1);
+                Relation::accumulate(result, polynomials.get_row(i), params, 1);
 
                 bool x = true;
                 for (size_t j = 0; j < NUM_SUBRELATIONS; ++j) {
@@ -558,13 +555,7 @@ template <typename Flavor> class ECCVMCircuitBuilder {
             r = 0;
         }
         for (size_t i = 0; i < num_rows; ++i) {
-            typename Flavor::RowPolynomials row;
-            for (size_t j = 0; j < NUM_POLYNOMIALS; ++j) {
-                row[j] = rows[j][i];
-            }
-            {
-                LookupRelation::accumulate(lookup_result, row, params, 1);
-            }
+            LookupRelation::accumulate(lookup_result, polynomials.get_row(i), params, 1);
         }
         for (auto r : lookup_result) {
             if (r != 0) {
