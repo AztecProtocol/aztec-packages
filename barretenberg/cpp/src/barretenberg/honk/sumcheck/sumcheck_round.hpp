@@ -6,6 +6,7 @@
 #include "barretenberg/polynomials/pow.hpp"
 #include "barretenberg/proof_system/flavor/flavor.hpp"
 #include "barretenberg/proof_system/relations/relation_parameters.hpp"
+#include "barretenberg/proof_system/relations/relation_types.hpp"
 
 namespace proof_system::honk::sumcheck {
 
@@ -252,9 +253,7 @@ template <typename Flavor> class SumcheckProverRound {
             barretenberg::BarycentricData<FF, Element::LENGTH, extended_size> barycentric_utils;
             auto extended = barycentric_utils.extend(element);
 
-            const bool is_subrelation_linearly_independent =
-                Relation::template is_subrelation_linearly_independent<subrelation_idx>();
-            if (is_subrelation_linearly_independent) {
+            if constexpr (subrelation_is_linearly_independent<Relation, subrelation_idx>()) {
                 // if subrelation is linearly independent, multiply by random polynomial
                 result += extended * extended_random_polynomial_edge;
             } else {

@@ -16,6 +16,24 @@ concept HasSubrelationLinearlyIndependentMember = requires(T) {
                                                           std::get<subrelation_idx>(T::SUBRELATION_LINEARLY_INDEPENDENT)
                                                           } -> std::convertible_to<bool>;
                                                   };
+
+/**
+ * @brief Check whether a given subrelation is linearly independent from the other subrelations.
+ *
+ * @details More often than not, we want multiply each subrelation contribution by a power of the relation separator
+ * challenge. In cases where we wish to define a subrelation that merges into another, we encode this in a boolean array
+ * `SUBRELATION_LINEARLY_INDEPENDENT` in the relation. If no such array is defined, then the default case where all
+ * subrelations are independent is engaged.
+ */
+template <typename Relation, size_t subrelation_index> constexpr bool subrelation_is_linearly_independent()
+{
+    if constexpr (HasSubrelationLinearlyIndependentMember<Relation, subrelation_index>) {
+        return std::get<subrelation_index>(Relation::SUBRELATION_LINEARLY_INDEPENDENT);
+    } else {
+        return true;
+    }
+}
+
 /**
  * @brief The templates defined herein facilitate sharing the relation arithmetic between the prover and the verifier.
  *
@@ -53,30 +71,6 @@ template <typename RelationImpl> class Relation : public RelationImpl {
 
     using UnivariateAccumulator0 = std::tuple_element_t<0, TupleOfUnivariatesOverSubrelations>;
     using ValueAccumulator0 = std::tuple_element_t<0, ArrayOfValuesOverSubrelations>;
-
-    /**
-     * @brief Check is subrelation is linearly independent
-     * Method is active if relation has SUBRELATION_LINEARLY_INDEPENDENT array defined
-     * @tparam size_t
-     */
-    template <size_t subrelation_index>
-    static constexpr bool is_subrelation_linearly_independent()
-        requires(!HasSubrelationLinearlyIndependentMember<Relation, subrelation_index>)
-    {
-        return true;
-    }
-
-    /**
-     * @brief Check is subrelation is linearly independent
-     * Method is active if relation has SUBRELATION_LINEARLY_INDEPENDENT array defined
-     * @tparam size_t
-     */
-    template <size_t subrelation_index>
-    static constexpr bool is_subrelation_linearly_independent()
-        requires(HasSubrelationLinearlyIndependentMember<Relation, subrelation_index>)
-    {
-        return std::get<subrelation_index>(Relation::SUBRELATION_LINEARLY_INDEPENDENT);
-    }
 };
 
 } // namespace proof_system
