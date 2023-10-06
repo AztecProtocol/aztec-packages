@@ -252,9 +252,9 @@ export function parseOptionalInteger(value: string): number | undefined {
   if (!value) {
     return undefined;
   }
-  const parsed = parseInt(value, 10);
-  if (isNaN(parsed)) {
-    throw new InvalidArgumentError(`Invalid integer: ${value}`);
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed)) {
+    throw new InvalidArgumentError('Invalid integer.');
   }
   return parsed;
 }
