@@ -128,7 +128,7 @@ describe('e2e_public_cross_chain_messaging', () => {
     await expect(
       l2Bridge
         .withWallet(user2Wallet)
-        .methods.claim_public(user2Wallet.getAddress(), bridgeAmount, ownerEthAddress, messageKey, secret)
+        .methods.claim_public(bridgeAmount, user2Wallet.getAddress(), ownerEthAddress, messageKey, secret)
         .simulate(),
     ).rejects.toThrow();
 
@@ -136,7 +136,7 @@ describe('e2e_public_cross_chain_messaging', () => {
     logger("user2 consumes owner's message on L2 Publicly");
     const tx = l2Bridge
       .withWallet(user2Wallet)
-      .methods.claim_public(ownerAddress, bridgeAmount, ownerEthAddress, messageKey, secret)
+      .methods.claim_public(bridgeAmount, ownerAddress, ownerEthAddress, messageKey, secret)
       .send();
     const receipt = await tx.wait();
     expect(receipt.status).toBe(TxStatus.MINED);
@@ -155,7 +155,7 @@ describe('e2e_public_cross_chain_messaging', () => {
     await expect(
       l2Bridge
         .withWallet(ownerWallet)
-        .methods.exit_to_l1_public(ownerEthAddress, withdrawAmount, EthAddress.ZERO, nonce)
+        .methods.exit_to_l1_public(withdrawAmount, ownerEthAddress, EthAddress.ZERO, nonce)
         .simulate(),
     ).rejects.toThrowError('Assertion failed: Message not authorized by account');
   });

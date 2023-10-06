@@ -369,8 +369,8 @@ describe('ACIR public execution simulator', () => {
       // Stub message key
       const messageKey = Fr.random();
       const args = encodeArguments(mintPublicArtifact, [
-        recipient.toField(),
         bridgedAmount,
+        recipient.toField(),
         canceller.toField(),
         messageKey,
         secret,

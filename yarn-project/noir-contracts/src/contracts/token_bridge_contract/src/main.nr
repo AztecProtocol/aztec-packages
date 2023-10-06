@@ -49,13 +49,13 @@ contract TokenBridge {
     // Consumes a L1->L2 message and calls the token contract to mint the appropriate amount publicly
     #[aztec(public)]
     fn claim_public(
-        to: AztecAddress,
         amount: Field,
+        to: AztecAddress,
         canceller: EthereumAddress,
         msg_key: Field,
         secret: Field,
     ) -> Field {
-        let content_hash = get_mint_public_content_hash(to.address, amount, canceller.address);
+        let content_hash = get_mint_public_content_hash(amount, to.address, canceller.address);
         // Consume message and emit nullifier
         context.consume_l1_to_l2_message(msg_key, content_hash, secret);
 
@@ -71,13 +71,13 @@ contract TokenBridge {
     // Requires `msg.sender` to give approval to the bridge to burn tokens on their behalf using witness signatures
     #[aztec(public)]
     fn exit_to_l1_public(
-        recipient: EthereumAddress, // ethereum address to withdraw to
         amount: Field,
+        recipient: EthereumAddress, // ethereum address to withdraw to
         callerOnL1: EthereumAddress, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
         nonce: Field, // nonce used in the approval message by `msg.sender` to let bridge burn their tokens on L2
     ) -> Field {
         // Send an L2 to L1 message
-        let content = get_withdraw_content_hash(recipient.address, amount, callerOnL1.address);
+        let content = get_withdraw_content_hash(amount, recipient.address, callerOnL1.address);
         context.message_portal(content);
 
         // Burn tokens
@@ -119,14 +119,14 @@ contract TokenBridge {
     // Requires `msg.sender` (caller of the method) to give approval to the bridge to burn tokens on their behalf using witness signatures
     #[aztec(private)]
     fn exit_to_l1_private(
-        recipient: EthereumAddress, // ethereum address to withdraw to
         token: AztecAddress,
         amount: Field,
+        recipient: EthereumAddress, // ethereum address to withdraw to
         callerOnL1: EthereumAddress, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
         nonce: Field, // nonce used in the approval message by `msg.sender` to let bridge burn their tokens on L2
     ) -> Field {
         // Send an L2 to L1 message
-        let content = get_withdraw_content_hash(recipient.address, amount, callerOnL1.address);
+        let content = get_withdraw_content_hash(amount, recipient.address, callerOnL1.address);
         context.message_portal(content);
 
         // Assert that user provided token address is same as seen in storage.

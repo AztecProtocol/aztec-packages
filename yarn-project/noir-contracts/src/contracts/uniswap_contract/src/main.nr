@@ -97,6 +97,7 @@ contract Uniswap {
         // this ensures the integrity of what the user originally intends to do on L1.
         let input_asset_bridge_portal_address = get_portal_address(input_asset_bridge.address);
         let output_asset_bridge_portal_address = get_portal_address(output_asset_bridge.address);
+        // ensure portal exists - else funds might be lost
         assert(input_asset_bridge_portal_address != 0, "L1 portal address of input_asset's bridge is 0");
         assert(output_asset_bridge_portal_address != 0, "L1 portal address of output_asset's bridge is 0");
 
@@ -160,6 +161,7 @@ contract Uniswap {
         // this ensures the integrity of what the user originally intends to do on L1.
         let input_asset_bridge_portal_address = get_portal_address(input_asset_bridge.address);
         let output_asset_bridge_portal_address = get_portal_address(output_asset_bridge.address);
+        // ensure portal exists - else funds might be lost
         assert(input_asset_bridge_portal_address != 0, "L1 portal address of input_asset's bridge is 0");
         assert(output_asset_bridge_portal_address != 0, "L1 portal address of output_asset's bridge is 0");
 
@@ -219,8 +221,8 @@ contract Uniswap {
         // Exit to L1 Uniswap Portal !
         TokenBridge::at(token_bridge.address).exit_to_l1_public(
             context,
-            context.this_portal_address(),
             amount,
+            context.this_portal_address(),
             context.this_portal_address(),
             nonce_for_burn_approval,
         );

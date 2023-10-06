@@ -193,7 +193,7 @@ describe('e2e_cross_chain_messaging', () => {
     await expect(
       l2Bridge
         .withWallet(user1Wallet)
-        .methods.exit_to_l1_private(ethAccount, l2Token.address, withdrawAmount, EthAddress.ZERO, nonce)
+        .methods.exit_to_l1_private(l2Token.address, withdrawAmount, ethAccount, EthAddress.ZERO, nonce)
         .simulate(),
     ).rejects.toThrowError(`Unknown auth witness for message hash 0x${expectedBurnMessageHash.toString('hex')}`);
   });
@@ -224,7 +224,7 @@ describe('e2e_cross_chain_messaging', () => {
     await expect(
       l2Bridge
         .withWallet(user2Wallet)
-        .methods.claim_public(ownerAddress, bridgeAmount, ethAccount, messageKey, secretForL2MessageConsumption)
+        .methods.claim_public(bridgeAmount, ownerAddress, ethAccount, messageKey, secretForL2MessageConsumption)
         .simulate(),
     ).rejects.toThrowError(
       "Failed to solve brillig function, reason: explicit trap hit in brillig 'l1_to_l2_message_data.message.content == content'",

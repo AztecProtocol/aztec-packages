@@ -209,7 +209,7 @@ export class CrossChainTestHarness {
     this.logger('Consuming messages on L2 Publicly');
     // Call the mint tokens function on the Aztec.nr contract
     const tx = this.l2Bridge.methods
-      .claim_public(this.ownerAddress, bridgeAmount, this.ethAccount, messageKey, secret)
+      .claim_public(bridgeAmount, this.ownerAddress, this.ethAccount, messageKey, secret)
       .send();
     const receipt = await tx.wait();
     expect(receipt.status).toBe(TxStatus.MINED);
@@ -217,7 +217,7 @@ export class CrossChainTestHarness {
 
   async withdrawPrivateFromAztecToL1(withdrawAmount: bigint, nonce: Fr = Fr.ZERO) {
     const withdrawTx = this.l2Bridge.methods
-      .exit_to_l1_private(this.ethAccount, this.l2Token.address, withdrawAmount, EthAddress.ZERO, nonce)
+      .exit_to_l1_private(this.l2Token.address, withdrawAmount, this.ethAccount, EthAddress.ZERO, nonce)
       .send();
     const withdrawReceipt = await withdrawTx.wait();
     expect(withdrawReceipt.status).toBe(TxStatus.MINED);
@@ -225,7 +225,7 @@ export class CrossChainTestHarness {
 
   async withdrawPublicFromAztecToL1(withdrawAmount: bigint, nonce: Fr = Fr.ZERO) {
     const withdrawTx = this.l2Bridge.methods
-      .exit_to_l1_public(this.ethAccount, withdrawAmount, EthAddress.ZERO, nonce)
+      .exit_to_l1_public(withdrawAmount, this.ethAccount, EthAddress.ZERO, nonce)
       .send();
     const withdrawReceipt = await withdrawTx.wait();
     expect(withdrawReceipt.status).toBe(TxStatus.MINED);

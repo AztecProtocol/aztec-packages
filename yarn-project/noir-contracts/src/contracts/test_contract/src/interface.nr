@@ -62,15 +62,15 @@ impl TestPrivateContextInterface {
   pub fn consume_mint_public_message(
     self,
     context: &mut PrivateContext,
-    to: Field,
     amount: Field,
+    to: Field,
     canceller: Field,
     msg_key: Field,
     secret: Field
   ) {
     let mut serialized_args = [0; 5];
-    serialized_args[0] = to;
-    serialized_args[1] = amount;
+    serialized_args[0] = amount;
+    serialized_args[1] = to;
     serialized_args[2] = canceller;
     serialized_args[3] = msg_key;
     serialized_args[4] = secret;
@@ -239,15 +239,15 @@ impl TestPublicContextInterface {
   pub fn consume_mint_public_message(
     self,
     context: PublicContext,
-    to: Field,
     amount: Field,
+    to: Field,
     canceller: Field,
     msg_key: Field,
     secret: Field
   ) -> [Field; RETURN_VALUES_LENGTH] {
     let mut serialized_args = [0; 5];
-    serialized_args[0] = to;
-    serialized_args[1] = amount;
+    serialized_args[0] = amount;
+    serialized_args[1] = to;
     serialized_args[2] = canceller;
     serialized_args[3] = msg_key;
     serialized_args[4] = secret;
