@@ -5,6 +5,7 @@ import { TokenBridgeContract, TokenContract } from '@aztec/noir-contracts/types'
 import type { Abi, Narrow } from 'abitype';
 import { Account, Chain, Hex, HttpTransport, PublicClient, WalletClient, getContract } from 'viem';
 
+// docs:start:util_crosschain
 /**
  * Deploy L1 token and portal, initialize portal, deploy a non native l2 token contract, its L2 bridge contract and attach is to the portal.
  * @param wallet - the wallet instance
@@ -134,3 +135,4 @@ export async function deployL1Contract(
 
   return EthAddress.fromString(receipt.contractAddress!);
 }
+// docs:end:util_crosschain

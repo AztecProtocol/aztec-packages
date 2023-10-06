@@ -1,3 +1,4 @@
+// docs:start:uniswap_bridge
 import {
   AccountWallet,
   AztecAddress,
@@ -438,3 +439,4 @@ describe('uniswap_trade_on_l1_from_l2', () => {
     logger('DAI balance after swap  : ' + daiL2BalanceAfterSwap.toString());
   }, 140_000);
 });
+// docs:end:uniswap_bridge
