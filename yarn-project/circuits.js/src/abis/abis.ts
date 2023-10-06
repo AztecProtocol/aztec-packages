@@ -252,7 +252,7 @@ export function siloCommitment(wasm: IWasmModule, contract: AztecAddress, innerC
 }
 
 /**
- * Computes a unique commitment. It includes a nonce which contains data that guarantees the commiment will be unique.
+ * Computes a unique commitment. It includes a nonce which contains data that guarantees the commitment will be unique.
  * @param wasm - A module providing low-level wasm access.
  * @param nonce - The contract address.
  * @param siloedCommitment - An siloed commitment.
