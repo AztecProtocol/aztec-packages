@@ -9,35 +9,36 @@ In this step, we will write our token portal contract on L1.
 In `l1-contracts/contracts` create a new file called `TokenPortal.sol` and paste this:
 
 ```solidity
-import {IERC20} from "@oz/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
+pragma solidity >=0.8.18;
+
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 // Messaging
-
-import {IRegistry} from "@aztec/core/interfaces/messagebridge/IRegistry.sol";
-import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
-import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
-import {Hash} from "@aztec/core/libraries/Hash.sol";
+import {IRegistry} from "./aztec/interfaces/messagebridge/IRegistry.sol";
+import {IInbox} from "./aztec/interfaces/messagebridge/IInbox.sol";
+import {DataStructures} from "./aztec/libraries/DataStructures.sol";
+import {Hash} from "./aztec/libraries/Hash.sol";
 
 contract TokenPortal {
-using SafeERC20 for IERC20;
-IRegistry public registry;
-IERC20 public underlying;
-bytes32 public l2TokenAddress;
+  using SafeERC20 for IERC20;
 
-function initialize(address _registry, address _underlying, bytes32 _l2TokenAddress) external {
-registry = IRegistry(_registry);
-underlying = IERC20(_underlying);
-l2TokenAddress = _l2TokenAddress;
+  IRegistry public registry;
+  IERC20 public underlying;
+  bytes32 public l2TokenAddress;
 
-}
+  function initialize(address _registry, address _underlying, bytes32 _l2TokenAddress) external {
+    registry = IRegistry(_registry);
+    underlying = IERC20(_underlying);
+    l2TokenAddress = _l2TokenAddress;
+  }
 ```
 
-This imports relevant files including the interfaces used by the Aztec rollup. And initializes the contract with the:
+This imports relevant files including the interfaces used by the Aztec rollup. And initializes the contract with the following parameters:
 
 - rollup registry address (that stores the current rollup, inbox and outbox contract addresses)
 - The erc20 token the portal corresponds to
-- The sister contract address on Aztec to where the token will send messages to (for depositing tokens or from where to withdraw the tokens)
+- The address of the sister contract on Aztec to where the token will send messages to (for depositing tokens or from where to withdraw the tokens)
 
 ## Depositing tokens to Aztec publicly
 
@@ -54,15 +55,15 @@ Here is an explanation of what it is doing:
    - The content is limited to a single field (~254 bits). So if the content is larger, we have to hash it and the hash can be passed along.
      - We use our utility method that creates a sha256 hash but truncates it to fit into a field
    - Since we want to mint tokens on Aztec publicly, the content here is the amount to mint and the address on Aztec who will receive the tokens. We also include the L1 address that can cancel the L1->L2 message. Adding this into the content hash makes it so that only the appropriate person can cancel the message and not just any malicious 3rd party.
-     - More on cancellers can be found in [this upcoming section](https://docs.google.com/document/d/1RNkwRrLZ74DkjowaEytjQfH0B1fbH4P5jc7jsr0tYuM/edit#heading=h.81q6cnz1h7jp)
+     - More on cancellers can be found in [this upcoming section](./cancelling_deposits.md)
    - We encode this message as a mint_public function call, to specify the exact intentions and parameters we want to execute on L2.
      - In reality the content can be constructed in any manner as long as the sister contract on L2 can also create it. But for clarity, we are constructing the content like a abi encoded function call.
      - It is good practice to include all parameters used by L2 into this content (like the amount and to) so that a malicious actor can’t change the to to themselves when consuming the message.
-3. The tokens are transferred from the user to the portal using underlying.safeTransferFrom(). This puts the funds under the portal's control.
-4. Next we send the message to the inbox contract. It expects:
+3. The tokens are transferred from the user to the portal using `underlying.safeTransferFrom()`. This puts the funds under the portal's control.
+4. Next we send the message to the inbox contract. The inbox expects the following parameters:
    - recipient, a struct:
      - the sister contract address on L2 that can consume the message.
-     - The version - just like Ethereum, there might be various versions, and upgrades of Aztec. By including a version, an ID, we can prevent replay attacks of the message on various aztec networks.
+     - The version - akin to THE chainID of Ethereum. By including a version, an ID, we can prevent replay attacks of the message (without this the same message might be replayable on other aztec networks that might exist).
    - Deadline by which the sequencer on L2 must consume the method. After this time, the message can be canceled by the “canceller”. We will implement this functionality later in the doc.
    - A secret hash (fit to a field element). This is mainly used in the private domain and the preimage of the hash doesn’t need to be secret for the public flow. When consuming the message, one must provide the preimage. More on this when we create the private flow for depositing tokens.
    - We also pass a fee to the sequencer for including the message. It is a uint64
@@ -79,9 +80,9 @@ Let’s do the similar for the private flow:
 Here we want to send a message to mint tokens privately on Aztec! Some key differences from the previous method are:
 
 - The content hash uses a different function name - `mint_private`. This is done to make it easy to separate concerns. If the contentHash between the public and private message was the same, then an attacker could consume a private message publicly!
-- Since we want to mint tokens privately, we shouldn’t specify a to Aztec address (remember that Ethereum is completely public). Instead, we will use a secret hash - `secretHashForRedeemingMintedNotes`. Only he who knows the preimage to the secret hash can actually mint the notes. This is similar to the mechanism we use for message consumption on L2
+- Since we want to mint tokens privately, we shouldn’t specify a `to` Aztec address (remember that Ethereum is completely public). Instead, we will use a secret hash - `secretHashForRedeemingMintedNotes`. Only he who knows the preimage to the secret hash can actually mint the notes. This is similar to the mechanism we use for message consumption on L2
 - Like with the public flow, we move the user’s funds to the portal
-- We now send the message to the inbox with the fee, deadline, the recipient (the sister contract on L2 along with the version of aztec the message is intended for) and the secretHashForL2MessageConsumption (such that on L2, the consumption of the message can be private).
+- We now send the message to the inbox with the `fee`, `deadline`, the `recipient` (the sister contract on L2 along with the version of aztec the message is intended for) and the `secretHashForL2MessageConsumption` (such that on L2, the consumption of the message can be private).
 
 Note that because L1 is public, everyone can inspect and figure out the fee, contentHash, deadline, recipient contract address.
 
@@ -91,4 +92,4 @@ On Aztec, anytime something is consumed, we emit a nullifier hash and add it to 
 
 Note: the secret hashes are Pedersen hashes since the hash has to be computed on L2, and sha256 hash is very expensive for zk circuits. The content hash however is a sha256 hash truncated to a field as clearly shown before.
 
-In the next step we will start writing our L2 smart contract.
+In the next step we will start writing our L2 smart contract to mint these tokens on L2.

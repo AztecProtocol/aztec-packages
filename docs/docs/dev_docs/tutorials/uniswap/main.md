@@ -1,5 +1,5 @@
 ---
-title: Uniswap with Portals Tutorial
+title: Build an Aztec Connect-style Uniswap
 ---
 
 :::important

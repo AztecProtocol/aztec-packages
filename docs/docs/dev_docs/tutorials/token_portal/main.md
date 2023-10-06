@@ -1,5 +1,5 @@
 ---
-title: Token Portal Tutorial
+title: Build a Token Bridge
 ---
 
 import Image from "@theme/IdealImage";
@@ -26,14 +26,14 @@ Using portals, you could implement Aztec Connect-like functionality where you co
 
 You could swap your L2 WETH into DAI on Uniswap on Ethereum and get the DAI on Aztec. Similarly, you could stake your L2 ETH into Lido on Ethereum and get stETH on Aztec!
 
-### L1\<\>L2 communication on Aztec
+### L1<\>L2 communication on Aztec
 
 Aztec has the following core smart contracts on L1 that we need to know about:
 
-- Rollup.sol - stores the current state of the rollup and includes logic to progress the rollup (i.e. the state transition function)
-- Inbox.sol - a mailbox to the rollup for L1 to L2 messages (e.g. depositing tokens). Portals put messages into the box, and the sequencers then decide which of these messages they want to include in their blocks, based on the inclusion fees they receive.
-- Outbox.sol - a mailbox to the rollup for L2 to L1 messages (e.g. withdrawing tokens). Aztec contracts emit these messages and the sequencer adds these to the outbox. Portals then consume these messages.
-- Registry.sol - just like L1, we assume there will be various versions of Aztec (due to upgrades, forks etc). In such a case messages must not be replayable in other Aztec “domains”. A portal must decide which version/ID of Aztec the message is for. The registry stores the rollup, inbox and outbox address for each version of Aztec deployments, so the portal can find out the address of the mailbox it wants to talk to
+- `Rollup.sol` - stores the current state of the rollup and includes logic to progress the rollup (i.e. the state transition function)
+- `Inbox.sol` - a mailbox to the rollup for L1 to L2 messages (e.g. depositing tokens). Portals put messages into the box, and the sequencers then decide which of these messages they want to include in their blocks, based on the inclusion fees they receive.
+- `Outbox.sol` - a mailbox to the rollup for L2 to L1 messages (e.g. withdrawing tokens). Aztec contracts emit these messages and the sequencer adds these to the outbox. Portals then consume these messages.
+- `Registry.sol` - just like L1, we assume there will be various versions of Aztec (due to upgrades, forks etc). In such a case messages must not be replayable in other Aztec “domains”. A portal must decide which version/ID of Aztec the message is for. The registry stores the rollup, inbox and outbox address for each version of Aztec deployments, so the portal can find out the address of the mailbox it wants to talk to
 
 For more information, read [cross-chain calls](https://docs.aztec.network/concepts/foundation/communication/cross_chain_calls).
 
@@ -41,12 +41,14 @@ For more information, read [cross-chain calls](https://docs.aztec.network/concep
 
 The goal for this tutorial is to create functionality such that a token can be bridged to and from Aztec. We’ll be using L1 to refer to Ethereum and L2 to refer to Aztec.
 
+This is just a reference implementation for educational purposes only. It has not been through an in-depth security audit.
+
 Let’s assume a token exists on Ethereum and Aztec (see a [guide on writing a token contract on Aztec here](https://docs.aztec.network/dev_docs/tutorials/writing_token_contract)).
 
 We will build:
 
-- a “Token Portal” solidity contract on L1 that will be responsible for sending messages to the Inbox and consuming from the Outbox.
-- a “Token Bridge” aztec-nr contract on L2 that can consume L1 to L2 messages to mint tokens on L2 and create L2 to L1 messages to withdraw tokens back to L1.
+- a `Token Portal`` solidity contract on L1 that will be responsible for sending messages to the Inbox and consuming from the Outbox.
+- a `Token Bridge`` aztec-nr contract on L2 that can consume L1 to L2 messages to mint tokens on L2 and create L2 to L1 messages to withdraw tokens back to L1.
 - Some TypeScript code that can call the methods on the contracts and communicate with the sandbox.
 
 Our contracts will be able to work with _both_ private and public state i.e. how to deposit tokens into Aztec privately and publicly and withdraw tokens privately and publicly.
