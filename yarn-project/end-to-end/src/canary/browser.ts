@@ -54,7 +54,7 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
 
       browser = await launch({
         executablePath: process.env.CHROME_BIN,
-        headless: false,
+        headless: 'new',
         args: [
           '--no-sandbox',
           '--headless',
