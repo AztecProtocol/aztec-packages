@@ -18,7 +18,7 @@ TEST(BabyVMTraceBuilderTests, Basic)
         FF a = FF::random_element();
         FF b = FF::random_element();
         FF x = FF::random_element();
-        // FF expected = a + b * x;
+        FF expected = a + b * x;
 
         trace.add_accumulate(1);
         trace.mul_accumulate(b);
