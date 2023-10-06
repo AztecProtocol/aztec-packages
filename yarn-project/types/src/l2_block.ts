@@ -346,7 +346,9 @@ export class L2Block {
    */
   encode(): Buffer {
     if (this.newEncryptedLogs === undefined || this.newUnencryptedLogs === undefined) {
-      throw new Error('newEncryptedLogs and newUnencryptedLogs must be defined when encoding L2BlockData');
+      throw new Error(
+        `newEncryptedLogs and newUnencryptedLogs must be defined when encoding L2BlockData (block ${this.number})`,
+      );
     }
 
     return serializeToBuffer(
