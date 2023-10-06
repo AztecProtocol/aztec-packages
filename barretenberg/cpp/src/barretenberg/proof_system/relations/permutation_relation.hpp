@@ -13,23 +13,23 @@ template <typename FF_> class UltraPermutationRelationImpl {
         3  // left-shiftable polynomial sub-relation
     };
 
-    inline static auto& get_grand_product_polynomial(auto& input) { return input.z_perm; }
-    inline static auto& get_shifted_grand_product_polynomial(auto& input) { return input.z_perm_shift; }
+    inline static auto& get_grand_product_polynomial(auto& in) { return in.z_perm; }
+    inline static auto& get_shifted_grand_product_polynomial(auto& in) { return in.z_perm_shift; }
 
     template <typename Accumulator, typename AllEntities>
-    inline static Accumulator compute_grand_product_numerator(const AllEntities& input,
+    inline static Accumulator compute_grand_product_numerator(const AllEntities& in,
                                                               const RelationParameters<FF>& relation_parameters)
     {
         using View = typename Accumulator::View;
 
-        auto w_1 = View(input.w_l);
-        auto w_2 = View(input.w_r);
-        auto w_3 = View(input.w_o);
-        auto w_4 = View(input.w_4);
-        auto id_1 = View(input.id_1);
-        auto id_2 = View(input.id_2);
-        auto id_3 = View(input.id_3);
-        auto id_4 = View(input.id_4);
+        auto w_1 = View(in.w_l);
+        auto w_2 = View(in.w_r);
+        auto w_3 = View(in.w_o);
+        auto w_4 = View(in.w_4);
+        auto id_1 = View(in.id_1);
+        auto id_2 = View(in.id_2);
+        auto id_3 = View(in.id_3);
+        auto id_4 = View(in.id_4);
 
         const auto& beta = relation_parameters.beta;
         const auto& gamma = relation_parameters.gamma;
@@ -39,20 +39,20 @@ template <typename FF_> class UltraPermutationRelationImpl {
     }
 
     template <typename Accumulator, typename AllEntities>
-    inline static Accumulator compute_grand_product_denominator(const AllEntities& input,
+    inline static Accumulator compute_grand_product_denominator(const AllEntities& in,
                                                                 const RelationParameters<FF>& relation_parameters)
     {
         using View = typename Accumulator::View;
 
-        auto w_1 = View(input.w_l);
-        auto w_2 = View(input.w_r);
-        auto w_3 = View(input.w_o);
-        auto w_4 = View(input.w_4);
+        auto w_1 = View(in.w_l);
+        auto w_2 = View(in.w_r);
+        auto w_3 = View(in.w_o);
+        auto w_4 = View(in.w_4);
 
-        auto sigma_1 = View(input.sigma_1);
-        auto sigma_2 = View(input.sigma_2);
-        auto sigma_3 = View(input.sigma_3);
-        auto sigma_4 = View(input.sigma_4);
+        auto sigma_1 = View(in.sigma_1);
+        auto sigma_2 = View(in.sigma_2);
+        auto sigma_3 = View(in.sigma_3);
+        auto sigma_4 = View(in.sigma_4);
 
         const auto& beta = relation_parameters.beta;
         const auto& gamma = relation_parameters.gamma;

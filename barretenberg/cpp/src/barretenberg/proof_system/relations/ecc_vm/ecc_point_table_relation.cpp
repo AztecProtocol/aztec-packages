@@ -26,6 +26,7 @@ void ECCVMPointTableRelationBase<FF>::accumulate(ContainerOverSubrelations& accu
 {
     using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
     using View = typename Accumulator::View;
+
     const auto& Tx = View(in.precompute_tx);
     const auto& Tx_shift = View(in.precompute_tx_shift);
     const auto& Ty = View(in.precompute_ty);

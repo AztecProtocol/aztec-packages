@@ -137,15 +137,6 @@ template <typename FF_> class ECCVMLookupRelationBase {
         return Accumulator0(1);
     }
 
-    /**
-     * @brief
-     *
-     * @tparam read_index
-     * @param in
-     * @param relation_params
-     * @param index
-     * @return Univariate
-     */
     template <typename Accumulator0, size_t read_index, typename AllEntities>
     static Accumulator0 compute_read_term(const AllEntities& in, const RelationParameters<FF>& relation_params)
     {

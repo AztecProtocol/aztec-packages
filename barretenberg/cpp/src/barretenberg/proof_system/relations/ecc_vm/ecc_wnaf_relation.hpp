@@ -36,27 +36,7 @@ template <typename FF_> class ECCVMWnafRelationBase {
     using FF = FF_;
 
     static constexpr std::array<size_t, 21> SUBRELATION_LENGTHS{
-        5, // no description
-        5, // no description
-        5, // no description
-        5, // no description
-        5, // no description
-        5, // no description
-        5, // no description
-        5, // no description
-        5, // no description
-        5, // no description
-        5, // no description
-        5, // no description
-        5, // no description
-        5, // no description
-        5, // no description
-        5, // no description
-        5, // no description
-        5, // no description
-        5, // no description
-        5, // no description
-        5, // no description
+        5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
     };
 
     template <typename ContainerOverSubrelations, typename AllEntities>

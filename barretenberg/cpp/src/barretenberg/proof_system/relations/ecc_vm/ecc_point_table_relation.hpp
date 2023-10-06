@@ -19,14 +19,7 @@ template <typename FF_> class ECCVMPointTableRelationBase {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 6> SUBRELATION_LENGTHS{
-        6, // arithmetic sub-relation
-        6, // arithmetic sub-relation
-        6, // arithmetic sub-relation
-        6, // arithmetic sub-relation
-        6, // arithmetic sub-relation
-        6  // arithmetic sub-relation
-    };
+    static constexpr std::array<size_t, 6> SUBRELATION_LENGTHS{ 6, 6, 6, 6, 6, 6 };
 
     template <typename ContainerOverSubrelations, typename AllEntities>
     static void accumulate(ContainerOverSubrelations& accumulator,

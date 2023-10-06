@@ -31,41 +31,7 @@ template <typename FF_> class ECCVMTranscriptRelationBase {
     using FF = FF_;
 
     static constexpr std::array<size_t, 35> SUBRELATION_LENGTHS{
-        6, // arithmetic sub-relation
-        6, // arithmetic sub-relation
-        6, // arithmetic sub-relation
-        6, // arithmetic sub-relation
-        6, // arithmetic sub-relation
-        6, // arithmetic sub-relation
-        6, // arithmetic sub-relation
-        6, // arithmetic sub-relation
-        6, // arithmetic sub-relation
-        6, // arithmetic sub-relation
-        6, // arithmetic sub-relation
-        6, // arithmetic sub-relation
-        6, // arithmetic sub-relation
-        6, // arithmetic sub-relation
-        6, // arithmetic sub-relation
-        6, // arithmetic sub-relation
-        6, // arithmetic sub-relation
-        6, // arithmetic sub-relation
-        6, // arithmetic sub-relation
-        6, // arithmetic sub-relation
-        6, // arithmetic sub-relation
-        6, // arithmetic sub-relation
-        6, // arithmetic sub-relation
-        6, // arithmetic sub-relation
-        6, // arithmetic sub-relation
-        6, // arithmetic sub-relation
-        6, // arithmetic sub-relation
-        6, // arithmetic sub-relation
-        6, // arithmetic sub-relation
-        6, // arithmetic sub-relation
-        6, // arithmetic sub-relation
-        6, // arithmetic sub-relation
-        6, // arithmetic sub-relation
-        6, // arithmetic sub-relation
-        6, // arithmetic sub-relation
+        6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
     };
 
     template <typename ContainerOverSubrelations, typename AllEntities>
