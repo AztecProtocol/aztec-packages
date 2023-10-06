@@ -5,26 +5,26 @@ description: Developer Documentation to use Authentication Witness for authentic
 
 ## Introduction
 
-Authentication Witness is a scheme for authentication actions on Aztec, such that can users can allow third-parties (such as protocols or other users) to execute an action on their behalf.
+Authentication Witness is a scheme for authentication actions on Aztec, so users can allow third-parties (eg protocols or other users) to execute an action on their behalf.
 
 How it works logically is explained in the [foundational concepts](./../../../../concepts/foundation/accounts/authwit.md) but we will do a short recap here.
 
-An authentication witness is defined for a specific action, such as a allowing a Defi protocol to transfer funds on behalf of the user. An action is here something that could be explained as `A is allowed to perform X operation on behalf of B` and we define it as a hash computed as such:
+An authentication witness is defined for a specific action, such as allowing a Defi protocol to transfer funds on behalf of the user. An action is here something that could be explained as `A is allowed to perform X operation on behalf of B` and we define it as a hash computed as such:
 
 ```rust
 authentication_witness_action = H(
-    caller: AztecAddress, 
-    contract: AztecAddress, 
-    selector: Field, 
+    caller: AztecAddress,
+    contract: AztecAddress,
+    selector: Field,
     argsHash: Field
 );
 
 // Example action that authenticates:
 // defi to transfer 1000 tokens to itself on behalf of alice_account
 action = H(
-  defi, 
-  token, 
-  transfer_selector, 
+  defi,
+  token,
+  transfer_selector,
   H(alice_account, defi, 1000)
 );
 ```
@@ -50,7 +50,7 @@ sequenceDiagram
     AC->>Token: AuthWit validity
     deactivate Alice
     Token->>Token: throw if invalid AuthWit
-    Token->>Token: transfer(Alice, Defi, 1000); 
+    Token->>Token: transfer(Alice, Defi, 1000);
     deactivate Token
     Defi->>Defi: deposit(Token, 1000);
     deactivate Defi
@@ -58,6 +58,7 @@ sequenceDiagram
 ```
 
 As part of `AuthWit` we are assuming that the `on_behalf_of` implements the private and/or public functions:
+
 ```rust
 #[aztec(private)]
 fn is_valid(message_hash: Field) -> Field;
@@ -66,15 +67,15 @@ fn is_valid(message_hash: Field) -> Field;
 fn is_valid_public(message_hash: Field) -> Field;
 ```
 
-Both returning the value `0xe86ab4ff` (`is_valid` selector) for a successful authentication, and `0x00000000` for a failed authentication. You might be wondering why we are expecting the return value to be a selector instead of a boolean? This is mainly to account for a case of selector collisions where the same selector is used for different functions, and we don't want an account mistakenly allow a different function to be called on its behalf - its hard to return the selector by mistake, but you might have other functions returning a bool.
+Both returning the value `0xe86ab4ff` (`is_valid` selector) for a successful authentication, and `0x00000000` for a failed authentication. You might be wondering why we are expecting the return value to be a selector instead of a boolean? This is mainly to account for a case of selector collisions where the same selector is used for different functions, and we don't want an account to mistakenly allow a different function to be called on its behalf - it is hard to return the selector by mistake, but you might have other functions returning a bool.
 
 ## The `AuthWit` library.
 
 As part of [Aztec.nr](https://aztec.nr), we are providing a library that can be used to implement authentication witness for your contracts.
 
-This library also provide a basis for account implementations such that these can more easily implement authentication witness. For more on the wallets, see [writing an account contract](./../../../wallets/writing_an_account_contract.md).
+This library also provides a basis for account implementations such that these can more easily implement authentication witness. For more on the wallets, see [writing an account contract](./../../../wallets/writing_an_account_contract.md).
 
-For our purposes here (not building a wallet), the most important part of the library is the `auth` utility which exposes a couple of helper methods for computing the action hash, retrieving witnesses, validating them and emitting the nullifier. 
+For our purposes here (not building a wallet), the most important part of the library is the `auth` utility which exposes a couple of helper methods for computing the action hash, retrieving witnesses, validating them and emitting the nullifier.
 
 ### General utilities
 
@@ -83,28 +84,28 @@ The primary general utility is the `compute_authwit_message_hash` function which
 #include_code compute_authwit_message_hash /yarn-project/aztec-nr/authwit/src/auth.nr rust
 
 #### TypeScript utilities
+
 To make it somewhat convenient to compute the message hashes in TypeScript the `aztec.js` package includes a `computeAuthWitMessageHash` function that you can use.
 
 #include_code authwit_computeAuthWitMessageHash /yarn-project/aztec.js/src/utils/authwit.ts typescript
 
-As you can see above, this function takes a `caller` and a `request`. So lets quickly see how we can get those. Luckily for us, the `request` can be easily prepared similarly to how we are making contract calls from TypeScript.
+As you can see above, this function takes a `caller` and a `request`. So let's quickly see how we can get those. Luckily for us, the `request` can be easily prepared similarly to how we are making contract calls from TypeScript.
 
 #include_code authwit_computeAuthWitMessageHash /yarn-project/end-to-end/src/e2e_token_contract.test.ts typescript
 
-
 ### Utilities for private calls
 
-For private calls where we allow execution on behalf of others, we generally want to check if the current call is authenticated by `on_behalf_of`. To easily do so, we can use the `assert_current_call_valid_authwit` which fetch information from the current context without us needing to provide much beyond the `on_behalf_of`. 
+For private calls where we allow execution on behalf of others, we generally want to check if the current call is authenticated by `on_behalf_of`. To easily do so, we can use the `assert_current_call_valid_authwit` which fetches information from the current context without us needing to provide much beyond the `on_behalf_of`.
 
 #include_code assert_current_call_valid_authwit /yarn-project/aztec-nr/authwit/src/auth.nr rust
 
 As seen above, we mainly compute the message hash, and then forward the call to the more generic `assert_valid_authwit`. This validating function will then:
+
 - make a call to `on_behalf_of` to validate that the call is authenticated
 - emit a nullifier for the action to prevent replay attacks
 - throw if the action is not authenticated by `on_behalf_of`
 
 #include_code assert_valid_authwit /yarn-project/aztec-nr/authwit/src/auth.nr rust
-
 
 ### Utilities for public calls
 
@@ -128,7 +129,7 @@ aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_
 authwit = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/authwit"}
 ```
 
-Then you will be able to import it into you contracts as follows.
+Then you will be able to import it into your contracts as follows.
 
 #include_code import_authwit /yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
 
@@ -136,7 +137,7 @@ Then you will be able to import it into you contracts as follows.
 
 #### Checking if the current call is authenticated
 
-Based on the diagram earlier on this page lets take a look on how we can implement the `transfer` function such that it checks if the tokens are to be transferred `from` the caller or needs to be authenticated with an authentication witness.
+Based on the diagram earlier on this page let's take a look at how we can implement the `transfer` function such that it checks if the tokens are to be transferred `from` the caller or needs to be authenticated with an authentication witness.
 
 #include_code transfer /yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
 
@@ -146,7 +147,7 @@ In the snippet we are constraining the `else` case such that only `nonce = 0` is
 
 #### Authenticating an action in TypeScript
 
-Cool, so we have a function that checks if the current call is authenticated, but how do we actually authenticate it? Well, assuming that we use a wallet that is following the spec, we import `computeAuthWitMessageHash` from `aztec.js` to help us compute the hash, and then we simply `addAuthWitness` to the wallet. Behind the scenes this will make the witness available to the oracle. 
+Cool, so we have a function that checks if the current call is authenticated, but how do we actually authenticate it? Well, assuming that we use a wallet that is following the spec, we import `computeAuthWitMessageHash` from `aztec.js` to help us compute the hash, and then we simply `addAuthWitness` to the wallet. Behind the scenes this will make the witness available to the oracle.
 
 #include_code authwit_transfer_example /yarn-project/end-to-end/src/e2e_token_contract.test.ts typescript
 
@@ -168,19 +169,19 @@ In the snippet below, this is done as a separate contract call, but can also be 
 
 #### Updating approval state in Noir
 
-We have cases where we need need a non-wallet contract to approve an action to be executed by another contract. One of the cases could be when making more complex defi where funds are passed along. When doing so, we need the intermediate contracts to support approving of actions on their behalf.
+We have cases where we need a non-wallet contract to approve an action to be executed by another contract. One of the cases could be when making more complex defi where funds are passed along. When doing so, we need the intermediate contracts to support approving of actions on their behalf.
 
-To support this, is must implement the `is_valid_public` function as seen in the snippet below.
+To support this, we must implement the `is_valid_public` function as seen in the snippet below.
 
 #include_code authwit_uniswap_get /yarn-project/noir-contracts/src/contracts/uniswap_contract/src/main.nr rust
 
-And it also need a way to update those storage values. Since we want the updates to be trustless, we can compute the action based on the function inputs, and then have the contract compute the key at which it must add a `true` to approve the action.
+It also needs a way to update those storage values. Since we want the updates to be trustless, we can compute the action based on the function inputs, and then have the contract compute the key at which it must add a `true` to approve the action.
 
-An example of this would be our Uniswap example which performs a cross chain swap on L1. In here, we both do private and public auth witnesses. Where the public is set by the uniswap L2 contract itself. In the below snippet, you can see that we compute the action hash, and then update an `approved_action` mapping with the hash as key and `true` as value. When we then call the `token_bridge` to execute afterwards it reads this value, burn the tokens and consume the authentication.
+An example of this would be our Uniswap example which performs a cross chain swap on L1. In here, we both do private and public auth witnesses. Where the public is set by the uniswap L2 contract itself. In the below snippet, you can see that we compute the action hash, and then update an `approved_action` mapping with the hash as key and `true` as value. When we then call the `token_bridge` to execute afterwards, it reads this value, burns the tokens, and consumes the authentication.
 
 #include_code authwit_uniswap_set /yarn-project/noir-contracts/src/contracts/uniswap_contract/src/main.nr rust
 
-Outlining more of the `swap` flow below, shows how a slightly simplified diagram will look for contracts that are not wallets but also need to support authentication witnesses.
+Outlining more of the `swap` flow: this simplified diagram shows how it will look for contracts that are not wallets but also need to support authentication witnesses.
 
 ```mermaid
 sequenceDiagram
