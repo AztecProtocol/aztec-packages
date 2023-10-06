@@ -294,23 +294,23 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
   program
     .command('get-logs')
     .description('Gets all the unencrypted logs from L2 blocks in the range specified.')
-    .option('-tx, --txHash <txHash>', 'A transaction hash to get the receipt for.', parseOptionalTxHash)
+    .option('-tx, --tx-hash <txHash>', 'A transaction hash to get the receipt for.', parseOptionalTxHash)
     .option(
-      '-f, --fromBlock <blockNum>',
+      '-f, --from-block <blockNum>',
       'Initial block number for getting logs (defaults to 1).',
       parseOptionalInteger,
     )
-    .option('-t, --toBlock <blockNum>', 'Up to which block to fetch logs (defaults to latest).', parseOptionalInteger)
-    .option('-c, --contractAddress <contractAddress>', 'Contract address to filter logs by.', parseOptionalAztecAddress)
-    .option('-s, --selector <selector>', 'Event selector to filter logs by.', parseOptionalSelector)
+    .option('-t, --to-block <blockNum>', 'Up to which block to fetch logs (defaults to latest).', parseOptionalInteger)
+    .option('-ca, --contract-address <address>', 'Contract address to filter logs by.', parseOptionalAztecAddress)
+    .option('-s, --selector <hex string>', 'Event selector to filter logs by.', parseOptionalSelector)
     .addOption(pxeOption)
     .option('--follow', 'If set, will keep polling for new logs until interrupted.')
     .action(async ({ txHash, fromBlock, toBlock, contractAddress, selector, rpcUrl, follow }) => {
       const client = await createCompatibleClient(rpcUrl, debugLogger);
 
       if (follow) {
-        if (txHash) throw Error('Cannot use --follow with --txHash');
-        if (toBlock) throw Error('Cannot use --follow with --toBlock');
+        if (txHash) throw Error('Cannot use --follow with --tx-hash');
+        if (toBlock) throw Error('Cannot use --follow with --to-block');
       }
 
       const filter: LogFilter = { txHash, fromBlock, toBlock, contractAddress, selector };
