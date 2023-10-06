@@ -417,17 +417,6 @@ jobs:
           name: Test
           command: cond_spot_run_container yarn-project 64 test | add_timestamps
 
-  aztec-sandbox-base:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build and test"
-          command: force_deploy_build aztec-sandbox-base false
-
   aztec-sandbox-x86_64:
     machine:
       image: ubuntu-2204:2023.07.2
@@ -437,7 +426,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build and test"
-          command: force_deploy_build aztec-sandbox false x86_64
+          command: build aztec-sandbox false x86_64
 
   aztec-sandbox-arm64:
     machine:
@@ -452,7 +441,7 @@ jobs:
           # out to eu-west2 despite the image being locally tagged, resulting in unauthorised 401. Weird docker bug?
           command: |
             echo "export DOCKER_BUILDKIT=" > $BASH_ENV
-            force_deploy_build aztec-sandbox false arm64
+            build aztec-sandbox false arm64
 
   aztec-p2p-bootstrap:
     machine:
@@ -496,7 +485,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build and test"
-          command: force_deploy_build pxe false x86_64
+          command: build pxe false x86_64
 
   pxe-arm64:
     machine:
@@ -511,7 +500,7 @@ jobs:
           # out to eu-west2 despite the image being locally tagged, resulting in unauthorised 401. Weird docker bug?
           command: |
             echo "export DOCKER_BUILDKIT=" > $BASH_ENV
-            force_deploy_build pxe false arm64
+            build pxe false arm64
 
   ecr-manifest:
     machine:
@@ -523,8 +512,8 @@ jobs:
       - run:
           name: "Create ECR manifest"
           command: |
-            create_ecr_manifest aztec-sandbox-base aztec-sandbox x86_64,arm64
-            create_ecr_manifest pxe-base pxe x86_64,arm64
+            create_ecr_manifest aztec-sandbox x86_64,arm64
+            create_ecr_manifest pxe x86_64,arm64
 
   boxes-blank-react:
     machine:
@@ -1057,7 +1046,7 @@ jobs:
           name: "yarn-project"
           command: yarn-project/deploy_npm.sh
 
-  deploy-dockerhub-sandbox:
+  deploy-dockerhub:
     machine:
       image: ubuntu-2204:2023.07.2
     resource_class: medium
@@ -1065,27 +1054,8 @@ jobs:
       - *checkout
       - *setup_env
       - run:
-          name: "deploy-sandbox"
-          working_directory: aztec-sandbox
-          command: |
-            deploy_dockerhub aztec-sandbox x86_64
-            deploy_dockerhub aztec-sandbox arm64
-            create_dockerhub_manifest aztec-sandbox x86_64,arm64
-
-  deploy-dockerhub-pxe:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: medium
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "deploy-pxe"
-          working_directory: pxe
-          command: |
-            deploy_dockerhub pxe x86_64
-            deploy_dockerhub pxe arm64
-            create_dockerhub_manifest pxe x86_64,arm64
+          name: "Deploy to dockerhub"
+          command: yarn-project/deploy_dockerhub.sh
 
   deploy-end:
     docker:
@@ -1166,10 +1136,6 @@ deploy_defaults: &deploy_defaults
     - slack/notify:
         event: fail
         branch_pattern: "master"
-yarn_project: &yarn_project
-  requires:
-    - yarn-project
-  <<: *defaults
 e2e_test: &e2e_test
   requires:
     - e2e-join
@@ -1278,30 +1244,45 @@ workflows:
             - yarn-project
           <<: *defaults
 
-      - end-to-end: *yarn_project
-      - aztec-sandbox-base: *yarn_project
-      - pxe-base: *yarn_project
-      - canary: *yarn_project
-      - build-docs: *yarn_project
-      - aztec-p2p-bootstrap: *yarn_project
-      - aztec-node: *yarn_project
+      - end-to-end:
+          requires:
+            - yarn-project
+          <<: *defaults
+      - canary:
+          requires:
+            - yarn-project
+          <<: *defaults
+      - build-docs:
+          requires:
+            - yarn-project
+          <<: *defaults
 
       - aztec-sandbox-x86_64:
           requires:
-            - aztec-sandbox-base
+            - yarn-project
           <<: *defaults
       - aztec-sandbox-arm64:
           requires:
-            - aztec-sandbox-base
+            - yarn-project
+          <<: *defaults
+
+      - aztec-p2p-bootstrap:
+        requires:
+          - yarn-project
+          <<: *defaults
+
+      - aztec-node:
+        requires:
+          - yarn-project
           <<: *defaults
 
       - pxe-x86_64:
           requires:
-            - pxe-base
+            - yarn-project
           <<: *defaults
       - pxe-arm64:
           requires:
-            - pxe-base
+            - yarn-project
           <<: *defaults
 
       - ecr-manifest:
@@ -1415,11 +1396,7 @@ workflows:
           <<: *defaults
 
         # Deployment and Canary tests
-      - deploy-dockerhub-sandbox:
-          requires:
-            - e2e-end
-          <<: *deploy_defaults
-      - deploy-dockerhub-pxe:
+      - deploy-dockerhub:
           requires:
             - e2e-end
           <<: *deploy_defaults
@@ -1430,8 +1407,7 @@ workflows:
 
       - deploy-end:
           requires:
-            - deploy-dockerhub-sandbox
-            - deploy-dockerhub-pxe
+            - deploy-dockerhub
             - deploy-npm
           <<: *deploy_defaults
 

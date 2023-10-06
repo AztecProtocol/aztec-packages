@@ -11,8 +11,6 @@ import {
   createPXEClient,
   getSandboxAccountsWallets,
 } from '@aztec/aztec.js';
-import { CircuitsWasm, GeneratorIndex } from '@aztec/circuits.js';
-import { pedersenPlookupCompressWithHashIndex } from '@aztec/circuits.js/barretenberg';
 import {
   DeployL1Contracts,
   L1ContractArtifactsForDeployment,
@@ -135,7 +133,7 @@ export const setupL1Contracts = async (
 /**
  * Sets up Private eXecution Environment (PXE).
  * @param numberOfAccounts - The number of new accounts to be created once the PXE is initiated.
- * @param aztecNode - The instance of an aztec node, if one is required
+ * @param aztecNode - An instance of Aztec Node.
  * @param firstPrivKey - The private key of the first account to be created.
  * @param logger - The logger to be used.
  * @param useLogSuffix - Whether to add a randomly generated suffix to the PXE debug logs.
@@ -550,17 +548,4 @@ export const expectUnencryptedLogsFromLastBlockToBe = async (pxe: PXE, logMessag
   const asciiLogs = unrolledLogs.map(log => log.data.toString('ascii'));
 
   expect(asciiLogs).toStrictEqual(logMessages);
-};
-
-/**
- * Hash a payload to generate a signature on an account contract
- * @param payload - payload to hash
- * @returns the hashed message
- */
-export const hashPayload = async (payload: Fr[]) => {
-  return pedersenPlookupCompressWithHashIndex(
-    await CircuitsWasm.get(),
-    payload.map(fr => fr.toBuffer()),
-    GeneratorIndex.SIGNATURE_PAYLOAD,
-  );
 };

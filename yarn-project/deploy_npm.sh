@@ -9,7 +9,10 @@ echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > .npmrc
 
 function deploy_package() {
     REPOSITORY=$1
-    VERSION=$(extract_tag_version $REPOSITORY false)
+    cd $REPOSITORY
+
+    VERSION=$(extract_tag_version $REPOSITORY true)
+    echo "Deploying $REPOSITORY $VERSION"
 
     # If the commit tag itself has a dist-tag (e.g. v2.1.0-testnet.123), extract the dist-tag.
     TAG=$(echo "$VERSION" | grep -oP ".*-\K(.*)(?=\.\d+)" || true)
@@ -18,8 +21,8 @@ function deploy_package() {
         TAG_ARG="--tag $TAG"
     fi
 
-    readonly PUBLISHED_VERSION=$(npm show . version ${TAG_ARG:-} 2> /dev/null)
-    readonly HIGHER_VERSION=$(npx semver ${VERSION} ${PUBLISHED_VERSION} | tail -1)
+    PUBLISHED_VERSION=$(npm show . version ${TAG_ARG:-} 2> /dev/null) || true
+    HIGHER_VERSION=$(npx semver ${VERSION} ${PUBLISHED_VERSION} | tail -1)
 
     # If there is already a published package equal to given version, assume this is a re-run of a deploy, and early out.
     if [ "$VERSION" == "$PUBLISHED_VERSION" ]; then
@@ -37,24 +40,24 @@ function deploy_package() {
     TMP=$(mktemp)
     jq --arg v $VERSION '.version = $v' package.json > $TMP && mv $TMP package.json
 
-    if [ -z "$STANDALONE" ]; then
+    if [ -z "${STANDALONE:-}" ]; then
     # Update each dependent @aztec package version in package.json.
     for PKG in $(jq --raw-output ".dependencies | keys[] | select(contains(\"@aztec/\"))" package.json); do
         jq --arg v $VERSION ".dependencies[\"$PKG\"] = \$v" package.json > $TMP && mv $TMP package.json
     done
     fi
 
-    # Filter on whitelist of properties.
-    jq '{name, version, exports, main, homepage, author, type, license, dependencies, description, bin} | with_entries( select( .value != null ) )' \
-    package.json > $TMP && mv $TMP package.json
-
     # Publish
-    if [ -n "$COMMIT_TAG" ] ; then 
+    if [ -n "${COMMIT_TAG:-}" ] ; then 
         npm publish $TAG_ARG --access public
     else
         npm publish --dry-run $TAG_ARG --access public
     fi
+
+    # Back to root
+    cd ..
 }
+
 deploy_package foundation
 deploy_package circuits.js
 deploy_package types
@@ -64,14 +67,13 @@ deploy_package ethereum
 deploy_package noir-compiler
 deploy_package noir-contracts
 deploy_package cli
-deploy_package pxe
-deploy_package acir-simulator
-deploy_package archiver
 deploy_package merkle-tree
-deploy_package p2p
-deploy_package sequencer-client
-deploy_package world-state
+deploy_package acir-simulator
 deploy_package key-store
+deploy_package pxe
+deploy_package archiver
+deploy_package p2p
+deploy_package world-state
+deploy_package sequencer-client
 deploy_package aztec-node
 deploy_package aztec-sandbox
-
