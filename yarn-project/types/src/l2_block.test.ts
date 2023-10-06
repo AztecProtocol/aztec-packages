@@ -2,17 +2,20 @@ import { TxL2Logs } from './index.js';
 import { L2Block } from './l2_block.js';
 
 describe('L2Block', () => {
-  it('can encode a L2 block data object to buffer and back', () => {
+  it('can serialize an L2 block with logs to a buffer and back', () => {
     const block = L2Block.random(42);
 
-    const buffer = block.encode();
-    const recovered = L2Block.decode(buffer);
+    const buffer = block.toBufferWithLogs();
+    const recovered = L2Block.fromBufferWithLogs(buffer);
 
     expect(recovered).toEqual(block);
   });
 
-  it('can encode a L2 block to string and back', () => {
+  it('can serialize an L2 block without logs to a buffer and back', () => {
     const block = L2Block.random(42);
+    block.newEncryptedLogs = undefined;
+    block.newUnencryptedLogs = undefined;
+
     const serialised = block.toString();
     const recovered = L2Block.fromString(serialised);
 
