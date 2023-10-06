@@ -13,6 +13,7 @@
 //     } };
 //     col witness x, y;
 //
+//     starts with 1, 1 -> Can this be removed if we do not also commit to the shifts and use a permutation?
 //     ISLAST * (y' - 1) = 0;
 //     ISLAST * (x' - 1) = 0;
 //

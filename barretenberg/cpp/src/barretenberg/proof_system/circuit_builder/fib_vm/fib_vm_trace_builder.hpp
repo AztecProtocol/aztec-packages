@@ -88,6 +88,7 @@ class FibVMTraceBuilder : public ExecutionTraceBuilderBase<arithmetization::FibV
     [[maybe_unused]] bool check_gates()
     {
         build_execution_trace();
+        print_rows();
         return evaluate_relation<fib_vm::FibRelation<FF>, Row>("FibVMRelation", rows);
     }
 
