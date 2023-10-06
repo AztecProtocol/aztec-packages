@@ -1,5 +1,7 @@
 import { BufferReader, serializeBufferToVector } from '@aztec/foundation/serialize';
 
+import isEqual from 'lodash.isequal';
+
 import { TxL2Logs } from './tx_l2_logs.js';
 
 /**
@@ -29,6 +31,19 @@ export class L2BlockL2Logs {
    */
   public getSerializedLength(): number {
     return this.txLogs.reduce((acc, logs) => acc + logs.getSerializedLength(), 0) + 4;
+  }
+
+  /**
+   * Gets the total number of logs emitted from all the TxL2Logs.
+   */
+  public getTotalLogCount(): number {
+    let count = 0;
+    for (const txLog of this.txLogs) {
+      for (const functionLog of txLog.functionLogs) {
+        count += functionLog.logs.length;
+      }
+    }
+    return count;
   }
 
   /**
@@ -87,6 +102,15 @@ export class L2BlockL2Logs {
     return {
       txLogs: this.txLogs.map(log => log.toJSON()),
     };
+  }
+
+  /**
+   * Checks if two L2BlockL2Logs objects are equal.
+   * @param other - Another L2BlockL2Logs object to compare with.
+   * @returns True if the two objects are equal, false otherwise.
+   */
+  public equals(other: L2BlockL2Logs): boolean {
+    return isEqual(this, other);
   }
 
   /**
