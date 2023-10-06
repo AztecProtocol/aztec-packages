@@ -12,7 +12,7 @@ namespace proof_system::honk::pcs::zeromorph {
  *
  * @tparam Curve
  */
-template <typename Curve> class ZeroMorphProver {
+template <typename Curve> class ZeroMorphProver_ {
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
     using Polynomial = barretenberg::Polynomial<Fr>;
@@ -252,7 +252,7 @@ template <typename Curve> class ZeroMorphProver {
  *
  * @tparam Curve
  */
-template <typename Curve> class ZeroMorphVerifier {
+template <typename Curve> class ZeroMorphVerifier_ {
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
 
