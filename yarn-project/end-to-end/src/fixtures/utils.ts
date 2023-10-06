@@ -340,6 +340,10 @@ function getJobName() {
  */
 export function getLogger() {
   const describeBlockName = expect.getState().currentTestName?.split(' ')[0].replaceAll('/', ':');
+  if (!describeBlockName) {
+    const name = expect.getState().testPath?.split('/').pop()?.split('.')[0] ?? 'unknown';
+    return createDebugLogger('aztec:' + name);
+  }
   return createDebugLogger('aztec:' + describeBlockName);
 }
 
