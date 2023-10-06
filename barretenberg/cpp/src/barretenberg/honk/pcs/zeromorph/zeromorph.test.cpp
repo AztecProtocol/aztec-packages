@@ -9,9 +9,11 @@ namespace proof_system::honk::pcs::zeromorph {
 template <class Curve> class ZeroMorphTest : public CommitmentTest<Curve> {
   public:
     using Fr = typename Curve::ScalarField;
+    using Polynomial = barretenberg::Polynomial<Fr>;
     using Commitment = typename Curve::AffineElement;
     using GroupElement = typename Curve::Element;
-    using Polynomial = barretenberg::Polynomial<Fr>;
+    using ZeroMorphProver = ZeroMorphProver<Curve>;
+    using ZeroMorphVerifier = ZeroMorphVerifier<Curve>;
 
     // Evaluate Phi_k(x) = \sum_{i=0}^k x^i using the direct inefficent formula
     Fr Phi(Fr challenge, size_t subscript)
@@ -22,6 +24,198 @@ template <class Curve> class ZeroMorphTest : public CommitmentTest<Curve> {
             result += challenge.pow(idx);
         }
         return result;
+    }
+
+    /**
+     * @brief Construct and verify ZeroMorph proof of batched multilinear evaluation with shifts
+     * @details The goal is to construct and verify a single batched multilinear evaluation proof for m polynomials f_i
+     * and l polynomials h_i. It is assumed that the h_i are shifts of polynomials g_i (the "to-be-shifted"
+     * polynomials), which are a subset of the f_i. This is what is encountered in practice. We accomplish this using
+     * evaluations of h_i but commitments to only their unshifted counterparts g_i (which we get for "free" since
+     * commitments [g_i] are contained in the set of commitments [f_i]).
+     *
+     */
+    bool execute_zeromorph_protocol(size_t NUM_UNSHIFTED, size_t NUM_SHIFTED)
+    {
+        bool verified = false;
+
+        size_t N = 16;
+        size_t log_N = numeric::get_msb(N);
+
+        auto u_challenge = this->random_evaluation_point(log_N);
+
+        // Construct some random multilinear polynomials f_i and their evaluations v_i = f_i(u)
+        std::vector<Polynomial> f_polynomials; // unshifted polynomials
+        std::vector<Fr> v_evaluations;
+        for (size_t i = 0; i < NUM_UNSHIFTED; ++i) {
+            f_polynomials.emplace_back(this->random_polynomial(N));
+            f_polynomials[i][0] = Fr(0); // ensure f is "shiftable"
+            v_evaluations.emplace_back(f_polynomials[i].evaluate_mle(u_challenge));
+        }
+
+        // Construct some "shifted" multilinear polynomials h_i as the left-shift-by-1 of f_i
+        std::vector<Polynomial> g_polynomials; // to-be-shifted polynomials
+        std::vector<Polynomial> h_polynomials; // shifts of the to-be-shifted polynomials
+        std::vector<Fr> w_evaluations;
+        for (size_t i = 0; i < NUM_SHIFTED; ++i) {
+            g_polynomials.emplace_back(f_polynomials[i]);
+            h_polynomials.emplace_back(g_polynomials[i].shifted());
+            w_evaluations.emplace_back(h_polynomials[i].evaluate_mle(u_challenge));
+            // ASSERT_EQ(w_evaluations[i], g_polynomials[i].evaluate_mle(u_challenge, /* shift = */ true));
+        }
+
+        // Compute commitments [f_i]
+        std::vector<Commitment> f_commitments;
+        for (size_t i = 0; i < NUM_UNSHIFTED; ++i) {
+            f_commitments.emplace_back(this->commit(f_polynomials[i]));
+        }
+
+        // Construct container of commitments of the "to-be-shifted" polynomials [g_i] (= [f_i])
+        std::vector<Commitment> g_commitments;
+        for (size_t i = 0; i < NUM_SHIFTED; ++i) {
+            g_commitments.emplace_back(f_commitments[i]);
+        }
+
+        // Initialize an empty ProverTranscript
+        auto prover_transcript = ProverTranscript<Fr>::init_empty();
+
+        // Execute Prover protocol
+        {
+            auto alpha = prover_transcript.get_challenge("ZM:alpha");
+
+            // Compute batching of f_i and g_i polynomials: sum_{i=0}^{m-1}\alpha^i*f_i and
+            // sum_{i=0}^{l-1}\alpha^{m+i}*h_i, and also batched evaluation v = sum_{i=0}^{m-1}\alpha^i*v_i +
+            // sum_{i=0}^{l-1}\alpha^{m+i}*w_i.
+            auto f_batched = Polynomial(N);
+            auto g_batched = Polynomial(N);
+            auto v_evaluation = Fr(0);
+            auto alpha_pow = Fr(1);
+            for (size_t i = 0; i < NUM_UNSHIFTED; ++i) {
+                f_batched.add_scaled(f_polynomials[i], alpha_pow);
+                v_evaluation += alpha_pow * v_evaluations[i];
+                alpha_pow *= alpha;
+            }
+            for (size_t i = 0; i < NUM_SHIFTED; ++i) {
+                g_batched.add_scaled(g_polynomials[i], alpha_pow);
+                v_evaluation += alpha_pow * w_evaluations[i];
+                alpha_pow *= alpha;
+            }
+
+            // The new f is f_batched + g_batched.shifted() = f_batched + h_batched
+            auto f_polynomial = f_batched;
+            f_polynomial += g_batched.shifted();
+
+            // The batched evaluation should match the evaluation of the batched polynomial
+            // ASSERT_EQ(v_evaluation, f_polynomial.evaluate_mle(u_challenge));
+
+            // Compute the multilinear quotients q_k = q_k(X_0, ..., X_{k-1})
+            auto quotients = ZeroMorphProver::compute_multilinear_quotients(f_polynomial, u_challenge);
+
+            // Compute and send commitments C_{q_k} = [q_k], k = 0,...,d-1
+            std::vector<Commitment> q_k_commitments;
+            q_k_commitments.reserve(log_N);
+            for (size_t idx = 0; idx < log_N; ++idx) {
+                q_k_commitments[idx] = this->commit(quotients[idx]);
+                std::string label = "ZM:C_q_" + std::to_string(idx);
+                prover_transcript.send_to_verifier(label, q_k_commitments[idx]);
+            }
+
+            // Get challenge y
+            auto y_challenge = prover_transcript.get_challenge("ZM:y");
+
+            // Compute the batched, lifted-degree quotient \hat{q}
+            auto batched_quotient = ZeroMorphProver::compute_batched_lifted_degree_quotient(quotients, y_challenge, N);
+
+            // Compute and send the commitment C_q = [\hat{q}]
+            auto q_commitment = this->commit(batched_quotient);
+            prover_transcript.send_to_verifier("ZM:C_q", q_commitment);
+
+            // Get challenges x and z
+            auto [x_challenge, z_challenge] = prover_transcript.get_challenges("ZM:x", "ZM:z");
+
+            // Compute degree check polynomial \zeta partially evaluated at x
+            auto zeta_x = ZeroMorphProver::compute_partially_evaluated_degree_check_polynomial(
+                batched_quotient, quotients, y_challenge, x_challenge);
+
+            // Compute ZeroMorph identity polynomial Z partially evaluated at x
+            auto Z_x = ZeroMorphProver::compute_partially_evaluated_zeromorph_identity_polynomial_new(
+                f_batched, g_batched, quotients, v_evaluation, u_challenge, x_challenge);
+
+            // Compute batched degree and ZM-identity quotient polynomial pi
+            auto pi_polynomial = ZeroMorphProver::compute_batched_evaluation_and_degree_check_quotient(
+                zeta_x, Z_x, x_challenge, z_challenge);
+
+            // Compute and send proof commitment pi
+            auto pi_commitment = this->commit(pi_polynomial);
+            prover_transcript.send_to_verifier("ZM:PI", pi_commitment);
+        }
+
+        auto verifier_transcript = VerifierTranscript<Fr>::init_empty(prover_transcript);
+
+        // Execute Verifier protocol
+        {
+            // Challenge alpha
+            auto alpha = verifier_transcript.get_challenge("ZM:alpha");
+
+            // Construct batched evaluation v = sum_{i=0}^{m-1}\alpha^i*v_i + sum_{i=0}^{l-1}\alpha^{m+i}*w_i
+            auto v_evaluation = Fr(0);
+            auto alpha_pow = Fr(1);
+            for (size_t i = 0; i < NUM_UNSHIFTED; ++i) {
+                v_evaluation += alpha_pow * v_evaluations[i];
+                alpha_pow *= alpha;
+            }
+            for (size_t i = 0; i < NUM_SHIFTED; ++i) {
+                v_evaluation += alpha_pow * w_evaluations[i];
+                alpha_pow *= alpha;
+            }
+
+            // Receive commitments [q_k]
+            std::vector<Commitment> C_q_k;
+            C_q_k.reserve(log_N);
+            for (size_t i = 0; i < log_N; ++i) {
+                C_q_k.emplace_back(
+                    verifier_transcript.template receive_from_prover<Commitment>("ZM:C_q_" + std::to_string(i)));
+            }
+
+            // Challenge y
+            auto y_challenge = verifier_transcript.get_challenge("ZM:y");
+
+            // Receive commitment C_{q}
+            auto C_q = verifier_transcript.template receive_from_prover<Commitment>("ZM:C_q");
+
+            // Challenges x, z
+            auto [x_challenge, z_challenge] = verifier_transcript.get_challenges("ZM:x", "ZM:z");
+
+            // Compute commitment C_{v,x} = v * x * \Phi_n(x) * [1]_1
+            auto C_v_x = Commitment::one() * v_evaluation * x_challenge * this->Phi(x_challenge, log_N);
+
+            // Compute commitment C_{\zeta_x}
+            auto C_zeta_x = ZeroMorphVerifier::compute_C_zeta_x(C_q, C_q_k, y_challenge, x_challenge);
+
+            // Compute commitment C_{Z_x}
+            Commitment C_Z_x = ZeroMorphVerifier::compute_C_Z_x(
+                C_v_x, f_commitments, g_commitments, C_q_k, alpha, x_challenge, u_challenge);
+
+            // Compute commitment C_{\zeta,Z}
+            auto C_zeta_Z = C_zeta_x + C_Z_x * z_challenge;
+
+            // Receive proof commitment \pi
+            auto C_pi = verifier_transcript.template receive_from_prover<Commitment>("ZM:PI");
+
+            // The prover and verifier manifests should agree
+            EXPECT_EQ(prover_transcript.get_manifest(), verifier_transcript.get_manifest());
+
+            // Construct inputs and perform pairing check to verify claimed evaluation
+            // Note: The pairing check (without the degree check component X^{N_max-N-1}) can be expressed naturally as
+            // e(C_{\zeta,Z}, [1]_2) = e(pi, [X - x]_2). This can be rearranged (e.g. see the plonk paper) as
+            // e(C_{\zeta,Z} - x*pi, [1]_2) * e(-pi, [X]_2) = 1, or
+            // e(P_0, [1]_2) * e(P_1, [X]_2) = 1
+            auto P0 = C_zeta_Z + C_pi * x_challenge;
+            auto P1 = -C_pi;
+            verified = this->vk()->pairing_check(P0, P1);
+            // EXPECT_TRUE(verified);
+        }
+        return verified;
     }
 };
 
@@ -93,9 +287,9 @@ TYPED_TEST(ZeroMorphTest, BatchedLiftedDegreeQuotient)
     const size_t N = 8;
 
     // Define some mock q_k with deg(q_k) = 2^k - 1
-    std::array<Fr, N> data_0 = { 1, 0, 0, 0, 0, 0, 0, 0 };
-    std::array<Fr, N> data_1 = { 2, 3, 0, 0, 0, 0, 0, 0 };
-    std::array<Fr, N> data_2 = { 4, 5, 6, 7, 0, 0, 0, 0 };
+    std::vector<Fr> data_0 = { 1 };
+    std::vector<Fr> data_1 = { 2, 3 };
+    std::vector<Fr> data_2 = { 4, 5, 6, 7 };
     Polynomial q_0(data_0);
     Polynomial q_1(data_1);
     Polynomial q_2(data_2);
@@ -137,9 +331,9 @@ TYPED_TEST(ZeroMorphTest, PartiallyEvaluatedQuotientZeta)
     const size_t N = 8;
 
     // Define some mock q_k with deg(q_k) = 2^k - 1
-    std::array<Fr, N> data_0 = { 1, 0, 0, 0, 0, 0, 0, 0 };
-    std::array<Fr, N> data_1 = { 2, 3, 0, 0, 0, 0, 0, 0 };
-    std::array<Fr, N> data_2 = { 4, 5, 6, 7, 0, 0, 0, 0 };
+    std::vector<Fr> data_0 = { 1 };
+    std::vector<Fr> data_1 = { 2, 3 };
+    std::vector<Fr> data_2 = { 4, 5, 6, 7 };
     Polynomial q_0(data_0);
     Polynomial q_1(data_1);
     Polynomial q_2(data_2);
@@ -221,171 +415,71 @@ TYPED_TEST(ZeroMorphTest, PartiallyEvaluatedQuotientZ)
 
     // Construct a random multilinear polynomial f, and (u,v) such that f(u) = v.
     Polynomial multilinear_f = this->random_polynomial(N);
+    Polynomial multilinear_g = this->random_polynomial(N);
+    multilinear_g[0] = 0;
     std::vector<Fr> u_challenge = this->random_evaluation_point(log_N);
     Fr v_evaluation = multilinear_f.evaluate_mle(u_challenge);
+    Fr w_evaluation = multilinear_g.evaluate_mle(u_challenge, /* shift = */ true);
+
+    auto alpha = Fr::random_element();
+
+    // compute batched polynomial and evaluation
+    auto f_batched = multilinear_f;
+    auto g_batched = multilinear_g;
+    g_batched *= alpha;
+    auto v_batched = v_evaluation + alpha * w_evaluation;
 
     // Define some mock q_k with deg(q_k) = 2^k - 1
-    std::array<Fr, N> data_0 = { 1, 0, 0, 0, 0, 0, 0, 0 };
-    std::array<Fr, N> data_1 = { 2, 3, 0, 0, 0, 0, 0, 0 };
-    std::array<Fr, N> data_2 = { 4, 5, 6, 7, 0, 0, 0, 0 };
-    Polynomial q_0(data_0);
-    Polynomial q_1(data_1);
-    Polynomial q_2(data_2);
+    auto q_0 = this->random_polynomial(1 << 0);
+    auto q_1 = this->random_polynomial(1 << 1);
+    auto q_2 = this->random_polynomial(1 << 2);
     std::vector<Polynomial> quotients = { q_0, q_1, q_2 };
 
     auto x_challenge = Fr::random_element();
 
     // Construct Z_x using the prover method
-    auto Z_x = ZeroMorphProver::compute_partially_evaluated_zeromorph_identity_polynomial(
-        multilinear_f, quotients, v_evaluation, u_challenge, x_challenge);
+    auto Z_x = ZeroMorphProver::compute_partially_evaluated_zeromorph_identity_polynomial_new(
+        f_batched, g_batched, quotients, v_batched, u_challenge, x_challenge);
 
     // Compute Z_x directly
-    auto Z_x_expected = multilinear_f;
-    Z_x_expected[0] -= v_evaluation * this->Phi(x_challenge, log_N);
+    auto Z_x_expected = g_batched;
+    Z_x_expected.add_scaled(f_batched, x_challenge);
+    Z_x_expected[0] -= v_batched * x_challenge * this->Phi(x_challenge, log_N);
     for (size_t k = 0; k < log_N; ++k) {
         auto x_pow_2k = x_challenge.pow(1 << k);         // x^{2^k}
         auto x_pow_2kp1 = x_challenge.pow(1 << (k + 1)); // x^{2^{k+1}}
         // x^{2^k} * \Phi_{n-k-1}(x^{2^{k+1}}) - u_k *  \Phi_{n-k}(x^{2^k})
         auto scalar = x_pow_2k * this->Phi(x_pow_2kp1, log_N - k - 1) - u_challenge[k] * this->Phi(x_pow_2k, log_N - k);
-        Z_x_expected.add_scaled(quotients[k], -scalar);
+        scalar *= x_challenge;
+        scalar *= Fr(-1);
+        Z_x_expected.add_scaled(quotients[k], scalar);
     }
 
     EXPECT_EQ(Z_x, Z_x_expected);
 }
 
 /**
- * @brief Full Prover/Verifier protocol for proving multilinear evaluation f(u) = v
+ * @brief Test full Prover/Verifier protocol for proving single multilinear evaluation
  *
  */
 TYPED_TEST(ZeroMorphTest, ProveAndVerifySingle)
 {
-    using Fr = typename TypeParam::ScalarField;
-    using Commitment = typename TypeParam::AffineElement;
-    using ZeroMorphProver = ZeroMorphProver<TypeParam>;
-    size_t N = 16;
-    size_t log_N = numeric::get_msb(N);
+    size_t num_unshifted = 1;
+    size_t num_shifted = 0;
+    auto verified = this->execute_zeromorph_protocol(num_unshifted, num_shifted);
+    EXPECT_TRUE(verified);
+}
 
-    // Construct a random multilinear polynomial f, and (u,v) such that f(u) = v.
-    auto f_polynomial = this->random_polynomial(N);
-    auto u_challenge = this->random_evaluation_point(log_N);
-    auto v_evaluation = f_polynomial.evaluate_mle(u_challenge);
-    auto f_commitment = this->commit(f_polynomial);
-
-    // Initialize an empty ProverTranscript
-    auto prover_transcript = ProverTranscript<Fr>::init_empty();
-
-    // Execute Prover protocol
-    {
-        // Compute the multilinear quotients q_k = q_k(X_0, ..., X_{k-1})
-        auto quotients = ZeroMorphProver::compute_multilinear_quotients(f_polynomial, u_challenge);
-
-        // Compute and send commitments C_{q_k} = [q_k], k = 0,...,d-1
-        std::vector<Commitment> q_k_commitments;
-        q_k_commitments.reserve(log_N);
-        for (size_t idx = 0; idx < log_N; ++idx) {
-            q_k_commitments[idx] = this->commit(quotients[idx]);
-            std::string label = "ZM:C_q_" + std::to_string(idx);
-            prover_transcript.send_to_verifier(label, q_k_commitments[idx]);
-        }
-
-        // Get challenge y
-        auto y_challenge = prover_transcript.get_challenge("ZM:y");
-
-        // Compute the batched, lifted-degree quotient \hat{q}
-        auto batched_quotient = ZeroMorphProver::compute_batched_lifted_degree_quotient(quotients, y_challenge, N);
-
-        // Compute and send the commitment C_q = [\hat{q}]
-        auto q_commitment = this->commit(batched_quotient);
-        prover_transcript.send_to_verifier("ZM:C_q", q_commitment);
-
-        // Get challenges x and z
-        auto [x_challenge, z_challenge] = prover_transcript.get_challenges("ZM:x", "ZM:z");
-
-        // Compute degree check polynomial \zeta partially evaluated at x
-        auto zeta_x = ZeroMorphProver::compute_partially_evaluated_degree_check_polynomial(
-            batched_quotient, quotients, y_challenge, x_challenge);
-
-        // Compute ZeroMorph identity polynomial Z partially evaluated at x
-        auto Z_x = ZeroMorphProver::compute_partially_evaluated_zeromorph_identity_polynomial(
-            f_polynomial, quotients, v_evaluation, u_challenge, x_challenge);
-
-        // Compute batched degree and ZM-identity quotient polynomial pi
-        auto pi_polynomial = ZeroMorphProver::compute_batched_evaluation_and_degree_check_quotient(
-            zeta_x, Z_x, x_challenge, z_challenge);
-
-        // Compute and send proof commitment pi
-        auto pi_commitment = this->commit(pi_polynomial);
-        prover_transcript.send_to_verifier("ZM:PI", pi_commitment);
-    }
-
-    auto verifier_transcript = VerifierTranscript<Fr>::init_empty(prover_transcript);
-
-    // Execute Verifier protocol
-    {
-        // Receive commitments [q_k]
-        std::vector<Commitment> C_q_k;
-        C_q_k.reserve(log_N);
-        for (size_t i = 0; i < log_N; ++i) {
-            C_q_k.emplace_back(
-                verifier_transcript.template receive_from_prover<Commitment>("ZM:C_q_" + std::to_string(i)));
-        }
-
-        // Challenge y
-        auto y_challenge = verifier_transcript.get_challenge("ZM:y");
-
-        // Receive commitment C_{q}
-        auto C_q = verifier_transcript.template receive_from_prover<Commitment>("ZM:C_q");
-
-        // Challenges x, z
-        auto [x_challenge, z_challenge] = verifier_transcript.get_challenges("ZM:x", "ZM:z");
-
-        // Compute commitment C_{v,x}
-        auto C_v_x = Commitment::one() * v_evaluation * this->Phi(x_challenge, log_N);
-
-        // Compute commitment C_{\zeta_x}
-        auto C_zeta_x = C_q;
-        for (size_t k = 0; k < log_N; ++k) {
-            auto deg_k = static_cast<size_t>((1 << k) - 1);
-            // Compute scalar y^k * x^{N - deg_k - 1}
-            auto scalar = y_challenge.pow(k);
-            scalar *= x_challenge.pow(N - deg_k - 1);
-            scalar *= Fr(-1);
-
-            C_zeta_x = C_zeta_x + C_q_k[k] * scalar;
-        }
-
-        // Compute commitment C_{Z_x}
-        auto C_Z_x = f_commitment + C_v_x * Fr(-1); // C_f - C_{v,x}
-        for (size_t k = 0; k < log_N; ++k) {
-            // Compute scalar x^{2^k} * \Phi_{n-k-1}(x^{2^{k+1}}) - u_k *  \Phi_{n-k}(x^{2^k})
-            auto x_pow_2k = x_challenge.pow(1 << k);         // x^{2^k}
-            auto x_pow_2kp1 = x_challenge.pow(1 << (k + 1)); // x^{2^{k+1}}
-            auto scalar = x_pow_2k * this->Phi(x_pow_2kp1, log_N - k - 1);
-            scalar -= u_challenge[k] * this->Phi(x_pow_2k, log_N - k);
-            scalar *= Fr(-1);
-
-            C_Z_x = C_Z_x + C_q_k[k] * scalar;
-        }
-
-        // Compute commitment C_{\zeta,Z}
-        auto C_zeta_Z = C_zeta_x + C_Z_x * z_challenge;
-
-        // Receive proof commitment \pi
-        auto C_pi = verifier_transcript.template receive_from_prover<Commitment>("ZM:PI");
-
-        // The prover and verifier manifests should agree
-        EXPECT_EQ(prover_transcript.get_manifest(), verifier_transcript.get_manifest());
-
-        // Construct inputs and perform pairing check to verify claimed evaluation
-        // Note: The pairing check (without the degree check component X^{N_max-N-1}) can be expressed naturally as
-        // e(C_{\zeta,Z}, [1]_2) = e(pi, [X - x]_2). This can be rearranged (e.g. see the plonk paper) as
-        // e(C_{\zeta,Z} - x*pi, [1]_2) * e(-pi, [X]_2) = 1, or
-        // e(P_0, [1]_2) * e(P_1, [X]_2) = 1
-        auto P0 = C_zeta_Z + C_pi * x_challenge;
-        auto P1 = -C_pi;
-        auto verified = this->vk()->pairing_check(P0, P1);
-        EXPECT_TRUE(verified);
-    }
+/**
+ * @brief Test full Prover/Verifier protocol for proving batched multilinear evaluation with shifts
+ *
+ */
+TYPED_TEST(ZeroMorphTest, ProveAndVerifyBatchedWithShifts)
+{
+    size_t num_unshifted = 3;
+    size_t num_shifted = 2;
+    auto verified = this->execute_zeromorph_protocol(num_unshifted, num_shifted);
+    EXPECT_TRUE(verified);
 }
 
 } // namespace proof_system::honk::pcs::zeromorph
