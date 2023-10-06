@@ -1,5 +1,7 @@
 #pragma once
 #include "barretenberg/honk/instance/prover_instance.hpp"
+#include "barretenberg/honk/proof_system/goblin_merge/merge_prover.hpp"
+#include "barretenberg/honk/proof_system/goblin_merge/merge_verifier.hpp"
 #include "barretenberg/honk/proof_system/protogalaxy_prover.hpp"
 #include "barretenberg/honk/proof_system/protogalaxy_verifier.hpp"
 #include "barretenberg/honk/proof_system/ultra_prover.hpp"
@@ -71,6 +73,17 @@ template <UltraFlavor Flavor> class UltraComposer_ {
 
     UltraProver_<Flavor> create_prover(std::shared_ptr<Instance>);
     UltraVerifier_<Flavor> create_verifier(std::shared_ptr<Instance>);
+
+    MergeProver_<Flavor> create_merge_prover(std::shared_ptr<ECCOpQueue> op_queue)
+    {
+        return MergeProver_<Flavor>(commitment_key, op_queue);
+    }
+
+    MergeVerifier_<Flavor> create_merge_verifier(size_t size)
+    {
+        auto pcs_verification_key = std::make_unique<VerifierCommitmentKey>(size, crs_factory_);
+        return MergeVerifier_<Flavor>(std::move(pcs_verification_key));
+    }
 
     ProtoGalaxyProver_<ProverInstances> create_folding_prover(std::vector<std::shared_ptr<Instance>> instances)
     {
