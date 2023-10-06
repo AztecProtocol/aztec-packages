@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/circuits.js';
 import { AuthWitness, CompleteAddress, FunctionCall, TxExecutionRequest } from '@aztec/types';
 
 // docs:start:account-interface

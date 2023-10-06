@@ -1,5 +1,4 @@
-import { GlobalVariables } from '@aztec/circuits.js';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, GlobalVariables } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 /**

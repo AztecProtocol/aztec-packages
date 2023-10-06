@@ -1,4 +1,3 @@
-import { Fr } from '@aztec/foundation/fields';
 import { Tuple } from '@aztec/foundation/serialize';
 
 import {
@@ -12,6 +11,7 @@ import {
 import { FieldsOf } from '../../utils/jsUtils.js';
 import { serializeToBuffer } from '../../utils/serialize.js';
 import { PrivateCallStackItem } from '../call_stack_item.js';
+import { Fr } from '../index.js';
 import { MembershipWitness } from '../membership_witness.js';
 import { Proof } from '../proof.js';
 import { ReadRequestMembershipWitness } from '../read_request_membership_witness.js';

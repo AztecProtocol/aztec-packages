@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '../index.js';
 
 /**
  * A type which along with public key forms a preimage of a contract address. See the link bellow for more details

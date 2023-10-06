@@ -1,4 +1,4 @@
-import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
+import { Fr, GrumpkinScalar } from '@aztec/circuits.js';
 import { sleep } from '@aztec/foundation/sleep';
 
 import zip from 'lodash.zip';

@@ -1,6 +1,5 @@
-import { Vector } from '@aztec/circuits.js';
+import { Fr, Vector } from '@aztec/circuits.js';
 import { BufferReader, serializeToBuffer } from '@aztec/circuits.js/utils';
-import { Fr } from '@aztec/foundation/fields';
 
 /**
  * An authentication witness. Used to authorize an action by a user.
