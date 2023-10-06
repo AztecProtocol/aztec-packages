@@ -1255,7 +1255,7 @@ workflows:
             - aztec-sandbox-x86_64
           <<: *defaults
 
-      - boxes-blank:
+      - boxes-blank-minimal:
           requires:
             - aztec-sandbox-x86_64
           <<: *defaults

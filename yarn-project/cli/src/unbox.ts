@@ -311,7 +311,7 @@ export async function unboxContract(
   packageVersion: string,
   log: LogFn,
 ) {
-  const contractNames = ['private-token', 'blank', 'blank-react'];
+  const contractNames = ['private-token', 'blank-minimal', 'blank-react'];
 
   if (!contractNames.includes(contractName)) {
     log(

@@ -40,8 +40,8 @@ This folder should have the following directory structure:
                |— Nargo.toml [Noir build file, includes Aztec smart contract dependencies]
        |— artifacts
               |  These are both generated from `contracts/` by the compile command
-              |— blank_contract.json
-              |— blank.ts
+              |— Blank.json
+              |— Blank.ts
        |— tests
               | A simple end2end test deploying and testing the Blank contract deploys on a local sandbox
               | The test requires the sandbox and anvil to be running (`yarn start:sandbox`).

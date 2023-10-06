@@ -46,8 +46,8 @@ This folder should have the following directory structure:
                |— Nargo.toml [Noir build file, includes Aztec smart contract dependencies]
        |— artifacts
               |  These are both generated from `contracts/` by the compile command
-              |— private_token_contract.json
-              |— private_token.ts
+              |— PrivateToken.json
+              |— PrivateToken.ts
        |— tests
               | A simple end2end test deploying and testing the PrivateToken on a local sandbox
               | using the front end helper methods in app/scripts/

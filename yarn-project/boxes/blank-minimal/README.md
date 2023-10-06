@@ -1,4 +1,4 @@
-This is a minimal [Aztec](https://aztec.network/) Noir smart contract and frontend bootstrapped with [`aztec-cli unbox`](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/cli). It is recommended you use the `aztec-cli unbox blank` command so that the repository is copied with needed modifications from the monorepo subpackage.
+This is a minimal [Aztec](https://aztec.network/) Noir smart contract and frontend bootstrapped with [`aztec-cli unbox`](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/cli). It is recommended you use the `aztec-cli unbox blank-minimal` command so that the repository is copied with needed modifications from the monorepo subpackage.
 
 ## Setup
 
@@ -36,8 +36,8 @@ This folder should have the following directory structure:
                |— Nargo.toml [Noir build file, includes Aztec smart contract dependencies]
        |— artifacts
               |  These are both generated from `contracts/` by the compile command
-              |— blank_contract.json
-              |— blank.ts
+              |— Blank.json
+              |— Blank.ts
        |— tests
               | A simple end2end test deploying and testing the minimal contract on a local sandbox
               | using the front end helper methods in index.ts
