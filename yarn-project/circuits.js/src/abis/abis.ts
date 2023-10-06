@@ -367,7 +367,7 @@ export function computePublicDataTreeValue(wasm: IWasmModule, value: Fr): Fr {
  * Computes a public data tree index from contract address and storage slot.
  * @param wasm - A module providing low-level wasm access.
  * @param contractAddress - Contract where insertion is occurring.
- * @param storageSlot - Storage slot where insertion is occuring.
+ * @param storageSlot - Storage slot where insertion is occurring.
  * @returns Public data tree index computed from contract address and storage slot.
 
  */
