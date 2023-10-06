@@ -463,7 +463,18 @@ jobs:
       - *setup_env
       - run:
           name: "Build and test"
-          command: force_deploy_build p2p-bootstrap false x86_64
+          command: build p2p-bootstrap | add_timestamps
+
+  aztec-node:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: build aztec-node | add_timestamps
 
   pxe-base:
     machine:
@@ -1273,6 +1284,7 @@ workflows:
       - canary: *yarn_project
       - build-docs: *yarn_project
       - aztec-p2p-bootstrap: *yarn_project
+      - aztec-node: *yarn_project
 
       - aztec-sandbox-x86_64:
           requires:

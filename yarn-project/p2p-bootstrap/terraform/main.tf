@@ -92,7 +92,7 @@ resource "aws_ecs_task_definition" "aztec-bootstrap-1" {
 [
   {
     "name": "${var.DEPLOY_TAG}-aztec-bootstrap-1",
-    "image": "philwindle/p2p-bootstrap:latest",
+    "image": "278380418400.dkr.ecr.us-east-2.amazonaws.com/p2p-bootstrap:cache-aa34a3e5b5fc2f30bb896bc3c15fc1e2489db8a8-x86_64",
     "essential": true,
     "command": ["start"],
     "memoryReservation": 3776,
@@ -165,7 +165,7 @@ resource "aws_ecs_service" "aztec-bootstrap-1" {
       data.terraform_remote_state.setup_iac.outputs.subnet_az1_private_id,
       data.terraform_remote_state.setup_iac.outputs.subnet_az2_private_id
     ]
-    security_groups = [data.terraform_remote_state.setup_iac.outputs.security_group_private_id]
+    security_groups = [data.terraform_remote_state.aztec-network_iac.outputs.p2p_security_group_id, data.terraform_remote_state.setup_iac.outputs.security_group_private_id]
   }
 
   service_registries {
@@ -177,7 +177,7 @@ resource "aws_ecs_service" "aztec-bootstrap-1" {
   load_balancer {
     target_group_arn = aws_lb_target_group.aztec-bootstrap-1-target-group.id
     container_name   = "${var.DEPLOY_TAG}-aztec-bootstrap-1"
-    container_port   = var.BOOTNODE_1_LISTEN_PORT
+    container_port   = 80
   }
 
   task_definition = aws_ecs_task_definition.aztec-bootstrap-1.family
@@ -185,7 +185,7 @@ resource "aws_ecs_service" "aztec-bootstrap-1" {
 
 resource "aws_lb_target_group" "aztec-bootstrap-1-target-group" {
   name        = "aztec-bootstrap-1-target-group"
-  port        = "${var.BOOTNODE_1_LISTEN_PORT}"
+  port        = var.BOOTNODE_1_LISTEN_PORT
   protocol    = "TCP"
   target_type = "ip"
   vpc_id      = data.terraform_remote_state.setup_iac.outputs.vpc_id
@@ -200,6 +200,15 @@ resource "aws_lb_target_group" "aztec-bootstrap-1-target-group" {
     timeout             = 5
     port                = 80
   }
+}
+
+resource "aws_security_group_rule" "allow-bootstrap-1-tcp" {
+  type              = "ingress"
+  from_port         = var.BOOTNODE_1_LISTEN_PORT
+  to_port           = var.BOOTNODE_1_LISTEN_PORT
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = data.terraform_remote_state.aztec-network_iac.outputs.p2p_security_group_id
 }
 
 ## The following has been commented out and setup manually as terraform (or the aws provider version we are using) has a bug
@@ -271,7 +280,7 @@ resource "aws_ecs_task_definition" "aztec-bootstrap-2" {
 [
   {
     "name": "${var.DEPLOY_TAG}-aztec-bootstrap-2",
-    "image": "philwindle/p2p-bootstrap:latest",
+    "image": "278380418400.dkr.ecr.us-east-2.amazonaws.com/p2p-bootstrap:cache-aa34a3e5b5fc2f30bb896bc3c15fc1e2489db8a8-x86_64",
     "essential": true,
     "command": ["start"],
     "memoryReservation": 3776,
@@ -349,15 +358,30 @@ resource "aws_ecs_service" "aztec-bootstrap-2" {
     container_port = 80
   }
 
+  # load_balancer {
+  #   target_group_arn = aws_lb_target_group.aztec-bootstrap-2-target-group.id
+  #   container_name   = "${var.DEPLOY_TAG}-aztec-bootstrap-2"
+  #   container_port   = var.BOOTNODE_2_LISTEN_PORT
+  # }
+
   task_definition = aws_ecs_task_definition.aztec-bootstrap-2.family
 }
 
 resource "aws_lb_target_group" "aztec-bootstrap-2-target-group" {
   name        = "aztec-bootstrap-2-target-group"
   port        = "${var.BOOTNODE_2_LISTEN_PORT}"
-  protocol    = "TCP"
+  protocol    = "HTTP"
   target_type = "ip"
   vpc_id      = data.terraform_remote_state.setup_iac.outputs.vpc_id
+}
+
+resource "aws_security_group_rule" "allow-bootstrap-2-tcp" {
+  type              = "ingress"
+  from_port         = var.BOOTNODE_2_LISTEN_PORT
+  to_port           = var.BOOTNODE_2_LISTEN_PORT
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = data.terraform_remote_state.aztec-network_iac.outputs.p2p_security_group_id
 }
 
 ## The following has been commented out and setup manually as terraform (or the aws provider version we are using) has a bug
