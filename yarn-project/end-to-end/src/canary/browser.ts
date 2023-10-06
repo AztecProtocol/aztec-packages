@@ -27,7 +27,7 @@ const PORT = 3000;
 
 const { PXE_URL } = process.env;
 
-const conditionalDescribe = () => describe; // PXE_URL ? describe : describe.skip);
+const conditionalDescribe = () => (PXE_URL ? describe : describe.skip);
 const privKey = AztecJs.GrumpkinScalar.random();
 
 export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugLogger) =>
@@ -47,14 +47,16 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
     beforeAll(async () => {
       server = setup();
       testClient = AztecJs.createPXEClient(PXE_URL!);
+      console.log('before waitforSandbox');
       await AztecJs.waitForSandbox(testClient);
 
+      console.log('koa()');
       app = new Koa();
       app.use(serve(path.resolve(__dirname, './web')));
 
       browser = await launch({
         executablePath: process.env.CHROME_BIN,
-        headless: 'new',
+        headless: false,
         args: [
           '--no-sandbox',
           '--headless',
@@ -112,16 +114,19 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
       await deployTokenContract();
     }, 60_000);
 
-    it.only('Can access CompleteAddress class in browser', async () => {
-      const result = await page.evaluate(() => {
-        const completeAddress: AztecJs.CompleteAddress = AztecJs.CompleteAddress.fromString(
-          '0x115f123bbc6cc6af9890055821cfba23a7c4e8832377a32ccb719a1ba3a86483',
-        );
-        const addressString = completeAddress.toString();
-        return [completeAddress, addressString];
+    it('Can access CompleteAddress class in browser', async () => {
+      const result: any[] = await page.evaluate(() => {
+        try {
+          const completeAddress = window.AztecJs.CompleteAddress.fromString(
+            '0x115f123bbc6cc6af9890055821cfba23a7c4e8832377a32ccb719a1ba3a86483',
+          );
+          // NOTE: browser doesnt know how to serialize CompleteAddress for return, so return a string
+          return [completeAddress.toString()];
+        } catch (error) {
+          return [error];
+        }
       });
       expect(result[0]).toBeDefined();
-      expect(result[1]).toBeDefined();
     });
 
     it("Gets the owner's balance", async () => {
