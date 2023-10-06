@@ -7024,9 +7024,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"blank-contract@workspace:boxes/blank":
+"blank-contract@workspace:boxes/blank-minimal":
   version: 0.0.0-use.local
-  resolution: "blank-contract@workspace:boxes/blank"
+  resolution: "blank-contract@workspace:boxes/blank-minimal"
   dependencies:
     "@aztec/aztec-ui": ^0.1.14
     "@aztec/aztec.js": "workspace:^"

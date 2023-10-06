@@ -13,7 +13,7 @@ bootstrap.sh
 # as they're meant to be consumers of the project, not a part of it.
 # NOTE: See comment at top of Dockerfile.dockerignore.v24!
 !boxes/private-token
-!boxes/blank
+!boxes/blank-minimal
 !boxes/blank-react
 boxes/*/*
 

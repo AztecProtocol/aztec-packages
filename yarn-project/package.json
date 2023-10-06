@@ -22,7 +22,7 @@
     "pxe",
     "aztec-sandbox",
     "aztec.js",
-    "boxes/blank",
+    "boxes/blank-minimal",
     "boxes/blank-react",
     "boxes/private-token",
     "canary",

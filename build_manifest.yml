@@ -125,9 +125,9 @@ boxes-blank-react:
   dependencies:
     - aztec-sandbox
 
-boxes-blank:
+boxes-blank-minimal:
   buildDir: yarn-project
-  projectDir: yarn-project/boxes/blank
+  projectDir: yarn-project/boxes/blank-minimal
   dependencies:
     - aztec-sandbox
 
