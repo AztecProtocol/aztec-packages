@@ -224,6 +224,13 @@ TEST_F(UltraTranscriptTests, FoldingManifestTest)
 
     auto composer = UltraComposer();
     auto instance_one = composer.create_instance(builder_one);
+    // artificially make first instance relaxed
+    auto log_instance_size = static_cast<size_t>(numeric::get_msb(instance_one->proving_key->circuit_size));
+    std::vector<FF> betas(log_instance_size);
+    for (size_t idx = 0; idx < log_instance_size; idx++) {
+        betas[idx] = FF::random_element();
+    }
+    instance_one->folding_params = { betas, FF(1) };
     auto instance_two = composer.create_instance(builder_two);
 
     std::vector<std::shared_ptr<ProverInstance_<Flavor>>> insts;

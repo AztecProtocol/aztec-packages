@@ -16,7 +16,7 @@ template <typename Flavor> class RelationUtils {
 
   public:
     /**
-     * Utility methods for tuple of arrays
+     * Shared utility methods for tuple of arrays and accumulating relations.
      */
 
     /**

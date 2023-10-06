@@ -37,7 +37,7 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepa
     }
 }
 
-// TODO(#689): implement this function
+// TODO(#689): finalise implementation this function
 template <class ProverInstances>
 ProverFoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstances>::fold_instances()
 {
@@ -48,14 +48,17 @@ ProverFoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverI
     auto log_instance_size = static_cast<size_t>(numeric::get_msb(instance_size));
     auto deltas = compute_round_challenge_pows(log_instance_size, delta);
     auto perturbator = compute_perturbator(accumulator, deltas, alpha);
-    // assert(perturbator_coeffs[0] == accumulator.folding_params.target_sum);
-    for (size_t idx = 1; idx < perturbator.size(); idx++) {
+
+    // TODO: we shouldn't have to send the 0 coefficient as this is equal to target sum and should instead have the
+    // assertion in place once protogalaxy is finalised assert(perturbator_coeffs[0] ==
+    // accumulator.folding_params.target_sum);
+    for (size_t idx = 0; idx <= log_instance_size; idx++) {
         transcript.send_to_verifier("perturbator_" + std::to_string(idx), perturbator[idx]);
     }
-    auto value = transcript.get_challenge("evaluation_point");
+    // auto value = transcript.get_challenge("evaluation_point");
     // Compute F(α)
-    auto evalutation = perturbator.evaluate(value);
-    transcript.send_to_verifier("perturbator_eval", evalutation);
+    // auto evalutation = perturbator.evaluate(value);
+    // transcript.send_to_verifier("perturbator_eval", evalutation);
     ProverFoldingResult<Flavor> res;
     res.folding_data = transcript.proof_data;
     return res;

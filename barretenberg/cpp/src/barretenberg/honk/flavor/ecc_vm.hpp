@@ -696,7 +696,7 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
      * @brief A container storing evaluations of all prover polynomials at one point.
      * In sumcheck, this data structure represents the evaluations produced during sumcheck, which are claimed to be the
      * evaluations of prover polynomials commited in earilier rounds
-     * In protogalaxy, it's used to store the evaluations for each point on the boolean hypercurbe, so one
+     * In ProtoGalaxy, it's used to store the evaluations for each point on the boolean hypercurbe, so one
      * ProverPolynomailsEvaluation object represents evaluations of one row in the execution trace.
      *
      */
