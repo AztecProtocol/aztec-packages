@@ -82,9 +82,11 @@ export class SentTx {
 
   /**
    * Gets unencrypted logs emitted by this tx.
+   * @remarks This function will wait for the tx to be mined if it hasn't been already.
    * @returns The requested logs.
    */
   public async getUnencryptedLogs(): Promise<ExtendedUnencryptedL2Log[]> {
+    await this.wait();
     return this.pxe.getUnencryptedLogs({ txHash: await this.getTxHash() });
   }
 
