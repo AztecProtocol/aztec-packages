@@ -1,4 +1,4 @@
-import { PrivateKernelPublicInputsFinal, MAX_NEW_CONTRACTS_PER_TX, Proof, PublicCallRequest } from '@aztec/circuits.js';
+import { MAX_NEW_CONTRACTS_PER_TX, PrivateKernelPublicInputsFinal, Proof, PublicCallRequest } from '@aztec/circuits.js';
 import { Tuple, numToUInt32BE } from '@aztec/foundation/serialize';
 import { ExtendedContractData, Tx, TxHash, TxL2Logs } from '@aztec/types';
 

@@ -12,7 +12,9 @@ import {
  * @param input - The public init kernel circuit inputs.
  * @returns The public inputs.
  */
-export async function simulatePublicKernelInitCircuit(input: PublicKernelInputsInit): Promise<KernelCircuitPublicInputs> {
+export async function simulatePublicKernelInitCircuit(
+  input: PublicKernelInputsInit,
+): Promise<KernelCircuitPublicInputs> {
   const result = publicKernelInitSim(await CircuitsWasm.get(), input);
   if (result instanceof CircuitError) {
     result.message += '\nRefer to https://docs.aztec.network/aztec/protocol/errors for more information.';
@@ -26,7 +28,9 @@ export async function simulatePublicKernelInitCircuit(input: PublicKernelInputsI
  * @param input - The public inner kernel circuit inputs.
  * @returns The public inputs.
  */
-export async function simulatePublicKernelInnerCircuit(input: PublicKernelInputsInner): Promise<KernelCircuitPublicInputs> {
+export async function simulatePublicKernelInnerCircuit(
+  input: PublicKernelInputsInner,
+): Promise<KernelCircuitPublicInputs> {
   const result = publicKernelInnerSim(await CircuitsWasm.get(), input);
   if (result instanceof CircuitError) {
     result.message += '\nRefer to https://docs.aztec.network/aztec/protocol/errors for more information.';

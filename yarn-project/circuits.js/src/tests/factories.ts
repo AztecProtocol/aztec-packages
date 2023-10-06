@@ -83,6 +83,8 @@ import {
   PublicCircuitPublicInputs,
   PublicDataRead,
   PublicDataUpdateRequest,
+  PublicKernelInputsInit,
+  PublicKernelInputsInner,
   PublicKernelPublicInputs,
   RETURN_VALUES_LENGTH,
   ROLLUP_VK_TREE_HEIGHT,
@@ -97,8 +99,6 @@ import {
   makeHalfFullTuple,
   makeTuple,
   range,
-  PublicKernelInputsInner,
-  PublicKernelInputsInit,
 } from '../index.js';
 import { GlobalVariables } from '../structs/global_variables.js';
 

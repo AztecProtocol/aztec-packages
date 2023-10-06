@@ -987,16 +987,6 @@ TEST(public_kernel_tests, private_previous_kernel_empty_public_call_stack_should
     ASSERT_EQ(dummyBuilder.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__EMPTY_PUBLIC_CALL_STACK);
 }
 
-TEST(public_kernel_tests, private_previous_kernel_non_private_previous_kernel_should_fail)
-{
-    DummyBuilder dummyBuilder =
-        DummyBuilder("public_kernel_tests__private_previous_kernel_non_private_previous_kernel_should_fail");
-    PublicKernelInputsInit<NT> inputs = get_public_kernel_inputs_init();
-    auto public_inputs = native_public_kernel_circuit_private_previous_kernel(dummyBuilder, inputs);
-    ASSERT_TRUE(dummyBuilder.failed());
-    ASSERT_EQ(dummyBuilder.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__PREVIOUS_KERNEL_NOT_PRIVATE);
-}
-
 TEST(public_kernel_tests, previous_private_kernel_fails_if_contract_storage_update_requests_on_static_call)
 {
     DummyBuilder dummyBuilder = DummyBuilder(
@@ -1048,16 +1038,6 @@ TEST(public_kernel_tests, public_previous_kernel_empty_public_call_stack_should_
     auto public_inputs = native_public_kernel_circuit_public_previous_kernel(dummyBuilder, inputs);
     ASSERT_TRUE(dummyBuilder.failed());
     ASSERT_EQ(dummyBuilder.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__EMPTY_PUBLIC_CALL_STACK);
-}
-
-TEST(public_kernel_tests, public_previous_kernel_private_previous_kernel_should_fail)
-{
-    DummyBuilder dummyBuilder =
-        DummyBuilder("public_kernel_tests__public_previous_kernel_private_previous_kernel_should_fail");
-    PublicKernelInputsInner<NT> inputs = get_public_kernel_inputs_inner();
-    auto public_inputs = native_public_kernel_circuit_public_previous_kernel(dummyBuilder, inputs);
-    ASSERT_TRUE(dummyBuilder.failed());
-    ASSERT_EQ(dummyBuilder.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__PREVIOUS_KERNEL_NOT_PUBLIC);
 }
 
 TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated_with_previous_public_kernel)

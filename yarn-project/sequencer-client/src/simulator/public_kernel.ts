@@ -1,5 +1,10 @@
-import { PublicKernelInputsInit, PublicKernelInputsInner, PublicKernelPublicInputs, simulatePublicKernelInitCircuit, 
-  simulatePublicKernelInnerCircuit } from '@aztec/circuits.js';
+import {
+  PublicKernelInputsInit,
+  PublicKernelInputsInner,
+  PublicKernelPublicInputs,
+  simulatePublicKernelInitCircuit,
+  simulatePublicKernelInnerCircuit,
+} from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
 import { CircuitSimulationStats } from '@aztec/types/stats';

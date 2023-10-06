@@ -12,9 +12,9 @@ import {
   CompleteAddress,
   FunctionData,
   GrumpkinPrivateKey,
-  PrivateKernelPublicInputsFinal,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   PartialAddress,
+  PrivateKernelPublicInputsFinal,
   PublicCallRequest,
 } from '@aztec/circuits.js';
 import { computeCommitmentNonce, siloNullifier } from '@aztec/circuits.js/abis';
