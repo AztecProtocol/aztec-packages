@@ -208,6 +208,7 @@ export function serializeBufferArrayToVector(arr: Buffer[]) {
  * @param vector - The input buffer containing the serialized array.
  * @param offset - An optional starting position in the buffer for deserializing the array.
  * @returns An object containing the deserialized array and the total number of bytes used during deserialization (adv).
+ * @deprecated User BufferReader instead.
  */
 export function deserializeArrayFromVector<T>(
   deserialize: (
