@@ -44,6 +44,7 @@ void ECCVMWnafRelationBase<FF>::accumulate(ContainerOverSubrelations& accumulato
 {
     using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
     using View = typename Accumulator::View;
+
     auto scalar_sum = View(in.precompute_scalar_sum);
     auto scalar_sum_new = View(in.precompute_scalar_sum_shift);
     auto q_transition = View(in.precompute_point_transition);

@@ -5,8 +5,8 @@
 namespace proof_system {
 
 /**
- * @brief Generic templates for constructing a container of containers of varying length,
-// where the various lengths are specified in an array.
+ * @brief Generic templates for constructing a container of containers of varying length, where the various lengths are
+ * specified in an array.
  *
  * @details Credit: https://stackoverflow.com/a/60440611
  */

@@ -44,10 +44,9 @@ template <typename FF_> class EccOpQueueRelationImpl {
                            const RelationParameters<FF>&,
                            const FF& scaling_factor)
     {
-        // OPTIMIZATION?: Karatsuba in general, at least for some degrees?
-        //       See https://hackmd.io/xGLuj6biSsCjzQnYN-pEiA?both
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
         using View = typename Accumulator::View;
+
         auto w_1 = View(in.w_l);
         auto w_2 = View(in.w_r);
         auto w_3 = View(in.w_o);
