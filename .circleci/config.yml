@@ -1268,12 +1268,12 @@ workflows:
 
       - aztec-p2p-bootstrap:
         requires:
-          - yarn-project
+            - yarn-project
           <<: *defaults
 
       - aztec-node:
         requires:
-          - yarn-project
+            - yarn-project
           <<: *defaults
 
       - pxe-x86_64:
