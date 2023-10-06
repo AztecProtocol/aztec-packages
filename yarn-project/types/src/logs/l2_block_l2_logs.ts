@@ -1,4 +1,4 @@
-import { BufferReader, serializeBufferToVector } from '@aztec/foundation/serialize';
+import { BufferReader, prefixBufferWithLength } from '@aztec/foundation/serialize';
 
 import isEqual from 'lodash.isequal';
 
@@ -22,7 +22,7 @@ export class L2BlockL2Logs {
   public toBuffer(): Buffer {
     const serializedTxLogs = this.txLogs.map(logs => logs.toBuffer());
     // Concatenate all serialized function logs into a single buffer and prefix it with 4 bytes for its total length.
-    return serializeBufferToVector(Buffer.concat(serializedTxLogs));
+    return prefixBufferWithLength(Buffer.concat(serializedTxLogs));
   }
 
   /**
@@ -121,5 +121,14 @@ export class L2BlockL2Logs {
   public static fromJSON(obj: any) {
     const txLogs = obj.txLogs.map((log: any) => TxL2Logs.fromJSON(log));
     return new L2BlockL2Logs(txLogs);
+  }
+
+  /**
+   * Returns the total number of log entries across an array of L2BlockL2Logs.
+   * @param l2BlockL2logs - L2BlockL2Logs to sum over.
+   * @returns Total sum of log entries.
+   */
+  public static getTotalLogCount(l2BlockL2logs: L2BlockL2Logs[]): number {
+    return l2BlockL2logs.reduce((sum, log) => sum + log.getTotalLogCount(), 0);
   }
 }

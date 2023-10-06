@@ -7,7 +7,7 @@ mod util;
 contract Uniswap {
     use dep::aztec::{
         context::{PrivateContext, PublicContext, Context},
-        oracle::{compute_selector::compute_selector, context::get_portal_address},
+        oracle::{context::get_portal_address},
         state_vars::{map::Map, public_state::PublicState},
         types::address::{AztecAddress, EthereumAddress},
         types::type_serialization::bool_serialization::{
@@ -16,6 +16,7 @@ contract Uniswap {
         types::type_serialization::field_serialization::{
             FieldSerializationMethods, FIELD_SERIALIZED_LEN,
         },
+        selector::compute_selector,
     };
 
     use dep::authwit::auth::{IS_VALID_SELECTOR, assert_current_call_valid_authwit_public, compute_authwit_message_hash};
@@ -74,7 +75,7 @@ contract Uniswap {
             assert_current_call_valid_authwit_public(&mut context, sender);
         }
 
-        let input_asset = AztecAddress::new(TokenBridge::at(input_asset_bridge.address).token(context));
+        let input_asset = TokenBridge::at(input_asset_bridge.address).token(context);
 
         // Transfer funds to this contract
         Token::at(input_asset.address).transfer_public(
@@ -117,7 +118,7 @@ contract Uniswap {
     }
 
     #[aztec(private)]
-    fn swap(
+    fn swap_private(
         input_asset: AztecAddress, // since private, we pass here and later assert that this is as expected by input_bridge
         input_asset_bridge: AztecAddress, 
         input_amount: Field,
@@ -137,7 +138,7 @@ contract Uniswap {
 
         // Assert that user provided token address is same as expected by token bridge.
         // we can't directly use `input_asset_bridge.token` because that is a public method and public can't return data to private
-        context.call_public_function(context.this_address(), compute_selector("_assert_token_is_same(Field,Field)"), [input_asset.address, input_asset_bridge.address]);
+        context.call_public_function(context.this_address(), compute_selector("_assert_token_is_same((Field),(Field))"), [input_asset.address, input_asset_bridge.address]);
 
         // Transfer funds to this contract
         Token::at(input_asset.address).unshield(
@@ -223,7 +224,15 @@ contract Uniswap {
     }
 
     #[aztec(public)]
-    internal fn _assert_token_is_same(token: Field, token_bridge: Field) {
-        assert(token == (TokenBridge::at(token_bridge).token(context)), "input_asset address is not the same as seen in the bridge contract");
+    internal fn _assert_token_is_same(token: AztecAddress, token_bridge: AztecAddress) {
+        assert(token.eq(TokenBridge::at(token_bridge.address).token(context)), "input_asset address is not the same as seen in the bridge contract");
     }
+
+    // /// Unconstrained /// 
+
+    // this method exists solely for e2e tests to test that nonce gets incremented each time.
+    unconstrained fn nonce_for_burn_approval() -> Field {
+        storage.nonce_for_burn_approval.read()
+    }
+
 }

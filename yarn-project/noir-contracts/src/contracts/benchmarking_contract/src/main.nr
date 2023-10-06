@@ -12,8 +12,8 @@ contract Benchmarking {
 
     use dep::aztec::{
         context::{Context},
-        note::note_getter_options::NoteGetterOptions,
-        oracle::compute_selector::compute_selector,
+        note::{utils as note_utils, note_getter_options::NoteGetterOptions, note_header::NoteHeader},
+        selector::compute_selector,
         log::emit_unencrypted_log,
         state_vars::{map::Map, public_state::PublicState, set::Set},
         types::type_serialization::field_serialization::{FieldSerializationMethods, FIELD_SERIALIZED_LEN},
@@ -70,5 +70,10 @@ contract Benchmarking {
     #[aztec(public)]
     fn broadcast(owner: Field) {
         emit_unencrypted_log(&mut context, storage.balances.at(owner).read());
+    }
+
+    unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; VALUE_NOTE_LEN]) -> [Field; 4] {
+        let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
+        note_utils::compute_note_hash_and_nullifier(ValueNoteMethods, note_header, preimage)
     }
 }
