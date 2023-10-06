@@ -371,7 +371,7 @@ export function computePublicDataTreeValue(wasm: IWasmModule, value: Fr): Fr {
  * @returns Public data tree index computed from contract address and storage slot.
 
  */
-export function computePublicDataTreeIndex(wasm: IWasmModule, contractAddress: Fr, storageSlot: Fr): Fr {
+export function computePublicDataTreeIndex(wasm: IWasmModule, contractAddress: AztecAddress, storageSlot: Fr): Fr {
   wasm.call('pedersen__init');
   return abisComputePublicDataTreeIndex(wasm, contractAddress, storageSlot);
 }
