@@ -79,14 +79,11 @@ export function numToUInt8(n: number) {
 }
 
 /**
- * Serialize a Buffer into a vector format by encoding the length of the buffer and concatenating it with the original buffer.
- * The resulting vector consists of a 4-byte header containing the big-endian representation of the original buffer's length, followed by the original buffer.
- * This function is useful when storing buffers as data structures with dynamic lengths and later deserializing them using 'deserializeBufferFromVector'.
- *
- * @param buf - The input Buffer to be serialized into a vector format.
- * @returns A Buffer containing the serialized vector with the encoded length header.
+ * Adds a 4-byte byte-length prefix to a buffer.
+ * @param buf - The input Buffer to be prefixed
+ * @returns A Buffer with 4-byte byte-length prefix.
  */
-export function serializeBufferToVector(buf: Buffer) {
+export function prefixBufferWithLength(buf: Buffer) {
   const lengthBuf = Buffer.alloc(4);
   lengthBuf.writeUInt32BE(buf.length, 0);
   return Buffer.concat([lengthBuf, buf]);
@@ -129,20 +126,6 @@ export function deserializeBigInt(buf: Buffer, offset = 0, width = 32) {
  */
 export function serializeDate(date: Date) {
   return serializeBigInt(BigInt(date.getTime()), 8);
-}
-
-/**
- * Deserialize a buffer from a vector by reading the length from its first 4 bytes, and then extracting the contents of the buffer.
- * The function returns an object containing the deserialized buffer as 'elem' and the number of bytes advanced ('adv') after deserialization.
- *
- * @param vector - The input buffer containing the serialized vector.
- * @param offset - The starting position from where the deserialization should begin (default is 0).
- * @returns An object with the deserialized buffer as 'elem' and the number of bytes advanced ('adv') after deserialization.
- */
-export function deserializeBufferFromVector(vector: Buffer, offset = 0) {
-  const length = vector.readUInt32BE(offset);
-  const adv = 4 + length;
-  return { elem: vector.subarray(offset + 4, offset + adv), adv };
 }
 
 /**
