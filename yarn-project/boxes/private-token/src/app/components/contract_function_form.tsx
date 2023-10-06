@@ -1,12 +1,11 @@
+import { Button, Loader } from '@aztec/aztec-ui';
+import { AztecAddress, CompleteAddress, ContractAbi, Fr, FunctionAbi } from '@aztec/aztec.js';
+import { useFormik } from 'formik';
+import * as Yup from 'yup';
 import { CONTRACT_ADDRESS_PARAM_NAMES, pxe } from '../../config.js';
 import { callContractFunction, deployContract, viewContractFunction } from '../../scripts/index.js';
 import { convertArgs } from '../../scripts/util.js';
 import styles from './contract_function_form.module.scss';
-import { Button, Loader } from '@aztec/aztec-ui';
-import { AztecAddress, CompleteAddress, Fr } from '@aztec/aztec.js';
-import { ContractAbi, FunctionAbi } from '@aztec/foundation/abi';
-import { useFormik } from 'formik';
-import * as Yup from 'yup';
 
 type NoirFunctionYupSchema = {
   // hack: add `any` at the end to get the array schema to typecheck

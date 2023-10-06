@@ -7,10 +7,10 @@ import {
   PXE,
   TxStatus,
   Wallet,
+  createDebugLogger,
   createPXEClient,
   waitForSandbox,
 } from '@aztec/aztec.js';
-import { createDebugLogger } from '@aztec/foundation/log';
 // eslint-disable-next-line import/no-unresolved
 import { BlankContract } from '../artifacts/Blank.js';
 import { callContractFunction, deployContract, getWallet } from '../index.js';

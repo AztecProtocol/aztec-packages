@@ -1,6 +1,5 @@
+import { AztecAddress, CompleteAddress, Contract, ContractAbi, PXE } from '@aztec/aztec.js';
 import { getWallet } from './util.js';
-import { AztecAddress, PXE, CompleteAddress, Contract } from '@aztec/aztec.js';
-import { ContractAbi } from '@aztec/foundation/abi';
 
 export async function viewContractFunction(
   address: AztecAddress,

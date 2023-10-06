@@ -36,8 +36,5 @@
     {
       "path": "../../circuits.js"
     },
-    {
-      "path": "../../foundation"
-    }
   ]
 }

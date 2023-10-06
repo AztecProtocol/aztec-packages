@@ -6,10 +6,10 @@ import {
   Fr,
   PXE,
   Wallet,
+  createDebugLogger,
   createPXEClient,
   waitForSandbox,
 } from '@aztec/aztec.js';
-import { createDebugLogger } from '@aztec/foundation/log';
 import { PrivateTokenContract } from '../artifacts/PrivateToken.js';
 import { pxe } from '../config.js';
 import { callContractFunction, deployContract, getWallet, viewContractFunction } from '../scripts/index.js';

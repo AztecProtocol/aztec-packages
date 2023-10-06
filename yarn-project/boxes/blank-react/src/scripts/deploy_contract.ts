@@ -1,5 +1,4 @@
-import { AztecAddress, CompleteAddress, DeployMethod, Fr } from '@aztec/aztec.js';
-import { ContractAbi } from '@aztec/foundation/abi';
+import { AztecAddress, CompleteAddress, ContractAbi, DeployMethod, Fr } from '@aztec/aztec.js';
 import { PXE } from '@aztec/types';
 
 export async function deployContract(

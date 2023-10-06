@@ -36,14 +36,5 @@
     {
       "path": "../../circuits.js"
     },
-    {
-      "path": "../../cli"
-    },
-    {
-      "path": "../../foundation"
-    },
-    {
-      "path": "../../types"
-    }
   ]
 }

@@ -3,15 +3,17 @@ import {
   AztecAddress,
   CompleteAddress,
   Contract,
+  ContractAbi,
   DeployMethod,
+  FieldsOf,
   Fr,
+  FunctionAbi,
   PXE,
   TxReceipt,
   createPXEClient,
+  encodeArguments,
   getSandboxAccountsWallets,
 } from '@aztec/aztec.js';
-import { ContractAbi, FunctionAbi, encodeArguments } from '@aztec/foundation/abi';
-import { FieldsOf } from '@aztec/foundation/types';
 import { BlankContractAbi } from './artifacts/Blank.js';
 export const contractAbi: ContractAbi = BlankContractAbi;
 
