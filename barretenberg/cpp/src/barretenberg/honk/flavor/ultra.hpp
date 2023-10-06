@@ -435,19 +435,19 @@ class Ultra {
             }
         }
 
-        template <typename T> T convertTypeFromEnum(TranscriptObjectType enum_type, void* obj)
+        template <typename T> T convertTypePtrFromEnum(TranscriptObjectType enum_type, void* obj_ptr)
         {
             switch (enum_type) {
             case UInt32Obj:
-                return (static_cast<uint32_t*>(obj));
+                return (static_cast<uint32_t*>(obj_ptr));
             case FieldElementObj:
-                return (static_cast<FF*>(obj));
+                return (static_cast<FF*>(obj_ptr));
             case GroupElementObj:
-                return (static_cast<GroupElement*>(obj));
+                return (static_cast<GroupElement*>(obj_ptr));
             case SumcheckUnivariateObj:
-                return (static_cast<Univariate<FF, MAX_RELATION_LENGTH>*>(obj));
+                return (static_cast<Univariate<FF, MAX_RELATION_LENGTH>*>(obj_ptr));
             case SumcheckEvalObj:
-                return (static_cast<std::array<FF, NUM_ALL_ENTITIES>*>(obj));
+                return (static_cast<std::array<FF, NUM_ALL_ENTITIES>*>(obj_ptr));
             default:
                 throw std::runtime_error("Unknown type");
             }

@@ -138,8 +138,6 @@ template <typename FF> class BaseTranscript {
 
     // conversion mapping from type to TranscriptObjectType enum object
     template <typename T> inline TranscriptObjectType convertTypeToEnum([[maybe_unused]] T _);
-    // conversion mapping from TranscriptObjectType enum object to type
-    template <typename T> T convertTypeFromEnum(TranscriptObjectType enum_type);
 
     // List of objects in the transcript by name, pointer, and size in bytes
     std::vector<std::tuple<std::string, void*, TranscriptObjectType>> ordered_objects;
@@ -164,16 +162,19 @@ template <typename FF> class BaseTranscript {
         if (!check_current_object(object_name)) {
             throw_or_abort("Object being sent is not expected.");
         }
-        object;
+        T* obj_ptr = static_cast<T*>(get<1>(ordered_objects[num_objects_processed]));
         // set the current object pointed to by ordered_objects as object
-
-        ++num_objects_processed;
+        *obj_ptr = object;
+        ++num_objects_processed; // update num_objects_processed to point to the next object
     }
     template <typename T> T receive_from_verifier(std::string object_name)
     {
         if (!check_current_object(object_name)) {
             throw_or_abort("Object being sent is not expected.");
         }
+        T* obj_ptr = static_cast<T*>(get<1>(ordered_objects[num_objects_processed]));
+        ++num_objects_processed; // update num_objects_processed to point to the next object
+        return *obj_ptr;
     }
 
     /**
