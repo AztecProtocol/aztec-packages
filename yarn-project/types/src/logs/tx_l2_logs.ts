@@ -87,11 +87,7 @@ export class TxL2Logs {
    * @returns Unrolled logs.
    */
   public unrollLogs(): Buffer[] {
-    const logs = [];
-    for (const functionLog of this.functionLogs) {
-      logs.push(...functionLog.logs);
-    }
-    return logs;
+    return this.functionLogs.flatMap(functionLog => functionLog.logs);
   }
 
   /**
