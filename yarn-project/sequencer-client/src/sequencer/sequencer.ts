@@ -28,7 +28,7 @@ import { PublicProcessorFactory } from './public_processor.js';
  */
 export class Sequencer {
   private runningPromise?: RunningPromise;
-  private pollingIntervalMs: number;
+  private pollingIntervalMs: number = 1000;
   private maxTxsPerBlock = 32;
   private minTxsPerBLock = 1;
   private lastPublishedBlock = 0;
@@ -44,17 +44,21 @@ export class Sequencer {
     private l1ToL2MessageSource: L1ToL2MessageSource,
     private contractDataSource: ContractDataSource,
     private publicProcessorFactory: PublicProcessorFactory,
-    config: SequencerConfig,
+    config: SequencerConfig = {},
     private log = createDebugLogger('aztec:sequencer'),
   ) {
-    this.pollingIntervalMs = config.transactionPollingIntervalMS ?? 1_000;
-    if (config.maxTxsPerBlock) {
-      this.maxTxsPerBlock = config.maxTxsPerBlock;
-    }
-    if (config.minTxsPerBlock) {
-      this.minTxsPerBLock = config.minTxsPerBlock;
-    }
+    this.updateConfig(config);
     this.log(`Initialized sequencer with ${this.minTxsPerBLock}-${this.maxTxsPerBlock} txs per block.`);
+  }
+
+  /**
+   * Updates sequencer config.
+   * @param config - New parameters.
+   */
+  public updateConfig(config: SequencerConfig) {
+    if (config.transactionPollingIntervalMS) this.pollingIntervalMs = config.transactionPollingIntervalMS;
+    if (config.maxTxsPerBlock) this.maxTxsPerBlock = config.maxTxsPerBlock;
+    if (config.minTxsPerBlock) this.minTxsPerBLock = config.minTxsPerBlock;
   }
 
   /**

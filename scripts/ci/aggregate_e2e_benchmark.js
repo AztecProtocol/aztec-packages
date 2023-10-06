@@ -31,8 +31,14 @@ const {
   L2_BLOCK_BUILD_TIME,
   L2_BLOCK_ROLLUP_SIMULATION_TIME,
   L2_BLOCK_PUBLIC_TX_PROCESS_TIME,
+  NODE_HISTORY_SYNC_TIME,
+  NODE_SYNCED_CHAIN,
+  NOTE_HISTORY_TRIAL_DECRYPTING_TIME,
+  NOTE_HISTORY_SUCCESSFUL_DECRYPTING_TIME,
   ROLLUP_SIZES,
+  CHAIN_LENGTHS,
   BENCHMARK_FILE_JSON,
+  BLOCK_SIZE,
 } = require("./benchmark_shared.js");
 
 // Folder where to load logs from
@@ -83,13 +89,17 @@ function processCircuitSimulation(entry, results) {
 }
 
 // Processes an entry with event name 'note-processor-caught-up' and updates results
-// Buckets are rollup sizes
+// Buckets are rollup sizes for NOTE_DECRYPTING_TIME, or chain sizes for NOTE_HISTORY_DECRYPTING_TIME
 function processNoteProcessorCaughtUp(entry, results) {
-  const { seen, decrypted } = entry;
+  const { seen, decrypted, blocks, txs, duration } = entry;
   if (ROLLUP_SIZES.includes(decrypted))
-    append(results, NOTE_SUCCESSFUL_DECRYPTING_TIME, decrypted, entry.duration);
+    append(results, NOTE_SUCCESSFUL_DECRYPTING_TIME, decrypted, duration);
   if (ROLLUP_SIZES.includes(seen) && decrypted === 0)
-    append(results, NOTE_TRIAL_DECRYPTING_TIME, seen, entry.duration);
+    append(results, NOTE_TRIAL_DECRYPTING_TIME, seen, duration);
+  if (CHAIN_LENGTHS.includes(blocks) && decrypted > 0)
+    append(results, NOTE_HISTORY_SUCCESSFUL_DECRYPTING_TIME, blocks, duration);
+  if (CHAIN_LENGTHS.includes(blocks) && decrypted === 0)
+    append(results, NOTE_HISTORY_TRIAL_DECRYPTING_TIME, blocks, duration);
 }
 
 // Processes an entry with event name 'l2-block-built' and updates results
@@ -112,6 +122,15 @@ function processL2BlockBuilt(entry, results) {
   );
 }
 
+// Processes entries with event name node-synced-chain-history emitted by benchmark tests
+// Buckets are chain lengths
+function processNodeSyncedChain(entry, results) {
+  const bucket = entry.blockCount;
+  if (!CHAIN_LENGTHS.includes(bucket)) return;
+  if (entry.txsPerBlock !== BLOCK_SIZE) return;
+  append(results, NODE_HISTORY_SYNC_TIME, bucket, entry.duration);
+}
+
 // Processes a parsed entry from a logfile and updates results
 function processEntry(entry, results) {
   switch (entry.eventName) {
@@ -125,6 +144,8 @@ function processEntry(entry, results) {
       return processNoteProcessorCaughtUp(entry, results);
     case L2_BLOCK_BUILT:
       return processL2BlockBuilt(entry, results);
+    case NODE_SYNCED_CHAIN:
+      return processNodeSyncedChain(entry, results);
     default:
       return;
   }
