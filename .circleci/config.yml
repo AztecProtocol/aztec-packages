@@ -1267,12 +1267,12 @@ workflows:
           <<: *defaults
 
       - aztec-p2p-bootstrap:
-        requires:
+          requires:
             - yarn-project
           <<: *defaults
 
       - aztec-node:
-        requires:
+          requires:
             - yarn-project
           <<: *defaults
 
