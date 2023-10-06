@@ -150,7 +150,8 @@ template <typename Curve> class ZeroMorphProver {
      * @brief Compute partially evaluated zeromorph identity polynomial Z_x
      * @details Compute Z_x, where
      *
-     *  Z_x = f - v*\Phi_n(x) - \sum_k (x^{2^k}\Phi_{n-k-1}(x^{2^{k-1}}) - u_k\Phi_{n-k}(x^{2^k})) * q_k
+     *  Z_x = x * \sum_{i=0}^{m-1} f_i + \sum_{i=0}^{l-1} g_i - v * x * \Phi_n(x)
+     *           - x * \sum_k (x^{2^k}\Phi_{n-k-1}(x^{2^{k-1}}) - u_k\Phi_{n-k}(x^{2^k})) * q_k
      *
      * @param input_polynomial
      * @param quotients
@@ -158,35 +159,44 @@ template <typename Curve> class ZeroMorphProver {
      * @param x_challenge
      * @return Polynomial
      */
-    static Polynomial compute_partially_evaluated_zeromorph_identity_polynomial(Polynomial& input_polynomial,
-                                                                                std::vector<Polynomial>& quotients,
-                                                                                Fr v_evaluation,
-                                                                                std::span<Fr> u_challenge,
-                                                                                Fr x_challenge)
+    static Polynomial compute_partially_evaluated_zeromorph_identity_polynomial_new(Polynomial& f_batched,
+                                                                                    Polynomial& g_batched,
+                                                                                    std::vector<Polynomial>& quotients,
+                                                                                    Fr v_evaluation,
+                                                                                    std::span<Fr> u_challenge,
+                                                                                    Fr x_challenge)
     {
-        size_t N = input_polynomial.size();
+        size_t N = f_batched.size();
         size_t log_N = quotients.size();
-        auto numerator = x_challenge.pow(N) - 1; // x^N - 1
 
-        // Partially evaluated zeromorph identity polynomial Z_x
-        auto result = input_polynomial;
-        auto phi_n_x = numerator / (x_challenge - 1);
-        result[0] -= v_evaluation * phi_n_x; // f - v * \Phi_n(x)
+        // Initialize Z_x with x * \sum_{i=0}^{m-1} f_i + \sum_{i=0}^{l-1} g_i
+        auto result = Polynomial(N);
+        result.add_scaled(f_batched, x_challenge);
+        result += g_batched;
 
+        // Compute Z_x -= v * x * \Phi_n(x)
+        auto phi_numerator = x_challenge.pow(N) - 1; // x^N - 1
+        auto phi_n_x = phi_numerator / (x_challenge - 1);
+        result[0] -= v_evaluation * x_challenge * phi_n_x;
+
+        // Add contribution from q_k polynomials
         auto x_power = x_challenge; // x^{2^k}
         for (size_t k = 0; k < log_N; ++k) {
             x_power = x_challenge.pow(1 << k); // x^{2^k}
 
             // \Phi_{n-k-1}(x^{2^{k + 1}})
-            auto phi_term_1 = numerator / (x_challenge.pow(1 << (k + 1)) - 1);
+            auto phi_term_1 = phi_numerator / (x_challenge.pow(1 << (k + 1)) - 1);
 
             // \Phi_{n-k}(x^{2^k})
-            auto phi_term_2 = numerator / (x_challenge.pow(1 << k) - 1);
+            auto phi_term_2 = phi_numerator / (x_challenge.pow(1 << k) - 1);
 
             // x^{2^k} * \Phi_{n-k-1}(x^{2^{k+1}}) - u_k *  \Phi_{n-k}(x^{2^k})
             auto scalar = x_power * phi_term_1 - u_challenge[k] * phi_term_2;
 
-            result.add_scaled(quotients[k], -scalar);
+            scalar *= x_challenge;
+            scalar *= Fr(-1);
+
+            result.add_scaled(quotients[k], scalar);
         }
 
         return result;
@@ -237,6 +247,111 @@ template <typename Curve> class ZeroMorphProver {
     }
 };
 
-template <typename Curve> class ZeroMorphVerifier {};
+/**
+ * @brief Verifier for ZeroMorph multilinear PCS
+ *
+ * @tparam Curve
+ */
+template <typename Curve> class ZeroMorphVerifier {
+    using Fr = typename Curve::ScalarField;
+    using Commitment = typename Curve::AffineElement;
+
+  public:
+    /**
+     * @brief Compute commitment to partially evaluated batched lifted degree quotient identity
+     * @details Compute commitment C_{\zeta_x} = [\zeta_x]_1 using homomorphicity:
+     *
+     *  C_{\zeta_x} = [q]_1 - \sum_k y^k * x^{N - d_k - 1} * [q_k]_1
+     *
+     * @param C_q Commitment to batched lifted degree quotient
+     * @param C_q_k Commitments to quotients q_k
+     * @param y_challenge
+     * @param x_challenge
+     * @return Commitment
+     */
+    static Commitment compute_C_zeta_x(Commitment C_q, std::vector<Commitment>& C_q_k, Fr y_challenge, Fr x_challenge)
+    {
+        size_t log_N = C_q_k.size();
+        size_t N = 1 << log_N;
+
+        auto result = C_q;
+        for (size_t k = 0; k < log_N; ++k) {
+            auto deg_k = static_cast<size_t>((1 << k) - 1);
+            // Compute scalar y^k * x^{N - deg_k - 1}
+            auto scalar = y_challenge.pow(k);
+            scalar *= x_challenge.pow(N - deg_k - 1);
+            scalar *= Fr(-1);
+
+            result = result + C_q_k[k] * scalar;
+        }
+        return result;
+    }
+
+    /**
+     * @brief Compute commitment to partially evaluated ZeroMorph identity Z
+     * @details Compute commitment C_{Z_x} = [Z_x]_1 using homomorphicity:
+     *
+     *  C_{Z_x} = x * \sum_{i=0}^{m-1} [f_i] + \sum_{i=0}^{l-1} [g_i] - C_v_x
+     *              - x * \sum_k (x^{2^k}\Phi_{n-k-1}(x^{2^{k-1}}) - u_k\Phi_{n-k}(x^{2^k})) * [q_k]
+     *
+     * @param C_v_x v * x * \Phi_n(x) * [1]_1
+     * @param f_commitments Commitments to unshifted polynomials [f_i]
+     * @param g_commitments Commitments to to-be-shifted polynomials [g_i]
+     * @param C_q_k Commitments to q_k
+     * @param alpha
+     * @param x_challenge
+     * @param u_challenge multilinear challenge
+     * @return Commitment
+     */
+    static Commitment compute_C_Z_x(Commitment C_v_x,
+                                    std::vector<Commitment>& f_commitments,
+                                    std::vector<Commitment>& g_commitments,
+                                    std::vector<Commitment>& C_q_k,
+                                    Fr alpha,
+                                    Fr x_challenge,
+                                    std::vector<Fr> u_challenge)
+    {
+        size_t log_N = C_q_k.size();
+        size_t N = 1 << log_N;
+
+        auto phi_numerator = x_challenge.pow(N) - 1; // x^N - 1
+        // auto phi_n_x = phi_numerator / (x_challenge - 1);
+
+        Commitment result = -C_v_x; // initialize with -C_{v,x}
+        auto alpha_pow = Fr(1);
+        // Add contribution x * \sum_{i=0}^{m-1} [f_i]
+        for (auto& commitment : f_commitments) {
+            auto scalar = x_challenge * alpha_pow;
+            result = result + (commitment * scalar);
+            alpha_pow *= alpha;
+        }
+        // Add contribution \sum_{i=0}^{l-1} [g_i]
+        for (auto& commitment : g_commitments) {
+            auto scalar = alpha_pow;
+            result = result + (commitment * scalar);
+            alpha_pow *= alpha;
+        }
+
+        // Add contribution from q_k commitments
+        for (size_t k = 0; k < log_N; ++k) {
+            // Compute scalar x^{2^k} * \Phi_{n-k-1}(x^{2^{k+1}}) - u_k *  \Phi_{n-k}(x^{2^k})
+            auto x_pow_2k = x_challenge.pow(1 << k); // x^{2^k}
+
+            // \Phi_{n-k-1}(x^{2^{k + 1}})
+            auto phi_term_1 = phi_numerator / (x_challenge.pow(1 << (k + 1)) - 1);
+
+            // \Phi_{n-k}(x^{2^k})
+            auto phi_term_2 = phi_numerator / (x_challenge.pow(1 << k) - 1);
+
+            auto scalar = x_pow_2k * phi_term_1;
+            scalar -= u_challenge[k] * phi_term_2;
+            scalar *= x_challenge;
+            scalar *= Fr(-1);
+
+            result = result + C_q_k[k] * scalar;
+        }
+        return result;
+    }
+};
 
 } // namespace proof_system::honk::pcs::zeromorph
