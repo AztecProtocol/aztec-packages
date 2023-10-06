@@ -17,7 +17,6 @@ import {
   deployL1Contract,
   deployL1Contracts,
 } from '@aztec/ethereum';
-import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import {

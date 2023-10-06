@@ -1,9 +1,12 @@
-import { ABIParameter, ContractAbi, FunctionAbi, isAztecAddressStruct, isEthereumAddressStruct } from '@aztec/foundation/abi';
-
-
+import {
+  ABIParameter,
+  ContractAbi,
+  FunctionAbi,
+  isAztecAddressStruct,
+  isEthereumAddressStruct,
+} from '@aztec/foundation/abi';
 
 import compact from 'lodash.compact';
-
 
 /**
  * Returns the corresponding typescript type for a given Noir type.

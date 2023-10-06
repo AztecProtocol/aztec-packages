@@ -3,15 +3,10 @@ import { L1ContractAddresses } from '@aztec/ethereum';
 import { ABIParameterVisibility, ContractAbi, FunctionType } from '@aztec/foundation/abi';
 import { ExtendedContractData, NodeInfo, Tx, TxExecutionRequest, TxHash, TxReceipt } from '@aztec/types';
 
-
-
 import { MockProxy, mock } from 'jest-mock-extended';
-
-
 
 import { Wallet } from '../wallet/index.js';
 import { Contract } from './contract.js';
-
 
 describe('Contract Class', () => {
   let wallet: MockProxy<Wallet>;

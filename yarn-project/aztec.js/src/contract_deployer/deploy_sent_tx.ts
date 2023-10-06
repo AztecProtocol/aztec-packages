@@ -2,10 +2,7 @@ import { FieldsOf } from '@aztec/circuits.js';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { TxHash, TxReceipt } from '@aztec/types';
 
-
-
 import { AztecAddress, Contract, ContractBase, PXE, SentTx, WaitOpts, Wallet } from '../index.js';
-
 
 /** Options related to waiting for a deployment tx. */
 export type DeployedWaitOpts = WaitOpts & {
