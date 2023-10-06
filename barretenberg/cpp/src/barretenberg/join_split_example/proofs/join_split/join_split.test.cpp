@@ -43,6 +43,7 @@ class join_split_tests : public ::testing::Test {
     static constexpr size_t ACCOUNT_INDEX = 14;
     static void SetUpTestCase()
     {
+        barretenberg::srs::init_crs_factory("../srs_db/ignition");
         auto null_crs_factory = std::make_shared<barretenberg::srs::factories::CrsFactory<curve::BN254>>();
         init_proving_key(null_crs_factory, false);
         auto crs_factory =

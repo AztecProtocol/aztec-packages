@@ -7,7 +7,6 @@ import {
   L2BlockL2Logs,
   L2Tx,
   NotePreimage,
-  PublicKey,
   Tx,
   TxExecutionRequest,
   TxHash,
@@ -43,13 +42,14 @@ export interface PXE {
   /**
    * Registers a user account in PXE given its master encryption private key.
    * Once a new account is registered, the PXE Service will trial-decrypt all published notes on
-   * the chain and store those that correspond to the registered account.
+   * the chain and store those that correspond to the registered account. Will do nothing if the
+   * account is already registered.
    *
    * @param privKey - Private key of the corresponding user master public key.
    * @param partialAddress - The partial address of the account contract corresponding to the account being registered.
-   * @throws If the account is already registered.
+   * @returns The complete address of the account.
    */
-  registerAccount(privKey: GrumpkinPrivateKey, partialAddress: PartialAddress): Promise<void>;
+  registerAccount(privKey: GrumpkinPrivateKey, partialAddress: PartialAddress): Promise<CompleteAddress>;
 
   /**
    * Registers a recipient in PXE. This is required when sending encrypted notes to
@@ -172,18 +172,20 @@ export interface PXE {
 
   /**
    * Adds a note to the database. Throw if the note hash of the note doesn't exist in the tree.
+   * @param account - The account the note is associated with.
    * @param contract - The contract address of the note.
    * @param storageSlot - The storage slot of the note.
    * @param preimage - The note preimage.
-   * @param nonce - The nonce of the note.
-   * @param account - The public key of the account the note is associated with.
+   * @param txHash - The tx hash of the tx containing the note.
+   * @param nonce - The nonce of the note. If undefined, will look for the first index that matches the preimage.
    */
   addNote(
+    account: AztecAddress,
     contract: AztecAddress,
     storageSlot: Fr,
     preimage: NotePreimage,
-    nonce: Fr,
-    account: PublicKey,
+    txHash: TxHash,
+    nonce?: Fr,
   ): Promise<void>;
 
   /**

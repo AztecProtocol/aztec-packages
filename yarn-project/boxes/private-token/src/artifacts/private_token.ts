@@ -4,32 +4,29 @@
 import {
   AztecAddress,
   CompleteAddress,
+  Contract,
   ContractBase,
   ContractFunctionInteraction,
   ContractMethod,
   DeployMethod,
+  EthAddress,
   FieldLike,
+  AztecAddressLike,
+  EthAddressLike,
   Wallet,
 } from '@aztec/aztec.js';
-import { ContractAbi } from '@aztec/foundation/abi';
-import { Point } from '@aztec/foundation/fields';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { PXE, PublicKey } from '@aztec/types';
-
+import { ContractAbi } from '@aztec/foundation/abi';
 import PrivateTokenContractAbiJson from './private_token_contract.json' assert { type: 'json' };
-
 export const PrivateTokenContractAbi = PrivateTokenContractAbiJson as ContractAbi;
 
 /**
  * Type-safe interface for contract PrivateToken;
  */
 export class PrivateTokenContract extends ContractBase {
-  private constructor(
-    /** The deployed contract's complete address. */
-    completeAddress: CompleteAddress,
-    /** The wallet. */
-    wallet: Wallet,
-  ) {
-    super(completeAddress, PrivateTokenContractAbi, wallet);
+  private constructor(completeAddress: CompleteAddress, wallet: Wallet, portalContract = EthAddress.ZERO) {
+    super(completeAddress, PrivateTokenContractAbi, wallet, portalContract);
   }
 
   /**
@@ -38,17 +35,8 @@ export class PrivateTokenContract extends ContractBase {
    * @param wallet - The wallet to use when interacting with the contract.
    * @returns A promise that resolves to a new Contract instance.
    */
-  public static async at(
-    /** The deployed contract's address. */
-    address: AztecAddress,
-    /** The wallet. */
-    wallet: Wallet,
-  ) {
-    const extendedContractData = await wallet.getExtendedContractData(address);
-    if (extendedContractData === undefined) {
-      throw new Error('Contract ' + address.toString() + ' is not deployed');
-    }
-    return new PrivateTokenContract(extendedContractData.getCompleteAddress(), wallet);
+  public static async at(address: AztecAddress, wallet: Wallet) {
+    return Contract.at(address, PrivateTokenContract.abi, wallet) as Promise<PrivateTokenContract>;
   }
 
   /**

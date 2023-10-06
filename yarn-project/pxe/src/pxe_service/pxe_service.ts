@@ -32,16 +32,15 @@ import {
   DeployedContract,
   ExtendedContractData,
   FunctionCall,
-  INITIAL_L2_BLOCK_NUM,
   KeyStore,
   L2Block,
   L2BlockL2Logs,
   L2Tx,
   LogType,
+  MerkleTreeId,
   NodeInfo,
   NotePreimage,
   PXE,
-  PublicKey,
   SimulationError,
   Tx,
   TxExecutionRequest,
@@ -82,7 +81,7 @@ export class PXEService implements PXE {
     this.log = createDebugLogger(logSuffix ? `aztec:pxe_service_${logSuffix}` : `aztec:pxe_service`);
     this.synchronizer = new Synchronizer(node, db, logSuffix);
     this.contractDataOracle = new ContractDataOracle(db, node);
-    this.simulator = getAcirSimulator(db, node, node, node, keyStore, this.contractDataOracle);
+    this.simulator = getAcirSimulator(db, node, keyStore, this.contractDataOracle);
 
     this.sandboxVersion = getPackageInfo().version;
   }
@@ -93,7 +92,8 @@ export class PXEService implements PXE {
    * @returns A promise that resolves when the server has started successfully.
    */
   public async start() {
-    await this.synchronizer.start(INITIAL_L2_BLOCK_NUM, 1, this.config.l2BlockPollingIntervalMS);
+    const { l2BlockPollingIntervalMS, l2StartingBlock } = this.config;
+    await this.synchronizer.start(l2StartingBlock, 1, l2BlockPollingIntervalMS);
     const info = await this.getNodeInfo();
     this.log.info(`Started PXE connected to chain ${info.chainId} version ${info.protocolVersion}`);
   }
@@ -114,17 +114,18 @@ export class PXEService implements PXE {
     return this.db.addAuthWitness(witness.requestHash, witness.witness);
   }
 
-  public async registerAccount(privKey: GrumpkinPrivateKey, partialAddress: PartialAddress) {
+  public async registerAccount(privKey: GrumpkinPrivateKey, partialAddress: PartialAddress): Promise<CompleteAddress> {
     const completeAddress = await CompleteAddress.fromPrivateKeyAndPartialAddress(privKey, partialAddress);
     const wasAdded = await this.db.addCompleteAddress(completeAddress);
     if (wasAdded) {
       const pubKey = this.keyStore.addAccount(privKey);
-      this.synchronizer.addAccount(pubKey, this.keyStore);
+      this.synchronizer.addAccount(pubKey, this.keyStore, this.config.l2StartingBlock);
       this.log.info(`Registered account ${completeAddress.address.toString()}`);
       this.log.debug(`Registered account\n ${completeAddress.toReadableString()}`);
     } else {
       this.log.info(`Account:\n "${completeAddress.address.toString()}"\n already registered.`);
     }
+    return completeAddress;
   }
 
   public async getRegisteredAccounts(): Promise<CompleteAddress[]> {
@@ -200,31 +201,43 @@ export class PXEService implements PXE {
   }
 
   public async addNote(
+    account: AztecAddress,
     contractAddress: AztecAddress,
     storageSlot: Fr,
     preimage: NotePreimage,
-    nonce: Fr,
-    account: PublicKey,
+    txHash: TxHash,
+    nonce?: Fr,
   ) {
+    const { publicKey } = (await this.db.getCompleteAddress(account)) ?? {};
+    if (!publicKey) {
+      throw new Error('Unknown account.');
+    }
+
+    if (!nonce) {
+      [nonce] = await this.getNoteNonces(contractAddress, storageSlot, preimage, txHash);
+    }
+    if (!nonce) {
+      throw new Error(`Cannot find the note in tx: ${txHash}.`);
+    }
+
     const { innerNoteHash, siloedNoteHash, uniqueSiloedNoteHash, innerNullifier } =
       await this.simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, preimage.items);
 
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
     // This can always be `uniqueSiloedNoteHash` once notes added from public also include nonces.
     const noteHashToLookUp = nonce.isZero() ? siloedNoteHash : uniqueSiloedNoteHash;
-    const index = await this.node.findCommitmentIndex(noteHashToLookUp.toBuffer());
+    const index = await this.node.findLeafIndex(MerkleTreeId.PRIVATE_DATA_TREE, noteHashToLookUp.toBuffer());
     if (index === undefined) {
       throw new Error('Note does not exist.');
     }
 
     const wasm = await CircuitsWasm.get();
     const siloedNullifier = siloNullifier(wasm, contractAddress, innerNullifier!);
-    const nullifierIndex = await this.node.findNullifierIndex(siloedNullifier);
+    const nullifierIndex = await this.node.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, siloedNullifier.toBuffer());
     if (nullifierIndex !== undefined) {
       throw new Error('The note has been destroyed.');
     }
 
-    // TODO - Should not modify the db while syncing.
     await this.db.addNoteSpendingInfo({
       contractAddress,
       storageSlot,
@@ -233,7 +246,7 @@ export class PXEService implements PXE {
       innerNoteHash,
       siloedNullifier,
       index,
-      publicKey: account,
+      publicKey,
     });
   }
 
@@ -258,16 +271,23 @@ export class PXEService implements PXE {
       if (commitment.equals(Fr.ZERO)) break;
 
       const nonce = computeCommitmentNonce(wasm, firstNullifier, i);
-      const { uniqueSiloedNoteHash } = await this.simulator.computeNoteHashAndNullifier(
+      const { siloedNoteHash, uniqueSiloedNoteHash } = await this.simulator.computeNoteHashAndNullifier(
         contractAddress,
         nonce,
         storageSlot,
         preimage.items,
       );
+      // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
+      // Remove this once notes added from public also include nonces.
+      if (commitment.equals(siloedNoteHash)) {
+        nonces.push(Fr.ZERO);
+        break;
+      }
       if (commitment.equals(uniqueSiloedNoteHash)) {
         nonces.push(nonce);
       }
     }
+
     return nonces;
   }
 
@@ -529,7 +549,10 @@ export class PXEService implements PXE {
     const unencryptedLogs = new TxL2Logs(collectUnencryptedLogs(executionResult));
     const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(executionResult);
 
-    const contractData = new ContractData(newContract?.completeAddress.address ?? AztecAddress.ZERO, EthAddress.ZERO);
+    const contractData = new ContractData(
+      newContract?.completeAddress.address ?? AztecAddress.ZERO,
+      newContract?.portalContract ?? EthAddress.ZERO,
+    );
     const extendedContractData = new ExtendedContractData(
       contractData,
       newContractPublicFunctions,
@@ -624,5 +647,9 @@ export class PXEService implements PXE {
 
   public getSyncStatus() {
     return Promise.resolve(this.synchronizer.getSyncStatus());
+  }
+
+  public getKeyStore() {
+    return this.keyStore;
   }
 }

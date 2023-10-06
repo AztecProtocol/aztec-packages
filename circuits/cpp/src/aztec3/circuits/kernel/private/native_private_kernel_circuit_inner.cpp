@@ -91,8 +91,6 @@ void validate_inputs(DummyCircuitBuilder& builder, PrivateKernelInputsInner<NT> 
     builder.do_assert(start_private_call_stack_length != 0,
                       "Cannot execute private kernel circuit with an empty private call stack",
                       CircuitErrorCode::PRIVATE_KERNEL__PRIVATE_CALL_STACK_EMPTY);
-
-    common_validate_0th_nullifier(builder, private_inputs.previous_kernel.public_inputs.end);
 }
 
 KernelCircuitPublicInputs<NT> native_private_kernel_circuit_inner(DummyCircuitBuilder& builder,
@@ -101,10 +99,14 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_inner(DummyCircuitBu
     // We'll be pushing data to this during execution of this circuit.
     KernelCircuitPublicInputs<NT> public_inputs{};
 
+    common_validate_previous_kernel_values(builder, private_inputs.previous_kernel.public_inputs.end);
+
     // Do this before any functions can modify the inputs.
     initialise_end_values(private_inputs.previous_kernel, public_inputs);
 
     validate_inputs(builder, private_inputs);
+
+    common_validate_arrays(builder, private_inputs.private_call.call_stack_item.public_inputs);
 
     pop_and_validate_this_private_call_hash(builder, private_inputs.private_call, public_inputs.end.private_call_stack);
 

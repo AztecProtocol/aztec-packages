@@ -2,8 +2,9 @@
   "name": "@aztec/foundation",
   "version": "0.1.0",
   "packageManager": "yarn@3.4.1",
-  "private": true,
   "type": "module",
+  "main": "./dest/index.js",
+  "types": "./dest/index.d.ts",
   "exports": {
     "./eslint": "./.eslintrc.cjs",
     "./prettier": "./.prettierrc.json",
@@ -107,7 +108,6 @@
     "src",
     "!*.test.*"
   ],
-  "types": "./dest/index.d.ts",
   "engines": {
     "node": ">=18"
   }

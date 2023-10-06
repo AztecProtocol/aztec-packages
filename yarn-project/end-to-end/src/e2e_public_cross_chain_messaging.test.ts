@@ -1,12 +1,12 @@
-import { AccountWallet, AztecAddress } from '@aztec/aztec.js';
-import { Fr, FunctionSelector } from '@aztec/circuits.js';
+import { AccountWallet, AztecAddress, computeAuthWitMessageHash } from '@aztec/aztec.js';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger } from '@aztec/foundation/log';
 import { TokenBridgeContract, TokenContract } from '@aztec/noir-contracts/types';
 import { TxStatus } from '@aztec/types';
 
 import { CrossChainTestHarness } from './fixtures/cross_chain_test_harness.js';
-import { delay, hashPayload, setup } from './fixtures/utils.js';
+import { delay, setup } from './fixtures/utils.js';
 
 describe('e2e_public_cross_chain_messaging', () => {
   let logger: DebugLogger;
@@ -94,14 +94,10 @@ describe('e2e_public_cross_chain_messaging', () => {
     // 4. Give approval to bridge to burn owner's funds:
     const withdrawAmount = 9n;
     const nonce = Fr.random();
-    const burnMessageHash = await hashPayload([
-      l2Bridge.address.toField(),
-      l2Token.address.toField(),
-      FunctionSelector.fromSignature('burn_public((Field),Field,Field)').toField(),
-      ownerAddress.toField(),
-      new Fr(withdrawAmount),
-      nonce,
-    ]);
+    const burnMessageHash = await computeAuthWitMessageHash(
+      l2Bridge.address,
+      l2Token.methods.burn_public(ownerAddress, withdrawAmount, nonce).request(),
+    );
     await ownerWallet.setPublicAuth(burnMessageHash, true).send().wait();
 
     // 5. Withdraw owner's funds from L2 to L1
@@ -174,5 +170,27 @@ describe('e2e_public_cross_chain_messaging', () => {
         .methods.exit_to_l1_public(ownerEthAddress, withdrawAmount, EthAddress.ZERO, nonce)
         .simulate(),
     ).rejects.toThrowError('Assertion failed: Message not authorized by account');
+  });
+
+  it("can't claim funds privately which were intended for public deposit from the token portal", async () => {
+    const bridgeAmount = 100n;
+    const [secret, secretHash] = await crossChainTestHarness.generateClaimSecret();
+
+    await crossChainTestHarness.mintTokensOnL1(bridgeAmount);
+    const messageKey = await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount, secretHash);
+    expect(await crossChainTestHarness.getL1BalanceOf(ownerEthAddress)).toBe(0n);
+
+    // Wait for the archiver to process the message
+    await delay(5000); /// waiting 5 seconds.
+
+    // Perform an unrelated transaction on L2 to progress the rollup. Here we mint public tokens.
+    await crossChainTestHarness.performL2Transfer(0n);
+
+    await expect(
+      l2Bridge
+        .withWallet(user2Wallet)
+        .methods.claim_private(bridgeAmount, secretHash, ownerEthAddress, messageKey, secret)
+        .simulate(),
+    ).rejects.toThrowError("Cannot satisfy constraint 'l1_to_l2_message_data.message.content == content");
   });
 });
