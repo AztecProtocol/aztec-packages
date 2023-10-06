@@ -108,7 +108,7 @@ template <typename Builder> struct CircuitTypes {
 
     static grumpkin_point commit(const std::vector<fr>& inputs, const size_t hash_index = 0)
     {
-        return plonk::stdlib::pedersen_commitment<Builder>::commit(inputs, hash_index);
+        return plonk::stdlib::pedersen_commitment<Builder>::commit(inputs, get_context(hash_index));
     };
 
     static grumpkin_point commit(const std::vector<std::pair<fr, generator_index_t>>& input_pairs)

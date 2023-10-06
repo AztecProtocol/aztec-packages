@@ -174,10 +174,11 @@ template <typename Composer>
 cycle_group<Composer> cycle_group<Composer>::dbl() const
     requires IsNotUltraArithmetic<Composer>
 {
-    auto lambda = (x * x * 3) / (y + y);
+    auto modified_y = field_t::conditional_assign(is_point_at_infinity(), 1, y);
+    auto lambda = (x * x * 3) / (modified_y + modified_y);
     auto x3 = lambda.madd(lambda, -x - x);
     auto y3 = lambda.madd(x - x3, -y);
-    return cycle_group(x3, y3, false);
+    return cycle_group(x3, y3, is_point_at_infinity());
 }
 
 /**
@@ -190,10 +191,11 @@ template <typename Composer>
 cycle_group<Composer> cycle_group<Composer>::dbl() const
     requires IsUltraArithmetic<Composer>
 {
-    // n.b. if p1 is point at infinity, calling p1.dbl() does not give us an output that satisfies the double gate
-    // :o) (native code just checks out of the dbl() method if point is at infinity)
+    // ensure we use a value of y that is not zero. (only happens if point at infinity)
+    // this costs us 0 gates if `is_infinity` is a circuit constant
+    auto modified_y = field_t::conditional_assign(is_point_at_infinity(), 1, y);
     auto x1 = x.get_value();
-    auto y1 = y.get_value();
+    auto y1 = modified_y.get_value();
     auto lambda = (x1 * x1 * 3) / (y1 + y1);
     auto x3 = lambda * lambda - x1 - x1;
     auto y3 = lambda * (x1 - x3) - y1;
@@ -207,11 +209,10 @@ cycle_group<Composer> cycle_group<Composer>::dbl() const
 
     field_t r_x(witness_t(context, p3.x));
     field_t r_y(witness_t(context, p3.y));
-    cycle_group result = cycle_group(r_x, r_y, false);
-    result.set_point_at_infinity(is_point_at_infinity());
+    cycle_group result = cycle_group(r_x, r_y, is_point_at_infinity());
     proof_system::ecc_dbl_gate_<FF> dbl_gate{
         .x1 = x.get_witness_index(),
-        .y1 = y.get_witness_index(),
+        .y1 = modified_y.normalize().get_witness_index(),
         .x3 = result.x.get_witness_index(),
         .y3 = result.y.get_witness_index(),
     };

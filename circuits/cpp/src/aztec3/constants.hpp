@@ -145,6 +145,7 @@ enum GeneratorIndex {
     /**
      * Indices with size ≤ 8
      */
+    DEFAULT = 0,
     COMMITMENT = 1,              // Size = 7 (unused)
     COMMITMENT_NONCE,            // Size = 2
     UNIQUE_COMMITMENT,           // Size = 2
@@ -191,6 +192,8 @@ enum GeneratorIndex {
 static constexpr std::string generatorIndexDomain(GeneratorIndex idx)
 {
     switch (idx) {
+        case DEFAULT:
+            return "DEFAULT";
         case COMMITMENT:
             return "COMMITMENT";
         case COMMITMENT_NONCE:
@@ -200,11 +203,11 @@ static constexpr std::string generatorIndexDomain(GeneratorIndex idx)
         case SILOED_COMMITMENT:
             return "SILOED_COMMITMENT";
         case NULLIFIER:
-            return "NULLIFIER";
+            return "NULLIFIER       ";
         case INITIALISATION_NULLIFIER:
             return "INITIALISATION_NULLIFIER";
         case OUTER_NULLIFIER:
-            return "OUTER_NULLIFIER";
+            return "OUTER_NULLIFIER ";
         case PUBLIC_DATA_READ:
             return "PUBLIC_DATA_READ";
         case PUBLIC_DATA_UPDATE_REQUEST:
@@ -230,7 +233,7 @@ static constexpr std::string generatorIndexDomain(GeneratorIndex idx)
         case CALL_STACK_ITEM_2:
             return "CALL_STACK_ITEM_2";
         case L1_TO_L2_MESSAGE_SECRET:
-            return "L1_TO_L2_MESSAGE_SECRET";
+            return "L1_TO_L2_MESSAGE_SECRET ";
         case L2_TO_L1_MSG:
             return "L2_TO_L1_MSG";
         case TX_CONTEXT:
