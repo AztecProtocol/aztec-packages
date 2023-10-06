@@ -27,6 +27,10 @@ const {
   NOTE_SUCCESSFUL_DECRYPTING_TIME,
   NOTE_TRIAL_DECRYPTING_TIME,
   NOTE_PROCESSOR_CAUGHT_UP,
+  L2_BLOCK_BUILT,
+  L2_BLOCK_BUILD_TIME,
+  L2_BLOCK_ROLLUP_SIMULATION_TIME,
+  L2_BLOCK_PUBLIC_TX_PROCESS_TIME,
   ROLLUP_SIZES,
   BENCHMARK_FILE_JSON,
 } = require("./benchmark_shared.js");
@@ -34,7 +38,7 @@ const {
 // Folder where to load logs from
 const logsDir = process.env.LOGS_DIR ?? `log`;
 
-// Appends a datapoint to the final results for the given metric in the given bucket
+// Appends a data point to the final results for the given metric in the given bucket
 function append(results, metric, bucket, value) {
   if (value === undefined) {
     console.error(`Undefined value for ${metric} in bucket ${bucket}`);
@@ -88,6 +92,26 @@ function processNoteProcessorCaughtUp(entry, results) {
     append(results, NOTE_TRIAL_DECRYPTING_TIME, seen, entry.duration);
 }
 
+// Processes an entry with event name 'l2-block-built' and updates results
+// Buckets are rollup sizes
+function processL2BlockBuilt(entry, results) {
+  const bucket = entry.txCount;
+  if (!ROLLUP_SIZES.includes(bucket)) return;
+  append(results, L2_BLOCK_BUILD_TIME, bucket, entry.duration);
+  append(
+    results,
+    L2_BLOCK_ROLLUP_SIMULATION_TIME,
+    bucket,
+    entry.rollupCircuitsDuration
+  );
+  append(
+    results,
+    L2_BLOCK_PUBLIC_TX_PROCESS_TIME,
+    bucket,
+    entry.publicProcessDuration
+  );
+}
+
 // Processes a parsed entry from a logfile and updates results
 function processEntry(entry, results) {
   switch (entry.eventName) {
@@ -99,6 +123,8 @@ function processEntry(entry, results) {
       return processCircuitSimulation(entry, results);
     case NOTE_PROCESSOR_CAUGHT_UP:
       return processNoteProcessorCaughtUp(entry, results);
+    case L2_BLOCK_BUILT:
+      return processL2BlockBuilt(entry, results);
     default:
       return;
   }

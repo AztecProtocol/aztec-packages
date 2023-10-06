@@ -2,6 +2,7 @@ import { GlobalVariables } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
+import { Timer, elapsed } from '@aztec/foundation/timer';
 import { P2P } from '@aztec/p2p';
 import { ContractDataSource, L1ToL2MessageSource, L2Block, L2BlockSource, MerkleTreeId, Tx } from '@aztec/types';
 import { WorldStateStatus, WorldStateSynchronizer } from '@aztec/world-state';
@@ -116,6 +117,7 @@ export class Sequencer {
       // Do not go forward with new block if the previous one has not been mined and processed
       if (!prevBlockSynced) return;
 
+      const workTimer = new Timer();
       this.state = SequencerState.WAITING_FOR_TXS;
 
       // Get txs to build the new block
@@ -139,7 +141,7 @@ export class Sequencer {
       // Process txs and drop the ones that fail processing
       // We create a fresh processor each time to reset any cached state (eg storage writes)
       const processor = await this.publicProcessorFactory.create(prevGlobalVariables, newGlobalVariables);
-      const [processedTxs, failedTxs] = await processor.process(validTxs);
+      const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() => processor.process(validTxs));
       if (failedTxs.length > 0) {
         const failedTxData = failedTxs.map(fail => fail.tx);
         this.log(`Dropping failed txs ${(await Tx.getHashes(failedTxData)).join(', ')}`);
@@ -166,8 +168,17 @@ export class Sequencer {
       this.log(`Assembling block with txs ${processedValidTxs.map(tx => tx.hash).join(', ')}`);
 
       const emptyTx = await processor.makeEmptyProcessedTx();
-      const block = await this.buildBlock(processedValidTxs, l1ToL2Messages, emptyTx, newGlobalVariables);
-      this.log(`Assembled block ${block.number}`);
+      const [rollupCircuitsDuration, block] = await elapsed(() =>
+        this.buildBlock(processedValidTxs, l1ToL2Messages, emptyTx, newGlobalVariables),
+      );
+
+      this.log(`Assembled block ${block.number}`, {
+        eventName: 'l2-block-built',
+        duration: workTimer.ms(),
+        publicProcessDuration: publicProcessorDuration,
+        rollupCircuitsDuration: rollupCircuitsDuration,
+        ...block.getStats(),
+      });
 
       await this.publishExtendedContractData(validTxs, block);
 
