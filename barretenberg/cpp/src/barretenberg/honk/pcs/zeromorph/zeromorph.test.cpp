@@ -12,8 +12,8 @@ template <class Curve> class ZeroMorphTest : public CommitmentTest<Curve> {
     using Polynomial = barretenberg::Polynomial<Fr>;
     using Commitment = typename Curve::AffineElement;
     using GroupElement = typename Curve::Element;
-    using ZeroMorphProver = ZeroMorphProver<Curve>;
-    using ZeroMorphVerifier = ZeroMorphVerifier<Curve>;
+    using ZeroMorphProver = ZeroMorphProver_<Curve>;
+    using ZeroMorphVerifier = ZeroMorphVerifier_<Curve>;
 
     // Evaluate Phi_k(x) = \sum_{i=0}^k x^i using the direct inefficent formula
     Fr Phi(Fr challenge, size_t subscript)
@@ -233,7 +233,7 @@ TYPED_TEST_SUITE(ZeroMorphTest, CurveTypes);
 TYPED_TEST(ZeroMorphTest, QuotientConstruction)
 {
     // Define some useful type aliases
-    using ZeroMorphProver = ZeroMorphProver<TypeParam>;
+    using ZeroMorphProver = ZeroMorphProver_<TypeParam>;
     using Fr = typename TypeParam::ScalarField;
     using Polynomial = barretenberg::Polynomial<Fr>;
 
@@ -280,7 +280,7 @@ TYPED_TEST(ZeroMorphTest, QuotientConstruction)
 TYPED_TEST(ZeroMorphTest, BatchedLiftedDegreeQuotient)
 {
     // Define some useful type aliases
-    using ZeroMorphProver = ZeroMorphProver<TypeParam>;
+    using ZeroMorphProver = ZeroMorphProver_<TypeParam>;
     using Fr = typename TypeParam::ScalarField;
     using Polynomial = barretenberg::Polynomial<Fr>;
 
@@ -324,7 +324,7 @@ TYPED_TEST(ZeroMorphTest, BatchedLiftedDegreeQuotient)
 TYPED_TEST(ZeroMorphTest, PartiallyEvaluatedQuotientZeta)
 {
     // Define some useful type aliases
-    using ZeroMorphProver = ZeroMorphProver<TypeParam>;
+    using ZeroMorphProver = ZeroMorphProver_<TypeParam>;
     using Fr = typename TypeParam::ScalarField;
     using Polynomial = barretenberg::Polynomial<Fr>;
 
@@ -406,7 +406,7 @@ TYPED_TEST(ZeroMorphTest, PhiEvaluation)
 TYPED_TEST(ZeroMorphTest, PartiallyEvaluatedQuotientZ)
 {
     // Define some useful type aliases
-    using ZeroMorphProver = ZeroMorphProver<TypeParam>;
+    using ZeroMorphProver = ZeroMorphProver_<TypeParam>;
     using Fr = typename TypeParam::ScalarField;
     using Polynomial = barretenberg::Polynomial<Fr>;
 
