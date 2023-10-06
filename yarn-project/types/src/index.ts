@@ -26,4 +26,7 @@ export * from './tx/index.js';
 export * from './tx_execution_request.js';
 
 export { ContractAbi, FunctionAbi } from '@aztec/foundation/abi';
+export { Fr } from '@aztec/foundation/fields';
 export { FieldsOf } from '@aztec/foundation/types';
+
+export const PXE
