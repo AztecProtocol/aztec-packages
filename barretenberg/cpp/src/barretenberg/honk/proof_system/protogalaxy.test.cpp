@@ -44,6 +44,7 @@ TEST_F(ProtoGalaxyTests, PowPerturbatorPolynomial)
     uint32_t b_idx = builder.add_variable(b);
     uint32_t c_idx = builder.add_variable(c);
     builder.create_add_gate({ a_idx, b_idx, c_idx, 1, 1, -1, 0 });
+    builder.create_add_gate({ a_idx, b_idx, c_idx, 1, 1, -1, 0 });
 
     auto composer = UltraComposer();
     auto instance = composer.create_instance(builder);
@@ -61,9 +62,7 @@ TEST_F(ProtoGalaxyTests, PowPerturbatorPolynomial)
     auto log_instance_size = static_cast<size_t>(numeric::get_msb(instance->prover_polynomials[0].size()));
     auto deltas = ProtoGalaxyProver::compute_round_challenge_pows(log_instance_size, delta);
 
-    auto perturbator_coeffs = ProtoGalaxyProver::compute_perturbator(instance, deltas, alpha);
-    for (size_t i = 0; i < perturbator_coeffs.size(); i++) {
-        info(perturbator_coeffs[i]);
-    }
+    auto perturbator = ProtoGalaxyProver::compute_perturbator(instance, deltas, alpha);
+    info(perturbator);
 }
 } // namespace protogalaxy_utils_tests
