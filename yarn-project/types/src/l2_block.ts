@@ -403,37 +403,6 @@ export class L2Block {
   }
 
   /**
-   * Encodes the block as a JSON object.
-   * @returns The L2 block encoded as a JSON object.
-   */
-  toJSON() {
-    return {
-      globalVariables: this.globalVariables.toJSON(),
-      startPrivateDataTreeSnapshot: this.startPrivateDataTreeSnapshot.toString(),
-      startNullifierTreeSnapshot: this.startNullifierTreeSnapshot.toString(),
-      startContractTreeSnapshot: this.startContractTreeSnapshot.toString(),
-      startPublicDataTreeRoot: this.startPublicDataTreeRoot.toString(),
-      startL1ToL2MessagesTreeSnapshot: this.startL1ToL2MessagesTreeSnapshot.toString(),
-      startHistoricBlocksTreeSnapshot: this.startHistoricBlocksTreeSnapshot.toString(),
-      endPrivateDataTreeSnapshot: this.endPrivateDataTreeSnapshot.toString(),
-      endNullifierTreeSnapshot: this.endNullifierTreeSnapshot.toString(),
-      endContractTreeSnapshot: this.endContractTreeSnapshot.toString(),
-      endPublicDataTreeRoot: this.endPublicDataTreeRoot.toString(),
-      endL1ToL2MessagesTreeSnapshot: this.endL1ToL2MessagesTreeSnapshot.toString(),
-      endHistoricBlocksTreeSnapshot: this.endHistoricBlocksTreeSnapshot.toString(),
-      newCommitments: this.newCommitments.map(c => c.toString()),
-      newNullifiers: this.newNullifiers.map(n => n.toString()),
-      newPublicDataWrites: this.newPublicDataWrites.map(p => p.toString()),
-      newL2ToL1Msgs: this.newL2ToL1Msgs.map(m => m.toString()),
-      newContracts: this.newContracts.map(c => c.toString()),
-      newContractData: this.newContractData.map(c => c.toString()),
-      newL1ToL2Messages: this.newL1ToL2Messages.map(m => m.toString()),
-      newEncryptedLogs: this.newEncryptedLogs?.toJSON() ?? null,
-      newUnencryptedLogs: this.newUnencryptedLogs?.toJSON() ?? null,
-    };
-  }
-
-  /**
    * Deserializes L2 block without logs from a buffer.
    * @param buf - A serialized L2 block.
    * @returns Deserialized L2 block.
@@ -512,58 +481,6 @@ export class L2Block {
    */
   static fromString(str: string): L2Block {
     return L2Block.fromBuffer(Buffer.from(str, STRING_ENCODING));
-  }
-
-  static fromJSON(_obj: any): L2Block {
-    const globalVariables = GlobalVariables.fromJSON(_obj.globalVariables);
-    const number = Number(globalVariables.blockNumber.value);
-    const startPrivateDataTreeSnapshot = AppendOnlyTreeSnapshot.fromString(_obj.startPrivateDataTreeSnapshot);
-    const startNullifierTreeSnapshot = AppendOnlyTreeSnapshot.fromString(_obj.startNullifierTreeSnapshot);
-    const startContractTreeSnapshot = AppendOnlyTreeSnapshot.fromString(_obj.startContractTreeSnapshot);
-    const startPublicDataTreeRoot = Fr.fromString(_obj.startPublicDataTreeRoot);
-    const startL1ToL2MessagesTreeSnapshot = AppendOnlyTreeSnapshot.fromString(_obj.startL1ToL2MessagesTreeSnapshot);
-    const startHistoricBlocksTreeSnapshot = AppendOnlyTreeSnapshot.fromString(_obj.startHistoricBlocksTreeSnapshot);
-    const endPrivateDataTreeSnapshot = AppendOnlyTreeSnapshot.fromString(_obj.endPrivateDataTreeSnapshot);
-    const endNullifierTreeSnapshot = AppendOnlyTreeSnapshot.fromString(_obj.endNullifierTreeSnapshot);
-    const endContractTreeSnapshot = AppendOnlyTreeSnapshot.fromString(_obj.endContractTreeSnapshot);
-    const endPublicDataTreeRoot = Fr.fromString(_obj.endPublicDataTreeRoot);
-    const endL1ToL2MessagesTreeSnapshot = AppendOnlyTreeSnapshot.fromString(_obj.endL1ToL2MessagesTreeSnapshot);
-    const endHistoricBlocksTreeSnapshot = AppendOnlyTreeSnapshot.fromString(_obj.endHistoricBlocksTreeSnapshot);
-    const newCommitments = _obj.newCommitments.map((c: string) => Fr.fromString(c));
-    const newNullifiers = _obj.newNullifiers.map((n: string) => Fr.fromString(n));
-    const newPublicDataWrites = _obj.newPublicDataWrites.map((p: any) => PublicDataWrite.fromString(p));
-    const newL2ToL1Msgs = _obj.newL2ToL1Msgs.map((m: string) => Fr.fromString(m));
-    const newContracts = _obj.newContracts.map((c: string) => Fr.fromString(c));
-    const newContractData = _obj.newContractData.map((c: any) => ContractData.fromString(c));
-    const newL1ToL2Messages = _obj.newL1ToL2Messages.map((m: string) => Fr.fromString(m));
-    const newEncryptedLogs = _obj.newEncryptedLogs ? L2BlockL2Logs.fromJSON(_obj.newEncryptedLogs) : undefined;
-    const newUnencryptedLogs = _obj.newUnencryptedLogs ? L2BlockL2Logs.fromJSON(_obj.newUnencryptedLogs) : undefined;
-
-    return L2Block.fromFields({
-      number,
-      globalVariables,
-      startPrivateDataTreeSnapshot,
-      startNullifierTreeSnapshot,
-      startContractTreeSnapshot,
-      startPublicDataTreeRoot,
-      startL1ToL2MessagesTreeSnapshot,
-      startHistoricBlocksTreeSnapshot,
-      endPrivateDataTreeSnapshot,
-      endNullifierTreeSnapshot,
-      endContractTreeSnapshot,
-      endPublicDataTreeRoot,
-      endL1ToL2MessagesTreeSnapshot,
-      endHistoricBlocksTreeSnapshot,
-      newCommitments,
-      newNullifiers,
-      newPublicDataWrites,
-      newL2ToL1Msgs,
-      newContracts,
-      newContractData,
-      newL1ToL2Messages,
-      newEncryptedLogs,
-      newUnencryptedLogs,
-    });
   }
 
   /**
