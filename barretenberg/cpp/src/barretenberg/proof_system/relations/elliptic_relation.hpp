@@ -98,5 +98,4 @@ template <typename FF_> class EllipticRelationImpl {
 };
 
 template <typename FF> using EllipticRelation = Relation<EllipticRelationImpl<FF>>;
-// clang-format on
 } // namespace proof_system

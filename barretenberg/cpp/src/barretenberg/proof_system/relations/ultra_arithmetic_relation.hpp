@@ -70,7 +70,7 @@ template <typename FF_> class UltraArithmeticRelationImpl {
                            const RelationParameters<FF>&,
                            const FF& scaling_factor)
     {
-        [&]() {
+        {
             using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
             using View = typename Accumulator::View;
             auto w_l = View(in.w_l);
@@ -94,9 +94,8 @@ template <typename FF_> class UltraArithmeticRelationImpl {
             tmp *= q_arith;
             tmp *= scaling_factor;
             std::get<0>(evals) += tmp;
-        }();
-
-        [&]() {
+        }
+        {
             using Accumulator = std::tuple_element_t<1, ContainerOverSubrelations>;
             using View = typename Accumulator::View;
             auto w_l = View(in.w_l);
@@ -111,7 +110,7 @@ template <typename FF_> class UltraArithmeticRelationImpl {
             tmp *= q_arith;
             tmp *= scaling_factor;
             std::get<1>(evals) += tmp;
-        }();
+        };
     };
 };
 

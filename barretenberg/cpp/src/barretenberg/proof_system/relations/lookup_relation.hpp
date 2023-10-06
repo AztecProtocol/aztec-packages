@@ -166,7 +166,7 @@ template <typename FF_> class LookupRelationImpl {
     {
         const auto& grand_product_delta = relation_parameters.lookup_grand_product_delta;
 
-        [&]() {
+        {
             using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
             using View = typename Accumulator::View;
 
@@ -182,9 +182,9 @@ template <typename FF_> class LookupRelationImpl {
             const auto tmp =
                 lhs * (z_lookup + lagrange_first) - rhs * (z_lookup_shift + lagrange_last * grand_product_delta);
             std::get<0>(accumulators) += tmp * scaling_factor;
-        }();
+        };
 
-        [&]() {
+        {
             using Accumulator = std::tuple_element_t<1, ContainerOverSubrelations>;
             using View = typename Accumulator::View;
             auto z_lookup_shift = View(new_term.z_lookup_shift);
@@ -192,7 +192,7 @@ template <typename FF_> class LookupRelationImpl {
 
             // Contribution (2)
             std::get<1>(accumulators) += (lagrange_last * z_lookup_shift) * scaling_factor;
-        }();
+        };
     };
 };
 
