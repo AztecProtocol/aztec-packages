@@ -47,10 +47,8 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
     beforeAll(async () => {
       server = setup();
       testClient = AztecJs.createPXEClient(PXE_URL!);
-      console.log('before waitforSandbox');
       await AztecJs.waitForSandbox(testClient);
 
-      console.log('koa()');
       app = new Koa();
       app.use(serve(path.resolve(__dirname, './web')));
 
