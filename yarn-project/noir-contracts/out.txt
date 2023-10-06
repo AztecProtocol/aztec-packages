@@ -1,0 +1,749 @@
+[0m[1m[38;5;11mwarning[0m[1m: deserialize_grumpkin_scalar is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:11:10
+   [0m[34m│[0m
+[0m[34m11[0m [0m[34m│[0m     dep::std::grumpkin_scalar::deserialize_grumpkin_scalar(get_secret_key_oracle(owner_public_key))
+   [0m[34m│[0m          [0m[34m-------------------------------------------------[0m [0m[34mdeserialize_grumpkin_scalar is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: grumpkin_fixed_base is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:20:36
+   [0m[34m│[0m
+[0m[34m20[0m [0m[34m│[0m     let computed_public_key = dep::std::grumpkin_scalar_mul::grumpkin_fixed_base(secret);
+   [0m[34m│[0m                                    [0m[34m---------------------------------------------[0m [0m[34mgrumpkin_fixed_base is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/benchmarking_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m // A contract used for running benchmarks.
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/benchmarking_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m // A contract used for running benchmarks.
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: deserialize_grumpkin_scalar is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:11:10
+   [0m[34m│[0m
+[0m[34m11[0m [0m[34m│[0m     dep::std::grumpkin_scalar::deserialize_grumpkin_scalar(get_secret_key_oracle(owner_public_key))
+   [0m[34m│[0m          [0m[34m-------------------------------------------------[0m [0m[34mdeserialize_grumpkin_scalar is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: grumpkin_fixed_base is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:20:36
+   [0m[34m│[0m
+[0m[34m20[0m [0m[34m│[0m     let computed_public_key = dep::std::grumpkin_scalar_mul::grumpkin_fixed_base(secret);
+   [0m[34m│[0m                                    [0m[34m---------------------------------------------[0m [0m[34mgrumpkin_fixed_base is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/card_game_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m mod cards;
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/card_game_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m mod cards;
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: deserialize_grumpkin_scalar is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:11:10
+   [0m[34m│[0m
+[0m[34m11[0m [0m[34m│[0m     dep::std::grumpkin_scalar::deserialize_grumpkin_scalar(get_secret_key_oracle(owner_public_key))
+   [0m[34m│[0m          [0m[34m-------------------------------------------------[0m [0m[34mdeserialize_grumpkin_scalar is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: grumpkin_fixed_base is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:20:36
+   [0m[34m│[0m
+[0m[34m20[0m [0m[34m│[0m     let computed_public_key = dep::std::grumpkin_scalar_mul::grumpkin_fixed_base(secret);
+   [0m[34m│[0m                                    [0m[34m---------------------------------------------[0m [0m[34mgrumpkin_fixed_base is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/child_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m // A contract used along with `Parent` contract to test nested calls.
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/child_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m // A contract used along with `Parent` contract to test nested calls.
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/child_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m // A contract used along with `Parent` contract to test nested calls.
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/child_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m // A contract used along with `Parent` contract to test nested calls.
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: deserialize_grumpkin_scalar is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:11:10
+   [0m[34m│[0m
+[0m[34m11[0m [0m[34m│[0m     dep::std::grumpkin_scalar::deserialize_grumpkin_scalar(get_secret_key_oracle(owner_public_key))
+   [0m[34m│[0m          [0m[34m-------------------------------------------------[0m [0m[34mdeserialize_grumpkin_scalar is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: grumpkin_fixed_base is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:20:36
+   [0m[34m│[0m
+[0m[34m20[0m [0m[34m│[0m     let computed_public_key = dep::std::grumpkin_scalar_mul::grumpkin_fixed_base(secret);
+   [0m[34m│[0m                                    [0m[34m---------------------------------------------[0m [0m[34mgrumpkin_fixed_base is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/docs_example_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m mod account_contract_interface;
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+    [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/docs_example_contract/src/main.nr:279:17
+    [0m[34m│[0m
+[0m[34m279[0m [0m[34m│[0m         let mut storage = Storage::init(Context::private(&mut context));
+    [0m[34m│[0m                 [0m[34m-------[0m [0m[34munused variable [0m
+    [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/docs_example_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m mod account_contract_interface;
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: deserialize_grumpkin_scalar is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:11:10
+   [0m[34m│[0m
+[0m[34m11[0m [0m[34m│[0m     dep::std::grumpkin_scalar::deserialize_grumpkin_scalar(get_secret_key_oracle(owner_public_key))
+   [0m[34m│[0m          [0m[34m-------------------------------------------------[0m [0m[34mdeserialize_grumpkin_scalar is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: grumpkin_fixed_base is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:20:36
+   [0m[34m│[0m
+[0m[34m20[0m [0m[34m│[0m     let computed_public_key = dep::std::grumpkin_scalar_mul::grumpkin_fixed_base(secret);
+   [0m[34m│[0m                                    [0m[34m---------------------------------------------[0m [0m[34mgrumpkin_fixed_base is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/easy_private_token_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m // docs:start:easy_private_token_contract
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: deserialize_grumpkin_scalar is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:11:10
+   [0m[34m│[0m
+[0m[34m11[0m [0m[34m│[0m     dep::std::grumpkin_scalar::deserialize_grumpkin_scalar(get_secret_key_oracle(owner_public_key))
+   [0m[34m│[0m          [0m[34m-------------------------------------------------[0m [0m[34mdeserialize_grumpkin_scalar is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: grumpkin_fixed_base is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:20:36
+   [0m[34m│[0m
+[0m[34m20[0m [0m[34m│[0m     let computed_public_key = dep::std::grumpkin_scalar_mul::grumpkin_fixed_base(secret);
+   [0m[34m│[0m                                    [0m[34m---------------------------------------------[0m [0m[34mgrumpkin_fixed_base is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/ecdsa_account_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m mod ecdsa_public_key_note;
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/ecdsa_account_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m mod ecdsa_public_key_note;
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/ecdsa_account_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m mod ecdsa_public_key_note;
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/ecdsa_account_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m mod ecdsa_public_key_note;
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/ecdsa_account_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m mod ecdsa_public_key_note;
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: deserialize_grumpkin_scalar is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:11:10
+   [0m[34m│[0m
+[0m[34m11[0m [0m[34m│[0m     dep::std::grumpkin_scalar::deserialize_grumpkin_scalar(get_secret_key_oracle(owner_public_key))
+   [0m[34m│[0m          [0m[34m-------------------------------------------------[0m [0m[34mdeserialize_grumpkin_scalar is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: grumpkin_fixed_base is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:20:36
+   [0m[34m│[0m
+[0m[34m20[0m [0m[34m│[0m     let computed_public_key = dep::std::grumpkin_scalar_mul::grumpkin_fixed_base(secret);
+   [0m[34m│[0m                                    [0m[34m---------------------------------------------[0m [0m[34mgrumpkin_fixed_base is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/escrow_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m mod address_note;
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: deserialize_grumpkin_scalar is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:11:10
+   [0m[34m│[0m
+[0m[34m11[0m [0m[34m│[0m     dep::std::grumpkin_scalar::deserialize_grumpkin_scalar(get_secret_key_oracle(owner_public_key))
+   [0m[34m│[0m          [0m[34m-------------------------------------------------[0m [0m[34mdeserialize_grumpkin_scalar is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: grumpkin_fixed_base is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:20:36
+   [0m[34m│[0m
+[0m[34m20[0m [0m[34m│[0m     let computed_public_key = dep::std::grumpkin_scalar_mul::grumpkin_fixed_base(secret);
+   [0m[34m│[0m                                    [0m[34m---------------------------------------------[0m [0m[34mgrumpkin_fixed_base is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: deserialize_grumpkin_scalar is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:11:10
+   [0m[34m│[0m
+[0m[34m11[0m [0m[34m│[0m     dep::std::grumpkin_scalar::deserialize_grumpkin_scalar(get_secret_key_oracle(owner_public_key))
+   [0m[34m│[0m          [0m[34m-------------------------------------------------[0m [0m[34mdeserialize_grumpkin_scalar is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: grumpkin_fixed_base is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:20:36
+   [0m[34m│[0m
+[0m[34m20[0m [0m[34m│[0m     let computed_public_key = dep::std::grumpkin_scalar_mul::grumpkin_fixed_base(secret);
+   [0m[34m│[0m                                    [0m[34m---------------------------------------------[0m [0m[34mgrumpkin_fixed_base is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/lending_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m mod asset;
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/lending_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m mod asset;
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/lending_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m mod asset;
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/lending_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m mod asset;
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/lending_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m mod asset;
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/lending_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m mod asset;
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/lending_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m mod asset;
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/lending_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m mod asset;
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/lending_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m mod asset;
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: deserialize_grumpkin_scalar is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:11:10
+   [0m[34m│[0m
+[0m[34m11[0m [0m[34m│[0m     dep::std::grumpkin_scalar::deserialize_grumpkin_scalar(get_secret_key_oracle(owner_public_key))
+   [0m[34m│[0m          [0m[34m-------------------------------------------------[0m [0m[34mdeserialize_grumpkin_scalar is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: grumpkin_fixed_base is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:20:36
+   [0m[34m│[0m
+[0m[34m20[0m [0m[34m│[0m     let computed_public_key = dep::std::grumpkin_scalar_mul::grumpkin_fixed_base(secret);
+   [0m[34m│[0m                                    [0m[34m---------------------------------------------[0m [0m[34mgrumpkin_fixed_base is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: deserialize_grumpkin_scalar is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:11:10
+   [0m[34m│[0m
+[0m[34m11[0m [0m[34m│[0m     dep::std::grumpkin_scalar::deserialize_grumpkin_scalar(get_secret_key_oracle(owner_public_key))
+   [0m[34m│[0m          [0m[34m-------------------------------------------------[0m [0m[34mdeserialize_grumpkin_scalar is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: grumpkin_fixed_base is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:20:36
+   [0m[34m│[0m
+[0m[34m20[0m [0m[34m│[0m     let computed_public_key = dep::std::grumpkin_scalar_mul::grumpkin_fixed_base(secret);
+   [0m[34m│[0m                                    [0m[34m---------------------------------------------[0m [0m[34mgrumpkin_fixed_base is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/non_native_token_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m mod hash;
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: deserialize_grumpkin_scalar is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:11:10
+   [0m[34m│[0m
+[0m[34m11[0m [0m[34m│[0m     dep::std::grumpkin_scalar::deserialize_grumpkin_scalar(get_secret_key_oracle(owner_public_key))
+   [0m[34m│[0m          [0m[34m-------------------------------------------------[0m [0m[34mdeserialize_grumpkin_scalar is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: grumpkin_fixed_base is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:20:36
+   [0m[34m│[0m
+[0m[34m20[0m [0m[34m│[0m     let computed_public_key = dep::std::grumpkin_scalar_mul::grumpkin_fixed_base(secret);
+   [0m[34m│[0m                                    [0m[34m---------------------------------------------[0m [0m[34mgrumpkin_fixed_base is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: deserialize_grumpkin_scalar is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:11:10
+   [0m[34m│[0m
+[0m[34m11[0m [0m[34m│[0m     dep::std::grumpkin_scalar::deserialize_grumpkin_scalar(get_secret_key_oracle(owner_public_key))
+   [0m[34m│[0m          [0m[34m-------------------------------------------------[0m [0m[34mdeserialize_grumpkin_scalar is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: grumpkin_fixed_base is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:20:36
+   [0m[34m│[0m
+[0m[34m20[0m [0m[34m│[0m     let computed_public_key = dep::std::grumpkin_scalar_mul::grumpkin_fixed_base(secret);
+   [0m[34m│[0m                                    [0m[34m---------------------------------------------[0m [0m[34mgrumpkin_fixed_base is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/pending_commitments_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m // Test contract to confirm that notes can be inserted and then later
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/pending_commitments_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m // Test contract to confirm that notes can be inserted and then later
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/pending_commitments_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m // Test contract to confirm that notes can be inserted and then later
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/pending_commitments_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m // Test contract to confirm that notes can be inserted and then later
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/pending_commitments_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m // Test contract to confirm that notes can be inserted and then later
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/pending_commitments_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m // Test contract to confirm that notes can be inserted and then later
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/pending_commitments_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m // Test contract to confirm that notes can be inserted and then later
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: deserialize_grumpkin_scalar is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:11:10
+   [0m[34m│[0m
+[0m[34m11[0m [0m[34m│[0m     dep::std::grumpkin_scalar::deserialize_grumpkin_scalar(get_secret_key_oracle(owner_public_key))
+   [0m[34m│[0m          [0m[34m-------------------------------------------------[0m [0m[34mdeserialize_grumpkin_scalar is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: grumpkin_fixed_base is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:20:36
+   [0m[34m│[0m
+[0m[34m20[0m [0m[34m│[0m     let computed_public_key = dep::std::grumpkin_scalar_mul::grumpkin_fixed_base(secret);
+   [0m[34m│[0m                                    [0m[34m---------------------------------------------[0m [0m[34mgrumpkin_fixed_base is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/pokeable_token_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m mod address_note;
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: deserialize_grumpkin_scalar is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:11:10
+   [0m[34m│[0m
+[0m[34m11[0m [0m[34m│[0m     dep::std::grumpkin_scalar::deserialize_grumpkin_scalar(get_secret_key_oracle(owner_public_key))
+   [0m[34m│[0m          [0m[34m-------------------------------------------------[0m [0m[34mdeserialize_grumpkin_scalar is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: grumpkin_fixed_base is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:20:36
+   [0m[34m│[0m
+[0m[34m20[0m [0m[34m│[0m     let computed_public_key = dep::std::grumpkin_scalar_mul::grumpkin_fixed_base(secret);
+   [0m[34m│[0m                                    [0m[34m---------------------------------------------[0m [0m[34mgrumpkin_fixed_base is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/price_feed_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m mod asset;
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: deserialize_grumpkin_scalar is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:11:10
+   [0m[34m│[0m
+[0m[34m11[0m [0m[34m│[0m     dep::std::grumpkin_scalar::deserialize_grumpkin_scalar(get_secret_key_oracle(owner_public_key))
+   [0m[34m│[0m          [0m[34m-------------------------------------------------[0m [0m[34mdeserialize_grumpkin_scalar is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: grumpkin_fixed_base is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:20:36
+   [0m[34m│[0m
+[0m[34m20[0m [0m[34m│[0m     let computed_public_key = dep::std::grumpkin_scalar_mul::grumpkin_fixed_base(secret);
+   [0m[34m│[0m                                    [0m[34m---------------------------------------------[0m [0m[34mgrumpkin_fixed_base is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/private_token_airdrop_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m mod claim_note;
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: deserialize_grumpkin_scalar is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:11:10
+   [0m[34m│[0m
+[0m[34m11[0m [0m[34m│[0m     dep::std::grumpkin_scalar::deserialize_grumpkin_scalar(get_secret_key_oracle(owner_public_key))
+   [0m[34m│[0m          [0m[34m-------------------------------------------------[0m [0m[34mdeserialize_grumpkin_scalar is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: grumpkin_fixed_base is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:20:36
+   [0m[34m│[0m
+[0m[34m20[0m [0m[34m│[0m     let computed_public_key = dep::std::grumpkin_scalar_mul::grumpkin_fixed_base(secret);
+   [0m[34m│[0m                                    [0m[34m---------------------------------------------[0m [0m[34mgrumpkin_fixed_base is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/private_token_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m // docs:start:all
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: deserialize_grumpkin_scalar is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:11:10
+   [0m[34m│[0m
+[0m[34m11[0m [0m[34m│[0m     dep::std::grumpkin_scalar::deserialize_grumpkin_scalar(get_secret_key_oracle(owner_public_key))
+   [0m[34m│[0m          [0m[34m-------------------------------------------------[0m [0m[34mdeserialize_grumpkin_scalar is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: grumpkin_fixed_base is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:20:36
+   [0m[34m│[0m
+[0m[34m20[0m [0m[34m│[0m     let computed_public_key = dep::std::grumpkin_scalar_mul::grumpkin_fixed_base(secret);
+   [0m[34m│[0m                                    [0m[34m---------------------------------------------[0m [0m[34mgrumpkin_fixed_base is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/public_token_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m // docs:start:all
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: deserialize_grumpkin_scalar is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:11:10
+   [0m[34m│[0m
+[0m[34m11[0m [0m[34m│[0m     dep::std::grumpkin_scalar::deserialize_grumpkin_scalar(get_secret_key_oracle(owner_public_key))
+   [0m[34m│[0m          [0m[34m-------------------------------------------------[0m [0m[34mdeserialize_grumpkin_scalar is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: grumpkin_fixed_base is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:20:36
+   [0m[34m│[0m
+[0m[34m20[0m [0m[34m│[0m     let computed_public_key = dep::std::grumpkin_scalar_mul::grumpkin_fixed_base(secret);
+   [0m[34m│[0m                                    [0m[34m---------------------------------------------[0m [0m[34mgrumpkin_fixed_base is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/schnorr_account_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m mod public_key_note;
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/schnorr_account_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m mod public_key_note;
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/schnorr_account_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m mod public_key_note;
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/schnorr_account_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m mod public_key_note;
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/schnorr_account_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m mod public_key_note;
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: deserialize_grumpkin_scalar is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:11:10
+   [0m[34m│[0m
+[0m[34m11[0m [0m[34m│[0m     dep::std::grumpkin_scalar::deserialize_grumpkin_scalar(get_secret_key_oracle(owner_public_key))
+   [0m[34m│[0m          [0m[34m-------------------------------------------------[0m [0m[34mdeserialize_grumpkin_scalar is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: grumpkin_fixed_base is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:20:36
+   [0m[34m│[0m
+[0m[34m20[0m [0m[34m│[0m     let computed_public_key = dep::std::grumpkin_scalar_mul::grumpkin_fixed_base(secret);
+   [0m[34m│[0m                                    [0m[34m---------------------------------------------[0m [0m[34mgrumpkin_fixed_base is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: deserialize_grumpkin_scalar is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:11:10
+   [0m[34m│[0m
+[0m[34m11[0m [0m[34m│[0m     dep::std::grumpkin_scalar::deserialize_grumpkin_scalar(get_secret_key_oracle(owner_public_key))
+   [0m[34m│[0m          [0m[34m-------------------------------------------------[0m [0m[34mdeserialize_grumpkin_scalar is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: grumpkin_fixed_base is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:20:36
+   [0m[34m│[0m
+[0m[34m20[0m [0m[34m│[0m     let computed_public_key = dep::std::grumpkin_scalar_mul::grumpkin_fixed_base(secret);
+   [0m[34m│[0m                                    [0m[34m---------------------------------------------[0m [0m[34mgrumpkin_fixed_base is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: deserialize_grumpkin_scalar is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:11:10
+   [0m[34m│[0m
+[0m[34m11[0m [0m[34m│[0m     dep::std::grumpkin_scalar::deserialize_grumpkin_scalar(get_secret_key_oracle(owner_public_key))
+   [0m[34m│[0m          [0m[34m-------------------------------------------------[0m [0m[34mdeserialize_grumpkin_scalar is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: grumpkin_fixed_base is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:20:36
+   [0m[34m│[0m
+[0m[34m20[0m [0m[34m│[0m     let computed_public_key = dep::std::grumpkin_scalar_mul::grumpkin_fixed_base(secret);
+   [0m[34m│[0m                                    [0m[34m---------------------------------------------[0m [0m[34mgrumpkin_fixed_base is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/stateful_test_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m // A contract used for testing a random hodgepodge of small features from simulator and end-to-end tests.
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: deserialize_grumpkin_scalar is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:11:10
+   [0m[34m│[0m
+[0m[34m11[0m [0m[34m│[0m     dep::std::grumpkin_scalar::deserialize_grumpkin_scalar(get_secret_key_oracle(owner_public_key))
+   [0m[34m│[0m          [0m[34m-------------------------------------------------[0m [0m[34mdeserialize_grumpkin_scalar is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: grumpkin_fixed_base is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:20:36
+   [0m[34m│[0m
+[0m[34m20[0m [0m[34m│[0m     let computed_public_key = dep::std::grumpkin_scalar_mul::grumpkin_fixed_base(secret);
+   [0m[34m│[0m                                    [0m[34m---------------------------------------------[0m [0m[34mgrumpkin_fixed_base is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: deserialize_grumpkin_scalar is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:11:10
+   [0m[34m│[0m
+[0m[34m11[0m [0m[34m│[0m     dep::std::grumpkin_scalar::deserialize_grumpkin_scalar(get_secret_key_oracle(owner_public_key))
+   [0m[34m│[0m          [0m[34m-------------------------------------------------[0m [0m[34mdeserialize_grumpkin_scalar is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: grumpkin_fixed_base is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:20:36
+   [0m[34m│[0m
+[0m[34m20[0m [0m[34m│[0m     let computed_public_key = dep::std::grumpkin_scalar_mul::grumpkin_fixed_base(secret);
+   [0m[34m│[0m                                    [0m[34m---------------------------------------------[0m [0m[34mgrumpkin_fixed_base is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m // docs:start:token_all
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m // docs:start:token_all
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: deserialize_grumpkin_scalar is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:11:10
+   [0m[34m│[0m
+[0m[34m11[0m [0m[34m│[0m     dep::std::grumpkin_scalar::deserialize_grumpkin_scalar(get_secret_key_oracle(owner_public_key))
+   [0m[34m│[0m          [0m[34m-------------------------------------------------[0m [0m[34mdeserialize_grumpkin_scalar is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: grumpkin_fixed_base is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:20:36
+   [0m[34m│[0m
+[0m[34m20[0m [0m[34m│[0m     let computed_public_key = dep::std::grumpkin_scalar_mul::grumpkin_fixed_base(secret);
+   [0m[34m│[0m                                    [0m[34m---------------------------------------------[0m [0m[34mgrumpkin_fixed_base is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/token_bridge_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m mod util;
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/token_bridge_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m mod util;
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/token_bridge_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m mod util;
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: deserialize_grumpkin_scalar is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:11:10
+   [0m[34m│[0m
+[0m[34m11[0m [0m[34m│[0m     dep::std::grumpkin_scalar::deserialize_grumpkin_scalar(get_secret_key_oracle(owner_public_key))
+   [0m[34m│[0m          [0m[34m-------------------------------------------------[0m [0m[34mdeserialize_grumpkin_scalar is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: grumpkin_fixed_base is private and not visible from the current module[0m
+   [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/aztec-nr/aztec/src/oracle/get_secret_key.nr:20:36
+   [0m[34m│[0m
+[0m[34m20[0m [0m[34m│[0m     let computed_public_key = dep::std::grumpkin_scalar_mul::grumpkin_fixed_base(secret);
+   [0m[34m│[0m                                    [0m[34m---------------------------------------------[0m [0m[34mgrumpkin_fixed_base is private[0m
+   [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/uniswap_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m mod interfaces;
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/uniswap_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m mod interfaces;
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/uniswap_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m mod interfaces;
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
+[0m[1m[38;5;11mwarning[0m[1m: unused variable storage[0m
+  [0m[34m┌─[0m /mnt/user-data/alvaro/aztec-packages/yarn-project/noir-contracts/src/contracts/uniswap_contract/src/main.nr:1:1
+  [0m[34m│[0m
+[0m[34m1[0m [0m[34m│[0m mod interfaces;
+  [0m[34m│[0m [0m[34m-[0m [0m[34munused variable [0m
+  [0m[34m│[0m
+
