@@ -30,12 +30,24 @@ namespace proof_system::fib_vm {
 
 // Stores the values of x and y as well as the previous values of x and y
 template <typename FF> struct FibRow {
-    FF x;
-    FF y;
-    FF x_prev;
-    FF y_prev;
+    FF x;       // x
+    FF y;       // y
+    FF x_shift; // x'
+    FF y_shift; // y'
     FF is_last;
 };
+
+template <typename FF> inline std::ostream& operator<<(std::ostream& os, FibRow<FF> const& row)
+{
+    os << "[\n";
+    os << "  x: " << row.x;
+    os << "  y: " << row.y;
+    os << "  x_shift: " << row.x_shift;
+    os << "  y_shift: " << row.y_shift;
+    os << "  is_last: " << row.is_last;
+    os << "]\n";
+    return os;
+}
 
 template <typename FF> struct VMOperation {
     FF x;
@@ -85,19 +97,21 @@ template <typename FF_> class FibonacciRelation {
         // This is so that it remains within my mental model for how pil etc work.
         {
             using View = typename std::tuple_element<0, typename AccumulatorTypes::AccumulatorViews>::type;
-            auto y = View(new_term.y);
+            auto y_shift = View(new_term.y_shift);
             auto is_last = View(new_term.is_last);
 
-            auto tmp = is_last * (y - FF(1));
+            auto tmp = is_last * (y_shift - FF(1));
+            tmp *= scaling_factor;
             std::get<0>(evals) += tmp;
         }
         // Contribution 2
         {
             using View = typename std::tuple_element<1, typename AccumulatorTypes::AccumulatorViews>::type;
-            auto x = View(new_term.x);
+            auto x_shift = View(new_term.x_shift);
             auto is_last = View(new_term.is_last);
 
-            auto tmp = is_last * (x - FF(1));
+            auto tmp = is_last * (x_shift - FF(1));
+            tmp *= scaling_factor;
             std::get<1>(evals) += tmp;
         }
 
@@ -105,23 +119,25 @@ template <typename FF_> class FibonacciRelation {
         // (1-ISLAST) * (x' - y) = 0;
         {
             using view = typename std::tuple_element<2, typename AccumulatorTypes::AccumulatorViews>::type;
-            auto x = view(new_term.x);
-            auto y_prev = view(new_term.y_prev);
+            auto x_shift = view(new_term.x_shift);
+            auto y = view(new_term.y);
             auto is_last = view(new_term.is_last);
 
-            auto tmp = (FF(1) - is_last) * (x - y_prev);
+            auto tmp = (FF(1) - is_last) * (x_shift - y);
+            tmp *= scaling_factor;
             std::get<2>(evals) += tmp;
         }
         // Contribution 4
         // (1-ISLAST) * (y' - (x + y)) = 0;
         {
             using view = typename std::tuple_element<3, typename AccumulatorTypes::AccumulatorViews>::type;
-            auto x_prev = view(new_term.x_prev);
-            auto y_prev = view(new_term.y_prev);
+            auto x = view(new_term.x);
             auto y = view(new_term.y);
+            auto y_shift = view(new_term.y_shift);
             auto is_last = view(new_term.is_last);
 
-            auto tmp = (FF(1) - is_last) * (y - (x_prev + y_prev));
+            auto tmp = (FF(1) - is_last) * (y_shift - (x + y));
+            tmp *= scaling_factor;
             std::get<3>(evals) += tmp;
         }
 

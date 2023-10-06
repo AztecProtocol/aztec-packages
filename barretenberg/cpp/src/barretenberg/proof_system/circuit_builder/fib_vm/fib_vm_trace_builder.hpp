@@ -26,15 +26,60 @@ class FibVMTraceBuilder : public ExecutionTraceBuilderBase<arithmetization::FibV
     void build_execution_trace()
     {
 
-        [[maybe_unused]] FF prev_x = 0;
-        [[maybe_unused]] FF prev_y = 1;
+        // TODO: remove, this is for reference
+        // template <typename FF> struct FibRow {
+        //   FF x;
+        //   FF y;
+        //   FF x_prev;
+        //   FF y_prev;
+        //   FF is_last;
+        // };
+
+        // TODO: how do i make this relation that looks at the shift be using the same column under the hood
         [[maybe_unused]] FibVMState<FF> state;
+        size_t x_start = 1;
+        size_t y_start = 1;
+        size_t x = 1;
+        size_t y = 1;
+        size_t is_last = 0;
 
         // In this case if n is not set earlier, the nothing will happen
         for (size_t i = 0; i < n; i++) {
-            // rows.push_back({
+            // x, y, is_last
+            is_last = i == n - 1 ? 1 : 0;
 
-            // });
+            // 0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144.
+
+            // x, y, is_last , x_shift, y_shift
+            // 0, 1, 0,      , 1      , 1
+            // 1, 1, 0,      , 1       ,2
+            // 1, 2, 0,      , 2      , 3
+            // 2, 3, 0,      , 3      , 5
+            // 3, 5, 1,      , 0      , 1
+
+            // Wrap these around and use a permutation to deal with the shifts
+            // This is why the relations must wrap around to get to the final result
+
+            size_t curr_x = x;
+            size_t curr_y = y;
+            y = curr_x + curr_y;
+            x = curr_y;
+
+            if (is_last) {
+                x = x_start;
+                y = y_start;
+            }
+
+            rows.push_back({ .x = curr_x, .y = curr_y, .x_shift = x, .y_shift = y, .is_last = is_last });
+        }
+    }
+
+    [[maybe_unused]] void print_rows()
+    {
+        size_t i = 0;
+        for (auto& row : this->rows) {
+            info(i++);
+            info(row);
         }
     }
 
