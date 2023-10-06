@@ -177,7 +177,7 @@ resource "aws_ecs_service" "aztec-bootstrap-1" {
   load_balancer {
     target_group_arn = aws_lb_target_group.aztec-bootstrap-1-target-group.id
     container_name   = "${var.DEPLOY_TAG}-aztec-bootstrap-1"
-    container_port   = 80
+    container_port   = var.BOOTNODE_1_LISTEN_PORT
   }
 
   task_definition = aws_ecs_task_definition.aztec-bootstrap-1.family
@@ -318,6 +318,10 @@ resource "aws_ecs_task_definition" "aztec-bootstrap-2" {
         "value": "true"
       },
       {
+        "name": "API_PREFIX",
+        "value": "/${var.DEPLOY_TAG}/aztec-bootstrap-2"
+      },
+      {
         "name": "SERVER_PORT",
         "value": "80"
       }
@@ -349,7 +353,7 @@ resource "aws_ecs_service" "aztec-bootstrap-2" {
       data.terraform_remote_state.setup_iac.outputs.subnet_az1_private_id,
       data.terraform_remote_state.setup_iac.outputs.subnet_az2_private_id
     ]
-    security_groups = [data.terraform_remote_state.setup_iac.outputs.security_group_private_id]
+    security_groups = [data.terraform_remote_state.aztec-network_iac.outputs.p2p_security_group_id, data.terraform_remote_state.setup_iac.outputs.security_group_private_id]
   }
 
   service_registries {
@@ -358,21 +362,32 @@ resource "aws_ecs_service" "aztec-bootstrap-2" {
     container_port = 80
   }
 
-  # load_balancer {
-  #   target_group_arn = aws_lb_target_group.aztec-bootstrap-2-target-group.id
-  #   container_name   = "${var.DEPLOY_TAG}-aztec-bootstrap-2"
-  #   container_port   = var.BOOTNODE_2_LISTEN_PORT
-  # }
+  load_balancer {
+    target_group_arn = aws_lb_target_group.aztec-bootstrap-2-target-group.id
+    container_name   = "${var.DEPLOY_TAG}-aztec-bootstrap-2"
+    container_port   = var.BOOTNODE_2_LISTEN_PORT
+  }
 
   task_definition = aws_ecs_task_definition.aztec-bootstrap-2.family
 }
 
 resource "aws_lb_target_group" "aztec-bootstrap-2-target-group" {
   name        = "aztec-bootstrap-2-target-group"
-  port        = "${var.BOOTNODE_2_LISTEN_PORT}"
-  protocol    = "HTTP"
+  port        = var.BOOTNODE_2_LISTEN_PORT
+  protocol    = "TCP"
   target_type = "ip"
   vpc_id      = data.terraform_remote_state.setup_iac.outputs.vpc_id
+
+  health_check {
+    protocol            = "HTTP"
+    path                = "/${var.DEPLOY_TAG}/aztec-bootstrap-2/status"
+    matcher             = "200"
+    interval            = 10
+    healthy_threshold   = 2
+    unhealthy_threshold = 5
+    timeout             = 5
+    port                = 80
+  }
 }
 
 resource "aws_security_group_rule" "allow-bootstrap-2-tcp" {
