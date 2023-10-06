@@ -1,3 +1,4 @@
+// docs:start:imports_and_constructor
 mod util;
 mod token_interface;
 
@@ -44,6 +45,7 @@ contract TokenBridge {
         let selector = compute_selector("_initialize((Field))");
         context.call_public_function(context.this_address(), selector, [token.address]);
     }
+    // docs:end:imports_and_constructor
 
     // docs:start:claim_public
     // Consumes a L1->L2 message and calls the token contract to mint the appropriate amount publicly
