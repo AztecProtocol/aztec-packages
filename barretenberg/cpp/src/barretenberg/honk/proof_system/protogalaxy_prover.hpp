@@ -40,45 +40,58 @@ template <class ProverInstances> class ProtoGalaxyProver_ {
         return pows;
     }
 
-    // Compute the value of the full Honk relation at a row in the execution trace.
-    static RowEvaluations get_execution_row(std::shared_ptr<Instance> accumulator, size_t row)
+    std::shared_ptr<Instance> get_accumulator() { return instances[0]; }
+
+    /**
+     * @brief Compute the value of the full Honk relation at a row in the execution trace.
+     */
+    static RowEvaluations get_execution_row(ProverPolynomials instance_polynomials, size_t row)
     {
         RowEvaluations row_evals;
         size_t idx = 0;
-        for (auto& poly : accumulator->prover_polynomials) {
+        for (auto& poly : instance_polynomials) {
             row_evals[idx] = poly[row];
             idx++;
         }
         return row_evals;
     }
 
-    std::shared_ptr<Instance> get_accumulator() { return instances[0]; }
-
     /**
-     * @brief Given the evaluations of all the prover polynomials at row i and the parameters that help establish each
-     * subrelation is independently valid, compute the value of the full Honk relation for that specific row (this is
-     * f_i(ω) in the paper)
+     * @brief Compute the values of the full Honk relation at each row in the execution trace, f_i(ω) in the
+     * ProtoGalaxy paper, given the evaluations of all the prover polynomials and α (the parameter that helps establish
+     * each subrelation is independently valid in Honk - from the Plonk paper, DO NOT confuse with α in ProtoGalaxy),
      */
-    static FF compute_full_honk_relation_row_value(RowEvaluations row_evaluations,
-                                                   FF alpha,
-                                                   const proof_system::RelationParameters<FF>& relation_parameters)
+    static std::vector<FF> compute_full_honk_evaluations(ProverPolynomials instance_polynomials,
+                                                         FF alpha,
+                                                         RelationParameters<FF> relation_parameters)
     {
-        RelationEvaluations relation_evaluations;
-        Utils::zero_elements(relation_evaluations);
+        auto instance_size = instance_polynomials[0].size();
+        info(instance_size);
+        std::vector<FF> full_honk_evaluations(instance_size);
+        for (size_t row = 0; row < instance_size; row++) {
+            auto row_evaluations = get_execution_row(instance_polynomials, row);
+            RelationEvaluations relation_evaluations;
+            Utils::zero_elements(relation_evaluations);
 
-        // Note that the evaluations are accumulated with the gate separation challenge being 1 at this stage, as this
-        // randomness is added later through the power polynomial univariate
-        Utils::template accumulate_relation_evaluations<>(
-            row_evaluations, relation_evaluations, relation_parameters, FF(1));
+            // Note that the evaluations are accumulated with the gate separation challenge being 1 at this stage, as
+            // this specific randomness is added later through the power polynomial univariate specific to ProtoGalaxy
+            Utils::template accumulate_relation_evaluations<>(
+                row_evaluations, relation_evaluations, relation_parameters, FF(1));
 
-        auto running_challenge = FF(1);
-        auto output = FF(0);
-        Utils::scale_and_batch_elements(relation_evaluations, alpha, running_challenge, output);
-        return output;
+            auto running_challenge = FF(1);
+            auto output = FF(0);
+            Utils::scale_and_batch_elements(relation_evaluations, alpha, running_challenge, output);
+            full_honk_evaluations[row] = output;
+        }
+        info("in compute");
+        info(full_honk_evaluations);
+        return full_honk_evaluations;
     }
 
-    // Compute the parent nodes at the current level. Note that the resulting parent nodes will be polynomials of degree
-    // (level + 1) as at each level we multiply by an additional factor of X.
+    /**
+     * @brief  Compute the parent nodes at the current level. Note that the resulting parent nodes will be polynomials
+     * degree (level + 1) as at each level we multiply by an additional factor of X.
+     */
     static std::vector<FF> compute_level(size_t level,
                                          std::vector<FF> betas,
                                          std::vector<FF> deltas,
@@ -129,21 +142,18 @@ template <class ProverInstances> class ProtoGalaxyProver_ {
         return compute_level(1, betas, deltas, first_level_coeffs);
     }
 
-    // Compute the power perturbator polynomial F(X) in coefficient form
+    /**
+     * @brief Construct the power perturbator polynomial F(X) in coefficient form from the accumulator, represing the
+     * relaxed instance.
+     */
     static Polynomial<FF> compute_perturbator(std::shared_ptr<Instance> accumulator, std::vector<FF> deltas, FF alpha)
     {
         auto instance_size = accumulator->prover_polynomials[0].size();
         auto const log_instance_size = static_cast<size_t>(numeric::get_msb(instance_size));
         assert(deltas.size() == log_instance_size);
-
-        std::vector<FF> full_honk_evaluations(instance_size);
-        for (size_t idx = 0; idx < instance_size; idx++) {
-
-            auto row_evaluations = get_execution_row(accumulator, idx);
-            auto full_honk_at_row =
-                compute_full_honk_relation_row_value(row_evaluations, alpha, accumulator->relation_parameters);
-            full_honk_evaluations[idx] = full_honk_at_row;
-        }
+        auto full_honk_evaluations =
+            compute_full_honk_evaluations(accumulator->prover_polynomials, alpha, accumulator->relation_parameters);
+        info(full_honk_evaluations);
         auto betas = accumulator->folding_params.gate_separation_challenges;
         assert(betas.size() == log_instance_size);
         auto coeffs = construct_perturbator_coeffs(betas, deltas, full_honk_evaluations);
