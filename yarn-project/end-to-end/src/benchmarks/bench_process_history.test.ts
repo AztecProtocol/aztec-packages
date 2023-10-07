@@ -1,4 +1,4 @@
-import { AztecNodeService } from '@aztec/aztec-node';
+import { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import { Fr, GrumpkinScalar } from '@aztec/circuits.js';
 import { sleep } from '@aztec/foundation/sleep';
 import { elapsed } from '@aztec/foundation/timer';
@@ -7,10 +7,17 @@ import { SequencerClient } from '@aztec/sequencer-client';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/types';
 
 import { EndToEndContext } from '../fixtures/utils.js';
-import { benchmarkSetup, sendTxs, waitNewPXESynced, waitRegisteredAccountSynced } from './utils.js';
+import {
+  benchmarkSetup,
+  getFolderSize,
+  makeDataDirectory,
+  sendTxs,
+  waitNewPXESynced,
+  waitRegisteredAccountSynced,
+} from './utils.js';
 
 const BLOCK_SIZE = process.env.BLOCK_SIZE ? +process.env.BLOCK_SIZE : 32;
-const CHAIN_LENGTHS = process.env.CHAIN_LENGTHS ? process.env.CHAIN_LENGTHS.split(',').map(Number) : [10, 20, 50];
+const CHAIN_LENGTHS = process.env.CHAIN_LENGTHS ? process.env.CHAIN_LENGTHS.split(',').map(Number) : [10, 20, 30];
 const MAX_CHAIN_LENGTH = CHAIN_LENGTHS[CHAIN_LENGTHS.length - 1];
 const SETUP_BLOCK_COUNT = 2; // deploy account + deploy contract
 
@@ -38,8 +45,11 @@ describe('benchmarks/process_history', () => {
         await sleep(100);
 
         // Create a new node and measure how much time it takes it to sync
+        const dataDirectory = makeDataDirectory(chainLength);
+        context.logger(`Set up data directory at ${dataDirectory}`);
+        const nodeConfig: AztecNodeConfig = { ...context.config, disableSequencer: true, dataDirectory };
         const [nodeSyncTime, node] = await elapsed(async () => {
-          const node = await AztecNodeService.createAndSync({ ...context.config, disableSequencer: true });
+          const node = await AztecNodeService.createAndSync(nodeConfig);
           await node.getTreeRoots();
           return node;
         });
@@ -54,6 +64,7 @@ describe('benchmarks/process_history', () => {
           duration: nodeSyncTime,
           blockNumber,
           blockCount: chainLength,
+          dbSize: getFolderSize(dataDirectory),
         });
 
         // Create a new pxe and measure how much time it takes it to sync with failed and successful decryption

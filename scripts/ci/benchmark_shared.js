@@ -9,7 +9,7 @@ const BLOCK_SIZE = process.env.BLOCK_SIZE ? +process.env.BLOCK_SIZE : 32;
 // Chain lengths to test (duplicated from yarn-project/end-to-end/src/benchmarks/bench_process_history.test.ts)
 const CHAIN_LENGTHS = process.env.CHAIN_LENGTHS
   ? process.env.CHAIN_LENGTHS.split(",").map(Number)
-  : [10, 20, 50];
+  : [10, 20, 30];
 
 // Output files
 const BENCHMARK_FILE_JSON = process.env.BENCHMARK_FILE_JSON ?? "benchmark.json";
@@ -33,6 +33,8 @@ module.exports = {
     "note_history_successful_decrypting_time_in_ms",
   NOTE_HISTORY_TRIAL_DECRYPTING_TIME:
     "note_history_trial_decrypting_time_in_ms",
+  NODE_DB_SIZE: "node_database_size_in_bytes",
+  PXE_DB_SIZE: "pxe_database_size_in_bytes",
   // Events to track
   L2_BLOCK_PUBLISHED_TO_L1: "rollup-published-to-l1",
   L2_BLOCK_SYNCED: "l2-block-handled",

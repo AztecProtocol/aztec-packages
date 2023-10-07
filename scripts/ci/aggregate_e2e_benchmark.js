@@ -35,10 +35,12 @@ const {
   NODE_SYNCED_CHAIN,
   NOTE_HISTORY_TRIAL_DECRYPTING_TIME,
   NOTE_HISTORY_SUCCESSFUL_DECRYPTING_TIME,
+  PXE_DB_SIZE,
   ROLLUP_SIZES,
   CHAIN_LENGTHS,
   BENCHMARK_FILE_JSON,
   BLOCK_SIZE,
+  NODE_DB_SIZE,
 } = require("./benchmark_shared.js");
 
 // Folder where to load logs from
@@ -91,13 +93,15 @@ function processCircuitSimulation(entry, results) {
 // Processes an entry with event name 'note-processor-caught-up' and updates results
 // Buckets are rollup sizes for NOTE_DECRYPTING_TIME, or chain sizes for NOTE_HISTORY_DECRYPTING_TIME
 function processNoteProcessorCaughtUp(entry, results) {
-  const { seen, decrypted, blocks, txs, duration } = entry;
+  const { seen, decrypted, blocks, duration, dbSize } = entry;
   if (ROLLUP_SIZES.includes(decrypted))
     append(results, NOTE_SUCCESSFUL_DECRYPTING_TIME, decrypted, duration);
   if (ROLLUP_SIZES.includes(seen) && decrypted === 0)
     append(results, NOTE_TRIAL_DECRYPTING_TIME, seen, duration);
-  if (CHAIN_LENGTHS.includes(blocks) && decrypted > 0)
+  if (CHAIN_LENGTHS.includes(blocks) && decrypted > 0) {
     append(results, NOTE_HISTORY_SUCCESSFUL_DECRYPTING_TIME, blocks, duration);
+    append(results, PXE_DB_SIZE, blocks, dbSize);
+  }
   if (CHAIN_LENGTHS.includes(blocks) && decrypted === 0)
     append(results, NOTE_HISTORY_TRIAL_DECRYPTING_TIME, blocks, duration);
 }
@@ -129,6 +133,7 @@ function processNodeSyncedChain(entry, results) {
   if (!CHAIN_LENGTHS.includes(bucket)) return;
   if (entry.txsPerBlock !== BLOCK_SIZE) return;
   append(results, NODE_HISTORY_SYNC_TIME, bucket, entry.duration);
+  append(results, NODE_DB_SIZE, bucket, entry.dbSize);
 }
 
 // Processes a parsed entry from a logfile and updates results

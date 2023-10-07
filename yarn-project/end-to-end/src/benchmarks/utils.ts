@@ -7,7 +7,10 @@ import { BenchmarkingContract } from '@aztec/noir-contracts/types';
 import { PXEService, createPXEService } from '@aztec/pxe';
 import { AztecNode, INITIAL_L2_BLOCK_NUM, PXE, PartialAddress } from '@aztec/types';
 
+import { mkdirpSync } from 'fs-extra';
+import { globSync } from 'glob';
 import times from 'lodash.times';
+import { join } from 'path';
 
 import { EndToEndContext, setup } from '../fixtures/utils.js';
 
@@ -15,11 +18,36 @@ import { EndToEndContext, setup } from '../fixtures/utils.js';
  * Setup for benchmarks. Initializes a sandbox node with a single account and deploys a benchmark contract.
  */
 export async function benchmarkSetup(opts: Partial<AztecNodeConfig>) {
-  const context = await setup(1, opts);
+  const context = await setup(1, { ...opts });
   const contract = await BenchmarkingContract.deploy(context.wallet).send().deployed();
   context.logger(`Deployed benchmarking contract at ${contract.address}`);
   const sequencer = (context.aztecNode as AztecNodeService).getSequencer()!;
   return { context, contract, sequencer };
+}
+
+/**
+ * Creates and returns a directory with the current job name and a random number.
+ * @param index - Index to merge into the dir path.
+ * @returns A path to a created dir.
+ */
+export function makeDataDirectory(index: number) {
+  const random = Math.random().toString().slice(2);
+  const testName = expect.getState().currentTestName!.split(' ')[0].replaceAll('/', '_');
+  const db = join('data', testName, index.toString(), random);
+  mkdirpSync(db);
+  return db;
+}
+
+/**
+ * Returns the size in disk of a folder.
+ * @param path - Path to the folder.
+ * @returns Size in bytes.
+ */
+export function getFolderSize(path: string): number {
+  return globSync('**', { stat: true, cwd: path, nodir: true, withFileTypes: true }).reduce(
+    (accum, file) => accum + (file as any as { /** Size */ size: number }).size,
+    0,
+  );
 }
 
 /**
