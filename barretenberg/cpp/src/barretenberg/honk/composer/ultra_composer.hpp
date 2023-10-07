@@ -76,6 +76,11 @@ template <UltraFlavor Flavor> class UltraComposer_ {
 
     MergeProver_<Flavor> create_merge_prover(std::shared_ptr<ECCOpQueue> op_queue)
     {
+        // Store the previous aggregate op queue size and update the current one
+        op_queue->set_size_data();
+        // Merge requires a commitment key with size equal to that of the current op queue transcript T_i since the
+        // shift of the current contribution t_i will be of degree equal to deg(T_i)
+        auto commitment_key = compute_commitment_key(op_queue->get_current_size());
         return MergeProver_<Flavor>(commitment_key, op_queue);
     }
 
