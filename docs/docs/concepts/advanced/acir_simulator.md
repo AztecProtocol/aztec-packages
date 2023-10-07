@@ -2,7 +2,7 @@
 title: ACIR Simulator
 ---
 
-The ACIR Simulator is a component of the Private Execution Environment (PXE) and is responsible for simulation Aztec smart contract function execution. This component helps with correct execution of Aztec transactions.
+The ACIR Simulator is responsible for simulation Aztec smart contract function execution. This component helps with correct execution of Aztec transactions.
 
 Simulating a function implies generating the partial witness and the public inputs of the function, as well as collecting all the data (such as created notes or nullifiers, or state changes) that are necessary for components upstream.
 
@@ -14,9 +14,9 @@ It simulates three types of functions:
 
 Private functions are simulated and proved client-side, and verified client-side in the private kernel circuit.
 
-They are run with the assistance of a DB oracle that provides any private data requested by the function.
+They are run with the assistance of a DB oracle that provides any private data requested by the function. You can read more about oracle functions in the smart contract section [here](../../dev_docs/contracts/syntax/functions.md#oracle-functions).
 
-Private functions can call other private functions and can request to call a public function. The public function execution will be performed by the sequencer asynchronously, so private function don't have direct access to the return values of public functions.
+Private functions can call other private functions and can request to call a public function. The public function execution will be performed by the sequencer asynchronously, so private functions don't have direct access to the return values of public functions.
 
 ### Public Functions
 
@@ -32,4 +32,4 @@ Unconstrained functions are used to extract useful data for users, such as the u
 
 They are run with the assistance of a DB oracle that provides any private data requested by the function.
 
-At the moment, unconstrained functions cannot call any other function. It would be possible to allow them to call other unconstrained functions.
+At the moment, unconstrained functions cannot call any other function. It is not possible for them to call constrained functions, but it is on the roadmap to allow them to call other unconstrained functions.

@@ -2,9 +2,6 @@
 title: Foundational Concepts
 ---
 
-import DocCardList from '@theme/DocCardList';
-import Image from "@theme/IdealImage";
-
 As a layer 2 rollup on Ethereum, the Aztec network includes components that look similar to other layer 2 networks, but since it handles private state it also includes many new components.
 
 On this page we will introduce the high level network architecture for Aztec with an emphasis on the concepts that are core to understanding Aztec, including:
