@@ -123,7 +123,8 @@ template <class ProverInstances> class ProtoGalaxyProver_ {
      * the tree, label the branch connecting the left node n_l to its parent by 1 and for the right node n_r by β_i +
      * δ_i X. The value of the parent node n will be constructed as n = n_l + n_r * (β_i + δ_i X). Recurse over each
      * layer until the root is reached which will correspond to the perturbator polynomial F(X).
-     * TODO(insert issue): make this more memory efficient
+     * TODO(https://github.com/AztecProtocol/barretenberg/issues/745): make computation of perturbator more memory
+     * efficient
      */
     static std::vector<FF> construct_perturbator_coeffs(std::vector<FF> betas,
                                                         std::vector<FF> deltas,
@@ -146,14 +147,10 @@ template <class ProverInstances> class ProtoGalaxyProver_ {
      */
     static Polynomial<FF> compute_perturbator(std::shared_ptr<Instance> accumulator, std::vector<FF> deltas, FF alpha)
     {
-        auto instance_size = accumulator->prover_polynomials[0].size();
-        auto const log_instance_size = static_cast<size_t>(numeric::get_msb(instance_size));
-        assert(deltas.size() == log_instance_size);
         auto full_honk_evaluations =
             compute_full_honk_evaluations(accumulator->prover_polynomials, alpha, accumulator->relation_parameters);
-        info("evals from compute", full_honk_evaluations);
         auto betas = accumulator->folding_params.gate_separation_challenges;
-        assert(betas.size() == log_instance_size);
+        assert(betas.size() == deltas.size());
         auto coeffs = construct_perturbator_coeffs(betas, deltas, full_honk_evaluations);
         return Polynomial<FF>(coeffs);
     }

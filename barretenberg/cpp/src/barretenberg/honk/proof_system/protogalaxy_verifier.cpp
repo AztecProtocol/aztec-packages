@@ -40,7 +40,7 @@ VerifierFoldingResult<typename VerifierInstances::Flavor> ProtoGalaxyVerifier_<
         perturbator[idx] = transcript.template receive_from_prover<FF>("perturbator_" + std::to_string(idx));
     }
 
-    // TODO(#690): implement the  Protogalaxy verifier logic
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/690): finalise the  Protogalaxy verifier logic
     VerifierFoldingResult<Flavor> res;
     return res;
 }

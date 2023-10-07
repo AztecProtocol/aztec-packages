@@ -90,7 +90,6 @@ namespace barretenberg {
  *             = pow(u_{0}, ..., u_{d-1})                           // Full evaluation of pow
  * - σ_{ d } =?= c_{d}⋅P(u_{0}, ..., u_{d-1})                       // Compare against real evaluation of P'(u)
  */
-// this can be used to compute deltas for each round as it is
 template <typename FF> struct PowUnivariate {
     // ζ_{l}, initialized as ζ_{0} = ζ
     // At round l, equals ζ^{ 2^l }

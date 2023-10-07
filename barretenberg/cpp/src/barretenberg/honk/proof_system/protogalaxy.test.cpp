@@ -13,11 +13,12 @@ using Builder = Flavor::CircuitBuilder;
 using ProverPolynomials = Flavor::ProverPolynomials;
 const size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
 
-namespace protogalaxy_utils_tests {
+namespace protogalaxy_tests {
 namespace {
 auto& engine = numeric::random::get_debug_engine();
 }
-
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/744): make testing utility with functionality shared
+// amongst test files in the proof system
 barretenberg::Polynomial<FF> get_random_polynomial(size_t size)
 {
     auto poly = barretenberg::Polynomial<FF>(size);
@@ -164,10 +165,12 @@ TEST_F(ProtoGalaxyTests, PowPerturbatorPolynomial)
         target_sum += full_honk_evals[i] * pow_beta[i];
     }
 
-    auto accumulator =
-        std::make_shared<Instance>(FoldingResult<Flavor>{ .folded_prover_polynomials = full_polynomials,
-                                                          .folded_relation_parameters = relation_parameters,
-                                                          .folding_parameters = { betas, target_sum } });
+    auto accumulator = std::make_shared<Instance>(
+        FoldingResult<Flavor>{ .folded_prover_polynomials = full_polynomials,
+                               .folded_public_inputs = std::vector<FF>{},
+                               .verification_key = std::make_shared<Flavor::VerificationKey>(),
+                               .folded_relation_parameters = relation_parameters,
+                               .folding_parameters = { betas, target_sum } });
 
     auto deltas = ProtoGalaxyProver::compute_round_challenge_pows(log_instance_size, FF::random_element());
     auto perturbator = ProtoGalaxyProver::compute_perturbator(accumulator, deltas, alpha);
@@ -175,4 +178,4 @@ TEST_F(ProtoGalaxyTests, PowPerturbatorPolynomial)
     // Ensure the constant coefficient of the perturbator is equal to the target sum as indicated by the paper
     EXPECT_EQ(perturbator[0], target_sum);
 }
-} // namespace protogalaxy_utils_tests
+} // namespace protogalaxy_tests

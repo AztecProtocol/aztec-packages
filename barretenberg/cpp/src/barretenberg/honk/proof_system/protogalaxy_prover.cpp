@@ -37,12 +37,13 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepa
     }
 }
 
-// TODO(#689): finalise implementation this function
+// TODO(#https://github.com/AztecProtocol/barretenberg/issues/689): finalise implementation this function
 template <class ProverInstances>
 ProverFoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstances>::fold_instances()
 {
     prepare_for_folding();
-    // TODO(#740): Handle the case where we are folding for the first time and accumulator is 0
+    // TODO(#https://github.com/AztecProtocol/barretenberg/issues/740): Handle the case where we are folding for the
+    // first time and accumulator is 0
     auto [alpha, delta] = transcript.get_challenges("alpha", "delta");
     auto accumulator = get_accumulator();
     auto instance_size = accumulator->prover_polynomials[0].size();
