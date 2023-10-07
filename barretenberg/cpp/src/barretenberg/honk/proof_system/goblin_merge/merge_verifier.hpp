@@ -10,6 +10,11 @@
 
 namespace proof_system::honk {
 
+/**
+ * @brief Verifier class for the Goblin ECC op queue transcript merge protocol
+ *
+ * @tparam Flavor
+ */
 template <typename Flavor> class MergeVerifier_ {
     using FF = typename Flavor::FF;
     using Polynomial = typename Flavor::Polynomial;
