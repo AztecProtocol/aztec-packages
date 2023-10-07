@@ -115,7 +115,6 @@ async function deployAllContracts(
   const uniswapL2Contract = await UniswapContract.deploy(ownerWallet)
     .send({ portalContract: uniswapPortalAddress })
     .deployed();
-  await uniswapL2Contract.attach(uniswapPortalAddress);
 
   await uniswapPortal.write.initialize(
     [l1ContractsAddresses!.registryAddress.toString(), uniswapL2Contract.address.toString()],
@@ -350,7 +349,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
     const [secretForRedeemingDai, secretHashForRedeemingDai] = await generateClaimSecret();
 
     const withdrawReceipt = await uniswapL2Contract.methods
-      .swap(
+      .swap_private(
         wethL2Contract.address,
         wethL2Bridge.address,
         wethAmountToBridge,
@@ -372,7 +371,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
     // ensure that uniswap contract didn't eat the funds.
     await expectPublicBalanceOnL2(uniswapL2Contract.address, 0n, wethL2Contract);
 
-    // 6. Consume L2 to L1 message by calling uniswapPortal.swap()
+    // 6. Consume L2 to L1 message by calling uniswapPortal.swap_private()
     logger('Execute withdraw and swap on the uniswapPortal!');
     const daiL1BalanceOfPortalBeforeSwap = await daiContract.read.balanceOf([daiTokenPortalAddress.toString()]);
     const swapArgs = [
