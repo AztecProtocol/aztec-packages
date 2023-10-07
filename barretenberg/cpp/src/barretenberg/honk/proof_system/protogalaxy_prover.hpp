@@ -66,7 +66,7 @@ template <class ProverInstances> class ProtoGalaxyProver_ {
                                                          RelationParameters<FF> relation_parameters)
     {
         auto instance_size = instance_polynomials[0].size();
-        info(instance_size);
+
         std::vector<FF> full_honk_evaluations(instance_size);
         for (size_t row = 0; row < instance_size; row++) {
             auto row_evaluations = get_execution_row(instance_polynomials, row);
@@ -83,8 +83,6 @@ template <class ProverInstances> class ProtoGalaxyProver_ {
             Utils::scale_and_batch_elements(relation_evaluations, alpha, running_challenge, output);
             full_honk_evaluations[row] = output;
         }
-        info("in compute");
-        info(full_honk_evaluations);
         return full_honk_evaluations;
     }
 
@@ -135,9 +133,9 @@ template <class ProverInstances> class ProtoGalaxyProver_ {
         auto width = full_honk_evaluations.size();
         std::vector<std::vector<FF>> first_level_coeffs(width / 2, std::vector<FF>(2, 0));
         for (size_t node = 0; node < width; node += 2) {
-            auto idx = node / 2;
-            first_level_coeffs[idx][0] = full_honk_evaluations[node] + full_honk_evaluations[node + 1] * betas[0];
-            first_level_coeffs[idx][1] = full_honk_evaluations[node + 1] * deltas[0];
+            auto parent = node / 2;
+            first_level_coeffs[parent][0] = full_honk_evaluations[node] + full_honk_evaluations[node + 1] * betas[0];
+            first_level_coeffs[parent][1] = full_honk_evaluations[node + 1] * deltas[0];
         }
         return compute_level(1, betas, deltas, first_level_coeffs);
     }
@@ -153,7 +151,7 @@ template <class ProverInstances> class ProtoGalaxyProver_ {
         assert(deltas.size() == log_instance_size);
         auto full_honk_evaluations =
             compute_full_honk_evaluations(accumulator->prover_polynomials, alpha, accumulator->relation_parameters);
-        info(full_honk_evaluations);
+        info("evals from compute", full_honk_evaluations);
         auto betas = accumulator->folding_params.gate_separation_challenges;
         assert(betas.size() == log_instance_size);
         auto coeffs = construct_perturbator_coeffs(betas, deltas, full_honk_evaluations);

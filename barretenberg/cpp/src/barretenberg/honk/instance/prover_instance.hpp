@@ -42,7 +42,6 @@ template <class Flavor> class ProverInstance_ {
     // non-zero  for Instances constructed from circuits, this concept doesn't exist for accumulated
     // instances
     size_t pub_inputs_offset = 0;
-    // TODO: how do we fold relation parameters?
     proof_system::RelationParameters<FF> relation_parameters;
     std::vector<uint32_t> recursive_proof_public_input_indices;
     // non-empty for the accumulated instances
@@ -59,7 +58,8 @@ template <class Flavor> class ProverInstance_ {
         : verification_key(std::move(result.verification_key))
         , prover_polynomials(result.folded_prover_polynomials)
         , public_inputs(result.folded_public_inputs)
-        , folding_params(result.params){};
+        , relation_parameters(result.folded_relation_parameters)
+        , folding_params(result.folding_parameters){};
 
     ~ProverInstance_() = default;
 

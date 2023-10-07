@@ -42,6 +42,7 @@ template <class ProverInstances>
 ProverFoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstances>::fold_instances()
 {
     prepare_for_folding();
+    // TODO(#740): Handle the case where we are folding for the first time and accumulator is 0
     auto [alpha, delta] = transcript.get_challenges("alpha", "delta");
     auto accumulator = get_accumulator();
     auto instance_size = accumulator->prover_polynomials[0].size();
@@ -49,9 +50,6 @@ ProverFoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverI
     auto deltas = compute_round_challenge_pows(log_instance_size, delta);
     auto perturbator = compute_perturbator(accumulator, deltas, alpha);
 
-    // Note: we shouldn't have to send the constant coefficient as this is equal to target sum and should instead have
-    // the assertion in place once protogalaxy is finalised assert(perturbator_coeffs[0] ==
-    // accumulator.folding_params.target_sum);
     for (size_t idx = 0; idx <= log_instance_size; idx++) {
         transcript.send_to_verifier("perturbator_" + std::to_string(idx), perturbator[idx]);
     }

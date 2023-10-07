@@ -35,9 +35,9 @@ VerifierFoldingResult<typename VerifierInstances::Flavor> ProtoGalaxyVerifier_<
     auto accumulator = get_accumulator();
     auto log_instance_size = static_cast<size_t>(numeric::get_msb(accumulator->instance_size));
     auto deltas = compute_round_challenge_pows(log_instance_size, delta);
-    std::vector<FF> coeffs(log_instance_size + 1);
+    std::vector<FF> perturbator(log_instance_size + 1);
     for (size_t idx = 0; idx <= log_instance_size; idx++) {
-        coeffs[idx] = transcript.template receive_from_prover<FF>("perturbator_" + std::to_string(idx));
+        perturbator[idx] = transcript.template receive_from_prover<FF>("perturbator_" + std::to_string(idx));
     }
 
     // TODO(#690): implement the  Protogalaxy verifier logic

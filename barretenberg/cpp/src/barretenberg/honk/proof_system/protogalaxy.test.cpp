@@ -18,7 +18,7 @@ namespace {
 auto& engine = numeric::random::get_debug_engine();
 }
 
-barretenberg::Polynomial<FF> random_poly(size_t size)
+barretenberg::Polynomial<FF> get_random_polynomial(size_t size)
 {
     auto poly = barretenberg::Polynomial<FF>(size);
     for (auto& coeff : poly) {
@@ -76,6 +76,7 @@ ProverPolynomials construct_ultra_full_polynomials(auto& input_polynomials)
 
     return full_polynomials;
 }
+
 class ProtoGalaxyTests : public ::testing::Test {
   public:
     static void SetUpTestSuite() { barretenberg::srs::init_crs_factory("../srs_db/ignition"); }
@@ -130,50 +131,48 @@ TEST_F(ProtoGalaxyTests, PowPerturbatorPolynomial)
     const size_t log_instance_size(3);
     const size_t instance_size(1 << log_instance_size);
 
-    // Randomly construct the prover polynomials that are input to Sumcheck.
-    // Note: ProverPolynomials are defined as spans so the polynomials they point to need to exist in memory.
     std::array<barretenberg::Polynomial<FF>, NUM_POLYNOMIALS> random_polynomials;
     for (auto& poly : random_polynomials) {
-        poly = random_poly(instance_size);
+        poly = get_random_polynomial(instance_size);
     }
     auto full_polynomials = construct_ultra_full_polynomials(random_polynomials);
-    proof_system::RelationParameters<FF> relation_parameters{
-        .eta = FF::random_element(),
-        .beta = FF::random_element(),
-        .gamma = FF::random_element(),
-        .public_input_delta = FF::one(),
-    };
+    auto relation_parameters = proof_system::RelationParameters<FF>::get_random();
     auto alpha = FF::random_element();
+
     auto full_honk_evals =
         ProtoGalaxyProver::compute_full_honk_evaluations(full_polynomials, alpha, relation_parameters);
-    info(full_honk_evals);
-    std::vector<FF> betas = { FF(2), FF(4), FF(16) };
+    std::vector<FF> betas(log_instance_size);
+    for (size_t idx = 0; idx < log_instance_size; idx++) {
+        betas[idx] = FF::random_element();
+    }
+
+    // Construct pow(\vec{betas}) manually as in the paper
     std::vector<FF> pow_beta(instance_size);
     for (size_t i = 0; i < instance_size; i++) {
-        auto j = i;
-        size_t idx = 0;
         auto res = FF(1);
-        while (j > 0) {
+        for (size_t j = i, beta_idx = 0; j > 0; j >>= 1, beta_idx++) {
             if ((j & 1) == 1) {
-
-                res *= betas[idx];
+                res *= betas[beta_idx];
             }
-            j >>= 1;
-            idx++;
         }
         pow_beta[i] = res;
     }
-    info(pow_beta);
-    auto expected_target_sum = FF(0);
+
+    // Compute the corresponding target sum and create a dummy accumulator
+    auto target_sum = FF(0);
     for (size_t i = 0; i < instance_size; i++) {
-        expected_target_sum += full_honk_evals[i] * pow_beta[i];
+        target_sum += full_honk_evals[i] * pow_beta[i];
     }
-    info(expected_target_sum);
-    auto folding_result = FoldingResult<Flavor>{ .folded_prover_polynomials = full_polynomials,
-                                                 .params = { betas, expected_target_sum } };
-    auto accumulator = std::make_shared<Instance>(folding_result);
-    std::vector<FF> deltas = { FF(2), FF(4), FF(8) };
+
+    auto accumulator =
+        std::make_shared<Instance>(FoldingResult<Flavor>{ .folded_prover_polynomials = full_polynomials,
+                                                          .folded_relation_parameters = relation_parameters,
+                                                          .folding_parameters = { betas, target_sum } });
+
+    auto deltas = ProtoGalaxyProver::compute_round_challenge_pows(log_instance_size, FF::random_element());
     auto perturbator = ProtoGalaxyProver::compute_perturbator(accumulator, deltas, alpha);
-    info(perturbator);
+
+    // Ensure the constant coefficient of the perturbator is equal to the target sum as indicated by the paper
+    EXPECT_EQ(perturbator[0], target_sum);
 }
 } // namespace protogalaxy_utils_tests
