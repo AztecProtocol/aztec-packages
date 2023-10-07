@@ -45,3 +45,11 @@ variable "NODE_1_TCP_PORT" {
 variable "NODE_2_TCP_PORT" {
   type = string
 }
+
+variable "NODE_1_PRIVATE_KEY" {
+  type = string
+}
+
+variable "NODE_2_PRIVATE_KEY" {
+  type = string
+}

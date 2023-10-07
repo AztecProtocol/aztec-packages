@@ -93,7 +93,7 @@ resource "aws_ecs_task_definition" "aztec-node-1" {
 [
   {
     "name": "${var.DEPLOY_TAG}-aztec-node-1",
-    "image": "philwindle/aztec-node:latest",
+    "image": "278380418400.dkr.ecr.us-east-2.amazonaws.com/aztec-node:cache-c760092e2869eea5a7f5c8fdbb83e6da6403f2aa",
     "essential": true,
     "memoryReservation": 3776,
     "portMappings": [
@@ -115,7 +115,7 @@ resource "aws_ecs_task_definition" "aztec-node-1" {
       },
       {
         "name": "DEBUG",
-        "value": "aztec:*"
+        "value": "aztec:*,libp2p*"
       },
       {
         "name": "ETHEREUM_HOST",
@@ -192,6 +192,10 @@ resource "aws_ecs_task_definition" "aztec-node-1" {
       {
         "name": "CHAIN_ID",
         "value": "${var.CHAIN_ID}"
+      },
+      {
+        "name": "PEER_ID_PRIVATE_KEY",
+        "value": "${var.NODE_1_PRIVATE_KEY}"
       }
     ],
     "logConfiguration": {
@@ -221,13 +225,19 @@ resource "aws_ecs_service" "aztec-node-1" {
       data.terraform_remote_state.setup_iac.outputs.subnet_az1_private_id,
       data.terraform_remote_state.setup_iac.outputs.subnet_az2_private_id
     ]
-    security_groups = [data.terraform_remote_state.setup_iac.outputs.security_group_private_id]
+    security_groups = [data.terraform_remote_state.aztec-network_iac.outputs.p2p_security_group_id, data.terraform_remote_state.setup_iac.outputs.security_group_private_id]
   }
 
   load_balancer {
     target_group_arn = aws_alb_target_group.aztec-node-1.arn
     container_name   = "${var.DEPLOY_TAG}-aztec-node-1"
     container_port   = 80
+  }
+
+  load_balancer {
+    target_group_arn = aws_lb_target_group.aztec-node-1-target-group.arn
+    container_name   = "${var.DEPLOY_TAG}-aztec-node-1"
+    container_port   = var.NODE_1_TCP_PORT
   }
 
   service_registries {
@@ -242,7 +252,7 @@ resource "aws_ecs_service" "aztec-node-1" {
 # Configure ALB to route /aztec-node to server.
 resource "aws_alb_target_group" "aztec-node-1" {
   name                 = "${var.DEPLOY_TAG}-aztec-node-1"
-  port                 = "80"
+  port                 = 80
   protocol             = "HTTP"
   target_type          = "ip"
   vpc_id               = data.terraform_remote_state.setup_iac.outputs.vpc_id
@@ -280,10 +290,30 @@ resource "aws_lb_listener_rule" "api-1" {
 
 resource "aws_lb_target_group" "aztec-node-1-target-group" {
   name        = "aztec-node-1-target-group"
-  port        = "${var.NODE_1_TCP_PORT}"
+  port        = var.NODE_1_TCP_PORT
   protocol    = "TCP"
   target_type = "ip"
   vpc_id      = data.terraform_remote_state.setup_iac.outputs.vpc_id
+
+  health_check {
+    protocol            = "HTTP"
+    path                = "/${var.DEPLOY_TAG}/aztec-node-1/status"
+    matcher             = "200"
+    interval            = 10
+    healthy_threshold   = 2
+    unhealthy_threshold = 5
+    timeout             = 5
+    port                = 80
+  }
+}
+
+resource "aws_security_group_rule" "allow-node-1-tcp" {
+  type              = "ingress"
+  from_port         = var.NODE_1_TCP_PORT
+  to_port           = var.NODE_1_TCP_PORT
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = data.terraform_remote_state.aztec-network_iac.outputs.p2p_security_group_id
 }
 
 ## The following has been commented out and setup manually as terraform (or the aws provider version we are using) has a bug
@@ -356,7 +386,7 @@ resource "aws_ecs_task_definition" "aztec-node-2" {
 [
   {
     "name": "${var.DEPLOY_TAG}-aztec-node-2",
-    "image": "philwindle/aztec-node:latest",
+    "image": "278380418400.dkr.ecr.us-east-2.amazonaws.com/aztec-node:cache-c760092e2869eea5a7f5c8fdbb83e6da6403f2aa",
     "essential": true,
     "memoryReservation": 3776,
     "portMappings": [
@@ -378,7 +408,7 @@ resource "aws_ecs_task_definition" "aztec-node-2" {
       },
       {
         "name": "DEBUG",
-        "value": "aztec:*"
+        "value": "aztec:*,libp2p*"
       },
       {
         "name": "ETHEREUM_HOST",
@@ -455,6 +485,10 @@ resource "aws_ecs_task_definition" "aztec-node-2" {
       {
         "name": "CHAIN_ID",
         "value": "${var.CHAIN_ID}"
+      },
+      {
+        "name": "PEER_ID_PRIVATE_KEY",
+        "value": "${var.NODE_2_PRIVATE_KEY}"
       }
     ],
     "logConfiguration": {
@@ -484,7 +518,13 @@ resource "aws_ecs_service" "aztec-node-2" {
       data.terraform_remote_state.setup_iac.outputs.subnet_az1_private_id,
       data.terraform_remote_state.setup_iac.outputs.subnet_az2_private_id
     ]
-    security_groups = [data.terraform_remote_state.setup_iac.outputs.security_group_private_id]
+    security_groups = [data.terraform_remote_state.aztec-network_iac.outputs.p2p_security_group_id, data.terraform_remote_state.setup_iac.outputs.security_group_private_id]
+  }
+
+  load_balancer {
+    target_group_arn = aws_lb_target_group.aztec-node-2-target-group.arn
+    container_name   = "${var.DEPLOY_TAG}-aztec-node-2"
+    container_port   = var.NODE_2_TCP_PORT
   }
 
   load_balancer {
@@ -505,7 +545,7 @@ resource "aws_ecs_service" "aztec-node-2" {
 # Configure ALB to route /aztec-node to server.
 resource "aws_alb_target_group" "aztec-node-2" {
   name                 = "${var.DEPLOY_TAG}-aztec-node-2"
-  port                 = "80"
+  port                 = 80
   protocol             = "HTTP"
   target_type          = "ip"
   vpc_id               = data.terraform_remote_state.setup_iac.outputs.vpc_id
@@ -543,10 +583,30 @@ resource "aws_lb_listener_rule" "api-2" {
 
 resource "aws_lb_target_group" "aztec-node-2-target-group" {
   name        = "aztec-node-2-target-group"
-  port        = "${var.NODE_2_TCP_PORT}"
+  port        = var.NODE_2_TCP_PORT
   protocol    = "TCP"
   target_type = "ip"
   vpc_id      = data.terraform_remote_state.setup_iac.outputs.vpc_id
+
+  health_check {
+    protocol            = "HTTP"
+    path                = "/${var.DEPLOY_TAG}/aztec-node-2/status"
+    matcher             = "200"
+    interval            = 10
+    healthy_threshold   = 2
+    unhealthy_threshold = 5
+    timeout             = 5
+    port                = 80
+  }
+}
+
+resource "aws_security_group_rule" "allow-node-2-tcp" {
+  type              = "ingress"
+  from_port         = var.NODE_2_TCP_PORT
+  to_port           = var.NODE_2_TCP_PORT
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = data.terraform_remote_state.aztec-network_iac.outputs.p2p_security_group_id
 }
 
 ## The following has been commented out and setup manually as terraform (or the aws provider version we are using) has a bug

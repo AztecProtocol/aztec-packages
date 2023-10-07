@@ -123,7 +123,7 @@ resource "aws_ecs_task_definition" "aztec-bootstrap-1" {
       },
       {
         "name": "DEBUG",
-        "value": "aztec:*"
+        "value": "aztec:*,libp2p*"
       },
       {
         "name": "HTTP_SERVER_ENABLED",
@@ -311,7 +311,7 @@ resource "aws_ecs_task_definition" "aztec-bootstrap-2" {
       },
       {
         "name": "DEBUG",
-        "value": "aztec:*"
+        "value": "aztec:*libp2p*"
       },
       {
         "name": "HTTP_SERVER_ENABLED",
