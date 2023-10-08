@@ -11,12 +11,19 @@ import {
 } from '@aztec/circuits.js';
 import { computeUniqueCommitment, siloCommitment } from '@aztec/circuits.js/abis';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
+import { FunctionAbi } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AuthWitness, FunctionL2Logs, NotePreimage, NoteSpendingInfo } from '@aztec/types';
+import { AuthWitness, FunctionL2Logs, NotePreimage, NoteSpendingInfo, UnencryptedL2Log } from '@aztec/types';
 
-import { NoteData, toACVMWitness } from '../acvm/index.js';
+import {
+  NoteData,
+  toACVMCallContext,
+  toACVMContractDeploymentData,
+  toACVMHistoricBlockData,
+  toACVMWitness,
+} from '../acvm/index.js';
 import { SideEffectCounter } from '../common/index.js';
 import { PackedArgsCache } from '../common/packed_args_cache.js';
 import { DBOracle } from './db_oracle.js';
@@ -49,7 +56,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    */
   private gotNotes: Map<bigint, bigint> = new Map();
   private encryptedLogs: Buffer[] = [];
-  private unencryptedLogs: Buffer[] = [];
+  private unencryptedLogs: UnencryptedL2Log[] = [];
   private nestedExecutions: ExecutionResult[] = [];
   private enqueuedPublicFunctionCalls: PublicCallRequest[] = [];
 
@@ -82,21 +89,9 @@ export class ClientExecutionContext extends ViewDataOracle {
     const contractDeploymentData = this.txContext.contractDeploymentData;
 
     const fields = [
-      this.callContext.msgSender,
-      this.callContext.storageContractAddress,
-      this.callContext.portalContractAddress,
-      this.callContext.isDelegateCall,
-      this.callContext.isStaticCall,
-      this.callContext.isContractDeployment,
-
-      ...this.historicBlockData.toArray(),
-
-      contractDeploymentData.deployerPublicKey.x,
-      contractDeploymentData.deployerPublicKey.y,
-      contractDeploymentData.constructorVkHash,
-      contractDeploymentData.functionTreeRoot,
-      contractDeploymentData.contractAddressSalt,
-      contractDeploymentData.portalContractAddress,
+      ...toACVMCallContext(this.callContext),
+      ...toACVMHistoricBlockData(this.historicBlockData),
+      ...toACVMContractDeploymentData(contractDeploymentData),
 
       this.txContext.chainId,
       this.txContext.version,
@@ -146,7 +141,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * Return the encrypted logs emitted during this execution.
    */
   public getUnencryptedLogs() {
-    return new FunctionL2Logs(this.unencryptedLogs);
+    return new FunctionL2Logs(this.unencryptedLogs.map(log => log.toBuffer()));
   }
 
   /**
@@ -294,9 +289,9 @@ export class ClientExecutionContext extends ViewDataOracle {
    * Emit an unencrypted log.
    * @param log - The unencrypted log to be emitted.
    */
-  public emitUnencryptedLog(log: Buffer) {
+  public emitUnencryptedLog(log: UnencryptedL2Log) {
     this.unencryptedLogs.push(log);
-    this.log(`Emitted unencrypted log: "${log.toString('ascii')}"`);
+    this.log(`Emitted unencrypted log: "${log.toHumanReadable()}"`);
   }
 
   /**
@@ -323,7 +318,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       this.txContext.version,
     );
 
-    const derivedCallContext = await this.deriveCallContext(targetContractAddress, false, false);
+    const derivedCallContext = await this.deriveCallContext(targetContractAddress, targetAbi, false, false);
 
     const context = new ClientExecutionContext(
       targetContractAddress,
@@ -366,7 +361,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     argsHash: Fr,
   ): Promise<PublicCallRequest> {
     const targetAbi = await this.db.getFunctionABI(targetContractAddress, functionSelector);
-    const derivedCallContext = await this.deriveCallContext(targetContractAddress, false, false);
+    const derivedCallContext = await this.deriveCallContext(targetContractAddress, targetAbi, false, false);
     const args = this.packedArgsCache.unpack(argsHash);
     const sideEffectCounter = this.sideEffectCounter.count();
     const enqueuedRequest = PublicCallRequest.from({
@@ -392,18 +387,24 @@ export class ClientExecutionContext extends ViewDataOracle {
 
   /**
    * Derives the call context for a nested execution.
-   * @param parentContext - The parent call context.
    * @param targetContractAddress - The address of the contract being called.
+   * @param targetAbi - The ABI of the function being called.
    * @param isDelegateCall - Whether the call is a delegate call.
    * @param isStaticCall - Whether the call is a static call.
    * @returns The derived call context.
    */
-  private async deriveCallContext(targetContractAddress: AztecAddress, isDelegateCall = false, isStaticCall = false) {
+  private async deriveCallContext(
+    targetContractAddress: AztecAddress,
+    targetAbi: FunctionAbi,
+    isDelegateCall = false,
+    isStaticCall = false,
+  ) {
     const portalContractAddress = await this.db.getPortalContractAddress(targetContractAddress);
     return new CallContext(
       this.contractAddress,
       targetContractAddress,
       portalContractAddress,
+      FunctionSelector.fromNameAndParameters(targetAbi.name, targetAbi.parameters),
       isDelegateCall,
       isStaticCall,
       false,

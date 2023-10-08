@@ -8,7 +8,7 @@ import { DebugLogger } from '@aztec/foundation/log';
 import { OutboxAbi } from '@aztec/l1-artifacts';
 import { TokenBridgeContract, TokenContract } from '@aztec/noir-contracts/types';
 import { PXEService } from '@aztec/pxe';
-import { NotePreimage, PXE, TxStatus } from '@aztec/types';
+import { AztecNode, NotePreimage, PXE, TxStatus } from '@aztec/types';
 
 import { Chain, HttpTransport, PublicClient, getContract } from 'viem';
 
@@ -20,7 +20,7 @@ import { deployAndInitializeTokenAndBridgeContracts } from './utils.js';
  */
 export class CrossChainTestHarness {
   static async new(
-    aztecNode: AztecNodeService | undefined,
+    aztecNode: AztecNode | undefined,
     pxeService: PXE,
     deployL1ContractsValues: DeployL1Contracts,
     accounts: CompleteAddress[],
@@ -89,7 +89,7 @@ export class CrossChainTestHarness {
   }
   constructor(
     /** AztecNode. */
-    public aztecNode: AztecNodeService | undefined,
+    public aztecNode: AztecNode | undefined,
     /** Private eXecution Environment (PXE). */
     public pxeService: PXE,
     /** CheatCodes. */
@@ -132,7 +132,7 @@ export class CrossChainTestHarness {
     this.logger("Generating a claim secret using pedersen's hash function");
     const secret = Fr.random();
     const secretHash = await computeMessageSecretHash(secret);
-    this.logger('Generated claim secret: ', secretHash.toString(true));
+    this.logger('Generated claim secret: ' + secretHash.toString(true));
     return [secret, secretHash];
   }
 
@@ -199,6 +199,13 @@ export class CrossChainTestHarness {
     const tx = this.l2Token.methods.mint_public(this.ownerAddress, amount).send();
     const receipt = await tx.wait();
     expect(receipt.status).toBe(TxStatus.MINED);
+  }
+
+  async mintTokensPrivateOnL2(amount: bigint, secretHash: Fr) {
+    const tx = this.l2Token.methods.mint_private(amount, secretHash).send();
+    const receipt = await tx.wait();
+    expect(receipt.status).toBe(TxStatus.MINED);
+    await this.addPendingShieldNoteToPXE(amount, secretHash, receipt.txHash);
   }
 
   async performL2Transfer(transferAmount: bigint) {
@@ -351,7 +358,7 @@ export class CrossChainTestHarness {
   }
 
   async stop() {
-    await this.aztecNode?.stop();
+    if (this.aztecNode instanceof AztecNodeService) await this.aztecNode?.stop();
     if (this.pxeService instanceof PXEService) {
       await this.pxeService?.stop();
     }

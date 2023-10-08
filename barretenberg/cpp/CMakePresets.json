@@ -16,6 +16,9 @@
         "CC": "clang",
         "CXX": "clang++",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      },
+      "cacheVariables": {
+        "TARGET_ARCH": "skylake"
       }
     },
     {
@@ -51,20 +54,20 @@
         "DISABLE_ASM": "ON"
       }
     },
-    {"name":"asan",
-    "displayName": "Debugging build with address sanitizer on Clang-16",
-  "description": "Build with address sanitizer on clang16 with debugging information",
-  "inherits":"clang16-dbg",
+    {
+      "name": "asan",
+      "displayName": "Debugging build with address sanitizer on Clang-16",
+      "description": "Build with address sanitizer on clang16 with debugging information",
+      "inherits": "clang16-dbg",
       "binaryDir": "build-asan",
-"environment": {
+      "environment": {
         "CMAKE_BUILD_TYPE": "Debug"
       },
       "cacheVariables": {
         "ENABLE_ASAN": "ON",
-        "DISABLE_ASM": "ON" 
+        "DISABLE_ASM": "ON"
       }
-
-},
+    },
     {
       "name": "gcc",
       "displayName": "Build with GCC",
@@ -86,6 +89,15 @@
       }
     },
     {
+      "name": "gcc13",
+      "displayName": "Build with GCC-13",
+      "description": "Build with globally installed GCC-13",
+      "inherits": "default",
+      "environment": {
+        "CC": "gcc-13",
+        "CXX": "g++-13"
+      }
+    },    {
       "name": "bench",
       "displayName": "Build benchmarks",
       "description": "Build default preset but with a special benchmark directory",
@@ -193,7 +205,8 @@
       "name": "clang16-dbg",
       "inherits": "default",
       "configurePreset": "clang16-dbg"
-    },{
+    },
+    {
       "name": "asan",
       "inherits": "default",
       "configurePreset": "asan"
@@ -209,6 +222,11 @@
       "configurePreset": "gcc10"
     },
     {
+      "name": "gcc13",
+      "inherits": "default",
+      "configurePreset": "gcc13"
+    },
+    {
       "name": "bench",
       "inherits": "clang16",
       "configurePreset": "bench"
@@ -218,7 +236,7 @@
       "inherits": "clang16",
       "configurePreset": "fuzzing"
     },
-    { 
+    {
       "name": "smt-verification",
       "inherits": "clang16",
       "configurePreset": "smt-verification"
@@ -278,7 +296,7 @@
       "inherits": "default",
       "configurePreset": "clang16-dbg"
     },
-  {
+    {
       "name": "asan",
       "inherits": "default",
       "configurePreset": "asan"
@@ -292,6 +310,11 @@
       "name": "gcc10",
       "inherits": "default",
       "configurePreset": "gcc10"
+    },
+    {
+      "name": "gcc13",
+      "inherits": "default",
+      "configurePreset": "gcc13"
     },
     {
       "name": "bench",

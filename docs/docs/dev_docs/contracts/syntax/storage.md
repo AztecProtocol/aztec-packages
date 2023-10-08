@@ -257,13 +257,19 @@ As mention, the singleton is initialized to create the first note and value. Her
 
 #include_code initialize /yarn-project/aztec-nr/aztec/src/state_vars/singleton.nr rust
 
-When this function is called, a nullifier of the storage slot is created, preventing this Singleton from being initialized again.
+When this function is called, a nullifier of the storage slot is created, preventing this Singleton from being initialized again. If an `owner` is specified, the nullifier will be hashed with the owner's secret key. It's crucial to provide an owner if the Singleton is associated with an account. Initializing it without an owner may inadvertently reveal important information about the owner's intention.
 
 Unlike public states, which have a default initial value of `0` (or many zeros, in the case of a struct, array or map), a private state (of type `Singleton`, `ImmutableSingleton` or `Set`) does not have a default initial value. The `initialize` method (or `insert`, in the case of a `Set`) must be called.
 
 :::info
 Extend on what happens if you try to use non-initialized state.
 :::
+
+### `is_initialized`
+
+An unconstrained method to check whether the Singleton has been initialized or not.
+
+#include_code is_initialized /yarn-project/aztec-nr/aztec/src/state_vars/singleton.nr rust
 
 ### `replace`
 
@@ -303,6 +309,8 @@ As part of the initialization of the `Storage` struct, the `Singleton` is create
 
 ### `initialize`
 
+When this function is invoked, it creates a nullifier for the storage slot, ensuring that the ImmutableSingleton cannot be initialized again. If an owner is specified, the nullifier will be hashed with the owner's secret key. It is crucial to provide an owner if the ImmutableSingleton is linked to an account; initializing it without one may inadvertently disclose sensitive information about the owner's intent.
+
 #include_code initialize /yarn-project/aztec-nr/aztec/src/state_vars/immutable_singleton.nr rust
 
 Set the value of an ImmutableSingleton by calling the `initialize` method:
@@ -310,6 +318,12 @@ Set the value of an ImmutableSingleton by calling the `initialize` method:
 #include_code initialize /yarn-project/noir-contracts/src/contracts/schnorr_account_contract/src/main.nr rust
 
 Once initialized, an ImmutableSingleton's value remains unchangeable. This method can only be called once.
+
+### `is_initialized`
+
+An unconstrained method to check if the ImmutableSingleton has been initialized.
+
+#include_code is_initialized /yarn-project/aztec-nr/aztec/src/state_vars/immutable_singleton.nr rust
 
 ### `get_note`
 
@@ -433,6 +447,8 @@ This setting enables us to skip the first `offset` notes. It's particularly usef
 
 Developers have the option to provide a custom filter. This allows specific logic to be applied to notes that meet the criteria outlined above. The filter takes the notes returned from the oracle and `filter_args` as its parameters.
 
+It's important to note that the process of applying the custom filter to get the final notes is not constrained. It's crucial to verify the returned notes even if certain assumptions are made in the custom filter.
+
 #### `filter_args: FILTER_ARGS`
 
 `filter_args` provides a means to furnish additional data or context to the custom filter.
@@ -495,10 +511,6 @@ We can use it as a filter to further reduce the number of the final notes:
 
 One thing to remember is, `filter` will be applied on the notes after they are picked from the database. Therefore, it's possible that the actual notes we end up getting are fewer than the limit.
 
-The limit is `MAX_READ_REQUESTS_PER_CALL` by default. But we can set it to any value "smaller" than that:
+The limit is `MAX_READ_REQUESTS_PER_CALL` by default. But we can set it to any value **smaller** than that:
 
 #include_code state_vars-NoteGetterOptionsPickOne /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/options.nr rust
-
-The process of applying the options to get the final notes is not constrained. It's necessary to always check the returned notes even when some conditions have been specified in the options.
-
-#include_code state_vars-check_return_notes /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/main.nr rust
