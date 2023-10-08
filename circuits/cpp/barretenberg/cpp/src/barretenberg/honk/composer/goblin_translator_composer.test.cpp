@@ -79,7 +79,7 @@ TEST_F(GoblinTranslatorComposerTests, Start)
     Fq batching_challenge = fq::random_element();
     Fq x = Fq::random_element();
     auto circuit_builder = GoblinTranslatorCircuitBuilder(batching_challenge, x);
-    circuit_builder.feed_ecc_op_queue_into_circuit(op_queue, batching_challenge, x);
+    circuit_builder.feed_ecc_op_queue_into_circuit(op_queue);
     EXPECT_TRUE(circuit_builder.check_circuit());
 
     auto composer = GoblinTranslatorComposer();

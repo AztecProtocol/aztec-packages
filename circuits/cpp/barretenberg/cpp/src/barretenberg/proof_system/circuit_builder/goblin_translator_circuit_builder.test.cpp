@@ -222,7 +222,7 @@ TEST(TranslatorCircuitBuilder, SeveralOperationCorrectness)
                  op_accumulator) *
                 x_pow;
     auto circuit_builder = GoblinTranslatorCircuitBuilder(batching_challenge, x);
-    circuit_builder.feed_ecc_op_queue_into_circuit(op_queue, batching_challenge, x);
+    circuit_builder.feed_ecc_op_queue_into_circuit(op_queue);
     EXPECT_TRUE(circuit_builder.check_circuit());
     EXPECT_EQ(result, circuit_builder.get_computation_result());
 }

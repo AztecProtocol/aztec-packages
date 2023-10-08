@@ -240,6 +240,12 @@ class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<arithmetization
         }
         num_gates++;
     };
+    GoblinTranslatorCircuitBuilder(Fq batching_challenge_v_, Fq evaluation_input_x_, ECCOpQueue op_queue)
+        : GoblinTranslatorCircuitBuilder(batching_challenge_v_, evaluation_input_x_)
+    {
+        feed_ecc_op_queue_into_circuit(op_queue);
+    }
+
     GoblinTranslatorCircuitBuilder(const GoblinTranslatorCircuitBuilder& other) = delete;
     GoblinTranslatorCircuitBuilder(GoblinTranslatorCircuitBuilder&& other) noexcept
         : CircuitBuilderBase(std::move(other)){};
@@ -490,13 +496,6 @@ class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<arithmetization
         lay_limbs_in_row_and_range_constrain(
             top_quotient_microlimbs, QUOTIENT_HI_LIMBS_RANGE_CONSTRAIN_0, NUM_MICRO_LIMBS);
 
-        // lay_limbs_in_row_and_range_constrain(acc_step.relation_wide_microlimbs[0],
-        //                                      RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_0_SHIFTED,
-        //                                      NUM_RELATION_WIDE_LIMB_CONSTRAINTS);
-        // lay_limbs_in_row_and_range_constrain(acc_step.relation_wide_microlimbs[1],
-        //                                      RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_0_SHIFTED,
-        //                                      NUM_RELATION_WIDE_LIMB_CONSTRAINTS);
-
         num_gates += 2;
 
         barretenberg::constexpr_for<0, TOTAL_COUNT, 1>(
@@ -553,24 +552,18 @@ class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<arithmetization
      * @param v Polynomial batching challenge
      * @param x Evaluation point
      */
-    void feed_ecc_op_queue_into_circuit(ECCOpQueue& ecc_op_queue, barretenberg::fq v, barretenberg::fq x);
+    void feed_ecc_op_queue_into_circuit(ECCOpQueue& ecc_op_queue);
     /**
      * @brief Check the witness satisifies the circuit
      *
      * @details Does one gate for now
      *
-     * @param x
-     * @param v
      * @return true
      * @return false
      */
     bool check_circuit()
     {
 
-        // info("Range lists:");
-        // for (auto& range_list : range_lists) {
-        //     info("Size: ", range_list.first, "count: ", range_list.second.variable_indices.size());
-        // }
         // Compute the limbs of x and powers of v (these go into the relation)
         RelationInputs relation_inputs = compute_relation_inputs_limbs(batching_challenge_v, evaluation_input_x);
 

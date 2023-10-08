@@ -586,7 +586,7 @@ template <typename Flavor> inline void compute_extra_range_constraint_numerator(
  *
  * @param key Proving key where we will save the polynomials
  */
-template <typename Flavor> inline void compute_short_odd_and_even_lagrange_polynomials(auto proving_key)
+template <typename Flavor> inline void compute_lagrange_polynomials_for_goblin_translator(auto proving_key)
 
 {
     const size_t n = proving_key->circuit_size;

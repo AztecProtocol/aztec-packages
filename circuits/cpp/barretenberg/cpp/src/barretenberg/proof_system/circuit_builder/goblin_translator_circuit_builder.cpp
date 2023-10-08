@@ -492,9 +492,7 @@ GoblinTranslatorCircuitBuilder::AccumulationInput compute_witness_values_for_one
     return generate_witness_values(
         op, p_x_lo, p_x_hi, p_y_lo, p_y_hi, Fr(ecc_op.scalar_1), Fr(ecc_op.scalar_2), previous_accumulator, v, x);
 }
-void GoblinTranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(ECCOpQueue& ecc_op_queue,
-                                                                    barretenberg::fq v,
-                                                                    barretenberg::fq x)
+void GoblinTranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(ECCOpQueue& ecc_op_queue)
 {
     using Fq = barretenberg::fq;
     std::vector<Fq> accumulator_trace;
@@ -502,6 +500,8 @@ void GoblinTranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(ECCOpQueue& 
     if (ecc_op_queue.raw_ops.empty()) {
         return;
     }
+    auto x = evaluation_input_x;
+    auto v = batching_challenge_v;
     for (size_t i = 0; i < ecc_op_queue.raw_ops.size(); i++) {
         auto& ecc_op = ecc_op_queue.raw_ops[ecc_op_queue.raw_ops.size() - 1 - i];
         current_accumulator *= x;

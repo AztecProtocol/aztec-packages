@@ -15,7 +15,9 @@
 #include "barretenberg/honk/sumcheck/relations/ecc_op_queue_relation.hpp"
 #include "barretenberg/honk/sumcheck/relations/elliptic_relation.hpp"
 #include "barretenberg/honk/sumcheck/relations/gen_perm_sort_relation.hpp"
+#include "barretenberg/honk/sumcheck/relations/goblin_translator_extra_relations.hpp"
 #include "barretenberg/honk/sumcheck/relations/goblin_translator_gen_perm_sort_relation.hpp"
+#include "barretenberg/honk/sumcheck/relations/goblin_translator_main_relation.hpp"
 #include "barretenberg/honk/sumcheck/relations/lookup_relation.hpp"
 #include "barretenberg/honk/sumcheck/relations/permutation_relation.hpp"
 #include "barretenberg/honk/sumcheck/relations/relation_parameters.hpp"
@@ -25,7 +27,9 @@
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/plonk/proof_system/types/polynomial_manifest.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/proof_system/circuit_builder/goblin_translator_circuit_builder.hpp"
 #include "barretenberg/proof_system/composer/permutation_lib.hpp"
+#include "barretenberg/proof_system/op_queue/ecc_op_queue.hpp"
 
 using namespace proof_system::honk;
 
@@ -64,7 +68,6 @@ template <typename Flavor> void check_relation(auto relation, auto circuit_size,
         for (auto& element : result) {
             element = 0;
         }
-
         // Evaluate each constraint in the relation and check that each is satisfied
         relation.add_full_relation_value_contribution(result, evaluations_at_index_i, params);
         for (auto& element : result) {
@@ -1056,4 +1059,222 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorDecompositionRelationCorrectnes
     // Check that each relation is satisfied across each row of the prover polynomials
     check_relation<Flavor>(std::get<0>(relations), circuit_size, prover_polynomials, params);
 }
+
+/**
+ * @brief Test the correctness of GolbinTranslator's  extra relations
+ *
+ */
+TEST_F(RelationCorrectnessTests, GoblinTranslatorExtraRelationsCorrectness)
+{
+    using Flavor = honk::flavor::GoblinTranslatorBasic;
+    using FF = typename Flavor::FF;
+    using ProverPolynomials = typename Flavor::ProverPolynomials;
+    using ProverPolynomialIds = typename Flavor::ProverPolynomialIds;
+    auto& engine = numeric::random::get_debug_engine();
+
+    auto circuit_size = Flavor::FULL_CIRCUIT_SIZE;
+    auto mini_circuit_size = Flavor::MINI_CIRCUIT_SIZE;
+
+    // Decomposition relation doesn'tu se any relation parameters
+    // Compute public input delta
+    sumcheck::RelationParameters<FF> params{
+        .eta = 0,
+        .beta = 0,
+        .gamma = 0,
+        .public_input_delta = 0,
+        .lookup_grand_product_delta = 0,
+    };
+
+    // Create storage for polynomials
+    ProverPolynomials prover_polynomials;
+    ProverPolynomialIds prover_polynomial_ids;
+    std::vector<Polynomial<FF>> polynomial_container;
+    std::vector<size_t> polynomial_ids;
+    for (size_t i = 0; i < prover_polynomials.size(); i++) {
+        Polynomial<FF> temporary_polynomial(circuit_size);
+        polynomial_container.push_back(temporary_polynomial);
+        polynomial_ids.push_back(i);
+        prover_polynomial_ids[i] = polynomial_ids[i];
+    }
+    auto shifted_ids = prover_polynomial_ids.get_shifted();
+    std::unordered_set<size_t> shifted_id_set;
+    for (auto& id : shifted_ids) {
+        shifted_id_set.emplace(id);
+    }
+    for (size_t i = 0; i < prover_polynomials.size(); i++) {
+        if (!shifted_id_set.contains(i)) {
+            prover_polynomials[i] = polynomial_container[i];
+        }
+    }
+    for (size_t i = 0; i < shifted_ids.size(); i++) {
+        auto shifted_id = shifted_ids[i];
+        auto to_be_shifted_id = prover_polynomial_ids.get_to_be_shifted()[i];
+        prover_polynomials[shifted_id] = polynomial_container[to_be_shifted_id].shifted();
+    }
+
+    // Fill in lagrange even polynomial
+    for (size_t i = 2; i < mini_circuit_size; i += 2) {
+        prover_polynomials.lagrange_even[i] = 1;
+    }
+    for (size_t i = 0; i < mini_circuit_size; i++) {
+        prover_polynomials.op[i] = engine.get_random_uint8() & 3;
+    }
+    prover_polynomials.lagrange_second[1] = 1;
+    prover_polynomials.lagrange_second_to_last_in_minicircuit[mini_circuit_size - 2] = 1;
+    // Put random values in all the non-concatenated constraint polynomials used to range constrain the values
+    for (size_t i = 2; i < mini_circuit_size - 2; i += 2) {
+        prover_polynomials.accumulators_binary_limbs_0[i] = FF ::random_element();
+        prover_polynomials.accumulators_binary_limbs_1[i] = FF ::random_element();
+        prover_polynomials.accumulators_binary_limbs_2[i] = FF ::random_element();
+        prover_polynomials.accumulators_binary_limbs_3[i] = FF ::random_element();
+        prover_polynomials.accumulators_binary_limbs_0[i + 1] = prover_polynomials.accumulators_binary_limbs_0[i];
+        prover_polynomials.accumulators_binary_limbs_1[i + 1] = prover_polynomials.accumulators_binary_limbs_1[i];
+        prover_polynomials.accumulators_binary_limbs_2[i + 1] = prover_polynomials.accumulators_binary_limbs_2[i];
+        prover_polynomials.accumulators_binary_limbs_3[i + 1] = prover_polynomials.accumulators_binary_limbs_3[i];
+    }
+    params.accumulated_result = {
+        FF::random_element(), FF::random_element(), FF::random_element(), FF::random_element()
+    };
+    prover_polynomials.accumulators_binary_limbs_0[1] = params.accumulated_result[0];
+    prover_polynomials.accumulators_binary_limbs_1[1] = params.accumulated_result[1];
+    prover_polynomials.accumulators_binary_limbs_2[1] = params.accumulated_result[2];
+    prover_polynomials.accumulators_binary_limbs_3[1] = params.accumulated_result[3];
+
+    // Construct the round for applying sumcheck relations and results for storing computed results
+    auto relations = std::tuple(honk::sumcheck::GoblinTranslatorOpRangeConstraintRelation<FF>(),
+                                honk::sumcheck::GoblinTranslatorAccumulatorTransferRelation<FF>());
+
+    // Check that each relation is satisfied across each row of the prover polynomials
+    check_relation<Flavor>(std::get<0>(relations), circuit_size, prover_polynomials, params);
+    check_relation<Flavor>(std::get<1>(relations), circuit_size, prover_polynomials, params);
+}
+
+/**
+ * @brief Test the correctness of GolbinTranslator's  main relation
+ *
+ */
+TEST_F(RelationCorrectnessTests, GoblinTranslatorMainRelationCorrectness)
+{
+    using Flavor = honk::flavor::GoblinTranslatorBasic;
+    using FF = typename Flavor::FF;
+    using BF = typename Flavor::BF;
+    using ProverPolynomials = typename Flavor::ProverPolynomials;
+    using ProverPolynomialIds = typename Flavor::ProverPolynomialIds;
+    using GroupElement = typename Flavor::GroupElement;
+    auto& engine = numeric::random::get_debug_engine();
+    ECCOpQueue op_queue;
+    constexpr size_t NUM_LIMB_BITS = 68;
+
+    for (size_t i = 0; i < ((Flavor::MINI_CIRCUIT_SIZE >> 1) - 1); i++) {
+        switch (engine.get_random_uint8() & 3) {
+        case 0:
+            op_queue.empty_row();
+            break;
+        case 1:
+            op_queue.eq();
+            break;
+        case 2:
+            op_queue.add_accumulate(GroupElement::random_element(&engine));
+            break;
+        case 3:
+            op_queue.mul_accumulate(GroupElement::random_element(), FF::random_element(&engine));
+            break;
+        }
+    }
+    auto batching_challenge_v = BF::random_element(&engine);
+    auto evaluation_input_x = BF::random_element(&engine);
+    auto circuit_builder = GoblinTranslatorCircuitBuilder(batching_challenge_v, evaluation_input_x, op_queue);
+    auto circuit_size = Flavor::FULL_CIRCUIT_SIZE;
+    auto mini_circuit_size = Flavor::MINI_CIRCUIT_SIZE;
+    sumcheck::RelationParameters<FF> params{
+        .eta = 0,
+        .beta = 0,
+        .gamma = 0,
+        .public_input_delta = 0,
+        .lookup_grand_product_delta = 0,
+    };
+    // Decomposition relation doesn'tu se any relation parameters
+    // Compute public input delta
+    auto v_power = BF::one();
+    for (size_t i = 0; i < 4; i++) {
+        v_power *= batching_challenge_v;
+        auto uint_v_power = uint256_t(v_power);
+        params.batching_challenge_v[i] = { uint_v_power.slice(0, NUM_LIMB_BITS),
+                                           uint_v_power.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2),
+                                           uint_v_power.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3),
+                                           uint_v_power.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4) };
+    }
+    auto uint_input_x = uint256_t(evaluation_input_x);
+    params.evaluation_input_x = { uint_input_x.slice(0, NUM_LIMB_BITS),
+                                  uint_input_x.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2),
+                                  uint_input_x.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3),
+                                  uint_input_x.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4) };
+
+    // Create storage for polynomials
+    ProverPolynomials prover_polynomials;
+    ProverPolynomialIds prover_polynomial_ids;
+    std::vector<Polynomial<FF>> polynomial_container;
+    std::vector<size_t> polynomial_ids;
+    for (size_t i = 0; i < prover_polynomials.size(); i++) {
+        Polynomial<FF> temporary_polynomial(circuit_size);
+        polynomial_container.push_back(temporary_polynomial);
+        polynomial_ids.push_back(i);
+        prover_polynomial_ids[i] = polynomial_ids[i];
+    }
+    auto shifted_ids = prover_polynomial_ids.get_shifted();
+    std::unordered_set<size_t> shifted_id_set;
+    for (auto& id : shifted_ids) {
+        shifted_id_set.emplace(id);
+    }
+    for (size_t i = 0; i < prover_polynomials.size(); i++) {
+        if (!shifted_id_set.contains(i)) {
+            prover_polynomials[i] = polynomial_container[i];
+        }
+    }
+    for (size_t i = 0; i < shifted_ids.size(); i++) {
+        auto shifted_id = shifted_ids[i];
+        auto to_be_shifted_id = prover_polynomial_ids.get_to_be_shifted()[i];
+        prover_polynomials[shifted_id] = polynomial_container[to_be_shifted_id].shifted();
+    }
+    for (size_t i = 1; i < circuit_builder.get_num_gates(); i++) {
+        prover_polynomials.op[i] = circuit_builder.get_variable(circuit_builder.wires[circuit_builder.OP][i]);
+        prover_polynomials.p_x_low_limbs[i] =
+            circuit_builder.get_variable(circuit_builder.wires[circuit_builder.P_X_LOW_LIMBS][i]);
+        prover_polynomials.p_x_high_limbs[i] =
+            circuit_builder.get_variable(circuit_builder.wires[circuit_builder.P_X_HIGH_LIMBS][i]);
+        prover_polynomials.p_y_low_limbs[i] =
+            circuit_builder.get_variable(circuit_builder.wires[circuit_builder.P_Y_LOW_LIMBS][i]);
+        prover_polynomials.p_y_high_limbs[i] =
+            circuit_builder.get_variable(circuit_builder.wires[circuit_builder.P_Y_HIGH_LIMBS][i]);
+        prover_polynomials.z_lo_limbs[i] =
+            circuit_builder.get_variable(circuit_builder.wires[circuit_builder.Z_LO_LIMBS][i]);
+        prover_polynomials.z_hi_limbs[i] =
+            circuit_builder.get_variable(circuit_builder.wires[circuit_builder.Z_HI_LIMBS][i]);
+        prover_polynomials.accumulators_binary_limbs_0[i] =
+            circuit_builder.get_variable(circuit_builder.wires[circuit_builder.ACCUMULATORS_BINARY_LIMBS_0][i]);
+        prover_polynomials.accumulators_binary_limbs_1[i] =
+            circuit_builder.get_variable(circuit_builder.wires[circuit_builder.ACCUMULATORS_BINARY_LIMBS_1][i]);
+        prover_polynomials.accumulators_binary_limbs_2[i] =
+            circuit_builder.get_variable(circuit_builder.wires[circuit_builder.ACCUMULATORS_BINARY_LIMBS_2][i]);
+        prover_polynomials.accumulators_binary_limbs_3[i] =
+            circuit_builder.get_variable(circuit_builder.wires[circuit_builder.ACCUMULATORS_BINARY_LIMBS_3][i]);
+        prover_polynomials.quotient_lo_binary_limbs[i] =
+            circuit_builder.get_variable(circuit_builder.wires[circuit_builder.QUOTIENT_LO_BINARY_LIMBS][i]);
+        prover_polynomials.quotient_hi_binary_limbs[i] =
+            circuit_builder.get_variable(circuit_builder.wires[circuit_builder.QUOTIENT_HI_BINARY_LIMBS][i]);
+        prover_polynomials.relation_wide_limbs[i] =
+            circuit_builder.get_variable(circuit_builder.wires[circuit_builder.RELATION_WIDE_LIMBS][i]);
+    }
+
+    // Fill in lagrange odd polynomial
+    for (size_t i = 1; i < mini_circuit_size - 1; i += 2) {
+        prover_polynomials.lagrange_odd[i] = 1;
+    }
+    // Construct the round for applying sumcheck relations and results for storing computed results
+    auto relations = std::tuple(honk::sumcheck::GoblinTranslatorMainRelation<FF>());
+
+    // Check that each relation is satisfied across each row of the prover polynomials
+    check_relation<Flavor>(std::get<0>(relations), circuit_size, prover_polynomials, params);
+}
+
 } // namespace test_honk_relations

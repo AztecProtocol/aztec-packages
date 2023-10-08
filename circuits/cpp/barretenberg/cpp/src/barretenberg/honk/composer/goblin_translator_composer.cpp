@@ -1,3 +1,11 @@
+/**
+ * @file goblin_translator_composer.cpp
+ * @brief Contains the logic for transfroming a Goblin Translator Circuit Builder object into a witness  and methods to
+ * create prover and verifier objects
+ * @date 2023-10-05
+ *
+ *
+ */
 #include "goblin_translator_composer.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/thread.hpp"
@@ -23,22 +31,24 @@ namespace proof_system::honk {
  * @param circuit_constructor
  */
 template <typename Flavor>
-void GoblinTranslatorComposer_<Flavor>::compute_circuit_size_parameters(CircuitBuilder& circuit_constructor)
+void GoblinTranslatorComposer_<Flavor>::compute_circuit_size_parameters(CircuitBuilder& circuit_builder)
 {
-    const size_t num_gates = circuit_constructor.num_gates;
+    const size_t num_gates = circuit_builder.num_gates;
 
     // number of populated rows in the execution trace
     size_t num_rows_populated_in_execution_trace = num_gates;
 
-    // The number of gates is max(lookup gates + tables, rows already populated in trace) + 1, where the +1 is due to
-    // addition of a "zero row" at top of the execution trace to ensure wires and other polys are shiftable.
+    // Goblin translator circuits always have a predefined size and are structured as a VM (no concept of selectors)
     ASSERT(MINI_CIRCUIT_SIZE >= num_rows_populated_in_execution_trace);
+
     total_num_gates = std::max(MINI_CIRCUIT_SIZE, num_rows_populated_in_execution_trace);
 
     // Next power of 2
-    mini_circuit_dyadic_size = circuit_constructor.get_circuit_subgroup_size(total_num_gates);
+    mini_circuit_dyadic_size = circuit_builder.get_circuit_subgroup_size(total_num_gates);
+
+    // The actual circuit size is several times bigger than the trace in the builder, because we use concatenation to
+    // bring the degree of relations down, while extending the length.
     dyadic_circuit_size = mini_circuit_dyadic_size * Flavor::CONCATENATION_INDEX;
-    info(dyadic_circuit_size);
 }
 
 /**
@@ -93,9 +103,9 @@ template <typename Flavor> void GoblinTranslatorComposer_<Flavor>::compute_witne
     auto wire_polynomials =
         construct_wire_polynomials_base_goblin_translator<Flavor>(circuit_constructor, dyadic_circuit_size);
 
+    // Most of the witness polynomials are the original wire polynomials
     proving_key->op = wire_polynomials[0];
     proving_key->x_lo_y_hi = wire_polynomials[1];
-    info(proving_key->x_lo_y_hi[0]);
     proving_key->x_hi_z_1 = wire_polynomials[2];
     proving_key->y_lo_z_2 = wire_polynomials[3];
     proving_key->p_x_low_limbs = wire_polynomials[4];
@@ -175,35 +185,52 @@ template <typename Flavor> void GoblinTranslatorComposer_<Flavor>::compute_witne
     proving_key->relation_wide_limbs_range_constraint_1 = wire_polynomials[78];
     proving_key->relation_wide_limbs_range_constraint_2 = wire_polynomials[79];
     proving_key->relation_wide_limbs_range_constraint_3 = wire_polynomials[80];
+
+    // We construct concatenated versions of range constraint polynomials, where several polynomials are concatenated
+    // into one. These polynomials are not commited to.
     compute_concatenated_polynomials<Flavor>(proving_key.get());
+
+    // We also contruct ordered polynomials, which have the same values as concatenated ones + enough values to bridge
+    // the range from 0 to maximum range defined by the range constraint.
     compute_goblin_translator_range_constraint_ordered_polynomials<Flavor>(proving_key.get());
+
     computed_witness = true;
 }
 
+/**
+ * @brief Create a prover object (used to create the proof)
+ *
+ * @tparam Flavor
+ * @param circuit_builder
+ * @return GoblinTranslatorProver_<Flavor>
+ */
 template <typename Flavor>
-GoblinTranslatorProver_<Flavor> GoblinTranslatorComposer_<Flavor>::create_prover(CircuitBuilder& circuit_constructor)
+GoblinTranslatorProver_<Flavor> GoblinTranslatorComposer_<Flavor>::create_prover(CircuitBuilder& circuit_builder)
 {
 
     // Compute total number of gates, dyadic circuit size, etc.
-    compute_circuit_size_parameters(circuit_constructor);
+    compute_circuit_size_parameters(circuit_builder);
 
-    compute_proving_key(circuit_constructor);
-    compute_witness(circuit_constructor);
+    // Compute non-witness polynomials
+    compute_proving_key(circuit_builder);
+
+    compute_witness(circuit_builder);
 
     compute_commitment_key(proving_key->circuit_size);
 
     GoblinTranslatorProver_<Flavor> output_state(proving_key, commitment_key);
-    info("Lagrange[-1]", proving_key->lagrange_last[Flavor::FULL_CIRCUIT_SIZE - 1]);
 
     return output_state;
 }
 
 /**
- * Create verifier: compute verification key,
+ * @brief Create verifier: compute verification key,
  * initialize verifier with it and an initial manifest and initialize commitment_scheme.
  *
- * @return The verifier.
- * */
+ * @tparam Flavor
+ * @param circuit_constructor
+ * @return GoblinTranslatorVerifier_<Flavor>
+ */
 template <typename Flavor>
 GoblinTranslatorVerifier_<Flavor> GoblinTranslatorComposer_<Flavor>::create_verifier(
     const CircuitBuilder& circuit_constructor)
@@ -219,6 +246,14 @@ GoblinTranslatorVerifier_<Flavor> GoblinTranslatorComposer_<Flavor>::create_veri
     return output_state;
 }
 
+/**
+ * @brief Move goblin translator specific inputs from circuit builder and compute all the constant polynomials used by
+ * the prover
+ *
+ * @tparam Flavor
+ * @param circuit_builder
+ * @return std::shared_ptr<typename Flavor::ProvingKey>
+ */
 template <typename Flavor>
 std::shared_ptr<typename Flavor::ProvingKey> GoblinTranslatorComposer_<Flavor>::compute_proving_key(
     const CircuitBuilder& circuit_builder)
@@ -228,18 +263,29 @@ std::shared_ptr<typename Flavor::ProvingKey> GoblinTranslatorComposer_<Flavor>::
     }
 
     proving_key = std::make_shared<ProvingKey>(dyadic_circuit_size);
-    proving_key.get()->evaluation_input_x = circuit_builder.evaluation_input_x;
-    proving_key.get()->batching_challenge_v = circuit_builder.batching_challenge_v;
-    info(proving_key.get()->circuit_size);
+
+    // The input/challenge that we are evaluating all polynomials at
+    proving_key->evaluation_input_x = circuit_builder.evaluation_input_x;
+
+    // The challenge for batching polynomials
+    proving_key->batching_challenge_v = circuit_builder.batching_challenge_v;
+
+    // First and last lagrange polynomials (in the full circuit size)
     compute_first_and_last_lagrange_polynomials<Flavor>(proving_key.get());
-    compute_short_odd_and_even_lagrange_polynomials<Flavor>(proving_key.get());
+
+    // Compute polynomials with odd and even indices set to 1 up to the minicircuit margin + lagrange polynomials at
+    // second and second to last indices in the minicircuit
+    compute_lagrange_polynomials_for_goblin_translator<Flavor>(proving_key.get());
+
+    // Compute the numerator for the permutation argument with several repetitions of steps bridging 0 and maximum range
+    // constraint
     compute_extra_range_constraint_numerator<Flavor>(proving_key.get());
 
     return proving_key;
 }
 
 /**
- * Compute verification key consisting of selector precommitments.
+ * Compute verification key consisting of non-changing polynomials' precommitments.
  *
  * @return Pointer to created circuit verification key.
  * */
