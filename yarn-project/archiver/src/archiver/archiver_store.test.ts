@@ -83,7 +83,7 @@ describe('Archiver Memory Store', () => {
     },
   );
 
-  describe('getUnencryptedLogs errors', () => {
+  describe('getUnencryptedLogs errors and config', () => {
     it('throws when log filter is invalid', async () => {
       const txHash = new TxHash(randomBytes(TxHash.SIZE));
       const fromBlock = 1;
@@ -125,9 +125,26 @@ describe('Archiver Memory Store', () => {
           }),
       ).rejects.toThrow(`smaller than genesis block number`);
     });
+
+    it('does not return more than `maxLogs` logs', async () => {
+      const maxLogs = 5;
+      archiverStore = new MemoryArchiverStore(maxLogs);
+      const blocks = Array(10)
+        .fill(0)
+        .map((_, index: number) => L2Block.random(index + 1, 4, 2, 3, 2, 2));
+
+      await archiverStore.addL2Blocks(blocks);
+      await archiverStore.addLogs(
+        blocks.map(block => block.newUnencryptedLogs!),
+        LogType.UNENCRYPTED,
+      );
+
+      const extendedLogs = await archiverStore.getUnencryptedLogs({});
+      expect(extendedLogs.length).toEqual(maxLogs);
+    });
   });
 
-  describe('getUnencryptedLogs filter', () => {
+  describe('getUnencryptedLogs filtering', () => {
     const txsPerBlock = 4;
     const numPublicFunctionCalls = 3;
     const numUnencryptedLogs = 4;
