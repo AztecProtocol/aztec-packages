@@ -402,7 +402,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     let txIndexInBlock = 0;
     let logIndexInTx = 0;
     if (filter.afterLog !== undefined) {
-      txIndexInBlock = filter.afterLog.logIndex;
+      txIndexInBlock = filter.afterLog.txIndex;
       logIndexInTx = filter.afterLog.logIndex + 1; // We want to start from the next log
     }
 
