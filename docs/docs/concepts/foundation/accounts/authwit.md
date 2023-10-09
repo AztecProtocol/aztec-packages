@@ -56,8 +56,9 @@ Adopting ERC20 for Aztec is not as simple as it might seem because of private st
 
 If you recall from [State model](./../state_model.md), private state is generally only known by its owner and those they have shared it with. Because it relies on secrets, private state might be "owned" by a contract, but it needs someone with knowledge of these secrets to actually spend it. You might see where this is going.
 
-If we were to implement the `approve` with an allowance in private, you might know the allowance, but unless you also know about the individual notes that make up the user's balances, it would be of no use to you! It is private after all.
+If we were to implement the `approve` with an allowance in private, you might know the allowance, but unless you also know about the individual notes that make up the user's balances, it would be of no use to you! It is private after all. To spend the user's funds you would need to know the decryption key, see [keys for more](../accounts/keys.md). 
 
+While this might sound limiting in what we can actually do, the main use of approvals have been for simplifying contract interactions that the user is doing. In the case of private transactions, this is executed on the user device, so it is not a blocker that the user need to tell the executor a secret - the user is the executor!
 ### So what can we do?
 
 A few more things we need to remember about private execution:
@@ -98,11 +99,7 @@ action = H(defi, token, transfer_selector, H(alice_account, defi, 1000));
 
 This can be read as "defi is allowed to call token transfer function with the arguments (alice_account, defi, 1000)".
 
-With this out of the way, let's look at how this would work in the graph below.
-
-Note in particular that the request for a witness is done by the token contract, and the user will have to provide it to the contract before it can continue execution. The exact contents of the witness will differ between implementations as mentioned before, but for the sake of simplicity you can think of it as a signature, which the account contract can then use to validate if it really should allow the action.
-
-Since the request is made all the way into the contract where it is to be used, we don't need to pass it along as an extra input to the functions before it which gives us a cleaner interface.
+With this out of the way, let's look at how this would work in the graph below. The exact contents of the witness will differ between implementations as mentioned before, but for the sake of simplicity you can think of it as a signature, which the account contract can then use to validate if it really should allow the action.
 
 ```mermaid
 sequenceDiagram
@@ -124,6 +121,7 @@ sequenceDiagram
     deactivate Alice
     Token->>Token: throw if invalid AuthWit
     Token->>Token: transfer(Alice, Defi, 1000);
+    Token->>Defi: success
     deactivate Token
     Defi->>Defi: deposit(Token, 1000);
     deactivate Defi
@@ -132,6 +130,10 @@ sequenceDiagram
 
 :::info Static call for AuthWit checks
 The call to the account contract for checking authentication should be a static call, meaning that it cannot change state or make calls that change state. If this call is not static, it could be used to re-enter the flow and change the state of the contract.
+:::
+
+:::danger Static call currently unsupported
+The current execution layer does not implement static call. So currently you will be passing along the control flow :grimacing:.
 :::
 
 :::danger Re-entries
@@ -161,6 +163,7 @@ sequenceDiagram
     AC->>Token: AuthWit validity
     Token->>Token: throw if invalid AuthWit
     Token->>Token: transfer(Alice, Defi, 1000);
+    Token->>Defi: success
     deactivate Token
     Defi->>Defi: deposit(Token, 1000);
     deactivate Defi
@@ -190,3 +193,7 @@ Also, most uses of the approvals are for contracts where the following interacti
 ### Other use-cases
 
 We don't need to limit ourselves to the `transfer` function, we can use the same scheme for any function that requires authentication. For example, for authenticating to burn or shield assets or to vote in a governance contract or perform an operation on a lending protocol.
+
+### Next Steps
+
+Check out the [developer documentation](./../../../dev_docs/contracts/resources/common_patterns/authwit.md) to see how to implement this in your own contracts.

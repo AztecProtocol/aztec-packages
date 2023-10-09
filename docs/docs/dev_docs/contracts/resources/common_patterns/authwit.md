@@ -2,6 +2,8 @@
 title: Authentication Witness
 description: Developer Documentation to use Authentication Witness for authentication actions on Aztec.
 ---
+## Prerequisite reading
+- [Authwit from Foundational Concepts](./../../../../concepts/foundation/accounts/authwit.md)
 
 ## Introduction
 
@@ -20,8 +22,8 @@ authentication_witness_action = H(
 );
 
 // Example action that authenticates:
-// defi to transfer 1000 tokens to itself on behalf of alice_account
-action = H(
+// defi contract to transfer 1000 tokens to itself on behalf of alice_account
+authentication_witness_action = H(
   defi,
   token,
   transfer_selector,
@@ -51,11 +53,16 @@ sequenceDiagram
     deactivate Alice
     Token->>Token: throw if invalid AuthWit
     Token->>Token: transfer(Alice, Defi, 1000);
+    Token->>Defi: success
     deactivate Token
     Defi->>Defi: deposit(Token, 1000);
     deactivate Defi
     deactivate AC
 ```
+
+:::info
+Note in particular that the request for a witness is done by the token contract, and the user will have to provide it to the contract before it can continue execution. Since the request is made all the way into the contract where it is to be used, we don't need to pass it along as an extra input to the functions before it which gives us a cleaner interface.
+:::
 
 As part of `AuthWit` we are assuming that the `on_behalf_of` implements the private and/or public functions:
 
@@ -211,6 +218,7 @@ sequenceDiagram
     T->>CC: Have you approved this?
     CC->>T: Yes
     T-->>T: Burn
+    Token->>Defi: success
     deactivate T;
     TB-->>TB: Emit L2->L1 message
     deactivate TB;
