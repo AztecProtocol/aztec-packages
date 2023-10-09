@@ -2,6 +2,7 @@
 #include "../polynomials/univariate.hpp"
 #include "barretenberg/honk/flavor/goblin_translator.hpp"
 #include "barretenberg/honk/sumcheck/relations/goblin_translator_decomposition_relation.hpp"
+#include "barretenberg/honk/sumcheck/relations/goblin_translator_extra_relations.hpp"
 #include "barretenberg/honk/sumcheck/relations/goblin_translator_gen_perm_sort_relation.hpp"
 #include "permutation_relation.hpp"
 #include "relation_parameters.hpp"
@@ -62,7 +63,16 @@ class GoblinTranslatorRelationConsistency : public testing::Test {
                  .beta = FF::random_element(),
                  .gamma = FF::random_element(),
                  .public_input_delta = FF::zero(),
-                 .lookup_grand_product_delta = FF::zero() };
+                 .lookup_grand_product_delta = FF::zero(),
+                 .evaluation_input_x = { FF::random_element(),
+                                         FF::random_element(),
+                                         FF::random_element(),
+                                         FF::random_element() },
+                 .batching_challenge_v = {
+                     { { FF::random_element(), FF::random_element(), FF::random_element(), FF::random_element() },
+                       { FF::random_element(), FF::random_element(), FF::random_element(), FF::random_element() },
+                       { FF::random_element(), FF::random_element(), FF::random_element(), FF::random_element() },
+                       { FF::random_element(), FF::random_element(), FF::random_element(), FF::random_element() } } } };
     }
 
     /**
@@ -93,11 +103,12 @@ class GoblinTranslatorRelationConsistency : public testing::Test {
     };
 
     /**
-     * @brief Compute the evaluation of a `relation` in different ways, comparing it to the provided `expected_evals`
+     * @brief Compute the evaluation of a `relation` in different ways, comparing it to the provided
+     * `expected_evals`
      *
-     * @details Check both `add_full_relation_value_contribution` and `add_edge_contribution` by comparing the result to
-     * the `expected_evals` computed by the caller.
-     * Ensures that the relations compute the same result as the expression given in the tests.
+     * @details Check both `add_full_relation_value_contribution` and `add_edge_contribution` by comparing the
+     * result to the `expected_evals` computed by the caller. Ensures that the relations compute the same result as
+     * the expression given in the tests.
      *
      * @param expected_evals Relation evaluation computed by the caller.
      * @param relation being tested
@@ -211,9 +222,9 @@ TEST_F(GoblinTranslatorRelationConsistency, PermutationRelation)
 
         auto relation = GoblinTranslatorPermutationRelation<FF>();
 
-        // We only use γ in the relation, because we don't care about ordering of the permutations. We only need to make
-        // sure that the set of values in concatenated range contraints + the extra numerator is identical to the sum
-        // set of ordered range constraints
+        // We only use γ in the relation, because we don't care about ordering of the permutations. We only need to
+        // make sure that the set of values in concatenated range contraints + the extra numerator is identical to
+        // the sum set of ordered range constraints
         const auto& gamma = relation_parameters.gamma;
 
         // Manually compute the expected edge contribution
@@ -585,8 +596,8 @@ TEST_F(GoblinTranslatorRelationConsistency, DecompositionRelation)
         const auto& lagrange_odd = extended_edges.lagrange_odd;
 
         /**
-         * @brief Check decomposition of a relation limb. Relation limbs are 72 bits, so the decompositon takes 6 14-bit
-         * microlimbs
+         * @brief Check decomposition of a relation limb. Relation limbs are 72 bits, so the decompositon takes 6
+         * 14-bit microlimbs
          *
          */
         auto check_relation_limb_decomposition = [MICRO_LIMB_SHIFT,
@@ -608,8 +619,8 @@ TEST_F(GoblinTranslatorRelationConsistency, DecompositionRelation)
         };
 
         /**
-         * @brief Check the decomposition of a standard limb. Standard limbs are 68 bits, so we decompose them into 5
-         * 14-bit microlimbs
+         * @brief Check the decomposition of a standard limb. Standard limbs are 68 bits, so we decompose them into
+         * 5 14-bit microlimbs
          *
          */
         auto check_standard_limb_decomposition =
@@ -648,8 +659,8 @@ TEST_F(GoblinTranslatorRelationConsistency, DecompositionRelation)
         };
 
         /**
-         * @brief Ensure that the last microlimb of a standard top limb decomposition is 8 bits by checking a shifted
-         * version.
+         * @brief Ensure that the last microlimb of a standard top limb decomposition is 8 bits by checking a
+         * shifted version.
          *
          */
         auto check_top_tail_micro_limb_correctness = [SHIFT_8_TO_14, lagrange_odd](auto& nonshifted_micro_limb,
@@ -910,6 +921,103 @@ TEST_F(GoblinTranslatorRelationConsistency, DecompositionRelation)
             check_wide_limb_into_regular_limb_correctness(z_lo_limbs_shift, z_hi_limbs_shift, y_lo_z_2_shift);
 
         validate_evaluations(expected_full_length_univariates, relation, extended_edges, relation_parameters);
+    };
+    run_test(/* is_random_input=*/true);
+    run_test(/* is_random_input=*/false);
+};
+
+/**
+ * @brief Check the consistency of GoblinTranslator OpRangeConstraint Relation and Accumulator Transfer relations
+ *
+ * @details The OpRangeConstraint relation is used to ensure the Op wire only contains the 4 allowed opcodes. The
+ * accumulator transfer relation ensures that the accumulator starts with a zero, is copied correctly between
+ * accumulation steps and ends up being the stated value
+ */
+TEST_F(GoblinTranslatorRelationConsistency, ExtraRelations)
+{
+    using Flavor = honk::flavor::GoblinTranslatorBasic;
+    using FF = typename Flavor::FF;
+    static constexpr size_t FULL_RELATION_LENGTH = 5;
+    using ExtendedEdges = typename Flavor::template ExtendedEdges<FULL_RELATION_LENGTH>;
+    static const size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
+
+    const auto relation_parameters = compute_mock_relation_parameters();
+    auto run_test = [&relation_parameters](bool is_random_input) {
+        ExtendedEdges extended_edges;
+        std::array<Univariate<FF, INPUT_UNIVARIATE_LENGTH>, NUM_POLYNOMIALS> input_polynomials;
+        if (!is_random_input) {
+            // evaluation form, i.e. input_univariate(0) = 1, input_univariate(1) = 2,.. The polynomial is x+1.
+            for (size_t i = 0; i < NUM_POLYNOMIALS; ++i) {
+                input_polynomials[i] = Univariate<FF, INPUT_UNIVARIATE_LENGTH>({ 1, 2 });
+            }
+            compute_mock_extended_edges<FULL_RELATION_LENGTH>(extended_edges, input_polynomials);
+        } else {
+            // input_univariates are random polynomials of degree one
+            for (size_t i = 0; i < NUM_POLYNOMIALS; ++i) {
+                input_polynomials[i] =
+                    Univariate<FF, INPUT_UNIVARIATE_LENGTH>({ FF::random_element(), FF::random_element() });
+            }
+            compute_mock_extended_edges<FULL_RELATION_LENGTH>(extended_edges, input_polynomials);
+        };
+        auto op_range_constraint_relation = GoblinTranslatorOpRangeConstraintRelation<FF>();
+        auto accumulator_transfer_relation = GoblinTranslatorAccumulatorTransferRelation<FF>();
+
+        // Compute expected full length Univariates using straight forward expressions
+        constexpr std::size_t NUM_OP_RANGE_CONSTRAINT_SUBRELATIONS =
+            std::tuple_size_v<decltype(op_range_constraint_relation)::RelationUnivariates>;
+        constexpr std::size_t NUM_ACCUMULATOR_TRANSFER_CONSTRAINT_SUBRELATIONS =
+            std::tuple_size_v<decltype(accumulator_transfer_relation)::RelationUnivariates>;
+        auto op_range_constraint_expected_full_length_univariates =
+            std::array<Univariate<FF, FULL_RELATION_LENGTH>, NUM_OP_RANGE_CONSTRAINT_SUBRELATIONS>();
+        auto accumulator_transfer_expected_full_length_univariates =
+            std::array<Univariate<FF, FULL_RELATION_LENGTH>, NUM_ACCUMULATOR_TRANSFER_CONSTRAINT_SUBRELATIONS>();
+        const auto& op = extended_edges.op;
+
+        const auto& lagrange_even = extended_edges.lagrange_even;
+        const auto& lagrange_second = extended_edges.lagrange_second;
+        const auto& lagrange_second_to_last_in_minicircuit = extended_edges.lagrange_second_to_last_in_minicircuit;
+        const auto& accumulators_binary_limbs_0 = extended_edges.accumulators_binary_limbs_0;
+        const auto& accumulators_binary_limbs_0_shift = extended_edges.accumulators_binary_limbs_0_shift;
+        const auto& accumulators_binary_limbs_1 = extended_edges.accumulators_binary_limbs_1;
+        const auto& accumulators_binary_limbs_1_shift = extended_edges.accumulators_binary_limbs_1_shift;
+        const auto& accumulators_binary_limbs_2 = extended_edges.accumulators_binary_limbs_2;
+        const auto& accumulators_binary_limbs_2_shift = extended_edges.accumulators_binary_limbs_2_shift;
+        const auto& accumulators_binary_limbs_3 = extended_edges.accumulators_binary_limbs_3;
+        const auto& accumulators_binary_limbs_3_shift = extended_edges.accumulators_binary_limbs_3_shift;
+
+        op_range_constraint_expected_full_length_univariates[0] = op * (op - FF(1)) * (op - FF(2)) * (op - FF(3));
+        validate_evaluations(op_range_constraint_expected_full_length_univariates,
+                             op_range_constraint_relation,
+                             extended_edges,
+                             relation_parameters);
+        accumulator_transfer_expected_full_length_univariates[0] =
+            lagrange_even * (accumulators_binary_limbs_0 - accumulators_binary_limbs_0_shift);
+        accumulator_transfer_expected_full_length_univariates[1] =
+            lagrange_even * (accumulators_binary_limbs_1 - accumulators_binary_limbs_1_shift);
+        accumulator_transfer_expected_full_length_univariates[2] =
+            lagrange_even * (accumulators_binary_limbs_2 - accumulators_binary_limbs_2_shift);
+        accumulator_transfer_expected_full_length_univariates[3] =
+            lagrange_even * (accumulators_binary_limbs_3 - accumulators_binary_limbs_3_shift);
+        accumulator_transfer_expected_full_length_univariates[4] =
+            accumulators_binary_limbs_0 * lagrange_second_to_last_in_minicircuit;
+        accumulator_transfer_expected_full_length_univariates[5] =
+            accumulators_binary_limbs_1 * lagrange_second_to_last_in_minicircuit;
+        accumulator_transfer_expected_full_length_univariates[6] =
+            accumulators_binary_limbs_2 * lagrange_second_to_last_in_minicircuit;
+        accumulator_transfer_expected_full_length_univariates[7] =
+            accumulators_binary_limbs_3 * lagrange_second_to_last_in_minicircuit;
+        accumulator_transfer_expected_full_length_univariates[8] =
+            (accumulators_binary_limbs_0 - relation_parameters.accumulated_result[0]) * lagrange_second;
+        accumulator_transfer_expected_full_length_univariates[9] =
+            (accumulators_binary_limbs_1 - relation_parameters.accumulated_result[1]) * lagrange_second;
+        accumulator_transfer_expected_full_length_univariates[10] =
+            (accumulators_binary_limbs_2 - relation_parameters.accumulated_result[2]) * lagrange_second;
+        accumulator_transfer_expected_full_length_univariates[11] =
+            (accumulators_binary_limbs_3 - relation_parameters.accumulated_result[3]) * lagrange_second;
+        validate_evaluations(accumulator_transfer_expected_full_length_univariates,
+                             accumulator_transfer_relation,
+                             extended_edges,
+                             relation_parameters);
     };
     run_test(/* is_random_input=*/true);
     run_test(/* is_random_input=*/false);
