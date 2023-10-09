@@ -104,4 +104,15 @@ describe('Archiver Memory Store', () => {
     };
     await expect(async () => await archiverStore.getUnencryptedLogs(filter4)).rejects.toThrow(`If fromBlock is set`);
   });
+
+  it('throws fromBlock is smaller than genesis block', async () => {
+    const fromBlock = INITIAL_L2_BLOCK_NUM - 1;
+
+    await expect(
+      async () =>
+        await archiverStore.getUnencryptedLogs({
+          fromBlock,
+        }),
+    ).rejects.toThrow(`smaller than genesis block number`);
+  });
 });
