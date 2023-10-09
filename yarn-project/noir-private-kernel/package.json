@@ -3,6 +3,7 @@
   "version": "0.0.1",
   "main": "index.js",
   "license": "MIT/APACHE-2.0",
+  "type": "module",
   "devDependencies": {
     "@types/node": "^20.8.3",
     "typescript": "^5.2.2"
@@ -12,6 +13,7 @@
     "@noir-lang/noir_js": "^0.16.0"
   },
   "scripts": {
-    "build": "tsc"
+    "build": "tsc",
+    "start" : "yarn build && node dist/index.js"
   }
 }
