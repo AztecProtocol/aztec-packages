@@ -1,0 +1,48 @@
+use crate::block::Block;
+
+struct HistoricalBlockData {
+    blocks_tree_root : Field,
+    block : Block,
+    // Private data
+    // This is marked in the cpp code as an enhancement
+    private_kernel_vk_tree_root : Field,
+}
+
+impl HistoricalBlockData {
+    fn assert_is_zero(self) {
+        self.block.assert_is_zero();
+        assert(self.private_kernel_vk_tree_root == 0);
+    }
+
+    // TODO: We can move this onto block and then 
+    fn to_array(self) -> [Field;7] {
+        // This comment was copied from the cpp codebase.
+        //
+        // TODO: Note private_kernel_vk_tree_root, is not included yet as
+        // it is not present in noir,
+        [
+            self.block.private_data_tree_root,
+            self.block.nullifier_tree_root,
+            self.block.contract_tree_root,
+            self.block.l1_to_l2_data_tree_root,
+            self.blocks_tree_root,
+            self.block.public_data_tree_root,
+            self.block.global_variables_hash
+        ]
+    }
+
+    // Note: private_kernel_vk_tree_root is not being hashed here
+    // TODO(David): Is this because it is not included in Noir?
+    fn hash(self) -> Field {
+        // Also note that the blocks_tree_root does not get hashed
+        self.block.hash()
+    }
+    
+    fn private_data_tree_root(self) -> Field {
+        self.block.private_data_tree_root
+    }
+
+    fn contract_tree_root(self) -> Field {
+        self.block.contract_tree_root
+    }
+}

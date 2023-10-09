@@ -1,0 +1,35 @@
+use crate::address::{Address, EthAddress};
+use crate::{constants, utils};
+
+struct NewContractData {
+    contract_address : Address,
+    portal_contract_address : EthAddress,
+    function_tree_root : Field,
+}
+
+impl NewContractData {
+    fn is_empty(self) -> bool {
+        (self.contract_address.to_field() == 0) && 
+        (self.portal_contract_address.to_field() == 0) && 
+        (self.function_tree_root ==0)
+    }
+
+    fn hash(self) -> Field {
+        if self.is_empty() {
+            0 // We want to return 0 here since the contract_address is zero
+        } else {
+            let _hash_index = constants::generator_index::CONTRACT_LEAF;
+
+            // hash all contents and put in compress method
+            0
+        }
+    }
+    
+    // TODO(David): These were switched in the cpp code
+    // Its quite confusing that true will select the rhs
+    fn conditional_select(mut self, predicate : bool, other : NewContractData) {
+        self.contract_address = Address::conditional_assign(predicate, other.contract_address, self.contract_address);
+        self.portal_contract_address = EthAddress::conditional_assign(predicate, other.portal_contract_address, self.portal_contract_address);
+        self.function_tree_root = utils::conditional_assign(predicate, other.function_tree_root, self.function_tree_root);
+    }
+}
