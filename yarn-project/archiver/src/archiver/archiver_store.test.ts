@@ -1,4 +1,13 @@
-import { INITIAL_L2_BLOCK_NUM, L2Block, L2BlockContext, L2BlockL2Logs, LogId, LogType, TxHash } from '@aztec/types';
+import {
+  INITIAL_L2_BLOCK_NUM,
+  L2Block,
+  L2BlockContext,
+  L2BlockL2Logs,
+  LogId,
+  LogType,
+  TxHash,
+  UnencryptedL2Log,
+} from '@aztec/types';
 
 import { randomBytes } from 'crypto';
 
@@ -193,6 +202,25 @@ describe('Archiver Memory Store', () => {
             expect(logId.logIndex).toBeGreaterThan(afterLog.logIndex);
           }
         }
+      }
+    });
+
+    it('selector filter param is respected', async () => {
+      // Get a random selector from the logs
+      const targetBlockIndex = Math.floor(Math.random() * numBlocks);
+      const targetTxIndex = Math.floor(Math.random() * txsPerBlock);
+      const targetFunctionLogIndex = Math.floor(Math.random() * numPublicFunctionCalls);
+      const targetLogIndex = Math.floor(Math.random() * numUnencryptedLogs);
+      const targetSelector = UnencryptedL2Log.fromBuffer(
+        blocks[targetBlockIndex].newUnencryptedLogs!.txLogs[targetTxIndex].functionLogs[targetFunctionLogIndex].logs[
+          targetLogIndex
+        ],
+      ).selector;
+
+      const extendedLogs = await archiverStore.getUnencryptedLogs({ selector: targetSelector });
+
+      for (const extendedLog of extendedLogs) {
+        expect(extendedLog.log.selector.equals(targetSelector)).toBeTruthy();
       }
     });
   });
