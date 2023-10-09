@@ -431,7 +431,7 @@ class Ultra {
             } else if constexpr (std::same_as<T, std::array<FF, NUM_ALL_ENTITIES>>) {
                 return SumcheckEvalObj;
             } else {
-                throw std::runtime_error("Unknown type");
+                throw_or_abort("Received unknown type in convertTypeToEnum");
             }
         }
 
@@ -449,7 +449,7 @@ class Ultra {
             case SumcheckEvalObj:
                 return (static_cast<std::array<FF, NUM_ALL_ENTITIES>*>(obj_ptr));
             default:
-                throw std::runtime_error("Unknown type");
+                throw_or_abort("Received unknown enum type in convertTypePtrFromEnum");
             }
         }
 

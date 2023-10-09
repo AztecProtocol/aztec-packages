@@ -84,6 +84,7 @@ template <typename FF> class BaseTranscript {
     // "Manifest" object that records a summary of the transcript interactions
     TranscriptManifest manifest;
 
+    // TODO(lucas): make this pure virtual
     void setUpStructure(uint32_t circuit_size);
 
     /**
