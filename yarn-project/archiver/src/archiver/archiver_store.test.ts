@@ -205,6 +205,25 @@ describe('Archiver Memory Store', () => {
       }
     });
 
+    it('contractAddress filter param is respected', async () => {
+      // Get a random contract address from the logs
+      const targetBlockIndex = Math.floor(Math.random() * numBlocks);
+      const targetTxIndex = Math.floor(Math.random() * txsPerBlock);
+      const targetFunctionLogIndex = Math.floor(Math.random() * numPublicFunctionCalls);
+      const targetLogIndex = Math.floor(Math.random() * numUnencryptedLogs);
+      const targetContractAddress = UnencryptedL2Log.fromBuffer(
+        blocks[targetBlockIndex].newUnencryptedLogs!.txLogs[targetTxIndex].functionLogs[targetFunctionLogIndex].logs[
+          targetLogIndex
+        ],
+      ).contractAddress;
+
+      const extendedLogs = await archiverStore.getUnencryptedLogs({ contractAddress: targetContractAddress });
+
+      for (const extendedLog of extendedLogs) {
+        expect(extendedLog.log.contractAddress.equals(targetContractAddress)).toBeTruthy();
+      }
+    });
+
     it('selector filter param is respected', async () => {
       // Get a random selector from the logs
       const targetBlockIndex = Math.floor(Math.random() * numBlocks);
