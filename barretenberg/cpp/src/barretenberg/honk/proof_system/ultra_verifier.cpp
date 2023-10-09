@@ -148,9 +148,6 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const plonk
     // Challenges x, z
     auto [x_challenge, z_challenge] = transcript.get_challenges("ZM:x", "ZM:z");
 
-    // Compute commitment C_{v,x} = v * x * \Phi_n(x) * [1]_1
-    auto C_v_x = ZeroMorph::compute_C_v_x(batched_evaluation, x_challenge, circuit_size);
-
     // Compute commitment C_{\zeta_x}
     auto C_zeta_x = ZeroMorph::compute_C_zeta_x(C_q, C_q_k, y_challenge, x_challenge);
 
@@ -164,8 +161,8 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const plonk
     }
 
     // Compute commitment C_{Z_x}
-    Commitment C_Z_x =
-        ZeroMorph::compute_C_Z_x(C_v_x, f_commitments, g_commitments, C_q_k, rho, x_challenge, multivariate_challenge);
+    Commitment C_Z_x = ZeroMorph::compute_C_Z_x(
+        f_commitments, g_commitments, C_q_k, rho, batched_evaluation, x_challenge, multivariate_challenge);
 
     // Compute commitment C_{\zeta,Z}
     auto C_zeta_Z = C_zeta_x + C_Z_x * z_challenge;
