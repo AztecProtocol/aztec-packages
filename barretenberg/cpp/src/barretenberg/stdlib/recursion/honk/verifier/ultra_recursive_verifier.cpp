@@ -1,6 +1,5 @@
 #include "barretenberg/stdlib/recursion/honk/verifier/ultra_recursive_verifier.hpp"
-#include "barretenberg/honk/pcs/gemini/gemini.hpp"
-#include "barretenberg/honk/pcs/shplonk/shplonk.hpp"
+#include "barretenberg/honk/pcs/zeromorph/zeromorph.hpp"
 #include "barretenberg/honk/transcript/transcript.hpp"
 #include "barretenberg/honk/utils/grand_product_delta.hpp"
 #include "barretenberg/honk/utils/power_polynomial.hpp"
@@ -24,9 +23,7 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
 {
     using Sumcheck = ::proof_system::honk::sumcheck::SumcheckVerifier<Flavor>;
     using Curve = typename Flavor::Curve;
-    using Gemini = ::proof_system::honk::pcs::gemini::GeminiVerifier_<Curve>;
-    using Shplonk = ::proof_system::honk::pcs::shplonk::ShplonkVerifier_<Curve>;
-    using KZG = ::proof_system::honk::pcs::kzg::KZG<Curve>; // note: This can only be KZG
+    using ZeroMorph = ::proof_system::honk::pcs::zeromorph::ZeroMorphVerifier_<Curve>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using RelationParams = ::proof_system::RelationParameters<FF>;
@@ -44,6 +41,7 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     const auto circuit_size = transcript.template receive_from_prover<uint32_t>("circuit_size");
     const auto public_input_size = transcript.template receive_from_prover<uint32_t>("public_input_size");
     const auto pub_inputs_offset = transcript.template receive_from_prover<uint32_t>("pub_inputs_offset");
+    const auto log_circuit_size = numeric::get_msb32(static_cast<uint32_t>(circuit_size.get_value()));
 
     // For debugging purposes only
     ASSERT(static_cast<uint32_t>(circuit_size.get_value()) == key->circuit_size);
@@ -100,7 +98,7 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     // Execute Sumcheck Verifier and extract multivariate opening point u = (u_0, ..., u_{d-1}) and purported
     // multivariate evaluations at u
     auto sumcheck = Sumcheck(key->circuit_size);
-    auto [multivariate_challenge, purported_evaluations, verified] = sumcheck.verify(relation_parameters, transcript);
+    auto [multivariate_challenge, claimed_evaluations, verified] = sumcheck.verify(relation_parameters, transcript);
 
     info("Sumcheck: num gates = ",
          builder->get_num_gates() - prev_num_gates,
@@ -111,94 +109,63 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
 
     // Compute powers of batching challenge rho
     FF rho = transcript.get_challenge("rho");
-    std::vector<FF> rhos = ::proof_system::honk::pcs::gemini::powers_of_rho(rho, Flavor::NUM_ALL_ENTITIES);
+    std::vector<FF> rhos = ::proof_system::honk::pcs::zeromorph::powers_of_challenge(rho, Flavor::NUM_ALL_ENTITIES);
 
-    // Compute batched multivariate evaluation
+    // Construct batched evaluation v = sum_{i=0}^{m-1}\alpha^i*v_i + sum_{i=0}^{l-1}\alpha^{m+i}*w_i
     FF batched_evaluation = FF(0);
     size_t evaluation_idx = 0;
-    for (auto& value : purported_evaluations.get_unshifted_then_shifted()) {
+    for (auto& value : claimed_evaluations.get_unshifted_then_shifted()) {
         batched_evaluation += value * rhos[evaluation_idx];
         ++evaluation_idx;
     }
 
-    info("Batched eval: num gates = ",
-         builder->get_num_gates() - prev_num_gates,
-         ", (total = ",
-         builder->get_num_gates(),
-         ")");
-    prev_num_gates = builder->get_num_gates();
-
-    // Compute batched commitments needed for input to Gemini.
-    // Note: For efficiency in emulating the construction of the batched commitments, we want to perform a batch mul
-    // rather than naively accumulate the points one by one. To do this, we collect the points and scalars required for
-    // each MSM then perform the two batch muls.
-    const size_t NUM_UNSHIFTED = commitments.get_unshifted().size();
-    const size_t NUM_TO_BE_SHIFTED = commitments.get_to_be_shifted().size();
-    std::vector<FF> scalars_unshifted;
-    std::vector<FF> scalars_to_be_shifted;
-    size_t idx = 0;
-    for (size_t i = 0; i < NUM_UNSHIFTED; ++i) {
-        scalars_unshifted.emplace_back(rhos[idx++]);
+    // Receive commitments [q_k]
+    std::vector<Commitment> C_q_k;
+    C_q_k.reserve(log_circuit_size);
+    for (size_t i = 0; i < log_circuit_size; ++i) {
+        C_q_k.emplace_back(transcript.template receive_from_prover<Commitment>("ZM:C_q_" + std::to_string(i)));
     }
-    for (size_t i = 0; i < NUM_TO_BE_SHIFTED; ++i) {
-        scalars_to_be_shifted.emplace_back(rhos[idx++]);
+
+    // Challenge y
+    auto y_challenge = transcript.get_challenge("ZM:y");
+
+    // Receive commitment C_{q}
+    auto C_q = transcript.template receive_from_prover<Commitment>("ZM:C_q");
+
+    // Challenges x, z
+    auto [x_challenge, z_challenge] = transcript.get_challenges("ZM:x", "ZM:z");
+
+    // Compute commitment C_{\zeta_x}
+    auto C_zeta_x = ZeroMorph::compute_C_zeta_x(C_q, C_q_k, y_challenge, x_challenge);
+
+    std::vector<Commitment> f_commitments;
+    std::vector<Commitment> g_commitments;
+    for (auto& commitment : commitments.get_unshifted()) {
+        f_commitments.emplace_back(commitment);
     }
-    // TODO(luke): The powers_of_rho fctn does not set the context of rhos[0] = FF(1) so we do it explicitly here. Can
-    // we do something silly like set it to rho.pow(0) in the fctn to make it work both native and stdlib?
-    scalars_unshifted[0] = FF(builder, 1);
+    for (auto& commitment : commitments.get_to_be_shifted()) {
+        g_commitments.emplace_back(commitment);
+    }
 
-    // Batch the commitments to the unshifted and to-be-shifted polynomials using powers of rho
-    auto batched_commitment_unshifted = GroupElement::batch_mul(commitments.get_unshifted(), scalars_unshifted);
+    // Compute commitment C_{Z_x}
+    Commitment C_Z_x = ZeroMorph::compute_C_Z_x(
+        f_commitments, g_commitments, C_q_k, rho, batched_evaluation, x_challenge, multivariate_challenge);
 
-    info("Batch mul (unshifted): num gates = ",
-         builder->get_num_gates() - prev_num_gates,
-         ", (total = ",
-         builder->get_num_gates(),
-         ")");
-    prev_num_gates = builder->get_num_gates();
+    // Compute commitment C_{\zeta,Z}
+    auto C_zeta_Z = C_zeta_x + C_Z_x * z_challenge;
 
-    auto batched_commitment_to_be_shifted =
-        GroupElement::batch_mul(commitments.get_to_be_shifted(), scalars_to_be_shifted);
+    // Receive proof commitment \pi
+    auto C_pi = transcript.template receive_from_prover<Commitment>("ZM:PI");
 
-    info("Batch mul (to-be-shited): num gates = ",
-         builder->get_num_gates() - prev_num_gates,
-         ", (total = ",
-         builder->get_num_gates(),
-         ")");
-    prev_num_gates = builder->get_num_gates();
+    // Construct inputs and perform pairing check to verify claimed evaluation
+    // Note: The pairing check (without the degree check component X^{N_max-N-1}) can be expressed naturally as
+    // e(C_{\zeta,Z}, [1]_2) = e(pi, [X - x]_2). This can be rearranged (e.g. see the plonk paper) as
+    // e(C_{\zeta,Z} - x*pi, [1]_2) * e(-pi, [X]_2) = 1, or
+    // e(P_0, [1]_2) * e(P_1, [X]_2) = 1
+    auto P0 = C_zeta_Z + C_pi * x_challenge;
+    auto P1 = -C_pi;
 
-    // Produce a Gemini claim consisting of:
-    // - d+1 commitments [Fold_{r}^(0)], [Fold_{-r}^(0)], and [Fold^(l)], l = 1:d-1
-    // - d+1 evaluations a_0_pos, and a_l, l = 0:d-1
-    auto univariate_opening_claims = Gemini::reduce_verification(multivariate_challenge,
-                                                                 batched_evaluation,
-                                                                 batched_commitment_unshifted,
-                                                                 batched_commitment_to_be_shifted,
-                                                                 transcript);
-
-    info("Gemini: num gates = ",
-         builder->get_num_gates() - prev_num_gates,
-         ", (total = ",
-         builder->get_num_gates(),
-         ")");
-    prev_num_gates = builder->get_num_gates();
-
-    // Produce a Shplonk claim: commitment [Q] - [Q_z], evaluation zero (at random challenge z)
-    auto shplonk_claim = Shplonk::reduce_verification(pcs_verification_key, univariate_opening_claims, transcript);
-
-    info("Shplonk: num gates = ",
-         builder->get_num_gates() - prev_num_gates,
-         ", (total = ",
-         builder->get_num_gates(),
-         ")");
-    prev_num_gates = builder->get_num_gates();
-
-    // Constuct the inputs to the final KZG pairing check
-    auto pairing_points = KZG::compute_pairing_points(shplonk_claim, transcript);
-
-    info("KZG: num gates = ", builder->get_num_gates() - prev_num_gates, ", (total = ", builder->get_num_gates(), ")");
-
-    return pairing_points;
+    return { P0, P1 };
 }
 
 template class UltraRecursiveVerifier_<proof_system::honk::flavor::UltraRecursive_<UltraCircuitBuilder>>;
