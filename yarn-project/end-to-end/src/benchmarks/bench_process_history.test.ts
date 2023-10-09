@@ -6,17 +6,13 @@ import { BenchmarkingContract } from '@aztec/noir-contracts/types';
 import { SequencerClient } from '@aztec/sequencer-client';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/types';
 
-import { EndToEndContext } from '../fixtures/utils.js';
-import {
-  benchmarkSetup,
-  getFolderSize,
-  makeDataDirectory,
-  sendTxs,
-  waitNewPXESynced,
-  waitRegisteredAccountSynced,
-} from './utils.js';
 
-const BLOCK_SIZE = process.env.BLOCK_SIZE ? +process.env.BLOCK_SIZE : 32;
+
+import { EndToEndContext } from '../fixtures/utils.js';
+import { benchmarkSetup, getFolderSize, makeDataDirectory, sendTxs, waitNewPXESynced, waitRegisteredAccountSynced } from './utils.js';
+
+
+const BLOCK_SIZE = process.env.BLOCK_SIZE ? +process.env.BLOCK_SIZE : 16;
 const CHAIN_LENGTHS = process.env.CHAIN_LENGTHS ? process.env.CHAIN_LENGTHS.split(',').map(Number) : [10, 20, 30];
 const MAX_CHAIN_LENGTH = CHAIN_LENGTHS[CHAIN_LENGTHS.length - 1];
 const SETUP_BLOCK_COUNT = 2; // deploy account + deploy contract

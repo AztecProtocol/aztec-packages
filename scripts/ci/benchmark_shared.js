@@ -4,7 +4,7 @@ const ROLLUP_SIZES = process.env.ROLLUP_SIZES
   : [8, 32, 128];
 
 // Block size to use for building chains of multiple length (duplicated from yarn-project/end-to-end/src/benchmarks/bench_process_history.test.ts)
-const BLOCK_SIZE = process.env.BLOCK_SIZE ? +process.env.BLOCK_SIZE : 32;
+const BLOCK_SIZE = process.env.BLOCK_SIZE ? +process.env.BLOCK_SIZE : 16;
 
 // Chain lengths to test (duplicated from yarn-project/end-to-end/src/benchmarks/bench_process_history.test.ts)
 const CHAIN_LENGTHS = process.env.CHAIN_LENGTHS
