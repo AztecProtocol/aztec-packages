@@ -27,7 +27,7 @@ export type LogFilter = {
   contractAddress?: AztecAddress;
   /**
    * Selector of the event/log topic.
-   * TODO: https://github.com/AztecProtocol/aztec-packages/issues/2704
+   * TODO: https://github.com/AztecProtocol/aztec-packages/issues/2632
    */
   selector?: FunctionSelector;
 };
