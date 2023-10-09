@@ -8,6 +8,24 @@
 namespace proof_system::honk::pcs::zeromorph {
 
 /**
+ * @brief Compute powers of a given challenge
+ *
+ * @tparam Fr
+ * @param challenge
+ * @param num_powers
+ * @return std::vector<Fr>
+ */
+template <class Fr> inline std::vector<Fr> powers_of_challenge(const Fr challenge, const size_t num_powers)
+{
+    std::vector<Fr> challenge_powers = { Fr(1), challenge };
+    challenge_powers.reserve(num_powers);
+    for (size_t j = 2; j < num_powers; j++) {
+        challenge_powers.emplace_back(challenge_powers[j - 1] * challenge);
+    }
+    return challenge_powers;
+};
+
+/**
  * @brief Prover for ZeroMorph multilinear PCS
  *
  * @tparam Curve
@@ -19,7 +37,7 @@ template <typename Curve> class ZeroMorphProver_ {
 
     // TODO(#742): Set this N_max to be the number of G1 elements in the mocked zeromorph SRS once it's in place. (Then,
     // eventually, set it based on the real SRS).
-    static const size_t N_max = 1 << 10;
+    static const size_t N_max = 1 << 22;
 
   public:
     /**
@@ -266,6 +284,21 @@ template <typename Curve> class ZeroMorphVerifier_ {
     using Commitment = typename Curve::AffineElement;
 
   public:
+    /**
+     * @brief Compute commitment C_{v,x} = v * x * \Phi_n(x) * [1]_1
+     *
+     * @param v_evaluation
+     * @param x_challenge
+     * @param N
+     * @return Commitment
+     */
+    static Commitment compute_C_v_x(Fr v_evaluation, Fr x_challenge, size_t N)
+    {
+        // Phi_n(x) = (x^N - 1) / (x - 1)
+        auto phi_n_x = (x_challenge.pow(N) - 1) / (x_challenge - 1);
+        return Commitment::one() * v_evaluation * x_challenge * phi_n_x;
+    }
+
     /**
      * @brief Compute commitment to partially evaluated batched lifted degree quotient identity
      * @details Compute commitment C_{\zeta_x} = [\zeta_x]_1 using homomorphicity:
