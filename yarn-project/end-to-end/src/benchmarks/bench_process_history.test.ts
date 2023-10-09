@@ -5,6 +5,7 @@ import { elapsed } from '@aztec/foundation/timer';
 import { BenchmarkingContract } from '@aztec/noir-contracts/types';
 import { SequencerClient } from '@aztec/sequencer-client';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/types';
+import { NodeSyncedChainHistoryStats } from '@aztec/types/stats';
 
 import { EndToEndContext } from '../fixtures/utils.js';
 import {
@@ -65,7 +66,7 @@ describe('benchmarks/process_history', () => {
           blockNumber,
           blockCount: chainLength,
           dbSize: getFolderSize(dataDirectory),
-        });
+        } satisfies NodeSyncedChainHistoryStats);
 
         // Create a new pxe and measure how much time it takes it to sync with failed and successful decryption
         // Skip the first two blocks used for setup (create account contract and deploy benchmarking contract)
