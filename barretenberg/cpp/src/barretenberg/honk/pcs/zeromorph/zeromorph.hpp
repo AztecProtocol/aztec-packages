@@ -273,6 +273,7 @@ template <typename Curve> class ZeroMorphProver_ {
 template <typename Curve> class ZeroMorphVerifier_ {
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
+    using GroupElement = typename Curve::Element;
 
   public:
     /**
@@ -295,7 +296,12 @@ template <typename Curve> class ZeroMorphVerifier_ {
         std::vector<Fr> scalars;
         std::vector<Commitment> commitments;
 
-        scalars.emplace_back(Fr(1));
+        if constexpr (Curve::is_stdlib_type) {
+            auto builder = x_challenge.get_context();
+            scalars.emplace_back(Fr(builder, 1));
+        } else {
+            scalars.emplace_back(Fr(1));
+        }
         commitments.emplace_back(C_q);
 
         for (size_t k = 0; k < log_N; ++k) {
@@ -310,7 +316,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
         }
 
         if constexpr (Curve::is_stdlib_type) {
-            return Commitment::one();
+            return GroupElement::batch_mul(commitments, scalars);
         } else {
             return batch_mul_native(commitments, scalars);
         }
@@ -350,9 +356,14 @@ template <typename Curve> class ZeroMorphVerifier_ {
         auto phi_numerator = x_challenge.pow(N) - 1; // x^N - 1
         auto phi_n_x = phi_numerator / (x_challenge - 1);
 
-        // Add contribution -C_{v,x} = -v * x * \Phi_n(x) * [1]_1
-        scalars.emplace_back(Fr(-1) * batched_evaluation * x_challenge * phi_n_x);
-        commitments.emplace_back(Commitment::one());
+        if constexpr (Curve::is_stdlib_type) {
+            auto builder = x_challenge.get_context();
+            scalars.emplace_back(Fr(builder, -1) * batched_evaluation * x_challenge * phi_n_x);
+            commitments.emplace_back(Commitment::one(builder));
+        } else {
+            scalars.emplace_back(Fr(-1) * batched_evaluation * x_challenge * phi_n_x);
+            commitments.emplace_back(Commitment::one());
+        }
 
         auto alpha_pow = Fr(1);
         // Add contribution x * \sum_{i=0}^{m-1} [f_i]
@@ -389,7 +400,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
         }
 
         if constexpr (Curve::is_stdlib_type) {
-            return Commitment::one();
+            return GroupElement::batch_mul(commitments, scalars);
         } else {
             return batch_mul_native(commitments, scalars);
         }
