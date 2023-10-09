@@ -1,4 +1,6 @@
-import { INITIAL_L2_BLOCK_NUM, L2Block, L2BlockL2Logs, LogType } from '@aztec/types';
+import { INITIAL_L2_BLOCK_NUM, L2Block, L2BlockL2Logs, LogId, LogType, TxHash } from '@aztec/types';
+
+import { randomBytes } from 'crypto';
 
 import { ArchiverDataStore, MemoryArchiverStore } from './archiver_store.js';
 
@@ -71,4 +73,35 @@ describe('Archiver Memory Store', () => {
       );
     },
   );
+
+  it('throws when log filter is invalid', async () => {
+    const txHash = new TxHash(randomBytes(TxHash.SIZE));
+    const fromBlock = 1;
+    const toBlock = 2;
+    const afterLog = new LogId(1, 2, 3);
+
+    const filter1 = {
+      txHash,
+      fromBlock,
+    };
+    await expect(async () => await archiverStore.getUnencryptedLogs(filter1)).rejects.toThrow(`If txHash is set`);
+
+    const filter2 = {
+      txHash,
+      toBlock,
+    };
+    await expect(async () => await archiverStore.getUnencryptedLogs(filter2)).rejects.toThrow(`If txHash is set`);
+
+    const filter3 = {
+      txHash,
+      afterLog,
+    };
+    await expect(async () => await archiverStore.getUnencryptedLogs(filter3)).rejects.toThrow(`If txHash is set`);
+
+    const filter4 = {
+      fromBlock,
+      afterLog,
+    };
+    await expect(async () => await archiverStore.getUnencryptedLogs(filter4)).rejects.toThrow(`If fromBlock is set`);
+  });
 });
