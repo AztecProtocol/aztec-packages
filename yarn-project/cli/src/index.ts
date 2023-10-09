@@ -333,7 +333,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
           logs.forEach(unencryptedLog => log(unencryptedLog.toHumanReadable()));
           // Disable `fromBlock` and continue using the `afterLog` filter.
           filter.fromBlock = undefined;
-          filter.afterLog = logs[logs.length - 1].logId;
+          filter.afterLog = logs[logs.length - 1].id;
         }
       };
 

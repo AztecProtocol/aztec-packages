@@ -10,7 +10,7 @@ import { LogId, UnencryptedL2Log } from '../index.js';
 export class ExtendedUnencryptedL2Log {
   constructor(
     /** Globally unique id of the log. */
-    public readonly logId: LogId,
+    public readonly id: LogId,
     /** The data contents of the log. */
     public readonly log: UnencryptedL2Log,
   ) {}
@@ -20,7 +20,7 @@ export class ExtendedUnencryptedL2Log {
    * @returns A buffer containing the serialized log.
    */
   public toBuffer(): Buffer {
-    return Buffer.concat([this.logId.toBuffer(), this.log.toBuffer()]);
+    return Buffer.concat([this.id.toBuffer(), this.log.toBuffer()]);
   }
 
   /**
@@ -36,7 +36,7 @@ export class ExtendedUnencryptedL2Log {
    * @returns A human readable representation of the log.
    */
   public toHumanReadable(): string {
-    return `${this.logId.toHumanReadable()}, ${this.log.toHumanReadable()}`;
+    return `${this.id.toHumanReadable()}, ${this.log.toHumanReadable()}`;
   }
 
   /**
