@@ -1,0 +1,17 @@
+{
+  "name": "noir-private-kernel",
+  "version": "0.0.1",
+  "main": "index.js",
+  "license": "MIT/APACHE-2.0",
+  "devDependencies": {
+    "@types/node": "^20.8.3",
+    "typescript": "^5.2.2"
+  },
+  "dependencies": {
+    "@noir-lang/backend_barretenberg": "^0.7.10",
+    "@noir-lang/noir_js": "^0.16.0"
+  },
+  "scripts": {
+    "build": "tsc"
+  }
+}
