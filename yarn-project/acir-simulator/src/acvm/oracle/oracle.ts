@@ -23,12 +23,6 @@ import { TypedOracle } from './typed_oracle.js';
 export class Oracle {
   constructor(private typedOracle: TypedOracle, private log = createDebugLogger('aztec:simulator:oracle')) {}
 
-  computeSelector(...args: ACVMField[][]): ACVMField {
-    const signature = oracleDebugCallToFormattedStr(args);
-    const selector = this.typedOracle.computeSelector(signature);
-    return toACVMField(selector);
-  }
-
   getRandomField(): ACVMField {
     const val = this.typedOracle.getRandomField();
     return toACVMField(val);
@@ -121,6 +115,11 @@ export class Oracle {
   async notifyNullifiedNote([innerNullifier]: ACVMField[], [innerNoteHash]: ACVMField[]): Promise<ACVMField> {
     await this.typedOracle.notifyNullifiedNote(fromACVMField(innerNullifier), fromACVMField(innerNoteHash));
     return toACVMField(0);
+  }
+
+  async checkNullifierExists([innerNullifier]: ACVMField[]): Promise<ACVMField> {
+    const exists = await this.typedOracle.checkNullifierExists(fromACVMField(innerNullifier));
+    return toACVMField(exists);
   }
 
   async getL1ToL2Message([msgKey]: ACVMField[]): Promise<ACVMField[]> {

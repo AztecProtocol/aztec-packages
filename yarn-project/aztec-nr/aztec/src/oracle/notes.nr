@@ -12,7 +12,7 @@ fn notify_created_note_oracle<N>(
     _inner_note_hash: Field,
 ) -> Field {}
 
-unconstrained fn notify_created_note<N>(
+unconstrained pub fn notify_created_note<N>(
     storage_slot: Field,
     preimage: [Field; N],
     inner_note_hash: Field,
@@ -26,7 +26,7 @@ fn notify_nullified_note_oracle<N>(
     _inner_note_hash: Field,
 ) -> Field {}
 
-unconstrained fn notify_nullified_note<N>(
+unconstrained pub fn notify_nullified_note<N>(
     nullifier: Field,
     inner_note_hash: Field,
 ) -> Field {
@@ -62,7 +62,7 @@ unconstrained fn get_notes_oracle_wrapper<N, S>(
     get_notes_oracle(storage_slot, num_selects, select_by, select_values, sort_by, sort_order, limit, offset, return_size, placeholder_fields)
 }
 
-unconstrained fn get_notes<Note, N, M, S, NS>(
+unconstrained pub fn get_notes<Note, N, M, S, NS>(
     storage_slot: Field,
     note_interface: NoteInterface<Note, N>,
     num_selects: u8,
@@ -98,7 +98,11 @@ unconstrained fn get_notes<Note, N, M, S, NS>(
     placeholder_opt_notes
 }
 
-unconstrained fn is_nullifier_emitted(nullifier: Field) -> bool {
-    // TODO
-    nullifier == 0
+#[oracle(checkNullifierExists)]
+fn check_nullifier_exists_oracle(
+    _inner_nullifier: Field,
+) -> Field {}
+
+unconstrained pub fn check_nullifier_exists(inner_nullifier: Field) -> bool {
+    check_nullifier_exists_oracle(inner_nullifier) == 1
 }
