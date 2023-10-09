@@ -25,7 +25,7 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
     static constexpr size_t UINT_LOG2_BASE = 6; // DOCTODO: explain what this is, or rename.
     // The plookup range proof requires work linear in range size, thus cannot be used directly for
     // large ranges such as 2^64. For such ranges the element will be decomposed into smaller
-    // chuncks according to the parameter below
+    // chunks according to the parameter below
     static constexpr size_t DEFAULT_PLOOKUP_RANGE_BITNUM = 14;
     static constexpr size_t DEFAULT_PLOOKUP_RANGE_STEP_SIZE = 3;
     static constexpr size_t DEFAULT_PLOOKUP_RANGE_SIZE = (1 << DEFAULT_PLOOKUP_RANGE_BITNUM) - 1;

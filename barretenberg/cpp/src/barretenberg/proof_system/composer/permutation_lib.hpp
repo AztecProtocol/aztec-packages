@@ -122,7 +122,7 @@ std::vector<CyclicPermutation> compute_wire_copy_cycles(const typename Flavor::C
     }
 
     // We use the permutation argument to enforce the public input variables to be equal to values provided by the
-    // verifier. The convension we use is to place the public input values as the first rows of witness vectors.
+    // verifier. The convention we use is to place the public input values as the first rows of witness vectors.
     // More specifically, we set the LEFT and RIGHT wires to be the public inputs and set the other elements of the row
     // to 0. All selectors are zero at these rows, so they are fully unconstrained. The "real" gates that follow can use
     // references to these variables.
@@ -524,5 +524,15 @@ void compute_honk_generalized_sigma_permutations(const typename Flavor::CircuitB
     compute_honk_style_permutation_lagrange_polynomials_from_mapping<Flavor>(
         proving_key->get_id_polynomials(), mapping.ids, proving_key);
 }
+
+// template <typename Flavor>
+// void compute_column_based_permutations(const typename Flavor::CircuitBuilder& circuit_constructor,
+//                                        typename Flavor::ProvingKey* proving_key,
+//                                        size_t column_1_index,
+//                                        size_t column_2_index)
+// {
+//     // Get the two polynomials that are meant to be equivalent, and bild
+//     // Compute the permutation table specifying which element becomes which
+// }
 
 } // namespace proof_system

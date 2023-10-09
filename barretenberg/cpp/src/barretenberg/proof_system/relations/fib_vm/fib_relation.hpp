@@ -36,6 +36,25 @@ template <typename FF> struct FibRow {
     FF x_shift; // x'
     FF y_shift; // y'
     FF is_last;
+
+    // TODO: horrible temporary hack
+    const FF& operator[](size_t index) const
+    {
+        switch (index) {
+        case 0:
+            return x;
+        case 1:
+            return y;
+        case 2:
+            return x_shift;
+        case 3:
+            return y_shift;
+        case 4:
+            return is_last;
+        default:
+            throw std::out_of_range("Index out of range");
+        }
+    }
 };
 
 template <typename FF> inline std::ostream& operator<<(std::ostream& os, FibRow<FF> const& row)

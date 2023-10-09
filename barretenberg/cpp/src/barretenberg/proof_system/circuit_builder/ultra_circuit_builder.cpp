@@ -94,7 +94,7 @@ template <typename FF> void UltraCircuitBuilder_<FF>::add_gates_to_ensure_all_po
     // type enum but rather the index of the table in the list of all tables utilized
     // in the circuit. Therefore we naively need two different basic tables (indices 0, 1)
     // to get a non-zero value in table_4.
-    // The multitable operates on 2-bit values, so the maximum is 3
+    // The multi-table operates on 2-bit values, so the maximum is 3
     uint32_t left_value = 3;
     uint32_t right_value = 3;
 

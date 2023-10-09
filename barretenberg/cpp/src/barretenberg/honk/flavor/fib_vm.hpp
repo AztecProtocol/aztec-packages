@@ -13,7 +13,6 @@
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/proof_system/circuit_builder/fib_vm/fib_vm_trace_builder.hpp"
-#include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 #include "barretenberg/proof_system/flavor/flavor.hpp"
 #include "barretenberg/proof_system/relations/auxiliary_relation.hpp"
 #include "barretenberg/proof_system/relations/elliptic_relation.hpp"
@@ -30,16 +29,17 @@
 #include <type_traits>
 #include <vector>
 
-namespace proof_system::honk::flavor {
+namespace proof_system::honk::flavor::fib_vm {
 
 class FibVM {
 
   public:
-    using CircuitBuilder = FibVMTraceBuilder;
+    using CircuitBuilder = proof_system::FibVMTraceBuilder;
     using Curve = curve::BN254;
     using FF = Curve::ScalarField;
     using PCS = pcs::kzg::KZG<Curve>;
     using GroupElement = Curve::AffineElement;
+    using Commitment = Curve::AffineElement;
     using CommitmentHandle = Curve::AffineElement;
     using Polynomial = barretenberg::Polynomial<FF>;
     using PolynomialHandle = std::span<FF>;
@@ -48,17 +48,18 @@ class FibVM {
 
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
 
-    static constexpr size_t NUM_ALL_ENTITIES = x;
+    static constexpr size_t NUM_ALL_ENTITIES = 5;
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 0;
     // We are including shifts as witnesses on this occasion to work out how to perform
     // permutation checks
-    static constexpr size_t NUM_WITNESS_ENTITIES = x;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 5;
 
     // TODO: implement the FibPerm relation
-    using GrandProductRelations = std::tuple<proof_system::fib_vm::FibPermRelation<FF>>;
+    // using GrandProductRelations = std::tuple<proof_system::fib_vm::FibPermRelation<FF>>;
 
     // We only have the one relation here and one permutation relation to work with
-    using Relations = std::tuple<proof_system::fib_vm::FibRelation<FF>, proof_system::fib_vm::FibPermRelation<FF>>;
+    // using Relations = std::tuple<proof_system::fib_vm::FibRelation<FF>, proof_system::fib_vm::FibPermRelation<FF>>;
+    using Relations = std::tuple<proof_system::fib_vm::FibRelation<FF>>;
 
     static constexpr size_t MAX_RELATION_LENGTH = get_max_relation_length<Relations>();
 
@@ -82,13 +83,17 @@ class FibVM {
     template <typename DataType, typename HandleType>
     class PrecomputedEntities : public PrecomputedEntities_<DataType, HandleType, NUM_PRECOMPUTED_ENTITIES> {
       public:
-        static constexpr CircuitType CIRCUIT_TYPE = CircuitType::CIRCUIT_TYPE;
+        // NOTE: This is an enum for STANDARD, ULTRA and undefined, I think there is a good amount of
+        // tech debt to clean up here, what does the eccvm have for here, does it not generalize properly
+
+        // static constexpr CircuitType CIRCUIT_TYPE = CircuitType::UNDEFINED;
+        static constexpr CircuitType CIRCUIT_TYPE = CircuitType::UNDEFINED;
 
         std::vector<HandleType> get_selectors() override { return {}; }
         std::vector<HandleType> get_sigma_polynomials() override { return {}; }
         std::vector<HandleType> get_id_polynomials() override { return {}; }
-        std::vector<HandleType> get_table_polynomials() override { return {}; }
-    }
+        std::vector<HandleType> get_table_polynomials() { return {}; }
+    };
 
     // Container for witness entities
     // In this case we include our shifts, as we are not being optimal here.
@@ -108,105 +113,107 @@ class FibVM {
         std::vector<HandleType> get_wires() override
         {
             return {
-                x y,
-                x_shift,
-                y_shift,
-                is_last,
+                x, y, x_shift, y_shift, is_last,
             };
         }
 
         std::vector<HandleType> get_sorted_polynomials() { return {}; };
-    }
-}
+    };
 
-// Container for all entities
-template <typename DataType, typename HandleType>
-class AllEntities : public AllEntities_<DataType, HandleType, NUM_ALL_ENTITIES> {
-  public:
-    DataType& x = std::get<0>(this->data);
-    DataType& y = std::get<1>(this->data);
-    DataType& x_shift = std::get<2>(this->data);
-    DataType& y_shift = std::get<3>(this->data);
-    DataType& is_last = std::get<4>(this->data);
+    // Container for all entities
+    template <typename DataType, typename HandleType>
+    class AllEntities : public AllEntities_<DataType, HandleType, NUM_ALL_ENTITIES> {
+      public:
+        DataType& x = std::get<0>(this->_data);
+        DataType& y = std::get<1>(this->_data);
+        DataType& x_shift = std::get<2>(this->_data);
+        DataType& y_shift = std::get<3>(this->_data);
+        DataType& is_last = std::get<4>(this->_data);
 
-    static constexpr CircuitType CIRCUIT_TYPE = CircuitType::CIRCUIT_TYPE;
+        // static constexpr CircuitType CIRCUIT_TYPE = CircuitType::CIRCUIT_TYPE;
+        static constexpr CircuitType CIRCUIT_TYPE = CircuitType::UNDEFINED;
 
-    // Boilerplate taken from ultra
-    AllEntities() = default;
-    AllEntities(const AllEntities& other)
-        : AllEntities_<DataType, HandleType, NUM_ALL_ENTITIES>(other){};
+        // Boilerplate taken from ultra
+        AllEntities() = default;
+        AllEntities(const AllEntities& other)
+            : AllEntities_<DataType, HandleType, NUM_ALL_ENTITIES>(other){};
 
-    AllEntities(AllEntities&& other)
-        : AllEntities_<DataType, HandleType, NUM_ALL_ENTITIES>(other){};
-    AllEntities& operator=(const AllEntities& other)
-    {
-        if (this == &other) {
+        AllEntities(AllEntities&& other)
+            : AllEntities_<DataType, HandleType, NUM_ALL_ENTITIES>(other){};
+        AllEntities& operator=(const AllEntities& other)
+        {
+            if (this == &other) {
+                return *this;
+            }
+            AllEntities_<DataType, HandleType, NUM_ALL_ENTITIES>::operator=(other);
             return *this;
         }
-        AllEntities_<DataType, HandleType, NUM_ALL_ENTITIES>::operator=(other);
-        return *this;
-    }
 
-    AllEntities& operator=(AllEntities&& other)
-    {
-        AllEntities_<DataType, HandleType, NUM_ALL_ENTITIES>::operator=(other);
-        return *this;
-    }
-    ~AllEntities() = default;
-}
+        AllEntities& operator=(AllEntities&& other)
+        {
+            AllEntities_<DataType, HandleType, NUM_ALL_ENTITIES>::operator=(other);
+            return *this;
+        }
+        ~AllEntities() = default;
+    };
 
-class ProvingKey : public ProvingKey_<PrecomputedEntities<Polynomial, PolynomialHandle>,
-                                      WitnessEntities<Polynomial, PolynomialHandle>> {
-  public:
-    using Base =
-        ProvingKey_<PrecomputedEntities<Polynomial, PolynomialHandle>, WitnessEntities<Polynomial, PolynomialHandle>>;
-    using Base::Base;
+    class ProvingKey : public ProvingKey_<PrecomputedEntities<Polynomial, PolynomialHandle>,
+                                          WitnessEntities<Polynomial, PolynomialHandle>> {
+      public:
+        using Base = ProvingKey_<PrecomputedEntities<Polynomial, PolynomialHandle>,
+                                 WitnessEntities<Polynomial, PolynomialHandle>>;
+        using Base::Base;
 
-    std::vector<uint32_t> memory_read_records;
+        std::vector<uint32_t> memory_read_records;
+    };
 
-}
+    using RawPolynomials = AllEntities<Polynomial, PolynomialHandle>;
 
-// All univariates produced during sumcheck
-template <size_t MAX_RELATION_LENGTH>
-using ExtendedEdges =
-    AllEntities<barretenberg::Univariate<FF, MAX_RELATION_LENGTH>, barretenberg::Univariate<FF, MAX_RELATION_LENGTH>>;
+    // All univariates produced during sumcheck
+    template <size_t MAX_RELATION_LENGTH>
+    using ExtendedEdges = AllEntities<barretenberg::Univariate<FF, MAX_RELATION_LENGTH>,
+                                      barretenberg::Univariate<FF, MAX_RELATION_LENGTH>>;
 
-/**
- * @brief A container for the polynomials evaluations produced during sumcheck, which are purported to be the
- * evaluations of polynomials committed in earlier rounds.
- */
-class ClaimedEvaluations : public AllEntities<FF, FF> {
-  public:
-    using Base = AllEntities<FF, FF>;
-    using Base::Base;
-    ClaimedEvaluations(std::array<FF, NUM_ALL_ENTITIES> _data_in) { this->_data = _data_in; }
-};
+    /**
+     * @brief A container for the polynomials evaluations produced during sumcheck, which are purported to be the
+     * evaluations of polynomials committed in earlier rounds.
+     */
+    class ClaimedEvaluations : public AllEntities<FF, FF> {
+      public:
+        using Base = AllEntities<FF, FF>;
+        using Base::Base;
+        ClaimedEvaluations(std::array<FF, NUM_ALL_ENTITIES> _data_in) { this->_data = _data_in; }
+    };
 
-/**
- * @brief A container for commitment labels.
- * @note It's debatable whether this should inherit from AllEntities. since most entries are not strictly needed. It
- * has, however, been useful during debugging to have these labels available.
- *
- */
-class CommitmentLabels : public AllEntities<std::string, std::string> {
-  public:
-    CommitmentLabels()
-    {
-        x = "X";
-        Y = "Y";
-        x_shift = "X_SHIFT";
-        y_shift = "Y_SHIFT";
-        is_last = "IS_LAST";
+    /**
+     * @brief A container for commitment labels.
+     * @note It's debatable whether this should inherit from AllEntities. since most entries are not strictly needed. It
+     * has, however, been useful during debugging to have these labels available.
+     *
+     */
+    class CommitmentLabels : public AllEntities<std::string, std::string> {
+      public:
+        CommitmentLabels()
+        {
+            x = "X";
+            y = "Y";
+            x_shift = "X_SHIFT";
+            y_shift = "Y_SHIFT";
+            is_last = "IS_LAST";
+        };
+    };
+
+    using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment, CommitmentHandle>>;
+
+    class VerifierCommitments : public AllEntities<Commitment, CommitmentHandle> {
+      public:
+        VerifierCommitments(std::shared_ptr<VerificationKey> verification_key, VerifierTranscript<FF> transcript)
+        {
+            // TODO(Maddiaa): these are placeholders
+            static_cast<void>(transcript);
+            static_cast<void>(verification_key);
+        }
     };
 };
 
-class VerifierCommitments : public AllEntities<Commitment, CommitmentHandle> {
-  public:
-    VerifierCommitments(std::shared_ptr<VerificationKey> verification_key, VerifierTranscript<FF> transcript)
-    {
-        static_cast<void>(transcript);
-    }
-}
-}
-
-} // namespace proof_system::honk::flavor
+} // namespace proof_system::honk::flavor::fib_vm

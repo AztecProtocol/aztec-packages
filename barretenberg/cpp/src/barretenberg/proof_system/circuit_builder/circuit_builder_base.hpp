@@ -48,7 +48,7 @@ template <typename Arithmetization> class CircuitBuilderBase {
     // DOCTODO(#231): replace with the relevant wiki link.
     std::map<uint32_t, uint32_t> tau;
 
-    // Publicin put indices which contain recursive proof information
+    // Public input indices which contain recursive proof information
     std::vector<uint32_t> recursive_proof_public_input_indices;
     bool contains_recursive_proof = false;
 
