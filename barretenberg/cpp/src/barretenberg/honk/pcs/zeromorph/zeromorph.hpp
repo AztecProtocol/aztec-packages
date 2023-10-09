@@ -285,21 +285,6 @@ template <typename Curve> class ZeroMorphVerifier_ {
 
   public:
     /**
-     * @brief Compute commitment C_{v,x} = v * x * \Phi_n(x) * [1]_1
-     *
-     * @param v_evaluation
-     * @param x_challenge
-     * @param N
-     * @return Commitment
-     */
-    static Commitment compute_C_v_x(Fr v_evaluation, Fr x_challenge, size_t N)
-    {
-        // Phi_n(x) = (x^N - 1) / (x - 1)
-        auto phi_n_x = (x_challenge.pow(N) - 1) / (x_challenge - 1);
-        return Commitment::one() * v_evaluation * x_challenge * phi_n_x;
-    }
-
-    /**
      * @brief Compute commitment to partially evaluated batched lifted degree quotient identity
      * @details Compute commitment C_{\zeta_x} = [\zeta_x]_1 using homomorphicity:
      *
@@ -316,7 +301,12 @@ template <typename Curve> class ZeroMorphVerifier_ {
         size_t log_N = C_q_k.size();
         size_t N = 1 << log_N;
 
-        auto result = C_q;
+        std::vector<Fr> scalars;
+        std::vector<Commitment> commitments;
+
+        scalars.emplace_back(Fr(1));
+        commitments.emplace_back(C_q);
+
         for (size_t k = 0; k < log_N; ++k) {
             auto deg_k = static_cast<size_t>((1 << k) - 1);
             // Compute scalar y^k * x^{N - deg_k - 1}
@@ -324,53 +314,66 @@ template <typename Curve> class ZeroMorphVerifier_ {
             scalar *= x_challenge.pow(N - deg_k - 1);
             scalar *= Fr(-1);
 
-            result = result + C_q_k[k] * scalar;
+            scalars.emplace_back(scalar);
+            commitments.emplace_back(C_q_k[k]);
         }
-        return result;
+
+        if constexpr (Curve::is_stdlib_type) {
+            return Commitment::one();
+        } else {
+            return batch_mul_native(commitments, scalars);
+        }
     }
 
     /**
      * @brief Compute commitment to partially evaluated ZeroMorph identity Z
      * @details Compute commitment C_{Z_x} = [Z_x]_1 using homomorphicity:
      *
-     *  C_{Z_x} = x * \sum_{i=0}^{m-1}\alpha^i*[f_i] + \sum_{i=0}^{l-1}\alpha^{m+i}*[g_i] - C_v_x
+     *  C_{Z_x} = x * \sum_{i=0}^{m-1}\alpha^i*[f_i] + \sum_{i=0}^{l-1}\alpha^{m+i}*[g_i] - v * x * \Phi_n(x) * [1]_1
      *              - x * \sum_k (x^{2^k}\Phi_{n-k-1}(x^{2^{k-1}}) - u_k\Phi_{n-k}(x^{2^k})) * [q_k]
      *
-     * @param C_v_x v * x * \Phi_n(x) * [1]_1
      * @param f_commitments Commitments to unshifted polynomials [f_i]
      * @param g_commitments Commitments to to-be-shifted polynomials [g_i]
      * @param C_q_k Commitments to q_k
      * @param alpha
+     * @param batched_evaluation \sum_{i=0}^{m-1} f_i(u) + \sum_{i=0}^{l-1} h_i(u)
      * @param x_challenge
      * @param u_challenge multilinear challenge
      * @return Commitment
      */
-    static Commitment compute_C_Z_x(Commitment C_v_x,
-                                    std::vector<Commitment>& f_commitments,
+    static Commitment compute_C_Z_x(std::vector<Commitment>& f_commitments,
                                     std::vector<Commitment>& g_commitments,
                                     std::vector<Commitment>& C_q_k,
                                     Fr alpha,
+                                    Fr batched_evaluation,
                                     Fr x_challenge,
                                     std::vector<Fr> u_challenge)
     {
         size_t log_N = C_q_k.size();
         size_t N = 1 << log_N;
 
-        auto phi_numerator = x_challenge.pow(N) - 1; // x^N - 1
-        // auto phi_n_x = phi_numerator / (x_challenge - 1);
+        std::vector<Fr> scalars;
+        std::vector<Commitment> commitments;
 
-        Commitment result = -C_v_x; // initialize with -C_{v,x}
+        // Phi_n(x) = (x^N - 1) / (x - 1)
+        auto phi_numerator = x_challenge.pow(N) - 1; // x^N - 1
+        auto phi_n_x = phi_numerator / (x_challenge - 1);
+
+        // Add contribution -C_{v,x} = -v * x * \Phi_n(x) * [1]_1
+        scalars.emplace_back(Fr(-1) * batched_evaluation * x_challenge * phi_n_x);
+        commitments.emplace_back(Commitment::one());
+
         auto alpha_pow = Fr(1);
         // Add contribution x * \sum_{i=0}^{m-1} [f_i]
         for (auto& commitment : f_commitments) {
-            auto scalar = x_challenge * alpha_pow;
-            result = result + (commitment * scalar);
+            scalars.emplace_back(x_challenge * alpha_pow);
+            commitments.emplace_back(commitment);
             alpha_pow *= alpha;
         }
         // Add contribution \sum_{i=0}^{l-1} [g_i]
         for (auto& commitment : g_commitments) {
-            auto scalar = alpha_pow;
-            result = result + (commitment * scalar);
+            scalars.emplace_back(alpha_pow);
+            commitments.emplace_back(commitment);
             alpha_pow *= alpha;
         }
 
@@ -390,8 +393,24 @@ template <typename Curve> class ZeroMorphVerifier_ {
             scalar *= x_challenge;
             scalar *= Fr(-1);
 
-            result = result + C_q_k[k] * scalar;
+            scalars.emplace_back(scalar);
+            commitments.emplace_back(C_q_k[k]);
         }
+
+        if constexpr (Curve::is_stdlib_type) {
+            return Commitment::one();
+        } else {
+            return batch_mul_native(commitments, scalars);
+        }
+    }
+
+    static Commitment batch_mul_native(std::vector<Commitment> points, std::vector<Fr> scalars)
+    {
+        auto result = points[0] * scalars[0];
+        for (size_t idx = 1; idx < scalars.size(); ++idx) {
+            result = result + points[idx] * scalars[idx];
+        }
+
         return result;
     }
 };

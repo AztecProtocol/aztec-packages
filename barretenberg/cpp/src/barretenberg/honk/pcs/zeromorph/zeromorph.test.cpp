@@ -183,15 +183,12 @@ template <class Curve> class ZeroMorphTest : public CommitmentTest<Curve> {
             // Challenges x, z
             auto [x_challenge, z_challenge] = verifier_transcript.get_challenges("ZM:x", "ZM:z");
 
-            // Compute commitment C_{v,x} = v * x * \Phi_n(x) * [1]_1
-            auto C_v_x = Commitment::one() * v_evaluation * x_challenge * this->Phi(x_challenge, log_N);
-
             // Compute commitment C_{\zeta_x}
             auto C_zeta_x = ZeroMorphVerifier::compute_C_zeta_x(C_q, C_q_k, y_challenge, x_challenge);
 
             // Compute commitment C_{Z_x}
             Commitment C_Z_x = ZeroMorphVerifier::compute_C_Z_x(
-                C_v_x, f_commitments, g_commitments, C_q_k, alpha, x_challenge, u_challenge);
+                f_commitments, g_commitments, C_q_k, alpha, v_evaluation, x_challenge, u_challenge);
 
             // Compute commitment C_{\zeta,Z}
             auto C_zeta_Z = C_zeta_x + C_Z_x * z_challenge;
