@@ -20,6 +20,9 @@ MergeProver_<Flavor>::MergeProver_(std::shared_ptr<CommitmentKey> commitment_key
  * M_{i-1}), where the shift magnitude M_{i-1} is the length of T_{i-1}. This protocol demonstrates that the aggregate
  * op queue has been constructed correctly via a simple Schwartz-Zippel check. Evaluations are proven via batched KZG.
  *
+ * TODO(#746): Prove connection between t_i^{shift}, committed to herein, and t_i, used in the main protocol. See issue
+ * for details (https://github.com/AztecProtocol/barretenberg/issues/746).
+ *
  * @tparam Flavor
  * @return plonk::proof&
  */

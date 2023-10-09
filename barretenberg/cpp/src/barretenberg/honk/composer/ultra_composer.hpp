@@ -74,6 +74,12 @@ template <UltraFlavor Flavor> class UltraComposer_ {
     UltraProver_<Flavor> create_prover(std::shared_ptr<Instance>);
     UltraVerifier_<Flavor> create_verifier(std::shared_ptr<Instance>);
 
+    /**
+     * @brief Create Prover for Goblin ECC op queue merge protocol
+     *
+     * @param op_queue
+     * @return MergeProver_<Flavor>
+     */
     MergeProver_<Flavor> create_merge_prover(std::shared_ptr<ECCOpQueue> op_queue)
     {
         // Store the previous aggregate op queue size and update the current one
@@ -84,6 +90,12 @@ template <UltraFlavor Flavor> class UltraComposer_ {
         return MergeProver_<Flavor>(commitment_key, op_queue);
     }
 
+    /**
+     * @brief Create Verifier for Goblin ECC op queue merge protocol
+     *
+     * @param size Size of commitment key required to commit to shifted op queue contribution t_i
+     * @return MergeVerifier_<Flavor>
+     */
     MergeVerifier_<Flavor> create_merge_verifier(size_t size)
     {
         auto pcs_verification_key = std::make_unique<VerifierCommitmentKey>(size, crs_factory_);
