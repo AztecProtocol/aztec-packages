@@ -1,6 +1,7 @@
 export * from './function_l2_logs.js';
 export * from './l2_block_l2_logs.js';
 export * from './l2_logs_source.js';
+export * from './log_id.js';
 export * from './log_type.js';
 export * from './log_filter.js';
 export * from './note_spending_info/index.js';

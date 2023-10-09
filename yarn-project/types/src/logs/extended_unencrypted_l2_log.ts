@@ -1,7 +1,9 @@
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { BufferReader } from '@aztec/foundation/serialize';
 
-import { TxHash, UnencryptedL2Log } from '../index.js';
+import isEqual from 'lodash.isequal';
+
+import { LogId, PXE, TxHash, UnencryptedL2Log } from '../index.js';
 
 /**
  * Represents an individual unencrypted log entry extended with info about the block and tx it was emitted in.
@@ -38,6 +40,33 @@ export class ExtendedUnencryptedL2Log {
    */
   public toHumanReadable(): string {
     return `${this.log.toHumanReadable()} (blockNumber: ${this.blockNumber}, txHash: ${this.txHash.toString()})`;
+  }
+
+  /**
+   * Checks if two ExtendedUnencryptedL2Log objects are equal.
+   * @param other - Another ExtendedUnencryptedL2Log object to compare with.
+   * @returns True if the two objects are equal, false otherwise.
+   */
+  public equals(other: ExtendedUnencryptedL2Log): boolean {
+    return isEqual(this, other);
+  }
+
+  /**
+   * Gets a globally unique log id.
+   * @param pxe - The PXE instance to use for retrieving logs.
+   * @returns A globally unique log id.
+   */
+  public async getLogId(pxe: PXE): Promise<LogId> {
+    const txLogs = await pxe.getUnencryptedLogs({ txHash: this.txHash });
+    const logIndex = txLogs.findIndex(log => log.equals(this));
+    if (logIndex === -1) {
+      throw new Error(`Log ${this.toHumanReadable()} not found in tx ${this.txHash.toString()}`);
+    }
+    return {
+      blockNumber: this.blockNumber,
+      txIndex: this.txHash,
+      logIndex: logIndex,
+    };
   }
 
   /**

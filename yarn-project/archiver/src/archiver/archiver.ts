@@ -167,7 +167,7 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
      * This is a problem for example when setting the last block number marker for L1 to L2 messages -
      * this.lastProcessedBlockNumber = currentBlockNumber;
      * It's possible that we actually received messages in block currentBlockNumber + 1 meaning the next time
-     * we do this sync we get the same message again. Addtionally, the call to get cancelled L1 to L2 messages
+     * we do this sync we get the same message again. Additionally, the call to get cancelled L1 to L2 messages
      * could read from a block not present when retrieving pending messages. If a message was added and cancelled
      * in the same eth block then we could try and cancel a non-existent pending message.
      *

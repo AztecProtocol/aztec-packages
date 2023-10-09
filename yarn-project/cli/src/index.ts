@@ -14,7 +14,7 @@ import { DebugLogger, LogFn } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { fileURLToPath } from '@aztec/foundation/url';
 import { compileContract, generateNoirInterface, generateTypescriptInterface } from '@aztec/noir-compiler/cli';
-import { CompleteAddress, ContractData, LogFilter } from '@aztec/types';
+import { CompleteAddress, ContractData, LogFilter, validateLogFilter } from '@aztec/types';
 
 import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import { Command, Option } from 'commander';
@@ -37,6 +37,7 @@ import {
   parseFields,
   parseOptionalAztecAddress,
   parseOptionalInteger,
+  parseOptionalLogId,
   parseOptionalSelector,
   parseOptionalTxHash,
   parsePartialAddress,
@@ -296,27 +297,30 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .description('Gets all the unencrypted logs from L2 blocks in the range specified.')
     .option('-tx, --tx-hash <txHash>', 'A transaction hash to get the receipt for.', parseOptionalTxHash)
     .option(
-      '-f, --from-block <blockNum>',
+      '-fb, --from-block <blockNum>',
       'Initial block number for getting logs (defaults to 1).',
       parseOptionalInteger,
     )
-    .option('-t, --to-block <blockNum>', 'Up to which block to fetch logs (defaults to latest).', parseOptionalInteger)
+    .option('-tb, --to-block <blockNum>', 'Up to which block to fetch logs (defaults to latest).', parseOptionalInteger)
+    .option('-fl --from-log <logId>', 'Initial log id for getting logs.', parseOptionalLogId)
     .option('-ca, --contract-address <address>', 'Contract address to filter logs by.', parseOptionalAztecAddress)
     .option('-s, --selector <hex string>', 'Event selector to filter logs by.', parseOptionalSelector)
     .addOption(pxeOption)
     .option('--follow', 'If set, will keep polling for new logs until interrupted.')
-    .action(async ({ txHash, fromBlock, toBlock, contractAddress, selector, rpcUrl, follow }) => {
-      const client = await createCompatibleClient(rpcUrl, debugLogger);
+    .action(async ({ txHash, fromBlock, toBlock, fromLog, contractAddress, selector, rpcUrl, follow }) => {
+      const pxe = await createCompatibleClient(rpcUrl, debugLogger);
 
       if (follow) {
         if (txHash) throw Error('Cannot use --follow with --tx-hash');
         if (toBlock) throw Error('Cannot use --follow with --to-block');
       }
 
-      const filter: LogFilter = { txHash, fromBlock, toBlock, contractAddress, selector };
+      const filter: LogFilter = { txHash, fromBlock, toBlock, fromLog, contractAddress, selector };
+
+      validateLogFilter(filter);
 
       const fetchLogs = async () => {
-        const logs = await client.getUnencryptedLogs(filter);
+        const logs = await pxe.getUnencryptedLogs(filter);
 
         if (!logs.length) {
           const filterOptions = Object.entries(filter)
@@ -327,8 +331,9 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
         } else {
           if (!follow) log('Logs found: \n');
           logs.forEach(unencryptedLog => log(unencryptedLog.toHumanReadable()));
-          // Set `fromBlock` to the block number of the next block after the block of last log we fetched.
-          filter.fromBlock = logs[logs.length - 1].blockNumber + 1;
+          // Disable `fromBlock` and continue using the `fromLog` filter.
+          filter.fromBlock = undefined;
+          filter.fromLog = await logs[logs.length - 1].getLogId(pxe);
         }
       };
 

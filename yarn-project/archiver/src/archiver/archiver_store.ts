@@ -14,6 +14,7 @@ import {
   LogType,
   TxHash,
   UnencryptedL2Log,
+  validateLogFilter,
 } from '@aztec/types';
 
 import { L1ToL2MessageStore, PendingL1ToL2MessageStore } from './l1_to_l2_message_store.js';
@@ -370,13 +371,17 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @throws If txHash and block range are both defined.
    */
   getUnencryptedLogs(filter: LogFilter): Promise<ExtendedUnencryptedL2Log[]> {
-    if (filter.txHash && (filter.fromBlock || filter.toBlock)) {
-      throw new Error('Cannot filter by txHash and block range at the same time');
-    }
+    validateLogFilter(filter);
 
     const txHash = filter.txHash;
 
-    const fromBlockIndex = filter.fromBlock === undefined ? 0 : filter.fromBlock - INITIAL_L2_BLOCK_NUM;
+    let fromBlockIndex = 0;
+    if (filter.fromBlock !== undefined) {
+      fromBlockIndex = filter.fromBlock - INITIAL_L2_BLOCK_NUM;
+    } else if (filter.fromLog !== undefined) {
+      fromBlockIndex = filter.fromLog.blockNumber - INITIAL_L2_BLOCK_NUM;
+    }
+
     if (fromBlockIndex < 0) {
       throw new Error(`"fromBlock" (${filter.fromBlock}) smaller than genesis block number (${INITIAL_L2_BLOCK_NUM}).`);
     }
@@ -393,26 +398,34 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     const contractAddress = filter.contractAddress;
     const selector = filter.selector;
 
+    let txIndexInBlock = 0;
+    if (filter.fromLog !== undefined) {
+      txIndexInBlock = filter.fromLog.logIndex;
+    }
+
     const logs: ExtendedUnencryptedL2Log[] = [];
 
     for (let i = fromBlockIndex; i < toBlockIndex; i++) {
       const blockContext = this.l2BlockContexts[i];
       const blockLogs = this.unencryptedLogsPerBlock[i];
-      for (let j = 0; j < blockLogs.txLogs.length; j++) {
-        const txLogs = blockLogs.txLogs[j].unrollLogs().map(log => UnencryptedL2Log.fromBuffer(log));
+      for (; txIndexInBlock < blockLogs.txLogs.length; txIndexInBlock++) {
+        const txLogs = blockLogs.txLogs[txIndexInBlock].unrollLogs().map(log => UnencryptedL2Log.fromBuffer(log));
         for (const log of txLogs) {
           if (
-            (!txHash || blockContext.getTxHash(j).equals(txHash)) &&
+            (!txHash || blockContext.getTxHash(txIndexInBlock).equals(txHash)) &&
             (!contractAddress || log.contractAddress.equals(contractAddress)) &&
             (!selector || log.selector.equals(selector))
           ) {
-            logs.push(new ExtendedUnencryptedL2Log(blockContext.block.number, blockContext.getTxHash(j), log));
+            logs.push(
+              new ExtendedUnencryptedL2Log(blockContext.block.number, blockContext.getTxHash(txIndexInBlock), log),
+            );
             if (logs.length === this.maxLogs) {
               return Promise.resolve(logs);
             }
           }
         }
       }
+      txIndexInBlock = 0;
     }
 
     return Promise.resolve(logs);
