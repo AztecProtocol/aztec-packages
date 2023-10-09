@@ -63,23 +63,23 @@ export class L2BlockL2Logs {
   }
 
   /**
-   * Creates a new `L2BlockL2Logs` object with `numFunctionInvocations` function logs and `numLogsIn1Invocation` logs
-   * in each invocation.
+   * Creates a new `L2BlockL2Logs` object with `numCalls` function logs and `numLogsPerCall` logs in each function
+   * call.
    * @param numTxs - The number of txs in the block.
-   * @param numFunctionInvocations - The number of function invocations in the tx.
-   * @param numLogsIn1Invocation - The number of logs emitted in each function invocation.
+   * @param numCalls - The number of function calls in the tx.
+   * @param numLogsPerCall - The number of logs emitted in each function call.
    * @param logType - The type of logs to generate.
    * @returns A new `L2BlockL2Logs` object.
    */
   public static random(
     numTxs: number,
-    numFunctionInvocations: number,
-    numLogsIn1Invocation: number,
+    numCalls: number,
+    numLogsPerCall: number,
     logType = LogType.ENCRYPTED,
   ): L2BlockL2Logs {
     const txLogs: TxL2Logs[] = [];
     for (let i = 0; i < numTxs; i++) {
-      txLogs.push(TxL2Logs.random(numFunctionInvocations, numLogsIn1Invocation, logType));
+      txLogs.push(TxL2Logs.random(numCalls, numLogsPerCall, logType));
     }
     return new L2BlockL2Logs(txLogs);
   }
