@@ -138,7 +138,7 @@ template <class Curve> class ZeroMorphTest : public CommitmentTest<Curve> {
                 batched_quotient, quotients, y_challenge, x_challenge);
 
             // Compute ZeroMorph identity polynomial Z partially evaluated at x
-            auto Z_x = ZeroMorphProver::compute_partially_evaluated_zeromorph_identity_polynomial_new(
+            auto Z_x = ZeroMorphProver::compute_partially_evaluated_zeromorph_identity_polynomial(
                 f_batched, g_batched, quotients, v_evaluation, u_challenge, x_challenge);
 
             // Compute batched degree and ZM-identity quotient polynomial pi
@@ -438,7 +438,7 @@ TYPED_TEST(ZeroMorphTest, PartiallyEvaluatedQuotientZ)
     auto x_challenge = Fr::random_element();
 
     // Construct Z_x using the prover method
-    auto Z_x = ZeroMorphProver::compute_partially_evaluated_zeromorph_identity_polynomial_new(
+    auto Z_x = ZeroMorphProver::compute_partially_evaluated_zeromorph_identity_polynomial(
         f_batched, g_batched, quotients, v_batched, u_challenge, x_challenge);
 
     // Compute Z_x directly

@@ -159,12 +159,12 @@ template <typename Curve> class ZeroMorphProver_ {
      * @param x_challenge
      * @return Polynomial
      */
-    static Polynomial compute_partially_evaluated_zeromorph_identity_polynomial_new(Polynomial& f_batched,
-                                                                                    Polynomial& g_batched,
-                                                                                    std::vector<Polynomial>& quotients,
-                                                                                    Fr v_evaluation,
-                                                                                    std::span<Fr> u_challenge,
-                                                                                    Fr x_challenge)
+    static Polynomial compute_partially_evaluated_zeromorph_identity_polynomial(Polynomial& f_batched,
+                                                                                Polynomial& g_batched,
+                                                                                std::vector<Polynomial>& quotients,
+                                                                                Fr v_evaluation,
+                                                                                std::span<Fr> u_challenge,
+                                                                                Fr x_challenge)
     {
         size_t N = f_batched.size();
         size_t log_N = quotients.size();
