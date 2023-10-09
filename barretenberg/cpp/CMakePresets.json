@@ -79,13 +79,13 @@
       }
     },
     {
-      "name": "gcc9",
-      "displayName": "Build with GCC-9",
-      "description": "Build with globally installed GCC-9",
+      "name": "gcc10",
+      "displayName": "Build with GCC-10",
+      "description": "Build with globally installed GCC-10",
       "inherits": "default",
       "environment": {
-        "CC": "gcc-9",
-        "CXX": "g++-9"
+        "CC": "gcc-10",
+        "CXX": "g++-10"
       }
     },
     {
@@ -217,14 +217,9 @@
       "configurePreset": "gcc"
     },
     {
-      "name": "gcc9",
+      "name": "gcc10",
       "inherits": "default",
-      "configurePreset": "gcc9"
-    },
-    {
-      "name": "gcc13",
-      "inherits": "default",
-      "configurePreset": "gcc13"
+      "configurePreset": "gcc10"
     },
     {
       "name": "gcc13",
@@ -312,14 +307,9 @@
       "configurePreset": "gcc"
     },
     {
-      "name": "gcc9",
+      "name": "gcc10",
       "inherits": "default",
-      "configurePreset": "gcc9"
-    },
-    {
-      "name": "gcc13",
-      "inherits": "default",
-      "configurePreset": "gcc13"
+      "configurePreset": "gcc10"
     },
     {
       "name": "gcc13",
