@@ -53,3 +53,7 @@ variable "NODE_1_PRIVATE_KEY" {
 variable "NODE_2_PRIVATE_KEY" {
   type = string
 }
+
+variable "ECR_URL" {
+  type = string
+}

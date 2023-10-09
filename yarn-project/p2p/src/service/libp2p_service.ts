@@ -144,7 +144,7 @@ export class LibP2PService implements P2PService {
       tcpListenPort,
       announceHostname,
       announcePort,
-      serverMode,
+      clientKADRouting,
       minPeerCount,
       maxPeerCount,
       peerIdPrivateKey,
@@ -178,7 +178,7 @@ export class LibP2PService implements P2PService {
       }),
       kadDHT: kadDHT({
         protocolPrefix: 'aztec',
-        clientMode: !serverMode,
+        clientMode: clientKADRouting,
       }),
     };
 

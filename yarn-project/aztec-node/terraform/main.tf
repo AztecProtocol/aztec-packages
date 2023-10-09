@@ -93,7 +93,7 @@ resource "aws_ecs_task_definition" "aztec-node-1" {
 [
   {
     "name": "${var.DEPLOY_TAG}-aztec-node-1",
-    "image": "278380418400.dkr.ecr.us-east-2.amazonaws.com/aztec-node:cache-c760092e2869eea5a7f5c8fdbb83e6da6403f2aa",
+    "image": "${var.ECR_URL}/aztec-node:latest",
     "essential": true,
     "memoryReservation": 3776,
     "portMappings": [
@@ -115,7 +115,7 @@ resource "aws_ecs_task_definition" "aztec-node-1" {
       },
       {
         "name": "DEBUG",
-        "value": "aztec:*,libp2p*"
+        "value": "aztec:*"
       },
       {
         "name": "ETHEREUM_HOST",
@@ -163,7 +163,7 @@ resource "aws_ecs_task_definition" "aztec-node-1" {
       },
       {
         "name": "SEARCH_START_BLOCK",
-        "value": "15918000"
+        "value": "15920300"
       },
       {
         "name": "P2P_TCP_LISTEN_PORT",
@@ -386,7 +386,7 @@ resource "aws_ecs_task_definition" "aztec-node-2" {
 [
   {
     "name": "${var.DEPLOY_TAG}-aztec-node-2",
-    "image": "278380418400.dkr.ecr.us-east-2.amazonaws.com/aztec-node:cache-c760092e2869eea5a7f5c8fdbb83e6da6403f2aa",
+    "image": "${var.ECR_URL}/aztec-node:latest",
     "essential": true,
     "memoryReservation": 3776,
     "portMappings": [
@@ -408,7 +408,7 @@ resource "aws_ecs_task_definition" "aztec-node-2" {
       },
       {
         "name": "DEBUG",
-        "value": "aztec:*,libp2p*"
+        "value": "aztec:*"
       },
       {
         "name": "ETHEREUM_HOST",
@@ -456,7 +456,7 @@ resource "aws_ecs_task_definition" "aztec-node-2" {
       },
       {
         "name": "SEARCH_START_BLOCK",
-        "value": "15918000"
+        "value": "15920300"
       },
       {
         "name": "P2P_TCP_LISTEN_PORT",
