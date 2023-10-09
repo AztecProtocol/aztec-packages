@@ -1,5 +1,4 @@
-import { AztecAddress, Fr, GrumpkinScalar, PXE, Point, TxHash } from '@aztec/aztec.js';
-import { FunctionSelector } from '@aztec/circuits.js';
+import { AztecAddress, Fr, FunctionSelector, GrumpkinScalar, PXE, Point, TxHash } from '@aztec/aztec.js';
 import { L1ContractArtifactsForDeployment, createEthereumChain, deployL1Contracts } from '@aztec/ethereum';
 import { ContractArtifact } from '@aztec/foundation/abi';
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
