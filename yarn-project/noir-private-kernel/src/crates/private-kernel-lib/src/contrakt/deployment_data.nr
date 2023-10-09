@@ -1,6 +1,6 @@
 use crate::address::EthAddress;
 use crate::point::Point;
-use crate::constants;
+use dep::aztec::constants_gen;
 
 struct ContractDeploymentData {
     deployer_public_key : Point,
@@ -23,7 +23,7 @@ impl ContractDeploymentData {
     // Hash(deployer_public_key.x, deployer_public_key.y, constructor_vk_hash,
     //        function_tree_root,    contract_address_salt, portal_contract_address.to_field())
     fn hash(self) -> Field {
-        let _hash_index = constants::generator_index::CONTRACT_DEPLOYMENT_DATA;
+        let _hash_index = constants_gen::GENERATOR_INDEX__CONTRACT_DEPLOYMENT_DATA;
         0
     }
 }

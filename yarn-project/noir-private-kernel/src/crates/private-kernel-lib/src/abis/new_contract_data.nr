@@ -1,5 +1,6 @@
 use crate::address::{Address, EthAddress};
-use crate::{constants, utils};
+use crate::utils;
+use dep::aztec::constants_gen;
 
 struct NewContractData {
     contract_address : Address,
@@ -18,7 +19,7 @@ impl NewContractData {
         if self.is_empty() {
             0 // We want to return 0 here since the contract_address is zero
         } else {
-            let _hash_index = constants::generator_index::CONTRACT_LEAF;
+            let _hash_index = constants_gen::GENERATOR_INDEX__CONTRACT_LEAF;
 
             // hash all contents and put in compress method
             0

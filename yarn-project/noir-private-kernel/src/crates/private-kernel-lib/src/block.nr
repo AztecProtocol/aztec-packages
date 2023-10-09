@@ -1,4 +1,4 @@
-use crate::constants;
+use dep::aztec::constants_gen;
 // TODO(David): When we call compute_block_hash, we pass these
 // fields to it. Why not have a Block data structure? 
 
@@ -27,7 +27,7 @@ impl Block {
 
     // TODO: Hash all contents of Block
     fn hash(self) -> Field {
-        let _hash_index = constants::generator_index::BLOCK_HASH;
+        let _hash_index = constants_gen::GENERATOR_INDEX__BLOCK_HASH;
         0
     }
 }

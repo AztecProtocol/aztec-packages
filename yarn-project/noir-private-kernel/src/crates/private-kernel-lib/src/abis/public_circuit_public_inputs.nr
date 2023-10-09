@@ -2,10 +2,17 @@ use crate::contrakt::storage_read::StorageRead;
 use crate::contrakt::storage_update_request::StorageUpdateRequest;
 use crate::address::Address;
 use crate::abis::historical_block_data::HistoricalBlockData;
-use crate::constants;
-use crate::constants::misc::{NUM_FIELDS_PER_SHA256};
-use crate::constants::per_call::{MAX_NEW_L2_TO_L1_MSGS_PER_CALL,MAX_NEW_NULLIFIERS_PER_CALL,MAX_NEW_COMMITMENTS_PER_CALL,MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,MAX_PUBLIC_DATA_READS_PER_CALL,MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL};
-use crate::constants::misc::{RETURN_VALUES_LENGTH};
+use dep::aztec::constants_gen;
+use crate::hash::{NUM_FIELDS_PER_SHA256};
+use dep::aztec::constants_gen::{
+    MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
+    MAX_NEW_NULLIFIERS_PER_CALL,
+    MAX_NEW_COMMITMENTS_PER_CALL,
+    MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
+    MAX_PUBLIC_DATA_READS_PER_CALL,
+    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
+    RETURN_VALUES_LENGTH,
+};
 use crate::abis::call_context::CallContext;
 
 struct PublicCircuitPublicInputs{
@@ -36,7 +43,7 @@ struct PublicCircuitPublicInputs{
 
 impl PublicCircuitPublicInputs{
     fn hash(self) -> Field {
-        let _hash_index = constants::generator_index::PUBLIC_CIRCUIT_PUBLIC_INPUTS;
+        let _hash_index = constants_gen::GENERATOR_INDEX__PUBLIC_CIRCUIT_PUBLIC_INPUTS;
         0
     }
 }

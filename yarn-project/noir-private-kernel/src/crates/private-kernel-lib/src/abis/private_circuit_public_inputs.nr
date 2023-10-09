@@ -1,8 +1,17 @@
 use crate::abis::call_context::CallContext;
-use crate::constants;
-use crate::constants::misc::RETURN_VALUES_LENGTH;
-use crate::constants::per_call::{MAX_READ_REQUESTS_PER_CALL,MAX_NEW_COMMITMENTS_PER_CALL,MAX_NEW_NULLIFIERS_PER_CALL,MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,MAX_NEW_L2_TO_L1_MSGS_PER_CALL};
-use crate::constants::misc::{NUM_FIELDS_PER_SHA256};
+use dep::aztec::{
+    constants_gen,
+    constants_gen::{
+        MAX_READ_REQUESTS_PER_CALL,
+        MAX_NEW_COMMITMENTS_PER_CALL,
+        MAX_NEW_NULLIFIERS_PER_CALL,
+        MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
+        MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
+        MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
+        RETURN_VALUES_LENGTH,
+    }
+};
+use crate::hash::NUM_FIELDS_PER_SHA256;
 use crate::abis::historical_block_data::HistoricalBlockData;
 use crate::contrakt::deployment_data::ContractDeploymentData;
 
@@ -40,7 +49,7 @@ struct PrivateCircuitPublicInputs{
 
 impl PrivateCircuitPublicInputs{
     fn hash(self) -> Field {
-        let _hash_index = constants::generator_index::PRIVATE_CIRCUIT_PUBLIC_INPUTS;
+        let _hash_index = constants_gen::GENERATOR_INDEX__PRIVATE_CIRCUIT_PUBLIC_INPUTS;
         0
     }
 }

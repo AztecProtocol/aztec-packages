@@ -1,5 +1,5 @@
 use crate::abis::function_selector::FunctionSelector;
-use crate::constants;
+use dep::aztec::constants_gen;
 
 struct FunctionLeafPreimage {
     selector : FunctionSelector,
@@ -11,7 +11,7 @@ struct FunctionLeafPreimage {
 
 impl FunctionLeafPreimage {
     fn hash(self) -> Field {
-        let _hash_index = constants::generator_index::FUNCTION_LEAF;
+        let _hash_index = constants_gen::GENERATOR_INDEX__FUNCTION_LEAF;
         0
     }
 }

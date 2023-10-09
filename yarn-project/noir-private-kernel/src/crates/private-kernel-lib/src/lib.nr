@@ -1,7 +1,6 @@
 mod utils;
 mod address;
 mod point;
-mod constants;
 // This is intentionally spelled like this 
 // since contract is a reserved keyword, so it cannot 
 // be used as an ident.

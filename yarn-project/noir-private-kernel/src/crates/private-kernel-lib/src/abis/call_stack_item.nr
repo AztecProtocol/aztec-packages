@@ -1,6 +1,6 @@
 use crate::address::Address;
 use crate::abis::function_data::FunctionData;
-use crate::constants::per_call::{MAX_READ_REQUESTS_PER_CALL};
+use dep::aztec::constants_gen::{MAX_READ_REQUESTS_PER_CALL};
 use crate::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs;
 use crate::abis::public_circuit_public_inputs::PublicCircuitPublicInputs;
 

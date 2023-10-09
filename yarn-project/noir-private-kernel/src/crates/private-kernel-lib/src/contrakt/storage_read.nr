@@ -1,4 +1,4 @@
-use crate::constants;
+use dep::aztec::constants_gen;
 
 struct StorageRead{
     storage_slot : Field,
@@ -7,7 +7,7 @@ struct StorageRead{
 
 impl StorageRead {
     fn hash(self) -> Field {
-        let _hash_index = constants::generator_index::PUBLIC_DATA_READ;
+        let _hash_index = constants_gen::GENERATOR_INDEX__PUBLIC_DATA_READ;
         0
     }
 

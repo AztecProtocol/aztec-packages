@@ -1,6 +1,6 @@
 use crate::abis::function_selector::FunctionSelector;
 use crate::address::{EthAddress,Address};
-use crate::constants;
+use dep::aztec::constants_gen;
 
 struct CallContext{
     msg_sender : Address,
@@ -16,7 +16,7 @@ struct CallContext{
 
 impl CallContext {
     fn hash(self) -> Field {
-        let _hash_index = constants::generator_index::CALL_CONTEXT;
+        let _hash_index = constants_gen::GENERATOR_INDEX__CALL_CONTEXT;
         0
     }
 

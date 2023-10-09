@@ -5,18 +5,22 @@ use crate::abis::kernel_circuit_public_inputs_final::KernelCircuitPublicInputsFi
 use crate::abis::previous_kernel_data::PreviousKernelData;
 use crate::abis::private_kernel::private_call_data::PrivateCallData;
 use crate::abis::combined_accumulated_data::CombinedAccumulatedData;
-use crate::constants::per_call::MAX_READ_REQUESTS_PER_CALL;
 use crate::abis::private_kernel::private_call_data::ReadRequestMembershipWitnessPrivateData;
 use crate::hash::{root_from_sibling_path, function_tree_root_from_siblings, contract_tree_root_from_siblings, silo_commitment, silo_nullifier,stdlib_recursion_verification_key_compress_native_vk, compute_new_contract_address_hash, compute_l2_to_l1_hash,compute_constructor_hash, compute_logs_hash};
-use crate::constants::per_call::{MAX_NEW_NULLIFIERS_PER_CALL};
 use crate::address::{EthAddress, Address};
-use crate::constants::misc::{EMPTY_NULLIFIED_COMMITMENT};
-use crate::constants::per_call::{MAX_NEW_L2_TO_L1_MSGS_PER_CALL,MAX_NEW_COMMITMENTS_PER_CALL};
 use crate::abis::function_data::FunctionData;
 use crate::contrakt::deployment_data::ContractDeploymentData;
 use crate::point::Point;
 use crate::abis::new_contract_data::NewContractData;
 use crate::abis::complete_address::CompleteAddress;
+
+use dep::aztec::constants_gen::{
+    MAX_READ_REQUESTS_PER_CALL,
+    MAX_NEW_NULLIFIERS_PER_CALL,
+    EMPTY_NULLIFIED_COMMITMENT,
+    MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
+    MAX_NEW_COMMITMENTS_PER_CALL,
+};
 
 fn validate_arrays(app_public_inputs : PrivateCircuitPublicInputs) {
     // Each of the following arrays is expected to be zero-padded.
