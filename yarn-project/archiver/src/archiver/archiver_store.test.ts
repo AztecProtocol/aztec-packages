@@ -74,7 +74,7 @@ describe('Archiver Memory Store', () => {
     },
   );
 
-  describe('getUnencryptedLogs', () => {
+  describe('getUnencryptedLogs errors', () => {
     it('throws when log filter is invalid', async () => {
       const txHash = new TxHash(randomBytes(TxHash.SIZE));
       const fromBlock = 1;
@@ -116,14 +116,17 @@ describe('Archiver Memory Store', () => {
           }),
       ).rejects.toThrow(`smaller than genesis block number`);
     });
+  });
 
-    it('txHash filter param is respected', async () => {
-      const txsPerBlock = 4;
-      const numPublicFunctionCalls = 3;
-      const numUnencryptedLogs = 4;
-      const numBlocks = 10;
+  describe('getUnencryptedLogs filter', () => {
+    const txsPerBlock = 4;
+    const numPublicFunctionCalls = 3;
+    const numUnencryptedLogs = 4;
+    const numBlocks = 10;
+    let blocks: L2Block[];
 
-      const blocks = Array(numBlocks)
+    beforeEach(async () => {
+      blocks = Array(numBlocks)
         .fill(0)
         .map((_, index: number) =>
           L2Block.random(index + 1, txsPerBlock, 2, numPublicFunctionCalls, 2, numUnencryptedLogs),
@@ -134,7 +137,9 @@ describe('Archiver Memory Store', () => {
         blocks.map(block => block.newUnencryptedLogs!),
         LogType.UNENCRYPTED,
       );
+    });
 
+    it('txHash filter param is respected', async () => {
       // get random tx
       const targetBlockIndex = Math.floor(Math.random() * numBlocks);
       const targetTxIndex = Math.floor(Math.random() * txsPerBlock);
@@ -153,23 +158,6 @@ describe('Archiver Memory Store', () => {
     });
 
     it('fromBlock and toBlock filter params are respected', async () => {
-      const txsPerBlock = 4;
-      const numPublicFunctionCalls = 3;
-      const numUnencryptedLogs = 4;
-      const numBlocks = 10;
-
-      const blocks = Array(numBlocks)
-        .fill(0)
-        .map((_, index: number) =>
-          L2Block.random(index + 1, txsPerBlock, 2, numPublicFunctionCalls, 2, numUnencryptedLogs),
-        );
-
-      await archiverStore.addL2Blocks(blocks);
-      await archiverStore.addLogs(
-        blocks.map(block => block.newUnencryptedLogs!),
-        LogType.UNENCRYPTED,
-      );
-
       // Set fromBlock and toBlock
       const fromBlock = 3;
       const toBlock = 7;
@@ -187,23 +175,6 @@ describe('Archiver Memory Store', () => {
     });
 
     it('afterLog filter param is respected', async () => {
-      const txsPerBlock = 4;
-      const numPublicFunctionCalls = 3;
-      const numUnencryptedLogs = 4;
-      const numBlocks = 10;
-
-      const blocks = Array(numBlocks)
-        .fill(0)
-        .map((_, index: number) =>
-          L2Block.random(index + 1, txsPerBlock, 2, numPublicFunctionCalls, 2, numUnencryptedLogs),
-        );
-
-      await archiverStore.addL2Blocks(blocks);
-      await archiverStore.addLogs(
-        blocks.map(block => block.newUnencryptedLogs!),
-        LogType.UNENCRYPTED,
-      );
-
       // Get a random log as reference
       const targetBlockIndex = Math.floor(Math.random() * numBlocks);
       const targetTxIndex = Math.floor(Math.random() * txsPerBlock);
