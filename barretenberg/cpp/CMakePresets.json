@@ -227,6 +227,11 @@
       "configurePreset": "gcc13"
     },
     {
+      "name": "gcc13",
+      "inherits": "default",
+      "configurePreset": "gcc13"
+    },
+    {
       "name": "bench",
       "inherits": "clang16",
       "configurePreset": "bench"
@@ -310,6 +315,11 @@
       "name": "gcc9",
       "inherits": "default",
       "configurePreset": "gcc9"
+    },
+    {
+      "name": "gcc13",
+      "inherits": "default",
+      "configurePreset": "gcc13"
     },
     {
       "name": "gcc13",
