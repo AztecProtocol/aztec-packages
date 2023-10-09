@@ -30,7 +30,7 @@ describe('archiver integration with l1 to l2 messages', () => {
   let owner: AztecAddress;
   let receiver: AztecAddress;
 
-  beforeEach(async () => {
+  beforeAll(async () => {
     let deployL1ContractsValues: DeployL1Contracts | undefined;
     let accounts: CompleteAddress[];
     ({ teardown, wallet, deployL1ContractsValues, accounts, config, logger } = await setup(2));
@@ -59,10 +59,10 @@ describe('archiver integration with l1 to l2 messages', () => {
     logger('Successfully deployed contracts and initialized portal');
   }, 100_000);
 
-  afterEach(async () => {
+  afterAll(async () => {
     await archiver.stop();
     await teardown();
-  }, 30_000);
+  });
 
   it('cancelled l1 to l2 messages cannot be consumed by archiver', async () => {
     // create a message, then cancel it
@@ -109,7 +109,7 @@ describe('archiver integration with l1 to l2 messages', () => {
 
   it('archiver handles l1 to l2 message correctly even when l2block has no such messages', async () => {
     // send a transfer tx to force through rollup with the message included
-    l2Token.methods.transfer_public(owner, receiver, 0n, 0n).send();
+    await l2Token.methods.transfer_public(owner, receiver, 0n, 0n).send().wait();
 
     expect((await archiver.getPendingL1ToL2Messages(10)).length).toEqual(0);
     expect(() => archiver.getConfirmedL1ToL2Message(Fr.ZERO)).toThrow();

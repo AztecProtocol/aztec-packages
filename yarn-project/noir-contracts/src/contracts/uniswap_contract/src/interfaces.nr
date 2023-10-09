@@ -48,7 +48,7 @@ impl TokenBridge {
     let _return_values = context.call_public_function(
       self.address,
       compute_selector("exit_to_l1_public(Field,(Field),(Field),Field)"),
-      [recipient, amount, callerOnL1, nonce]
+      [amount, recipient, callerOnL1, nonce]
     );
   }
 }
