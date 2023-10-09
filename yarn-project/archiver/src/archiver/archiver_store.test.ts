@@ -117,7 +117,7 @@ describe('Archiver Memory Store', () => {
       ).rejects.toThrow(`smaller than genesis block number`);
     });
 
-    it('txHash filter is respected', async () => {
+    it('txHash filter param is respected', async () => {
       const txsPerBlock = 4;
       const numPublicFunctionCalls = 3;
       const numUnencryptedLogs = 4;
@@ -149,6 +149,40 @@ describe('Archiver Memory Store', () => {
       for (const log of logs) {
         expect(log.id.blockNumber).toEqual(targeBlockNumber);
         expect(log.id.txIndex).toEqual(targetTxIndex);
+      }
+    });
+
+    it('fromBlock and toBlock filter params are respected', async () => {
+      const txsPerBlock = 4;
+      const numPublicFunctionCalls = 3;
+      const numUnencryptedLogs = 4;
+      const numBlocks = 10;
+
+      const blocks = Array(numBlocks)
+        .fill(0)
+        .map((_, index: number) =>
+          L2Block.random(index + 1, txsPerBlock, 2, numPublicFunctionCalls, 2, numUnencryptedLogs),
+        );
+
+      await archiverStore.addL2Blocks(blocks);
+      await archiverStore.addLogs(
+        blocks.map(block => block.newUnencryptedLogs!),
+        LogType.UNENCRYPTED,
+      );
+
+      // Set fromBlock and toBlock
+      const fromBlock = 3;
+      const toBlock = 7;
+
+      const logs = await archiverStore.getUnencryptedLogs({ fromBlock, toBlock });
+
+      const expectedNumLogs = txsPerBlock * numPublicFunctionCalls * numUnencryptedLogs * (toBlock - fromBlock);
+      expect(logs.length).toEqual(expectedNumLogs);
+
+      for (const log of logs) {
+        const blockNumber = log.id.blockNumber;
+        expect(blockNumber).toBeGreaterThanOrEqual(fromBlock);
+        expect(blockNumber).toBeLessThan(toBlock);
       }
     });
   });
