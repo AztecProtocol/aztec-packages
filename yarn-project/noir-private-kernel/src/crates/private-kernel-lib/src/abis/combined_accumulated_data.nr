@@ -3,13 +3,19 @@ use crate::abis::new_contract_data::NewContractData;
 use crate::abis::optionally_revealed_data::OptionallyRevealedData;
 use crate::abis::public_data_update_request::PublicDataUpdateRequest;
 use crate::abis::public_data_read::PublicDataRead;
-use crate::constants::per_transaction::{MAX_READ_REQUESTS_PER_TX,MAX_NEW_COMMITMENTS_PER_TX,MAX_NEW_NULLIFIERS_PER_TX,
-                                        MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-                                        MAX_NEW_L2_TO_L1_MSGS_PER_TX,MAX_NEW_CONTRACTS_PER_TX,
-                                        MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX,MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-                                        MAX_PUBLIC_DATA_READS_PER_TX
-                                        };
-use crate::constants::misc::NUM_FIELDS_PER_SHA256;
+use dep::aztec::constants_gen::{
+    MAX_READ_REQUESTS_PER_TX,
+    MAX_NEW_COMMITMENTS_PER_TX,
+    MAX_NEW_NULLIFIERS_PER_TX,
+    MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
+    MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+    MAX_NEW_L2_TO_L1_MSGS_PER_TX,
+    MAX_NEW_CONTRACTS_PER_TX,
+    MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX,
+    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+    MAX_PUBLIC_DATA_READS_PER_TX
+};
+use crate::hash::NUM_FIELDS_PER_SHA256;
 
 struct CombinedAccumulatedData {
     aggregation_object : AggregationObject,

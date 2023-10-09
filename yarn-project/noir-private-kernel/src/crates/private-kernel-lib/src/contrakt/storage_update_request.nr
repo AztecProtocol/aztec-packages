@@ -1,4 +1,4 @@
-use crate::constants;
+use dep::aztec::constants_gen;
 struct StorageUpdateRequest{
     storage_slot : Field,
     old_value : Field,
@@ -7,7 +7,7 @@ struct StorageUpdateRequest{
 
 impl StorageUpdateRequest {
     fn hash(self) -> Field {
-        let _hash_index = constants::generator_index::PUBLIC_DATA_UPDATE_REQUEST;
+        let _hash_index = constants_gen::GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST;
         0
     }
     

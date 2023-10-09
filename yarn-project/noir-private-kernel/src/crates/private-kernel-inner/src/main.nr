@@ -1,4 +1,4 @@
-use dep::private_kernel_lib::constants::per_transaction::{MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX};
+use dep::aztec::constants_gen::{MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX};
 use dep::private_kernel_lib::common;
 use dep::private_kernel_lib::mocked::{Proof, AggregationObject, verify_previous_kernel_state};
 use dep::private_kernel_lib::abis::private_kernel::private_call_data::PrivateCallData;

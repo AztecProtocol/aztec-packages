@@ -1,5 +1,3 @@
-use crate::constants;
-use crate::constants::trees::{FUNCTION_TREE_HEIGHT, CONTRACT_TREE_HEIGHT};
 use crate::address::{Address, EthAddress};
 use crate::mocked::VerificationKey;
 use crate::point::Point;
@@ -9,6 +7,11 @@ use crate::abis::new_contract_data::NewContractData as ContractLeafPreimage;
 use crate::abis::function_data::FunctionData;
 use crate::utils::uint128::U128;
 use crate::utils::uint256::U256;
+
+use dep::aztec::{
+    constants_gen,
+    constants_gen::{CONTRACT_TREE_HEIGHT, FUNCTION_TREE_HEIGHT},
+};
 
 // Calculate the Merkle tree root from the sibling path and leaf.
 //
@@ -73,13 +76,13 @@ fn contract_tree_root_from_siblings(function_tree_root : Field, storage_contract
 
 // TODO(hash)
 fn silo_commitment(address : Address, read_request : Field) -> Field {
-    let _hash_index = constants::generator_index::SILOED_COMMITMENT;
+    let _hash_index = constants_gen::GENERATOR_INDEX__SILOED_COMMITMENT;
     0
 }
 
 // TODO(hash)
 fn silo_nullifier(address : Address, read_request : Field) -> Field {
-    let _hash_index = constants::generator_index::OUTER_NULLIFIER;
+    let _hash_index = constants_gen::GENERATOR_INDEX__OUTER_NULLIFIER;
     0
 }
 
@@ -92,7 +95,7 @@ fn stdlib_recursion_verification_key_compress_native_vk(vk : VerificationKey) ->
     // Original cpp code
     // stdlib::recursion::verification_key<CT::bn254>::compress_native(private_call.vk, GeneratorIndex::VK);
     // The above cpp method is only ever called on verification key, so it has been special cased here
-    let _hash_index = constants::generator_index::VK;
+    let _hash_index = constants_gen::GENERATOR_INDEX__VK;
     0
 }
 
@@ -134,10 +137,13 @@ fn compute_constructor_hash(function_data : FunctionData, args_hash : Field, con
 
     let inputs = [function_data_hash,args_hash,constructor_vk_hash];
 
-    let _hash_index = constants::generator_index::CONSTRUCTOR;
+    let _hash_index = constants_gen::GENERATOR_INDEX__CONSTRUCTOR;
 
     0
 }
+
+// sha256 hash is stored in two fields to accommodate all 256-bits of the hash
+global NUM_FIELDS_PER_SHA256 : Field = 2;
 
 // Computes sha256 hash of 2 input hashes stored in 4 fields.
 // 
@@ -150,7 +156,7 @@ fn compute_constructor_hash(function_data : FunctionData, args_hash : Field, con
 // Returning a Field would be desirable because then this can be replaced with 
 // poseidon without changing the rest of the code
 //
-fn accumulate_sha256(input : [U128; 4]) -> [Field; 2] {
+fn accumulate_sha256(input : [U128; 4]) -> [Field; NUM_FIELDS_PER_SHA256] {
     // This is a note about the cpp code, since it takes an array of Fields
     // instead of a U128.
     // 4 Field elements when converted to bytes will usually 
@@ -174,7 +180,7 @@ fn accumulate_sha256(input : [U128; 4]) -> [Field; 2] {
     U256::from_bytes32(sha_digest).to_u128_limbs()
 }
 
-fn compute_logs_hash(previous_log_hash : [Field;2], current_log_hash : [Field;2]) -> [Field; 2] {
+fn compute_logs_hash(previous_log_hash : [Field;2], current_log_hash : [Field;2]) -> [Field; NUM_FIELDS_PER_SHA256] {
     accumulate_sha256([
         U128::from_field(previous_log_hash[0]),
         U128::from_field(previous_log_hash[1]),
@@ -184,21 +190,21 @@ fn compute_logs_hash(previous_log_hash : [Field;2], current_log_hash : [Field;2]
 }
 
 fn compute_partial_address(contract_address_salt : Field, function_tree_root : Field, constructor_hash : Field) -> Field {
-    let _hash_index = constants::generator_index::PARTIAL_ADDRESS;
+    let _hash_index = constants_gen::GENERATOR_INDEX__PARTIAL_ADDRESS;
     0
 }
 
 fn compute_contract_address_from_partial(point : Point, partial_address : Field) -> Address {
-    let _hash_index = constants::generator_index::CONTRACT_ADDRESS;
+    let _hash_index = constants_gen::GENERATOR_INDEX__CONTRACT_ADDRESS;
     Address::default()
 }
 
 fn compute_unique_commitment(nonce : Field, siloed_commitment : Field) -> Field {
-    let _hash_index = constants::generator_index::UNIQUE_COMMITMENT;
+    let _hash_index = constants_gen::GENERATOR_INDEX__UNIQUE_COMMITMENT;
     0
 }
 
 fn compute_commitment_nonce(first_nullifier : Field, commitment_index : Field) -> Field {
-    let _hash_index = constants::generator_index::COMMITMENT_NONCE;
+    let _hash_index = constants_gen::GENERATOR_INDEX__COMMITMENT_NONCE;
     0
 }

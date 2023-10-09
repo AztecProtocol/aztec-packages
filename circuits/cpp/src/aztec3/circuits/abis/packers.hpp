@@ -129,6 +129,7 @@ struct GeneratorIndexPacker {
         int SIGNED_TX_REQUEST = GeneratorIndex::SIGNED_TX_REQUEST;
         int GLOBAL_VARIABLES = GeneratorIndex::GLOBAL_VARIABLES;
         int PARTIAL_ADDRESS = GeneratorIndex::PARTIAL_ADDRESS;
+        int BLOCK_HASH = GeneratorIndex::BLOCK_HASH;
         int TX_REQUEST = GeneratorIndex::TX_REQUEST;
         int SIGNATURE_PAYLOAD = GeneratorIndex::SIGNATURE_PAYLOAD;
         int VK = GeneratorIndex::VK;
@@ -166,6 +167,7 @@ struct GeneratorIndexPacker {
                  SIGNED_TX_REQUEST,
                  GLOBAL_VARIABLES,
                  PARTIAL_ADDRESS,
+                 BLOCK_HASH,
                  TX_REQUEST,
                  SIGNATURE_PAYLOAD,
                  VK,

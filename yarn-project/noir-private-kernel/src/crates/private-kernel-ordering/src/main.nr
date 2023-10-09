@@ -2,8 +2,7 @@ use dep::private_kernel_lib::abis::previous_kernel_data::PreviousKernelData;
 use dep::private_kernel_lib::abis::kernel_circuit_public_inputs_final::KernelCircuitPublicInputsFinal;
 use dep::private_kernel_lib::common;
 use dep::private_kernel_lib::utils::arrays::{array_rearrange};
-use dep::private_kernel_lib::constants::per_transaction::{MAX_READ_REQUESTS_PER_TX,MAX_NEW_NULLIFIERS_PER_TX,MAX_NEW_COMMITMENTS_PER_TX};
-use dep::private_kernel_lib::constants::misc::{EMPTY_NULLIFIED_COMMITMENT};
+use dep::aztec::constants_gen::{MAX_READ_REQUESTS_PER_TX,MAX_NEW_NULLIFIERS_PER_TX,MAX_NEW_COMMITMENTS_PER_TX,EMPTY_NULLIFIED_COMMITMENT};
 use dep::std::unsafe;
 use dep::private_kernel_lib::hash::{compute_unique_commitment,compute_commitment_nonce};
 

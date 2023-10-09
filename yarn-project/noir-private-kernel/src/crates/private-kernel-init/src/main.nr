@@ -1,4 +1,4 @@
-use dep::private_kernel_lib::constants;
+use dep::aztec::constants_gen;
 use dep::private_kernel_lib::common;
 use dep::private_kernel_lib::mocked::{Proof, AggregationObject,verify_previous_kernel_state};
 use dep::private_kernel_lib::abis::private_kernel::private_call_data::PrivateCallData;
@@ -103,7 +103,7 @@ impl PrivateKernelInputsInit {
         
         // Push an empty nullified commitment too since each nullifier must
         // be paired with a nonzero (real or "empty") nullified commitment
-        public_inputs.end.nullified_commitments = arrays::array_push_field(public_inputs.end.nullified_commitments, constants::misc::EMPTY_NULLIFIED_COMMITMENT);
+        public_inputs.end.nullified_commitments = arrays::array_push_field(public_inputs.end.nullified_commitments, constants_gen::EMPTY_NULLIFIED_COMMITMENT);
 
         // Note that we do not need to nullify the transaction request nonce anymore.
         // Should an account want to additionally use nonces for replay protection or handling cancellations,

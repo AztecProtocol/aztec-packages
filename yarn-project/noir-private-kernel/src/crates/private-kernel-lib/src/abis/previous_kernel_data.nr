@@ -1,5 +1,5 @@
 use crate::mocked::{Proof, VerificationKey};
-use crate::constants::trees::VK_TREE_HEIGHT;
+use dep::aztec::constants_gen::VK_TREE_HEIGHT;
 use crate::abis::kernel_circuit_public_inputs::KernelCircuitPublicInputs;
 
 //TODO(sean): left a note saying that this should not be called Previous

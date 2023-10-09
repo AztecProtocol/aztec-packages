@@ -5,3 +5,4 @@ authors = [""]
 compiler_version = "0.16.0"
 
 [dependencies]
+aztec = { path="../../../../aztec-nr/aztec" }

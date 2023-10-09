@@ -1,4 +1,4 @@
-use crate::constants;
+use dep::aztec::constants_gen;
 use crate::contrakt::deployment_data::ContractDeploymentData;
 
 struct TxContext {
@@ -16,7 +16,7 @@ struct TxContext {
 impl TxContext {
     // TODO(Hash): Hash(is_fee_payment_tx, is_rebate_payment_tx, is_contract_deployment_tx,contract_deployment_data, chain_id, version)
     fn hash(self) -> Field {
-        let _hash_index = constants::generator_index::TX_CONTEXT;
+        let _hash_index = constants_gen::GENERATOR_INDEX__TX_CONTEXT;
         0
     }
 }
