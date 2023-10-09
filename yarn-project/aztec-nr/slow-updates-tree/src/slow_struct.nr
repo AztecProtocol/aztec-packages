@@ -67,7 +67,7 @@ impl<T, T_SERIALIZED_LEN> SlowStruct<T, T_SERIALIZED_LEN> {
   fn current_root(self: Self) -> Field {
     let time = self.context.public.unwrap().timestamp() as u120;
     let inner = self.read_inner();
-    if time < inner.next_change as u120 {
+    if time <= inner.next_change as u120 {
       inner.rootBefore
     } else {
       inner.rootAfter
@@ -90,7 +90,7 @@ impl<T, T_SERIALIZED_LEN> SlowStruct<T, T_SERIALIZED_LEN> {
   fn read(self) -> T {
     let time = self.context.public.unwrap().timestamp() as u120;
     let inner = self.read_inner();
-    self.read_value(time < inner.next_change as u120)
+    self.read_value(time <= inner.next_change as u120)
   }
 
   // Might be doing a LOT of writes in here. 3 + 2 * T_SERIALIZED_LEN at most.
@@ -117,7 +117,7 @@ impl<T, T_SERIALIZED_LEN> SlowStruct<T, T_SERIALIZED_LEN> {
     // every time you update, you push the update path backwards
     // @todo @LHerskind should be changed to be consistent across many different 
     // but for quick testing, we'll just do this.
-    current_inner.next_change = time as Field + 100;
+    current_inner.next_change = (((time / 100) * 100) + 100) as Field;
     current_inner.rootAfter = dep::std::hash::pedersen(serialize_fn(value))[0];
 
     let fields = serialize_inner(current_inner);
