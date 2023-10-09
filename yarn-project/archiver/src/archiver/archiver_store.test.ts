@@ -185,5 +185,44 @@ describe('Archiver Memory Store', () => {
         expect(blockNumber).toBeLessThan(toBlock);
       }
     });
+
+    it('afterLog filter param is respected', async () => {
+      const txsPerBlock = 4;
+      const numPublicFunctionCalls = 3;
+      const numUnencryptedLogs = 4;
+      const numBlocks = 10;
+
+      const blocks = Array(numBlocks)
+        .fill(0)
+        .map((_, index: number) =>
+          L2Block.random(index + 1, txsPerBlock, 2, numPublicFunctionCalls, 2, numUnencryptedLogs),
+        );
+
+      await archiverStore.addL2Blocks(blocks);
+      await archiverStore.addLogs(
+        blocks.map(block => block.newUnencryptedLogs!),
+        LogType.UNENCRYPTED,
+      );
+
+      // Get a random log as reference
+      const targetBlockIndex = Math.floor(Math.random() * numBlocks);
+      const targetTxIndex = Math.floor(Math.random() * txsPerBlock);
+      const targetLogIndex = Math.floor(Math.random() * numUnencryptedLogs);
+
+      const afterLog = new LogId(targetBlockIndex + INITIAL_L2_BLOCK_NUM, targetTxIndex, targetLogIndex);
+
+      const logs = await archiverStore.getUnencryptedLogs({ afterLog });
+
+      for (const log of logs) {
+        const logId = log.id;
+        expect(logId.blockNumber).toBeGreaterThanOrEqual(afterLog.blockNumber);
+        if (logId.blockNumber === afterLog.blockNumber) {
+          expect(logId.txIndex).toBeGreaterThanOrEqual(afterLog.txIndex);
+          if (logId.txIndex === afterLog.txIndex) {
+            expect(logId.logIndex).toBeGreaterThan(afterLog.logIndex);
+          }
+        }
+      }
+    });
   });
 });
