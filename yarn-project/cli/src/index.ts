@@ -345,6 +345,9 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
         }
       } else {
         await fetchLogs();
+        if (!txHash) {
+          log('\nTo continue fetching logs after the latest one set the --after-log param to ' + filter.afterLog);
+        }
       }
     });
 
