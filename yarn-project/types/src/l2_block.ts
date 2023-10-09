@@ -179,8 +179,18 @@ export class L2Block {
     const newPublicDataWrites = times(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * txsPerBlock, PublicDataWrite.random);
     const newL1ToL2Messages = times(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, Fr.random);
     const newL2ToL1Msgs = times(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr.random);
-    const newEncryptedLogs = L2BlockL2Logs.random(txsPerBlock, numPrivateFunctionCalls, numEncryptedLogs);
-    const newUnencryptedLogs = L2BlockL2Logs.random(txsPerBlock, numPublicFunctionCalls, numUnencryptedLogs);
+    const newEncryptedLogs = L2BlockL2Logs.random(
+      txsPerBlock,
+      numPrivateFunctionCalls,
+      numEncryptedLogs,
+      LogType.ENCRYPTED,
+    );
+    const newUnencryptedLogs = L2BlockL2Logs.random(
+      txsPerBlock,
+      numPublicFunctionCalls,
+      numUnencryptedLogs,
+      LogType.UNENCRYPTED,
+    );
 
     return L2Block.fromFields({
       number: l2BlockNum,

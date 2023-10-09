@@ -1,4 +1,4 @@
-import { INITIAL_L2_BLOCK_NUM, L2Block, L2BlockL2Logs, LogId, LogType, TxHash } from '@aztec/types';
+import { INITIAL_L2_BLOCK_NUM, L2Block, L2BlockContext, L2BlockL2Logs, LogId, LogType, TxHash } from '@aztec/types';
 
 import { randomBytes } from 'crypto';
 
@@ -16,7 +16,7 @@ describe('Archiver Memory Store', () => {
       .fill(0)
       .map((_, index) => L2Block.random(index));
     await archiverStore.addL2Blocks(blocks);
-    // Offset indices by INTIAL_L2_BLOCK_NUM to ensure we are correctly aligned
+    // Offset indices by INITIAL_L2_BLOCK_NUM to ensure we are correctly aligned
     for (const [from, limit] of [
       [0 + INITIAL_L2_BLOCK_NUM, 10],
       [3 + INITIAL_L2_BLOCK_NUM, 3],
@@ -74,45 +74,82 @@ describe('Archiver Memory Store', () => {
     },
   );
 
-  it('throws when log filter is invalid', async () => {
-    const txHash = new TxHash(randomBytes(TxHash.SIZE));
-    const fromBlock = 1;
-    const toBlock = 2;
-    const afterLog = new LogId(1, 2, 3);
+  describe('getUnencryptedLogs', () => {
+    it('throws when log filter is invalid', async () => {
+      const txHash = new TxHash(randomBytes(TxHash.SIZE));
+      const fromBlock = 1;
+      const toBlock = 2;
+      const afterLog = new LogId(1, 2, 3);
 
-    const filter1 = {
-      txHash,
-      fromBlock,
-    };
-    await expect(async () => await archiverStore.getUnencryptedLogs(filter1)).rejects.toThrow(`If txHash is set`);
+      const filter1 = {
+        txHash,
+        fromBlock,
+      };
+      await expect(async () => await archiverStore.getUnencryptedLogs(filter1)).rejects.toThrow(`If txHash is set`);
 
-    const filter2 = {
-      txHash,
-      toBlock,
-    };
-    await expect(async () => await archiverStore.getUnencryptedLogs(filter2)).rejects.toThrow(`If txHash is set`);
+      const filter2 = {
+        txHash,
+        toBlock,
+      };
+      await expect(async () => await archiverStore.getUnencryptedLogs(filter2)).rejects.toThrow(`If txHash is set`);
 
-    const filter3 = {
-      txHash,
-      afterLog,
-    };
-    await expect(async () => await archiverStore.getUnencryptedLogs(filter3)).rejects.toThrow(`If txHash is set`);
+      const filter3 = {
+        txHash,
+        afterLog,
+      };
+      await expect(async () => await archiverStore.getUnencryptedLogs(filter3)).rejects.toThrow(`If txHash is set`);
 
-    const filter4 = {
-      fromBlock,
-      afterLog,
-    };
-    await expect(async () => await archiverStore.getUnencryptedLogs(filter4)).rejects.toThrow(`If fromBlock is set`);
-  });
+      const filter4 = {
+        fromBlock,
+        afterLog,
+      };
+      await expect(async () => await archiverStore.getUnencryptedLogs(filter4)).rejects.toThrow(`If fromBlock is set`);
+    });
 
-  it('throws fromBlock is smaller than genesis block', async () => {
-    const fromBlock = INITIAL_L2_BLOCK_NUM - 1;
+    it('throws fromBlock is smaller than genesis block', async () => {
+      const fromBlock = INITIAL_L2_BLOCK_NUM - 1;
 
-    await expect(
-      async () =>
-        await archiverStore.getUnencryptedLogs({
-          fromBlock,
-        }),
-    ).rejects.toThrow(`smaller than genesis block number`);
+      await expect(
+        async () =>
+          await archiverStore.getUnencryptedLogs({
+            fromBlock,
+          }),
+      ).rejects.toThrow(`smaller than genesis block number`);
+    });
+
+    it('txHash filter is respected', async () => {
+      const txsPerBlock = 4;
+      const numPublicFunctionCalls = 3;
+      const numUnencryptedLogs = 4;
+      const numBlocks = 10;
+
+      const blocks = Array(numBlocks)
+        .fill(0)
+        .map((_, index: number) =>
+          L2Block.random(index + 1, txsPerBlock, 2, numPublicFunctionCalls, 2, numUnencryptedLogs),
+        );
+
+      await archiverStore.addL2Blocks(blocks);
+      await archiverStore.addLogs(
+        blocks.map(block => block.newUnencryptedLogs!),
+        LogType.UNENCRYPTED,
+      );
+
+      // get random tx
+      const targetBlockIndex = Math.floor(Math.random() * numBlocks);
+      const targetTxIndex = Math.floor(Math.random() * txsPerBlock);
+      const targetTxHash = new L2BlockContext(blocks[targetBlockIndex]).getTxHash(targetTxIndex);
+
+      const logs = await archiverStore.getUnencryptedLogs({ txHash: targetTxHash });
+
+      const expectedNumLogs = numPublicFunctionCalls * numUnencryptedLogs;
+      expect(logs.length).toEqual(expectedNumLogs);
+
+      const targeBlockNumber = targetBlockIndex + INITIAL_L2_BLOCK_NUM;
+      for (const log of logs) {
+        expect(log.id.blockNumber).toEqual(targeBlockNumber);
+        expect(log.id.txIndex).toEqual(targetTxIndex);
+      }
+    });
   });
 });

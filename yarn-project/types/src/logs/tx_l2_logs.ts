@@ -1,6 +1,7 @@
 import { BufferReader, prefixBufferWithLength } from '@aztec/foundation/serialize';
 
 import { FunctionL2Logs } from './function_l2_logs.js';
+import { LogType } from './log_type.js';
 
 /**
  * Data container of logs emitted in 1 tx.
@@ -62,12 +63,17 @@ export class TxL2Logs {
    * in each invocation.
    * @param numFunctionInvocations - The number of function invocations in the tx.
    * @param numLogsIn1Invocation - The number of logs emitted in each function invocation.
+   * @param logType - The type of logs to generate.
    * @returns A new `TxL2Logs` object.
    */
-  public static random(numFunctionInvocations: number, numLogsIn1Invocation: number): TxL2Logs {
+  public static random(
+    numFunctionInvocations: number,
+    numLogsIn1Invocation: number,
+    logType = LogType.ENCRYPTED,
+  ): TxL2Logs {
     const functionLogs: FunctionL2Logs[] = [];
     for (let i = 0; i < numFunctionInvocations; i++) {
-      functionLogs.push(FunctionL2Logs.random(numLogsIn1Invocation));
+      functionLogs.push(FunctionL2Logs.random(numLogsIn1Invocation, logType));
     }
     return new TxL2Logs(functionLogs);
   }

@@ -2,6 +2,7 @@ import { BufferReader, prefixBufferWithLength } from '@aztec/foundation/serializ
 
 import isEqual from 'lodash.isequal';
 
+import { LogType } from './log_type.js';
 import { TxL2Logs } from './tx_l2_logs.js';
 
 /**
@@ -67,12 +68,18 @@ export class L2BlockL2Logs {
    * @param numTxs - The number of txs in the block.
    * @param numFunctionInvocations - The number of function invocations in the tx.
    * @param numLogsIn1Invocation - The number of logs emitted in each function invocation.
+   * @param logType - The type of logs to generate.
    * @returns A new `L2BlockL2Logs` object.
    */
-  public static random(numTxs: number, numFunctionInvocations: number, numLogsIn1Invocation: number): L2BlockL2Logs {
+  public static random(
+    numTxs: number,
+    numFunctionInvocations: number,
+    numLogsIn1Invocation: number,
+    logType = LogType.ENCRYPTED,
+  ): L2BlockL2Logs {
     const txLogs: TxL2Logs[] = [];
     for (let i = 0; i < numTxs; i++) {
-      txLogs.push(TxL2Logs.random(numFunctionInvocations, numLogsIn1Invocation));
+      txLogs.push(TxL2Logs.random(numFunctionInvocations, numLogsIn1Invocation, logType));
     }
     return new L2BlockL2Logs(txLogs);
   }
