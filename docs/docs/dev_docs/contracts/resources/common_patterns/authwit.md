@@ -67,7 +67,7 @@ fn is_valid(message_hash: Field) -> Field;
 fn is_valid_public(message_hash: Field) -> Field;
 ```
 
-Both returning the value `0xe86ab4ff` (`is_valid` selector) for a successful authentication, and `0x00000000` for a failed authentication. You might be wondering why we are expecting the return value to be a selector instead of a boolean? This is mainly to account for a case of selector collisions where the same selector is used for different functions, and we don't want an account to mistakenly allow a different function to be called on its behalf - it is hard to return the selector by mistake, but you might have other functions returning a bool.
+Both return the value `0xe86ab4ff` (`is_valid` selector) for a successful authentication, and `0x00000000` for a failed authentication. You might be wondering why we are expecting the return value to be a selector instead of a boolean. This is mainly to account for a case of selector collisions where the same selector is used for different functions, and we don't want an account to mistakenly allow a different function to be called on its behalf - it is hard to return the selector by mistake, but you might have other functions returning a bool.
 
 ## The `AuthWit` library.
 
@@ -85,7 +85,7 @@ The primary general utility is the `compute_authwit_message_hash` function which
 
 #### TypeScript utilities
 
-To make it somewhat convenient to compute the message hashes in TypeScript the `aztec.js` package includes a `computeAuthWitMessageHash` function that you can use.
+To make it convenient to compute the message hashes in TypeScript, the `aztec.js` package includes a `computeAuthWitMessageHash` function that you can use.
 
 #include_code authwit_computeAuthWitMessageHash /yarn-project/aztec.js/src/utils/authwit.ts typescript
 
@@ -177,7 +177,7 @@ To support this, we must implement the `is_valid_public` function as seen in the
 
 It also needs a way to update those storage values. Since we want the updates to be trustless, we can compute the action based on the function inputs, and then have the contract compute the key at which it must add a `true` to approve the action.
 
-An example of this would be our Uniswap example which performs a cross chain swap on L1. In here, we both do private and public auth witnesses. Where the public is set by the uniswap L2 contract itself. In the below snippet, you can see that we compute the action hash, and then update an `approved_action` mapping with the hash as key and `true` as value. When we then call the `token_bridge` to execute afterwards, it reads this value, burns the tokens, and consumes the authentication.
+An example of this would be our Uniswap example which performs a cross chain swap on L1. In here, we both do private and public auth witnesses, where the public is set by the uniswap L2 contract itself. In the below snippet, you can see that we compute the action hash, and then update an `approved_action` mapping with the hash as key and `true` as value. When we then call the `token_bridge` to execute afterwards, it reads this value, burns the tokens, and consumes the authentication.
 
 #include_code authwit_uniswap_set /yarn-project/noir-contracts/src/contracts/uniswap_contract/src/main.nr rust
 

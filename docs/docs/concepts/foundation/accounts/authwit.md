@@ -2,7 +2,7 @@
 title: Authentication Witness
 ---
 
-Authentication Witness is a scheme for authentication actions on Aztec, so users can allow third-parties (eg protocols or other users) to execute an action on their behalf.
+Authentication Witness is a scheme for authenticating actions on Aztec, so users can allow third-parties (eg protocols or other users) to execute an action on their behalf.
 
 ## Background
 
@@ -22,7 +22,7 @@ sequenceDiagram
 
 This flow makes it rather simple for the application developer to implement the deposit function, but does not come without its downsides.
 
-One main downside, which births a bunch of other issues, is that the user needs to sign two transactions to make the deposit - first the `approve` and then the `deposit`.
+One main downside, which births a bunch of other issues, is that the user needs to send two transactions to make the deposit - first the `approve` and then the `deposit`.
 
 To limit the annoyance for return-users, some front-ends will use the `approve` function with an infinite amount, which means that the user will only has to sign the `approve` transaction once, and every future `deposit` with then use some of that "allowance" to transfer funds from the user's account to the protocol's account.
 
@@ -52,7 +52,7 @@ All of these issues have been discussed in the community for a while, and there 
 
 ## In Aztec
 
-Adopting ERC20 for Aztec is not as simple as it might seem because of private state. In public, we can just use the ERC20 standard, but in private it is not as simple.
+Adopting ERC20 for Aztec is not as simple as it might seem because of private state.
 
 If you recall from [State model](./../state_model.md), private state is generally only known by its owner and those they have shared it with. Because it relies on secrets, private state might be "owned" by a contract, but it needs someone with knowledge of these secrets to actually spend it. You might see where this is going.
 
@@ -63,7 +63,7 @@ If we were to implement the `approve` with an allowance in private, you might kn
 A few more things we need to remember about private execution:
 
 - To stay private, it all happens on the user device.
-- Because it happens on the user device, additional user-provided information can be passed to the contract mid-execution.
+- Because it happens on the user device, additional user-provided information can be passed to the contract mid-execution via an oracle call.
 
 For example, when executing a private transfer, the wallet will be providing the notes that the user wants to transfer through one of these oracle calls instead of the function arguments. This allows us to keep the function signature simple, and have the user provide the notes they want to transfer through the oracle call.
 
