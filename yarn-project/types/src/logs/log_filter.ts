@@ -19,10 +19,10 @@ export type LogFilter = {
   /** The block number until which to fetch logs (not inclusive). */
   toBlock?: number;
   /**
-   * Log id from which to start fetching logs (inclusive).
+   * Log id after which to start fetching logs .
    * @remarks If this is set, `fromBlock` and `txHash` can't be defined.
    */
-  fromLog?: LogId;
+  afterLog?: LogId;
   /** The contract address to filter logs by. */
   contractAddress?: AztecAddress;
   /**
@@ -38,11 +38,11 @@ export type LogFilter = {
  * @throws If the filter is invalid.
  */
 export function validateLogFilter(filter: LogFilter) {
-  if (filter.txHash && (filter.fromBlock || filter.toBlock || filter.fromLog)) {
+  if (filter.txHash && (filter.fromBlock || filter.toBlock || filter.afterLog)) {
     throw new Error("If txHash is set, fromBlock, toBlock, and fromLog can't be defined.");
   }
 
-  if (filter.fromBlock !== undefined && filter.fromLog) {
+  if (filter.fromBlock !== undefined && filter.afterLog) {
     throw new Error("If fromBlock is set, fromLog can't be defined.");
   }
 }

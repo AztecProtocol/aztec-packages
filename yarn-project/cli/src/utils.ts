@@ -15,7 +15,7 @@ import {
   RollupAbi,
   RollupBytecode,
 } from '@aztec/l1-artifacts';
-import { LogId, parseLogId } from '@aztec/types';
+import { LogId } from '@aztec/types';
 
 import { InvalidArgumentError } from 'commander';
 import fs from 'fs';
@@ -235,7 +235,7 @@ export function parseOptionalLogId(logId: string): LogId | undefined {
   if (!logId) {
     return undefined;
   }
-  return parseLogId(logId);
+  return LogId.fromString(logId);
 }
 
 /**

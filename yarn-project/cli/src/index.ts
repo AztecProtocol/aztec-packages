@@ -302,12 +302,12 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       parseOptionalInteger,
     )
     .option('-tb, --to-block <blockNum>', 'Up to which block to fetch logs (defaults to latest).', parseOptionalInteger)
-    .option('-fl --from-log <logId>', 'Initial log id for getting logs.', parseOptionalLogId)
+    .option('-al --after-log <logId>', 'ID of a log after which to fetch the logs.', parseOptionalLogId)
     .option('-ca, --contract-address <address>', 'Contract address to filter logs by.', parseOptionalAztecAddress)
     .option('-s, --selector <hex string>', 'Event selector to filter logs by.', parseOptionalSelector)
     .addOption(pxeOption)
     .option('--follow', 'If set, will keep polling for new logs until interrupted.')
-    .action(async ({ txHash, fromBlock, toBlock, fromLog, contractAddress, selector, rpcUrl, follow }) => {
+    .action(async ({ txHash, fromBlock, toBlock, afterLog, contractAddress, selector, rpcUrl, follow }) => {
       const pxe = await createCompatibleClient(rpcUrl, debugLogger);
 
       if (follow) {
@@ -315,7 +315,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
         if (toBlock) throw Error('Cannot use --follow with --to-block');
       }
 
-      const filter: LogFilter = { txHash, fromBlock, toBlock, fromLog, contractAddress, selector };
+      const filter: LogFilter = { txHash, fromBlock, toBlock, afterLog, contractAddress, selector };
 
       validateLogFilter(filter);
 
@@ -331,9 +331,9 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
         } else {
           if (!follow) log('Logs found: \n');
           logs.forEach(unencryptedLog => log(unencryptedLog.toHumanReadable()));
-          // Disable `fromBlock` and continue using the `fromLog` filter.
+          // Disable `fromBlock` and continue using the `afterLog` filter.
           filter.fromBlock = undefined;
-          filter.fromLog = await logs[logs.length - 1].getLogId(pxe);
+          filter.afterLog = logs[logs.length - 1].logId;
         }
       };
 

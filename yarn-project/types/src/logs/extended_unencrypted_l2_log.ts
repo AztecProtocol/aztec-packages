@@ -1,19 +1,16 @@
-import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { BufferReader } from '@aztec/foundation/serialize';
 
 import isEqual from 'lodash.isequal';
 
-import { LogId, PXE, TxHash, UnencryptedL2Log } from '../index.js';
+import { LogId, TxHash, UnencryptedL2Log } from '../index.js';
 
 /**
  * Represents an individual unencrypted log entry extended with info about the block and tx it was emitted in.
  */
 export class ExtendedUnencryptedL2Log {
   constructor(
-    /** Number of L2 block the log was emitted in. */
-    public readonly blockNumber: number,
-    /** Selector of the event/log topic. */
-    public readonly txHash: TxHash,
+    /** Globally unique id of the log. */
+    public readonly logId: LogId,
     /** The data contents of the log. */
     public readonly log: UnencryptedL2Log,
   ) {}
@@ -23,7 +20,7 @@ export class ExtendedUnencryptedL2Log {
    * @returns A buffer containing the serialized log.
    */
   public toBuffer(): Buffer {
-    return Buffer.concat([toBufferBE(BigInt(this.blockNumber), 4), this.txHash.buffer, this.log.toBuffer()]);
+    return Buffer.concat([this.logId.toBuffer(), this.log.toBuffer()]);
   }
 
   /**
@@ -39,7 +36,7 @@ export class ExtendedUnencryptedL2Log {
    * @returns A human readable representation of the log.
    */
   public toHumanReadable(): string {
-    return `${this.log.toHumanReadable()} (blockNumber: ${this.blockNumber}, txHash: ${this.txHash.toString()})`;
+    return `${this.logId.toHumanReadable()}, ${this.log.toHumanReadable()}`;
   }
 
   /**
@@ -52,24 +49,6 @@ export class ExtendedUnencryptedL2Log {
   }
 
   /**
-   * Gets a globally unique log id.
-   * @param pxe - The PXE instance to use for retrieving logs.
-   * @returns A globally unique log id.
-   */
-  public async getLogId(pxe: PXE): Promise<LogId> {
-    const txLogs = await pxe.getUnencryptedLogs({ txHash: this.txHash });
-    const logIndex = txLogs.findIndex(log => log.equals(this));
-    if (logIndex === -1) {
-      throw new Error(`Log ${this.toHumanReadable()} not found in tx ${this.txHash.toString()}`);
-    }
-    return {
-      blockNumber: this.blockNumber,
-      txIndex: this.txHash,
-      logIndex: logIndex,
-    };
-  }
-
-  /**
    * Deserializes log from a buffer.
    * @param buffer - The buffer or buffer reader containing the log.
    * @returns Deserialized instance of `Log`.
@@ -77,11 +56,10 @@ export class ExtendedUnencryptedL2Log {
   public static fromBuffer(buffer: Buffer | BufferReader): ExtendedUnencryptedL2Log {
     const reader = BufferReader.asReader(buffer);
 
-    const blockNumber = reader.readNumber();
-    const txHash = new TxHash(reader.readBytes(TxHash.SIZE));
+    const logId = LogId.fromBuffer(reader);
     const log = UnencryptedL2Log.fromBuffer(reader);
 
-    return new ExtendedUnencryptedL2Log(blockNumber, txHash, log);
+    return new ExtendedUnencryptedL2Log(logId, log);
   }
 
   /**

@@ -11,6 +11,7 @@ import {
   L2BlockL2Logs,
   L2Tx,
   LogFilter,
+  LogId,
   LogType,
   TxHash,
   UnencryptedL2Log,
@@ -378,8 +379,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     let fromBlockIndex = 0;
     if (filter.fromBlock !== undefined) {
       fromBlockIndex = filter.fromBlock - INITIAL_L2_BLOCK_NUM;
-    } else if (filter.fromLog !== undefined) {
-      fromBlockIndex = filter.fromLog.blockNumber - INITIAL_L2_BLOCK_NUM;
+    } else if (filter.afterLog !== undefined) {
+      fromBlockIndex = filter.afterLog.blockNumber - INITIAL_L2_BLOCK_NUM;
     }
 
     if (fromBlockIndex < 0) {
@@ -399,8 +400,10 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     const selector = filter.selector;
 
     let txIndexInBlock = 0;
-    if (filter.fromLog !== undefined) {
-      txIndexInBlock = filter.fromLog.logIndex;
+    let logIndexInTx = 0;
+    if (filter.afterLog !== undefined) {
+      txIndexInBlock = filter.afterLog.logIndex;
+      logIndexInTx = filter.afterLog.logIndex + 1; // We want to start from the next log
     }
 
     const logs: ExtendedUnencryptedL2Log[] = [];
@@ -410,20 +413,22 @@ export class MemoryArchiverStore implements ArchiverDataStore {
       const blockLogs = this.unencryptedLogsPerBlock[i];
       for (; txIndexInBlock < blockLogs.txLogs.length; txIndexInBlock++) {
         const txLogs = blockLogs.txLogs[txIndexInBlock].unrollLogs().map(log => UnencryptedL2Log.fromBuffer(log));
-        for (const log of txLogs) {
+        for (; logIndexInTx < txLogs.length; logIndexInTx++) {
+          const log = txLogs[logIndexInTx];
           if (
             (!txHash || blockContext.getTxHash(txIndexInBlock).equals(txHash)) &&
             (!contractAddress || log.contractAddress.equals(contractAddress)) &&
             (!selector || log.selector.equals(selector))
           ) {
             logs.push(
-              new ExtendedUnencryptedL2Log(blockContext.block.number, blockContext.getTxHash(txIndexInBlock), log),
+              new ExtendedUnencryptedL2Log(new LogId(blockContext.block.number, txIndexInBlock, logIndexInTx), log),
             );
             if (logs.length === this.maxLogs) {
               return Promise.resolve(logs);
             }
           }
         }
+        logIndexInTx = 0;
       }
       txIndexInBlock = 0;
     }
