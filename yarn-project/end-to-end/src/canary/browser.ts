@@ -113,18 +113,15 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
     }, 60_000);
 
     it('Can access CompleteAddress class in browser', async () => {
-      const result: any[] = await page.evaluate(() => {
-        try {
-          const completeAddress = window.AztecJs.CompleteAddress.fromString(
-            '0x115f123bbc6cc6af9890055821cfba23a7c4e8832377a32ccb719a1ba3a86483',
-          );
-          // NOTE: browser doesnt know how to serialize CompleteAddress for return, so return a string
-          return [completeAddress.toString()];
-        } catch (error) {
-          return [error];
-        }
+      const result: string = await page.evaluate(() => {
+        const completeAddress = window.AztecJs.CompleteAddress.fromString(
+          '0x115f123bbc6cc6af9890055821cfba23a7c4e8832377a32ccb719a1ba3a86483',
+        );
+        // NOTE: browser doesnt know how to serialize CompleteAddress for return, so return a string
+        // otherwise returning a CompleteAddress makes result undefined.
+        return completeAddress.toString();
       });
-      expect(result[0]).toBeDefined();
+      expect(result).toBe('0x115f123bbc6cc6af9890055821cfba23a7c4e8832377a32ccb719a1ba3a86483');
     });
 
     it("Gets the owner's balance", async () => {
