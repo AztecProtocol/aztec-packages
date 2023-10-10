@@ -4,12 +4,12 @@
 
 #include "aztec3/circuits/abis/call_context.hpp"
 #include "aztec3/circuits/abis/call_stack_item.hpp"
-#include "aztec3/circuits/abis/combined_accumulated_data.hpp"
 #include "aztec3/circuits/abis/combined_constant_data.hpp"
 #include "aztec3/circuits/abis/contract_storage_update_request.hpp"
-#include "aztec3/circuits/abis/final_accumulated_data.hpp"
 #include "aztec3/circuits/abis/previous_private_kernel_data.hpp"
+#include "aztec3/circuits/abis/private_accumulated_data_final.hpp"
 #include "aztec3/circuits/abis/private_kernel_public_inputs.hpp"
+#include "aztec3/circuits/abis/public_accumulated_data.hpp"
 #include "aztec3/circuits/abis/public_kernel/public_call_data.hpp"
 #include "aztec3/circuits/abis/public_kernel/public_kernel_inputs_init.hpp"
 #include "aztec3/circuits/abis/tx_context.hpp"
@@ -30,17 +30,17 @@ using aztec3::circuits::abis::public_kernel::PublicKernelInputsInit;
 using NT = aztec3::utils::types::NativeTypes;
 using aztec3::circuits::abis::CallContext;
 using aztec3::circuits::abis::CallStackItem;
-using aztec3::circuits::abis::CombinedAccumulatedData;
 using aztec3::circuits::abis::CombinedConstantData;
 using aztec3::circuits::abis::ContractStorageRead;
 using aztec3::circuits::abis::ContractStorageUpdateRequest;
-using aztec3::circuits::abis::FinalAccumulatedData;
 using aztec3::circuits::abis::HistoricBlockData;
 using aztec3::circuits::abis::NewContractData;
 using aztec3::circuits::abis::OptionallyRevealedData;
 using aztec3::circuits::abis::PreviousPrivateKernelData;
 using aztec3::circuits::abis::PreviousPublicKernelData;
+using aztec3::circuits::abis::PrivateAccumulatedDataFinal;
 using aztec3::circuits::abis::PrivateKernelPublicInputs;
+using aztec3::circuits::abis::PublicAccumulatedData;
 using aztec3::circuits::abis::PublicCircuitPublicInputs;
 using aztec3::circuits::abis::PublicDataRead;
 using aztec3::circuits::abis::PublicTypes;
@@ -381,14 +381,14 @@ CombinedConstantData<NT> get_combined_constant_data(NT::uint32& seed)
                                      } };
 }
 
-CombinedAccumulatedData<NT> get_combined_accumulated_data(NT::uint32& seed,
-                                                          NT::fr const& call_stack_item_hash,
-                                                          bool private_previous)
+PublicAccumulatedData<NT> get_public_accumulated_data(NT::uint32& seed,
+                                                      NT::fr const& call_stack_item_hash,
+                                                      bool private_previous)
 {
     std::array<NT::fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX> public_call_stack{};
     public_call_stack[0] = call_stack_item_hash;
 
-    return CombinedAccumulatedData<NT>{
+    return PublicAccumulatedData<NT>{
         .new_commitments =
             array_of_values<MAX_NEW_COMMITMENTS_PER_TX>(seed, private_previous ? MAX_NEW_COMMITMENTS_PER_TX / 2 : 0),
         .new_nullifiers =
@@ -411,12 +411,12 @@ CombinedAccumulatedData<NT> get_combined_accumulated_data(NT::uint32& seed,
     };
 }
 
-FinalAccumulatedData<NT> get_final_accumulated_data(NT::uint32& seed, NT::fr const& call_stack_item_hash)
+PrivateAccumulatedDataFinal<NT> get_final_accumulated_data(NT::uint32& seed, NT::fr const& call_stack_item_hash)
 {
     std::array<NT::fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX> public_call_stack{};
     public_call_stack[0] = call_stack_item_hash;
 
-    return FinalAccumulatedData<NT>{
+    return PrivateAccumulatedDataFinal<NT>{
         .new_commitments = array_of_values<MAX_NEW_COMMITMENTS_PER_TX>(seed, MAX_NEW_COMMITMENTS_PER_TX / 2),
         .new_nullifiers = array_of_values<MAX_NEW_NULLIFIERS_PER_TX>(seed, MAX_NEW_NULLIFIERS_PER_TX / 2),
         .private_call_stack = array_of_values<MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>(seed, 0),
@@ -467,7 +467,7 @@ PublicKernelInputsInner<NT> get_public_kernel_inputs_inner()
     auto public_call_data = get_public_call_data(seed);
 
     auto end_constants = get_combined_constant_data(seed);
-    auto end_accumulated_data = get_combined_accumulated_data(seed, public_call_data.call_stack_item.hash(), false);
+    auto end_accumulated_data = get_public_accumulated_data(seed, public_call_data.call_stack_item.hash(), false);
 
     PublicKernelInputsInner<NT> kernel_inputs = {
         .public_call = public_call_data,

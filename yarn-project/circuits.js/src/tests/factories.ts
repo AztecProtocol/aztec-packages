@@ -15,14 +15,12 @@ import {
   CallContext,
   CircuitType,
   CircuitsWasm,
-  CombinedAccumulatedData,
   CombinedConstantData,
   ConstantRollupData,
   ContractDeploymentData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
   FUNCTION_TREE_HEIGHT,
-  FinalAccumulatedData,
   Fq,
   Fr,
   FunctionData,
@@ -70,6 +68,8 @@ import {
   PreviousPrivateKernelDataFinal,
   PreviousPublicKernelData,
   PreviousRollupData,
+  PrivateAccumulatedData,
+  PrivateAccumulatedDataFinal,
   PrivateCallData,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
@@ -78,6 +78,7 @@ import {
   PrivateKernelPublicInputs,
   PrivateKernelPublicInputsFinal,
   Proof,
+  PublicAccumulatedData,
   PublicCallData,
   PublicCallRequest,
   PublicCallStackItem,
@@ -204,14 +205,42 @@ export function makeContractStorageRead(seed = 1): ContractStorageRead {
 }
 
 /**
- * Creates arbitrary accumulated data.
+ * Creates arbitrary private accumulated data.
  * @param seed - The seed to use for generating the accumulated data.
  * @returns An accumulated data.
  */
-export function makeAccumulatedData(seed = 1, full = false): CombinedAccumulatedData {
+export function makePrivateAccumulatedData(seed = 1, full = false): PrivateAccumulatedData {
   const tupleGenerator = full ? makeTuple : makeHalfFullTuple;
 
-  return new CombinedAccumulatedData(
+  return new PrivateAccumulatedData(
+    makeAggregationObject(seed),
+    tupleGenerator(MAX_READ_REQUESTS_PER_TX, fr, seed + 0x80),
+    tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX, fr, seed + 0x100),
+    tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x200),
+    tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x300),
+    tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, fr, seed + 0x400),
+    tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, fr, seed + 0x500),
+    tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x600),
+    tupleGenerator(2, fr, seed + 0x700), // encrypted logs hash
+    tupleGenerator(2, fr, seed + 0x800), // unencrypted logs hash
+    fr(seed + 0x900), // encrypted_log_preimages_length
+    fr(seed + 0xa00), // unencrypted_log_preimages_length
+    tupleGenerator(MAX_NEW_CONTRACTS_PER_TX, makeNewContractData, seed + 0xb00),
+    tupleGenerator(MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX, makeOptionallyRevealedData, seed + 0xc00),
+    tupleGenerator(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, makePublicDataUpdateRequest, seed + 0xd00),
+    tupleGenerator(MAX_PUBLIC_DATA_READS_PER_TX, makePublicDataRead, seed + 0xe00),
+  );
+}
+
+/**
+ * Creates arbitrary public accumulated data.
+ * @param seed - The seed to use for generating the accumulated data.
+ * @returns An accumulated data.
+ */
+export function makePublicAccumulatedData(seed = 1, full = false): PublicAccumulatedData {
+  const tupleGenerator = full ? makeTuple : makeHalfFullTuple;
+
+  return new PublicAccumulatedData(
     makeAggregationObject(seed),
     tupleGenerator(MAX_READ_REQUESTS_PER_TX, fr, seed + 0x80),
     tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX, fr, seed + 0x100),
@@ -236,10 +265,10 @@ export function makeAccumulatedData(seed = 1, full = false): CombinedAccumulated
  * @param seed - The seed to use for generating the final accumulated data.
  * @returns A final accumulated data.
  */
-export function makeFinalAccumulatedData(seed = 1, full = false): FinalAccumulatedData {
+export function makeFinalAccumulatedData(seed = 1, full = false): PrivateAccumulatedDataFinal {
   const tupleGenerator = full ? makeTuple : makeHalfFullTuple;
 
-  return new FinalAccumulatedData(
+  return new PrivateAccumulatedDataFinal(
     makeAggregationObject(seed),
     tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX, fr, seed + 0x100),
     tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x200),
@@ -351,7 +380,10 @@ export function makePublicCircuitPublicInputs(
  * @returns Private kernel circuit public inputs.
  */
 export function makePrivateKernelPublicInputs(seed = 1, fullAccumulatedData = true): PrivateKernelPublicInputs {
-  return new PrivateKernelPublicInputs(makeAccumulatedData(seed, fullAccumulatedData), makeConstantData(seed + 0x100));
+  return new PrivateKernelPublicInputs(
+    makePrivateAccumulatedData(seed, fullAccumulatedData),
+    makeConstantData(seed + 0x100),
+  );
 }
 
 /**
@@ -360,7 +392,10 @@ export function makePrivateKernelPublicInputs(seed = 1, fullAccumulatedData = tr
  * @returns Public kernel circuit public inputs.
  */
 export function makePublicKernelPublicInputs(seed = 1, fullAccumulatedData = true): PublicKernelPublicInputs {
-  return new PublicKernelPublicInputs(makeAccumulatedData(seed, fullAccumulatedData), makeConstantData(seed + 0x100));
+  return new PublicKernelPublicInputs(
+    makePublicAccumulatedData(seed, fullAccumulatedData),
+    makeConstantData(seed + 0x100),
+  );
 }
 
 /**

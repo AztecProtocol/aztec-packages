@@ -22,13 +22,15 @@ using aztec3::utils::types::CircuitTypes;
 using aztec3::utils::types::NativeTypes;
 using std::is_same;
 
-template <typename NCT> struct FinalAccumulatedData {
+template <typename NCT> struct PublicAccumulatedData {
     using fr = typename NCT::fr;
     using uint32 = typename NCT::uint32;
     using boolean = typename NCT::boolean;
     using AggregationObject = typename NCT::AggregationObject;
 
     AggregationObject aggregation_object{};
+
+    std::array<fr, MAX_READ_REQUESTS_PER_TX> read_requests{};
 
     std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> new_commitments{};
     std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> new_nullifiers{};
@@ -52,8 +54,12 @@ template <typename NCT> struct FinalAccumulatedData {
 
     std::array<OptionallyRevealedData<NCT>, MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX> optionally_revealed_data{};
 
+    std::array<PublicDataUpdateRequest<NCT>, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX> public_data_update_requests{};
+    std::array<PublicDataRead<NCT>, MAX_PUBLIC_DATA_READS_PER_TX> public_data_reads{};
+
     // for serialization, update with new fields
     MSGPACK_FIELDS(aggregation_object,
+                   read_requests,
                    new_commitments,
                    new_nullifiers,
                    nullified_commitments,
@@ -65,13 +71,15 @@ template <typename NCT> struct FinalAccumulatedData {
                    encrypted_log_preimages_length,
                    unencrypted_log_preimages_length,
                    new_contracts,
-                   optionally_revealed_data);
-    boolean operator==(FinalAccumulatedData<NCT> const& other) const
+                   optionally_revealed_data,
+                   public_data_update_requests,
+                   public_data_reads);
+    boolean operator==(PublicAccumulatedData<NCT> const& other) const
     {
         return msgpack_derived_equals<boolean>(*this, other);
     };
 
-    template <typename Builder> FinalAccumulatedData<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const
+    template <typename Builder> PublicAccumulatedData<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const
     {
         typedef CircuitTypes<Builder> CT;
         static_assert((std::is_same<NativeTypes, NCT>::value));
@@ -80,7 +88,7 @@ template <typename NCT> struct FinalAccumulatedData {
         auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(builder, e); };
         auto to_circuit_type = [&](auto& e) { return e.to_circuit_type(builder); };
 
-        FinalAccumulatedData<CT> acc_data = {
+        PublicAccumulatedData<CT> acc_data = {
             typename CT::AggregationObject{
                 to_ct(aggregation_object.P0),
                 to_ct(aggregation_object.P1),
@@ -88,6 +96,8 @@ template <typename NCT> struct FinalAccumulatedData {
                 aggregation_object.proof_witness_indices,
                 aggregation_object.has_data,
             },
+
+            to_ct(read_requests),
 
             to_ct(new_commitments),
             to_ct(new_nullifiers),
@@ -105,18 +115,20 @@ template <typename NCT> struct FinalAccumulatedData {
 
             map(new_contracts, to_circuit_type),
             map(optionally_revealed_data, to_circuit_type),
+            map(public_data_update_requests, to_circuit_type),
+            map(public_data_reads, to_circuit_type),
         };
 
         return acc_data;
     };
 
-    template <typename Builder> FinalAccumulatedData<NativeTypes> to_native_type() const
+    template <typename Builder> PublicAccumulatedData<NativeTypes> to_native_type() const
     {
         static_assert(std::is_same<CircuitTypes<Builder>, NCT>::value);
         auto to_nt = [&](auto& e) { return aztec3::utils::types::to_nt<Builder>(e); };
         auto to_native_type = []<typename T>(T& e) { return e.template to_native_type<Builder>(); };
 
-        FinalAccumulatedData<NativeTypes> acc_data = {
+        PublicAccumulatedData<NativeTypes> acc_data = {
             typename NativeTypes::AggregationObject{
                 to_nt(aggregation_object.P0),
                 to_nt(aggregation_object.P1),
@@ -124,6 +136,8 @@ template <typename NCT> struct FinalAccumulatedData {
                 aggregation_object.proof_witness_indices,
                 aggregation_object.has_data,
             },
+
+            to_nt(read_requests),
 
             to_nt(new_commitments),
             to_nt(new_nullifiers),
@@ -141,6 +155,8 @@ template <typename NCT> struct FinalAccumulatedData {
 
             map(new_contracts, to_native_type),
             map(optionally_revealed_data, to_native_type),
+            map(public_data_update_requests, to_native_type),
+            map(public_data_reads, to_native_type),
         };
         return acc_data;
     }
@@ -150,6 +166,8 @@ template <typename NCT> struct FinalAccumulatedData {
         static_assert(!(std::is_same<NativeTypes, NCT>::value));
 
         aggregation_object.add_proof_outputs_as_public_inputs();
+
+        set_array_public(read_requests);
 
         set_array_public(new_commitments);
         set_array_public(new_nullifiers);
@@ -164,6 +182,8 @@ template <typename NCT> struct FinalAccumulatedData {
 
         set_array_public(new_contracts);
         set_array_public(optionally_revealed_data);
+        set_array_public(public_data_update_requests);
+        set_array_public(public_data_reads);
     }
 
     template <typename T, size_t SIZE> void set_array_public(std::array<T, SIZE>& arr)
@@ -183,6 +203,22 @@ template <typename NCT> struct FinalAccumulatedData {
     }
 
     template <size_t SIZE> void set_array_public(std::array<NewContractData<NCT>, SIZE>& arr)
+    {
+        static_assert(!(std::is_same<NativeTypes, NCT>::value));
+        for (auto& e : arr) {
+            e.set_public();
+        }
+    }
+
+    template <size_t SIZE> void set_array_public(std::array<PublicDataUpdateRequest<NCT>, SIZE>& arr)
+    {
+        static_assert(!(std::is_same<NativeTypes, NCT>::value));
+        for (auto& e : arr) {
+            e.set_public();
+        }
+    }
+
+    template <size_t SIZE> void set_array_public(std::array<PublicDataRead<NCT>, SIZE>& arr)
     {
         static_assert(!(std::is_same<NativeTypes, NCT>::value));
         for (auto& e : arr) {

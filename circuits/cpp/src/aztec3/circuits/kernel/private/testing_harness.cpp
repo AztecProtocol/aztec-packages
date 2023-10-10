@@ -5,12 +5,12 @@
 
 #include "aztec3/circuits/abis/call_context.hpp"
 #include "aztec3/circuits/abis/call_stack_item.hpp"
-#include "aztec3/circuits/abis/combined_accumulated_data.hpp"
 #include "aztec3/circuits/abis/combined_constant_data.hpp"
 #include "aztec3/circuits/abis/complete_address.hpp"
 #include "aztec3/circuits/abis/contract_deployment_data.hpp"
 #include "aztec3/circuits/abis/function_data.hpp"
 #include "aztec3/circuits/abis/historic_block_data.hpp"
+#include "aztec3/circuits/abis/private_accumulated_data.hpp"
 #include "aztec3/circuits/abis/private_circuit_public_inputs.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_call_data.hpp"
 #include "aztec3/circuits/abis/tx_context.hpp"
@@ -30,11 +30,11 @@ namespace aztec3::circuits::kernel::private_kernel::testing_harness {
 
 using aztec3::circuits::abis::CallContext;
 using aztec3::circuits::abis::CallStackItem;
-using aztec3::circuits::abis::CombinedAccumulatedData;
 using aztec3::circuits::abis::CombinedConstantData;
 using aztec3::circuits::abis::ContractDeploymentData;
 using aztec3::circuits::abis::FunctionData;
 using aztec3::circuits::abis::HistoricBlockData;
+using aztec3::circuits::abis::PrivateAccumulatedData;
 using aztec3::circuits::abis::PrivateCircuitPublicInputs;
 using aztec3::circuits::abis::PrivateTypes;
 using aztec3::circuits::abis::TxContext;
@@ -545,7 +545,7 @@ bool validate_deployed_contract_address(PrivateKernelInputsInit<NT> const& priva
 
 bool validate_no_new_deployed_contract(PrivateKernelPublicInputs<NT> const& public_inputs)
 {
-    return (public_inputs.end.new_contracts == CombinedAccumulatedData<NT>{}.new_contracts);
+    return (public_inputs.end.new_contracts == PrivateAccumulatedData<NT>{}.new_contracts);
 }
 
 }  // namespace aztec3::circuits::kernel::private_kernel::testing_harness

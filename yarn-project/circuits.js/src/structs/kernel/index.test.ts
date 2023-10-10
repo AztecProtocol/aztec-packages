@@ -1,13 +1,14 @@
 import { expectSerializeToMatchSnapshot } from '../../tests/expectSerialize.js';
 import {
-  makeAccumulatedData,
   makeFinalAccumulatedData,
   makePreviousPrivateKernelData,
   makePreviousPublicKernelData,
+  makePrivateAccumulatedData,
   makePrivateKernelInputsInit,
   makePrivateKernelInputsInner,
   makePrivateKernelPublicInputs,
   makePrivateKernelPublicInputsFinal,
+  makePublicAccumulatedData,
   makePublicKernelInputsInit,
   makePublicKernelInputsInner,
   makePublicKernelPublicInputs,
@@ -51,10 +52,17 @@ describe('structs/kernel', () => {
     await expectSerializeToMatchSnapshot(makeSchnorrSignature().toBuffer(), 'abis__test_roundtrip_serialize_signature');
   });
 
-  it(`serializes and prints CombinedAccumulatedData`, async (seed = 1) => {
+  it(`serializes and prints PrivateAccumulatedData`, async (seed = 1) => {
     await expectSerializeToMatchSnapshot(
-      makeAccumulatedData(seed, true).toBuffer(),
-      'abis__test_roundtrip_serialize_combined_accumulated_data',
+      makePrivateAccumulatedData(seed, true).toBuffer(),
+      'abis__test_roundtrip_serialize_private_accumulated_data',
+    );
+  });
+
+  it(`serializes and prints PublicAccumulatedData`, async (seed = 1) => {
+    await expectSerializeToMatchSnapshot(
+      makePublicAccumulatedData(seed, true).toBuffer(),
+      'abis__test_roundtrip_serialize_public_accumulated_data',
     );
   });
 

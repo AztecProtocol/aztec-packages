@@ -1,10 +1,26 @@
-import { makeAccumulatedData, makeFinalAccumulatedData } from '../../tests/factories.js';
-import { CombinedAccumulatedData, FinalAccumulatedData } from './combined_accumulated_data.js';
+import {
+  makeFinalAccumulatedData,
+  makePrivateAccumulatedData,
+  makePublicAccumulatedData,
+} from '../../tests/factories.js';
+import {
+  PrivateAccumulatedData,
+  PrivateAccumulatedDataFinal,
+  PublicAccumulatedData,
+} from './combined_accumulated_data.js';
 
-describe('CombinedAccumulatedData', () => {
+describe('PrivateAccumulatedData', () => {
   it('Data after serialization and deserialization is equal to the original', () => {
-    const original = makeAccumulatedData();
-    const afterSerialization = CombinedAccumulatedData.fromBuffer(original.toBuffer());
+    const original = makePrivateAccumulatedData();
+    const afterSerialization = PrivateAccumulatedData.fromBuffer(original.toBuffer());
+    expect(original).toEqual(afterSerialization);
+  });
+});
+
+describe('PublicAccumulatedData', () => {
+  it('Data after serialization and deserialization is equal to the original', () => {
+    const original = makePublicAccumulatedData();
+    const afterSerialization = PublicAccumulatedData.fromBuffer(original.toBuffer());
     expect(original).toEqual(afterSerialization);
   });
 });
@@ -12,7 +28,7 @@ describe('CombinedAccumulatedData', () => {
 describe('FinalAccumulatedData', () => {
   it('Data after serialization and deserialization is equal to the original', () => {
     const original = makeFinalAccumulatedData();
-    const afterSerialization = FinalAccumulatedData.fromBuffer(original.toBuffer());
+    const afterSerialization = PrivateAccumulatedDataFinal.fromBuffer(original.toBuffer());
     expect(original).toEqual(afterSerialization);
   });
 });

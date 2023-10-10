@@ -2,10 +2,10 @@
 
 #include "init.hpp"
 
-#include "aztec3/circuits/abis/combined_accumulated_data.hpp"
 #include "aztec3/circuits/abis/contract_deployment_data.hpp"
 #include "aztec3/circuits/abis/function_data.hpp"
 #include "aztec3/circuits/abis/previous_private_kernel_data.hpp"
+#include "aztec3/circuits/abis/private_accumulated_data.hpp"
 #include "aztec3/circuits/abis/private_circuit_public_inputs.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_call_data.hpp"
 #include "aztec3/circuits/abis/private_kernel_public_inputs.hpp"
@@ -14,10 +14,10 @@
 
 namespace aztec3::circuits::kernel::private_kernel {
 
-using aztec3::circuits::abis::CombinedAccumulatedData;
 using aztec3::circuits::abis::ContractDeploymentData;
 using aztec3::circuits::abis::FunctionData;
 using aztec3::circuits::abis::PreviousPrivateKernelData;
+using aztec3::circuits::abis::PrivateAccumulatedData;
 using aztec3::circuits::abis::PrivateCircuitPublicInputs;
 using aztec3::circuits::abis::PrivateKernelPublicInputs;
 using aztec3::circuits::abis::ReadRequestMembershipWitness;
@@ -36,9 +36,9 @@ void common_validate_read_requests(DummyBuilder& builder,
                                               MAX_READ_REQUESTS_PER_CALL> const& read_request_membership_witnesses);
 
 void common_validate_arrays(DummyBuilder& builder, PrivateCircuitPublicInputs<NT> const& app_public_inputs);
-void common_validate_previous_kernel_arrays(DummyBuilder& builder, CombinedAccumulatedData<NT> const& end);
-void common_validate_previous_kernel_values(DummyBuilder& builder, CombinedAccumulatedData<NT> const& end);
-void common_validate_previous_kernel_0th_nullifier(DummyBuilder& builder, CombinedAccumulatedData<NT> const& end);
+void common_validate_previous_kernel_arrays(DummyBuilder& builder, PrivateAccumulatedData<NT> const& end);
+void common_validate_previous_kernel_values(DummyBuilder& builder, PrivateAccumulatedData<NT> const& end);
+void common_validate_previous_kernel_0th_nullifier(DummyBuilder& builder, PrivateAccumulatedData<NT> const& end);
 
 void common_update_end_values(DummyBuilder& builder,
                               PrivateCallData<NT> const& private_call,

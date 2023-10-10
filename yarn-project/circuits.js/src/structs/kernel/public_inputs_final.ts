@@ -1,7 +1,7 @@
 import { BufferReader } from '@aztec/foundation/serialize';
 
 import { serializeToBuffer } from '../../utils/serialize.js';
-import { FinalAccumulatedData } from './combined_accumulated_data.js';
+import { PrivateAccumulatedDataFinal } from './combined_accumulated_data.js';
 import { CombinedConstantData } from './combined_constant_data.js';
 
 /**
@@ -13,7 +13,7 @@ export class PrivateKernelPublicInputsFinal {
     /**
      * Final data accumulated for ordering private kernel circuit.
      */
-    public end: FinalAccumulatedData,
+    public end: PrivateAccumulatedDataFinal,
     /**
      * Data which is not modified by the circuits.
      */
@@ -32,12 +32,12 @@ export class PrivateKernelPublicInputsFinal {
   static fromBuffer(buffer: Buffer | BufferReader): PrivateKernelPublicInputsFinal {
     const reader = BufferReader.asReader(buffer);
     return new PrivateKernelPublicInputsFinal(
-      reader.readObject(FinalAccumulatedData),
+      reader.readObject(PrivateAccumulatedDataFinal),
       reader.readObject(CombinedConstantData),
     );
   }
 
   static empty() {
-    return new PrivateKernelPublicInputsFinal(FinalAccumulatedData.empty(), CombinedConstantData.empty());
+    return new PrivateKernelPublicInputsFinal(PrivateAccumulatedDataFinal.empty(), CombinedConstantData.empty());
   }
 }

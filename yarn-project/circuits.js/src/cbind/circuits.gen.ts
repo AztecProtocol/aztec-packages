@@ -14,14 +14,12 @@ import {
   BaseRollupInputs,
   CallContext,
   CircuitError,
-  CombinedAccumulatedData,
   CombinedConstantData,
   CompleteAddress,
   ConstantRollupData,
   ContractDeploymentData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
-  FinalAccumulatedData,
   Fq,
   Fr,
   FunctionData,
@@ -42,6 +40,8 @@ import {
   PreviousPrivateKernelDataFinal,
   PreviousPublicKernelData,
   PreviousRollupData,
+  PrivateAccumulatedData,
+  PrivateAccumulatedDataFinal,
   PrivateCallData,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
@@ -51,6 +51,7 @@ import {
   PrivateKernelPublicInputs,
   PrivateKernelPublicInputsFinal,
   Proof,
+  PublicAccumulatedData,
   PublicCallData,
   PublicCallStackItem,
   PublicCircuitPublicInputs,
@@ -525,7 +526,7 @@ export function fromPublicDataRead(o: PublicDataRead): MsgpackPublicDataRead {
   };
 }
 
-interface MsgpackCombinedAccumulatedData {
+interface MsgpackPublicAccumulatedData {
   aggregation_object: MsgpackNativeAggregationState;
   read_requests: Tuple<Buffer, 128>;
   new_commitments: Tuple<Buffer, 64>;
@@ -544,56 +545,56 @@ interface MsgpackCombinedAccumulatedData {
   public_data_reads: Tuple<MsgpackPublicDataRead, 16>;
 }
 
-export function toCombinedAccumulatedData(o: MsgpackCombinedAccumulatedData): CombinedAccumulatedData {
+export function toPublicAccumulatedData(o: MsgpackPublicAccumulatedData): PublicAccumulatedData {
   if (o.aggregation_object === undefined) {
-    throw new Error('Expected aggregation_object in CombinedAccumulatedData deserialization');
+    throw new Error('Expected aggregation_object in PublicAccumulatedData deserialization');
   }
   if (o.read_requests === undefined) {
-    throw new Error('Expected read_requests in CombinedAccumulatedData deserialization');
+    throw new Error('Expected read_requests in PublicAccumulatedData deserialization');
   }
   if (o.new_commitments === undefined) {
-    throw new Error('Expected new_commitments in CombinedAccumulatedData deserialization');
+    throw new Error('Expected new_commitments in PublicAccumulatedData deserialization');
   }
   if (o.new_nullifiers === undefined) {
-    throw new Error('Expected new_nullifiers in CombinedAccumulatedData deserialization');
+    throw new Error('Expected new_nullifiers in PublicAccumulatedData deserialization');
   }
   if (o.nullified_commitments === undefined) {
-    throw new Error('Expected nullified_commitments in CombinedAccumulatedData deserialization');
+    throw new Error('Expected nullified_commitments in PublicAccumulatedData deserialization');
   }
   if (o.private_call_stack === undefined) {
-    throw new Error('Expected private_call_stack in CombinedAccumulatedData deserialization');
+    throw new Error('Expected private_call_stack in PublicAccumulatedData deserialization');
   }
   if (o.public_call_stack === undefined) {
-    throw new Error('Expected public_call_stack in CombinedAccumulatedData deserialization');
+    throw new Error('Expected public_call_stack in PublicAccumulatedData deserialization');
   }
   if (o.new_l2_to_l1_msgs === undefined) {
-    throw new Error('Expected new_l2_to_l1_msgs in CombinedAccumulatedData deserialization');
+    throw new Error('Expected new_l2_to_l1_msgs in PublicAccumulatedData deserialization');
   }
   if (o.encrypted_logs_hash === undefined) {
-    throw new Error('Expected encrypted_logs_hash in CombinedAccumulatedData deserialization');
+    throw new Error('Expected encrypted_logs_hash in PublicAccumulatedData deserialization');
   }
   if (o.unencrypted_logs_hash === undefined) {
-    throw new Error('Expected unencrypted_logs_hash in CombinedAccumulatedData deserialization');
+    throw new Error('Expected unencrypted_logs_hash in PublicAccumulatedData deserialization');
   }
   if (o.encrypted_log_preimages_length === undefined) {
-    throw new Error('Expected encrypted_log_preimages_length in CombinedAccumulatedData deserialization');
+    throw new Error('Expected encrypted_log_preimages_length in PublicAccumulatedData deserialization');
   }
   if (o.unencrypted_log_preimages_length === undefined) {
-    throw new Error('Expected unencrypted_log_preimages_length in CombinedAccumulatedData deserialization');
+    throw new Error('Expected unencrypted_log_preimages_length in PublicAccumulatedData deserialization');
   }
   if (o.new_contracts === undefined) {
-    throw new Error('Expected new_contracts in CombinedAccumulatedData deserialization');
+    throw new Error('Expected new_contracts in PublicAccumulatedData deserialization');
   }
   if (o.optionally_revealed_data === undefined) {
-    throw new Error('Expected optionally_revealed_data in CombinedAccumulatedData deserialization');
+    throw new Error('Expected optionally_revealed_data in PublicAccumulatedData deserialization');
   }
   if (o.public_data_update_requests === undefined) {
-    throw new Error('Expected public_data_update_requests in CombinedAccumulatedData deserialization');
+    throw new Error('Expected public_data_update_requests in PublicAccumulatedData deserialization');
   }
   if (o.public_data_reads === undefined) {
-    throw new Error('Expected public_data_reads in CombinedAccumulatedData deserialization');
+    throw new Error('Expected public_data_reads in PublicAccumulatedData deserialization');
   }
-  return new CombinedAccumulatedData(
+  return new PublicAccumulatedData(
     toNativeAggregationState(o.aggregation_object),
     mapTuple(o.read_requests, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.new_commitments, (v: Buffer) => Fr.fromBuffer(v)),
@@ -613,54 +614,54 @@ export function toCombinedAccumulatedData(o: MsgpackCombinedAccumulatedData): Co
   );
 }
 
-export function fromCombinedAccumulatedData(o: CombinedAccumulatedData): MsgpackCombinedAccumulatedData {
+export function fromPublicAccumulatedData(o: PublicAccumulatedData): MsgpackPublicAccumulatedData {
   if (o.aggregationObject === undefined) {
-    throw new Error('Expected aggregationObject in CombinedAccumulatedData serialization');
+    throw new Error('Expected aggregationObject in PublicAccumulatedData serialization');
   }
   if (o.readRequests === undefined) {
-    throw new Error('Expected readRequests in CombinedAccumulatedData serialization');
+    throw new Error('Expected readRequests in PublicAccumulatedData serialization');
   }
   if (o.newCommitments === undefined) {
-    throw new Error('Expected newCommitments in CombinedAccumulatedData serialization');
+    throw new Error('Expected newCommitments in PublicAccumulatedData serialization');
   }
   if (o.newNullifiers === undefined) {
-    throw new Error('Expected newNullifiers in CombinedAccumulatedData serialization');
+    throw new Error('Expected newNullifiers in PublicAccumulatedData serialization');
   }
   if (o.nullifiedCommitments === undefined) {
-    throw new Error('Expected nullifiedCommitments in CombinedAccumulatedData serialization');
+    throw new Error('Expected nullifiedCommitments in PublicAccumulatedData serialization');
   }
   if (o.privateCallStack === undefined) {
-    throw new Error('Expected privateCallStack in CombinedAccumulatedData serialization');
+    throw new Error('Expected privateCallStack in PublicAccumulatedData serialization');
   }
   if (o.publicCallStack === undefined) {
-    throw new Error('Expected publicCallStack in CombinedAccumulatedData serialization');
+    throw new Error('Expected publicCallStack in PublicAccumulatedData serialization');
   }
   if (o.newL2ToL1Msgs === undefined) {
-    throw new Error('Expected newL2ToL1Msgs in CombinedAccumulatedData serialization');
+    throw new Error('Expected newL2ToL1Msgs in PublicAccumulatedData serialization');
   }
   if (o.encryptedLogsHash === undefined) {
-    throw new Error('Expected encryptedLogsHash in CombinedAccumulatedData serialization');
+    throw new Error('Expected encryptedLogsHash in PublicAccumulatedData serialization');
   }
   if (o.unencryptedLogsHash === undefined) {
-    throw new Error('Expected unencryptedLogsHash in CombinedAccumulatedData serialization');
+    throw new Error('Expected unencryptedLogsHash in PublicAccumulatedData serialization');
   }
   if (o.encryptedLogPreimagesLength === undefined) {
-    throw new Error('Expected encryptedLogPreimagesLength in CombinedAccumulatedData serialization');
+    throw new Error('Expected encryptedLogPreimagesLength in PublicAccumulatedData serialization');
   }
   if (o.unencryptedLogPreimagesLength === undefined) {
-    throw new Error('Expected unencryptedLogPreimagesLength in CombinedAccumulatedData serialization');
+    throw new Error('Expected unencryptedLogPreimagesLength in PublicAccumulatedData serialization');
   }
   if (o.newContracts === undefined) {
-    throw new Error('Expected newContracts in CombinedAccumulatedData serialization');
+    throw new Error('Expected newContracts in PublicAccumulatedData serialization');
   }
   if (o.optionallyRevealedData === undefined) {
-    throw new Error('Expected optionallyRevealedData in CombinedAccumulatedData serialization');
+    throw new Error('Expected optionallyRevealedData in PublicAccumulatedData serialization');
   }
   if (o.publicDataUpdateRequests === undefined) {
-    throw new Error('Expected publicDataUpdateRequests in CombinedAccumulatedData serialization');
+    throw new Error('Expected publicDataUpdateRequests in PublicAccumulatedData serialization');
   }
   if (o.publicDataReads === undefined) {
-    throw new Error('Expected publicDataReads in CombinedAccumulatedData serialization');
+    throw new Error('Expected publicDataReads in PublicAccumulatedData serialization');
   }
   return {
     aggregation_object: fromNativeAggregationState(o.aggregationObject),
@@ -925,7 +926,7 @@ export function fromCombinedConstantData(o: CombinedConstantData): MsgpackCombin
 }
 
 interface MsgpackPublicKernelPublicInputs {
-  end: MsgpackCombinedAccumulatedData;
+  end: MsgpackPublicAccumulatedData;
   constants: MsgpackCombinedConstantData;
 }
 
@@ -936,7 +937,7 @@ export function toPublicKernelPublicInputs(o: MsgpackPublicKernelPublicInputs): 
   if (o.constants === undefined) {
     throw new Error('Expected constants in PublicKernelPublicInputs deserialization');
   }
-  return new PublicKernelPublicInputs(toCombinedAccumulatedData(o.end), toCombinedConstantData(o.constants));
+  return new PublicKernelPublicInputs(toPublicAccumulatedData(o.end), toCombinedConstantData(o.constants));
 }
 
 export function fromPublicKernelPublicInputs(o: PublicKernelPublicInputs): MsgpackPublicKernelPublicInputs {
@@ -947,7 +948,7 @@ export function fromPublicKernelPublicInputs(o: PublicKernelPublicInputs): Msgpa
     throw new Error('Expected constants in PublicKernelPublicInputs serialization');
   }
   return {
-    end: fromCombinedAccumulatedData(o.end),
+    end: fromPublicAccumulatedData(o.end),
     constants: fromCombinedConstantData(o.constants),
   };
 }
@@ -1077,8 +1078,169 @@ export function fromPreviousPublicKernelData(o: PreviousPublicKernelData): Msgpa
   };
 }
 
+interface MsgpackPrivateAccumulatedData {
+  aggregation_object: MsgpackNativeAggregationState;
+  read_requests: Tuple<Buffer, 128>;
+  new_commitments: Tuple<Buffer, 64>;
+  new_nullifiers: Tuple<Buffer, 64>;
+  nullified_commitments: Tuple<Buffer, 64>;
+  private_call_stack: Tuple<Buffer, 8>;
+  public_call_stack: Tuple<Buffer, 8>;
+  new_l2_to_l1_msgs: Tuple<Buffer, 2>;
+  encrypted_logs_hash: Tuple<Buffer, 2>;
+  unencrypted_logs_hash: Tuple<Buffer, 2>;
+  encrypted_log_preimages_length: Buffer;
+  unencrypted_log_preimages_length: Buffer;
+  new_contracts: Tuple<MsgpackNewContractData, 1>;
+  optionally_revealed_data: Tuple<MsgpackOptionallyRevealedData, 4>;
+  public_data_update_requests: Tuple<MsgpackPublicDataUpdateRequest, 16>;
+  public_data_reads: Tuple<MsgpackPublicDataRead, 16>;
+}
+
+export function toPrivateAccumulatedData(o: MsgpackPrivateAccumulatedData): PrivateAccumulatedData {
+  if (o.aggregation_object === undefined) {
+    throw new Error('Expected aggregation_object in PrivateAccumulatedData deserialization');
+  }
+  if (o.read_requests === undefined) {
+    throw new Error('Expected read_requests in PrivateAccumulatedData deserialization');
+  }
+  if (o.new_commitments === undefined) {
+    throw new Error('Expected new_commitments in PrivateAccumulatedData deserialization');
+  }
+  if (o.new_nullifiers === undefined) {
+    throw new Error('Expected new_nullifiers in PrivateAccumulatedData deserialization');
+  }
+  if (o.nullified_commitments === undefined) {
+    throw new Error('Expected nullified_commitments in PrivateAccumulatedData deserialization');
+  }
+  if (o.private_call_stack === undefined) {
+    throw new Error('Expected private_call_stack in PrivateAccumulatedData deserialization');
+  }
+  if (o.public_call_stack === undefined) {
+    throw new Error('Expected public_call_stack in PrivateAccumulatedData deserialization');
+  }
+  if (o.new_l2_to_l1_msgs === undefined) {
+    throw new Error('Expected new_l2_to_l1_msgs in PrivateAccumulatedData deserialization');
+  }
+  if (o.encrypted_logs_hash === undefined) {
+    throw new Error('Expected encrypted_logs_hash in PrivateAccumulatedData deserialization');
+  }
+  if (o.unencrypted_logs_hash === undefined) {
+    throw new Error('Expected unencrypted_logs_hash in PrivateAccumulatedData deserialization');
+  }
+  if (o.encrypted_log_preimages_length === undefined) {
+    throw new Error('Expected encrypted_log_preimages_length in PrivateAccumulatedData deserialization');
+  }
+  if (o.unencrypted_log_preimages_length === undefined) {
+    throw new Error('Expected unencrypted_log_preimages_length in PrivateAccumulatedData deserialization');
+  }
+  if (o.new_contracts === undefined) {
+    throw new Error('Expected new_contracts in PrivateAccumulatedData deserialization');
+  }
+  if (o.optionally_revealed_data === undefined) {
+    throw new Error('Expected optionally_revealed_data in PrivateAccumulatedData deserialization');
+  }
+  if (o.public_data_update_requests === undefined) {
+    throw new Error('Expected public_data_update_requests in PrivateAccumulatedData deserialization');
+  }
+  if (o.public_data_reads === undefined) {
+    throw new Error('Expected public_data_reads in PrivateAccumulatedData deserialization');
+  }
+  return new PrivateAccumulatedData(
+    toNativeAggregationState(o.aggregation_object),
+    mapTuple(o.read_requests, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.new_commitments, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.new_nullifiers, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.nullified_commitments, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.private_call_stack, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.public_call_stack, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.new_l2_to_l1_msgs, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.encrypted_logs_hash, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.unencrypted_logs_hash, (v: Buffer) => Fr.fromBuffer(v)),
+    Fr.fromBuffer(o.encrypted_log_preimages_length),
+    Fr.fromBuffer(o.unencrypted_log_preimages_length),
+    mapTuple(o.new_contracts, (v: MsgpackNewContractData) => toNewContractData(v)),
+    mapTuple(o.optionally_revealed_data, (v: MsgpackOptionallyRevealedData) => toOptionallyRevealedData(v)),
+    mapTuple(o.public_data_update_requests, (v: MsgpackPublicDataUpdateRequest) => toPublicDataUpdateRequest(v)),
+    mapTuple(o.public_data_reads, (v: MsgpackPublicDataRead) => toPublicDataRead(v)),
+  );
+}
+
+export function fromPrivateAccumulatedData(o: PrivateAccumulatedData): MsgpackPrivateAccumulatedData {
+  if (o.aggregationObject === undefined) {
+    throw new Error('Expected aggregationObject in PrivateAccumulatedData serialization');
+  }
+  if (o.readRequests === undefined) {
+    throw new Error('Expected readRequests in PrivateAccumulatedData serialization');
+  }
+  if (o.newCommitments === undefined) {
+    throw new Error('Expected newCommitments in PrivateAccumulatedData serialization');
+  }
+  if (o.newNullifiers === undefined) {
+    throw new Error('Expected newNullifiers in PrivateAccumulatedData serialization');
+  }
+  if (o.nullifiedCommitments === undefined) {
+    throw new Error('Expected nullifiedCommitments in PrivateAccumulatedData serialization');
+  }
+  if (o.privateCallStack === undefined) {
+    throw new Error('Expected privateCallStack in PrivateAccumulatedData serialization');
+  }
+  if (o.publicCallStack === undefined) {
+    throw new Error('Expected publicCallStack in PrivateAccumulatedData serialization');
+  }
+  if (o.newL2ToL1Msgs === undefined) {
+    throw new Error('Expected newL2ToL1Msgs in PrivateAccumulatedData serialization');
+  }
+  if (o.encryptedLogsHash === undefined) {
+    throw new Error('Expected encryptedLogsHash in PrivateAccumulatedData serialization');
+  }
+  if (o.unencryptedLogsHash === undefined) {
+    throw new Error('Expected unencryptedLogsHash in PrivateAccumulatedData serialization');
+  }
+  if (o.encryptedLogPreimagesLength === undefined) {
+    throw new Error('Expected encryptedLogPreimagesLength in PrivateAccumulatedData serialization');
+  }
+  if (o.unencryptedLogPreimagesLength === undefined) {
+    throw new Error('Expected unencryptedLogPreimagesLength in PrivateAccumulatedData serialization');
+  }
+  if (o.newContracts === undefined) {
+    throw new Error('Expected newContracts in PrivateAccumulatedData serialization');
+  }
+  if (o.optionallyRevealedData === undefined) {
+    throw new Error('Expected optionallyRevealedData in PrivateAccumulatedData serialization');
+  }
+  if (o.publicDataUpdateRequests === undefined) {
+    throw new Error('Expected publicDataUpdateRequests in PrivateAccumulatedData serialization');
+  }
+  if (o.publicDataReads === undefined) {
+    throw new Error('Expected publicDataReads in PrivateAccumulatedData serialization');
+  }
+  return {
+    aggregation_object: fromNativeAggregationState(o.aggregationObject),
+    read_requests: mapTuple(o.readRequests, (v: Fr) => toBuffer(v)),
+    new_commitments: mapTuple(o.newCommitments, (v: Fr) => toBuffer(v)),
+    new_nullifiers: mapTuple(o.newNullifiers, (v: Fr) => toBuffer(v)),
+    nullified_commitments: mapTuple(o.nullifiedCommitments, (v: Fr) => toBuffer(v)),
+    private_call_stack: mapTuple(o.privateCallStack, (v: Fr) => toBuffer(v)),
+    public_call_stack: mapTuple(o.publicCallStack, (v: Fr) => toBuffer(v)),
+    new_l2_to_l1_msgs: mapTuple(o.newL2ToL1Msgs, (v: Fr) => toBuffer(v)),
+    encrypted_logs_hash: mapTuple(o.encryptedLogsHash, (v: Fr) => toBuffer(v)),
+    unencrypted_logs_hash: mapTuple(o.unencryptedLogsHash, (v: Fr) => toBuffer(v)),
+    encrypted_log_preimages_length: toBuffer(o.encryptedLogPreimagesLength),
+    unencrypted_log_preimages_length: toBuffer(o.unencryptedLogPreimagesLength),
+    new_contracts: mapTuple(o.newContracts, (v: NewContractData) => fromNewContractData(v)),
+    optionally_revealed_data: mapTuple(o.optionallyRevealedData, (v: OptionallyRevealedData) =>
+      fromOptionallyRevealedData(v),
+    ),
+    public_data_update_requests: mapTuple(o.publicDataUpdateRequests, (v: PublicDataUpdateRequest) =>
+      fromPublicDataUpdateRequest(v),
+    ),
+    public_data_reads: mapTuple(o.publicDataReads, (v: PublicDataRead) => fromPublicDataRead(v)),
+  };
+}
+
 interface MsgpackPrivateKernelPublicInputs {
-  end: MsgpackCombinedAccumulatedData;
+  end: MsgpackPrivateAccumulatedData;
   constants: MsgpackCombinedConstantData;
 }
 
@@ -1089,7 +1251,7 @@ export function toPrivateKernelPublicInputs(o: MsgpackPrivateKernelPublicInputs)
   if (o.constants === undefined) {
     throw new Error('Expected constants in PrivateKernelPublicInputs deserialization');
   }
-  return new PrivateKernelPublicInputs(toCombinedAccumulatedData(o.end), toCombinedConstantData(o.constants));
+  return new PrivateKernelPublicInputs(toPrivateAccumulatedData(o.end), toCombinedConstantData(o.constants));
 }
 
 export function fromPrivateKernelPublicInputs(o: PrivateKernelPublicInputs): MsgpackPrivateKernelPublicInputs {
@@ -1100,7 +1262,7 @@ export function fromPrivateKernelPublicInputs(o: PrivateKernelPublicInputs): Msg
     throw new Error('Expected constants in PrivateKernelPublicInputs serialization');
   }
   return {
-    end: fromCombinedAccumulatedData(o.end),
+    end: fromPrivateAccumulatedData(o.end),
     constants: fromCombinedConstantData(o.constants),
   };
 }
@@ -1850,7 +2012,7 @@ export function fromPrivateKernelInputsOrdering(o: PrivateKernelInputsOrdering):
   };
 }
 
-interface MsgpackFinalAccumulatedData {
+interface MsgpackPrivateAccumulatedDataFinal {
   aggregation_object: MsgpackNativeAggregationState;
   new_commitments: Tuple<Buffer, 64>;
   new_nullifiers: Tuple<Buffer, 64>;
@@ -1866,47 +2028,47 @@ interface MsgpackFinalAccumulatedData {
   optionally_revealed_data: Tuple<MsgpackOptionallyRevealedData, 4>;
 }
 
-export function toFinalAccumulatedData(o: MsgpackFinalAccumulatedData): FinalAccumulatedData {
+export function toPrivateAccumulatedDataFinal(o: MsgpackPrivateAccumulatedDataFinal): PrivateAccumulatedDataFinal {
   if (o.aggregation_object === undefined) {
-    throw new Error('Expected aggregation_object in FinalAccumulatedData deserialization');
+    throw new Error('Expected aggregation_object in PrivateAccumulatedDataFinal deserialization');
   }
   if (o.new_commitments === undefined) {
-    throw new Error('Expected new_commitments in FinalAccumulatedData deserialization');
+    throw new Error('Expected new_commitments in PrivateAccumulatedDataFinal deserialization');
   }
   if (o.new_nullifiers === undefined) {
-    throw new Error('Expected new_nullifiers in FinalAccumulatedData deserialization');
+    throw new Error('Expected new_nullifiers in PrivateAccumulatedDataFinal deserialization');
   }
   if (o.nullified_commitments === undefined) {
-    throw new Error('Expected nullified_commitments in FinalAccumulatedData deserialization');
+    throw new Error('Expected nullified_commitments in PrivateAccumulatedDataFinal deserialization');
   }
   if (o.private_call_stack === undefined) {
-    throw new Error('Expected private_call_stack in FinalAccumulatedData deserialization');
+    throw new Error('Expected private_call_stack in PrivateAccumulatedDataFinal deserialization');
   }
   if (o.public_call_stack === undefined) {
-    throw new Error('Expected public_call_stack in FinalAccumulatedData deserialization');
+    throw new Error('Expected public_call_stack in PrivateAccumulatedDataFinal deserialization');
   }
   if (o.new_l2_to_l1_msgs === undefined) {
-    throw new Error('Expected new_l2_to_l1_msgs in FinalAccumulatedData deserialization');
+    throw new Error('Expected new_l2_to_l1_msgs in PrivateAccumulatedDataFinal deserialization');
   }
   if (o.encrypted_logs_hash === undefined) {
-    throw new Error('Expected encrypted_logs_hash in FinalAccumulatedData deserialization');
+    throw new Error('Expected encrypted_logs_hash in PrivateAccumulatedDataFinal deserialization');
   }
   if (o.unencrypted_logs_hash === undefined) {
-    throw new Error('Expected unencrypted_logs_hash in FinalAccumulatedData deserialization');
+    throw new Error('Expected unencrypted_logs_hash in PrivateAccumulatedDataFinal deserialization');
   }
   if (o.encrypted_log_preimages_length === undefined) {
-    throw new Error('Expected encrypted_log_preimages_length in FinalAccumulatedData deserialization');
+    throw new Error('Expected encrypted_log_preimages_length in PrivateAccumulatedDataFinal deserialization');
   }
   if (o.unencrypted_log_preimages_length === undefined) {
-    throw new Error('Expected unencrypted_log_preimages_length in FinalAccumulatedData deserialization');
+    throw new Error('Expected unencrypted_log_preimages_length in PrivateAccumulatedDataFinal deserialization');
   }
   if (o.new_contracts === undefined) {
-    throw new Error('Expected new_contracts in FinalAccumulatedData deserialization');
+    throw new Error('Expected new_contracts in PrivateAccumulatedDataFinal deserialization');
   }
   if (o.optionally_revealed_data === undefined) {
-    throw new Error('Expected optionally_revealed_data in FinalAccumulatedData deserialization');
+    throw new Error('Expected optionally_revealed_data in PrivateAccumulatedDataFinal deserialization');
   }
-  return new FinalAccumulatedData(
+  return new PrivateAccumulatedDataFinal(
     toNativeAggregationState(o.aggregation_object),
     mapTuple(o.new_commitments, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.new_nullifiers, (v: Buffer) => Fr.fromBuffer(v)),
@@ -1923,45 +2085,45 @@ export function toFinalAccumulatedData(o: MsgpackFinalAccumulatedData): FinalAcc
   );
 }
 
-export function fromFinalAccumulatedData(o: FinalAccumulatedData): MsgpackFinalAccumulatedData {
+export function fromPrivateAccumulatedDataFinal(o: PrivateAccumulatedDataFinal): MsgpackPrivateAccumulatedDataFinal {
   if (o.aggregationObject === undefined) {
-    throw new Error('Expected aggregationObject in FinalAccumulatedData serialization');
+    throw new Error('Expected aggregationObject in PrivateAccumulatedDataFinal serialization');
   }
   if (o.newCommitments === undefined) {
-    throw new Error('Expected newCommitments in FinalAccumulatedData serialization');
+    throw new Error('Expected newCommitments in PrivateAccumulatedDataFinal serialization');
   }
   if (o.newNullifiers === undefined) {
-    throw new Error('Expected newNullifiers in FinalAccumulatedData serialization');
+    throw new Error('Expected newNullifiers in PrivateAccumulatedDataFinal serialization');
   }
   if (o.nullifiedCommitments === undefined) {
-    throw new Error('Expected nullifiedCommitments in FinalAccumulatedData serialization');
+    throw new Error('Expected nullifiedCommitments in PrivateAccumulatedDataFinal serialization');
   }
   if (o.privateCallStack === undefined) {
-    throw new Error('Expected privateCallStack in FinalAccumulatedData serialization');
+    throw new Error('Expected privateCallStack in PrivateAccumulatedDataFinal serialization');
   }
   if (o.publicCallStack === undefined) {
-    throw new Error('Expected publicCallStack in FinalAccumulatedData serialization');
+    throw new Error('Expected publicCallStack in PrivateAccumulatedDataFinal serialization');
   }
   if (o.newL2ToL1Msgs === undefined) {
-    throw new Error('Expected newL2ToL1Msgs in FinalAccumulatedData serialization');
+    throw new Error('Expected newL2ToL1Msgs in PrivateAccumulatedDataFinal serialization');
   }
   if (o.encryptedLogsHash === undefined) {
-    throw new Error('Expected encryptedLogsHash in FinalAccumulatedData serialization');
+    throw new Error('Expected encryptedLogsHash in PrivateAccumulatedDataFinal serialization');
   }
   if (o.unencryptedLogsHash === undefined) {
-    throw new Error('Expected unencryptedLogsHash in FinalAccumulatedData serialization');
+    throw new Error('Expected unencryptedLogsHash in PrivateAccumulatedDataFinal serialization');
   }
   if (o.encryptedLogPreimagesLength === undefined) {
-    throw new Error('Expected encryptedLogPreimagesLength in FinalAccumulatedData serialization');
+    throw new Error('Expected encryptedLogPreimagesLength in PrivateAccumulatedDataFinal serialization');
   }
   if (o.unencryptedLogPreimagesLength === undefined) {
-    throw new Error('Expected unencryptedLogPreimagesLength in FinalAccumulatedData serialization');
+    throw new Error('Expected unencryptedLogPreimagesLength in PrivateAccumulatedDataFinal serialization');
   }
   if (o.newContracts === undefined) {
-    throw new Error('Expected newContracts in FinalAccumulatedData serialization');
+    throw new Error('Expected newContracts in PrivateAccumulatedDataFinal serialization');
   }
   if (o.optionallyRevealedData === undefined) {
-    throw new Error('Expected optionallyRevealedData in FinalAccumulatedData serialization');
+    throw new Error('Expected optionallyRevealedData in PrivateAccumulatedDataFinal serialization');
   }
   return {
     aggregation_object: fromNativeAggregationState(o.aggregationObject),
@@ -1983,7 +2145,7 @@ export function fromFinalAccumulatedData(o: FinalAccumulatedData): MsgpackFinalA
 }
 
 interface MsgpackPrivateKernelPublicInputsFinal {
-  end: MsgpackFinalAccumulatedData;
+  end: MsgpackPrivateAccumulatedDataFinal;
   constants: MsgpackCombinedConstantData;
 }
 
@@ -1996,7 +2158,7 @@ export function toPrivateKernelPublicInputsFinal(
   if (o.constants === undefined) {
     throw new Error('Expected constants in PrivateKernelPublicInputsFinal deserialization');
   }
-  return new PrivateKernelPublicInputsFinal(toFinalAccumulatedData(o.end), toCombinedConstantData(o.constants));
+  return new PrivateKernelPublicInputsFinal(toPrivateAccumulatedDataFinal(o.end), toCombinedConstantData(o.constants));
 }
 
 export function fromPrivateKernelPublicInputsFinal(
@@ -2009,7 +2171,7 @@ export function fromPrivateKernelPublicInputsFinal(
     throw new Error('Expected constants in PrivateKernelPublicInputsFinal serialization');
   }
   return {
-    end: fromFinalAccumulatedData(o.end),
+    end: fromPrivateAccumulatedDataFinal(o.end),
     constants: fromCombinedConstantData(o.constants),
   };
 }

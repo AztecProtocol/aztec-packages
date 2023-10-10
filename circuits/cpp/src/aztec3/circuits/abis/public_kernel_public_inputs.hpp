@@ -1,9 +1,8 @@
 #pragma once
-#include "combined_accumulated_data.hpp"
 #include "combined_constant_data.hpp"
+#include "public_accumulated_data.hpp"
 
 #include "aztec3/utils/types/circuit_types.hpp"
-#include "aztec3/utils/types/convert.hpp"
 #include "aztec3/utils/types/native_types.hpp"
 
 #include <barretenberg/barretenberg.hpp>
@@ -18,7 +17,7 @@ template <typename NCT> struct PublicKernelPublicInputs {
     using fr = typename NCT::fr;
     using boolean = typename NCT::boolean;
 
-    CombinedAccumulatedData<NCT> end{};
+    PublicAccumulatedData<NCT> end{};
     CombinedConstantData<NCT> constants{};
 
     // for serialization, update with new fields

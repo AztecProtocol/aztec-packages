@@ -1,7 +1,7 @@
 import {
-  CombinedAccumulatedData,
   Fr,
   HistoricBlockData,
+  PrivateAccumulatedData,
   Proof,
   PublicKernelPublicInputs,
   makeEmptyProof,
@@ -74,7 +74,7 @@ export async function makeProcessedTx(
     hash: await tx.getTxHash(),
     data:
       kernelOutput ??
-      new PublicKernelPublicInputs(CombinedAccumulatedData.fromFinalAccumulatedData(tx.data.end), tx.data.constants),
+      new PublicKernelPublicInputs(PrivateAccumulatedData.fromFinalAccumulatedData(tx.data.end), tx.data.constants),
     proof: proof ?? tx.proof,
     encryptedLogs: tx.encryptedLogs,
     unencryptedLogs: tx.unencryptedLogs,

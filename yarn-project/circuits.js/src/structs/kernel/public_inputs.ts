@@ -1,7 +1,7 @@
 import { BufferReader } from '@aztec/foundation/serialize';
 
 import { serializeToBuffer } from '../../utils/serialize.js';
-import { CombinedAccumulatedData } from './combined_accumulated_data.js';
+import { PrivateAccumulatedData, PublicAccumulatedData } from './combined_accumulated_data.js';
 import { CombinedConstantData } from './combined_constant_data.js';
 
 /**
@@ -13,7 +13,7 @@ export class PublicKernelPublicInputs {
     /**
      * Data accumulated from both public and private circuits.
      */
-    public end: CombinedAccumulatedData,
+    public end: PublicAccumulatedData,
     /**
      * Data which is not modified by the circuits.
      */
@@ -32,13 +32,13 @@ export class PublicKernelPublicInputs {
   static fromBuffer(buffer: Buffer | BufferReader): PublicKernelPublicInputs {
     const reader = BufferReader.asReader(buffer);
     return new PublicKernelPublicInputs(
-      reader.readObject(CombinedAccumulatedData),
+      reader.readObject(PublicAccumulatedData),
       reader.readObject(CombinedConstantData),
     );
   }
 
   static empty() {
-    return new PublicKernelPublicInputs(CombinedAccumulatedData.empty(), CombinedConstantData.empty());
+    return new PublicKernelPublicInputs(PublicAccumulatedData.empty(), CombinedConstantData.empty());
   }
 }
 
@@ -54,7 +54,7 @@ export class PrivateKernelPublicInputs {
     /**
      * Data accumulated from private circuits.
      */
-    public end: CombinedAccumulatedData,
+    public end: PrivateAccumulatedData,
     /**
      * Data which is not modified by the circuits.
      */
@@ -73,12 +73,12 @@ export class PrivateKernelPublicInputs {
   static fromBuffer(buffer: Buffer | BufferReader): PrivateKernelPublicInputs {
     const reader = BufferReader.asReader(buffer);
     return new PrivateKernelPublicInputs(
-      reader.readObject(CombinedAccumulatedData),
+      reader.readObject(PrivateAccumulatedData),
       reader.readObject(CombinedConstantData),
     );
   }
 
   static empty() {
-    return new PrivateKernelPublicInputs(CombinedAccumulatedData.empty(), CombinedConstantData.empty());
+    return new PrivateKernelPublicInputs(PrivateAccumulatedData.empty(), CombinedConstantData.empty());
   }
 }

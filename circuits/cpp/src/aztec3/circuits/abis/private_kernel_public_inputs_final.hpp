@@ -1,6 +1,6 @@
 #pragma once
 #include "combined_constant_data.hpp"
-#include "final_accumulated_data.hpp"
+#include "private_accumulated_data_final.hpp"
 
 #include "aztec3/utils/types/circuit_types.hpp"
 #include "aztec3/utils/types/convert.hpp"
@@ -18,7 +18,7 @@ template <typename NCT> struct PrivateKernelPublicInputsFinal {
     using fr = typename NCT::fr;
     using boolean = typename NCT::boolean;
 
-    FinalAccumulatedData<NCT> end{};
+    PrivateAccumulatedDataFinal<NCT> end{};
     CombinedConstantData<NCT> constants{};
 
     // for serialization, update with new fields

@@ -22,7 +22,7 @@ using aztec3::utils::types::CircuitTypes;
 using aztec3::utils::types::NativeTypes;
 using std::is_same;
 
-template <typename NCT> struct CombinedAccumulatedData {
+template <typename NCT> struct PrivateAccumulatedData {
     using fr = typename NCT::fr;
     using uint32 = typename NCT::uint32;
     using boolean = typename NCT::boolean;
@@ -74,12 +74,12 @@ template <typename NCT> struct CombinedAccumulatedData {
                    optionally_revealed_data,
                    public_data_update_requests,
                    public_data_reads);
-    boolean operator==(CombinedAccumulatedData<NCT> const& other) const
+    boolean operator==(PrivateAccumulatedData<NCT> const& other) const
     {
         return msgpack_derived_equals<boolean>(*this, other);
     };
 
-    template <typename Builder> CombinedAccumulatedData<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const
+    template <typename Builder> PrivateAccumulatedData<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const
     {
         typedef CircuitTypes<Builder> CT;
         static_assert((std::is_same<NativeTypes, NCT>::value));
@@ -88,7 +88,7 @@ template <typename NCT> struct CombinedAccumulatedData {
         auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(builder, e); };
         auto to_circuit_type = [&](auto& e) { return e.to_circuit_type(builder); };
 
-        CombinedAccumulatedData<CT> acc_data = {
+        PrivateAccumulatedData<CT> acc_data = {
             typename CT::AggregationObject{
                 to_ct(aggregation_object.P0),
                 to_ct(aggregation_object.P1),
@@ -122,13 +122,13 @@ template <typename NCT> struct CombinedAccumulatedData {
         return acc_data;
     };
 
-    template <typename Builder> CombinedAccumulatedData<NativeTypes> to_native_type() const
+    template <typename Builder> PrivateAccumulatedData<NativeTypes> to_native_type() const
     {
         static_assert(std::is_same<CircuitTypes<Builder>, NCT>::value);
         auto to_nt = [&](auto& e) { return aztec3::utils::types::to_nt<Builder>(e); };
         auto to_native_type = []<typename T>(T& e) { return e.template to_native_type<Builder>(); };
 
-        CombinedAccumulatedData<NativeTypes> acc_data = {
+        PrivateAccumulatedData<NativeTypes> acc_data = {
             typename NativeTypes::AggregationObject{
                 to_nt(aggregation_object.P0),
                 to_nt(aggregation_object.P1),

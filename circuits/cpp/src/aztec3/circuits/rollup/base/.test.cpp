@@ -3,12 +3,11 @@
 #include "init.hpp"
 
 #include "aztec3/circuits/abis/append_only_tree_snapshot.hpp"
-#include "aztec3/circuits/abis/combined_accumulated_data.hpp"
 #include "aztec3/circuits/abis/global_variables.hpp"
 #include "aztec3/circuits/abis/membership_witness.hpp"
 #include "aztec3/circuits/abis/new_contract_data.hpp"
 #include "aztec3/circuits/abis/previous_public_kernel_data.hpp"
-#include "aztec3/circuits/abis/private_kernel_public_inputs.hpp"
+#include "aztec3/circuits/abis/public_accumulated_data.hpp"
 #include "aztec3/circuits/abis/public_data_read.hpp"
 #include "aztec3/circuits/hash.hpp"
 #include "aztec3/circuits/kernel/private/utils.hpp"
