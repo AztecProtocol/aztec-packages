@@ -7,7 +7,13 @@
   },
   "references": [
     {
+      "path": "../circuits.js"
+    },
+    {
       "path": "../foundation"
+    },
+    {
+      "path": "../noir-compiler"
     }
   ],
   "include": ["src", "src/**/*.json"],
