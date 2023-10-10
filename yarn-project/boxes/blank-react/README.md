@@ -67,7 +67,7 @@ import TestContractArtifactJson from 'text_contract.json' assert { type: 'json' 
 import TestContractArtifactJson from './test_contract.json' assert { type: 'json' };
 ```
 
-After compiling, you can re-deploy the upated noir smart contract from the web UI. The function interaction forms are generated from parsing the ContractABI, so they should update automatically after you recompile.
+After compiling, you can re-deploy the updated noir smart contract from the web UI. The function interaction forms are generated from parsing the contract artifacts, so they should update automatically after you recompile.
 
 ## Learn More
 

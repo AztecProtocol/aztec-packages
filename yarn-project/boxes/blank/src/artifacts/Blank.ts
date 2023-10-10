@@ -54,7 +54,7 @@ export class BlankContract extends ContractBase {
   }
 
   /**
-   * Returns this contract's ABI.
+   * Returns this contract's artifact.
    */
   public static get artifact(): ContractArtifact {
     return BlankContractArtifact;

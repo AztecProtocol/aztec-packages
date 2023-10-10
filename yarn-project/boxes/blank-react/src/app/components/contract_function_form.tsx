@@ -109,8 +109,8 @@ interface ContractFunctionFormProps {
 export function ContractFunctionForm({
   wallet,
   contractAddress,
-  contractArtifact: contractAbi,
-  functionArtifact: functionAbi,
+  contractArtifact,
+  functionArtifact,
   defaultAddress,
   buttonText = 'Submit',
   isLoading,
@@ -119,14 +119,14 @@ export function ContractFunctionForm({
   onSuccess,
   onError,
 }: ContractFunctionFormProps) {
-  const { validationSchema, initialValues } = generateYupSchema(functionAbi, defaultAddress);
+  const { validationSchema, initialValues } = generateYupSchema(functionArtifact, defaultAddress);
   const formik = useFormik({
     initialValues: initialValues,
     validationSchema: validationSchema,
     onSubmit: async (values: any) => {
       onSubmit();
       try {
-        const result = await handleFunctionCall(contractAddress, contractAbi, functionAbi.name, values, wallet);
+        const result = await handleFunctionCall(contractAddress, contractArtifact, functionArtifact.name, values, wallet);
         onSuccess(result);
       } catch (e: any) {
         onError(e.message);
@@ -136,7 +136,7 @@ export function ContractFunctionForm({
 
   return (
     <form onSubmit={formik.handleSubmit} className={styles.content}>
-      {functionAbi.parameters.map(input => (
+      {functionArtifact.parameters.map(input => (
         <div key={input.name} className={styles.field}>
           <label className={styles.label} htmlFor={input.name}>
             {input.name} ({input.type.kind})

@@ -95,7 +95,7 @@ export async function getExampleContractArtifacts() {
 /**
  * Reads a file and converts it to an Aztec Contract ABI.
  * @param fileDir - The directory of the compiled contract ABI.
- * @returns The parsed ContractABI.
+ * @returns The parsed contract artifact.
  */
 export async function getContractArtifact(fileDir: string, log: LogFn) {
   // first check if it's a noir-contracts example
