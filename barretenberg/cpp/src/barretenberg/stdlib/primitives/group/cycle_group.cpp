@@ -177,7 +177,7 @@ cycle_group<Composer> cycle_group<Composer>::dbl() const
     auto modified_y = field_t::conditional_assign(is_point_at_infinity(), 1, y);
     auto lambda = (x * x * 3) / (modified_y + modified_y);
     auto x3 = lambda.madd(lambda, -x - x);
-    auto y3 = lambda.madd(x - x3, -y);
+    auto y3 = lambda.madd(x - x3, -modified_y);
     return cycle_group(x3, y3, is_point_at_infinity());
 }
 
@@ -192,32 +192,31 @@ cycle_group<Composer> cycle_group<Composer>::dbl() const
     requires IsUltraArithmetic<Composer>
 {
     // ensure we use a value of y that is not zero. (only happens if point at infinity)
-    // this costs us 0 gates if `is_infinity` is a circuit constant
-    auto modified_y = field_t::conditional_assign(is_point_at_infinity(), 1, y);
+    // this costs 0 gates if `is_infinity` is a circuit constant
+    auto modified_y = field_t::conditional_assign(is_point_at_infinity(), 1, y).normalize();
     auto x1 = x.get_value();
     auto y1 = modified_y.get_value();
+
+    // N.B. the formula to derive the witness value for x3 mirrors the formula in elliptic_relation.hpp
+    // Specifically, we derive x^4 via the Short Weierstrass curve formula `y^2 = x^3 + b`
+    // i.e. x^4 = x * (y^2 - b)
+    // We must follow this pattern exactly to support the edge-case where the input is the point at infinity.
+    auto y_pow_2 = y1.sqr();
+    auto x_pow_4 = x1 * (y_pow_2 - Group::curve_b);
+    auto lambda_squared = (x_pow_4 * 9) / (y_pow_2 * 4);
     auto lambda = (x1 * x1 * 3) / (y1 + y1);
-    auto x3 = lambda * lambda - x1 - x1;
+    auto x3 = lambda_squared - x1 - x1;
     auto y3 = lambda * (x1 - x3) - y1;
-    AffineElement p3(x3, y3);
-
     if (is_constant()) {
-        return cycle_group(p3);
+        return cycle_group(AffineElement(x3, y3));
     }
-
-    auto context = get_context();
-
-    field_t r_x(witness_t(context, p3.x));
-    field_t r_y(witness_t(context, p3.y));
-    cycle_group result = cycle_group(r_x, r_y, is_point_at_infinity());
-    proof_system::ecc_dbl_gate_<FF> dbl_gate{
+    cycle_group result(witness_t(context, x3), witness_t(context, y3), is_point_at_infinity());
+    context->create_ecc_dbl_gate(proof_system::ecc_dbl_gate_<FF>{
         .x1 = x.get_witness_index(),
         .y1 = modified_y.normalize().get_witness_index(),
         .x3 = result.x.get_witness_index(),
         .y3 = result.y.get_witness_index(),
-    };
-
-    context->create_ecc_dbl_gate(dbl_gate);
+    });
     return result;
 }
 
