@@ -103,6 +103,7 @@ template <typename Composer> class cycle_group {
         {
             return _use_bn254_scalar_field_for_primality_test;
         }
+        void validate_scalar_is_in_field() const;
     };
 
     /**

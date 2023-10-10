@@ -54,7 +54,4 @@ WASM_EXPORT void pedersen___buffer_to_field(uint8_t const* data, fr::out_buf r)
     auto output = crypto::pedersen_hash::hash_buffer(to_compress);
     write(r, output);
 }
-
-// TODO remove this once bb.js methods updated
-WASM_EXPORT void pedersen___init() {}
 }

@@ -631,6 +631,36 @@ template <typename Composer> bool cycle_group<Composer>::cycle_scalar::is_consta
     return (lo.is_constant() && hi.is_constant());
 }
 
+template <typename Composer> void cycle_group<Composer>::cycle_scalar::validate_scalar_is_in_field() const
+{
+    if (!is_constant() && !skip_primality_test()) {
+        // Check that scalar.hi * 2^LO_BITS + scalar.lo < cycle_group_modulus when evaluated over the integers
+        const uint256_t cycle_group_modulus =
+            use_bn254_scalar_field_for_primality_test() ? FF::modulus : ScalarField::modulus;
+        const uint256_t r_lo = cycle_group_modulus.slice(0, cycle_scalar::LO_BITS);
+        const uint256_t r_hi = cycle_group_modulus.slice(cycle_scalar::LO_BITS, cycle_scalar::HI_BITS);
+
+        bool need_borrow = uint256_t(lo.get_value()) > r_lo;
+        field_t borrow = lo.is_constant() ? need_borrow : field_t::from_witness(get_context(), need_borrow);
+
+        // directly call `create_new_range_constraint` to avoid creating an arithmetic gate
+        if (!lo.is_constant()) {
+            if constexpr (IS_ULTRA) {
+                get_context()->create_new_range_constraint(borrow.get_witness_index(), 1, "borrow");
+            } else {
+                borrow.assert_equal(borrow * borrow);
+            }
+        }
+        // Hi range check = r_hi - y_hi - borrow
+        // Lo range check = r_lo - y_lo + borrow * 2^{126}
+        field_t hi_diff = (-hi + r_hi) - borrow;
+        field_t lo_diff = (-lo + r_lo) + (borrow * (uint256_t(1) << cycle_scalar::LO_BITS));
+
+        hi_diff.create_range_constraint(cycle_scalar::HI_BITS);
+        lo_diff.create_range_constraint(cycle_scalar::LO_BITS);
+    }
+}
+
 template <typename Composer>
 typename cycle_group<Composer>::ScalarField cycle_group<Composer>::cycle_scalar::get_value() const
 {
@@ -714,33 +744,6 @@ cycle_group<Composer>::straus_scalar_slice::straus_scalar_slice(Composer* contex
     const size_t hi_bits = scalar.num_bits() > cycle_scalar::LO_BITS ? scalar.num_bits() - cycle_scalar::LO_BITS : 0;
     auto hi_slices = slice_scalar(scalar.hi, hi_bits);
     auto lo_slices = slice_scalar(scalar.lo, lo_bits);
-
-    if (!scalar.is_constant() && !scalar.skip_primality_test()) {
-        // Check that scalar.hi * 2^LO_BITS + scalar.lo < cycle_group_modulus when evaluated over the integers
-        const uint256_t cycle_group_modulus =
-            scalar.use_bn254_scalar_field_for_primality_test() ? FF::modulus : ScalarField::modulus;
-        const uint256_t r_lo = cycle_group_modulus.slice(0, cycle_scalar::LO_BITS);
-        const uint256_t r_hi = cycle_group_modulus.slice(cycle_scalar::LO_BITS, cycle_scalar::HI_BITS);
-
-        bool need_borrow = uint256_t(scalar.lo.get_value()) > r_lo;
-        field_t borrow = scalar.lo.is_constant() ? need_borrow : field_t::from_witness(context, need_borrow);
-
-        // directly call `create_new_range_constraint` to avoid creating an arithmetic gate
-        if (!scalar.lo.is_constant()) {
-            if constexpr (IS_ULTRA) {
-                context->create_new_range_constraint(borrow.get_witness_index(), 1, "borrow");
-            } else {
-                borrow.assert_equal(borrow * borrow);
-            }
-        }
-        // Hi range check = r_hi - y_hi - borrow
-        // Lo range check = r_lo - y_lo + borrow * 2^{126}
-        field_t hi = (-scalar.hi + r_hi) - borrow;
-        field_t lo = (-scalar.lo + r_lo) + (borrow * (uint256_t(1) << cycle_scalar::LO_BITS));
-
-        hi.create_range_constraint(cycle_scalar::HI_BITS);
-        lo.create_range_constraint(cycle_scalar::LO_BITS);
-    }
 
     std::copy(lo_slices.begin(), lo_slices.end(), std::back_inserter(slices));
     std::copy(hi_slices.begin(), hi_slices.end(), std::back_inserter(slices));
@@ -1182,6 +1185,11 @@ cycle_group<Composer> cycle_group<Composer>::batch_mul(const std::vector<cycle_s
     size_t num_bits = 0;
     for (auto& s : scalars) {
         num_bits = std::max(num_bits, s.num_bits());
+
+        // Note: is this the best place to put `validate_is_in_field`? Should it not be part of the constructor?
+        // Note note: validate_scalar_is_in_field does not apply range checks to the hi/lo slices, this is performed
+        // implicitly via the scalar mul algorithm
+        s.validate_scalar_is_in_field();
     }
 
     // if num_bits != NUM_BITS, skip lookup-version of fixed-base scalar mul. too much complexity
