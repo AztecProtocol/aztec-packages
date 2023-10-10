@@ -250,7 +250,7 @@ describe('Private kernel', () => {
     logger('Executed private kernel init circuit with all zeroes');
   });
 
-  it.only('Executes private kernel init circuit with abi all zeroes', async () => {
+  it('Executes private kernel init circuit with abi all zeroes', async () => {
     // logger('Initialized Noir instance with private kernel init circuit');
 
     // Encode the initial witness values into the witness map
