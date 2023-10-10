@@ -116,7 +116,9 @@ export function getMarkdown() {
 
   const prNumber = process.env.CIRCLE_PULL_REQUEST && parseInt(process.env.CIRCLE_PULL_REQUEST.split('/')[6]);
   const prSourceDataUrl = prNumber && `${S3_URL}/benchmarks-v1/pulls/${prNumber}.json`;
-  const prSourceDataText = prSourceDataUrl ? `\nThis benchmark source data is available in JSON format on S3 [here](${prSourceDataUrl}).` : '';
+  const prSourceDataText = prSourceDataUrl
+    ? `\nThis benchmark source data is available in JSON format on S3 [here](${prSourceDataUrl}).`
+    : '';
 
   return `
 ## Benchmark results
