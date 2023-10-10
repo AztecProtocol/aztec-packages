@@ -2,11 +2,30 @@
 title: Storage
 ---
 
-In an Aztec.nr contract, storage is to be defined as a single struct, that contains both public and private state variables.
+Smart contracts rely on storage, acting as the persistent memory on the blockchain. In Aztec, because of its privacy-first architecture, the management of this storage can be a bit more complex.
+
+You control this storage in Aztec using the 'Storage' struct. This struct serves as the housing unit for all your smart contract's state variables - the data it needs to keep track of and maintain.
+
+These state variables come in two forms: public and private. Public variables are visible to anyone, and private variables remain hidden within the contract.
+
+Aztec.nr has a few abstractions to help define the type of data your contract holds. These include Singletons, ImmutableSingletons, Set, and Map.
+
+On this page, you’ll learn:
+
+- How to manage a smart contract's storage structure
+- The distinctions and applications of public and private state variables
+- How to use Singleton, ImmutableSingleton, Set, and Map
+- An overview of 'notes' and the UTXO model
+- Practical implications of Storage in real smart contracts
+  In an Aztec.nr contract, storage is to be defined as a single struct, that contains both public and private state variables.
+
+## Public and private state variables
 
 As their name indicates, public state variables can be read by anyone, while private state variables can only be read by their owner, or people whom the owner has shared the data with.
 
 As mentioned earlier in the foundational concepts ([state model](./../../../concepts/foundation/state_model.md) and [private/public execution](./../../../concepts/foundation/communication/public_private_calls.md)) private state follows a UTXO model. Where note pre-images are only known to those able to decrypt them.
+
+## Storage struct
 
 :::info
 The struct **must** be called `Storage` for the Aztec.nr library to properly handle it (will be fixed in the future to support more flexibility).
@@ -364,6 +383,30 @@ While we don't support private functions to directly alter public storage, the o
 The usage is rather straight-forward and very similar to using the `insert` method with the difference that this one is called in public functions.
 
 #include_code insert_from_public /yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
+
+### `assert_contains_and_remove`
+
+This function is used to check existence of a note and then remove it without having read the note ahead of time. This can be useful for cases where the user is providing all the information needed, such as cases where the note was never emitted to the network and thereby available to the wallet.
+
+#include_code assert_contains_and_remove /yarn-project/aztec-nr/aztec/src/state_vars/set.nr rust
+
+<!---
+@LHerskind
+I don't see why this one is actually needed and could not be deprecated down the line.
+Allow insertions into the rpc database and this one can be removed.
+-->
+
+### `assert_contains_and_remove_publicly_created`
+
+Like above, this is used to ensure that the message exists in the data tree and then consume it. However, it differs slightly since there is currently a difference between notes that have been inserted from public and private execution. This means that you currently must use this function to consume and nullify a note that was created in a public function. This will be fixed in the future.
+
+#include_code assert_contains_and_remove_publicly_created /yarn-project/aztec-nr/aztec/src/state_vars/set.nr rust
+
+While this might look intimidating, the use of the function is rather easy, and is used in the following way:
+
+#include_code assert_contains_and_remove_publicly_created /yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
+
+The reason we are not reading this note ahead of time is that no [encrypted log](./events.md#encrypted-events) was emitted for this note, since it was created in public thereby making the encrypted log useless (everyone saw the content ahead of time).
 
 ### `remove`
 
