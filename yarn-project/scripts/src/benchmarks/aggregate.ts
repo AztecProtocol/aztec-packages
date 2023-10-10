@@ -170,7 +170,7 @@ export async function main() {
     }
   }
 
-  log(`Collected entries: ${JSON.stringify(collected, null, 2)}`);
+  log(`Collected entries: ${JSON.stringify(collected)}`);
 
   // For each bucket of each metric compute the average all collected datapoints
   const results: BenchmarkResults = {};

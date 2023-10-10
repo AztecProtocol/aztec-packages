@@ -10,6 +10,7 @@ BUCKET_NAME="aztec-ci-artifacts"
 LOG_FOLDER="${LOG_FOLDER:-log}"
 BENCH_FOLDER="${BENCH_FOLDER:-bench}"
 COMMIT_HASH="${COMMIT_HASH:-$(git rev-parse HEAD)}"
+BASE_COMMIT_HASH=""
 BENCHMARK_FILE_JSON="${BENCH_FOLDER}/benchmark.json"
 BASE_BENCHMARK_FILE_JSON="${BENCH_FOLDER}/base-benchmark.json"
 
@@ -21,6 +22,7 @@ if [ "${CIRCLE_BRANCH:-}" = "master" ]; then
 elif [ -n "${CIRCLE_PULL_REQUEST:-}" ]; then
   LOG_SOURCE_FOLDER="logs-v1/pulls/${CIRCLE_PULL_REQUEST##*/}"
   BENCHMARK_TARGET_FILE="benchmarks-v1/pulls/${CIRCLE_PULL_REQUEST##*/}.json"
+  BASE_COMMIT_HASH=$(curl -s "https://api.github.com/repos/AztecProtocol/aztec-packages/pulls/${CIRCLE_PULL_REQUEST##*/}" | jq -r '.base.sha')
 elif [ -n "${CIRCLE_TAG:-}" ]; then
   echo "Skipping benchmark run for ${CIRCLE_TAG} tagged release."
   exit 0
@@ -55,6 +57,7 @@ export DOCKER_RUN_OPTS="\
  -e BENCH_FOLDER=${CONTAINER_BENCH_FOLDER} \
  -v $(realpath $LOG_FOLDER):${CONTAINER_LOG_FOLDER}:rw \
  -e LOG_FOLDER=${CONTAINER_LOG_FOLDER} \
+ -e BASE_COMMIT_HASH \
  -e AZTEC_BOT_COMMENTER_GITHUB_TOKEN"
 yarn-project/scripts/run_script.sh workspace @aztec/scripts bench-aggregate
 echo "generated: $BENCHMARK_FILE_JSON"
@@ -69,7 +72,6 @@ fi
 
 # If on a pull request, get the data from the base commit, and comment on the PR
 if [ -n "${CIRCLE_PULL_REQUEST:-}" ]; then
-  BASE_COMMIT_HASH=$(curl -s "https://api.github.com/repos/AztecProtocol/aztec-packages/pulls/${CIRCLE_PULL_REQUEST##*/}" | jq -r '.base.sha')
   (aws s3 cp "s3://${BUCKET_NAME}/benchmarks-v1/master/$BASE_COMMIT_HASH.json" $BASE_BENCHMARK_FILE_JSON) || echo "failed to download base benchmark file"
   (yarn-project/scripts/run_script.sh workspace @aztec/scripts bench-comment && echo "commented on pr $CIRCLE_PULL_REQUEST") || echo "failed commenting on pr"
 fi
