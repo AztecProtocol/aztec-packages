@@ -67,6 +67,7 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
   Point,
   PreviousPrivateKernelData,
+  PreviousPrivateKernelDataFinal,
   PreviousPublicKernelData,
   PreviousRollupData,
   PrivateCallData,
@@ -474,6 +475,21 @@ export function makePreviousPrivateKernelData(
 }
 
 /**
+ * Makes arbitrary previous private ordering (final) kernel data.
+ * @param seed - The seed to use for generating the previous private ordering kernel data.
+ * @returns A previous private ordering kernel data.
+ */
+export function makePreviousPrivateKernelDataFinal(seed = 1): PreviousPrivateKernelDataFinal {
+  return new PreviousPrivateKernelDataFinal(
+    makePrivateKernelPublicInputsFinal(seed),
+    new Proof(Buffer.alloc(16, seed + 0x80)),
+    makeVerificationKey(),
+    0x42,
+    makeTuple(VK_TREE_HEIGHT, fr, 0x1000),
+  );
+}
+
+/**
  * Makes arbitrary previous public kernel data.
  * @param seed - The seed to use for generating the previous public kernel data.
  * @param publicKernelPublicInputs - The public kernel public inputs to use for generating the previous public kernel data.
@@ -582,7 +598,7 @@ export async function makePublicCallData(seed = 1, full = false): Promise<Public
  * @returns Public init kernel inputs.
  */
 export async function makePublicKernelInputsInit(seed = 1): Promise<PublicKernelInputsInit> {
-  return new PublicKernelInputsInit(makePreviousPrivateKernelData(seed), await makePublicCallData(seed + 0x1000));
+  return new PublicKernelInputsInit(makePreviousPrivateKernelDataFinal(seed), await makePublicCallData(seed + 0x1000));
 }
 
 /**
