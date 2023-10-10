@@ -1,7 +1,7 @@
 import { ContractArtifact } from '@aztec/foundation/abi';
 import { createConsoleLogger } from '@aztec/foundation/log';
 import {
-  generateAztecAbi,
+  generateContractArtifact,
   generateNoirContractInterface,
   generateTypescriptContractInterface,
 } from '@aztec/noir-compiler';
@@ -71,7 +71,7 @@ const main = () => {
   }
 
   // Remove extraneous information from the buildJson (which was output by Nargo) to hone in on the function data we actually care about:
-  const artifactJson: ContractArtifact = generateAztecAbi({ contract: buildJson, debug });
+  const artifactJson: ContractArtifact = generateContractArtifact({ contract: buildJson, debug });
 
   // Write the artifact:
   const artifactsDir = 'src/artifacts';

@@ -9,7 +9,7 @@ export { NoirCommit, NoirTag };
 
 export { generateNoirContractInterface } from './contract-interface-gen/noir.js';
 export { generateTypescriptContractInterface } from './contract-interface-gen/typescript.js';
-export { generateContractArtifact as generateAztecAbi };
+export { generateContractArtifact };
 
 /**
  * Compile Aztec.nr contracts in project path using a nargo binary available in the shell.
