@@ -6,6 +6,8 @@ extract_repo yarn-project /usr/src project
 cd project/src/yarn-project
 
 echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > .npmrc
+# also copy npcrc into the l1-contracts directory
+cp .npmrc ../l1-contracts
 
 function deploy_package() {
     REPOSITORY=$1
@@ -55,7 +57,11 @@ function deploy_package() {
     fi
 
     # Back to root
-    cd ..
+    if [ "$REPOSITORY" == "../l1-contracts" ]; then
+        cd ../yarn-project
+    else
+        cd ..
+    fi
 }
 
 deploy_package foundation
@@ -77,5 +83,4 @@ deploy_package world-state
 deploy_package sequencer-client
 deploy_package aztec-node
 deploy_package aztec-sandbox
-# this should always be at the last because we do `cd ..` at the end of the deploy_package function
 deploy_package ../l1-contracts
