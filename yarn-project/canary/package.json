@@ -25,6 +25,7 @@
     "@aztec/circuits.js": "workspace:^",
     "@aztec/cli": "workspace:^",
     "@aztec/end-to-end": "workspace:^",
+    "@aztec/foundation": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
     "@aztec/noir-contracts": "workspace:^",
     "@jest/globals": "^29.5.0",

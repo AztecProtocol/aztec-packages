@@ -264,7 +264,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
     // Wait for the archiver to process the message
     await delay(5000);
     // send a transfer tx to force through rollup with the message included
-    await wethCrossChainHarness.performL2Transfer(0n);
+    await wethCrossChainHarness.mintTokensPublicOnL2(0n);
 
     // 6. claim dai on L2
     logger('Consuming messages to mint dai on L2');
@@ -407,7 +407,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
     // Wait for the archiver to process the message
     await delay(5000);
     // send a transfer tx to force through rollup with the message included
-    await wethCrossChainHarness.performL2Transfer(0n);
+    await wethCrossChainHarness.mintTokensPublicOnL2(0n);
 
     // 6. claim dai on L2
     logger('Consuming messages to mint dai on L2');
