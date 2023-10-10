@@ -3,9 +3,15 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { FunctionL2Logs } from '@aztec/types';
+import { FunctionL2Logs, UnencryptedL2Log } from '@aztec/types';
 
-import { TypedOracle, toACVMWitness } from '../acvm/index.js';
+import {
+  TypedOracle,
+  toACVMCallContext,
+  toACVMGlobalVariables,
+  toACVMHistoricBlockData,
+  toACVMWitness,
+} from '../acvm/index.js';
 import { PackedArgsCache, SideEffectCounter } from '../common/index.js';
 import { CommitmentsDB, PublicContractsDB, PublicStateDB } from './db.js';
 import { PublicExecution, PublicExecutionResult } from './execution.js';
@@ -18,7 +24,7 @@ import { ContractStorageActionsCollector } from './state_actions.js';
 export class PublicExecutionContext extends TypedOracle {
   private storageActions: ContractStorageActionsCollector;
   private nestedExecutions: PublicExecutionResult[] = [];
-  private unencryptedLogs: Buffer[] = [];
+  private unencryptedLogs: UnencryptedL2Log[] = [];
 
   constructor(
     /**
@@ -50,19 +56,9 @@ export class PublicExecutionContext extends TypedOracle {
   public getInitialWitness(witnessStartIndex = 1) {
     const { callContext, args } = this.execution;
     const fields = [
-      callContext.msgSender,
-      callContext.storageContractAddress,
-      callContext.portalContractAddress,
-      callContext.isDelegateCall,
-      callContext.isStaticCall,
-      callContext.isContractDeployment,
-
-      ...this.historicBlockData.toArray(),
-
-      this.globalVariables.chainId,
-      this.globalVariables.version,
-      this.globalVariables.blockNumber,
-      this.globalVariables.timestamp,
+      ...toACVMCallContext(callContext),
+      ...toACVMHistoricBlockData(this.historicBlockData),
+      ...toACVMGlobalVariables(this.globalVariables),
 
       ...args,
     ];
@@ -81,7 +77,7 @@ export class PublicExecutionContext extends TypedOracle {
    * Return the encrypted logs emitted during this execution.
    */
   public getUnencryptedLogs() {
-    return new FunctionL2Logs(this.unencryptedLogs);
+    return new FunctionL2Logs(this.unencryptedLogs.map(log => log.toBuffer()));
   }
 
   /**
@@ -115,10 +111,10 @@ export class PublicExecutionContext extends TypedOracle {
    * Emit an unencrypted log.
    * @param log - The unencrypted log to be emitted.
    */
-  public emitUnencryptedLog(log: Buffer) {
-    // https://github.com/AztecProtocol/aztec-packages/issues/885
+  public emitUnencryptedLog(log: UnencryptedL2Log) {
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/885)
     this.unencryptedLogs.push(log);
-    this.log(`Emitted unencrypted log: "${log.toString('ascii')}"`);
+    this.log(`Emitted unencrypted log: "${log.toHumanReadable()}"`);
   }
 
   /**
@@ -197,6 +193,7 @@ export class PublicExecutionContext extends TypedOracle {
       msgSender: this.execution.contractAddress,
       portalContractAddress: portalAddress,
       storageContractAddress: targetContractAddress,
+      functionSelector,
       isContractDeployment: false,
       isDelegateCall: false,
       isStaticCall: false,

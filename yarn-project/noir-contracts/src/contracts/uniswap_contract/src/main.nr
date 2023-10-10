@@ -6,11 +6,8 @@ mod util;
 // Uses the token bridge contract, which tells which input token we need to talk to and handles the exit funds to L1 
 contract Uniswap {
     use dep::aztec::{
-        auth::{IS_VALID_SELECTOR, assert_valid_public_message_for},
         context::{PrivateContext, PublicContext, Context},
-        hash::compute_message_hash,
-        oracle::compute_selector::compute_selector,
-        oracle::context::get_portal_address,
+        oracle::{context::get_portal_address},
         state_vars::{map::Map, public_state::PublicState},
         types::address::{AztecAddress, EthereumAddress},
         types::type_serialization::bool_serialization::{
@@ -19,7 +16,10 @@ contract Uniswap {
         types::type_serialization::field_serialization::{
             FieldSerializationMethods, FIELD_SERIALIZED_LEN,
         },
+        selector::compute_selector,
     };
+
+    use dep::authwit::auth::{IS_VALID_SELECTOR, assert_current_call_valid_authwit_public, compute_authwit_message_hash};
     
     use crate::interfaces::{Token, TokenBridge};
     use crate::util::{compute_swap_private_content_hash, compute_swap_public_content_hash};
@@ -72,33 +72,10 @@ contract Uniswap {
     ) -> Field {
 
         if (sender.address != context.msg_sender()) {
-            // if someone else is calling on swap on sender's behalf, they need to have authorisation to do so:
-            let selector = compute_selector(
-                "swap_public((Field),(Field),Field,(Field),Field,Field,Field,(Field),Field,Field,(Field),(Field),Field)"
-            );
-            let message_field = compute_message_hash([
-                context.msg_sender(),
-                context.this_address(),
-                selector,
-                sender.address,
-                input_asset_bridge.address,
-                input_amount,
-                output_asset_bridge.address,
-                nonce_for_transfer_approval,
-                uniswap_fee_tier,
-                minimum_output_amount,
-                recipient.address,
-                secret_hash_for_L1_to_l2_message,
-                deadline_for_L1_to_l2_message,
-                canceller_for_L1_to_L2_message.address,
-                caller_on_L1.address,
-                nonce_for_swap_approval,
-            ]);
-            // this also emits a nullifier for the message
-            assert_valid_public_message_for(&mut context,sender.address,message_field);
+            assert_current_call_valid_authwit_public(&mut context, sender);
         }
 
-        let input_asset = AztecAddress::new(TokenBridge::at(input_asset_bridge.address).token(context));
+        let input_asset = TokenBridge::at(input_asset_bridge.address).token(context);
 
         // Transfer funds to this contract
         Token::at(input_asset.address).transfer_public(
@@ -141,7 +118,7 @@ contract Uniswap {
     }
 
     #[aztec(private)]
-    fn swap(
+    fn swap_private(
         input_asset: AztecAddress, // since private, we pass here and later assert that this is as expected by input_bridge
         input_asset_bridge: AztecAddress, 
         input_amount: Field,
@@ -161,7 +138,7 @@ contract Uniswap {
 
         // Assert that user provided token address is same as expected by token bridge.
         // we can't directly use `input_asset_bridge.token` because that is a public method and public can't return data to private
-        context.call_public_function(context.this_address(), compute_selector("_assert_token_is_same(Field,Field)"), [input_asset.address, input_asset_bridge.address]);
+        context.call_public_function(context.this_address(), compute_selector("_assert_token_is_same((Field),(Field))"), [input_asset.address, input_asset_bridge.address]);
 
         // Transfer funds to this contract
         Token::at(input_asset.address).unshield(
@@ -230,7 +207,7 @@ contract Uniswap {
         // approve bridge to burn this contract's funds (required when exiting on L1, as it burns funds on L2):
         let nonce_for_burn_approval = storage.nonce_for_burn_approval.read();
         let selector = compute_selector("burn_public((Field),Field,Field)");
-        let message_hash = compute_message_hash([token_bridge.address, token.address, selector, context.this_address(), amount, nonce_for_burn_approval]);
+        let message_hash = compute_authwit_message_hash(token_bridge, token, selector, [context.this_address(), amount, nonce_for_burn_approval]);
         storage.approved_action.at(message_hash).write(true);
 
         // increment nonce_for_burn_approval so it won't be used again
@@ -247,7 +224,15 @@ contract Uniswap {
     }
 
     #[aztec(public)]
-    internal fn _assert_token_is_same(token: Field, token_bridge: Field) {
-        assert(token == (TokenBridge::at(token_bridge).token(context)), "input_asset address is not the same as seen in the bridge contract");
+    internal fn _assert_token_is_same(token: AztecAddress, token_bridge: AztecAddress) {
+        assert(token.eq(TokenBridge::at(token_bridge.address).token(context)), "input_asset address is not the same as seen in the bridge contract");
     }
+
+    // /// Unconstrained /// 
+
+    // this method exists solely for e2e tests to test that nonce gets incremented each time.
+    unconstrained fn nonce_for_burn_approval() -> Field {
+        storage.nonce_for_burn_approval.read()
+    }
+
 }

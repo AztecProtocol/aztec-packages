@@ -1,18 +1,18 @@
-import { PrivateTokenContract } from '../artifacts/private_token.js';
-import { pxe } from '../config.js';
-import { callContractFunction, deployContract, getWallet, viewContractFunction } from '../scripts/index.js';
 import {
   AccountWallet,
   AztecAddress,
-  PXE,
   CompleteAddress,
   Contract,
   Fr,
+  PXE,
   Wallet,
   createPXEClient,
   waitForSandbox,
 } from '@aztec/aztec.js';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { PrivateTokenContract } from '../artifacts/PrivateToken.js';
+import { pxe } from '../config.js';
+import { callContractFunction, deployContract, getWallet, viewContractFunction } from '../scripts/index.js';
 
 const logger = createDebugLogger('aztec:private-token-box-sandbox-test');
 
@@ -23,8 +23,8 @@ const MINT_AMOUNT = 11n;
 // assumes sandbox is running locally, which this script does not trigger
 // as well as anvil.  anvil can be started with yarn test:integration
 const setupSandbox = async () => {
-  const { SANDBOX_URL = 'http://localhost:8080' } = process.env;
-  const pxe = createPXEClient(SANDBOX_URL);
+  const { PXE_URL = 'http://localhost:8080' } = process.env;
+  const pxe = createPXEClient(PXE_URL);
   await waitForSandbox(pxe);
   return pxe;
 };

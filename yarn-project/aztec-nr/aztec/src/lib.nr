@@ -1,10 +1,7 @@
 mod abi;
-mod account;
 mod address;
-mod auth;
 mod constants_gen;
 mod context;
-mod entrypoint;
 mod hash;
 mod log;
 mod messaging;
@@ -12,6 +9,7 @@ mod note;
 mod oracle;
 mod private_call_stack_item;
 mod public_call_stack_item;
+mod selector;
 mod state_vars;
 mod types;
 mod utils;

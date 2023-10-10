@@ -36,7 +36,11 @@ It will download and execute a script invoking docker compose with 2 containers:
 - Anvil
 - Aztec Sandbox
 
-2 ports will need to be opened on your system in order for you to interact with the sandbox. The first port is for Anvil, it defaults to 8545 and can be overridden by specifying a value in the environment variable `SANDBOX_ANVIL_PORT`. The second is the sandbox RPC host port. It defaults to value 8080 but can be overridden with environment variable `SANDBOX_RPC_PORT`.
+3 ports will need to be opened on your system in order for you to interact with the sandbox.
+The first port is for Anvil, it defaults to 8545 and can be overridden by specifying a value in the environment variable `SANDBOX_ANVIL_PORT`.
+The second one is sandbox Aztec Node port, it defaults to 8079 and can be overridden by specifying a value in the environment variable `SANDBOX_AZTEC_NODE_PORT`.
+The third is the sandbox PXE port.
+It defaults to value 8080 but can be overridden with environment variable `SANDBOX_PXE_PORT`.
 
 Within a few seconds the Sandbox should be up and running!
 
@@ -124,8 +128,8 @@ yarn add @aztec/aztec.js @aztec/noir-contracts typescript @types/node
     "start": "yarn build && DEBUG='token' node ./dest/index.js"
   },
   "dependencies": {
-    "@aztec/aztec.js": "^0.7.10",
-    "@aztec/noir-contracts": "^0.7.10",
+    "@aztec/aztec.js": "latest",
+    "@aztec/noir-contracts": "latest",
     "@types/node": "^20.6.3",
     "typescript": "^5.2.2"
   }

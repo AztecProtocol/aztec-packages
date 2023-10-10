@@ -12,11 +12,11 @@ import {
 } from '@aztec/aztec.js';
 import { ContractAbi, FunctionAbi, encodeArguments } from '@aztec/foundation/abi';
 import { FieldsOf } from '@aztec/foundation/types';
-import { BlankContractAbi } from './artifacts/blank.js';
+import { BlankContractAbi } from './artifacts/Blank.js';
 export const contractAbi: ContractAbi = BlankContractAbi;
 
-export const SANDBOX_URL: string = process.env.SANDBOX_URL || 'http://localhost:8080';
-export const pxe: PXE = createPXEClient(SANDBOX_URL);
+export const PXE_URL: string = process.env.PXE_URL || 'http://localhost:8080';
+export const pxe: PXE = createPXEClient(PXE_URL);
 
 let contractAddress: string = '';
 
