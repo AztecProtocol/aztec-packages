@@ -82,7 +82,7 @@ if [ -n "${CIRCLE_PULL_REQUEST:-}" ]; then
     aws s3 cp "s3://${BUCKET_NAME}/benchmarks-v1/master/$commit_hash.json" $BASE_BENCHMARK_FILE_JSON
     if [ $? -eq 0 ]; then
       echo "Downloaded base data from commit $commit_hash"
-      BASE_COMMIT_HASH=$commit_hash
+      export BASE_COMMIT_HASH=$commit_hash
       break;
     fi
   done
