@@ -1035,6 +1035,17 @@ jobs:
           name: "yarn-project"
           command: yarn-project/deploy_npm.sh latest
 
+  deploy-dockerhub-canary:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: medium
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Deploy to dockerhub"
+          command: yarn-project/deploy_dockerhub.sh canary
+
   deploy-dockerhub:
     machine:
       image: ubuntu-2204:2023.07.2
@@ -1370,10 +1381,15 @@ workflows:
           requires:
             - e2e-end
           <<: *deploy_defaults
+      - deploy-dockerhub-canary:
+          requires:
+            - e2e-end
+          <<: *deploy_defaults
 
       - build-deployment-canary:
           requires:
             - deploy-npm-canary
+            - deploy-dockerhub-canary
           <<: *deploy_defaults
 
       - canary-uniswap-test:
