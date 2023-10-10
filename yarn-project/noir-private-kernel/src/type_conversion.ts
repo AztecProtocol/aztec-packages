@@ -24,10 +24,12 @@ import {
   FunctionData as FunctionDataNoir,
   FunctionSelector as FunctionSelectorNoir,
   HistoricalBlockData as HistoricalBlockDataNoir,
-  MembershipWitness as MembershipWitnessNoir,
+  FunctionLeafMembershipWitness as FunctionLeafMembershipWitnessNoir,
+  ContractLeafMembershipWitness as ContractLeafMembershipWitnessNoir,
   Address as NoirAztecAddress,
   EthAddress as NoirEthAddress,
   Field as NoirField,
+  FixedLengthArray,
   Point as NoirPoint,
   PrivateCallData as PrivateCallDataNoir,
   PrivateCallStackItem as PrivateCallStackItemNoir,
@@ -201,16 +203,16 @@ function mapPrivateCircuitPublicInputsToNoir(
   return {
     call_context: mapCallContextToNoir(privateCircuitPublicInputs.callContext),
     args_hash: mapFieldToNoir(privateCircuitPublicInputs.argsHash),
-    return_values: privateCircuitPublicInputs.returnValues.map(mapFieldToNoir),
-    read_requests: privateCircuitPublicInputs.readRequests.map(mapFieldToNoir),
-    new_commitments: privateCircuitPublicInputs.newCommitments.map(mapFieldToNoir),
-    new_nullifiers: privateCircuitPublicInputs.newNullifiers.map(mapFieldToNoir),
-    nullified_commitments: privateCircuitPublicInputs.nullifiedCommitments.map(mapFieldToNoir),
-    private_call_stack: privateCircuitPublicInputs.privateCallStack.map(mapFieldToNoir),
-    public_call_stack: privateCircuitPublicInputs.publicCallStack.map(mapFieldToNoir),
-    new_l2_to_l1_msgs: privateCircuitPublicInputs.newL2ToL1Msgs.map(mapFieldToNoir),
-    encrypted_logs_hash: privateCircuitPublicInputs.encryptedLogsHash.map(mapFieldToNoir),
-    unencrypted_logs_hash: privateCircuitPublicInputs.unencryptedLogsHash.map(mapFieldToNoir),
+    return_values: privateCircuitPublicInputs.returnValues.map(mapFieldToNoir) as FixedLengthArray<NoirField, 4>,
+    read_requests: privateCircuitPublicInputs.readRequests.map(mapFieldToNoir) as FixedLengthArray<NoirField, 32>,
+    new_commitments: privateCircuitPublicInputs.newCommitments.map(mapFieldToNoir) as FixedLengthArray<NoirField, 16>,
+    new_nullifiers: privateCircuitPublicInputs.newNullifiers.map(mapFieldToNoir) as FixedLengthArray<NoirField, 16>,
+    nullified_commitments: privateCircuitPublicInputs.nullifiedCommitments.map(mapFieldToNoir) as FixedLengthArray<NoirField, 16>,
+    private_call_stack: privateCircuitPublicInputs.privateCallStack.map(mapFieldToNoir) as FixedLengthArray<NoirField, 4>,
+    public_call_stack: privateCircuitPublicInputs.publicCallStack.map(mapFieldToNoir) as FixedLengthArray<NoirField, 4>,
+    new_l2_to_l1_msgs: privateCircuitPublicInputs.newL2ToL1Msgs.map(mapFieldToNoir) as FixedLengthArray<NoirField, 2>,
+    encrypted_logs_hash: privateCircuitPublicInputs.encryptedLogsHash.map(mapFieldToNoir) as FixedLengthArray<NoirField, 2>,
+    unencrypted_logs_hash: privateCircuitPublicInputs.unencryptedLogsHash.map(mapFieldToNoir) as FixedLengthArray<NoirField, 2>,
     encrypted_log_preimages_length: mapFieldToNoir(privateCircuitPublicInputs.encryptedLogPreimagesLength),
     unencrypted_log_preimages_length: mapFieldToNoir(privateCircuitPublicInputs.unencryptedLogPreimagesLength),
     historical_block_data: mapHistoricalBlockDataToNoir(privateCircuitPublicInputs.historicBlockData),
@@ -237,14 +239,26 @@ function mapPrivateCallStackItemToNoir(privateCallStackItem: PrivateCallStackIte
 }
 
 /**
- * Maps a membership witness to a noir membership witness.
+ * Maps a function leaf membership witness to a noir function leaf membership witness.
  * @param membershipWitness - The membership witness.
- * @returns The noir membership witness.
+ * @returns The noir function leaf membership witness.
  */
-function mapMembershipWitnessToNoir<N extends number>(membershipWitness: MembershipWitness<N>): MembershipWitnessNoir {
+function mapFunctionLeafMembershipWitnessToNoir(membershipWitness: MembershipWitness<4>): FunctionLeafMembershipWitnessNoir {
   return {
     leaf_index: membershipWitness.leafIndex.toString(),
-    sibling_path: membershipWitness.siblingPath.map(mapFieldToNoir),
+    sibling_path: membershipWitness.siblingPath.map(mapFieldToNoir) as FixedLengthArray<NoirField, 4>,
+  };
+}
+
+/**
+ * Maps a contract leaf membership witness to a noir contract leaf membership witness.
+ * @param membershipWitness - The membership witness.
+ * @returns The noir contract leaf membership witness.
+ */
+function mapContractLeafMembershipWitnessToNoir(membershipWitness: MembershipWitness<16>): ContractLeafMembershipWitnessNoir {
+  return {
+    leaf_index: membershipWitness.leafIndex.toString(),
+    sibling_path: membershipWitness.siblingPath.map(mapFieldToNoir) as FixedLengthArray<NoirField, 16>,
   };
 }
 
@@ -258,7 +272,7 @@ function mapReadRequestMembershipWitnessToNoir(
 ): ReadRequestMembershipWitnessNoir {
   return {
     leaf_index: mapFieldToNoir(readRequestMembershipWitness.leafIndex),
-    sibling_path: readRequestMembershipWitness.siblingPath.map(mapFieldToNoir),
+    sibling_path: readRequestMembershipWitness.siblingPath.map(mapFieldToNoir) as FixedLengthArray<NoirField, 32>,
     is_transient: readRequestMembershipWitness.isTransient,
     hint_to_commitment: mapFieldToNoir(readRequestMembershipWitness.hintToCommitment),
   };
@@ -272,14 +286,14 @@ function mapReadRequestMembershipWitnessToNoir(
 function mapPrivateCallDataToNoir(privateCallData: PrivateCallData): PrivateCallDataNoir {
   return {
     call_stack_item: mapPrivateCallStackItemToNoir(privateCallData.callStackItem),
-    private_call_stack_preimages: privateCallData.privateCallStackPreimages.map(mapPrivateCallStackItemToNoir),
+    private_call_stack_preimages: privateCallData.privateCallStackPreimages.map(mapPrivateCallStackItemToNoir) as FixedLengthArray<PrivateCallStackItemNoir, 4>,
     proof: {},
     vk: {},
-    function_leaf_membership_witness: mapMembershipWitnessToNoir(privateCallData.functionLeafMembershipWitness),
-    contract_leaf_membership_witness: mapMembershipWitnessToNoir(privateCallData.contractLeafMembershipWitness),
+    function_leaf_membership_witness: mapFunctionLeafMembershipWitnessToNoir(privateCallData.functionLeafMembershipWitness),
+    contract_leaf_membership_witness: mapContractLeafMembershipWitnessToNoir(privateCallData.contractLeafMembershipWitness),
     read_request_membership_witnesses: privateCallData.readRequestMembershipWitnesses.map(
       mapReadRequestMembershipWitnessToNoir,
-    ),
+    ) as FixedLengthArray<ReadRequestMembershipWitnessNoir, 32>,
     //TODO this seems like the wrong type in circuits.js
     portal_contract_address: mapEthAddressToNoir(EthAddress.fromField(privateCallData.portalContractAddress)),
     acir_hash: mapFieldToNoir(privateCallData.acirHash),
