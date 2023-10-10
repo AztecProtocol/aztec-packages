@@ -22,7 +22,6 @@ if [ "${CIRCLE_BRANCH:-}" = "master" ]; then
 elif [ -n "${CIRCLE_PULL_REQUEST:-}" ]; then
   LOG_SOURCE_FOLDER="logs-v1/pulls/${CIRCLE_PULL_REQUEST##*/}"
   BENCHMARK_TARGET_FILE="benchmarks-v1/pulls/${CIRCLE_PULL_REQUEST##*/}.json"
-  BASE_COMMIT_HASH=$(curl -s "https://api.github.com/repos/AztecProtocol/aztec-packages/pulls/${CIRCLE_PULL_REQUEST##*/}" | jq -r '.base.sha')
 elif [ -n "${CIRCLE_TAG:-}" ]; then
   echo "Skipping benchmark run for ${CIRCLE_TAG} tagged release."
   exit 0
@@ -58,7 +57,8 @@ export DOCKER_RUN_OPTS="\
  -v $(realpath $LOG_FOLDER):${CONTAINER_LOG_FOLDER}:rw \
  -e LOG_FOLDER=${CONTAINER_LOG_FOLDER} \
  -e BASE_COMMIT_HASH \
- -e AZTEC_BOT_COMMENTER_GITHUB_TOKEN"
+ -e AZTEC_BOT_COMMENTER_GITHUB_TOKEN \
+ -e CIRCLE_PULL_REQUEST"
 yarn-project/scripts/run_script.sh workspace @aztec/scripts bench-aggregate
 echo "generated: $BENCHMARK_FILE_JSON"
 
@@ -72,7 +72,19 @@ fi
 
 # If on a pull request, get the data from the base commit, and comment on the PR
 if [ -n "${CIRCLE_PULL_REQUEST:-}" ]; then
-  (aws s3 cp "s3://${BUCKET_NAME}/benchmarks-v1/master/$BASE_COMMIT_HASH.json" $BASE_BENCHMARK_FILE_JSON) || echo "failed to download base benchmark file"
+  MASTER_COMMIT_HASH=$(curl -s "https://api.github.com/repos/AztecProtocol/aztec-packages/pulls/${CIRCLE_PULL_REQUEST##*/}" | jq -r '.base.sha')
+  MASTER_COMMIT_HASHES=($(git log $MASTER_COMMIT_HASH --format="%H" -n 50))
+  for commit_hash in "${MASTER_COMMIT_HASHES[@]}" do;
+    if [ aws s3 cp "s3://${BUCKET_NAME}/benchmarks-v1/master/$commit_hash.json" $BASE_BENCHMARK_FILE_JSON) ]; then
+      echo "Downloaded base data from commit $commit_hash"
+      BASE_COMMIT_HASH=$commit_hash
+      break;
+    fi
+  done
+  if [ -z "${BASE_COMMIT_HASH:-}" ]; then 
+    echo "No base commit data found"
+  fi
+
   (yarn-project/scripts/run_script.sh workspace @aztec/scripts bench-comment && echo "commented on pr $CIRCLE_PULL_REQUEST") || echo "failed commenting on pr"
 fi
 
