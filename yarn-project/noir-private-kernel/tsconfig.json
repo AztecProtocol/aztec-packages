@@ -5,7 +5,11 @@
     "rootDir": "src",
     "tsBuildInfoFile": ".tsbuildinfo"
   },
-  "references": [],
+  "references": [
+    {
+      "path": "../foundation"
+    }
+  ],
   "include": ["src", "src/**/*.json"],
   "exclude": ["src/contracts"]
 }

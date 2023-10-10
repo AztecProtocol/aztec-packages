@@ -12,7 +12,6 @@
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T prettier -w ./src",
-    "start": "yarn build && node dest/index.js",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --passWithNoTests"
   },
   "inherits": [
@@ -27,6 +26,7 @@
     "rootDir": "./src"
   },
   "dependencies": {
+    "@aztec/foundation": "workspace:^",
     "@noir-lang/acvm_js": "^0.28.0",
     "@noir-lang/backend_barretenberg": "^0.7.10",
     "@noir-lang/noir_js": "^0.16.0",

@@ -1,23 +1,11 @@
-import { WitnessMap, executeCircuit } from '@noir-lang/acvm_js';
-import fs from 'fs/promises';
+import PrivateKernelInitJson from './target/private_kernel_init.json' assert { type: 'json' };
+// Todo add types for noir circuit artifacts
+import PrivateKernelInnerJson from './target/private_kernel_inner.json' assert { type: 'json' };
+// Todo add types for noir circuit artifacts
+import PrivateKernelOrderingJson from './target/private_kernel_ordering.json' assert { type: 'json' };
 
-async function fetchJson() {
-  const rawData = await fs.readFile('./src/target/private_kernel_init.json', 'utf-8');
-  return JSON.parse(rawData);
-}
+export const PrivateKernelInitArtifact = PrivateKernelInitJson; // TODO add types for noir circuit artifacts
 
-const circuit = await fetchJson();
-console.log('Initialized Noir instance with private kernel init circuit');
+export const PrivateKernelInnerArtifact = PrivateKernelInnerJson; // TODO add types for noir circuit artifacts
 
-const decodedBytecode = Buffer.from(circuit.bytecode, 'base64');
-const numWitnesses = 1811; // The number of input witnesses in the private kernel init circuit
-const initialWitness: WitnessMap = new Map();
-for (let i = 1; i <= numWitnesses; i++) {
-  initialWitness.set(i, '0x00');
-}
-
-const _witnessMap = await executeCircuit(decodedBytecode, initialWitness, () => {
-  throw Error('unexpected oracle during execution');
-});
-
-console.log('Executed private kernel init circuit with all zeroes');
+export const PrivateKernelOrderingArtifact = PrivateKernelOrderingJson; // TODO add types for noir circuit artifacts
