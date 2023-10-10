@@ -49,12 +49,12 @@ export function generateTypescriptInterface(program: Command, name = 'typescript
             const tsPath = resolve(projectPath, outdir, `${contract.name}.ts`);
             log(`Writing ${contract.name} typescript interface to ${path.relative(currentDir, tsPath)}`);
             let relativeArtifactPath = path.relative(path.dirname(tsPath), artifactPath);
+            if (relativeArtifactPath === `${contract.name}.json`) {
+              // relative path edge case, prepending ./ for local import - the above logic just does
+              // `${contract.name}.json`, which is not a valid import for a file in the same directory
+              relativeArtifactPath = `./${contract.name}.json`;
+            }
             try {
-              if (relativeArtifactPath === `${contract.name}.json`) {
-                // relative path edge case, prepending ./ for local import - the above logic just does
-                // `${contract.name}.json`, which is not a valid import for a file in the same directory
-                relativeArtifactPath = `./${contract.name}.json`;
-              }
               const tsWrapper = generateTypescriptContractInterface(contract, relativeArtifactPath);
               mkdirpSync(path.dirname(tsPath));
               writeFileSync(tsPath, tsWrapper);
