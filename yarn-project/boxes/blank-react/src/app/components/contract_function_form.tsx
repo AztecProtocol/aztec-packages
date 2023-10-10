@@ -1,12 +1,12 @@
+import { CONTRACT_ADDRESS_PARAM_NAMES, pxe } from '../../config.js';
+import { callContractFunction, deployContract, viewContractFunction } from '../../scripts/index.js';
+import { convertArgs } from '../../scripts/util.js';
+import styles from './contract_function_form.module.scss';
 import { Button, Loader } from '@aztec/aztec-ui';
 import { AztecAddress, CompleteAddress, Fr } from '@aztec/aztec.js';
 import { ContractArtifact, FunctionArtifact } from '@aztec/foundation/abi';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import { CONTRACT_ADDRESS_PARAM_NAMES, pxe } from '../../config.js';
-import { callContractFunction, deployContract, viewContractFunction } from '../../scripts/index.js';
-import { convertArgs } from '../../scripts/util.js';
-import styles from './contract_function_form.module.scss';
 
 type NoirFunctionYupSchema = {
   // hack: add `any` at the end to get the array schema to typecheck
@@ -86,7 +86,14 @@ async function handleFunctionCall(
   if (functionAbi.functionType === 'unconstrained') {
     return await viewContractFunction(contractAddress!, contractArtifact, functionName, typedArgs, pxe, wallet);
   } else {
-    const txnReceipt = await callContractFunction(contractAddress!, contractArtifact, functionName, typedArgs, pxe, wallet);
+    const txnReceipt = await callContractFunction(
+      contractAddress!,
+      contractArtifact,
+      functionName,
+      typedArgs,
+      pxe,
+      wallet,
+    );
     return `Transaction ${txnReceipt.status} on block number ${txnReceipt.blockNumber}`;
   }
 }
@@ -126,7 +133,13 @@ export function ContractFunctionForm({
     onSubmit: async (values: any) => {
       onSubmit();
       try {
-        const result = await handleFunctionCall(contractAddress, contractArtifact, functionArtifact.name, values, wallet);
+        const result = await handleFunctionCall(
+          contractAddress,
+          contractArtifact,
+          functionArtifact.name,
+          values,
+          wallet,
+        );
         onSuccess(result);
       } catch (e: any) {
         onError(e.message);
