@@ -2,36 +2,36 @@
 
 /* eslint-disable */
 
-type Field = number;
-type u32 = number;
+export type Field = string;
+export type u32 = string;
 
-interface AggregationObject {
+export interface AggregationObject {
 }
 
 
-interface Address {
+export interface Address {
   inner: Field;
 }
 
 
-interface EthAddress {
+export interface EthAddress {
   inner: Field;
 }
 
 
-interface NewContractData {
+export interface NewContractData {
   contract_address: Address;
   portal_contract_address: EthAddress;
   function_tree_root: Field;
 }
 
 
-interface FunctionSelector {
+export interface FunctionSelector {
   inner: u32;
 }
 
 
-interface FunctionData {
+export interface FunctionData {
   selector: FunctionSelector;
   is_internal: boolean;
   is_private: boolean;
@@ -40,7 +40,7 @@ interface FunctionData {
 
 
 
-interface OptionallyRevealedData {
+export interface OptionallyRevealedData {
   call_stack_item_hash: Field;
   function_data: FunctionData;
   vk_hash: Field;
@@ -52,20 +52,20 @@ interface OptionallyRevealedData {
 }
 
 
-interface PublicDataUpdateRequest {
+export interface PublicDataUpdateRequest {
   leaf_index: Field;
   old_value: Field;
   new_value: Field;
 }
 
 
-interface PublicDataRead {
+export interface PublicDataRead {
   leaf_index: Field;
   value: Field;
 }
 
 
-interface CombinedAccumulatedData {
+export interface CombinedAccumulatedData {
   aggregation_object: AggregationObject;
   read_requests: Field[];
   new_commitments: Field[];
@@ -85,7 +85,7 @@ interface CombinedAccumulatedData {
 }
 
 
-interface Block {
+export interface Block {
   private_data_tree_root: Field;
   nullifier_tree_root: Field;
   contract_tree_root: Field;
@@ -95,21 +95,21 @@ interface Block {
 }
 
 
-interface HistoricalBlockData {
+export interface HistoricalBlockData {
   blocks_tree_root: Field;
   block: Block;
   private_kernel_vk_tree_root: Field;
 }
 
 
-interface Point {
+export interface Point {
   x: Field;
   y: Field;
 }
 
 
 
-interface ContractDeploymentData {
+export interface ContractDeploymentData {
   deployer_public_key: Point;
   constructor_vk_hash: Field;
   function_tree_root: Field;
@@ -118,7 +118,7 @@ interface ContractDeploymentData {
 }
 
 
-interface TxContext {
+export interface TxContext {
   is_fee_payment_tx: boolean;
   is_rebate_payment_tx: boolean;
   is_contract_deployment_tx: boolean;
@@ -128,28 +128,28 @@ interface TxContext {
 }
 
 
-interface CombinedConstantData {
+export interface CombinedConstantData {
   block_data: HistoricalBlockData;
   tx_context: TxContext;
 }
 
 
-interface KernelCircuitPublicInputs {
+export interface KernelCircuitPublicInputs {
   end: CombinedAccumulatedData;
   constants: CombinedConstantData;
   is_private: boolean;
 }
 
 
-interface Proof {
+export interface Proof {
 }
 
 
-interface VerificationKey {
+export interface VerificationKey {
 }
 
 
-interface PreviousKernelData {
+export interface PreviousKernelData {
   public_inputs: KernelCircuitPublicInputs;
   proof: Proof;
   vk: VerificationKey;
@@ -163,7 +163,7 @@ interface PreviousKernelData {
 
 
 
-interface CallContext {
+export interface CallContext {
   msg_sender: Address;
   storage_contract_address: Address;
   portal_contract_address: EthAddress;
@@ -176,7 +176,7 @@ interface CallContext {
 
 
 
-interface PrivateCircuitPublicInputs {
+export interface PrivateCircuitPublicInputs {
   call_context: CallContext;
   args_hash: Field;
   return_values: Field[];
@@ -199,7 +199,7 @@ interface PrivateCircuitPublicInputs {
 
 
 
-interface CallStackItem {
+export interface CallStackItem {
   contract_address: Address;
   public_inputs: PrivateCircuitPublicInputs;
   is_execution_request: boolean;
@@ -207,21 +207,21 @@ interface CallStackItem {
 }
 
 
-interface PrivateCallStackItem {
+export interface PrivateCallStackItem {
   inner: CallStackItem;
 }
 
 
 
 
-interface MembershipWitness {
+export interface MembershipWitness {
   leaf_index: Field;
   sibling_path: Field[];
 }
 
 
 
-interface ReadRequestMembershipWitness {
+export interface ReadRequestMembershipWitness {
   leaf_index: Field;
   sibling_path: Field[];
   is_transient: boolean;
@@ -230,7 +230,7 @@ interface ReadRequestMembershipWitness {
 
 
 
-interface PrivateCallData {
+export interface PrivateCallData {
   call_stack_item: PrivateCallStackItem;
   private_call_stack_preimages: PrivateCallStackItem[];
   proof: Proof;
@@ -243,7 +243,7 @@ interface PrivateCallData {
 }
 
 
-interface PrivateKernelInputsInner {
+export interface PrivateKernelInputsInner {
   previous_kernel: PreviousKernelData;
   private_call: PrivateCallData;
 }
