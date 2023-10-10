@@ -1,4 +1,7 @@
 import fs from 'fs/promises';
+import {
+    example
+} from './generate_ts_from_abi.js';
 import { executeCircuit, WitnessMap } from '@noir-lang/acvm_js';
 
 async function fetchJson() {
@@ -22,4 +25,4 @@ const _witnessMap = await executeCircuit(decodedBytecode, initialWitness,() => {
 
 console.log("Executed private kernel init circuit with all zeroes");
 
-
+example();
