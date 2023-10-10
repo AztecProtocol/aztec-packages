@@ -51,7 +51,6 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const plonk
     const auto circuit_size = transcript.template receive_from_prover<uint32_t>("circuit_size");
     const auto public_input_size = transcript.template receive_from_prover<uint32_t>("public_input_size");
     const auto pub_inputs_offset = transcript.template receive_from_prover<uint32_t>("pub_inputs_offset");
-    const size_t log_circuit_size = numeric::get_msb(circuit_size);
 
     if (circuit_size != key->circuit_size) {
         return false;
@@ -118,67 +117,11 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const plonk
         return false;
     }
 
-    // Execute ZeroMorph rounds
+    // Execute ZeroMorph rounds. See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description of the
+    // unrolled protocol.
+    auto pairing_points = ZeroMorph::verify(commitments, claimed_evaluations, multivariate_challenge, transcript);
 
-    FF rho = transcript.get_challenge("rho");
-
-    // Compute powers of batching challenge rho
-    std::vector<FF> rhos = pcs::zeromorph::powers_of_challenge(rho, Flavor::NUM_ALL_ENTITIES);
-
-    // Construct batched evaluation v = sum_{i=0}^{m-1}\alpha^i*v_i + sum_{i=0}^{l-1}\alpha^{m+i}*w_i
-    FF batched_evaluation = FF(0);
-    size_t evaluation_idx = 0;
-    for (auto& value : claimed_evaluations.get_unshifted_then_shifted()) {
-        batched_evaluation += value * rhos[evaluation_idx];
-        ++evaluation_idx;
-    }
-
-    // Receive commitments [q_k]
-    std::vector<Commitment> C_q_k;
-    C_q_k.reserve(log_circuit_size);
-    for (size_t i = 0; i < log_circuit_size; ++i) {
-        C_q_k.emplace_back(transcript.template receive_from_prover<Commitment>("ZM:C_q_" + std::to_string(i)));
-    }
-
-    // Challenge y
-    auto y_challenge = transcript.get_challenge("ZM:y");
-
-    // Receive commitment C_{q}
-    auto C_q = transcript.template receive_from_prover<Commitment>("ZM:C_q");
-
-    // Challenges x, z
-    auto [x_challenge, z_challenge] = transcript.get_challenges("ZM:x", "ZM:z");
-
-    // Compute commitment C_{\zeta_x}
-    auto C_zeta_x = ZeroMorph::compute_C_zeta_x(C_q, C_q_k, y_challenge, x_challenge);
-
-    std::vector<Commitment> f_commitments;
-    std::vector<Commitment> g_commitments;
-    for (auto& commitment : commitments.get_unshifted()) {
-        f_commitments.emplace_back(commitment);
-    }
-    for (auto& commitment : commitments.get_to_be_shifted()) {
-        g_commitments.emplace_back(commitment);
-    }
-
-    // Compute commitment C_{Z_x}
-    Commitment C_Z_x = ZeroMorph::compute_C_Z_x(
-        f_commitments, g_commitments, C_q_k, rho, batched_evaluation, x_challenge, multivariate_challenge);
-
-    // Compute commitment C_{\zeta,Z}
-    auto C_zeta_Z = C_zeta_x + C_Z_x * z_challenge;
-
-    // Receive proof commitment \pi
-    auto C_pi = transcript.template receive_from_prover<Commitment>("ZM:PI");
-
-    // Construct inputs and perform pairing check to verify claimed evaluation
-    // Note: The pairing check (without the degree check component X^{N_max-N-1}) can be expressed naturally as
-    // e(C_{\zeta,Z}, [1]_2) = e(pi, [X - x]_2). This can be rearranged (e.g. see the plonk paper) as
-    // e(C_{\zeta,Z} - x*pi, [1]_2) * e(-pi, [X]_2) = 1, or
-    // e(P_0, [1]_2) * e(P_1, [X]_2) = 1
-    auto P0 = C_zeta_Z + C_pi * x_challenge;
-    auto P1 = -C_pi;
-    auto verified = pcs_verification_key->pairing_check(P0, P1);
+    auto verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
 
     return sumcheck_verified.value() && verified;
 }

@@ -114,82 +114,12 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_relation_check_
  * */
 template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_zeromorph_rounds()
 {
-    const size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
-    const size_t circuit_size = instance->proving_key->circuit_size;
-
-    // Generate batching challenge ρ and powers 1,ρ,…,ρᵐ⁻¹
-    FF rho = transcript.get_challenge("rho");
-    std::vector<FF> rhos = pcs::zeromorph::powers_of_challenge(rho, NUM_POLYNOMIALS);
-
-    // Extract challenge u and claimed multilinear evaluations from Sumcheck output
-    std::span<FF> u_challenge = sumcheck_output.challenge;
-    std::span<FF> claimed_evaluations = sumcheck_output.claimed_evaluations;
-    size_t log_circuit_size = u_challenge.size();
-
-    // Compute batching of f_i and g_i polynomials: sum_{i=0}^{m-1}\alpha^i*f_i and
-    // sum_{i=0}^{l-1}\alpha^{m+i}*h_i, and also batched evaluation v = sum_{i=0}^{m-1}\alpha^i*f_i(u) +
-    // sum_{i=0}^{l-1}\alpha^{m+i}*h_i(u).
-    auto batched_evaluation = FF(0);
-    Polynomial f_batched(circuit_size); // batched unshifted polynomials
-    size_t poly_idx = 0;                // TODO(#391) zip
-    for (auto& f_polynomial : instance->prover_polynomials.get_unshifted()) {
-        f_batched.add_scaled(f_polynomial, rhos[poly_idx]);
-        batched_evaluation += rhos[poly_idx] * claimed_evaluations[poly_idx];
-        ++poly_idx;
-    }
-
-    Polynomial g_batched(circuit_size); // batched to-be-shifted polynomials
-    for (auto& g_polynomial : instance->prover_polynomials.get_to_be_shifted()) {
-        g_batched.add_scaled(g_polynomial, rhos[poly_idx]);
-        batched_evaluation += rhos[poly_idx] * claimed_evaluations[poly_idx];
-        ++poly_idx;
-    };
-
-    // Compute the full batched polynomial f = f_batched + g_batched.shifted() = f_batched + h_batched. This is the
-    // polynomial for which we compute the quotients q_k
-    auto f_polynomial = f_batched;
-    f_polynomial += g_batched.shifted();
-
-    // Compute the multilinear quotients q_k = q_k(X_0, ..., X_{k-1})
-    auto quotients = ZeroMorph::compute_multilinear_quotients(f_polynomial, u_challenge);
-
-    // Compute and send commitments C_{q_k} = [q_k], k = 0,...,d-1
-    std::vector<Commitment> q_k_commitments;
-    q_k_commitments.reserve(log_circuit_size);
-    for (size_t idx = 0; idx < log_circuit_size; ++idx) {
-        q_k_commitments[idx] = pcs_commitment_key->commit(quotients[idx]);
-        std::string label = "ZM:C_q_" + std::to_string(idx);
-        transcript.send_to_verifier(label, q_k_commitments[idx]);
-    }
-
-    // Get challenge y
-    auto y_challenge = transcript.get_challenge("ZM:y");
-
-    // Compute the batched, lifted-degree quotient \hat{q}
-    auto batched_quotient = ZeroMorph::compute_batched_lifted_degree_quotient(quotients, y_challenge, circuit_size);
-
-    // Compute and send the commitment C_q = [\hat{q}]
-    auto q_commitment = pcs_commitment_key->commit(batched_quotient);
-    transcript.send_to_verifier("ZM:C_q", q_commitment);
-
-    // Get challenges x and z
-    auto [x_challenge, z_challenge] = transcript.get_challenges("ZM:x", "ZM:z");
-
-    // Compute degree check polynomial \zeta partially evaluated at x
-    auto zeta_x = ZeroMorph::compute_partially_evaluated_degree_check_polynomial(
-        batched_quotient, quotients, y_challenge, x_challenge);
-
-    // Compute ZeroMorph identity polynomial Z partially evaluated at x
-    auto Z_x = ZeroMorph::compute_partially_evaluated_zeromorph_identity_polynomial(
-        f_batched, g_batched, quotients, batched_evaluation, u_challenge, x_challenge);
-
-    // Compute batched degree and ZM-identity quotient polynomial pi
-    auto pi_polynomial =
-        ZeroMorph::compute_batched_evaluation_and_degree_check_quotient(zeta_x, Z_x, x_challenge, z_challenge);
-
-    // Compute and send proof commitment pi
-    auto pi_commitment = pcs_commitment_key->commit(pi_polynomial);
-    transcript.send_to_verifier("ZM:PI", pi_commitment);
+    ZeroMorph::prove(instance->prover_polynomials.get_unshifted(),
+                     instance->prover_polynomials.get_to_be_shifted(),
+                     sumcheck_output.claimed_evaluations,
+                     sumcheck_output.challenge,
+                     pcs_commitment_key,
+                     transcript);
 }
 
 template <UltraFlavor Flavor> plonk::proof& UltraProver_<Flavor>::export_proof()
