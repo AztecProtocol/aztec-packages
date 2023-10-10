@@ -710,7 +710,7 @@ TEST_F(join_split_tests, test_0_input_notes_and_detect_circuit_change)
 
     constexpr uint32_t CIRCUIT_GATE_COUNT = 49366;
     constexpr uint32_t GATES_NEXT_POWER_OF_TWO = 65535;
-    const uint256_t VK_HASH("d6391d016966b5bf5704695af34f0ed978b061ce3870717775cfff11c5a706cf");
+    const uint256_t VK_HASH("44ba73125df00e40cedc43292d3b1647176c2c5e563f6b23cbcbd9800403e959");
 
     auto number_of_gates_js = result.number_of_gates;
     std::cout << get_verification_key()->sha256_hash() << std::endl;
