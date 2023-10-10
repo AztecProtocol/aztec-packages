@@ -17,3 +17,7 @@ variable "BOOTNODE_2_LISTEN_PORT" {
 variable "BOOTNODE_2_PRIVATE_KEY" {
   type = string
 }
+
+variable "ECR_URL" {
+  type = string
+}

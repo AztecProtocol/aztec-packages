@@ -92,7 +92,7 @@ resource "aws_ecs_task_definition" "aztec-bootstrap-1" {
 [
   {
     "name": "${var.DEPLOY_TAG}-aztec-bootstrap-1",
-    "image": "278380418400.dkr.ecr.us-east-2.amazonaws.com/p2p-bootstrap:cache-aa34a3e5b5fc2f30bb896bc3c15fc1e2489db8a8-x86_64",
+    "image": "${var.ECR_URL}/p2p-bootstrap:latest",
     "essential": true,
     "command": ["start"],
     "memoryReservation": 3776,
@@ -123,19 +123,7 @@ resource "aws_ecs_task_definition" "aztec-bootstrap-1" {
       },
       {
         "name": "DEBUG",
-        "value": "aztec:*,libp2p*"
-      },
-      {
-        "name": "HTTP_SERVER_ENABLED",
-        "value": "true"
-      },
-      {
-        "name": "API_PREFIX",
-        "value": "/${var.DEPLOY_TAG}/aztec-bootstrap-1"
-      },
-      {
-        "name": "SERVER_PORT",
-        "value": "80"
+        "value": "aztec:*"
       }
     ],
     "logConfiguration": {
@@ -191,14 +179,11 @@ resource "aws_lb_target_group" "aztec-bootstrap-1-target-group" {
   vpc_id      = data.terraform_remote_state.setup_iac.outputs.vpc_id
 
   health_check {
-    protocol            = "HTTP"
-    path                = "/${var.DEPLOY_TAG}/aztec-bootstrap-1/status"
-    matcher             = "200"
+    protocol            = "TCP"
     interval            = 10
     healthy_threshold   = 2
-    unhealthy_threshold = 5
-    timeout             = 5
-    port                = 80
+    unhealthy_threshold = 2
+    port                = var.BOOTNODE_1_LISTEN_PORT
   }
 }
 
@@ -280,7 +265,7 @@ resource "aws_ecs_task_definition" "aztec-bootstrap-2" {
 [
   {
     "name": "${var.DEPLOY_TAG}-aztec-bootstrap-2",
-    "image": "278380418400.dkr.ecr.us-east-2.amazonaws.com/p2p-bootstrap:cache-aa34a3e5b5fc2f30bb896bc3c15fc1e2489db8a8-x86_64",
+    "image": "${var.ECR_URL}/p2p-bootstrap:latest",
     "essential": true,
     "command": ["start"],
     "memoryReservation": 3776,
@@ -311,19 +296,7 @@ resource "aws_ecs_task_definition" "aztec-bootstrap-2" {
       },
       {
         "name": "DEBUG",
-        "value": "aztec:*libp2p*"
-      },
-      {
-        "name": "HTTP_SERVER_ENABLED",
-        "value": "true"
-      },
-      {
-        "name": "API_PREFIX",
-        "value": "/${var.DEPLOY_TAG}/aztec-bootstrap-2"
-      },
-      {
-        "name": "SERVER_PORT",
-        "value": "80"
+        "value": "aztec:*"
       }
     ],
     "logConfiguration": {
@@ -379,14 +352,11 @@ resource "aws_lb_target_group" "aztec-bootstrap-2-target-group" {
   vpc_id      = data.terraform_remote_state.setup_iac.outputs.vpc_id
 
   health_check {
-    protocol            = "HTTP"
-    path                = "/${var.DEPLOY_TAG}/aztec-bootstrap-2/status"
-    matcher             = "200"
+    protocol            = "TCP"
     interval            = 10
     healthy_threshold   = 2
-    unhealthy_threshold = 5
-    timeout             = 5
-    port                = 80
+    unhealthy_threshold = 2
+    port                = var.BOOTNODE_2_LISTEN_PORT
   }
 }
 

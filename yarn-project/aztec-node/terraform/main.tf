@@ -251,7 +251,7 @@ resource "aws_ecs_service" "aztec-node-1" {
 
 # Configure ALB to route /aztec-node to server.
 resource "aws_alb_target_group" "aztec-node-1" {
-  name                 = "${var.DEPLOY_TAG}-aztec-node-1"
+  name                 = "${var.DEPLOY_TAG}-node-1-http-target"
   port                 = 80
   protocol             = "HTTP"
   target_type          = "ip"
@@ -289,21 +289,18 @@ resource "aws_lb_listener_rule" "api-1" {
 }
 
 resource "aws_lb_target_group" "aztec-node-1-target-group" {
-  name        = "aztec-node-1-target-group"
+  name        = "${var.DEPLOY_TAG}-node-1-p2p-target"
   port        = var.NODE_1_TCP_PORT
   protocol    = "TCP"
   target_type = "ip"
   vpc_id      = data.terraform_remote_state.setup_iac.outputs.vpc_id
 
   health_check {
-    protocol            = "HTTP"
-    path                = "/${var.DEPLOY_TAG}/aztec-node-1/status"
-    matcher             = "200"
+    protocol            = "TCP"
     interval            = 10
     healthy_threshold   = 2
-    unhealthy_threshold = 5
-    timeout             = 5
-    port                = 80
+    unhealthy_threshold = 2
+    port                = var.NODE_1_TCP_PORT
   }
 }
 
@@ -544,7 +541,7 @@ resource "aws_ecs_service" "aztec-node-2" {
 
 # Configure ALB to route /aztec-node to server.
 resource "aws_alb_target_group" "aztec-node-2" {
-  name                 = "${var.DEPLOY_TAG}-aztec-node-2"
+  name                 = "${var.DEPLOY_TAG}-node-2-http-target"
   port                 = 80
   protocol             = "HTTP"
   target_type          = "ip"
@@ -582,21 +579,18 @@ resource "aws_lb_listener_rule" "api-2" {
 }
 
 resource "aws_lb_target_group" "aztec-node-2-target-group" {
-  name        = "aztec-node-2-target-group"
+  name        = "${var.DEPLOY_TAG}-node-2-p2p-target"
   port        = var.NODE_2_TCP_PORT
   protocol    = "TCP"
   target_type = "ip"
   vpc_id      = data.terraform_remote_state.setup_iac.outputs.vpc_id
 
   health_check {
-    protocol            = "HTTP"
-    path                = "/${var.DEPLOY_TAG}/aztec-node-2/status"
-    matcher             = "200"
+    protocol            = "TCP"
     interval            = 10
     healthy_threshold   = 2
-    unhealthy_threshold = 5
-    timeout             = 5
-    port                = 80
+    unhealthy_threshold = 2
+    port                = var.NODE_2_TCP_PORT
   }
 }
 
