@@ -28,7 +28,7 @@ const setupSandbox = async () => {
 
 async function deployZKContract(owner: CompleteAddress, wallet: Wallet, pxe: PXE) {
   logger('Deploying Blank contract...');
-  const contractAddress = await deployContract(owner, BlankContract.abi, [], Fr.random(), pxe);
+  const contractAddress = await deployContract(owner, BlankContract.artifact, [], Fr.random(), pxe);
 
   logger(`L2 contract deployed at ${contractAddress}`);
   return BlankContract.at(contractAddress, wallet);

@@ -3,7 +3,7 @@ import { ContractArtifact } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 import { AuthWitness, CompleteAddress, GrumpkinPrivateKey } from '@aztec/types';
 
-import SchnorrAccountContractArtifact from '../../abis/schnorr_account_contract.json' assert { type: 'json' };
+import SchnorrAccountContractArtifact from '../../artifacts/schnorr_account_contract.json' assert { type: 'json' };
 import { AuthWitnessProvider } from '../interface.js';
 import { BaseAccountContract } from './base_account_contract.js';
 

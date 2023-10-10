@@ -33,7 +33,7 @@ async function deployZKContract(owner: CompleteAddress, wallet: Wallet, pxe: PXE
   logger('Deploying PrivateToken contract...');
   const typedArgs = [new Fr(INITIAL_BALANCE), owner.address.toField()];
 
-  const contractAddress = await deployContract(owner, PrivateTokenContract.abi, typedArgs, Fr.random(), pxe);
+  const contractAddress = await deployContract(owner, PrivateTokenContract.artifact, typedArgs, Fr.random(), pxe);
 
   logger(`L2 contract deployed at ${contractAddress}`);
   return PrivateTokenContract.at(contractAddress, wallet);

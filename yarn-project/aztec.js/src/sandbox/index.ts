@@ -3,7 +3,7 @@ import { sleep } from '@aztec/foundation/sleep';
 
 import zip from 'lodash.zip';
 
-import SchnorrAccountContractArtifact from '../abis/schnorr_account_contract.json' assert { type: 'json' };
+import SchnorrAccountContractArtifact from '../artifacts/schnorr_account_contract.json' assert { type: 'json' };
 import { AccountWalletWithPrivateKey, PXE, createPXEClient, getSchnorrAccount } from '../index.js';
 
 export const INITIAL_SANDBOX_ENCRYPTION_KEYS = [

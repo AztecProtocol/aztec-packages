@@ -36,7 +36,7 @@ export class PrivateTokenContract extends ContractBase {
    * @returns A promise that resolves to a new Contract instance.
    */
   public static async at(address: AztecAddress, wallet: Wallet) {
-    return Contract.at(address, PrivateTokenContract.abi, wallet) as Promise<PrivateTokenContract>;
+    return Contract.at(address, PrivateTokenContract.artifact, wallet) as Promise<PrivateTokenContract>;
   }
 
   /**
@@ -64,9 +64,9 @@ export class PrivateTokenContract extends ContractBase {
   }
 
   /**
-   * Returns this contract's ABI.
+   * Returns this contract's artifact.
    */
-  public static get abi(): ContractArtifact {
+  public static get artifact(): ContractArtifact {
     return PrivateTokenContractArtifact;
   }
 

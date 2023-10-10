@@ -157,11 +157,11 @@ export async function getTxSender(pxe: PXE, _from?: string) {
  * @returns Formatted contract address, function arguments and caller's aztec address.
  */
 export async function prepTx(contractFile: string, functionName: string, _functionArgs: string[], log: LogFn) {
-  const contractAbi = await getContractArtifact(contractFile, log);
-  const functionAbi = getFunctionArtifact(contractAbi, functionName);
-  const functionArgs = encodeArgs(_functionArgs, functionAbi.parameters);
+  const contractArtifact = await getContractArtifact(contractFile, log);
+  const functionArtifact = getFunctionArtifact(contractArtifact, functionName);
+  const functionArgs = encodeArgs(_functionArgs, functionArtifact.parameters);
 
-  return { functionArgs, contractAbi };
+  return { functionArgs, contractAbi: contractArtifact };
 }
 
 /**

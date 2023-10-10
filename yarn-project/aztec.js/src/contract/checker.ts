@@ -21,17 +21,17 @@ export function abiChecker(artifact: ContractArtifact) {
 
   artifact.functions.forEach(func => {
     if (!('name' in func && typeof func.name === 'string' && func.name.length > 0)) {
-      throw new Error('artifact function has no name');
+      throw new Error('ABI function has no name');
     }
 
     // TODO: implement a better check for bytecode (right now only checks if it's > 0)
     if (!('bytecode' in func && typeof func.bytecode === 'string' && func.bytecode.length > 0)) {
-      throw new Error('artifact function parameter has incorrect bytecode');
+      throw new Error('ABI function parameter has incorrect bytecode');
     }
 
     func.parameters.forEach(param => {
       if (!param.type) {
-        throw new Error('artifact function parameter has no type');
+        throw new Error('ABI function parameter has no type');
       }
 
       abiParameterTypeChecker(param.type);

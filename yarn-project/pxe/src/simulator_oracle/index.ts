@@ -64,10 +64,10 @@ export class SimulatorOracle implements DBOracle {
     contractAddress: AztecAddress,
     selector: FunctionSelector,
   ): Promise<FunctionArtifactWithDebugMetadata> {
-    const abi = await this.contractDataOracle.getFunctionAbi(contractAddress, selector);
+    const artifact = await this.contractDataOracle.getFunctionArtifact(contractAddress, selector);
     const debug = await this.contractDataOracle.getFunctionDebugMetadata(contractAddress, selector);
     return {
-      ...abi,
+      ...artifact,
       debug,
     };
   }

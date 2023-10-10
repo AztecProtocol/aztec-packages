@@ -3,7 +3,7 @@ import { ContractArtifact } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 import { AuthWitness, CompleteAddress } from '@aztec/types';
 
-import EcdsaAccountContractArtifact from '../../abis/ecdsa_account_contract.json' assert { type: 'json' };
+import EcdsaAccountContractArtifact from '../../artifacts/ecdsa_account_contract.json' assert { type: 'json' };
 import { AuthWitnessProvider } from '../interface.js';
 import { BaseAccountContract } from './base_account_contract.js';
 

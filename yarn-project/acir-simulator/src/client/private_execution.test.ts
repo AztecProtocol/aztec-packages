@@ -235,7 +235,7 @@ describe('Private Execution test suite', () => {
       );
     });
 
-    it('should have an abi for computing note hash and nullifier', async () => {
+    it('should have an artifact for computing note hash and nullifier', async () => {
       const storageSlot = Fr.random();
       const note = buildNote(60n, owner, storageSlot);
 
@@ -416,7 +416,7 @@ describe('Private Execution test suite', () => {
       );
     });
 
-    it('should have an abi for computing note hash and nullifier', async () => {
+    it('should have an artifact for computing note hash and nullifier', async () => {
       const storageSlot = Fr.random();
       const note = buildNote(60n, owner, storageSlot);
 

@@ -38,7 +38,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
   public completeAddress?: CompleteAddress = undefined;
 
   /** Constructor function to call. */
-  private constructorAbi: FunctionArtifact;
+  private constructorArtifact: FunctionArtifact;
 
   constructor(
     private publicKey: PublicKey,
@@ -49,7 +49,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     super(pxe);
     const constructorArtifact = artifact.functions.find(f => f.name === 'constructor');
     if (!constructorArtifact) throw new Error('Cannot find constructor in the artifact.');
-    this.constructorAbi = constructorArtifact;
+    this.constructorArtifact = constructorArtifact;
   }
 
   /**
@@ -90,8 +90,8 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
       new Fr(chainId),
       new Fr(protocolVersion),
     );
-    const args = encodeArguments(this.constructorAbi, this.args);
-    const functionData = FunctionData.fromAbi(this.constructorAbi);
+    const args = encodeArguments(this.constructorArtifact, this.args);
+    const functionData = FunctionData.fromAbi(this.constructorArtifact);
     const execution = { args, functionData, to: completeAddress.address };
     const packedArguments = await PackedArguments.fromArgs(execution.args);
 

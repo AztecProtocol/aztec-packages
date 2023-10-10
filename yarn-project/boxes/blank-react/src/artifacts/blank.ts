@@ -36,7 +36,7 @@ export class BlankContract extends ContractBase {
    * @returns A promise that resolves to a new Contract instance.
    */
   public static async at(address: AztecAddress, wallet: Wallet) {
-    return Contract.at(address, BlankContract.abi, wallet) as Promise<BlankContract>;
+    return Contract.at(address, BlankContract.artifact, wallet) as Promise<BlankContract>;
   }
 
   /**
@@ -54,9 +54,9 @@ export class BlankContract extends ContractBase {
   }
 
   /**
-   * Returns this contract's ABI.
+   * Returns this contract's artifact.
    */
-  public static get abi(): ContractArtifact {
+  public static get artifact(): ContractArtifact {
     return BlankContractArtifact;
   }
 
