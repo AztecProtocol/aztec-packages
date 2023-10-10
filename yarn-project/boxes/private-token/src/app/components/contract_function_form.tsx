@@ -109,7 +109,7 @@ interface ContractFunctionFormProps {
 export function ContractFunctionForm({
   wallet,
   contractAddress,
-  artifact: contractAbi,
+  artifact,
   functionAbi,
   defaultAddress,
   buttonText = 'Submit',
@@ -126,7 +126,7 @@ export function ContractFunctionForm({
     onSubmit: async (values: any) => {
       onSubmit();
       try {
-        const result = await handleFunctionCall(contractAddress, contractAbi, functionAbi.name, values, wallet);
+        const result = await handleFunctionCall(contractAddress, artifact, functionAbi.name, values, wallet);
         onSuccess(result);
       } catch (e: any) {
         onError(e.message);

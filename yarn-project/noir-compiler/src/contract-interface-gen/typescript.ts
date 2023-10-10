@@ -57,7 +57,7 @@ function generateMethod(entry: FunctionArtifact) {
 
 /**
  * Generates a deploy method for this contract.
- * @param input - ABI of the contract.
+ * @param input - Build artifact of the contract.
  * @returns A type-safe deploy method in ts.
  */
 function generateDeploy(input: ContractArtifact) {
@@ -155,7 +155,7 @@ function generateAbiStatement(name: string, artifactImportPath: string) {
 /**
  * Generates the typescript code to represent a contract.
  * @param input - The compiled Noir artifact.
- * @param artifactImportPath - Optional path to import the ABI (if not set, will be required in the constructor).
+ * @param artifactImportPath - Optional path to import the artifact (if not set, will be required in the constructor).
  * @returns The corresponding ts code.
  */
 export function generateTypescriptContractInterface(input: ContractArtifact, artifactImportPath?: string) {

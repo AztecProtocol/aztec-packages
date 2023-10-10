@@ -1,6 +1,6 @@
 import { AztecAddress } from '../aztec-address/index.js';
 import { Fr } from '../fields/fields.js';
-import { ABIParameterVisibility, FunctionAbi, FunctionArtifact, FunctionType } from './abi.js';
+import { ABIParameterVisibility, FunctionAbi, FunctionType } from './abi.js';
 import { encodeArguments } from './encoder.js';
 
 describe('abi/encoder', () => {
@@ -57,7 +57,7 @@ describe('abi/encoder', () => {
   });
 
   it('throws when passing string argument as field', () => {
-    const testFunctionAbi: FunctionArtifact = {
+    const testFunctionAbi: FunctionAbi = {
       name: 'constructor',
       functionType: FunctionType.SECRET,
       isInternal: false,
@@ -71,8 +71,6 @@ describe('abi/encoder', () => {
         },
       ],
       returnTypes: [],
-      bytecode: '',
-      verificationKey: '',
     };
     const args = ['garbage'];
 
@@ -80,7 +78,7 @@ describe('abi/encoder', () => {
   });
 
   it('throws when passing string argument as integer', () => {
-    const testFunctionAbi: FunctionArtifact = {
+    const testFunctionAbi: FunctionAbi = {
       name: 'constructor',
       functionType: FunctionType.SECRET,
       isInternal: false,
@@ -96,15 +94,13 @@ describe('abi/encoder', () => {
         },
       ],
       returnTypes: [],
-      bytecode: '',
-      verificationKey: '',
     };
     const args = ['garbage'];
     expect(() => encodeArguments(testFunctionAbi, args)).toThrowError('Cannot convert garbage to a BigInt');
   });
 
   it('throws when passing object argument as field', () => {
-    const testFunctionAbi: FunctionArtifact = {
+    const testFunctionAbi: FunctionAbi = {
       name: 'constructor',
       functionType: FunctionType.SECRET,
       isInternal: false,
@@ -118,8 +114,6 @@ describe('abi/encoder', () => {
         },
       ],
       returnTypes: [],
-      bytecode: '',
-      verificationKey: '',
     };
     const args = [
       {

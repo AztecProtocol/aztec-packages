@@ -25,7 +25,7 @@ describe('e2e_block_building', () => {
   let teardown: () => Promise<void>;
 
   describe('multi-txs block', () => {
-    const abi = TestContractArtifact;
+    const artifact = TestContractArtifact;
 
     beforeAll(async () => {
       ({
@@ -42,7 +42,7 @@ describe('e2e_block_building', () => {
       // Assemble N contract deployment txs
       // We need to create them sequentially since we cannot have parallel calls to a circuit
       const TX_COUNT = 8;
-      const deployer = new ContractDeployer(abi, owner);
+      const deployer = new ContractDeployer(artifact, owner);
       const methods = times(TX_COUNT, () => deployer.deploy());
 
       for (const i in methods) {

@@ -11,7 +11,7 @@ export type DecodedReturn = bigint | boolean | DecodedReturn[] | { [key: string]
  * Missing support for integer and string.
  */
 class ReturnValuesDecoder {
-  constructor(private abi: FunctionArtifact, private flattened: Fr[]) {}
+  constructor(private artifact: FunctionArtifact, private flattened: Fr[]) {}
 
   /**
    * Decodes a single return value from field to the given type.
@@ -67,13 +67,13 @@ class ReturnValuesDecoder {
    * @returns The decoded return values.
    */
   public decode(): DecodedReturn {
-    if (this.abi.returnTypes.length > 1) {
+    if (this.artifact.returnTypes.length > 1) {
       throw new Error('Multiple return values not supported');
     }
-    if (this.abi.returnTypes.length === 0) {
+    if (this.artifact.returnTypes.length === 0) {
       return [];
     }
-    return this.decodeReturn(this.abi.returnTypes[0]);
+    return this.decodeReturn(this.artifact.returnTypes[0]);
   }
 }
 

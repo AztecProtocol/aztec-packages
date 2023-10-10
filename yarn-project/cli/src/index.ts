@@ -442,10 +442,10 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
         log,
       );
 
-      const fnAbi = getFunctionArtifact(contractArtifact, functionName);
-      if (fnAbi.parameters.length !== options.args.length) {
+      const fnArtifact = getFunctionArtifact(contractArtifact, functionName);
+      if (fnArtifact.parameters.length !== options.args.length) {
         throw Error(
-          `Invalid number of args passed. Expected ${fnAbi.parameters.length}; Received: ${options.args.length}`,
+          `Invalid number of args passed. Expected ${fnArtifact.parameters.length}; Received: ${options.args.length}`,
         );
       }
       const client = await createCompatibleClient(options.rpcUrl, debugLogger);
