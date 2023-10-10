@@ -960,7 +960,7 @@ describe('Private Execution test suite', () => {
 
   describe('get public key', () => {
     it('gets the public key for an address', async () => {
-      // Tweak the contract ARTIFACT so we can extract return values
+      // Tweak the contract artifact so we can extract return values
       const artifact = getFunctionArtifact(TestContractArtifact, 'getPublicKey');
       artifact.returnTypes = [{ kind: 'array', length: 2, type: { kind: 'field' } }];
 
@@ -980,7 +980,7 @@ describe('Private Execution test suite', () => {
       const portalContractAddress = EthAddress.random();
       const aztecAddressToQuery = AztecAddress.random();
 
-      // Tweak the contract ARTIFACT so we can extract return values
+      // Tweak the contract artifact so we can extract return values
       const artifact = getFunctionArtifact(TestContractArtifact, 'getPortalContractAddress');
       artifact.returnTypes = [{ kind: 'field' }];
 
@@ -995,7 +995,7 @@ describe('Private Execution test suite', () => {
     it('this_address should return the current context address', async () => {
       const contractAddress = AztecAddress.random();
 
-      // Tweak the contract ARTIFACT so we can extract return values
+      // Tweak the contract artifact so we can extract return values
       const artifact = getFunctionArtifact(TestContractArtifact, 'getThisAddress');
       artifact.returnTypes = [{ kind: 'field' }];
 
@@ -1007,7 +1007,7 @@ describe('Private Execution test suite', () => {
     it("this_portal_address should return the current context's portal address", async () => {
       const portalContractAddress = EthAddress.random();
 
-      // Tweak the contract ARTIFACT so we can extract return values
+      // Tweak the contract artifact so we can extract return values
       const artifact = getFunctionArtifact(TestContractArtifact, 'getThisPortalAddress');
       artifact.returnTypes = [{ kind: 'field' }];
 

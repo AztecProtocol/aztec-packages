@@ -64,7 +64,7 @@ export interface DBOracle extends CommitmentsDB {
    *
    * @param contractAddress - The contract address.
    * @param selector - The corresponding function selector.
-   * @returns A Promise that resolves to a FunctionArtifact object containing the ARTIFACT information of the target function.
+   * @returns A Promise that resolves to a FunctionArtifact object.
    */
   getFunctionArtifact(
     contractAddress: AztecAddress,
