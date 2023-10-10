@@ -70,17 +70,24 @@ if [ -n "${BENCHMARK_LATEST_FILE:-}" ]; then
   aws s3 cp $BENCHMARK_FILE_JSON "s3://${BUCKET_NAME}/${BENCHMARK_LATEST_FILE}"
 fi
 
-# If on a pull request, get the data from the base commit, and comment on the PR
+# If on a pull request, get the data from the most recent commit on master where it's available, 
+# generate a markdown comment, and post it on the pull request
 if [ -n "${CIRCLE_PULL_REQUEST:-}" ]; then
   MASTER_COMMIT_HASH=$(curl -s "https://api.github.com/repos/AztecProtocol/aztec-packages/pulls/${CIRCLE_PULL_REQUEST##*/}" | jq -r '.base.sha')
   MASTER_COMMIT_HASHES=($(git log $MASTER_COMMIT_HASH --format="%H" -n 50))
-  for commit_hash in "${MASTER_COMMIT_HASHES[@]}" do;
-    if [ aws s3 cp "s3://${BUCKET_NAME}/benchmarks-v1/master/$commit_hash.json" $BASE_BENCHMARK_FILE_JSON) ]; then
+
+  set +e
+  echo "Searching for base benchmark data starting from commit $MASTER_COMMIT_HASH"
+  for commit_hash in "${MASTER_COMMIT_HASHES[@]}"; do
+    aws s3 cp "s3://${BUCKET_NAME}/benchmarks-v1/master/$commit_hash.json" $BASE_BENCHMARK_FILE_JSON
+    if [ $? -eq 0 ]; then
       echo "Downloaded base data from commit $commit_hash"
       BASE_COMMIT_HASH=$commit_hash
       break;
     fi
   done
+  set -e
+
   if [ -z "${BASE_COMMIT_HASH:-}" ]; then 
     echo "No base commit data found"
   fi
