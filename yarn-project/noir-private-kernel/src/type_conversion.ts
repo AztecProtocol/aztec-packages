@@ -71,7 +71,7 @@ import {
  * @param field - The field.
  * @returns The noir field.
  */
-function mapFieldToNoir(field: Fr): NoirField {
+export function mapFieldToNoir(field: Fr): NoirField {
   return field.toString();
 }
 
@@ -80,7 +80,7 @@ function mapFieldToNoir(field: Fr): NoirField {
  * @param field - The noir field.
  * @returns The fr.
  */
-function mapFieldFromNoir(field: NoirField): Fr {
+export function mapFieldFromNoir(field: NoirField): Fr {
   return Fr.fromString(field);
 }
 
@@ -89,7 +89,7 @@ function mapFieldFromNoir(field: NoirField): Fr {
  * @param point - The point.
  * @returns The noir point.
  */
-function mapPointToNoir(point: Point): NoirPoint {
+export function mapPointToNoir(point: Point): NoirPoint {
   return {
     x: mapFieldToNoir(point.x),
     y: mapFieldToNoir(point.y),
@@ -101,7 +101,7 @@ function mapPointToNoir(point: Point): NoirPoint {
  * @param point - The noir point.
  * @returns The point.
  */
-function mapPointFromNoir(point: NoirPoint): Point {
+export function mapPointFromNoir(point: NoirPoint): Point {
   return new Point(mapFieldFromNoir(point.x), mapFieldFromNoir(point.y));
 }
 
@@ -110,7 +110,7 @@ function mapPointFromNoir(point: NoirPoint): Point {
  * @param address - The address.
  * @returns The noir aztec address.
  */
-function mapAztecAddressToNoir(address: AztecAddress): NoirAztecAddress {
+export function mapAztecAddressToNoir(address: AztecAddress): NoirAztecAddress {
   return {
     inner: mapFieldToNoir(address.toField()),
   };
@@ -121,7 +121,7 @@ function mapAztecAddressToNoir(address: AztecAddress): NoirAztecAddress {
  * @param address - The noir aztec address.
  * @returns The aztec address.
  */
-function mapAztecAddressFromNoir(address: NoirAztecAddress): AztecAddress {
+export function mapAztecAddressFromNoir(address: NoirAztecAddress): AztecAddress {
   return AztecAddress.fromField(mapFieldFromNoir(address.inner));
 }
 
@@ -130,7 +130,7 @@ function mapAztecAddressFromNoir(address: NoirAztecAddress): AztecAddress {
  * @param address - The address.
  * @returns The noir eth address.
  */
-function mapEthAddressToNoir(address: EthAddress): NoirEthAddress {
+export function mapEthAddressToNoir(address: EthAddress): NoirEthAddress {
   return {
     inner: mapFieldToNoir(address.toField()),
   };
@@ -141,7 +141,7 @@ function mapEthAddressToNoir(address: EthAddress): NoirEthAddress {
  * @param address - The noir eth address.
  * @returns The eth address.
  */
-function mapEthAddressFromNoir(address: NoirEthAddress): EthAddress {
+export function mapEthAddressFromNoir(address: NoirEthAddress): EthAddress {
   return EthAddress.fromField(mapFieldFromNoir(address.inner));
 }
 
@@ -150,7 +150,7 @@ function mapEthAddressFromNoir(address: NoirEthAddress): EthAddress {
  * @param data - The data.
  * @returns The noir contract deployment data.
  */
-function mapContractDeploymentDataToNoir(data: ContractDeploymentData): ContractDeploymentDataNoir {
+export function mapContractDeploymentDataToNoir(data: ContractDeploymentData): ContractDeploymentDataNoir {
   return {
     deployer_public_key: mapPointToNoir(data.deployerPublicKey),
     constructor_vk_hash: mapFieldToNoir(data.constructorVkHash),
@@ -165,7 +165,7 @@ function mapContractDeploymentDataToNoir(data: ContractDeploymentData): Contract
  * @param data - The noir data.
  * @returns The contract deployment data.
  */
-function mapContractDeploymentDataFromNoir(data: ContractDeploymentDataNoir): ContractDeploymentData {
+export function mapContractDeploymentDataFromNoir(data: ContractDeploymentDataNoir): ContractDeploymentData {
   return new ContractDeploymentData(
     mapPointFromNoir(data.deployer_public_key),
     mapFieldFromNoir(data.constructor_vk_hash),
@@ -180,7 +180,7 @@ function mapContractDeploymentDataFromNoir(data: ContractDeploymentDataNoir): Co
  * @param txContext - The tx context.
  * @returns The noir tx context.
  */
-function mapTxContextToNoir(txContext: TxContext): TxContextNoir {
+export function mapTxContextToNoir(txContext: TxContext): TxContextNoir {
   return {
     is_fee_payment_tx: txContext.isFeePaymentTx,
     is_rebate_payment_tx: txContext.isRebatePaymentTx,
@@ -196,7 +196,7 @@ function mapTxContextToNoir(txContext: TxContext): TxContextNoir {
  * @param txContext - The noir tx context.
  * @returns The tx context.
  */
-function mapTxContextFromNoir(txContext: TxContextNoir): TxContext {
+export function mapTxContextFromNoir(txContext: TxContextNoir): TxContext {
   return new TxContext(
     txContext.is_fee_payment_tx,
     txContext.is_rebate_payment_tx,
@@ -212,7 +212,7 @@ function mapTxContextFromNoir(txContext: TxContextNoir): TxContext {
  * @param functionSelector - The function selector.
  * @returns The noir function selector.
  */
-function mapFunctionSelectorToNoir(functionSelector: FunctionSelector): FunctionSelectorNoir {
+export function mapFunctionSelectorToNoir(functionSelector: FunctionSelector): FunctionSelectorNoir {
   return {
     inner: mapFieldToNoir(functionSelector.toField()),
   };
@@ -223,7 +223,7 @@ function mapFunctionSelectorToNoir(functionSelector: FunctionSelector): Function
  * @param functionSelector - The noir function selector.
  * @returns The function selector.
  */
-function mapFunctionSelectorFromNoir(functionSelector: FunctionSelectorNoir): FunctionSelector {
+export function mapFunctionSelectorFromNoir(functionSelector: FunctionSelectorNoir): FunctionSelector {
   return FunctionSelector.fromField(mapFieldFromNoir(functionSelector.inner));
 }
 
@@ -232,7 +232,7 @@ function mapFunctionSelectorFromNoir(functionSelector: FunctionSelectorNoir): Fu
  * @param functionData - The function data.
  * @returns The noir function data.
  */
-function mapFunctionDataToNoir(functionData: FunctionData): FunctionDataNoir {
+export function mapFunctionDataToNoir(functionData: FunctionData): FunctionDataNoir {
   return {
     selector: mapFunctionSelectorToNoir(functionData.selector),
     is_internal: functionData.isInternal,
@@ -246,7 +246,7 @@ function mapFunctionDataToNoir(functionData: FunctionData): FunctionDataNoir {
  * @param functionData - The noir function data.
  * @returns The function data.
  */
-function mapFunctionDataFromNoir(functionData: FunctionDataNoir): FunctionData {
+export function mapFunctionDataFromNoir(functionData: FunctionDataNoir): FunctionData {
   return new FunctionData(
     mapFunctionSelectorFromNoir(functionData.selector),
     functionData.is_internal,
@@ -260,7 +260,7 @@ function mapFunctionDataFromNoir(functionData: FunctionDataNoir): FunctionData {
  * @param txRequest - The tx request.
  * @returns The noir tx request.
  */
-function mapTxRequestToNoir(txRequest: TxRequest): TxRequestNoir {
+export function mapTxRequestToNoir(txRequest: TxRequest): TxRequestNoir {
   return {
     origin: mapAztecAddressToNoir(txRequest.origin),
     args_hash: mapFieldToNoir(txRequest.argsHash),
@@ -274,7 +274,7 @@ function mapTxRequestToNoir(txRequest: TxRequest): TxRequestNoir {
  * @param callContext - The call context.
  * @returns The noir call context.
  */
-function mapCallContextToNoir(callContext: CallContext): CallContextNoir {
+export function mapCallContextToNoir(callContext: CallContext): CallContextNoir {
   return {
     msg_sender: mapAztecAddressToNoir(callContext.msgSender),
     storage_contract_address: mapAztecAddressToNoir(callContext.storageContractAddress),
@@ -291,7 +291,7 @@ function mapCallContextToNoir(callContext: CallContext): CallContextNoir {
  * @param historicalBlockData - The historical block data.
  * @returns The noir historical block data.
  */
-function mapHistoricalBlockDataToNoir(historicalBlockData: HistoricBlockData): HistoricalBlockDataNoir {
+export function mapHistoricalBlockDataToNoir(historicalBlockData: HistoricBlockData): HistoricalBlockDataNoir {
   return {
     blocks_tree_root: mapFieldToNoir(historicalBlockData.blocksTreeRoot),
     block: {
@@ -311,7 +311,7 @@ function mapHistoricalBlockDataToNoir(historicalBlockData: HistoricBlockData): H
  * @param historicalBlockData - The noir historical block data.
  * @returns The historical block data.
  */
-function mapHistoricalBlockDataFromNoir(historicalBlockData: HistoricalBlockDataNoir): HistoricBlockData {
+export function mapHistoricalBlockDataFromNoir(historicalBlockData: HistoricalBlockDataNoir): HistoricBlockData {
   return new HistoricBlockData(
     mapFieldFromNoir(historicalBlockData.block.private_data_tree_root),
     mapFieldFromNoir(historicalBlockData.block.nullifier_tree_root),
@@ -329,7 +329,7 @@ function mapHistoricalBlockDataFromNoir(historicalBlockData: HistoricalBlockData
  * @param privateCircuitPublicInputs - The private circuit public inputs.
  * @returns The noir private circuit public inputs.
  */
-function mapPrivateCircuitPublicInputsToNoir(
+export function mapPrivateCircuitPublicInputsToNoir(
   privateCircuitPublicInputs: PrivateCircuitPublicInputs,
 ): PrivateCircuitPublicInputsNoir {
   return {
@@ -359,7 +359,7 @@ function mapPrivateCircuitPublicInputsToNoir(
  * @param privateCallStackItem - The private call stack item.
  * @returns The noir private call stack item.
  */
-function mapPrivateCallStackItemToNoir(privateCallStackItem: PrivateCallStackItem): PrivateCallStackItemNoir {
+export function mapPrivateCallStackItemToNoir(privateCallStackItem: PrivateCallStackItem): PrivateCallStackItemNoir {
   return {
     inner: {
       contract_address: mapAztecAddressToNoir(privateCallStackItem.contractAddress),
@@ -375,7 +375,9 @@ function mapPrivateCallStackItemToNoir(privateCallStackItem: PrivateCallStackIte
  * @param membershipWitness - The membership witness.
  * @returns The noir membership witness.
  */
-function mapMembershipWitnessToNoir<N extends number>(membershipWitness: MembershipWitness<N>): MembershipWitnessNoir {
+export function mapMembershipWitnessToNoir<N extends number>(
+  membershipWitness: MembershipWitness<N>,
+): MembershipWitnessNoir {
   return {
     leaf_index: membershipWitness.leafIndex.toString(),
     sibling_path: membershipWitness.siblingPath.map(mapFieldToNoir),
@@ -387,7 +389,7 @@ function mapMembershipWitnessToNoir<N extends number>(membershipWitness: Members
  * @param readRequestMembershipWitness - The read request membership witness.
  * @returns The noir read request membership witness.
  */
-function mapReadRequestMembershipWitnessToNoir(
+export function mapReadRequestMembershipWitnessToNoir(
   readRequestMembershipWitness: ReadRequestMembershipWitness,
 ): ReadRequestMembershipWitnessNoir {
   return {
@@ -403,7 +405,7 @@ function mapReadRequestMembershipWitnessToNoir(
  * @param privateCallData - The private call data.
  * @returns The noir private call data.
  */
-function mapPrivateCallDataToNoir(privateCallData: PrivateCallData): PrivateCallDataNoir {
+export function mapPrivateCallDataToNoir(privateCallData: PrivateCallData): PrivateCallDataNoir {
   return {
     call_stack_item: mapPrivateCallStackItemToNoir(privateCallData.callStackItem),
     private_call_stack_preimages: privateCallData.privateCallStackPreimages.map(mapPrivateCallStackItemToNoir),
@@ -427,7 +429,11 @@ function mapPrivateCallDataToNoir(privateCallData: PrivateCallData): PrivateCall
  * @param mapper - The mapper function applied to each element.
  * @returns The tuple.
  */
-function mapTupleFromNoir<T, N extends number, M>(noirArray: T[], length: N, mapper: (item: T) => M): Tuple<M, N> {
+export function mapTupleFromNoir<T, N extends number, M>(
+  noirArray: T[],
+  length: N,
+  mapper: (item: T) => M,
+): Tuple<M, N> {
   if (noirArray.length != length) {
     throw new Error(`Expected ${length} items, got ${noirArray.length}`);
   }
@@ -439,7 +445,9 @@ function mapTupleFromNoir<T, N extends number, M>(noirArray: T[], length: N, map
  * @param optionallyRevealedData - The noir optionally revealed data.
  * @returns The parsed optionally revealed data.
  */
-function mapOptionallyRevealedDataFromNoir(optionallyRevealedData: OptionallyRevealedDataNoir): OptionallyRevealedData {
+export function mapOptionallyRevealedDataFromNoir(
+  optionallyRevealedData: OptionallyRevealedDataNoir,
+): OptionallyRevealedData {
   return new OptionallyRevealedData(
     mapFieldFromNoir(optionallyRevealedData.call_stack_item_hash),
     mapFunctionDataFromNoir(optionallyRevealedData.function_data),
@@ -457,7 +465,7 @@ function mapOptionallyRevealedDataFromNoir(optionallyRevealedData: OptionallyRev
  * @param newContractData - The noir new contract data.
  * @returns The parsed new contract data.
  */
-function mapNewContractDataFromNoir(newContractData: NewContractDataNoir): NewContractData {
+export function mapNewContractDataFromNoir(newContractData: NewContractDataNoir): NewContractData {
   return new NewContractData(
     mapAztecAddressFromNoir(newContractData.contract_address),
     mapEthAddressFromNoir(newContractData.portal_contract_address),
@@ -470,7 +478,7 @@ function mapNewContractDataFromNoir(newContractData: NewContractDataNoir): NewCo
  * @param publicDataUpdateRequest - The noir public data update request.
  * @returns The parsed public data update request.
  */
-function mapPublicDataUpdateRequestFromNoir(
+export function mapPublicDataUpdateRequestFromNoir(
   publicDataUpdateRequest: PublicDataUpdateRequestNoir,
 ): PublicDataUpdateRequest {
   return new PublicDataUpdateRequest(
@@ -485,7 +493,7 @@ function mapPublicDataUpdateRequestFromNoir(
  * @param publicDataRead - The noir public data read.
  * @returns The parsed public data read.
  */
-function mapPublicDataReadFromNoir(publicDataRead: PublicDataReadNoir): PublicDataRead {
+export function mapPublicDataReadFromNoir(publicDataRead: PublicDataReadNoir): PublicDataRead {
   return new PublicDataRead(mapFieldFromNoir(publicDataRead.leaf_index), mapFieldFromNoir(publicDataRead.value));
 }
 
@@ -494,7 +502,7 @@ function mapPublicDataReadFromNoir(publicDataRead: PublicDataReadNoir): PublicDa
  * @param combinedAccumulatedData - The noir combined accumulated data.
  * @returns The parsed combined accumulated data.
  */
-function mapCombinedAccumulatedDataFromNoir(
+export function mapCombinedAccumulatedDataFromNoir(
   combinedAccumulatedData: CombinedAccumulatedDataNoir,
 ): CombinedAccumulatedData {
   return new CombinedAccumulatedData(
@@ -539,7 +547,7 @@ function mapCombinedAccumulatedDataFromNoir(
  * @param combinedConstantData - The noir combined constant data.
  * @returns The parsed combined constant data.
  */
-function mapCombinedConstantDataFromNoir(combinedConstantData: CombinedConstantDataNoir): CombinedConstantData {
+export function mapCombinedConstantDataFromNoir(combinedConstantData: CombinedConstantDataNoir): CombinedConstantData {
   return new CombinedConstantData(
     mapHistoricalBlockDataFromNoir(combinedConstantData.block_data),
     mapTxContextFromNoir(combinedConstantData.tx_context),
