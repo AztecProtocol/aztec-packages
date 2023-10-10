@@ -4,6 +4,11 @@
   "version": "0.1.0",
   "type": "module",
   "exports": "./dest/index.js",
+  "bin": {
+    "bench-aggregate": "./dest/bin/bench-aggregate.js",
+    "bench-comment": "./dest/bin/bench-comment.js",
+    "bench-markdown": "./dest/bin/bench-markdown.js"
+  },
   "scripts": {
     "build": "yarn clean && tsc -b",
     "build:dev": "tsc -b --watch",

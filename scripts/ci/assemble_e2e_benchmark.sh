@@ -9,7 +9,7 @@ set -eu
 BUCKET_NAME="aztec-ci-artifacts"
 LOG_FOLDER="${LOG_FOLDER:-log}"
 COMMIT_HASH="${COMMIT_HASH:-$(git rev-parse HEAD)}"
-BENCHMARK_FILE_JSON="benchmark.json"
+BENCHMARK_FILE_JSON="${LOG_FOLDER}/benchmark.json"
 
 # Adapted from yarn-project/end-to-end/scripts/upload_logs_to_s3.sh
 if [ "${CIRCLE_BRANCH:-}" = "master" ]; then
@@ -45,7 +45,8 @@ if [ "$DOWNLOADED_BENCHMARK_COUNT" -lt "$EXPECTED_BENCHMARK_COUNT" ]; then
 fi
 
 # Generate the aggregated benchmark file
-node scripts/ci/aggregate_e2e_benchmark.js
+export DOCKER_RUN_OPTS="-v ${LOG_FOLDER}:/usr/src/yarn-project/log:rw -e AZTEC_BOT_COMMENTER_GITHUB_TOKEN"
+yarn-project/scripts/run_script.sh workspace @aztec/scripts bench-aggregate
 echo "generated: $BENCHMARK_FILE_JSON"
 
 # Upload it to master or pulls
@@ -58,7 +59,7 @@ fi
 
 # If on a pull request, comment on it
 if [ -n "${CIRCLE_PULL_REQUEST:-}" ]; then
-  (node scripts/ci/comment_e2e_benchmark.js && echo "commented on pr $CIRCLE_PULL_REQUEST") || echo "failed commenting on pr"
+  (yarn-project/scripts/run_script.sh workspace @aztec/scripts bench-comment && echo "commented on pr $CIRCLE_PULL_REQUEST") || echo "failed commenting on pr"
 fi
 
 
