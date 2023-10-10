@@ -16,7 +16,6 @@
 #include "barretenberg/proof_system/types/circuit_type.hpp"
 #include "circuit_builder_base.hpp"
 #include <array>
-#include <bits/iterator_concepts.h>
 #include <cstddef>
 #include <cstdlib>
 #include <iterator>
