@@ -28,8 +28,8 @@ template <typename Curve> class ZeroMorphProver_ {
      *
      *  f(X_0, ..., X_{d-1}) - v = \sum_{k=0}^{d-1} (X_k - u_k)q_k(X_0, ..., X_{k-1})
      *
-     * The polynomials q_k can be computed explicitly as the difference of the partial evaluation of f in the last k
-     * variables at, respectively, u'' = (u_k + 1, u_{k+1}, ..., u_{n-1}) and u' = (u_k, ..., u_{n-1}). I.e.
+     * The polynomials q_k can be computed explicitly as the difference of the partial evaluation of f in the last
+     * (n - k) variables at, respectively, u'' = (u_k + 1, u_{k+1}, ..., u_{n-1}) and u' = (u_k, ..., u_{n-1}). I.e.
      *
      *  q_k(X_0, ..., X_{k-1}) = f(X_0,...,X_{k-1}, u'') - f(X_0,...,X_{k-1}, u')
      *
@@ -57,8 +57,8 @@ template <typename Curve> class ZeroMorphProver_ {
         // Compute the q_k in reverse order, i.e. q_{n-1}, ..., q_0
         for (size_t k = 0; k < log_poly_size; ++k) {
             // Define partial evaluation point u' = (u_k, ..., u_{n-1})
-            auto partial_size = static_cast<std::ptrdiff_t>(k + 1);
-            std::vector<Fr> u_partial(u_challenge.end() - partial_size, u_challenge.end());
+            auto evaluation_point_size = static_cast<std::ptrdiff_t>(k + 1);
+            std::vector<Fr> u_partial(u_challenge.end() - evaluation_point_size, u_challenge.end());
 
             // Compute f' = f(X_0,...,X_{k-1}, u')
             auto f_1 = polynomial.partial_evaluate_mle(u_partial);
