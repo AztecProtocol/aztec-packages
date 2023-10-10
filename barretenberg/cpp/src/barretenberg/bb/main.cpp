@@ -162,9 +162,7 @@ void gateCount(const std::string& bytecodePath)
  */
 bool verify(const std::string& proof_path, bool recursive, const std::string& vk_path)
 {
-    auto g2_data = get_g2_data(CRS_PATH);
-    srs::init_crs_factory({}, g2_data);
-    acir_proofs::AcirComposer acir_composer(1, verbose);
+    auto acir_composer = init();
     auto vk_data = from_buffer<plonk::verification_key_data>(read_file(vk_path));
     acir_composer.load_verification_key(std::move(vk_data));
     auto verified = acir_composer.verify_proof(read_file(proof_path), recursive);
