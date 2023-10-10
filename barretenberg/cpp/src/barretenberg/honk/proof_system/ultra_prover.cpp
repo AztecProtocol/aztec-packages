@@ -108,8 +108,8 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_relation_check_
 }
 
 /**
- * - Get rho challenge
- * - Compute d+1 Fold polynomials and their evaluations.
+ * @brief Execute the ZeroMorph protocol to prove the multilinear evaluations produced by Sumcheck
+ * @details See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description of the unrolled protocol.
  *
  * */
 template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_zeromorph_rounds()
@@ -124,7 +124,7 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_zeromorph_round
     // Extract challenge u and claimed multilinear evaluations from Sumcheck output
     std::span<FF> u_challenge = sumcheck_output.challenge;
     std::span<FF> claimed_evaluations = sumcheck_output.claimed_evaluations;
-    size_t log_N = u_challenge.size();
+    size_t log_circuit_size = u_challenge.size();
 
     // Compute batching of f_i and g_i polynomials: sum_{i=0}^{m-1}\alpha^i*f_i and
     // sum_{i=0}^{l-1}\alpha^{m+i}*h_i, and also batched evaluation v = sum_{i=0}^{m-1}\alpha^i*f_i(u) +
@@ -145,7 +145,8 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_zeromorph_round
         ++poly_idx;
     };
 
-    // The new f is f_batched + g_batched.shifted() = f_batched + h_batched
+    // Compute the full batched polynomial f = f_batched + g_batched.shifted() = f_batched + h_batched. This is the
+    // polynomial for which we compute the quotients q_k
     auto f_polynomial = f_batched;
     f_polynomial += g_batched.shifted();
 
@@ -154,8 +155,8 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_zeromorph_round
 
     // Compute and send commitments C_{q_k} = [q_k], k = 0,...,d-1
     std::vector<Commitment> q_k_commitments;
-    q_k_commitments.reserve(log_N);
-    for (size_t idx = 0; idx < log_N; ++idx) {
+    q_k_commitments.reserve(log_circuit_size);
+    for (size_t idx = 0; idx < log_circuit_size; ++idx) {
         q_k_commitments[idx] = pcs_commitment_key->commit(quotients[idx]);
         std::string label = "ZM:C_q_" + std::to_string(idx);
         transcript.send_to_verifier(label, q_k_commitments[idx]);

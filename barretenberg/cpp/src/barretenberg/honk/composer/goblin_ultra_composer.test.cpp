@@ -136,7 +136,7 @@ TEST_F(GoblinUltraHonkComposerTests, MultipleCircuitsMergeOnly)
 
         auto composer = GoblinUltraComposer();
 
-        // Construct and verify Goblin ECC op queue Merge its proof
+        // Construct and verify Goblin ECC op queue Merge proof
         auto merge_verified = construct_and_verify_merge_proof(composer, op_queue);
         EXPECT_TRUE(merge_verified);
     }
@@ -196,21 +196,21 @@ TEST_F(GoblinUltraHonkComposerTests, MultipleCircuitsHonkAndMerge)
         auto honk_verified = construct_and_verify_honk_proof(composer, builder);
         EXPECT_TRUE(honk_verified);
 
-        // Construct and verify Goblin ECC op queue Merge its proof
+        // Construct and verify Goblin ECC op queue Merge proof
         auto merge_verified = construct_and_verify_merge_proof(composer, op_queue);
         EXPECT_TRUE(merge_verified);
     }
 
-    // // Compute the commitments to the aggregate op queue directly and check that they match those that were computed
-    // // iteratively during transcript aggregation by the provers and stored in the op queue.
-    // size_t aggregate_op_queue_size = op_queue->current_ultra_ops_size;
-    // auto crs_factory = std::make_shared<barretenberg::srs::factories::FileCrsFactory<Curve>>("../srs_db/ignition");
-    // auto commitment_key = std::make_shared<CommitmentKey>(aggregate_op_queue_size, crs_factory);
-    // size_t idx = 0;
-    // for (auto& result : op_queue->ultra_ops_commitments) {
-    //     auto expected = commitment_key->commit(op_queue->ultra_ops[idx++]);
-    //     EXPECT_EQ(result, expected);
-    // }
+    // Compute the commitments to the aggregate op queue directly and check that they match those that were computed
+    // iteratively during transcript aggregation by the provers and stored in the op queue.
+    size_t aggregate_op_queue_size = op_queue->current_ultra_ops_size;
+    auto crs_factory = std::make_shared<barretenberg::srs::factories::FileCrsFactory<Curve>>("../srs_db/ignition");
+    auto commitment_key = std::make_shared<CommitmentKey>(aggregate_op_queue_size, crs_factory);
+    size_t idx = 0;
+    for (auto& result : op_queue->ultra_ops_commitments) {
+        auto expected = commitment_key->commit(op_queue->ultra_ops[idx++]);
+        EXPECT_EQ(result, expected);
+    }
 }
 
 } // namespace test_ultra_honk_composer

@@ -342,7 +342,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
      * @param g_commitments Commitments to to-be-shifted polynomials [g_i]
      * @param C_q_k Commitments to q_k
      * @param alpha
-     * @param batched_evaluation \sum_{i=0}^{m-1} f_i(u) + \sum_{i=0}^{l-1} h_i(u)
+     * @param batched_evaluation \sum_{i=0}^{m-1} \alpha^i*f_i(u) + \sum_{i=0}^{l-1} \alpha^{m+i}*h_i(u)
      * @param x_challenge
      * @param u_challenge multilinear challenge
      * @return Commitment

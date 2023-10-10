@@ -120,8 +120,9 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const plonk
 
     // Execute ZeroMorph rounds
 
-    // Compute powers of batching challenge rho
     FF rho = transcript.get_challenge("rho");
+
+    // Compute powers of batching challenge rho
     std::vector<FF> rhos = pcs::zeromorph::powers_of_challenge(rho, Flavor::NUM_ALL_ENTITIES);
 
     // Construct batched evaluation v = sum_{i=0}^{m-1}\alpha^i*v_i + sum_{i=0}^{l-1}\alpha^{m+i}*w_i
