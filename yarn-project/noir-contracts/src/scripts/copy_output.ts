@@ -18,27 +18,27 @@ import { format } from 'util';
 const log = createConsoleLogger('aztec:noir-contracts');
 
 const PROJECT_CONTRACTS = [
-  { name: 'SchnorrSingleKeyAccount', target: '../aztec.js/src/abis/', exclude: [] },
-  { name: 'SchnorrAccount', target: '../aztec.js/src/abis/', exclude: [] },
-  { name: 'EcdsaAccount', target: '../aztec.js/src/abis/', exclude: [] },
+  { name: 'SchnorrSingleKeyAccount', target: '../aztec.js/src/artifacts/', exclude: [] },
+  { name: 'SchnorrAccount', target: '../aztec.js/src/artifacts/', exclude: [] },
+  { name: 'EcdsaAccount', target: '../aztec.js/src/artifacts/', exclude: [] },
 ];
 
 const INTERFACE_CONTRACTS = ['private_token', 'private_token_airdrop', 'non_native_token', 'test'];
 
 /**
  * Writes the contract to a specific project folder, if needed.
- * @param abi - The Abi to write.
+ * @param artifact - The artifact to write.
  */
-function writeToProject(abi: any) {
+function writeToProject(artifact: any) {
   for (const projectContract of PROJECT_CONTRACTS) {
-    if (abi.name === projectContract.name) {
+    if (artifact.name === projectContract.name) {
       const toWrite = {
-        ...abi,
-        functions: abi.functions.map((f: any) => omit(f, projectContract.exclude)),
+        ...artifact,
+        functions: artifact.functions.map((f: any) => omit(f, projectContract.exclude)),
         // If we maintain debug symbols they will get committed to git.
         debug: undefined,
       };
-      const targetFilename = pathJoin(projectContract.target, `${snakeCase(abi.name)}_contract.json`);
+      const targetFilename = pathJoin(projectContract.target, `${snakeCase(artifact.name)}_contract.json`);
       writeFileSync(targetFilename, JSON.stringify(toWrite, null, 2) + '\n');
       log(`Written ${targetFilename}`);
     }

@@ -1,4 +1,3 @@
-import { callContractFunction, deployContract, getWallet } from '../index.js';
 import {
   AccountWallet,
   AztecAddress,
