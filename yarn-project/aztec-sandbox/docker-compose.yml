@@ -31,6 +31,7 @@ services:
     ports:
       - '5100:80'
     container_name: otterscan
+    command: /bin/sh -c "if [ \"$$SANDBOX_OTTERSCAN\" = \"true\" ]; then ./run-nginx.sh; else sleep infinity; fi"
     environment:
       # otterscan env var is hardcoded to support erigon client
       # but it also works for anvil
