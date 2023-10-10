@@ -1,6 +1,8 @@
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { BufferReader } from '@aztec/foundation/serialize';
 
+import { INITIAL_L2_BLOCK_NUM } from '../constants.js';
+
 /** A globally unique log id. */
 export class LogId {
   /**
@@ -17,7 +19,7 @@ export class LogId {
     /** The index of a log the tx was emitted in. */
     public readonly logIndex: number,
   ) {
-    if (!Number.isInteger(blockNumber)) {
+    if (!Number.isInteger(blockNumber) || blockNumber < INITIAL_L2_BLOCK_NUM) {
       throw new Error(`Invalid block number: ${blockNumber}`);
     }
     if (!Number.isInteger(txIndex)) {
