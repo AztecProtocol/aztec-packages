@@ -4,6 +4,7 @@ import {
   ContractData,
   ExtendedContractData,
   ExtendedUnencryptedL2Log,
+  GetsUnencryptedLogsResponse,
   INITIAL_L2_BLOCK_NUM,
   L1ToL2Message,
   L2Block,
@@ -105,7 +106,7 @@ export interface ArchiverDataStore {
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  getUnencryptedLogs(filter: LogFilter): Promise<ExtendedUnencryptedL2Log[]>;
+  getUnencryptedLogs(filter: LogFilter): Promise<GetsUnencryptedLogsResponse>;
 
   /**
    * Add new extended contract data from an L2 block to the store's list.
@@ -371,7 +372,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @returns The requested logs.
    * @throws If filter is invalid.
    */
-  getUnencryptedLogs(filter: LogFilter): Promise<ExtendedUnencryptedL2Log[]> {
+  getUnencryptedLogs(filter: LogFilter): Promise<GetsUnencryptedLogsResponse> {
     validateLogFilter(filter);
 
     const txHash = filter.txHash;
@@ -387,13 +388,19 @@ export class MemoryArchiverStore implements ArchiverDataStore {
       throw new Error(`"fromBlock" (${filter.fromBlock}) smaller than genesis block number (${INITIAL_L2_BLOCK_NUM}).`);
     }
     if (fromBlockIndex > this.unencryptedLogsPerBlock.length) {
-      return Promise.resolve([]);
+      return Promise.resolve({
+        logs: [],
+        maxLogsHit: false,
+      });
     }
 
     const toBlockIndex =
       (filter.toBlock || this.unencryptedLogsPerBlock.length + INITIAL_L2_BLOCK_NUM) - INITIAL_L2_BLOCK_NUM;
     if (toBlockIndex < fromBlockIndex) {
-      return Promise.resolve([]);
+      return Promise.resolve({
+        logs: [],
+        maxLogsHit: false,
+      });
     }
 
     const contractAddress = filter.contractAddress;
@@ -424,7 +431,10 @@ export class MemoryArchiverStore implements ArchiverDataStore {
               new ExtendedUnencryptedL2Log(new LogId(blockContext.block.number, txIndexInBlock, logIndexInTx), log),
             );
             if (logs.length === this.maxLogs) {
-              return Promise.resolve(logs);
+              return Promise.resolve({
+                logs,
+                maxLogsHit: true,
+              });
             }
           }
         }
@@ -433,7 +443,10 @@ export class MemoryArchiverStore implements ArchiverDataStore {
       txIndexInBlock = 0;
     }
 
-    return Promise.resolve(logs);
+    return Promise.resolve({
+      logs,
+      maxLogsHit: false,
+    });
   }
 
   /**

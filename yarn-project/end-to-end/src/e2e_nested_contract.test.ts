@@ -114,9 +114,11 @@ describe('e2e_nested_contract', () => {
       ];
 
       const tx = await new BatchCall(wallet, actions).send().wait();
-      const extendedLogs = await wallet.getUnencryptedLogs({
-        fromBlock: tx.blockNumber!,
-      });
+      const extendedLogs = (
+        await wallet.getUnencryptedLogs({
+          fromBlock: tx.blockNumber!,
+        })
+      ).logs;
       const processedLogs = extendedLogs.map(extendedLog => toBigIntBE(extendedLog.log.data));
       expect(processedLogs).toEqual([20n, 40n]);
       expect(await getChildStoredValue(childContract)).toEqual(40n);

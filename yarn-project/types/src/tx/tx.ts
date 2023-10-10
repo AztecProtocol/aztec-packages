@@ -10,7 +10,8 @@ import { arrayNonEmptyLength } from '@aztec/foundation/collection';
 import { BufferReader, Tuple } from '@aztec/foundation/serialize';
 
 import { ExtendedContractData } from '../contract_data.js';
-import { ExtendedUnencryptedL2Log, L2LogsSource } from '../index.js';
+import { L2LogsSource } from '../index.js';
+import { GetsUnencryptedLogsResponse } from '../logs/get_unencrypted_logs_response.js';
 import { TxL2Logs } from '../logs/tx_l2_logs.js';
 import { TxHash } from './tx_hash.js';
 
@@ -118,7 +119,7 @@ export class Tx {
    * @param logsSource - An instance of `L2LogsSource` which can be used to obtain the logs.
    * @returns The requested logs.
    */
-  public async getUnencryptedLogs(logsSource: L2LogsSource): Promise<ExtendedUnencryptedL2Log[]> {
+  public async getUnencryptedLogs(logsSource: L2LogsSource): Promise<GetsUnencryptedLogsResponse> {
     return logsSource.getUnencryptedLogs({ txHash: await this.getTxHash() });
   }
 

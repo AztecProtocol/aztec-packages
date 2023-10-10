@@ -21,7 +21,7 @@ describe('e2e_ordering', () => {
       fromBlock,
       toBlock: fromBlock + 1,
     };
-    const unencryptedLogs = await pxe.getUnencryptedLogs(logFilter);
+    const unencryptedLogs = (await pxe.getUnencryptedLogs(logFilter)).logs;
     const bigintLogs = unencryptedLogs.map(extendedLog => toBigIntBE(extendedLog.log.data));
 
     expect(bigintLogs).toStrictEqual(logMessages);

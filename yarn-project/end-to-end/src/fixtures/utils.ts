@@ -519,7 +519,7 @@ export const expectsNumOfEncryptedLogsInTheLastBlockToBe = async (
  * @param logMessages - The set of expected log messages.
  */
 export const expectUnencryptedLogsInTxToBe = async (tx: SentTx, logMessages: string[]) => {
-  const unencryptedLogs = await tx.getUnencryptedLogs();
+  const unencryptedLogs = (await tx.getUnencryptedLogs()).logs;
   const asciiLogs = unencryptedLogs.map(extendedLog => extendedLog.log.data.toString('ascii'));
 
   expect(asciiLogs).toStrictEqual(logMessages);
@@ -538,7 +538,7 @@ export const expectUnencryptedLogsFromLastBlockToBe = async (pxe: PXE, logMessag
     fromBlock,
     toBlock: fromBlock + 1,
   };
-  const unencryptedLogs = await pxe.getUnencryptedLogs(logFilter);
+  const unencryptedLogs = (await pxe.getUnencryptedLogs(logFilter)).logs;
   // docs:end:get_logs
   const asciiLogs = unencryptedLogs.map(extendedLog => extendedLog.log.data.toString('ascii'));
 

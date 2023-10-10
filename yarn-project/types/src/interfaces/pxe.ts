@@ -4,7 +4,7 @@ import {
   CompleteAddress,
   ContractData,
   ExtendedContractData,
-  ExtendedUnencryptedL2Log,
+  GetsUnencryptedLogsResponse,
   L2Tx,
   LogFilter,
   NotePreimage,
@@ -236,7 +236,7 @@ export interface PXE {
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  getUnencryptedLogs(filter: LogFilter): Promise<ExtendedUnencryptedL2Log[]>;
+  getUnencryptedLogs(filter: LogFilter): Promise<GetsUnencryptedLogsResponse>;
 
   /**
    * Fetches the current block number.

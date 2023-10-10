@@ -320,7 +320,8 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       validateLogFilter(filter);
 
       const fetchLogs = async () => {
-        const logs = await pxe.getUnencryptedLogs(filter);
+        const response = await pxe.getUnencryptedLogs(filter);
+        const logs = response.logs;
 
         if (!logs.length) {
           const filterOptions = Object.entries(filter)
@@ -335,18 +336,18 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
           filter.fromBlock = undefined;
           filter.afterLog = logs[logs.length - 1].id;
         }
+        return response.maxLogsHit;
       };
 
       if (follow) {
         log('Fetching logs...');
         while (true) {
-          await fetchLogs();
-          await sleep(1000);
+          const maxLogsHit = await fetchLogs();
+          if (!maxLogsHit) await sleep(1000);
         }
       } else {
-        await fetchLogs();
-        if (!txHash) {
-          log('\nTo continue fetching logs after the latest one set the --after-log param to ' + filter.afterLog);
+        while (await fetchLogs()) {
+          // Keep fetching logs until we reach the end.
         }
       }
     });
