@@ -38,6 +38,18 @@ function getCell(
     : formattedValue;
 }
 
+/** Returns the description of a metric name, if found. */
+function tryGetDescription(name: string) {
+  return Metrics.find(m => m.name === name)?.description;
+}
+
+/** Wraps the metric name in a span with a title with the description, if found. */
+function withDescriptionTitle(name: string) {
+  const description = tryGetDescription(name);
+  if (!description) return name;
+  return `<span title="${description}">${name}</span>`;
+}
+
 /** Formats a numeric value for display. */
 function formatValue(value: number) {
   if (value < 100) return value.toPrecision(3);
@@ -75,9 +87,11 @@ function getTableContent(
 ) {
   const rowKeys = Object.keys(data);
   const groups = [...new Set(rowKeys.flatMap(key => Object.keys(data[key])))];
-  const header = `| ${col1Title} | ${groups.map(i => `${i} ${groupUnit}`).join(' | ')} |`;
+  const makeHeader = (colTitle: string) => `${withDescriptionTitle(colTitle)} ${groupUnit}`;
+  const header = `| ${col1Title} | ${groups.map(makeHeader).join(' | ')} |`;
   const separator = `| - | ${groups.map(() => '-').join(' | ')} |`;
-  const rows = rowKeys.map(key => `${key} | ${groups.map(g => getCell(data, baseBenchmark, key, g)).join(' | ')} |`);
+  const makeCell = (row: string, col: string) => getCell(data, baseBenchmark, row, col);
+  const rows = rowKeys.map(key => `${withDescriptionTitle(key)} | ${groups.map(g => makeCell(key, g)).join(' | ')} |`);
 
   return `
 ${header}
