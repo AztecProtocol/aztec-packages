@@ -48,6 +48,7 @@ import { jest } from '@jest/globals';
 import { MockProxy, mock } from 'jest-mock-extended';
 import { default as levelup } from 'levelup';
 import { type MemDown, default as memdown } from 'memdown';
+import { getFunctionSelector } from 'viem';
 
 import { buildL1ToL2Message, getFunctionArtifact } from '../test/utils.js';
 import { computeSlotForMapping } from '../utils.js';
@@ -649,14 +650,13 @@ describe('Private Execution test suite', () => {
 
     it('Should be able to consume a dummy cross chain message', async () => {
       const bridgedAmount = 100n;
-      const artifact = getFunctionArtifact(TestContractAbi, 'consume_mint_private_message');
+      const artifact = getFunctionArtifact(TestContractArtifact, 'consume_mint_private_message');
 
       const secretForL1ToL2MessageConsumption = new Fr(1n);
       const secretHashForRedeemingNotes = new Fr(2n);
       const canceller = EthAddress.random();
-      // Function selector: 0x25d46b0f keccak256('mint_private(uint256,bytes32,address)')
       const preimage = await buildL1ToL2Message(
-        '25d46b0f',
+        getFunctionSelector('mint_private(uint256,bytes32,address)').substring(2),
         [new Fr(bridgedAmount), secretHashForRedeemingNotes, canceller.toField()],
         contractAddress,
         secretForL1ToL2MessageConsumption,
@@ -690,7 +690,7 @@ describe('Private Execution test suite', () => {
 
     it('Should be able to consume a dummy public to private message', async () => {
       const amount = 100n;
-      const artifact = getFunctionArtifact(TokenContractAbi, 'redeem_shield');
+      const artifact = getFunctionArtifact(TokenContractArtifact, 'redeem_shield');
 
       const wasm = await CircuitsWasm.get();
       const secret = new Fr(1n);

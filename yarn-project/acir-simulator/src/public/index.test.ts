@@ -23,6 +23,7 @@ import {
 
 import { MockProxy, mock } from 'jest-mock-extended';
 import { type MemDown, default as memdown } from 'memdown';
+import { getFunctionSelector } from 'viem';
 
 import { buildL1ToL2Message } from '../test/utils.js';
 import { computeSlotForMapping } from '../utils.js';
@@ -358,9 +359,8 @@ describe('ACIR public execution simulator', () => {
       const secret = new Fr(1n);
       const recipient = AztecAddress.random();
 
-      // Function selector: 0x63c9440d keccak256('mint_public(uint256,bytes32,address)')
       const preimage = await buildL1ToL2Message(
-        '63c9440d',
+        getFunctionSelector('mint_public(uint256,bytes32,address)').substring(2),
         [new Fr(bridgedAmount), recipient.toField(), canceller.toField()],
         contractAddress,
         secret,
