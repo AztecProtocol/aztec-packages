@@ -29,56 +29,63 @@ template <typename Curve> class ZeroMorphProver_ {
      *  f(X_0, ..., X_{d-1}) - v = \sum_{k=0}^{d-1} (X_k - u_k)q_k(X_0, ..., X_{k-1})
      *
      * The polynomials q_k can be computed explicitly as the difference of the partial evaluation of f in the last k
-     * variables at, respectively, u'' = (u_k + 1, u_{k+1}, ..., u_{n-1}) and u' = (u_{n-k-1}, ..., u_{n-1}). I.e.
+     * variables at, respectively, u'' = (u_k + 1, u_{k+1}, ..., u_{n-1}) and u' = (u_k, ..., u_{n-1}). I.e.
      *
      *  q_k(X_0, ..., X_{k-1}) = f(X_0,...,X_{k-1}, u'') - f(X_0,...,X_{k-1}, u')
      *
+     * @note In practice, 2^d is equal to the circuit size
+     *
      * TODO(#739): This method has been designed for clarity at the expense of efficiency. Implement the more efficient
      * algorithm detailed in the latest versions of the ZeroMorph paper.
-     * @param input_polynomial Multilinear polynomial f(X_0, ..., X_{d-1})
+     * @param polynomial Multilinear polynomial f(X_0, ..., X_{d-1})
      * @param u_challenge Multivariate challenge u = (u_0, ..., u_{d-1})
      * @return std::vector<Polynomial> The quotients q_k
      */
-    static std::vector<Polynomial> compute_multilinear_quotients(std::span<Fr> input_poly, std::span<Fr> u_challenge)
+    static std::vector<Polynomial> compute_multilinear_quotients(Polynomial polynomial, std::span<Fr> u_challenge)
     {
-        auto input_polynomial = Polynomial(input_poly);
-        size_t N = input_polynomial.size();
-        size_t log_N = numeric::get_msb(N);
+        size_t log_poly_size = numeric::get_msb(polynomial.size());
+        // The size of the multilinear challenge must equal the log of the polynomial size
+        ASSERT(log_poly_size == u_challenge.size());
 
         // Define the vector of quotients q_k, k = 0, ..., log_n-1
         std::vector<Polynomial> quotients;
-        for (size_t k = 0; k < log_N; ++k) {
+        for (size_t k = 0; k < log_poly_size; ++k) {
             size_t size = 1 << k;
             quotients.emplace_back(Polynomial(size)); // degree 2^k - 1
         }
 
         // Compute the q_k in reverse order, i.e. q_{n-1}, ..., q_0
-        for (size_t k = 0; k < log_N; ++k) {
-            // Define partial evaluation point u' = (u_{n-k-1}, ..., u_{n-1})
+        for (size_t k = 0; k < log_poly_size; ++k) {
+            // Define partial evaluation point u' = (u_k, ..., u_{n-1})
             auto partial_size = static_cast<std::ptrdiff_t>(k + 1);
             std::vector<Fr> u_partial(u_challenge.end() - partial_size, u_challenge.end());
 
             // Compute f' = f(X_0,...,X_{k-1}, u')
-            auto f_1 = input_polynomial.partial_evaluate_mle(u_partial);
+            auto f_1 = polynomial.partial_evaluate_mle(u_partial);
 
             // Increment first element to get altered partial evaluation point u'' = (u_k + 1, u_{k+1}, ..., u_{n-1})
             u_partial[0] += 1;
 
             // Compute f'' = f(X_0,...,X_{k-1}, u'')
-            auto f_2 = input_polynomial.partial_evaluate_mle(u_partial);
+            auto f_2 = polynomial.partial_evaluate_mle(u_partial);
 
             // Compute q_k = f''(X_0,...,X_{k-1}) - f'(X_0,...,X_{k-1})
             auto q_k = f_2;
             q_k -= f_1;
 
-            quotients[log_N - k - 1] = q_k;
+            quotients[log_poly_size - k - 1] = q_k;
         }
 
         return quotients;
     }
 
     /**
-     * @brief Construct batched, lifted-degree univariate quotient q = \sum_k y^k * X^{N - d_k - 1} * q_k
+     * @brief Construct batched, lifted-degree univariate quotient \hat{q} = \sum_k y^k * X^{N - d_k - 1} * q_k
+     * @details The purpose of the batched lifted-degree quotient is to reduce the individual degree checks
+     * deg(q_k) <= 2^k - 1 to a single degree check on \hat{q}. This is done by first shifting each of the q_k to the
+     * right (i.e. multiplying by an appropriate power of X) so that each is degree N-1, then batching them all together
+     * using powers of the provided challenge. Note: In practice, we do not actually compute the shifted q_k, we simply
+     * accumulate them into \hat{q} at the appropriate offset.
      *
      * @param quotients Polynomials q_k, interpreted as univariates; deg(q_k) = 2^k - 1
      * @param N
@@ -91,12 +98,12 @@ template <typename Curve> class ZeroMorphProver_ {
         // Batched lifted degree quotient polynomial
         auto result = Polynomial(N);
 
-        // Compute q = \sum_k y^k * X^{N - d_k - 1} * q_k
+        // Compute \hat{q} = \sum_k y^k * X^{N - d_k - 1} * q_k
         size_t k = 0;
         auto scalar = Fr(1); // y^k
         for (auto& quotient : quotients) {
-            // Rather than explicitly computing the shift X^{N - d_k - 1} * q_k, simply accumulate y^k*q_k into q, at
-            // the index offset N - d_k - 1
+            // Rather than explicitly computing the shifts of q_k by N - d_k - 1 (i.e. multiplying q_k by X^{N - d_k -
+            // 1}) then accumulating them, we simply accumulate y^k*q_k into \hat{q} at the index offset N - d_k - 1
             auto deg_k = static_cast<size_t>((1 << k) - 1);
             size_t offset = N - deg_k - 1;
             for (size_t idx = 0; idx < deg_k + 1; ++idx) {
@@ -150,8 +157,10 @@ template <typename Curve> class ZeroMorphProver_ {
      * @brief Compute partially evaluated zeromorph identity polynomial Z_x
      * @details Compute Z_x, where
      *
-     *  Z_x = x * \sum_{i=0}^{m-1} f_i + \sum_{i=0}^{l-1} g_i - v * x * \Phi_n(x)
+     *  Z_x = x * f_batched + g_batched - v * x * \Phi_n(x)
      *           - x * \sum_k (x^{2^k}\Phi_{n-k-1}(x^{2^{k-1}}) - u_k\Phi_{n-k}(x^{2^k})) * q_k
+     *
+     * where f_batched = \sum_{i=0}^{m-1}\alpha^i*f_i, g_batched = \sum_{i=0}^{l-1}\alpha^{m+i}*g_i
      *
      * @param input_polynomial
      * @param quotients
@@ -291,7 +300,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
      * @brief Compute commitment to partially evaluated ZeroMorph identity Z
      * @details Compute commitment C_{Z_x} = [Z_x]_1 using homomorphicity:
      *
-     *  C_{Z_x} = x * \sum_{i=0}^{m-1} [f_i] + \sum_{i=0}^{l-1} [g_i] - C_v_x
+     *  C_{Z_x} = x * \sum_{i=0}^{m-1}\alpha^i*[f_i] + \sum_{i=0}^{l-1}\alpha^{m+i}*[g_i] - C_v_x
      *              - x * \sum_k (x^{2^k}\Phi_{n-k-1}(x^{2^{k-1}}) - u_k\Phi_{n-k}(x^{2^k})) * [q_k]
      *
      * @param C_v_x v * x * \Phi_n(x) * [1]_1

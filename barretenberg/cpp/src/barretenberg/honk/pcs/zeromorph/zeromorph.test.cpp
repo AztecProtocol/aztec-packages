@@ -105,9 +105,6 @@ template <class Curve> class ZeroMorphTest : public CommitmentTest<Curve> {
             auto f_polynomial = f_batched;
             f_polynomial += g_batched.shifted();
 
-            // The batched evaluation should match the evaluation of the batched polynomial
-            // ASSERT_EQ(v_evaluation, f_polynomial.evaluate_mle(u_challenge));
-
             // Compute the multilinear quotients q_k = q_k(X_0, ..., X_{k-1})
             auto quotients = ZeroMorphProver::compute_multilinear_quotients(f_polynomial, u_challenge);
 
