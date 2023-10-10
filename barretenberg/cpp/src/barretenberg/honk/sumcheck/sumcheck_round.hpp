@@ -366,7 +366,7 @@ template <typename Flavor> class SumcheckProverRound {
 template <typename Flavor> class SumcheckVerifierRound {
 
     using Relations = typename Flavor::Relations;
-    using TupleOfTuplesOfValues = typename Flavor::TupleOfTuplesOfValues;
+    using TupleOfArraysOfValues = typename Flavor::TupleOfArraysOfValues;
 
   public:
     using FF = typename Flavor::FF;
@@ -379,7 +379,7 @@ template <typename Flavor> class SumcheckVerifierRound {
 
     FF target_total_sum = 0;
 
-    TupleOfTuplesOfValues relation_evaluations;
+    TupleOfArraysOfValues relation_evaluations;
 
     // Verifier constructor
     explicit SumcheckVerifierRound() { zero_elements(relation_evaluations); };

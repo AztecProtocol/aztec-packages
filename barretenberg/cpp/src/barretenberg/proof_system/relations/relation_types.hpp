@@ -69,6 +69,7 @@ template <typename RelationImpl> class Relation : public RelationImpl {
     using TupleOfUnivariatesOverSubrelations = TupleOfUnivariates<FF, RelationImpl::SUBRELATION_LENGTHS>;
     using ArrayOfValuesOverSubrelations = ArrayOfValues<FF, RelationImpl::SUBRELATION_LENGTHS>;
 
+    // These are commonly needed, most importantly, for explicitly instantiating compute_foo_numerator/denomintor.
     using UnivariateAccumulator0 = std::tuple_element_t<0, TupleOfUnivariatesOverSubrelations>;
     using ValueAccumulator0 = std::tuple_element_t<0, ArrayOfValuesOverSubrelations>;
 };

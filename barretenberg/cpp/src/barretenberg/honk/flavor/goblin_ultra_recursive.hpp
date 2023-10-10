@@ -86,7 +86,7 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
 
     // define the container for storing the univariate contribution from each relation in Sumcheck
     using TupleOfTuplesOfUnivariates = decltype(create_relation_univariates_container<FF, Relations>());
-    using TupleOfTuplesOfValues = decltype(create_relation_values_container<FF, Relations>());
+    using TupleOfArraysOfValues = decltype(create_relation_values_container<FF, Relations>());
 
   private:
     template <typename DataType, typename HandleType>

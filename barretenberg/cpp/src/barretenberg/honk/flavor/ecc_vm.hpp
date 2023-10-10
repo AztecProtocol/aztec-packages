@@ -77,7 +77,7 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
 
     // define the containers for storing the contributions from each relation in Sumcheck
     using TupleOfTuplesOfUnivariates = decltype(create_relation_univariates_container<FF, Relations>());
-    using TupleOfTuplesOfValues = decltype(create_relation_values_container<FF, Relations>());
+    using TupleOfArraysOfValues = decltype(create_relation_values_container<FF, Relations>());
 
   private:
     /**
