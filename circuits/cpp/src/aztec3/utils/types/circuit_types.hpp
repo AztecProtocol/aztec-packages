@@ -120,8 +120,7 @@ template <typename Builder> struct CircuitTypes {
             // TODO(@dbanks12)  I think this mirrors the functionality of pre-refactor generators, but feels wrong.
             //       if StorageSlotGeneratorIndex is being used to uniquely define a list of generators, should these
             //       enums not be a part of the GeneratorIndex enum? )
-            auto domain_separator = std::string("__AZTEC_") + generatorIndexDomain(static_cast<GeneratorIndex>(index));
-            crypto::GeneratorContext<curve::Grumpkin> context(subindex, domain_separator);
+            crypto::GeneratorContext<curve::Grumpkin> context(subindex, get_domain_separator(index));
             context_pairs.emplace_back(scalar, context);
         }
         return plonk::stdlib::pedersen_commitment<Builder>::commit(context_pairs);

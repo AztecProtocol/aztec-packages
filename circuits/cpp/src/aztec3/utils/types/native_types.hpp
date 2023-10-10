@@ -77,8 +77,7 @@ struct NativeTypes {
             // TODO(@dbanks12)  I think this mirrors the functionality of pre-refactor generators, but feels wrong.
             //       if StorageSlotGeneratorIndex is being used to uniquely define a list of generators, should these
             //       enums not be a part of the GeneratorIndex enum? )
-            auto domain_separator = std::string("__AZTEC_") + generatorIndexDomain(static_cast<GeneratorIndex>(index));
-            crypto::GeneratorContext<curve::Grumpkin> context(subindex, domain_separator);
+            crypto::GeneratorContext<curve::Grumpkin> context(subindex, get_domain_separator(index));
             context_pairs.emplace_back(scalar, context);
         }
         return crypto::pedersen_hash::hash(context_pairs);
@@ -98,7 +97,7 @@ struct NativeTypes {
     {
         // use 0-generator for internal merkle hashing
         // use lookup namespace since we now use ultraplonk
-        return crypto::pedersen_hash::hash({ left, right });
+        return crypto::pedersen_hash::hash({ left, right }, 0);
     }
 
     static grumpkin_point commit(const std::vector<fr>& inputs, const size_t hash_index = 0)
@@ -115,8 +114,7 @@ struct NativeTypes {
             // TODO(@dbanks12)  I think this mirrors the functionality of pre-refactor generators, but feels wrong.
             //       if StorageSlotGeneratorIndex is being used to uniquely define a list of generators, should these
             //       enums not be a part of the GeneratorIndex enum? )
-            auto domain_separator = std::string("__AZTEC_") + generatorIndexDomain(static_cast<GeneratorIndex>(index));
-            crypto::GeneratorContext<curve::Grumpkin> context(subindex, domain_separator);
+            crypto::GeneratorContext<curve::Grumpkin> context(subindex, get_domain_separator(index));
             context_pairs.emplace_back(scalar, context);
         }
         return crypto::pedersen_commitment::commit_native(context_pairs);

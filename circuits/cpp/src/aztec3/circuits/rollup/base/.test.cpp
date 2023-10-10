@@ -230,7 +230,7 @@ TEST_F(base_rollup_tests, native_contract_leaf_inserted_in_non_empty_snapshot_tr
     // create expected end contract tree snapshot
     auto expected_contract_leaf = crypto::pedersen_hash::hash(
         { new_contract.contract_address, new_contract.portal_contract_address, new_contract.function_tree_root },
-        GeneratorIndex::CONTRACT_LEAF);
+        NativeTypes::get_context(GeneratorIndex::CONTRACT_LEAF));
 
     auto expected_end_contract_tree_snapshot_store = start_contract_tree_snapshot_store;
     auto expected_end_contracts_snapshot_tree =
