@@ -187,18 +187,18 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     // `options.wait` is default true. Passing `--no-wait` will set it to false.
     // https://github.com/tj/commander.js#other-option-types-negatable-boolean-and-booleanvalue
     .option('--no-wait', 'Skip waiting for the contract to be deployed. Print the hash of deployment transaction')
-    .action(async (abiPath, { rpcUrl, publicKey, args: rawArgs, salt, wait }) => {
-      const contractAbi = await getContractArtifact(abiPath, log);
-      const constructorAbi = contractAbi.functions.find(({ name }) => name === 'constructor');
+    .action(async (artifactPath, { rpcUrl, publicKey, args: rawArgs, salt, wait }) => {
+      const contractArtifact = await getContractArtifact(artifactPath, log);
+      const constructorArtifact = contractArtifact.functions.find(({ name }) => name === 'constructor');
 
       const client = await createCompatibleClient(rpcUrl, debugLogger);
-      const deployer = new ContractDeployer(contractAbi, client, publicKey);
+      const deployer = new ContractDeployer(contractArtifact, client, publicKey);
 
-      const constructor = getFunctionArtifact(contractAbi, 'constructor');
+      const constructor = getFunctionArtifact(contractArtifact, 'constructor');
       if (!constructor) throw new Error(`Constructor not found in contract ABI`);
 
       debugLogger(`Input arguments: ${rawArgs.map((x: any) => `"${x}"`).join(', ')}`);
-      const args = encodeArgs(rawArgs, constructorAbi!.parameters);
+      const args = encodeArgs(rawArgs, constructorArtifact!.parameters);
       debugLogger(`Encoded arguments: ${args.join(', ')}`);
 
       const tx = deployer.deploy(...args).send({ contractAddressSalt: salt });
@@ -393,12 +393,17 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .addOption(pxeOption)
     .option('--no-wait', 'Print transaction hash without waiting for it to be mined')
     .action(async (functionName, options) => {
-      const { functionArgs, contractAbi } = await prepTx(options.contractAbi, functionName, options.args, log);
+      const { functionArgs, contractArtifact } = await prepTx(
+        options.contractArtifact,
+        functionName,
+        options.args,
+        log,
+      );
       const { contractAddress, privateKey } = options;
 
       const client = await createCompatibleClient(options.rpcUrl, debugLogger);
       const wallet = await getSchnorrAccount(client, privateKey, privateKey, accountCreationSalt).getWallet();
-      const contract = await Contract.at(contractAddress, contractAbi, wallet);
+      const contract = await Contract.at(contractAddress, contractArtifact, wallet);
       const tx = contract.methods[functionName](...functionArgs).send();
       log(`Transaction hash: ${(await tx.getTxHash()).toString()}`);
       if (options.wait) {
@@ -430,9 +435,14 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .option('-f, --from <string>', 'Aztec address of the caller. If empty, will use the first account from RPC.')
     .addOption(pxeOption)
     .action(async (functionName, options) => {
-      const { functionArgs, contractAbi } = await prepTx(options.contractAbi, functionName, options.args, log);
+      const { functionArgs, contractArtifact } = await prepTx(
+        options.contractArtifact,
+        functionName,
+        options.args,
+        log,
+      );
 
-      const fnAbi = getFunctionArtifact(contractAbi, functionName);
+      const fnAbi = getFunctionArtifact(contractArtifact, functionName);
       if (fnAbi.parameters.length !== options.args.length) {
         throw Error(
           `Invalid number of args passed. Expected ${fnAbi.parameters.length}; Received: ${options.args.length}`,
@@ -470,8 +480,8 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     )
     .requiredOption('-p, --parameter <parameterName>', 'The name of the struct parameter to decode into')
     .action(async (encodedString, options) => {
-      const contractAbi = await getContractArtifact(options.contractAbi, log);
-      const parameterAbitype = contractAbi.functions
+      const contractArtifact = await getContractArtifact(options.contractArtifact, log);
+      const parameterAbitype = contractArtifact.functions
         .map(({ parameters }) => parameters)
         .flat()
         .find(({ name, type }) => name === options.parameter && type.kind === 'struct');
@@ -533,16 +543,16 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .command('inspect-contract')
     .description('Shows list of external callable functions for a contract')
     .argument(
-      '<contractAbiFile>',
-      `A compiled Noir contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts`,
+      '<contractArtifactFile>',
+      `A compiled Noir contract's artifact in JSON format or name of a contract artifact exported by @aztec/noir-contracts`,
     )
-    .action(async (contractAbiFile: string) => {
-      const contractAbi = await getContractArtifact(contractAbiFile, debugLogger);
-      const contractFns = contractAbi.functions.filter(
+    .action(async (contractArtifactFile: string) => {
+      const contractArtifact = await getContractArtifact(contractArtifactFile, debugLogger);
+      const contractFns = contractArtifact.functions.filter(
         f => !f.isInternal && f.name !== 'compute_note_hash_and_nullifier',
       );
       if (contractFns.length === 0) {
-        log(`No external functions found for contract ${contractAbi.name}`);
+        log(`No external functions found for contract ${contractArtifact.name}`);
       }
       for (const fn of contractFns) {
         const signature = decodeFunctionSignatureWithParameterNames(fn.name, fn.parameters);

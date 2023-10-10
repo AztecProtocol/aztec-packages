@@ -161,7 +161,7 @@ export async function prepTx(contractFile: string, functionName: string, _functi
   const functionArtifact = getFunctionArtifact(contractArtifact, functionName);
   const functionArgs = encodeArgs(_functionArgs, functionArtifact.parameters);
 
-  return { functionArgs, contractAbi: contractArtifact };
+  return { functionArgs, contractArtifact };
 }
 
 /**
