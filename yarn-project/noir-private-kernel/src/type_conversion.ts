@@ -1,38 +1,64 @@
 import {
+  AggregationObject,
   AztecAddress,
   CallContext,
+  CombinedAccumulatedData,
+  CombinedConstantData,
   ContractDeploymentData,
   EthAddress,
   Fr,
   FunctionData,
   FunctionSelector,
   HistoricBlockData,
+  KernelCircuitPublicInputs,
+  MAX_NEW_COMMITMENTS_PER_TX,
+  MAX_NEW_CONTRACTS_PER_TX,
+  MAX_NEW_L2_TO_L1_MSGS_PER_TX,
+  MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX,
+  MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
+  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+  MAX_PUBLIC_DATA_READS_PER_TX,
+  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_READ_REQUESTS_PER_TX,
   MembershipWitness,
+  NewContractData,
+  OptionallyRevealedData,
   Point,
   PrivateCallData,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
   PrivateKernelInputsInit,
+  PublicDataRead,
+  PublicDataUpdateRequest,
   ReadRequestMembershipWitness,
   TxContext,
   TxRequest,
 } from '@aztec/circuits.js';
+import { Tuple } from '@aztec/foundation/serialize';
 
 import {
   CallContext as CallContextNoir,
+  CombinedAccumulatedData as CombinedAccumulatedDataNoir,
+  CombinedConstantData as CombinedConstantDataNoir,
   ContractDeploymentData as ContractDeploymentDataNoir,
   FunctionData as FunctionDataNoir,
   FunctionSelector as FunctionSelectorNoir,
   HistoricalBlockData as HistoricalBlockDataNoir,
+  KernelCircuitPublicInputs as KernelCircuitPublicInputsNoir,
   MembershipWitness as MembershipWitnessNoir,
+  NewContractData as NewContractDataNoir,
   Address as NoirAztecAddress,
   EthAddress as NoirEthAddress,
   Field as NoirField,
   Point as NoirPoint,
+  OptionallyRevealedData as OptionallyRevealedDataNoir,
   PrivateCallData as PrivateCallDataNoir,
   PrivateCallStackItem as PrivateCallStackItemNoir,
   PrivateCircuitPublicInputs as PrivateCircuitPublicInputsNoir,
   PrivateKernelInputsInit as PrivateKernelInputsInitNoir,
+  PublicDataRead as PublicDataReadNoir,
+  PublicDataUpdateRequest as PublicDataUpdateRequestNoir,
   ReadRequestMembershipWitness as ReadRequestMembershipWitnessNoir,
   TxContext as TxContextNoir,
   TxRequest as TxRequestNoir,
@@ -50,6 +76,15 @@ function mapFieldToNoir(field: Fr): NoirField {
 }
 
 /**
+ * Maps a noir field to a fr.
+ * @param field - The noir field.
+ * @returns The fr.
+ */
+function mapFieldFromNoir(field: NoirField): Fr {
+  return Fr.fromString(field);
+}
+
+/**
  * Maps a point to a noir point.
  * @param point - The point.
  * @returns The noir point.
@@ -59,6 +94,15 @@ function mapPointToNoir(point: Point): NoirPoint {
     x: mapFieldToNoir(point.x),
     y: mapFieldToNoir(point.y),
   };
+}
+
+/**
+ * Maps a noir point to a point.
+ * @param point - The noir point.
+ * @returns The point.
+ */
+function mapPointFromNoir(point: NoirPoint): Point {
+  return new Point(mapFieldFromNoir(point.x), mapFieldFromNoir(point.y));
 }
 
 /**
@@ -73,6 +117,15 @@ function mapAztecAddressToNoir(address: AztecAddress): NoirAztecAddress {
 }
 
 /**
+ * Maps a noir aztec address to an aztec address.
+ * @param address - The noir aztec address.
+ * @returns The aztec address.
+ */
+function mapAztecAddressFromNoir(address: NoirAztecAddress): AztecAddress {
+  return AztecAddress.fromField(mapFieldFromNoir(address.inner));
+}
+
+/**
  * Maps an eth address to a noir eth address.
  * @param address - The address.
  * @returns The noir eth address.
@@ -81,6 +134,15 @@ function mapEthAddressToNoir(address: EthAddress): NoirEthAddress {
   return {
     inner: mapFieldToNoir(address.toField()),
   };
+}
+
+/**
+ * Maps a noir eth address to an eth address.
+ * @param address - The noir eth address.
+ * @returns The eth address.
+ */
+function mapEthAddressFromNoir(address: NoirEthAddress): EthAddress {
+  return EthAddress.fromField(mapFieldFromNoir(address.inner));
 }
 
 /**
@@ -96,6 +158,21 @@ function mapContractDeploymentDataToNoir(data: ContractDeploymentData): Contract
     contract_address_salt: mapFieldToNoir(data.contractAddressSalt),
     portal_contract_address: mapEthAddressToNoir(data.portalContractAddress),
   };
+}
+
+/**
+ * Maps a noir contract deployment data to a contract deployment data.
+ * @param data - The noir data.
+ * @returns The contract deployment data.
+ */
+function mapContractDeploymentDataFromNoir(data: ContractDeploymentDataNoir): ContractDeploymentData {
+  return new ContractDeploymentData(
+    mapPointFromNoir(data.deployer_public_key),
+    mapFieldFromNoir(data.constructor_vk_hash),
+    mapFieldFromNoir(data.function_tree_root),
+    mapFieldFromNoir(data.contract_address_salt),
+    mapEthAddressFromNoir(data.portal_contract_address),
+  );
 }
 
 /**
@@ -115,6 +192,22 @@ function mapTxContextToNoir(txContext: TxContext): TxContextNoir {
 }
 
 /**
+ * Maps a noir tx context to a tx context.
+ * @param txContext - The noir tx context.
+ * @returns The tx context.
+ */
+function mapTxContextFromNoir(txContext: TxContextNoir): TxContext {
+  return new TxContext(
+    txContext.is_fee_payment_tx,
+    txContext.is_rebate_payment_tx,
+    txContext.is_contract_deployment_tx,
+    mapContractDeploymentDataFromNoir(txContext.contract_deployment_data),
+    mapFieldFromNoir(txContext.chain_id),
+    mapFieldFromNoir(txContext.version),
+  );
+}
+
+/**
  * Maps a function selector to a noir function selector.
  * @param functionSelector - The function selector.
  * @returns The noir function selector.
@@ -123,6 +216,15 @@ function mapFunctionSelectorToNoir(functionSelector: FunctionSelector): Function
   return {
     inner: mapFieldToNoir(functionSelector.toField()),
   };
+}
+
+/**
+ * Maps a noir function selector to a function selector.
+ * @param functionSelector - The noir function selector.
+ * @returns The function selector.
+ */
+function mapFunctionSelectorFromNoir(functionSelector: FunctionSelectorNoir): FunctionSelector {
+  return FunctionSelector.fromField(mapFieldFromNoir(functionSelector.inner));
 }
 
 /**
@@ -137,6 +239,20 @@ function mapFunctionDataToNoir(functionData: FunctionData): FunctionDataNoir {
     is_private: functionData.isPrivate,
     is_constructor: functionData.isConstructor,
   };
+}
+
+/**
+ * Maps a noir function data to a function data.
+ * @param functionData - The noir function data.
+ * @returns The function data.
+ */
+function mapFunctionDataFromNoir(functionData: FunctionDataNoir): FunctionData {
+  return new FunctionData(
+    mapFunctionSelectorFromNoir(functionData.selector),
+    functionData.is_internal,
+    functionData.is_private,
+    functionData.is_constructor,
+  );
 }
 
 /**
@@ -188,6 +304,24 @@ function mapHistoricalBlockDataToNoir(historicalBlockData: HistoricBlockData): H
     },
     private_kernel_vk_tree_root: mapFieldToNoir(historicalBlockData.privateKernelVkTreeRoot),
   };
+}
+
+/**
+ * Maps a noir historical block data to a historical block data.
+ * @param historicalBlockData - The noir historical block data.
+ * @returns The historical block data.
+ */
+function mapHistoricalBlockDataFromNoir(historicalBlockData: HistoricalBlockDataNoir): HistoricBlockData {
+  return new HistoricBlockData(
+    mapFieldFromNoir(historicalBlockData.block.private_data_tree_root),
+    mapFieldFromNoir(historicalBlockData.block.nullifier_tree_root),
+    mapFieldFromNoir(historicalBlockData.block.contract_tree_root),
+    mapFieldFromNoir(historicalBlockData.block.l1_to_l2_data_tree_root),
+    mapFieldFromNoir(historicalBlockData.blocks_tree_root),
+    mapFieldFromNoir(historicalBlockData.private_kernel_vk_tree_root),
+    mapFieldFromNoir(historicalBlockData.block.public_data_tree_root),
+    mapFieldFromNoir(historicalBlockData.block.global_variables_hash),
+  );
 }
 
 /**
@@ -287,6 +421,132 @@ function mapPrivateCallDataToNoir(privateCallData: PrivateCallData): PrivateCall
 }
 
 /**
+ * Maps an array from noir types to a tuple of parsed types.
+ * @param noirArray - The noir array.
+ * @param length - The length of the tuple.
+ * @param mapper - The mapper function applied to each element.
+ * @returns The tuple.
+ */
+function mapTupleFromNoir<T, N extends number, M>(noirArray: T[], length: N, mapper: (item: T) => M): Tuple<M, N> {
+  if (noirArray.length != length) {
+    throw new Error(`Expected ${length} items, got ${noirArray.length}`);
+  }
+  return Array.from({ length }, (_, idx) => mapper(noirArray[idx])) as Tuple<M, N>;
+}
+
+/**
+ * Maps optionally revealed data from noir to the parsed type.
+ * @param optionallyRevealedData - The noir optionally revealed data.
+ * @returns The parsed optionally revealed data.
+ */
+function mapOptionallyRevealedDataFromNoir(optionallyRevealedData: OptionallyRevealedDataNoir): OptionallyRevealedData {
+  return new OptionallyRevealedData(
+    mapFieldFromNoir(optionallyRevealedData.call_stack_item_hash),
+    mapFunctionDataFromNoir(optionallyRevealedData.function_data),
+    mapFieldFromNoir(optionallyRevealedData.vk_hash),
+    mapEthAddressFromNoir(optionallyRevealedData.portal_contract_address),
+    optionallyRevealedData.pay_fee_from_l1,
+    optionallyRevealedData.pay_fee_from_public_l2,
+    optionallyRevealedData.called_from_l1,
+    optionallyRevealedData.called_from_public_l2,
+  );
+}
+
+/**
+ * Maps new contract data from noir to the parsed type.
+ * @param newContractData - The noir new contract data.
+ * @returns The parsed new contract data.
+ */
+function mapNewContractDataFromNoir(newContractData: NewContractDataNoir): NewContractData {
+  return new NewContractData(
+    mapAztecAddressFromNoir(newContractData.contract_address),
+    mapEthAddressFromNoir(newContractData.portal_contract_address),
+    mapFieldFromNoir(newContractData.function_tree_root),
+  );
+}
+
+/**
+ * Maps public data update request from noir to the parsed type.
+ * @param publicDataUpdateRequest - The noir public data update request.
+ * @returns The parsed public data update request.
+ */
+function mapPublicDataUpdateRequestFromNoir(
+  publicDataUpdateRequest: PublicDataUpdateRequestNoir,
+): PublicDataUpdateRequest {
+  return new PublicDataUpdateRequest(
+    mapFieldFromNoir(publicDataUpdateRequest.leaf_index),
+    mapFieldFromNoir(publicDataUpdateRequest.old_value),
+    mapFieldFromNoir(publicDataUpdateRequest.new_value),
+  );
+}
+
+/**
+ * Maps public data read from noir to the parsed type.
+ * @param publicDataRead - The noir public data read.
+ * @returns The parsed public data read.
+ */
+function mapPublicDataReadFromNoir(publicDataRead: PublicDataReadNoir): PublicDataRead {
+  return new PublicDataRead(mapFieldFromNoir(publicDataRead.leaf_index), mapFieldFromNoir(publicDataRead.value));
+}
+
+/**
+ * Maps combined accumulated data from noir to the parsed type.
+ * @param combinedAccumulatedData - The noir combined accumulated data.
+ * @returns The parsed combined accumulated data.
+ */
+function mapCombinedAccumulatedDataFromNoir(
+  combinedAccumulatedData: CombinedAccumulatedDataNoir,
+): CombinedAccumulatedData {
+  return new CombinedAccumulatedData(
+    // TODO aggregation object
+    AggregationObject.makeFake(),
+    mapTupleFromNoir(combinedAccumulatedData.read_requests, MAX_READ_REQUESTS_PER_TX, mapFieldFromNoir),
+    mapTupleFromNoir(combinedAccumulatedData.new_commitments, MAX_NEW_COMMITMENTS_PER_TX, mapFieldFromNoir),
+    mapTupleFromNoir(combinedAccumulatedData.new_nullifiers, MAX_NEW_NULLIFIERS_PER_TX, mapFieldFromNoir),
+    mapTupleFromNoir(combinedAccumulatedData.nullified_commitments, MAX_NEW_NULLIFIERS_PER_TX, mapFieldFromNoir),
+    mapTupleFromNoir(
+      combinedAccumulatedData.private_call_stack,
+      MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
+      mapFieldFromNoir,
+    ),
+    mapTupleFromNoir(combinedAccumulatedData.public_call_stack, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, mapFieldFromNoir),
+    mapTupleFromNoir(combinedAccumulatedData.new_l2_to_l1_msgs, MAX_NEW_L2_TO_L1_MSGS_PER_TX, mapFieldFromNoir),
+    mapTupleFromNoir(combinedAccumulatedData.encrypted_logs_hash, 2, mapFieldFromNoir),
+    mapTupleFromNoir(combinedAccumulatedData.unencrypted_logs_hash, 2, mapFieldFromNoir),
+    mapFieldFromNoir(combinedAccumulatedData.encrypted_log_preimages_length),
+    mapFieldFromNoir(combinedAccumulatedData.unencrypted_log_preimages_length),
+    mapTupleFromNoir(combinedAccumulatedData.new_contracts, MAX_NEW_CONTRACTS_PER_TX, mapNewContractDataFromNoir),
+    mapTupleFromNoir(
+      combinedAccumulatedData.optionally_revealed_data,
+      MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX,
+      mapOptionallyRevealedDataFromNoir,
+    ),
+    mapTupleFromNoir(
+      combinedAccumulatedData.public_data_update_requests,
+      MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+      mapPublicDataUpdateRequestFromNoir,
+    ),
+    mapTupleFromNoir(
+      combinedAccumulatedData.public_data_reads,
+      MAX_PUBLIC_DATA_READS_PER_TX,
+      mapPublicDataReadFromNoir,
+    ),
+  );
+}
+
+/**
+ * Maps combined constant data from noir to the parsed type.
+ * @param combinedConstantData - The noir combined constant data.
+ * @returns The parsed combined constant data.
+ */
+function mapCombinedConstantDataFromNoir(combinedConstantData: CombinedConstantDataNoir): CombinedConstantData {
+  return new CombinedConstantData(
+    mapHistoricalBlockDataFromNoir(combinedConstantData.block_data),
+    mapTxContextFromNoir(combinedConstantData.tx_context),
+  );
+}
+
+/**
  * Maps the inputs to the private kernel init to the noir representation.
  * @param privateKernelInputsInit - The inputs to the private kernel init.
  * @returns The noir representation of those inputs.
@@ -298,4 +558,19 @@ export function mapPrivateKernelInputsInitToNoir(
     tx_request: mapTxRequestToNoir(privateKernelInputsInit.txRequest),
     private_call: mapPrivateCallDataToNoir(privateKernelInputsInit.privateCall),
   };
+}
+
+/**
+ * Maps a private circuit public inputs from noir to the circuits.js type.
+ * @param kernelCircuitPublicInputs - The noir private circuit public inputs.
+ * @returns The circuits.js private circuit public inputs.
+ */
+export function mapKernelCircuitPublicInputsFromNoir(
+  kernelCircuitPublicInputs: KernelCircuitPublicInputsNoir,
+): KernelCircuitPublicInputs {
+  return new KernelCircuitPublicInputs(
+    mapCombinedAccumulatedDataFromNoir(kernelCircuitPublicInputs.end),
+    mapCombinedConstantDataFromNoir(kernelCircuitPublicInputs.constants),
+    kernelCircuitPublicInputs.is_private,
+  );
 }
