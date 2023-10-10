@@ -13,7 +13,6 @@
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/proof_system/arithmetization/arithmetization.hpp"
 #include "barretenberg/proof_system/op_queue/ecc_op_queue.hpp"
-#include "barretenberg/proof_system/types/circuit_type.hpp"
 #include "circuit_builder_base.hpp"
 #include <array>
 #include <cstddef>
@@ -24,6 +23,53 @@ namespace proof_system {
 /**
  * @brief GoblinTranslatorCircuitBuilder creates a circuit that evaluates the correctness of the evaluation of
  * EccOpQueue in Fq while operating in the Fr scalar field
+ *
+ * @details Goblin Translator Circuit Builder builds a circuit the purpose of which is to calculate the batched
+ * evaluation of 5 polynomials in non-native field represented through coefficients in 4 native polynomials (op,
+ * x_lo_y_hi, x_hi_z_1, y_lo_z_2):
+ *
+ * OP | X_LO | X_HI | Y_LO
+ * 0  | Y_HI | Z1   | Z2
+ *
+ *  OP is supposed to be { 0, 1, 2, 3, 4, 8 }. X_LO and Y_LO need to be < 2¹³⁶, X_HI and Y_LO < 2¹¹⁸, Z1 and Z2 < 2¹²⁸.
+ *  X_* and Y_* are supposed to be the decompositions of bn254 base fields elements P.x and P.y and are split into two
+ * chunks each because the scalar field we are operating on can't fit them
+ *
+ * Goblin Translator calculates the result of evaluation of a polynomial op + P.x⋅v +P.y⋅v² + z1 ⋅ v³ + z2⋅v⁴ at the
+ * given challenge x (evaluation_input_x). For this it uses logic similar to the stdlib bigfield class. We operate in Fr
+ * while trying to calculate values in Fq. To show that a⋅b=c mod p, we:
+ * 1) Compute a⋅b in integers
+ * 2) Compute quotient=a⋅b/p
+ * 3) Show that a⋅b - quotient⋅p - c = 0 mod 2²⁷²
+ * 4) Show that a⋅b - quotient⋅p - c = 0 mod r (scalar field modulus)
+ * This ensures that the logic is sound modulo 2²⁷²⋅r, which means it's correct in integers, if all the values are
+ * sufficiently constrained (there is no way to undeflow or overflow)
+ *
+ * Concretely, Goblin Translator computes one accumulation ever two gates:
+ * previous_accumulator⋅x + op + P.x⋅v +P.y⋅v² + z1 ⋅ v³ + z2⋅v⁴ = current_accumulator mod p. Because of the nature of
+ * polynomial commitment, previous_accumulator is located at higher index than the current_accumulator. Values of x
+ * (evaluation_input_x) and v (batching_challenge_v) are precomputed and considered inputs to the relations.
+ *
+ * P.x and P.y are deconstructed into 4 limbs (3 68-bit and 1 50-bit) for non-native arithmetic
+ * z1 and z2 are deconstructed into 2 limbs each (68 and 60 bits)
+ * op is small and doesn't have to be deconstructed
+ *
+ * To show the accumulation is correct we also need to provide the quotient and accumulators as witnesses. Accumulator
+ * is split the same way as P.x and P.y, but quotient is 256 bits,so the top limb is 52 bits.
+ *
+ * Ensuring that the relation mod 2²⁷² is correct is done through splitting this check into two check modulo 2¹³⁶.
+ * First, we check that a proper combination of the values in the lower limbs gives the correct result modulo 2¹³⁶ (by
+ * dividing the result by 2¹³⁶ and range constraining it). Then we use the overlow and higher limbs to prove the same
+ * modulo 2¹³⁶ again and as a result we get correctness modulo 2²⁷².
+ *
+ * One big issue are range constraints. In Goblin Translator we check ranges by decomposing LIMBS into special other
+ * range constrained MICROLIMBS (have "_CONSTRAINT_" in the name of their wires). These wires always have the range of
+ * 14 bits, so when we need to constrain something further we use two wires at once and scale the values (for example,
+ * 68 bits are decomposed into 5 14-bit limb + 1 shifted limb which is equal to the highest microlimb multiplied by 4).
+ * The shifted wires usually have "_TAIL" in the name, but that is not a strict rule. To save space and because of the
+ * proving system requirements we put some of the decomposed values from relation limbs (limbs which compute the result
+ * of computation modulo 2²⁷² divided by shifts) into constraint wires named after P.x, P.y, accumulator and quotient.
+ * This is due to the fact that the highest limb in these four is less than 56 bits, which frees up an extra microlimb.
  *
  */
 class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<arithmetization::GoblinTranslator> {
