@@ -17,4 +17,13 @@ template <typename NCT> struct PublicTypes {
     // used in schema serialization
     static constexpr char schema_name[] = "Public";  // NOLINT
 };
+
+template <typename B> inline void read(B& buf, verification_key& key)
+{
+    using serialize::read;
+    verification_key_data data;
+    read(buf, data);
+    key = verification_key{ std::move(data), barretenberg::srs::get_crs_factory()->get_verifier_crs() };
+}
+
 }  // namespace aztec3::circuits::abis
