@@ -1360,9 +1360,7 @@ workflows:
 
       - bench-summary:
           requires:
-            - e2e-end
-            - bench-publish-rollup
-            - bench-process-history
+            - yarn-project
           <<: *defaults
 
       # Deployment and Canary tests
