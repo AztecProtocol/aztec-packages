@@ -4,6 +4,7 @@ import {
   BaseAccountContract,
   CompleteAddress,
   Fr,
+  NotePreimage,
   computeMessageSecretHash,
 } from '@aztec/aztec.js';
 import { GrumpkinPrivateKey, GrumpkinScalar } from '@aztec/circuits.js';
@@ -50,25 +51,30 @@ describe('guides/writing_an_account_contract', () => {
   afterEach(() => context.teardown());
 
   it('works', async () => {
-    const { aztecRpcServer: rpc, logger } = context;
+    const { pxe, logger } = context;
     // docs:start:account-contract-deploy
     const encryptionPrivateKey = GrumpkinScalar.random();
-    const account = new AccountManager(rpc, encryptionPrivateKey, new SchnorrHardcodedKeyAccountContract());
+    const account = new AccountManager(pxe, encryptionPrivateKey, new SchnorrHardcodedKeyAccountContract());
     const wallet = await account.waitDeploy();
     const address = wallet.getCompleteAddress().address;
     // docs:end:account-contract-deploy
     logger(`Deployed account contract at ${address}`);
 
     // docs:start:account-contract-works
-    const token = await TokenContract.deploy(wallet).send().deployed();
+    const token = await TokenContract.deploy(wallet, { address }).send().deployed();
     logger(`Deployed token contract at ${token.address}`);
-    await token.methods._initialize({ address }).send().wait();
 
     const secret = Fr.random();
     const secretHash = await computeMessageSecretHash(secret);
 
-    await token.methods.mint_private(50, secretHash).send().wait();
-    await token.methods.redeem_shield({ address }, 50, secret).send().wait();
+    const mintAmount = 50n;
+    const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
+
+    const storageSlot = new Fr(5);
+    const preimage = new NotePreimage([new Fr(mintAmount), secretHash]);
+    await pxe.addNote(address, token.address, storageSlot, preimage, receipt.txHash);
+
+    await token.methods.redeem_shield({ address }, mintAmount, secret).send().wait();
 
     const balance = await token.methods.balance_of_private({ address }).view();
     logger(`Balance of wallet is now ${balance}`);
@@ -79,7 +85,7 @@ describe('guides/writing_an_account_contract', () => {
     const walletAddress = wallet.getCompleteAddress();
     const wrongKey = GrumpkinScalar.random();
     const wrongAccountContract = new SchnorrHardcodedKeyAccountContract(wrongKey);
-    const wrongAccount = new AccountManager(rpc, encryptionPrivateKey, wrongAccountContract, walletAddress);
+    const wrongAccount = new AccountManager(pxe, encryptionPrivateKey, wrongAccountContract, walletAddress);
     const wrongWallet = await wrongAccount.getWallet();
     const tokenWithWrongWallet = token.withWallet(wrongWallet);
 

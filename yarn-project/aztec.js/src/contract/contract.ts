@@ -10,7 +10,7 @@ import { ContractBase } from './contract_base.js';
  * The Contract class represents a contract and provides utility methods for interacting with it.
  * It enables the creation of ContractFunctionInteraction instances for each function in the contract's ABI,
  * allowing users to call or send transactions to these functions. Additionally, the Contract class can be used
- * to attach the contract instance to a deployed contract on-chain through the AztecRPCClient, which facilitates
+ * to attach the contract instance to a deployed contract on-chain through the PXE, which facilitates
  * interaction with Aztec's privacy protocol.
  */
 export class Contract extends ContractBase {
@@ -19,6 +19,7 @@ export class Contract extends ContractBase {
    * @param address - The deployed contract's address.
    * @param abi - The Application Binary Interface for the contract.
    * @param wallet - The wallet to use when interacting with the contract.
+   * @param portalContract - The portal contract address on L1, if any.
    * @returns A promise that resolves to a new Contract instance.
    */
   public static async at(address: AztecAddress, abi: ContractAbi, wallet: Wallet): Promise<Contract> {
@@ -26,7 +27,12 @@ export class Contract extends ContractBase {
     if (extendedContractData === undefined) {
       throw new Error('Contract ' + address.toString() + ' is not deployed');
     }
-    return new Contract(extendedContractData.getCompleteAddress(), abi, wallet);
+    return new Contract(
+      extendedContractData.getCompleteAddress(),
+      abi,
+      wallet,
+      extendedContractData.contractData.portalContractAddress,
+    );
   }
 
   /**

@@ -25,9 +25,9 @@ const __dirname = dirname(__filename);
 
 const PORT = 3000;
 
-const { SANDBOX_URL } = process.env;
+const { PXE_URL } = process.env;
 
-const conditionalDescribe = () => (SANDBOX_URL ? describe : describe.skip);
+const conditionalDescribe = () => (PXE_URL ? describe : describe.skip);
 const privKey = AztecJs.GrumpkinScalar.random();
 
 export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugLogger) =>
@@ -38,7 +38,7 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
     let contractAddress: AztecJs.AztecAddress;
 
     let app: Koa;
-    let testClient: AztecJs.AztecRPC;
+    let testClient: AztecJs.PXE;
     let server: Server;
 
     let browser: Browser;
@@ -46,7 +46,7 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
 
     beforeAll(async () => {
       server = setup();
-      testClient = AztecJs.createAztecRpcClient(SANDBOX_URL!);
+      testClient = AztecJs.createPXEClient(PXE_URL!);
       await AztecJs.waitForSandbox(testClient);
 
       app = new Koa();
@@ -90,17 +90,17 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
     it('Creates an account', async () => {
       const result = await page.evaluate(
         async (rpcUrl, privateKeyString) => {
-          const { GrumpkinScalar, createAztecRpcClient, getUnsafeSchnorrAccount } = window.AztecJs;
-          const client = createAztecRpcClient(rpcUrl!);
+          const { GrumpkinScalar, createPXEClient: createPXEClient, getUnsafeSchnorrAccount } = window.AztecJs;
+          const pxe = createPXEClient(rpcUrl!);
           const privateKey = GrumpkinScalar.fromString(privateKeyString);
-          const account = getUnsafeSchnorrAccount(client, privateKey);
+          const account = getUnsafeSchnorrAccount(pxe, privateKey);
           await account.waitDeploy();
           const completeAddress = await account.getCompleteAddress();
           const addressString = completeAddress.address.toString();
           console.log(`Created Account: ${addressString}`);
           return addressString;
         },
-        SANDBOX_URL,
+        PXE_URL,
         privKey.toString(),
       );
       const accounts = await testClient.getRegisteredAccounts();
@@ -115,15 +115,15 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
     it("Gets the owner's balance", async () => {
       const result = await page.evaluate(
         async (rpcUrl, contractAddress, TokenContractAbi) => {
-          const { Contract, AztecAddress, createAztecRpcClient } = window.AztecJs;
-          const client = createAztecRpcClient(rpcUrl!);
-          const owner = (await client.getRegisteredAccounts())[0].address;
-          const [wallet] = await AztecJs.getSandboxAccountsWallets(client);
+          const { Contract, AztecAddress, createPXEClient: createPXEClient } = window.AztecJs;
+          const pxe = createPXEClient(rpcUrl!);
+          const owner = (await pxe.getRegisteredAccounts())[0].address;
+          const [wallet] = await AztecJs.getSandboxAccountsWallets(pxe);
           const contract = await Contract.at(AztecAddress.fromString(contractAddress), TokenContractAbi, wallet);
           const balance = await contract.methods.balance_of_private(owner).view({ from: owner });
           return balance;
         },
-        SANDBOX_URL,
+        PXE_URL,
         (await getTokenAddress()).toString(),
         TokenContractAbi,
       );
@@ -134,17 +134,17 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
       const result = await page.evaluate(
         async (rpcUrl, contractAddress, transferAmount, TokenContractAbi) => {
           console.log(`Starting transfer tx`);
-          const { AztecAddress, Contract, createAztecRpcClient } = window.AztecJs;
-          const client = createAztecRpcClient(rpcUrl!);
-          const accounts = await client.getRegisteredAccounts();
+          const { AztecAddress, Contract, createPXEClient: createPXEClient } = window.AztecJs;
+          const pxe = createPXEClient(rpcUrl!);
+          const accounts = await pxe.getRegisteredAccounts();
           const receiver = accounts[1].address;
-          const [wallet] = await AztecJs.getSandboxAccountsWallets(client);
+          const [wallet] = await AztecJs.getSandboxAccountsWallets(pxe);
           const contract = await Contract.at(AztecAddress.fromString(contractAddress), TokenContractAbi, wallet);
           await contract.methods.transfer(accounts[0].address, receiver, transferAmount, 0).send().wait();
           console.log(`Transferred ${transferAmount} tokens to new Account`);
           return await contract.methods.balance_of_private(receiver).view({ from: receiver });
         },
-        SANDBOX_URL,
+        PXE_URL,
         (await getTokenAddress()).toString(),
         transferAmount,
         TokenContractAbi,
@@ -158,37 +158,45 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
           const {
             GrumpkinScalar,
             DeployMethod,
-            createAztecRpcClient,
+            createPXEClient: createPXEClient,
             getUnsafeSchnorrAccount,
             Contract,
             Fr,
+            NotePreimage,
             computeMessageSecretHash,
             getSandboxAccountsWallets,
           } = window.AztecJs;
-          const client = createAztecRpcClient(rpcUrl!);
-          let accounts = await client.getRegisteredAccounts();
+          const pxe = createPXEClient(rpcUrl!);
+          let accounts = await pxe.getRegisteredAccounts();
           if (accounts.length === 0) {
-            // This test needs an account for deployment. We create one in case there is none available in the RPC server.
+            // This test needs an account for deployment. We create one in case there is none available in the PXE.
             const privateKey = GrumpkinScalar.fromString(privateKeyString);
-            await getUnsafeSchnorrAccount(client, privateKey).waitDeploy();
-            accounts = await client.getRegisteredAccounts();
+            await getUnsafeSchnorrAccount(pxe, privateKey).waitDeploy();
+            accounts = await pxe.getRegisteredAccounts();
           }
-          const [owner] = await getSandboxAccountsWallets(client);
-          const tx = new DeployMethod(accounts[0].publicKey, client, TokenContractAbi).send();
+          const [owner] = await getSandboxAccountsWallets(pxe);
+          const ownerAddress = owner.getAddress();
+          const tx = new DeployMethod(accounts[0].publicKey, pxe, TokenContractAbi, [
+            owner.getCompleteAddress(),
+          ]).send();
           await tx.wait();
           const receipt = await tx.getReceipt();
           console.log(`Contract Deployed: ${receipt.contractAddress}`);
 
           const token = await Contract.at(receipt.contractAddress!, TokenContractAbi, owner);
-          await token.methods._initialize(owner.getAddress()).send().wait();
           const secret = Fr.random();
           const secretHash = await computeMessageSecretHash(secret);
-          await token.methods.mint_private(initialBalance, secretHash).send().wait();
-          await token.methods.redeem_shield(owner.getAddress(), initialBalance, secret).send().wait();
+          const mintPrivateReceipt = await token.methods.mint_private(initialBalance, secretHash).send().wait();
+
+          const storageSlot = new Fr(5);
+          const preimage = new NotePreimage([new Fr(initialBalance), secretHash]);
+          await pxe.addNote(ownerAddress, token.address, storageSlot, preimage, mintPrivateReceipt.txHash);
+
+          await token.methods.redeem_shield(ownerAddress, initialBalance, secret).send().wait();
 
           return receipt.txHash.toString();
         },
-        SANDBOX_URL,
+        PXE_URL,
         privKey.toString(),
         initialBalance,
         TokenContractAbi,

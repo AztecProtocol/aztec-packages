@@ -3,6 +3,7 @@ import {
   ContractDeploymentData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
+  FunctionSelector,
   HistoricBlockData,
   MAX_NEW_COMMITMENTS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
@@ -24,7 +25,25 @@ import { Tuple } from '@aztec/foundation/serialize';
 
 import { getReturnWitness } from '@noir-lang/acvm_js';
 
-import { ACVMField, ACVMWitness, fromACVMField } from './acvm.js';
+import { ACVMField, ACVMWitness } from './acvm.js';
+
+/**
+ * Converts an ACVM field to a Buffer.
+ * @param field - The ACVM field to convert.
+ * @returns The Buffer.
+ */
+export function convertACVMFieldToBuffer(field: ACVMField): Buffer {
+  return Buffer.from(field.slice(2), 'hex');
+}
+
+/**
+ * Converts an ACVM field to a Fr.
+ * @param field - The ACVM field to convert.
+ * @returns The Fr.
+ */
+export function fromACVMField(field: ACVMField): Fr {
+  return Fr.fromBuffer(convertACVMFieldToBuffer(field));
+}
 
 // Utilities to read TS classes from ACVM Field arrays
 // In the order that the ACVM provides them
@@ -119,6 +138,7 @@ export function extractPrivateCircuitPublicInputs(
     frToAztecAddress(witnessReader.readField()),
     frToAztecAddress(witnessReader.readField()),
     witnessReader.readField(),
+    FunctionSelector.fromField(witnessReader.readField()),
     frToBoolean(witnessReader.readField()),
     frToBoolean(witnessReader.readField()),
     frToBoolean(witnessReader.readField()),
@@ -196,6 +216,7 @@ export function extractPublicCircuitPublicInputs(partialWitness: ACVMWitness, ac
     frToAztecAddress(witnessReader.readField()),
     frToAztecAddress(witnessReader.readField()),
     witnessReader.readField(),
+    FunctionSelector.fromField(witnessReader.readField()),
     frToBoolean(witnessReader.readField()),
     frToBoolean(witnessReader.readField()),
     frToBoolean(witnessReader.readField()),

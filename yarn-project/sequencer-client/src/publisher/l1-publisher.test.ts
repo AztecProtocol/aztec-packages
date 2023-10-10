@@ -16,12 +16,12 @@ describe('L1Publisher', () => {
 
   beforeEach(() => {
     l2Block = L2Block.random(42);
-    l2Inputs = l2Block.encode();
+    l2Inputs = l2Block.toBufferWithLogs();
     l2Proof = Buffer.alloc(0);
 
     txSender = mock<L1PublisherTxSender>();
     txHash = `0x${Buffer.from('txHash').toString('hex')}`; // random tx hash
-    txReceipt = { transactionHash: txHash, status: true };
+    txReceipt = { transactionHash: txHash, status: true } as MinimalTransactionReceipt;
     txSender.sendProcessTx.mockResolvedValueOnce(txHash);
     txSender.getTransactionReceipt.mockResolvedValueOnce(txReceipt);
 

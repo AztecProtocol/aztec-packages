@@ -1,25 +1,27 @@
 import { createSandbox } from '@aztec/aztec-sandbox';
 import {
   AccountWallet,
-  AztecRPC,
   CheatCodes,
   Fr,
   L2BlockL2Logs,
+  NotePreimage,
+  PXE,
+  UnencryptedL2Log,
   computeMessageSecretHash,
   createAccount,
-  createAztecRpcClient,
+  createPXEClient,
   getSandboxAccountsWallets,
   waitForSandbox,
 } from '@aztec/aztec.js';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { TestContract, TokenContract } from '@aztec/noir-contracts/types';
 
-const { SANDBOX_URL = 'http://localhost:8080', ETHEREUM_HOST = 'http://localhost:8545' } = process.env;
+const { PXE_URL = 'http://localhost:8080', ETHEREUM_HOST = 'http://localhost:8545' } = process.env;
 
 describe('guides/dapp/testing', () => {
   describe('on in-proc sandbox', () => {
     describe('private token contract', () => {
-      let rpc: AztecRPC;
+      let pxe: PXE;
       let stop: () => Promise<void>;
       let owner: AccountWallet;
       let recipient: AccountWallet;
@@ -27,12 +29,11 @@ describe('guides/dapp/testing', () => {
 
       beforeAll(async () => {
         // docs:start:in-proc-sandbox
-        ({ rpcServer: rpc, stop } = await createSandbox());
+        ({ pxe, stop } = await createSandbox());
         // docs:end:in-proc-sandbox
-        owner = await createAccount(rpc);
-        recipient = await createAccount(rpc);
-        token = await TokenContract.deploy(owner).send().deployed();
-        await token.methods._initialize(owner.getAddress()).send().wait();
+        owner = await createAccount(pxe);
+        recipient = await createAccount(pxe);
+        token = await TokenContract.deploy(owner, owner.getCompleteAddress()).send().deployed();
       }, 60_000);
 
       // docs:start:stop-in-proc-sandbox
@@ -40,84 +41,105 @@ describe('guides/dapp/testing', () => {
       // docs:end:stop-in-proc-sandbox
 
       it('increases recipient funds on mint', async () => {
-        expect(await token.methods.balance_of_private(recipient.getAddress()).view()).toEqual(0n);
+        const recipientAddress = recipient.getAddress();
+        expect(await token.methods.balance_of_private(recipientAddress).view()).toEqual(0n);
+
+        const mintAmount = 20n;
         const secret = Fr.random();
         const secretHash = await computeMessageSecretHash(secret);
-        await token.methods.mint_private(20n, secretHash).send().wait();
-        await token.methods.redeem_shield(recipient.getAddress(), 20n, secret).send().wait();
-        expect(await token.methods.balance_of_private(recipient.getAddress()).view()).toEqual(20n);
+        const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
+
+        const storageSlot = new Fr(5);
+        const preimage = new NotePreimage([new Fr(mintAmount), secretHash]);
+        await pxe.addNote(recipientAddress, token.address, storageSlot, preimage, receipt.txHash);
+
+        await token.methods.redeem_shield(recipientAddress, mintAmount, secret).send().wait();
+        expect(await token.methods.balance_of_private(recipientAddress).view()).toEqual(20n);
       }, 30_000);
     });
   });
 
   describe('on local sandbox', () => {
     beforeAll(async () => {
-      const rpc = createAztecRpcClient(SANDBOX_URL);
-      await waitForSandbox(rpc);
+      const pxe = createPXEClient(PXE_URL);
+      await waitForSandbox(pxe);
     });
 
     // docs:start:sandbox-example
     describe('private token contract', () => {
-      let rpc: AztecRPC;
+      let pxe: PXE;
       let owner: AccountWallet;
       let recipient: AccountWallet;
       let token: TokenContract;
 
       beforeEach(async () => {
-        rpc = createAztecRpcClient(SANDBOX_URL);
-        owner = await createAccount(rpc);
-        recipient = await createAccount(rpc);
-        token = await TokenContract.deploy(owner).send().deployed();
-        await token.methods._initialize(owner.getAddress()).send().wait();
+        pxe = createPXEClient(PXE_URL);
+        owner = await createAccount(pxe);
+        recipient = await createAccount(pxe);
+        token = await TokenContract.deploy(owner, owner.getCompleteAddress()).send().deployed();
       }, 30_000);
 
       it('increases recipient funds on mint', async () => {
-        expect(await token.methods.balance_of_private(recipient.getAddress()).view()).toEqual(0n);
+        const recipientAddress = recipient.getAddress();
+        expect(await token.methods.balance_of_private(recipientAddress).view()).toEqual(0n);
+
+        const mintAmount = 20n;
         const secret = Fr.random();
         const secretHash = await computeMessageSecretHash(secret);
-        await token.methods.mint_private(20n, secretHash).send().wait();
-        await token.methods.redeem_shield(recipient.getAddress(), 20n, secret).send().wait();
-        expect(await token.methods.balance_of_private(recipient.getAddress()).view()).toEqual(20n);
+        const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
+
+        const storageSlot = new Fr(5); // The storage slot of `pending_shields` is 5.
+        const preimage = new NotePreimage([new Fr(mintAmount), secretHash]);
+        await pxe.addNote(recipientAddress, token.address, storageSlot, preimage, receipt.txHash);
+
+        await token.methods.redeem_shield(recipientAddress, mintAmount, secret).send().wait();
+        expect(await token.methods.balance_of_private(recipientAddress).view()).toEqual(20n);
       }, 30_000);
     });
     // docs:end:sandbox-example
 
     describe('private token contract with initial accounts', () => {
-      let rpc: AztecRPC;
+      let pxe: PXE;
       let owner: AccountWallet;
       let recipient: AccountWallet;
       let token: TokenContract;
 
       beforeEach(async () => {
         // docs:start:use-existing-wallets
-        rpc = createAztecRpcClient(SANDBOX_URL);
-        [owner, recipient] = await getSandboxAccountsWallets(rpc);
-        token = await TokenContract.deploy(owner).send().deployed();
-        await token.methods._initialize(owner.getAddress()).send().wait();
+        pxe = createPXEClient(PXE_URL);
+        [owner, recipient] = await getSandboxAccountsWallets(pxe);
+        token = await TokenContract.deploy(owner, owner.getCompleteAddress()).send().deployed();
         // docs:end:use-existing-wallets
       }, 30_000);
 
       it('increases recipient funds on mint', async () => {
         expect(await token.methods.balance_of_private(recipient.getAddress()).view()).toEqual(0n);
+        const recipientAddress = recipient.getAddress();
+        const mintAmount = 20n;
         const secret = Fr.random();
         const secretHash = await computeMessageSecretHash(secret);
-        await token.methods.mint_private(20n, secretHash).send().wait();
-        await token.methods.redeem_shield(recipient.getAddress(), 20n, secret).send().wait();
-        expect(await token.methods.balance_of_private(recipient.getAddress()).view()).toEqual(20n);
+        const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
+
+        const storageSlot = new Fr(5);
+        const preimage = new NotePreimage([new Fr(mintAmount), secretHash]);
+        await pxe.addNote(recipientAddress, token.address, storageSlot, preimage, receipt.txHash);
+
+        await token.methods.redeem_shield(recipientAddress, mintAmount, secret).send().wait();
+        expect(await token.methods.balance_of_private(recipientAddress).view()).toEqual(20n);
       }, 30_000);
     });
 
     describe('cheats', () => {
-      let rpc: AztecRPC;
+      let pxe: PXE;
       let owner: AccountWallet;
       let testContract: TestContract;
       let cheats: CheatCodes;
 
       beforeAll(async () => {
-        rpc = createAztecRpcClient(SANDBOX_URL);
-        owner = await createAccount(rpc);
+        pxe = createPXEClient(PXE_URL);
+        owner = await createAccount(pxe);
         testContract = await TestContract.deploy(owner).send().deployed();
-        cheats = await CheatCodes.create(ETHEREUM_HOST, rpc);
+        cheats = await CheatCodes.create(ETHEREUM_HOST, pxe);
       }, 30_000);
 
       it('warps time to 1h into the future', async () => {
@@ -130,7 +152,7 @@ describe('guides/dapp/testing', () => {
     });
 
     describe('assertions', () => {
-      let rpc: AztecRPC;
+      let pxe: PXE;
       let owner: AccountWallet;
       let recipient: AccountWallet;
       let testContract: TestContract;
@@ -139,27 +161,34 @@ describe('guides/dapp/testing', () => {
       let ownerSlot: Fr;
 
       beforeAll(async () => {
-        rpc = createAztecRpcClient(SANDBOX_URL);
-        owner = await createAccount(rpc);
-        recipient = await createAccount(rpc);
+        pxe = createPXEClient(PXE_URL);
+        owner = await createAccount(pxe);
+        recipient = await createAccount(pxe);
         testContract = await TestContract.deploy(owner).send().deployed();
-        token = await TokenContract.deploy(owner).send().deployed();
-        await token.methods._initialize(owner.getAddress()).send().wait();
+        token = await TokenContract.deploy(owner, owner.getCompleteAddress()).send().deployed();
+
+        const ownerAddress = owner.getAddress();
+        const mintAmount = 100n;
         const secret = Fr.random();
         const secretHash = await computeMessageSecretHash(secret);
-        await token.methods.mint_private(100n, secretHash).send().wait();
-        await token.methods.redeem_shield(owner.getAddress(), 100n, secret).send().wait();
+        const receipt = await token.methods.mint_private(100n, secretHash).send().wait();
+
+        const storageSlot = new Fr(5);
+        const preimage = new NotePreimage([new Fr(mintAmount), secretHash]);
+        await pxe.addNote(ownerAddress, token.address, storageSlot, preimage, receipt.txHash);
+
+        await token.methods.redeem_shield(ownerAddress, 100n, secret).send().wait();
 
         // docs:start:calc-slot
-        cheats = await CheatCodes.create(ETHEREUM_HOST, rpc);
+        cheats = await CheatCodes.create(ETHEREUM_HOST, pxe);
         // The balances mapping is defined on storage slot 3 and is indexed by user address
-        ownerSlot = cheats.aztec.computeSlotInMap(3n, owner.getAddress());
+        ownerSlot = cheats.aztec.computeSlotInMap(3n, ownerAddress);
         // docs:end:calc-slot
       }, 60_000);
 
       it('checks private storage', async () => {
         // docs:start:private-storage
-        const notes = await rpc.getPrivateStorageAt(owner.getAddress(), token.address, ownerSlot);
+        const notes = await pxe.getPrivateStorageAt(owner.getAddress(), token.address, ownerSlot);
         const values = notes.map(note => note.items[0]);
         const balance = values.reduce((sum, current) => sum + current.toBigInt(), 0n);
         expect(balance).toEqual(100n);
@@ -170,7 +199,7 @@ describe('guides/dapp/testing', () => {
         // docs:start:public-storage
         await token.methods.mint_public(owner.getAddress(), 100n).send().wait();
         const ownerPublicBalanceSlot = cheats.aztec.computeSlotInMap(6n, owner.getAddress());
-        const balance = await rpc.getPublicStorageAt(token.address, ownerPublicBalanceSlot);
+        const balance = await pxe.getPublicStorageAt(token.address, ownerPublicBalanceSlot);
         expect(toBigIntBE(balance!)).toEqual(100n);
         // docs:end:public-storage
       });
@@ -179,9 +208,9 @@ describe('guides/dapp/testing', () => {
         // docs:start:unencrypted-logs
         const value = Fr.fromString('ef'); // Only 1 bytes will make its way in there :( so no larger stuff
         const tx = await testContract.methods.emit_unencrypted(value).send().wait();
-        const logs = await rpc.getUnencryptedLogs(tx.blockNumber!, 1);
-        const log = L2BlockL2Logs.unrollLogs(logs)[0];
-        expect(Fr.fromBuffer(log)).toEqual(value);
+        const logs = await pxe.getUnencryptedLogs(tx.blockNumber!, 1);
+        const log = UnencryptedL2Log.fromBuffer(L2BlockL2Logs.unrollLogs(logs)[0]);
+        expect(Fr.fromBuffer(log.data)).toEqual(value);
         // docs:end:unencrypted-logs
       });
 

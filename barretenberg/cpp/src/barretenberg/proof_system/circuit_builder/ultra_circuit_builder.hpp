@@ -642,6 +642,7 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
     void create_bool_gate(const uint32_t a) override;
     void create_poly_gate(const poly_triple_<FF>& in) override;
     void create_ecc_add_gate(const ecc_add_gate_<FF>& in);
+    void create_ecc_dbl_gate(const ecc_dbl_gate_<FF>& in);
 
     void fix_witness(const uint32_t witness_index, const FF& witness_value);
 
@@ -1018,8 +1019,7 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
                                  FF eta) const;
     FF compute_elliptic_identity(FF q_elliptic_value,
                                  FF q_1_value,
-                                 FF q_3_value,
-                                 FF q_4_value,
+                                 FF q_m_value,
                                  FF w_2_value,
                                  FF w_3_value,
                                  FF w_1_shifted_value,

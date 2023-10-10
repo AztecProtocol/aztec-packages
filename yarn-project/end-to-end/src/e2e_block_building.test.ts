@@ -1,26 +1,39 @@
-import { BatchCall, ContractDeployer, Fr, Wallet, isContractDeployed } from '@aztec/aztec.js';
+import {
+  BatchCall,
+  ContractDeployer,
+  ContractFunctionInteraction,
+  Fr,
+  Wallet,
+  isContractDeployed,
+} from '@aztec/aztec.js';
 import { CircuitsWasm } from '@aztec/circuits.js';
 import { pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
 import { DebugLogger } from '@aztec/foundation/log';
 import { TestContractAbi } from '@aztec/noir-contracts/artifacts';
-import { TestContract } from '@aztec/noir-contracts/types';
-import { AztecRPC, TxStatus } from '@aztec/types';
+import { TestContract, TokenContract } from '@aztec/noir-contracts/types';
+import { PXE, TxStatus } from '@aztec/types';
 
 import times from 'lodash.times';
 
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_block_building', () => {
-  let aztecRpcServer: AztecRPC;
+  let pxe: PXE;
   let logger: DebugLogger;
-  let wallet: Wallet;
+  let owner: Wallet;
+  let minter: Wallet;
   let teardown: () => Promise<void>;
 
   describe('multi-txs block', () => {
     const abi = TestContractAbi;
 
     beforeAll(async () => {
-      ({ teardown, aztecRpcServer, logger, wallet } = await setup(1));
+      ({
+        teardown,
+        pxe,
+        logger,
+        wallets: [owner, minter],
+      } = await setup(2));
     }, 100_000);
 
     afterAll(() => teardown());
@@ -29,7 +42,7 @@ describe('e2e_block_building', () => {
       // Assemble N contract deployment txs
       // We need to create them sequentially since we cannot have parallel calls to a circuit
       const TX_COUNT = 8;
-      const deployer = new ContractDeployer(abi, wallet);
+      const deployer = new ContractDeployer(abi, owner);
       const methods = times(TX_COUNT, () => deployer.deploy());
 
       for (const i in methods) {
@@ -48,8 +61,38 @@ describe('e2e_block_building', () => {
       expect(receipts.map(r => r.blockNumber)).toEqual(times(TX_COUNT, () => receipts[0].blockNumber));
 
       // Assert all contracts got deployed
-      const areDeployed = await Promise.all(receipts.map(r => isContractDeployed(aztecRpcServer, r.contractAddress!)));
+      const areDeployed = await Promise.all(receipts.map(r => isContractDeployed(pxe, r.contractAddress!)));
       expect(areDeployed).toEqual(times(TX_COUNT, () => true));
+    }, 60_000);
+
+    it('can call public function from different tx in same block', async () => {
+      // Deploy a contract in the first transaction
+      // In the same block, call a public method on the contract
+      const deployer = TokenContract.deploy(owner, owner.getCompleteAddress());
+      await deployer.create();
+
+      // We can't use `TokenContract.at` to call a function because it checks the contract is deployed
+      // but we are in the same block as the deployment transaction
+      const callInteraction = new ContractFunctionInteraction(
+        owner,
+        deployer.completeAddress!.address,
+        TokenContract.abi.functions.find(x => x.name === 'set_minter')!,
+        [minter.getCompleteAddress(), true],
+      );
+
+      await deployer.simulate({});
+      await callInteraction.simulate({
+        // we have to skip simulation of public calls simulation is done on individual transactions
+        // and the tx deploying the contract might go in the same block as this one
+        skipPublicSimulation: true,
+      });
+
+      const [deployTxReceipt, callTxReceipt] = await Promise.all([
+        deployer.send().wait(),
+        callInteraction.send({ skipPublicSimulation: true }).wait(),
+      ]);
+
+      expect(deployTxReceipt.blockNumber).toEqual(callTxReceipt.blockNumber);
     }, 60_000);
   });
 
@@ -59,8 +102,8 @@ describe('e2e_block_building', () => {
     let teardown: () => Promise<void>;
 
     beforeAll(async () => {
-      ({ teardown, aztecRpcServer, logger, wallet } = await setup(1));
-      contract = await TestContract.deploy(wallet).send().deployed();
+      ({ teardown, pxe, logger, wallet: owner } = await setup(1));
+      contract = await TestContract.deploy(owner).send().deployed();
     }, 100_000);
 
     afterAll(() => teardown());
@@ -86,7 +129,7 @@ describe('e2e_block_building', () => {
     it('drops tx with two equal nullifiers', async () => {
       const nullifier = Fr.random();
       const calls = times(2, () => contract.methods.emit_nullifier(nullifier).request());
-      await expect(new BatchCall(wallet, calls).send().wait()).rejects.toThrowError(/dropped/);
+      await expect(new BatchCall(owner, calls).send().wait()).rejects.toThrowError(/dropped/);
     });
 
     it('drops tx with private nullifier already emitted from public on the same block', async () => {

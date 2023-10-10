@@ -12,7 +12,7 @@ fn notify_created_note_oracle<N>(
     _inner_note_hash: Field,
 ) -> Field {}
 
-unconstrained fn notify_created_note<N>(
+unconstrained pub fn notify_created_note<N>(
     storage_slot: Field,
     preimage: [Field; N],
     inner_note_hash: Field,
@@ -26,24 +26,11 @@ fn notify_nullified_note_oracle<N>(
     _inner_note_hash: Field,
 ) -> Field {}
 
-unconstrained fn notify_nullified_note<N>(
+unconstrained pub fn notify_nullified_note<N>(
     nullifier: Field,
     inner_note_hash: Field,
 ) -> Field {
     notify_nullified_note_oracle(nullifier, inner_note_hash)
-}
-
-#[oracle(checkNoteHashExists)]
-fn check_note_hash_exists_oracle<N>(
-    _nonce: Field,
-    _inner_note_hash: Field,
-) -> Field {}
-
-unconstrained fn check_note_hash_exists(
-    nonce: Field,
-    inner_note_hash: Field,
-) -> bool {
-    check_note_hash_exists_oracle(nonce, inner_note_hash) == 1
 }
 
 #[oracle(getNotes)]
@@ -75,7 +62,7 @@ unconstrained fn get_notes_oracle_wrapper<N, S>(
     get_notes_oracle(storage_slot, num_selects, select_by, select_values, sort_by, sort_order, limit, offset, return_size, placeholder_fields)
 }
 
-unconstrained fn get_notes<Note, N, M, S, NS>(
+unconstrained pub fn get_notes<Note, N, M, S, NS>(
     storage_slot: Field,
     note_interface: NoteInterface<Note, N>,
     num_selects: u8,
@@ -97,23 +84,25 @@ unconstrained fn get_notes<Note, N, M, S, NS>(
         if i as u32 < num_notes {
             // lengths named as per typescript.
             let return_header_length: Field = 2; // num_notes & contract_address.
-            let extra_preimage_length: Field = 2; // nonce & is_some.
+            let extra_preimage_length: Field = 2; // nonce & is_transient.
             let read_offset: Field = return_header_length + i * (N + extra_preimage_length);
             let nonce = fields[read_offset];
-            let header = NoteHeader { contract_address, nonce, storage_slot };
-            let is_some = fields[read_offset + 1] as bool;
-            if is_some {
-                let preimage = arr_copy_slice(fields, [0; N], read_offset + 2);
-                let mut note = deserialize(preimage);
-                set_header(&mut note, header);
-                placeholder_opt_notes[i] = Option::some(note);
-            }
+            let is_transient = fields[read_offset + 1] as bool;
+            let header = NoteHeader { contract_address, nonce, storage_slot, is_transient };
+            let preimage = arr_copy_slice(fields, [0; N], read_offset + 2);
+            let mut note = deserialize(preimage);
+            set_header(&mut note, header);
+            placeholder_opt_notes[i] = Option::some(note);
         };
     };
     placeholder_opt_notes
 }
 
-unconstrained fn is_nullifier_emitted(nullifier: Field) -> bool {
-    // TODO
-    nullifier == 0
+#[oracle(checkNullifierExists)]
+fn check_nullifier_exists_oracle(
+    _inner_nullifier: Field,
+) -> Field {}
+
+unconstrained pub fn check_nullifier_exists(inner_nullifier: Field) -> bool {
+    check_nullifier_exists_oracle(inner_nullifier) == 1
 }

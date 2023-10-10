@@ -6,7 +6,16 @@ import {
   makeEmptyProof,
 } from '@aztec/circuits.js';
 import { P2P, P2PClientState } from '@aztec/p2p';
-import { L1ToL2MessageSource, L2Block, L2BlockSource, MerkleTreeId, Tx, TxHash, mockTx } from '@aztec/types';
+import {
+  ContractDataSource,
+  L1ToL2MessageSource,
+  L2Block,
+  L2BlockSource,
+  MerkleTreeId,
+  Tx,
+  TxHash,
+  mockTx,
+} from '@aztec/types';
 import { MerkleTreeOperations, WorldStateRunningState, WorldStateSynchronizer } from '@aztec/world-state';
 
 import { MockProxy, mock } from 'jest-mock-extended';
@@ -61,7 +70,7 @@ describe('sequencer', () => {
     });
 
     publicProcessorFactory = mock<PublicProcessorFactory>({
-      create: (_, __) => Promise.resolve(publicProcessor),
+      create: (_a, _b_) => Promise.resolve(publicProcessor),
     });
 
     l2BlockSource = mock<L2BlockSource>({
@@ -70,7 +79,10 @@ describe('sequencer', () => {
 
     l1ToL2MessageSource = mock<L1ToL2MessageSource>({
       getPendingL1ToL2Messages: () => Promise.resolve(Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(Fr.ZERO)),
+      getBlockNumber: () => Promise.resolve(lastBlockNumber),
     });
+
+    const contractDataSource = mock<ContractDataSource>({});
 
     sequencer = new TestSubject(
       publisher,
@@ -80,6 +92,7 @@ describe('sequencer', () => {
       blockBuilder,
       l2BlockSource,
       l1ToL2MessageSource,
+      contractDataSource,
       publicProcessorFactory,
       {
         chainId: Number(chainId.value),

@@ -7,7 +7,7 @@ import { Account, Chain, Hex, HttpTransport, PublicClient, WalletClient, getCont
 
 /**
  * Deploy L1 token and portal, initialize portal, deploy a non native l2 token contract and attach is to the portal.
- * @param aztecRpcServer - the aztec rpc server instance
+ * @param wallet - A wallet instance.
  * @param walletClient - A viem WalletClient.
  * @param publicClient - A viem PublicClient.
  * @param rollupRegistryAddress - address of rollup registry to pass to initialize the token portal
@@ -46,13 +46,9 @@ export async function deployAndInitializeNonNativeL2TokenContracts(
   });
 
   // deploy l2 contract and attach to portal
-  const tx = NonNativeTokenContract.deploy(wallet, initialBalance, owner).send({
-    portalContract: tokenPortalAddress,
-  });
-  await tx.isMined({ interval: 0.1 });
-  const receipt = await tx.getReceipt();
-  const l2Contract = await NonNativeTokenContract.at(receipt.contractAddress!, wallet);
-  await l2Contract.attach(tokenPortalAddress);
+  const l2Contract = await NonNativeTokenContract.deploy(wallet, initialBalance, owner)
+    .send({ portalContract: tokenPortalAddress })
+    .deployed();
   const l2TokenAddress = l2Contract.address.toString() as `0x${string}`;
 
   // initialize portal

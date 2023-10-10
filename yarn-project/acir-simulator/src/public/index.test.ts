@@ -71,6 +71,7 @@ describe('ACIR public execution simulator', () => {
           msgSender: AztecAddress.random(),
           storageContractAddress: contractAddress,
           portalContractAddress: EthAddress.random(),
+          functionSelector: FunctionSelector.empty(),
           isContractDeployment: false,
           isDelegateCall: false,
           isStaticCall: false,
@@ -119,6 +120,7 @@ describe('ACIR public execution simulator', () => {
           msgSender: sender,
           storageContractAddress: contractAddress,
           portalContractAddress: EthAddress.random(),
+          functionSelector: FunctionSelector.empty(),
           isContractDeployment: false,
           isDelegateCall: false,
           isStaticCall: false,
@@ -223,6 +225,7 @@ describe('ACIR public execution simulator', () => {
           msgSender: AztecAddress.random(),
           storageContractAddress: parentContractAddress,
           portalContractAddress: EthAddress.random(),
+          functionSelector: FunctionSelector.empty(),
           isContractDeployment: false,
           isDelegateCall: false,
           isStaticCall: false,
@@ -247,9 +250,7 @@ describe('ACIR public execution simulator', () => {
         const globalVariables = new GlobalVariables(new Fr(69), new Fr(420), new Fr(1), new Fr(7));
 
         if (isInternal === undefined) {
-          await expect(executor.simulate(execution, globalVariables)).rejects.toThrowError(
-            /ContractsDb don't contain isInternal for/,
-          );
+          await expect(executor.simulate(execution, globalVariables)).rejects.toThrowError(/Method not found -/);
         } else {
           const result = await executor.simulate(execution, globalVariables);
 
@@ -291,6 +292,7 @@ describe('ACIR public execution simulator', () => {
         msgSender: AztecAddress.random(),
         storageContractAddress: contractAddress,
         portalContractAddress: EthAddress.random(),
+        functionSelector: FunctionSelector.empty(),
         isContractDeployment: false,
         isDelegateCall: false,
         isStaticCall: false,
@@ -323,6 +325,7 @@ describe('ACIR public execution simulator', () => {
         msgSender: AztecAddress.random(),
         storageContractAddress: contractAddress,
         portalContractAddress: EthAddress.random(),
+        functionSelector: FunctionSelector.empty(),
         isContractDeployment: false,
         isDelegateCall: false,
         isStaticCall: false,
@@ -375,6 +378,7 @@ describe('ACIR public execution simulator', () => {
         msgSender: AztecAddress.random(),
         storageContractAddress: contractAddress,
         portalContractAddress: EthAddress.random(),
+        functionSelector: FunctionSelector.empty(),
         isContractDeployment: false,
         isDelegateCall: false,
         isStaticCall: false,
@@ -407,6 +411,7 @@ describe('ACIR public execution simulator', () => {
         msgSender: AztecAddress.random(),
         storageContractAddress: contractAddress,
         portalContractAddress: EthAddress.random(),
+        functionSelector: FunctionSelector.empty(),
         isContractDeployment: false,
         isDelegateCall: false,
         isStaticCall: false,

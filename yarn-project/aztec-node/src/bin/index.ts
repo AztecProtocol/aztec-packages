@@ -7,7 +7,7 @@ import Router from 'koa-router';
 
 import { AztecNodeConfig, AztecNodeService, createAztecNodeRpcServer, getConfigEnvVars } from '../index.js';
 
-const { SERVER_PORT = 8081, API_PREFIX = '' } = process.env;
+const { AZTEC_NODE_PORT = 8081, API_PREFIX = '' } = process.env;
 
 const logger = createDebugLogger('aztec:node');
 
@@ -21,7 +21,7 @@ async function createAndDeployAztecNode() {
 }
 
 /**
- * Creates a router for helper API endpoints of the Aztec RPC Server.
+ * Creates a router for helper API endpoints of the Private eXecution Environment (PXE).
  * @param apiPrefix - The prefix to use for all api requests
  * @returns - The router for handling status requests.
  */
@@ -57,8 +57,8 @@ async function main() {
   app.use(apiRouter.allowedMethods());
 
   const httpServer = http.createServer(app.callback());
-  httpServer.listen(+SERVER_PORT);
-  logger.info(`Aztec Node JSON-RPC Server listening on port ${SERVER_PORT}`);
+  httpServer.listen(+AZTEC_NODE_PORT);
+  logger.info(`Aztec Node JSON-RPC Server listening on port ${AZTEC_NODE_PORT}`);
 }
 
 main().catch(err => {

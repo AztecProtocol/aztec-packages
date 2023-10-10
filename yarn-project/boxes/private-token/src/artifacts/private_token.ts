@@ -4,32 +4,29 @@
 import {
   AztecAddress,
   CompleteAddress,
+  Contract,
   ContractBase,
   ContractFunctionInteraction,
   ContractMethod,
   DeployMethod,
+  EthAddress,
   FieldLike,
+  AztecAddressLike,
+  EthAddressLike,
   Wallet,
 } from '@aztec/aztec.js';
+import { Fr, Point } from '@aztec/foundation/fields';
+import { PXE, PublicKey } from '@aztec/types';
 import { ContractAbi } from '@aztec/foundation/abi';
-import { Point } from '@aztec/foundation/fields';
-import { AztecRPC, PublicKey } from '@aztec/types';
-
 import PrivateTokenContractAbiJson from './private_token_contract.json' assert { type: 'json' };
-
 export const PrivateTokenContractAbi = PrivateTokenContractAbiJson as ContractAbi;
 
 /**
  * Type-safe interface for contract PrivateToken;
  */
 export class PrivateTokenContract extends ContractBase {
-  private constructor(
-    /** The deployed contract's complete address. */
-    completeAddress: CompleteAddress,
-    /** The wallet. */
-    wallet: Wallet,
-  ) {
-    super(completeAddress, PrivateTokenContractAbi, wallet);
+  private constructor(completeAddress: CompleteAddress, wallet: Wallet, portalContract = EthAddress.ZERO) {
+    super(completeAddress, PrivateTokenContractAbi, wallet, portalContract);
   }
 
   /**
@@ -38,26 +35,17 @@ export class PrivateTokenContract extends ContractBase {
    * @param wallet - The wallet to use when interacting with the contract.
    * @returns A promise that resolves to a new Contract instance.
    */
-  public static async at(
-    /** The deployed contract's address. */
-    address: AztecAddress,
-    /** The wallet. */
-    wallet: Wallet,
-  ) {
-    const extendedContractData = await wallet.getExtendedContractData(address);
-    if (extendedContractData === undefined) {
-      throw new Error('Contract ' + address.toString() + ' is not deployed');
-    }
-    return new PrivateTokenContract(extendedContractData.getCompleteAddress(), wallet);
+  public static async at(address: AztecAddress, wallet: Wallet) {
+    return Contract.at(address, PrivateTokenContract.abi, wallet) as Promise<PrivateTokenContract>;
   }
 
   /**
    * Creates a tx to deploy a new instance of this contract.
    */
-  public static deploy(rpc: AztecRPC, initial_supply: FieldLike, owner: FieldLike) {
+  public static deploy(pxe: PXE, initial_supply: FieldLike, owner: FieldLike) {
     return new DeployMethod<PrivateTokenContract>(
       Point.ZERO,
-      rpc,
+      pxe,
       PrivateTokenContractAbi,
       Array.from(arguments).slice(1),
     );
@@ -66,10 +54,10 @@ export class PrivateTokenContract extends ContractBase {
   /**
    * Creates a tx to deploy a new instance of this contract using the specified public key to derive the address.
    */
-  public static deployWithPublicKey(rpc: AztecRPC, publicKey: PublicKey, initial_supply: FieldLike, owner: FieldLike) {
+  public static deployWithPublicKey(pxe: PXE, publicKey: PublicKey, initial_supply: FieldLike, owner: FieldLike) {
     return new DeployMethod<PrivateTokenContract>(
       publicKey,
-      rpc,
+      pxe,
       PrivateTokenContractAbi,
       Array.from(arguments).slice(2),
     );

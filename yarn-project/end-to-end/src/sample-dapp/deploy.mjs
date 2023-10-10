@@ -1,18 +1,17 @@
-import { Contract, ContractDeployer, createAztecRpcClient, getSandboxAccountsWallets } from '@aztec/aztec.js';
+import { Contract, ContractDeployer, createPXEClient, getSandboxAccountsWallets } from '@aztec/aztec.js';
 import { TokenContractAbi } from '@aztec/noir-contracts/artifacts';
 
 import { writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 
 // docs:start:dapp-deploy
-const { SANDBOX_URL = 'http://localhost:8080' } = process.env;
+const { PXE_URL = 'http://localhost:8080' } = process.env;
 
 async function main() {
-  const client = createAztecRpcClient(SANDBOX_URL);
-  const [owner] = await getSandboxAccountsWallets(client);
+  const pxe = createPXEClient(PXE_URL);
+  const [owner] = await getSandboxAccountsWallets(pxe);
 
-  const token = await Contract.deploy(client, TokenContractAbi, []).send().deployed();
-  await token.withWallet(owner).methods._initialize(owner.getAddress()).send().wait();
+  const token = await Contract.deploy(pxe, TokenContractAbi, [owner.getCompleteAddress()]).send().deployed();
 
   console.log(`Token deployed at ${token.address.toString()}`);
 

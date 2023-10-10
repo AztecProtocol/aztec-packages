@@ -3,18 +3,18 @@ import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { DebugLogger } from '@aztec/foundation/log';
 import { toBigInt } from '@aztec/foundation/serialize';
 import { ChildContract, ImportTestContract, ParentContract, TestContract } from '@aztec/noir-contracts/types';
-import { AztecRPC, L2BlockL2Logs } from '@aztec/types';
+import { L2BlockL2Logs, PXE, UnencryptedL2Log } from '@aztec/types';
 
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_nested_contract', () => {
-  let aztecRpcServer: AztecRPC;
+  let pxe: PXE;
   let wallet: Wallet;
   let logger: DebugLogger;
   let teardown: () => Promise<void>;
 
   beforeEach(async () => {
-    ({ teardown, aztecRpcServer, wallet, logger } = await setup());
+    ({ teardown, pxe, wallet, logger } = await setup());
   }, 100_000);
 
   afterEach(() => teardown());
@@ -29,7 +29,7 @@ describe('e2e_nested_contract', () => {
     }, 100_000);
 
     const getChildStoredValue = (child: { address: AztecAddress }) =>
-      aztecRpcServer.getPublicStorageAt(child.address, new Fr(1)).then(x => toBigInt(x!));
+      pxe.getPublicStorageAt(child.address, new Fr(1)).then(x => toBigInt(x!));
 
     it('performs nested calls', async () => {
       await parentContract.methods
@@ -114,7 +114,9 @@ describe('e2e_nested_contract', () => {
       ];
 
       const tx = await new BatchCall(wallet, actions).send().wait();
-      const logs = L2BlockL2Logs.unrollLogs(await wallet.getUnencryptedLogs(tx.blockNumber!, 1)).map(toBigIntBE);
+      const logs = L2BlockL2Logs.unrollLogs(await wallet.getUnencryptedLogs(tx.blockNumber!, 1)).map(log =>
+        toBigIntBE(UnencryptedL2Log.fromBuffer(log).data),
+      );
       expect(logs).toEqual([20n, 40n]);
       expect(await getChildStoredValue(childContract)).toEqual(40n);
     });

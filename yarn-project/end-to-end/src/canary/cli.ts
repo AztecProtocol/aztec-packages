@@ -1,34 +1,33 @@
-import { AztecAddress, AztecRPC, CompleteAddress, DebugLogger, Fr, computeMessageSecretHash } from '@aztec/aztec.js';
+import { AztecAddress, CompleteAddress, DebugLogger, Fr, PXE, computeMessageSecretHash } from '@aztec/aztec.js';
 import { getProgram } from '@aztec/cli';
 
 import stringArgv from 'string-argv';
-import { format } from 'util';
 
 const INITIAL_BALANCE = 33000;
 const TRANSFER_BALANCE = 3000;
 
 export const cliTestSuite = (
   name: string,
-  setup: () => Promise<AztecRPC>,
+  setup: () => Promise<PXE>,
   cleanup: () => Promise<void>,
   debug: DebugLogger,
   rpcUrl = 'http://localhost:8080',
 ) =>
   describe(name, () => {
     let cli: ReturnType<typeof getProgram>;
-    let aztecRpcClient: AztecRPC;
+    let pxe: PXE;
     let existingAccounts: CompleteAddress[];
     let contractAddress: AztecAddress;
-    let log: (...args: any[]) => void;
+    let log: (msg: string) => void;
 
     // All logs emitted by the cli will be collected here, and reset between tests
     const logs: string[] = [];
 
     beforeAll(async () => {
-      aztecRpcClient = await setup();
-      log = (...args: any[]) => {
-        logs.push(format(...args));
-        debug(...args);
+      pxe = await setup();
+      log = (msg: string) => {
+        logs.push(msg);
+        debug(msg);
       };
     }, 30_000);
 
@@ -79,14 +78,14 @@ export const cliTestSuite = (
     };
 
     it('creates & retrieves an account', async () => {
-      existingAccounts = await aztecRpcClient.getRegisteredAccounts();
+      existingAccounts = await pxe.getRegisteredAccounts();
       debug('Create an account');
       await run(`create-account`);
       const foundAddress = findInLogs(/Address:\s+(?<address>0x[a-fA-F0-9]+)/)?.groups?.address;
       expect(foundAddress).toBeDefined();
       const newAddress = AztecAddress.fromString(foundAddress!);
 
-      const accountsAfter = await aztecRpcClient.getRegisteredAccounts();
+      const accountsAfter = await pxe.getRegisteredAccounts();
       const expectedAccounts = [...existingAccounts.map(a => a.address), newAddress];
       expect(accountsAfter.map(a => a.address)).toEqual(expectedAccounts);
       const newCompleteAddress = accountsAfter[accountsAfter.length - 1];
@@ -118,23 +117,18 @@ export const cliTestSuite = (
       const ownerAddress = AztecAddress.fromString(foundAddress!);
 
       debug('Deploy Token Contract using created account.');
-      await run(`deploy TokenContractAbi --salt 0`);
+      await run(`deploy TokenContractAbi --salt 0 --args ${ownerAddress}`);
       const loggedAddress = findInLogs(/Contract\sdeployed\sat\s+(?<address>0x[a-fA-F0-9]+)/)?.groups?.address;
       expect(loggedAddress).toBeDefined();
       contractAddress = AztecAddress.fromString(loggedAddress!);
 
-      const deployedContract = await aztecRpcClient.getContractData(contractAddress);
+      const deployedContract = await pxe.getContractData(contractAddress);
       expect(deployedContract?.contractAddress).toEqual(contractAddress);
 
       debug('Check contract can be found in returned address');
       await run(`check-deploy -ca ${loggedAddress}`);
       const checkResult = findInLogs(/Contract\sfound\sat\s+(?<address>0x[a-fA-F0-9]+)/)?.groups?.address;
       expect(checkResult).toEqual(deployedContract?.contractAddress.toString());
-
-      debug('Initialize token contract.');
-      await run(
-        `send _initialize --args ${ownerAddress} --contract-abi TokenContractAbi --contract-address ${contractAddress.toString()}  --private-key ${privKey}`,
-      );
 
       const secret = Fr.random();
       const secretHash = await computeMessageSecretHash(secret);
@@ -143,6 +137,15 @@ export const cliTestSuite = (
       await run(
         `send mint_private --args ${INITIAL_BALANCE} ${secretHash} --contract-abi TokenContractAbi --contract-address ${contractAddress.toString()} --private-key ${privKey}`,
       );
+
+      debug('Add note to the PXE.');
+      const txHashes = findMultipleInLogs(/Transaction Hash: ([0-9a-f]{64})/i);
+      const mintPrivateTxHash = txHashes[txHashes.length - 1][1];
+      await run(
+        `add-note ${ownerAddress} ${contractAddress} 5 ${mintPrivateTxHash} --preimage ${INITIAL_BALANCE} ${secretHash}`,
+      );
+
+      debug('Redeem tokens.');
       await run(
         `send redeem_shield --args ${ownerAddress} ${INITIAL_BALANCE} ${secret} --contract-abi TokenContractAbi --contract-address ${contractAddress.toString()} --private-key ${privKey}`,
       );
@@ -161,7 +164,7 @@ export const cliTestSuite = (
       expect(balance!).toEqual(`${BigInt(INITIAL_BALANCE).toString()}n`);
 
       debug('Transfer some tokens');
-      const existingAccounts = await aztecRpcClient.getRegisteredAccounts();
+      const existingAccounts = await pxe.getRegisteredAccounts();
       // ensure we pick a different acc
       const receiver = existingAccounts.find(acc => acc.address.toString() !== ownerAddress.toString());
 

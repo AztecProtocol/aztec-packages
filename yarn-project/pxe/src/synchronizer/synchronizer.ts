@@ -2,7 +2,7 @@ import { AztecAddress, CircuitsWasm, Fr, HistoricBlockData, PublicKey } from '@a
 import { computeGlobalsHash } from '@aztec/circuits.js/abis';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { InterruptableSleep } from '@aztec/foundation/sleep';
-import { AztecNode, INITIAL_L2_BLOCK_NUM, KeyStore, L2BlockContext, LogType } from '@aztec/types';
+import { AztecNode, INITIAL_L2_BLOCK_NUM, KeyStore, L2BlockContext, L2BlockL2Logs, LogType } from '@aztec/types';
 
 import { Database } from '../database/index.js';
 import { NoteProcessor } from '../note_processor/index.js';
@@ -25,9 +25,7 @@ export class Synchronizer {
   private noteProcessorsToCatchUp: NoteProcessor[] = [];
 
   constructor(private node: AztecNode, private db: Database, logSuffix = '') {
-    this.log = createDebugLogger(
-      logSuffix ? `aztec:aztec_rpc_synchronizer_${logSuffix}` : 'aztec:aztec_rpc_synchronizer',
-    );
+    this.log = createDebugLogger(logSuffix ? `aztec:pxe_synchronizer_${logSuffix}` : 'aztec:pxe_synchronizer');
   }
 
   /**
@@ -121,16 +119,15 @@ export class Synchronizer {
       const latestBlock = blockContexts[blockContexts.length - 1];
       await this.setBlockDataFromBlock(latestBlock);
 
-      this.log(
-        `Forwarding ${encryptedLogs.length} encrypted logs and blocks to ${this.noteProcessors.length} note processors`,
-      );
+      const logCount = L2BlockL2Logs.getTotalLogCount(encryptedLogs);
+      this.log(`Forwarding ${logCount} encrypted logs and blocks to ${this.noteProcessors.length} note processors`);
       for (const noteProcessor of this.noteProcessors) {
         await noteProcessor.process(blockContexts, encryptedLogs);
       }
 
       this.synchedToBlock = latestBlock.block.number;
     } catch (err) {
-      this.log.error(err);
+      this.log.error(`Error in synchronizer work`, err);
       await this.interruptableSleep.sleep(retryInterval);
     }
   }
@@ -175,16 +172,23 @@ export class Synchronizer {
 
       const blockContexts = blocks.map(block => new L2BlockContext(block));
 
-      this.log(`Forwarding ${encryptedLogs.length} encrypted logs and blocks to note processor in catch up mode`);
+      const logCount = L2BlockL2Logs.getTotalLogCount(encryptedLogs);
+      this.log(`Forwarding ${logCount} encrypted logs and blocks to note processor in catch up mode`);
       await noteProcessor.process(blockContexts, encryptedLogs);
 
       if (noteProcessor.status.syncedToBlock === this.synchedToBlock) {
         // Note processor caught up, move it to `noteProcessors` from `noteProcessorsToCatchUp`.
+        this.log(`Note processor for ${noteProcessor.publicKey.toString()} has caught up`, {
+          eventName: 'note-processor-caught-up',
+          publicKey: noteProcessor.publicKey.toString(),
+          duration: noteProcessor.timer.ms(),
+          ...noteProcessor.stats,
+        });
         this.noteProcessorsToCatchUp.shift();
         this.noteProcessors.push(noteProcessor);
       }
     } catch (err) {
-      this.log.error(err);
+      this.log.error(`Error in synchronizer workNoteProcessorCatchUp`, err);
       await this.interruptableSleep.sleep(retryInterval);
     }
   }
@@ -230,15 +234,14 @@ export class Synchronizer {
    *
    * @param publicKey - The public key for the account.
    * @param keyStore - The key store.
+   * @param startingBlock - The block where to start scanning for notes for this accounts.
    * @returns A promise that resolves once the account is added to the Synchronizer.
    */
-  public addAccount(publicKey: PublicKey, keyStore: KeyStore) {
+  public addAccount(publicKey: PublicKey, keyStore: KeyStore, startingBlock: number) {
     const processor = this.noteProcessors.find(x => x.publicKey.equals(publicKey));
-    if (processor) {
-      return;
-    }
+    if (processor) return;
 
-    this.noteProcessorsToCatchUp.push(new NoteProcessor(publicKey, keyStore, this.db, this.node));
+    this.noteProcessorsToCatchUp.push(new NoteProcessor(publicKey, keyStore, this.db, this.node, startingBlock));
   }
 
   /**
