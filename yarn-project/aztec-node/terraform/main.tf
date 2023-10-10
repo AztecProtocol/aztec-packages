@@ -1,3 +1,9 @@
+# Terraform to setup a prototype network of Aztec Nodes in AWS
+# It sets up 2 full nodes with different ports/keys etc.
+# Some duplication across the 2 defined services, could possibly 
+# be refactored to use modules as and when we build out infrastructure for real
+
+
 terraform {
   backend "s3" {
     bucket = "aztec-terraform"
@@ -313,7 +319,10 @@ resource "aws_security_group_rule" "allow-node-1-tcp" {
   security_group_id = data.terraform_remote_state.aztec-network_iac.outputs.p2p_security_group_id
 }
 
-## The following has been commented out and setup manually as terraform (or the aws provider version we are using) has a bug
+## Commented out here and setup manually as terraform (or the aws provider version we are using) has a bug
+## NLB listeners can't have a 'weight' property defined. You will see there isn't one here but that doesn't
+## stop it trying to automatically specify one and giving an error
+
 # resource "aws_lb_listener" "aztec-node-1-tcp-listener" {
 #   load_balancer_arn = data.terraform_remote_state.aztec-network_iac.outputs.nlb_arn
 #   port              = "${var.NODE_1_TCP_PORT}"
@@ -603,7 +612,10 @@ resource "aws_security_group_rule" "allow-node-2-tcp" {
   security_group_id = data.terraform_remote_state.aztec-network_iac.outputs.p2p_security_group_id
 }
 
-## The following has been commented out and setup manually as terraform (or the aws provider version we are using) has a bug
+## Commented out here and setup manually as terraform (or the aws provider version we are using) has a bug
+## NLB listeners can't have a 'weight' property defined. You will see there isn't one here but that doesn't
+## stop it trying to automatically specify one and giving an error
+
 # resource "aws_lb_listener" "aztec-node-2-tcp-listener" {
 #   load_balancer_arn = data.terraform_remote_state.aztec-network_iac.outputs.nlb_arn
 #   port              = "${var.NODE_2_TCP_PORT}"
