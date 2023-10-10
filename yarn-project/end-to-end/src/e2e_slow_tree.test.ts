@@ -1,4 +1,4 @@
-import { CheatCodes, Fr, Wallet, sleep } from '@aztec/aztec.js';
+import { CheatCodes, Fr, Wallet } from '@aztec/aztec.js';
 import { CircuitsWasm } from '@aztec/circuits.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { Pedersen, SparseTree, newTree } from '@aztec/merkle-tree';
