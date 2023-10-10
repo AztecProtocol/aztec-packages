@@ -106,6 +106,7 @@ void AcirComposer::load_verification_key(proof_system::plonk::verification_key_d
 {
     verification_key_ = std::make_shared<proof_system::plonk::verification_key>(
         std::move(data), srs::get_crs_factory()->get_verifier_crs());
+    composer_ = acir_format::Composer(proving_key_, verification_key_);
 }
 
 bool AcirComposer::verify_proof(std::vector<uint8_t> const& proof, bool is_recursive)
