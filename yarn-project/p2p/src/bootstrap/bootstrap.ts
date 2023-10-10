@@ -61,7 +61,7 @@ export class BootstrapNode {
       // The autonat service seems quite problematic in that using it seems to cause a lot of attempts
       // to dial ephemeral ports. I suspect that it works better if you can get the uPNPnat service to
       // work as then you would have a permanent port to be dialled.
-      // Alas, I struggled to get this to work reliablyeither.
+      // Alas, I struggled to get this to work reliably either.
       // autoNAT: autoNATService({
       //   protocolPrefix: 'aztec',
       // }),

@@ -185,7 +185,10 @@ export class LibP2PService implements P2PService {
     // The autonat service seems quite problematic in that using it seems to cause a lot of attempts
     // to dial ephemeral ports. I suspect that it works better if you can get the uPNPnat service to
     // work as then you would have a permanent port to be dialled.
-    // Alas, I struggled to get this to work reliably either.
+    // Alas, I struggled to get this to work reliably either. I find there is a race between the
+    // service that reads our listener addresses and the uPnP service.
+    // The result being the uPnP service can't find an address to use for the port forward.
+    // Need to investigate further.
     // if (enableNat) {
     //   services.autoNAT = autoNATService({
     //     protocolPrefix: 'aztec',
