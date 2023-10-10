@@ -74,5 +74,5 @@ COPY --from=circuits /usr/src/circuits/cpp/build-wasm/bin /usr/src/circuits/cpp/
 COPY --from=circuits /usr/src/barretenberg/cpp/srs_db/download_ignition.sh /usr/src/barretenberg/cpp/srs_db/download_ignition.sh
 
 # Generate L1 contract TypeScript artifacts.
-COPY --from=contracts /usr/src/l1-contracts/out /usr/src/l1-contracts/out
+COPY --from=contracts /usr/src/l1-contracts /usr/src/l1-contracts
 RUN cd l1-artifacts && ./scripts/generate-artifacts.sh
