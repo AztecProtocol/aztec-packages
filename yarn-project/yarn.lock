@@ -727,6 +727,10 @@ __metadata:
     ts-node: ^10.9.1
     tslib: ^2.4.0
     typescript: ^5.0.4
+  bin:
+    bench-aggregate: ./dest/bin/bench-aggregate.js
+    bench-comment: ./dest/bin/bench-comment.js
+    bench-markdown: ./dest/bin/bench-markdown.js
   languageName: unknown
   linkType: soft
 
