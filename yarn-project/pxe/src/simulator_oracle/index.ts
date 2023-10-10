@@ -1,4 +1,4 @@
-import { DBOracle, FunctionAbiWithDebugMetadata, MessageLoadOracleInputs } from '@aztec/acir-simulator';
+import { DBOracle, FunctionArtifactWithDebugMetadata, MessageLoadOracleInputs } from '@aztec/acir-simulator';
 import {
   AztecAddress,
   CompleteAddress,
@@ -60,10 +60,10 @@ export class SimulatorOracle implements DBOracle {
     );
   }
 
-  async getFunctionABI(
+  async getFunctionArtifact(
     contractAddress: AztecAddress,
     selector: FunctionSelector,
-  ): Promise<FunctionAbiWithDebugMetadata> {
+  ): Promise<FunctionArtifactWithDebugMetadata> {
     const abi = await this.contractDataOracle.getFunctionAbi(contractAddress, selector);
     const debug = await this.contractDataOracle.getFunctionDebugMetadata(contractAddress, selector);
     return {

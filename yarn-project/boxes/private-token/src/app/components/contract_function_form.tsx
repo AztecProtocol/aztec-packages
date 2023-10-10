@@ -62,12 +62,12 @@ function generateYupSchema(functionAbi: FunctionArtifact, defaultAddress: string
 
 async function handleFunctionCall(
   contractAddress: AztecAddress | undefined,
-  contractAbi: ContractArtifact,
+  artifact: ContractArtifact,
   functionName: string,
   args: any,
   wallet: CompleteAddress,
 ) {
-  const functionAbi = contractAbi.functions.find(f => f.name === functionName)!;
+  const functionAbi = artifact.functions.find(f => f.name === functionName)!;
   const typedArgs: any[] = convertArgs(functionAbi, args);
 
   if (functionName === 'constructor' && !!wallet) {
@@ -80,13 +80,13 @@ async function handleFunctionCall(
     // for now, dont let user change the salt.  requires some change to the form generation if we want to let user choose one
     // since everything is currently based on parsing the contractABI, and the salt parameter is not present there
     const salt = Fr.random();
-    return await deployContract(wallet, contractAbi, typedArgs, salt, pxe);
+    return await deployContract(wallet, artifact, typedArgs, salt, pxe);
   }
 
   if (functionAbi.functionType === 'unconstrained') {
-    return await viewContractFunction(contractAddress!, contractAbi, functionName, typedArgs, pxe, wallet);
+    return await viewContractFunction(contractAddress!, artifact, functionName, typedArgs, pxe, wallet);
   } else {
-    const txnReceipt = await callContractFunction(contractAddress!, contractAbi, functionName, typedArgs, pxe, wallet);
+    const txnReceipt = await callContractFunction(contractAddress!, artifact, functionName, typedArgs, pxe, wallet);
     return `Transaction ${txnReceipt.status} on block number ${txnReceipt.blockNumber}`;
   }
 }
@@ -94,7 +94,7 @@ async function handleFunctionCall(
 interface ContractFunctionFormProps {
   wallet: CompleteAddress;
   contractAddress?: AztecAddress;
-  contractAbi: ContractArtifact;
+  artifact: ContractArtifact;
   functionAbi: FunctionArtifact;
   defaultAddress: string;
   title?: string;
@@ -109,7 +109,7 @@ interface ContractFunctionFormProps {
 export function ContractFunctionForm({
   wallet,
   contractAddress,
-  contractAbi,
+  artifact: contractAbi,
   functionAbi,
   defaultAddress,
   buttonText = 'Submit',

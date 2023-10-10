@@ -43,13 +43,13 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
   constructor(
     private publicKey: PublicKey,
     protected pxe: PXE,
-    private abi: ContractArtifact,
+    private artifact: ContractArtifact,
     private args: any[] = [],
   ) {
     super(pxe);
-    const constructorAbi = abi.functions.find(f => f.name === 'constructor');
-    if (!constructorAbi) throw new Error('Cannot find constructor in the ABI.');
-    this.constructorAbi = constructorAbi;
+    const constructorArtifact = artifact.functions.find(f => f.name === 'constructor');
+    if (!constructorArtifact) throw new Error('Cannot find constructor in the artifact.');
+    this.constructorAbi = constructorArtifact;
   }
 
   /**
@@ -68,7 +68,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     const { chainId, protocolVersion } = await this.pxe.getNodeInfo();
 
     const { completeAddress, constructorHash, functionTreeRoot } = await getContractDeploymentInfo(
-      this.abi,
+      this.artifact,
       this.args,
       contractAddressSalt,
       this.publicKey,
@@ -108,7 +108,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     this.completeAddress = completeAddress;
 
     // TODO: Should we add the contracts to the DB here, or once the tx has been sent or mined?
-    await this.pxe.addContracts([{ artifact: this.abi, completeAddress, portalContract }]);
+    await this.pxe.addContracts([{ artifact: this.artifact, completeAddress, portalContract }]);
 
     return this.txRequest;
   }
@@ -123,7 +123,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    */
   public send(options: DeployOptions = {}): DeploySentTx<TContract> {
     const txHashPromise = super.send(options).getTxHash();
-    return new DeploySentTx(this.abi, this.pxe, txHashPromise);
+    return new DeploySentTx(this.artifact, this.pxe, txHashPromise);
   }
 
   /**

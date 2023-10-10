@@ -11,27 +11,27 @@ type TypeWithoutKind<T> = Omit<{ [key in keyof T]: any }, 'kind'>;
  * Ensures that the ABI has at least one function, a constructor, valid bytecode, and correct parameter types.
  * Throws an error if any inconsistency is detected during the validation process.
  *
- * @param abi - The ContractArtifact object to be validated.
- * @returns A boolean value indicating whether the ABI is valid or not.
+ * @param artifact - The ContractArtifact object to be validated.
+ * @returns A boolean value indicating whether the artifact is valid or not.
  */
-export function abiChecker(abi: ContractArtifact) {
-  if (!abi.functions || abi.functions.length === 0) {
-    throw new Error('ABI has no functions');
+export function abiChecker(artifact: ContractArtifact) {
+  if (!artifact.functions || artifact.functions.length === 0) {
+    throw new Error('artifact has no functions');
   }
 
-  abi.functions.forEach(func => {
+  artifact.functions.forEach(func => {
     if (!('name' in func && typeof func.name === 'string' && func.name.length > 0)) {
-      throw new Error('ABI function has no name');
+      throw new Error('artifact function has no name');
     }
 
     // TODO: implement a better check for bytecode (right now only checks if it's > 0)
     if (!('bytecode' in func && typeof func.bytecode === 'string' && func.bytecode.length > 0)) {
-      throw new Error('ABI function parameter has incorrect bytecode');
+      throw new Error('artifact function parameter has incorrect bytecode');
     }
 
     func.parameters.forEach(param => {
       if (!param.type) {
-        throw new Error('ABI function parameter has no type');
+        throw new Error('artifact function parameter has no type');
       }
 
       abiParameterTypeChecker(param.type);
@@ -39,7 +39,7 @@ export function abiChecker(abi: ContractArtifact) {
   });
 
   // TODO: implement a better check for constructor (right now only checks if it has it or not)
-  if (!abi.functions.find(func => func.name === 'constructor')) {
+  if (!artifact.functions.find(func => func.name === 'constructor')) {
     throw new Error('ABI has no constructor');
   }
 

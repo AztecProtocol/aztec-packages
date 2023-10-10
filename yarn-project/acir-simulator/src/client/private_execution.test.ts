@@ -49,7 +49,7 @@ import { MockProxy, mock } from 'jest-mock-extended';
 import { default as levelup } from 'levelup';
 import { type MemDown, default as memdown } from 'memdown';
 
-import { buildL1ToL2Message, getFunctionAbi } from '../test/utils.js';
+import { buildL1ToL2Message, getFunctionArtifact } from '../test/utils.js';
 import { computeSlotForMapping } from '../utils.js';
 import { DBOracle } from './db_oracle.js';
 import { AcirSimulator } from './simulator.js';
@@ -90,22 +90,22 @@ describe('Private Execution test suite', () => {
   };
 
   const runSimulator = async ({
-    abi,
+    artifact,
     args = [],
     msgSender = AztecAddress.ZERO,
     contractAddress = defaultContractAddress,
     portalContractAddress = EthAddress.ZERO,
     txContext = {},
   }: {
-    abi: FunctionArtifact;
+    artifact: FunctionArtifact;
     msgSender?: AztecAddress;
     contractAddress?: AztecAddress;
     portalContractAddress?: EthAddress;
     args?: any[];
     txContext?: Partial<FieldsOf<TxContext>>;
   }) => {
-    const packedArguments = await PackedArguments.fromArgs(encodeArguments(abi, args), circuitsWasm);
-    const functionData = FunctionData.fromAbi(abi);
+    const packedArguments = await PackedArguments.fromArgs(encodeArguments(artifact, args), circuitsWasm);
+    const functionData = FunctionData.fromAbi(artifact);
     const txRequest = TxExecutionRequest.from({
       origin: contractAddress,
       argsHash: packedArguments.hash,
@@ -117,7 +117,7 @@ describe('Private Execution test suite', () => {
 
     return acirSimulator.run(
       txRequest,
-      abi,
+      artifact,
       functionData.isConstructor ? AztecAddress.ZERO : contractAddress,
       portalContractAddress,
       msgSender,
@@ -179,10 +179,10 @@ describe('Private Execution test suite', () => {
 
   describe('empty constructor', () => {
     it('should run the empty constructor', async () => {
-      const abi = getFunctionAbi(TestContractArtifact, 'constructor');
+      const artifact = getFunctionArtifact(TestContractArtifact, 'constructor');
       const contractDeploymentData = makeContractDeploymentData(100);
       const txContext = { isContractDeploymentTx: true, contractDeploymentData };
-      const result = await runSimulator({ abi, txContext });
+      const result = await runSimulator({ artifact, txContext });
 
       const emptyCommitments = new Array(MAX_NEW_COMMITMENTS_PER_CALL).fill(Fr.ZERO);
       expect(result.callStackItem.publicInputs.newCommitments).toEqual(emptyCommitments);
@@ -226,7 +226,7 @@ describe('Private Execution test suite', () => {
         throw new Error(`Unknown address ${address}`);
       });
 
-      oracle.getFunctionABI.mockImplementation((_, selector) =>
+      oracle.getFunctionArtifact.mockImplementation((_, selector) =>
         Promise.resolve(
           PrivateTokenAirdropContractArtifact.functions.find(f =>
             selector.equals(FunctionSelector.fromNameAndParameters(f.name, f.parameters)),
@@ -262,9 +262,9 @@ describe('Private Execution test suite', () => {
     });
 
     it('should a constructor with arguments that inserts notes', async () => {
-      const abi = getFunctionAbi(PrivateTokenAirdropContractArtifact, 'constructor');
+      const artifact = getFunctionArtifact(PrivateTokenAirdropContractArtifact, 'constructor');
 
-      const result = await runSimulator({ args: [140, owner], abi });
+      const result = await runSimulator({ args: [140, owner], artifact });
 
       expect(result.newNotes).toHaveLength(1);
       const newNote = result.newNotes[0];
@@ -280,9 +280,9 @@ describe('Private Execution test suite', () => {
     });
 
     it('should run the mint function', async () => {
-      const abi = getFunctionAbi(PrivateTokenAirdropContractArtifact, 'mint');
+      const artifact = getFunctionArtifact(PrivateTokenAirdropContractArtifact, 'mint');
 
-      const result = await runSimulator({ args: [140, owner], abi });
+      const result = await runSimulator({ args: [140, owner], artifact });
 
       expect(result.newNotes).toHaveLength(1);
       const newNote = result.newNotes[0];
@@ -299,7 +299,7 @@ describe('Private Execution test suite', () => {
 
     it('should run the transfer function', async () => {
       const amountToTransfer = 100n;
-      const abi = getFunctionAbi(PrivateTokenAirdropContractArtifact, 'transfer');
+      const artifact = getFunctionArtifact(PrivateTokenAirdropContractArtifact, 'transfer');
 
       const storageSlot = computeSlotForMapping(new Fr(1n), owner.toField(), circuitsWasm);
       const recipientStorageSlot = computeSlotForMapping(new Fr(1n), recipient.toField(), circuitsWasm);
@@ -313,7 +313,7 @@ describe('Private Execution test suite', () => {
       await insertLeaves(consumedNotes.map(n => n.siloedNoteHash));
 
       const args = [amountToTransfer, recipient];
-      const result = await runSimulator({ args, abi, msgSender: owner });
+      const result = await runSimulator({ args, artifact, msgSender: owner });
 
       // The two notes were nullified
       const newNullifiers = result.callStackItem.publicInputs.newNullifiers.filter(field => !field.equals(Fr.ZERO));
@@ -346,7 +346,7 @@ describe('Private Execution test suite', () => {
     it('should be able to transfer with dummy notes', async () => {
       const amountToTransfer = 100n;
       const balance = 160n;
-      const abi = getFunctionAbi(PrivateTokenAirdropContractArtifact, 'transfer');
+      const artifact = getFunctionArtifact(PrivateTokenAirdropContractArtifact, 'transfer');
 
       const storageSlot = computeSlotForMapping(new Fr(1n), owner.toField(), circuitsWasm);
 
@@ -359,7 +359,7 @@ describe('Private Execution test suite', () => {
       await insertLeaves(consumedNotes.map(n => n.siloedNoteHash));
 
       const args = [amountToTransfer, recipient];
-      const result = await runSimulator({ args, abi, msgSender: owner });
+      const result = await runSimulator({ args, artifact, msgSender: owner });
 
       const newNullifiers = result.callStackItem.publicInputs.newNullifiers.filter(field => !field.equals(Fr.ZERO));
       expect(newNullifiers).toEqual(consumedNotes.map(n => n.innerNullifier));
@@ -407,7 +407,7 @@ describe('Private Execution test suite', () => {
         throw new Error(`Unknown address ${address}`);
       });
 
-      oracle.getFunctionABI.mockImplementation((_, selector) =>
+      oracle.getFunctionArtifact.mockImplementation((_, selector) =>
         Promise.resolve(
           StatefulTestContractArtifact.functions.find(f =>
             selector.equals(FunctionSelector.fromNameAndParameters(f.name, f.parameters)),
@@ -443,9 +443,9 @@ describe('Private Execution test suite', () => {
     });
 
     it('should a constructor with arguments that inserts notes', async () => {
-      const abi = getFunctionAbi(StatefulTestContractArtifact, 'constructor');
+      const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'constructor');
 
-      const result = await runSimulator({ args: [owner, 140], abi });
+      const result = await runSimulator({ args: [owner, 140], artifact });
 
       expect(result.newNotes).toHaveLength(1);
       const newNote = result.newNotes[0];
@@ -461,9 +461,9 @@ describe('Private Execution test suite', () => {
     });
 
     it('should run the create_note function', async () => {
-      const abi = getFunctionAbi(StatefulTestContractArtifact, 'create_note');
+      const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'create_note');
 
-      const result = await runSimulator({ args: [owner, 140], abi });
+      const result = await runSimulator({ args: [owner, 140], artifact });
 
       expect(result.newNotes).toHaveLength(1);
       const newNote = result.newNotes[0];
@@ -480,7 +480,7 @@ describe('Private Execution test suite', () => {
 
     it('should run the destroy_and_create function', async () => {
       const amountToTransfer = 100n;
-      const abi = getFunctionAbi(StatefulTestContractArtifact, 'destroy_and_create');
+      const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'destroy_and_create');
 
       const storageSlot = computeSlotForMapping(new Fr(1n), owner.toField(), circuitsWasm);
       const recipientStorageSlot = computeSlotForMapping(new Fr(1n), recipient.toField(), circuitsWasm);
@@ -494,7 +494,7 @@ describe('Private Execution test suite', () => {
       await insertLeaves(consumedNotes.map(n => n.siloedNoteHash));
 
       const args = [recipient, amountToTransfer];
-      const result = await runSimulator({ args, abi, msgSender: owner });
+      const result = await runSimulator({ args, artifact, msgSender: owner });
 
       // The two notes were nullified
       const newNullifiers = result.callStackItem.publicInputs.newNullifiers.filter(field => !field.equals(Fr.ZERO));
@@ -527,7 +527,7 @@ describe('Private Execution test suite', () => {
     it('should be able to destroy_and_create with dummy notes', async () => {
       const amountToTransfer = 100n;
       const balance = 160n;
-      const abi = getFunctionAbi(StatefulTestContractArtifact, 'destroy_and_create');
+      const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'destroy_and_create');
 
       const storageSlot = computeSlotForMapping(new Fr(1n), owner.toField(), circuitsWasm);
 
@@ -540,7 +540,7 @@ describe('Private Execution test suite', () => {
       await insertLeaves(consumedNotes.map(n => n.siloedNoteHash));
 
       const args = [recipient, amountToTransfer];
-      const result = await runSimulator({ args, abi, msgSender: owner });
+      const result = await runSimulator({ args, artifact, msgSender: owner });
 
       const newNullifiers = result.callStackItem.publicInputs.newNullifiers.filter(field => !field.equals(Fr.ZERO));
       expect(newNullifiers).toEqual(consumedNotes.map(n => n.innerNullifier));
@@ -557,30 +557,30 @@ describe('Private Execution test suite', () => {
 
     it('child function should be callable', async () => {
       const initialValue = 100n;
-      const abi = getFunctionAbi(ChildContractArtifact, 'value');
-      const result = await runSimulator({ args: [initialValue], abi });
+      const artifact = getFunctionArtifact(ChildContractArtifact, 'value');
+      const result = await runSimulator({ args: [initialValue], artifact });
 
       expect(result.callStackItem.publicInputs.returnValues[0]).toEqual(new Fr(initialValue + privateIncrement));
     });
 
     it('parent should call child', async () => {
-      const childAbi = getFunctionAbi(ChildContractArtifact, 'value');
-      const parentAbi = getFunctionAbi(ParentContractArtifact, 'entryPoint');
+      const childArtifact = getFunctionArtifact(ChildContractArtifact, 'value');
+      const parentArtifact = getFunctionArtifact(ParentContractArtifact, 'entryPoint');
       const parentAddress = AztecAddress.random();
       const childAddress = AztecAddress.random();
-      const childSelector = FunctionSelector.fromNameAndParameters(childAbi.name, childAbi.parameters);
+      const childSelector = FunctionSelector.fromNameAndParameters(childArtifact.name, childArtifact.parameters);
 
-      oracle.getFunctionABI.mockImplementation(() => Promise.resolve(childAbi));
+      oracle.getFunctionArtifact.mockImplementation(() => Promise.resolve(childArtifact));
       oracle.getPortalContractAddress.mockImplementation(() => Promise.resolve(EthAddress.ZERO));
 
       logger(`Parent deployed at ${parentAddress.toShortString()}`);
       logger(`Calling child function ${childSelector.toString()} at ${childAddress.toShortString()}`);
 
       const args = [Fr.fromBuffer(childAddress.toBuffer()), Fr.fromBuffer(childSelector.toBuffer())];
-      const result = await runSimulator({ args, abi: parentAbi });
+      const result = await runSimulator({ args, artifact: parentArtifact });
 
       expect(result.callStackItem.publicInputs.returnValues[0]).toEqual(new Fr(privateIncrement));
-      expect(oracle.getFunctionABI.mock.calls[0]).toEqual([childAddress, childSelector]);
+      expect(oracle.getFunctionArtifact.mock.calls[0]).toEqual([childAddress, childSelector]);
       expect(oracle.getPortalContractAddress.mock.calls[0]).toEqual([childAddress]);
       expect(result.nestedExecutions).toHaveLength(1);
       expect(result.nestedExecutions[0].callStackItem.publicInputs.returnValues[0]).toEqual(new Fr(privateIncrement));
@@ -595,42 +595,42 @@ describe('Private Execution test suite', () => {
   describe('nested calls through autogenerated interface', () => {
     let args: any[];
     let argsHash: Fr;
-    let testCodeGenAbi: FunctionArtifact;
+    let testCodeGenArtifact: FunctionArtifact;
 
     beforeAll(async () => {
       // These args should match the ones hardcoded in importer contract
       const dummyNote = { amount: 1, secretHash: 2 };
       const deepStruct = { aField: 1, aBool: true, aNote: dummyNote, manyNotes: [dummyNote, dummyNote, dummyNote] };
       args = [1, true, 1, [1, 2], dummyNote, deepStruct];
-      testCodeGenAbi = TestContractArtifact.functions.find(f => f.name === 'testCodeGen')!;
-      const serializedArgs = encodeArguments(testCodeGenAbi, args);
+      testCodeGenArtifact = TestContractArtifact.functions.find(f => f.name === 'testCodeGen')!;
+      const serializedArgs = encodeArguments(testCodeGenArtifact, args);
       argsHash = await computeVarArgsHash(await CircuitsWasm.get(), serializedArgs);
     });
 
     it('test function should be directly callable', async () => {
       logger(`Calling testCodeGen function`);
-      const result = await runSimulator({ args, abi: testCodeGenAbi });
+      const result = await runSimulator({ args, artifact: testCodeGenArtifact });
 
       expect(result.callStackItem.publicInputs.returnValues[0]).toEqual(argsHash);
     });
 
     it('test function should be callable through autogenerated interface', async () => {
       const testAddress = AztecAddress.random();
-      const parentAbi = ImportTestContractArtifact.functions.find(f => f.name === 'main')!;
+      const parentArtifact = ImportTestContractArtifact.functions.find(f => f.name === 'main')!;
       const testCodeGenSelector = FunctionSelector.fromNameAndParameters(
-        testCodeGenAbi.name,
-        testCodeGenAbi.parameters,
+        testCodeGenArtifact.name,
+        testCodeGenArtifact.parameters,
       );
 
-      oracle.getFunctionABI.mockResolvedValue(testCodeGenAbi);
+      oracle.getFunctionArtifact.mockResolvedValue(testCodeGenArtifact);
       oracle.getPortalContractAddress.mockResolvedValue(EthAddress.ZERO);
 
       logger(`Calling importer main function`);
       const args = [testAddress];
-      const result = await runSimulator({ args, abi: parentAbi });
+      const result = await runSimulator({ args, artifact: parentArtifact });
 
       expect(result.callStackItem.publicInputs.returnValues[0]).toEqual(argsHash);
-      expect(oracle.getFunctionABI.mock.calls[0]).toEqual([testAddress, testCodeGenSelector]);
+      expect(oracle.getFunctionArtifact.mock.calls[0]).toEqual([testAddress, testCodeGenSelector]);
       expect(oracle.getPortalContractAddress.mock.calls[0]).toEqual([testAddress]);
       expect(result.nestedExecutions).toHaveLength(1);
       expect(result.nestedExecutions[0].callStackItem.publicInputs.returnValues[0]).toEqual(argsHash);
@@ -649,7 +649,7 @@ describe('Private Execution test suite', () => {
 
     it('Should be able to consume a dummy cross chain message', async () => {
       const bridgedAmount = 100n;
-      const abi = getFunctionAbi(NonNativeTokenContractArtifact, 'mint');
+      const artifact = getFunctionArtifact(NonNativeTokenContractArtifact, 'mint');
 
       const secret = new Fr(1n);
       const canceller = EthAddress.random();
@@ -674,7 +674,7 @@ describe('Private Execution test suite', () => {
       });
 
       const args = [bridgedAmount, recipient, messageKey, secret, canceller.toField()];
-      const result = await runSimulator({ contractAddress, abi, args });
+      const result = await runSimulator({ contractAddress, artifact, args });
 
       // Check a nullifier has been inserted
       const newNullifiers = result.callStackItem.publicInputs.newNullifiers.filter(field => !field.equals(Fr.ZERO));
@@ -683,7 +683,7 @@ describe('Private Execution test suite', () => {
 
     it('Should be able to consume a dummy public to private message', async () => {
       const amount = 100n;
-      const abi = getFunctionAbi(NonNativeTokenContractArtifact, 'redeemShield');
+      const artifact = getFunctionArtifact(NonNativeTokenContractArtifact, 'redeemShield');
 
       const wasm = await CircuitsWasm.get();
       const secret = new Fr(1n);
@@ -706,7 +706,7 @@ describe('Private Execution test suite', () => {
       ]);
 
       const result = await runSimulator({
-        abi,
+        artifact,
         args: [amount, secret, recipient],
       });
 
@@ -723,7 +723,7 @@ describe('Private Execution test suite', () => {
 
   describe('enqueued calls', () => {
     it.each([false, true])('parent should enqueue call to child (internal %p)', async isInternal => {
-      const parentAbi = ParentContractArtifact.functions.find(f => f.name === 'enqueueCallToChild')!;
+      const parentArtifact = ParentContractArtifact.functions.find(f => f.name === 'enqueueCallToChild')!;
       const childContractArtifact = ParentContractArtifact.functions[0];
       const childAddress = AztecAddress.random();
       const childPortalContractAddress = EthAddress.random();
@@ -734,17 +734,17 @@ describe('Private Execution test suite', () => {
       const parentAddress = AztecAddress.random();
 
       oracle.getPortalContractAddress.mockImplementation(() => Promise.resolve(childPortalContractAddress));
-      oracle.getFunctionABI.mockImplementation(() => Promise.resolve({ ...childContractArtifact, isInternal }));
+      oracle.getFunctionArtifact.mockImplementation(() => Promise.resolve({ ...childContractArtifact, isInternal }));
 
       const args = [Fr.fromBuffer(childAddress.toBuffer()), childSelector.toField(), 42n];
       const result = await runSimulator({
         msgSender: parentAddress,
         contractAddress: parentAddress,
-        abi: parentAbi,
+        artifact: parentArtifact,
         args,
       });
 
-      // Alter function data (abi) to match the manipulated oracle
+      // Alter function data to match the manipulated oracle
       const functionData = FunctionData.fromAbi(childContractArtifact);
       functionData.isInternal = isInternal;
 
@@ -784,7 +784,7 @@ describe('Private Execution test suite', () => {
     });
 
     beforeEach(() => {
-      oracle.getFunctionABI.mockImplementation((_, selector) =>
+      oracle.getFunctionArtifact.mockImplementation((_, selector) =>
         Promise.resolve(
           PendingCommitmentsContractArtifact.functions.find(f =>
             selector.equals(FunctionSelector.fromNameAndParameters(f.name, f.parameters)),
@@ -799,14 +799,14 @@ describe('Private Execution test suite', () => {
       const amountToTransfer = 100n;
 
       const contractAddress = AztecAddress.random();
-      const abi = PendingCommitmentsContractArtifact.functions.find(
+      const artifact = PendingCommitmentsContractArtifact.functions.find(
         f => f.name === 'test_insert_then_get_then_nullify_flat',
       )!;
 
       const args = [amountToTransfer, owner];
       const result = await runSimulator({
         args: args,
-        abi: abi,
+        artifact: artifact,
         contractAddress,
       });
 
@@ -842,21 +842,26 @@ describe('Private Execution test suite', () => {
       const amountToTransfer = 100n;
 
       const contractAddress = AztecAddress.random();
-      const abi = PendingCommitmentsContractArtifact.functions.find(
+      const artifact = PendingCommitmentsContractArtifact.functions.find(
         f => f.name === 'test_insert_then_get_then_nullify_all_in_nested_calls',
       )!;
-      const insertAbi = PendingCommitmentsContractArtifact.functions.find(f => f.name === 'insert_note')!;
-      const getThenNullifyAbi = PendingCommitmentsContractArtifact.functions.find(
+      const insertArtifact = PendingCommitmentsContractArtifact.functions.find(f => f.name === 'insert_note')!;
+      const getThenNullifyArtifact = PendingCommitmentsContractArtifact.functions.find(
         f => f.name === 'get_then_nullify_note',
       )!;
-      const getZeroAbi = PendingCommitmentsContractArtifact.functions.find(f => f.name === 'get_note_zero_balance')!;
+      const getZeroArtifact = PendingCommitmentsContractArtifact.functions.find(
+        f => f.name === 'get_note_zero_balance',
+      )!;
 
-      const insertFnSelector = FunctionSelector.fromNameAndParameters(insertAbi.name, insertAbi.parameters);
+      const insertFnSelector = FunctionSelector.fromNameAndParameters(insertArtifact.name, insertArtifact.parameters);
       const getThenNullifyFnSelector = FunctionSelector.fromNameAndParameters(
-        getThenNullifyAbi.name,
-        getThenNullifyAbi.parameters,
+        getThenNullifyArtifact.name,
+        getThenNullifyArtifact.parameters,
       );
-      const getZeroFnSelector = FunctionSelector.fromNameAndParameters(getZeroAbi.name, getZeroAbi.parameters);
+      const getZeroFnSelector = FunctionSelector.fromNameAndParameters(
+        getZeroArtifact.name,
+        getZeroArtifact.parameters,
+      );
 
       oracle.getPortalContractAddress.mockImplementation(() => Promise.resolve(EthAddress.ZERO));
 
@@ -869,7 +874,7 @@ describe('Private Execution test suite', () => {
       ];
       const result = await runSimulator({
         args: args,
-        abi: abi,
+        artifact: artifact,
         contractAddress: contractAddress,
       });
 
@@ -915,12 +920,14 @@ describe('Private Execution test suite', () => {
       const amountToTransfer = 100n;
 
       const contractAddress = AztecAddress.random();
-      const abi = PendingCommitmentsContractArtifact.functions.find(f => f.name === 'test_bad_get_then_insert_flat')!;
+      const artifact = PendingCommitmentsContractArtifact.functions.find(
+        f => f.name === 'test_bad_get_then_insert_flat',
+      )!;
 
       const args = [amountToTransfer, owner];
       const result = await runSimulator({
         args: args,
-        abi: abi,
+        artifact: artifact,
         contractAddress,
       });
 
@@ -953,9 +960,9 @@ describe('Private Execution test suite', () => {
 
   describe('get public key', () => {
     it('gets the public key for an address', async () => {
-      // Tweak the contract ABI so we can extract return values
-      const abi = getFunctionAbi(TestContractArtifact, 'getPublicKey');
-      abi.returnTypes = [{ kind: 'array', length: 2, type: { kind: 'field' } }];
+      // Tweak the contract ARTIFACT so we can extract return values
+      const artifact = getFunctionArtifact(TestContractArtifact, 'getPublicKey');
+      artifact.returnTypes = [{ kind: 'array', length: 2, type: { kind: 'field' } }];
 
       // Generate a partial address, pubkey, and resulting address
       const completeAddress = await CompleteAddress.random();
@@ -963,7 +970,7 @@ describe('Private Execution test suite', () => {
       const pubKey = completeAddress.publicKey;
 
       oracle.getCompleteAddress.mockResolvedValue(completeAddress);
-      const result = await runSimulator({ abi, args });
+      const result = await runSimulator({ artifact, args });
       expect(result.returnValues).toEqual([pubKey.x.value, pubKey.y.value]);
     });
   });
@@ -973,39 +980,39 @@ describe('Private Execution test suite', () => {
       const portalContractAddress = EthAddress.random();
       const aztecAddressToQuery = AztecAddress.random();
 
-      // Tweak the contract ABI so we can extract return values
-      const abi = getFunctionAbi(TestContractArtifact, 'getPortalContractAddress');
-      abi.returnTypes = [{ kind: 'field' }];
+      // Tweak the contract ARTIFACT so we can extract return values
+      const artifact = getFunctionArtifact(TestContractArtifact, 'getPortalContractAddress');
+      artifact.returnTypes = [{ kind: 'field' }];
 
       const args = [aztecAddressToQuery.toField()];
 
       // Overwrite the oracle return value
       oracle.getPortalContractAddress.mockResolvedValue(portalContractAddress);
-      const result = await runSimulator({ abi, args });
+      const result = await runSimulator({ artifact, args });
       expect(result.returnValues).toEqual(portalContractAddress.toField().value);
     });
 
     it('this_address should return the current context address', async () => {
       const contractAddress = AztecAddress.random();
 
-      // Tweak the contract ABI so we can extract return values
-      const abi = getFunctionAbi(TestContractArtifact, 'getThisAddress');
-      abi.returnTypes = [{ kind: 'field' }];
+      // Tweak the contract ARTIFACT so we can extract return values
+      const artifact = getFunctionArtifact(TestContractArtifact, 'getThisAddress');
+      artifact.returnTypes = [{ kind: 'field' }];
 
       // Overwrite the oracle return value
-      const result = await runSimulator({ abi, args: [], contractAddress });
+      const result = await runSimulator({ artifact, args: [], contractAddress });
       expect(result.returnValues).toEqual(contractAddress.toField().value);
     });
 
     it("this_portal_address should return the current context's portal address", async () => {
       const portalContractAddress = EthAddress.random();
 
-      // Tweak the contract ABI so we can extract return values
-      const abi = getFunctionAbi(TestContractArtifact, 'getThisPortalAddress');
-      abi.returnTypes = [{ kind: 'field' }];
+      // Tweak the contract ARTIFACT so we can extract return values
+      const artifact = getFunctionArtifact(TestContractArtifact, 'getThisPortalAddress');
+      artifact.returnTypes = [{ kind: 'field' }];
 
       // Overwrite the oracle return value
-      const result = await runSimulator({ abi, args: [], portalContractAddress });
+      const result = await runSimulator({ artifact, args: [], portalContractAddress });
       expect(result.returnValues).toEqual(portalContractAddress.toField().value);
     });
   });

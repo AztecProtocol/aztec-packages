@@ -30,12 +30,12 @@ interface ArtifactsType {
 
 /**
  * Helper to get an ABI function or throw error if it doesn't exist.
- * @param abi - Contract's ABI in JSON format.
+ * @param artifact - Contract's build artifact in JSON format.
  * @param fnName - Function name to be found.
  * @returns The function's ABI.
  */
-export function getAbiFunction(abi: ContractArtifact, fnName: string) {
-  const fn = abi.functions.find(({ name }) => name === fnName);
+export function getFunctionArtifact(artifact: ContractArtifact, fnName: string) {
+  const fn = artifact.functions.find(({ name }) => name === fnName);
   if (!fn) {
     throw Error(`Function ${fnName} not found in contract ABI.`);
   }
@@ -112,14 +112,14 @@ export async function getContractArtifact(fileDir: string, log: LogFn) {
   }
 
   // if not found, try reading as path directly
-  let contractAbi: ContractArtifact;
+  let contractArtifact: ContractArtifact;
   try {
-    contractAbi = JSON.parse(contents) as ContractArtifact;
+    contractArtifact = JSON.parse(contents) as ContractArtifact;
   } catch (err) {
     log('Invalid file used. Please try again.');
     throw err;
   }
-  return contractAbi;
+  return contractArtifact;
 }
 
 /**
@@ -158,7 +158,7 @@ export async function getTxSender(pxe: PXE, _from?: string) {
  */
 export async function prepTx(contractFile: string, functionName: string, _functionArgs: string[], log: LogFn) {
   const contractAbi = await getContractArtifact(contractFile, log);
-  const functionAbi = getAbiFunction(contractAbi, functionName);
+  const functionAbi = getFunctionArtifact(contractAbi, functionName);
   const functionArgs = encodeArgs(_functionArgs, functionAbi.parameters);
 
   return { functionArgs, contractAbi };

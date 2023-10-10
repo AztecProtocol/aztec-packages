@@ -4,12 +4,12 @@ import { PXE } from '@aztec/types';
 
 export async function deployContract(
   activeWallet: CompleteAddress,
-  contractAbi: ContractArtifact,
+  contractArtifact: ContractArtifact,
   typedArgs: Fr[], // encode prior to passing in
   salt: Fr,
   pxe: PXE,
 ): Promise<AztecAddress> {
-  const tx = new DeployMethod(activeWallet.publicKey, pxe, contractAbi, typedArgs).send({
+  const tx = new DeployMethod(activeWallet.publicKey, pxe, contractArtifact, typedArgs).send({
     contractAddressSalt: salt,
   });
   await tx.wait();

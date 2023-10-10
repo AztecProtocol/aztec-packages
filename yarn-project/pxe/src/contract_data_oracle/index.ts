@@ -41,7 +41,7 @@ export class ContractDataOracle {
    */
   public async getFunctionAbi(contractAddress: AztecAddress, selector: FunctionSelector) {
     const tree = await this.getTree(contractAddress);
-    return tree.getFunctionAbi(selector);
+    return tree.getFunctionArtifact(selector);
   }
 
   /**

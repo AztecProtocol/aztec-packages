@@ -4,7 +4,7 @@ import { ContractArtifact } from '@aztec/foundation/abi';
 
 // update this if using a different contract
 
-export const contractAbi: ContractArtifact = PrivateTokenContractArtifact;
+export const contractArtifact: ContractArtifact = PrivateTokenContractArtifact;
 
 export const PXE_URL: string = process.env.PXE_URL || 'http://localhost:8080';
 export const pxe: PXE = createPXEClient(PXE_URL);

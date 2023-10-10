@@ -1,10 +1,10 @@
 import { getWallet } from './util.js';
 import { AztecAddress, PXE, CompleteAddress, Contract } from '@aztec/aztec.js';
-import { ContractArtifact } from '@aztec/foundation/abi';
+import { ContractArtifact as artifact } from '@aztec/foundation/abi';
 
 export async function callContractFunction(
   address: AztecAddress,
-  abi: ContractArtifact,
+  abi: artifact,
   functionName: string,
   typedArgs: any[], // for the exposed functions, this is an array of field elements Fr[]
   pxe: PXE,

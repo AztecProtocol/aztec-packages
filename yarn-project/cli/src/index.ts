@@ -27,9 +27,9 @@ import { encodeArgs, parseStructString } from './encoding.js';
 import { unboxContract } from './unbox.js';
 import {
   deployAztecContracts,
-  getAbiFunction,
   getContractArtifact,
   getExampleContractArtifacts,
+  getFunctionArtifact,
   getTxSender,
   parseAztecAddress,
   parseField,
@@ -194,7 +194,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       const client = await createCompatibleClient(rpcUrl, debugLogger);
       const deployer = new ContractDeployer(contractAbi, client, publicKey);
 
-      const constructor = getAbiFunction(contractAbi, 'constructor');
+      const constructor = getFunctionArtifact(contractAbi, 'constructor');
       if (!constructor) throw new Error(`Constructor not found in contract ABI`);
 
       debugLogger(`Input arguments: ${rawArgs.map((x: any) => `"${x}"`).join(', ')}`);
@@ -432,7 +432,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .action(async (functionName, options) => {
       const { functionArgs, contractAbi } = await prepTx(options.contractAbi, functionName, options.args, log);
 
-      const fnAbi = getAbiFunction(contractAbi, functionName);
+      const fnAbi = getFunctionArtifact(contractAbi, functionName);
       if (fnAbi.parameters.length !== options.args.length) {
         throw Error(
           `Invalid number of args passed. Expected ${fnAbi.parameters.length}; Received: ${options.args.length}`,

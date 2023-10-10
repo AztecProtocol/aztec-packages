@@ -4,7 +4,7 @@ import { BlankContractArtifact } from './artifacts/blank.js';
 
 // update this if using a different contract
 
-export const contractAbi: ContractArtifact = BlankContractArtifact;
+export const contractArtifact: ContractArtifact = BlankContractArtifact;
 
 export const PXE_URL: string = process.env.PXE_URL || 'http://localhost:8080';
 export const pxe: PXE = createPXEClient(PXE_URL);
