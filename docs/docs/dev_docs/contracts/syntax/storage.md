@@ -422,18 +422,6 @@ The usage is rather straight-forward and very similar to using the `insert` meth
 
 #include_code insert_from_public /yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
 
-### `assert_contains_and_remove`
-
-This function is used to check existence of a note and then remove it without having read the note ahead of time. This can be useful for cases where the user is providing all the information needed, such as cases where the note was never emitted to the network and thereby available to the wallet.
-
-#include_code assert_contains_and_remove /yarn-project/aztec-nr/aztec/src/state_vars/set.nr rust
-
-<!---
-@LHerskind
-I don't see why this one is actually needed and could not be deprecated down the line.
-Allow insertions into the rpc database and this one can be removed.
--->
-
 ### `assert_contains_and_remove_publicly_created`
 
 Like above, this is used to ensure that the message exists in the data tree and then consume it. However, it differs slightly since there is currently a difference between notes that have been inserted from public and private execution. This means that you currently must use this function to consume and nullify a note that was created in a public function. This will be fixed in the future.
