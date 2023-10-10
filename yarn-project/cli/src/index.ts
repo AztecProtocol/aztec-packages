@@ -153,11 +153,11 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     // `options.wait` is default true. Passing `--no-wait` will set it to false.
     // https://github.com/tj/commander.js#other-option-types-negatable-boolean-and-booleanvalue
     .option('--no-wait', 'Skip waiting for the contract to be deployed. Print the hash of deployment transaction')
-    .action(async ({ rpcUrl, privateKeyOption, wait }) => {
+    .action(async ({ rpcUrl, privateKey, wait }) => {
       const client = await createCompatibleClient(rpcUrl, debugLogger);
-      const privateKey = privateKeyOption ?? GrumpkinScalar.random();
+      const actualPrivateKey = privateKey ?? GrumpkinScalar.random();
 
-      const account = getSchnorrAccount(client, privateKey, privateKey, accountCreationSalt);
+      const account = getSchnorrAccount(client, actualPrivateKey, actualPrivateKey, accountCreationSalt);
       const { address, publicKey, partialAddress } = await account.getCompleteAddress();
       const tx = await account.deploy();
       const txHash = await tx.getTxHash();
@@ -172,7 +172,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       log(`\nNew account:\n`);
       log(`Address:         ${address.toString()}`);
       log(`Public key:      ${publicKey.toString()}`);
-      if (!privateKeyOption) log(`Private key:     ${privateKey.toString(true)}`);
+      if (!privateKey) log(`Private key:     ${actualPrivateKey.toString(true)}`);
       log(`Partial address: ${partialAddress.toString()}`);
     });
 

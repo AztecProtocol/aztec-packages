@@ -1035,6 +1035,17 @@ jobs:
           name: "yarn-project"
           command: yarn-project/deploy_npm.sh
 
+  deploy-ecr:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: medium
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "yarn-project"
+          command: yarn-project/deploy_ecr.sh
+
   deploy-dockerhub:
     machine:
       image: ubuntu-2204:2023.07.2
@@ -1390,6 +1401,10 @@ workflows:
             - e2e-end
           <<: *deploy_defaults
       - deploy-npm:
+          requires:
+            - e2e-end
+          <<: *deploy_defaults
+      - deploy-ecr:
           requires:
             - e2e-end
           <<: *deploy_defaults
