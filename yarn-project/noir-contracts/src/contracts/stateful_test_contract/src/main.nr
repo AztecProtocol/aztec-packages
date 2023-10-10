@@ -19,16 +19,12 @@ contract StatefulTest {
             FieldSerializationMethods, FIELD_SERIALIZED_LEN,
         },
     };
-    use dep::slow_updates_tree::{
-        slow_struct::{SlowStruct, Inner},
-        slow_map::{SlowMap, Leaf, RootObject, Snapshot},
-    };
+    use dep::slow_updates_tree::slow_struct::{SlowStruct, Inner};
 
     struct Storage {
         notes: Map<Set<ValueNote, VALUE_NOTE_LEN>>,
         public_values: Map<PublicState<Field, FIELD_SERIALIZED_LEN>>,
         slow: SlowStruct<Field, FIELD_SERIALIZED_LEN>,
-        slow_map: SlowMap,
     }
 
     impl Storage {
@@ -57,10 +53,6 @@ contract StatefulTest {
                     3,
                     FieldSerializationMethods,
                 ),
-                slow_map: SlowMap::new(
-                    context,
-                    4,
-                ),
             }
         }
     }
@@ -69,38 +61,6 @@ contract StatefulTest {
     fn constructor(owner: Field, value: Field) {
         let loc = storage.notes.at(owner);
         increment(loc, value, owner);
-    }
-
-    #[aztec(public)]
-    fn add_to_whitelist(index: Field, user: Field, merkle_path: [Field; 4]) {
-        // index should be constrained a different way. But this is easy for the test.
-        storage.slow_map.update_at(index, user, merkle_path);
-    }
-
-    #[aztec(public)]
-    fn set_initial_root(root: Field) {
-        storage.slow_map.initialize(root);
-    }
-
-    #[aztec(private)]
-    fn is_on_whitelist(index: Field, user: Field, merkle_path: [Field; 4]) {
-        let root = compute_merkle_root(user, index, merkle_path);
-        let selector = compute_selector("_is_root_matching(Field)");
-        context.call_public_function(context.this_address(), selector, [root]);
-    }
-
-    #[aztec(public)]
-    internal fn _is_root_matching(root: Field) {
-        let expected_root = storage.slow_map.current_snapshot().root;
-        assert(root == expected_root);
-    }
-
-    unconstrained fn read_whitelist_inner() -> RootObject {
-        storage.slow_map.read_inner()
-    }
-
-    unconstrained fn read_leaf_at(index: Field) -> Leaf {
-        storage.slow_map.read_leaf_at(index)
     }
 
     #[aztec(public)]
