@@ -385,7 +385,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .argument('<functionName>', 'Name of function to execute')
     .option('-a, --args [functionArgs...]', 'Function arguments', [])
     .requiredOption(
-      '-c, --contract-abi <fileLocation>',
+      '-c, --contract-artifact <fileLocation>',
       "A compiled Aztec.nr contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts",
     )
     .requiredOption('-ca, --contract-address <address>', 'Aztec address of the contract.', parseAztecAddress)
@@ -423,7 +423,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .argument('<functionName>', 'Name of function to call')
     .option('-a, --args [functionArgs...]', 'Function arguments', [])
     .requiredOption(
-      '-c, --contract-abi <fileLocation>',
+      '-c, --contract-artifact <fileLocation>',
       "A compiled Aztec.nr contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts",
     )
     .requiredOption('-ca, --contract-address <address>', 'Aztec address of the contract.', parseAztecAddress)
@@ -465,7 +465,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .description("Helper for parsing an encoded string into a contract's parameter struct.")
     .argument('<encodedString>', 'The encoded hex string')
     .requiredOption(
-      '-c, --contract-abi <fileLocation>',
+      '-c, --contract-artifact <fileLocation>',
       "A compiled Aztec.nr contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts",
     )
     .requiredOption('-p, --parameter <parameterName>', 'The name of the struct parameter to decode into')

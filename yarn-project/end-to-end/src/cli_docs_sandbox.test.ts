@@ -292,7 +292,7 @@ Contract found at 0x1ae8eea0dc265fb7f160dae62cc8912686d8a9ed78e821fbdd8bcedc54c0
 // docs:start:call
 % aztec-cli call getBalance \
   --args $ADDRESS \
-  --contract-abi PrivateTokenContractArtifact \
+  --contract-artifact PrivateTokenContractArtifact \
   --contract-address $CONTRACT_ADDRESS
 
 View result:  1000000n
@@ -318,7 +318,7 @@ View result:  1000000n
 // docs:start:send
 % aztec-cli send transfer \
   --args 543 $ADDRESS2 \
-  --contract-abi PrivateTokenContractArtifact \
+  --contract-artifact PrivateTokenContractArtifact \
   --contract-address $CONTRACT_ADDRESS \
   --private-key $PRIVATE_KEY
 
