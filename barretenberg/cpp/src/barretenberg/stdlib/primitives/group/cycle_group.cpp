@@ -208,7 +208,7 @@ cycle_group<Composer> cycle_group<Composer>::dbl() const
     auto x3 = lambda_squared - x1 - x1;
     auto y3 = lambda * (x1 - x3) - y1;
     if (is_constant()) {
-        return cycle_group(AffineElement(x3, y3));
+        return cycle_group(x3, y3, is_point_at_infinity().get_value());
     }
     cycle_group result(witness_t(context, x3), witness_t(context, y3), is_point_at_infinity());
     context->create_ecc_dbl_gate(proof_system::ecc_dbl_gate_<FF>{
