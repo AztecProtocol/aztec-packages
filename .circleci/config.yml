@@ -1359,8 +1359,8 @@ workflows:
           <<: *deploy_defaults
       - deploy-npm:
           requires:
-            - e2e-end
-          <<: *deploy_defaults
+            - yarn-project
+          <<: *defaults
 
       - deploy-end:
           requires:
