@@ -54,4 +54,6 @@ WASM_EXPORT void pedersen___buffer_to_field(uint8_t const* data, fr::out_buf r)
     auto output = crypto::pedersen_hash::hash_buffer(to_compress);
     write(r, output);
 }
+
+WASM_EXPORT void pedersen___init() {}
 }
