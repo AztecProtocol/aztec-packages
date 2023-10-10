@@ -38,6 +38,14 @@ variable "BOOTNODE_2_LISTEN_PORT" {
   type = string
 }
 
+variable "BOOTNODE_1_PEER_ID" {
+  type = string
+}
+
+variable "BOOTNODE_2_PEER_ID" {
+  type = string
+}
+
 variable "NODE_1_TCP_PORT" {
   type = string
 }

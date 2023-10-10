@@ -189,7 +189,7 @@ resource "aws_ecs_task_definition" "aztec-node-1" {
       },
       {
         "name": "BOOTSTRAP_NODES",
-        "value": "/dns4/aztec-dev-aztec-bootstrap-2.local/tcp/${var.BOOTNODE_2_LISTEN_PORT}/p2p/16Uiu2HAmKFSy5uJAAkTQ7H58UMMZYpCAS3tfSoqS3fv7edPbZiQ8,/dns4/aztec-dev-aztec-bootstrap-1.local/tcp/${var.BOOTNODE_1_LISTEN_PORT}/p2p/16Uiu2HAmB3pbHurrEoUDSv9cXqUG9hFPA3u8zvLZJfTpRaJKeYot"
+        "value": "/dns4/aztec-dev-aztec-bootstrap-2.local/tcp/${var.BOOTNODE_2_LISTEN_PORT}/p2p/${var.BOOTNODE_2_PEER_ID},/dns4/aztec-dev-aztec-bootstrap-1.local/tcp/${var.BOOTNODE_1_LISTEN_PORT}/p2p/${var.BOOTNODE_1_PEER_ID}"
       },
       {
         "name": "P2P_ENABLED",
@@ -482,7 +482,7 @@ resource "aws_ecs_task_definition" "aztec-node-2" {
       },
       {
         "name": "BOOTSTRAP_NODES",
-        "value": "/dns4/aztec-dev-aztec-bootstrap-2.local/tcp/${var.BOOTNODE_2_LISTEN_PORT}/p2p/16Uiu2HAmKFSy5uJAAkTQ7H58UMMZYpCAS3tfSoqS3fv7edPbZiQ8,/dns4/aztec-dev-aztec-bootstrap-1.local/tcp/${var.BOOTNODE_1_LISTEN_PORT}/p2p/16Uiu2HAmB3pbHurrEoUDSv9cXqUG9hFPA3u8zvLZJfTpRaJKeYot"
+        "value": "/dns4/aztec-dev-aztec-bootstrap-2.local/tcp/${var.BOOTNODE_2_LISTEN_PORT}/p2p/${var.BOOTNODE_2_PEER_ID},/dns4/aztec-dev-aztec-bootstrap-1.local/tcp/${var.BOOTNODE_1_LISTEN_PORT}/p2p/${var.BOOTNODE_1_PEER_ID}"
       },
       {
         "name": "P2P_ENABLED",
