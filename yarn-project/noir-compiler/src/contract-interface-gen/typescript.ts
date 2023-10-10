@@ -63,7 +63,7 @@ function generateMethod(entry: FunctionAbi) {
 function generateDeploy(input: ContractAbi) {
   const ctor = input.functions.find(f => f.name === 'constructor');
   const args = (ctor?.parameters ?? []).map(generateParameter).join(', ');
-  const abiName = `${input.name}ContractAbi`;
+  const abiName = `${input.name}ContractArtifact`;
 
   return `
   /**
@@ -95,7 +95,7 @@ function generateConstructor(name: string) {
     wallet: Wallet,
     portalContract = EthAddress.ZERO
   ) {
-    super(completeAddress, ${name}ContractAbi, wallet, portalContract);
+    super(completeAddress, ${name}ContractArtifact, wallet, portalContract);
   }
   `;
 }
@@ -127,7 +127,7 @@ function generateAt(name: string) {
  * @param name - Name of the contract used to derive name of the ABI import.
  */
 function generateAbiGetter(name: string) {
-  const abiName = `${name}ContractAbi`;
+  const abiName = `${name}ContractArtifact`;
   return `
   /**
    * Returns this contract's ABI.
@@ -146,8 +146,8 @@ function generateAbiGetter(name: string) {
  */
 function generateAbiStatement(name: string, abiImportPath: string) {
   const stmts = [
-    `import ${name}ContractAbiJson from '${abiImportPath}' assert { type: 'json' };`,
-    `export const ${name}ContractAbi = ${name}ContractAbiJson as ContractAbi;`,
+    `import ${name}ContractArtifactJson from '${abiImportPath}' assert { type: 'json' };`,
+    `export const ${name}ContractArtifact = ${name}ContractArtifactJson as ContractAbi;`,
   ];
   return stmts.join('\n');
 }

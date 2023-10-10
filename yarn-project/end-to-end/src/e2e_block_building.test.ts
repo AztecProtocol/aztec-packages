@@ -9,7 +9,7 @@ import {
 import { CircuitsWasm } from '@aztec/circuits.js';
 import { pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
 import { DebugLogger } from '@aztec/foundation/log';
-import { TestContractAbi } from '@aztec/noir-contracts/artifacts';
+import { TestContractArtifact } from '@aztec/noir-contracts/artifacts';
 import { TestContract, TokenContract } from '@aztec/noir-contracts/types';
 import { PXE, TxStatus } from '@aztec/types';
 
@@ -25,7 +25,7 @@ describe('e2e_block_building', () => {
   let teardown: () => Promise<void>;
 
   describe('multi-txs block', () => {
-    const abi = TestContractAbi;
+    const abi = TestContractArtifact;
 
     beforeAll(async () => {
       ({

@@ -2,7 +2,7 @@ import { CompleteAddress, FunctionData, HistoricBlockData } from '@aztec/circuit
 import { FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
-import { StatefulTestContractAbi } from '@aztec/noir-contracts/artifacts';
+import { StatefulTestContractArtifact } from '@aztec/noir-contracts/artifacts';
 import { FunctionCall } from '@aztec/types';
 
 import { mock } from 'jest-mock-extended';
@@ -40,7 +40,7 @@ describe('Unconstrained Execution test suite', () => {
 
     it('should run the summed_values function', async () => {
       const contractAddress = AztecAddress.random();
-      const abi = StatefulTestContractAbi.functions.find(f => f.name === 'summed_values')!;
+      const abi = StatefulTestContractArtifact.functions.find(f => f.name === 'summed_values')!;
 
       const preimages = [...Array(5).fill(buildNote(1n, owner)), ...Array(2).fill(buildNote(2n, owner))];
 

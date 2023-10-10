@@ -32,7 +32,7 @@ write_export() {
     NAME=$(echo $CONTRACT_NAME | perl -pe 's/(^|_)(\w)/\U$2/g')
 
     # artifacts
-    echo "export const ${NAME}ContractAbi = ${NAME}Json as ContractAbi;"  >> "$artifacts_dir/index.ts";
+    echo "export const ${NAME}ContractArtifact = ${NAME}Json as ContractAbi;"  >> "$artifacts_dir/index.ts";
     echo "Written typescript for $NAME"
 
     # types

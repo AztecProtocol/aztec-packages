@@ -33,14 +33,14 @@ import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { AppendOnlyTree, Pedersen, StandardTree, newTree } from '@aztec/merkle-tree';
 import {
-  ChildContractAbi,
-  ImportTestContractAbi,
-  NonNativeTokenContractAbi,
-  ParentContractAbi,
-  PendingCommitmentsContractAbi,
-  PrivateTokenAirdropContractAbi,
-  StatefulTestContractAbi,
-  TestContractAbi,
+  ChildContractArtifact,
+  ImportTestContractArtifact,
+  NonNativeTokenContractArtifact,
+  ParentContractArtifact,
+  PendingCommitmentsContractArtifact,
+  PrivateTokenAirdropContractArtifact,
+  StatefulTestContractArtifact,
+  TestContractArtifact,
 } from '@aztec/noir-contracts/artifacts';
 import { PackedArguments, TxExecutionRequest } from '@aztec/types';
 
@@ -179,7 +179,7 @@ describe('Private Execution test suite', () => {
 
   describe('empty constructor', () => {
     it('should run the empty constructor', async () => {
-      const abi = getFunctionAbi(TestContractAbi, 'constructor');
+      const abi = getFunctionAbi(TestContractArtifact, 'constructor');
       const contractDeploymentData = makeContractDeploymentData(100);
       const txContext = { isContractDeploymentTx: true, contractDeploymentData };
       const result = await runSimulator({ abi, txContext });
@@ -228,7 +228,7 @@ describe('Private Execution test suite', () => {
 
       oracle.getFunctionABI.mockImplementation((_, selector) =>
         Promise.resolve(
-          PrivateTokenAirdropContractAbi.functions.find(f =>
+          PrivateTokenAirdropContractArtifact.functions.find(f =>
             selector.equals(FunctionSelector.fromNameAndParameters(f.name, f.parameters)),
           )!,
         ),
@@ -262,7 +262,7 @@ describe('Private Execution test suite', () => {
     });
 
     it('should a constructor with arguments that inserts notes', async () => {
-      const abi = getFunctionAbi(PrivateTokenAirdropContractAbi, 'constructor');
+      const abi = getFunctionAbi(PrivateTokenAirdropContractArtifact, 'constructor');
 
       const result = await runSimulator({ args: [140, owner], abi });
 
@@ -280,7 +280,7 @@ describe('Private Execution test suite', () => {
     });
 
     it('should run the mint function', async () => {
-      const abi = getFunctionAbi(PrivateTokenAirdropContractAbi, 'mint');
+      const abi = getFunctionAbi(PrivateTokenAirdropContractArtifact, 'mint');
 
       const result = await runSimulator({ args: [140, owner], abi });
 
@@ -299,7 +299,7 @@ describe('Private Execution test suite', () => {
 
     it('should run the transfer function', async () => {
       const amountToTransfer = 100n;
-      const abi = getFunctionAbi(PrivateTokenAirdropContractAbi, 'transfer');
+      const abi = getFunctionAbi(PrivateTokenAirdropContractArtifact, 'transfer');
 
       const storageSlot = computeSlotForMapping(new Fr(1n), owner.toField(), circuitsWasm);
       const recipientStorageSlot = computeSlotForMapping(new Fr(1n), recipient.toField(), circuitsWasm);
@@ -346,7 +346,7 @@ describe('Private Execution test suite', () => {
     it('should be able to transfer with dummy notes', async () => {
       const amountToTransfer = 100n;
       const balance = 160n;
-      const abi = getFunctionAbi(PrivateTokenAirdropContractAbi, 'transfer');
+      const abi = getFunctionAbi(PrivateTokenAirdropContractArtifact, 'transfer');
 
       const storageSlot = computeSlotForMapping(new Fr(1n), owner.toField(), circuitsWasm);
 
@@ -409,7 +409,7 @@ describe('Private Execution test suite', () => {
 
       oracle.getFunctionABI.mockImplementation((_, selector) =>
         Promise.resolve(
-          StatefulTestContractAbi.functions.find(f =>
+          StatefulTestContractArtifact.functions.find(f =>
             selector.equals(FunctionSelector.fromNameAndParameters(f.name, f.parameters)),
           )!,
         ),
@@ -443,7 +443,7 @@ describe('Private Execution test suite', () => {
     });
 
     it('should a constructor with arguments that inserts notes', async () => {
-      const abi = getFunctionAbi(StatefulTestContractAbi, 'constructor');
+      const abi = getFunctionAbi(StatefulTestContractArtifact, 'constructor');
 
       const result = await runSimulator({ args: [owner, 140], abi });
 
@@ -461,7 +461,7 @@ describe('Private Execution test suite', () => {
     });
 
     it('should run the create_note function', async () => {
-      const abi = getFunctionAbi(StatefulTestContractAbi, 'create_note');
+      const abi = getFunctionAbi(StatefulTestContractArtifact, 'create_note');
 
       const result = await runSimulator({ args: [owner, 140], abi });
 
@@ -480,7 +480,7 @@ describe('Private Execution test suite', () => {
 
     it('should run the destroy_and_create function', async () => {
       const amountToTransfer = 100n;
-      const abi = getFunctionAbi(StatefulTestContractAbi, 'destroy_and_create');
+      const abi = getFunctionAbi(StatefulTestContractArtifact, 'destroy_and_create');
 
       const storageSlot = computeSlotForMapping(new Fr(1n), owner.toField(), circuitsWasm);
       const recipientStorageSlot = computeSlotForMapping(new Fr(1n), recipient.toField(), circuitsWasm);
@@ -527,7 +527,7 @@ describe('Private Execution test suite', () => {
     it('should be able to destroy_and_create with dummy notes', async () => {
       const amountToTransfer = 100n;
       const balance = 160n;
-      const abi = getFunctionAbi(StatefulTestContractAbi, 'destroy_and_create');
+      const abi = getFunctionAbi(StatefulTestContractArtifact, 'destroy_and_create');
 
       const storageSlot = computeSlotForMapping(new Fr(1n), owner.toField(), circuitsWasm);
 
@@ -557,15 +557,15 @@ describe('Private Execution test suite', () => {
 
     it('child function should be callable', async () => {
       const initialValue = 100n;
-      const abi = getFunctionAbi(ChildContractAbi, 'value');
+      const abi = getFunctionAbi(ChildContractArtifact, 'value');
       const result = await runSimulator({ args: [initialValue], abi });
 
       expect(result.callStackItem.publicInputs.returnValues[0]).toEqual(new Fr(initialValue + privateIncrement));
     });
 
     it('parent should call child', async () => {
-      const childAbi = getFunctionAbi(ChildContractAbi, 'value');
-      const parentAbi = getFunctionAbi(ParentContractAbi, 'entryPoint');
+      const childAbi = getFunctionAbi(ChildContractArtifact, 'value');
+      const parentAbi = getFunctionAbi(ParentContractArtifact, 'entryPoint');
       const parentAddress = AztecAddress.random();
       const childAddress = AztecAddress.random();
       const childSelector = FunctionSelector.fromNameAndParameters(childAbi.name, childAbi.parameters);
@@ -602,7 +602,7 @@ describe('Private Execution test suite', () => {
       const dummyNote = { amount: 1, secretHash: 2 };
       const deepStruct = { aField: 1, aBool: true, aNote: dummyNote, manyNotes: [dummyNote, dummyNote, dummyNote] };
       args = [1, true, 1, [1, 2], dummyNote, deepStruct];
-      testCodeGenAbi = TestContractAbi.functions.find(f => f.name === 'testCodeGen')!;
+      testCodeGenAbi = TestContractArtifact.functions.find(f => f.name === 'testCodeGen')!;
       const serializedArgs = encodeArguments(testCodeGenAbi, args);
       argsHash = await computeVarArgsHash(await CircuitsWasm.get(), serializedArgs);
     });
@@ -616,7 +616,7 @@ describe('Private Execution test suite', () => {
 
     it('test function should be callable through autogenerated interface', async () => {
       const testAddress = AztecAddress.random();
-      const parentAbi = ImportTestContractAbi.functions.find(f => f.name === 'main')!;
+      const parentAbi = ImportTestContractArtifact.functions.find(f => f.name === 'main')!;
       const testCodeGenSelector = FunctionSelector.fromNameAndParameters(
         testCodeGenAbi.name,
         testCodeGenAbi.parameters,
@@ -649,7 +649,7 @@ describe('Private Execution test suite', () => {
 
     it('Should be able to consume a dummy cross chain message', async () => {
       const bridgedAmount = 100n;
-      const abi = getFunctionAbi(NonNativeTokenContractAbi, 'mint');
+      const abi = getFunctionAbi(NonNativeTokenContractArtifact, 'mint');
 
       const secret = new Fr(1n);
       const canceller = EthAddress.random();
@@ -683,7 +683,7 @@ describe('Private Execution test suite', () => {
 
     it('Should be able to consume a dummy public to private message', async () => {
       const amount = 100n;
-      const abi = getFunctionAbi(NonNativeTokenContractAbi, 'redeemShield');
+      const abi = getFunctionAbi(NonNativeTokenContractArtifact, 'redeemShield');
 
       const wasm = await CircuitsWasm.get();
       const secret = new Fr(1n);
@@ -723,15 +723,18 @@ describe('Private Execution test suite', () => {
 
   describe('enqueued calls', () => {
     it.each([false, true])('parent should enqueue call to child (internal %p)', async isInternal => {
-      const parentAbi = ParentContractAbi.functions.find(f => f.name === 'enqueueCallToChild')!;
-      const childContractAbi = ParentContractAbi.functions[0];
+      const parentAbi = ParentContractArtifact.functions.find(f => f.name === 'enqueueCallToChild')!;
+      const childContractArtifact = ParentContractArtifact.functions[0];
       const childAddress = AztecAddress.random();
       const childPortalContractAddress = EthAddress.random();
-      const childSelector = FunctionSelector.fromNameAndParameters(childContractAbi.name, childContractAbi.parameters);
+      const childSelector = FunctionSelector.fromNameAndParameters(
+        childContractArtifact.name,
+        childContractArtifact.parameters,
+      );
       const parentAddress = AztecAddress.random();
 
       oracle.getPortalContractAddress.mockImplementation(() => Promise.resolve(childPortalContractAddress));
-      oracle.getFunctionABI.mockImplementation(() => Promise.resolve({ ...childContractAbi, isInternal }));
+      oracle.getFunctionABI.mockImplementation(() => Promise.resolve({ ...childContractArtifact, isInternal }));
 
       const args = [Fr.fromBuffer(childAddress.toBuffer()), childSelector.toField(), 42n];
       const result = await runSimulator({
@@ -742,7 +745,7 @@ describe('Private Execution test suite', () => {
       });
 
       // Alter function data (abi) to match the manipulated oracle
-      const functionData = FunctionData.fromAbi(childContractAbi);
+      const functionData = FunctionData.fromAbi(childContractArtifact);
       functionData.isInternal = isInternal;
 
       const publicCallRequest = PublicCallRequest.from({
@@ -783,7 +786,7 @@ describe('Private Execution test suite', () => {
     beforeEach(() => {
       oracle.getFunctionABI.mockImplementation((_, selector) =>
         Promise.resolve(
-          PendingCommitmentsContractAbi.functions.find(f =>
+          PendingCommitmentsContractArtifact.functions.find(f =>
             selector.equals(FunctionSelector.fromNameAndParameters(f.name, f.parameters)),
           )!,
         ),
@@ -796,7 +799,7 @@ describe('Private Execution test suite', () => {
       const amountToTransfer = 100n;
 
       const contractAddress = AztecAddress.random();
-      const abi = PendingCommitmentsContractAbi.functions.find(
+      const abi = PendingCommitmentsContractArtifact.functions.find(
         f => f.name === 'test_insert_then_get_then_nullify_flat',
       )!;
 
@@ -839,12 +842,14 @@ describe('Private Execution test suite', () => {
       const amountToTransfer = 100n;
 
       const contractAddress = AztecAddress.random();
-      const abi = PendingCommitmentsContractAbi.functions.find(
+      const abi = PendingCommitmentsContractArtifact.functions.find(
         f => f.name === 'test_insert_then_get_then_nullify_all_in_nested_calls',
       )!;
-      const insertAbi = PendingCommitmentsContractAbi.functions.find(f => f.name === 'insert_note')!;
-      const getThenNullifyAbi = PendingCommitmentsContractAbi.functions.find(f => f.name === 'get_then_nullify_note')!;
-      const getZeroAbi = PendingCommitmentsContractAbi.functions.find(f => f.name === 'get_note_zero_balance')!;
+      const insertAbi = PendingCommitmentsContractArtifact.functions.find(f => f.name === 'insert_note')!;
+      const getThenNullifyAbi = PendingCommitmentsContractArtifact.functions.find(
+        f => f.name === 'get_then_nullify_note',
+      )!;
+      const getZeroAbi = PendingCommitmentsContractArtifact.functions.find(f => f.name === 'get_note_zero_balance')!;
 
       const insertFnSelector = FunctionSelector.fromNameAndParameters(insertAbi.name, insertAbi.parameters);
       const getThenNullifyFnSelector = FunctionSelector.fromNameAndParameters(
@@ -910,7 +915,7 @@ describe('Private Execution test suite', () => {
       const amountToTransfer = 100n;
 
       const contractAddress = AztecAddress.random();
-      const abi = PendingCommitmentsContractAbi.functions.find(f => f.name === 'test_bad_get_then_insert_flat')!;
+      const abi = PendingCommitmentsContractArtifact.functions.find(f => f.name === 'test_bad_get_then_insert_flat')!;
 
       const args = [amountToTransfer, owner];
       const result = await runSimulator({
@@ -949,7 +954,7 @@ describe('Private Execution test suite', () => {
   describe('get public key', () => {
     it('gets the public key for an address', async () => {
       // Tweak the contract ABI so we can extract return values
-      const abi = getFunctionAbi(TestContractAbi, 'getPublicKey');
+      const abi = getFunctionAbi(TestContractArtifact, 'getPublicKey');
       abi.returnTypes = [{ kind: 'array', length: 2, type: { kind: 'field' } }];
 
       // Generate a partial address, pubkey, and resulting address
@@ -969,7 +974,7 @@ describe('Private Execution test suite', () => {
       const aztecAddressToQuery = AztecAddress.random();
 
       // Tweak the contract ABI so we can extract return values
-      const abi = getFunctionAbi(TestContractAbi, 'getPortalContractAddress');
+      const abi = getFunctionAbi(TestContractArtifact, 'getPortalContractAddress');
       abi.returnTypes = [{ kind: 'field' }];
 
       const args = [aztecAddressToQuery.toField()];
@@ -984,7 +989,7 @@ describe('Private Execution test suite', () => {
       const contractAddress = AztecAddress.random();
 
       // Tweak the contract ABI so we can extract return values
-      const abi = getFunctionAbi(TestContractAbi, 'getThisAddress');
+      const abi = getFunctionAbi(TestContractArtifact, 'getThisAddress');
       abi.returnTypes = [{ kind: 'field' }];
 
       // Overwrite the oracle return value
@@ -996,7 +1001,7 @@ describe('Private Execution test suite', () => {
       const portalContractAddress = EthAddress.random();
 
       // Tweak the contract ABI so we can extract return values
-      const abi = getFunctionAbi(TestContractAbi, 'getThisPortalAddress');
+      const abi = getFunctionAbi(TestContractArtifact, 'getThisPortalAddress');
       abi.returnTypes = [{ kind: 'field' }];
 
       // Overwrite the oracle return value

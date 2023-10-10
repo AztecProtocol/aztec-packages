@@ -169,8 +169,8 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .command('deploy')
     .description('Deploys a compiled Aztec.nr contract to Aztec.')
     .argument(
-      '<abi>',
-      "A compiled Aztec.nr contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts",
+      '<artifact>',
+      "A compiled Aztec.nr contract's artifact in JSON format or name of a contract artifact exported by @aztec/noir-contracts",
     )
     .option('-a, --args <constructorArgs...>', 'Contract constructor arguments', [])
     .addOption(pxeOption)

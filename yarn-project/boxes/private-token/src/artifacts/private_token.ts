@@ -18,15 +18,15 @@ import {
 import { Fr, Point } from '@aztec/foundation/fields';
 import { PXE, PublicKey } from '@aztec/types';
 import { ContractAbi } from '@aztec/foundation/abi';
-import PrivateTokenContractAbiJson from './private_token_contract.json' assert { type: 'json' };
-export const PrivateTokenContractAbi = PrivateTokenContractAbiJson as ContractAbi;
+import PrivateTokenContractArtifactJson from './private_token_contract.json' assert { type: 'json' };
+export const PrivateTokenContractArtifact = PrivateTokenContractArtifactJson as ContractAbi;
 
 /**
  * Type-safe interface for contract PrivateToken;
  */
 export class PrivateTokenContract extends ContractBase {
   private constructor(completeAddress: CompleteAddress, wallet: Wallet, portalContract = EthAddress.ZERO) {
-    super(completeAddress, PrivateTokenContractAbi, wallet, portalContract);
+    super(completeAddress, PrivateTokenContractArtifact, wallet, portalContract);
   }
 
   /**
@@ -46,7 +46,7 @@ export class PrivateTokenContract extends ContractBase {
     return new DeployMethod<PrivateTokenContract>(
       Point.ZERO,
       pxe,
-      PrivateTokenContractAbi,
+      PrivateTokenContractArtifact,
       Array.from(arguments).slice(1),
     );
   }
@@ -58,7 +58,7 @@ export class PrivateTokenContract extends ContractBase {
     return new DeployMethod<PrivateTokenContract>(
       publicKey,
       pxe,
-      PrivateTokenContractAbi,
+      PrivateTokenContractArtifact,
       Array.from(arguments).slice(2),
     );
   }
@@ -67,7 +67,7 @@ export class PrivateTokenContract extends ContractBase {
    * Returns this contract's ABI.
    */
   public static get abi(): ContractAbi {
-    return PrivateTokenContractAbi;
+    return PrivateTokenContractArtifact;
   }
 
   /** Type-safe wrappers for the public methods exposed by the contract. */

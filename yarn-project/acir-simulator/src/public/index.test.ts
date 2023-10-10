@@ -14,11 +14,11 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { toBigInt } from '@aztec/foundation/serialize';
 import {
-  ChildContractAbi,
-  NonNativeTokenContractAbi,
-  ParentContractAbi,
-  PublicTokenContractAbi,
-  TestContractAbi,
+  ChildContractArtifact,
+  NonNativeTokenContractArtifact,
+  ParentContractArtifact,
+  PublicTokenContractArtifact,
+  TestContractArtifact,
 } from '@aztec/noir-contracts/artifacts';
 
 import { MockProxy, mock } from 'jest-mock-extended';
@@ -63,7 +63,7 @@ describe('ACIR public execution simulator', () => {
     describe('mint', () => {
       it('should run the mint function', async () => {
         const contractAddress = AztecAddress.random();
-        const mintAbi = PublicTokenContractAbi.functions.find(f => f.name === 'mint')!;
+        const mintAbi = PublicTokenContractArtifact.functions.find(f => f.name === 'mint')!;
         const functionData = FunctionData.fromAbi(mintAbi);
         const args = encodeArguments(mintAbi, [140, recipient]);
 
@@ -111,7 +111,7 @@ describe('ACIR public execution simulator', () => {
 
       beforeEach(() => {
         contractAddress = AztecAddress.random();
-        abi = PublicTokenContractAbi.functions.find(f => f.name === 'transfer')!;
+        abi = PublicTokenContractArtifact.functions.find(f => f.name === 'transfer')!;
         functionData = new FunctionData(FunctionSelector.empty(), false, false, false);
         args = encodeArguments(abi, [140, recipient]);
         sender = AztecAddress.random();
@@ -202,14 +202,14 @@ describe('ACIR public execution simulator', () => {
       'calls the public entry point in the parent',
       async isInternal => {
         const parentContractAddress = AztecAddress.random();
-        const parentEntryPointFn = ParentContractAbi.functions.find(f => f.name === 'pubEntryPoint')!;
+        const parentEntryPointFn = ParentContractArtifact.functions.find(f => f.name === 'pubEntryPoint')!;
         const parentEntryPointFnSelector = FunctionSelector.fromNameAndParameters(
           parentEntryPointFn.name,
           parentEntryPointFn.parameters,
         );
 
         const childContractAddress = AztecAddress.random();
-        const childValueFn = ChildContractAbi.functions.find(f => f.name === 'pubGetValue')!;
+        const childValueFn = ChildContractArtifact.functions.find(f => f.name === 'pubGetValue')!;
         const childValueFnSelector = FunctionSelector.fromNameAndParameters(childValueFn.name, childValueFn.parameters);
 
         const initialValue = 3n;
@@ -285,7 +285,7 @@ describe('ACIR public execution simulator', () => {
     });
 
     it('Should be able to create a commitment from the public context', async () => {
-      const shieldAbi = NonNativeTokenContractAbi.functions.find(f => f.name === 'shield')!;
+      const shieldAbi = NonNativeTokenContractArtifact.functions.find(f => f.name === 'shield')!;
       const args = encodeArguments(shieldAbi, params);
 
       const callContext = CallContext.from({
@@ -318,7 +318,9 @@ describe('ACIR public execution simulator', () => {
     });
 
     it('Should be able to create a L2 to L1 message from the public context', async () => {
-      const createL2ToL1MessagePublicAbi = TestContractAbi.functions.find(f => f.name === 'createL2ToL1MessagePublic')!;
+      const createL2ToL1MessagePublicAbi = TestContractArtifact.functions.find(
+        f => f.name === 'createL2ToL1MessagePublic',
+      )!;
       const args = encodeArguments(createL2ToL1MessagePublicAbi, params);
 
       const callContext = CallContext.from({
@@ -347,7 +349,7 @@ describe('ACIR public execution simulator', () => {
     });
 
     it('Should be able to consume an Ll to L2 message in the public context', async () => {
-      const mintPublicAbi = NonNativeTokenContractAbi.functions.find(f => f.name === 'mintPublic')!;
+      const mintPublicAbi = NonNativeTokenContractArtifact.functions.find(f => f.name === 'mintPublic')!;
 
       // Set up cross chain message
       const canceller = EthAddress.random();
@@ -403,7 +405,7 @@ describe('ACIR public execution simulator', () => {
     });
 
     it('Should be able to create a nullifier from the public context', async () => {
-      const createNullifierPublicAbi = TestContractAbi.functions.find(f => f.name === 'createNullifierPublic')!;
+      const createNullifierPublicAbi = TestContractArtifact.functions.find(f => f.name === 'createNullifierPublic')!;
 
       const args = encodeArguments(createNullifierPublicAbi, params);
 

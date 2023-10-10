@@ -19,7 +19,7 @@ import TabItem from '@theme/TabItem';
 <TabItem value="cli" label="Aztec CLI">
 
 ```bash
-aztec-cli deploy /path/to/contract/abi.json
+aztec-cli deploy /path/to/contract/artifact.json
 ```
 
 </TabItem>
@@ -54,7 +54,7 @@ There are several optional arguments that can be passed:
 <Tabs groupId="deployment-methods">
 <TabItem value="cli" label="Aztec CLI">
 
-`aztec-cli deploy` takes 1 mandatory argument which is the path to the contract ABI file in a JSON format (e.g. `contracts/target/PrivateToken.json`). Alternatively you can pass the name of an example contract as exported by `@aztec/noir-contracts` (run `aztec-cli example-contracts` to see the full list of contracts available).
+`aztec-cli deploy` takes 1 mandatory argument which is the path to the contract artifact file in a JSON format (e.g. `contracts/target/PrivateToken.json`). Alternatively you can pass the name of an example contract as exported by `@aztec/noir-contracts` (run `aztec-cli example-contracts` to see the full list of contracts available).
 
 The command also takes the following optional arguments:
 - `-args <constructorArgs...>` (default: `[]`): Arguments to pass to the contract constructor.
@@ -128,7 +128,7 @@ Once the recipient is registered we can deploy the contract:
 <TabItem value="cli" label="Aztec CLI">
 
 ```bash
-aztec-cli deploy PrivateTokenContractAbi --args 1000 0x147392a39e593189902458f4303bc6e0a39128c5a1c1612f76527a162d36d529
+aztec-cli deploy PrivateTokenContractArtifact --args 1000 0x147392a39e593189902458f4303bc6e0a39128c5a1c1612f76527a162d36d529
 ```
 
 </TabItem>
@@ -154,7 +154,7 @@ If we pass the salt as an argument:
 <TabItem value="cli" label="Aztec CLI">
 
 ```bash
-aztec-cli deploy PrivateTokenContractAbi --args 1000 0x147392a39e593189902458f4303bc6e0a39128c5a1c1612f76527a162d36d529 --salt 0x123
+aztec-cli deploy PrivateTokenContractArtifact --args 1000 0x147392a39e593189902458f4303bc6e0a39128c5a1c1612f76527a162d36d529 --salt 0x123
 ```
 
 </TabItem>
