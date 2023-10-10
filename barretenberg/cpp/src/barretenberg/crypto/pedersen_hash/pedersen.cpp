@@ -69,7 +69,16 @@ template <typename Curve>
 typename Curve::BaseField pedersen_hash_base<Curve>::hash_buffer(const std::vector<uint8_t>& input,
                                                                  const GeneratorContext context)
 {
-    return hash(convert_buffer(input), context);
+    std::vector<Fq> converted = convert_buffer(input);
+
+    if (converted.size() < 2) {
+        return hash(converted, context);
+    }
+    auto result = hash({ converted[0], converted[1] }, context);
+    for (size_t i = 2; i < converted.size(); ++i) {
+        result = hash({ result, converted[i] }, context);
+    }
+    return result;
 }
 
 template <typename Curve>

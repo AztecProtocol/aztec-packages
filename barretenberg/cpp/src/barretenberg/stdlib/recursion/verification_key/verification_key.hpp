@@ -52,9 +52,31 @@ template <class Builder, size_t bits_per_element = 248> struct PedersenPreimageB
             }
             preimage_data.push_back(field_pt::accumulate(work_element));
         }
+
+        size_t sss = 0;
+        if (context != nullptr) {
+            sss = context->get_num_gates();
+        }
+
         // TODO(@zac-williamson this used to use relaxed range constraints hmm?)
-        return pedersen_hash<Builder>::hash(preimage_data,
-                                            typename crypto::GeneratorContext<curve::Grumpkin>(hash_index));
+        field_t<Builder> hashed = 0;
+        if (preimage_data.size() < 2) {
+            hashed = pedersen_hash<Builder>::hash_skip_field_validation(preimage_data);
+        } else {
+            hashed = pedersen_hash<Builder>::hash_skip_field_validation({ preimage_data[0], preimage_data[1] });
+            for (size_t i = 2; i < preimage_data.size(); ++i) {
+                hashed = pedersen_hash<Builder>::hash_skip_field_validation({ hashed, preimage_data[i] });
+            }
+        }
+        size_t eee = 0;
+        if (context != nullptr) {
+            eee = context->get_num_gates();
+        }
+        if (hash_index == 134) {
+            std::cout << "aaa" << std::endl;
+        }
+        std::cout << "Hash Buffer cost = " << (eee - sss) << std::endl;
+        return hashed;
     }
 
     /**

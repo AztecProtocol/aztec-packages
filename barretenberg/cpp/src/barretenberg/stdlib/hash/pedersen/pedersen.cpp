@@ -47,6 +47,9 @@ field_t<C> pedersen_hash<C>::hash_skip_field_validation(const std::vector<field_
         points.emplace_back(base_points[i]);
     }
 
+    for (auto& x : scalars) {
+        x._skip_primality_test = true;
+    }
     auto result = cycle_group::batch_mul(scalars, points);
     return result.x;
 }
@@ -76,15 +79,28 @@ field_t<C> pedersen_hash<C>::hash_buffer(const stdlib::byte_array<C>& input, Gen
         auto element = static_cast<field_t>(input.slice(i * bytes_per_element, bytes_to_slice));
         elements.emplace_back(element);
     }
-    field_t hashed = hash(elements, context);
-
-    bool_t is_zero(true);
-    for (const auto& element : elements) {
-        is_zero = is_zero && element.is_zero();
+    std::cout << "CIRCUIT BEGIN" << std::endl;
+    for (auto& x : elements) {
+        std::cout << x << std::endl;
+    }
+    std::cout << "CIRCUIT END" << std::endl;
+    field_t hashed;
+    if (elements.size() < 2) {
+        hashed = hash(elements, context);
+    } else {
+        hashed = hash({ elements[0], elements[1] }, context);
+        for (size_t i = 2; i < elements.size(); ++i) {
+            hashed = hash({ hashed, elements[i] }, context);
+        }
     }
 
-    field_t output = field_t::conditional_assign(is_zero, field_t(num_bytes), hashed);
-    return output;
+    // bool_t is_zero(true);
+    // for (const auto& element : elements) {
+    //     is_zero = is_zero && element.is_zero();
+    // }
+
+    // field_t output = field_t::conditional_assign(is_zero, field_t(num_bytes), hashed);
+    return hashed;
 }
 
 template <typename C>
