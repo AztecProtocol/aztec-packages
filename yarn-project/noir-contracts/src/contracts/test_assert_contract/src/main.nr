@@ -1,8 +1,6 @@
 // A contract used in end to end tests
 contract TestAssert {
-    use dep::aztec::{
-        oracle::compute_selector::compute_selector,
-    };
+    use dep::aztec::selector::compute_selector;
 
     #[aztec(private)]
     fn constructor(value: Field) {
