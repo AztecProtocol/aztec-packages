@@ -1,4 +1,4 @@
-import { ContractAbi, DebugMetadata, FunctionAbi, FunctionType } from '@aztec/foundation/abi';
+import { ContractArtifact, DebugMetadata, FunctionArtifact, FunctionType } from '@aztec/foundation/abi';
 
 import { deflate } from 'pako';
 
@@ -10,7 +10,7 @@ import { NoirCompilationArtifacts, NoirFunctionEntry } from '../noir_artifact.js
  * @param fn - Noir function entry.
  * @returns Aztec ABI function entry.
  */
-function generateAbiFunction(fn: NoirFunctionEntry): FunctionAbi {
+function generateAbiFunction(fn: NoirFunctionEntry): FunctionArtifact {
   const functionType = fn.function_type.toLowerCase() as FunctionType;
   const isInternal = fn.is_internal;
 
@@ -37,7 +37,7 @@ function generateAbiFunction(fn: NoirFunctionEntry): FunctionAbi {
  * @param compiled - Noir build output.
  * @returns An Aztec valid ABI.
  */
-export function generateAztecAbi({ contract, debug }: NoirCompilationArtifacts): ContractAbi {
+export function generateAztecAbi({ contract, debug }: NoirCompilationArtifacts): ContractArtifact {
   const originalFunctions = contract.functions;
   // TODO why sort? we should have idempotent compilation so this should not be needed.
   const sortedFunctions = [...contract.functions].sort((fnA, fnB) => fnA.name.localeCompare(fnB.name));

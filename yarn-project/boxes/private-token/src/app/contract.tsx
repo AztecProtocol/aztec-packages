@@ -4,7 +4,7 @@ import { ContractFunctionForm, Popup } from './components/index.js';
 import styles from './contract.module.scss';
 import { Button, ButtonSize, ButtonTheme, Card, CardTheme, ImageButton, ImageButtonIcon } from '@aztec/aztec-ui';
 import { AztecAddress, CompleteAddress } from '@aztec/aztec.js';
-import { FunctionAbi } from '@aztec/foundation/abi';
+import { FunctionArtifact } from '@aztec/foundation/abi';
 import { ReactNode, useState } from 'react';
 
 const functionTypeSortOrder = {
@@ -64,7 +64,7 @@ export function Contract({ wallet }: Props) {
                 )}
               </div>
               <div className={styles.functions}>
-                {functions.map((functionAbi: FunctionAbi, index: number) => (
+                {functions.map((functionAbi: FunctionArtifact, index: number) => (
                   <ImageButton
                     icon={ImageButtonIcon.Wallet}
                     label={functionAbi.name}

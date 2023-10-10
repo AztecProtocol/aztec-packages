@@ -17,16 +17,16 @@ import {
 } from '@aztec/aztec.js';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { PXE, PublicKey } from '@aztec/types';
-import { ContractAbi } from '@aztec/foundation/abi';
-import BlankContractAbiJson from './blank_contract.json' assert { type: 'json' };
-export const BlankContractAbi = BlankContractAbiJson as ContractAbi;
+import { ContractArtifact } from '@aztec/foundation/abi';
+import BlankContractArtifactJson from './blank_contract.json' assert { type: 'json' };
+export const BlankContractArtifact = BlankContractArtifactJson as ContractArtifact;
 
 /**
  * Type-safe interface for contract Blank;
  */
 export class BlankContract extends ContractBase {
   private constructor(completeAddress: CompleteAddress, wallet: Wallet, portalContract = EthAddress.ZERO) {
-    super(completeAddress, BlankContractAbi, wallet, portalContract);
+    super(completeAddress, BlankContractArtifact, wallet, portalContract);
   }
 
   /**
@@ -43,21 +43,21 @@ export class BlankContract extends ContractBase {
    * Creates a tx to deploy a new instance of this contract.
    */
   public static deploy(pxe: PXE) {
-    return new DeployMethod<BlankContract>(Point.ZERO, pxe, BlankContractAbi, Array.from(arguments).slice(1));
+    return new DeployMethod<BlankContract>(Point.ZERO, pxe, BlankContractArtifact, Array.from(arguments).slice(1));
   }
 
   /**
    * Creates a tx to deploy a new instance of this contract using the specified public key to derive the address.
    */
   public static deployWithPublicKey(pxe: PXE, publicKey: PublicKey) {
-    return new DeployMethod<BlankContract>(publicKey, pxe, BlankContractAbi, Array.from(arguments).slice(2));
+    return new DeployMethod<BlankContract>(publicKey, pxe, BlankContractArtifact, Array.from(arguments).slice(2));
   }
 
   /**
    * Returns this contract's ABI.
    */
-  public static get abi(): ContractAbi {
-    return BlankContractAbi;
+  public static get abi(): ContractArtifact {
+    return BlankContractArtifact;
   }
 
   /** Type-safe wrappers for the public methods exposed by the contract. */

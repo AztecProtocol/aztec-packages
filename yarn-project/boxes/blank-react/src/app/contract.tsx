@@ -1,6 +1,6 @@
 import { Button, ButtonSize, ButtonTheme, Card, CardTheme, ImageButton, ImageButtonIcon } from '@aztec/aztec-ui';
 import { AztecAddress, CompleteAddress } from '@aztec/aztec.js';
-import { FunctionAbi } from '@aztec/foundation/abi';
+import { FunctionArtifact } from '@aztec/foundation/abi';
 import { ReactNode, useState } from 'react';
 import { contractAbi } from '../config.js';
 import { Copy } from './components/copy.js';
@@ -64,7 +64,7 @@ export function Contract({ wallet }: Props) {
                 )}
               </div>
               <div className={styles.functions}>
-                {functions.map((functionAbi: FunctionAbi, index: number) => (
+                {functions.map((functionAbi: FunctionArtifact, index: number) => (
                   <ImageButton
                     icon={ImageButtonIcon.Wallet}
                     label={functionAbi.name}

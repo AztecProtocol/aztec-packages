@@ -22,7 +22,7 @@ import {
   computeVarArgsHash,
   hashConstructor,
 } from '@aztec/circuits.js/abis';
-import { ContractAbi, FunctionSelector } from '@aztec/foundation/abi';
+import { ContractArtifact, FunctionSelector } from '@aztec/foundation/abi';
 import { assertLength } from '@aztec/foundation/serialize';
 import { AztecNode, ContractDao, MerkleTreeId, PublicKey, StateInfoProvider } from '@aztec/types';
 
@@ -67,7 +67,7 @@ export class ContractTree {
    * @returns A new ContractTree instance containing the contract data and computed values.
    */
   public static async new(
-    abi: ContractAbi,
+    abi: ContractArtifact,
     args: Fr[],
     portalContract: EthAddress,
     contractAddressSalt: Fr,

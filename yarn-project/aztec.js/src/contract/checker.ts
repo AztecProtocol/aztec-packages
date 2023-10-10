@@ -1,4 +1,4 @@
-import { ABIType, BasicType, ContractAbi, StructType } from '@aztec/foundation/abi';
+import { ABIType, BasicType, ContractArtifact, StructType } from '@aztec/foundation/abi';
 
 /**
  * Represents a type derived from input type T with the 'kind' property removed.
@@ -7,14 +7,14 @@ import { ABIType, BasicType, ContractAbi, StructType } from '@aztec/foundation/a
 type TypeWithoutKind<T> = Omit<{ [key in keyof T]: any }, 'kind'>;
 
 /**
- * Validates the given ContractAbi object by checking its functions and their parameters.
+ * Validates the given ContractArtifact object by checking its functions and their parameters.
  * Ensures that the ABI has at least one function, a constructor, valid bytecode, and correct parameter types.
  * Throws an error if any inconsistency is detected during the validation process.
  *
- * @param abi - The ContractAbi object to be validated.
+ * @param abi - The ContractArtifact object to be validated.
  * @returns A boolean value indicating whether the ABI is valid or not.
  */
-export function abiChecker(abi: ContractAbi) {
+export function abiChecker(abi: ContractArtifact) {
   if (!abi.functions || abi.functions.length === 0) {
     throw new Error('ABI has no functions');
   }

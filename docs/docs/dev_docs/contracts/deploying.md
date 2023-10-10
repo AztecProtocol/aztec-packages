@@ -31,7 +31,7 @@ Pre-requisite - Generate type-safe typescript classes for your contract when com
 import { readFileSync, writeFileSync } from 'fs';
 import { compileUsingNargo, generateTypescriptContractInterface} from '@aztec/noir-compiler';
 
-const compiled: ContractAbi[] = await compileUsingNargo(projectPathToContractFolder);
+const compiled: ContractArtifact[] = await compileUsingNargo(projectPathToContractFolder);
 const abiImportPath = "../target/Example.json";
 writeFileSync(tsInterfaceDestFilePath, generateTypescriptContractInterface(compiled[0], abiImportPath));
 ```

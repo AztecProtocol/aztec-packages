@@ -1,5 +1,5 @@
 import { CompleteAddress, GrumpkinPrivateKey, HistoricBlockData, PublicKey } from '@aztec/circuits.js';
-import { FunctionAbi, FunctionDebugMetadata, FunctionSelector } from '@aztec/foundation/abi';
+import { FunctionArtifact, FunctionDebugMetadata, FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -10,7 +10,7 @@ import { CommitmentsDB } from '../public/index.js';
 /**
  * A function ABI with optional debug metadata
  */
-export interface FunctionAbiWithDebugMetadata extends FunctionAbi {
+export interface FunctionAbiWithDebugMetadata extends FunctionArtifact {
   /**
    * Debug metadata for the function.
    */

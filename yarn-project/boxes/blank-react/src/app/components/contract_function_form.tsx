@@ -1,6 +1,6 @@
 import { Button, Loader } from '@aztec/aztec-ui';
 import { AztecAddress, CompleteAddress, Fr } from '@aztec/aztec.js';
-import { ContractAbi, FunctionAbi } from '@aztec/foundation/abi';
+import { ContractArtifact, FunctionArtifact } from '@aztec/foundation/abi';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import { CONTRACT_ADDRESS_PARAM_NAMES, pxe } from '../../config.js';
@@ -18,7 +18,7 @@ type NoirFunctionFormValues = {
   [key: string]: string | number | number[] | boolean;
 };
 
-function generateYupSchema(functionAbi: FunctionAbi, defaultAddress: string) {
+function generateYupSchema(functionAbi: FunctionArtifact, defaultAddress: string) {
   const parameterSchema: NoirFunctionYupSchema = {};
   const initialValues: NoirFunctionFormValues = {};
   for (const param of functionAbi.parameters) {
@@ -62,7 +62,7 @@ function generateYupSchema(functionAbi: FunctionAbi, defaultAddress: string) {
 
 async function handleFunctionCall(
   contractAddress: AztecAddress | undefined,
-  contractAbi: ContractAbi,
+  contractAbi: ContractArtifact,
   functionName: string,
   args: any,
   wallet: CompleteAddress,
@@ -94,8 +94,8 @@ async function handleFunctionCall(
 interface ContractFunctionFormProps {
   wallet: CompleteAddress;
   contractAddress?: AztecAddress;
-  contractAbi: ContractAbi;
-  functionAbi: FunctionAbi;
+  contractAbi: ContractArtifact;
+  functionAbi: FunctionArtifact;
   defaultAddress: string;
   title?: string;
   buttonText?: string;

@@ -4,7 +4,7 @@ import {
   computeVarArgsHash,
   hashConstructor,
 } from '@aztec/circuits.js/abis';
-import { ContractAbi, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
+import { ContractArtifact, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 
 import { CircuitsWasm, DeploymentInfo, Fr, FunctionData, PublicKey } from '../index.js';
 import { generateFunctionLeaves, hashVKStr, isConstructor } from './contract_tree/contract_tree.js';
@@ -18,7 +18,7 @@ import { generateFunctionLeaves, hashVKStr, isConstructor } from './contract_tre
  * @returns - The contract deployment info
  */
 export async function getContractDeploymentInfo(
-  abi: ContractAbi,
+  abi: ContractArtifact,
   args: any[],
   contractAddressSalt: Fr,
   publicKey: PublicKey,

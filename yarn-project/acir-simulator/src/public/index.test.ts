@@ -8,7 +8,7 @@ import {
   L1_TO_L2_MSG_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
-import { FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
+import { FunctionArtifact, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -100,7 +100,7 @@ describe('ACIR public execution simulator', () => {
 
     describe('transfer', () => {
       let contractAddress: AztecAddress;
-      let artifact: FunctionAbi;
+      let artifact: FunctionArtifact;
       let functionData: FunctionData;
       let args: Fr[];
       let sender: AztecAddress;

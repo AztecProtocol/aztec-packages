@@ -10,10 +10,10 @@ import {
   createPXEClient,
   getSandboxAccountsWallets,
 } from '@aztec/aztec.js';
-import { ContractAbi, FunctionAbi, encodeArguments } from '@aztec/foundation/abi';
+import { ContractArtifact, FunctionArtifact, encodeArguments } from '@aztec/foundation/abi';
 import { FieldsOf } from '@aztec/foundation/types';
-import { BlankContractAbi } from './artifacts/blank.js';
-export const contractAbi: ContractAbi = BlankContractAbi;
+import { BlankContractArtifact } from './artifacts/blank.js';
+export const contractAbi: ContractArtifact = BlankContractArtifact;
 
 export const PXE_URL: string = process.env.PXE_URL || 'http://localhost:8080';
 export const pxe: PXE = createPXEClient(PXE_URL);
@@ -48,7 +48,7 @@ export async function handleDeployClick(): Promise<string> {
 export async function handleInteractClick(contractAddress: string) {
   const [wallet, ..._rest] = await getSandboxAccountsWallets(pxe);
   const callArgs = { address: wallet.getCompleteAddress().address };
-  const getPkAbi = getFunctionAbi(BlankContractAbi, 'getPublicKey');
+  const getPkAbi = getFunctionAbi(BlankContractArtifact, 'getPublicKey');
   const typedArgs = convertArgs(getPkAbi, callArgs);
 
   // eslint-disable-next-line no-console
@@ -65,14 +65,14 @@ export async function handleInteractClick(contractAddress: string) {
 }
 
 export const getFunctionAbi = (contractAbi: any, functionName: string) => {
-  const functionAbi = contractAbi.functions.find((f: FunctionAbi) => f.name === functionName);
+  const functionAbi = contractAbi.functions.find((f: FunctionArtifact) => f.name === functionName);
   if (!functionAbi) throw new Error(`Function ${functionName} not found in abi`);
   return functionAbi;
 };
 
 export async function callContractFunction(
   address: AztecAddress,
-  abi: ContractAbi,
+  abi: ContractArtifact,
   functionName: string,
   typedArgs: any[], // for the exposed functions, this is an array of field elements Fr[]
   pxe: PXE,
@@ -111,7 +111,7 @@ export async function getWallet(account: CompleteAddress, pxe: PXE): Promise<Acc
 
 export async function deployContract(
   activeWallet: CompleteAddress,
-  contractAbi: ContractAbi,
+  contractAbi: ContractArtifact,
   typedArgs: Fr[], // encode prior to passing in
   salt: Fr,
   client: PXE,
@@ -128,7 +128,7 @@ export async function deployContract(
   }
 }
 
-export function convertArgs(functionAbi: FunctionAbi, args: any): Fr[] {
+export function convertArgs(functionAbi: FunctionArtifact, args: any): Fr[] {
   const untypedArgs = functionAbi.parameters.map(param => {
     switch (param.type.kind) {
       case 'field':

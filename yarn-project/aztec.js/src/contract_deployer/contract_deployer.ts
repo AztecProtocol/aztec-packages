@@ -1,5 +1,5 @@
 import { Point } from '@aztec/circuits.js';
-import { ContractAbi } from '@aztec/foundation/abi';
+import { ContractArtifact } from '@aztec/foundation/abi';
 import { PXE, PublicKey } from '@aztec/types';
 
 import { DeployMethod } from './deploy_method.js';
@@ -9,7 +9,7 @@ import { DeployMethod } from './deploy_method.js';
  * @remarks Keeping this around even though we have Aztec.nr contract types because it can be useful for non-TS users.
  */
 export class ContractDeployer {
-  constructor(private abi: ContractAbi, private pxe: PXE, private publicKey?: PublicKey) {}
+  constructor(private abi: ContractArtifact, private pxe: PXE, private publicKey?: PublicKey) {}
 
   /**
    * Deploy a contract using the provided ABI and constructor arguments.

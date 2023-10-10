@@ -1,4 +1,4 @@
-import { ABIParameter, ABIType, ABIVariable, FunctionAbi } from '@aztec/foundation/abi';
+import { ABIParameter, ABIType, ABIVariable, FunctionArtifact } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 
 /**
@@ -11,7 +11,7 @@ export type DecodedReturn = bigint | boolean | DecodedReturn[] | { [key: string]
  * Missing support for integer and string.
  */
 class ReturnValuesDecoder {
-  constructor(private abi: FunctionAbi, private flattened: Fr[]) {}
+  constructor(private abi: FunctionArtifact, private flattened: Fr[]) {}
 
   /**
    * Decodes a single return value from field to the given type.
@@ -83,7 +83,7 @@ class ReturnValuesDecoder {
  * @param returnValues - The decoded return values.
  * @returns
  */
-export function decodeReturnValues(abi: FunctionAbi, returnValues: Fr[]) {
+export function decodeReturnValues(abi: FunctionArtifact, returnValues: Fr[]) {
   return new ReturnValuesDecoder(abi, returnValues.slice()).decode();
 }
 

@@ -11,7 +11,7 @@ import {
 } from '@aztec/circuits.js';
 import { computeUniqueCommitment, siloCommitment } from '@aztec/circuits.js/abis';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
-import { FunctionAbi } from '@aztec/foundation/abi';
+import { FunctionArtifact } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -395,7 +395,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    */
   private async deriveCallContext(
     targetContractAddress: AztecAddress,
-    targetAbi: FunctionAbi,
+    targetAbi: FunctionArtifact,
     isDelegateCall = false,
     isStaticCall = false,
   ) {

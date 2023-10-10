@@ -1,4 +1,4 @@
-import { ContractAbi } from '@aztec/foundation/abi';
+import { ContractArtifact } from '@aztec/foundation/abi';
 
 import { CompileOpts, NargoContractCompiler } from './compile/nargo.js';
 import { generateAztecAbi } from './contract-interface-gen/abi.js';
@@ -17,6 +17,6 @@ export { generateAztecAbi };
  * @param opts - Compiler options.
  * @returns Compiled artifacts.
  */
-export async function compileUsingNargo(projectPath: string, opts: CompileOpts = {}): Promise<ContractAbi[]> {
+export async function compileUsingNargo(projectPath: string, opts: CompileOpts = {}): Promise<ContractArtifact[]> {
   return (await new NargoContractCompiler(projectPath, opts).compile()).map(generateAztecAbi);
 }

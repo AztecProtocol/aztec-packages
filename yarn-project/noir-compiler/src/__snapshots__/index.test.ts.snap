@@ -268,9 +268,9 @@ exports[`noir-compiler using nargo binary generates typescript interface 1`] = `
 import { AztecAddress, CompleteAddress, ContractBase, ContractFunctionInteraction, ContractMethod, DeployMethod, FieldLike, AztecAddressLike, EthAddressLike, Wallet } from '@aztec/aztec.js';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { PXE, PublicKey } from '@aztec/types';
-import { ContractAbi } from '@aztec/foundation/abi';
-import TestContractContractAbiJson from '../target/test.json' assert { type: 'json' };
-export const TestContractContractAbi = TestContractContractAbiJson as ContractAbi;
+import { ContractArtifact } from '@aztec/foundation/abi';
+import TestContractContractArtifactJson from '../target/test.json' assert { type: 'json' };
+export const TestContractContractArtifact = TestContractContractArtifactJson as ContractArtifact;
 
 /**
  * Type-safe interface for contract TestContract;
@@ -283,7 +283,7 @@ export class TestContractContract extends ContractBase {
     /** The wallet. */
     wallet: Wallet,
   ) {
-    super(completeAddress, TestContractContractAbi, wallet);
+    super(completeAddress, TestContractContractArtifact, wallet);
   }
   
 
@@ -312,14 +312,14 @@ export class TestContractContract extends ContractBase {
    * Creates a tx to deploy a new instance of this contract.
    */
   public static deploy(pxe: PXE, pub_param: FieldLike) {
-    return new DeployMethod<TestContractContract>(Point.ZERO, pxe, TestContractContractAbi, Array.from(arguments).slice(1));
+    return new DeployMethod<TestContractContract>(Point.ZERO, pxe, TestContractContractArtifact, Array.from(arguments).slice(1));
   }
 
   /**
    * Creates a tx to deploy a new instance of this contract using the specified public key to derive the address.
    */
   public static deployWithPublicKey(pxe: PXE, publicKey: PublicKey, pub_param: FieldLike) {
-    return new DeployMethod<TestContractContract>(publicKey, pxe, TestContractContractAbi, Array.from(arguments).slice(2));
+    return new DeployMethod<TestContractContract>(publicKey, pxe, TestContractContractArtifact, Array.from(arguments).slice(2));
   }
   
 
@@ -327,8 +327,8 @@ export class TestContractContract extends ContractBase {
   /**
    * Returns this contract's ABI.
    */
-  public static get abi(): ContractAbi {
-    return TestContractContractAbi;
+  public static get abi(): ContractArtifact {
+    return TestContractContractArtifact;
   }
   
 

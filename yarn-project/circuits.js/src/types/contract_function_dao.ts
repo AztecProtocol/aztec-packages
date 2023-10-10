@@ -1,4 +1,4 @@
-import { FunctionAbi } from '@aztec/foundation/abi';
+import { FunctionArtifact } from '@aztec/foundation/abi';
 
 import { FunctionSelector } from '../index.js';
 
@@ -7,7 +7,7 @@ import { FunctionSelector } from '../index.js';
  * Extends the FunctionAbi interface, adding a 'selector' property.
  * The 'selector' is a unique identifier for the function within the contract.
  */
-export interface ContractFunctionDao extends FunctionAbi {
+export interface ContractFunctionDao extends FunctionArtifact {
   /**
    * Unique identifier for a contract function.
    */

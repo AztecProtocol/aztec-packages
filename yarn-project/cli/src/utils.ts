@@ -1,6 +1,6 @@
 import { AztecAddress, Fr, GrumpkinScalar, PXE, Point, TxHash } from '@aztec/aztec.js';
 import { L1ContractArtifactsForDeployment, createEthereumChain, deployL1Contracts } from '@aztec/ethereum';
-import { ContractAbi } from '@aztec/foundation/abi';
+import { ContractArtifact } from '@aztec/foundation/abi';
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
 import {
   ContractDeploymentEmitterAbi,
@@ -25,7 +25,7 @@ import { encodeArgs } from './encoding.js';
  * Helper type to dynamically import contracts.
  */
 interface ArtifactsType {
-  [key: string]: ContractAbi;
+  [key: string]: ContractArtifact;
 }
 
 /**
@@ -34,7 +34,7 @@ interface ArtifactsType {
  * @param fnName - Function name to be found.
  * @returns The function's ABI.
  */
-export function getAbiFunction(abi: ContractAbi, fnName: string) {
+export function getAbiFunction(abi: ContractArtifact, fnName: string) {
   const fn = abi.functions.find(({ name }) => name === fnName);
   if (!fn) {
     throw Error(`Function ${fnName} not found in contract ABI.`);
@@ -97,12 +97,12 @@ export async function getExampleContractArtifacts() {
  * @param fileDir - The directory of the compiled contract ABI.
  * @returns The parsed ContractABI.
  */
-export async function getContractAbi(fileDir: string, log: LogFn) {
+export async function getContractArtifact(fileDir: string, log: LogFn) {
   // first check if it's a noir-contracts example
   let contents: string;
   const artifacts = await getExampleContractArtifacts();
   if (artifacts[fileDir]) {
-    return artifacts[fileDir] as ContractAbi;
+    return artifacts[fileDir] as ContractArtifact;
   }
 
   try {
@@ -112,9 +112,9 @@ export async function getContractAbi(fileDir: string, log: LogFn) {
   }
 
   // if not found, try reading as path directly
-  let contractAbi: ContractAbi;
+  let contractAbi: ContractArtifact;
   try {
-    contractAbi = JSON.parse(contents) as ContractAbi;
+    contractAbi = JSON.parse(contents) as ContractArtifact;
   } catch (err) {
     log('Invalid file used. Please try again.');
     throw err;
@@ -157,7 +157,7 @@ export async function getTxSender(pxe: PXE, _from?: string) {
  * @returns Formatted contract address, function arguments and caller's aztec address.
  */
 export async function prepTx(contractFile: string, functionName: string, _functionArgs: string[], log: LogFn) {
-  const contractAbi = await getContractAbi(contractFile, log);
+  const contractAbi = await getContractArtifact(contractFile, log);
   const functionAbi = getAbiFunction(contractAbi, functionName);
   const functionArgs = encodeArgs(_functionArgs, functionAbi.parameters);
 

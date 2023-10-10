@@ -1,5 +1,5 @@
 import { FieldsOf } from '@aztec/circuits.js';
-import { ContractAbi } from '@aztec/foundation/abi';
+import { ContractArtifact } from '@aztec/foundation/abi';
 import { TxHash, TxReceipt } from '@aztec/types';
 
 import { AztecAddress, Contract, ContractBase, PXE, SentTx, WaitOpts, Wallet } from '../index.js';
@@ -20,7 +20,7 @@ export type DeployTxReceipt<TContract extends ContractBase = Contract> = FieldsO
  * A contract deployment transaction sent to the network, extending SentTx with methods to create a contract instance.
  */
 export class DeploySentTx<TContract extends Contract = Contract> extends SentTx {
-  constructor(private abi: ContractAbi, wallet: PXE | Wallet, txHashPromise: Promise<TxHash>) {
+  constructor(private abi: ContractArtifact, wallet: PXE | Wallet, txHashPromise: Promise<TxHash>) {
     super(wallet, txHashPromise);
   }
 

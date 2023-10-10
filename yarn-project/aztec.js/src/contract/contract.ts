@@ -1,4 +1,4 @@
-import { ContractAbi } from '@aztec/foundation/abi';
+import { ContractArtifact } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { PublicKey } from '@aztec/types';
 
@@ -22,7 +22,7 @@ export class Contract extends ContractBase {
    * @param portalContract - The portal contract address on L1, if any.
    * @returns A promise that resolves to a new Contract instance.
    */
-  public static async at(address: AztecAddress, abi: ContractAbi, wallet: Wallet): Promise<Contract> {
+  public static async at(address: AztecAddress, abi: ContractArtifact, wallet: Wallet): Promise<Contract> {
     const extendedContractData = await wallet.getExtendedContractData(address);
     if (extendedContractData === undefined) {
       throw new Error('Contract ' + address.toString() + ' is not deployed');
@@ -41,7 +41,7 @@ export class Contract extends ContractBase {
    * @param abi - ABI of the contract to deploy.
    * @param args - Arguments for the constructor.
    */
-  public static deploy(wallet: Wallet, abi: ContractAbi, args: any[]) {
+  public static deploy(wallet: Wallet, abi: ContractArtifact, args: any[]) {
     return new DeployMethod(Point.ZERO, wallet, abi, args);
   }
 
@@ -52,7 +52,7 @@ export class Contract extends ContractBase {
    * @param abi - ABI of the contract to deploy.
    * @param args - Arguments for the constructor.
    */
-  public static deployWithPublicKey(publicKey: PublicKey, wallet: Wallet, abi: ContractAbi, args: any[]) {
+  public static deployWithPublicKey(publicKey: PublicKey, wallet: Wallet, abi: ContractArtifact, args: any[]) {
     return new DeployMethod(publicKey, wallet, abi, args);
   }
 }

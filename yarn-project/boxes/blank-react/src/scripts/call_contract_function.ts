@@ -1,11 +1,11 @@
 import { AztecAddress, PXE, CompleteAddress, Contract, TxReceipt } from '@aztec/aztec.js';
-import { ContractAbi } from '@aztec/foundation/abi';
+import { ContractArtifact } from '@aztec/foundation/abi';
 import { FieldsOf } from '@aztec/foundation/types';
 import { getWallet } from './util.js';
 
 export async function callContractFunction(
   address: AztecAddress,
-  abi: ContractAbi,
+  abi: ContractArtifact,
   functionName: string,
   typedArgs: any[], // for the exposed functions, this is an array of field elements Fr[]
   pxe: PXE,

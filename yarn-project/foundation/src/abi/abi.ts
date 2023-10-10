@@ -137,7 +137,7 @@ export interface FunctionAbiHeader {
 /**
  * The ABI entry of a function.
  */
-export interface FunctionAbi extends FunctionAbiHeader {
+export interface FunctionArtifact extends FunctionAbiHeader {
   /**
    * The ACIR bytecode of the function.
    */
@@ -224,9 +224,9 @@ export interface DebugMetadata {
 }
 
 /**
- * Defines ABI of a contract.
+ * Defines artifact of a contract.
  */
-export interface ContractAbi {
+export interface ContractArtifact {
   /**
    * The name of the contract.
    */
@@ -234,7 +234,7 @@ export interface ContractAbi {
   /**
    * The functions of the contract.
    */
-  functions: FunctionAbi[];
+  functions: FunctionArtifact[];
 
   /**
    * The debug metadata of the contract.
@@ -263,7 +263,10 @@ export interface FunctionDebugMetadata {
  * @param functionName - The name of the function
  * @returns The debug metadata of the function
  */
-export function getFunctionDebugMetadata(abi: ContractAbi, functionName: string): FunctionDebugMetadata | undefined {
+export function getFunctionDebugMetadata(
+  abi: ContractArtifact,
+  functionName: string,
+): FunctionDebugMetadata | undefined {
   const functionIndex = abi.functions.findIndex(f => f.name === functionName);
   if (abi.debug && functionIndex !== -1) {
     const debugSymbols = JSON.parse(

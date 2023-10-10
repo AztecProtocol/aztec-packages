@@ -57,7 +57,7 @@ describe('ZK Contract Tests', () => {
   test('call succeeds after deploy', async () => {
     const callTxReceipt = await callContractFunction(
       contractAddress,
-      contract.abi,
+      contract.artifact,
       'getPublicKey',
       [owner.address.toField()],
       pxe,

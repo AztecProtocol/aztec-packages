@@ -1,10 +1,10 @@
 import { AztecAddress, CompleteAddress, DeployMethod, Fr } from '@aztec/aztec.js';
-import { ContractAbi } from '@aztec/foundation/abi';
+import { ContractArtifact } from '@aztec/foundation/abi';
 import { PXE } from '@aztec/types';
 
 export async function deployContract(
   activeWallet: CompleteAddress,
-  contractAbi: ContractAbi,
+  contractAbi: ContractArtifact,
   typedArgs: Fr[], // encode prior to passing in
   salt: Fr,
   pxe: PXE,

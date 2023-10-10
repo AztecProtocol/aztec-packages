@@ -1,6 +1,6 @@
 import { AztecAddress, CircuitsWasm, EthAddress, Fr } from '@aztec/circuits.js';
 import { computeSecretMessageHash } from '@aztec/circuits.js/abis';
-import { ContractAbi, getFunctionDebugMetadata } from '@aztec/foundation/abi';
+import { ContractArtifact, getFunctionDebugMetadata } from '@aztec/foundation/abi';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { L1Actor, L1ToL2Message, L2Actor } from '@aztec/types';
 
@@ -42,7 +42,7 @@ export const buildL1ToL2Message = async (
   );
 };
 
-export const getFunctionAbi = (abi: ContractAbi, functionName: string): FunctionAbiWithDebugMetadata => {
+export const getFunctionAbi = (abi: ContractArtifact, functionName: string): FunctionAbiWithDebugMetadata => {
   const functionIndex = abi.functions.findIndex(f => f.name === functionName);
   if (functionIndex < 0) {
     throw new Error(`Unknown function ${functionName}`);

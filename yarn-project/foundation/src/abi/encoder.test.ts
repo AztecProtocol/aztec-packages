@@ -1,6 +1,6 @@
 import { AztecAddress } from '../aztec-address/index.js';
 import { Fr } from '../fields/fields.js';
-import { ABIParameterVisibility, FunctionAbi, FunctionAbiHeader, FunctionType } from './abi.js';
+import { ABIParameterVisibility, FunctionAbiHeader, FunctionArtifact, FunctionType } from './abi.js';
 import { encodeArguments } from './encoder.js';
 
 describe('abi/encoder', () => {
@@ -57,7 +57,7 @@ describe('abi/encoder', () => {
   });
 
   it('throws when passing string argument as field', () => {
-    const testFunctionAbi: FunctionAbi = {
+    const testFunctionAbi: FunctionArtifact = {
       name: 'constructor',
       functionType: FunctionType.SECRET,
       isInternal: false,
@@ -80,7 +80,7 @@ describe('abi/encoder', () => {
   });
 
   it('throws when passing string argument as integer', () => {
-    const testFunctionAbi: FunctionAbi = {
+    const testFunctionAbi: FunctionArtifact = {
       name: 'constructor',
       functionType: FunctionType.SECRET,
       isInternal: false,
@@ -104,7 +104,7 @@ describe('abi/encoder', () => {
   });
 
   it('throws when passing object argument as field', () => {
-    const testFunctionAbi: FunctionAbi = {
+    const testFunctionAbi: FunctionArtifact = {
       name: 'constructor',
       functionType: FunctionType.SECRET,
       isInternal: false,

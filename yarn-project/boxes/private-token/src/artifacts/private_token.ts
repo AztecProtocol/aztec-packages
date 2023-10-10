@@ -17,9 +17,9 @@ import {
 } from '@aztec/aztec.js';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { PXE, PublicKey } from '@aztec/types';
-import { ContractAbi } from '@aztec/foundation/abi';
+import { ContractArtifact } from '@aztec/foundation/abi';
 import PrivateTokenContractArtifactJson from './private_token_contract.json' assert { type: 'json' };
-export const PrivateTokenContractArtifact = PrivateTokenContractArtifactJson as ContractAbi;
+export const PrivateTokenContractArtifact = PrivateTokenContractArtifactJson as ContractArtifact;
 
 /**
  * Type-safe interface for contract PrivateToken;
@@ -66,7 +66,7 @@ export class PrivateTokenContract extends ContractBase {
   /**
    * Returns this contract's ABI.
    */
-  public static get abi(): ContractAbi {
+  public static get abi(): ContractArtifact {
     return PrivateTokenContractArtifact;
   }
 

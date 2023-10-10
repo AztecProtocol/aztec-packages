@@ -28,7 +28,7 @@ import { unboxContract } from './unbox.js';
 import {
   deployAztecContracts,
   getAbiFunction,
-  getContractAbi,
+  getContractArtifact,
   getExampleContractArtifacts,
   getTxSender,
   parseAztecAddress,
@@ -188,7 +188,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     // https://github.com/tj/commander.js#other-option-types-negatable-boolean-and-booleanvalue
     .option('--no-wait', 'Skip waiting for the contract to be deployed. Print the hash of deployment transaction')
     .action(async (abiPath, { rpcUrl, publicKey, args: rawArgs, salt, wait }) => {
-      const contractAbi = await getContractAbi(abiPath, log);
+      const contractAbi = await getContractArtifact(abiPath, log);
       const constructorAbi = contractAbi.functions.find(({ name }) => name === 'constructor');
 
       const client = await createCompatibleClient(rpcUrl, debugLogger);
@@ -470,7 +470,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     )
     .requiredOption('-p, --parameter <parameterName>', 'The name of the struct parameter to decode into')
     .action(async (encodedString, options) => {
-      const contractAbi = await getContractAbi(options.contractAbi, log);
+      const contractAbi = await getContractArtifact(options.contractAbi, log);
       const parameterAbitype = contractAbi.functions
         .map(({ parameters }) => parameters)
         .flat()
@@ -537,7 +537,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       `A compiled Noir contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts`,
     )
     .action(async (contractAbiFile: string) => {
-      const contractAbi = await getContractAbi(contractAbiFile, debugLogger);
+      const contractAbi = await getContractArtifact(contractAbiFile, debugLogger);
       const contractFns = contractAbi.functions.filter(
         f => !f.isInternal && f.name !== 'compute_note_hash_and_nullifier',
       );

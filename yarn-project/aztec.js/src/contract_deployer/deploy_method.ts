@@ -5,7 +5,7 @@ import {
   TxContext,
   getContractDeploymentInfo,
 } from '@aztec/circuits.js';
-import { ContractAbi, FunctionAbi, encodeArguments } from '@aztec/foundation/abi';
+import { ContractArtifact, FunctionArtifact, encodeArguments } from '@aztec/foundation/abi';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { PXE, PackedArguments, PublicKey, Tx, TxExecutionRequest } from '@aztec/types';
@@ -38,9 +38,14 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
   public completeAddress?: CompleteAddress = undefined;
 
   /** Constructor function to call. */
-  private constructorAbi: FunctionAbi;
+  private constructorAbi: FunctionArtifact;
 
-  constructor(private publicKey: PublicKey, protected pxe: PXE, private abi: ContractAbi, private args: any[] = []) {
+  constructor(
+    private publicKey: PublicKey,
+    protected pxe: PXE,
+    private abi: ContractArtifact,
+    private args: any[] = [],
+  ) {
     super(pxe);
     const constructorAbi = abi.functions.find(f => f.name === 'constructor');
     if (!constructorAbi) throw new Error('Cannot find constructor in the ABI.');
@@ -103,7 +108,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     this.completeAddress = completeAddress;
 
     // TODO: Should we add the contracts to the DB here, or once the tx has been sent or mined?
-    await this.pxe.addContracts([{ abi: this.abi, completeAddress, portalContract }]);
+    await this.pxe.addContracts([{ artifact: this.abi, completeAddress, portalContract }]);
 
     return this.txRequest;
   }

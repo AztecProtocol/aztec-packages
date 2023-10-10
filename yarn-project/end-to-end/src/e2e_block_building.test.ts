@@ -76,7 +76,7 @@ describe('e2e_block_building', () => {
       const callInteraction = new ContractFunctionInteraction(
         owner,
         deployer.completeAddress!.address,
-        TokenContract.abi.functions.find(x => x.name === 'set_minter')!,
+        TokenContract.artifact.functions.find(x => x.name === 'set_minter')!,
         [minter.getCompleteAddress(), true],
       );
 

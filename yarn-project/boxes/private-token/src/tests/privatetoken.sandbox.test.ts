@@ -42,7 +42,7 @@ async function deployZKContract(owner: CompleteAddress, wallet: Wallet, pxe: PXE
 async function getBalance(contractAddress: AztecAddress, privateTokenContract: Contract, owner: CompleteAddress) {
   const typedArgs = [owner.address.toField()];
 
-  return await viewContractFunction(contractAddress, privateTokenContract.abi, 'getBalance', typedArgs, pxe, owner);
+  return await viewContractFunction(contractAddress, privateTokenContract.artifact, 'getBalance', typedArgs, pxe, owner);
 }
 
 async function mint(
@@ -54,7 +54,7 @@ async function mint(
 ) {
   const typedArgs = [new Fr(amount), to.address.toField()];
 
-  return await callContractFunction(contractAddress, privateTokenContract.abi, 'mint', typedArgs, pxe, from);
+  return await callContractFunction(contractAddress, privateTokenContract.artifact, 'mint', typedArgs, pxe, from);
 }
 
 async function transfer(
@@ -66,7 +66,7 @@ async function transfer(
 ) {
   const typedArgs = [new Fr(amount), to.address.toField()];
 
-  return await callContractFunction(contractAddress, privateTokenContract.abi, 'transfer', typedArgs, pxe, from);
+  return await callContractFunction(contractAddress, privateTokenContract.artifact, 'transfer', typedArgs, pxe, from);
 }
 
 describe('ZK Contract Tests', () => {
