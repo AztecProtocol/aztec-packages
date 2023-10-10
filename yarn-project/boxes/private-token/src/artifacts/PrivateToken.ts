@@ -18,7 +18,7 @@ import {
 import { Fr, Point } from '@aztec/foundation/fields';
 import { PXE, PublicKey } from '@aztec/types';
 import { ContractArtifact } from '@aztec/foundation/abi';
-import PrivateTokenContractArtifactJson from './private_token_contract.json' assert { type: 'json' };
+import PrivateTokenContractArtifactJson from './PrivateToken.json' assert { type: 'json' };
 export const PrivateTokenContractArtifact = PrivateTokenContractArtifactJson as ContractArtifact;
 
 /**

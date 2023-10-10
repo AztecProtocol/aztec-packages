@@ -1,5 +1,5 @@
-import { Point } from '@aztec/circuits.js';
 import { ContractArtifact } from '@aztec/foundation/abi';
+import { Point } from '@aztec/foundation/fields';
 import { PXE, PublicKey } from '@aztec/types';
 
 import { DeployMethod } from './deploy_method.js';

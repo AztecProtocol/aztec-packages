@@ -1,19 +1,19 @@
-import { BlankContract } from '../artifacts/blank.js';
 import { callContractFunction, deployContract, getWallet } from '../index.js';
 import {
   AccountWallet,
   AztecAddress,
-  PXE,
   CompleteAddress,
   Contract,
   Fr,
+  PXE,
   TxStatus,
   Wallet,
   createPXEClient,
   waitForSandbox,
 } from '@aztec/aztec.js';
 import { createDebugLogger } from '@aztec/foundation/log';
-
+import { BlankContract } from '../artifacts/Blank.js';
+import { callContractFunction, deployContract, getWallet } from '../index.js';
 const logger = createDebugLogger('aztec:blank-box-test');
 
 // assumes sandbox is running locally, which this script does not trigger
