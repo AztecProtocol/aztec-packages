@@ -19,7 +19,6 @@
 using namespace barretenberg;
 std::string CRS_PATH = "./crs";
 bool verbose = false;
-bool benchmark = false;
 
 const std::filesystem::path current_path = std::filesystem::current_path();
 const auto current_dir = current_path.filename().string();

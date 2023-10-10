@@ -7,6 +7,42 @@ As the spec solidifies, this should be less of an issue. Aztec and Barretenberg 
 
 **This code is highly experimental, use at your own risk!**
 
+### Benchmarks!
+
+Time includes building of circuit and proof construction. Ignores proving key construction.
+
+```
++--------------------------+---------+-----------+
+| Test                     | Threads | Time (ms) |
++--------------------------+---------+-----------+
+| sha256                   |       1 |      5876 |
+| sha256                   |       4 |      1686 |
+| sha256                   |      16 |       626 |
+| sha256                   |      32 |       493 |
+| sha256                   |      64 |       398 |
+| ecdsa_secp256k1          |       1 |      7355 |
+| ecdsa_secp256k1          |       4 |      2279 |
+| ecdsa_secp256k1          |      16 |       913 |
+| ecdsa_secp256k1          |      32 |       704 |
+| ecdsa_secp256k1          |      64 |       597 |
+| ecdsa_secp256r1          |       1 |     12109 |
+| ecdsa_secp256r1          |       4 |      3913 |
+| ecdsa_secp256r1          |      16 |      1630 |
+| ecdsa_secp256r1          |      32 |      1398 |
+| ecdsa_secp256r1          |      64 |      1167 |
+| schnorr                  |       1 |      6003 |
+| schnorr                  |       4 |      1703 |
+| schnorr                  |      16 |       600 |
+| schnorr                  |      32 |       528 |
+| schnorr                  |      64 |       410 |
+| double_verify_proof      |       1 |     47509 |
+| double_verify_proof      |       4 |     17473 |
+| double_verify_proof      |      16 |      7956 |
+| double_verify_proof      |      32 |      6741 |
+| double_verify_proof      |      64 |      6168 |
++--------------------------+---------+-----------+
+```
+
 ### Dependencies
 
 - cmake >= 3.24
