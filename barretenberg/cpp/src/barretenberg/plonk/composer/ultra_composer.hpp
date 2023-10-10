@@ -26,8 +26,6 @@ class UltraComposer {
     std::shared_ptr<plonk::proving_key> circuit_proving_key;
     std::shared_ptr<plonk::verification_key> circuit_verification_key;
 
-    // The crs_factory holds the path to the srs and exposes methods to extract the srs elements
-
     bool computed_witness = false;
 
     // This variable controls the amount with which the lookup table and witness values need to be shifted
@@ -37,7 +35,6 @@ class UltraComposer {
     static constexpr size_t s_randomness = 3;
 
     UltraComposer() = default;
-
 
     UltraComposer(std::shared_ptr<proving_key> p_key, std::shared_ptr<verification_key> v_key)
         : circuit_proving_key(std::move(p_key))
