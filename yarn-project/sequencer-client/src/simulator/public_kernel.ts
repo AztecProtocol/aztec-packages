@@ -40,7 +40,6 @@ export class WasmPublicKernelCircuitSimulator implements PublicKernelCircuitSimu
    * @returns The public inputs as outputs of the simulation.
    */
   public async publicKernelInnerCircuit(input: PublicKernelInputsInner): Promise<PublicKernelPublicInputs> {
-    if (input.previousKernel.publicInputs.isPrivate) throw new Error(`Expected public kernel previous inputs`);
     const [duration, result] = await elapsed(() => simulatePublicKernelInnerCircuit(input));
     this.log(`Simulated public kernel inner circuit with private input`, {
       eventName: 'circuit-simulation',

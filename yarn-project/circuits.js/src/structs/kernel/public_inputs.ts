@@ -5,10 +5,10 @@ import { CombinedAccumulatedData } from './combined_accumulated_data.js';
 import { CombinedConstantData } from './combined_constant_data.js';
 
 /**
- * Public inputs of the public and private kernel circuits.
- * @see circuits/cpp/src/aztec3/circuits/abis/private_kernel_public_inputs.hpp
+ * Public inputs of the public kernel circuit.
+ * @see circuits/cpp/src/aztec3/circuits/abis/public_kernel_public_inputs.hpp
  */
-export class KernelCircuitPublicInputs {
+export class PublicKernelPublicInputs {
   constructor(
     /**
      * Data accumulated from both public and private circuits.
@@ -18,14 +18,10 @@ export class KernelCircuitPublicInputs {
      * Data which is not modified by the circuits.
      */
     public constants: CombinedConstantData,
-    /**
-     * Indicates whether the input is for a private or public kernel.
-     */
-    public isPrivate: boolean,
   ) {}
 
   toBuffer() {
-    return serializeToBuffer(this.end, this.constants, this.isPrivate);
+    return serializeToBuffer(this.end, this.constants);
   }
 
   /**
@@ -33,29 +29,15 @@ export class KernelCircuitPublicInputs {
    * @param buffer - Buffer or reader to read from.
    * @returns A new instance of KernelCircuitPublicInputs.
    */
-  static fromBuffer(buffer: Buffer | BufferReader): KernelCircuitPublicInputs {
+  static fromBuffer(buffer: Buffer | BufferReader): PublicKernelPublicInputs {
     const reader = BufferReader.asReader(buffer);
-    return new KernelCircuitPublicInputs(
+    return new PublicKernelPublicInputs(
       reader.readObject(CombinedAccumulatedData),
       reader.readObject(CombinedConstantData),
-      reader.readBoolean(),
     );
   }
 
   static empty() {
-    return new KernelCircuitPublicInputs(CombinedAccumulatedData.empty(), CombinedConstantData.empty(), true);
-  }
-}
-
-/**
- * Public inputs of the public kernel circuit.
- */
-export class PublicKernelPublicInputs extends KernelCircuitPublicInputs {
-  constructor(end: CombinedAccumulatedData, constants: CombinedConstantData) {
-    super(end, constants, false);
-  }
-
-  static empty(): PublicKernelPublicInputs {
     return new PublicKernelPublicInputs(CombinedAccumulatedData.empty(), CombinedConstantData.empty());
   }
 }
@@ -63,12 +45,40 @@ export class PublicKernelPublicInputs extends KernelCircuitPublicInputs {
 /**
  * Public inputs of the private kernel circuit.
  */
-export class PrivateKernelPublicInputs extends KernelCircuitPublicInputs {
-  constructor(end: CombinedAccumulatedData, constants: CombinedConstantData) {
-    super(end, constants, true);
+/**
+ * Public inputs of the private kernel circuit.
+ * @see circuits/cpp/src/aztec3/circuits/abis/private_kernel_public_inputs.hpp
+ */
+export class PrivateKernelPublicInputs {
+  constructor(
+    /**
+     * Data accumulated from private circuits.
+     */
+    public end: CombinedAccumulatedData,
+    /**
+     * Data which is not modified by the circuits.
+     */
+    public constants: CombinedConstantData,
+  ) {}
+
+  toBuffer() {
+    return serializeToBuffer(this.end, this.constants);
   }
 
-  static empty(): PrivateKernelPublicInputs {
+  /**
+   * Deserializes from a buffer or reader, corresponding to a write in cpp.
+   * @param buffer - Buffer or reader to read from.
+   * @returns A new instance of PrivateKernelPublicInputs.
+   */
+  static fromBuffer(buffer: Buffer | BufferReader): PrivateKernelPublicInputs {
+    const reader = BufferReader.asReader(buffer);
+    return new PrivateKernelPublicInputs(
+      reader.readObject(CombinedAccumulatedData),
+      reader.readObject(CombinedConstantData),
+    );
+  }
+
+  static empty() {
     return new PrivateKernelPublicInputs(CombinedAccumulatedData.empty(), CombinedConstantData.empty());
   }
 }

@@ -9,13 +9,11 @@ import {
 import {
   AztecAddress,
   CircuitsWasm,
-  CombinedAccumulatedData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
   Fr,
   GlobalVariables,
   HistoricBlockData,
-  KernelCircuitPublicInputs,
   MAX_NEW_COMMITMENTS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_NULLIFIERS_PER_CALL,
@@ -25,9 +23,9 @@ import {
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MembershipWitness,
-  PreviousPrivateKernelData,
+  PreviousPrivateKernelDataFinal,
   PreviousPublicKernelData,
-  PrivateKernelPublicInputs,
+  PrivateKernelPublicInputsFinal,
   Proof,
   PublicCallData,
   PublicCallStackItem,
@@ -165,10 +163,7 @@ export class PublicProcessor {
     this.log(`Executing enqueued public calls for tx ${await tx.getTxHash()}`);
     if (!tx.enqueuedPublicFunctionCalls) throw new Error(`Missing preimages for enqueued public calls`);
 
-    let kernelOutput = new PublicKernelPublicInputs(
-      CombinedAccumulatedData.fromFinalAccumulatedData(tx.data.end),
-      tx.data.constants,
-    );
+    let kernelOutput: PublicKernelPublicInputs = PublicKernelPublicInputs.empty();
     let kernelProof = tx.proof;
     const newUnencryptedFunctionLogs: FunctionL2Logs[] = [];
 
@@ -176,6 +171,7 @@ export class PublicProcessor {
     // separate public callstacks to be proven by separate public kernel sequences
     // and submitted separately to the base rollup?
 
+    let isFirstIteration = true;
     // TODO(dbanks12): why must these be reversed?
     const enqueuedCallsReversed = tx.enqueuedPublicFunctionCalls.slice().reverse();
     for (const enqueuedCall of enqueuedCallsReversed) {
@@ -197,7 +193,12 @@ export class PublicProcessor {
         const preimages = await this.getPublicCallStackPreimages(result);
         const callData = await this.getPublicCallData(result, preimages, isExecutionRequest);
 
-        [kernelOutput, kernelProof] = await this.runKernelCircuit(callData, kernelOutput, kernelProof);
+        if (isFirstIteration) {
+          [kernelOutput, kernelProof] = await this.runKernelCircuitInit(callData, tx.data, kernelProof);
+          isFirstIteration = false;
+        } else {
+          [kernelOutput, kernelProof] = await this.runKernelCircuitInner(callData, kernelOutput, kernelProof);
+        }
 
         if (!enqueuedExecutionResult) enqueuedExecutionResult = result;
       }
@@ -209,27 +210,47 @@ export class PublicProcessor {
     return [kernelOutput, kernelProof, newUnencryptedFunctionLogs];
   }
 
-  protected async runKernelCircuit(
+  protected async runKernelCircuitInit(
     callData: PublicCallData,
-    previousOutput: KernelCircuitPublicInputs,
+    previousOutput: PrivateKernelPublicInputsFinal,
     previousProof: Proof,
-  ): Promise<[KernelCircuitPublicInputs, Proof]> {
-    const output = await this.getKernelCircuitOutput(callData, previousOutput, previousProof);
+  ): Promise<[PublicKernelPublicInputs, Proof]> {
+    const output = await this.getKernelCircuitOutputInit(callData, previousOutput, previousProof);
     const proof = await this.publicProver.getPublicKernelCircuitProof(output);
     return [output, proof];
   }
 
-  protected getKernelCircuitOutput(
+  protected async runKernelCircuitInner(
     callData: PublicCallData,
-    previousOutput: KernelCircuitPublicInputs,
+    previousOutput: PublicKernelPublicInputs,
     previousProof: Proof,
-  ): Promise<KernelCircuitPublicInputs> {
-    if (previousOutput?.isPrivate && previousProof) {
+  ): Promise<[PublicKernelPublicInputs, Proof]> {
+    const output = await this.getKernelCircuitOutputInner(callData, previousOutput, previousProof);
+    const proof = await this.publicProver.getPublicKernelCircuitProof(output);
+    return [output, proof];
+  }
+
+  protected getKernelCircuitOutputInit(
+    callData: PublicCallData,
+    previousOutput: PrivateKernelPublicInputsFinal,
+    previousProof: Proof,
+  ): Promise<PublicKernelPublicInputs> {
+    if (previousOutput && previousProof) {
       // Run the public kernel circuit with previous private kernel
       const previousKernel = this.getPreviousPrivateKernelData(previousOutput, previousProof);
       const inputs = new PublicKernelInputsInit(previousKernel, callData);
       return this.publicKernel.publicKernelInitCircuit(inputs);
-    } else if (previousOutput && previousProof) {
+    } else {
+      throw new Error(`No private kernel circuit for inputs`);
+    }
+  }
+
+  protected getKernelCircuitOutputInner(
+    callData: PublicCallData,
+    previousOutput: PublicKernelPublicInputs,
+    previousProof: Proof,
+  ): Promise<PublicKernelPublicInputs> {
+    if (previousOutput && previousProof) {
       // Run the public kernel circuit with previous public kernel
       const previousKernel = this.getPreviousPublicKernelData(previousOutput, previousProof);
       const inputs = new PublicKernelInputsInner(previousKernel, callData);
@@ -240,17 +261,17 @@ export class PublicProcessor {
   }
 
   protected getPreviousPrivateKernelData(
-    previousOutput: PrivateKernelPublicInputs,
+    previousOutput: PrivateKernelPublicInputsFinal,
     previousProof: Proof,
-  ): PreviousPrivateKernelData {
+  ): PreviousPrivateKernelDataFinal {
     const vk = getVerificationKeys().publicKernelCircuit;
     const vkIndex = 0;
     const vkSiblingPath = MembershipWitness.random(VK_TREE_HEIGHT).siblingPath;
-    return new PreviousPrivateKernelData(previousOutput, previousProof, vk, vkIndex, vkSiblingPath);
+    return new PreviousPrivateKernelDataFinal(previousOutput, previousProof, vk, vkIndex, vkSiblingPath);
   }
 
   protected getPreviousPublicKernelData(
-    previousOutput: KernelCircuitPublicInputs,
+    previousOutput: PublicKernelPublicInputs,
     previousProof: Proof,
   ): PreviousPublicKernelData {
     const vk = getVerificationKeys().publicKernelCircuit;
@@ -361,7 +382,7 @@ export class PublicProcessor {
    * @param execResult - result of the top/first execution for this enqueued public call
    */
   private async patchPublicStorageActionOrdering(
-    publicInputs: KernelCircuitPublicInputs,
+    publicInputs: PublicKernelPublicInputs,
     execResult: PublicExecutionResult,
   ) {
     // Convert ContractStorage* objects to PublicData* objects and sort them in execution order

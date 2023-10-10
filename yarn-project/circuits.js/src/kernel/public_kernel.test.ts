@@ -19,7 +19,6 @@ describe('kernel/public_kernel', () => {
     const input = await makePublicKernelInputsInnerWithTweak(1, input => {
       input.publicCall.callStackItem.functionData.isConstructor = false;
       input.publicCall.callStackItem.functionData.isPrivate = false;
-      input.previousKernel.publicInputs.isPrivate = false;
     });
     const result = await simulatePublicKernelInnerCircuit(input);
     expect(result).toBeDefined();
@@ -37,7 +36,6 @@ describe('kernel/public_kernel', () => {
     const input = await makePublicKernelInputsInnerWithTweak(1, input => {
       input.publicCall.callStackItem.functionData.isConstructor = false;
       input.publicCall.callStackItem.functionData.isPrivate = false;
-      input.previousKernel.publicInputs.isPrivate = false;
 
       // Cause array overflow
       const fullStateReadsObject = makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, makePublicDataRead, 0x01);

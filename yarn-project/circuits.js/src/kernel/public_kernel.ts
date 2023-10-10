@@ -2,9 +2,9 @@ import { publicKernelInitSim, publicKernelInnerSim } from '../cbind/circuits.gen
 import {
   CircuitError,
   CircuitsWasm,
-  KernelCircuitPublicInputs,
   PublicKernelInputsInit,
   PublicKernelInputsInner,
+  PublicKernelPublicInputs,
 } from '../index.js';
 
 /**
@@ -14,7 +14,7 @@ import {
  */
 export async function simulatePublicKernelInitCircuit(
   input: PublicKernelInputsInit,
-): Promise<KernelCircuitPublicInputs> {
+): Promise<PublicKernelPublicInputs> {
   const result = publicKernelInitSim(await CircuitsWasm.get(), input);
   if (result instanceof CircuitError) {
     result.message += '\nRefer to https://docs.aztec.network/aztec/protocol/errors for more information.';
@@ -30,7 +30,7 @@ export async function simulatePublicKernelInitCircuit(
  */
 export async function simulatePublicKernelInnerCircuit(
   input: PublicKernelInputsInner,
-): Promise<KernelCircuitPublicInputs> {
+): Promise<PublicKernelPublicInputs> {
   const result = publicKernelInnerSim(await CircuitsWasm.get(), input);
   if (result instanceof CircuitError) {
     result.message += '\nRefer to https://docs.aztec.network/aztec/protocol/errors for more information.';

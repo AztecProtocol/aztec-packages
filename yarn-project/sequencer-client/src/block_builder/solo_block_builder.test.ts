@@ -4,7 +4,6 @@ import {
   CircuitsWasm,
   Fr,
   GlobalVariables,
-  KernelCircuitPublicInputs,
   MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
@@ -14,6 +13,7 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   Proof,
   PublicDataUpdateRequest,
+  PublicKernelPublicInputs,
   RootRollupPublicInputs,
   makeTuple,
   range,
@@ -305,7 +305,7 @@ describe('sequencer/solo_block_builder', () => {
 
     const makeBloatedProcessedTx = async (seed = 0x1) => {
       const tx = mockTx(seed);
-      const kernelOutput = KernelCircuitPublicInputs.empty();
+      const kernelOutput = PublicKernelPublicInputs.empty();
       kernelOutput.constants.blockData = await getHistoricBlockData(builderDb);
       kernelOutput.end.publicDataUpdateRequests = makeTuple(
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,

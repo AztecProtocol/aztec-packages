@@ -96,7 +96,6 @@ export {
   TxContext,
   CombinedConstantData,
   CompleteAddress,
-  KernelCircuitPublicInputs,
   PrivateKernelPublicInputs,
   PrivateKernelPublicInputsFinal,
   Proof,
