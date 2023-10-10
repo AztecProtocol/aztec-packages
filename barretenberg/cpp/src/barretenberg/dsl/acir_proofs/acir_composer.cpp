@@ -108,13 +108,10 @@ std::shared_ptr<proof_system::plonk::verification_key> AcirComposer::init_verifi
     return verification_key_;
 }
 
-void AcirComposer::load_verification_key(
-    std::shared_ptr<barretenberg::srs::factories::CrsFactory<curve::BN254>> const& crs_factory,
-    proof_system::plonk::verification_key_data&& data)
+void AcirComposer::load_verification_key(proof_system::plonk::verification_key_data&& data)
 {
-    verification_key_ =
-        std::make_shared<proof_system::plonk::verification_key>(std::move(data), crs_factory->get_verifier_crs());
-    composer_ = acir_format::Composer(proving_key_, verification_key_);
+    verification_key_ = std::make_shared<proof_system::plonk::verification_key>(
+        std::move(data), srs::get_crs_factory()->get_verifier_crs());
 }
 
 bool AcirComposer::verify_proof(std::vector<uint8_t> const& proof, bool is_recursive)
