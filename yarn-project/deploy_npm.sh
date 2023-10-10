@@ -77,3 +77,5 @@ deploy_package world-state
 deploy_package sequencer-client
 deploy_package aztec-node
 deploy_package aztec-sandbox
+# this should always be at the last because we do `cd ..` at the end of the deploy_package function
+deploy_package ../l1-contracts
