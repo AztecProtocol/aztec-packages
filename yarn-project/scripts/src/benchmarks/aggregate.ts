@@ -27,6 +27,7 @@ import {
 } from '@aztec/types/stats';
 
 import * as fs from 'fs';
+import { mkdirpSync } from 'fs-extra';
 import * as path from 'path';
 import * as readline from 'readline';
 
@@ -188,6 +189,6 @@ export async function main() {
 
   // Write results to disk
   log(`Aggregated results: ${JSON.stringify(timestampedResults, null, 2)}`);
-  fs.mkdirSync(BenchDir);
+  mkdirpSync(BenchDir);
   fs.writeFileSync(BenchFile, JSON.stringify(timestampedResults, null, 2));
 }
