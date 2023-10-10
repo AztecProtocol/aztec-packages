@@ -8,7 +8,7 @@ export PATH="$PATH:$(git rev-parse --show-toplevel)/build-system/scripts"
 ecr_login
 
 REPO="yarn-project"
-retyr docker pull $(calculate_image_uri $REPO)
+retry docker pull $(calculate_image_uri $REPO)
 retry docker tag $(calculate_image_uri $REPO) aztecprotocol/$REPO:latest
 
 docker run ${DOCKER_RUN_OPTS:-} --rm aztecprotocol/$REPO:latest $@

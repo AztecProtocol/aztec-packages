@@ -6,8 +6,8 @@
 // To test this locally, first run the benchmark tests from the yarn-project/end-to-end folder
 // BENCHMARK=1 yarn test bench
 //
-// And then run this script from the root of the project:
-// LOGS_DIR=./yarn-project/end-to-end/log/ node ./scripts/ci/aggregate_e2e_benchmark.js
+// And then run this script from the yarn-project/scripts folder
+// LOG_FOLDER=../end-to-end/log yarn bench-aggregate
 import { createConsoleLogger } from '@aztec/foundation/log';
 import {
   BENCHMARK_BLOCK_SIZES,
@@ -30,11 +30,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as readline from 'readline';
 
-// Folder where to load logs from
-const logsDir = process.env.LOGS_DIR ?? `log`;
-
-// Output file path
-const outputFile = process.env.BENCHMARK_FILE_JSON ?? 'benchmark.json';
+import { BenchDir, BenchFile, LogsDir } from './paths.js';
 
 const log = createConsoleLogger();
 
@@ -160,11 +156,11 @@ export async function main() {
   const collected: BenchmarkCollectedResults = {};
 
   // Get all jsonl files in the logs dir
-  const files = fs.readdirSync(logsDir).filter(f => f.endsWith('.jsonl'));
+  const files = fs.readdirSync(LogsDir).filter(f => f.endsWith('.jsonl'));
 
   // Iterate over each .jsonl file
   for (const file of files) {
-    const filePath = path.join(logsDir, file);
+    const filePath = path.join(LogsDir, file);
     const fileStream = fs.createReadStream(filePath);
     const rl = readline.createInterface({ input: fileStream });
 
@@ -192,5 +188,6 @@ export async function main() {
 
   // Write results to disk
   log(`Aggregated results: ${JSON.stringify(timestampedResults, null, 2)}`);
-  fs.writeFileSync(outputFile, JSON.stringify(timestampedResults, null, 2));
+  fs.mkdirSync(BenchDir);
+  fs.writeFileSync(BenchFile, JSON.stringify(timestampedResults, null, 2));
 }

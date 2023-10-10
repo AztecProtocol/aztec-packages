@@ -8,8 +8,10 @@ set -eu
 
 BUCKET_NAME="aztec-ci-artifacts"
 LOG_FOLDER="${LOG_FOLDER:-log}"
+BENCH_FOLDER="${BENCH_FOLDER:-bench}"
 COMMIT_HASH="${COMMIT_HASH:-$(git rev-parse HEAD)}"
-BENCHMARK_FILE_JSON="${LOG_FOLDER}/benchmark.json"
+BENCHMARK_FILE_JSON="${BENCH_FOLDER}/benchmark.json"
+BASE_BENCHMARK_FILE_JSON="${BENCH_FOLDER}/base-benchmark.json"
 
 # Adapted from yarn-project/end-to-end/scripts/upload_logs_to_s3.sh
 if [ "${CIRCLE_BRANCH:-}" = "master" ]; then
@@ -37,15 +39,23 @@ aws s3 cp "s3://${BUCKET_NAME}/${LOG_SOURCE_FOLDER}/" $LOG_FOLDER --exclude '*' 
 # this skips the whole aggregation. For now, that's fine because all benchmark files have the
 # same rebuild pattern rules. But if that changes, then we'd need to go up in the commit history
 # to find the latest log files for the unchanged benchmarks.
-EXPECTED_BENCHMARK_COUNT=$(find yarn-project/end-to-end/src -type f -name "bench*.test.ts" | wc -l)
-DOWNLOADED_BENCHMARK_COUNT=$(find $LOG_FOLDER -type f -name "*.jsonl" | wc -l)
-if [ "$DOWNLOADED_BENCHMARK_COUNT" -lt "$EXPECTED_BENCHMARK_COUNT" ]; then
-  echo Found $DOWNLOADED_BENCHMARK_COUNT out of $EXPECTED_BENCHMARK_COUNT benchmark log files in s3://${BUCKET_NAME}/${LOG_SOURCE_FOLDER}/. Exiting.
+EXPECTED_LOGS_COUNT=$(find yarn-project/end-to-end/src -type f -name "bench*.test.ts" | wc -l)
+DOWNLOADED_LOGS_COUNT=$(find $LOG_FOLDER -type f -name "*.jsonl" | wc -l)
+if [ "$DOWNLOADED_LOGS_COUNT" -lt "$EXPECTED_LOGS_COUNT" ]; then
+  echo Found $DOWNLOADED_LOGS_COUNT out of $EXPECTED_LOGS_COUNT benchmark log files in s3://${BUCKET_NAME}/${LOG_SOURCE_FOLDER}/. Exiting.
   exit 0
 fi
 
 # Generate the aggregated benchmark file
-export DOCKER_RUN_OPTS="-v ${LOG_FOLDER}:/usr/src/yarn-project/log:rw -e AZTEC_BOT_COMMENTER_GITHUB_TOKEN"
+mkdir -p $BENCH_FOLDER
+CONTAINER_BENCH_FOLDER="/usr/src/yarn-project/bench"
+CONTAINER_LOG_FOLDER="/usr/src/yarn-project/log"
+export DOCKER_RUN_OPTS="\
+ -v $(realpath $BENCH_FOLDER):${CONTAINER_BENCH_FOLDER}:rw \
+ -e BENCH_FOLDER=${CONTAINER_BENCH_FOLDER} \
+ -v $(realpath $LOG_FOLDER):${CONTAINER_LOG_FOLDER}:rw \
+ -e LOG_FOLDER=${CONTAINER_LOG_FOLDER} \
+ -e AZTEC_BOT_COMMENTER_GITHUB_TOKEN"
 yarn-project/scripts/run_script.sh workspace @aztec/scripts bench-aggregate
 echo "generated: $BENCHMARK_FILE_JSON"
 
@@ -57,8 +67,10 @@ if [ -n "${BENCHMARK_LATEST_FILE:-}" ]; then
   aws s3 cp $BENCHMARK_FILE_JSON "s3://${BUCKET_NAME}/${BENCHMARK_LATEST_FILE}"
 fi
 
-# If on a pull request, comment on it
+# If on a pull request, get the data from the base commit, and comment on the PR
 if [ -n "${CIRCLE_PULL_REQUEST:-}" ]; then
+  BASE_COMMIT_HASH=$(curl -s "https://api.github.com/repos/AztecProtocol/aztec-packages/pulls/${CIRCLE_PULL_REQUEST##*/}" | jq -r '.base.sha')
+  (aws s3 cp "s3://${BUCKET_NAME}/benchmarks-v1/master/$BASE_COMMIT_HASH.json" $BASE_BENCHMARK_FILE_JSON) || echo "failed to download base benchmark file"
   (yarn-project/scripts/run_script.sh workspace @aztec/scripts bench-comment && echo "commented on pr $CIRCLE_PULL_REQUEST") || echo "failed commenting on pr"
 fi
 
