@@ -1,3 +1,4 @@
+import { BlankContractArtifact } from './artifacts/blank.js';
 import {
   AccountWallet,
   AztecAddress,
@@ -12,7 +13,7 @@ import {
 } from '@aztec/aztec.js';
 import { ContractArtifact, FunctionArtifact, encodeArguments } from '@aztec/foundation/abi';
 import { FieldsOf } from '@aztec/foundation/types';
-import { BlankContractArtifact } from './artifacts/blank.js';
+
 export const contractArtifact: ContractArtifact = BlankContractArtifact;
 
 export const PXE_URL: string = process.env.PXE_URL || 'http://localhost:8080';
@@ -40,7 +41,13 @@ export async function handleDeployClick(): Promise<string> {
   console.log('Deploying Contract');
   const [wallet, ..._rest] = await getSandboxAccountsWallets(pxe);
 
-  const contractAztecAddress = await deployContract(wallet.getCompleteAddress(), contractArtifact, [], Fr.random(), pxe);
+  const contractAztecAddress = await deployContract(
+    wallet.getCompleteAddress(),
+    contractArtifact,
+    [],
+    Fr.random(),
+    pxe,
+  );
 
   return contractAztecAddress.toString();
 }
