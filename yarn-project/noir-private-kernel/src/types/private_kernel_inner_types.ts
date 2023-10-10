@@ -256,7 +256,3 @@ export interface ReturnType {
 export interface InputType {
   input: PrivateKernelInputsInner;
 }
-
-export function execute(input: InputType): ReturnType {
-   throw Error('Add execute function logic here')
-}

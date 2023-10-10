@@ -60,7 +60,7 @@ export interface NoirCompiledCircuit {
    */
   abi: NoirFunctionAbi;
   /** The bytecode of the circuit in base64. */
-  bytecode: NoirFunctionEntry[];
+  bytecode: string;
 }
 
 /**

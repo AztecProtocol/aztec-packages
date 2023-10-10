@@ -174,15 +174,6 @@ function generateTsInterface(abiObj: NoirFunctionAbi): string {
   }
   result += '}';
 
-  // Generating the execute function
-  result += `\n\nexport function execute(input: InputType)`;
-  if (abiObj.return_type != null) {
-    result += `: ReturnType`;
-  }
-  result += ` {\n`;
-  result += `   throw Error('Add execute function logic here')\n`;
-  result += `}`;
-
   // Add the primitive Noir types that do not have a 1-1 mapping to TypeScript.
   let primitiveTypeAliases = '';
   for (const [, value] of noirPrimitiveTypesToTsTypes) {
