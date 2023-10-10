@@ -38,7 +38,6 @@ class UltraComposer {
 
     UltraComposer() = default;
 
-
     UltraComposer(std::shared_ptr<proving_key> p_key, std::shared_ptr<verification_key> v_key)
         : circuit_proving_key(std::move(p_key))
         , circuit_verification_key(std::move(v_key))
