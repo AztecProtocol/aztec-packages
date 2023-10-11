@@ -14,9 +14,14 @@ struct TxContext {
 
 
 impl TxContext {
-    // TODO(Hash): Hash(is_fee_payment_tx, is_rebate_payment_tx, is_contract_deployment_tx,contract_deployment_data, chain_id, version)
     fn hash(self) -> Field {
-        let _hash_index = constants_gen::GENERATOR_INDEX__TX_CONTEXT;
-        0
+        dep::std::hash::pedersen_with_separator([
+            self.is_fee_payment_tx as Field,
+            self.is_rebate_payment_tx as Field,
+            self.is_contract_deployment_tx as Field,
+            self.contract_deployment_data.hash(),
+            self.chain_id,
+            self.version,
+        ], constants_gen::GENERATOR_INDEX__TX_CONTEXT)[0]
     }
 }

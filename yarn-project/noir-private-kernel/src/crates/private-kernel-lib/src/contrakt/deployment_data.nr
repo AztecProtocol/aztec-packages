@@ -20,10 +20,14 @@ impl ContractDeploymentData {
         self.deployer_public_key.assert_is_zero();
     }
 
-    // Hash(deployer_public_key.x, deployer_public_key.y, constructor_vk_hash,
-    //        function_tree_root,    contract_address_salt, portal_contract_address.to_field())
     fn hash(self) -> Field {
-        let _hash_index = constants_gen::GENERATOR_INDEX__CONTRACT_DEPLOYMENT_DATA;
-        0
+        dep::std::hash::pedersen_with_separator([
+            self.deployer_public_key.x,
+            self.deployer_public_key.y,
+            self.constructor_vk_hash,
+            self.function_tree_root,
+            self.contract_address_salt,
+            self.portal_contract_address.to_field()
+        ], constants_gen::GENERATOR_INDEX__CONTRACT_DEPLOYMENT_DATA)[0]
     }
 }
