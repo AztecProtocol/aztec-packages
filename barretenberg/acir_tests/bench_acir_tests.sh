@@ -29,7 +29,7 @@ done
 TABLE_DATA="${TABLE_DATA%$'\n'}"
 
 echo
-echo Table represents time to build circuit and proof for each test on n threads.
+echo Table represents time in ms to build circuit and proof for each test on n threads.
 echo Ignores proving key construction.
 echo
 # Use awk to print the table

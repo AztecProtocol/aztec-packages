@@ -9,7 +9,7 @@ As the spec solidifies, this should be less of an issue. Aztec and Barretenberg 
 
 ### Benchmarks!
 
-Table represents time to build circuit and proof for each test on n threads.
+Table represents time in ms to build circuit and proof for each test on n threads.
 Ignores proving key construction.
 
 ```
