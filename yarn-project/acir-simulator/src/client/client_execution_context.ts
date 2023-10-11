@@ -103,7 +103,8 @@ export class ClientExecutionContext extends ViewDataOracle {
       this.txContext.chainId,
       this.txContext.version,
 
-      this.sideEffectCounter, // TODO(dbanks12): correct name? start?
+      this.callContext.startSideEffectCounter, // TODO(dbanks12): is this right?
+      //this.sideEffectCounter.count,
 
       ...this.packedArgsCache.unpack(this.argsHash),
     ];

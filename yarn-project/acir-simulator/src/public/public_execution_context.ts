@@ -73,7 +73,8 @@ export class PublicExecutionContext extends TypedOracle {
       this.globalVariables.blockNumber,
       this.globalVariables.timestamp,
 
-      this.sideEffectCounter, // TODO(dbanks12): correct name? start?
+      callContext.startSideEffectCounter, // TODO(dbanks12): is this right?
+      //this.sideEffectCounter.count,
 
       ...args,
     ];
@@ -228,7 +229,7 @@ export class PublicExecutionContext extends TypedOracle {
       isContractDeployment: false,
       isDelegateCall: false,
       isStaticCall: false,
-      Fr.ZERO, // TODO(dbanks12): add arg for this?
+      startSideEffectCounter: Fr.ZERO, // TODO(dbanks12): add arg for this?
     });
 
     const nestedExecution: PublicExecution = {

@@ -191,6 +191,7 @@ struct PrivateContextInputs {
     contract_deployment_data: ContractDeploymentData,
     private_global_variables: PrivateGlobalVariables,
 
+    // TODO(dbanks12): needed?
     start_side_effect_counter: Field,
 }
 // docs:end:private-context-inputs
@@ -203,6 +204,7 @@ struct PublicContextInputs {
 
     public_global_variables: PublicGlobalVariables,
 
+    // TODO(dbanks12): needed?
     start_side_effect_counter: Field,
 }
 // docs:end:public-context-inputs
@@ -292,7 +294,7 @@ struct PrivateCircuitPublicInputs {
     call_context: CallContext,
     args_hash: Field,
     return_values: [Field; RETURN_VALUES_LENGTH],
-    read_requests: [SideEffect; crate::abi::MAX_READ_REQUESTS_PER_CALL],
+    read_requests: [SideEffect; MAX_READ_REQUESTS_PER_CALL],
     new_commitments: [SideEffect; MAX_NEW_COMMITMENTS_PER_CALL],
     new_nullifiers: [SideEffectLinkedToNoteHash; MAX_NEW_NULLIFIERS_PER_CALL],
     nullified_commitments: [Field; MAX_NEW_NULLIFIERS_PER_CALL],

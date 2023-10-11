@@ -631,7 +631,7 @@ describe('Private Execution test suite', () => {
       // check that Aztec.nr calculated the call stack item hash like cpp does
       const wasm = await CircuitsWasm.get();
       const expectedCallStackItemHash = computeCallStackItemHash(wasm, result.nestedExecutions[0].callStackItem);
-      expect(result.callStackItem.publicInputs.privateCallStack[0]).toEqual(expectedCallStackItemHash);
+      expect(result.callStackItem.publicInputs.privateCallStack[0].value).toEqual(expectedCallStackItemHash);
     });
   });
 

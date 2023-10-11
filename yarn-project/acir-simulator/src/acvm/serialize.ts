@@ -76,6 +76,7 @@ export function toACVMCallContext(callContext: CallContext): ACVMField[] {
     toACVMField(callContext.isDelegateCall),
     toACVMField(callContext.isStaticCall),
     toACVMField(callContext.isContractDeployment),
+    toACVMField(callContext.startSideEffectCounter),
   ];
 }
 
