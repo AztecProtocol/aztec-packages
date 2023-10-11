@@ -1,6 +1,6 @@
 import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import {
-  AccountWallet,
+  AccountWalletWithPrivateKey,
   AztecAddress,
   CheatCodes,
   CompleteAddress,
@@ -17,7 +17,6 @@ import {
   deployL1Contract,
   deployL1Contracts,
 } from '@aztec/ethereum';
-import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import {
@@ -133,7 +132,7 @@ export const setupL1Contracts = async (
 /**
  * Sets up Private eXecution Environment (PXE).
  * @param numberOfAccounts - The number of new accounts to be created once the PXE is initiated.
- * @param aztecNode - The instance of an aztec node, if one is required
+ * @param aztecNode - An instance of Aztec Node.
  * @param firstPrivKey - The private key of the first account to be created.
  * @param logger - The logger to be used.
  * @param useLogSuffix - Whether to add a randomly generated suffix to the PXE debug logs.
@@ -156,7 +155,7 @@ export async function setupPXEService(
   /**
    * The wallets to be used.
    */
-  wallets: AccountWallet[];
+  wallets: AccountWalletWithPrivateKey[];
   /**
    * Logger instance named as the current test.
    */
@@ -242,9 +241,9 @@ export type EndToEndContext = {
   /** The Aztec Node configuration. */
   config: AztecNodeConfig;
   /** The first wallet to be used. */
-  wallet: AccountWallet;
+  wallet: AccountWalletWithPrivateKey;
   /** The wallets to be used. */
-  wallets: AccountWallet[];
+  wallets: AccountWalletWithPrivateKey[];
   /** Logger instance named as the current test. */
   logger: DebugLogger;
   /** The cheat codes. */
@@ -290,6 +289,7 @@ export async function setup(numberOfAccounts = 1, opts: SetupOptions = {}): Prom
   config.l1Contracts.contractDeploymentEmitterAddress =
     deployL1ContractsValues.l1ContractAddresses.contractDeploymentEmitterAddress;
   config.l1Contracts.inboxAddress = deployL1ContractsValues.l1ContractAddresses.inboxAddress;
+  config.l1Contracts.outboxAddress = deployL1ContractsValues.l1ContractAddresses.outboxAddress;
 
   logger('Creating and synching an aztec node...');
   const aztecNode = await AztecNodeService.createAndSync(config);
@@ -412,15 +412,9 @@ export async function deployAndInitializeTokenAndBridgeContracts(
   const token = await TokenContract.at(deployReceipt.contractAddress!, wallet);
 
   // deploy l2 token bridge and attach to the portal
-  const bridgeTx = TokenBridgeContract.deploy(wallet, token.address).send({
-    portalContract: tokenPortalAddress,
-    contractAddressSalt: Fr.random(),
-  });
-  const bridgeReceipt = await bridgeTx.wait();
-  if (bridgeReceipt.status !== TxStatus.MINED) throw new Error(`Deploy bridge tx status is ${bridgeReceipt.status}`);
-  const bridge = await TokenBridgeContract.at(bridgeReceipt.contractAddress!, wallet);
-  await bridge.attach(tokenPortalAddress);
-  const bridgeAddress = bridge.address.toString() as `0x${string}`;
+  const bridge = await TokenBridgeContract.deploy(wallet, token.address)
+    .send({ portalContract: tokenPortalAddress })
+    .deployed();
 
   if ((await token.methods.admin().view()) !== owner.toBigInt()) throw new Error(`Token admin is not ${owner}`);
 
@@ -436,7 +430,7 @@ export async function deployAndInitializeTokenAndBridgeContracts(
 
   // initialize portal
   await tokenPortal.write.initialize(
-    [rollupRegistryAddress.toString(), underlyingERC20Address.toString(), bridgeAddress],
+    [rollupRegistryAddress.toString(), underlyingERC20Address.toString(), bridge.address.toString()],
     {} as any,
   );
 
@@ -485,16 +479,10 @@ export async function deployAndInitializeNonNativeL2TokenContracts(
   });
 
   // deploy l2 contract and attach to portal
-  const tx = NonNativeTokenContract.deploy(wallet, initialBalance, owner).send({
-    portalContract: tokenPortalAddress,
-    contractAddressSalt: Fr.random(),
-  });
-  await tx.isMined({ interval: 0.1 });
-  const receipt = await tx.getReceipt();
-  if (receipt.status !== TxStatus.MINED) throw new Error(`Tx status is ${receipt.status}`);
-  const l2Contract = await NonNativeTokenContract.at(receipt.contractAddress!, wallet);
-  await l2Contract.attach(tokenPortalAddress);
-  const l2TokenAddress = l2Contract.address.toString() as `0x${string}`;
+  const l2Contract = await NonNativeTokenContract.deploy(wallet, initialBalance, owner)
+    .send({ portalContract: tokenPortalAddress })
+    .deployed();
+  const l2TokenAddress = l2Contract.address.toString();
 
   // initialize portal
   await tokenPortal.write.initialize(

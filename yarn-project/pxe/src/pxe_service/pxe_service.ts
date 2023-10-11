@@ -32,7 +32,6 @@ import {
   DeployedContract,
   ExtendedContractData,
   FunctionCall,
-  INITIAL_L2_BLOCK_NUM,
   KeyStore,
   L2Block,
   L2BlockL2Logs,
@@ -93,7 +92,8 @@ export class PXEService implements PXE {
    * @returns A promise that resolves when the server has started successfully.
    */
   public async start() {
-    await this.synchronizer.start(INITIAL_L2_BLOCK_NUM, 1, this.config.l2BlockPollingIntervalMS);
+    const { l2BlockPollingIntervalMS, l2StartingBlock } = this.config;
+    await this.synchronizer.start(l2StartingBlock, 1, l2BlockPollingIntervalMS);
     const info = await this.getNodeInfo();
     this.log.info(`Started PXE connected to chain ${info.chainId} version ${info.protocolVersion}`);
   }
@@ -110,21 +110,27 @@ export class PXEService implements PXE {
     this.log.info('Stopped');
   }
 
+  /** Returns an estimate of the db size in bytes. */
+  public estimateDbSize() {
+    return this.db.estimateSize();
+  }
+
   public addAuthWitness(witness: AuthWitness) {
     return this.db.addAuthWitness(witness.requestHash, witness.witness);
   }
 
-  public async registerAccount(privKey: GrumpkinPrivateKey, partialAddress: PartialAddress) {
+  public async registerAccount(privKey: GrumpkinPrivateKey, partialAddress: PartialAddress): Promise<CompleteAddress> {
     const completeAddress = await CompleteAddress.fromPrivateKeyAndPartialAddress(privKey, partialAddress);
     const wasAdded = await this.db.addCompleteAddress(completeAddress);
     if (wasAdded) {
       const pubKey = this.keyStore.addAccount(privKey);
-      this.synchronizer.addAccount(pubKey, this.keyStore);
+      this.synchronizer.addAccount(pubKey, this.keyStore, this.config.l2StartingBlock);
       this.log.info(`Registered account ${completeAddress.address.toString()}`);
       this.log.debug(`Registered account\n ${completeAddress.toReadableString()}`);
     } else {
       this.log.info(`Account:\n "${completeAddress.address.toString()}"\n already registered.`);
     }
+    return completeAddress;
   }
 
   public async getRegisteredAccounts(): Promise<CompleteAddress[]> {
@@ -167,7 +173,7 @@ export class PXEService implements PXE {
   }
 
   public async addContracts(contracts: DeployedContract[]) {
-    const contractDaos = contracts.map(c => toContractDao(c.abi, c.completeAddress, c.portalContract));
+    const contractDaos = contracts.map(c => toContractDao(c.artifact, c.completeAddress, c.portalContract));
     await Promise.all(contractDaos.map(c => this.db.addContract(c)));
     for (const contract of contractDaos) {
       const portalInfo =
@@ -333,7 +339,7 @@ export class PXEService implements PXE {
     const functionCall = await this.#getFunctionCall(functionName, args, to);
     const executionResult = await this.#simulateUnconstrained(functionCall);
 
-    // TODO - Return typed result based on the function abi.
+    // TODO - Return typed result based on the function artifact.
     return executionResult;
   }
 
@@ -419,14 +425,14 @@ export class PXEService implements PXE {
 
   /**
    * Retrieves the simulation parameters required to run an ACIR simulation.
-   * This includes the contract address, function ABI, portal contract address, and historic tree roots.
+   * This includes the contract address, function artifact, portal contract address, and historic tree roots.
    *
    * @param execRequest - The transaction request object containing details of the contract call.
-   * @returns An object containing the contract address, function ABI, portal contract address, and historic tree roots.
+   * @returns An object containing the contract address, function artifact, portal contract address, and historic tree roots.
    */
   async #getSimulationParameters(execRequest: FunctionCall | TxExecutionRequest) {
     const contractAddress = (execRequest as FunctionCall).to ?? (execRequest as TxExecutionRequest).origin;
-    const functionAbi = await this.contractDataOracle.getFunctionAbi(
+    const functionArtifact = await this.contractDataOracle.getFunctionArtifact(
       contractAddress,
       execRequest.functionData.selector,
     );
@@ -438,8 +444,8 @@ export class PXEService implements PXE {
 
     return {
       contractAddress,
-      functionAbi: {
-        ...functionAbi,
+      functionArtifact: {
+        ...functionArtifact,
         debug,
       },
       portalContract,
@@ -449,11 +455,11 @@ export class PXEService implements PXE {
   async #simulate(txRequest: TxExecutionRequest): Promise<ExecutionResult> {
     // TODO - Pause syncing while simulating.
 
-    const { contractAddress, functionAbi, portalContract } = await this.#getSimulationParameters(txRequest);
+    const { contractAddress, functionArtifact, portalContract } = await this.#getSimulationParameters(txRequest);
 
     this.log('Executing simulator...');
     try {
-      const result = await this.simulator.run(txRequest, functionAbi, contractAddress, portalContract);
+      const result = await this.simulator.run(txRequest, functionArtifact, contractAddress, portalContract);
       this.log('Simulation completed!');
       return result;
     } catch (err) {
@@ -473,11 +479,11 @@ export class PXEService implements PXE {
    * @returns The simulation result containing the outputs of the unconstrained function.
    */
   async #simulateUnconstrained(execRequest: FunctionCall) {
-    const { contractAddress, functionAbi } = await this.#getSimulationParameters(execRequest);
+    const { contractAddress, functionArtifact } = await this.#getSimulationParameters(execRequest);
 
     this.log('Executing unconstrained simulator...');
     try {
-      const result = await this.simulator.runUnconstrained(execRequest, functionAbi, contractAddress, this.node);
+      const result = await this.simulator.runUnconstrained(execRequest, functionArtifact, contractAddress, this.node);
       this.log('Unconstrained simulation completed!');
 
       return result;
@@ -589,9 +595,9 @@ export class PXEService implements PXE {
         if (contract) {
           err.enrichWithContractName(parsedContractAddress, contract.name);
           selectors.forEach(selector => {
-            const functionAbi = contract.functions.find(f => f.selector.toString() === selector);
-            if (functionAbi) {
-              err.enrichWithFunctionName(parsedContractAddress, functionAbi.selector, functionAbi.name);
+            const functionArtifact = contract.functions.find(f => f.selector.toString() === selector);
+            if (functionArtifact) {
+              err.enrichWithFunctionName(parsedContractAddress, functionArtifact.selector, functionArtifact.name);
             }
           });
         }
@@ -646,5 +652,9 @@ export class PXEService implements PXE {
 
   public getSyncStatus() {
     return Promise.resolve(this.synchronizer.getSyncStatus());
+  }
+
+  public getKeyStore() {
+    return this.keyStore;
   }
 }

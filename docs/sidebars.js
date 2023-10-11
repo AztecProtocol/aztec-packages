@@ -80,11 +80,13 @@ const sidebars = {
           label: "Accounts",
           type: "category",
           link: { type: "doc", id: "concepts/foundation/accounts/main" },
-          items: ["concepts/foundation/accounts/keys"],
+          items: [
+            "concepts/foundation/accounts/keys",
+            "concepts/foundation/accounts/authwit",
+          ],
         },
         "concepts/foundation/contracts",
         "concepts/foundation/transactions",
-        // "concepts/foundation/blocks",
         // "concepts/foundation/globals",
         {
           label: "Communication",
@@ -98,19 +100,19 @@ const sidebars = {
             "concepts/foundation/communication/cross_chain_calls",
           ],
         },
-        // {
-        //   label: "Nodes and Clients",
-        //   type: "category",
-        //   link: {
-        //     type: "doc",
-        //     id: "concepts/foundation/nodes_clients/main",
-        //   },
-        //   items: [
-        //     "concepts/foundation/nodes_clients/execution_client",
-        //     "concepts/foundation/nodes_clients/prover_client",
-        //     "concepts/foundation/nodes_clients/sequencer_client",
-        //   ],
-        // },
+        {
+          label: "Nodes and Clients",
+          type: "category",
+          // link: {
+          //   type: "doc",
+          //   id: "concepts/foundation/nodes_clients/main",
+          // },
+          items: [
+            // "concepts/foundation/nodes_clients/execution_client",
+            // "concepts/foundation/nodes_clients/prover_client",
+            "concepts/foundation/nodes_clients/sequencer",
+          ],
+        },
         // "concepts/foundation/block_production",
         // "concepts/foundation/upgrade_mechanism",
       ],
@@ -169,6 +171,8 @@ const sidebars = {
         },
         "concepts/advanced/public_vm",
         "concepts/advanced/contract_creation",
+        "concepts/advanced/sequencer_selection",
+        "concepts/advanced/acir_simulator",
       ],
     },
 
@@ -273,27 +277,28 @@ const sidebars = {
           ],
         },
         "dev_docs/contracts/common_errors",
-        // {
-        //   label: "Resources",
-        //   type: "category",
-        //   items: [
-        //     "dev_docs/contracts/resources/style_guide",
-        //     {
-        //       label: "Common Patterns",
-        //       type: "category",
+        {
+           label: "Resources",
+           type: "category",
+           items: [
+             //"dev_docs/contracts/resources/style_guide",
+             {
+               label: "Common Patterns",
+               type: "category",
         //       link: {
         //         type: "doc",
         //         id: "dev_docs/contracts/resources/common_patterns/main",
         //       },
-        //       items: [
+               items: [
+                "dev_docs/contracts/resources/common_patterns/authwit",
         //         "dev_docs/contracts/resources/common_patterns/sending_tokens_to_user",
         //         "dev_docs/contracts/resources/common_patterns/sending_tokens_to_contract",
         //         "dev_docs/contracts/resources/common_patterns/access_control",
         //         "dev_docs/contracts/resources/common_patterns/interacting_with_l1",
-        //       ],
-        //     },
-        //   ],
-        // },
+               ],
+             },
+           ],
+         },
         // {
         //   label: "Security Considerations",
         //   type: "category",

@@ -1,4 +1,4 @@
-import { ContractAbi, FunctionAbi, FunctionSelector } from '@aztec/foundation/abi';
+import { ContractArtifact, FunctionArtifact, FunctionSelector } from '@aztec/foundation/abi';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { CompleteAddress, DeployedContract } from '@aztec/types';
 
@@ -19,27 +19,23 @@ export type ContractMethod = ((...args: any[]) => ContractFunctionInteraction) &
 /**
  * Abstract implementation of a contract extended by the Contract class and generated contract types.
  */
-export class ContractBase {
+export class ContractBase implements DeployedContract {
   /**
    * An object containing contract methods mapped to their respective names.
    */
   public methods: { [name: string]: ContractMethod } = {};
 
   protected constructor(
-    /**
-     * The deployed contract's complete address.
-     */
+    /** The deployed contract's complete address. */
     public readonly completeAddress: CompleteAddress,
-    /**
-     * The Application Binary Interface for the contract.
-     */
-    public readonly abi: ContractAbi,
-    /**
-     * The wallet.
-     */
+    /** The Application Binary Interface for the contract. */
+    public readonly artifact: ContractArtifact,
+    /** The wallet used for interacting with this contract. */
     protected wallet: Wallet,
+    /** The portal contract address on L1, if any. */
+    public readonly portalContract: EthAddress,
   ) {
-    abi.functions.forEach((f: FunctionAbi) => {
+    artifact.functions.forEach((f: FunctionArtifact) => {
       const interactionFunction = (...args: any[]) => {
         return new ContractFunctionInteraction(this.wallet, this.completeAddress.address!, f, args);
       };
@@ -69,24 +65,6 @@ export class ContractBase {
    * @returns A new contract instance.
    */
   public withWallet(wallet: Wallet): this {
-    return new ContractBase(this.completeAddress, this.abi, wallet) as this;
-  }
-
-  /**
-   * Attach the current contract instance to a portal contract and optionally add its dependencies.
-   * The function will return a promise that resolves when all contracts have been added to the PXE.
-   * This is useful when you need to interact with a deployed contract that has multiple nested contracts.
-   *
-   * @param portalContract - The Ethereum address of the portal contract.
-   * @param dependencies - An optional array of additional DeployedContract instances to be attached.
-   * @returns A promise that resolves when all contracts are successfully added to the PXE.
-   */
-  public attach(portalContract: EthAddress, dependencies: DeployedContract[] = []) {
-    const deployedContract: DeployedContract = {
-      abi: this.abi,
-      completeAddress: this.completeAddress,
-      portalContract,
-    };
-    return this.wallet.addContracts([deployedContract, ...dependencies]);
+    return new ContractBase(this.completeAddress, this.artifact, wallet, this.portalContract) as this;
   }
 }

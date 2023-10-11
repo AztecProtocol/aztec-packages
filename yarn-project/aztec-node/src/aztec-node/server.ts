@@ -8,6 +8,7 @@ import {
   L1_TO_L2_MSG_TREE_HEIGHT,
   PRIVATE_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
+import { computePublicDataTreeIndex } from '@aztec/circuits.js/abis';
 import { L1ContractAddresses } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -41,7 +42,6 @@ import {
   ServerWorldStateSynchronizer,
   WorldStateConfig,
   WorldStateSynchronizer,
-  computePublicDataTreeLeafIndex,
   getConfigEnvVars as getWorldStateConfig,
 } from '@aztec/world-state';
 
@@ -69,7 +69,16 @@ export class AztecNodeService implements AztecNode {
     protected readonly globalVariableBuilder: GlobalVariableBuilder,
     protected readonly merkleTreesDb: levelup.LevelUp,
     private log = createDebugLogger('aztec:node'),
-  ) {}
+  ) {
+    const message =
+      `Started Aztec Node with contracts - \n` +
+      `Rollup: ${config.l1Contracts.rollupAddress.toString()}\n` +
+      `Registry: ${config.l1Contracts.registryAddress.toString()}\n` +
+      `Inbox: ${config.l1Contracts.inboxAddress.toString()}\n` +
+      `Outbox: ${config.l1Contracts.outboxAddress.toString()}\n` +
+      `Contract Emitter: ${config.l1Contracts.contractDeploymentEmitterAddress.toString()}`;
+    this.log(message);
+  }
 
   /**
    * initializes the Aztec Node, wait for component to sync.
@@ -321,8 +330,8 @@ export class AztecNodeService implements AztecNode {
    */
   public async getPublicStorageAt(contract: AztecAddress, slot: bigint): Promise<Buffer | undefined> {
     const committedDb = await this.#getWorldState();
-    const leafIndex = computePublicDataTreeLeafIndex(contract, new Fr(slot), await CircuitsWasm.get());
-    return committedDb.getLeafValue(MerkleTreeId.PUBLIC_DATA_TREE, leafIndex);
+    const leafIndex = computePublicDataTreeIndex(await CircuitsWasm.get(), contract, new Fr(slot));
+    return committedDb.getLeafValue(MerkleTreeId.PUBLIC_DATA_TREE, leafIndex.value);
   }
 
   /**
