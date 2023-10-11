@@ -15,7 +15,6 @@ mod mocked;
 mod hash;
 
 use abis::kernel_circuit_public_inputs::KernelCircuitPublicInputs;
-
 // Hmm
 // PrivateCircuitPublicInputs vs CombinedAccumulatedData (Duplicated fields)
 // ?Que es la diferencia entre contract_address y storage_address?

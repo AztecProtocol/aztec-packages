@@ -249,6 +249,7 @@ pub fn update_end_values(private_call : PrivateCallData, public_inputs : &mut Ke
         };
         siloed_nullified_commitments.push(siloed_nullified_commitment);
     }
+    // TODO(Kev): These operations should be carefully checked with the cpp array_push code
     public_inputs.end.nullified_commitments.push_array(siloed_nullified_commitments.storage());
 
     // Call stacks
