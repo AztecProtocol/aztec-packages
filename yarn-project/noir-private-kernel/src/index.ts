@@ -1,7 +1,7 @@
 import { KernelCircuitPublicInputs, PrivateKernelInputsInit } from '@aztec/circuits.js';
 import { NoirCompiledCircuit } from '@aztec/noir-compiler';
 
-import { executeCircuit } from '@noir-lang/acvm_js';
+import { WasmBlackBoxFunctionSolver, createBlackBoxSolver, executeCircuitWithBlackBoxSolver } from '@noir-lang/acvm_js';
 import { abiDecode, abiEncode } from '@noir-lang/noirc_abi';
 
 import PrivateKernelInitJson from './target/private_kernel_init.json' assert { type: 'json' };
@@ -48,6 +48,15 @@ export async function executeInit(
   return mapKernelCircuitPublicInputsFromNoir(returnType);
 }
 
+let solver: Promise<WasmBlackBoxFunctionSolver>;
+
+const getSolver = (): Promise<WasmBlackBoxFunctionSolver> => {
+  if (!solver) {
+    solver = createBlackBoxSolver();
+  }
+  return solver;
+};
+
 /**
  * Executes the init private kernel with the given inputs using the acvm.
  *
@@ -63,9 +72,14 @@ async function executePrivateKernelInitWithACVM(input: InitInputType): Promise<R
   const decodedBytecode = Buffer.from(PrivateKernelInitArtifact.bytecode, 'base64');
   //
   // Execute the circuit
-  const _witnessMap = await executeCircuit(decodedBytecode, initialWitnessMap, () => {
-    throw Error('unexpected oracle during execution');
-  });
+  const _witnessMap = await executeCircuitWithBlackBoxSolver(
+    await getSolver(),
+    decodedBytecode,
+    initialWitnessMap,
+    () => {
+      throw Error('unexpected oracle during execution');
+    },
+  );
 
   // Decode the witness map into two fields, the return values and the inputs
   const decodedInputs: DecodedInputs = abiDecode(PrivateKernelInitArtifact.abi, _witnessMap);

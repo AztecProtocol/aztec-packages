@@ -19,10 +19,11 @@ impl NewContractData {
         if self.is_empty() {
             0 // We want to return 0 here since the contract_address is zero
         } else {
-            let _hash_index = constants_gen::GENERATOR_INDEX__CONTRACT_LEAF;
-
-            // hash all contents and put in compress method
-            0
+            dep::std::hash::pedersen_with_separator([
+                self.contract_address.to_field(),
+                self.portal_contract_address.to_field(),
+                self.function_tree_root,
+            ], constants_gen::GENERATOR_INDEX__CONTRACT_LEAF)[0]
         }
     }
     

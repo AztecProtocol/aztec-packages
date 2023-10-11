@@ -7,10 +7,12 @@ use crate::abis::new_contract_data::NewContractData as ContractLeafPreimage;
 use crate::abis::function_data::FunctionData;
 use crate::utils::uint128::U128;
 use crate::utils::uint256::U256;
+use crate::utils::bounded_vec::BoundedVec;
 
 use dep::aztec::{
     constants_gen,
     constants_gen::{CONTRACT_TREE_HEIGHT, FUNCTION_TREE_HEIGHT},
+    hash::sha256_to_field,
 };
 
 // Calculate the Merkle tree root from the sibling path and leaf.
@@ -74,21 +76,23 @@ fn contract_tree_root_from_siblings(function_tree_root : Field, storage_contract
     computed_contract_tree_root
 }
 
-// TODO(hash)
-fn silo_commitment(address : Address, read_request : Field) -> Field {
-    let _hash_index = constants_gen::GENERATOR_INDEX__SILOED_COMMITMENT;
-    0
+pub fn silo_commitment(address : Address, inner_commitment : Field) -> Field {
+    dep::std::hash::pedersen_with_separator([
+        address.to_field(),
+        inner_commitment,
+    ], constants_gen::GENERATOR_INDEX__SILOED_COMMITMENT)[0]
 }
 
-// TODO(hash)
-fn silo_nullifier(address : Address, read_request : Field) -> Field {
-    let _hash_index = constants_gen::GENERATOR_INDEX__OUTER_NULLIFIER;
-    0
+pub fn silo_nullifier(address : Address, nullifier : Field) -> Field {
+    dep::std::hash::pedersen_with_separator([
+        address.to_field(),
+        nullifier,
+    ], constants_gen::GENERATOR_INDEX__OUTER_NULLIFIER)[0]
 }
 
-// TODO: add merkle hash implementation
 fn merkle_hash(left : Field, right : Field) -> Field {
-    0
+    // TODO ensure it's the same hash cpp is doing for merkle trees. 
+    dep::std::hash::pedersen([left, right])[0]
 }
 
 fn stdlib_recursion_verification_key_compress_native_vk(vk : VerificationKey) -> Field {
@@ -103,43 +107,45 @@ fn stdlib_recursion_verification_key_compress_native_vk(vk : VerificationKey) ->
 // bytes and then taking a blake3s hash and then converting the 32 byte hash output to a 
 // Field. 
 //
-// *See `compute_l2_to_l1_hash`
+// *See `compute_new_contract_address_hash`
 //
 // For now, I have replaced this with `hash_to_field` for two reasons:
 // - Hash to field takes as input Field, so we can avoid the to_bytes conversion
 //   on the Noir layer.
 // - Hash_to_field abstracts away the fact that we need blake3s 
-fn hash_to_field<N>(_input : [Field; N]) -> Field {
-   // TODO: call the stdlib hash_to_field method
-   // This method is not being called directly because I want to have the comments
-   // above while we are refactoring.
-   
-   0
+fn hash_to_field<N>(input : [Field; N]) -> Field {
+   dep::std::hash::hash_to_field(input)
 }
+
+// TODO CPP uses blake3 for this
 fn compute_new_contract_address_hash(new_contract_address : Address) -> Field {
     hash_to_field([new_contract_address.to_field()])
 }
 
-// TODO(Lasse and David)
-// This diverges from the cpp code for simplicity.
-// The cpp code was converting all of the inputs into a bytes vector and then 
-// doing a sha256_to_field.
-// In other parts of the code, we do a "blake3s_to_field". (See hash_to_field) in this file.
-// Its not clear if sha256 is being used for a particular reason. I propose 
-// we use one out of the two and just call hash_to_field everywhere.
+// TODO is the aztec-nr sha256 to field the same as cpp one?
 fn compute_l2_to_l1_hash(contract_address : Address, rollup_version_id: Field, portal_contract_address : EthAddress, chain_id : Field, content : Field) -> Field {
+    let mut bytes: BoundedVec<u8, 160> = BoundedVec::new(0);
+
     let inputs = [contract_address.to_field(), rollup_version_id, portal_contract_address.to_field(), chain_id, content];
-    hash_to_field(inputs)
+    for i in 0..inputs.len() {
+        // TODO are bytes be in fr.to_buffer() ?
+        let item_bytes = inputs[i].to_be_bytes(32);
+        for j in 0..32 {
+            bytes.push(item_bytes[j]);
+        }
+    }
+
+    sha256_to_field(bytes.storage)
 }
 
-fn compute_constructor_hash(function_data : FunctionData, args_hash : Field, constructor_vk_hash : Field) -> Field {
+pub fn compute_constructor_hash(function_data : FunctionData, args_hash : Field, constructor_vk_hash : Field) -> Field {
     let function_data_hash = function_data.hash();
 
-    let inputs = [function_data_hash,args_hash,constructor_vk_hash];
-
-    let _hash_index = constants_gen::GENERATOR_INDEX__CONSTRUCTOR;
-
-    0
+    dep::std::hash::pedersen_with_separator([
+        function_data_hash,
+        args_hash,
+        constructor_vk_hash
+    ], constants_gen::GENERATOR_INDEX__CONSTRUCTOR)[0]
 }
 
 // sha256 hash is stored in two fields to accommodate all 256-bits of the hash
@@ -189,22 +195,36 @@ fn compute_logs_hash(previous_log_hash : [Field;2], current_log_hash : [Field;2]
     ])
 }
 
-fn compute_partial_address(contract_address_salt : Field, function_tree_root : Field, constructor_hash : Field) -> Field {
-    let _hash_index = constants_gen::GENERATOR_INDEX__PARTIAL_ADDRESS;
-    0
+pub fn compute_partial_address(contract_address_salt : Field, function_tree_root : Field, constructor_hash : Field) -> Field {
+    dep::std::hash::pedersen_with_separator([
+        // TODO why the zeroes?
+        0,
+        0,
+        contract_address_salt,
+        function_tree_root,
+        constructor_hash
+    ],constants_gen::GENERATOR_INDEX__PARTIAL_ADDRESS)[0]
 }
 
-fn compute_contract_address_from_partial(point : Point, partial_address : Field) -> Address {
-    let _hash_index = constants_gen::GENERATOR_INDEX__CONTRACT_ADDRESS;
-    Address::default()
+pub fn compute_contract_address_from_partial(point : Point, partial_address : Field) -> Address {
+    let field = dep::std::hash::pedersen_with_separator([
+        point.x,
+        point.y,
+        partial_address
+    ],constants_gen::GENERATOR_INDEX__CONTRACT_ADDRESS)[0];
+    Address::from_field(field)
 }
 
 fn compute_unique_commitment(nonce : Field, siloed_commitment : Field) -> Field {
-    let _hash_index = constants_gen::GENERATOR_INDEX__UNIQUE_COMMITMENT;
-    0
+    dep::std::hash::pedersen_with_separator([
+        nonce,
+        siloed_commitment
+    ], constants_gen::GENERATOR_INDEX__UNIQUE_COMMITMENT)[0]
 }
 
 fn compute_commitment_nonce(first_nullifier : Field, commitment_index : Field) -> Field {
-    let _hash_index = constants_gen::GENERATOR_INDEX__COMMITMENT_NONCE;
-    0
+    dep::std::hash::pedersen_with_separator([
+        first_nullifier,
+        commitment_index
+    ], constants_gen::GENERATOR_INDEX__COMMITMENT_NONCE)[0]
 }

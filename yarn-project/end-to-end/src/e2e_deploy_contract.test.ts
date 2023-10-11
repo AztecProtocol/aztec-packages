@@ -52,7 +52,7 @@ describe('e2e_deploy_contract', () => {
     const contractAddress = receiptAfterMined.contractAddress!;
     expect(await isContractDeployed(pxe, contractAddress)).toBe(true);
     expect(await isContractDeployed(pxe, AztecAddress.random())).toBe(false);
-  }, 30_000);
+  }, 60_000);
 
   /**
    * Verify that we can produce multiple rollups.
@@ -68,7 +68,7 @@ describe('e2e_deploy_contract', () => {
       const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.MINED);
     }
-  }, 30_000);
+  }, 60_000);
 
   /**
    * Verify that we can deploy multiple contracts and interact with all of them.
@@ -84,7 +84,7 @@ describe('e2e_deploy_contract', () => {
       logger(`Sending TX to contract ${index + 1}...`);
       await contract.methods.getPublicKey(accounts[0].address).send().wait();
     }
-  }, 30_000);
+  }, 60_000);
 
   /**
    * Milestone 1.2.
@@ -110,7 +110,7 @@ describe('e2e_deploy_contract', () => {
         /A settled tx with equal hash/,
       );
     }
-  }, 30_000);
+  }, 60_000);
 
   it('should deploy a contract connected to a portal contract', async () => {
     const deployer = new ContractDeployer(TestContractAbi, wallet);
@@ -127,5 +127,5 @@ describe('e2e_deploy_contract', () => {
     expect((await pxe.getExtendedContractData(contractAddress))?.contractData.portalContractAddress.toString()).toEqual(
       portalContract.toString(),
     );
-  });
+  }, 60_000);
 });

@@ -3,6 +3,7 @@ use crate::abis::function_data::FunctionData;
 use dep::aztec::constants_gen::{MAX_READ_REQUESTS_PER_CALL};
 use crate::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs;
 use crate::abis::public_circuit_public_inputs::PublicCircuitPublicInputs;
+use dep::aztec::constants_gen;
 
 // TODO(Noir-bug): These should be type aliases
 
@@ -46,7 +47,11 @@ struct CallStackItem<AppCircuitPublicInputs> {
 // public_inputs and contract_address
 impl PublicCallStackItem {
     fn hash(self) -> Field {
-        0
+        dep::std::hash::pedersen_with_separator([
+            self.inner.contract_address.to_field(),
+            self.inner.function_data.hash(),
+            self.inner.public_inputs.hash(),
+        ], constants_gen::GENERATOR_INDEX__CALL_STACK_ITEM)[0]
     }
 
     fn public_inputs(self) -> PublicCircuitPublicInputs {
@@ -63,7 +68,11 @@ impl PublicCallStackItem {
 }
 impl PrivateCallStackItem {
     fn hash(self) -> Field {
-        0
+        dep::std::hash::pedersen_with_separator([
+            self.inner.contract_address.to_field(),
+            self.inner.function_data.hash(),
+            self.inner.public_inputs.hash(),
+        ], constants_gen::GENERATOR_INDEX__CALL_STACK_ITEM)[0]
     }
 
     fn public_inputs(self) -> PrivateCircuitPublicInputs {

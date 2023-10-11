@@ -9,6 +9,6 @@ struct VerificationKey{}
 
 // Perform recursive verification of the previous kernel proof and private call
 // proof.
-fn verify_previous_kernel_state(_aggregation_object : AggregationObject, _proof : Proof) -> (bool, AggregationObject) {
+pub fn verify_previous_kernel_state(_aggregation_object : AggregationObject, _proof : Proof) -> (bool, AggregationObject) {
     (true, AggregationObject{})
 }

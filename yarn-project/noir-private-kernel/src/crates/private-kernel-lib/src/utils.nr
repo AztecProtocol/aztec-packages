@@ -5,6 +5,7 @@
 mod arrays;
 mod uint256;
 mod uint128;
+mod bounded_vec;
 
 // if predicate == true then return lhs, else return rhs
 pub fn conditional_assign(predicate : bool, lhs : Field, rhs: Field) -> Field {
