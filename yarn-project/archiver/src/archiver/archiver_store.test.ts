@@ -139,9 +139,10 @@ describe('Archiver Memory Store', () => {
         LogType.UNENCRYPTED,
       );
 
-      const logsResponse = await archiverStore.getUnencryptedLogs({});
-      expect(logsResponse.maxLogsHit).toBeTruthy();
-      expect(logsResponse.logs.length).toEqual(maxLogs);
+      const response = await archiverStore.getUnencryptedLogs({});
+
+      expect(response.maxLogsHit).toBeTruthy();
+      expect(response.logs.length).toEqual(maxLogs);
     });
   });
 
@@ -172,7 +173,10 @@ describe('Archiver Memory Store', () => {
       const targetTxIndex = Math.floor(Math.random() * txsPerBlock);
       const targetTxHash = new L2BlockContext(blocks[targetBlockIndex]).getTxHash(targetTxIndex);
 
-      const logs = (await archiverStore.getUnencryptedLogs({ txHash: targetTxHash })).logs;
+      const response = await archiverStore.getUnencryptedLogs({ txHash: targetTxHash });
+      const logs = response.logs;
+
+      expect(response.maxLogsHit).toBeFalsy();
 
       const expectedNumLogs = numPublicFunctionCalls * numUnencryptedLogs;
       expect(logs.length).toEqual(expectedNumLogs);
@@ -189,7 +193,10 @@ describe('Archiver Memory Store', () => {
       const fromBlock = 3;
       const toBlock = 7;
 
-      const logs = (await archiverStore.getUnencryptedLogs({ fromBlock, toBlock })).logs;
+      const response = await archiverStore.getUnencryptedLogs({ fromBlock, toBlock });
+      const logs = response.logs;
+
+      expect(response.maxLogsHit).toBeFalsy();
 
       const expectedNumLogs = txsPerBlock * numPublicFunctionCalls * numUnencryptedLogs * (toBlock - fromBlock);
       expect(logs.length).toEqual(expectedNumLogs);
@@ -209,7 +216,10 @@ describe('Archiver Memory Store', () => {
 
       const afterLog = new LogId(targetBlockIndex + INITIAL_L2_BLOCK_NUM, targetTxIndex, targetLogIndex);
 
-      const logs = (await archiverStore.getUnencryptedLogs({ afterLog })).logs;
+      const response = await archiverStore.getUnencryptedLogs({ afterLog });
+      const logs = response.logs;
+
+      expect(response.maxLogsHit).toBeFalsy();
 
       for (const log of logs) {
         const logId = log.id;
@@ -235,9 +245,11 @@ describe('Archiver Memory Store', () => {
         ],
       ).contractAddress;
 
-      const logsResponse = await archiverStore.getUnencryptedLogs({ contractAddress: targetContractAddress });
+      const response = await archiverStore.getUnencryptedLogs({ contractAddress: targetContractAddress });
 
-      for (const extendedLog of logsResponse.logs) {
+      expect(response.maxLogsHit).toBeFalsy();
+
+      for (const extendedLog of response.logs) {
         expect(extendedLog.log.contractAddress.equals(targetContractAddress)).toBeTruthy();
       }
     });
@@ -254,9 +266,11 @@ describe('Archiver Memory Store', () => {
         ],
       ).selector;
 
-      const logsResponse = await archiverStore.getUnencryptedLogs({ selector: targetSelector });
+      const response = await archiverStore.getUnencryptedLogs({ selector: targetSelector });
 
-      for (const extendedLog of logsResponse.logs) {
+      expect(response.maxLogsHit).toBeFalsy();
+
+      for (const extendedLog of response.logs) {
         expect(extendedLog.log.selector.equals(targetSelector)).toBeTruthy();
       }
     });
