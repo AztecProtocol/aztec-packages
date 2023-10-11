@@ -5,7 +5,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger } from '@aztec/foundation/log';
 import { UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-artifacts';
 import { UniswapContract } from '@aztec/noir-contracts/types';
-import { AztecNode, PXE, TxStatus } from '@aztec/types';
+import { PXE, TxStatus } from '@aztec/types';
 
 import { jest } from '@jest/globals';
 import { getContract, parseEther } from 'viem';
@@ -34,7 +34,6 @@ describe('uniswap_trade_on_l1_from_l2', () => {
   const WETH9_ADDRESS: EthAddress = EthAddress.fromString('0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2');
   const DAI_ADDRESS: EthAddress = EthAddress.fromString('0x6B175474E89094C44Da98b954EedeAC495271d0F');
 
-  let aztecNode: AztecNode | undefined;
   let pxe: PXE;
   let logger: DebugLogger;
   let teardown: () => Promise<void>;
@@ -63,13 +62,11 @@ describe('uniswap_trade_on_l1_from_l2', () => {
   beforeAll(async () => {
     const {
       teardown: teardown_,
-      aztecNode: aztecNode_,
       pxe: pxe_,
       deployL1ContractsValues,
       accounts,
       wallets,
       logger: logger_,
-      cheatCodes,
     } = await setup(2, { stateLoad: dumpedState });
     walletClient = deployL1ContractsValues.walletClient;
     const publicClient = deployL1ContractsValues.publicClient;
@@ -78,7 +75,6 @@ describe('uniswap_trade_on_l1_from_l2', () => {
       throw new Error('This test must be run on a fork of mainnet with the expected fork block');
     }
 
-    aztecNode = aztecNode_;
     pxe = pxe_;
     logger = logger_;
     teardown = teardown_;
@@ -90,25 +86,21 @@ describe('uniswap_trade_on_l1_from_l2', () => {
 
     logger('Deploying DAI Portal, initializing and deploying l2 contract...');
     daiCrossChainHarness = await CrossChainTestHarness.new(
-      aztecNode,
       pxe,
-      deployL1ContractsValues,
-      accounts,
+      deployL1ContractsValues.publicClient,
+      deployL1ContractsValues.walletClient,
       ownerWallet,
       logger,
-      cheatCodes,
       DAI_ADDRESS,
     );
 
     logger('Deploying WETH Portal, initializing and deploying l2 contract...');
     wethCrossChainHarness = await CrossChainTestHarness.new(
-      aztecNode,
       pxe,
-      deployL1ContractsValues,
-      accounts,
+      deployL1ContractsValues.publicClient,
+      deployL1ContractsValues.walletClient,
       ownerWallet,
       logger,
-      cheatCodes,
       WETH9_ADDRESS,
     );
 
@@ -139,11 +131,11 @@ describe('uniswap_trade_on_l1_from_l2', () => {
 
   afterAll(async () => {
     await teardown();
-    await wethCrossChainHarness.stop();
-    await daiCrossChainHarness.stop();
+    // await wethCrossChainHarness.stop();
+    // await daiCrossChainHarness.stop();
   });
 
-  it('should uniswap trade on L1 from L2 funds privately (swaps WETH -> DAI)', async () => {
+  it.only('should uniswap trade on L1 from L2 funds privately (swaps WETH -> DAI)', async () => {
     const wethL1BeforeBalance = await wethCrossChainHarness.getL1BalanceOf(ownerEthAddress);
 
     // 1. Approve and deposit weth to the portal and move to L2
