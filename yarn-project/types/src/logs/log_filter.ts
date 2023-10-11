@@ -4,23 +4,21 @@ import { LogId, TxHash } from '../index.js';
 
 /**
  * Log filter used to fetch L2 logs.
+ * @remarks This filter is applied as an intersection of all it's params.
  */
 export type LogFilter = {
   /**
    * Hash of a transaction from which to fetch the logs.
-   * @remarks If this is set, `fromBlock` and `toBlock` can't be defined.
    */
   txHash?: TxHash;
   /**
    * The block number from which to start fetching logs (inclusive).
-   * @remarks If this is set, `txHash` can't be defined.
    */
   fromBlock?: number;
   /** The block number until which to fetch logs (not inclusive). */
   toBlock?: number;
   /**
-   * Log id after which to start fetching logs .
-   * @remarks This is a continuation parameter and when it is set, txHash and fromBlock and toBlock are ignored.
+   * Log id after which to start fetching logs.
    */
   afterLog?: LogId;
   /** The contract address to filter logs by. */

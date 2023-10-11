@@ -369,7 +369,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * Gets unencrypted logs based on the provided filter.
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
-   * @throws If filter is invalid.
+   * @remarks Works by doing an intersection of all params in the filter.
    */
   getUnencryptedLogs(filter: LogFilter): Promise<GetsUnencryptedLogsResponse> {
     let txHash: TxHash | undefined;

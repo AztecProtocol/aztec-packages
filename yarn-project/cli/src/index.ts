@@ -294,7 +294,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
 
   program
     .command('get-logs')
-    .description('Gets all the unencrypted logs from L2 blocks in the range specified.')
+    .description('Gets all the unencrypted logs from an intersection of all the filter params.')
     .option('-tx, --tx-hash <txHash>', 'A transaction hash to get the receipt for.', parseOptionalTxHash)
     .option(
       '-fb, --from-block <blockNum>',

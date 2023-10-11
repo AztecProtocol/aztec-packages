@@ -387,7 +387,8 @@ aztec-cli parse-parameter-struct 0xabcdef1234567890abcdef1234567890abcdef1234567
 
 ### get-logs
 
-Gets all the unencrypted logs from L2 blocks in the specified range.
+Applies filter and returns the resulting unencrypted logs.
+The filter is applied by doing an intersection of all its params.
 
 Syntax:
 
