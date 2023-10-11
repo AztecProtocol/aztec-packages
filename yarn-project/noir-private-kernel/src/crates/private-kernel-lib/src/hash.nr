@@ -88,9 +88,9 @@ pub fn silo_nullifier(address : Address, nullifier : Field) -> Field {
     ], constants_gen::GENERATOR_INDEX__OUTER_NULLIFIER)[0]
 }
 
-// TODO: add merkle hash implementation
 fn merkle_hash(left : Field, right : Field) -> Field {
-    0
+    // TODO ensure it's the same hash cpp is doing for merkle trees. 
+    dep::std::hash::pedersen([left, right])[0]
 }
 
 fn stdlib_recursion_verification_key_compress_native_vk(vk : VerificationKey) -> Field {
@@ -212,11 +212,15 @@ pub fn compute_contract_address_from_partial(point : Point, partial_address : Fi
 }
 
 fn compute_unique_commitment(nonce : Field, siloed_commitment : Field) -> Field {
-    let _hash_index = constants_gen::GENERATOR_INDEX__UNIQUE_COMMITMENT;
-    0
+    dep::std::hash::pedersen_with_separator([
+        nonce,
+        siloed_commitment
+    ], constants_gen::GENERATOR_INDEX__UNIQUE_COMMITMENT)[0]
 }
 
 fn compute_commitment_nonce(first_nullifier : Field, commitment_index : Field) -> Field {
-    let _hash_index = constants_gen::GENERATOR_INDEX__COMMITMENT_NONCE;
-    0
+    dep::std::hash::pedersen_with_separator([
+        first_nullifier,
+        commitment_index
+    ], constants_gen::GENERATOR_INDEX__COMMITMENT_NONCE)[0]
 }

@@ -42,6 +42,8 @@ struct PublicCircuitPublicInputs{
 
 
 impl PublicCircuitPublicInputs{
+    // TODO : Maybe reuse aztec-nr?
+    // TODO : Implement this with BoundedVec
     fn hash(self) -> Field {
         let _hash_index = constants_gen::GENERATOR_INDEX__PUBLIC_CIRCUIT_PUBLIC_INPUTS;
         0
