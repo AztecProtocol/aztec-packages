@@ -393,7 +393,6 @@ PublicAccumulatedData<NT> get_public_accumulated_data(NT::uint32& seed,
             array_of_values<MAX_NEW_COMMITMENTS_PER_TX>(seed, private_previous ? MAX_NEW_COMMITMENTS_PER_TX / 2 : 0),
         .new_nullifiers =
             array_of_values<MAX_NEW_NULLIFIERS_PER_TX>(seed, private_previous ? MAX_NEW_NULLIFIERS_PER_TX / 2 : 0),
-        .private_call_stack = array_of_values<MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>(seed, 0),
         .public_call_stack = public_call_stack,
         .new_l2_to_l1_msgs = array_of_values<MAX_NEW_L2_TO_L1_MSGS_PER_TX>(
             seed, private_previous ? MAX_NEW_L2_TO_L1_MSGS_PER_TX / 2 : 0),
@@ -419,7 +418,6 @@ PrivateAccumulatedDataFinal<NT> get_final_accumulated_data(NT::uint32& seed, NT:
     return PrivateAccumulatedDataFinal<NT>{
         .new_commitments = array_of_values<MAX_NEW_COMMITMENTS_PER_TX>(seed, MAX_NEW_COMMITMENTS_PER_TX / 2),
         .new_nullifiers = array_of_values<MAX_NEW_NULLIFIERS_PER_TX>(seed, MAX_NEW_NULLIFIERS_PER_TX / 2),
-        .private_call_stack = array_of_values<MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>(seed, 0),
         .public_call_stack = public_call_stack,
         .new_l2_to_l1_msgs = array_of_values<MAX_NEW_L2_TO_L1_MSGS_PER_TX>(seed, MAX_NEW_L2_TO_L1_MSGS_PER_TX / 2),
         .encrypted_logs_hash = array_of_values<NUM_FIELDS_PER_SHA256>(
@@ -517,11 +515,6 @@ void validate_private_data_propagation(DummyBuilder& builder,
                                        const KernelInput& inputs,
                                        const PublicKernelPublicInputs<NT>& public_inputs)
 {
-    ASSERT_TRUE(source_arrays_are_in_target(builder,
-                                            inputs.previous_kernel.public_inputs.end.private_call_stack,
-                                            std::array<NT::fr, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>{},
-                                            public_inputs.end.private_call_stack));
-
     ASSERT_TRUE(source_arrays_are_in_target(builder,
                                             inputs.previous_kernel.public_inputs.end.new_contracts,
                                             std::array<NewContractData<NT>, MAX_NEW_CONTRACTS_PER_TX>(),
@@ -962,17 +955,6 @@ TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated_with_pre
 
     validate_public_kernel_outputs_correctly_propagated(inputs, public_inputs);
     ASSERT_FALSE(dummyBuilder.failed());
-}
-
-TEST(public_kernel_tests, private_previous_kernel_non_empty_private_call_stack_should_fail)
-{
-    DummyBuilder dummyBuilder =
-        DummyBuilder("public_kernel_tests__private_previous_kernel_non_empty_private_call_stack_should_fail");
-    PublicKernelInputsInit<NT> inputs = get_public_kernel_inputs_init();
-    inputs.previous_kernel.public_inputs.end.private_call_stack[0] = 1;
-    auto public_inputs = native_public_kernel_circuit_private_previous_kernel(dummyBuilder, inputs);
-    ASSERT_TRUE(dummyBuilder.failed());
-    ASSERT_EQ(dummyBuilder.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__NON_EMPTY_PRIVATE_CALL_STACK);
 }
 
 TEST(public_kernel_tests, private_previous_kernel_empty_public_call_stack_should_fail)

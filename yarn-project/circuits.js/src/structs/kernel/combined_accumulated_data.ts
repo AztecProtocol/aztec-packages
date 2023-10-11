@@ -435,10 +435,6 @@ export class PublicAccumulatedData {
      */
     public newNullifiers: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
     /**
-     * Current private call stack.
-     */
-    public privateCallStack: Tuple<Fr, typeof MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
-    /**
      * Current public call stack.
      */
     public publicCallStack: Tuple<Fr, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
@@ -487,7 +483,6 @@ export class PublicAccumulatedData {
       this.aggregationObject,
       this.newCommitments,
       this.newNullifiers,
-      this.privateCallStack,
       this.publicCallStack,
       this.newL2ToL1Msgs,
       this.encryptedLogsHash,
@@ -516,7 +511,6 @@ export class PublicAccumulatedData {
       reader.readObject(AggregationObject),
       reader.readArray(MAX_NEW_COMMITMENTS_PER_TX, Fr),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Fr),
-      reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, Fr),
       reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, Fr),
       reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr),
       reader.readArray(2, Fr),
@@ -544,7 +538,6 @@ export class PublicAccumulatedData {
       AggregationObject.makeFake(),
       makeTuple(MAX_NEW_COMMITMENTS_PER_TX, Fr.zero),
       makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero),
-      makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, Fr.zero),
       makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, Fr.zero),
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr.zero),
       makeTuple(2, Fr.zero),
@@ -563,7 +556,6 @@ export class PublicAccumulatedData {
       finalData.aggregationObject,
       finalData.newCommitments,
       finalData.newNullifiers,
-      finalData.privateCallStack,
       finalData.publicCallStack,
       finalData.newL2ToL1Msgs,
       finalData.encryptedLogsHash,
@@ -596,10 +588,6 @@ export class PrivateAccumulatedDataFinal {
      * The new nullifiers made in this transaction.
      */
     public newNullifiers: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
-    /**
-     * Current private call stack.
-     */
-    public privateCallStack: Tuple<Fr, typeof MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
     /**
      * Current public call stack.
      */
@@ -641,7 +629,6 @@ export class PrivateAccumulatedDataFinal {
       this.aggregationObject,
       this.newCommitments,
       this.newNullifiers,
-      this.privateCallStack,
       this.publicCallStack,
       this.newL2ToL1Msgs,
       this.encryptedLogsHash,
@@ -668,7 +655,6 @@ export class PrivateAccumulatedDataFinal {
       reader.readObject(AggregationObject),
       reader.readArray(MAX_NEW_COMMITMENTS_PER_TX, Fr),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Fr),
-      reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, Fr),
       reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, Fr),
       reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr),
       reader.readArray(2, Fr),
@@ -694,7 +680,6 @@ export class PrivateAccumulatedDataFinal {
       AggregationObject.makeFake(),
       makeTuple(MAX_NEW_COMMITMENTS_PER_TX, Fr.zero),
       makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero),
-      makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, Fr.zero),
       makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, Fr.zero),
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr.zero),
       makeTuple(2, Fr.zero),

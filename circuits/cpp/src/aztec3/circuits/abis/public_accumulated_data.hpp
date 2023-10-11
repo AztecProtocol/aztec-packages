@@ -33,7 +33,6 @@ template <typename NCT> struct PublicAccumulatedData {
     std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> new_commitments{};
     std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> new_nullifiers{};
 
-    std::array<fr, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX> private_call_stack{};
     std::array<fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX> public_call_stack{};
     std::array<fr, MAX_NEW_L2_TO_L1_MSGS_PER_TX> new_l2_to_l1_msgs{};
 
@@ -56,7 +55,6 @@ template <typename NCT> struct PublicAccumulatedData {
     MSGPACK_FIELDS(aggregation_object,
                    new_commitments,
                    new_nullifiers,
-                   private_call_stack,
                    public_call_stack,
                    new_l2_to_l1_msgs,
                    encrypted_logs_hash,
@@ -93,7 +91,6 @@ template <typename NCT> struct PublicAccumulatedData {
             to_ct(new_commitments),
             to_ct(new_nullifiers),
 
-            to_ct(private_call_stack),
             to_ct(public_call_stack),
             to_ct(new_l2_to_l1_msgs),
 
@@ -130,7 +127,6 @@ template <typename NCT> struct PublicAccumulatedData {
             to_nt(new_commitments),
             to_nt(new_nullifiers),
 
-            to_nt(private_call_stack),
             to_nt(public_call_stack),
             to_nt(new_l2_to_l1_msgs),
 
@@ -157,7 +153,6 @@ template <typename NCT> struct PublicAccumulatedData {
         set_array_public(new_commitments);
         set_array_public(new_nullifiers);
 
-        set_array_public(private_call_stack);
         set_array_public(public_call_stack);
         set_array_public(new_l2_to_l1_msgs);
 

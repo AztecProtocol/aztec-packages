@@ -3,39 +3,19 @@
 #include "native_public_kernel_circuit_public_previous_kernel.hpp"
 
 #include "aztec3/circuits/abis/public_kernel/public_kernel_inputs_init.hpp"
-#include "aztec3/utils/array.hpp"
 #include "aztec3/utils/circuit_errors.hpp"
 #include "aztec3/utils/dummy_circuit_builder.hpp"
 
-// Purpose of this anonymous namespace is to avoid to clash with the validate_inputs()
-// counterpart defined in native_public_kernel_circuit_public_previous_kernel.cpp
-namespace {
-using CircuitErrorCode = aztec3::utils::CircuitErrorCode;
-using aztec3::circuits::kernel::public_kernel::NT;
-using DummyBuilder = aztec3::utils::DummyCircuitBuilder;
-using aztec3::circuits::abis::public_kernel::PublicKernelInputsInit;
-using aztec3::utils::array_length;
-
-/**
- * @brief Validates the kernel circuit inputs specific to having a private previous kernel
- * @param builder The circuit builder
- * @param public_kernel_inputs The inputs to this iteration of the kernel circuit
- */
-void validate_inputs(DummyBuilder& builder, PublicKernelInputsInit<NT> const& public_kernel_inputs)
-{
-    builder.do_assert(array_length(public_kernel_inputs.previous_kernel.public_inputs.end.private_call_stack) == 0,
-                      "Private call stack must be empty when executing in the public kernel (i.e. all private calls "
-                      "must have been completed)",
-                      CircuitErrorCode::PUBLIC_KERNEL__NON_EMPTY_PRIVATE_CALL_STACK);
-}
-}  // namespace
 
 namespace aztec3::circuits::kernel::public_kernel {
 
+using CircuitErrorCode = aztec3::utils::CircuitErrorCode;
+using aztec3::circuits::kernel::public_kernel::NT;
+using DummyBuilder = aztec3::utils::DummyCircuitBuilder;
 using aztec3::circuits::abis::PublicKernelPublicInputs;
+using aztec3::circuits::abis::public_kernel::PublicKernelInputsInit;
 using aztec3::circuits::kernel::public_kernel::common_initialise_end_values;
 using aztec3::circuits::kernel::public_kernel::common_validate_kernel_execution;
-
 
 /**
  * @brief Entry point for the native public kernel circuit with a private previous kernel
@@ -54,9 +34,6 @@ PublicKernelPublicInputs<NT> native_public_kernel_circuit_private_previous_kerne
 
     // validate the inputs common to all invocation circumstances
     common_validate_inputs(builder, public_kernel_inputs);
-
-    // validate the inputs unique to having a previous private kernel
-    validate_inputs(builder, public_kernel_inputs);
 
     // validate the kernel execution common to all invocation circumstances
     common_validate_kernel_execution(builder, public_kernel_inputs);

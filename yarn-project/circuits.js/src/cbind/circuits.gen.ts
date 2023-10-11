@@ -530,7 +530,6 @@ interface MsgpackPublicAccumulatedData {
   aggregation_object: MsgpackNativeAggregationState;
   new_commitments: Tuple<Buffer, 64>;
   new_nullifiers: Tuple<Buffer, 64>;
-  private_call_stack: Tuple<Buffer, 8>;
   public_call_stack: Tuple<Buffer, 8>;
   new_l2_to_l1_msgs: Tuple<Buffer, 2>;
   encrypted_logs_hash: Tuple<Buffer, 2>;
@@ -552,9 +551,6 @@ export function toPublicAccumulatedData(o: MsgpackPublicAccumulatedData): Public
   }
   if (o.new_nullifiers === undefined) {
     throw new Error('Expected new_nullifiers in PublicAccumulatedData deserialization');
-  }
-  if (o.private_call_stack === undefined) {
-    throw new Error('Expected private_call_stack in PublicAccumulatedData deserialization');
   }
   if (o.public_call_stack === undefined) {
     throw new Error('Expected public_call_stack in PublicAccumulatedData deserialization');
@@ -590,7 +586,6 @@ export function toPublicAccumulatedData(o: MsgpackPublicAccumulatedData): Public
     toNativeAggregationState(o.aggregation_object),
     mapTuple(o.new_commitments, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.new_nullifiers, (v: Buffer) => Fr.fromBuffer(v)),
-    mapTuple(o.private_call_stack, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.public_call_stack, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.new_l2_to_l1_msgs, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.encrypted_logs_hash, (v: Buffer) => Fr.fromBuffer(v)),
@@ -613,9 +608,6 @@ export function fromPublicAccumulatedData(o: PublicAccumulatedData): MsgpackPubl
   }
   if (o.newNullifiers === undefined) {
     throw new Error('Expected newNullifiers in PublicAccumulatedData serialization');
-  }
-  if (o.privateCallStack === undefined) {
-    throw new Error('Expected privateCallStack in PublicAccumulatedData serialization');
   }
   if (o.publicCallStack === undefined) {
     throw new Error('Expected publicCallStack in PublicAccumulatedData serialization');
@@ -651,7 +643,6 @@ export function fromPublicAccumulatedData(o: PublicAccumulatedData): MsgpackPubl
     aggregation_object: fromNativeAggregationState(o.aggregationObject),
     new_commitments: mapTuple(o.newCommitments, (v: Fr) => toBuffer(v)),
     new_nullifiers: mapTuple(o.newNullifiers, (v: Fr) => toBuffer(v)),
-    private_call_stack: mapTuple(o.privateCallStack, (v: Fr) => toBuffer(v)),
     public_call_stack: mapTuple(o.publicCallStack, (v: Fr) => toBuffer(v)),
     new_l2_to_l1_msgs: mapTuple(o.newL2ToL1Msgs, (v: Fr) => toBuffer(v)),
     encrypted_logs_hash: mapTuple(o.encryptedLogsHash, (v: Fr) => toBuffer(v)),
@@ -1978,7 +1969,6 @@ interface MsgpackPrivateAccumulatedDataFinal {
   aggregation_object: MsgpackNativeAggregationState;
   new_commitments: Tuple<Buffer, 64>;
   new_nullifiers: Tuple<Buffer, 64>;
-  private_call_stack: Tuple<Buffer, 8>;
   public_call_stack: Tuple<Buffer, 8>;
   new_l2_to_l1_msgs: Tuple<Buffer, 2>;
   encrypted_logs_hash: Tuple<Buffer, 2>;
@@ -1998,9 +1988,6 @@ export function toPrivateAccumulatedDataFinal(o: MsgpackPrivateAccumulatedDataFi
   }
   if (o.new_nullifiers === undefined) {
     throw new Error('Expected new_nullifiers in PrivateAccumulatedDataFinal deserialization');
-  }
-  if (o.private_call_stack === undefined) {
-    throw new Error('Expected private_call_stack in PrivateAccumulatedDataFinal deserialization');
   }
   if (o.public_call_stack === undefined) {
     throw new Error('Expected public_call_stack in PrivateAccumulatedDataFinal deserialization');
@@ -2030,7 +2017,6 @@ export function toPrivateAccumulatedDataFinal(o: MsgpackPrivateAccumulatedDataFi
     toNativeAggregationState(o.aggregation_object),
     mapTuple(o.new_commitments, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.new_nullifiers, (v: Buffer) => Fr.fromBuffer(v)),
-    mapTuple(o.private_call_stack, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.public_call_stack, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.new_l2_to_l1_msgs, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.encrypted_logs_hash, (v: Buffer) => Fr.fromBuffer(v)),
@@ -2051,9 +2037,6 @@ export function fromPrivateAccumulatedDataFinal(o: PrivateAccumulatedDataFinal):
   }
   if (o.newNullifiers === undefined) {
     throw new Error('Expected newNullifiers in PrivateAccumulatedDataFinal serialization');
-  }
-  if (o.privateCallStack === undefined) {
-    throw new Error('Expected privateCallStack in PrivateAccumulatedDataFinal serialization');
   }
   if (o.publicCallStack === undefined) {
     throw new Error('Expected publicCallStack in PrivateAccumulatedDataFinal serialization');
@@ -2083,7 +2066,6 @@ export function fromPrivateAccumulatedDataFinal(o: PrivateAccumulatedDataFinal):
     aggregation_object: fromNativeAggregationState(o.aggregationObject),
     new_commitments: mapTuple(o.newCommitments, (v: Fr) => toBuffer(v)),
     new_nullifiers: mapTuple(o.newNullifiers, (v: Fr) => toBuffer(v)),
-    private_call_stack: mapTuple(o.privateCallStack, (v: Fr) => toBuffer(v)),
     public_call_stack: mapTuple(o.publicCallStack, (v: Fr) => toBuffer(v)),
     new_l2_to_l1_msgs: mapTuple(o.newL2ToL1Msgs, (v: Fr) => toBuffer(v)),
     encrypted_logs_hash: mapTuple(o.encryptedLogsHash, (v: Fr) => toBuffer(v)),

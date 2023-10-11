@@ -39,7 +39,6 @@ template <typename KernelInput> void common_initialise_end_values(KernelInput co
     end.new_commitments = start.new_commitments;
     end.new_nullifiers = start.new_nullifiers;
 
-    end.private_call_stack = start.private_call_stack;
     end.public_call_stack = start.public_call_stack;
     end.new_l2_to_l1_msgs = start.new_l2_to_l1_msgs;
 

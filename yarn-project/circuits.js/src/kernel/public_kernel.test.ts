@@ -1,7 +1,5 @@
 import {
   CircuitError,
-  Fr,
-  MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_DATA_READS_PER_CALL,
   MAX_PUBLIC_DATA_READS_PER_TX,
   makeTuple,
@@ -25,9 +23,7 @@ describe('kernel/public_kernel', () => {
   });
 
   it('simulates public kernel circuit with previous private kernel', async function () {
-    const input = await makePublicKernelInputsInitWithTweak(1, input => {
-      input.previousKernel.publicInputs.end.privateCallStack = makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, Fr.zero);
-    });
+    const input = await makePublicKernelInputsInitWithTweak(1);
     const result = await simulatePublicKernelInitCircuit(input);
     expect(result).toBeDefined();
   });
