@@ -10,7 +10,8 @@ import { deserializeArrayFromVector, deserializeField, serializeBufferArrayToVec
  * @param lhs - The first hash.
  * @param rhs - The second hash.
  * @returns The new 32-byte hash.
- * @deprecated Don't call pedersen directly in production code. Instead, create specific nicely-called WASM functions.
+ * @deprecated Don't call pedersen directly in production code. Instead, create suitably-named functions for specific
+ * purposes.
  */
 export function pedersenCompress(wasm: IWasmModule, lhs: Uint8Array, rhs: Uint8Array): Buffer {
   // If not done already, precompute constants.
@@ -30,7 +31,8 @@ export function pedersenCompress(wasm: IWasmModule, lhs: Uint8Array, rhs: Uint8A
  * @param lhs - The first hash.
  * @param rhs - The second hash.
  * @returns The new 32-byte hash.
- * @deprecated Don't call pedersen directly in production code. Instead, create specific nicely-called WASM functions.
+ * @deprecated Don't call pedersen directly in production code. Instead, create suitably-named functions for specific
+ * purposes.
  */
 export function pedersenHashInputs(wasm: IWasmModule, inputs: Buffer[]): Buffer {
   // If not done already, precompute constants.
@@ -46,7 +48,8 @@ export function pedersenHashInputs(wasm: IWasmModule, inputs: Buffer[]): Buffer 
  * @param wasm - The barretenberg module.
  * @param inputs - The array of buffers to compress.
  * @returns The resulting 32-byte hash.
- * @deprecated Don't call pedersen directly in production code. Instead, create specific nicely-called WASM functions.
+ * @deprecated Don't call pedersen directly in production code. Instead, create suitably-named functions for specific
+ * purposes.
  */
 export function pedersenCompressInputs(wasm: IWasmModule, inputs: Buffer[]): Buffer {
   // If not done already, precompute constants.
@@ -62,7 +65,8 @@ export function pedersenCompressInputs(wasm: IWasmModule, inputs: Buffer[]): Buf
  * @param wasm - The barretenberg module.
  * @param inputs - The array of buffers to compress.
  * @returns The resulting 32-byte hash.
- * @deprecated Don't call pedersen directly in production code. Instead, create specific nicely-called WASM functions.
+ * @deprecated Don't call pedersen directly in production code. Instead, create suitably-named functions for specific
+ * purposes.
  */
 export function pedersenPlookupCommitInputs(wasm: IWasmModule, inputs: Buffer[]): Buffer {
   // If not done already, precompute constants.
@@ -79,7 +83,8 @@ export function pedersenPlookupCommitInputs(wasm: IWasmModule, inputs: Buffer[])
  * @param inputs - The array of buffers to compress.
  * @param hashIndex - Hash index of the generator to use (See GeneratorIndex enum).
  * @returns The resulting 32-byte hash.
- * @deprecated Don't call pedersen directly in production code. Instead, create specific nicely-called WASM functions.
+ * @deprecated Don't call pedersen directly in production code. Instead, create suitably-named functions for specific
+ * purposes.
  */
 export function pedersenPlookupCommitWithHashIndex(wasm: IWasmModule, inputs: Buffer[], hashIndex: number): Buffer {
   // If not done already, precompute constants.
@@ -96,7 +101,8 @@ export function pedersenPlookupCommitWithHashIndex(wasm: IWasmModule, inputs: Bu
  * @param inputs - The array of buffers to compress.
  * @param hashIndex - Hash index of the generator to use (See GeneratorIndex enum).
  * @returns The resulting 32-byte hash.
- * @deprecated Don't call pedersen directly in production code. Instead, create specific nicely-called WASM functions.
+ * @deprecated Don't call pedersen directly in production code. Instead, create suitably-named functions for specific
+ * purposes.
  */
 export function pedersenCompressWithHashIndex(wasm: IWasmModule, inputs: Buffer[], hashIndex: number): Buffer {
   // If not done already, precompute constants.
@@ -113,7 +119,8 @@ export function pedersenCompressWithHashIndex(wasm: IWasmModule, inputs: Buffer[
  * @param inputs - The array of buffers to compress.
  * @param hashIndex - Hash index of the generator to use (See GeneratorIndex enum).
  * @returns The resulting 32-byte hash.
- * @deprecated Don't call pedersen directly in production code. Instead, create specific nicely-called WASM functions.
+ * @deprecated Don't call pedersen directly in production code. Instead, create suitably-named functions for specific
+ * purposes.
  */
 export function pedersenPlookupCompressWithHashIndex(wasm: IWasmModule, inputs: Buffer[], hashIndex: number): Buffer {
   // If not done already, precompute constants.
@@ -129,7 +136,8 @@ export function pedersenPlookupCompressWithHashIndex(wasm: IWasmModule, inputs: 
  * @param wasm - The barretenberg module.
  * @param data - The data buffer.
  * @returns The hash buffer.
- * @deprecated Don't call pedersen directly in production code. Instead, create specific nicely-called WASM functions.
+ * @deprecated Don't call pedersen directly in production code. Instead, create suitably-named functions for specific
+ * purposes.
  */
 export function pedersenGetHash(wasm: IWasmModule, data: Buffer): Buffer {
   // If not done already, precompute constants.
@@ -152,7 +160,8 @@ export function pedersenGetHash(wasm: IWasmModule, data: Buffer): Buffer {
  * @param wasm - The barretenberg module.
  * @param values - The 32 byte pedersen leaves.
  * @returns A tree represented by an array.
- * @deprecated Don't call pedersen directly in production code. Instead, create specific nicely-called WASM functions.
+ * @deprecated Don't call pedersen directly in production code. Instead, create suitably-named functions for specific
+ * purposes.
  */
 export function pedersenGetHashTree(wasm: IWasmModule, values: Buffer[]) {
   // If not done already, precompute constants.
