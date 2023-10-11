@@ -47,24 +47,20 @@ template <typename Builder> struct CircuitTypes {
     // Notice: no CircuitType for a Proof: we only ever handle native; the verify_proof() function swallows the
     // 'circuit-type-ness' of the proof.
 
-
-    static std::string get_domain_separator(const size_t hash_index)
-    {
-        return std::string("__AZTEC_") + generatorIndexDomain(static_cast<GeneratorIndex>(hash_index));
-    }
-
-    static crypto::GeneratorContext<curve::Grumpkin> get_context(const size_t hash_index)
+    static crypto::GeneratorContext<curve::Grumpkin> get_generator_context(const size_t hash_index)
     {
         crypto::GeneratorContext<curve::Grumpkin> result;
-        result.domain_separator = get_domain_separator(hash_index);
+        result.domain_separator =
+            std::string(AZTEC_DOMAIN) + generatorIndexDomain(static_cast<GeneratorIndex>(hash_index));
         return result;
     }
+
     /// TODO: lots of these compress / commit functions aren't actually used: remove them.
 
     // Define the 'circuit' version of the function `hash`, with the name `hash`:
     static fr hash(std::vector<fr> const& inputs, const size_t hash_index = 0)
     {
-        return plonk::stdlib::pedersen_hash<Builder>::hash(inputs, get_context(hash_index));
+        return plonk::stdlib::pedersen_hash<Builder>::hash(inputs, get_generator_context(hash_index));
     }
 
 
@@ -72,22 +68,7 @@ template <typename Builder> struct CircuitTypes {
                    std::vector<size_t> const& hash_sub_indices,
                    const size_t hash_index = 0)
     {
-        return plonk::stdlib::pedersen_hash<Builder>::hash(inputs, hash_sub_indices, get_context(hash_index));
-    }
-
-    static fr hash(const std::vector<std::pair<fr, generator_index_t>>& input_pairs)
-    {
-        std::vector<std::pair<fr, crypto::GeneratorContext<curve::Grumpkin>>> context_pairs;
-
-        for (const auto& [scalar, indices] : input_pairs) {
-            auto [index, subindex] = indices;
-            // TODO(@dbanks12)  I think this mirrors the functionality of pre-refactor generators, but feels wrong.
-            //       if StorageSlotGeneratorIndex is being used to uniquely define a list of generators, should these
-            //       enums not be a part of the GeneratorIndex enum? )
-            crypto::GeneratorContext<curve::Grumpkin> context(subindex, get_domain_separator(index));
-            context_pairs.emplace_back(scalar, context);
-        }
-        return plonk::stdlib::pedersen_hash<Builder>::hash(context_pairs);
+        return plonk::stdlib::pedersen_hash<Builder>::hash(inputs, hash_sub_indices, get_generator_context(hash_index));
     }
 
     /**
@@ -108,22 +89,7 @@ template <typename Builder> struct CircuitTypes {
 
     static grumpkin_point commit(const std::vector<fr>& inputs, const size_t hash_index = 0)
     {
-        return plonk::stdlib::pedersen_commitment<Builder>::commit(inputs, get_context(hash_index));
-    };
-
-    static grumpkin_point commit(const std::vector<std::pair<fr, generator_index_t>>& input_pairs)
-    {
-        std::vector<std::pair<fr, crypto::GeneratorContext<curve::Grumpkin>>> context_pairs;
-
-        for (const auto& [scalar, indices] : input_pairs) {
-            auto [index, subindex] = indices;
-            // TODO(@dbanks12)  I think this mirrors the functionality of pre-refactor generators, but feels wrong.
-            //       if StorageSlotGeneratorIndex is being used to uniquely define a list of generators, should these
-            //       enums not be a part of the GeneratorIndex enum? )
-            crypto::GeneratorContext<curve::Grumpkin> context(subindex, get_domain_separator(index));
-            context_pairs.emplace_back(scalar, context);
-        }
-        return plonk::stdlib::pedersen_commitment<Builder>::commit(context_pairs);
+        return plonk::stdlib::pedersen_commitment<Builder>::commit(inputs, get_generator_context(hash_index));
     };
 
     static byte_array blake2s(const byte_array& input) { return plonk::stdlib::blake2s(input); }

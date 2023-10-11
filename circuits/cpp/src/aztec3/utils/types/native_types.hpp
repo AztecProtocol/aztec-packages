@@ -1,9 +1,7 @@
 #pragma once
-
 #include "aztec3/constants.hpp"
 
 #include <barretenberg/barretenberg.hpp>
-
 namespace aztec3::utils::types {
 
 struct NativeTypes {
@@ -41,46 +39,18 @@ struct NativeTypes {
     using VK = plonk::verification_key;
     using Proof = plonk::proof;
 
-
-    static std::string get_domain_separator(const size_t hash_index)
-    {
-        return std::string("__AZTEC_") + generatorIndexDomain(static_cast<GeneratorIndex>(hash_index));
-    }
-
-    static crypto::GeneratorContext<curve::Grumpkin> get_context(const size_t hash_index)
+    static crypto::GeneratorContext<curve::Grumpkin> get_generator_context(const size_t hash_index)
     {
         crypto::GeneratorContext<curve::Grumpkin> result;
-        result.domain_separator = get_domain_separator(hash_index);
+        result.domain_separator =
+            std::string(AZTEC_DOMAIN) + generatorIndexDomain(static_cast<GeneratorIndex>(hash_index));
         return result;
     }
-
-    /// TODO: lots of these hash / commit functions aren't actually used: remove them.
 
     // Define the 'native' version of the function `hash`, with the name `hash`:
     static fr hash(const std::vector<fr>& inputs, const size_t hash_index = 0)
     {
-        return crypto::pedersen_hash::hash(inputs, get_context(hash_index));
-    }
-
-    // template <size_t SIZE> static fr hash(std::array<fr, SIZE> const& inputs, const size_t hash_index = 0)
-    // {
-    //     std::vector<fr> const inputs_vec(std::begin(inputs), std::end(inputs));
-    //     return crypto::pedersen_hash::hash(inputs_vec, hash_index);
-    // }
-
-    static fr hash(const std::vector<std::pair<fr, generator_index_t>>& input_pairs)
-    {
-        std::vector<std::pair<fr, crypto::GeneratorContext<curve::Grumpkin>>> context_pairs;
-
-        for (const auto& [scalar, indices] : input_pairs) {
-            auto [index, subindex] = indices;
-            // TODO(@dbanks12)  I think this mirrors the functionality of pre-refactor generators, but feels wrong.
-            //       if StorageSlotGeneratorIndex is being used to uniquely define a list of generators, should these
-            //       enums not be a part of the GeneratorIndex enum? )
-            crypto::GeneratorContext<curve::Grumpkin> context(subindex, get_domain_separator(index));
-            context_pairs.emplace_back(scalar, context);
-        }
-        return crypto::pedersen_hash::hash(context_pairs);
+        return crypto::pedersen_hash::hash(inputs, get_generator_context(hash_index));
     }
 
     /**
@@ -102,22 +72,7 @@ struct NativeTypes {
 
     static grumpkin_point commit(const std::vector<fr>& inputs, const size_t hash_index = 0)
     {
-        return crypto::pedersen_commitment::commit_native(inputs, get_context(hash_index));
-    }
-
-    static grumpkin_point commit(const std::vector<std::pair<fr, generator_index_t>>& input_pairs)
-    {
-        std::vector<std::pair<fr, crypto::GeneratorContext<curve::Grumpkin>>> context_pairs;
-
-        for (const auto& [scalar, indices] : input_pairs) {
-            auto [index, subindex] = indices;
-            // TODO(@dbanks12)  I think this mirrors the functionality of pre-refactor generators, but feels wrong.
-            //       if StorageSlotGeneratorIndex is being used to uniquely define a list of generators, should these
-            //       enums not be a part of the GeneratorIndex enum? )
-            crypto::GeneratorContext<curve::Grumpkin> context(subindex, get_domain_separator(index));
-            context_pairs.emplace_back(scalar, context);
-        }
-        return crypto::pedersen_commitment::commit_native(context_pairs);
+        return crypto::pedersen_commitment::commit_native(inputs, get_generator_context(hash_index));
     }
 
     static byte_array blake2s(const byte_array& input)

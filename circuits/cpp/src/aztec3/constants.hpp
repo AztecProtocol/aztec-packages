@@ -17,7 +17,6 @@ namespace aztec3 {
 constexpr size_t log2(size_t input)
 {
     return static_cast<size_t>(numeric::get_msb64(static_cast<uint64_t>(input)));
-    //   return (input < 2) ? 0 : 1 + log2(input / 2);
 }
 
 constexpr size_t ARGS_LENGTH = 16;
@@ -189,6 +188,7 @@ enum GeneratorIndex {
     NUMBER_OF_INDICES,
 };
 
+static constexpr std::string_view AZTEC_DOMAIN = "__AZTEC_";
 static constexpr std::string generatorIndexDomain(GeneratorIndex idx)
 {
     switch (idx) {
@@ -275,7 +275,6 @@ enum StorageSlotGeneratorIndex {
     MAPPING_SLOT_PLACEHOLDER,
 };
 
-
 // Enumerate the hash_sub_indices which are used for committing to private state note preimages.
 // Start from 1.
 // Note: When modifying, modify `PrivateStateNoteGeneratorIndexPacker` in packer.hpp accordingly.
@@ -291,30 +290,6 @@ enum PrivateStateNoteGeneratorIndex {
 
 // Note: When modifying, modify `PrivateStateTypePacker` in packer.hpp accordingly.
 enum PrivateStateType { PARTITIONED = 1, WHOLE };
-
-
-struct generator_index_t {
-    size_t index;
-    size_t sub_index;
-    bool operator<(const generator_index_t& other) const
-    {
-        return std::tie(index, sub_index) < std::tie(other.index, other.sub_index);
-    }
-};
-
-// template <typename SubindexEnum>
-//     requires std::is_enum_v<SubindexEnum>
-// struct A3GeneratorContext {
-//     using GeneratorContext = crypto::GeneratorContext<curve::Grumpkin>;
-//     A3GeneratorContext(GeneratorIndex& index, SubindexEnum& subindex)
-//         : domain_separator(std::string("__AZTEC_") + generatorIndexDomain(index))
-//         , generator_context(static_cast<size_t>(subindex), domain_separator){};
-//     std::string domain_separator;
-//     GeneratorContext generator_context;
-
-//     // NOLINTNEXTLINE(google-explicit-constructor) we want this behavior!
-//     operator GeneratorContext() const { return generator_context; };
-// };
 
 ////////////////////////////////////////////////////////////////////////////////
 // NOIR CONSTANTS - constants used only in yarn-packages/noir-contracts
