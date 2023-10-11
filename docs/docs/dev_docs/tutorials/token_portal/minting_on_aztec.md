@@ -29,7 +29,7 @@ The `claim_public` function enables anyone to consume the message on the user's 
      - Recipient - i.e. this aztec contract address which is consuming the message + the current version of the aztec rollup.
      - The content - which is reconstructed in the `get_mint_public_content_hash()`
    - Note that the `content_hash` requires `to`, `amount` and `canceller`. If a malicious user tries to mint tokens to their address by changing the to address, the content hash will be different to what the token portal had calculated on L1 and the `msg_Key` will also be different, thus preventing the L1->L2 message from being consumed. This is why we add these parameters into the content.
-3. Then we call `token.mint()` to mint the tokens to the to address.
+3. Then we call `Token::at(storage.token.read()).mint_public()` to mint the tokens to the to address.
 
 ## Private flow
 

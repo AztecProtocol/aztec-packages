@@ -40,7 +40,7 @@ Our root yarn project will house everything ✨
 mkdir aztec-token-bridge && cd aztec-token-bridge && yarn init
 ```
 
-In your `package.json` put this
+In your `package.json` add this
 
 ```json
 "type": "module",
@@ -95,7 +95,7 @@ Inside `aztec-contracts`, create a nargo contract project by running
 ```bash
 mkdir aztec-contracts
 cd aztec-contracts
-nargo new -contract token_bridge
+nargo new --contract token_bridge
 ```
 
 Your structure will look something like this
@@ -110,7 +110,7 @@ aztec-contracts
 
 Inside `Nargo.toml` you will need to add some dependencies. Put this at the bottom:
 
-```json
+```toml
 [dependencies]
 aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/aztec" }
 value_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/value-note"}
@@ -150,13 +150,13 @@ rm -rf contracts
 
 We will write the `TokenPortal.sol` contract in this tutorial, but it has many imports that we will need to have locally.
 
-To make this easier we have a standalone submodule on GItHub with all the smart contracts with relative paths - [find it in the devrels repo under utils](https://github.com/AztecProtocol/dev-rel/tree/main/utils). You can clone this directly into `l1-contracts` (recommended to then `rm -rf .git`).
+To make this easier we have a standalone submodule on GItHub with all the smart contracts with relative paths - [find it in the devrels repo under utils](https://github.com/AztecProtocol/dev-rel/tree/main/utils). You can clone this directly into `l1-contracts` (recommended to then `rm -rf .git` in the `contracts` dir).
 
 <-- TODO(#2453) redirect people to the l1-contracts repo -->
 
 This is what your `l1-contracts` should look like:
 
-```json
+```tree
 ├── README.md
 ├── artifacts
 ├── cache
@@ -266,13 +266,13 @@ In this package we will also add a jest config file: `jest.config.json`
 Finally, we will create a test file, in the `src` package:
 
 ```bash
-mkdir test
+mkdir test && cd test
 touch index.test.ts
 ```
 
 Your `src` package should look like:
 
-```json
+```tree
 src
 ├── node_modules
 └── test

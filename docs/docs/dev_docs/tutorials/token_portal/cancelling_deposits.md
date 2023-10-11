@@ -10,7 +10,7 @@ In your `TokenPortal.sol` smart contract, paste this:
 
 #include_code token_portal_cancel /l1-contracts/test/portals/TokenPortal.sol solidity
 
-To cancel a message, the portal must reconstruct it - this way we avoid storing messages in the portal itself. Note that just with deposits we need to support cancelling messages for minting privately and publicly.
+To cancel a message, the portal must reconstruct it - this way we avoid storing messages in the portal itself. Note that just as with deposits we need to support cancelling messages for minting privately and publicly.
 
 Note that the portal uses `msg.sender` as the canceller when computing the secret hash. This is an access control mechanism to restrict only the intended address to cancel a message.
 

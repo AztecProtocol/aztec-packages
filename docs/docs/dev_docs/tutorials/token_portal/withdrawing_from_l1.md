@@ -10,16 +10,16 @@ Go back to your `main.nr` and paste this:
 
 #include_code exit_to_l1_public /yarn-project/noir-contracts/src/contracts/token_bridge_contract/src/main.nr rust
 
-For this to work we will need this helper function:
+For this to work we will need this helper function, in `util.nr`:
 
 #include_code get_withdraw_content_hash /yarn-project/noir-contracts/src/contracts/token_bridge_contract/src/util.nr rust
 
 **What’s happening here?**
 
-The `exit_to_l1_public` function enables anyone to withdraw their L2 tokens back to L1 publicly. This is done by burning tokens on L2 and then creating an l2->l1 message.
+The `exit_to_l1_public` function enables anyone to withdraw their L2 tokens back to L1 publicly. This is done by burning tokens on L2 and then creating an L2->L1 message.
 
-1. Like with our deposit function, we need to create the l2 to l1 message. The content is the _amount_ to burn, the recipient address, and who can execute the withdraw on the L1 portal on behalf of the user. It can be `0x0` for anyone, or a specified address.
-2. `context.message_portal()` passes this content to the kernel circuit which creates the proof for the transaction. The kernel circuit then adds the sender (the L2 address of the bridge + version of aztec) and the recipient (the portal to the L2 address + the chain ID of L1) under the hood, to create the message which gets added as rollup calldata by the sequencer and is stored in the outbox for consumption.
+1. Like with our deposit function, we need to create the L2 to L1 message. The content is the _amount_ to burn, the recipient address, and who can execute the withdraw on the L1 portal on behalf of the user. It can be `0x0` for anyone, or a specified address.
+2. `context.message_portal()` passes this content to the [kernel circuit](../../../concepts/advanced/circuits/kernels/public_kernel.md) which creates the proof for the transaction. The kernel circuit then adds the sender (the L2 address of the bridge + version of aztec) and the recipient (the portal to the L2 address + the chain ID of L1) under the hood, to create the message which gets added as rollup calldata by the sequencer and is stored in the outbox for consumption.
 3. Finally, you also burn the tokens on L2! Note that it burning is done at the end to follow the check effects interaction pattern. Note that the caller has to first approve the bridge contract to burn tokens on its behalf. Refer to [burn_public function on the token contract](https://github.com/AztecProtocol/dev-rel/blob/main/tutorials/token-contract/README.md#burn_public). The nonce parameter refers to the approval message that the user creates - also refer to [authorizing token spends here](https://github.com/AztecProtocol/dev-rel/blob/main/tutorials/token-contract/README.md#authorizing-token-spends).
    - We burn the tokens from the `msg_sender()`. Otherwise, a malicious user could burn someone else’s tokens and mint tokens on L1 to themselves. One could add another approval flow on the bridge but that might make it complex for other applications to call the bridge.
 
@@ -41,7 +41,7 @@ For both the public and private flow, we use the same mechanism to determine the
 
 ## Withdrawing on L1
 
-After the transaction is completed on L2, the portal must call the outbox to successfully transfer funds to the user on L1. Like with deposits, things can be complex here where what happens if the transaction was done on L2 to burn tokens but can’t be withdrawn to L1. Then the funds are lost forever.
+After the transaction is completed on L2, the portal must call the outbox to successfully transfer funds to the user on L1. Like with deposits, things can be complex here. For example, what happens if the transaction was done on L2 to burn tokens but can’t be withdrawn to L1? Then the funds are lost forever! How do we prevent this?
 
 Paste this in your `TokenPortal.sol`:
 

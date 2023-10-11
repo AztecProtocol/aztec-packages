@@ -61,12 +61,12 @@ Here is an explanation of what it is doing:
      - It is good practice to include all parameters used by L2 into this content (like the amount and to) so that a malicious actor can’t change the to to themselves when consuming the message.
 3. The tokens are transferred from the user to the portal using `underlying.safeTransferFrom()`. This puts the funds under the portal's control.
 4. Next we send the message to the inbox contract. The inbox expects the following parameters:
-   - recipient, a struct:
+   - recipient (called `actor` here), a struct:
      - the sister contract address on L2 that can consume the message.
      - The version - akin to THE chainID of Ethereum. By including a version, an ID, we can prevent replay attacks of the message (without this the same message might be replayable on other aztec networks that might exist).
    - Deadline by which the sequencer on L2 must consume the method. After this time, the message can be canceled by the “canceller”. We will implement this functionality later in the doc.
    - A secret hash (fit to a field element). This is mainly used in the private domain and the preimage of the hash doesn’t need to be secret for the public flow. When consuming the message, one must provide the preimage. More on this when we create the private flow for depositing tokens.
-   - We also pass a fee to the sequencer for including the message. It is a uint64
+   - We also pass a fee to the sequencer for including the message. It is a uint64.
 5. It returns a `bytes32 key` which is the id for this message in the Inbox.
 
 So in summary, it deposits tokens to the portal, encodes a mint message, hashes it, and sends it to the Aztec rollup via the Inbox. The L2 token contract can then mint the tokens when it processes the message.
