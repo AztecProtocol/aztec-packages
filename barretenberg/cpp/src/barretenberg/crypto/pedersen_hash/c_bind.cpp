@@ -26,6 +26,11 @@ WASM_EXPORT void pedersen_hash(uint8_t const* inputs_buffer, uint8_t* output)
     barretenberg::fr::serialize_to_buffer(r, output);
 }
 
+WASM_EXPORT void pedersen_hash_multiple(uint8_t const* inputs_buffer, uint8_t* output)
+{
+    pedersen_hash(inputs_buffer, output);
+}
+
 WASM_EXPORT void pedersen_hash_with_hash_index(uint8_t const* inputs_buffer,
                                                uint32_t const* hash_index,
                                                uint8_t* output)
@@ -34,6 +39,13 @@ WASM_EXPORT void pedersen_hash_with_hash_index(uint8_t const* inputs_buffer,
     read(inputs_buffer, to_compress);
     auto r = crypto::pedersen_hash::hash(to_compress, ntohl(*hash_index));
     barretenberg::fr::serialize_to_buffer(r, output);
+}
+
+WASM_EXPORT void pedersen_hash_multiple_with_hash_index(uint8_t const* inputs_buffer,
+                                                        uint32_t const* hash_index,
+                                                        uint8_t* output)
+{
+    pedersen_hash_with_hash_index(inputs_buffer, hash_index, output);
 }
 
 /**
