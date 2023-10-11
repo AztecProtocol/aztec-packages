@@ -435,11 +435,6 @@ export class PublicAccumulatedData {
      */
     public newNullifiers: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
     /**
-     * The commitments which are nullified by a nullifier in the above list. For pending nullifiers, we have:
-     * nullifiedCommitments[j] != 0 if and only if newNullifiers[j] nullifies nullifiedCommitments[j]
-     */
-    public nullifiedCommitments: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
-    /**
      * Current private call stack.
      */
     public privateCallStack: Tuple<Fr, typeof MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
@@ -492,7 +487,6 @@ export class PublicAccumulatedData {
       this.aggregationObject,
       this.newCommitments,
       this.newNullifiers,
-      this.nullifiedCommitments,
       this.privateCallStack,
       this.publicCallStack,
       this.newL2ToL1Msgs,
@@ -522,7 +516,6 @@ export class PublicAccumulatedData {
       reader.readObject(AggregationObject),
       reader.readArray(MAX_NEW_COMMITMENTS_PER_TX, Fr),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Fr),
-      reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Fr),
       reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, Fr),
       reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, Fr),
       reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr),
@@ -551,7 +544,6 @@ export class PublicAccumulatedData {
       AggregationObject.makeFake(),
       makeTuple(MAX_NEW_COMMITMENTS_PER_TX, Fr.zero),
       makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero),
-      makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero),
       makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, Fr.zero),
       makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, Fr.zero),
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr.zero),
@@ -571,7 +563,6 @@ export class PublicAccumulatedData {
       finalData.aggregationObject,
       finalData.newCommitments,
       finalData.newNullifiers,
-      finalData.nullifiedCommitments,
       finalData.privateCallStack,
       finalData.publicCallStack,
       finalData.newL2ToL1Msgs,
@@ -605,11 +596,6 @@ export class PrivateAccumulatedDataFinal {
      * The new nullifiers made in this transaction.
      */
     public newNullifiers: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
-    /**
-     * The commitments which are nullified by a nullifier in the above list. For pending nullifiers, we have:
-     * nullifiedCommitments[j] != 0 if and only if newNullifiers[j] nullifies nullifiedCommitments[j]
-     */
-    public nullifiedCommitments: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
     /**
      * Current private call stack.
      */
@@ -655,7 +641,6 @@ export class PrivateAccumulatedDataFinal {
       this.aggregationObject,
       this.newCommitments,
       this.newNullifiers,
-      this.nullifiedCommitments,
       this.privateCallStack,
       this.publicCallStack,
       this.newL2ToL1Msgs,
@@ -683,7 +668,6 @@ export class PrivateAccumulatedDataFinal {
       reader.readObject(AggregationObject),
       reader.readArray(MAX_NEW_COMMITMENTS_PER_TX, Fr),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Fr),
-      reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Fr),
       reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, Fr),
       reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, Fr),
       reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr),
@@ -709,7 +693,6 @@ export class PrivateAccumulatedDataFinal {
     return new PrivateAccumulatedDataFinal(
       AggregationObject.makeFake(),
       makeTuple(MAX_NEW_COMMITMENTS_PER_TX, Fr.zero),
-      makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero),
       makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero),
       makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, Fr.zero),
       makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, Fr.zero),

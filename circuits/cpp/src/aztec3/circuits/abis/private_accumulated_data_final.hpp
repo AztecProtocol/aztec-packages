@@ -32,9 +32,6 @@ template <typename NCT> struct PrivateAccumulatedDataFinal {
 
     std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> new_commitments{};
     std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> new_nullifiers{};
-    std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> nullified_commitments{};
-    // For pending nullifiers, we have:
-    // nullifiedCommitments[j] != 0 <==> newNullifiers[j] nullifies nullifiedCommitments[j]
 
     std::array<fr, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX> private_call_stack{};
     std::array<fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX> public_call_stack{};
@@ -56,7 +53,6 @@ template <typename NCT> struct PrivateAccumulatedDataFinal {
     MSGPACK_FIELDS(aggregation_object,
                    new_commitments,
                    new_nullifiers,
-                   nullified_commitments,
                    private_call_stack,
                    public_call_stack,
                    new_l2_to_l1_msgs,
@@ -92,7 +88,6 @@ template <typename NCT> struct PrivateAccumulatedDataFinal {
 
             to_ct(new_commitments),
             to_ct(new_nullifiers),
-            to_ct(nullified_commitments),
 
             to_ct(private_call_stack),
             to_ct(public_call_stack),
@@ -128,7 +123,6 @@ template <typename NCT> struct PrivateAccumulatedDataFinal {
 
             to_nt(new_commitments),
             to_nt(new_nullifiers),
-            to_nt(nullified_commitments),
 
             to_nt(private_call_stack),
             to_nt(public_call_stack),
@@ -154,7 +148,6 @@ template <typename NCT> struct PrivateAccumulatedDataFinal {
 
         set_array_public(new_commitments);
         set_array_public(new_nullifiers);
-        set_array_public(nullified_commitments);
 
         set_array_public(private_call_stack);
         set_array_public(public_call_stack);

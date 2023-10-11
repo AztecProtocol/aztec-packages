@@ -31,6 +31,7 @@ void initialise_end_values(PreviousPrivateKernelData<NT> const& previous_kernel,
     auto& end = public_inputs.end;
     const auto& start = previous_kernel.public_inputs.end;
     end.read_requests = start.read_requests;
+    end.nullified_commitments = start.nullified_commitments;
 }
 }  // namespace
 

@@ -178,7 +178,7 @@ PrivateKernelPublicInputsFinal<NT> native_private_kernel_circuit_ordering(
     // Remark: The commitments in public_inputs.end have already been siloed by contract address!
     match_nullifiers_to_commitments_and_squash(builder,
                                                public_inputs.end.new_nullifiers,
-                                               public_inputs.end.nullified_commitments,
+                                               private_inputs.previous_kernel.public_inputs.end.nullified_commitments,
                                                private_inputs.nullifier_commitment_hints,
                                                public_inputs.end.new_commitments);
 
