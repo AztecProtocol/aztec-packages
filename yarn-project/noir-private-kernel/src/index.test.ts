@@ -1,14 +1,13 @@
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 
-import { WitnessMap, executeCircuit } from '@noir-lang/acvm_js';
+import { executeCircuit } from '@noir-lang/acvm_js';
 import { abiEncode, abiDecode } from '@noir-lang/noirc_abi';
+
+import { InputType as InitInputType, ReturnType, ReadRequestMembershipWitness, PrivateCallStackItem, FixedLengthArray, Field } from './types/private_kernel_init_types.js';
+import { PrivateKernelInitArtifact } from './index.js';
 
 // TODO(Tom): This should be exported from noirc_abi
 export type DecodedInputs = { inputs: Record<string, any>; return_value: any };
-
-import { InputType as InitInputType, ReturnType as Rt, ReadRequestMembershipWitness, PrivateCallStackItem, FixedLengthArray, Field } from './types/private_kernel_init_types.js';
-
-import { PrivateKernelInitArtifact } from './index.js';
 
 /* eslint-disable */
 const privateCallStackItem : PrivateCallStackItem= {
@@ -233,25 +232,9 @@ describe('Private kernel', () => {
     logger = createDebugLogger('noir-private-kernel');
   });
 
-  it('Executes private kernel init circuit with all zeroes', async () => {
-    logger('Initialized Noir instance with private kernel init circuit');
-
-    const decodedBytecode = Buffer.from(PrivateKernelInitArtifact.bytecode, 'base64');
-    const numWitnesses = 1811; // The number of input witnesses in the private kernel init circuit
-    const initialWitness: WitnessMap = new Map();
-    for (let i = 1; i <= numWitnesses; i++) {
-      initialWitness.set(i, '0x00');
-    }
-
-    const _witnessMap = await executeCircuit(decodedBytecode, initialWitness, () => {
-      throw Error('unexpected oracle during execution');
-    });
-
-    logger('Executed private kernel init circuit with all zeroes');
-  });
 
   it('Executes private kernel init circuit with abi all zeroes', async () => {
-    // logger('Initialized Noir instance with private kernel init circuit');
+    logger('Initialized Noir instance with private kernel init circuit');
 
     // Encode the initial witness values into the witness map
     const initialWitnessMap = abiEncode(PrivateKernelInitArtifact.abi, defaultInputType, null);
@@ -270,7 +253,8 @@ describe('Private kernel', () => {
     const decodedInputs: DecodedInputs = abiDecode(PrivateKernelInitArtifact.abi, _witnessMap);
     
     // Cast the inputs as the return type
-    const return_type = decodedInputs.return_value as Rt;
-    console.log(return_type)
+    const _return_type = decodedInputs.return_value as ReturnType;
+    
+    logger('Executed private kernel init circuit with all zeroes');
   });
 });
