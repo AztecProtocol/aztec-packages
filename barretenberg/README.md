@@ -9,38 +9,19 @@ As the spec solidifies, this should be less of an issue. Aztec and Barretenberg 
 
 ### Benchmarks!
 
-Time includes building of circuit and proof construction. Ignores proving key construction.
+Table represents time to build circuit and proof for each test on n threads.
+Ignores proving key construction.
 
 ```
-+--------------------------+---------+-----------+
-| Test                     | Threads | Time (ms) |
-+--------------------------+---------+-----------+
-| sha256                   |       1 |      5876 |
-| sha256                   |       4 |      1686 |
-| sha256                   |      16 |       626 |
-| sha256                   |      32 |       493 |
-| sha256                   |      64 |       398 |
-| ecdsa_secp256k1          |       1 |      7355 |
-| ecdsa_secp256k1          |       4 |      2279 |
-| ecdsa_secp256k1          |      16 |       913 |
-| ecdsa_secp256k1          |      32 |       704 |
-| ecdsa_secp256k1          |      64 |       597 |
-| ecdsa_secp256r1          |       1 |     12109 |
-| ecdsa_secp256r1          |       4 |      3913 |
-| ecdsa_secp256r1          |      16 |      1630 |
-| ecdsa_secp256r1          |      32 |      1398 |
-| ecdsa_secp256r1          |      64 |      1167 |
-| schnorr                  |       1 |      6003 |
-| schnorr                  |       4 |      1703 |
-| schnorr                  |      16 |       600 |
-| schnorr                  |      32 |       528 |
-| schnorr                  |      64 |       410 |
-| double_verify_proof      |       1 |     47509 |
-| double_verify_proof      |       4 |     17473 |
-| double_verify_proof      |      16 |      7956 |
-| double_verify_proof      |      32 |      6741 |
-| double_verify_proof      |      64 |      6168 |
-+--------------------------+---------+-----------+
++--------------------------+-----------+-----------+-----------+-----------+-----------+
+| Test                     |         1 |         4 |        16 |        32 |        64 |
++--------------------------+-----------+-----------+-----------+-----------+-----------+
+| sha256                   |      5869 |      1668 |       750 |       491 |       366 |
+| ecdsa_secp256k1          |      5968 |      1872 |       940 |       669 |       602 |
+| ecdsa_secp256r1          |     12017 |      3688 |      1651 |      1350 |      1126 |
+| schnorr                  |      6006 |      1674 |       689 |       502 |       423 |
+| double_verify_proof      |     47137 |     16044 |      7907 |      6934 |      6043 |
++--------------------------+-----------+-----------+-----------+-----------+-----------+
 ```
 
 ### Dependencies

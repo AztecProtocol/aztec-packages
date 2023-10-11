@@ -14,19 +14,50 @@ for TEST in ${TEST_NAMES[@]}; do
     done
 done
 
-cat $BENCHMARKS | jq -r 'select(.name == "proof_construction_time") | [.acir_test, .threads, .value] | @tsv'  | awk 'BEGIN {
-    FS="\t";
-    print "+--------------------------+---------+-----------+";
-    print "| Test                     | Threads | Time (ms) |";
-    print "+--------------------------+---------+-----------+";
+# Build results into string with \n delimited rows and space delimited values.
+TABLE_DATA=""
+for TEST in ${TEST_NAMES[@]}; do
+    TABLE_DATA+="$TEST"
+    for HC in "${THREADS[@]}"; do
+        RESULT=$(cat $BENCHMARKS | jq -r --arg test "$TEST" --argjson hc $HC 'select(.name == "proof_construction_time" and .acir_test == $test and .threads == $hc) | .value')
+        TABLE_DATA+=" $RESULT"
+    done
+    TABLE_DATA+=$'\n'
+done
+
+# Trim the trailing newline.
+TABLE_DATA="${TABLE_DATA%$'\n'}"
+
+echo
+echo Table represents time to build circuit and proof for each test on n threads.
+echo Ignores proving key construction.
+echo
+# Use awk to print the table
+echo -e "$TABLE_DATA" | awk -v threads="${THREADS[*]}" 'BEGIN {
+    split(threads, t, " ");
+    len_threads = length(t);
+    print "+--------------------------+" genseparator(len_threads);
+    print "| Test                     |" genthreadheaders(t, len_threads);
+    print "+--------------------------+" genseparator(len_threads);
 }
 {
-    # Truncate name to 24 characters
-    name = substr($1, 1, 24);
-    printf("| %-24s | %7s | %9s |\n", name, $2, $3);
+    printf("| %-24s |", $1);
+    for (i = 2; i <= len_threads+1; i++) {
+        printf " %9s |", $(i);
+    }
+    print "";
 }
 END {
-    print "+--------------------------+---------+-----------+";
-}'
+    print "+--------------------------+" genseparator(len_threads);
+}
+function genseparator(len,   res) {
+    for (i = 1; i <= len; i++) res = res "-----------+";
+    return res;
+}
+function genthreadheaders(t, len,   res) {
+    for (i = 1; i <= len; i++) res = res sprintf(" %9s |", t[i]);
+    return res;
+}
+'
 
 rm $BENCHMARKS
