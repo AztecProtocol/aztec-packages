@@ -330,8 +330,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
         } else {
           if (!follow && !filter.afterLog) log('Logs found: \n');
           logs.forEach(unencryptedLog => log(unencryptedLog.toHumanReadable()));
-          // Disable `fromBlock` and continue using the `afterLog` filter.
-          filter.fromBlock = undefined;
+          // Set the continuation parameter for the following requests
           filter.afterLog = logs[logs.length - 1].id;
         }
         return response.maxLogsHit;
