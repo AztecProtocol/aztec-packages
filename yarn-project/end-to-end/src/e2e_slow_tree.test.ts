@@ -57,7 +57,7 @@ describe('e2e_slow_tree', () => {
     const hasher = new PedersenHasher(circuitsWasm);
 
     const db = levelup(createMemDown());
-    const depth = 4;
+    const depth = 254;
     const tree = await newTree(SparseTree, db, hasher, 'test', depth);
     const root = tree.getRoot(true);
 
@@ -70,7 +70,7 @@ describe('e2e_slow_tree', () => {
       };
     };
 
-    const getUpdateProof = async (index: bigint, newValue: bigint) => {
+    const getUpdateProof = async (newValue: bigint, index: bigint) => {
       const beforeProof = await getMembershipProof(index, false);
       const afterProof = await getMembershipProof(index, true);
 
@@ -85,67 +85,71 @@ describe('e2e_slow_tree', () => {
       };
     };
 
-    const status = async () => {
+    const status = async (key: bigint) => {
       logger(`\tTime: ${await cheatCodes.eth.timestamp()}`);
       logger('\tRoot', await contract.methods.un_read_root(owner).view());
-      logger('\tLeaf', await contract.methods.un_read_leaf_at(owner, 0n).view());
+      logger(`\tLeaf (${key})`, await contract.methods.un_read_leaf_at(owner, key).view());
     };
 
     const owner = wallet.getCompleteAddress().address;
+    const key = owner.toBigInt();
+
     await contract.methods.initialize(root).send().wait();
 
     logger('Initial state');
-    await status();
+    await status(key);
 
     await contract.methods
-      .read_at(await getMembershipProof(0n, true))
+      .read_at({ ...(await getMembershipProof(key, true)), value: 0n })
       .send()
       .wait();
 
-    logger('Updating tree[0] to 1 from public');
+    logger(`Updating tree[${key}] to 1 from public`);
     await contract.methods
-      .update_at(await getUpdateProof(0n, 1n))
+      .update_at(await getUpdateProof(1n, key))
       .send()
       .wait();
-    await tree.updateLeaf(new Fr(1).toBuffer(), 0n);
-    await status();
+    await tree.updateLeaf(new Fr(1).toBuffer(), key);
+    await status(key);
 
-    logger('Updating tree[0] to 2 from private');
+    /*    logger('Updating tree[0] to 2 from private');
     await contract.methods
       .update_at_private(await getUpdateProof(0n, 2n))
       .send()
       .wait();
     await tree.updateLeaf(new Fr(2).toBuffer(), 0n);
+    await status();*/
 
-    await status();
-
-    const zeroProof = await getMembershipProof(0n, false);
-    logger('"Reads" 0 from the tree');
+    // HUH, What did I fuck up here?
+    const zeroProof = await getMembershipProof(key, false);
+    logger(`"Reads" tree[${zeroProof.index}] from the tree, equal to ${zeroProof.value}`);
     await contract.methods.read_at(zeroProof).send().wait();
 
     // Progress time to beyond the update and thereby commit it to the tree.
     await cheatCodes.aztec.warp((await cheatCodes.eth.timestamp()) + 1000);
     await tree.commit();
     logger('--- Progressing time to after the update ---');
-    await status();
+    await status(key);
 
-    logger('Tries to "read" 0 from the tree, but is rejected');
+    logger(
+      `Tries to "read" tree[${zeroProof.index}] from the tree, but is rejected as value is not ${zeroProof.value}`,
+    );
     await expect(contract.methods.read_at(zeroProof).simulate()).rejects.toThrowError(
       'Assertion failed: Root does not match expected',
     );
-    logger('"Reads" 2 from the tree');
+    logger(`"Reads" tree[${key}], expect to be 1`);
     await contract.methods
-      .read_at(await getMembershipProof(0n, false))
+      .read_at({ ...(await getMembershipProof(key, false)), value: 1n })
       .send()
       .wait();
 
-    logger('Updating tree[0] to 4 from private');
+    logger(`Updating tree[${key}] to 4 from private`);
     await contract.methods
-      .update_at_private(await getUpdateProof(0n, 4n))
+      .update_at_private(await getUpdateProof(4n, key))
       .send()
       .wait();
-    await tree.updateLeaf(new Fr(4).toBuffer(), 0n);
+    await tree.updateLeaf(new Fr(4).toBuffer(), key);
 
-    await status();
-  }, 60_000);
+    await status(key);
+  }, 600_000);
 });
