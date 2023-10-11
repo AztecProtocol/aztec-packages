@@ -54,9 +54,6 @@ template <typename NCT> struct PrivateAccumulatedData {
 
     std::array<OptionallyRevealedData<NCT>, MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX> optionally_revealed_data{};
 
-    std::array<PublicDataUpdateRequest<NCT>, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX> public_data_update_requests{};
-    std::array<PublicDataRead<NCT>, MAX_PUBLIC_DATA_READS_PER_TX> public_data_reads{};
-
     // for serialization, update with new fields
     MSGPACK_FIELDS(aggregation_object,
                    read_requests,
@@ -71,9 +68,7 @@ template <typename NCT> struct PrivateAccumulatedData {
                    encrypted_log_preimages_length,
                    unencrypted_log_preimages_length,
                    new_contracts,
-                   optionally_revealed_data,
-                   public_data_update_requests,
-                   public_data_reads);
+                   optionally_revealed_data);
     boolean operator==(PrivateAccumulatedData<NCT> const& other) const
     {
         return msgpack_derived_equals<boolean>(*this, other);
@@ -115,8 +110,6 @@ template <typename NCT> struct PrivateAccumulatedData {
 
             map(new_contracts, to_circuit_type),
             map(optionally_revealed_data, to_circuit_type),
-            map(public_data_update_requests, to_circuit_type),
-            map(public_data_reads, to_circuit_type),
         };
 
         return acc_data;
@@ -155,8 +148,6 @@ template <typename NCT> struct PrivateAccumulatedData {
 
             map(new_contracts, to_native_type),
             map(optionally_revealed_data, to_native_type),
-            map(public_data_update_requests, to_native_type),
-            map(public_data_reads, to_native_type),
         };
         return acc_data;
     }
@@ -182,8 +173,6 @@ template <typename NCT> struct PrivateAccumulatedData {
 
         set_array_public(new_contracts);
         set_array_public(optionally_revealed_data);
-        set_array_public(public_data_update_requests);
-        set_array_public(public_data_reads);
     }
 
     template <typename T, size_t SIZE> void set_array_public(std::array<T, SIZE>& arr)
@@ -203,22 +192,6 @@ template <typename NCT> struct PrivateAccumulatedData {
     }
 
     template <size_t SIZE> void set_array_public(std::array<NewContractData<NCT>, SIZE>& arr)
-    {
-        static_assert(!(std::is_same<NativeTypes, NCT>::value));
-        for (auto& e : arr) {
-            e.set_public();
-        }
-    }
-
-    template <size_t SIZE> void set_array_public(std::array<PublicDataUpdateRequest<NCT>, SIZE>& arr)
-    {
-        static_assert(!(std::is_same<NativeTypes, NCT>::value));
-        for (auto& e : arr) {
-            e.set_public();
-        }
-    }
-
-    template <size_t SIZE> void set_array_public(std::array<PublicDataRead<NCT>, SIZE>& arr)
     {
         static_assert(!(std::is_same<NativeTypes, NCT>::value));
         for (auto& e : arr) {

@@ -1,8 +1,8 @@
 import {
   Fr,
   HistoricBlockData,
-  PrivateAccumulatedData,
   Proof,
+  PublicAccumulatedData,
   PublicKernelPublicInputs,
   makeEmptyProof,
 } from '@aztec/circuits.js';
@@ -74,7 +74,7 @@ export async function makeProcessedTx(
     hash: await tx.getTxHash(),
     data:
       kernelOutput ??
-      new PublicKernelPublicInputs(PrivateAccumulatedData.fromFinalAccumulatedData(tx.data.end), tx.data.constants),
+      new PublicKernelPublicInputs(PublicAccumulatedData.fromFinalAccumulatedData(tx.data.end), tx.data.constants),
     proof: proof ?? tx.proof,
     encryptedLogs: tx.encryptedLogs,
     unencryptedLogs: tx.unencryptedLogs,

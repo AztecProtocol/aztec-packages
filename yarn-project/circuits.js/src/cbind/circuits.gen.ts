@@ -1093,8 +1093,6 @@ interface MsgpackPrivateAccumulatedData {
   unencrypted_log_preimages_length: Buffer;
   new_contracts: Tuple<MsgpackNewContractData, 1>;
   optionally_revealed_data: Tuple<MsgpackOptionallyRevealedData, 4>;
-  public_data_update_requests: Tuple<MsgpackPublicDataUpdateRequest, 16>;
-  public_data_reads: Tuple<MsgpackPublicDataRead, 16>;
 }
 
 export function toPrivateAccumulatedData(o: MsgpackPrivateAccumulatedData): PrivateAccumulatedData {
@@ -1140,12 +1138,6 @@ export function toPrivateAccumulatedData(o: MsgpackPrivateAccumulatedData): Priv
   if (o.optionally_revealed_data === undefined) {
     throw new Error('Expected optionally_revealed_data in PrivateAccumulatedData deserialization');
   }
-  if (o.public_data_update_requests === undefined) {
-    throw new Error('Expected public_data_update_requests in PrivateAccumulatedData deserialization');
-  }
-  if (o.public_data_reads === undefined) {
-    throw new Error('Expected public_data_reads in PrivateAccumulatedData deserialization');
-  }
   return new PrivateAccumulatedData(
     toNativeAggregationState(o.aggregation_object),
     mapTuple(o.read_requests, (v: Buffer) => Fr.fromBuffer(v)),
@@ -1161,8 +1153,6 @@ export function toPrivateAccumulatedData(o: MsgpackPrivateAccumulatedData): Priv
     Fr.fromBuffer(o.unencrypted_log_preimages_length),
     mapTuple(o.new_contracts, (v: MsgpackNewContractData) => toNewContractData(v)),
     mapTuple(o.optionally_revealed_data, (v: MsgpackOptionallyRevealedData) => toOptionallyRevealedData(v)),
-    mapTuple(o.public_data_update_requests, (v: MsgpackPublicDataUpdateRequest) => toPublicDataUpdateRequest(v)),
-    mapTuple(o.public_data_reads, (v: MsgpackPublicDataRead) => toPublicDataRead(v)),
   );
 }
 
@@ -1209,12 +1199,6 @@ export function fromPrivateAccumulatedData(o: PrivateAccumulatedData): MsgpackPr
   if (o.optionallyRevealedData === undefined) {
     throw new Error('Expected optionallyRevealedData in PrivateAccumulatedData serialization');
   }
-  if (o.publicDataUpdateRequests === undefined) {
-    throw new Error('Expected publicDataUpdateRequests in PrivateAccumulatedData serialization');
-  }
-  if (o.publicDataReads === undefined) {
-    throw new Error('Expected publicDataReads in PrivateAccumulatedData serialization');
-  }
   return {
     aggregation_object: fromNativeAggregationState(o.aggregationObject),
     read_requests: mapTuple(o.readRequests, (v: Fr) => toBuffer(v)),
@@ -1232,10 +1216,6 @@ export function fromPrivateAccumulatedData(o: PrivateAccumulatedData): MsgpackPr
     optionally_revealed_data: mapTuple(o.optionallyRevealedData, (v: OptionallyRevealedData) =>
       fromOptionallyRevealedData(v),
     ),
-    public_data_update_requests: mapTuple(o.publicDataUpdateRequests, (v: PublicDataUpdateRequest) =>
-      fromPublicDataUpdateRequest(v),
-    ),
-    public_data_reads: mapTuple(o.publicDataReads, (v: PublicDataRead) => fromPublicDataRead(v)),
   };
 }
 

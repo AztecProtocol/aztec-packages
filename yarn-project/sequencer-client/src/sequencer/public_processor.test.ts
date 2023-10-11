@@ -12,8 +12,8 @@ import {
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   PUBLIC_DATA_TREE_HEIGHT,
-  PrivateAccumulatedData,
   Proof,
+  PublicAccumulatedData,
   PublicCallRequest,
   PublicKernelPublicInputs,
   makeEmptyProof,
@@ -91,7 +91,7 @@ describe('public_processor', () => {
           isEmpty: false,
           hash,
           data: new PublicKernelPublicInputs(
-            PrivateAccumulatedData.fromFinalAccumulatedData(tx.data.end),
+            PublicAccumulatedData.fromFinalAccumulatedData(tx.data.end),
             tx.data.constants,
           ),
           proof: tx.proof,

@@ -338,14 +338,6 @@ export class PrivateAccumulatedData {
      * All the optionally revealed data in this transaction.
      */
     public optionallyRevealedData: Tuple<OptionallyRevealedData, typeof MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX>,
-    /**
-     * All the public data update requests made in this transaction.
-     */
-    public publicDataUpdateRequests: Tuple<PublicDataUpdateRequest, typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
-    /**
-     * All the public data reads made in this transaction.
-     */
-    public publicDataReads: Tuple<PublicDataRead, typeof MAX_PUBLIC_DATA_READS_PER_TX>,
   ) {}
 
   toBuffer() {
@@ -364,8 +356,6 @@ export class PrivateAccumulatedData {
       this.unencryptedLogPreimagesLength,
       this.newContracts,
       this.optionallyRevealedData,
-      this.publicDataUpdateRequests,
-      this.publicDataReads,
     );
   }
 
@@ -395,29 +385,6 @@ export class PrivateAccumulatedData {
       reader.readFr(),
       reader.readArray(MAX_NEW_CONTRACTS_PER_TX, NewContractData),
       reader.readArray(MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX, OptionallyRevealedData),
-      reader.readArray(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest),
-      reader.readArray(MAX_PUBLIC_DATA_READS_PER_TX, PublicDataRead),
-    );
-  }
-
-  static fromFinalAccumulatedData(finalData: PrivateAccumulatedDataFinal): PrivateAccumulatedData {
-    return new PrivateAccumulatedData(
-      finalData.aggregationObject,
-      makeTuple(MAX_READ_REQUESTS_PER_TX, Fr.zero),
-      finalData.newCommitments,
-      finalData.newNullifiers,
-      finalData.nullifiedCommitments,
-      finalData.privateCallStack,
-      finalData.publicCallStack,
-      finalData.newL2ToL1Msgs,
-      finalData.encryptedLogsHash,
-      finalData.unencryptedLogsHash,
-      finalData.encryptedLogPreimagesLength,
-      finalData.unencryptedLogPreimagesLength,
-      finalData.newContracts,
-      finalData.optionallyRevealedData,
-      makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest.empty),
-      makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, PublicDataRead.empty),
     );
   }
 
@@ -446,8 +413,6 @@ export class PrivateAccumulatedData {
       Fr.zero(),
       makeTuple(MAX_NEW_CONTRACTS_PER_TX, NewContractData.empty),
       makeTuple(MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX, OptionallyRevealedData.empty),
-      makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest.empty),
-      makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, PublicDataRead.empty),
     );
   }
 }
@@ -603,6 +568,27 @@ export class PublicAccumulatedData {
       Fr.zero(),
       makeTuple(MAX_NEW_CONTRACTS_PER_TX, NewContractData.empty),
       makeTuple(MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX, OptionallyRevealedData.empty),
+      makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest.empty),
+      makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, PublicDataRead.empty),
+    );
+  }
+
+  static fromFinalAccumulatedData(finalData: PrivateAccumulatedDataFinal): PublicAccumulatedData {
+    return new PublicAccumulatedData(
+      finalData.aggregationObject,
+      makeTuple(MAX_READ_REQUESTS_PER_TX, Fr.zero),
+      finalData.newCommitments,
+      finalData.newNullifiers,
+      finalData.nullifiedCommitments,
+      finalData.privateCallStack,
+      finalData.publicCallStack,
+      finalData.newL2ToL1Msgs,
+      finalData.encryptedLogsHash,
+      finalData.unencryptedLogsHash,
+      finalData.encryptedLogPreimagesLength,
+      finalData.unencryptedLogPreimagesLength,
+      finalData.newContracts,
+      finalData.optionallyRevealedData,
       makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest.empty),
       makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, PublicDataRead.empty),
     );
