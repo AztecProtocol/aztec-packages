@@ -1,27 +1,29 @@
 import { KernelCircuitPublicInputs, PrivateKernelInputsInit } from '@aztec/circuits.js';
 import { NoirCompiledCircuit } from '@aztec/noir-compiler';
 
+import { executeCircuit } from '@noir-lang/acvm_js';
+import { abiDecode, abiEncode } from '@noir-lang/noirc_abi';
+
 import PrivateKernelInitJson from './target/private_kernel_init.json' assert { type: 'json' };
 import PrivateKernelInnerJson from './target/private_kernel_inner.json' assert { type: 'json' };
 import PrivateKernelOrderingJson from './target/private_kernel_ordering.json' assert { type: 'json' };
-import { mapPrivateKernelInputsInitToNoir,mapKernelCircuitPublicInputsFromNoir } from './type_conversion.js';
+import { mapKernelCircuitPublicInputsFromNoir, mapPrivateKernelInputsInitToNoir } from './type_conversion.js';
 import { InputType as InitInputType, ReturnType } from './types/private_kernel_init_types.js';
-
-import { executeCircuit } from '@noir-lang/acvm_js';
-import { abiEncode, abiDecode } from '@noir-lang/noirc_abi';
 
 // TODO(Tom): This should be exported from noirc_abi
 /**
  * The decoded inputs from the circuit.
  */
-export type DecodedInputs = { /**
- * The inputs to the circuit
- */
-inputs: Record<string, any>; /**
- * The return value of the circuit
- */
-return_value: any };
-
+export type DecodedInputs = {
+  /**
+   * The inputs to the circuit
+   */
+  inputs: Record<string, any>
+  /**
+   * The return value of the circuit
+   */;
+  return_value: any;
+};
 
 export const PrivateKernelInitArtifact = PrivateKernelInitJson as NoirCompiledCircuit;
 
@@ -34,23 +36,25 @@ export const PrivateKernelOrderingArtifact = PrivateKernelOrderingJson as NoirCo
  * @param privateKernelInputsInit - The private kernel inputs.
  * @returns The public inputs.
  */
-export async function executeInit(privateKernelInputsInit: PrivateKernelInputsInit): Promise<KernelCircuitPublicInputs> {
+export async function executeInit(
+  privateKernelInputsInit: PrivateKernelInputsInit,
+): Promise<KernelCircuitPublicInputs> {
   const params: InitInputType = {
     input: mapPrivateKernelInputsInitToNoir(privateKernelInputsInit),
   };
 
   const returnType = await executePrivateKernelInitWithACVM(params);
-  
+
   return mapKernelCircuitPublicInputsFromNoir(returnType);
 }
 
 /**
  * Executes the init private kernel with the given inputs using the acvm.
- * 
- * Note: we export this for now, so that we can run tests on it. 
+ *
+ * Note: we export this for now, so that we can run tests on it.
  * We will make this private and just use `executeInit`.
  */
-async function executePrivateKernelInitWithACVM(input : InitInputType): Promise<ReturnType> {
+async function executePrivateKernelInitWithACVM(input: InitInputType): Promise<ReturnType> {
   const initialWitnessMap = abiEncode(PrivateKernelInitArtifact.abi, input, null);
 
   // Execute the circuit on those initial witness values
@@ -64,8 +68,8 @@ async function executePrivateKernelInitWithACVM(input : InitInputType): Promise<
   });
 
   // Decode the witness map into two fields, the return values and the inputs
-  const decodedInputs : DecodedInputs = abiDecode(PrivateKernelInitArtifact.abi, _witnessMap);
-    
+  const decodedInputs: DecodedInputs = abiDecode(PrivateKernelInitArtifact.abi, _witnessMap);
+
   // Cast the inputs as the return type
   return decodedInputs.return_value as ReturnType;
 }
