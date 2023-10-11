@@ -64,89 +64,66 @@ struct UsePlookupPedersen16Bytes {
 using BooleanTypes = ::testing::Types<UseKeccak32Bytes, UsePlookupPedersen16Bytes>;
 TYPED_TEST_SUITE(ultra_plonk_composer, BooleanTypes);
 
-// TODO fix
-// TYPED_TEST(ultra_plonk_composer, create_gates_from_plookup_accumulators)
-// {
-//     auto builder = UltraCircuitBuilder();
-//     auto composer = UltraComposer();
+TYPED_TEST(ultra_plonk_composer, create_gates_from_plookup_accumulators)
+{
+    auto circuit_builder = proof_system::UltraCircuitBuilder();
+    auto composer = UltraComposer();
 
-//     barretenberg::fr input_value = fr::random_element();
-//     const fr input_hi = uint256_t(input_value).slice(126, 256);
-//     const fr input_lo = uint256_t(input_value).slice(0, 126);
-//     const auto input_hi_index = builder.add_variable(input_hi);
-//     const auto input_lo_index = builder.add_variable(input_lo);
+    barretenberg::fr input_value = fr::random_element();
+    const fr input_lo = static_cast<uint256_t>(input_value).slice(0, plookup::fixed_base::table::BITS_PER_LO_SCALAR);
+    const auto input_lo_index = circuit_builder.add_variable(input_lo);
 
-//     const auto sequence_data_hi = plookup::get_lookup_accumulators(MultiTableId::FIXED_BASE_LEFT_HI, input_hi);
-//     const auto sequence_data_lo = plookup::get_lookup_accumulators(MultiTableId::FIXED_BASE_LEFT_LO, input_lo);
+    const auto sequence_data_lo = plookup::get_lookup_accumulators(plookup::MultiTableId::FIXED_BASE_LEFT_LO, input_lo);
 
-//     const auto lookup_witnesses_hi = builder.create_gates_from_plookup_accumulators(
-//         MultiTableId::FIXED_BASE_LEFT_HI, sequence_data_hi, input_hi_index);
-//     const auto lookup_witnesses_lo = builder.create_gates_from_plookup_accumulators(
-//         MultiTableId::FIXED_BASE_LEFT_LO, sequence_data_lo, input_lo_index);
+    const auto lookup_witnesses = circuit_builder.create_gates_from_plookup_accumulators(
+        plookup::MultiTableId::FIXED_BASE_LEFT_LO, sequence_data_lo, input_lo_index);
 
-//     std::vector<barretenberg::fr> expected_x;
-//     std::vector<barretenberg::fr> expected_y;
+    const size_t num_lookups = plookup::fixed_base::table::NUM_TABLES_PER_LO_MULTITABLE;
 
-//     const size_t num_lookups_hi =
-//         (128 + plookup::FixedBaseParams::BITS_PER_TABLE) / plookup::FixedBaseParams::BITS_PER_TABLE;
-//     const size_t num_lookups_lo = 126 / plookup::FixedBaseParams::BITS_PER_TABLE;
-//     const size_t num_lookups = num_lookups_hi + num_lookups_lo;
+    EXPECT_EQ(num_lookups, lookup_witnesses[plookup::ColumnIdx::C1].size());
 
-//     EXPECT_EQ(num_lookups_hi, lookup_witnesses_hi[ColumnIdx::C1].size());
-//     EXPECT_EQ(num_lookups_lo, lookup_witnesses_lo[ColumnIdx::C1].size());
+    {
+        const auto mask = plookup::fixed_base::table::MAX_TABLE_SIZE - 1;
 
-//     std::vector<barretenberg::fr> expected_scalars;
-//     expected_x.resize(num_lookups);
-//     expected_y.resize(num_lookups);
-//     expected_scalars.resize(num_lookups);
+        grumpkin::g1::affine_element base_point = plookup::fixed_base::table::LHS_GENERATOR_POINT;
+        std::vector<uint8_t> input_buf;
+        serialize::write(input_buf, base_point);
+        const auto offset_generators =
+            grumpkin::g1::derive_generators(input_buf, plookup::fixed_base::table::NUM_TABLES_PER_LO_MULTITABLE);
 
-//     {
-//         const size_t num_rounds = (num_lookups + 1) / 2;
-//         uint256_t bits(input_value);
+        grumpkin::g1::element accumulator = base_point;
+        uint256_t expected_scalar(input_lo);
+        const auto table_bits = plookup::fixed_base::table::BITS_PER_TABLE;
+        const auto num_tables = plookup::fixed_base::table::NUM_TABLES_PER_LO_MULTITABLE;
+        for (size_t i = 0; i < num_tables; ++i) {
 
-//         const auto mask = plookup::FixedBaseParams::MAX_TABLE_SIZE - 1;
+            auto round_scalar = circuit_builder.get_variable(lookup_witnesses[plookup::ColumnIdx::C1][i]);
+            auto round_x = circuit_builder.get_variable(lookup_witnesses[plookup::ColumnIdx::C2][i]);
+            auto round_y = circuit_builder.get_variable(lookup_witnesses[plookup::ColumnIdx::C3][i]);
 
-//         for (size_t i = 0; i < num_rounds; ++i) {
-//             const auto& table = crypto::pedersen_hash::lookup::get_table(i);
-//             const size_t index = i * 2;
+            EXPECT_EQ(uint256_t(round_scalar), expected_scalar);
 
-//             uint64_t slice_a = ((bits >> (index * 9)) & mask).data[0];
-//             expected_x[index] = (table[(size_t)slice_a].x);
-//             expected_y[index] = (table[(size_t)slice_a].y);
-//             expected_scalars[index] = slice_a;
+            auto next_scalar = static_cast<uint256_t>(
+                (i == num_tables - 1) ? fr(0)
+                                      : circuit_builder.get_variable(lookup_witnesses[plookup::ColumnIdx::C1][i + 1]));
 
-//             if (i < 14) {
-//                 uint64_t slice_b = ((bits >> ((index + 1) * 9)) & mask).data[0];
-//                 expected_x[index + 1] = (table[(size_t)slice_b].x);
-//                 expected_y[index + 1] = (table[(size_t)slice_b].y);
-//                 expected_scalars[index + 1] = slice_b;
-//             }
-//         }
-//     }
+            auto slice = round_scalar - (next_scalar << table_bits);
+            EXPECT_EQ(slice, (uint256_t(input_lo) >> (i * table_bits)) & mask);
 
-//     for (size_t i = num_lookups - 2; i < num_lookups; --i) {
-//         expected_scalars[i] += (expected_scalars[i + 1] * plookup::FixedBaseParams::MAX_TABLE_SIZE);
-//     }
+            grumpkin::g1::affine_element expected_point(accumulator * static_cast<uint256_t>(slice) +
+                                                        offset_generators[i]);
 
-//     size_t hi_shift = 126;
-//     const fr hi_cumulative = builder.get_variable(lookup_witnesses_hi[ColumnIdx::C1][0]);
-//     for (size_t i = 0; i < num_lookups_lo; ++i) {
-//         const fr hi_mult = fr(uint256_t(1) << hi_shift);
-//         EXPECT_EQ(builder.get_variable(lookup_witnesses_lo[ColumnIdx::C1][i]) + (hi_cumulative * hi_mult),
-//                   expected_scalars[i]);
-//         EXPECT_EQ(builder.get_variable(lookup_witnesses_lo[ColumnIdx::C2][i]), expected_x[i]);
-//         EXPECT_EQ(builder.get_variable(lookup_witnesses_lo[ColumnIdx::C3][i]), expected_y[i]);
-//         hi_shift -= plookup::FixedBaseParams::BITS_PER_TABLE;
-//     }
+            EXPECT_EQ(round_x, expected_point.x);
+            EXPECT_EQ(round_y, expected_point.y);
+            for (size_t j = 0; j < table_bits; ++j) {
+                accumulator = accumulator.dbl();
+            }
+            expected_scalar >>= table_bits;
+        }
+    }
 
-//     for (size_t i = 0; i < num_lookups_hi; ++i) {
-//         EXPECT_EQ(builder.get_variable(lookup_witnesses_hi[ColumnIdx::C1][i]), expected_scalars[i + num_lookups_lo]);
-//         EXPECT_EQ(builder.get_variable(lookup_witnesses_hi[ColumnIdx::C2][i]), expected_x[i + num_lookups_lo]);
-//         EXPECT_EQ(builder.get_variable(lookup_witnesses_hi[ColumnIdx::C3][i]), expected_y[i + num_lookups_lo]);
-//     }
-
-//     TestFixture::prove_and_verify(builder, composer, /*expected_result=*/true);
-//}
+    TestFixture::prove_and_verify(circuit_builder, composer, /*expected_result=*/true);
+}
 
 TYPED_TEST(ultra_plonk_composer, test_no_lookup_proof)
 {
