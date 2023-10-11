@@ -2,6 +2,7 @@ import { SerialQueue } from '@aztec/foundation/fifo';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
 import { L2Block, L2BlockDownloader, L2BlockSource } from '@aztec/types';
+import { L2BlockHandledStats } from '@aztec/types/stats';
 
 import { LevelUp } from 'levelup';
 
@@ -184,13 +185,13 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
    */
   private async handleL2Blocks(l2Blocks: L2Block[]) {
     for (const l2Block of l2Blocks) {
-      const [time, result] = await elapsed(() => this.handleL2Block(l2Block));
+      const [duration, result] = await elapsed(() => this.handleL2Block(l2Block));
       this.log(`Handled new L2 block`, {
         eventName: 'l2-block-handled',
-        duration: time.ms(),
+        duration,
         isBlockOurs: result.isBlockOurs,
         ...l2Block.getStats(),
-      });
+      } satisfies L2BlockHandledStats);
     }
   }
 
