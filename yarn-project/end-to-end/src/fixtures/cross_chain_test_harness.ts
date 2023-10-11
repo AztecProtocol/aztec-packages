@@ -115,7 +115,7 @@ export class CrossChainTestHarness {
     await this.underlyingERC20.write.approve([this.tokenPortalAddress.toString(), bridgeAmount], {} as any);
 
     // Deposit tokens to the TokenPortal
-    const deadline = 2 ** 32 - 1; // max uint32 - 1
+    const deadline = 2 ** 32 - 1; // max uint32
 
     this.logger('Sending messages to L1 portal to be consumed publicly');
     const args = [
@@ -141,7 +141,7 @@ export class CrossChainTestHarness {
     await this.underlyingERC20.write.approve([this.tokenPortalAddress.toString(), bridgeAmount], {} as any);
 
     // Deposit tokens to the TokenPortal
-    const deadline = 2 ** 32 - 1; // max uint32 - 1
+    const deadline = 2 ** 32 - 1; // max uint32
 
     this.logger('Sending messages to L1 portal to be consumed privately');
     const args = [

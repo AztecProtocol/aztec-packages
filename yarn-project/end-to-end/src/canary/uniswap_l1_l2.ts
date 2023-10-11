@@ -71,7 +71,7 @@ export const uniswapL1L2TestSuite = (
     const wethAmountToBridge = parseEther('1');
     const uniswapFeeTier = 3000n;
     const minimumOutputAmount = 0n;
-    const deadlineForDepositingSwappedDai = BigInt(2 ** 32 - 1); // max uint32 - 1
+    const deadlineForDepositingSwappedDai = BigInt(2 ** 32 - 1); // max uint32
 
     beforeAll(async () => {
       let publicClient: PublicClient<HttpTransport, Chain>;
