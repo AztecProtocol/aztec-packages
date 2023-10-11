@@ -32,9 +32,9 @@
     "@aztec/foundation": "workspace:^",
     "@aztec/noir-compiler": "workspace:^",
     "@noir-lang/acvm_js": "^0.28.0",
-    "@noir-lang/noirc_abi": "^0.28.0",
     "@noir-lang/backend_barretenberg": "^0.7.10",
     "@noir-lang/noir_js": "^0.16.0",
+    "@noir-lang/noirc_abi": "^0.16.0",
     "tslib": "^2.4.0"
   },
   "devDependencies": {
