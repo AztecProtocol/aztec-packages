@@ -234,9 +234,9 @@ class GoblinTranslatorRelationConsistency : public testing::Test {
                                             const InputElements& input_elements,
                                             const auto& parameters)
     {
-        typename Relation::RelationValues accumulator;
+        typename Relation::ArrayOfValuesOverSubrelations accumulator;
         std::fill(accumulator.begin(), accumulator.end(), FF(0));
-        Relation::add_full_relation_value_contribution(accumulator, input_elements, parameters);
+        Relation::accumulate(accumulator, input_elements, parameters, 1);
         EXPECT_EQ(accumulator, expected_values);
     };
 };
@@ -245,7 +245,7 @@ TEST_F(GoblinTranslatorRelationConsistency, PermutationRelation)
 {
     const auto run_test = [](bool random_inputs) {
         using Relation = GoblinTranslatorPermutationRelation<FF>;
-        using RelationValues = typename Relation::RelationValues;
+        using RelationValues = typename Relation::ArrayOfValuesOverSubrelations;
 
         const InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
         const auto& concatenated_range_constraints_0 = input_elements.concatenated_range_constraints_0;

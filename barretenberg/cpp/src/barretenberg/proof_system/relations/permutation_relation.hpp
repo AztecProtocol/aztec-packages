@@ -114,30 +114,26 @@ template <typename FF_> class GoblinTranslatorPermutationRelationImpl {
     // 1 + polynomial degree of this relation
     static constexpr size_t RELATION_LENGTH = 7;
 
-    static constexpr size_t LEN_1 = 7; // grand product construction sub-relation
-    static constexpr size_t LEN_2 = 3; // left-shiftable polynomial sub-relation
-    template <template <size_t...> typename SubrelationAccumulatorsTemplate>
-    using GetAccumulatorTypes = SubrelationAccumulatorsTemplate<LEN_1, LEN_2>;
-    template <typename T> using Accumulator = typename std::tuple_element<0, typename T::Accumulators>::type;
+    static constexpr std::array<size_t, 2> SUBRELATION_LENGTHS{
+        7, // grand product construction sub-relation
+        3  // left-shiftable polynomial sub-relation
+    };
 
-    inline static auto& get_grand_product_polynomial(auto& input) { return input.z_perm; }
-    inline static auto& get_shifted_grand_product_polynomial(auto& input) { return input.z_perm_shift; }
+    inline static auto& get_grand_product_polynomial(auto& in) { return in.z_perm; }
+    inline static auto& get_shifted_grand_product_polynomial(auto& in) { return in.z_perm_shift; }
 
-    template <typename AccumulatorTypes>
-    inline static Accumulator<AccumulatorTypes> compute_grand_product_numerator(
-        const auto& input, const RelationParameters<FF>& relation_parameters, const size_t index)
+    template <typename Accumulator, typename AllEntities>
+    inline static Accumulator compute_grand_product_numerator(const AllEntities& in,
+                                                              const RelationParameters<FF>& relation_parameters)
     {
-        auto concatenated_range_constraints_0 =
-            get_view<FF, AccumulatorTypes>(input.concatenated_range_constraints_0, index);
-        auto concatenated_range_constraints_1 =
-            get_view<FF, AccumulatorTypes>(input.concatenated_range_constraints_1, index);
-        auto concatenated_range_constraints_2 =
-            get_view<FF, AccumulatorTypes>(input.concatenated_range_constraints_2, index);
-        auto concatenated_range_constraints_3 =
-            get_view<FF, AccumulatorTypes>(input.concatenated_range_constraints_3, index);
+        using View = typename Accumulator::View;
 
-        auto ordered_extra_range_constraints_numerator =
-            get_view<FF, AccumulatorTypes>(input.ordered_extra_range_constraints_numerator, index);
+        auto concatenated_range_constraints_0 = View(in.concatenated_range_constraints_0);
+        auto concatenated_range_constraints_1 = View(in.concatenated_range_constraints_1);
+        auto concatenated_range_constraints_2 = View(in.concatenated_range_constraints_2);
+        auto concatenated_range_constraints_3 = View(in.concatenated_range_constraints_3);
+
+        auto ordered_extra_range_constraints_numerator = View(in.ordered_extra_range_constraints_numerator);
 
         const auto& gamma = relation_parameters.gamma;
         return (concatenated_range_constraints_0 + gamma) * (concatenated_range_constraints_1 + gamma) *
@@ -145,15 +141,17 @@ template <typename FF_> class GoblinTranslatorPermutationRelationImpl {
                (ordered_extra_range_constraints_numerator + gamma);
     }
 
-    template <typename AccumulatorTypes>
-    inline static Accumulator<AccumulatorTypes> compute_grand_product_denominator(
-        const auto& input, const RelationParameters<FF>& relation_parameters, const size_t index)
+    template <typename Accumulator, typename AllEntities>
+    inline static Accumulator compute_grand_product_denominator(const AllEntities& in,
+                                                                const RelationParameters<FF>& relation_parameters)
     {
-        auto ordered_range_constraints_0 = get_view<FF, AccumulatorTypes>(input.ordered_range_constraints_0, index);
-        auto ordered_range_constraints_1 = get_view<FF, AccumulatorTypes>(input.ordered_range_constraints_1, index);
-        auto ordered_range_constraints_2 = get_view<FF, AccumulatorTypes>(input.ordered_range_constraints_2, index);
-        auto ordered_range_constraints_3 = get_view<FF, AccumulatorTypes>(input.ordered_range_constraints_3, index);
-        auto ordered_range_constraints_4 = get_view<FF, AccumulatorTypes>(input.ordered_range_constraints_4, index);
+        using View = typename Accumulator::View;
+
+        auto ordered_range_constraints_0 = View(in.ordered_range_constraints_0);
+        auto ordered_range_constraints_1 = View(in.ordered_range_constraints_1);
+        auto ordered_range_constraints_2 = View(in.ordered_range_constraints_2);
+        auto ordered_range_constraints_3 = View(in.ordered_range_constraints_3);
+        auto ordered_range_constraints_4 = View(in.ordered_range_constraints_4);
 
         const auto& gamma = relation_parameters.gamma;
 
@@ -168,7 +166,7 @@ template <typename FF_> class GoblinTranslatorPermutationRelationImpl {
      * This file handles the relation that confirms faithful calculation of the grand
      * product polynomial Z_perm.
      *
-     *  C(extended_edges(X)...) =
+     *  C(in(X)...) =
      *      ( z_perm(X) + lagrange_first(X) )*P(X)
      *         - ( z_perm_shift(X) + lagrange_last(X))*Q(X),
      * where P(X) = Prod_{i=0:4} numerator_polynomial_i(X) + γ
@@ -176,41 +174,47 @@ template <typename FF_> class GoblinTranslatorPermutationRelationImpl {
      * the first 4 numerator polynomials are concatenated range constraint polynomials and the last one is the constant
      * extra numerator
      *
-     * @param evals transformed to `evals + C(extended_edges(X)...)*scaling_factor`
-     * @param extended_edges an std::array containing the fully extended Univariate edges.
+     * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
+     * @param in an std::array containing the fully extended Univariate edges.
      * @param parameters contains beta, gamma, and public_input_delta, ....
      * @param scaling_factor optional term to scale the evaluation before adding to evals.
      */
-    template <typename AccumulatorTypes>
-    inline static void accumulate(typename AccumulatorTypes::Accumulators& accumulator,
-                                  const auto& input,
+
+    template <typename ContainerOverSubrelations, typename AllEntities>
+    inline static void accumulate(ContainerOverSubrelations& accumulators,
+                                  const AllEntities& in,
                                   const RelationParameters<FF>& relation_parameters,
-                                  const FF& scaling_factor){
+                                  const FF& scaling_factor)
+    {
+        [&]() {
+            using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
+            using View = typename Accumulator::View;
 
-        { using View = typename std::tuple_element<0, typename AccumulatorTypes::AccumulatorViews>::type;
-    auto z_perm = View(input.z_perm);
-    auto z_perm_shift = View(input.z_perm_shift);
-    auto lagrange_first = View(input.lagrange_first);
-    auto lagrange_last = View(input.lagrange_last);
+            auto z_perm = View(in.z_perm);
+            auto z_perm_shift = View(in.z_perm_shift);
+            auto lagrange_first = View(in.lagrange_first);
+            auto lagrange_last = View(in.lagrange_last);
 
-    // Contribution (1)
-    std::get<0>(accumulator) += (((z_perm + lagrange_first) *
-                                  compute_grand_product_numerator<AccumulatorTypes>(input, relation_parameters, 0)) -
-                                 ((z_perm_shift + lagrange_last) *
-                                  compute_grand_product_denominator<AccumulatorTypes>(input, relation_parameters, 0))) *
-                                scaling_factor;
-}
-{
-    using View = typename std::tuple_element<1, typename AccumulatorTypes::AccumulatorViews>::type;
-    auto z_perm_shift = View(input.z_perm_shift);
-    auto lagrange_last = View(input.lagrange_last);
+            // Contribution (1)
+            std::get<0>(accumulators) +=
+                (((z_perm + lagrange_first) * compute_grand_product_numerator<Accumulator>(in, relation_parameters)) -
+                 ((z_perm_shift + lagrange_last) *
+                  compute_grand_product_denominator<Accumulator>(in, relation_parameters))) *
+                scaling_factor;
+        }();
 
-    // Contribution (2)
-    std::get<1>(accumulator) += (lagrange_last * z_perm_shift) * scaling_factor;
-}
-}; // namespace proof_system
-}
-;
+        [&]() {
+            using Accumulator = std::tuple_element_t<1, ContainerOverSubrelations>;
+            using View = typename Accumulator::View;
+
+            auto z_perm_shift = View(in.z_perm_shift);
+            auto lagrange_last = View(in.lagrange_last);
+
+            // Contribution (2)
+            std::get<1>(accumulators) += (lagrange_last * z_perm_shift) * scaling_factor;
+        }();
+    };
+};
 
 template <typename FF> using UltraPermutationRelation = Relation<UltraPermutationRelationImpl<FF>>;
 template <typename FF>
