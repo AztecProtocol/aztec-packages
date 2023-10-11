@@ -2,6 +2,8 @@
 
 /* eslint-disable */
 
+export type FixedLengthArray<T, L extends number> = L extends 0 ? never[]: T[] & { length: L }
+
 export type Field = string;
 export type u32 = string;
 
@@ -67,21 +69,21 @@ export interface PublicDataRead {
 
 export interface CombinedAccumulatedData {
   aggregation_object: AggregationObject;
-  read_requests: Field[];
-  new_commitments: Field[];
-  new_nullifiers: Field[];
-  nullified_commitments: Field[];
-  private_call_stack: Field[];
-  public_call_stack: Field[];
-  new_l2_to_l1_msgs: Field[];
-  encrypted_logs_hash: Field[];
-  unencrypted_logs_hash: Field[];
+  read_requests: FixedLengthArray<Field, 128>;
+  new_commitments: FixedLengthArray<Field, 64>;
+  new_nullifiers: FixedLengthArray<Field, 64>;
+  nullified_commitments: FixedLengthArray<Field, 64>;
+  private_call_stack: FixedLengthArray<Field, 8>;
+  public_call_stack: FixedLengthArray<Field, 8>;
+  new_l2_to_l1_msgs: FixedLengthArray<Field, 2>;
+  encrypted_logs_hash: FixedLengthArray<Field, 2>;
+  unencrypted_logs_hash: FixedLengthArray<Field, 2>;
   encrypted_log_preimages_length: Field;
   unencrypted_log_preimages_length: Field;
-  new_contracts: NewContractData[];
-  optionally_revealed_data: OptionallyRevealedData[];
-  public_data_update_requests: PublicDataUpdateRequest[];
-  public_data_reads: PublicDataRead[];
+  new_contracts: FixedLengthArray<NewContractData, 1>;
+  optionally_revealed_data: FixedLengthArray<OptionallyRevealedData, 4>;
+  public_data_update_requests: FixedLengthArray<PublicDataUpdateRequest, 16>;
+  public_data_reads: FixedLengthArray<PublicDataRead, 16>;
 }
 
 
@@ -154,32 +156,32 @@ export interface PreviousKernelData {
   proof: Proof;
   vk: VerificationKey;
   vk_index: u32;
-  vk_path: Field[];
+  vk_path: FixedLengthArray<Field, 3>;
 }
 
 
 export interface PrivateKernelInputsOrdering {
   previous_kernel: PreviousKernelData;
-  read_commitment_hints: Field[];
-  nullifier_commitment_hints: Field[];
+  read_commitment_hints: FixedLengthArray<Field, 128>;
+  nullifier_commitment_hints: FixedLengthArray<Field, 64>;
 }
 
 
 
 export interface FinalAccumulatedData {
   aggregation_object: AggregationObject;
-  new_commitments: Field[];
-  new_nullifiers: Field[];
-  nullified_commitments: Field[];
-  private_call_stack: Field[];
-  public_call_stack: Field[];
-  new_l2_to_l1_msgs: Field[];
-  encrypted_logs_hash: Field[];
-  unencrypted_logs_hash: Field[];
+  new_commitments: FixedLengthArray<Field, 64>;
+  new_nullifiers: FixedLengthArray<Field, 64>;
+  nullified_commitments: FixedLengthArray<Field, 64>;
+  private_call_stack: FixedLengthArray<Field, 8>;
+  public_call_stack: FixedLengthArray<Field, 8>;
+  new_l2_to_l1_msgs: FixedLengthArray<Field, 2>;
+  encrypted_logs_hash: FixedLengthArray<Field, 2>;
+  unencrypted_logs_hash: FixedLengthArray<Field, 2>;
   encrypted_log_preimages_length: Field;
   unencrypted_log_preimages_length: Field;
-  new_contracts: NewContractData[];
-  optionally_revealed_data: OptionallyRevealedData[];
+  new_contracts: FixedLengthArray<NewContractData, 1>;
+  optionally_revealed_data: FixedLengthArray<OptionallyRevealedData, 4>;
 }
 
 
@@ -190,9 +192,7 @@ export interface KernelCircuitPublicInputsFinal {
   is_private: boolean;
 }
 
-export interface ReturnType {
-  value: KernelCircuitPublicInputsFinal;
-}
+export type ReturnType = KernelCircuitPublicInputsFinal;
 
 export interface InputType {
   input: PrivateKernelInputsOrdering;

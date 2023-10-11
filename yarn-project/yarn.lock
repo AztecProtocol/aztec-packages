@@ -626,6 +626,7 @@ __metadata:
     "@noir-lang/acvm_js": ^0.28.0
     "@noir-lang/backend_barretenberg": ^0.7.10
     "@noir-lang/noir_js": ^0.16.0
+    "@noir-lang/noirc_abi": ^0.16.0
     "@rushstack/eslint-patch": ^1.1.4
     "@types/jest": ^29.5.0
     "@types/node": ^18.7.23
@@ -3510,7 +3511,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@noir-lang/noirc_abi@npm:0.16.0":
+"@noir-lang/noirc_abi@npm:0.16.0, @noir-lang/noirc_abi@npm:^0.16.0":
   version: 0.16.0
   resolution: "@noir-lang/noirc_abi@npm:0.16.0"
   checksum: 41308bbf64b8b895bea00a8534eb7a6aad6872f6b4dfab653194e273ae51fed93001e99c1eaf8a6aa6d791c3b1a7d09ea9730db4da1be6a172b37dbf6fa1b077

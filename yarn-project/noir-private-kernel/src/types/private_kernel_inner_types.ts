@@ -2,6 +2,8 @@
 
 /* eslint-disable */
 
+export type FixedLengthArray<T, L extends number> = L extends 0 ? never[]: T[] & { length: L }
+
 export type Field = string;
 export type u32 = string;
 
@@ -67,21 +69,21 @@ export interface PublicDataRead {
 
 export interface CombinedAccumulatedData {
   aggregation_object: AggregationObject;
-  read_requests: Field[];
-  new_commitments: Field[];
-  new_nullifiers: Field[];
-  nullified_commitments: Field[];
-  private_call_stack: Field[];
-  public_call_stack: Field[];
-  new_l2_to_l1_msgs: Field[];
-  encrypted_logs_hash: Field[];
-  unencrypted_logs_hash: Field[];
+  read_requests: FixedLengthArray<Field, 128>;
+  new_commitments: FixedLengthArray<Field, 64>;
+  new_nullifiers: FixedLengthArray<Field, 64>;
+  nullified_commitments: FixedLengthArray<Field, 64>;
+  private_call_stack: FixedLengthArray<Field, 8>;
+  public_call_stack: FixedLengthArray<Field, 8>;
+  new_l2_to_l1_msgs: FixedLengthArray<Field, 2>;
+  encrypted_logs_hash: FixedLengthArray<Field, 2>;
+  unencrypted_logs_hash: FixedLengthArray<Field, 2>;
   encrypted_log_preimages_length: Field;
   unencrypted_log_preimages_length: Field;
-  new_contracts: NewContractData[];
-  optionally_revealed_data: OptionallyRevealedData[];
-  public_data_update_requests: PublicDataUpdateRequest[];
-  public_data_reads: PublicDataRead[];
+  new_contracts: FixedLengthArray<NewContractData, 1>;
+  optionally_revealed_data: FixedLengthArray<OptionallyRevealedData, 4>;
+  public_data_update_requests: FixedLengthArray<PublicDataUpdateRequest, 16>;
+  public_data_reads: FixedLengthArray<PublicDataRead, 16>;
 }
 
 
@@ -154,7 +156,7 @@ export interface PreviousKernelData {
   proof: Proof;
   vk: VerificationKey;
   vk_index: u32;
-  vk_path: Field[];
+  vk_path: FixedLengthArray<Field, 3>;
 }
 
 
@@ -179,16 +181,16 @@ export interface CallContext {
 export interface PrivateCircuitPublicInputs {
   call_context: CallContext;
   args_hash: Field;
-  return_values: Field[];
-  read_requests: Field[];
-  new_commitments: Field[];
-  new_nullifiers: Field[];
-  nullified_commitments: Field[];
-  private_call_stack: Field[];
-  public_call_stack: Field[];
-  new_l2_to_l1_msgs: Field[];
-  encrypted_logs_hash: Field[];
-  unencrypted_logs_hash: Field[];
+  return_values: FixedLengthArray<Field, 4>;
+  read_requests: FixedLengthArray<Field, 32>;
+  new_commitments: FixedLengthArray<Field, 16>;
+  new_nullifiers: FixedLengthArray<Field, 16>;
+  nullified_commitments: FixedLengthArray<Field, 16>;
+  private_call_stack: FixedLengthArray<Field, 4>;
+  public_call_stack: FixedLengthArray<Field, 4>;
+  new_l2_to_l1_msgs: FixedLengthArray<Field, 2>;
+  encrypted_logs_hash: FixedLengthArray<Field, 2>;
+  unencrypted_logs_hash: FixedLengthArray<Field, 2>;
   encrypted_log_preimages_length: Field;
   unencrypted_log_preimages_length: Field;
   historical_block_data: HistoricalBlockData;
@@ -214,16 +216,21 @@ export interface PrivateCallStackItem {
 
 
 
-export interface MembershipWitness {
+export interface FunctionLeafMembershipWitness {
   leaf_index: Field;
-  sibling_path: Field[];
+  sibling_path: FixedLengthArray<Field, 4>;
 }
 
+
+export interface ContractLeafMembershipWitness {
+  leaf_index: Field;
+  sibling_path: FixedLengthArray<Field, 16>;
+}
 
 
 export interface ReadRequestMembershipWitness {
   leaf_index: Field;
-  sibling_path: Field[];
+  sibling_path: FixedLengthArray<Field, 32>;
   is_transient: boolean;
   hint_to_commitment: Field;
 }
@@ -232,12 +239,12 @@ export interface ReadRequestMembershipWitness {
 
 export interface PrivateCallData {
   call_stack_item: PrivateCallStackItem;
-  private_call_stack_preimages: PrivateCallStackItem[];
+  private_call_stack_preimages: FixedLengthArray<PrivateCallStackItem, 4>;
   proof: Proof;
   vk: VerificationKey;
-  function_leaf_membership_witness: MembershipWitness;
-  contract_leaf_membership_witness: MembershipWitness;
-  read_request_membership_witnesses: ReadRequestMembershipWitness[];
+  function_leaf_membership_witness: FunctionLeafMembershipWitness;
+  contract_leaf_membership_witness: ContractLeafMembershipWitness;
+  read_request_membership_witnesses: FixedLengthArray<ReadRequestMembershipWitness, 32>;
   portal_contract_address: EthAddress;
   acir_hash: Field;
 }
@@ -249,9 +256,7 @@ export interface PrivateKernelInputsInner {
 }
 
 
-export interface ReturnType {
-  value: KernelCircuitPublicInputs;
-}
+export type ReturnType = KernelCircuitPublicInputs;
 
 export interface InputType {
   input: PrivateKernelInputsInner;

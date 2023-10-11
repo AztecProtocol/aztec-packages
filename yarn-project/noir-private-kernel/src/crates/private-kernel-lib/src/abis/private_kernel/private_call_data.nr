@@ -10,7 +10,7 @@ use dep::aztec::constants_gen::{
     PRIVATE_DATA_TREE_HEIGHT
 };
 use crate::abis::call_stack_item::PrivateCallStackItem;
-use crate::abis::membership_witness::MembershipWitness;
+use crate::abis::membership_witness::{ContractLeafMembershipWitness,FunctionLeafMembershipWitness};
 
 type ReadRequestMembershipWitnessPrivateData = ReadRequestMembershipWitness<PRIVATE_DATA_TREE_HEIGHT>;
 
@@ -22,8 +22,8 @@ struct PrivateCallData {
     proof : Proof,
     vk : VerificationKey,
 
-    function_leaf_membership_witness : MembershipWitness<FUNCTION_TREE_HEIGHT>,
-    contract_leaf_membership_witness : MembershipWitness<CONTRACT_TREE_HEIGHT>,
+    function_leaf_membership_witness : FunctionLeafMembershipWitness,
+    contract_leaf_membership_witness : ContractLeafMembershipWitness,
 
     read_request_membership_witnesses : [ReadRequestMembershipWitnessPrivateData; MAX_READ_REQUESTS_PER_CALL],
 
