@@ -45,8 +45,8 @@ namespace proof_system {
  * This ensures that the logic is sound modulo 2²⁷²⋅r, which means it's correct in integers, if all the values are
  * sufficiently constrained (there is no way to undeflow or overflow)
  *
- * Concretely, Goblin Translator computes one accumulation ever two gates:
- * previous_accumulator⋅x + op + P.x⋅v +P.y⋅v² + z1 ⋅ v³ + z2⋅v⁴ = current_accumulator mod p. Because of the nature of
+ * Concretely, Goblin Translator computes one accumulation every two gates:
+ * previous_accumulator⋅x + op + P.x⋅v +P.y⋅v² + z1⋅v³ + z2⋅v⁴ = current_accumulator mod p. Because of the nature of
  * polynomial commitment, previous_accumulator is located at higher index than the current_accumulator. Values of x
  * (evaluation_input_x) and v (batching_challenge_v) are precomputed and considered inputs to the relations.
  *
@@ -221,8 +221,8 @@ class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<arithmetization
 
     // Range constraint of relation limbs
     static constexpr size_t RELATION_WIDE_LIMB_BITS = 84;
-    // Maximum size of each relation limb (in accordance with range constraints)
 
+    // Maximum size of each relation limb (in accordance with range constraints)
     static constexpr uint256_t MAX_RELATION_WIDE_LIMB_SIZE = uint256_t(1) << RELATION_WIDE_LIMB_BITS;
 
     // Shift of a single micro (range constraint) limb
@@ -252,7 +252,7 @@ class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<arithmetization
     // The binary modulus used in the CRT computation
     static constexpr uint512_t BINARY_BASIS_MODULUS = uint512_t(1) << (NUM_LIMB_BITS << 2);
 
-    // Negated modulus of the target emualted field in the binary modulus
+    // Negated modulus of the target emulated field in the binary modulus
     static constexpr uint512_t NEGATIVE_PRIME_MODULUS = BINARY_BASIS_MODULUS - MODULUS_U512;
 
     // Negated modulus of the target emulated field in the binary modulus split into 4 binary limbs + the final limb is
@@ -345,7 +345,7 @@ class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<arithmetization
     /**
      * @brief Construct a new Goblin Translator Circuit Builder object and feed op_queue inside
      *
-     * @details Goblin Translator Circuit builder has to be initializaed with evaluation input and batching challenge
+     * @details Goblin Translator Circuit builder has to be initialized with evaluation input and batching challenge
      * (they are used to compute witness and to store the value for the prover)
      *
      * @param batching_challenge_v_
@@ -434,7 +434,7 @@ class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<arithmetization
                 uint256_t(get_variable(wires[WireIds::ACCUMULATORS_BINARY_LIMBS_3][RESULT_ROW])) * SHIFT_3);
     }
     /**
-     * @brief Generate all the gates required to proof the correctness of batched evalution of polynomials representing
+     * @brief Generate all the gates required to prove the correctness of batched evalution of polynomials representing
      * commitments to ECCOpQueue
      *
      * @param ecc_op_queue The queue

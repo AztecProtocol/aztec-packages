@@ -46,7 +46,7 @@ GoblinTranslatorCircuitBuilder::AccumulationInput generate_witness_values(Fr op_
                                                                           Fq batching_challenge_v,
                                                                           Fq evaluation_input_x)
 {
-    // All parameters are well-described in the header, this is just fo convenience
+    // All parameters are well-described in the header, this is just for convenience
     constexpr size_t NUM_LIMB_BITS = GoblinTranslatorCircuitBuilder::NUM_LIMB_BITS;
     constexpr size_t NUM_BINARY_LIMBS = GoblinTranslatorCircuitBuilder::NUM_BINARY_LIMBS;
     constexpr size_t NUM_MICRO_LIMBS = GoblinTranslatorCircuitBuilder::NUM_MICRO_LIMBS;
@@ -63,7 +63,7 @@ GoblinTranslatorCircuitBuilder::AccumulationInput generate_witness_values(Fr op_
     constexpr auto shift_2_inverse = GoblinTranslatorCircuitBuilder::SHIFT_2_INVERSE;
 
     /**
-     * @brief A small function to transform a native element Fq into its bigfield representation  in Fr scalars
+     * @brief A small function to transform a native element Fq into its bigfield representation in Fr scalars
      *
      */
     auto base_element_to_bigfield = [](Fq& original) {
@@ -76,7 +76,7 @@ GoblinTranslatorCircuitBuilder::AccumulationInput generate_witness_values(Fr op_
         });
     };
     /**
-     * @brief A small function to transform a uint512_t element into its bigfield representation  in Fr scalars
+     * @brief A small function to transform a uint512_t element into its bigfield representation in Fr scalars
      *
      */
     auto uint512_t_to_bigfield = [&shift_2](uint512_t& original) {
@@ -232,7 +232,7 @@ GoblinTranslatorCircuitBuilder::AccumulationInput generate_witness_values(Fr op_
     std::array<Fr, NUM_BINARY_LIMBS> quotient_witnesses = { quotient_0, quotient_1, quotient_2, quotient_3 };
 
     // We will divide by shift_2 instantly in the relation itself, but first we need to compute the low part (0*0) and
-    // the high part (0*1, 1*0) multiplied by a signle limb shift
+    // the high part (0*1, 1*0) multiplied by a single limb shift
     Fr low_wide_relation_limb_part_1 =
         previous_accumulator_witnesses[0] * x_witnesses[0] + op_code + v_witnesses[0] * p_x_witnesses[0] +
         v_squared_witnesses[0] * p_y_witnesses[0] + v_cubed_witnesses[0] * z_1_lo + v_quarted_witnesses[0] * z_2_lo +
@@ -248,7 +248,7 @@ GoblinTranslatorCircuitBuilder::AccumulationInput generate_witness_values(Fr op_
          quotient_witnesses[1] * neg_modulus_limbs[0] - remainder_witnesses[1]) *
             shift_1;
 
-    //   Low bits have to be zero
+    // Low bits have to be zero
     ASSERT(uint256_t(low_wide_relation_limb).slice(0, 2 * NUM_LIMB_BITS) == 0);
 
     Fr low_wide_relation_limb_divided = low_wide_relation_limb * shift_2_inverse;
@@ -479,6 +479,7 @@ void GoblinTranslatorCircuitBuilder::create_accumulation_gate(const Accumulation
                 wires[starting_wire + i].push_back(add_variable(input[i]));
             }
         };
+
     // We are using some leftover crevices for relation_wide_microlimbs
     auto low_relation_microlimbs = acc_step.relation_wide_microlimbs[0];
     auto high_relation_microlimbs = acc_step.relation_wide_microlimbs[1];
@@ -545,7 +546,8 @@ void GoblinTranslatorCircuitBuilder::create_accumulation_gate(const Accumulation
 }
 
 /**
- * @brief Given an ECCVM operation, previous accumultor and necessary challenges, compute witnesses for one accumulation
+ * @brief Given an ECCVM operation, previous accumulator and necessary challenges, compute witnesses for one
+ * accumulation
  *
  * @tparam Fq
  * @return GoblinTranslatorCircuitBuilder::AccumulationInput
@@ -629,7 +631,6 @@ void GoblinTranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(ECCOpQueue& 
 }
 bool GoblinTranslatorCircuitBuilder::check_circuit()
 {
-
     // Compute the limbs of evaluation_input_x and powers of batching_challenge_v (these go into the relation)
     RelationInputs relation_inputs = compute_relation_inputs_limbs(batching_challenge_v, evaluation_input_x);
     // Get the main wires (we will operate with range constraint wires mainly through indices, since this is easier)
@@ -765,7 +766,6 @@ bool GoblinTranslatorCircuitBuilder::check_circuit()
             };
             auto z_1_micro_chunks = {
                 get_sequential_micro_chunks(i, Z_LOW_LIMBS_RANGE_CONSTRAINT_0, NUM_MICRO_LIMBS),
-
                 get_sequential_micro_chunks(i, Z_HIGH_LIMBS_RANGE_CONSTRAINT_0, NUM_MICRO_LIMBS),
             };
 
