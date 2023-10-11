@@ -27,7 +27,6 @@ field_t<C> pedersen_hash<C>::hash(const std::vector<field_t>& inputs, const Gene
     return result.x;
 }
 
-// TODO skip range checks
 template <typename C>
 field_t<C> pedersen_hash<C>::hash_skip_field_validation(const std::vector<field_t>& inputs,
                                                         const GeneratorContext context)
@@ -42,24 +41,21 @@ field_t<C> pedersen_hash<C>::hash_skip_field_validation(const std::vector<field_
     scalars.emplace_back(cycle_scalar::create_from_bn254_scalar(field_t(inputs.size())));
     points.emplace_back(crypto::pedersen_hash_base<Curve>::length_generator);
     for (size_t i = 0; i < inputs.size(); ++i) {
-        scalars.emplace_back(cycle_scalar::create_from_bn254_scalar(inputs[i]));
+        // `true` param = skip primality test when performing a scalar mul
+        scalars.emplace_back(cycle_scalar::create_from_bn254_scalar(inputs[i], true));
         // constructs constant cycle_group objects (non-witness)
         points.emplace_back(base_points[i]);
     }
 
-    for (auto& x : scalars) {
-        x._skip_primality_test = true;
-    }
     auto result = cycle_group::batch_mul(scalars, points);
     return result.x;
 }
 
 /**
- * Compress a byte_array.
+ * Hash a byte_array.
  *
- * If the input values are all zero, we return the array length instead of "0\"
- * This is because we require the inputs to regular pedersen compression function are nonzero (we use this method to
- * hash the base layer of our merkle trees)
+ * TODO(@zac-williamson #2796) Once Poseidon is implemented, replace this method with a more canonical hash algorithm
+ * (that is less efficient)
  */
 template <typename C>
 field_t<C> pedersen_hash<C>::hash_buffer(const stdlib::byte_array<C>& input, GeneratorContext context)
@@ -79,11 +75,9 @@ field_t<C> pedersen_hash<C>::hash_buffer(const stdlib::byte_array<C>& input, Gen
         auto element = static_cast<field_t>(input.slice(i * bytes_per_element, bytes_to_slice));
         elements.emplace_back(element);
     }
-    std::cout << "CIRCUIT BEGIN" << std::endl;
     for (auto& x : elements) {
         std::cout << x << std::endl;
     }
-    std::cout << "CIRCUIT END" << std::endl;
     field_t hashed;
     if (elements.size() < 2) {
         hashed = hash(elements, context);
@@ -93,13 +87,6 @@ field_t<C> pedersen_hash<C>::hash_buffer(const stdlib::byte_array<C>& input, Gen
             hashed = hash({ hashed, elements[i] }, context);
         }
     }
-
-    // bool_t is_zero(true);
-    // for (const auto& element : elements) {
-    //     is_zero = is_zero && element.is_zero();
-    // }
-
-    // field_t output = field_t::conditional_assign(is_zero, field_t(num_bytes), hashed);
     return hashed;
 }
 

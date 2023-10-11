@@ -35,7 +35,6 @@ using uint32_ct = proof_system::plonk::stdlib::uint32<Builder>;
 using group_ct = proof_system::plonk::stdlib::cycle_group<Builder>;
 using pedersen_commitment = proof_system::plonk::stdlib::pedersen_commitment<Builder>;
 using pedersen_hash = proof_system::plonk::stdlib::pedersen_hash<Builder>;
-
 using bn254 = proof_system::plonk::stdlib::bn254<Builder>;
 
 using hash_path_ct = proof_system::plonk::stdlib::merkle_tree::hash_path<Builder>;

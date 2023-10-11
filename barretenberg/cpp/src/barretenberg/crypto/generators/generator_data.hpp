@@ -47,13 +47,11 @@ template <typename Curve> class generator_data {
     static inline constexpr std::string_view DEFAULT_DOMAIN_SEPARATOR = "DEFAULT_DOMAIN_SEPARATOR";
     inline constexpr generator_data() = default;
 
-    static inline constexpr std::array<AffineElement, DEFAULT_NUM_GENERATORS> foo()
+    static inline constexpr std::array<AffineElement, DEFAULT_NUM_GENERATORS> make_precomputed_generators()
     {
-        std::vector<AffineElement> res = Group::derive_generators(DEFAULT_DOMAIN_SEPARATOR, DEFAULT_NUM_GENERATORS, 0);
         std::array<AffineElement, DEFAULT_NUM_GENERATORS> output;
-        for (size_t i = 0; i < res.size(); ++i) {
-            output[i] = res[i];
-        }
+        std::vector<AffineElement> res = Group::derive_generators(DEFAULT_DOMAIN_SEPARATOR, DEFAULT_NUM_GENERATORS, 0);
+        std::copy(res.begin(), res.end(), output.begin());
         return output;
     }
 
@@ -61,7 +59,8 @@ template <typename Curve> class generator_data {
      * @brief Precompute a small number of generators at compile time. For small pedersen commitments + pedersen hashes,
      * this prevents us from having to derive generators at runtime
      */
-    static inline constexpr std::array<AffineElement, DEFAULT_NUM_GENERATORS> precomputed_generators = foo();
+    static inline constexpr std::array<AffineElement, DEFAULT_NUM_GENERATORS> precomputed_generators =
+        make_precomputed_generators();
 
     [[nodiscard]] inline GeneratorView get(const size_t num_generators,
                                            const size_t generator_offset = 0,

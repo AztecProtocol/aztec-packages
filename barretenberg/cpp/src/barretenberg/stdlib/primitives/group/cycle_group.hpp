@@ -71,13 +71,12 @@ template <typename Composer> class cycle_group {
 
       private:
         size_t _num_bits = NUM_BITS;
-
-      public:
         bool _skip_primality_test = false;
         // if our scalar multiplier is a bn254 FF scalar (e.g. pedersen hash),
         // we want to validate the cycle_scalar < bn254::fr::modulus *not* grumpkin::fr::modulus
         bool _use_bn254_scalar_field_for_primality_test = false;
 
+      public:
         cycle_scalar(const field_t& _lo,
                      const field_t& _hi,
                      const size_t bits,
@@ -93,7 +92,7 @@ template <typename Composer> class cycle_group {
         cycle_scalar(const field_t& _in);
         static cycle_scalar from_witness(Composer* context, const ScalarField& value);
         static cycle_scalar from_witness_bitstring(Composer* context, const uint256_t& bitstring, size_t num_bits);
-        static cycle_scalar create_from_bn254_scalar(const field_t& _in);
+        static cycle_scalar create_from_bn254_scalar(const field_t& _in, bool skip_primality_test = false);
         [[nodiscard]] bool is_constant() const;
         ScalarField get_value() const;
         Composer* get_context() const { return lo.get_context() != nullptr ? lo.get_context() : hi.get_context(); }

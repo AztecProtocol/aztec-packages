@@ -20,14 +20,12 @@ class table : public FixedBaseParams {
     using fixed_base_scalar_mul_tables = std::vector<single_lookup_table>;
     using all_multi_tables = std::array<fixed_base_scalar_mul_tables, NUM_FIXED_BASE_MULTI_TABLES>;
 
-    static constexpr affine_element get_lhs_generator()
-    {
-        return crypto::generator_data<curve::Grumpkin>::precomputed_generators[0];
-    }
-    static constexpr affine_element get_rhs_generator()
-    {
-        return crypto::generator_data<curve::Grumpkin>::precomputed_generators[1];
-    }
+    static constexpr affine_element LHS_GENERATOR_POINT =
+        crypto::generator_data<curve::Grumpkin>::precomputed_generators[0];
+
+    static constexpr affine_element RHS_GENERATOR_POINT =
+        crypto::generator_data<curve::Grumpkin>::precomputed_generators[1];
+
     static inline single_lookup_table generate_single_lookup_table(const affine_element& base_point,
                                                                    const affine_element& offset_generator);
     template <size_t num_bits> static fixed_base_scalar_mul_tables generate_tables(const affine_element& input);
@@ -40,9 +38,9 @@ class table : public FixedBaseParams {
     // i.e. we treat 1 scalar mul as two independent scalar muls over (roughly) half-width input scalars.
     // The base_point members describe the fixed-base points that correspond to the two independent scalar muls,
     // for our two supported points
-    inline static const affine_element lhs_base_point_lo = get_lhs_generator();
+    inline static const affine_element lhs_base_point_lo = LHS_GENERATOR_POINT;
     inline static const affine_element lhs_base_point_hi = element(lhs_base_point_lo) * MAX_LO_SCALAR;
-    inline static const affine_element rhs_base_point_lo = get_rhs_generator();
+    inline static const affine_element rhs_base_point_lo = RHS_GENERATOR_POINT;
     inline static const affine_element rhs_base_point_hi = element(rhs_base_point_lo) * MAX_LO_SCALAR;
 
     // fixed_base_tables = lookup tables of precomputed base points required for our lookup arguments.

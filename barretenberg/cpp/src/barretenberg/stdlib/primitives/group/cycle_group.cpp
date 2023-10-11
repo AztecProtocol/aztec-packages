@@ -610,7 +610,7 @@ typename cycle_group<Composer>::cycle_scalar cycle_group<Composer>::cycle_scalar
  */
 template <typename Composer>
 typename cycle_group<Composer>::cycle_scalar cycle_group<Composer>::cycle_scalar::create_from_bn254_scalar(
-    const field_t& in)
+    const field_t& in, const bool skip_primality_test)
 {
     const uint256_t value_u256(in.get_value());
     const uint256_t lo_v = value_u256.slice(0, LO_BITS);
@@ -622,7 +622,7 @@ typename cycle_group<Composer>::cycle_scalar cycle_group<Composer>::cycle_scalar
     field_t lo = witness_t(in.get_context(), lo_v);
     field_t hi = witness_t(in.get_context(), hi_v);
     lo.add_two(hi * (uint256_t(1) << LO_BITS), -in).assert_equal(0);
-    cycle_scalar result{ lo, hi, NUM_BITS, false, true };
+    cycle_scalar result{ lo, hi, NUM_BITS, skip_primality_test, true };
     return result;
 }
 
@@ -631,6 +631,19 @@ template <typename Composer> bool cycle_group<Composer>::cycle_scalar::is_consta
     return (lo.is_constant() && hi.is_constant());
 }
 
+/**
+ * @brief Checks that a cycle_scalar value is smaller than a prime field modulus when evaluated over the INTEGERS
+ * N.B. The prime we check can be either the SNARK curve group order or the circuit's embedded curve group order
+ * (i.e. BN254 or Grumpkin)
+ * For a canonical scalar mul, we check against the embedded curve (i.e. the curve
+ * cycle_group implements).
+ * HOWEVER: for Pedersen hashes and Pedersen commitments, the hashed/committed data will be
+ * native circuit field elements i.e. for a BN254 snark, cycle_group = Grumpkin and we will be committing/hashing
+ * BN254::ScalarField values *NOT* Grumpkin::ScalarFIeld values.
+ * TLDR: whether the input scalar has to be < BN254::ScalarField or < Grumpkin::ScalarField is context-dependent.
+ *
+ * @tparam Composer
+ */
 template <typename Composer> void cycle_group<Composer>::cycle_scalar::validate_scalar_is_in_field() const
 {
     if (!is_constant() && !skip_primality_test()) {
@@ -1319,14 +1332,17 @@ template <typename Composer> cycle_group<Composer>& cycle_group<Composer>::opera
 
 template <typename Composer> bool_t<Composer> cycle_group<Composer>::operator==(const cycle_group& other) const
 {
-    return (x == other.x) && (y == other.y);
+    const auto equal_and_not_infinity =
+        (x == other.x) && (y == other.y) && !is_point_at_infinity() && !other.is_point_at_infinity();
+    const auto both_infinity = is_point_at_infinity() && other.is_point_at_infinity();
+    return equal_and_not_infinity || both_infinity;
 }
 
 template <typename Composer>
 void cycle_group<Composer>::assert_equal(const cycle_group& other, std::string const& msg) const
 {
-    (x.assert_equal(other.x, msg));
-    (y.assert_equal(other.y, msg));
+    x.assert_equal(other.x, msg);
+    y.assert_equal(other.y, msg);
 }
 
 template <typename Composer>

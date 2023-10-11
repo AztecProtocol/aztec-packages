@@ -78,13 +78,6 @@ template <typename Fq, typename Fr, typename Params> class alignas(64) affine_el
      * @return A randomly chosen point on the curve
      */
     static affine_element random_element(numeric::random::Engine* engine = nullptr) noexcept;
-
-    /**
-     * @brief Hash a seed value to curve.
-     *
-     * TODO document algorithm!
-     * @return A point on the curve corresponding to the given seed
-     */
     static constexpr affine_element hash_to_curve(const std::vector<uint8_t>& seed, uint8_t attempt_count = 0) noexcept
         requires SupportsHashToCurve<Params>;
 

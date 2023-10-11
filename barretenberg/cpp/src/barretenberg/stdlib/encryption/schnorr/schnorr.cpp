@@ -3,7 +3,6 @@
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/stdlib/hash/blake2s/blake2s.hpp"
 #include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
-#include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
 #include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
 #include <array>
 

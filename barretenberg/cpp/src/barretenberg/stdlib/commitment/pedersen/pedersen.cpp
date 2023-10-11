@@ -18,7 +18,7 @@ cycle_group<C> pedersen_commitment<C>::commit(const std::vector<field_t>& inputs
     std::vector<cycle_group> points;
     for (size_t i = 0; i < inputs.size(); ++i) {
         scalars.emplace_back(cycle_scalar::create_from_bn254_scalar(inputs[i]));
-        // constructs constant cycle_group objects (non-witness)
+        // constructs circuit-constant cycle_group objects (non-witness)
         points.emplace_back(base_points[i]);
     }
 
@@ -28,8 +28,6 @@ cycle_group<C> pedersen_commitment<C>::commit(const std::vector<field_t>& inputs
 template <typename C>
 cycle_group<C> pedersen_commitment<C>::commit(const std::vector<std::pair<field_t, GeneratorContext>>& input_pairs)
 {
-
-    using cycle_scalar = typename cycle_group::cycle_scalar;
 
     std::vector<cycle_scalar> scalars;
     std::vector<cycle_group> points;

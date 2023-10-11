@@ -81,9 +81,5 @@ TYPED_TEST(VerificationKeyFixture, HashVsHashNative)
     auto native_vk = std::make_shared<verification_key>(std::move(vk_data), file_verifier);
     auto recurs_vk = RecursVk::from_witness(&builder, native_vk);
 
-    EXPECT_EQ(recurs_vk->hash(0).get_value(), RecursVk::hash_native(native_vk, 0));
-    // EXPECT_EQ(recurs_vk->hash(15).get_value(), RecursVk::hash_native(native_vk, 15));
-    // // ne hash indeces still lead to ne hash
-    // EXPECT_NE(recurs_vk->hash(0).get_value(), RecursVk::hash_native(native_vk, 15));
-    // EXPECT_NE(recurs_vk->hash(14).get_value(), RecursVk::hash_native(native_vk, 15));
+    EXPECT_EQ(recurs_vk->hash().get_value(), RecursVk::hash_native(native_vk));
 }

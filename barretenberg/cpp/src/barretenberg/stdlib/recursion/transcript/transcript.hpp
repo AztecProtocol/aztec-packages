@@ -230,7 +230,7 @@ template <typename Builder> class Transcript {
         std::vector<field_pt> round_challenges_new;
 
         field_pt T0;
-        T0 = preimage_buffer.hash(0);
+        T0 = preimage_buffer.hash();
 
         // helper method to slice a challenge into 128-bit slices
         const auto slice_into_halves = [&](const field_pt& in, const size_t low_bits = 128) {

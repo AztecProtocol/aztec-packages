@@ -68,9 +68,11 @@ template <typename _coordinate_field, typename _subgroup_field, typename GroupPa
      * NOTE: In step 3b it is sufficient to use 1 byte to store `count`.
      *       Step 3 has a 50% chance of returning, the probability of `count` exceeding 256 is 1 in 2^256
      * NOTE: The domain separator is included to ensure that it is possible to derive independent sets of
-     * index-addressable generators. NOTE: we produce 64 bytes of BLAKE3 output when producing x-coordinate field
+     * index-addressable generators.
+     * NOTE: we produce 64 bytes of BLAKE3 output when producing x-coordinate field
      * element, to ensure that x-coordinate is uniformly randomly distributed in the field. Using a 256-bit input adds
-     * significant bias when reducing modulo a ~256-bit coordinate_field NOTE: We ensure y-parity is linked to preimage
+     * significant bias when reducing modulo a ~256-bit coordinate_field
+     * NOTE: We ensure y-parity is linked to preimage
      * hash because there is no canonical deterministic square root algorithm (i.e. if a field element has a square
      * root, there are two of them and `field::sqrt` may return either one)
      * @param num_generators

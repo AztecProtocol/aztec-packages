@@ -1,9 +1,7 @@
 // TODO(@zac-wiliamson #2341 delete this file once we migrate to new hash standard
 
 #pragma once
-
 #include "../generators/generator_data.hpp"
-#include "barretenberg/common/container.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include <array>
@@ -34,6 +32,5 @@ template <typename Curve> class pedersen_commitment_base {
 };
 
 extern template class pedersen_commitment_base<curve::Grumpkin>;
-
 using pedersen_commitment = pedersen_commitment_base<curve::Grumpkin>;
 } // namespace crypto

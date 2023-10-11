@@ -40,7 +40,7 @@ template <class Builder, size_t bits_per_element = 248> struct PedersenPreimageB
     PedersenPreimageBuilder(Builder* ctx = nullptr)
         : context(ctx){};
 
-    field_pt hash(const size_t hash_index)
+    field_pt hash()
     {
         // we can only use relaxed range checks in pedersen::compress iff bits_per_element < modulus bits
         static_assert(bits_per_element < uint256_t(barretenberg::fr::modulus).get_msb());
@@ -53,12 +53,14 @@ template <class Builder, size_t bits_per_element = 248> struct PedersenPreimageB
             preimage_data.push_back(field_pt::accumulate(work_element));
         }
 
-        size_t sss = 0;
-        if (context != nullptr) {
-            sss = context->get_num_gates();
-        }
-
-        // TODO(@zac-williamson this used to use relaxed range constraints hmm?)
+        // TODO(@maramihali #2796) replace this with a Poseidon hash once we have one implemented.
+        // The current algorithm is splits the buffer into a running hash of size-2 hashes.
+        // We do this because, for UltraPlonk, size-2 Pedersehashes are more efficient than larger hashes as this small
+        // hash can utilize plookup tables.
+        // Once we implement an efficient Poseidon hash: we should change this to a straighforward hash of a vector of
+        // field elements. N.B. If we do a plain Pedersen vector-hash instead of this pairwise method, the Noir
+        // recursion circuit size goes beyond 2^19 which breaks many tests.
+        // Poseidon should not have this issue as ideally it is more efficient!
         field_t<Builder> hashed = 0;
         if (preimage_data.size() < 2) {
             hashed = pedersen_hash<Builder>::hash_skip_field_validation(preimage_data);
@@ -68,14 +70,6 @@ template <class Builder, size_t bits_per_element = 248> struct PedersenPreimageB
                 hashed = pedersen_hash<Builder>::hash_skip_field_validation({ hashed, preimage_data[i] });
             }
         }
-        size_t eee = 0;
-        if (context != nullptr) {
-            eee = context->get_num_gates();
-        }
-        if (hash_index == 134) {
-            std::cout << "aaa" << std::endl;
-        }
-        std::cout << "Hash Buffer cost = " << (eee - sss) << std::endl;
         return hashed;
     }
 
@@ -379,7 +373,7 @@ template <typename Curve> struct verification_key {
     }
 
   public:
-    field_t<Builder> hash(size_t const hash_index = 0)
+    field_t<Builder> hash()
     {
         PedersenPreimageBuilder<Builder> preimage_buffer(context);
 
@@ -407,7 +401,7 @@ template <typename Curve> struct verification_key {
             preimage_buffer.add_element_with_existing_range_constraint(x.binary_basis_limbs[0].element, limb_bits);
         }
         preimage_buffer.add_element(domain.root);
-        field_t<Builder> hashed_key = preimage_buffer.hash(hash_index);
+        field_t<Builder> hashed_key = preimage_buffer.hash();
         return hashed_key;
     }
 
