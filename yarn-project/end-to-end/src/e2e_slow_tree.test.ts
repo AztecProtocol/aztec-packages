@@ -1,19 +1,10 @@
-import {
-  AztecAddress,
-  CheatCodes,
-  Contract,
-  ContractDeployer,
-  EthAddress,
-  Fr,
-  Wallet,
-  isContractDeployed,
-} from '@aztec/aztec.js';
-import { CircuitsWasm, CompleteAddress, getContractDeploymentInfo } from '@aztec/circuits.js';
-import { pedersenHashInputs, pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
+import { CheatCodes, Fr, Wallet } from '@aztec/aztec.js';
+import { CircuitsWasm } from '@aztec/circuits.js';
+import { pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
 import { DebugLogger } from '@aztec/foundation/log';
-import { INITIAL_LEAF, SparseTree, UpdateOnlyTree, newTree } from '@aztec/merkle-tree';
+import { SparseTree, newTree } from '@aztec/merkle-tree';
 import { SlowTreeContract } from '@aztec/noir-contracts/types';
-import { Hasher, PXE, TxStatus } from '@aztec/types';
+import { Hasher } from '@aztec/types';
 
 import { default as levelup } from 'levelup';
 import { type MemDown, default as memdown } from 'memdown';
@@ -23,8 +14,6 @@ import { setup } from './fixtures/utils.js';
 export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
 describe('e2e_slow_tree', () => {
-  let pxe: PXE;
-  let accounts: CompleteAddress[];
   let logger: DebugLogger;
   let wallet: Wallet;
   let teardown: () => Promise<void>;
@@ -33,7 +22,7 @@ describe('e2e_slow_tree', () => {
   let cheatCodes: CheatCodes;
 
   beforeAll(async () => {
-    ({ teardown, pxe, accounts, logger, wallet, cheatCodes } = await setup());
+    ({ teardown, logger, wallet, cheatCodes } = await setup());
     contract = await SlowTreeContract.deploy(wallet).send().deployed();
   }, 100_000);
 
@@ -76,18 +65,22 @@ describe('e2e_slow_tree', () => {
       return {
         index,
         value: Fr.fromBuffer((await tree.getLeafValue(index, includeUncommitted))!),
+        // eslint-disable-next-line camelcase
         sibling_path: (await tree.getSiblingPath(index, includeUncommitted)).toFieldArray(),
       };
     };
 
-    const getUpdateProof = async (index: bigint, new_value: bigint) => {
+    const getUpdateProof = async (index: bigint, newValue: bigint) => {
       const beforeProof = await getMembershipProof(index, false);
       const afterProof = await getMembershipProof(index, true);
 
       return {
         index,
-        new_value,
+        // eslint-disable-next-line camelcase
+        new_value: newValue,
+        // eslint-disable-next-line camelcase
         before: { value: beforeProof.value, sibling_path: beforeProof.sibling_path },
+        // eslint-disable-next-line camelcase
         after: { value: afterProof.value, sibling_path: afterProof.sibling_path },
       };
     };
