@@ -27,7 +27,6 @@ export function createAztecNodeRpcClient(url: string, fetch = defaultFetch): Azt
     url,
     {
       AztecAddress,
-      EthAddress,
       ExtendedContractData,
       ContractData,
       Fr,

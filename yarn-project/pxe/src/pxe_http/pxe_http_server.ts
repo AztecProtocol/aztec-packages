@@ -38,7 +38,6 @@ export function createPXERpcServer(pxeService: PXE): JsonRpcServer {
       ContractData,
       ExtendedContractData,
       TxHash,
-      EthAddress,
       Point,
       Fr,
       GrumpkinScalar,

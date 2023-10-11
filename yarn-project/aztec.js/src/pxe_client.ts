@@ -26,7 +26,6 @@ export const createPXEClient = (url: string, fetch = makeFetch([1, 2, 3], true))
       ContractData,
       ExtendedContractData,
       TxHash,
-      EthAddress,
       Point,
       Fr,
       GrumpkinScalar,
