@@ -11,6 +11,7 @@ import { BufferReader, Tuple } from '@aztec/foundation/serialize';
 
 import { ExtendedContractData } from '../contract_data.js';
 import { TxL2Logs } from '../logs/tx_l2_logs.js';
+import { TxStats } from '../stats/stats.js';
 import { TxHash } from './tx_hash.js';
 
 /**
@@ -145,6 +146,21 @@ export class Tx {
     const firstNullifier = this.data?.end.newNullifiers[0];
     if (!firstNullifier) throw new Error(`Cannot get tx hash since first nullifier is missing`);
     return Promise.resolve(new TxHash(firstNullifier.toBuffer()));
+  }
+
+  /** Returns stats about this tx. */
+  getStats(): TxStats {
+    return {
+      txHash: this.data!.end.newNullifiers[0].toString(true),
+      encryptedLogCount: this.encryptedLogs.getTotalLogCount(),
+      unencryptedLogCount: this.unencryptedLogs.getTotalLogCount(),
+      encryptedLogSize: this.encryptedLogs.getSerializedLength(),
+      unencryptedLogSize: this.unencryptedLogs.getSerializedLength(),
+      newContractCount: this.newContracts.filter(c => !c.isEmpty()).length,
+      newContractDataSize: this.newContracts.map(c => c.toBuffer().length).reduce((a, b) => a + b, 0),
+      proofSize: this.proof.buffer.length,
+      size: this.toBuffer().length,
+    };
   }
 
   /**
