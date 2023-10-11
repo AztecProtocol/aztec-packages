@@ -276,5 +276,74 @@ describe('Archiver Memory Store', () => {
         expect(extendedLog.log.selector.equals(targetSelector)).toBeTruthy();
       }
     });
+
+    it('"txHash" filter param is ignored when "afterLog" is set', async () => {
+      // Get random txHash
+      const txHash = new TxHash(randomBytes(TxHash.SIZE));
+      const afterLog = new LogId(1, 0, 0);
+
+      const response = await archiverStore.getUnencryptedLogs({ txHash, afterLog });
+      expect(response.logs.length).toBeGreaterThan(1);
+    });
+
+    it.only('intersecting works', async () => {
+      let logs = (await archiverStore.getUnencryptedLogs({ fromBlock: -10, toBlock: -5 })).logs;
+      expect(logs.length).toBe(0);
+
+      // "fromBlock" gets correctly trimmed to range and "toBlock" is exclusive
+      logs = (await archiverStore.getUnencryptedLogs({ fromBlock: -10, toBlock: 5 })).logs;
+      let blockNumbers = new Set(logs.map(log => log.id.blockNumber));
+      expect(blockNumbers).toEqual(new Set([1, 2, 3, 4]));
+
+      // "toBlock" should be exclusive
+      logs = (await archiverStore.getUnencryptedLogs({ fromBlock: 1, toBlock: 1 })).logs;
+      expect(logs.length).toBe(0);
+
+      logs = (await archiverStore.getUnencryptedLogs({ fromBlock: 10, toBlock: 5 })).logs;
+      expect(logs.length).toBe(0);
+
+      // both "fromBlock" and "toBlock" get correctly capped to range and logs from all blocks are returned
+      logs = (await archiverStore.getUnencryptedLogs({ fromBlock: -100, toBlock: +100 })).logs;
+      blockNumbers = new Set(logs.map(log => log.id.blockNumber));
+      expect(blockNumbers.size).toBe(numBlocks);
+
+      // intersecting with "afterLog" works
+      logs = (await archiverStore.getUnencryptedLogs({ fromBlock: 2, toBlock: 5, afterLog: new LogId(4, 0, 0) })).logs;
+      blockNumbers = new Set(logs.map(log => log.id.blockNumber));
+      // Check that blockNumbers contain only 4
+      expect(blockNumbers).toEqual(new Set([4]));
+
+      logs = (await archiverStore.getUnencryptedLogs({ toBlock: 5, afterLog: new LogId(5, 1, 0) })).logs;
+      expect(logs.length).toBe(0);
+
+      logs = (await archiverStore.getUnencryptedLogs({ fromBlock: 2, toBlock: 5, afterLog: new LogId(100, 0, 0) }))
+        .logs;
+      expect(logs.length).toBe(0);
+    });
+
+    it('"txIndex" and "logIndex" are respected when "afterLog.blockNumber" is equal to "fromBlock"', async () => {
+      // Get a random log as reference
+      const targetBlockIndex = Math.floor(Math.random() * numBlocks);
+      const targetTxIndex = Math.floor(Math.random() * txsPerBlock);
+      const targetLogIndex = Math.floor(Math.random() * numUnencryptedLogs);
+
+      const afterLog = new LogId(targetBlockIndex + INITIAL_L2_BLOCK_NUM, targetTxIndex, targetLogIndex);
+
+      const response = await archiverStore.getUnencryptedLogs({ afterLog, fromBlock: afterLog.blockNumber });
+      const logs = response.logs;
+
+      expect(response.maxLogsHit).toBeFalsy();
+
+      for (const log of logs) {
+        const logId = log.id;
+        expect(logId.blockNumber).toBeGreaterThanOrEqual(afterLog.blockNumber);
+        if (logId.blockNumber === afterLog.blockNumber) {
+          expect(logId.txIndex).toBeGreaterThanOrEqual(afterLog.txIndex);
+          if (logId.txIndex === afterLog.txIndex) {
+            expect(logId.logIndex).toBeGreaterThan(afterLog.logIndex);
+          }
+        }
+      }
+    });
   });
 });
