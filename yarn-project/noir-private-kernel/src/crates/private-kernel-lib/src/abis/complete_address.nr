@@ -16,7 +16,7 @@ impl CompleteAddress{
         assert(self.partial_address == 0);
     }
     
-    fn compute(point : Point, contract_address_salt : Field, function_tree_root : Field, constructor_hash : Field) -> CompleteAddress {
+    pub fn compute(point : Point, contract_address_salt : Field, function_tree_root : Field, constructor_hash : Field) -> CompleteAddress {
         let partial_address = compute_partial_address(contract_address_salt, function_tree_root, constructor_hash);
         
         CompleteAddress{

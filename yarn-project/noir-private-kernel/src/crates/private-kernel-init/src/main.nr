@@ -9,8 +9,7 @@ use dep::private_kernel_lib::utils::arrays;
 use dep::std::unsafe;
 
 fn main(input: PrivateKernelInputsInit) -> distinct pub KernelCircuitPublicInputs {
-    let empty_public_inputs : KernelCircuitPublicInputs = unsafe::zeroed();
-    empty_public_inputs
+    input.native_private_kernel_circuit_initial()
 }
 
 // Initialization struct for private inputs to the private kernel

@@ -7,28 +7,34 @@ struct Address{
 
 impl Address{
 
-    fn default() -> Address {
-        Address {
+    pub fn default() -> Self {
+        Self {
             inner : 0
         }
     }
 
-    fn to_field(self) -> Field{
+    pub fn from_field(field : Field) -> Self {
+        Self {
+            inner : field
+        }
+    }
+
+    pub fn to_field(self) -> Field{
         self.inner
     }
     
-    fn assert_is_zero(self) {
+    pub fn assert_is_zero(self) {
         assert(self.to_field() == 0);
     }
 
-    fn conditional_assign(predicate: bool, lhs : Address, rhs : Address) -> Address{
+    pub fn conditional_assign(predicate: bool, lhs : Self, rhs : Self) -> Self{
         let result = utils::conditional_assign(predicate, rhs.to_field(), lhs.to_field());
-        Address {
+        Self {
             inner : result
         }
     }
 
-    fn eq(self, other : Address) -> bool {
+    pub fn eq(self, other : Self) -> bool {
         self.to_field() == other.to_field()
     }
 }
@@ -41,28 +47,34 @@ struct EthAddress{
 
 impl EthAddress{
 
-    fn default() -> Address {
-        Address {
+    pub fn default() -> Self {
+        Self {
             inner : 0
         }
     }
 
-    fn to_field(self) -> Field{
+    pub fn from_field(field : Field) -> Self {
+        Self {
+            inner : field
+        }
+    }
+
+    pub fn to_field(self) -> Field{
         self.inner
     }
 
-    fn assert_is_zero(self) {
+    pub fn assert_is_zero(self) {
         assert(self.to_field() == 0);
     }
 
-    fn conditional_assign(predicate: bool, lhs : EthAddress, rhs : EthAddress) -> EthAddress{
+    pub fn conditional_assign(predicate: bool, lhs : Self, rhs : Self) -> Self{
         let result = utils::conditional_assign(predicate, rhs.to_field(), lhs.to_field());
-        EthAddress {
+        Self {
             inner : result
         }
     }
 
-    fn eq(self, other : EthAddress) -> bool {
+    pub fn eq(self, other : Self) -> bool {
         self.to_field() == other.to_field()
     }
 }

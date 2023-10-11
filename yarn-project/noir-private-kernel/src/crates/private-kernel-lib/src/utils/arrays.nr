@@ -65,7 +65,7 @@ fn array_push_array_field<T, N>(mut array : [Field; T], values_to_push : [Field;
 // 
 // TODO: We can possibly optimize this by taking advantage of the fact that adding 0 does not 
 // TODO: change a running sum.
-fn validate_array<T>(array : [Field;T]) {
+pub fn validate_array<T>(array : [Field;T]) {
     let array_length = array.len();
 
     let mut first_zero_pos = array_length;

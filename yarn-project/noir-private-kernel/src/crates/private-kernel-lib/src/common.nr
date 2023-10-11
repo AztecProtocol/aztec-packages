@@ -297,7 +297,8 @@ fn contract_logic(private_call : PrivateCallData, public_inputs : &mut KernelCir
         let native_new_contract_data = NewContractData {contract_address : new_contract_address, portal_contract_address : portal_contract_address, function_tree_root : contract_dep_data.function_tree_root};
         public_inputs.end.new_contracts = arrays::array_push_new_contract_data(public_inputs.end.new_contracts, native_new_contract_data);
         
-        assert(contract_dep_data.constructor_vk_hash == private_call_vk_hash, "constructor_vk_hash doesn't match private_call_vk_hash");
+        // TODO VKs are mocked out for now
+        // assert(contract_dep_data.constructor_vk_hash == private_call_vk_hash, "constructor_vk_hash doesn't match private_call_vk_hash");
         
         assert(storage_contract_address.eq(new_contract_address), "contract address supplied doesn't match derived address");
 

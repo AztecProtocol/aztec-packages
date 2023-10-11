@@ -189,14 +189,24 @@ fn compute_logs_hash(previous_log_hash : [Field;2], current_log_hash : [Field;2]
     ])
 }
 
-fn compute_partial_address(contract_address_salt : Field, function_tree_root : Field, constructor_hash : Field) -> Field {
-    let _hash_index = constants_gen::GENERATOR_INDEX__PARTIAL_ADDRESS;
-    0
+pub fn compute_partial_address(contract_address_salt : Field, function_tree_root : Field, constructor_hash : Field) -> Field {
+    dep::std::hash::pedersen_with_separator([
+        // TODO why the zeroes?
+        0,
+        0,
+        contract_address_salt,
+        function_tree_root,
+        constructor_hash
+    ],constants_gen::GENERATOR_INDEX__PARTIAL_ADDRESS)[0]
 }
 
-fn compute_contract_address_from_partial(point : Point, partial_address : Field) -> Address {
-    let _hash_index = constants_gen::GENERATOR_INDEX__CONTRACT_ADDRESS;
-    Address::default()
+pub fn compute_contract_address_from_partial(point : Point, partial_address : Field) -> Address {
+    let field = dep::std::hash::pedersen_with_separator([
+        point.x,
+        point.y,
+        partial_address
+    ],constants_gen::GENERATOR_INDEX__CONTRACT_ADDRESS)[0];
+    Address::from_field(field)
 }
 
 fn compute_unique_commitment(nonce : Field, siloed_commitment : Field) -> Field {
