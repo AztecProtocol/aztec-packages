@@ -1,7 +1,8 @@
+import { makePrivateKernelInputsInit } from '@aztec/circuits.js';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 
 import { InputType as InitInputType, ReadRequestMembershipWitness, PrivateCallStackItem, FixedLengthArray, Field } from './types/private_kernel_init_types.js';
-import { executePrivateKernelInitWithACVM } from './index.js';
+import { executeInit } from './index.js';
 
 /* eslint-disable */
 const privateCallStackItem : PrivateCallStackItem= {
@@ -227,10 +228,11 @@ describe('Private kernel', () => {
   });
 
 
-  it('Executes private kernel init circuit with abi all zeroes', async () => {
+  it('Executes private kernel init circuit with abi all zeroes (does not crash)', async () => {
     logger('Initialized Noir instance with private kernel init circuit');
 
-    const returnType = executePrivateKernelInitWithACVM(defaultInputType);
+    const kernelInputs = makePrivateKernelInputsInit();
+    const _kernelOutputs = executeInit(kernelInputs);
 
     logger('Executed private kernel init circuit with all zeroes');
   });

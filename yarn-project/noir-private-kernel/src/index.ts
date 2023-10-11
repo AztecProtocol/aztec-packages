@@ -50,7 +50,7 @@ export async function executeInit(privateKernelInputsInit: PrivateKernelInputsIn
  * Note: we export this for now, so that we can run tests on it. 
  * We will make this private and just use `executeInit`.
  */
-export async function executePrivateKernelInitWithACVM(input : InitInputType): Promise<ReturnType> {
+async function executePrivateKernelInitWithACVM(input : InitInputType): Promise<ReturnType> {
   const initialWitnessMap = abiEncode(PrivateKernelInitArtifact.abi, input, null);
 
   // Execute the circuit on those initial witness values
