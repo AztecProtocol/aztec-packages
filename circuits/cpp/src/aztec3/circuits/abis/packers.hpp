@@ -35,7 +35,6 @@ struct ConstantsPacker {
                  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
                  MAX_PUBLIC_DATA_READS_PER_TX,
                  MAX_NEW_CONTRACTS_PER_TX,
-                 MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX,
                  MAX_READ_REQUESTS_PER_TX),
              NVP(NUM_ENCRYPTED_LOGS_HASHES_PER_TX,
                  NUM_UNENCRYPTED_LOGS_HASHES_PER_TX,

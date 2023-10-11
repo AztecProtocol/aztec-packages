@@ -1,6 +1,5 @@
 #pragma once
 #include "new_contract_data.hpp"
-#include "optionally_revealed_data.hpp"
 #include "public_data_read.hpp"
 #include "public_data_update_request.hpp"
 
@@ -46,8 +45,6 @@ template <typename NCT> struct PrivateAccumulatedDataFinal {
 
     std::array<NewContractData<NCT>, MAX_NEW_CONTRACTS_PER_TX> new_contracts{};
 
-    std::array<OptionallyRevealedData<NCT>, MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX> optionally_revealed_data{};
-
     // for serialization, update with new fields
     MSGPACK_FIELDS(aggregation_object,
                    new_commitments,
@@ -58,8 +55,7 @@ template <typename NCT> struct PrivateAccumulatedDataFinal {
                    unencrypted_logs_hash,
                    encrypted_log_preimages_length,
                    unencrypted_log_preimages_length,
-                   new_contracts,
-                   optionally_revealed_data);
+                   new_contracts);
     boolean operator==(PrivateAccumulatedDataFinal<NCT> const& other) const
     {
         return msgpack_derived_equals<boolean>(*this, other);
@@ -97,7 +93,6 @@ template <typename NCT> struct PrivateAccumulatedDataFinal {
             to_ct(unencrypted_log_preimages_length),
 
             map(new_contracts, to_circuit_type),
-            map(optionally_revealed_data, to_circuit_type),
         };
 
         return acc_data;
@@ -131,7 +126,6 @@ template <typename NCT> struct PrivateAccumulatedDataFinal {
             to_nt(unencrypted_log_preimages_length),
 
             map(new_contracts, to_native_type),
-            map(optionally_revealed_data, to_native_type),
         };
         return acc_data;
     }
@@ -152,7 +146,6 @@ template <typename NCT> struct PrivateAccumulatedDataFinal {
         set_array_public(unencrypted_logs_hash);
 
         set_array_public(new_contracts);
-        set_array_public(optionally_revealed_data);
     }
 
     template <typename T, size_t SIZE> void set_array_public(std::array<T, SIZE>& arr)
@@ -160,14 +153,6 @@ template <typename NCT> struct PrivateAccumulatedDataFinal {
         static_assert(!(std::is_same<NativeTypes, NCT>::value));
         for (T& e : arr) {
             fr(e).set_public();
-        }
-    }
-
-    template <size_t SIZE> void set_array_public(std::array<OptionallyRevealedData<NCT>, SIZE>& arr)
-    {
-        static_assert(!(std::is_same<NativeTypes, NCT>::value));
-        for (auto& e : arr) {
-            e.set_public();
         }
     }
 

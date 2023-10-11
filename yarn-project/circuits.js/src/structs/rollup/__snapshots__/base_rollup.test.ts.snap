@@ -27,63 +27,6 @@ new_contracts: [ contract_address: 0xc00
 portal_contract_address: 0x101010101010101010101010101010101010101
 function_tree_root: 0xc02
  ]
-optionally_revealed_data: [ call_stack_item_hash: 0xd00
-function_data: selector:
-value: d01
-
-is_internal: 0
-is_private: 1
-is_constructor: 1
-
-vk_hash: 0xd02
-portal_contract_address: 0x303030303030303030303030303030303030303
-pay_fee_from_l1: 1
-pay_fee_from_public_l2: 0
-called_from_l1: 1
-called_from_public_l2: 0
- call_stack_item_hash: 0xd01
-function_data: selector:
-value: d02
-
-is_internal: 0
-is_private: 1
-is_constructor: 1
-
-vk_hash: 0xd03
-portal_contract_address: 0x404040404040404040404040404040404040404
-pay_fee_from_l1: 1
-pay_fee_from_public_l2: 0
-called_from_l1: 1
-called_from_public_l2: 0
- call_stack_item_hash: 0xd02
-function_data: selector:
-value: d03
-
-is_internal: 0
-is_private: 1
-is_constructor: 1
-
-vk_hash: 0xd04
-portal_contract_address: 0x505050505050505050505050505050505050505
-pay_fee_from_l1: 1
-pay_fee_from_public_l2: 0
-called_from_l1: 1
-called_from_public_l2: 0
- call_stack_item_hash: 0xd03
-function_data: selector:
-value: d04
-
-is_internal: 0
-is_private: 1
-is_constructor: 1
-
-vk_hash: 0xd05
-portal_contract_address: 0x606060606060606060606060606060606060606
-pay_fee_from_l1: 1
-pay_fee_from_public_l2: 0
-called_from_l1: 1
-called_from_public_l2: 0
- ]
 public_data_update_requests: [ leaf_index: 0xe00
 old_value: 0xe01
 new_value: 0xe02
@@ -233,63 +176,6 @@ unencrypted_log_preimages_length: 0xc00
 new_contracts: [ contract_address: 0xd00
 portal_contract_address: 0x101010101010101010101010101010101010101
 function_tree_root: 0xd02
- ]
-optionally_revealed_data: [ call_stack_item_hash: 0xe00
-function_data: selector:
-value: e01
-
-is_internal: 0
-is_private: 1
-is_constructor: 1
-
-vk_hash: 0xe02
-portal_contract_address: 0x303030303030303030303030303030303030303
-pay_fee_from_l1: 1
-pay_fee_from_public_l2: 0
-called_from_l1: 1
-called_from_public_l2: 0
- call_stack_item_hash: 0xe01
-function_data: selector:
-value: e02
-
-is_internal: 0
-is_private: 1
-is_constructor: 1
-
-vk_hash: 0xe03
-portal_contract_address: 0x404040404040404040404040404040404040404
-pay_fee_from_l1: 1
-pay_fee_from_public_l2: 0
-called_from_l1: 1
-called_from_public_l2: 0
- call_stack_item_hash: 0xe02
-function_data: selector:
-value: e03
-
-is_internal: 0
-is_private: 1
-is_constructor: 1
-
-vk_hash: 0xe04
-portal_contract_address: 0x505050505050505050505050505050505050505
-pay_fee_from_l1: 1
-pay_fee_from_public_l2: 0
-called_from_l1: 1
-called_from_public_l2: 0
- call_stack_item_hash: 0xe03
-function_data: selector:
-value: e04
-
-is_internal: 0
-is_private: 1
-is_constructor: 1
-
-vk_hash: 0xe05
-portal_contract_address: 0x606060606060606060606060606060606060606
-pay_fee_from_l1: 1
-pay_fee_from_public_l2: 0
-called_from_l1: 1
-called_from_public_l2: 0
  ]
 public_data_update_requests: [ leaf_index: 0xf00
 old_value: 0xf01

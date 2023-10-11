@@ -72,8 +72,6 @@ void common_initialise_end_values(PreviousPrivateKernelData<NT> const& previous_
 
     end.encrypted_log_preimages_length = start.encrypted_log_preimages_length;
     end.unencrypted_log_preimages_length = start.unencrypted_log_preimages_length;
-
-    end.optionally_revealed_data = start.optionally_revealed_data;
 }
 
 }  // namespace aztec3::circuits::kernel::private_kernel

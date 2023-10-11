@@ -85,7 +85,6 @@ export {
   G1AffineElement,
   NewContractData,
   FunctionData,
-  OptionallyRevealedData,
   PublicDataRead,
   PublicDataUpdateRequest,
   ReadRequestMembershipWitness,

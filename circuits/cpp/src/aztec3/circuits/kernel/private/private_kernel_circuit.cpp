@@ -72,8 +72,6 @@ void initialise_end_values(PrivateKernelInputsInner<CT> const& private_inputs,
 
     // TODO
     end.new_contracts = start.new_contracts;
-
-    end.optionally_revealed_data = start.optionally_revealed_data;
 }
 
 /**

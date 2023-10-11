@@ -42,8 +42,6 @@ template <typename KernelInput> void common_initialise_end_values(KernelInput co
     end.public_call_stack = start.public_call_stack;
     end.new_l2_to_l1_msgs = start.new_l2_to_l1_msgs;
 
-    end.optionally_revealed_data = start.optionally_revealed_data;
-
     // Public kernel does not modify encrypted logs values --> we just copy them to output
     end.encrypted_logs_hash = start.encrypted_logs_hash;
     end.encrypted_log_preimages_length = start.encrypted_log_preimages_length;

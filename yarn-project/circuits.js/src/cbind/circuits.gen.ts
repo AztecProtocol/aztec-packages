@@ -34,7 +34,6 @@ import {
   NativeAggregationState,
   NewContractData,
   NullifierLeafPreimage,
-  OptionallyRevealedData,
   Point,
   PreviousPrivateKernelData,
   PreviousPrivateKernelDataFinal,
@@ -309,155 +308,6 @@ export function fromNewContractData(o: NewContractData): MsgpackNewContractData 
   };
 }
 
-interface MsgpackFunctionSelector {
-  value: number;
-}
-
-export function toFunctionSelector(o: MsgpackFunctionSelector): FunctionSelector {
-  if (o.value === undefined) {
-    throw new Error('Expected value in FunctionSelector deserialization');
-  }
-  return new FunctionSelector(o.value);
-}
-
-export function fromFunctionSelector(o: FunctionSelector): MsgpackFunctionSelector {
-  if (o.value === undefined) {
-    throw new Error('Expected value in FunctionSelector serialization');
-  }
-  return {
-    value: o.value,
-  };
-}
-
-interface MsgpackFunctionData {
-  selector: MsgpackFunctionSelector;
-  is_internal: boolean;
-  is_private: boolean;
-  is_constructor: boolean;
-}
-
-export function toFunctionData(o: MsgpackFunctionData): FunctionData {
-  if (o.selector === undefined) {
-    throw new Error('Expected selector in FunctionData deserialization');
-  }
-  if (o.is_internal === undefined) {
-    throw new Error('Expected is_internal in FunctionData deserialization');
-  }
-  if (o.is_private === undefined) {
-    throw new Error('Expected is_private in FunctionData deserialization');
-  }
-  if (o.is_constructor === undefined) {
-    throw new Error('Expected is_constructor in FunctionData deserialization');
-  }
-  return new FunctionData(toFunctionSelector(o.selector), o.is_internal, o.is_private, o.is_constructor);
-}
-
-export function fromFunctionData(o: FunctionData): MsgpackFunctionData {
-  if (o.selector === undefined) {
-    throw new Error('Expected selector in FunctionData serialization');
-  }
-  if (o.isInternal === undefined) {
-    throw new Error('Expected isInternal in FunctionData serialization');
-  }
-  if (o.isPrivate === undefined) {
-    throw new Error('Expected isPrivate in FunctionData serialization');
-  }
-  if (o.isConstructor === undefined) {
-    throw new Error('Expected isConstructor in FunctionData serialization');
-  }
-  return {
-    selector: fromFunctionSelector(o.selector),
-    is_internal: o.isInternal,
-    is_private: o.isPrivate,
-    is_constructor: o.isConstructor,
-  };
-}
-
-interface MsgpackOptionallyRevealedData {
-  call_stack_item_hash: Buffer;
-  function_data: MsgpackFunctionData;
-  vk_hash: Buffer;
-  portal_contract_address: Buffer;
-  pay_fee_from_l1: boolean;
-  pay_fee_from_public_l2: boolean;
-  called_from_l1: boolean;
-  called_from_public_l2: boolean;
-}
-
-export function toOptionallyRevealedData(o: MsgpackOptionallyRevealedData): OptionallyRevealedData {
-  if (o.call_stack_item_hash === undefined) {
-    throw new Error('Expected call_stack_item_hash in OptionallyRevealedData deserialization');
-  }
-  if (o.function_data === undefined) {
-    throw new Error('Expected function_data in OptionallyRevealedData deserialization');
-  }
-  if (o.vk_hash === undefined) {
-    throw new Error('Expected vk_hash in OptionallyRevealedData deserialization');
-  }
-  if (o.portal_contract_address === undefined) {
-    throw new Error('Expected portal_contract_address in OptionallyRevealedData deserialization');
-  }
-  if (o.pay_fee_from_l1 === undefined) {
-    throw new Error('Expected pay_fee_from_l1 in OptionallyRevealedData deserialization');
-  }
-  if (o.pay_fee_from_public_l2 === undefined) {
-    throw new Error('Expected pay_fee_from_public_l2 in OptionallyRevealedData deserialization');
-  }
-  if (o.called_from_l1 === undefined) {
-    throw new Error('Expected called_from_l1 in OptionallyRevealedData deserialization');
-  }
-  if (o.called_from_public_l2 === undefined) {
-    throw new Error('Expected called_from_public_l2 in OptionallyRevealedData deserialization');
-  }
-  return new OptionallyRevealedData(
-    Fr.fromBuffer(o.call_stack_item_hash),
-    toFunctionData(o.function_data),
-    Fr.fromBuffer(o.vk_hash),
-    Address.fromBuffer(o.portal_contract_address),
-    o.pay_fee_from_l1,
-    o.pay_fee_from_public_l2,
-    o.called_from_l1,
-    o.called_from_public_l2,
-  );
-}
-
-export function fromOptionallyRevealedData(o: OptionallyRevealedData): MsgpackOptionallyRevealedData {
-  if (o.callStackItemHash === undefined) {
-    throw new Error('Expected callStackItemHash in OptionallyRevealedData serialization');
-  }
-  if (o.functionData === undefined) {
-    throw new Error('Expected functionData in OptionallyRevealedData serialization');
-  }
-  if (o.vkHash === undefined) {
-    throw new Error('Expected vkHash in OptionallyRevealedData serialization');
-  }
-  if (o.portalContractAddress === undefined) {
-    throw new Error('Expected portalContractAddress in OptionallyRevealedData serialization');
-  }
-  if (o.payFeeFromL1 === undefined) {
-    throw new Error('Expected payFeeFromL1 in OptionallyRevealedData serialization');
-  }
-  if (o.payFeeFromPublicL2 === undefined) {
-    throw new Error('Expected payFeeFromPublicL2 in OptionallyRevealedData serialization');
-  }
-  if (o.calledFromL1 === undefined) {
-    throw new Error('Expected calledFromL1 in OptionallyRevealedData serialization');
-  }
-  if (o.calledFromPublicL2 === undefined) {
-    throw new Error('Expected calledFromPublicL2 in OptionallyRevealedData serialization');
-  }
-  return {
-    call_stack_item_hash: toBuffer(o.callStackItemHash),
-    function_data: fromFunctionData(o.functionData),
-    vk_hash: toBuffer(o.vkHash),
-    portal_contract_address: toBuffer(o.portalContractAddress),
-    pay_fee_from_l1: o.payFeeFromL1,
-    pay_fee_from_public_l2: o.payFeeFromPublicL2,
-    called_from_l1: o.calledFromL1,
-    called_from_public_l2: o.calledFromPublicL2,
-  };
-}
-
 interface MsgpackPublicDataUpdateRequest {
   leaf_index: Buffer;
   old_value: Buffer;
@@ -537,7 +387,6 @@ interface MsgpackPublicAccumulatedData {
   encrypted_log_preimages_length: Buffer;
   unencrypted_log_preimages_length: Buffer;
   new_contracts: Tuple<MsgpackNewContractData, 1>;
-  optionally_revealed_data: Tuple<MsgpackOptionallyRevealedData, 4>;
   public_data_update_requests: Tuple<MsgpackPublicDataUpdateRequest, 16>;
   public_data_reads: Tuple<MsgpackPublicDataRead, 16>;
 }
@@ -573,9 +422,6 @@ export function toPublicAccumulatedData(o: MsgpackPublicAccumulatedData): Public
   if (o.new_contracts === undefined) {
     throw new Error('Expected new_contracts in PublicAccumulatedData deserialization');
   }
-  if (o.optionally_revealed_data === undefined) {
-    throw new Error('Expected optionally_revealed_data in PublicAccumulatedData deserialization');
-  }
   if (o.public_data_update_requests === undefined) {
     throw new Error('Expected public_data_update_requests in PublicAccumulatedData deserialization');
   }
@@ -593,7 +439,6 @@ export function toPublicAccumulatedData(o: MsgpackPublicAccumulatedData): Public
     Fr.fromBuffer(o.encrypted_log_preimages_length),
     Fr.fromBuffer(o.unencrypted_log_preimages_length),
     mapTuple(o.new_contracts, (v: MsgpackNewContractData) => toNewContractData(v)),
-    mapTuple(o.optionally_revealed_data, (v: MsgpackOptionallyRevealedData) => toOptionallyRevealedData(v)),
     mapTuple(o.public_data_update_requests, (v: MsgpackPublicDataUpdateRequest) => toPublicDataUpdateRequest(v)),
     mapTuple(o.public_data_reads, (v: MsgpackPublicDataRead) => toPublicDataRead(v)),
   );
@@ -630,9 +475,6 @@ export function fromPublicAccumulatedData(o: PublicAccumulatedData): MsgpackPubl
   if (o.newContracts === undefined) {
     throw new Error('Expected newContracts in PublicAccumulatedData serialization');
   }
-  if (o.optionallyRevealedData === undefined) {
-    throw new Error('Expected optionallyRevealedData in PublicAccumulatedData serialization');
-  }
   if (o.publicDataUpdateRequests === undefined) {
     throw new Error('Expected publicDataUpdateRequests in PublicAccumulatedData serialization');
   }
@@ -650,9 +492,6 @@ export function fromPublicAccumulatedData(o: PublicAccumulatedData): MsgpackPubl
     encrypted_log_preimages_length: toBuffer(o.encryptedLogPreimagesLength),
     unencrypted_log_preimages_length: toBuffer(o.unencryptedLogPreimagesLength),
     new_contracts: mapTuple(o.newContracts, (v: NewContractData) => fromNewContractData(v)),
-    optionally_revealed_data: mapTuple(o.optionallyRevealedData, (v: OptionallyRevealedData) =>
-      fromOptionallyRevealedData(v),
-    ),
     public_data_update_requests: mapTuple(o.publicDataUpdateRequests, (v: PublicDataUpdateRequest) =>
       fromPublicDataUpdateRequest(v),
     ),
@@ -1065,7 +904,6 @@ interface MsgpackPrivateAccumulatedData {
   encrypted_log_preimages_length: Buffer;
   unencrypted_log_preimages_length: Buffer;
   new_contracts: Tuple<MsgpackNewContractData, 1>;
-  optionally_revealed_data: Tuple<MsgpackOptionallyRevealedData, 4>;
 }
 
 export function toPrivateAccumulatedData(o: MsgpackPrivateAccumulatedData): PrivateAccumulatedData {
@@ -1108,9 +946,6 @@ export function toPrivateAccumulatedData(o: MsgpackPrivateAccumulatedData): Priv
   if (o.new_contracts === undefined) {
     throw new Error('Expected new_contracts in PrivateAccumulatedData deserialization');
   }
-  if (o.optionally_revealed_data === undefined) {
-    throw new Error('Expected optionally_revealed_data in PrivateAccumulatedData deserialization');
-  }
   return new PrivateAccumulatedData(
     toNativeAggregationState(o.aggregation_object),
     mapTuple(o.read_requests, (v: Buffer) => Fr.fromBuffer(v)),
@@ -1125,7 +960,6 @@ export function toPrivateAccumulatedData(o: MsgpackPrivateAccumulatedData): Priv
     Fr.fromBuffer(o.encrypted_log_preimages_length),
     Fr.fromBuffer(o.unencrypted_log_preimages_length),
     mapTuple(o.new_contracts, (v: MsgpackNewContractData) => toNewContractData(v)),
-    mapTuple(o.optionally_revealed_data, (v: MsgpackOptionallyRevealedData) => toOptionallyRevealedData(v)),
   );
 }
 
@@ -1169,9 +1003,6 @@ export function fromPrivateAccumulatedData(o: PrivateAccumulatedData): MsgpackPr
   if (o.newContracts === undefined) {
     throw new Error('Expected newContracts in PrivateAccumulatedData serialization');
   }
-  if (o.optionallyRevealedData === undefined) {
-    throw new Error('Expected optionallyRevealedData in PrivateAccumulatedData serialization');
-  }
   return {
     aggregation_object: fromNativeAggregationState(o.aggregationObject),
     read_requests: mapTuple(o.readRequests, (v: Fr) => toBuffer(v)),
@@ -1186,9 +1017,6 @@ export function fromPrivateAccumulatedData(o: PrivateAccumulatedData): MsgpackPr
     encrypted_log_preimages_length: toBuffer(o.encryptedLogPreimagesLength),
     unencrypted_log_preimages_length: toBuffer(o.unencryptedLogPreimagesLength),
     new_contracts: mapTuple(o.newContracts, (v: NewContractData) => fromNewContractData(v)),
-    optionally_revealed_data: mapTuple(o.optionallyRevealedData, (v: OptionallyRevealedData) =>
-      fromOptionallyRevealedData(v),
-    ),
   };
 }
 
@@ -1275,6 +1103,70 @@ export function fromPreviousPrivateKernelData(o: PreviousPrivateKernelData): Msg
     vk: fromVerificationKeyData(o.vk),
     vk_index: o.vkIndex,
     vk_path: mapTuple(o.vkPath, (v: Fr) => toBuffer(v)),
+  };
+}
+
+interface MsgpackFunctionSelector {
+  value: number;
+}
+
+export function toFunctionSelector(o: MsgpackFunctionSelector): FunctionSelector {
+  if (o.value === undefined) {
+    throw new Error('Expected value in FunctionSelector deserialization');
+  }
+  return new FunctionSelector(o.value);
+}
+
+export function fromFunctionSelector(o: FunctionSelector): MsgpackFunctionSelector {
+  if (o.value === undefined) {
+    throw new Error('Expected value in FunctionSelector serialization');
+  }
+  return {
+    value: o.value,
+  };
+}
+
+interface MsgpackFunctionData {
+  selector: MsgpackFunctionSelector;
+  is_internal: boolean;
+  is_private: boolean;
+  is_constructor: boolean;
+}
+
+export function toFunctionData(o: MsgpackFunctionData): FunctionData {
+  if (o.selector === undefined) {
+    throw new Error('Expected selector in FunctionData deserialization');
+  }
+  if (o.is_internal === undefined) {
+    throw new Error('Expected is_internal in FunctionData deserialization');
+  }
+  if (o.is_private === undefined) {
+    throw new Error('Expected is_private in FunctionData deserialization');
+  }
+  if (o.is_constructor === undefined) {
+    throw new Error('Expected is_constructor in FunctionData deserialization');
+  }
+  return new FunctionData(toFunctionSelector(o.selector), o.is_internal, o.is_private, o.is_constructor);
+}
+
+export function fromFunctionData(o: FunctionData): MsgpackFunctionData {
+  if (o.selector === undefined) {
+    throw new Error('Expected selector in FunctionData serialization');
+  }
+  if (o.isInternal === undefined) {
+    throw new Error('Expected isInternal in FunctionData serialization');
+  }
+  if (o.isPrivate === undefined) {
+    throw new Error('Expected isPrivate in FunctionData serialization');
+  }
+  if (o.isConstructor === undefined) {
+    throw new Error('Expected isConstructor in FunctionData serialization');
+  }
+  return {
+    selector: fromFunctionSelector(o.selector),
+    is_internal: o.isInternal,
+    is_private: o.isPrivate,
+    is_constructor: o.isConstructor,
   };
 }
 
@@ -1976,7 +1868,6 @@ interface MsgpackPrivateAccumulatedDataFinal {
   encrypted_log_preimages_length: Buffer;
   unencrypted_log_preimages_length: Buffer;
   new_contracts: Tuple<MsgpackNewContractData, 1>;
-  optionally_revealed_data: Tuple<MsgpackOptionallyRevealedData, 4>;
 }
 
 export function toPrivateAccumulatedDataFinal(o: MsgpackPrivateAccumulatedDataFinal): PrivateAccumulatedDataFinal {
@@ -2010,9 +1901,6 @@ export function toPrivateAccumulatedDataFinal(o: MsgpackPrivateAccumulatedDataFi
   if (o.new_contracts === undefined) {
     throw new Error('Expected new_contracts in PrivateAccumulatedDataFinal deserialization');
   }
-  if (o.optionally_revealed_data === undefined) {
-    throw new Error('Expected optionally_revealed_data in PrivateAccumulatedDataFinal deserialization');
-  }
   return new PrivateAccumulatedDataFinal(
     toNativeAggregationState(o.aggregation_object),
     mapTuple(o.new_commitments, (v: Buffer) => Fr.fromBuffer(v)),
@@ -2024,7 +1912,6 @@ export function toPrivateAccumulatedDataFinal(o: MsgpackPrivateAccumulatedDataFi
     Fr.fromBuffer(o.encrypted_log_preimages_length),
     Fr.fromBuffer(o.unencrypted_log_preimages_length),
     mapTuple(o.new_contracts, (v: MsgpackNewContractData) => toNewContractData(v)),
-    mapTuple(o.optionally_revealed_data, (v: MsgpackOptionallyRevealedData) => toOptionallyRevealedData(v)),
   );
 }
 
@@ -2059,9 +1946,6 @@ export function fromPrivateAccumulatedDataFinal(o: PrivateAccumulatedDataFinal):
   if (o.newContracts === undefined) {
     throw new Error('Expected newContracts in PrivateAccumulatedDataFinal serialization');
   }
-  if (o.optionallyRevealedData === undefined) {
-    throw new Error('Expected optionallyRevealedData in PrivateAccumulatedDataFinal serialization');
-  }
   return {
     aggregation_object: fromNativeAggregationState(o.aggregationObject),
     new_commitments: mapTuple(o.newCommitments, (v: Fr) => toBuffer(v)),
@@ -2073,9 +1957,6 @@ export function fromPrivateAccumulatedDataFinal(o: PrivateAccumulatedDataFinal):
     encrypted_log_preimages_length: toBuffer(o.encryptedLogPreimagesLength),
     unencrypted_log_preimages_length: toBuffer(o.unencryptedLogPreimagesLength),
     new_contracts: mapTuple(o.newContracts, (v: NewContractData) => fromNewContractData(v)),
-    optionally_revealed_data: mapTuple(o.optionallyRevealedData, (v: OptionallyRevealedData) =>
-      fromOptionallyRevealedData(v),
-    ),
   };
 }
 

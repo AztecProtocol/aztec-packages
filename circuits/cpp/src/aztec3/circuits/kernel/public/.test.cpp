@@ -35,11 +35,7 @@ using aztec3::circuits::abis::ContractStorageRead;
 using aztec3::circuits::abis::ContractStorageUpdateRequest;
 using aztec3::circuits::abis::HistoricBlockData;
 using aztec3::circuits::abis::NewContractData;
-using aztec3::circuits::abis::OptionallyRevealedData;
-using aztec3::circuits::abis::PreviousPrivateKernelData;
-using aztec3::circuits::abis::PreviousPublicKernelData;
 using aztec3::circuits::abis::PrivateAccumulatedDataFinal;
-using aztec3::circuits::abis::PrivateKernelPublicInputs;
 using aztec3::circuits::abis::PublicAccumulatedData;
 using aztec3::circuits::abis::PublicCircuitPublicInputs;
 using aztec3::circuits::abis::PublicDataRead;
@@ -402,8 +398,6 @@ PublicAccumulatedData<NT> get_public_accumulated_data(NT::uint32& seed,
         .encrypted_log_preimages_length = private_previous ? ++seed : 0,
         .unencrypted_log_preimages_length = ++seed,
         .new_contracts = std::array<NewContractData<NT>, MAX_NEW_CONTRACTS_PER_TX>(),
-        .optionally_revealed_data =
-            std::array<OptionallyRevealedData<NT>, MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX>(),
         .public_data_update_requests =
             std::array<PublicDataUpdateRequest<NT>, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>(),
         .public_data_reads = std::array<PublicDataRead<NT>, MAX_PUBLIC_DATA_READS_PER_TX>()
@@ -426,8 +420,6 @@ PrivateAccumulatedDataFinal<NT> get_final_accumulated_data(NT::uint32& seed, NT:
         .encrypted_log_preimages_length = ++seed,
         .unencrypted_log_preimages_length = ++seed,
         .new_contracts = std::array<NewContractData<NT>, MAX_NEW_CONTRACTS_PER_TX>(),
-        .optionally_revealed_data =
-            std::array<OptionallyRevealedData<NT>, MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX>(),
     };
 }
 
@@ -524,9 +516,6 @@ void validate_private_data_propagation(DummyBuilder& builder,
               inputs.previous_kernel.public_inputs.end.encrypted_logs_hash);
     ASSERT_EQ(inputs.previous_kernel.public_inputs.end.encrypted_log_preimages_length,
               inputs.previous_kernel.public_inputs.end.encrypted_log_preimages_length);
-
-    ASSERT_EQ(inputs.previous_kernel.public_inputs.end.optionally_revealed_data,
-              public_inputs.end.optionally_revealed_data);
 }
 
 TEST(public_kernel_tests, only_valid_public_data_reads_should_be_propagated)

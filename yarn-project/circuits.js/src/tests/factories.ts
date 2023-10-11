@@ -38,7 +38,6 @@ import {
   MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP,
   MAX_NEW_NULLIFIERS_PER_CALL,
   MAX_NEW_NULLIFIERS_PER_TX,
-  MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
@@ -59,7 +58,6 @@ import {
   NUM_FIELDS_PER_SHA256,
   NewContractData,
   NullifierLeafPreimage,
-  OptionallyRevealedData,
   PRIVATE_DATA_SUBTREE_SIBLING_PATH_LENGTH,
   PRIVATE_DATA_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
@@ -226,7 +224,6 @@ export function makePrivateAccumulatedData(seed = 1, full = false): PrivateAccum
     fr(seed + 0x900), // encrypted_log_preimages_length
     fr(seed + 0xa00), // unencrypted_log_preimages_length
     tupleGenerator(MAX_NEW_CONTRACTS_PER_TX, makeNewContractData, seed + 0xb00),
-    tupleGenerator(MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX, makeOptionallyRevealedData, seed + 0xc00),
   );
 }
 
@@ -249,7 +246,6 @@ export function makePublicAccumulatedData(seed = 1, full = false): PublicAccumul
     fr(seed + 0x900), // encrypted_log_preimages_length
     fr(seed + 0xa00), // unencrypted_log_preimages_length
     tupleGenerator(MAX_NEW_CONTRACTS_PER_TX, makeNewContractData, seed + 0xb00),
-    tupleGenerator(MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX, makeOptionallyRevealedData, seed + 0xc00),
     tupleGenerator(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, makePublicDataUpdateRequest, seed + 0xd00),
     tupleGenerator(MAX_PUBLIC_DATA_READS_PER_TX, makePublicDataRead, seed + 0xe00),
   );
@@ -274,7 +270,6 @@ export function makeFinalAccumulatedData(seed = 1, full = false): PrivateAccumul
     fr(seed + 0x900), // encrypted_log_preimages_length
     fr(seed + 0xa00), // unencrypted_log_preimages_length
     tupleGenerator(MAX_NEW_CONTRACTS_PER_TX, makeNewContractData, seed + 0xb00),
-    tupleGenerator(MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX, makeOptionallyRevealedData, seed + 0xc00),
   );
 }
 
@@ -285,24 +280,6 @@ export function makeFinalAccumulatedData(seed = 1, full = false): PrivateAccumul
  */
 export function makeNewContractData(seed = 1): NewContractData {
   return new NewContractData(makeAztecAddress(seed), makeEthAddress(seed + 1), fr(seed + 2));
-}
-
-/**
- * Creates arbitrary optionally revealed data.
- * @param seed - The seed to use for generating the optionally revealed data.
- * @returns An optionally revealed data.
- */
-export function makeOptionallyRevealedData(seed = 1): OptionallyRevealedData {
-  return new OptionallyRevealedData(
-    fr(seed),
-    new FunctionData(makeSelector(seed + 1), false, true, true),
-    fr(seed + 2),
-    makeEthAddress(seed + 3),
-    true,
-    false,
-    true,
-    false,
-  );
 }
 
 /**
