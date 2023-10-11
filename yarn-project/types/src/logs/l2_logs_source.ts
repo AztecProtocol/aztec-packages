@@ -1,4 +1,4 @@
-import { GetsUnencryptedLogsResponse } from './get_unencrypted_logs_response.js';
+import { GetUnencryptedLogsResponse } from './get_unencrypted_logs_response.js';
 import { L2BlockL2Logs } from './l2_block_l2_logs.js';
 import { LogFilter } from './log_filter.js';
 import { LogType } from './log_type.js';
@@ -21,7 +21,7 @@ export interface L2LogsSource {
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  getUnencryptedLogs(filter: LogFilter): Promise<GetsUnencryptedLogsResponse>;
+  getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse>;
 
   /**
    * Gets the number of the latest L2 block processed by the implementation.

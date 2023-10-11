@@ -6,7 +6,7 @@ import { Fr } from '@aztec/foundation/fields';
 import {
   ContractData,
   ExtendedContractData,
-  GetsUnencryptedLogsResponse,
+  GetUnencryptedLogsResponse,
   L2Block,
   L2BlockL2Logs,
   L2Tx,
@@ -97,7 +97,7 @@ export interface AztecNode extends StateInfoProvider {
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  getUnencryptedLogs(filter: LogFilter): Promise<GetsUnencryptedLogsResponse>;
+  getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse>;
 
   /**
    * Method to submit a transaction to the p2p pool.

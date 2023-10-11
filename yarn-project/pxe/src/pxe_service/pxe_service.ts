@@ -32,7 +32,7 @@ import {
   DeployedContract,
   ExtendedContractData,
   FunctionCall,
-  GetsUnencryptedLogsResponse,
+  GetUnencryptedLogsResponse,
   KeyStore,
   L2Block,
   L2Tx,
@@ -389,7 +389,7 @@ export class PXEService implements PXE {
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  public getUnencryptedLogs(filter: LogFilter): Promise<GetsUnencryptedLogsResponse> {
+  public getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
     return this.node.getUnencryptedLogs(filter);
   }
 

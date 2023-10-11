@@ -5,7 +5,7 @@ import {
   DeployedContract,
   ExtendedContractData,
   FunctionCall,
-  GetsUnencryptedLogsResponse,
+  GetUnencryptedLogsResponse,
   L2Tx,
   LogFilter,
   NodeInfo,
@@ -97,7 +97,7 @@ export abstract class BaseWallet implements Wallet {
   getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined> {
     return this.pxe.getContractData(contractAddress);
   }
-  getUnencryptedLogs(filter: LogFilter): Promise<GetsUnencryptedLogsResponse> {
+  getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
     return this.pxe.getUnencryptedLogs(filter);
   }
   getBlockNumber(): Promise<number> {

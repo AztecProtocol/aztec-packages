@@ -4,7 +4,7 @@ import {
   ContractData,
   ExtendedContractData,
   ExtendedUnencryptedL2Log,
-  GetsUnencryptedLogsResponse,
+  GetUnencryptedLogsResponse,
   INITIAL_L2_BLOCK_NUM,
   L1ToL2Message,
   L2Block,
@@ -105,7 +105,7 @@ export interface ArchiverDataStore {
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  getUnencryptedLogs(filter: LogFilter): Promise<GetsUnencryptedLogsResponse>;
+  getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse>;
 
   /**
    * Add new extended contract data from an L2 block to the store's list.
@@ -371,7 +371,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @returns The requested logs.
    * @remarks Works by doing an intersection of all params in the filter.
    */
-  getUnencryptedLogs(filter: LogFilter): Promise<GetsUnencryptedLogsResponse> {
+  getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
     let txHash: TxHash | undefined;
     let fromBlockIndex = 0;
     let toBlockIndex = this.unencryptedLogsPerBlock.length;

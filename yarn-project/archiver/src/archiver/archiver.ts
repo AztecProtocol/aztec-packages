@@ -10,7 +10,7 @@ import {
   ContractDataSource,
   EncodedContractFunction,
   ExtendedContractData,
-  GetsUnencryptedLogsResponse,
+  GetUnencryptedLogsResponse,
   INITIAL_L2_BLOCK_NUM,
   L1ToL2Message,
   L1ToL2MessageSource,
@@ -396,7 +396,7 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  getUnencryptedLogs(filter: LogFilter): Promise<GetsUnencryptedLogsResponse> {
+  getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
     return this.store.getUnencryptedLogs(filter);
   }
 

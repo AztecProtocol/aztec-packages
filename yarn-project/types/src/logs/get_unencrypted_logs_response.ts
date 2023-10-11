@@ -1,9 +1,9 @@
 import { ExtendedUnencryptedL2Log } from './extended_unencrypted_l2_log.js';
 
 /**
- * It provides documentation for the GetsUnencryptedLogsResponse type.
+ * It provides documentation for the GetUnencryptedLogsResponse type.
  */
-export type GetsUnencryptedLogsResponse = {
+export type GetUnencryptedLogsResponse = {
   /**
    * An array of ExtendedUnencryptedL2Log elements.
    */
