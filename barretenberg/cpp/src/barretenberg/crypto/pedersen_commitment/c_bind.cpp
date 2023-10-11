@@ -55,7 +55,7 @@ WASM_EXPORT void pedersen___plookup_commit_with_hash_index(fr::vec_in_buf inputs
     std::vector<grumpkin::fq> to_compress;
     read(inputs_buffer, to_compress);
     const size_t generator_offset = ntohl(*hash_index);
-    crypto::GeneratorContext<curve::Grumpkin> ctx; // todo fix
+    crypto::GeneratorContext<curve::Grumpkin> ctx;
     ctx.offset = generator_offset;
     auto commitment = crypto::pedersen_commitment::commit_native(to_compress, ctx);
     serialize::write(output, commitment);
