@@ -147,8 +147,8 @@ template <typename FF_> class GoblinTranslatorGenPermSortRelationImpl {
         static const FF minus_one = FF(-1);
         static const FF minus_two = FF(-2);
         static const FF minus_three = FF(-3);
-
-        static const auto maximum_sort_value = -FF((1 << 14) - 1);
+        static const size_t micro_limb_bits = 14;
+        static const auto maximum_sort_value = -FF((1 << micro_limb_bits) - 1);
         // Compute wire differences
         auto delta_1 = ordered_range_constraints_0_shift - ordered_range_constraints_0;
         auto delta_2 = ordered_range_constraints_1_shift - ordered_range_constraints_1;
