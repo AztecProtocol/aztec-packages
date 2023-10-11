@@ -18,10 +18,10 @@ export type DecodedInputs = {
   /**
    * The inputs to the circuit
    */
-  inputs: Record<string, any>
+  inputs: Record<string, any>;
   /**
    * The return value of the circuit
-   */;
+   */
   return_value: any;
 };
 
