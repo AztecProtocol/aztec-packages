@@ -15,7 +15,7 @@ namespace proof_system {
  * @brief Check that a single accumulation gate is created correctly
  *
  */
-TEST(TranslatorCircuitBuilder, CircuitBuilderBaseCase)
+TEST(GoblinTranslatorCircuitBuilder, CircuitBuilderBaseCase)
 {
     using Fr = ::curve::BN254::ScalarField;
     using Fq = ::curve::BN254::BaseField;
@@ -76,7 +76,7 @@ TEST(TranslatorCircuitBuilder, CircuitBuilderBaseCase)
  * @brief Check that the circuit can handle several accumulations
  *
  */
-TEST(TranslatorCircuitBuilder, SeveralOperationCorrectness)
+TEST(GoblinTranslatorCircuitBuilder, SeveralOperationCorrectness)
 {
     using point = barretenberg::g1::affine_element;
     using scalar = barretenberg::fr;
