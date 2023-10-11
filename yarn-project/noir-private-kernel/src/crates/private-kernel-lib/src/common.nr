@@ -208,7 +208,7 @@ pub fn update_end_values(private_call : PrivateCallData, public_inputs : &mut Ke
         siloed_new_nullifiers.push(siloed_new_nullifier);
     }
 
-    siloed_new_nullifiers.push_array(public_inputs.end.new_nullifiers.storage());
+    public_inputs.end.new_nullifiers.push_array(siloed_new_nullifiers.storage());
 
     // commitments
     // TODO: These for loops are inconsistent, some use constants and others use the array length
@@ -224,7 +224,7 @@ pub fn update_end_values(private_call : PrivateCallData, public_inputs : &mut Ke
 
         siloed_new_commitments.push(siloed_commitment);
     }
-    siloed_new_commitments.push_array(public_inputs.end.new_commitments.storage());
+    public_inputs.end.new_commitments.push_array(siloed_new_commitments.storage());
 
     // nullified commitments (for matching transient nullifiers to transient commitments)
     // Since every new_nullifiers entry is paired with a nullified_commitment, EMPTY
@@ -249,7 +249,7 @@ pub fn update_end_values(private_call : PrivateCallData, public_inputs : &mut Ke
         };
         siloed_nullified_commitments.push(siloed_nullified_commitment);
     }
-    siloed_nullified_commitments.push_array(public_inputs.end.nullified_commitments.storage());
+    public_inputs.end.nullified_commitments.push_array(siloed_nullified_commitments.storage());
 
     // Call stacks
     let mut private_call_stack = private_call_public_inputs.private_call_stack;
