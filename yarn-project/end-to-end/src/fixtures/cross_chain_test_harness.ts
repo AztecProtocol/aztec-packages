@@ -26,9 +26,9 @@ export class CrossChainTestHarness {
     const ethAccount = EthAddress.fromString((await walletClient.getAddresses())[0]);
     const owner = wallet.getCompleteAddress();
     const l1ContractAddresses = (await pxeService.getNodeInfo()).l1ContractAddresses;
-
+    
     const outbox = getContract({
-      address: l1ContractAddresses.outboxAddress!.toString(),
+      address: l1ContractAddresses.outboxAddress.toString(),
       abi: OutboxAbi,
       publicClient,
     });
