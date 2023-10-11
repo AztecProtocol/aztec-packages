@@ -67,7 +67,7 @@ template <typename Flavor, typename Instances> class ProtogalaxyProver {
                                          const FF& scaling_factor)
     {
         using Relation = std::tuple_element_t<relation_idx, Relations>;
-        Relation::add_2protogalaxy_univariate_contribution(
+        Relation::accumulate(
             std::get<relation_idx>(univariate_accumulators), extended_univariates, relation_parameters, scaling_factor);
 
         // Repeat for the next relation.

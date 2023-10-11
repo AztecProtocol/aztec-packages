@@ -4,6 +4,7 @@
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/pow.hpp"
 #include "barretenberg/proof_system/relations/relation_parameters.hpp"
+#include "barretenberg/proof_system/relations/relation_types.hpp"
 
 namespace barretenberg {
 
@@ -11,7 +12,7 @@ template <typename Flavor> class RelationUtils {
   public:
     using FF = typename Flavor::FF;
     using Relations = typename Flavor::Relations;
-    using RelationSumcheckUnivariates = typename Flavor::RelationSumcheckUnivariates;
+    // using RelationSumcheckUnivariates = typename Flavor::RelationSumcheckUnivariates;
 
     /**
      * Utility methods for tuple of tuples of Univariates
@@ -132,12 +133,11 @@ template <typename Flavor> class RelationUtils {
         auto extended_random_polynomial_edge = random_poly_edge.template extend_to<ExtendedUnivariate::LENGTH>();
 
         auto extend_and_sum = [&]<size_t relation_idx, size_t subrelation_idx, typename Element>(Element& element) {
-            using Relation = typename std::tuple_element<relation_idx, Relations>::type;
-
             auto extended = element.template extend_to<ExtendedUnivariate::LENGTH>();
 
+            using Relation = typename std::tuple_element_t<relation_idx, Relations>;
             const bool is_subrelation_linearly_independent =
-                Relation::template is_subrelation_linearly_independent<subrelation_idx>();
+                proof_system::subrelation_is_linearly_independent<Relation, subrelation_idx>();
             if (is_subrelation_linearly_independent) {
                 // if subrelation is linearly independent, multiply by random polynomial
                 result += extended * extended_random_polynomial_edge;
