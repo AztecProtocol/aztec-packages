@@ -427,10 +427,6 @@ export class PublicAccumulatedData {
      */
     public aggregationObject: AggregationObject, // Contains the aggregated proof of all previous kernel iterations
     /**
-     * All the read requests made in this transaction.
-     */
-    public readRequests: Tuple<Fr, typeof MAX_READ_REQUESTS_PER_TX>,
-    /**
      * The new commitments made in this transaction.
      */
     public newCommitments: Tuple<Fr, typeof MAX_NEW_COMMITMENTS_PER_TX>,
@@ -494,7 +490,6 @@ export class PublicAccumulatedData {
   toBuffer() {
     return serializeToBuffer(
       this.aggregationObject,
-      this.readRequests,
       this.newCommitments,
       this.newNullifiers,
       this.nullifiedCommitments,
@@ -525,7 +520,6 @@ export class PublicAccumulatedData {
     const reader = BufferReader.asReader(buffer);
     return new PublicAccumulatedData(
       reader.readObject(AggregationObject),
-      reader.readArray(MAX_READ_REQUESTS_PER_TX, Fr),
       reader.readArray(MAX_NEW_COMMITMENTS_PER_TX, Fr),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Fr),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Fr),
@@ -555,7 +549,6 @@ export class PublicAccumulatedData {
   static empty() {
     return new PublicAccumulatedData(
       AggregationObject.makeFake(),
-      makeTuple(MAX_READ_REQUESTS_PER_TX, Fr.zero),
       makeTuple(MAX_NEW_COMMITMENTS_PER_TX, Fr.zero),
       makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero),
       makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero),
@@ -576,7 +569,6 @@ export class PublicAccumulatedData {
   static fromFinalAccumulatedData(finalData: PrivateAccumulatedDataFinal): PublicAccumulatedData {
     return new PublicAccumulatedData(
       finalData.aggregationObject,
-      makeTuple(MAX_READ_REQUESTS_PER_TX, Fr.zero),
       finalData.newCommitments,
       finalData.newNullifiers,
       finalData.nullifiedCommitments,

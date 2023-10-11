@@ -30,8 +30,6 @@ template <typename NCT> struct PublicAccumulatedData {
 
     AggregationObject aggregation_object{};
 
-    std::array<fr, MAX_READ_REQUESTS_PER_TX> read_requests{};
-
     std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> new_commitments{};
     std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> new_nullifiers{};
     std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> nullified_commitments{};
@@ -59,7 +57,6 @@ template <typename NCT> struct PublicAccumulatedData {
 
     // for serialization, update with new fields
     MSGPACK_FIELDS(aggregation_object,
-                   read_requests,
                    new_commitments,
                    new_nullifiers,
                    nullified_commitments,
@@ -96,8 +93,6 @@ template <typename NCT> struct PublicAccumulatedData {
                 aggregation_object.proof_witness_indices,
                 aggregation_object.has_data,
             },
-
-            to_ct(read_requests),
 
             to_ct(new_commitments),
             to_ct(new_nullifiers),
@@ -137,8 +132,6 @@ template <typename NCT> struct PublicAccumulatedData {
                 aggregation_object.has_data,
             },
 
-            to_nt(read_requests),
-
             to_nt(new_commitments),
             to_nt(new_nullifiers),
             to_nt(nullified_commitments),
@@ -166,8 +159,6 @@ template <typename NCT> struct PublicAccumulatedData {
         static_assert(!(std::is_same<NativeTypes, NCT>::value));
 
         aggregation_object.add_proof_outputs_as_public_inputs();
-
-        set_array_public(read_requests);
 
         set_array_public(new_commitments);
         set_array_public(new_nullifiers);

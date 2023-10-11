@@ -528,7 +528,6 @@ export function fromPublicDataRead(o: PublicDataRead): MsgpackPublicDataRead {
 
 interface MsgpackPublicAccumulatedData {
   aggregation_object: MsgpackNativeAggregationState;
-  read_requests: Tuple<Buffer, 128>;
   new_commitments: Tuple<Buffer, 64>;
   new_nullifiers: Tuple<Buffer, 64>;
   nullified_commitments: Tuple<Buffer, 64>;
@@ -548,9 +547,6 @@ interface MsgpackPublicAccumulatedData {
 export function toPublicAccumulatedData(o: MsgpackPublicAccumulatedData): PublicAccumulatedData {
   if (o.aggregation_object === undefined) {
     throw new Error('Expected aggregation_object in PublicAccumulatedData deserialization');
-  }
-  if (o.read_requests === undefined) {
-    throw new Error('Expected read_requests in PublicAccumulatedData deserialization');
   }
   if (o.new_commitments === undefined) {
     throw new Error('Expected new_commitments in PublicAccumulatedData deserialization');
@@ -596,7 +592,6 @@ export function toPublicAccumulatedData(o: MsgpackPublicAccumulatedData): Public
   }
   return new PublicAccumulatedData(
     toNativeAggregationState(o.aggregation_object),
-    mapTuple(o.read_requests, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.new_commitments, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.new_nullifiers, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.nullified_commitments, (v: Buffer) => Fr.fromBuffer(v)),
@@ -617,9 +612,6 @@ export function toPublicAccumulatedData(o: MsgpackPublicAccumulatedData): Public
 export function fromPublicAccumulatedData(o: PublicAccumulatedData): MsgpackPublicAccumulatedData {
   if (o.aggregationObject === undefined) {
     throw new Error('Expected aggregationObject in PublicAccumulatedData serialization');
-  }
-  if (o.readRequests === undefined) {
-    throw new Error('Expected readRequests in PublicAccumulatedData serialization');
   }
   if (o.newCommitments === undefined) {
     throw new Error('Expected newCommitments in PublicAccumulatedData serialization');
@@ -665,7 +657,6 @@ export function fromPublicAccumulatedData(o: PublicAccumulatedData): MsgpackPubl
   }
   return {
     aggregation_object: fromNativeAggregationState(o.aggregationObject),
-    read_requests: mapTuple(o.readRequests, (v: Fr) => toBuffer(v)),
     new_commitments: mapTuple(o.newCommitments, (v: Fr) => toBuffer(v)),
     new_nullifiers: mapTuple(o.newNullifiers, (v: Fr) => toBuffer(v)),
     nullified_commitments: mapTuple(o.nullifiedCommitments, (v: Fr) => toBuffer(v)),

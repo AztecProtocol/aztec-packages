@@ -240,7 +240,6 @@ export function makePublicAccumulatedData(seed = 1, full = false): PublicAccumul
 
   return new PublicAccumulatedData(
     makeAggregationObject(seed),
-    tupleGenerator(MAX_READ_REQUESTS_PER_TX, fr, seed + 0x80),
     tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX, fr, seed + 0x100),
     tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x200),
     tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x300),
