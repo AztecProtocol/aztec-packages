@@ -1,4 +1,3 @@
-mod util;
 mod token_interface;
 
 // Minimal implementation of the token bridge that can move funds between L1 <> L2.
@@ -17,9 +16,9 @@ contract TokenBridge {
         types::address::{AztecAddress, EthereumAddress},
         selector::compute_selector,
     };
+    use dep::token_portal_content_hash_lib::{get_mint_public_content_hash, get_mint_private_content_hash, get_withdraw_content_hash};
 
     use crate::token_interface::Token;
-    use crate::util::{get_mint_public_content_hash, get_mint_private_content_hash, get_withdraw_content_hash};
 
     // Storage structure, containing all storage, and specifying what slots they use.
     struct Storage {

@@ -1,5 +1,3 @@
-mod utils;
-
 // A contract used for testing a random hodgepodge of small features from simulator and end-to-end tests.
 contract Test {
     use dep::aztec::{
@@ -15,7 +13,7 @@ contract Test {
         types::vec::BoundedVec,
         constants_gen::EMPTY_NULLIFIED_COMMITMENT,
     };
-    use crate::utils::{get_mint_private_content_hash, get_mint_public_content_hash};
+    use dep::token_portal_content_hash_lib::{get_mint_private_content_hash, get_mint_public_content_hash};
 
     #[event]
     struct ExampleEvent {
