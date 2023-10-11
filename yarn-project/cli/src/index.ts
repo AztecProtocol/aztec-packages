@@ -330,7 +330,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
             .join(', ');
           if (!follow) log(`No logs found for filter: {${filterOptions}}`);
         } else {
-          if (!follow) log('Logs found: \n');
+          if (!follow && !filter.afterLog) log('Logs found: \n');
           logs.forEach(unencryptedLog => log(unencryptedLog.toHumanReadable()));
           // Disable `fromBlock` and continue using the `afterLog` filter.
           filter.fromBlock = undefined;
