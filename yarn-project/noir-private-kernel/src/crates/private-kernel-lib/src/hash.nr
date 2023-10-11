@@ -74,16 +74,18 @@ fn contract_tree_root_from_siblings(function_tree_root : Field, storage_contract
     computed_contract_tree_root
 }
 
-// TODO(hash)
-fn silo_commitment(address : Address, read_request : Field) -> Field {
-    let _hash_index = constants_gen::GENERATOR_INDEX__SILOED_COMMITMENT;
-    0
+pub fn silo_commitment(address : Address, inner_commitment : Field) -> Field {
+    dep::std::hash::pedersen_with_separator([
+        address.to_field(),
+        inner_commitment,
+    ], constants_gen::GENERATOR_INDEX__SILOED_COMMITMENT)[0]
 }
 
-// TODO(hash)
-fn silo_nullifier(address : Address, read_request : Field) -> Field {
-    let _hash_index = constants_gen::GENERATOR_INDEX__OUTER_NULLIFIER;
-    0
+pub fn silo_nullifier(address : Address, nullifier : Field) -> Field {
+    dep::std::hash::pedersen_with_separator([
+        address.to_field(),
+        nullifier,
+    ], constants_gen::GENERATOR_INDEX__OUTER_NULLIFIER)[0]
 }
 
 // TODO: add merkle hash implementation

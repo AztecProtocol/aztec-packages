@@ -122,7 +122,7 @@ typename NCT::fr silo_nullifier(typename NCT::address const& contract_address, t
     };
 
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1475): use hash here (everywhere?)
-    return NCT::compress(inputs, aztec3::GeneratorIndex::OUTER_NULLIFIER);
+    return NCT::hash(inputs, aztec3::GeneratorIndex::OUTER_NULLIFIER);
 }
 
 

@@ -22,7 +22,7 @@ use dep::aztec::constants_gen::{
     MAX_NEW_COMMITMENTS_PER_CALL,
 };
 
-fn validate_arrays(app_public_inputs : PrivateCircuitPublicInputs) {
+pub fn validate_arrays(app_public_inputs : PrivateCircuitPublicInputs) {
     // Each of the following arrays is expected to be zero-padded.
     // In addition, some of the following arrays (new_commitments, etc...) are passed
     // to push_array_to_array() routines which rely on the passed arrays to be well-formed.
@@ -42,7 +42,7 @@ fn validate_arrays(app_public_inputs : PrivateCircuitPublicInputs) {
 // Check that preimages in the callstack correspond to the hash in the private_call_stack
 // ie hash(preimages) == private_call_stack for each preimage
 // If the stack is empty, then we avoid doing a hash and set the output to be 0
-fn validate_call_stack(private_call : PrivateCallData) {
+pub fn validate_call_stack(private_call : PrivateCallData) {
     
     // TODO(David): should private call stack be renamed to private_call_stack_hash?
     let stack = private_call.call_stack_item.public_inputs().private_call_stack;
@@ -73,7 +73,7 @@ fn validate_call_stack(private_call : PrivateCallData) {
 // More info here:
 // - https://discourse.aztec.network/t/to-read-or-not-to-read/178
 // - https://discourse.aztec.network/t/spending-notes-which-havent-yet-been-inserted/180
-fn validate_read_requests(historic_private_data_tree_root : Field, read_requests : [Field; MAX_READ_REQUESTS_PER_CALL], read_request_membership_witnesses : [ReadRequestMembershipWitnessPrivateData; MAX_READ_REQUESTS_PER_CALL]) {
+pub fn validate_read_requests(historic_private_data_tree_root : Field, read_requests : [Field; MAX_READ_REQUESTS_PER_CALL], read_request_membership_witnesses : [ReadRequestMembershipWitnessPrivateData; MAX_READ_REQUESTS_PER_CALL]) {
     // membership witnesses must resolve to the same private data root
     // for every request in all kernel iterations
     for rr_idx in 0..MAX_READ_REQUESTS_PER_CALL {
@@ -150,7 +150,7 @@ fn initialize_end_values_final(previous_kernel : PreviousKernelData, public_inpu
     end.optionally_revealed_data = start.optionally_revealed_data;
 }
 
-fn update_end_values(private_call : PrivateCallData, public_inputs : &mut KernelCircuitPublicInputs) {
+pub fn update_end_values(private_call : PrivateCallData, public_inputs : &mut KernelCircuitPublicInputs) {
     let private_call_public_inputs = private_call.call_stack_item.public_inputs();
 
     let read_requests = private_call_public_inputs.read_requests;
@@ -275,7 +275,7 @@ fn update_end_values(private_call : PrivateCallData, public_inputs : &mut Kernel
     public_inputs.end.unencrypted_log_preimages_length = public_inputs.end.unencrypted_log_preimages_length + private_call_public_inputs.unencrypted_log_preimages_length;
 }
 
-fn contract_logic(private_call : PrivateCallData, public_inputs : &mut KernelCircuitPublicInputs, contract_dep_data : ContractDeploymentData, function_data : FunctionData) {
+pub fn contract_logic(private_call : PrivateCallData, public_inputs : &mut KernelCircuitPublicInputs, contract_dep_data : ContractDeploymentData, function_data : FunctionData) {
     let private_call_public_inputs = private_call.call_stack_item.public_inputs();
     let storage_contract_address = private_call_public_inputs.call_context.storage_contract_address;
     let portal_contract_address = private_call.portal_contract_address;

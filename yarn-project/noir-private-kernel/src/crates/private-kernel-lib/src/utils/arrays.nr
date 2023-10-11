@@ -14,7 +14,7 @@ use dep::std::array;
 // if a value can actually be zero. In a future refactor, we can 
 // use the optional type for safety. Doing it now would lead to a worse devex
 // and would make it harder to sync up with the cpp code.
-fn is_empty_field<T>(array : [Field; T]) -> bool {
+pub fn is_empty_field<T>(array : [Field; T]) -> bool {
     array.all(|elem| elem == 0)
 }
 
@@ -22,7 +22,7 @@ fn is_empty_field<T>(array : [Field; T]) -> bool {
 // initially.
 //
 // Push a field into the next empty slot in the array
-fn array_push_field<T>(mut array : [Field; T], value_to_push : Field) -> [Field; T] {
+pub fn array_push_field<T>(mut array : [Field; T], value_to_push : Field) -> [Field; T] {
     let mut found_empty_slot = false;
     for index in 0..array.len() {
         if (array[index] == 0) && (found_empty_slot == false) {
@@ -38,7 +38,7 @@ fn array_push_field<T>(mut array : [Field; T], value_to_push : Field) -> [Field;
 // This is being copied due to us not having traits
 // I've decided to localize this tech debt, as its easier to copy and paste
 // rather than using first class functions.
-fn array_push_new_contract_data<T>(mut array : [NewContractData; T], value_to_push : NewContractData) -> [NewContractData; T] {
+pub fn array_push_new_contract_data<T>(mut array : [NewContractData; T], value_to_push : NewContractData) -> [NewContractData; T] {
     let mut found_empty_slot = false;
     for index in 0..array.len() {
         if (array[index].is_empty()) && (found_empty_slot == false) {
@@ -51,7 +51,7 @@ fn array_push_new_contract_data<T>(mut array : [NewContractData; T], value_to_pu
 }
 
 // TODO: This can be replaced by BoundedVec too
-fn array_push_array_field<T, N>(mut array : [Field; T], values_to_push : [Field;N]) -> [Field;T] {
+pub fn array_push_array_field<T, N>(mut array : [Field; T], values_to_push : [Field;N]) -> [Field;T] {
     // see push_array_to_array in aztec3/utils/array.hpp
     array
 }
@@ -83,7 +83,7 @@ pub fn validate_array<T>(array : [Field;T]) {
 
 // Helper method to move all non-zero elements to the left of the array. E.g., [0,7,4,0,5] --> [7,4,5,0,0]
 //  - The ordering of the non-zero values is preserved.
-fn array_rearrange<N>(mut array : [Field; N]) -> [Field;N] {
+pub fn array_rearrange<N>(mut array : [Field; N]) -> [Field;N] {
     let mut target_pos : u64 = 0;
     for i in 0..N {
         if (array[i] != 0) {
@@ -104,7 +104,7 @@ fn array_rearrange<N>(mut array : [Field; N]) -> [Field;N] {
 
 // TODO: like many of the methods, we need to fix the &mut Array
 // bug then refactor most of the methods in here.
-fn array_pop<N>(mut array : [Field; N]) -> (Field, [Field;N]) {
+pub fn array_pop<N>(mut array : [Field; N]) -> (Field, [Field;N]) {
     let mut found_element_to_pop = false; 
     let mut index = N + 1; 
     for i in 0..N {
@@ -131,7 +131,7 @@ fn array_pop<N>(mut array : [Field; N]) -> (Field, [Field;N]) {
 
 // Helper method to determine the number of non-zero/empty elements in
 // the array.
-fn array_length<N>(array : [Field; N]) -> Field {
+pub fn array_length<N>(array : [Field; N]) -> Field {
     let mut length = 0;
     for elem in array {
         if elem != 0 {
