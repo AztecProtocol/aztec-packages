@@ -188,7 +188,7 @@ TEST_F(UltraHonkComposerTests, create_gates_from_plookup_accumulators)
                 (i == num_tables - 1) ? fr(0)
                                       : circuit_builder.get_variable(lookup_witnesses[plookup::ColumnIdx::C1][i + 1]));
 
-            auto slice = round_scalar - (next_scalar << table_bits);
+            uint256_t slice = static_cast<uint256_t>(round_scalar) - (next_scalar << table_bits);
             EXPECT_EQ(slice, (uint256_t(input_lo) >> (i * table_bits)) & mask);
 
             grumpkin::g1::affine_element expected_point(accumulator * static_cast<uint256_t>(slice) +
