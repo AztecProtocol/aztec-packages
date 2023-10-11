@@ -16,7 +16,6 @@ import {
   LogType,
   TxHash,
   UnencryptedL2Log,
-  validateLogFilter,
 } from '@aztec/types';
 
 import { L1ToL2MessageStore, PendingL1ToL2MessageStore } from './l1_to_l2_message_store.js';
@@ -373,8 +372,6 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @throws If filter is invalid.
    */
   getUnencryptedLogs(filter: LogFilter): Promise<GetsUnencryptedLogsResponse> {
-    validateLogFilter(filter);
-
     let txHash: TxHash | undefined;
     let fromBlockIndex = 0;
     let toBlockIndex = this.unencryptedLogsPerBlock.length;
@@ -396,10 +393,15 @@ export class MemoryArchiverStore implements ArchiverDataStore {
       if (filter.fromBlock !== undefined) {
         fromBlockIndex = filter.fromBlock - INITIAL_L2_BLOCK_NUM;
       }
-      if (filter.toBlock !== undefined) {
-        toBlockIndex = filter.toBlock - INITIAL_L2_BLOCK_NUM;
-      }
     }
+
+    if (filter.toBlock !== undefined) {
+      toBlockIndex = filter.toBlock - INITIAL_L2_BLOCK_NUM;
+    }
+
+    // Ensure the indices are within block array bounds
+    fromBlockIndex = Math.max(fromBlockIndex, 0);
+    toBlockIndex = Math.min(toBlockIndex, this.unencryptedLogsPerBlock.length);
 
     if (fromBlockIndex > this.unencryptedLogsPerBlock.length || toBlockIndex < fromBlockIndex || toBlockIndex <= 0) {
       return Promise.resolve({

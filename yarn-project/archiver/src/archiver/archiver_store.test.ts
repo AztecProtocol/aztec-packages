@@ -83,51 +83,7 @@ describe('Archiver Memory Store', () => {
     },
   );
 
-  describe('getUnencryptedLogs errors and config', () => {
-    it('throws when log filter is invalid', async () => {
-      const txHash = new TxHash(randomBytes(TxHash.SIZE));
-      const fromBlock = 2;
-      const toBlock = 2;
-
-      // First invalid case - txHash and "fromBlock" are set
-      const filter1 = {
-        txHash,
-        fromBlock,
-      };
-      await expect(async () => await archiverStore.getUnencryptedLogs(filter1)).rejects.toThrow(
-        'Invalid filter: "txHash" is set along',
-      );
-
-      // Second invalid case - "txHash" and "toBlock" are set
-      const filter2 = {
-        txHash,
-        toBlock,
-      };
-      await expect(async () => await archiverStore.getUnencryptedLogs(filter2)).rejects.toThrow(
-        'Invalid filter: "txHash" is set along',
-      );
-    });
-
-    it('does not throw when both "fromBlock" and "txHash" are set with afterLog', async () => {
-      // this case should not throw because "afterLog" should take precedence
-      const txHash = new TxHash(randomBytes(TxHash.SIZE));
-      const fromBlock = 2;
-      const toBlock = 3;
-      const afterLog = new LogId(1, 2, 3);
-
-      // First invalid case - "txHash" and "fromBlock" are set
-      const filter1 = {
-        txHash,
-        fromBlock,
-        toBlock,
-        afterLog,
-      };
-      const response = await archiverStore.getUnencryptedLogs(filter1);
-
-      expect(response.logs.length).toEqual(0);
-      expect(response.maxLogsHit).toEqual(false);
-    });
-
+  describe('getUnencryptedLogs config', () => {
     it('does not return more than "maxLogs" logs', async () => {
       const maxLogs = 5;
       archiverStore = new MemoryArchiverStore(maxLogs);
@@ -286,7 +242,7 @@ describe('Archiver Memory Store', () => {
       expect(response.logs.length).toBeGreaterThan(1);
     });
 
-    it.only('intersecting works', async () => {
+    it('intersecting works', async () => {
       let logs = (await archiverStore.getUnencryptedLogs({ fromBlock: -10, toBlock: -5 })).logs;
       expect(logs.length).toBe(0);
 
@@ -310,7 +266,6 @@ describe('Archiver Memory Store', () => {
       // intersecting with "afterLog" works
       logs = (await archiverStore.getUnencryptedLogs({ fromBlock: 2, toBlock: 5, afterLog: new LogId(4, 0, 0) })).logs;
       blockNumbers = new Set(logs.map(log => log.id.blockNumber));
-      // Check that blockNumbers contain only 4
       expect(blockNumbers).toEqual(new Set([4]));
 
       logs = (await archiverStore.getUnencryptedLogs({ toBlock: 5, afterLog: new LogId(5, 1, 0) })).logs;

@@ -14,7 +14,7 @@ import { DebugLogger, LogFn } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { fileURLToPath } from '@aztec/foundation/url';
 import { compileContract, generateNoirInterface, generateTypescriptInterface } from '@aztec/noir-compiler/cli';
-import { CompleteAddress, ContractData, LogFilter, validateLogFilter } from '@aztec/types';
+import { CompleteAddress, ContractData, LogFilter } from '@aztec/types';
 
 import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import { Command, Option } from 'commander';
@@ -316,8 +316,6 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       }
 
       const filter: LogFilter = { txHash, fromBlock, toBlock, afterLog, contractAddress, selector };
-
-      validateLogFilter(filter);
 
       const fetchLogs = async () => {
         const response = await pxe.getUnencryptedLogs(filter);

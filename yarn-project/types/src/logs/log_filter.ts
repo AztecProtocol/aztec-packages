@@ -1,6 +1,6 @@
 import { AztecAddress, FunctionSelector } from '@aztec/circuits.js';
 
-import { INITIAL_L2_BLOCK_NUM, LogId, TxHash } from '../index.js';
+import { LogId, TxHash } from '../index.js';
 
 /**
  * Log filter used to fetch L2 logs.
@@ -31,19 +31,3 @@ export type LogFilter = {
    */
   selector?: FunctionSelector;
 };
-
-/**
- * Validates a log filter.
- * @param filter - Log filter to validate.
- * @throws If the filter is invalid.
- */
-export function validateLogFilter(filter: LogFilter) {
-  if (filter.afterLog) {
-    // afterLog is a continuation parameter and when it is set, "txHash" is ignored and "fromBlock" and "toBlock" are
-    // intersected with.
-    return;
-  }
-  if (filter.txHash && (filter.fromBlock || filter.toBlock)) {
-    throw new Error('Invalid filter: "txHash" is set along with "fromBlock" and or "toBlock".');
-  }
-}
