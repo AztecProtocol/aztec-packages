@@ -1,13 +1,7 @@
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 
-import { executeCircuit } from '@noir-lang/acvm_js';
-import { abiEncode, abiDecode } from '@noir-lang/noirc_abi';
-
-import { InputType as InitInputType, ReturnType, ReadRequestMembershipWitness, PrivateCallStackItem, FixedLengthArray, Field } from './types/private_kernel_init_types.js';
-import { PrivateKernelInitArtifact } from './index.js';
-
-// TODO(Tom): This should be exported from noirc_abi
-export type DecodedInputs = { inputs: Record<string, any>; return_value: any };
+import { InputType as InitInputType, ReadRequestMembershipWitness, PrivateCallStackItem, FixedLengthArray, Field } from './types/private_kernel_init_types.js';
+import { executePrivateKernelInitWithACVM } from './index.js';
 
 /* eslint-disable */
 const privateCallStackItem : PrivateCallStackItem= {
@@ -236,25 +230,8 @@ describe('Private kernel', () => {
   it('Executes private kernel init circuit with abi all zeroes', async () => {
     logger('Initialized Noir instance with private kernel init circuit');
 
-    // Encode the initial witness values into the witness map
-    const initialWitnessMap = abiEncode(PrivateKernelInitArtifact.abi, defaultInputType, null);
+    const returnType = executePrivateKernelInitWithACVM(defaultInputType);
 
-    // Execute the circuit on those initial witness values
-    //
-    // Decode the bytecode from base64 since the acvm does not know about base64 encoding
-    const decodedBytecode = Buffer.from(PrivateKernelInitArtifact.bytecode, 'base64');
-    //
-    // Execute the circuit
-    const _witnessMap = await executeCircuit(decodedBytecode, initialWitnessMap, () => {
-      throw Error('unexpected oracle during execution');
-    });
-
-    // Decode the witness map into two fields, the return values and the inputs
-    const decodedInputs: DecodedInputs = abiDecode(PrivateKernelInitArtifact.abi, _witnessMap);
-    
-    // Cast the inputs as the return type
-    const _return_type = decodedInputs.return_value as ReturnType;
-    
     logger('Executed private kernel init circuit with all zeroes');
   });
 });
