@@ -104,7 +104,7 @@ void update_end_values(PrivateKernelInputsInner<CT> const& private_inputs, Kerne
         // input storage contract address must be 0 if its a constructor call and non-zero otherwise
         auto is_contract_deployment = public_inputs.constants.tx_context.is_contract_deployment_tx;
 
-        auto private_call_vk_hash = private_inputs.private_call.vk->hash(GeneratorIndex::VK);
+        auto private_call_vk_hash = private_inputs.private_call.vk->hash();
         auto constructor_hash = compute_constructor_hash<CT>(private_inputs.private_call.call_stack_item.function_data,
                                                              private_call_public_inputs.args_hash,
                                                              private_call_vk_hash);
