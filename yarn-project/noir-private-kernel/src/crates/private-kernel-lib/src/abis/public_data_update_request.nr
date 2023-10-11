@@ -8,8 +8,11 @@ struct PublicDataUpdateRequest {
 
 impl PublicDataUpdateRequest {
     fn hash(self) -> Field {
-        let _hash_index = constants_gen::GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST;
-        0
+        dep::std::hash::pedersen_with_separator([
+            self.leaf_index,
+            self.old_value,
+            self.new_value
+        ], constants_gen::GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST)[0]
     }
 
     // TODO(David): explain why we don't check other fields
