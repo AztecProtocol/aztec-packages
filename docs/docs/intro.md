@@ -5,7 +5,7 @@ title: What is Aztec?
 description: "Aztec introduces a privacy-centric zkRollup solution for Ethereum, enhancing confidentiality and scalability within the Ethereum ecosystem."
 ---
 
-# Aztec: Ethereum, encrypted
+# Aztec: A no-compromises privacy-first Layer 2 on Ethereum
 
 On Ethereum today, everything is publicly visible, by everyone.
 
