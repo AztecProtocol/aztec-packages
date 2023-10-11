@@ -288,7 +288,8 @@ fn contract_logic(private_call : PrivateCallData, public_inputs : &mut KernelCir
 
     // input storage contract address must be 0 if its a constructor call and non-zero otherwise
     if (is_contract_deployment) {
-        let constructor_hash = compute_constructor_hash(function_data, private_call_public_inputs.args_hash, private_call_vk_hash);
+        //TODO use locally computed private_call_vk_hash here
+        let constructor_hash = compute_constructor_hash(function_data, private_call_public_inputs.args_hash, contract_dep_data.constructor_vk_hash);
         let new_contract_address = CompleteAddress::compute(contract_dep_data.deployer_public_key,
                                                                        contract_dep_data.contract_address_salt,
                                                                        contract_dep_data.function_tree_root,

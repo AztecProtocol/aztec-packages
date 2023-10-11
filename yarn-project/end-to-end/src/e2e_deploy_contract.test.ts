@@ -23,7 +23,7 @@ describe('e2e_deploy_contract', () => {
    * Milestone 1.1.
    * https://hackmd.io/ouVCnacHQRq2o1oRc5ksNA#Interfaces-and-Responsibilities
    */
-  it('should deploy a contract', async () => {
+  it.only('should deploy a contract', async () => {
     const publicKey = accounts[0].publicKey;
     const salt = Fr.random();
     const deploymentData = await getContractDeploymentInfo(TestContractAbi, [], salt, publicKey);

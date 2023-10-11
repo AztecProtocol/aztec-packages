@@ -132,14 +132,14 @@ fn compute_l2_to_l1_hash(contract_address : Address, rollup_version_id: Field, p
     hash_to_field(inputs)
 }
 
-fn compute_constructor_hash(function_data : FunctionData, args_hash : Field, constructor_vk_hash : Field) -> Field {
+pub fn compute_constructor_hash(function_data : FunctionData, args_hash : Field, constructor_vk_hash : Field) -> Field {
     let function_data_hash = function_data.hash();
 
-    let inputs = [function_data_hash,args_hash,constructor_vk_hash];
-
-    let _hash_index = constants_gen::GENERATOR_INDEX__CONSTRUCTOR;
-
-    0
+    dep::std::hash::pedersen_with_separator([
+        function_data_hash,
+        args_hash,
+        constructor_vk_hash
+    ], constants_gen::GENERATOR_INDEX__CONSTRUCTOR)[0]
 }
 
 // sha256 hash is stored in two fields to accommodate all 256-bits of the hash

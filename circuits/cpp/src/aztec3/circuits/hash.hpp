@@ -47,7 +47,7 @@ template <typename NCT> typename NCT::fr compute_constructor_hash(FunctionData<N
         constructor_vk_hash,
     };
 
-    return NCT::compress(inputs, aztec3::GeneratorIndex::CONSTRUCTOR);
+    return NCT::hash(inputs, aztec3::GeneratorIndex::CONSTRUCTOR);
 }
 
 template <typename NCT> typename NCT::fr compute_partial_address(typename NCT::fr const& contract_address_salt,
