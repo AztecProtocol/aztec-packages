@@ -9,7 +9,6 @@ import {
   PrivateKernelInputsOrdering,
   Proof,
   makeEmptyProof,
-  privateKernelSimInit,
   privateKernelSimInner,
   privateKernelSimOrdering,
 } from '@aztec/circuits.js';
@@ -17,6 +16,7 @@ import { siloCommitment } from '@aztec/circuits.js/abis';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
+import { executeInit } from '@aztec/noir-private-kernel';
 
 /**
  * Represents the output of the proof creation process for init and inner private kernel circuit.
@@ -108,8 +108,7 @@ export class KernelProofCreator implements ProofCreator {
   }
 
   public async createProofInit(privateInputs: PrivateKernelInputsInit): Promise<ProofOutput> {
-    const wasm = await CircuitsWasm.get();
-    const [time, result] = await elapsed(() => privateKernelSimInit(wasm, privateInputs));
+    const [time, result] = await elapsed(() => executeInit(privateInputs));
     if (result instanceof CircuitError) {
       throw new CircuitError(result.code, result.message);
     }
