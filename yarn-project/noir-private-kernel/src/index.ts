@@ -45,7 +45,7 @@ export async function executeInit(privateKernelInputsInit: PrivateKernelInputsIn
 }
 
 /**
- * Executes the init private kernel with the given inputs.
+ * Executes the init private kernel with the given inputs using the acvm.
  * 
  * Note: we export this for now, so that we can run tests on it. 
  * We will make this private and just use `executeInit`.
