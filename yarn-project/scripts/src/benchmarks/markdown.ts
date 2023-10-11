@@ -3,8 +3,6 @@
 import { createConsoleLogger } from '@aztec/foundation/log';
 import { BENCHMARK_HISTORY_BLOCK_SIZE, Metrics } from '@aztec/types/stats';
 
-
-
 import * as fs from 'fs';
 import pick from 'lodash.pick';
 
