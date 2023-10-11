@@ -225,7 +225,7 @@ const sidebars = {
           ],
         },
         {
-          label: "Writing a Token Portal",
+          label: "Build a Token Bridge",
           type: "category",
           link: {
             type: "doc",
@@ -241,13 +241,22 @@ const sidebars = {
           ],
         },
         {
-          label: "Building Uniswap with Portals",
+          label: "Build Uniswap with Portals",
           type: "category",
           link: {
             type: "doc",
             id: "dev_docs/tutorials/uniswap/main",
           },
-          items: ["dev_docs/tutorials/uniswap/setup"],
+          items: [
+            "dev_docs/tutorials/uniswap/setup",
+            "dev_docs/tutorials/uniswap/l1_portal",
+            "dev_docs/tutorials/uniswap/l2_contract_setup",
+            "dev_docs/tutorials/uniswap/swap_publicly",
+            "dev_docs/tutorials/uniswap/execute_swap_on_l1",
+            "dev_docs/tutorials/uniswap/swap_privately",
+            "dev_docs/tutorials/uniswap/execute_private_swap_on_l1",
+            "dev_docs/tutorials/uniswap/typescript_glue_code",
+          ],
         },
         "dev_docs/tutorials/testing",
       ],

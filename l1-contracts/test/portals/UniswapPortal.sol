@@ -1,3 +1,4 @@
+// docs:start:setup
 pragma solidity >=0.8.18;
 
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
@@ -33,6 +34,8 @@ contract UniswapPortal {
     IERC20 outputAsset;
     bytes32 contentHash;
   }
+  // docs:end:setup
+
 
   // docs:start:solidity_uniswap_swap
   /**
@@ -128,6 +131,7 @@ contract UniswapPortal {
   }
   // docs:end:solidity_uniswap_swap
 
+  // docs:start:solidity_uniswap_swap_private
   /**
    * @notice Exit with funds from L2, perform swap on L1 and deposit output asset to L2 again privately
    * @dev `msg.value` indicates fee to submit message to inbox. Currently, anyone can call this method on your behalf.
@@ -224,3 +228,5 @@ contract UniswapPortal {
     );
   }
 }
+  // docs:end:solidity_uniswap_swap_private
+

@@ -1,3 +1,4 @@
+// docs:start:uniswap_util
 use dep::aztec::hash::sha256_to_field;
 
 // This method computes the L2 to L1 message content hash for the private
@@ -98,3 +99,4 @@ fn compute_swap_public_content_hash(
     let content_hash = sha256_to_field(hash_bytes);
     content_hash
 }
+// docs:end:uniswap_util

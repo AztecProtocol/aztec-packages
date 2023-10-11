@@ -105,7 +105,7 @@ aztec-contracts
 └── token_bridge
     ├── Nargo.toml
     ├── src
-		  ├── main.nr
+       ├── main
 ```
 
 Inside `Nargo.toml` you will need to add some dependencies. Put this at the bottom:
@@ -194,6 +194,7 @@ contracts
 ```
 
 # Create src yarn project
+
 In this package, we will write TS code that will interact with our ethereum and aztec-nr contracts and run them against the sandbox.
 
 We will use `viem` instead of `ethers.js` although ethers works fine too! We will also use `jest` to test our code.
@@ -202,11 +203,12 @@ Inside the root directory, run
 
 ```bash
 mkdir src && cd src && yarn init -yp
-yarn add @aztec/aztec.js @aztec/noir-contracts @aztec/types viem "@types/node@^20.8.2" 
+yarn add @aztec/aztec.js @aztec/noir-contracts @aztec/types viem "@types/node@^20.8.2"
 yarn add -D jest @jest/globals ts-jest
 ```
 
 In `package.json`, add:
+
 ```json
 "type": "module",
 "scripts": {
@@ -215,6 +217,7 @@ In `package.json`, add:
 ```
 
 Your `package.json` should look like so:
+
 ```json
 {
   "name": "src",
@@ -243,6 +246,7 @@ Your `package.json` should look like so:
 ```
 
 In this package we will also add a jest config file: `jest.config.json`
+
 ```json
 {
   "preset": "ts-jest/presets/default-esm",
@@ -260,12 +264,14 @@ In this package we will also add a jest config file: `jest.config.json`
 ```
 
 Finally, we will create a test file, in the `src` package:
+
 ```bash
 mkdir test
 touch index.test.ts
 ```
 
 Your `src` package should look like:
+
 ```json
 src
 ├── node_modules
