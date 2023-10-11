@@ -25,9 +25,14 @@ impl Block {
         assert(self.public_data_tree_root == 0);
     }
 
-    // TODO: Hash all contents of Block
     fn hash(self) -> Field {
-        let _hash_index = constants_gen::GENERATOR_INDEX__BLOCK_HASH;
-        0
+        dep::std::hash::pedersen_with_separator([
+            self.global_variables_hash,
+            self.private_data_tree_root,
+            self.nullifier_tree_root,
+            self.contract_tree_root,
+            self.l1_to_l2_data_tree_root,
+            self.public_data_tree_root,
+        ], constants_gen::GENERATOR_INDEX__BLOCK_HASH)[0]
     }
 }

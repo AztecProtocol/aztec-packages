@@ -7,8 +7,10 @@ struct StorageRead{
 
 impl StorageRead {
     fn hash(self) -> Field {
-        let _hash_index = constants_gen::GENERATOR_INDEX__PUBLIC_DATA_READ;
-        0
+        dep::std::hash::pedersen_with_separator([
+            self.storage_slot,
+            self.current_value,
+        ], constants_gen::GENERATOR_INDEX__PUBLIC_DATA_READ)[0]
     }
 
     fn is_empty(self) -> bool {

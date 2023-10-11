@@ -16,8 +16,15 @@ struct CallContext{
 
 impl CallContext {
     fn hash(self) -> Field {
-        let _hash_index = constants_gen::GENERATOR_INDEX__CALL_CONTEXT;
-        0
+        dep::std::hash::pedersen_with_separator([
+            self.msg_sender.to_field(),
+            self.storage_contract_address.to_field(),
+            self.portal_contract_address.to_field(),
+            self.function_selector.to_field(),
+            self.is_delegate_call as Field,
+            self.is_static_call as Field,
+            self.is_contract_deployment as Field,
+        ], constants_gen::GENERATOR_INDEX__CALL_CONTEXT)[0]
     }
 
     fn assert_is_zero(self) {

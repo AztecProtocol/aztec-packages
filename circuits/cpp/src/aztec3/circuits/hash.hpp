@@ -140,7 +140,7 @@ template <typename NCT> typename NCT::fr compute_block_hash(typename NCT::fr con
         contract_tree_root, l1_to_l2_data_tree_root, public_data_tree_root,
     };
 
-    return NCT::compress(inputs, aztec3::GeneratorIndex::BLOCK_HASH);
+    return NCT::hash(inputs, aztec3::GeneratorIndex::BLOCK_HASH);
 }
 
 template <typename NCT>

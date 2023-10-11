@@ -43,8 +43,28 @@ struct PublicCircuitPublicInputs{
 
 
 impl PublicCircuitPublicInputs{
-    fn hash(self) -> Field {
-        let _hash_index = constants_gen::GENERATOR_INDEX__PUBLIC_CIRCUIT_PUBLIC_INPUTS;
-        0
+    // TODO : Maybe reuse aztec-nr?
+    // TODO : Implement this with BoundedVec
+    fn hash(self) -> Field {        
+        let mut inputs: BoundedVec<Field, constants_gen::PUBLIC_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH> = BoundedVec::new(0);
+        inputs.push(self.call_context.hash());
+        inputs.push(self.args_hash);
+        inputs.push_array(self.return_values);
+        for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL {
+            inputs.push(self.contract_storage_update_requests[i].hash());
+        }
+        for i in 0..MAX_PUBLIC_DATA_READS_PER_CALL {
+            inputs.push(self.contract_storage_reads[i].hash());
+        }
+        inputs.push_array(self.public_call_stack);
+        inputs.push_array(self.new_commitments);
+        inputs.push_array(self.new_nullifiers);
+        inputs.push_array(self.new_l2_to_l1_msgs);
+        inputs.push_array(self.unencrypted_logs_hash);
+        inputs.push(self.unencrypted_log_preimages_length);
+        inputs.push_array(self.historical_block_data.to_array());
+        inputs.push(self.prover_address.to_field());
+
+        dep::std::hash::pedersen_with_separator(inputs.storage, constants_gen::GENERATOR_INDEX__PUBLIC_CIRCUIT_PUBLIC_INPUTS)[0]
     }
 }
