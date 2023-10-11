@@ -6,17 +6,18 @@ extract_repo yarn-project /usr/src project
 cd project/src/yarn-project
 
 echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >.npmrc
+# also copy npcrc into the l1-contracts directory
+cp .npmrc ../l1-contracts
 
 # This is to be used with the 'canary' tag for testing, and then 'latest' for making it public
-DIST_TAG=${1:-}
+DIST_TAG=${1:-"latest"}
 
 function deploy_package() {
   REPOSITORY=$1
   cd $REPOSITORY
 
   PACKAGE_NAME=$(jq -r '.name' package.json)
-
-  VERSION=$(extract_tag_version $REPOSITORY true)
+  VERSION=$(extract_tag_version $REPOSITORY false)
   echo "Deploying $REPOSITORY $VERSION $DIST_TAG"
 
   if [ -n "$DIST_TAG" ]; then
@@ -52,23 +53,24 @@ function deploy_package() {
 
   # Publish
   if [ -n "${COMMIT_TAG:-}" ]; then
-    if [ "$DIST_TAG" == "latest" ]; then
-      # Check if version exists
-      # npm show . version --tag canary
-      if npm view "$PACKAGE_NAME@$VERSION" version >/dev/null 2>&1; then
-        # Tag the existing version
-        npm dist-tag add $PACKAGE_NAME@$VERSION $DIST_TAG
-      else
-        # Publish new verison
-        npm publish $TAG_ARG --access public
-      fi
+    # Check if version exists
+    if npm view "$PACKAGE_NAME@$VERSION" version >/dev/null 2>&1; then
+      # Tag the existing version
+      npm dist-tag add $PACKAGE_NAME@$VERSION $DIST_TAG
+    else
+      # Publish new verison
+      npm publish $TAG_ARG --access public
     fi
   else
     npm publish --dry-run $TAG_ARG --access public
   fi
 
   # Back to root
-  cd ..
+  if [ "$REPOSITORY" == "../l1-contracts" ]; then
+    cd ../yarn-project
+  else
+    cd ..
+  fi
 }
 
 deploy_package foundation
@@ -90,3 +92,4 @@ deploy_package world-state
 deploy_package sequencer-client
 deploy_package aztec-node
 deploy_package aztec-sandbox
+deploy_package ../l1-contracts
