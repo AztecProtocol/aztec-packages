@@ -114,10 +114,10 @@ template <typename NCT> struct PublicCircuitPublicInputs {
         spread_arr_into_vec(map(contract_storage_update_requests, to_hashes), inputs);
         spread_arr_into_vec(map(contract_storage_reads, to_hashes), inputs);
 
-        spread_arr_into_vec(public_call_stack, inputs);
-        spread_arr_into_vec(new_commitments, inputs);
-        spread_arr_into_vec(new_nullifiers, inputs);
-        spread_arr_into_vec(new_l2_to_l1_msgs, inputs);
+        spread_arr_into_vec(map(public_call_stack, to_hashes), inputs);
+        spread_arr_into_vec(map(new_commitments, to_hashes), inputs);
+        spread_arr_into_vec(map(new_nullifiers, to_hashes), inputs);
+        spread_arr_into_vec(map(new_l2_to_l1_msgs, to_hashes), inputs);
 
         spread_arr_into_vec(unencrypted_logs_hash, inputs);
         inputs.push_back(unencrypted_log_preimages_length);

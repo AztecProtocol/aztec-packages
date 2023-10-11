@@ -1,5 +1,6 @@
 #pragma once
 
+#include "aztec3/constants.hpp"
 #include "aztec3/utils/types/circuit_types.hpp"
 #include "aztec3/utils/types/convert.hpp"
 #include "aztec3/utils/types/native_types.hpp"
@@ -8,13 +9,6 @@ namespace aztec3::circuits::abis {
 
 using aztec3::utils::types::CircuitTypes;
 using aztec3::utils::types::NativeTypes;
-
-// template <typename SE, size_t SIZE>
-// void spread_struct_arr_into_vec(std::array<SE, SIZE> const& arr, std::vector<SE>& vec)
-//{
-//     const auto arr_size = sizeof(arr) / sizeof(SE);
-//     vec.insert(vec.end(), arr.data, arr.data() + arr_size);
-// }
 
 template <typename NCT> struct SideEffect {
     using fr = typename NCT::fr;
@@ -67,6 +61,8 @@ template <typename NCT> struct SideEffect {
             fr::conditional_assign(predicate, lhs.side_effect_counter, rhs.side_effect_counter),
         };
     }
+
+    fr hash() const { return NCT::hash({ value, side_effect_counter }, GeneratorIndex::SIDE_EFFECT); }
 
     // TODO(dbanks12): should `assert_is_zero` just return whether value is zero?
     template <typename Builder> void assert_is_zero()
@@ -145,6 +141,11 @@ template <typename NCT> struct SideEffectLinkedToNoteHash {
         };
     }
 
+    fr hash() const
+    {
+        return NCT::hash({ value, note_hash, side_effect_counter }, GeneratorIndex::SIDE_EFFECT_LINKED_TO_NOTE_HASH);
+    }
+
     // TODO(dbanks12): should `assert_is_zero` just return whether value is zero?
     template <typename Builder> void assert_is_zero()
     {
@@ -154,6 +155,7 @@ template <typename NCT> struct SideEffectLinkedToNoteHash {
         note_hash.assert_is_zero();
         side_effect_counter.assert_is_zero();
     }
+
 
     boolean is_empty() const { return ((value.is_zero()) && (note_hash.is_zero()) && (side_effect_counter.is_zero())); }
 
@@ -222,6 +224,12 @@ template <typename NCT> struct SideEffectWithRange {
             fr::conditional_assign(predicate, lhs.start_side_effect_counter, rhs.start_side_effect_counter),
             fr::conditional_assign(predicate, lhs.end_side_effect_counter, rhs.end_side_effect_counter),
         };
+    }
+
+    fr hash() const
+    {
+        return NCT::hash({ value, start_side_effect_counter, end_side_effect_counter },
+                         GeneratorIndex::SIDE_EFFECT_WITH_RANGE);
     }
 
     // TODO(dbanks12): should `assert_is_zero` just return whether value is zero?

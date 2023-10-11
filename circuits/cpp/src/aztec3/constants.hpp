@@ -141,34 +141,37 @@ enum GeneratorIndex {
     /**
      * Indices with size ≤ 8
      */
-    COMMITMENT = 1,              // Size = 7 (unused)
-    COMMITMENT_NONCE,            // Size = 2
-    UNIQUE_COMMITMENT,           // Size = 2
-    SILOED_COMMITMENT,           // Size = 2
-    NULLIFIER,                   // Size = 4 (unused)
-    INITIALISATION_NULLIFIER,    // Size = 2 (unused)
-    OUTER_NULLIFIER,             // Size = 2
-    PUBLIC_DATA_READ,            // Size = 2
-    PUBLIC_DATA_UPDATE_REQUEST,  // Size = 3
-    FUNCTION_DATA,               // Size = 4
-    FUNCTION_LEAF,               // Size = 5
-    CONTRACT_DEPLOYMENT_DATA,    // Size = 4
-    CONSTRUCTOR,                 // Size = 3
-    CONSTRUCTOR_ARGS,            // Size = 8
-    CONTRACT_ADDRESS,            // Size = 4
-    CONTRACT_LEAF,               // Size = 3
-    CALL_CONTEXT,                // Size = 6
-    CALL_STACK_ITEM,             // Size = 3
-    CALL_STACK_ITEM_2,           // Size = ? (unused), // TODO see function where it's used for explanation
-    L1_TO_L2_MESSAGE_SECRET,     // Size = 1
-    L2_TO_L1_MSG,                // Size = 2 (unused)
-    TX_CONTEXT,                  // Size = 4
-    PUBLIC_LEAF_INDEX,           // Size = 2 (unused)
-    PUBLIC_DATA_LEAF,            // Size = ? (unused) // TODO what's the expected size? Assuming ≤ 8
-    SIGNED_TX_REQUEST,           // Size = 7
-    GLOBAL_VARIABLES,            // Size = 4
-    PARTIAL_ADDRESS,             // Size = 7
-    BLOCK_HASH,                  // Size = 6
+    COMMITMENT = 1,                   // Size = 7 (unused)
+    COMMITMENT_NONCE,                 // Size = 2
+    UNIQUE_COMMITMENT,                // Size = 2
+    SILOED_COMMITMENT,                // Size = 2
+    NULLIFIER,                        // Size = 4 (unused)
+    INITIALISATION_NULLIFIER,         // Size = 2 (unused)
+    OUTER_NULLIFIER,                  // Size = 2
+    PUBLIC_DATA_READ,                 // Size = 2
+    PUBLIC_DATA_UPDATE_REQUEST,       // Size = 3
+    FUNCTION_DATA,                    // Size = 4
+    FUNCTION_LEAF,                    // Size = 5
+    CONTRACT_DEPLOYMENT_DATA,         // Size = 4
+    CONSTRUCTOR,                      // Size = 3
+    CONSTRUCTOR_ARGS,                 // Size = 8
+    CONTRACT_ADDRESS,                 // Size = 4
+    CONTRACT_LEAF,                    // Size = 3
+    CALL_CONTEXT,                     // Size = 6
+    CALL_STACK_ITEM,                  // Size = 3
+    CALL_STACK_ITEM_2,                // Size = ? (unused), // TODO see function where it's used for explanation
+    L1_TO_L2_MESSAGE_SECRET,          // Size = 1
+    L2_TO_L1_MSG,                     // Size = 2 (unused)
+    TX_CONTEXT,                       // Size = 4
+    PUBLIC_LEAF_INDEX,                // Size = 2 (unused)
+    PUBLIC_DATA_LEAF,                 // Size = ? (unused) // TODO what's the expected size? Assuming ≤ 8
+    SIGNED_TX_REQUEST,                // Size = 7
+    GLOBAL_VARIABLES,                 // Size = 4
+    PARTIAL_ADDRESS,                  // Size = 7
+    BLOCK_HASH,                       // Size = 6
+    SIDE_EFFECT,                      // Size = 2
+    SIDE_EFFECT_LINKED_TO_NOTE_HASH,  // Size = 3
+    SIDE_EFFECT_WITH_RANGE,           // Size = 3
     /**
      * Indices with size ≤ 16
      */
@@ -245,20 +248,18 @@ constexpr size_t PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH =
     MAX_NEW_NULLIFIERS_PER_CALL * SIDE_EFFECT_LINKED_TO_NOTEHASH_LENGTH + MAX_NEW_NULLIFIERS_PER_CALL +
     MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL * SIDE_EFFECT_WITH_RANGE_LENGTH +
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL * SIDE_EFFECT_WITH_RANGE_LENGTH +
-    MAX_NEW_L2_TO_L1_MSGS_PER_CALL * SIDE_EFFECT_LENGTH + NUM_FIELDS_PER_SHA256 + NUM_FIELDS_PER_SHA256 +
+    MAX_NEW_L2_TO_L1_MSGS_PER_CALL * SIDE_EFFECT_LENGTH + NUM_FIELDS_PER_SHA256 +
+    NUM_FIELDS_PER_SHA256 +                                              // sha256s for log hashes
     2                                                                    // + 2 for logs preimage lengths
     + HISTORIC_BLOCK_DATA_LENGTH + CONTRACT_DEPLOYMENT_DATA_LENGTH + 2;  // + 2 for chain_id and version
 
 constexpr size_t PRIVATE_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH =
     1 + 1  // call_context_hash + args_hash
-    + RETURN_VALUES_LENGTH + MAX_READ_REQUESTS_PER_CALL * SIDE_EFFECT_LENGTH +
-    MAX_NEW_COMMITMENTS_PER_CALL * SIDE_EFFECT_LENGTH +
-    MAX_NEW_NULLIFIERS_PER_CALL * SIDE_EFFECT_LINKED_TO_NOTEHASH_LENGTH + MAX_NEW_NULLIFIERS_PER_CALL +
-    MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL * SIDE_EFFECT_WITH_RANGE_LENGTH +
-    MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL * SIDE_EFFECT_WITH_RANGE_LENGTH +  // *3 for start/end sideeffect counters
-    MAX_NEW_L2_TO_L1_MSGS_PER_CALL * SIDE_EFFECT_LENGTH +                    // *2 for sideeffect counter
-    NUM_FIELDS_PER_SHA256 + NUM_FIELDS_PER_SHA256 + 2                        // + 2 for logs preimage lengths
-    + HISTORIC_BLOCK_DATA_LENGTH + 3;  // + 3 for contract_deployment_data.hash(), chain_id, version
+    + RETURN_VALUES_LENGTH + MAX_READ_REQUESTS_PER_CALL + MAX_NEW_COMMITMENTS_PER_CALL + MAX_NEW_NULLIFIERS_PER_CALL +
+    MAX_NEW_NULLIFIERS_PER_CALL + MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL + MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL +
+    MAX_NEW_L2_TO_L1_MSGS_PER_CALL + NUM_FIELDS_PER_SHA256 + NUM_FIELDS_PER_SHA256 +
+    2 +                              // + 2 for logs preimage lengths
+    HISTORIC_BLOCK_DATA_LENGTH + 3;  // + 3 for contract_deployment_data.hash(), chain_id, version
 
 constexpr size_t CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH = 4;
 constexpr size_t CONTRACT_STORAGE_READ_LENGTH = 3;
@@ -277,11 +278,8 @@ constexpr size_t PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH =
 
 constexpr size_t PUBLIC_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH =
     2 + RETURN_VALUES_LENGTH +  // + 1 for args_hash + 1 call_context.hash
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL + MAX_PUBLIC_DATA_READS_PER_CALL +
-    MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL * SIDE_EFFECT_WITH_RANGE_LENGTH +
-    MAX_NEW_COMMITMENTS_PER_CALL * SIDE_EFFECT_LENGTH +
-    MAX_NEW_NULLIFIERS_PER_CALL * SIDE_EFFECT_LINKED_TO_NOTEHASH_LENGTH +
-    MAX_NEW_L2_TO_L1_MSGS_PER_CALL * SIDE_EFFECT_LENGTH +
+    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL + MAX_PUBLIC_DATA_READS_PER_CALL + MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL +
+    MAX_NEW_COMMITMENTS_PER_CALL + MAX_NEW_NULLIFIERS_PER_CALL + MAX_NEW_L2_TO_L1_MSGS_PER_CALL +
     NUM_FIELDS_PER_SHA256 +          // unencrypted_logs_hash (being represented by NUM_FIELDS_PER_SHA256)
     HISTORIC_BLOCK_DATA_LENGTH + 2;  // unencrypted_log_preimages_length + prover_address
 

@@ -180,7 +180,7 @@ template <typename NCT> class PrivateCircuitPublicInputs {
 
     fr hash() const
     {
-        // auto to_hashes = []<typename T>(const T& e) { return e.hash(); };
+        auto to_hashes = []<typename T>(const T& e) { return e.hash(); };
 
         std::vector<fr> inputs;
 
@@ -189,16 +189,16 @@ template <typename NCT> class PrivateCircuitPublicInputs {
         inputs.push_back(args_hash);
         spread_arr_into_vec(return_values, inputs);
 
-        spread_arr_into_vec(read_requests, inputs);
+        spread_arr_into_vec(map(read_requests, to_hashes), inputs);
 
-        spread_arr_into_vec(new_commitments, inputs);
-        spread_arr_into_vec(new_nullifiers, inputs);
+        spread_arr_into_vec(map(new_commitments, to_hashes), inputs);
+        spread_arr_into_vec(map(new_nullifiers, to_hashes), inputs);
         // TODO(dbanks12): remove me!
         spread_arr_into_vec(nullified_commitments, inputs);
 
-        spread_arr_into_vec(private_call_stack, inputs);
-        spread_arr_into_vec(public_call_stack, inputs);
-        spread_arr_into_vec(new_l2_to_l1_msgs, inputs);
+        spread_arr_into_vec(map(private_call_stack, to_hashes), inputs);
+        spread_arr_into_vec(map(public_call_stack, to_hashes), inputs);
+        spread_arr_into_vec(map(new_l2_to_l1_msgs, to_hashes), inputs);
 
         spread_arr_into_vec(encrypted_logs_hash, inputs);
         spread_arr_into_vec(unencrypted_logs_hash, inputs);
@@ -223,15 +223,6 @@ template <typename NCT> class PrivateCircuitPublicInputs {
     {
         const auto arr_size = sizeof(arr) / sizeof(fr);
         vec.insert(vec.end(), arr.data(), arr.data() + arr_size);
-    }
-
-    template <typename T, size_t SIZE>
-    void spread_arr_into_vec(std::array<T, SIZE> const& arr, std::vector<fr>& vec) const
-    {
-        const auto arr_size = sizeof(arr) / sizeof(fr);
-        for (size_t i = 0; i < arr_size; i++) {
-            vec.insert(vec.end(), arr[i].value);
-        }
     }
 };
 
