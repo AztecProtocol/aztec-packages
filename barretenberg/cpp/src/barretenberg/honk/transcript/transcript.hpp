@@ -67,9 +67,7 @@ template <typename FF> class BaseTranscript {
     // TODO(Adrian): Make these tweakable
   public:
     static constexpr size_t HASH_OUTPUT_SIZE = 32;
-    BaseTranscript() = default;
-
-    BaseTranscript(uint32_t circuit_size) { setUpStructure(circuit_size); }
+    BaseTranscript() = default; // TODO(Lucas): delete this?
 
   private:
     static constexpr size_t MIN_BYTES_PER_CHALLENGE = 128 / 8; // 128 bit challenges
@@ -83,9 +81,6 @@ template <typename FF> class BaseTranscript {
 
     // "Manifest" object that records a summary of the transcript interactions
     TranscriptManifest manifest;
-
-    // TODO(lucas): make this pure virtual
-    void setUpStructure(uint32_t circuit_size);
 
     /**
      * @brief Checks that the current object is the expected next one.
@@ -150,13 +145,28 @@ template <typename FF> class BaseTranscript {
 
   protected:
     // Enum to deal with various types in Transcript
-    enum TranscriptObjectType { UInt32Obj, FieldElementObj, GroupElementObj, SumcheckUnivariateObj, SumcheckEvalObj };
-
+    enum TranscriptObjectType { UInt32Obj, FieldElementObj, CommitmentObj, SumcheckUnivariateObj, SumcheckEvalObj };
     // conversion mapping from type to TranscriptObjectType enum object
-    template <typename T> inline TranscriptObjectType convertTypeToEnum([[maybe_unused]] T _);
+    template <typename T> static TranscriptObjectType convertTypeToEnum([[maybe_unused]] T _);
+    static std::vector<uint8_t> serializeObj(TranscriptObjectType enum_type, void* obj);
+    void deserializeObj(void* obj_ptr, TranscriptObjectType enum_type, const std::span<const uint8_t>& buf);
 
+    class TranscriptObject {
+      public:
+        template <typename T>
+        TranscriptObject(std::string name, T* ptr)
+            : obj_name(std::move(name))
+            , obj_ptr(static_cast<void*>(ptr))
+            , obj_size(sizeof(T))
+            , obj_type(convertTypeToEnum(*ptr))
+        {}
+        std::string obj_name; // object name as a string
+        void* obj_ptr;        // ptr to member variable object in class
+        size_t obj_size;      // in bytes
+        TranscriptObjectType obj_type;
+    };
     // List of objects in the transcript by name, pointer, and size in bytes
-    std::vector<std::tuple<std::string, void*, TranscriptObjectType>> ordered_objects;
+    std::vector<TranscriptObject> ordered_objects;
 
     /**
      * @brief Adds challenge elements to the current_round_buffer and updates the manifest.
@@ -172,13 +182,30 @@ template <typename FF> class BaseTranscript {
         current_round_data.insert(current_round_data.end(), element_bytes.begin(), element_bytes.end());
     }
 
+    // TODO(lucas): make this pure virtual
+    void setUpStructure(uint32_t circuit_size);
+
+    void setUpStructureAndDeserialize(uint32_t circuit_size, const std::vector<uint8_t>& proof_data)
+    {
+        setUpStructure(circuit_size);
+        size_t num_bytes_read_ = 0;
+        for (TranscriptObject& obj : ordered_objects) {
+            size_t element_size = obj.obj_size;
+            ASSERT(num_bytes_read_ + element_size <= proof_data.size());
+
+            auto element_bytes = std::span{ proof_data }.subspan(num_bytes_read_, element_size);
+            num_bytes_read_ += element_size;
+            deserializeObj(obj.obj_ptr, obj.obj_type, element_bytes);
+        }
+    }
+
   public:
     template <typename T> void send_to_verifier(std::string object_name, T object)
     {
         if (!check_current_object(object_name)) {
             throw_or_abort("Object being sent is not expected.");
         }
-        T* obj_ptr = static_cast<T*>(get<1>(ordered_objects[num_objects_processed]));
+        T* obj_ptr = static_cast<T*>(ordered_objects[num_objects_processed].obj_ptr);
         // set the current object pointed to by ordered_objects as object
         *obj_ptr = object;
         ++num_objects_processed; // update num_objects_processed to point to the next object
@@ -188,7 +215,7 @@ template <typename FF> class BaseTranscript {
         if (!check_current_object(object_name)) {
             throw_or_abort("Object being sent is not expected.");
         }
-        T* obj_ptr = static_cast<T*>(get<1>(ordered_objects[num_objects_processed]));
+        T* obj_ptr = static_cast<T*>(ordered_objects[num_objects_processed].obj_ptr);
         ++num_objects_processed; // update num_objects_processed to point to the next object
         return *obj_ptr;
     }
@@ -238,6 +265,16 @@ template <typename FF> class BaseTranscript {
     FF get_challenge(const std::string& label) { return get_challenges(label)[0]; }
 
     [[nodiscard]] TranscriptManifest get_manifest() const { return manifest; };
+
+    std::vector<uint8_t> serialize()
+    { // TODO(Lucas): make this pure virtual
+        std::vector<uint8_t> proof_data;
+        for (TranscriptObject& obj : ordered_objects) {
+            std::vector<uint8_t> obj_bytes = serializeObj(obj.obj_type, obj.obj_ptr);
+            proof_data.insert(proof_data.end(), obj_bytes.begin(), obj_bytes.end());
+        }
+        return proof_data;
+    }
 
     void print() { manifest.print(); }
 };

@@ -1,4 +1,5 @@
 #pragma once
+#include "barretenberg/common/serialize.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/honk/pcs/kzg/kzg.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
@@ -402,30 +403,37 @@ class Ultra {
         uint32_t circuit_size;
         uint32_t public_input_size;
         uint32_t pub_inputs_offset;
-        FF public_input_0;
-        GroupElement w_l_comm;
-        GroupElement w_r_comm;
-        GroupElement w_o_comm;
-        GroupElement sorted_accum_comm;
-        GroupElement w_4_comm;
-        GroupElement z_perm_comm;
-        GroupElement z_lookup_comm;
+        std::vector<FF> public_inputs;
+        Commitment w_l_comm;
+        Commitment w_r_comm;
+        Commitment w_o_comm;
+        Commitment sorted_accum_comm;
+        Commitment w_4_comm;
+        Commitment z_perm_comm;
+        Commitment z_lookup_comm;
         std::vector<barretenberg::Univariate<FF, MAX_RELATION_LENGTH>> sumcheck_univariates;
         std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
-        std::vector<GroupElement> gemini_univariate_comms;
+        std::vector<Commitment> gemini_univariate_comms;
         std::vector<FF> gemini_a_evals;
-        GroupElement shplonk_q_comm;
-        GroupElement kzg_w_comm;
+        Commitment shplonk_q_comm;
+        Commitment kzg_w_comm;
+
+        Transcript(uint32_t circuit_size) { setUpStructure(circuit_size); }
+
+        Transcript(uint32_t circuit_size, const std::vector<uint8_t>& proof_data)
+        {
+            setUpStructureAndDeserialize(circuit_size, proof_data);
+        }
 
       private:
-        template <typename T> inline TranscriptObjectType convertTypeToEnum([[maybe_unused]] T _)
+        template <typename T> inline static TranscriptObjectType convertTypeToEnum([[maybe_unused]] T _)
         {
             if constexpr (std::same_as<T, uint32_t>) {
                 return UInt32Obj;
             } else if constexpr (std::same_as<T, FF>) {
                 return FieldElementObj;
-            } else if constexpr (std::same_as<T, GroupElement>) {
-                return GroupElementObj;
+            } else if constexpr (std::same_as<T, Commitment>) {
+                return CommitmentObj;
             } else if constexpr (std::same_as<T, Univariate<FF, MAX_RELATION_LENGTH>>) {
                 return SumcheckUnivariateObj;
             } else if constexpr (std::same_as<T, std::array<FF, NUM_ALL_ENTITIES>>) {
@@ -435,19 +443,46 @@ class Ultra {
             }
         }
 
-        template <typename T> T convertTypePtrFromEnum(TranscriptObjectType enum_type, void* obj_ptr)
+        static std::vector<uint8_t> serializeObj(TranscriptObjectType enum_type, void* obj_ptr)
         {
+            using serialize::write;
             switch (enum_type) {
             case UInt32Obj:
-                return (static_cast<uint32_t*>(obj_ptr));
+                return to_buffer(*static_cast<uint32_t*>(obj_ptr));
             case FieldElementObj:
-                return (static_cast<FF*>(obj_ptr));
-            case GroupElementObj:
-                return (static_cast<GroupElement*>(obj_ptr));
+                return to_buffer(*static_cast<FF*>(obj_ptr));
+            case CommitmentObj:
+                return to_buffer(*static_cast<Commitment*>(obj_ptr));
             case SumcheckUnivariateObj:
-                return (static_cast<Univariate<FF, MAX_RELATION_LENGTH>*>(obj_ptr));
+                return to_buffer(*static_cast<Univariate<FF, MAX_RELATION_LENGTH>*>(obj_ptr));
             case SumcheckEvalObj:
-                return (static_cast<std::array<FF, NUM_ALL_ENTITIES>*>(obj_ptr));
+                return to_buffer(*static_cast<std::array<FF, NUM_ALL_ENTITIES>*>(obj_ptr));
+            default:
+                throw_or_abort("Received unknown enum type in convertTypePtrFromEnum");
+            }
+        }
+
+        void deserializeObj(void* obj_ptr, TranscriptObjectType enum_type, const std::span<const uint8_t>& buf)
+        {
+            using serialize::read;
+            switch (enum_type) {
+            case UInt32Obj:
+                *static_cast<uint32_t*>(obj_ptr) = from_buffer<uint32_t>(buf);
+                return;
+            case FieldElementObj:
+                *static_cast<FF*>(obj_ptr) = from_buffer<FF>(buf);
+                return;
+            case CommitmentObj:
+                *static_cast<Commitment*>(obj_ptr) = from_buffer<Commitment>(buf);
+                return;
+            case SumcheckUnivariateObj:
+                *static_cast<Univariate<FF, MAX_RELATION_LENGTH>*>(obj_ptr) =
+                    from_buffer<Univariate<FF, MAX_RELATION_LENGTH>>(buf);
+                return;
+            case SumcheckEvalObj:
+                *static_cast<std::array<FF, NUM_ALL_ENTITIES>*>(obj_ptr) =
+                    from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(buf);
+                return;
             default:
                 throw_or_abort("Received unknown enum type in convertTypePtrFromEnum");
             }
@@ -457,42 +492,41 @@ class Ultra {
         {
             // construct the vector
             auto log_n = numeric::get_msb(circuit_size);
-            // resize the vectors to be the correct size based on circuit size
+            // resize the vectors to be the correct size
+            public_inputs.resize(public_input_size);
             sumcheck_univariates.resize(log_n);
             gemini_univariate_comms.resize(log_n);
             gemini_a_evals.resize(log_n);
 
-            ordered_objects.emplace_back("circuit_size", &circuit_size, convertTypeToEnum(circuit_size));
-            ordered_objects.emplace_back("public_input_size", &public_input_size, convertTypeToEnum(public_input_size));
-            ordered_objects.emplace_back("pub_inputs_offset", &pub_inputs_offset, convertTypeToEnum(pub_inputs_offset));
-            ordered_objects.emplace_back("public_input_0", &public_input_0, convertTypeToEnum(public_input_0));
-            ordered_objects.emplace_back("w_l_comm", &w_l_comm, convertTypeToEnum(w_l_comm));
-            ordered_objects.emplace_back("w_r_comm", &w_r_comm, convertTypeToEnum(w_r_comm));
-            ordered_objects.emplace_back("w_o_comm", &w_o_comm, convertTypeToEnum(w_o_comm));
-            ordered_objects.emplace_back("sorted_accum_comm", &sorted_accum_comm, convertTypeToEnum(sorted_accum_comm));
-            ordered_objects.emplace_back("w_4_comm", &w_4_comm, convertTypeToEnum(w_4_comm));
-            ordered_objects.emplace_back("z_perm_comm", &z_perm_comm, convertTypeToEnum(z_perm_comm));
-            ordered_objects.emplace_back("z_lookup_comm", &z_lookup_comm, convertTypeToEnum(z_lookup_comm));
+            ordered_objects.emplace_back("circuit_size", &circuit_size);
+            ordered_objects.emplace_back("public_input_size", &public_input_size);
+            ordered_objects.emplace_back("pub_inputs_offset", &pub_inputs_offset);
+            for (size_t i = 0; i < public_input_size; ++i) {
+                std::string idx = std::to_string(i);
+                ordered_objects.emplace_back("public_inputs_" + idx, &public_inputs[i]);
+            }
+            ordered_objects.emplace_back("w_l_comm", &w_l_comm);
+            ordered_objects.emplace_back("w_r_comm", &w_r_comm);
+            ordered_objects.emplace_back("w_o_comm", &w_o_comm);
+            ordered_objects.emplace_back("sorted_accum_comm", &sorted_accum_comm);
+            ordered_objects.emplace_back("w_4_comm", &w_4_comm);
+            ordered_objects.emplace_back("z_perm_comm", &z_perm_comm);
+            ordered_objects.emplace_back("z_lookup_comm", &z_lookup_comm);
             for (size_t i = 0; i < log_n; ++i) {
                 std::string idx = std::to_string(i);
-                ordered_objects.emplace_back(
-                    "sumcheck_univariate_" + idx, &sumcheck_univariates[i], convertTypeToEnum(sumcheck_univariates[i]));
+                ordered_objects.emplace_back("sumcheck_univariate_" + idx, &sumcheck_univariates[i]);
             }
-            ordered_objects.emplace_back(
-                "sumcheck_evaluations", &sumcheck_evaluations, convertTypeToEnum(sumcheck_evaluations));
+            ordered_objects.emplace_back("sumcheck_evaluations", &sumcheck_evaluations);
             for (size_t i = 0; i < log_n; ++i) {
                 std::string idx = std::to_string(i);
-                ordered_objects.emplace_back("gemini_univariate_comm_" + idx,
-                                             &gemini_univariate_comms[i],
-                                             convertTypeToEnum(gemini_univariate_comms[i]));
+                ordered_objects.emplace_back("gemini_univariate_comm_" + idx, &gemini_univariate_comms[i]);
             }
             for (size_t i = 0; i < log_n; ++i) {
                 std::string idx = std::to_string(i);
-                ordered_objects.emplace_back(
-                    "gemini_a_eval_" + idx, &gemini_a_evals[i], convertTypeToEnum(gemini_a_evals[i]));
+                ordered_objects.emplace_back("gemini_a_eval_" + idx, &gemini_a_evals[i]);
             }
-            ordered_objects.emplace_back("shplonk_q_comm", &shplonk_q_comm, convertTypeToEnum(shplonk_q_comm));
-            ordered_objects.emplace_back("kzg_w_comm", &kzg_w_comm, convertTypeToEnum(kzg_w_comm));
+            ordered_objects.emplace_back("shplonk_q_comm", &shplonk_q_comm);
+            ordered_objects.emplace_back("kzg_w_comm", &kzg_w_comm);
         }
     };
 };
