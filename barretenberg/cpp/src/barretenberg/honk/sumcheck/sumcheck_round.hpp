@@ -6,6 +6,7 @@
 #include "barretenberg/polynomials/pow.hpp"
 #include "barretenberg/proof_system/flavor/flavor.hpp"
 #include "barretenberg/proof_system/relations/relation_parameters.hpp"
+#include "barretenberg/proof_system/relations/relation_types.hpp"
 #include "barretenberg/proof_system/relations/utils.hpp"
 
 namespace proof_system::honk::sumcheck {
@@ -56,7 +57,7 @@ template <typename Flavor> class SumcheckProverRound {
 
     using Utils = barretenberg::RelationUtils<Flavor>;
     using Relations = typename Flavor::Relations;
-    using RelationSumcheckUnivariates = typename Flavor::RelationSumcheckUnivariates;
+    using TupleOfTuplesOfUnivariates = typename Flavor::TupleOfTuplesOfUnivariates;
 
   public:
     using FF = typename Flavor::FF;
@@ -68,7 +69,7 @@ template <typename Flavor> class SumcheckProverRound {
     static constexpr size_t MAX_RELATION_LENGTH = Flavor::MAX_RELATION_LENGTH;
     static constexpr size_t MAX_RANDOM_RELATION_LENGTH = Flavor::MAX_RANDOM_RELATION_LENGTH;
 
-    RelationSumcheckUnivariates univariate_accumulators;
+    TupleOfTuplesOfUnivariates univariate_accumulators;
 
     // Prover constructor
     SumcheckProverRound(size_t initial_round_size)
@@ -90,7 +91,7 @@ template <typename Flavor> class SumcheckProverRound {
                       /* const */ ProverPolynomialsOrPartiallyEvaluatedMultivariates& multivariates,
                       size_t edge_idx)
     {
-        size_t univariate_idx = 0; // TODO(#391) zip
+        size_t univariate_idx = 0; // TODO(https://github.com/AztecProtocol/barretenberg/issues/391) zip
         for (auto& poly : multivariates) {
             auto edge = barretenberg::Univariate<FF, 2>({ poly[edge_idx], poly[edge_idx + 1] });
             extended_edges[univariate_idx] = edge.template extend_to<MAX_RELATION_LENGTH>();
@@ -128,7 +129,7 @@ template <typename Flavor> class SumcheckProverRound {
         size_t iterations_per_thread = round_size / num_threads; // actual iterations per thread
 
         // Constuct univariate accumulator containers; one per thread
-        std::vector<RelationSumcheckUnivariates> thread_univariate_accumulators(num_threads);
+        std::vector<TupleOfTuplesOfUnivariates> thread_univariate_accumulators(num_threads);
         for (auto& accum : thread_univariate_accumulators) {
             Utils::zero_univariates(accum);
         }
@@ -186,13 +187,13 @@ template <typename Flavor> class SumcheckProverRound {
      * appropriate scaling factors, produces S_l.
      */
     template <size_t relation_idx = 0>
-    void accumulate_relation_univariates(RelationSumcheckUnivariates& univariate_accumulators,
+    void accumulate_relation_univariates(TupleOfTuplesOfUnivariates& univariate_accumulators,
                                          const auto& extended_edges,
                                          const proof_system::RelationParameters<FF>& relation_parameters,
                                          const FF& scaling_factor)
     {
         using Relation = std::tuple_element_t<relation_idx, Relations>;
-        Relation::add_edge_contribution(
+        Relation::accumulate(
             std::get<relation_idx>(univariate_accumulators), extended_edges, relation_parameters, scaling_factor);
 
         // Repeat for the next relation.
@@ -206,21 +207,20 @@ template <typename Flavor> class SumcheckProverRound {
 template <typename Flavor> class SumcheckVerifierRound {
 
     using Relations = typename Flavor::Relations;
-    using RelationEvaluations = typename Flavor::RelationValues;
+    using TupleOfArraysOfValues = typename Flavor::TupleOfArraysOfValues;
 
   public:
     using FF = typename Flavor::FF;
-    using ClaimedEvaluations = typename Flavor::ClaimedEvaluations;
+    using ClaimedEvaluations = typename Flavor::AllValues;
 
     bool round_failed = false;
 
-    Relations relations;
     static constexpr size_t NUM_RELATIONS = Flavor::NUM_RELATIONS;
     static constexpr size_t MAX_RANDOM_RELATION_LENGTH = Flavor::MAX_RANDOM_RELATION_LENGTH;
 
     FF target_total_sum = 0;
 
-    RelationEvaluations relation_evaluations;
+    TupleOfArraysOfValues relation_evaluations;
 
     // Verifier constructor
     explicit SumcheckVerifierRound() { zero_elements(relation_evaluations); };
@@ -305,10 +305,10 @@ template <typename Flavor> class SumcheckVerifierRound {
                                          const FF& partial_evaluation_constant)
     {
         using Relation = std::tuple_element_t<relation_idx, Relations>;
-        Relation::add_full_relation_value_contribution(std::get<relation_idx>(relation_evaluations),
-                                                       purported_evaluations,
-                                                       relation_parameters,
-                                                       partial_evaluation_constant);
+        Relation::accumulate(std::get<relation_idx>(relation_evaluations),
+                             purported_evaluations,
+                             relation_parameters,
+                             partial_evaluation_constant);
 
         // Repeat for the next relation.
         if constexpr (relation_idx + 1 < NUM_RELATIONS) {

@@ -19,15 +19,19 @@ using FF = barretenberg::fr;
 
 template <typename Flavor, typename Relation> void execute_relation(::benchmark::State& state)
 {
-    using ClaimedEvaluations = typename Flavor::ClaimedEvaluations;
-    using RelationValues = typename Relation::RelationValues;
+    using AllValues = typename Flavor::AllValues;
+    using ArrayOfValuesOverSubrelations = typename Relation::ArrayOfValuesOverSubrelations;
 
-    RelationValues accumulator;
-    ClaimedEvaluations new_value;
-    auto params = RelationParameters<FF>::get_random();
+    auto params = proof_system::RelationParameters<FF>::get_random();
+
+    // Extract an array containing all the polynomial evaluations at a given row i
+    AllValues new_value;
+    // Define the appropriate ArrayOfValuesOverSubrelations type for this relation and initialize to zero
+    ArrayOfValuesOverSubrelations accumulator;
+    // Evaluate each constraint in the relation and check that each is satisfied
 
     for (auto _ : state) {
-        Relation::add_full_relation_value_contribution(accumulator, new_value, params);
+        Relation::accumulate(accumulator, new_value, params, 1);
     }
 }
 

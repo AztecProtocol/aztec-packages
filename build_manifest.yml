@@ -84,7 +84,6 @@ l1-contracts:
 noir-contracts-build:
   buildDir: yarn-project
   projectDir: yarn-project/noir-contracts
-  dockerfile: Dockerfile.build
   rebuildPatterns:
     - ^yarn-project/noir-contracts/
     - ^yarn-project/aztec-nr/
@@ -102,24 +101,23 @@ yarn-project-base:
 yarn-project:
   buildDir: yarn-project
   rebuildPatterns:
-    - ^yarn-project/.*\\.(ts|js|cjs|mjs|json|html)$
+    - ^yarn-project/.*\\.(ts|js|cjs|mjs|json|html|md)$
     - ^yarn-project/Dockerfile
   dependencies:
     - yarn-project-base
     - noir-contracts-build
 
-aztec-sandbox-base:
+aztec-sandbox:
   buildDir: yarn-project
   projectDir: yarn-project/aztec-sandbox
   dependencies:
     - yarn-project
 
-aztec-sandbox:
+pxe:
   buildDir: yarn-project
-  projectDir: yarn-project/aztec-sandbox
-  dockerfile: Dockerfile.final
+  projectDir: yarn-project/pxe
   dependencies:
-    - aztec-sandbox-base
+    - yarn-project
 
 boxes-blank-react:
   buildDir: yarn-project
@@ -158,6 +156,18 @@ end-to-end:
   dependencies:
     - yarn-project
 
+aztec-node:
+  buildDir: yarn-project
+  projectDir: yarn-project/aztec-node
+  dependencies:
+    - yarn-project
+
+p2p-bootstrap:
+  buildDir: yarn-project
+  projectDir: yarn-project/p2p-bootstrap
+  dependencies:
+    - yarn-project
+
 docs:
   buildDir: .
   dockerfile: docs/Dockerfile
@@ -167,5 +177,6 @@ docs:
     - ^.*.ts$
     - ^.release-please-manifest.json$
     - ^.*/noir-version.json$
+    - ^.*.nr$
   dependencies:
     - yarn-project

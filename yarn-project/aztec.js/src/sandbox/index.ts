@@ -1,10 +1,10 @@
-import { Fr, GrumpkinScalar } from '@aztec/circuits.js';
+import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import { sleep } from '@aztec/foundation/sleep';
 
 import zip from 'lodash.zip';
 
-import SchnorrAccountContractAbi from '../abis/schnorr_account_contract.json' assert { type: 'json' };
-import { AccountWallet, PXE, createPXEClient, getSchnorrAccount } from '../index.js';
+import SchnorrAccountContractArtifact from '../artifacts/schnorr_account_contract.json' assert { type: 'json' };
+import { AccountWalletWithPrivateKey, PXE, createPXEClient, getSchnorrAccount } from '../index.js';
 
 export const INITIAL_SANDBOX_ENCRYPTION_KEYS = [
   GrumpkinScalar.fromString('2153536ff6628eee01cf4024889ff977a18d9fa61d0e414422f7681cf085c281'),
@@ -16,16 +16,16 @@ export const INITIAL_SANDBOX_SIGNING_KEYS = INITIAL_SANDBOX_ENCRYPTION_KEYS;
 
 export const INITIAL_SANDBOX_SALTS = [Fr.ZERO, Fr.ZERO, Fr.ZERO];
 
-export const INITIAL_SANDBOX_ACCOUNT_CONTRACT_ABI = SchnorrAccountContractAbi;
+export const INITIAL_SANDBOX_ACCOUNT_CONTRACT_ABI = SchnorrAccountContractArtifact;
 
-export const { SANDBOX_URL = 'http://localhost:8080' } = process.env;
+export const { PXE_URL = 'http://localhost:8080' } = process.env;
 
 /**
  * Gets a collection of wallets for the Aztec accounts that are initially stored in the sandbox.
  * @param pxe - PXE instance.
  * @returns A set of AccountWallet implementations for each of the initial accounts.
  */
-export function getSandboxAccountsWallets(pxe: PXE): Promise<AccountWallet[]> {
+export function getSandboxAccountsWallets(pxe: PXE): Promise<AccountWalletWithPrivateKey[]> {
   return Promise.all(
     zip(INITIAL_SANDBOX_ENCRYPTION_KEYS, INITIAL_SANDBOX_SIGNING_KEYS, INITIAL_SANDBOX_SALTS).map(
       ([encryptionKey, signingKey, salt]) => getSchnorrAccount(pxe, encryptionKey!, signingKey!, salt).getWallet(),
@@ -73,7 +73,7 @@ export async function deployInitialSandboxAccounts(pxe: PXE) {
  * @param pxe - The pxe client connected to the sandbox.
  */
 export async function waitForSandbox(pxe?: PXE) {
-  pxe = pxe ?? createPXEClient(SANDBOX_URL);
+  pxe = pxe ?? createPXEClient(PXE_URL);
   while (true) {
     try {
       await pxe.getNodeInfo();

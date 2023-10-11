@@ -4,15 +4,19 @@ mod public_key_note;
 // The signing key is stored in an immutable private note and should be different from the encryption/nullifying key.
 contract SchnorrAccount {
     use dep::std;
+    use dep::std::option::Option;
 
     use dep::aztec::{
         context::{PrivateContext, PublicContext, Context},
-        entrypoint::{ENTRYPOINT_PAYLOAD_SIZE, EntrypointPayload},
         log::emit_encrypted_log,
         note::{ note_header::NoteHeader, utils as note_utils },
-        oracle::{ get_public_key::get_public_key, auth_witness::get_auth_witness },
+        oracle::get_public_key::get_public_key,
         state_vars::immutable_singleton::ImmutableSingleton,
+    };
+    use dep::authwit:: {
+        entrypoint::{ EntrypointPayload, ENTRYPOINT_PAYLOAD_SIZE },
         account::AccountActions,
+        auth_witness::get_auth_witness,
     };
 
     use crate::public_key_note::{PublicKeyNote, PublicKeyNoteMethods, PUBLIC_KEY_NOTE_LEN};
@@ -41,12 +45,10 @@ contract SchnorrAccount {
         signing_pub_key_x: pub Field,
         signing_pub_key_y: pub Field,
     ) {
-        
-        
         let this = context.this_address();
         // docs:start:initialize
         let mut pub_key_note = PublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this);
-        storage.signing_public_key.initialize(&mut pub_key_note);
+        storage.signing_public_key.initialize(&mut pub_key_note, Option::none());
         // docs:end:initialize
         
         emit_encrypted_log(
@@ -107,7 +109,7 @@ contract SchnorrAccount {
     // Note 2: Having it in all the contracts gives us the ability to compute the note hash and nullifier differently for different kind of notes.
     unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; PUBLIC_KEY_NOTE_LEN]) -> [Field; 4] {
         assert(storage_slot == 1);
-        let note_header = NoteHeader { contract_address, nonce, storage_slot };
+        let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
         note_utils::compute_note_hash_and_nullifier(PublicKeyNoteMethods, note_header, preimage)
     }
 }

@@ -68,10 +68,6 @@ void match_reads_to_commitments(DummyCircuitBuilder& builder,
     }
 }
 
-// TODO(https://github.com/AztecProtocol/aztec-packages/issues/837): optimized based on hints
-// regarding matching a nullifier to a commitment
-// i.e., we get pairs i,j such that new_nullifiers[i] == new_commitments[j]
-
 /**
  * @brief This function matches transient nullifiers to commitments and squashes (deletes) them both.
  *
@@ -158,10 +154,11 @@ KernelCircuitPublicInputsFinal<NT> native_private_kernel_circuit_ordering(
     // We'll be pushing data to this during execution of this circuit.
     KernelCircuitPublicInputsFinal<NT> public_inputs{};
 
+    common_validate_previous_kernel_values(builder, private_inputs.previous_kernel.public_inputs.end);
+
     // Do this before any functions can modify the inputs.
     initialise_end_values(private_inputs.previous_kernel, public_inputs);
 
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1329): validate that 0th nullifier is nonzero
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1486): validate that `len(new_nullifiers) ==
     // len(nullified_commitments)`
 

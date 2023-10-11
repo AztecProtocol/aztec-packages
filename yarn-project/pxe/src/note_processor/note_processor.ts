@@ -3,7 +3,9 @@ import { computeCommitmentNonce, siloNullifier } from '@aztec/circuits.js/abis';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { Timer } from '@aztec/foundation/timer';
 import { AztecNode, KeyStore, L2BlockContext, L2BlockL2Logs, NoteSpendingInfo, PublicKey } from '@aztec/types';
+import { NoteProcessorStats } from '@aztec/types/stats';
 
 import { Database, NoteSpendingInfoDao } from '../database/index.js';
 import { getAcirSimulator } from '../simulator/index.js';
@@ -27,10 +29,14 @@ interface ProcessedData {
  * before storing them against their owner.
  */
 export class NoteProcessor {
-  /**
-   * The latest L2 block number that the note processor has synchronized to.
-   */
+  /** The latest L2 block number that the note processor has synchronized to. */
   private syncedToBlock = 0;
+
+  /** Keeps track of processing time since an instance is created. */
+  public readonly timer: Timer = new Timer();
+
+  /** Stats accumulated for this processor. */
+  public readonly stats: NoteProcessorStats = { seen: 0, decrypted: 0, failed: 0, blocks: 0, txs: 0 };
 
   constructor(
     /**
@@ -40,9 +46,12 @@ export class NoteProcessor {
     private keyStore: KeyStore,
     private db: Database,
     private node: AztecNode,
-    private simulator = getAcirSimulator(db, node, node, node, keyStore),
-    private log = createDebugLogger('aztec:aztec_note_processor'),
-  ) {}
+    private startingBlock: number,
+    private simulator = getAcirSimulator(db, node, keyStore),
+    private log = createDebugLogger('aztec:note_processor'),
+  ) {
+    this.syncedToBlock = this.startingBlock - 1;
+  }
 
   /**
    * Check if the NoteProcessor is synchronized with the remote block number.
@@ -88,6 +97,7 @@ export class NoteProcessor {
 
     // Iterate over both blocks and encrypted logs.
     for (let blockIndex = 0; blockIndex < encryptedL2BlockLogs.length; ++blockIndex) {
+      this.stats.blocks++;
       const { txLogs } = encryptedL2BlockLogs[blockIndex];
       const block = l2BlockContexts[blockIndex].block;
       const dataStartIndexForBlock = block.startPrivateDataTreeSnapshot.nextAvailableLeafIndex;
@@ -99,6 +109,7 @@ export class NoteProcessor {
 
       // Iterate over all the encrypted logs and try decrypting them. If successful, store the note spending info.
       for (let indexOfTxInABlock = 0; indexOfTxInABlock < txLogs.length; ++indexOfTxInABlock) {
+        this.stats.txs++;
         const dataStartIndexForTx = dataStartIndexForBlock + indexOfTxInABlock * MAX_NEW_COMMITMENTS_PER_TX;
         const newCommitments = block.newCommitments.slice(
           indexOfTxInABlock * MAX_NEW_COMMITMENTS_PER_TX,
@@ -114,6 +125,7 @@ export class NoteProcessor {
         const excludedIndices: Set<number> = new Set();
         for (const functionLogs of txFunctionLogs) {
           for (const logs of functionLogs.logs) {
+            this.stats.seen++;
             const noteSpendingInfo = NoteSpendingInfo.fromEncryptedBuffer(logs, privateKey, curve);
             if (noteSpendingInfo) {
               // We have successfully decrypted the data.
@@ -134,7 +146,9 @@ export class NoteProcessor {
                   index,
                   publicKey: this.publicKey,
                 });
+                this.stats.decrypted++;
               } catch (e) {
+                this.stats.failed++;
                 this.log.warn(`Could not process note because of "${e}". Skipping note...`);
               }
             }

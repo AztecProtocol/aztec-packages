@@ -16,7 +16,7 @@ template <typename Flavor> class SumcheckProver {
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using PartiallyEvaluatedMultivariates = typename Flavor::PartiallyEvaluatedMultivariates;
-    using ClaimedEvaluations = typename Flavor::ClaimedEvaluations;
+    using ClaimedEvaluations = typename Flavor::AllValues;
 
     ProverTranscript<FF>& transcript;
     const size_t multivariate_n;
@@ -109,7 +109,8 @@ template <typename Flavor> class SumcheckProver {
         // Final round: Extract multivariate evaluations from partially_evaluated_polynomials and add to transcript
         ClaimedEvaluations multivariate_evaluations;
         size_t evaluation_idx = 0;
-        for (auto& polynomial : partially_evaluated_polynomials) { // TODO(#391) zip
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/391) zip
+        for (auto& polynomial : partially_evaluated_polynomials) {
             multivariate_evaluations[evaluation_idx] = polynomial[0];
             ++evaluation_idx;
         }
@@ -151,7 +152,7 @@ template <typename Flavor> class SumcheckVerifier {
 
   public:
     using FF = typename Flavor::FF;
-    using ClaimedEvaluations = typename Flavor::ClaimedEvaluations;
+    using ClaimedEvaluations = typename Flavor::AllValues;
 
     static constexpr size_t MAX_RANDOM_RELATION_LENGTH = Flavor::MAX_RANDOM_RELATION_LENGTH;
     static constexpr size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;

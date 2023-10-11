@@ -55,6 +55,12 @@ export interface ContractDataSource {
    * @returns The function's data.
    */
   getPublicFunction(address: AztecAddress, selector: FunctionSelector): Promise<EncodedContractFunction | undefined>;
+
+  /**
+   * Gets the number of the latest L2 block processed by the implementation.
+   * @returns The number of the latest L2 block processed by the implementation.
+   */
+  getBlockNumber(): Promise<number>;
 }
 
 /**
@@ -116,7 +122,7 @@ export class ExtendedContractData {
   constructor(
     /** The base contract data: aztec & portal addresses. */
     public contractData: ContractData,
-    /** ABIs of public functions. */
+    /** Artifacts of public functions. */
     private publicFunctions: EncodedContractFunction[],
     /** Partial addresses of the contract. */
     public readonly partialAddress: PartialAddress,

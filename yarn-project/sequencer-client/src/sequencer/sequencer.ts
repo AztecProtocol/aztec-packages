@@ -2,8 +2,10 @@ import { GlobalVariables } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
+import { Timer, elapsed } from '@aztec/foundation/timer';
 import { P2P } from '@aztec/p2p';
-import { L1ToL2MessageSource, L2Block, L2BlockSource, MerkleTreeId, Tx } from '@aztec/types';
+import { ContractDataSource, L1ToL2MessageSource, L2Block, L2BlockSource, MerkleTreeId, Tx } from '@aztec/types';
+import { L2BlockBuiltStats } from '@aztec/types/stats';
 import { WorldStateStatus, WorldStateSynchronizer } from '@aztec/world-state';
 
 import times from 'lodash.times';
@@ -27,7 +29,7 @@ import { PublicProcessorFactory } from './public_processor.js';
  */
 export class Sequencer {
   private runningPromise?: RunningPromise;
-  private pollingIntervalMs: number;
+  private pollingIntervalMs: number = 1000;
   private maxTxsPerBlock = 32;
   private minTxsPerBLock = 1;
   private lastPublishedBlock = 0;
@@ -41,17 +43,23 @@ export class Sequencer {
     private blockBuilder: BlockBuilder,
     private l2BlockSource: L2BlockSource,
     private l1ToL2MessageSource: L1ToL2MessageSource,
+    private contractDataSource: ContractDataSource,
     private publicProcessorFactory: PublicProcessorFactory,
-    config: SequencerConfig,
+    config: SequencerConfig = {},
     private log = createDebugLogger('aztec:sequencer'),
   ) {
-    this.pollingIntervalMs = config.transactionPollingIntervalMS ?? 1_000;
-    if (config.maxTxsPerBlock) {
-      this.maxTxsPerBlock = config.maxTxsPerBlock;
-    }
-    if (config.minTxsPerBlock) {
-      this.minTxsPerBLock = config.minTxsPerBlock;
-    }
+    this.updateConfig(config);
+    this.log(`Initialized sequencer with ${this.minTxsPerBLock}-${this.maxTxsPerBlock} txs per block.`);
+  }
+
+  /**
+   * Updates sequencer config.
+   * @param config - New parameters.
+   */
+  public updateConfig(config: SequencerConfig) {
+    if (config.transactionPollingIntervalMS) this.pollingIntervalMs = config.transactionPollingIntervalMS;
+    if (config.maxTxsPerBlock) this.maxTxsPerBlock = config.maxTxsPerBlock;
+    if (config.minTxsPerBlock) this.minTxsPerBLock = config.minTxsPerBlock;
   }
 
   /**
@@ -81,6 +89,7 @@ export class Sequencer {
    */
   public restart() {
     this.log('Restarting sequencer');
+    this.publisher.restart();
     this.runningPromise!.start();
     this.state = SequencerState.IDLE;
   }
@@ -113,22 +122,22 @@ export class Sequencer {
       // Do not go forward with new block if the previous one has not been mined and processed
       if (!prevBlockSynced) return;
 
+      const workTimer = new Timer();
       this.state = SequencerState.WAITING_FOR_TXS;
 
       // Get txs to build the new block
       const pendingTxs = await this.p2pClient.getTxs();
       if (pendingTxs.length < this.minTxsPerBLock) return;
+      this.log.info(`Retrieved ${pendingTxs.length} txs from P2P pool`);
 
       // Filter out invalid txs
       // TODO: It should be responsibility of the P2P layer to validate txs before passing them on here
       const validTxs = await this.takeValidTxs(pendingTxs);
-      if (validTxs.length < this.minTxsPerBLock) {
-        return;
-      }
+      if (validTxs.length < this.minTxsPerBLock) return;
 
       const blockNumber = (await this.l2BlockSource.getBlockNumber()) + 1;
 
-      this.log.info(`Building block ${blockNumber} with ${validTxs.length} transactions...`);
+      this.log.info(`Building block ${blockNumber} with ${validTxs.length} transactions`);
       this.state = SequencerState.CREATING_BLOCK;
 
       const newGlobalVariables = await this.globalsBuilder.buildGlobalVariables(new Fr(blockNumber));
@@ -137,7 +146,7 @@ export class Sequencer {
       // Process txs and drop the ones that fail processing
       // We create a fresh processor each time to reset any cached state (eg storage writes)
       const processor = await this.publicProcessorFactory.create(prevGlobalVariables, newGlobalVariables);
-      const [processedTxs, failedTxs] = await processor.process(validTxs);
+      const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() => processor.process(validTxs));
       if (failedTxs.length > 0) {
         const failedTxData = failedTxs.map(fail => fail.tx);
         this.log(`Dropping failed txs ${(await Tx.getHashes(failedTxData)).join(', ')}`);
@@ -164,16 +173,24 @@ export class Sequencer {
       this.log(`Assembling block with txs ${processedValidTxs.map(tx => tx.hash).join(', ')}`);
 
       const emptyTx = await processor.makeEmptyProcessedTx();
-      const block = await this.buildBlock(processedValidTxs, l1ToL2Messages, emptyTx, newGlobalVariables);
-      this.log(`Assembled block ${block.number}`);
+      const [rollupCircuitsDuration, block] = await elapsed(() =>
+        this.buildBlock(processedValidTxs, l1ToL2Messages, emptyTx, newGlobalVariables),
+      );
+
+      this.log(`Assembled block ${block.number}`, {
+        eventName: 'l2-block-built',
+        duration: workTimer.ms(),
+        publicProcessDuration: publicProcessorDuration,
+        rollupCircuitsDuration: rollupCircuitsDuration,
+        ...block.getStats(),
+      } satisfies L2BlockBuiltStats);
 
       await this.publishExtendedContractData(validTxs, block);
 
       await this.publishL2Block(block);
       this.log.info(`Submitted rollup block ${block.number} with ${processedValidTxs.length} transactions`);
     } catch (err) {
-      this.log.error(err);
-      this.log.error(`Rolling back world state DB`);
+      this.log.error(`Rolling back world state DB due to error assembling block`, err);
       await this.worldState.getLatest().rollback();
     }
   }
@@ -262,6 +279,8 @@ export class Sequencer {
     const syncedBlocks = await Promise.all([
       this.worldState.status().then((s: WorldStateStatus) => s.syncedToL2Block),
       this.p2pClient.getStatus().then(s => s.syncedToL2Block),
+      this.l2BlockSource.getBlockNumber(),
+      this.l1ToL2MessageSource.getBlockNumber(),
     ]);
     const min = Math.min(...syncedBlocks);
     return min >= this.lastPublishedBlock;

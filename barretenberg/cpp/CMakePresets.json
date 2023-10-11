@@ -16,6 +16,9 @@
         "CC": "clang",
         "CXX": "clang++",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      },
+      "cacheVariables": {
+        "TARGET_ARCH": "skylake"
       }
     },
     {
@@ -51,20 +54,20 @@
         "DISABLE_ASM": "ON"
       }
     },
-    {"name":"asan",
-    "displayName": "Debugging build with address sanitizer on Clang-16",
-  "description": "Build with address sanitizer on clang16 with debugging information",
-  "inherits":"clang16-dbg",
+    {
+      "name": "asan",
+      "displayName": "Debugging build with address sanitizer on Clang-16",
+      "description": "Build with address sanitizer on clang16 with debugging information",
+      "inherits": "clang16-dbg",
       "binaryDir": "build-asan",
-"environment": {
+      "environment": {
         "CMAKE_BUILD_TYPE": "Debug"
       },
       "cacheVariables": {
         "ENABLE_ASAN": "ON",
-        "DISABLE_ASM": "ON" 
+        "DISABLE_ASM": "ON"
       }
-
-},
+    },
     {
       "name": "gcc",
       "displayName": "Build with GCC",
@@ -86,6 +89,15 @@
       }
     },
     {
+      "name": "gcc13",
+      "displayName": "Build with GCC-13",
+      "description": "Build with globally installed GCC-13",
+      "inherits": "default",
+      "environment": {
+        "CC": "gcc-13",
+        "CXX": "g++-13"
+      }
+    },    {
       "name": "bench",
       "displayName": "Build benchmarks",
       "description": "Build default preset but with a special benchmark directory",
@@ -170,6 +182,35 @@
       "cacheVariables": {
         "MULTITHREADING": "ON"
       }
+    },
+    {
+      "name": "xray-1thread",
+      "displayName": "Build with single-threaded XRay Profiling",
+      "description": "Build with Clang and enable single-threaded LLVM XRay for profiling",
+      "generator": "Unix Makefiles",
+      "inherits": "clang16",
+      "environment": {
+        "CFLAGS": "-fxray-instrument -fxray-instruction-threshold=10",
+        "CXXFLAGS": "-fxray-instrument -fxray-instruction-threshold=10",
+        "LDFLAGS": "-fxray-instrument -fxray-instruction-threshold=10"
+      },
+      "cacheVariables": {
+        "MULTITHREADING": "OFF"
+      },
+      "binaryDir": "build-xray-1thread"
+    },
+    {
+      "name": "xray",
+      "displayName": "Build with multi-threaded XRay Profiling",
+      "description": "Build with Clang and enable multi-threaded LLVM XRay for profiling",
+      "generator": "Unix Makefiles",
+      "inherits": "clang16",
+      "environment": {
+        "CFLAGS": "-fxray-instrument -fxray-instruction-threshold=10",
+        "CXXFLAGS": "-fxray-instrument -fxray-instruction-threshold=10",
+        "LDFLAGS": "-fxray-instrument -fxray-instruction-threshold=10"
+      },
+      "binaryDir": "build-xray"
     }
   ],
   "buildPresets": [
@@ -193,7 +234,8 @@
       "name": "clang16-dbg",
       "inherits": "default",
       "configurePreset": "clang16-dbg"
-    },{
+    },
+    {
       "name": "asan",
       "inherits": "default",
       "configurePreset": "asan"
@@ -209,6 +251,11 @@
       "configurePreset": "gcc10"
     },
     {
+      "name": "gcc13",
+      "inherits": "default",
+      "configurePreset": "gcc13"
+    },
+    {
       "name": "bench",
       "inherits": "clang16",
       "configurePreset": "bench"
@@ -218,7 +265,7 @@
       "inherits": "clang16",
       "configurePreset": "fuzzing"
     },
-    { 
+    {
       "name": "smt-verification",
       "inherits": "clang16",
       "configurePreset": "smt-verification"
@@ -255,6 +302,16 @@
       "inheritConfigureEnvironment": true,
       "jobs": 0,
       "targets": ["barretenberg.wasm"]
+    },
+    {
+      "name": "xray-1thread",
+      "configurePreset": "xray-1thread",
+      "inherits": "default"
+    },
+    {
+      "name": "xray",
+      "configurePreset": "xray",
+      "inherits": "default"
     }
   ],
   "testPresets": [
@@ -278,7 +335,7 @@
       "inherits": "default",
       "configurePreset": "clang16-dbg"
     },
-  {
+    {
       "name": "asan",
       "inherits": "default",
       "configurePreset": "asan"
@@ -292,6 +349,11 @@
       "name": "gcc10",
       "inherits": "default",
       "configurePreset": "gcc10"
+    },
+    {
+      "name": "gcc13",
+      "inherits": "default",
+      "configurePreset": "gcc13"
     },
     {
       "name": "bench",

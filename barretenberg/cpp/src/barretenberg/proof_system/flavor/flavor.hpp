@@ -228,7 +228,7 @@ static constexpr auto create_relation_2protogalaxy_univariates_container()
     if constexpr (Index >= std::tuple_size<Tuple>::value) {
         return std::tuple<>{}; // Return empty when reach end of the tuple
     } else {
-        using UnivariateTuple = typename std::tuple_element_t<Index, Tuple>::Relation2ProtogalaxyUnivariates;
+        using UnivariateTuple = typename std::tuple_element_t<Index, Tuple>::TupleOfUnivariatesOverSubrelations;
         return std::tuple_cat(std::tuple<UnivariateTuple>{},
                               create_relation_2protogalaxy_univariates_container<Tuple, Index + 1>());
     }
@@ -245,7 +245,7 @@ template <typename Tuple, std::size_t Index = 0> static constexpr auto create_re
     if constexpr (Index >= std::tuple_size<Tuple>::value) {
         return std::tuple<>{}; // Return empty when reach end of the tuple
     } else {
-        using UnivariateTuple = typename std::tuple_element_t<Index, Tuple>::RelationSumcheckUnivariates;
+        using UnivariateTuple = typename std::tuple_element_t<Index, Tuple>::TupleOfUnivariatesOverSubrelations;
         return std::tuple_cat(std::tuple<UnivariateTuple>{},
                               create_relation_sumcheck_univariates_container<Tuple, Index + 1>());
     }
@@ -261,8 +261,8 @@ template <typename Tuple, std::size_t Index = 0> static constexpr auto create_re
     if constexpr (Index >= std::tuple_size<Tuple>::value) {
         return std::tuple<>{}; // Return empty when reach end of the tuple
     } else {
-        using ValuesArray = typename std::tuple_element_t<Index, Tuple>::RelationValues;
-        return std::tuple_cat(std::tuple<ValuesArray>{}, create_relation_values_container<Tuple, Index + 1>());
+        using Values = typename std::tuple_element_t<Index, Tuple>::ArrayOfValuesOverSubrelations;
+        return std::tuple_cat(std::tuple<Values>{}, create_relation_values_container<Tuple, Index + 1>());
     }
 }
 
