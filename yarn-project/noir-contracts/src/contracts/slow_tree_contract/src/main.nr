@@ -38,11 +38,48 @@ contract SlowTree {
         },
     };
     use dep::slow_updates_tree::slow_map::{
-        SlowMap, Leaf, RootObject, MembershipProof, SlowUpdateProof
+        SlowMap, Leaf, RootObject, SlowUpdateProof
     };
 
+    global TREE_HEIGHT: Field = 254;
+    global MEMBERSHIP_SIZE: Field = 256; // TREE_HEIGTH + 2
+    global UPDATE_SIZE: Field = 512; // TREE_HEIGHT * 2 + 4
+
     struct Storage {
-        trees: Map<SlowMap>,
+        trees: Map<SlowMap<TREE_HEIGHT, UPDATE_SIZE>>,
+    }
+
+    // A single inclusion proof.
+    // M = N + 2
+    struct MembershipProof<N, M> {
+        index: Field,
+        value: Field,
+        sibling_path: [Field; N],
+
+    }
+
+    impl<N, M> MembershipProof<N, M> {
+        pub fn serialize(self: Self) -> pub [Field; M] {
+        let mut serialized = [0; M];
+        serialized[0] = self.index;
+        serialized[1] = self.value;
+        for i in 0..N {
+            serialized[2 + i] = self.sibling_path[i];
+        }
+        serialized
+        }
+
+        pub fn deserialize(serialized: [Field; M]) -> pub Self {
+        let mut sibling_path = [0; N];
+        for i in 0..N {
+            sibling_path[i] = serialized[2 + i];
+        }
+        MembershipProof {
+            index: serialized[0],
+            value: serialized[1],
+            sibling_path,
+        }
+        }
     }
 
     impl Storage {
@@ -81,7 +118,7 @@ contract SlowTree {
     }
 
     #[aztec(private)]
-    fn read_at(p: MembershipProof) -> Field {
+    fn read_at(p: MembershipProof<TREE_HEIGHT, MEMBERSHIP_SIZE>) -> Field {
         // Ergonomics are pretty bad. But we eat shit for now.
         let expected_root = compute_merkle_root(p.value, p.index, p.sibling_path);
         let selector = compute_selector("_assert_current_root(Field,Field)");
@@ -101,12 +138,12 @@ contract SlowTree {
     }
 
     #[aztec(public)]
-    fn update_at(p: SlowUpdateProof) {
+    fn update_at(p: SlowUpdateProof<TREE_HEIGHT, UPDATE_SIZE>) {
         storage.trees.at(context.msg_sender()).update_at(p);
     }
 
     #[aztec(private)]
-    fn update_at_private(p: SlowUpdateProof) {
+    fn update_at_private(p: SlowUpdateProof<TREE_HEIGHT, UPDATE_SIZE>) {
         // We compute the root before.
         let before_root = compute_merkle_root(p.before.value, p.index, p.before.sibling_path);
         let after_root = compute_merkle_root(p.after.value, p.index, p.after.sibling_path);

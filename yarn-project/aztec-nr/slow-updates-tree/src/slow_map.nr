@@ -7,16 +7,14 @@ use dep::std::option::Option;
 
 use dep::std::merkle::compute_merkle_root;
 
-// TODO: Need a couple of tests to check when updates are happening exactly at the point of change.
-// If it updates when happening on point of change, then slow updates might change mid block which is a little funky.
-// < and <= really matter here.
-
+// The epoch lenght is just a random number for now.
 global EPOCH_LENGTH: u120 = 100;
 
 fn compute_next_change(time: Field) -> Field {
   (((time as u120 / EPOCH_LENGTH + 1) * EPOCH_LENGTH)) as Field
 }
 
+// A leaf in the tree.
 struct Leaf {
   next_change: Field,
   before: Field,
@@ -44,6 +42,7 @@ impl Leaf {
   }
 }
 
+// The root of the tree. Storing both the before and after root.
 struct RootObject {
   next_change: Field,
   before: Field,
@@ -68,102 +67,68 @@ impl RootObject {
   }
 }
 
-
-// A single inclusion proof.
-struct MembershipProof {
-    index: Field,
-    value: Field,
-    sibling_path: [Field; 4],
-}
-
-impl MembershipProof {
-    pub fn serialize(self: Self) -> pub [Field; 6] {
-        [
-            self.index,
-            self.value,
-            self.sibling_path[0],
-            self.sibling_path[1],
-            self.sibling_path[2],
-            self.sibling_path[3],
-        ]
-    }
-
-    pub fn deserialize(serialized: [Field; 6]) -> pub Self {
-        MembershipProof {
-            index: serialized[0],
-            value: serialized[1],
-            sibling_path: [
-                serialized[2],
-                serialized[3],
-                serialized[4],
-                serialized[5],
-            ],
-        }
-    }
-}
-
-struct SlowUpdateInner {
+// Subset of the MembershipProof that is needed for the slow update.
+struct SlowUpdateInner<N> {
   value: Field, // Value only really used for the private flow though :thinking:
-  sibling_path: [Field; 4],
+  sibling_path: [Field; N],
 }
 
-struct SlowUpdateProof {
+// The slow update proof. Containing two merkle paths
+// One for the the before and one for the after trees.
+// M = 2 * N + 4
+struct SlowUpdateProof<N, M> {
   index: Field,
   new_value: Field,
-  before: SlowUpdateInner,
-  after: SlowUpdateInner,
+  before: SlowUpdateInner<N>,
+  after: SlowUpdateInner<N>,
 }
 
-impl SlowUpdateProof {
-  pub fn serialize(self: Self) -> pub [Field; 12] {
-    [
-      self.index,
-      self.new_value,
-      self.before.value,
-      self.before.sibling_path[0],
-      self.before.sibling_path[1],
-      self.before.sibling_path[2],
-      self.before.sibling_path[3],
-      self.after.value,
-      self.after.sibling_path[0],
-      self.after.sibling_path[1],
-      self.after.sibling_path[2],
-      self.after.sibling_path[3],
-    ]
+impl<N, M> SlowUpdateProof<N, M> {
+  pub fn serialize(self: Self) -> pub [Field; M] {
+    let mut serialized = [0; M];
+    serialized[0] = self.index;
+    serialized[1] = self.new_value;
+    serialized[2] = self.before.value;
+    serialized[3 + N] = self.after.value;
+
+    for i in 0..N {
+      serialized[3 + i] = self.before.sibling_path[i];
+      serialized[4 + N + i] = self.after.sibling_path[i];
+    }
+    serialized
   }
 
-  pub fn deserialize(serialized: [Field; 12]) -> pub Self {
+  pub fn deserialize(serialized: [Field; M]) -> pub Self {
+    let mut before_sibling_path = [0; N];
+    let mut after_sibling_path = [0; N];
+
+    for i in 0..N {
+      before_sibling_path[i] = serialized[3 + i];
+      after_sibling_path[i] = serialized[4 + N + i];
+    }
+
     Self {
       index: serialized[0],
       new_value: serialized[1],
       before: SlowUpdateInner {
         value: serialized[2],
-        sibling_path: [
-          serialized[3],
-          serialized[4],
-          serialized[5],
-          serialized[6],
-        ],
+        sibling_path: before_sibling_path,
       },
       after: SlowUpdateInner {
-        value: serialized[7],
-        sibling_path: [
-          serialized[8],
-          serialized[9],
-          serialized[10],
-          serialized[11],
-        ],
+        value: serialized[3 + N],
+        sibling_path: after_sibling_path,
       },
     }
   }
 }
 
-struct SlowMap {
+// The simple slow map which stores a sparse tree
+struct SlowMap<N,M> {
   context: Context,
   storage_slot: Field
 }
 
-impl SlowMap {
+impl<N,M> SlowMap<N,M> {
   pub fn new(
     context: Context,
     storage_slot: Field
@@ -225,7 +190,7 @@ impl SlowMap {
   // We build a tiny tree with 4 leaves, for show.
   // We only update AFTER the `next_change` to not have multiple updates in the same block.
   // Should add size of trees making it easier to "add_next".
-  pub fn update_at(self: Self, p: SlowUpdateProof) {
+  pub fn update_at(self: Self, p: SlowUpdateProof<N, M>) {
     // TODO: Constrain the index to be within the tree.
 
     let time = self.context.public.unwrap().timestamp() as u120;
