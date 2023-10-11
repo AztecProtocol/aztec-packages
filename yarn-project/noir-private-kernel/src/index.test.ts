@@ -9,7 +9,6 @@ describe('Private kernel', () => {
     logger = createDebugLogger('noir-private-kernel');
   });
 
-
   it('Executes private kernel init circuit with abi all zeroes (does not crash)', async () => {
     logger('Initialized Noir instance with private kernel init circuit');
 
