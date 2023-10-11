@@ -1,6 +1,8 @@
 
 struct BoundedVec<T, MaxLen> {
     storage: [T; MaxLen],
+    // TODO: change this to return a u64 as Noir now
+    // uses u64 for indexing
     len: Field,
 }
 
@@ -23,6 +25,20 @@ impl<T, MaxLen> BoundedVec<T, MaxLen> {
 
         self.storage[self.len] = elem;
         self.len += 1;
+    }
+
+    pub fn len(self) -> Field {
+        self.len
+    }
+
+    pub fn max_len(self) -> Field {
+        MaxLen
+    }
+
+    // This is a intermediate method, while we don't have an
+    // .extend method
+    pub fn storage(self) -> [T; MaxLen] {
+        self.storage
     }
 
     pub fn push_array<Len>(&mut self, array: [T; Len]) {

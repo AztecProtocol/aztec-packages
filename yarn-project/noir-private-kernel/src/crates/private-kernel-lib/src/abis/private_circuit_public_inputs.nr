@@ -14,22 +14,23 @@ use dep::aztec::{
 use crate::hash::NUM_FIELDS_PER_SHA256;
 use crate::abis::historical_block_data::HistoricalBlockData;
 use crate::contrakt::deployment_data::ContractDeploymentData;
+use crate::utils::bounded_vec::BoundedVec;
 
 struct PrivateCircuitPublicInputs{
     call_context : CallContext,
     
     args_hash : Field,
-    return_values : [Field; RETURN_VALUES_LENGTH],
+    return_values : BoundedVec<Field, RETURN_VALUES_LENGTH>,
 
-    read_requests : [Field; MAX_READ_REQUESTS_PER_CALL],
+    read_requests : BoundedVec<Field, MAX_READ_REQUESTS_PER_CALL>,
 
-    new_commitments : [Field; MAX_NEW_COMMITMENTS_PER_CALL],
-    new_nullifiers : [Field; MAX_NEW_NULLIFIERS_PER_CALL],
-    nullified_commitments : [Field; MAX_NEW_NULLIFIERS_PER_CALL],
+    new_commitments : BoundedVec<Field, MAX_NEW_COMMITMENTS_PER_CALL>,
+    new_nullifiers : BoundedVec<Field, MAX_NEW_NULLIFIERS_PER_CALL>,
+    nullified_commitments : BoundedVec<Field, MAX_NEW_NULLIFIERS_PER_CALL>,
 
-    private_call_stack : [Field; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL],
-    public_call_stack : [Field; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
-    new_l2_to_l1_msgs : [Field; MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
+    private_call_stack : BoundedVec<Field, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
+    public_call_stack : BoundedVec<Field, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
+    new_l2_to_l1_msgs : BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
 
     encrypted_logs_hash : [Field; NUM_FIELDS_PER_SHA256],
     unencrypted_logs_hash : [Field; NUM_FIELDS_PER_SHA256],

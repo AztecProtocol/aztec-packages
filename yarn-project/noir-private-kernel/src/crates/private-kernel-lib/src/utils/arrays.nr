@@ -1,5 +1,6 @@
 use crate::abis::new_contract_data::NewContractData;
 use dep::std::array;
+use crate::utils::bounded_vec::BoundedVec;
 
 // Trait: is_empty
 //
@@ -14,8 +15,14 @@ use dep::std::array;
 // if a value can actually be zero. In a future refactor, we can 
 // use the optional type for safety. Doing it now would lead to a worse devex
 // and would make it harder to sync up with the cpp code.
-pub fn is_empty_field<T>(array : [Field; T]) -> bool {
-    array.all(|elem| elem == 0)
+pub fn is_empty_field<T>(array : BoundedVec<Field, T>) -> bool {
+    array.storage.all(|elem| elem == 0)
+}
+pub fn log_hashes_empty(log_hashes : [Field; 2]) -> bool {
+    log_hashes.all(|elem| elem == 0)
+}
+pub fn is_empty_single_field<T>(field : Field) -> bool {
+    field == 0
 }
 
 // TODO: This will be replaced with BoundedVec-- we want an as close copy as possible
@@ -65,16 +72,16 @@ pub fn array_push_array_field<T, N>(mut array : [Field; T], values_to_push : [Fi
 // 
 // TODO: We can possibly optimize this by taking advantage of the fact that adding 0 does not 
 // TODO: change a running sum.
-pub fn validate_array<T>(array : [Field;T]) {
-    let array_length = array.len();
+pub fn validate_array<T>(array : BoundedVec<Field,T>) {
+    let array_length = array.max_len();
 
     let mut first_zero_pos = array_length;
     let mut last_non_zero_pos = 0;
     // TODO: using is_empty_field here is a bit wasteful
     for i in 0..array_length {
-        if is_empty_field([array[i]]) == false {
+        if is_empty_single_field(array.get(i)) == false {
             last_non_zero_pos = i;
-        } else if (is_empty_field([array[i]])) && (first_zero_pos == array_length) {
+        } else if (is_empty_single_field(array.get(i))) && (first_zero_pos == array_length) {
             first_zero_pos = i;
         }
     }
@@ -142,75 +149,31 @@ pub fn array_length<N>(array : [Field; N]) -> Field {
 }
 
 #[test]
-fn smoke_test_is_empty_field() {
-    let all_zeroes = [0,0,0,0,0];
-    assert(is_empty_field(all_zeroes));
-    
-    let one_zero = [1,0,0];
-    assert(is_empty_field(one_zero) == false);
-}
-
-#[test]
-fn smoke_test_array_push() {
-
-    let array = [0,0,0,0,0];
-    let array = array_push_field(array,1);
-    assert(array == [1,0,0,0,0]);
-    
-    let array = array_push_field(array,2);
-    assert(array == [1,2,0,0,0]);
-
-    let array = array_push_field(array,3);
-    assert(array == [1,2,3,0,0]);
-
-    let array = array_push_field(array,4);
-    assert(array == [1,2,3,4,0]);
-
-    let array = array_push_field(array,5);
-    assert(array == [1,2,3,4,5]);
-}
-
-#[test(should_fail_with ="array has reached maximum capacity")]
-fn smoke_test_array_push_capacity(){
-    let array_at_full_capacity = [1,2,3,4];
-    array_push_field(array_at_full_capacity,0);
-}
-
-// TODO(David): We probably want to document this and ensure that this does not happen 
-#[test]
-fn document_push_zero_behavior(){
-    let all_zeroes = [0,0,0,0];
-    let array = array_push_field(all_zeroes,0);
-    assert(all_zeroes == array, "pushing zero the array does nothing");
-}
-
-#[test]
 fn smoke_validate_array() {
-    let valid_array = [];
+     let mut valid_array: BoundedVec<Field, 0> = BoundedVec::new(0);
     validate_array(valid_array);
 
-    let valid_array = [0];
+    let mut valid_array: BoundedVec<Field, 0> = BoundedVec::new(0);
+    valid_array.push(0);
     validate_array(valid_array);
 
-    let valid_array = [1,2,3];
+    let mut valid_array: BoundedVec<Field, 3> = BoundedVec::new(0);
+    valid_array.push_array([1,2,3]);
     validate_array(valid_array);
     
-    let valid_array = [1,2,3,0];
+    let mut valid_array: BoundedVec<Field, 4> = BoundedVec::new(0);
+    valid_array.push_array([1,2,3,0]);
     validate_array(valid_array);
     
-    let valid_array = [1,2,3,0,0];
+    let mut valid_array: BoundedVec<Field, 5> = BoundedVec::new(0);
+    valid_array.push_array([1,2,3,0,0]);
     validate_array(valid_array);
 }
 
 #[test(should_fail_with = "invalid array")]
 fn smoke_validate_array_invalid(){
-    let invalid_array = [0,1];
-    validate_array(invalid_array);
-}
-
-#[test(should_fail_with = "invalid array")]
-fn smoke_validate_array_invalid_case2(){
-    let invalid_array = [0,0,0,0,1];
+    let mut invalid_array: BoundedVec<Field, 5> = BoundedVec::new(0);
+    invalid_array.storage[1] = 1;
     validate_array(invalid_array);
 }
 

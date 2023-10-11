@@ -85,10 +85,10 @@ impl PrivateKernelInputsInit {
         let end_nullified_commitments_empty = arrays::is_empty_field(public_inputs.end.nullified_commitments);
         assert(end_nullified_commitments_empty, "public_inputs.end.nullified_commitments must start as empty in initial kernel iteration");
 
-        let encrypted_logs_hash_empty = arrays::is_empty_field(public_inputs.end.encrypted_logs_hash);
+        let encrypted_logs_hash_empty = arrays::log_hashes_empty(public_inputs.end.encrypted_logs_hash);
         assert(encrypted_logs_hash_empty, "public_inputs.end.encrypted_logs_hash must start as empty in initial kernel iteration");
 
-        let unencrypted_logs_hash_empty = arrays::is_empty_field(public_inputs.end.unencrypted_logs_hash);
+        let unencrypted_logs_hash_empty = arrays::log_hashes_empty(public_inputs.end.unencrypted_logs_hash);
         assert(unencrypted_logs_hash_empty, "public_inputs.end.unencrypted_logs_hash must start as empty in initial kernel iteration");
 
         let read_requests_empty = arrays::is_empty_field(public_inputs.end.read_requests);
@@ -98,11 +98,11 @@ impl PrivateKernelInputsInit {
         assert(public_inputs.end.unencrypted_log_preimages_length == 0,"public_inputs.end.unencrypted_log_preimages_length must start as 0 in initial kernel iteration");
 
         // Since it's the first iteration, we need to push the the tx hash nullifier into the `new_nullifiers` array
-        public_inputs.end.new_nullifiers = arrays::array_push_field(public_inputs.end.new_nullifiers, self.tx_request.hash());
+        public_inputs.end.new_nullifiers.push(self.tx_request.hash());
         
         // Push an empty nullified commitment too since each nullifier must
         // be paired with a nonzero (real or "empty") nullified commitment
-        public_inputs.end.nullified_commitments = arrays::array_push_field(public_inputs.end.nullified_commitments, constants_gen::EMPTY_NULLIFIED_COMMITMENT);
+        public_inputs.end.nullified_commitments.push(constants_gen::EMPTY_NULLIFIED_COMMITMENT);
 
         // Note that we do not need to nullify the transaction request nonce anymore.
         // Should an account want to additionally use nonces for replay protection or handling cancellations,

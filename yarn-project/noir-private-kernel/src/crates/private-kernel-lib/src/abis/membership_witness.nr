@@ -1,4 +1,3 @@
-use crate::utils::arrays::is_empty_field;
 use dep::aztec::constants_gen::{
     CONTRACT_TREE_HEIGHT,
     FUNCTION_TREE_HEIGHT,
@@ -6,13 +5,9 @@ use dep::aztec::constants_gen::{
 
 struct MembershipWitness<N> {
     leaf_index : Field,
+    // TODO(Kev): We don't need this to be a bounded_vec but right now
+    //it makes the refactoring a bit easier
     sibling_path : [Field; N]
-}
-
-impl<N> MembershipWitness<N> {
-    fn is_empty(self) -> bool {
-        is_empty_field([self.leaf_index]) && is_empty_field(self.sibling_path)
-    }
 }
 
 // TODO(Kev): Instead of doing `MembershipWitness<FUNCTION_TREE_HEIGHT>` we are forced 
