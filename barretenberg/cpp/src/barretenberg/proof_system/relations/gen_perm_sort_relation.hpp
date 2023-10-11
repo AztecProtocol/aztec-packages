@@ -202,20 +202,20 @@ template <typename FF_> class GoblinTranslatorGenPermSortRelationImpl {
         tmp_5 *= scaling_factor;
         std::get<4>(accumulators) += tmp_5;
 
-        // Contirbution (6) (Contributions 6-10 ensure that the last value is the designated maximum value. We don't
+        // Contribution (6) (Contributions 6-10 ensure that the last value is the designated maximum value. We don't
         // need to constrain the first value to be 0, because the shift mechanic does this for us)
         std::get<5>(accumulators) +=
             lagrange_last * (ordered_range_constraints_0 + maximum_sort_value) * scaling_factor;
-        // Contirbution (7)
+        // Contribution (7)
         std::get<6>(accumulators) +=
             lagrange_last * (ordered_range_constraints_1 + maximum_sort_value) * scaling_factor;
-        // Contirbution (8)
+        // Contribution (8)
         std::get<7>(accumulators) +=
             lagrange_last * (ordered_range_constraints_2 + maximum_sort_value) * scaling_factor;
-        // Contirbution (9)
+        // Contribution (9)
         std::get<8>(accumulators) +=
             lagrange_last * (ordered_range_constraints_3 + maximum_sort_value) * scaling_factor;
-        // Contirbution (10)
+        // Contribution (10)
         std::get<9>(accumulators) +=
             lagrange_last * (ordered_range_constraints_4 + maximum_sort_value) * scaling_factor;
     };
