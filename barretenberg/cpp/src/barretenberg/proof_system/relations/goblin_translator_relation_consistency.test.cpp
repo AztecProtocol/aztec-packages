@@ -12,6 +12,7 @@
  *
  */
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/proof_system/relations/gen_perm_sort_relation.hpp"
 #include "barretenberg/proof_system/relations/permutation_relation.hpp"
 #include <gtest/gtest.h>
 
@@ -45,13 +46,13 @@ struct InputElements {
     FF& x_lo_y_hi = std::get<1>(this->_data);
     FF& x_hi_z_1 = std::get<2>(this->_data);
     FF& y_lo_z_2 = std::get<3>(this->_data);
-    FF& p_x_low_limbs = std::get<4>(this->_data);
-    FF& p_x_low_limbs_range_constraint_0 = std::get<5>(this->_data);
-    FF& p_x_low_limbs_range_constraint_1 = std::get<6>(this->_data);
-    FF& p_x_low_limbs_range_constraint_2 = std::get<7>(this->_data);
-    FF& p_x_low_limbs_range_constraint_3 = std::get<8>(this->_data);
-    FF& p_x_low_limbs_range_constraint_4 = std::get<9>(this->_data);
-    FF& p_x_low_limbs_range_constraint_tail = std::get<10>(this->_data);
+    FF& p_x_lolimbs = std::get<4>(this->_data);
+    FF& p_x_lolimbs_range_constraint_0 = std::get<5>(this->_data);
+    FF& p_x_lolimbs_range_constraint_1 = std::get<6>(this->_data);
+    FF& p_x_lolimbs_range_constraint_2 = std::get<7>(this->_data);
+    FF& p_x_lolimbs_range_constraint_3 = std::get<8>(this->_data);
+    FF& p_x_lolimbs_range_constraint_4 = std::get<9>(this->_data);
+    FF& p_x_lolimbs_range_constraint_tail = std::get<10>(this->_data);
     FF& p_x_high_limbs = std::get<11>(this->_data);
     FF& p_x_high_limbs_range_constraint_0 = std::get<12>(this->_data);
     FF& p_x_high_limbs_range_constraint_1 = std::get<13>(this->_data);
@@ -59,13 +60,13 @@ struct InputElements {
     FF& p_x_high_limbs_range_constraint_3 = std::get<15>(this->_data);
     FF& p_x_high_limbs_range_constraint_4 = std::get<16>(this->_data);
     FF& p_x_high_limbs_range_constraint_tail = std::get<17>(this->_data);
-    FF& p_y_low_limbs = std::get<18>(this->_data);
-    FF& p_y_low_limbs_range_constraint_0 = std::get<19>(this->_data);
-    FF& p_y_low_limbs_range_constraint_1 = std::get<20>(this->_data);
-    FF& p_y_low_limbs_range_constraint_2 = std::get<21>(this->_data);
-    FF& p_y_low_limbs_range_constraint_3 = std::get<22>(this->_data);
-    FF& p_y_low_limbs_range_constraint_4 = std::get<23>(this->_data);
-    FF& p_y_low_limbs_range_constraint_tail = std::get<24>(this->_data);
+    FF& p_y_lolimbs = std::get<18>(this->_data);
+    FF& p_y_lolimbs_range_constraint_0 = std::get<19>(this->_data);
+    FF& p_y_lolimbs_range_constraint_1 = std::get<20>(this->_data);
+    FF& p_y_lolimbs_range_constraint_2 = std::get<21>(this->_data);
+    FF& p_y_lolimbs_range_constraint_3 = std::get<22>(this->_data);
+    FF& p_y_lolimbs_range_constraint_4 = std::get<23>(this->_data);
+    FF& p_y_lolimbs_range_constraint_tail = std::get<24>(this->_data);
     FF& p_y_high_limbs = std::get<25>(this->_data);
     FF& p_y_high_limbs_range_constraint_0 = std::get<26>(this->_data);
     FF& p_y_high_limbs_range_constraint_1 = std::get<27>(this->_data);
@@ -135,13 +136,13 @@ struct InputElements {
     FF& x_lo_y_hi_shift = std::get<91>(this->_data);
     FF& x_hi_z_1_shift = std::get<92>(this->_data);
     FF& y_lo_z_2_shift = std::get<93>(this->_data);
-    FF& p_x_low_limbs_shift = std::get<94>(this->_data);
-    FF& p_x_low_limbs_range_constraint_0_shift = std::get<95>(this->_data);
-    FF& p_x_low_limbs_range_constraint_1_shift = std::get<96>(this->_data);
-    FF& p_x_low_limbs_range_constraint_2_shift = std::get<97>(this->_data);
-    FF& p_x_low_limbs_range_constraint_3_shift = std::get<98>(this->_data);
-    FF& p_x_low_limbs_range_constraint_4_shift = std::get<99>(this->_data);
-    FF& p_x_low_limbs_range_constraint_tail_shift = std::get<100>(this->_data);
+    FF& p_x_lolimbs_shift = std::get<94>(this->_data);
+    FF& p_x_lolimbs_range_constraint_0_shift = std::get<95>(this->_data);
+    FF& p_x_lolimbs_range_constraint_1_shift = std::get<96>(this->_data);
+    FF& p_x_lolimbs_range_constraint_2_shift = std::get<97>(this->_data);
+    FF& p_x_lolimbs_range_constraint_3_shift = std::get<98>(this->_data);
+    FF& p_x_lolimbs_range_constraint_4_shift = std::get<99>(this->_data);
+    FF& p_x_lolimbs_range_constraint_tail_shift = std::get<100>(this->_data);
     FF& p_x_high_limbs_shift = std::get<101>(this->_data);
     FF& p_x_high_limbs_range_constraint_0_shift = std::get<102>(this->_data);
     FF& p_x_high_limbs_range_constraint_1_shift = std::get<103>(this->_data);
@@ -149,13 +150,13 @@ struct InputElements {
     FF& p_x_high_limbs_range_constraint_3_shift = std::get<105>(this->_data);
     FF& p_x_high_limbs_range_constraint_4_shift = std::get<106>(this->_data);
     FF& p_x_high_limbs_range_constraint_tail_shift = std::get<107>(this->_data);
-    FF& p_y_low_limbs_shift = std::get<108>(this->_data);
-    FF& p_y_low_limbs_range_constraint_0_shift = std::get<109>(this->_data);
-    FF& p_y_low_limbs_range_constraint_1_shift = std::get<110>(this->_data);
-    FF& p_y_low_limbs_range_constraint_2_shift = std::get<111>(this->_data);
-    FF& p_y_low_limbs_range_constraint_3_shift = std::get<112>(this->_data);
-    FF& p_y_low_limbs_range_constraint_4_shift = std::get<113>(this->_data);
-    FF& p_y_low_limbs_range_constraint_tail_shift = std::get<114>(this->_data);
+    FF& p_y_lolimbs_shift = std::get<108>(this->_data);
+    FF& p_y_lolimbs_range_constraint_0_shift = std::get<109>(this->_data);
+    FF& p_y_lolimbs_range_constraint_1_shift = std::get<110>(this->_data);
+    FF& p_y_lolimbs_range_constraint_2_shift = std::get<111>(this->_data);
+    FF& p_y_lolimbs_range_constraint_3_shift = std::get<112>(this->_data);
+    FF& p_y_lolimbs_range_constraint_4_shift = std::get<113>(this->_data);
+    FF& p_y_lolimbs_range_constraint_tail_shift = std::get<114>(this->_data);
     FF& p_y_high_limbs_shift = std::get<115>(this->_data);
     FF& p_y_high_limbs_range_constraint_0_shift = std::get<116>(this->_data);
     FF& p_y_high_limbs_range_constraint_1_shift = std::get<117>(this->_data);
@@ -282,6 +283,70 @@ TEST_F(GoblinTranslatorRelationConsistency, PermutationRelation)
         // (Contribution 2)
         auto contribution_2 = z_perm_shift * lagrange_last;
         expected_values[1] = contribution_2;
+
+        validate_relation_execution<Relation>(expected_values, input_elements, parameters);
+    };
+    run_test(/*random_inputs=*/false);
+    run_test(/*random_inputs=*/true);
+};
+
+TEST_F(GoblinTranslatorRelationConsistency, GenPermSortRelation)
+{
+    const auto run_test = [](bool random_inputs) {
+        using Relation = GoblinTranslatorGenPermSortRelation<FF>;
+        using RelationValues = typename Relation::RelationValues;
+
+        const InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
+
+        const auto& ordered_range_constraints_0 = input_elements.ordered_range_constraints_0;
+        const auto& ordered_range_constraints_1 = input_elements.ordered_range_constraints_1;
+        const auto& ordered_range_constraints_2 = input_elements.ordered_range_constraints_2;
+        const auto& ordered_range_constraints_3 = input_elements.ordered_range_constraints_3;
+        const auto& ordered_range_constraints_4 = input_elements.ordered_range_constraints_4;
+        const auto& ordered_range_constraints_0_shift = input_elements.ordered_range_constraints_0_shift;
+        const auto& ordered_range_constraints_1_shift = input_elements.ordered_range_constraints_1_shift;
+        const auto& ordered_range_constraints_2_shift = input_elements.ordered_range_constraints_2_shift;
+        const auto& ordered_range_constraints_3_shift = input_elements.ordered_range_constraints_3_shift;
+        const auto& ordered_range_constraints_4_shift = input_elements.ordered_range_constraints_4_shift;
+        const auto& lagrange_last = input_elements.lagrange_last;
+
+        RelationValues expected_values;
+
+        const auto parameters = RelationParameters<FF>::get_random();
+
+        const size_t MICRO_LIMB_BITS = 14;
+        const auto minus_one = FF(-1);
+        const auto minus_two = FF(-2);
+        const auto minus_three = FF(-3);
+        const auto maximum_value = -FF((1 << MICRO_LIMB_BITS) - 1);
+
+        // First compute individual deltas
+        const auto delta_1 = ordered_range_constraints_0_shift - ordered_range_constraints_0;
+        const auto delta_2 = ordered_range_constraints_1_shift - ordered_range_constraints_1;
+        const auto delta_3 = ordered_range_constraints_2_shift - ordered_range_constraints_2;
+        const auto delta_4 = ordered_range_constraints_3_shift - ordered_range_constraints_3;
+        const auto delta_5 = ordered_range_constraints_4_shift - ordered_range_constraints_4;
+
+        const auto not_last = lagrange_last + minus_one;
+
+        // Check the delta is {0,1,2,3}
+        auto delta_in_range = [not_last, minus_one, minus_two, minus_three](auto delta) {
+            return not_last * delta * (delta + minus_one) * (delta + minus_two) * (delta + minus_three);
+        };
+
+        // Check delta correctness
+        expected_values[0] = delta_in_range(delta_1);
+        expected_values[1] = delta_in_range(delta_2);
+        expected_values[2] = delta_in_range(delta_3);
+        expected_values[3] = delta_in_range(delta_4);
+        expected_values[4] = delta_in_range(delta_5);
+        // Check that the last value is maximum allowed
+        expected_values[5] = lagrange_last * (ordered_range_constraints_0 + maximum_value);
+        expected_values[6] = lagrange_last * (ordered_range_constraints_1 + maximum_value);
+        expected_values[7] = lagrange_last * (ordered_range_constraints_2 + maximum_value);
+        expected_values[8] = lagrange_last * (ordered_range_constraints_3 + maximum_value);
+        expected_values[9] = lagrange_last * (ordered_range_constraints_4 + maximum_value);
+        // We don't check that the first value is zero, because the shift mechanism already ensures it
 
         validate_relation_execution<Relation>(expected_values, input_elements, parameters);
     };
