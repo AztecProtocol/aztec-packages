@@ -86,36 +86,49 @@ describe('Archiver Memory Store', () => {
   describe('getUnencryptedLogs errors and config', () => {
     it('throws when log filter is invalid', async () => {
       const txHash = new TxHash(randomBytes(TxHash.SIZE));
-      const fromBlock = 1;
+      const fromBlock = 2;
       const toBlock = 2;
-      const afterLog = new LogId(1, 2, 3);
 
+      // First invalid case - txHash and "fromBlock" are set
       const filter1 = {
         txHash,
         fromBlock,
       };
-      await expect(async () => await archiverStore.getUnencryptedLogs(filter1)).rejects.toThrow(`If txHash is set`);
+      await expect(async () => await archiverStore.getUnencryptedLogs(filter1)).rejects.toThrow(
+        'Invalid filter: "txHash" is set along',
+      );
 
+      // Second invalid case - "txHash" and "toBlock" are set
       const filter2 = {
         txHash,
         toBlock,
       };
-      await expect(async () => await archiverStore.getUnencryptedLogs(filter2)).rejects.toThrow(`If txHash is set`);
-
-      const filter3 = {
-        txHash,
-        afterLog,
-      };
-      await expect(async () => await archiverStore.getUnencryptedLogs(filter3)).rejects.toThrow(`If txHash is set`);
-
-      const filter4 = {
-        fromBlock,
-        afterLog,
-      };
-      await expect(async () => await archiverStore.getUnencryptedLogs(filter4)).rejects.toThrow(`If fromBlock is set`);
+      await expect(async () => await archiverStore.getUnencryptedLogs(filter2)).rejects.toThrow(
+        'Invalid filter: "txHash" is set along',
+      );
     });
 
-    it('throws fromBlock is smaller than genesis block', async () => {
+    it('does not throw when both "fromBlock" and "txHash" are set with afterLog', async () => {
+      // this case should not throw because "afterLog" should take precedence
+      const txHash = new TxHash(randomBytes(TxHash.SIZE));
+      const fromBlock = 2;
+      const toBlock = 3;
+      const afterLog = new LogId(1, 2, 3);
+
+      // First invalid case - "txHash" and "fromBlock" are set
+      const filter1 = {
+        txHash,
+        fromBlock,
+        toBlock,
+        afterLog,
+      };
+      const response = await archiverStore.getUnencryptedLogs(filter1);
+
+      expect(response.logs.length).toEqual(0);
+      expect(response.maxLogsHit).toEqual(false);
+    });
+
+    it('throws when "fromBlock" is smaller than genesis block', async () => {
       const fromBlock = INITIAL_L2_BLOCK_NUM - 1;
 
       await expect(
@@ -126,7 +139,7 @@ describe('Archiver Memory Store', () => {
       ).rejects.toThrow(`smaller than genesis block number`);
     });
 
-    it('does not return more than `maxLogs` logs', async () => {
+    it('does not return more than "maxLogs" logs', async () => {
       const maxLogs = 5;
       archiverStore = new MemoryArchiverStore(maxLogs);
       const blocks = Array(10)
@@ -167,7 +180,7 @@ describe('Archiver Memory Store', () => {
       );
     });
 
-    it('txHash filter param is respected', async () => {
+    it('"txHash" filter param is respected', async () => {
       // get random tx
       const targetBlockIndex = Math.floor(Math.random() * numBlocks);
       const targetTxIndex = Math.floor(Math.random() * txsPerBlock);
@@ -188,8 +201,8 @@ describe('Archiver Memory Store', () => {
       }
     });
 
-    it('fromBlock and toBlock filter params are respected', async () => {
-      // Set fromBlock and toBlock
+    it('"fromBlock" and "toBlock" filter params are respected', async () => {
+      // Set "fromBlock" and "toBlock"
       const fromBlock = 3;
       const toBlock = 7;
 
@@ -208,7 +221,7 @@ describe('Archiver Memory Store', () => {
       }
     });
 
-    it('afterLog filter param is respected', async () => {
+    it('"afterLog" filter param is respected', async () => {
       // Get a random log as reference
       const targetBlockIndex = Math.floor(Math.random() * numBlocks);
       const targetTxIndex = Math.floor(Math.random() * txsPerBlock);
@@ -233,7 +246,7 @@ describe('Archiver Memory Store', () => {
       }
     });
 
-    it('contractAddress filter param is respected', async () => {
+    it('"contractAddress" filter param is respected', async () => {
       // Get a random contract address from the logs
       const targetBlockIndex = Math.floor(Math.random() * numBlocks);
       const targetTxIndex = Math.floor(Math.random() * txsPerBlock);
@@ -254,7 +267,7 @@ describe('Archiver Memory Store', () => {
       }
     });
 
-    it('selector filter param is respected', async () => {
+    it('"selector" filter param is respected', async () => {
       // Get a random selector from the logs
       const targetBlockIndex = Math.floor(Math.random() * numBlocks);
       const targetTxIndex = Math.floor(Math.random() * txsPerBlock);

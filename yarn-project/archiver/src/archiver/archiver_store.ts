@@ -375,49 +375,43 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   getUnencryptedLogs(filter: LogFilter): Promise<GetsUnencryptedLogsResponse> {
     validateLogFilter(filter);
 
-    const txHash = filter.txHash;
-
+    let txHash: TxHash | undefined;
     let fromBlockIndex = 0;
-    if (filter.fromBlock !== undefined) {
-      fromBlockIndex = filter.fromBlock - INITIAL_L2_BLOCK_NUM;
-    } else if (filter.afterLog !== undefined) {
+    let toBlockIndex = this.unencryptedLogsPerBlock.length;
+    let txIndexInBlock = 0;
+    let logIndexInTx = 0;
+
+    if (filter.afterLog) {
+      // Continuation parameter is set: "txHash", "fromBlock" and "toBlock" are ignored.
       fromBlockIndex = filter.afterLog.blockNumber - INITIAL_L2_BLOCK_NUM;
-    }
+      txIndexInBlock = filter.afterLog.txIndex;
+      logIndexInTx = filter.afterLog.logIndex + 1; // We want to start from the next log
+    } else {
+      txHash = filter.txHash;
 
-    if (fromBlockIndex < 0) {
-      throw new Error(`"fromBlock" (${filter.fromBlock}) smaller than genesis block number (${INITIAL_L2_BLOCK_NUM}).`);
-    }
-    if (fromBlockIndex > this.unencryptedLogsPerBlock.length) {
-      return Promise.resolve({
-        logs: [],
-        maxLogsHit: false,
-      });
-    }
+      if (filter.fromBlock !== undefined) {
+        fromBlockIndex = filter.fromBlock - INITIAL_L2_BLOCK_NUM;
+      }
+      if (filter.toBlock !== undefined) {
+        toBlockIndex = filter.toBlock - INITIAL_L2_BLOCK_NUM;
+      }
 
-    const toBlockIndex =
-      (filter.toBlock || this.unencryptedLogsPerBlock.length + INITIAL_L2_BLOCK_NUM) - INITIAL_L2_BLOCK_NUM;
-    if (toBlockIndex < fromBlockIndex) {
-      return Promise.resolve({
-        logs: [],
-        maxLogsHit: false,
-      });
+      if (fromBlockIndex > this.unencryptedLogsPerBlock.length || toBlockIndex < fromBlockIndex) {
+        return Promise.resolve({
+          logs: [],
+          maxLogsHit: false,
+        });
+      }
     }
 
     const contractAddress = filter.contractAddress;
     const selector = filter.selector;
 
-    let txIndexInBlock = 0;
-    let logIndexInTx = 0;
-    if (filter.afterLog !== undefined) {
-      txIndexInBlock = filter.afterLog.txIndex;
-      logIndexInTx = filter.afterLog.logIndex + 1; // We want to start from the next log
-    }
-
     const logs: ExtendedUnencryptedL2Log[] = [];
 
-    for (let i = fromBlockIndex; i < toBlockIndex; i++) {
-      const blockContext = this.l2BlockContexts[i];
-      const blockLogs = this.unencryptedLogsPerBlock[i];
+    for (; fromBlockIndex < toBlockIndex; fromBlockIndex++) {
+      const blockContext = this.l2BlockContexts[fromBlockIndex];
+      const blockLogs = this.unencryptedLogsPerBlock[fromBlockIndex];
       for (; txIndexInBlock < blockLogs.txLogs.length; txIndexInBlock++) {
         const txLogs = blockLogs.txLogs[txIndexInBlock].unrollLogs().map(log => UnencryptedL2Log.fromBuffer(log));
         for (; logIndexInTx < txLogs.length; logIndexInTx++) {
