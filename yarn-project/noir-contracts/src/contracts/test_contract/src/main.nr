@@ -140,27 +140,27 @@ contract Test {
 
     #[aztec(public)]
     fn consume_mint_public_message(
-        amount: Field,
         to: Field,
+        amount: Field,
         canceller: Field,
         msg_key: Field,
         secret: Field,
     ) {
-        let content_hash = get_mint_public_content_hash(amount, to, canceller);
+        let content_hash = get_mint_public_content_hash(to, amount, canceller);
         // Consume message and emit nullifier
         context.consume_l1_to_l2_message(msg_key, content_hash, secret);
     }
 
      #[aztec(private)]
     fn consume_mint_private_message(
-        amount: Field,
         secret_hash_for_redeeming_minted_notes: Field, 
+        amount: Field,
         canceller: Field,
         msg_key: Field,
         secret_for_L1_to_L2_message_consumption: Field, 
     ) {
         // Consume L1 to L2 message and emit nullifier
-        let content_hash = get_mint_private_content_hash(amount, secret_hash_for_redeeming_minted_notes, canceller);
+        let content_hash = get_mint_private_content_hash(secret_hash_for_redeeming_minted_notes, amount, canceller);
         context.consume_l1_to_l2_message(msg_key, content_hash, secret_for_L1_to_L2_message_consumption);
     }
 

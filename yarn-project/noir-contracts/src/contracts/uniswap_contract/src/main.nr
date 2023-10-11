@@ -221,8 +221,8 @@ contract Uniswap {
         // Exit to L1 Uniswap Portal !
         TokenBridge::at(token_bridge.address).exit_to_l1_public(
             context,
-            amount,
             context.this_portal_address(),
+            amount,
             context.this_portal_address(),
             nonce_for_burn_approval,
         );

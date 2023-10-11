@@ -656,8 +656,8 @@ describe('Private Execution test suite', () => {
       const secretHashForRedeemingNotes = new Fr(2n);
       const canceller = EthAddress.random();
       const preimage = await buildL1ToL2Message(
-        getFunctionSelector('mint_private(uint256,bytes32,address)').substring(2),
-        [new Fr(bridgedAmount), secretHashForRedeemingNotes, canceller.toField()],
+        getFunctionSelector('mint_private(bytes32,uint256,address)').substring(2),
+        [secretHashForRedeemingNotes, new Fr(bridgedAmount), canceller.toField()],
         contractAddress,
         secretForL1ToL2MessageConsumption,
       );
@@ -675,8 +675,8 @@ describe('Private Execution test suite', () => {
       });
 
       const args = [
-        bridgedAmount,
         secretHashForRedeemingNotes,
+        bridgedAmount,
         canceller.toField(),
         messageKey,
         secretForL1ToL2MessageConsumption,

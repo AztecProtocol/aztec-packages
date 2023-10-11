@@ -85,7 +85,7 @@ describe('archiver integration with l1 to l2 messages', () => {
     const deadline = Number((await publicClient.getBlock()).timestamp + 1000n);
 
     logger('Sending messages to L1 portal');
-    const args = [mintAmount, owner.toString(), ethAccount.toString(), deadline, secretString] as const;
+    const args = [owner.toString(), mintAmount, ethAccount.toString(), deadline, secretString] as const;
     await tokenPortal.write.depositToAztecPublic(args, {} as any);
     expect(await underlyingERC20.read.balanceOf([ethAccount.toString()])).toBe(initialL1MintAmount - mintAmount);
 
@@ -97,7 +97,7 @@ describe('archiver integration with l1 to l2 messages', () => {
 
     // cancel the message
     logger('cancelling the l1 to l2 message');
-    const argsCancel = [mintAmount, owner.toString(), deadline, secretString, 0n] as const;
+    const argsCancel = [owner.toString(), mintAmount, deadline, secretString, 0n] as const;
     await tokenPortal.write.cancelL1ToAztecMessagePublic(argsCancel, { gas: 1_000_000n } as any);
     expect(await underlyingERC20.read.balanceOf([ethAccount.toString()])).toBe(initialL1MintAmount);
     // let archiver sync up

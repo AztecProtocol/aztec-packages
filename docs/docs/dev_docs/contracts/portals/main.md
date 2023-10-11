@@ -52,7 +52,6 @@ The `content_hash` is a sha256 truncated to a field element (~ 254 bits). In Azt
 
 #include_code mint_public_content_hash_nr /yarn-project/noir-contracts/src/contracts/token_portal_content_hash_lib/src/lib.nr rust
 
-
 In solidity, you can use our `Hash.sha256ToField()` method:
 
 #include_code content_hash_sol_import l1-contracts/test/portals/TokenPortal.sol solidity

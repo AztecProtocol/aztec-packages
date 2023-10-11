@@ -360,8 +360,8 @@ describe('ACIR public execution simulator', () => {
       const recipient = AztecAddress.random();
 
       const preimage = await buildL1ToL2Message(
-        getFunctionSelector('mint_public(uint256,bytes32,address)').substring(2),
-        [new Fr(bridgedAmount), recipient.toField(), canceller.toField()],
+        getFunctionSelector('mint_public(bytes32,uint256,address)').substring(2),
+        [recipient.toField(), new Fr(bridgedAmount), canceller.toField()],
         contractAddress,
         secret,
       );
@@ -369,8 +369,8 @@ describe('ACIR public execution simulator', () => {
       // Stub message key
       const messageKey = Fr.random();
       const args = encodeArguments(mintPublicArtifact, [
-        bridgedAmount,
         recipient.toField(),
+        bridgedAmount,
         canceller.toField(),
         messageKey,
         secret,

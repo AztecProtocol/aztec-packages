@@ -44,11 +44,11 @@ impl TokenBridge {
     AztecAddress::new(return_values[0])
   }
 
-  pub fn exit_to_l1_public(self: Self, context: PublicContext, amount: Field, recipient: Field, callerOnL1: Field, nonce: Field) {
+  pub fn exit_to_l1_public(self: Self, context: PublicContext, recipient: Field, amount: Field, callerOnL1: Field, nonce: Field) {
     let _return_values = context.call_public_function(
       self.address,
-      compute_selector("exit_to_l1_public(Field,(Field),(Field),Field)"),
-      [amount, recipient, callerOnL1, nonce]
+      compute_selector("exit_to_l1_public((Field),Field,(Field),Field)"),
+      [recipient, amount, callerOnL1, nonce]
     );
   }
 }
