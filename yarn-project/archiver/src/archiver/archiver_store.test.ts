@@ -128,17 +128,6 @@ describe('Archiver Memory Store', () => {
       expect(response.maxLogsHit).toEqual(false);
     });
 
-    it('throws when "fromBlock" is smaller than genesis block', async () => {
-      const fromBlock = INITIAL_L2_BLOCK_NUM - 1;
-
-      await expect(
-        async () =>
-          await archiverStore.getUnencryptedLogs({
-            fromBlock,
-          }),
-      ).rejects.toThrow(`smaller than genesis block number`);
-    });
-
     it('does not return more than "maxLogs" logs', async () => {
       const maxLogs = 5;
       archiverStore = new MemoryArchiverStore(maxLogs);

@@ -382,10 +382,14 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     let logIndexInTx = 0;
 
     if (filter.afterLog) {
-      // Continuation parameter is set: "txHash", "fromBlock" and "toBlock" are ignored.
-      fromBlockIndex = filter.afterLog.blockNumber - INITIAL_L2_BLOCK_NUM;
-      txIndexInBlock = filter.afterLog.txIndex;
-      logIndexInTx = filter.afterLog.logIndex + 1; // We want to start from the next log
+      // Continuation parameter is set --> tx hash is ignored
+      if (filter.fromBlock == undefined || filter.fromBlock <= filter.afterLog.blockNumber) {
+        fromBlockIndex = filter.afterLog.blockNumber - INITIAL_L2_BLOCK_NUM;
+        txIndexInBlock = filter.afterLog.txIndex;
+        logIndexInTx = filter.afterLog.logIndex + 1; // We want to start from the next log
+      } else {
+        fromBlockIndex = filter.fromBlock - INITIAL_L2_BLOCK_NUM;
+      }
     } else {
       txHash = filter.txHash;
 
@@ -395,13 +399,13 @@ export class MemoryArchiverStore implements ArchiverDataStore {
       if (filter.toBlock !== undefined) {
         toBlockIndex = filter.toBlock - INITIAL_L2_BLOCK_NUM;
       }
+    }
 
-      if (fromBlockIndex > this.unencryptedLogsPerBlock.length || toBlockIndex < fromBlockIndex) {
-        return Promise.resolve({
-          logs: [],
-          maxLogsHit: false,
-        });
-      }
+    if (fromBlockIndex > this.unencryptedLogsPerBlock.length || toBlockIndex < fromBlockIndex || toBlockIndex <= 0) {
+      return Promise.resolve({
+        logs: [],
+        maxLogsHit: false,
+      });
     }
 
     const contractAddress = filter.contractAddress;
