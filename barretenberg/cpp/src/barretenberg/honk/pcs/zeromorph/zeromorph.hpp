@@ -174,7 +174,7 @@ template <typename Curve> class ZeroMorphProver_ {
      *  Z_x = x * f_batched + g_batched - v * x * \Phi_n(x)
      *           - x * \sum_k (x^{2^k}\Phi_{n-k-1}(x^{2^{k-1}}) - u_k\Phi_{n-k}(x^{2^k})) * q_k
      *
-     * where f_batched = \sum_{i=0}^{m-1}\alpha^i*f_i, g_batched = \sum_{i=0}^{l-1}\alpha^{m+i}*g_i
+     * where f_batched = \sum_{i=0}^{m-1}\rho^i*f_i, g_batched = \sum_{i=0}^{l-1}\rho^{m+i}*g_i
      *
      * @param input_polynomial
      * @param quotients
@@ -297,9 +297,9 @@ template <typename Curve> class ZeroMorphProver_ {
         size_t N = 1 << log_N;
 
         // Compute batching of unshifted polynomials f_i and to-be-shifted polynomials g_i:
-        // f_batched = sum_{i=0}^{m-1}\alpha^i*f_i and g_batched = sum_{i=0}^{l-1}\alpha^{m+i}*g_i,
+        // f_batched = sum_{i=0}^{m-1}\rho^i*f_i and g_batched = sum_{i=0}^{l-1}\rho^{m+i}*g_i,
         // and also batched evaluation
-        // v = sum_{i=0}^{m-1}\alpha^i*f_i(u) + sum_{i=0}^{l-1}\alpha^{m+i}*h_i(u).
+        // v = sum_{i=0}^{m-1}\rho^i*f_i(u) + sum_{i=0}^{l-1}\rho^{m+i}*h_i(u).
         // Note: g_batched is formed from the to-be-shifted polynomials, but the batched evaluation incorporates the
         // evaluations produced by sumcheck of h_i = g_i_shifted.
         auto batched_evaluation = FF(0);
@@ -374,7 +374,6 @@ template <typename Curve> class ZeroMorphProver_ {
 template <typename Curve> class ZeroMorphVerifier_ {
     using FF = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
-    using GroupElement = typename Curve::Element;
 
   public:
     /**
@@ -421,7 +420,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
 
         // Compute batch mul to get the result
         if constexpr (Curve::is_stdlib_type) {
-            return GroupElement::batch_mul(commitments, scalars);
+            return Commitment::batch_mul(commitments, scalars);
         } else {
             return batch_mul_native(commitments, scalars);
         }
@@ -431,22 +430,22 @@ template <typename Curve> class ZeroMorphVerifier_ {
      * @brief Compute commitment to partially evaluated ZeroMorph identity Z
      * @details Compute commitment C_{Z_x} = [Z_x]_1 using homomorphicity:
      *
-     *  C_{Z_x} = x * \sum_{i=0}^{m-1}\alpha^i*[f_i] + \sum_{i=0}^{l-1}\alpha^{m+i}*[g_i] - v * x * \Phi_n(x) * [1]_1
+     *  C_{Z_x} = x * \sum_{i=0}^{m-1}\rho^i*[f_i] + \sum_{i=0}^{l-1}\rho^{m+i}*[g_i] - v * x * \Phi_n(x) * [1]_1
      *              - x * \sum_k (x^{2^k}\Phi_{n-k-1}(x^{2^{k-1}}) - u_k\Phi_{n-k}(x^{2^k})) * [q_k]
      *
      * @param f_commitments Commitments to unshifted polynomials [f_i]
      * @param g_commitments Commitments to to-be-shifted polynomials [g_i]
      * @param C_q_k Commitments to q_k
-     * @param alpha
-     * @param batched_evaluation \sum_{i=0}^{m-1} \alpha^i*f_i(u) + \sum_{i=0}^{l-1} \alpha^{m+i}*h_i(u)
+     * @param rho
+     * @param batched_evaluation \sum_{i=0}^{m-1} \rho^i*f_i(u) + \sum_{i=0}^{l-1} \rho^{m+i}*h_i(u)
      * @param x_challenge
      * @param u_challenge multilinear challenge
      * @return Commitment
      */
-    static Commitment compute_C_Z_x(std::vector<Commitment>& f_commitments,
-                                    std::vector<Commitment>& g_commitments,
+    static Commitment compute_C_Z_x(std::vector<Commitment> f_commitments,
+                                    std::vector<Commitment> g_commitments,
                                     std::vector<Commitment>& C_q_k,
-                                    FF alpha,
+                                    FF rho,
                                     FF batched_evaluation,
                                     FF x_challenge,
                                     std::vector<FF> u_challenge)
@@ -471,19 +470,19 @@ template <typename Curve> class ZeroMorphVerifier_ {
             commitments.emplace_back(Commitment::one());
         }
 
-        // Add contribution: x * \sum_{i=0}^{m-1} \alpha^i*[f_i]
-        auto alpha_pow = FF(1);
+        // Add contribution: x * \sum_{i=0}^{m-1} \rho^i*[f_i]
+        auto rho_pow = FF(1);
         for (auto& commitment : f_commitments) {
-            scalars.emplace_back(x_challenge * alpha_pow);
+            scalars.emplace_back(x_challenge * rho_pow);
             commitments.emplace_back(commitment);
-            alpha_pow *= alpha;
+            rho_pow *= rho;
         }
 
-        // Add contribution: \sum_{i=0}^{l-1} \alpha^{m+i}*[g_i]
+        // Add contribution: \sum_{i=0}^{l-1} \rho^{m+i}*[g_i]
         for (auto& commitment : g_commitments) {
-            scalars.emplace_back(alpha_pow);
+            scalars.emplace_back(rho_pow);
             commitments.emplace_back(commitment);
-            alpha_pow *= alpha;
+            rho_pow *= rho;
         }
 
         // Add contributions: scalar * [q_k],  k = 0,...,log_N, where
@@ -509,7 +508,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
         }
 
         if constexpr (Curve::is_stdlib_type) {
-            return GroupElement::batch_mul(commitments, scalars);
+            return Commitment::batch_mul(commitments, scalars);
         } else {
             return batch_mul_native(commitments, scalars);
         }
@@ -517,7 +516,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
 
     /**
      * @brief Utility for native batch multiplication of group elements
-     *
+     * @note This is used only for native verification and is not optimized for efficiency
      */
     static Commitment batch_mul_native(std::vector<Commitment> points, std::vector<FF> scalars)
     {
@@ -549,7 +548,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
         // Compute powers of batching challenge rho
         std::vector<FF> rhos = pcs::zeromorph::powers_of_challenge(rho, claimed_evaluations.size());
 
-        // Construct batched evaluation v = sum_{i=0}^{m-1}\alpha^i*f_i(u) + sum_{i=0}^{l-1}\alpha^{m+i}*h_i(u)
+        // Construct batched evaluation v = sum_{i=0}^{m-1}\rho^i*f_i(u) + sum_{i=0}^{l-1}\rho^{m+i}*h_i(u)
         FF batched_evaluation = FF(0);
         size_t evaluation_idx = 0;
         for (auto& value : claimed_evaluations.get_unshifted_then_shifted()) {
@@ -576,18 +575,14 @@ template <typename Curve> class ZeroMorphVerifier_ {
         // Compute commitment C_{\zeta_x}
         auto C_zeta_x = compute_C_zeta_x(C_q, C_q_k, y_challenge, x_challenge);
 
-        std::vector<Commitment> f_commitments;
-        std::vector<Commitment> g_commitments;
-        for (auto& commitment : commitments.get_unshifted()) {
-            f_commitments.emplace_back(commitment);
-        }
-        for (auto& commitment : commitments.get_to_be_shifted()) {
-            g_commitments.emplace_back(commitment);
-        }
-
         // Compute commitment C_{Z_x}
-        Commitment C_Z_x = compute_C_Z_x(
-            f_commitments, g_commitments, C_q_k, rho, batched_evaluation, x_challenge, multivariate_challenge);
+        Commitment C_Z_x = compute_C_Z_x(commitments.get_unshifted(),
+                                         commitments.get_to_be_shifted(),
+                                         C_q_k,
+                                         rho,
+                                         batched_evaluation,
+                                         x_challenge,
+                                         multivariate_challenge);
 
         // Compute commitment C_{\zeta,Z}
         auto C_zeta_Z = C_zeta_x + C_Z_x * z_challenge;
