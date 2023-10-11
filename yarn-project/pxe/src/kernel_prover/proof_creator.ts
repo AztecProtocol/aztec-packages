@@ -109,7 +109,7 @@ export class KernelProofCreator implements ProofCreator {
 
   public async createProofInit(privateInputs: PrivateKernelInputsInit): Promise<ProofOutput> {
     const [time, result] = await elapsed(() => executeInit(privateInputs));
-    
+
     this.log(`Simulated private kernel init`, {
       eventName: 'circuit-simulation',
       circuitName: 'private-kernel-init',
