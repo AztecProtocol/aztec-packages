@@ -30,7 +30,7 @@ export class Synchronizer {
   }
 
   /**
-   * Starts the synchronisation process by fetching encrypted logs and blocks from a specified position.
+   * Starts the synchronization process by fetching encrypted logs and blocks from a specified position.
    * Continuously processes the fetched data for all note processors until stopped. If there is no data
    * available, it retries after a specified interval.
    *

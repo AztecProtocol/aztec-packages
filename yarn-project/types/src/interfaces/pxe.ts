@@ -29,7 +29,7 @@ export interface PXE {
   /**
    * Insert an auth witness for a given message hash. Auth witnesses are used to authorize actions on
    * behalf of a user. For instance, a token transfer initiated by a different address may request
-   * authorisation from the user to move their tokens. This authorisation is granted by the user
+   * authorization from the user to move their tokens. This authorization is granted by the user
    * account contract by verifying an auth witness requested to the execution oracle. Witnesses are
    * usually a signature over a hash of the action to be authorized, but their actual contents depend
    * on the account contract that consumes them.

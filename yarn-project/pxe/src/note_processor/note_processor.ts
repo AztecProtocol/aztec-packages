@@ -66,7 +66,7 @@ export class NoteProcessor {
   }
 
   /**
-   * Returns synchronisation status (ie up to which block has been synced ) for this note processor.
+   * Returns synchronization status (ie up to which block has been synced ) for this note processor.
    */
   public get status() {
     return { syncedToBlock: this.syncedToBlock };
