@@ -43,7 +43,7 @@ type NoirFunctionFormValues = {
 function generateYupDefaultValue(param: any, defaultAddress: string){
     if (CONTRACT_ADDRESS_PARAM_NAMES.includes(param.name)) {
       // these are actually fields, which should be numbers, but yup doesn't support bigint so we convert back to bigint on execution
-      return {yupType: Yup.string().required(), defaultAddress};
+      return {yupType: Yup.string().required(), defaultValue: defaultAddress};
     } else if (param.type.kind === 'field'){
       return {yupType: Yup.number().required(), defaultValue: DEFAULT_FIELD_VALUE};
     } else if (param.type.kind === 'array'){
@@ -84,17 +84,16 @@ function generateYupSchema(functionAbi: FunctionArtifact, defaultAddress: string
         const structParamSchema: any = {};
         const structInitialValues: any = {};
         for (const structParam of paramFields){
-          log(structParam);
           const { yupType, defaultValue } = generateYupDefaultValue(structParam, defaultAddress);
+          log(`${param} ${yupType} ${defaultValue}`);
           structParamSchema[structParam.name] = yupType;
           structInitialValues[structParam.name] = defaultValue;
         }
-        log(param.name);
-        log(structParamSchema);
-        log(structInitialValues);
         parameterSchema[param.name] = Yup.object().shape(structParamSchema);
         initialValues[param.name] = structInitialValues;
         continue;
+    } else {
+      log('Unsupported type', param);
     }
   }
   return { validationSchema: Yup.object().shape(parameterSchema), initialValues };
@@ -175,6 +174,60 @@ export function ContractFunctionForm({
       }
     },
   });
+  return (
+  <form onSubmit={formik.handleSubmit} className={styles.content}>
+    {functionAbi.parameters.map(input => (
+      <div key={input.name} className={styles.field}>
+        {input.type.kind !== 'struct' ? (
+          <>
+            <label className={styles.label} htmlFor={input.name}>
+              {input.name} ({input.type.kind})
+            </label>
+            <input
+              className={styles.input}
+              id={input.name}
+              name={input.name}
+              disabled={isLoading}
+              type="text"
+              onChange={formik.handleChange}
+              value={formik.values[input.name]}
+            />
+            {formik.touched[input.name] && formik.errors[input.name] && (
+              <div>{formik.errors[input.name]?.toString()}</div>
+            )}
+          </>
+        ) : (
+          // Rendering object properties if the kind is 'object'
+          input.type.fields.map(field => (
+            <div key={field.name}>
+              <label className={styles.label} htmlFor={`${input.name}.${field.name}`}>
+                {field.name}
+              </label>
+              <input
+                className={styles.input}
+                id={`${input.name}.${field.name}`}
+                name={`${input.name}.${field.name}`}
+                disabled={isLoading}
+                type="text"
+                onChange={formik.handleChange}
+                value={formik.values[input.name] ? formik.values[input.name][field.name] : ''}
+              />
+              {/* {formik.touched[input.name] && formik.touched[input.name]] && formik.errors[input.name] && formik.errors[input.name][field.name] && (
+                <div>{formik.errors[input.name][field.name]?.toString()}</div>
+              )} */}
+            </div>
+          ))
+        )}
+      </div>
+    ))}
+    {isLoading ? (
+      <Loader />
+    ) : (
+      <Button disabled={disabled} text={buttonText} className={styles.actionButton} type="submit" />
+    )}
+  </form>
+);
+
 
   return (
     <form onSubmit={formik.handleSubmit} className={styles.content}>
