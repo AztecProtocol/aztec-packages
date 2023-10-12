@@ -65,6 +65,7 @@
     "dbanks",
     "rahul",
     "herskind",
+    "danlee",
     "suyash",
     "diffie",
     "bootnode",
@@ -140,7 +141,18 @@
     "bbfree",
     "archiver",
     "sigchld",
-    "pids"
+    "pids",
+    "comlink",
+    "checksummed",
+    "tsdoc",
+    "muldiv",
+    "clonedeepwith",
+    "bodyparser",
+    "pkgs",
+    "mktemp",
+    "unshielding",
+    "workdir",
+    "leveldb"
   ],
   "ignorePaths": [
     "node_modules/",
@@ -158,6 +170,8 @@
     ".bootstrapped",
     "*.svg",
     "*.otf",
-    "git-subrepo/"
+    "git-subrepo/",
+    "*.snap",
+    "package.json"
   ]
 }
