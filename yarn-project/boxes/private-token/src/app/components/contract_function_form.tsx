@@ -85,7 +85,6 @@ function generateYupSchema(functionAbi: FunctionArtifact, defaultAddress: string
         const structInitialValues: any = {};
         for (const structParam of paramFields){
           const { yupType, defaultValue } = generateYupDefaultValue(structParam, defaultAddress);
-          log(`${param} ${yupType} ${defaultValue}`);
           structParamSchema[structParam.name] = yupType;
           structInitialValues[structParam.name] = defaultValue;
         }
@@ -106,7 +105,7 @@ async function handleFunctionCall(
   args: any,
   wallet: CompleteAddress,
 ) {
-  log('handleFunctionCall', contractAddress, artifact, functionName, args, wallet);
+  // log('handleFunctionCall', contractAddress, artifact, functionName, args, wallet);
 
   const functionAbi = artifact.functions.find(f => f.name === functionName)!;
   const typedArgs: any[] = convertArgs(functionAbi, args);
@@ -197,11 +196,13 @@ export function ContractFunctionForm({
             )}
           </>
         ) : (
-          // Rendering object properties if the kind is 'object'
+          // Rendering object properties if the kind is 'struct'
+          // find a better way to represent that these are part of the same input
+          // than the text label `${input.name}.${field.name}`
           input.type.fields.map(field => (
             <div key={field.name}>
               <label className={styles.label} htmlFor={`${input.name}.${field.name}`}>
-                {field.name}
+                {`${input.name}.${field.name}`}
               </label>
               <input
                 className={styles.input}
@@ -212,7 +213,7 @@ export function ContractFunctionForm({
                 onChange={formik.handleChange}
                 value={formik.values[input.name] ? formik.values[input.name][field.name] : ''}
               />
-              {/* {formik.touched[input.name] && formik.touched[input.name]] && formik.errors[input.name] && formik.errors[input.name][field.name] && (
+              {/* {formik.touched[input.name] && formik.touched[input.name] && formik.errors[input.name] && formik.errors[input.name][field.name] && (
                 <div>{formik.errors[input.name][field.name]?.toString()}</div>
               )} */}
             </div>
@@ -228,33 +229,4 @@ export function ContractFunctionForm({
   </form>
 );
 
-
-  return (
-    <form onSubmit={formik.handleSubmit} className={styles.content}>
-      {functionAbi.parameters.map(input => (
-        <div key={input.name} className={styles.field}>
-          <label className={styles.label} htmlFor={input.name}>
-            {input.name} ({input.type.kind})
-          </label>
-          <input
-            className={styles.input}
-            id={input.name}
-            name={input.name}
-            disabled={isLoading}
-            type="text"
-            onChange={formik.handleChange}
-            value={formik.values[input.name]}
-          />
-          {formik.touched[input.name] && formik.errors[input.name] && (
-            <div>{formik.errors[input.name]?.toString()}</div>
-          )}
-        </div>
-      ))}
-      {isLoading ? (
-        <Loader />
-      ) : (
-        <Button disabled={disabled} text={buttonText} className={styles.actionButton} type="submit" />
-      )}
-    </form>
-  );
 }

@@ -2,22 +2,36 @@ import { AccountWallet, Fr, getSandboxAccountsWallets } from '@aztec/aztec.js';
 import { FunctionArtifact, encodeArguments } from '@aztec/foundation/abi';
 import { CompleteAddress, PXE } from '@aztec/types';
 
+function convertBasicArg(paramType: string, value: any) {
+  switch (paramType) {
+    case 'field':
+      // hack: addresses are stored as string in the form to avoid bigint compatibility issues with formik
+      // convert those back to bigints before turning into Fr
+      return BigInt(value);
+    default:
+      return value;
+  }
+}
+
 export function convertArgs(functionAbi: FunctionArtifact, args: any): Fr[] {
-  const untypedArgs = functionAbi.parameters.map(param => {
-    switch (param.type.kind) {
-      case 'field':
-        // hack: addresses are stored as string in the form to avoid bigint compatibility issues with formik
-        // convert those back to bigints before turning into Fr
-        return BigInt(args[param.name]);
-      case 'struct':
+  console.log(args);
+  const untypedArgs = functionAbi.parameters
+    .map(param => {
+      if (param.type.kind in ['field', 'boolean', 'array']) {
+        return convertBasicArg(param.type.kind, args[param.name]);
+      } else if (param.type.kind === 'struct') {
+        const structParams = param.type.fields;
         // struct an object for the struct input type
-        console.log(args.param.name);
-        return args[param.name];
-      default:
-        // they are all fields in the privatetoken contract, need more testing on other types
-        return args[param.name];
-    }
-  });
+        const structArgs = [];
+        for (const field of structParams) {
+          structArgs.push(convertBasicArg(field.type.kind, args[param.name][field.name]));
+        }
+        return structArgs;
+      }
+    })
+    .flat();
+  console.log(`${untypedArgs}`);
+  console.log(encodeArguments(functionAbi, untypedArgs));
 
   return encodeArguments(functionAbi, untypedArgs);
 }
