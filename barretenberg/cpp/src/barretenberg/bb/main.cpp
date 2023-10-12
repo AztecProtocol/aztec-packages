@@ -48,7 +48,26 @@ acir_format::WitnessVector get_witness(std::string const& witness_path)
 acir_format::acir_format get_constraint_system(std::string const& bytecode_path)
 {
     auto bytecode = get_bytecode(bytecode_path);
-    return acir_format::circuit_buf_to_acir_format(bytecode);
+    auto constraint_system = acir_format::circuit_buf_to_acir_format(bytecode);
+
+    auto remove_duplicates = [](std::vector<uint32_t>& vec) {
+        std::sort(vec.begin(), vec.end());
+        auto lastUnique = std::unique(vec.begin(), vec.end());
+        vec.erase(lastUnique, vec.end());
+    };
+
+    // The deserialized acir can have duplicate public inputs.
+    //
+    // This can happen if for example, the input to a function is a public input and
+    // then this input is returned as a public output.
+    //
+    // One solution for this, is to have ACIR introduce the concept of a public output
+    // which would be different to the public input. A public input would be the public values
+    // which are inputted to the program and the public output would be the public values
+    // which are returned when the program terminates.
+    remove_duplicates(constraint_system.public_inputs);
+
+    return constraint_system;
 }
 
 std::vector<uint8_t> read_public_inputs(std::string const& public_inputs_path)

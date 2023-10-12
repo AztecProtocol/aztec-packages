@@ -132,8 +132,8 @@ bool AcirComposer::verify_proof(std::vector<uint8_t> const& public_inputs,
         vinfo("done.");
     }
 
-    // Hack. Shouldn't need to do this.
-    builder_.public_inputs.resize(public_inputs.size() / 32);
+    auto numPublicInputs = public_inputs.size() / 32;
+    builder_.public_inputs.resize(numPublicInputs);
 
     if (is_recursive) {
         auto verifier = composer.create_verifier(builder_);
