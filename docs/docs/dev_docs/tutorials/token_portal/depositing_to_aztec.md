@@ -15,10 +15,10 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 // Messaging
-import {IRegistry} from "./aztec/interfaces/messagebridge/IRegistry.sol";
-import {IInbox} from "./aztec/interfaces/messagebridge/IInbox.sol";
-import {DataStructures} from "./aztec/libraries/DataStructures.sol";
-import {Hash} from "./aztec/libraries/Hash.sol";
+import {IRegistry} from "@aztec/l1-contracts/src/core/interfaces/messagebridge/IRegistry.sol";
+import {IInbox} from "@aztec/l1-contracts/src/core/interfaces/messagebridge/IInbox.sol";
+import {DataStructures} from "@aztec/l1-contracts/src/core/libraries/DataStructures.sol";
+import {Hash} from "@aztec/l1-contracts/src/core/libraries/Hash.sol";
 
 contract TokenPortal {
   using SafeERC20 for IERC20;
@@ -32,6 +32,7 @@ contract TokenPortal {
     underlying = IERC20(_underlying);
     l2TokenAddress = _l2TokenAddress;
   }
+}
 ```
 
 This imports relevant files including the interfaces used by the Aztec rollup. And initializes the contract with the following parameters:
@@ -40,6 +41,24 @@ This imports relevant files including the interfaces used by the Aztec rollup. A
 - The erc20 token the portal corresponds to
 - The address of the sister contract on Aztec to where the token will send messages to (for depositing tokens or from where to withdraw the tokens)
 
+Let's also create a dummy ERC20 contract that can mint tokens to anyone. This will make it easier to test our code:
+
+Let's create a file `PortalERC20.sol` in the same folder and add:
+
+```solidity
+// SPDX-License-Identifier: Apache-2.0
+pragma solidity ^0.8.0;
+
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+
+contract PortalERC20 is ERC20 {
+  constructor() ERC20("Portal", "PORTAL") {}
+
+  function mint(address to, uint256 amount) external {
+    _mint(to, amount);
+  }
+}
+```
 ## Depositing tokens to Aztec publicly
 
 Next, we will write a function that is used to deposit funds on L1 that a user may have into an Aztec portal and send a message to the Aztec rollup to mint tokens _publicly_ on Aztec.

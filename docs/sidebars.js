@@ -240,7 +240,7 @@ const sidebars = {
             "dev_docs/tutorials/token_portal/depositing_to_aztec",
             "dev_docs/tutorials/token_portal/minting_on_aztec",
             "dev_docs/tutorials/token_portal/cancelling_deposits",
-            "dev_docs/tutorials/token_portal/withdrawing_from_l1",
+            "dev_docs/tutorials/token_portal/withdrawing_to_l1",
             "dev_docs/tutorials/token_portal/typescript_glue_code",
           ],
         },

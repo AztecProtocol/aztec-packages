@@ -1,4 +1,4 @@
-// docs:start:imports_and_constructor
+// docs:start:token_bridge_imports
 mod token_interface;
 
 // Minimal implementation of the token bridge that can move funds between L1 <> L2.
@@ -17,10 +17,13 @@ contract TokenBridge {
         types::address::{AztecAddress, EthereumAddress},
         selector::compute_selector,
     };
+    // docs:end:token_bridge_imports
+
     use dep::token_portal_content_hash_lib::{get_mint_public_content_hash, get_mint_private_content_hash, get_withdraw_content_hash};
 
     use crate::token_interface::Token;
 
+    // docs:start:token_bridge_storage_and_constructor
     // Storage structure, containing all storage, and specifying what slots they use.
     struct Storage {
         token: PublicState<Field, 1>,
@@ -44,7 +47,8 @@ contract TokenBridge {
         let selector = compute_selector("_initialize((Field))");
         context.call_public_function(context.this_address(), selector, [token.address]);
     }
-    // docs:end:imports_and_constructor
+    // docs:end:token_bridge_storage_and_constructor
+
 
     // docs:start:claim_public
     // Consumes a L1->L2 message and calls the token contract to mint the appropriate amount publicly

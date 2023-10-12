@@ -5,7 +5,7 @@ title: Swapping Privately
 In the `main.nr` contract we created [previously](./l2_contract_setup.md), paste these functions:
 
 #include_code swap_private yarn-project/noir-contracts/src/contracts/uniswap_contract/src/main.nr rust
-#include_code approve_bridge yarn-project/noir-contracts/src/contracts/uniswap_contract/src/main.nr rust
+#include_code authwit_uniswap_set yarn-project/noir-contracts/src/contracts/uniswap_contract/src/main.nr rust
 #include_code assert_token_is_same yarn-project/noir-contracts/src/contracts/uniswap_contract/src/main.nr rust
 
 This flow works very similarly to the public flow except:

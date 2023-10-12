@@ -127,32 +127,32 @@ aztec-contracts
     ├── Nargo.toml
     ├── src
       ├── main.nr
+      ├── token_interface.nr
       ├── util.nr
 ```
 
-# Create a hardhat project
+# Create a JS hardhat project
 
-In the root dir `aztec-token-bridge`, create a new directory called `l1-contracts` and run `npx hardhat init` inside of it. Keep hitting enter so you get the default setup.
+In the root dir `aztec-token-bridge`, create a new directory called `l1-contracts` and run `npx hardhat init` inside of it. Keep hitting enter so you get the default setup (Javascript project)
 
 ```bash
 mkdir l1-contracts
 cd l1-contracts
 npx hardhat init
 ```
-
-Once you have a hardhat project set up, delete the `contracts` directory inside `l1-contracts`. We will be cloning a new `contracts` dir in the next step.
+Once you have a hardhat project set up, delete the existing contracts and create a `TokenPortal.sol`:
 
 ```bash
-rm -rf contracts
+cd contracts
+rm *.sol
+touch TokenPortal.sol
 ```
 
-## Download Ethereum contracts
+Also add Aztec's L1-contracts that includes the interfaces to Aztec Inbox, Outbox and Registry smart contracts, which we will need to send L1<>L2 messages.
 
-We will write the `TokenPortal.sol` contract in this tutorial, but it has many imports that we will need to have locally.
-
-To make this easier we have a standalone submodule on GItHub with all the smart contracts with relative paths - [find it in the devrels repo under utils](https://github.com/AztecProtocol/dev-rel/tree/main/utils). You can clone this directly into `l1-contracts` (recommended to then `rm -rf .git` in the `contracts` dir).
-
-<-- TODO(#2453) redirect people to the l1-contracts repo -->
+```
+yarn add @aztec/l1-contracts
+```
 
 This is what your `l1-contracts` should look like:
 
@@ -166,33 +166,6 @@ This is what your `l1-contracts` should look like:
 └── package.json
 ```
 
-And inside `contracts`:
-
-```json
-contracts
-├── Outbox.sol
-├── PortalERC20.sol
-└── aztec
-    ├── Rollup.sol
-    ├── interfaces
-    │   ├── IRollup.sol
-    │   └── messagebridge
-    │       ├── IInbox.sol
-    │       ├── IOutbox.sol
-    │       └── IRegistry.sol
-    ├── libraries
-    │   ├── ConstantsGen.sol
-    │   ├── DataStructures.sol
-    │   ├── Decoder.sol
-    │   ├── Errors.sol
-    │   ├── Hash.sol
-    │   └── MessageBox.sol
-    └── mock
-        ├── MockVerifier.sol
-        └── interfaces
-            └── IVerifier.sol
-```
-
 # Create src yarn project
 
 In this package, we will write TS code that will interact with our ethereum and aztec-nr contracts and run them against the sandbox.
@@ -203,7 +176,7 @@ Inside the root directory, run
 
 ```bash
 mkdir src && cd src && yarn init -yp
-yarn add @aztec/aztec.js @aztec/noir-contracts @aztec/types viem "@types/node@^20.8.2"
+yarn add @aztec/aztec.js @aztec/noir-contracts @aztec/types @aztec/foundation @aztec/l1-artifacts viem "@types/node@^20.8.2"
 yarn add -D jest @jest/globals ts-jest
 ```
 
@@ -267,7 +240,7 @@ Finally, we will create a test file, in the `src` package:
 
 ```bash
 mkdir test && cd test
-touch index.test.ts
+touch cross_chain_messaging.test.ts
 ```
 
 Your `src` package should look like:
@@ -276,7 +249,7 @@ Your `src` package should look like:
 src
 ├── node_modules
 └── test
-    └── index.test.ts
+    └── cross_chain_messaging.test.ts
 ├── jest.config.json
 ├── package.json
 ```

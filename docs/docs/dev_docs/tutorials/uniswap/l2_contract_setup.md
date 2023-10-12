@@ -18,7 +18,7 @@ To ensure there are no collisions (i.e. when the contract wants to approve the b
 
 Under the storage struct, paste this function:
 
-#include_code is_valid_public yarn-project/noir-contracts/src/contracts/uniswap_contract/src/main.nr rust
+#include_code authwit_uniswap_get yarn-project/noir-contracts/src/contracts/uniswap_contract/src/main.nr rust
 
 In this function, the token contract calls the Uniswap contract to check if Uniswap has indeed done the approval. The token contract expects a `is_valid()` function to exit for private approvals and `is_valid_public()` for public approvals. If the action is indeed approved, it expects that the contract would return the function selector for `is_valid()`  in both cases. The Aztec.nr library exposes this constant for ease of use. The token contract also emits a nullifier for this message so that this approval (with the nonce) can’t be used again.
 

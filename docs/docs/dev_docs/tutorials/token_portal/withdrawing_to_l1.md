@@ -1,5 +1,5 @@
 ---
-title: Withdrawing from L1
+title: Withdrawing to L1
 ---
 
 This is where we have tokens on Aztec and want to withdraw them back to L1 (i.e. burn them on L2 and mint on L1). Withdrawing from L1 will be public.
@@ -12,7 +12,7 @@ Go back to your `main.nr` and paste this:
 
 For this to work we will need this helper function, in `util.nr`:
 
-#include_code get_withdraw_content_hash /yarn-project/noir-contracts/src/contracts/token_bridge_contract/src/util.nr rust
+#include_code get_withdraw_content_hash /yarn-project/noir-contracts/src/contracts/token_portal_content_hash_lib/src/lib.nr rust
 
 **What’s happening here?**
 
@@ -20,7 +20,7 @@ The `exit_to_l1_public` function enables anyone to withdraw their L2 tokens back
 
 1. Like with our deposit function, we need to create the L2 to L1 message. The content is the _amount_ to burn, the recipient address, and who can execute the withdraw on the L1 portal on behalf of the user. It can be `0x0` for anyone, or a specified address.
 2. `context.message_portal()` passes this content to the [kernel circuit](../../../concepts/advanced/circuits/kernels/public_kernel.md) which creates the proof for the transaction. The kernel circuit then adds the sender (the L2 address of the bridge + version of aztec) and the recipient (the portal to the L2 address + the chain ID of L1) under the hood, to create the message which gets added as rollup calldata by the sequencer and is stored in the outbox for consumption.
-3. Finally, you also burn the tokens on L2! Note that it burning is done at the end to follow the check effects interaction pattern. Note that the caller has to first approve the bridge contract to burn tokens on its behalf. Refer to [burn_public function on the token contract](https://github.com/AztecProtocol/dev-rel/blob/main/tutorials/token-contract/README.md#burn_public). The nonce parameter refers to the approval message that the user creates - also refer to [authorizing token spends here](https://github.com/AztecProtocol/dev-rel/blob/main/tutorials/token-contract/README.md#authorizing-token-spends).
+3. Finally, you also burn the tokens on L2! Note that it burning is done at the end to follow the check effects interaction pattern. Note that the caller has to first approve the bridge contract to burn tokens on its behalf. Refer to [burn_public function on the token contract](../writing_token_contract.md#burn_public). The nonce parameter refers to the approval message that the user creates - also refer to [authorizing token spends here](../writing_token_contract.md#authorizing-token-spends).
    - We burn the tokens from the `msg_sender()`. Otherwise, a malicious user could burn someone else’s tokens and mint tokens on L1 to themselves. One could add another approval flow on the bridge but that might make it complex for other applications to call the bridge.
 
 ## Withdrawing Privately
@@ -52,5 +52,21 @@ Here we reconstruct the L2 to L1 message and check that this message exists on t
 We also use a `_withCaller` parameter to determine the appropriate party that can execute this function on behalf of the recipient. If `withCaller` is false, then anyone can call the method and hence we use address(0), otherwise only msg.sender should be able to execute. This address should match the `callerOnL1` address we passed in aztec when withdrawing from L2.
 
 We call this pattern _designed caller_ which enables a new paradigm **where we can construct other such portals that talk to the token portal and therefore create more seamless crosschain legos** between L1 and L2.
+
+## Compile code
+
+We are done with our contracts! Let's compile them:
+
+Compile your solidity contracts to ensure everything is okay:
+```bash
+cd packages/l1-contracts
+npx hardhat compile
+```
+
+Compile your aztec-nr contracts:
+```bash
+cd packages/aztec-contracts
+aztec-cli compile token_bridge
+```
 
 In the next step we will write the TypeScript code to deploy our contracts and call on both L1 and L2 so we can see how everything works together.

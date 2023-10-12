@@ -233,6 +233,7 @@ contract Uniswap {
             nonce_for_burn_approval,
         );
     }
+    // docs:end:authwit_uniswap_set
 
     // docs:start:assert_token_is_same
     #[aztec(public)]
@@ -241,12 +242,10 @@ contract Uniswap {
     }
     // docs:end:assert_token_is_same
 
-
     // /// Unconstrained /// 
 
     // this method exists solely for e2e tests to test that nonce gets incremented each time.
     unconstrained fn nonce_for_burn_approval() -> Field {
         storage.nonce_for_burn_approval.read()
     }
-    // docs:end:assert_token_is_same
 }

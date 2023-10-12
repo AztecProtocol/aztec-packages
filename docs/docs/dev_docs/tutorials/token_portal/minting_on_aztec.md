@@ -2,21 +2,36 @@
 title: Minting tokens on Aztec
 ---
 
-In this step we will start writing our Aztec.nr bridge smart contract!
+In this step we will start writing our Aztec.nr bridge smart contract and write a function to consume the message from the token portal to mint funds on Aztec
 
-## Consume the L1 message
-
-We have now moved our funds to the portal and created a L1->L2 message. Upon building the next rollup, the sequencer asks the inbox for any incoming messages and adds them to Aztec’s L1->L2 message tree, so an application on L2 can prove that the message exists and consumes it.
+## Initial contract setup
 
 In our `token-bridge` nargo project in `aztec-contracts`, under `src` there is an example `main.nr` file. Delete all the code in here and paste this to define imports and initialize the constructor:
 
-#include_code imports_and_constructor /yarn-project/noir-contracts/src/contracts/token_bridge_contract/src/main.nr rust
+```rust 
+mod util;
+#include_code token_bridge_imports /yarn-project/noir-contracts/src/contracts/token_bridge_contract/src/main.nr rust
+    use crate::token_interface::Token;
+    use crate::util::{get_mint_public_content_hash, get_mint_private_content_hash, get_withdraw_content_hash};
 
-Then paste this `claim_public` function:
+#include_code token_bridge_storage_and_constructor /yarn-project/noir-contracts/src/contracts/token_bridge_contract/src/main.nr rust
+```
+
+This imports aztec related dependencies and also our two helper files `token_interface.nr` and `util.nr`.
+
+In `token_interface.nr`, add the follows:
+#include_code token_brodge_token_interface /yarn-project/noir-contracts/src/contracts/token_bridge_contract/src/token_interface.nr rust
+
+We will write `util.nr` as needed.
+## Consume the L1 message
+
+In the previous step, we have moved our funds to the portal and created a L1->L2 message. Upon building the next rollup, the sequencer asks the inbox for any incoming messages and adds them to Aztec’s L1->L2 message tree, so an application on L2 can prove that the message exists and consumes it.
+
+In `main.nr`, now paste this `claim_public` function:
 #include_code claim_public /yarn-project/noir-contracts/src/contracts/token_bridge_contract/src/main.nr rust
 
 In your `util.nr` paste this `mint_public_content_hash` function:
-#include_code mint_public_content_hash_nr /yarn-project/noir-contracts/src/contracts/token_bridge_contract/src/util.nr rust
+#include_code mint_public_content_hash_nr /yarn-project/noir-contracts/src/contracts/token_portal_content_hash_lib/src/lib.nr rust
 
 The `claim_public` function enables anyone to consume the message on the user's behalf and mint tokens for them on L2. This is fine as the minting of tokens is done publicly anyway.
 
@@ -39,14 +54,14 @@ Now we will create a function to mint the amount privately. Paste this into your
 
 #include_code call_mint_on_token /yarn-project/noir-contracts/src/contracts/token_bridge_contract/src/main.nr rust
 
-Then inside your `util.nr` that you created in [setup](./setup.md), paste this:
+Then inside your `util.nr`, paste this:
 
-#include_code get_mint_private_content_hash /yarn-project/noir-contracts/src/contracts/token_bridge_contract/src/util.nr rust
+#include_code get_mint_private_content_hash /yarn-project/noir-contracts/src/contracts/token_portal_content_hash_lib/src/lib.nr rust
 
 If the content hashes were constructed similarly for `mint_private` and `mint_publicly`, then content intended for private execution could have been consumed by calling the `claim_public` method. By making these two content hashes distinct, we prevent this scenario.
 
 While we mint the tokens on L2, we _still don’t actually mint them to a certain address_. Instead we continue to pass the `secret_hash_for_redeeming_minted_notes` like we did on L1. This means that a user could reveal their secret for L2 message consumption for anyone to mint tokens on L2 but they can redeem these notes at a later time. **This enables a paradigm where an app can manage user’s secrets for L2 message consumption on their behalf**. **The app or any external party can also mint tokens on the user’s behalf should they be comfortable with leaking the secret for L2 Message consumption.** This doesn’t leak any new information to the app because their smart contract on L1 knew that a user wanted to move some amount of tokens to L2. The app still doesn’t know which address on L2 the user wants these notes to be in, but they can mint tokens nevertheless on their behalf.
 
-To mint tokens privately, `claim_private` calls an internal function [\_call_mint_on_token()](https://github.com/AztecProtocol/dev-rel/tree/main/tutorials/token-bridge#_call_mint_on_token) which then calls [token.mint_private()](https://github.com/AztecProtocol/dev-rel/blob/main/tutorials/token-contract/README.md#mint_private) which is a public method since it operates on public storage. Note that mint_private (on the token contract) is public because it too reads from public storage. Since the `secret_hash_for_redeeming_minted_notes` is passed publicly (and not the secret), nothing that should be leaked is, and the only the person that knows the secret can actually redeem their notes at a later time by calling `Token.redeem_shield(secret, amount)`.
+To mint tokens privately, `claim_private` calls an internal function `_call_mint_on_token()` which then calls [token.mint_private()](../writing_token_contract.md#mint_private) which is a public method since it operates on public storage. Note that mint_private (on the token contract) is public because it too reads from public storage. Since the `secret_hash_for_redeeming_minted_notes` is passed publicly (and not the secret), nothing that should be leaked is, and the only the person that knows the secret can actually redeem their notes at a later time by calling [`Token.redeem_shield(secret, amount)`](../writing_token_contract.md#redeem_shield).
 
 In the next step we will see how we can cancel a message.
