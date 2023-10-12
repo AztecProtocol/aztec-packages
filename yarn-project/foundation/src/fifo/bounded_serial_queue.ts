@@ -56,7 +56,7 @@ export class BoundedSerialQueue {
 
   /**
    * The caller will block until fn is successfully enqueued.
-   * The fn itself is execute asyncronously and its result discarded.
+   * The fn itself is execute asynchronously and its result discarded.
    * TODO(AD) do we need this if we have exec()?
    * @param fn - The function to call once unblocked.
    */
