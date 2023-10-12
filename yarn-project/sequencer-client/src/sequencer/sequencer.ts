@@ -254,6 +254,7 @@ export class Sequencer {
           )}`,
         );
         txsToDelete.push(tx);
+        continue;
       }
       if (await this.isTxDoubleSpend(tx)) {
         this.log(`Deleting double spend tx ${await Tx.getHash(tx)}`);
