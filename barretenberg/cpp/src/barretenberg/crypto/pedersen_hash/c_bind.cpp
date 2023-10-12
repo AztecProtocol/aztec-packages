@@ -55,7 +55,7 @@ WASM_EXPORT void pedersen__hash_multiple_with_hash_index(uint8_t const* inputs_b
  * input:  [1][2][3][4]
  * output: [1][2][3][4][compress(1,2)][compress(3,4)][compress(5,6)]
  */
-WASM_EXPORT void pedersen_hash_to_tree(fr::vec_in_buf data, fr::vec_out_buf out)
+WASM_EXPORT void pedersen__hash_to_tree(fr::vec_in_buf data, fr::vec_out_buf out)
 {
     auto fields = from_buffer<std::vector<grumpkin::fq>>(data);
     auto num_outputs = fields.size() * 2 - 1;
