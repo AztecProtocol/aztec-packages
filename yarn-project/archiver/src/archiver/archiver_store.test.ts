@@ -73,7 +73,9 @@ describe('Archiver Memory Store', () => {
       .fill(0)
       .map((_, index) => L2Block.random(index));
     await archiverStore.addBlocks(blocks);
-    const retrievedBlocks = await archiverStore.getBlocks(-5, 1);
+    const from = -5;
+    const limit = 1;
+    const retrievedBlocks = await archiverStore.getBlocks(from, limit);
     expect(retrievedBlocks.length).toEqual(1);
     expect(retrievedBlocks[0]).toEqual(blocks[0]);
   });
