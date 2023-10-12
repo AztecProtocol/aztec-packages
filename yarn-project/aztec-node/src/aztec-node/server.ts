@@ -73,7 +73,7 @@ export class AztecNodeService implements AztecNode {
     private log = createDebugLogger('aztec:node'),
   ) {
     const message =
-      `Started Aztec Node against chain ${chainId.toString(16)} with contracts - \n` +
+      `Started Aztec Node against chain 0x${chainId.toString(16)} with contracts - \n` +
       `Rollup: ${config.l1Contracts.rollupAddress.toString()}\n` +
       `Registry: ${config.l1Contracts.registryAddress.toString()}\n` +
       `Inbox: ${config.l1Contracts.inboxAddress.toString()}\n` +
