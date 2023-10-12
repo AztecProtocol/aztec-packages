@@ -1,10 +1,8 @@
 #pragma once
 #include "barretenberg/honk/flavor/goblin_ultra.hpp"
 #include "barretenberg/honk/flavor/ultra.hpp"
-#include "barretenberg/honk/flavor/ultra_grumpkin.hpp"
 #include "barretenberg/honk/instance/prover_instance.hpp"
 #include "barretenberg/honk/pcs/zeromorph/zeromorph.hpp"
-#include "barretenberg/honk/proof_system/work_queue.hpp"
 #include "barretenberg/honk/sumcheck/sumcheck_output.hpp"
 #include "barretenberg/honk/transcript/transcript.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
@@ -44,12 +42,11 @@ template <UltraFlavor Flavor> class UltraProver_ {
 
     Polynomial quotient_W;
 
-    work_queue<Curve> queue;
-
     std::shared_ptr<Instance> instance;
 
     sumcheck::SumcheckOutput<Flavor> sumcheck_output;
-    std::shared_ptr<CommitmentKey> pcs_commitment_key;
+
+    std::shared_ptr<CommitmentKey> commitment_key;
 
     using ZeroMorph = pcs::zeromorph::ZeroMorphProver_<Curve>;
 
@@ -58,7 +55,6 @@ template <UltraFlavor Flavor> class UltraProver_ {
 };
 
 extern template class UltraProver_<honk::flavor::Ultra>;
-extern template class UltraProver_<honk::flavor::UltraGrumpkin>;
 extern template class UltraProver_<honk::flavor::GoblinUltra>;
 
 using UltraProver = UltraProver_<honk::flavor::Ultra>;
