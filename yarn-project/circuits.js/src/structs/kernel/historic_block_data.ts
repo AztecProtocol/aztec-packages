@@ -88,7 +88,7 @@ export class HistoricBlockData {
   }
 
   /**
-   * Return the historic block data as an array of items in the order they are serialised in noir.
+   * Return the historic block data as an array of items in the order they are serialized in noir.
    * @returns Array of items in the order they are stored in the contract
    */
   toArray(): Fr[] {
