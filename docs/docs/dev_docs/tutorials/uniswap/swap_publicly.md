@@ -2,24 +2,27 @@
 title: Swapping Publicly
 ---
 
-In this function we will create the flow for allowing a user to swap their tokens publicly on L1. In this function we have to add functionality of letting anyone call this method on behalf of the user, assuming they have appropriate approvals. This facilitates Aztec Connect-style aggregation and means that an operator can pay gas fees.
+In this step we will create the flow for allowing a user to swap their tokens publicly on L1. It will have the functionality of letting anyone call this method on behalf of the user, assuming they have appropriate approvals. This means that an operator can pay gas fees on behalf of the user!
 
-Under the storage struct in `main.nr` paste this:
+In `main.nr` paste this:
 
 #include_code swap_public yarn-project/noir-contracts/src/contracts/uniswap_contract/src/main.nr rust
 
+This uses a util function `compute_swap_public_content_hash()` - let's add that.
+
+In `util.nr`, add:
+#include_code uniswap_public_content_hash yarn-project/noir-contracts/src/contracts/uniswap_contract/src/util.nr rust
+
 **What’s happening here?**
 
-1. We check that `msg.sender()` has appropriate approval to call this on behalf of the sender. We hash all the arguments together and check against this hash. This means that the sender can’t change any param other than what they got approved for. This is our standard auth-witness check.
+1. We check that `msg.sender()` has appropriate approval to call this on behalf of the sender by constructing an authwit message and checking if `from` has given the approval (read more about authwit [here](../../contracts/resources/common_patterns/authwit.md)).
 2. We fetch the underlying aztec token that needs to be swapped.
 3. We transfer the user’s funds to the Uniswap contract. Like with Ethereum, the user must have provided approval to the Uniswap contract to do so. The user must provide the nonce they used in the approval for transfer, so that Uniswap can send it to the token contract, to prove it has appropriate approval.
 4. Funds are added to the Uniswap contract.
-5. Uniswap must exit the input tokens to L1. For this it has to approve the bridge to burn its tokens on its behalf and then actually exit the funds. This emits a L2 → L1 `withdraw()` message like we saw with the token bridge.
+5. Uniswap must exit the input tokens to L1. For this it has to approve the bridge to burn its tokens on its behalf and then actually exit the funds. We call the [`exit_to_l1_public()` method on the token bridge](../token_portal/withdrawing_to_l1.md). We use the public flow for exiting since we are operating on public state.
+6.  It is not enough for us to simply emit a message to withdraw the funds. We also need to emit a message to display our swap intention. If we do not do this, there is nothing stopping a third party from calling the Uniswap portal with their own parameters and consuming our message.
 
-   It is not enough for us to simply emit a message to withdraw the funds. We also need to emit a message to display our swap intention. If we do not do this, there is nothing stopping a third party from calling the Uniswap portal with their own parameters and consuming our message.
-
-   So the Uniswap portal needs:
-
+So the Uniswap portal (on L1) needs to know:
    - The token portals for the input and output token (to withdraw the input token to L1 and later deposit the output token to L2)
    - The amount of input tokens they want to swap
    - The Uniswap fee tier they want to use
@@ -34,4 +37,4 @@ Under the storage struct in `main.nr` paste this:
 
 6. We include these params in the L2 → L1 `swap_public message content` too. Under the hood, the protocol adds the sender (the Uniswap l2 contract) and the recipient (the Uniswap portal contract on L1).
 
-In the next step we will execute this swap on L1.
+In the next step we will write the code to execute this swap on L1.

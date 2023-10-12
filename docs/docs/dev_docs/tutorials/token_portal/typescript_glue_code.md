@@ -82,7 +82,7 @@ const MNEMONIC = 'test test test test test test test test test test test junk';
 const hdAccount = mnemonicToAccount(MNEMONIC);
 
 describe('e2e_cross_chain_messaging', () => {
-  jest.setTimeout(120_000);
+  jest.setTimeout(90_000);
 
   let logger: DebugLogger;
   // include code:

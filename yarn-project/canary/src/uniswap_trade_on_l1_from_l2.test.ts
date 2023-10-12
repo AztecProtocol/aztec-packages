@@ -13,7 +13,8 @@ const EXPECTED_FORKED_BLOCK = 17514288;
 // We tell the archiver to only sync from this block.
 process.env.SEARCH_START_BLOCK = EXPECTED_FORKED_BLOCK.toString();
 
-const setupRPC = async (): Promise<UniswapSetupContext> => {
+// docs:start:uniswap_setup
+const setup = async (): Promise<UniswapSetupContext> => {
   const logger = createDebugLogger('aztec:canary_uniswap');
   const pxe = createPXEClient(PXE_URL);
   await waitForSandbox(pxe);
@@ -32,5 +33,6 @@ const setupRPC = async (): Promise<UniswapSetupContext> => {
 
   return { pxe, logger, publicClient, walletClient, ownerWallet, sponsorWallet };
 };
+// docs:end:uniswap_setup
 
-uniswapL1L2TestSuite(setupRPC, () => Promise.resolve(), EXPECTED_FORKED_BLOCK);
+uniswapL1L2TestSuite(setup, () => Promise.resolve(), EXPECTED_FORKED_BLOCK);

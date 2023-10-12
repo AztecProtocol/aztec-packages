@@ -1,12 +1,12 @@
 ---
-title: Executing Swap on L1
+title: Solidity Code to Execute Swap on L1
 ---
 
-To execute the swaps on L1, go back to the `TokenPortal.sol` we [created earlier](./l1_portal.md).
+To execute the swaps on L1, go back to the `UniswapPortal.sol` we [created earlier](./l1_portal.md) in `packages/l1-contracts`.
 
 Under the struct, paste this code that will manage the public flow:
 
-#include_code solidity_uniswap_swap l1-contracts/test/portals/UniswapPortal.sol solidity
+#include_code solidity_uniswap_swap_public l1-contracts/test/portals/UniswapPortal.sol solidity
 
 **What’s happening here?**
 
@@ -22,5 +22,7 @@ Under the struct, paste this code that will manage the public flow:
 4. The portal must deposit the output funds back to L2 using the output token’s portal. For this we first approve the token portal to move Uniswap funds, and then call the portal’s `depositToAztecPublic()` method to transfer funds to the portal and create a L1 → l2 message to mint the right amount of output tokens on L2.
 
    To incentivize the sequencer to pick up this message, we pass a fee to the deposit message.
+
+This concludes the public flow. 
 
 In the next step, we will code a private flow in the Aztec.nr contract.
