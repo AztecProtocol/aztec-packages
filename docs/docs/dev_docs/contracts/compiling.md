@@ -46,27 +46,85 @@ You can also generate these interfaces from prebuilt artifacts using the `genera
 aztec-cli generate-typescript ./path/to/my_aztec_contract_project
 ```
 
-Example code generated from the [PrivateToken](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-contracts/src/contracts/private_token_contract/src/main.nr) contract:
+Bellow is a piece of code generated from the [Token](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr) contract:
 
 ```ts showLineNumbers
-export class PrivateTokenContract extends ContractBase {
-  /** Creates a contract instance at the given address. */
-  public static async at(address: AztecAddress, wallet: Wallet) { ... }
+export class TokenContract extends ContractBase {
+  private constructor(completeAddress: CompleteAddress, wallet: Wallet, portalContract = EthAddress.ZERO) {
+    super(completeAddress, TokenContractArtifact, wallet, portalContract);
+  }
 
-  /** Creates a tx to deploy a new instance of this contract. */
-  public static deploy(pxe: PXE, initial_supply: FieldLike, owner: FieldLike) { ... }
+  /**
+   * Creates a contract instance.
+   * @param address - The deployed contract's address.
+   * @param wallet - The wallet to use when interacting with the contract.
+   * @returns A promise that resolves to a new Contract instance.
+   */
+  public static async at(address: AztecAddress, wallet: Wallet) {
+    return Contract.at(address, TokenContract.artifact, wallet) as Promise<TokenContract>;
+  }
+
+  /**
+   * Creates a tx to deploy a new instance of this contract.
+   */
+  public static deploy(pxe: PXE, admin: AztecAddressLike) {
+    return new DeployMethod<TokenContract>(Point.ZERO, pxe, TokenContractArtifact, Array.from(arguments).slice(1));
+  }
+
+  /**
+   * Creates a tx to deploy a new instance of this contract using the specified public key to derive the address.
+   */
+  public static deployWithPublicKey(pxe: PXE, publicKey: PublicKey, admin: AztecAddressLike) {
+    return new DeployMethod<TokenContract>(publicKey, pxe, TokenContractArtifact, Array.from(arguments).slice(2));
+  }
+
+  /**
+   * Returns this contract's artifact.
+   */
+  public static get artifact(): ContractArtifact {
+    return TokenContractArtifact;
+  }
 
   /** Type-safe wrappers for the public methods exposed by the contract. */
   public methods!: {
-    /** getBalance(owner: field) */
-    getBalance: ((owner: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** mint(amount: field, owner: field) */
-    mint: ((amount: FieldLike, owner: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** balance_of_private(owner: struct) */
+    balance_of_private: ((owner: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** transfer(amount: field, sender: field, recipient: field) */
-    transfer: ((amount: FieldLike, sender: FieldLike, recipient: FieldLike) => ContractFunctionInteraction) &
+    /** balance_of_public(owner: struct) */
+    balance_of_public: ((owner: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** shield(from: struct, amount: field, secret_hash: field, nonce: field) */
+    shield: ((
+      from: AztecAddressLike,
+      amount: FieldLike,
+      secret_hash: FieldLike,
+      nonce: FieldLike,
+    ) => ContractFunctionInteraction) &
       Pick<ContractMethod, 'selector'>;
+
+    /** total_supply() */
+    total_supply: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** transfer(from: struct, to: struct, amount: field, nonce: field) */
+    transfer: ((
+      from: AztecAddressLike,
+      to: AztecAddressLike,
+      amount: FieldLike,
+      nonce: FieldLike,
+    ) => ContractFunctionInteraction) &
+      Pick<ContractMethod, 'selector'>;
+
+    /** transfer_public(from: struct, to: struct, amount: field, nonce: field) */
+    transfer_public: ((
+      from: AztecAddressLike,
+      to: AztecAddressLike,
+      amount: FieldLike,
+      nonce: FieldLike,
+    ) => ContractFunctionInteraction) &
+      Pick<ContractMethod, 'selector'>;
+    
+    ...
   };
 }
 ```
