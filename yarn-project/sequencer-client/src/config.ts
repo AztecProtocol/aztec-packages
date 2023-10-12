@@ -9,8 +9,6 @@ import { SequencerConfig } from './sequencer/config.js';
 
 /** Chain configuration. */
 type ChainConfig = {
-  /** The chain id of the ethereum host. */
-  chainId: number;
   /** The version of the rollup. */
   version: number;
 };
@@ -31,7 +29,6 @@ export function getConfigEnvVars(): SequencerClientConfig {
   const {
     SEQ_PUBLISHER_PRIVATE_KEY,
     ETHEREUM_HOST,
-    CHAIN_ID,
     VERSION,
     API_KEY,
     SEQ_REQUIRED_CONFS,
@@ -64,7 +61,6 @@ export function getConfigEnvVars(): SequencerClientConfig {
 
   return {
     rpcUrl: ETHEREUM_HOST ? ETHEREUM_HOST : '',
-    chainId: CHAIN_ID ? +CHAIN_ID : 31337, // 31337 is the default chain id for anvil
     version: VERSION ? +VERSION : 1, // 1 is our default version
     apiKey: API_KEY,
     requiredConfirmations: SEQ_REQUIRED_CONFS ? +SEQ_REQUIRED_CONFS : 1,

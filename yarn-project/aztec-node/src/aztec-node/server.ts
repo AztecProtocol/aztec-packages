@@ -73,7 +73,7 @@ export class AztecNodeService implements AztecNode {
     private log = createDebugLogger('aztec:node'),
   ) {
     const message =
-      `Started Aztec Node with contracts - \n` +
+      `Started Aztec Node against chain ${chainId.toString(16)} with contracts - \n` +
       `Rollup: ${config.l1Contracts.rollupAddress.toString()}\n` +
       `Registry: ${config.l1Contracts.registryAddress.toString()}\n` +
       `Inbox: ${config.l1Contracts.inboxAddress.toString()}\n` +
@@ -90,6 +90,12 @@ export class AztecNodeService implements AztecNode {
   public static async createAndSync(config: AztecNodeConfig) {
     // first create and sync the archiver
     const archiver = await Archiver.createAndSync(config);
+
+    // get the chain id here
+    const lastBlockNumber = await archiver.getBlockNumber();
+    const globalVariableBuilder = getGlobalVariableBuilder(config);
+    // just use the next block number for this query
+    const globalVariables = await globalVariableBuilder.buildGlobalVariables(new Fr(lastBlockNumber + 1));
 
     // we identify the P2P transaction protocol by using the rollup contract address.
     // this may well change in future
@@ -122,9 +128,9 @@ export class AztecNodeService implements AztecNode {
       archiver,
       worldStateSynchronizer,
       sequencer,
-      config.chainId,
+      Number(globalVariables.chainId.value),
       config.version,
-      getGlobalVariableBuilder(config),
+      globalVariableBuilder,
       db,
     );
   }

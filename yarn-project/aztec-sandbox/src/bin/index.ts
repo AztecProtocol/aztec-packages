@@ -23,8 +23,8 @@ const logger = createDebugLogger('aztec:sandbox');
  */
 async function createAndInitialiseSandbox() {
   const { aztecNodeConfig, node, pxe, stop } = await createSandbox();
-  logger.info('Setting up test accounts...');
   if (aztecNodeConfig.p2pEnabled) {
+    logger.info(`Not setting up test accounts as we are connecting to a network`);
     return {
       aztecNodeConfig,
       pxe,
@@ -33,6 +33,7 @@ async function createAndInitialiseSandbox() {
       accounts: [],
     };
   }
+  logger.info('Setting up test accounts...');
   const accounts = await deployInitialSandboxAccounts(pxe);
   return {
     aztecNodeConfig,
@@ -69,7 +70,7 @@ async function main() {
   startHttpRpcServer(pxe, createPXERpcServer, PXE_PORT);
   logger.info(`PXE JSON-RPC Server listening on port ${PXE_PORT}`);
   logger.info(`Debug logs will be written to ${logPath}`);
-  const accountStrings = [`Initial Accounts:\n\n`];
+  const accountStrings = accounts.length ? [`Initial Accounts:\n\n`] : [];
 
   const registeredAccounts = await pxe.getRegisteredAccounts();
   for (const account of accounts) {
