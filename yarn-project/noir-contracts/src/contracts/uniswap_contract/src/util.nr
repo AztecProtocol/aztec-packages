@@ -3,7 +3,7 @@ use dep::aztec::hash::sha256_to_field;
 
 // This method computes the L2 to L1 message content hash for the private
 // refer `l1-contracts/test/portals/UniswapPortal.sol` on how L2 to L1 message is expected
-fn compute_swap_private_content_hash(
+pub fn compute_swap_private_content_hash(
     input_asset_bridge_portal_address: Field,
     input_amount: Field,
     uniswap_fee_tier: Field,
@@ -52,7 +52,7 @@ fn compute_swap_private_content_hash(
 
 // This method computes the L2 to L1 message content hash for the public
 // refer `l1-contracts/test/portals/UniswapPortal.sol` on how L2 to L1 message is expected
-fn compute_swap_public_content_hash(
+pub fn compute_swap_public_content_hash(
     input_asset_bridge_portal_address: Field,
     input_amount: Field,
     uniswap_fee_tier: Field,

@@ -5,8 +5,9 @@ import {
   DeployedContract,
   ExtendedContractData,
   FunctionCall,
-  L2BlockL2Logs,
+  GetUnencryptedLogsResponse,
   L2Tx,
+  LogFilter,
   NodeInfo,
   NotePreimage,
   PXE,
@@ -32,7 +33,7 @@ export abstract class BaseWallet implements Wallet {
 
   abstract createAuthWitness(message: Fr): Promise<AuthWitness>;
 
-  registerAccount(privKey: GrumpkinPrivateKey, partialAddress: PartialAddress): Promise<void> {
+  registerAccount(privKey: GrumpkinPrivateKey, partialAddress: PartialAddress): Promise<CompleteAddress> {
     return this.pxe.registerAccount(privKey, partialAddress);
   }
   registerRecipient(account: CompleteAddress): Promise<void> {
@@ -96,8 +97,8 @@ export abstract class BaseWallet implements Wallet {
   getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined> {
     return this.pxe.getContractData(contractAddress);
   }
-  getUnencryptedLogs(from: number, limit: number): Promise<L2BlockL2Logs[]> {
-    return this.pxe.getUnencryptedLogs(from, limit);
+  getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+    return this.pxe.getUnencryptedLogs(filter);
   }
   getBlockNumber(): Promise<number> {
     return this.pxe.getBlockNumber();
