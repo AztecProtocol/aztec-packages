@@ -50,11 +50,10 @@ template <typename Flavor> class RelationUtils {
      * @brief Set all coefficients of Univariates to zero
      *
      * @details After computing the round univariate, it is necessary to zero-out the accumulators used to compute it.
-     * WORKTODO: rename
      */
     static void zero_univariates(auto& tuple)
     {
-        /* WORKTODO const */ auto set_to_zero = []<size_t, size_t>(auto& element) {
+        auto set_to_zero = []<size_t, size_t>(auto& element) {
             std::fill(element.evaluations.begin(), element.evaluations.end(), FF(0));
         };
         apply_to_tuple_of_tuples(tuple, set_to_zero);
@@ -123,14 +122,14 @@ template <typename Flavor> class RelationUtils {
      * @param tuple A tuple of tuples of Univariates
      * @param result A Univariate of length extended_size
      */
-    template <typename ExtendedUnivariate>
-    static void extend_and_batch_univariates(const auto& tuple, // WORKTODO: explicit type
+    template <typename ExtendedUnivariate, typename TupleOfTuplesOfUnivariates>
+    static void extend_and_batch_univariates(const TupleOfTuplesOfUnivariates& tuple,
                                              const PowUnivariate<FF>& pow_univariate,
                                              ExtendedUnivariate& result)
     {
         // Random poly R(X) = (1-X) + X.zeta_pow
-        auto random_poly_edge = Univariate<FF, 2>({ 1, pow_univariate.zeta_pow }); // WORKTODO
-        auto extended_random_polynomial_edge = random_poly_edge.template extend_to<ExtendedUnivariate::LENGTH>();
+        auto random_polynomial = Univariate<FF, 2>({ 1, pow_univariate.zeta_pow });
+        auto extended_random_polynomial = random_polynomial.template extend_to<ExtendedUnivariate::LENGTH>();
 
         auto extend_and_sum = [&]<size_t relation_idx, size_t subrelation_idx, typename Element>(Element& element) {
             auto extended = element.template extend_to<ExtendedUnivariate::LENGTH>();
@@ -140,7 +139,7 @@ template <typename Flavor> class RelationUtils {
                 proof_system::subrelation_is_linearly_independent<Relation, subrelation_idx>();
             if (is_subrelation_linearly_independent) {
                 // if subrelation is linearly independent, multiply by random polynomial
-                result += extended * extended_random_polynomial_edge;
+                result += extended * extended_random_polynomial;
             } else {
                 // if subrelation is pure sum over hypercube, don't multiply by random polynomial
                 result += extended;
@@ -152,14 +151,11 @@ template <typename Flavor> class RelationUtils {
     /**
      * @brief Given a tuple t = (t_0, t_1, ..., t_{NUM_RELATIONS-1}) and a challenge α,
      * return t_0 + αt_1 + ... + α^{NUM_RELATIONS-1}t_{NUM_RELATIONS-1}).
-     *
-     * @tparam T : In practice, this is a Univariate<FF, MAX_NUM_RELATIONS>.
      */
-    template <typename ExtendedUnivariate> // WORKTODO: no template argument?
-    static ExtendedUnivariate batch_over_relations(
-        /* WORKTODO const */ auto& univariate_accumulators,
-        const FF& challenge,
-        const PowUnivariate<FF>& pow_univariate)
+    template <typename ExtendedUnivariate, typename ContainerOverSubrelations>
+    static ExtendedUnivariate batch_over_relations(ContainerOverSubrelations& univariate_accumulators,
+                                                   const FF& challenge,
+                                                   const PowUnivariate<FF>& pow_univariate)
     {
         FF running_challenge = 1;
         scale_univariates(univariate_accumulators, challenge, running_challenge);

@@ -712,12 +712,16 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
     };
 
     /**
-     * @brief A container for univariates produced during the hot loop in sumcheck.
+     * @brief A container for univariates used during Protogalaxy folding and sumcheck.
      * @todo TODO(#390): Simplify this by moving MAX_RELATION_LENGTH?
      */
-    template <size_t MAX_RELATION_LENGTH>
-    using ProverUnivariates = AllEntities<barretenberg::Univariate<FF, MAX_RELATION_LENGTH>,
-                                          barretenberg::Univariate<FF, MAX_RELATION_LENGTH>>;
+    template <size_t LENGTH>
+    using ProverUnivariates = AllEntities<barretenberg::Univariate<FF, LENGTH>, barretenberg::Univariate<FF, LENGTH>>;
+
+    /**
+     * @brief A container for univariates produced during the hot loop in sumcheck.
+     */
+    using ExtendedEdges = ProverUnivariates<MAX_RELATION_LENGTH>;
 
     /**
      * @brief A container for polynomials handles; only stores spans.

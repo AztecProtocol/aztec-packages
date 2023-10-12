@@ -50,7 +50,6 @@ namespace proof_system::honk::sumcheck {
  the compiler to unroll loops. The idea is that a function that is only called once will always be inlined, and since
  template functions always create different functions, this is guaranteed.
 
- @todo TODO(#390): Template only on Flavor? Is it useful to have these decoupled?
  */
 
 template <typename Flavor> class SumcheckProverRound {
@@ -61,7 +60,7 @@ template <typename Flavor> class SumcheckProverRound {
 
   public:
     using FF = typename Flavor::FF;
-    using ExtendedEdges = typename Flavor::template ProverUnivariates<Flavor::MAX_RELATION_LENGTH>;
+    using ExtendedEdges = typename Flavor::ExtendedEdges;
 
     size_t round_size; // a power of 2
 
