@@ -1,6 +1,8 @@
 import { L1ContractAddresses } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
+import { Hex } from 'viem';
+
 import { GlobalReaderConfig } from './global_variable_builder/index.js';
 import { PublisherConfig, TxSenderConfig } from './publisher/config.js';
 import { SequencerConfig } from './sequencer/config.js';
@@ -43,7 +45,7 @@ export function getConfigEnvVars(): SequencerClientConfig {
     CONTRACT_DEPLOYMENT_EMITTER_ADDRESS,
   } = process.env;
 
-  const publisherPrivateKey: `0x${string}` = `0x${
+  const publisherPrivateKey: Hex = `0x${
     SEQ_PUBLISHER_PRIVATE_KEY
       ? SEQ_PUBLISHER_PRIVATE_KEY.replace('0x', '')
       : '0000000000000000000000000000000000000000000000000000000000000000'

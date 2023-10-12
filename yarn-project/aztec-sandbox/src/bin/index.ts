@@ -22,11 +22,20 @@ const logger = createDebugLogger('aztec:sandbox');
  * Creates the sandbox from provided config and deploys any initial L1 and L2 contracts
  */
 async function createAndInitialiseSandbox() {
-  const { l1Contracts, node, pxe, stop } = await createSandbox();
+  const { aztecNodeConfig, node, pxe, stop } = await createSandbox();
   logger.info('Setting up test accounts...');
+  if (aztecNodeConfig.p2pEnabled) {
+    return {
+      aztecNodeConfig,
+      pxe,
+      node,
+      stop,
+      accounts: [],
+    };
+  }
   const accounts = await deployInitialSandboxAccounts(pxe);
   return {
-    l1Contracts,
+    aztecNodeConfig,
     pxe,
     node,
     stop,
