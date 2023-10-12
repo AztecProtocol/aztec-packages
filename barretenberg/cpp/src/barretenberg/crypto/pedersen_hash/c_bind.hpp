@@ -9,6 +9,7 @@ using namespace barretenberg;
 
 WASM_EXPORT void pedersen_hash_init();
 
+WASM_EXPORT void pedersen_hash_pair(fr::in_buf left, fr::in_buf right, fr::out_buf result);
 WASM_EXPORT void pedersen_hash(fr::vec_in_buf inputs_buffer, fr::out_buf output);
 WASM_EXPORT void pedersen_hash_multiple(fr::vec_in_buf inputs_buffer, fr::out_buf output);
 

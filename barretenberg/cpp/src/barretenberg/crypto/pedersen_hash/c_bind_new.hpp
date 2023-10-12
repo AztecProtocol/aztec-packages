@@ -1,16 +1,16 @@
-#include "c_bind.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/serialize.hpp"
+#include "c_bind.hpp"
 #include "pedersen.hpp"
 
 extern "C" {
 
-WASM_EXPORT void pedersen_hash__init()
+WASM_EXPORT void pedersen_hash_init()
 {
     // TODO delete
 }
 
-WASM_EXPORT void pedersen__hash_pair(uint8_t const* left, uint8_t const* right, uint8_t* result)
+WASM_EXPORT void pedersen_hash_pair(uint8_t const* left, uint8_t const* right, uint8_t* result)
 {
     auto lhs = barretenberg::fr::serialize_from_buffer(left);
     auto rhs = barretenberg::fr::serialize_from_buffer(right);
@@ -18,7 +18,7 @@ WASM_EXPORT void pedersen__hash_pair(uint8_t const* left, uint8_t const* right, 
     barretenberg::fr::serialize_to_buffer(r, result);
 }
 
-WASM_EXPORT void pedersen__hash(uint8_t const* inputs_buffer, uint8_t* output)
+WASM_EXPORT void pedersen_hash(uint8_t const* inputs_buffer, uint8_t* output)
 {
     std::vector<grumpkin::fq> to_compress;
     read(inputs_buffer, to_compress);
@@ -26,14 +26,14 @@ WASM_EXPORT void pedersen__hash(uint8_t const* inputs_buffer, uint8_t* output)
     barretenberg::fr::serialize_to_buffer(r, output);
 }
 
-WASM_EXPORT void pedersen__hash_multiple(uint8_t const* inputs_buffer, uint8_t* output)
+WASM_EXPORT void pedersen_hash_multiple(uint8_t const* inputs_buffer, uint8_t* output)
 {
     pedersen_hash(inputs_buffer, output);
 }
 
-WASM_EXPORT void pedersen__hash_with_hash_index(uint8_t const* inputs_buffer,
-                                                uint32_t const* hash_index,
-                                                uint8_t* output)
+WASM_EXPORT void pedersen_hash_with_hash_index(uint8_t const* inputs_buffer,
+                                               uint32_t const* hash_index,
+                                               uint8_t* output)
 {
     std::vector<grumpkin::fq> to_compress;
     read(inputs_buffer, to_compress);
@@ -41,9 +41,9 @@ WASM_EXPORT void pedersen__hash_with_hash_index(uint8_t const* inputs_buffer,
     barretenberg::fr::serialize_to_buffer(r, output);
 }
 
-WASM_EXPORT void pedersen__hash_multiple_with_hash_index(uint8_t const* inputs_buffer,
-                                                         uint32_t const* hash_index,
-                                                         uint8_t* output)
+WASM_EXPORT void pedersen_hash_multiple_with_hash_index(uint8_t const* inputs_buffer,
+                                                        uint32_t const* hash_index,
+                                                        uint8_t* output)
 {
     pedersen_hash_with_hash_index(inputs_buffer, hash_index, output);
 }
