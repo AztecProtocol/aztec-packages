@@ -209,7 +209,7 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
     // ********** Events that are processed per block **********
 
     // Read all data from chain and then write to our stores at the end
-    const nextExpectedL2BlockNum = BigInt(this.store.getBlocksLength() + INITIAL_L2_BLOCK_NUM);
+    const nextExpectedL2BlockNum = BigInt((await this.store.getBlockNumber()) + 1);
     this.log(
       `Retrieving chain state from L1 block: ${this.nextL2BlockFromBlock}, next expected l2 block number: ${nextExpectedL2BlockNum}`,
     );
@@ -318,7 +318,7 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
   public async getBlock(number: number): Promise<L2Block | undefined> {
     // If the number provided is -ve, then return the latest block.
     if (number < 0) {
-      number = this.store.getBlocksLength();
+      number = await this.store.getBlockNumber();
     }
     const blocks = await this.store.getBlocks(number, 1);
     return blocks.length === 0 ? undefined : blocks[0];

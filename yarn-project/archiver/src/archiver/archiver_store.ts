@@ -150,12 +150,6 @@ export interface ArchiverDataStore {
    * @returns The number of the latest L2 block processed.
    */
   getBlockNumber(): Promise<number>;
-
-  /**
-   * Gets the length of L2 blocks in store.
-   * @returns The length of L2 Blocks stored.
-   */
-  getBlocksLength(): number;
 }
 
 /**
@@ -306,12 +300,14 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     if (limit < 1) {
       throw new Error(`Invalid limit: ${limit}`);
     }
-    if (from >= this.l2BlockContexts.length) {
+
+    const fromIndex = Math.max(from - INITIAL_L2_BLOCK_NUM, 0);
+    if (fromIndex >= this.l2BlockContexts.length) {
       return Promise.resolve([]);
     }
-    const startIndex = Math.max(from - INITIAL_L2_BLOCK_NUM, 0);
-    const endIndex = startIndex + limit;
-    return Promise.resolve(this.l2BlockContexts.slice(startIndex, endIndex).map(blockContext => blockContext.block));
+
+    const toIndex = fromIndex + limit;
+    return Promise.resolve(this.l2BlockContexts.slice(fromIndex, toIndex).map(blockContext => blockContext.block));
   }
 
   /**
@@ -513,13 +509,5 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   public getBlockNumber(): Promise<number> {
     if (this.l2BlockContexts.length === 0) return Promise.resolve(INITIAL_L2_BLOCK_NUM - 1);
     return Promise.resolve(this.l2BlockContexts[this.l2BlockContexts.length - 1].block.number);
-  }
-
-  /**
-   * Gets the length of L2 blocks in store.
-   * @returns The length of L2 Blocks array.
-   */
-  public getBlocksLength(): number {
-    return this.l2BlockContexts.length;
   }
 }
