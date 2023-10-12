@@ -21,7 +21,7 @@ namespace test_sumcheck_round {
  * @brief Test SumcheckRound functions for operations on tuples (and tuples of tuples) of Univariates
  *
  */
-TEST(SumcheckRound, TupleOfTuplesOfUnivariates)
+TEST(SumcheckRound, SumcheckTupleOfTuplesOfUnivariates)
 {
     using Flavor = proof_system::honk::flavor::Ultra;
     using FF = typename Flavor::FF;

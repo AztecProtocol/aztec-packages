@@ -122,8 +122,8 @@ template <typename Flavor> class RelationUtils {
      * @param tuple A tuple of tuples of Univariates
      * @param result A Univariate of length extended_size
      */
-    template <typename ExtendedUnivariate, typename TupleOfTuplesOfUnivariates>
-    static void extend_and_batch_univariates(const TupleOfTuplesOfUnivariates& tuple,
+    template <typename ExtendedUnivariate, typename SumcheckTupleOfTuplesOfUnivariates>
+    static void extend_and_batch_univariates(const SumcheckTupleOfTuplesOfUnivariates& tuple,
                                              const PowUnivariate<FF>& pow_univariate,
                                              ExtendedUnivariate& result)
     {

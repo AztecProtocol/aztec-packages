@@ -56,7 +56,7 @@ template <typename Flavor> class SumcheckProverRound {
 
     using Utils = barretenberg::RelationUtils<Flavor>;
     using Relations = typename Flavor::Relations;
-    using TupleOfTuplesOfUnivariates = typename Flavor::TupleOfTuplesOfUnivariates;
+    using SumcheckTupleOfTuplesOfUnivariates = typename Flavor::SumcheckTupleOfTuplesOfUnivariates;
 
   public:
     using FF = typename Flavor::FF;
@@ -68,7 +68,7 @@ template <typename Flavor> class SumcheckProverRound {
     static constexpr size_t MAX_RELATION_LENGTH = Flavor::MAX_RELATION_LENGTH;
     static constexpr size_t MAX_RANDOM_RELATION_LENGTH = Flavor::MAX_RANDOM_RELATION_LENGTH;
 
-    TupleOfTuplesOfUnivariates univariate_accumulators;
+    SumcheckTupleOfTuplesOfUnivariates univariate_accumulators;
 
     // Prover constructor
     SumcheckProverRound(size_t initial_round_size)
@@ -128,7 +128,7 @@ template <typename Flavor> class SumcheckProverRound {
         size_t iterations_per_thread = round_size / num_threads; // actual iterations per thread
 
         // Constuct univariate accumulator containers; one per thread
-        std::vector<TupleOfTuplesOfUnivariates> thread_univariate_accumulators(num_threads);
+        std::vector<SumcheckTupleOfTuplesOfUnivariates> thread_univariate_accumulators(num_threads);
         for (auto& accum : thread_univariate_accumulators) {
             Utils::zero_univariates(accum);
         }
@@ -186,7 +186,7 @@ template <typename Flavor> class SumcheckProverRound {
      * appropriate scaling factors, produces S_l.
      */
     template <size_t relation_idx = 0>
-    void accumulate_relation_univariates(TupleOfTuplesOfUnivariates& univariate_accumulators,
+    void accumulate_relation_univariates(SumcheckTupleOfTuplesOfUnivariates& univariate_accumulators,
                                          const auto& extended_edges,
                                          const proof_system::RelationParameters<FF>& relation_parameters,
                                          const FF& scaling_factor)
