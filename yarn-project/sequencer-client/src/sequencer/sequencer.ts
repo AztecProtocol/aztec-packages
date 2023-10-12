@@ -103,7 +103,7 @@ export class Sequencer {
   }
 
   protected async initialSync() {
-    // TODO: Should we wait for worldstate to be ready, or is the caller expected to run await start?
+    // TODO: Should we wait for world state to be ready, or is the caller expected to run await start?
     this.lastPublishedBlock = await this.worldState.status().then((s: WorldStateStatus) => s.syncedToL2Block);
   }
 
@@ -141,7 +141,7 @@ export class Sequencer {
       this.log.info(`Building block ${blockNumber} with ${validTxs.length} transactions`);
       this.state = SequencerState.CREATING_BLOCK;
 
-      const prevGlobalVariables = (await this.l2BlockSource.getL2Block(-1))?.globalVariables ?? GlobalVariables.empty();
+      const prevGlobalVariables = (await this.l2BlockSource.getBlock(-1))?.globalVariables ?? GlobalVariables.empty();
 
       // Process txs and drop the ones that fail processing
       // We create a fresh processor each time to reset any cached state (eg storage writes)
