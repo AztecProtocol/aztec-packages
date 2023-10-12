@@ -28,7 +28,7 @@ WASM_EXPORT void pedersen__hash(uint8_t const* inputs_buffer, uint8_t* output)
 
 WASM_EXPORT void pedersen__hash_multiple(uint8_t const* inputs_buffer, uint8_t* output)
 {
-    pedersen_hash(inputs_buffer, output);
+    pedersen__hash(inputs_buffer, output);
 }
 
 WASM_EXPORT void pedersen__hash_with_hash_index(uint8_t const* inputs_buffer,
@@ -45,7 +45,7 @@ WASM_EXPORT void pedersen__hash_multiple_with_hash_index(uint8_t const* inputs_b
                                                          uint32_t const* hash_index,
                                                          uint8_t* output)
 {
-    pedersen_hash_with_hash_index(inputs_buffer, hash_index, output);
+    pedersen__hash_with_hash_index(inputs_buffer, hash_index, output);
 }
 
 /**
