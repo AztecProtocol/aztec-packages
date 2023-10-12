@@ -1,8 +1,8 @@
 # This base Dockerfile is for:
 #  - Caching the workspace dependencies.
 #  - Running workspace checks (package.json inheritance, tsconfig.json project references).
-#  - Bringing in any upstream artefacts such as circuits.wasm and L1 contracts.
-#  - Performing any code generation that doesn't require the workspace code to do so (generate L1 artefacts).
+#  - Bringing in any upstream artifacts such as circuits.wasm and L1 contracts.
+#  - Performing any code generation that doesn't require the workspace code to do so (generate L1 artifacts).
 #
 # When installing workspace dependencies, there are issues with doing this naively:
 #  - We only ever want to re-download and install workspace dependencies in the event that they change.
