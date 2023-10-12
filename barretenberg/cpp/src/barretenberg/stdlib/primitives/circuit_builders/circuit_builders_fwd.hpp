@@ -11,7 +11,6 @@ construction in stdlib and contains macros for explicit instantiation.
 
 namespace proof_system::honk {
 namespace flavor {
-class Standard;
 class Ultra;
 } // namespace flavor
 } // namespace proof_system::honk
