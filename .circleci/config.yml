@@ -438,10 +438,32 @@ jobs:
       - run:
           name: "Build and test"
           # We need to force not to use docker buildkit because for some reason on arm only, it ends up making a call
-          # out to eu-west2 despite the image being locally tagged, resulting in unauthorised 401. Weird docker bug?
+          # out to eu-west2 despite the image being locally tagged, resulting in unauthorized 401. Weird docker bug?
           command: |
             echo "export DOCKER_BUILDKIT=" > $BASH_ENV
             build aztec-sandbox false arm64
+
+  aztec-p2p-bootstrap:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: build p2p-bootstrap | add_timestamps
+
+  aztec-node:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: build aztec-node | add_timestamps
 
   pxe-x86_64:
     machine:
@@ -464,7 +486,7 @@ jobs:
       - run:
           name: "Build and test"
           # We need to force not to use docker buildkit because for some reason on arm only, it ends up making a call
-          # out to eu-west2 despite the image being locally tagged, resulting in unauthorised 401. Weird docker bug?
+          # out to eu-west2 despite the image being locally tagged, resulting in unauthorized 401. Weird docker bug?
           command: |
             echo "export DOCKER_BUILDKIT=" > $BASH_ENV
             build pxe false arm64
@@ -955,9 +977,20 @@ jobs:
           name: "Benchmark"
           command: cond_run_script end-to-end ./scripts/run_tests_local benchmarks/bench_publish_rollup.test.ts
           environment:
-            {
-              DEBUG: "aztec:benchmarks:*,aztec:sequencer,aztec:world_state,aztec:merkle_trees",
-            }
+            DEBUG: "aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees"
+
+  bench-process-history:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Benchmark"
+          command: cond_run_script end-to-end ./scripts/run_tests_local benchmarks/bench_process_history.test.ts
+          environment:
+            DEBUG: "aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees"
 
   build-docs:
     machine:
@@ -1012,6 +1045,17 @@ jobs:
       - run:
           name: "yarn-project"
           command: yarn-project/deploy_npm.sh
+
+  deploy-ecr:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: medium
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "yarn-project"
+          command: yarn-project/deploy_ecr.sh
 
   deploy-dockerhub:
     machine:
@@ -1233,6 +1277,16 @@ workflows:
             - yarn-project
           <<: *defaults
 
+      - aztec-p2p-bootstrap:
+          requires:
+            - yarn-project
+          <<: *defaults
+
+      - aztec-node:
+          requires:
+            - yarn-project
+          <<: *defaults
+
       - pxe-x86_64:
           requires:
             - yarn-project
@@ -1307,6 +1361,7 @@ workflows:
       - guides-sample-dapp: *e2e_test
       - guides-up-quick-start: *e2e_test
       - bench-publish-rollup: *e2e_test
+      - bench-process-history: *e2e_test
 
       - e2e-end:
           requires:
@@ -1344,20 +1399,25 @@ workflows:
             - guides-dapp-testing
             - guides-sample-dapp
             - guides-up-quick-start
-            - bench-publish-rollup
           <<: *defaults
 
       - bench-summary:
           requires:
             - e2e-end
+            - bench-publish-rollup
+            - bench-process-history
           <<: *defaults
 
-        # Deployment and Canary tests
+      # Deployment and Canary tests
       - deploy-dockerhub:
           requires:
             - e2e-end
           <<: *deploy_defaults
       - deploy-npm:
+          requires:
+            - e2e-end
+          <<: *deploy_defaults
+      - deploy-ecr:
           requires:
             - e2e-end
           <<: *deploy_defaults

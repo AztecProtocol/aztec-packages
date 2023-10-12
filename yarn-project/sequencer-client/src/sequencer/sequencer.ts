@@ -2,8 +2,10 @@ import { GlobalVariables } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
+import { Timer, elapsed } from '@aztec/foundation/timer';
 import { P2P } from '@aztec/p2p';
 import { ContractDataSource, L1ToL2MessageSource, L2Block, L2BlockSource, MerkleTreeId, Tx } from '@aztec/types';
+import { L2BlockBuiltStats } from '@aztec/types/stats';
 import { WorldStateStatus, WorldStateSynchronizer } from '@aztec/world-state';
 
 import times from 'lodash.times';
@@ -27,7 +29,7 @@ import { PublicProcessorFactory } from './public_processor.js';
  */
 export class Sequencer {
   private runningPromise?: RunningPromise;
-  private pollingIntervalMs: number;
+  private pollingIntervalMs: number = 1000;
   private maxTxsPerBlock = 32;
   private minTxsPerBLock = 1;
   private lastPublishedBlock = 0;
@@ -43,17 +45,21 @@ export class Sequencer {
     private l1ToL2MessageSource: L1ToL2MessageSource,
     private contractDataSource: ContractDataSource,
     private publicProcessorFactory: PublicProcessorFactory,
-    config: SequencerConfig,
+    config: SequencerConfig = {},
     private log = createDebugLogger('aztec:sequencer'),
   ) {
-    this.pollingIntervalMs = config.transactionPollingIntervalMS ?? 1_000;
-    if (config.maxTxsPerBlock) {
-      this.maxTxsPerBlock = config.maxTxsPerBlock;
-    }
-    if (config.minTxsPerBlock) {
-      this.minTxsPerBLock = config.minTxsPerBlock;
-    }
+    this.updateConfig(config);
     this.log(`Initialized sequencer with ${this.minTxsPerBLock}-${this.maxTxsPerBlock} txs per block.`);
+  }
+
+  /**
+   * Updates sequencer config.
+   * @param config - New parameters.
+   */
+  public updateConfig(config: SequencerConfig) {
+    if (config.transactionPollingIntervalMS) this.pollingIntervalMs = config.transactionPollingIntervalMS;
+    if (config.maxTxsPerBlock) this.maxTxsPerBlock = config.maxTxsPerBlock;
+    if (config.minTxsPerBlock) this.minTxsPerBLock = config.minTxsPerBlock;
   }
 
   /**
@@ -97,7 +103,7 @@ export class Sequencer {
   }
 
   protected async initialSync() {
-    // TODO: Should we wait for worldstate to be ready, or is the caller expected to run await start?
+    // TODO: Should we wait for world state to be ready, or is the caller expected to run await start?
     this.lastPublishedBlock = await this.worldState.status().then((s: WorldStateStatus) => s.syncedToL2Block);
   }
 
@@ -116,6 +122,7 @@ export class Sequencer {
       // Do not go forward with new block if the previous one has not been mined and processed
       if (!prevBlockSynced) return;
 
+      const workTimer = new Timer();
       this.state = SequencerState.WAITING_FOR_TXS;
 
       // Get txs to build the new block
@@ -134,12 +141,12 @@ export class Sequencer {
       this.state = SequencerState.CREATING_BLOCK;
 
       const newGlobalVariables = await this.globalsBuilder.buildGlobalVariables(new Fr(blockNumber));
-      const prevGlobalVariables = (await this.l2BlockSource.getL2Block(-1))?.globalVariables ?? GlobalVariables.empty();
+      const prevGlobalVariables = (await this.l2BlockSource.getBlock(-1))?.globalVariables ?? GlobalVariables.empty();
 
       // Process txs and drop the ones that fail processing
       // We create a fresh processor each time to reset any cached state (eg storage writes)
       const processor = await this.publicProcessorFactory.create(prevGlobalVariables, newGlobalVariables);
-      const [processedTxs, failedTxs] = await processor.process(validTxs);
+      const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() => processor.process(validTxs));
       if (failedTxs.length > 0) {
         const failedTxData = failedTxs.map(fail => fail.tx);
         this.log(`Dropping failed txs ${(await Tx.getHashes(failedTxData)).join(', ')}`);
@@ -149,7 +156,7 @@ export class Sequencer {
       // Only accept processed transactions that are not double-spends,
       // public functions emitting nullifiers would pass earlier check but fail here.
       // Note that we're checking all nullifiers generated in the private execution twice,
-      // we could store the ones already checked and skip them here as an optimisation.
+      // we could store the ones already checked and skip them here as an optimization.
       const processedValidTxs = await this.takeValidTxs(processedTxs);
 
       if (processedValidTxs.length === 0) {
@@ -166,8 +173,17 @@ export class Sequencer {
       this.log(`Assembling block with txs ${processedValidTxs.map(tx => tx.hash).join(', ')}`);
 
       const emptyTx = await processor.makeEmptyProcessedTx();
-      const block = await this.buildBlock(processedValidTxs, l1ToL2Messages, emptyTx, newGlobalVariables);
-      this.log(`Assembled block ${block.number}`);
+      const [rollupCircuitsDuration, block] = await elapsed(() =>
+        this.buildBlock(processedValidTxs, l1ToL2Messages, emptyTx, newGlobalVariables),
+      );
+
+      this.log(`Assembled block ${block.number}`, {
+        eventName: 'l2-block-built',
+        duration: workTimer.ms(),
+        publicProcessDuration: publicProcessorDuration,
+        rollupCircuitsDuration: rollupCircuitsDuration,
+        ...block.getStats(),
+      } satisfies L2BlockBuiltStats);
 
       await this.publishExtendedContractData(validTxs, block);
 

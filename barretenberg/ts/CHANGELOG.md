@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.8.10](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.8.9...barretenberg.js-v0.8.10) (2023-10-11)
+
+
+### Features
+
+* Adding Fr back as a BB export (ts) ([#2770](https://github.com/AztecProtocol/aztec-packages/issues/2770)) ([d9ac808](https://github.com/AztecProtocol/aztec-packages/commit/d9ac8080a5525b9792b7b3f10c40583536bb256c))
+
+## [0.8.9](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.8.8...barretenberg.js-v0.8.9) (2023-10-10)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.8.8](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.8.7...barretenberg.js-v0.8.8) (2023-10-09)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
 ## [0.8.7](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.8.6...barretenberg.js-v0.8.7) (2023-10-04)
 
 

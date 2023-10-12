@@ -5,10 +5,22 @@ import { GlobalReaderConfig } from './global_variable_builder/index.js';
 import { PublisherConfig, TxSenderConfig } from './publisher/config.js';
 import { SequencerConfig } from './sequencer/config.js';
 
+/** Chain configuration. */
+type ChainConfig = {
+  /** The chain id of the ethereum host. */
+  chainId: number;
+  /** The version of the rollup. */
+  version: number;
+};
+
 /**
  * Configuration settings for the SequencerClient.
  */
-export type SequencerClientConfig = PublisherConfig & TxSenderConfig & SequencerConfig & GlobalReaderConfig;
+export type SequencerClientConfig = PublisherConfig &
+  TxSenderConfig &
+  SequencerConfig &
+  GlobalReaderConfig &
+  ChainConfig;
 
 /**
  * Creates an instance of SequencerClientConfig out of environment variables using sensible defaults for integration testing if not set.
@@ -20,7 +32,7 @@ export function getConfigEnvVars(): SequencerClientConfig {
     CHAIN_ID,
     VERSION,
     API_KEY,
-    SEQ_REQUIRED_CONFS,
+    SEQ_REQUIRED_CONFIRMATIONS,
     SEQ_PUBLISH_RETRY_INTERVAL_MS,
     SEQ_TX_POLLING_INTERVAL_MS,
     SEQ_MAX_TX_PER_BLOCK,
@@ -53,7 +65,7 @@ export function getConfigEnvVars(): SequencerClientConfig {
     chainId: CHAIN_ID ? +CHAIN_ID : 31337, // 31337 is the default chain id for anvil
     version: VERSION ? +VERSION : 1, // 1 is our default version
     apiKey: API_KEY,
-    requiredConfirmations: SEQ_REQUIRED_CONFS ? +SEQ_REQUIRED_CONFS : 1,
+    requiredConfirmations: SEQ_REQUIRED_CONFIRMATIONS ? +SEQ_REQUIRED_CONFIRMATIONS : 1,
     l1BlockPublishRetryIntervalMS: SEQ_PUBLISH_RETRY_INTERVAL_MS ? +SEQ_PUBLISH_RETRY_INTERVAL_MS : 1_000,
     transactionPollingIntervalMS: SEQ_TX_POLLING_INTERVAL_MS ? +SEQ_TX_POLLING_INTERVAL_MS : 1_000,
     l1Contracts: addresses,

@@ -56,7 +56,7 @@ Responsibilities:
 Responsibilities:
 
 - Returns the sibling path for the given `tree_id` at the given leaf `index`.
-- Can be injected into any context that requires path queries for a particular tree. Might be backed by implementations that call out to a server (where privacy doesn't matter, or during early development), or leverages some privacy tech (query via Nym), or could just point to a local `WorldStateSynchroniser`.
+- Can be injected into any context that requires path queries for a particular tree. Might be backed by implementations that call out to a server (where privacy doesn't matter, or during early development), or leverages some privacy tech (query via Nym), or could just point to a local `WorldStateSynchronizer`.
 
 ### RollupSource
 
@@ -89,9 +89,9 @@ Responsibilities:
 These tasks are lower priority than providing a handcrafted ABI.
 
 - The ability for a dev to enclose a collection of Aztec.nr functions in a 'contract scope'.
-- The ability to create an Aztec.nr contract abi from the above.
+- The ability to create an Aztec.nr contract artifact from the above.
 
-Design an Aztec.nr Contract ABI, similar to a Solidity ABI which is output by Solc (see [here](https://docs.soliditylang.org/en/v0.8.13/abi-spec.html#json)). It might include for each function:
+Design an Aztec.nr contract artifact, similar to a Solidity ABI which is output by Solc (see [here](https://docs.soliditylang.org/en/v0.8.13/abi-spec.html#json)). It might include for each function:
 
 - ACIR opcodes (akin to Solidity bytecode).
 - Function name and parameter names & types.
@@ -113,7 +113,7 @@ aztec.js should always be stateless. It offers the ability to interact with stat
 The analogous AC component would be the AztecSdk (wraps the CoreSdk which is more analogous to the private client).
 
 - Allows a user to create an Aztec keypair. Call `create_account` on Wallet.
-- Create a `Contract` instance (similar to web3.js), given a path to an Aztec.nr Contract ABI.
+- Create a `Contract` instance (similar to web3.js), given a path to an Aztec.nr contract artifact.
 - Construct `tx_request` by calling e.g. `contract.get_deployment_request(constructor_args)`.
 - Call wallet `sign_tx_request(tx_request)` to get signature.
 - Call `simulate_tx(signed_tx_request)` on the Private Client. In future this would help compute gas, for now we won't actually return gas (it's hard). Returns success or failure, so client knows if it should proceed, and computed kernel circuit public outputs.
@@ -182,7 +182,7 @@ Injected:
 Implementation notes for this milestone:
 
 - Mostly acting as a facade for other components, forwards requests as necessary.
-- A `WorldStateSynchroniser` will ingest rollups from the `RollupSource` and maintain an up-to-date `MerkleTreeDb`.
+- A `WorldStateSynchronizer` will ingest rollups from the `RollupSource` and maintain an up-to-date `MerkleTreeDb`.
 
 <!--
 Mikes bullets. Some of these in wrong place (sequencer does publishing)
@@ -259,7 +259,7 @@ Interface:
 - `get_sibling_path`
 - `append_leaves`
 
-### WorldStateSynchroniser
+### WorldStateSynchronizer
 
 Injected:
 
