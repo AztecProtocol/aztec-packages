@@ -16,7 +16,6 @@ template <typename FF> struct FibVMState {
 class FibVMTraceBuilder : public ExecutionTraceBuilderBase<arithmetization::FibVM> {
   public:
     using FF = arithmetization::FibVM::FF;
-    using VMOperation = fib_vm::VMOperation<FF>; // high-level description of an operation
     using Row = fib_vm::FibRow<FF>;
 
     // NOTE: this was wrecking me with a circular dependency

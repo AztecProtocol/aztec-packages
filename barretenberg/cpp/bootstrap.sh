@@ -5,8 +5,8 @@ set -eu
 cd "$(dirname "$0")"
 
 # Clean.
-rm -rf ./build
-rm -rf ./build-wasm
+# rm -rf ./build
+# rm -rf ./build-wasm
 
 # Determine system.
 if [[ "$OSTYPE" == "darwin"* ]]; then

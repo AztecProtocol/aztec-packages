@@ -214,6 +214,7 @@ class Ultra {
                      w_o_shift,     w_4_shift,     sorted_accum_shift, z_perm_shift,  z_lookup_shift };
         };
 
+        std::vector<std::pair<HandleType, HandleType>> matched_columns{ { table_1, q_m } };
         AllEntities() = default;
 
         AllEntities(const AllEntities& other)
