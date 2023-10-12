@@ -185,7 +185,7 @@ export class Sequencer {
         ...block.getStats(),
       } satisfies L2BlockBuiltStats);
 
-      await this.publishExtendedContractData(processedTxs, block);
+      await this.publishExtendedContractData(processedValidTxs, block);
 
       await this.publishL2Block(block);
       this.log.info(`Submitted rollup block ${block.number} with ${processedValidTxs.length} transactions`);
