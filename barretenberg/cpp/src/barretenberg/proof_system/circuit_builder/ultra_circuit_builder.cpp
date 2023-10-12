@@ -3275,6 +3275,9 @@ template <typename FF> bool UltraCircuitBuilder_<FF>::check_circuit()
         size_t tag_in = this->real_variable_tags[real_index];
         if (tag_in != DUMMY_TAG) {
             size_t tag_out = this->tau.at((uint32_t)tag_in);
+            info("TAG OUT ", tag_out);
+            info("TAG IN ", tag_in);
+
             left_tag_product *= value + tag_gamma * FF(tag_in);
             right_tag_product *= value + tag_gamma * FF(tag_out);
             encountered_variables.insert(real_index);

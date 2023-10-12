@@ -105,6 +105,37 @@ class FibVMTraceBuilder : public ExecutionTraceBuilderBase<arithmetization::FibV
         assign_tag_to_column(3, 3); // y_shift
     }
 
+    std::vector<Row> build_trace_from_powdr(std::vector<Row> new_rows)
+    {
+        // TODO: this is a serialisation bug, we trim the last row!
+        new_rows.pop_back();
+
+        // First we need to generate our shift columns
+        for (size_t i = 0; i < new_rows.size(); ++i) {
+            // We need to create a new row that is a copy of the current row
+            // but with the x and y values shifted
+            Row& current_row = new_rows[i];
+            current_row.x_shift = new_rows[(i + 1) % new_rows.size()].x;
+            current_row.y_shift = new_rows[(i + 1) % new_rows.size()].y;
+        }
+
+        create_tag(1, 2);
+        assign_tag_to_column(1, 0); // x
+        assign_tag_to_column(2, 2); // x_shift
+
+        // Assign y to y_shift
+        create_tag(3, 4);
+        assign_tag_to_column(3, 1); // y
+        assign_tag_to_column(4, 3); // y_shift
+
+        // Copy new rows into old rows - INEFFICIENT AF
+        for (auto& r : new_rows) {
+            rows.push_back(r);
+        }
+
+        return new_rows;
+    }
+
     // Create a permutation between two different columns, in this case we want to create a relation
     // between x and x_shift, and y and y_shift
     // Normally we would do the shifts another way ( the code is in the pcs section ) but for this excercise
@@ -116,6 +147,8 @@ class FibVMTraceBuilder : public ExecutionTraceBuilderBase<arithmetization::FibV
 
     [[maybe_unused]] void print_rows()
     {
+        info("ROWS LENGTH ", this->rows.size());
+
         size_t i = 0;
         for (auto& row : this->rows) {
             info(i++);
@@ -139,7 +172,7 @@ class FibVMTraceBuilder : public ExecutionTraceBuilderBase<arithmetization::FibV
         }
     }
 
-    void check_permutations()
+    [[maybe_unused]] void check_permutations()
     {
         // For each tag that exists in the tag mappings, we want to pull the set of values and check that
         // the permutation identity holds for them
@@ -167,7 +200,7 @@ class FibVMTraceBuilder : public ExecutionTraceBuilderBase<arithmetization::FibV
                 right_tag_product *= tag_2_perm[i] + challenge_gamma * FF(tag_out);
             }
 
-            if (left_tag_product == right_tag_product) {
+            if (left_tag_product != right_tag_product) {
                 info("Perm failed");
                 throw std::runtime_error("Perm failed");
             }
@@ -178,13 +211,11 @@ class FibVMTraceBuilder : public ExecutionTraceBuilderBase<arithmetization::FibV
     // too important to the execution of the trace
     [[maybe_unused]] bool check_gates()
     {
-        build_execution_trace();
-        // print_rows();
+        info("CHECKING GATES");
+        print_rows();
 
         // Check column permutations
         check_permutations();
-
-        // TODO:
 
         return evaluate_relation<fib_vm::FibRelation<FF>, Row>("FibVMRelation", rows);
     }

@@ -69,11 +69,6 @@ template <typename FF> inline std::ostream& operator<<(std::ostream& os, FibRow<
     return os;
 }
 
-template <typename FF> struct VMOperation {
-    FF x;
-    FF y;
-};
-
 template <typename FF_> class FibonacciRelation {
   public:
     // What is the point of this assignemnt, can we not just use FF verbatim?
