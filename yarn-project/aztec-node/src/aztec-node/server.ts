@@ -9,7 +9,7 @@ import {
   PRIVATE_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeIndex } from '@aztec/circuits.js/abis';
-import { L1ContractAddresses } from '@aztec/ethereum';
+import { L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { InMemoryTxPool, P2P, createP2PClient } from '@aztec/p2p';
@@ -88,14 +88,15 @@ export class AztecNodeService implements AztecNode {
    * @returns - A fully synced Aztec Node for use in development/testing.
    */
   public static async createAndSync(config: AztecNodeConfig) {
+    const ethereumChain = createEthereumChain(config.rpcUrl, config.apiKey);
+    //validate that the actual chain id matches that specified in configuration
+    if (config.chainId !== ethereumChain.chainInfo.id) {
+      throw new Error(
+        `RPC URL configured for chain id ${ethereumChain.chainInfo.id} but expected id ${config.chainId}`,
+      );
+    }
     // first create and sync the archiver
     const archiver = await Archiver.createAndSync(config);
-
-    // get the chain id here
-    const lastBlockNumber = await archiver.getBlockNumber();
-    const globalVariableBuilder = getGlobalVariableBuilder(config);
-    // just use the next block number for this query
-    const globalVariables = await globalVariableBuilder.buildGlobalVariables(new Fr(lastBlockNumber + 1));
 
     // we identify the P2P transaction protocol by using the rollup contract address.
     // this may well change in future
@@ -128,9 +129,9 @@ export class AztecNodeService implements AztecNode {
       archiver,
       worldStateSynchronizer,
       sequencer,
-      Number(globalVariables.chainId.value),
+      ethereumChain.chainInfo.id,
       config.version,
-      globalVariableBuilder,
+      getGlobalVariableBuilder(config),
       db,
     );
   }

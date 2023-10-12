@@ -196,6 +196,10 @@ resource "aws_ecs_task_definition" "aztec-node-1" {
         "value": "true"
       },
       {
+        "name": "CHAIN_ID",
+        "value": "${var.CHAIN_ID}"
+      },
+      {
         "name": "PEER_ID_PRIVATE_KEY",
         "value": "${var.NODE_1_PRIVATE_KEY}"
       }
@@ -483,6 +487,10 @@ resource "aws_ecs_task_definition" "aztec-node-2" {
       {
         "name": "P2P_ENABLED",
         "value": "true"
+      },
+      {
+        "name": "CHAIN_ID",
+        "value": "${var.CHAIN_ID}"
       },
       {
         "name": "PEER_ID_PRIVATE_KEY",
