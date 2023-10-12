@@ -17,7 +17,7 @@ export function convertArgs(functionAbi: FunctionArtifact, args: any): Fr[] {
   console.log(args);
   const untypedArgs = functionAbi.parameters
     .map(param => {
-      if (param.type.kind in ['field', 'boolean', 'array']) {
+      if (['field', 'array', 'boolean'].includes(param.type.kind)) {
         return convertBasicArg(param.type.kind, args[param.name]);
       } else if (param.type.kind === 'struct') {
         const structParams = param.type.fields;

@@ -72,7 +72,7 @@ function generateYupSchema(functionAbi: FunctionArtifact, defaultAddress: string
   const initialValues: NoirFunctionFormValues = {};
   for (const param of functionAbi.parameters) {
     // use helper function for non struct-types
-    if (param.type.kind in ['field', 'array', 'boolean']){
+    if (['field', 'array', 'boolean'].includes(param.type.kind)) {
       const { yupType, defaultValue } = generateYupDefaultValue(param, defaultAddress);
       parameterSchema[param.name] = yupType;
       initialValues[param.name] = defaultValue;
