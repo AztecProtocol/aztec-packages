@@ -1,6 +1,6 @@
 import { AccountWallet, Fr, getSandboxAccountsWallets } from '@aztec/aztec.js';
 import { FunctionArtifact, encodeArguments } from '@aztec/foundation/abi';
-import { PXE, CompleteAddress } from '@aztec/types';
+import { CompleteAddress, PXE } from '@aztec/types';
 
 export function convertArgs(functionAbi: FunctionArtifact, args: any): Fr[] {
   const untypedArgs = functionAbi.parameters.map(param => {
@@ -9,6 +9,10 @@ export function convertArgs(functionAbi: FunctionArtifact, args: any): Fr[] {
         // hack: addresses are stored as string in the form to avoid bigint compatibility issues with formik
         // convert those back to bigints before turning into Fr
         return BigInt(args[param.name]);
+      case 'struct':
+        // struct an object for the struct input type
+        console.log(args.param.name);
+        return args[param.name];
       default:
         // they are all fields in the privatetoken contract, need more testing on other types
         return args[param.name];

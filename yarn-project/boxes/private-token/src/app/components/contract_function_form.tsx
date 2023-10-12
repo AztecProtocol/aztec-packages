@@ -1,12 +1,31 @@
-import { CONTRACT_ADDRESS_PARAM_NAMES, pxe } from '../../config.js';
-import { callContractFunction, deployContract, viewContractFunction } from '../../scripts/index.js';
-import { convertArgs } from '../../scripts/util.js';
-import styles from './contract_function_form.module.scss';
 import { Button, Loader } from '@aztec/aztec-ui';
 import { AztecAddress, CompleteAddress, Fr } from '@aztec/aztec.js';
 import { ContractArtifact, FunctionArtifact } from '@aztec/foundation/abi';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
+import { CONTRACT_ADDRESS_PARAM_NAMES, pxe } from '../../config.js';
+import { callContractFunction, deployContract, viewContractFunction } from '../../scripts/index.js';
+import { convertArgs } from '../../scripts/util.js';
+import styles from './contract_function_form.module.scss';
+
+const DEFAULT_FIELD_VALUE = 100;
+interface BasicParamDef {
+  name: string;
+  type: {
+    kind: string;
+    path?: string;
+  };
+}
+interface ParamDef {
+  name: string;
+  type: {
+    kind: string;
+    path?: string;
+    fields?: BasicParamDef[];
+  };
+}
+
+const log = console.log;
 
 type NoirFunctionYupSchema = {
   // hack: add `any` at the end to get the array schema to typecheck
@@ -15,46 +34,67 @@ type NoirFunctionYupSchema = {
 };
 
 type NoirFunctionFormValues = {
-  [key: string]: string | number | number[] | boolean;
+  [key: string]: string | number | number[] | boolean | undefined;
 };
+
+// returns an object where first value is the yup type, second value is the default value
+// this handles "base cases", which can be the parameters directly, or used
+// in a recursive manner to handle structs
+function generateYupDefaultValue(param: any, defaultAddress: string){
+    if (CONTRACT_ADDRESS_PARAM_NAMES.includes(param.name)) {
+      // these are actually fields, which should be numbers, but yup doesn't support bigint so we convert back to bigint on execution
+      return {yupType: Yup.string().required(), defaultAddress};
+    } else if (param.type.kind === 'field'){
+      return {yupType: Yup.number().required(), defaultValue: DEFAULT_FIELD_VALUE};
+    } else if (param.type.kind === 'array'){
+      const arrayLength = param.type.length;
+      return {yupType: Yup.array()
+        .of(Yup.number())
+        .min(arrayLength)
+        .max(arrayLength)
+        .transform(function (value: number[], originalValue: string) {
+          if (typeof originalValue === 'string') {
+            return originalValue.split(',').map(Number);
+          }
+          return value;
+        }), defaultValue: Array(arrayLength).fill(
+          CONTRACT_ADDRESS_PARAM_NAMES.includes(param.name) ? defaultAddress : 200,
+        )};
+    } else if (param.type.kind === 'boolean'){
+      return {yupType: Yup.boolean().required(), defaultValue: false};
+    } else {
+      throw new Error('Unsupported type', param);
+    }
+}
 
 function generateYupSchema(functionAbi: FunctionArtifact, defaultAddress: string) {
   const parameterSchema: NoirFunctionYupSchema = {};
   const initialValues: NoirFunctionFormValues = {};
   for (const param of functionAbi.parameters) {
-    if (CONTRACT_ADDRESS_PARAM_NAMES.includes(param.name)) {
-      // these are hex strings instead, but yup doesn't support bigint so we convert back to bigint on execution
-      parameterSchema[param.name] = Yup.string().required();
-      initialValues[param.name] = defaultAddress;
+    // use helper function for non struct-types
+    if (param.type.kind in ['field', 'array', 'boolean']){
+      const { yupType, defaultValue } = generateYupDefaultValue(param, defaultAddress);
+      parameterSchema[param.name] = yupType;
+      initialValues[param.name] = defaultValue;
       continue;
     }
-    switch (param.type.kind) {
-      case 'field':
-        parameterSchema[param.name] = Yup.number().required();
-        initialValues[param.name] = 100;
-        break;
-      // not really needed for private token, since we hide the nullifier helper method which has the array input
-      case 'array':
-        // eslint-disable-next-line no-case-declarations
-        const arrayLength = param.type.length;
-        parameterSchema[param.name] = Yup.array()
-          .of(Yup.number())
-          .min(arrayLength)
-          .max(arrayLength)
-          .transform(function (value: number[], originalValue: string) {
-            if (typeof originalValue === 'string') {
-              return originalValue.split(',').map(Number);
-            }
-            return value;
-          });
-        initialValues[param.name] = Array(arrayLength).fill(
-          CONTRACT_ADDRESS_PARAM_NAMES.includes(param.name) ? defaultAddress : 200,
-        );
-        break;
-      case 'boolean':
-        parameterSchema[param.name] = Yup.boolean().required();
-        initialValues[param.name] = false;
-        break;
+    else if (param.type.kind === 'struct'){
+        // for type checking, can't annotate left side of "for X of Y" statement
+        const paramFields: ParamDef[] = param.type.fields!;
+        const structParamSchema: any = {};
+        const structInitialValues: any = {};
+        for (const structParam of paramFields){
+          log(structParam);
+          const { yupType, defaultValue } = generateYupDefaultValue(structParam, defaultAddress);
+          structParamSchema[structParam.name] = yupType;
+          structInitialValues[structParam.name] = defaultValue;
+        }
+        log(param.name);
+        log(structParamSchema);
+        log(structInitialValues);
+        parameterSchema[param.name] = Yup.object().shape(structParamSchema);
+        initialValues[param.name] = structInitialValues;
+        continue;
     }
   }
   return { validationSchema: Yup.object().shape(parameterSchema), initialValues };
@@ -67,6 +107,8 @@ async function handleFunctionCall(
   args: any,
   wallet: CompleteAddress,
 ) {
+  log('handleFunctionCall', contractAddress, artifact, functionName, args, wallet);
+
   const functionAbi = artifact.functions.find(f => f.name === functionName)!;
   const typedArgs: any[] = convertArgs(functionAbi, args);
 
