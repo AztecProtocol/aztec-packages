@@ -223,14 +223,14 @@ template <typename Tuple, std::size_t Index = 0> static constexpr size_t get_max
  * outer tuple.
  */
 template <typename Tuple, std::size_t Index = 0>
-static constexpr auto create_relation_2protogalaxy_univariates_container()
+static constexpr auto create_protogalaxy_tuple_of_tuples_of_univariates()
 {
     if constexpr (Index >= std::tuple_size<Tuple>::value) {
         return std::tuple<>{}; // Return empty when reach end of the tuple
     } else {
         using UnivariateTuple = typename std::tuple_element_t<Index, Tuple>::TupleOfUnivariatesOverSubrelations;
         return std::tuple_cat(std::tuple<UnivariateTuple>{},
-                              create_relation_2protogalaxy_univariates_container<Tuple, Index + 1>());
+                              create_protogalaxy_tuple_of_tuples_of_univariates<Tuple, Index + 1>());
     }
 }
 
@@ -240,14 +240,14 @@ static constexpr auto create_relation_2protogalaxy_univariates_container()
  * Relation contributes a tuple with num-identities many Univariates and there are num-relations many tuples in the
  * outer tuple.
  */
-template <typename Tuple, std::size_t Index = 0> static constexpr auto create_relation_sumcheck_univariates_container()
+template <typename Tuple, std::size_t Index = 0> static constexpr auto create_sumcheck_tuple_of_tuples_of_univariates()
 {
     if constexpr (Index >= std::tuple_size<Tuple>::value) {
         return std::tuple<>{}; // Return empty when reach end of the tuple
     } else {
         using UnivariateTuple = typename std::tuple_element_t<Index, Tuple>::TupleOfUnivariatesOverSubrelations;
         return std::tuple_cat(std::tuple<UnivariateTuple>{},
-                              create_relation_sumcheck_univariates_container<Tuple, Index + 1>());
+                              create_sumcheck_tuple_of_tuples_of_univariates<Tuple, Index + 1>());
     }
 }
 
@@ -256,13 +256,13 @@ template <typename Tuple, std::size_t Index = 0> static constexpr auto create_re
  * @details Container for storing value of each identity in each relation. Each Relation contributes an array of
  * length num-identities.
  */
-template <typename Tuple, std::size_t Index = 0> static constexpr auto create_relation_values_container()
+template <typename Tuple, std::size_t Index = 0> static constexpr auto create_tuple_of_arrays()
 {
     if constexpr (Index >= std::tuple_size<Tuple>::value) {
         return std::tuple<>{}; // Return empty when reach end of the tuple
     } else {
         using Values = typename std::tuple_element_t<Index, Tuple>::ArrayOfValuesOverSubrelations;
-        return std::tuple_cat(std::tuple<Values>{}, create_relation_values_container<Tuple, Index + 1>());
+        return std::tuple_cat(std::tuple<Values>{}, create_tuple_of_arrays<Tuple, Index + 1>());
     }
 }
 

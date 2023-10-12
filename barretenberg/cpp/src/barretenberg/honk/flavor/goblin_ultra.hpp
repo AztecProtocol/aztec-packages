@@ -59,8 +59,8 @@ class GoblinUltra {
     static constexpr size_t NUM_RELATIONS = std::tuple_size<Relations>::value;
 
     // define the container for storing the univariate contribution from each relation in Sumcheck
-    using TupleOfTuplesOfUnivariates = decltype(create_relation_sumcheck_univariates_container<Relations>());
-    using TupleOfArraysOfValues = decltype(create_relation_values_container<Relations>());
+    using TupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
+    using TupleOfArraysOfValues = decltype(create_tuple_of_arrays<Relations>());
 
     // Whether or not the first row of the execution trace is reserved for 0s to enable shifts
     static constexpr bool has_zero_row = true;
