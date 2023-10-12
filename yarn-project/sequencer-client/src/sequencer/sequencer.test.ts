@@ -99,6 +99,7 @@ describe('sequencer', () => {
 
   it('builds a block out of a single tx', async () => {
     const tx = mockTx();
+    tx.data.constants.txContext.chainId = chainId;
     const block = L2Block.random(lastBlockNumber + 1);
     const proof = makeEmptyProof();
 
@@ -124,6 +125,9 @@ describe('sequencer', () => {
 
   it('builds a block out of several txs rejecting double spends', async () => {
     const txs = [mockTx(0x10000), mockTx(0x20000), mockTx(0x30000)];
+    txs.forEach(tx => {
+      tx.data.constants.txContext.chainId = chainId;
+    });
     const doubleSpendTx = txs[1];
     const block = L2Block.random(lastBlockNumber + 1);
     const proof = makeEmptyProof();
@@ -159,6 +163,9 @@ describe('sequencer', () => {
 
   it('builds a block out of several txs rejecting incorrect chain ids', async () => {
     const txs = [mockTx(0x10000), mockTx(0x20000), mockTx(0x30000)];
+    txs.forEach(tx => {
+      tx.data.constants.txContext.chainId = chainId;
+    });
     const invalidChainTx = txs[1];
     const block = L2Block.random(lastBlockNumber + 1);
     const proof = makeEmptyProof();
