@@ -360,7 +360,7 @@ TEST_F(GoblinTranslatorRelationConsistency, DecompositionRelation)
 {
     const auto run_test = [](bool random_inputs) {
         using Relation = GoblinTranslatorDecompositionRelation<FF>;
-        using RelationValues = typename Relation::RelationValues;
+        using RelationValues = typename Relation::ArrayOfValuesOverSubrelations;
 
         const InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
 

@@ -11,107 +11,59 @@ template <typename FF_> class GoblinTranslatorDecompositionRelationImpl {
 
     // 1 + polynomial degree of this relation
     static constexpr size_t RELATION_LENGTH = 3; // degree(lagrange_odd(a - a_0 - a_1*2¹⁴ ... - a_l⋅2¹⁴ˡ )) = 2
-    static constexpr size_t LEN_1 = 3;
-    static constexpr size_t LEN_2 = 3;
-    static constexpr size_t LEN_3 = 3;
-    static constexpr size_t LEN_4 = 3;
-    static constexpr size_t LEN_5 = 3;
-    static constexpr size_t LEN_6 = 3;
-    static constexpr size_t LEN_7 = 3;
-    static constexpr size_t LEN_8 = 3;
-    static constexpr size_t LEN_9 = 3;
-    static constexpr size_t LEN_10 = 3;
-    static constexpr size_t LEN_11 = 3;
-    static constexpr size_t LEN_12 = 3;
-    static constexpr size_t LEN_13 = 3;
-    static constexpr size_t LEN_14 = 3;
-    static constexpr size_t LEN_15 = 3;
-    static constexpr size_t LEN_16 = 3;
-    static constexpr size_t LEN_17 = 3;
-    static constexpr size_t LEN_18 = 3;
-    static constexpr size_t LEN_19 = 3;
-    static constexpr size_t LEN_20 = 3;
-    static constexpr size_t LEN_21 = 3;
-    static constexpr size_t LEN_22 = 3;
-    static constexpr size_t LEN_23 = 3;
-    static constexpr size_t LEN_24 = 3;
-    static constexpr size_t LEN_25 = 3;
-    static constexpr size_t LEN_26 = 3;
-    static constexpr size_t LEN_27 = 3;
-    static constexpr size_t LEN_28 = 3;
-    static constexpr size_t LEN_29 = 3;
-    static constexpr size_t LEN_30 = 3;
-    static constexpr size_t LEN_31 = 3;
-    static constexpr size_t LEN_32 = 3;
-    static constexpr size_t LEN_33 = 3;
-    static constexpr size_t LEN_34 = 3;
-    static constexpr size_t LEN_35 = 3;
-    static constexpr size_t LEN_36 = 3;
-    static constexpr size_t LEN_37 = 3;
-    static constexpr size_t LEN_38 = 3;
-    static constexpr size_t LEN_39 = 3;
-    static constexpr size_t LEN_40 = 3;
-    static constexpr size_t LEN_41 = 3;
-    static constexpr size_t LEN_42 = 3;
-    static constexpr size_t LEN_43 = 3;
-    static constexpr size_t LEN_44 = 3;
-    static constexpr size_t LEN_45 = 3;
-    static constexpr size_t LEN_46 = 3;
-    static constexpr size_t LEN_47 = 3;
-    static constexpr size_t LEN_48 = 3;
-
-    template <template <size_t...> typename SubrelationAccumulatorsTemplate>
-    using GetAccumulatorTypes = SubrelationAccumulatorsTemplate<LEN_1,
-                                                                LEN_2,
-                                                                LEN_3,
-                                                                LEN_4,
-                                                                LEN_5,
-                                                                LEN_6,
-                                                                LEN_7,
-                                                                LEN_8,
-                                                                LEN_9,
-                                                                LEN_10,
-                                                                LEN_11,
-                                                                LEN_12,
-                                                                LEN_13,
-                                                                LEN_14,
-                                                                LEN_15,
-                                                                LEN_16,
-                                                                LEN_17,
-                                                                LEN_18,
-                                                                LEN_19,
-                                                                LEN_20,
-                                                                LEN_21,
-                                                                LEN_22,
-                                                                LEN_23,
-                                                                LEN_24,
-                                                                LEN_25,
-                                                                LEN_26,
-                                                                LEN_27,
-                                                                LEN_28,
-                                                                LEN_29,
-                                                                LEN_30,
-                                                                LEN_31,
-                                                                LEN_32,
-                                                                LEN_33,
-                                                                LEN_34,
-                                                                LEN_35,
-                                                                LEN_36,
-                                                                LEN_37,
-                                                                LEN_38,
-                                                                LEN_39,
-                                                                LEN_40,
-                                                                LEN_41,
-                                                                LEN_42,
-                                                                LEN_43,
-                                                                LEN_44,
-                                                                LEN_45,
-                                                                LEN_46,
-                                                                LEN_47,
-                                                                LEN_48>;
+    static constexpr std::array<size_t, 48> SUBRELATION_LENGTHS{
+        3, // decomposition of P.x limb 0 into microlimbs subrelation
+        3, // decomposition of P.x limb 1 into microlimbs subrelation
+        3, // decomposition of P.x limb 2 into microlimbs subrelation
+        3, // decomposition of P.x limb 3 into microlimbs subrelation
+        3, // decomposition of P.y limb 0 into microlimbs subrelation
+        3, // decomposition of P.y limb 1 into microlimbs subrelation
+        3, // decomposition of P.y limb 2 into microlimbs subrelation
+        3, // decomposition of P.y limb 3 into microlimbs subrelation
+        3, // decomposition of z1 limb 0 into microlimbs subrelation
+        3, // decomposition of z2 limb 0 into microlimbs subrelation
+        3, // decomposition of z1 limb 1 into microlimbs subrelation
+        3, // decomposition of z2 limb 1 into microlimbs subrelation
+        3, // decomposition of accumulator limb 0 into microlimbs subrelation
+        3, // decomposition of accumulator limb 1 into microlimbs subrelation
+        3, // decomposition of accumulator limb 2 into microlimbs subrelation
+        3, // decomposition of accumulator limb 3 into microlimbs subrelation
+        3, // decomposition of quotient limb 0 into microlimbs subrelation
+        3, // decomposition of quotient limb 1 into microlimbs subrelation
+        3, // decomposition of quotient limb 2 into microlimbs subrelation
+        3, // decomposition of quotient limb 3 into microlimbs subrelation
+        3, // decomposition of low relation wide limb into microlimbs subrelation
+        3, // decomposition of high relation wide limb into microlimbs subrelation
+        3, // stricter constraint on highest microlimb of P.x limb 0 subrelation
+        3, // stricter constraint on highest microlimb of P.x limb 1 subrelation
+        3, // stricter constraint on highest microlimb of P.x limb 2 subrelation
+        3, // stricter constraint on highest microlimb of P.x limb 3 subrelation
+        3, // stricter constraint on highest microlimb of P.y limb 0 subrelation
+        3, // stricter constraint on highest microlimb of P.y limb 1 subrelation
+        3, // stricter constraint on highest microlimb of P.y limb 2 subrelation
+        3, // stricter constraint on highest microlimb of P.y limb 3 subrelation
+        3, // stricter constraint on highest microlimb of z1 limb 0 subrelation
+        3, // stricter constraint on highest microlimb of z2 limb 0 subrelation
+        3, // stricter constraint on highest microlimb of z1 limb 1 subrelation
+        3, // stricter constraint on highest microlimb of z2 limb 1 subrelation
+        3, // stricter constraint on highest microlimb of accumulator limb 0 subrelation
+        3, // stricter constraint on highest microlimb of accumulator limb 1 subrelation
+        3, // stricter constraint on highest microlimb of accumulator limb 2 subrelation
+        3, // stricter constraint on highest microlimb of accumulator limb 3 subrelation
+        3, // stricter constraint on highest microlimb of quotient limb 0 subrelation
+        3, // stricter constraint on highest microlimb of quotient limb 1 subrelation
+        3, // stricter constraint on highest microlimb of quotient limb 2 subrelation
+        3, // stricter constraint on highest microlimb of quotient limb 3 subrelation
+        3, // decomposition of x_lo into 2 limbs subrelation
+        3, // decomposition of x_hi into 2 limbs subrelation
+        3, // decomposition of y_lo into 2 limbs subrelation
+        3, // decomposition of y_hi into 2 limbs subrelation
+        3, // decomposition of z1 into 2 limbs subrelation
+        3  // decomposition of z2 into 2 limbs subrelation
+    };
 
     /**
-     * @brief Expression for decomposition of various values into smaller limbs.
+     * @brief Expression for decomposition of various values into smaller limbs or microlimbs.
      * @details This relation enforces three types of subrelations:
      * 1) A subrelation decomposing a value from the transcript (for example, z1) into 68-bit limbs. These relations
      * will have the structure `lagrange_odd⋅(a - a_low - a_high⋅2⁶⁸)`
@@ -122,16 +74,16 @@ template <typename FF_> class GoblinTranslatorDecompositionRelationImpl {
      * relation both a_highest and a_tail are constrained to be 14 bits, but this relation changes the constraint on
      * a_highest to be 12 bits.
      *
-     * @param evals transformed to `evals + C(extended_edges(X)...)*scaling_factor`
-     * @param extended_edges an std::array containing the fully extended Univariate edges.
+     * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
+     * @param in an std::array containing the fully extended Univariate edges.
      * @param parameters contains beta, gamma, and public_input_delta, ....
      * @param scaling_factor optional term to scale the evaluation before adding to evals.
      */
-    template <typename AccumulatorTypes>
-    void static accumulate(typename AccumulatorTypes::Accumulators& accumulators,
-                           const auto& extended_edges,
-                           const RelationParameters<FF>&,
-                           const FF& scaling_factor)
+    template <typename ContainerOverSubrelations, typename AllEntities>
+    inline static void accumulate(ContainerOverSubrelations& accumulators,
+                                  const AllEntities& in,
+                                  const RelationParameters<FF>&,
+                                  const FF& scaling_factor)
     {
         static constexpr size_t NUM_LIMB_BITS = 68; // Number of bits in a standard limb used for bigfield operations
         static constexpr size_t NUM_MICRO_LIMB_BITS =
@@ -157,196 +109,168 @@ template <typename FF_> class GoblinTranslatorDecompositionRelationImpl {
         static constexpr auto SHIFT_4_TO_14 =
             FF(1024); // Shift used to range constrain the last mircrolimb of 60-bit limbs from z scalars
 
-        using View = typename std::tuple_element<0, typename AccumulatorTypes::AccumulatorViews>::type;
-        auto p_x_low_limbs = View(extended_edges.p_x_low_limbs);
-        auto p_x_low_limbs_range_constraint_0 = View(extended_edges.p_x_low_limbs_range_constraint_0);
-        auto p_x_low_limbs_range_constraint_1 = View(extended_edges.p_x_low_limbs_range_constraint_1);
-        auto p_x_low_limbs_range_constraint_2 = View(extended_edges.p_x_low_limbs_range_constraint_2);
-        auto p_x_low_limbs_range_constraint_3 = View(extended_edges.p_x_low_limbs_range_constraint_3);
-        auto p_x_low_limbs_range_constraint_4 = View(extended_edges.p_x_low_limbs_range_constraint_4);
-        auto p_x_low_limbs_shift = View(extended_edges.p_x_low_limbs_shift);
-        auto p_x_low_limbs_range_constraint_0_shift = View(extended_edges.p_x_low_limbs_range_constraint_0_shift);
-        auto p_x_low_limbs_range_constraint_1_shift = View(extended_edges.p_x_low_limbs_range_constraint_1_shift);
-        auto p_x_low_limbs_range_constraint_2_shift = View(extended_edges.p_x_low_limbs_range_constraint_2_shift);
-        auto p_x_low_limbs_range_constraint_3_shift = View(extended_edges.p_x_low_limbs_range_constraint_3_shift);
-        auto p_x_low_limbs_range_constraint_4_shift = View(extended_edges.p_x_low_limbs_range_constraint_4_shift);
-        auto p_x_high_limbs = View(extended_edges.p_x_high_limbs);
-        auto p_x_high_limbs_range_constraint_0 = View(extended_edges.p_x_high_limbs_range_constraint_0);
-        auto p_x_high_limbs_range_constraint_1 = View(extended_edges.p_x_high_limbs_range_constraint_1);
-        auto p_x_high_limbs_range_constraint_2 = View(extended_edges.p_x_high_limbs_range_constraint_2);
-        auto p_x_high_limbs_range_constraint_3 = View(extended_edges.p_x_high_limbs_range_constraint_3);
-        auto p_x_high_limbs_range_constraint_4 = View(extended_edges.p_x_high_limbs_range_constraint_4);
-        auto p_x_high_limbs_shift = View(extended_edges.p_x_high_limbs_shift);
-        auto p_x_high_limbs_range_constraint_0_shift = View(extended_edges.p_x_high_limbs_range_constraint_0_shift);
-        auto p_x_high_limbs_range_constraint_1_shift = View(extended_edges.p_x_high_limbs_range_constraint_1_shift);
-        auto p_x_high_limbs_range_constraint_2_shift = View(extended_edges.p_x_high_limbs_range_constraint_2_shift);
-        auto p_x_high_limbs_range_constraint_3_shift = View(extended_edges.p_x_high_limbs_range_constraint_3_shift);
-        auto p_y_low_limbs = View(extended_edges.p_y_low_limbs);
-        auto p_y_low_limbs_range_constraint_0 = View(extended_edges.p_y_low_limbs_range_constraint_0);
-        auto p_y_low_limbs_range_constraint_1 = View(extended_edges.p_y_low_limbs_range_constraint_1);
-        auto p_y_low_limbs_range_constraint_2 = View(extended_edges.p_y_low_limbs_range_constraint_2);
-        auto p_y_low_limbs_range_constraint_3 = View(extended_edges.p_y_low_limbs_range_constraint_3);
-        auto p_y_low_limbs_range_constraint_4 = View(extended_edges.p_y_low_limbs_range_constraint_4);
-        auto p_y_low_limbs_shift = View(extended_edges.p_y_low_limbs_shift);
-        auto p_y_low_limbs_range_constraint_0_shift = View(extended_edges.p_y_low_limbs_range_constraint_0_shift);
-        auto p_y_low_limbs_range_constraint_1_shift = View(extended_edges.p_y_low_limbs_range_constraint_1_shift);
-        auto p_y_low_limbs_range_constraint_2_shift = View(extended_edges.p_y_low_limbs_range_constraint_2_shift);
-        auto p_y_low_limbs_range_constraint_3_shift = View(extended_edges.p_y_low_limbs_range_constraint_3_shift);
-        auto p_y_low_limbs_range_constraint_4_shift = View(extended_edges.p_y_low_limbs_range_constraint_4_shift);
-        auto p_y_high_limbs = View(extended_edges.p_y_high_limbs);
-        auto p_y_high_limbs_range_constraint_0 = View(extended_edges.p_y_high_limbs_range_constraint_0);
-        auto p_y_high_limbs_range_constraint_1 = View(extended_edges.p_y_high_limbs_range_constraint_1);
-        auto p_y_high_limbs_range_constraint_2 = View(extended_edges.p_y_high_limbs_range_constraint_2);
-        auto p_y_high_limbs_range_constraint_3 = View(extended_edges.p_y_high_limbs_range_constraint_3);
-        auto p_y_high_limbs_range_constraint_4 = View(extended_edges.p_y_high_limbs_range_constraint_4);
-        auto p_y_high_limbs_shift = View(extended_edges.p_y_high_limbs_shift);
-        auto p_y_high_limbs_range_constraint_0_shift = View(extended_edges.p_y_high_limbs_range_constraint_0_shift);
-        auto p_y_high_limbs_range_constraint_1_shift = View(extended_edges.p_y_high_limbs_range_constraint_1_shift);
-        auto p_y_high_limbs_range_constraint_2_shift = View(extended_edges.p_y_high_limbs_range_constraint_2_shift);
-        auto p_y_high_limbs_range_constraint_3_shift = View(extended_edges.p_y_high_limbs_range_constraint_3_shift);
-        auto z_low_limbs = View(extended_edges.z_low_limbs);
-        auto z_low_limbs_range_constraint_0 = View(extended_edges.z_low_limbs_range_constraint_0);
-        auto z_low_limbs_range_constraint_1 = View(extended_edges.z_low_limbs_range_constraint_1);
-        auto z_low_limbs_range_constraint_2 = View(extended_edges.z_low_limbs_range_constraint_2);
-        auto z_low_limbs_range_constraint_3 = View(extended_edges.z_low_limbs_range_constraint_3);
-        auto z_low_limbs_range_constraint_4 = View(extended_edges.z_low_limbs_range_constraint_4);
-        auto z_low_limbs_shift = View(extended_edges.z_low_limbs_shift);
-        auto z_low_limbs_range_constraint_0_shift = View(extended_edges.z_low_limbs_range_constraint_0_shift);
-        auto z_low_limbs_range_constraint_1_shift = View(extended_edges.z_low_limbs_range_constraint_1_shift);
-        auto z_low_limbs_range_constraint_2_shift = View(extended_edges.z_low_limbs_range_constraint_2_shift);
-        auto z_low_limbs_range_constraint_3_shift = View(extended_edges.z_low_limbs_range_constraint_3_shift);
-        auto z_low_limbs_range_constraint_4_shift = View(extended_edges.z_low_limbs_range_constraint_4_shift);
-        auto z_high_limbs = View(extended_edges.z_high_limbs);
-        auto z_high_limbs_range_constraint_0 = View(extended_edges.z_high_limbs_range_constraint_0);
-        auto z_high_limbs_range_constraint_1 = View(extended_edges.z_high_limbs_range_constraint_1);
-        auto z_high_limbs_range_constraint_2 = View(extended_edges.z_high_limbs_range_constraint_2);
-        auto z_high_limbs_range_constraint_3 = View(extended_edges.z_high_limbs_range_constraint_3);
-        auto z_high_limbs_range_constraint_4 = View(extended_edges.z_high_limbs_range_constraint_4);
-        auto z_high_limbs_shift = View(extended_edges.z_high_limbs_shift);
-        auto z_high_limbs_range_constraint_0_shift = View(extended_edges.z_high_limbs_range_constraint_0_shift);
-        auto z_high_limbs_range_constraint_1_shift = View(extended_edges.z_high_limbs_range_constraint_1_shift);
-        auto z_high_limbs_range_constraint_2_shift = View(extended_edges.z_high_limbs_range_constraint_2_shift);
-        auto z_high_limbs_range_constraint_3_shift = View(extended_edges.z_high_limbs_range_constraint_3_shift);
-        auto z_high_limbs_range_constraint_4_shift = View(extended_edges.z_high_limbs_range_constraint_4_shift);
-        auto accumulators_binary_limbs_0 = View(extended_edges.accumulators_binary_limbs_0);
-        auto accumulators_binary_limbs_1 = View(extended_edges.accumulators_binary_limbs_1);
-        auto accumulators_binary_limbs_2 = View(extended_edges.accumulators_binary_limbs_2);
-        auto accumulators_binary_limbs_3 = View(extended_edges.accumulators_binary_limbs_3);
-        auto accumulator_low_limbs_range_constraint_0 = View(extended_edges.accumulator_low_limbs_range_constraint_0);
-        auto accumulator_low_limbs_range_constraint_1 = View(extended_edges.accumulator_low_limbs_range_constraint_1);
-        auto accumulator_low_limbs_range_constraint_2 = View(extended_edges.accumulator_low_limbs_range_constraint_2);
-        auto accumulator_low_limbs_range_constraint_3 = View(extended_edges.accumulator_low_limbs_range_constraint_3);
-        auto accumulator_low_limbs_range_constraint_4 = View(extended_edges.accumulator_low_limbs_range_constraint_4);
-        auto accumulator_low_limbs_range_constraint_0_shift =
-            View(extended_edges.accumulator_low_limbs_range_constraint_0_shift);
-        auto accumulator_low_limbs_range_constraint_1_shift =
-            View(extended_edges.accumulator_low_limbs_range_constraint_1_shift);
-        auto accumulator_low_limbs_range_constraint_2_shift =
-            View(extended_edges.accumulator_low_limbs_range_constraint_2_shift);
-        auto accumulator_low_limbs_range_constraint_3_shift =
-            View(extended_edges.accumulator_low_limbs_range_constraint_3_shift);
-        auto accumulator_low_limbs_range_constraint_4_shift =
-            View(extended_edges.accumulator_low_limbs_range_constraint_4_shift);
-        auto accumulator_high_limbs_range_constraint_0 = View(extended_edges.accumulator_high_limbs_range_constraint_0);
-        auto accumulator_high_limbs_range_constraint_1 = View(extended_edges.accumulator_high_limbs_range_constraint_1);
-        auto accumulator_high_limbs_range_constraint_2 = View(extended_edges.accumulator_high_limbs_range_constraint_2);
-        auto accumulator_high_limbs_range_constraint_3 = View(extended_edges.accumulator_high_limbs_range_constraint_3);
-        auto accumulator_high_limbs_range_constraint_4 = View(extended_edges.accumulator_high_limbs_range_constraint_4);
-        auto accumulator_high_limbs_range_constraint_0_shift =
-            View(extended_edges.accumulator_high_limbs_range_constraint_0_shift);
-        auto accumulator_high_limbs_range_constraint_1_shift =
-            View(extended_edges.accumulator_high_limbs_range_constraint_1_shift);
-        auto accumulator_high_limbs_range_constraint_2_shift =
-            View(extended_edges.accumulator_high_limbs_range_constraint_2_shift);
-        auto accumulator_high_limbs_range_constraint_3_shift =
-            View(extended_edges.accumulator_high_limbs_range_constraint_3_shift);
-        auto quotient_low_binary_limbs = View(extended_edges.quotient_low_binary_limbs);
-        auto quotient_low_limbs_range_constraint_0 = View(extended_edges.quotient_low_limbs_range_constraint_0);
-        auto quotient_low_limbs_range_constraint_1 = View(extended_edges.quotient_low_limbs_range_constraint_1);
-        auto quotient_low_limbs_range_constraint_2 = View(extended_edges.quotient_low_limbs_range_constraint_2);
-        auto quotient_low_limbs_range_constraint_3 = View(extended_edges.quotient_low_limbs_range_constraint_3);
-        auto quotient_low_limbs_range_constraint_4 = View(extended_edges.quotient_low_limbs_range_constraint_4);
-        auto quotient_low_binary_limbs_shift = View(extended_edges.quotient_low_binary_limbs_shift);
-        auto quotient_low_limbs_range_constraint_0_shift =
-            View(extended_edges.quotient_low_limbs_range_constraint_0_shift);
-        auto quotient_low_limbs_range_constraint_1_shift =
-            View(extended_edges.quotient_low_limbs_range_constraint_1_shift);
-        auto quotient_low_limbs_range_constraint_2_shift =
-            View(extended_edges.quotient_low_limbs_range_constraint_2_shift);
-        auto quotient_low_limbs_range_constraint_3_shift =
-            View(extended_edges.quotient_low_limbs_range_constraint_3_shift);
-        auto quotient_low_limbs_range_constraint_4_shift =
-            View(extended_edges.quotient_low_limbs_range_constraint_4_shift);
-        auto quotient_high_binary_limbs = View(extended_edges.quotient_high_binary_limbs);
-        auto quotient_high_limbs_range_constraint_0 = View(extended_edges.quotient_high_limbs_range_constraint_0);
-        auto quotient_high_limbs_range_constraint_1 = View(extended_edges.quotient_high_limbs_range_constraint_1);
-        auto quotient_high_limbs_range_constraint_2 = View(extended_edges.quotient_high_limbs_range_constraint_2);
-        auto quotient_high_limbs_range_constraint_3 = View(extended_edges.quotient_high_limbs_range_constraint_3);
-        auto quotient_high_limbs_range_constraint_4 = View(extended_edges.quotient_high_limbs_range_constraint_4);
-        auto quotient_high_binary_limbs_shift = View(extended_edges.quotient_high_binary_limbs_shift);
-        auto quotient_high_limbs_range_constraint_0_shift =
-            View(extended_edges.quotient_high_limbs_range_constraint_0_shift);
-        auto quotient_high_limbs_range_constraint_1_shift =
-            View(extended_edges.quotient_high_limbs_range_constraint_1_shift);
-        auto quotient_high_limbs_range_constraint_2_shift =
-            View(extended_edges.quotient_high_limbs_range_constraint_2_shift);
-        auto quotient_high_limbs_range_constraint_3_shift =
-            View(extended_edges.quotient_high_limbs_range_constraint_3_shift);
-        auto relation_wide_limbs = View(extended_edges.relation_wide_limbs);
-        auto relation_wide_limbs_range_constraint_0 = View(extended_edges.relation_wide_limbs_range_constraint_0);
-        auto relation_wide_limbs_range_constraint_1 = View(extended_edges.relation_wide_limbs_range_constraint_1);
-        auto relation_wide_limbs_range_constraint_2 = View(extended_edges.relation_wide_limbs_range_constraint_2);
-        auto relation_wide_limbs_range_constraint_3 = View(extended_edges.relation_wide_limbs_range_constraint_3);
-        auto p_x_high_limbs_range_constraint_tail_shift =
-            View(extended_edges.p_x_high_limbs_range_constraint_tail_shift);
+        using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
+        using View = typename Accumulator::View;
+
+        auto p_x_low_limbs = View(in.p_x_low_limbs);
+        auto p_x_low_limbs_range_constraint_0 = View(in.p_x_low_limbs_range_constraint_0);
+        auto p_x_low_limbs_range_constraint_1 = View(in.p_x_low_limbs_range_constraint_1);
+        auto p_x_low_limbs_range_constraint_2 = View(in.p_x_low_limbs_range_constraint_2);
+        auto p_x_low_limbs_range_constraint_3 = View(in.p_x_low_limbs_range_constraint_3);
+        auto p_x_low_limbs_range_constraint_4 = View(in.p_x_low_limbs_range_constraint_4);
+        auto p_x_low_limbs_shift = View(in.p_x_low_limbs_shift);
+        auto p_x_low_limbs_range_constraint_0_shift = View(in.p_x_low_limbs_range_constraint_0_shift);
+        auto p_x_low_limbs_range_constraint_1_shift = View(in.p_x_low_limbs_range_constraint_1_shift);
+        auto p_x_low_limbs_range_constraint_2_shift = View(in.p_x_low_limbs_range_constraint_2_shift);
+        auto p_x_low_limbs_range_constraint_3_shift = View(in.p_x_low_limbs_range_constraint_3_shift);
+        auto p_x_low_limbs_range_constraint_4_shift = View(in.p_x_low_limbs_range_constraint_4_shift);
+        auto p_x_high_limbs = View(in.p_x_high_limbs);
+        auto p_x_high_limbs_range_constraint_0 = View(in.p_x_high_limbs_range_constraint_0);
+        auto p_x_high_limbs_range_constraint_1 = View(in.p_x_high_limbs_range_constraint_1);
+        auto p_x_high_limbs_range_constraint_2 = View(in.p_x_high_limbs_range_constraint_2);
+        auto p_x_high_limbs_range_constraint_3 = View(in.p_x_high_limbs_range_constraint_3);
+        auto p_x_high_limbs_range_constraint_4 = View(in.p_x_high_limbs_range_constraint_4);
+        auto p_x_high_limbs_shift = View(in.p_x_high_limbs_shift);
+        auto p_x_high_limbs_range_constraint_0_shift = View(in.p_x_high_limbs_range_constraint_0_shift);
+        auto p_x_high_limbs_range_constraint_1_shift = View(in.p_x_high_limbs_range_constraint_1_shift);
+        auto p_x_high_limbs_range_constraint_2_shift = View(in.p_x_high_limbs_range_constraint_2_shift);
+        auto p_x_high_limbs_range_constraint_3_shift = View(in.p_x_high_limbs_range_constraint_3_shift);
+        auto p_y_low_limbs = View(in.p_y_low_limbs);
+        auto p_y_low_limbs_range_constraint_0 = View(in.p_y_low_limbs_range_constraint_0);
+        auto p_y_low_limbs_range_constraint_1 = View(in.p_y_low_limbs_range_constraint_1);
+        auto p_y_low_limbs_range_constraint_2 = View(in.p_y_low_limbs_range_constraint_2);
+        auto p_y_low_limbs_range_constraint_3 = View(in.p_y_low_limbs_range_constraint_3);
+        auto p_y_low_limbs_range_constraint_4 = View(in.p_y_low_limbs_range_constraint_4);
+        auto p_y_low_limbs_shift = View(in.p_y_low_limbs_shift);
+        auto p_y_low_limbs_range_constraint_0_shift = View(in.p_y_low_limbs_range_constraint_0_shift);
+        auto p_y_low_limbs_range_constraint_1_shift = View(in.p_y_low_limbs_range_constraint_1_shift);
+        auto p_y_low_limbs_range_constraint_2_shift = View(in.p_y_low_limbs_range_constraint_2_shift);
+        auto p_y_low_limbs_range_constraint_3_shift = View(in.p_y_low_limbs_range_constraint_3_shift);
+        auto p_y_low_limbs_range_constraint_4_shift = View(in.p_y_low_limbs_range_constraint_4_shift);
+        auto p_y_high_limbs = View(in.p_y_high_limbs);
+        auto p_y_high_limbs_range_constraint_0 = View(in.p_y_high_limbs_range_constraint_0);
+        auto p_y_high_limbs_range_constraint_1 = View(in.p_y_high_limbs_range_constraint_1);
+        auto p_y_high_limbs_range_constraint_2 = View(in.p_y_high_limbs_range_constraint_2);
+        auto p_y_high_limbs_range_constraint_3 = View(in.p_y_high_limbs_range_constraint_3);
+        auto p_y_high_limbs_range_constraint_4 = View(in.p_y_high_limbs_range_constraint_4);
+        auto p_y_high_limbs_shift = View(in.p_y_high_limbs_shift);
+        auto p_y_high_limbs_range_constraint_0_shift = View(in.p_y_high_limbs_range_constraint_0_shift);
+        auto p_y_high_limbs_range_constraint_1_shift = View(in.p_y_high_limbs_range_constraint_1_shift);
+        auto p_y_high_limbs_range_constraint_2_shift = View(in.p_y_high_limbs_range_constraint_2_shift);
+        auto p_y_high_limbs_range_constraint_3_shift = View(in.p_y_high_limbs_range_constraint_3_shift);
+        auto z_low_limbs = View(in.z_low_limbs);
+        auto z_low_limbs_range_constraint_0 = View(in.z_low_limbs_range_constraint_0);
+        auto z_low_limbs_range_constraint_1 = View(in.z_low_limbs_range_constraint_1);
+        auto z_low_limbs_range_constraint_2 = View(in.z_low_limbs_range_constraint_2);
+        auto z_low_limbs_range_constraint_3 = View(in.z_low_limbs_range_constraint_3);
+        auto z_low_limbs_range_constraint_4 = View(in.z_low_limbs_range_constraint_4);
+        auto z_low_limbs_shift = View(in.z_low_limbs_shift);
+        auto z_low_limbs_range_constraint_0_shift = View(in.z_low_limbs_range_constraint_0_shift);
+        auto z_low_limbs_range_constraint_1_shift = View(in.z_low_limbs_range_constraint_1_shift);
+        auto z_low_limbs_range_constraint_2_shift = View(in.z_low_limbs_range_constraint_2_shift);
+        auto z_low_limbs_range_constraint_3_shift = View(in.z_low_limbs_range_constraint_3_shift);
+        auto z_low_limbs_range_constraint_4_shift = View(in.z_low_limbs_range_constraint_4_shift);
+        auto z_high_limbs = View(in.z_high_limbs);
+        auto z_high_limbs_range_constraint_0 = View(in.z_high_limbs_range_constraint_0);
+        auto z_high_limbs_range_constraint_1 = View(in.z_high_limbs_range_constraint_1);
+        auto z_high_limbs_range_constraint_2 = View(in.z_high_limbs_range_constraint_2);
+        auto z_high_limbs_range_constraint_3 = View(in.z_high_limbs_range_constraint_3);
+        auto z_high_limbs_range_constraint_4 = View(in.z_high_limbs_range_constraint_4);
+        auto z_high_limbs_shift = View(in.z_high_limbs_shift);
+        auto z_high_limbs_range_constraint_0_shift = View(in.z_high_limbs_range_constraint_0_shift);
+        auto z_high_limbs_range_constraint_1_shift = View(in.z_high_limbs_range_constraint_1_shift);
+        auto z_high_limbs_range_constraint_2_shift = View(in.z_high_limbs_range_constraint_2_shift);
+        auto z_high_limbs_range_constraint_3_shift = View(in.z_high_limbs_range_constraint_3_shift);
+        auto z_high_limbs_range_constraint_4_shift = View(in.z_high_limbs_range_constraint_4_shift);
+        auto accumulators_binary_limbs_0 = View(in.accumulators_binary_limbs_0);
+        auto accumulators_binary_limbs_1 = View(in.accumulators_binary_limbs_1);
+        auto accumulators_binary_limbs_2 = View(in.accumulators_binary_limbs_2);
+        auto accumulators_binary_limbs_3 = View(in.accumulators_binary_limbs_3);
+        auto accumulator_low_limbs_range_constraint_0 = View(in.accumulator_low_limbs_range_constraint_0);
+        auto accumulator_low_limbs_range_constraint_1 = View(in.accumulator_low_limbs_range_constraint_1);
+        auto accumulator_low_limbs_range_constraint_2 = View(in.accumulator_low_limbs_range_constraint_2);
+        auto accumulator_low_limbs_range_constraint_3 = View(in.accumulator_low_limbs_range_constraint_3);
+        auto accumulator_low_limbs_range_constraint_4 = View(in.accumulator_low_limbs_range_constraint_4);
+        auto accumulator_low_limbs_range_constraint_0_shift = View(in.accumulator_low_limbs_range_constraint_0_shift);
+        auto accumulator_low_limbs_range_constraint_1_shift = View(in.accumulator_low_limbs_range_constraint_1_shift);
+        auto accumulator_low_limbs_range_constraint_2_shift = View(in.accumulator_low_limbs_range_constraint_2_shift);
+        auto accumulator_low_limbs_range_constraint_3_shift = View(in.accumulator_low_limbs_range_constraint_3_shift);
+        auto accumulator_low_limbs_range_constraint_4_shift = View(in.accumulator_low_limbs_range_constraint_4_shift);
+        auto accumulator_high_limbs_range_constraint_0 = View(in.accumulator_high_limbs_range_constraint_0);
+        auto accumulator_high_limbs_range_constraint_1 = View(in.accumulator_high_limbs_range_constraint_1);
+        auto accumulator_high_limbs_range_constraint_2 = View(in.accumulator_high_limbs_range_constraint_2);
+        auto accumulator_high_limbs_range_constraint_3 = View(in.accumulator_high_limbs_range_constraint_3);
+        auto accumulator_high_limbs_range_constraint_4 = View(in.accumulator_high_limbs_range_constraint_4);
+        auto accumulator_high_limbs_range_constraint_0_shift = View(in.accumulator_high_limbs_range_constraint_0_shift);
+        auto accumulator_high_limbs_range_constraint_1_shift = View(in.accumulator_high_limbs_range_constraint_1_shift);
+        auto accumulator_high_limbs_range_constraint_2_shift = View(in.accumulator_high_limbs_range_constraint_2_shift);
+        auto accumulator_high_limbs_range_constraint_3_shift = View(in.accumulator_high_limbs_range_constraint_3_shift);
+        auto quotient_low_binary_limbs = View(in.quotient_low_binary_limbs);
+        auto quotient_low_limbs_range_constraint_0 = View(in.quotient_low_limbs_range_constraint_0);
+        auto quotient_low_limbs_range_constraint_1 = View(in.quotient_low_limbs_range_constraint_1);
+        auto quotient_low_limbs_range_constraint_2 = View(in.quotient_low_limbs_range_constraint_2);
+        auto quotient_low_limbs_range_constraint_3 = View(in.quotient_low_limbs_range_constraint_3);
+        auto quotient_low_limbs_range_constraint_4 = View(in.quotient_low_limbs_range_constraint_4);
+        auto quotient_low_binary_limbs_shift = View(in.quotient_low_binary_limbs_shift);
+        auto quotient_low_limbs_range_constraint_0_shift = View(in.quotient_low_limbs_range_constraint_0_shift);
+        auto quotient_low_limbs_range_constraint_1_shift = View(in.quotient_low_limbs_range_constraint_1_shift);
+        auto quotient_low_limbs_range_constraint_2_shift = View(in.quotient_low_limbs_range_constraint_2_shift);
+        auto quotient_low_limbs_range_constraint_3_shift = View(in.quotient_low_limbs_range_constraint_3_shift);
+        auto quotient_low_limbs_range_constraint_4_shift = View(in.quotient_low_limbs_range_constraint_4_shift);
+        auto quotient_high_binary_limbs = View(in.quotient_high_binary_limbs);
+        auto quotient_high_limbs_range_constraint_0 = View(in.quotient_high_limbs_range_constraint_0);
+        auto quotient_high_limbs_range_constraint_1 = View(in.quotient_high_limbs_range_constraint_1);
+        auto quotient_high_limbs_range_constraint_2 = View(in.quotient_high_limbs_range_constraint_2);
+        auto quotient_high_limbs_range_constraint_3 = View(in.quotient_high_limbs_range_constraint_3);
+        auto quotient_high_limbs_range_constraint_4 = View(in.quotient_high_limbs_range_constraint_4);
+        auto quotient_high_binary_limbs_shift = View(in.quotient_high_binary_limbs_shift);
+        auto quotient_high_limbs_range_constraint_0_shift = View(in.quotient_high_limbs_range_constraint_0_shift);
+        auto quotient_high_limbs_range_constraint_1_shift = View(in.quotient_high_limbs_range_constraint_1_shift);
+        auto quotient_high_limbs_range_constraint_2_shift = View(in.quotient_high_limbs_range_constraint_2_shift);
+        auto quotient_high_limbs_range_constraint_3_shift = View(in.quotient_high_limbs_range_constraint_3_shift);
+        auto relation_wide_limbs = View(in.relation_wide_limbs);
+        auto relation_wide_limbs_range_constraint_0 = View(in.relation_wide_limbs_range_constraint_0);
+        auto relation_wide_limbs_range_constraint_1 = View(in.relation_wide_limbs_range_constraint_1);
+        auto relation_wide_limbs_range_constraint_2 = View(in.relation_wide_limbs_range_constraint_2);
+        auto relation_wide_limbs_range_constraint_3 = View(in.relation_wide_limbs_range_constraint_3);
+        auto p_x_high_limbs_range_constraint_tail_shift = View(in.p_x_high_limbs_range_constraint_tail_shift);
         auto accumulator_high_limbs_range_constraint_tail_shift =
-            View(extended_edges.accumulator_high_limbs_range_constraint_tail_shift);
-        auto relation_wide_limbs_shift = View(extended_edges.relation_wide_limbs_shift);
-        auto relation_wide_limbs_range_constraint_0_shift =
-            View(extended_edges.relation_wide_limbs_range_constraint_0_shift);
-        auto relation_wide_limbs_range_constraint_1_shift =
-            View(extended_edges.relation_wide_limbs_range_constraint_1_shift);
-        auto relation_wide_limbs_range_constraint_2_shift =
-            View(extended_edges.relation_wide_limbs_range_constraint_2_shift);
-        auto relation_wide_limbs_range_constraint_3_shift =
-            View(extended_edges.relation_wide_limbs_range_constraint_3_shift);
-        auto p_y_high_limbs_range_constraint_tail_shift =
-            View(extended_edges.p_y_high_limbs_range_constraint_tail_shift);
-        auto quotient_high_limbs_range_constraint_tail_shift =
-            View(extended_edges.quotient_high_limbs_range_constraint_tail_shift);
-        auto p_x_low_limbs_range_constraint_tail = View(extended_edges.p_x_low_limbs_range_constraint_tail);
-        auto p_x_low_limbs_range_constraint_tail_shift = View(extended_edges.p_x_low_limbs_range_constraint_tail_shift);
-        auto p_x_high_limbs_range_constraint_tail = View(extended_edges.p_x_high_limbs_range_constraint_tail);
-        auto p_x_high_limbs_range_constraint_4_shift = View(extended_edges.p_x_high_limbs_range_constraint_4_shift);
-        auto p_y_low_limbs_range_constraint_tail = View(extended_edges.p_y_low_limbs_range_constraint_tail);
-        auto p_y_low_limbs_range_constraint_tail_shift = View(extended_edges.p_y_low_limbs_range_constraint_tail_shift);
-        auto p_y_high_limbs_range_constraint_tail = View(extended_edges.p_y_high_limbs_range_constraint_tail);
-        auto p_y_high_limbs_range_constraint_4_shift = View(extended_edges.p_y_high_limbs_range_constraint_4_shift);
-        auto z_low_limbs_range_constraint_tail = View(extended_edges.z_low_limbs_range_constraint_tail);
-        auto z_low_limbs_range_constraint_tail_shift = View(extended_edges.z_low_limbs_range_constraint_tail_shift);
-        auto z_high_limbs_range_constraint_tail = View(extended_edges.z_high_limbs_range_constraint_tail);
-        auto z_high_limbs_range_constraint_tail_shift = View(extended_edges.z_high_limbs_range_constraint_tail_shift);
-        auto accumulator_low_limbs_range_constraint_tail =
-            View(extended_edges.accumulator_low_limbs_range_constraint_tail);
+            View(in.accumulator_high_limbs_range_constraint_tail_shift);
+        auto relation_wide_limbs_shift = View(in.relation_wide_limbs_shift);
+        auto relation_wide_limbs_range_constraint_0_shift = View(in.relation_wide_limbs_range_constraint_0_shift);
+        auto relation_wide_limbs_range_constraint_1_shift = View(in.relation_wide_limbs_range_constraint_1_shift);
+        auto relation_wide_limbs_range_constraint_2_shift = View(in.relation_wide_limbs_range_constraint_2_shift);
+        auto relation_wide_limbs_range_constraint_3_shift = View(in.relation_wide_limbs_range_constraint_3_shift);
+        auto p_y_high_limbs_range_constraint_tail_shift = View(in.p_y_high_limbs_range_constraint_tail_shift);
+        auto quotient_high_limbs_range_constraint_tail_shift = View(in.quotient_high_limbs_range_constraint_tail_shift);
+        auto p_x_low_limbs_range_constraint_tail = View(in.p_x_low_limbs_range_constraint_tail);
+        auto p_x_low_limbs_range_constraint_tail_shift = View(in.p_x_low_limbs_range_constraint_tail_shift);
+        auto p_x_high_limbs_range_constraint_tail = View(in.p_x_high_limbs_range_constraint_tail);
+        auto p_x_high_limbs_range_constraint_4_shift = View(in.p_x_high_limbs_range_constraint_4_shift);
+        auto p_y_low_limbs_range_constraint_tail = View(in.p_y_low_limbs_range_constraint_tail);
+        auto p_y_low_limbs_range_constraint_tail_shift = View(in.p_y_low_limbs_range_constraint_tail_shift);
+        auto p_y_high_limbs_range_constraint_tail = View(in.p_y_high_limbs_range_constraint_tail);
+        auto p_y_high_limbs_range_constraint_4_shift = View(in.p_y_high_limbs_range_constraint_4_shift);
+        auto z_low_limbs_range_constraint_tail = View(in.z_low_limbs_range_constraint_tail);
+        auto z_low_limbs_range_constraint_tail_shift = View(in.z_low_limbs_range_constraint_tail_shift);
+        auto z_high_limbs_range_constraint_tail = View(in.z_high_limbs_range_constraint_tail);
+        auto z_high_limbs_range_constraint_tail_shift = View(in.z_high_limbs_range_constraint_tail_shift);
+        auto accumulator_low_limbs_range_constraint_tail = View(in.accumulator_low_limbs_range_constraint_tail);
         auto accumulator_low_limbs_range_constraint_tail_shift =
-            View(extended_edges.accumulator_low_limbs_range_constraint_tail_shift);
-        auto accumulator_high_limbs_range_constraint_tail =
-            View(extended_edges.accumulator_high_limbs_range_constraint_tail);
-        auto accumulator_high_limbs_range_constraint_4_shift =
-            View(extended_edges.accumulator_high_limbs_range_constraint_4_shift);
-        auto quotient_low_limbs_range_constraint_tail = View(extended_edges.quotient_low_limbs_range_constraint_tail);
-        auto quotient_low_limbs_range_constraint_tail_shift =
-            View(extended_edges.quotient_low_limbs_range_constraint_tail_shift);
-        auto quotient_high_limbs_range_constraint_tail = View(extended_edges.quotient_high_limbs_range_constraint_tail);
-        auto quotient_high_limbs_range_constraint_4_shift =
-            View(extended_edges.quotient_high_limbs_range_constraint_4_shift);
-        auto x_lo_y_hi = View(extended_edges.x_lo_y_hi);
-        auto x_hi_z_1 = View(extended_edges.x_hi_z_1);
-        auto y_lo_z_2 = View(extended_edges.y_lo_z_2);
-        auto x_lo_y_hi_shift = View(extended_edges.x_lo_y_hi_shift);
-        auto x_hi_z_1_shift = View(extended_edges.x_hi_z_1_shift);
-        auto y_lo_z_2_shift = View(extended_edges.y_lo_z_2_shift);
-        auto lagrange_odd = View(extended_edges.lagrange_odd);
+            View(in.accumulator_low_limbs_range_constraint_tail_shift);
+        auto accumulator_high_limbs_range_constraint_tail = View(in.accumulator_high_limbs_range_constraint_tail);
+        auto accumulator_high_limbs_range_constraint_4_shift = View(in.accumulator_high_limbs_range_constraint_4_shift);
+        auto quotient_low_limbs_range_constraint_tail = View(in.quotient_low_limbs_range_constraint_tail);
+        auto quotient_low_limbs_range_constraint_tail_shift = View(in.quotient_low_limbs_range_constraint_tail_shift);
+        auto quotient_high_limbs_range_constraint_tail = View(in.quotient_high_limbs_range_constraint_tail);
+        auto quotient_high_limbs_range_constraint_4_shift = View(in.quotient_high_limbs_range_constraint_4_shift);
+        auto x_lo_y_hi = View(in.x_lo_y_hi);
+        auto x_hi_z_1 = View(in.x_hi_z_1);
+        auto y_lo_z_2 = View(in.y_lo_z_2);
+        auto x_lo_y_hi_shift = View(in.x_lo_y_hi_shift);
+        auto x_hi_z_1_shift = View(in.x_hi_z_1_shift);
+        auto y_lo_z_2_shift = View(in.y_lo_z_2_shift);
+        auto lagrange_odd = View(in.lagrange_odd);
 
         // Contributions that decompose 50, 52, 68 or 84 bit limbs used for computation into range-constrained chunks
         // Contribution 1 , P_x lowest limb decomposition
