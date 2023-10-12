@@ -35,7 +35,13 @@
     "Signerless",
     "struct",
     "structs",
-    "viem"
+    "viem",
+    "fullpath",
+    "unexclude",
+    "hardlinks",
+    "yarnrc",
+    "memdown",
+    "tsbuildinfo"
   ],
   "ignorePaths": [
     "node_modules/",
