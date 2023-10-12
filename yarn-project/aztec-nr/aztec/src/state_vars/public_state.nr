@@ -31,14 +31,14 @@ impl<T, T_SERIALIZED_LEN> PublicState<T, T_SERIALIZED_LEN> {
 
     // docs:start:public_state_struct_read
     pub fn read(self) -> T {
-        assert(self.context.public.is_some(), "Public state read only supported in public functions");
+        assert(self.context.private.is_none(), "Public state writes only supported in public functions");
         storage_read(self.storage_slot, self.serialization_methods.deserialize)
     }
     // docs:end:public_state_struct_read
 
     // docs:start:public_state_struct_write
     pub fn write(self, value: T) {
-        assert(self.context.public.is_some(), "Public state writes only supported in public functions");
+        assert(self.context.private.is_none(), "Public state writes only supported in public functions");
         let serialize = self.serialization_methods.serialize;
         let fields = serialize(value);
         storage_write(self.storage_slot, fields);
