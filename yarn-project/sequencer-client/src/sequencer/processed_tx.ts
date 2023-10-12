@@ -105,7 +105,7 @@ export function makeEmptyProcessedTx(
     unencryptedLogs: new TxL2Logs([]),
     data: emptyKernelOutput,
     proof: emptyProof,
-    newContracts: [ExtendedContractData.random()],
+    newContracts: [ExtendedContractData.empty()],
     isEmpty: true,
   });
 }
