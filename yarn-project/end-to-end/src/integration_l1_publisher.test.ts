@@ -13,6 +13,7 @@ import {
   range,
 } from '@aztec/circuits.js';
 import { fr, makeNewContractData, makeProof } from '@aztec/circuits.js/factories';
+import { createEthereumChain } from '@aztec/ethereum';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { to2Fields } from '@aztec/foundation/serialize';
@@ -87,7 +88,7 @@ describe('L1Publisher integration', () => {
   // The global variables of the last rollup
   let prevGlobals: GlobalVariables;
 
-  const chainId = 1;
+  const chainId = createEthereumChain(config.rpcUrl, config.apiKey).chainInfo.id;
 
   beforeEach(async () => {
     deployerAccount = privateKeyToAccount(deployerPK);
