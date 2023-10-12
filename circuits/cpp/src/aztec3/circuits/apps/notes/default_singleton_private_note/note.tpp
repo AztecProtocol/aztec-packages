@@ -194,7 +194,7 @@ typename CircuitTypes<Builder>::fr DefaultSingletonPrivateNote<Builder, V>::get_
 
     const fr& owner_private_key = oracle.get_msg_sender_private_key();
 
-    // We prevent this storage slot from even being initialised again:
+    // We prevent this storage slot from even being initialized again:
     auto& storage_slot_point = state_var->storage_slot_point;
 
     const std::vector<fr> hash_inputs{
@@ -233,7 +233,7 @@ typename CircuitTypes<Builder>::fr DefaultSingletonPrivateNote<Builder, V>::get_
 
     const fr& owner_private_key = oracle.get_msg_sender_private_key();
 
-    // We prevent this storage slot from even being initialised again:
+    // We prevent this storage slot from even being initialized again:
     auto& storage_slot_point = state_var->storage_slot_point;
 
     const std::vector<fr> hash_inputs{

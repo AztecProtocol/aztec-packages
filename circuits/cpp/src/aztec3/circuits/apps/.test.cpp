@@ -315,9 +315,9 @@ TEST_F(state_var_tests, circuit_initialise_utxo_of_default_singleton_private_not
     // The person who may initialise the note might be different from the person who's actually given the note to own.
     // (E.g. the caller of this function might be the deployer of the contract, who is initialising notes on behalf of
     // other users)
-    CT::address owner_of_initialised_note = 888888;
+    CT::address owner_of_initialized_note = 888888;
 
-    my_utxo.initialise({ .value = 100, .owner = owner_of_initialised_note });
+    my_utxo.initialise({ .value = 100, .owner = owner_of_initialized_note });
 
     exec_ctx.finalize();
 
