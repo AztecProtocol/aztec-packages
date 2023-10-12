@@ -6,7 +6,7 @@ Aztec has a hybrid public/private state model. Aztec contract developers can spe
 
 ## Public State
 
-Aztec has public state that will be familiar to developers coming that have worked on other blockchains. Public state is transparent is managed by the associated smart contract logic.
+Aztec has public state that will be familiar to developers that have worked on other blockchains. Public state is transparent and managed by the associated smart contract logic.
 
 Internal to the Aztec network, public state is stored and updated by the sequencer. The sequencer executes state transitions, generates proofs of correct execution (or delegates proof generation to the prover network), and publishes the associated data to Ethereum.
 
@@ -20,7 +20,7 @@ Private state is represented in an append-only database since updating a record 
 
 The act of "deleting" a private state variable can be represented by adding an associated nullifier to a nullifier set. The nullifier is generated such that, without knowing the decryption key of the owner, an observer cannot link a state record with a nullifier.
 
-Modification of state variables can be emulated by nullifying the a state record and creating a new record to represent the variable. Private state has an intrinsic UTXO structure and this must be represented in the language semantics of manipulating private state.
+Modification of state variables can be emulated by nullifying a state record and creating a new record to represent the variable. Private state has an intrinsic UTXO structure and this must be represented in the language semantics of manipulating private state.
 
 ### Abstracting UTXO's from App's / Users
 
