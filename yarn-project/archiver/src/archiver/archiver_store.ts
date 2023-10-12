@@ -30,7 +30,7 @@ export interface ArchiverDataStore {
    * @param blocks - The L2 blocks to be added to the store.
    * @returns True if the operation is successful.
    */
-  addL2Blocks(blocks: L2Block[]): Promise<boolean>;
+  addBlocks(blocks: L2Block[]): Promise<boolean>;
 
   /**
    * Gets up to `limit` amount of L2 blocks starting from `from`.
@@ -38,7 +38,7 @@ export interface ArchiverDataStore {
    * @param limit - The number of blocks to return.
    * @returns The requested L2 blocks.
    */
-  getL2Blocks(from: number, limit: number): Promise<L2Block[]>;
+  getBlocks(from: number, limit: number): Promise<L2Block[]>;
 
   /**
    * Gets an l2 tx.
@@ -215,7 +215,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @param blocks - The L2 blocks to be added to the store.
    * @returns True if the operation is successful (always in this implementation).
    */
-  public addL2Blocks(blocks: L2Block[]): Promise<boolean> {
+  public addBlocks(blocks: L2Block[]): Promise<boolean> {
     this.l2BlockContexts.push(...blocks.map(block => new L2BlockContext(block)));
     this.l2Txs.push(...blocks.flatMap(b => b.getTxs()));
     return Promise.resolve(true);
@@ -301,7 +301,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @returns The requested L2 blocks.
    * @remarks When "from" is smaller than genesis block number, blocks from the beginning are returned.
    */
-  public getL2Blocks(from: number, limit: number): Promise<L2Block[]> {
+  public getBlocks(from: number, limit: number): Promise<L2Block[]> {
     // Return an empty array if we are outside of range
     if (limit < 1) {
       throw new Error(`Invalid limit: ${limit}`);

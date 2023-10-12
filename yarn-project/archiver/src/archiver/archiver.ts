@@ -270,7 +270,7 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
 
     // store retrieved L2 blocks after removing new logs information.
     // remove logs to serve "lightweight" block information. Logs can be fetched separately if needed.
-    await this.store.addL2Blocks(
+    await this.store.addBlocks(
       retrievedBlocks.retrievedData.map(block =>
         L2Block.fromFields(omit(block, ['newEncryptedLogs', 'newUnencryptedLogs']), block.getBlockHash()),
       ),
@@ -306,8 +306,8 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
    * @param limit - The number of blocks to return.
    * @returns The requested L2 blocks.
    */
-  public getL2Blocks(from: number, limit: number): Promise<L2Block[]> {
-    return this.store.getL2Blocks(from, limit);
+  public getBlocks(from: number, limit: number): Promise<L2Block[]> {
+    return this.store.getBlocks(from, limit);
   }
 
   /**
@@ -315,12 +315,12 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
    * @param number - The block number to return (inclusive).
    * @returns The requested L2 block.
    */
-  public async getL2Block(number: number): Promise<L2Block | undefined> {
+  public async getBlock(number: number): Promise<L2Block | undefined> {
     // If the number provided is -ve, then return the latest block.
     if (number < 0) {
       number = this.store.getBlocksLength();
     }
-    const blocks = await this.store.getL2Blocks(number, 1);
+    const blocks = await this.store.getBlocks(number, 1);
     return blocks.length === 0 ? undefined : blocks[0];
   }
 
