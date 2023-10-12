@@ -99,50 +99,52 @@ template <typename FF_> class GoblinTranslatorGenPermSortRelationImpl {
 
     // 1 + polynomial degree of this relation
     static constexpr size_t RELATION_LENGTH = 6; // degree((lagrange_last-1) * D(D - 1)(D - 2)(D - 3)) = 5
-    static constexpr size_t LEN_1 = 6;
-    static constexpr size_t LEN_2 = 6;
-    static constexpr size_t LEN_3 = 6;
-    static constexpr size_t LEN_4 = 6;
-    static constexpr size_t LEN_5 = 6;
-    static constexpr size_t LEN_6 = 3;
-    static constexpr size_t LEN_7 = 3;
-    static constexpr size_t LEN_8 = 3;
-    static constexpr size_t LEN_9 = 3;
-    static constexpr size_t LEN_10 = 3;
-    template <template <size_t...> typename SubrelationAccumulatorsTemplate>
-    using GetAccumulatorTypes =
-        SubrelationAccumulatorsTemplate<LEN_1, LEN_2, LEN_3, LEN_4, LEN_5, LEN_6, LEN_7, LEN_8, LEN_9, LEN_10>;
+
+    static constexpr std::array<size_t, 10> SUBRELATION_LENGTHS{
+        6, // ordered_range_constraints_0 step in {0,1,2,3} subrelation
+        6, // ordered_range_constraints_1 step in {0,1,2,3} subrelation
+        6, // ordered_range_constraints_2 step in {0,1,2,3} subrelation
+        6, // ordered_range_constraints_3 step in {0,1,2,3} subrelation
+        6, // ordered_range_constraints_4 step in {0,1,2,3} subrelation
+        3, // ordered_range_constraints_0 ends with defined maximum value subrelation
+        3, // ordered_range_constraints_1 ends with defined maximum value subrelation
+        3, // ordered_range_constraints_2 ends with defined maximum value subrelation
+        3, // ordered_range_constraints_3 ends with defined maximum value subrelation
+        3  // ordered_range_constraints_4 ends with defined maximum value subrelation
+
+    };
 
     /**
      * @brief Expression for the generalized permutation sort relation
      *
      * @details The relation enforces 2 constraints on each of the ordered_range_constraints wires:
      * 1) 2 sequential values are non-descending and have a difference of at most 3, except for the value at last index
-     * 2) The value at last index is (1<<14)-1
+     * 2) The value at last index is  2¹⁴ - 1
      *
-     * @param evals transformed to `evals + C(extended_edges(X)...)*scaling_factor`
-     * @param extended_edges an std::array containing the fully extended Univariate edges.
+     * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
+     * @param in an std::array containing the fully extended Univariate edges.
      * @param parameters contains beta, gamma, and public_input_delta, ....
      * @param scaling_factor optional term to scale the evaluation before adding to evals.
      */
-    template <typename AccumulatorTypes>
-    void static accumulate(typename AccumulatorTypes::Accumulators& accumulators,
-                           const auto& extended_edges,
-                           const RelationParameters<FF>&,
-                           const FF& scaling_factor)
+    template <typename ContainerOverSubrelations, typename AllEntities>
+    inline static void accumulate(ContainerOverSubrelations& accumulators,
+                                  const AllEntities& in,
+                                  const RelationParameters<FF>&,
+                                  const FF& scaling_factor)
     {
-        using View = typename std::tuple_element<0, typename AccumulatorTypes::AccumulatorViews>::type;
-        auto ordered_range_constraints_0 = View(extended_edges.ordered_range_constraints_0);
-        auto ordered_range_constraints_1 = View(extended_edges.ordered_range_constraints_1);
-        auto ordered_range_constraints_2 = View(extended_edges.ordered_range_constraints_2);
-        auto ordered_range_constraints_3 = View(extended_edges.ordered_range_constraints_3);
-        auto ordered_range_constraints_4 = View(extended_edges.ordered_range_constraints_4);
-        auto ordered_range_constraints_0_shift = View(extended_edges.ordered_range_constraints_0_shift);
-        auto ordered_range_constraints_1_shift = View(extended_edges.ordered_range_constraints_1_shift);
-        auto ordered_range_constraints_2_shift = View(extended_edges.ordered_range_constraints_2_shift);
-        auto ordered_range_constraints_3_shift = View(extended_edges.ordered_range_constraints_3_shift);
-        auto ordered_range_constraints_4_shift = View(extended_edges.ordered_range_constraints_4_shift);
-        auto lagrange_last = View(extended_edges.lagrange_last);
+        using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
+        using View = typename Accumulator::View;
+        auto ordered_range_constraints_0 = View(in.ordered_range_constraints_0);
+        auto ordered_range_constraints_1 = View(in.ordered_range_constraints_1);
+        auto ordered_range_constraints_2 = View(in.ordered_range_constraints_2);
+        auto ordered_range_constraints_3 = View(in.ordered_range_constraints_3);
+        auto ordered_range_constraints_4 = View(in.ordered_range_constraints_4);
+        auto ordered_range_constraints_0_shift = View(in.ordered_range_constraints_0_shift);
+        auto ordered_range_constraints_1_shift = View(in.ordered_range_constraints_1_shift);
+        auto ordered_range_constraints_2_shift = View(in.ordered_range_constraints_2_shift);
+        auto ordered_range_constraints_3_shift = View(in.ordered_range_constraints_3_shift);
+        auto ordered_range_constraints_4_shift = View(in.ordered_range_constraints_4_shift);
+        auto lagrange_last = View(in.lagrange_last);
 
         static const FF minus_one = FF(-1);
         static const FF minus_two = FF(-2);

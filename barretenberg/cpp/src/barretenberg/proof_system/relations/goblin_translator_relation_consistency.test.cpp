@@ -294,7 +294,7 @@ TEST_F(GoblinTranslatorRelationConsistency, GenPermSortRelation)
 {
     const auto run_test = [](bool random_inputs) {
         using Relation = GoblinTranslatorGenPermSortRelation<FF>;
-        using RelationValues = typename Relation::RelationValues;
+        using RelationValues = typename Relation::ArrayOfValuesOverSubrelations;
 
         const InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
 
