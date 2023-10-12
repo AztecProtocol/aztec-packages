@@ -30,7 +30,7 @@ Once you have everything set up, you can get the plain "blank box" with "unbox" 
 aztec-cli unbox blank new_project
 ```
 
-This command indicates that you want to use the "blank" template to create a project in a directory called `new_project`. You can view the source code that is grabbed to create the project [on Github](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/boxes). This source is on the master branch, so it may differ slightly from what you get. The unbox command pulls the code from the latest published version (v0.7.10 at the time of writing) for stability and compatibility reasons.
+This command indicates that you want to use the "blank" template to create a project in a directory called `new_project`. You can view the source code that is grabbed to create the project [on Github](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/yarn-project/boxes). The unbox command pulls the code from the latest published version (v0.8.10 at the time of writing) for stability and compatibility.
 
 Running this command will give you the following structure:
 
@@ -40,12 +40,11 @@ new_project
 ├── README.md
 ├── src
 │   ├── artifacts
-│   │   ├── blank_contract.json
-│   │   └── blank.ts
+│   │   ├── Blank.json
+│   │   └── Blank.ts
 │   ├── contracts
 │   │   ├── Nargo.toml
 │   │   └── src
-│   │       ├── interface.nr
 │   │       └── main.nr
 │   ├── index.html
 │   ├── index.ts
@@ -56,6 +55,8 @@ new_project
 ├── webpack.config.js
 └── yarn.lock
 ```
+
+There may be some additional configuration files in your project, but these are the main ones.
 
 ## Run it
 
@@ -87,15 +88,21 @@ You should see an interface with two buttons, "Deploy" and "Interact". Clicking 
 
 `index.ts` imports functions and types from `@aztec/aztec.js`, `@aztec/foundation` and the contract ABI from `./artifacts/blank.js`.
 
-The contract ABI (Application Binary Interface) is generated from the contract artifact (a compiled Aztec contract) found at `./src/artifacts/blank_contract.json`.
+The contract ABI (Application Binary Interface) is generated from the contract artifact (a compiled Aztec contract) found at `./src/artifacts/Blank.json`.
 
 ### Global variables
 
 The Sandbox runs on `localhost:8080` by default. With the `SANDBOX_URL`, we set up an Aztec Private Execution Client (PXE), which provides access to accounts and their private state. The PXE client helps facilitate deployments and interactions (reads and writes) with deployed contracts.
 
-### Deployment
+### Imports
 
 `index.ts` imports from [`@aztec/aztec.js`](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/aztec.js). It also imports the `BlankContractAbi`, which is generated from the contract defined in `./src/contracts/src/main.nr`.
+
+#include_code imports yarn-project/boxes/blank/src/index.ts typescript
+
+### Deployment
+
+#include_code deploy yarn-project/boxes/blank/src/index.ts typescript
 
 To deploy, it gets one of the pre-initialized wallets that comes with the Sandbox with `getSandboxAccountsWallets`. Using that wallet, the contract ABI, optional salt (used to deterministically calculate the contract address, like [CREATE2 in Ethereum](https://docs.openzeppelin.com/cli/2.8/deploying-with-create2)), and the PXE, we can create a contract deployment transaction and send it to the sandbox network. The constructor defined in the Blank contract doesn't take any arguments, so we pass an empty array.
 
@@ -103,8 +110,20 @@ With the web interface running, open your browser dev tools console, click the "
 
 ### Interaction
 
+#include_code interact yarn-project/boxes/blank/src/index.ts typescript
+
 Once a contract is deployed, you can interact with it by clicking the "Interact" button. This will call the `getPublicKey` function on the `Blank` contract. For this call we need to pass the contract, the contract abi, the name of the function to call, the arguments for the function, the PXE and the wallet from which to make the transaction, see `callContractFunction`.
 
 ### Compiling Contracts
 
 This blank project comes with the contract artifacts, which are generated when the contracts are compiled, out of the box.
+
+You can modify the source contracts and regenerate the artifacts by running
+
+```bash
+yarn compile
+```
+
+This will generate a [contract artifact](src/artifacts/test_contract.json) and TypeScript class for the [Aztec smart contract](src/contracts/main.nr), which the frontend uses to generate the UI.
+
+After compiling, you can re-deploy the updated noir smart contract from the web UI. The function interaction forms are generated from parsing the contract artifact, so they should update automatically after you recompile.

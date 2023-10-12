@@ -1,4 +1,4 @@
-import { BlankContractArtifact } from './artifacts/Blank.js';
+// docs:start:imports
 import {
   AccountWallet,
   AztecAddress,
@@ -13,8 +13,9 @@ import {
 } from '@aztec/aztec.js';
 import { ContractArtifact, FunctionArtifact, encodeArguments } from '@aztec/foundation/abi';
 import { FieldsOf } from '@aztec/foundation/types';
-
-export const contractArtifact: ContractArtifact = BlankContractArtifact;
+import { BlankContractAbi } from './artifacts/blank.js';
+export const contractAbi: ContractAbi = BlankContractAbi;
+// docs:end:imports
 
 export const PXE_URL: string = process.env.PXE_URL || 'http://localhost:8080';
 export const pxe: PXE = createPXEClient(PXE_URL);
@@ -36,6 +37,7 @@ if (typeof document !== 'undefined') {
   });
 }
 
+// docs:start:deploy
 export async function handleDeployClick(): Promise<string> {
   // eslint-disable-next-line no-console
   console.log('Deploying Contract');
@@ -51,7 +53,9 @@ export async function handleDeployClick(): Promise<string> {
 
   return contractAztecAddress.toString();
 }
+// docs:end:deploy
 
+// docs:start:interact
 export async function handleInteractClick(contractAddress: string) {
   const [wallet, ..._rest] = await getSandboxAccountsWallets(pxe);
   const callArgs = { address: wallet.getCompleteAddress().address };
@@ -70,6 +74,7 @@ export async function handleInteractClick(contractAddress: string) {
     wallet.getCompleteAddress(),
   );
 }
+// docs:end:interact
 
 export const getFunctionAbi = (contractAbi: any, functionName: string) => {
   const functionAbi = contractAbi.functions.find((f: FunctionArtifact) => f.name === functionName);
