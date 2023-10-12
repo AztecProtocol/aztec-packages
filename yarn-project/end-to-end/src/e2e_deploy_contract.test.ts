@@ -135,6 +135,11 @@ describe('e2e_deploy_contract', () => {
     const goodDeploy = new ContractDeployer(TestAssertContractArtifact, wallet).deploy(0);
     const badDeploy = new ContractDeployer(TestAssertContractArtifact, wallet).deploy(1);
 
+    await Promise.all([
+      goodDeploy.simulate({ skipPublicSimulation: true }),
+      badDeploy.simulate({ skipPublicSimulation: true }),
+    ]);
+
     const [goodTx, badTx] = [
       goodDeploy.send({ skipPublicSimulation: true }),
       badDeploy.send({ skipPublicSimulation: true }),
@@ -144,6 +149,11 @@ describe('e2e_deploy_contract', () => {
 
     expect(goodTxPromiseResult.status).toBe('fulfilled');
     expect(badTxReceiptResult.status).toBe('rejected');
+
+    const [goodTxReceipt, badTxReceipt] = await Promise.all([goodTx.getReceipt(), badTx.getReceipt()]);
+
+    expect(goodTxReceipt.blockNumber).toEqual(expect.any(Number));
+    expect(badTxReceipt.blockNumber).toBeUndefined();
 
     await expect(pxe.getExtendedContractData(goodDeploy.completeAddress!.address)).resolves.toBeDefined();
     await expect(pxe.getExtendedContractData(goodDeploy.completeAddress!.address)).resolves.toBeDefined();
