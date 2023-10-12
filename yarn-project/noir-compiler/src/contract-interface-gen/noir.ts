@@ -122,7 +122,7 @@ function collectParametersForSerialization(parameters: ABIVariable[]) {
 }
 
 /**
- * Generates Noir code for serialising the parameters into an array of fields.
+ * Generates Noir code for serializing the parameters into an array of fields.
  * @param parameters - Parameters to serialize.
  * @returns The serialization code.
  */
