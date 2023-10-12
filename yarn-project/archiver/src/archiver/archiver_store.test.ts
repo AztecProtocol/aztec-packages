@@ -65,9 +65,17 @@ describe('Archiver Memory Store', () => {
       .fill(0)
       .map((_, index) => L2Block.random(index));
     await archiverStore.addL2Blocks(blocks);
-    await expect(async () => await archiverStore.getL2Blocks(1, 0)).rejects.toThrow(
-      `Invalid block range from: 1, limit: 0`,
-    );
+    await expect(async () => await archiverStore.getL2Blocks(1, 0)).rejects.toThrow(`Invalid limit: 0`);
+  });
+
+  it('returns from the beginning when "from" < genesis block', async () => {
+    const blocks = Array(10)
+      .fill(0)
+      .map((_, index) => L2Block.random(index));
+    await archiverStore.addL2Blocks(blocks);
+    const retrievedBlocks = await archiverStore.getL2Blocks(-5, 1);
+    expect(retrievedBlocks.length).toEqual(1);
+    expect(retrievedBlocks[0]).toEqual(blocks[0]);
   });
 
   test.each([LogType.ENCRYPTED, LogType.UNENCRYPTED])(
@@ -77,9 +85,7 @@ describe('Archiver Memory Store', () => {
         .fill(0)
         .map(_ => L2BlockL2Logs.random(6, 3, 2));
       await archiverStore.addLogs(logs, logType);
-      await expect(async () => await archiverStore.getLogs(1, 0, logType)).rejects.toThrow(
-        `Invalid block range from: 1, limit: 0`,
-      );
+      await expect(async () => await archiverStore.getLogs(1, 0, logType)).rejects.toThrow(`Invalid limit: 0`);
     },
   );
 

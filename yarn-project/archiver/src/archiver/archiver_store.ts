@@ -299,16 +299,17 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @param from - Number of the first block to return (inclusive).
    * @param limit - The number of blocks to return.
    * @returns The requested L2 blocks.
+   * @remarks When "from" is smaller than genesis block number, blocks from the beginning are returned.
    */
   public getL2Blocks(from: number, limit: number): Promise<L2Block[]> {
     // Return an empty array if we are outside of range
     if (limit < 1) {
-      throw new Error(`Invalid block range from: ${from}, limit: ${limit}`);
+      throw new Error(`Invalid limit: ${limit}`);
     }
-    if (from < INITIAL_L2_BLOCK_NUM || from > this.l2BlockContexts.length) {
+    if (from >= this.l2BlockContexts.length) {
       return Promise.resolve([]);
     }
-    const startIndex = from - INITIAL_L2_BLOCK_NUM;
+    const startIndex = Math.max(from - INITIAL_L2_BLOCK_NUM, 0);
     const endIndex = startIndex + limit;
     return Promise.resolve(this.l2BlockContexts.slice(startIndex, endIndex).map(blockContext => blockContext.block));
   }
@@ -354,7 +355,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    */
   getLogs(from: number, limit: number, logType: LogType): Promise<L2BlockL2Logs[]> {
     if (from < INITIAL_L2_BLOCK_NUM || limit < 1) {
-      throw new Error(`Invalid block range from: ${from}, limit: ${limit}`);
+      throw new Error(`Invalid limit: ${limit}`);
     }
     const logs = logType === LogType.ENCRYPTED ? this.encryptedLogsPerBlock : this.unencryptedLogsPerBlock;
     if (from > logs.length) {
