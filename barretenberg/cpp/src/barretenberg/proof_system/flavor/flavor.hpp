@@ -256,13 +256,13 @@ template <typename Tuple, std::size_t Index = 0> static constexpr auto create_su
  * @details Container for storing value of each identity in each relation. Each Relation contributes an array of
  * length num-identities.
  */
-template <typename Tuple, std::size_t Index = 0> static constexpr auto create_tuple_of_arrays()
+template <typename Tuple, std::size_t Index = 0> static constexpr auto create_sumcheck_tuple_of_arrays_of_values()
 {
     if constexpr (Index >= std::tuple_size<Tuple>::value) {
         return std::tuple<>{}; // Return empty when reach end of the tuple
     } else {
         using Values = typename std::tuple_element_t<Index, Tuple>::ArrayOfValuesOverSubrelations;
-        return std::tuple_cat(std::tuple<Values>{}, create_tuple_of_arrays<Tuple, Index + 1>());
+        return std::tuple_cat(std::tuple<Values>{}, create_sumcheck_tuple_of_arrays_of_values<Tuple, Index + 1>());
     }
 }
 

@@ -42,11 +42,11 @@ template <typename Flavor, typename Instances> class ProtogalaxyProver {
     using ExtendedUnivariate = Univariate<FF, (Flavor::MAX_RELATION_LENGTH - 1) * (Instances::NUM - 1) + 1>;
     using RandomExtendedUnivariate =
         Univariate<FF, (Flavor::MAX_RANDOM_RELATION_LENGTH - 1) * (Instances::NUM - 1) + 1>;
-    using ExtendedUnivariates =
-        typename Flavor::template ProverUnivariates<(Flavor::MAX_RELATION_LENGTH - 1) * (Instances::NUM - 1) + 1>;
-    using RelationProtogalaxyUnivariates = typename Flavor::Relation2ProtogalaxyUnivariates;
 
-    RelationProtogalaxyUnivariates univariate_accumulators;
+    using ExtendedUnivariates = typename Flavor::template ProverUnivariates<ExtendedUnivariate::LENGTH>;
+    using TupleOfTuplesOfUnivariates = typename Flavor::Protogalaxy2TupleOfTuplesOfUnivarites;
+
+    TupleOfTuplesOfUnivariates univariate_accumulators;
 
     /**
      * For a fixed entity label, extract that endity from each instance in Instances, and extract
@@ -61,8 +61,8 @@ template <typename Flavor, typename Instances> class ProtogalaxyProver {
     }
 
     template <size_t relation_idx = 0>
-    void accumulate_relation_univariates(RelationProtogalaxyUnivariates& univariate_accumulators,
-                                         const auto& extended_univariates,
+    void accumulate_relation_univariates(TupleOfTuplesOfUnivariates& univariate_accumulators,
+                                         const ExtendedUnivariates& extended_univariates,
                                          const proof_system::RelationParameters<FF>& relation_parameters,
                                          const FF& scaling_factor)
     {
@@ -104,7 +104,7 @@ template <typename Flavor, typename Instances> class ProtogalaxyProver {
         size_t iterations_per_thread = common_circuit_size / num_threads;    // actual iterations per thread
 
         // Constuct univariate accumulator containers; one per thread
-        std::vector<RelationProtogalaxyUnivariates> thread_univariate_accumulators(num_threads);
+        std::vector<TupleOfTuplesOfUnivariates> thread_univariate_accumulators(num_threads);
         for (auto& accum : thread_univariate_accumulators) {
             Utils::zero_univariates(accum);
         }
