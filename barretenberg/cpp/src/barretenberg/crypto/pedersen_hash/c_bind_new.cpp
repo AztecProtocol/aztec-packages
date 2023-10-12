@@ -1,4 +1,3 @@
-#pragma once
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "c_bind.hpp"
