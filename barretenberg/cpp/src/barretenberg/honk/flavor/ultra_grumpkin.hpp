@@ -31,7 +31,7 @@ class UltraGrumpkin {
   public:
     using CircuitBuilder = UltraCircuitBuilder;
     using Curve = curve::BN254;
-    using PCS = pcs::kzg::KZG<Curve>; // WORKTODO: IPA?
+    using PCS = pcs::kzg::KZG<Curve>;
     using GroupElement = Curve::Element;
     using Commitment = Curve::AffineElement;
     using CommitmentHandle = Curve::AffineElement;
