@@ -119,7 +119,7 @@ export interface PXE {
    *
    * @param txRequest - An authenticated tx request ready for simulation
    * @param simulatePublic - Whether to simulate the public part of the transaction.
-   * @returns A transaction ready to be sent to the network for excution.
+   * @returns A transaction ready to be sent to the network for execution.
    * @throws If the code for the functions executed in this transaction has not been made available via `addContracts`.
    */
   simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx>;
