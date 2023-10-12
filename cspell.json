@@ -36,5 +36,21 @@
     "struct",
     "structs",
     "viem"
+  ],
+  "ignorePaths": [
+    "node_modules/",
+    "dist/",
+    "build/",
+    "dest/",
+    "barretenberg",
+    "dest",
+    "node_modules",
+    ".cache",
+    ".pnp.cjs",
+    ".pnp.loader.mjs",
+    "cmake-build-debug",
+    ".terraform*",
+    ".bootstrapped",
+    "*.svg"
   ]
 }
