@@ -1,12 +1,12 @@
 import { createDebugLogger } from '@aztec/foundation/log';
 import { InterruptableSleep } from '@aztec/foundation/sleep';
 import { ExtendedContractData, L2Block } from '@aztec/types';
+import { L1PublishStats } from '@aztec/types/stats';
 
 import pick from 'lodash.pick';
 
 import { L2BlockReceiver } from '../receiver.js';
 import { PublisherConfig } from './config.js';
-import { L1PublishStats } from './index.js';
 
 /**
  * Stats for a sent transaction.
@@ -124,7 +124,7 @@ export class L1Publisher implements L2BlockReceiver {
    */
   public async processL2Block(l2BlockData: L2Block): Promise<boolean> {
     const proof = Buffer.alloc(0);
-    const txData = { proof, inputs: l2BlockData.encode() };
+    const txData = { proof, inputs: l2BlockData.toBufferWithLogs() };
 
     while (!this.interrupted) {
       if (!(await this.checkFeeDistributorBalance())) {
@@ -145,12 +145,7 @@ export class L1Publisher implements L2BlockReceiver {
         const stats: L1PublishStats = {
           ...pick(receipt, 'gasPrice', 'gasUsed', 'transactionHash'),
           ...pick(tx!, 'calldataGas', 'calldataSize'),
-          txCount: l2BlockData.numberOfTxs,
-          blockNumber: l2BlockData.number,
-          encryptedLogCount: l2BlockData.newEncryptedLogs?.getTotalLogCount() ?? 0,
-          unencryptedLogCount: l2BlockData.newUnencryptedLogs?.getTotalLogCount() ?? 0,
-          encryptedLogSize: l2BlockData.newEncryptedLogs?.getSerializedLength() ?? 0,
-          unencryptedLogSize: l2BlockData.newUnencryptedLogs?.getSerializedLength() ?? 0,
+          ...l2BlockData.getStats(),
           eventName: 'rollup-published-to-l1',
         };
         this.log.info(`Published L2 block to L1 rollup contract`, stats);

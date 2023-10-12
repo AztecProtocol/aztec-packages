@@ -22,7 +22,7 @@ describe('Archiver', () => {
 
   beforeEach(() => {
     publicClient = mock<PublicClient<HttpTransport, Chain>>();
-    archiverStore = new MemoryArchiverStore();
+    archiverStore = new MemoryArchiverStore(1000);
   });
 
   it('can start, sync and stop and handle l1 to l2 messages and logs', async () => {
@@ -296,7 +296,7 @@ function makeL1ToL2MessageCancelledEvents(l1BlockNum: bigint, entryKeys: string[
  */
 function makeRollupTx(l2Block: L2Block) {
   const proof = `0x`;
-  const block = toHex(l2Block.encode());
+  const block = toHex(l2Block.toBufferWithLogs());
   const input = encodeFunctionData({ abi: RollupAbi, functionName: 'process', args: [proof, block] });
   return { input } as Transaction<bigint, number>;
 }

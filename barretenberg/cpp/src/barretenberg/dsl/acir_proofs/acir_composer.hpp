@@ -14,18 +14,13 @@ class AcirComposer {
 
     void create_circuit(acir_format::acir_format& constraint_system);
 
-    void init_proving_key(std::shared_ptr<barretenberg::srs::factories::CrsFactory<curve::BN254>> const& crs_factory,
-                          acir_format::acir_format& constraint_system);
+    void init_proving_key(acir_format::acir_format& constraint_system);
 
-    std::pair<std::vector<uint8_t>, std::vector<uint8_t>> create_proof(
-        std::shared_ptr<barretenberg::srs::factories::CrsFactory<curve::BN254>> const& crs_factory,
-        acir_format::acir_format& constraint_system,
-        acir_format::WitnessVector& witness,
-        bool is_recursive);
+    std::pair<std::vector<uint8_t>, std::vector<uint8_t>> create_proof(acir_format::acir_format& constraint_system,
+                                                                       acir_format::WitnessVector& witness,
+                                                                       bool is_recursive);
 
-    void load_verification_key(
-        std::shared_ptr<barretenberg::srs::factories::CrsFactory<curve::BN254>> const& crs_factory,
-        proof_system::plonk::verification_key_data&& data);
+    void load_verification_key(proof_system::plonk::verification_key_data&& data);
 
     std::shared_ptr<proof_system::plonk::verification_key> init_verification_key();
 
@@ -34,6 +29,7 @@ class AcirComposer {
     std::string get_solidity_verifier();
     size_t get_exact_circuit_size() { return exact_circuit_size_; };
     size_t get_total_circuit_size() { return total_circuit_size_; };
+    size_t get_circuit_subgroup_size() { return circuit_subgroup_size_; };
 
     std::vector<barretenberg::fr> serialize_proof_into_fields(std::vector<uint8_t> const& public_inputs,
                                                               std::vector<uint8_t> const& proof);
@@ -42,7 +38,6 @@ class AcirComposer {
 
   private:
     acir_format::Builder builder_;
-    acir_format::Composer composer_;
     size_t size_hint_;
     size_t exact_circuit_size_;
     size_t total_circuit_size_;

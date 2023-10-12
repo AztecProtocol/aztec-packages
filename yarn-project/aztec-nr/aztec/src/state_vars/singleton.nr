@@ -1,3 +1,4 @@
+use dep::std::option::Option;
 use crate::constants_gen::{EMPTY_NULLIFIED_COMMITMENT, GENERATOR_INDEX__INITIALISATION_NULLIFIER};
 use crate::context::{PrivateContext, PublicContext, Context};
 use crate::note::{
@@ -6,21 +7,39 @@ use crate::note::{
     note_interface::NoteInterface,
     note_viewer_options::NoteViewerOptions,
 };
-use crate::oracle;
+use crate::oracle::{
+    get_secret_key::get_secret_key,
+    notes::check_nullifier_exists,
+};
 use dep::std::hash::pedersen_with_separator;
-use dep::std::option::Option;
+
+pub fn compute_singleton_initialization_nullifier(storage_slot: Field, owner: Option<Field>) -> Field {
+    if owner.is_some() {
+        let secret = get_secret_key(owner.unwrap_unchecked());
+        pedersen_with_separator(
+            [storage_slot, secret.low, secret.high],
+            GENERATOR_INDEX__INITIALISATION_NULLIFIER,
+        )[0]
+    } else {
+        pedersen_with_separator(
+            [storage_slot],
+            GENERATOR_INDEX__INITIALISATION_NULLIFIER,
+        )[0]
+    }
+}
 
 // docs:start:struct
 struct Singleton<Note, N> {
     context: Option<&mut PrivateContext>,
     storage_slot: Field,
     note_interface: NoteInterface<Note, N>,
+    compute_initialization_nullifier: fn (Field, Option<Field>) -> Field,
 }
 // docs:end:struct
 
 impl<Note, N> Singleton<Note, N> {
     // docs:start:new
-    fn new(
+    pub fn new(
         context: Context,
         storage_slot: Field,
         note_interface: NoteInterface<Note, N>,
@@ -30,35 +49,34 @@ impl<Note, N> Singleton<Note, N> {
             context: context.private,
             storage_slot,
             note_interface,
+            compute_initialization_nullifier: compute_singleton_initialization_nullifier,
         }
     }
     // docs:end:new
 
-    unconstrained fn is_initialized(self) -> bool {
-        let nullifier = self.compute_initialisation_nullifier();
-        oracle::notes::is_nullifier_emitted(nullifier)
+    // docs:start:is_initialized
+    unconstrained pub fn is_initialized(self, owner: Option<Field>) -> bool {
+        let compute_initialization_nullifier = self.compute_initialization_nullifier;
+        let nullifier = compute_initialization_nullifier(self.storage_slot, owner);
+        check_nullifier_exists(nullifier)
     }
+    // docs:end:is_initialized
 
     // docs:start:initialize
-    fn initialize(self, note: &mut Note) {
+    pub fn initialize(self, note: &mut Note, owner: Option<Field>) {
         let context = self.context.unwrap();
+
         // Nullify the storage slot.
-        let nullifier = self.compute_initialisation_nullifier();
+        let compute_initialization_nullifier = self.compute_initialization_nullifier;
+        let nullifier = compute_initialization_nullifier(self.storage_slot, owner);
         context.push_new_nullifier(nullifier, EMPTY_NULLIFIED_COMMITMENT);
 
         create_note(context, self.storage_slot, note, self.note_interface);
     }
     // docs:end:initialize
 
-    fn compute_initialisation_nullifier(self) -> Field {
-        pedersen_with_separator(
-            [self.storage_slot],
-            GENERATOR_INDEX__INITIALISATION_NULLIFIER,
-        )[0]
-    }
-
     // docs:start:replace
-    fn replace(self, new_note: &mut Note) {
+    pub fn replace(self, new_note: &mut Note) {
         let context = self.context.unwrap();
         let prev_note = get_note(context, self.storage_slot, self.note_interface);
 
@@ -71,7 +89,7 @@ impl<Note, N> Singleton<Note, N> {
     // docs:end:replace
 
     // docs:start:get_note
-    fn get_note(self) -> Note {
+    pub fn get_note(self) -> Note {
         let context = self.context.unwrap();
         let mut note = get_note(context, self.storage_slot, self.note_interface);
 
@@ -86,7 +104,7 @@ impl<Note, N> Singleton<Note, N> {
     }
     // docs:end:get_note
 
-    unconstrained fn view_note(self) -> Note {
+    unconstrained pub fn view_note(self) -> Note {
         let options = NoteViewerOptions::new().set_limit(1);
         view_notes(self.storage_slot, self.note_interface, options)[0].unwrap()
     }

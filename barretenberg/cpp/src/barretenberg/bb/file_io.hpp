@@ -2,6 +2,7 @@
 #include <barretenberg/common/log.hpp>
 #include <cstdint>
 #include <fstream>
+#include <ios>
 #include <vector>
 
 inline std::streamsize get_file_size(const std::string& filename)

@@ -46,6 +46,9 @@ export interface ArchiverConfig {
    * Optional dir to store data. If omitted will store in memory.
    */
   dataDirectory?: string;
+
+  /** The max number of logs that can be obtained in 1 "getUnencryptedLogs" call. */
+  maxLogs?: number;
 }
 
 /**
@@ -63,6 +66,7 @@ export function getConfigEnvVars(): ArchiverConfig {
     SEARCH_START_BLOCK,
     API_KEY,
     INBOX_CONTRACT_ADDRESS,
+    OUTBOX_CONTRACT_ADDRESS,
     REGISTRY_CONTRACT_ADDRESS,
     DATA_DIRECTORY,
   } = process.env;
@@ -71,7 +75,7 @@ export function getConfigEnvVars(): ArchiverConfig {
     rollupAddress: ROLLUP_CONTRACT_ADDRESS ? EthAddress.fromString(ROLLUP_CONTRACT_ADDRESS) : EthAddress.ZERO,
     registryAddress: REGISTRY_CONTRACT_ADDRESS ? EthAddress.fromString(REGISTRY_CONTRACT_ADDRESS) : EthAddress.ZERO,
     inboxAddress: INBOX_CONTRACT_ADDRESS ? EthAddress.fromString(INBOX_CONTRACT_ADDRESS) : EthAddress.ZERO,
-    outboxAddress: EthAddress.ZERO,
+    outboxAddress: OUTBOX_CONTRACT_ADDRESS ? EthAddress.fromString(OUTBOX_CONTRACT_ADDRESS) : EthAddress.ZERO,
     contractDeploymentEmitterAddress: CONTRACT_DEPLOYMENT_EMITTER_ADDRESS
       ? EthAddress.fromString(CONTRACT_DEPLOYMENT_EMITTER_ADDRESS)
       : EthAddress.ZERO,

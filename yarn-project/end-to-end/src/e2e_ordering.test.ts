@@ -1,10 +1,11 @@
 // Test suite for testing proper ordering of side effects
 import { Wallet } from '@aztec/aztec.js';
-import { Fr, FunctionSelector } from '@aztec/circuits.js';
+import { FunctionSelector } from '@aztec/circuits.js';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
+import { Fr } from '@aztec/foundation/fields';
 import { toBigInt } from '@aztec/foundation/serialize';
 import { ChildContract, ParentContract } from '@aztec/noir-contracts/types';
-import { L2BlockL2Logs, PXE, TxStatus, UnencryptedL2Log } from '@aztec/types';
+import { PXE, TxStatus } from '@aztec/types';
 
 import { setup } from './fixtures/utils.js';
 
@@ -15,12 +16,13 @@ describe('e2e_ordering', () => {
   let teardown: () => Promise<void>;
 
   const expectLogsFromLastBlockToBe = async (logMessages: bigint[]) => {
-    const l2BlockNum = await pxe.getBlockNumber();
-    const unencryptedLogs = await pxe.getUnencryptedLogs(l2BlockNum, 1);
-    const unrolledLogs = L2BlockL2Logs.unrollLogs(unencryptedLogs)
-      .map(log => UnencryptedL2Log.fromBuffer(log))
-      .map(log => log.data);
-    const bigintLogs = unrolledLogs.map((log: Buffer) => toBigIntBE(log));
+    const fromBlock = await pxe.getBlockNumber();
+    const logFilter = {
+      fromBlock,
+      toBlock: fromBlock + 1,
+    };
+    const unencryptedLogs = (await pxe.getUnencryptedLogs(logFilter)).logs;
+    const bigintLogs = unencryptedLogs.map(extendedLog => toBigIntBE(extendedLog.log.data));
 
     expect(bigintLogs).toStrictEqual(logMessages);
   };

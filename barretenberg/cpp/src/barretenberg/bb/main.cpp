@@ -14,17 +14,29 @@
 #include <vector>
 
 using namespace barretenberg;
-// Transcript downloading code only supports fetching and parsing the first transcript file.
-const uint32_t MAX_CIRCUIT_SIZE = 1 << 22;
 std::string CRS_PATH = "./crs";
 bool verbose = false;
 
-void init()
+acir_proofs::AcirComposer init(acir_format::acir_format& constraint_system)
 {
+    acir_proofs::AcirComposer acir_composer(0, verbose);
+    acir_composer.create_circuit(constraint_system);
+    auto subgroup_size = acir_composer.get_circuit_subgroup_size();
+
     // Must +1!
-    auto g1_data = get_g1_data(CRS_PATH, MAX_CIRCUIT_SIZE + 1);
+    auto g1_data = get_g1_data(CRS_PATH, subgroup_size + 1);
     auto g2_data = get_g2_data(CRS_PATH);
     srs::init_crs_factory(g1_data, g2_data);
+
+    return acir_composer;
+}
+
+acir_proofs::AcirComposer init()
+{
+    acir_proofs::AcirComposer acir_composer(0, verbose);
+    auto g2_data = get_g2_data(CRS_PATH);
+    srs::init_crs_factory({}, g2_data);
+    return acir_composer;
 }
 
 acir_format::WitnessVector get_witness(std::string const& witness_path)
@@ -77,13 +89,12 @@ std::string public_inputs_path_from_proof_path(std::string const& proof_path)
  */
 bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessPath, bool recursive)
 {
-    auto acir_composer = new acir_proofs::AcirComposer(MAX_CIRCUIT_SIZE, verbose);
     auto constraint_system = get_constraint_system(bytecodePath);
     auto witness = get_witness(witnessPath);
-    auto [public_inputs, proof] =
-        acir_composer->create_proof(srs::get_crs_factory(), constraint_system, witness, recursive);
+    auto acir_composer = init(constraint_system);
 
-    auto verified = acir_composer->verify_proof(public_inputs, proof, recursive);
+    auto [public_inputs, proof] = acir_composer.create_proof(constraint_system, witness, recursive);
+    auto verified = acir_composer.verify_proof(public_inputs, proof, recursive);
 
     vinfo("verified: ", verified);
     return verified;
@@ -106,11 +117,10 @@ void prove(const std::string& bytecodePath,
            bool recursive,
            const std::string& outputProofPath)
 {
-    auto acir_composer = new acir_proofs::AcirComposer(MAX_CIRCUIT_SIZE, verbose);
     auto constraint_system = get_constraint_system(bytecodePath);
     auto witness = get_witness(witnessPath);
-    auto [public_inputs, proof] =
-        acir_composer->create_proof(srs::get_crs_factory(), constraint_system, witness, recursive);
+    auto acir_composer = init(constraint_system);
+    auto [public_inputs, proof] = acir_composer.create_proof(constraint_system, witness, recursive);
 
     if (outputProofPath == "-") {
         writeRawBytesToStdout(public_inputs);
@@ -135,10 +145,9 @@ void prove(const std::string& bytecodePath,
  */
 void gateCount(const std::string& bytecodePath)
 {
-    auto acir_composer = new acir_proofs::AcirComposer(MAX_CIRCUIT_SIZE, verbose);
     auto constraint_system = get_constraint_system(bytecodePath);
-    acir_composer->create_circuit(constraint_system);
-    auto gate_count = acir_composer->get_total_circuit_size();
+    auto acir_composer = init(constraint_system);
+    auto gate_count = acir_composer.get_total_circuit_size();
 
     writeUint64AsRawBytesToStdout(static_cast<uint64_t>(gate_count));
     vinfo("gate count: ", gate_count);
@@ -162,9 +171,9 @@ void gateCount(const std::string& bytecodePath)
  */
 bool verify(const std::string& proof_path, bool recursive, const std::string& vk_path)
 {
-    auto acir_composer = new acir_proofs::AcirComposer(MAX_CIRCUIT_SIZE, verbose);
+    auto acir_composer = init();
     auto vk_data = from_buffer<plonk::verification_key_data>(read_file(vk_path));
-    acir_composer->load_verification_key(barretenberg::srs::get_crs_factory(), std::move(vk_data));
+    acir_composer.load_verification_key(std::move(vk_data));
 
     auto public_inputs_path = public_inputs_path_from_proof_path(proof_path);
     std::vector<uint8_t> public_inputs = read_public_inputs(public_inputs_path);
@@ -188,10 +197,10 @@ bool verify(const std::string& proof_path, bool recursive, const std::string& vk
  */
 void writeVk(const std::string& bytecodePath, const std::string& outputPath)
 {
-    auto acir_composer = new acir_proofs::AcirComposer(MAX_CIRCUIT_SIZE, verbose);
     auto constraint_system = get_constraint_system(bytecodePath);
-    acir_composer->init_proving_key(srs::get_crs_factory(), constraint_system);
-    auto vk = acir_composer->init_verification_key();
+    auto acir_composer = init(constraint_system);
+    acir_composer.init_proving_key(constraint_system);
+    auto vk = acir_composer.init_verification_key();
     auto serialized_vk = to_buffer(*vk);
     if (outputPath == "-") {
         writeRawBytesToStdout(serialized_vk);
@@ -217,10 +226,10 @@ void writeVk(const std::string& bytecodePath, const std::string& outputPath)
  */
 void contract(const std::string& output_path, const std::string& vk_path)
 {
-    auto acir_composer = new acir_proofs::AcirComposer(MAX_CIRCUIT_SIZE, verbose);
+    auto acir_composer = init();
     auto vk_data = from_buffer<plonk::verification_key_data>(read_file(vk_path));
-    acir_composer->load_verification_key(barretenberg::srs::get_crs_factory(), std::move(vk_data));
-    auto contract = acir_composer->get_solidity_verifier();
+    acir_composer.load_verification_key(std::move(vk_data));
+    auto contract = acir_composer.get_solidity_verifier();
 
     if (output_path == "-") {
         writeStringToStdout(contract);
@@ -262,7 +271,7 @@ void proofAsFields(const std::string& proof_path, const std::string& output_path
     auto proof = read_file(proof_path);
     std::vector<uint8_t> public_inputs = read_public_inputs(public_inputs_path);
 
-    auto acir_composer = new acir_proofs::AcirComposer(MAX_CIRCUIT_SIZE, verbose);
+    auto acir_composer = init();
     auto data = acir_composer->serialize_proof_into_fields(public_inputs, proof);
     auto json = format("[", join(map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
 
@@ -290,10 +299,10 @@ void proofAsFields(const std::string& proof_path, const std::string& output_path
  */
 void vkAsFields(const std::string& vk_path, const std::string& output_path)
 {
-    auto acir_composer = new acir_proofs::AcirComposer(MAX_CIRCUIT_SIZE, verbose);
+    auto acir_composer = init();
     auto vk_data = from_buffer<plonk::verification_key_data>(read_file(vk_path));
-    acir_composer->load_verification_key(barretenberg::srs::get_crs_factory(), std::move(vk_data));
-    auto data = acir_composer->serialize_verification_key_into_fields();
+    acir_composer.load_verification_key(std::move(vk_data));
+    auto data = acir_composer.serialize_verification_key_into_fields();
 
     // We need to move vk_hash to the front...
     std::rotate(data.begin(), data.end() - 1, data.end());
@@ -376,17 +385,17 @@ int main(int argc, char* argv[])
         if (command == "--version") {
             writeStringToStdout(BB_VERSION);
             return 0;
-        } else if (command == "info") {
+        }
+        if (command == "info") {
             std::string output_path = getOption(args, "-o", "info.json");
             acvmInfo(output_path);
             return 0;
         }
 
-        init();
-
         if (command == "prove_and_verify") {
             return proveAndVerify(bytecode_path, witness_path, recursive) ? 0 : 1;
-        } else if (command == "prove") {
+        }
+        if (command == "prove") {
             std::string output_path = getOption(args, "-o", "./proofs/proof");
             prove(bytecode_path, witness_path, recursive, output_path);
         } else if (command == "gates") {

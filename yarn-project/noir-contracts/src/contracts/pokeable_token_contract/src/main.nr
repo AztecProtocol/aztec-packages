@@ -1,5 +1,3 @@
-mod address_note;
-
 contract PokeableToken {
     // Libs
     use dep::std::option::Option;
@@ -19,7 +17,11 @@ contract PokeableToken {
         state_vars::{immutable_singleton::ImmutableSingleton, map::Map, set::Set},
         types::point::Point,
     };
-    use crate::address_note::{AddressNote, AddressNoteMethods, ADDRESS_NOTE_LEN};
+    use dep::address_note::address_note::{
+        AddressNote,
+        AddressNoteMethods,
+        ADDRESS_NOTE_LEN,
+    };
 
     struct Storage {
         sender: ImmutableSingleton<AddressNote, ADDRESS_NOTE_LEN>,
@@ -50,13 +52,11 @@ contract PokeableToken {
         sender: Field,
         recipient: Field
     )  {
-        
+        let mut sender_note = AddressNote::new(sender, sender);
+        let mut recipient_note = AddressNote::new(recipient, recipient);
 
-        let mut sender_note = AddressNote::new(sender);
-        let mut recipient_note = AddressNote::new(recipient);
-
-        storage.sender.initialize(&mut sender_note);
-        storage.recipient.initialize(&mut recipient_note);
+        storage.sender.initialize(&mut sender_note, Option::none());
+        storage.recipient.initialize(&mut recipient_note, Option::none());
 
         // Insert new note to a set of user notes and emit the newly created encrypted note preimage via oracle call.
         let sender_balance = storage.balances.at(sender);
@@ -69,8 +69,6 @@ contract PokeableToken {
         sender: Field,
         recipient: Field
     ) {
-        
-
         // TODO: This check is not satisfying constraints
         // let mut sender_note = AddressNote::new(sender);
         // storage.sender.assert_contains(&mut context, &mut sender_note);
@@ -107,8 +105,6 @@ contract PokeableToken {
     unconstrained fn getBalance(
         sender: Field,
     ) -> Field {
-        
-
         // Get the set of notes owned by the user.
         let sender_balance = storage.balances.at(sender);
 

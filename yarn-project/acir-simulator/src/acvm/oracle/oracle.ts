@@ -23,12 +23,6 @@ import { TypedOracle } from './typed_oracle.js';
 export class Oracle {
   constructor(private typedOracle: TypedOracle, private log = createDebugLogger('aztec:simulator:oracle')) {}
 
-  computeSelector(...args: ACVMField[][]): ACVMField {
-    const signature = oracleDebugCallToFormattedStr(args);
-    const selector = this.typedOracle.computeSelector(signature);
-    return toACVMField(selector);
-  }
-
   getRandomField(): ACVMField {
     const val = this.typedOracle.getRandomField();
     return toACVMField(val);
@@ -123,6 +117,11 @@ export class Oracle {
     return toACVMField(0);
   }
 
+  async checkNullifierExists([innerNullifier]: ACVMField[]): Promise<ACVMField> {
+    const exists = await this.typedOracle.checkNullifierExists(fromACVMField(innerNullifier));
+    return toACVMField(exists);
+  }
+
   async getL1ToL2Message([msgKey]: ACVMField[]): Promise<ACVMField[]> {
     const { root, ...message } = await this.typedOracle.getL1ToL2Message(fromACVMField(msgKey));
     return toAcvmL1ToL2MessageLoadOracleInputs(message, root);
@@ -166,7 +165,7 @@ export class Oracle {
     const logPayload = Buffer.concat(message.map(charBuffer => convertACVMFieldToBuffer(charBuffer).subarray(-1)));
     const log = new UnencryptedL2Log(
       AztecAddress.fromString(contractAddress),
-      FunctionSelector.fromField(fromACVMField(eventSelector)),
+      FunctionSelector.fromField(fromACVMField(eventSelector)), // TODO https://github.com/AztecProtocol/aztec-packages/issues/2632
       logPayload,
     );
 

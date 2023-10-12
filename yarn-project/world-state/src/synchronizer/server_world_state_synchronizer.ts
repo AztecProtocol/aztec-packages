@@ -1,10 +1,12 @@
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { elapsed } from '@aztec/foundation/timer';
 import { L2Block, L2BlockDownloader, L2BlockSource } from '@aztec/types';
+import { L2BlockHandledStats } from '@aztec/types/stats';
 
 import { LevelUp } from 'levelup';
 
-import { MerkleTreeOperations, MerkleTrees } from '../index.js';
+import { HandleL2BlockResult, MerkleTreeOperations, MerkleTrees } from '../index.js';
 import { MerkleTreeOperationsFacade } from '../merkle-tree/merkle_tree_operations_facade.js';
 import { WorldStateConfig } from './config.js';
 import { WorldStateRunningState, WorldStateStatus, WorldStateSynchronizer } from './world_state_synchronizer.js';
@@ -179,10 +181,17 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
   /**
    * Handles a list of L2 blocks (i.e. Inserts the new commitments into the merkle tree).
    * @param l2Blocks - The L2 blocks to handle.
+   * @returns Whether the block handled was produced by this same node.
    */
   private async handleL2Blocks(l2Blocks: L2Block[]) {
     for (const l2Block of l2Blocks) {
-      await this.handleL2Block(l2Block);
+      const [duration, result] = await elapsed(() => this.handleL2Block(l2Block));
+      this.log(`Handled new L2 block`, {
+        eventName: 'l2-block-handled',
+        duration,
+        isBlockOurs: result.isBlockOurs,
+        ...l2Block.getStats(),
+      } satisfies L2BlockHandledStats);
     }
   }
 
@@ -190,8 +199,8 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
    * Handles a single L2 block (i.e. Inserts the new commitments into the merkle tree).
    * @param l2Block - The L2 block to handle.
    */
-  private async handleL2Block(l2Block: L2Block) {
-    await this.merkleTreeDb.handleL2Block(l2Block);
+  private async handleL2Block(l2Block: L2Block): Promise<HandleL2BlockResult> {
+    const result = await this.merkleTreeDb.handleL2Block(l2Block);
     this.currentL2BlockNum = l2Block.number;
     if (
       this.currentState === WorldStateRunningState.SYNCHING &&
@@ -202,6 +211,7 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
         this.syncResolve();
       }
     }
+    return result;
   }
 
   /**

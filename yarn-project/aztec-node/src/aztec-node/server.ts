@@ -8,6 +8,7 @@ import {
   L1_TO_L2_MSG_TREE_HEIGHT,
   PRIVATE_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
+import { computePublicDataTreeIndex } from '@aztec/circuits.js/abis';
 import { L1ContractAddresses } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -23,6 +24,7 @@ import {
   ContractData,
   ContractDataSource,
   ExtendedContractData,
+  GetUnencryptedLogsResponse,
   L1ToL2MessageAndIndex,
   L1ToL2MessageSource,
   L2Block,
@@ -30,6 +32,7 @@ import {
   L2BlockSource,
   L2LogsSource,
   L2Tx,
+  LogFilter,
   LogType,
   MerkleTreeId,
   SiblingPath,
@@ -41,7 +44,6 @@ import {
   ServerWorldStateSynchronizer,
   WorldStateConfig,
   WorldStateSynchronizer,
-  computePublicDataTreeLeafIndex,
   getConfigEnvVars as getWorldStateConfig,
 } from '@aztec/world-state';
 
@@ -63,13 +65,22 @@ export class AztecNodeService implements AztecNode {
     protected readonly contractDataSource: ContractDataSource,
     protected readonly l1ToL2MessageSource: L1ToL2MessageSource,
     protected readonly worldStateSynchronizer: WorldStateSynchronizer,
-    protected readonly sequencer: SequencerClient,
+    protected readonly sequencer: SequencerClient | undefined,
     protected readonly chainId: number,
     protected readonly version: number,
     protected readonly globalVariableBuilder: GlobalVariableBuilder,
     protected readonly merkleTreesDb: levelup.LevelUp,
     private log = createDebugLogger('aztec:node'),
-  ) {}
+  ) {
+    const message =
+      `Started Aztec Node with contracts - \n` +
+      `Rollup: ${config.l1Contracts.rollupAddress.toString()}\n` +
+      `Registry: ${config.l1Contracts.registryAddress.toString()}\n` +
+      `Inbox: ${config.l1Contracts.inboxAddress.toString()}\n` +
+      `Outbox: ${config.l1Contracts.outboxAddress.toString()}\n` +
+      `Contract Emitter: ${config.l1Contracts.contractDeploymentEmitterAddress.toString()}`;
+    this.log(message);
+  }
 
   /**
    * initializes the Aztec Node, wait for component to sync.
@@ -97,14 +108,10 @@ export class AztecNodeService implements AztecNode {
     await Promise.all([p2pClient.start(), worldStateSynchronizer.start()]);
 
     // now create the sequencer
-    const sequencer = await SequencerClient.new(
-      config,
-      p2pClient,
-      worldStateSynchronizer,
-      archiver,
-      archiver,
-      archiver,
-    );
+    const sequencer = config.disableSequencer
+      ? undefined
+      : await SequencerClient.new(config, p2pClient, worldStateSynchronizer, archiver, archiver, archiver);
+
     return new AztecNodeService(
       config,
       p2pClient,
@@ -126,7 +133,7 @@ export class AztecNodeService implements AztecNode {
    * Returns the sequencer client instance.
    * @returns The sequencer client instance.
    */
-  public getSequencer(): SequencerClient {
+  public getSequencer(): SequencerClient | undefined {
     return this.sequencer;
   }
 
@@ -221,6 +228,15 @@ export class AztecNodeService implements AztecNode {
   }
 
   /**
+   * Gets unencrypted logs based on the provided filter.
+   * @param filter - The filter to apply to the logs.
+   * @returns The requested logs.
+   */
+  getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+    return this.unencryptedLogsSource.getUnencryptedLogs(filter);
+  }
+
+  /**
    * Method to submit a transaction to the p2p pool.
    * @param tx - The transaction to be submitted.
    */
@@ -237,7 +253,8 @@ export class AztecNodeService implements AztecNode {
    * Method to stop the aztec node.
    */
   public async stop() {
-    await this.sequencer.stop();
+    this.log.info(`Stopping`);
+    await this.sequencer?.stop();
     await this.p2pClient.stop();
     await this.worldStateSynchronizer.stop();
     await this.blockSource.stop();
@@ -302,7 +319,7 @@ export class AztecNodeService implements AztecNode {
     // todo: #697 - make this one lookup.
     const index = (await this.findLeafIndex(MerkleTreeId.L1_TO_L2_MESSAGES_TREE, messageKey.toBuffer()))!;
     const message = await this.l1ToL2MessageSource.getConfirmedL1ToL2Message(messageKey);
-    return Promise.resolve({ message, index });
+    return Promise.resolve(new L1ToL2MessageAndIndex(index, message));
   }
 
   /**
@@ -324,8 +341,8 @@ export class AztecNodeService implements AztecNode {
    */
   public async getPublicStorageAt(contract: AztecAddress, slot: bigint): Promise<Buffer | undefined> {
     const committedDb = await this.#getWorldState();
-    const leafIndex = computePublicDataTreeLeafIndex(contract, new Fr(slot), await CircuitsWasm.get());
-    return committedDb.getLeafValue(MerkleTreeId.PUBLIC_DATA_TREE, leafIndex);
+    const leafIndex = computePublicDataTreeIndex(await CircuitsWasm.get(), contract, new Fr(slot));
+    return committedDb.getLeafValue(MerkleTreeId.PUBLIC_DATA_TREE, leafIndex.value);
   }
 
   /**

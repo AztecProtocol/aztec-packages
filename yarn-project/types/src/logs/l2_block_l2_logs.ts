@@ -1,5 +1,8 @@
-import { BufferReader, serializeBufferToVector } from '@aztec/foundation/serialize';
+import { BufferReader, prefixBufferWithLength } from '@aztec/foundation/serialize';
 
+import isEqual from 'lodash.isequal';
+
+import { LogType } from './log_type.js';
 import { TxL2Logs } from './tx_l2_logs.js';
 
 /**
@@ -20,7 +23,7 @@ export class L2BlockL2Logs {
   public toBuffer(): Buffer {
     const serializedTxLogs = this.txLogs.map(logs => logs.toBuffer());
     // Concatenate all serialized function logs into a single buffer and prefix it with 4 bytes for its total length.
-    return serializeBufferToVector(Buffer.concat(serializedTxLogs));
+    return prefixBufferWithLength(Buffer.concat(serializedTxLogs));
   }
 
   /**
@@ -60,17 +63,23 @@ export class L2BlockL2Logs {
   }
 
   /**
-   * Creates a new `L2BlockL2Logs` object with `numFunctionInvocations` function logs and `numLogsIn1Invocation` logs
-   * in each invocation.
+   * Creates a new `L2BlockL2Logs` object with `numCalls` function logs and `numLogsPerCall` logs in each function
+   * call.
    * @param numTxs - The number of txs in the block.
-   * @param numFunctionInvocations - The number of function invocations in the tx.
-   * @param numLogsIn1Invocation - The number of logs emitted in each function invocation.
+   * @param numCalls - The number of function calls in the tx.
+   * @param numLogsPerCall - The number of logs emitted in each function call.
+   * @param logType - The type of logs to generate.
    * @returns A new `L2BlockL2Logs` object.
    */
-  public static random(numTxs: number, numFunctionInvocations: number, numLogsIn1Invocation: number): L2BlockL2Logs {
+  public static random(
+    numTxs: number,
+    numCalls: number,
+    numLogsPerCall: number,
+    logType = LogType.ENCRYPTED,
+  ): L2BlockL2Logs {
     const txLogs: TxL2Logs[] = [];
     for (let i = 0; i < numTxs; i++) {
-      txLogs.push(TxL2Logs.random(numFunctionInvocations, numLogsIn1Invocation));
+      txLogs.push(TxL2Logs.random(numCalls, numLogsPerCall, logType));
     }
     return new L2BlockL2Logs(txLogs);
   }
@@ -84,9 +93,7 @@ export class L2BlockL2Logs {
     const logs: Buffer[] = [];
     for (const blockLog of blockLogs) {
       for (const txLog of blockLog.txLogs) {
-        for (const functionLog of txLog.functionLogs) {
-          logs.push(...functionLog.logs);
-        }
+        logs.push(...txLog.unrollLogs());
       }
     }
     return logs;
@@ -103,6 +110,15 @@ export class L2BlockL2Logs {
   }
 
   /**
+   * Checks if two L2BlockL2Logs objects are equal.
+   * @param other - Another L2BlockL2Logs object to compare with.
+   * @returns True if the two objects are equal, false otherwise.
+   */
+  public equals(other: L2BlockL2Logs): boolean {
+    return isEqual(this, other);
+  }
+
+  /**
    * Convert a plain JSON object to a L2BlockL2Logs class object.
    * @param obj - A plain L2BlockL2Logs JSON object.
    * @returns A L2BlockL2Logs class object.
@@ -110,5 +126,14 @@ export class L2BlockL2Logs {
   public static fromJSON(obj: any) {
     const txLogs = obj.txLogs.map((log: any) => TxL2Logs.fromJSON(log));
     return new L2BlockL2Logs(txLogs);
+  }
+
+  /**
+   * Returns the total number of log entries across an array of L2BlockL2Logs.
+   * @param l2BlockL2logs - L2BlockL2Logs to sum over.
+   * @returns Total sum of log entries.
+   */
+  public static getTotalLogCount(l2BlockL2logs: L2BlockL2Logs[]): number {
+    return l2BlockL2logs.reduce((sum, log) => sum + log.getTotalLogCount(), 0);
   }
 }

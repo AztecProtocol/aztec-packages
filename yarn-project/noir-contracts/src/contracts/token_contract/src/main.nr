@@ -22,7 +22,7 @@ contract Token {
             utils as note_utils,
         },
         context::{PrivateContext, PublicContext, Context},
-        hash::{compute_message_hash, compute_secret_hash},
+        hash::{compute_secret_hash},
         state_vars::{map::Map, public_state::PublicState, set::Set},
         types::type_serialization::{
             field_serialization::{FieldSerializationMethods, FIELD_SERIALIZED_LEN},
@@ -30,9 +30,17 @@ contract Token {
             aztec_address_serialization::{AztecAddressSerializationMethods, AZTEC_ADDRESS_SERIALIZED_LEN},
         },
         types::address::{AztecAddress},
-        oracle::compute_selector::compute_selector,
-        auth::{assert_valid_message_for, assert_valid_public_message_for}
+        selector::compute_selector,
     };
+
+    // docs:start:import_authwit
+    use dep::authwit::{
+        auth::{
+            assert_current_call_valid_authwit, 
+            assert_current_call_valid_authwit_public, 
+        },
+    };
+    // docs:end:import_authwit
 
     use crate::types::{
         transparent_note::{TransparentNote, TransparentNoteMethods, TRANSPARENT_NOTE_LEN},
@@ -193,8 +201,7 @@ contract Token {
     ) -> Field {
         if (from.address != context.msg_sender()) {
             // The redeem is only spendable once, so we need to ensure that you cannot insert multiple shields from the same message.
-            let message_field = compute_message_hash([context.msg_sender(), context.this_address(), context.selector(), from.address, amount, secret_hash, nonce]);
-            assert_valid_public_message_for(&mut context, from.address, message_field);
+            assert_current_call_valid_authwit_public(&mut context, from);
         } else {
             assert(nonce == 0, "invalid nonce");
         }
@@ -220,8 +227,7 @@ contract Token {
         nonce: Field,
     ) -> Field {
         if (from.address != context.msg_sender()) {
-            let message_field = compute_message_hash([context.msg_sender(), context.this_address(), context.selector(), from.address, to.address, amount, nonce]);
-            assert_valid_public_message_for(&mut context, from.address, message_field);
+            assert_current_call_valid_authwit_public(&mut context, from);
         } else {
             assert(nonce == 0, "invalid nonce");
         }
@@ -245,8 +251,7 @@ contract Token {
         nonce: Field,
     ) -> Field {
         if (from.address != context.msg_sender()) {
-            let message_field = compute_message_hash([context.msg_sender(), context.this_address(), context.selector(), from.address, amount, nonce]);
-            assert_valid_public_message_for(&mut context, from.address, message_field);
+            assert_current_call_valid_authwit_public(&mut context, from);
         } else {
             assert(nonce == 0, "invalid nonce");
         }
@@ -291,8 +296,7 @@ contract Token {
         nonce: Field,
     ) -> Field {
         if (from.address != context.msg_sender()) {
-            let message_field = compute_message_hash([context.msg_sender(), context.this_address(), context.selector(), from.address, to.address, amount, nonce]);
-            assert_valid_message_for(&mut context, from.address, message_field);
+            assert_current_call_valid_authwit(&mut context, from);
         } else {
             assert(nonce == 0, "invalid nonce");
         }
@@ -315,8 +319,7 @@ contract Token {
         nonce: Field,
     ) -> Field {
         if (from.address != context.msg_sender()) {
-            let message_field = compute_message_hash([context.msg_sender(), context.this_address(), context.selector(), from.address, to.address, amount, nonce]);
-            assert_valid_message_for(&mut context, from.address, message_field);
+            assert_current_call_valid_authwit(&mut context, from);
         } else {
             assert(nonce == 0, "invalid nonce");
         }
@@ -337,8 +340,7 @@ contract Token {
         nonce: Field,
     ) -> Field {
         if (from.address != context.msg_sender()) {
-            let message_field = compute_message_hash([context.msg_sender(), context.this_address(), context.selector(), from.address, amount, nonce]);
-            assert_valid_message_for(&mut context, from.address, message_field);
+            assert_current_call_valid_authwit(&mut context, from);
         } else {
             assert(nonce == 0, "invalid nonce");
         }

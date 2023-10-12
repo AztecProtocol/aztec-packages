@@ -39,7 +39,7 @@ WASM_EXPORT void acir_init_proving_key(in_ptr acir_composer_ptr, uint8_t const* 
     auto acir_composer = reinterpret_cast<acir_proofs::AcirComposer*>(*acir_composer_ptr);
     auto constraint_system = acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec));
 
-    acir_composer->init_proving_key(barretenberg::srs::get_crs_factory(), constraint_system);
+    acir_composer->init_proving_key(constraint_system);
 }
 
 WASM_EXPORT void acir_create_proof(in_ptr acir_composer_ptr,
@@ -54,8 +54,7 @@ WASM_EXPORT void acir_create_proof(in_ptr acir_composer_ptr,
         acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(constraint_system_buf));
     auto witness = acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_buf));
 
-    auto [public_inputs, proof] =
-        acir_composer->create_proof(barretenberg::srs::get_crs_factory(), constraint_system, witness, *is_recursive);
+    auto [public_inputs, proof] = acir_composer->create_proof(constraint_system, witness, *is_recursive);
     *out_public_inputs = to_heap_buffer(public_inputs);
     *out_proof = to_heap_buffer(proof);
 }
@@ -64,7 +63,7 @@ WASM_EXPORT void acir_load_verification_key(in_ptr acir_composer_ptr, uint8_t co
 {
     auto acir_composer = reinterpret_cast<acir_proofs::AcirComposer*>(*acir_composer_ptr);
     auto vk_data = from_buffer<plonk::verification_key_data>(vk_buf);
-    acir_composer->load_verification_key(barretenberg::srs::get_crs_factory(), std::move(vk_data));
+    acir_composer->load_verification_key(std::move(vk_data));
 }
 
 WASM_EXPORT void acir_init_verification_key(in_ptr acir_composer_ptr)

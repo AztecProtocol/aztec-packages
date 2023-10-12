@@ -1,17 +1,17 @@
 import { Contract, ContractDeployer, createPXEClient, getSandboxAccountsWallets } from '@aztec/aztec.js';
-import { TokenContractAbi } from '@aztec/noir-contracts/artifacts';
+import { TokenContractArtifact } from '@aztec/noir-contracts/artifacts';
 
 import { writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 
 // docs:start:dapp-deploy
-const { SANDBOX_URL = 'http://localhost:8080' } = process.env;
+const { PXE_URL = 'http://localhost:8080' } = process.env;
 
 async function main() {
-  const pxe = createPXEClient(SANDBOX_URL);
+  const pxe = createPXEClient(PXE_URL);
   const [owner] = await getSandboxAccountsWallets(pxe);
 
-  const token = await Contract.deploy(pxe, TokenContractAbi, [owner.getCompleteAddress()]).send().deployed();
+  const token = await Contract.deploy(pxe, TokenContractArtifact, [owner.getCompleteAddress()]).send().deployed();
 
   console.log(`Token deployed at ${token.address.toString()}`);
 

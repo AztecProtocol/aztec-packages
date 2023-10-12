@@ -1,5 +1,5 @@
 import { AztecAddress, Fr, FunctionData, TxContext } from '@aztec/circuits.js';
-import { FunctionAbiHeader, encodeArguments } from '@aztec/foundation/abi';
+import { FunctionAbi, encodeArguments } from '@aztec/foundation/abi';
 import { FunctionCall, PackedArguments, TxExecutionRequest } from '@aztec/types';
 
 import { DEFAULT_CHAIN_ID, DEFAULT_VERSION } from '../../utils/defaults.js';
@@ -46,7 +46,7 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
           name: 'payload',
           type: {
             kind: 'struct',
-            path: 'aztec::entrypoint::EntrypointPayload',
+            path: 'authwit::entrypoint::EntrypointPayload',
             fields: [
               {
                 name: 'function_calls',
@@ -55,7 +55,7 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
                   length: 4,
                   type: {
                     kind: 'struct',
-                    path: 'aztec::entrypoint::FunctionCall',
+                    path: 'authwit::entrypoint::FunctionCall',
                     fields: [
                       {
                         name: 'args_hash',
@@ -97,6 +97,6 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
         },
       ],
       returnTypes: [],
-    } as FunctionAbiHeader;
+    } as FunctionAbi;
   }
 }

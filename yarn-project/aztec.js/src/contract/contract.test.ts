@@ -1,17 +1,7 @@
 import { AztecAddress, CompleteAddress, EthAddress } from '@aztec/circuits.js';
 import { L1ContractAddresses } from '@aztec/ethereum';
-import { ABIParameterVisibility, ContractAbi, FunctionType } from '@aztec/foundation/abi';
-import {
-  DeployedContract,
-  ExtendedContractData,
-  NodeInfo,
-  Tx,
-  TxExecutionRequest,
-  TxHash,
-  TxReceipt,
-  randomContractAbi,
-  randomDeployedContract,
-} from '@aztec/types';
+import { ABIParameterVisibility, ContractArtifact, FunctionType } from '@aztec/foundation/abi';
+import { ExtendedContractData, NodeInfo, Tx, TxExecutionRequest, TxHash, TxReceipt } from '@aztec/types';
 
 import { MockProxy, mock } from 'jest-mock-extended';
 
@@ -45,7 +35,7 @@ describe('Contract Class', () => {
     l1ContractAddresses: l1Addresses,
   };
 
-  const defaultAbi: ContractAbi = {
+  const defaultArtifact: ContractArtifact = {
     name: 'FooContract',
     functions: [
       {
@@ -102,6 +92,7 @@ describe('Contract Class', () => {
         bytecode: '0cd',
       },
     ],
+    events: [],
   };
 
   beforeEach(async () => {
@@ -121,7 +112,7 @@ describe('Contract Class', () => {
   });
 
   it('should create and send a contract method tx', async () => {
-    const fooContract = await Contract.at(contractAddress, defaultAbi, wallet);
+    const fooContract = await Contract.at(contractAddress, defaultArtifact, wallet);
     const param0 = 12;
     const param1 = 345n;
     const sentTx = fooContract.methods.bar(param0, param1).send();
@@ -136,7 +127,7 @@ describe('Contract Class', () => {
   });
 
   it('should call view on an unconstrained function', async () => {
-    const fooContract = await Contract.at(contractAddress, defaultAbi, wallet);
+    const fooContract = await Contract.at(contractAddress, defaultArtifact, wallet);
     const result = await fooContract.methods.qux(123n).view({
       from: account.address,
     });
@@ -146,36 +137,13 @@ describe('Contract Class', () => {
   });
 
   it('should not call create on an unconstrained function', async () => {
-    const fooContract = await Contract.at(contractAddress, defaultAbi, wallet);
+    const fooContract = await Contract.at(contractAddress, defaultArtifact, wallet);
     await expect(fooContract.methods.qux().create()).rejects.toThrow();
   });
 
   it('should not call view on a secret or open function', async () => {
-    const fooContract = await Contract.at(contractAddress, defaultAbi, wallet);
+    const fooContract = await Contract.at(contractAddress, defaultArtifact, wallet);
     expect(() => fooContract.methods.bar().view()).toThrow();
     expect(() => fooContract.methods.baz().view()).toThrow();
-  });
-
-  it('should add contract and dependencies to PXE', async () => {
-    const entry: DeployedContract = {
-      abi: randomContractAbi(),
-      completeAddress: resolvedExtendedContractData.getCompleteAddress(),
-      portalContract: EthAddress.random(),
-    };
-    const contract = await Contract.at(entry.completeAddress.address, entry.abi, wallet);
-
-    {
-      await contract.attach(entry.portalContract);
-      expect(wallet.addContracts).toHaveBeenCalledTimes(1);
-      expect(wallet.addContracts).toHaveBeenCalledWith([entry]);
-      wallet.addContracts.mockClear();
-    }
-
-    {
-      const dependencies = [await randomDeployedContract(), await randomDeployedContract()];
-      await contract.attach(entry.portalContract, dependencies);
-      expect(wallet.addContracts).toHaveBeenCalledTimes(1);
-      expect(wallet.addContracts).toHaveBeenCalledWith([entry, ...dependencies]);
-    }
   });
 });
