@@ -178,7 +178,7 @@ bool verify(const std::string& proof_path, bool recursive, const std::string& vk
     auto public_inputs_path = public_inputs_path_from_proof_path(proof_path);
     std::vector<uint8_t> public_inputs = read_public_inputs(public_inputs_path);
     auto proof = read_file(proof_path);
-    auto verified = acir_composer->verify_proof(public_inputs, proof, recursive);
+    auto verified = acir_composer.verify_proof(public_inputs, proof, recursive);
 
     vinfo("verified: ", verified);
 
@@ -272,7 +272,7 @@ void proofAsFields(const std::string& proof_path, const std::string& output_path
     std::vector<uint8_t> public_inputs = read_public_inputs(public_inputs_path);
 
     auto acir_composer = init();
-    auto data = acir_composer->serialize_proof_into_fields(public_inputs, proof);
+    auto data = acir_composer.serialize_proof_into_fields(public_inputs, proof);
     auto json = format("[", join(map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
 
     if (output_path == "-") {

@@ -16,9 +16,14 @@ inline std::streamsize get_file_size(const std::string& filename)
     return file.tellg();
 }
 
-inline std::vector<uint8_t> read_file(const std::string& filename)
+inline std::vector<uint8_t> read_file(const std::string& filename, size_t bytes = 0)
 {
-    std::streamsize size = get_file_size(filename);
+    std::streamsize size;
+    if (bytes == 0) {
+        size = get_file_size(filename);
+    } else {
+        size = (std::streamsize)bytes;
+    }
 
     if (size <= 0) {
         throw std::runtime_error("File is empty or there's an error reading it: " + filename);
