@@ -11,7 +11,6 @@ import {
   EncodedContractFunction,
   ExtendedContractData,
   GetUnencryptedLogsResponse,
-  INITIAL_L2_BLOCK_NUM,
   L1ToL2Message,
   L1ToL2MessageSource,
   L2Block,
