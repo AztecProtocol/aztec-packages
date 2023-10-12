@@ -157,7 +157,7 @@ export class Sequencer {
       // public functions emitting nullifiers would pass earlier check but fail here.
       // Note that we're checking all nullifiers generated in the private execution twice,
       // we could store the ones already checked and skip them here as an optimisation.
-      const processedValidTxs = await this.takeValidTxs(processedTxs);
+      const processedValidTxs = await this.takeValidTxs(processedTxs, newGlobalVariables);
 
       if (processedValidTxs.length === 0) {
         this.log('No txs processed correctly to build block. Exiting');
