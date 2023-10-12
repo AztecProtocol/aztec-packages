@@ -1,7 +1,7 @@
 import { AztecAddress, Contract, ContractDeployer, EthAddress, Fr, Wallet, isContractDeployed } from '@aztec/aztec.js';
 import { CompleteAddress, getContractDeploymentInfo } from '@aztec/circuits.js';
 import { DebugLogger } from '@aztec/foundation/log';
-import { TestAssertContractArtifact, TestContractArtifact } from '@aztec/noir-contracts/artifacts';
+import { TestContractArtifact, TokenContractArtifact } from '@aztec/noir-contracts/artifacts';
 import { PXE, TxStatus } from '@aztec/types';
 
 import { setup } from './fixtures/utils.js';
@@ -132,8 +132,8 @@ describe('e2e_deploy_contract', () => {
   it('it should not deploy a contract which failed the public part of the execution', async () => {
     // This test requires at least another good transaction to go through in the same block as the bad one.
     // I deployed the same contract again but it could really be any valid transaction here.
-    const goodDeploy = new ContractDeployer(TestAssertContractArtifact, wallet).deploy(0);
-    const badDeploy = new ContractDeployer(TestAssertContractArtifact, wallet).deploy(1);
+    const goodDeploy = new ContractDeployer(TokenContractArtifact, wallet).deploy(AztecAddress.random());
+    const badDeploy = new ContractDeployer(TokenContractArtifact, wallet).deploy(AztecAddress.ZERO);
 
     await Promise.all([
       goodDeploy.simulate({ skipPublicSimulation: true }),

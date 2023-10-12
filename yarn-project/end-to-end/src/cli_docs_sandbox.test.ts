@@ -114,7 +114,6 @@ SchnorrAccountContractArtifact
 SchnorrHardcodedAccountContractArtifact
 SchnorrSingleKeyAccountContractArtifact
 StatefulTestContractArtifact
-TestAssertContractArtifact
 TestContractArtifact
 TokenBridgeContractArtifact
 TokenContractArtifact
