@@ -2,6 +2,8 @@
 title: Build an Aztec Connect-style Uniswap
 ---
 
+import Image from "@theme/IdealImage";
+
 :::note
 💡 Before going through this tutorial, you will need to have completed the [Token Bridge tutorial](../token_portal/main.md)
 :::
@@ -26,7 +28,7 @@ We will create:
 1. Uniswap Portal - a contract on L1 that talks to the input token portal to withdraw the assets, executes the swap, and deposits the swapped tokens back to L2
 2. Uniswap L2 contract - a contract on L2 that creates the needed messages to perform the swap on L1
 
-// TODO PHOTO
+<Image img={require("/img/tutorials/uniswap_flow.png")} />
 
 This diagram describes the private flow.
 

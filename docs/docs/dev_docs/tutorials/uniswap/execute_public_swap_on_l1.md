@@ -2,7 +2,7 @@
 title: Solidity Code to Execute Swap on L1
 ---
 
-To execute the swaps on L1, go back to the `UniswapPortal.sol` we [created earlier](./l1_portal.md) in `packages/l1-contracts`.
+To execute the swaps on L1, go back to the `UniswapPortal.sol` we [created earlier](./l1_portal.md) in `l1-contracts`.
 
 Under the struct, paste this code that will manage the public flow:
 
@@ -23,6 +23,6 @@ Under the struct, paste this code that will manage the public flow:
 
    To incentivize the sequencer to pick up this message, we pass a fee to the deposit message.
 
-This concludes the public flow. 
+This concludes the public flow.
 
 In the next step, we will code a private flow in the Aztec.nr contract.

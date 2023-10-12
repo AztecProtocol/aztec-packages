@@ -32,58 +32,12 @@ curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | sh
 noirup -v #include_noir_version
 ```
 
-# Create a yarn project
+# Create the root project
 
-Our root yarn project will house everything ✨
+Our root project will house everything ✨
 
 ```sh
-mkdir aztec-token-bridge && cd aztec-token-bridge && yarn init
-```
-
-In your `package.json` add this
-
-```json
-"type": "module",
-  "scripts": {
-    "build": "yarn clean && tsc -b",
-    "build:dev": "tsc -b --watch",
-    "clean": "rm -rf ./dest tsconfig.tsbuildinfo",
-    "start": "yarn build && node ./dest/src/index.js"
-  },
-```
-
-Create a `tsconfig.json` and paste this into it:
-
-```json
-{
-  "compilerOptions": {
-    "rootDir": "./packages",
-    "outDir": "./dest",
-    "target": "es2020",
-    "lib": ["dom", "esnext", "es2017.object"],
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "strict": true,
-    "declaration": true,
-    "allowSyntheticDefaultImports": true,
-    "esModuleInterop": true,
-    "downlevelIteration": true,
-    "inlineSourceMap": true,
-    "declarationMap": true,
-    "importHelpers": true,
-    "resolveJsonModule": true,
-    "composite": true,
-    "skipLibCheck": true
-  },
-  "include": [
-    "packages/src/**/*",
-    "contracts/**/*.json",
-    "packages/src/**/*",
-    "packages/aztec-contracts/token_bridge/target/*.json"
-  ],
-  "exclude": ["node_modules", "**/*.spec.ts", "contracts/**/*.ts"],
-  "references": []
-}
+mkdir aztec-token-bridge
 ```
 
 # Create a nargo project
@@ -119,7 +73,7 @@ safe_math = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#incl
 
 Inside `src` you will see a `main.nr` file. This is where our main smart contract will go.
 
-We will also be writing some helper functions that should exist elsewhere so we don't overcomplicated our contract. In `src` create another file called `util.nr` so your dir structure should now look like this:
+We will also be writing some helper functions that should exist elsewhere so we don't overcomplicated our contract. In `src` create two more files - one called `util.nr` and one called `token_interface` - so your dir structure should now look like this:
 
 ```
 aztec-contracts
@@ -140,6 +94,7 @@ mkdir l1-contracts
 cd l1-contracts
 npx hardhat init
 ```
+
 Once you have a hardhat project set up, delete the existing contracts and create a `TokenPortal.sol`:
 
 ```sh
@@ -148,10 +103,11 @@ rm *.sol
 touch TokenPortal.sol
 ```
 
-Also add Aztec's L1-contracts that includes the interfaces to Aztec Inbox, Outbox and Registry smart contracts, which we will need to send messages between L1 and L2.
+Now add dependencies that are required. These include interfaces to Aztec Inbox, Outbox and Registry smart contracts, OpenZeppelin contracts, and NomicFoundation.
 
-```
-yarn add @aztec/l1-contracts
+```sh
+yarn add @aztec/l1-contracts @nomicfoundation/hardhat-network-helpers @nomicfoundation/hardhat-chai-matchers @nomiclabs/hardhat-ethers @nomiclabs/hardhat-etherscan @types/chai @types/mocha @typechain/ethers-v5 @typechain/hardhat chai hardhat-gas-reporter solidity-coverage ts-node typechain typescript @openzeppelin/contracts
+
 ```
 
 This is what your `l1-contracts` should look like:
@@ -166,11 +122,17 @@ This is what your `l1-contracts` should look like:
 └── package.json
 ```
 
+We will need to ensure we are using the correct Solidity version. Inside your `hardhat.config.js` update `solidity` version to this:
+
+```json
+  solidity: "0.8.20",
+```
+
 # Create src yarn project
 
-In this package, we will write TS code that will interact with our ethereum and aztec-nr contracts and run them against the sandbox.
+In this directory, we will write TS code that will interact with our L1 and L2 contracts and run them against the sandbox.
 
-We will use `viem` instead of `ethers.js` although ethers works fine too! We will also use `jest` to test our code.
+We will use `viem` in this tutorial and `jest` for testing.
 
 Inside the root directory, run
 
@@ -189,7 +151,7 @@ In `package.json`, add:
 }
 ```
 
-Your `package.json` should look like so:
+Your `package.json` should look something like this:
 
 ```json
 {
@@ -218,7 +180,43 @@ Your `package.json` should look like so:
 }
 ```
 
-In this package we will also add a jest config file: `jest.config.json`
+Create a `tsconfig.json` and paste this:
+
+```json
+{
+  "compilerOptions": {
+    "rootDir": "../",
+    "outDir": "./dest",
+    "target": "es2020",
+    "lib": ["dom", "esnext", "es2017.object"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "declaration": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "downlevelIteration": true,
+    "inlineSourceMap": true,
+    "declarationMap": true,
+    "importHelpers": true,
+    "resolveJsonModule": true,
+    "composite": true,
+    "skipLibCheck": true
+  },
+  "include": [
+    "packages/src/**/*",
+    "contracts/**/*.json",
+    "packages/src/**/*",
+    "packages/aztec-contracts/token_bridge/target/*.json"
+  ],
+  "exclude": ["node_modules", "**/*.spec.ts", "contracts/**/*.ts"],
+  "references": []
+}
+```
+
+The main thing this will allow us to do is to access TS artifacts that we generate later from our test.
+
+Then create a jest config file: `jest.config.json`
 
 ```json
 {
@@ -236,14 +234,20 @@ In this package we will also add a jest config file: `jest.config.json`
 }
 ```
 
-Finally, we will create a test file, in the `src` package:
+You will also need to install some dependencies:
+
+```sh
+yarn add --dev typescript @types/jest ts-jest
+```
+
+Finally, we will create a test file. Run this in the `src` directory.:
 
 ```sh
 mkdir test && cd test
 touch cross_chain_messaging.test.ts
 ```
 
-Your `src` package should look like:
+Your `src` dir should look like:
 
 ```tree
 src

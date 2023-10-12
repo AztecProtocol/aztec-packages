@@ -4,14 +4,16 @@ title: Setup & Installation
 
 This tutorial builds on top of the project created in the previous tutorial. It can exist on its own, but for our sake it is much easier to utilize the existing L1 contracts that we already have in place.
 
-If you don’t have this, you can find the code for it [here].
-// TODO full code in dev-rels rouper
+If you don’t have this, you can find the code for it [in our dev-rels repo](https://github.com/AztecProtocol/dev-rel/tree/main/tutorials/token-bridge-e2e).
 
 # Uniswap contract
-To interact with uniswap we need to add it's interface:
+
+To interact with Uniswap we need to add its interface. In the root repo we created in the [token bridge tutorial](../token_portal/main.md), run this:
 
 ```bash
-cd packages/l1-contracts && mkdir external && touch ISwapRouter.sol
+cd l1-contracts
+mkdir external && cd external
+touch ISwapRouter.sol
 ```
 
 Inside `ISwapRouter.sol` paste this:
@@ -22,10 +24,10 @@ This is an interface for the Uniswap V3 Router, providing token swapping functio
 
 # Create another nargo project
 
-In `aztec-packages` create a new nargo project.
+In `aztec-contracts` create a new nargo project.
 
 ```bash
-cd packages/aztec-packages && nargo new --contract uniswap
+cd aztec-contracts && nargo new --contract uniswap
 ```
 
 Now your `aztec-contracts` will look like this:
@@ -49,6 +51,7 @@ Inside `uniswap/Nargo.toml` paste this in `[dependencies]`:
 aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/aztec" }
 value_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/value-note"}
 safe_math = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/safe-math"}
+authwit = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/authwit"}
 ```
 
 # L2 contracts
@@ -56,10 +59,10 @@ safe_math = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#incl
 The `main.nr` will utilize a few helper functions that are outside the scope of this tutorial. Inside `uniswap/src` create two new files:
 
 ```bash
-cd uniswap/src && touch util.nr && touch interface.nr
+cd uniswap/src && touch util.nr && touch interfaces.nr
 ```
 
-Inside `interface.nr` paste this:
+Inside `interfaces.nr` paste this:
 
 #include_code interfaces yarn-project/noir-contracts/src/contracts/uniswap_contract/src/interfaces.nr rust
 
@@ -76,4 +79,4 @@ You will need a running sandbox.
 /bin/bash -c "$(curl -fsSL 'https://sandbox.aztec.network')"
 ```
 
-Next we will write the L1 Uniswap Portal 
+In the next step, we will write the L1 Uniswap Portal.

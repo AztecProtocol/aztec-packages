@@ -6,10 +6,10 @@ In this step, we will write our token portal contract on L1.
 
 ## Initialize Solidity contract
 
-In `l1-contracts/contracts` create a new file called `TokenPortal.sol` and paste this:
+In `l1-contracts/contracts` in your file called `TokenPortal.sol` paste this:
 
 ```solidity
-pragma solidity >=0.8.18;
+pragma solidity ^0.8.20;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -38,12 +38,12 @@ contract TokenPortal {
 This imports relevant files including the interfaces used by the Aztec rollup. And initializes the contract with the following parameters:
 
 - rollup registry address (that stores the current rollup, inbox and outbox contract addresses)
-- The erc20 token the portal corresponds to
+- The ERC20 token the portal corresponds to
 - The address of the sister contract on Aztec to where the token will send messages to (for depositing tokens or from where to withdraw the tokens)
 
-Let's also create a dummy ERC20 contract that can mint tokens to anyone. This will make it easier to test our code:
+Create a basic ERC20 contract that can mint tokens to anyone. We will use this to test.
 
-Let's create a file `PortalERC20.sol` in the same folder and add:
+Create a file `PortalERC20.sol` in the same folder and add:
 
 ```solidity
 // SPDX-License-Identifier: Apache-2.0
@@ -59,11 +59,12 @@ contract PortalERC20 is ERC20 {
   }
 }
 ```
+
 ## Depositing tokens to Aztec publicly
 
 Next, we will write a function that is used to deposit funds on L1 that a user may have into an Aztec portal and send a message to the Aztec rollup to mint tokens _publicly_ on Aztec.
 
-Paste this in TokenPortal.sol
+Paste this in `TokenPortal.sol`
 
 #include_code deposit_public /l1-contracts/test/portals/TokenPortal.sol solidity
 

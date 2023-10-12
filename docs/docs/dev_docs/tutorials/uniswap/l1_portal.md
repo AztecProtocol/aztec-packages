@@ -6,22 +6,23 @@ In this step we will set up our Solidity portal contract.
 
 In `l1-tokens` create a new file called `UniswapPortal.sol`
 
-```bash
-cd packages/l1-tokens && touch UniswapPortal.sol
+```sh
+cd l1-contracts/contracts && touch UniswapPortal.sol
 ```
 
 and paste this inside:
+
 ```solidity
-pragma solidity >=0.8.18;
+pragma solidity ^0.8.20;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import {IRegistry} from "@aztec/l1-contracts/src/core/interfaces/messagebridge/IRegistry.sol";
 import {DataStructures} from "@aztec/l1-contracts/src/core/libraries/DataStructures.sol";
 import {Hash} from "@aztec/l1-contracts/src/core/libraries/Hash.sol";
+```
 
 #include_code setup l1-contracts/test/portals/UniswapPortal.sol solidity raw
-```
 
 In this set up we defined the `initialize()` function and a struct (`LocalSwapVars`) to manage assets being swapped.
 

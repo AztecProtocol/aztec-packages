@@ -25,7 +25,7 @@ The `exit_to_l1_public` function enables anyone to withdraw their L2 tokens back
 
 ## Withdrawing Privately
 
-This function works very similarly to the public version, except here we burn user’s private notes. Under the public function, paste this:
+This function works very similarly to the public version, except here we burn user’s private notes. Under the public function in your `main.nr`, paste this:
 
 #include_code exit_to_l1_private /yarn-project/noir-contracts/src/contracts/token_bridge_contract/src/main.nr rust
 
@@ -55,19 +55,22 @@ We call this pattern _designed caller_ which enables a new paradigm **where we c
 
 ## Compile code
 
-We are done with our contracts! Let's compile them:
+Congratulations, you have written all the contracts we need for this tutorial! Now let's compile them.
 
-Compile your solidity contracts to ensure everything is okay:
+Compile your Solidity contracts using hardhat. Run this in the root of your project:
+
 ```bash
-cd packages/l1-contracts
+cd l1-contracts
 npx hardhat compile
 ```
 
-Compile your aztec-nr contracts:
+And compile your Aztec.nr contracts like this:
+
 ```bash
-cd packages/aztec-contracts
-aztec-cli compile --typescript ../../src/test/fixtures token_bridge 
+cd aztec-contracts
+aztec-cli compile --typescript ../../src/test/fixtures token_bridge
 ```
-This will create a TS interface in our src/test folder!
+
+This will create a TS interface in our `src/test` folder!
 
 In the next step we will write the TypeScript code to deploy our contracts and call on both L1 and L2 so we can see how everything works together.
