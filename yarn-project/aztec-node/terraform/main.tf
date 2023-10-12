@@ -99,7 +99,7 @@ resource "aws_ecs_task_definition" "aztec-node-1" {
 [
   {
     "name": "${var.DEPLOY_TAG}-aztec-node-1",
-    "image": "${var.ECR_URL}/aztec-node:aztec3-packages-prod",
+    "image": "philwindle/aztec-node:latest",
     "essential": true,
     "memoryReservation": 3776,
     "portMappings": [
@@ -194,10 +194,6 @@ resource "aws_ecs_task_definition" "aztec-node-1" {
       {
         "name": "P2P_ENABLED",
         "value": "true"
-      },
-      {
-        "name": "CHAIN_ID",
-        "value": "${var.CHAIN_ID}"
       },
       {
         "name": "PEER_ID_PRIVATE_KEY",
@@ -392,7 +388,7 @@ resource "aws_ecs_task_definition" "aztec-node-2" {
 [
   {
     "name": "${var.DEPLOY_TAG}-aztec-node-2",
-    "image": "${var.ECR_URL}/aztec-node:aztec3-packages-prod",
+    "image": "philwindle/aztec-node:latest",
     "essential": true,
     "memoryReservation": 3776,
     "portMappings": [
@@ -487,10 +483,6 @@ resource "aws_ecs_task_definition" "aztec-node-2" {
       {
         "name": "P2P_ENABLED",
         "value": "true"
-      },
-      {
-        "name": "CHAIN_ID",
-        "value": "${var.CHAIN_ID}"
       },
       {
         "name": "PEER_ID_PRIVATE_KEY",

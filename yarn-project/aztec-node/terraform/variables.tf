@@ -26,10 +26,6 @@ variable "SEQ_2_PUBLISHER_PRIVATE_KEY" {
   type = string
 }
 
-variable "CHAIN_ID" {
-  type = string
-}
-
 variable "BOOTNODE_1_LISTEN_PORT" {
   type = string
 }
