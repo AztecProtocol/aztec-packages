@@ -3,6 +3,7 @@ import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/azte
 import {
   DeployL1Contracts,
   L1ContractArtifactsForDeployment,
+  NULL_KEY,
   createEthereumChain,
   deployL1Contracts,
 } from '@aztec/ethereum';
@@ -22,7 +23,7 @@ import {
 } from '@aztec/l1-artifacts';
 import { createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 
-import { HDAccount, Hex, createPublicClient, http as httpViemTransport } from 'viem';
+import { HDAccount, createPublicClient, http as httpViemTransport } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
@@ -120,8 +121,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
   const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars(), ...config };
   const pxeServiceConfig = getPXEServiceConfig();
   const hdAccount = mnemonicToAccount(config.l1Mnemonic ?? MNEMONIC);
-  const emptyKey: Hex = `0x${'0000000000000000000000000000000000000000000000000000000000000000'}`;
-  if (aztecNodeConfig.publisherPrivateKey === emptyKey) {
+  if (aztecNodeConfig.publisherPrivateKey === NULL_KEY) {
     const privKey = hdAccount.getHdKey().privateKey;
     aztecNodeConfig.publisherPrivateKey = `0x${Buffer.from(privKey!).toString('hex')}`;
   }
