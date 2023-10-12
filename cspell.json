@@ -64,6 +64,7 @@
     "aztecprotocol",
     "dbanks",
     "rahul",
+    "herskind",
     "diffie",
     "bootnode",
     "fargate",
@@ -110,7 +111,10 @@
     "autonat",
     "muxers",
     "Kademlia",
-    "mimc"
+    "mimc",
+    "gitrepo",
+    "subrepo",
+    "typecheck"
   ],
   "ignorePaths": [
     "node_modules/",
@@ -126,6 +130,8 @@
     "cmake-build-debug",
     ".terraform*",
     ".bootstrapped",
-    "*.svg"
+    "*.svg",
+    "*.otf",
+    "git-subrepo/"
   ]
 }
