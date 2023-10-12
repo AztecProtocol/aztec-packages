@@ -17,6 +17,20 @@ We will write two tests:
 1. Test the private flow (i.e. mint tokens on L1, deposit them to L2, give your intention to swap L2 asset on L1, swap on L1, bridge swapped assets back to L2)
 2. Do the same in the public flow
 
+## Compile the code!
+We haven't compiled our solidity and aztec contracts yet!
+```sh
+cd packages/l1-contracts
+npx hardhat compile
+```
+
+```sh
+cd ../aztec-contracts
+aztec-cli compile --typescript ../../src/test/fixtures uniswap 
+```
+This will create a ts interface in our src/test folder!
+
+
 ## Test imports and setup
 This is exactly the same as the setup for the tests in the token bridge tutorial. Copy the `utils.ts` and `cross_chain_test_harness.ts` we have defined that tutorial [here](../token_portal/typescript_glue_code.md#test-imports-and-setup).
 
@@ -42,7 +56,7 @@ import { AccountWallet, AztecAddress, DebugLogger, EthAddress, Fr, PXE, TxStatus
 import { Chain, HttpTransport, PublicClient, createPublicClient, createWalletClient, getContract, http, parseEther } from "viem";
 import { foundry } from "viem/chains";
 import { CrossChainTestHarness } from "./fixtures/cross_chain_test_harness.js";
-import { UniswapContract } from "@aztec/noir-contracts/types";
+import { UniswapContract } from "./fixtures/Uniswap.js";
 import { beforeAll, expect, jest } from "@jest/globals";
 import { UniswapPortalAbi, UniswapPortalBytecode, delay, deployL1Contract } from "./fixtures/utils.js";
 import { mnemonicToAccount } from "viem/accounts";

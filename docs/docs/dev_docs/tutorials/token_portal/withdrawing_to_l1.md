@@ -66,7 +66,8 @@ npx hardhat compile
 Compile your aztec-nr contracts:
 ```bash
 cd packages/aztec-contracts
-aztec-cli compile token_bridge
+aztec-cli compile --typescript ../../src/test/fixtures token_bridge 
 ```
+This will create a TS interface in our src/test folder!
 
 In the next step we will write the TypeScript code to deploy our contracts and call on both L1 and L2 so we can see how everything works together.

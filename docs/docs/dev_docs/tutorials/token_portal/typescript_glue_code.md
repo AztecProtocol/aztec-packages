@@ -17,6 +17,18 @@ We will write two tests:
 1. Test the deposit and withdraw in the private flow
 2. Do the same in the public flow
 
+## Compile your code!
+If you haven't compiled our solidity and aztec contracts yet:
+```sh
+cd packages/l1-contracts
+npx hardhat compile
+```
+
+```sh
+cd ../aztec-contracts
+aztec-cli compile --typescript ../../src/test/fixtures token_bridge 
+```
+This will create a ts interface in our src/test folder!
 ## Test imports and setup
 We need some helper files that can keep our code clean:
 
@@ -30,9 +42,11 @@ In `utils.ts`, put:
 ```typescript
 import * as fs from 'fs';
 import { AztecAddress, EthAddress, TxStatus, Wallet } from "@aztec/aztec.js";
-import { TokenBridgeContract, TokenContract } from "@aztec/noir-contracts/types";
+import { TokenContract } from "@aztec/noir-contracts/types";
 import { Account, Chain, Hex, HttpTransport, PublicClient, WalletClient, getContract } from "viem";
 import type { Abi, Narrow } from 'abitype';
+
+import { TokenBridgeContract } from "./TokenBridge.js"
 
 const PATH = "../../packages/l1-contracts/artifacts/contracts";
 const EXT = ".sol"
