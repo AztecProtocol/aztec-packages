@@ -911,7 +911,7 @@ TEST_F(GoblinTranslatorRelationConsistency, OpcodeConstraintRelation)
 {
     const auto run_test = [](bool random_inputs) {
         using Relation = GoblinTranslatorOpcodeConstraintRelation<FF>;
-        using RelationValues = typename Relation::RelationValues;
+        using RelationValues = typename Relation::ArrayOfValuesOverSubrelations;
 
         const InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
         const auto& op = input_elements.op;
@@ -934,7 +934,7 @@ TEST_F(GoblinTranslatorRelationConsistency, AccumulatorTransferRelation)
 {
     const auto run_test = [](bool random_inputs) {
         using Relation = GoblinTranslatorAccumulatorTransferRelation<FF>;
-        using RelationValues = typename Relation::RelationValues;
+        using RelationValues = typename Relation::ArrayOfValuesOverSubrelations;
 
         const InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
 

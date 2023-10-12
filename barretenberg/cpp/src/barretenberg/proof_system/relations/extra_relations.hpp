@@ -11,31 +11,32 @@ template <typename FF_> class GoblinTranslatorOpcodeConstraintRelationImpl {
 
     // 1 + polynomial degree of this relation
     static constexpr size_t RELATION_LENGTH = 7; // degree(op(op - 1)(op - 2)(op - 3)(op - 4)(op - 8)) = 6
-    static constexpr size_t LEN_1 = 7;
-
-    template <template <size_t...> typename SubrelationAccumulatorsTemplate>
-    using GetAccumulatorTypes = SubrelationAccumulatorsTemplate<LEN_1>;
+    static constexpr std::array<size_t, 1> SUBRELATION_LENGTHS{
+        7 // opcode constraint relation
+    };
 
     /**
      * @brief Expression for enforcing the value of the Opcode to be {0,1,2,3,4,8}
-     * @details This relation enforces the opcode to be one of described values. Since we don't care about even values
-     * in the opcode wire and usually just set them to zero, we don't use a lagrange polynomial to specify the relation
-     * to be enforced just at odd indices, which brings the degree down by 1.
+     * @details This relation enforces the opcode to be one of described values. Since we don't care about even
+     * values in the opcode wire and usually just set them to zero, we don't use a lagrange polynomial to specify
+     * the relation to be enforced just at odd indices, which brings the degree down by 1.
      *
-     * @param evals transformed to `evals + C(extended_edges(X)...)*scaling_factor`
-     * @param extended_edges an std::array containing the fully extended Univariate edges.
+     * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
+     * @param in an std::array containing the fully extended Univariate edges.
      * @param parameters contains beta, gamma, and public_input_delta, ....
      * @param scaling_factor optional term to scale the evaluation before adding to evals.
      */
-    template <typename AccumulatorTypes>
-    void static accumulate(typename AccumulatorTypes::Accumulators& accumulators,
-                           const auto& extended_edges,
+    template <typename ContainerOverSubrelations, typename AllEntitites>
+    void static accumulate(ContainerOverSubrelations& accumulators,
+                           const AllEntitites& in,
                            const RelationParameters<FF>&,
                            const FF& scaling_factor)
     {
 
-        using View = typename std::tuple_element<0, typename AccumulatorTypes::AccumulatorViews>::type;
-        auto op = View(extended_edges.op);
+        using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
+        using View = typename Accumulator::View;
+
+        auto op = View(in.op);
         static const FF minus_one = FF(-1);
         static const FF minus_two = FF(-2);
         static const FF minus_three = FF(-3);
@@ -59,70 +60,60 @@ template <typename FF_> class GoblinTranslatorAccumulatorTransferRelationImpl {
 
     // 1 + polynomial degree of this relation
     static constexpr size_t RELATION_LENGTH = 3; // degree((SOME_LAGRANGE)(A-B)) = 2
-    static constexpr size_t LEN_1 = 3;
-    static constexpr size_t LEN_2 = 3;
-    static constexpr size_t LEN_3 = 3;
-    static constexpr size_t LEN_4 = 3;
-    static constexpr size_t LEN_5 = 3;
-    static constexpr size_t LEN_6 = 3;
-    static constexpr size_t LEN_7 = 3;
-    static constexpr size_t LEN_8 = 3;
-    static constexpr size_t LEN_9 = 3;
-    static constexpr size_t LEN_10 = 3;
-    static constexpr size_t LEN_11 = 3;
-    static constexpr size_t LEN_12 = 3;
-    template <template <size_t...> typename SubrelationAccumulatorsTemplate>
-    using GetAccumulatorTypes = SubrelationAccumulatorsTemplate<LEN_1,
-                                                                LEN_2,
-                                                                LEN_3,
-                                                                LEN_4,
-                                                                LEN_5,
-                                                                LEN_6,
-                                                                LEN_7,
-                                                                LEN_8,
-                                                                LEN_9,
-                                                                LEN_10,
-                                                                LEN_11,
-                                                                LEN_12>;
+    static constexpr std::array<size_t, 12> SUBRELATION_LENGTHS{
+        3, // transfer accumulator limb 0 at even index subrelation
+        3, // transfer accumulator limb 1 at even index subrelation
+        3, // transfer accumulator limb 2 at even index subrelation
+        3, // transfer accumulator limb 3 at even index subrelation
+        3, // accumulator limb 0 is zero at the start of accumulation subrelation
+        3, // accumulator limb 1 is zero at the start of accumulation subrelation
+        3, // accumulator limb 2 is zero at the start of accumulation subrelation
+        3, // accumulator limb 3 is zero at the start of accumulation subrelation
+        3, // accumulator limb 0 is equal to given result at the end of accumulation subrelation
+        3, // accumulator limb 1 is equal to given result at the end of accumulation subrelation
+        3, // accumulator limb 2 is equal to given result at the end of accumulation subrelation
+        3  // accumulator limb 3 is equal to given result at the end of accumulation subrelation
+
+    };
 
     /**
      * @brief Relation enforcing non-arithmetic transitions of accumulator (value that is tracking the batched
      * evaluation of polynomials in non-native field)
      * @details This relation enforces three pieces of logic:
      * 1) Accumulator starts as zero before we start accumulating stuff
-     * 2) Bet
-     * 3)
+     * 2) Accumulator limbs stay the same if accumulation is not occurring (at even indices)
+     * 3) Accumulator limbs result in the values specified by relation parameters after accumulation
      *
-     * @param evals transformed to `evals + C(extended_edges(X)...)*scaling_factor`
-     * @param extended_edges an std::array containing the fully extended Univariate edges.
+     * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
+     * @param in an std::array containing the fully extended Univariate edges.
      * @param parameters contains beta, gamma, and public_input_delta, ....
      * @param scaling_factor optional term to scale the evaluation before adding to evals.
      */
-    template <typename AccumulatorTypes>
-    void static accumulate(typename AccumulatorTypes::Accumulators& accumulators,
-                           const auto& extended_edges,
+    template <typename ContainerOverSubrelations, typename AllEntities>
+    void static accumulate(ContainerOverSubrelations& accumulators,
+                           const AllEntities& in,
                            const RelationParameters<FF>& relation_parameters,
                            const FF& scaling_factor)
     {
-        using View = typename std::tuple_element<0, typename AccumulatorTypes::AccumulatorViews>::type;
-
+        using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
+        using View = typename Accumulator::View;
         // We use combination of lagrange polynomials at even indices in the minicircuit for copying the accumulator
-        auto lagrange_even = View(extended_edges.lagrange_even);
+        auto lagrange_even = View(in.lagrange_even);
 
         // Lagrange at index 1 is used to confirm the accumulator result
-        auto lagrange_second = View(extended_edges.lagrange_second);
+        auto lagrange_second = View(in.lagrange_second);
 
         // Lagrange at index (size of minicircuit - 2) is used to enforce that it starts with zero
-        auto lagrange_second_to_last_in_minicircuit = View(extended_edges.lagrange_second_to_last_in_minicircuit);
+        auto lagrange_second_to_last_in_minicircuit = View(in.lagrange_second_to_last_in_minicircuit);
 
-        auto accumulators_binary_limbs_0 = View(extended_edges.accumulators_binary_limbs_0);
-        auto accumulators_binary_limbs_1 = View(extended_edges.accumulators_binary_limbs_1);
-        auto accumulators_binary_limbs_2 = View(extended_edges.accumulators_binary_limbs_2);
-        auto accumulators_binary_limbs_3 = View(extended_edges.accumulators_binary_limbs_3);
-        auto accumulators_binary_limbs_0_shift = View(extended_edges.accumulators_binary_limbs_0_shift);
-        auto accumulators_binary_limbs_1_shift = View(extended_edges.accumulators_binary_limbs_1_shift);
-        auto accumulators_binary_limbs_2_shift = View(extended_edges.accumulators_binary_limbs_2_shift);
-        auto accumulators_binary_limbs_3_shift = View(extended_edges.accumulators_binary_limbs_3_shift);
+        auto accumulators_binary_limbs_0 = View(in.accumulators_binary_limbs_0);
+        auto accumulators_binary_limbs_1 = View(in.accumulators_binary_limbs_1);
+        auto accumulators_binary_limbs_2 = View(in.accumulators_binary_limbs_2);
+        auto accumulators_binary_limbs_3 = View(in.accumulators_binary_limbs_3);
+        auto accumulators_binary_limbs_0_shift = View(in.accumulators_binary_limbs_0_shift);
+        auto accumulators_binary_limbs_1_shift = View(in.accumulators_binary_limbs_1_shift);
+        auto accumulators_binary_limbs_2_shift = View(in.accumulators_binary_limbs_2_shift);
+        auto accumulators_binary_limbs_3_shift = View(in.accumulators_binary_limbs_3_shift);
 
         // Contribution (1) (1-4 ensure transfer of accumulator limbs at even indices of the minicircuit)
         auto tmp_1 = accumulators_binary_limbs_0 - accumulators_binary_limbs_0_shift;
