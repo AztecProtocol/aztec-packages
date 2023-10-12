@@ -177,7 +177,7 @@ async function updateNargoToml(tag: string, outputPath: string, log: LogFn): Pro
     );
     if (key) {
       // Replace the line
-      return `${key} = { git="https://github.com/AztecProtocol/aztec-packages", tag="${tag}", directory="yarn-project/aztec-nr/${key}" }`;
+      return `${key} = { git="https://github.com/AztecProtocol/aztec-packages/", tag="${tag}", directory="yarn-project/aztec-nr/${key}" }`;
     }
     return line;
   });
