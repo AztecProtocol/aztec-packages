@@ -24,6 +24,7 @@ import {
   ContractData,
   ContractDataSource,
   ExtendedContractData,
+  GetUnencryptedLogsResponse,
   L1ToL2MessageAndIndex,
   L1ToL2MessageSource,
   L2Block,
@@ -31,6 +32,7 @@ import {
   L2BlockSource,
   L2LogsSource,
   L2Tx,
+  LogFilter,
   LogType,
   MerkleTreeId,
   SiblingPath,
@@ -157,7 +159,7 @@ export class AztecNodeService implements AztecNode {
    * @returns The blocks requested.
    */
   public async getBlock(number: number): Promise<L2Block | undefined> {
-    return await this.blockSource.getL2Block(number);
+    return await this.blockSource.getBlock(number);
   }
 
   /**
@@ -167,7 +169,7 @@ export class AztecNodeService implements AztecNode {
    * @returns The blocks requested.
    */
   public async getBlocks(from: number, limit: number): Promise<L2Block[]> {
-    return (await this.blockSource.getL2Blocks(from, limit)) ?? [];
+    return (await this.blockSource.getBlocks(from, limit)) ?? [];
   }
 
   /**
@@ -223,6 +225,15 @@ export class AztecNodeService implements AztecNode {
   public getLogs(from: number, limit: number, logType: LogType): Promise<L2BlockL2Logs[]> {
     const logSource = logType === LogType.ENCRYPTED ? this.encryptedLogsSource : this.unencryptedLogsSource;
     return logSource.getLogs(from, limit, logType);
+  }
+
+  /**
+   * Gets unencrypted logs based on the provided filter.
+   * @param filter - The filter to apply to the logs.
+   * @returns The requested logs.
+   */
+  getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+    return this.unencryptedLogsSource.getUnencryptedLogs(filter);
   }
 
   /**
@@ -390,7 +401,7 @@ export class AztecNodeService implements AztecNode {
     this.log.info(`Simulating tx ${await tx.getTxHash()}`);
     const blockNumber = (await this.blockSource.getBlockNumber()) + 1;
     const newGlobalVariables = await this.globalVariableBuilder.buildGlobalVariables(new Fr(blockNumber));
-    const prevGlobalVariables = (await this.blockSource.getL2Block(-1))?.globalVariables ?? GlobalVariables.empty();
+    const prevGlobalVariables = (await this.blockSource.getBlock(-1))?.globalVariables ?? GlobalVariables.empty();
 
     // Instantiate merkle trees so uncommitted updates by this simulation are local to it.
     // TODO we should be able to remove this after https://github.com/AztecProtocol/aztec-packages/issues/1869
