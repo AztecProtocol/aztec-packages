@@ -300,7 +300,7 @@ TEST_F(state_var_tests, circuit_initialise_utxo_of_default_singleton_private_not
     // FUNCTION:
 
     // This time we use a slightly different Note type, which is tailored towards singleton UTXO use-cases. In
-    // particular, it copes with the distinction between initialisation of the UTXO, vs future modification of the UTXO.
+    // particular, it copes with the distinction between initialization of the UTXO, vs future modification of the UTXO.
     using Note = DefaultSingletonPrivateNote<C, CT::fr>;
 
     UTXO<Note> my_utxo(&exec_ctx, "my_utxo");
@@ -348,7 +348,7 @@ TEST_F(state_var_tests, circuit_modify_utxo_of_default_singleton_private_note_fr
     // FUNCTION:
 
     // This time we use a slightly different Note type, which is tailored towards singleton UTXO use-cases. In
-    // particular, it copes with the distinction between initialisation of the UTXO, vs future modification of the UTXO.
+    // particular, it copes with the distinction between initialization of the UTXO, vs future modification of the UTXO.
     using Note = DefaultSingletonPrivateNote<C, CT::fr>;
 
     UTXO<Note> my_utxo(&exec_ctx, "my_utxo");
