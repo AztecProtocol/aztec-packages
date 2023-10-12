@@ -176,7 +176,8 @@ async function updateNargoToml(tag: string, outputPath: string, log: LogFn): Pro
       line.trim().startsWith(`${dependencyName} =`),
     );
     if (key) {
-      // Replace the line
+      // Replace the line, which was configured for compiling within the `aztec-packages` monorepo.  We replace
+      // the local path with `git` and `directory` fields with a `tag` field, which points to the tagged release
       return `${key} = { git="https://github.com/AztecProtocol/aztec-packages/", tag="${tag}", directory="yarn-project/aztec-nr/${key}" }`;
     }
     return line;
