@@ -264,7 +264,8 @@ template <class Fr, size_t _length> class Univariate {
 
         if constexpr (LENGTH == 2) {
             Fr delta = value_at(1) - value_at(0);
-            for (size_t idx = 1; idx < EXTENDED_LENGTH - 1; idx++) { // WORKTODO: what if EXTENDED_LENGTH = 0?
+            static_assert(EXTENDED_LENGTH != 0);
+            for (size_t idx = 1; idx < EXTENDED_LENGTH - 1; idx++) {
                 result.value_at(idx + 1) = result.value_at(idx) + delta;
             }
             return result;
