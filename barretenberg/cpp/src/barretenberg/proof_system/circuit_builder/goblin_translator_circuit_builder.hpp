@@ -22,7 +22,7 @@
 namespace proof_system {
 /**
  * @brief GoblinTranslatorCircuitBuilder creates a circuit that evaluates the correctness of the evaluation of
- * EccOpQueue in Fq while operating in the Fr scalar field
+ * EccOpQueue in Fq while operating in the Fr scalar field (r is the modulus of Fr and p is the modulus of Fp)
  *
  * @details Goblin Translator Circuit Builder builds a circuit the purpose of which is to calculate the batched
  * evaluation of 5 polynomials in non-native field represented through coefficients in 4 native polynomials (op,
@@ -57,7 +57,7 @@ namespace proof_system {
  * To show the accumulation is correct we also need to provide the quotient and accumulators as witnesses. Accumulator
  * is split the same way as P.x and P.y, but quotient is 256 bits,so the top limb is 52 bits.
  *
- * Ensuring that the relation mod 2²⁷² is correct is done through splitting this check into two check modulo 2¹³⁶.
+ * Ensuring that the relation mod 2²⁷² is correct is done through splitting this check into two checks modulo 2¹³⁶.
  * First, we check that a proper combination of the values in the lower limbs gives the correct result modulo 2¹³⁶ (by
  * dividing the result by 2¹³⁶ and range constraining it). Then we use the overlow and higher limbs to prove the same
  * modulo 2¹³⁶ again and as a result we get correctness modulo 2²⁷².
@@ -65,11 +65,12 @@ namespace proof_system {
  * One big issue are range constraints. In Goblin Translator we check ranges by decomposing LIMBS into special other
  * range constrained MICROLIMBS (have "_CONSTRAINT_" in the name of their wires). These wires always have the range of
  * 14 bits, so when we need to constrain something further we use two wires at once and scale the values (for example,
- * 68 bits are decomposed into 5 14-bit limb + 1 shifted limb which is equal to the highest microlimb multiplied by 4).
- * The shifted wires usually have "_TAIL" in the name, but that is not a strict rule. To save space and because of the
- * proving system requirements we put some of the decomposed values from relation limbs (limbs which compute the result
- * of computation modulo 2²⁷² divided by shifts) into constraint wires named after P.x, P.y, accumulator and quotient.
- * This is due to the fact that the highest limb in these four is less than 56 bits, which frees up an extra microlimb.
+ * 68 bits are decomposed into 5 14-bit limbs + 1 shifted limb, which is equal to the highest microlimb multiplied by
+ * 4). The shifted wires usually have "_TAIL" in the name, but that is not a strict rule. To save space and because of
+ * the proving system requirements we put some of the decomposed values from relation limbs (limbs which compute the
+ * result of computation modulo 2²⁷² divided by shifts) into constraint wires named after P.x, P.y, accumulator and
+ * quotient. This is due to the fact that the highest limb in these four is less than 56 bits, which frees up an extra
+ * microlimb.
  *
  */
 class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<arithmetization::GoblinTranslator> {
@@ -171,8 +172,7 @@ class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<arithmetization
         QUOTIENT_HIGH_LIMBS_RANGE_CONSTRAIN_3,
         QUOTIENT_HIGH_LIMBS_RANGE_CONSTRAIN_4,
         QUOTIENT_HIGH_LIMBS_RANGE_CONSTRAIN_TAIL,
-        RELATION_WIDE_LIMBS, // Limbs for checking the correctness of  mod 2²⁷² relations. TODO(kesha): add range
-                             // constraints
+        RELATION_WIDE_LIMBS, // Limbs for checking the correctness of  mod 2²⁷² relations.
         RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_0,
         RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_1,
         RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_2,
@@ -183,6 +183,9 @@ class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<arithmetization
     };
 
     // Basic goblin translator has the minicircuit size of 2048, so optimize for that case
+    // For context, minicircuit is the part of the final polynomials fed into the proving system, where we have all the
+    // arithmetic logic. However, the full circuit is several times larger (we use a trick to bring down the degree of
+    // the permutation argument)
     static constexpr size_t DEFAULT_TRANSLATOR_VM_LENGTH = 2048;
 
     // Maximum size of a single limb is 68 bits
@@ -370,7 +373,7 @@ class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<arithmetization
     ~GoblinTranslatorCircuitBuilder() override = default;
 
     /**
-     * @brief Create bigfield representations of x and powers of v that are needed to compute the witness or check
+     * @brief Create limb representations of x and powers of v that are needed to compute the witness or check
      * circuit correctness
      *
      * @param evaluation_input_x The point at which the polynomials are being evaluated
@@ -383,7 +386,7 @@ class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<arithmetization
          * @brief A small function to transform a native element Fq into its bigfield representation  in Fr scalars
          *
          */
-        auto base_element_to_bigfield = [](Fq& original) {
+        auto base_element_to_limbs = [](Fq& original) {
             uint256_t original_uint = original;
             return std::array<Fr, NUM_BINARY_LIMBS>({
                 Fr(original_uint.slice(0, NUM_LIMB_BITS)),
@@ -401,11 +404,11 @@ class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<arithmetization
         v_cubed = v_squared * v;
         v_quarted = v_cubed * v;
         RelationInputs result;
-        result.x_limbs = base_element_to_bigfield(x);
-        result.v_limbs = base_element_to_bigfield(v);
-        result.v_squared_limbs = base_element_to_bigfield(v_squared);
-        result.v_cubed_limbs = base_element_to_bigfield(v_cubed);
-        result.v_quarted_limbs = base_element_to_bigfield(v_quarted);
+        result.x_limbs = base_element_to_limbs(x);
+        result.v_limbs = base_element_to_limbs(v);
+        result.v_squared_limbs = base_element_to_limbs(v_squared);
+        result.v_cubed_limbs = base_element_to_limbs(v_cubed);
+        result.v_quarted_limbs = base_element_to_limbs(v_quarted);
         return result;
     }
 

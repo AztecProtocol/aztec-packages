@@ -58,15 +58,16 @@ GoblinTranslatorCircuitBuilder::AccumulationInput generate_witness_values(Fr op_
     constexpr size_t TOP_QUOTIENT_MICROLIMB_BITS =
         (GoblinTranslatorCircuitBuilder::NUM_QUOTIENT_BITS % NUM_LIMB_BITS) % MICRO_LIMB_BITS;
     constexpr auto shift_1 = GoblinTranslatorCircuitBuilder::SHIFT_1;
-    constexpr auto shift_2 = GoblinTranslatorCircuitBuilder::SHIFT_2;
     constexpr auto neg_modulus_limbs = GoblinTranslatorCircuitBuilder::NEGATIVE_MODULUS_LIMBS;
     constexpr auto shift_2_inverse = GoblinTranslatorCircuitBuilder::SHIFT_2_INVERSE;
 
     /**
      * @brief A small function to transform a native element Fq into its bigfield representation in Fr scalars
      *
+     * @details We transform Fq into an integer and then split it into 68-bit limbs, then convert them to Fr.
+     *
      */
-    auto base_element_to_bigfield = [](Fq& original) {
+    auto base_element_to_limbs = [](Fq& original) {
         uint256_t original_uint = original;
         return std::array<Fr, NUM_BINARY_LIMBS>({
             Fr(original_uint.slice(0, NUM_LIMB_BITS)),
@@ -76,16 +77,17 @@ GoblinTranslatorCircuitBuilder::AccumulationInput generate_witness_values(Fr op_
         });
     };
     /**
-     * @brief A small function to transform a uint512_t element into its bigfield representation in Fr scalars
+     * @brief A small function to transform a uint512_t element into its 4 68-bit limbs in Fr scalars
+     *
+     * @details Split and integer stored in uint512_T into 4 68-bit chunks (we assume that it is lower than 2²⁷²),
+     * convert to Fr
      *
      */
-    auto uint512_t_to_bigfield = [&shift_2](uint512_t& original) {
-        return std::make_tuple(Fr(original.slice(0, NUM_LIMB_BITS).lo),
-                               Fr(original.slice(NUM_LIMB_BITS, 2 * NUM_LIMB_BITS).lo),
-                               Fr(original.slice(2 * NUM_LIMB_BITS, 3 * NUM_LIMB_BITS).lo),
-                               Fr(original.slice(3 * NUM_LIMB_BITS, 4 * NUM_LIMB_BITS).lo),
-                               Fr(original.slice(0, NUM_LIMB_BITS * 2).lo) +
-                                   Fr(original.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 4).lo) * shift_2);
+    auto uint512_t_to_limbs = [](uint512_t& original) {
+        return std::array<Fr, NUM_BINARY_LIMBS>{ Fr(original.slice(0, NUM_LIMB_BITS).lo),
+                                                 Fr(original.slice(NUM_LIMB_BITS, 2 * NUM_LIMB_BITS).lo),
+                                                 Fr(original.slice(2 * NUM_LIMB_BITS, 3 * NUM_LIMB_BITS).lo),
+                                                 Fr(original.slice(3 * NUM_LIMB_BITS, 4 * NUM_LIMB_BITS).lo) };
     };
 
     /**
@@ -93,8 +95,10 @@ GoblinTranslatorCircuitBuilder::AccumulationInput generate_witness_values(Fr op_
      *
      */
     auto split_wide_limb_into_2_limbs = [](Fr& wide_limb) {
-        return std::make_tuple(Fr(uint256_t(wide_limb).slice(0, NUM_LIMB_BITS)),
-                               Fr(uint256_t(wide_limb).slice(NUM_LIMB_BITS, 2 * NUM_LIMB_BITS)));
+        return std::array<Fr, GoblinTranslatorCircuitBuilder::NUM_Z_LIMBS>{
+            Fr(uint256_t(wide_limb).slice(0, NUM_LIMB_BITS)),
+            Fr(uint256_t(wide_limb).slice(NUM_LIMB_BITS, 2 * NUM_LIMB_BITS))
+        };
     };
     /**
      * @brief A method to split a full 68-bit limb into 5 14-bit limb and 1 shifted limb for a more secure constraint
@@ -170,12 +174,12 @@ GoblinTranslatorCircuitBuilder::AccumulationInput generate_witness_values(Fr op_
     v_quarted = v_cubed * batching_challenge_v;
 
     // Convert the accumulator, powers of v and x into "bigfield" form
-    auto previous_accumulator_witnesses = base_element_to_bigfield(previous_accumulator);
-    auto v_witnesses = base_element_to_bigfield(batching_challenge_v);
-    auto v_squared_witnesses = base_element_to_bigfield(v_squared);
-    auto v_cubed_witnesses = base_element_to_bigfield(v_cubed);
-    auto v_quarted_witnesses = base_element_to_bigfield(v_quarted);
-    auto x_witnesses = base_element_to_bigfield(evaluation_input_x);
+    auto previous_accumulator_limbs = base_element_to_limbs(previous_accumulator);
+    auto v_witnesses = base_element_to_limbs(batching_challenge_v);
+    auto v_squared_witnesses = base_element_to_limbs(v_squared);
+    auto v_cubed_witnesses = base_element_to_limbs(v_cubed);
+    auto v_quarted_witnesses = base_element_to_limbs(v_quarted);
+    auto x_witnesses = base_element_to_limbs(evaluation_input_x);
 
     // To calculate the quotient, we need to evaluate the expression in integers. So we need uint512_t versions of all
     // elements involved
@@ -201,14 +205,14 @@ GoblinTranslatorCircuitBuilder::AccumulationInput generate_witness_values(Fr op_
     // Construct bigfield representations of P.x and P.y
     auto [p_x_0, p_x_1] = split_wide_limb_into_2_limbs(p_x_lo);
     auto [p_x_2, p_x_3] = split_wide_limb_into_2_limbs(p_x_hi);
-    std::array<Fr, NUM_BINARY_LIMBS> p_x_witnesses = { p_x_0, p_x_1, p_x_2, p_x_3 };
+    std::array<Fr, NUM_BINARY_LIMBS> p_x_limbs = { p_x_0, p_x_1, p_x_2, p_x_3 };
     auto [p_y_0, p_y_1] = split_wide_limb_into_2_limbs(p_y_lo);
     auto [p_y_2, p_y_3] = split_wide_limb_into_2_limbs(p_y_hi);
-    std::array<Fr, NUM_BINARY_LIMBS> p_y_witnesses = { p_y_0, p_y_1, p_y_2, p_y_3 };
+    std::array<Fr, NUM_BINARY_LIMBS> p_y_limbs = { p_y_0, p_y_1, p_y_2, p_y_3 };
 
     // Construct bigfield representations of z1 and z2 only using 2 limbs each
-    auto [z_1_lo, z_1_hi] = split_wide_limb_into_2_limbs(z1);
-    auto [z_2_lo, z_2_hi] = split_wide_limb_into_2_limbs(z2);
+    auto z_1_limbs = split_wide_limb_into_2_limbs(z1);
+    auto z_2_limbs = split_wide_limb_into_2_limbs(z2);
 
     // The formula is `accumulator = accumulator⋅x + (op + v⋅p.x + v²⋅p.y + v³⋅z₁ + v⁴z₂)`. We need to compute the
     // remainder (new accumulator value)
@@ -226,26 +230,25 @@ GoblinTranslatorCircuitBuilder::AccumulationInput generate_witness_values(Fr op_
     ASSERT(quotient_by_modulus == (quotient * uint512_t(Fq::modulus)));
 
     // Compute quotient and remainder bigfield representation
-    auto [remainder_0, remainder_1, remainder_2, remainder_3] = base_element_to_bigfield(remainder);
-    std::array<Fr, NUM_BINARY_LIMBS> remainder_witnesses = { remainder_0, remainder_1, remainder_2, remainder_3 };
-    auto [quotient_0, quotient_1, quotient_2, quotient_3, quotient_prime] = uint512_t_to_bigfield(quotient);
-    std::array<Fr, NUM_BINARY_LIMBS> quotient_witnesses = { quotient_0, quotient_1, quotient_2, quotient_3 };
+    auto remainder_limbs = base_element_to_limbs(remainder);
+    std::array<Fr, NUM_BINARY_LIMBS> quotient_limbs = uint512_t_to_limbs(quotient);
 
     // We will divide by shift_2 instantly in the relation itself, but first we need to compute the low part (0*0) and
     // the high part (0*1, 1*0) multiplied by a single limb shift
-    Fr low_wide_relation_limb_part_1 =
-        previous_accumulator_witnesses[0] * x_witnesses[0] + op_code + v_witnesses[0] * p_x_witnesses[0] +
-        v_squared_witnesses[0] * p_y_witnesses[0] + v_cubed_witnesses[0] * z_1_lo + v_quarted_witnesses[0] * z_2_lo +
-        quotient_witnesses[0] * neg_modulus_limbs[0] - remainder_witnesses[0]; // This covers the lowest limb
+    Fr low_wide_relation_limb_part_1 = previous_accumulator_limbs[0] * x_witnesses[0] + op_code +
+                                       v_witnesses[0] * p_x_limbs[0] + v_squared_witnesses[0] * p_y_limbs[0] +
+                                       v_cubed_witnesses[0] * z_1_limbs[0] + v_quarted_witnesses[0] * z_2_limbs[0] +
+                                       quotient_limbs[0] * neg_modulus_limbs[0] -
+                                       remainder_limbs[0]; // This covers the lowest limb
 
     Fr low_wide_relation_limb =
         low_wide_relation_limb_part_1 +
-        (previous_accumulator_witnesses[1] * x_witnesses[0] + previous_accumulator_witnesses[0] * x_witnesses[1] +
-         v_witnesses[1] * p_x_witnesses[0] + p_x_witnesses[1] * v_witnesses[0] +
-         v_squared_witnesses[1] * p_y_witnesses[0] + v_squared_witnesses[0] * p_y_witnesses[1] +
-         v_cubed_witnesses[1] * z_1_lo + z_1_hi * v_cubed_witnesses[0] + v_quarted_witnesses[1] * z_2_lo +
-         v_quarted_witnesses[0] * z_2_hi + quotient_witnesses[0] * neg_modulus_limbs[1] +
-         quotient_witnesses[1] * neg_modulus_limbs[0] - remainder_witnesses[1]) *
+        (previous_accumulator_limbs[1] * x_witnesses[0] + previous_accumulator_limbs[0] * x_witnesses[1] +
+         v_witnesses[1] * p_x_limbs[0] + p_x_limbs[1] * v_witnesses[0] + v_squared_witnesses[1] * p_y_limbs[0] +
+         v_squared_witnesses[0] * p_y_limbs[1] + v_cubed_witnesses[1] * z_1_limbs[0] +
+         z_1_limbs[1] * v_cubed_witnesses[0] + v_quarted_witnesses[1] * z_2_limbs[0] +
+         v_quarted_witnesses[0] * z_2_limbs[1] + quotient_limbs[0] * neg_modulus_limbs[1] +
+         quotient_limbs[1] * neg_modulus_limbs[0] - remainder_limbs[1]) *
             shift_1;
 
     // Low bits have to be zero
@@ -257,24 +260,23 @@ GoblinTranslatorCircuitBuilder::AccumulationInput generate_witness_values(Fr op_
     // indices (0*2,1*1,2*0) with limbs with indices (0*3,1*2,2*1,3*0) multiplied by 2⁶⁸
 
     Fr high_wide_relation_limb =
-        low_wide_relation_limb_divided + previous_accumulator_witnesses[2] * x_witnesses[0] +
-        previous_accumulator_witnesses[1] * x_witnesses[1] + previous_accumulator_witnesses[0] * x_witnesses[2] +
-        v_witnesses[2] * p_x_witnesses[0] + v_witnesses[1] * p_x_witnesses[1] + v_witnesses[0] * p_x_witnesses[2] +
-        v_squared_witnesses[2] * p_y_witnesses[0] + v_squared_witnesses[1] * p_y_witnesses[1] +
-        v_squared_witnesses[0] * p_y_witnesses[2] + v_cubed_witnesses[2] * z_1_lo + v_cubed_witnesses[1] * z_1_hi +
-        v_quarted_witnesses[2] * z_2_lo + v_quarted_witnesses[1] * z_2_hi +
-        quotient_witnesses[2] * neg_modulus_limbs[0] + quotient_witnesses[1] * neg_modulus_limbs[1] +
-        quotient_witnesses[0] * neg_modulus_limbs[2] - remainder_witnesses[2] +
-        (previous_accumulator_witnesses[3] * x_witnesses[0] + previous_accumulator_witnesses[2] * x_witnesses[1] +
-         previous_accumulator_witnesses[1] * x_witnesses[2] + previous_accumulator_witnesses[0] * x_witnesses[3] +
-         v_witnesses[3] * p_x_witnesses[0] + v_witnesses[2] * p_x_witnesses[1] + v_witnesses[1] * p_x_witnesses[2] +
-         v_witnesses[0] * p_x_witnesses[3] + v_squared_witnesses[3] * p_y_witnesses[0] +
-         v_squared_witnesses[2] * p_y_witnesses[1] + v_squared_witnesses[1] * p_y_witnesses[2] +
-         v_squared_witnesses[0] * p_y_witnesses[3] + v_cubed_witnesses[3] * z_1_lo + v_cubed_witnesses[2] * z_1_hi +
-         v_quarted_witnesses[3] * z_2_lo + v_quarted_witnesses[2] * z_2_hi +
-         quotient_witnesses[3] * neg_modulus_limbs[0] + quotient_witnesses[2] * neg_modulus_limbs[1] +
-         quotient_witnesses[1] * neg_modulus_limbs[2] + quotient_witnesses[0] * neg_modulus_limbs[3] -
-         remainder_witnesses[3]) *
+        low_wide_relation_limb_divided + previous_accumulator_limbs[2] * x_witnesses[0] +
+        previous_accumulator_limbs[1] * x_witnesses[1] + previous_accumulator_limbs[0] * x_witnesses[2] +
+        v_witnesses[2] * p_x_limbs[0] + v_witnesses[1] * p_x_limbs[1] + v_witnesses[0] * p_x_limbs[2] +
+        v_squared_witnesses[2] * p_y_limbs[0] + v_squared_witnesses[1] * p_y_limbs[1] +
+        v_squared_witnesses[0] * p_y_limbs[2] + v_cubed_witnesses[2] * z_1_limbs[0] +
+        v_cubed_witnesses[1] * z_1_limbs[1] + v_quarted_witnesses[2] * z_2_limbs[0] +
+        v_quarted_witnesses[1] * z_2_limbs[1] + quotient_limbs[2] * neg_modulus_limbs[0] +
+        quotient_limbs[1] * neg_modulus_limbs[1] + quotient_limbs[0] * neg_modulus_limbs[2] - remainder_limbs[2] +
+        (previous_accumulator_limbs[3] * x_witnesses[0] + previous_accumulator_limbs[2] * x_witnesses[1] +
+         previous_accumulator_limbs[1] * x_witnesses[2] + previous_accumulator_limbs[0] * x_witnesses[3] +
+         v_witnesses[3] * p_x_limbs[0] + v_witnesses[2] * p_x_limbs[1] + v_witnesses[1] * p_x_limbs[2] +
+         v_witnesses[0] * p_x_limbs[3] + v_squared_witnesses[3] * p_y_limbs[0] + v_squared_witnesses[2] * p_y_limbs[1] +
+         v_squared_witnesses[1] * p_y_limbs[2] + v_squared_witnesses[0] * p_y_limbs[3] +
+         v_cubed_witnesses[3] * z_1_limbs[0] + v_cubed_witnesses[2] * z_1_limbs[1] +
+         v_quarted_witnesses[3] * z_2_limbs[0] + v_quarted_witnesses[2] * z_2_limbs[1] +
+         quotient_limbs[3] * neg_modulus_limbs[0] + quotient_limbs[2] * neg_modulus_limbs[1] +
+         quotient_limbs[1] * neg_modulus_limbs[2] + quotient_limbs[0] * neg_modulus_limbs[3] - remainder_limbs[3]) *
             shift_1;
 
     // Check that the results lower 136 bits are zero
@@ -283,28 +285,75 @@ GoblinTranslatorCircuitBuilder::AccumulationInput generate_witness_values(Fr op_
     // Get divided version
     auto high_wide_relation_limb_divided = high_wide_relation_limb * shift_2_inverse;
 
+    const auto last_limb_index = GoblinTranslatorCircuitBuilder::NUM_BINARY_LIMBS - 1;
+
+    const auto NUM_Z_LIMBS = GoblinTranslatorCircuitBuilder::NUM_Z_LIMBS;
+    std::array<std::array<Fr, NUM_MICRO_LIMBS>, NUM_BINARY_LIMBS> P_x_microlimbs;
+    std::array<std::array<Fr, NUM_MICRO_LIMBS>, NUM_BINARY_LIMBS> P_y_microlimbs;
+    std::array<std::array<Fr, NUM_MICRO_LIMBS>, NUM_Z_LIMBS> z_1_microlimbs;
+    std::array<std::array<Fr, NUM_MICRO_LIMBS>, NUM_Z_LIMBS> z_2_microlimbs;
+    std::array<std::array<Fr, NUM_MICRO_LIMBS>, NUM_BINARY_LIMBS> current_accumulator_microlimbs;
+    std::array<std::array<Fr, NUM_MICRO_LIMBS>, NUM_BINARY_LIMBS> quotient_microlimbs;
+    // Split P_x into microlimbs for range constraining
+    for (size_t i = 0; i < last_limb_index; i++) {
+        P_x_microlimbs[i] = split_standard_limb_into_micro_limbs(p_x_limbs[i]);
+    }
+    P_x_microlimbs[last_limb_index] =
+        split_top_limb_into_micro_limbs(p_x_limbs[last_limb_index], TOP_STANDARD_MICROLIMB_BITS);
+
+    // Split P_y into microlimbs for range constraining
+    for (size_t i = 0; i < last_limb_index; i++) {
+        P_y_microlimbs[i] = split_standard_limb_into_micro_limbs(p_y_limbs[i]);
+    }
+    P_y_microlimbs[last_limb_index] =
+        split_top_limb_into_micro_limbs(p_y_limbs[last_limb_index], TOP_STANDARD_MICROLIMB_BITS);
+
+    // Split z scalars into microlimbs for range constraining
+    for (size_t i = 0; i < NUM_Z_LIMBS - 1; i++) {
+        z_1_microlimbs[i] = split_standard_limb_into_micro_limbs(z_1_limbs[i]);
+        z_2_microlimbs[i] = split_standard_limb_into_micro_limbs(z_2_limbs[i]);
+    }
+    z_1_microlimbs[GoblinTranslatorCircuitBuilder::NUM_Z_LIMBS - 1] = split_top_z_limb_into_micro_limbs(
+        z_1_limbs[GoblinTranslatorCircuitBuilder::NUM_Z_LIMBS - 1], TOP_Z_MICROLIMB_BITS);
+    z_2_microlimbs[GoblinTranslatorCircuitBuilder::NUM_Z_LIMBS - 1] = split_top_z_limb_into_micro_limbs(
+        z_2_limbs[GoblinTranslatorCircuitBuilder::NUM_Z_LIMBS - 1], TOP_Z_MICROLIMB_BITS);
+
+    // Split current accumulator into microlimbs for range constraining
+    for (size_t i = 0; i < last_limb_index; i++) {
+        current_accumulator_microlimbs[i] = split_standard_limb_into_micro_limbs(remainder_limbs[i]);
+    }
+    current_accumulator_microlimbs[last_limb_index] =
+        split_top_limb_into_micro_limbs(remainder_limbs[last_limb_index], TOP_STANDARD_MICROLIMB_BITS);
+
+    // Split quotient into microlimbs for range constraining
+    for (size_t i = 0; i < last_limb_index; i++) {
+        quotient_microlimbs[i] = split_standard_limb_into_micro_limbs(quotient_limbs[i]);
+    }
+    quotient_microlimbs[last_limb_index] =
+        split_top_limb_into_micro_limbs(quotient_limbs[last_limb_index], TOP_QUOTIENT_MICROLIMB_BITS);
+
     // Start filling the witness container
     GoblinTranslatorCircuitBuilder::AccumulationInput input{
         .op_code = op_code,
         .P_x_lo = p_x_lo,
         .P_x_hi = p_x_hi,
-        .P_x_limbs = p_x_witnesses,
-        .P_x_microlimbs = {},
+        .P_x_limbs = p_x_limbs,
+        .P_x_microlimbs = P_x_microlimbs,
         .P_y_lo = p_y_lo,
         .P_y_hi = p_y_hi,
-        .P_y_limbs = p_y_witnesses,
-        .P_y_microlimbs = {},
+        .P_y_limbs = p_y_limbs,
+        .P_y_microlimbs = P_y_microlimbs,
         .z_1 = z1,
-        .z_1_limbs = { z_1_lo, z_1_hi },
-        .z_1_microlimbs = {},
+        .z_1_limbs = z_1_limbs,
+        .z_1_microlimbs = z_1_microlimbs,
         .z_2 = z2,
-        .z_2_limbs = { z_2_lo, z_2_hi },
-        .z_2_microlimbs = {},
-        .previous_accumulator = previous_accumulator_witnesses,
-        .current_accumulator = remainder_witnesses,
-        .current_accumulator_microlimbs = {},
-        .quotient_binary_limbs = quotient_witnesses,
-        .quotient_microlimbs = {},
+        .z_2_limbs = z_2_limbs,
+        .z_2_microlimbs = z_2_microlimbs,
+        .previous_accumulator = previous_accumulator_limbs,
+        .current_accumulator = remainder_limbs,
+        .current_accumulator_microlimbs = current_accumulator_microlimbs,
+        .quotient_binary_limbs = quotient_limbs,
+        .quotient_microlimbs = quotient_microlimbs,
         .relation_wide_limbs = { low_wide_relation_limb_divided, high_wide_relation_limb_divided },
         .relation_wide_microlimbs = { split_relation_limb_into_micro_limbs(low_wide_relation_limb_divided),
                                       split_relation_limb_into_micro_limbs(high_wide_relation_limb_divided) },
@@ -316,45 +365,6 @@ GoblinTranslatorCircuitBuilder::AccumulationInput generate_witness_values(Fr op_
 
     };
 
-    auto last_limb_index = GoblinTranslatorCircuitBuilder::NUM_BINARY_LIMBS - 1;
-
-    // Split P_x into microlimbs for range constraining
-    for (size_t i = 0; i < last_limb_index; i++) {
-        input.P_x_microlimbs[i] = split_standard_limb_into_micro_limbs(input.P_x_limbs[i]);
-    }
-    input.P_x_microlimbs[last_limb_index] =
-        split_top_limb_into_micro_limbs(input.P_x_limbs[last_limb_index], TOP_STANDARD_MICROLIMB_BITS);
-
-    // Split P_y into microlimbs for range constraining
-    for (size_t i = 0; i < last_limb_index; i++) {
-        input.P_y_microlimbs[i] = split_standard_limb_into_micro_limbs(input.P_y_limbs[i]);
-    }
-    input.P_y_microlimbs[last_limb_index] =
-        split_top_limb_into_micro_limbs(input.P_y_limbs[last_limb_index], TOP_STANDARD_MICROLIMB_BITS);
-
-    // Split z scalars into microlimbs for range constraining
-    for (size_t i = 0; i < GoblinTranslatorCircuitBuilder::NUM_Z_LIMBS - 1; i++) {
-        input.z_1_microlimbs[i] = split_standard_limb_into_micro_limbs(input.z_1_limbs[i]);
-        input.z_2_microlimbs[i] = split_standard_limb_into_micro_limbs(input.z_2_limbs[i]);
-    }
-    input.z_1_microlimbs[GoblinTranslatorCircuitBuilder::NUM_Z_LIMBS - 1] = split_top_z_limb_into_micro_limbs(
-        input.z_1_limbs[GoblinTranslatorCircuitBuilder::NUM_Z_LIMBS - 1], TOP_Z_MICROLIMB_BITS);
-    input.z_2_microlimbs[GoblinTranslatorCircuitBuilder::NUM_Z_LIMBS - 1] = split_top_z_limb_into_micro_limbs(
-        input.z_2_limbs[GoblinTranslatorCircuitBuilder::NUM_Z_LIMBS - 1], TOP_Z_MICROLIMB_BITS);
-
-    // Split current accumulator into microlimbs for range constraining
-    for (size_t i = 0; i < last_limb_index; i++) {
-        input.current_accumulator_microlimbs[i] = split_standard_limb_into_micro_limbs(input.current_accumulator[i]);
-    }
-    input.current_accumulator_microlimbs[last_limb_index] =
-        split_top_limb_into_micro_limbs(input.current_accumulator[last_limb_index], TOP_STANDARD_MICROLIMB_BITS);
-
-    // Split quotient into microlimbs for range constraining
-    for (size_t i = 0; i < last_limb_index; i++) {
-        input.quotient_microlimbs[i] = split_standard_limb_into_micro_limbs(input.quotient_binary_limbs[i]);
-    }
-    input.quotient_microlimbs[last_limb_index] =
-        split_top_limb_into_micro_limbs(input.quotient_binary_limbs[last_limb_index], TOP_QUOTIENT_MICROLIMB_BITS);
     return input;
 }
 /**
@@ -371,7 +381,7 @@ void GoblinTranslatorCircuitBuilder::create_accumulation_gate(const Accumulation
 
     auto& op_wire = std::get<WireIds::OP>(wires);
     op_wire.push_back(add_variable(acc_step.op_code));
-    // Odd op values are not defined so let's just put zero there
+    // Every second op value in the transcript (indices 3, 5, etc) are not defined so let's just put zero there
     op_wire.push_back(zero_idx);
 
     /**
