@@ -126,7 +126,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
     aztecNodeConfig.publisherPrivateKey = `0x${Buffer.from(privKey!).toString('hex')}`;
   }
 
-  if (aztecNodeConfig.p2pEnabled === false) {
+  if (!aztecNodeConfig.p2pEnabled) {
     await deployContractsToL1(aztecNodeConfig, hdAccount);
   }
 
