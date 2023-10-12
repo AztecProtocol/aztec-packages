@@ -247,7 +247,7 @@ export class Sequencer {
 
     // Process txs until we get to maxTxsPerBlock, rejecting double spends in the process
     for (const tx of txs) {
-      if (tx.data.constants.txContext.chainId !== globalVariables.chainId) {
+      if (tx.data.constants.txContext.chainId.value !== globalVariables.chainId.value) {
         this.log(
           `Deleting tx for incorrect chain ${tx.data.constants.txContext.chainId.toString()}, global chain ${globalVariables.chainId.toString()}, tx hash ${await Tx.getHash(
             tx,
