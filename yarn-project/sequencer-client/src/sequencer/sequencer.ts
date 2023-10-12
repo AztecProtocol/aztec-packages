@@ -249,7 +249,7 @@ export class Sequencer {
     for (const tx of txs) {
       if (tx.data.constants.txContext.chainId !== globalVariables.chainId) {
         this.log(
-          `Deleting tx for incorrect chain ${tx.data.constants.txContext.chainId.toString()}, tx hash ${await Tx.getHash(
+          `Deleting tx for incorrect chain ${tx.data.constants.txContext.chainId.toString()}, global chain ${globalVariables.chainId.toString()}, tx hash ${await Tx.getHash(
             tx,
           )}`,
         );
