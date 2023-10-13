@@ -46,8 +46,8 @@ async function main() {
   const tokenAlice = await TokenContract.at(token.address, aliceWallet);
   const tokenBob = await TokenContract.at(token.address, bobWallet);
 
-  // Mint tokens to alice
-  logger(`Minting ${ALICE_MINT_BALANCE} more coins to alice...`);
+  // Mint tokens to Alice
+  logger(`Minting ${ALICE_MINT_BALANCE} more coins to Alice...`);
 
   // Create a secret and a corresponding hash that will be used to mint funds privately
   const aliceSecret = Fr.random();
@@ -65,9 +65,7 @@ async function main() {
   logger(`${ALICE_MINT_BALANCE} tokens were successfully minted and redeemed by Alice`);
 
   const balanceAfterMint = await tokenAlice.methods.balance_of_private(alice).view();
-  logger(`Tokens successfully minted. New alice balance: ${balanceAfterMint}`);
-
-  // Perform a transfer
+  logger(`Tokens successfully minted. New Alice's balance: ${balanceAfterMint}`);
 
   // We will now transfer tokens from Alice to Bob
   logger(`Transferring ${TRANSFER_AMOUNT} tokens from Alice to Bob...`);
