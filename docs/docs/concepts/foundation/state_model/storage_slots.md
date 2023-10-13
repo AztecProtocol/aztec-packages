@@ -26,9 +26,9 @@ For structs and arrays, we are logically using a similar storage slot computatio
 
 ## Private State Slots - Slots aren't real
 
-Private storage is a different beast. As you might remember from [State Model](./main.md), private state is stored in a append-only tree where each leaf is a note. Being append-only, mean that leafs are never updated or deleted, instead a nullifier is emitted to signify that some note is no longer valid. A major reason we used this tree, is that lookups at a specific storage slot don't really make sense in the context of private state. If you could look up a specific address balance just by looking at the storage slot, even if encrypted you would be able to see to see it changing! That is not good privacy. 
+Private storage is a different beast. As you might remember from [State Model](./main.md), private state is stored in a append-only tree where each leaf is a note. Being append-only, mean that leafs are never updated or deleted, instead a nullifier is emitted to signify that some note is no longer valid. A major reason we used this tree, is that lookups at a specific storage slot don't really make sense in the context of private state. If you could look up a specific address balance just by looking at the storage slot, even if encrypted you would be able to see it changing! That is not good privacy. 
 
-Following this. The storage slot as we know if it don't really exists. The leafs of the private data tree are just commitments to content (think of it as a hash of its content). 
+Following this. The storage slot as we know it doesn't really exists. The leafs of the private data tree are just commitments to content (think of it as a hash of its content). 
 
 Nevertheless, the concept of a storage slot is very useful when writing applications, since it allows us to reason about distinct and disjoint pieces of data. For example we can say that the balance of an account is stored in a specific slot and that the balance of another account is stored in another slot with the total supply stored in some third slot. By making sure that these slots are disjoint, we can be sure that the balances are not mixed up and that someone cannot use the total supply as their balance. 
 
@@ -50,7 +50,7 @@ The private variable wrappers set and singletons in Aztec.nr include this to mak
 
 When reading the values for these notes, the application circuit can then constrain it to only read notes with a specific logical storage slot.
 
-To ensure that one contract's cannot insert storage that other contracts believe is theirs we do a second siloing by hashing the the `commitment` with the contract address. 
+To ensure that one contract's cannot insert storage that other contracts believe is theirs we do a second siloing by hashing the `commitment` with the contract address. 
 
 ```rust
 siloed_commitment = H(contract_address, commitment);
