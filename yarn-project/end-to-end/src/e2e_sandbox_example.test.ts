@@ -138,7 +138,7 @@ describe('e2e_sandbox_example', () => {
 
     const mintQuantity = 10_000n;
     logger(`Minting ${mintQuantity} tokens to Bob...`);
-    const mintPrivateReceipt = await tokenContractBob.methods.mint_private(mintQuantity, aliceSecretHash).send().wait();
+    const mintPrivateReceipt = await tokenContractBob.methods.mint_private(mintQuantity, bobSecretHash).send().wait();
 
     const bobPendingShield = new NotePreimage([new Fr(mintQuantity), bobSecretHash]);
     await pxe.addNote(bob, contract.address, pendingShieldsStorageSlot, bobPendingShield, mintPrivateReceipt.txHash);
