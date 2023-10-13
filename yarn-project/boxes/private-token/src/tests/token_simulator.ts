@@ -1,4 +1,3 @@
-/* eslint-disable jsdoc/require-jsdoc */
 import { AztecAddress, DebugLogger } from '@aztec/aztec.js';
 import { TokenContract } from '../artifacts/Token.js';
 
