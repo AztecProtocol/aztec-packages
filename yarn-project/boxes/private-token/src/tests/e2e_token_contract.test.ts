@@ -13,7 +13,7 @@ import {
 } from '@aztec/aztec.js';
 import { CompleteAddress } from '@aztec/circuits.js';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
-import { TokenContract } from '../artifacts/Token';
+import { TokenContract } from '../artifacts/Token.js';
 
 import { afterEach, beforeAll, expect, jest } from '@jest/globals';
 
@@ -375,13 +375,6 @@ describe('e2e_token_contract', () => {
           expect(await asset.methods.balance_of_public(accounts[0].address).view()).toEqual(balance0);
           expect(await asset.methods.balance_of_public(accounts[1].address).view()).toEqual(balance1);
         });
-
-        it.skip('transfer into account to overflow', () => {
-          // This should already be covered by the mint case earlier. e.g., since we cannot mint to overflow, there is not
-          // a way to get funds enough to overflow.
-          // Require direct storage manipulation for us to perform a nice explicit case though.
-          // See https://github.com/AztecProtocol/aztec-packages/issues/1259
-        });
       });
     });
 
@@ -485,13 +478,6 @@ describe('e2e_token_contract', () => {
           expect(await asset.methods.balance_of_private(accounts[1].address).view()).toEqual(balance1);
         });
 
-        it.skip('transfer into account to overflow', () => {
-          // This should already be covered by the mint case earlier. e.g., since we cannot mint to overflow, there is not
-          // a way to get funds enough to overflow.
-          // Require direct storage manipulation for us to perform a nice explicit case though.
-          // See https://github.com/AztecProtocol/aztec-packages/issues/1259
-        });
-
         it('transfer on behalf of other without approval', async () => {
           const balance0 = await asset.methods.balance_of_private(accounts[0].address).view();
           const amount = balance0 / 2n;
@@ -586,7 +572,7 @@ describe('e2e_token_contract', () => {
         .withWallet(wallets[1])
         .methods.shield(accounts[0].address, amount, secretHash, nonce)
         .send();
-      await txReplay.isMined();
+      await txReplay.wait();
       const receiptReplay = await txReplay.getReceipt();
       expect(receiptReplay.status).toBe(TxStatus.DROPPED);
 
