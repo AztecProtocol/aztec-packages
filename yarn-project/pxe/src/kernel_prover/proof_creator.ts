@@ -105,7 +105,7 @@ export class KernelProofCreator implements ProofCreator {
     const wasm = await CircuitsWasm.get();
     const contractAddress = publicInputs.callContext.storageContractAddress;
 
-    return publicInputs.newCommitments.map(commitment => siloCommitment(wasm, contractAddress, commitment));
+    return publicInputs.newCommitments.map(commitment => siloCommitment(wasm, contractAddress, commitment.value));
   }
 
   public async createProofInit(privateInputs: PrivateKernelInputsInit): Promise<ProofOutput> {

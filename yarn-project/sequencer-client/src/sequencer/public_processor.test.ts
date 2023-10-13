@@ -16,6 +16,7 @@ import {
   Proof,
   PublicCallRequest,
   PublicKernelPublicInputs,
+  SideEffectWithRange,
   makeEmptyProof,
   makeTuple,
 } from '@aztec/circuits.js';
@@ -82,7 +83,7 @@ describe('public_processor', () => {
 
     it('skips txs without public execution requests', async function () {
       const tx = mockTx();
-      tx.data.end.publicCallStack = makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, Fr.zero);
+      tx.data.end.publicCallStack = makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, SideEffectWithRange.empty);
       const hash = await tx.getTxHash();
       const [processed, failed] = await processor.process([tx]);
 
@@ -145,11 +146,12 @@ describe('public_processor', () => {
     it('runs a tx with enqueued public calls', async function () {
       const callRequests: PublicCallRequest[] = [makePublicCallRequest(0x100), makePublicCallRequest(0x100)];
       const callStackItems = await Promise.all(callRequests.map(call => call.toPublicCallStackItem()));
-      const callStackHashes = callStackItems.map(call => computeCallStackItemHash(wasm, call));
+      // TODO(dbanks12): extract range side-effect counters from public inputs!
+      const callStackHashes = callStackItems.map(call => new SideEffectWithRange(computeCallStackItemHash(wasm, call), Fr.ZERO, Fr.ZERO));
 
       const kernelOutput = makePrivateKernelPublicInputsFinal(0x10);
-      kernelOutput.end.publicCallStack = padArrayEnd(callStackHashes, Fr.ZERO, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX);
-      kernelOutput.end.privateCallStack = padArrayEnd([], Fr.ZERO, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX);
+      kernelOutput.end.publicCallStack = padArrayEnd(callStackHashes, SideEffectWithRange.empty(), MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX);
+      kernelOutput.end.privateCallStack = padArrayEnd([], SideEffectWithRange.empty(), MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX);
 
       const tx = new Tx(kernelOutput, proof, TxL2Logs.random(2, 3), TxL2Logs.random(3, 2), callRequests, [
         ExtendedContractData.random(),
@@ -175,11 +177,12 @@ describe('public_processor', () => {
     it('runs a tx with an enqueued public call with nested execution', async function () {
       const callRequest: PublicCallRequest = makePublicCallRequest(0x100);
       const callStackItem = await callRequest.toPublicCallStackItem();
-      const callStackHash = computeCallStackItemHash(wasm, callStackItem);
+      // TODO(dbanks12): extract range side-effect counters from public inputs!
+      const callStackHash = new SideEffectWithRange(computeCallStackItemHash(wasm, callStackItem), Fr.ZERO, Fr.ZERO);
 
       const kernelOutput = makePrivateKernelPublicInputsFinal(0x10);
-      kernelOutput.end.publicCallStack = padArrayEnd([callStackHash], Fr.ZERO, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX);
-      kernelOutput.end.privateCallStack = padArrayEnd([], Fr.ZERO, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX);
+      kernelOutput.end.publicCallStack = padArrayEnd([callStackHash], SideEffectWithRange.empty(), MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX);
+      kernelOutput.end.privateCallStack = padArrayEnd([], SideEffectWithRange.empty(), MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX);
 
       const tx = new Tx(
         kernelOutput,
@@ -229,7 +232,8 @@ function makePublicExecutionResult(
   tx: FunctionCall,
   nestedExecutions: PublicExecutionResult[] = [],
 ): PublicExecutionResult {
-  const callContext = new CallContext(from, tx.to, EthAddress.ZERO, tx.functionData.selector, false, false, false);
+  // TODO(dbanks12): use actual sideeffect counter?
+  const callContext = new CallContext(from, tx.to, EthAddress.ZERO, tx.functionData.selector, false, false, false, Fr.ZERO);
   const execution: PublicExecution = {
     callContext,
     contractAddress: tx.to,

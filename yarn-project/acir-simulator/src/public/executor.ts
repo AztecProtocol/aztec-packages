@@ -39,6 +39,9 @@ export async function executePublicFunction(
     },
   );
 
+  // TODO(dbanks12): extract all things with side-effect counters (public call stack)
+  // as those counters must be passed to kernel
+  // Why only grab a few things from the circuit public inputs?
   const {
     returnValues,
     newL2ToL1Msgs,

@@ -35,6 +35,9 @@ import {
   PublicKernelInputs,
   PublicKernelPublicInputs,
   RETURN_VALUES_LENGTH,
+  SideEffect,
+  SideEffectLinkedToNoteHash,
+  SideEffectWithRange,
   VK_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { computeCallStackItemHash, computeVarArgsHash } from '@aztec/circuits.js/abis';
@@ -146,7 +149,7 @@ export class PublicProcessor {
   }
 
   protected async processTx(tx: Tx): Promise<ProcessedTx> {
-    if (!isArrayEmpty(tx.data.end.publicCallStack, item => item.isZero())) {
+    if (!isArrayEmpty(tx.data.end.publicCallStack, item => item.isEmpty())) {
       const [publicKernelOutput, publicKernelProof, newUnencryptedFunctionLogs] = await this.processEnqueuedPublicCalls(
         tx,
       );
@@ -252,7 +255,8 @@ export class PublicProcessor {
     const wasm = await CircuitsWasm.get();
 
     const publicCallStack = mapTuple(callStackPreimages, item =>
-      item.isEmpty() ? Fr.zero() : computeCallStackItemHash(wasm, item),
+      // TODO(dbanks12): extract range side-effect counters from public inputs!
+      item.isEmpty() ? SideEffectWithRange.empty() : new SideEffectWithRange(computeCallStackItemHash(wasm, item), Fr.ZERO, Fr.ZERO),
     );
 
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165) --> set this in Noir
@@ -263,9 +267,9 @@ export class PublicProcessor {
       callContext: result.execution.callContext,
       proverAddress: AztecAddress.ZERO,
       argsHash: await computeVarArgsHash(wasm, result.execution.args),
-      newCommitments: padArrayEnd(result.newCommitments, Fr.ZERO, MAX_NEW_COMMITMENTS_PER_CALL),
-      newNullifiers: padArrayEnd(result.newNullifiers, Fr.ZERO, MAX_NEW_NULLIFIERS_PER_CALL),
-      newL2ToL1Msgs: padArrayEnd(result.newL2ToL1Messages, Fr.ZERO, MAX_NEW_L2_TO_L1_MSGS_PER_CALL),
+      newCommitments: padArrayEnd(result.newCommitments, SideEffect.empty(), MAX_NEW_COMMITMENTS_PER_CALL),
+      newNullifiers: padArrayEnd(result.newNullifiers, SideEffectLinkedToNoteHash.empty(), MAX_NEW_NULLIFIERS_PER_CALL),
+      newL2ToL1Msgs: padArrayEnd(result.newL2ToL1Messages, SideEffect.empty(), MAX_NEW_L2_TO_L1_MSGS_PER_CALL),
       returnValues: padArrayEnd(result.returnValues, Fr.ZERO, RETURN_VALUES_LENGTH),
       contractStorageReads: padArrayEnd(
         result.contractStorageReads,

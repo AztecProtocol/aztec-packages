@@ -15,6 +15,8 @@ import {
   Proof,
   PublicDataUpdateRequest,
   RootRollupPublicInputs,
+  SideEffect,
+  SideEffectLinkedToNoteHash,
   makeTuple,
   range,
 } from '@aztec/circuits.js';
@@ -23,6 +25,8 @@ import {
   fr,
   makeBaseOrMergeRollupPublicInputs,
   makeNewContractData,
+  makeNewSideEffect,
+  makeNewSideEffectLinkedToNoteHash,
   makePrivateKernelPublicInputsFinal,
   makeProof,
   makePublicCallRequest,
@@ -245,13 +249,13 @@ describe('sequencer/solo_block_builder', () => {
       endL1ToL2MessagesTreeSnapshot: rootRollupOutput.endL1ToL2MessagesTreeSnapshot,
       startHistoricBlocksTreeSnapshot: rootRollupOutput.startHistoricBlocksTreeSnapshot,
       endHistoricBlocksTreeSnapshot: rootRollupOutput.endHistoricBlocksTreeSnapshot,
-      newCommitments,
-      newNullifiers,
+      newCommitments: newCommitments.map((sideeffect: SideEffect)  => sideeffect.value),
+      newNullifiers: newNullifiers.map((sideeffect: SideEffectLinkedToNoteHash) => sideeffect.value),
+      newL2ToL1Msgs: newL2ToL1Msgs.map((sideeffect: SideEffect) => sideeffect.value),
       newContracts,
       newContractData,
       newPublicDataWrites,
       newL1ToL2Messages: mockL1ToL2Messages,
-      newL2ToL1Msgs,
       newEncryptedLogs,
       newUnencryptedLogs,
     });
@@ -315,10 +319,10 @@ describe('sequencer/solo_block_builder', () => {
 
       const processedTx = await makeProcessedTx(tx, kernelOutput, makeProof());
 
-      processedTx.data.end.newCommitments = makeTuple(MAX_NEW_COMMITMENTS_PER_TX, fr, seed + 0x100);
-      processedTx.data.end.newNullifiers = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x200);
-      processedTx.data.end.newNullifiers[tx.data.end.newNullifiers.length - 1] = Fr.ZERO;
-      processedTx.data.end.newL2ToL1Msgs = makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x300);
+      processedTx.data.end.newCommitments = makeTuple(MAX_NEW_COMMITMENTS_PER_TX, makeNewSideEffect, seed + 0x100);
+      processedTx.data.end.newNullifiers = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, makeNewSideEffectLinkedToNoteHash, seed + 0x200);
+      processedTx.data.end.newNullifiers[tx.data.end.newNullifiers.length - 1] = SideEffectLinkedToNoteHash.empty();
+      processedTx.data.end.newL2ToL1Msgs = makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, makeNewSideEffect, seed + 0x300);
       processedTx.data.end.newContracts = [makeNewContractData(seed + 0x1000)];
       processedTx.data.end.encryptedLogsHash = to2Fields(L2Block.computeKernelLogsHash(processedTx.encryptedLogs));
       processedTx.data.end.unencryptedLogsHash = to2Fields(L2Block.computeKernelLogsHash(processedTx.unencryptedLogs));
@@ -398,12 +402,12 @@ describe('sequencer/solo_block_builder', () => {
 
       // new added values
       const tx = await makeEmptyProcessedTx();
-      tx.data.end.newNullifiers[0] = new Fr(
+      tx.data.end.newNullifiers[0] = new SideEffectLinkedToNoteHash(new Fr(
         10336601644835972678500657502133589897705389664587188571002640950065546264856n,
-      );
-      tx.data.end.newNullifiers[1] = new Fr(
+      ), Fr.ZERO, Fr.ZERO);
+      tx.data.end.newNullifiers[1] = new SideEffectLinkedToNoteHash(new Fr(
         17490072961923661940560522096125238013953043065748521735636170028491723851741n,
-      );
+      ), Fr.ZERO, Fr.ZERO);
 
       const txs = [tx, await makeEmptyProcessedTx(), await makeEmptyProcessedTx(), await makeEmptyProcessedTx()];
 

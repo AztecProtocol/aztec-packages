@@ -17,6 +17,7 @@ import {
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   PartialAddress,
   PublicCallRequest,
+  SideEffectWithRange,
 } from '@aztec/circuits.js';
 import { computeCommitmentNonce, siloNullifier } from '@aztec/circuits.js/abis';
 import { encodeArguments } from '@aztec/foundation/abi';
@@ -622,7 +623,7 @@ export class PXEService implements PXE {
 
     // Validate all items in enqueued public calls are in the kernel emitted stack
     const areEqual = enqueuedPublicCallsHashes.reduce(
-      (accum, enqueued) => accum && !!publicCallStack.find(item => item.equals(enqueued)),
+      (accum, enqueued) => accum && !!publicCallStack.find(item => item.value.equals(enqueued)),
       true,
     );
 
@@ -636,8 +637,8 @@ export class PXEService implements PXE {
 
     // Override kernel output
     publicInputs.end.publicCallStack = padArrayEnd(
-      enqueuedPublicCallsHashes,
-      Fr.ZERO,
+      enqueuedPublicCallsHashes.map(hash => new SideEffectWithRange(hash, Fr.ZERO, Fr.ZERO)), // set start side-effect counter here?
+      SideEffectWithRange.empty(),
       MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
     );
   }

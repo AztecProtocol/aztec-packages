@@ -104,6 +104,33 @@ import {
 import { GlobalVariables } from '../structs/global_variables.js';
 
 /**
+ * Creates an arbitrary side effect object with the given seed.
+ * @param seed - The seed to use for generating the object.
+ * @returns A side effect object.
+ */
+export function makeNewSideEffect(seed: number): SideEffect {
+  return new SideEffect(fr(seed), fr(seed + 1));
+}
+
+/**
+ * Creates an arbitrary side effect object (linked to a note hash) with the given seed.
+ * @param seed - The seed to use for generating the object.
+ * @returns A side effect object.
+ */
+export function makeNewSideEffectLinkedToNoteHash(seed: number): SideEffectLinkedToNoteHash {
+  return new SideEffectLinkedToNoteHash(fr(seed), fr(seed + 1), fr(seed + 2));
+}
+
+/**
+ * Creates an arbitrary side effect object (with counter range) with the given seed.
+ * @param seed - The seed to use for generating the object.
+ * @returns A side effect object.
+ */
+export function makeNewSideEffectWithRange(seed: number): SideEffectWithRange {
+  return new SideEffectWithRange(fr(seed), fr(seed + 1), fr(seed + 2));
+}
+
+/**
  * Creates an arbitrary tx context with the given seed.
  * @param seed - The seed to use for generating the tx context.
  * @returns A tx context.
