@@ -1,6 +1,8 @@
 import {
+  AztecAddress,
   Contract,
   ContractDeployer,
+  EthAddress,
   Fr,
   GrumpkinScalar,
   NotePreimage,
@@ -33,6 +35,7 @@ import {
   getFunctionArtifact,
   getTxSender,
   parseAztecAddress,
+  parseEthereumAddress,
   parseField,
   parseFields,
   parseOptionalAztecAddress,
@@ -223,9 +226,11 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       debugLogger(`Deploy tx sent with hash ${txHash}`);
       if (wait) {
         const deployed = await tx.wait();
-        log(`\nContract deployed at ${deployed.contractAddress!.toString()}\n`);
+        log(`\nContract deployed at ${deployed.contract.completeAddress.address.toString()}\n`);
+        log(`\nContract partial address ${deployed.contract.completeAddress.partialAddress.toString()}\n`);
       } else {
         log(`\nContract Address: ${tx.completeContractAddress?.address.toString() ?? 'N/A'}`);
+        log(`\nContract Partial Address: ${tx.completeContractAddress?.partialAddress.toString() ?? 'N/A'}`);
         log(`Deployment transaction hash: ${txHash}\n`);
       }
     });
@@ -247,6 +252,33 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       else log(`\nNo contract found at ${address.toString()}\n`);
     });
 
+  program
+    .command('add-contract')
+    .description(
+      'Adds an existing contract to the PXE. This is useful if you have deployed a contract outside of the PXE and want to use it with the PXE.',
+    )
+    .requiredOption(
+      '-c, --contract-artifact <fileLocation>',
+      "A compiled Aztec.nr contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts",
+    )
+    .requiredOption('-ca, --contract-address <address>', 'Aztec address of the contract.', parseAztecAddress)
+    .requiredOption('--partial-address <address>', 'Partial address of the contract', parsePartialAddress)
+    .option('--public-key <public key>', 'Optional public key for this contract', parsePublicKey)
+    .option('-pa, --portal-address <address>', 'Optional address to a portal contract on L1', parseEthereumAddress)
+    .addOption(pxeOption)
+    .action(async options => {
+      const artifact = await getContractArtifact(options.contractArtifact, log);
+      const contractAddress: AztecAddress = options.contractAddress;
+      const completeAddress = new CompleteAddress(
+        contractAddress,
+        options.publicKey ?? Fr.ZERO,
+        options.partialAddress,
+      );
+      const portalContract: EthAddress = options.portalContract ?? EthAddress.ZERO;
+      const client = await createCompatibleClient(options.rpcUrl, debugLogger);
+
+      await client.addContracts([{ artifact, completeAddress, portalContract }]);
+    });
   program
     .command('get-tx-receipt')
     .description('Gets the receipt for the specified transaction hash.')
