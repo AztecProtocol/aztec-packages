@@ -31,7 +31,7 @@ WASM_EXPORT void pedersen___compress(fr::vec_in_buf inputs_buffer, fr::out_buf o
 
 WASM_EXPORT void pedersen___plookup_compress(fr::vec_in_buf inputs_buffer, fr::out_buf output)
 {
-    pedersen___compress(inputs_buffer, out_buf);
+    pedersen___compress(inputs_buffer, output);
 }
 
 WASM_EXPORT void pedersen___compress_with_hash_index(fr::vec_in_buf inputs_buffer,
