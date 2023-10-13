@@ -85,8 +85,8 @@ template <typename FF_> class FibonacciRelation {
 
     // TODO: do we need this accumulator to get stuFF to work?
     // Or is it just a security thing and we can get away with removing it?
-    template <template <size_t...> typename SubtrelationAccumulatorsTemplate>
-    using GetAccumulatorTypes = SubtrelationAccumulatorsTemplate<DEGREE_1, DEGREE_2, DEGREE_3, DEGREE_4>;
+    template <template <size_t...> typename SubrelationAccumulatorsTemplate>
+    using GetAccumulatorTypes = SubrelationAccumulatorsTemplate<DEGREE_1, DEGREE_2, DEGREE_3, DEGREE_4>;
 
     // NOTE: why are they all called accumulate, is this a honk specific thing?
     template <typename AccumulatorTypes>

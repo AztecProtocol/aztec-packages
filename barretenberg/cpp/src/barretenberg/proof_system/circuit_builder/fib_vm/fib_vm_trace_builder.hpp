@@ -5,6 +5,7 @@
 #include "barretenberg/proof_system/arithmetization/arithmetization.hpp"
 #include "barretenberg/proof_system/circuit_builder/execution_trace_builder_base.hpp"
 #include "barretenberg/proof_system/flavor/flavor.hpp"
+#include "barretenberg/proof_system/relations/fib_vm/ExampleRelation.hpp"
 #include "barretenberg/proof_system/relations/fib_vm/fib_relation.hpp"
 #include "barretenberg/proof_system/relations/relation_parameters.hpp"
 
@@ -216,7 +217,8 @@ class FibVMTraceBuilder : public ExecutionTraceBuilderBase<arithmetization::FibV
         // Check column permutations
         check_permutations();
 
-        return evaluate_relation<fib_vm::FibRelation<FF>, Row>("FibVMRelation", rows);
+        return evaluate_relation<ExampleRelation_vm::ExampleRelation<FF>, Row>("Example Relation", rows);
+        // return evaluate_relation<fib_vm::FibRelation<FF>, Row>("FibVMRelation", rows);
     }
 
     [[nodiscard]] size_t get_num_gates() const { return rows.size(); }
