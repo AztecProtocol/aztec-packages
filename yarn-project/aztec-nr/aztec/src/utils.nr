@@ -1,4 +1,4 @@
-fn arr_copy_slice<T, N, M>(
+pub fn arr_copy_slice<T, N, M>(
     src: [T; N],
     mut dst: [T; M],
     offset: Field,
@@ -9,7 +9,7 @@ fn arr_copy_slice<T, N, M>(
     dst
 }
 
-// fn arr_copy_slice_in_struct_lol<U, N, M, K>(
+// pub fn arr_copy_slice_in_struct_lol<U, N, M, K>(
 //     src: [Field; N],
 //     mut dst: [U; M],
 //     deserialise: fn([Field; K]) -> U,
@@ -26,7 +26,7 @@ fn arr_copy_slice<T, N, M>(
 // }
 
 
-// fn arr_copy_slice_in_struct<U, N, M, K>(
+// pub fn arr_copy_slice_in_struct<U, N, M, K>(
 //     src: [Field; N],
 //     mut dst: [U; M],
 //     deserialise: fn([Field; K]) -> U,
@@ -40,7 +40,7 @@ fn arr_copy_slice<T, N, M>(
 // }
 
 // TODO: Replace these with something smart.
-fn arr_copy_slice_in_struct_dumb2<T, U, N, M>(
+pub fn arr_copy_slice_in_struct_dumb2<T, U, N, M>(
     src: [T; N],
     mut dst: [U; M],
     deserialise: fn([T; 2]) -> U,
@@ -52,7 +52,7 @@ fn arr_copy_slice_in_struct_dumb2<T, U, N, M>(
     dst
 }
 
-fn arr_copy_slice_in_struct_dumb3<T, U, N, M>(
+pub fn arr_copy_slice_in_struct_dumb3<T, U, N, M>(
     src: [T; N],
     mut dst: [U; M],
     deserialise: fn([T; 3]) -> U,
@@ -62,4 +62,20 @@ fn arr_copy_slice_in_struct_dumb3<T, U, N, M>(
         dst[i] = deserialise([src[offset + 2 * i], src[offset + 2 * i + 1], src[offset + 2 * i + 2]]);
     }
     dst
+}
+
+pub fn field_from_bytes<N>(bytes: [u8; N], big_endian: bool) -> Field {
+    assert(bytes.len() as u32 < 32, "field_from_bytes: N must be less than 32");
+    let mut as_field = 0;
+    let mut offset = 1;
+    for i in 0..N {
+        let mut index = i;
+        if big_endian {
+            index = N - i - 1;
+        }
+        as_field += (bytes[index] as Field) * offset;
+        offset *= 256;
+    }
+
+    as_field
 }

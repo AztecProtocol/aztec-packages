@@ -3,19 +3,19 @@ struct SafeU120 {
 }
 
 impl SafeU120 {
-    fn min() -> Self {
+    pub fn min() -> Self {
         Self {
             value: 0
         }
     }
 
-    fn max() -> Self {
+    pub fn max() -> Self {
         Self {
             value: 0xffffffffffffffffffffffffffffff
         }
     }
 
-    fn new(
+    pub fn new(
         value: Field,
     ) -> Self {
         // Check that it actually will fit. Spending a lot of constraints here :grimacing:
@@ -28,20 +28,36 @@ impl SafeU120 {
         }
     }
 
-    fn is_zero(
+    pub fn is_zero(
         self: Self,
     ) -> bool {
         self.value == 0
     }
 
-    fn eq(
+    pub fn eq(
         self: Self,
         other: Self
     ) -> bool {
         self.value == other.value
     }
 
-    fn sub(
+    pub fn lt(self: Self, other: Self) -> bool {
+        self.value < other.value
+    }
+
+    pub fn le(self: Self, other: Self) -> bool {
+        self.value <= other.value
+    }
+
+    pub fn gt(self: Self, other: Self) -> bool {
+        self.value > other.value
+    }
+
+    pub fn ge(self: Self, other: Self) -> bool {
+        self.value >= other.value
+    }
+
+    pub fn sub(
       self: Self,
       b: Self,
     ) -> Self {
@@ -51,7 +67,7 @@ impl SafeU120 {
         }
     }
 
-    fn add(
+    pub fn add(
         self: Self,
         b: Self,
     ) -> Self {
@@ -62,7 +78,7 @@ impl SafeU120 {
         }
     }
 
-    fn mul(
+    pub fn mul(
         self: Self,
         b: Self,
     ) -> Self {
@@ -75,7 +91,7 @@ impl SafeU120 {
         }
     }
 
-    fn div(
+    pub fn div(
         self: Self,
         b: Self,
     ) -> Self {
@@ -85,7 +101,7 @@ impl SafeU120 {
         }
     }
 
-    fn mul_div(
+    pub fn mul_div(
         self: Self,
         b: Self,
         divisor: Self
@@ -93,7 +109,7 @@ impl SafeU120 {
         self.mul(b).div(divisor)
     }
 
-     fn mul_div_up(
+    pub fn mul_div_up(
         self: Self,
         b: Self,
         divisor: Self
@@ -137,6 +153,44 @@ fn test_eq() {
     let a = SafeU120::new(1);
     let b = SafeU120::new(1);
     assert(a.eq(b));
+}
+
+#[test]
+fn test_lt() {
+    let a = SafeU120::new(1);
+    let b = SafeU120::new(2);
+    assert(a.lt(b));
+    assert(b.lt(a) == false);
+}
+
+
+#[test]
+fn test_le() {
+    let a = SafeU120::new(2);
+    let b = SafeU120::new(2);
+    let c = SafeU120::new(5);
+    assert(a.le(b));
+    assert(a.le(c));
+    assert(c.le(a) == false);
+}
+
+#[test]
+fn test_gt() {
+    let a = SafeU120::new(1);
+    let b = SafeU120::new(2);
+    assert(b.gt(a));
+    assert(a.gt(b) == false);
+}
+
+
+#[test]
+fn test_ge() {
+    let a = SafeU120::new(2);
+    let b = SafeU120::new(2);
+    let c = SafeU120::new(5);
+    assert(a.ge(b));
+    assert(a.ge(c) == false);
+    assert(c.ge(a));
 }
 
 #[test(should_fail)]

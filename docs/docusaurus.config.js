@@ -10,8 +10,9 @@ const fs = require("fs");
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-  title: "Aztec Docs",
-  tagline: "Ethereum, encrypted",
+  title: "Privacy-first zkRollup | Aztec Documentation",
+  tagline:
+    "Aztec introduces a privacy-centric zkRollup solution for Ethereum, enhancing confidentiality and scalability within the Ethereum ecosystem.",
   url: "https://docs.aztec.network/",
   baseUrl: "/",
   trailingSlash: false,
@@ -159,6 +160,7 @@ const config = {
           content: "aztec, noir, privacy, encrypted, ethereum, blockchain",
         },
       ],
+      image: "img/docs-preview-image.png",
       algolia: {
         appId: "CL4NK79B0W",
         apiKey: "21d89dadaa37a4d1b6bf4b17978dcf7f",

@@ -18,8 +18,10 @@
 
 namespace aztec3::circuits::kernel::private_kernel {
 
+using aztec3::circuits::abis::SideEffect;
+using aztec3::circuits::abis::SideEffectLinkedToNoteHash;
+using aztec3::circuits::abis::SideEffectWithRange;
 using aztec3::circuits::apps::test_apps::escrow::deposit;
-
 using aztec3::circuits::kernel::private_kernel::testing_harness::do_private_call_get_kernel_inputs_inner;
 using aztec3::circuits::kernel::private_kernel::testing_harness::get_random_reads;
 using aztec3::circuits::kernel::private_kernel::testing_harness::validate_no_new_deployed_contract;
@@ -205,6 +207,252 @@ TEST_F(native_private_kernel_inner_tests, private_function_incorrect_call_stack_
     EXPECT_TRUE(builder.failed());
     EXPECT_EQ(builder.get_first_failure().code,
               CircuitErrorCode::PRIVATE_KERNEL__CALCULATED_PRIVATE_CALL_HASH_AND_PROVIDED_PRIVATE_CALL_HASH_MISMATCH);
+}
+
+TEST_F(native_private_kernel_inner_tests, input_validation_malformed_arrays_return_values)
+{
+    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
+
+    std::array<fr, RETURN_VALUES_LENGTH> malformed_return_values{ fr(0), fr(0), fr(553) };
+    private_inputs.private_call.call_stack_item.public_inputs.return_values = malformed_return_values;
+
+    DummyBuilder builder = DummyBuilder("private_kernel_tests__input_validation_malformed_arrays_return_values");
+    native_private_kernel_circuit_inner(builder, private_inputs);
+
+    EXPECT_EQ(builder.failed(), true);
+    EXPECT_EQ(builder.get_first_failure().code, CircuitErrorCode::ARRAY_NOT_ZERO_RIGHT_PADDED);
+}
+
+TEST_F(native_private_kernel_inner_tests, input_validation_malformed_arrays_read_requests)
+{
+    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
+
+    std::array<SideEffect<NT>, MAX_READ_REQUESTS_PER_CALL> malformed_read_requests{ {
+        { .value = fr(0) },
+        { .value = fr(9123) },
+        { .value = fr(0) },
+        { .value = fr(12) },
+    } };
+    private_inputs.private_call.call_stack_item.public_inputs.read_requests = malformed_read_requests;
+
+    DummyBuilder builder = DummyBuilder("private_kernel_tests__input_validation_malformed_arrays_read_requests");
+    native_private_kernel_circuit_inner(builder, private_inputs);
+
+    EXPECT_EQ(builder.failed(), true);
+    EXPECT_EQ(builder.get_first_failure().code, CircuitErrorCode::ARRAY_NOT_ZERO_RIGHT_PADDED);
+}
+
+TEST_F(native_private_kernel_inner_tests, input_validation_malformed_arrays_commitments)
+{
+    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
+
+    std::array<SideEffect<NT>, MAX_NEW_COMMITMENTS_PER_CALL> malformed_commitments{ {
+        { .value = fr(0) },
+        { .value = fr(9123) },
+    } };
+    private_inputs.private_call.call_stack_item.public_inputs.new_commitments = malformed_commitments;
+
+    DummyBuilder builder = DummyBuilder("private_kernel_tests__input_validation_malformed_arrays_commitments");
+    native_private_kernel_circuit_inner(builder, private_inputs);
+
+    EXPECT_EQ(builder.failed(), true);
+    EXPECT_EQ(builder.get_first_failure().code, CircuitErrorCode::ARRAY_NOT_ZERO_RIGHT_PADDED);
+}
+
+TEST_F(native_private_kernel_inner_tests, input_validation_malformed_arrays_nullifiers)
+{
+    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
+
+    std::array<SideEffectLinkedToNoteHash<NT>, MAX_NEW_NULLIFIERS_PER_CALL> malformed_nullifiers{};
+    malformed_nullifiers[MAX_NEW_NULLIFIERS_PER_CALL - 1].value = fr(12);
+    private_inputs.private_call.call_stack_item.public_inputs.new_nullifiers = malformed_nullifiers;
+
+    DummyBuilder builder = DummyBuilder("private_kernel_tests__input_validation_malformed_arrays_nullifiers");
+    native_private_kernel_circuit_inner(builder, private_inputs);
+
+    EXPECT_EQ(builder.failed(), true);
+    EXPECT_EQ(builder.get_first_failure().code, CircuitErrorCode::ARRAY_NOT_ZERO_RIGHT_PADDED);
+}
+
+TEST_F(native_private_kernel_inner_tests, input_validation_malformed_arrays_nullified_commitments)
+{
+    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
+
+    std::array<fr, MAX_NEW_NULLIFIERS_PER_CALL> malformed_nullified_commitments{ fr(0),
+                                                                                 fr(0),
+                                                                                 EMPTY_NULLIFIED_COMMITMENT };
+    private_inputs.private_call.call_stack_item.public_inputs.nullified_commitments = malformed_nullified_commitments;
+
+    DummyBuilder builder =
+        DummyBuilder("private_kernel_tests__input_validation_malformed_arrays_nullified_commitments");
+    native_private_kernel_circuit_inner(builder, private_inputs);
+
+    EXPECT_EQ(builder.failed(), true);
+    EXPECT_EQ(builder.get_first_failure().code, CircuitErrorCode::ARRAY_NOT_ZERO_RIGHT_PADDED);
+}
+
+TEST_F(native_private_kernel_inner_tests, input_validation_malformed_arrays_private_call_stack)
+{
+    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
+
+    std::array<SideEffectWithRange<NT>, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL> malformed_private_call_stack{
+        { { .value = fr(0) }, { .value = fr(888) } }
+    };
+    private_inputs.private_call.call_stack_item.public_inputs.private_call_stack = malformed_private_call_stack;
+
+    DummyBuilder builder = DummyBuilder("private_kernel_tests__input_validation_malformed_arrays_private_call_stack");
+    native_private_kernel_circuit_inner(builder, private_inputs);
+
+    EXPECT_EQ(builder.failed(), true);
+    EXPECT_EQ(builder.get_first_failure().code, CircuitErrorCode::ARRAY_NOT_ZERO_RIGHT_PADDED);
+}
+
+TEST_F(native_private_kernel_inner_tests, input_validation_malformed_arrays_public_call_stack)
+{
+    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
+
+    std::array<SideEffectWithRange<NT>, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> malformed_public_call_stack{
+        { { .value = fr(0) }, { .value = fr(888) } }
+    };
+    private_inputs.private_call.call_stack_item.public_inputs.public_call_stack = malformed_public_call_stack;
+
+    DummyBuilder builder = DummyBuilder("private_kernel_tests__input_validation_malformed_arrays_public_call_stack");
+    native_private_kernel_circuit_inner(builder, private_inputs);
+
+    EXPECT_EQ(builder.failed(), true);
+    EXPECT_EQ(builder.get_first_failure().code, CircuitErrorCode::ARRAY_NOT_ZERO_RIGHT_PADDED);
+}
+
+TEST_F(native_private_kernel_inner_tests, input_validation_malformed_arrays_new_l2_to_l1_msgs)
+{
+    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
+
+    std::array<SideEffect<NT>, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> malformed_new_l2_to_l1_msgs{};
+    malformed_new_l2_to_l1_msgs[MAX_NEW_L2_TO_L1_MSGS_PER_CALL - 1].value = fr(1);
+    private_inputs.private_call.call_stack_item.public_inputs.new_l2_to_l1_msgs = malformed_new_l2_to_l1_msgs;
+
+    DummyBuilder builder = DummyBuilder("private_kernel_tests__input_validation_malformed_arrays_new_l2_to_l1_msgs");
+    native_private_kernel_circuit_inner(builder, private_inputs);
+
+    EXPECT_EQ(builder.failed(), true);
+    EXPECT_EQ(builder.get_first_failure().code, CircuitErrorCode::ARRAY_NOT_ZERO_RIGHT_PADDED);
+}
+
+TEST_F(native_private_kernel_inner_tests, input_validation_malformed_end_arrays_read_requests)
+{
+    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
+
+    std::array<SideEffect<NT>, MAX_READ_REQUESTS_PER_TX> malformed_read_requests{ {
+        { .value = fr(0) },
+        { .value = fr(9123) },
+        { .value = fr(0) },
+        { .value = fr(12) },
+    } };
+    private_inputs.previous_kernel.public_inputs.end.read_requests = malformed_read_requests;
+
+    DummyBuilder builder = DummyBuilder("private_kernel_tests__input_validation_malformed_end_arrays_read_requests");
+    native_private_kernel_circuit_inner(builder, private_inputs);
+
+    EXPECT_EQ(builder.failed(), true);
+    EXPECT_EQ(builder.get_first_failure().code, CircuitErrorCode::ARRAY_NOT_ZERO_RIGHT_PADDED);
+}
+
+TEST_F(native_private_kernel_inner_tests, input_validation_malformed_end_arrays_commitments)
+{
+    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
+
+    std::array<SideEffect<NT>, MAX_NEW_COMMITMENTS_PER_TX> malformed_commitments{ {
+        { .value = fr(0) },
+        { .value = fr(9123) },
+    } };
+    private_inputs.previous_kernel.public_inputs.end.new_commitments = malformed_commitments;
+
+    DummyBuilder builder = DummyBuilder("private_kernel_tests__input_validation_malformed_end_arrays_commitments");
+    native_private_kernel_circuit_inner(builder, private_inputs);
+
+    EXPECT_EQ(builder.failed(), true);
+    EXPECT_EQ(builder.get_first_failure().code, CircuitErrorCode::ARRAY_NOT_ZERO_RIGHT_PADDED);
+}
+
+TEST_F(native_private_kernel_inner_tests, input_validation_malformed_end_arrays_nullifiers)
+{
+    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
+
+    std::array<SideEffectLinkedToNoteHash<NT>, MAX_NEW_NULLIFIERS_PER_TX> malformed_nullifiers{};
+    malformed_nullifiers[MAX_NEW_NULLIFIERS_PER_TX - 1].value = fr(12);
+    private_inputs.previous_kernel.public_inputs.end.new_nullifiers = malformed_nullifiers;
+
+    DummyBuilder builder = DummyBuilder("private_kernel_tests__input_validation_malformed_end_arrays_nullifiers");
+    native_private_kernel_circuit_inner(builder, private_inputs);
+
+    EXPECT_EQ(builder.failed(), true);
+    EXPECT_EQ(builder.get_first_failure().code, CircuitErrorCode::ARRAY_NOT_ZERO_RIGHT_PADDED);
+}
+
+TEST_F(native_private_kernel_inner_tests, input_validation_malformed_end_arrays_nullified_commitments)
+{
+    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
+
+    std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> malformed_nullified_commitments{ fr(0),
+                                                                               fr(0),
+                                                                               EMPTY_NULLIFIED_COMMITMENT };
+    private_inputs.previous_kernel.public_inputs.end.nullified_commitments = malformed_nullified_commitments;
+
+    DummyBuilder builder =
+        DummyBuilder("private_kernel_tests__input_validation_malformed_arrays_end_nullified_commitments");
+    native_private_kernel_circuit_inner(builder, private_inputs);
+
+    EXPECT_EQ(builder.failed(), true);
+    EXPECT_EQ(builder.get_first_failure().code, CircuitErrorCode::ARRAY_NOT_ZERO_RIGHT_PADDED);
+}
+
+TEST_F(native_private_kernel_inner_tests, input_validation_malformed_end_arrays_private_call_stack)
+{
+    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
+
+    std::array<SideEffectWithRange<NT>, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX> malformed_private_call_stack{
+        { { .value = fr(0) }, { .value = fr(888) } }
+    };
+    private_inputs.previous_kernel.public_inputs.end.private_call_stack = malformed_private_call_stack;
+
+    DummyBuilder builder =
+        DummyBuilder("private_kernel_tests__input_validation_malformed_end_arrays_private_call_stack");
+    native_private_kernel_circuit_inner(builder, private_inputs);
+
+    EXPECT_EQ(builder.failed(), true);
+    EXPECT_EQ(builder.get_first_failure().code, CircuitErrorCode::ARRAY_NOT_ZERO_RIGHT_PADDED);
+}
+
+TEST_F(native_private_kernel_inner_tests, input_validation_malformed_end_arrays_public_call_stack)
+{
+    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
+
+    std::array<SideEffectWithRange<NT>, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX> malformed_public_call_stack{
+        { { .value = fr(0) }, { .value = fr(888) } }
+    };
+    private_inputs.previous_kernel.public_inputs.end.public_call_stack = malformed_public_call_stack;
+
+    DummyBuilder builder =
+        DummyBuilder("private_kernel_tests__input_validation_malformed_end_arrays_public_call_stack");
+    native_private_kernel_circuit_inner(builder, private_inputs);
+
+    EXPECT_EQ(builder.failed(), true);
+    EXPECT_EQ(builder.get_first_failure().code, CircuitErrorCode::ARRAY_NOT_ZERO_RIGHT_PADDED);
+}
+
+TEST_F(native_private_kernel_inner_tests, input_validation_malformed_end_arrays_l2_to_l1_msgs)
+{
+    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
+
+    std::array<SideEffect<NT>, MAX_NEW_L2_TO_L1_MSGS_PER_TX> malformed_l2_to_l1_msgs{};
+    malformed_l2_to_l1_msgs[MAX_NEW_L2_TO_L1_MSGS_PER_TX - 1].value = fr(1);
+    private_inputs.previous_kernel.public_inputs.end.new_l2_to_l1_msgs = malformed_l2_to_l1_msgs;
+
+    DummyBuilder builder = DummyBuilder("private_kernel_tests__input_validation_malformed_end_arrays_l2_to_l1_msgs");
+    native_private_kernel_circuit_inner(builder, private_inputs);
+
+    EXPECT_EQ(builder.failed(), true);
+    EXPECT_EQ(builder.get_first_failure().code, CircuitErrorCode::ARRAY_NOT_ZERO_RIGHT_PADDED);
 }
 
 TEST_F(native_private_kernel_inner_tests, private_kernel_should_fail_if_aggregating_too_many_commitments)
@@ -744,6 +992,22 @@ TEST_F(native_private_kernel_inner_tests, native_logs_are_hashed_as_expected)
                                                                          unencrypted_logs_hash[1] });
 
     ASSERT_EQ(public_inputs.end.unencrypted_logs_hash, expected_unencrypted_logs_hash);
+}
+
+TEST_F(native_private_kernel_inner_tests, 0th_nullifier_zero_fails)
+{
+    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
+
+    // Change the 0th nullifier to be zero.
+    private_inputs.previous_kernel.public_inputs.end.new_nullifiers[0].value = 0;
+
+    // Invoke the native private kernel circuit
+    DummyBuilder builder = DummyBuilder("private_kernel_tests__0th_nullifier_zero_fails");
+    native_private_kernel_circuit_inner(builder, private_inputs);
+
+    // Assertion checks
+    EXPECT_TRUE(builder.failed());
+    EXPECT_EQ(builder.get_first_failure().code, CircuitErrorCode::PRIVATE_KERNEL__0TH_NULLLIFIER_IS_ZERO);
 }
 
 }  // namespace aztec3::circuits::kernel::private_kernel

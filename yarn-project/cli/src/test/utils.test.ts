@@ -5,8 +5,8 @@ import { InvalidArgumentError } from 'commander';
 import { MockProxy, mock } from 'jest-mock-extended';
 
 import { encodeArgs } from '../encoding.js';
-import { getSaltFromHexString, getTxSender, stripLeadingHex } from '../utils.js';
-import { mockContractAbi } from './mocks.js';
+import { getTxSender, parseSaltFromHexString, stripLeadingHex } from '../utils.js';
+import { mockContractArtifact } from './mocks.js';
 
 describe('CLI Utils', () => {
   let client: MockProxy<PXE>;
@@ -58,7 +58,7 @@ describe('CLI Utils', () => {
 
   it('Encodes args correctly', () => {
     const args = [addr1.toString(), 'false', num.toString(), `${JSON.stringify(fieldArray)}`, JSON.stringify(struct)];
-    const result = encodeArgs(args, mockContractAbi.functions[1].parameters);
+    const result = encodeArgs(args, mockContractArtifact.functions[1].parameters);
     const exp = [
       addr1.toBigInt(),
       false,
@@ -75,7 +75,7 @@ describe('CLI Utils', () => {
   it('Errors on invalid inputs', () => {
     // invalid number of args
     const args1 = [field.toString(), 'false'];
-    expect(() => encodeArgs(args1, mockContractAbi.functions[1].parameters)).toThrow('Invalid args provided');
+    expect(() => encodeArgs(args1, mockContractArtifact.functions[1].parameters)).toThrow('Invalid args provided');
 
     // invalid array length
     const invalidArray = fieldArray.concat([Fr.random().toString()]);
@@ -86,7 +86,7 @@ describe('CLI Utils', () => {
       `${JSON.stringify(invalidArray)}`,
       JSON.stringify(struct),
     ];
-    expect(() => encodeArgs(args2, mockContractAbi.functions[1].parameters)).toThrow(
+    expect(() => encodeArgs(args2, mockContractArtifact.functions[1].parameters)).toThrow(
       'Invalid array length passed for arrayParam. Expected 3, received 4.',
     );
 
@@ -101,7 +101,7 @@ describe('CLI Utils', () => {
       `${JSON.stringify(fieldArray)}`,
       JSON.stringify(invalidStruct),
     ];
-    expect(() => encodeArgs(args3, mockContractAbi.functions[1].parameters)).toThrow(
+    expect(() => encodeArgs(args3, mockContractArtifact.functions[1].parameters)).toThrow(
       'Expected field subField2 not found in struct structParam.',
     );
 
@@ -113,19 +113,19 @@ describe('CLI Utils', () => {
       `${JSON.stringify(fieldArray)}`,
       JSON.stringify(invalidStruct),
     ];
-    expect(() => encodeArgs(args4, mockContractAbi.functions[1].parameters)).toThrow(
+    expect(() => encodeArgs(args4, mockContractArtifact.functions[1].parameters)).toThrow(
       'Invalid boolean value passed for boolParam: foo.',
     );
 
     // invalid field
     const args5 = ['foo', 'false', num.toString(), `${JSON.stringify(fieldArray)}`, JSON.stringify(invalidStruct)];
-    expect(() => encodeArgs(args5, mockContractAbi.functions[1].parameters)).toThrow(
+    expect(() => encodeArgs(args5, mockContractArtifact.functions[1].parameters)).toThrow(
       'Invalid value passed for fieldParam. Could not parse foo as a field.',
     );
 
     // invalid int
     const args6 = [addr1.toString(), 'false', 'foo', `${JSON.stringify(fieldArray)}`, JSON.stringify(invalidStruct)];
-    expect(() => encodeArgs(args6, mockContractAbi.functions[1].parameters)).toThrow(
+    expect(() => encodeArgs(args6, mockContractArtifact.functions[1].parameters)).toThrow(
       'Invalid value passed for integerParam. Could not parse foo as an integer.',
     );
   });
@@ -141,7 +141,7 @@ describe('CLI Utils', () => {
     });
   });
 
-  describe('getSaltFromHex', () => {
+  describe('parseSaltFromHexString', () => {
     it.each([
       ['0', Fr.ZERO],
       ['0x0', Fr.ZERO],
@@ -152,11 +152,11 @@ describe('CLI Utils', () => {
       ['0xa', new Fr(0xa)],
       ['fff', new Fr(0xfff)],
     ])('correctly generates salt from a hex string', (hex, expected) => {
-      expect(getSaltFromHexString(hex)).toEqual(expected);
+      expect(parseSaltFromHexString(hex)).toEqual(expected);
     });
 
     it.each(['foo', '', ' ', ' 0x1', '01foo', 'foo1', '0xfoo'])('throws an error for invalid hex strings', str => {
-      expect(() => getSaltFromHexString(str)).toThrow(InvalidArgumentError);
+      expect(() => parseSaltFromHexString(str)).toThrow(InvalidArgumentError);
     });
   });
 });

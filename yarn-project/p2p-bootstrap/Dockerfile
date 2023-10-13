@@ -1,18 +1,14 @@
-FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project-base AS builder
-
-COPY . .
+FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project AS builder
 
 WORKDIR /usr/src/yarn-project/p2p-bootstrap
-RUN yarn build && yarn formatting
 
-RUN yarn test
+# Productionify. See comment in yarn-project-base/Dockerfile.
+RUN yarn cache clean && yarn workspaces focus --production
 
-# Prune dev dependencies. See comment in base image.
-RUN yarn cache clean
-RUN yarn workspaces focus --production > /dev/null
-
+# Create final, minimal size image.
 FROM node:18-alpine
 COPY --from=builder /usr/src/ /usr/src/
 WORKDIR /usr/src/yarn-project/p2p-bootstrap
 ENTRYPOINT ["yarn"]
-CMD ["start"]
+CMD [ "start" ]
+EXPOSE 8080

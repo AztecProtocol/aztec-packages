@@ -1,6 +1,6 @@
 import { AztecAddress, CircuitsWasm, MembershipWitness, VK_TREE_HEIGHT } from '@aztec/circuits.js';
 import { FunctionDebugMetadata, FunctionSelector, getFunctionDebugMetadata } from '@aztec/foundation/abi';
-import { ContractCommitmentProvider, ContractDatabase } from '@aztec/types';
+import { ContractDatabase, StateInfoProvider } from '@aztec/types';
 
 import { ContractTree } from '../contract_tree/index.js';
 
@@ -14,7 +14,7 @@ import { ContractTree } from '../contract_tree/index.js';
 export class ContractDataOracle {
   private trees: ContractTree[] = [];
 
-  constructor(private db: ContractDatabase, private contractCommitmentProvider: ContractCommitmentProvider) {}
+  constructor(private db: ContractDatabase, private stateProvider: StateInfoProvider) {}
 
   /**
    * Retrieve the portal contract address associated with the given contract address.
@@ -31,17 +31,17 @@ export class ContractDataOracle {
   }
 
   /**
-   * Retrieves the ABI of a specified function within a given contract.
+   * Retrieves the artifact of a specified function within a given contract.
    * The function is identified by its selector, which is a unique code generated from the function's signature.
    * Throws an error if the contract address or function selector are invalid or not found.
    *
    * @param contractAddress - The AztecAddress representing the contract containing the function.
    * @param selector - The function selector.
-   * @returns The corresponding function's ABI as an object.
+   * @returns The corresponding function's artifact as an object.
    */
-  public async getFunctionAbi(contractAddress: AztecAddress, selector: FunctionSelector) {
+  public async getFunctionArtifact(contractAddress: AztecAddress, selector: FunctionSelector) {
     const tree = await this.getTree(contractAddress);
-    return tree.getFunctionAbi(selector);
+    return tree.getFunctionArtifact(selector);
   }
 
   /**
@@ -51,20 +51,20 @@ export class ContractDataOracle {
    *
    * @param contractAddress - The AztecAddress representing the contract containing the function.
    * @param selector - The function selector.
-   * @returns The corresponding function's ABI as an object.
+   * @returns The corresponding function's artifact as an object.
    */
   public async getFunctionDebugMetadata(
     contractAddress: AztecAddress,
     selector: FunctionSelector,
   ): Promise<FunctionDebugMetadata | undefined> {
     const contract = await this.db.getContract(contractAddress);
-    const functionAbi = contract?.functions.find(f => f.selector.equals(selector));
+    const functionArtifact = contract?.functions.find(f => f.selector.equals(selector));
 
-    if (!contract || !functionAbi) {
+    if (!contract || !functionArtifact) {
       return undefined;
     }
 
-    return getFunctionDebugMetadata(contract, functionAbi.name);
+    return getFunctionDebugMetadata(contract, functionArtifact.name);
   }
 
   /**
@@ -143,7 +143,7 @@ export class ContractDataOracle {
       }
 
       const wasm = await CircuitsWasm.get();
-      tree = new ContractTree(contract, this.contractCommitmentProvider, wasm);
+      tree = new ContractTree(contract, this.stateProvider, wasm);
       this.trees.push(tree);
     }
     return tree;

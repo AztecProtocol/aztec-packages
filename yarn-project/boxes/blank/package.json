@@ -6,7 +6,7 @@
   "main": "./dest/index.js",
   "scripts": {
     "build": "yarn clean && tsc -b && webpack",
-    "install:noir": "curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | bash noirup -v aztec",
+    "install:noir": "curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | bash noirup -v NOIR_VERSION",
     "install:sandbox": "docker pull aztecprotocol/aztec-sandbox:latest",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "start": "serve -p 3000 ./dest",
@@ -37,7 +37,6 @@
     "@aztec/aztec-ui": "^0.1.14",
     "@aztec/aztec.js": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
-    "@aztec/cli": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "serve": "^14.2.1"
   },

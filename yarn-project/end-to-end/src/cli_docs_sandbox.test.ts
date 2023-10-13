@@ -3,23 +3,22 @@ import { getProgram } from '@aztec/cli';
 import { TxHash } from '@aztec/types';
 
 import stringArgv from 'string-argv';
-import { format } from 'util';
 
 const debug = createDebugLogger('aztec:e2e_cli');
 
-const { SANDBOX_URL = 'http://localhost:8080' } = process.env;
+const { PXE_URL = 'http://localhost:8080' } = process.env;
 
 describe('CLI docs sandbox', () => {
   let cli: ReturnType<typeof getProgram>;
-  let log: (...args: any[]) => void;
+  let log: (msg: string) => void;
 
   // All logs emitted by the cli will be collected here, and reset between tests
   const logs: string[] = [];
 
   beforeAll(async () => {
-    log = (...args: any[]) => {
-      logs.push(format(...args));
-      debug(...args);
+    log = (msg: string) => {
+      logs.push(msg);
+      debug(msg);
     };
 
     await waitForSandboxWithCli();
@@ -65,7 +64,7 @@ Rollup Address: 0x0dcd1bf9a1b36ce34237eeafef220932846bcd82
   const run = (cmd: string, addRpcUrl = true) => {
     const args = stringArgv(cmd, 'node', 'dest/bin/index.js');
     if (addRpcUrl) {
-      args.push('--rpc-url', SANDBOX_URL);
+      args.push('--rpc-url', PXE_URL);
     }
     return cli.parseAsync(args);
   };
@@ -95,31 +94,32 @@ Rollup Address: 0x0dcd1bf9a1b36ce34237eeafef220932846bcd82
     const docs = `
 // docs:start:example-contracts
 % aztec-cli example-contracts
-CardGameContractAbi
-ChildContractAbi
-DocsExampleContractAbi
-EasyPrivateTokenContractAbi
-EcdsaAccountContractAbi
-EscrowContractAbi
-ImportTestContractAbi
-LendingContractAbi
-MultiTransferContractAbi
-NonNativeTokenContractAbi
-ParentContractAbi
-PendingCommitmentsContractAbi
-PokeableTokenContractAbi
-PriceFeedContractAbi
-PrivateTokenAirdropContractAbi
-PrivateTokenContractAbi
-PublicTokenContractAbi
-SchnorrAccountContractAbi
-SchnorrHardcodedAccountContractAbi
-SchnorrSingleKeyAccountContractAbi
-StatefulTestContractAbi
-TestContractAbi
-TokenBridgeContractAbi
-TokenContractAbi
-UniswapContractAbi
+BenchmarkingContractArtifact
+CardGameContractArtifact
+ChildContractArtifact
+DocsExampleContractArtifact
+EasyPrivateTokenContractArtifact
+EcdsaAccountContractArtifact
+EscrowContractArtifact
+ImportTestContractArtifact
+LendingContractArtifact
+MultiTransferContractArtifact
+NonNativeTokenContractArtifact
+ParentContractArtifact
+PendingCommitmentsContractArtifact
+PokeableTokenContractArtifact
+PriceFeedContractArtifact
+PrivateTokenAirdropContractArtifact
+PrivateTokenContractArtifact
+PublicTokenContractArtifact
+SchnorrAccountContractArtifact
+SchnorrHardcodedAccountContractArtifact
+SchnorrSingleKeyAccountContractArtifact
+StatefulTestContractArtifact
+TestContractArtifact
+TokenBridgeContractArtifact
+TokenContractArtifact
+UniswapContractArtifact
 // docs:end:example-contracts
 `;
 
@@ -256,7 +256,7 @@ Accounts found:
     // Test deploy
     docs = `
 // docs:start:deploy
-% aztec-cli deploy PrivateTokenContractAbi --args 1000000 $ADDRESS
+% aztec-cli deploy PrivateTokenContractArtifact --args 1000000 $ADDRESS
 
 Contract deployed at 0x1ae8eea0dc265fb7f160dae62cc8912686d8a9ed78e821fbdd8bcedc54c06d0f
 // docs:end:deploy
@@ -292,7 +292,7 @@ Contract found at 0x1ae8eea0dc265fb7f160dae62cc8912686d8a9ed78e821fbdd8bcedc54c0
 // docs:start:call
 % aztec-cli call getBalance \
   --args $ADDRESS \
-  --contract-abi PrivateTokenContractAbi \
+  --contract-artifact PrivateTokenContractArtifact \
   --contract-address $CONTRACT_ADDRESS
 
 View result:  1000000n
@@ -318,7 +318,7 @@ View result:  1000000n
 // docs:start:send
 % aztec-cli send transfer \
   --args 543 $ADDRESS2 \
-  --contract-abi PrivateTokenContractAbi \
+  --contract-artifact PrivateTokenContractArtifact \
   --contract-address $CONTRACT_ADDRESS \
   --private-key $PRIVATE_KEY
 
@@ -381,11 +381,11 @@ Transaction receipt:
     // get balance
     docs = `
 // docs:start:calls
-% aztec-cli call getBalance -a $ADDRESS -c PrivateTokenContractAbi -ca $CONTRACT_ADDRESS
+% aztec-cli call getBalance -a $ADDRESS -c PrivateTokenContractArtifact -ca $CONTRACT_ADDRESS
 
 View result:  999457n
 
-% aztec-cli call getBalance -a $ADDRESS2 -c PrivateTokenContractAbi -ca $CONTRACT_ADDRESS
+% aztec-cli call getBalance -a $ADDRESS2 -c PrivateTokenContractArtifact -ca $CONTRACT_ADDRESS
 
 View result:  543n
 // docs:end:calls

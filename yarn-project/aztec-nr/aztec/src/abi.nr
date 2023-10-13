@@ -27,6 +27,9 @@ use crate::constants_gen::{
     GENERATOR_INDEX__CALL_CONTEXT,
     GENERATOR_INDEX__PRIVATE_CIRCUIT_PUBLIC_INPUTS,
     GENERATOR_INDEX__CONTRACT_DEPLOYMENT_DATA,
+    GENERATOR_INDEX__SIDE_EFFECT,
+    GENERATOR_INDEX__SIDE_EFFECT_LINKED_TO_NOTE_HASH,
+    GENERATOR_INDEX__SIDE_EFFECT_WITH_RANGE,
 };
 
 use crate::oracle::debug_log;
@@ -78,11 +81,11 @@ impl SideEffect {
         }
     }
 
-    //fn hash(self) -> Field {
-    //    // no generator index to hash these...
-    //    dep::std::hash::pedersen_with_separator(self.serialize(), 2)[0]
-    //}
-    fn empty() -> Self {
+    fn hash(self) -> Field {
+        dep::std::hash::pedersen_with_separator(self.serialize(), GENERATOR_INDEX__SIDE_EFFECT)[0]
+    }
+
+    pub fn empty() -> Self {
         Self {
             value: 0,
             side_effect_counter: 0,
@@ -111,11 +114,11 @@ impl SideEffectLinkedToNoteHash {
         }
     }
 
-    //fn hash(self) -> Field {
-    //    // no generator index to hash these...
-    //    dep::std::hash::pedersen_with_separator(self.serialize(), 3)[0]
-    //}
-    fn empty() -> Self {
+    fn hash(self) -> Field {
+        dep::std::hash::pedersen_with_separator(self.serialize(), GENERATOR_INDEX__SIDE_EFFECT_LINKED_TO_NOTE_HASH)[0]
+    }
+
+    pub fn empty() -> Self {
         Self {
             value: 0,
             note_hash: 0,
@@ -143,11 +146,11 @@ impl SideEffectWithRange {
         }
     }
 
-    //fn hash(self) -> Field {
-    //    // no generator index to hash these...
-    //    dep::std::hash::pedersen_with_separator(self.serialize(), 3)[0]
-    //}
-    fn empty() -> Self {
+    fn hash(self) -> Field {
+        dep::std::hash::pedersen_with_separator(self.serialize(), GENERATOR_INDEX__SIDE_EFFECT_WITH_RANGE)[0]
+    }
+
+    pub fn empty() -> Self {
         Self {
             value: 0,
             start_side_effect_counter: 0,
@@ -214,6 +217,7 @@ struct CallContext {
     msg_sender : Field,
     storage_contract_address : Field,
     portal_contract_address : Field,
+    function_selector: Field,
 
     is_delegate_call : bool,
     is_static_call : bool,
@@ -229,6 +233,7 @@ impl CallContext {
             self.msg_sender,
             self.storage_contract_address,
             self.portal_contract_address,
+            self.function_selector,
             self.is_delegate_call as Field,
             self.is_static_call as Field,
             self.is_contract_deployment as Field,
@@ -255,7 +260,7 @@ struct HistoricBlockData {
 
 impl HistoricBlockData {
     // NOTE: this order must match the order in `private_circuit_public_inputs.hpp`
-    fn serialize(self) -> [Field; HISTORIC_BLOCK_DATA_LENGTH] {
+    pub fn serialize(self) -> [Field; HISTORIC_BLOCK_DATA_LENGTH] {
         [
             self.private_data_tree_root,
             self.nullifier_tree_root,
@@ -267,7 +272,7 @@ impl HistoricBlockData {
         ]
     }
 
-    fn empty() -> Self {
+    pub fn empty() -> Self {
         Self { private_data_tree_root: 0, nullifier_tree_root: 0, contract_tree_root: 0, l1_to_l2_messages_tree_root: 0, blocks_tree_root: 0, public_data_tree_root: 0, global_variables_hash: 0 }
     }
 }
@@ -319,13 +324,13 @@ impl PrivateCircuitPublicInputs {
         fields.push(self.call_context.hash());
         fields.push(self.args_hash);
         fields.push_array(self.return_values);
-        fields.flatten_and_push_array(SideEffect::serialize, self.read_requests);
-        fields.flatten_and_push_array(SideEffect::serialize, self.new_commitments);
-        fields.flatten_and_push_array(SideEffectLinkedToNoteHash::serialize, self.new_nullifiers);
+        fields.map_and_push_array(SideEffect::hash, self.read_requests);
+        fields.map_and_push_array(SideEffect::hash, self.new_commitments);
+        fields.map_and_push_array(SideEffectLinkedToNoteHash::hash, self.new_nullifiers);
         fields.push_array(self.nullified_commitments);
-        fields.flatten_and_push_array(SideEffectWithRange::serialize, self.private_call_stack);
-        fields.flatten_and_push_array(SideEffectWithRange::serialize, self.public_call_stack);
-        fields.flatten_and_push_array(SideEffect::serialize, self.new_l2_to_l1_msgs);
+        fields.map_and_push_array(SideEffectWithRange::hash, self.private_call_stack);
+        fields.map_and_push_array(SideEffectWithRange::hash, self.public_call_stack);
+        fields.map_and_push_array(SideEffect::hash, self.new_l2_to_l1_msgs);
         fields.push_array(self.encrypted_logs_hash);
         fields.push_array(self.unencrypted_logs_hash);
         fields.push(self.encrypted_log_preimages_length);
@@ -370,16 +375,16 @@ struct ContractStorageRead {
 }
 
 impl ContractStorageRead {
-    fn serialize(self) -> [Field; CONTRACT_STORAGE_READ_LENGTH] {
+    pub fn serialize(self) -> [Field; CONTRACT_STORAGE_READ_LENGTH] {
         [self.storage_slot, self.value, self.side_effect_counter]
     }
 
-    fn hash(self) -> Field {
+    pub fn hash(self) -> Field {
         // TODO(dbanks12): do we include side-effect counter in hash?
         dep::std::hash::pedersen_with_separator(self.serialize(), GENERATOR_INDEX__PUBLIC_DATA_READ)[0]
     }
 
-    fn empty() -> Self {
+    pub fn empty() -> Self {
         Self { storage_slot: 0, value: 0, side_effect_counter: 0 }
     }
 }
@@ -392,16 +397,16 @@ struct ContractStorageUpdateRequest {
 }
 
 impl ContractStorageUpdateRequest {
-    fn serialize(self) -> [Field; CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH] {
+    pub fn serialize(self) -> [Field; CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH] {
         [self.storage_slot, self.old_value, self.new_value, self.side_effect_counter]
     }
 
-    fn hash(self) -> Field {
+    pub fn hash(self) -> Field {
         // TODO(dbanks12): do we include side-effect counter in hash?
         dep::std::hash::pedersen_with_separator(self.serialize(), GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST)[0]
     }
 
-    fn empty() -> Self {
+    pub fn empty() -> Self {
         Self { storage_slot: 0, old_value: 0, new_value: 0, side_effect_counter: 0 }
     }
 }
@@ -421,14 +426,11 @@ struct PublicCircuitPublicInputs {
     unencrypted_log_preimages_length: Field,
     block_data: HistoricBlockData,
     prover_address: Field,
-
-    // TODO: include globals in here and check them elsewhere
-    // https://github.com/AztecProtocol/aztec-packages/issues/1567
 }
 
 impl PublicCircuitPublicInputs {
 
-    fn hash(self) -> Field {
+    pub fn hash(self) -> Field {
         let mut inputs: BoundedVec<Field, PUBLIC_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH> = BoundedVec::new(0);
         inputs.push(self.call_context.hash());
         inputs.push(self.args_hash);
@@ -439,34 +441,20 @@ impl PublicCircuitPublicInputs {
         for i in 0..MAX_PUBLIC_DATA_READS_PER_CALL {
             inputs.push(self.contract_storage_read[i].hash());
         }
-        inputs.flatten_and_push_array(SideEffectWithRange::serialize, self.public_call_stack);
-        //for i in 0..MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL {
-        //    inputs.push(self.public_call_stack[i].hash());
-        //}
-        inputs.flatten_and_push_array(SideEffect::serialize, self.new_commitments);
-        //for i in 0..MAX_NEW_COMMITMENTS_PER_CALL {
-        //    inputs.push(self.new_commitments[i].hash());
-        //}
-        inputs.flatten_and_push_array(SideEffectLinkedToNoteHash::serialize, self.new_nullifiers);
-        //for i in 0..MAX_NEW_NULLIFIERS_PER_CALL {
-        //    inputs.push(self.new_nullifiers[i].hash());
-        //}
-        inputs.flatten_and_push_array(SideEffect::serialize, self.new_l2_to_l1_msgs);
-        //for i in 0..MAX_NEW_L2_TO_L1_MSGS_PER_CALL {
-        //    inputs.push(self.new_l2_to_l1_msgs[i].hash());
-        //}
-
-        // We do not include block_data since it's not in the cpp hash
+        inputs.map_and_push_array(SideEffectWithRange::hash, self.public_call_stack);
+        inputs.map_and_push_array(SideEffect::hash, self.new_commitments);
+        inputs.map_and_push_array(SideEffectLinkedToNoteHash::hash, self.new_nullifiers);
+        inputs.map_and_push_array(SideEffect::hash, self.new_l2_to_l1_msgs);
 
         inputs.push_array(self.unencrypted_logs_hash);
         inputs.push(self.unencrypted_log_preimages_length);
-        inputs.push_array(self.block_data.serialize()); // see https://github.com/AztecProtocol/aztec-packages/issues/1473
+        inputs.push_array(self.block_data.serialize());
         inputs.push(self.prover_address);
 
         dep::std::hash::pedersen_with_separator(inputs.storage, GENERATOR_INDEX__PUBLIC_CIRCUIT_PUBLIC_INPUTS)[0]
     }
 
-    fn serialize(self) -> [Field; PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH] {
+    pub fn serialize(self) -> [Field; PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH] {
         let mut fields: BoundedVec<Field, PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH> = BoundedVec::new(0); 
         fields.push_array(self.call_context.serialize());   
         fields.push(self.args_hash);
@@ -490,21 +478,21 @@ struct Hasher {
 }
 
 impl Hasher {
-    fn new()-> Self {
+    pub fn new()-> Self {
         Self { fields: [] }
     }
 
-    fn add(&mut self, field: Field) {
+    pub fn add(&mut self, field: Field) {
         self.fields = self.fields.push_back(field);
     }
 
-    fn add_multiple<N>(&mut self, fields: [Field; N]) {
+    pub fn add_multiple<N>(&mut self, fields: [Field; N]) {
         for i in 0..N {
             self.fields = self.fields.push_back(fields[i]);
         }
     }
 
-    fn hash(self) -> Field {
+    pub fn hash(self) -> Field {
         hash_args(self.fields)
     }
 }
@@ -512,7 +500,7 @@ impl Hasher {
 global ARGS_HASH_CHUNK_LENGTH: u32 = 32;
 global ARGS_HASH_CHUNK_COUNT: u32 = 16;
 
-fn hash_args<N>(args: [Field; N]) -> Field {
+pub fn hash_args<N>(args: [Field; N]) -> Field {
     if args.len() == 0 {
         0
     } else {

@@ -5,7 +5,7 @@ import { WorldStateSynchronizer } from '@aztec/world-state';
 import { SoloBlockBuilder } from '../block_builder/solo_block_builder.js';
 import { SequencerClientConfig } from '../config.js';
 import { getGlobalVariableBuilder } from '../global_variable_builder/index.js';
-import { Sequencer, getL1Publisher, getVerificationKeys } from '../index.js';
+import { Sequencer, SequencerConfig, getL1Publisher, getVerificationKeys } from '../index.js';
 import { EmptyRollupProver } from '../prover/empty.js';
 import { PublicProcessorFactory } from '../sequencer/public_processor.js';
 import { WasmRollupCircuitSimulator } from '../simulator/rollup.js';
@@ -41,7 +41,7 @@ export class SequencerClient {
     const blockBuilder = new SoloBlockBuilder(
       merkleTreeDb,
       getVerificationKeys(),
-      await WasmRollupCircuitSimulator.new(),
+      new WasmRollupCircuitSimulator(),
       new EmptyRollupProver(),
     );
 
@@ -55,12 +55,21 @@ export class SequencerClient {
       blockBuilder,
       l2BlockSource,
       l1ToL2MessageSource,
+      contractDataSource,
       publicProcessorFactory,
       config,
     );
 
     await sequencer.start();
     return new SequencerClient(sequencer);
+  }
+
+  /**
+   * Updates sequencer config.
+   * @param config - New parameters.
+   */
+  public updateSequencerConfig(config: SequencerConfig) {
+    this.sequencer.updateConfig(config);
   }
 
   /**

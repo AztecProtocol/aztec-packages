@@ -2,7 +2,6 @@ import { AztecAddress, CompleteAddress, DebugLogger, Fr, PXE, computeMessageSecr
 import { getProgram } from '@aztec/cli';
 
 import stringArgv from 'string-argv';
-import { format } from 'util';
 
 const INITIAL_BALANCE = 33000;
 const TRANSFER_BALANCE = 3000;
@@ -19,16 +18,16 @@ export const cliTestSuite = (
     let pxe: PXE;
     let existingAccounts: CompleteAddress[];
     let contractAddress: AztecAddress;
-    let log: (...args: any[]) => void;
+    let log: (msg: string) => void;
 
     // All logs emitted by the cli will be collected here, and reset between tests
     const logs: string[] = [];
 
     beforeAll(async () => {
       pxe = await setup();
-      log = (...args: any[]) => {
-        logs.push(format(...args));
-        debug(...args);
+      log = (msg: string) => {
+        logs.push(msg);
+        debug(msg);
       };
     }, 30_000);
 
@@ -118,7 +117,7 @@ export const cliTestSuite = (
       const ownerAddress = AztecAddress.fromString(foundAddress!);
 
       debug('Deploy Token Contract using created account.');
-      await run(`deploy TokenContractAbi --salt 0`);
+      await run(`deploy TokenContractArtifact --salt 0 --args ${ownerAddress}`);
       const loggedAddress = findInLogs(/Contract\sdeployed\sat\s+(?<address>0x[a-fA-F0-9]+)/)?.groups?.address;
       expect(loggedAddress).toBeDefined();
       contractAddress = AztecAddress.fromString(loggedAddress!);
@@ -131,20 +130,24 @@ export const cliTestSuite = (
       const checkResult = findInLogs(/Contract\sfound\sat\s+(?<address>0x[a-fA-F0-9]+)/)?.groups?.address;
       expect(checkResult).toEqual(deployedContract?.contractAddress.toString());
 
-      debug('Initialize token contract.');
-      await run(
-        `send _initialize --args ${ownerAddress} --contract-abi TokenContractAbi --contract-address ${contractAddress.toString()}  --private-key ${privKey}`,
-      );
-
       const secret = Fr.random();
       const secretHash = await computeMessageSecretHash(secret);
 
       debug('Mint initial tokens.');
       await run(
-        `send mint_private --args ${INITIAL_BALANCE} ${secretHash} --contract-abi TokenContractAbi --contract-address ${contractAddress.toString()} --private-key ${privKey}`,
+        `send mint_private --args ${INITIAL_BALANCE} ${secretHash} --contract-artifact TokenContractArtifact --contract-address ${contractAddress.toString()} --private-key ${privKey}`,
       );
+
+      debug('Add note to the PXE.');
+      const txHashes = findMultipleInLogs(/Transaction Hash: ([0-9a-f]{64})/i);
+      const mintPrivateTxHash = txHashes[txHashes.length - 1][1];
       await run(
-        `send redeem_shield --args ${ownerAddress} ${INITIAL_BALANCE} ${secret} --contract-abi TokenContractAbi --contract-address ${contractAddress.toString()} --private-key ${privKey}`,
+        `add-note ${ownerAddress} ${contractAddress} 5 ${mintPrivateTxHash} --preimage ${INITIAL_BALANCE} ${secretHash}`,
+      );
+
+      debug('Redeem tokens.');
+      await run(
+        `send redeem_shield --args ${ownerAddress} ${INITIAL_BALANCE} ${secret} --contract-artifact TokenContractArtifact --contract-address ${contractAddress.toString()} --private-key ${privKey}`,
       );
 
       // clear logs
@@ -155,7 +158,7 @@ export const cliTestSuite = (
 
       debug("Check owner's balance");
       await run(
-        `call balance_of_private --args ${ownerAddress} --contract-abi TokenContractAbi --contract-address ${contractAddress.toString()}`,
+        `call balance_of_private --args ${ownerAddress} --contract-artifact TokenContractArtifact --contract-address ${contractAddress.toString()}`,
       );
       const balance = findInLogs(/View\sresult:\s+(?<data>\S+)/)?.groups?.data;
       expect(balance!).toEqual(`${BigInt(INITIAL_BALANCE).toString()}n`);
@@ -166,7 +169,7 @@ export const cliTestSuite = (
       const receiver = existingAccounts.find(acc => acc.address.toString() !== ownerAddress.toString());
 
       await run(
-        `send transfer --args ${ownerAddress.toString()} ${receiver?.address.toString()}  ${TRANSFER_BALANCE} 0 --contract-address ${contractAddress.toString()} --contract-abi TokenContractAbi --private-key ${privKey}`,
+        `send transfer --args ${ownerAddress.toString()} ${receiver?.address.toString()}  ${TRANSFER_BALANCE} 0 --contract-address ${contractAddress.toString()} --contract-artifact TokenContractArtifact --private-key ${privKey}`,
       );
       const txHash = findInLogs(/Transaction\shash:\s+(?<txHash>\S+)/)?.groups?.txHash;
 
@@ -179,7 +182,7 @@ export const cliTestSuite = (
       debug("Check Receiver's balance");
       clearLogs();
       await run(
-        `call balance_of_private --args ${receiver?.address.toString()} --contract-abi TokenContractAbi --contract-address ${contractAddress.toString()}`,
+        `call balance_of_private --args ${receiver?.address.toString()} --contract-artifact TokenContractArtifact --contract-address ${contractAddress.toString()}`,
       );
       const receiverBalance = findInLogs(/View\sresult:\s+(?<data>\S+)/)?.groups?.data;
       expect(receiverBalance).toEqual(`${BigInt(TRANSFER_BALANCE).toString()}n`);
