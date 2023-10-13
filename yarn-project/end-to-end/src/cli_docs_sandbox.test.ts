@@ -349,11 +349,11 @@ Transaction receipt:
 
     // Test call
     docs = `
-// docs:start:calls
+// docs:start:call
 % aztec-cli call balance_of_public -a $ADDRESS -c TokenContractArtifact -ca $CONTRACT_ADDRESS
 
 View result:  543n
-// docs:end:calls
+// docs:end:call
 `;
     command = docs
       .split('\n')[2]
