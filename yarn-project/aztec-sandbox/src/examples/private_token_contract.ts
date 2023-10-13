@@ -1,78 +1,84 @@
 import {
   AccountWallet,
-  AztecAddress,
-  Contract,
+  Fr,
   GrumpkinScalar,
+  NotePreimage,
+  computeMessageSecretHash,
   createPXEClient,
-  createRecipient,
   getUnsafeSchnorrAccount,
 } from '@aztec/aztec.js';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { PrivateTokenContract } from '@aztec/noir-contracts/types';
+import { TokenContract } from '@aztec/noir-contracts/types';
 
 const logger = createDebugLogger('aztec:http-rpc-client');
 
-export const privateKey = GrumpkinScalar.fromString('ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80');
+export const alicePrivateKey = GrumpkinScalar.random();
+export const bobPrivateKey = GrumpkinScalar.random();
 
 const url = 'http://localhost:8080';
 
 const pxe = createPXEClient(url);
-let wallet: AccountWallet;
 
-const INITIAL_BALANCE = 333n;
-const SECONDARY_AMOUNT = 33n;
+let aliceWallet: AccountWallet;
+let bobWallet: AccountWallet;
 
-/**
- * Deploys the Private Token contract.
- * @param owner - The address that the initial balance will belong to.
- * @returns An Aztec Contract object with the private token's artifact.
- */
-async function deployZKContract(owner: AztecAddress) {
-  logger('Deploying L2 contract...');
-  const contract = await PrivateTokenContract.deploy(pxe, INITIAL_BALANCE, owner).send().deployed();
-  logger('L2 contract deployed');
-  return contract;
-}
-
-/**
- * Gets a user's balance from a Private Token contract.
- * @param contract - The Private Token contract.
- * @param ownerAddress - Balance owner's Aztec Address.
- * @returns The owner's current balance of the token.
- */
-async function getBalance(contract: Contract, ownerAddress: AztecAddress) {
-  return await contract.methods.getBalance(ownerAddress).view({ from: ownerAddress });
-}
+const ALICE_MINT_BALANCE = 333n;
+const TRANSFER_AMOUNT = 33n;
 
 /**
  * Main function.
  */
 async function main() {
-  logger('Running ZK contract test on HTTP interface.');
+  logger('Running token contract test on HTTP interface.');
 
-  wallet = await getUnsafeSchnorrAccount(pxe, privateKey).waitDeploy();
-  const owner = wallet.getCompleteAddress();
-  const recipient = await createRecipient(pxe);
+  aliceWallet = await getUnsafeSchnorrAccount(pxe, alicePrivateKey).waitDeploy();
+  bobWallet = await getUnsafeSchnorrAccount(pxe, bobPrivateKey).waitDeploy();
+  const alice = aliceWallet.getCompleteAddress();
+  const bob = bobWallet.getCompleteAddress();
 
-  logger(`Created Owner account ${owner.toString()}`);
+  logger(`Created Alice and Bob accounts: ${alice.address.toString()}, ${bob.address.toString()}`);
 
-  const zkContract = await deployZKContract(owner.address);
-  const [balance1] = await zkContract.methods.getBalance(owner.address).view({ from: owner.address });
-  logger(`Initial owner balance: ${balance1}`);
+  logger('Deploying Token...');
+  const token = await TokenContract.deploy(pxe, alice).send().deployed();
+  logger('Token deployed');
 
-  // Mint more tokens
-  logger(`Minting ${SECONDARY_AMOUNT} more coins`);
-  await zkContract.methods.mint(SECONDARY_AMOUNT, owner.address).send().wait({ interval: 0.5 });
-  const balanceAfterMint = await getBalance(zkContract, owner.address);
-  logger(`Owner's balance is now: ${balanceAfterMint}`);
+  // Create the contract abstraction and link it to Alice's and Bob's wallet for future signing
+  const tokenAlice = await TokenContract.at(token.address, aliceWallet);
+  const tokenBob = await TokenContract.at(token.address, bobWallet);
+
+  // Mint tokens to alice
+  logger(`Minting ${ALICE_MINT_BALANCE} more coins to alice...`);
+
+  // Create a secret and a corresponding hash that will be used to mint funds privately
+  const aliceSecret = Fr.random();
+  const aliceSecretHash = await computeMessageSecretHash(aliceSecret);
+  const receipt = await tokenAlice.methods.mint_private(ALICE_MINT_BALANCE, aliceSecretHash).send().wait();
+
+  // Add the newly created "pending shield" note to PXE
+  const pendingShieldsStorageSlot = new Fr(5); // The storage slot of `pending_shields` is 5.
+  const preimage = new NotePreimage([new Fr(ALICE_MINT_BALANCE), aliceSecretHash]);
+  await pxe.addNote(alice.address, token.address, pendingShieldsStorageSlot, preimage, receipt.txHash);
+
+  // Make the tokens spendable by redeeming them using the secret (converts the "pending shield note" created above
+  // to a "token note")
+  await tokenAlice.methods.redeem_shield(alice, ALICE_MINT_BALANCE, aliceSecret).send().wait();
+  logger(`${ALICE_MINT_BALANCE} tokens were successfully minted and redeemed by Alice`);
+
+  const balanceAfterMint = await tokenAlice.methods.balance_of_private(alice).view();
+  logger(`Tokens successfully minted. New alice balance: ${balanceAfterMint}`);
 
   // Perform a transfer
-  logger(`Transferring ${SECONDARY_AMOUNT} tokens from owner to another account.`);
-  await zkContract.methods.transfer(SECONDARY_AMOUNT, recipient.address).send().wait({ interval: 0.5 });
-  const balanceAfterTransfer = await getBalance(zkContract, owner.address);
-  const receiverBalance = await getBalance(zkContract, recipient.address);
-  logger(`Owner's balance is now ${balanceAfterTransfer}`);
-  logger(`The transfer receiver's balance is ${receiverBalance}`);
+
+  // We will now transfer tokens from Alice to Bob
+  logger(`Transferring ${TRANSFER_AMOUNT} tokens from Alice to Bob...`);
+  await tokenAlice.methods.transfer(alice, bob, TRANSFER_AMOUNT, 0).send().wait();
+
+  // Check the new balances
+  const aliceBalance = await tokenAlice.methods.balance_of_private(alice).view();
+  logger(`Alice's balance ${aliceBalance}`);
+
+  const bobBalance = await tokenBob.methods.balance_of_private(bob).view();
+  logger(`Bob's balance ${bobBalance}`);
 }
 
 main()
