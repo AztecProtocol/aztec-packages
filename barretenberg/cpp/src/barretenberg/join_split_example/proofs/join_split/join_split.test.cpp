@@ -44,11 +44,10 @@ class join_split_tests : public ::testing::Test {
     static void SetUpTestCase()
     {
         barretenberg::srs::init_crs_factory("../srs_db/ignition");
-        auto null_crs_factory = std::make_shared<barretenberg::srs::factories::CrsFactory<curve::BN254>>();
-        init_proving_key(null_crs_factory, false);
+        init_proving_key(false);
         auto crs_factory =
             std::make_unique<barretenberg::srs::factories::FileCrsFactory<curve::BN254>>("../srs_db/ignition");
-        init_verification_key(std::move(crs_factory));
+        init_verification_key();
         info("vk hash: ", get_verification_key()->sha256_hash());
     }
 
@@ -213,7 +212,7 @@ class join_split_tests : public ::testing::Test {
                                uint32_t account_note_index = 0,
                                bool account_required = false)
     {
-        // The tree, user and notes are initialised in SetUp().
+        // The tree, user and notes are initialized in SetUp().
         preload_value_notes();
         preload_account_notes(); // indices: [ACCOUNT_INDEX, ACCOUNT_INDEX + 1]
         return create_join_split_tx(input_indices,

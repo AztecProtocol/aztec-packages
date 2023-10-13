@@ -5,6 +5,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { AztecNode, KeyStore, L2BlockContext, L2BlockL2Logs, NoteSpendingInfo, PublicKey } from '@aztec/types';
+import { NoteProcessorStats } from '@aztec/types/stats';
 
 import { Database, NoteSpendingInfoDao } from '../database/index.js';
 import { getAcirSimulator } from '../simulator/index.js';
@@ -23,16 +24,6 @@ interface ProcessedData {
   noteSpendingInfoDaos: NoteSpendingInfoDao[];
 }
 
-/** Accumulated stats for a note processor.  */
-type NoteProcessorStats = {
-  /** How many notes have been seen and trial-decrypted. */
-  seen: number;
-  /** How many notes were successfully decrypted. */
-  decrypted: number;
-  /** How many notes failed processing. */
-  failed: number;
-};
-
 /**
  * NoteProcessor is responsible for decrypting logs and converting them to notes via their originating contracts
  * before storing them against their owner.
@@ -45,7 +36,7 @@ export class NoteProcessor {
   public readonly timer: Timer = new Timer();
 
   /** Stats accumulated for this processor. */
-  public readonly stats: NoteProcessorStats = { seen: 0, decrypted: 0, failed: 0 };
+  public readonly stats: NoteProcessorStats = { seen: 0, decrypted: 0, failed: 0, blocks: 0, txs: 0 };
 
   constructor(
     /**
@@ -75,7 +66,7 @@ export class NoteProcessor {
   }
 
   /**
-   * Returns synchronisation status (ie up to which block has been synced ) for this note processor.
+   * Returns synchronization status (ie up to which block has been synced ) for this note processor.
    */
   public get status() {
     return { syncedToBlock: this.syncedToBlock };
@@ -106,6 +97,7 @@ export class NoteProcessor {
 
     // Iterate over both blocks and encrypted logs.
     for (let blockIndex = 0; blockIndex < encryptedL2BlockLogs.length; ++blockIndex) {
+      this.stats.blocks++;
       const { txLogs } = encryptedL2BlockLogs[blockIndex];
       const block = l2BlockContexts[blockIndex].block;
       const dataStartIndexForBlock = block.startPrivateDataTreeSnapshot.nextAvailableLeafIndex;
@@ -117,6 +109,7 @@ export class NoteProcessor {
 
       // Iterate over all the encrypted logs and try decrypting them. If successful, store the note spending info.
       for (let indexOfTxInABlock = 0; indexOfTxInABlock < txLogs.length; ++indexOfTxInABlock) {
+        this.stats.txs++;
         const dataStartIndexForTx = dataStartIndexForBlock + indexOfTxInABlock * MAX_NEW_COMMITMENTS_PER_TX;
         const newCommitments = block.newCommitments.slice(
           indexOfTxInABlock * MAX_NEW_COMMITMENTS_PER_TX,
@@ -237,7 +230,7 @@ ${siloedNoteHash.toString()}'.
 If you can see that notification. Everything's fine.
 If that's not the case, and you can't find such a notification, something has gone wrong.
 There could be a problem with the way you've defined a custom note, or with the way you're
-serialising / deserialising / hashing / encrypting / decrypting that note.
+serializing / deserializing / hashing / encrypting / decrypting that note.
 Please see the following github issue to track an improvement that we're working on:
 https://github.com/AztecProtocol/aztec-packages/issues/1641`;
       }

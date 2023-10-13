@@ -6,6 +6,7 @@ import {
   CompleteAddress,
   EthAddress,
   EthCheatCodes,
+  SentTx,
   Wallet,
   createAccounts,
   createPXEClient,
@@ -37,17 +38,9 @@ import {
   TokenPortalAbi,
   TokenPortalBytecode,
 } from '@aztec/l1-artifacts';
-import { NonNativeTokenContract, TokenBridgeContract, TokenContract } from '@aztec/noir-contracts/types';
+import { TokenBridgeContract, TokenContract } from '@aztec/noir-contracts/types';
 import { PXEService, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
-import {
-  AztecNode,
-  L2BlockL2Logs,
-  LogType,
-  PXE,
-  TxStatus,
-  UnencryptedL2Log,
-  createAztecNodeRpcClient,
-} from '@aztec/types';
+import { AztecNode, L2BlockL2Logs, LogType, PXE, TxStatus, createAztecNodeRpcClient } from '@aztec/types';
 
 import * as path from 'path';
 import {
@@ -255,7 +248,7 @@ export type EndToEndContext = {
 /**
  * Sets up the environment for the end-to-end tests.
  * @param numberOfAccounts - The number of new accounts to be created once the PXE is initiated.
- * @param opts - Options to pass to the node initialisation and to the setup script.
+ * @param opts - Options to pass to the node initialization and to the setup script.
  */
 export async function setup(numberOfAccounts = 1, opts: SetupOptions = {}): Promise<EndToEndContext> {
   const config = { ...getConfigEnvVars(), ...opts };
@@ -289,6 +282,7 @@ export async function setup(numberOfAccounts = 1, opts: SetupOptions = {}): Prom
   config.l1Contracts.contractDeploymentEmitterAddress =
     deployL1ContractsValues.l1ContractAddresses.contractDeploymentEmitterAddress;
   config.l1Contracts.inboxAddress = deployL1ContractsValues.l1ContractAddresses.inboxAddress;
+  config.l1Contracts.outboxAddress = deployL1ContractsValues.l1ContractAddresses.outboxAddress;
 
   logger('Creating and synching an aztec node...');
   const aztecNode = await AztecNodeService.createAndSync(config);
@@ -437,61 +431,6 @@ export async function deployAndInitializeTokenAndBridgeContracts(
 }
 
 /**
- * Deploy L1 token and portal, initialize portal, deploy a non native l2 token contract and attach is to the portal.
- * @param wallet - Aztec wallet instance.
- * @param walletClient - A viem WalletClient.
- * @param publicClient - A viem PublicClient.
- * @param rollupRegistryAddress - address of rollup registry to pass to initialize the token portal
- * @param initialBalance - initial balance of the owner of the L2 contract
- * @param owner - owner of the L2 contract
- * @param underlyingERC20Address - address of the underlying ERC20 contract to use (if none supplied, it deploys one)
- * @returns l2 contract instance, token portal instance, token portal address and the underlying ERC20 instance
- */
-// TODO (#2291) DELETE!!!
-export async function deployAndInitializeNonNativeL2TokenContracts(
-  wallet: Wallet,
-  walletClient: WalletClient<HttpTransport, Chain, Account>,
-  publicClient: PublicClient<HttpTransport, Chain>,
-  rollupRegistryAddress: EthAddress,
-  initialBalance = 0n,
-  owner = AztecAddress.ZERO,
-  underlyingERC20Address?: EthAddress,
-) {
-  // deploy underlying contract if no address supplied
-  if (!underlyingERC20Address) {
-    underlyingERC20Address = await deployL1Contract(walletClient, publicClient, PortalERC20Abi, PortalERC20Bytecode);
-  }
-  const underlyingERC20: any = getContract({
-    address: underlyingERC20Address.toString(),
-    abi: PortalERC20Abi,
-    walletClient,
-    publicClient,
-  });
-
-  // deploy the token portal
-  const tokenPortalAddress = await deployL1Contract(walletClient, publicClient, TokenPortalAbi, TokenPortalBytecode);
-  const tokenPortal: any = getContract({
-    address: tokenPortalAddress.toString(),
-    abi: TokenPortalAbi,
-    walletClient,
-    publicClient,
-  });
-
-  // deploy l2 contract and attach to portal
-  const l2Contract = await NonNativeTokenContract.deploy(wallet, initialBalance, owner)
-    .send({ portalContract: tokenPortalAddress })
-    .deployed();
-  const l2TokenAddress = l2Contract.address.toString();
-
-  // initialize portal
-  await tokenPortal.write.initialize(
-    [rollupRegistryAddress.toString(), underlyingERC20Address.toString(), l2TokenAddress],
-    {} as any,
-  );
-  return { l2Contract, tokenPortalAddress, tokenPortal, underlyingERC20 };
-}
-
-/**
  * Sleep for a given number of milliseconds.
  * @param ms - the number of milliseconds to sleep for
  */
@@ -521,18 +460,32 @@ export const expectsNumOfEncryptedLogsInTheLastBlockToBe = async (
 
 /**
  * Checks that the last block contains the given expected unencrypted log messages.
- * @param pxe - The instance of PXE for retrieving the logs.
+ * @param tx - An instance of SentTx for which to retrieve the logs.
+ * @param logMessages - The set of expected log messages.
+ */
+export const expectUnencryptedLogsInTxToBe = async (tx: SentTx, logMessages: string[]) => {
+  const unencryptedLogs = (await tx.getUnencryptedLogs()).logs;
+  const asciiLogs = unencryptedLogs.map(extendedLog => extendedLog.log.data.toString('ascii'));
+
+  expect(asciiLogs).toStrictEqual(logMessages);
+};
+
+/**
+ * Checks that the last block contains the given expected unencrypted log messages.
+ * @param pxe - An instance of PXE for retrieving the logs.
  * @param logMessages - The set of expected log messages.
  */
 export const expectUnencryptedLogsFromLastBlockToBe = async (pxe: PXE, logMessages: string[]) => {
   // docs:start:get_logs
-  // Get the latest block number to retrieve logs from
-  const l2BlockNum = await pxe.getBlockNumber();
   // Get the unencrypted logs from the last block
-  const unencryptedLogs = await pxe.getUnencryptedLogs(l2BlockNum, 1);
+  const fromBlock = await pxe.getBlockNumber();
+  const logFilter = {
+    fromBlock,
+    toBlock: fromBlock + 1,
+  };
+  const unencryptedLogs = (await pxe.getUnencryptedLogs(logFilter)).logs;
   // docs:end:get_logs
-  const unrolledLogs = L2BlockL2Logs.unrollLogs(unencryptedLogs).map(log => UnencryptedL2Log.fromBuffer(log));
-  const asciiLogs = unrolledLogs.map(log => log.data.toString('ascii'));
+  const asciiLogs = unencryptedLogs.map(extendedLog => extendedLog.log.data.toString('ascii'));
 
   expect(asciiLogs).toStrictEqual(logMessages);
 };

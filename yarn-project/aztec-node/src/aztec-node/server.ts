@@ -8,7 +8,8 @@ import {
   L1_TO_L2_MSG_TREE_HEIGHT,
   PRIVATE_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
-import { L1ContractAddresses } from '@aztec/ethereum';
+import { computePublicDataTreeIndex } from '@aztec/circuits.js/abis';
+import { L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { InMemoryTxPool, P2P, createP2PClient } from '@aztec/p2p';
@@ -23,6 +24,7 @@ import {
   ContractData,
   ContractDataSource,
   ExtendedContractData,
+  GetUnencryptedLogsResponse,
   L1ToL2MessageAndIndex,
   L1ToL2MessageSource,
   L2Block,
@@ -30,6 +32,7 @@ import {
   L2BlockSource,
   L2LogsSource,
   L2Tx,
+  LogFilter,
   LogType,
   MerkleTreeId,
   SiblingPath,
@@ -41,7 +44,6 @@ import {
   ServerWorldStateSynchronizer,
   WorldStateConfig,
   WorldStateSynchronizer,
-  computePublicDataTreeLeafIndex,
   getConfigEnvVars as getWorldStateConfig,
 } from '@aztec/world-state';
 
@@ -69,7 +71,16 @@ export class AztecNodeService implements AztecNode {
     protected readonly globalVariableBuilder: GlobalVariableBuilder,
     protected readonly merkleTreesDb: levelup.LevelUp,
     private log = createDebugLogger('aztec:node'),
-  ) {}
+  ) {
+    const message =
+      `Started Aztec Node against chain 0x${chainId.toString(16)} with contracts - \n` +
+      `Rollup: ${config.l1Contracts.rollupAddress.toString()}\n` +
+      `Registry: ${config.l1Contracts.registryAddress.toString()}\n` +
+      `Inbox: ${config.l1Contracts.inboxAddress.toString()}\n` +
+      `Outbox: ${config.l1Contracts.outboxAddress.toString()}\n` +
+      `Contract Emitter: ${config.l1Contracts.contractDeploymentEmitterAddress.toString()}`;
+    this.log(message);
+  }
 
   /**
    * initializes the Aztec Node, wait for component to sync.
@@ -77,6 +88,13 @@ export class AztecNodeService implements AztecNode {
    * @returns - A fully synced Aztec Node for use in development/testing.
    */
   public static async createAndSync(config: AztecNodeConfig) {
+    const ethereumChain = createEthereumChain(config.rpcUrl, config.apiKey);
+    //validate that the actual chain id matches that specified in configuration
+    if (config.chainId !== ethereumChain.chainInfo.id) {
+      throw new Error(
+        `RPC URL configured for chain id ${ethereumChain.chainInfo.id} but expected id ${config.chainId}`,
+      );
+    }
     // first create and sync the archiver
     const archiver = await Archiver.createAndSync(config);
 
@@ -111,7 +129,7 @@ export class AztecNodeService implements AztecNode {
       archiver,
       worldStateSynchronizer,
       sequencer,
-      config.chainId,
+      ethereumChain.chainInfo.id,
       config.version,
       getGlobalVariableBuilder(config),
       db,
@@ -148,7 +166,7 @@ export class AztecNodeService implements AztecNode {
    * @returns The blocks requested.
    */
   public async getBlock(number: number): Promise<L2Block | undefined> {
-    return await this.blockSource.getL2Block(number);
+    return await this.blockSource.getBlock(number);
   }
 
   /**
@@ -158,7 +176,7 @@ export class AztecNodeService implements AztecNode {
    * @returns The blocks requested.
    */
   public async getBlocks(from: number, limit: number): Promise<L2Block[]> {
-    return (await this.blockSource.getL2Blocks(from, limit)) ?? [];
+    return (await this.blockSource.getBlocks(from, limit)) ?? [];
   }
 
   /**
@@ -214,6 +232,15 @@ export class AztecNodeService implements AztecNode {
   public getLogs(from: number, limit: number, logType: LogType): Promise<L2BlockL2Logs[]> {
     const logSource = logType === LogType.ENCRYPTED ? this.encryptedLogsSource : this.unencryptedLogsSource;
     return logSource.getLogs(from, limit, logType);
+  }
+
+  /**
+   * Gets unencrypted logs based on the provided filter.
+   * @param filter - The filter to apply to the logs.
+   * @returns The requested logs.
+   */
+  getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+    return this.unencryptedLogsSource.getUnencryptedLogs(filter);
   }
 
   /**
@@ -321,8 +348,8 @@ export class AztecNodeService implements AztecNode {
    */
   public async getPublicStorageAt(contract: AztecAddress, slot: bigint): Promise<Buffer | undefined> {
     const committedDb = await this.#getWorldState();
-    const leafIndex = computePublicDataTreeLeafIndex(contract, new Fr(slot), await CircuitsWasm.get());
-    return committedDb.getLeafValue(MerkleTreeId.PUBLIC_DATA_TREE, leafIndex);
+    const leafIndex = computePublicDataTreeIndex(await CircuitsWasm.get(), contract, new Fr(slot));
+    return committedDb.getLeafValue(MerkleTreeId.PUBLIC_DATA_TREE, leafIndex.value);
   }
 
   /**
@@ -381,7 +408,7 @@ export class AztecNodeService implements AztecNode {
     this.log.info(`Simulating tx ${await tx.getTxHash()}`);
     const blockNumber = (await this.blockSource.getBlockNumber()) + 1;
     const newGlobalVariables = await this.globalVariableBuilder.buildGlobalVariables(new Fr(blockNumber));
-    const prevGlobalVariables = (await this.blockSource.getL2Block(-1))?.globalVariables ?? GlobalVariables.empty();
+    const prevGlobalVariables = (await this.blockSource.getBlock(-1))?.globalVariables ?? GlobalVariables.empty();
 
     // Instantiate merkle trees so uncommitted updates by this simulation are local to it.
     // TODO we should be able to remove this after https://github.com/AztecProtocol/aztec-packages/issues/1869
