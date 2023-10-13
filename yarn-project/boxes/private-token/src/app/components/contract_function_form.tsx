@@ -89,7 +89,7 @@ function generateYupSchema(functionAbi: FunctionArtifact, defaultAddress: string
       parameterSchema[param.name] = Yup.object().shape(structParamSchema);
       initialValues[param.name] = structInitialValues;
       continue;
-    } 
+    }
   }
   return { validationSchema: Yup.object().shape(parameterSchema), initialValues };
 }
