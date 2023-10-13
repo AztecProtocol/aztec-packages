@@ -46,6 +46,10 @@ Within a few seconds the Sandbox should be up and running!
 
 <Image img={require("/img/sandbox.png")} />
 
+:::info
+To start anvil in a fork mode set `FORK_URL` and `FORK_BLOCK_NUMBER` environment variables before running the script.
+:::
+
 ## Project setup
 
 We will deploy a pre-compiled token contract, and send tokens privately, using the Sandbox.
@@ -118,7 +122,7 @@ yarn add @aztec/aztec.js @aztec/noir-contracts typescript @types/node
   "version": "1.0.0",
   "description": "My first token contract",
   "main": "index.js",
-  "author": "Phil",
+  "author": "1000x Dev",
   "license": "MIT",
   "type": "module",
   "scripts": {
@@ -171,8 +175,8 @@ A successful run should show:
     rollupAddress: EthAddress {
       buffer: <Buffer cf 7e d3 ac ca 5a 46 7e 9e 70 4c 70 3e 8d 87 f6 34 fb 0f c9>
     },
-    client: 'pxe@0.1.0',
-    compatibleNargoVersion: '0.11.1-aztec.0'
+    client: 'pxe@#include_aztec_short_version'',
+    compatibleNargoVersion: '#include_noir_version'
   }
 ```
 
@@ -205,8 +209,8 @@ Now that we have our accounts loaded, let's move on to deploy our pre-compiled t
     rollupAddress: EthAddress {
       buffer: <Buffer cf 7e d3 ac ca 5a 46 7e 9e 70 4c 70 3e 8d 87 f6 34 fb 0f c9>
     },
-    client: 'pxe@0.1.0',
-    compatibleNargoVersion: '0.11.1-aztec.0'
+    client: 'pxe@#include_aztec_short_version'',
+    compatibleNargoVersion: '#include_noir_version'
   }
   token Creating accounts using schnorr signers... +3ms
   token Created Alice's account at 0x1509b252...0027 +10s
@@ -222,9 +226,8 @@ We can break this down as follows:
 3. We retrieve the transaction receipt containing the transaction status and contract address.
 4. We connect to the contract with Alice
 5. Alice initialize the contract with herself as the admin and a minter.
-6. Alice adds Bob as minter.
-7. Alice mints 1,000,000 tokens to be claimed by herself in private.
-8. Alice claims the tokens privately.
+6. Alice mints 1,000,000 tokens to be claimed by herself in private.
+7. Alice claims the tokens privately.
 
 ## Viewing the balance of an account
 
@@ -247,8 +250,8 @@ Running now should yield output:
     rollupAddress: EthAddress {
       buffer: <Buffer cf 7e d3 ac ca 5a 46 7e 9e 70 4c 70 3e 8d 87 f6 34 fb 0f c9>
     },
-    client: 'pxe@0.1.0',
-    compatibleNargoVersion: '0.11.1-aztec.0'
+    client: 'pxe@#include_aztec_short_version'',
+    compatibleNargoVersion: '#include_noir_version'
   }
   token Creating accounts using schnorr signers... +3ms
   token Created Alice's account at 0x1509b252...0027 +10s
@@ -259,7 +262,7 @@ Running now should yield output:
   token Bob's balance 0 +33ms
 ```
 
-In this section, we created 2 instances of the `TokenContract` contract abstraction, one for each of our deployed accounts. This contract abstraction offers a Typescript interface reflecting the abi of the contract. We then call `getBalance()` as a `view` method. View methods can be thought as read-only. No transaction is submitted as a result but a user's state can be queried.
+In this section, we created a second instance of the `TokenContract` contract abstraction pertaining to Bob. This contract abstraction offers a Typescript interface reflecting the abi of the contract. We then call `getBalance()` as a `view` method. View methods can be thought as read-only. No transaction is submitted as a result but a user's state can be queried.
 
 We can see that each account has the expected balance of tokens.
 
@@ -293,8 +296,8 @@ Our output should now look like this:
     rollupAddress: EthAddress {
       buffer: <Buffer cf 7e d3 ac ca 5a 46 7e 9e 70 4c 70 3e 8d 87 f6 34 fb 0f c9>
     },
-    client: 'pxe@0.1.0',
-    compatibleNargoVersion: '0.11.1-aztec.0'
+    client: 'pxe@#include_aztec_short_version'',
+    compatibleNargoVersion: '#include_noir_version'
   }
   token Creating accounts using schnorr signers... +3ms
   token Created Alice's account at 0x1509b252...0027 +10s
@@ -310,16 +313,28 @@ Our output should now look like this:
 
 Here, we used the same contract abstraction as was previously used for reading Alice's balance. But this time we called `send()` generating and sending a transaction to the network. After waiting for the transaction to settle we were able to check the new balance values.
 
-Finally, the contract has a `mint` function that can be used to generate new tokens for an account. This takes 2 arguments:
+Finally, the contract has 2 `mint` functions that can be used to generate new tokens for an account.
+We will focus only on `mint_private`.
+This function is public but it mints tokens privately.
+This function takes:
 
-1. The quantity of tokens to be minted.
-2. The recipient of the new tokens.
+1. A quantity of tokens to be minted.
+2. A secret hash.
 
 Here is the Noir code:
 
-#include_code mint /yarn-project/noir-contracts/src/contracts/private_token_contract/src/main.nr rust
+#include_code mint_private /yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
 
-Let's mint some tokens to Bob's account using Typescript, add this to `index.ts`:
+This function is public and it inserts a new note into the private data tree and increases the total token supply by the amount minted.
+
+To make the note spendable the note has to be redeemed.
+A user can do that by calling the `redeem_shield` function:
+
+#include_code redeem_shield /yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
+
+Notice that this function is private and that it takes a secret as an input argument.
+
+Let's now use these functions to mint some tokens to Bob's account using Typescript, add this to `index.ts`:
 
 #include_code Mint /yarn-project/end-to-end/src/e2e_sandbox_example.test.ts typescript
 
@@ -332,8 +347,8 @@ Our complete output should now be:
     rollupAddress: EthAddress {
       buffer: <Buffer cf 7e d3 ac ca 5a 46 7e 9e 70 4c 70 3e 8d 87 f6 34 fb 0f c9>
     },
-    client: 'pxe@0.1.0',
-    compatibleNargoVersion: '0.11.1-aztec.0'
+    client: 'pxe@#include_aztec_short_version'',
+    compatibleNargoVersion: '#include_noir_version'
   }
   token Creating accounts using schnorr signers... +3ms
   token Created Alice's account at 0x1509b252...0027 +10s
