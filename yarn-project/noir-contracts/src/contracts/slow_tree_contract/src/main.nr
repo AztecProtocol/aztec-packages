@@ -1,22 +1,7 @@
-// Custom oracles for:
-// - Getting CURRENT PUBLIC storage while in private
-// - Getting merkle path for a given index
-
-// TODO:
-// - Should be able to prove correct update in private and then validate the update in public.
-// - Should let external contracts use this tree almost as their own storage.
-// - Must change the `update_at` in the underlying `slow_map` 
-//    - Should have multiple splits:
-//       - Compute the "expected current root" (private)
-//       - Compute the "expected new root" (private)
-//       - Validate the "expected current root" (public)
-//       - Update the leaf value (public)
-//       - Update the root (public)
-
-
-// This is made as a separate contract for one thing mainly. Making it a bit easier to use.
-// This allows us to wrap the private->public calls in one single call for the dev.
-
+// This contract allow us to "read" public storage in private through a delayed tree.
+// More documentation need to be outlined for this properly, but there is some in 
+// https://github.com/AztecProtocol/aztec-packages/pull/2732/files
+// This is made as a separate contract for one thing mainly. Making it a simpler to use.
 contract SlowTree {
     use dep::std::option::Option;
     use dep::std::merkle::compute_merkle_root;
@@ -119,7 +104,6 @@ contract SlowTree {
 
     #[aztec(private)]
     fn read_at(p: MembershipProof<TREE_HEIGHT, MEMBERSHIP_SIZE>) -> Field {
-        // Ergonomics are pretty bad. But we eat shit for now.
         let expected_root = compute_merkle_root(p.value, p.index, p.sibling_path);
         let selector = compute_selector("_assert_current_root(Field,Field)");
         context.call_public_function(
@@ -149,7 +133,7 @@ contract SlowTree {
         let after_root = compute_merkle_root(p.after.value, p.index, p.after.sibling_path);
         let new_after_root = compute_merkle_root(p.new_value, p.index, p.after.sibling_path);
 
-        let selector = compute_selector("_hmm(Field,Field,Field,Field,Field,Field)");
+        let selector = compute_selector("_update(Field,Field,Field,Field,Field,Field)");
         context.call_public_function(
             context.this_address(), 
             selector, 
@@ -165,7 +149,7 @@ contract SlowTree {
     }
 
     #[aztec(public)]
-    internal fn _hmm(
+    internal fn _update(
         caller: Field, 
         index: Field, 
         new_value: Field, 
