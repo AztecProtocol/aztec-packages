@@ -5,10 +5,24 @@
 
 extern "C" {
 
-WASM_EXPORT void pedersen_hash_init()
+WASM_EXPORT void pedersen_hash(uint8_t const* inputs_buffer, uint8_t* output)
 {
-    // TODO delete
+    std::vector<grumpkin::fq> to_compress;
+    read(inputs_buffer, to_compress);
+    auto r = crypto::pedersen_hash::hash(to_compress);
+    barretenberg::fr::serialize_to_buffer(r, output);
 }
+WASM_EXPORT void pedersen_hash_with_hash_index(uint8_t const* inputs_buffer,
+                                               uint32_t const* hash_index,
+                                               uint8_t* output)
+{
+    std::vector<grumpkin::fq> to_compress;
+    read(inputs_buffer, to_compress);
+    auto r = crypto::pedersen_hash::hash(to_compress, ntohl(*hash_index));
+    barretenberg::fr::serialize_to_buffer(r, output);
+}
+
+WASM_EXPORT void pedersen_hash_init() {}
 
 WASM_EXPORT void pedersen_hash_pair(uint8_t const* left, uint8_t const* right, uint8_t* result)
 {
@@ -18,27 +32,9 @@ WASM_EXPORT void pedersen_hash_pair(uint8_t const* left, uint8_t const* right, u
     barretenberg::fr::serialize_to_buffer(r, result);
 }
 
-WASM_EXPORT void pedersen_hash(uint8_t const* inputs_buffer, uint8_t* output)
-{
-    std::vector<grumpkin::fq> to_compress;
-    read(inputs_buffer, to_compress);
-    auto r = crypto::pedersen_hash::hash(to_compress);
-    barretenberg::fr::serialize_to_buffer(r, output);
-}
-
 WASM_EXPORT void pedersen_hash_multiple(uint8_t const* inputs_buffer, uint8_t* output)
 {
     pedersen_hash(inputs_buffer, output);
-}
-
-WASM_EXPORT void pedersen_hash_with_hash_index(uint8_t const* inputs_buffer,
-                                               uint32_t const* hash_index,
-                                               uint8_t* output)
-{
-    std::vector<grumpkin::fq> to_compress;
-    read(inputs_buffer, to_compress);
-    auto r = crypto::pedersen_hash::hash(to_compress, ntohl(*hash_index));
-    barretenberg::fr::serialize_to_buffer(r, output);
 }
 
 WASM_EXPORT void pedersen_hash_multiple_with_hash_index(uint8_t const* inputs_buffer,
@@ -54,6 +50,7 @@ WASM_EXPORT void pedersen_hash_multiple_with_hash_index(uint8_t const* inputs_bu
  * e.g.
  * input:  [1][2][3][4]
  * output: [1][2][3][4][compress(1,2)][compress(3,4)][compress(5,6)]
+ *
  */
 WASM_EXPORT void pedersen_hash_to_tree(fr::vec_in_buf data, fr::vec_out_buf out)
 {
