@@ -117,9 +117,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/aztec-faucet@workspace:faucet":
+"@aztec/aztec-faucet@workspace:aztec-faucet":
   version: 0.0.0-use.local
-  resolution: "@aztec/aztec-faucet@workspace:faucet"
+  resolution: "@aztec/aztec-faucet@workspace:aztec-faucet"
   dependencies:
     "@aztec/ethereum": "workspace:^"
     "@jest/globals": ^29.5.0
