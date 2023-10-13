@@ -57,6 +57,11 @@ export FORK_BLOCK_NUMBER=17514288
 export FORK_URL=<YOUR_RPC_URL e.g. https://mainnet.infura.io/v3/API_KEY>
 ```
 
+Now rerun the sandbox:
+```sh
+/bin/sh -c "$(curl -fsSL 'https://sandbox.aztec.network')"
+```
+
 ### Back to test setup
 
 Okay now we are ready to write our tests:
@@ -107,11 +112,11 @@ const {
 const MNEMONIC = "test test test test test test test test test test test junk";
 const hdAccount = mnemonicToAccount(MNEMONIC);
 const expectedForkBlockNumber = 17514288;
-```
 
 #include_code uniswap_l1_l2_test_setup_const yarn-project/end-to-end/src/canary/uniswap_l1_l2.ts typescript raw
 #include_code uniswap_setup yarn-project/canary/src/uniswap_trade_on_l1_from_l2.test.ts typescript raw
 #include_code uniswap_l1_l2_test_beforeAll yarn-project/end-to-end/src/canary/uniswap_l1_l2.ts typescript raw
+```
 
 ## Private flow test
 

@@ -59,13 +59,13 @@ const [PortalERC20Abi, PortalERC20Bytecode] =
   getL1ContractABIAndBytecode("PortalERC20");
 const [TokenPortalAbi, TokenPortalBytecode] =
   getL1ContractABIAndBytecode("TokenPortal");
-```
 
 #include_code deployL1Contract /yarn-project/ethereum/src/deploy_l1_contracts.ts typescript raw
 
 #include_code deployAndInitializeTokenAndBridgeContracts /yarn-project/end-to-end/src/fixtures/utils.ts typescript raw
 
 #include_code delay /yarn-project/end-to-end/src/fixtures/utils.ts typescript raw
+```
 
 This code
 
@@ -155,11 +155,11 @@ This fetches the wallets from the sandbox and deploys our cross chain harness on
 
 ## Private flow test
 
-#include_code e2e_private_cross_chain /yarn-project/end-to-end/src/e2e_cross_chain_messaging.test.ts
+#include_code e2e_private_cross_chain /yarn-project/end-to-end/src/e2e_cross_chain_messaging.test.ts typescript
 
 ## Public flow test
 
-#include_code e2e_public_cross_chain /yarn-project/end-to-end/src/e2e_public_cross_chain_messaging.test.ts
+#include_code e2e_public_cross_chain /yarn-project/end-to-end/src/e2e_public_cross_chain_messaging.test.ts typescript
 
 ## Running the test
 
