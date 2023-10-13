@@ -109,6 +109,7 @@ PriceFeedContractArtifact
 SchnorrAccountContractArtifact
 SchnorrHardcodedAccountContractArtifact
 SchnorrSingleKeyAccountContractArtifact
+SlowTreeContractArtifact
 StatefulTestContractArtifact
 TestContractArtifact
 TokenBridgeContractArtifact
