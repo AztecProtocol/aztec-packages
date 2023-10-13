@@ -42,31 +42,6 @@ impl Leaf {
   }
 }
 
-// The root of the tree. Storing both the before and after root.
-struct RootObject {
-  next_change: Field,
-  before: Field,
-  after: Field,
-}
-
-fn serialize_root_object(inner: RootObject) -> [Field; 3] {
-  [inner.next_change, inner.before, inner.after]
-}
-
-fn deserialize_root_object(serialized: [Field; 3]) -> RootObject {
-  RootObject {
-    next_change: serialized[0],
-    before: serialized[1],
-    after:  serialized[2],
-  }
-}
-
-impl RootObject {
-  pub fn serialize(self: Self) -> [Field; 3] {
-    serialize_root_object(self)
-  }
-}
-
 // Subset of the MembershipProof that is needed for the slow update.
 struct SlowUpdateInner<N> {
   value: Field, // Value only really used for the private flow though :thinking:
@@ -140,30 +115,30 @@ impl<N,M> SlowMap<N,M> {
     }
   }
 
-  pub fn read_inner(self: Self) -> RootObject {
-    storage_read(self.storage_slot, deserialize_root_object)
+  pub fn read_root(self: Self) -> Leaf {
+    storage_read(self.storage_slot, deserialize_leaf)
   }
 
-  pub fn initialize(self: Self, root: Field) {
-    let mut inner = self.read_inner();
-    assert(inner.next_change == 0, "cannot initialize twice");
-    inner = RootObject {
+  pub fn initialize(self: Self, initial_root: Field) {
+    let mut root_object = self.read_root();
+    assert(root_object.next_change == 0, "cannot initialize twice");
+    root_object = Leaf {
       next_change: 0xffffffffffffffffffffffffffffff,
-      before: root,
-      after: root,
+      before: initial_root,
+      after: initial_root,
     };
-    let fields = serialize_root_object(inner);
+    let fields = root_object.serialize();
     storage_write(self.storage_slot, fields);
   }
 
+  // Reads the "CURRENT" value of the root
   pub fn current_root(self: Self) -> Field {
     let time = self.context.public.unwrap().timestamp() as u120;
-    let inner = self.read_inner();
-    // We return before when at the change to ensure multiple updates in the same block don't happen.
-    if time <= inner.next_change as u120 {
-      inner.before
+    let root_object = self.read_root();
+    if time <= root_object.next_change as u120 {
+      root_object.before
     } else {
-      inner.after
+      root_object.after
     }
   }
 
@@ -172,6 +147,7 @@ impl<N,M> SlowMap<N,M> {
     storage_read(derived_storage_slot, deserialize_leaf)
   }
 
+  // Reads the "CURRENT" value of the leaf
   pub fn read_at(self: Self, key: Field) -> Field {
     let time = self.context.public.unwrap().timestamp() as u120;
     let leaf = self.read_leaf_at(key);
@@ -182,21 +158,20 @@ impl<N,M> SlowMap<N,M> {
     }
   }
 
-  // This is just thrown together, not edge cases have been tested yet.
-  // We really should not compute the roots in here with a merkle path.
-  // For now, we just pass it along as apes. Ideally we would have it 
-  // in a private function, but it makes it harder to use for the dev.
-  // For now, performance is ignored and we just ape it.
-  // We build a tiny tree with 4 leaves, for show.
-  // We only update AFTER the `next_change` to not have multiple updates in the same block.
-  // Should add size of trees making it easier to "add_next".
+  // Will update values in the "AFTER" tree
+  // - updates the leaf and root to follow current values, moving from after to before if 
+  //  needed.
+  // - checks that the provided merkle paths match state values
+  // - update the leaf and compute the net root
+  // Should only be used when updates from public are desired, since the hashing will be
+  // costly since done by sequencer.
   pub fn update_at(self: Self, p: SlowUpdateProof<N, M>) {
     // TODO: Constrain the index to be within the tree.
 
     let time = self.context.public.unwrap().timestamp() as u120;
     let next_change = compute_next_change(time as Field);
 
-    let mut inner = self.read_inner();
+    let mut root = self.read_root();
     let mut leaf = self.read_leaf_at(p.index);
 
     // Move leaf if needed
@@ -205,18 +180,19 @@ impl<N,M> SlowMap<N,M> {
     }
     
     // Move root if needed
-    if time > inner.next_change as u120 {
-      inner.before = inner.after;
+    if time > root.next_change as u120 {
+      root.before = root.after;
     }
 
+    // Ensures that when before is active, it is not altered by this update
     assert(
-      inner.before == compute_merkle_root(leaf.before, p.index, p.before.sibling_path), 
+      root.before == compute_merkle_root(leaf.before, p.index, p.before.sibling_path), 
       "Before root don't match"
     );
 
-    // Need to ensure that any pending stuff was not removed. If no pending, this root should match above.
+    // Ensures that the after root is correct, and ensure that sibling_path for root computation is correct
     assert(
-      inner.after == compute_merkle_root(leaf.after, p.index, p.after.sibling_path), 
+      root.after == compute_merkle_root(leaf.after, p.index, p.after.sibling_path), 
       "After root don't match"
     );
 
@@ -225,19 +201,22 @@ impl<N,M> SlowMap<N,M> {
     leaf.next_change = next_change;
 
     // Update the after root
-    inner.after = compute_merkle_root(leaf.after, p.index, p.after.sibling_path);
-    inner.next_change = next_change;
+    root.after = compute_merkle_root(leaf.after, p.index, p.after.sibling_path);
+    root.next_change = next_change;
 
-    self.update_unsafe(p.index, leaf, inner);
+    self.update_unsafe(p.index, leaf, root);
   }
 
-  // Useful for using private function to check values and then public to update.
+  // A variation of `update_at` that skips the merkle-membership checks.
+  // To be used by a contract wich has already checked the merkle-membership.
+  // This allows us to check the merkle-memberships in private and then update
+  // in public, limiting the cost of the update.
   pub fn update_unsafe_at(self: Self, index: Field, leaf_value: Field, new_root: Field) {
     // User must ensure that the checks from update_at is performed for safety
     let time = self.context.public.unwrap().timestamp() as u120;
     let next_change = compute_next_change(time as Field);
 
-    let mut inner = self.read_inner();
+    let mut root = self.read_root();
     let mut leaf = self.read_leaf_at(index);
 
     // Move leaf if needed
@@ -246,28 +225,28 @@ impl<N,M> SlowMap<N,M> {
     }
     
     // Move root if needed
-    if time > inner.next_change as u120 {
-      inner.before = inner.after;
+    if time > root.next_change as u120 {
+      root.before = root.after;
     }
 
     // Update the leaf 
     leaf.after = leaf_value;
     leaf.next_change = next_change;
     
-    // Update the inner
-    inner.after = new_root;
-    inner.next_change = next_change;
+    // Update the root
+    root.after = new_root;
+    root.next_change = next_change;
 
-    self.update_unsafe(index, leaf, inner);
+    self.update_unsafe(index, leaf, root);
   }
 
-  fn update_unsafe(self: Self, index: Field, leaf: Leaf, inner: RootObject) {
+  // Updates the value in the in storage with no checks.
+  fn update_unsafe(self: Self, index: Field, leaf: Leaf, root: Leaf) {
     let derived_storage_slot = dep::std::hash::pedersen([self.storage_slot, index])[0];
-    let fields = serialize_leaf(leaf);
+    let fields = leaf.serialize();
     storage_write(derived_storage_slot, fields);
     
-    // Update the inner
-    let fields = serialize_root_object(inner);
+    let fields = root.serialize();
     storage_write(self.storage_slot, fields);
   }
 

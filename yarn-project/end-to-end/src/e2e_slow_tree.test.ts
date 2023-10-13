@@ -112,15 +112,6 @@ describe('e2e_slow_tree', () => {
     await tree.updateLeaf(new Fr(1).toBuffer(), key);
     await status(key);
 
-    /*    logger('Updating tree[0] to 2 from private');
-    await contract.methods
-      .update_at_private(await getUpdateProof(0n, 2n))
-      .send()
-      .wait();
-    await tree.updateLeaf(new Fr(2).toBuffer(), 0n);
-    await status();*/
-
-    // HUH, What did I fuck up here?
     const zeroProof = await getMembershipProof(key, false);
     logger(`"Reads" tree[${zeroProof.index}] from the tree, equal to ${zeroProof.value}`);
     await contract.methods.read_at(zeroProof).send().wait();
@@ -151,5 +142,5 @@ describe('e2e_slow_tree', () => {
     await tree.updateLeaf(new Fr(4).toBuffer(), key);
 
     await status(key);
-  }, 600_000);
+  }, 200_000);
 });

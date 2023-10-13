@@ -38,7 +38,7 @@ contract SlowTree {
         },
     };
     use dep::slow_updates_tree::slow_map::{
-        SlowMap, Leaf, RootObject, SlowUpdateProof
+        SlowMap, Leaf, SlowUpdateProof
     };
 
     global TREE_HEIGHT: Field = 254;
@@ -174,7 +174,7 @@ contract SlowTree {
         new_root: Field
     ) {
         let current_root = storage.trees.at(caller).current_root();
-        let after_root = storage.trees.at(caller).read_inner().after;
+        let after_root = storage.trees.at(caller).read_root().after;
 
         assert(current_root == before, "Before root does not match expected");
         assert(after_root == after, "After root does not match expected");
@@ -190,7 +190,7 @@ contract SlowTree {
         storage.trees.at(address).read_leaf_at(key)
     }
 
-    unconstrained fn un_read_root(address: Field) -> RootObject {
-        storage.trees.at(address).read_inner()
+    unconstrained fn un_read_root(address: Field) -> Leaf {
+        storage.trees.at(address).read_root()
     }
 }
