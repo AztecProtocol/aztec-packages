@@ -221,16 +221,19 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       const args = encodeArgs(rawArgs, constructorArtifact!.parameters);
       debugLogger(`Encoded arguments: ${args.join(', ')}`);
 
-      const tx = deployer.deploy(...args).send({ contractAddressSalt: salt });
+      const deploy = deployer.deploy(...args);
+
+      await deploy.create({ contractAddressSalt: salt });
+      const tx = deploy.send({ contractAddressSalt: salt });
       const txHash = await tx.getTxHash();
       debugLogger(`Deploy tx sent with hash ${txHash}`);
       if (wait) {
         const deployed = await tx.wait();
         log(`\nContract deployed at ${deployed.contract.completeAddress.address.toString()}\n`);
-        log(`\nContract partial address ${deployed.contract.completeAddress.partialAddress.toString()}\n`);
+        log(`Contract partial address ${deployed.contract.completeAddress.partialAddress.toString()}\n`);
       } else {
-        log(`\nContract Address: ${tx.completeContractAddress?.address.toString() ?? 'N/A'}`);
-        log(`\nContract Partial Address: ${tx.completeContractAddress?.partialAddress.toString() ?? 'N/A'}`);
+        log(`\nContract Address: ${deploy.completeAddress?.address.toString() ?? 'N/A'}`);
+        log(`Contract Partial Address: ${deploy.completeAddress?.partialAddress.toString() ?? 'N/A'}`);
         log(`Deployment transaction hash: ${txHash}\n`);
       }
     });
