@@ -25,8 +25,6 @@ interface ParamDef {
   };
 }
 
-const log = console.log;
-
 type NoirFunctionYupSchema = {
   // hack: add `any` at the end to get the array schema to typecheck
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -91,9 +89,7 @@ function generateYupSchema(functionAbi: FunctionArtifact, defaultAddress: string
       parameterSchema[param.name] = Yup.object().shape(structParamSchema);
       initialValues[param.name] = structInitialValues;
       continue;
-    } else {
-      log('Unsupported type', param);
-    }
+    } 
   }
   return { validationSchema: Yup.object().shape(parameterSchema), initialValues };
 }
@@ -105,8 +101,6 @@ async function handleFunctionCall(
   args: any,
   wallet: CompleteAddress,
 ) {
-  // log('handleFunctionCall', contractAddress, artifact, functionName, args, wallet);
-
   const functionAbi = artifact.functions.find(f => f.name === functionName)!;
   const typedArgs: any[] = convertArgs(functionAbi, args);
 

@@ -14,7 +14,6 @@ function convertBasicArg(paramType: string, value: any) {
 }
 
 export function convertArgs(functionAbi: FunctionArtifact, args: any): Fr[] {
-  console.log(args);
   const untypedArgs = functionAbi.parameters
     .map(param => {
       if (['field', 'array', 'boolean'].includes(param.type.kind)) {
@@ -30,8 +29,6 @@ export function convertArgs(functionAbi: FunctionArtifact, args: any): Fr[] {
       }
     })
     .flat();
-  console.log(`${untypedArgs}`);
-  console.log(encodeArguments(functionAbi, untypedArgs));
 
   return encodeArguments(functionAbi, untypedArgs);
 }
