@@ -572,7 +572,7 @@ describe('e2e_token_contract', () => {
         .withWallet(wallets[1])
         .methods.shield(accounts[0].address, amount, secretHash, nonce)
         .send();
-      await txReplay.wait();
+      await txReplay.isMined();
       const receiptReplay = await txReplay.getReceipt();
       expect(receiptReplay.status).toBe(TxStatus.DROPPED);
 
