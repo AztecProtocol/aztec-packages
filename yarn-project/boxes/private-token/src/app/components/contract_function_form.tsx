@@ -40,15 +40,16 @@ type NoirFunctionFormValues = {
 // returns an object where first value is the yup type, second value is the default value
 // this handles "base cases", which can be the parameters directly, or used
 // in a recursive manner to handle structs
-function generateYupDefaultValue(param: any, defaultAddress: string){
-    if (CONTRACT_ADDRESS_PARAM_NAMES.includes(param.name)) {
-      // these are actually fields, which should be numbers, but yup doesn't support bigint so we convert back to bigint on execution
-      return {yupType: Yup.string().required(), defaultValue: defaultAddress};
-    } else if (param.type.kind === 'field'){
-      return {yupType: Yup.number().required(), defaultValue: DEFAULT_FIELD_VALUE};
-    } else if (param.type.kind === 'array'){
-      const arrayLength = param.type.length;
-      return {yupType: Yup.array()
+function generateYupDefaultValue(param: any, defaultAddress: string) {
+  if (CONTRACT_ADDRESS_PARAM_NAMES.includes(param.name)) {
+    // these are actually fields, which should be numbers, but yup doesn't support bigint so we convert back to bigint on execution
+    return { yupType: Yup.string().required(), defaultValue: defaultAddress };
+  } else if (param.type.kind === 'field') {
+    return { yupType: Yup.number().required(), defaultValue: DEFAULT_FIELD_VALUE };
+  } else if (param.type.kind === 'array') {
+    const arrayLength = param.type.length;
+    return {
+      yupType: Yup.array()
         .of(Yup.number())
         .min(arrayLength)
         .max(arrayLength)
@@ -57,14 +58,14 @@ function generateYupDefaultValue(param: any, defaultAddress: string){
             return originalValue.split(',').map(Number);
           }
           return value;
-        }), defaultValue: Array(arrayLength).fill(
-          CONTRACT_ADDRESS_PARAM_NAMES.includes(param.name) ? defaultAddress : 200,
-        )};
-    } else if (param.type.kind === 'boolean'){
-      return {yupType: Yup.boolean().required(), defaultValue: false};
-    } else {
-      throw new Error('Unsupported type', param);
-    }
+        }),
+      defaultValue: Array(arrayLength).fill(CONTRACT_ADDRESS_PARAM_NAMES.includes(param.name) ? defaultAddress : 200),
+    };
+  } else if (param.type.kind === 'boolean') {
+    return { yupType: Yup.boolean().required(), defaultValue: false };
+  } else {
+    throw new Error('Unsupported type', param);
+  }
 }
 
 function generateYupSchema(functionAbi: FunctionArtifact, defaultAddress: string) {
@@ -77,20 +78,19 @@ function generateYupSchema(functionAbi: FunctionArtifact, defaultAddress: string
       parameterSchema[param.name] = yupType;
       initialValues[param.name] = defaultValue;
       continue;
-    }
-    else if (param.type.kind === 'struct'){
-        // for type checking, can't annotate left side of "for X of Y" statement
-        const paramFields: ParamDef[] = param.type.fields!;
-        const structParamSchema: any = {};
-        const structInitialValues: any = {};
-        for (const structParam of paramFields){
-          const { yupType, defaultValue } = generateYupDefaultValue(structParam, defaultAddress);
-          structParamSchema[structParam.name] = yupType;
-          structInitialValues[structParam.name] = defaultValue;
-        }
-        parameterSchema[param.name] = Yup.object().shape(structParamSchema);
-        initialValues[param.name] = structInitialValues;
-        continue;
+    } else if (param.type.kind === 'struct') {
+      // for type checking, can't annotate left side of "for X of Y" statement
+      const paramFields: ParamDef[] = param.type.fields!;
+      const structParamSchema: any = {};
+      const structInitialValues: any = {};
+      for (const structParam of paramFields) {
+        const { yupType, defaultValue } = generateYupDefaultValue(structParam, defaultAddress);
+        structParamSchema[structParam.name] = yupType;
+        structInitialValues[structParam.name] = defaultValue;
+      }
+      parameterSchema[param.name] = Yup.object().shape(structParamSchema);
+      initialValues[param.name] = structInitialValues;
+      continue;
     } else {
       log('Unsupported type', param);
     }
@@ -174,59 +174,58 @@ export function ContractFunctionForm({
     },
   });
   return (
-  <form onSubmit={formik.handleSubmit} className={styles.content}>
-    {functionAbi.parameters.map(input => (
-      <div key={input.name} className={styles.field}>
-        {input.type.kind !== 'struct' ? (
-          <>
-            <label className={styles.label} htmlFor={input.name}>
-              {input.name} ({input.type.kind})
-            </label>
-            <input
-              className={styles.input}
-              id={input.name}
-              name={input.name}
-              disabled={isLoading}
-              type="text"
-              onChange={formik.handleChange}
-              value={formik.values[input.name]}
-            />
-            {formik.touched[input.name] && formik.errors[input.name] && (
-              <div>{formik.errors[input.name]?.toString()}</div>
-            )}
-          </>
-        ) : (
-          // Rendering object properties if the kind is 'struct'
-          // find a better way to represent that these are part of the same input
-          // than the text label `${input.name}.${field.name}`
-          input.type.fields.map(field => (
-            <div key={field.name}>
-              <label className={styles.label} htmlFor={`${input.name}.${field.name}`}>
-                {`${input.name}.${field.name}`}
+    <form onSubmit={formik.handleSubmit} className={styles.content}>
+      {functionAbi.parameters.map(input => (
+        <div key={input.name} className={styles.field}>
+          {input.type.kind !== 'struct' ? (
+            <>
+              <label className={styles.label} htmlFor={input.name}>
+                {input.name} ({input.type.kind})
               </label>
               <input
                 className={styles.input}
-                id={`${input.name}.${field.name}`}
-                name={`${input.name}.${field.name}`}
+                id={input.name}
+                name={input.name}
                 disabled={isLoading}
                 type="text"
                 onChange={formik.handleChange}
-                value={formik.values[input.name] ? formik.values[input.name][field.name] : ''}
+                value={formik.values[input.name]}
               />
-              {/* {formik.touched[input.name] && formik.touched[input.name] && formik.errors[input.name] && formik.errors[input.name][field.name] && (
+              {formik.touched[input.name] && formik.errors[input.name] && (
+                <div>{formik.errors[input.name]?.toString()}</div>
+              )}
+            </>
+          ) : (
+            // Rendering object properties if the kind is 'struct'
+            // find a better way to represent that these are part of the same input
+            // than the text label `${input.name}.${field.name}`
+            input.type.fields.map(field => (
+              <div key={field.name}>
+                <label className={styles.label} htmlFor={`${input.name}.${field.name}`}>
+                  {`${input.name}.${field.name}`}
+                </label>
+                <input
+                  className={styles.input}
+                  id={`${input.name}.${field.name}`}
+                  name={`${input.name}.${field.name}`}
+                  disabled={isLoading}
+                  type="text"
+                  onChange={formik.handleChange}
+                  value={formik.values[input.name] ? formik.values[input.name][field.name] : ''}
+                />
+                {/* {formik.touched[input.name] && formik.touched[input.name] && formik.errors[input.name] && formik.errors[input.name][field.name] && (
                 <div>{formik.errors[input.name][field.name]?.toString()}</div>
               )} */}
-            </div>
-          ))
-        )}
-      </div>
-    ))}
-    {isLoading ? (
-      <Loader />
-    ) : (
-      <Button disabled={disabled} text={buttonText} className={styles.actionButton} type="submit" />
-    )}
-  </form>
-);
-
+              </div>
+            ))
+          )}
+        </div>
+      ))}
+      {isLoading ? (
+        <Loader />
+      ) : (
+        <Button disabled={disabled} text={buttonText} className={styles.actionButton} type="submit" />
+      )}
+    </form>
+  );
 }
