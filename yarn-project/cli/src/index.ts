@@ -265,9 +265,9 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       "A compiled Aztec.nr contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts",
     )
     .requiredOption('-ca, --contract-address <address>', 'Aztec address of the contract.', parseAztecAddress)
-    .requiredOption('--partial-address <address>', 'Partial address of the contract', parsePartialAddress)
-    .option('--public-key <public key>', 'Optional public key for this contract', parsePublicKey)
-    .option('-pa, --portal-address <address>', 'Optional address to a portal contract on L1', parseEthereumAddress)
+    .requiredOption('-pa, --partial-address <address>', 'Partial address of the contract', parsePartialAddress)
+    .option('-p, --public-key <public key>', 'Optional public key for this contract', parsePublicKey)
+    .option('--portal-address <address>', 'Optional address to a portal contract on L1', parseEthereumAddress)
     .addOption(pxeOption)
     .action(async options => {
       const artifact = await getContractArtifact(options.contractArtifact, log);
@@ -281,6 +281,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       const client = await createCompatibleClient(options.rpcUrl, debugLogger);
 
       await client.addContracts([{ artifact, completeAddress, portalContract }]);
+      log(`\nContract added to PXE at ${contractAddress.toString()}\n`);
     });
   program
     .command('get-tx-receipt')
