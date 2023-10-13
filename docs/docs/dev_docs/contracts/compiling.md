@@ -149,37 +149,87 @@ You can also generate these interfaces from prebuilt artifacts using the `genera
 aztec-cli generate-noir-interface ./path/to/my_aztec_contract_project
 ```
 
-Example code generated from the [PrivateToken](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-contracts/src/contracts/private_token_contract/src/main.nr) contract:
+Example code snippet generated from the [Token](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr) contract:
 
 ```rust
-impl PrivateTokenPrivateContextInterface {
-  fn at(address: Field) -> Self {
-      Self { address }
+impl TokenPrivateContextInterface {
+  pub fn at(address: Field) -> Self {
+      Self {
+          address,
+      }
   }
+  
+  pub fn burn(
+    self,
+    context: &mut PrivateContext,
+    from: FromBurnStruct,
+    amount: Field,
+    nonce: Field
+  ) -> [Field; RETURN_VALUES_LENGTH] {
+    let mut serialized_args = [0; 3];
+    serialized_args[0] = from.address;
+    serialized_args[1] = amount;
+    serialized_args[2] = nonce;
 
-  fn mint(
-    self, context: &mut PrivateContext, amount: Field, owner: Field
+    context.call_private_function(self.address, 0xd4fcc96e, serialized_args)
+  }
+  
+
+  pub fn burn_public(
+    self,
+    context: &mut PrivateContext,
+    from: FromBurnPublicStruct,
+    amount: Field,
+    nonce: Field
+  ) {
+    let mut serialized_args = [0; 3];
+    serialized_args[0] = from.address;
+    serialized_args[1] = amount;
+    serialized_args[2] = nonce;
+
+    context.call_public_function(self.address, 0xb0e964d5, serialized_args)
+  }
+  ...
+  
+}
+
+impl TokenPublicContextInterface {
+  pub fn at(address: Field) -> Self {
+      Self {
+          address,
+      }
+  }
+  
+  pub fn burn_public(
+    self,
+    context: PublicContext,
+    from: FromBurnPublicStruct,
+    amount: Field,
+    nonce: Field
+  ) -> [Field; RETURN_VALUES_LENGTH] {
+    let mut serialized_args = [0; 3];
+    serialized_args[0] = from.address;
+    serialized_args[1] = amount;
+    serialized_args[2] = nonce;
+
+    context.call_public_function(self.address, 0xb0e964d5, serialized_args)
+  }
+  
+
+  pub fn mint_private(
+    self,
+    context: PublicContext,
+    amount: Field,
+    secret_hash: Field
   ) -> [Field; RETURN_VALUES_LENGTH] {
     let mut serialized_args = [0; 2];
     serialized_args[0] = amount;
-    serialized_args[1] = owner;
+    serialized_args[1] = secret_hash;
 
-    // 0x1dc9c3c0 is the function selector for `mint(field,field)`
-    context.call_private_function(self.address, 0x1dc9c3c0, serialized_args)
+    context.call_public_function(self.address, 0x10763932, serialized_args)
   }
 
-
-  fn transfer(
-    self, context: &mut PrivateContext, amount: Field, sender: Field, recipient: Field
-  ) -> [Field; RETURN_VALUES_LENGTH] {
-    let mut serialized_args = [0; 3];
-    serialized_args[0] = amount;
-    serialized_args[1] = sender;
-    serialized_args[2] = recipient;
-
-    // 0xdcd4c318 is the function selector for `transfer(field,field,field)`
-    context.call_private_function(self.address, 0xdcd4c318, serialized_args)
-  }
+  
 }
 ```
 
