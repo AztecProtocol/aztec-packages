@@ -28,7 +28,7 @@ const setupSandbox = async () => {
   return pxe;
 };
 
-const TIMEOUT = 90_000;
+const TIMEOUT = 60_000;
 
 describe('e2e_token_contract', () => {
   jest.setTimeout(TIMEOUT);
@@ -55,11 +55,7 @@ describe('e2e_token_contract', () => {
     accounts = await pxe.getRegisteredAccounts();
     wallets = await getSandboxAccountsWallets(pxe);
 
-    logger(`Accounts: ${accounts.map(a => a.toString())}`);
-
-    // wallets = await Promise.all(accounts.map(a => a.getWallet()));
-    // accounts = _accounts.map(a => a.getCompleteAddress());
-
+    logger(`Accounts: ${accounts.map(a => a.toReadableString())}`);
     logger(`Wallets: ${wallets.map(w => w.getAddress().toString())}`);
 
     asset = await TokenContract.deploy(wallets[0], accounts[0].address).send().deployed();
@@ -78,7 +74,7 @@ describe('e2e_token_contract', () => {
   }, TIMEOUT);
 
   describe('Access controlled functions', () => {
-    it.only('Set admin', async () => {
+    it('Set admin', async () => {
       const tx = asset.methods.set_admin(accounts[1].address).send();
       const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.MINED);
