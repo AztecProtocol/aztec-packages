@@ -106,16 +106,18 @@ The CLI tells us that the contract was successfully deployed. We can use the `ch
 
 ## Sending a Transaction
 
-We can now send a transaction to the network. We will mint funds. For this we will use the `send` command, which expects as arguments the recipient's address and the amount to be minted. Make sure to replace all addresses in this command with yours.
-
-#include_code send yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
-
-We called the `mint_public` function of the contract and provided these arguments:
+We can now send a transaction to the network. We will mint funds in the public domain.
+To form and submit the transaction we will use the `send` command of `aztec-cli`.
+The `send` command expect the function name as the first unnamed argument and the following named arguments:
 
 - `--args` - The list of arguments to the function call.
 - `--contract-artifact` - The artifact of the contract to call.
 - `--contract-address` - The deployed address of the contract to call.
-- `--private-key` - The private key of the sender
+- `--private-key` - The private key of the sender.
+
+#include_code send yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
+
+We called the `mint_public` function and provided it with the 2 arguments it expects: the recipient's address and the amount to be minted. Make sure to replace all addresses in this command with yours.
 
 The command output tells us the details of the transaction such as its hash and status. We can use this hash to query the receipt of the transaction at a later time:
 
