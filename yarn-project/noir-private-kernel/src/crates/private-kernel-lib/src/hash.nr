@@ -11,7 +11,7 @@ use crate::utils::bounded_vec::BoundedVec;
 
 use dep::aztec::{
     constants_gen,
-    constants_gen::{CONTRACT_TREE_HEIGHT, FUNCTION_TREE_HEIGHT},
+    constants_gen::{CONTRACT_TREE_HEIGHT, FUNCTION_TREE_HEIGHT, PRIVATE_DATA_TREE_HEIGHT},
     hash::sha256_to_field,
 };
 
@@ -74,6 +74,10 @@ fn contract_tree_root_from_siblings(function_tree_root : Field, storage_contract
         root_from_sibling_path(contract_leaf, contract_leaf_index, contract_leaf_sibling_path);
     
     computed_contract_tree_root
+}
+
+fn read_request_root_from_siblings(read_request : Field, leaf_index : Field, sibling_path : [Field; PRIVATE_DATA_TREE_HEIGHT]) -> Field {
+    root_from_sibling_path(read_request, leaf_index, sibling_path)
 }
 
 pub fn silo_commitment(address : Address, inner_commitment : Field) -> Field {

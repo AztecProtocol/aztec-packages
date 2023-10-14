@@ -6,7 +6,7 @@ use crate::abis::previous_kernel_data::PreviousKernelData;
 use crate::abis::private_kernel::private_call_data::PrivateCallData;
 use crate::abis::combined_accumulated_data::CombinedAccumulatedData;
 use crate::abis::private_kernel::private_call_data::ReadRequestMembershipWitnessPrivateData;
-use crate::hash::{root_from_sibling_path, function_tree_root_from_siblings, contract_tree_root_from_siblings, silo_commitment, silo_nullifier,stdlib_recursion_verification_key_compress_native_vk, compute_new_contract_address_hash, compute_l2_to_l1_hash,compute_constructor_hash, compute_logs_hash};
+use crate::hash::{read_request_root_from_siblings, function_tree_root_from_siblings, contract_tree_root_from_siblings, silo_commitment, silo_nullifier,stdlib_recursion_verification_key_compress_native_vk, compute_new_contract_address_hash, compute_l2_to_l1_hash,compute_constructor_hash, compute_logs_hash};
 use crate::address::{EthAddress, Address};
 use crate::abis::function_data::FunctionData;
 use crate::contrakt::deployment_data::ContractDeploymentData;
@@ -61,7 +61,7 @@ pub fn validate_call_stack(private_call : PrivateCallData) {
         } else {
             preimage.hash()
         };
-        assert(hash == calculated_hash);
+        assert(hash == calculated_hash, "call stack item hash doesn't match preimage hash");
     }
 }
 
@@ -87,7 +87,7 @@ pub fn validate_read_requests(historic_private_data_tree_root : Field, read_requ
         // but we use the leaf index as a placeholder to detect a 'pending note read'.
     
         if (read_request != 0) && (witness.is_transient == false) {
-            let root_for_read_request = root_from_sibling_path(read_request, witness.leaf_index, witness.sibling_path);
+            let root_for_read_request = read_request_root_from_siblings(read_request, witness.leaf_index, witness.sibling_path);
             assert(root_for_read_request == historic_private_data_tree_root, "private data tree root mismatch");
             
             // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1354): do we need to enforce
