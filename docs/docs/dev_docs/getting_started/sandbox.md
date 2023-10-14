@@ -48,6 +48,12 @@ Within a few seconds the Sandbox should be up and running!
 
 :::info
 To start anvil in a fork mode set `FORK_URL` and `FORK_BLOCK_NUMBER` environment variables before running the script.
+You can do so by running:
+```sh
+export FORK_URL=https://mainnet.infura.io/v3/your-infura-key
+export FORK_BLOCK_NUMBER=13300000
+```
+If `FORK_BLOCK_NUMBER` is not set, it defaults to genesis block number.
 :::
 
 ## Project setup
