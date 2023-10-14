@@ -29,11 +29,12 @@ fn root_from_sibling_path<N>(leaf : Field, leaf_index : Field,sibling_path : [Fi
     let mut node = leaf;
     let indices = leaf_index.to_le_bits(N as u32);
     for i in 0..N {
-        if indices[i] == 1 {
-            node = merkle_hash(sibling_path[i], node);
-        } else {
-            node = merkle_hash(node, sibling_path[i]);
-        }
+        indices[i];
+    //     if  == 1 {
+    //         node = merkle_hash(sibling_path[i], node);
+    //     } else {
+    //         node = merkle_hash(node, sibling_path[i]);
+    //     }
     }
     node
 }
