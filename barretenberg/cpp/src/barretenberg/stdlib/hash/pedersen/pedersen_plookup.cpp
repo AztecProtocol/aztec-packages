@@ -172,16 +172,19 @@ field_t<C> pedersen_plookup_hash<C>::hash_multiple(const std::vector<field_t>& i
         return point{ 0, 0 }.x;
     }
 
-    auto result = plookup_read<C>::get_lookup_accumulators(MultiTableId::PEDERSEN_IV, hash_index)[ColumnIdx::C2][0];
     auto num_inputs = inputs.size();
-    for (size_t i = 0; i < num_inputs; i++) {
+
+    auto result = plookup_read<C>::get_lookup_accumulators(MultiTableId::PEDERSEN_IV, hash_index)[ColumnIdx::C2][0];
+    result = add_points(pedersen_plookup_hash<C>::hash_single(result, false), hash_single(field_t(num_inputs), true)).x;
+
+    for (size_t i = 0; i < num_inputs - 1; i++) {
         auto p2 = pedersen_plookup_hash<C>::hash_single(result, false);
         auto p1 = pedersen_plookup_hash<C>::hash_single(inputs[i], true);
         result = add_points(p1, p2).x;
     }
 
     auto p2 = hash_single(result, false);
-    auto p1 = hash_single(field_t(num_inputs), true);
+    auto p1 = hash_single(inputs[num_inputs - 1], true);
     return add_points(p1, p2).x;
 }
 
