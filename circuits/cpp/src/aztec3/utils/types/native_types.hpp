@@ -83,7 +83,7 @@ struct NativeTypes {
     {
         // use 0-generator for internal merkle hashing
         // use lookup namespace since we now use ultraplonk
-        return crypto::pedersen_hash::lookup::hash_multiple({ left, right }, 0);
+        return crypto::pedersen_commitment::commit_native({ left, right }, 0).x;
     }
 
     static grumpkin_point commit(const std::vector<fr>& inputs, const size_t hash_index = 0)
