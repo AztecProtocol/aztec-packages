@@ -14,6 +14,8 @@ mod common;
 mod mocked;
 mod hash;
 
+mod interop_testing;
+
 use abis::kernel_circuit_public_inputs::KernelCircuitPublicInputs;
 
 // Hmm
