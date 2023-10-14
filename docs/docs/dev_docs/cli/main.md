@@ -135,4 +135,4 @@ The `call` command calls a read-only method on a contract, one that will not gen
 - `--contract-artifact` - The artifact of the contract we are calling.
 - `--contract-address` - The address of the deployed contract
 
-As you can see from the result, this address has a public balance of 543n, as expected.
+As you can see from the result, this address has a public balance of 543, as expected.
