@@ -262,7 +262,7 @@ Running now should yield output:
   token Bob's balance 0 +33ms
 ```
 
-In this section, we created a second instance of the `TokenContract` contract abstraction pertaining to Bob. This contract abstraction offers a Typescript interface reflecting the abi of the contract. We then call `getBalance()` as a `view` method. View methods can be thought as read-only. No transaction is submitted as a result but a user's state can be queried.
+In this section, we created a second instance of the `TokenContract` contract abstraction pertaining to Bob. This contract abstraction offers a Typescript interface reflecting the abi of the contract. We then call `balance_of_private()` as a `view` method. View methods can be thought as read-only. No transaction is submitted as a result but a user's state can be queried.
 
 We can see that each account has the expected balance of tokens.
 

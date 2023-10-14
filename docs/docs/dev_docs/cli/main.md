@@ -87,7 +87,7 @@ export ADDRESS2=<Account address printed by the above command>
 
 ## Deploying a Token Contract
 
-We will now deploy a token contract using the `deploy` command, and set and an address of admin via a constructor argument.
+We will now deploy a token contract using the `deploy` command, and set an address of the admin via a constructor argument.
 Make sure to replace this address with one of the two you created earlier.
 
 #include_code deploy yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash

@@ -46,7 +46,7 @@ You can also generate these interfaces from prebuilt artifacts using the `genera
 aztec-cli generate-typescript ./path/to/my_aztec_contract_project
 ```
 
-Bellow is a piece of code generated from the [Token](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr) contract:
+Below is typescript code generated from the [Token](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr) contract:
 
 ```ts showLineNumbers
 export class TokenContract extends ContractBase {
@@ -149,7 +149,7 @@ You can also generate these interfaces from prebuilt artifacts using the `genera
 aztec-cli generate-noir-interface ./path/to/my_aztec_contract_project
 ```
 
-Example code snippet generated from the [Token](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr) contract:
+Below is an example interface, also generated from the [Token](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr) contract:
 
 ```rust
 impl TokenPrivateContextInterface {
