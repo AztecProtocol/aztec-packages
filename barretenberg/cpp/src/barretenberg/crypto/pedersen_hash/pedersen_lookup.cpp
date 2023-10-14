@@ -173,12 +173,13 @@ grumpkin::fq hash_multiple(const std::vector<grumpkin::fq>& inputs, const size_t
     const size_t num_inputs = inputs.size();
 
     grumpkin::fq result = (pedersen_iv_table[hash_index]).x;
-    for (size_t i = 0; i < num_inputs; i++) {
+    result = hash_pair(result, num_inputs);
+    for (size_t i = 0; i < num_inputs - 1; i++) {
         result = hash_pair(result, inputs[i]);
     }
 
     auto final_result =
-        grumpkin::g1::affine_element(hash_single(result, false) + hash_single(grumpkin::fq(num_inputs), true));
+        grumpkin::g1::affine_element(hash_single(result, false) + hash_single(inputs[num_inputs - 1], true));
     return final_result.x;
 }
 
