@@ -404,8 +404,6 @@ class Ultra {
 
     class FoldingParameters {
       public:
-        // we need this because the nice relation between deltas does not apply to beta as well
-        // these are the betas
         std::vector<FF> gate_separation_challenges;
         FF target_sum;
     };

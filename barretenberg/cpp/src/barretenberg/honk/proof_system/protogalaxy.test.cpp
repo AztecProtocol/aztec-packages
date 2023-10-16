@@ -119,7 +119,7 @@ TEST_F(ProtoGalaxyTests, PerturbatorCoefficients)
     std::vector<FF> betas = { FF(5), FF(8), FF(11) };
     std::vector<FF> deltas = { FF(2), FF(4), FF(8) };
     std::vector<FF> full_honk_evaluations = { FF(1), FF(1), FF(1), FF(1), FF(1), FF(1), FF(1), FF(1) };
-    auto perturbator = ProtoGalaxyProver::construct_perturbator_coeffs(betas, deltas, full_honk_evaluations);
+    auto perturbator = ProtoGalaxyProver::construct_perturbator_coefficients(betas, deltas, full_honk_evaluations);
     std::vector<FF> expected_values = { FF(648), FF(936), FF(432), FF(64) };
     EXPECT_EQ(perturbator.size(), 4); // log(instance_size) + 1
     for (size_t i = 0; i < perturbator.size(); i++) {
@@ -169,8 +169,8 @@ TEST_F(ProtoGalaxyTests, PowPerturbatorPolynomial)
         FoldingResult<Flavor>{ .folded_prover_polynomials = full_polynomials,
                                .folded_public_inputs = std::vector<FF>{},
                                .verification_key = std::make_shared<Flavor::VerificationKey>(),
-                               .folded_relation_parameters = relation_parameters,
                                .folding_parameters = { betas, target_sum } });
+    accumulator->relation_parameters = relation_parameters;
 
     auto deltas = ProtoGalaxyProver::compute_round_challenge_pows(log_instance_size, FF::random_element());
     auto perturbator = ProtoGalaxyProver::compute_perturbator(accumulator, deltas, alpha);

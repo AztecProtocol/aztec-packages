@@ -14,7 +14,7 @@ template <class ProverInstances> class ProtoGalaxyProver_ {
     using RowEvaluations = typename Flavor::AllValues;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using FF = typename Flavor::FF;
-    using TupleOfArraysOfValues = typename Flavor::TupleOfArraysOfValues;
+    using RelationEvaluations = typename Flavor::TupleOfArraysOfValues;
 
     ProverInstances instances;
     ProverTranscript<FF> transcript;
@@ -57,7 +57,7 @@ template <class ProverInstances> class ProtoGalaxyProver_ {
      * each subrelation is independently valid in Honk - from the Plonk paper, DO NOT confuse with α in ProtoGalaxy),
      */
     static std::vector<FF> compute_full_honk_evaluations(ProverPolynomials instance_polynomials,
-                                                         FF alpha,
+                                                         const FF alpha,
                                                          RelationParameters<FF> relation_parameters)
     {
         auto instance_size = instance_polynomials[0].size();
@@ -65,7 +65,7 @@ template <class ProverInstances> class ProtoGalaxyProver_ {
         std::vector<FF> full_honk_evaluations(instance_size);
         for (size_t row = 0; row < instance_size; row++) {
             auto row_evaluations = instance_polynomials.get_row(row);
-            TupleOfArraysOfValues relation_evaluations;
+            RelationEvaluations relation_evaluations;
             Utils::zero_elements(relation_evaluations);
 
             // Note that the evaluations are accumulated with the gate separation challenge being 1 at this stage, as
@@ -86,10 +86,10 @@ template <class ProverInstances> class ProtoGalaxyProver_ {
      * level, the resulting parent nodes will be polynomials of degree (level + 1) because we multiply by an additional
      * factor of X.
      */
-    static std::vector<FF> compute_coefficients_tree(size_t level,
-                                                     std::vector<FF> betas,
-                                                     std::vector<FF> deltas,
-                                                     std::vector<std::vector<FF>> prev_level_coeffs)
+    static std::vector<FF> compute_coefficients_tree(const std::vector<FF>& betas,
+                                                     const std::vector<FF>& deltas,
+                                                     const std::vector<std::vector<FF>>& prev_level_coeffs,
+                                                     size_t level = 1)
     {
         // if we are at level t in the tree, where t = logn and n is the instance size, we have reached the root which
         // contains the coefficients of the perturbator polynomial
@@ -109,7 +109,7 @@ template <class ProverInstances> class ProtoGalaxyProver_ {
                 level_coeffs[parent][d + 1] += prev_level_coeffs[node + 1][d] * deltas[level];
             }
         }
-        return compute_coefficients_tree(level + 1, betas, deltas, level_coeffs);
+        return compute_coefficients_tree(betas, deltas, level_coeffs, level + 1);
     }
 
     /**
@@ -120,13 +120,12 @@ template <class ProverInstances> class ProtoGalaxyProver_ {
      * δ_i X. The value of the parent node n will be constructed as n = n_l + n_r * (β_i + δ_i X). Recurse over each
      * layer until the root is reached which will correspond to the perturbator polynomial F(X).
      * TODO(https://github.com/AztecProtocol/barretenberg/issues/745): make computation of perturbator more memory
-     * efficient
+     * efficient, potentially use std::resize and add multithreading
      */
-    static std::vector<FF> construct_perturbator_coeffs(std::vector<FF> betas,
-                                                        std::vector<FF> deltas,
-                                                        std::vector<FF> full_honk_evaluations)
+    static std::vector<FF> construct_perturbator_coefficients(const std::vector<FF>& betas,
+                                                              const std::vector<FF>& deltas,
+                                                              const std::vector<FF>& full_honk_evaluations)
     {
-
         auto width = full_honk_evaluations.size();
         std::vector<std::vector<FF>> first_level_coeffs(width >> 1, std::vector<FF>(2, 0));
         for (size_t node = 0; node < width; node += 2) {
@@ -134,20 +133,24 @@ template <class ProverInstances> class ProtoGalaxyProver_ {
             first_level_coeffs[parent][0] = full_honk_evaluations[node] + full_honk_evaluations[node + 1] * betas[0];
             first_level_coeffs[parent][1] = full_honk_evaluations[node + 1] * deltas[0];
         }
-        return compute_coefficients_tree(1, betas, deltas, first_level_coeffs);
+        return compute_coefficients_tree(betas, deltas, first_level_coeffs);
     }
 
     /**
-     * @brief Construct the power perturbator polynomial F(X) in coefficient form from the accumulator, represing the
+     * @brief Construct the power perturbator polynomial F(X) in coefficient form from the accumulator, representing the
      * relaxed instance.
+     *
+     *
      */
-    static Polynomial<FF> compute_perturbator(std::shared_ptr<Instance> accumulator, std::vector<FF> deltas, FF alpha)
+    static Polynomial<FF> compute_perturbator(const std::shared_ptr<Instance> accumulator,
+                                              const std::vector<FF>& deltas,
+                                              const FF alpha)
     {
         auto full_honk_evaluations =
             compute_full_honk_evaluations(accumulator->prover_polynomials, alpha, accumulator->relation_parameters);
-        auto betas = accumulator->folding_parameters.gate_separation_challenges;
+        const auto betas = accumulator->folding_parameters.gate_separation_challenges;
         assert(betas.size() == deltas.size());
-        auto coeffs = construct_perturbator_coeffs(betas, deltas, full_honk_evaluations);
+        auto coeffs = construct_perturbator_coefficients(betas, deltas, full_honk_evaluations);
         return Polynomial<FF>(coeffs);
     }
 

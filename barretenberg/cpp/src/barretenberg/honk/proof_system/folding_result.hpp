@@ -34,7 +34,6 @@ template <class Flavor> struct FoldingResult {
     ProverPolynomials folded_prover_polynomials;
     std::vector<FF> folded_public_inputs;
     std::shared_ptr<VerificationKey> verification_key;
-    proof_system::RelationParameters<FF> folded_relation_parameters;
     FoldingParameters folding_parameters;
 };
 } // namespace proof_system::honk

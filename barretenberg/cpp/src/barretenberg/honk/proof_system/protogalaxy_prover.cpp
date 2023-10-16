@@ -24,6 +24,8 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepa
             transcript.send_to_verifier(domain_separator + "_public_input_" + std::to_string(i), public_input_i);
         }
 
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/752): establish whether we can use the same grand
+        // product parameters for all instances securely
         auto [eta, beta, gamma] = transcript.get_challenges(
             domain_separator + "_eta", domain_separator + "_beta", domain_separator + "_gamma");
         instance->compute_sorted_accumulator_polynomials(eta);

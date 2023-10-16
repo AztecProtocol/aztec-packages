@@ -57,7 +57,6 @@ template <class Flavor> class ProverInstance_ {
         : verification_key(std::move(result.verification_key))
         , prover_polynomials(result.folded_prover_polynomials)
         , public_inputs(result.folded_public_inputs)
-        , relation_parameters(result.folded_relation_parameters)
         , folding_parameters(result.folding_parameters){};
 
     ~ProverInstance_() = default;
