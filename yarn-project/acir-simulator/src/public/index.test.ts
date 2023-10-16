@@ -1,13 +1,11 @@
 import {
   CallContext,
   CircuitsWasm,
-  ContractStorageRead,
   FunctionData,
   GlobalVariables,
   HistoricBlockData,
   L1_TO_L2_MSG_TREE_HEIGHT,
 } from '@aztec/circuits.js';
-import { computePublicDataTreeIndex } from '@aztec/circuits.js/abis';
 import { pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
 import { FunctionArtifact, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
