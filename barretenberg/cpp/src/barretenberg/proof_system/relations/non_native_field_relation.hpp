@@ -207,11 +207,13 @@ template <typename FF_> class GoblinTranslatorNonNativeFieldRelationImpl {
              quotient_high_binary_limbs * shiftx2 + quotient_high_binary_limbs_shift * shiftx3);
 
         // Contribution (3). Evaluating integer relation over native field
-        auto tmp_3 = reconstructed_previous_accumulator * relation_parameters.evaluation_input_x[4] + op +
-                     reconstructed_p_x * relation_parameters.batching_challenge_v[0][4] +
-                     reconstructed_p_y * relation_parameters.batching_challenge_v[1][4] +
-                     reconstructed_z1 * relation_parameters.batching_challenge_v[2][4] +
-                     reconstructed_z2 * relation_parameters.batching_challenge_v[3][4] +
+        const size_t NATIVE_LIMB_INDEX =
+            4; // This value in relation parameters is dependent on the other 4 and is only precomputed for efficiency
+        auto tmp_3 = reconstructed_previous_accumulator * relation_parameters.evaluation_input_x[NATIVE_LIMB_INDEX] +
+                     op + reconstructed_p_x * relation_parameters.batching_challenge_v[0][NATIVE_LIMB_INDEX] +
+                     reconstructed_p_y * relation_parameters.batching_challenge_v[1][NATIVE_LIMB_INDEX] +
+                     reconstructed_z1 * relation_parameters.batching_challenge_v[2][NATIVE_LIMB_INDEX] +
+                     reconstructed_z2 * relation_parameters.batching_challenge_v[3][NATIVE_LIMB_INDEX] +
                      reconstructed_quotient * NEGATIVE_MODULUS_LIMBS[4] - reconstructed_current_accumulator;
         tmp_3 *= lagrange_odd;
         tmp_3 *= scaling_factor;

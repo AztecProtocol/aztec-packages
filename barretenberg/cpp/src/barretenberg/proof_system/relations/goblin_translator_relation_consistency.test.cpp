@@ -1063,6 +1063,7 @@ TEST_F(GoblinTranslatorRelationConsistency, NonNativeFieldRelation)
              relation_wide_limbs * shiftx2) *
             lagrange_odd;
 
+        // Higher wide limb subrelation
         expected_values[1] =
             (relation_wide_limbs + accumulators_binary_limbs_2_shift * parameters.evaluation_input_x[0] +
              accumulators_binary_limbs_1_shift * parameters.evaluation_input_x[1] +
@@ -1119,6 +1120,7 @@ TEST_F(GoblinTranslatorRelationConsistency, NonNativeFieldRelation)
             (quotient_low_binary_limbs + quotient_low_binary_limbs_shift * shift +
              quotient_high_binary_limbs * shiftx2 + quotient_high_binary_limbs_shift * shiftx3);
 
+        // Native field relation
         expected_values[2] = (reconstructed_previous_accumulator * parameters.evaluation_input_x[4] + op +
                               reconstructed_p_x * parameters.batching_challenge_v[0][4] +
                               reconstructed_p_y * parameters.batching_challenge_v[1][4] +
