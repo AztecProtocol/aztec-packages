@@ -2,6 +2,7 @@ import { AztecAddress, Contract, ContractDeployer, EthAddress, Fr, Wallet, isCon
 import { CompleteAddress, getContractDeploymentInfo } from '@aztec/circuits.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { TestContractArtifact, TokenContractArtifact } from '@aztec/noir-contracts/artifacts';
+import { SequencerClient } from '@aztec/sequencer-client';
 import { PXE, TxStatus } from '@aztec/types';
 
 import { setup } from './fixtures/utils.js';
@@ -11,10 +12,11 @@ describe('e2e_deploy_contract', () => {
   let accounts: CompleteAddress[];
   let logger: DebugLogger;
   let wallet: Wallet;
+  let sequencer: SequencerClient | undefined;
   let teardown: () => Promise<void>;
 
   beforeEach(async () => {
-    ({ teardown, pxe, accounts, logger, wallet } = await setup());
+    ({ teardown, pxe, accounts, logger, wallet, sequencer } = await setup());
   }, 100_000);
 
   afterEach(() => teardown());
@@ -130,35 +132,45 @@ describe('e2e_deploy_contract', () => {
   });
 
   it('it should not deploy a contract which failed the public part of the execution', async () => {
-    // This test requires at least another good transaction to go through in the same block as the bad one.
-    // I deployed the same contract again but it could really be any valid transaction here.
-    const goodDeploy = new ContractDeployer(TokenContractArtifact, wallet).deploy(AztecAddress.random());
-    const badDeploy = new ContractDeployer(TokenContractArtifact, wallet).deploy(AztecAddress.ZERO);
+    sequencer?.updateSequencerConfig({
+      minTxsPerBlock: 2,
+    });
 
-    await Promise.all([
-      goodDeploy.simulate({ skipPublicSimulation: true }),
-      badDeploy.simulate({ skipPublicSimulation: true }),
-    ]);
+    try {
+      // This test requires at least another good transaction to go through in the same block as the bad one.
+      // I deployed the same contract again but it could really be any valid transaction here.
+      const goodDeploy = new ContractDeployer(TokenContractArtifact, wallet).deploy(AztecAddress.random());
+      const badDeploy = new ContractDeployer(TokenContractArtifact, wallet).deploy(AztecAddress.ZERO);
 
-    const [goodTx, badTx] = [
-      goodDeploy.send({ skipPublicSimulation: true }),
-      badDeploy.send({ skipPublicSimulation: true }),
-    ];
+      await Promise.all([
+        goodDeploy.simulate({ skipPublicSimulation: true }),
+        badDeploy.simulate({ skipPublicSimulation: true }),
+      ]);
 
-    const [goodTxPromiseResult, badTxReceiptResult] = await Promise.allSettled([goodTx.wait(), badTx.wait()]);
+      const [goodTx, badTx] = [
+        goodDeploy.send({ skipPublicSimulation: true }),
+        badDeploy.send({ skipPublicSimulation: true }),
+      ];
 
-    expect(goodTxPromiseResult.status).toBe('fulfilled');
-    expect(badTxReceiptResult.status).toBe('rejected');
+      const [goodTxPromiseResult, badTxReceiptResult] = await Promise.allSettled([goodTx.wait(), badTx.wait()]);
 
-    const [goodTxReceipt, badTxReceipt] = await Promise.all([goodTx.getReceipt(), badTx.getReceipt()]);
+      expect(goodTxPromiseResult.status).toBe('fulfilled');
+      expect(badTxReceiptResult.status).toBe('rejected');
 
-    expect(goodTxReceipt.blockNumber).toEqual(expect.any(Number));
-    expect(badTxReceipt.blockNumber).toBeUndefined();
+      const [goodTxReceipt, badTxReceipt] = await Promise.all([goodTx.getReceipt(), badTx.getReceipt()]);
 
-    await expect(pxe.getExtendedContractData(goodDeploy.completeAddress!.address)).resolves.toBeDefined();
-    await expect(pxe.getExtendedContractData(goodDeploy.completeAddress!.address)).resolves.toBeDefined();
+      expect(goodTxReceipt.blockNumber).toEqual(expect.any(Number));
+      expect(badTxReceipt.blockNumber).toBeUndefined();
 
-    await expect(pxe.getContractData(badDeploy.completeAddress!.address)).resolves.toBeUndefined();
-    await expect(pxe.getExtendedContractData(badDeploy.completeAddress!.address)).resolves.toBeUndefined();
+      await expect(pxe.getExtendedContractData(goodDeploy.completeAddress!.address)).resolves.toBeDefined();
+      await expect(pxe.getExtendedContractData(goodDeploy.completeAddress!.address)).resolves.toBeDefined();
+
+      await expect(pxe.getContractData(badDeploy.completeAddress!.address)).resolves.toBeUndefined();
+      await expect(pxe.getExtendedContractData(badDeploy.completeAddress!.address)).resolves.toBeUndefined();
+    } finally {
+      sequencer?.updateSequencerConfig({
+        minTxsPerBlock: 1,
+      });
+    }
   });
 });
