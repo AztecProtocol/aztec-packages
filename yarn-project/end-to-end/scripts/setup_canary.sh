@@ -26,7 +26,7 @@ cd "$TARGET_DIR"
 
 # Loop through all files and folders in the directory
 for item in $(ls -A); do
-  if [[ "$item" != "index.ts" && "$item" != "canary" ]]; then
+  if [[ "$item" != "index.ts" && "$item" != "shared" ]]; then
     # Remove the item (either file or folder)
     rm -rf "$item"
   fi
