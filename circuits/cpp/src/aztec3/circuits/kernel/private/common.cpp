@@ -183,7 +183,7 @@ void common_update_end_values(DummyBuilder& builder,
     const auto& read_requests = private_call_public_inputs.read_requests;
     const auto& read_request_membership_witnesses = private_call.read_request_membership_witnesses;
 
-    const auto& pending_read_requests = private_call_public_inputs.pending_read_requests;
+    // don't update pending_read_requests, because those just get passed through without any change
 
     const auto& new_commitments = private_call_public_inputs.new_commitments;
     const auto& new_nullifiers = private_call_public_inputs.new_nullifiers;
