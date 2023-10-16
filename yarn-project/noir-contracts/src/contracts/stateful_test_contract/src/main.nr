@@ -1,7 +1,6 @@
 // A contract used for testing a random hodgepodge of small features from simulator and end-to-end tests.
 contract StatefulTest {
     use dep::std::option::Option;
-    use dep::std::merkle::compute_merkle_root;
     use dep::value_note::{
         balance_utils,
         utils::{increment, decrement},
@@ -13,7 +12,6 @@ contract StatefulTest {
             note_header::NoteHeader,
             utils as note_utils,
         },
-        selector::compute_selector,
         state_vars::{map::Map, public_state::PublicState, set::Set},
         types::type_serialization::field_serialization::{
             FieldSerializationMethods, FIELD_SERIALIZED_LEN,
