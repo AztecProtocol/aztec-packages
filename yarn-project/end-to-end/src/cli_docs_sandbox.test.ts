@@ -103,7 +103,6 @@ EcdsaAccountContractArtifact
 EscrowContractArtifact
 ImportTestContractArtifact
 LendingContractArtifact
-MultiTransferContractArtifact
 ParentContractArtifact
 PendingCommitmentsContractArtifact
 PokeableTokenContractArtifact
