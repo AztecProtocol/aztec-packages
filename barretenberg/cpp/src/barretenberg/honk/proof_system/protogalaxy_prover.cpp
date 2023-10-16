@@ -2,12 +2,6 @@
 #include "barretenberg/proof_system/flavor/flavor.hpp"
 namespace proof_system::honk {
 
-/**
- * @brief Prior to folding we need to add all the public inputs to the transcript, labelled by their corresponding
- * instance index, compute all the instance's polynomials and record the relation parameters involved in computing these
- * polynomials in the transcript.
- *
- */
 template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepare_for_folding()
 {
     // this doesnt work in the current format
@@ -54,15 +48,11 @@ ProverFoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverI
     for (size_t idx = 0; idx <= log_instance_size; idx++) {
         transcript.send_to_verifier("perturbator_" + std::to_string(idx), perturbator[idx]);
     }
-    // auto value = transcript.get_challenge("evaluation_point");
-    // Compute F(α)
-    // auto evalutation = perturbator.evaluate(value);
-    // transcript.send_to_verifier("perturbator_eval", evalutation);
+
     ProverFoldingResult<Flavor> res;
     res.folding_data = transcript.proof_data;
     return res;
 }
 template class ProtoGalaxyProver_<ProverInstances_<honk::flavor::Ultra, 2>>;
-template class ProtoGalaxyProver_<ProverInstances_<honk::flavor::UltraGrumpkin, 2>>;
 template class ProtoGalaxyProver_<ProverInstances_<honk::flavor::GoblinUltra, 2>>;
 } // namespace proof_system::honk

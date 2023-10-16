@@ -1,7 +1,6 @@
 #pragma once
 #include "barretenberg/honk/flavor/goblin_ultra.hpp"
 #include "barretenberg/honk/flavor/ultra.hpp"
-#include "barretenberg/honk/flavor/ultra_grumpkin.hpp"
 #include "barretenberg/honk/proof_system/folding_result.hpp"
 #include "barretenberg/proof_system/composer/composer_lib.hpp"
 #include "barretenberg/proof_system/flavor/flavor.hpp"
@@ -45,7 +44,7 @@ template <class Flavor> class ProverInstance_ {
     proof_system::RelationParameters<FF> relation_parameters;
     std::vector<uint32_t> recursive_proof_public_input_indices;
     // non-empty for the accumulated instances
-    FoldingParameters folding_params;
+    FoldingParameters folding_parameters;
 
     ProverInstance_(Circuit& circuit)
     {
@@ -59,7 +58,7 @@ template <class Flavor> class ProverInstance_ {
         , prover_polynomials(result.folded_prover_polynomials)
         , public_inputs(result.folded_public_inputs)
         , relation_parameters(result.folded_relation_parameters)
-        , folding_params(result.folding_parameters){};
+        , folding_parameters(result.folding_parameters){};
 
     ~ProverInstance_() = default;
 
@@ -99,7 +98,6 @@ template <class Flavor> class ProverInstance_ {
 };
 
 extern template class ProverInstance_<honk::flavor::Ultra>;
-extern template class ProverInstance_<honk::flavor::UltraGrumpkin>;
 extern template class ProverInstance_<honk::flavor::GoblinUltra>;
 
 } // namespace proof_system::honk

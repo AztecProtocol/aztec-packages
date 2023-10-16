@@ -8,15 +8,43 @@
 namespace barretenberg {
 template <typename Flavor> class RelationUtils {
     using FF = typename Flavor::FF;
-    using PolynomialEvaluations = typename Flavor::ProverPolynomialsEvaluations;
+    using PolynomialEvaluations = typename Flavor::AllValues;
     using Relations = typename Flavor::Relations;
-    using RelationEvaluations = typename Flavor::RelationValues;
+    using RelationEvaluations = typename Flavor::TupleOfArraysOfValues;
 
     static constexpr size_t NUM_RELATIONS = Flavor::NUM_RELATIONS;
 
   public:
     /**
-     * Shared utility methods for tuple of arrays and accumulating relations.
+     * @brief Calculate the contribution of each relation to the expected value of the full Honk relation.
+     *
+     * @details For each relation, use the purported values (supplied by the prover) of the multivariates to calculate
+     * a contribution to the purported value of the full Honk relation. These are stored in `evaluations`. Adding these
+     * together, with appropriate scaling factors, produces the expected value of the full Honk relation. This value is
+     * checked against the final value of the target total sum (called sigma_0 in the thesis).
+     */
+    template <size_t relation_idx = 0>
+    // TODO(#224)(Cody): Input should be an array?
+    static void accumulate_relation_evaluations(PolynomialEvaluations evaluations,
+                                                RelationEvaluations& relation_evaluations,
+                                                const proof_system::RelationParameters<FF>& relation_parameters,
+                                                const FF& partial_evaluation_constant)
+    {
+        using Relation = std::tuple_element_t<relation_idx, Relations>;
+        Relation::accumulate(std::get<relation_idx>(relation_evaluations),
+                             evaluations,
+                             relation_parameters,
+                             partial_evaluation_constant);
+
+        // Repeat for the next relation.
+        if constexpr (relation_idx + 1 < NUM_RELATIONS) {
+            accumulate_relation_evaluations<relation_idx + 1>(
+                evaluations, relation_evaluations, relation_parameters, partial_evaluation_constant);
+        }
+    }
+
+    /**
+     * Utility methods for tuple of arrays
      */
 
     /**
@@ -60,37 +88,6 @@ template <typename Flavor> class RelationUtils {
 
         if constexpr (idx + 1 < sizeof...(Ts)) {
             apply_to_tuple_of_arrays<Operation, idx + 1>(operation, tuple);
-        }
-    }
-
-    // TODO(#224)(Cody): make uniform with accumulate_relation_univariates
-    /**
-     * @brief Calculate the contribution of each relation to the expected value of the full Honk relation.
-     *
-     * @details For each relation, use the purported values (supplied by the prover) of the multivariates to calculate
-     * a contribution to the purported value of the full Honk relation. These are stored in `evaluations`. Adding these
-     * together, with appropriate scaling factors, produces the expected value of the full Honk relation. This value is
-     * checked against the final value of the target total sum (called sigma_0 in the thesis).
-     */
-    template <size_t relation_idx = 0>
-    // TODO(#224)(Cody): Input should be an array?
-    // These claimed evaluations would be Claimed evaluations for sumcheck and proper evaluation for ProtoGalaxy
-    // copy paste in pg no other choice
-    static void accumulate_relation_evaluations(PolynomialEvaluations purported_evaluations,
-                                                RelationEvaluations& relation_evaluations,
-                                                const proof_system::RelationParameters<FF>& relation_parameters,
-                                                const FF& partial_evaluation_constant)
-    {
-        using Relation = std::tuple_element_t<relation_idx, Relations>;
-        Relation::add_full_relation_value_contribution(std::get<relation_idx>(relation_evaluations),
-                                                       purported_evaluations,
-                                                       relation_parameters,
-                                                       partial_evaluation_constant);
-
-        // Repeat for the next relation.
-        if constexpr (relation_idx + 1 < NUM_RELATIONS) {
-            accumulate_relation_evaluations<relation_idx + 1>(
-                purported_evaluations, relation_evaluations, relation_parameters, partial_evaluation_constant);
         }
     }
 };

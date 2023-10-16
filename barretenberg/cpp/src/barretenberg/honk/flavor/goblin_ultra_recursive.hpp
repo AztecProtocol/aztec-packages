@@ -85,8 +85,8 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
     static constexpr size_t NUM_RELATIONS = std::tuple_size<Relations>::value;
 
     // define the container for storing the univariate contribution from each relation in Sumcheck
-    using RelationUnivariates = decltype(create_relation_univariates_container<FF, Relations>());
-    using RelationValues = decltype(create_relation_values_container<FF, Relations>());
+    using TupleOfTuplesOfUnivariates = decltype(create_relation_univariates_container<FF, Relations>());
+    using TupleOfArraysOfValues = decltype(create_relation_values_container<FF, Relations>());
 
   private:
     template <typename DataType, typename HandleType>
@@ -343,18 +343,14 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
     };
 
     /**
-     * @brief A container storing evaluations of all prover polynomials at one point.
-     * In sumcheck, this data structure represents the evaluations produced during sumcheck, which are claimed to be the
-     * evaluations of prover polynomials commited in earilier rounds
-     * In protogalaxy, it's used to store the evaluations for each point on the boolean hypercurbe, so one
-     * ProverPolynomailsEvaluation object represents evaluations of one row in the execution trace.
-     *
+     * @brief A field element for each entity of the flavor. These entities represent the prover polynomials evaluated
+     * at one point.
      */
-    class ProverPolynomialsEvaluations : public AllEntities<FF, FF> {
+    class AllValues : public AllEntities<FF, FF> {
       public:
         using Base = AllEntities<FF, FF>;
         using Base::Base;
-        ProverPolynomialsEvaluations(std::array<FF, NUM_ALL_ENTITIES> _data_in) { this->_data = _data_in; }
+        AllValues(std::array<FF, NUM_ALL_ENTITIES> _data_in) { this->_data = _data_in; }
     };
 
     /**

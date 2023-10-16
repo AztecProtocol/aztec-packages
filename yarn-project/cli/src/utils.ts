@@ -1,6 +1,6 @@
-import { AztecAddress, Fr, GrumpkinScalar, PXE, Point, TxHash } from '@aztec/aztec.js';
+import { AztecAddress, EthAddress, Fr, FunctionSelector, GrumpkinScalar, PXE, Point, TxHash } from '@aztec/aztec.js';
 import { L1ContractArtifactsForDeployment, createEthereumChain, deployL1Contracts } from '@aztec/ethereum';
-import { ContractAbi } from '@aztec/foundation/abi';
+import { ContractArtifact } from '@aztec/foundation/abi';
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
 import {
   ContractDeploymentEmitterAbi,
@@ -14,6 +14,7 @@ import {
   RollupAbi,
   RollupBytecode,
 } from '@aztec/l1-artifacts';
+import { LogId } from '@aztec/types';
 
 import { InvalidArgumentError } from 'commander';
 import fs from 'fs';
@@ -25,17 +26,17 @@ import { encodeArgs } from './encoding.js';
  * Helper type to dynamically import contracts.
  */
 interface ArtifactsType {
-  [key: string]: ContractAbi;
+  [key: string]: ContractArtifact;
 }
 
 /**
  * Helper to get an ABI function or throw error if it doesn't exist.
- * @param abi - Contract's ABI in JSON format.
+ * @param artifact - Contract's build artifact in JSON format.
  * @param fnName - Function name to be found.
  * @returns The function's ABI.
  */
-export function getAbiFunction(abi: ContractAbi, fnName: string) {
-  const fn = abi.functions.find(({ name }) => name === fnName);
+export function getFunctionArtifact(artifact: ContractArtifact, fnName: string) {
+  const fn = artifact.functions.find(({ name }) => name === fnName);
   if (!fn) {
     throw Error(`Function ${fnName} not found in contract ABI.`);
   }
@@ -95,14 +96,14 @@ export async function getExampleContractArtifacts() {
 /**
  * Reads a file and converts it to an Aztec Contract ABI.
  * @param fileDir - The directory of the compiled contract ABI.
- * @returns The parsed ContractABI.
+ * @returns The parsed contract artifact.
  */
-export async function getContractAbi(fileDir: string, log: LogFn) {
+export async function getContractArtifact(fileDir: string, log: LogFn) {
   // first check if it's a noir-contracts example
   let contents: string;
   const artifacts = await getExampleContractArtifacts();
   if (artifacts[fileDir]) {
-    return artifacts[fileDir] as ContractAbi;
+    return artifacts[fileDir] as ContractArtifact;
   }
 
   try {
@@ -112,14 +113,14 @@ export async function getContractAbi(fileDir: string, log: LogFn) {
   }
 
   // if not found, try reading as path directly
-  let contractAbi: ContractAbi;
+  let contractArtifact: ContractArtifact;
   try {
-    contractAbi = JSON.parse(contents) as ContractAbi;
+    contractArtifact = JSON.parse(contents) as ContractArtifact;
   } catch (err) {
     log('Invalid file used. Please try again.');
     throw err;
   }
-  return contractAbi;
+  return contractArtifact;
 }
 
 /**
@@ -150,18 +151,17 @@ export async function getTxSender(pxe: PXE, _from?: string) {
 /**
  * Performs necessary checks, conversions & operations to call a contract fn from the CLI.
  * @param contractFile - Directory of the compiled contract ABI.
- * @param contractAddress - Aztec Address of the contract.
  * @param functionName - Name of the function to be called.
  * @param _functionArgs - Arguments to call the function with.
  * @param log - Logger instance that will output to the CLI
  * @returns Formatted contract address, function arguments and caller's aztec address.
  */
 export async function prepTx(contractFile: string, functionName: string, _functionArgs: string[], log: LogFn) {
-  const contractAbi = await getContractAbi(contractFile, log);
-  const functionAbi = getAbiFunction(contractAbi, functionName);
-  const functionArgs = encodeArgs(_functionArgs, functionAbi.parameters);
+  const contractArtifact = await getContractArtifact(contractFile, log);
+  const functionArtifact = getFunctionArtifact(contractArtifact, functionName);
+  const functionArgs = encodeArgs(_functionArgs, functionArtifact.parameters);
 
-  return { functionArgs, contractAbi };
+  return { functionArgs, contractArtifact };
 }
 
 /**
@@ -198,9 +198,10 @@ export function parseSaltFromHexString(str: string): Fr {
 }
 
 /**
- * Parses an AztecAddress from a string. Throws InvalidArgumentError if the string is not a valid.
- * @param address - A serialised Aztec address
+ * Parses an AztecAddress from a string.
+ * @param address - A serialized Aztec address
  * @returns An Aztec address
+ * @throws InvalidArgumentError if the input string is not valid.
  */
 export function parseAztecAddress(address: string): AztecAddress {
   try {
@@ -211,9 +212,85 @@ export function parseAztecAddress(address: string): AztecAddress {
 }
 
 /**
- * Parses a TxHash from a string. Throws InvalidArgumentError if the string is not a valid.
+ * Parses an Ethereum address from a string.
+ * @param address - A serialized Ethereum address
+ * @returns An Ethereum address
+ * @throws InvalidArgumentError if the input string is not valid.
+ */
+export function parseEthereumAddress(address: string): EthAddress {
+  try {
+    return EthAddress.fromString(address);
+  } catch {
+    throw new InvalidArgumentError(`Invalid address: ${address}`);
+  }
+}
+
+/**
+ * Parses an AztecAddress from a string.
+ * @param address - A serialized Aztec address
+ * @returns An Aztec address
+ * @throws InvalidArgumentError if the input string is not valid.
+ */
+export function parseOptionalAztecAddress(address: string): AztecAddress | undefined {
+  if (!address) {
+    return undefined;
+  }
+  return parseAztecAddress(address);
+}
+
+/**
+ * Parses an optional log ID string into a LogId object.
+ *
+ * @param logId - The log ID string to parse.
+ * @returns The parsed LogId object, or undefined if the log ID is missing or empty.
+ */
+export function parseOptionalLogId(logId: string): LogId | undefined {
+  if (!logId) {
+    return undefined;
+  }
+  return LogId.fromString(logId);
+}
+
+/**
+ * Parses a selector from a string.
+ * @param selector - A serialized selector.
+ * @returns A selector.
+ * @throws InvalidArgumentError if the input string is not valid.
+ */
+export function parseOptionalSelector(selector: string): FunctionSelector | undefined {
+  if (!selector) {
+    return undefined;
+  }
+  try {
+    return FunctionSelector.fromString(selector);
+  } catch {
+    throw new InvalidArgumentError(`Invalid selector: ${selector}`);
+  }
+}
+
+/**
+ * Parses a string into an integer or returns undefined if the input is falsy.
+ *
+ * @param value - The string to parse into an integer.
+ * @returns The parsed integer, or undefined if the input string is falsy.
+ * @throws If the input is not a valid integer.
+ */
+export function parseOptionalInteger(value: string): number | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed)) {
+    throw new InvalidArgumentError('Invalid integer.');
+  }
+  return parsed;
+}
+
+/**
+ * Parses a TxHash from a string.
  * @param txHash - A transaction hash
  * @returns A TxHash instance
+ * @throws InvalidArgumentError if the input string is not valid.
  */
 export function parseTxHash(txHash: string): TxHash {
   try {
@@ -224,9 +301,24 @@ export function parseTxHash(txHash: string): TxHash {
 }
 
 /**
- * Parses a public key from a string. Throws InvalidArgumentError if the string is not a valid.
+ * Parses an optional TxHash from a string.
+ * Calls parseTxHash internally.
+ * @param txHash - A transaction hash
+ * @returns A TxHash instance, or undefined if the input string is falsy.
+ * @throws InvalidArgumentError if the input string is not valid.
+ */
+export function parseOptionalTxHash(txHash: string): TxHash | undefined {
+  if (!txHash) {
+    return undefined;
+  }
+  return parseTxHash(txHash);
+}
+
+/**
+ * Parses a public key from a string.
  * @param publicKey - A public key
  * @returns A Point instance
+ * @throws InvalidArgumentError if the input string is not valid.
  */
 export function parsePublicKey(publicKey: string): Point {
   try {
@@ -237,9 +329,10 @@ export function parsePublicKey(publicKey: string): Point {
 }
 
 /**
- * Parses a partial address from a string. Throws InvalidArgumentError if the string is not a valid.
+ * Parses a partial address from a string.
  * @param address - A partial address
  * @returns A Fr instance
+ * @throws InvalidArgumentError if the input string is not valid.
  */
 export function parsePartialAddress(address: string): Fr {
   try {
@@ -250,9 +343,10 @@ export function parsePartialAddress(address: string): Fr {
 }
 
 /**
- * Parses a private key from a string. Throws InvalidArgumentError if the string is not a valid.
+ * Parses a private key from a string.
  * @param privateKey - A string
  * @returns A private key
+ * @throws InvalidArgumentError if the input string is not valid.
  */
 export function parsePrivateKey(privateKey: string): GrumpkinScalar {
   try {
@@ -269,9 +363,10 @@ export function parsePrivateKey(privateKey: string): GrumpkinScalar {
 }
 
 /**
- * Parses a field from a string. Throws InvalidArgumentError if the string is not a valid field value.
+ * Parses a field from a string.
  * @param field - A string representing the field.
  * @returns A field.
+ * @throws InvalidArgumentError if the input string is not valid.
  */
 export function parseField(field: string): Fr {
   try {

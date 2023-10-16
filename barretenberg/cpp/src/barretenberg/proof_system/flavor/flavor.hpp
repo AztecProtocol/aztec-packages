@@ -227,7 +227,7 @@ template <class FF, typename Tuple, std::size_t Index = 0> static constexpr auto
     if constexpr (Index >= std::tuple_size<Tuple>::value) {
         return std::tuple<>{}; // Return empty when reach end of the tuple
     } else {
-        using UnivariateTuple = typename std::tuple_element_t<Index, Tuple>::RelationUnivariates;
+        using UnivariateTuple = typename std::tuple_element_t<Index, Tuple>::TupleOfUnivariatesOverSubrelations;
         return std::tuple_cat(std::tuple<UnivariateTuple>{},
                               create_relation_univariates_container<FF, Tuple, Index + 1>());
     }
@@ -243,8 +243,8 @@ template <class FF, typename Tuple, std::size_t Index = 0> static constexpr auto
     if constexpr (Index >= std::tuple_size<Tuple>::value) {
         return std::tuple<>{}; // Return empty when reach end of the tuple
     } else {
-        using ValuesArray = typename std::tuple_element_t<Index, Tuple>::RelationValues;
-        return std::tuple_cat(std::tuple<ValuesArray>{}, create_relation_values_container<FF, Tuple, Index + 1>());
+        using Values = typename std::tuple_element_t<Index, Tuple>::ArrayOfValuesOverSubrelations;
+        return std::tuple_cat(std::tuple<Values>{}, create_relation_values_container<FF, Tuple, Index + 1>());
     }
 }
 
@@ -253,7 +253,6 @@ template <class FF, typename Tuple, std::size_t Index = 0> static constexpr auto
 // Forward declare honk flavors
 namespace proof_system::honk::flavor {
 class Ultra;
-class UltraGrumpkin;
 class ECCVM;
 class ECCVMGrumpkin;
 class GoblinUltra;
@@ -281,10 +280,10 @@ template <typename T>
 concept IsPlonkFlavor = IsAnyOf<T, plonk::flavor::Standard, plonk::flavor::Ultra>;
 
 template <typename T> 
-concept IsHonkFlavor = IsAnyOf<T, honk::flavor::Ultra, honk::flavor::UltraGrumpkin, honk::flavor::GoblinUltra>;
+concept IsHonkFlavor = IsAnyOf<T, honk::flavor::Ultra, honk::flavor::GoblinUltra>;
 
 template <typename T> 
-concept IsUltraFlavor = IsAnyOf<T, honk::flavor::Ultra, honk::flavor::UltraGrumpkin, honk::flavor::GoblinUltra>;
+concept IsUltraFlavor = IsAnyOf<T, honk::flavor::Ultra, honk::flavor::GoblinUltra>;
 
 template <typename T> 
 concept IsGoblinFlavor = IsAnyOf<T, honk::flavor::GoblinUltra,
@@ -297,9 +296,9 @@ concept IsRecursiveFlavor = IsAnyOf<T, honk::flavor::UltraRecursive_<UltraCircui
                                        honk::flavor::GoblinUltraRecursive_<UltraCircuitBuilder>, 
                                        honk::flavor::GoblinUltraRecursive_<GoblinUltraCircuitBuilder>>;
 
-template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, honk::flavor::UltraGrumpkin>;
+template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, honk::flavor::ECCVMGrumpkin>;
 
-template <typename T> concept UltraFlavor = IsAnyOf<T, honk::flavor::Ultra, honk::flavor::UltraGrumpkin, honk::flavor::GoblinUltra>;
+template <typename T> concept UltraFlavor = IsAnyOf<T, honk::flavor::Ultra, honk::flavor::GoblinUltra>;
 
 template <typename T> concept ECCVMFlavor = IsAnyOf<T, honk::flavor::ECCVM, honk::flavor::ECCVMGrumpkin>;
 

@@ -6,6 +6,7 @@
 #include "barretenberg/polynomials/pow.hpp"
 #include "barretenberg/proof_system/flavor/flavor.hpp"
 #include "barretenberg/proof_system/relations/relation_parameters.hpp"
+#include "barretenberg/proof_system/relations/relation_types.hpp"
 #include "barretenberg/proof_system/relations/utils.hpp"
 
 namespace proof_system::honk::sumcheck {
@@ -55,7 +56,7 @@ namespace proof_system::honk::sumcheck {
 template <typename Flavor> class SumcheckProverRound {
 
     using Relations = typename Flavor::Relations;
-    using RelationUnivariates = typename Flavor::RelationUnivariates;
+    using TupleOfTuplesOfUnivariates = typename Flavor::TupleOfTuplesOfUnivariates;
 
   public:
     using FF = typename Flavor::FF;
@@ -64,12 +65,11 @@ template <typename Flavor> class SumcheckProverRound {
 
     size_t round_size; // a power of 2
 
-    Relations relations;
     static constexpr size_t NUM_RELATIONS = Flavor::NUM_RELATIONS;
     static constexpr size_t MAX_RELATION_LENGTH = Flavor::MAX_RELATION_LENGTH;
     static constexpr size_t MAX_RANDOM_RELATION_LENGTH = Flavor::MAX_RANDOM_RELATION_LENGTH;
 
-    RelationUnivariates univariate_accumulators;
+    TupleOfTuplesOfUnivariates univariate_accumulators;
 
     // TODO(#224)(Cody): this should go away
     barretenberg::BarycentricData<FF, 2, MAX_RELATION_LENGTH> barycentric_2_to_max;
@@ -111,7 +111,7 @@ template <typename Flavor> class SumcheckProverRound {
      */
     void extend_edges(auto& extended_edges, auto& multivariates, size_t edge_idx)
     {
-        size_t univariate_idx = 0; // TODO(#391) zip
+        size_t univariate_idx = 0; // TODO(https://github.com/AztecProtocol/barretenberg/issues/391) zip
         for (auto& poly : multivariates) {
             auto edge = barretenberg::Univariate<FF, 2>({ poly[edge_idx], poly[edge_idx + 1] });
             extended_edges[univariate_idx] = barycentric_2_to_max.extend(edge);
@@ -148,7 +148,7 @@ template <typename Flavor> class SumcheckProverRound {
         size_t iterations_per_thread = round_size / num_threads; // actual iterations per thread
 
         // Constuct univariate accumulator containers; one per thread
-        std::vector<RelationUnivariates> thread_univariate_accumulators(num_threads);
+        std::vector<TupleOfTuplesOfUnivariates> thread_univariate_accumulators(num_threads);
         for (auto& accum : thread_univariate_accumulators) {
             zero_univariates(accum);
         }
@@ -205,12 +205,13 @@ template <typename Flavor> class SumcheckProverRound {
      * appropriate scaling factors, produces S_l.
      */
     template <size_t relation_idx = 0>
-    void accumulate_relation_univariates(RelationUnivariates& univariate_accumulators,
+    void accumulate_relation_univariates(TupleOfTuplesOfUnivariates& univariate_accumulators,
                                          const auto& extended_edges,
                                          const proof_system::RelationParameters<FF>& relation_parameters,
                                          const FF& scaling_factor)
     {
-        std::get<relation_idx>(relations).add_edge_contribution(
+        using Relation = std::tuple_element_t<relation_idx, Relations>;
+        Relation::accumulate(
             std::get<relation_idx>(univariate_accumulators), extended_edges, relation_parameters, scaling_factor);
 
         // Repeat for the next relation.
@@ -221,9 +222,8 @@ template <typename Flavor> class SumcheckProverRound {
     }
 
   public:
-    // TODO(luke): Potentially make RelationUnivarites (tuple of tuples of Univariates) a class and make these utility
-    // functions class methods. Alternatively, move all of these tuple utilities (and the ones living elsewhere) to
-    // their own module.
+    // TODO(luke): Potentially make TupleOfTuplesOfUnivariates a class and make these utility functions class methods.
+    // Alternatively, move all of these tuple utilities (and the ones living elsewhere) to their own module.
     /**
      * Utility methods for tuple of tuples of Univariates
      */
@@ -254,9 +254,7 @@ template <typename Flavor> class SumcheckProverRound {
             barretenberg::BarycentricData<FF, Element::LENGTH, extended_size> barycentric_utils;
             auto extended = barycentric_utils.extend(element);
 
-            const bool is_subrelation_linearly_independent =
-                Relation::template is_subrelation_linearly_independent<subrelation_idx>();
-            if (is_subrelation_linearly_independent) {
+            if constexpr (subrelation_is_linearly_independent<Relation, subrelation_idx>()) {
                 // if subrelation is linearly independent, multiply by random polynomial
                 result += extended * extended_random_polynomial_edge;
             } else {
@@ -369,11 +367,11 @@ template <typename Flavor> class SumcheckProverRound {
 template <typename Flavor> class SumcheckVerifierRound {
     using Utils = barretenberg::RelationUtils<Flavor>;
     using Relations = typename Flavor::Relations;
-    using RelationEvaluations = typename Flavor::RelationValues;
+    using TupleOfArraysOfValues = typename Flavor::TupleOfArraysOfValues;
 
   public:
     using FF = typename Flavor::FF;
-    using ClaimedEvaluations = typename Flavor::ProverPolynomialsEvaluations;
+    using ClaimedEvaluations = typename Flavor::AllValues;
 
     bool round_failed = false;
 
@@ -382,8 +380,7 @@ template <typename Flavor> class SumcheckVerifierRound {
 
     FF target_total_sum = 0;
 
-    Relations relations;
-    RelationEvaluations relation_evaluations;
+    TupleOfArraysOfValues relation_evaluations;
 
     // Verifier constructor
     explicit SumcheckVerifierRound() { Utils::zero_elements(relation_evaluations); };
@@ -429,12 +426,10 @@ template <typename Flavor> class SumcheckVerifierRound {
     }
 
     /**
-     * @brief Calculate the contribution of each relation to the expected value of the full Honk relation.
+     * @brief General purpose method for applying a tuple of arrays (of FFs)
      *
-     * @details For each relation, use the purported values (supplied by the prover) of the multivariates to calculate
-     * a contribution to the purported value of the full Honk relation. These are stored in `evaluations`. Adding these
-     * together, with appropriate scaling factors, produces the expected value of the full Honk relation. This value is
-     * checked against the final value of the target total sum, defined as sigma_d.
+     * @tparam Operation Any operation valid on elements of the inner arrays (FFs)
+     * @param tuple Tuple of arrays (of FFs)
      */
     // also copy paste in PG
     // so instead of having claimed evaluations of each relation in part  you have the actual evaluations

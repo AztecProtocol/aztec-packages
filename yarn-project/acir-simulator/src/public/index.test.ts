@@ -8,21 +8,22 @@ import {
   L1_TO_L2_MSG_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
-import { FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
+import { FunctionArtifact, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { toBigInt } from '@aztec/foundation/serialize';
 import {
-  ChildContractAbi,
-  NonNativeTokenContractAbi,
-  ParentContractAbi,
-  PublicTokenContractAbi,
-  TestContractAbi,
+  ChildContractArtifact,
+  ParentContractArtifact,
+  PublicTokenContractArtifact,
+  TestContractArtifact,
+  TokenContractArtifact,
 } from '@aztec/noir-contracts/artifacts';
 
 import { MockProxy, mock } from 'jest-mock-extended';
 import { type MemDown, default as memdown } from 'memdown';
+import { getFunctionSelector } from 'viem';
 
 import { buildL1ToL2Message } from '../test/utils.js';
 import { computeSlotForMapping } from '../utils.js';
@@ -63,9 +64,9 @@ describe('ACIR public execution simulator', () => {
     describe('mint', () => {
       it('should run the mint function', async () => {
         const contractAddress = AztecAddress.random();
-        const mintAbi = PublicTokenContractAbi.functions.find(f => f.name === 'mint')!;
-        const functionData = FunctionData.fromAbi(mintAbi);
-        const args = encodeArguments(mintAbi, [140, recipient]);
+        const mintArtifact = PublicTokenContractArtifact.functions.find(f => f.name === 'mint')!;
+        const functionData = FunctionData.fromAbi(mintArtifact);
+        const args = encodeArguments(mintArtifact, [140, recipient]);
 
         const callContext = CallContext.from({
           msgSender: AztecAddress.random(),
@@ -77,7 +78,7 @@ describe('ACIR public execution simulator', () => {
           isStaticCall: false,
         });
 
-        publicContracts.getBytecode.mockResolvedValue(Buffer.from(mintAbi.bytecode, 'base64'));
+        publicContracts.getBytecode.mockResolvedValue(Buffer.from(mintArtifact.bytecode, 'base64'));
 
         // Mock the old value for the recipient balance to be 20
         const previousBalance = new Fr(20n);
@@ -100,7 +101,7 @@ describe('ACIR public execution simulator', () => {
 
     describe('transfer', () => {
       let contractAddress: AztecAddress;
-      let abi: FunctionAbi;
+      let artifact: FunctionArtifact;
       let functionData: FunctionData;
       let args: Fr[];
       let sender: AztecAddress;
@@ -111,9 +112,9 @@ describe('ACIR public execution simulator', () => {
 
       beforeEach(() => {
         contractAddress = AztecAddress.random();
-        abi = PublicTokenContractAbi.functions.find(f => f.name === 'transfer')!;
+        artifact = PublicTokenContractArtifact.functions.find(f => f.name === 'transfer')!;
         functionData = new FunctionData(FunctionSelector.empty(), false, false, false);
-        args = encodeArguments(abi, [140, recipient]);
+        args = encodeArguments(artifact, [140, recipient]);
         sender = AztecAddress.random();
 
         callContext = CallContext.from({
@@ -129,7 +130,7 @@ describe('ACIR public execution simulator', () => {
         recipientStorageSlot = computeSlotForMapping(new Fr(1n), recipient.toField(), circuitsWasm);
         senderStorageSlot = computeSlotForMapping(new Fr(1n), Fr.fromBuffer(sender.toBuffer()), circuitsWasm);
 
-        publicContracts.getBytecode.mockResolvedValue(Buffer.from(abi.bytecode, 'base64'));
+        publicContracts.getBytecode.mockResolvedValue(Buffer.from(artifact.bytecode, 'base64'));
 
         execution = { contractAddress, functionData, args, callContext };
       });
@@ -202,14 +203,14 @@ describe('ACIR public execution simulator', () => {
       'calls the public entry point in the parent',
       async isInternal => {
         const parentContractAddress = AztecAddress.random();
-        const parentEntryPointFn = ParentContractAbi.functions.find(f => f.name === 'pubEntryPoint')!;
+        const parentEntryPointFn = ParentContractArtifact.functions.find(f => f.name === 'pubEntryPoint')!;
         const parentEntryPointFnSelector = FunctionSelector.fromNameAndParameters(
           parentEntryPointFn.name,
           parentEntryPointFn.parameters,
         );
 
         const childContractAddress = AztecAddress.random();
-        const childValueFn = ChildContractAbi.functions.find(f => f.name === 'pubGetValue')!;
+        const childValueFn = ChildContractArtifact.functions.find(f => f.name === 'pubGetValue')!;
         const childValueFnSelector = FunctionSelector.fromNameAndParameters(childValueFn.name, childValueFn.parameters);
 
         const initialValue = 3n;
@@ -285,11 +286,14 @@ describe('ACIR public execution simulator', () => {
     });
 
     it('Should be able to create a commitment from the public context', async () => {
-      const shieldAbi = NonNativeTokenContractAbi.functions.find(f => f.name === 'shield')!;
-      const args = encodeArguments(shieldAbi, params);
+      const shieldArtifact = TokenContractArtifact.functions.find(f => f.name === 'shield')!;
+      const msgSender = AztecAddress.random();
+      const secretHash = Fr.random();
+
+      const args = encodeArguments(shieldArtifact, [msgSender.toField(), amount, secretHash, Fr.ZERO]);
 
       const callContext = CallContext.from({
-        msgSender: AztecAddress.random(),
+        msgSender: msgSender,
         storageContractAddress: contractAddress,
         portalContractAddress: EthAddress.random(),
         functionSelector: FunctionSelector.empty(),
@@ -298,7 +302,7 @@ describe('ACIR public execution simulator', () => {
         isStaticCall: false,
       });
 
-      publicContracts.getBytecode.mockResolvedValue(Buffer.from(shieldAbi.bytecode, 'base64'));
+      publicContracts.getBytecode.mockResolvedValue(Buffer.from(shieldArtifact.bytecode, 'base64'));
       // mock initial balance to be greater than the amount being sent
       publicState.storageRead.mockResolvedValue(amount);
 
@@ -308,18 +312,17 @@ describe('ACIR public execution simulator', () => {
       // Assert the commitment was created
       expect(result.newCommitments.length).toEqual(1);
 
-      const expectedNoteHash = pedersenPlookupCommitInputs(
-        wasm,
-        params.map(a => a.toBuffer()),
-      );
-      const storageSlot = new Fr(2); // matches storage.nr
+      const expectedNoteHash = pedersenPlookupCommitInputs(wasm, [amount.toBuffer(), secretHash.toBuffer()]);
+      const storageSlot = new Fr(5); // for pending_shields
       const expectedInnerNoteHash = pedersenPlookupCommitInputs(wasm, [storageSlot.toBuffer(), expectedNoteHash]);
       expect(result.newCommitments[0].toBuffer()).toEqual(expectedInnerNoteHash);
     });
 
     it('Should be able to create a L2 to L1 message from the public context', async () => {
-      const createL2ToL1MessagePublicAbi = TestContractAbi.functions.find(f => f.name === 'createL2ToL1MessagePublic')!;
-      const args = encodeArguments(createL2ToL1MessagePublicAbi, params);
+      const createL2ToL1MessagePublicArtifact = TestContractArtifact.functions.find(
+        f => f.name === 'createL2ToL1MessagePublic',
+      )!;
+      const args = encodeArguments(createL2ToL1MessagePublicArtifact, params);
 
       const callContext = CallContext.from({
         msgSender: AztecAddress.random(),
@@ -331,7 +334,7 @@ describe('ACIR public execution simulator', () => {
         isStaticCall: false,
       });
 
-      publicContracts.getBytecode.mockResolvedValue(Buffer.from(createL2ToL1MessagePublicAbi.bytecode, 'base64'));
+      publicContracts.getBytecode.mockResolvedValue(Buffer.from(createL2ToL1MessagePublicArtifact.bytecode, 'base64'));
 
       const execution: PublicExecution = { contractAddress, functionData, args, callContext };
       const result = await executor.simulate(execution, GlobalVariables.empty());
@@ -346,8 +349,8 @@ describe('ACIR public execution simulator', () => {
       expect(result.newL2ToL1Messages[0].toBuffer()).toEqual(expectedNewMessageValue);
     });
 
-    it('Should be able to consume an Ll to L2 message in the public context', async () => {
-      const mintPublicAbi = NonNativeTokenContractAbi.functions.find(f => f.name === 'mintPublic')!;
+    it('Should be able to consume an L1 to L2 message in the public context', async () => {
+      const mintPublicArtifact = TestContractArtifact.functions.find(f => f.name === 'consume_mint_public_message')!;
 
       // Set up cross chain message
       const canceller = EthAddress.random();
@@ -356,22 +359,21 @@ describe('ACIR public execution simulator', () => {
       const secret = new Fr(1n);
       const recipient = AztecAddress.random();
 
-      // Function selector: 0xeeb73071 keccak256('mint(uint256,bytes32,address)')
       const preimage = await buildL1ToL2Message(
-        'eeb73071',
-        [new Fr(bridgedAmount), recipient.toField(), canceller.toField()],
+        getFunctionSelector('mint_public(bytes32,uint256,address)').substring(2),
+        [recipient.toField(), new Fr(bridgedAmount), canceller.toField()],
         contractAddress,
         secret,
       );
 
       // Stub message key
       const messageKey = Fr.random();
-      const args = encodeArguments(mintPublicAbi, [
-        bridgedAmount,
+      const args = encodeArguments(mintPublicArtifact, [
         recipient.toField(),
+        bridgedAmount,
+        canceller.toField(),
         messageKey,
         secret,
-        canceller.toField(),
       ]);
 
       const callContext = CallContext.from({
@@ -384,7 +386,7 @@ describe('ACIR public execution simulator', () => {
         isStaticCall: false,
       });
 
-      publicContracts.getBytecode.mockResolvedValue(Buffer.from(mintPublicAbi.bytecode, 'base64'));
+      publicContracts.getBytecode.mockResolvedValue(Buffer.from(mintPublicArtifact.bytecode, 'base64'));
       publicState.storageRead.mockResolvedValue(Fr.ZERO);
 
       // Mock response
@@ -403,9 +405,11 @@ describe('ACIR public execution simulator', () => {
     });
 
     it('Should be able to create a nullifier from the public context', async () => {
-      const createNullifierPublicAbi = TestContractAbi.functions.find(f => f.name === 'createNullifierPublic')!;
+      const createNullifierPublicArtifact = TestContractArtifact.functions.find(
+        f => f.name === 'createNullifierPublic',
+      )!;
 
-      const args = encodeArguments(createNullifierPublicAbi, params);
+      const args = encodeArguments(createNullifierPublicArtifact, params);
 
       const callContext = CallContext.from({
         msgSender: AztecAddress.random(),
@@ -417,7 +421,7 @@ describe('ACIR public execution simulator', () => {
         isStaticCall: false,
       });
 
-      publicContracts.getBytecode.mockResolvedValue(Buffer.from(createNullifierPublicAbi.bytecode, 'base64'));
+      publicContracts.getBytecode.mockResolvedValue(Buffer.from(createNullifierPublicArtifact.bytecode, 'base64'));
 
       const execution: PublicExecution = { contractAddress, functionData, args, callContext };
       const result = await executor.simulate(execution, GlobalVariables.empty());

@@ -24,7 +24,7 @@
     "aztec.js",
     "boxes/blank",
     "boxes/blank-react",
-    "boxes/private-token",
+    "boxes/token",
     "canary",
     "circuits.js",
     "cli",
@@ -42,6 +42,7 @@
     "prover-client",
     "rollup-provider",
     "sequencer-client",
+    "scripts",
     "types",
     "world-state",
     "yarn-project-base"

@@ -59,7 +59,7 @@ It has prebuilt binaries and is super easy to install using `noirup`
   ```
   echo -e '\n# Adds direnv initialization\neval "$(direnv hook zsh)"' >> $HOME/.zshenv
   ```
-- VSCode needs to be resterted so direnv plugin can notice env changes with:
+- VSCode needs to be restarted so direnv plugin can notice env changes with:
   ```
   kill -9 ps aux | grep $(whoami)/.vscode-server | awk '{print $2}'
   ```
@@ -137,7 +137,7 @@ It has prebuilt binaries and is super easy to install using `noirup`
 6. Export the abi in `src/artifacts/index.ts` to be able to use the contract in the rest of the project:
    ```
    import ExampleContractJson from './example_contract.json' assert { type: 'json' };
-   export const ExampleContractAbi = ExampleContractJson as ContractAbi;
+   export const ExampleContractArtifact = ExampleContractJson as ContractArtifact;
    ```
 7. ???
 8. Profit.

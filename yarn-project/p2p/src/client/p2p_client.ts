@@ -16,7 +16,7 @@ export enum P2PClientState {
 }
 
 /**
- * The synchronisation status of the P2P client.
+ * The synchronization status of the P2P client.
  */
 export interface P2PSyncState {
   /**
@@ -164,7 +164,7 @@ export class P2PClient implements P2P {
     // start looking for further blocks
     const blockProcess = async () => {
       while (!this.stopping) {
-        const blocks = await this.blockDownloader.getL2Blocks();
+        const blocks = await this.blockDownloader.getBlocks();
         await this.handleL2Blocks(blocks);
       }
     };

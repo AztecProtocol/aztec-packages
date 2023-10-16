@@ -33,13 +33,53 @@ struct TestPrivateContextInterface {
 }
 
 impl TestPrivateContextInterface {
-  fn at(address: Field) -> Self {
+  pub fn at(address: Field) -> Self {
       Self {
           address,
       }
   }
   
-  fn createL2ToL1MessagePublic(
+  pub fn consume_mint_private_message(
+    self,
+    context: &mut PrivateContext,
+    secret_hash_for_redeeming_minted_notes: Field,
+    amount: Field,
+    canceller: Field,
+    msg_key: Field,
+    secret_for_L1_to_L2_message_consumption: Field
+  ) -> [Field; RETURN_VALUES_LENGTH] {
+    let mut serialized_args = [0; 5];
+    serialized_args[0] = secret_hash_for_redeeming_minted_notes;
+    serialized_args[1] = amount;
+    serialized_args[2] = canceller;
+    serialized_args[3] = msg_key;
+    serialized_args[4] = secret_for_L1_to_L2_message_consumption;
+
+    context.call_private_function(self.address, 0x8999306a, serialized_args)
+  }
+  
+
+  pub fn consume_mint_public_message(
+    self,
+    context: &mut PrivateContext,
+    to: Field,
+    amount: Field,
+    canceller: Field,
+    msg_key: Field,
+    secret: Field
+  ) {
+    let mut serialized_args = [0; 5];
+    serialized_args[0] = to;
+    serialized_args[1] = amount;
+    serialized_args[2] = canceller;
+    serialized_args[3] = msg_key;
+    serialized_args[4] = secret;
+
+    context.call_public_function(self.address, 0x1c60863d, serialized_args)
+  }
+  
+
+  pub fn createL2ToL1MessagePublic(
     self,
     context: &mut PrivateContext,
     amount: Field,
@@ -53,7 +93,7 @@ impl TestPrivateContextInterface {
   }
   
 
-  fn createNullifierPublic(
+  pub fn createNullifierPublic(
     self,
     context: &mut PrivateContext,
     amount: Field,
@@ -67,7 +107,7 @@ impl TestPrivateContextInterface {
   }
   
 
-  fn emit_nullifier(
+  pub fn emit_nullifier(
     self,
     context: &mut PrivateContext,
     nullifier: Field
@@ -79,7 +119,7 @@ impl TestPrivateContextInterface {
   }
   
 
-  fn emit_unencrypted(
+  pub fn emit_unencrypted(
     self,
     context: &mut PrivateContext,
     value: Field
@@ -91,7 +131,7 @@ impl TestPrivateContextInterface {
   }
   
 
-  fn getPortalContractAddress(
+  pub fn getPortalContractAddress(
     self,
     context: &mut PrivateContext,
     aztec_address: Field
@@ -103,7 +143,7 @@ impl TestPrivateContextInterface {
   }
   
 
-  fn getPublicKey(
+  pub fn getPublicKey(
     self,
     context: &mut PrivateContext,
     address: Field
@@ -115,7 +155,7 @@ impl TestPrivateContextInterface {
   }
   
 
-  fn getThisAddress(
+  pub fn getThisAddress(
     self,
     context: &mut PrivateContext
   ) -> [Field; RETURN_VALUES_LENGTH] {
@@ -125,7 +165,7 @@ impl TestPrivateContextInterface {
   }
   
 
-  fn getThisPortalAddress(
+  pub fn getThisPortalAddress(
     self,
     context: &mut PrivateContext
   ) -> [Field; RETURN_VALUES_LENGTH] {
@@ -135,7 +175,7 @@ impl TestPrivateContextInterface {
   }
   
 
-  fn isTimeEqual(
+  pub fn isTimeEqual(
     self,
     context: &mut PrivateContext,
     time: Field
@@ -147,7 +187,7 @@ impl TestPrivateContextInterface {
   }
   
 
-  fn testCodeGen(
+  pub fn testCodeGen(
     self,
     context: &mut PrivateContext,
     aField: Field,
@@ -190,13 +230,33 @@ struct TestPublicContextInterface {
 }
 
 impl TestPublicContextInterface {
-  fn at(address: Field) -> Self {
+  pub fn at(address: Field) -> Self {
       Self {
           address,
       }
   }
   
-  fn createL2ToL1MessagePublic(
+  pub fn consume_mint_public_message(
+    self,
+    context: PublicContext,
+    to: Field,
+    amount: Field,
+    canceller: Field,
+    msg_key: Field,
+    secret: Field
+  ) -> [Field; RETURN_VALUES_LENGTH] {
+    let mut serialized_args = [0; 5];
+    serialized_args[0] = to;
+    serialized_args[1] = amount;
+    serialized_args[2] = canceller;
+    serialized_args[3] = msg_key;
+    serialized_args[4] = secret;
+
+    context.call_public_function(self.address, 0x1c60863d, serialized_args)
+  }
+  
+
+  pub fn createL2ToL1MessagePublic(
     self,
     context: PublicContext,
     amount: Field,
@@ -210,7 +270,7 @@ impl TestPublicContextInterface {
   }
   
 
-  fn createNullifierPublic(
+  pub fn createNullifierPublic(
     self,
     context: PublicContext,
     amount: Field,
@@ -224,7 +284,7 @@ impl TestPublicContextInterface {
   }
   
 
-  fn emit_unencrypted(
+  pub fn emit_unencrypted(
     self,
     context: PublicContext,
     value: Field
@@ -236,7 +296,7 @@ impl TestPublicContextInterface {
   }
   
 
-  fn isTimeEqual(
+  pub fn isTimeEqual(
     self,
     context: PublicContext,
     time: Field
