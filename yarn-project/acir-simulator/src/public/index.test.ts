@@ -147,8 +147,8 @@ describe('ACIR public execution simulator', () => {
         contractAddress = AztecAddress.random();
         transferArtifact = TokenContractArtifact.functions.find(f => f.name === 'transfer_public')!;
         functionData = new FunctionData(FunctionSelector.empty(), false, false, false);
-        args = encodeArguments(transferArtifact, [140, recipient]);
         sender = AztecAddress.random();
+        args = encodeArguments(transferArtifact, [sender, recipient, 140n, 0n]);
 
         callContext = CallContext.from({
           msgSender: sender,
@@ -160,8 +160,8 @@ describe('ACIR public execution simulator', () => {
           isStaticCall: false,
         });
 
-        recipientStorageSlot = computeSlotForMapping(new Fr(1n), recipient.toField(), circuitsWasm);
-        senderStorageSlot = computeSlotForMapping(new Fr(1n), Fr.fromBuffer(sender.toBuffer()), circuitsWasm);
+        recipientStorageSlot = computeSlotForMapping(new Fr(6n), recipient.toField(), circuitsWasm);
+        senderStorageSlot = computeSlotForMapping(new Fr(6n), Fr.fromBuffer(sender.toBuffer()), circuitsWasm);
 
         publicContracts.getBytecode.mockResolvedValue(Buffer.from(transferArtifact.bytecode, 'base64'));
 
@@ -191,42 +191,34 @@ describe('ACIR public execution simulator', () => {
         const expectedRecipientBalance = new Fr(160n);
         const expectedSenderBalance = new Fr(60n);
 
-        expect(result.returnValues[0]).toEqual(expectedRecipientBalance);
+        expect(result.returnValues[0]).toEqual(new Fr(1n));
 
         expect(result.contractStorageUpdateRequests).toEqual([
           {
             storageSlot: senderStorageSlot,
             oldValue: senderBalance,
             newValue: expectedSenderBalance,
-            sideEffectCounter: 2,
-          }, // 0th, 1st are reads
+            sideEffectCounter: 1, // 1 read (sender balance)
+          },
           {
             storageSlot: recipientStorageSlot,
             oldValue: recipientBalance,
             newValue: expectedRecipientBalance,
-            sideEffectCounter: 3,
+            sideEffectCounter: 3, // 1 read (sender balance), 1 write (new sender balance), 1 read (recipient balance)
           },
         ]);
 
         expect(result.contractStorageReads).toEqual([]);
       });
 
-      it('should fail the transfer function without enough sender balance', async () => {
+      it('should throw underflow error when executing transfer function without enough sender balance', async () => {
         const senderBalance = new Fr(10n);
         const recipientBalance = new Fr(20n);
         mockStore(senderBalance, recipientBalance);
 
-        const result = await executor.simulate(execution, GlobalVariables.empty());
-        expect(result.returnValues[0]).toEqual(recipientBalance);
-
-        expect(result.contractStorageReads).toEqual(
-          [
-            { storageSlot: senderStorageSlot, currentValue: senderBalance, sideEffectCounter: 0 },
-            { storageSlot: recipientStorageSlot, currentValue: recipientBalance, sideEffectCounter: 1 },
-          ].map(ContractStorageRead.from),
+        await expect(executor.simulate(execution, GlobalVariables.empty())).rejects.toThrowError(
+          'Assertion failed: Underflow',
         );
-
-        expect(result.contractStorageUpdateRequests).toEqual([]);
       });
     });
   });
