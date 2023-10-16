@@ -24,7 +24,7 @@ template <typename NCT, unsigned int N> struct PendingReadRequestMembershipWitne
     fr hint_to_commitment = 0;  // hint to point kernel to the commitment this rr corresponds to
 
     // For serialization, update with new fields
-    MSGPACK_FIELDS(leaf_index, sibling_path, is_transient, hint_to_commitment);
+    MSGPACK_FIELDS(leaf_index, sibling_path, hint_to_commitment);
 
     boolean operator==(PendingReadRequestMembershipWitness<NCT, N> const& other) const
     {
@@ -74,7 +74,6 @@ template <typename NCT, unsigned int N> struct PendingReadRequestMembershipWitne
         hint_to_commitment.set_public();
     }
 
-    // Deliberately consider a transient read request membership witness as non-empty.
     boolean is_empty() const
     {
         return aztec3::utils::is_empty(leaf_index) && is_array_empty(sibling_path) &&
