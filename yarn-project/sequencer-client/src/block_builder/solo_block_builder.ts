@@ -119,8 +119,11 @@ export class SoloBlockBuilder implements BlockBuilder {
     // Check txs are good for processing
     this.validateTxs(txs);
 
+    // padArrayEnd throws if the array is already full. Otherwise it pads till we reach the required size
+    const newL1ToL2MessagesTuple = padArrayEnd(newL1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+
     // We fill the tx batch with empty txs, we process only one tx at a time for now
-    const [circuitsOutput, proof] = await this.runCircuits(globalVariables, txs, newL1ToL2Messages);
+    const [circuitsOutput, proof] = await this.runCircuits(globalVariables, txs, newL1ToL2MessagesTuple);
 
     const {
       endPrivateDataTreeSnapshot,
@@ -177,7 +180,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       newContracts,
       newContractData,
       newPublicDataWrites,
-      newL1ToL2Messages,
+      newL1ToL2Messages: newL1ToL2MessagesTuple,
       newEncryptedLogs,
       newUnencryptedLogs,
     });
@@ -216,16 +219,13 @@ export class SoloBlockBuilder implements BlockBuilder {
   protected async runCircuits(
     globalVariables: GlobalVariables,
     txs: ProcessedTx[],
-    newL1ToL2Messages: Fr[],
+    newL1ToL2Messages: Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>,
   ): Promise<[RootRollupPublicInputs, Proof]> {
     // Check that the length of the array of txs is a power of two
     // See https://graphics.stanford.edu/~seander/bithacks.html#DetermineIfPowerOf2
     if (txs.length < 4 || (txs.length & (txs.length - 1)) !== 0) {
       throw new Error(`Length of txs for the block should be a power of two and at least four (got ${txs.length})`);
     }
-
-    // padArrayEnd throws if the array is already full. Otherwise it pads till we reach the required size
-    const newL1ToL2MessagesTuple = padArrayEnd(newL1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
 
     // Run the base rollup circuits for the txs
     const baseRollupOutputs: [BaseOrMergeRollupPublicInputs, Proof][] = [];
@@ -248,7 +248,7 @@ export class SoloBlockBuilder implements BlockBuilder {
 
     // Run the root rollup with the last two merge rollups (or base, if no merge layers)
     const [mergeOutputLeft, mergeOutputRight] = mergeRollupInputs;
-    return this.rootRollupCircuit(mergeOutputLeft, mergeOutputRight, newL1ToL2MessagesTuple);
+    return this.rootRollupCircuit(mergeOutputLeft, mergeOutputRight, newL1ToL2Messages);
   }
 
   protected async baseRollupCircuit(

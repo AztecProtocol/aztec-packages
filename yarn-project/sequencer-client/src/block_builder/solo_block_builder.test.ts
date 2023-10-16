@@ -386,6 +386,23 @@ describe('sequencer/solo_block_builder', () => {
       expect(l2Block.number).toEqual(blockNumber);
     }, 40_000);
 
+    it('pads l1 to l2 messages array', async () => {
+      // Ensure that each transaction has unique (non-intersecting nullifier values)
+      const txs = await Promise.all([
+        makeBloatedProcessedTx(1 * MAX_NEW_NULLIFIERS_PER_TX),
+        makeBloatedProcessedTx(2 * MAX_NEW_NULLIFIERS_PER_TX),
+        makeBloatedProcessedTx(3 * MAX_NEW_NULLIFIERS_PER_TX),
+        makeBloatedProcessedTx(4 * MAX_NEW_NULLIFIERS_PER_TX),
+      ]);
+
+      const l1ToL2Messages: Fr[] = [];
+
+      const [l2Block] = await builder.buildL2Block(globalVariables, txs, l1ToL2Messages);
+      expect(l2Block.number).toEqual(blockNumber);
+      expect(l2Block.newL1ToL2Messages.length).toBe(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+      expect(l2Block.newL1ToL2Messages.map(x => x.value)).toEqual(range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).map(_ => Fr.ZERO.value));
+    }, 40_000);
+
     // This test specifically tests nullifier values which previously caused e2e_private_token test to fail
     it('e2e_private_token edge case regression test on nullifier values', async () => {
       const simulator = new WasmRollupCircuitSimulator();
