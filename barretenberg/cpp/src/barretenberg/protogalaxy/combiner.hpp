@@ -19,12 +19,30 @@ template <typename Flavor, size_t NUM_> struct Instances {
     typename ArrayType::iterator begin() { return _data.begin(); };
     typename ArrayType::iterator end() { return _data.end(); };
 
-    Univariate<FF, NUM> row_to_base_univariate(size_t entity_idx, size_t row_idx) const
+    /**
+     * @brief  For a entity type and a fixed row index, construct a uninvariate from the corresponding value from each
+     * instance.
+     *
+     * @example if the index index is 1 and the row index is 2, and there are 4 instances visually we have
+     *
+     *           Instance 0       Instance 1       Instance 2       Instance 3
+     *           q_c q_l q_r ...  q_c q_l q_r ...  q_c q_l q_r ...  q_c q_l q_r ...
+     *           *   *            *   *            *   *            *   *
+     *           *   *            *   *            *   *            *   *
+     *           *   a            *   b            *   c            *   d
+     *           *   *            *   *            *   *            *   *
+     *
+     * and the function returns the univariate {a, b, c, d}
+     *
+     * @param entity_idx A fixed column position in several execution traces.
+     * @param row_idx A fixed row position in several execution
+     * @return Univariate<FF, NUM> The univariate whose extensions will be used to construct the combiner.
+     */
+    Univariate<FF, NUM> row_to_base_univariate(const size_t entity_idx, const size_t row_idx) const
     {
         Univariate<FF, NUM> result;
         size_t instance_idx = 0;
         for (auto& instance : _data) {
-            // WORKTODO cleanup
             result.evaluations[instance_idx] = instance._data[entity_idx][row_idx];
             instance_idx++;
         }
@@ -50,7 +68,7 @@ template <typename Flavor, typename Instances> class ProtogalaxyProver {
 
     /**
      * For a fixed entity label, extract that endity from each instance in Instances, and extract
-     * @todo WORKTODO: Initial copying step is more efficient?
+     * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/751) Optimize memory
      */
     void extend_univariates(ExtendedUnivariates& extended_univariates, const Instances& instances, const size_t row_idx)
     {
@@ -85,7 +103,8 @@ template <typename Flavor, typename Instances> class ProtogalaxyProver {
     {
         size_t common_circuit_size = instances[0]._data[0].size();
         // Precompute the vector of required powers of zeta
-        // WORKTODO: Parallelize this
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/751): Parallelize this.
+        // NB: there is a similar TODO in the sumcheck function `compute_univariate`.g
         std::vector<FF> pow_challenges(common_circuit_size);
         pow_challenges[0] = pow_univariate.partial_evaluation_constant;
         for (size_t i = 1; i < common_circuit_size; ++i) {
