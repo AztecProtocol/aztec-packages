@@ -1,6 +1,9 @@
 version: '3'
 services:
   fork:
+    environment:
+      FORK_BLOCK_NUMBER: 17514288
+      FORK_URL: 'https://mainnet.infura.io/v3/b9794ad1ddf84dfb8c34d6bb5dca200'
     image: ghcr.io/foundry-rs/foundry:nightly-a44aa13cfc23491ba32aaedc093e9488c1a6db43
     entrypoint: >
       sh -c '
@@ -28,7 +31,7 @@ services:
       - '8080:8080'
 
   canary:
-    image: aztecprotocol/canary:latest
+    image: 278380418400.dkr.ecr.eu-west-2.amazonaws.com/canary
     environment:
       ETHEREUM_HOST: http://fork:8545
       CHAIN_ID: 31337
