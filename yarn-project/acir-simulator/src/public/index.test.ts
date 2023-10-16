@@ -7,6 +7,7 @@ import {
   HistoricBlockData,
   L1_TO_L2_MSG_TREE_HEIGHT,
 } from '@aztec/circuits.js';
+import { computePublicDataTreeIndex } from '@aztec/circuits.js/abis';
 import { pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
 import { FunctionArtifact, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -16,7 +17,6 @@ import { toBigInt } from '@aztec/foundation/serialize';
 import {
   ChildContractArtifact,
   ParentContractArtifact,
-  PublicTokenContractArtifact,
   TestContractArtifact,
   TokenContractArtifact,
 } from '@aztec/noir-contracts/artifacts';
@@ -54,7 +54,7 @@ describe('ACIR public execution simulator', () => {
     executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, blockData);
   }, 10000);
 
-  describe('PublicToken contract', () => {
+  describe('Token contract', () => {
     let recipient: AztecAddress;
 
     beforeEach(() => {
@@ -62,14 +62,17 @@ describe('ACIR public execution simulator', () => {
     });
 
     describe('mint', () => {
-      it('should run the mint function', async () => {
+      it('should run the mint_public function', async () => {
         const contractAddress = AztecAddress.random();
-        const mintArtifact = PublicTokenContractArtifact.functions.find(f => f.name === 'mint')!;
+        const mintArtifact = TokenContractArtifact.functions.find(f => f.name === 'mint_public')!;
         const functionData = FunctionData.fromAbi(mintArtifact);
-        const args = encodeArguments(mintArtifact, [140, recipient]);
 
+        const mintAmount = 140n;
+        const args = encodeArguments(mintArtifact, [recipient, mintAmount]);
+
+        const msgSender = AztecAddress.random();
         const callContext = CallContext.from({
-          msgSender: AztecAddress.random(),
+          msgSender,
           storageContractAddress: contractAddress,
           portalContractAddress: EthAddress.random(),
           functionSelector: FunctionSelector.empty(),
@@ -81,27 +84,57 @@ describe('ACIR public execution simulator', () => {
         publicContracts.getBytecode.mockResolvedValue(Buffer.from(mintArtifact.bytecode, 'base64'));
 
         // Mock the old value for the recipient balance to be 20
+        const isMinter = new Fr(1n); // 1n means true
         const previousBalance = new Fr(20n);
-        publicState.storageRead.mockResolvedValue(previousBalance);
+        const previousTotalSupply = new Fr(previousBalance.value + 100n);
+        publicState.storageRead
+          .mockResolvedValueOnce(isMinter) // reading whether msg_sender is minter
+          .mockResolvedValueOnce(previousBalance) // reading user's balance
+          .mockResolvedValueOnce(previousTotalSupply); // reading total supply
 
         const execution: PublicExecution = { contractAddress, functionData, args, callContext };
         const result = await executor.simulate(execution, GlobalVariables.empty());
 
-        const expectedBalance = new Fr(160n);
-        expect(result.returnValues[0]).toEqual(expectedBalance);
+        expect(result.returnValues[0]).toEqual(new Fr(1n));
 
-        const storageSlot = computeSlotForMapping(new Fr(1n), recipient.toField(), circuitsWasm);
+        const recipientBalanceStorageSlot = computeSlotForMapping(new Fr(6n), recipient.toField(), circuitsWasm);
+        const totalSupplyStorageSlot = new Fr(4n);
+
+        const expectedBalance = new Fr(previousBalance.value + mintAmount);
+        const expectedTotalSupply = new Fr(previousTotalSupply.value + mintAmount);
+        // There should be 2 storage updates, one for the recipient's balance and one for the total supply
         expect(result.contractStorageUpdateRequests).toEqual([
-          { storageSlot, oldValue: previousBalance, newValue: expectedBalance, sideEffectCounter: 1 }, // 0th is a read
+          {
+            storageSlot: recipientBalanceStorageSlot,
+            oldValue: previousBalance,
+            newValue: expectedBalance,
+            sideEffectCounter: 3,
+          },
+          {
+            storageSlot: totalSupplyStorageSlot,
+            oldValue: previousTotalSupply,
+            newValue: expectedTotalSupply,
+            sideEffectCounter: 4,
+          },
         ]);
 
-        expect(result.contractStorageReads).toEqual([]);
+        const mintersStorageSlot = new Fr(2n);
+        const isMinterStorageSlot = computeSlotForMapping(mintersStorageSlot, msgSender.toField(), circuitsWasm);
+        // Note: There is only 1 storage read (for the isMinter value) because the other 2 reads get overwritten by
+        // the updates
+        expect(result.contractStorageReads).toEqual([
+          {
+            storageSlot: isMinterStorageSlot,
+            currentValue: isMinter,
+            sideEffectCounter: 0,
+          },
+        ]);
       });
     });
 
     describe('transfer', () => {
       let contractAddress: AztecAddress;
-      let artifact: FunctionArtifact;
+      let transferArtifact: FunctionArtifact;
       let functionData: FunctionData;
       let args: Fr[];
       let sender: AztecAddress;
@@ -112,9 +145,9 @@ describe('ACIR public execution simulator', () => {
 
       beforeEach(() => {
         contractAddress = AztecAddress.random();
-        artifact = PublicTokenContractArtifact.functions.find(f => f.name === 'transfer')!;
+        transferArtifact = TokenContractArtifact.functions.find(f => f.name === 'transfer_public')!;
         functionData = new FunctionData(FunctionSelector.empty(), false, false, false);
-        args = encodeArguments(artifact, [140, recipient]);
+        args = encodeArguments(transferArtifact, [140, recipient]);
         sender = AztecAddress.random();
 
         callContext = CallContext.from({
@@ -130,7 +163,7 @@ describe('ACIR public execution simulator', () => {
         recipientStorageSlot = computeSlotForMapping(new Fr(1n), recipient.toField(), circuitsWasm);
         senderStorageSlot = computeSlotForMapping(new Fr(1n), Fr.fromBuffer(sender.toBuffer()), circuitsWasm);
 
-        publicContracts.getBytecode.mockResolvedValue(Buffer.from(artifact.bytecode, 'base64'));
+        publicContracts.getBytecode.mockResolvedValue(Buffer.from(transferArtifact.bytecode, 'base64'));
 
         execution = { contractAddress, functionData, args, callContext };
       });
