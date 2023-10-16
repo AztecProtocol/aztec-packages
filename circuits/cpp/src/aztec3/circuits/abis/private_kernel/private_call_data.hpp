@@ -2,7 +2,6 @@
 
 #include "call_context_reconciliation_data.hpp"
 #include "../call_stack_item.hpp"
-#include "../pending_read_request_membership_witness.hpp"
 #include "../read_request_membership_witness.hpp"
 #include "../types.hpp"
 
@@ -40,9 +39,6 @@ template <typename NCT> struct PrivateCallData {
 
     std::array<ReadRequestMembershipWitness<NCT, PRIVATE_DATA_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_CALL>
         read_request_membership_witnesses{};
-
-    std::array<PendingReadRequestMembershipWitness<NCT, PRIVATE_DATA_TREE_HEIGHT>, MAX_PENDING_READ_REQUESTS_PER_CALL>
-        pending_read_request_membership_witnesses{};
 
     fr portal_contract_address = 0;  // an ETH address
     fr acir_hash = 0;
@@ -95,9 +91,6 @@ template <typename NCT> struct PrivateCallData {
 
             aztec3::utils::types::to_ct<Builder, ReadRequestMembershipWitness<CT, PRIVATE_DATA_TREE_HEIGHT>>(
                 builder, read_request_membership_witnesses),
-
-            aztec3::utils::types::to_ct<Builder, PendingReadRequestMembershipWitness<CT, PRIVATE_DATA_TREE_HEIGHT>>(
-                builder, pending_read_request_membership_witnesses),
 
             to_ct(portal_contract_address),
             to_ct(acir_hash),
