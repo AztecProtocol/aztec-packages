@@ -21,7 +21,9 @@ contract Test {
     }
 
     #[aztec(private)]
+    // docs:start:empty-constructor
     fn constructor() {}
+    // docs:end:empty-constructor
 
     #[aztec(private)]
     fn getPublicKey(
