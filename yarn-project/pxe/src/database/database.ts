@@ -25,6 +25,18 @@ export interface Database extends ContractDatabase {
   getAuthWitness(messageHash: Fr): Promise<Fr[]>;
 
   /**
+   * Adding a mint to the pez dispenser.
+   * @param mint - An array of field elements representing the mint.
+   */
+  addMint(mint: Fr[]): Promise<void>;
+
+  /**
+   * Get the next mint from the pez dispenser.
+   * @returns A promise that resolves to an array of field elements representing the mint.
+   */
+  popMint(): Promise<Fr[] | undefined>;
+
+  /**
    * Get auxiliary transaction data based on contract address and storage slot.
    * It searches for matching NoteSpendingInfoDao objects in the MemoryDB's noteSpendingInfoTable
    * where both the contractAddress and storageSlot properties match the given inputs.

@@ -53,6 +53,12 @@ export class Oracle {
     return witness.map(toACVMField);
   }
 
+  async popMint(): Promise<ACVMField[]> {
+    const mint = await this.typedOracle.popMint();
+    if (!mint) throw new Error(`No mints available`);
+    return mint.map(toACVMField);
+  }
+
   async getNotes(
     [storageSlot]: ACVMField[],
     [numSelects]: ACVMField[],

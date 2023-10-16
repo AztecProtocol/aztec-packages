@@ -20,6 +20,7 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
   private globalVariablesHash: Fr | undefined;
   private addresses: CompleteAddress[] = [];
   private authWitnesses: Record<string, Fr[]> = {};
+  private pezDispenser: Fr[][] = [];
 
   constructor(logSuffix?: string) {
     super(createDebugLogger(logSuffix ? 'aztec:memory_db_' + logSuffix : 'aztec:memory_db'));
@@ -42,6 +43,15 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
    */
   public getAuthWitness(messageHash: Fr): Promise<Fr[]> {
     return Promise.resolve(this.authWitnesses[messageHash.toString()]);
+  }
+
+  public addMint(mint: Fr[]): Promise<void> {
+    this.pezDispenser.push(mint);
+    return Promise.resolve();
+  }
+
+  public popMint(): Promise<Fr[] | undefined> {
+    return Promise.resolve(this.pezDispenser.pop());
   }
 
   public addNoteSpendingInfo(noteSpendingInfoDao: NoteSpendingInfoDao) {

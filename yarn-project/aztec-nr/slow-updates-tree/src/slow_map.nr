@@ -57,6 +57,10 @@ struct SlowUpdateProof<N, M> {
   after: SlowUpdateInner<N>,
 }
 
+pub fn deserialize_slow_update_proof<N, M>(serialized: [Field; M]) -> SlowUpdateProof<N, M> {
+  SlowUpdateProof::deserialize(serialized)
+}
+
 impl<N, M> SlowUpdateProof<N, M> {
   pub fn serialize(self: Self) -> pub [Field; M] {
     let mut serialized = [0; M];
