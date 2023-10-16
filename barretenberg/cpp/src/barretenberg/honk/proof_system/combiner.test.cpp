@@ -1,9 +1,11 @@
-#include "barretenberg/protogalaxy/combiner.hpp"
 #include "barretenberg/honk/flavor/ultra.hpp"
+#include "barretenberg/honk/instance/instances.hpp"
+#include "barretenberg/honk/proof_system/protogalaxy_prover.hpp"
 #include "barretenberg/honk/utils/testing.hpp"
 #include "barretenberg/proof_system/relations/relation_parameters.hpp"
 #include <gtest/gtest.h>
 
+using namespace proof_system::honk;
 namespace barretenberg::test_protogalaxy_prover {
 using Flavor = proof_system::honk::flavor::Ultra;
 using Polynomial = typename Flavor::Polynomial;
@@ -13,6 +15,9 @@ using RelationParameters = proof_system::RelationParameters<FF>;
 TEST(Protogalaxy, Combiner2Instances)
 {
     constexpr size_t NUM_INSTANCES = 2;
+    using ProverInstance = ProverInstance_<Flavor>;
+    using ProverInstances = ProverInstances_<Flavor, NUM_INSTANCES>;
+    using ProtoGalaxyProver = ProtoGalaxyProver_<ProverInstances>;
 
     const auto restrict_to_standard_arithmetic_relation = [](auto& polys) {
         std::fill(polys.q_arith.begin(), polys.q_arith.end(), 1);
@@ -27,22 +32,24 @@ TEST(Protogalaxy, Combiner2Instances)
 
     auto run_test = [&](bool is_random_input) {
         if (is_random_input) {
-            Instances<Flavor, NUM_INSTANCES> instances;
+            std::vector<std::shared_ptr<ProverInstance>> instance_data(NUM_INSTANCES);
             std::array<std::array<Polynomial, Flavor::NUM_ALL_ENTITIES>, NUM_INSTANCES> storage_arrays;
             auto relation_parameters = RelationParameters::get_random();
-            ProtogalaxyProver<Flavor, Instances<Flavor, NUM_INSTANCES>> prover;
+            ProtoGalaxyProver prover;
             auto pow_univariate = PowUnivariate<FF>(/*zeta_pow=*/2);
             auto alpha = FF(0); // focus on the arithmetic relation only
 
-            size_t instance_idx = 0;
-            for (auto& instance : instances) {
+            for (size_t idx = 0; idx < NUM_INSTANCES; idx++) {
+                auto instance = std::make_shared<ProverInstance>();
                 auto [storage, prover_polynomials] = proof_system::honk::get_sequential_prover_polynomials<Flavor>(
-                    /*log_circuit_size=*/1, instance_idx * 128);
+                    /*log_circuit_size=*/1, idx * 128);
                 restrict_to_standard_arithmetic_relation(prover_polynomials);
-                storage_arrays[instance_idx] = std::move(storage);
-                instance = prover_polynomials;
-                instance_idx++;
+                storage_arrays[idx] = std::move(storage);
+                instance->prover_polynomials = prover_polynomials;
+                instance_data[idx] = instance;
             }
+
+            ProverInstances instances{ instance_data };
 
             auto result = prover.compute_combiner(instances, relation_parameters, pow_univariate, alpha);
             auto expected_result =
@@ -56,21 +63,24 @@ TEST(Protogalaxy, Combiner2Instances)
 
             EXPECT_EQ(result, expected_result);
         } else {
-            Instances<Flavor, NUM_INSTANCES> instances;
+            std::vector<std::shared_ptr<ProverInstance>> instance_data(NUM_INSTANCES);
             std::array<std::array<Polynomial, Flavor::NUM_ALL_ENTITIES>, NUM_INSTANCES> storage_arrays;
             auto relation_parameters = RelationParameters::get_random();
-            ProtogalaxyProver<Flavor, Instances<Flavor, NUM_INSTANCES>> prover;
+            ProtoGalaxyProver prover;
             auto pow_univariate = PowUnivariate<FF>(/*zeta_pow=*/2);
             auto alpha = FF(0); // focus on the arithmetic relation only
 
-            size_t instance_idx = 0;
-            for (auto& instance : instances) {
-                auto [storage, prover_polynomials] =
-                    proof_system::honk::get_zero_prover_polynomials<Flavor>(/*log_circuit_size=*/1);
-                storage_arrays[instance_idx] = std::move(storage);
-                instance = prover_polynomials;
-                instance_idx++;
+            for (size_t idx = 0; idx < NUM_INSTANCES; idx++) {
+                auto instance = std::make_shared<ProverInstance>();
+                auto [storage, prover_polynomials] = proof_system::honk::get_zero_prover_polynomials<Flavor>(
+                    /*log_circuit_size=*/1);
+                restrict_to_standard_arithmetic_relation(prover_polynomials);
+                storage_arrays[idx] = std::move(storage);
+                instance->prover_polynomials = prover_polynomials;
+                instance_data[idx] = instance;
             }
+
+            ProverInstances instances{ instance_data };
 
             const auto create_add_gate = [](auto& polys, const size_t idx, FF w_l, FF w_r) {
                 polys.w_l[idx] = w_l;
@@ -89,13 +99,13 @@ TEST(Protogalaxy, Combiner2Instances)
                 polys.q_o[idx] = -1;
             };
 
-            create_add_gate(instances[0], 0, 1, 2);
-            create_add_gate(instances[0], 1, 0, 4);
-            create_add_gate(instances[1], 0, 3, 4);
-            create_mul_gate(instances[1], 1, 1, 4);
+            create_add_gate(instances[0]->prover_polynomials, 0, 1, 2);
+            create_add_gate(instances[0]->prover_polynomials, 1, 0, 4);
+            create_add_gate(instances[1]->prover_polynomials, 0, 3, 4);
+            create_mul_gate(instances[1]->prover_polynomials, 1, 1, 4);
 
-            restrict_to_standard_arithmetic_relation(instances[0]);
-            restrict_to_standard_arithmetic_relation(instances[1]);
+            restrict_to_standard_arithmetic_relation(instances[0]->prover_polynomials);
+            restrict_to_standard_arithmetic_relation(instances[1]->prover_polynomials);
 
             /* Instance 0                                    Instance 1
                 w_l w_r w_o q_m q_l q_r q_o q_c               w_l w_r w_o q_m q_l q_r q_o q_c
@@ -128,6 +138,9 @@ TEST(Protogalaxy, Combiner2Instances)
 TEST(Protogalaxy, Combiner4Instances)
 {
     constexpr size_t NUM_INSTANCES = 4;
+    using ProverInstance = ProverInstance_<Flavor>;
+    using ProverInstances = ProverInstances_<Flavor, NUM_INSTANCES>;
+    using ProtoGalaxyProver = ProtoGalaxyProver_<ProverInstances>;
 
     const auto zero_all_selectors = [](auto& polys) {
         std::fill(polys.q_arith.begin(), polys.q_arith.end(), 0);
@@ -141,26 +154,28 @@ TEST(Protogalaxy, Combiner4Instances)
     };
 
     auto run_test = [&]() {
-        Instances<Flavor, NUM_INSTANCES> instances;
+        std::vector<std::shared_ptr<ProverInstance>> instance_data(NUM_INSTANCES);
         std::array<std::array<Polynomial, Flavor::NUM_ALL_ENTITIES>, NUM_INSTANCES> storage_arrays;
         auto relation_parameters = RelationParameters::get_random();
-        ProtogalaxyProver<Flavor, Instances<Flavor, NUM_INSTANCES>> prover;
+        ProtoGalaxyProver prover;
         auto pow_univariate = PowUnivariate<FF>(/*zeta_pow=*/2);
         auto alpha = FF(0); // focus on the arithmetic relation only
 
-        size_t instance_idx = 0;
-        for (auto& instance : instances) {
-            auto [storage, prover_polynomials] =
-                proof_system::honk::get_zero_prover_polynomials<Flavor>(/*log_circuit_size=*/1);
-            storage_arrays[instance_idx] = std::move(storage);
-            instance = prover_polynomials;
-            instance_idx++;
+        for (size_t idx = 0; idx < NUM_INSTANCES; idx++) {
+            auto instance = std::make_shared<ProverInstance>();
+            auto [storage, prover_polynomials] = proof_system::honk::get_zero_prover_polynomials<Flavor>(
+                /*log_circuit_size=*/1);
+            storage_arrays[idx] = std::move(storage);
+            instance->prover_polynomials = prover_polynomials;
+            instance_data[idx] = instance;
         }
 
-        zero_all_selectors(instances[0]);
-        zero_all_selectors(instances[1]);
-        zero_all_selectors(instances[2]);
-        zero_all_selectors(instances[3]);
+        ProverInstances instances{ instance_data };
+
+        zero_all_selectors(instances[0]->prover_polynomials);
+        zero_all_selectors(instances[1]->prover_polynomials);
+        zero_all_selectors(instances[2]->prover_polynomials);
+        zero_all_selectors(instances[3]->prover_polynomials);
 
         auto result = prover.compute_combiner(instances, relation_parameters, pow_univariate, alpha);
         std::array<FF, 19> zeroes;
