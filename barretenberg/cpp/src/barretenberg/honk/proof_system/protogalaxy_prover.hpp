@@ -35,7 +35,7 @@ template <class ProverInstances> class ProtoGalaxyProver_ {
      * @brief For a new round challenge δ at each iteration of the ProtoGalaxy protocol, compute the vector
      * [δ, δ^2,..., δ^t] where t = logn and n is the size of the instance.
      */
-    static std::vector<FF> compute_round_challenge_pows(size_t log_instance_size, FF round_challenge)
+    static std::vector<FF> compute_round_challenge_pows(const size_t log_instance_size, const FF round_challenge)
     {
         std::vector<FF> pows(log_instance_size);
         pows[0] = round_challenge;
@@ -120,7 +120,7 @@ template <class ProverInstances> class ProtoGalaxyProver_ {
      * δ_i X. The value of the parent node n will be constructed as n = n_l + n_r * (β_i + δ_i X). Recurse over each
      * layer until the root is reached which will correspond to the perturbator polynomial F(X).
      * TODO(https://github.com/AztecProtocol/barretenberg/issues/745): make computation of perturbator more memory
-     * efficient, potentially use std::resize and add multithreading
+     * efficient, operate in-place and use std::resize; add multithreading
      */
     static std::vector<FF> construct_perturbator_coefficients(const std::vector<FF>& betas,
                                                               const std::vector<FF>& deltas,

@@ -338,7 +338,7 @@ class GoblinUltra {
     };
 
     /**
-     * @brief A container for polynomials handles; only stores spans.
+     * @brief A container for the prover polynomials handles; only stores spans.
      */
     class ProverPolynomials : public AllEntities<PolynomialHandle, PolynomialHandle> {
       public:
