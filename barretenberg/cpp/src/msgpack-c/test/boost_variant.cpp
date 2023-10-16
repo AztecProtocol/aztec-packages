@@ -1,7 +1,7 @@
 #include <cmath>
+#include <iterator>
 #include <msgpack.hpp>
 #include <sstream>
-#include <iterator>
 
 #define BOOST_TEST_MODULE MSGPACK_BOOST
 #include <boost/test/unit_test.hpp>
@@ -12,10 +12,8 @@
 
 #if defined(MSGPACK_NO_BOOST)
 
-BOOST_AUTO_TEST_CASE(empty)
-{
-}
-#else  // defined(MSGPACK_NO_BOOST)
+BOOST_AUTO_TEST_CASE(empty) {}
+#else // defined(MSGPACK_NO_BOOST)
 
 const double kEPS = 1e-10;
 
@@ -29,8 +27,7 @@ BOOST_AUTO_TEST_CASE(pack_convert_variant_nil)
     msgpack::pack(ss, val1);
 
     std::string const& str = ss.str();
-    msgpack::object_handle oh =
-        msgpack::unpack(str.data(), str.size());
+    msgpack::object_handle oh = msgpack::unpack(str.data(), str.size());
     msgpack::type::variant val2 = oh.get().as<msgpack::type::variant>();
     BOOST_CHECK(val2.is_nil());
     BOOST_CHECK_NO_THROW(boost::get<msgpack::type::nil_t>(val2));
@@ -68,8 +65,7 @@ BOOST_AUTO_TEST_CASE(pack_convert_variant_nil_default)
     msgpack::pack(ss, val1);
 
     std::string const& str = ss.str();
-    msgpack::object_handle oh =
-        msgpack::unpack(str.data(), str.size());
+    msgpack::object_handle oh = msgpack::unpack(str.data(), str.size());
     msgpack::type::variant val2 = oh.get().as<msgpack::type::variant>();
     BOOST_CHECK(val2.is_nil());
     BOOST_CHECK_NO_THROW(boost::get<msgpack::type::nil_t>(val2));
@@ -108,8 +104,7 @@ BOOST_AUTO_TEST_CASE(pack_convert_variant_bool)
     msgpack::pack(ss, val1);
 
     std::string const& str = ss.str();
-    msgpack::object_handle oh =
-        msgpack::unpack(str.data(), str.size());
+    msgpack::object_handle oh = msgpack::unpack(str.data(), str.size());
     msgpack::type::variant val2 = oh.get().as<msgpack::type::variant>();
     BOOST_CHECK(val2.is_bool());
     BOOST_CHECK(val2.as_bool());
@@ -162,8 +157,7 @@ BOOST_AUTO_TEST_CASE(pack_convert_variant_positive_integer)
     msgpack::pack(ss, val1);
 
     std::string const& str = ss.str();
-    msgpack::object_handle oh =
-        msgpack::unpack(str.data(), str.size());
+    msgpack::object_handle oh = msgpack::unpack(str.data(), str.size());
     msgpack::type::variant val2 = oh.get().as<msgpack::type::variant>();
     BOOST_CHECK(val2.is_uint64_t());
     BOOST_CHECK_EQUAL(val2.as_uint64_t(), 123U);
@@ -210,8 +204,7 @@ BOOST_AUTO_TEST_CASE(pack_convert_variant_negative_integer)
     msgpack::pack(ss, val1);
 
     std::string const& str = ss.str();
-    msgpack::object_handle oh =
-        msgpack::unpack(str.data(), str.size());
+    msgpack::object_handle oh = msgpack::unpack(str.data(), str.size());
     msgpack::type::variant val2 = oh.get().as<msgpack::type::variant>();
     BOOST_CHECK(val2.is_int64_t());
     BOOST_CHECK_EQUAL(val2.as_int64_t(), -123);
@@ -258,13 +251,12 @@ BOOST_AUTO_TEST_CASE(pack_convert_variant_float)
     msgpack::pack(ss, val1);
 
     std::string const& str = ss.str();
-    msgpack::object_handle oh =
-        msgpack::unpack(str.data(), str.size());
+    msgpack::object_handle oh = msgpack::unpack(str.data(), str.size());
     msgpack::type::variant val2 = oh.get().as<msgpack::type::variant>();
     BOOST_CHECK(val2.is_double());
     BOOST_CHECK(fabs(12.34 - val2.as_double()) <= kEPS);
     BOOST_CHECK_NO_THROW(boost::get<double>(val2));
-    BOOST_CHECK(fabs(val2.as_double() - val2.as_double()) <= kEPS);
+    BOOST_CHECK(fabs(val1.as_double() - val2.as_double()) <= kEPS);
 }
 
 BOOST_AUTO_TEST_CASE(object_variant_float)
@@ -277,7 +269,8 @@ BOOST_AUTO_TEST_CASE(object_variant_float)
     BOOST_CHECK(val2.is_double());
     BOOST_CHECK(fabs(12.34 - val2.as_double()) <= kEPS);
     BOOST_CHECK_NO_THROW(boost::get<double>(val2));
-    BOOST_CHECK(fabs(val2.as_double() - val2.as_double()) <= kEPS);
+    BOOST_CHECK(fabs(val1.as_double() - val2.as_double()) <= kEPS);
+    BOOST_CHECK(val1 == val2);
 }
 
 BOOST_AUTO_TEST_CASE(object_with_zone_variant_float)
@@ -291,7 +284,114 @@ BOOST_AUTO_TEST_CASE(object_with_zone_variant_float)
     BOOST_CHECK(val2.is_double());
     BOOST_CHECK(fabs(12.34 - val2.as_double()) <= kEPS);
     BOOST_CHECK_NO_THROW(boost::get<double>(val2));
-    BOOST_CHECK(fabs(val2.as_double() - val2.as_double()) <= kEPS);
+    BOOST_CHECK(fabs(val1.as_double() - val2.as_double()) <= kEPS);
+    BOOST_CHECK(val1 == val2);
+}
+
+BOOST_AUTO_TEST_CASE(pack_convert_variant_float_zero_atdp_positive)
+{
+    std::stringstream ss;
+    msgpack::type::variant val1 = 12.0;
+    BOOST_CHECK(val1.is_uint64_t());
+    BOOST_CHECK_EQUAL(val1.as_uint64_t(), 12);
+    BOOST_CHECK(fabs(12.0 - val1.as_double()) <= kEPS);
+
+    msgpack::pack(ss, val1);
+
+    std::string const& str = ss.str();
+    msgpack::object_handle oh = msgpack::unpack(str.data(), str.size());
+    msgpack::type::variant val2 = oh.get().as<msgpack::type::variant>();
+    BOOST_CHECK(val2.is_uint64_t());
+    BOOST_CHECK_EQUAL(val2.as_uint64_t(), 12);
+    BOOST_CHECK_NO_THROW(boost::get<uint64_t>(val2));
+    BOOST_CHECK(fabs(12.0 - val2.as_double()) <= kEPS);
+    BOOST_CHECK_EQUAL(val1.as_uint64_t(), val2.as_uint64_t());
+}
+
+BOOST_AUTO_TEST_CASE(object_variant_float_zero_atdp_positive)
+{
+    msgpack::type::variant val1 = 12.0;
+    BOOST_CHECK(val1.is_uint64_t());
+    BOOST_CHECK_EQUAL(val1.as_uint64_t(), 12);
+    BOOST_CHECK(fabs(12.0 - val1.as_double()) <= kEPS);
+    msgpack::object obj(val1);
+    msgpack::type::variant val2 = obj.as<msgpack::type::variant>();
+    BOOST_CHECK(val2.is_uint64_t());
+    BOOST_CHECK_EQUAL(val2.as_uint64_t(), 12);
+    BOOST_CHECK_NO_THROW(boost::get<uint64_t>(val2));
+    BOOST_CHECK(fabs(12.0 - val2.as_double()) <= kEPS);
+    BOOST_CHECK_EQUAL(val1.as_uint64_t(), val2.as_uint64_t());
+    BOOST_CHECK(val1 == val2);
+}
+
+BOOST_AUTO_TEST_CASE(object_with_zone_variant_float_zero_atdp_positive)
+{
+    msgpack::zone z;
+    msgpack::type::variant val1 = 12.0;
+    BOOST_CHECK(val1.is_uint64_t());
+    BOOST_CHECK_EQUAL(val1.as_uint64_t(), 12);
+    BOOST_CHECK(fabs(12.0 - val1.as_double()) <= kEPS);
+    msgpack::object obj(val1, z);
+    msgpack::type::variant val2 = obj.as<msgpack::type::variant>();
+    BOOST_CHECK(val2.is_uint64_t());
+    BOOST_CHECK_EQUAL(val2.as_uint64_t(), 12);
+    BOOST_CHECK_NO_THROW(boost::get<uint64_t>(val2));
+    BOOST_CHECK_EQUAL(val1.as_uint64_t(), val2.as_uint64_t());
+    BOOST_CHECK(fabs(12.0 - val2.as_double()) <= kEPS);
+    BOOST_CHECK(val1 == val2);
+}
+
+BOOST_AUTO_TEST_CASE(pack_convert_variant_float_zero_atdp_negative)
+{
+    std::stringstream ss;
+    msgpack::type::variant val1 = -12.0;
+    BOOST_CHECK(val1.is_int64_t());
+    BOOST_CHECK_EQUAL(val1.as_int64_t(), -12);
+    BOOST_CHECK(fabs(-12.0 - val1.as_double()) <= kEPS);
+
+    msgpack::pack(ss, val1);
+
+    std::string const& str = ss.str();
+    msgpack::object_handle oh = msgpack::unpack(str.data(), str.size());
+    msgpack::type::variant val2 = oh.get().as<msgpack::type::variant>();
+    BOOST_CHECK(val2.is_int64_t());
+    BOOST_CHECK_EQUAL(val2.as_int64_t(), -12);
+    BOOST_CHECK_NO_THROW(boost::get<int64_t>(val2));
+    BOOST_CHECK(fabs(-12.0 - val2.as_double()) <= kEPS);
+    BOOST_CHECK_EQUAL(val1.as_int64_t(), val2.as_int64_t());
+}
+
+BOOST_AUTO_TEST_CASE(object_variant_float_zero_atdp_negative)
+{
+    msgpack::type::variant val1 = -12.0;
+    BOOST_CHECK(val1.is_int64_t());
+    BOOST_CHECK_EQUAL(val1.as_int64_t(), -12);
+    BOOST_CHECK(fabs(-12.0 - val1.as_double()) <= kEPS);
+    msgpack::object obj(val1);
+    msgpack::type::variant val2 = obj.as<msgpack::type::variant>();
+    BOOST_CHECK(val2.is_int64_t());
+    BOOST_CHECK_EQUAL(val2.as_int64_t(), -12);
+    BOOST_CHECK_NO_THROW(boost::get<int64_t>(val2));
+    BOOST_CHECK(fabs(-12.0 - val2.as_double()) <= kEPS);
+    BOOST_CHECK_EQUAL(val1.as_int64_t(), val2.as_int64_t());
+    BOOST_CHECK(val1 == val2);
+}
+
+BOOST_AUTO_TEST_CASE(object_with_zone_variant_float_zero_atdp_negative)
+{
+    msgpack::zone z;
+    msgpack::type::variant val1 = -12.0;
+    BOOST_CHECK(val1.is_int64_t());
+    BOOST_CHECK_EQUAL(val1.as_int64_t(), -12);
+    BOOST_CHECK(fabs(-12.0 - val1.as_double()) <= kEPS);
+    msgpack::object obj(val1, z);
+    msgpack::type::variant val2 = obj.as<msgpack::type::variant>();
+    BOOST_CHECK(val2.is_int64_t());
+    BOOST_CHECK_EQUAL(val2.as_int64_t(), -12);
+    BOOST_CHECK_NO_THROW(boost::get<int64_t>(val2));
+    BOOST_CHECK(fabs(-12.0 - val2.as_double()) <= kEPS);
+    BOOST_CHECK_EQUAL(val1.as_int64_t(), val2.as_int64_t());
+    BOOST_CHECK(val1 == val2);
 }
 
 // str
@@ -306,15 +406,13 @@ BOOST_AUTO_TEST_CASE(pack_convert_variant_str)
     msgpack::pack(ss, val1);
 
     std::string const& str = ss.str();
-    msgpack::object_handle oh =
-        msgpack::unpack(str.data(), str.size());
+    msgpack::object_handle oh = msgpack::unpack(str.data(), str.size());
     msgpack::type::variant val2 = oh.get().as<msgpack::type::variant>();
     BOOST_CHECK(val2.is_string());
     BOOST_CHECK_EQUAL(val2.as_string(), "ABC");
     BOOST_CHECK_NO_THROW(boost::get<std::string>(val2));
     BOOST_CHECK(val1 == val2);
 }
-
 
 BOOST_AUTO_TEST_CASE(object_with_zone_variant_str)
 {
@@ -369,16 +467,13 @@ BOOST_AUTO_TEST_CASE(pack_convert_variant_bin)
     msgpack::pack(ss, val1);
 
     std::string const& str = ss.str();
-    msgpack::object_handle oh =
-        msgpack::unpack(str.data(), str.size());
+    msgpack::object_handle oh = msgpack::unpack(str.data(), str.size());
     msgpack::type::variant val2 = oh.get().as<msgpack::type::variant>();
     BOOST_CHECK(val2.is_vector_char());
     BOOST_CHECK(val2.as_vector_char() == v);
-    BOOST_CHECK_NO_THROW(boost::get<std::vector<char> >(val2));
+    BOOST_CHECK_NO_THROW(boost::get<std::vector<char>>(val2));
     BOOST_CHECK(val1 == val2);
 }
-
-
 
 BOOST_AUTO_TEST_CASE(object_with_zone_variant_bin)
 {
@@ -394,7 +489,7 @@ BOOST_AUTO_TEST_CASE(object_with_zone_variant_bin)
     msgpack::type::variant val2 = obj.as<msgpack::type::variant>();
     BOOST_CHECK(val2.is_vector_char());
     BOOST_CHECK(val2.as_vector_char() == v);
-    BOOST_CHECK_NO_THROW(boost::get<std::vector<char> >(val2));
+    BOOST_CHECK_NO_THROW(boost::get<std::vector<char>>(val2));
     BOOST_CHECK(val1 == val2);
 }
 
@@ -417,8 +512,8 @@ BOOST_AUTO_TEST_CASE(object_with_zone_variant_raw_ref)
     // Converted as std::vector<char>.
     BOOST_CHECK(val2.is_vector_char());
     BOOST_CHECK(val2.as_vector_char() == v);
-    BOOST_CHECK_NO_THROW(boost::get<std::vector<char> >(val2));
-     // msgpack::type::raw_ref and std::vector<char> are different.
+    BOOST_CHECK_NO_THROW(boost::get<std::vector<char>>(val2));
+    // msgpack::type::raw_ref and std::vector<char> are different.
     BOOST_CHECK(!(val1 == val2));
 }
 
@@ -441,8 +536,7 @@ BOOST_AUTO_TEST_CASE(pack_convert_variant_ext)
     msgpack::pack(ss, val1);
 
     std::string const& str = ss.str();
-    msgpack::object_handle oh =
-        msgpack::unpack(str.data(), str.size());
+    msgpack::object_handle oh = msgpack::unpack(str.data(), str.size());
     msgpack::type::variant val2 = oh.get().as<msgpack::type::variant>();
     BOOST_CHECK(val2.is_ext());
     BOOST_CHECK(val2.as_ext() == e);
@@ -487,7 +581,7 @@ BOOST_AUTO_TEST_CASE(object_with_zone_variant_ext_ref)
     BOOST_CHECK(val2.is_ext());
     BOOST_CHECK(val2.as_ext() == msgpack::type::ext(e));
     BOOST_CHECK_NO_THROW(boost::get<msgpack::type::ext>(val2));
-     // msgpack::type::ext_ref and msgpack::type::ext are different.
+    // msgpack::type::ext_ref and msgpack::type::ext are different.
     BOOST_CHECK(!(val1 == val2));
 }
 
@@ -507,12 +601,11 @@ BOOST_AUTO_TEST_CASE(pack_convert_variant_array)
     msgpack::pack(ss, val1);
 
     std::string const& str = ss.str();
-    msgpack::object_handle oh =
-        msgpack::unpack(str.data(), str.size());
+    msgpack::object_handle oh = msgpack::unpack(str.data(), str.size());
     msgpack::type::variant val2 = oh.get().as<msgpack::type::variant>();
     BOOST_CHECK(val2.is_vector());
     BOOST_CHECK(val2.as_vector() == v);
-    BOOST_CHECK_NO_THROW(boost::get<std::vector<msgpack::type::variant> >(val2));
+    BOOST_CHECK_NO_THROW(boost::get<std::vector<msgpack::type::variant>>(val2));
     BOOST_CHECK(val1 == val2);
 }
 
@@ -530,7 +623,7 @@ BOOST_AUTO_TEST_CASE(object_with_zone_variant_array)
     msgpack::type::variant val2 = obj.as<msgpack::type::variant>();
     BOOST_CHECK(val2.is_vector());
     BOOST_CHECK(val2.as_vector() == v);
-    BOOST_CHECK_NO_THROW(boost::get<std::vector<msgpack::type::variant> >(val2));
+    BOOST_CHECK_NO_THROW(boost::get<std::vector<msgpack::type::variant>>(val2));
     BOOST_CHECK(val1 == val2);
 }
 
@@ -550,8 +643,7 @@ BOOST_AUTO_TEST_CASE(pack_convert_variant_map)
     msgpack::pack(ss, val1);
 
     std::string const& str = ss.str();
-    msgpack::object_handle oh =
-        msgpack::unpack(str.data(), str.size());
+    msgpack::object_handle oh = msgpack::unpack(str.data(), str.size());
     msgpack::type::variant val2 = oh.get().as<msgpack::type::variant>();
     BOOST_CHECK(val2.is_multimap());
     BOOST_CHECK(val2.as_multimap() == v);
@@ -595,16 +687,13 @@ BOOST_AUTO_TEST_CASE(pack_convert_variant_ref_str)
     msgpack::pack(ss, val1);
 
     std::string const& str = ss.str();
-    msgpack::object_handle oh =
-        msgpack::unpack(str.data(), str.size());
+    msgpack::object_handle oh = msgpack::unpack(str.data(), str.size());
     msgpack::type::variant_ref val2 = oh.get().as<msgpack::type::variant_ref>();
     BOOST_CHECK(val2.is_boost_string_ref());
     BOOST_CHECK_EQUAL(val2.as_boost_string_ref(), sr);
     BOOST_CHECK_NO_THROW(boost::get<boost::string_ref>(val2));
     BOOST_CHECK(val1 == val2);
 }
-
-
 
 BOOST_AUTO_TEST_CASE(object_with_zone_variant_ref_str)
 {
@@ -641,16 +730,13 @@ BOOST_AUTO_TEST_CASE(pack_convert_variant_ref_bin)
     msgpack::pack(ss, val1);
 
     std::string const& str = ss.str();
-    msgpack::object_handle oh =
-        msgpack::unpack(str.data(), str.size());
+    msgpack::object_handle oh = msgpack::unpack(str.data(), str.size());
     msgpack::type::variant_ref val2 = oh.get().as<msgpack::type::variant_ref>();
     BOOST_CHECK(val2.is_raw_ref());
     BOOST_CHECK(val2.as_raw_ref() == rr);
     BOOST_CHECK_NO_THROW(boost::get<msgpack::type::raw_ref>(val2));
     BOOST_CHECK(val1 == val2);
 }
-
-
 
 BOOST_AUTO_TEST_CASE(object_with_zone_variant_ref_bin)
 {
@@ -689,15 +775,13 @@ BOOST_AUTO_TEST_CASE(pack_convert_variant_ref_ext)
     msgpack::pack(ss, val1);
 
     std::string const& str = ss.str();
-    msgpack::object_handle oh =
-        msgpack::unpack(str.data(), str.size());
+    msgpack::object_handle oh = msgpack::unpack(str.data(), str.size());
     msgpack::type::variant_ref val2 = oh.get().as<msgpack::type::variant_ref>();
     BOOST_CHECK_NO_THROW(boost::get<msgpack::type::ext_ref>(val2));
     BOOST_CHECK(val2.is_ext_ref());
     BOOST_CHECK(val2.as_ext_ref() == er);
     BOOST_CHECK(val1 == val2);
 }
-
 
 BOOST_AUTO_TEST_CASE(object_with_zone_variant_ref_ext)
 {
@@ -740,12 +824,11 @@ BOOST_AUTO_TEST_CASE(pack_convert_variant_ref_array)
     msgpack::pack(ss, val1);
 
     std::string const& str = ss.str();
-    msgpack::object_handle oh =
-        msgpack::unpack(str.data(), str.size());
+    msgpack::object_handle oh = msgpack::unpack(str.data(), str.size());
     msgpack::type::variant_ref val2 = oh.get().as<msgpack::type::variant_ref>();
     BOOST_CHECK(val2.is_vector());
     BOOST_CHECK(val2.as_vector() == v);
-    BOOST_CHECK_NO_THROW(boost::get<std::vector<msgpack::type::variant_ref> >(val2));
+    BOOST_CHECK_NO_THROW(boost::get<std::vector<msgpack::type::variant_ref>>(val2));
     BOOST_CHECK(val1 == val2);
 }
 
@@ -768,7 +851,7 @@ BOOST_AUTO_TEST_CASE(object_with_zone_variant_ref_array)
     msgpack::type::variant_ref val2 = obj.as<msgpack::type::variant_ref>();
     BOOST_CHECK(val2.is_vector());
     BOOST_CHECK(val2.as_vector() == v);
-    BOOST_CHECK_NO_THROW(boost::get<std::vector<msgpack::type::variant_ref> >(val2));
+    BOOST_CHECK_NO_THROW(boost::get<std::vector<msgpack::type::variant_ref>>(val2));
     BOOST_CHECK(val1 == val2);
 }
 
@@ -783,7 +866,8 @@ BOOST_AUTO_TEST_CASE(pack_convert_variant_ref_map)
     std::string s1("ABC");
     std::string s2("DEF");
 #if (BOOST_VERSION / 100000) >= 1 && ((BOOST_VERSION / 100) % 1000) >= 53
-    v.insert(multimap_t::value_type(msgpack::type::variant_ref(boost::string_ref(s1)), msgpack::type::variant_ref(boost::string_ref(s2))));
+    v.insert(multimap_t::value_type(msgpack::type::variant_ref(boost::string_ref(s1)),
+                                    msgpack::type::variant_ref(boost::string_ref(s2))));
 #else  // (BOOST_VERSION / 100000) >= 1 && ((BOOST_VERSION / 100) % 1000) >= 53
     v.insert(multimap_t::value_type(msgpack::type::variant_ref(s1), msgpack::type::variant_ref(s2)));
 #endif // (BOOST_VERSION / 100000) >= 1 && ((BOOST_VERSION / 100) % 1000) >= 53
@@ -794,8 +878,7 @@ BOOST_AUTO_TEST_CASE(pack_convert_variant_ref_map)
     msgpack::pack(ss, val1);
 
     std::string const& str = ss.str();
-    msgpack::object_handle oh =
-        msgpack::unpack(str.data(), str.size());
+    msgpack::object_handle oh = msgpack::unpack(str.data(), str.size());
     msgpack::type::variant_ref val2 = oh.get().as<msgpack::type::variant_ref>();
     BOOST_CHECK(val2.is_multimap());
     BOOST_CHECK(val2.as_multimap() == v);
@@ -812,7 +895,8 @@ BOOST_AUTO_TEST_CASE(object_with_zone_variant_ref_map)
     std::string s1("ABC");
     std::string s2("DEF");
 #if (BOOST_VERSION / 100000) >= 1 && ((BOOST_VERSION / 100) % 1000) >= 53
-    v.insert(multimap_t::value_type(msgpack::type::variant_ref(boost::string_ref(s1)), msgpack::type::variant_ref(boost::string_ref(s2))));
+    v.insert(multimap_t::value_type(msgpack::type::variant_ref(boost::string_ref(s1)),
+                                    msgpack::type::variant_ref(boost::string_ref(s2))));
 #else  // (BOOST_VERSION / 100000) >= 1 && ((BOOST_VERSION / 100) % 1000) >= 53
     v.insert(multimap_t::value_type(msgpack::type::variant_ref(s1), msgpack::type::variant_ref(s2)));
 #endif // (BOOST_VERSION / 100000) >= 1 && ((BOOST_VERSION / 100) % 1000) >= 53

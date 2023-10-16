@@ -27,7 +27,7 @@
 struct AbortStream {
     void operator<< [[noreturn]] (const auto& error)
     {
-        (void)error; // TODO how to print this?
+        info(error.what());
         std::abort();
     }
 };

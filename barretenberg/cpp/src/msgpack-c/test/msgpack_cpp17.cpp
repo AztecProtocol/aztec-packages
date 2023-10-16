@@ -8,9 +8,7 @@
 #endif
 
 // For C++ standards lower than C++17
-BOOST_AUTO_TEST_CASE(dummy)
-{
-}
+BOOST_AUTO_TEST_CASE(dummy) {}
 
 #if MSGPACK_CPP_VERSION >= 201703
 
@@ -24,9 +22,8 @@ BOOST_AUTO_TEST_CASE(optional_pack_convert_nil)
     std::optional<int> val1;
     msgpack::pack(ss, val1);
     std::string const& str = ss.str();
-    msgpack::object_handle oh =
-        msgpack::unpack(str.data(), str.size());
-    std::optional<int> val2 = oh.get().as<std::optional<int> >();
+    msgpack::object_handle oh = msgpack::unpack(str.data(), str.size());
+    std::optional<int> val2 = oh.get().as<std::optional<int>>();
     BOOST_CHECK(val1 == val2);
 }
 
@@ -36,15 +33,14 @@ BOOST_AUTO_TEST_CASE(optional_pack_convert_int)
     std::optional<int> val1 = 1;
     msgpack::pack(ss, val1);
     std::string const& str = ss.str();
-    msgpack::object_handle oh =
-        msgpack::unpack(str.data(), str.size());
-    std::optional<int> val2 = oh.get().as<std::optional<int> >();
+    msgpack::object_handle oh = msgpack::unpack(str.data(), str.size());
+    std::optional<int> val2 = oh.get().as<std::optional<int>>();
     BOOST_CHECK(val1 == val2);
 }
 
 BOOST_AUTO_TEST_CASE(optional_pack_convert_vector)
 {
-    typedef std::optional<std::vector<int> > ovi_t;
+    typedef std::optional<std::vector<int>> ovi_t;
     std::stringstream ss;
     ovi_t val1;
     std::vector<int> v;
@@ -54,15 +50,14 @@ BOOST_AUTO_TEST_CASE(optional_pack_convert_vector)
     val1 = v;
     msgpack::pack(ss, val1);
     std::string const& str = ss.str();
-    msgpack::object_handle oh =
-        msgpack::unpack(str.data(), str.size());
-    ovi_t  val2 = oh.get().as<ovi_t>();
+    msgpack::object_handle oh = msgpack::unpack(str.data(), str.size());
+    ovi_t val2 = oh.get().as<ovi_t>();
     BOOST_CHECK(val1 == val2);
 }
 
 BOOST_AUTO_TEST_CASE(optional_pack_convert_vector_optional)
 {
-    typedef std::vector<std::optional<int> > voi_t;
+    typedef std::vector<std::optional<int>> voi_t;
     std::stringstream ss;
     voi_t val1;
     val1.resize(3);
@@ -70,9 +65,8 @@ BOOST_AUTO_TEST_CASE(optional_pack_convert_vector_optional)
     val1[2] = 3;
     msgpack::pack(ss, val1);
     std::string const& str = ss.str();
-    msgpack::object_handle oh =
-        msgpack::unpack(str.data(), str.size());
-    voi_t  val2 = oh.get().as<voi_t>();
+    msgpack::object_handle oh = msgpack::unpack(str.data(), str.size());
+    voi_t val2 = oh.get().as<voi_t>();
     BOOST_CHECK(val1 == val2);
 }
 
@@ -80,7 +74,7 @@ BOOST_AUTO_TEST_CASE(optional_object_nil)
 {
     std::optional<int> val1;
     msgpack::object obj(val1);
-    std::optional<int> val2 = obj.as<std::optional<int> >();
+    std::optional<int> val2 = obj.as<std::optional<int>>();
     BOOST_CHECK(val1 == val2);
 }
 
@@ -88,7 +82,7 @@ BOOST_AUTO_TEST_CASE(optional_object_int)
 {
     std::optional<int> val1 = 1;
     msgpack::object obj(val1);
-    std::optional<int> val2 = obj.as<std::optional<int> >();
+    std::optional<int> val2 = obj.as<std::optional<int>>();
     BOOST_CHECK(val1 == val2);
 }
 
@@ -114,7 +108,7 @@ BOOST_AUTO_TEST_CASE(optional_object_with_zone_nil)
     msgpack::zone z;
     std::optional<int> val1;
     msgpack::object obj(val1, z);
-    std::optional<int> val2 = obj.as<std::optional<int> >();
+    std::optional<int> val2 = obj.as<std::optional<int>>();
     BOOST_CHECK(val1 == val2);
 }
 
@@ -123,54 +117,61 @@ BOOST_AUTO_TEST_CASE(optional_object_with_zone_int)
     msgpack::zone z;
     std::optional<int> val1 = 1;
     msgpack::object obj(val1, z);
-    std::optional<int> val2 = obj.as<std::optional<int> >();
+    std::optional<int> val2 = obj.as<std::optional<int>>();
     BOOST_CHECK(val1 == val2);
 }
 
 BOOST_AUTO_TEST_CASE(optional_object_with_zone_vector_optional)
 {
-    typedef std::vector<std::optional<int> > voi_t;
+    typedef std::vector<std::optional<int>> voi_t;
     msgpack::zone z;
     voi_t val1;
     val1.resize(3);
     val1[0] = 1;
     val1[2] = 3;
     msgpack::object obj(val1, z);
-    voi_t  val2 = obj.as<voi_t>();
+    voi_t val2 = obj.as<voi_t>();
     BOOST_CHECK(val1 == val2);
 }
 
 struct no_def_con {
     no_def_con() = delete;
-    no_def_con(int i):i(i) {}
+    no_def_con(int i)
+        : i(i)
+    {}
     int i;
     MSGPACK_DEFINE(i);
 };
 
-inline bool operator==(no_def_con const& lhs, no_def_con const& rhs) {
+inline bool operator==(no_def_con const& lhs, no_def_con const& rhs)
+{
     return lhs.i == rhs.i;
 }
 
-inline bool operator!=(no_def_con const& lhs, no_def_con const& rhs) {
+inline bool operator!=(no_def_con const& lhs, no_def_con const& rhs)
+{
     return !(lhs == rhs);
 }
 
 namespace msgpack {
-MSGPACK_API_VERSION_NAMESPACE(MSGPACK_DEFAULT_API_NS) {
-namespace adaptor {
+MSGPACK_API_VERSION_NAMESPACE(MSGPACK_DEFAULT_API_NS)
+{
+    namespace adaptor {
 
-template <>
-struct as<no_def_con> {
-    no_def_con operator()(msgpack::object const& o) const {
-        if (o.type != msgpack::type::ARRAY) throw msgpack::type_error();
-        if (o.via.array.size != 1) throw msgpack::type_error();
-        return no_def_con(o.via.array.ptr[0].as<int>());
-    }
-};
+    template <> struct as<no_def_con> {
+        no_def_con operator()(msgpack::object const& o) const
+        {
+            if (o.type != msgpack::type::ARRAY)
+                throw msgpack::type_error();
+            if (o.via.array.size != 1)
+                throw msgpack::type_error();
+            return no_def_con(o.via.array.ptr[0].as<int>());
+        }
+    };
 
-} // adaptor
+    } // namespace adaptor
 } // MSGPACK_API_VERSION_NAMESPACE(MSGPACK_DEFAULT_API_NS)
-} // msgpack
+} // namespace msgpack
 
 BOOST_AUTO_TEST_CASE(optional_pack_convert_no_def_con)
 {
@@ -178,8 +179,7 @@ BOOST_AUTO_TEST_CASE(optional_pack_convert_no_def_con)
     std::optional<no_def_con> val1 = no_def_con(1);
     msgpack::pack(ss, val1);
     std::string const& str = ss.str();
-    msgpack::object_handle oh =
-        msgpack::unpack(str.data(), str.size());
+    msgpack::object_handle oh = msgpack::unpack(str.data(), str.size());
     std::optional<no_def_con> val2 = oh.get().as<std::optional<no_def_con>>();
     BOOST_CHECK(val1 == val2);
 }
@@ -227,7 +227,7 @@ BOOST_AUTO_TEST_CASE(string_view_object_with_zone)
 BOOST_AUTO_TEST_CASE(byte_pack_convert)
 {
     std::stringstream ss;
-    std::byte val1{0xff};
+    std::byte val1{ 0xff };
 
     msgpack::pack(ss, val1);
 
@@ -240,7 +240,7 @@ BOOST_AUTO_TEST_CASE(byte_pack_convert)
 
 BOOST_AUTO_TEST_CASE(byte_object)
 {
-    std::byte val1{0x00};
+    std::byte val1{ 0x00 };
     msgpack::object obj(val1);
     std::byte val2 = obj.as<std::byte>();
     BOOST_CHECK(val1 == val2);
@@ -249,7 +249,7 @@ BOOST_AUTO_TEST_CASE(byte_object)
 BOOST_AUTO_TEST_CASE(byte_object_with_zone)
 {
     msgpack::zone z;
-    std::byte val1{80};
+    std::byte val1{ 80 };
     msgpack::object obj(val1, z);
     std::byte val2 = obj.as<std::byte>();
     BOOST_CHECK(val1 == val2);
@@ -259,7 +259,7 @@ BOOST_AUTO_TEST_CASE(vector_byte_pack_convert)
 {
     std::stringstream ss;
     std::vector<std::byte> val1{
-        std::byte{0x01}, std::byte{0x02}, std::byte{0x7f}, std::byte{0x80}, std::byte{0xff}
+        std::byte{ 0x01 }, std::byte{ 0x02 }, std::byte{ 0x7f }, std::byte{ 0x80 }, std::byte{ 0xff }
     };
 
     msgpack::pack(ss, val1);
@@ -280,7 +280,7 @@ BOOST_AUTO_TEST_CASE(vector_byte_pack_convert)
 BOOST_AUTO_TEST_CASE(vector_byte_object)
 {
     std::vector<std::byte> val1{
-        std::byte{0x01}, std::byte{0x02}, std::byte{0x7f}, std::byte{0x80}, std::byte{0xff}
+        std::byte{ 0x01 }, std::byte{ 0x02 }, std::byte{ 0x7f }, std::byte{ 0x80 }, std::byte{ 0xff }
     };
 
     // Caller need to manage val1's lifetime. The Data is not copied.
@@ -294,7 +294,7 @@ BOOST_AUTO_TEST_CASE(vector_byte_object_with_zone)
 {
     msgpack::zone z;
     std::vector<std::byte> val1{
-        std::byte{0x01}, std::byte{0x02}, std::byte{0x7f}, std::byte{0x80}, std::byte{0xff}
+        std::byte{ 0x01 }, std::byte{ 0x02 }, std::byte{ 0x7f }, std::byte{ 0x80 }, std::byte{ 0xff }
     };
     msgpack::object obj(val1, z);
 
@@ -306,7 +306,7 @@ BOOST_AUTO_TEST_CASE(array_byte_pack_convert)
 {
     std::stringstream ss;
     std::array<std::byte, 5> val1{
-        std::byte{0x01}, std::byte{0x02}, std::byte{0x7f}, std::byte{0x80}, std::byte{0xff}
+        std::byte{ 0x01 }, std::byte{ 0x02 }, std::byte{ 0x7f }, std::byte{ 0x80 }, std::byte{ 0xff }
     };
 
     msgpack::pack(ss, val1);
@@ -327,8 +327,8 @@ BOOST_AUTO_TEST_CASE(array_byte_pack_convert)
     {
         msgpack::object_handle oh;
         msgpack::unpack(oh, str.data(), str.size());
-        BOOST_CHECK_THROW((oh.get().as<std::array<std::byte, 0>>()),    msgpack::type_error);
-        BOOST_CHECK_THROW((oh.get().as<std::array<std::byte, 1>>()),    msgpack::type_error);
+        BOOST_CHECK_THROW((oh.get().as<std::array<std::byte, 0>>()), msgpack::type_error);
+        BOOST_CHECK_THROW((oh.get().as<std::array<std::byte, 1>>()), msgpack::type_error);
         BOOST_CHECK_THROW((oh.get().as<std::array<std::byte, 8192>>()), msgpack::type_error);
     }
 }
@@ -336,7 +336,7 @@ BOOST_AUTO_TEST_CASE(array_byte_pack_convert)
 BOOST_AUTO_TEST_CASE(array_byte_object)
 {
     std::array<std::byte, 5> val1{
-        std::byte{0x01}, std::byte{0x02}, std::byte{0x7f}, std::byte{0x80}, std::byte{0xff}
+        std::byte{ 0x01 }, std::byte{ 0x02 }, std::byte{ 0x7f }, std::byte{ 0x80 }, std::byte{ 0xff }
     };
 
     // Caller need to manage val1's lifetime. The Data is not copied.
@@ -345,8 +345,8 @@ BOOST_AUTO_TEST_CASE(array_byte_object)
     auto val2 = obj.as<std::array<std::byte, 5>>();
     BOOST_CHECK(val1 == val2);
 
-    BOOST_CHECK_THROW((obj.as<std::array<std::byte, 0>>()),    msgpack::type_error);
-    BOOST_CHECK_THROW((obj.as<std::array<std::byte, 1>>()),    msgpack::type_error);
+    BOOST_CHECK_THROW((obj.as<std::array<std::byte, 0>>()), msgpack::type_error);
+    BOOST_CHECK_THROW((obj.as<std::array<std::byte, 1>>()), msgpack::type_error);
     BOOST_CHECK_THROW((obj.as<std::array<std::byte, 8192>>()), msgpack::type_error);
 }
 
@@ -354,15 +354,15 @@ BOOST_AUTO_TEST_CASE(array_byte_object_with_zone)
 {
     msgpack::zone z;
     std::array<std::byte, 5> val1{
-        std::byte{0x01}, std::byte{0x02}, std::byte{0x7f}, std::byte{0x80}, std::byte{0xff}
+        std::byte{ 0x01 }, std::byte{ 0x02 }, std::byte{ 0x7f }, std::byte{ 0x80 }, std::byte{ 0xff }
     };
     msgpack::object obj(val1, z);
 
     auto val2 = obj.as<std::array<std::byte, 5>>();
     BOOST_CHECK(val1 == val2);
 
-    BOOST_CHECK_THROW((obj.as<std::array<std::byte, 0>>()),    msgpack::type_error);
-    BOOST_CHECK_THROW((obj.as<std::array<std::byte, 1>>()),    msgpack::type_error);
+    BOOST_CHECK_THROW((obj.as<std::array<std::byte, 0>>()), msgpack::type_error);
+    BOOST_CHECK_THROW((obj.as<std::array<std::byte, 1>>()), msgpack::type_error);
     BOOST_CHECK_THROW((obj.as<std::array<std::byte, 8192>>()), msgpack::type_error);
 }
 
@@ -389,7 +389,7 @@ BOOST_AUTO_TEST_CASE(array_byte_empty_pack_convert)
     {
         msgpack::object_handle oh;
         msgpack::unpack(oh, str.data(), str.size());
-        BOOST_CHECK_THROW((oh.get().as<std::array<std::byte, 1>>()),    msgpack::type_error);
+        BOOST_CHECK_THROW((oh.get().as<std::array<std::byte, 1>>()), msgpack::type_error);
         BOOST_CHECK_THROW((oh.get().as<std::array<std::byte, 8192>>()), msgpack::type_error);
     }
 }
@@ -404,7 +404,7 @@ BOOST_AUTO_TEST_CASE(array_byte_empty_object)
     auto val2 = obj.as<std::array<std::byte, 0>>();
     BOOST_CHECK(val1 == val2);
 
-    BOOST_CHECK_THROW((obj.as<std::array<std::byte, 1>>()),    msgpack::type_error);
+    BOOST_CHECK_THROW((obj.as<std::array<std::byte, 1>>()), msgpack::type_error);
     BOOST_CHECK_THROW((obj.as<std::array<std::byte, 8192>>()), msgpack::type_error);
 }
 
@@ -417,7 +417,7 @@ BOOST_AUTO_TEST_CASE(array_byte_empty_object_with_zone)
     auto val2 = obj.as<std::array<std::byte, 0>>();
     BOOST_CHECK(val1 == val2);
 
-    BOOST_CHECK_THROW((obj.as<std::array<std::byte, 1>>()),    msgpack::type_error);
+    BOOST_CHECK_THROW((obj.as<std::array<std::byte, 1>>()), msgpack::type_error);
     BOOST_CHECK_THROW((obj.as<std::array<std::byte, 8192>>()), msgpack::type_error);
 }
 
@@ -425,7 +425,7 @@ BOOST_AUTO_TEST_CASE(carray_byte_pack_convert)
 {
     std::stringstream ss;
     std::byte val1[] = {
-        std::byte{0x01}, std::byte{0x02}, std::byte{0x7f}, std::byte{0x80}, std::byte{0xff}
+        std::byte{ 0x01 }, std::byte{ 0x02 }, std::byte{ 0x7f }, std::byte{ 0x80 }, std::byte{ 0xff }
     };
 
     msgpack::pack(ss, val1);
@@ -450,7 +450,7 @@ BOOST_AUTO_TEST_CASE(carray_byte_object_with_zone)
 {
     msgpack::zone z;
     std::byte val1[] = {
-        std::byte{0x01}, std::byte{0x02}, std::byte{0x7f}, std::byte{0x80}, std::byte{0xff}
+        std::byte{ 0x01 }, std::byte{ 0x02 }, std::byte{ 0x7f }, std::byte{ 0x80 }, std::byte{ 0xff }
     };
     msgpack::object obj(val1, z);
 
@@ -460,5 +460,31 @@ BOOST_AUTO_TEST_CASE(carray_byte_object_with_zone)
         BOOST_CHECK(val1[i] == val2[i]);
     }
 }
+
+#if defined(MSGPACK_USE_STD_VARIANT_ADAPTOR)
+
+BOOST_AUTO_TEST_CASE(variant_pack_unpack_as)
+{
+    std::stringstream ss;
+    std::variant<bool, int, float, double> val1{ 1.0 };
+    msgpack::pack(ss, val1);
+    std::string const& str = ss.str();
+    msgpack::object_handle oh = msgpack::unpack(str.data(), str.size());
+    std::variant<bool, int, float, double> val2 = oh.get().as<std::variant<bool, int, float, double>>();
+    BOOST_CHECK(val1 == val2);
+    BOOST_CHECK_THROW((oh.get().as<std::variant<bool>>()), msgpack::type_error);
+}
+
+BOOST_AUTO_TEST_CASE(variant_with_zone)
+{
+    msgpack::zone z;
+    std::variant<bool, int, float, double> val1{ 1.0 };
+    msgpack::object obj(val1, z);
+    std::variant<bool, int, float, double> val2 = obj.as<std::variant<bool, int, float, double>>();
+    BOOST_CHECK(val1 == val2);
+    BOOST_CHECK_THROW((obj.as<std::variant<bool>>()), msgpack::type_error);
+}
+
+#endif // defined(MSGPACK_USE_STD_VARIANT_ADAPTOR)
 
 #endif // MSGPACK_CPP_VERSION >= 201703
