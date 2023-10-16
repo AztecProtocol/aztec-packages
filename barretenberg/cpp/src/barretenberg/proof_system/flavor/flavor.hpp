@@ -222,16 +222,17 @@ template <typename Tuple, std::size_t Index = 0> static constexpr size_t get_max
  * Relation contributes a tuple with num-identities many Univariates and there are num-relations many tuples in the
  * outer tuple.
  */
-template <typename Tuple, std::size_t Index = 0>
+template <typename Tuple, size_t NUM_INSTANCES, size_t Index = 0>
 static constexpr auto create_protogalaxy_tuple_of_tuples_of_univariates()
 {
     if constexpr (Index >= std::tuple_size<Tuple>::value) {
         return std::tuple<>{}; // Return empty when reach end of the tuple
     } else {
         using UnivariateTuple =
-            typename std::tuple_element_t<Index, Tuple>::ProtogalaxyTupleOfUnivariatesOverSubrelations;
+            typename std::tuple_element_t<Index,
+                                          Tuple>::template ProtogalaxyTupleOfUnivariatesOverSubrelations<NUM_INSTANCES>;
         return std::tuple_cat(std::tuple<UnivariateTuple>{},
-                              create_protogalaxy_tuple_of_tuples_of_univariates<Tuple, Index + 1>());
+                              create_protogalaxy_tuple_of_tuples_of_univariates<Tuple, NUM_INSTANCES, Index + 1>());
     }
 }
 

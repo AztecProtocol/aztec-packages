@@ -62,7 +62,7 @@ class Ultra {
 
     // define the container for storing the univariate contribution from each relation in Sumcheck
     using ProtogalaxyTupleOfTuplesOfUnivariates =
-        decltype(create_protogalaxy_tuple_of_tuples_of_univariates<Relations>());
+        decltype(create_protogalaxy_tuple_of_tuples_of_univariates<Relations, /*NUM_INSTANCES=*/2>());
     using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
     using SumcheckTupleOfArraysOfValues = decltype(create_sumcheck_tuple_of_arrays_of_values<Relations>());
 
