@@ -29,6 +29,12 @@
       "path": "../end-to-end"
     },
     {
+      "path": "../ethereum"
+    },
+    {
+      "path": "../l1-artifacts"
+    },
+    {
       "path": "../noir-contracts"
     }
   ],
