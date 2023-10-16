@@ -226,6 +226,9 @@ function(barretenberg_module MODULE_NAME)
             ${TBB_IMPORTED_TARGETS}
         )
 
+        # enable msgpack downloading via dependency (solves race condition)
+        add_dependencies(${MODULE_NAME}_bench_objects msgpack-c)
+        add_dependencies(${MODULE_NAME}_bench msgpack-c)
         add_custom_target(
             run_${MODULE_NAME}_bench
             COMMAND ${MODULE_NAME}_bench
