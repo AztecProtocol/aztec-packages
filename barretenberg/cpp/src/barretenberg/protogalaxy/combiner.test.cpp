@@ -10,12 +10,12 @@ using Polynomial = typename Flavor::Polynomial;
 using FF = typename Flavor::FF;
 using RelationParameters = proof_system::RelationParameters<FF>;
 
-TEST(Protogalaxy, Combiner)
+TEST(Protogalaxy, Combiner2Instances)
 {
     constexpr size_t NUM_INSTANCES = 2;
 
     const auto restrict_to_standard_arithmetic_relation = [](auto& polys) {
-        std::fill(polys.q_arith.begin(), polys.q_arith.end(), 1); // LEFTOFFHERE what
+        std::fill(polys.q_arith.begin(), polys.q_arith.end(), 1);
         std::fill(polys.q_sort.begin(), polys.q_sort.end(), 0);
         std::fill(polys.q_elliptic.begin(), polys.q_elliptic.end(), 0);
         std::fill(polys.q_aux.begin(), polys.q_aux.end(), 0);
@@ -123,6 +123,52 @@ TEST(Protogalaxy, Combiner)
     };
     run_test(true);
     run_test(false);
+};
+
+TEST(Protogalaxy, Combiner4Instances)
+{
+    constexpr size_t NUM_INSTANCES = 4;
+
+    const auto zero_all_selectors = [](auto& polys) {
+        std::fill(polys.q_arith.begin(), polys.q_arith.end(), 0);
+        std::fill(polys.q_sort.begin(), polys.q_sort.end(), 0);
+        std::fill(polys.q_elliptic.begin(), polys.q_elliptic.end(), 0);
+        std::fill(polys.q_aux.begin(), polys.q_aux.end(), 0);
+        std::fill(polys.q_lookup.begin(), polys.q_lookup.end(), 0);
+        std::fill(polys.q_4.begin(), polys.q_4.end(), 0);
+        std::fill(polys.w_4.begin(), polys.w_4.end(), 0);
+        std::fill(polys.w_4_shift.begin(), polys.w_4_shift.end(), 0);
+    };
+
+    auto run_test = [&]() {
+        Instances<Flavor, NUM_INSTANCES> instances;
+        std::array<std::array<Polynomial, Flavor::NUM_ALL_ENTITIES>, NUM_INSTANCES> storage_arrays;
+        auto relation_parameters = RelationParameters::get_random();
+        ProtogalaxyProver<Flavor, Instances<Flavor, NUM_INSTANCES>> prover;
+        auto pow_univariate = PowUnivariate<FF>(/*zeta_pow=*/2);
+        auto alpha = FF(0); // focus on the arithmetic relation only
+
+        size_t instance_idx = 0;
+        for (auto& instance : instances) {
+            auto [storage, prover_polynomials] =
+                proof_system::honk::get_zero_prover_polynomials<Flavor>(/*log_circuit_size=*/1);
+            storage_arrays[instance_idx] = std::move(storage);
+            instance = prover_polynomials;
+            instance_idx++;
+        }
+
+        zero_all_selectors(instances[0]);
+        zero_all_selectors(instances[1]);
+        zero_all_selectors(instances[2]);
+        zero_all_selectors(instances[3]);
+
+        auto result = prover.compute_combiner(instances, relation_parameters, pow_univariate, alpha);
+        std::array<FF, 19> zeroes;
+        std::fill(zeroes.begin(), zeroes.end(), 0);
+        auto expected_result = barretenberg::Univariate<FF, 19>(zeroes);
+        EXPECT_EQ(result, expected_result);
+    };
+    run_test();
 };
 
 } // namespace barretenberg::test_protogalaxy_prover
