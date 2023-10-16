@@ -4,7 +4,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { Timer, elapsed } from '@aztec/foundation/timer';
 import { P2P } from '@aztec/p2p';
-import { ContractDataSource, L1ToL2MessageSource, L2Block, L2BlockSource, MerkleTreeId, Tx } from '@aztec/types';
+import { L1ToL2MessageSource, L2Block, L2BlockSource, MerkleTreeId, Tx } from '@aztec/types';
 import { L2BlockBuiltStats } from '@aztec/types/stats';
 import { WorldStateStatus, WorldStateSynchronizer } from '@aztec/world-state';
 
@@ -43,7 +43,6 @@ export class Sequencer {
     private blockBuilder: BlockBuilder,
     private l2BlockSource: L2BlockSource,
     private l1ToL2MessageSource: L1ToL2MessageSource,
-    private contractDataSource: ContractDataSource,
     private publicProcessorFactory: PublicProcessorFactory,
     config: SequencerConfig = {},
     private log = createDebugLogger('aztec:sequencer'),
