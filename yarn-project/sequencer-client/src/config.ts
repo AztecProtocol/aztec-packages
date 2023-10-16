@@ -1,5 +1,7 @@
-import { L1ContractAddresses } from '@aztec/ethereum';
+import { L1ContractAddresses, NULL_KEY } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
+
+import { Hex } from 'viem';
 
 import { GlobalReaderConfig } from './global_variable_builder/index.js';
 import { PublisherConfig, TxSenderConfig } from './publisher/config.js';
@@ -32,7 +34,7 @@ export function getConfigEnvVars(): SequencerClientConfig {
     CHAIN_ID,
     VERSION,
     API_KEY,
-    SEQ_REQUIRED_CONFS,
+    SEQ_REQUIRED_CONFIRMATIONS,
     SEQ_PUBLISH_RETRY_INTERVAL_MS,
     SEQ_TX_POLLING_INTERVAL_MS,
     SEQ_MAX_TX_PER_BLOCK,
@@ -43,11 +45,9 @@ export function getConfigEnvVars(): SequencerClientConfig {
     CONTRACT_DEPLOYMENT_EMITTER_ADDRESS,
   } = process.env;
 
-  const publisherPrivateKey: `0x${string}` = `0x${
-    SEQ_PUBLISHER_PRIVATE_KEY
-      ? SEQ_PUBLISHER_PRIVATE_KEY.replace('0x', '')
-      : '0000000000000000000000000000000000000000000000000000000000000000'
-  }`;
+  const publisherPrivateKey: Hex = SEQ_PUBLISHER_PRIVATE_KEY
+    ? `0x${SEQ_PUBLISHER_PRIVATE_KEY.replace('0x', '')}`
+    : NULL_KEY;
   // Populate the relevant addresses for use by the sequencer
   const addresses: L1ContractAddresses = {
     rollupAddress: ROLLUP_CONTRACT_ADDRESS ? EthAddress.fromString(ROLLUP_CONTRACT_ADDRESS) : EthAddress.ZERO,
@@ -65,7 +65,7 @@ export function getConfigEnvVars(): SequencerClientConfig {
     chainId: CHAIN_ID ? +CHAIN_ID : 31337, // 31337 is the default chain id for anvil
     version: VERSION ? +VERSION : 1, // 1 is our default version
     apiKey: API_KEY,
-    requiredConfirmations: SEQ_REQUIRED_CONFS ? +SEQ_REQUIRED_CONFS : 1,
+    requiredConfirmations: SEQ_REQUIRED_CONFIRMATIONS ? +SEQ_REQUIRED_CONFIRMATIONS : 1,
     l1BlockPublishRetryIntervalMS: SEQ_PUBLISH_RETRY_INTERVAL_MS ? +SEQ_PUBLISH_RETRY_INTERVAL_MS : 1_000,
     transactionPollingIntervalMS: SEQ_TX_POLLING_INTERVAL_MS ? +SEQ_TX_POLLING_INTERVAL_MS : 1_000,
     l1Contracts: addresses,

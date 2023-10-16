@@ -5,6 +5,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { AztecNode, KeyStore, L2BlockContext, L2BlockL2Logs, NoteSpendingInfo, PublicKey } from '@aztec/types';
+import { NoteProcessorStats } from '@aztec/types/stats';
 
 import { Database, NoteSpendingInfoDao } from '../database/index.js';
 import { getAcirSimulator } from '../simulator/index.js';
@@ -22,20 +23,6 @@ interface ProcessedData {
    */
   noteSpendingInfoDaos: NoteSpendingInfoDao[];
 }
-
-/** Accumulated stats for a note processor.  */
-type NoteProcessorStats = {
-  /** How many notes have been seen and trial-decrypted. */
-  seen: number;
-  /** How many notes were successfully decrypted. */
-  decrypted: number;
-  /** How many notes failed processing. */
-  failed: number;
-  /** How many blocks were spanned.  */
-  blocks: number;
-  /** How many txs were spanned.  */
-  txs: number;
-};
 
 /**
  * NoteProcessor is responsible for decrypting logs and converting them to notes via their originating contracts
@@ -79,7 +66,7 @@ export class NoteProcessor {
   }
 
   /**
-   * Returns synchronisation status (ie up to which block has been synced ) for this note processor.
+   * Returns synchronization status (ie up to which block has been synced ) for this note processor.
    */
   public get status() {
     return { syncedToBlock: this.syncedToBlock };
@@ -243,7 +230,7 @@ ${siloedNoteHash.toString()}'.
 If you can see that notification. Everything's fine.
 If that's not the case, and you can't find such a notification, something has gone wrong.
 There could be a problem with the way you've defined a custom note, or with the way you're
-serialising / deserialising / hashing / encrypting / decrypting that note.
+serializing / deserializing / hashing / encrypting / decrypting that note.
 Please see the following github issue to track an improvement that we're working on:
 https://github.com/AztecProtocol/aztec-packages/issues/1641`;
       }

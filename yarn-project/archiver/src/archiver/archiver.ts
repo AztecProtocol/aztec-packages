@@ -5,12 +5,13 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
+import { RegistryAbi } from '@aztec/l1-artifacts';
 import {
   ContractData,
   ContractDataSource,
   EncodedContractFunction,
   ExtendedContractData,
-  INITIAL_L2_BLOCK_NUM,
+  GetUnencryptedLogsResponse,
   L1ToL2Message,
   L1ToL2MessageSource,
   L2Block,
@@ -18,12 +19,13 @@ import {
   L2BlockSource,
   L2LogsSource,
   L2Tx,
+  LogFilter,
   LogType,
   TxHash,
 } from '@aztec/types';
 
 import omit from 'lodash.omit';
-import { Chain, HttpTransport, PublicClient, createPublicClient, http } from 'viem';
+import { Chain, HttpTransport, PublicClient, createPublicClient, getContract, http } from 'viem';
 
 import { ArchiverDataStore, MemoryArchiverStore } from './archiver_store.js';
 import { ArchiverConfig } from './config.js';
@@ -48,17 +50,17 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
   /**
    * Next L1 block number to fetch `L2BlockProcessed` logs from (i.e. `fromBlock` in eth_getLogs).
    */
-  private nextL2BlockFromBlock = 0n;
+  private nextL2BlockFromL1Block = 0n;
 
   /**
    * Last Processed Block Number
    */
-  private lastProcessedBlockNumber = 0n;
+  private lastProcessedL1BlockNumber = 0n;
 
   /**
    * Use this to track logged block in order to avoid repeating the same message.
    */
-  private lastLoggedBlockNumber = 0n;
+  private lastLoggedL1BlockNumber = 0n;
 
   /**
    * Creates a new instance of the Archiver.
@@ -83,8 +85,8 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
     private readonly pollingIntervalMs = 10_000,
     private readonly log: DebugLogger = createDebugLogger('aztec:archiver'),
   ) {
-    this.nextL2BlockFromBlock = BigInt(searchStartBlock);
-    this.lastProcessedBlockNumber = BigInt(searchStartBlock);
+    this.nextL2BlockFromL1Block = BigInt(searchStartBlock);
+    this.lastProcessedL1BlockNumber = BigInt(searchStartBlock);
   }
 
   /**
@@ -100,14 +102,24 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
       transport: http(chain.rpcUrl),
       pollingInterval: config.viemPollingIntervalMS,
     });
-    const archiverStore = new MemoryArchiverStore();
+
+    // ask the registry for the block number when the rollup was deployed
+    // this is the block from which archiver has to search from
+    const registryContract = getContract({
+      address: config.l1Contracts.registryAddress.toString(),
+      abi: RegistryAbi,
+      publicClient,
+    });
+    const searchStartBlock = Number((await registryContract.read.getCurrentSnapshot()).blockNumber);
+
+    const archiverStore = new MemoryArchiverStore(config.maxLogs ?? 1000);
     const archiver = new Archiver(
       publicClient,
       config.l1Contracts.rollupAddress,
       config.l1Contracts.inboxAddress,
       config.l1Contracts.registryAddress,
       config.l1Contracts.contractDeploymentEmitterAddress,
-      config.searchStartBlock,
+      searchStartBlock,
       archiverStore,
       config.archiverPollingIntervalMS,
     );
@@ -138,12 +150,12 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
    * @param blockUntilSynced - If true, blocks until the archiver has fully synced.
    */
   private async sync(blockUntilSynced: boolean) {
-    const currentBlockNumber = await this.publicClient.getBlockNumber();
-    if (currentBlockNumber <= this.lastProcessedBlockNumber) {
+    const currentL1BlockNumber = await this.publicClient.getBlockNumber();
+    if (currentL1BlockNumber <= this.lastProcessedL1BlockNumber) {
       // reducing logs, otherwise this gets triggered on every loop (1s)
-      if (currentBlockNumber !== this.lastLoggedBlockNumber) {
-        this.log(`No new blocks to process, current block number: ${currentBlockNumber}`);
-        this.lastLoggedBlockNumber = currentBlockNumber;
+      if (currentL1BlockNumber !== this.lastLoggedL1BlockNumber) {
+        this.log(`No new blocks to process, current block number: ${currentL1BlockNumber}`);
+        this.lastLoggedL1BlockNumber = currentL1BlockNumber;
       }
       return;
     }
@@ -165,7 +177,7 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
      * This is a problem for example when setting the last block number marker for L1 to L2 messages -
      * this.lastProcessedBlockNumber = currentBlockNumber;
      * It's possible that we actually received messages in block currentBlockNumber + 1 meaning the next time
-     * we do this sync we get the same message again. Addtionally, the call to get cancelled L1 to L2 messages
+     * we do this sync we get the same message again. Additionally, the call to get cancelled L1 to L2 messages
      * could read from a block not present when retrieving pending messages. If a message was added and cancelled
      * in the same eth block then we could try and cancel a non-existent pending message.
      *
@@ -182,15 +194,15 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
       this.publicClient,
       this.inboxAddress,
       blockUntilSynced,
-      this.lastProcessedBlockNumber + 1n, // + 1 to prevent re-including messages from the last processed block
-      currentBlockNumber,
+      this.lastProcessedL1BlockNumber + 1n, // + 1 to prevent re-including messages from the last processed block
+      currentL1BlockNumber,
     );
     const retrievedCancelledL1ToL2Messages = await retrieveNewCancelledL1ToL2Messages(
       this.publicClient,
       this.inboxAddress,
       blockUntilSynced,
-      this.lastProcessedBlockNumber + 1n,
-      currentBlockNumber,
+      this.lastProcessedL1BlockNumber + 1n,
+      currentL1BlockNumber,
     );
 
     // TODO (#717): optimise this - there could be messages in confirmed that are also in pending.
@@ -202,21 +214,21 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
     this.log('Removing pending l1 to l2 messages from store where messages were cancelled');
     await this.store.cancelPendingL1ToL2Messages(retrievedCancelledL1ToL2Messages.retrievedData);
 
-    this.lastProcessedBlockNumber = currentBlockNumber;
+    this.lastProcessedL1BlockNumber = currentL1BlockNumber;
 
     // ********** Events that are processed per block **********
 
     // Read all data from chain and then write to our stores at the end
-    const nextExpectedL2BlockNum = BigInt(this.store.getBlocksLength() + INITIAL_L2_BLOCK_NUM);
+    const nextExpectedL2BlockNum = BigInt((await this.store.getBlockNumber()) + 1);
     this.log(
-      `Retrieving chain state from L1 block: ${this.nextL2BlockFromBlock}, next expected l2 block number: ${nextExpectedL2BlockNum}`,
+      `Retrieving chain state from L1 block: ${this.nextL2BlockFromL1Block}, next expected l2 block number: ${nextExpectedL2BlockNum}`,
     );
     const retrievedBlocks = await retrieveBlocks(
       this.publicClient,
       this.rollupAddress,
       blockUntilSynced,
-      this.nextL2BlockFromBlock,
-      currentBlockNumber,
+      this.nextL2BlockFromL1Block,
+      currentL1BlockNumber,
       nextExpectedL2BlockNum,
     );
 
@@ -229,8 +241,8 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
       this.publicClient,
       this.contractDeploymentEmitterAddress,
       blockUntilSynced,
-      this.nextL2BlockFromBlock,
-      currentBlockNumber,
+      this.nextL2BlockFromL1Block,
+      currentL1BlockNumber,
       blockHashMapping,
     );
     if (retrievedBlocks.retrievedData.length === 0) {
@@ -268,14 +280,14 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
 
     // store retrieved L2 blocks after removing new logs information.
     // remove logs to serve "lightweight" block information. Logs can be fetched separately if needed.
-    await this.store.addL2Blocks(
+    await this.store.addBlocks(
       retrievedBlocks.retrievedData.map(block =>
         L2Block.fromFields(omit(block, ['newEncryptedLogs', 'newUnencryptedLogs']), block.getBlockHash()),
       ),
     );
 
     // set the L1 block for the next search
-    this.nextL2BlockFromBlock = retrievedBlocks.nextEthBlockNumber;
+    this.nextL2BlockFromL1Block = retrievedBlocks.nextEthBlockNumber;
   }
 
   /**
@@ -304,8 +316,8 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
    * @param limit - The number of blocks to return.
    * @returns The requested L2 blocks.
    */
-  public getL2Blocks(from: number, limit: number): Promise<L2Block[]> {
-    return this.store.getL2Blocks(from, limit);
+  public getBlocks(from: number, limit: number): Promise<L2Block[]> {
+    return this.store.getBlocks(from, limit);
   }
 
   /**
@@ -313,12 +325,12 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
    * @param number - The block number to return (inclusive).
    * @returns The requested L2 block.
    */
-  public async getL2Block(number: number): Promise<L2Block | undefined> {
+  public async getBlock(number: number): Promise<L2Block | undefined> {
     // If the number provided is -ve, then return the latest block.
     if (number < 0) {
-      number = this.store.getBlocksLength();
+      number = await this.store.getBlockNumber();
     }
-    const blocks = await this.store.getL2Blocks(number, 1);
+    const blocks = await this.store.getBlocks(number, 1);
     return blocks.length === 0 ? undefined : blocks[0];
   }
 
@@ -387,6 +399,15 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
    */
   public getLogs(from: number, limit: number, logType: LogType): Promise<L2BlockL2Logs[]> {
     return this.store.getLogs(from, limit, logType);
+  }
+
+  /**
+   * Gets unencrypted logs based on the provided filter.
+   * @param filter - The filter to apply to the logs.
+   * @returns The requested logs.
+   */
+  getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+    return this.store.getUnencryptedLogs(filter);
   }
 
   /**
