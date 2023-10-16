@@ -147,9 +147,9 @@ template <typename FF> class BaseTranscript {
     // Enum to deal with various types in Transcript
     enum TranscriptObjectType { UInt32Obj, FieldElementObj, CommitmentObj, SumcheckUnivariateObj, SumcheckEvalObj };
     // conversion mapping from type to TranscriptObjectType enum object
-    template <typename T> static TranscriptObjectType convertTypeToEnum([[maybe_unused]] T _);
-    static std::vector<uint8_t> serializeObj(TranscriptObjectType enum_type, void* obj);
-    void deserializeObj(void* obj_ptr, TranscriptObjectType enum_type, const std::span<const uint8_t>& buf);
+    template <typename T> static TranscriptObjectType convert_type_to_enum([[maybe_unused]] T _);
+    static std::vector<uint8_t> serialize_obj(TranscriptObjectType enum_type, void* obj);
+    void deserialize_obj(void* obj_ptr, TranscriptObjectType enum_type, const std::span<const uint8_t>& buf);
 
     class TranscriptObject {
       public:
@@ -158,7 +158,7 @@ template <typename FF> class BaseTranscript {
             : obj_name(std::move(name))
             , obj_ptr(static_cast<void*>(ptr))
             , obj_size(sizeof(T))
-            , obj_type(convertTypeToEnum(*ptr))
+            , obj_type(convert_type_to_enum(*ptr))
         {}
         std::string obj_name; // object name as a string
         void* obj_ptr;        // ptr to member variable object in class
@@ -183,11 +183,11 @@ template <typename FF> class BaseTranscript {
     }
 
     // TODO(lucas): make this pure virtual
-    void setUpStructure(uint32_t circuit_size);
+    void set_up_structure(uint32_t circuit_size);
 
-    void setUpStructureAndDeserialize(uint32_t circuit_size, const std::vector<uint8_t>& proof_data)
+    void set_up_structure_and_deserialize(uint32_t circuit_size, const std::vector<uint8_t>& proof_data)
     {
-        setUpStructure(circuit_size);
+        set_up_structure(circuit_size);
         size_t num_bytes_read_ = 0;
         for (TranscriptObject& obj : ordered_objects) {
             size_t element_size = obj.obj_size;
@@ -195,7 +195,7 @@ template <typename FF> class BaseTranscript {
 
             auto element_bytes = std::span{ proof_data }.subspan(num_bytes_read_, element_size);
             num_bytes_read_ += element_size;
-            deserializeObj(obj.obj_ptr, obj.obj_type, element_bytes);
+            deserialize_obj(obj.obj_ptr, obj.obj_type, element_bytes);
         }
     }
 
@@ -270,7 +270,7 @@ template <typename FF> class BaseTranscript {
     { // TODO(Lucas): make this pure virtual
         std::vector<uint8_t> proof_data;
         for (TranscriptObject& obj : ordered_objects) {
-            std::vector<uint8_t> obj_bytes = serializeObj(obj.obj_type, obj.obj_ptr);
+            std::vector<uint8_t> obj_bytes = serialize_obj(obj.obj_type, obj.obj_ptr);
             proof_data.insert(proof_data.end(), obj_bytes.begin(), obj_bytes.end());
         }
         return proof_data;
@@ -303,6 +303,7 @@ template <typename FF> class ProverTranscript : public BaseTranscript<FF> {
         // TODO(Adrian): Ensure that serialization of affine elements (including point at infinity) is consistent.
         // TODO(Adrian): Consider restricting serialization (via concepts) to types T for which sizeof(T) reliably
         // returns the size of T in bytes. (E.g. this is true for std::array but not for std::vector).
+        info(label);
         auto element_bytes = to_buffer(element);
         proof_data.insert(proof_data.end(), element_bytes.begin(), element_bytes.end());
 
