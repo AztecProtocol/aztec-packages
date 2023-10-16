@@ -40,7 +40,7 @@ sequenceDiagram
     Context->>Kernel: siloed_note_hash = H(contract_address, inner_note_hash)
 ```
 
-To clarify what the commitment inserted from above (the `siloed_note_hash`) really is we "unroll" the values to their simplest components. This gives us a better idea around what is actually inserted into the tree.
+Notice the `siloed_note_hash` at the very end. It's a commitment that will be inserted into the private data tree. To clarify what this really is, we "unroll" the values to their simplest components. This gives us a better idea around what is actually inserted into the tree.
 
 ```rust
 siloed_note_hash = H(contract_address, inner_note_hash)
@@ -56,9 +56,9 @@ Where the `map_slot` is the slot specified in `Storage::init`, recall:
 And `to` is the actor who receives the note, `amount` of the note and `randomness` is the randomness used to make the note hiding. Without the `randomness` the note could could just as well be plaintext (computational cost of a preimage attack would be trivial in such a case).
 
 :::info
-Beware that this hash computation is what the aztec.nr libraries is doing, and not strict requirements by the network (only the kernel computation is).
+Beware that this hash computation is what the aztec.nr library is doing, and not strictly required by the network (only the kernel computation is).
 :::
 
 With this note structure, the contract can require that only notes sitting at specific storage slots can be used by specific operations, e.g., if transferring funds from `from` to `to`, the notes to destroy should be linked to `H(map_slot, from)` and the new notes (except the change-note) should be linked to `H(map_slot, to)`.
 
-That way, we can have logical storage slots, without them really exiting. This means that knowing the storage slot for a note is not enough to actually figure out what is in there (which it is in public).
+That way, we can have logical storage slots, without them really existing. This means that knowing the storage slot for a note is not enough to actually figure out what is in there (whereas it would be for looking up public state).
