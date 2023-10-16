@@ -62,7 +62,6 @@ template <typename NCT> struct PrivateCallData {
                function_leaf_membership_witness == other.function_leaf_membership_witness &&
                contract_leaf_membership_witness == other.contract_leaf_membership_witness &&
                read_request_membership_witnesses == other.read_request_membership_witnesses &&
-               pending_read_request_membership_witnesses == other.pending_read_request_membership_witnesses &&
                portal_contract_address == other.portal_contract_address && acir_hash == other.acir_hash;
     };
 
