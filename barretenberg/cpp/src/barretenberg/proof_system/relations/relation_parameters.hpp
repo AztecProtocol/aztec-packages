@@ -9,6 +9,8 @@ namespace proof_system {
  */
 template <typename FF> struct RelationParameters {
     static const int NUM_BINARY_LIMBS_IN_GOBLIN_TRANSLATOR = 4;
+    static const int NUM_NATIVE_LIMBS_IN_GOBLIN_TRANSLATOR = 1;
+    static const int NUM_CHALLENGE_POWERS_IN_GOBLIN_TRANSLATOR = 4;
     FF eta = FF(0);                        // Lookup
     FF beta = FF(0);                       // Permutation + Lookup
     FF gamma = FF(0);                      // Permutation + Lookup
@@ -20,6 +22,12 @@ template <typename FF> struct RelationParameters {
     // We can remove this by modifying the relation, but increases complexity
     FF eccvm_set_permutation_delta = 0;
     std::array<FF, NUM_BINARY_LIMBS_IN_GOBLIN_TRANSLATOR> accumulated_result = { FF(0) }; // Goblin Translator
+    std::array<FF, NUM_BINARY_LIMBS_IN_GOBLIN_TRANSLATOR + NUM_NATIVE_LIMBS_IN_GOBLIN_TRANSLATOR> evaluation_input_x = {
+        FF(0)
+    }; // Goblin Translator
+    std::array<std::array<FF, NUM_BINARY_LIMBS_IN_GOBLIN_TRANSLATOR + NUM_NATIVE_LIMBS_IN_GOBLIN_TRANSLATOR>,
+               NUM_CHALLENGE_POWERS_IN_GOBLIN_TRANSLATOR>
+        batching_challenge_v = { { { FF(0) } } };
 
     static RelationParameters get_random()
     {
@@ -36,6 +44,32 @@ template <typename FF> struct RelationParameters {
                                              (result.gamma + result.beta_sqr + result.beta_sqr + result.beta_sqr);
         result.accumulated_result = {
             FF::random_element(), FF::random_element(), FF::random_element(), FF::random_element()
+        };
+
+        result.evaluation_input_x = {
+            FF::random_element(), FF::random_element(), FF::random_element(), FF::random_element(), FF::random_element()
+        };
+        result.batching_challenge_v = {
+            std::array{ FF::random_element(),
+                        FF::random_element(),
+                        FF::random_element(),
+                        FF::random_element(),
+                        FF::random_element() },
+            { FF::random_element(),
+              FF::random_element(),
+              FF::random_element(),
+              FF::random_element(),
+              FF::random_element() },
+            { FF::random_element(),
+              FF::random_element(),
+              FF::random_element(),
+              FF::random_element(),
+              FF::random_element() },
+            { FF::random_element(),
+              FF::random_element(),
+              FF::random_element(),
+              FF::random_element(),
+              FF::random_element() },
         };
 
         return result;
