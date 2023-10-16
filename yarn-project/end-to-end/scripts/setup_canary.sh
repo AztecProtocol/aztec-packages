@@ -2,7 +2,7 @@
 set -eu
 
 DIST_TAG=$1
-TARGET_PKGS_FILE=$1
+TARGET_PKGS_FILE=$2
 
 # Check if file exists and read it into an array
 if [ -f "$TARGET_PKGS_FILE" ]; then
