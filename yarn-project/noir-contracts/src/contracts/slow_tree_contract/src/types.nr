@@ -1,7 +1,3 @@
-
-
-
-
 // A single inclusion proof.
 // M = N + 2
 struct MembershipProof<N, M> {

@@ -75,9 +75,10 @@ contract SlowTree {
     }
 
     #[aztec(private)]
-    fn read_at() -> Field {
+    fn read_at(index: Field) -> Field {
         let fields = pop_mint();
         let p: MembershipProof<TREE_HEIGHT, MEMBERSHIP_SIZE> = deserialize_membership_proof(fields);
+        assert(index == p.index, "Index does not match expected");
 
         let expected_root = compute_merkle_root(p.value, p.index, p.sibling_path);
         let selector = compute_selector("_assert_current_root(Field,Field)");
@@ -102,9 +103,11 @@ contract SlowTree {
     }
 
     #[aztec(private)]
-    fn update_at_private() {
+    fn update_at_private(index: Field, new_value: Field) {
         let fields = pop_mint();
         let p: SlowUpdateProof<TREE_HEIGHT, UPDATE_SIZE> = deserialize_slow_update_proof(fields);
+        assert(index == p.index, "Index does not match expected");
+        assert(new_value == p.new_value, "New value does not match expected");
 
         // We compute the root before.
         let before_root = compute_merkle_root(p.before.value, p.index, p.before.sibling_path);

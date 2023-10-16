@@ -91,7 +91,7 @@ describe('e2e_slow_tree', () => {
     logger('Initial state');
     await status(key);
     await wallet.addMint(getMembershipMint(await getMembershipProof(key, true)));
-    await contract.methods.read_at().send().wait();
+    await contract.methods.read_at(key).send().wait();
 
     logger(`Updating tree[${key}] to 1 from public`);
     await contract.methods
@@ -104,7 +104,7 @@ describe('e2e_slow_tree', () => {
     const zeroProof = await getMembershipProof(key, false);
     logger(`"Reads" tree[${zeroProof.index}] from the tree, equal to ${zeroProof.value}`);
     await wallet.addMint(getMembershipMint({ ...zeroProof, value: new Fr(0) }));
-    await contract.methods.read_at().send().wait();
+    await contract.methods.read_at(key).send().wait();
 
     // Progress time to beyond the update and thereby commit it to the tree.
     await cheatCodes.aztec.warp((await cheatCodes.eth.timestamp()) + 1000);
@@ -116,17 +116,17 @@ describe('e2e_slow_tree', () => {
       `Tries to "read" tree[${zeroProof.index}] from the tree, but is rejected as value is not ${zeroProof.value}`,
     );
     await wallet.addMint(getMembershipMint({ ...zeroProof, value: new Fr(0) }));
-    await expect(contract.methods.read_at().simulate()).rejects.toThrowError(
+    await expect(contract.methods.read_at(key).simulate()).rejects.toThrowError(
       'Assertion failed: Root does not match expected',
     );
 
     logger(`"Reads" tree[${key}], expect to be 1`);
     await wallet.addMint(getMembershipMint({ ...zeroProof, value: new Fr(1) }));
-    await contract.methods.read_at().send().wait();
+    await contract.methods.read_at(key).send().wait();
 
     logger(`Updating tree[${key}] to 4 from private`);
     await wallet.addMint(getUpdateMint(await getUpdateProof(4n, key)));
-    await contract.methods.update_at_private().send().wait();
+    await contract.methods.update_at_private(key, 4n).send().wait();
     await tree.updateLeaf(new Fr(4).toBuffer(), key);
 
     await status(key);
