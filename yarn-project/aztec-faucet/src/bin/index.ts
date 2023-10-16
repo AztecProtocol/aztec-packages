@@ -1,5 +1,6 @@
 #!/usr/bin/env -S node --no-warnings
 import { NULL_KEY, createEthereumChain } from '@aztec/ethereum';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import http from 'http';
@@ -96,7 +97,7 @@ function createRouter(apiPrefix: string) {
   });
   router.get('/drip/:address', async (ctx: Koa.Context) => {
     const { address } = ctx.params;
-    await transferEth(address);
+    await transferEth(EthAddress.fromString(address).toChecksumString());
     ctx.status = 200;
   });
   return router;
