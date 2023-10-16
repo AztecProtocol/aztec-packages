@@ -429,15 +429,15 @@ class Ultra {
         Commitment shplonk_q_comm;
         Commitment kzg_w_comm;
 
-        Transcript(uint32_t circuit_size) { setUpStructure(circuit_size); }
+        Transcript(uint32_t circuit_size) { set_up_structure(circuit_size); }
 
         Transcript(uint32_t circuit_size, const std::vector<uint8_t>& proof_data)
         {
-            setUpStructureAndDeserialize(circuit_size, proof_data);
+            set_up_structure_and_deserialize(circuit_size, proof_data);
         }
 
       private:
-        template <typename T> inline static TranscriptObjectType convertTypeToEnum([[maybe_unused]] T _)
+        template <typename T> inline static TranscriptObjectType convert_type_to_enum([[maybe_unused]] T _)
         {
             if constexpr (std::same_as<T, uint32_t>) {
                 return UInt32Obj;
@@ -450,11 +450,11 @@ class Ultra {
             } else if constexpr (std::same_as<T, std::array<FF, NUM_ALL_ENTITIES>>) {
                 return SumcheckEvalObj;
             } else {
-                throw_or_abort("Received unknown type in convertTypeToEnum");
+                throw_or_abort("Received unknown type in convert_type_to_enum");
             }
         }
 
-        static std::vector<uint8_t> serializeObj(TranscriptObjectType enum_type, void* obj_ptr)
+        static std::vector<uint8_t> serialize_obj(TranscriptObjectType enum_type, void* obj_ptr)
         {
             using serialize::write;
             switch (enum_type) {
@@ -469,11 +469,11 @@ class Ultra {
             case SumcheckEvalObj:
                 return to_buffer(*static_cast<std::array<FF, NUM_ALL_ENTITIES>*>(obj_ptr));
             default:
-                throw_or_abort("Received unknown enum type in convertTypePtrFromEnum");
+                throw_or_abort("Received unknown enum type in convert_type_ptr_from_enum");
             }
         }
 
-        void deserializeObj(void* obj_ptr, TranscriptObjectType enum_type, const std::span<const uint8_t>& buf)
+        void deserialize_obj(void* obj_ptr, TranscriptObjectType enum_type, const std::span<const uint8_t>& buf)
         {
             using serialize::read;
             switch (enum_type) {
@@ -495,11 +495,11 @@ class Ultra {
                     from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(buf);
                 return;
             default:
-                throw_or_abort("Received unknown enum type in convertTypePtrFromEnum");
+                throw_or_abort("Received unknown enum type in convert_type_ptr_from_enum");
             }
         }
 
-        void setUpStructure(uint32_t circuit_size)
+        void set_up_structure(uint32_t circuit_size)
         {
             // construct the vector
             auto log_n = numeric::get_msb(circuit_size);
