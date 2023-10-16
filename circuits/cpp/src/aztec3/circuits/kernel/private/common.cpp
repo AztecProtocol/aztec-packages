@@ -119,7 +119,6 @@ void common_validate_read_requests(DummyBuilder& builder,
     }
 }
 
-
 /**
  * @brief We validate that relevant arrays assumed to be zero-padded on the right comply to this format.
  *
@@ -133,6 +132,7 @@ void common_validate_arrays(DummyBuilder& builder, PrivateCircuitPublicInputs<NT
     // to push_array_to_array() routines which rely on the passed arrays to be well-formed.
     validate_array(builder, app_public_inputs.return_values, "App public inputs - Return values");
     validate_array(builder, app_public_inputs.read_requests, "App public inputs - Read requests");
+    validate_array(builder, app_public_inputs.pending_read_requests, "App public inputs - Pending read requests");
     validate_array(builder, app_public_inputs.new_commitments, "App public inputs - New commitments");
     validate_array(builder, app_public_inputs.new_nullifiers, "App public inputs - New nullifiers");
     validate_array(builder, app_public_inputs.nullified_commitments, "App public inputs - Nullified commitments");
@@ -152,6 +152,7 @@ void common_validate_previous_kernel_arrays(DummyBuilder& builder, CombinedAccum
 {
     // Each of the following arrays is expected to be zero-padded.
     validate_array(builder, end.read_requests, "Accumulated data - Read Requests");
+    validate_array(builder, end.pending_read_requests, "Accumulated data - Pending read Requests");
     validate_array(builder, end.new_commitments, "Accumulated data - New commitments");
     validate_array(builder, end.new_nullifiers, "Accumulated data - New nullifiers");
     validate_array(builder, end.nullified_commitments, "Accumulated data - Nullified commitments");
@@ -181,6 +182,8 @@ void common_update_end_values(DummyBuilder& builder,
 
     const auto& read_requests = private_call_public_inputs.read_requests;
     const auto& read_request_membership_witnesses = private_call.read_request_membership_witnesses;
+
+    const auto& pending_read_requests = private_call_public_inputs.pending_read_requests;
 
     const auto& new_commitments = private_call_public_inputs.new_commitments;
     const auto& new_nullifiers = private_call_public_inputs.new_nullifiers;
