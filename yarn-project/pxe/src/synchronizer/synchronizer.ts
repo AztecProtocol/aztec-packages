@@ -288,7 +288,12 @@ export class Synchronizer {
   public getSyncStatus() {
     return {
       blocks: this.synchedToBlock,
-      notes: Object.fromEntries(this.noteProcessors.map(n => [n.publicKey.toString(), n.status.syncedToBlock])),
+      notes: Object.fromEntries(
+        [...this.noteProcessors, ...this.noteProcessorsToCatchUp].map(n => [
+          n.publicKey.toString(),
+          n.status.syncedToBlock,
+        ]),
+      ),
     };
   }
 }

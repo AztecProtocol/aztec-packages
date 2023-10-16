@@ -1,7 +1,7 @@
 import { CompleteAddress, Fr, GrumpkinScalar, HistoricBlockData } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { TestKeyStore } from '@aztec/key-store';
-import { AztecNode, INITIAL_L2_BLOCK_NUM, L2Block, MerkleTreeId } from '@aztec/types';
+import { AztecNode, L2Block, MerkleTreeId } from '@aztec/types';
 
 import { MockProxy, mock } from 'jest-mock-extended';
 import omit from 'lodash.omit';
@@ -99,7 +99,7 @@ describe('Synchronizer', () => {
     await synchronizer.work();
 
     // Used in synchronizer.isAccountStateSynchronized
-    aztecNode.getBlockNumber.mockResolvedValueOnce(1);
+    aztecNode.getBlockNumber.mockResolvedValue(1);
 
     // Manually adding account to database so that we can call synchronizer.isAccountStateSynchronized
     const keyStore = new TestKeyStore(await Grumpkin.new());
@@ -109,11 +109,25 @@ describe('Synchronizer', () => {
     await database.addCompleteAddress(completeAddress);
 
     // Add the account which will add the note processor to the synchronizer
-    synchronizer.addAccount(completeAddress.publicKey, keyStore, INITIAL_L2_BLOCK_NUM);
+    synchronizer.addAccount(completeAddress.publicKey, keyStore, 1);
+
+    expect(await synchronizer.isAccountStateSynchronized(completeAddress.address)).toBe(false);
+    expect(synchronizer.getSyncStatus()).toEqual({
+      blocks: 1,
+      notes: {
+        [completeAddress.publicKey.toString()]: 0,
+      },
+    });
 
     await synchronizer.workNoteProcessorCatchUp();
 
     expect(await synchronizer.isAccountStateSynchronized(completeAddress.address)).toBe(true);
+    expect(synchronizer.getSyncStatus()).toEqual({
+      blocks: 1,
+      notes: {
+        [completeAddress.publicKey.toString()]: 1,
+      },
+    });
   });
 });
 
