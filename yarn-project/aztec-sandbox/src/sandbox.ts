@@ -103,6 +103,8 @@ async function deployContractsToL1(aztecNodeConfig: AztecNodeConfig, hdAccount: 
     l1Contracts.l1ContractAddresses.contractDeploymentEmitterAddress;
   aztecNodeConfig.l1Contracts.inboxAddress = l1Contracts.l1ContractAddresses.inboxAddress;
   aztecNodeConfig.l1Contracts.registryAddress = l1Contracts.l1ContractAddresses.registryAddress;
+  aztecNodeConfig.l1Contracts.outboxAddress = l1Contracts.l1ContractAddresses.outboxAddress;
+  aztecNodeConfig.l1Contracts.decoderHelperAddress = l1Contracts.l1ContractAddresses.decoderHelperAddress;
   return l1Contracts;
 }
 
