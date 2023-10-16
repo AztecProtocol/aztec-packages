@@ -147,6 +147,7 @@ export function extractPrivateCircuitPublicInputs(
   const argsHash = witnessReader.readField();
   const returnValues = witnessReader.readFieldArray(RETURN_VALUES_LENGTH);
   const readRequests = witnessReader.readFieldArray(MAX_READ_REQUESTS_PER_CALL);
+  const pendingReadRequests = witnessReader.readFieldArray(MAX_PENDING_READ_REQUESTS_PER_CALL);
   const newCommitments = witnessReader.readFieldArray(MAX_NEW_COMMITMENTS_PER_CALL);
   const newNullifiers = witnessReader.readFieldArray(MAX_NEW_NULLIFIERS_PER_CALL);
   const nullifiedCommitments = witnessReader.readFieldArray(MAX_NEW_NULLIFIERS_PER_CALL);
@@ -186,6 +187,7 @@ export function extractPrivateCircuitPublicInputs(
     argsHash,
     returnValues,
     readRequests,
+    pendingReadRequests,
     newCommitments,
     newNullifiers,
     nullifiedCommitments,
