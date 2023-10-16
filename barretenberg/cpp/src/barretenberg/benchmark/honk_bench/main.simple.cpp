@@ -37,6 +37,13 @@ template <typename Builder> void generate_sha256_test_circuit(Builder& builder, 
     }
 }
 
+[[clang::xray_always_instrument]] [[clang::noinline]] void profile_proving(auto& ext_prover)
+{
+    for (size_t i = 0; i < 10; i++) {
+        auto proof = ext_prover.construct_proof();
+    }
+}
+
 /**
  * @brief Benchmark: Construction of a Ultra Honk proof for a circuit determined by the provided circuit function
  */
@@ -50,9 +57,9 @@ void construct_proof_ultra() noexcept
     auto composer = UltraHonk();
     auto instance = composer.create_instance(builder);
     auto ext_prover = composer.create_prover(instance);
-    for (size_t i = 0; i < 10; i++) {
-        auto proof = ext_prover.construct_proof();
-    }
+    // exercise thread pool
+    auto proof = ext_prover.construct_proof();
+    profile_proving(ext_prover);
 }
 
 int main()

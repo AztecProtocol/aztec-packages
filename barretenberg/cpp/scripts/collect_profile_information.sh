@@ -39,7 +39,8 @@ function shorten_cpp_names() {
 # Process benchmark file.
 llvm-xray-16 stack xray-log.honk_bench_main_simple.* \
   --instr_map=./bin/honk_bench_main_simple --stack-format=flame --aggregate-threads --aggregation-type=time --all-stacks \
-  | node ../scripts/llvm_xray_stack_flame_corrector.js \
-  | shorten_cpp_names \
-  | ../scripts/flamegraph.pl > xray.svg
+  | node ../scripts/llvm_xray_stack_flame_corrector.js
+  # | shorten_cpp_names \
+  # | ../scripts/flamegraph.pl --width 2000 --fontsize 10 \
+  # > xray.svg
 echo "Profiling complete, now you can do e.g. 'scp mainframe:`readlink -f xray.svg` .' on a local terminal and open the SVG in a browser."

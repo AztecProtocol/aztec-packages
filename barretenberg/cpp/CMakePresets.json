@@ -184,6 +184,22 @@
       }
     },
     {
+      "name": "xray-1thread-no-inline",
+      "displayName": "Build with single-threaded XRay Profiling",
+      "description": "Build with Clang and enable single-threaded LLVM XRay for profiling",
+      "generator": "Unix Makefiles",
+      "inherits": "clang16",
+      "environment": {
+        "CFLAGS": "-fxray-instrument -fxray-instruction-threshold=10 -fno-inline-functions",
+        "CXXFLAGS": "-fxray-instrument -fxray-instruction-threshold=10 -fno-inline-functions",
+        "LDFLAGS": "-fxray-instrument -fxray-instruction-threshold=10 -fno-inline-functions"
+      },
+      "cacheVariables": {
+        "MULTITHREADING": "OFF"
+      },
+      "binaryDir": "build-xray-1thread-no-inline"
+    },
+    {
       "name": "xray-1thread",
       "displayName": "Build with single-threaded XRay Profiling",
       "description": "Build with Clang and enable single-threaded LLVM XRay for profiling",
@@ -302,6 +318,11 @@
       "inheritConfigureEnvironment": true,
       "jobs": 0,
       "targets": ["barretenberg.wasm"]
+    },
+    {
+      "name": "xray-1thread-no-inline",
+      "configurePreset": "xray-1thread-no-inline",
+      "inherits": "default"
     },
     {
       "name": "xray-1thread",
