@@ -79,13 +79,6 @@ export interface TypeInfo {
    */
   variantSubtypes?: TypeInfo[];
   /**
-   * Was this used in a variant type?
-   * Typically a variant in C++ will have an easy to distinguish type as
-   * one of two structs e.g. [Error, T]. In that case, a isError method would be imported. Only if a third type was
-   * added would we need to distinguish T as well.
-   */
-  usedInDiscriminatedVariant?: boolean;
-  /**
    * Key-value pair of types that represent the keys and values in a map schema.
    */
   mapSubtypes?: [TypeInfo, TypeInfo];
@@ -136,14 +129,11 @@ function msgpackConverterExpr(typeInfo: TypeInfo, value: string): string {
     }
   } else if (typeInfo.variantSubtypes) {
     const { variantSubtypes } = typeInfo;
-    // Handle the last variant type: just assume it is this type...
-    let expr = msgpackConverterExpr(variantSubtypes[variantSubtypes.length - 1], 'v');
-    // ... because we check every other type:
+    // Handle the last variant type: we assume it is this type after checking everything else
+    let expr = msgpackConverterExpr(variantSubtypes[variantSubtypes.length - 1], 'v[1]');
     for (let i = 0; i < variantSubtypes.length - 1; i++) {
-      // mark this as needing an import
-      variantSubtypes[i].usedInDiscriminatedVariant = true;
       // make the expr a compound expression with a discriminator
-      expr = `(is${variantSubtypes[i].typeName}(v) ? ${msgpackConverterExpr(variantSubtypes[i], 'v')} : ${expr})`;
+      expr = `(v[0] == ${i} ? ${msgpackConverterExpr(variantSubtypes[i], 'v[1]')} : ${expr})`;
     }
     return `((v: ${typeInfo.msgpackTypeName}) => ${expr})(${value})`;
   } else if (typeInfo.mapSubtypes) {
@@ -494,9 +484,6 @@ import { IWasmModule } from '@aztec/foundation/wasm';
     for (const typeInfo of Object.values(this.typeInfos)) {
       if (typeInfo.isImport) {
         imports.push(typeInfo.typeName);
-      }
-      if (typeInfo.usedInDiscriminatedVariant) {
-        imports.push(`is${typeInfo.typeName}`);
       }
       if (typeInfo.declaration) {
         outputs.push(typeInfo.declaration);
