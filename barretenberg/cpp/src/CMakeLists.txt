@@ -37,8 +37,7 @@ if(WASM)
     add_link_options(-Wl,--export-memory,--import-memory,--stack-first,-z,stack-size=1048576,--max-memory=4294967296)
 endif()
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/msgpack-c/include)
-
+include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${MSGPACK_PREFIX}/include)
 
 # I feel this should be limited to ecc, however it's currently used in headers that go across libraries,
 # and there currently isn't an easy way to inherit the DDISABLE_SHENANIGANS parameter.
