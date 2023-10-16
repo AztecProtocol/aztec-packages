@@ -2,6 +2,7 @@
 
 #include "call_context_reconciliation_data.hpp"
 #include "../call_stack_item.hpp"
+#include "../pending_read_request_membership_witness.hpp"
 #include "../read_request_membership_witness.hpp"
 #include "../types.hpp"
 
