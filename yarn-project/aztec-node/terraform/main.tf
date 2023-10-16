@@ -99,7 +99,7 @@ resource "aws_ecs_task_definition" "aztec-node-1" {
 [
   {
     "name": "${var.DEPLOY_TAG}-aztec-node-1",
-    "image": "${var.ECR_URL}/aztec-node:latest",
+    "image": "${var.ECR_URL}/aztec-node:aztec3-packages-prod",
     "essential": true,
     "memoryReservation": 3776,
     "portMappings": [
@@ -160,16 +160,16 @@ resource "aws_ecs_task_definition" "aztec-node-1" {
         "value": "${var.INBOX_CONTRACT_ADDRESS}"
       },
       {
+        "name": "REGISTRY_CONTRACT_ADDRESS",
+        "value": "${var.REGISTRY_CONTRACT_ADDRESS}"
+      },
+      {
         "name": "API_KEY",
         "value": "${var.API_KEY}"
       },
       {
         "name": "API_PREFIX",
         "value": "/${var.DEPLOY_TAG}/aztec-node-1"
-      },
-      {
-        "name": "SEARCH_START_BLOCK",
-        "value": "15920300"
       },
       {
         "name": "P2P_TCP_LISTEN_PORT",
@@ -392,7 +392,7 @@ resource "aws_ecs_task_definition" "aztec-node-2" {
 [
   {
     "name": "${var.DEPLOY_TAG}-aztec-node-2",
-    "image": "${var.ECR_URL}/aztec-node:latest",
+    "image": "${var.ECR_URL}/aztec-node:aztec3-packages-prod",
     "essential": true,
     "memoryReservation": 3776,
     "portMappings": [
@@ -453,16 +453,16 @@ resource "aws_ecs_task_definition" "aztec-node-2" {
         "value": "${var.INBOX_CONTRACT_ADDRESS}"
       },
       {
+        "name": "REGISTRY_CONTRACT_ADDRESS",
+        "value": "${var.REGISTRY_CONTRACT_ADDRESS}"
+      },
+      {
         "name": "API_KEY",
         "value": "${var.API_KEY}"
       },
       {
         "name": "API_PREFIX",
         "value": "/${var.DEPLOY_TAG}/aztec-node-2"
-      },
-      {
-        "name": "SEARCH_START_BLOCK",
-        "value": "15920300"
       },
       {
         "name": "P2P_TCP_LISTEN_PORT",
