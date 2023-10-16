@@ -23,6 +23,7 @@ using aztec3::circuits::abis::ContractLeafPreimage;
 using aztec3::circuits::abis::FunctionData;
 using aztec3::circuits::abis::KernelCircuitPublicInputs;
 using aztec3::circuits::abis::NewContractData;
+using aztec3::circuits::abis::PendingReadRequestMembershipWitness;
 using aztec3::circuits::abis::ReadRequestMembershipWitness;
 
 using aztec3::utils::array_push;
@@ -113,6 +114,66 @@ void common_validate_read_requests(DummyBuilder& builder,
                 CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_PRIVATE_DATA_ROOT_MISMATCH);
             // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1354): do we need to enforce
             // that a non-transient read_request was derived from the proper/current contract address?
+        }
+    }
+}
+
+/**
+ * @brief Validate all read requests against the historic private data root.
+ * Use their membership witnesses to do so. If the historic root is not yet
+ * initialized, initialize it using the first read request here (if present).
+ *
+ * @details More info here:
+ * - https://discourse.aztec.network/t/to-read-or-not-to-read/178
+ * - https://discourse.aztec.network/t/spending-notes-which-havent-yet-been-inserted/180
+ *
+ * @param builder
+ * @param historic_private_data_tree_root This is a reference to the historic root which all
+ * read requests are checked against here.
+ * @param pending_read_requests the commitments being read by this private call - 'pending note reads' here are
+ * `inner_note_hashes` (not yet siloed, not unique), but 'pre-existing note reads' are `unique_siloed_note_hashes`
+ * @param pending_read_request_membership_witnesses used to compute the private data root
+ * for a given request which is essentially a membership check
+ */
+void common_validate_pending_read_requests(
+    DummyBuilder& builder,
+    NT::fr const& historic_private_data_tree_root,
+    std::array<fr, MAX_PENDING_READ_REQUESTS_PER_CALL> const& pending_read_requests,
+    std::array<PendingReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>,
+               MAX_PENDING_READ_REQUESTS_PER_CALL> const& pending_read_request_membership_witnesses)
+{
+    // membership witnesses must resolve to the same private data root
+    // for every request in all kernel iterations
+    for (size_t rr_idx = 0; rr_idx < aztec3::MAX_PENDING_READ_REQUESTS_PER_CALL; rr_idx++) {
+        const auto& pending_read_request = pending_read_requests[rr_idx];
+        const auto& witness = pending_read_request_membership_witnesses[rr_idx];
+
+        // A pending commitment is the one that is not yet added to private data tree
+        // A pending read is when we try to "read" a pending commitment.  In this case, it is a comitment
+        // from a prior transaction, rather than a prior function all as in the case of a transient read.
+        if (read_request != 0) {
+            const auto& root_for_pending_read_request =
+                root_from_sibling_path<NT>(pending_read_request, witness.leaf_index, witness.sibling_path);
+            builder.do_assert(
+                root_for_pending_read_request == historic_private_data_tree_root,
+                format("private data tree root mismatch at pending_read_request[",
+                       rr_idx,
+                       "]",
+                       "\n\texpected root:    ",
+                       historic_private_data_tree_root,
+                       "\n\tbut got root*:    ",
+                       root_for_pending_read_request,
+                       "\n\tread_request**:   ",
+                       pending_read_request,
+                       "\n\tleaf_index: ",
+                       witness.leaf_index,
+                       "\n\thint_to_commitment: ",
+                       witness.hint_to_commitment,
+                       "\n\t* got root by treating the pending_read_request as a leaf in the private data tree "
+                       "and merkle-hashing to a root using the membership witness"
+                       "\n\t** for 'pre-existing note reads', the pending_read_request is the unique_siloed_note_hash "
+                       "(it has been hashed with contract address and then a nonce)"),
+                CircuitErrorCode::PRIVATE_KERNEL__PENDING_READ_REQUEST_PRIVATE_DATA_ROOT_MISMATCH);
         }
     }
 }
