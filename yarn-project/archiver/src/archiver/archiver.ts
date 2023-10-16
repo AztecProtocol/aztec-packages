@@ -283,6 +283,7 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
     // remove logs to serve "lightweight" block information. Logs can be fetched separately if needed.
     await this.store.addBlocks(
       retrievedBlocks.retrievedData.map(block => {
+        // Ensure we pad the L1 to L2 message array to the full size before storing.
         block.newL1ToL2Messages = padArrayEnd(block.newL1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
         return L2Block.fromFields(omit(block, ['newEncryptedLogs', 'newUnencryptedLogs']), block.getBlockHash());
       }
