@@ -63,7 +63,7 @@ MSGPACK_API_VERSION_NAMESPACE(v1)
             if (o.type != msgpack::type::ARRAY || o.via.array.size != 2 ||
                 o.via.array.ptr[0].type != msgpack::type::POSITIVE_INTEGER ||
                 o.via.array.ptr[0].via.u64 >= sizeof...(Ts)) {
-                throw msgpack::type_error{};
+                THROW msgpack::type_error{};
             }
 
             return detail::construct_variant<std::variant<Ts...>, Ts...>(
@@ -77,7 +77,7 @@ MSGPACK_API_VERSION_NAMESPACE(v1)
             if (o.type != msgpack::type::ARRAY || o.via.array.size != 2 ||
                 o.via.array.ptr[0].type != msgpack::type::POSITIVE_INTEGER ||
                 o.via.array.ptr[0].via.u64 >= sizeof...(Ts)) {
-                throw msgpack::type_error{};
+                THROW msgpack::type_error{};
             }
 
             v = detail::construct_variant<std::variant<Ts...>, Ts...>(

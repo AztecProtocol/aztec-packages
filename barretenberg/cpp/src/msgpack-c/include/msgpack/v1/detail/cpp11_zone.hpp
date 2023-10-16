@@ -160,7 +160,7 @@ MSGPACK_API_VERSION_NAMESPACE(v1)
         {
             void* p = ::malloc(size);
             if (!p)
-                throw std::bad_alloc();
+                THROW std::bad_alloc();
             return p;
         }
 
@@ -218,7 +218,7 @@ MSGPACK_API_VERSION_NAMESPACE(v1)
         if (!m_chunk_list) {
             auto ptr = ::malloc(sizeof(chunk_list) + m_chunk_size);
             if (!ptr)
-                throw std::bad_alloc();
+                THROW std::bad_alloc();
             m_chunk_list = new (ptr) chunk_list(m_chunk_size, reinterpret_cast<char*>(ptr) + sizeof(chunk_list));
         }
         return *m_chunk_list;
@@ -269,7 +269,7 @@ MSGPACK_API_VERSION_NAMESPACE(v1)
 
         chunk* c = static_cast<chunk*>(::malloc(sizeof(chunk) + sz));
         if (!c)
-            throw std::bad_alloc();
+            THROW std::bad_alloc();
 
         char* ptr = reinterpret_cast<char*>(c) + sizeof(chunk);
 
@@ -333,14 +333,14 @@ MSGPACK_API_VERSION_NAMESPACE(v1)
             m_finalizer_array.push(&zone::object_destruct<T>, x);
         } catch (...) {
             undo_allocate(sizeof(T));
-            throw;
+            RETHROW;
         }
         try {
             return new (x) T(args...);
         } catch (...) {
             m_finalizer_array.pop();
             undo_allocate(sizeof(T));
-            throw;
+            RETHROW;
         }
     }
 

@@ -110,10 +110,10 @@ MSGPACK_API_VERSION_NAMESPACE(v1)
     Target integral_cast(Source source)
     {
         if (would_underflow<Target, Source>(source).value) {
-            throw std::underflow_error{ "casting from Source to Target causes an underflow error" };
+            THROW std::underflow_error{ "casting from Source to Target causes an underflow error" };
         }
         if (would_overflow<Target, Source>(source).value) {
-            throw std::overflow_error{ "casting from Source to Target causes an overflow error" };
+            THROW std::overflow_error{ "casting from Source to Target causes an overflow error" };
         }
 
         return static_cast<Target>(source);
