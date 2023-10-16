@@ -31,7 +31,13 @@ void init_slab_allocator(size_t circuit_subgroup_size);
  * Returns a slab from the preallocated pool of slabs, or fallback to a new heap allocation (32 byte aligned).
  * Ref counted result so no need to manually free.
  */
-std::shared_ptr<void> get_mem_slab(size_t size);
+// std::shared_ptr<void> get_mem_slab(size_t size);
+
+inline std::shared_ptr<void> get_mem_slab(size_t size)
+{
+    // NOLINTNEXTLINE(cppcoreguidelines-no-malloc)
+    return { malloc(size), free };
+}
 
 /**
  * Sometimes you want a raw pointer to a slab so you can manage when it's released manually (e.g. c_binds, containers).

@@ -461,7 +461,8 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::partial_evaluate_mle(std::
     return result;
 }
 
-template <typename Fr> typename Polynomial<Fr>::pointer Polynomial<Fr>::allocate_aligned_memory(const size_t size) const
+template <typename Fr>
+BBERG_INLINE typename Polynomial<Fr>::pointer Polynomial<Fr>::allocate_aligned_memory(const size_t size) const
 {
     return std::static_pointer_cast<Fr[]>(get_mem_slab(size));
 }

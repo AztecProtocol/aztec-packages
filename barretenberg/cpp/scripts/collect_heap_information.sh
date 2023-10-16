@@ -8,6 +8,7 @@ ONLY_PROCESS=${1:-}
 cd $(dirname $0)/..
 
 # Configure and build with heap profiling preset.
+
 cmake --preset $PRESET
 cmake --build --preset $PRESET
 
@@ -15,10 +16,10 @@ cd build-$PRESET
 
 if [ -z "$ONLY_PROCESS" ]; then
   # Clear old heap profile data.
-  rm -f honk_bench_main_simple.heap.*
+  rm -f honk_bench_main_simple.heap*
 
   # Run application with heap profiling.
-HEAPPROFILE=./honk_bench_main_simple ./bin/honk_bench_main_simple
+  HEAPPROFILE=./honk_bench_main_simple ./bin/honk_bench_main_simple
 fi
 
 # Download and install Go
