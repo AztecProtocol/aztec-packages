@@ -12,7 +12,7 @@ We are building the [Aztec Network](https://aztec.network/), a fully programmabl
 
 ## Values
 
-- **Private.**: The only true zero-knowledge rollup, built with a privacy-first UTXO architecture to allow developers to build privacy preserving programable applications.
+- **Private.**: The only true zero-knowledge rollup, built with a privacy-first UTXO architecture to allow developers to build privacy preserving programmable applications.
 - **Accessible.**: Proving transaction validity via recursively aggregation of zero-knowledge proofs, significantly reduces transaction costs.
 - **Compliant**: The programmable nature of Aztec smart contracts, enables dApp developers to code privacy-preserving audit and compliance checks into apps, while fully preserving a credible neutral protocol layer.
 
@@ -20,7 +20,7 @@ We are building the [Aztec Network](https://aztec.network/), a fully programmabl
 
 > “When we started Aztec, the technology to scale blockchains privately didn’t exist. Since then, we’ve assembled a team of world-class cryptographers who continuously redefine the state-of-the-art. Inventing PLONK — the paradigm-defining universal zk-SNARK — showcases our ability to produce technology that matches our ambitions: unlocking an entire universe of blockchain applications that couldn’t exist without privacy.”
 
-To achieve these goals, we are pioneering the cryptography and research needed to bring our next generation, privacy-preserving zk-roll-up to mainnet.
+To achieve these goals, we are pioneering the cryptography and research needed to bring our next generation, privacy-preserving zk-rollup to mainnet.
 
 import Disclaimer from "../misc/common/\_disclaimer.mdx";
 <Disclaimer/>
