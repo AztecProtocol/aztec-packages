@@ -44,7 +44,7 @@ template <typename Flavor, typename Instances> class ProtogalaxyProver {
         Univariate<FF, (Flavor::MAX_RANDOM_RELATION_LENGTH - 1) * (Instances::NUM - 1) + 1>;
 
     using ExtendedUnivariates = typename Flavor::template ProverUnivariates<ExtendedUnivariate::LENGTH>;
-    using TupleOfTuplesOfUnivariates = typename Flavor::Protogalaxy2TupleOfTuplesOfUnivarites;
+    using TupleOfTuplesOfUnivariates = typename Flavor::ProtogalaxyTupleOfTuplesOfUnivariates;
 
     TupleOfTuplesOfUnivariates univariate_accumulators;
 

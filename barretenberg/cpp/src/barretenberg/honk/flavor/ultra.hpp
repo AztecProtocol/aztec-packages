@@ -61,7 +61,7 @@ class Ultra {
     static constexpr size_t NUM_RELATIONS = std::tuple_size<Relations>::value;
 
     // define the container for storing the univariate contribution from each relation in Sumcheck
-    using Protogalaxy2TupleOfTuplesOfUnivarites =
+    using ProtogalaxyTupleOfTuplesOfUnivariates =
         decltype(create_protogalaxy_tuple_of_tuples_of_univariates<Relations>());
     using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
     using SumcheckTupleOfArraysOfValues = decltype(create_sumcheck_tuple_of_arrays_of_values<Relations>());
