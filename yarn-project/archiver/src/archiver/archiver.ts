@@ -1,4 +1,4 @@
-import { FunctionSelector } from '@aztec/circuits.js';
+import { FunctionSelector, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -35,6 +35,7 @@ import {
   retrieveNewContractData,
   retrieveNewPendingL1ToL2Messages,
 } from './data_retrieval.js';
+import { padArrayEnd } from '@aztec/foundation/collection';
 
 /**
  * Pulls L2 blocks in a non-blocking manner and provides interface for their retrieval.
@@ -281,8 +282,10 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
     // store retrieved L2 blocks after removing new logs information.
     // remove logs to serve "lightweight" block information. Logs can be fetched separately if needed.
     await this.store.addBlocks(
-      retrievedBlocks.retrievedData.map(block =>
-        L2Block.fromFields(omit(block, ['newEncryptedLogs', 'newUnencryptedLogs']), block.getBlockHash()),
+      retrievedBlocks.retrievedData.map(block => {
+        block.newL1ToL2Messages = padArrayEnd(block.newL1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+        return L2Block.fromFields(omit(block, ['newEncryptedLogs', 'newUnencryptedLogs']), block.getBlockHash());
+      }
       ),
     );
 
