@@ -228,7 +228,8 @@ static constexpr auto create_protogalaxy_tuple_of_tuples_of_univariates()
     if constexpr (Index >= std::tuple_size<Tuple>::value) {
         return std::tuple<>{}; // Return empty when reach end of the tuple
     } else {
-        using UnivariateTuple = typename std::tuple_element_t<Index, Tuple>::SumcheckTupleOfUnivariatesOverSubrelations;
+        using UnivariateTuple =
+            typename std::tuple_element_t<Index, Tuple>::ProtogalaxyTupleOfUnivariatesOverSubrelations;
         return std::tuple_cat(std::tuple<UnivariateTuple>{},
                               create_protogalaxy_tuple_of_tuples_of_univariates<Tuple, Index + 1>());
     }
