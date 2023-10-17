@@ -1,1 +1,1 @@
-src/artifacts/
+src/artifacts/**/*.ts
