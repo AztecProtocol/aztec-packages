@@ -21,7 +21,7 @@ import { readFileSync } from "fs";
 import TokenContractArtifact from "../contracts/token/target/Token.json" assert { type: "json" };
 ```
 
-And then add the following code for initialising the `Contract` instances:
+And then add the following code for initializing the `Contract` instances:
 
 #include_code get-tokens yarn-project/end-to-end/src/sample-dapp/contracts.mjs javascript
 
@@ -121,18 +121,6 @@ Balance of 0x0c8a6673d7676cc80aaebe7fa7504cf51daa90ba906861bfad70a58a98bf5a7d: 1
 Balance of 0x226f8087792beff8d5009eb94e65d2a4a505b70baf4a9f28d33c8d620b0ba972: 0
 Balance of 0x0e1f60e8566e2c6d32378bdcadb7c63696e853281be798c107266b8c3a88ea9b: 0
 ```
-
-Public functions can emit [unencrypted logs](../../contracts/syntax/events.md#unencrypted-events), which can be queried via the PXE interface. In particular, the token contract emits a generic `Public tokens minted` whenever the `mint_public` method is called:
-
-#include_code unencrypted_log yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
-
-We can extend our code by querying the logs emitted on the last block when the minting transaction is mined:
-
-#include_code showLogs yarn-project/end-to-end/src/sample-dapp/index.mjs javascript
-
-:::info
-At the time of this writing, there is no event-based mechanism in the `aztec.js` library to subscribe to events. The only option to consume them is to poll on every new block detected. This will change in a future version.
-:::
 
 ## Next steps
 
