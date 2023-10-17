@@ -12,16 +12,16 @@ RUN ../canary/scripts/extract_packages.sh ../canary/package.json > ./target_pkgs
 # Update end-to-end dependencies with target version
 RUN ./scripts/setup_canary.sh ./target_pkgs.txt package.json
 RUN rm ./target_pkgs.txt
-# Need to yarn install & rebuild to apply changes (canary packages)
+# yarn install & build to apply changes (canary packages)
 RUN yarn && yarn build
 
-# Install & build canary in different dir
+# Install & build canary packages
 WORKDIR /usr/src/canary
 RUN ./scripts/update_packages.sh canary ../end-to-end/
 RUN yarn && yarn build
 
 FROM node:18-alpine
-RUN apk update && apk add --no-cache udev ttf-freefont chromium curl jq bash
+RUN apk update && apk add --no-cache udev ttf-freefont chromium bash
 ENV CHROME_BIN="/usr/bin/chromium-browser" PUPPETEER_SKIP_CHROMIUM_DOWNLOAD="true"
 
 COPY --from=builder /usr/src/end-to-end /usr/src/end-to-end
@@ -32,7 +32,7 @@ WORKDIR /usr/src/canary
 RUN cp ../end-to-end/scripts/start_e2e_ci_browser.sh ./scripts/start_e2e_ci_browser.sh
 RUN chmod +x scripts/start_e2e_ci_browser.sh
 
-# RUN cp ./node_modules/@aztec/aztec.js/dest/main.js src/web/
 RUN cp ./node_modules/@aztec/circuits.js/resources/aztec3-circuits.wasm src/web/
+RUN cp ./node_modules/@aztec/aztec.js/dest/main.js src/web/
 
 ENTRYPOINT ["yarn", "test"]
