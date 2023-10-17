@@ -668,7 +668,7 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     argsHash: fr(seed + 0x100),
     returnValues: makeTuple(RETURN_VALUES_LENGTH, fr, seed + 0x200),
     readRequests: makeTuple(MAX_READ_REQUESTS_PER_CALL, fr, seed + 0x300),
-    pendingReadRequests: makeTuple(MAX_PENDING_READ_REQUESTS_PER_CALL, fr, seed + 0x300),
+    pendingReadRequests: makeTuple(MAX_PENDING_READ_REQUESTS_PER_CALL, fr, seed + 0x310),
     newCommitments: makeTuple(MAX_NEW_COMMITMENTS_PER_CALL, fr, seed + 0x400),
     newNullifiers: makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, fr, seed + 0x500),
     nullifiedCommitments: makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, fr, seed + 0x510),
