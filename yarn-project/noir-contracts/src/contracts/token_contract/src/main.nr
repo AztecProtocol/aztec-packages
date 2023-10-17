@@ -15,10 +15,6 @@ contract Token {
 
     use dep::safe_math::SafeU120;
 
-    // docs:start:unencrypted_import
-    use dep::aztec::log::emit_unencrypted_log;
-    // docs:end:unencrypted_import
-
     use dep::aztec::{
         note::{
             note_getter_options::NoteGetterOptions,
@@ -139,8 +135,6 @@ contract Token {
         // docs:start:write_admin
         storage.admin.write(new_admin);
         // docs:end:write_admin
-
-        emit_unencrypted_log(&mut context, "Admin set");
     }
     // docs:end:set_admin
 
@@ -156,8 +150,6 @@ contract Token {
         // docs:start:write_minter
         storage.minters.at(minter.address).write(approve);
         // docs:end:write_minter
-
-        emit_unencrypted_log(&mut context, "Minter set");
     }
     // docs:end:set_minter
 
@@ -176,11 +168,6 @@ contract Token {
 
         storage.public_balances.at(to.address).write(new_balance);
         storage.total_supply.write(supply);
-
-        // docs:start:unencrypted_log
-        emit_unencrypted_log(&mut context, "Public tokens minted");
-        // docs:end:unencrypted_log
-
         1
     }
     // docs:end:mint_public
@@ -200,8 +187,6 @@ contract Token {
         // docs:start:insert_from_public
         pending_shields.insert_from_public(&mut note);
         // docs:end:insert_from_public
-
-        emit_unencrypted_log(&mut context, "Private tokens minted");
         1
     }
     // docs:end:mint_private
@@ -229,9 +214,6 @@ contract Token {
 
         storage.public_balances.at(from.address).write(from_balance);
         pending_shields.insert_from_public(&mut note);
-
-        emit_unencrypted_log(&mut context, "Tokens shielded");
-
         1
     }
     // docs:end:shield
@@ -257,8 +239,6 @@ contract Token {
         let to_balance = storage.public_balances.at(to.address).read().add(amount);
         storage.public_balances.at(to.address).write(to_balance);
 
-        emit_unencrypted_log(&mut context, "Public tokens transferred");
-
         1
     }
     // docs:end:transfer_public
@@ -282,8 +262,6 @@ contract Token {
 
         let new_supply = storage.total_supply.read().sub(amount);
         storage.total_supply.write(new_supply);
-
-        emit_unencrypted_log(&mut context, "Public tokens burned");
 
         1
     }
