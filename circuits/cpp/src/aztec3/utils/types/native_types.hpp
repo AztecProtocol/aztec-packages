@@ -42,15 +42,14 @@ struct NativeTypes {
     static crypto::GeneratorContext<curve::Grumpkin> get_generator_context(const size_t hash_index)
     {
         crypto::GeneratorContext<curve::Grumpkin> result;
-        result.domain_separator =
-            std::string(AZTEC_DOMAIN) + generatorIndexDomain(static_cast<GeneratorIndex>(hash_index));
+        result.offset = hash_index;
         return result;
     }
 
     // Define the 'native' version of the function `hash`, with the name `hash`:
     static fr hash(const std::vector<fr>& inputs, const size_t hash_index = 0)
     {
-        return crypto::pedersen_hash::hash(inputs, get_generator_context(hash_index));
+        return crypto::pedersen_commitment::commit_native(inputs, get_generator_context(hash_index)).x;
     }
 
     /**
