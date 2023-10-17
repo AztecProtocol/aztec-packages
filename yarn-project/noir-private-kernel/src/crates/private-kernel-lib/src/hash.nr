@@ -11,7 +11,7 @@ use crate::utils::bounded_vec::BoundedVec;
 
 use dep::aztec::{
     constants_gen,
-    constants_gen::{CONTRACT_TREE_HEIGHT, FUNCTION_TREE_HEIGHT},
+    constants_gen::{CONTRACT_TREE_HEIGHT, FUNCTION_TREE_HEIGHT, PRIVATE_DATA_TREE_HEIGHT},
     hash::sha256_to_field,
 };
 
@@ -25,10 +25,12 @@ use dep::aztec::{
 // TODO: I'd generally like to avoid u256 for algorithms like 
 // this because it means we never even need to consider cases where 
 // the index is greater than p.
-fn root_from_sibling_path<N>(leaf : Field, leaf_index : Field,sibling_path : [Field; N]) -> Field {
+fn root_from_sibling_path<N, T>(leaf : Field, leaf_index : T, to_bits : fn(T) -> [u1; N], sibling_path : [Field; N]) -> Field {
     let mut node = leaf;
-    let indices = leaf_index.to_le_bits(N as u32);
+    let indices = to_bits(leaf_index);
+
     for i in 0..N {
+        // indices[i]; // This line will fail.
         if indices[i] == 1 {
             node = merkle_hash(sibling_path[i], node);
         } else {
@@ -37,6 +39,29 @@ fn root_from_sibling_path<N>(leaf : Field, leaf_index : Field,sibling_path : [Fi
     }
     node
 }
+
+fn u4_to_le_bit_array(value : u4) -> [u1;4] {
+    let mut le_bit_array : [u1; 4] = [0; 4];
+    for i in 0..4 {
+        le_bit_array[i] = ((value >> i) & 1) as u1;
+    }
+    le_bit_array
+}
+fn u16_to_le_bit_array(value : u16) -> [u1;16] {
+    let mut le_bit_array : [u1; 16] = [0; 16];
+    for i in 0..16 {
+        le_bit_array[i] = ((value >> i) & 1) as u1;
+    }
+    le_bit_array
+}
+fn u32_to_le_bit_array(value : u32) -> [u1;32] {
+    let mut le_bit_array : [u1; 32] = [0; 32];
+    for i in 0..32 {
+        le_bit_array[i] = ((value >> i) & 1) as u1;
+    }
+    le_bit_array
+}
+
 // Calculate the function tree root from the sibling path and leaf preimage.
 //
 // TODO: The cpp code passes in components of the FunctionLeafPreimage and then 
@@ -55,7 +80,7 @@ fn function_tree_root_from_siblings(selector : FunctionSelector, is_internal : b
     let function_leaf = function_leaf_preimage.hash();
 
     let function_tree_root =
-        root_from_sibling_path(function_leaf, function_leaf_index, function_leaf_sibling_path);
+        root_from_sibling_path(function_leaf, function_leaf_index as u4, u4_to_le_bit_array, function_leaf_sibling_path);
 
     function_tree_root
 }
@@ -71,9 +96,13 @@ fn contract_tree_root_from_siblings(function_tree_root : Field, storage_contract
     let contract_leaf = contract_leaf_preimage.hash();
 
     let computed_contract_tree_root =
-        root_from_sibling_path(contract_leaf, contract_leaf_index, contract_leaf_sibling_path);
+        root_from_sibling_path(contract_leaf, contract_leaf_index as u16, u16_to_le_bit_array, contract_leaf_sibling_path);
     
     computed_contract_tree_root
+}
+
+fn read_request_root_from_siblings(read_request : Field, leaf_index : Field, sibling_path : [Field; PRIVATE_DATA_TREE_HEIGHT]) -> Field {
+    root_from_sibling_path(read_request, leaf_index as u32, u32_to_le_bit_array, sibling_path)
 }
 
 pub fn silo_commitment(address : Address, inner_commitment : Field) -> Field {
