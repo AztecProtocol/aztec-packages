@@ -86,10 +86,10 @@ template <class ProverInstances> class ProtoGalaxyProver_ {
      * level, the resulting parent nodes will be polynomials of degree (level + 1) because we multiply by an additional
      * factor of X.
      */
-    static std::vector<FF> compute_coefficients_tree(const std::vector<FF>& betas,
-                                                     const std::vector<FF>& deltas,
-                                                     const std::vector<std::vector<FF>>& prev_level_coeffs,
-                                                     size_t level = 1)
+    static std::vector<FF> construct_coefficients_tree(const std::vector<FF>& betas,
+                                                       const std::vector<FF>& deltas,
+                                                       const std::vector<std::vector<FF>>& prev_level_coeffs,
+                                                       size_t level = 1)
     {
         // if we are at level t in the tree, where t = logn and n is the instance size, we have reached the root which
         // contains the coefficients of the perturbator polynomial
@@ -109,7 +109,7 @@ template <class ProverInstances> class ProtoGalaxyProver_ {
                 level_coeffs[parent][d + 1] += prev_level_coeffs[node + 1][d] * deltas[level];
             }
         }
-        return compute_coefficients_tree(betas, deltas, level_coeffs, level + 1);
+        return construct_coefficients_tree(betas, deltas, level_coeffs, level + 1);
     }
 
     /**
@@ -133,7 +133,7 @@ template <class ProverInstances> class ProtoGalaxyProver_ {
             first_level_coeffs[parent][0] = full_honk_evaluations[node] + full_honk_evaluations[node + 1] * betas[0];
             first_level_coeffs[parent][1] = full_honk_evaluations[node + 1] * deltas[0];
         }
-        return compute_coefficients_tree(betas, deltas, first_level_coeffs);
+        return construct_coefficients_tree(betas, deltas, first_level_coeffs);
     }
 
     /**
