@@ -5,7 +5,7 @@ namespace proof_system::honk {
 
 template <typename Flavor_, size_t NUM_> struct ProverInstances_ {
     using Flavor = Flavor_;
-    using FF = typename Flavor_::FF;
+    using FF = typename Flavor::FF;
     using Instance = ProverInstance_<Flavor>;
     using ArrayType = std::array<std::shared_ptr<Instance>, NUM_>;
 
@@ -25,10 +25,10 @@ template <typename Flavor_, size_t NUM_> struct ProverInstances_ {
     };
 
     /**
-     * @brief  For a entity type and a fixed row index, construct a uninvariate from the corresponding value from each
-     * instance.
+     * @brief  For a prover polynomial label and a fixed row index, construct a uninvariate from the corresponding value
+     * from each instance.
      *
-     * @example if the index index is 1 and the row index is 2, and there are 4 instances visually we have
+     * @example if the prover polynomia index is 1 and the row index is 2, and there are 4 instances visually we have
      *
      *           Instance 0       Instance 1       Instance 2       Instance 3
      *           q_c q_l q_r ...  q_c q_l q_r ...  q_c q_l q_r ...  q_c q_l q_r ...
@@ -43,12 +43,12 @@ template <typename Flavor_, size_t NUM_> struct ProverInstances_ {
      * @param row_idx A fixed row position in several execution
      * @return Univariate<FF, NUM> The univariate whose extensions will be used to construct the combiner.
      */
-    Univariate<FF, NUM> row_to_base_univariate(const size_t entity_idx, const size_t row_idx) const
+    Univariate<FF, NUM> row_to_univariate(const size_t prover_polynomial_idx, const size_t row_idx) const
     {
         Univariate<FF, NUM> result;
         size_t instance_idx = 0;
         for (auto& instance : _data) {
-            result.evaluations[instance_idx] = instance->prover_polynomials._data[entity_idx][row_idx];
+            result.evaluations[instance_idx] = instance->prover_polynomials._data[prover_polynomial_idx][row_idx];
             instance_idx++;
         }
         return result;

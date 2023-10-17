@@ -327,7 +327,7 @@ class GoblinUltra {
 
     /**
      * @brief A container for univariates used during Protogalaxy folding and sumcheck.
-     * @todo TODO(#390): Simplify this by moving MAX_RELATION_LENGTH?
+     * @details During folding and sumcheck, the prover evaluates the relations on these univariates.
      */
     template <size_t LENGTH>
     using ProverUnivariates = AllEntities<barretenberg::Univariate<FF, LENGTH>, barretenberg::Univariate<FF, LENGTH>>;

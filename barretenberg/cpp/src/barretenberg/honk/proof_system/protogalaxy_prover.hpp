@@ -46,16 +46,20 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     TupleOfTuplesOfUnivariates univariate_accumulators;
 
     /**
-     * For a fixed entity label, extract that endity from each instance in Instances, and extract
+     * @brief Prepare a univariate polynomial for relation execution in one step of the main loop in folded instance
+     * construction.
+     * @details For a fixed prover polynomial index, extract that polynomial from each instance in Instances. From each
+     * polynomial, extract the value at row_idx. Use these values to create a univariate polynomial, and then extend
+     * (i.e., compute additional evaluations at adjacent domain values) as needed.
      * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/751) Optimize memory
      */
     void extend_univariates(ExtendedUnivariates& extended_univariates,
                             const ProverInstances& instances,
                             const size_t row_idx)
     {
-        for (size_t entity_idx = 0; entity_idx < Flavor::NUM_ALL_ENTITIES; entity_idx++) {
-            auto univariate = instances.row_to_base_univariate(entity_idx, row_idx);
-            extended_univariates[entity_idx] = univariate.template extend_to<ExtendedUnivariate::LENGTH>();
+        for (size_t poly_idx = 0; poly_idx < Flavor::NUM_ALL_ENTITIES; poly_idx++) {
+            auto base_univariate = instances.row_to_univariate(poly_idx, row_idx);
+            extended_univariates[poly_idx] = base_univariate.template extend_to<ExtendedUnivariate::LENGTH>();
         }
     }
 
@@ -76,6 +80,11 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         }
     }
 
+    /**
+     * @brief Compute the combiner polynomial $G$ in the Protogalaxy paper.
+     *
+     * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/754) Provide the right challenge to here
+     */
     RandomExtendedUnivariate compute_combiner(
         const ProverInstances& instances,
         const proof_system::RelationParameters<typename Flavor::FF>& relation_parameters,
@@ -85,7 +94,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         size_t common_circuit_size = instances[0]->prover_polynomials._data[0].size();
         // Precompute the vector of required powers of zeta
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/751): Parallelize this.
-        // NB: there is a similar TODO in the sumcheck function `compute_univariate`.g
+        // NB: there is a similar TODO in the sumcheck function `compute_univariate`.
         std::vector<FF> pow_challenges(common_circuit_size);
         pow_challenges[0] = pow_univariate.partial_evaluation_constant;
         for (size_t i = 1; i < common_circuit_size; ++i) {
@@ -113,7 +122,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         std::vector<ExtendedUnivariates> extended_univariates;
         extended_univariates.resize(num_threads);
 
-        // Accumulate the contribution from each sub-relation across each edge of the hypercube
+        // Accumulate the contribution from each sub-relation
         parallel_for(num_threads, [&](size_t thread_idx) {
             size_t start = thread_idx * iterations_per_thread;
             size_t end = (thread_idx + 1) * iterations_per_thread;
@@ -121,12 +130,9 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
             for (size_t idx = start; idx < end; idx++) {
                 extend_univariates(extended_univariates[thread_idx], instances, idx);
 
-                // Update the pow polynomial's contribution c_l ⋅ ζ_{l+1}ⁱ for the next edge.
                 FF pow_challenge = pow_challenges[idx];
 
-                // Compute the i-th edge's univariate contribution,
-                // scale it by the pow polynomial's constant and zeta power "c_l ⋅ ζ_{l+1}ⁱ"
-                // and add it to the accumulators for Sˡ(Xₗ)
+                // Accumulate the i-th row's univariate contribution
                 accumulate_relation_univariates(thread_univariate_accumulators[thread_idx],
                                                 extended_univariates[thread_idx],
                                                 relation_parameters,

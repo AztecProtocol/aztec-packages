@@ -12,7 +12,7 @@ using Polynomial = typename Flavor::Polynomial;
 using FF = typename Flavor::FF;
 using RelationParameters = proof_system::RelationParameters<FF>;
 
-TEST(Protogalaxy, Combiner2Instances)
+TEST(Protogalaxy, CombinerOn2Instances)
 {
     constexpr size_t NUM_INSTANCES = 2;
     using ProverInstance = ProverInstance_<Flavor>;
@@ -135,7 +135,7 @@ TEST(Protogalaxy, Combiner2Instances)
     run_test(false);
 };
 
-TEST(Protogalaxy, Combiner4Instances)
+TEST(Protogalaxy, CombinerOn4Instances)
 {
     constexpr size_t NUM_INSTANCES = 4;
     using ProverInstance = ProverInstance_<Flavor>;

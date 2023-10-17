@@ -2,6 +2,11 @@
 #include "barretenberg/polynomials/polynomial.hpp"
 
 namespace proof_system::honk {
+/**
+ * @brief Get a ProverPolynomials instance initialized to sequential values starting at 0.
+ * @details Values are assigned according to the order specified in the underlying array of the flavor class. The
+ * function returns an array of data pointed to by the ProverPolynomials.
+ */
 template <typename Flavor>
 std::pair<std::array<barretenberg::Polynomial<typename Flavor::FF>, Flavor::NUM_ALL_ENTITIES>,
           typename Flavor::ProverPolynomials>
