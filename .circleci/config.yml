@@ -927,7 +927,7 @@ jobs:
       - *setup_env
       - run:
           name: "Benchmark"
-          command: cond_run_script end-to-end ./scripts/run_tests_local benchmarks/bench_publish_rollup.test.ts
+          command: cond_run_script end-to-end ./scripts/run_tests_local benchmarks/bench_publish_rollup.test.ts ./scripts/docker-compose-no-sandbox.yml
           environment:
             DEBUG: "aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees"
 
@@ -940,7 +940,7 @@ jobs:
       - *setup_env
       - run:
           name: "Benchmark"
-          command: cond_run_script end-to-end ./scripts/run_tests_local benchmarks/bench_process_history.test.ts
+          command: cond_run_script end-to-end ./scripts/run_tests_local benchmarks/bench_process_history.test.ts ./scripts/docker-compose-no-sandbox.yml
           environment:
             DEBUG: "aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees"
 
