@@ -1,7 +1,6 @@
 #pragma once
 #include "barretenberg/honk/flavor/goblin_ultra.hpp"
 #include "barretenberg/honk/flavor/ultra.hpp"
-#include "barretenberg/honk/flavor/ultra_grumpkin.hpp"
 #include "barretenberg/honk/proof_system/folding_result.hpp"
 #include "barretenberg/proof_system/composer/composer_lib.hpp"
 #include "barretenberg/proof_system/flavor/flavor.hpp"
@@ -29,8 +28,6 @@ template <class Flavor> class ProverInstance_ {
     using Polynomial = typename Flavor::Polynomial;
 
   public:
-    // offset due to placing zero wires at the start of execution trace
-
     std::shared_ptr<ProvingKey> proving_key;
     std::shared_ptr<VerificationKey> verification_key;
     std::shared_ptr<CommitmentKey> commitment_key;
@@ -40,10 +37,14 @@ template <class Flavor> class ProverInstance_ {
     // The number of public inputs has to be the same for all instances because they are
     // folded element by element.
     std::vector<FF> public_inputs;
+    // offset due to placing zero wires at the start of execution trace
+    // non-zero  for Instances constructed from circuits, this concept doesn't exist for accumulated
+    // instances
     size_t pub_inputs_offset = 0;
     proof_system::RelationParameters<FF> relation_parameters;
     std::vector<uint32_t> recursive_proof_public_input_indices;
-    FoldingParameters folding_params;
+    // non-empty for the accumulated instances
+    FoldingParameters folding_parameters;
 
     ProverInstance_(Circuit& circuit)
     {
@@ -56,7 +57,7 @@ template <class Flavor> class ProverInstance_ {
         : verification_key(std::move(result.verification_key))
         , prover_polynomials(result.folded_prover_polynomials)
         , public_inputs(result.folded_public_inputs)
-        , folding_params(result.params){};
+        , folding_parameters(result.folding_parameters){};
 
     ~ProverInstance_() = default;
 
@@ -96,7 +97,6 @@ template <class Flavor> class ProverInstance_ {
 };
 
 extern template class ProverInstance_<honk::flavor::Ultra>;
-extern template class ProverInstance_<honk::flavor::UltraGrumpkin>;
 extern template class ProverInstance_<honk::flavor::GoblinUltra>;
 
 } // namespace proof_system::honk

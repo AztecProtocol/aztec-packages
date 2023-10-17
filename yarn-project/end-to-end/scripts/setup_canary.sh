@@ -1,8 +1,9 @@
 #!/bin/bash
 set -eu
 
-COMMIT_TAG=$1
-TARGET_PKGS_FILE=$2
+TARGET_PKGS_FILE=$1
+
+DIST_TAG=canary
 
 # Check if file exists and read it into an array
 if [ -f "$TARGET_PKGS_FILE" ]; then
@@ -15,24 +16,9 @@ else
   echo "File $TARGET_PKGS_FILE does not exist."
 fi
 
-if [ -z "$COMMIT_TAG" ]; then
-  echo "No commit tag provided."
+if [ -z "$DIST_TAG" ]; then
+  echo "No dist tag provided."
   exit 0
-fi
-
-set +e  # Temporarily disable exit on error
-VERSION=$(npx semver $COMMIT_TAG)
-RESULT=$?  # Capture the exit status of the last command
-set -e  # Re-enable exit on error
-
-if [ $RESULT -ne 0 ]; then
-  echo "Error when running 'npx semver' with commit tag: $COMMIT_TAG"
-  exit 1
-fi
-
-if [ -z "$VERSION" ]; then
-  echo "$COMMIT_TAG is not a semantic version."
-  exit 1
 fi
 
 echo "Removing all files & folders that aren't needed for canary tests"
@@ -41,18 +27,18 @@ cd "$TARGET_DIR"
 
 # Loop through all files and folders in the directory
 for item in $(ls -A); do
-  if [[ "$item" != "index.ts" && "$item" != "canary" ]]; then
+  if [[ "$item" != "index.ts" && "$item" != "shared" ]]; then
     # Remove the item (either file or folder)
     rm -rf "$item"
   fi
 done
 cd ..
 
-echo "Updating external Aztec dependencies to version $VERSION"
+echo "Updating external Aztec dependencies to tag '$DIST_TAG'"
 JSON_TARGET_PKGS=$(printf '%s\n' "${TARGET_PKGS[@]}" | jq -R -s -c 'split("\n") | map(select(. != ""))')
 
 TMP=$(mktemp)
-jq --arg v $VERSION --argjson target_pkgs "$JSON_TARGET_PKGS" '
+jq --arg v $DIST_TAG --argjson target_pkgs "$JSON_TARGET_PKGS" '
 .dependencies |= with_entries(
   select(
     (.key | startswith("@aztec")) as $isAztec |
@@ -67,6 +53,10 @@ jq --arg v $VERSION --argjson target_pkgs "$JSON_TARGET_PKGS" '
   else
     .
   end
-)' package.json > $TMP && mv $TMP package.json
+)' package.json >$TMP && mv $TMP package.json
 
-jq ".references = []" tsconfig.json > $TMP && mv $TMP tsconfig.json
+echo "Updating end-to-end tsconfig.json"
+TMP=$(mktemp)
+# Copy canary's tsconfig.json
+cp ../canary/tsconfig.json tsconfig.json
+jq 'del(.references)' tsconfig.json >$TMP && mv $TMP tsconfig.json

@@ -1,3 +1,4 @@
+// docs:start:interfaces
 use dep::aztec::{
   context::{ PrivateContext, PublicContext, Context },
   selector::compute_selector,
@@ -44,14 +45,6 @@ impl TokenBridge {
     AztecAddress::new(return_values[0])
   }
 
-  pub fn claim_public(self: Self, context: PublicContext, to: Field, amount: Field, canceller: Field, msg_key: Field, secret: Field) {
-    let _return_values = context.call_public_function(
-      self.address,
-      compute_selector("claim_public((Field),Field,Field,Field,Field)"),
-      [to, amount, canceller, msg_key, secret]
-    );
-  }
-
   pub fn exit_to_l1_public(self: Self, context: PublicContext, recipient: Field, amount: Field, callerOnL1: Field, nonce: Field) {
     let _return_values = context.call_public_function(
       self.address,
@@ -60,3 +53,4 @@ impl TokenBridge {
     );
   }
 }
+// docs:end:interfaces

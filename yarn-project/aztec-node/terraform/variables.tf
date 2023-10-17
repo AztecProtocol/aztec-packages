@@ -18,11 +18,70 @@ variable "INBOX_CONTRACT_ADDRESS" {
   type = string
 }
 
-variable "SEQ_PUBLISHER_PRIVATE_KEY" {
+variable "REGISTRY_CONTRACT_ADDRESS" {
+  type = string
+}
+
+variable "SEQ_1_PUBLISHER_PRIVATE_KEY" {
+  type = string
+}
+
+variable "SEQ_2_PUBLISHER_PRIVATE_KEY" {
   type = string
 }
 
 variable "CHAIN_ID" {
   type = string
 }
- 
+
+variable "BOOTNODE_1_LISTEN_PORT" {
+  type = string
+}
+
+variable "BOOTNODE_2_LISTEN_PORT" {
+  type = string
+}
+
+variable "BOOTNODE_1_PEER_ID" {
+  type = string
+}
+
+variable "BOOTNODE_2_PEER_ID" {
+  type = string
+}
+
+variable "NODE_1_TCP_PORT" {
+  type = string
+}
+
+variable "NODE_2_TCP_PORT" {
+  type = string
+}
+
+variable "NODE_1_PRIVATE_KEY" {
+  type = string
+}
+
+variable "NODE_2_PRIVATE_KEY" {
+  type = string
+}
+
+variable "ECR_URL" {
+  type = string
+}
+
+variable "SEQ_MAX_TX_PER_BLOCK" {
+  type = string
+}
+
+variable "SEQ_MIN_TX_PER_BLOCK" {
+  type = string
+}
+
+variable "P2P_MIN_PEERS" {
+  type = string
+}
+
+variable "P2P_MAX_PEERS" {
+  type = string
+}

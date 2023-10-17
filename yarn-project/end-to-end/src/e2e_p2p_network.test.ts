@@ -3,7 +3,7 @@ import { ContractDeployer, SentTx, isContractDeployed } from '@aztec/aztec.js';
 import { AztecAddress, CompleteAddress, Fr, PublicKey, getContractDeploymentInfo } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { DebugLogger } from '@aztec/foundation/log';
-import { TestContractAbi } from '@aztec/noir-contracts/artifacts';
+import { TestContractArtifact } from '@aztec/noir-contracts/artifacts';
 import { BootstrapNode, P2PConfig, createLibP2PPeerId } from '@aztec/p2p';
 import { ConstantKeyPair, PXEService, createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe';
 import { TxStatus } from '@aztec/types';
@@ -78,10 +78,10 @@ describe('e2e_p2p_network', () => {
       p2pEnabled: true,
       tcpListenPort: BOOT_NODE_TCP_PORT,
       tcpListenIp: '0.0.0.0',
-      announceHostname: '127.0.0.1',
+      announceHostname: '/tcp/127.0.0.1',
       announcePort: BOOT_NODE_TCP_PORT,
       peerIdPrivateKey: Buffer.from(peerId.privateKey!).toString('hex'),
-      serverMode: false,
+      clientKADRouting: false,
       minPeerCount: 10,
       maxPeerCount: 100,
 
@@ -107,7 +107,7 @@ describe('e2e_p2p_network', () => {
       minTxsPerBlock: NUM_TXS_PER_BLOCK,
       maxTxsPerBlock: NUM_TXS_PER_BLOCK,
       p2pEnabled: true,
-      serverMode: false,
+      clientKADRouting: false,
     };
     return await AztecNodeService.createAndSync(newConfig);
   };
@@ -117,8 +117,9 @@ describe('e2e_p2p_network', () => {
     const txs: SentTx[] = [];
     for (let i = 0; i < numTxs; i++) {
       const salt = Fr.random();
-      const origin = (await getContractDeploymentInfo(TestContractAbi, [], salt, publicKey)).completeAddress.address;
-      const deployer = new ContractDeployer(TestContractAbi, pxe, publicKey);
+      const origin = (await getContractDeploymentInfo(TestContractArtifact, [], salt, publicKey)).completeAddress
+        .address;
+      const deployer = new ContractDeployer(TestContractArtifact, pxe, publicKey);
       const tx = deployer.deploy().send({ contractAddressSalt: salt });
       logger(`Tx sent with hash ${await tx.getTxHash()}`);
       const receipt = await tx.getReceipt();

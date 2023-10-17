@@ -1,6 +1,7 @@
 import { PublicKernelInputs, PublicKernelPublicInputs, simulatePublicKernelCircuit } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
+import { CircuitSimulationStats } from '@aztec/types/stats';
 
 import { PublicKernelCircuitSimulator } from './index.js';
 
@@ -17,14 +18,14 @@ export class WasmPublicKernelCircuitSimulator implements PublicKernelCircuitSimu
    */
   public async publicKernelCircuitPrivateInput(input: PublicKernelInputs): Promise<PublicKernelPublicInputs> {
     if (!input.previousKernel.publicInputs.isPrivate) throw new Error(`Expected private kernel previous inputs`);
-    const [time, result] = await elapsed(() => simulatePublicKernelCircuit(input));
+    const [duration, result] = await elapsed(() => simulatePublicKernelCircuit(input));
     this.log(`Simulated public kernel circuit with private input`, {
       eventName: 'circuit-simulation',
       circuitName: 'public-kernel-private-input',
-      duration: time.ms(),
+      duration,
       inputSize: input.toBuffer().length,
       outputSize: result.toBuffer().length,
-    });
+    } satisfies CircuitSimulationStats);
     return result;
   }
 
@@ -35,14 +36,14 @@ export class WasmPublicKernelCircuitSimulator implements PublicKernelCircuitSimu
    */
   public async publicKernelCircuitNonFirstIteration(input: PublicKernelInputs): Promise<PublicKernelPublicInputs> {
     if (input.previousKernel.publicInputs.isPrivate) throw new Error(`Expected public kernel previous inputs`);
-    const [time, result] = await elapsed(() => simulatePublicKernelCircuit(input));
+    const [duration, result] = await elapsed(() => simulatePublicKernelCircuit(input));
     this.log(`Simulated public kernel circuit non-first iteration`, {
       eventName: 'circuit-simulation',
       circuitName: 'public-kernel-non-first-iteration',
-      duration: time.ms(),
+      duration,
       inputSize: input.toBuffer().length,
       outputSize: result.toBuffer().length,
-    });
+    } satisfies CircuitSimulationStats);
     return result;
   }
 }

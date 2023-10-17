@@ -59,8 +59,8 @@ class GoblinUltra {
     static constexpr size_t NUM_RELATIONS = std::tuple_size<Relations>::value;
 
     // define the container for storing the univariate contribution from each relation in Sumcheck
-    using RelationUnivariates = decltype(create_relation_univariates_container<FF, Relations>());
-    using RelationValues = decltype(create_relation_values_container<FF, Relations>());
+    using TupleOfTuplesOfUnivariates = decltype(create_relation_univariates_container<FF, Relations>());
+    using TupleOfArraysOfValues = decltype(create_relation_values_container<FF, Relations>());
 
     // Whether or not the first row of the execution trace is reserved for 0s to enable shifts
     static constexpr bool has_zero_row = true;
@@ -288,8 +288,6 @@ class GoblinUltra {
 
         size_t num_ecc_op_gates; // needed to determine public input offset
 
-        std::shared_ptr<ECCOpQueue> op_queue;
-
         // The plookup wires that store plookup read data.
         std::array<PolynomialHandle, 3> get_table_column_wires() { return { w_l, w_r, w_o }; };
     };
@@ -303,11 +301,6 @@ class GoblinUltra {
      * circuits.
      */
     using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment, CommitmentHandle>>;
-
-    /**
-     * @brief A container for polynomials handles; only stores spans.
-     */
-    using ProverPolynomials = AllEntities<PolynomialHandle, PolynomialHandle>;
 
     /**
      * @brief A container for storing the partially evaluated multivariates produced by sumcheck.
@@ -334,14 +327,31 @@ class GoblinUltra {
                                       barretenberg::Univariate<FF, MAX_RELATION_LENGTH>>;
 
     /**
-     * @brief A container for the polynomials evaluations produced during sumcheck, which are purported to be the
-     * evaluations of polynomials committed in earlier rounds.
+     * @brief A field element for each entity of the flavor. These entities represent the prover polynomials evaluated
+     * at one point.
      */
-    class ClaimedEvaluations : public AllEntities<FF, FF> {
+    class AllValues : public AllEntities<FF, FF> {
       public:
         using Base = AllEntities<FF, FF>;
         using Base::Base;
-        ClaimedEvaluations(std::array<FF, NUM_ALL_ENTITIES> _data_in) { this->_data = _data_in; }
+        AllValues(std::array<FF, NUM_ALL_ENTITIES> _data_in) { this->_data = _data_in; }
+    };
+
+    /**
+     * @brief A container for the prover polynomials handles; only stores spans.
+     */
+    class ProverPolynomials : public AllEntities<PolynomialHandle, PolynomialHandle> {
+      public:
+        AllValues get_row(const size_t row_idx) const
+        {
+            AllValues result;
+            size_t column_idx = 0; // TODO(https://github.com/AztecProtocol/barretenberg/issues/391) zip
+            for (auto& column : this->_data) {
+                result[column_idx] = column[row_idx];
+                column_idx++;
+            }
+            return result;
+        }
     };
 
     /**
@@ -432,7 +442,7 @@ class GoblinUltra {
 
     class FoldingParameters {
       public:
-        FF gate_separation_challenge;
+        std::vector<FF> gate_separation_challenges;
         FF target_sum;
     };
 };

@@ -181,7 +181,7 @@ class BabyVM : public Arithmetization</*NUM_WIRES =*/5, /*num_selectors =*/0> {
     struct Selectors {};
 };
 
-class GoblinTranslator : public Arithmetization</*NUM_WIRES =*/78, /*num_selectors =*/0> {
+class GoblinTranslator : public Arithmetization</*NUM_WIRES =*/81, /*num_selectors =*/0> {
   public:
     // Dirty hack
     using Selectors = bool;

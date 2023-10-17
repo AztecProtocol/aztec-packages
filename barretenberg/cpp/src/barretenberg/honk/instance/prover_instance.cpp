@@ -249,7 +249,6 @@ std::shared_ptr<typename Flavor::ProvingKey> ProverInstance_<Flavor>::compute_pr
 
     if constexpr (IsGoblinFlavor<Flavor>) {
         proving_key->num_ecc_op_gates = num_ecc_op_gates;
-        proving_key->op_queue = circuit.op_queue;
     }
 
     return proving_key;
@@ -477,7 +476,6 @@ std::shared_ptr<typename Flavor::VerificationKey> ProverInstance_<Flavor>::compu
 }
 
 template class ProverInstance_<honk::flavor::Ultra>;
-template class ProverInstance_<honk::flavor::UltraGrumpkin>;
 template class ProverInstance_<honk::flavor::GoblinUltra>;
 
 } // namespace proof_system::honk
