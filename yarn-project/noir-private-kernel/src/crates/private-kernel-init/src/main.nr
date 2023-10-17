@@ -76,13 +76,13 @@ impl PrivateKernelInputsInit {
         // We only initialized constants member of public_inputs so far. Therefore, there must not be any
         // new nullifiers or logs as part of public_inputs.
         
-        let new_commitments_empty = arrays::is_empty_field(public_inputs.end.new_commitments);
+        let new_commitments_empty = arrays::is_empty_array(public_inputs.end.new_commitments.storage);
         assert(new_commitments_empty, "public_inputs.end.new_commitments must start as empty in initial kernel iteration");
 
-        let new_nullifiers_empty = arrays::is_empty_field(public_inputs.end.new_nullifiers);
+        let new_nullifiers_empty = arrays::is_empty_array(public_inputs.end.new_nullifiers.storage);
         assert(new_nullifiers_empty, "public_inputs.end.new_nullifiers must start as empty in initial kernel iteration");
 
-        let end_nullified_commitments_empty = arrays::is_empty_field(public_inputs.end.nullified_commitments);
+        let end_nullified_commitments_empty = arrays::is_empty_array(public_inputs.end.nullified_commitments.storage);
         assert(end_nullified_commitments_empty, "public_inputs.end.nullified_commitments must start as empty in initial kernel iteration");
 
         let encrypted_logs_hash_empty = arrays::log_hashes_empty(public_inputs.end.encrypted_logs_hash);
@@ -91,7 +91,7 @@ impl PrivateKernelInputsInit {
         let unencrypted_logs_hash_empty = arrays::log_hashes_empty(public_inputs.end.unencrypted_logs_hash);
         assert(unencrypted_logs_hash_empty, "public_inputs.end.unencrypted_logs_hash must start as empty in initial kernel iteration");
 
-        let read_requests_empty = arrays::is_empty_field(public_inputs.end.read_requests);
+        let read_requests_empty = arrays::is_empty_array(public_inputs.end.read_requests.storage);
         assert(read_requests_empty, "public_inputs.end.read_requests must start as empty in initial kernel iteration");
 
         assert(public_inputs.end.encrypted_log_preimages_length == 0,"public_inputs.end.encrypted_log_preimages_length must start as 0 in initial kernel iteration");
@@ -124,7 +124,11 @@ impl PrivateKernelInputsInit {
 
         common::validate_call_stack(self.private_call);
 
-        common::validate_read_requests(public_inputs.constants.block_data.private_data_tree_root(),self.private_call.call_stack_item.public_inputs().read_requests,self.private_call.read_request_membership_witnesses);
+        common::validate_read_requests(
+            public_inputs.constants.block_data.private_data_tree_root(),
+            self.private_call.call_stack_item.public_inputs().read_requests,
+            self.private_call.read_request_membership_witnesses
+        );
 
         // TODO(dbanks12): feels like update_end_values should happen after contract logic
         self.update_end_values(&mut public_inputs);

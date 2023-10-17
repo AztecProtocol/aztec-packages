@@ -20,17 +20,17 @@ struct PrivateCircuitPublicInputs{
     call_context : CallContext,
     
     args_hash : Field,
-    return_values : BoundedVec<Field, RETURN_VALUES_LENGTH>,
+    return_values : [Field; RETURN_VALUES_LENGTH],
 
-    read_requests : BoundedVec<Field, MAX_READ_REQUESTS_PER_CALL>,
+    read_requests : [Field; MAX_READ_REQUESTS_PER_CALL],
 
-    new_commitments : BoundedVec<Field, MAX_NEW_COMMITMENTS_PER_CALL>,
-    new_nullifiers : BoundedVec<Field, MAX_NEW_NULLIFIERS_PER_CALL>,
-    nullified_commitments : BoundedVec<Field, MAX_NEW_NULLIFIERS_PER_CALL>,
+    new_commitments : [Field; MAX_NEW_COMMITMENTS_PER_CALL],
+    new_nullifiers : [Field; MAX_NEW_NULLIFIERS_PER_CALL],
+    nullified_commitments : [Field; MAX_NEW_NULLIFIERS_PER_CALL],
 
-    private_call_stack : BoundedVec<Field, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
-    public_call_stack : BoundedVec<Field, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
-    new_l2_to_l1_msgs : BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
+    private_call_stack : [Field; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL],
+    public_call_stack : [Field; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
+    new_l2_to_l1_msgs : [Field; MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
 
     encrypted_logs_hash : [Field; NUM_FIELDS_PER_SHA256],
     unencrypted_logs_hash : [Field; NUM_FIELDS_PER_SHA256],
@@ -54,14 +54,14 @@ impl PrivateCircuitPublicInputs{
         let mut fields: BoundedVec<Field, constants_gen::PRIVATE_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH> = BoundedVec::new(0); 
         fields.push(self.call_context.hash());
         fields.push(self.args_hash);
-        fields.push_array(self.return_values.storage());
-        fields.push_array(self.read_requests.storage());
-        fields.push_array(self.new_commitments.storage());
-        fields.push_array(self.new_nullifiers.storage());
-        fields.push_array(self.nullified_commitments.storage());
-        fields.push_array(self.private_call_stack.storage());
-        fields.push_array(self.public_call_stack.storage());
-        fields.push_array(self.new_l2_to_l1_msgs.storage());
+        fields.push_array(self.return_values);
+        fields.push_array(self.read_requests);
+        fields.push_array(self.new_commitments);
+        fields.push_array(self.new_nullifiers);
+        fields.push_array(self.nullified_commitments);
+        fields.push_array(self.private_call_stack);
+        fields.push_array(self.public_call_stack);
+        fields.push_array(self.new_l2_to_l1_msgs);
         fields.push_array(self.encrypted_logs_hash);
         fields.push_array(self.unencrypted_logs_hash);
         fields.push(self.encrypted_log_preimages_length);

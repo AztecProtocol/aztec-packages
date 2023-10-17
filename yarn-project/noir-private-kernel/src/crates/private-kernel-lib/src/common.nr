@@ -50,12 +50,9 @@ pub fn validate_call_stack(private_call : PrivateCallData) {
     let preimages = private_call.private_call_stack_preimages;
     
     assert(stack.len() == preimages.len()); // This is not in the cpp code.
-    for i in 0..stack.max_len() {
-        let hash = stack.get_unchecked(i);
-        // We use get_unchecked here since we did the length check
-        // before the for loop. Ideally the compiler optimizes this away
-        // and I can do a get.
-        let preimage = preimages.get_unchecked(i);
+    for i in 0..stack.len() {
+        let hash = stack[i];
+        let preimage = preimages[i];
 
         // Note: this assumes it's computationally infeasible to have `0` as a valid call_stack_item_hash.
         // Assumes `hash == 0` means "this stack item is empty".
@@ -77,12 +74,12 @@ pub fn validate_call_stack(private_call : PrivateCallData) {
 // More info here:
 // - https://discourse.aztec.network/t/to-read-or-not-to-read/178
 // - https://discourse.aztec.network/t/spending-notes-which-havent-yet-been-inserted/180
-pub fn validate_read_requests(historic_private_data_tree_root : Field, read_requests : BoundedVec<Field, MAX_READ_REQUESTS_PER_CALL>, read_request_membership_witnesses : BoundedVec<ReadRequestMembershipWitnessPrivateData, MAX_READ_REQUESTS_PER_CALL>) {
+pub fn validate_read_requests(historic_private_data_tree_root : Field, read_requests : [Field; MAX_READ_REQUESTS_PER_CALL], read_request_membership_witnesses : [ReadRequestMembershipWitnessPrivateData; MAX_READ_REQUESTS_PER_CALL]) {
     // membership witnesses must resolve to the same private data root
     // for every request in all kernel iterations
     for rr_idx in 0..MAX_READ_REQUESTS_PER_CALL {
-        let read_request = read_requests.get(rr_idx);
-        let witness = read_request_membership_witnesses.get(rr_idx);
+        let read_request = read_requests[rr_idx];
+        let witness = read_request_membership_witnesses[rr_idx];
         
         // A pending commitment is the one that is not yet added to private data tree
         // A transient read is when we try to "read" a pending commitment
@@ -168,8 +165,8 @@ pub fn update_end_values(private_call : PrivateCallData, public_inputs : &mut Ke
 
     if is_static_call {
         // No state changes are allowed for static calls:
-        assert(arrays::is_empty_field(new_commitments), "new_commitments must be empty for static calls");
-        assert(arrays::is_empty_field(new_nullifiers), "new_nullifiers must be empty for static calls");
+        assert(arrays::is_empty_array(new_commitments), "new_commitments must be empty for static calls");
+        assert(arrays::is_empty_array(new_nullifiers), "new_nullifiers must be empty for static calls");
     }
 
     let storage_contract_address = private_call_public_inputs.call_context.storage_contract_address;
@@ -177,10 +174,9 @@ pub fn update_end_values(private_call : PrivateCallData, public_inputs : &mut Ke
     // Transient read requests and witnesses are accumulated in public_inputs.end
     // We silo the read requests (domain separation per contract address)
     assert(read_requests.len() == read_request_membership_witnesses.len()); // This is not done in the cpp code.
-    for i in 0..read_requests.max_len() {
-        // See comment in validate_call_stack as to why we are using get_unchecked
-        let read_request = read_requests.get_unchecked(i);
-        let witness = read_request_membership_witnesses.get_unchecked(i);
+    for i in 0..read_requests.len() {
+        let read_request = read_requests[i];
+        let witness = read_request_membership_witnesses[i];
         if witness.is_transient {  // only forward transient to public inputs
 
             let siloed_read_request = if read_request == 0 {
@@ -199,7 +195,7 @@ pub fn update_end_values(private_call : PrivateCallData, public_inputs : &mut Ke
     let mut siloed_new_nullifiers : BoundedVec<Field,MAX_NEW_NULLIFIERS_PER_CALL> = BoundedVec::new(0);
     assert(new_nullifiers.len() == MAX_NEW_NULLIFIERS_PER_CALL);
     for i in 0..MAX_NEW_NULLIFIERS_PER_CALL {
-        let new_nullifier = new_nullifiers.get_unchecked(i);
+        let new_nullifier = new_nullifiers[i];
         let siloed_new_nullifier = if new_nullifier == 0 {
             0
         } else {
@@ -214,8 +210,8 @@ pub fn update_end_values(private_call : PrivateCallData, public_inputs : &mut Ke
     // TODO: These for loops are inconsistent, some use constants and others use the array length
     let mut siloed_new_commitments : BoundedVec<Field, MAX_NEW_COMMITMENTS_PER_CALL> = BoundedVec::new(0);
     assert(new_commitments.len() == MAX_NEW_COMMITMENTS_PER_CALL);
-    for i in 0..new_commitments.max_len() {
-        let new_commitment = new_commitments.get_unchecked(i);
+    for i in 0..new_commitments.len() {
+        let new_commitment = new_commitments[i];
         let siloed_commitment = if new_commitment == 0 {
             0
         }  else {
@@ -238,14 +234,14 @@ pub fn update_end_values(private_call : PrivateCallData, public_inputs : &mut Ke
         // Either with 0 or the special EMPTY_NULLIFIED_COMMITMENT constant
         // We do not silo when the commitment is either one of these empty states.
 
-        let nullified_commitment_is_zero = nullified_commitments.get(i) == 0;
-        let nullified_commitment_is_empty_constant = nullified_commitments.get(i) == EMPTY_NULLIFIED_COMMITMENT;
+        let nullified_commitment_is_zero = nullified_commitments[i] == 0;
+        let nullified_commitment_is_empty_constant = nullified_commitments[i] == EMPTY_NULLIFIED_COMMITMENT;
         let siloed_nullified_commitment = if nullified_commitment_is_zero {
             0
         } else if nullified_commitment_is_empty_constant {
             EMPTY_NULLIFIED_COMMITMENT
         } else {
-            silo_commitment(storage_contract_address, nullified_commitments.get(i))
+            silo_commitment(storage_contract_address, nullified_commitments[i])
         };
         siloed_nullified_commitments.push(siloed_nullified_commitment);
     }
@@ -254,23 +250,23 @@ pub fn update_end_values(private_call : PrivateCallData, public_inputs : &mut Ke
 
     // Call stacks
     let mut private_call_stack = private_call_public_inputs.private_call_stack;
-    private_call_stack.push_array(public_inputs.end.private_call_stack.storage());
+    public_inputs.end.private_call_stack.push_array(private_call_stack);
 
     let mut public_call_stack = private_call_public_inputs.public_call_stack;
-    public_call_stack.push_array(public_inputs.end.public_call_stack.storage());
+    public_inputs.end.public_call_stack.push_array(public_call_stack);
 
     // new l2 to l1 messages
     let portal_contract_address = private_call.portal_contract_address;
     let new_l2_to_l1_msgs = private_call_public_inputs.new_l2_to_l1_msgs;
     let mut new_l2_to_l1_msgs_to_insert : BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> = BoundedVec::new(0);
     for i in 0..MAX_NEW_L2_TO_L1_MSGS_PER_CALL {
-        let msg_is_zero = new_l2_to_l1_msgs.get(i) == 0;
+        let msg_is_zero = new_l2_to_l1_msgs[i] == 0;
         if msg_is_zero == false {
             let new_l2_to_l1_msgs = compute_l2_to_l1_hash(storage_contract_address,
                                                                            private_call_public_inputs.version,
                                                                            portal_contract_address,
                                                                            private_call_public_inputs.chain_id,
-                                                                           new_l2_to_l1_msgs.get(i));
+                                                                           new_l2_to_l1_msgs[i]);
         new_l2_to_l1_msgs_to_insert.push(new_l2_to_l1_msgs)
         }
     }
@@ -369,13 +365,13 @@ fn validate_previous_kernel_values(end : CombinedAccumulatedData) {
 // We validate that relevant arrays assumed to be zero-padded on the right comply to this format.
 fn validate_previous_kernel_arrays(end : CombinedAccumulatedData) {
     // Each of the following arrays is expected to be zero-padded.
-    arrays::validate_array(end.read_requests);
-    arrays::validate_array(end.new_commitments);
-    arrays::validate_array(end.new_nullifiers);
-    arrays::validate_array(end.nullified_commitments);
-    arrays::validate_array(end.private_call_stack);
-    arrays::validate_array(end.public_call_stack);
-    arrays::validate_array(end.new_l2_to_l1_msgs);
+    arrays::validate_array(end.read_requests.storage);
+    arrays::validate_array(end.new_commitments.storage);
+    arrays::validate_array(end.new_nullifiers.storage);
+    arrays::validate_array(end.nullified_commitments.storage);
+    arrays::validate_array(end.private_call_stack.storage);
+    arrays::validate_array(end.public_call_stack.storage);
+    arrays::validate_array(end.new_l2_to_l1_msgs.storage);
 }
 
 fn validate_previous_kernel_0th_nullifier(end : CombinedAccumulatedData)
