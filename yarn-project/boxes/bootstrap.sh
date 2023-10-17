@@ -23,3 +23,5 @@ for dir in *; do
     
   fi
 done
+
+yarn formatting:fix
