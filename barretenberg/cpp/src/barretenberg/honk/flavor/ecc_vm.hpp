@@ -679,7 +679,7 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
      */
     class AllPolynomials : public AllEntities<Polynomial, PolynomialHandle> {
       public:
-        AllValues get_row(const size_t row_idx)
+        AllValues get_row(const size_t row_idx) const
         {
             AllValues result;
             size_t column_idx = 0; // // TODO(https://github.com/AztecProtocol/barretenberg/issues/391) zip

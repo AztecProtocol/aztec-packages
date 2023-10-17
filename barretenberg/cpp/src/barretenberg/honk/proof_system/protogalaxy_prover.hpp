@@ -35,7 +35,7 @@ template <class ProverInstances> class ProtoGalaxyProver_ {
      * @brief For a new round challenge δ at each iteration of the ProtoGalaxy protocol, compute the vector
      * [δ, δ^2,..., δ^t] where t = logn and n is the size of the instance.
      */
-    static std::vector<FF> compute_round_challenge_pows(const size_t log_instance_size, const FF round_challenge)
+    static std::vector<FF> compute_round_challenge_pows(const size_t log_instance_size, const FF& round_challenge)
     {
         std::vector<FF> pows(log_instance_size);
         pows[0] = round_challenge;
@@ -56,11 +56,11 @@ template <class ProverInstances> class ProtoGalaxyProver_ {
      * ProtoGalaxy paper, given the evaluations of all the prover polynomials and α (the parameter that helps establish
      * each subrelation is independently valid in Honk - from the Plonk paper, DO NOT confuse with α in ProtoGalaxy),
      */
-    static std::vector<FF> compute_full_honk_evaluations(ProverPolynomials instance_polynomials,
-                                                         const FF alpha,
-                                                         RelationParameters<FF> relation_parameters)
+    static std::vector<FF> compute_full_honk_evaluations(const ProverPolynomials& instance_polynomials,
+                                                         const FF& alpha,
+                                                         const RelationParameters<FF>& relation_parameters)
     {
-        auto instance_size = instance_polynomials[0].size();
+        auto instance_size = std::get<0>(instance_polynomials._data).size();
 
         std::vector<FF> full_honk_evaluations(instance_size);
         for (size_t row = 0; row < instance_size; row++) {
@@ -144,7 +144,7 @@ template <class ProverInstances> class ProtoGalaxyProver_ {
      */
     static Polynomial<FF> compute_perturbator(const std::shared_ptr<Instance> accumulator,
                                               const std::vector<FF>& deltas,
-                                              const FF alpha)
+                                              const FF& alpha)
     {
         auto full_honk_evaluations =
             compute_full_honk_evaluations(accumulator->prover_polynomials, alpha, accumulator->relation_parameters);
