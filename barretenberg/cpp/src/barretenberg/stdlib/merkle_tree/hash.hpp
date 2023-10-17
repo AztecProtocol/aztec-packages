@@ -35,7 +35,7 @@ inline barretenberg::fr compute_tree_root_native(std::vector<barretenberg::fr> c
     while (layer.size() > 1) {
         std::vector<barretenberg::fr> next_layer(layer.size() / 2);
         for (size_t i = 0; i < next_layer.size(); ++i) {
-            next_layer[i] = crypto::pedersen_commitment::commit_native({ layer[i * 2], layer[i * 2 + 1] }).x;
+            next_layer[i] = crypto::pedersen_hash::hash({ layer[i * 2], layer[i * 2 + 1] });
         }
         layer = std::move(next_layer);
     }
@@ -54,7 +54,7 @@ inline std::vector<barretenberg::fr> compute_tree_native(std::vector<barretenber
     while (layer.size() > 1) {
         std::vector<barretenberg::fr> next_layer(layer.size() / 2);
         for (size_t i = 0; i < next_layer.size(); ++i) {
-            next_layer[i] = crypto::pedersen_commitment::commit_native({ layer[i * 2], layer[i * 2 + 1] }).x;
+            next_layer[i] = crypto::pedersen_hash::hash({ layer[i * 2], layer[i * 2 + 1] });
             tree.push_back(next_layer[i]);
         }
         layer = std::move(next_layer);
