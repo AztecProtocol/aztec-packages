@@ -188,10 +188,4 @@ class GoblinTranslator : public Arithmetization</*NUM_WIRES =*/78, /*num_selecto
     using FF = curve::BN254::ScalarField;
 };
 
-// TODO: not entirely sure how many wires there will be !
-class FibVM : public Arithmetization</*NUM_WIRES =*/5, /*num_selectors =*/0> {
-  public:
-    using FF = barretenberg::fr;
-    struct Selectors {};
-};
 } // namespace arithmetization

@@ -36,11 +36,11 @@ template <typename FF_> class ExampleRelationImpl {
         {
 
             using View = typename std::tuple_element<0, typename AccumulatorTypes::AccumulatorViews>::type;
-            auto Fibonacci_ISLAST = View(new_term.Fibonacci_ISLAST);
-            auto Fibonacci_x = View(new_term.Fibonacci_x);
-            auto Fibonacci_y = View(new_term.Fibonacci_y);
-            auto Fibonacci_x_shift = View(new_term.Fibonacci_x_shift);
-            auto Fibonacci_y_shift = View(new_term.Fibonacci_y_shift);
+            [[maybe_unused]] const auto& Fibonacci_ISLAST = View(new_term.Fibonacci_ISLAST);
+            [[maybe_unused]] const auto& Fibonacci_x = View(new_term.Fibonacci_x);
+            [[maybe_unused]] const auto& Fibonacci_y = View(new_term.Fibonacci_y);
+            [[maybe_unused]] const auto& Fibonacci_x_shift = View(new_term.Fibonacci_x_shift);
+            [[maybe_unused]] const auto& Fibonacci_y_shift = View(new_term.Fibonacci_y_shift);
 
             auto tmp = (Fibonacci_ISLAST * (Fibonacci_y_shift - FF(1)));
             tmp *= scaling_factor;
@@ -50,11 +50,11 @@ template <typename FF_> class ExampleRelationImpl {
         {
 
             using View = typename std::tuple_element<1, typename AccumulatorTypes::AccumulatorViews>::type;
-            auto Fibonacci_ISLAST = View(new_term.Fibonacci_ISLAST);
-            auto Fibonacci_x = View(new_term.Fibonacci_x);
-            auto Fibonacci_y = View(new_term.Fibonacci_y);
-            auto Fibonacci_x_shift = View(new_term.Fibonacci_x_shift);
-            auto Fibonacci_y_shift = View(new_term.Fibonacci_y_shift);
+            [[maybe_unused]] const auto& Fibonacci_ISLAST = View(new_term.Fibonacci_ISLAST);
+            [[maybe_unused]] const auto& Fibonacci_x = View(new_term.Fibonacci_x);
+            [[maybe_unused]] const auto& Fibonacci_y = View(new_term.Fibonacci_y);
+            [[maybe_unused]] const auto& Fibonacci_x_shift = View(new_term.Fibonacci_x_shift);
+            [[maybe_unused]] const auto& Fibonacci_y_shift = View(new_term.Fibonacci_y_shift);
 
             auto tmp = (Fibonacci_ISLAST * (Fibonacci_x_shift - FF(1)));
             tmp *= scaling_factor;
@@ -64,13 +64,13 @@ template <typename FF_> class ExampleRelationImpl {
         {
 
             using View = typename std::tuple_element<2, typename AccumulatorTypes::AccumulatorViews>::type;
-            auto Fibonacci_ISLAST = View(new_term.Fibonacci_ISLAST);
-            auto Fibonacci_x = View(new_term.Fibonacci_x);
-            auto Fibonacci_y = View(new_term.Fibonacci_y);
-            auto Fibonacci_x_shift = View(new_term.Fibonacci_x_shift);
-            auto Fibonacci_y_shift = View(new_term.Fibonacci_y_shift);
+            [[maybe_unused]] const auto& Fibonacci_ISLAST = View(new_term.Fibonacci_ISLAST);
+            [[maybe_unused]] const auto& Fibonacci_x = View(new_term.Fibonacci_x);
+            [[maybe_unused]] const auto& Fibonacci_y = View(new_term.Fibonacci_y);
+            [[maybe_unused]] const auto& Fibonacci_x_shift = View(new_term.Fibonacci_x_shift);
+            [[maybe_unused]] const auto& Fibonacci_y_shift = View(new_term.Fibonacci_y_shift);
 
-            auto tmp = ((FF(1) - Fibonacci_ISLAST) * (Fibonacci_x_shift - Fibonacci_y));
+            auto tmp = (-Fibonacci_ISLAST + FF(1)) * (Fibonacci_x_shift - Fibonacci_y);
             tmp *= scaling_factor;
             std::get<2>(evals) += tmp;
         }
@@ -78,13 +78,13 @@ template <typename FF_> class ExampleRelationImpl {
         {
 
             using View = typename std::tuple_element<3, typename AccumulatorTypes::AccumulatorViews>::type;
-            auto Fibonacci_ISLAST = View(new_term.Fibonacci_ISLAST);
-            auto Fibonacci_x = View(new_term.Fibonacci_x);
-            auto Fibonacci_y = View(new_term.Fibonacci_y);
-            auto Fibonacci_x_shift = View(new_term.Fibonacci_x_shift);
-            auto Fibonacci_y_shift = View(new_term.Fibonacci_y_shift);
+            [[maybe_unused]] const auto& Fibonacci_ISLAST = View(new_term.Fibonacci_ISLAST);
+            [[maybe_unused]] const auto& Fibonacci_x = View(new_term.Fibonacci_x);
+            [[maybe_unused]] const auto& Fibonacci_y = View(new_term.Fibonacci_y);
+            [[maybe_unused]] const auto& Fibonacci_x_shift = View(new_term.Fibonacci_x_shift);
+            [[maybe_unused]] const auto& Fibonacci_y_shift = View(new_term.Fibonacci_y_shift);
 
-            auto tmp = ((FF(1) - Fibonacci_ISLAST) * (Fibonacci_y_shift - (Fibonacci_x + Fibonacci_y)));
+            auto tmp = (-Fibonacci_ISLAST + FF(1)) * (Fibonacci_y_shift - (Fibonacci_x + Fibonacci_y));
             tmp *= scaling_factor;
             std::get<3>(evals) += tmp;
         }

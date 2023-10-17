@@ -34,9 +34,11 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class Example
     using VerifierCommitmentKey = pcs::VerifierCommitmentKey<Curve>;
 
     static constexpr size_t NUM_WIRES = 3;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 0;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 3;
+    // We have two copies of the witness entities, one for the unshifted and one for the shifted
+    // static constexpr size_t NUM_ALL_ENTITIES = 1 + ((NUM_WITNESS_ENTITIES -1) * 2 );
     static constexpr size_t NUM_ALL_ENTITIES = 5;
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 1;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2;
 
     // using GrandProductRelations = std::tuple<>;
     using Relations = std::tuple<ExampleRelation_vm::ExampleRelation<FF>>;
@@ -54,14 +56,7 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class Example
     template <typename DataType, typename HandleType>
     class PrecomputedEntities : public PrecomputedEntities_<DataType, HandleType, NUM_PRECOMPUTED_ENTITIES> {
       public:
-        DataType& Fibonacci_ISLAST = std::get<0>(this->_data);
-
-        std::vector<HandleType> get_selectors() override
-        {
-            return {
-                Fibonacci_ISLAST,
-            };
-        };
+        std::vector<HandleType> get_selectors() override { return {}; };
 
         std::vector<HandleType> get_sigma_polynomials() override { return {}; };
         std::vector<HandleType> get_id_polynomials() override { return {}; };
@@ -71,8 +66,9 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class Example
     template <typename DataType, typename HandleType>
     class WitnessEntities : public WitnessEntities_<DataType, HandleType, NUM_WITNESS_ENTITIES> {
       public:
-        DataType& Fibonacci_x = std::get<0>(this->_data);
-        DataType& Fibonacci_y = std::get<1>(this->_data);
+        DataType& Fibonacci_ISLAST = std::get<0>(this->_data);
+        DataType& Fibonacci_x = std::get<1>(this->_data);
+        DataType& Fibonacci_y = std::get<2>(this->_data);
 
         std::vector<HandleType> get_wires() override
         {
@@ -87,7 +83,7 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class Example
     };
 
     template <typename DataType, typename HandleType>
-    class AllEntities : public AllEntities_<DataType, HandleType, NUM_WITNESS_ENTITIES> {
+    class AllEntities : public AllEntities_<DataType, HandleType, NUM_ALL_ENTITIES> {
       public:
         DataType& Fibonacci_ISLAST = std::get<0>(this->_data);
 
@@ -185,6 +181,8 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class Example
     class PartiallyEvaluatedMultivariates : public AllEntities<Polynomial, PolynomialHandle> {
       public:
         PartiallyEvaluatedMultivariates() = default;
+
+        // ---------------------------------- CHANGE -----------------------------------
         PartiallyEvaluatedMultivariates(const size_t circuit_size)
         {
             // Storage is only needed after the first partial evaluation, hence polynomials of size (n / 2)
@@ -229,6 +227,8 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class Example
         {
             static_cast<void>(transcript);
             static_cast<void>(verification_key);
+
+            // Base::Fibonacci_ISLAST = verification_key->Fibonacci_ISLAST;
         }
     };
 };
