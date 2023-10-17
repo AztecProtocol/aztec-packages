@@ -1,3 +1,4 @@
+import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -6,12 +7,11 @@ import { ContractDeploymentEmitterAbi, InboxAbi, RollupAbi } from '@aztec/l1-art
 import { ExtendedContractData, L2Block, L2BlockL2Logs, LogType } from '@aztec/types';
 
 import { MockProxy, mock } from 'jest-mock-extended';
+import times from 'lodash.times';
 import { Chain, HttpTransport, Log, PublicClient, Transaction, encodeFunctionData, toHex } from 'viem';
 
 import { Archiver } from './archiver.js';
 import { ArchiverDataStore, MemoryArchiverStore } from './archiver_store.js';
-import times from 'lodash.times';
-import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 
 describe('Archiver', () => {
   const rollupAddress = EthAddress.ZERO.toString();
@@ -231,10 +231,15 @@ describe('Archiver', () => {
     publicClient.getBlockNumber.mockResolvedValueOnce(2500n);
     // logs should be created in order of how archiver syncs.
     publicClient.getLogs
-    .mockResolvedValueOnce(makeL1ToL2MessageAddedEvents(100n, block.newL1ToL2Messages.map(x => x.toString(true))))
-    .mockResolvedValueOnce([])
-    .mockResolvedValueOnce([makeL2BlockProcessedEvent(101n, 1n)])
-    .mockResolvedValue([]);
+      .mockResolvedValueOnce(
+        makeL1ToL2MessageAddedEvents(
+          100n,
+          block.newL1ToL2Messages.map(x => x.toString(true)),
+        ),
+      )
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([makeL2BlockProcessedEvent(101n, 1n)])
+      .mockResolvedValue([]);
     publicClient.getTransaction.mockResolvedValueOnce(rollupTx);
 
     await archiver.start(false);
@@ -247,7 +252,9 @@ describe('Archiver', () => {
     latestBlockNum = await archiver.getBlockNumber();
     expect(latestBlockNum).toEqual(1);
 
-    const expectedL1Messages = block.newL1ToL2Messages.concat(times(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP - NUM_RECEIVED_L1_MESSAGES, () => Fr.ZERO)).map(x => x.value);
+    const expectedL1Messages = block.newL1ToL2Messages
+      .concat(times(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP - NUM_RECEIVED_L1_MESSAGES, () => Fr.ZERO))
+      .map(x => x.value);
     const receivedBlock = await archiver.getBlock(1);
     expect(receivedBlock?.newL1ToL2Messages.map(x => x.value)).toEqual(expectedL1Messages);
 
