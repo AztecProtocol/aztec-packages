@@ -39,6 +39,10 @@ function(circuits_cmake_module MODULE_NAME)
         )
         list(APPEND lib_targets ${MODULE_NAME})
 
+        # enable msgpack downloading via dependency (solves race condition)
+        add_dependencies(${MODULE_NAME}_objects msgpack-c)
+        add_dependencies(${MODULE_NAME} msgpack-c)
+
         set(MODULE_LINK_NAME ${MODULE_NAME})
     endif()
 
