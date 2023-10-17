@@ -223,7 +223,7 @@ WASM_EXPORT void abis__compute_function_tree_root(uint8_t const* function_leaves
     rightfill_with_zeroleaves<aztec3::FUNCTION_TREE_HEIGHT>(leaves, zero_leaf);
 
     // compute the root of this complete tree, return
-    NT::fr const root = plonk::stdlib::merkle_tree::compute_tree_root_native(leaves);
+    NT::fr const root = NT::compute_tree_root_native(leaves);
 
     // serialize and return root
     NT::fr::serialize_to_buffer(root, root_out);
@@ -251,7 +251,7 @@ WASM_EXPORT void abis__compute_function_tree(uint8_t const* function_leaves_in, 
     NT::fr zero_leaf = FunctionLeafPreimage<NT>().hash();  // hash of empty/0 preimage
     rightfill_with_zeroleaves<aztec3::FUNCTION_TREE_HEIGHT>(leaves, zero_leaf);
 
-    std::vector<NT::fr> const tree = plonk::stdlib::merkle_tree::compute_tree_native(leaves);
+    std::vector<NT::fr> const tree = NT::compute_tree_native(leaves);
 
     // serialize and return tree
     write(tree_nodes_out, tree);

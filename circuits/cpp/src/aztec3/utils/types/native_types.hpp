@@ -66,7 +66,7 @@ struct NativeTypes {
     {
         // use 0-generator for internal merkle hashing
         // use lookup namespace since we now use ultraplonk
-        return crypto::pedersen_hash::hash({ left, right }, 0);
+        return crypto::pedersen_commitment::commit_native({ left, right }, 0).x;
     }
 
     static grumpkin_point commit(const std::vector<fr>& inputs, const size_t hash_index = 0)
@@ -81,6 +81,49 @@ struct NativeTypes {
     }
 
     static byte_array blake3s(const byte_array& input) { return blake3::blake3s(input); }
+
+    // These two methods both exist in plonk::stdlib::merkle_tree.
+    // We've moved them here temporarily so that we can call pedersen_commitment::commit_native
+    // instead of pedersen_hash. So that the code can match Noir.
+    //
+    // We cannot implement pedersen hash in Noir with only pedersen_commitment::commit
+    // because there is a special length's generator that is not exposed.
+    //
+    // We will need to add a pedersen_hash::hash blackbox function.
+    static inline std::vector<barretenberg::fr> compute_tree_native(std::vector<barretenberg::fr> const& input)
+    {
+        // Check if the input vector size is a power of 2.
+        ASSERT(input.size() > 0);
+        ASSERT(numeric::is_power_of_two(input.size()));
+        auto layer = input;
+        std::vector<barretenberg::fr> tree(input);
+        while (layer.size() > 1) {
+            std::vector<barretenberg::fr> next_layer(layer.size() / 2);
+            for (size_t i = 0; i < next_layer.size(); ++i) {
+                next_layer[i] = crypto::pedersen_commitment::commit_native({ layer[i * 2], layer[i * 2 + 1] }).x;
+                tree.push_back(next_layer[i]);
+            }
+            layer = std::move(next_layer);
+        }
+
+        return tree;
+    }
+    static inline barretenberg::fr compute_tree_root_native(std::vector<barretenberg::fr> const& input)
+    {
+        // Check if the input vector size is a power of 2.
+        ASSERT(input.size() > 0);
+        ASSERT(numeric::is_power_of_two(input.size()));
+        auto layer = input;
+        while (layer.size() > 1) {
+            std::vector<barretenberg::fr> next_layer(layer.size() / 2);
+            for (size_t i = 0; i < next_layer.size(); ++i) {
+                next_layer[i] = crypto::pedersen_commitment::commit_native({ layer[i * 2], layer[i * 2 + 1] }).x;
+            }
+            layer = std::move(next_layer);
+        }
+
+        return layer[0];
+    }
 };
 
 }  // namespace aztec3::utils::types
