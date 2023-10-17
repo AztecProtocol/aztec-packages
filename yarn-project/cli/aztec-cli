@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+SCRIPT="$0"
+SCRIPT_LOCATION="$(realpath $(dirname $SCRIPT))"
+
+# we need to look at which command was run in order to set up mount points
+COMMAND="$1"
+
+PXE_URL=${PXE_URL:-"http://host.docker.internal:8080"}
+
+CLI_IMAGE="278380418400.dkr.ecr.eu-west-2.amazonaws.com/aztec-cli"
+CLI_VERSION=${CLI_VERSION:-"latest"}
+
+DOCKER_CMD=""
+
+if command -v podman &> /dev/null; then
+  DOCKER_CMD="podman"
+elif command -v docker &> /dev/null; then
+  DOCKER_CMD="docker"
+else
+  echo "No docker or podman found"
+  exit 1
+fi
+
+DOCKER_RUN_ARGS="--rm --user $(id -u):$(id -g)"
+
+UNAME=$(uname -s)
+
+# set up host.docker.internal alias on linux, just like it is on mac
+if [[ "$UNAME" == "Linux" ]]; then
+    DOCKER_RUN_ARGS="$DOCKER_RUN_ARGS --add-host=host.docker.internal:host-gateway"
+fi
+
+# Build a list of mount points
+MOUNTS=""
+function add_mount() {
+  DIR="$1"
+
+  echo "mounting $DIR"
+
+  # grab its dirname if its a file
+  # e.g. passing the file path to a JSON artifact
+  if [[ -f "$DIR" ]]; then
+    DIR=$(dirname "$DIR")
+  fi
+
+  if [[ ! -d "$DIR" ]]; then
+    return
+  fi
+
+  REALDIR=$(realpath $DIR)
+  if [[ "$MOUNTS" =~ "$REALDIR:" ]]; then
+    return
+  fi
+
+  MOUNTS="$MOUNTS -v $REALDIR:$REALDIR"
+}
+
+if [[ "$COMMAND" == "compile" || "$COMMAND" == "deploy" || "$COMMAND" == "inspect-contract" ]]; then
+  CONTRACT=$2
+  add_mount "$CONTRACT"
+fi
+
+if [[ "$COMMAND" == "compile" || "$COMMAND" == "call" || "$COMMAND" == "send" ]]; then
+  for (( i=2; i <= "$#"; i++ )); do
+      arg_value=${!i}
+      next_index=$((i+1))
+      if [[ "$next_index" -gt "$#" ]]; then
+          continue
+      fi
+      next_arg=${!next_index}
+      case $arg_value in
+          -o | --outdir)
+              add_mount "$next_arg"
+              ;;
+          -ts | --typescript)
+              add_mount "$next_arg"
+              ;;
+          -i | --interface)
+              add_mount "$next_arg"
+              ;;
+          -c | --contract-artifact)
+              add_mount "$next_arg"
+              ;;
+          *)
+              ;;
+      esac
+  done
+fi
+
+ENV="-e PXE_URL=$PXE_URL"
+
+if [[ ! -z "${PRIVATE_KEY:-}" ]]; then
+  ENV="$ENV -e PRIVATE_KEY=$PRIVATE_KEY"
+fi
+
+echo "-----"
+
+echo $DOCKER_CMD run $DOCKER_RUN_ARGS \
+  $ENV \
+  $MOUNTS \
+  $CLI_IMAGE:$CLI_VERSION $@
+
+echo "-----"
+
+$DOCKER_CMD run $DOCKER_RUN_ARGS $ENV $MOUNTS $CLI_IMAGE:$CLI_VERSION $@
