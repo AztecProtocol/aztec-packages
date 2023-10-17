@@ -216,12 +216,12 @@ void init_slab_allocator(size_t circuit_subgroup_size)
 //     return allocator.get(size);
 // }
 
-void* get_mem_slab_raw(size_t size)
-{
-    auto slab = get_mem_slab(size);
-    manual_slabs[slab.get()] = slab;
-    return slab.get();
-}
+// void* get_mem_slab_raw(size_t size)
+// {
+//     auto slab = get_mem_slab(size);
+//     manual_slabs[slab.get()] = slab;
+//     return slab.get();
+// }
 
 void free_mem_slab_raw(void* p)
 {

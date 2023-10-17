@@ -38,5 +38,9 @@ if [ ! -f ~/go/bin/pprof ]; then
     ~/go/bin/go install github.com/google/pprof@latest
 fi
 
+# Collect the heap files
+files=(./honk_bench_main_simple.*.heap)
+# Find the middle index based on the count
+middle_index=$(( (${#files[@]} + 1) / 2 - 1))
 # Process the heap profile with pprof
-~/go/bin/pprof --text ./bin/honk_bench_main_simple honk_bench_main_simple.0001.heap
+~/go/bin/pprof --text ./bin/honk_bench_main_simple ${files[$middle_index]}

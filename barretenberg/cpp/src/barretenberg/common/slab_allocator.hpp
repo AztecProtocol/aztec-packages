@@ -43,7 +43,11 @@ inline std::shared_ptr<void> get_mem_slab(size_t size)
  * Sometimes you want a raw pointer to a slab so you can manage when it's released manually (e.g. c_binds, containers).
  * This still gets a slab with a shared_ptr, but holds the shared_ptr internally until free_mem_slab_raw is called.
  */
-void* get_mem_slab_raw(size_t size);
+inline void* get_mem_slab_raw(size_t size)
+{
+    // NOLINTNEXTLINE(cppcoreguidelines-no-malloc)
+    return malloc(size);
+}
 
 void free_mem_slab_raw(void*);
 

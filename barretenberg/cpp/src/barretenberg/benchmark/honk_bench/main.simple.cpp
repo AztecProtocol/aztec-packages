@@ -45,12 +45,12 @@ void construct_proof_ultra() noexcept
     barretenberg::srs::init_crs_factory("../srs_db/ignition");
     // Constuct circuit and prover; don't include this part in measurement
     auto builder = typename UltraHonk::CircuitBuilder();
-    generate_sha256_test_circuit<UltraBuilder>(builder, 1);
+    generate_sha256_test_circuit<UltraBuilder>(builder, 100);
 
     auto composer = UltraHonk();
     auto instance = composer.create_instance(builder);
     auto ext_prover = composer.create_prover(instance);
-    for (size_t i = 0; i < 10; i++) {
+    for (size_t i = 0; i < 1; i++) {
         auto proof = ext_prover.construct_proof();
     }
 }
