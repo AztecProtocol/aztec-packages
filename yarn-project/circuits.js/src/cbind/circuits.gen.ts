@@ -523,6 +523,7 @@ export function fromPublicDataRead(o: PublicDataRead): MsgpackPublicDataRead {
 interface MsgpackCombinedAccumulatedData {
   aggregation_object: MsgpackNativeAggregationState;
   read_requests: Tuple<Buffer, 128>;
+  pending_read_requests: Tuple<Buffer, 128>;
   new_commitments: Tuple<Buffer, 64>;
   new_nullifiers: Tuple<Buffer, 64>;
   nullified_commitments: Tuple<Buffer, 64>;
@@ -545,6 +546,9 @@ export function toCombinedAccumulatedData(o: MsgpackCombinedAccumulatedData): Co
   }
   if (o.read_requests === undefined) {
     throw new Error('Expected read_requests in CombinedAccumulatedData deserialization');
+  }
+  if (o.pending_read_requests === undefined) {
+    throw new Error('Expected pending_read_requests in CombinedAccumulatedData deserialization');
   }
   if (o.new_commitments === undefined) {
     throw new Error('Expected new_commitments in CombinedAccumulatedData deserialization');
@@ -591,6 +595,7 @@ export function toCombinedAccumulatedData(o: MsgpackCombinedAccumulatedData): Co
   return new CombinedAccumulatedData(
     toNativeAggregationState(o.aggregation_object),
     mapTuple(o.read_requests, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.pending_read_requests, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.new_commitments, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.new_nullifiers, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.nullified_commitments, (v: Buffer) => Fr.fromBuffer(v)),
@@ -614,6 +619,9 @@ export function fromCombinedAccumulatedData(o: CombinedAccumulatedData): Msgpack
   }
   if (o.readRequests === undefined) {
     throw new Error('Expected readRequests in CombinedAccumulatedData serialization');
+  }
+  if (o.pendingReadRequests === undefined) {
+    throw new Error('Expected pendingReadRequests in CombinedAccumulatedData serialization');
   }
   if (o.newCommitments === undefined) {
     throw new Error('Expected newCommitments in CombinedAccumulatedData serialization');
@@ -660,6 +668,7 @@ export function fromCombinedAccumulatedData(o: CombinedAccumulatedData): Msgpack
   return {
     aggregation_object: fromNativeAggregationState(o.aggregationObject),
     read_requests: mapTuple(o.readRequests, (v: Fr) => toBuffer(v)),
+    pending_read_requests: mapTuple(o.pendingReadRequests, (v: Fr) => toBuffer(v)),
     new_commitments: mapTuple(o.newCommitments, (v: Fr) => toBuffer(v)),
     new_nullifiers: mapTuple(o.newNullifiers, (v: Fr) => toBuffer(v)),
     nullified_commitments: mapTuple(o.nullifiedCommitments, (v: Fr) => toBuffer(v)),
@@ -1214,6 +1223,7 @@ interface MsgpackPrivateCircuitPublicInputs {
   args_hash: Buffer;
   return_values: Tuple<Buffer, 4>;
   read_requests: Tuple<Buffer, 32>;
+  pending_read_requests: Tuple<Buffer, 32>;
   new_commitments: Tuple<Buffer, 16>;
   new_nullifiers: Tuple<Buffer, 16>;
   nullified_commitments: Tuple<Buffer, 16>;
@@ -1242,6 +1252,9 @@ export function toPrivateCircuitPublicInputs(o: MsgpackPrivateCircuitPublicInput
   }
   if (o.read_requests === undefined) {
     throw new Error('Expected read_requests in PrivateCircuitPublicInputs deserialization');
+  }
+  if (o.pending_read_requests === undefined) {
+    throw new Error('Expected pending_read_requests in PrivateCircuitPublicInputs deserialization');
   }
   if (o.new_commitments === undefined) {
     throw new Error('Expected new_commitments in PrivateCircuitPublicInputs deserialization');
@@ -1290,6 +1303,7 @@ export function toPrivateCircuitPublicInputs(o: MsgpackPrivateCircuitPublicInput
     Fr.fromBuffer(o.args_hash),
     mapTuple(o.return_values, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.read_requests, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.pending_read_requests, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.new_commitments, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.new_nullifiers, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.nullified_commitments, (v: Buffer) => Fr.fromBuffer(v)),
@@ -1319,6 +1333,9 @@ export function fromPrivateCircuitPublicInputs(o: PrivateCircuitPublicInputs): M
   }
   if (o.readRequests === undefined) {
     throw new Error('Expected readRequests in PrivateCircuitPublicInputs serialization');
+  }
+  if (o.pendingReadRequests === undefined) {
+    throw new Error('Expected pendingReadRequests in PrivateCircuitPublicInputs serialization');
   }
   if (o.newCommitments === undefined) {
     throw new Error('Expected newCommitments in PrivateCircuitPublicInputs serialization');
@@ -1367,6 +1384,7 @@ export function fromPrivateCircuitPublicInputs(o: PrivateCircuitPublicInputs): M
     args_hash: toBuffer(o.argsHash),
     return_values: mapTuple(o.returnValues, (v: Fr) => toBuffer(v)),
     read_requests: mapTuple(o.readRequests, (v: Fr) => toBuffer(v)),
+    pending_read_requests: mapTuple(o.pendingReadRequests, (v: Fr) => toBuffer(v)),
     new_commitments: mapTuple(o.newCommitments, (v: Fr) => toBuffer(v)),
     new_nullifiers: mapTuple(o.newNullifiers, (v: Fr) => toBuffer(v)),
     nullified_commitments: mapTuple(o.nullifiedCommitments, (v: Fr) => toBuffer(v)),
