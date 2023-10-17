@@ -64,7 +64,7 @@ class Ultra {
     using ProtogalaxyTupleOfTuplesOfUnivariates =
         decltype(create_protogalaxy_tuple_of_tuples_of_univariates<Relations, NUM_INSTANCES>());
     using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
-    using SumcheckTupleOfArraysOfValues = decltype(create_sumcheck_tuple_of_arrays_of_values<Relations>());
+    using TupleOfArraysOfValues = decltype(create_sumcheck_tuple_of_arrays_of_values<Relations>());
 
     // Whether or not the first row of the execution trace is reserved for 0s to enable shifts
     static constexpr bool has_zero_row = true;
@@ -274,7 +274,8 @@ class Ultra {
     using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment, CommitmentHandle>>;
 
     /**
-     * @brief A field element for each entity of the flavor.
+     * @brief A field element for each entity of the flavor. These entities represent the prover polynomials evaluated
+     * at one point.
      */
     class AllValues : public AllEntities<FF, FF> {
       public:
@@ -288,7 +289,7 @@ class Ultra {
      */
     class ProverPolynomials : public AllEntities<PolynomialHandle, PolynomialHandle> {
       public:
-        AllValues get_row(const size_t row_idx)
+        AllValues get_row(const size_t row_idx) const
         {
             AllValues result;
             size_t column_idx = 0; // TODO(https://github.com/AztecProtocol/barretenberg/issues/391) zip
@@ -410,7 +411,7 @@ class Ultra {
 
     class FoldingParameters {
       public:
-        FF gate_separation_challenge;
+        std::vector<FF> gate_separation_challenges;
         FF target_sum;
     };
 };

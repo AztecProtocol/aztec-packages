@@ -85,7 +85,7 @@ template <typename BuilderType> class UltraRecursive_ {
 
     // define the container for storing the univariate contribution from each relation in Sumcheck
     using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
-    using SumcheckTupleOfArraysOfValues = decltype(create_sumcheck_tuple_of_arrays_of_values<Relations>());
+    using TupleOfArraysOfValues = decltype(create_sumcheck_tuple_of_arrays_of_values<Relations>());
 
   private:
     template <typename DataType, typename HandleType>
@@ -308,7 +308,8 @@ template <typename BuilderType> class UltraRecursive_ {
     };
 
     /**
-     * @brief A field element for each entity of the flavor.
+     * @brief A field element for each entity of the flavor. These entities represent the prover polynomials evaluated
+     * at one point.
      */
     class AllValues : public AllEntities<FF, FF> {
       public:
