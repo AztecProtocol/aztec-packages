@@ -18,7 +18,7 @@ const S3_URL = 'https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com';
 // What % diff should be considered as a warning
 const WARNING_DIFF_THRESHOLD = 15;
 // When a measurement in ms should be considered "small"
-const SMALL_MS_THRESHOLD = 100;
+const SMALL_MS_THRESHOLD = 200;
 // What % diff should be considered as a warning for "small" ms measurements
 const WARNING_DIFF_THRESHOLD_SMALL_MS = 30;
 
@@ -65,6 +65,7 @@ function getWarnings(
   if (!base) return [];
   const warnings: string[] = [];
   for (const row in data) {
+    if (row === 'timestamp') continue;
     for (const col in data[row]) {
       const value = data[row][col];
       const baseValue = (base[row] ?? {})[col];
