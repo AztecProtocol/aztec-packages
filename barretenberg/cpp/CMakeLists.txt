@@ -6,7 +6,7 @@ cmake_minimum_required(VERSION 3.24)
 project(
     Barretenberg
     DESCRIPTION "BN254 elliptic curve library, and PLONK SNARK prover"
-    VERSION 0.8.14 # x-release-please-version
+    VERSION 0.9.0 # x-release-please-version
     LANGUAGES CXX C
 )
 # Insert version into `bb` config file
@@ -141,6 +141,7 @@ include(cmake/threading.cmake)
 include(cmake/gtest.cmake)
 include(cmake/benchmark.cmake)
 include(cmake/module.cmake)
+include(cmake/msgpack.cmake)
 add_subdirectory(src)
 if (ENABLE_ASAN AND NOT(FUZZING))
     find_program(LLVM_SYMBOLIZER_PATH NAMES llvm-symbolizer-16)
