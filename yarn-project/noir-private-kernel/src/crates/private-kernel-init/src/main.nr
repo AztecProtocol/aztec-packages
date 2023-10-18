@@ -112,6 +112,7 @@ impl PrivateKernelInputsInit {
 
     fn native_private_kernel_circuit_initial(self) -> KernelCircuitPublicInputs {
         let mut public_inputs : KernelCircuitPublicInputsBuilder = unsafe::zeroed();
+        public_inputs.is_private = true;
         
         // TODO(david): // Do this before any functions can modify the inputs. Why?
         self.initialize_end_values(&mut public_inputs);

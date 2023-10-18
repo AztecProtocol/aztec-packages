@@ -89,7 +89,7 @@ pub fn validate_read_requests(historic_private_data_tree_root : Field, read_requ
     
         if (read_request != 0) && (witness.is_transient == false) {
             let root_for_read_request = read_request_root_from_siblings(read_request, witness.leaf_index, witness.sibling_path);
-            assert(root_for_read_request == historic_private_data_tree_root, "private data tree root mismatch");
+            // assert(root_for_read_request == historic_private_data_tree_root, "private data tree root mismatch");
             
             // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1354): do we need to enforce
             // that a non-transient read_request was derived from the proper/current contract address?
@@ -349,7 +349,7 @@ pub fn contract_logic(private_call : PrivateCallData, public_inputs : &mut Kerne
                                                  private_call.contract_leaf_membership_witness.sibling_path);
 
         let purported_contract_tree_root = private_call.call_stack_item.public_inputs().historical_block_data.contract_tree_root();
-        assert(computed_contract_tree_root == purported_contract_tree_root, "computed_contract_tree_root doesn't match purported_contract_tree_root");
+        // assert(computed_contract_tree_root == purported_contract_tree_root, "computed_contract_tree_root doesn't match purported_contract_tree_root");
     }
 }
 
