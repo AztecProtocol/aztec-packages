@@ -8,7 +8,7 @@ import { dirname, join } from 'path';
 
 import { Crs } from '../crs/index.js';
 
-const NAME = '/aztec3-circuits';
+const NAME = '/aztec3-circuits1';
 const CODE_PATH = isNode
   ? join(dirname(fileURLToPath(import.meta.url)), `../../resources/${NAME}.wasm`)
   : `${NAME}.wasm`;
