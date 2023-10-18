@@ -34,9 +34,7 @@ template <typename Flavor, typename Widget> void execute_widget(::benchmark::Sta
     BasicPlonkKeyAndTranscript data = get_plonk_key_and_transcript();
     Widget widget(data.proving_key);
     for (auto _ : state) {
-        for (int i = 0; i < 1000; i++) {
-            widget.compute_quotient_contribution(barretenberg::fr::random_element(), data.transcript);
-        }
+        widget.compute_quotient_contribution(barretenberg::fr::random_element(), data.transcript);
     }
 }
 void plookup_auxiliary_kernel(::benchmark::State& state) noexcept
@@ -51,23 +49,24 @@ void plookup_auxiliary_kernel(::benchmark::State& state) noexcept
         data.transcript, barretenberg::fr::random_element(), FFTKernel::quotient_required_challenges);
 
     for (auto _ : state) {
-        for (int j = 0; j < 1000; j++) {
-            widget::containers::coefficient_array<barretenberg::fr> linear_terms;
-            FFTKernel::compute_linear_terms(polynomials, challenges, linear_terms, 0);
-            auto sum_of_linear_terms = FFTKernel::sum_linear_terms(polynomials, challenges, linear_terms, 0);
-
-            auto& quotient_term = data.proving_key->quotient_polynomial_parts[0][0];
-            quotient_term += sum_of_linear_terms;
-            FFTKernel::compute_non_linear_terms(polynomials, challenges, quotient_term, 0);
-        }
+        // NOTE: this simply calls the following 3 functions it does NOT try to replicate ProverPlookupAuxiliaryWidget
+        // logic exactly
+        widget::containers::coefficient_array<barretenberg::fr> linear_terms;
+        FFTKernel::compute_linear_terms(polynomials, challenges, linear_terms, 0);
+        barretenberg::fr sum_of_linear_terms = FFTKernel::sum_linear_terms(polynomials, challenges, linear_terms, 0);
+        FFTKernel::compute_non_linear_terms(polynomials, challenges, sum_of_linear_terms, 0);
     }
 }
 BENCHMARK(plookup_auxiliary_kernel);
 
-// void plookup_auxiliary_widget(::benchmark::State& state) noexcept
-//{
-//     execute_widget<honk::flavor::Ultra, ProverPlookupAuxiliaryWidget<ultra_settings>>(state);
-// }
-// BENCHMARK(plookup_auxiliary_widget);
+void plookup_auxiliary_widget(::benchmark::State& state) noexcept
+{
+    BasicPlonkKeyAndTranscript data = get_plonk_key_and_transcript();
+    ProverPlookupAuxiliaryWidget<ultra_settings> widget(data.proving_key.get());
+    for (auto _ : state) {
+        widget.compute_quotient_contribution(barretenberg::fr::random_element(), data.transcript);
+    }
+}
+BENCHMARK(plookup_auxiliary_widget);
 
 } // namespace proof_system::plonk
