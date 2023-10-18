@@ -197,7 +197,7 @@
       "cacheVariables": {
         "MULTITHREADING": "OFF"
       },
-      "binaryDir": "build-xray-1thread-no-inline"
+      "binaryDir": "build-xray-1thread-verbose"
     },
     {
       "name": "xray-1thread",
@@ -320,8 +320,8 @@
       "targets": ["barretenberg.wasm"]
     },
     {
-      "name": "xray-1thread-no-inline",
-      "configurePreset": "xray-1thread-no-inline",
+      "name": "xray-1thread-verbose",
+      "configurePreset": "xray-1thread-verbose",
       "inherits": "default"
     },
     {
