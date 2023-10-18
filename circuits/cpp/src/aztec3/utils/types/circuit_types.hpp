@@ -67,9 +67,7 @@ template <typename Builder> struct CircuitTypes {
                    std::vector<size_t> const& hash_sub_indices,
                    const size_t hash_index = 0)
     {
-        return plonk::stdlib::pedersen_commitment<Builder>::commit(
-                   inputs, hash_sub_indices, get_generator_context(hash_index))
-            .x;
+        return plonk::stdlib::pedersen_hash<Builder>::hash(inputs, hash_sub_indices, get_generator_context(hash_index));
     }
 
     /**

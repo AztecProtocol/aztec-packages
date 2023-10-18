@@ -49,7 +49,7 @@ struct NativeTypes {
     // Define the 'native' version of the function `hash`, with the name `hash`:
     static fr hash(const std::vector<fr>& inputs, const size_t hash_index = 0)
     {
-        return crypto::pedersen_commitment::commit_native(inputs, get_generator_context(hash_index)).x;
+        return crypto::pedersen_hash::hash(inputs, get_generator_context(hash_index));
     }
 
     /**
@@ -97,15 +97,36 @@ struct NativeTypes {
         ASSERT(numeric::is_power_of_two(input.size()));
         auto layer = input;
         std::vector<barretenberg::fr> tree(input);
+
+        //     auto& hmm = tree[11];
+        // for (size_t i = 0; i < sizeof(32); ++i) {
+        //     printf("%02x ", reinterpret_cast<unsigned char*>(&hmm)[i]);
+        // }
+        // printf("\n");
+
         while (layer.size() > 1) {
             std::vector<barretenberg::fr> next_layer(layer.size() / 2);
             for (size_t i = 0; i < next_layer.size(); ++i) {
+                if (layer[i * 2] == 0 || layer[i * 2 + 1] == 0) {
+                    throw_or_abort("ZAC!");
+                }
                 next_layer[i] = crypto::pedersen_commitment::commit_native({ layer[i * 2], layer[i * 2 + 1] }).x;
+                std::cout << "next layer = " << next_layer[i] << std::endl;
+                auto argh = next_layer[i];
+                auto blargh = next_layer[i].reduce_once();
+                ASSERT(argh == blargh);
+                if (argh != blargh) {
+                    throw_or_abort("nooooo");
+                }
                 tree.push_back(next_layer[i]);
             }
-            layer = std::move(next_layer);
+            layer = std::vector(next_layer);
         }
-
+        std::cout << "TREE START" << std::endl;
+        for (auto& ttt : tree) {
+            std::cout << ttt << std::endl;
+        }
+        std::cout << "TREE END" << std::endl;
         return tree;
     }
     static inline barretenberg::fr compute_tree_root_native(std::vector<barretenberg::fr> const& input)
