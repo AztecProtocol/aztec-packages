@@ -24,13 +24,11 @@ template <typename Flavor, typename Widget> void execute_widget(::benchmark::Sta
     auto inner_verifier = inner_composer.create_verifier(builder);
 
     const size_t num_inner_public_inputs = builder.get_public_inputs().size();
-
     transcript::StandardTranscript transcript(inner_proof.proof_data,
                                               plonk::UltraComposer::create_manifest(num_inner_public_inputs),
                                               transcript::HashType::PlookupPedersenBlake3s);
-
+    Widget value;
     for (auto _ : state) {
-        ProverPlookupAuxiliaryWidget<FF> value;
         value.compute_quotient_contribution(FF::random_element(), transcript);
     }
 }
