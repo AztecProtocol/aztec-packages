@@ -46,7 +46,7 @@ template <typename Builder> void generate_sha256_test_circuit(Builder& builder, 
 BBERG_INSTRUMENT BBERG_NOINLINE void sumcheck_profiling(auto& ext_prover)
 {
     ext_prover.construct_proof();
-    for (size_t i = 0; i < 1000; i++) {
+    for (size_t i = 0; i < 100; i++) {
         // Bench sumcheck
         ext_prover.execute_relation_check_rounds();
     }
@@ -60,7 +60,7 @@ void construct_proof_ultra() noexcept
     barretenberg::srs::init_crs_factory("../srs_db/ignition");
     // Constuct circuit and prover; don't include this part in measurement
     honk::UltraComposer::CircuitBuilder builder;
-    generate_sha256_test_circuit(builder, 1);
+    generate_sha256_test_circuit(builder, 100);
 
     honk::UltraComposer composer;
     std::shared_ptr<honk::UltraComposer::Instance> instance = composer.create_instance(builder);
