@@ -40,6 +40,7 @@ pub fn validate_arrays(app_public_inputs : PrivateCircuitPublicInputs) {
     // encrypted_logs_hash and unencrypted_logs_hash have their own integrity checks.
 }
 
+// TODO: Is this actually useful? We are already checking these in every iteration.
 // Check that preimages in the callstack correspond to the hash in the private_call_stack
 // ie hash(preimages) == private_call_stack for each preimage
 // If the stack is empty, then we avoid doing a hash and set the output to be 0

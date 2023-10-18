@@ -6,4 +6,3 @@ compiler_version = "0.16.0"
 
 [dependencies]
 private_kernel_lib = { path = "../private-kernel-lib" }
-private_kernel_init_lib = { path = "../private-kernel-init-lib" }

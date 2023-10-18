@@ -1,11 +1,13 @@
 use dep::aztec::constants_gen;
-use dep::private_kernel_lib::common;
-use dep::private_kernel_lib::mocked::{Proof, AggregationObject,verify_previous_kernel_state};
-use dep::private_kernel_lib::abis::private_kernel::private_call_data::PrivateCallData;
-use dep::private_kernel_lib::transaction::request::TxRequest;
-use dep::private_kernel_lib::{KernelCircuitPublicInputs, KernelCircuitPublicInputsBuilder};
-use dep::private_kernel_lib::abis::combined_constant_data::CombinedConstantData;
-use dep::private_kernel_lib::utils::arrays;
+use crate::common;
+use crate::mocked::{Proof, AggregationObject,verify_previous_kernel_state};
+use crate::transaction::request::TxRequest;
+use crate::abis::{
+    combined_constant_data::CombinedConstantData,
+    private_kernel::private_call_data::PrivateCallData,
+    kernel_circuit_public_inputs::{KernelCircuitPublicInputs, KernelCircuitPublicInputsBuilder}
+};
+use crate::utils::arrays;
 use dep::std::unsafe;
 
 // Initialization struct for private inputs to the private kernel
@@ -106,7 +108,7 @@ impl PrivateKernelInputsInit {
         // https://github.com/AztecProtocol/aztec-packages/issues/660
     }
 
-    fn native_private_kernel_circuit_initial(self) -> KernelCircuitPublicInputs {
+    pub fn native_private_kernel_circuit_initial(self) -> KernelCircuitPublicInputs {
         let mut public_inputs : KernelCircuitPublicInputsBuilder = unsafe::zeroed();
         public_inputs.is_private = true;
         
