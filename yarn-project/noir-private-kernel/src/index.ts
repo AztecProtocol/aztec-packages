@@ -5,6 +5,7 @@ import { WasmBlackBoxFunctionSolver, createBlackBoxSolver, executeCircuitWithBla
 import { abiDecode, abiEncode } from '@noir-lang/noirc_abi';
 
 import PrivateKernelInitJson from './target/private_kernel_init.json' assert { type: 'json' };
+import PrivateKernelInitSimulatedJson from './target/private_kernel_init_simulated.json' assert { type: 'json' };
 import PrivateKernelInnerJson from './target/private_kernel_inner.json' assert { type: 'json' };
 import PrivateKernelOrderingJson from './target/private_kernel_ordering.json' assert { type: 'json' };
 import { mapKernelCircuitPublicInputsFromNoir, mapPrivateKernelInputsInitToNoir } from './type_conversion.js';
@@ -64,12 +65,12 @@ const getSolver = (): Promise<WasmBlackBoxFunctionSolver> => {
  * We will make this private and just use `executeInit`.
  */
 async function executePrivateKernelInitWithACVM(input: InitInputType): Promise<ReturnType> {
-  const initialWitnessMap = abiEncode(PrivateKernelInitArtifact.abi, input, null);
+  const initialWitnessMap = abiEncode(PrivateKernelInitSimulatedJson.abi, input, null);
 
   // Execute the circuit on those initial witness values
   //
   // Decode the bytecode from base64 since the acvm does not know about base64 encoding
-  const decodedBytecode = Buffer.from(PrivateKernelInitArtifact.bytecode, 'base64');
+  const decodedBytecode = Buffer.from(PrivateKernelInitSimulatedJson.bytecode, 'base64');
   //
   // Execute the circuit
   const _witnessMap = await executeCircuitWithBlackBoxSolver(
@@ -82,7 +83,7 @@ async function executePrivateKernelInitWithACVM(input: InitInputType): Promise<R
   );
 
   // Decode the witness map into two fields, the return values and the inputs
-  const decodedInputs: DecodedInputs = abiDecode(PrivateKernelInitArtifact.abi, _witnessMap);
+  const decodedInputs: DecodedInputs = abiDecode(PrivateKernelInitSimulatedJson.abi, _witnessMap);
 
   // Cast the inputs as the return type
   return decodedInputs.return_value as ReturnType;

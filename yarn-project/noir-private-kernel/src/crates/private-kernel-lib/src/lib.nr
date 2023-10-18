@@ -16,8 +16,10 @@ mod hash;
 
 mod interop_testing;
 
+mod private_kernel_init;
+
 use abis::kernel_circuit_public_inputs::KernelCircuitPublicInputs;
-use abis::kernel_circuit_public_inputs::KernelCircuitPublicInputsBuilder;
+use private_kernel_init::PrivateKernelInputsInit;
 // Hmm
 // PrivateCircuitPublicInputs vs CombinedAccumulatedData (Duplicated fields)
 // ?Que es la diferencia entre contract_address y storage_address?

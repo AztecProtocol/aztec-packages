@@ -41,4 +41,4 @@ export { FunctionSelector } from '@aztec/foundation/abi';
 // This is not great as we are exporting from tests.
 // Its okay for now and before merging into master, we should
 // remove this line.
-export *  from '../tests/factories.js';
+export * from '../tests/factories.js';

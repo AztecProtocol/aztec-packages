@@ -25,7 +25,7 @@ const dumpedState = 'src/fixtures/dumps/uniswap_state';
 const EXPECTED_FORKED_BLOCK = 0; //17514288;
 // We tell the archiver to only sync from this block.
 process.env.SEARCH_START_BLOCK = EXPECTED_FORKED_BLOCK.toString();
-const TIMEOUT = 90_000;
+const TIMEOUT = 140_000;
 
 // Should mint WETH on L2, swap to DAI using L1 Uniswap and mint this DAI back on L2
 describe('uniswap_trade_on_l1_from_l2', () => {

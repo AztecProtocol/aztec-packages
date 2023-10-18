@@ -1,5 +1,5 @@
 [package]
-name = "private_kernel_init"
+name = "private_kernel_init_simulated"
 type = "bin"
 authors = [""]
 compiler_version = "0.16.0"
