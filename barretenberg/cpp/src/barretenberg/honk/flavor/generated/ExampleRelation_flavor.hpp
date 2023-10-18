@@ -49,8 +49,8 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class Example
     static constexpr size_t NUM_RELATIONS = std::tuple_size<Relations>::value;
 
     // define the containers for storing the contributions from each relation in Sumcheck
-    using RelationUnivariates = decltype(create_relation_univariates_container<FF, Relations>());
-    using RelationValues = decltype(create_relation_values_container<FF, Relations>());
+    using TupleOfTuplesOfUnivariates = decltype(create_relation_univariates_container<FF, Relations>());
+    using TupleOfArraysOfValues = decltype(create_relation_values_container<FF, Relations>());
 
   private:
     template <typename DataType, typename HandleType>
@@ -73,9 +73,9 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class Example
         std::vector<HandleType> get_wires() override
         {
             return {
+                Fibonacci_ISLAST,
                 Fibonacci_x,
                 Fibonacci_y,
-
             };
         };
 
@@ -174,7 +174,26 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class Example
 
     using FoldedPolynomials = AllEntities<std::vector<FF>, PolynomialHandle>;
 
-    using RawPolynomials = AllEntities<Polynomial, PolynomialHandle>;
+    class AllValues : public AllEntities<FF, FF> {
+      public:
+        using Base = AllEntities<FF, FF>;
+        using Base::Base;
+        AllValues(std::array<FF, NUM_ALL_ENTITIES> _data_in) { this->_data = _data_in; }
+    };
+
+    class AllPolynomials : public AllEntities<Polynomial, PolynomialHandle> {
+      public:
+        AllValues get_row(const size_t row_idx) const
+        {
+            AllValues result;
+            size_t column_idx = 0; // // TODO(https://github.com/AztecProtocol/barretenberg/issues/391) zip
+            for (auto& column : this->_data) {
+                result[column_idx] = column[row_idx];
+                column_idx++;
+            }
+            return result;
+        }
+    };
 
     using RowPolynomials = AllEntities<FF, FF>;
 

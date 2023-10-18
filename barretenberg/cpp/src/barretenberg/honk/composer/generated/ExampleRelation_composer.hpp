@@ -6,7 +6,8 @@
 #include "barretenberg/honk/proof_system/generated/ExampleRelation_verifier.hpp"
 #include "barretenberg/proof_system/circuit_builder/generated/ExampleRelation_trace.hpp"
 #include "barretenberg/proof_system/composer/composer_lib.hpp"
-#include "barretenberg/srs/factories/file_crs_factory.hpp"
+// #include "barretenberg/srs/factories/file_crs_factory.hpp"
+#include "barretenberg/srs/global_crs.hpp"
 
 namespace proof_system::honk {
 template <typename Flavor> class ExampleRelationComposer_ {
@@ -21,7 +22,7 @@ template <typename Flavor> class ExampleRelationComposer_ {
     // TODO: which of these will we really need
     static constexpr std::string_view NAME_STRING = "ExampleRelation";
     static constexpr size_t NUM_RESERVED_GATES = 0;
-    static constexpr size_t NUM_WIRES = CircuitConstructor::NUM_WIRES;
+    static constexpr size_t NUM_WIRES = Flavor::NUM_WIRES;
 
     std::shared_ptr<ProvingKey> proving_key;
     std::shared_ptr<VerificationKey> verification_key;
@@ -36,11 +37,7 @@ template <typename Flavor> class ExampleRelationComposer_ {
     bool contains_recursive_proof = false;
     bool computed_witness = false;
 
-    ExampleRelationComposer_()
-        requires(std::same_as<Flavor, honk::flavor::ExampleRelationFlavor>)
-    {
-        crs_factory_ = barretenberg::srs::get_crs_factory();
-    }
+    ExampleRelationComposer_() { crs_factory_ = barretenberg::srs::get_crs_factory(); }
 
     ExampleRelationComposer_(std::shared_ptr<ProvingKey> p_key, std::shared_ptr<VerificationKey> v_key)
         : proving_key(std::move(p_key))

@@ -4,7 +4,6 @@
 #include "barretenberg/honk/flavor/generated/ExampleRelation_flavor.hpp"
 #include "barretenberg/honk/pcs/gemini/gemini.hpp"
 #include "barretenberg/honk/pcs/shplonk/shplonk.hpp"
-#include "barretenberg/honk/proof_system/work_queue.hpp"
 #include "barretenberg/honk/sumcheck/sumcheck_output.hpp"
 #include "barretenberg/honk/transcript/transcript.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
@@ -64,12 +63,10 @@ template <typename Flavor> class ExampleRelationProver_ {
 
     Polynomial quotient_W;
 
-    work_queue<Curve> queue;
-
     sumcheck::SumcheckOutput<Flavor> sumcheck_output;
     pcs::gemini::ProverOutput<Curve> gemini_output;
     pcs::shplonk::ProverOutput<Curve> shplonk_output;
-    std::shared_ptr<PCSCommitmentKey> pcs_commitment_key;
+    std::shared_ptr<PCSCommitmentKey> commitment_key;
 
     using Gemini = pcs::gemini::GeminiProver_<Curve>;
     using Shplonk = pcs::shplonk::ShplonkProver_<Curve>;

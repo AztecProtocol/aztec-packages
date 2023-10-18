@@ -34,7 +34,6 @@ TEST_F(ExampleRelationTests, powdre2e)
     auto circuit_builder = proof_system::ExampleRelationTraceBuilder();
 
     auto composer = ExampleRelationComposer();
-    composer.compute_witness(circuit_builder);
 
     auto prover = composer.create_prover(circuit_builder);
     auto proof = prover.construct_proof();

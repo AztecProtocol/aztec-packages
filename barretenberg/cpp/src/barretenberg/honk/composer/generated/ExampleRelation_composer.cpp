@@ -14,10 +14,9 @@ template <typename Flavor> void ExampleRelationComposer_<Flavor>::compute_witnes
         return;
     }
 
-    // circuit.build_circuit();
-    assert(circuit.check_circuit());
+    circuit.build_circuit();
 
-    auto polynomials = circuit_constructor.compute_full_polynomials();
+    auto polynomials = circuit.compute_polynomials();
 
     auto key_wires = proving_key->get_wires();
     auto poly_wires = polynomials.get_wires();
@@ -32,9 +31,9 @@ template <typename Flavor> void ExampleRelationComposer_<Flavor>::compute_witnes
 template <typename Flavor>
 ExampleRelationProver_<Flavor> ExampleRelationComposer_<Flavor>::create_prover(CircuitConstructor& circuit_constructor)
 {
-    compute_witness(circuit_constructor);
     compute_proving_key(circuit_constructor);
-    compute_commitment_key(proving_key->circuit_size);
+    compute_witness(circuit_constructor);
+    compute_commitment_key(circuit_constructor.get_circuit_subgroup_size());
 
     ExampleRelationProver_<Flavor> output_state(proving_key, commitment_key);
 

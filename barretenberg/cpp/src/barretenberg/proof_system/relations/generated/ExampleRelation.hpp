@@ -17,25 +17,24 @@ template <typename FF_> class ExampleRelationImpl {
   public:
     using FF = FF_;
 
-    static constexpr size_t RELATION_LENGTH = 3;
-    static constexpr size_t DEGREE_0 = 3;
-    static constexpr size_t DEGREE_1 = 3;
-    static constexpr size_t DEGREE_2 = 3;
-    static constexpr size_t DEGREE_3 = 3;
-    template <template <size_t...> typename SubrelationAccumulatorsTemplate>
-    using GetAccumulatorTypes = SubrelationAccumulatorsTemplate<DEGREE_0, DEGREE_1, DEGREE_2, DEGREE_3>;
+    static constexpr std::array<size_t, 4> SUBRELATION_LENGTHS{
+        3, // primary arithmetic sub-relation
+        3, // secondary arithmetic sub-relation
+        3, // secondary arithmetic sub-relation
+        3, // secondary arithmetic sub-relation
+    };
 
-    template <typename AccumulatorTypes>
-    void static accumulate(typename AccumulatorTypes::Accumulators& evals,
-                           const auto& new_term,
-                           [[maybe_unused]] const RelationParameters<FF>&,
-                           [[maybe_unused]] const FF& scaling_factor)
+    template <typename ContainerOverSubrelations, typename AllEntitites>
+    void static accumulate(ContainerOverSubrelations& evals,
+                           const AllEntitites& new_term,
+                           const RelationParameters<FF>&,
+                           const FF& scaling_factor)
     {
 
         // Contribution 0
         {
 
-            using View = typename std::tuple_element<0, typename AccumulatorTypes::AccumulatorViews>::type;
+            using View = typename std::tuple_element<0, ContainerOverSubrelations>::type;
             [[maybe_unused]] const auto& Fibonacci_ISLAST = View(new_term.Fibonacci_ISLAST);
             [[maybe_unused]] const auto& Fibonacci_x = View(new_term.Fibonacci_x);
             [[maybe_unused]] const auto& Fibonacci_y = View(new_term.Fibonacci_y);
@@ -49,7 +48,7 @@ template <typename FF_> class ExampleRelationImpl {
         // Contribution 1
         {
 
-            using View = typename std::tuple_element<1, typename AccumulatorTypes::AccumulatorViews>::type;
+            using View = typename std::tuple_element<1, ContainerOverSubrelations>::type;
             [[maybe_unused]] const auto& Fibonacci_ISLAST = View(new_term.Fibonacci_ISLAST);
             [[maybe_unused]] const auto& Fibonacci_x = View(new_term.Fibonacci_x);
             [[maybe_unused]] const auto& Fibonacci_y = View(new_term.Fibonacci_y);
@@ -63,7 +62,7 @@ template <typename FF_> class ExampleRelationImpl {
         // Contribution 2
         {
 
-            using View = typename std::tuple_element<2, typename AccumulatorTypes::AccumulatorViews>::type;
+            using View = typename std::tuple_element<2, ContainerOverSubrelations>::type;
             [[maybe_unused]] const auto& Fibonacci_ISLAST = View(new_term.Fibonacci_ISLAST);
             [[maybe_unused]] const auto& Fibonacci_x = View(new_term.Fibonacci_x);
             [[maybe_unused]] const auto& Fibonacci_y = View(new_term.Fibonacci_y);
@@ -77,7 +76,7 @@ template <typename FF_> class ExampleRelationImpl {
         // Contribution 3
         {
 
-            using View = typename std::tuple_element<3, typename AccumulatorTypes::AccumulatorViews>::type;
+            using View = typename std::tuple_element<3, ContainerOverSubrelations>::type;
             [[maybe_unused]] const auto& Fibonacci_ISLAST = View(new_term.Fibonacci_ISLAST);
             [[maybe_unused]] const auto& Fibonacci_x = View(new_term.Fibonacci_x);
             [[maybe_unused]] const auto& Fibonacci_y = View(new_term.Fibonacci_y);

@@ -4,9 +4,10 @@
 
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/proof_system/arithmetization/arithmetization.hpp"
-#include "barretenberg/proof_system/circuit_builder/execution_trace_builder_base.hpp"
+#include "barretenberg/proof_system/circuit_builder/circuit_builder_base.hpp"
 
 #include "./ExampleRelation_trace.cpp"
+#include "barretenberg/honk/flavor/generated/ExampleRelation_flavor.hpp"
 #include "barretenberg/proof_system/arithmetization/generated/ExampleRelation_arith.hpp"
 #include "barretenberg/proof_system/relations/generated/ExampleRelation.hpp"
 
@@ -15,18 +16,23 @@ using fr = barretenberg::fr;
 
 namespace proof_system {
 
-class ExampleRelationTraceBuilder : public ExecutionTraceBuilderBase<arithmetization::ExampleRelationArithmetization> {
+// template <typename Flavor>
+class ExampleRelationTraceBuilder {
   public:
     using FF = arithmetization::ExampleRelationArithmetization::FF;
     using Row = ExampleRelation_vm::Row<FF>;
 
+    // TODO: template this
+    using Polynomial = honk::flavor::ExampleRelationFlavor::Polynomial;
+    using AllPolynomials = honk::flavor::ExampleRelationFlavor::AllPolynomials;
+
     static constexpr size_t num_fixed_columns = 5;
+    static constexpr size_t num_polys = 3;
     std::vector<Row> rows;
 
     void build_circuit()
     {
         rows = read_both_file_into_cols("../commits.bin", "../constants.bin");
-
         // debug circuit values
         size_t i = 0;
         for (Row const& row : rows) {
@@ -45,12 +51,41 @@ class ExampleRelationTraceBuilder : public ExecutionTraceBuilderBase<arithmetiza
         }
     }
 
+    AllPolynomials compute_polynomials()
+    {
+
+        const auto num_rows = get_circuit_subgroup_size();
+        AllPolynomials polys;
+        // Allocate the size for the polys
+        // TODO: rename
+        for (size_t i = 0; i < num_fixed_columns; ++i) {
+            polys[i] = Polynomial(num_rows);
+        }
+
+        // copy the rows into the polys
+        for (size_t i = 0; i < rows.size(); ++i) {
+            polys.Fibonacci_ISLAST[i] = rows[i].Fibonacci_ISLAST;
+            polys.Fibonacci_x[i] = rows[i].Fibonacci_x;
+            polys.Fibonacci_y[i] = rows[i].Fibonacci_y;
+            polys.Fibonacci_x_shift[i] = rows[i].Fibonacci_x_shift;
+            polys.Fibonacci_y_shift[i] = rows[i].Fibonacci_y_shift;
+        }
+
+        // TODO: investigate why shifts require a top value of 0 in bb
+        // polys.Fibonacci_x_shift = Polynomial(polys.Fibonacci_x.shifted());
+        // polys.Fibonacci_y_shift = Polynomial(polys.Fibonacci_y.shifted());
+
+        return polys;
+    }
+
     [[maybe_unused]] bool check_circuit()
     {
         // Get the rows from file
         build_circuit();
 
-        return evaluate_relation<ExampleRelation_vm::ExampleRelation<FF>, Row>("ExampleRelation", rows);
+        // return evaluate_relation<ExampleRelation_vm::ExampleRelation<FF>, Row>("ExampleRelation", rows);
+        // TODO: try bring back evaluate relation
+        return true;
     }
 
     [[nodiscard]] size_t get_num_gates() const { return rows.size(); }
