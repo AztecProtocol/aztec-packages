@@ -23,9 +23,8 @@ BasicPlonkKeyAndTranscript get_plonk_key_and_transcript()
     auto inner_composer = plonk::UltraComposer();
     auto builder = typename plonk::UltraComposer::CircuitBuilder();
     bench_utils::generate_basic_arithmetic_circuit(builder, 80);
-    auto inner_prover = inner_composer.create_prover(builder);
-    auto inner_proof = inner_prover.construct_proof();
-
+    UltraProver inner_prover = inner_composer.create_prover(builder);
+    inner_prover.construct_proof();
     return { inner_composer.circuit_proving_key, inner_prover.transcript };
 }
 
