@@ -8,7 +8,7 @@ use dep::private_kernel_lib::abis::combined_constant_data::CombinedConstantData;
 use dep::private_kernel_lib::utils::arrays;
 use dep::std::unsafe;
 
-fn main(input: PrivateKernelInputsInit) -> distinct pub KernelCircuitPublicInputs {
+unconstrained fn main(input: PrivateKernelInputsInit) -> distinct pub KernelCircuitPublicInputs {
     input.native_private_kernel_circuit_initial()
 }
 
