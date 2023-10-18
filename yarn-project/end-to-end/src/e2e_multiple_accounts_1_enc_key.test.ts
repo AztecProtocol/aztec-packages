@@ -4,6 +4,7 @@ import {
   Wallet,
   computeMessageSecretHash,
   generatePublicKey,
+  getSandboxAccountsWallets,
   getSchnorrAccount,
 } from '@aztec/aztec.js';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
@@ -44,7 +45,13 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
 
     // Verify that all accounts use the same encryption key
     const encryptionPublicKey = await generatePublicKey(encryptionPrivateKey);
-    for (const account of await pxe.getRegisteredAccounts()) {
+    // Disregard sandbox accounts
+    const sandBoxWallets = await getSandboxAccountsWallets(pxe);
+    const allAccounts = await pxe.getRegisteredAccounts();
+    const keyAccounts = allAccounts.filter(
+      acc => !sandBoxWallets.map(wlt => wlt.getAddress().toString()).includes(acc.address.toString()),
+    );
+    for (const account of keyAccounts) {
       expect(account.publicKey).toEqual(encryptionPublicKey);
     }
 

@@ -819,7 +819,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_p2p_network.test.ts
+          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_p2p_network.test.ts ./scripts/docker-compose-no-sandbox.yml
           environment: { DEBUG: "aztec:*" }
 
   e2e-browser-sandbox:
