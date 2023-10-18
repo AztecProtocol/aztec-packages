@@ -4,8 +4,9 @@ import {
   CompleteAddress,
   ContractData,
   ExtendedContractData,
-  L2BlockL2Logs,
+  GetUnencryptedLogsResponse,
   L2Tx,
+  LogFilter,
   NotePreimage,
   Tx,
   TxExecutionRequest,
@@ -26,15 +27,15 @@ import { SyncStatus } from './sync-status.js';
  */
 export interface PXE {
   /**
-   * Insert an auth witness for a given message hash. Auth witnesses are used to authorise actions on
+   * Insert an auth witness for a given message hash. Auth witnesses are used to authorize actions on
    * behalf of a user. For instance, a token transfer initiated by a different address may request
-   * authorisation from the user to move their tokens. This authorisation is granted by the user
+   * authorization from the user to move their tokens. This authorization is granted by the user
    * account contract by verifying an auth witness requested to the execution oracle. Witnesses are
-   * usually a signature over a hash of the action to be authorised, but their actual contents depend
+   * usually a signature over a hash of the action to be authorized, but their actual contents depend
    * on the account contract that consumes them.
    *
    * @param authWitness - The auth witness to insert. Composed of an identifier, which is the hash of
-   * the action to be authorised, and the actual witness as an array of fields, which are to be
+   * the action to be authorized, and the actual witness as an array of fields, which are to be
    * deserialized and processed by the account contract.
    */
   addAuthWitness(authWitness: AuthWitness): Promise<void>;
@@ -118,7 +119,7 @@ export interface PXE {
    *
    * @param txRequest - An authenticated tx request ready for simulation
    * @param simulatePublic - Whether to simulate the public part of the transaction.
-   * @returns A transaction ready to be sent to the network for excution.
+   * @returns A transaction ready to be sent to the network for execution.
    * @throws If the code for the functions executed in this transaction has not been made available via `addContracts`.
    */
   simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx>;
@@ -231,14 +232,11 @@ export interface PXE {
   getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined>;
 
   /**
-   * Gets unencrypted public logs from the specified block range. Logs are grouped by block and then by
-   * transaction. Use the `L2BlockL2Logs.unrollLogs` helper function to get an flattened array of logs instead.
-   *
-   * @param from - Number of the L2 block to which corresponds the first unencrypted logs to be returned.
-   * @param limit - The maximum number of unencrypted logs to return.
-   * @returns The requested unencrypted logs.
+   * Gets unencrypted logs based on the provided filter.
+   * @param filter - The filter to apply to the logs.
+   * @returns The requested logs.
    */
-  getUnencryptedLogs(from: number, limit: number): Promise<L2BlockL2Logs[]>;
+  getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse>;
 
   /**
    * Fetches the current block number.

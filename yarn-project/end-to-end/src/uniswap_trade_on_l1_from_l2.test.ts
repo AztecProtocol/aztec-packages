@@ -1,13 +1,11 @@
-import { UniswapSetupContext, uniswapL1L2TestSuite } from './canary/uniswap_l1_l2.js';
 import { setup as e2eSetup } from './fixtures/utils.js';
+import { UniswapSetupContext, uniswapL1L2TestSuite } from './shared/uniswap_l1_l2.js';
 
 // This tests works on forked mainnet. There is a dump of the data in `dumpedState` such that we
 // don't need to burn through RPC requests.
 const dumpedState = 'src/fixtures/dumps/uniswap_state';
 // When taking a dump use the block number of the fork to improve speed.
 const EXPECTED_FORKED_BLOCK = 0; //17514288;
-// We tell the archiver to only sync from this block.
-process.env.SEARCH_START_BLOCK = EXPECTED_FORKED_BLOCK.toString();
 
 let teardown: () => Promise<void>;
 

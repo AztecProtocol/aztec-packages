@@ -64,7 +64,7 @@ void common_validate_call_stack(DummyBuilder& builder, PrivateCallData<NT> const
  * @param builder
  * @param historic_private_data_tree_root This is a reference to the historic root which all
  * read requests are checked against here.
- * @param read_requests the commitments being read by this private call - 'pending note reads' here are
+ * @param read_requests the commitments being read by this private call - 'transient note reads' here are
  * `inner_note_hashes` (not yet siloed, not unique), but 'pre-existing note reads' are `unique_siloed_note_hashes`
  * @param read_request_membership_witnesses used to compute the private data root
  * for a given request which is essentially a membership check
@@ -82,7 +82,9 @@ void common_validate_read_requests(DummyBuilder& builder,
         const auto& witness = read_request_membership_witnesses[rr_idx];
 
         // A pending commitment is the one that is not yet added to private data tree
-        // A transient read is when we try to "read" a pending commitment
+        // A "transient read" is when we try to "read" a pending commitment within a transaction
+        // between function calls, as opposed to reading the outputs of a previous transaction
+        // which is a "pending read".
         // We determine if it is a transient read depending on the leaf index from the membership witness
         // Note that the Merkle membership proof would be null and void in case of an transient read
         // but we use the leaf index as a placeholder to detect a 'pending note read'.
@@ -130,6 +132,7 @@ void common_validate_arrays(DummyBuilder& builder, PrivateCircuitPublicInputs<NT
     // to push_array_to_array() routines which rely on the passed arrays to be well-formed.
     validate_array(builder, app_public_inputs.return_values, "App public inputs - Return values");
     validate_array(builder, app_public_inputs.read_requests, "App public inputs - Read requests");
+    validate_array(builder, app_public_inputs.pending_read_requests, "App public inputs - Pending read requests");
     validate_array(builder, app_public_inputs.new_commitments, "App public inputs - New commitments");
     validate_array(builder, app_public_inputs.new_nullifiers, "App public inputs - New nullifiers");
     validate_array(builder, app_public_inputs.nullified_commitments, "App public inputs - Nullified commitments");
@@ -149,6 +152,7 @@ void common_validate_previous_kernel_arrays(DummyBuilder& builder, CombinedAccum
 {
     // Each of the following arrays is expected to be zero-padded.
     validate_array(builder, end.read_requests, "Accumulated data - Read Requests");
+    validate_array(builder, end.pending_read_requests, "Accumulated data - Pending read Requests");
     validate_array(builder, end.new_commitments, "Accumulated data - New commitments");
     validate_array(builder, end.new_nullifiers, "Accumulated data - New nullifiers");
     validate_array(builder, end.nullified_commitments, "Accumulated data - Nullified commitments");
@@ -178,6 +182,8 @@ void common_update_end_values(DummyBuilder& builder,
 
     const auto& read_requests = private_call_public_inputs.read_requests;
     const auto& read_request_membership_witnesses = private_call.read_request_membership_witnesses;
+
+    // don't update pending_read_requests, because those just get passed through without any change
 
     const auto& new_commitments = private_call_public_inputs.new_commitments;
     const auto& new_nullifiers = private_call_public_inputs.new_nullifiers;
@@ -339,7 +345,6 @@ void common_contract_logic(DummyBuilder& builder,
 
     const auto is_contract_deployment = public_inputs.constants.tx_context.is_contract_deployment_tx;
 
-    // input storage contract address must be 0 if its a constructor call and non-zero otherwise
     if (is_contract_deployment) {
         auto constructor_hash =
             compute_constructor_hash(function_data, private_call_public_inputs.args_hash, private_call_vk_hash);
@@ -371,7 +376,7 @@ void common_contract_logic(DummyBuilder& builder,
 
         // compute contract address nullifier
         auto const blake_input = new_contract_address.to_field().to_buffer();
-        auto const new_contract_address_nullifier = NT::fr::serialize_from_buffer(NT::blake3s(blake_input).data());
+        auto const new_contract_address_nullifier = NT::fr::serialize_from_buffer(NT::blake2s(blake_input).data());
 
         // push the contract address nullifier to nullifier vector
         array_push(builder,
