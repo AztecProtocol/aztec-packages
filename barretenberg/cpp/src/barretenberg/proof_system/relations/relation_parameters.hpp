@@ -8,9 +8,9 @@ namespace proof_system {
  * @tparam FF
  */
 template <typename FF> struct RelationParameters {
-    static const int NUM_BINARY_LIMBS_IN_GOBLIN_TRANSLATOR = 4;
-    static const int NUM_NATIVE_LIMBS_IN_GOBLIN_TRANSLATOR = 1;
-    static const int NUM_CHALLENGE_POWERS_IN_GOBLIN_TRANSLATOR = 4;
+    static constexpr int NUM_BINARY_LIMBS_IN_GOBLIN_TRANSLATOR = 4;
+    static constexpr int NUM_NATIVE_LIMBS_IN_GOBLIN_TRANSLATOR = 1;
+    static constexpr int NUM_CHALLENGE_POWERS_IN_GOBLIN_TRANSLATOR = 4;
     FF eta = FF(0);                        // Lookup
     FF beta = FF(0);                       // Permutation + Lookup
     FF gamma = FF(0);                      // Permutation + Lookup

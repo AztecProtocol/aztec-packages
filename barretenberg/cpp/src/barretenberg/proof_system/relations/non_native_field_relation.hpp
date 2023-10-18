@@ -11,7 +11,6 @@ template <typename FF_> class GoblinTranslatorNonNativeFieldRelationImpl {
     using FF = FF_;
 
     // 1 + polynomial degree of this relation
-    static constexpr size_t RELATION_LENGTH = 3; // degree((lagrange_odd-1)(a*b-c*d)) = 2
     static constexpr std::array<size_t, 3> SUBRELATION_LENGTHS{
         3, // Lower wide limb subrelation (checks result is 0 mod 2¹³⁶)
         3, // Higher wide limb subrelation (checks result is 0 in higher mod 2¹³⁶),
@@ -40,15 +39,18 @@ template <typename FF_> class GoblinTranslatorNonNativeFieldRelationImpl {
      * We perform modulo 2²⁷² computations by separating each of values into 4 68-bit limbs (z1 and z2 are just two
      * since they represent the values < 2¹²⁸ and op is just itself). Then we compute the first subrelation (index means
      * sublimb and we use 2²⁷² - p instead of -p):
-     * `previous_accumulator[0]⋅x[0] + op + P.x[0]⋅v[0]+ P.y[0]⋅v²[0] +z1[0] ⋅ v³[0] + z2[0] ⋅ v⁴[0] +
-     * quotient[0]⋅(-p)[0] - current_accumulator[0] + 2⁶⁸⋅(previous_accumulator[1]⋅x[0]+ P.x[1]⋅v[0]+ P.y[1]⋅v²[0]
-     * +z1[1] ⋅ v³[0] + z2[1] ⋅ v⁴[0] + quotient[1]⋅(-p)[0] + previous_accumulator[0]⋅x[1] + P.x[0]⋅v[1]+ P.y[0]⋅v²[1]
-     * +z1[0] ⋅ v³[1] + z2[0] ⋅ v⁴[1] + quotient[0]⋅(-p)[1] - current_accumulator[1]) - 2¹³⁶⋅relation_wide_lower_limb =
-     * 0`
+     * `      previous_accumulator[0]⋅x[0] + op + P.x[0]⋅v[0] + P.y[0]⋅v²[0] + z1[0] ⋅ v³[0] + z2[0] ⋅ v⁴[0]
+     *          + quotient[0]⋅(-p)[0] - current_accumulator[0]
+     * + 2⁶⁸⋅(previous_accumulator[1]⋅x[0] +      P.x[1]⋅v[0] + P.y[1]⋅v²[0] + z1[1] ⋅ v³[0] + z2[1] ⋅ v⁴[0]
+     *          + quotient[1]⋅(-p)[0] +
+     *        previous_accumulator[0]⋅x[1] +      P.x[0]⋅v[1] + P.y[0]⋅v²[1] + z1[0] ⋅ v³[1] + z2[0] ⋅ v⁴[1]
+     *          + quotient[0]⋅(-p)[1] - current_accumulator[1])
+     *  - 2¹³⁶⋅relation_wide_lower_limb
+     *  == 0`
      *
      * We show that the evaluation in 2 lower limbs results in relation_wide_lower_limb multiplied by 2¹³⁶. If
-     * relation_wide_lower_limb is propertly constrained (this is performed in over relations), then that means that the
-     * lower 136 bits of the result are 0. This is the first subrelation.
+     * relation_wide_lower_limb is propertly constrained (this is performed in other relations), then that means that
+     * the lower 136 bits of the result are 0. This is the first subrelation.
      *
      * We then use the relation_wide_lower_limb as carry and add it to the next expression, computing the evaluation in
      * higher bits (carry + combinations of limbs (0,2), (1,1), (2,0), (0,3), (2,1), (1,2), (0,3)) and checking that it
@@ -56,10 +58,10 @@ template <typename FF_> class GoblinTranslatorNonNativeFieldRelationImpl {
      * subrelation.
      *
      * Finally, we check that the relation holds in the native field. For this we reconstruct each value, for example:
-     * `previous_accumulator_native = previous_accumulator[0] + 2⁶⁸⋅previous_accumulator[1] +
-     * 2¹³⁶⋅previous_accumulator[2] + 2²⁰⁴⋅previous accumulator[3] mod r`
+     * `previous_accumulator_native =        previous_accumulator[0] + 2⁶⁸ ⋅previous_accumulator[1]
+     *                                + 2¹³⁶⋅previous_accumulator[2] + 2²⁰⁴⋅previous accumulator[3] mod r`
      *
-     * Then the last subrelation is simply checking the interger equation in this native form
+     * Then the last subrelation is simply checking the integer equation in this native form.g
      *
      * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
      * @param in an std::array containing the fully extended Univariate edges.
@@ -91,6 +93,34 @@ template <typename FF_> class GoblinTranslatorNonNativeFieldRelationImpl {
             -FF(curve::BN254::BaseField::modulus)
         };
 
+        const auto& evaluation_input_x_0 = relation_parameters.evaluation_input_x[0];
+        const auto& evaluation_input_x_1 = relation_parameters.evaluation_input_x[1];
+        const auto& evaluation_input_x_2 = relation_parameters.evaluation_input_x[2];
+        const auto& evaluation_input_x_3 = relation_parameters.evaluation_input_x[3];
+        const auto& evaluation_input_x_4 = relation_parameters.evaluation_input_x[4];
+        // for j < 4,  v_i_j is the j-th limb of v^{1+i}
+        // v_i_4 is v^{1+i} in the native field
+        const auto& v_0_0 = relation_parameters.batching_challenge_v[0][0];
+        const auto& v_0_1 = relation_parameters.batching_challenge_v[0][1];
+        const auto& v_0_2 = relation_parameters.batching_challenge_v[0][2];
+        const auto& v_0_3 = relation_parameters.batching_challenge_v[0][3];
+        const auto& v_0_4 = relation_parameters.batching_challenge_v[0][4];
+        const auto& v_1_0 = relation_parameters.batching_challenge_v[1][0];
+        const auto& v_1_1 = relation_parameters.batching_challenge_v[1][1];
+        const auto& v_1_2 = relation_parameters.batching_challenge_v[1][2];
+        const auto& v_1_3 = relation_parameters.batching_challenge_v[1][3];
+        const auto& v_1_4 = relation_parameters.batching_challenge_v[1][4];
+        const auto& v_2_0 = relation_parameters.batching_challenge_v[2][0];
+        const auto& v_2_1 = relation_parameters.batching_challenge_v[2][1];
+        const auto& v_2_2 = relation_parameters.batching_challenge_v[2][2];
+        const auto& v_2_3 = relation_parameters.batching_challenge_v[2][3];
+        const auto& v_2_4 = relation_parameters.batching_challenge_v[2][4];
+        const auto& v_3_0 = relation_parameters.batching_challenge_v[3][0];
+        const auto& v_3_1 = relation_parameters.batching_challenge_v[3][1];
+        const auto& v_3_2 = relation_parameters.batching_challenge_v[3][2];
+        const auto& v_3_3 = relation_parameters.batching_challenge_v[3][3];
+        const auto& v_3_4 = relation_parameters.batching_challenge_v[3][4];
+
         const auto& op = View(in.op);
         const auto& p_x_low_limbs = View(in.p_x_low_limbs);
         const auto& p_y_low_limbs = View(in.p_y_low_limbs);
@@ -121,103 +151,132 @@ template <typename FF_> class GoblinTranslatorNonNativeFieldRelationImpl {
         const auto& lagrange_odd = View(in.lagrange_odd);
 
         // Contribution (1) Computing the mod 2²⁷² relation over lower 136 bits
-        auto tmp_1 = accumulators_binary_limbs_0_shift * relation_parameters.evaluation_input_x[0] + op +
-                     p_x_low_limbs * relation_parameters.batching_challenge_v[0][0] +
-                     p_y_low_limbs * relation_parameters.batching_challenge_v[1][0] +
-                     z_low_limbs * relation_parameters.batching_challenge_v[2][0] +
-                     z_low_limbs_shift * relation_parameters.batching_challenge_v[3][0] +
-                     quotient_low_binary_limbs * NEGATIVE_MODULUS_LIMBS[0] - accumulators_binary_limbs_0;
-        tmp_1 += (accumulators_binary_limbs_1_shift * relation_parameters.evaluation_input_x[0] +
-                  accumulators_binary_limbs_0_shift * relation_parameters.evaluation_input_x[1] +
-                  p_x_low_limbs * relation_parameters.batching_challenge_v[0][1] +
-                  p_x_low_limbs_shift * relation_parameters.batching_challenge_v[0][0] +
-                  p_y_low_limbs * relation_parameters.batching_challenge_v[1][1] +
-                  p_y_low_limbs_shift * relation_parameters.batching_challenge_v[1][0] +
-                  z_low_limbs * relation_parameters.batching_challenge_v[2][1] +
-                  z_high_limbs * relation_parameters.batching_challenge_v[2][0] +
-                  z_low_limbs_shift * relation_parameters.batching_challenge_v[3][1] +
-                  z_high_limbs_shift * relation_parameters.batching_challenge_v[3][0] +
-                  quotient_low_binary_limbs * NEGATIVE_MODULUS_LIMBS[1] +
-                  quotient_low_binary_limbs_shift * NEGATIVE_MODULUS_LIMBS[0] - accumulators_binary_limbs_1) *
-                 shift;
-        tmp_1 -= relation_wide_limbs * shiftx2;
-        tmp_1 *= lagrange_odd;
-        tmp_1 *= scaling_factor;
-        std::get<0>(accumulators) += tmp_1;
+        // clang-format off
+        // the index-0 limb
+        auto tmp = accumulators_binary_limbs_0_shift * evaluation_input_x_0 
+                    + op 
+                    + p_x_low_limbs     * v_0_0 
+                    + p_y_low_limbs     * v_1_0 
+                    + z_low_limbs       * v_2_0 
+                    + z_low_limbs_shift * v_3_0
+                    + quotient_low_binary_limbs * NEGATIVE_MODULUS_LIMBS[0] 
+                    - accumulators_binary_limbs_0;
+        
+        // the index-1 limb
+        tmp += shift 
+                * (accumulators_binary_limbs_1_shift   * evaluation_input_x_0 
+                   + accumulators_binary_limbs_0_shift * evaluation_input_x_1 
+                   + p_x_low_limbs       * v_0_1
+                   + p_x_low_limbs_shift * v_0_0
+                   + p_y_low_limbs       * v_1_1
+                   + p_y_low_limbs_shift * v_1_0
+                   + z_low_limbs         * v_2_1
+                   + z_high_limbs        * v_2_0
+                   + z_low_limbs_shift   * v_3_1
+                   + z_high_limbs_shift  * v_3_0
+                   + quotient_low_binary_limbs       * NEGATIVE_MODULUS_LIMBS[1] 
+                   + quotient_low_binary_limbs_shift * NEGATIVE_MODULUS_LIMBS[0] 
+                   - accumulators_binary_limbs_1);
+        // clang-format on
+        // subtract large value; vanishing shows the desired relation holds on low 136-bit limb
+        tmp -= relation_wide_limbs * shiftx2;
+        tmp *= lagrange_odd;
+        tmp *= scaling_factor;
+        std::get<0>(accumulators) += tmp;
 
-        // Contribution (2) Computing the 2²⁷² relatioin over higher 136 bits
-        auto tmp_2 = relation_wide_limbs +
-                     accumulators_binary_limbs_2_shift * relation_parameters.evaluation_input_x[0] +
-                     accumulators_binary_limbs_1_shift * relation_parameters.evaluation_input_x[1] +
-                     accumulators_binary_limbs_0_shift * relation_parameters.evaluation_input_x[2] +
-                     p_x_high_limbs * relation_parameters.batching_challenge_v[0][0] +
-                     p_x_low_limbs_shift * relation_parameters.batching_challenge_v[0][1] +
-                     p_x_low_limbs * relation_parameters.batching_challenge_v[0][2] +
-                     p_y_high_limbs * relation_parameters.batching_challenge_v[1][0] +
-                     p_y_low_limbs_shift * relation_parameters.batching_challenge_v[1][1] +
-                     p_y_low_limbs * relation_parameters.batching_challenge_v[1][2] +
-                     z_high_limbs * relation_parameters.batching_challenge_v[2][1] +
-                     z_low_limbs * relation_parameters.batching_challenge_v[2][2] +
-                     z_high_limbs_shift * relation_parameters.batching_challenge_v[3][1] +
-                     z_low_limbs_shift * relation_parameters.batching_challenge_v[3][2] +
-                     quotient_high_binary_limbs * NEGATIVE_MODULUS_LIMBS[0] +
-                     quotient_low_binary_limbs_shift * NEGATIVE_MODULUS_LIMBS[1] +
-                     quotient_low_binary_limbs * NEGATIVE_MODULUS_LIMBS[2] - accumulators_binary_limbs_2;
-        tmp_2 += (accumulators_binary_limbs_3_shift * relation_parameters.evaluation_input_x[0] +
-                  accumulators_binary_limbs_2_shift * relation_parameters.evaluation_input_x[1] +
-                  accumulators_binary_limbs_1_shift * relation_parameters.evaluation_input_x[2] +
-                  accumulators_binary_limbs_0_shift * relation_parameters.evaluation_input_x[3] +
-                  p_x_high_limbs_shift * relation_parameters.batching_challenge_v[0][0] +
-                  p_x_high_limbs * relation_parameters.batching_challenge_v[0][1] +
-                  p_x_low_limbs_shift * relation_parameters.batching_challenge_v[0][2] +
-                  p_x_low_limbs * relation_parameters.batching_challenge_v[0][3] +
-                  p_y_high_limbs_shift * relation_parameters.batching_challenge_v[1][0] +
-                  p_y_high_limbs * relation_parameters.batching_challenge_v[1][1] +
-                  p_y_low_limbs_shift * relation_parameters.batching_challenge_v[1][2] +
-                  p_y_low_limbs * relation_parameters.batching_challenge_v[1][3] +
-                  z_high_limbs * relation_parameters.batching_challenge_v[2][2] +
-                  z_low_limbs * relation_parameters.batching_challenge_v[2][3] +
-                  z_high_limbs_shift * relation_parameters.batching_challenge_v[3][2] +
-                  z_low_limbs_shift * relation_parameters.batching_challenge_v[3][3] +
-                  quotient_high_binary_limbs_shift * NEGATIVE_MODULUS_LIMBS[0] +
-                  quotient_high_binary_limbs * NEGATIVE_MODULUS_LIMBS[1] +
-                  quotient_low_binary_limbs_shift * NEGATIVE_MODULUS_LIMBS[2] +
-                  quotient_low_binary_limbs * NEGATIVE_MODULUS_LIMBS[3] - accumulators_binary_limbs_3) *
-                 shift;
-        tmp_2 -= relation_wide_limbs_shift * shiftx2;
-        tmp_2 *= lagrange_odd;
-        tmp_2 *= scaling_factor;
-        std::get<1>(accumulators) += tmp_2;
+        // Contribution (2) Computing the 2²⁷² relation over higher 136 bits
+        // why declare another temporary?
+        // clang-format off
+        // the index-2 limb, with a carry from the previous calculation
+        tmp = relation_wide_limbs
+                     + accumulators_binary_limbs_2_shift * evaluation_input_x_0
+                     + accumulators_binary_limbs_1_shift * evaluation_input_x_1
+                     + accumulators_binary_limbs_0_shift * evaluation_input_x_2
+                     + p_x_high_limbs      * v_0_0
+                     + p_x_low_limbs_shift * v_0_1
+                     + p_x_low_limbs       * v_0_2
+                     + p_y_high_limbs      * v_1_0
+                     + p_y_low_limbs_shift * v_1_1
+                     + p_y_low_limbs       * v_1_2
+                     + z_high_limbs        * v_2_1
+                     + z_low_limbs         * v_2_2
+                     + z_high_limbs_shift  * v_3_1
+                     + z_low_limbs_shift   * v_3_2
+                     + quotient_high_binary_limbs      * NEGATIVE_MODULUS_LIMBS[0]
+                     + quotient_low_binary_limbs_shift * NEGATIVE_MODULUS_LIMBS[1]
+                     + quotient_low_binary_limbs       * NEGATIVE_MODULUS_LIMBS[2] 
+                     - accumulators_binary_limbs_2;
+
+        // the index-2 limb
+        tmp += shift
+                * (accumulators_binary_limbs_2_shift   * evaluation_input_x_1
+                   + accumulators_binary_limbs_1_shift * evaluation_input_x_2
+                   + accumulators_binary_limbs_0_shift * evaluation_input_x_3
+                   + p_x_high_limbs_shift * v_0_0
+                   + p_x_high_limbs       * v_0_1
+                   + p_x_low_limbs_shift  * v_0_2
+                   + p_x_low_limbs        * v_0_3
+                   + p_y_high_limbs_shift * v_1_0
+                   + p_y_high_limbs       * v_1_1
+                   + p_y_low_limbs_shift  * v_1_2
+                   + p_y_low_limbs        * v_1_3
+                   + z_high_limbs         * v_2_2
+                   + z_low_limbs          * v_2_3
+                   + z_high_limbs_shift   * v_3_2
+                   + z_low_limbs_shift    * v_3_3
+                   + quotient_high_binary_limbs_shift * NEGATIVE_MODULUS_LIMBS[0]
+                   + quotient_high_binary_limbs       * NEGATIVE_MODULUS_LIMBS[1]
+                   + quotient_low_binary_limbs_shift  * NEGATIVE_MODULUS_LIMBS[2]
+                   + quotient_low_binary_limbs        * NEGATIVE_MODULUS_LIMBS[3] 
+                   - accumulators_binary_limbs_3);
+        // clang-format on
+        // subtract large value; vanishing shows the desired relation holds on high 136-bit limb
+        tmp -= relation_wide_limbs_shift * shiftx2;
+        tmp *= lagrange_odd;
+        tmp *= scaling_factor;
+        std::get<1>(accumulators) += tmp;
+
+        const auto reconstruct_from_two = [](const auto& l0, const auto& l1) { return l0 + l1 * shift; };
+
+        const auto reconstruct_from_four = [](const auto& l0, const auto& l1, const auto& l2, const auto& l3) {
+            return l0 + l1 * shift + l2 * shiftx2 + l3 * shiftx3;
+        };
 
         // Reconstructing native versions of values
         auto reconstructed_p_x =
-            (p_x_low_limbs + p_x_low_limbs_shift * shift + p_x_high_limbs * shiftx2 + p_x_high_limbs_shift * shiftx3);
+            reconstruct_from_four(p_x_low_limbs, p_x_low_limbs_shift, p_x_high_limbs, p_x_high_limbs_shift);
         auto reconstructed_p_y =
-            (p_y_low_limbs + p_y_low_limbs_shift * shift + p_y_high_limbs * shiftx2 + p_y_high_limbs_shift * shiftx3);
-        auto reconstructed_previous_accumulator =
-            (accumulators_binary_limbs_0_shift + accumulators_binary_limbs_1_shift * shift +
-             accumulators_binary_limbs_2_shift * shiftx2 + accumulators_binary_limbs_3_shift * shiftx3);
-        auto reconstructed_current_accumulator =
-            (accumulators_binary_limbs_0 + accumulators_binary_limbs_1 * shift + accumulators_binary_limbs_2 * shiftx2 +
-             accumulators_binary_limbs_3 * shiftx3);
-        auto reconstructed_z1 = (z_low_limbs + z_high_limbs * shift);
-        auto reconstructed_z2 = (z_low_limbs_shift + z_high_limbs_shift * shift);
-        auto reconstructed_quotient =
-            (quotient_low_binary_limbs + quotient_low_binary_limbs_shift * shift +
-             quotient_high_binary_limbs * shiftx2 + quotient_high_binary_limbs_shift * shiftx3);
+            reconstruct_from_four(p_y_low_limbs, p_y_low_limbs_shift, p_y_high_limbs, p_y_high_limbs_shift);
+        auto reconstructed_previous_accumulator = reconstruct_from_four(accumulators_binary_limbs_0_shift,
+                                                                        accumulators_binary_limbs_1_shift,
+                                                                        accumulators_binary_limbs_2_shift,
+                                                                        accumulators_binary_limbs_3_shift);
+        auto reconstructed_current_accumulator = reconstruct_from_four(accumulators_binary_limbs_0,
+                                                                       accumulators_binary_limbs_1,
+                                                                       accumulators_binary_limbs_2,
+                                                                       accumulators_binary_limbs_3);
+        auto reconstructed_z1 = reconstruct_from_two(z_low_limbs, z_high_limbs);
+        auto reconstructed_z2 = reconstruct_from_two(z_low_limbs_shift, z_high_limbs_shift);
+        auto reconstructed_quotient = reconstruct_from_four(quotient_low_binary_limbs,
+                                                            quotient_low_binary_limbs_shift,
+                                                            quotient_high_binary_limbs,
+                                                            quotient_high_binary_limbs_shift);
 
         // Contribution (3). Evaluating integer relation over native field
-        const size_t NATIVE_LIMB_INDEX =
-            4; // This value in relation parameters is dependent on the other 4 and is only precomputed for efficiency
-        auto tmp_3 = reconstructed_previous_accumulator * relation_parameters.evaluation_input_x[NATIVE_LIMB_INDEX] +
-                     op + reconstructed_p_x * relation_parameters.batching_challenge_v[0][NATIVE_LIMB_INDEX] +
-                     reconstructed_p_y * relation_parameters.batching_challenge_v[1][NATIVE_LIMB_INDEX] +
-                     reconstructed_z1 * relation_parameters.batching_challenge_v[2][NATIVE_LIMB_INDEX] +
-                     reconstructed_z2 * relation_parameters.batching_challenge_v[3][NATIVE_LIMB_INDEX] +
-                     reconstructed_quotient * NEGATIVE_MODULUS_LIMBS[4] - reconstructed_current_accumulator;
-        tmp_3 *= lagrange_odd;
-        tmp_3 *= scaling_factor;
-        std::get<2>(accumulators) += tmp_3;
+        // clang-format off
+        // the native limb index is 4
+        tmp = reconstructed_previous_accumulator * evaluation_input_x_4 
+                     + op 
+                     + reconstructed_p_x * v_0_4
+                     + reconstructed_p_y * v_1_4
+                     + reconstructed_z1  * v_2_4
+                     + reconstructed_z2  * v_3_4
+                     + reconstructed_quotient * NEGATIVE_MODULUS_LIMBS[4] 
+                     - reconstructed_current_accumulator;
+        // clang-format on
+        tmp *= lagrange_odd;
+        tmp *= scaling_factor;
+        std::get<2>(accumulators) += tmp;
     };
 };
 
