@@ -12,6 +12,8 @@ use dep::aztec::constants_gen::{
 use crate::abis::call_stack_item::PrivateCallStackItem;
 use crate::abis::membership_witness::{ContractLeafMembershipWitness,FunctionLeafMembershipWitness};
 
+use crate::utils::bounded_vec::BoundedVec;
+
 type ReadRequestMembershipWitnessPrivateData = ReadRequestMembershipWitness<PRIVATE_DATA_TREE_HEIGHT>;
 
 struct PrivateCallData {

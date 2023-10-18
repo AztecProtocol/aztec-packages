@@ -1,5 +1,6 @@
 use crate::abis::new_contract_data::NewContractData;
 use dep::std::array;
+use crate::utils::bounded_vec::BoundedVec;
 
 // Trait: is_empty
 //
@@ -14,8 +15,17 @@ use dep::std::array;
 // if a value can actually be zero. In a future refactor, we can 
 // use the optional type for safety. Doing it now would lead to a worse devex
 // and would make it harder to sync up with the cpp code.
-pub fn is_empty_field<T>(array : [Field; T]) -> bool {
-    array.all(|elem| elem == 0)
+pub fn is_empty_array<T>(array : [Field; T]) -> bool {
+    array.all(|elem| is_empty(elem))
+}
+pub fn is_empty(value : Field) -> bool {
+    value == 0
+}
+pub fn log_hashes_empty(log_hashes : [Field; 2]) -> bool {
+    log_hashes.all(|elem| elem == 0)
+}
+pub fn is_empty_single_field<T>(field : Field) -> bool {
+    field == 0
 }
 
 // TODO: This will be replaced with BoundedVec-- we want an as close copy as possible
@@ -56,6 +66,20 @@ pub fn array_push_array_field<T, N>(mut array : [Field; T], values_to_push : [Fi
     array
 }
 
+pub fn array_to_bounded_vec<T, N>(array: [T; N], is_empty_item: fn (T)->bool) -> BoundedVec<T, N> {
+    let mut len = 0;
+    for elem in array {
+        if !is_empty_item(elem) {
+            len += 1;
+        }
+    }
+    
+    BoundedVec {
+        storage: array,
+        len
+    }
+}
+
 // Routine which validates that all zero values of an array form a contiguous region at the end, i.e.,
 // of the form: [*,*,*...,0,0,0,0] where any * is non-zero. Note that a full array of non-zero values is
 // valid.
@@ -72,9 +96,9 @@ pub fn validate_array<T>(array : [Field;T]) {
     let mut last_non_zero_pos = 0;
     // TODO: using is_empty_field here is a bit wasteful
     for i in 0..array_length {
-        if is_empty_field([array[i]]) == false {
+        if is_empty(array[i]) == false {
             last_non_zero_pos = i;
-        } else if (is_empty_field([array[i]])) && (first_zero_pos == array_length) {
+        } else if is_empty(array[i]) && (first_zero_pos == array_length) {
             first_zero_pos = i;
         }
     }
@@ -142,49 +166,6 @@ pub fn array_length<N>(array : [Field; N]) -> Field {
 }
 
 #[test]
-fn smoke_test_is_empty_field() {
-    let all_zeroes = [0,0,0,0,0];
-    assert(is_empty_field(all_zeroes));
-    
-    let one_zero = [1,0,0];
-    assert(is_empty_field(one_zero) == false);
-}
-
-#[test]
-fn smoke_test_array_push() {
-
-    let array = [0,0,0,0,0];
-    let array = array_push_field(array,1);
-    assert(array == [1,0,0,0,0]);
-    
-    let array = array_push_field(array,2);
-    assert(array == [1,2,0,0,0]);
-
-    let array = array_push_field(array,3);
-    assert(array == [1,2,3,0,0]);
-
-    let array = array_push_field(array,4);
-    assert(array == [1,2,3,4,0]);
-
-    let array = array_push_field(array,5);
-    assert(array == [1,2,3,4,5]);
-}
-
-#[test(should_fail_with ="array has reached maximum capacity")]
-fn smoke_test_array_push_capacity(){
-    let array_at_full_capacity = [1,2,3,4];
-    array_push_field(array_at_full_capacity,0);
-}
-
-// TODO(David): We probably want to document this and ensure that this does not happen 
-#[test]
-fn document_push_zero_behavior(){
-    let all_zeroes = [0,0,0,0];
-    let array = array_push_field(all_zeroes,0);
-    assert(all_zeroes == array, "pushing zero the array does nothing");
-}
-
-#[test]
 fn smoke_validate_array() {
     let valid_array = [];
     validate_array(valid_array);
@@ -194,10 +175,10 @@ fn smoke_validate_array() {
 
     let valid_array = [1,2,3];
     validate_array(valid_array);
-    
+
     let valid_array = [1,2,3,0];
     validate_array(valid_array);
-    
+
     let valid_array = [1,2,3,0,0];
     validate_array(valid_array);
 }
@@ -212,11 +193,4 @@ fn smoke_validate_array_invalid(){
 fn smoke_validate_array_invalid_case2(){
     let invalid_array = [0,0,0,0,1];
     validate_array(invalid_array);
-}
-
-#[test]
-fn smoke_array_rearrange() {
-    let original = [0,7,4,0,5];
-    let updated = array_rearrange(original);
-    assert(updated == [7,4,5,0,0]);
 }

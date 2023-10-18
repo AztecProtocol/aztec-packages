@@ -3,7 +3,7 @@ use dep::private_kernel_lib::common;
 use dep::private_kernel_lib::mocked::{Proof, AggregationObject,verify_previous_kernel_state};
 use dep::private_kernel_lib::abis::private_kernel::private_call_data::PrivateCallData;
 use dep::private_kernel_lib::transaction::request::TxRequest;
-use dep::private_kernel_lib::{KernelCircuitPublicInputs};
+use dep::private_kernel_lib::{KernelCircuitPublicInputs, KernelCircuitPublicInputsBuilder};
 use dep::private_kernel_lib::abis::combined_constant_data::CombinedConstantData;
 use dep::private_kernel_lib::utils::arrays;
 use dep::std::unsafe;
@@ -19,7 +19,7 @@ struct PrivateKernelInputsInit {
 }
 
 impl PrivateKernelInputsInit {
-    fn initialize_end_values(self, public_inputs : &mut KernelCircuitPublicInputs) {
+    fn initialize_end_values(self, public_inputs : &mut KernelCircuitPublicInputsBuilder) {
         let private_call_public_inputs = self.private_call.call_stack_item.public_inputs();
         let constants = CombinedConstantData{
             block_data : private_call_public_inputs.historical_block_data,
@@ -72,37 +72,37 @@ impl PrivateKernelInputsInit {
         assert(public_inputs.call_context.storage_contract_address.eq(call_stack_item.contract_address()), "Storage contract address must be that of the called contract");
     }
 
-    fn update_end_values(self, public_inputs : &mut KernelCircuitPublicInputs) {
+    fn update_end_values(self, public_inputs : &mut KernelCircuitPublicInputsBuilder) {
         // We only initialized constants member of public_inputs so far. Therefore, there must not be any
         // new nullifiers or logs as part of public_inputs.
         
-        let new_commitments_empty = arrays::is_empty_field(public_inputs.end.new_commitments);
+        let new_commitments_empty = arrays::is_empty_array(public_inputs.end.new_commitments.storage);
         assert(new_commitments_empty, "public_inputs.end.new_commitments must start as empty in initial kernel iteration");
 
-        let new_nullifiers_empty = arrays::is_empty_field(public_inputs.end.new_nullifiers);
+        let new_nullifiers_empty = arrays::is_empty_array(public_inputs.end.new_nullifiers.storage);
         assert(new_nullifiers_empty, "public_inputs.end.new_nullifiers must start as empty in initial kernel iteration");
 
-        let end_nullified_commitments_empty = arrays::is_empty_field(public_inputs.end.nullified_commitments);
+        let end_nullified_commitments_empty = arrays::is_empty_array(public_inputs.end.nullified_commitments.storage);
         assert(end_nullified_commitments_empty, "public_inputs.end.nullified_commitments must start as empty in initial kernel iteration");
 
-        let encrypted_logs_hash_empty = arrays::is_empty_field(public_inputs.end.encrypted_logs_hash);
+        let encrypted_logs_hash_empty = arrays::log_hashes_empty(public_inputs.end.encrypted_logs_hash);
         assert(encrypted_logs_hash_empty, "public_inputs.end.encrypted_logs_hash must start as empty in initial kernel iteration");
 
-        let unencrypted_logs_hash_empty = arrays::is_empty_field(public_inputs.end.unencrypted_logs_hash);
+        let unencrypted_logs_hash_empty = arrays::log_hashes_empty(public_inputs.end.unencrypted_logs_hash);
         assert(unencrypted_logs_hash_empty, "public_inputs.end.unencrypted_logs_hash must start as empty in initial kernel iteration");
 
-        let read_requests_empty = arrays::is_empty_field(public_inputs.end.read_requests);
+        let read_requests_empty = arrays::is_empty_array(public_inputs.end.read_requests.storage);
         assert(read_requests_empty, "public_inputs.end.read_requests must start as empty in initial kernel iteration");
 
         assert(public_inputs.end.encrypted_log_preimages_length == 0,"public_inputs.end.encrypted_log_preimages_length must start as 0 in initial kernel iteration");
         assert(public_inputs.end.unencrypted_log_preimages_length == 0,"public_inputs.end.unencrypted_log_preimages_length must start as 0 in initial kernel iteration");
 
         // Since it's the first iteration, we need to push the the tx hash nullifier into the `new_nullifiers` array
-        public_inputs.end.new_nullifiers = arrays::array_push_field(public_inputs.end.new_nullifiers, self.tx_request.hash());
+        public_inputs.end.new_nullifiers.push(self.tx_request.hash());
         
         // Push an empty nullified commitment too since each nullifier must
         // be paired with a nonzero (real or "empty") nullified commitment
-        public_inputs.end.nullified_commitments = arrays::array_push_field(public_inputs.end.nullified_commitments, constants_gen::EMPTY_NULLIFIED_COMMITMENT);
+        public_inputs.end.nullified_commitments.push(constants_gen::EMPTY_NULLIFIED_COMMITMENT);
 
         // Note that we do not need to nullify the transaction request nonce anymore.
         // Should an account want to additionally use nonces for replay protection or handling cancellations,
@@ -111,7 +111,7 @@ impl PrivateKernelInputsInit {
     }
 
     fn native_private_kernel_circuit_initial(self) -> KernelCircuitPublicInputs {
-        let mut public_inputs : KernelCircuitPublicInputs = unsafe::zeroed();
+        let mut public_inputs : KernelCircuitPublicInputsBuilder = unsafe::zeroed();
         
         // TODO(david): // Do this before any functions can modify the inputs. Why?
         self.initialize_end_values(&mut public_inputs);
@@ -124,7 +124,11 @@ impl PrivateKernelInputsInit {
 
         common::validate_call_stack(self.private_call);
 
-        common::validate_read_requests(public_inputs.constants.block_data.private_data_tree_root(),self.private_call.call_stack_item.public_inputs().read_requests,self.private_call.read_request_membership_witnesses);
+        common::validate_read_requests(
+            public_inputs.constants.block_data.private_data_tree_root(),
+            self.private_call.call_stack_item.public_inputs().read_requests,
+            self.private_call.read_request_membership_witnesses
+        );
 
         // TODO(dbanks12): feels like update_end_values should happen after contract logic
         self.update_end_values(&mut public_inputs);
@@ -141,6 +145,6 @@ impl PrivateKernelInputsInit {
 
         public_inputs.end.aggregation_object = updated_aggregation_object;
 
-        public_inputs
+        public_inputs.finish()
     }
 }
