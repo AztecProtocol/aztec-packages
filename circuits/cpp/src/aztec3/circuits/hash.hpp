@@ -158,7 +158,7 @@ typename NCT::fr compute_block_hash_with_globals(abis::GlobalVariables<NCT> cons
         contract_tree_root, l1_to_l2_data_tree_root, public_data_tree_root,
     };
 
-    return NCT::compress(inputs, aztec3::GeneratorIndex::BLOCK_HASH);
+    return NCT::hash(inputs, aztec3::GeneratorIndex::BLOCK_HASH);
 }
 
 template <typename NCT> typename NCT::fr compute_globals_hash(abis::GlobalVariables<NCT> const& globals)
