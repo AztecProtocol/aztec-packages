@@ -1,9 +1,9 @@
 [package]
-name = "private_kernel_init"
-type = "bin"
+name = "private_kernel_init_lib"
+type = "lib"
 authors = [""]
 compiler_version = "0.16.0"
 
 [dependencies]
 private_kernel_lib = { path = "../private-kernel-lib" }
-private_kernel_init_lib = { path = "../private-kernel-init-lib" }
+aztec = { path="../../../../aztec-nr/aztec" }
