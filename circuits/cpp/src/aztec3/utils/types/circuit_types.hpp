@@ -59,7 +59,7 @@ template <typename Builder> struct CircuitTypes {
     // Define the 'circuit' version of the function `hash`, with the name `hash`:
     static fr hash(std::vector<fr> const& inputs, const size_t hash_index = 0)
     {
-        return plonk::stdlib::pedersen_commitment<Builder>::commit(inputs, get_generator_context(hash_index)).x;
+        return plonk::stdlib::pedersen_hash<Builder>::hash(inputs, get_generator_context(hash_index));
     }
 
 
@@ -83,7 +83,7 @@ template <typename Builder> struct CircuitTypes {
     static fr merkle_hash(fr left, fr right)
     {
         // use 0-generator for internal merkle hashing
-        return plonk::stdlib::pedersen_commitment<Builder>::commit({ left, right }, 0).x;
+        return plonk::stdlib::pedersen_hash<Builder>::commit({ left, right }, 0);
     };
 
     static grumpkin_point commit(const std::vector<fr>& inputs, const size_t hash_index = 0)
