@@ -1,10 +1,10 @@
 use crate::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs;
-use crate::abis::kernel_circuit_public_inputs::KernelCircuitPublicInputs;
+use crate::abis::kernel_circuit_public_inputs::KernelCircuitPublicInputsBuilder;
 use crate::utils::arrays;
 use crate::abis::kernel_circuit_public_inputs_final::KernelCircuitPublicInputsFinal;
 use crate::abis::previous_kernel_data::PreviousKernelData;
 use crate::abis::private_kernel::private_call_data::PrivateCallData;
-use crate::abis::combined_accumulated_data::CombinedAccumulatedData;
+use crate::abis::combined_accumulated_data::{CombinedAccumulatedData, CombinedAccumulatedDataBuilder};
 use crate::abis::private_kernel::private_call_data::ReadRequestMembershipWitnessPrivateData;
 use crate::hash::{read_request_root_from_siblings, function_tree_root_from_siblings, contract_tree_root_from_siblings, silo_commitment, silo_nullifier,stdlib_recursion_verification_key_compress_native_vk, compute_new_contract_address_hash, compute_l2_to_l1_hash,compute_constructor_hash, compute_logs_hash};
 use crate::address::{EthAddress, Address};
@@ -97,7 +97,7 @@ pub fn validate_read_requests(historic_private_data_tree_root : Field, read_requ
     }
 }
 
-fn initialize_end_values(previous_kernel : PreviousKernelData, public_inputs : &mut KernelCircuitPublicInputs) {
+fn initialize_end_values(previous_kernel : PreviousKernelData, public_inputs : &mut KernelCircuitPublicInputsBuilder) {
     public_inputs.constants = previous_kernel.public_inputs.constants;
 
     // Ensure the arrays are the same as previously, before we start pushing more data onto them in other
@@ -105,13 +105,13 @@ fn initialize_end_values(previous_kernel : PreviousKernelData, public_inputs : &
     let mut end = public_inputs.end;
     let start = previous_kernel.public_inputs.end;
 
-    end.new_commitments = start.new_commitments;
-    end.new_nullifiers = start.new_nullifiers;
-    end.nullified_commitments = start.nullified_commitments;
+    end.new_commitments = arrays::array_to_bounded_vec(start.new_commitments, arrays::is_empty);
+    end.new_nullifiers = arrays::array_to_bounded_vec(start.new_nullifiers, arrays::is_empty);
+    end.nullified_commitments = arrays::array_to_bounded_vec(start.nullified_commitments, arrays::is_empty);
 
-    end.private_call_stack = start.private_call_stack;
-    end.public_call_stack = start.public_call_stack;
-    end.new_l2_to_l1_msgs = start.new_l2_to_l1_msgs;
+    end.private_call_stack = arrays::array_to_bounded_vec(start.private_call_stack, arrays::is_empty);
+    end.public_call_stack = arrays::array_to_bounded_vec(start.public_call_stack, arrays::is_empty);
+    end.new_l2_to_l1_msgs = arrays::array_to_bounded_vec(start.new_l2_to_l1_msgs, arrays::is_empty);
 
     end.encrypted_logs_hash = start.encrypted_logs_hash;
     end.unencrypted_logs_hash = start.unencrypted_logs_hash;
@@ -151,7 +151,7 @@ fn initialize_end_values_final(previous_kernel : PreviousKernelData, public_inpu
     end.optionally_revealed_data = start.optionally_revealed_data;
 }
 
-pub fn update_end_values(private_call : PrivateCallData, public_inputs : &mut KernelCircuitPublicInputs) {
+pub fn update_end_values(private_call : PrivateCallData, public_inputs : &mut KernelCircuitPublicInputsBuilder) {
     let private_call_public_inputs = private_call.call_stack_item.public_inputs();
 
     let read_requests = private_call_public_inputs.read_requests;
@@ -196,15 +196,12 @@ pub fn update_end_values(private_call : PrivateCallData, public_inputs : &mut Ke
     assert(new_nullifiers.len() == MAX_NEW_NULLIFIERS_PER_CALL);
     for i in 0..MAX_NEW_NULLIFIERS_PER_CALL {
         let new_nullifier = new_nullifiers[i];
-        let siloed_new_nullifier = if new_nullifier == 0 {
-            0
-        } else {
-            silo_nullifier(storage_contract_address, new_nullifier)
-        };
-        siloed_new_nullifiers.push(siloed_new_nullifier);
+        if new_nullifier != 0 {
+            siloed_new_nullifiers.push(silo_nullifier(storage_contract_address, new_nullifier));
+        }
     }
 
-    public_inputs.end.new_nullifiers.push_array(siloed_new_nullifiers.storage());
+    public_inputs.end.new_nullifiers.push_vec(siloed_new_nullifiers);
 
     // commitments
     // TODO: These for loops are inconsistent, some use constants and others use the array length
@@ -212,15 +209,11 @@ pub fn update_end_values(private_call : PrivateCallData, public_inputs : &mut Ke
     assert(new_commitments.len() == MAX_NEW_COMMITMENTS_PER_CALL);
     for i in 0..new_commitments.len() {
         let new_commitment = new_commitments[i];
-        let siloed_commitment = if new_commitment == 0 {
-            0
-        }  else {
-            silo_commitment(storage_contract_address, new_commitment)
-        };
-
-        siloed_new_commitments.push(siloed_commitment);
+        if new_commitment != 0 {
+            siloed_new_commitments.push(silo_commitment(storage_contract_address, new_commitment));
+        }
     }
-    public_inputs.end.new_commitments.push_array(siloed_new_commitments.storage());
+    public_inputs.end.new_commitments.push_vec(siloed_new_commitments);
 
     // nullified commitments (for matching transient nullifiers to transient commitments)
     // Since every new_nullifiers entry is paired with a nullified_commitment, EMPTY
@@ -243,17 +236,20 @@ pub fn update_end_values(private_call : PrivateCallData, public_inputs : &mut Ke
         } else {
             silo_commitment(storage_contract_address, nullified_commitments[i])
         };
-        siloed_nullified_commitments.push(siloed_nullified_commitment);
+
+        if siloed_nullified_commitment != 0 {
+            siloed_nullified_commitments.push(siloed_nullified_commitment);
+        }
     }
     // TODO(Kev): These operations should be carefully checked with the cpp array_push code
-    public_inputs.end.nullified_commitments.push_array(siloed_nullified_commitments.storage());
+    public_inputs.end.nullified_commitments.push_vec(siloed_nullified_commitments);
 
     // Call stacks
-    let mut private_call_stack = private_call_public_inputs.private_call_stack;
-    public_inputs.end.private_call_stack.push_array(private_call_stack);
+    let private_call_stack = arrays::array_to_bounded_vec(private_call_public_inputs.private_call_stack, arrays::is_empty);
+    public_inputs.end.private_call_stack.push_vec(private_call_stack);
 
-    let mut public_call_stack = private_call_public_inputs.public_call_stack;
-    public_inputs.end.public_call_stack.push_array(public_call_stack);
+    let public_call_stack = arrays::array_to_bounded_vec(private_call_public_inputs.public_call_stack, arrays::is_empty);
+    public_inputs.end.public_call_stack.push_vec(public_call_stack);
 
     // new l2 to l1 messages
     let portal_contract_address = private_call.portal_contract_address;
@@ -267,10 +263,10 @@ pub fn update_end_values(private_call : PrivateCallData, public_inputs : &mut Ke
                                                                            portal_contract_address,
                                                                            private_call_public_inputs.chain_id,
                                                                            new_l2_to_l1_msgs[i]);
-        new_l2_to_l1_msgs_to_insert.push(new_l2_to_l1_msgs)
+            new_l2_to_l1_msgs_to_insert.push(new_l2_to_l1_msgs)
         }
     }
-    new_l2_to_l1_msgs_to_insert.push_array(public_inputs.end.new_l2_to_l1_msgs.storage());
+    new_l2_to_l1_msgs_to_insert.push_vec(public_inputs.end.new_l2_to_l1_msgs);
 
     // logs hashes
     // See the following thread if not clear:
@@ -288,7 +284,7 @@ pub fn update_end_values(private_call : PrivateCallData, public_inputs : &mut Ke
     public_inputs.end.unencrypted_log_preimages_length = public_inputs.end.unencrypted_log_preimages_length + private_call_public_inputs.unencrypted_log_preimages_length;
 }
 
-pub fn contract_logic(private_call : PrivateCallData, public_inputs : &mut KernelCircuitPublicInputs, contract_dep_data : ContractDeploymentData, function_data : FunctionData) {
+pub fn contract_logic(private_call : PrivateCallData, public_inputs : &mut KernelCircuitPublicInputsBuilder, contract_dep_data : ContractDeploymentData, function_data : FunctionData) {
     let private_call_public_inputs = private_call.call_stack_item.public_inputs();
     let storage_contract_address = private_call_public_inputs.call_context.storage_contract_address;
     let portal_contract_address = private_call.portal_contract_address;
@@ -365,16 +361,16 @@ fn validate_previous_kernel_values(end : CombinedAccumulatedData) {
 // We validate that relevant arrays assumed to be zero-padded on the right comply to this format.
 fn validate_previous_kernel_arrays(end : CombinedAccumulatedData) {
     // Each of the following arrays is expected to be zero-padded.
-    arrays::validate_array(end.read_requests.storage);
-    arrays::validate_array(end.new_commitments.storage);
-    arrays::validate_array(end.new_nullifiers.storage);
-    arrays::validate_array(end.nullified_commitments.storage);
-    arrays::validate_array(end.private_call_stack.storage);
-    arrays::validate_array(end.public_call_stack.storage);
-    arrays::validate_array(end.new_l2_to_l1_msgs.storage);
+    arrays::validate_array(end.read_requests);
+    arrays::validate_array(end.new_commitments);
+    arrays::validate_array(end.new_nullifiers);
+    arrays::validate_array(end.nullified_commitments);
+    arrays::validate_array(end.private_call_stack);
+    arrays::validate_array(end.public_call_stack);
+    arrays::validate_array(end.new_l2_to_l1_msgs);
 }
 
 fn validate_previous_kernel_0th_nullifier(end : CombinedAccumulatedData)
 {
-    assert(end.new_nullifiers.get(0) != 0, "The 0th nullifier in the accumulated nullifier array is zero");
+    assert(end.new_nullifiers[0] != 0, "The 0th nullifier in the accumulated nullifier array is zero");
 }

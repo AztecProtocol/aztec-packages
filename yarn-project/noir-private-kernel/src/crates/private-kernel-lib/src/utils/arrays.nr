@@ -66,6 +66,20 @@ pub fn array_push_array_field<T, N>(mut array : [Field; T], values_to_push : [Fi
     array
 }
 
+pub fn array_to_bounded_vec<T, N>(array: [T; N], is_empty_item: fn (T)->bool) -> BoundedVec<T, N> {
+    let mut len = 0;
+    for elem in array {
+        if !is_empty_item(elem) {
+            len += 1;
+        }
+    }
+    
+    BoundedVec {
+        storage: array,
+        len
+    }
+}
+
 // Routine which validates that all zero values of an array form a contiguous region at the end, i.e.,
 // of the form: [*,*,*...,0,0,0,0] where any * is non-zero. Note that a full array of non-zero values is
 // valid.

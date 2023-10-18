@@ -50,6 +50,17 @@ impl<T, MaxLen> BoundedVec<T, MaxLen> {
         self.len = newLen;
     }
 
+    pub fn push_vec<Len>(&mut self, vec: BoundedVec<T, Len>) {
+        let newLen = self.len + vec.len();
+        assert(newLen as u64 <= MaxLen as u64);
+        for i in 0..Len {
+            if i < (vec.len() as u64) {
+                self.storage[self.len + (i as Field)] = vec.get_unchecked(i as Field);
+            }
+        }
+        self.len = newLen;
+    }
+
     pub fn pop(&mut self) -> T {
         assert(self.len as u64 > 0);
 
