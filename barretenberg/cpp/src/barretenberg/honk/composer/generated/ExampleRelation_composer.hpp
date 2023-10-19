@@ -6,7 +6,7 @@
 #include "barretenberg/honk/proof_system/generated/ExampleRelation_verifier.hpp"
 #include "barretenberg/proof_system/circuit_builder/generated/ExampleRelation_trace.hpp"
 #include "barretenberg/proof_system/composer/composer_lib.hpp"
-// #include "barretenberg/srs/factories/file_crs_factory.hpp"
+#include "barretenberg/srs/factories/file_crs_factory.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 
 namespace proof_system::honk {

@@ -31,7 +31,10 @@ auto& engine = numeric::random::get_debug_engine();
 
 TEST_F(ExampleRelationTests, powdre2e)
 {
+    barretenberg::srs::init_crs_factory("../srs_db/ignition");
+
     auto circuit_builder = proof_system::ExampleRelationTraceBuilder();
+    circuit_builder.build_circuit();
 
     auto composer = ExampleRelationComposer();
 

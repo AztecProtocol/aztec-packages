@@ -19,7 +19,7 @@ configure_file(
 
 option(DISABLE_ASM "Disable custom assembly" OFF)
 option(DISABLE_ADX "Disable ADX assembly variant" OFF)
-option(MULTITHREADING "Enable multi-threading" ON)
+option(MULTITHREADING "Enable multi-threading" OFF)
 option(OMP_MULTITHREADING "Enable OMP multi-threading" OFF)
 option(TESTING "Build tests" ON)
 option(BENCHMARKS "Build benchmarks" ON)

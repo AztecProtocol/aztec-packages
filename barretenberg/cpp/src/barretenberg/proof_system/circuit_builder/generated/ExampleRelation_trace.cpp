@@ -46,6 +46,16 @@ inline std::vector<Row> read_both_file_into_cols(std::string const& commited_fil
         return {};
     }
 
+    // Add a first row of all 0s except the one that does not need to be shifted?
+    auto emptyRow = Row{
+        .Fibonacci_ISLAST = fr(1),
+        .Fibonacci_x = fr(0),
+        .Fibonacci_y = fr(0),
+        .Fibonacci_x_shift = fr(0),
+        .Fibonacci_y_shift = fr(0),
+    };
+    rows.push_back(emptyRow);
+
     // We are assuming that the two files are the same length
     while (commited_file) {
         Row current_row = {};
@@ -63,11 +73,14 @@ inline std::vector<Row> read_both_file_into_cols(std::string const& commited_fil
     rows.pop_back();
 
     // Build out shifts from collected rows
+    for (size_t i = 1; i < rows.size(); ++i) {
+        Row& row = rows[i - 1];
 
-    for (size_t i = 0; i < rows.size(); ++i) {
-        Row& row = rows[i];
-        row.Fibonacci_x_shift = rows[(i + 1) % rows.size()].Fibonacci_x;
-        row.Fibonacci_y_shift = rows[(i + 1) % rows.size()].Fibonacci_y;
+        row.Fibonacci_x_shift = rows[(i) % rows.size()].Fibonacci_x;
+        row.Fibonacci_y_shift = rows[(i) % rows.size()].Fibonacci_y;
+
+        // row.Fibonacci_x_shift = rows[(i + 1) % rows.size()].Fibonacci_x;
+        // row.Fibonacci_y_shift = rows[(i + 1) % rows.size()].Fibonacci_y;
     }
 
     return rows;

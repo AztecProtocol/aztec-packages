@@ -14,8 +14,6 @@ template <typename Flavor> void ExampleRelationComposer_<Flavor>::compute_witnes
         return;
     }
 
-    circuit.build_circuit();
-
     auto polynomials = circuit.compute_polynomials();
 
     auto key_wires = proving_key->get_wires();

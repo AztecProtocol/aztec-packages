@@ -4,7 +4,6 @@
 
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/proof_system/arithmetization/arithmetization.hpp"
-#include "barretenberg/proof_system/circuit_builder/circuit_builder_base.hpp"
 
 #include "./ExampleRelation_trace.cpp"
 #include "barretenberg/honk/flavor/generated/ExampleRelation_flavor.hpp"
@@ -67,13 +66,11 @@ class ExampleRelationTraceBuilder {
             polys.Fibonacci_ISLAST[i] = rows[i].Fibonacci_ISLAST;
             polys.Fibonacci_x[i] = rows[i].Fibonacci_x;
             polys.Fibonacci_y[i] = rows[i].Fibonacci_y;
-            polys.Fibonacci_x_shift[i] = rows[i].Fibonacci_x_shift;
-            polys.Fibonacci_y_shift[i] = rows[i].Fibonacci_y_shift;
         }
 
         // TODO: investigate why shifts require a top value of 0 in bb
-        // polys.Fibonacci_x_shift = Polynomial(polys.Fibonacci_x.shifted());
-        // polys.Fibonacci_y_shift = Polynomial(polys.Fibonacci_y.shifted());
+        polys.Fibonacci_x_shift = Polynomial(polys.Fibonacci_x.shifted());
+        polys.Fibonacci_y_shift = Polynomial(polys.Fibonacci_y.shifted());
 
         return polys;
     }
