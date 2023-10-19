@@ -92,6 +92,9 @@ impl PrivateKernelInputsInit {
         let read_requests_empty = arrays::is_empty_array(public_inputs.end.read_requests.storage);
         assert(read_requests_empty, "public_inputs.end.read_requests must start as empty in initial kernel iteration");
 
+        let pending_read_requests_empty = arrays::is_empty_array(public_inputs.end.pending_read_requests.storage);
+        assert(pending_read_requests_empty, "public_inputs.end.pending_read_requests_empty must start as empty in initial kernel iteration");
+
         assert(public_inputs.end.encrypted_log_preimages_length == 0,"public_inputs.end.encrypted_log_preimages_length must start as 0 in initial kernel iteration");
         assert(public_inputs.end.unencrypted_log_preimages_length == 0,"public_inputs.end.unencrypted_log_preimages_length must start as 0 in initial kernel iteration");
 

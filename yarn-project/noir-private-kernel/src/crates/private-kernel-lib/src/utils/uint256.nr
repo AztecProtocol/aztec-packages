@@ -13,7 +13,7 @@ struct U256 {
 }
 
 impl U256 {
-    fn from_bytes32(bytes : [u8;32]) -> U256 {
+    pub fn from_bytes32(bytes : [u8;32]) -> U256 {
         let high_0 = ((bytes[0] as u64) << 56)
                 | ((bytes[1] as u64) << 48)
                 | ((bytes[2] as u64) << 40)
@@ -60,7 +60,7 @@ impl U256 {
     // or else the conversion is lossy.
     //
     // TODO: Add a test for this.
-    fn to_u128_limbs(self) -> [Field;2] {
+    pub fn to_u128_limbs(self) -> [Field;2] {
         let two_pow_64 = 2.pow_32(64);
 
         let high = (self.inner[0] as Field) * two_pow_64 + self.inner[1] as Field;

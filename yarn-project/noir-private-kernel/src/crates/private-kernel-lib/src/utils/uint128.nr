@@ -6,11 +6,11 @@ struct U128 {
 }
 
 impl U128 {
-    fn to_field(self) -> Field {
+    pub fn to_field(self) -> Field {
         self.inner as Field
     }
 
-    fn from_field(value : Field) -> U128 {
+    pub fn from_field(value : Field) -> U128 {
         // TODO(Kev): Apply 128 bit range constraint and fail if this is not the case.
         // We can expose a `apply_range_constraint` method from Noir which can take a field 
         // and return a Field.
@@ -20,7 +20,7 @@ impl U128 {
         U128{inner : value}
     }
 
-    fn to_be_bytes(self) -> [u8;16] {
+    pub fn to_be_bytes(self) -> [u8;16] {
         let slice = self.inner.to_be_bytes(16);
         let mut arr = [0;16];
         for i in 0..16 {
