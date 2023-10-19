@@ -13,7 +13,7 @@ auto& engine = numeric::random::get_debug_engine();
 namespace proof_system::plonk {
 
 struct BasicPlonkKeyAndTranscript {
-    std::shared_ptr<proving_key> proving_key;
+    std::shared_ptr<proving_key> key;
     transcript::StandardTranscript transcript;
 };
 
@@ -31,7 +31,7 @@ BasicPlonkKeyAndTranscript get_plonk_key_and_transcript()
 template <typename Flavor, typename Widget> void execute_widget(::benchmark::State& state)
 {
     BasicPlonkKeyAndTranscript data = get_plonk_key_and_transcript();
-    Widget widget(data.proving_key);
+    Widget widget(data.key);
     for (auto _ : state) {
         widget.compute_quotient_contribution(barretenberg::fr::random_element(), data.transcript);
     }
@@ -43,7 +43,7 @@ void plookup_auxiliary_kernel(::benchmark::State& state) noexcept
     using FFTGetter = ProverPlookupAuxiliaryWidget<ultra_settings>::FFTGetter;
     using FFTKernel = ProverPlookupAuxiliaryWidget<ultra_settings>::FFTKernel;
 
-    auto polynomials = FFTGetter::get_polynomials(data.proving_key.get(), FFTKernel::get_required_polynomial_ids());
+    auto polynomials = FFTGetter::get_polynomials(data.key.get(), FFTKernel::get_required_polynomial_ids());
     auto challenges = FFTGetter::get_challenges(
         data.transcript, barretenberg::fr::random_element(), FFTKernel::quotient_required_challenges);
 
@@ -61,7 +61,7 @@ BENCHMARK(plookup_auxiliary_kernel);
 void plookup_auxiliary_widget(::benchmark::State& state) noexcept
 {
     BasicPlonkKeyAndTranscript data = get_plonk_key_and_transcript();
-    ProverPlookupAuxiliaryWidget<ultra_settings> widget(data.proving_key.get());
+    ProverPlookupAuxiliaryWidget<ultra_settings> widget(data.key.get());
     for (auto _ : state) {
         widget.compute_quotient_contribution(barretenberg::fr::random_element(), data.transcript);
     }
