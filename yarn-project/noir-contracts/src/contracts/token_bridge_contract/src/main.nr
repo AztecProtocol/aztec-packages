@@ -1,4 +1,4 @@
-mod util;
+// docs:start:token_bridge_imports
 mod token_interface;
 
 // Minimal implementation of the token bridge that can move funds between L1 <> L2.
@@ -17,10 +17,13 @@ contract TokenBridge {
         types::address::{AztecAddress, EthereumAddress},
         selector::compute_selector,
     };
+    // docs:end:token_bridge_imports
+
+    use dep::token_portal_content_hash_lib::{get_mint_public_content_hash, get_mint_private_content_hash, get_withdraw_content_hash};
 
     use crate::token_interface::Token;
-    use crate::util::{get_mint_public_content_hash, get_mint_private_content_hash, get_withdraw_content_hash};
 
+    // docs:start:token_bridge_storage_and_constructor
     // Storage structure, containing all storage, and specifying what slots they use.
     struct Storage {
         token: PublicState<Field, 1>,
@@ -44,6 +47,8 @@ contract TokenBridge {
         let selector = compute_selector("_initialize((Field))");
         context.call_public_function(context.this_address(), selector, [token.address]);
     }
+    // docs:end:token_bridge_storage_and_constructor
+
 
     // docs:start:claim_public
     // Consumes a L1->L2 message and calls the token contract to mint the appropriate amount publicly
@@ -86,19 +91,19 @@ contract TokenBridge {
         1
     }
     // docs:end:exit_to_l1_public
-
+    // docs:start:claim_private
     // Consumes a L1->L2 message and calls the token contract to mint the appropriate amount in private assets
     // User needs to call token.redeem_shield() to get the private assets
     #[aztec(private)]
     fn claim_private(
-        amount: Field,
         secret_hash_for_redeeming_minted_notes: Field, // secret hash used to redeem minted notes at a later time. This enables anyone to call this function and mint tokens to a user on their behalf
+        amount: Field,
         canceller: EthereumAddress,
         msg_key: Field, // L1 to L2 message key as derived from the inbox contract
         secret_for_L1_to_L2_message_consumption: Field, // secret used to consume the L1 to L2 message
     ) -> Field {
         // Consume L1 to L2 message and emit nullifier
-        let content_hash = get_mint_private_content_hash(amount, secret_hash_for_redeeming_minted_notes, canceller.address);
+        let content_hash = get_mint_private_content_hash(secret_hash_for_redeeming_minted_notes, amount, canceller.address);
         context.consume_l1_to_l2_message(msg_key, content_hash, secret_for_L1_to_L2_message_consumption);
 
         // Mint tokens on L2
@@ -113,14 +118,15 @@ contract TokenBridge {
 
         1
     }
+    // docs:end:claim_private
 
     // docs:start:exit_to_l1_private
     // Burns the appropriate amount of tokens and creates a L2 to L1 withdraw message privately
     // Requires `msg.sender` (caller of the method) to give approval to the bridge to burn tokens on their behalf using witness signatures
     #[aztec(private)]
     fn exit_to_l1_private(
-        recipient: EthereumAddress, // ethereum address to withdraw to
         token: AztecAddress,
+        recipient: EthereumAddress, // ethereum address to withdraw to
         amount: Field,
         callerOnL1: EthereumAddress, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
         nonce: Field, // nonce used in the approval message by `msg.sender` to let bridge burn their tokens on L2
@@ -157,6 +163,7 @@ contract TokenBridge {
         storage.token.write(token.address);
     }
 
+    // docs:start:call_mint_on_token
     // This is a public call as we need to read from public storage.
     // Also, note that user hashes their secret in private and only sends the hash in public
     // meaning only user can `redeem_shield` at a later time with their secret.
@@ -164,9 +171,13 @@ contract TokenBridge {
     internal fn _call_mint_on_token(amount: Field, secret_hash: Field){
         Token::at(storage.token.read()).mint_private(context, amount, secret_hash);
     }
+    // docs:end:call_mint_on_token
 
+    // docs:start:assert_token_is_same
     #[aztec(public)]
     internal fn _assert_token_is_same(token: Field) {
         assert(storage.token.read() == token, "Token address is not the same as seen in storage");
     }
+    // docs:end:assert_token_is_same
+
 }

@@ -18,6 +18,10 @@ variable "INBOX_CONTRACT_ADDRESS" {
   type = string
 }
 
+variable "REGISTRY_CONTRACT_ADDRESS" {
+  type = string
+}
+
 variable "SEQ_1_PUBLISHER_PRIVATE_KEY" {
   type = string
 }
@@ -63,5 +67,21 @@ variable "NODE_2_PRIVATE_KEY" {
 }
 
 variable "ECR_URL" {
+  type = string
+}
+
+variable "SEQ_MAX_TX_PER_BLOCK" {
+  type = string
+}
+
+variable "SEQ_MIN_TX_PER_BLOCK" {
+  type = string
+}
+
+variable "P2P_MIN_PEERS" {
+  type = string
+}
+
+variable "P2P_MAX_PEERS" {
   type = string
 }

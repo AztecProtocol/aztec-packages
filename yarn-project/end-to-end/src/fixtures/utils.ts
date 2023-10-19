@@ -1,23 +1,17 @@
 import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import {
   AccountWalletWithPrivateKey,
-  AztecAddress,
   CheatCodes,
   CompleteAddress,
-  EthAddress,
+  DebugLogger,
   EthCheatCodes,
-  Wallet,
+  SentTx,
   createAccounts,
+  createDebugLogger,
   createPXEClient,
   getSandboxAccountsWallets,
 } from '@aztec/aztec.js';
-import {
-  DeployL1Contracts,
-  L1ContractArtifactsForDeployment,
-  deployL1Contract,
-  deployL1Contracts,
-} from '@aztec/ethereum';
-import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { DeployL1Contracts, L1ContractArtifactsForDeployment, deployL1Contracts } from '@aztec/ethereum';
 import { retryUntil } from '@aztec/foundation/retry';
 import {
   ContractDeploymentEmitterAbi,
@@ -28,26 +22,13 @@ import {
   InboxBytecode,
   OutboxAbi,
   OutboxBytecode,
-  PortalERC20Abi,
-  PortalERC20Bytecode,
   RegistryAbi,
   RegistryBytecode,
   RollupAbi,
   RollupBytecode,
-  TokenPortalAbi,
-  TokenPortalBytecode,
 } from '@aztec/l1-artifacts';
-import { NonNativeTokenContract, TokenBridgeContract, TokenContract } from '@aztec/noir-contracts/types';
 import { PXEService, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
-import {
-  AztecNode,
-  L2BlockL2Logs,
-  LogType,
-  PXE,
-  TxStatus,
-  UnencryptedL2Log,
-  createAztecNodeRpcClient,
-} from '@aztec/types';
+import { AztecNode, L2BlockL2Logs, LogType, PXE, createAztecNodeRpcClient } from '@aztec/types';
 
 import * as path from 'path';
 import {
@@ -56,17 +37,16 @@ import {
   HDAccount,
   HttpTransport,
   PrivateKeyAccount,
-  PublicClient,
-  WalletClient,
   createPublicClient,
   createWalletClient,
-  getContract,
   http,
 } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 
 import { MNEMONIC, localAnvil } from './fixtures.js';
 import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
+
+export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chain_test_harness.js';
 
 const { PXE_URL = '', AZTEC_NODE_URL = '' } = process.env;
 
@@ -255,7 +235,7 @@ export type EndToEndContext = {
 /**
  * Sets up the environment for the end-to-end tests.
  * @param numberOfAccounts - The number of new accounts to be created once the PXE is initiated.
- * @param opts - Options to pass to the node initialisation and to the setup script.
+ * @param opts - Options to pass to the node initialization and to the setup script.
  */
 export async function setup(numberOfAccounts = 1, opts: SetupOptions = {}): Promise<EndToEndContext> {
   const config = { ...getConfigEnvVars(), ...opts };
@@ -345,153 +325,7 @@ export function getLogger() {
   return createDebugLogger('aztec:' + describeBlockName);
 }
 
-/**
- * Deploy L1 token and portal, initialize portal, deploy a non native l2 token contract, its L2 bridge contract and attach is to the portal.
- * @param wallet - the wallet instance
- * @param walletClient - A viem WalletClient.
- * @param publicClient - A viem PublicClient.
- * @param rollupRegistryAddress - address of rollup registry to pass to initialize the token portal
- * @param owner - owner of the L2 contract
- * @param underlyingERC20Address - address of the underlying ERC20 contract to use (if none supplied, it deploys one)
- * @returns l2 contract instance, bridge contract instance, token portal instance, token portal address and the underlying ERC20 instance
- */
-export async function deployAndInitializeTokenAndBridgeContracts(
-  wallet: Wallet,
-  walletClient: WalletClient<HttpTransport, Chain, Account>,
-  publicClient: PublicClient<HttpTransport, Chain>,
-  rollupRegistryAddress: EthAddress,
-  owner: AztecAddress,
-  underlyingERC20Address?: EthAddress,
-): Promise<{
-  /**
-   * The L2 token contract instance.
-   */
-  token: TokenContract;
-  /**
-   * The L2 bridge contract instance.
-   */
-  bridge: TokenBridgeContract;
-  /**
-   * The token portal contract address.
-   */
-  tokenPortalAddress: EthAddress;
-  /**
-   * The token portal contract instance
-   */
-  tokenPortal: any;
-  /**
-   * The underlying ERC20 contract instance.
-   */
-  underlyingERC20: any;
-}> {
-  if (!underlyingERC20Address) {
-    underlyingERC20Address = await deployL1Contract(walletClient, publicClient, PortalERC20Abi, PortalERC20Bytecode);
-  }
-  const underlyingERC20 = getContract({
-    address: underlyingERC20Address.toString(),
-    abi: PortalERC20Abi,
-    walletClient,
-    publicClient,
-  });
-
-  // deploy the token portal
-  const tokenPortalAddress = await deployL1Contract(walletClient, publicClient, TokenPortalAbi, TokenPortalBytecode);
-  const tokenPortal = getContract({
-    address: tokenPortalAddress.toString(),
-    abi: TokenPortalAbi,
-    walletClient,
-    publicClient,
-  });
-
-  // deploy l2 token
-  const deployTx = TokenContract.deploy(wallet, owner).send();
-
-  // now wait for the deploy txs to be mined. This way we send all tx in the same rollup.
-  const deployReceipt = await deployTx.wait();
-  if (deployReceipt.status !== TxStatus.MINED) throw new Error(`Deploy token tx status is ${deployReceipt.status}`);
-  const token = await TokenContract.at(deployReceipt.contractAddress!, wallet);
-
-  // deploy l2 token bridge and attach to the portal
-  const bridge = await TokenBridgeContract.deploy(wallet, token.address)
-    .send({ portalContract: tokenPortalAddress })
-    .deployed();
-
-  if ((await token.methods.admin().view()) !== owner.toBigInt()) throw new Error(`Token admin is not ${owner}`);
-
-  if ((await bridge.methods.token().view()) !== token.address.toBigInt())
-    throw new Error(`Bridge token is not ${token.address}`);
-
-  // make the bridge a minter on the token:
-  const makeMinterTx = token.methods.set_minter(bridge.address, true).send();
-  const makeMinterReceipt = await makeMinterTx.wait();
-  if (makeMinterReceipt.status !== TxStatus.MINED)
-    throw new Error(`Make bridge a minter tx status is ${makeMinterReceipt.status}`);
-  if ((await token.methods.is_minter(bridge.address).view()) === 1n) throw new Error(`Bridge is not a minter`);
-
-  // initialize portal
-  await tokenPortal.write.initialize(
-    [rollupRegistryAddress.toString(), underlyingERC20Address.toString(), bridge.address.toString()],
-    {} as any,
-  );
-
-  return { token, bridge, tokenPortalAddress, tokenPortal, underlyingERC20 };
-}
-
-/**
- * Deploy L1 token and portal, initialize portal, deploy a non native l2 token contract and attach is to the portal.
- * @param wallet - Aztec wallet instance.
- * @param walletClient - A viem WalletClient.
- * @param publicClient - A viem PublicClient.
- * @param rollupRegistryAddress - address of rollup registry to pass to initialize the token portal
- * @param initialBalance - initial balance of the owner of the L2 contract
- * @param owner - owner of the L2 contract
- * @param underlyingERC20Address - address of the underlying ERC20 contract to use (if none supplied, it deploys one)
- * @returns l2 contract instance, token portal instance, token portal address and the underlying ERC20 instance
- */
-// TODO (#2291) DELETE!!!
-export async function deployAndInitializeNonNativeL2TokenContracts(
-  wallet: Wallet,
-  walletClient: WalletClient<HttpTransport, Chain, Account>,
-  publicClient: PublicClient<HttpTransport, Chain>,
-  rollupRegistryAddress: EthAddress,
-  initialBalance = 0n,
-  owner = AztecAddress.ZERO,
-  underlyingERC20Address?: EthAddress,
-) {
-  // deploy underlying contract if no address supplied
-  if (!underlyingERC20Address) {
-    underlyingERC20Address = await deployL1Contract(walletClient, publicClient, PortalERC20Abi, PortalERC20Bytecode);
-  }
-  const underlyingERC20: any = getContract({
-    address: underlyingERC20Address.toString(),
-    abi: PortalERC20Abi,
-    walletClient,
-    publicClient,
-  });
-
-  // deploy the token portal
-  const tokenPortalAddress = await deployL1Contract(walletClient, publicClient, TokenPortalAbi, TokenPortalBytecode);
-  const tokenPortal: any = getContract({
-    address: tokenPortalAddress.toString(),
-    abi: TokenPortalAbi,
-    walletClient,
-    publicClient,
-  });
-
-  // deploy l2 contract and attach to portal
-  const l2Contract = await NonNativeTokenContract.deploy(wallet, initialBalance, owner)
-    .send({ portalContract: tokenPortalAddress })
-    .deployed();
-  const l2TokenAddress = l2Contract.address.toString();
-
-  // initialize portal
-  await tokenPortal.write.initialize(
-    [rollupRegistryAddress.toString(), underlyingERC20Address.toString(), l2TokenAddress],
-    {} as any,
-  );
-  return { l2Contract, tokenPortalAddress, tokenPortal, underlyingERC20 };
-}
-
+// docs:start:delay
 /**
  * Sleep for a given number of milliseconds.
  * @param ms - the number of milliseconds to sleep for
@@ -499,6 +333,7 @@ export async function deployAndInitializeNonNativeL2TokenContracts(
 export function delay(ms: number): Promise<void> {
   return new Promise<void>(resolve => setTimeout(resolve, ms));
 }
+// docs:end:delay
 
 /**
  * Checks the number of encrypted logs in the last block is as expected.
@@ -522,18 +357,32 @@ export const expectsNumOfEncryptedLogsInTheLastBlockToBe = async (
 
 /**
  * Checks that the last block contains the given expected unencrypted log messages.
- * @param pxe - The instance of PXE for retrieving the logs.
+ * @param tx - An instance of SentTx for which to retrieve the logs.
+ * @param logMessages - The set of expected log messages.
+ */
+export const expectUnencryptedLogsInTxToBe = async (tx: SentTx, logMessages: string[]) => {
+  const unencryptedLogs = (await tx.getUnencryptedLogs()).logs;
+  const asciiLogs = unencryptedLogs.map(extendedLog => extendedLog.log.data.toString('ascii'));
+
+  expect(asciiLogs).toStrictEqual(logMessages);
+};
+
+/**
+ * Checks that the last block contains the given expected unencrypted log messages.
+ * @param pxe - An instance of PXE for retrieving the logs.
  * @param logMessages - The set of expected log messages.
  */
 export const expectUnencryptedLogsFromLastBlockToBe = async (pxe: PXE, logMessages: string[]) => {
   // docs:start:get_logs
-  // Get the latest block number to retrieve logs from
-  const l2BlockNum = await pxe.getBlockNumber();
   // Get the unencrypted logs from the last block
-  const unencryptedLogs = await pxe.getUnencryptedLogs(l2BlockNum, 1);
+  const fromBlock = await pxe.getBlockNumber();
+  const logFilter = {
+    fromBlock,
+    toBlock: fromBlock + 1,
+  };
+  const unencryptedLogs = (await pxe.getUnencryptedLogs(logFilter)).logs;
   // docs:end:get_logs
-  const unrolledLogs = L2BlockL2Logs.unrollLogs(unencryptedLogs).map(log => UnencryptedL2Log.fromBuffer(log));
-  const asciiLogs = unrolledLogs.map(log => log.data.toString('ascii'));
+  const asciiLogs = unencryptedLogs.map(extendedLog => extendedLog.log.data.toString('ascii'));
 
   expect(asciiLogs).toStrictEqual(logMessages);
 };

@@ -6,11 +6,11 @@
 # Scans for all .test.cpp files in a subdirectory, and creates a gtest binary named <module name>_tests.
 # Scans for all .bench.cpp files in a subdirectory, and creates a benchmark binary named <module name>_bench.
 #
-# We have to get a bit complicated here, due to the fact CMake will not parallelise the building of object files
+# We have to get a bit complicated here, due to the fact CMake will not parallelize the building of object files
 # between dependent targets, due to the potential of post-build code generation steps etc.
 # To work around this, we create "object libraries" containing the object files.
 # Then we declare executables/libraries that are to be built from these object files.
-# These assets will only be linked as their dependencies complete, but we can parallelise the compilation at least.
+# These assets will only be linked as their dependencies complete, but we can parallelize the compilation at least.
 
 # This is an interface library that can be used as an install target to include all header files
 # encountered by the `barretenberg_module` function. There is probably a better way to do this,
@@ -55,6 +55,10 @@ function(barretenberg_module MODULE_NAME)
             ${ARGN}
             ${TBB_IMPORTED_TARGETS}
         )
+
+        # enable msgpack downloading via dependency (solves race condition)
+        add_dependencies(${MODULE_NAME} msgpack-c)
+        add_dependencies(${MODULE_NAME}_objects msgpack-c)
         list(APPEND lib_targets ${MODULE_NAME})
 
         set(MODULE_LINK_NAME ${MODULE_NAME})
@@ -117,6 +121,9 @@ function(barretenberg_module MODULE_NAME)
             ${TBB_IMPORTED_TARGETS}
         )
 
+        # enable msgpack downloading via dependency (solves race condition)
+        add_dependencies(${MODULE_NAME}_test_objects msgpack-c)
+        add_dependencies(${MODULE_NAME}_tests msgpack-c)
         if(NOT WASM AND NOT CI)
             # If collecting coverage data, set profile
             # For some reason processor affinity doesn't work, so the developer has to set it manually anyway
@@ -219,6 +226,9 @@ function(barretenberg_module MODULE_NAME)
             ${TBB_IMPORTED_TARGETS}
         )
 
+        # enable msgpack downloading via dependency (solves race condition)
+        add_dependencies(${MODULE_NAME}_bench_objects msgpack-c)
+        add_dependencies(${MODULE_NAME}_bench msgpack-c)
         add_custom_target(
             run_${MODULE_NAME}_bench
             COMMAND ${MODULE_NAME}_bench

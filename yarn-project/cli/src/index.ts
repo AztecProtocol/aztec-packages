@@ -1,6 +1,8 @@
 import {
+  AztecAddress,
   Contract,
   ContractDeployer,
+  EthAddress,
   Fr,
   GrumpkinScalar,
   NotePreimage,
@@ -11,9 +13,10 @@ import {
 import { StructType, decodeFunctionSignatureWithParameterNames } from '@aztec/foundation/abi';
 import { JsonStringify } from '@aztec/foundation/json-rpc';
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
+import { sleep } from '@aztec/foundation/sleep';
 import { fileURLToPath } from '@aztec/foundation/url';
 import { compileContract, generateNoirInterface, generateTypescriptInterface } from '@aztec/noir-compiler/cli';
-import { CompleteAddress, ContractData, L2BlockL2Logs } from '@aztec/types';
+import { CompleteAddress, ContractData, LogFilter } from '@aztec/types';
 
 import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import { Command, Option } from 'commander';
@@ -32,8 +35,14 @@ import {
   getFunctionArtifact,
   getTxSender,
   parseAztecAddress,
+  parseEthereumAddress,
   parseField,
   parseFields,
+  parseOptionalAztecAddress,
+  parseOptionalInteger,
+  parseOptionalLogId,
+  parseOptionalSelector,
+  parseOptionalTxHash,
   parsePartialAddress,
   parsePrivateKey,
   parsePublicKey,
@@ -212,14 +221,20 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       const args = encodeArgs(rawArgs, constructorArtifact!.parameters);
       debugLogger(`Encoded arguments: ${args.join(', ')}`);
 
-      const tx = deployer.deploy(...args).send({ contractAddressSalt: salt });
+      const deploy = deployer.deploy(...args);
+
+      await deploy.create({ contractAddressSalt: salt });
+      const tx = deploy.send({ contractAddressSalt: salt });
       const txHash = await tx.getTxHash();
       debugLogger(`Deploy tx sent with hash ${txHash}`);
       if (wait) {
         const deployed = await tx.wait();
-        log(`\nContract deployed at ${deployed.contractAddress!.toString()}\n`);
+        log(`\nContract deployed at ${deployed.contract.completeAddress.address.toString()}\n`);
+        log(`Contract partial address ${deployed.contract.completeAddress.partialAddress.toString()}\n`);
       } else {
-        log(`\nDeployment transaction hash: ${txHash}\n`);
+        log(`\nContract Address: ${deploy.completeAddress?.address.toString() ?? 'N/A'}`);
+        log(`Contract Partial Address: ${deploy.completeAddress?.partialAddress.toString() ?? 'N/A'}`);
+        log(`Deployment transaction hash: ${txHash}\n`);
       }
     });
 
@@ -240,6 +255,34 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       else log(`\nNo contract found at ${address.toString()}\n`);
     });
 
+  program
+    .command('add-contract')
+    .description(
+      'Adds an existing contract to the PXE. This is useful if you have deployed a contract outside of the PXE and want to use it with the PXE.',
+    )
+    .requiredOption(
+      '-c, --contract-artifact <fileLocation>',
+      "A compiled Aztec.nr contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts",
+    )
+    .requiredOption('-ca, --contract-address <address>', 'Aztec address of the contract.', parseAztecAddress)
+    .requiredOption('-pa, --partial-address <address>', 'Partial address of the contract', parsePartialAddress)
+    .option('-p, --public-key <public key>', 'Optional public key for this contract', parsePublicKey)
+    .option('--portal-address <address>', 'Optional address to a portal contract on L1', parseEthereumAddress)
+    .addOption(pxeOption)
+    .action(async options => {
+      const artifact = await getContractArtifact(options.contractArtifact, log);
+      const contractAddress: AztecAddress = options.contractAddress;
+      const completeAddress = new CompleteAddress(
+        contractAddress,
+        options.publicKey ?? Fr.ZERO,
+        options.partialAddress,
+      );
+      const portalContract: EthAddress = options.portalContract ?? EthAddress.ZERO;
+      const client = await createCompatibleClient(options.rpcUrl, debugLogger);
+
+      await client.addContracts([{ artifact, completeAddress, portalContract }]);
+      log(`\nContract added to PXE at ${contractAddress.toString()}\n`);
+    });
   program
     .command('get-tx-receipt')
     .description('Gets the receipt for the specified transaction hash.')
@@ -288,22 +331,58 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
 
   program
     .command('get-logs')
-    .description('Gets all the unencrypted logs from L2 blocks in the range specified.')
-    .option('-f, --from <blockNum>', 'Initial block number for getting logs (defaults to 1).')
-    .option('-l, --limit <blockCount>', 'How many blocks to fetch (defaults to 100).')
+    .description('Gets all the unencrypted logs from an intersection of all the filter params.')
+    .option('-tx, --tx-hash <txHash>', 'A transaction hash to get the receipt for.', parseOptionalTxHash)
+    .option(
+      '-fb, --from-block <blockNum>',
+      'Initial block number for getting logs (defaults to 1).',
+      parseOptionalInteger,
+    )
+    .option('-tb, --to-block <blockNum>', 'Up to which block to fetch logs (defaults to latest).', parseOptionalInteger)
+    .option('-al --after-log <logId>', 'ID of a log after which to fetch the logs.', parseOptionalLogId)
+    .option('-ca, --contract-address <address>', 'Contract address to filter logs by.', parseOptionalAztecAddress)
+    .option('-s, --selector <hex string>', 'Event selector to filter logs by.', parseOptionalSelector)
     .addOption(pxeOption)
-    .action(async options => {
-      const { from, limit } = options;
-      const fromBlock = from ? parseInt(from) : 1;
-      const limitCount = limit ? parseInt(limit) : 100;
+    .option('--follow', 'If set, will keep polling for new logs until interrupted.')
+    .action(async ({ txHash, fromBlock, toBlock, afterLog, contractAddress, selector, rpcUrl, follow }) => {
+      const pxe = await createCompatibleClient(rpcUrl, debugLogger);
 
-      const client = await createCompatibleClient(options.rpcUrl, debugLogger);
-      const logs = await client.getUnencryptedLogs(fromBlock, limitCount);
-      if (!logs.length) {
-        log(`No logs found in blocks ${fromBlock} to ${fromBlock + limitCount}`);
+      if (follow) {
+        if (txHash) throw Error('Cannot use --follow with --tx-hash');
+        if (toBlock) throw Error('Cannot use --follow with --to-block');
+      }
+
+      const filter: LogFilter = { txHash, fromBlock, toBlock, afterLog, contractAddress, selector };
+
+      const fetchLogs = async () => {
+        const response = await pxe.getUnencryptedLogs(filter);
+        const logs = response.logs;
+
+        if (!logs.length) {
+          const filterOptions = Object.entries(filter)
+            .filter(([, value]) => value !== undefined)
+            .map(([key, value]) => `${key}: ${value}`)
+            .join(', ');
+          if (!follow) log(`No logs found for filter: {${filterOptions}}`);
+        } else {
+          if (!follow && !filter.afterLog) log('Logs found: \n');
+          logs.forEach(unencryptedLog => log(unencryptedLog.toHumanReadable()));
+          // Set the continuation parameter for the following requests
+          filter.afterLog = logs[logs.length - 1].id;
+        }
+        return response.maxLogsHit;
+      };
+
+      if (follow) {
+        log('Fetching logs...');
+        while (true) {
+          const maxLogsHit = await fetchLogs();
+          if (!maxLogsHit) await sleep(1000);
+        }
       } else {
-        log('Logs found: \n');
-        L2BlockL2Logs.unrollLogs(logs).forEach(fnLog => log(`${fnLog.toString('ascii')}\n`));
+        while (await fetchLogs()) {
+          // Keep fetching logs until we reach the end.
+        }
       }
     });
 
@@ -416,7 +495,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       const wallet = await getSchnorrAccount(client, privateKey, privateKey, accountCreationSalt).getWallet();
       const contract = await Contract.at(contractAddress, contractArtifact, wallet);
       const tx = contract.methods[functionName](...functionArgs).send();
-      log(`Transaction hash: ${(await tx.getTxHash()).toString()}`);
+      log(`\nTransaction hash: ${(await tx.getTxHash()).toString()}`);
       if (options.wait) {
         await tx.wait();
 
@@ -427,7 +506,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
         log(`Block number: ${receipt.blockNumber}`);
         log(`Block hash: ${receipt.blockHash?.toString('hex')}`);
       } else {
-        log('\nTransaction pending. Check status with get-tx-receipt');
+        log('Transaction pending. Check status with get-tx-receipt');
       }
     });
 
@@ -529,7 +608,10 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       'Unboxes an example contract from @aztec/boxes.  Also Copies `noir-libs` dependencies and setup simple frontend for the contract using its ABI.',
     )
     .argument('<contractName>', 'Name of the contract to unbox, e.g. "PrivateToken"')
-    .argument('[localDirectory]', 'Local directory to unbox to (relative or absolute), defaults to `<contractName>`')
+    .argument(
+      '[localDirectory]',
+      'Local directory to unbox source folder to (relative or absolute), optional - defaults to `<contractName>/`',
+    )
     .action(async (contractName, localDirectory) => {
       const unboxTo: string = localDirectory ? localDirectory : contractName;
       await unboxContract(contractName, unboxTo, version, log);

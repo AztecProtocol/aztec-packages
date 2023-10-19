@@ -1,7 +1,7 @@
 import { StatsEventName } from './stats.js';
 
 /** How a metric is grouped in benchmarks: by block size, by length of chain processed, or by circuit name. */
-export type MetricGroupBy = 'block-size' | 'chain-length' | 'circuit-name';
+export type MetricGroupBy = 'block-size' | 'chain-length' | 'circuit-name' | 'contract-count';
 
 /** Definition of a metric to track in benchmarks. */
 export interface Metric {
@@ -38,7 +38,7 @@ export const Metrics = [
   {
     name: 'l2_block_processing_time_in_ms',
     groupBy: 'block-size',
-    description: 'Time for the state synchroniser to process an L2 block that was not built by its own sequencer.',
+    description: 'Time for the state synchronizer to process an L2 block that was not built by its own sequencer.',
     events: ['l2-block-handled'],
   },
   {
@@ -120,6 +120,12 @@ export const Metrics = [
     groupBy: 'circuit-name',
     description: 'Size of the outputs (ie public inputs) from a circuit simulation.',
     events: ['circuit-simulation'],
+  },
+  {
+    name: 'tx_size_in_bytes',
+    groupBy: 'contract-count',
+    description: 'Size of txs received in the mempool.',
+    events: ['tx-added-to-pool'],
   },
 ] as const satisfies readonly Metric[];
 

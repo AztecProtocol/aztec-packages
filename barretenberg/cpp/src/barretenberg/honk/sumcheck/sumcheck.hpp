@@ -14,6 +14,7 @@ template <typename Flavor> class SumcheckProver {
 
   public:
     using FF = typename Flavor::FF;
+    using ProverPolynomials = typename Flavor::ProverPolynomials;
     using PartiallyEvaluatedMultivariates = typename Flavor::PartiallyEvaluatedMultivariates;
     using ClaimedEvaluations = typename Flavor::AllValues;
 
@@ -70,7 +71,7 @@ template <typename Flavor> class SumcheckProver {
      * @details
      */
     SumcheckOutput<Flavor> prove(
-        auto full_polynomials,
+        ProverPolynomials full_polynomials,
         const proof_system::RelationParameters<FF>& relation_parameters) // pass by value, not by reference
     {
         auto [alpha, zeta] = transcript.get_challenges("Sumcheck:alpha", "Sumcheck:zeta");
@@ -138,18 +139,19 @@ template <typename Flavor> class SumcheckProver {
     void partially_evaluate(auto& polynomials, size_t round_size, FF round_challenge)
     {
         // after the first round, operate in place on partially_evaluated_polynomials
-        for (size_t j = 0; j < polynomials.size(); ++j) {
+        parallel_for(polynomials.size(), [&](size_t j) {
             for (size_t i = 0; i < round_size; i += 2) {
                 partially_evaluated_polynomials[j][i >> 1] =
                     polynomials[j][i] + round_challenge * (polynomials[j][i + 1] - polynomials[j][i]);
             }
-        }
+        });
     };
 };
 
 template <typename Flavor> class SumcheckVerifier {
 
   public:
+    using Utils = barretenberg::RelationUtils<Flavor>;
     using FF = typename Flavor::FF;
     using ClaimedEvaluations = typename Flavor::AllValues;
 

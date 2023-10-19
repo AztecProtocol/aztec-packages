@@ -97,7 +97,7 @@ resource "aws_ecs_task_definition" "aztec-bootstrap-1" {
 [
   {
     "name": "${var.DEPLOY_TAG}-aztec-bootstrap-1",
-    "image": "${var.ECR_URL}/p2p-bootstrap:latest",
+    "image": "${var.ECR_URL}/p2p-bootstrap:aztec3-packages-prod",
     "essential": true,
     "command": ["start"],
     "memoryReservation": 3776,
@@ -129,6 +129,14 @@ resource "aws_ecs_task_definition" "aztec-bootstrap-1" {
       {
         "name": "DEBUG",
         "value": "aztec:*"
+      },
+      {
+        "name": "P2P_MIN_PEERS",
+        "value": "${var.P2P_MIN_PEERS}"
+      },
+      {
+        "name": "P2P_MAX_PEERS",
+        "value": "${var.P2P_MAX_PEERS}"
       }
     ],
     "logConfiguration": {
@@ -273,7 +281,7 @@ resource "aws_ecs_task_definition" "aztec-bootstrap-2" {
 [
   {
     "name": "${var.DEPLOY_TAG}-aztec-bootstrap-2",
-    "image": "${var.ECR_URL}/p2p-bootstrap:latest",
+    "image": "${var.ECR_URL}/p2p-bootstrap:aztec3-packages-prod",
     "essential": true,
     "command": ["start"],
     "memoryReservation": 3776,
@@ -305,6 +313,14 @@ resource "aws_ecs_task_definition" "aztec-bootstrap-2" {
       {
         "name": "DEBUG",
         "value": "aztec:*"
+      },
+      {
+        "name": "P2P_MIN_PEERS",
+        "value": "${var.P2P_MIN_PEERS}"
+      },
+      {
+        "name": "P2P_MAX_PEERS",
+        "value": "${var.P2P_MAX_PEERS}"
       }
     ],
     "logConfiguration": {
