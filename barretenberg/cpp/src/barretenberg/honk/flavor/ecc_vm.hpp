@@ -13,6 +13,7 @@
 #include "barretenberg/proof_system/relations/ecc_vm/ecc_set_relation.hpp"
 #include "barretenberg/proof_system/relations/ecc_vm/ecc_transcript_relation.hpp"
 #include "barretenberg/proof_system/relations/ecc_vm/ecc_wnaf_relation.hpp"
+#include "barretenberg/proof_system/relations/relation_parameters.hpp"
 #include "barretenberg/proof_system/relations/relation_types.hpp"
 #include <array>
 #include <concepts>

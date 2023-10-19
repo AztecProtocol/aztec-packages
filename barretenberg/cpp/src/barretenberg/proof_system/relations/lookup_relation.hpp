@@ -1,5 +1,4 @@
 #pragma once
-#include "relation_parameters.hpp"
 #include "relation_types.hpp"
 
 namespace proof_system {
@@ -55,13 +54,12 @@ template <typename FF_> class LookupRelationImpl {
      * @param relation_parameters
      * @param index If calling this method over vector inputs, index >= 0
      */
-    template <typename Accumulator, typename AllEntities>
-    inline static Accumulator compute_grand_product_numerator(const AllEntities& in,
-                                                              const RelationParameters<FF>& relation_parameters)
+    template <typename Accumulator, typename AllEntities, typename Parameters>
+    inline static Accumulator compute_grand_product_numerator(const AllEntities& in, const Parameters& params)
     {
-        const auto& beta = relation_parameters.beta;
-        const auto& gamma = relation_parameters.gamma;
-        const auto& eta = relation_parameters.eta;
+        const auto& beta = params.beta;
+        const auto& gamma = params.gamma;
+        const auto& eta = params.eta;
         const auto eta_sqr = eta * eta;
         const auto eta_cube = eta_sqr * eta;
 
@@ -119,13 +117,12 @@ template <typename FF_> class LookupRelationImpl {
      * @param relation_parameters
      * @param index
      */
-    template <typename Accumulator, typename AllEntities>
-    inline static Accumulator compute_grand_product_denominator(const AllEntities& in,
-                                                                const RelationParameters<FF>& relation_parameters)
+    template <typename Accumulator, typename AllEntities, typename Parameters>
+    inline static Accumulator compute_grand_product_denominator(const AllEntities& in, const Parameters& params)
     {
 
-        const auto& beta = relation_parameters.beta;
-        const auto& gamma = relation_parameters.gamma;
+        const auto& beta = params.beta;
+        const auto& gamma = params.gamma;
 
         const auto one_plus_beta = FF(1) + beta;
         const auto gamma_by_one_plus_beta = gamma * one_plus_beta;
@@ -158,13 +155,13 @@ template <typename FF_> class LookupRelationImpl {
      * @param parameters contains beta, gamma, and public_input_delta, ....
      * @param scaling_factor optional term to scale the evaluation before adding to evals.
      */
-    template <typename ContainerOverSubrelations, typename AllEntities>
-    void static accumulate(ContainerOverSubrelations& accumulators,
-                           const AllEntities& in,
-                           const RelationParameters<FF>& relation_parameters,
-                           const FF& scaling_factor)
+    template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
+    inline static void accumulate(ContainerOverSubrelations& accumulators,
+                                  const AllEntities& in,
+                                  const Parameters& params,
+                                  const FF& scaling_factor)
     {
-        const auto& grand_product_delta = relation_parameters.lookup_grand_product_delta;
+        const auto& grand_product_delta = params.lookup_grand_product_delta;
 
         {
             using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
@@ -176,8 +173,8 @@ template <typename FF_> class LookupRelationImpl {
             auto lagrange_first = View(in.lagrange_first);
             auto lagrange_last = View(in.lagrange_last);
 
-            const auto lhs = compute_grand_product_numerator<Accumulator>(in, relation_parameters);
-            const auto rhs = compute_grand_product_denominator<Accumulator>(in, relation_parameters);
+            const auto lhs = compute_grand_product_numerator<Accumulator>(in, params);
+            const auto rhs = compute_grand_product_denominator<Accumulator>(in, params);
 
             const auto tmp =
                 lhs * (z_lookup + lagrange_first) - rhs * (z_lookup_shift + lagrange_last * grand_product_delta);

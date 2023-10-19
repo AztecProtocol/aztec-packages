@@ -17,7 +17,7 @@
 #include "barretenberg/proof_system/relations/gen_perm_sort_relation.hpp"
 #include "barretenberg/proof_system/relations/non_native_field_relation.hpp"
 #include "barretenberg/proof_system/relations/permutation_relation.hpp"
-#include "decomposition_relation.hpp"
+#include "barretenberg/proof_system/relations/relation_parameters.hpp"
 #include "extra_relations.hpp"
 #include <gtest/gtest.h>
 

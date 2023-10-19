@@ -153,10 +153,10 @@ template <typename Flavor> class SumcheckProverRound {
                 // Compute the i-th edge's univariate contribution,
                 // scale it by the pow polynomial's constant and zeta power "c_l ⋅ ζ_{l+1}ⁱ"
                 // and add it to the accumulators for Sˡ(Xₗ)
-                accumulate_relation_univariates<>(thread_univariate_accumulators[thread_idx],
-                                                  extended_edges[thread_idx],
-                                                  relation_parameters,
-                                                  pow_challenge);
+                accumulate_relation_univariates(thread_univariate_accumulators[thread_idx],
+                                                extended_edges[thread_idx],
+                                                relation_parameters,
+                                                pow_challenge);
             }
         });
 

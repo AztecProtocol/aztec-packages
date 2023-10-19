@@ -1,5 +1,4 @@
 #pragma once
-#include "relation_parameters.hpp"
 #include "relation_types.hpp"
 
 namespace proof_system {
@@ -16,9 +15,8 @@ template <typename FF_> class UltraPermutationRelationImpl {
     inline static auto& get_grand_product_polynomial(auto& in) { return in.z_perm; }
     inline static auto& get_shifted_grand_product_polynomial(auto& in) { return in.z_perm_shift; }
 
-    template <typename Accumulator, typename AllEntities>
-    inline static Accumulator compute_grand_product_numerator(const AllEntities& in,
-                                                              const RelationParameters<FF>& relation_parameters)
+    template <typename Accumulator, typename AllEntities, typename Parameters>
+    inline static Accumulator compute_grand_product_numerator(const AllEntities& in, const Parameters& params)
     {
         using View = typename Accumulator::View;
 
@@ -31,16 +29,15 @@ template <typename FF_> class UltraPermutationRelationImpl {
         auto id_3 = View(in.id_3);
         auto id_4 = View(in.id_4);
 
-        const auto& beta = relation_parameters.beta;
-        const auto& gamma = relation_parameters.gamma;
+        const auto& beta = params.beta;
+        const auto& gamma = params.gamma;
 
         return (w_1 + id_1 * beta + gamma) * (w_2 + id_2 * beta + gamma) * (w_3 + id_3 * beta + gamma) *
                (w_4 + id_4 * beta + gamma);
     }
 
-    template <typename Accumulator, typename AllEntities>
-    inline static Accumulator compute_grand_product_denominator(const AllEntities& in,
-                                                                const RelationParameters<FF>& relation_parameters)
+    template <typename Accumulator, typename AllEntities, typename Parameters>
+    inline static Accumulator compute_grand_product_denominator(const AllEntities& in, const Parameters& params)
     {
         using View = typename Accumulator::View;
 
@@ -54,8 +51,8 @@ template <typename FF_> class UltraPermutationRelationImpl {
         auto sigma_3 = View(in.sigma_3);
         auto sigma_4 = View(in.sigma_4);
 
-        const auto& beta = relation_parameters.beta;
-        const auto& gamma = relation_parameters.gamma;
+        const auto& beta = params.beta;
+        const auto& gamma = params.gamma;
 
         return (w_1 + sigma_1 * beta + gamma) * (w_2 + sigma_2 * beta + gamma) * (w_3 + sigma_3 * beta + gamma) *
                (w_4 + sigma_4 * beta + gamma);
@@ -72,13 +69,13 @@ template <typename FF_> class UltraPermutationRelationImpl {
      * @param parameters contains beta, gamma, and public_input_delta, ....
      * @param scaling_factor optional term to scale the evaluation before adding to evals.
      */
-    template <typename ContainerOverSubrelations, typename AllEntities>
+    template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
     inline static void accumulate(ContainerOverSubrelations& accumulators,
                                   const AllEntities& in,
-                                  const RelationParameters<FF>& relation_parameters,
+                                  const Parameters& params,
                                   const FF& scaling_factor)
     {
-        const auto& public_input_delta = relation_parameters.public_input_delta;
+        const auto& public_input_delta = params.public_input_delta;
 
         // Contribution (1)
         {
@@ -91,9 +88,9 @@ template <typename FF_> class UltraPermutationRelationImpl {
 
             // Contribution (1)
             std::get<0>(accumulators) +=
-                (((z_perm + lagrange_first) * compute_grand_product_numerator<Accumulator>(in, relation_parameters)) -
+                (((z_perm + lagrange_first) * compute_grand_product_numerator<Accumulator>(in, params)) -
                  ((z_perm_shift + lagrange_last * public_input_delta) *
-                  compute_grand_product_denominator<Accumulator>(in, relation_parameters))) *
+                  compute_grand_product_denominator<Accumulator>(in, params))) *
                 scaling_factor;
         }
         // Contribution (2)
@@ -122,9 +119,8 @@ template <typename FF_> class GoblinTranslatorPermutationRelationImpl {
     inline static auto& get_grand_product_polynomial(auto& in) { return in.z_perm; }
     inline static auto& get_shifted_grand_product_polynomial(auto& in) { return in.z_perm_shift; }
 
-    template <typename Accumulator, typename AllEntities>
-    inline static Accumulator compute_grand_product_numerator(const AllEntities& in,
-                                                              const RelationParameters<FF>& relation_parameters)
+    template <typename Accumulator, typename AllEntities, typename Parameters>
+    inline static Accumulator compute_grand_product_numerator(const AllEntities& in, const Parameters& params)
     {
         using View = typename Accumulator::View;
 
@@ -135,15 +131,14 @@ template <typename FF_> class GoblinTranslatorPermutationRelationImpl {
 
         auto ordered_extra_range_constraints_numerator = View(in.ordered_extra_range_constraints_numerator);
 
-        const auto& gamma = relation_parameters.gamma;
+        const auto& gamma = params.gamma;
         return (concatenated_range_constraints_0 + gamma) * (concatenated_range_constraints_1 + gamma) *
                (concatenated_range_constraints_2 + gamma) * (concatenated_range_constraints_3 + gamma) *
                (ordered_extra_range_constraints_numerator + gamma);
     }
 
-    template <typename Accumulator, typename AllEntities>
-    inline static Accumulator compute_grand_product_denominator(const AllEntities& in,
-                                                                const RelationParameters<FF>& relation_parameters)
+    template <typename Accumulator, typename AllEntities, typename Parameters>
+    inline static Accumulator compute_grand_product_denominator(const AllEntities& in, const Parameters& params)
     {
         using View = typename Accumulator::View;
 
@@ -153,7 +148,7 @@ template <typename FF_> class GoblinTranslatorPermutationRelationImpl {
         auto ordered_range_constraints_3 = View(in.ordered_range_constraints_3);
         auto ordered_range_constraints_4 = View(in.ordered_range_constraints_4);
 
-        const auto& gamma = relation_parameters.gamma;
+        const auto& gamma = params.gamma;
 
         return (ordered_range_constraints_0 + gamma) * (ordered_range_constraints_1 + gamma) *
                (ordered_range_constraints_2 + gamma) * (ordered_range_constraints_3 + gamma) *
@@ -180,10 +175,10 @@ template <typename FF_> class GoblinTranslatorPermutationRelationImpl {
      * @param scaling_factor optional term to scale the evaluation before adding to evals.
      */
 
-    template <typename ContainerOverSubrelations, typename AllEntities>
+    template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
     inline static void accumulate(ContainerOverSubrelations& accumulators,
                                   const AllEntities& in,
-                                  const RelationParameters<FF>& relation_parameters,
+                                  const Parameters& params,
                                   const FF& scaling_factor)
     {
         [&]() {
@@ -197,9 +192,8 @@ template <typename FF_> class GoblinTranslatorPermutationRelationImpl {
 
             // Contribution (1)
             std::get<0>(accumulators) +=
-                (((z_perm + lagrange_first) * compute_grand_product_numerator<Accumulator>(in, relation_parameters)) -
-                 ((z_perm_shift + lagrange_last) *
-                  compute_grand_product_denominator<Accumulator>(in, relation_parameters))) *
+                (((z_perm + lagrange_first) * compute_grand_product_numerator<Accumulator>(in, params)) -
+                 ((z_perm_shift + lagrange_last) * compute_grand_product_denominator<Accumulator>(in, params))) *
                 scaling_factor;
         }();
 

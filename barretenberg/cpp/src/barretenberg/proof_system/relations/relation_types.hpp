@@ -1,6 +1,5 @@
 #pragma once
 #include "nested_containers.hpp"
-#include "relation_parameters.hpp"
 #include <algorithm>
 
 namespace barretenberg {

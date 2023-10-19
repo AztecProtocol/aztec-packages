@@ -177,10 +177,10 @@ template <typename Flavor> class RelationUtils {
      */
     template <size_t relation_idx = 0>
     // TODO(#224)(Cody): Input should be an array?
-    static void accumulate_relation_evaluations(PolynomialEvaluations evaluations,
-                                                RelationEvaluations& relation_evaluations,
-                                                const proof_system::RelationParameters<FF>& relation_parameters,
-                                                const FF& partial_evaluation_constant)
+    inline static void accumulate_relation_evaluations(PolynomialEvaluations evaluations,
+                                                       RelationEvaluations& relation_evaluations,
+                                                       const proof_system::RelationParameters<FF>& relation_parameters,
+                                                       const FF& partial_evaluation_constant)
     {
         using Relation = std::tuple_element_t<relation_idx, Relations>;
         Relation::accumulate(std::get<relation_idx>(relation_evaluations),
