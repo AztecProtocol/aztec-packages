@@ -28,7 +28,7 @@ impl PrivateKernelInputsInner {
         // Ensure the arrays are the same as previously, before we start pushing more data onto them in other
         // functions within this circuit:
         let start = previous_kernel.public_inputs.end;
-        public_inputs.end.read_requests = arrays::array_to_bounded_vec(start.read_requests, arrays::is_empty);
+        public_inputs.end.read_requests = arrays::array_to_bounded_vec(start.read_requests, arrays::is_empty, 0);
     }
     
     // TODO: We can create a type alias for private call stack

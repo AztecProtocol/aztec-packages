@@ -109,13 +109,13 @@ pub fn initialize_end_values(previous_kernel : PreviousKernelData, public_inputs
     // functions within this circuit:
     let start = previous_kernel.public_inputs.end;
 
-    public_inputs.end.new_commitments = arrays::array_to_bounded_vec(start.new_commitments, arrays::is_empty);
-    public_inputs.end.new_nullifiers = arrays::array_to_bounded_vec(start.new_nullifiers, arrays::is_empty);
-    public_inputs.end.nullified_commitments = arrays::array_to_bounded_vec(start.nullified_commitments, arrays::is_empty);
+    public_inputs.end.new_commitments = arrays::array_to_bounded_vec(start.new_commitments, arrays::is_empty, 0);
+    public_inputs.end.new_nullifiers = arrays::array_to_bounded_vec(start.new_nullifiers, arrays::is_empty, 0);
+    public_inputs.end.nullified_commitments = arrays::array_to_bounded_vec(start.nullified_commitments, arrays::is_empty, 0);
 
-    public_inputs.end.private_call_stack = arrays::array_to_bounded_vec(start.private_call_stack, arrays::is_empty);
-    public_inputs.end.public_call_stack = arrays::array_to_bounded_vec(start.public_call_stack, arrays::is_empty);
-    public_inputs.end.new_l2_to_l1_msgs = arrays::array_to_bounded_vec(start.new_l2_to_l1_msgs, arrays::is_empty);
+    public_inputs.end.private_call_stack = arrays::array_to_bounded_vec(start.private_call_stack, arrays::is_empty, 0);
+    public_inputs.end.public_call_stack = arrays::array_to_bounded_vec(start.public_call_stack, arrays::is_empty, 0);
+    public_inputs.end.new_l2_to_l1_msgs = arrays::array_to_bounded_vec(start.new_l2_to_l1_msgs, arrays::is_empty, 0);
 
     public_inputs.end.encrypted_logs_hash = start.encrypted_logs_hash;
     public_inputs.end.unencrypted_logs_hash = start.unencrypted_logs_hash;
@@ -250,10 +250,10 @@ pub fn update_end_values(private_call : PrivateCallData, public_inputs : &mut Ke
     public_inputs.end.nullified_commitments.push_vec(siloed_nullified_commitments);
 
     // Call stacks
-    let private_call_stack = arrays::array_to_bounded_vec(private_call_public_inputs.private_call_stack, arrays::is_empty);
+    let private_call_stack = arrays::array_to_bounded_vec(private_call_public_inputs.private_call_stack, arrays::is_empty, 0);
     public_inputs.end.private_call_stack.push_vec(private_call_stack);
 
-    let public_call_stack = arrays::array_to_bounded_vec(private_call_public_inputs.public_call_stack, arrays::is_empty);
+    let public_call_stack = arrays::array_to_bounded_vec(private_call_public_inputs.public_call_stack, arrays::is_empty, 0);
     public_inputs.end.public_call_stack.push_vec(public_call_stack);
 
     // new l2 to l1 messages

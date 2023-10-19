@@ -9,7 +9,6 @@ import {
   PrivateKernelInputsOrdering,
   Proof,
   makeEmptyProof,
-  privateKernelSimInner,
   privateKernelSimOrdering,
 } from '@aztec/circuits.js';
 import { siloCommitment } from '@aztec/circuits.js/abis';

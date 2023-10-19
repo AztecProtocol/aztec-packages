@@ -66,7 +66,7 @@ pub fn array_push_array_field<T, N>(mut array : [Field; T], values_to_push : [Fi
     array
 }
 
-pub fn array_to_bounded_vec<T, N>(array: [T; N], is_empty_item: fn (T)->bool) -> BoundedVec<T, N> {
+pub fn array_to_bounded_vec<T, N>(array: [T; N], is_empty_item: fn (T)->bool, empty_item: T) -> BoundedVec<T, N> {
     let mut len = 0;
     for elem in array {
         if !is_empty_item(elem) {
@@ -76,7 +76,8 @@ pub fn array_to_bounded_vec<T, N>(array: [T; N], is_empty_item: fn (T)->bool) ->
     
     BoundedVec {
         storage: array,
-        len
+        len,
+        empty_value: empty_item,
     }
 }
 

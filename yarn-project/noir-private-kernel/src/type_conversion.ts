@@ -505,6 +505,11 @@ export function mapOptionallyRevealedDataFromNoir(
   );
 }
 
+/**
+ * Maps optionally revealed data to noir optionally revealed data.
+ * @param optionallyRevealedData - The optionally revealed data.
+ * @returns The noir optionally revealed data.
+ */
 export function mapOptionallyRevealedDataToNoir(
   optionallyRevealedData: OptionallyRevealedData,
 ): OptionallyRevealedDataNoir {
@@ -533,6 +538,11 @@ export function mapNewContractDataFromNoir(newContractData: NewContractDataNoir)
   );
 }
 
+/**
+ * Maps new contract data to noir new contract data.
+ * @param newContractData - The new contract data.
+ * @returns The noir new contract data.
+ */
 export function mapNewContractDataToNoir(newContractData: NewContractData): NewContractDataNoir {
   return {
     contract_address: mapAztecAddressToNoir(newContractData.contractAddress),
@@ -556,6 +566,11 @@ export function mapPublicDataUpdateRequestFromNoir(
   );
 }
 
+/**
+ * Maps public data update request to noir public data update request.
+ * @param publicDataUpdateRequest - The public data update request.
+ * @returns The noir public data update request.
+ */
 export function mapPublicDataUpdateRequestToNoir(
   publicDataUpdateRequest: PublicDataUpdateRequest,
 ): PublicDataUpdateRequestNoir {
