@@ -62,7 +62,8 @@ impl PrivateKernelInputsInner {
 
     fn native_private_kernel_circuit_inner(self) -> KernelCircuitPublicInputs {
         let mut public_inputs : KernelCircuitPublicInputsBuilder = unsafe::zeroed();
-        
+        public_inputs.is_private = true;
+
         common::validate_previous_kernel_values(self.previous_kernel.public_inputs.end);
 
         // Do this before any functions can modify the inputs.
