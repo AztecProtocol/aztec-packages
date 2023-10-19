@@ -11,12 +11,14 @@ namespace proof_system::honk {
 template <typename Flavor>
 UltraVerifier_<Flavor>::UltraVerifier_(std::shared_ptr<typename Flavor::VerificationKey> verifier_key)
     : key(verifier_key)
+    , transcript(static_cast<uint32_t>(verifier_key->circuit_size))
 {}
 
 template <typename Flavor>
 UltraVerifier_<Flavor>::UltraVerifier_(UltraVerifier_&& other)
     : key(std::move(other.key))
     , pcs_verification_key(std::move(other.pcs_verification_key))
+    , transcript(other.transcript.circuit_size)
 {}
 
 template <typename Flavor> UltraVerifier_<Flavor>& UltraVerifier_<Flavor>::operator=(UltraVerifier_&& other)
@@ -42,7 +44,7 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const plonk
 
     proof_system::RelationParameters<FF> relation_parameters;
 
-    transcript = VerifierTranscript<FF>{ proof.proof_data };
+    transcript = Transcript(transcript.circuit_size, proof.proof_data);
 
     auto commitments = VerifierCommitments(key, transcript);
     auto commitment_labels = CommitmentLabels();

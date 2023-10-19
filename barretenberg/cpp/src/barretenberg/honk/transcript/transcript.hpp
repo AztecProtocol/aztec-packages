@@ -72,8 +72,6 @@ template <typename FF> class BaseTranscript {
   private:
     static constexpr size_t MIN_BYTES_PER_CHALLENGE = 128 / 8; // 128 bit challenges
 
-    size_t num_objects_processed = 0;
-
     size_t round_number = 0;        // current round for manifest
     bool is_first_challenge = true; // indicates if this is the first challenge this transcript is generating
     std::array<uint8_t, HASH_OUTPUT_SIZE> previous_challenge_buffer{}; // default-initialized to zeros
@@ -91,7 +89,7 @@ template <typename FF> class BaseTranscript {
     [[nodiscard]] bool check_current_object(const std::string& object_name) const
     {
         ASSERT(num_objects_processed < ordered_objects.size());
-        return (get<0>(ordered_objects[num_objects_processed]) == object_name);
+        return (ordered_objects[num_objects_processed].obj_name == object_name);
     }
 
     /**
@@ -144,10 +142,12 @@ template <typename FF> class BaseTranscript {
     };
 
   protected:
+    size_t num_objects_processed = 0;
+
     // Enum to deal with various types in Transcript
     enum TranscriptObjectType { UInt32Obj, FieldElementObj, CommitmentObj, SumcheckUnivariateObj, SumcheckEvalObj };
     // conversion mapping from type to TranscriptObjectType enum object
-    template <typename T> static TranscriptObjectType convert_type_to_enum([[maybe_unused]] T _);
+    template <typename T> TranscriptObjectType convert_type_to_enum([[maybe_unused]] T _);
     static std::vector<uint8_t> serialize_obj(TranscriptObjectType enum_type, void* obj);
     void deserialize_obj(void* obj_ptr, TranscriptObjectType enum_type, const std::span<const uint8_t>& buf);
 
@@ -183,7 +183,7 @@ template <typename FF> class BaseTranscript {
     }
 
     // TODO(lucas): make this pure virtual
-    void set_up_structure(uint32_t circuit_size);
+    virtual void set_up_structure(uint32_t circuit_size) = 0;
 
     void set_up_structure_and_deserialize(uint32_t circuit_size, const std::vector<uint8_t>& proof_data)
     {
@@ -210,7 +210,7 @@ template <typename FF> class BaseTranscript {
         *obj_ptr = object;
         ++num_objects_processed; // update num_objects_processed to point to the next object
     }
-    template <typename T> T receive_from_verifier(std::string object_name)
+    template <typename T> T receive_from_prover(std::string object_name)
     {
         if (!check_current_object(object_name)) {
             throw_or_abort("Object being sent is not expected.");
@@ -279,9 +279,100 @@ template <typename FF> class BaseTranscript {
     void print() { manifest.print(); }
 };
 
+template <typename FF> class TestTranscript : public BaseTranscript<FF> {
+  public:
+    /// Contains the raw data sent by the prover.
+    std::vector<uint8_t> proof_data;
+
+    TestTranscript() = default;
+
+    TestTranscript(const std::vector<uint8_t>& proof_data) { this->proof_data = proof_data; }
+
+    /**
+     * @brief For testing: initializes transcript with some arbitrary data so that a challenge can be generated after
+     * initialization
+     *
+     * @return TestTranscript
+     */
+    static TestTranscript init_empty()
+    {
+        TestTranscript<FF> transcript;
+        constexpr uint32_t init{ 42 }; // arbitrary
+        transcript.send_to_verifier("Init", init);
+        return transcript;
+    };
+
+    static TestTranscript init_empty(const TestTranscript<FF>& transcript)
+    {
+        TestTranscript<FF> verifier_transcript(transcript.proof_data);
+        [[maybe_unused]] auto _ = verifier_transcript.template receive_from_prover<uint32_t>("Init");
+        return verifier_transcript;
+    };
+
+    /**
+     * @brief Adds a prover message to the transcript.
+     *
+     * @details Serializes the provided object into `proof_data`, and updates the current round state.
+     *
+     * @param label Description/name of the object being added.
+     * @param element Serializable object that will be added to the transcript
+     *
+     * @todo Use a concept to only allow certain types to be passed. Requirements are that the object should be
+     * serializable.
+     *
+     */
+    /**
+     * @brief Reads the next element of type `T` from the transcript, with a predefined label.
+     *
+     * @param label Human readable name for the challenge.
+     * @return deserialized element of type T
+     */
+    template <class T> void send_to_verifier(const std::string& label, const T& element)
+    {
+        using serialize::write;
+        // TODO(Adrian): Ensure that serialization of affine elements (including point at infinity) is consistent.
+        // TODO(Adrian): Consider restricting serialization (via concepts) to types T for which sizeof(T) reliably
+        // returns the size of T in bytes. (E.g. this is true for std::array but not for std::vector).
+        info(label);
+        auto element_bytes = to_buffer(element);
+        proof_data.insert(proof_data.end(), element_bytes.begin(), element_bytes.end());
+
+        BaseTranscript<FF>::consume_prover_element_bytes(label, element_bytes);
+    }
+
+    /**
+     * @brief Reads the next element of type `T` from the transcript, with a predefined label.
+     *
+     * @param label Human readable name for the challenge.
+     * @return deserialized element of type T
+     */
+    template <class T> T receive_from_prover(const std::string& label)
+    {
+        constexpr size_t element_size = sizeof(T);
+        ASSERT(num_bytes_read_ + element_size <= proof_data.size());
+
+        auto element_bytes = std::span{ proof_data }.subspan(num_bytes_read_, element_size);
+        num_bytes_read_ += element_size;
+
+        BaseTranscript<FF>::consume_prover_element_bytes(label, element_bytes);
+
+        T element = from_buffer<T>(element_bytes);
+
+        return element;
+    }
+
+  protected:
+    void set_up_structure([[maybe_unused]] uint32_t circuit_size) {}
+
+  private:
+    size_t num_bytes_read_ = 0;
+};
+
 template <typename FF> class ProverTranscript : public BaseTranscript<FF> {
 
   public:
+    ProverTranscript() = default;
+
     /// Contains the raw data sent by the prover.
     std::vector<uint8_t> proof_data;
 
@@ -323,6 +414,9 @@ template <typename FF> class ProverTranscript : public BaseTranscript<FF> {
         transcript.send_to_verifier("Init", init);
         return transcript;
     };
+
+  protected:
+    void set_up_structure([[maybe_unused]] uint32_t circuit_size) override {}
 };
 
 template <class FF> class VerifierTranscript : public BaseTranscript<FF> {
@@ -372,5 +466,8 @@ template <class FF> class VerifierTranscript : public BaseTranscript<FF> {
 
         return element;
     }
+
+  protected:
+    void set_up_structure([[maybe_unused]] uint32_t circuit_size) override {}
 };
 } // namespace proof_system::honk

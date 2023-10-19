@@ -10,6 +10,7 @@ template <typename Flavor> class UltraVerifier_ {
     using Commitment = typename Flavor::Commitment;
     using VerificationKey = typename Flavor::VerificationKey;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
+    using Transcript = typename Flavor::Transcript;
 
   public:
     explicit UltraVerifier_(std::shared_ptr<VerificationKey> verifier_key = nullptr);
@@ -23,7 +24,7 @@ template <typename Flavor> class UltraVerifier_ {
     std::shared_ptr<VerificationKey> key;
     std::map<std::string, Commitment> commitments;
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
-    VerifierTranscript<FF> transcript;
+    Transcript transcript;
 };
 
 extern template class UltraVerifier_<honk::flavor::Ultra>;

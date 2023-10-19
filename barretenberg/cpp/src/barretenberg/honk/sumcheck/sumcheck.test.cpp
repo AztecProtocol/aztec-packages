@@ -103,7 +103,7 @@ TEST_F(SumcheckTests, PolynomialNormalization)
     info(full_polynomials.w_l[2]);
     info(full_polynomials.w_l[3]);
 
-    auto transcript = ProverTranscript<FF>::init_empty();
+    auto transcript = TestTranscript<FF>::init_empty();
 
     auto sumcheck = SumcheckProver<Flavor>(multivariate_n, transcript);
 
@@ -168,7 +168,7 @@ TEST_F(SumcheckTests, Prover)
     }
     auto full_polynomials = construct_ultra_full_polynomials(random_polynomials);
 
-    auto transcript = ProverTranscript<FF>::init_empty();
+    auto transcript = TestTranscript<FF>::init_empty();
 
     auto sumcheck = SumcheckProver<Flavor>(multivariate_n, transcript);
 
@@ -242,13 +242,13 @@ TEST_F(SumcheckTests, ProverAndVerifierSimple)
             .public_input_delta = FF::one(),
         };
 
-        auto prover_transcript = ProverTranscript<FF>::init_empty();
+        auto prover_transcript = TestTranscript<FF>::init_empty();
 
         auto sumcheck_prover = SumcheckProver<Flavor>(multivariate_n, prover_transcript);
 
         auto prover_output = sumcheck_prover.prove(full_polynomials, relation_parameters);
 
-        auto verifier_transcript = VerifierTranscript<FF>::init_empty(prover_transcript);
+        auto verifier_transcript = TestTranscript<FF>::init_empty(prover_transcript);
 
         auto sumcheck_verifier = SumcheckVerifier<Flavor>(multivariate_n);
 

@@ -13,7 +13,8 @@ namespace proof_system::honk {
  * */
 template <UltraFlavor Flavor>
 UltraProver_<Flavor>::UltraProver_(std::shared_ptr<Instance> inst)
-    : instance(std::move(inst))
+    : transcript(static_cast<uint32_t>(inst->proving_key->circuit_size))
+    , instance(std::move(inst))
     , commitment_key(instance->commitment_key)
 {
     instance->initialise_prover_polynomials();
@@ -127,7 +128,7 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_zeromorph_round
 
 template <UltraFlavor Flavor> plonk::proof& UltraProver_<Flavor>::export_proof()
 {
-    proof.proof_data = transcript.proof_data;
+    proof.proof_data = transcript.serialize();
     return proof;
 }
 

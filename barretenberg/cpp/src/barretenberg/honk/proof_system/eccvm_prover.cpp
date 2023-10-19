@@ -32,7 +32,8 @@ namespace proof_system::honk {
 template <ECCVMFlavor Flavor>
 ECCVMProver_<Flavor>::ECCVMProver_(std::shared_ptr<typename Flavor::ProvingKey> input_key,
                                    std::shared_ptr<PCSCommitmentKey> commitment_key)
-    : key(input_key)
+    : transcript(static_cast<uint32_t>(input_key->circuit_size))
+    , key(input_key)
     , commitment_key(commitment_key)
 {
 
@@ -314,7 +315,7 @@ template <ECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_final_pcs_round
 
 template <ECCVMFlavor Flavor> plonk::proof& ECCVMProver_<Flavor>::export_proof()
 {
-    proof.proof_data = transcript.proof_data;
+    proof.proof_data = transcript.serialize();
     return proof;
 }
 

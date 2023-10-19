@@ -5,6 +5,7 @@
 #include "barretenberg/honk/pcs/commitment_key.hpp"
 #include "barretenberg/honk/pcs/ipa/ipa.hpp"
 #include "barretenberg/honk/pcs/kzg/kzg.hpp"
+#include "barretenberg/honk/transcript/transcript.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/proof_system/flavor/flavor.hpp"
 #include "barretenberg/proof_system/relations/ecc_vm/ecc_lookup_relation.hpp"
@@ -839,12 +840,148 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
 
       public:
         VerifierCommitments(const std::shared_ptr<VerificationKey>& verification_key,
-                            const VerifierTranscript<FF>& transcript)
+                            const BaseTranscript<FF>& transcript)
         {
             static_cast<void>(transcript);
             Base::lagrange_first = verification_key->lagrange_first;
             Base::lagrange_second = verification_key->lagrange_second;
             Base::lagrange_last = verification_key->lagrange_last;
+        }
+    };
+
+    class Transcript : public BaseTranscript<FF> {
+      public:
+        using Univariate = barretenberg::Univariate<FF, MAX_RELATION_LENGTH>;
+        using TranscriptObjectType = typename BaseTranscript<FF>::TranscriptObjectType;
+
+        uint32_t circuit_size;
+        uint32_t public_input_size;
+        uint32_t pub_inputs_offset;
+        std::vector<FF> public_inputs;
+        Commitment w_l_comm;
+        Commitment w_r_comm;
+        Commitment w_o_comm;
+        Commitment sorted_accum_comm;
+        Commitment w_4_comm;
+        Commitment z_perm_comm;
+        Commitment z_lookup_comm;
+        std::vector<Univariate> sumcheck_univariates;
+        std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
+        std::vector<Commitment> gemini_univariate_comms;
+        std::vector<FF> gemini_a_evals;
+        Commitment shplonk_q_comm;
+        Commitment kzg_w_comm;
+
+        Transcript(uint32_t circuit_size) { set_up_structure(circuit_size); }
+
+        Transcript(uint32_t circuit_size, const std::vector<uint8_t>& proof_data)
+        {
+            this->set_up_structure_and_deserialize(circuit_size, proof_data);
+        }
+
+      private:
+        template <typename T> static TranscriptObjectType convert_type_to_enum([[maybe_unused]] T _)
+        {
+            if constexpr (std::same_as<T, uint32_t>) {
+                return BaseTranscript<FF>::UInt32Obj;
+            } else if constexpr (std::same_as<T, FF>) {
+                return BaseTranscript<FF>::FieldElementObj;
+            } else if constexpr (std::same_as<T, Commitment>) {
+                return BaseTranscript<FF>::CommitmentObj;
+            } else if constexpr (std::same_as<T, Univariate>) {
+                return BaseTranscript<FF>::SumcheckUnivariateObj;
+            } else if constexpr (std::same_as<T, std::array<FF, NUM_ALL_ENTITIES>>) {
+                return BaseTranscript<FF>::SumcheckEvalObj;
+            } else {
+                throw_or_abort("Received unknown type in convert_type_to_enum");
+            }
+        }
+
+        static std::vector<uint8_t> serialize_obj(TranscriptObjectType enum_type, void* obj_ptr)
+        {
+            using serialize::write;
+            switch (enum_type) {
+            case BaseTranscript<FF>::UInt32Obj:
+                return to_buffer(*static_cast<uint32_t*>(obj_ptr));
+            case BaseTranscript<FF>::FieldElementObj:
+                return to_buffer(*static_cast<FF*>(obj_ptr));
+            case BaseTranscript<FF>::CommitmentObj:
+                return to_buffer(*static_cast<Commitment*>(obj_ptr));
+            case BaseTranscript<FF>::SumcheckUnivariateObj:
+                return to_buffer(*static_cast<Univariate*>(obj_ptr));
+            case BaseTranscript<FF>::SumcheckEvalObj:
+                return to_buffer(*static_cast<std::array<FF, NUM_ALL_ENTITIES>*>(obj_ptr));
+            default:
+                throw_or_abort("Received unknown enum type in convert_type_ptr_from_enum");
+            }
+        }
+
+        void deserialize_obj(void* obj_ptr, TranscriptObjectType enum_type, const std::span<const uint8_t>& buf)
+        {
+            using serialize::read;
+            switch (enum_type) {
+            case BaseTranscript<FF>::UInt32Obj:
+                *static_cast<uint32_t*>(obj_ptr) = from_buffer<uint32_t>(buf);
+                return;
+            case BaseTranscript<FF>::FieldElementObj:
+                *static_cast<FF*>(obj_ptr) = from_buffer<FF>(buf);
+                return;
+            case BaseTranscript<FF>::CommitmentObj:
+                *static_cast<Commitment*>(obj_ptr) = from_buffer<Commitment>(buf);
+                return;
+            case BaseTranscript<FF>::SumcheckUnivariateObj:
+                *static_cast<Univariate*>(obj_ptr) = from_buffer<Univariate>(buf);
+                return;
+            case BaseTranscript<FF>::SumcheckEvalObj:
+                *static_cast<std::array<FF, NUM_ALL_ENTITIES>*>(obj_ptr) =
+                    from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(buf);
+                return;
+            default:
+                throw_or_abort("Received unknown enum type in convert_type_ptr_from_enum");
+            }
+        }
+
+        void set_up_structure(uint32_t circuit_size) override
+        {
+            // construct the vector
+            auto log_n = numeric::get_msb(circuit_size);
+            // resize the vectors to be the correct size
+            public_inputs.resize(public_input_size);
+            sumcheck_univariates.resize(log_n);
+            gemini_univariate_comms.resize(log_n);
+            gemini_a_evals.resize(log_n);
+
+            BaseTranscript<FF>::ordered_objects.emplace_back("circuit_size", &circuit_size);
+            BaseTranscript<FF>::ordered_objects.emplace_back("public_input_size", &public_input_size);
+            BaseTranscript<FF>::ordered_objects.emplace_back("pub_inputs_offset", &pub_inputs_offset);
+            for (size_t i = 0; i < public_input_size; ++i) {
+                std::string idx = std::to_string(i);
+                BaseTranscript<FF>::ordered_objects.emplace_back("public_inputs_" + idx, &public_inputs[i]);
+            }
+            BaseTranscript<FF>::ordered_objects.emplace_back("w_l_comm", &w_l_comm);
+            BaseTranscript<FF>::ordered_objects.emplace_back("w_r_comm", &w_r_comm);
+            BaseTranscript<FF>::ordered_objects.emplace_back("w_o_comm", &w_o_comm);
+            BaseTranscript<FF>::ordered_objects.emplace_back("sorted_accum_comm", &sorted_accum_comm);
+            BaseTranscript<FF>::ordered_objects.emplace_back("w_4_comm", &w_4_comm);
+            BaseTranscript<FF>::ordered_objects.emplace_back("z_perm_comm", &z_perm_comm);
+            BaseTranscript<FF>::ordered_objects.emplace_back("z_lookup_comm", &z_lookup_comm);
+            for (size_t i = 0; i < log_n; ++i) {
+                std::string idx = std::to_string(i);
+                BaseTranscript<FF>::ordered_objects.emplace_back("sumcheck_univariate_" + idx,
+                                                                 &sumcheck_univariates[i]);
+            }
+            BaseTranscript<FF>::ordered_objects.emplace_back("sumcheck_evaluations", &sumcheck_evaluations);
+            for (size_t i = 0; i < log_n; ++i) {
+                std::string idx = std::to_string(i);
+                BaseTranscript<FF>::ordered_objects.emplace_back("gemini_univariate_comm_" + idx,
+                                                                 &gemini_univariate_comms[i]);
+            }
+            for (size_t i = 0; i < log_n; ++i) {
+                std::string idx = std::to_string(i);
+                BaseTranscript<FF>::ordered_objects.emplace_back("gemini_a_eval_" + idx, &gemini_a_evals[i]);
+            }
+            BaseTranscript<FF>::ordered_objects.emplace_back("shplonk_q_comm", &shplonk_q_comm);
+            BaseTranscript<FF>::ordered_objects.emplace_back("kzg_w_comm", &kzg_w_comm);
         }
     };
 };

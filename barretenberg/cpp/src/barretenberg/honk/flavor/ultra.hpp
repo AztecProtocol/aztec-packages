@@ -2,12 +2,11 @@
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/honk/pcs/kzg/kzg.hpp"
-#include "barretenberg/polynomials/barycentric.hpp"
-#include "barretenberg/polynomials/univariate.hpp"
-
 #include "barretenberg/honk/transcript/transcript.hpp"
+#include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 #include "barretenberg/proof_system/flavor/flavor.hpp"
 #include "barretenberg/proof_system/relations/auxiliary_relation.hpp"
@@ -372,7 +371,7 @@ class Ultra {
 
     class VerifierCommitments : public AllEntities<Commitment, CommitmentHandle> {
       public:
-        VerifierCommitments(std::shared_ptr<VerificationKey> verification_key, VerifierTranscript<FF> transcript)
+        VerifierCommitments(std::shared_ptr<VerificationKey> verification_key, BaseTranscript<FF>& transcript)
         {
             static_cast<void>(transcript);
             q_m = verification_key->q_m;
@@ -433,7 +432,7 @@ class Ultra {
 
         Transcript(uint32_t circuit_size, const std::vector<uint8_t>& proof_data)
         {
-            set_up_structure_and_deserialize(circuit_size, proof_data);
+            this->set_up_structure_and_deserialize(circuit_size, proof_data);
         }
 
       private:
@@ -499,7 +498,7 @@ class Ultra {
             }
         }
 
-        void set_up_structure(uint32_t circuit_size)
+        void set_up_structure(uint32_t circuit_size) override
         {
             // construct the vector
             auto log_n = numeric::get_msb(circuit_size);

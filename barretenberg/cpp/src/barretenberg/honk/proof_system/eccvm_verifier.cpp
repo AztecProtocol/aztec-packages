@@ -12,12 +12,14 @@ namespace proof_system::honk {
 template <typename Flavor>
 ECCVMVerifier_<Flavor>::ECCVMVerifier_(std::shared_ptr<typename Flavor::VerificationKey> verifier_key)
     : key(verifier_key)
+    , transcript(static_cast<uint32_t>(verifier_key->circuit_size))
 {}
 
 template <typename Flavor>
 ECCVMVerifier_<Flavor>::ECCVMVerifier_(ECCVMVerifier_&& other) noexcept
     : key(std::move(other.key))
     , pcs_verification_key(std::move(other.pcs_verification_key))
+    , transcript(other.transcript.circuit_size)
 {}
 
 template <typename Flavor> ECCVMVerifier_<Flavor>& ECCVMVerifier_<Flavor>::operator=(ECCVMVerifier_&& other) noexcept
@@ -26,6 +28,7 @@ template <typename Flavor> ECCVMVerifier_<Flavor>& ECCVMVerifier_<Flavor>::opera
     pcs_verification_key = (std::move(other.pcs_verification_key));
     commitments.clear();
     pcs_fr_elements.clear();
+    // transcript = new transcript or copied one?
     return *this;
 }
 
@@ -47,7 +50,7 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
 
     RelationParameters<FF> relation_parameters;
 
-    transcript = VerifierTranscript<FF>{ proof.proof_data };
+    transcript = Transcript(transcript.circuit_size, proof.proof_data);
 
     auto commitments = VerifierCommitments(key, transcript);
     auto commitment_labels = CommitmentLabels();
