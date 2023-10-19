@@ -22,15 +22,6 @@
 #include "barretenberg/stdlib/primitives/packed_byte_array/packed_byte_array.hpp"
 #include "barretenberg/stdlib/primitives/witness/witness.hpp"
 
-// TODO(AD): put this into a header
-#if defined(__clang__)
-#define BBERG_INSTRUMENT [[clang::xray_always_instrument]]
-#define BBERG_NOINLINE [[clang::noinline]]
-#else
-#define BBERG_INSTRUMENT
-#define BBERG_NOINLINE
-#endif
-
 using namespace proof_system;
 
 template <typename Builder> void generate_sha256_test_circuit(Builder& builder, size_t num_iterations)
