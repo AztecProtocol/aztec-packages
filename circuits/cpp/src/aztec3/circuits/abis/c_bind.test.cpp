@@ -190,7 +190,7 @@ TEST(abi_tests, compute_function_tree_root)
         leaves_frs.push_back(zero_leaf);
     }
     // compare results
-    EXPECT_EQ(got_root, NT::compute_tree_root_native(leaves_frs));
+    EXPECT_EQ(got_root, plonk::stdlib::merkle_tree::compute_tree_root_native(leaves_frs));
 }
 
 TEST(abi_tests, compute_function_tree)
@@ -227,8 +227,8 @@ TEST(abi_tests, compute_function_tree)
     for (size_t l = num_nonzero_leaves; l < FUNCTION_TREE_NUM_LEAVES; l++) {
         leaves_frs.push_back(zero_leaf);
     }
-    // compare results
-    EXPECT_EQ(got_tree, NT::compute_tree_native(leaves_frs));
+
+    EXPECT_EQ(got_tree, plonk::stdlib::merkle_tree::compute_tree_native(leaves_frs));
 }
 
 TEST(abi_tests, hash_constructor)
