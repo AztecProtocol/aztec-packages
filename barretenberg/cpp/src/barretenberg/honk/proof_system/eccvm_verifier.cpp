@@ -47,7 +47,7 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
 
     RelationParameters<FF> relation_parameters;
 
-    transcript = VerifierTranscript<FF>{ proof.proof_data };
+    transcript = BaseTranscript<FF>{ proof.proof_data };
 
     auto commitments = VerifierCommitments(key, transcript);
     auto commitment_labels = CommitmentLabels();

@@ -181,7 +181,7 @@ TEST_F(UltraTranscriptTests, VerifierManifestConsistency)
 TEST_F(UltraTranscriptTests, ChallengeGenerationTest)
 {
     // initialized with random value sent to verifier
-    auto transcript = ProverTranscript<FF>::init_empty();
+    auto transcript = BaseTranscript<FF>::prover_init_empty();
     // test a bunch of challenges
     auto challenges = transcript.get_challenges("a", "b", "c", "d", "e", "f");
     // check they are not 0

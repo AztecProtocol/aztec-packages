@@ -414,7 +414,7 @@ class GoblinUltra {
 
     class VerifierCommitments : public AllEntities<Commitment, CommitmentHandle> {
       public:
-        VerifierCommitments(std::shared_ptr<VerificationKey> verification_key, VerifierTranscript<FF> transcript)
+        VerifierCommitments(std::shared_ptr<VerificationKey> verification_key, BaseTranscript<FF> transcript)
         {
             static_cast<void>(transcript);
             q_m = verification_key->q_m;

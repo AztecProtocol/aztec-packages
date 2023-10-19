@@ -39,7 +39,7 @@ template <ECCVMFlavor Flavor> class ECCVMProver_ {
     plonk::proof& export_proof();
     plonk::proof& construct_proof();
 
-    ProverTranscript<FF> transcript;
+    BaseTranscript<FF> transcript;
 
     std::vector<FF> public_inputs;
 

@@ -378,7 +378,7 @@ class Ultra {
 
     class VerifierCommitments : public AllEntities<Commitment, CommitmentHandle> {
       public:
-        VerifierCommitments(std::shared_ptr<VerificationKey> verification_key, VerifierTranscript<FF> transcript)
+        VerifierCommitments(std::shared_ptr<VerificationKey> verification_key, BaseTranscript<FF> transcript)
         {
             static_cast<void>(transcript);
             q_m = verification_key->q_m;
@@ -413,6 +413,27 @@ class Ultra {
       public:
         std::vector<FF> gate_separation_challenges;
         FF target_sum;
+    };
+
+    class Transcript : public BaseTranscript<FF> {
+      public:
+        uint32_t circuit_size;
+        uint32_t public_input_size;
+        uint32_t pub_inputs_offset;
+        std::vector<FF> public_inputs;
+        Commitment w_l_comm;
+        Commitment w_r_comm;
+        Commitment w_o_comm;
+        Commitment sorted_accum_comm;
+        Commitment w_4_comm;
+        Commitment z_perm_comm;
+        Commitment z_lookup_comm;
+        std::vector<barretenberg::Univariate<FF, MAX_RELATION_LENGTH>> sumcheck_univariates;
+        std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
+        std::vector<Commitment> gemini_univariate_comms;
+        std::vector<FF> gemini_a_evals;
+        Commitment shplonk_q_comm;
+        Commitment kzg_w_comm;
     };
 };
 

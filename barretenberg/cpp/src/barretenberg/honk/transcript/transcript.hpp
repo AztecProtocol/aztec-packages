@@ -66,11 +66,17 @@ class TranscriptManifest {
 template <typename FF> class BaseTranscript {
     // TODO(Adrian): Make these tweakable
   public:
+    BaseTranscript() = default;
+
+    explicit BaseTranscript(const std::vector<uint8_t>& proof_data)
+        : proof_data(proof_data.begin(), proof_data.end())
+    {}
     static constexpr size_t HASH_OUTPUT_SIZE = 32;
 
   private:
     static constexpr size_t MIN_BYTES_PER_CHALLENGE = 128 / 8; // 128 bit challenges
 
+    size_t num_bytes_read = 0;
     size_t round_number = 0;        // current round for manifest
     bool is_first_challenge = true; // indicates if this is the first challenge this transcript is generating
     std::array<uint8_t, HASH_OUTPUT_SIZE> previous_challenge_buffer{}; // default-initialized to zeros
@@ -144,6 +150,8 @@ template <typename FF> class BaseTranscript {
     }
 
   public:
+    // Contains the raw data sent by the prover.
+    std::vector<uint8_t> proof_data;
     /**
      * @brief After all the prover messages have been sent, finalize the round by hashing all the data and then create
      * the number of requested challenges.
@@ -186,19 +194,6 @@ template <typename FF> class BaseTranscript {
         return challenges;
     }
 
-    FF get_challenge(const std::string& label) { return get_challenges(label)[0]; }
-
-    [[nodiscard]] TranscriptManifest get_manifest() const { return manifest; };
-
-    void print() { manifest.print(); }
-};
-
-template <typename FF> class ProverTranscript : public BaseTranscript<FF> {
-
-  public:
-    /// Contains the raw data sent by the prover.
-    std::vector<uint8_t> proof_data;
-
     /**
      * @brief Adds a prover message to the transcript.
      *
@@ -224,48 +219,6 @@ template <typename FF> class ProverTranscript : public BaseTranscript<FF> {
     }
 
     /**
-     * @brief For testing: initializes transcript with some arbitrary data so that a challenge can be generated after
-     * initialization
-     *
-     * @return ProverTranscript
-     */
-    static ProverTranscript init_empty()
-    {
-        ProverTranscript<FF> transcript;
-        constexpr uint32_t init{ 42 }; // arbitrary
-        transcript.send_to_verifier("Init", init);
-        return transcript;
-    };
-};
-
-template <class FF> class VerifierTranscript : public BaseTranscript<FF> {
-
-    /// Contains the raw data sent by the prover.
-    std::vector<uint8_t> proof_data_;
-    size_t num_bytes_read_ = 0;
-
-  public:
-    VerifierTranscript() = default;
-
-    explicit VerifierTranscript(const std::vector<uint8_t>& proof_data)
-        : proof_data_(proof_data.begin(), proof_data.end())
-    {}
-
-    /**
-     * @brief For testing: initializes transcript based on proof data then receives junk data produced by
-     * ProverTranscript::init_empty()
-     *
-     * @param transcript
-     * @return VerifierTranscript
-     */
-    static VerifierTranscript init_empty(const ProverTranscript<FF>& transcript)
-    {
-        VerifierTranscript<FF> verifier_transcript{ transcript.proof_data };
-        [[maybe_unused]] auto _ = verifier_transcript.template receive_from_prover<uint32_t>("Init");
-        return verifier_transcript;
-    };
-
-    /**
      * @brief Reads the next element of type `T` from the transcript, with a predefined label.
      *
      * @param label Human readable name for the challenge.
@@ -274,10 +227,10 @@ template <class FF> class VerifierTranscript : public BaseTranscript<FF> {
     template <class T> T receive_from_prover(const std::string& label)
     {
         constexpr size_t element_size = sizeof(T);
-        ASSERT(num_bytes_read_ + element_size <= proof_data_.size());
+        ASSERT(num_bytes_read + element_size <= proof_data.size());
 
-        auto element_bytes = std::span{ proof_data_ }.subspan(num_bytes_read_, element_size);
-        num_bytes_read_ += element_size;
+        auto element_bytes = std::span{ proof_data }.subspan(num_bytes_read, element_size);
+        num_bytes_read += element_size;
 
         BaseTranscript<FF>::consume_prover_element_bytes(label, element_bytes);
 
@@ -285,5 +238,127 @@ template <class FF> class VerifierTranscript : public BaseTranscript<FF> {
 
         return element;
     }
+
+    /**
+     * @brief For testing: initializes transcript with some arbitrary data so that a challenge can be generated after
+     * initialization
+     *
+     * @return BaseTranscript
+     */
+    static BaseTranscript prover_init_empty()
+    {
+        BaseTranscript<FF> transcript;
+        constexpr uint32_t init{ 42 }; // arbitrary
+        transcript.send_to_verifier("Init", init);
+        return transcript;
+    };
+
+    /**
+     * @brief For testing: initializes transcript based on proof data then receives junk data produced by
+     * BaseTranscript::prover_init_empty()
+     *
+     * @param transcript
+     * @return BaseTranscript
+     */
+    static BaseTranscript verifier_init_empty(const BaseTranscript<FF>& transcript)
+    {
+        BaseTranscript<FF> verifier_transcript{ transcript.proof_data };
+        [[maybe_unused]] auto _ = verifier_transcript.template receive_from_prover<uint32_t>("Init");
+        return verifier_transcript;
+    };
+
+    FF get_challenge(const std::string& label) { return get_challenges(label)[0]; }
+
+    [[nodiscard]] TranscriptManifest get_manifest() const { return manifest; };
+
+    void print() { manifest.print(); }
 };
+
+// template <typename FF> class BaseTranscript : public BaseTranscript<FF> {
+
+//   public:
+//     // Contains the raw data sent by the prover.
+//     std::vector<uint8_t> proof_data;
+
+//     /**
+//      * @brief Adds a prover message to the transcript.
+//      *
+//      * @details Serializes the provided object into `proof_data`, and updates the current round state.
+//      *
+//      * @param label Description/name of the object being added.
+//      * @param element Serializable object that will be added to the transcript
+//      *
+//      * @todo Use a concept to only allow certain types to be passed. Requirements are that the object should be
+//      * serializable.
+//      *
+//      */
+//     template <class T> void send_to_verifier(const std::string& label, const T& element)
+//     {
+//         using serialize::write;
+//         // TODO(Adrian): Ensure that serialization of affine elements (including point at infinity) is consistent.
+//         // TODO(Adrian): Consider restricting serialization (via concepts) to types T for which sizeof(T) reliably
+//         // returns the size of T in bytes. (E.g. this is true for std::array but not for std::vector).
+//         auto element_bytes = to_buffer(element);
+//         proof_data.insert(proof_data.end(), element_bytes.begin(), element_bytes.end());
+
+//         BaseTranscript<FF>::consume_prover_element_bytes(label, element_bytes);
+//     }
+
+//     /**
+//      * @brief For testing: initializes transcript with some arbitrary data so that a challenge can be generated after
+//      * initialization
+//      *
+//      * @return BaseTranscript
+//      */
+//     static BaseTranscript init_empty()
+//     {
+//         BaseTranscript<FF> transcript;
+//         constexpr uint32_t init{ 42 }; // arbitrary
+//         transcript.send_to_verifier("Init", init);
+//         return transcript;
+//     };
+// };
+
+// template <class FF> class BaseTranscript : public BaseTranscript<FF> {
+
+//     /// Contains the raw data sent by the prover.
+//     std::vector<uint8_t> proof_data_;
+//     size_t num_bytes_read_ = 0;
+
+//   public:
+//     BaseTranscript() = default;
+
+//     explicit BaseTranscript(const std::vector<uint8_t>& proof_data)
+//         : proof_data_(proof_data.begin(), proof_data.end())
+//     {}
+
+//     /**
+//      * @brief For testing: initializes transcript based on proof data then receives junk data produced by
+//      * BaseTranscript::init_empty()
+//      *
+//      * @param transcript
+//      * @return BaseTranscript
+//      */
+//     static BaseTranscript init_empty(const BaseTranscript<FF>& transcript)
+//     {
+//         BaseTranscript<FF> verifier_transcript{ transcript.proof_data };
+//         [[maybe_unused]] auto _ = verifier_transcript.template receive_from_prover<uint32_t>("Init");
+//         return verifier_transcript;
+//     };
+
+//     /**
+//      * @brief Reads the next element of type `T` from the transcript, with a predefined label.
+//      *
+//      * @param label Human readable name for the challenge.
+//      * @return deserialized element of type T
+//      */
+//     template <class T> T receive_from_prover(const std::string& label)
+//     {
+//         constexpr size_t element_size = sizeof(T);
+//         ASSERT(num_bytes_read_ + element_size <= proof_data_.size()        auto element_bytes = std::span{
+//         proof_data_ }.subspan(num_bytes_read_, element_size); num_bytes_read_ += element_siz
+//         BaseTranscript<FF>::consume_prover_element_bytes(label, element_bytes        T element =
+//         from_buffer<T>(element_bytes        return element;
+//     }
+// };
 } // namespace proof_system::honk

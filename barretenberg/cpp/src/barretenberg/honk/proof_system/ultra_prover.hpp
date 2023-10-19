@@ -33,7 +33,7 @@ template <UltraFlavor Flavor> class UltraProver_ {
     plonk::proof& export_proof();
     plonk::proof& construct_proof();
 
-    ProverTranscript<FF> transcript;
+    BaseTranscript<FF> transcript;
 
     std::vector<FF> public_inputs;
     size_t pub_inputs_offset;
