@@ -49,7 +49,12 @@ struct NativeTypes {
     // Define the 'native' version of the function `hash`, with the name `hash`:
     static fr hash(const std::vector<fr>& inputs, const size_t hash_index = 0)
     {
-        return crypto::pedersen_hash::hash(inputs, get_generator_context(hash_index));
+        // TODO(kev): This is a janky way to get a "hash" without adding pedersen hash
+        // opcode to Noir.
+        auto input_size = fr(inputs.size());
+        std::vector<fr> modified_inputs = inputs;
+        modified_inputs.insert(modified_inputs.begin(), input_size);
+        return crypto::pedersen_commitment::commit_native(modified_inputs, get_generator_context(hash_index)).x;
     }
 
     /**
@@ -66,7 +71,8 @@ struct NativeTypes {
     {
         // use 0-generator for internal merkle hashing
         // use lookup namespace since we now use ultraplonk
-        return crypto::pedersen_hash::hash({ left, right }, 0);
+        auto input_size = fr(2);
+        return crypto::pedersen_commitment::commit_native({ input_size, left, right }, 0).x;
     }
 
     static grumpkin_point commit(const std::vector<fr>& inputs, const size_t hash_index = 0)
@@ -97,36 +103,18 @@ struct NativeTypes {
         ASSERT(numeric::is_power_of_two(input.size()));
         auto layer = input;
         std::vector<barretenberg::fr> tree(input);
-
-        //     auto& hmm = tree[11];
-        // for (size_t i = 0; i < sizeof(32); ++i) {
-        //     printf("%02x ", reinterpret_cast<unsigned char*>(&hmm)[i]);
-        // }
-        // printf("\n");
-
         while (layer.size() > 1) {
             std::vector<barretenberg::fr> next_layer(layer.size() / 2);
             for (size_t i = 0; i < next_layer.size(); ++i) {
-                if (layer[i * 2] == 0 || layer[i * 2 + 1] == 0) {
-                    throw_or_abort("ZAC!");
-                }
-                next_layer[i] = crypto::pedersen_commitment::commit_native({ layer[i * 2], layer[i * 2 + 1] }).x;
-                std::cout << "next layer = " << next_layer[i] << std::endl;
-                auto argh = next_layer[i];
-                auto blargh = next_layer[i].reduce_once();
-                ASSERT(argh == blargh);
-                if (argh != blargh) {
-                    throw_or_abort("nooooo");
-                }
+                // TODO(kev): janky way to get a hash without adding
+                // pedersen hash opcode to Noir.
+                auto input_size = fr(2);
+                next_layer[i] =
+                    crypto::pedersen_commitment::commit_native({ input_size, layer[i * 2], layer[i * 2 + 1] }).x;
                 tree.push_back(next_layer[i]);
             }
             layer = std::vector(next_layer);
         }
-        std::cout << "TREE START" << std::endl;
-        for (auto& ttt : tree) {
-            std::cout << ttt << std::endl;
-        }
-        std::cout << "TREE END" << std::endl;
         return tree;
     }
     static inline barretenberg::fr compute_tree_root_native(std::vector<barretenberg::fr> const& input)
@@ -138,7 +126,11 @@ struct NativeTypes {
         while (layer.size() > 1) {
             std::vector<barretenberg::fr> next_layer(layer.size() / 2);
             for (size_t i = 0; i < next_layer.size(); ++i) {
-                next_layer[i] = crypto::pedersen_commitment::commit_native({ layer[i * 2], layer[i * 2 + 1] }).x;
+                // TODO(kev): janky way to get a hash without adding
+                // pedersen hash opcode to Noir.
+                auto input_size = fr(2);
+                next_layer[i] =
+                    crypto::pedersen_commitment::commit_native({ input_size, layer[i * 2], layer[i * 2 + 1] }).x;
             }
             layer = std::move(next_layer);
         }
