@@ -43,10 +43,10 @@ template <typename Builder> void generate_sha256_test_circuit(Builder& builder, 
     }
 }
 
-BBERG_INSTRUMENT BBERG_NOINLINE void sumcheck_profiling(auto& ext_prover)
+BBERG_INSTRUMENT BBERG_NOINLINE void sumcheck_profiling(honk::UltraProver& ext_prover)
 {
     ext_prover.construct_proof();
-    for (size_t i = 0; i < 100; i++) {
+    for (size_t i = 0; i < 1000; i++) {
         // Bench sumcheck
         ext_prover.execute_relation_check_rounds();
     }
@@ -65,6 +65,7 @@ void construct_proof_ultra() noexcept
     honk::UltraComposer composer;
     std::shared_ptr<honk::UltraComposer::Instance> instance = composer.create_instance(builder);
     honk::UltraProver ext_prover = composer.create_prover(instance);
+    sumcheck_profiling(ext_prover);
 }
 
 int main()

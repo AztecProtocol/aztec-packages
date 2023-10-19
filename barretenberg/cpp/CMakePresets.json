@@ -190,9 +190,9 @@
       "generator": "Unix Makefiles",
       "inherits": "clang16",
       "environment": {
-        "CFLAGS": "-fxray-instrument -fxray-instruction-threshold=100 -mllvm -inline-threshold=500",
-        "CXXFLAGS": "-fxray-instrument -fxray-instruction-threshold=100 -mllvm -inline-threshold=500",
-        "LDFLAGS": "-fxray-instrument -fxray-instruction-threshold=100 -mllvm -inline-threshold=500"
+        "CFLAGS": "-fxray-instrument -fxray-instruction-threshold=100 -mllvm -finline-max-stacksize=150",
+        "CXXFLAGS": "-fxray-instrument -fxray-instruction-threshold=100 -mllvm -finline-max-stacksize=150",
+        "LDFLAGS": "-fxray-instrument -fxray-instruction-threshold=100 -mllvm -finline-max-stacksize=150"
       },
       "cacheVariables": {
         "MULTITHREADING": "OFF"
