@@ -1,4 +1,3 @@
-use dep::std::option::Option;
 use crate::abi::PublicContextInputs;
 use crate::context::{
     PrivateContext,
@@ -9,12 +8,8 @@ use crate::note::{
     note_interface::NoteInterface,
     utils::compute_inner_note_hash,
 };
-use crate::oracle::{
-    notes::{notify_created_note, notify_nullified_note},
-    get_public_key::get_public_key,
-};
+use crate::oracle::notes::{notify_created_note, notify_nullified_note};
 use crate::constants_gen::EMPTY_NULLIFIED_COMMITMENT;
-use crate::log::emit_encrypted_log;
 
 pub fn create_note<Note, N>(
     context: &mut PrivateContext,
