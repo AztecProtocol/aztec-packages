@@ -4,7 +4,7 @@ title: Deploy & Call Contracts with Typescript
 
 In this step, we We will now write a Typescript to interact with the sandbox and see our Solidity and Aztec.nr contracts in action.
 
-In the root folder, go to `src` dir we created in [the token bridge tutorial](../token_portal/setup.md).
+In the `packages` directory, go to `src` dir we created in [the token bridge tutorial](../token_portal/setup.md).
 
 ```bash
 cd src/test
@@ -138,6 +138,6 @@ cd ~/.aztec && docker-compose up
 Then run this in the root directory.
 
 ```bash
-cd src
+cd packages/src
 yarn test uniswap
 ```

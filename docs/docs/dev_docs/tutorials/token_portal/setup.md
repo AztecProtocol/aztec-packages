@@ -32,17 +32,20 @@ curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | sh
 noirup -v #include_noir_version
 ```
 
-# Create the root project
+# Create the root project and packages
 
 Our root project will house everything ✨
 
 ```bash
 mkdir aztec-token-bridge
+cd aztec-token-bridge && mkdir packages
 ```
+
+We will hold our projects inside of `packages` to follow the design of the project in the [repo](https://github.com/AztecProtocol/dev-rel/tree/main/tutorials/token-bridge-e2e).
 
 # Create a nargo project
 
-Now inside `aztec-token-bridge` create a new directory called `aztec-contracts`
+Now inside `packages` create a new directory called `aztec-contracts`
 
 Inside `aztec-contracts`, create a nargo contract project by running
 
@@ -87,7 +90,7 @@ aztec-contracts
 
 # Create a JS hardhat project
 
-In the root dir `aztec-token-bridge`, create a new directory called `l1-contracts` and run `yarn init -yp &&
+In the `packages` dir, create a new directory called `l1-contracts` and run `yarn init -yp &&
 npx hardhat init` inside of it. Keep hitting enter so you get the default setup (Javascript project)
 
 ```bash
@@ -136,7 +139,7 @@ In this directory, we will write TS code that will interact with our L1 and L2 c
 
 We will use `viem` in this tutorial and `jest` for testing.
 
-Inside the root directory, run
+Inside the `packages` directory, run
 
 ```bash
 mkdir src && cd src && yarn init -yp
