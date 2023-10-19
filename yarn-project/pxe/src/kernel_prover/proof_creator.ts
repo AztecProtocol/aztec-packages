@@ -16,7 +16,7 @@ import { siloCommitment } from '@aztec/circuits.js/abis';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
-import { executeInit } from '@aztec/noir-private-kernel';
+import { executeInit, executeInner } from '@aztec/noir-private-kernel';
 import { CircuitSimulationStats } from '@aztec/types/stats';
 
 /**
@@ -128,11 +128,8 @@ export class KernelProofCreator implements ProofCreator {
   }
 
   public async createProofInner(privateInputs: PrivateKernelInputsInner): Promise<ProofOutput> {
-    const wasm = await CircuitsWasm.get();
-    const [duration, result] = await elapsed(() => privateKernelSimInner(wasm, privateInputs));
-    if (result instanceof CircuitError) {
-      throw new CircuitError(result.code, result.message);
-    }
+    const [duration, result] = await elapsed(() => executeInner(privateInputs));
+
     this.log(`Simulated private kernel inner`, {
       eventName: 'circuit-simulation',
       circuitName: 'private-kernel-inner',
