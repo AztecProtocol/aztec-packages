@@ -10,7 +10,6 @@ import {
   AztecAddress,
   CircuitsWasm,
   CompleteAddress,
-  EthAddress,
   FunctionData,
   GrumpkinPrivateKey,
   KernelCircuitPublicInputsFinal,
@@ -21,7 +20,7 @@ import {
 import { computeCommitmentNonce, siloNullifier } from '@aztec/circuits.js/abis';
 import { encodeArguments } from '@aztec/foundation/abi';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { Fr, Point } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import NoirVersion from '@aztec/noir-compiler/noir-version';
 import {
@@ -32,11 +31,11 @@ import {
   DeployedContract,
   ExtendedContractData,
   FunctionCall,
+  GetUnencryptedLogsResponse,
   KeyStore,
   L2Block,
-  L2BlockL2Logs,
   L2Tx,
-  LogType,
+  LogFilter,
   MerkleTreeId,
   NodeInfo,
   NotePreimage,
@@ -87,7 +86,7 @@ export class PXEService implements PXE {
   }
 
   /**
-   * Starts the PXE Service by beginning the synchronisation process between the Aztec node and the database.
+   * Starts the PXE Service by beginning the synchronization process between the Aztec node and the database.
    *
    * @returns A promise that resolves when the server has started successfully.
    */
@@ -108,6 +107,11 @@ export class PXEService implements PXE {
   public async stop() {
     await this.synchronizer.stop();
     this.log.info('Stopped');
+  }
+
+  /** Returns an estimate of the db size in bytes. */
+  public estimateDbSize() {
+    return this.db.estimateSize();
   }
 
   public addAuthWitness(witness: AuthWitness) {
@@ -168,7 +172,7 @@ export class PXEService implements PXE {
   }
 
   public async addContracts(contracts: DeployedContract[]) {
-    const contractDaos = contracts.map(c => toContractDao(c.abi, c.completeAddress, c.portalContract));
+    const contractDaos = contracts.map(c => toContractDao(c.artifact, c.completeAddress, c.portalContract));
     await Promise.all(contractDaos.map(c => this.db.addContract(c)));
     for (const contract of contractDaos) {
       const portalInfo =
@@ -334,7 +338,7 @@ export class PXEService implements PXE {
     const functionCall = await this.#getFunctionCall(functionName, args, to);
     const executionResult = await this.#simulateUnconstrained(functionCall);
 
-    // TODO - Return typed result based on the function abi.
+    // TODO - Return typed result based on the function artifact.
     return executionResult;
   }
 
@@ -379,8 +383,13 @@ export class PXEService implements PXE {
     return await this.node.getContractData(contractAddress);
   }
 
-  public async getUnencryptedLogs(from: number, limit: number): Promise<L2BlockL2Logs[]> {
-    return await this.node.getLogs(from, limit, LogType.UNENCRYPTED);
+  /**
+   * Gets unencrypted logs based on the provided filter.
+   * @param filter - The filter to apply to the logs.
+   * @returns The requested logs.
+   */
+  public getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+    return this.node.getUnencryptedLogs(filter);
   }
 
   async #getFunctionCall(functionName: string, args: any[], to: AztecAddress): Promise<FunctionCall> {
@@ -420,14 +429,14 @@ export class PXEService implements PXE {
 
   /**
    * Retrieves the simulation parameters required to run an ACIR simulation.
-   * This includes the contract address, function ABI, portal contract address, and historic tree roots.
+   * This includes the contract address, function artifact, portal contract address, and historic tree roots.
    *
    * @param execRequest - The transaction request object containing details of the contract call.
-   * @returns An object containing the contract address, function ABI, portal contract address, and historic tree roots.
+   * @returns An object containing the contract address, function artifact, portal contract address, and historic tree roots.
    */
   async #getSimulationParameters(execRequest: FunctionCall | TxExecutionRequest) {
     const contractAddress = (execRequest as FunctionCall).to ?? (execRequest as TxExecutionRequest).origin;
-    const functionAbi = await this.contractDataOracle.getFunctionAbi(
+    const functionArtifact = await this.contractDataOracle.getFunctionArtifact(
       contractAddress,
       execRequest.functionData.selector,
     );
@@ -439,8 +448,8 @@ export class PXEService implements PXE {
 
     return {
       contractAddress,
-      functionAbi: {
-        ...functionAbi,
+      functionArtifact: {
+        ...functionArtifact,
         debug,
       },
       portalContract,
@@ -450,11 +459,11 @@ export class PXEService implements PXE {
   async #simulate(txRequest: TxExecutionRequest): Promise<ExecutionResult> {
     // TODO - Pause syncing while simulating.
 
-    const { contractAddress, functionAbi, portalContract } = await this.#getSimulationParameters(txRequest);
+    const { contractAddress, functionArtifact, portalContract } = await this.#getSimulationParameters(txRequest);
 
     this.log('Executing simulator...');
     try {
-      const result = await this.simulator.run(txRequest, functionAbi, contractAddress, portalContract);
+      const result = await this.simulator.run(txRequest, functionArtifact, contractAddress, portalContract);
       this.log('Simulation completed!');
       return result;
     } catch (err) {
@@ -474,11 +483,11 @@ export class PXEService implements PXE {
    * @returns The simulation result containing the outputs of the unconstrained function.
    */
   async #simulateUnconstrained(execRequest: FunctionCall) {
-    const { contractAddress, functionAbi } = await this.#getSimulationParameters(execRequest);
+    const { contractAddress, functionArtifact } = await this.#getSimulationParameters(execRequest);
 
     this.log('Executing unconstrained simulator...');
     try {
-      const result = await this.simulator.runUnconstrained(execRequest, functionAbi, contractAddress, this.node);
+      const result = await this.simulator.runUnconstrained(execRequest, functionArtifact, contractAddress, this.node);
       this.log('Unconstrained simulation completed!');
 
       return result;
@@ -543,22 +552,18 @@ export class PXEService implements PXE {
     this.log(`Executing kernel prover...`);
     const { proof, publicInputs } = await kernelProver.prove(txExecutionRequest.toTxRequest(), executionResult);
 
-    const newContractPublicFunctions = newContract ? getNewContractPublicFunctions(newContract) : [];
-
     const encryptedLogs = new TxL2Logs(collectEncryptedLogs(executionResult));
     const unencryptedLogs = new TxL2Logs(collectUnencryptedLogs(executionResult));
     const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(executionResult);
 
-    const contractData = new ContractData(
-      newContract?.completeAddress.address ?? AztecAddress.ZERO,
-      newContract?.portalContract ?? EthAddress.ZERO,
-    );
-    const extendedContractData = new ExtendedContractData(
-      contractData,
-      newContractPublicFunctions,
-      newContract?.completeAddress.partialAddress ?? Fr.ZERO,
-      newContract?.completeAddress.publicKey ?? Point.ZERO,
-    );
+    const extendedContractData = newContract
+      ? new ExtendedContractData(
+          new ContractData(newContract.completeAddress.address, newContract.portalContract),
+          getNewContractPublicFunctions(newContract),
+          newContract.completeAddress.partialAddress,
+          newContract.completeAddress.publicKey,
+        )
+      : ExtendedContractData.empty();
 
     // HACK(#1639): Manually patches the ordering of the public call stack
     // TODO(#757): Enforce proper ordering of enqueued public calls
@@ -590,9 +595,9 @@ export class PXEService implements PXE {
         if (contract) {
           err.enrichWithContractName(parsedContractAddress, contract.name);
           selectors.forEach(selector => {
-            const functionAbi = contract.functions.find(f => f.selector.toString() === selector);
-            if (functionAbi) {
-              err.enrichWithFunctionName(parsedContractAddress, functionAbi.selector, functionAbi.name);
+            const functionArtifact = contract.functions.find(f => f.selector.toString() === selector);
+            if (functionArtifact) {
+              err.enrichWithFunctionName(parsedContractAddress, functionArtifact.selector, functionArtifact.name);
             }
           });
         }

@@ -19,7 +19,7 @@ import TabItem from '@theme/TabItem';
 <TabItem value="cli" label="Aztec CLI">
 
 ```bash
-aztec-cli deploy /path/to/contract/abi.json
+aztec-cli deploy /path/to/contract/artifact.json
 ```
 
 </TabItem>
@@ -31,7 +31,7 @@ Pre-requisite - Generate type-safe typescript classes for your contract when com
 import { readFileSync, writeFileSync } from 'fs';
 import { compileUsingNargo, generateTypescriptContractInterface} from '@aztec/noir-compiler';
 
-const compiled: ContractAbi[] = await compileUsingNargo(projectPathToContractFolder);
+const compiled: ContractArtifact[] = await compileUsingNargo(projectPathToContractFolder);
 const abiImportPath = "../target/Example.json";
 writeFileSync(tsInterfaceDestFilePath, generateTypescriptContractInterface(compiled[0], abiImportPath));
 ```
@@ -54,7 +54,7 @@ There are several optional arguments that can be passed:
 <Tabs groupId="deployment-methods">
 <TabItem value="cli" label="Aztec CLI">
 
-`aztec-cli deploy` takes 1 mandatory argument which is the path to the contract ABI file in a JSON format (e.g. `contracts/target/PrivateToken.json`). Alternatively you can pass the name of an example contract as exported by `@aztec/noir-contracts` (run `aztec-cli example-contracts` to see the full list of contracts available).
+`aztec-cli deploy` takes 1 mandatory argument which is the path to the contract artifact file in a JSON format (e.g. `contracts/target/PrivateToken.json`). Alternatively you can pass the name of an example contract as exported by `@aztec/noir-contracts` (run `aztec-cli example-contracts` to see the full list of contracts available).
 
 The command also takes the following optional arguments:
 - `-args <constructorArgs...>` (default: `[]`): Arguments to pass to the contract constructor.
@@ -87,58 +87,26 @@ const tx = ExampleContract.deploy(pxe).send({
 </TabItem>
 </Tabs>
 
-### Deploying private token contract
-To give you a more complete example we will deploy the `PrivateToken` contract whose artifacts are included in the `@aztec/noir-contracts` package.
+### Deploying token contract
+To give you a more complete example we will deploy a `Token` contract whose artifacts are included in the `@aztec/noir-contracts` package.
 
-The contract has `initial_supply` and `owner` as constructor arguments.
-Because the contract sends a note to the owner specified inside the constructor, we need their public key to encrypt the note with. For this, we first need to register the owner as a recipient inside the PXE with the following command:
+The contract has `admin` as a constructor argument.
+We will deploy the contract with the `aztec-cli` and pass the `admin` address as an argument.
 
 <Tabs groupId="deployment-methods">
 <TabItem value="cli" label="Aztec CLI">
 
 ```bash
-aztec-cli register-recipient --address 0x147392a39e593189902458f4303bc6e0a39128c5a1c1612f76527a162d36d529 --public-key 0x26e193aef4f83c70651485b5526c6d01a36d763223ab24efd1f9ff91b394ac0c20ad99d0ef669dc0dde8d5f5996c63105de8e15c2c87d8260b9e6f02f72af622 --partial-address 0x200e9a6c2d2e8352012e51c6637659713d336405c29386c7c4ac56779ab54fa7
+aztec-cli deploy TokenContractArtifact --args 0x147392a39e593189902458f4303bc6e0a39128c5a1c1612f76527a162d36d529
 ```
 
 </TabItem>
 <TabItem value="js" label="Aztec.js">
 
 ```ts
-const aztecAddress = AztecAddress.fromString("0x147392a39e593189902458f4303bc6e0a39128c5a1c1612f76527a162d36d529");
-const publicKey = Point.fromString("0x26e193aef4f83c70651485b5526c6d01a36d763223ab24efd1f9ff91b394ac0c20ad99d0ef669dc0dde8d5f5996c63105de8e15c2c87d8260b9e6f02f72af622");
-const partialAddress = Fr.fromString("0x200e9a6c2d2e8352012e51c6637659713d336405c29386c7c4ac56779ab54fa7");
-
-const completeAddress = CompleteAddress.create(aztecAddress, publicKey, partialKey); 
-await pxe.registerRecipient(completeAddress);
-```
-
-
-</TabItem>
-</Tabs>
-
-When you create a new account, it gets automatically registered. It can be verified by calling `aztec-cli get-accounts` OR in aztec.js by using `await pxe.getRegisteredAccounts()`
-
-> **NOTE 1**: If we didn't register owner as a recipient we could not encrypt a note for the owner and the contract deployment would fail because constructor execution would fail (we need owner's public key to encrypt a note).
-
-> **NOTE 2**: If a note recipient is one of the accounts inside the PXE, we don't need to register it as a recipient because we already have the public key available.
-
-Once the recipient is registered we can deploy the contract:
-
-<Tabs groupId="deployment-methods">
-<TabItem value="cli" label="Aztec CLI">
-
-```bash
-aztec-cli deploy PrivateTokenContractAbi --args 1000 0x147392a39e593189902458f4303bc6e0a39128c5a1c1612f76527a162d36d529
-```
-
-</TabItem>
-<TabItem value="js" label="Aztec.js">
-
-```ts
-// PrivateTokenContract is the TS interface that is automatically generated when compiling the contract with the `-ts` flag.
-const initialBalance = 1000n;
-const owner = AztecAddress.from("0x147392a39e593189902458f4303bc6e0a39128c5a1c1612f76527a162d36d529");
-const contract = await PrivateTokenContract.deploy(wallet, initialBalance, owner).send().deployed();
+const admin = AztecAddress.from("0x147392a39e593189902458f4303bc6e0a39128c5a1c1612f76527a162d36d529");
+// TokenContract is the TS interface that is automatically generated when compiling the contract with the `-ts` flag.
+const contract = await TokenContract.deploy(wallet, admin).send().deployed();
 logger(`Contract deployed at ${contract.address}`);
 ```
 
@@ -154,14 +122,14 @@ If we pass the salt as an argument:
 <TabItem value="cli" label="Aztec CLI">
 
 ```bash
-aztec-cli deploy PrivateTokenContractAbi --args 1000 0x147392a39e593189902458f4303bc6e0a39128c5a1c1612f76527a162d36d529 --salt 0x123
+aztec-cli deploy TokenContractArtifact --args 0x147392a39e593189902458f4303bc6e0a39128c5a1c1612f76527a162d36d529 --salt 0x123
 ```
 
 </TabItem>
 <TabItem value="js" label="Aztec.js">
 
 ```ts
-const contract = await PrivateTokenContract.deploy(wallet, initialBalance, owner).send({ contractAddressSalt: Fr.fromString("0x123") }).deployed();
+const contract = await TokenContract.deploy(wallet, admin).send({ contractAddressSalt: Fr.fromString("0x123") }).deployed();
 ```
 
 </TabItem>

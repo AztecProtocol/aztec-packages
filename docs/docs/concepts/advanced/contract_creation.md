@@ -40,7 +40,7 @@ Each contract's function data is stored in a Merkle tree, where each leaf contai
 
 ### How are function signatures defined?
 
-We can take a leaf from Ethereum and make them the first 4 bytes of a hash of the function definition (defined according to the contract ABI, TBD).
+We can take a leaf from Ethereum and make them the first 4 bytes of a hash of the function definition (defined according to the contract artifact, TBD).
 
 ## Contract Representation in Aztec
 
@@ -153,7 +153,7 @@ The contract address is calculated by the contract deployer, deterministically, 
 
 > The EVM's CREATE2 does `contractAddress = hash(0xff, deployerAddress, salt, keccak(bytecode))` - we've taken this as inspiration.
 
-- `deployerAddress` is included to prevent frontrunning of deployment requests, but it does reveal who is deploying the contract. To remain anonymous a user would have to use a burner address, or deploy a contract _through_ a private contract which can deploy contracts.
+- `deployerAddress` is included to prevent frontrunning of deployment requests, but it does reveal who is deploying the contract. To remain private a user would have to use a burner address, or deploy a contract _through_ a private contract which can deploy contracts.
 - :question: Why does CREATE2 include a deployerAddress?
 - :exclamation: So that contracts can deploy contracts to deterministic addresses. Original goal was to enable pre-funding contracts before they were deployed. Not v. relevant for us though
 - `salt` gives the deployer some 'choice' over the eventual contract address; they can loop through salts until they find an address they like.
@@ -284,7 +284,7 @@ The set of functions of a contract is represented as a mini Merkle tree of verif
 - Distributing L2 contract data
 - Linking to an L1 Portal Contract
 
-These topics are reflected in the layout of the contract deployment ABI:
+These topics are reflected in the layout of the contract deployment artifact:
 
 ```js
 publicInputs = {

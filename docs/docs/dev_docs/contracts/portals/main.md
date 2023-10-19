@@ -7,17 +7,6 @@ description: Documentation of Aztec's Portals and Cross-chain communication.
 
 A portal is the point of contact between L1 and a specific contract on Aztec. For applications such as token bridges, this is the point where the tokens are are held on L1 while used in L2.
 
-On this page, we’ll go over:
-
-- The concept of "Portals" in Aztec, which act as the contact point between L1 and an Aztec L2 contract
-- How to pass data to Aztec L2 from L1 via the Inbox, marking how messages are sent on the network
-- The process of sending messages to L2 using the function `sendL2Message` along with the parameters it requires like recipient, deadline, content, and fee.
-- The method of consuming L1 to L2 messages through the use of the `consume_l1_to_l2_message` function.
-- How to send a message to L1 from an Aztec contract, using the `message_portal` function on the context.
-- Strategies to handle error scenarios during cross-chain messaging, with a focus on transaction failures and implementing appropriate fallback mechanisms.
-
-## What is a Portal?
-
 As outlined in the [foundational concepts](../../../concepts/foundation/communication/cross_chain_calls.md), an Aztec L2 contract is linked to _ONE_ L1 address at time of deployment (specified by the developer). This L1 address is the only address that can send messages to that specific L2 contract, and the only address that can receive messages sent from the L2 contract to L1. Note, that a portal don't actually need to be a contract, it could be any address on L1. We say that an Aztec contract is attached to a portal.
 
 ## Passing data to the rollup
@@ -62,7 +51,7 @@ Computing the `content` must be done manually in its current form, as we are sti
 :::info
 The `content_hash` is a sha256 truncated to a field element (~ 254 bits). In Aztec-nr, you can use our `sha256_to_field()` to do a sha256 hash which fits in one field element:
 
-#include_code mint_public_content_hash_nr /yarn-project/noir-contracts/src/contracts/token_bridge_contract/src/util.nr rust
+#include_code mint_public_content_hash_nr /yarn-project/noir-contracts/src/contracts/token_portal_content_hash_lib/src/lib.nr rust
 
 In solidity, you can use our `Hash.sha256ToField()` method:
 
@@ -85,7 +74,7 @@ Similarly to messages going to L2 from L1, a message can only be consumed by the
 
 Recall that we mentioned the Aztec contract specifies what portal it is attached to at deployment. This value is stored in the rollup's contract tree, hence these links are not directly readable on L1. Also, it is possible to attach multiple aztec contracts to the same portal.
 
-The portal must ensure that the sender is as expected. One way to do this, is to compute the addresses before deployment and store them as constants in the contract, however a more flexible solution is to have an `initialize` function in the portal contract which can be used to set the address of the Aztec contract. In this model, the portal contract can check that the sender matches the value it has in storage.
+The portal must ensure that the sender is as expected. One way to do this is to compute the addresses before deployment and store them as constants in the contract. However, a more flexible solution is to have an `initialize` function in the portal contract which can be used to set the address of the Aztec contract. In this model, the portal contract can check that the sender matches the value it has in storage.
 
 To send a message to L1 from your Aztec contract, you must use the `message_portal` function on the `context`. When messaging to L1, only the `content` is required (as a `Field`).
 
