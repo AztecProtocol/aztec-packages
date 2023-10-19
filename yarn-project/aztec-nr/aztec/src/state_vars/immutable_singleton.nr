@@ -49,7 +49,6 @@ impl<Note, N> ImmutableSingleton<Note, N> {
         self,
         note: &mut Note, 
         owner: Option<Field>,
-        owner2: Field, // TODO(benesjan): add owner() to NoteInterface and remove this arg?
         broadcast: bool,
     ) {
         let context = self.context.unwrap();
@@ -64,7 +63,6 @@ impl<Note, N> ImmutableSingleton<Note, N> {
             self.storage_slot,
             note,
             self.note_interface,
-            owner2,
             broadcast,
         );
     }

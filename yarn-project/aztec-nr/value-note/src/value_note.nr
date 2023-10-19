@@ -1,3 +1,4 @@
+use dep::std::option::Option;
 use dep::aztec::note::{
     note_header::NoteHeader,
     note_interface::NoteInterface,
@@ -97,6 +98,10 @@ fn set_header(note: &mut ValueNote, header: NoteHeader) {
     note.set_header(header)
 }
 
+fn get_owner(note: ValueNote) -> Option<Field> {
+    Option::some(note.owner)
+}
+
 global ValueNoteMethods = NoteInterface {
     deserialize,
     serialize,
@@ -104,4 +109,5 @@ global ValueNoteMethods = NoteInterface {
     compute_nullifier,
     get_header,
     set_header,
+    get_owner,
 };

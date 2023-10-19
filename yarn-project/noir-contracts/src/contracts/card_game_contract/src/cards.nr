@@ -134,7 +134,7 @@ impl Deck {
         let mut inserted_cards = [];
         for card in cards {
             let mut card_note = CardNote::from_card(card, owner);
-            self.set.insert(&mut card_note.note, owner, true);
+            self.set.insert(&mut card_note.note, true);
             inserted_cards = inserted_cards.push_back(card_note);
         }
 

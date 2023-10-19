@@ -67,7 +67,6 @@ impl<Note, N> Singleton<Note, N> {
         self,
         note: &mut Note,
         owner: Option<Field>,
-        owner2: Field, // TODO(benesjan): add owner() to NoteInterface and remove this arg?
         broadcast: bool,
     ) {
         let context = self.context.unwrap();
@@ -77,7 +76,7 @@ impl<Note, N> Singleton<Note, N> {
         let nullifier = compute_initialization_nullifier(self.storage_slot, owner);
         context.push_new_nullifier(nullifier, EMPTY_NULLIFIED_COMMITMENT);
 
-        create_note(context, self.storage_slot, note, self.note_interface, owner2, broadcast);
+        create_note(context, self.storage_slot, note, self.note_interface, broadcast);
     }
     // docs:end:initialize
 
@@ -85,7 +84,6 @@ impl<Note, N> Singleton<Note, N> {
     pub fn replace(
         self,
         new_note: &mut Note,
-        owner: Field, // TODO(benesjan): add owner() to NoteInterface and remove this arg?
         broadcast: bool,
     ) {
         let context = self.context.unwrap();
@@ -95,12 +93,12 @@ impl<Note, N> Singleton<Note, N> {
         destroy_note(context, prev_note, self.note_interface);
 
         // Add replacement note.
-        create_note(context, self.storage_slot, new_note, self.note_interface, owner, broadcast);
+        create_note(context, self.storage_slot, new_note, self.note_interface, broadcast);
     }
     // docs:end:replace
 
     // docs:start:get_note
-    pub fn get_note(self) -> Note {
+    pub fn get_note(self, broadcast: bool) -> Note {
         let context = self.context.unwrap();
         let mut note = get_note(context, self.storage_slot, self.note_interface);
 
@@ -109,8 +107,7 @@ impl<Note, N> Singleton<Note, N> {
 
         // Add the same note again.
         // Because a nonce is added to every note in the kernel, its nullifier will be different.
-        // TODO(benesjan): add owner() to NoteInterface and remove the 0? Note: why don't we need to emit 
-        create_note(context, self.storage_slot, &mut note, self.note_interface, 0, false);
+        create_note(context, self.storage_slot, &mut note, self.note_interface, broadcast);
 
         note
     }

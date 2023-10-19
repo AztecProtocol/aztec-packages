@@ -21,7 +21,6 @@ pub fn create_note<Note, N>(
     storage_slot: Field,
     note: &mut Note,
     note_interface: NoteInterface<Note, N>,
-    owner: Field, // TODO(benesjan): add owner() to NoteInterface and remove this arg?
     broadcast: bool,
 ) {
     let contract_address = (*context).this_address();
@@ -40,6 +39,11 @@ pub fn create_note<Note, N>(
     let serialize = note_interface.serialize;
 
     if broadcast {
+        let get_owner = note_interface.get_owner;
+        let maybe_owner = get_owner(*note);
+        assert(maybe_owner.is_some(), "Note owner is must be set when broadcast flow is triggered.");
+
+        let owner = maybe_owner.unwrap_unchecked();
         let owner_key = get_public_key(owner);
         emit_encrypted_log(
             context,

@@ -39,7 +39,6 @@ impl<Note, N> Set<Note, N> {
     // docs:start:insert
     pub fn insert(self,
         note: &mut Note,
-        owner: Field, // TODO(benesjan): add owner() to NoteInterface and remove this arg?
         broadcast: bool,
     ) {
         create_note(
@@ -47,7 +46,6 @@ impl<Note, N> Set<Note, N> {
             self.storage_slot,
             note,
             self.note_interface,
-            owner,
             broadcast,
         );
     }
