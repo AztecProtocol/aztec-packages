@@ -42,7 +42,7 @@ export const standardBasedTreeTestSuite = (
       const db = levelup(createMemDown());
       const tree = await createDb(db, pedersen, 'test', 32);
       const root = tree.getRoot(false);
-      expect(root.toString('hex')).toEqual('16642d9ccd8346c403aa4c3fa451178b22534a27035cdaa6ec34ae53b29c50cb');
+      expect(root.toString('hex')).toEqual('17d0e402ac5df8adc9ed5c176935352cdfcbe8e24624cc3d3c527eca98540e1b');
     });
 
     it('should throw when appending beyond max index', async () => {
