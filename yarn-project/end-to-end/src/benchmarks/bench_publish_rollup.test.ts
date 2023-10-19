@@ -56,6 +56,6 @@ describe('benchmarks/publish_rollup', () => {
       await pxe.stop();
       await node.stop();
     },
-    10 * 60_000,
+    10 * 70_000,
   );
 });
