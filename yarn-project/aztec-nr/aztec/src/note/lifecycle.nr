@@ -36,22 +36,9 @@ pub fn create_note<Note, N>(
 
     context.push_new_note_hash(inner_note_hash);
 
-    let serialize = note_interface.serialize;
-
     if broadcast {
-        let get_owner = note_interface.get_owner;
-        let maybe_owner = get_owner(*note);
-        assert(maybe_owner.is_some(), "Note owner must be set when the broadcast flow is triggered.");
-
-        let owner = maybe_owner.unwrap_unchecked();
-        let owner_key = get_public_key(owner);
-        emit_encrypted_log(
-            context,
-            (*context).this_address(),
-            storage_slot,
-            owner_key,
-            serialize(*note),
-        );
+        let broadcast = note_interface.broadcast;
+        broadcast(context, storage_slot, *note);
     }
 }
 

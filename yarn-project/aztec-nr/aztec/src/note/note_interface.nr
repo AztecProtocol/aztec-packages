@@ -1,4 +1,4 @@
-use dep::std::option::Option;
+use crate::context::PrivateContext;
 use crate::note::note_header::NoteHeader;
 
 // docs:start:NoteInterface
@@ -15,6 +15,6 @@ struct NoteInterface<Note, N> {
 
     set_header: fn (&mut Note, NoteHeader) -> (),
 
-    get_owner: fn (Note) -> Option<Field>,
+    broadcast: fn (&mut PrivateContext, Field, Note) -> (),
 }
 // docs:end:NoteInterface

@@ -95,18 +95,7 @@ pub fn create_note(
         // Emit the newly created encrypted note preimages via oracle calls.
         // docs:start:encrypted
         let context = balance.context.private.unwrap();
-        let application_contract_address = (*context).this_address();
-        let note_storage_slot = balance.storage_slot;
-        let encryption_pub_key = get_public_key(owner);
-        let encrypted_data = (*note).serialize();
-
-        emit_encrypted_log(
-            context,
-            application_contract_address,
-            note_storage_slot,
-            encryption_pub_key,
-            encrypted_data,
-        );
+        note.broadcast(context, balance.storage_slot)
         // docs:end:encrypted
     }
 }
