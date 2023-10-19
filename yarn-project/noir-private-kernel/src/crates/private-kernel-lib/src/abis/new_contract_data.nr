@@ -10,8 +10,8 @@ struct NewContractData {
 
 impl NewContractData {
     fn is_empty(self) -> bool {
-        (self.contract_address.to_field() == 0) && 
-        (self.portal_contract_address.to_field() == 0) && 
+        (self.contract_address.to_field() == 0) & 
+        (self.portal_contract_address.to_field() == 0) & 
         (self.function_tree_root ==0)
     }
 

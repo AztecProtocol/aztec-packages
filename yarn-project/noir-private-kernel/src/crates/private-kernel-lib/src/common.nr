@@ -92,7 +92,7 @@ pub fn validate_read_requests(historic_private_data_tree_root : Field, read_requ
         // Note that the Merkle membership proof would be null and void in case of an transient read
         // but we use the leaf index as a placeholder to detect a 'pending note read'.
     
-        if (read_request != 0) && (witness.is_transient == false) {
+        if (read_request != 0) & (witness.is_transient == false) {
             let root_for_read_request = read_request_root_from_siblings(read_request, witness.leaf_index, witness.sibling_path);
             // assert(root_for_read_request == historic_private_data_tree_root, "private data tree root mismatch");
             
@@ -102,29 +102,28 @@ pub fn validate_read_requests(historic_private_data_tree_root : Field, read_requ
     }
 }
 
-fn initialize_end_values(previous_kernel : PreviousKernelData, public_inputs : &mut KernelCircuitPublicInputsBuilder) {
+pub fn initialize_end_values(previous_kernel : PreviousKernelData, public_inputs : &mut KernelCircuitPublicInputsBuilder) {
     public_inputs.constants = previous_kernel.public_inputs.constants;
 
     // Ensure the arrays are the same as previously, before we start pushing more data onto them in other
     // functions within this circuit:
-    let mut end = public_inputs.end;
     let start = previous_kernel.public_inputs.end;
 
-    end.new_commitments = arrays::array_to_bounded_vec(start.new_commitments, arrays::is_empty);
-    end.new_nullifiers = arrays::array_to_bounded_vec(start.new_nullifiers, arrays::is_empty);
-    end.nullified_commitments = arrays::array_to_bounded_vec(start.nullified_commitments, arrays::is_empty);
+    public_inputs.end.new_commitments = arrays::array_to_bounded_vec(start.new_commitments, arrays::is_empty);
+    public_inputs.end.new_nullifiers = arrays::array_to_bounded_vec(start.new_nullifiers, arrays::is_empty);
+    public_inputs.end.nullified_commitments = arrays::array_to_bounded_vec(start.nullified_commitments, arrays::is_empty);
 
-    end.private_call_stack = arrays::array_to_bounded_vec(start.private_call_stack, arrays::is_empty);
-    end.public_call_stack = arrays::array_to_bounded_vec(start.public_call_stack, arrays::is_empty);
-    end.new_l2_to_l1_msgs = arrays::array_to_bounded_vec(start.new_l2_to_l1_msgs, arrays::is_empty);
+    public_inputs.end.private_call_stack = arrays::array_to_bounded_vec(start.private_call_stack, arrays::is_empty);
+    public_inputs.end.public_call_stack = arrays::array_to_bounded_vec(start.public_call_stack, arrays::is_empty);
+    public_inputs.end.new_l2_to_l1_msgs = arrays::array_to_bounded_vec(start.new_l2_to_l1_msgs, arrays::is_empty);
 
-    end.encrypted_logs_hash = start.encrypted_logs_hash;
-    end.unencrypted_logs_hash = start.unencrypted_logs_hash;
+    public_inputs.end.encrypted_logs_hash = start.encrypted_logs_hash;
+    public_inputs.end.unencrypted_logs_hash = start.unencrypted_logs_hash;
 
-    end.encrypted_log_preimages_length = start.encrypted_log_preimages_length;
-    end.unencrypted_log_preimages_length = start.unencrypted_log_preimages_length;
+    public_inputs.end.encrypted_log_preimages_length = start.encrypted_log_preimages_length;
+    public_inputs.end.unencrypted_log_preimages_length = start.unencrypted_log_preimages_length;
 
-    end.optionally_revealed_data = start.optionally_revealed_data;
+    public_inputs.end.optionally_revealed_data = start.optionally_revealed_data;
 }
 
 // The cpp code avoids having two methods like we have by using templates.
@@ -136,24 +135,23 @@ fn initialize_end_values_final(previous_kernel : PreviousKernelData, public_inpu
 
     // Ensure the arrays are the same as previously, before we start pushing more data onto them in other
     // functions within this circuit:
-    let mut end = public_inputs.end;
     let start = previous_kernel.public_inputs.end;
 
-    end.new_commitments = start.new_commitments;
-    end.new_nullifiers = start.new_nullifiers;
-    end.nullified_commitments = start.nullified_commitments;
+    public_inputs.end.new_commitments = start.new_commitments;
+    public_inputs.end.new_nullifiers = start.new_nullifiers;
+    public_inputs.end.nullified_commitments = start.nullified_commitments;
 
-    end.private_call_stack = start.private_call_stack;
-    end.public_call_stack = start.public_call_stack;
-    end.new_l2_to_l1_msgs = start.new_l2_to_l1_msgs;
+    public_inputs.end.private_call_stack = start.private_call_stack;
+    public_inputs.end.public_call_stack = start.public_call_stack;
+    public_inputs.end.new_l2_to_l1_msgs = start.new_l2_to_l1_msgs;
 
-    end.encrypted_logs_hash = start.encrypted_logs_hash;
-    end.unencrypted_logs_hash = start.unencrypted_logs_hash;
+    public_inputs.end.encrypted_logs_hash = start.encrypted_logs_hash;
+    public_inputs.end.unencrypted_logs_hash = start.unencrypted_logs_hash;
 
-    end.encrypted_log_preimages_length = start.encrypted_log_preimages_length;
-    end.unencrypted_log_preimages_length = start.unencrypted_log_preimages_length;
+    public_inputs.end.encrypted_log_preimages_length = start.encrypted_log_preimages_length;
+    public_inputs.end.unencrypted_log_preimages_length = start.unencrypted_log_preimages_length;
 
-    end.optionally_revealed_data = start.optionally_revealed_data;
+    public_inputs.end.optionally_revealed_data = start.optionally_revealed_data;
 }
 
 pub fn update_end_values(private_call : PrivateCallData, public_inputs : &mut KernelCircuitPublicInputsBuilder) {
@@ -360,7 +358,7 @@ pub fn contract_logic(private_call : PrivateCallData, public_inputs : &mut Kerne
     }
 }
 
-fn validate_previous_kernel_values(end : CombinedAccumulatedData) {
+pub fn validate_previous_kernel_values(end : CombinedAccumulatedData) {
     validate_previous_kernel_arrays(end);
     validate_previous_kernel_0th_nullifier(end);
 }

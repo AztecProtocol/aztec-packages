@@ -35,7 +35,7 @@ pub fn is_empty_single_field<T>(field : Field) -> bool {
 pub fn array_push_field<T>(mut array : [Field; T], value_to_push : Field) -> [Field; T] {
     let mut found_empty_slot = false;
     for index in 0..array.len() {
-        if (array[index] == 0) && (found_empty_slot == false) {
+        if (array[index] == 0) & (found_empty_slot == false) {
             found_empty_slot = true;
             array[index] = value_to_push;
         }
@@ -51,7 +51,7 @@ pub fn array_push_field<T>(mut array : [Field; T], value_to_push : Field) -> [Fi
 pub fn array_push_new_contract_data<T>(mut array : [NewContractData; T], value_to_push : NewContractData) -> [NewContractData; T] {
     let mut found_empty_slot = false;
     for index in 0..array.len() {
-        if (array[index].is_empty()) && (found_empty_slot == false) {
+        if (array[index].is_empty()) & (found_empty_slot == false) {
             found_empty_slot = true;
             array[index] = value_to_push;
         }
@@ -96,9 +96,10 @@ pub fn validate_array<T>(array : [Field;T]) {
     let mut last_non_zero_pos = 0;
     // TODO: using is_empty_field here is a bit wasteful
     for i in 0..array_length {
-        if is_empty(array[i]) == false {
+        let is_empty = is_empty(array[i]);
+        if !is_empty {
             last_non_zero_pos = i;
-        } else if is_empty(array[i]) && (first_zero_pos == array_length) {
+        } else if is_empty & (first_zero_pos == array_length) {
             first_zero_pos = i;
         }
     }
@@ -139,7 +140,7 @@ pub fn array_pop<N>(mut array : [Field; N]) -> (Field, [Field;N]) {
         // replace its value with 0 to signify it being 
         let element_non_empty = array[rev_i] != 0;
 
-        if element_non_empty && found_element_to_pop == false {
+        if element_non_empty & found_element_to_pop == false {
             found_element_to_pop = true;
             index = rev_i;
         }
