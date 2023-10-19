@@ -50,7 +50,7 @@ class ThreadPool {
     std::condition_variable complete_condition_;
     bool stop = false;
 
-    void worker_loop(size_t thread_index);
+    [[clang::xray_never_instrument]] void worker_loop(size_t thread_index);
 
     void do_iterations()
     {
