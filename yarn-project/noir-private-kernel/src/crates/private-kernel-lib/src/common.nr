@@ -179,7 +179,7 @@ pub fn update_end_values(private_call : PrivateCallData, public_inputs : &mut Ke
     // Transient read requests and witnesses are accumulated in public_inputs.end
     // We silo the read requests (domain separation per contract address)
     assert(read_requests.len() == read_request_membership_witnesses.len()); // This is not done in the cpp code.
-    let mut siloed_read_requests: BoundedVec<Field,MAX_NEW_NULLIFIERS_PER_CALL> = BoundedVec::new(0);
+    let mut siloed_read_requests: BoundedVec<Field,MAX_READ_REQUESTS_PER_CALL> = BoundedVec::new(0);
     for i in 0..read_requests.len() {
         let read_request = read_requests[i];
         let witness = read_request_membership_witnesses[i];
