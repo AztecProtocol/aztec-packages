@@ -4,11 +4,12 @@ struct BoundedVec<T, MaxLen> {
     // TODO: change this to return a u64 as Noir now
     // uses u64 for indexing
     len: Field,
+    empty_value: T,
 }
 
 impl<T, MaxLen> BoundedVec<T, MaxLen> {
     pub fn new(initial_value: T) -> Self {
-        BoundedVec { storage: [initial_value; MaxLen], len: 0 }
+        BoundedVec { storage: [initial_value; MaxLen], len: 0, empty_value: initial_value }
     }
 
     pub fn get(mut self: Self, index: Field) -> T {
@@ -63,9 +64,10 @@ impl<T, MaxLen> BoundedVec<T, MaxLen> {
 
     pub fn pop(&mut self) -> T {
         assert(self.len as u64 > 0);
-
-        let elem = self.storage[self.len - 1];
         self.len -= 1;
+
+        let elem = self.storage[self.len];
+        self.storage[self.len] = self.empty_value;
         elem
     }
 

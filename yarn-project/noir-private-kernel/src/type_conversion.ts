@@ -26,10 +26,12 @@ import {
   NewContractData,
   OptionallyRevealedData,
   Point,
+  PreviousKernelData,
   PrivateCallData,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
   PrivateKernelInputsInit,
+  PrivateKernelInputsInner,
   PublicDataRead,
   PublicDataUpdateRequest,
   ReadRequestMembershipWitness,
@@ -66,8 +68,12 @@ import {
   TxContext as TxContextNoir,
   TxRequest as TxRequestNoir,
 } from './types/private_kernel_init_types.js';
+import {
+  PreviousKernelData as PreviousKernelDataNoir,
+  PrivateKernelInputsInner as PrivateKernelInputsInnerNoir,
+} from './types/private_kernel_inner_types.js';
 
-/* eslint-disable camelcase */
+/* eslint-disable */
 
 /**
  * Maps a field to a noir field.
@@ -500,6 +506,26 @@ export function mapOptionallyRevealedDataFromNoir(
 }
 
 /**
+ * Maps optionally revealed data to noir optionally revealed data.
+ * @param optionallyRevealedData - The optionally revealed data.
+ * @returns The noir optionally revealed data.
+ */
+export function mapOptionallyRevealedDataToNoir(
+  optionallyRevealedData: OptionallyRevealedData,
+): OptionallyRevealedDataNoir {
+  return {
+    call_stack_item_hash: mapFieldToNoir(optionallyRevealedData.callStackItemHash),
+    function_data: mapFunctionDataToNoir(optionallyRevealedData.functionData),
+    vk_hash: mapFieldToNoir(optionallyRevealedData.vkHash),
+    portal_contract_address: mapEthAddressToNoir(optionallyRevealedData.portalContractAddress),
+    pay_fee_from_l1: optionallyRevealedData.payFeeFromL1,
+    pay_fee_from_public_l2: optionallyRevealedData.payFeeFromPublicL2,
+    called_from_l1: optionallyRevealedData.calledFromL1,
+    called_from_public_l2: optionallyRevealedData.calledFromPublicL2,
+  };
+}
+
+/**
  * Maps new contract data from noir to the parsed type.
  * @param newContractData - The noir new contract data.
  * @returns The parsed new contract data.
@@ -510,6 +536,19 @@ export function mapNewContractDataFromNoir(newContractData: NewContractDataNoir)
     mapEthAddressFromNoir(newContractData.portal_contract_address),
     mapFieldFromNoir(newContractData.function_tree_root),
   );
+}
+
+/**
+ * Maps new contract data to noir new contract data.
+ * @param newContractData - The new contract data.
+ * @returns The noir new contract data.
+ */
+export function mapNewContractDataToNoir(newContractData: NewContractData): NewContractDataNoir {
+  return {
+    contract_address: mapAztecAddressToNoir(newContractData.contractAddress),
+    portal_contract_address: mapEthAddressToNoir(newContractData.portalContractAddress),
+    function_tree_root: mapFieldToNoir(newContractData.functionTreeRoot),
+  };
 }
 
 /**
@@ -528,12 +567,34 @@ export function mapPublicDataUpdateRequestFromNoir(
 }
 
 /**
+ * Maps public data update request to noir public data update request.
+ * @param publicDataUpdateRequest - The public data update request.
+ * @returns The noir public data update request.
+ */
+export function mapPublicDataUpdateRequestToNoir(
+  publicDataUpdateRequest: PublicDataUpdateRequest,
+): PublicDataUpdateRequestNoir {
+  return {
+    leaf_index: mapFieldToNoir(publicDataUpdateRequest.leafIndex),
+    old_value: mapFieldToNoir(publicDataUpdateRequest.oldValue),
+    new_value: mapFieldToNoir(publicDataUpdateRequest.newValue),
+  };
+}
+
+/**
  * Maps public data read from noir to the parsed type.
  * @param publicDataRead - The noir public data read.
  * @returns The parsed public data read.
  */
 export function mapPublicDataReadFromNoir(publicDataRead: PublicDataReadNoir): PublicDataRead {
   return new PublicDataRead(mapFieldFromNoir(publicDataRead.leaf_index), mapFieldFromNoir(publicDataRead.value));
+}
+
+export function mapPublicDataReadToNoir(publicDataRead: PublicDataRead): PublicDataReadNoir {
+  return {
+    leaf_index: mapFieldToNoir(publicDataRead.leafIndex),
+    value: mapFieldToNoir(publicDataRead.value),
+  };
 }
 
 /**
@@ -582,6 +643,52 @@ export function mapCombinedAccumulatedDataFromNoir(
   );
 }
 
+export function mapCombinedAccumulatedDataToNoir(
+  combinedAccumulatedData: CombinedAccumulatedData,
+): CombinedAccumulatedDataNoir {
+  return {
+    aggregation_object: {},
+    read_requests: combinedAccumulatedData.readRequests.map(mapFieldToNoir) as FixedLengthArray<NoirField, 128>,
+    pending_read_requests: combinedAccumulatedData.pendingReadRequests.map(mapFieldToNoir) as FixedLengthArray<
+      NoirField,
+      128
+    >,
+    new_commitments: combinedAccumulatedData.newCommitments.map(mapFieldToNoir) as FixedLengthArray<NoirField, 64>,
+    new_nullifiers: combinedAccumulatedData.newNullifiers.map(mapFieldToNoir) as FixedLengthArray<NoirField, 64>,
+    nullified_commitments: combinedAccumulatedData.nullifiedCommitments.map(mapFieldToNoir) as FixedLengthArray<
+      NoirField,
+      64
+    >,
+    private_call_stack: combinedAccumulatedData.privateCallStack.map(mapFieldToNoir) as FixedLengthArray<NoirField, 8>,
+    public_call_stack: combinedAccumulatedData.publicCallStack.map(mapFieldToNoir) as FixedLengthArray<NoirField, 8>,
+    new_l2_to_l1_msgs: combinedAccumulatedData.newL2ToL1Msgs.map(mapFieldToNoir) as FixedLengthArray<NoirField, 2>,
+    encrypted_logs_hash: combinedAccumulatedData.encryptedLogsHash.map(mapFieldToNoir) as FixedLengthArray<
+      NoirField,
+      2
+    >,
+    unencrypted_logs_hash: combinedAccumulatedData.unencryptedLogsHash.map(mapFieldToNoir) as FixedLengthArray<
+      NoirField,
+      2
+    >,
+    encrypted_log_preimages_length: mapFieldToNoir(combinedAccumulatedData.encryptedLogPreimagesLength),
+    unencrypted_log_preimages_length: mapFieldToNoir(combinedAccumulatedData.unencryptedLogPreimagesLength),
+    new_contracts: combinedAccumulatedData.newContracts.map(mapNewContractDataToNoir) as FixedLengthArray<
+      NewContractDataNoir,
+      1
+    >,
+    optionally_revealed_data: combinedAccumulatedData.optionallyRevealedData.map(
+      mapOptionallyRevealedDataToNoir,
+    ) as FixedLengthArray<OptionallyRevealedDataNoir, 4>,
+    public_data_update_requests: combinedAccumulatedData.publicDataUpdateRequests.map(
+      mapPublicDataUpdateRequestToNoir,
+    ) as FixedLengthArray<PublicDataUpdateRequestNoir, 16>,
+    public_data_reads: combinedAccumulatedData.publicDataReads.map(mapPublicDataReadToNoir) as FixedLengthArray<
+      PublicDataReadNoir,
+      16
+    >,
+  };
+}
+
 /**
  * Maps combined constant data from noir to the parsed type.
  * @param combinedConstantData - The noir combined constant data.
@@ -594,6 +701,13 @@ export function mapCombinedConstantDataFromNoir(combinedConstantData: CombinedCo
   );
 }
 
+export function mapCombinedConstantDataToNoir(combinedConstantData: CombinedConstantData): CombinedConstantDataNoir {
+  return {
+    block_data: mapHistoricalBlockDataToNoir(combinedConstantData.blockData),
+    tx_context: mapTxContextToNoir(combinedConstantData.txContext),
+  };
+}
+
 /**
  * Maps the inputs to the private kernel init to the noir representation.
  * @param privateKernelInputsInit - The inputs to the private kernel init.
@@ -604,6 +718,30 @@ export function mapPrivateKernelInputsInitToNoir(
 ): PrivateKernelInputsInitNoir {
   return {
     tx_request: mapTxRequestToNoir(privateKernelInputsInit.txRequest),
+    private_call: mapPrivateCallDataToNoir(privateKernelInputsInit.privateCall),
+  };
+}
+
+export function mapPreviousKernelDataToNoir(previousKernelData: PreviousKernelData): PreviousKernelDataNoir {
+  return {
+    public_inputs: mapKernelCircuitPublicInputsToNoir(previousKernelData.publicInputs),
+    proof: {},
+    vk: {},
+    vk_index: mapFieldToNoir(new Fr(previousKernelData.vkIndex)),
+    vk_path: previousKernelData.vkPath.map(mapFieldToNoir) as FixedLengthArray<NoirField, 3>,
+  };
+}
+
+/**
+ * Maps the inputs to the private kernel init to the noir representation.
+ * @param privateKernelInputsInit - The inputs to the private kernel init.
+ * @returns The noir representation of those inputs.
+ */
+export function mapPrivateKernelInputsInnerToNoir(
+  privateKernelInputsInit: PrivateKernelInputsInner,
+): PrivateKernelInputsInnerNoir {
+  return {
+    previous_kernel: mapPreviousKernelDataToNoir(privateKernelInputsInit.previousKernel),
     private_call: mapPrivateCallDataToNoir(privateKernelInputsInit.privateCall),
   };
 }
@@ -621,4 +759,14 @@ export function mapKernelCircuitPublicInputsFromNoir(
     mapCombinedConstantDataFromNoir(kernelCircuitPublicInputs.constants),
     kernelCircuitPublicInputs.is_private,
   );
+}
+
+export function mapKernelCircuitPublicInputsToNoir(
+  public_inputs: KernelCircuitPublicInputs,
+): KernelCircuitPublicInputsNoir {
+  return {
+    end: mapCombinedAccumulatedDataToNoir(public_inputs.end),
+    constants: mapCombinedConstantDataToNoir(public_inputs.constants),
+    is_private: public_inputs.isPrivate,
+  };
 }

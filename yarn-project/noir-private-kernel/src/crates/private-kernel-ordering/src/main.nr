@@ -108,6 +108,7 @@ impl PrivateKernelInputsOrdering {
 
     fn native_private_kernel_circuit_ordering(self) -> KernelCircuitPublicInputsFinal {
         let mut public_inputs : KernelCircuitPublicInputsFinal = unsafe::zeroed();
+        public_inputs.is_private = true;
 
         common::validate_previous_kernel_values(self.previous_kernel.public_inputs.end);
         
