@@ -49,12 +49,7 @@ struct NativeTypes {
     // Define the 'native' version of the function `hash`, with the name `hash`:
     static fr hash(const std::vector<fr>& inputs, const size_t hash_index = 0)
     {
-        // TODO(kev): This is a janky way to get a "hash" without adding pedersen hash
-        // opcode to Noir.
-        auto input_size = fr(inputs.size());
-        std::vector<fr> modified_inputs = inputs;
-        modified_inputs.insert(modified_inputs.begin(), input_size);
-        return crypto::pedersen_commitment::commit_native(modified_inputs, get_generator_context(hash_index)).x;
+        return crypto::pedersen_hash::hash(inputs, get_generator_context(hash_index));
     }
 
     /**
@@ -71,8 +66,7 @@ struct NativeTypes {
     {
         // use 0-generator for internal merkle hashing
         // use lookup namespace since we now use ultraplonk
-        auto input_size = fr(2);
-        return crypto::pedersen_commitment::commit_native({ input_size, left, right }, 0).x;
+        return crypto::pedersen_hash::hash({ left, right }, 0);
     }
 
     static grumpkin_point commit(const std::vector<fr>& inputs, const size_t hash_index = 0)
@@ -106,11 +100,7 @@ struct NativeTypes {
         while (layer.size() > 1) {
             std::vector<barretenberg::fr> next_layer(layer.size() / 2);
             for (size_t i = 0; i < next_layer.size(); ++i) {
-                // TODO(kev): janky way to get a hash without adding
-                // pedersen hash opcode to Noir.
-                auto input_size = fr(2);
-                next_layer[i] =
-                    crypto::pedersen_commitment::commit_native({ input_size, layer[i * 2], layer[i * 2 + 1] }).x;
+                next_layer[i] = crypto::pedersen_hash::hash({ layer[i * 2], layer[i * 2 + 1] });
                 tree.push_back(next_layer[i]);
             }
             layer = std::vector(next_layer);
@@ -126,11 +116,7 @@ struct NativeTypes {
         while (layer.size() > 1) {
             std::vector<barretenberg::fr> next_layer(layer.size() / 2);
             for (size_t i = 0; i < next_layer.size(); ++i) {
-                // TODO(kev): janky way to get a hash without adding
-                // pedersen hash opcode to Noir.
-                auto input_size = fr(2);
-                next_layer[i] =
-                    crypto::pedersen_commitment::commit_native({ input_size, layer[i * 2], layer[i * 2 + 1] }).x;
+                next_layer[i] = crypto::pedersen_hash::hash({ layer[i * 2], layer[i * 2 + 1] });
             }
             layer = std::move(next_layer);
         }
