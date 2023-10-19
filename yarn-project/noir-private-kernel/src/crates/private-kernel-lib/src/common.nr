@@ -30,6 +30,7 @@ pub fn validate_arrays(app_public_inputs : PrivateCircuitPublicInputs) {
     
     arrays::validate_array(app_public_inputs.return_values);
     arrays::validate_array(app_public_inputs.read_requests);
+    arrays::validate_array(app_public_inputs.pending_read_requests);
     arrays::validate_array(app_public_inputs.new_commitments);
     arrays::validate_array(app_public_inputs.new_nullifiers);
     arrays::validate_array(app_public_inputs.nullified_commitments);
@@ -83,6 +84,9 @@ pub fn validate_read_requests(historic_private_data_tree_root : Field, read_requ
         let witness = read_request_membership_witnesses[rr_idx];
         
         // A pending commitment is the one that is not yet added to private data tree
+        // A "transient read" is when we try to "read" a pending commitment within a transaction
+        // between function calls, as opposed to reading the outputs of a previous transaction
+        // which is a "pending read".
         // A transient read is when we try to "read" a pending commitment
         // We determine if it is a transient read depending on the leaf index from the membership witness
         // Note that the Merkle membership proof would be null and void in case of an transient read
@@ -157,6 +161,8 @@ pub fn update_end_values(private_call : PrivateCallData, public_inputs : &mut Ke
 
     let read_requests = private_call_public_inputs.read_requests;
     let read_request_membership_witnesses = private_call.read_request_membership_witnesses;
+
+    // don't update pending_read_requests, because those just get passed through without any change
 
     let new_commitments = private_call_public_inputs.new_commitments;
     let new_nullifiers = private_call_public_inputs.new_nullifiers;
@@ -363,6 +369,7 @@ fn validate_previous_kernel_values(end : CombinedAccumulatedData) {
 fn validate_previous_kernel_arrays(end : CombinedAccumulatedData) {
     // Each of the following arrays is expected to be zero-padded.
     arrays::validate_array(end.read_requests);
+    arrays::validate_array(end.pending_read_requests);
     arrays::validate_array(end.new_commitments);
     arrays::validate_array(end.new_nullifiers);
     arrays::validate_array(end.nullified_commitments);

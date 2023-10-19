@@ -68,7 +68,7 @@ fn u32_to_le_bit_array(value : u32) -> [u1;32] {
 // builds it up. We should build it up and then pass the leaf preimage as a parameter.
 // We can then choose to have a general method that takes in anything hashable
 // and deduplicate the logic in `contract_tree_root_from_siblings`
-fn function_tree_root_from_siblings(selector : FunctionSelector, is_internal : bool, is_private : bool, vk_hash : Field, acir_hash : Field, function_leaf_index : Field, function_leaf_sibling_path : [Field; FUNCTION_TREE_HEIGHT]) -> Field {
+pub fn function_tree_root_from_siblings(selector : FunctionSelector, is_internal : bool, is_private : bool, vk_hash : Field, acir_hash : Field, function_leaf_index : Field, function_leaf_sibling_path : [Field; FUNCTION_TREE_HEIGHT]) -> Field {
     let function_leaf_preimage = FunctionLeafPreimage{
         selector: selector,
         is_internal : is_internal,
@@ -86,7 +86,7 @@ fn function_tree_root_from_siblings(selector : FunctionSelector, is_internal : b
 }
 
 // Calculate the contract tree root from the sibling path and leaf preimage.
-fn contract_tree_root_from_siblings(function_tree_root : Field, storage_contract_address : Address, portal_contract_address : EthAddress, contract_leaf_index : Field,contract_leaf_sibling_path : [Field; CONTRACT_TREE_HEIGHT]) -> Field {
+pub fn contract_tree_root_from_siblings(function_tree_root : Field, storage_contract_address : Address, portal_contract_address : EthAddress, contract_leaf_index : Field,contract_leaf_sibling_path : [Field; CONTRACT_TREE_HEIGHT]) -> Field {
     //TODO(Kev): if we use shorthand syntax here, we get an error as expected,
     // since variable name is `storage_contract_address` but the span is incorrect.
     let contract_leaf_preimage = ContractLeafPreimage { contract_address: storage_contract_address,
@@ -101,7 +101,7 @@ fn contract_tree_root_from_siblings(function_tree_root : Field, storage_contract
     computed_contract_tree_root
 }
 
-fn read_request_root_from_siblings(read_request : Field, leaf_index : Field, sibling_path : [Field; PRIVATE_DATA_TREE_HEIGHT]) -> Field {
+pub fn read_request_root_from_siblings(read_request : Field, leaf_index : Field, sibling_path : [Field; PRIVATE_DATA_TREE_HEIGHT]) -> Field {
     root_from_sibling_path(read_request, leaf_index as u32, u32_to_le_bit_array, sibling_path)
 }
 
@@ -124,7 +124,7 @@ fn merkle_hash(left : Field, right : Field) -> Field {
     dep::std::hash::pedersen([left, right])[0]
 }
 
-fn stdlib_recursion_verification_key_compress_native_vk(vk : VerificationKey) -> Field {
+pub fn stdlib_recursion_verification_key_compress_native_vk(vk : VerificationKey) -> Field {
     // Original cpp code
     // stdlib::recursion::verification_key<CT::bn254>::compress_native(private_call.vk, GeneratorIndex::VK);
     // The above cpp method is only ever called on verification key, so it has been special cased here
@@ -147,12 +147,12 @@ fn hash_to_field<N>(input : [Field; N]) -> Field {
 }
 
 // TODO CPP uses blake3 for this
-fn compute_new_contract_address_hash(new_contract_address : Address) -> Field {
+pub fn compute_new_contract_address_hash(new_contract_address : Address) -> Field {
     hash_to_field([new_contract_address.to_field()])
 }
 
 // TODO is the aztec-nr sha256 to field the same as cpp one?
-fn compute_l2_to_l1_hash(contract_address : Address, rollup_version_id: Field, portal_contract_address : EthAddress, chain_id : Field, content : Field) -> Field {
+pub fn compute_l2_to_l1_hash(contract_address : Address, rollup_version_id: Field, portal_contract_address : EthAddress, chain_id : Field, content : Field) -> Field {
     let mut bytes: BoundedVec<u8, 160> = BoundedVec::new(0);
 
     let inputs = [contract_address.to_field(), rollup_version_id, portal_contract_address.to_field(), chain_id, content];
@@ -215,7 +215,7 @@ fn accumulate_sha256(input : [U128; 4]) -> [Field; NUM_FIELDS_PER_SHA256] {
     U256::from_bytes32(sha_digest).to_u128_limbs()
 }
 
-fn compute_logs_hash(previous_log_hash : [Field;2], current_log_hash : [Field;2]) -> [Field; NUM_FIELDS_PER_SHA256] {
+pub fn compute_logs_hash(previous_log_hash : [Field;2], current_log_hash : [Field;2]) -> [Field; NUM_FIELDS_PER_SHA256] {
     accumulate_sha256([
         U128::from_field(previous_log_hash[0]),
         U128::from_field(previous_log_hash[1]),
