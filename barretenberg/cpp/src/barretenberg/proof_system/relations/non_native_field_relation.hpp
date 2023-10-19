@@ -154,13 +154,13 @@ template <typename FF_> class GoblinTranslatorNonNativeFieldRelationImpl {
         // clang-format off
         // the index-0 limb
         auto tmp = accumulators_binary_limbs_0_shift * evaluation_input_x_0 
-                    + op 
-                    + p_x_low_limbs     * v_0_0 
-                    + p_y_low_limbs     * v_1_0 
-                    + z_low_limbs       * v_2_0 
-                    + z_low_limbs_shift * v_3_0
-                    + quotient_low_binary_limbs * NEGATIVE_MODULUS_LIMBS[0] 
-                    - accumulators_binary_limbs_0;
+                   + op 
+                   + p_x_low_limbs     * v_0_0 
+                   + p_y_low_limbs     * v_1_0 
+                   + z_low_limbs       * v_2_0 
+                   + z_low_limbs_shift * v_3_0
+                   + quotient_low_binary_limbs * NEGATIVE_MODULUS_LIMBS[0] 
+                   - accumulators_binary_limbs_0;
         
         // the index-1 limb
         tmp += shift 
@@ -189,27 +189,28 @@ template <typename FF_> class GoblinTranslatorNonNativeFieldRelationImpl {
         // clang-format off
         // the index-2 limb, with a carry from the previous calculation
         tmp = relation_wide_limbs
-                     + accumulators_binary_limbs_2_shift * evaluation_input_x_0
-                     + accumulators_binary_limbs_1_shift * evaluation_input_x_1
-                     + accumulators_binary_limbs_0_shift * evaluation_input_x_2
-                     + p_x_high_limbs      * v_0_0
-                     + p_x_low_limbs_shift * v_0_1
-                     + p_x_low_limbs       * v_0_2
-                     + p_y_high_limbs      * v_1_0
-                     + p_y_low_limbs_shift * v_1_1
-                     + p_y_low_limbs       * v_1_2
-                     + z_high_limbs        * v_2_1
-                     + z_low_limbs         * v_2_2
-                     + z_high_limbs_shift  * v_3_1
-                     + z_low_limbs_shift   * v_3_2
-                     + quotient_high_binary_limbs      * NEGATIVE_MODULUS_LIMBS[0]
-                     + quotient_low_binary_limbs_shift * NEGATIVE_MODULUS_LIMBS[1]
-                     + quotient_low_binary_limbs       * NEGATIVE_MODULUS_LIMBS[2] 
-                     - accumulators_binary_limbs_2;
+              + accumulators_binary_limbs_2_shift * evaluation_input_x_0
+              + accumulators_binary_limbs_1_shift * evaluation_input_x_1
+              + accumulators_binary_limbs_0_shift * evaluation_input_x_2
+              + p_x_high_limbs      * v_0_0
+              + p_x_low_limbs_shift * v_0_1
+              + p_x_low_limbs       * v_0_2
+              + p_y_high_limbs      * v_1_0
+              + p_y_low_limbs_shift * v_1_1
+              + p_y_low_limbs       * v_1_2
+              + z_high_limbs        * v_2_1
+              + z_low_limbs         * v_2_2
+              + z_high_limbs_shift  * v_3_1
+              + z_low_limbs_shift   * v_3_2
+              + quotient_high_binary_limbs      * NEGATIVE_MODULUS_LIMBS[0]
+              + quotient_low_binary_limbs_shift * NEGATIVE_MODULUS_LIMBS[1]
+              + quotient_low_binary_limbs       * NEGATIVE_MODULUS_LIMBS[2] 
+              - accumulators_binary_limbs_2;
 
         // the index-2 limb
         tmp += shift
-                * (accumulators_binary_limbs_2_shift   * evaluation_input_x_1
+                * (accumulators_binary_limbs_3_shift   * evaluation_input_x_0
+                   + accumulators_binary_limbs_2_shift   * evaluation_input_x_1
                    + accumulators_binary_limbs_1_shift * evaluation_input_x_2
                    + accumulators_binary_limbs_0_shift * evaluation_input_x_3
                    + p_x_high_limbs_shift * v_0_0
