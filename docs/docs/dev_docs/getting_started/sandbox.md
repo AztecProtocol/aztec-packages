@@ -14,8 +14,6 @@ For a quickstart checkout [the Quickstart section](./quickstart.md)
 
 Here we will walkthrough the process of retrieving the Sandbox, installing the client libraries and using it to deploy and use a fully token contract on the Aztec network using Aztec.js.
 
-You can find the [complete tutorial code here](https://github.com/AztecProtocol/dev-rel/tree/main/tutorials/sandbox-tutorial/token).
-
 ## Prerequisites
 
 - Node.js >= v18
