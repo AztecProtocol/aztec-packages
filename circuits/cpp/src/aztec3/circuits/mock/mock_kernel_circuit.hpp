@@ -14,7 +14,6 @@ namespace aztec3::circuits::mock {
 using aztec3::circuits::abis::KernelCircuitPublicInputs;
 using NT = aztec3::utils::types::NativeTypes;
 using aztec3::utils::types::CircuitTypes;
-using plonk::stdlib::pedersen_commitment;
 using plonk::stdlib::witness_t;
 
 template <typename Builder>
