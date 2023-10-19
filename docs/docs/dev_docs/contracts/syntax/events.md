@@ -100,18 +100,18 @@ They can be emitted by both public and private functions.
 
 To emit unencrypted logs first import the `emit_unencrypted_log` utility function inside your contract:
 
-#include_code unencrypted_import /yarn-project/noir-contracts/src/contracts/public_token_contract/src/main.nr rust
+#include_code unencrypted_import /yarn-project/noir-contracts/src/contracts/test_contract/src/main.nr rust
 
 Then you can call the function:
 
-#include_code unencrypted_log /yarn-project/noir-contracts/src/contracts/public_token_contract/src/main.nr rust
+#include_code emit_unencrypted /yarn-project/noir-contracts/src/contracts/test_contract/src/main.nr rust
 
 Once emitted, unencrypted events are stored in AztecNode and can be queried by anyone:
 <Tabs groupId="events">
 <TabItem value="cli" label="Aztec CLI">
 
 ```bash
-aztec-cli get-logs --from 5 --limit 1
+aztec-cli get-logs --fromBlock 5
 ```
 
 </TabItem>
@@ -121,6 +121,13 @@ aztec-cli get-logs --from 5 --limit 1
 
 </TabItem>
 </Tabs>
+
+Get logs functionality provides a variety of filtering options.
+To display them run:
+
+```bash
+aztec-cli get-logs --help
+```
 
 ## Costs
 

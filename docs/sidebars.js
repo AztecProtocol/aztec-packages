@@ -80,11 +80,13 @@ const sidebars = {
           label: "Accounts",
           type: "category",
           link: { type: "doc", id: "concepts/foundation/accounts/main" },
-          items: ["concepts/foundation/accounts/keys"],
+          items: [
+            "concepts/foundation/accounts/keys",
+            "concepts/foundation/accounts/authwit",
+          ],
         },
         "concepts/foundation/contracts",
         "concepts/foundation/transactions",
-        // "concepts/foundation/blocks",
         // "concepts/foundation/globals",
         {
           label: "Communication",
@@ -98,19 +100,19 @@ const sidebars = {
             "concepts/foundation/communication/cross_chain_calls",
           ],
         },
-        // {
-        //   label: "Nodes and Clients",
-        //   type: "category",
-        //   link: {
-        //     type: "doc",
-        //     id: "concepts/foundation/nodes_clients/main",
-        //   },
-        //   items: [
-        //     "concepts/foundation/nodes_clients/execution_client",
-        //     "concepts/foundation/nodes_clients/prover_client",
-        //     "concepts/foundation/nodes_clients/sequencer_client",
-        //   ],
-        // },
+        {
+          label: "Nodes and Clients",
+          type: "category",
+          // link: {
+          //   type: "doc",
+          //   id: "concepts/foundation/nodes_clients/main",
+          // },
+          items: [
+            // "concepts/foundation/nodes_clients/execution_client",
+            // "concepts/foundation/nodes_clients/prover_client",
+            "concepts/foundation/nodes_clients/sequencer",
+          ],
+        },
         // "concepts/foundation/block_production",
         // "concepts/foundation/upgrade_mechanism",
       ],
@@ -169,6 +171,8 @@ const sidebars = {
         },
         "concepts/advanced/public_vm",
         "concepts/advanced/contract_creation",
+        "concepts/advanced/sequencer_selection",
+        "concepts/advanced/acir_simulator",
       ],
     },
 
@@ -224,6 +228,41 @@ const sidebars = {
             "dev_docs/tutorials/writing_dapp/testing",
           ],
         },
+        {
+          label: "Build a Token Bridge",
+          type: "category",
+          link: {
+            type: "doc",
+            id: "dev_docs/tutorials/token_portal/main",
+          },
+          items: [
+            "dev_docs/tutorials/token_portal/setup",
+            "dev_docs/tutorials/token_portal/depositing_to_aztec",
+            "dev_docs/tutorials/token_portal/minting_on_aztec",
+            "dev_docs/tutorials/token_portal/cancelling_deposits",
+            "dev_docs/tutorials/token_portal/withdrawing_to_l1",
+            "dev_docs/tutorials/token_portal/typescript_glue_code",
+          ],
+        },
+        {
+          label: "Build Uniswap with Portals",
+          type: "category",
+          link: {
+            type: "doc",
+            id: "dev_docs/tutorials/uniswap/main",
+          },
+          items: [
+            "dev_docs/tutorials/uniswap/setup",
+            "dev_docs/tutorials/uniswap/l1_portal",
+            "dev_docs/tutorials/uniswap/l2_contract_setup",
+            "dev_docs/tutorials/uniswap/swap_publicly",
+            "dev_docs/tutorials/uniswap/execute_public_swap_on_l1",
+            "dev_docs/tutorials/uniswap/swap_privately",
+            "dev_docs/tutorials/uniswap/execute_private_swap_on_l1",
+            "dev_docs/tutorials/uniswap/redeeming_swapped_assets_on_l2",
+            "dev_docs/tutorials/uniswap/typescript_glue_code",
+          ],
+        },
         "dev_docs/tutorials/testing",
       ],
     },
@@ -272,27 +311,28 @@ const sidebars = {
           ],
         },
         "dev_docs/contracts/common_errors",
-        // {
-        //   label: "Resources",
-        //   type: "category",
-        //   items: [
-        //     "dev_docs/contracts/resources/style_guide",
-        //     {
-        //       label: "Common Patterns",
-        //       type: "category",
+        {
+           label: "Resources",
+           type: "category",
+           items: [
+             //"dev_docs/contracts/resources/style_guide",
+             {
+               label: "Common Patterns",
+               type: "category",
         //       link: {
         //         type: "doc",
         //         id: "dev_docs/contracts/resources/common_patterns/main",
         //       },
-        //       items: [
+               items: [
+                "dev_docs/contracts/resources/common_patterns/authwit",
         //         "dev_docs/contracts/resources/common_patterns/sending_tokens_to_user",
         //         "dev_docs/contracts/resources/common_patterns/sending_tokens_to_contract",
         //         "dev_docs/contracts/resources/common_patterns/access_control",
         //         "dev_docs/contracts/resources/common_patterns/interacting_with_l1",
-        //       ],
-        //     },
-        //   ],
-        // },
+               ],
+             },
+           ],
+         },
         // {
         //   label: "Security Considerations",
         //   type: "category",

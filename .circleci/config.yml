@@ -438,10 +438,43 @@ jobs:
       - run:
           name: "Build and test"
           # We need to force not to use docker buildkit because for some reason on arm only, it ends up making a call
-          # out to eu-west2 despite the image being locally tagged, resulting in unauthorised 401. Weird docker bug?
+          # out to eu-west2 despite the image being locally tagged, resulting in unauthorized 401. Weird docker bug?
           command: |
             echo "export DOCKER_BUILDKIT=" > $BASH_ENV
             build aztec-sandbox false arm64
+
+  aztec-p2p-bootstrap:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: build p2p-bootstrap | add_timestamps
+
+  aztec-node:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: build aztec-node | add_timestamps
+
+  aztec-faucet:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: build aztec-faucet | add_timestamps
 
   pxe-x86_64:
     machine:
@@ -464,7 +497,7 @@ jobs:
       - run:
           name: "Build and test"
           # We need to force not to use docker buildkit because for some reason on arm only, it ends up making a call
-          # out to eu-west2 despite the image being locally tagged, resulting in unauthorised 401. Weird docker bug?
+          # out to eu-west2 despite the image being locally tagged, resulting in unauthorized 401. Weird docker bug?
           command: |
             echo "export DOCKER_BUILDKIT=" > $BASH_ENV
             build pxe false arm64
@@ -504,7 +537,7 @@ jobs:
           name: "Test via adhoc script"
           command: ./yarn-project/boxes/blank/run_tests
 
-  boxes-private-token:
+  boxes-token:
     machine:
       image: ubuntu-2204:2023.07.2
     resource_class: large
@@ -513,7 +546,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test via adhoc script"
-          command: ./yarn-project/boxes/private-token/run_tests
+          command: ./yarn-project/boxes/token/run_tests
 
   canary:
     machine:
@@ -597,30 +630,6 @@ jobs:
           command: cond_run_script end-to-end ./scripts/run_tests_local e2e_token_contract.test.ts
           environment: { DEBUG: "aztec:*" }
 
-  e2e-private-airdrop:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Test"
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_private_airdrop.test.ts
-          environment: { DEBUG: "aztec:*" }
-
-  e2e-private-token-contract:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Test"
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_private_token_contract.test.ts
-          environment: { DEBUG: "aztec:*" }
-
   e2e-sandbox-example:
     machine:
       image: ubuntu-2204:2023.07.2
@@ -631,18 +640,6 @@ jobs:
       - run:
           name: "Test"
           command: cond_run_script end-to-end ./scripts/run_tests_local e2e_sandbox_example.test.ts ./scripts/docker-compose-e2e-sandbox.yml
-          environment: { DEBUG: "aztec:*" }
-
-  e2e-multi-transfer-contract:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Test"
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_multi_transfer.test.ts
           environment: { DEBUG: "aztec:*" }
 
   e2e-block-building:
@@ -801,18 +798,6 @@ jobs:
           command: cond_run_script end-to-end ./scripts/run_tests_local integration_l1_publisher.test.ts
           environment: { DEBUG: "aztec:*" }
 
-  e2e-public-token-contract:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Test"
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_public_token_contract.test.ts
-          environment: { DEBUG: "aztec:*" }
-
   e2e-cli:
     machine:
       image: ubuntu-2204:2023.07.2
@@ -955,9 +940,20 @@ jobs:
           name: "Benchmark"
           command: cond_run_script end-to-end ./scripts/run_tests_local benchmarks/bench_publish_rollup.test.ts
           environment:
-            {
-              DEBUG: "aztec:benchmarks:*,aztec:sequencer,aztec:world_state,aztec:merkle_trees",
-            }
+            DEBUG: "aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees"
+
+  bench-process-history:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Benchmark"
+          command: cond_run_script end-to-end ./scripts/run_tests_local benchmarks/bench_process_history.test.ts
+          environment:
+            DEBUG: "aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees"
 
   build-docs:
     machine:
@@ -991,6 +987,15 @@ jobs:
           name: "Noop"
           command: echo Noop
 
+  canary-end:
+    docker:
+      - image: cimg/base:2023.09
+    resource_class: small
+    steps:
+      - run:
+          name: "Noop"
+          command: echo Noop
+
   bench-summary:
     machine:
       image: ubuntu-2204:2023.07.2
@@ -1000,6 +1005,19 @@ jobs:
       - run:
           name: "Assemble benchmark summary from uploaded logs"
           command: ./scripts/ci/assemble_e2e_benchmark.sh
+
+  deploy-npm-canary:
+    # Deploys next version under 'canary' dist tag.
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: medium
+    steps:
+      - *checkout
+      - *setup_env
+      # Aztec.js and dependencies
+      - run:
+          name: "yarn-project"
+          command: yarn-project/deploy_npm.sh canary
 
   deploy-npm:
     machine:
@@ -1011,7 +1029,29 @@ jobs:
       # Aztec.js and dependencies
       - run:
           name: "yarn-project"
-          command: yarn-project/deploy_npm.sh
+          command: yarn-project/deploy_npm.sh latest
+
+  deploy-dockerhub-canary:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: medium
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Deploy to dockerhub"
+          command: yarn-project/deploy_dockerhub.sh canary
+
+  deploy-ecr:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: medium
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "yarn-project"
+          command: yarn-project/deploy_ecr.sh
 
   deploy-dockerhub:
     machine:
@@ -1024,15 +1064,6 @@ jobs:
           name: "Deploy to dockerhub"
           command: yarn-project/deploy_dockerhub.sh
 
-  deploy-end:
-    docker:
-      - image: cimg/base:2023.09
-    resource_class: small
-    steps:
-      - run:
-          name: "Noop"
-          command: echo Noop
-
   build-deployment-canary:
     machine:
       image: ubuntu-2204:2023.07.2
@@ -1044,7 +1075,7 @@ jobs:
           name: "Build"
           command: build canary true
 
-  run-deployment-canary-uniswap:
+  canary-uniswap-test:
     machine:
       image: ubuntu-2204:2023.07.2
     resource_class: large
@@ -1055,7 +1086,7 @@ jobs:
           name: "Test"
           command: run_script canary ./scripts/run_tests ./src/uniswap_trade_on_l1_from_l2.test.ts canary ./scripts/docker-compose.yml
 
-  run-deployment-canary-browser:
+  canary-browser-test:
     machine:
       image: ubuntu-2204:2023.07.2
     resource_class: large
@@ -1066,7 +1097,7 @@ jobs:
           name: "Test"
           command: run_script canary ./scripts/run_tests ./src/aztec_js_browser.test.ts canary ./scripts/docker-compose-browser.yml
 
-  run-deployment-canary-cli:
+  canary-cli-test:
     machine:
       image: ubuntu-2204:2023.07.2
     resource_class: large
@@ -1233,6 +1264,21 @@ workflows:
             - yarn-project
           <<: *defaults
 
+      - aztec-p2p-bootstrap:
+          requires:
+            - yarn-project
+          <<: *defaults
+
+      - aztec-node:
+          requires:
+            - yarn-project
+          <<: *defaults
+
+      - aztec-faucet:
+          requires:
+            - yarn-project
+          <<: *defaults
+
       - pxe-x86_64:
           requires:
             - yarn-project
@@ -1260,7 +1306,7 @@ workflows:
             - aztec-sandbox-x86_64
           <<: *defaults
 
-      - boxes-private-token:
+      - boxes-token:
           requires:
             - aztec-sandbox-x86_64
           <<: *defaults
@@ -1276,15 +1322,11 @@ workflows:
       - e2e-deploy-contract: *e2e_test
       - e2e-lending-contract: *e2e_test
       - e2e-token-contract: *e2e_test
-      - e2e-private-airdrop: *e2e_test
-      - e2e-private-token-contract: *e2e_test
       - e2e-sandbox-example: *e2e_test
-      - e2e-multi-transfer-contract: *e2e_test
       - e2e-block-building: *e2e_test
       - e2e-nested-contract: *e2e_test
       - e2e-non-contract-account: *e2e_test
       - e2e-multiple-accounts-1-enc-key: *e2e_test
-      - e2e-public-token-contract: *e2e_test
       - e2e-cli: *e2e_test
       - e2e-cross-chain-messaging: *e2e_test
       - e2e-public-cross-chain-messaging: *e2e_test
@@ -1307,6 +1349,7 @@ workflows:
       - guides-sample-dapp: *e2e_test
       - guides-up-quick-start: *e2e_test
       - bench-publish-rollup: *e2e_test
+      - bench-process-history: *e2e_test
 
       - e2e-end:
           requires:
@@ -1314,15 +1357,11 @@ workflows:
             - e2e-deploy-contract
             - e2e-lending-contract
             - e2e-token-contract
-            - e2e-private-airdrop
-            - e2e-private-token-contract
             - e2e-sandbox-example
-            - e2e-multi-transfer-contract
             - e2e-block-building
             - e2e-nested-contract
             - e2e-non-contract-account
             - e2e-multiple-accounts-1-enc-key
-            - e2e-public-token-contract
             - e2e-cli
             - e2e-cross-chain-messaging
             - e2e-public-cross-chain-messaging
@@ -1344,46 +1383,64 @@ workflows:
             - guides-dapp-testing
             - guides-sample-dapp
             - guides-up-quick-start
-            - bench-publish-rollup
           <<: *defaults
 
       - bench-summary:
           requires:
             - e2e-end
+            - bench-publish-rollup
+            - bench-process-history
           <<: *defaults
 
-        # Deployment and Canary tests
-      - deploy-dockerhub:
+        # Deploy under canary tag
+      - deploy-npm-canary:
           requires:
             - e2e-end
           <<: *deploy_defaults
-      - deploy-npm:
+      - deploy-dockerhub-canary:
           requires:
             - e2e-end
           <<: *deploy_defaults
-
-      - deploy-end:
+      - deploy-ecr:
           requires:
-            - deploy-dockerhub
-            - deploy-npm
+            - e2e-end
           <<: *deploy_defaults
 
       - build-deployment-canary:
           requires:
-            - deploy-end
+            - deploy-npm-canary
+            - deploy-dockerhub-canary
           <<: *deploy_defaults
 
-      - run-deployment-canary-uniswap:
+      # Run canary tests
+      - canary-uniswap-test:
           requires:
             - build-deployment-canary
           <<: *deploy_defaults
 
-      - run-deployment-canary-browser:
+      - canary-browser-test:
           requires:
             - build-deployment-canary
           <<: *deploy_defaults
 
-      - run-deployment-canary-cli:
+      - canary-cli-test:
           requires:
             - build-deployment-canary
+          <<: *deploy_defaults
+
+      - canary-end:
+          requires:
+            - canary-uniswap-test
+            - canary-browser-test
+            - canary-cli-test
+          <<: *deploy_defaults
+
+        # Production deployment
+      - deploy-dockerhub:
+          requires:
+            - canary-end
+          <<: *deploy_defaults
+      - deploy-npm:
+          requires:
+            - canary-end
           <<: *deploy_defaults

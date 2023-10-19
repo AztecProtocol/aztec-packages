@@ -101,7 +101,7 @@ yarn-project-base:
 yarn-project:
   buildDir: yarn-project
   rebuildPatterns:
-    - ^yarn-project/.*\\.(ts|js|cjs|mjs|json|html)$
+    - ^yarn-project/.*\.(ts|js|cjs|mjs|json|html|md|sh)$
     - ^yarn-project/Dockerfile
   dependencies:
     - yarn-project-base
@@ -110,6 +110,12 @@ yarn-project:
 aztec-sandbox:
   buildDir: yarn-project
   projectDir: yarn-project/aztec-sandbox
+  dependencies:
+    - yarn-project
+
+aztec-faucet:
+  buildDir: yarn-project
+  projectDir: yarn-project/aztec-faucet
   dependencies:
     - yarn-project
 
@@ -131,9 +137,9 @@ boxes-blank:
   dependencies:
     - aztec-sandbox
 
-boxes-private-token:
+boxes-token:
   buildDir: yarn-project
-  projectDir: yarn-project/boxes/private-token
+  projectDir: yarn-project/boxes/token
   dependencies:
     - aztec-sandbox
 
@@ -153,6 +159,18 @@ canary:
 end-to-end:
   buildDir: yarn-project
   projectDir: yarn-project/end-to-end
+  dependencies:
+    - yarn-project
+
+aztec-node:
+  buildDir: yarn-project
+  projectDir: yarn-project/aztec-node
+  dependencies:
+    - yarn-project
+
+p2p-bootstrap:
+  buildDir: yarn-project
+  projectDir: yarn-project/p2p-bootstrap
   dependencies:
     - yarn-project
 

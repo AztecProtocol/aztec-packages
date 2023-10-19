@@ -170,23 +170,12 @@ UltraProver UltraComposer::create_prover(CircuitBuilder& circuit_constructor)
 
     UltraProver output_state(circuit_proving_key, create_manifest(circuit_constructor.public_inputs.size()));
 
-    std::unique_ptr<ProverPermutationWidget<4, true>> permutation_widget =
-        std::make_unique<ProverPermutationWidget<4, true>>(circuit_proving_key.get());
-
-    std::unique_ptr<ProverPlookupWidget<>> plookup_widget =
-        std::make_unique<ProverPlookupWidget<>>(circuit_proving_key.get());
-
-    std::unique_ptr<ProverPlookupArithmeticWidget<ultra_settings>> arithmetic_widget =
-        std::make_unique<ProverPlookupArithmeticWidget<ultra_settings>>(circuit_proving_key.get());
-
-    std::unique_ptr<ProverGenPermSortWidget<ultra_settings>> sort_widget =
-        std::make_unique<ProverGenPermSortWidget<ultra_settings>>(circuit_proving_key.get());
-
-    std::unique_ptr<ProverEllipticWidget<ultra_settings>> elliptic_widget =
-        std::make_unique<ProverEllipticWidget<ultra_settings>>(circuit_proving_key.get());
-
-    std::unique_ptr<ProverPlookupAuxiliaryWidget<ultra_settings>> auxiliary_widget =
-        std::make_unique<ProverPlookupAuxiliaryWidget<ultra_settings>>(circuit_proving_key.get());
+    auto permutation_widget = std::make_unique<ProverPermutationWidget<4, true>>(circuit_proving_key.get());
+    auto plookup_widget = std::make_unique<ProverPlookupWidget<>>(circuit_proving_key.get());
+    auto arithmetic_widget = std::make_unique<ProverPlookupArithmeticWidget<ultra_settings>>(circuit_proving_key.get());
+    auto sort_widget = std::make_unique<ProverGenPermSortWidget<ultra_settings>>(circuit_proving_key.get());
+    auto elliptic_widget = std::make_unique<ProverEllipticWidget<ultra_settings>>(circuit_proving_key.get());
+    auto auxiliary_widget = std::make_unique<ProverPlookupAuxiliaryWidget<ultra_settings>>(circuit_proving_key.get());
 
     output_state.random_widgets.emplace_back(std::move(permutation_widget));
     output_state.random_widgets.emplace_back(std::move(plookup_widget));
@@ -375,10 +364,11 @@ std::shared_ptr<proving_key> UltraComposer::compute_proving_key(CircuitBuilder& 
 
     const size_t minimum_circuit_size = tables_size + lookups_size;
     const size_t num_randomized_gates = NUM_RESERVED_GATES;
+    auto crs_factory = srs::get_crs_factory();
     // Initialize circuit_proving_key
     // TODO(#392)(Kesha): replace composer types.
     circuit_proving_key = initialize_proving_key(
-        circuit_constructor, crs_factory_.get(), minimum_circuit_size, num_randomized_gates, CircuitType::ULTRA);
+        circuit_constructor, crs_factory.get(), minimum_circuit_size, num_randomized_gates, CircuitType::ULTRA);
 
     construct_selector_polynomials<Flavor>(circuit_constructor, circuit_proving_key.get());
 
@@ -491,10 +481,12 @@ std::shared_ptr<plonk::verification_key> UltraComposer::compute_verification_key
         return circuit_verification_key;
     }
 
+    auto crs_factory = srs::get_crs_factory();
+
     if (!circuit_proving_key) {
         compute_proving_key(circuit_constructor);
     }
-    circuit_verification_key = compute_verification_key_common(circuit_proving_key, crs_factory_->get_verifier_crs());
+    circuit_verification_key = compute_verification_key_common(circuit_proving_key, crs_factory->get_verifier_crs());
 
     circuit_verification_key->circuit_type = CircuitType::ULTRA;
 
