@@ -1000,7 +1000,7 @@ TEST_F(GoblinTranslatorRelationConsistency, NonNativeFieldRelation)
         };
 
         using Relation = GoblinTranslatorNonNativeFieldRelation<FF>;
-        using RelationValues = typename Relation::ArrayOfValuesOverSubrelations;
+        using RelationValues = typename Relation::SumcheckArrayOfValuesOverSubrelations;
 
         const InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
 

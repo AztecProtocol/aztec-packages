@@ -48,6 +48,10 @@ template <typename FF_> class GoblinTranslatorNonNativeFieldRelationImpl {
      *  - 2¹³⁶⋅relation_wide_lower_limb
      *  == 0`
      *
+     * We use 2 relation wide limbs which are called wide, because they contain the results of products (like you needed
+     * EDX:EAX in x86 to hold the product results of two standard 32-bit registers) and because they are constrained to
+     * 84 bits instead of 68 or lower by other relations.
+     *
      * We show that the evaluation in 2 lower limbs results in relation_wide_lower_limb multiplied by 2¹³⁶. If
      * relation_wide_lower_limb is propertly constrained (this is performed in other relations), then that means that
      * the lower 136 bits of the result are 0. This is the first subrelation.
@@ -61,7 +65,14 @@ template <typename FF_> class GoblinTranslatorNonNativeFieldRelationImpl {
      * `previous_accumulator_native =        previous_accumulator[0] + 2⁶⁸ ⋅previous_accumulator[1]
      *                                + 2¹³⁶⋅previous_accumulator[2] + 2²⁰⁴⋅previous accumulator[3] mod r`
      *
-     * Then the last subrelation is simply checking the integer equation in this native form.g
+     * Then the last subrelation is simply checking the integer equation in this native form
+     *
+     * All of these subrelations are multiplied by lagrange_odd, which is a polynomial with 1 at each odd index less
+     * than the size of the mini-circuit (16 times smaller than the final circuit and the only part over which we need
+     * to calculate non-permutation relations). All other indices are set to zero. Each EccOpQueue entry (operation)
+     * occupies 2 rows in bn254 transcripts. So the Goblin Translator VM has a 2-row cycle and we need to switch the
+     * checks being performed depending on which row we are at right now. We have half a cycle of accumulation,
+     * where we perform this computation, and half a cycle where we just copy accumulator data.
      *
      * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
      * @param in an std::array containing the fully extended Univariate edges.
