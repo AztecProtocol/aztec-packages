@@ -87,26 +87,28 @@ aztec-contracts
 
 # Create a JS hardhat project
 
-In the root dir `aztec-token-bridge`, create a new directory called `l1-contracts` and run `npx hardhat init` inside of it. Keep hitting enter so you get the default setup (Javascript project)
+In the root dir `aztec-token-bridge`, create a new directory called `l1-contracts` and run `yarn init -yp &&
+npx hardhat init` inside of it. Keep hitting enter so you get the default setup (Javascript project)
 
 ```bash
 mkdir l1-contracts
 cd l1-contracts
+yarn init -yp
 npx hardhat init
 ```
 
-Once you have a hardhat project set up, delete the existing contracts and create a `TokenPortal.sol`:
+Once you have a hardhat project set up, delete the existing contracts, tests, and scripts, and create a `TokenPortal.sol`:
 
 ```bash
-cd contracts
-rm *.sol
+rm -rf contracts test scripts
+mkdir contracts && cd contracts
 touch TokenPortal.sol
 ```
 
 Now add dependencies that are required. These include interfaces to Aztec Inbox, Outbox and Registry smart contracts, OpenZeppelin contracts, and NomicFoundation.
 
 ```bash
-yarn add @aztec/l1-contracts @nomicfoundation/hardhat-network-helpers @nomicfoundation/hardhat-chai-matchers @nomiclabs/hardhat-ethers @nomiclabs/hardhat-etherscan @types/chai @types/mocha @typechain/ethers-v5 @typechain/hardhat chai hardhat-gas-reporter solidity-coverage ts-node typechain typescript @openzeppelin/contracts
+yarn add @aztec/foundation @aztec/l1-contracts @openzeppelin/contracts && yarn add @nomicfoundation/hardhat-network-helpers @nomicfoundation/hardhat-chai-matchers @nomiclabs/hardhat-ethers @nomiclabs/hardhat-etherscan @types/chai @types/mocha @typechain/ethers-v5 @typechain/hardhat chai hardhat-gas-reporter solidity-coverage ts-node typechain typescript --dev
 
 ```
 

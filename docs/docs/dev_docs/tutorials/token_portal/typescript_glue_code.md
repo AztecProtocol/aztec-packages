@@ -165,7 +165,7 @@ This fetches the wallets from the sandbox and deploys our cross chain harness on
 
 ```bash
 cd packages/src
-yarn test
+DEBUG='aztec:canary_uniswap' yarn test
 ```
 
 ### Error handling
