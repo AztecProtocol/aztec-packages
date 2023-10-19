@@ -9,16 +9,34 @@ template <typename C>
 field_t<C> pedersen_hash<C>::hash(const std::vector<field_t>& inputs, const GeneratorContext context)
 {
     using cycle_scalar = typename cycle_group::cycle_scalar;
-    using Curve = EmbeddedCurve;
+    // using Curve = EmbeddedCurve;
 
-    const auto base_points = context.generators->get(inputs.size(), context.offset, context.domain_separator);
+    // const auto base_points = context.generators->get(inputs.size(), context.offset, context.domain_separator);
+
+    // std::vector<cycle_scalar> scalars;
+    // std::vector<cycle_group> points;
+    // scalars.emplace_back(cycle_scalar::create_from_bn254_scalar(field_t(inputs.size())));
+    // points.emplace_back(crypto::pedersen_hash_base<Curve>::length_generator);
+    // for (size_t i = 0; i < inputs.size(); ++i) {
+    //     scalars.emplace_back(cycle_scalar::create_from_bn254_scalar(inputs[i]));
+    //     // constructs constant cycle_group objects (non-witness)
+    //     points.emplace_back(base_points[i]);
+    // }
+
+    // auto result = cycle_group::batch_mul(scalars, points);
+    // return result.x;
+    //
+    // We add +1 because we want to also add the length as an input for the
+    // hash.
+    std::vector<field_t> modified_inputs = inputs;
+    modified_inputs.insert(modified_inputs.begin(), field_t(inputs.size()));
+    const auto base_points = context.generators->get(modified_inputs.size(), context.offset, context.domain_separator);
 
     std::vector<cycle_scalar> scalars;
     std::vector<cycle_group> points;
-    scalars.emplace_back(cycle_scalar::create_from_bn254_scalar(field_t(inputs.size())));
-    points.emplace_back(crypto::pedersen_hash_base<Curve>::length_generator);
-    for (size_t i = 0; i < inputs.size(); ++i) {
-        scalars.emplace_back(cycle_scalar::create_from_bn254_scalar(inputs[i]));
+
+    for (size_t i = 0; i < modified_inputs.size(); ++i) {
+        scalars.emplace_back(cycle_scalar::create_from_bn254_scalar(modified_inputs[i]));
         // constructs constant cycle_group objects (non-witness)
         points.emplace_back(base_points[i]);
     }
@@ -32,17 +50,35 @@ field_t<C> pedersen_hash<C>::hash_skip_field_validation(const std::vector<field_
                                                         const GeneratorContext context)
 {
     using cycle_scalar = typename cycle_group::cycle_scalar;
-    using Curve = EmbeddedCurve;
+    // using Curve = EmbeddedCurve;
 
-    const auto base_points = context.generators->get(inputs.size(), context.offset, context.domain_separator);
+    // const auto base_points = context.generators->get(inputs.size(), context.offset, context.domain_separator);
+
+    // std::vector<cycle_scalar> scalars;
+    // std::vector<cycle_group> points;
+    // scalars.emplace_back(cycle_scalar::create_from_bn254_scalar(field_t(inputs.size())));
+    // points.emplace_back(crypto::pedersen_hash_base<Curve>::length_generator);
+    // for (size_t i = 0; i < inputs.size(); ++i) {
+    //     // `true` param = skip primality test when performing a scalar mul
+    //     scalars.emplace_back(cycle_scalar::create_from_bn254_scalar(inputs[i], true));
+    //     // constructs constant cycle_group objects (non-witness)
+    //     points.emplace_back(base_points[i]);
+    // }
+
+    // auto result = cycle_group::batch_mul(scalars, points);
+    // return result.x;
+    //
+    // Same reason as above, for adding +1
+    std::vector<field_t> modified_inputs = inputs;
+    modified_inputs.insert(modified_inputs.begin(), field_t(inputs.size()));
+    const auto base_points = context.generators->get(modified_inputs.size(), context.offset, context.domain_separator);
 
     std::vector<cycle_scalar> scalars;
     std::vector<cycle_group> points;
-    scalars.emplace_back(cycle_scalar::create_from_bn254_scalar(field_t(inputs.size())));
-    points.emplace_back(crypto::pedersen_hash_base<Curve>::length_generator);
-    for (size_t i = 0; i < inputs.size(); ++i) {
+
+    for (size_t i = 0; i < modified_inputs.size(); ++i) {
         // `true` param = skip primality test when performing a scalar mul
-        scalars.emplace_back(cycle_scalar::create_from_bn254_scalar(inputs[i], true));
+        scalars.emplace_back(cycle_scalar::create_from_bn254_scalar(modified_inputs[i], true));
         // constructs constant cycle_group objects (non-witness)
         points.emplace_back(base_points[i]);
     }
@@ -96,10 +132,25 @@ field_t<C> pedersen_hash<C>::hash(const std::vector<std::pair<field_t, Generator
 
     using cycle_scalar = typename cycle_group::cycle_scalar;
 
+    // std::vector<cycle_scalar> scalars;
+    // std::vector<cycle_group> points;
+
+    // scalars.emplace_back(cycle_scalar::create_from_bn254_scalar(field_t(input_pairs.size())));
+    // points.emplace_back(crypto::pedersen_hash_base<EmbeddedCurve>::length_generator);
+    // for (auto& [scalar, context] : input_pairs) {
+    //     scalars.emplace_back(cycle_scalar::create_from_bn254_scalar(scalar));
+    //     // constructs constant cycle_group objects (non-witness)
+    //     points.emplace_back(context.generators->get(1, context.offset, context.domain_separator)[0]);
+    // }
+
+    // return cycle_group::batch_mul(scalars, points).x;
+    //
+    //
     std::vector<cycle_scalar> scalars;
     std::vector<cycle_group> points;
+
     scalars.emplace_back(cycle_scalar::create_from_bn254_scalar(field_t(input_pairs.size())));
-    points.emplace_back(crypto::pedersen_hash_base<EmbeddedCurve>::length_generator);
+    points.emplace_back(input_pairs[0].second.generators->get(1, 0, input_pairs[0].second.domain_separator)[0]);
     for (auto& [scalar, context] : input_pairs) {
         scalars.emplace_back(cycle_scalar::create_from_bn254_scalar(scalar));
         // constructs constant cycle_group objects (non-witness)
