@@ -403,7 +403,7 @@ TEST_F(SumcheckTests, RealCircuitUltra)
 
     auto prover_output = sumcheck_prover.prove(instance->prover_polynomials, instance->relation_parameters);
 
-    auto verifier_transcript = BaseTranscript<FF>::prover_init_empty(prover_transcript);
+    auto verifier_transcript = BaseTranscript<FF>::verifier_init_empty(prover_transcript);
 
     auto sumcheck_verifier = SumcheckVerifier<Flavor>(circuit_size);
 
