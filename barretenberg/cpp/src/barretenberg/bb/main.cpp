@@ -79,6 +79,8 @@ bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessP
     Timer pk_timer;
     acir_composer.init_proving_key(constraint_system);
     write_benchmark("pk_construction_time", pk_timer.milliseconds(), "acir_test", current_dir);
+    write_benchmark("gate_count", acir_composer.get_total_circuit_size(), "acir_test", current_dir);
+    write_benchmark("subgroup_size", acir_composer.get_circuit_subgroup_size(), "acir_test", current_dir);
 
     Timer proof_timer;
     auto proof = acir_composer.create_proof(constraint_system, witness, recursive);

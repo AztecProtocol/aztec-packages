@@ -17,7 +17,11 @@ done
 # Build results into string with \n delimited rows and space delimited values.
 TABLE_DATA=""
 for TEST in ${TEST_NAMES[@]}; do
-    TABLE_DATA+="$TEST"
+    GATE_COUNT=$(jq -r --arg test "$TEST" 'select(.name == "gate_count" and .acir_test == $test) | .value' $BENCHMARKS | uniq)
+    SUBGROUP_SIZE=$(jq -r --arg test "$TEST" 'select(.name == "subgroup_size" and .acir_test == $test) | .value' $BENCHMARKS | uniq)
+    # Name in col 1, gate count in col 2, subgroup size in col 3.
+    TABLE_DATA+="$TEST $GATE_COUNT $SUBGROUP_SIZE"
+    # Each thread timing in subsequent cols.
     for HC in "${THREADS[@]}"; do
         RESULT=$(cat $BENCHMARKS | jq -r --arg test "$TEST" --argjson hc $HC 'select(.name == "proof_construction_time" and .acir_test == $test and .threads == $hc) | .value')
         TABLE_DATA+=" $RESULT"
@@ -36,19 +40,19 @@ echo
 echo -e "$TABLE_DATA" | awk -v threads="${THREADS[*]}" 'BEGIN {
     split(threads, t, " ");
     len_threads = length(t);
-    print "+--------------------------+" genseparator(len_threads);
-    print "| Test                     |" genthreadheaders(t, len_threads);
-    print "+--------------------------+" genseparator(len_threads);
+    print "+--------------------------+------------+---------------+" genseparator(len_threads);
+    print "| Test                     | Gate Count | Subgroup Size |" genthreadheaders(t, len_threads);
+    print "+--------------------------+------------+---------------+" genseparator(len_threads);
 }
 {
-    printf("| %-24s |", $1);
-    for (i = 2; i <= len_threads+1; i++) {
+    printf("| %-24s | %-10s | %-13s |", $1, $2, $3);
+    for (i = 4; i <= len_threads+3; i++) {
         printf " %9s |", $(i);
     }
     print "";
 }
 END {
-    print "+--------------------------+" genseparator(len_threads);
+    print "+--------------------------+------------+---------------+" genseparator(len_threads);
 }
 function genseparator(len,   res) {
     for (i = 1; i <= len; i++) res = res "-----------+";
