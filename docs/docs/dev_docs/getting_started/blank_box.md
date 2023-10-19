@@ -124,6 +124,6 @@ You can modify the source contracts and regenerate the artifacts by running
 yarn compile
 ```
 
-This will generate a [contract artifact](src/artifacts/test_contract.json) and TypeScript class for the [Aztec smart contract](src/contracts/main.nr), which the frontend uses to generate the UI.
+This will generate a [contract artifact](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/boxes/blank/src/artifacts/Blank.json) and TypeScript class for the [Aztec smart contract](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/boxes/blank/src/contracts/src/main.nr), which the frontend uses to generate the UI.
 
 After compiling, you can re-deploy the updated noir smart contract from the web UI. The function interaction forms are generated from parsing the contract artifact, so they should update automatically after you recompile.
