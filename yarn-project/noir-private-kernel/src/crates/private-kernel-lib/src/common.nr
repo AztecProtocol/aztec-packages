@@ -184,6 +184,8 @@ pub fn update_end_values(private_call : PrivateCallData, public_inputs : &mut Ke
         let read_request = read_requests[i];
         let witness = read_request_membership_witnesses[i];
         if witness.is_transient & (read_request != 0) {  // only forward transient to public inputs
+            // TODO (David): CPP is pushing zeroed read requests for public inputs if they are transient.
+            // Does this work because an empty read request witness has false to transient by default?
             siloed_read_requests.push(silo_commitment(storage_contract_address, read_request))
         }
     }
