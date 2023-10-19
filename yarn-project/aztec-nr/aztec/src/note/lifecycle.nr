@@ -9,14 +9,20 @@ use crate::note::{
     note_interface::NoteInterface,
     utils::compute_inner_note_hash,
 };
-use crate::oracle::notes::{notify_created_note, notify_nullified_note};
+use crate::oracle::{
+    notes::{notify_created_note, notify_nullified_note},
+    get_public_key::get_public_key,
+};
 use crate::constants_gen::EMPTY_NULLIFIED_COMMITMENT;
+use crate::log::emit_encrypted_log;
 
 pub fn create_note<Note, N>(
     context: &mut PrivateContext,
     storage_slot: Field,
     note: &mut Note,
     note_interface: NoteInterface<Note, N>,
+    owner: Field, // TODO(benesjan): add owner() to NoteInterface and remove this arg?
+    broadcast: bool,
 ) {
     let contract_address = (*context).this_address();
 
@@ -30,6 +36,19 @@ pub fn create_note<Note, N>(
     assert(notify_created_note(storage_slot, preimage, inner_note_hash) == 0);
 
     context.push_new_note_hash(inner_note_hash);
+
+    let serialize = note_interface.serialize;
+
+    if broadcast {
+        let owner_key = get_public_key(owner);
+        emit_encrypted_log(
+            context,
+            (*context).this_address(),
+            storage_slot,
+            owner_key,
+            serialize(*note),
+        );
+    }
 }
 
 pub fn create_note_hash_from_public<Note, N>(
@@ -65,7 +84,7 @@ pub fn destroy_note<Note, N>(
     // the nullifier corresponds to so they can be matched and both squashed/deleted.
     // nonzero nonce implies "persistable" nullifier (nullifies a persistent/in-tree
     // commitment) in which case `nullified_commitment` is not used since the kernel
-    // just siloes and forwards the nullier to its output.
+    // just siloes and forwards the nullifier to its output.
     if (header.is_transient) {
         // TODO(1718): Can we reuse the note commitment computed in `compute_nullifier`?
         nullified_commitment = compute_inner_note_hash(note_interface, note);

@@ -63,7 +63,13 @@ impl<Note, N> Singleton<Note, N> {
     // docs:end:is_initialized
 
     // docs:start:initialize
-    pub fn initialize(self, note: &mut Note, owner: Option<Field>) {
+    pub fn initialize(
+        self,
+        note: &mut Note,
+        owner: Option<Field>,
+        owner2: Field, // TODO(benesjan): add owner() to NoteInterface and remove this arg?
+        broadcast: bool,
+    ) {
         let context = self.context.unwrap();
 
         // Nullify the storage slot.
@@ -71,12 +77,17 @@ impl<Note, N> Singleton<Note, N> {
         let nullifier = compute_initialization_nullifier(self.storage_slot, owner);
         context.push_new_nullifier(nullifier, EMPTY_NULLIFIED_COMMITMENT);
 
-        create_note(context, self.storage_slot, note, self.note_interface);
+        create_note(context, self.storage_slot, note, self.note_interface, owner2, broadcast);
     }
     // docs:end:initialize
 
     // docs:start:replace
-    pub fn replace(self, new_note: &mut Note) {
+    pub fn replace(
+        self,
+        new_note: &mut Note,
+        owner: Field, // TODO(benesjan): add owner() to NoteInterface and remove this arg?
+        broadcast: bool,
+    ) {
         let context = self.context.unwrap();
         let prev_note = get_note(context, self.storage_slot, self.note_interface);
 
@@ -84,7 +95,7 @@ impl<Note, N> Singleton<Note, N> {
         destroy_note(context, prev_note, self.note_interface);
 
         // Add replacement note.
-        create_note(context, self.storage_slot, new_note, self.note_interface);
+        create_note(context, self.storage_slot, new_note, self.note_interface, owner, broadcast);
     }
     // docs:end:replace
 
@@ -98,7 +109,8 @@ impl<Note, N> Singleton<Note, N> {
 
         // Add the same note again.
         // Because a nonce is added to every note in the kernel, its nullifier will be different.
-        create_note(context, self.storage_slot, &mut note, self.note_interface);
+        // TODO(benesjan): add owner() to NoteInterface and remove the 0? Note: why don't we need to emit 
+        create_note(context, self.storage_slot, &mut note, self.note_interface, 0, false);
 
         note
     }

@@ -37,12 +37,18 @@ impl<Note, N> Set<Note, N> {
     // docs:end:new
 
     // docs:start:insert
-    pub fn insert(self, note: &mut Note) {
+    pub fn insert(self,
+        note: &mut Note,
+        owner: Field, // TODO(benesjan): add owner() to NoteInterface and remove this arg?
+        broadcast: bool,
+    ) {
         create_note(
             self.context.private.unwrap(),
             self.storage_slot,
             note,
             self.note_interface,
+            owner,
+            broadcast,
         );
     }
     // docs:end:insert

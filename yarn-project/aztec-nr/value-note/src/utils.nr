@@ -88,7 +88,7 @@ pub fn create_note(
     note: &mut ValueNote,
 ) {
     // Insert the new note to the owner's set of notes.
-    balance.insert(note);
+    balance.insert(note, owner, false);
 
     // Remove this if statement if we can wrap this create_note function in an if statement.
     if note.value != 0 {
