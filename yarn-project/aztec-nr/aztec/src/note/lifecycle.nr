@@ -41,7 +41,7 @@ pub fn create_note<Note, N>(
     if broadcast {
         let get_owner = note_interface.get_owner;
         let maybe_owner = get_owner(*note);
-        assert(maybe_owner.is_some(), "Note owner is must be set when broadcast flow is triggered.");
+        assert(maybe_owner.is_some(), "Note owner must be set when the broadcast flow is triggered.");
 
         let owner = maybe_owner.unwrap_unchecked();
         let owner_key = get_public_key(owner);
