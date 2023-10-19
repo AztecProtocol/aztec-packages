@@ -245,7 +245,7 @@ const sidebars = {
           ],
         },
         {
-          label: "Build a Uniswap Integration with Portals",
+          label: "Swap on L1 Uniswap from L2 with Portals",
           type: "category",
           link: {
             type: "doc",
