@@ -6,7 +6,7 @@ In this step we will write a Typescript test to interact with the sandbox and ca
 
 Go to the `src/test` directory in your root dir and create a new file called `cross_chain_messaging.test.ts`:
 
-```sh
+```bash
 cd src/test
 touch cross_chain_messaging.test.ts
 ```
@@ -60,11 +60,11 @@ const [PortalERC20Abi, PortalERC20Bytecode] =
 const [TokenPortalAbi, TokenPortalBytecode] =
   getL1ContractABIAndBytecode("TokenPortal");
 
-#include_code deployL1Contract /yarn-project/ethereum/src/deploy_l1_contracts.ts typescript raw
+#include_code deployL1Contract /yarn-project/ethereum/src/deploy_l1_contracts.ts raw
 
-#include_code deployAndInitializeTokenAndBridgeContracts /yarn-project/end-to-end/src/shared/cross_chain_test_harness.ts typescript raw
+#include_code deployAndInitializeTokenAndBridgeContracts /yarn-project/end-to-end/src/shared/cross_chain_test_harness.ts raw
 
-#include_code delay /yarn-project/end-to-end/src/fixtures/utils.ts typescript raw
+#include_code delay /yarn-project/end-to-end/src/fixtures/utils.ts raw
 ```
 
 This code

@@ -21,13 +21,13 @@ However if you’d rather skip this part, our dev-rels repo contains the starter
 - [docker](https://docs.docker.com/)
 - [Aztec sandbox](https://docs.aztec.network/dev_docs/getting_started/sandbox) - you should have this running before starting the tutorial
 
-```sh
+```bash
 /bin/sh -c "$(curl -fsSL 'https://sandbox.aztec.network')"
 ```
 
 - Nargo
 
-```sh
+```bash
 curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | sh
 noirup -v #include_noir_version
 ```
@@ -36,7 +36,7 @@ noirup -v #include_noir_version
 
 Our root project will house everything ✨
 
-```sh
+```bash
 mkdir aztec-token-bridge
 ```
 
@@ -46,7 +46,7 @@ Now inside `aztec-token-bridge` create a new directory called `aztec-contracts`
 
 Inside `aztec-contracts`, create a nargo contract project by running
 
-```sh
+```bash
 mkdir aztec-contracts
 cd aztec-contracts
 nargo new --contract token_bridge
@@ -89,7 +89,7 @@ aztec-contracts
 
 In the root dir `aztec-token-bridge`, create a new directory called `l1-contracts` and run `npx hardhat init` inside of it. Keep hitting enter so you get the default setup (Javascript project)
 
-```sh
+```bash
 mkdir l1-contracts
 cd l1-contracts
 npx hardhat init
@@ -97,7 +97,7 @@ npx hardhat init
 
 Once you have a hardhat project set up, delete the existing contracts and create a `TokenPortal.sol`:
 
-```sh
+```bash
 cd contracts
 rm *.sol
 touch TokenPortal.sol
@@ -105,7 +105,7 @@ touch TokenPortal.sol
 
 Now add dependencies that are required. These include interfaces to Aztec Inbox, Outbox and Registry smart contracts, OpenZeppelin contracts, and NomicFoundation.
 
-```sh
+```bash
 yarn add @aztec/l1-contracts @nomicfoundation/hardhat-network-helpers @nomicfoundation/hardhat-chai-matchers @nomiclabs/hardhat-ethers @nomiclabs/hardhat-etherscan @types/chai @types/mocha @typechain/ethers-v5 @typechain/hardhat chai hardhat-gas-reporter solidity-coverage ts-node typechain typescript @openzeppelin/contracts
 
 ```
@@ -136,7 +136,7 @@ We will use `viem` in this tutorial and `jest` for testing.
 
 Inside the root directory, run
 
-```sh
+```bash
 mkdir src && cd src && yarn init -yp
 yarn add @aztec/aztec.js @aztec/noir-contracts @aztec/types @aztec/foundation @aztec/l1-artifacts viem "@types/node@^20.8.2"
 yarn add -D jest @jest/globals ts-jest
@@ -236,13 +236,13 @@ Then create a jest config file: `jest.config.json`
 
 You will also need to install some dependencies:
 
-```sh
+```bash
 yarn add --dev typescript @types/jest ts-jest
 ```
 
 Finally, we will create a test file. Run this in the `src` directory.:
 
-```sh
+```bash
 mkdir test && cd test
 touch cross_chain_messaging.test.ts
 ```
