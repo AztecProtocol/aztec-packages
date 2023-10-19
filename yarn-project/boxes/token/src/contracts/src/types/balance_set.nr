@@ -4,7 +4,6 @@ use dep::aztec::{
   context::Context,
   constants_gen::MAX_READ_REQUESTS_PER_CALL,
   state_vars::set::Set,
-  log::emit_encrypted_log,
   types::address::AztecAddress,
 };
 use dep::aztec::note::{
