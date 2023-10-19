@@ -3,6 +3,7 @@ use dep::aztec::note::{
     note_interface::NoteInterface,
     utils::compute_note_hash_for_read_or_nullify,
 };
+use dep::aztec::hash::pedersen_hash;
 use dep::aztec::oracle::{
     rand::rand,
     get_secret_key::get_secret_key,
@@ -46,11 +47,11 @@ impl ValueNote {
 
     pub fn compute_note_hash(self) -> Field {
         // TODO(#1205) Should use a non-zero generator index.
-        dep::std::hash::pedersen([
+        pedersen_hash([
             self.value, 
             self.owner,
             self.randomness,
-        ])[0]
+        ],0)
     }
 
     // docs:start:nullifier
@@ -59,11 +60,11 @@ impl ValueNote {
         let note_hash_for_nullify = compute_note_hash_for_read_or_nullify(ValueNoteMethods, self);
         let secret = get_secret_key(self.owner);
         // TODO(#1205) Should use a non-zero generator index.
-        dep::std::hash::pedersen([
+        pedersen_hash([
             note_hash_for_nullify,
             secret.low,
             secret.high,
-        ])[0]
+        ],0)
     }
 
     // docs:end:nullifier

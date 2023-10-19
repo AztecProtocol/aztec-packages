@@ -2,6 +2,7 @@ use dep::aztec::note::{
     note_header::NoteHeader,
     note_interface::NoteInterface,
 };
+use dep::aztec::hash::pedersen_hash;
 
 global RULES_NOTE_LEN: Field = 2;
 
@@ -33,10 +34,10 @@ impl RulesNote {
     }
 
     pub fn compute_note_hash(self) -> Field {
-        dep::std::hash::pedersen([
+        pedersen_hash([
             self.min_points as Field, 
             self.max_points as Field, 
-        ])[0]
+        ],0)
     }
 
     pub fn compute_nullifier(_self: Self) -> Field {

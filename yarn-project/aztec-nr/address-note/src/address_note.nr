@@ -2,7 +2,8 @@ use dep::aztec::note::note_interface::NoteInterface;
 use dep::aztec::note::note_header::NoteHeader;
 use dep::aztec::note::utils::compute_siloed_note_hash;
 use dep::aztec::oracle::get_secret_key::get_secret_key;
-
+use dep::aztec::hash::pedersen_hash;
+use dep::aztec::oracle::debug_log::debug_log_field;
 global ADDRESS_NOTE_LEN: Field = 2;
 
 // Stores an address
@@ -29,11 +30,11 @@ impl AddressNote {
         let siloed_note_hash = compute_siloed_note_hash(AddressNoteMethods, self);
         let secret = get_secret_key(self.owner);
         // TODO(#1205) Should use a non-zero generator index.
-        dep::std::hash::pedersen([
+        pedersen_hash([
             siloed_note_hash,
             secret.low,
             secret.high,
-        ])[0]
+        ],0)
     }
 
     pub fn set_header(&mut self, header: NoteHeader) {
@@ -55,7 +56,7 @@ fn serialize(note: AddressNote) -> [Field; ADDRESS_NOTE_LEN]{
 
 fn compute_note_hash(note: AddressNote) -> Field {
     // TODO(#1205) Should use a non-zero generator index.
-    dep::std::hash::pedersen(note.serialize())[0]
+    pedersen_hash(note.serialize(),0)
 }
 
 fn compute_nullifier(note: AddressNote) -> Field {

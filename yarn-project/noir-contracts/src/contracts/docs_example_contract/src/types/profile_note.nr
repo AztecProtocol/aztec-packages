@@ -2,6 +2,7 @@ use dep::aztec::note::{
     note_header::NoteHeader,
     note_interface::NoteInterface,
 };
+use dep::aztec::hash::pedersen_hash;
 
 global PROFILE_NOTE_LEN: Field = 2;
 
@@ -33,10 +34,10 @@ impl ProfileNote {
     }
 
     pub fn compute_note_hash(self) -> Field {
-        dep::std::hash::pedersen([
+        pedersen_hash([
             self.avatar, 
             self.xp,
-        ])[0]
+        ],0)
     }
 
     pub fn compute_nullifier(_self: Self) -> Field {

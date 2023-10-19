@@ -1,4 +1,3 @@
-use dep::std::hash::pedersen;
 use crate::hash::pedersen_hash;
 use crate::constants_gen::{GENERATOR_INDEX__UNIQUE_COMMITMENT, GENERATOR_INDEX__SILOED_COMMITMENT};
 
