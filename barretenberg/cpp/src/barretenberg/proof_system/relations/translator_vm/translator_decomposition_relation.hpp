@@ -1,6 +1,6 @@
 #pragma once
 #include "barretenberg/numeric/uint256/uint256.hpp"
-#include "relation_types.hpp"
+#include "barretenberg/proof_system/relations/relation_types.hpp"
 
 namespace proof_system {
 
