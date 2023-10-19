@@ -434,6 +434,40 @@ class Ultra {
         std::vector<FF> gemini_a_evals;
         Commitment shplonk_q_comm;
         Commitment kzg_w_comm;
+
+        void deserialize() override
+        {
+            // take current proof and put them into the struct
+            size_t num_bytes_read = 0;
+            circuit_size = serialize_object<uint32_t>(proof_data, num_bytes_read);
+            size_t log_n = numeric::get_msb(circuit_size);
+
+            public_input_size = serialize_object<uint32_t>(proof_data, num_bytes_read);
+            pub_inputs_offset = serialize_object<uint32_t>(proof_data, num_bytes_read);
+            for (size_t i = 0; i < public_input_size; ++i) {
+                public_inputs.push_back(serialize_object<FF>(proof_data, num_bytes_read));
+            }
+            w_l_comm = serialize_object<Commitment>(proof_data, num_bytes_read);
+            w_r_comm = serialize_object<Commitment>(proof_data, num_bytes_read);
+            w_o_comm = serialize_object<Commitment>(proof_data, num_bytes_read);
+            sorted_accum_comm = serialize_object<Commitment>(proof_data, num_bytes_read);
+            w_4_comm = serialize_object<Commitment>(proof_data, num_bytes_read);
+            z_perm_comm = serialize_object<Commitment>(proof_data, num_bytes_read);
+            z_lookup_comm = serialize_object<Commitment>(proof_data, num_bytes_read);
+            for (size_t i = 0; i < log_n; ++i) {
+                sumcheck_univariates.push_back(
+                    serialize_object<barretenberg::Univariate<FF, MAX_RELATION_LENGTH>>(proof_data, num_bytes_read));
+            }
+            sumcheck_evaluations = serialize_object<std::array<FF, NUM_ALL_ENTITIES>>(proof_data, num_bytes_read);
+            for (size_t i = 0; i < log_n; ++i) {
+                gemini_univariate_comms.push_back(serialize_object<Commitment>(proof_data, num_bytes_read));
+            }
+            for (size_t i = 0; i < log_n; ++i) {
+                gemini_a_evals.push_back(serialize_object<FF>(proof_data, num_bytes_read));
+            }
+            shplonk_q_comm = serialize_object<Commitment>(proof_data, num_bytes_read);
+            kzg_w_comm = serialize_object<Commitment>(proof_data, num_bytes_read);
+        }
     };
 };
 

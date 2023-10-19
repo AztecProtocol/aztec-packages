@@ -149,6 +149,19 @@ template <typename FF> class BaseTranscript {
         current_round_data.insert(current_round_data.end(), element_bytes.begin(), element_bytes.end());
     }
 
+    template <typename T> T serialize_object(const std::vector<uint8_t>& proof_data, size_t& offset) const
+    {
+        constexpr size_t element_size = sizeof(T);
+        ASSERT(offset + element_size <= proof_data.size());
+
+        auto element_bytes = std::span{ proof_data }.subspan(offset, element_size);
+        offset += element_size;
+
+        T element = from_buffer<T>(element_bytes);
+
+        return element;
+    }
+
   public:
     // Contains the raw data sent by the prover.
     std::vector<uint8_t> proof_data;
@@ -272,6 +285,10 @@ template <typename FF> class BaseTranscript {
     [[nodiscard]] TranscriptManifest get_manifest() const { return manifest; };
 
     void print() { manifest.print(); }
+
+    virtual void deserialize() { throw_or_abort("Cannot deserialize transcript"); }
+
+    virtual void serialize() { throw_or_abort("Cannot serialize transcript"); }
 };
 
 // template <typename FF> class BaseTranscript : public BaseTranscript<FF> {
