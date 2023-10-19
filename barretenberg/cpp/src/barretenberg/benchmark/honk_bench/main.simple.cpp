@@ -46,7 +46,7 @@ template <typename Builder> void generate_sha256_test_circuit(Builder& builder, 
 BBERG_INSTRUMENT BBERG_NOINLINE void sumcheck_profiling(honk::UltraProver& ext_prover)
 {
     ext_prover.construct_proof();
-    for (size_t i = 0; i < 1000; i++) {
+    for (size_t i = 0; i < 10000; i++) {
         // Bench sumcheck
         ext_prover.execute_relation_check_rounds();
     }
