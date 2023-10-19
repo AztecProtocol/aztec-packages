@@ -23,13 +23,13 @@
       "path": "../aztec.js"
     },
     {
-      "path": "../circuits.js"
-    },
-    {
       "path": "../cli"
     },
     {
       "path": "../end-to-end"
+    },
+    {
+      "path": "../ethereum"
     },
     {
       "path": "../l1-artifacts"
