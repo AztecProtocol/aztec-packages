@@ -15,6 +15,7 @@
     "formatting": "prettier --check ./src && eslint ./src",
     "formatting:fix": "prettier -w ./src",
     "compile": "aztec-cli compile src/contracts --outdir ../artifacts --typescript ../artifacts",
+    "compile:local": "ts-node --esm ../../cli/src/bin/index.ts compile \"src/contracts\" --outdir \"../artifacts\" --typescript \"../artifacts\"",
     "test:integration": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --runInBand"
   },
   "jest": {
@@ -37,11 +38,12 @@
     "@aztec/aztec-ui": "^0.1.14",
     "@aztec/aztec.js": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
-    "@aztec/cli": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "serve": "^14.2.1"
   },
   "devDependencies": {
+    "@types/jest": "^29.5.0",
+    "@types/mocha": "^10.0.3",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
     "copy-webpack-plugin": "^11.0.0",

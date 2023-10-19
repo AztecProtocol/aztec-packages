@@ -33,11 +33,6 @@ export interface ArchiverConfig {
   viemPollingIntervalMS?: number;
 
   /**
-   * Eth block from which we start scanning for L2Blocks.
-   */
-  searchStartBlock: number;
-
-  /**
    * The deployed L1 contract addresses
    */
   l1Contracts: L1ContractAddresses;
@@ -46,6 +41,9 @@ export interface ArchiverConfig {
    * Optional dir to store data. If omitted will store in memory.
    */
   dataDirectory?: string;
+
+  /** The max number of logs that can be obtained in 1 "getUnencryptedLogs" call. */
+  maxLogs?: number;
 }
 
 /**
@@ -60,9 +58,9 @@ export function getConfigEnvVars(): ArchiverConfig {
     ARCHIVER_VIEM_POLLING_INTERVAL_MS,
     ROLLUP_CONTRACT_ADDRESS,
     CONTRACT_DEPLOYMENT_EMITTER_ADDRESS,
-    SEARCH_START_BLOCK,
     API_KEY,
     INBOX_CONTRACT_ADDRESS,
+    OUTBOX_CONTRACT_ADDRESS,
     REGISTRY_CONTRACT_ADDRESS,
     DATA_DIRECTORY,
   } = process.env;
@@ -71,7 +69,7 @@ export function getConfigEnvVars(): ArchiverConfig {
     rollupAddress: ROLLUP_CONTRACT_ADDRESS ? EthAddress.fromString(ROLLUP_CONTRACT_ADDRESS) : EthAddress.ZERO,
     registryAddress: REGISTRY_CONTRACT_ADDRESS ? EthAddress.fromString(REGISTRY_CONTRACT_ADDRESS) : EthAddress.ZERO,
     inboxAddress: INBOX_CONTRACT_ADDRESS ? EthAddress.fromString(INBOX_CONTRACT_ADDRESS) : EthAddress.ZERO,
-    outboxAddress: EthAddress.ZERO,
+    outboxAddress: OUTBOX_CONTRACT_ADDRESS ? EthAddress.fromString(OUTBOX_CONTRACT_ADDRESS) : EthAddress.ZERO,
     contractDeploymentEmitterAddress: CONTRACT_DEPLOYMENT_EMITTER_ADDRESS
       ? EthAddress.fromString(CONTRACT_DEPLOYMENT_EMITTER_ADDRESS)
       : EthAddress.ZERO,
@@ -81,7 +79,6 @@ export function getConfigEnvVars(): ArchiverConfig {
     rpcUrl: ETHEREUM_HOST || 'http://127.0.0.1:8545/',
     archiverPollingIntervalMS: ARCHIVER_POLLING_INTERVAL_MS ? +ARCHIVER_POLLING_INTERVAL_MS : 1_000,
     viemPollingIntervalMS: ARCHIVER_VIEM_POLLING_INTERVAL_MS ? +ARCHIVER_VIEM_POLLING_INTERVAL_MS : 1_000,
-    searchStartBlock: SEARCH_START_BLOCK ? +SEARCH_START_BLOCK : 0,
     apiKey: API_KEY,
     l1Contracts: addresses,
     dataDirectory: DATA_DIRECTORY,

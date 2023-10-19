@@ -94,32 +94,27 @@ Rollup Address: 0x0dcd1bf9a1b36ce34237eeafef220932846bcd82
     const docs = `
 // docs:start:example-contracts
 % aztec-cli example-contracts
-BenchmarkingContractAbi
-CardGameContractAbi
-ChildContractAbi
-DocsExampleContractAbi
-EasyPrivateTokenContractAbi
-EcdsaAccountContractAbi
-EscrowContractAbi
-ImportTestContractAbi
-LendingContractAbi
-MultiTransferContractAbi
-NonNativeTokenContractAbi
-ParentContractAbi
-PendingCommitmentsContractAbi
-PokeableTokenContractAbi
-PriceFeedContractAbi
-PrivateTokenAirdropContractAbi
-PrivateTokenContractAbi
-PublicTokenContractAbi
-SchnorrAccountContractAbi
-SchnorrHardcodedAccountContractAbi
-SchnorrSingleKeyAccountContractAbi
-StatefulTestContractAbi
-TestContractAbi
-TokenBridgeContractAbi
-TokenContractAbi
-UniswapContractAbi
+BenchmarkingContractArtifact
+CardGameContractArtifact
+ChildContractArtifact
+DocsExampleContractArtifact
+EasyPrivateTokenContractArtifact
+EcdsaAccountContractArtifact
+EscrowContractArtifact
+ImportTestContractArtifact
+LendingContractArtifact
+ParentContractArtifact
+PendingCommitmentsContractArtifact
+PokeableTokenContractArtifact
+PriceFeedContractArtifact
+SchnorrAccountContractArtifact
+SchnorrHardcodedAccountContractArtifact
+SchnorrSingleKeyAccountContractArtifact
+StatefulTestContractArtifact
+TestContractArtifact
+TokenBridgeContractArtifact
+TokenContractArtifact
+UniswapContractArtifact
 // docs:end:example-contracts
 `;
 
@@ -250,13 +245,10 @@ Accounts found:
 
     clearLogs();
 
-    // Set some of the found addresses as address2 for later use
-    const address2 = AztecAddress.fromString(fetchedAddresses[1].groups?.address as string);
-
     // Test deploy
     docs = `
 // docs:start:deploy
-% aztec-cli deploy PrivateTokenContractAbi --args 1000000 $ADDRESS
+% aztec-cli deploy TokenContractArtifact --args $ADDRESS
 
 Contract deployed at 0x1ae8eea0dc265fb7f160dae62cc8912686d8a9ed78e821fbdd8bcedc54c06d0f
 // docs:end:deploy
@@ -287,38 +279,12 @@ Contract found at 0x1ae8eea0dc265fb7f160dae62cc8912686d8a9ed78e821fbdd8bcedc54c0
 
     clearLogs();
 
-    // Test call
-    docs = `
-// docs:start:call
-% aztec-cli call getBalance \
-  --args $ADDRESS \
-  --contract-abi PrivateTokenContractAbi \
-  --contract-address $CONTRACT_ADDRESS
-
-View result:  1000000n
-// docs:end:call
-`;
-    command = docs
-      .split('\n')[2]
-      .split('aztec-cli ')[1]
-      .replace('$ADDRESS', newAddress.toString())
-      .replace('$CONTRACT_ADDRESS', contractAddress.toString());
-    await run(command);
-
-    let foundBalance = findInLogs(/View\sresult:\s+(?<data>\S+)/)?.groups?.data;
-    expect(foundBalance!).toEqual(`${BigInt(1000000).toString()}n`);
-
-    clearLogs();
-
-    // We reset CLI so that we can call the same command again later on
-    resetCli();
-
     // Test send
     docs = `
 // docs:start:send
-% aztec-cli send transfer \
-  --args 543 $ADDRESS2 \
-  --contract-abi PrivateTokenContractAbi \
+% aztec-cli send mint_public \
+  --args $ADDRESS 543 \
+  --contract-artifact TokenContractArtifact \
   --contract-address $CONTRACT_ADDRESS \
   --private-key $PRIVATE_KEY
 
@@ -333,7 +299,7 @@ Block hash: 163697608599543b2bee9652f543938683e4cdd0f94ac506e5764d8b908d43d4
     command = docs
       .split('\n')[2]
       .split('aztec-cli ')[1]
-      .replace('$ADDRESS2', address2.toString())
+      .replace('$ADDRESS', newAddress.toString())
       .replace('$CONTRACT_ADDRESS', contractAddress.toString())
       .replace('$PRIVATE_KEY', foundPrivateKey!);
     await run(command);
@@ -378,17 +344,13 @@ Transaction receipt:
 
     clearLogs();
 
-    // get balance
+    // Test call
     docs = `
-// docs:start:calls
-% aztec-cli call getBalance -a $ADDRESS -c PrivateTokenContractAbi -ca $CONTRACT_ADDRESS
-
-View result:  999457n
-
-% aztec-cli call getBalance -a $ADDRESS2 -c PrivateTokenContractAbi -ca $CONTRACT_ADDRESS
+// docs:start:call
+% aztec-cli call balance_of_public -a $ADDRESS -c TokenContractArtifact -ca $CONTRACT_ADDRESS
 
 View result:  543n
-// docs:end:calls
+// docs:end:call
 `;
     command = docs
       .split('\n')[2]
@@ -398,23 +360,7 @@ View result:  543n
 
     await run(command);
 
-    foundBalance = findInLogs(/View\sresult:\s+(?<data>\S+)/)?.groups?.data;
-    expect(foundBalance!).toEqual(`${BigInt(999457).toString()}n`);
-
-    clearLogs();
-    resetCli();
-
-    command = docs
-      .split('\n')[6]
-      .split('aztec-cli ')[1]
-      .replace('$ADDRESS2', address2.toString())
-      .replace('$CONTRACT_ADDRESS', contractAddress.toString());
-
-    await run(command);
-
-    foundBalance = findInLogs(/View\sresult:\s+(?<data>\S+)/)?.groups?.data;
+    const foundBalance = findInLogs(/View\sresult:\s+(?<data>\S+)/)?.groups?.data;
     expect(foundBalance!).toEqual(`${BigInt(543).toString()}n`);
-
-    clearLogs();
   }, 60_000);
 });

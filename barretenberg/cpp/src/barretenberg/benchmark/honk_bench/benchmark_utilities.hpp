@@ -1,3 +1,4 @@
+#pragma once
 #include <benchmark/benchmark.h>
 
 #include "barretenberg/honk/composer/ultra_composer.hpp"
@@ -44,6 +45,9 @@ template <typename Builder> void generate_basic_arithmetic_circuit(Builder& buil
     proof_system::plonk::stdlib::field_t b(
         proof_system::plonk::stdlib::witness_t(&builder, barretenberg::fr::random_element()));
     proof_system::plonk::stdlib::field_t c(&builder);
+    if (num_gates < 4) {
+        throw std::runtime_error("too few gates");
+    }
     for (size_t i = 0; i < (num_gates / 4) - 4; ++i) {
         c = a + b;
         c = a * c;
@@ -62,9 +66,6 @@ template <typename Builder> void generate_sha256_test_circuit(Builder& builder, 
 {
     std::string in;
     in.resize(32);
-    for (size_t i = 0; i < 32; ++i) {
-        in[i] = 0;
-    }
     proof_system::plonk::stdlib::packed_byte_array<Builder> input(&builder, in);
     for (size_t i = 0; i < num_iterations; i++) {
         input = proof_system::plonk::stdlib::sha256<Builder>(input);

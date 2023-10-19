@@ -1,3 +1,4 @@
+// docs:start:uniswap_setup
 mod interfaces;
 mod util;
 
@@ -49,7 +50,9 @@ contract Uniswap {
     
     #[aztec(private)]
     fn constructor() {}
+// docs:end:uniswap_setup
 
+// docs:start:swap_public
     #[aztec(public)]
     fn swap_public(
         sender: AztecAddress,
@@ -97,6 +100,7 @@ contract Uniswap {
         // this ensures the integrity of what the user originally intends to do on L1.
         let input_asset_bridge_portal_address = get_portal_address(input_asset_bridge.address);
         let output_asset_bridge_portal_address = get_portal_address(output_asset_bridge.address);
+        // ensure portal exists - else funds might be lost
         assert(input_asset_bridge_portal_address != 0, "L1 portal address of input_asset's bridge is 0");
         assert(output_asset_bridge_portal_address != 0, "L1 portal address of output_asset's bridge is 0");
 
@@ -116,7 +120,9 @@ contract Uniswap {
 
         1
     }
+// docs:end:swap_public
 
+// docs:start:swap_private
     #[aztec(private)]
     fn swap_private(
         input_asset: AztecAddress, // since private, we pass here and later assert that this is as expected by input_bridge
@@ -160,6 +166,7 @@ contract Uniswap {
         // this ensures the integrity of what the user originally intends to do on L1.
         let input_asset_bridge_portal_address = get_portal_address(input_asset_bridge.address);
         let output_asset_bridge_portal_address = get_portal_address(output_asset_bridge.address);
+        // ensure portal exists - else funds might be lost
         assert(input_asset_bridge_portal_address != 0, "L1 portal address of input_asset's bridge is 0");
         assert(output_asset_bridge_portal_address != 0, "L1 portal address of output_asset's bridge is 0");
 
@@ -179,7 +186,9 @@ contract Uniswap {
 
         1
     }
+    // docs:end:swap_private
 
+    // docs:start:authwit_uniswap_get
     // Since the token bridge burns funds on behalf of this contract, this contract has to tell the token contract if the signature is valid
     // implementation is similar to how account contracts validate public approvals.
     // if valid, it returns the IS_VALID selector which is expected by token contract
@@ -192,7 +201,9 @@ contract Uniswap {
             0
         }
     }
+    // docs:end:authwit_uniswap_get
 
+    // docs:start:authwit_uniswap_set
     // This helper method approves the bridge to burn this contract's funds and exits the input asset to L1
     // Assumes contract already has funds. 
     // Assume `token` relates to `token_bridge` (ie token_bridge.token == token)
@@ -222,11 +233,14 @@ contract Uniswap {
             nonce_for_burn_approval,
         );
     }
+    // docs:end:authwit_uniswap_set
 
+    // docs:start:assert_token_is_same
     #[aztec(public)]
     internal fn _assert_token_is_same(token: AztecAddress, token_bridge: AztecAddress) {
         assert(token.eq(TokenBridge::at(token_bridge.address).token(context)), "input_asset address is not the same as seen in the bridge contract");
     }
+    // docs:end:assert_token_is_same
 
     // /// Unconstrained /// 
 
@@ -234,5 +248,4 @@ contract Uniswap {
     unconstrained fn nonce_for_burn_approval() -> Field {
         storage.nonce_for_burn_approval.read()
     }
-
 }
