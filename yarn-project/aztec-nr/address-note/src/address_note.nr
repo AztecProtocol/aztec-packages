@@ -1,3 +1,6 @@
+// docs:start:encrypted_import
+use dep::aztec::log::emit_encrypted_log;
+// docs:end:encrypted_import
 use dep::aztec::{
     note::{
         note_header::NoteHeader,
@@ -8,7 +11,6 @@ use dep::aztec::{
         get_secret_key::get_secret_key,
         get_public_key::get_public_key,
     },
-    log::emit_encrypted_log,
     context::PrivateContext,
 };
 
