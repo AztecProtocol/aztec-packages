@@ -152,7 +152,9 @@
     "mktemp",
     "unshielding",
     "workdir",
-    "leveldb"
+    "leveldb",
+    "persistable",
+    "siloes"
   ],
   "ignorePaths": [
     "node_modules/",
