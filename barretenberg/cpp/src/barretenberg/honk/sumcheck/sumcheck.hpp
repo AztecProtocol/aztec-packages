@@ -1,6 +1,7 @@
 #pragma once
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/honk/instance/prover_instance.hpp"
 #include "barretenberg/honk/sumcheck/sumcheck_output.hpp"
 #include "barretenberg/honk/transcript/transcript.hpp"
 #include "barretenberg/honk/utils/grand_product_delta.hpp"
@@ -17,6 +18,7 @@ template <typename Flavor> class SumcheckProver {
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using PartiallyEvaluatedMultivariates = typename Flavor::PartiallyEvaluatedMultivariates;
     using ClaimedEvaluations = typename Flavor::AllValues;
+    using Instance = ProverInstance_<Flavor>;
 
     ProverTranscript<FF>& transcript;
     const size_t multivariate_n;
@@ -117,6 +119,17 @@ template <typename Flavor> class SumcheckProver {
         transcript.send_to_verifier("Sumcheck:evaluations", multivariate_evaluations._data);
 
         return { multivariate_challenge, multivariate_evaluations };
+    };
+
+    /**
+     * @brief Compute univariate restriction place in transcript, generate challenge, partially evaluate,... repeat
+     * until final round, then compute multivariate evaluations and place in transcript.
+     *
+     * @details
+     */
+    SumcheckOutput<Flavor> prove(std::shared_ptr<Instance> instance)
+    {
+        return prove(instance->prover_polynomials, instance->relation_parameters);
     };
 
     /**
