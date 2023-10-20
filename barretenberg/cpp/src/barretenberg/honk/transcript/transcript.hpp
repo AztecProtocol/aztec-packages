@@ -149,7 +149,12 @@ template <typename FF> class BaseTranscript {
         current_round_data.insert(current_round_data.end(), element_bytes.begin(), element_bytes.end());
     }
 
-    template <typename T> T serialize_object(const std::vector<uint8_t>& proof_data, size_t& offset) const
+    template <typename T> std::vector<uint8_t> serialize_object(const T& element, std::vector<uint8_t>& proof_data)
+    {
+        auto element_bytes = to_buffer(element);
+        return proof_data.insert(proof_data.end(), element_bytes.begin(), element_bytes.end());
+    }
+    template <typename T> T deserialize_object(const std::vector<uint8_t>& proof_data, size_t& offset) const
     {
         constexpr size_t element_size = sizeof(T);
         ASSERT(offset + element_size <= proof_data.size());
@@ -286,9 +291,9 @@ template <typename FF> class BaseTranscript {
 
     void print() { manifest.print(); }
 
-    virtual void deserialize() { throw_or_abort("Cannot deserialize transcript"); }
+    virtual void deserialize_full_transcript() { throw_or_abort("Cannot deserialize transcript"); }
 
-    virtual void serialize() { throw_or_abort("Cannot serialize transcript"); }
+    virtual void serialize_full_transcript() { throw_or_abort("Cannot serialize transcript"); }
 };
 
 // template <typename FF> class BaseTranscript : public BaseTranscript<FF> {

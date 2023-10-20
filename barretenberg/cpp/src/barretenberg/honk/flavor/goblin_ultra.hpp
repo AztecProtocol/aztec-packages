@@ -451,6 +451,97 @@ class GoblinUltra {
         std::vector<FF> gate_separation_challenges;
         FF target_sum;
     };
+
+    class Transcript : public BaseTranscript<FF> {
+      public:
+        uint32_t circuit_size;
+        uint32_t public_input_size;
+        uint32_t pub_inputs_offset;
+        std::vector<FF> public_inputs;
+        Commitment w_l_comm;
+        Commitment w_r_comm;
+        Commitment w_o_comm;
+        Commitment ecc_op_wire_1_comm;
+        Commitment ecc_op_wire_2_comm;
+        Commitment ecc_op_wire_3_comm;
+        Commitment ecc_op_wire_4_comm;
+        Commitment sorted_accum_comm;
+        Commitment w_4_comm;
+        Commitment z_perm_comm;
+        Commitment z_lookup_comm;
+        std::vector<barretenberg::Univariate<FF, MAX_RELATION_LENGTH>> sumcheck_univariates;
+        std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
+        std::vector<Commitment> zm_cq_comms;
+        Commitment zm_cq_comm;
+        Commitment zm_pi_comm;
+
+        void deserialize_full_transcript() override
+        {
+            // take current proof and put them into the struct
+            size_t num_bytes_read = 0;
+            circuit_size = deserialize_object<uint32_t>(proof_data, num_bytes_read);
+            size_t log_n = numeric::get_msb(circuit_size);
+
+            public_input_size = deserialize_object<uint32_t>(proof_data, num_bytes_read);
+            pub_inputs_offset = deserialize_object<uint32_t>(proof_data, num_bytes_read);
+            for (size_t i = 0; i < public_input_size; ++i) {
+                public_inputs.push_back(deserialize_object<FF>(proof_data, num_bytes_read));
+            }
+            w_l_comm = deserialize_object<Commitment>(proof_data, num_bytes_read);
+            w_r_comm = deserialize_object<Commitment>(proof_data, num_bytes_read);
+            w_o_comm = deserialize_object<Commitment>(proof_data, num_bytes_read);
+            ecc_op_wire_1_comm = deserialize_object<Commitment>(proof_data, num_bytes_read);
+            ecc_op_wire_2_comm = deserialize_object<Commitment>(proof_data, num_bytes_read);
+            ecc_op_wire_3_comm = deserialize_object<Commitment>(proof_data, num_bytes_read);
+            ecc_op_wire_4_comm = deserialize_object<Commitment>(proof_data, num_bytes_read);
+            sorted_accum_comm = deserialize_object<Commitment>(proof_data, num_bytes_read);
+            w_4_comm = deserialize_object<Commitment>(proof_data, num_bytes_read);
+            z_perm_comm = deserialize_object<Commitment>(proof_data, num_bytes_read);
+            z_lookup_comm = deserialize_object<Commitment>(proof_data, num_bytes_read);
+            for (size_t i = 0; i < log_n; ++i) {
+                sumcheck_univariates.push_back(
+                    deserialize_object<barretenberg::Univariate<FF, MAX_RELATION_LENGTH>>(proof_data, num_bytes_read));
+            }
+            sumcheck_evaluations = deserialize_object<std::array<FF, NUM_ALL_ENTITIES>>(proof_data, num_bytes_read);
+            for (size_t i = 0; i < log_n; ++i) {
+                zm_cq_comms.push_back(deserialize_object<Commitment>(proof_data, num_bytes_read));
+            }
+            zm_cq_comm = deserialize_object<Commitment>(proof_data, num_bytes_read);
+            zm_pi_comm = deserialize_object<Commitment>(proof_data, num_bytes_read);
+        }
+
+        void serialize_full_transcript() override
+        {
+            proof_data.clear();
+            size_t log_n = numeric::get_msb(circuit_size);
+            serialize_object(circuit_size, proof_data);
+            serialize_object(public_input_size, proof_data);
+            serialize_object(pub_inputs_offset, proof_data);
+            for (size_t i = 0; i < public_input_size; ++i) {
+                serialize_object(public_inputs[i], proof_data);
+            }
+            serialize_object(w_l_comm, proof_data);
+            serialize_object(w_r_comm, proof_data);
+            serialize_object(w_o_comm, proof_data);
+            serialize_object(ecc_op_wire_1_comm, proof_data);
+            serialize_object(ecc_op_wire_2_comm, proof_data);
+            serialize_object(ecc_op_wire_3_comm, proof_data);
+            serialize_object(ecc_op_wire_4_comm, proof_data);
+            serialize_object(sorted_accum_comm, proof_data);
+            serialize_object(w_4_comm, proof_data);
+            serialize_object(z_perm_comm, proof_data);
+            serialize_object(z_lookup_comm, proof_data);
+            for (size_t i = 0; i < log_n; ++i) {
+                serialize_object(sumcheck_univariates[i], proof_data);
+            }
+            serialize_object(sumcheck_evaluations, proof_data);
+            for (size_t i = 0; i < log_n; ++i) {
+                serialize_object(zm_cq_comms[i], proof_data);
+            }
+            serialize_object(zm_cq_comm, proof_data);
+            serialize_object(zm_pi_comm, proof_data);
+        }
+    };
 };
 
 } // namespace proof_system::honk::flavor
