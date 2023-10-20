@@ -19,14 +19,26 @@ namespace barretenberg {
  * Constructors / Destructors
  **/
 template <typename Fr>
-Polynomial<Fr>::Polynomial(const size_t size_)
+Polynomial<Fr>::Polynomial(size_t initial_size)
     : coefficients_(nullptr)
-    , size_(size_)
+    , size_(initial_size)
 {
     if (capacity() > 0) {
         coefficients_ = allocate_aligned_memory(sizeof(Fr) * capacity());
     }
     memset(static_cast<void*>(coefficients_.get()), 0, sizeof(Fr) * capacity());
+}
+
+template <typename Fr>
+Polynomial<Fr>::Polynomial(size_t initial_size, DontZeroMemory flag)
+    : coefficients_(nullptr)
+    , size_(initial_size)
+{
+    // Flag is unused, but we don't memset 0 if passed.
+    (void)flag;
+    if (capacity() > 0) {
+        coefficients_ = allocate_aligned_memory(sizeof(Fr) * capacity());
+    }
 }
 
 template <typename Fr>
@@ -433,26 +445,32 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::partial_evaluate_mle(std::
     size_t n_l = 1 << (n - 1);
 
     // Temporary buffer of half the size of the polynomial
-    Polynomial<Fr> result{ n_l };
+    Polynomial<Fr> tmp(n_l, DontZeroMemory::FLAG);
+
     Fr* prev = coefficients_.get();
 
     // Evaluate variable X_{n-1} at u_{m-1}
     Fr u_l = evaluation_points[m - 1];
 
-    parallel_for_batched(n_l, [&](size_t i) { result[i] = prev[i] + u_l * (prev[i + n_l] - prev[i]); });
-    // for (size_t i = 0; i < n_l; ++i) {
-    //     result[i] = prev[i] + u_l * (prev[i + n_l] - prev[i]);
-    // }
+    for (size_t i = 0; i < n_l; ++i) {
+        tmp[i] = prev[i] + u_l * (prev[i + n_l] - prev[i]);
+    }
     // Evaluate m-1 variables X_{n-l-1}, ..., X_{n-2} at m-1 remaining values u_0,...,u_{m-2})
     for (size_t l = 1; l < m; ++l) {
-        n_l = 1 << (n - l - 1);
+        size_t new_n_l = 1 << (n - l - 1);
         u_l = evaluation_points[m - l - 1];
-        for (size_t i = 0; i < n_l; ++i) {
-            result[i] += u_l * (result[i + n_l] - result[i]);
+        for (size_t i = 0; i < new_n_l; ++i) {
+            tmp[i] = tmp[i] + u_l * (tmp[i + new_n_l] - tmp[i]);
         }
     }
 
-    // Return resulting polynomial g(X_0,…,X_{n-m-1})) = p(X_0,…,X_{n-m-1},u_0,...u_{m-1})
+    size_t final_n_l = 1 << (n - m);
+    // Construct resulting polynomial g(X_0,…,X_{n-m-1})) = p(X_0,…,X_{n-m-1},u_0,...u_{m-1}) from buffer
+    Polynomial<Fr> result(final_n_l, DontZeroMemory::FLAG);
+    for (size_t idx = 0; idx < final_n_l; ++idx) {
+        result[idx] = tmp[idx];
+    }
+
     return result;
 }
 
