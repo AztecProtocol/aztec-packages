@@ -11,7 +11,6 @@ contract PendingCommitments {
         value_note::{VALUE_NOTE_LEN, ValueNote, ValueNoteMethods},
     };
     use dep::aztec::{
-        constants_gen::ARGS_LENGTH,
         context::{PrivateContext, PublicContext, Context},
         log::emit_encrypted_log,
         note::{
@@ -190,15 +189,10 @@ contract PendingCommitments {
         get_then_nullify_fn_selector: Field,
         get_note_zero_fn_selector: Field,
     ) {
-        // args for nested calls
-        let mut args = [0; ARGS_LENGTH];
-        args[0] = amount;
-        args[1] = owner;
-
         // nested call to create/insert note
-        let _callStackItem1 = context.call_private_function(inputs.call_context.storage_contract_address, insert_fn_selector, args);
+        let _callStackItem1 = context.call_private_function(inputs.call_context.storage_contract_address, insert_fn_selector, [amount, owner]);
         // nested call to read and nullify that note
-        let _callStackItem2 = context.call_private_function(inputs.call_context.storage_contract_address, get_then_nullify_fn_selector, args);
+        let _callStackItem2 = context.call_private_function(inputs.call_context.storage_contract_address, get_then_nullify_fn_selector, [amount, owner]);
          // nested call to confirm that balance is zero
         let _callStackItem3 = context.call_private_function(inputs.call_context.storage_contract_address, get_note_zero_fn_selector, [owner]);
     }
@@ -212,9 +206,7 @@ contract PendingCommitments {
         get_then_nullify_fn_selector: Field,
     ) {
         // args for nested calls
-        let mut args = [0; ARGS_LENGTH];
-        args[0] = amount;
-        args[1] = owner;
+        let args = [amount, owner];
 
         // nested call to create/insert note
         let _callStackItem1 = context.call_private_function(inputs.call_context.storage_contract_address, insert_fn_selector, args);
@@ -236,9 +228,7 @@ contract PendingCommitments {
         get_then_nullify_fn_selector: Field,
     ) {
         // args for nested calls
-        let mut args = [0; ARGS_LENGTH];
-        args[0] = amount;
-        args[1] = owner;
+        let args = [amount, owner];
 
         // nested call to create/insert note
         let _callStackItem1 = context.call_private_function(inputs.call_context.storage_contract_address, insert_fn_selector, args);
@@ -259,9 +249,7 @@ contract PendingCommitments {
         get_note_zero_fn_selector: Field,
     ) {
         // args for nested calls
-        let mut args = [0; ARGS_LENGTH];
-        args[0] = amount;
-        args[1] = owner;
+        let args = [amount, owner];
 
         // nested call to create/insert note
         let _callStackItem1 = context.call_private_function(inputs.call_context.storage_contract_address, insert_fn_selector, args);
