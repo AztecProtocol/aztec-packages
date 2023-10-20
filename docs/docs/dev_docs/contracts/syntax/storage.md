@@ -369,6 +369,12 @@ Unlike a [`singleton`](#get_note-1), the `get_note` function for an ImmutableSin
 
 This function will throw if the ImmutableSingleton hasn't been initialized.
 
+### `view_note`
+
+Functionally similar to `get_note`, but executed unconstrained and can be used by the wallet to fetch notes for use by front-ends etc.
+
+#include_code view_note /yarn-project/aztec-nr/aztec/src/state_vars/immutable_singleton.nr rust
+
 ## `Set<NoteType>`
 
 Set is used for managing a collection of notes. All notes in a set are of the same `NoteType`. But whether these notes all belong to one entity, or are accessible and editable by different entities, is totally up to the developer. Due to our state model, the set is a collection of notes inserted into the data-tree, but notes are never removed from the tree itself, they are only nullified.
