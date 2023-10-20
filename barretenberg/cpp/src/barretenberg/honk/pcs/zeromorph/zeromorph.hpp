@@ -1,4 +1,5 @@
 #pragma once
+#include "barretenberg/common/thread.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 
 namespace proof_system::honk::pcs::zeromorph {
@@ -69,7 +70,7 @@ template <typename Curve> class ZeroMorphProver_ {
         }
 
         // Compute the q_k in reverse order, i.e. q_{n-1}, ..., q_0
-        for (size_t k = 0; k < log_N; ++k) {
+        parallel_for(log_N, [&](size_t k) {
             // Define partial evaluation point u' = (u_k, ..., u_{n-1})
             auto evaluation_point_size = static_cast<std::ptrdiff_t>(k + 1);
             std::vector<FF> u_partial(u_challenge.end() - evaluation_point_size, u_challenge.end());
@@ -88,7 +89,7 @@ template <typename Curve> class ZeroMorphProver_ {
             q_k -= f_1;
 
             quotients[log_N - k - 1] = q_k;
-        }
+        });
 
         return quotients;
     }

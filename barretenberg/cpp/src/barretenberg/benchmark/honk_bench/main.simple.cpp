@@ -7,6 +7,7 @@
 #include <string>
 
 #include "barretenberg/honk/composer/ultra_composer.hpp"
+#include "barretenberg/plonk/composer/ultra_composer.hpp"
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 #include "barretenberg/proof_system/types/circuit_type.hpp"
 #include "barretenberg/stdlib/encryption/ecdsa/ecdsa.hpp"
@@ -24,43 +25,54 @@
 
 using namespace proof_system;
 
-template <typename Builder> void generate_sha256_test_circuit(Builder& builder, size_t num_iterations)
+template <typename Builder> void generate_keccak_test_circuit(Builder& builder, size_t num_iterations)
 {
-    std::string in;
-    in.resize(32);
-    plonk::stdlib::packed_byte_array<Builder> input(&builder, in);
+    std::string in = "abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz01";
+
+    proof_system::plonk::stdlib::byte_array<Builder> input(&builder, in);
     for (size_t i = 0; i < num_iterations; i++) {
-        input = plonk::stdlib::sha256<Builder>(input);
+        input = proof_system::plonk::stdlib::keccak<Builder>::hash(input);
     }
 }
 
-BBERG_INSTRUMENT BBERG_NOINLINE void sumcheck_profiling(honk::UltraProver& ext_prover)
+BBERG_INSTRUMENT BBERG_NOINLINE void prover_profiling(auto& ext_prover)
 {
-    ext_prover.construct_proof();
-    for (size_t i = 0; i < 200; i++) {
-        // Bench sumcheck
-        ext_prover.execute_relation_check_rounds();
+    for (size_t i = 0; i < 1; i++) {
+        ext_prover.construct_proof();
     }
 }
 
 /**
  * @brief Benchmark: Construction of a Ultra Honk proof for a circuit determined by the provided circuit function
  */
-void construct_proof_ultra() noexcept
+void construct_honk_proof_ultra() noexcept
 {
     barretenberg::srs::init_crs_factory("../srs_db/ignition");
     // Constuct circuit and prover; don't include this part in measurement
     honk::UltraComposer::CircuitBuilder builder;
-    generate_sha256_test_circuit(builder, 1);
+    generate_keccak_test_circuit(builder, 1);
     std::cout << "gates: " << builder.get_total_circuit_size() << std::endl;
 
     honk::UltraComposer composer;
     std::shared_ptr<honk::UltraComposer::Instance> instance = composer.create_instance(builder);
     honk::UltraProver ext_prover = composer.create_prover(instance);
-    sumcheck_profiling(ext_prover);
+    prover_profiling(ext_prover);
 }
 
+void construct_plonk_proof_ultra() noexcept
+{
+    barretenberg::srs::init_crs_factory("../srs_db/ignition");
+    // Constuct circuit and prover; don't include this part in measurement
+    for (int i = 0; i < 10; i++) {
+        plonk::UltraComposer::CircuitBuilder builder;
+        generate_keccak_test_circuit(builder, 1);
+        plonk::UltraComposer composer;
+        plonk::UltraProver ext_prover = composer.create_prover(builder);
+        prover_profiling(ext_prover);
+    }
+}
 int main()
 {
-    construct_proof_ultra();
+    // construct_honk_proof_ultra();
+    construct_plonk_proof_ultra();
 }

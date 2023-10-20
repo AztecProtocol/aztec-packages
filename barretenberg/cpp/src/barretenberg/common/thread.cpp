@@ -86,3 +86,10 @@ void parallel_for(size_t num_iterations, const std::function<void(size_t)>& func
 #endif
 #endif
 }
+
+inline void parallel_foreach(const auto& container, const auto&... containers, auto&& func)
+{
+    // We expect containers of the same size
+    (ASSERT(containers.size() == container.size()), ...);
+    parallel_for(container.size(), [&](size_t i) { func(containers[i]...); });
+}
