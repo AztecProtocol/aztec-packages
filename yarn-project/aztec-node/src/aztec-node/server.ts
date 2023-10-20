@@ -360,7 +360,7 @@ export class AztecNodeService implements AztecNode {
     const committedDb = await this.#getWorldState();
     const getTreeRoot = async (id: MerkleTreeId) => Fr.fromBuffer((await committedDb.getTreeInfo(id)).root);
 
-    const [privateDataTree, nullifierTree, contractTree, l1ToL2MessagesTree, blocksTree, publicDataTree] =
+    const [noteHashTree, nullifierTree, contractTree, l1ToL2MessagesTree, blocksTree, publicDataTree] =
       await Promise.all([
         getTreeRoot(MerkleTreeId.NOTE_HASH_TREE),
         getTreeRoot(MerkleTreeId.NULLIFIER_TREE),
@@ -372,7 +372,7 @@ export class AztecNodeService implements AztecNode {
 
     return {
       [MerkleTreeId.CONTRACT_TREE]: contractTree,
-      [MerkleTreeId.NOTE_HASH_TREE]: privateDataTree,
+      [MerkleTreeId.NOTE_HASH_TREE]: noteHashTree,
       [MerkleTreeId.NULLIFIER_TREE]: nullifierTree,
       [MerkleTreeId.PUBLIC_DATA_TREE]: publicDataTree,
       [MerkleTreeId.L1_TO_L2_MESSAGES_TREE]: l1ToL2MessagesTree,

@@ -5,9 +5,9 @@ import {
   GlobalVariables,
   HISTORIC_BLOCKS_TREE_HEIGHT,
   L1_TO_L2_MSG_TREE_HEIGHT,
+  NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_SUBTREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
-  NOTE_HASH_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { computeBlockHash, computeGlobalsHash } from '@aztec/circuits.js/abis';
@@ -92,7 +92,7 @@ export class MerkleTrees implements MerkleTreeDb {
       NULLIFIER_TREE_HEIGHT,
       INITIAL_NULLIFIER_TREE_SIZE,
     );
-    const privateDataTree: AppendOnlyTree = await initializeTree(
+    const noteHashTree: AppendOnlyTree = await initializeTree(
       StandardTree,
       this.db,
       hasher,
@@ -120,7 +120,7 @@ export class MerkleTrees implements MerkleTreeDb {
       `${MerkleTreeId[MerkleTreeId.BLOCKS_TREE]}`,
       HISTORIC_BLOCKS_TREE_HEIGHT,
     );
-    this.trees = [contractTree, nullifierTree, privateDataTree, publicDataTree, l1Tol2MessagesTree, historicBlocksTree];
+    this.trees = [contractTree, nullifierTree, noteHashTree, publicDataTree, l1Tol2MessagesTree, historicBlocksTree];
 
     this.jobQueue.start();
 
@@ -215,7 +215,7 @@ export class MerkleTrees implements MerkleTreeDb {
     const roots = await this.synchronize(() => Promise.resolve(this._getAllTreeRoots(includeUncommitted)));
 
     return {
-      privateDataTreeRoot: roots[0],
+      noteHashTreeRoot: roots[0],
       nullifierTreeRoot: roots[1],
       contractDataTreeRoot: roots[2],
       l1Tol2MessagesTreeRoot: roots[3],

@@ -65,5 +65,5 @@ export interface ProvingDataOracle {
    *
    * @returns the root of the private data tree.
    */
-  getPrivateDataRoot(): Promise<Fr>;
+  getNoteHashTreeRoot(): Promise<Fr>;
 }

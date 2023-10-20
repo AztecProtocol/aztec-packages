@@ -112,7 +112,7 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
   public async setHistoricBlockData(historicBlockData: HistoricBlockData): Promise<void> {
     this.globalVariablesHash = historicBlockData.globalVariablesHash;
     await this.setTreeRoots({
-      [MerkleTreeId.NOTE_HASH_TREE]: historicBlockData.privateDataTreeRoot,
+      [MerkleTreeId.NOTE_HASH_TREE]: historicBlockData.noteHashTreeRoot,
       [MerkleTreeId.NULLIFIER_TREE]: historicBlockData.nullifierTreeRoot,
       [MerkleTreeId.CONTRACT_TREE]: historicBlockData.contractTreeRoot,
       [MerkleTreeId.L1_TO_L2_MESSAGES_TREE]: historicBlockData.l1ToL2MessagesTreeRoot,

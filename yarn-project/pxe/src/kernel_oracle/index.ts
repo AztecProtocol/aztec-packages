@@ -32,7 +32,7 @@ export class KernelOracle implements ProvingDataOracle {
     );
   }
 
-  async getPrivateDataRoot(): Promise<Fr> {
+  async getNoteHashTreeRoot(): Promise<Fr> {
     const roots = await this.node.getTreeRoots();
     return roots[MerkleTreeId.NOTE_HASH_TREE];
   }

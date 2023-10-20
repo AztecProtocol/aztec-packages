@@ -17,13 +17,13 @@ import {
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MembershipWitness,
   MergeRollupInputs,
+  NOTE_HASH_SUBTREE_HEIGHT,
+  NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_SUBTREE_HEIGHT,
   NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_TREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NullifierLeafPreimage,
-  NOTE_HASH_SUBTREE_HEIGHT,
-  NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
   PUBLIC_DATA_TREE_HEIGHT,
   PreviousKernelData,
   PreviousRollupData,
@@ -196,7 +196,7 @@ export class SoloBlockBuilder implements BlockBuilder {
   protected validateTxs(txs: ProcessedTx[]) {
     for (const tx of txs) {
       for (const historicTreeRoot of [
-        'privateDataTreeRoot',
+        'noteHashTreeRoot',
         'contractTreeRoot',
         'nullifierTreeRoot',
         'l1ToL2MessagesTreeRoot',
@@ -329,7 +329,7 @@ export class SoloBlockBuilder implements BlockBuilder {
   }
 
   protected async calculateBlockHash(globals: GlobalVariables) {
-    const [privateDataTreeRoot, nullifierTreeRoot, contractTreeRoot, publicDataTreeRoot, l1ToL2MessageTreeRoot] = (
+    const [noteHashTreeRoot, nullifierTreeRoot, contractTreeRoot, publicDataTreeRoot, l1ToL2MessageTreeRoot] = (
       await Promise.all(
         [
           MerkleTreeId.NOTE_HASH_TREE,
@@ -345,7 +345,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     const blockHash = computeBlockHashWithGlobals(
       wasm,
       globals,
-      privateDataTreeRoot,
+      noteHashTreeRoot,
       nullifierTreeRoot,
       contractTreeRoot,
       l1ToL2MessageTreeRoot,
@@ -358,7 +358,7 @@ export class SoloBlockBuilder implements BlockBuilder {
   protected async validateTrees(rollupOutput: BaseOrMergeRollupPublicInputs | RootRollupPublicInputs) {
     await Promise.all([
       this.validateTree(rollupOutput, MerkleTreeId.CONTRACT_TREE, 'Contract'),
-      this.validateTree(rollupOutput, MerkleTreeId.NOTE_HASH_TREE, 'PrivateData'),
+      this.validateTree(rollupOutput, MerkleTreeId.NOTE_HASH_TREE, 'NoteHash'),
       this.validateTree(rollupOutput, MerkleTreeId.NULLIFIER_TREE, 'Nullifier'),
       this.validatePublicDataTreeRoot(rollupOutput),
     ]);
@@ -377,7 +377,7 @@ export class SoloBlockBuilder implements BlockBuilder {
   protected async validateRootTree(
     rootOutput: RootRollupPublicInputs,
     treeId: MerkleTreeId,
-    name: 'Contract' | 'PrivateData' | 'L1ToL2Messages',
+    name: 'Contract' | 'NoteHash' | 'L1ToL2Messages',
   ) {
     const localTree = await this.getTreeSnapshot(treeId);
     const simulatedTree = rootOutput[`endTreeOfHistoric${name}TreeRootsSnapshot`];
@@ -418,7 +418,7 @@ export class SoloBlockBuilder implements BlockBuilder {
   protected validateSimulatedTree(
     localTree: AppendOnlyTreeSnapshot,
     simulatedTree: AppendOnlyTreeSnapshot,
-    name: 'PrivateData' | 'Contract' | 'Nullifier' | 'L1ToL2Messages' | 'HistoricBlocks',
+    name: 'NoteHash' | 'Contract' | 'Nullifier' | 'L1ToL2Messages' | 'HistoricBlocks',
     label?: string,
   ) {
     if (!simulatedTree.root.toBuffer().equals(localTree.root.toBuffer())) {
@@ -545,12 +545,12 @@ export class SoloBlockBuilder implements BlockBuilder {
     const wasm = await CircuitsWasm.get();
 
     const blockData = tx.data.constants.blockData;
-    const { privateDataTreeRoot, nullifierTreeRoot, contractTreeRoot, l1ToL2MessagesTreeRoot, publicDataTreeRoot } =
+    const { noteHashTreeRoot, nullifierTreeRoot, contractTreeRoot, l1ToL2MessagesTreeRoot, publicDataTreeRoot } =
       blockData;
     const blockHash = computeBlockHash(
       wasm,
       blockData.globalVariablesHash,
-      privateDataTreeRoot,
+      noteHashTreeRoot,
       nullifierTreeRoot,
       contractTreeRoot,
       l1ToL2MessagesTreeRoot,

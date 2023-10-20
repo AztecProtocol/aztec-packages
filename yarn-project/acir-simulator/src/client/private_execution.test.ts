@@ -75,7 +75,7 @@ describe('Private Execution test suite', () => {
   let recipientCompleteAddress: CompleteAddress;
 
   const treeHeights: { [name: string]: number } = {
-    privateData: NOTE_HASH_TREE_HEIGHT,
+    noteHash: NOTE_HASH_TREE_HEIGHT,
     l1ToL2Messages: L1_TO_L2_MSG_TREE_HEIGHT,
   };
 
@@ -124,7 +124,7 @@ describe('Private Execution test suite', () => {
     );
   };
 
-  const insertLeaves = async (leaves: Fr[], name = 'privateData') => {
+  const insertLeaves = async (leaves: Fr[], name = 'noteHash') => {
     if (!treeHeights[name]) {
       throw new Error(`Unknown tree ${name}`);
     }
@@ -138,7 +138,7 @@ describe('Private Execution test suite', () => {
     // Update root.
     const newRoot = trees[name].getRoot(false);
     const prevRoots = blockData.toBuffer();
-    const rootIndex = name === 'privateData' ? 0 : 32 * 3;
+    const rootIndex = name === 'noteHash' ? 0 : 32 * 3;
     const newRoots = Buffer.concat([prevRoots.subarray(0, rootIndex), newRoot, prevRoots.subarray(rootIndex + 32)]);
     blockData = HistoricBlockData.fromBuffer(newRoots);
 
