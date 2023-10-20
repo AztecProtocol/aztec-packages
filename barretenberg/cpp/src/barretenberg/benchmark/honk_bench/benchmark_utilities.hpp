@@ -245,10 +245,11 @@ void construct_proof_with_specified_num_iterations(State& state,
 
     Composer composer;
 
+    auto num_iterations = static_cast<size_t>(state.range(0));
     for (auto _ : state) {
         // Constuct circuit and prover; don't include this part in measurement
         state.PauseTiming();
-        auto prover = get_prover(composer, test_circuit_function, state.range(0));
+        auto prover = get_prover(composer, test_circuit_function, num_iterations);
         state.ResumeTiming();
 
         // Construct proof
