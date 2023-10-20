@@ -435,6 +435,7 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::partial_evaluate_mle(std::
     // Get size of partial evaluation point u = (u_0,...,u_{m-1})
     const size_t m = evaluation_points.size();
 
+    std::cout << "TESST" << std::endl;
     // Assert that the size of the polynomial being evaluated is a power of 2 greater than (1 << m)
     ASSERT(numeric::is_power_of_two(size_));
     ASSERT(size_ >= static_cast<size_t>(1 << m));
