@@ -447,22 +447,21 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::partial_evaluate_mle(std::
     // Temporary buffer of half the size of the polynomial
     Polynomial<Fr> intermediate(n_l, DontZeroMemory::FLAG);
 
-    Fr* prev = coefficients_.get();
-
     // Evaluate variable X_{n-1} at u_{m-1}
     Fr u_l = evaluation_points[m - 1];
 
     parallel_for_batched(n_l, [&](size_t i) {
-        // Initiate our intermediate results
-        intermediate[i] = prev[i] + u_l * (prev[i + n_l] - prev[i]);
+        // Initiate our intermediate results using this polynomial.
+        intermediate[i] = at(i) + u_l * (at(i + n_l) - at(i));
     });
     // Evaluate m-1 variables X_{n-l-1}, ..., X_{n-2} at m-1 remaining values u_0,...,u_{m-2})
     for (size_t l = 1; l < m; ++l) {
         size_t new_n_l = 1 << (n - l - 1);
-        u_l = evaluation_points[m - l - 1];
-        for (size_t i = 0; i < new_n_l; ++i) {
-            intermediate[i] += u_l * (intermediate[i + new_n_l] - intermediate[i]);
-        }
+        Fr new_u_l = evaluation_points[m - l - 1];
+        parallel_for_batched(new_n_l, [&](size_t i) {
+            // Iterate on increasingly small portions of intermediate results.
+            intermediate[i] += new_u_l * (intermediate[i + new_n_l] - intermediate[i]);
+        });
     }
 
     size_t final_n_l = 1 << (n - m);
