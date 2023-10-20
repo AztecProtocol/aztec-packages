@@ -44,10 +44,11 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
     using Shplonk = pcs::shplonk::ShplonkVerifier_<Curve>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
+    using Transcript = typename Flavor::Transcript;
 
     RelationParameters<FF> relation_parameters;
 
-    transcript = BaseTranscript<FF>{ proof.proof_data };
+    transcript = Transcript{ proof.proof_data };
 
     auto commitments = VerifierCommitments(key, transcript);
     auto commitment_labels = CommitmentLabels();

@@ -855,6 +855,108 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
             Base::lagrange_last = verification_key->lagrange_last;
         }
     };
+
+    // TODO(Lucas): update this to be actually correct
+    class Transcript : public BaseTranscript<FF> {
+      public:
+        uint32_t circuit_size;
+        uint32_t public_input_size;
+        uint32_t pub_inputs_offset;
+        std::vector<FF> public_inputs;
+        Commitment w_l_comm;
+        Commitment w_r_comm;
+        Commitment w_o_comm;
+        Commitment sorted_accum_comm;
+        Commitment w_4_comm;
+        Commitment z_perm_comm;
+        Commitment z_lookup_comm;
+        std::vector<barretenberg::Univariate<FF, MAX_RELATION_LENGTH>> sumcheck_univariates;
+        std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
+        std::vector<Commitment> zm_cq_comms;
+        Commitment zm_cq_comm;
+        Commitment zm_pi_comm;
+
+        Transcript() = default;
+
+        Transcript(const std::vector<uint8_t>& proof)
+            : BaseTranscript<FF>(proof)
+        {}
+
+        void deserialize_full_transcript() override
+        {
+            // take current proof and put them into the struct
+            size_t num_bytes_read = 0;
+            circuit_size = BaseTranscript<FF>::template deserialize_object<uint32_t>(BaseTranscript<FF>::proof_data,
+                                                                                     num_bytes_read);
+            size_t log_n = numeric::get_msb(circuit_size);
+
+            public_input_size = BaseTranscript<FF>::template deserialize_object<uint32_t>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            pub_inputs_offset = BaseTranscript<FF>::template deserialize_object<uint32_t>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            for (size_t i = 0; i < public_input_size; ++i) {
+                public_inputs.push_back(BaseTranscript<FF>::template deserialize_object<FF>(
+                    BaseTranscript<FF>::proof_data, num_bytes_read));
+            }
+            w_l_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(BaseTranscript<FF>::proof_data,
+                                                                                   num_bytes_read);
+            w_r_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(BaseTranscript<FF>::proof_data,
+                                                                                   num_bytes_read);
+            w_o_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(BaseTranscript<FF>::proof_data,
+                                                                                   num_bytes_read);
+            sorted_accum_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            w_4_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(BaseTranscript<FF>::proof_data,
+                                                                                   num_bytes_read);
+            z_perm_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(BaseTranscript<FF>::proof_data,
+                                                                                      num_bytes_read);
+            z_lookup_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(BaseTranscript<FF>::proof_data,
+                                                                                        num_bytes_read);
+            for (size_t i = 0; i < log_n; ++i) {
+                sumcheck_univariates.push_back(
+                    BaseTranscript<FF>::template deserialize_object<barretenberg::Univariate<FF, MAX_RELATION_LENGTH>>(
+                        BaseTranscript<FF>::proof_data, num_bytes_read));
+            }
+            sumcheck_evaluations = BaseTranscript<FF>::template deserialize_object<std::array<FF, NUM_ALL_ENTITIES>>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            for (size_t i = 0; i < log_n; ++i) {
+                zm_cq_comms.push_back(BaseTranscript<FF>::template deserialize_object<Commitment>(
+                    BaseTranscript<FF>::proof_data, num_bytes_read));
+            }
+            zm_cq_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(BaseTranscript<FF>::proof_data,
+                                                                                     num_bytes_read);
+            zm_pi_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(BaseTranscript<FF>::proof_data,
+                                                                                     num_bytes_read);
+        }
+
+        void serialize_full_transcript() override
+        {
+            BaseTranscript<FF>::proof_data.clear();
+            size_t log_n = numeric::get_msb(circuit_size);
+            BaseTranscript<FF>::template serialize_object(circuit_size, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(public_input_size, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(pub_inputs_offset, BaseTranscript<FF>::proof_data);
+            for (size_t i = 0; i < public_input_size; ++i) {
+                BaseTranscript<FF>::template serialize_object(public_inputs[i], BaseTranscript<FF>::proof_data);
+            }
+            BaseTranscript<FF>::template serialize_object(w_l_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(w_r_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(w_o_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(sorted_accum_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(w_4_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(z_perm_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(z_lookup_comm, BaseTranscript<FF>::proof_data);
+            for (size_t i = 0; i < log_n; ++i) {
+                BaseTranscript<FF>::template serialize_object(sumcheck_univariates[i], BaseTranscript<FF>::proof_data);
+            }
+            BaseTranscript<FF>::template serialize_object(sumcheck_evaluations, BaseTranscript<FF>::proof_data);
+            for (size_t i = 0; i < log_n; ++i) {
+                BaseTranscript<FF>::template serialize_object(zm_cq_comms[i], BaseTranscript<FF>::proof_data);
+            }
+            BaseTranscript<FF>::template serialize_object(zm_cq_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(zm_pi_comm, BaseTranscript<FF>::proof_data);
+        }
+    };
 };
 
 class ECCVM : public ECCVMBase<grumpkin::g1, curve::BN254, pcs::kzg::KZG<curve::BN254>> {};

@@ -378,7 +378,7 @@ class Ultra {
 
     class VerifierCommitments : public AllEntities<Commitment, CommitmentHandle> {
       public:
-        VerifierCommitments(std::shared_ptr<VerificationKey> verification_key, BaseTranscript<FF> transcript)
+        VerifierCommitments(std::shared_ptr<VerificationKey> verification_key, const BaseTranscript<FF>& transcript)
         {
             static_cast<void>(transcript);
             q_m = verification_key->q_m;
@@ -433,6 +433,27 @@ class Ultra {
         std::vector<Commitment> zm_cq_comms;
         Commitment zm_cq_comm;
         Commitment zm_pi_comm;
+
+        Transcript() = default;
+
+        Transcript(const std::vector<uint8_t>& proof)
+            : BaseTranscript<FF>(proof)
+        {}
+
+        static Transcript prover_init_empty()
+        {
+            Transcript transcript;
+            constexpr uint32_t init{ 42 }; // arbitrary
+            transcript.send_to_verifier("Init", init);
+            return transcript;
+        };
+
+        static Transcript verifier_init_empty(const Transcript& transcript)
+        {
+            Transcript verifier_transcript{ transcript.proof_data };
+            [[maybe_unused]] auto _ = verifier_transcript.template receive_from_prover<uint32_t>("Init");
+            return verifier_transcript;
+        };
 
         void deserialize_full_transcript() override
         {

@@ -263,7 +263,7 @@ template <typename FF> class BaseTranscript {
      *
      * @return BaseTranscript
      */
-    static BaseTranscript prover_init_empty()
+    static BaseTranscript<FF> prover_init_empty()
     {
         BaseTranscript<FF> transcript;
         constexpr uint32_t init{ 42 }; // arbitrary
@@ -278,7 +278,7 @@ template <typename FF> class BaseTranscript {
      * @param transcript
      * @return BaseTranscript
      */
-    static BaseTranscript verifier_init_empty(const BaseTranscript<FF>& transcript)
+    static BaseTranscript<FF> verifier_init_empty(const BaseTranscript<FF>& transcript)
     {
         BaseTranscript<FF> verifier_transcript{ transcript.proof_data };
         [[maybe_unused]] auto _ = verifier_transcript.template receive_from_prover<uint32_t>("Init");
