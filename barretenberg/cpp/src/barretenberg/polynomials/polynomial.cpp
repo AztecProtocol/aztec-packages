@@ -453,7 +453,7 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::partial_evaluate_mle(std::
     }
 
     // Construct resulting polynomial g(X_0,…,X_{n-m-1})) = p(X_0,…,X_{n-m-1},u_0,...u_{m-1}) from buffer
-    Polynomial<Fr> result{ n_l };
+    Polynomial<Fr> result = Polynomial<Fr>(n_l);
     for (size_t idx = 0; idx < n_l; ++idx) {
         result[idx] = tmp[idx];
     }

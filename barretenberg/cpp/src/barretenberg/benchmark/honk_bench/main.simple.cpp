@@ -49,30 +49,33 @@ void construct_honk_proof_ultra() noexcept
 {
     barretenberg::srs::init_crs_factory("../srs_db/ignition");
     // Constuct circuit and prover; don't include this part in measurement
-    honk::UltraComposer::CircuitBuilder builder;
-    generate_keccak_test_circuit(builder, 1);
-    std::cout << "gates: " << builder.get_total_circuit_size() << std::endl;
 
-    honk::UltraComposer composer;
-    std::shared_ptr<honk::UltraComposer::Instance> instance = composer.create_instance(builder);
-    honk::UltraProver ext_prover = composer.create_prover(instance);
-    prover_profiling(ext_prover);
+    for (int i = 0; i < 10; i++) {
+        honk::UltraComposer::CircuitBuilder builder;
+        generate_keccak_test_circuit(builder, 1);
+        std::cout << "gates: " << builder.get_total_circuit_size() << std::endl;
+        honk::UltraComposer composer;
+        std::shared_ptr<honk::UltraComposer::Instance> instance = composer.create_instance(builder);
+        std::cout << "gates: " << builder.get_total_circuit_size() << std::endl;
+        honk::UltraProver ext_prover = composer.create_prover(instance);
+        prover_profiling(ext_prover);
+    }
 }
 
 void construct_plonk_proof_ultra() noexcept
 {
     barretenberg::srs::init_crs_factory("../srs_db/ignition");
-    // Constuct circuit and prover; don't include this part in measurement
     for (int i = 0; i < 10; i++) {
         plonk::UltraComposer::CircuitBuilder builder;
         generate_keccak_test_circuit(builder, 1);
         plonk::UltraComposer composer;
         plonk::UltraProver ext_prover = composer.create_prover(builder);
+        std::cout << "gates: " << builder.get_total_circuit_size() << std::endl;
         prover_profiling(ext_prover);
     }
 }
 int main()
 {
-    // construct_honk_proof_ultra();
-    construct_plonk_proof_ultra();
+    construct_honk_proof_ultra();
+    // construct_plonk_proof_ultra();
 }

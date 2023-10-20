@@ -55,6 +55,18 @@
       }
     },
     {
+      "name": "tsan",
+      "displayName": "Debugging build with address sanitizer on Clang-16",
+      "description": "Build with address sanitizer on clang16 with debugging information",
+      "inherits": "clang16-dbg",
+      "binaryDir": "build-tsan",
+      "environment": {
+        "CFLAGS": "-fsanitize=thread",
+        "CXXFLAGS": "-fsanitize=thread",
+        "LDFLAGS": "-fsanitize=thread"
+      }
+    },
+    {
       "name": "asan",
       "displayName": "Debugging build with address sanitizer on Clang-16",
       "description": "Build with address sanitizer on clang16 with debugging information",
@@ -245,6 +257,11 @@
       "name": "asan",
       "inherits": "default",
       "configurePreset": "asan"
+    },
+    {
+      "name": "tsan",
+      "inherits": "default",
+      "configurePreset": "tsan"
     },
     {
       "name": "gcc",

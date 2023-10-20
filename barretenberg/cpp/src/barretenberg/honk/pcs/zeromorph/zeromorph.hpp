@@ -78,17 +78,17 @@ template <typename Curve> class ZeroMorphProver_ {
             // Compute f' = f(X_0,...,X_{k-1}, u')
             auto f_1 = polynomial.partial_evaluate_mle(u_partial);
 
-            // Increment first element to get altered partial evaluation point u'' = (u_k + 1, u_{k+1}, ..., u_{n-1})
-            u_partial[0] += 1;
+            // // Increment first element to get altered partial evaluation point u'' = (u_k + 1, u_{k+1}, ..., u_{n-1})
+            // u_partial[0] += 1;
 
-            // Compute f'' = f(X_0,...,X_{k-1}, u'')
-            auto f_2 = polynomial.partial_evaluate_mle(u_partial);
+            // // Compute f'' = f(X_0,...,X_{k-1}, u'')
+            // auto f_2 = polynomial.partial_evaluate_mle(u_partial);
 
-            // Compute q_k = f''(X_0,...,X_{k-1}) - f'(X_0,...,X_{k-1})
-            auto q_k = f_2;
-            q_k -= f_1;
+            // // Compute q_k = f''(X_0,...,X_{k-1}) - f'(X_0,...,X_{k-1})
+            // auto q_k = f_2;
+            // q_k -= f_1;
 
-            quotients[log_N - k - 1] = q_k;
+            // quotients[log_N - k - 1] = q_k;
         });
 
         return quotients;
