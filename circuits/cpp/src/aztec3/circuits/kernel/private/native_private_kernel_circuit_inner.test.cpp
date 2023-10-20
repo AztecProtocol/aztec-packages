@@ -498,7 +498,8 @@ TEST_F(native_private_kernel_inner_tests, native_read_request_bad_request)
     validate_no_new_deployed_contract(public_inputs);
 
     ASSERT_TRUE(builder.failed());
-    ASSERT_EQ(builder.get_first_failure().code, CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_NOTE_HASH_ROOT_MISMATCH);
+    ASSERT_EQ(builder.get_first_failure().code,
+              CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_NOTE_HASH_TREE_ROOT_MISMATCH);
 }
 
 TEST_F(native_private_kernel_inner_tests, native_read_request_bad_leaf_index)
@@ -535,7 +536,8 @@ TEST_F(native_private_kernel_inner_tests, native_read_request_bad_leaf_index)
     validate_no_new_deployed_contract(public_inputs);
 
     ASSERT_TRUE(builder.failed());
-    ASSERT_EQ(builder.get_first_failure().code, CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_NOTE_HASH_ROOT_MISMATCH);
+    ASSERT_EQ(builder.get_first_failure().code,
+              CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_NOTE_HASH_TREE_ROOT_MISMATCH);
 }
 
 TEST_F(native_private_kernel_inner_tests, native_read_request_bad_sibling_path)
@@ -572,7 +574,8 @@ TEST_F(native_private_kernel_inner_tests, native_read_request_bad_sibling_path)
     validate_no_new_deployed_contract(public_inputs);
 
     ASSERT_TRUE(builder.failed());
-    ASSERT_EQ(builder.get_first_failure().code, CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_NOTE_HASH_ROOT_MISMATCH);
+    ASSERT_EQ(builder.get_first_failure().code,
+              CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_NOTE_HASH_TREE_ROOT_MISMATCH);
 }
 
 TEST_F(native_private_kernel_inner_tests, native_read_request_root_mismatch)
@@ -623,7 +626,8 @@ TEST_F(native_private_kernel_inner_tests, native_read_request_root_mismatch)
     validate_no_new_deployed_contract(public_inputs);
 
     ASSERT_TRUE(builder.failed());
-    ASSERT_EQ(builder.get_first_failure().code, CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_NOTE_HASH_ROOT_MISMATCH);
+    ASSERT_EQ(builder.get_first_failure().code,
+              CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_NOTE_HASH_TREE_ROOT_MISMATCH);
 }
 
 TEST_F(native_private_kernel_inner_tests, native_no_read_requests_works)
