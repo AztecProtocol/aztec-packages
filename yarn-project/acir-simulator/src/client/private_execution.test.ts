@@ -9,7 +9,7 @@ import {
   HistoricBlockData,
   L1_TO_L2_MSG_TREE_HEIGHT,
   MAX_NEW_COMMITMENTS_PER_CALL,
-  PRIVATE_DATA_TREE_HEIGHT,
+  NOTE_HASH_TREE_HEIGHT,
   PublicCallRequest,
   PublicKey,
   TxContext,
@@ -75,7 +75,7 @@ describe('Private Execution test suite', () => {
   let recipientCompleteAddress: CompleteAddress;
 
   const treeHeights: { [name: string]: number } = {
-    privateData: PRIVATE_DATA_TREE_HEIGHT,
+    privateData: NOTE_HASH_TREE_HEIGHT,
     l1ToL2Messages: L1_TO_L2_MSG_TREE_HEIGHT,
   };
 

@@ -78,7 +78,7 @@ std::array<fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP> get_empty_l1_to_l2_messages(
 
 BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kernel_data,
                                                  fr prev_global_variables_hash,
-                                                 MerkleTree& private_data_tree,
+                                                 MerkleTree& note_hash_tree,
                                                  MerkleTree& nullifier_tree,
                                                  MerkleTree& contract_tree,
                                                  MerkleTree& public_data_tree,
@@ -91,7 +91,7 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
 
 
     BaseRollupInputs baseRollupInputs = { .kernel_data = kernel_data,
-                                              .start_private_data_tree_snapshot = {
+                                              .start_note_hash_tree_snapshot = {
                                                   .root = private_data_tree.root(),
                                                   .next_available_leaf_index = 0,
                                               },
@@ -124,7 +124,7 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
         get_sibling_path<CONTRACT_SUBTREE_SIBLING_PATH_LENGTH>(contract_tree, 0, CONTRACT_SUBTREE_HEIGHT);
 
     baseRollupInputs.new_commitments_subtree_sibling_path =
-        get_sibling_path<PRIVATE_DATA_SUBTREE_SIBLING_PATH_LENGTH>(private_data_tree, 0, PRIVATE_DATA_SUBTREE_HEIGHT);
+        get_sibling_path<NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH>(private_data_tree, 0, NOTE_HASH_SUBTREE_HEIGHT);
 
 
     // Update public data tree to generate sibling paths: we first set the initial public data tree to the result of all
@@ -223,7 +223,7 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
 BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kernel_data)
 {
     MemoryStore private_data_store;
-    MerkleTree private_data_tree = MerkleTree(private_data_store, PRIVATE_DATA_TREE_HEIGHT);
+    MerkleTree private_data_tree = MerkleTree(private_data_store, NOTE_HASH_TREE_HEIGHT);
     MemoryStore contract_tree_store;
     MerkleTree contract_tree = MerkleTree(contract_tree_store, CONTRACT_TREE_HEIGHT);
     MemoryStore l1_to_l2_messages_store;
@@ -241,9 +241,9 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
                                                  abis::GlobalVariables<NT> global_variables)
 {
     MemoryStore private_data_store;
-    MerkleTree private_data_tree = MerkleTree(private_data_store, PRIVATE_DATA_TREE_HEIGHT);
+    MerkleTree private_data_tree = MerkleTree(private_data_store, NOTE_HASH_TREE_HEIGHT);
     MemoryStore nullifier_data_store;
-    MerkleTree nullifier_tree = MerkleTree(nullifier_data_store, PRIVATE_DATA_TREE_HEIGHT);
+    MerkleTree nullifier_tree = MerkleTree(nullifier_data_store, NOTE_HASH_TREE_HEIGHT);
     MemoryStore contract_tree_store;
     MerkleTree contract_tree = MerkleTree(contract_tree_store, CONTRACT_TREE_HEIGHT);
     MemoryStore l1_to_l2_messages_store;
@@ -292,7 +292,7 @@ std::array<PreviousRollupData<NT>, 2> get_previous_rollup_data(DummyBuilder& bui
 
     // Build the trees based on inputs in base_rollup_input_1.
     MemoryStore private_data_store;
-    MerkleTree private_data_tree = MerkleTree(private_data_store, PRIVATE_DATA_TREE_HEIGHT);
+    MerkleTree private_data_tree = MerkleTree(private_data_store, NOTE_HASH_TREE_HEIGHT);
     MemoryStore contract_tree_store;
     MerkleTree contract_tree = MerkleTree(contract_tree_store, CONTRACT_TREE_HEIGHT);
     std::vector<fr> initial_values(2 * MAX_NEW_NULLIFIERS_PER_TX - 1);
@@ -327,9 +327,8 @@ std::array<PreviousRollupData<NT>, 2> get_previous_rollup_data(DummyBuilder& bui
 
     base_rollup_input_2.new_contracts_subtree_sibling_path =
         get_sibling_path<CONTRACT_SUBTREE_SIBLING_PATH_LENGTH>(contract_tree, 2, CONTRACT_SUBTREE_HEIGHT);
-    base_rollup_input_2.new_commitments_subtree_sibling_path =
-        get_sibling_path<PRIVATE_DATA_SUBTREE_SIBLING_PATH_LENGTH>(
-            private_data_tree, 2 * MAX_NEW_COMMITMENTS_PER_TX, PRIVATE_DATA_SUBTREE_HEIGHT);
+    base_rollup_input_2.new_commitments_subtree_sibling_path = get_sibling_path<NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH>(
+        private_data_tree, 2 * MAX_NEW_COMMITMENTS_PER_TX, NOTE_HASH_SUBTREE_HEIGHT);
 
     auto base_public_input_2 =
         aztec3::circuits::rollup::native_base_rollup::base_rollup_circuit(builder, base_rollup_input_2);
@@ -366,7 +365,7 @@ RootRollupInputs get_root_rollup_inputs(utils::DummyBuilder& builder,
     abis::GlobalVariables<NT> globals = { 0, 0, 0, 0 };
 
     MemoryStore private_data_store;
-    const MerkleTree private_data_tree(private_data_store, PRIVATE_DATA_TREE_HEIGHT);
+    const MerkleTree private_data_tree(private_data_store, NOTE_HASH_TREE_HEIGHT);
 
     auto nullifier_tree = get_initial_nullifier_tree_empty();
 

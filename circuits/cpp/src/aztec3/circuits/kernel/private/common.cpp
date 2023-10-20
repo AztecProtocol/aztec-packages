@@ -62,7 +62,7 @@ void common_validate_call_stack(DummyBuilder& builder, PrivateCallData<NT> const
  * - https://discourse.aztec.network/t/spending-notes-which-havent-yet-been-inserted/180
  *
  * @param builder
- * @param historic_private_data_tree_root This is a reference to the historic root which all
+ * @param historic_note_hash_tree_root This is a reference to the historic root which all
  * read requests are checked against here.
  * @param read_requests the commitments being read by this private call - 'transient note reads' here are
  * `inner_note_hashes` (not yet siloed, not unique), but 'pre-existing note reads' are `unique_siloed_note_hashes`
@@ -70,9 +70,9 @@ void common_validate_call_stack(DummyBuilder& builder, PrivateCallData<NT> const
  * for a given request which is essentially a membership check
  */
 void common_validate_read_requests(DummyBuilder& builder,
-                                   NT::fr const& historic_private_data_tree_root,
+                                   NT::fr const& historic_note_hash_tree_root,
                                    std::array<fr, MAX_READ_REQUESTS_PER_CALL> const& read_requests,
-                                   std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>,
+                                   std::array<ReadRequestMembershipWitness<NT, NOTE_HASH_TREE_HEIGHT>,
                                               MAX_READ_REQUESTS_PER_CALL> const& read_request_membership_witnesses)
 {
     // membership witnesses must resolve to the same private data root
@@ -92,12 +92,12 @@ void common_validate_read_requests(DummyBuilder& builder,
             const auto& root_for_read_request =
                 root_from_sibling_path<NT>(read_request, witness.leaf_index, witness.sibling_path);
             builder.do_assert(
-                root_for_read_request == historic_private_data_tree_root,
+                root_for_read_request == historic_note_hash_tree_root,
                 format("private data tree root mismatch at read_request[",
                        rr_idx,
                        "]",
                        "\n\texpected root:    ",
-                       historic_private_data_tree_root,
+                       historic_note_hash_tree_root,
                        "\n\tbut got root*:    ",
                        root_for_read_request,
                        "\n\tread_request**:   ",

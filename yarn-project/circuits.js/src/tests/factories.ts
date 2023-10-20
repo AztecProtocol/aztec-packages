@@ -66,7 +66,7 @@ import {
   NullifierLeafPreimage,
   OptionallyRevealedData,
   PRIVATE_DATA_SUBTREE_SIBLING_PATH_LENGTH,
-  PRIVATE_DATA_TREE_HEIGHT,
+  NOTE_HASH_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
   Point,
   PreviousKernelData,
@@ -409,7 +409,7 @@ export function makeMembershipWitness<N extends number>(size: N, start: number):
 export function makeReadRequestMembershipWitness(start: number): ReadRequestMembershipWitness {
   return new ReadRequestMembershipWitness(
     new Fr(start),
-    makeTuple(PRIVATE_DATA_TREE_HEIGHT, fr, start + 1),
+    makeTuple(NOTE_HASH_TREE_HEIGHT, fr, start + 1),
     false,
     new Fr(0),
   );
@@ -421,7 +421,7 @@ export function makeReadRequestMembershipWitness(start: number): ReadRequestMemb
  * @returns Non-transient empty read request membership witness.
  */
 export function makeEmptyReadRequestMembershipWitness(): ReadRequestMembershipWitness {
-  return new ReadRequestMembershipWitness(new Fr(0), makeTuple(PRIVATE_DATA_TREE_HEIGHT, Fr.zero), false, new Fr(0));
+  return new ReadRequestMembershipWitness(new Fr(0), makeTuple(NOTE_HASH_TREE_HEIGHT, Fr.zero), false, new Fr(0));
 }
 
 /**
