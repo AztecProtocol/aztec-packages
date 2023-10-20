@@ -54,6 +54,7 @@ impl AddressNote {
     // Broadcasts the note as an encrypted log on L1.
     pub fn broadcast(self, context: &mut PrivateContext, slot: Field) {
         let encryption_pub_key = get_public_key(self.owner);
+        // docs:start:encrypted
         emit_encrypted_log(
             context,
             (*context).this_address(),
@@ -61,6 +62,7 @@ impl AddressNote {
             encryption_pub_key,
             self.serialize(),
         );
+        // docs:end:encrypted
     }
 }
 

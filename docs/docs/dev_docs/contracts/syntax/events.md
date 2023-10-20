@@ -67,7 +67,7 @@ To emit encrypted logs first import the `emit_encrypted_log` utility function wh
 
 Then you can call the function:
 
-#include_code encrypted /yarn-project/noir-contracts/src/contracts/token_contract/src/types/token_note.nr rust
+#include_code encrypted /yarn-project/aztec-nr/address-note/src/address_note.nr rust
 
 ### Processing Encrypted Events
 

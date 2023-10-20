@@ -88,7 +88,6 @@ impl TokenNote {
     pub fn broadcast(self, context: &mut PrivateContext, slot: Field) {
       // We only bother inserting the note if non-empty to save funds on gas.
       if !self.amount.is_zero() {
-          // docs:start:encrypted
           let encryption_pub_key = get_public_key(self.owner.address);
           emit_encrypted_log(
               context,
@@ -97,7 +96,6 @@ impl TokenNote {
               encryption_pub_key,
               self.serialize(),
           );
-          // docs:end:encrypted
       }
   }
 }
