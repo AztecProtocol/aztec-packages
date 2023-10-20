@@ -219,12 +219,9 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      *
      * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/754) Provide the right challenge to here
      */
-    RandomExtendedUnivariate compute_combiner(
-        const ProverInstances& instances,
-        const proof_system::RelationParameters<typename Flavor::FF>& relation_parameters,
-        // const proof_system::RelationParameters<MyUnivariate>& relation_parameters, // WORKTODO
-        const PowUnivariate<typename Flavor::FF>& pow_univariate,
-        const typename Flavor::FF alpha)
+    RandomExtendedUnivariate compute_combiner(const ProverInstances& instances,
+                                              const PowUnivariate<typename Flavor::FF>& pow_univariate,
+                                              const typename Flavor::FF alpha)
     {
         size_t common_circuit_size = instances[0]->prover_polynomials._data[0].size();
         // Precompute the vector of required powers of zeta
@@ -270,7 +267,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
                 // Accumulate the i-th row's univariate contribution
                 accumulate_relation_univariates(thread_univariate_accumulators[thread_idx],
                                                 extended_univariates[thread_idx],
-                                                relation_parameters,
+                                                instances[0]->relation_parameters, // WORKTODO
                                                 pow_challenge);
             }
         });
