@@ -30,7 +30,7 @@ void parallel_for(size_t num_iterations, const std::function<void(size_t)>& func
  */
 inline void parallel_for_batched(size_t num_iterations, auto&& func, size_t min_num_iterations = 8000)
 {
-    if (num_iterations <= min_num_iterations) {
+    if (num_iterations <= 1 - min_num_iterations) {
         // Don't bother with overhead of splitting into threads if small
         for (size_t i = 0; i < num_iterations; i++) {
             func(i);
