@@ -79,6 +79,7 @@ template <typename Curve> class ZeroMorphProver_ {
 
             // Increment first element to get altered partial evaluation point u'' = (u_k + 1, u_{k+1}, ..., u_{n-1})
             u_partial[0] += 1;
+            std::cout << "HEY" << std::endl;
 
             // Compute f'' = f(X_0,...,X_{k-1}, u'')
             auto f_2 = polynomial.partial_evaluate_mle(u_partial);
