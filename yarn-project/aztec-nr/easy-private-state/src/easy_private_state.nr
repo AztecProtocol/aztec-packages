@@ -73,8 +73,6 @@ impl EasyPrivateUint {
         // Creates change note for the owner.
         let result_value = minuend - subtrahend;
         let mut result_note = ValueNote::new(result_value as Field, owner);
-        let broadcast = result_value != 0;
-        // We broadcast the note if it's value is non-zero.
-        self.set.insert(&mut result_note, broadcast);
+        self.set.insert(&mut result_note, result_value != 0);
     }
 }
