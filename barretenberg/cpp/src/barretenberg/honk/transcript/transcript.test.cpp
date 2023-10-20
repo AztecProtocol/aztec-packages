@@ -197,6 +197,32 @@ TEST_F(UltraTranscriptTests, ChallengeGenerationTest)
     ASSERT_NE(b, 0) << "Challenge a is 0";
 }
 
+TEST_F(UltraTranscriptTests, StructureTest)
+{
+    // Construct a simple circuit of size n = 8 (i.e. the minimum circuit size)
+    typename Flavor::FF a = 1;
+    auto builder = typename Flavor::CircuitBuilder();
+    builder.add_variable(a);
+    builder.add_public_variable(a);
+
+    // Automatically generate a transcript manifest by constructing a proof
+    auto composer = UltraComposer();
+    auto instance = composer.create_instance(builder);
+    auto prover = composer.create_prover(instance);
+    auto proof = prover.construct_proof();
+
+    auto verifier = composer.create_verifier(instance);
+    EXPECT_TRUE(verifier.verify_proof(proof));
+
+    prover.transcript.deserialize_full_transcript();
+    Flavor::GroupElement tmp = Flavor::GroupElement::one();
+    prover.transcript.sorted_accum_comm = tmp;
+    EXPECT_TRUE(verifier.verify_proof(
+        prover.export_proof())); // we have not serialized it back to the proof so it should still be fine
+    prover.transcript.serialize_full_transcript();
+    EXPECT_FALSE(verifier.verify_proof(prover.export_proof())); // the proof is now wrong after serializing it
+}
+
 TEST_F(UltraTranscriptTests, FoldingManifestTest)
 {
     using Flavor = flavor::Ultra;
