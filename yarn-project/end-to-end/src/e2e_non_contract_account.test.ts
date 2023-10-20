@@ -1,11 +1,14 @@
 import { SignerlessWallet, Wallet } from '@aztec/aztec.js';
+import { CircuitsWasm, Fr } from '@aztec/circuits.js';
+import { siloNullifier } from '@aztec/circuits.js/abis';
 import { DebugLogger } from '@aztec/foundation/log';
 import { TestContract } from '@aztec/noir-contracts/types';
-import { PXE, TxStatus } from '@aztec/types';
+import { AztecNode, PXE, TxStatus } from '@aztec/types';
 
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_non_contract_account', () => {
+  let aztecNode: AztecNode | undefined;
   let pxe: PXE;
   let nonContractAccountWallet: Wallet;
   let teardown: () => Promise<void>;
@@ -16,7 +19,7 @@ describe('e2e_non_contract_account', () => {
 
   beforeEach(async () => {
     let wallet: Wallet;
-    ({ teardown, pxe, wallet, logger } = await setup(1));
+    ({ teardown, aztecNode, pxe, wallet, logger } = await setup(1));
     nonContractAccountWallet = new SignerlessWallet(pxe);
 
     logger(`Deploying L2 contract...`);
@@ -30,7 +33,14 @@ describe('e2e_non_contract_account', () => {
     const contractWithNoContractWallet = await TestContract.at(contract.address, nonContractAccountWallet);
 
     // Send transaction as arbitrary non-contract account
-    const receipt = await contractWithNoContractWallet.methods.getThisAddress().send().wait({ interval: 0.1 });
+    const nullifier = new Fr(940);
+    const receipt = await contractWithNoContractWallet.methods.emit_nullifier(nullifier).send().wait({ interval: 0.1 });
     expect(receipt.status).toBe(TxStatus.MINED);
+
+    const tx = await aztecNode!.getTx(receipt.txHash);
+    const expectedSiloedNullifier = siloNullifier(await CircuitsWasm.get(), contract.address, nullifier);
+    const siloedNullifier = tx!.newNullifiers[1];
+
+    expect(siloedNullifier.equals(expectedSiloedNullifier)).toBeTruthy();
   }, 120_000);
 });
