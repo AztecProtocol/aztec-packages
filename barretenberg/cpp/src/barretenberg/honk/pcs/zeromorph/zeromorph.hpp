@@ -56,26 +56,36 @@ template <typename Curve> class ZeroMorphProver_ {
             quotients.emplace_back(Polynomial(size)); // degree 2^k - 1
         }
 
-        // Compute the q_k in reverse order, i.e. q_{n-1}, ..., q_0
-        for (size_t k = 0; k < log_N; ++k) {
-            // Define partial evaluation point u' = (u_k, ..., u_{n-1})
-            auto evaluation_point_size = static_cast<std::ptrdiff_t>(k + 1);
-            std::vector<FF> u_partial(u_challenge.end() - evaluation_point_size, u_challenge.end());
+        // Compute the first 2^{n-1} coefficients of q_{n-1}
+        size_t size_q = 1 << (log_N-1);
+        Polynomial q;
 
-            // Compute f' = f(X_0,...,X_{k-1}, u')
-            auto f_1 = polynomial.partial_evaluate_mle(u_partial);
+        for (size_t l = 0; l < size_q; ++l) {
+            q[l] = polynomial[size_q + l] - polynomial[l];
+        }
 
-            // Increment first element to get altered partial evaluation point u'' = (u_k + 1, u_{k+1}, ..., u_{n-1})
-            u_partial[0] += 1;
+        quotients[log_N - 1] = q;
 
-            // Compute f'' = f(X_0,...,X_{k-1}, u'')
-            auto f_2 = polynomial.partial_evaluate_mle(u_partial);
+        // Compute the first 2^k coefficients of q_k in reverse order from k= n-2, i.e. q_{n-2}, ..., q_0
+        //Define the intermediate polynomial f
+        Polynomial f;
 
-            // Compute q_k = f''(X_0,...,X_{k-1}) - f'(X_0,...,X_{k-1})
-            auto q_k = f_2;
-            q_k -= f_1;
+        for (size_t k = 0; k < log_N -1; ++k) {
+            // Compute f = f_{n-1-k}
+            for (size_t l = 0; l < size_q; ++l) {
+                f[l] = polynomial[l] + u_challenge[log_N-1-k]*q[l];
+            }
 
-            quotients[log_N - k - 1] = q_k;
+            size_q = size_q/2;
+            q = 0;
+
+            for (size_t l = 0; l < size_q; ++l) {
+                q[l] = f[size_q + l] - f[l];
+            }
+
+            quotients[log_N - k - 1] = q;
+            polynomial = f;
+            f=0;
         }
 
         return quotients;
