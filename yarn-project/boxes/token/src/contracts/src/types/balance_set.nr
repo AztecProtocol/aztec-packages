@@ -76,13 +76,8 @@ impl BalanceSet {
         let mut addend_note = TokenNote::new(addend, self.owner);
 
         // docs:start:insert
-        self.set.insert(&mut addend_note);
+        self.set.insert(&mut addend_note, true);
         // docs:end:insert
-
-        addend_note.emit_encrypted(
-          self.context.private.unwrap(),
-          self.set.storage_slot
-        );
     }
 
     pub fn sub(self: Self, subtrahend: SafeU120) {
