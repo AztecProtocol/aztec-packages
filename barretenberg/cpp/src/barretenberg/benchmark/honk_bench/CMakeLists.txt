@@ -2,6 +2,7 @@
 set(BENCHMARK_SOURCES
   standard_plonk.bench.cpp
   ultra_honk.bench.cpp
+  ultra_plonk_passes.bench.cpp
   ultra_plonk.bench.cpp
 )
 
