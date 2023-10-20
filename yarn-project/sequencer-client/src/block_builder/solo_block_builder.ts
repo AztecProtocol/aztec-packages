@@ -23,7 +23,7 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NullifierLeafPreimage,
   NOTE_HASH_SUBTREE_HEIGHT,
-  PRIVATE_DATA_SUBTREE_SIBLING_PATH_LENGTH,
+  NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
   PUBLIC_DATA_TREE_HEIGHT,
   PreviousKernelData,
   PreviousRollupData,
@@ -99,7 +99,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     newL1ToL2Messages: Fr[],
   ): Promise<[L2Block, Proof]> {
     const [
-      startPrivateDataTreeSnapshot,
+      startNoteHashTreeSnapshot,
       startNullifierTreeSnapshot,
       startContractTreeSnapshot,
       startPublicDataTreeSnapshot,
@@ -123,7 +123,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     const [circuitsOutput, proof] = await this.runCircuits(globalVariables, txs, newL1ToL2Messages);
 
     const {
-      endPrivateDataTreeSnapshot,
+      endNoteHashTreeSnapshot,
       endNullifierTreeSnapshot,
       endContractTreeSnapshot,
       endPublicDataTreeRoot,
@@ -159,8 +159,8 @@ export class SoloBlockBuilder implements BlockBuilder {
     const l2Block = L2Block.fromFields({
       number: Number(globalVariables.blockNumber.value),
       globalVariables,
-      startPrivateDataTreeSnapshot,
-      endPrivateDataTreeSnapshot,
+      startNoteHashTreeSnapshot,
+      endNoteHashTreeSnapshot,
       startNullifierTreeSnapshot,
       endNullifierTreeSnapshot,
       startContractTreeSnapshot,
@@ -654,7 +654,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     const constants = await this.getConstantRollupData(globalVariables);
     const startNullifierTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
     const startContractTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.CONTRACT_TREE);
-    const startPrivateDataTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE);
+    const startNoteHashTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE);
     const startPublicDataTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE);
     const startHistoricBlocksTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.BLOCKS_TREE);
 
@@ -664,7 +664,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       NOTE_HASH_SUBTREE_HEIGHT,
     );
 
-    const newCommitmentsSubtreeSiblingPath = makeTuple(PRIVATE_DATA_SUBTREE_SIBLING_PATH_LENGTH, i =>
+    const newCommitmentsSubtreeSiblingPath = makeTuple(NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, i =>
       i < newCommitmentsSubtreeSiblingPathArray.length ? newCommitmentsSubtreeSiblingPathArray[i] : Fr.ZERO,
     );
 
@@ -736,7 +736,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       constants,
       startNullifierTreeSnapshot,
       startContractTreeSnapshot,
-      startPrivateDataTreeSnapshot,
+      startNoteHashTreeSnapshot,
       startPublicDataTreeRoot: startPublicDataTreeSnapshot.root,
       startHistoricBlocksTreeSnapshot,
       newCommitmentsSubtreeSiblingPath,

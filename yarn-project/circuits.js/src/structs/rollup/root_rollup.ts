@@ -85,12 +85,12 @@ export class RootRollupPublicInputs {
     /**
      * Snapshot of the private data tree at the start of the rollup.
      */
-    public startPrivateDataTreeSnapshot: AppendOnlyTreeSnapshot,
+    public startNoteHashTreeSnapshot: AppendOnlyTreeSnapshot,
 
     /**
      * Snapshot of the private data tree at the end of the rollup.
      */
-    public endPrivateDataTreeSnapshot: AppendOnlyTreeSnapshot,
+    public endNoteHashTreeSnapshot: AppendOnlyTreeSnapshot,
 
     /**
      * Snapshot of the nullifier tree at the start of the rollup.
@@ -122,11 +122,11 @@ export class RootRollupPublicInputs {
     /**
      * Snapshot of the historic private data tree roots tree at the start of the rollup.
      */
-    public startTreeOfHistoricPrivateDataTreeRootsSnapshot: AppendOnlyTreeSnapshot,
+    public startTreeOfHistoricNoteHashTreeRootsSnapshot: AppendOnlyTreeSnapshot,
     /**
      * Snapshot of the historic private data tree roots tree at the end of the rollup.
      */
-    public endTreeOfHistoricPrivateDataTreeRootsSnapshot: AppendOnlyTreeSnapshot,
+    public endTreeOfHistoricNoteHashTreeRootsSnapshot: AppendOnlyTreeSnapshot,
 
     /**
      * Snapshot of the historic contract tree roots tree at the start of the rollup.
@@ -178,16 +178,16 @@ export class RootRollupPublicInputs {
     return [
       fields.endAggregationObject,
       fields.globalVariables,
-      fields.startPrivateDataTreeSnapshot,
-      fields.endPrivateDataTreeSnapshot,
+      fields.startNoteHashTreeSnapshot,
+      fields.endNoteHashTreeSnapshot,
       fields.startNullifierTreeSnapshot,
       fields.endNullifierTreeSnapshot,
       fields.startContractTreeSnapshot,
       fields.endContractTreeSnapshot,
       fields.startPublicDataTreeRoot,
       fields.endPublicDataTreeRoot,
-      fields.startTreeOfHistoricPrivateDataTreeRootsSnapshot,
-      fields.endTreeOfHistoricPrivateDataTreeRootsSnapshot,
+      fields.startTreeOfHistoricNoteHashTreeRootsSnapshot,
+      fields.endTreeOfHistoricNoteHashTreeRootsSnapshot,
       fields.startTreeOfHistoricContractTreeRootsSnapshot,
       fields.endTreeOfHistoricContractTreeRootsSnapshot,
       fields.startL1ToL2MessagesTreeSnapshot,

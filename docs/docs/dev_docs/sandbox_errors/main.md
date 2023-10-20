@@ -48,7 +48,7 @@ Confirms that the TxRequest (user's intent) matches the private call being execu
 * tx_request.function_data doesn't match call_stack_item.function_data
 * Aztec.nr function args passed to tx_request doesn't match args in the call_stack_item
 
-#### 2018 - PRIVATE_KERNEL__READ_REQUEST_PRIVATE_DATA_ROOT_MISMATCH
+#### 2018 - PRIVATE_KERNEL__READ_REQUEST_NOTE_HASH_ROOT_MISMATCH
 Given a read request and provided witness, we check that the merkle root obtained from the witness' sibling path and it's leaf is similar to the historic state root we want to read against. This is a sanity check to ensure we are reading from the right state. 
 For a non transient read, we fetch the merkle root from the membership witnesses and the leaf index 
 

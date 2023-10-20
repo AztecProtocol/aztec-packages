@@ -112,7 +112,7 @@ void common_validate_read_requests(DummyBuilder& builder,
                        "and merkle-hashing to a root using the membership witness"
                        "\n\t** for 'pre-existing note reads', the read_request is the unique_siloed_note_hash "
                        "(it has been hashed with contract address and then a nonce)"),
-                CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_PRIVATE_DATA_ROOT_MISMATCH);
+                CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_NOTE_HASH_ROOT_MISMATCH);
             // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1354): do we need to enforce
             // that a non-transient read_request was derived from the proper/current contract address?
         }

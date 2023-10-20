@@ -10,7 +10,7 @@ import {
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_BASE_ROLLUP,
   NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_TREE_HEIGHT,
-  PRIVATE_DATA_SUBTREE_SIBLING_PATH_LENGTH,
+  NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '../../cbind/constants.gen.js';
 import { FieldsOf } from '../../utils/jsUtils.js';
@@ -126,7 +126,7 @@ export class BaseRollupInputs {
     /**
      * Snapshot of the private data tree at the start of the base rollup circuit.
      */
-    public startPrivateDataTreeSnapshot: AppendOnlyTreeSnapshot,
+    public startNoteHashTreeSnapshot: AppendOnlyTreeSnapshot,
     /**
      * Snapshot of the nullifier tree at the start of the base rollup circuit.
      */
@@ -160,7 +160,7 @@ export class BaseRollupInputs {
     /**
      * Sibling path "pointing to" where the new commitments subtree should be inserted into the private data tree.
      */
-    public newCommitmentsSubtreeSiblingPath: Tuple<Fr, typeof PRIVATE_DATA_SUBTREE_SIBLING_PATH_LENGTH>,
+    public newCommitmentsSubtreeSiblingPath: Tuple<Fr, typeof NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH>,
     /**
      * Sibling path "pointing to" where the new nullifiers subtree should be inserted into the nullifier tree.
      */
@@ -205,7 +205,7 @@ export class BaseRollupInputs {
   static getFields(fields: FieldsOf<BaseRollupInputs>) {
     return [
       fields.kernelData,
-      fields.startPrivateDataTreeSnapshot,
+      fields.startNoteHashTreeSnapshot,
       fields.startNullifierTreeSnapshot,
       fields.startContractTreeSnapshot,
       fields.startPublicDataTreeRoot,

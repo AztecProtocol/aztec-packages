@@ -54,7 +54,7 @@ library Constants {
   uint256 internal constant CONTRACT_SUBTREE_HEIGHT = 1;
   uint256 internal constant CONTRACT_SUBTREE_SIBLING_PATH_LENGTH = 15;
   uint256 internal constant NOTE_HASH_SUBTREE_HEIGHT = 7;
-  uint256 internal constant PRIVATE_DATA_SUBTREE_SIBLING_PATH_LENGTH = 25;
+  uint256 internal constant NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH = 25;
   uint256 internal constant NULLIFIER_SUBTREE_HEIGHT = 7;
   uint256 internal constant HISTORIC_BLOCKS_TREE_HEIGHT = 16;
   uint256 internal constant NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH = 9;
