@@ -50,6 +50,30 @@ resource "aws_lb" "aztec-network" {
   }
 }
 
+# Create our application load balancer.
+resource "aws_alb" "aztec-network-alb" {
+  name               = "aztec-network-alb"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups = [
+    data.terraform_remote_state.setup_iac.outputs.security_group_public_id
+  ]
+  subnets = [
+    data.terraform_remote_state.setup_iac.outputs.subnet_az1_id,
+    data.terraform_remote_state.setup_iac.outputs.subnet_az2_id
+  ]
+
+  access_logs {
+    bucket  = "aztec-logs"
+    prefix  = "aztec3-alb-logs"
+    enabled = true
+  }
+
+  tags = {
+    Name = "aztec3"
+  }
+}
+
 resource "aws_security_group" "security-group-p2p" {
   name        = "security-group-p2p"
   description = "Allow inbound p2p traffic"

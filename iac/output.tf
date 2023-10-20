@@ -2,6 +2,10 @@ output "nlb_arn" {
   value = "${aws_lb.aztec-network.arn}"
 }
 
+output "alb_arn" {
+  value = "${aws_alb.aztec-network-alb.arn}"
+}
+
 output "nlb_dns" {
   value = "${aws_lb.aztec-network.dns_name}"
 }
