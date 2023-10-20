@@ -422,18 +422,6 @@ The usage is rather straight-forward and very similar to using the `insert` meth
 
 #include_code insert_from_public /yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
 
-### `assert_contains_and_remove_publicly_created`
-
-Like above, this is used to ensure that the message exists in the data tree and then consume it. However, it differs slightly since there is currently a difference between notes that have been inserted from public and private execution. This means that you currently must use this function to consume and nullify a note that was created in a public function. This will be fixed in the future.
-
-#include_code assert_contains_and_remove_publicly_created /yarn-project/aztec-nr/aztec/src/state_vars/set.nr rust
-
-While this might look intimidating, the use of the function is rather easy, and is used in the following way:
-
-#include_code assert_contains_and_remove_publicly_created /yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
-
-The reason we are not reading this note ahead of time is that no [encrypted log](./events.md#encrypted-events) was emitted for this note, since it was created in public thereby making the encrypted log useless (everyone saw the content ahead of time).
-
 ### `remove`
 
 Will remove a note from the set if it previously has been read from storage, e.g. you have fetched it through a `get_notes` call. This is useful when you want to remove a note that you have previously read from storage and do not have to read it again. If you recall from earlier, we are emitting a nullifier when reading values to make sure that they are up to date.
