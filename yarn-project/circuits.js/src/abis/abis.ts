@@ -280,7 +280,7 @@ export function siloNullifier(wasm: IWasmModule, contract: AztecAddress, innerNu
  * Computes the block hash given the blocks globals and roots.
  * @param wasm - A module providing low-level wasm access.
  * @param globals - The global variables to put into the block hash.
- * @param noteHashTree - The root of the private data tree.
+ * @param noteHashTree - The root of the note hash tree.
  * @param nullifierTreeRoot - The root of the nullifier tree.
  * @param contractTreeRoot - The root of the contract tree.
  * @param l1ToL2DataTreeRoot - The root of the l1 to l2 data tree.
@@ -312,7 +312,7 @@ export function computeBlockHashWithGlobals(
  * Computes the block hash given the blocks globals and roots.
  * @param wasm - A module providing low-level wasm access.
  * @param globalsHash - The global variables hash to put into the block hash.
- * @param noteHashTree - The root of the private data tree.
+ * @param noteHashTree - The root of the note hash tree.
  * @param nullifierTreeRoot - The root of the nullifier tree.
  * @param contractTreeRoot - The root of the contract tree.
  * @param l1ToL2DataTreeRoot - The root of the l1 to l2 data tree.

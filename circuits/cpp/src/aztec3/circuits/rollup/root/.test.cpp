@@ -256,7 +256,7 @@ TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
     RootRollupPublicInputs outputs =
         aztec3::circuits::rollup::native_root_rollup::root_rollup_circuit(builder, rootRollupInputs);
 
-    // Check private data trees
+    // Check note hash trees
     ASSERT_EQ(
         outputs.start_note_hash_tree_snapshot,
         rootRollupInputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.start_note_hash_tree_snapshot);

@@ -61,7 +61,7 @@ export class L2Block {
      */
     public globalVariables: GlobalVariables,
     /**
-     * The tree snapshot of the private data tree at the start of the rollup.
+     * The tree snapshot of the note hash tree at the start of the rollup.
      */
     public startNoteHashTreeSnapshot: AppendOnlyTreeSnapshot,
     /**
@@ -85,7 +85,7 @@ export class L2Block {
      */
     public startHistoricBlocksTreeSnapshot: AppendOnlyTreeSnapshot = AppendOnlyTreeSnapshot.empty(),
     /**
-     * The tree snapshot of the private data tree at the end of the rollup.
+     * The tree snapshot of the note hash tree at the end of the rollup.
      */
     public endNoteHashTreeSnapshot: AppendOnlyTreeSnapshot,
     /**
@@ -109,7 +109,7 @@ export class L2Block {
      */
     public endHistoricBlocksTreeSnapshot: AppendOnlyTreeSnapshot,
     /**
-     * The commitments to be inserted into the private data tree.
+     * The commitments to be inserted into the note hash tree.
      */
     public newCommitments: Fr[],
     /**
@@ -236,7 +236,7 @@ export class L2Block {
        */
       globalVariables: GlobalVariables;
       /**
-       * The tree snapshot of the private data tree at the start of the rollup.
+       * The tree snapshot of the note hash tree at the start of the rollup.
        */
       startNoteHashTreeSnapshot: AppendOnlyTreeSnapshot;
       /**
@@ -260,7 +260,7 @@ export class L2Block {
        */
       startHistoricBlocksTreeSnapshot: AppendOnlyTreeSnapshot;
       /**
-       * The tree snapshot of the private data tree at the end of the rollup.
+       * The tree snapshot of the note hash tree at the end of the rollup.
        */
       endNoteHashTreeSnapshot: AppendOnlyTreeSnapshot;
       /**
@@ -284,7 +284,7 @@ export class L2Block {
        */
       endHistoricBlocksTreeSnapshot: AppendOnlyTreeSnapshot;
       /**
-       * The commitments to be inserted into the private data tree.
+       * The commitments to be inserted into the note hash tree.
        */
       newCommitments: Fr[];
       /**

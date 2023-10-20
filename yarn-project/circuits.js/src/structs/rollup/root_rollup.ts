@@ -83,12 +83,12 @@ export class RootRollupPublicInputs {
      */
     public globalVariables: GlobalVariables,
     /**
-     * Snapshot of the private data tree at the start of the rollup.
+     * Snapshot of the note hash tree at the start of the rollup.
      */
     public startNoteHashTreeSnapshot: AppendOnlyTreeSnapshot,
 
     /**
-     * Snapshot of the private data tree at the end of the rollup.
+     * Snapshot of the note hash tree at the end of the rollup.
      */
     public endNoteHashTreeSnapshot: AppendOnlyTreeSnapshot,
 
@@ -120,11 +120,11 @@ export class RootRollupPublicInputs {
     public endPublicDataTreeRoot: Fr,
 
     /**
-     * Snapshot of the historic private data tree roots tree at the start of the rollup.
+     * Snapshot of the historic note hash tree roots tree at the start of the rollup.
      */
     public startTreeOfHistoricNoteHashTreeRootsSnapshot: AppendOnlyTreeSnapshot,
     /**
-     * Snapshot of the historic private data tree roots tree at the end of the rollup.
+     * Snapshot of the historic note hash tree roots tree at the end of the rollup.
      */
     public endTreeOfHistoricNoteHashTreeRootsSnapshot: AppendOnlyTreeSnapshot,
 

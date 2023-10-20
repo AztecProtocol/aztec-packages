@@ -53,7 +53,7 @@ void common_validate_call_stack(DummyBuilder& builder, PrivateCallData<NT> const
 }
 
 /**
- * @brief Validate all read requests against the historic private data root.
+ * @brief Validate all read requests against the historic note hash tree root.
  * Use their membership witnesses to do so. If the historic root is not yet
  * initialized, initialize it using the first read request here (if present).
  *
@@ -66,7 +66,7 @@ void common_validate_call_stack(DummyBuilder& builder, PrivateCallData<NT> const
  * read requests are checked against here.
  * @param read_requests the commitments being read by this private call - 'transient note reads' here are
  * `inner_note_hashes` (not yet siloed, not unique), but 'pre-existing note reads' are `unique_siloed_note_hashes`
- * @param read_request_membership_witnesses used to compute the private data root
+ * @param read_request_membership_witnesses used to compute the note hash tree root
  * for a given request which is essentially a membership check
  */
 void common_validate_read_requests(DummyBuilder& builder,
@@ -75,13 +75,13 @@ void common_validate_read_requests(DummyBuilder& builder,
                                    std::array<ReadRequestMembershipWitness<NT, NOTE_HASH_TREE_HEIGHT>,
                                               MAX_READ_REQUESTS_PER_CALL> const& read_request_membership_witnesses)
 {
-    // membership witnesses must resolve to the same private data root
+    // membership witnesses must resolve to the same note hash tree root
     // for every request in all kernel iterations
     for (size_t rr_idx = 0; rr_idx < aztec3::MAX_READ_REQUESTS_PER_CALL; rr_idx++) {
         const auto& read_request = read_requests[rr_idx];
         const auto& witness = read_request_membership_witnesses[rr_idx];
 
-        // A pending commitment is the one that is not yet added to private data tree
+        // A pending commitment is the one that is not yet added to note hash tree
         // A "transient read" is when we try to "read" a pending commitment within a transaction
         // between function calls, as opposed to reading the outputs of a previous transaction
         // which is a "pending read".
@@ -93,7 +93,7 @@ void common_validate_read_requests(DummyBuilder& builder,
                 root_from_sibling_path<NT>(read_request, witness.leaf_index, witness.sibling_path);
             builder.do_assert(
                 root_for_read_request == historic_note_hash_tree_root,
-                format("private data tree root mismatch at read_request[",
+                format("note hash tree root mismatch at read_request[",
                        rr_idx,
                        "]",
                        "\n\texpected root:    ",
@@ -108,7 +108,7 @@ void common_validate_read_requests(DummyBuilder& builder,
                        witness.is_transient,
                        "\n\thint_to_commitment: ",
                        witness.hint_to_commitment,
-                       "\n\t* got root by treating the read_request as a leaf in the private data tree "
+                       "\n\t* got root by treating the read_request as a leaf in the note hash tree "
                        "and merkle-hashing to a root using the membership witness"
                        "\n\t** for 'pre-existing note reads', the read_request is the unique_siloed_note_hash "
                        "(it has been hashed with contract address and then a nonce)"),

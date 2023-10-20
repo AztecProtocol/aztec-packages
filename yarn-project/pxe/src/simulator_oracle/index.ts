@@ -97,7 +97,7 @@ export class SimulatorOracle implements DBOracle {
   }
 
   /**
-   * Gets the index of a commitment in the private data tree.
+   * Gets the index of a commitment in the note hash tree.
    * @param commitment - The commitment.
    * @returns - The index of the commitment. Undefined if it does not exist in the tree.
    */

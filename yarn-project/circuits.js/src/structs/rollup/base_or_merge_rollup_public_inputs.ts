@@ -33,11 +33,11 @@ export class BaseOrMergeRollupPublicInputs {
     public constants: ConstantRollupData,
 
     /**
-     * Snapshot of the private data tree at the start of the rollup circuit.
+     * Snapshot of the note hash tree at the start of the rollup circuit.
      */
     public startNoteHashTreeSnapshot: AppendOnlyTreeSnapshot,
     /**
-     * Snapshot of the private data tree at the end of the rollup circuit.
+     * Snapshot of the note hash tree at the end of the rollup circuit.
      */
     public endNoteHashTreeSnapshot: AppendOnlyTreeSnapshot,
 

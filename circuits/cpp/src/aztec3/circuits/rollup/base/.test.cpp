@@ -641,7 +641,7 @@ TEST_F(base_rollup_tests, native_compute_membership_historic_blocks_tree_negativ
     MemoryStore blocks_store;
     auto blocks_tree = MerkleTree(blocks_store, HISTORIC_BLOCKS_TREE_HEIGHT);
 
-    // Create an INCORRECT sibling path for the private data tree root in the historic tree roots.
+    // Create an INCORRECT sibling path for the note hash tree root in the historic tree roots.
     auto hash_path = blocks_tree.get_sibling_path(0);
     std::array<NT::fr, HISTORIC_BLOCKS_TREE_HEIGHT> sibling_path{};
     for (size_t i = 0; i < HISTORIC_BLOCKS_TREE_HEIGHT; ++i) {

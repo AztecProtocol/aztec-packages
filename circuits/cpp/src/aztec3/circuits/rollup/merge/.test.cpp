@@ -146,7 +146,7 @@ TEST_F(merge_rollup_tests, native_fail_if_previous_rollups_dont_follow_on)
 
     merge_rollup_circuit(builderA, inputA);
     ASSERT_TRUE(builderA.failed());
-    ASSERT_EQ(builderA.get_first_failure().message, "input proofs have different private data tree snapshots");
+    ASSERT_EQ(builderA.get_first_failure().message, "input proofs have different note hash tree snapshots");
 
     // do the same for nullifier tree
     DummyBuilder builderB = DummyBuilder("merge_rollup_tests__native_fail_if_previous_rollups_dont_follow_on_B");

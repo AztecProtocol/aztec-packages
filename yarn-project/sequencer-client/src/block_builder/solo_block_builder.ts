@@ -677,7 +677,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       i < newContractsSubtreeSiblingPathArray.length ? newContractsSubtreeSiblingPathArray[i] : Fr.ZERO,
     );
 
-    // Update the contract and private data trees with the new items being inserted to get the new roots
+    // Update the contract and note hash trees with the new items being inserted to get the new roots
     // that will be used by the next iteration of the base rollup circuit, skipping the empty ones
     const newContracts = flatMap([left, right], tx =>
       tx.data.end.newContracts.map(cd => computeContractLeaf(wasm, cd)),

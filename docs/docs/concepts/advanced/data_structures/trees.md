@@ -101,7 +101,7 @@ This has the property that it's inextricably linked to the Note it is nullifying
 
 If a function of a smart contract generates this Nullifier and submits it to the network, it will only be allowed to submit it once; a second submission will be rejected by the Base Rollup Circuit (which performs Merkle non-membership checks against the Nullifier Tree). This prevents a Note from being 'deleted' twice.
 
-> Note: a Note cannot actually be "deleted" from the Private Data Tree, because it is an append-only tree. This is why we produce nullifiers; as a way of emulating deletion in a way where observers won't know which Note has been deleted.
+> Note: a Note cannot actually be "deleted" from the Note Hash Tree, because it is an append-only tree. This is why we produce nullifiers; as a way of emulating deletion in a way where observers won't know which Note has been deleted.
 > Note: this nullifier derivation example is an oversimplification for the purposes of illustration.
 
 #### Initialising Singleton Notes

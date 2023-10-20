@@ -124,7 +124,7 @@ export class BaseRollupInputs {
      */
     public kernelData: Tuple<PreviousKernelData, typeof KERNELS_PER_BASE_ROLLUP>,
     /**
-     * Snapshot of the private data tree at the start of the base rollup circuit.
+     * Snapshot of the note hash tree at the start of the base rollup circuit.
      */
     public startNoteHashTreeSnapshot: AppendOnlyTreeSnapshot,
     /**
@@ -158,7 +158,7 @@ export class BaseRollupInputs {
       typeof MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP
     >,
     /**
-     * Sibling path "pointing to" where the new commitments subtree should be inserted into the private data tree.
+     * Sibling path "pointing to" where the new commitments subtree should be inserted into the note hash tree.
      */
     public newCommitmentsSubtreeSiblingPath: Tuple<Fr, typeof NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH>,
     /**

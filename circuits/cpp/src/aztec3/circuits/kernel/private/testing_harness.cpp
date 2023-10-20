@@ -47,9 +47,9 @@ using aztec3::utils::array_length;
  * @brief Get the random read requests and their membership requests
  *
  * @details read requests are siloed by contract address and nonce before being
- * inserted into mock private data tree
+ * inserted into mock note hash tree
  *
- * @param first_nullifier used when computing nonce for unique_siloed_commitments (private data tree leaves)
+ * @param first_nullifier used when computing nonce for unique_siloed_commitments (note hash tree leaves)
  * @param contract_address address to use when siloing read requests
  * @param num_read_requests if negative, use random num. Must be < MAX_READ_REQUESTS_PER_CALL
  * @return std::tuple<read_requests, read_request_memberships_witnesses, historic_note_hash_tree_root>
@@ -96,7 +96,7 @@ get_random_reads(NT::fr const& first_nullifier, NT::fr const& contract_address, 
     MemoryStore note_hash_tree_store;
     MerkleTree note_hash_tree = MerkleTree(note_hash_tree_store, NOTE_HASH_TREE_HEIGHT);
 
-    // add the commitments to the private data tree for each read request
+    // add the commitments to the note hash tree for each read request
     // add them at their corresponding index in the tree
     // (in practice the the tree is left-to-right append-only, but here
     // we treat it as sparse just to get these commitments in their correct spot)

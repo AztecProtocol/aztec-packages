@@ -169,7 +169,7 @@ export class NoteProcessor {
   }
 
   /**
-   * Find the index of the note in the private data tree by computing the note hash with different nonce and see which
+   * Find the index of the note in the note hash tree by computing the note hash with different nonce and see which
    * commitment for the current tx matches this value.
    * Compute the nullifier for a given transaction auxiliary data.
    * The nullifier is calculated using the private key of the account,

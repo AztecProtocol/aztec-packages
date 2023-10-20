@@ -15,7 +15,7 @@ const STRING_ENCODING: BufferEncoding = 'hex';
 export class HistoricBlockData {
   constructor(
     /**
-     * Root of the private data tree at the time of when this information was assembled.
+     * Root of the note hash tree at the time of when this information was assembled.
      */
     public noteHashTreeRoot: Fr,
     /**

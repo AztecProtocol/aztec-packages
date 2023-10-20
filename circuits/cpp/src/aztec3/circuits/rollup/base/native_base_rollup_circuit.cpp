@@ -500,7 +500,7 @@ BaseOrMergeRollupPublicInputs base_rollup_circuit(DummyBuilder& builder, BaseRol
         commitments_tree_subroot,
         NOTE_HASH_SUBTREE_HEIGHT,
         format(BASE_CIRCUIT_ERROR_MESSAGE_BEGINNING,
-               "private data tree not empty at location where the new commitment subtree would be inserted"));
+               "note hash tree not empty at location where the new commitment subtree would be inserted"));
     // Insert contract subtrees:
     const auto empty_contracts_subtree_root = components::calculate_empty_tree_root(CONTRACT_SUBTREE_HEIGHT);
     auto end_contract_tree_snapshot = components::insert_subtree_to_snapshot_tree(
