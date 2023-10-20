@@ -12,6 +12,10 @@ using Polynomial = typename Flavor::Polynomial;
 using FF = typename Flavor::FF;
 using RelationParameters = proof_system::RelationParameters<FF>;
 
+// WORKTODO
+// using MyUnivariate = Univariate<FF, 6>;
+// using RelationParameters = proof_system::RelationParameters<MyUnivariate>;
+
 TEST(Protogalaxy, CombinerOn2Instances)
 {
     constexpr size_t NUM_INSTANCES = 2;

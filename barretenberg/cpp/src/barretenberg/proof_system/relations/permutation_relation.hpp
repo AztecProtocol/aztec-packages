@@ -75,33 +75,35 @@ template <typename FF_> class UltraPermutationRelationImpl {
                                   const Parameters& params,
                                   const FF& scaling_factor)
     {
-        const auto& public_input_delta = params.public_input_delta;
-
         // Contribution (1)
-        {
+        [&]() {
             using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
             using View = typename Accumulator::View;
-            auto z_perm = View(in.z_perm);
+            const auto& public_input_delta = params.public_input_delta;
+            // WORKTODO
+            // using ParameterView = typename Parameters::ParameterView;
+            // auto public_input_delta = ParameterView(params.public_input_delta);
+            auto z_perm = View(in.z_perm); // WORKTODO: these should all be const auto
             auto z_perm_shift = View(in.z_perm_shift);
             auto lagrange_first = View(in.lagrange_first);
             auto lagrange_last = View(in.lagrange_last);
 
-            // Contribution (1)
             std::get<0>(accumulators) +=
                 (((z_perm + lagrange_first) * compute_grand_product_numerator<Accumulator>(in, params)) -
                  ((z_perm_shift + lagrange_last * public_input_delta) *
                   compute_grand_product_denominator<Accumulator>(in, params))) *
                 scaling_factor;
-        }
+        }();
+
         // Contribution (2)
-        {
+        [&]() {
             using Accumulator = std::tuple_element_t<1, ContainerOverSubrelations>;
             using View = typename Accumulator::View;
             auto z_perm_shift = View(in.z_perm_shift);
             auto lagrange_last = View(in.lagrange_last);
 
             std::get<1>(accumulators) += (lagrange_last * z_perm_shift) * scaling_factor;
-        }
+        }();
     };
 };
 

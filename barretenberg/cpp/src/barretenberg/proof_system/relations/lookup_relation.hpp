@@ -63,7 +63,7 @@ template <typename FF_> class LookupRelationImpl {
         const auto eta_sqr = eta * eta;
         const auto eta_cube = eta_sqr * eta;
 
-        const auto one_plus_beta = FF(1) + beta;
+        const auto one_plus_beta = beta + FF(1);
         const auto gamma_by_one_plus_beta = gamma * one_plus_beta;
 
         using View = typename Accumulator::View;
@@ -124,7 +124,7 @@ template <typename FF_> class LookupRelationImpl {
         const auto& beta = params.beta;
         const auto& gamma = params.gamma;
 
-        const auto one_plus_beta = FF(1) + beta;
+        const auto one_plus_beta = beta + FF(1);
         const auto gamma_by_one_plus_beta = gamma * one_plus_beta;
 
         using View = typename Accumulator::View;

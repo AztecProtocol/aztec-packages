@@ -31,6 +31,9 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         typename Flavor::template ProtogalaxyTupleOfTuplesOfUnivariates<ProverInstances::NUM>;
     using RelationEvaluations = typename Flavor::TupleOfArraysOfValues;
 
+    // WORKTODO
+    // using MyUnivariate = Univariate<FF, 6>;
+
     ProverInstances instances;
     ProverTranscript<FF> transcript;
 
@@ -193,10 +196,12 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     }
 
     template <size_t relation_idx = 0>
-    void accumulate_relation_univariates(TupleOfTuplesOfUnivariates& univariate_accumulators,
-                                         const ExtendedUnivariates& extended_univariates,
-                                         const proof_system::RelationParameters<FF>& relation_parameters,
-                                         const FF& scaling_factor)
+    void accumulate_relation_univariates(
+        TupleOfTuplesOfUnivariates& univariate_accumulators,
+        const ExtendedUnivariates& extended_univariates,
+        const proof_system::RelationParameters<FF>& relation_parameters,
+        //  const proof_system::RelationParameters<MyUnivariate>& relation_parameters, // WORKTODO
+        const FF& scaling_factor)
     {
         using Relation = std::tuple_element_t<relation_idx, Relations>;
         Relation::accumulate(
@@ -217,6 +222,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     RandomExtendedUnivariate compute_combiner(
         const ProverInstances& instances,
         const proof_system::RelationParameters<typename Flavor::FF>& relation_parameters,
+        // const proof_system::RelationParameters<MyUnivariate>& relation_parameters, // WORKTODO
         const PowUnivariate<typename Flavor::FF>& pow_univariate,
         const typename Flavor::FF alpha)
     {
