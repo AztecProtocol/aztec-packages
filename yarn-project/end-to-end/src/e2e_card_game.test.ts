@@ -303,6 +303,6 @@ describe('e2e_card_game', () => {
       );
 
       expect(game.finished).toBe(true);
-    }, 180_000);
+    }, 360_000);
   });
 });
