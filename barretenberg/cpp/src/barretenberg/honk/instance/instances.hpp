@@ -4,14 +4,19 @@
 namespace proof_system::honk {
 
 template <typename Flavor_, size_t NUM_> struct ProverInstances_ {
+  public:
     using Flavor = Flavor_;
     using FF = typename Flavor::FF;
-    using Instance = ProverInstance_<Flavor>;
-    using ArrayType = std::array<std::shared_ptr<Instance>, NUM_>;
-
-  public:
     static constexpr size_t NUM = NUM_;
+    using Instance = ProverInstance_<Flavor>;
+
+    using ArrayType = std::array<std::shared_ptr<Instance>, NUM_>;
+    static constexpr size_t EXTENDED_LENGTH = Flavor::MAX_RELATION_LENGTH * NUM;
+    using RelationParameters = RelationParameters<Univariate<FF, EXTENDED_LENGTH>>; // WORKTODO
+
     ArrayType _data;
+    RelationParameters relation_parameters;
+
     std::shared_ptr<Instance> const& operator[](size_t idx) const { return _data[idx]; }
     typename ArrayType::iterator begin() { return _data.begin(); };
     typename ArrayType::iterator end() { return _data.end(); };
@@ -23,6 +28,19 @@ template <typename Flavor_, size_t NUM_> struct ProverInstances_ {
             _data[idx] = std::move(data[idx]);
         }
     };
+
+    void parameters_to_univariates()
+    {
+        auto params_to_fold = relation_parameters.to_fold;
+        for (size_t param_idx = 0; param_idx < params_to_fold.size(); param_idx++) {
+            auto& univariate_param = *params_to_fold[param_idx];
+            Univariate<FF, NUM> tmp(0);
+            for (size_t instance_idx = 0; instance_idx < NUM; instance_idx++) {
+                tmp.value_at(instance_idx) = *((*_data[instance_idx]).relation_parameters.to_fold[param_idx]);
+            }
+            univariate_param = tmp.template extend_to<EXTENDED_LENGTH>();
+        }
+    }
 
     /**
      * @brief  For a prover polynomial label and a fixed row index, construct a uninvariate from the corresponding value

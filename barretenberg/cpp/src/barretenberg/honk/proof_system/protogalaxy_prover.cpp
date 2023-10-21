@@ -31,6 +31,7 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepa
         instance->compute_sorted_accumulator_polynomials(eta);
         instance->compute_grand_product_polynomials(beta, gamma);
     }
+    instances.parameters_to_univariates();
 }
 
 // TODO(#https://github.com/AztecProtocol/barretenberg/issues/689): finalise implementation this function

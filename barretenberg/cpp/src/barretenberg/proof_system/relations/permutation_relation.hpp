@@ -19,6 +19,7 @@ template <typename FF_> class UltraPermutationRelationImpl {
     inline static Accumulator compute_grand_product_numerator(const AllEntities& in, const Parameters& params)
     {
         using View = typename Accumulator::View;
+        using ParameterView = typename Parameters::template ParameterView<View>;
 
         auto w_1 = View(in.w_l);
         auto w_2 = View(in.w_r);
@@ -29,8 +30,8 @@ template <typename FF_> class UltraPermutationRelationImpl {
         auto id_3 = View(in.id_3);
         auto id_4 = View(in.id_4);
 
-        const auto& beta = params.beta;
-        const auto& gamma = params.gamma;
+        const auto& beta = ParameterView(params.beta);
+        const auto& gamma = ParameterView(params.gamma);
 
         return (w_1 + id_1 * beta + gamma) * (w_2 + id_2 * beta + gamma) * (w_3 + id_3 * beta + gamma) *
                (w_4 + id_4 * beta + gamma);
@@ -40,6 +41,7 @@ template <typename FF_> class UltraPermutationRelationImpl {
     inline static Accumulator compute_grand_product_denominator(const AllEntities& in, const Parameters& params)
     {
         using View = typename Accumulator::View;
+        using ParameterView = typename Parameters::template ParameterView<View>;
 
         auto w_1 = View(in.w_l);
         auto w_2 = View(in.w_r);
@@ -51,8 +53,8 @@ template <typename FF_> class UltraPermutationRelationImpl {
         auto sigma_3 = View(in.sigma_3);
         auto sigma_4 = View(in.sigma_4);
 
-        const auto& beta = params.beta;
-        const auto& gamma = params.gamma;
+        const auto& beta = ParameterView(params.beta);
+        const auto& gamma = ParameterView(params.gamma);
 
         return (w_1 + sigma_1 * beta + gamma) * (w_2 + sigma_2 * beta + gamma) * (w_3 + sigma_3 * beta + gamma) *
                (w_4 + sigma_4 * beta + gamma);
@@ -79,10 +81,8 @@ template <typename FF_> class UltraPermutationRelationImpl {
         [&]() {
             using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
             using View = typename Accumulator::View;
-            const auto& public_input_delta = params.public_input_delta;
-            // WORKTODO
-            // using ParameterView = typename Parameters::ParameterView;
-            // auto public_input_delta = ParameterView(params.public_input_delta);
+            using ParameterView = typename Parameters::template ParameterView<View>;
+            auto public_input_delta = ParameterView(params.public_input_delta);
             auto z_perm = View(in.z_perm); // WORKTODO: these should all be const auto
             auto z_perm_shift = View(in.z_perm_shift);
             auto lagrange_first = View(in.lagrange_first);

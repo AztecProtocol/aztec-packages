@@ -195,13 +195,11 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         }
     }
 
-    template <size_t relation_idx = 0>
-    void accumulate_relation_univariates(
-        TupleOfTuplesOfUnivariates& univariate_accumulators,
-        const ExtendedUnivariates& extended_univariates,
-        const proof_system::RelationParameters<FF>& relation_parameters,
-        //  const proof_system::RelationParameters<MyUnivariate>& relation_parameters, // WORKTODO
-        const FF& scaling_factor)
+    template <typename Parameters, size_t relation_idx = 0>
+    void accumulate_relation_univariates(TupleOfTuplesOfUnivariates& univariate_accumulators,
+                                         const ExtendedUnivariates& extended_univariates,
+                                         const Parameters& relation_parameters,
+                                         const FF& scaling_factor)
     {
         using Relation = std::tuple_element_t<relation_idx, Relations>;
         Relation::accumulate(
@@ -209,7 +207,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
 
         // Repeat for the next relation.
         if constexpr (relation_idx + 1 < Flavor::NUM_RELATIONS) {
-            accumulate_relation_univariates<relation_idx + 1>(
+            accumulate_relation_univariates<Parameters, relation_idx + 1>(
                 univariate_accumulators, extended_univariates, relation_parameters, scaling_factor);
         }
     }
@@ -267,7 +265,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
                 // Accumulate the i-th row's univariate contribution
                 accumulate_relation_univariates(thread_univariate_accumulators[thread_idx],
                                                 extended_univariates[thread_idx],
-                                                instances[0]->relation_parameters, // WORKTODO
+                                                instances.relation_parameters,
                                                 pow_challenge);
             }
         });

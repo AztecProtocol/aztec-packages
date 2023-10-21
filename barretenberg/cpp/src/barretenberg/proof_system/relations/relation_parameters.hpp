@@ -1,5 +1,12 @@
 #pragma once
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include <array>
+
+template <typename T, typename... U>
+concept IsAnyOf = (std::same_as<T, U> || ...);
+template <typename T>
+concept IsField = IsAnyOf<T, barretenberg::fr>;
+
 namespace proof_system {
 
 /**
@@ -8,7 +15,7 @@ namespace proof_system {
  * @tparam T, either a native field type or a Univariate.
  */
 template <typename T> struct RelationParameters {
-    using ParameterView = typename T::View;
+    template <typename U> using ParameterView = std::conditional_t<IsField<T>, T, U>;
     static constexpr int NUM_BINARY_LIMBS_IN_GOBLIN_TRANSLATOR = 4;
     static constexpr int NUM_NATIVE_LIMBS_IN_GOBLIN_TRANSLATOR = 1;
     static constexpr int NUM_CHALLENGE_POWERS_IN_GOBLIN_TRANSLATOR = 4;
@@ -34,6 +41,9 @@ template <typename T> struct RelationParameters {
                                    { T(0), T(0), T(0), T(0), T(0) },
                                    { T(0), T(0), T(0), T(0), T(0) },
                                    { T(0), T(0), T(0), T(0), T(0) } } };
+
+    static constexpr int NUM_TO_FOLD = 5;
+    std::array<T*, NUM_TO_FOLD> to_fold = { &eta, &beta, &gamma, &public_input_delta, &lookup_grand_product_delta };
 
     static RelationParameters get_random()
     {

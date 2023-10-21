@@ -57,16 +57,18 @@ template <typename FF_> class LookupRelationImpl {
     template <typename Accumulator, typename AllEntities, typename Parameters>
     inline static Accumulator compute_grand_product_numerator(const AllEntities& in, const Parameters& params)
     {
-        const auto& beta = params.beta;
-        const auto& gamma = params.gamma;
-        const auto& eta = params.eta;
+        using View = typename Accumulator::View;
+        using ParameterView = typename Parameters::template ParameterView<View>;
+
+        const auto& beta = ParameterView(params.beta);
+        const auto& gamma = ParameterView(params.gamma);
+        const auto& eta = ParameterView(params.eta);
         const auto eta_sqr = eta * eta;
         const auto eta_cube = eta_sqr * eta;
 
         const auto one_plus_beta = beta + FF(1);
         const auto gamma_by_one_plus_beta = gamma * one_plus_beta;
 
-        using View = typename Accumulator::View;
         auto w_1 = View(in.w_l);
         auto w_2 = View(in.w_r);
         auto w_3 = View(in.w_o);
@@ -121,13 +123,14 @@ template <typename FF_> class LookupRelationImpl {
     inline static Accumulator compute_grand_product_denominator(const AllEntities& in, const Parameters& params)
     {
 
-        const auto& beta = params.beta;
-        const auto& gamma = params.gamma;
+        using View = typename Accumulator::View;
+        using ParameterView = typename Parameters::template ParameterView<View>;
+
+        const auto& beta = ParameterView(params.beta);
+        const auto& gamma = ParameterView(params.gamma);
 
         const auto one_plus_beta = beta + FF(1);
         const auto gamma_by_one_plus_beta = gamma * one_plus_beta;
-
-        using View = typename Accumulator::View;
 
         // Contribution (1)
         auto s_accum = View(in.sorted_accum);
@@ -161,11 +164,13 @@ template <typename FF_> class LookupRelationImpl {
                                   const Parameters& params,
                                   const FF& scaling_factor)
     {
-        const auto& grand_product_delta = params.lookup_grand_product_delta;
 
         {
             using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
             using View = typename Accumulator::View;
+            using ParameterView = typename Parameters::template ParameterView<View>;
+
+            const auto& grand_product_delta = ParameterView(params.lookup_grand_product_delta);
 
             auto z_lookup = View(in.z_lookup);
             auto z_lookup_shift = View(in.z_lookup_shift);

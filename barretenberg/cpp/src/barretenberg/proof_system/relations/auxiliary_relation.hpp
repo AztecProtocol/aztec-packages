@@ -57,11 +57,13 @@ template <typename FF_> class AuxiliaryRelationImpl {
                                   const Parameters& params,
                                   const FF& scaling_factor)
     {
-        const auto& eta = params.eta;
 
         // All subrelations have the same length so we use the same length view for all calculations
         using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
         using View = typename Accumulator::View;
+        using ParameterView = typename Parameters::template ParameterView<View>;
+
+        const auto& eta = ParameterView(params.eta);
 
         auto w_1 = View(in.w_l);
         auto w_2 = View(in.w_r);
