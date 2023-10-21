@@ -43,11 +43,6 @@ grumpkin::g1::affine_element commit_native(const std::vector<grumpkin::fq>& inpu
     return grumpkin::g1::affine_element(merkle_damgard_compress(inputs, hash_index));
 }
 
-grumpkin::fq compress_native(const std::vector<grumpkin::fq>& inputs, const size_t hash_index)
-{
-    return commit_native(inputs, hash_index).x;
-}
-
 grumpkin::fq compress_native_buffer_to_field(const std::vector<uint8_t>& input, const size_t hash_index)
 {
     const auto elements = convert_buffer_to_field(input);
