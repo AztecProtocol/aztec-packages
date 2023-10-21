@@ -424,8 +424,7 @@ template <typename Curve> struct verification_key {
 
         barretenberg::fr compressed_key;
         if constexpr (HasPlookup<Builder>) {
-            compressed_key = from_buffer<barretenberg::fr>(
-                crypto::pedersen_commitment::lookup::compress_native(preimage_data, hash_index));
+            compressed_key = crypto::pedersen_commitment::lookup::compress_native(preimage_data, hash_index);
         } else {
             compressed_key = crypto::pedersen_commitment::compress_native(preimage_data, hash_index);
         }

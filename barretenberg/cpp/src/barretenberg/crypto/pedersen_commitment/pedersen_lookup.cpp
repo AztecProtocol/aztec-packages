@@ -55,27 +55,25 @@ grumpkin::fq compress_native_buffer_to_field(const std::vector<uint8_t>& input, 
     return result_fq;
 }
 
-std::vector<uint8_t> compress_native(const std::vector<uint8_t>& input, const size_t hash_index)
+grumpkin::fq compress_native(const std::vector<uint8_t>& input, const size_t hash_index)
 {
-    const auto result_fq = compress_native_buffer_to_field(input, hash_index);
-    uint256_t result_u256(result_fq);
+    const grumpkin::fq result_fq = compress_native_buffer_to_field(input, hash_index);
     const size_t num_bytes = input.size();
 
+    // Check if the original input was zero and return the number of bytes.
+    // This is solely due to the fact that we cannot commit to all zeroes.
+    // TODO(Kev): when we switch to the new pedersen, this will
+    // become a hash and we will be able to remove the below lines
+    // because the hash will be able to commit to all zeroes.
     bool is_zero = true;
     for (const auto byte : input) {
         is_zero = is_zero && (byte == static_cast<uint8_t>(0));
     }
     if (is_zero) {
-        result_u256 = num_bytes;
+        return num_bytes;
+    } else {
+        return result_fq;
     }
-    std::vector<uint8_t> result_buffer;
-    result_buffer.reserve(32);
-    for (size_t i = 0; i < 32; ++i) {
-        const uint64_t shift = (31 - i) * 8;
-        uint256_t shifted = result_u256 >> uint256_t(shift);
-        result_buffer.push_back(static_cast<uint8_t>(shifted.data[0]));
-    }
-    return result_buffer;
 }
 
 } // namespace lookup
