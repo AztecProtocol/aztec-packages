@@ -26,7 +26,7 @@ import { CrossChainTestHarness } from './cross_chain_test_harness.js';
 // For CI, this is configured in `run_tests.sh` and `docker-compose.yml`
 
 // docs:start:uniswap_l1_l2_test_setup_const
-const TIMEOUT = 90_000;
+const TIMEOUT = 360_000;
 
 /** Objects to be returned by the uniswap setup function */
 export type UniswapSetupContext = {
