@@ -31,9 +31,6 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         typename Flavor::template ProtogalaxyTupleOfTuplesOfUnivariates<ProverInstances::NUM>;
     using RelationEvaluations = typename Flavor::TupleOfArraysOfValues;
 
-    // WORKTODO
-    // using MyUnivariate = Univariate<FF, 6>;
-
     ProverInstances instances;
     ProverTranscript<FF> transcript;
 

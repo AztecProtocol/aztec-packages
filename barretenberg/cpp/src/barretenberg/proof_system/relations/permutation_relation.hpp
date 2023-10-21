@@ -82,11 +82,11 @@ template <typename FF_> class UltraPermutationRelationImpl {
             using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
             using View = typename Accumulator::View;
             using ParameterView = typename Parameters::template ParameterView<View>;
-            auto public_input_delta = ParameterView(params.public_input_delta);
-            auto z_perm = View(in.z_perm); // WORKTODO: these should all be const auto
-            auto z_perm_shift = View(in.z_perm_shift);
-            auto lagrange_first = View(in.lagrange_first);
-            auto lagrange_last = View(in.lagrange_last);
+            const auto public_input_delta = ParameterView(params.public_input_delta);
+            const auto z_perm = View(in.z_perm);
+            const auto z_perm_shift = View(in.z_perm_shift);
+            const auto lagrange_first = View(in.lagrange_first);
+            const auto lagrange_last = View(in.lagrange_last);
 
             std::get<0>(accumulators) +=
                 (((z_perm + lagrange_first) * compute_grand_product_numerator<Accumulator>(in, params)) -
