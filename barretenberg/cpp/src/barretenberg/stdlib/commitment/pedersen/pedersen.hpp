@@ -20,11 +20,6 @@ template <typename CircuitBuilder> class pedersen_commitment {
   public:
     static point commit(const std::vector<field_t>& inputs, const size_t hash_index = 0);
 
-    static point commit(const std::vector<field_t>& inputs,
-                        const std::vector<crypto::generators::generator_index_t>& hash_generator_indices);
-
-    static point commit(const std::vector<std::pair<field_t, crypto::generators::generator_index_t>>& input_pairs);
-
     static field_t compress_unsafe(const field_t& left,
                                    const field_t& right,
                                    const size_t hash_index,
@@ -37,18 +32,11 @@ template <typename CircuitBuilder> class pedersen_commitment {
 
     static field_t compress(const std::vector<field_t>& inputs, const size_t hash_index = 0);
 
-    static field_t compress(const std::vector<field_t>& inputs,
-                            const std::vector<crypto::generators::generator_index_t>& hash_generator_indices);
-
-    static field_t compress(const std::vector<std::pair<field_t, crypto::generators::generator_index_t>>& input_pairs);
-
     template <size_t T> static field_t compress(const std::array<field_t, T>& inputs)
     {
         std::vector<field_t> in(inputs.begin(), inputs.end());
         return compress(in);
     }
-
-    static field_t compress(const byte_array& inputs);
 };
 
 EXTERN_STDLIB_TYPE(pedersen_commitment);

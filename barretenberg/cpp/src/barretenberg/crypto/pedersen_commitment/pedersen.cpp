@@ -70,38 +70,12 @@ grumpkin::g1::affine_element commit_native(const std::vector<grumpkin::fq>& inpu
     return r.is_point_at_infinity() ? grumpkin::g1::affine_element(0, 0) : grumpkin::g1::affine_element(r);
 }
 
-grumpkin::g1::affine_element commit_native(const std::vector<std::pair<grumpkin::fq, generator_index_t>>& input_pairs)
-{
-    ASSERT((input_pairs.size() < (1 << 16)) && "too many inputs for 16 bit index");
-    std::vector<grumpkin::g1::element> out(input_pairs.size());
-
-#ifndef NO_OMP_MULTITHREADING
-    // Ensure generator data is initialized before threading...
-    init_generator_data();
-#pragma omp parallel for num_threads(input_pairs.size())
-#endif
-    for (size_t i = 0; i < input_pairs.size(); ++i) {
-        out[i] = commit_single(input_pairs[i].first, input_pairs[i].second);
-    }
-
-    grumpkin::g1::element r = out[0];
-    for (size_t i = 1; i < input_pairs.size(); ++i) {
-        r = out[i] + r;
-    }
-    return r.is_point_at_infinity() ? grumpkin::g1::affine_element(0, 0) : grumpkin::g1::affine_element(r);
-}
-
 /**
  * The same as commit_native, but only return the resultant x coordinate (i.e. compress).
  */
 grumpkin::fq compress_native(const std::vector<grumpkin::fq>& inputs, const size_t hash_index)
 {
     return commit_native(inputs, hash_index).x;
-}
-
-grumpkin::fq compress_native(const std::vector<std::pair<grumpkin::fq, generator_index_t>>& input_pairs)
-{
-    return commit_native(input_pairs).x;
 }
 
 /**

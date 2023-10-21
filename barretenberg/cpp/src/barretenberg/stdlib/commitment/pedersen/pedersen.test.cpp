@@ -268,31 +268,6 @@ template <typename Builder> class stdlib_pedersen : public testing::Test {
         EXPECT_EQ(result, true);
     }
 
-    static void test_compress_byte_array()
-    {
-        const size_t num_input_bytes = 351;
-
-        Builder builder;
-
-        std::vector<uint8_t> input;
-        input.reserve(num_input_bytes);
-        for (size_t i = 0; i < num_input_bytes; ++i) {
-            input.push_back(engine.get_random_uint8());
-        }
-
-        fr expected = crypto::pedersen_commitment::compress_native(input);
-
-        byte_array_ct circuit_input(&builder, input);
-        auto result = pedersen_commitment::compress(circuit_input);
-
-        EXPECT_EQ(result.get_value(), expected);
-
-        info("num gates = ", builder.get_num_gates());
-
-        bool proof_result = builder.check_circuit();
-        EXPECT_EQ(proof_result, true);
-    }
-
     static void test_multi_compress()
     {
         Builder builder;
@@ -404,11 +379,6 @@ TYPED_TEST(stdlib_pedersen, edge_cases)
 HEAVY_TYPED_TEST(stdlib_pedersen, large)
 {
     TestFixture::test_pedersen_large();
-};
-
-TYPED_TEST(stdlib_pedersen, compress_byte_array)
-{
-    TestFixture::test_compress_byte_array();
 };
 
 TYPED_TEST(stdlib_pedersen, multi_compress)

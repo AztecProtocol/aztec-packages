@@ -64,11 +64,6 @@ struct NativeTypes {
         return crypto::pedersen_commitment::lookup::compress_native(inputs_vec, hash_index);
     }
 
-    static fr compress(const std::vector<std::pair<fr, crypto::generators::generator_index_t>>& input_pairs)
-    {
-        return crypto::pedersen_commitment::compress_native(input_pairs);
-    }
-
     /**
      * @brief Compute the hash for a pair of left and right nodes in a merkle tree.
      *
@@ -89,11 +84,6 @@ struct NativeTypes {
     static grumpkin_point commit(const std::vector<fr>& inputs, const size_t hash_index = 0)
     {
         return crypto::pedersen_commitment::commit_native(inputs, hash_index);
-    }
-
-    static grumpkin_point commit(const std::vector<std::pair<fr, crypto::generators::generator_index_t>>& input_pairs)
-    {
-        return crypto::pedersen_commitment::commit_native(input_pairs);
     }
 
     static byte_array blake2s(const byte_array& input)
