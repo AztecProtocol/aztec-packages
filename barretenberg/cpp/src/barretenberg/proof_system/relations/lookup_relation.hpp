@@ -58,7 +58,7 @@ template <typename FF_> class LookupRelationImpl {
     inline static Accumulator compute_grand_product_numerator(const AllEntities& in, const Parameters& params)
     {
         using View = typename Accumulator::View;
-        using ParameterView = typename Parameters::template ParameterView<View>;
+        using ParameterView = GetParameterView<Parameters, View>;
 
         const auto& beta = ParameterView(params.beta);
         const auto& gamma = ParameterView(params.gamma);
@@ -124,7 +124,7 @@ template <typename FF_> class LookupRelationImpl {
     {
 
         using View = typename Accumulator::View;
-        using ParameterView = typename Parameters::template ParameterView<View>;
+        using ParameterView = GetParameterView<Parameters, View>;
 
         const auto& beta = ParameterView(params.beta);
         const auto& gamma = ParameterView(params.gamma);
@@ -168,7 +168,7 @@ template <typename FF_> class LookupRelationImpl {
         {
             using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
             using View = typename Accumulator::View;
-            using ParameterView = typename Parameters::template ParameterView<View>;
+            using ParameterView = GetParameterView<Parameters, View>;
 
             const auto& grand_product_delta = ParameterView(params.lookup_grand_product_delta);
 

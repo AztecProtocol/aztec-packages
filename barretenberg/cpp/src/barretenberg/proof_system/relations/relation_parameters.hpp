@@ -2,11 +2,6 @@
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include <array>
 
-template <typename T, typename... U>
-concept IsAnyOf = (std::same_as<T, U> || ...);
-template <typename T>
-concept IsField = IsAnyOf<T, barretenberg::fr>;
-
 namespace proof_system {
 
 /**
@@ -15,7 +10,7 @@ namespace proof_system {
  * @tparam T, either a native field type or a Univariate.
  */
 template <typename T> struct RelationParameters {
-    template <typename U> using ParameterView = std::conditional_t<IsField<T>, T, U>;
+    using DataType = T;
     static constexpr int NUM_BINARY_LIMBS_IN_GOBLIN_TRANSLATOR = 4;
     static constexpr int NUM_NATIVE_LIMBS_IN_GOBLIN_TRANSLATOR = 1;
     static constexpr int NUM_CHALLENGE_POWERS_IN_GOBLIN_TRANSLATOR = 4;

@@ -1,13 +1,24 @@
 #pragma once
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "nested_containers.hpp"
 #include <algorithm>
 
-namespace barretenberg {
-template <typename FF> class Polynomial;
-}
+template <typename T>
+concept IsField = std::same_as<T, barretenberg::fr> /* || std::same_as<T, grumpkin::fr> */;
+
 namespace proof_system {
 
-// forward-declare Polynomial so we can use in a concept
+/**
+ * @brief A type to optionally extract a view of a relation parameter in a relation.
+ *
+ * @details In sumcheck, challenges in relations are always field elements, but in folding we need univariate
+ * challenges. This template inspecting the underlying type of a RelationParameters instance. When this type is a field
+ * type, do nothing, otherwise apply the provided view type.
+ * @tparam Params
+ * @tparam View
+ */
+template <typename Params, typename View>
+using GetParameterView = std::conditional_t<IsField<typename Params::DataType>, typename Params::DataType, View>;
 
 template <typename T, size_t subrelation_idx>
 concept HasSubrelationLinearlyIndependentMember = requires(T) {

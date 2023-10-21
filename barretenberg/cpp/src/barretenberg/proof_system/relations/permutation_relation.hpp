@@ -19,7 +19,7 @@ template <typename FF_> class UltraPermutationRelationImpl {
     inline static Accumulator compute_grand_product_numerator(const AllEntities& in, const Parameters& params)
     {
         using View = typename Accumulator::View;
-        using ParameterView = typename Parameters::template ParameterView<View>;
+        using ParameterView = GetParameterView<Parameters, View>;
 
         auto w_1 = View(in.w_l);
         auto w_2 = View(in.w_r);
@@ -41,7 +41,7 @@ template <typename FF_> class UltraPermutationRelationImpl {
     inline static Accumulator compute_grand_product_denominator(const AllEntities& in, const Parameters& params)
     {
         using View = typename Accumulator::View;
-        using ParameterView = typename Parameters::template ParameterView<View>;
+        using ParameterView = GetParameterView<Parameters, View>;
 
         auto w_1 = View(in.w_l);
         auto w_2 = View(in.w_r);
@@ -81,7 +81,7 @@ template <typename FF_> class UltraPermutationRelationImpl {
         [&]() {
             using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
             using View = typename Accumulator::View;
-            using ParameterView = typename Parameters::template ParameterView<View>;
+            using ParameterView = GetParameterView<Parameters, View>;
             const auto public_input_delta = ParameterView(params.public_input_delta);
             const auto z_perm = View(in.z_perm);
             const auto z_perm_shift = View(in.z_perm_shift);
