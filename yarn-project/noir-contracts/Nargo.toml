@@ -7,6 +7,7 @@ members = [
     "src/contracts/easy_private_token_contract",
     "src/contracts/ecdsa_account_contract",
     "src/contracts/escrow_contract",
+    "src/contracts/gitcoin_contract",
     "src/contracts/import_test_contract",
     "src/contracts/lending_contract",
     "src/contracts/parent_contract",

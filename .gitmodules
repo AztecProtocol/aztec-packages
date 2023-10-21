@@ -13,3 +13,6 @@
 [submodule "barretenberg/sol/lib/openzeppelin-contracts"]
 	path = barretenberg/sol/lib/openzeppelin-contracts
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts
+[submodule "l1-contracts/lib/allo-v2"]
+	path = l1-contracts/lib/allo-v2
+	url = https://github.com/allo-protocol/allo-v2

@@ -210,10 +210,12 @@ export class CrossChainTestHarness {
     return [secret, secretHash];
   }
 
-  async mintTokensOnL1(amount: bigint) {
+  async mintTokensOnL1(amount: bigint, to = this.ethAccount) {
     this.logger('Minting tokens on L1');
-    await this.underlyingERC20.write.mint([this.ethAccount.toString(), amount], {} as any);
-    expect(await this.underlyingERC20.read.balanceOf([this.ethAccount.toString()])).toBe(amount);
+    const balanceBefore = await this.underlyingERC20.read.balanceOf([to.toString()]);
+    await this.underlyingERC20.write.mint([to.toString(), amount], {} as any);
+    const balanceAfter = await this.underlyingERC20.read.balanceOf([to.toString()]);
+    expect(balanceAfter).toBe(balanceBefore + amount);
   }
 
   async getL1BalanceOf(address: EthAddress) {
