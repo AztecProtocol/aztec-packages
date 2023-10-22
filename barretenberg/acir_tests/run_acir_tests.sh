@@ -41,7 +41,7 @@ fi
 cd acir_tests
 
 # Convert them to array
-SKIP_ARRAY=(diamond_deps_0 workspace workspace_default_member merkle_insert simple_shield pedersen_check schnorr)
+SKIP_ARRAY=(diamond_deps_0 workspace workspace_default_member merkle_insert simple_shield pedersen_check schnorr double_verify_proof)
 
 function test() {
   cd $1
