@@ -31,7 +31,6 @@ template <typename Curve> class pedersen_hash_base {
     inline static constexpr AffineElement length_generator = Group::derive_generators("pedersen_hash_length", 1)[0];
     static Fq hash(const std::vector<Fq>& inputs, GeneratorContext context = {});
     static Fq hash_buffer(const std::vector<uint8_t>& input, GeneratorContext context = {});
-    static Fq hash(const std::vector<std::pair<Fq, GeneratorContext>>& input_pairs);
 
   private:
     static std::vector<Fq> convert_buffer(const std::vector<uint8_t>& input);

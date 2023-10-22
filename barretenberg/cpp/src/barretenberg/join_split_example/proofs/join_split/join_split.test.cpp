@@ -706,11 +706,9 @@ TEST_F(join_split_tests, test_0_input_notes_and_detect_circuit_change)
     EXPECT_TRUE(result.valid);
 
     // The below part detects any changes in the join-split circuit
-    // TODO(Kev): This will be reduced back to 49492, once we switch
-    // back to the original hashing.
-    constexpr uint32_t CIRCUIT_GATE_COUNT = 95113;
-    constexpr uint32_t GATES_NEXT_POWER_OF_TWO = 131072;
-    const uint256_t VK_HASH("90d7bef7124dbd2206886c23a49df3399f998e2226aa0ad40ffda848ee43eefa");
+    constexpr uint32_t CIRCUIT_GATE_COUNT = 49492;
+    constexpr uint32_t GATES_NEXT_POWER_OF_TWO = 65535;
+    const uint256_t VK_HASH("986c3fe747d2f1b84fd9dea37a22c27bd4e1006900f458decf2da20442a7395a");
 
     auto number_of_gates_js = result.number_of_gates;
     std::cout << get_verification_key()->sha256_hash() << std::endl;
