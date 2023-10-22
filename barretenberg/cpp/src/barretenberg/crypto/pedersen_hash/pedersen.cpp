@@ -58,12 +58,8 @@ std::vector<typename Curve::BaseField> pedersen_hash_base<Curve>::convert_buffer
 template <typename Curve>
 typename Curve::BaseField pedersen_hash_base<Curve>::hash(const std::vector<Fq>& inputs, const GeneratorContext context)
 {
-    auto input_size = Fq(inputs.size());
-    std::vector<Fq> modified_inputs = inputs;
-    modified_inputs.insert(modified_inputs.begin(), input_size);
-    return (pedersen_commitment_base<Curve>::commit_native(modified_inputs, context)).x;
-    // Element result = length_generator * Fr(inputs.size());
-    // return (result + pedersen_commitment_base<Curve>::commit_native(inputs, context)).normalize().x;
+    Element result = length_generator * Fr(inputs.size());
+    return (result + pedersen_commitment_base<Curve>::commit_native(inputs, context)).normalize().x;
 }
 
 /**
@@ -83,21 +79,6 @@ typename Curve::BaseField pedersen_hash_base<Curve>::hash_buffer(const std::vect
         result = hash({ result, converted[i] }, context);
     }
     return result;
-}
-
-// TODO(Kev): Why is this method needed?
-template <typename Curve>
-typename Curve::BaseField pedersen_hash_base<Curve>::hash(
-    const std::vector<std::pair<Fq, GeneratorContext>>& input_pairs)
-{
-    // TODO: This mixes Fq and Fr. Is this correct?
-    // Element result = length_generator * Fr(input_pairs.size());
-    // return (result + pedersen_commitment_base<Curve>::commit_native(input_pairs)).normalize().x;
-    auto length_generator_ctx = GeneratorContext(0);
-    auto input_size = Fq(input_pairs.size());
-    auto modified_inputs = input_pairs;
-    modified_inputs.insert(modified_inputs.begin(), { input_size, length_generator_ctx });
-    return (pedersen_commitment_base<Curve>::commit_native(input_pairs)).x;
 }
 
 template class pedersen_hash_base<curve::Grumpkin>;

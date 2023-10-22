@@ -67,7 +67,7 @@ __metadata:
     "@aztec/noir-contracts": "workspace:^"
     "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
-    "@kevaundray/acvm_js": 0.28.0-kw-branched-off-of-last-aztec-tag-168e69bed
+    "@kevaundray/acvm_js": 0.28.0-kw-branched-off-of-last-aztec-tag-5b563c08c
     "@rushstack/eslint-patch": ^1.1.4
     "@types/jest": ^29.5.0
     "@types/levelup": ^5.1.3
@@ -2707,10 +2707,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@kevaundray/acvm_js@npm:0.28.0-kw-branched-off-of-last-aztec-tag-168e69bed":
-  version: 0.28.0-kw-branched-off-of-last-aztec-tag-168e69bed
-  resolution: "@kevaundray/acvm_js@npm:0.28.0-kw-branched-off-of-last-aztec-tag-168e69bed"
-  checksum: 9ca8a49c6e87fda160b3dbf4b7bd2a001133aee07bbeca6df22a8380583ae57eed7710bee74bb2b35d25425e4fa68e5c5749be91ca2e4d2116395018b28d5bc9
+"@kevaundray/acvm_js@npm:0.28.0-kw-branched-off-of-last-aztec-tag-5b563c08c":
+  version: 0.28.0-kw-branched-off-of-last-aztec-tag-5b563c08c
+  resolution: "@kevaundray/acvm_js@npm:0.28.0-kw-branched-off-of-last-aztec-tag-5b563c08c"
+  checksum: 3c23fa6c7842a5da489fe57cddee89a3f9deac1d981038a695cf660858d784f8a6d9a2d99ec97cdab3b6f9793d8ea240d53332a308a412e1d477eb84dca200b9
   languageName: node
   linkType: hard
 

@@ -15,27 +15,27 @@ describe('pedersen', () => {
 
   it('pedersenCompressFields', async () => {
     const result = await api.pedersenCompressFields(new Fr(4n), new Fr(8n));
-    expect(result).toEqual(new Fr(13982758649432613336147872733411006657097928907798377266063228888290725444169n));
+    expect(result).toEqual(new Fr(1521373897829389584529155077412196627698249315427143054350987371861781120260n));
   });
 
   it('pedersenPlookupCompressFields', async () => {
     const result = await api.pedersenPlookupCompressFields(new Fr(4n), new Fr(8n));
-    expect(result).toEqual(new Fr(13982758649432613336147872733411006657097928907798377266063228888290725444169n));
+    expect(result).toEqual(new Fr(1521373897829389584529155077412196627698249315427143054350987371861781120260n));
   });
 
   it('pedersenCompress', async () => {
     const result = await api.pedersenCompress([new Fr(4n), new Fr(8n), new Fr(12n)]);
-    expect(result).toEqual(new Fr(19056579601153937652779328314485097390897358462541238912904230749502508633726n));
+    expect(result).toEqual(new Fr(16354408412011670665169322571938780771784319449166930406648760506154417354381n));
   });
 
   it('pedersenPlookupCompress', async () => {
     const result = await api.pedersenPlookupCompress([new Fr(4n), new Fr(8n), new Fr(12n)]);
-    expect(result).toEqual(new Fr(19056579601153937652779328314485097390897358462541238912904230749502508633726n));
+    expect(result).toEqual(new Fr(16354408412011670665169322571938780771784319449166930406648760506154417354381n));
   });
 
   it('pedersenCompressWithHashIndex', async () => {
     const result = await api.pedersenCompressWithHashIndex([new Fr(4n), new Fr(8n)], 7);
-    expect(result).toEqual(new Fr(9623070643626513033232363421644611403228818065703560824918278791880825345070n));
+    expect(result).toEqual(new Fr(2152386650411553803409271316104075950536496387580531018130718456431861859990n));
   });
 
   it('pedersenCommit', async () => {
@@ -52,22 +52,22 @@ describe('pedersen', () => {
     const result = await api.pedersenBufferToField(
       Buffer.from('Hello world! I am a buffer to be converted to a field!'),
     );
-    expect(result).toEqual(new Fr(8552025510016673626971243114002298733165590265505387301921017959053622217825n));
+    expect(result).toEqual(new Fr(5836632387256708040349959803326023895450290698906238002955147410646852307074n));
   });
 
   it('pedersenHashPair', async () => {
     const result = await api.pedersenHashPair(new Fr(4n), new Fr(8n));
-    expect(result).toEqual(new Fr(13982758649432613336147872733411006657097928907798377266063228888290725444169n));
+    expect(result).toEqual(new Fr(1521373897829389584529155077412196627698249315427143054350987371861781120260n));
   });
 
   it('pedersenHashMultiple', async () => {
     const result = await api.pedersenHashMultiple([new Fr(4n), new Fr(8n), new Fr(12n)]);
-    expect(result).toEqual(new Fr(19056579601153937652779328314485097390897358462541238912904230749502508633726n));
+    expect(result).toEqual(new Fr(16354408412011670665169322571938780771784319449166930406648760506154417354381n));
   });
 
   it('pedersenHashMultipleWithHashIndex', async () => {
     const result = await api.pedersenHashMultipleWithHashIndex([new Fr(4n), new Fr(8n)], 7);
-    expect(result).toEqual(new Fr(9623070643626513033232363421644611403228818065703560824918278791880825345070n));
+    expect(result).toEqual(new Fr(2152386650411553803409271316104075950536496387580531018130718456431861859990n));
   });
 
   it('pedersenHashToTree', async () => {
@@ -77,9 +77,9 @@ describe('pedersen', () => {
       new Fr(8n),
       new Fr(12n),
       new Fr(16n),
-      new Fr(13982758649432613336147872733411006657097928907798377266063228888290725444169n),
-      new Fr(1319116096575922946541582119791221180923112201751318788162745363104756571250n),
-      new Fr(11663284539342402700106107283927625502644585486344246278789732908619286294294n),
+      new Fr(1521373897829389584529155077412196627698249315427143054350987371861781120260n),
+      new Fr(18350527319045519333962768191016242826584323959670139897255818770108115223653n),
+      new Fr(5972535902427608430534212385621973704186819235181735133037695406667218179357n),
     ]);
   });
 });
