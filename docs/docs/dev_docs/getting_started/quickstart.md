@@ -11,12 +11,12 @@ In this guide, you will
 
 ... in less than 10 minutes.
 
-## Requirements
+## Prerequisites
 
 - Node.js >= v18 (recommend installing with [nvm](https://github.com/nvm-sh/nvm))
 - Docker and Docker Compose (Docker Desktop under WSL2 on windows)
 
-## Sandbox Installation
+## Install the Sandbox
 
 You can run the Sandbox using either Docker or npm. In this guide we will use Docker, but you can learn more about alternative installation methods [here](../cli/sandbox-reference.md).
 
@@ -28,7 +28,7 @@ To install the latest Sandbox version, run:
 
 This will attempt to run the Sandbox on ` localhost:8080`, so you will have to make sure nothing else is running on that port or change the port defined in `./.aztec/docker-compose.yml`. Running the command again will overwrite any changes made to the `docker-compose.yml`.
 
-## CLI Installation
+## Install the CLI
 
 To interact with the Sandbox now that it's running locally, install the [Aztec CLI](https://www.npmjs.com/package/@aztec/cli):
 
@@ -36,7 +36,7 @@ To interact with the Sandbox now that it's running locally, install the [Aztec C
 npm install -g @aztec/cli
 ```
 
-## Deploying a contract
+## Deploy a contract using the CLI
 
 The sandbox is preloaded with multiple accounts. Let's assign them to shell variables. Run the following in your terminal, so we can refer to the accounts as $ALICE and $BOB from now on:
 
@@ -52,7 +52,7 @@ Start by deploying a token contract. After it is deployed, we check that the dep
 
 Note that the deployed contract address is exported, so we can use it as `$CONTRACT` later on.
 
-## Calling a contract
+## Call a contract with the CLI
 
 Alice is set up as the contract admin and token minter in the `_initialize` function. Let's get Alice some private tokens.
 

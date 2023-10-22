@@ -12,7 +12,7 @@ This guide assumes you have followed the [quickstart](./quickstart.md).
 
 - A running [Aztec sandbox](./quickstart.md)
 
-## Project setup
+## Set up the project
 
 We will deploy a pre-compiled token contract, and send tokens privately, using the Sandbox.
 
@@ -149,7 +149,7 @@ A successful run should show something like this:
 
 Great! The Sandbox is running and we are able to interact with it.
 
-## Accounts
+## Load accounts
 
 The sandbox is preloaded with multiple accounts so you don't have to sit and create them. Let's load these accounts
 
@@ -159,11 +159,9 @@ An explanation on accounts on Aztec can be found [here](../../concepts/foundatio
 
 If you want more accounts, you can find instructions in the [Account creation section](../wallets/creating_schnorr_accounts.md).
 
-## Token Contract Deployment
+## Deploy a contract
 
-Writing a contract from scratch is beyond the scope of this page. Feel free to look at the [Token contract tutorial](../tutorials/writing_token_contract.md) or the section on aztec-noir contracts [here](../contracts/main.md)
-
-Now that we have our accounts loaded, let's move on to deploy our pre-compiled token contract. Add this to `index.ts` below the code you added earlier:
+Now that we have our accounts loaded, let's move on to deploy our pre-compiled token smart contract. You can find the full code for the contract [here](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/noir-contracts/src/contracts/token_contract/src). Add this to `index.ts` below the code you added earlier:
 
 #include_code Deployment /yarn-project/end-to-end/src/e2e_sandbox_example.test.ts typescript
 
@@ -214,13 +212,9 @@ We can break this down as follows:
 6. Alice mints 1,000,000 tokens to be claimed by herself in private.
 7. Alice redeems the tokens privately.
 
-## Viewing the balance of an account
+## View the balance of an account
 
 A token contract wouldn't be very useful if you aren't able to query the balance of an account. As part of the deployment, tokens were minted to Alice. We can now call the contract's `balance_of_private()` function to retrieve the balances of the accounts.
-
-Here is the `balance_of_private` code from the contract (do not to paste it into `index.ts`):
-
-#include_code balance_of_private /yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
 
 Call the `balance_of_private` function using the following code (paste this):
 
@@ -274,11 +268,11 @@ No transaction is submitted as a result but a user's state can be queried.
 
 We can see that each account has the expected balance of tokens.
 
-### Diagram of calling an unconstrained (view) function
+### Calling an unconstrained (view) function
 
 <img src="/img/sandbox_unconstrained_function.svg" alt="Unconstrained function call" />
 
-## Creating and submitting transactions
+## Create and submit a transaction
 
 Now lets transfer some funds from Alice to Bob by calling the `transfer` function on the contract. This function takes 4 arguments:
 
@@ -286,10 +280,6 @@ Now lets transfer some funds from Alice to Bob by calling the `transfer` functio
 2. The recipient.
 3. The quantity of tokens to be transferred.
 4. The nonce for the [authentication witness](../../concepts//foundation/accounts/main.md#authorizing-actions), or 0 if msg.sender equal sender.
-
-Here is the Noir code for the `transfer` function (don't paste this into `index.ts`):
-
-#include_code transfer /yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
 
 Here is the Typescript code to call the `transfer` function, add this to your `index.ts` at the bottom of the `main` function:
 
@@ -347,18 +337,9 @@ This function takes:
 1. A quantity of tokens to be minted.
 2. A secret hash.
 
-Here is the Aztec.nr code:
-
-#include_code mint_private /yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
-
 This function is public and it inserts a new note into the private data tree and increases the total token supply by the amount minted.
 
-To make the note spendable the note has to be redeemed.
-A user can do that by calling the `redeem_shield` function:
-
-#include_code redeem_shield /yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
-
-Notice that this function is private and that it takes a secret as an input argument.
+To make the note spendable the note has to be redeemed. A user can do that by calling the `redeem_shield` function.
 
 Let's now use these functions to mint some tokens to Bob's account using Typescript, add this to `index.ts`:
 
