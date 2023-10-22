@@ -1,78 +1,28 @@
 ---
-title: Aztec Sandbox
+title: Getting Started with Aztec.js
 ---
 
 import Image from "@theme/IdealImage";
 
-## Introduction
+In this guide, we will retrieving the Sandbox and deploy a pre-written contract to it using Aztec.js.
 
-The Aztec Sandbox aims to provide a local development system against which you can build and test Aztec.nr contracts in a fast, safe, and free environment.
-
-:::info
-For a quickstart checkout [the Quickstart section](./quickstart.md)
-:::
-
-Here we will walkthrough the process of retrieving the Sandbox, installing the client libraries and using it to deploy and use a fully token contract on the Aztec network using Aztec.js.
-
-You can find the [complete tutorial code here](https://github.com/AztecProtocol/dev-rel/tree/main/tutorials/sandbox-tutorial/token).
+This guide assumes you have followed the [quickstart](./quickstart.md).
 
 ## Prerequisites
 
-- Node.js >= v18
-- Docker and Docker Compose (Docker Desktop under WSL2 on windows)
-
-That's it...
-
-## Install the Sandbox
-
-In your terminal:
-
-```sh
-/bin/bash -c "$(curl -fsSL 'https://sandbox.aztec.network')"
-```
-
-It will download and execute a script invoking docker compose with 2 containers:
-
-- Anvil
-- Aztec Sandbox
-
-3 ports will need to be opened on your system in order for you to interact with the sandbox.
-The first port is for Anvil, it defaults to 8545 and can be overridden by specifying a value in the environment variable `SANDBOX_ANVIL_PORT`.
-The second one is sandbox Aztec Node port, it defaults to 8079 and can be overridden by specifying a value in the environment variable `SANDBOX_AZTEC_NODE_PORT`.
-The third is the sandbox PXE port.
-It defaults to value 8080 but can be overridden with environment variable `SANDBOX_PXE_PORT`.
-
-Within a few seconds the Sandbox should be up and running!
-
-<Image img={require("/img/sandbox.png")} />
-
-:::info
-To start anvil in a fork mode set `FORK_URL` and `FORK_BLOCK_NUMBER` environment variables before running the script.
-You can do so by running:
-```sh
-export FORK_URL=https://mainnet.infura.io/v3/your-infura-key
-export FORK_BLOCK_NUMBER=13300000
-```
-If `FORK_BLOCK_NUMBER` is not set, it defaults to genesis block number.
-:::
+- A running [Aztec sandbox](./quickstart.md)
 
 ## Project setup
 
 We will deploy a pre-compiled token contract, and send tokens privately, using the Sandbox.
 
 :::info
-If you don't want to follow along and copy pasting step-by-step, the full code repository is available [here](https://github.com/AztecProtocol/dev-rel/tree/main/tutorials/sandbox-tutorial/token)
+Find the full code [here](https://github.com/AztecProtocol/dev-rel/tree/main/tutorials/sandbox-tutorial/token)
 :::
 
-We will create a `yarn` project called `token` (although npm works fine too). If you are familiar with setting up Javascript/Typescript projects then you can skip to step 6.
+We will create a `yarn` project called `token` (although `npm` works fine too).
 
-1. Ensure node version is 18 or higher by running
-
-```sh
-node -v
-```
-
-2. Initialize a yarn project
+1. Initialize a yarn project
 
 ```sh
 mkdir token
@@ -80,19 +30,19 @@ cd token
 yarn init -yp
 ```
 
-3. Create a `src` folder inside your new `token` directory:
+2. Create a `src` folder inside your new `token` directory:
 
 ```sh
 mkdir src
 ```
 
-4. Add necessary yarn packages (and optionally add typescript too)
+3. Add necessary yarn packages (and optionally add typescript too)
 
 ```sh
 yarn add @aztec/aztec.js @aztec/noir-contracts typescript @types/node
 ```
 
-5. [Optional] If creating a typescript file, add a `tsconfig.json` file into the project root, here is an example:
+4. [Optional] If creating a typescript file, add a `tsconfig.json` file into the project root, here is an example:
 
 ```json
 {
@@ -120,7 +70,7 @@ yarn add @aztec/aztec.js @aztec/noir-contracts typescript @types/node
 }
 ```
 
-6. Update `package.json` - Add a `scripts` section to `package.json` and set `"type": "module"`:
+5. Update `package.json` - Add a `scripts` section to `package.json` and set `"type": "module"`:
 
 ```json
 {
@@ -146,7 +96,7 @@ yarn add @aztec/aztec.js @aztec/noir-contracts typescript @types/node
 }
 ```
 
-7. Create an `index.ts` file in the `src` directory with the following sandbox connection setup:
+6. Create an `index.ts` file in the `src` directory with the following sandbox connection setup:
 
 ```ts
 #include_code imports /yarn-project/end-to-end/src/e2e_sandbox_example.test.ts raw
@@ -158,7 +108,7 @@ async function main() {
 main();
 ```
 
-8. Finally, run the package:
+7. Finally, run the package:
 
 In the project root, run
 
@@ -166,7 +116,7 @@ In the project root, run
 yarn start
 ```
 
-A successful run should show:
+A successful run should show something like this:
 
 ```
   token Aztec Sandbox Info  {
@@ -217,7 +167,7 @@ Now that we have our accounts loaded, let's move on to deploy our pre-compiled t
 
 #include_code Deployment /yarn-project/end-to-end/src/e2e_sandbox_example.test.ts typescript
 
-`yarn start` will now give the following output:
+`yarn start` will now give something like this:
 
 ```
   token Aztec Sandbox Info  {
@@ -397,7 +347,7 @@ This function takes:
 1. A quantity of tokens to be minted.
 2. A secret hash.
 
-Here is the Noir code:
+Here is the Aztec.nr code:
 
 #include_code mint_private /yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
 
@@ -414,7 +364,7 @@ Let's now use these functions to mint some tokens to Bob's account using Typescr
 
 #include_code Mint /yarn-project/end-to-end/src/e2e_sandbox_example.test.ts typescript
 
-Our complete output should now be:
+Our complete output should now be something like:
 
 ```
   token Aztec Sandbox Info  {
@@ -459,16 +409,8 @@ Our complete output should now be:
   token Bob's balance 10543 +43ms
 ```
 
-That's it! We have successfully deployed a token contract to an instance of the Aztec network and mined private state-transitioning transactions. We have also queried the resulting state all via the interfaces provided by the contract.
-
-You can find the [complete tutorial code here](https://github.com/AztecProtocol/dev-rel/tree/main/tutorials/sandbox-tutorial/token).
-
-### Diagram of sending a transaction
-
-<img src="/img/sandbox_sending_a_tx.svg" alt="Sending a transaction" />
+That's it! We have successfully deployed a token contract to an instance of the Aztec network and mined private state-transitioning transactions. We have also queried the resulting state all via the interfaces provided by the contract. To see exactly what has happened here, you can learn about the transaction flow [here](../../concepts/foundation/transactions.md).
 
 ## Next Steps
 
-Here we showed how to interact with the sandbox, but didn't go into details on how to write your own contract or any relevant setup needed for it.
-
-You can find more information about writing Aztec contracts [here](../contracts/main.md) on syntax, compiling, deploying and interacting with how to start writing contracts.
+Learn more about writing Aztec.nr contracts in the [Aztec.nr getting started guide](./aztecnr-getting-started.md).
