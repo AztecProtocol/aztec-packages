@@ -60,7 +60,7 @@ typename Curve::BaseField pedersen_hash_base<Curve>::hash(const std::vector<Fq>&
 {
     auto input_size = Fq(inputs.size());
     std::vector<Fq> modified_inputs = inputs;
-    modified_inputs.insert(modified_inputs.begin(), input_size);
+    modified_inputs.push_back(input_size);
     return (pedersen_commitment_base<Curve>::commit_native(modified_inputs, context)).x;
     // Element result = length_generator * Fr(inputs.size());
     // return (result + pedersen_commitment_base<Curve>::commit_native(inputs, context)).normalize().x;
@@ -96,7 +96,7 @@ typename Curve::BaseField pedersen_hash_base<Curve>::hash(
     auto length_generator_ctx = GeneratorContext(0);
     auto input_size = Fq(input_pairs.size());
     auto modified_inputs = input_pairs;
-    modified_inputs.insert(modified_inputs.begin(), { input_size, length_generator_ctx });
+    modified_inputs.push_back({ input_size, length_generator_ctx });
     return (pedersen_commitment_base<Curve>::commit_native(input_pairs)).x;
 }
 
