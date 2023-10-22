@@ -4,8 +4,8 @@
 set -eux
 
 # docs:start:declare-accounts
-ALICE="0x2f7efbf051625ce2515dcebba1806a409a637cc1f512a9595c0b42bf471649f1"
-BOB="0x24a9c68c7c048b42f489a90396c6391b5dc78bb365c2329019e590f35b73ab91"
+ALICE="0x0f394e8bd156e15153376a711e3054821c2a1c1047dcfb3745d636a57fb42ab1"
+BOB="0x2b67f90f0044596190644ddafea4152de47bd4781559493860fa7358e19d090a"
 ALICE_PRIVATE_KEY="0x2153536ff6628eee01cf4024889ff977a18d9fa61d0e414422f7681cf085c281"
 # docs:end:declare-accounts
 
@@ -15,9 +15,9 @@ aztec-cli deploy \
   --salt 0 \
   --args $ALICE
 
-aztec-cli check-deploy --contract-address 0x1a97c4443506464bff64d6fbb575ecb657e8f8c2a69771ecc1bcb45743bc7ca1
+aztec-cli check-deploy --contract-address 0x125414887cb64a27b6a8c194e1676fd25295bf3f2dbc71fb08ae4dda475e6adb
 
-CONTRACT="0x1a97c4443506464bff64d6fbb575ecb657e8f8c2a69771ecc1bcb45743bc7ca1"
+CONTRACT="0x125414887cb64a27b6a8c194e1676fd25295bf3f2dbc71fb08ae4dda475e6adb"
 # docs:end:deploy
 
 # docs:start:mint-private
