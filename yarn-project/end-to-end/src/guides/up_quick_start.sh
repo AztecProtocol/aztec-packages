@@ -15,9 +15,9 @@ aztec-cli deploy \
   --salt 0 \
   --args $ALICE
 
-aztec-cli check-deploy --contract-address 0x125414887cb64a27b6a8c194e1676fd25295bf3f2dbc71fb08ae4dda475e6adb
+aztec-cli check-deploy --contract-address 0x2f45f498b7912c779dde8e3594622e36d7908088b09e99ab91caaafb40d1f9ef
 
-CONTRACT="0x125414887cb64a27b6a8c194e1676fd25295bf3f2dbc71fb08ae4dda475e6adb"
+CONTRACT="0x2f45f498b7912c779dde8e3594622e36d7908088b09e99ab91caaafb40d1f9ef"
 # docs:end:deploy
 
 # docs:start:mint-private
