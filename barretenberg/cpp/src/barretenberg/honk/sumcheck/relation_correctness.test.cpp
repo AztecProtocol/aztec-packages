@@ -450,4 +450,88 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorPermutationRelationCorrectness)
     check_relation<Flavor, std::tuple_element_t<0, Relations>>(circuit_size, prover_polynomials, params);
 }
 
+TEST_F(RelationCorrectnessTests, GoblinTranslatorGenPermSortRelationCorrectness)
+{
+    using Flavor = flavor::GoblinTranslatorBasic;
+    using FF = typename Flavor::FF;
+    using ProverPolynomials = typename Flavor::ProverPolynomials;
+    using Polynomial = barretenberg::Polynomial<FF>;
+    auto& engine = numeric::random::get_debug_engine();
+
+    const auto circuit_size = Flavor::FULL_CIRCUIT_SIZE;
+    const auto sort_step = Flavor::SORT_STEP;
+    const auto max_value = (1 << Flavor::MICRO_LIMB_BITS) - 1;
+
+    // No relation parameters are used in this relation
+    proof_system::RelationParameters<FF> params;
+
+    ProverPolynomials prover_polynomials;
+    std::vector<Polynomial> polynomial_container;
+
+    // Allocate polynomials
+    for (size_t i = 0; i < prover_polynomials.size(); i++) {
+        Polynomial temporary_polynomial(circuit_size);
+        polynomial_container.push_back(temporary_polynomial);
+        prover_polynomials[i] = polynomial_container[i];
+    }
+
+    // Construct lagrange polynomials that are needed for Goblin Translator's GenPermSort Relation
+    prover_polynomials.lagrange_first[0] = 1;
+    prover_polynomials.lagrange_last[circuit_size - 1] = 1;
+
+    // Create a vector and fill with necessary steps for the GenPermSort relation
+    auto sorted_elements_count = (max_value / sort_step) + 1;
+    std::vector<uint64_t> vector_for_sorting(circuit_size);
+    for (size_t i = 0; i < sorted_elements_count - 1; i++) {
+        vector_for_sorting[i] = i * sort_step;
+    }
+    vector_for_sorting[sorted_elements_count - 1] = max_value;
+
+    // Add random values to fill the leftover space
+    for (size_t i = sorted_elements_count; i < circuit_size; i++) {
+        vector_for_sorting[i] = engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+    }
+
+    // Get ordered polynomials
+    auto polynomial_pointers = std::vector{ &prover_polynomials.ordered_range_constraints_0,
+                                            &prover_polynomials.ordered_range_constraints_1,
+                                            &prover_polynomials.ordered_range_constraints_2,
+                                            &prover_polynomials.ordered_range_constraints_3,
+                                            &prover_polynomials.ordered_range_constraints_4 };
+
+    // Sort the vector
+    std::sort(vector_for_sorting.begin(), vector_for_sorting.end());
+
+    // Copy values, transforming them into Finite Field elements
+    std::transform(vector_for_sorting.cbegin(),
+                   vector_for_sorting.cend(),
+                   prover_polynomials.ordered_range_constraints_0.begin(),
+                   [](uint64_t in) { return FF(in); });
+
+    // Copy the same polynomial into the 4 other ordered polynomials (they are not the same in an actual proof, but we
+    // only need to check the correctness of the relation and it acts independently on each polynomial)
+    parallel_for(4, [&](size_t i) {
+        std::copy(prover_polynomials.ordered_range_constraints_0.begin(),
+                  prover_polynomials.ordered_range_constraints_0.end(),
+                  polynomial_pointers[i + 1]->begin());
+    });
+
+    // Get shifted polynomials
+    prover_polynomials.ordered_range_constraints_0_shift =
+        polynomial_container[Flavor::ORDERED_RANGE_CONSTRAINTS_0].shifted();
+    prover_polynomials.ordered_range_constraints_1_shift =
+        polynomial_container[Flavor::ORDERED_RANGE_CONSTRAINTS_1].shifted();
+    prover_polynomials.ordered_range_constraints_2_shift =
+        polynomial_container[Flavor::ORDERED_RANGE_CONSTRAINTS_2].shifted();
+    prover_polynomials.ordered_range_constraints_3_shift =
+        polynomial_container[Flavor::ORDERED_RANGE_CONSTRAINTS_3].shifted();
+    prover_polynomials.ordered_range_constraints_4_shift =
+        polynomial_container[Flavor::ORDERED_RANGE_CONSTRAINTS_4].shifted();
+
+    using Relations = typename Flavor::Relations;
+
+    // Check that GenPermSort relation is satisfied across each row of the prover polynomials
+    check_relation<Flavor, std::tuple_element_t<1, Relations>>(circuit_size, prover_polynomials, params);
+}
+
 } // namespace test_honk_relations
