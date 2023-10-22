@@ -534,4 +534,106 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorGenPermSortRelationCorrectness)
     check_relation<Flavor, std::tuple_element_t<1, Relations>>(circuit_size, prover_polynomials, params);
 }
 
+/**
+ * @brief Test the correctness of GoblinTranslator's  extra relations (GoblinTranslatorOpcodeConstraintRelation and
+ * GoblinTranslatorAccumulatorTransferRelation)
+ *
+ */
+TEST_F(RelationCorrectnessTests, GoblinTranslatorExtraRelationsCorrectness)
+{
+    using Flavor = flavor::GoblinTranslatorBasic;
+    using FF = typename Flavor::FF;
+    using ProverPolynomials = typename Flavor::ProverPolynomials;
+    using ProverPolynomialIds = typename Flavor::ProverPolynomialIds;
+    using Polynomial = barretenberg::Polynomial<FF>;
+
+    auto& engine = numeric::random::get_debug_engine();
+
+    auto circuit_size = Flavor::FULL_CIRCUIT_SIZE;
+    auto mini_circuit_size = Flavor::MINI_CIRCUIT_SIZE;
+
+    // We only use accumulated_result from relation parameters in this relation
+    proof_system::RelationParameters<FF> params;
+    params.accumulated_result = {
+        FF::random_element(), FF::random_element(), FF::random_element(), FF::random_element()
+    };
+
+    // Create storage for polynomials
+    ProverPolynomials prover_polynomials;
+    // We use polynomial ids to make shifting the polynomials easier
+    ProverPolynomialIds prover_polynomial_ids;
+    std::vector<Polynomial> polynomial_container;
+    std::vector<size_t> polynomial_ids;
+    for (size_t i = 0; i < prover_polynomials.size(); i++) {
+        Polynomial temporary_polynomial(circuit_size);
+        // Allocate polynomials
+        polynomial_container.push_back(temporary_polynomial);
+        // Push sequential ids to polynomial ids
+        polynomial_ids.push_back(i);
+        prover_polynomial_ids[i] = polynomial_ids[i];
+    }
+    // Get ids of shifted polynomials and put them in a set
+    auto shifted_ids = prover_polynomial_ids.get_shifted();
+    std::unordered_set<size_t> shifted_id_set;
+    for (auto& id : shifted_ids) {
+        shifted_id_set.emplace(id);
+    }
+    // Assign spans to non-shifted prover polynomials
+    for (size_t i = 0; i < prover_polynomials.size(); i++) {
+        if (!shifted_id_set.contains(i)) {
+            prover_polynomials[i] = polynomial_container[i];
+        }
+    }
+
+    // Assign shifted spans to shifted prover polynomials using ids
+    for (size_t i = 0; i < shifted_ids.size(); i++) {
+        auto shifted_id = shifted_ids[i];
+        auto to_be_shifted_id = prover_polynomial_ids.get_to_be_shifted()[i];
+        prover_polynomials[shifted_id] = polynomial_container[to_be_shifted_id].shifted();
+    }
+
+    // Fill in lagrange even polynomial
+    for (size_t i = 2; i < mini_circuit_size; i += 2) {
+        prover_polynomials.lagrange_even[i] = 1;
+    }
+    constexpr size_t NUMBER_OF_POSSIBLE_OPCODES = 6;
+    constexpr std::array<uint64_t, NUMBER_OF_POSSIBLE_OPCODES> possible_opcode_values = { 0, 1, 2, 3, 4, 8 };
+
+    // Assign random opcode values
+    for (size_t i = 1; i < mini_circuit_size - 1; i += 2) {
+        prover_polynomials.op[i] =
+            possible_opcode_values[static_cast<size_t>(engine.get_random_uint8() % NUMBER_OF_POSSIBLE_OPCODES)];
+    }
+
+    // Initialize used lagrange polynomials
+    prover_polynomials.lagrange_second[1] = 1;
+    prover_polynomials.lagrange_second_to_last_in_minicircuit[mini_circuit_size - 2] = 1;
+
+    // Put random values in accumulator binary limbs (values should be preserved across even->next odd shift)
+    for (size_t i = 2; i < mini_circuit_size - 2; i += 2) {
+        prover_polynomials.accumulators_binary_limbs_0[i] = FF ::random_element();
+        prover_polynomials.accumulators_binary_limbs_1[i] = FF ::random_element();
+        prover_polynomials.accumulators_binary_limbs_2[i] = FF ::random_element();
+        prover_polynomials.accumulators_binary_limbs_3[i] = FF ::random_element();
+        prover_polynomials.accumulators_binary_limbs_0[i + 1] = prover_polynomials.accumulators_binary_limbs_0[i];
+        prover_polynomials.accumulators_binary_limbs_1[i + 1] = prover_polynomials.accumulators_binary_limbs_1[i];
+        prover_polynomials.accumulators_binary_limbs_2[i + 1] = prover_polynomials.accumulators_binary_limbs_2[i];
+        prover_polynomials.accumulators_binary_limbs_3[i + 1] = prover_polynomials.accumulators_binary_limbs_3[i];
+    }
+
+    // The values of accumulator binary limbs at index 1 should equal the accumulated result from relation parameters
+    prover_polynomials.accumulators_binary_limbs_0[1] = params.accumulated_result[0];
+    prover_polynomials.accumulators_binary_limbs_1[1] = params.accumulated_result[1];
+    prover_polynomials.accumulators_binary_limbs_2[1] = params.accumulated_result[2];
+    prover_polynomials.accumulators_binary_limbs_3[1] = params.accumulated_result[3];
+
+    using Relations = typename Flavor::Relations;
+
+    // Check that Opcode Constraint relation is satisfied across each row of the prover polynomials
+    check_relation<Flavor, std::tuple_element_t<2, Relations>>(circuit_size, prover_polynomials, params);
+
+    // Check that Accumulator Transfer relation is satisfied across each row of the prover polynomials
+    check_relation<Flavor, std::tuple_element_t<3, Relations>>(circuit_size, prover_polynomials, params);
+}
+
 } // namespace test_honk_relations
