@@ -336,10 +336,10 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorPermutationRelationCorrectness)
     auto& engine = numeric::random::get_debug_engine();
     auto circuit_size = Flavor::MINI_CIRCUIT_SIZE * Flavor::CONCATENATION_INDEX;
 
-    // We only need gamma
+    // We only need gamma, because permutationr elation only uses gamma
     FF gamma = FF::random_element();
 
-    // Compute public input delta
+    // Fill relation parameters
     proof_system::RelationParameters<FF> params;
     params.gamma = gamma;
 
@@ -355,6 +355,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorPermutationRelationCorrectness)
     // Fill in lagrange polynomials used in the permutation relation
     prover_polynomials.lagrange_first[0] = 1;
     prover_polynomials.lagrange_last[circuit_size - 1] = 1;
+
     // Put random values in all the non-concatenated constraint polynomials used to range constrain the values
     auto fill_polynomial_with_random_14_bit_values = [&](auto& polynomial) {
         for (size_t i = 0; i < Flavor::MINI_CIRCUIT_SIZE; i++) {
@@ -428,8 +429,8 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorPermutationRelationCorrectness)
 
     // Compute ordered range constraint polynomials that go in the denominator of the grand product polynomial
     compute_goblin_translator_range_constraint_ordered_polynomials<Flavor>(&prover_polynomials);
-    // Compute the fixed numerator (part of verification key)
 
+    // Compute the fixed numerator (part of verification key)
     compute_extra_range_constraint_numerator<Flavor>(&prover_polynomials);
 
     // Compute concatenated polynomials (4 polynomials produced from other constraint polynomials by concatenation)
@@ -439,10 +440,10 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorPermutationRelationCorrectness)
     grand_product_library::compute_grand_product<Flavor, proof_system::GoblinTranslatorPermutationRelation<FF>>(
         circuit_size, prover_polynomials, params);
     prover_polynomials.z_perm_shift = polynomial_container[Flavor::ALL_ENTITIES_IDS::Z_PERM].shifted();
-    // Construct the round for applying sumcheck relations and results for storing computed results
+
     using Relations = typename Flavor::Relations;
 
-    // Check that each relation is satisfied across each row of the prover polynomials
+    // Check that permutation relation is satisfied across each row of the prover polynomials
     check_relation<Flavor, std::tuple_element_t<0, Relations>>(circuit_size, prover_polynomials, params);
 }
 

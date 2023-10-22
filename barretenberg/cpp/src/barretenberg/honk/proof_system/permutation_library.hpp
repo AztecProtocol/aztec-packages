@@ -170,7 +170,8 @@ void compute_permutation_grand_products(std::shared_ptr<typename Flavor::Proving
  * @brief Compute new polynomials which are the concatenated versions of other polynomials
  *
  * @details Multilinear PCS allow to provide openings for concatenated polynomials in an easy way by combining
- * commitments. This method creates concatenated version of polynomials we won't need to commit to.
+ * commitments. This method creates concatenated version of polynomials we won't need to commit to. Used in Goblin
+ * Translator
  *
  * @tparam Flavor
  * @tparam StorageHandle
@@ -182,10 +183,11 @@ template <typename Flavor, typename StorageHandle> void compute_concatenated_pol
     auto concatenation_groups = proving_key->get_concatenation_groups();
 
     // Resulting concatenated polynomials
-    auto targets = proving_key->get_concatenation_targets();
+    auto targets = proving_key->get_concatenated_constraints();
 
-    // A function that produces 1 concatenated polynomials
-    // TODO(kesha): This can be optimized to use more cores. Currently uses at maximum 4
+    // A function that produces 1 concatenated polynomial
+    // TODO(#756): This can be rewritten to use more cores. Currently uses at maximum the number of concatenated
+    // polynomials (4 in Goblin Translator)
     auto ordering_function = [&](size_t i) {
         auto my_group = concatenation_groups[i];
         auto& current_target = targets[i];
@@ -206,6 +208,21 @@ template <typename Flavor, typename StorageHandle> void compute_concatenated_pol
 /**
  * @brief Compute denominator polynomials for Goblin Translator's range constraint permutation
  *
+ * @details  We need to prove that all the range constraint wires indeed have values within the given range (unless
+ * changed ∈  [0 , 2¹⁴ - 1]. To do this, we use several virtual concatenated wires, each of which represents a subset
+ * or original wires (concatenated_range_constraints_<i>). We also generate several new polynomials of the same length
+ * as concatenated ones. These polynomials have values within range, but they are also constrained by the
+ * GoblinTranslator's GenPermSort relation, which ensures that sequential values differ by not more than 3, the last
+ * value is the maximum and the first value is zero (zero at the start allows us not to dance around shifts).
+ *
+ * Ideally, we could simply rearrange the values in concatenated_.._0 ,..., concatenated_.._3 and get denominator
+ * polynomials (ordered_constraints), but we could get the worst case scenario: each value in the polynomials is
+ * maximum value. What can we do in that case? We still have to add (max_range/3)+1 values  to each of the ordered
+ * wires for the sort constraint to hold.  So we also need a and extra denominator to store k ⋅ ( max_range / 3 + 1 )
+ * values that couldn't go in + ( max_range / 3 +  1 ) connecting values. To counteract the extra ( k + 1 ) ⋅
+ * ⋅ (max_range / 3 + 1 ) values needed for denominator sort constraints we need a polynomial in the numerator. So we
+ * can construct a proof when ( k + 1 ) ⋅ ( max_range/ 3 + 1 ) < concatenated size
+ *
  * @tparam Flavor
  * @tparam StorageHandle
  * @param proving_key
@@ -213,30 +230,17 @@ template <typename Flavor, typename StorageHandle> void compute_concatenated_pol
 template <typename Flavor, typename StorageHandle>
 void compute_goblin_translator_range_constraint_ordered_polynomials(StorageHandle* proving_key)
 {
-    // We need to prove that all the range constrain wires indeed have values within the given range (unless changed - 0
-    // to (2¹⁴ - 1)). To do this, we use several virtual concatenated wires, each of which represents a subset or
-    // original wires (concatenated_range_constraints_<i>). We also generate several new polynomials of the same length
-    // as concatenated ones. These polynomials have values within range, but they are also constrained by the
-    // GoblinTranslator's GenPermSort relation, which ensures that sequential values differ by not more than 3, the last
-    // value is the maximum and the first value is zero (zero at the start allows us not to dance around shifts).
-    //
-    // Ideally, we could simply rearrange the values in concatenated_.._0 ,..., concatenated_.._3 and get denominator
-    // polynomials (ordered_constraints), but we could get the worst case scenario: each value in the polynomials is
-    // maximum value. What can we do in that case? We still have to add (max_range/3)+1 values  to each of the ordered
-    // wires for the sort constraint to hold.  So we also need a and extra denominator to store k(max_range/3 + 1)
-    // values that couldn't go in + (max_range/3+  1) connecting values. To counteract the extra (k+1)*(max_range/3+1)
-    // values needed for denominator sort constraints we need a polynomial in the numerator . So we can construct a
-    // proof when (k+1)*(Max/3 +1) < concatenated size
 
     using FF = typename Flavor::FF;
+
     // Get constants
     constexpr auto sort_step = Flavor::SORT_STEP;
     constexpr auto num_concatenated_wires = Flavor::NUM_CONCATENATED_WIRES;
     constexpr auto full_circuit_size = Flavor::FULL_CIRCUIT_SIZE;
     constexpr auto mini_circuit_size = Flavor::MINI_CIRCUIT_SIZE;
 
-    constexpr uint32_t max_value = (1 << Flavor::MICRO_LIMB_BITS) - 1;
     // The value we have to end polynomials with
+    constexpr uint32_t max_value = (1 << Flavor::MICRO_LIMB_BITS) - 1;
 
     // Number of elements needed to go from 0 to MAX_VALUE with our step
     constexpr size_t sorted_elements_count = (max_value / sort_step) + 1 + (max_value % sort_step == 0 ? 0 : 1);
@@ -259,10 +263,12 @@ void compute_goblin_translator_range_constraint_ordered_polynomials(StorageHandl
                                                        &proving_key->ordered_range_constraints_2,
                                                        &proving_key->ordered_range_constraints_3 };
     std::vector<size_t> extra_denominator_uint(full_circuit_size);
+
+    // Get information which polynomials need to be concatenated
     auto concatenation_groups = proving_key->get_concatenation_groups();
 
-    // A function that transfers elements from each of polynomials in the chosen concatenation group in the uint ordered
-    // polynomials
+    // A function that transfers elements from each of the polynomials in the chosen concatenation group in the uint
+    // ordered polynomials
     auto ordering_function = [&](size_t i) {
         // Get the group and the main target vector
         auto my_group = concatenation_groups[i];
@@ -338,8 +344,9 @@ void compute_goblin_translator_range_constraint_ordered_polynomials(StorageHandl
  * @brief Compute the extra numerator for Goblin range constraint argument
  *
  * @details Goblin proves that several polynomials contain only values in a certain range through 2 relations:
- * 1) A grand product
- * 2) A relation enforcing a range on the polynomial
+ * 1) A grand product which ignores positions of elements (GoblinTranslatorPermutationRelation)
+ * 2) A relation enforcing a certain ordering on the elements of the given polynomial
+ * (GoblinTranslatorGenPermSortRelation)
  *
  * We take the values from 4 polynomials, and spread them into 5 polynomials + add all the steps from MAX_VALUE to 0. We
  * order these polynomials and use them in the denominator of the grand product, at the same time checking that they go
@@ -359,6 +366,7 @@ template <typename Flavor> inline void compute_extra_range_constraint_numerator(
     auto& extra_range_constraint_numerator = proving_key->ordered_extra_range_constraints_numerator;
 
     uint32_t MAX_VALUE = (1 << Flavor::MICRO_LIMB_BITS) - 1;
+
     // Calculate how many elements there are in the sequence MAX_VALUE, MAX_VALUE - 3,...,0
     size_t sorted_elements_count = (MAX_VALUE / sort_step) + 1 + (MAX_VALUE % sort_step == 0 ? 0 : 1);
 
@@ -373,7 +381,7 @@ template <typename Flavor> inline void compute_extra_range_constraint_numerator(
         sorted_elements[i] = (sorted_elements_count - 1 - i) * sort_step;
     }
 
-    // TODO(kesha): can be parallelized further. This will use at most 5 threads
+    // TODO(#756): can be parallelized further. This will use at most 5 threads
     auto fill_with_shift = [&](size_t shift) {
         for (size_t i = 0; i < sorted_elements_count; i++) {
             extra_range_constraint_numerator[shift + i * (num_concatenated_wires + 1)] = sorted_elements[i];

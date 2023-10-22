@@ -25,58 +25,76 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
 
   public:
     /**
-     * @brief This should start the same as WireIds in the circuit builder
+     * @brief Enum containing IDs of all the polynomials used in Goblin Translator
      *
+     * @details We use the enum for easier updates of structure sizes and for cases where we need to get a particular
+     * polynomial programmatically
      */
     enum ALL_ENTITIES_IDS : size_t {
-        OP, // The first 4 wires contain the standard values from the EccQueue wire
+        /*The first 4 wires contain the standard values from the EccOpQueue*/
+        OP,
         X_LO_Y_HI,
         X_HI_Z_1,
         Y_LO_Z_2,
-        P_X_LOW_LIMBS,                    // P.xₗₒ split into 2 68 bit limbs
-        P_X_LOW_LIMBS_RANGE_CONSTRAINT_0, // Low limbs split further into smaller chunks for range constraints
+        /*P.xₗₒ split into 2 68 bit limbs*/
+        P_X_LOW_LIMBS,
+        /*Low limbs split further into smaller chunks for range constraints*/
+        P_X_LOW_LIMBS_RANGE_CONSTRAINT_0,
         P_X_LOW_LIMBS_RANGE_CONSTRAINT_1,
         P_X_LOW_LIMBS_RANGE_CONSTRAINT_2,
         P_X_LOW_LIMBS_RANGE_CONSTRAINT_3,
         P_X_LOW_LIMBS_RANGE_CONSTRAINT_4,
         P_X_LOW_LIMBS_RANGE_CONSTRAINT_TAIL,
-        P_X_HIGH_LIMBS,                    // P.xₕᵢ split into 2 68 bit limbs
-        P_X_HIGH_LIMBS_RANGE_CONSTRAINT_0, // High limbs split into chunks for range constraints
+        /*P.xₕᵢ split into 2 68 bit limbs*/
+        P_X_HIGH_LIMBS,
+        /*High limbs split into chunks for range constraints*/
+        P_X_HIGH_LIMBS_RANGE_CONSTRAINT_0,
         P_X_HIGH_LIMBS_RANGE_CONSTRAINT_1,
         P_X_HIGH_LIMBS_RANGE_CONSTRAINT_2,
         P_X_HIGH_LIMBS_RANGE_CONSTRAINT_3,
         P_X_HIGH_LIMBS_RANGE_CONSTRAINT_4,
-        P_X_HIGH_LIMBS_RANGE_CONSTRAINT_TAIL,
-        P_Y_LOW_LIMBS,                    // P.yₗₒ split into 2 68 bit limbs
-        P_Y_LOW_LIMBS_RANGE_CONSTRAINT_0, // Low limbs split into chunks for range constraints
+        P_X_HIGH_LIMBS_RANGE_CONSTRAINT_TAIL, // The tail also contains some leftover values from  relation wide limb
+                                              // range cosntraints
+        /*P.yₗₒ split into 2 68 bit limbs*/
+        P_Y_LOW_LIMBS,
+        /*Low limbs split into chunks for range constraints*/
+        P_Y_LOW_LIMBS_RANGE_CONSTRAINT_0,
         P_Y_LOW_LIMBS_RANGE_CONSTRAINT_1,
         P_Y_LOW_LIMBS_RANGE_CONSTRAINT_2,
         P_Y_LOW_LIMBS_RANGE_CONSTRAINT_3,
         P_Y_LOW_LIMBS_RANGE_CONSTRAINT_4,
         P_Y_LOW_LIMBS_RANGE_CONSTRAINT_TAIL,
-        P_Y_HIGH_LIMBS,                    // P.yₕᵢ split into 2 68 bit limbs
-        P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_0, // High limbs split into chunks for range constraints
+        /*P.yₕᵢ split into 2 68 bit limbs*/
+        P_Y_HIGH_LIMBS,
+        /*High limbs split into chunks for range constraints*/
+        P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_0,
         P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_1,
         P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_2,
         P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_3,
         P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_4,
-        P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_TAIL,
-        Z_LOW_LIMBS,                    // Low limbs of z_1 and z_2
-        Z_LOW_LIMBS_RANGE_CONSTRAINT_0, // Range constraints for low limbs of z_1 and z_2
+        P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_TAIL, // The tail also contains some leftover values from  relation wide limb
+                                              // range cosntraints
+        /*Low limbs of z_1 and z_2*/
+        Z_LOW_LIMBS,
+        /*Range constraints for low limbs of z_1 and z_2*/
+        Z_LOW_LIMBS_RANGE_CONSTRAINT_0,
         Z_LOW_LIMBS_RANGE_CONSTRAINT_1,
         Z_LOW_LIMBS_RANGE_CONSTRAINT_2,
         Z_LOW_LIMBS_RANGE_CONSTRAINT_3,
         Z_LOW_LIMBS_RANGE_CONSTRAINT_4,
         Z_LOW_LIMBS_RANGE_CONSTRAINT_TAIL,
-        Z_HIGH_LIMBS,                    // Hi Limbs of z_1 and z_2
-        Z_HIGH_LIMBS_RANGE_CONSTRAINT_0, // Range constraints for high limbs of z_1 and z_2
+        /*High Limbs of z_1 and z_2*/
+        Z_HIGH_LIMBS,
+        /*Range constraints for high limbs of z_1 and z_2*/
+        Z_HIGH_LIMBS_RANGE_CONSTRAINT_0,
         Z_HIGH_LIMBS_RANGE_CONSTRAINT_1,
         Z_HIGH_LIMBS_RANGE_CONSTRAINT_2,
         Z_HIGH_LIMBS_RANGE_CONSTRAINT_3,
         Z_HIGH_LIMBS_RANGE_CONSTRAINT_4,
         Z_HIGH_LIMBS_RANGE_CONSTRAINT_TAIL,
-        ACCUMULATORS_BINARY_LIMBS_0, // Contain 68-bit limbs of current and previous accumulator (previous at higher
-                                     // indices because of the nuances of KZG commitment)
+        /* Contain 68-bit limbs of current and previous accumulator (previous at higher indices because of the nuances
+           of KZG commitment) */
+        ACCUMULATORS_BINARY_LIMBS_0,
         ACCUMULATORS_BINARY_LIMBS_1,
         ACCUMULATORS_BINARY_LIMBS_2,
         ACCUMULATORS_BINARY_LIMBS_3,
@@ -92,10 +110,14 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
         ACCUMULATOR_HIGH_LIMBS_RANGE_CONSTRAINT_2,
         ACCUMULATOR_HIGH_LIMBS_RANGE_CONSTRAINT_3,
         ACCUMULATOR_HIGH_LIMBS_RANGE_CONSTRAINT_4,
-        ACCUMULATOR_HIGH_LIMBS_RANGE_CONSTRAINT_TAIL,
-        QUOTIENT_LOW_BINARY_LIMBS, // Quotient limbs
+        ACCUMULATOR_HIGH_LIMBS_RANGE_CONSTRAINT_TAIL, // The tail also contains some leftover values from  relation wide
+                                                      // limb range constraints
+
+        /* Quotient limbs*/
+        QUOTIENT_LOW_BINARY_LIMBS,
         QUOTIENT_HIGH_BINARY_LIMBS,
-        QUOTIENT_LOW_LIMBS_RANGE_CONSTRAINT_0, // Range constraints for quotient
+        /* Range constraints for quotient */
+        QUOTIENT_LOW_LIMBS_RANGE_CONSTRAINT_0,
         QUOTIENT_LOW_LIMBS_RANGE_CONSTRAINT_1,
         QUOTIENT_LOW_LIMBS_RANGE_CONSTRAINT_2,
         QUOTIENT_LOW_LIMBS_RANGE_CONSTRAINT_3,
@@ -106,25 +128,29 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
         QUOTIENT_HIGH_LIMBS_RANGE_CONSTRAINT_2,
         QUOTIENT_HIGH_LIMBS_RANGE_CONSTRAINT_3,
         QUOTIENT_HIGH_LIMBS_RANGE_CONSTRAINT_4,
-        QUOTIENT_HIGH_LIMBS_RANGE_CONSTRAINT_TAIL,
-        RELATION_WIDE_LIMBS, // Limbs for checking the correctness of  mod 2²⁷² relations. TODO(kesha): add range
-                             // constraints
+        QUOTIENT_HIGH_LIMBS_RANGE_CONSTRAINT_TAIL, // The tail also contains some leftover values from  relation wide
+                                                   // limb range constraints
+
+        /* Limbs for checking the correctness of  mod 2²⁷² relations*/
+        RELATION_WIDE_LIMBS,
         RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_0,
         RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_1,
         RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_2,
         RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_3,
-        /* At this point the wires themselves are over*/
+        /*Concatenations of various range constraint wires*/
         CONCATENATED_RANGE_CONSTRAINTS_0,
         CONCATENATED_RANGE_CONSTRAINTS_1,
         CONCATENATED_RANGE_CONSTRAINTS_2,
         CONCATENATED_RANGE_CONSTRAINTS_3,
+        /*Values from concatenated range constraints + some additional ones*/
         ORDERED_RANGE_CONSTRAINTS_0,
         ORDERED_RANGE_CONSTRAINTS_1,
         ORDERED_RANGE_CONSTRAINTS_2,
         ORDERED_RANGE_CONSTRAINTS_3,
         ORDERED_RANGE_CONSTRAINTS_4,
+        /*Grand Product Polynomial*/
         Z_PERM,
-        /*All the shift stuff*/
+        /*Shifted versions of polynomials*/
         X_LO_Y_HI_SHIFT,
         X_HI_Z_1_SHIFT,
         Y_LO_Z_2_SHIFT,
@@ -212,7 +238,7 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
         ORDERED_RANGE_CONSTRAINTS_4_SHIFT,
 
         Z_PERM_SHIFT,
-        /*All precomputed stuff*/
+        /*All precomputed polynomials*/
         LAGRANGE_FIRST,
         LAGRANGE_LAST,
         LAGRANGE_ODD,
@@ -220,6 +246,7 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
         LAGRANGE_SECOND,
         LAGRANGE_SECOND_TO_LAST_IN_MINICIRCUIT,
         ORDERED_EXTRA_RANGE_CONSTRAINTS_NUMERATOR,
+        /*Utility value*/
         TOTAL_COUNT
 
     };
@@ -237,19 +264,33 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
     using Polynomial = barretenberg::Polynomial<FF>;
     using PolynomialHandle = std::span<FF>;
 
-    /**
-     * @brief This is the originalsi ze of the circuit before we extend it for
-     *
-     */
+    // The size of the circuit which is filled with non-zero values for most polynomials. Most relations (everything
+    // except for Permutation and GenPermSort) can be evaluated just on the first chunk
     static constexpr size_t MINI_CIRCUIT_SIZE = mini_circuit_size;
+
+    // How many mini_circuit_size polynomials are concatenated in one concatenated_*
     static constexpr size_t CONCATENATION_INDEX = 16;
+
+    // The number of concatenated_* wires
     static constexpr size_t NUM_CONCATENATED_WIRES = 4;
+
+    // Actual circuit size
     static constexpr size_t FULL_CIRCUIT_SIZE = MINI_CIRCUIT_SIZE * CONCATENATION_INDEX;
+
+    // Number of wires
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
+
+    // The step in the GenPermSort relation
     static constexpr size_t SORT_STEP = 3;
+
+    // The bitness of the range constraint
     static constexpr size_t MICRO_LIMB_BITS = CircuitBuilder::MICRO_LIMB_BITS;
+
+    // The limbs of the modulus we are emulating in the goblin translator. 4 binary 68-bit limbs and the prime one
     static constexpr auto NEGATIVE_MODULUS_LIMBS = CircuitBuilder::NEGATIVE_MODULUS_LIMBS;
-    static constexpr size_t NUM_LIMB_BITS = 68;
+
+    // Number of bits in a binary limb
+    static constexpr size_t NUM_LIMB_BITS = CircuitBuilder::NUM_LIMB_BITS;
 
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
@@ -491,13 +532,24 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
                      ordered_range_constraints_4 };
         };
 
-        std::vector<HandleType> get_concatenation_targets()
+        /**
+         * @brief Get the polynomials that need to be constructed from other polynomials by concatenation
+         *
+         * @return std::vector<HandleType>
+         */
+        std::vector<HandleType> get_concatenated_constraints()
         {
             return { concatenated_range_constraints_0,
                      concatenated_range_constraints_1,
                      concatenated_range_constraints_2,
                      concatenated_range_constraints_3 };
         }
+
+        /**
+         * @brief Get the polynomials that are concatenated for the permutation relation
+         *
+         * @return std::vector<std::vector<HandleType>>
+         */
         std::vector<std::vector<HandleType>> get_concatenation_groups()
         {
             return {
@@ -864,13 +916,12 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
                      ordered_range_constraints_3,
                      ordered_range_constraints_4 };
         };
-        std::vector<HandleType> get_concatenation_targets()
-        {
-            return { concatenated_range_constraints_0,
-                     concatenated_range_constraints_1,
-                     concatenated_range_constraints_2,
-                     concatenated_range_constraints_3 };
-        }
+
+        /**
+         * @brief Get the polynomials that are concatenated for the permutation relation
+         *
+         * @return std::vector<std::vector<HandleType>>
+         */
         std::vector<std::vector<HandleType>> get_concatenation_groups()
         {
             return {
@@ -948,6 +999,11 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
                 },
             };
         }
+        /**
+         * @brief Get the polynomials that need to be constructed from other polynomials by concatenation
+         *
+         * @return std::vector<HandleType>
+         */
         std::vector<HandleType> get_concatenated_constraints()
         {
             return { concatenated_range_constraints_0,
@@ -955,6 +1011,11 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
                      concatenated_range_constraints_2,
                      concatenated_range_constraints_3 };
         };
+        /**
+         * @brief Get the polynomials from the grand product denominator
+         *
+         * @return std::vector<HandleType>
+         */
         std::vector<HandleType> get_ordered_constraints()
         {
             return { ordered_range_constraints_0,
