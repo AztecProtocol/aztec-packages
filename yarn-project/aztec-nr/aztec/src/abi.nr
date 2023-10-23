@@ -32,7 +32,7 @@ use crate::constants_gen::{
 use crate::oracle::debug_log;
 use crate::types::vec::BoundedVec;
 use crate::types::point::Point;
-
+use crate::hash::pedersen_hash;
 
 // docs:start:private-global-variables
 struct PrivateGlobalVariables {
@@ -85,7 +85,7 @@ impl ContractDeploymentData {
     }
 
     fn hash(self) -> Field {
-        dep::std::hash::pedersen_with_separator(self.serialize(), GENERATOR_INDEX__CONTRACT_DEPLOYMENT_DATA)[0]
+        pedersen_hash(self.serialize(), GENERATOR_INDEX__CONTRACT_DEPLOYMENT_DATA)
     }
 }
 
@@ -136,13 +136,13 @@ impl CallContext {
     }
 
     fn hash(self) -> Field {
-        dep::std::hash::pedersen_with_separator(self.serialize(), GENERATOR_INDEX__CALL_CONTEXT)[0]
+        pedersen_hash(self.serialize(), GENERATOR_INDEX__CALL_CONTEXT)
     }
 }
 
 // docs:start:historic-block-data
 struct HistoricBlockData {
-    private_data_tree_root : Field,
+    note_hash_tree_root : Field,
     nullifier_tree_root : Field,
     contract_tree_root : Field,
     l1_to_l2_messages_tree_root : Field,
@@ -156,7 +156,7 @@ impl HistoricBlockData {
     // NOTE: this order must match the order in `private_circuit_public_inputs.hpp`
     pub fn serialize(self) -> [Field; HISTORIC_BLOCK_DATA_LENGTH] {
         [
-            self.private_data_tree_root,
+            self.note_hash_tree_root,
             self.nullifier_tree_root,
             self.contract_tree_root,
             self.l1_to_l2_messages_tree_root,
@@ -167,7 +167,7 @@ impl HistoricBlockData {
     }
 
     pub fn empty() -> Self {
-        Self { private_data_tree_root: 0, nullifier_tree_root: 0, contract_tree_root: 0, l1_to_l2_messages_tree_root: 0, blocks_tree_root: 0, public_data_tree_root: 0, global_variables_hash: 0 }
+        Self { note_hash_tree_root: 0, nullifier_tree_root: 0, contract_tree_root: 0, l1_to_l2_messages_tree_root: 0, blocks_tree_root: 0, public_data_tree_root: 0, global_variables_hash: 0 }
     }
 }
 
@@ -180,12 +180,12 @@ struct FunctionData {
 
 impl FunctionData {
     fn hash(self) -> Field {
-        dep::std::hash::pedersen_with_separator([
+        pedersen_hash([
             self.function_selector,
             self.is_internal as Field,
             self.is_private as Field,
             self.is_constructor as Field,
-        ], GENERATOR_INDEX__FUNCTION_DATA)[0]
+        ], GENERATOR_INDEX__FUNCTION_DATA)
     }
 }
 
@@ -236,7 +236,7 @@ impl PrivateCircuitPublicInputs {
         fields.push(self.chain_id);
         fields.push(self.version);
 
-        dep::std::hash::pedersen_with_separator(fields.storage, GENERATOR_INDEX__PRIVATE_CIRCUIT_PUBLIC_INPUTS)[0]
+        pedersen_hash(fields.storage, GENERATOR_INDEX__PRIVATE_CIRCUIT_PUBLIC_INPUTS)
     }
 
     fn serialize(self) -> [Field; PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH] {
@@ -274,7 +274,7 @@ impl ContractStorageRead {
     }
 
     pub fn hash(self) -> Field {
-        dep::std::hash::pedersen_with_separator(self.serialize(), GENERATOR_INDEX__PUBLIC_DATA_READ)[0]
+        pedersen_hash(self.serialize(), GENERATOR_INDEX__PUBLIC_DATA_READ)
     }
 
     pub fn empty() -> Self {
@@ -294,7 +294,7 @@ impl ContractStorageUpdateRequest {
     }
 
     pub fn hash(self) -> Field {
-        dep::std::hash::pedersen_with_separator(self.serialize(), GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST)[0]
+        pedersen_hash(self.serialize(), GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST)
     }
 
     pub fn empty() -> Self {
@@ -342,7 +342,7 @@ impl PublicCircuitPublicInputs {
         inputs.push_array(self.block_data.serialize());
         inputs.push(self.prover_address);
 
-        dep::std::hash::pedersen_with_separator(inputs.storage, GENERATOR_INDEX__PUBLIC_CIRCUIT_PUBLIC_INPUTS)[0]
+        pedersen_hash(inputs.storage, GENERATOR_INDEX__PUBLIC_CIRCUIT_PUBLIC_INPUTS)
     }
 
     pub fn serialize(self) -> [Field; PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH] {
@@ -411,10 +411,10 @@ pub fn hash_args<N>(args: [Field; N]) -> Field {
                         chunk_args[j] = args[item_index];
                     }
                 }
-                chunk_hash = dep::std::hash::pedersen_with_separator(chunk_args, GENERATOR_INDEX__FUNCTION_ARGS)[0];
+                chunk_hash = pedersen_hash(chunk_args, GENERATOR_INDEX__FUNCTION_ARGS);
             }
             chunks_hashes[i] = chunk_hash;
         }
-        dep::std::hash::pedersen_with_separator(chunks_hashes, GENERATOR_INDEX__FUNCTION_ARGS)[0]
+        pedersen_hash(chunks_hashes, GENERATOR_INDEX__FUNCTION_ARGS)
     }
 }
