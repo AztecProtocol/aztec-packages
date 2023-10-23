@@ -19,7 +19,7 @@ if [ -z "$ONLY_PROCESS" ]; then
   rm -f xray-log.$EXECUTABLE.*
 
   # Run benchmark with profiling.
-  XRAY_OPTIONS="patch_premain=true xray_mode=xray-basic verbosity=1" ./bin/$EXECUTABLE
+  XRAY_OPTIONS="patch_premain=true xray_mode=xray-basic verbosity=1" ./bin/$EXECUTABLE --benchmark_min_time=0
 fi
 
 function shorten_cpp_names() {
@@ -42,6 +42,6 @@ llvm-xray-16 stack xray-log.$EXECUTABLE.* \
   --instr_map=./bin/$EXECUTABLE --stack-format=flame --aggregate-threads --aggregation-type=time --all-stacks \
   | node ../scripts/llvm_xray_stack_flame_corrector.js \
   | shorten_cpp_names \
-  | ../scripts/flamegraph.pl  --width 1200 --fontsize 10 \
+  | ../scripts/flamegraph.pl --width 1200 --fontsize 10 \
   > xray.svg
 echo "Profiling complete, now you can do e.g. 'scp mainframe:`readlink -f xray.svg` .' on a local terminal and open the SVG in a browser."
