@@ -1,10 +1,9 @@
 #!/bin/bash
 set -eu
 
-PRESET=${1:-xray-1thread} # can also be 'xray'
+PRESET=${1:-xray} # can also be 'xray-1thread'
 ONLY_PROCESS=${2:-}
 EXECUTABLE=${3:-ultra_honk_passes_bench}
-shift 3 # any extra args go to executable
 
 # Move above script dir.
 cd $(dirname $0)/..
@@ -20,7 +19,7 @@ if [ -z "$ONLY_PROCESS" ]; then
   rm -f xray-log.$EXECUTABLE.*
 
   # Run benchmark with profiling.
-  XRAY_OPTIONS="patch_premain=true xray_mode=xray-basic verbosity=1" ./bin/$EXECUTABLE $@
+  XRAY_OPTIONS="patch_premain=true xray_mode=xray-basic verbosity=1" ./bin/$EXECUTABLE
 fi
 
 function shorten_cpp_names() {
