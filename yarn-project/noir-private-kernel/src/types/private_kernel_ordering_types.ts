@@ -70,6 +70,7 @@ export interface PublicDataRead {
 export interface CombinedAccumulatedData {
   aggregation_object: AggregationObject;
   read_requests: FixedLengthArray<Field, 128>;
+  pending_read_requests: FixedLengthArray<Field, 128>;
   new_commitments: FixedLengthArray<Field, 64>;
   new_nullifiers: FixedLengthArray<Field, 64>;
   nullified_commitments: FixedLengthArray<Field, 64>;
@@ -88,7 +89,7 @@ export interface CombinedAccumulatedData {
 
 
 export interface Block {
-  private_data_tree_root: Field;
+  note_hash_tree_root: Field;
   nullifier_tree_root: Field;
   contract_tree_root: Field;
   l1_to_l2_data_tree_root: Field;

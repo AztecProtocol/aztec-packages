@@ -6,6 +6,7 @@ use crate::abis::{
     combined_constant_data::CombinedConstantData,
     previous_kernel_data::PreviousKernelData,
     private_kernel::private_call_data::PrivateCallData,
+    new_contract_data::NewContractData,
     kernel_circuit_public_inputs::{KernelCircuitPublicInputs, KernelCircuitPublicInputsBuilder}
 };
 use crate::utils::{
@@ -20,16 +21,6 @@ struct PrivateKernelInputsInner {
 }
 
 impl PrivateKernelInputsInner {
-    fn initialize_end_values(self, public_inputs : &mut KernelCircuitPublicInputsBuilder) {
-        let previous_kernel = self.previous_kernel;
-        
-        common::initialize_end_values(previous_kernel, public_inputs);
-
-        // Ensure the arrays are the same as previously, before we start pushing more data onto them in other
-        // functions within this circuit:
-        let start = previous_kernel.public_inputs.end;
-        public_inputs.end.read_requests = arrays::array_to_bounded_vec(start.read_requests, arrays::is_empty, 0);
-    }
     
     // TODO: We can create a type alias for private call stack
     fn pop_and_validate_this_private_call_hash(self, public_inputs : &mut KernelCircuitPublicInputsBuilder){
@@ -67,7 +58,7 @@ impl PrivateKernelInputsInner {
         common::validate_previous_kernel_values(self.previous_kernel.public_inputs.end);
 
         // Do this before any functions can modify the inputs.
-        self.initialize_end_values(&mut public_inputs);
+        common::initialize_end_values(self.previous_kernel, &mut public_inputs);
 
         self.validate_inputs();
 

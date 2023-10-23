@@ -15,13 +15,11 @@ mod public_data_update_request;
 mod optionally_revealed_data;
 
 mod combined_accumulated_data;
-mod final_accumulated_data;
 
 mod complete_address;
 
 mod private_kernel;
 mod kernel_circuit_public_inputs;
-mod kernel_circuit_public_inputs_final;
 mod previous_kernel_data;
 
 mod call_stack_item;

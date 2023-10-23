@@ -1,7 +1,6 @@
 use crate::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs;
 use crate::abis::kernel_circuit_public_inputs::KernelCircuitPublicInputsBuilder;
 use crate::utils::arrays;
-use crate::abis::kernel_circuit_public_inputs_final::KernelCircuitPublicInputsFinal;
 use crate::abis::previous_kernel_data::PreviousKernelData;
 use crate::abis::private_kernel::private_call_data::PrivateCallData;
 use crate::abis::combined_accumulated_data::{CombinedAccumulatedData, CombinedAccumulatedDataBuilder};
@@ -109,6 +108,7 @@ pub fn initialize_end_values(previous_kernel : PreviousKernelData, public_inputs
     // functions within this circuit:
     let start = previous_kernel.public_inputs.end;
 
+    public_inputs.end.read_requests = arrays::array_to_bounded_vec(start.read_requests, arrays::is_empty, 0);
     public_inputs.end.new_commitments = arrays::array_to_bounded_vec(start.new_commitments, arrays::is_empty, 0);
     public_inputs.end.new_nullifiers = arrays::array_to_bounded_vec(start.new_nullifiers, arrays::is_empty, 0);
     public_inputs.end.nullified_commitments = arrays::array_to_bounded_vec(start.nullified_commitments, arrays::is_empty, 0);
@@ -124,34 +124,7 @@ pub fn initialize_end_values(previous_kernel : PreviousKernelData, public_inputs
     public_inputs.end.unencrypted_log_preimages_length = start.unencrypted_log_preimages_length;
 
     public_inputs.end.optionally_revealed_data = start.optionally_revealed_data;
-}
-
-// The cpp code avoids having two methods like we have by using templates.
-//
-// TODO(Kev): We can probably rewrite KernelCircuitPublicInputs and KernelCircuitPublicInputsFinal
-// to use composition instead and have one method.
-fn initialize_end_values_final(previous_kernel : PreviousKernelData, public_inputs : &mut KernelCircuitPublicInputsFinal) {
-    public_inputs.constants = previous_kernel.public_inputs.constants;
-
-    // Ensure the arrays are the same as previously, before we start pushing more data onto them in other
-    // functions within this circuit:
-    let start = previous_kernel.public_inputs.end;
-
-    public_inputs.end.new_commitments = start.new_commitments;
-    public_inputs.end.new_nullifiers = start.new_nullifiers;
-    public_inputs.end.nullified_commitments = start.nullified_commitments;
-
-    public_inputs.end.private_call_stack = start.private_call_stack;
-    public_inputs.end.public_call_stack = start.public_call_stack;
-    public_inputs.end.new_l2_to_l1_msgs = start.new_l2_to_l1_msgs;
-
-    public_inputs.end.encrypted_logs_hash = start.encrypted_logs_hash;
-    public_inputs.end.unencrypted_logs_hash = start.unencrypted_logs_hash;
-
-    public_inputs.end.encrypted_log_preimages_length = start.encrypted_log_preimages_length;
-    public_inputs.end.unencrypted_log_preimages_length = start.unencrypted_log_preimages_length;
-
-    public_inputs.end.optionally_revealed_data = start.optionally_revealed_data;
+    public_inputs.end.new_contracts = arrays::array_to_bounded_vec(previous_kernel.public_inputs.end.new_contracts, |ncd: NewContractData| ncd.is_empty(), NewContractData::default());
 }
 
 pub fn update_end_values(private_call : PrivateCallData, public_inputs : &mut KernelCircuitPublicInputsBuilder) {
