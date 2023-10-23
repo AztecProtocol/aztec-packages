@@ -1,4 +1,10 @@
-import { KernelCircuitPublicInputs, PrivateKernelInputsInit, PrivateKernelInputsInner } from '@aztec/circuits.js';
+import {
+  KernelCircuitPublicInputs,
+  KernelCircuitPublicInputsFinal,
+  PrivateKernelInputsInit,
+  PrivateKernelInputsInner,
+  PrivateKernelInputsOrdering,
+} from '@aztec/circuits.js';
 import { NoirCompiledCircuit } from '@aztec/noir-compiler';
 
 import { WasmBlackBoxFunctionSolver, createBlackBoxSolver, executeCircuitWithBlackBoxSolver } from '@noir-lang/acvm_js';
@@ -9,13 +15,20 @@ import PrivateKernelInitSimulatedJson from './target/private_kernel_init_simulat
 import PrivateKernelInnerJson from './target/private_kernel_inner.json' assert { type: 'json' };
 import PrivateKernelInnerSimulatedJson from './target/private_kernel_inner_simulated.json' assert { type: 'json' };
 import PrivateKernelOrderingJson from './target/private_kernel_ordering.json' assert { type: 'json' };
+import PrivateKernelOrderingSimulatedJson from './target/private_kernel_ordering_simulated.json' assert { type: 'json' };
 import {
+  mapKernelCircuitPublicInputsFinalFromNoir,
   mapKernelCircuitPublicInputsFromNoir,
   mapPrivateKernelInputsInitToNoir,
   mapPrivateKernelInputsInnerToNoir,
+  mapPrivateKernelInputsOrderingToNoir,
 } from './type_conversion.js';
 import { InputType as InitInputType, ReturnType } from './types/private_kernel_init_types.js';
 import { InputType as InnerInputType } from './types/private_kernel_inner_types.js';
+import {
+  ReturnType as FinalReturnType,
+  InputType as OrderingInputType,
+} from './types/private_kernel_ordering_types.js';
 
 // TODO(Tom): This should be exported from noirc_abi
 /**
@@ -66,19 +79,36 @@ const getSolver = (): Promise<WasmBlackBoxFunctionSolver> => {
 
 /**
  * Executes the inner private kernel.
- * @param privateKernelInputsInit - The private kernel inputs.
+ * @param privateKernelInputsInner - The private kernel inputs.
  * @returns The public inputs.
  */
 export async function executeInner(
-  privateKernelInputsInit: PrivateKernelInputsInner,
+  privateKernelInputsInner: PrivateKernelInputsInner,
 ): Promise<KernelCircuitPublicInputs> {
   const params: InnerInputType = {
-    input: mapPrivateKernelInputsInnerToNoir(privateKernelInputsInit),
+    input: mapPrivateKernelInputsInnerToNoir(privateKernelInputsInner),
   };
 
   const returnType = await executePrivateKernelInnerWithACVM(params);
 
   return mapKernelCircuitPublicInputsFromNoir(returnType);
+}
+
+/**
+ * Executes the inner private kernel.
+ * @param privateKernelInputsInit - The private kernel inputs.
+ * @returns The public inputs.
+ */
+export async function executeOrdering(
+  privateKernelInputsOrdering: PrivateKernelInputsOrdering,
+): Promise<KernelCircuitPublicInputsFinal> {
+  const params: OrderingInputType = {
+    input: mapPrivateKernelInputsOrderingToNoir(privateKernelInputsOrdering),
+  };
+
+  const returnType = await executePrivateKernelOrderingWithACVM(params);
+
+  return mapKernelCircuitPublicInputsFinalFromNoir(returnType);
 }
 
 /**
@@ -136,4 +166,32 @@ async function executePrivateKernelInnerWithACVM(input: InnerInputType): Promise
 
   // Cast the inputs as the return type
   return decodedInputs.return_value as ReturnType;
+}
+
+/**
+ * Executes the ordering private kernel with the given inputs using the acvm.
+ */
+async function executePrivateKernelOrderingWithACVM(input: OrderingInputType): Promise<FinalReturnType> {
+  const initialWitnessMap = abiEncode(PrivateKernelOrderingSimulatedJson.abi, input, null);
+
+  // Execute the circuit on those initial witness values
+  //
+  // Decode the bytecode from base64 since the acvm does not know about base64 encoding
+  const decodedBytecode = Buffer.from(PrivateKernelOrderingSimulatedJson.bytecode, 'base64');
+  //
+  // Execute the circuit
+  const _witnessMap = await executeCircuitWithBlackBoxSolver(
+    await getSolver(),
+    decodedBytecode,
+    initialWitnessMap,
+    () => {
+      throw Error('unexpected oracle during execution');
+    },
+  );
+
+  // Decode the witness map into two fields, the return values and the inputs
+  const decodedInputs: DecodedInputs = abiDecode(PrivateKernelOrderingSimulatedJson.abi, _witnessMap);
+
+  // Cast the inputs as the return type
+  return decodedInputs.return_value as FinalReturnType;
 }

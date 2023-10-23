@@ -244,14 +244,14 @@ pub fn compute_contract_address_from_partial(point : Point, partial_address : Fi
     Address::from_field(field)
 }
 
-fn compute_unique_commitment(nonce : Field, siloed_commitment : Field) -> Field {
+pub fn compute_unique_commitment(nonce : Field, siloed_commitment : Field) -> Field {
     dep::std::hash::pedersen_with_separator([
         nonce,
         siloed_commitment
     ], constants_gen::GENERATOR_INDEX__UNIQUE_COMMITMENT)[0]
 }
 
-fn compute_commitment_nonce(first_nullifier : Field, commitment_index : Field) -> Field {
+pub fn compute_commitment_nonce(first_nullifier : Field, commitment_index : Field) -> Field {
     dep::std::hash::pedersen_with_separator([
         first_nullifier,
         commitment_index

@@ -1,5 +1,4 @@
 import {
-  CircuitError,
   CircuitsWasm,
   KernelCircuitPublicInputs,
   KernelCircuitPublicInputsFinal,
@@ -9,13 +8,12 @@ import {
   PrivateKernelInputsOrdering,
   Proof,
   makeEmptyProof,
-  privateKernelSimOrdering,
 } from '@aztec/circuits.js';
 import { siloCommitment } from '@aztec/circuits.js/abis';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
-import { executeInit, executeInner } from '@aztec/noir-private-kernel';
+import { executeInit, executeInner, executeOrdering } from '@aztec/noir-private-kernel';
 import { CircuitSimulationStats } from '@aztec/types/stats';
 
 /**
@@ -146,12 +144,8 @@ export class KernelProofCreator implements ProofCreator {
   }
 
   public async createProofOrdering(privateInputs: PrivateKernelInputsOrdering): Promise<ProofOutputFinal> {
-    const wasm = await CircuitsWasm.get();
     this.log('Executing private kernel simulation ordering...');
-    const [duration, result] = await elapsed(() => privateKernelSimOrdering(wasm, privateInputs));
-    if (result instanceof CircuitError) {
-      throw new CircuitError(result.code, result.message);
-    }
+    const [duration, result] = await elapsed(() => executeOrdering(privateInputs));
     this.log(`Simulated private kernel ordering`, {
       eventName: 'circuit-simulation',
       circuitName: 'private-kernel-ordering',

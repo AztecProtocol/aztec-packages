@@ -9,13 +9,21 @@ struct NewContractData {
 }
 
 impl NewContractData {
-    fn is_empty(self) -> bool {
+    pub fn is_empty(self) -> bool {
         (self.contract_address.to_field() == 0) & 
         (self.portal_contract_address.to_field() == 0) & 
         (self.function_tree_root ==0)
     }
 
-    fn hash(self) -> Field {
+    pub fn default() -> Self {
+        Self {
+            contract_address : Address::default(),
+            portal_contract_address : EthAddress::default(),
+            function_tree_root : 0,
+        }
+    }
+
+    pub fn hash(self) -> Field {
         if self.is_empty() {
             0 // We want to return 0 here since the contract_address is zero
         } else {
