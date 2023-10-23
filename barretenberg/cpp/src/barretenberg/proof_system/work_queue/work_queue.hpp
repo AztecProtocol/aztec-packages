@@ -59,7 +59,7 @@ class work_queue {
 
     void add_to_queue(const work_item& item);
 
-    void process_queue();
+    BBERG_NO_PROFILE void process_queue();
 
     std::vector<work_item> get_queue() const;
 
