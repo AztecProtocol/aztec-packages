@@ -95,8 +95,6 @@ impl PrivateKernelInputsOrdering {
                 // match found!
                 // squash both the nullifier and the commitment
                 // (set to 0 here and then rearrange array after loop)
-                dep::std::println("chopped commitment for siloed inner hash note");
-                dep::std::println(new_commitments[hint_pos]);
                 new_commitments[hint_pos] = 0;
                 new_nullifiers[n_idx as u64] = 0;
             }
@@ -104,27 +102,45 @@ impl PrivateKernelInputsOrdering {
             // to public inputs (used later by base rollup circuit)
         }
         // Move all zero-ed (removed) entries of these arrays to the end and preserve ordering of other entries
-        public_inputs.end.new_commitments = arrays::array_to_bounded_vec(arrays::array_rearrange(new_commitments), arrays::is_empty, 0);
-        public_inputs.end.new_nullifiers = arrays::array_to_bounded_vec(arrays::array_rearrange(new_nullifiers), arrays::is_empty, 0);
+
+        let mut new_commitments_vec = BoundedVec::new(0);
+
+        for c_idx in 0..MAX_NEW_COMMITMENTS_PER_TX {
+            if new_commitments[c_idx] != 0 {
+                new_commitments_vec.push(new_commitments[c_idx]);
+            }
+        }
+
+        public_inputs.end.new_commitments = new_commitments_vec;
+
+        let mut new_nullifiers_vec = BoundedVec::new(0);
+
+        for n_idx in 0..MAX_NEW_NULLIFIERS_PER_TX {
+            if new_nullifiers[n_idx] != 0 {
+                new_nullifiers_vec.push(new_nullifiers[n_idx]);
+            }
+        }
+
+        public_inputs.end.new_nullifiers = new_nullifiers_vec;
     }
 
     fn apply_commitment_nonces(public_inputs : &mut KernelCircuitPublicInputsBuilder) {
         // tx hash
         let first_nullifier = public_inputs.end.new_nullifiers.get(0);
-        let mut unique_commitments = BoundedVec::new(0);
+        let mut unique_commitments = public_inputs.end.new_commitments.storage;
 
         for c_idx in 0..MAX_NEW_COMMITMENTS_PER_TX {
             // Apply nonce to all non-zero/non-empty commitments
             // Nonce is the hash of the first (0th) nullifier and the commitment's index into new_commitments array
             let nonce = compute_commitment_nonce(first_nullifier, c_idx);
-            let commitment = public_inputs.end.new_commitments.get_unchecked(c_idx);
+            let commitment = unique_commitments[c_idx];
             if commitment != 0 {
                 let unique_commitment = compute_unique_commitment(nonce, commitment);
-                unique_commitments.push(unique_commitment);
+                unique_commitments[c_idx] = unique_commitment;
             }
         }
 
-        public_inputs.end.new_commitments = unique_commitments;
+        public_inputs.end.new_commitments.storage = unique_commitments;
     }
 
     pub fn native_private_kernel_circuit_ordering(self) -> KernelCircuitPublicInputsFinal {
