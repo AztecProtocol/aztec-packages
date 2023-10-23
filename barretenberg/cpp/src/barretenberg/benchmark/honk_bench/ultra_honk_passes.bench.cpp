@@ -51,9 +51,11 @@ BBERG_INSTRUMENT BBERG_NOINLINE static void test_pass(State& state, size_t index
     }                                                                                                                  \
     BENCHMARK(PASS_##pass)->Unit(::benchmark::kMillisecond)
 
-PASS_BENCHMARK(PREAMBLE);
-PASS_BENCHMARK(WIRE_COMMITMENTS);
-PASS_BENCHMARK(SORTED_LIST_ACCUMULATOR);
-PASS_BENCHMARK(GRAND_PRODUCT_COMPUTATION);
+// Fast passes take a long time to benchmark because of how we compute statistical significance.
+// Limit to one iteration so we don't spend a lot of time redoing full proofs just to measure this part.
+PASS_BENCHMARK(PREAMBLE)->Iterations(1);
+PASS_BENCHMARK(WIRE_COMMITMENTS)->Iterations(1);
+PASS_BENCHMARK(SORTED_LIST_ACCUMULATOR)->Iterations(1);
+PASS_BENCHMARK(GRAND_PRODUCT_COMPUTATION)->Iterations(1);
 PASS_BENCHMARK(RELATION_CHECK);
 PASS_BENCHMARK(ZEROMORPH);
