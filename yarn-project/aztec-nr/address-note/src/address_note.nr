@@ -52,7 +52,7 @@ impl AddressNote {
 
     pub fn compute_note_hash(self) -> Field {
         // TODO(#1205) Should use a non-zero generator index.
-        pedersen_hash(note.serialize(),0)
+        pedersen_hash(self.serialize(), 0)
     }
 
     pub fn compute_nullifier(self) -> Field {
