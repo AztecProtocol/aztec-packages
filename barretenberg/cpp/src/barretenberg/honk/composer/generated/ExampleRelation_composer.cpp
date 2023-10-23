@@ -3,6 +3,7 @@
 #include "./ExampleRelation_composer.hpp"
 #include "barretenberg/honk/proof_system/generated/ExampleRelation_verifier.hpp"
 #include "barretenberg/honk/proof_system/grand_product_library.hpp"
+#include "barretenberg/proof_system/circuit_builder/generated/ExampleRelation_trace.hpp"
 #include "barretenberg/proof_system/composer/composer_lib.hpp"
 #include "barretenberg/proof_system/composer/permutation_lib.hpp"
 
@@ -87,12 +88,9 @@ std::shared_ptr<typename Flavor::VerificationKey> ExampleRelationComposer_<Flavo
     verification_key =
         std::make_shared<typename Flavor::VerificationKey>(proving_key->circuit_size, proving_key->num_public_inputs);
 
-    // verification_key->lagrange_first = commitment_key->commit(proving_key->lagrange_first);
-    // verification_key->lagrange_second = commitment_key->commit(proving_key->lagrange_second);
-    // verification_key->lagrange_last = commitment_key->commit(proving_key->lagrange_last);
-
     return verification_key;
 }
+
 template class ExampleRelationComposer_<honk::flavor::ExampleRelationFlavor>;
 
 } // namespace proof_system::honk

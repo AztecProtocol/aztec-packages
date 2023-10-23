@@ -7,12 +7,16 @@ namespace Fibonacci(%N);
         %N - 1 => 1,
         _ => 0,
     } };
+    col fixed ISFIRST(i) { match i {
+        0 => 1,
+        _ => 0,
+    } };
+    
     col witness x, y;
 
-    ISLAST * (y' - 1) = 0;
-    ISLAST * (x' - 1) = 0;
+    ISFIRST * (y' - 1) = 0;
+    ISFIRST * (x' - 1) = 0;
 
-    (1-ISLAST) * (x' - y) = 0;
-    (1-ISLAST) * (y' - (x + y)) = 0;
+    (-ISFIRST + 1) * (-ISLAST + 1) * (x' - y) = 0;
+    (-ISFIRST + 1) * (-ISLAST + 1) * (y' - (x + y)) = 0;
 
-    public out = y(%N-1);

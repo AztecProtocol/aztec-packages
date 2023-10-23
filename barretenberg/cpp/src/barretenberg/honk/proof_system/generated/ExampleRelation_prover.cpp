@@ -40,6 +40,7 @@ ExampleRelationProver_<Flavor>::ExampleRelationProver_(std::shared_ptr<typename 
     // TODO: take every polynomial and assign it to the key!!
 
     prover_polynomials.Fibonacci_ISLAST = key->Fibonacci_ISLAST;
+    prover_polynomials.Fibonacci_ISFIRST = key->Fibonacci_ISFIRST;
 
     prover_polynomials.Fibonacci_x = key->Fibonacci_x;
     prover_polynomials.Fibonacci_x_shift = key->Fibonacci_x.shifted();
@@ -93,7 +94,7 @@ template <typename Flavor> void ExampleRelationProver_<Flavor>::execute_wire_com
  * @brief Compute sorted witness-table accumulator
  *
  */
-// template <ECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_log_derivative_commitments_round()
+// template <typename Flavor> void ExampleRelationProver_<Flavor>::execute_log_derivative_commitments_round()
 // {
 //     // Compute and add beta to relation parameters
 //     auto [beta, gamma] = transcript.get_challenges("beta", "gamma");
@@ -103,9 +104,10 @@ template <typename Flavor> void ExampleRelationProver_<Flavor>::execute_wire_com
 //     relation_parameters.beta = beta;
 //     relation_parameters.beta_sqr = beta_sqr;
 //     relation_parameters.beta_cube = beta_sqr * beta;
-//     relation_parameters.eccvm_set_permutation_delta =
+//     relation_parameters.ExampleRelation_set_permutation_delta =
 //         gamma * (gamma + beta_sqr) * (gamma + beta_sqr + beta_sqr) * (gamma + beta_sqr + beta_sqr + beta_sqr);
-//     relation_parameters.eccvm_set_permutation_delta = relation_parameters.eccvm_set_permutation_delta.invert();
+//     relation_parameters.ExampleRelation_set_permutation_delta =
+//     relation_parameters.ExampleRelation_set_permutation_delta.invert();
 //     // Compute inverse polynomial for our logarithmic-derivative lookup method
 //     lookup_library::compute_logderivative_inverse<Flavor, typename Flavor::LookupRelation>(
 //         prover_polynomials, relation_parameters, key->circuit_size);
@@ -113,11 +115,11 @@ template <typename Flavor> void ExampleRelationProver_<Flavor>::execute_wire_com
 //     prover_polynomials.lookup_inverses = key->lookup_inverses;
 // }
 
-// /**
-//  * @brief Compute permutation and lookup grand product polynomials and commitments
-//  *
-//  */
-// template <ECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_grand_product_computation_round()
+/**
+ * @brief Compute permutation and lookup grand product polynomials and commitments
+ *
+ */
+// template <typename Flavor> void ExampleRelationProver_<Flavor>::execute_grand_product_computation_round()
 // {
 //     // Compute permutation grand product and their commitments
 //     permutation_library::compute_permutation_grand_products<Flavor>(key, prover_polynomials, relation_parameters);
@@ -248,12 +250,10 @@ template <typename Flavor> plonk::proof& ExampleRelationProver_<Flavor>::constru
     // TODO: not implemented for codegen just yet
     // Compute sorted list accumulator and commitment
     // execute_log_derivative_commitments_round();
-    // queue.process_queue();
 
     // Fiat-Shamir: bbeta & gamma
     // Compute grand product(s) and commitments.
     // execute_grand_product_computation_round();
-    // queue.process_queue();
 
     // Fiat-Shamir: alpha
     // Run sumcheck subprotocol.

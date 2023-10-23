@@ -29,7 +29,7 @@ template <typename Flavor> class ExampleRelationProver_ {
     void execute_preamble_round();
     void execute_wire_commitments_round();
     // void execute_log_derivative_commitments_round();
-    void execute_grand_product_computation_round();
+    // void execute_grand_product_computation_round();
     void execute_relation_check_rounds();
     void execute_univariatization_round();
     void execute_pcs_evaluation_round();

@@ -66,18 +66,19 @@ template <typename Flavor> bool ExampleRelationVerifier_<Flavor>::verify_proof(c
     // Get commitments to VM wires
     commitments.Fibonacci_ISLAST =
         transcript.template receive_from_prover<Commitment>(commitment_labels.Fibonacci_ISLAST);
+    commitments.Fibonacci_ISFIRST =
+        transcript.template receive_from_prover<Commitment>(commitment_labels.Fibonacci_ISFIRST);
     commitments.Fibonacci_x = transcript.template receive_from_prover<Commitment>(commitment_labels.Fibonacci_x);
     commitments.Fibonacci_y = transcript.template receive_from_prover<Commitment>(commitment_labels.Fibonacci_y);
 
     // Permutation / logup related stuff?
     // Get challenge for sorted list batching and wire four memory records
-    // auto [beta, gamma] = transcript.get_challenges("beta", "gamma");
+    // auto [beta, gamma] = transcript.get_challenges("bbeta", "gamma");
     // relation_parameters.gamma = gamma;
     // auto beta_sqr = beta * beta;
     // relation_parameters.beta = beta;
     // relation_parameters.beta_sqr = beta_sqr;
     // relation_parameters.beta_cube = beta_sqr * beta;
-
     // relation_parameters.ExampleRelation_set_permutation_delta =
     //     gamma * (gamma + beta_sqr) * (gamma + beta_sqr + beta_sqr) * (gamma + beta_sqr + beta_sqr + beta_sqr);
     // relation_parameters.ExampleRelation_set_permutation_delta =
@@ -96,7 +97,6 @@ template <typename Flavor> bool ExampleRelationVerifier_<Flavor>::verify_proof(c
 
     // If Sumcheck did not verify, return false
     if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
-        info("sumcheck failed");
         return false;
     }
 
