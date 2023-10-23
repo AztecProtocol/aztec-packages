@@ -215,6 +215,9 @@ TEST_F(UltraTranscriptTests, StructureTest)
     EXPECT_TRUE(verifier.verify_proof(proof));
 
     prover.transcript.deserialize_full_transcript();
+    prover.transcript.serialize_full_transcript();
+
+    EXPECT_TRUE(verifier.verify_proof(prover.export_proof())); // we have changed nothing so proof is still valid
     Flavor::GroupElement tmp = Flavor::GroupElement::one();
     prover.transcript.sorted_accum_comm = tmp;
     EXPECT_TRUE(verifier.verify_proof(
