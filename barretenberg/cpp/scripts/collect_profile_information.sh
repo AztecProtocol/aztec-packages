@@ -3,7 +3,7 @@ set -eu
 
 PRESET=${1:-xray-1thread} # can also be 'xray'
 ONLY_PROCESS=${2:-}
-EXECUTABLE=${3:-honk_bench_main_simple}
+EXECUTABLE=${3:-ultra_honk_passes_bench}
 shift 3 # any extra args go to executable
 
 # Move above script dir.

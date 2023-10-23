@@ -51,7 +51,7 @@ BBERG_INSTRUMENT BBERG_NOINLINE static void test_pass(State& state, size_t index
     }                                                                                                                  \
     BENCHMARK(PASS_##pass)->Unit(::benchmark::kMillisecond)
 
-// PASS_BENCHMARK(PREAMBLE);
+PASS_BENCHMARK(PREAMBLE);
 PASS_BENCHMARK(WIRE_COMMITMENTS);
 PASS_BENCHMARK(SORTED_LIST_ACCUMULATOR);
 PASS_BENCHMARK(GRAND_PRODUCT_COMPUTATION);
