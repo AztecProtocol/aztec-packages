@@ -202,9 +202,9 @@
       "generator": "Unix Makefiles",
       "inherits": "clang16",
       "environment": {
-        "CFLAGS": "-fxray-instrument -fxray-instruction-threshold=100",
-        "CXXFLAGS": "-fxray-instrument -fxray-instruction-threshold=100",
-        "LDFLAGS": "-fxray-instrument -fxray-instruction-threshold=100"
+        "CFLAGS": "-fxray-instrument",
+        "CXXFLAGS": "-fxray-instrument -fxray-instruction-threshold=500",
+        "LDFLAGS": "-fxray-instrument -fxray-instruction-threshold=500"
       },
       "binaryDir": "build-xray"
     },

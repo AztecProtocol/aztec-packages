@@ -10,9 +10,7 @@ using namespace proof_system;
 
 enum { PREAMBLE, WIRE_COMMITMENTS, SORTED_LIST_ACCUMULATOR, GRAND_PRODUCT_COMPUTATION, RELATION_CHECK, ZEROMORPH };
 
-BBERG_INSTRUMENT BBERG_NOINLINE static void test_pass_inner(State& state,
-                                                            honk::UltraProver& prover,
-                                                            size_t index) noexcept
+BBERG_PROFILE static void test_pass_inner(State& state, honk::UltraProver& prover, size_t index) noexcept
 {
 
     auto time_if_index = [&](size_t target_index, auto&& func) -> void {
@@ -35,13 +33,13 @@ BBERG_INSTRUMENT BBERG_NOINLINE static void test_pass_inner(State& state,
         state.ResumeTiming();
     }
 }
-BBERG_INSTRUMENT BBERG_NOINLINE static void test_pass(State& state, size_t index) noexcept
+BBERG_PROFILE static void test_pass(State& state, size_t index) noexcept
 {
     barretenberg::srs::init_crs_factory("../srs_db/ignition");
 
     honk::UltraComposer composer;
-    honk::UltraProver prover =
-        bench_utils::get_prover(composer, &bench_utils::generate_keccak_test_circuit<UltraCircuitBuilder>, 1);
+    honk::UltraProver prover = bench_utils::get_prover(
+        composer, &bench_utils::generate_ecdsa_verification_test_circuit<UltraCircuitBuilder>, 10);
     test_pass_inner(state, prover, index);
 }
 #define PASS_BENCHMARK(pass)                                                                                           \
