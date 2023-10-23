@@ -38,10 +38,8 @@ describe('e2e_deploy_contract', () => {
       }),
     );
     logger(`Receipt received and expecting contract deployment at ${receipt.contractAddress}`);
-    const isMined = await tx.isMined({ interval: 0.1 });
-    const receiptAfterMined = await tx.getReceipt();
+    const receiptAfterMined = await tx.wait();
 
-    expect(isMined).toBe(true);
     expect(receiptAfterMined).toEqual(
       expect.objectContaining({
         status: TxStatus.MINED,
@@ -62,10 +60,7 @@ describe('e2e_deploy_contract', () => {
 
     for (let index = 0; index < 2; index++) {
       logger(`Deploying contract ${index + 1}...`);
-      const tx = deployer.deploy().send({ contractAddressSalt: Fr.random() });
-      const isMined = await tx.isMined({ interval: 0.1 });
-      expect(isMined).toBe(true);
-      const receipt = await tx.getReceipt();
+      const receipt = await deployer.deploy().send({ contractAddressSalt: Fr.random() }).wait();
       expect(receipt.status).toBe(TxStatus.MINED);
     }
   }, 30_000);
@@ -95,11 +90,7 @@ describe('e2e_deploy_contract', () => {
     const deployer = new ContractDeployer(TestContractArtifact, pxe);
 
     {
-      const tx = deployer.deploy().send({ contractAddressSalt });
-      const isMined = await tx.isMined({ interval: 0.1 });
-
-      expect(isMined).toBe(true);
-      const receipt = await tx.getReceipt();
+      const receipt = await deployer.deploy().send({ contractAddressSalt }).wait();
 
       expect(receipt.status).toBe(TxStatus.MINED);
       expect(receipt.error).toBe('');

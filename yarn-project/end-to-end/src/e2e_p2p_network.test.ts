@@ -52,12 +52,10 @@ describe('e2e_p2p_network', () => {
     // now ensure that all txs were successfully mined
     for (const context of contexts) {
       for (const tx of context.txs) {
-        const isMined = await tx.isMined({ interval: 0.1 });
-        const receiptAfterMined = await tx.getReceipt();
+        const receipt = await tx.wait();
 
-        expect(isMined).toBe(true);
-        expect(receiptAfterMined.status).toBe(TxStatus.MINED);
-        const contractAddress = receiptAfterMined.contractAddress!;
+        expect(receipt.status).toBe(TxStatus.MINED);
+        const contractAddress = receipt.contractAddress!;
         expect(await isContractDeployed(context.pxeService, contractAddress)).toBeTruthy();
         expect(await isContractDeployed(context.pxeService, AztecAddress.random())).toBeFalsy();
       }

@@ -61,10 +61,10 @@ describe('e2e_pending_commitments_contract', () => {
 
     const deployedContract = await deployContract();
 
-    const tx = deployedContract.methods.test_insert_then_get_then_nullify_flat(mintAmount, owner).send();
-
-    await tx.isMined({ interval: 0.1 });
-    const receipt = await tx.getReceipt();
+    const receipt = await deployedContract.methods
+      .test_insert_then_get_then_nullify_flat(mintAmount, owner)
+      .send()
+      .wait();
     expect(receipt.status).toBe(TxStatus.MINED);
   }, 60_000);
 
@@ -75,7 +75,7 @@ describe('e2e_pending_commitments_contract', () => {
 
     const deployedContract = await deployContract();
 
-    const tx = deployedContract.methods
+    const receipt = await deployedContract.methods
       .test_insert_then_get_then_nullify_all_in_nested_calls(
         mintAmount,
         owner,
@@ -83,10 +83,9 @@ describe('e2e_pending_commitments_contract', () => {
         deployedContract.methods.get_then_nullify_note.selector.toField(),
         deployedContract.methods.get_note_zero_balance.selector.toField(),
       )
-      .send();
+      .send()
+      .wait();
 
-    await tx.isMined({ interval: 0.1 });
-    const receipt = await tx.getReceipt();
     expect(receipt.status).toBe(TxStatus.MINED);
 
     await expectCommitmentsSquashedExcept(0);
@@ -100,17 +99,16 @@ describe('e2e_pending_commitments_contract', () => {
 
     const deployedContract = await deployContract();
 
-    const tx = deployedContract.methods
+    const receipt = await deployedContract.methods
       .test_insert2_then_get2_then_nullify2_all_in_nested_calls(
         mintAmount,
         owner,
         deployedContract.methods.insert_note.selector.toField(),
         deployedContract.methods.get_then_nullify_note.selector.toField(),
       )
-      .send();
+      .send()
+      .wait();
 
-    await tx.isMined({ interval: 0.1 });
-    const receipt = await tx.getReceipt();
     expect(receipt.status).toBe(TxStatus.MINED);
 
     await expectCommitmentsSquashedExcept(0);
@@ -125,17 +123,16 @@ describe('e2e_pending_commitments_contract', () => {
 
     const deployedContract = await deployContract();
 
-    const tx = deployedContract.methods
+    const receipt = await deployedContract.methods
       .test_insert2_then_get2_then_nullify1_all_in_nested_calls(
         mintAmount,
         owner,
         deployedContract.methods.insert_note.selector.toField(),
         deployedContract.methods.get_then_nullify_note.selector.toField(),
       )
-      .send();
+      .send()
+      .wait();
 
-    await tx.isMined({ interval: 0.1 });
-    const receipt = await tx.getReceipt();
     expect(receipt.status).toBe(TxStatus.MINED);
 
     await expectCommitmentsSquashedExcept(1);
