@@ -1142,7 +1142,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorNonNativeRelationCorrectness)
     }
 
     using Relations = Flavor::Relations;
-    // Check that Decomposition relation is satisfied across each row of the prover polynomials
+    // Check that Non-Native Field relation is satisfied across each row of the prover polynomials
     check_relation<Flavor, std::tuple_element_t<5, Relations>>(circuit_size, prover_polynomials, params);
 }
 
