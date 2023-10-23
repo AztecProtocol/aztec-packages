@@ -41,7 +41,7 @@ data "terraform_remote_state" "aztec2_iac" {
 
 
 data "aws_alb" "aztec-network-alb" {
-  arn = data.terraform_remote_state.aztec-network_iac.outputs.alb_arn
+  arn = data.terraform_remote_state.aztec2_iac.outputs.alb_arn
 }
 
 provider "aws" {
@@ -174,25 +174,47 @@ DEFINITION
 }
 
 
-# Configure ALB listener.
-resource "aws_alb_listener" "mainnet-fork-listener" {
-  load_balancer_arn = data.aws_alb.aztec-network-alb.arn
-  port              = "8545"
-  protocol          = "HTTPS"
-  ssl_policy        = "ELBSecurityPolicy-2016-08"
-  certificate_arn   = data.terraform_remote_state.aztec2_iac.outputs.aws_acm_certificate_aztec_network_arn
+# ALB to to limit public requests to apikey routes
+resource "aws_alb_target_group" "mainnet_fork" {
+  name                 = "aztec-network-mainnet-fork"
+  port                 = "80"
+  protocol             = "HTTP"
+  target_type          = "ip"
+  vpc_id               = data.terraform_remote_state.setup_iac.outputs.vpc_id
+  deregistration_delay = 5
+  depends_on = [
+    data.aws_alb.aztec2
+  ]
 
-  default_action {
-    type = "fixed-response"
+  health_check {
+    path                = "/"
+    matcher             = "404,400"
+    interval            = 300
+    healthy_threshold   = 2
+    unhealthy_threshold = 10
+    timeout             = 120
+  }
 
-    fixed_response {
-      content_type = "text/plain"
-      message_body = "Not found."
-      status_code  = "404"
-    }
+  tags = {
+    name = "aztec-network-mainnet-fork"
   }
 }
 
+
+resource "aws_lb_listener_rule" "mainnet_fork_route" {
+  listener_arn = data.terraform_remote_state.aztec2_iac.outputs.mainnet-fork-listener-id
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_alb_target_group.mainnet_fork.arn
+  }
+
+  condition {
+    host_header {
+      values = ["aztec-network-mainnet-fork.aztec.network"]
+    }
+  }
+}
 
 resource "aws_ecs_service" "aztec_mainnet_fork" {
   name                               = "aztec-mainnet-fork"
@@ -240,7 +262,7 @@ resource "aws_alb_target_group" "aztec_mainnet_fork" {
   vpc_id               = data.terraform_remote_state.setup_iac.outputs.vpc_id
   deregistration_delay = 5
   depends_on = [
-    data.aws_alb.aztec-network-alb
+    data.aws_alb.aztec2
   ]
 
   health_check {
@@ -268,7 +290,7 @@ resource "aws_lb_listener_rule" "aztec_mainnet_fork_route" {
 
   condition {
     host_header {
-      values = ["aztec-mainnet-fork.aztec.network"]
+      values = ["mainnet-fork.aztec.network"]
     }
   }
 }
