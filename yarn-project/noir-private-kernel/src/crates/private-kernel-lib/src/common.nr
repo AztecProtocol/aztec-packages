@@ -76,7 +76,7 @@ pub fn validate_call_stack(private_call : PrivateCallData) {
 // More info here:
 // - https://discourse.aztec.network/t/to-read-or-not-to-read/178
 // - https://discourse.aztec.network/t/spending-notes-which-havent-yet-been-inserted/180
-pub fn validate_read_requests(historic_private_data_tree_root : Field, read_requests : [Field; MAX_READ_REQUESTS_PER_CALL], read_request_membership_witnesses : [ReadRequestMembershipWitnessPrivateData; MAX_READ_REQUESTS_PER_CALL]) {
+pub fn validate_read_requests(historic_note_hash_tree_root : Field, read_requests : [Field; MAX_READ_REQUESTS_PER_CALL], read_request_membership_witnesses : [ReadRequestMembershipWitnessPrivateData; MAX_READ_REQUESTS_PER_CALL]) {
     // membership witnesses must resolve to the same private data root
     // for every request in all kernel iterations
     for rr_idx in 0..MAX_READ_REQUESTS_PER_CALL {
@@ -94,7 +94,7 @@ pub fn validate_read_requests(historic_private_data_tree_root : Field, read_requ
     
         if (read_request != 0) & (witness.is_transient == false) {
             let root_for_read_request = read_request_root_from_siblings(read_request, witness.leaf_index, witness.sibling_path);
-            // assert(root_for_read_request == historic_private_data_tree_root, "private data tree root mismatch");
+            // assert(root_for_read_request == historic_note_hash_tree_root, "private data tree root mismatch");
             
             // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1354): do we need to enforce
             // that a non-transient read_request was derived from the proper/current contract address?

@@ -80,7 +80,7 @@ export interface CallContext {
 
 
 export interface Block {
-  private_data_tree_root: Field;
+  note_hash_tree_root: Field;
   nullifier_tree_root: Field;
   contract_tree_root: Field;
   l1_to_l2_data_tree_root: Field;

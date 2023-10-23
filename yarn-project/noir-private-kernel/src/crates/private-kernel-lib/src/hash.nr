@@ -11,7 +11,7 @@ use crate::utils::bounded_vec::BoundedVec;
 
 use dep::aztec::{
     constants_gen,
-    constants_gen::{CONTRACT_TREE_HEIGHT, FUNCTION_TREE_HEIGHT, PRIVATE_DATA_TREE_HEIGHT},
+    constants_gen::{CONTRACT_TREE_HEIGHT, FUNCTION_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT},
     hash::sha256_to_field,
 };
 
@@ -101,7 +101,7 @@ pub fn contract_tree_root_from_siblings(function_tree_root : Field, storage_cont
     computed_contract_tree_root
 }
 
-pub fn read_request_root_from_siblings(read_request : Field, leaf_index : Field, sibling_path : [Field; PRIVATE_DATA_TREE_HEIGHT]) -> Field {
+pub fn read_request_root_from_siblings(read_request : Field, leaf_index : Field, sibling_path : [Field; NOTE_HASH_TREE_HEIGHT]) -> Field {
     root_from_sibling_path(read_request, leaf_index as u32, u32_to_le_bit_array, sibling_path)
 }
 

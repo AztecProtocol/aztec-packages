@@ -78,7 +78,7 @@ impl PrivateKernelInputsInner {
         common::validate_call_stack(self.private_call);
 
         common::validate_read_requests(
-            public_inputs.constants.block_data.private_data_tree_root(),
+            public_inputs.constants.block_data.note_hash_tree_root(),
             self.private_call.call_stack_item.public_inputs().read_requests,  // read requests from private call
             self.private_call.read_request_membership_witnesses);
 

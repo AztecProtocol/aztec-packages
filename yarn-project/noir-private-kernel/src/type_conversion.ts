@@ -73,7 +73,7 @@ import {
   PrivateKernelInputsInner as PrivateKernelInputsInnerNoir,
 } from './types/private_kernel_inner_types.js';
 
-/* eslint-disable */
+/* eslint-disable camelcase */
 
 /**
  * Maps a field to a noir field.
@@ -304,7 +304,7 @@ export function mapHistoricalBlockDataToNoir(historicalBlockData: HistoricBlockD
   return {
     blocks_tree_root: mapFieldToNoir(historicalBlockData.blocksTreeRoot),
     block: {
-      private_data_tree_root: mapFieldToNoir(historicalBlockData.privateDataTreeRoot),
+      note_hash_tree_root: mapFieldToNoir(historicalBlockData.noteHashTreeRoot),
       nullifier_tree_root: mapFieldToNoir(historicalBlockData.nullifierTreeRoot),
       contract_tree_root: mapFieldToNoir(historicalBlockData.contractTreeRoot),
       l1_to_l2_data_tree_root: mapFieldToNoir(historicalBlockData.l1ToL2MessagesTreeRoot),
@@ -322,7 +322,7 @@ export function mapHistoricalBlockDataToNoir(historicalBlockData: HistoricBlockD
  */
 export function mapHistoricalBlockDataFromNoir(historicalBlockData: HistoricalBlockDataNoir): HistoricBlockData {
   return new HistoricBlockData(
-    mapFieldFromNoir(historicalBlockData.block.private_data_tree_root),
+    mapFieldFromNoir(historicalBlockData.block.note_hash_tree_root),
     mapFieldFromNoir(historicalBlockData.block.nullifier_tree_root),
     mapFieldFromNoir(historicalBlockData.block.contract_tree_root),
     mapFieldFromNoir(historicalBlockData.block.l1_to_l2_data_tree_root),
@@ -590,6 +590,11 @@ export function mapPublicDataReadFromNoir(publicDataRead: PublicDataReadNoir): P
   return new PublicDataRead(mapFieldFromNoir(publicDataRead.leaf_index), mapFieldFromNoir(publicDataRead.value));
 }
 
+/**
+ * Maps public data read to noir public data read.
+ * @param publicDataRead - The public data read.
+ * @returns The noir public data read.
+ */
 export function mapPublicDataReadToNoir(publicDataRead: PublicDataRead): PublicDataReadNoir {
   return {
     leaf_index: mapFieldToNoir(publicDataRead.leafIndex),
@@ -643,6 +648,11 @@ export function mapCombinedAccumulatedDataFromNoir(
   );
 }
 
+/**
+ * Maps combined accumulated data to noir combined accumulated data.
+ * @param combinedAccumulatedData - The combined accumulated data.
+ * @returns The noir combined accumulated data.
+ */
 export function mapCombinedAccumulatedDataToNoir(
   combinedAccumulatedData: CombinedAccumulatedData,
 ): CombinedAccumulatedDataNoir {
@@ -701,6 +711,11 @@ export function mapCombinedConstantDataFromNoir(combinedConstantData: CombinedCo
   );
 }
 
+/**
+ * Maps combined constant data to noir combined constant data.
+ * @param combinedConstantData - The combined constant data.
+ * @returns The noir combined constant data.
+ */
 export function mapCombinedConstantDataToNoir(combinedConstantData: CombinedConstantData): CombinedConstantDataNoir {
   return {
     block_data: mapHistoricalBlockDataToNoir(combinedConstantData.blockData),
@@ -722,6 +737,11 @@ export function mapPrivateKernelInputsInitToNoir(
   };
 }
 
+/**
+ * Maps a previous kernel data to a noir previous kernel data.
+ * @param previousKernelData - The previous kernel data.
+ * @returns The noir previous kernel data.
+ */
 export function mapPreviousKernelDataToNoir(previousKernelData: PreviousKernelData): PreviousKernelDataNoir {
   return {
     public_inputs: mapKernelCircuitPublicInputsToNoir(previousKernelData.publicInputs),
@@ -761,12 +781,17 @@ export function mapKernelCircuitPublicInputsFromNoir(
   );
 }
 
+/**
+ * Maps a private kernel inputs init from the circuits.js type to noir.
+ * @param publicInputs - The circuits.js private kernel inputs init.
+ * @returns The noir private kernel inputs init.
+ */
 export function mapKernelCircuitPublicInputsToNoir(
-  public_inputs: KernelCircuitPublicInputs,
+  publicInputs: KernelCircuitPublicInputs,
 ): KernelCircuitPublicInputsNoir {
   return {
-    end: mapCombinedAccumulatedDataToNoir(public_inputs.end),
-    constants: mapCombinedConstantDataToNoir(public_inputs.constants),
-    is_private: public_inputs.isPrivate,
+    end: mapCombinedAccumulatedDataToNoir(publicInputs.end),
+    constants: mapCombinedConstantDataToNoir(publicInputs.constants),
+    is_private: publicInputs.isPrivate,
   };
 }

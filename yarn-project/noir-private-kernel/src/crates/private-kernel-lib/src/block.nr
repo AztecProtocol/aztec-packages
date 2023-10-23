@@ -5,7 +5,7 @@ use dep::aztec::constants_gen;
 // This is not in the cpp code.
 struct Block {
     // Private data
-    private_data_tree_root : Field,
+    note_hash_tree_root : Field,
     nullifier_tree_root : Field,
     contract_tree_root : Field,
     l1_to_l2_data_tree_root : Field,
@@ -18,7 +18,7 @@ struct Block {
 
 impl Block {
     fn assert_is_zero(self) {
-        assert(self.private_data_tree_root == 0);
+        assert(self.note_hash_tree_root == 0);
         assert(self.nullifier_tree_root == 0);
         assert(self.contract_tree_root == 0);
         assert(self.l1_to_l2_data_tree_root == 0);
@@ -28,7 +28,7 @@ impl Block {
     fn hash(self) -> Field {
         dep::std::hash::pedersen_with_separator([
             self.global_variables_hash,
-            self.private_data_tree_root,
+            self.note_hash_tree_root,
             self.nullifier_tree_root,
             self.contract_tree_root,
             self.l1_to_l2_data_tree_root,

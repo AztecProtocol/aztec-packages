@@ -21,7 +21,7 @@ impl HistoricalBlockData {
         // TODO: Note private_kernel_vk_tree_root, is not included yet as
         // it is not present in noir,
         [
-            self.block.private_data_tree_root,
+            self.block.note_hash_tree_root,
             self.block.nullifier_tree_root,
             self.block.contract_tree_root,
             self.block.l1_to_l2_data_tree_root,
@@ -38,8 +38,8 @@ impl HistoricalBlockData {
         self.block.hash()
     }
     
-    fn private_data_tree_root(self) -> Field {
-        self.block.private_data_tree_root
+    fn note_hash_tree_root(self) -> Field {
+        self.block.note_hash_tree_root
     }
 
     fn contract_tree_root(self) -> Field {

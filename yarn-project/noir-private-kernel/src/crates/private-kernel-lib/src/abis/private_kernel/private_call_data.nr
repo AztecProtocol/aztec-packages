@@ -7,14 +7,14 @@ use dep::aztec::constants_gen::{
     MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
     CONTRACT_TREE_HEIGHT,
     FUNCTION_TREE_HEIGHT,
-    PRIVATE_DATA_TREE_HEIGHT
+    NOTE_HASH_TREE_HEIGHT
 };
 use crate::abis::call_stack_item::PrivateCallStackItem;
 use crate::abis::membership_witness::{ContractLeafMembershipWitness,FunctionLeafMembershipWitness};
 
 use crate::utils::bounded_vec::BoundedVec;
 
-type ReadRequestMembershipWitnessPrivateData = ReadRequestMembershipWitness<PRIVATE_DATA_TREE_HEIGHT>;
+type ReadRequestMembershipWitnessPrivateData = ReadRequestMembershipWitness<NOTE_HASH_TREE_HEIGHT>;
 
 struct PrivateCallData {
     call_stack_item : PrivateCallStackItem,
