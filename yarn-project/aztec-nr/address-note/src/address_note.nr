@@ -5,7 +5,7 @@ use dep::aztec::{
     note::{
         note_header::NoteHeader,
         note_interface::NoteInterface,
-        utils::compute_siloed_note_hash,
+        utils::compute_note_hash_for_read_or_nullify,
     },
     oracle::{
         rand::rand,
@@ -56,11 +56,11 @@ impl AddressNote {
     }
 
     pub fn compute_nullifier(self) -> Field {
-        let siloed_note_hash = compute_siloed_note_hash(AddressNoteMethods, self);
+        let note_hash_for_nullify = compute_note_hash_for_read_or_nullify(AddressNoteMethods, self);
         let secret = get_secret_key(self.owner);
         // TODO(#1205) Should use a non-zero generator index.
         pedersen_hash([
-            siloed_note_hash,
+            note_hash_for_nullify,
             secret.low,
             secret.high,
         ],0)
