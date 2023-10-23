@@ -4,6 +4,7 @@ set -eu
 PRESET=${1:-xray-1thread} # can also be 'xray'
 ONLY_PROCESS=${2:-}
 EXECUTABLE=${3:-honk_bench_main_simple}
+shift 3 # any extra args go to executable
 
 # Move above script dir.
 cd $(dirname $0)/..
@@ -19,7 +20,7 @@ if [ -z "$ONLY_PROCESS" ]; then
   rm -f xray-log.$EXECUTABLE.*
 
   # Run benchmark with profiling.
-  XRAY_OPTIONS="patch_premain=true xray_mode=xray-basic verbosity=1" ./bin/$EXECUTABLE
+  XRAY_OPTIONS="patch_premain=true xray_mode=xray-basic verbosity=1" ./bin/$EXECUTABLE $@
 fi
 
 function shorten_cpp_names() {
@@ -37,13 +38,11 @@ function shorten_cpp_names() {
          '
 }
 
-  #| node ../scripts/llvm_xray_stack_flame_corrector.js \
-  #| ../scripts/flamegraph.pl --width 1200 --fontsize 10 \
 # Process benchmark file.
 llvm-xray-16 stack xray-log.$EXECUTABLE.* \
   --instr_map=./bin/$EXECUTABLE --stack-format=flame --aggregate-threads --aggregation-type=time --all-stacks \
-  | shorten_cpp_names \
   | node ../scripts/llvm_xray_stack_flame_corrector.js \
+  | shorten_cpp_names \
   | ../scripts/flamegraph.pl --width 1200 --fontsize 10 \
   > xray.svg
 echo "Profiling complete, now you can do e.g. 'scp mainframe:`readlink -f xray.svg` .' on a local terminal and open the SVG in a browser."

@@ -17,22 +17,22 @@ BBERG_INSTRUMENT BBERG_NOINLINE static void test_pass_inner(State& state,
 
     auto time_if_index = [&](size_t target_index, auto&& func) -> void {
         if (index == target_index) {
-            // state.ResumeTiming();
+            state.ResumeTiming();
             func();
-            // state.PauseTiming();
+            state.PauseTiming();
         } else {
             func();
         }
     };
     for (auto _ : state) {
-        // state.PauseTiming();
+        state.PauseTiming();
         time_if_index(PREAMBLE, [&] { prover.execute_preamble_round(); });
         time_if_index(WIRE_COMMITMENTS, [&] { prover.execute_wire_commitments_round(); });
         time_if_index(SORTED_LIST_ACCUMULATOR, [&] { prover.execute_sorted_list_accumulator_round(); });
         time_if_index(GRAND_PRODUCT_COMPUTATION, [&] { prover.execute_grand_product_computation_round(); });
         time_if_index(RELATION_CHECK, [&] { prover.execute_relation_check_rounds(); });
         time_if_index(ZEROMORPH, [&] { prover.execute_zeromorph_rounds(); });
-        // state.ResumeTiming();
+        state.ResumeTiming();
     }
 }
 BBERG_INSTRUMENT BBERG_NOINLINE static void test_pass(State& state, size_t index) noexcept
@@ -40,8 +40,8 @@ BBERG_INSTRUMENT BBERG_NOINLINE static void test_pass(State& state, size_t index
     barretenberg::srs::init_crs_factory("../srs_db/ignition");
 
     honk::UltraComposer composer;
-    honk::UltraProver prover = bench_utils::get_prover(
-        composer, &bench_utils::generate_ecdsa_verification_test_circuit<UltraCircuitBuilder>, 10);
+    honk::UltraProver prover =
+        bench_utils::get_prover(composer, &bench_utils::generate_keccak_test_circuit<UltraCircuitBuilder>, 1);
     test_pass_inner(state, prover, index);
 }
 #define PASS_BENCHMARK(pass)                                                                                           \

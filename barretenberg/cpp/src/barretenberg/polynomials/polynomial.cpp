@@ -458,10 +458,10 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::partial_evaluate_mle(std::
     for (size_t l = 1; l < m; ++l) {
         size_t new_n_l = 1 << (n - l - 1);
         Fr new_u_l = evaluation_points[m - l - 1];
-        parallel_for_batched(new_n_l, [&](size_t i) {
+        for (size_t i = 0; i < new_n_l; i++) {
             // Iterate on increasingly small portions of intermediate results.
             intermediate[i] += new_u_l * (intermediate[i + new_n_l] - intermediate[i]);
-        });
+        }
     }
 
     size_t final_n_l = 1 << (n - m);
