@@ -273,7 +273,7 @@ describe('e2e_token_contract', () => {
           .withWallet(wallets[1])
           .methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce)
           .send();
-          await expect(txReplay.wait()).rejects.toThrowError("Transaction ");
+        await expect(txReplay.wait()).rejects.toThrowError('Transaction ');
       });
 
       describe('failure cases', () => {
@@ -425,7 +425,7 @@ describe('e2e_token_contract', () => {
           .withWallet(wallets[1])
           .methods.transfer(accounts[0].address, accounts[1].address, amount, nonce)
           .send();
-          await expect(txReplay.wait()).rejects.toThrowError("Transaction ");
+        await expect(txReplay.wait()).rejects.toThrowError('Transaction ');
       });
 
       describe('failure cases', () => {
@@ -566,7 +566,7 @@ describe('e2e_token_contract', () => {
         .withWallet(wallets[1])
         .methods.shield(accounts[0].address, amount, secretHash, nonce)
         .send();
-      await expect(txReplay.wait()).rejects.toThrowError("Transaction ");
+      await expect(txReplay.wait()).rejects.toThrowError('Transaction ');
 
       // Redeem it
       await addPendingShieldNoteToPXE(0, amount, secretHash, receipt.txHash);
@@ -680,7 +680,7 @@ describe('e2e_token_contract', () => {
         .withWallet(wallets[1])
         .methods.unshield(accounts[0].address, accounts[1].address, amount, nonce)
         .send();
-        await expect(txReplay.wait()).rejects.toThrowError("Transaction ");
+      await expect(txReplay.wait()).rejects.toThrowError('Transaction ');
     });
 
     describe('failure cases', () => {
@@ -783,7 +783,7 @@ describe('e2e_token_contract', () => {
 
         const burnTx = asset.withWallet(wallets[1]).methods.burn_public(accounts[0].address, amount, nonce).send();
         // Check that the message hash is no longer valid. Need to try to send since nullifiers are handled by sequencer.
-        await expect(burnTx.wait()).rejects.toThrowError("Transaction ");
+        await expect(burnTx.wait()).rejects.toThrowError('Transaction ');
       });
 
       describe('failure cases', () => {
@@ -881,7 +881,7 @@ describe('e2e_token_contract', () => {
 
         // Perform the transfer again, should fail
         const txReplay = asset.withWallet(wallets[1]).methods.burn(accounts[0].address, amount, nonce).send();
-        await expect(txReplay.wait()).rejects.toThrowError("Transaction ");
+        await expect(txReplay.wait()).rejects.toThrowError('Transaction ');
       });
 
       describe('failure cases', () => {
