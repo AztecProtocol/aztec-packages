@@ -218,12 +218,15 @@ TEST_F(UltraTranscriptTests, StructureTest)
     prover.transcript.serialize_full_transcript();
 
     EXPECT_TRUE(verifier.verify_proof(prover.export_proof())); // we have changed nothing so proof is still valid
-    Flavor::GroupElement tmp = Flavor::GroupElement::one();
-    prover.transcript.sorted_accum_comm = tmp;
+    Flavor::GroupElement one_group_val = Flavor::GroupElement::one();
+    prover.transcript.sorted_accum_comm = one_group_val;
     EXPECT_TRUE(verifier.verify_proof(
         prover.export_proof())); // we have not serialized it back to the proof so it should still be fine
     prover.transcript.serialize_full_transcript();
     EXPECT_FALSE(verifier.verify_proof(prover.export_proof())); // the proof is now wrong after serializing it
+
+    prover.transcript.deserialize_full_transcript();
+    EXPECT_EQ(static_cast<Flavor::GroupElement>(prover.transcript.sorted_accum_comm), one_group_val);
 }
 
 TEST_F(UltraTranscriptTests, FoldingManifestTest)

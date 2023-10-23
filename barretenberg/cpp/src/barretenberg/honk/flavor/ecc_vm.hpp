@@ -856,25 +856,96 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
         }
     };
 
-    // TODO(Lucas): update this to be actually correct
     class Transcript : public BaseTranscript<FF> {
       public:
         uint32_t circuit_size;
-        uint32_t public_input_size;
-        uint32_t pub_inputs_offset;
-        std::vector<FF> public_inputs;
-        Commitment w_l_comm;
-        Commitment w_r_comm;
-        Commitment w_o_comm;
-        Commitment sorted_accum_comm;
-        Commitment w_4_comm;
+        Commitment transcript_add_comm;
+        Commitment transcript_mul_comm;
+        Commitment transcript_eq_comm;
+        Commitment transcript_collision_check_comm;
+        Commitment transcript_msm_transition_comm;
+        Commitment transcript_pc_comm;
+        Commitment transcript_msm_count_comm;
+        Commitment transcript_x_comm;
+        Commitment transcript_y_comm;
+        Commitment transcript_z1_comm;
+        Commitment transcript_z2_comm;
+        Commitment transcript_z1zero_comm;
+        Commitment transcript_z2zero_comm;
+        Commitment transcript_op_comm;
+        Commitment transcript_accumulator_x_comm;
+        Commitment transcript_accumulator_y_comm;
+        Commitment transcript_msm_x_comm;
+        Commitment transcript_msm_y_comm;
+        Commitment precompute_pc_comm;
+        Commitment precompute_point_transition_comm;
+        Commitment precompute_round_comm;
+        Commitment precompute_scalar_sum_comm;
+        Commitment precompute_s1hi_comm;
+        Commitment precompute_s1lo_comm;
+        Commitment precompute_s2hi_comm;
+        Commitment precompute_s2lo_comm;
+        Commitment precompute_s3hi_comm;
+        Commitment precompute_s3lo_comm;
+        Commitment precompute_s4hi_comm;
+        Commitment precompute_s4lo_comm;
+        Commitment precompute_skew_comm;
+        Commitment precompute_dx_comm;
+        Commitment precompute_dy_comm;
+        Commitment precompute_tx_comm;
+        Commitment precompute_ty_comm;
+        Commitment msm_transition_comm;
+        Commitment msm_add_comm;
+        Commitment msm_double_comm;
+        Commitment msm_skew_comm;
+        Commitment msm_accumulator_x_comm;
+        Commitment msm_accumulator_y_comm;
+        Commitment msm_pc_comm;
+        Commitment msm_size_of_msm_comm;
+        Commitment msm_count_comm;
+        Commitment msm_round_comm;
+        Commitment msm_add1_comm;
+        Commitment msm_add2_comm;
+        Commitment msm_add3_comm;
+        Commitment msm_add4_comm;
+        Commitment msm_x1_comm;
+        Commitment msm_y1_comm;
+        Commitment msm_x2_comm;
+        Commitment msm_y2_comm;
+        Commitment msm_x3_comm;
+        Commitment msm_y3_comm;
+        Commitment msm_x4_comm;
+        Commitment msm_y4_comm;
+        Commitment msm_collision_x1_comm;
+        Commitment msm_collision_x2_comm;
+        Commitment msm_collision_x3_comm;
+        Commitment msm_collision_x4_comm;
+        Commitment msm_lambda1_comm;
+        Commitment msm_lambda2_comm;
+        Commitment msm_lambda3_comm;
+        Commitment msm_lambda4_comm;
+        Commitment msm_slice1_comm;
+        Commitment msm_slice2_comm;
+        Commitment msm_slice3_comm;
+        Commitment msm_slice4_comm;
+        Commitment transcript_accumulator_empty_comm;
+        Commitment transcript_reset_accumulator_comm;
+        Commitment precompute_select_comm;
+        Commitment lookup_read_counts_0_comm;
+        Commitment lookup_read_counts_1_comm;
         Commitment z_perm_comm;
-        Commitment z_lookup_comm;
-        std::vector<barretenberg::Univariate<FF, MAX_RELATION_LENGTH>> sumcheck_univariates;
+        Commitment lookup_inverses_comm;
+        std::vector<barretenberg::Univariate<FF, MAX_RANDOM_RELATION_LENGTH>> sumcheck_univariates;
         std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
-        std::vector<Commitment> zm_cq_comms;
-        Commitment zm_cq_comm;
-        Commitment zm_pi_comm;
+        std::vector<Commitment> gemini_univariate_comms;
+        std::vector<FF> gemini_a_evals;
+        Commitment shplonk_q_comm;
+        Commitment kzg_w_comm;
+        // the rest are only for Grumpkin
+        Commitment ipa_poly_degree_comm;
+        Commitment ipa_l_s_comm;
+        Commitment ipa_r_s_comm;
+        Commitment ipa_a_0_comm;
 
         Transcript() = default;
 
@@ -889,72 +960,299 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
             circuit_size = BaseTranscript<FF>::template deserialize_object<uint32_t>(BaseTranscript<FF>::proof_data,
                                                                                      num_bytes_read);
             size_t log_n = numeric::get_msb(circuit_size);
-
-            public_input_size = BaseTranscript<FF>::template deserialize_object<uint32_t>(
+            transcript_add_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
                 BaseTranscript<FF>::proof_data, num_bytes_read);
-            pub_inputs_offset = BaseTranscript<FF>::template deserialize_object<uint32_t>(
+            transcript_mul_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
                 BaseTranscript<FF>::proof_data, num_bytes_read);
-            for (size_t i = 0; i < public_input_size; ++i) {
-                public_inputs.push_back(BaseTranscript<FF>::template deserialize_object<FF>(
-                    BaseTranscript<FF>::proof_data, num_bytes_read));
-            }
-            w_l_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(BaseTranscript<FF>::proof_data,
-                                                                                   num_bytes_read);
-            w_r_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(BaseTranscript<FF>::proof_data,
-                                                                                   num_bytes_read);
-            w_o_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(BaseTranscript<FF>::proof_data,
-                                                                                   num_bytes_read);
-            sorted_accum_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+            transcript_eq_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
                 BaseTranscript<FF>::proof_data, num_bytes_read);
-            w_4_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(BaseTranscript<FF>::proof_data,
-                                                                                   num_bytes_read);
+            transcript_collision_check_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            transcript_msm_transition_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            transcript_pc_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            transcript_msm_count_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            transcript_x_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            transcript_y_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            transcript_z1_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            transcript_z2_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            transcript_z1zero_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            transcript_z2zero_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            transcript_op_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            transcript_accumulator_x_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            transcript_accumulator_y_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            transcript_msm_x_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            transcript_msm_y_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            precompute_pc_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            precompute_point_transition_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            precompute_round_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            precompute_scalar_sum_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            precompute_s1hi_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            precompute_s1lo_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            precompute_s2hi_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            precompute_s2lo_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            precompute_s3hi_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            precompute_s3lo_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            precompute_s4hi_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            precompute_s4lo_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            precompute_skew_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            precompute_dx_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            precompute_dy_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            precompute_tx_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            precompute_ty_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_transition_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_add_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(BaseTranscript<FF>::proof_data,
+                                                                                       num_bytes_read);
+            msm_double_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_skew_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(BaseTranscript<FF>::proof_data,
+                                                                                        num_bytes_read);
+            msm_accumulator_x_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_accumulator_y_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_pc_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(BaseTranscript<FF>::proof_data,
+                                                                                      num_bytes_read);
+            msm_size_of_msm_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_count_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(BaseTranscript<FF>::proof_data,
+                                                                                         num_bytes_read);
+            msm_round_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(BaseTranscript<FF>::proof_data,
+                                                                                         num_bytes_read);
+            msm_add1_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(BaseTranscript<FF>::proof_data,
+                                                                                        num_bytes_read);
+            msm_add2_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(BaseTranscript<FF>::proof_data,
+                                                                                        num_bytes_read);
+            msm_add3_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(BaseTranscript<FF>::proof_data,
+                                                                                        num_bytes_read);
+            msm_add4_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(BaseTranscript<FF>::proof_data,
+                                                                                        num_bytes_read);
+            msm_x1_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(BaseTranscript<FF>::proof_data,
+                                                                                      num_bytes_read);
+            msm_y1_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(BaseTranscript<FF>::proof_data,
+                                                                                      num_bytes_read);
+            msm_x2_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(BaseTranscript<FF>::proof_data,
+                                                                                      num_bytes_read);
+            msm_y2_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(BaseTranscript<FF>::proof_data,
+                                                                                      num_bytes_read);
+            msm_x3_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(BaseTranscript<FF>::proof_data,
+                                                                                      num_bytes_read);
+            msm_y3_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(BaseTranscript<FF>::proof_data,
+                                                                                      num_bytes_read);
+            msm_x4_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(BaseTranscript<FF>::proof_data,
+                                                                                      num_bytes_read);
+            msm_y4_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(BaseTranscript<FF>::proof_data,
+                                                                                      num_bytes_read);
+            msm_collision_x1_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_collision_x2_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_collision_x3_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_collision_x4_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_lambda1_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_lambda2_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_lambda3_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_lambda4_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_slice1_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_slice2_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_slice3_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_slice4_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            transcript_accumulator_empty_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            transcript_reset_accumulator_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            precompute_select_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            lookup_read_counts_0_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            lookup_read_counts_1_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            lookup_inverses_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
             z_perm_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(BaseTranscript<FF>::proof_data,
                                                                                       num_bytes_read);
-            z_lookup_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(BaseTranscript<FF>::proof_data,
-                                                                                        num_bytes_read);
             for (size_t i = 0; i < log_n; ++i) {
-                sumcheck_univariates.push_back(
-                    BaseTranscript<FF>::template deserialize_object<barretenberg::Univariate<FF, MAX_RELATION_LENGTH>>(
-                        BaseTranscript<FF>::proof_data, num_bytes_read));
+                sumcheck_univariates.emplace_back(BaseTranscript<FF>::template deserialize_object<
+                                                  barretenberg::Univariate<FF, MAX_RANDOM_RELATION_LENGTH>>(
+                    BaseTranscript<FF>::proof_data, num_bytes_read));
             }
             sumcheck_evaluations = BaseTranscript<FF>::template deserialize_object<std::array<FF, NUM_ALL_ENTITIES>>(
                 BaseTranscript<FF>::proof_data, num_bytes_read);
-            for (size_t i = 0; i < log_n; ++i) {
-                zm_cq_comms.push_back(BaseTranscript<FF>::template deserialize_object<Commitment>(
+            for (size_t i = 0; i < log_n - 1; ++i) {
+                gemini_univariate_comms.emplace_back(BaseTranscript<FF>::template deserialize_object<Commitment>(
                     BaseTranscript<FF>::proof_data, num_bytes_read));
             }
-            zm_cq_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(BaseTranscript<FF>::proof_data,
+            for (size_t i = 0; i < log_n; ++i) {
+                gemini_a_evals.emplace_back(BaseTranscript<FF>::template deserialize_object<FF>(
+                    BaseTranscript<FF>::proof_data, num_bytes_read));
+            }
+            shplonk_q_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(BaseTranscript<FF>::proof_data,
+                                                                                         num_bytes_read);
+            kzg_w_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(BaseTranscript<FF>::proof_data,
                                                                                      num_bytes_read);
-            zm_pi_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(BaseTranscript<FF>::proof_data,
-                                                                                     num_bytes_read);
+
+            if (std::is_same<PCS, pcs::ipa::IPA<curve::Grumpkin>>::value) {
+                ipa_poly_degree_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                    BaseTranscript<FF>::proof_data, num_bytes_read);
+                ipa_l_s_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                    BaseTranscript<FF>::proof_data, num_bytes_read);
+                ipa_r_s_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                    BaseTranscript<FF>::proof_data, num_bytes_read);
+                ipa_a_0_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+                    BaseTranscript<FF>::proof_data, num_bytes_read);
+            }
         }
 
         void serialize_full_transcript() override
         {
+            size_t old_proof_length = BaseTranscript<FF>::proof_data.size();
             BaseTranscript<FF>::proof_data.clear();
             size_t log_n = numeric::get_msb(circuit_size);
+
             BaseTranscript<FF>::template serialize_object(circuit_size, BaseTranscript<FF>::proof_data);
-            BaseTranscript<FF>::template serialize_object(public_input_size, BaseTranscript<FF>::proof_data);
-            BaseTranscript<FF>::template serialize_object(pub_inputs_offset, BaseTranscript<FF>::proof_data);
-            for (size_t i = 0; i < public_input_size; ++i) {
-                BaseTranscript<FF>::template serialize_object(public_inputs[i], BaseTranscript<FF>::proof_data);
-            }
-            BaseTranscript<FF>::template serialize_object(w_l_comm, BaseTranscript<FF>::proof_data);
-            BaseTranscript<FF>::template serialize_object(w_r_comm, BaseTranscript<FF>::proof_data);
-            BaseTranscript<FF>::template serialize_object(w_o_comm, BaseTranscript<FF>::proof_data);
-            BaseTranscript<FF>::template serialize_object(sorted_accum_comm, BaseTranscript<FF>::proof_data);
-            BaseTranscript<FF>::template serialize_object(w_4_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(transcript_add_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(transcript_mul_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(transcript_eq_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(transcript_collision_check_comm,
+                                                          BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(transcript_msm_transition_comm,
+                                                          BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(transcript_pc_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(transcript_msm_count_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(transcript_x_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(transcript_y_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(transcript_z1_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(transcript_z2_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(transcript_z1zero_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(transcript_z2zero_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(transcript_op_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(transcript_accumulator_x_comm,
+                                                          BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(transcript_accumulator_y_comm,
+                                                          BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(transcript_msm_x_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(transcript_msm_y_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(precompute_pc_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(precompute_point_transition_comm,
+                                                          BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(precompute_round_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(precompute_scalar_sum_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(precompute_s1hi_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(precompute_s1lo_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(precompute_s2hi_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(precompute_s2lo_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(precompute_s3hi_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(precompute_s3lo_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(precompute_s4hi_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(precompute_s4lo_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(precompute_skew_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(precompute_dx_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(precompute_dy_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(precompute_tx_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(precompute_ty_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(msm_transition_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(msm_add_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(msm_double_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(msm_skew_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(msm_accumulator_x_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(msm_accumulator_y_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(msm_pc_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(msm_size_of_msm_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(msm_count_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(msm_round_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(msm_add1_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(msm_add2_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(msm_add3_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(msm_add4_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(msm_x1_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(msm_y1_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(msm_x2_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(msm_y2_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(msm_x3_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(msm_y3_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(msm_x4_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(msm_y4_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(msm_collision_x1_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(msm_collision_x2_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(msm_collision_x3_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(msm_collision_x4_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(msm_lambda1_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(msm_lambda2_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(msm_lambda3_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(msm_lambda4_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(msm_slice1_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(msm_slice2_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(msm_slice3_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(msm_slice4_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(transcript_accumulator_empty_comm,
+                                                          BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(transcript_reset_accumulator_comm,
+                                                          BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(precompute_select_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(lookup_read_counts_0_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(lookup_read_counts_1_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(lookup_inverses_comm, BaseTranscript<FF>::proof_data);
             BaseTranscript<FF>::template serialize_object(z_perm_comm, BaseTranscript<FF>::proof_data);
-            BaseTranscript<FF>::template serialize_object(z_lookup_comm, BaseTranscript<FF>::proof_data);
             for (size_t i = 0; i < log_n; ++i) {
                 BaseTranscript<FF>::template serialize_object(sumcheck_univariates[i], BaseTranscript<FF>::proof_data);
             }
             BaseTranscript<FF>::template serialize_object(sumcheck_evaluations, BaseTranscript<FF>::proof_data);
-            for (size_t i = 0; i < log_n; ++i) {
-                BaseTranscript<FF>::template serialize_object(zm_cq_comms[i], BaseTranscript<FF>::proof_data);
+            for (size_t i = 0; i < log_n - 1; ++i) {
+                BaseTranscript<FF>::template serialize_object(gemini_univariate_comms, BaseTranscript<FF>::proof_data);
             }
-            BaseTranscript<FF>::template serialize_object(zm_cq_comm, BaseTranscript<FF>::proof_data);
-            BaseTranscript<FF>::template serialize_object(zm_pi_comm, BaseTranscript<FF>::proof_data);
+            for (size_t i = 0; i < log_n; ++i) {
+                BaseTranscript<FF>::template serialize_object(gemini_a_evals, BaseTranscript<FF>::proof_data);
+            }
+            BaseTranscript<FF>::template serialize_object(shplonk_q_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_object(kzg_w_comm, BaseTranscript<FF>::proof_data);
+            if (std::is_same<PCS, pcs::ipa::IPA<curve::Grumpkin>>::value) {
+                BaseTranscript<FF>::template serialize_object(ipa_poly_degree_comm, BaseTranscript<FF>::proof_data);
+                BaseTranscript<FF>::template serialize_object(ipa_l_s_comm, BaseTranscript<FF>::proof_data);
+                BaseTranscript<FF>::template serialize_object(ipa_r_s_comm, BaseTranscript<FF>::proof_data);
+                BaseTranscript<FF>::template serialize_object(ipa_a_0_comm, BaseTranscript<FF>::proof_data);
+            }
+            ASSERT(BaseTranscript<FF>::proof_data.size() == old_proof_length);
         }
     };
 };

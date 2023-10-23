@@ -469,7 +469,7 @@ class GoblinUltra {
         Commitment w_4_comm;
         Commitment z_perm_comm;
         Commitment z_lookup_comm;
-        std::vector<barretenberg::Univariate<FF, MAX_RELATION_LENGTH>> sumcheck_univariates;
+        std::vector<barretenberg::Univariate<FF, MAX_RANDOM_RELATION_LENGTH>> sumcheck_univariates;
         std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
         std::vector<Commitment> zm_cq_comms;
         Commitment zm_cq_comm;
@@ -505,7 +505,8 @@ class GoblinUltra {
             z_lookup_comm = deserialize_object<Commitment>(proof_data, num_bytes_read);
             for (size_t i = 0; i < log_n; ++i) {
                 sumcheck_univariates.push_back(
-                    deserialize_object<barretenberg::Univariate<FF, MAX_RELATION_LENGTH>>(proof_data, num_bytes_read));
+                    deserialize_object<barretenberg::Univariate<FF, MAX_RANDOM_RELATION_LENGTH>>(proof_data,
+                                                                                                 num_bytes_read));
             }
             sumcheck_evaluations = deserialize_object<std::array<FF, NUM_ALL_ENTITIES>>(proof_data, num_bytes_read);
             for (size_t i = 0; i < log_n; ++i) {
@@ -517,6 +518,7 @@ class GoblinUltra {
 
         void serialize_full_transcript() override
         {
+            size_t old_proof_length = proof_data.size();
             proof_data.clear();
             size_t log_n = numeric::get_msb(circuit_size);
             serialize_object(circuit_size, proof_data);
@@ -545,6 +547,8 @@ class GoblinUltra {
             }
             serialize_object(zm_cq_comm, proof_data);
             serialize_object(zm_pi_comm, proof_data);
+
+            ASSERT(proof_data.size() == old_proof_length);
         }
     };
 };

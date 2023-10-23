@@ -489,7 +489,7 @@ class Ultra {
 
         void serialize_full_transcript() override
         {
-            size_t proof_length = proof_data.size();
+            size_t old_proof_length = proof_data.size();
             proof_data.clear();
             size_t log_n = numeric::get_msb(circuit_size);
             serialize_object(circuit_size, proof_data);
@@ -515,7 +515,7 @@ class Ultra {
             serialize_object(zm_cq_comm, proof_data);
             serialize_object(zm_pi_comm, proof_data);
 
-            ASSERT(proof_data.size() == proof_length);
+            ASSERT(proof_data.size() == old_proof_length);
         }
     };
 };
