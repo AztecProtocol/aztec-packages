@@ -52,7 +52,7 @@ impl ValueNote {
 
     pub fn compute_note_hash(self) -> Field {
         // TODO(#1205) Should use a non-zero generator index.
-        dep::std::hash::pedersen(self.serialize())[0]
+        pedersen_hash(self.serialize(),0)
     }
 
     // docs:start:nullifier
