@@ -87,6 +87,18 @@ noir-contracts-build:
   rebuildPatterns:
     - ^yarn-project/noir-contracts/
     - ^yarn-project/aztec-nr/
+    - ^yarn-project/noir-compiler/
+  dependencies:
+    - noir-compiler-build
+
+noir-compiler-build:
+  buildDir: yarn-project
+  projectDir: yarn-project/noir-compiler
+  rebuildPatterns:
+    - ^yarn-project/noir-compiler
+    - ^yarn-project/foundation
+  dependencies:
+    - yarn-project-base
 
 yarn-project-base:
   buildDir: yarn-project
@@ -106,6 +118,7 @@ yarn-project:
   dependencies:
     - yarn-project-base
     - noir-contracts-build
+    - noir-compiler-build
 
 aztec-sandbox:
   buildDir: yarn-project

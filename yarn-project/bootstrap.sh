@@ -28,7 +28,9 @@ done
 yarn --cwd circuits.js remake-bindings
 yarn --cwd circuits.js remake-constants
 
-(cd noir-contracts && ./bootstrap.sh)
+yarn workspace @aztec/noir-contracts noir:build:all
+yarn workspace @aztec/noir-contracts build
+
 (cd boxes && ./bootstrap.sh)
 (cd .. && l1-contracts/bootstrap.sh)
 

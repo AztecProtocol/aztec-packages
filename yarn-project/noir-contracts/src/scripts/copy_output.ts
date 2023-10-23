@@ -1,10 +1,6 @@
 import { ContractArtifact } from '@aztec/foundation/abi';
 import { createConsoleLogger } from '@aztec/foundation/log';
-import {
-  generateContractArtifact,
-  generateNoirContractInterface,
-  generateTypescriptContractInterface,
-} from '@aztec/noir-compiler';
+import { generateNoirContractInterface, generateTypescriptContractInterface } from '@aztec/noir-compiler';
 
 import { readFileSync, writeFileSync } from 'fs';
 import camelCase from 'lodash.camelcase';
@@ -52,26 +48,8 @@ const main = () => {
   const projectName = `${snakeCase(name)}_contract`;
 
   const contractName = upperFirst(camelCase(name));
-  const artifactFile = `${projectName}-${contractName}.json`;
-
-  const buildJsonFilePath = `./target/${artifactFile}`;
-  const buildJson = JSON.parse(readFileSync(buildJsonFilePath).toString());
-
-  const debugArtifactFile = `debug_${artifactFile}`;
-  let debug = undefined;
-
-  try {
-    const debugJsonFilePath = `./target/${debugArtifactFile}`;
-    const debugJson = JSON.parse(readFileSync(debugJsonFilePath).toString());
-    if (debugJson) {
-      debug = debugJson;
-    }
-  } catch (err) {
-    // Ignore
-  }
-
-  // Remove extraneous information from the buildJson (which was output by Nargo) to hone in on the function data we actually care about:
-  const artifactJson: ContractArtifact = generateContractArtifact({ contract: buildJson, debug });
+  const artifactJsonFilePath = `src/contracts/${projectName}/target/${contractName}.json`;
+  const artifactJson: ContractArtifact = JSON.parse(readFileSync(artifactJsonFilePath).toString());
 
   // Write the artifact:
   const artifactsDir = 'src/artifacts';
