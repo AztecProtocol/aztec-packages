@@ -1,7 +1,7 @@
 terraform {
   backend "s3" {
     bucket = "aztec-terraform"
-    key    = "aztec-network/iac"
+    key    = "aztec-network/mainnet-fork"
     region = "eu-west-2"
   }
   required_providers {
@@ -40,7 +40,7 @@ data "terraform_remote_state" "aztec2_iac" {
 }
 
 
-data "aws_alb" "aztec-network-alb" {
+data "aws_alb" "aztec-network_alb" {
   arn = data.terraform_remote_state.aztec2_iac.outputs.alb_arn
 }
 
@@ -50,7 +50,7 @@ provider "aws" {
 }
 
 resource "aws_service_discovery_service" "aztec_mainnet_fork" {
-  name = "aztec-mainnet-fork"
+  name = "aztec-network-mainnet-fork"
 
   health_check_custom_config {
     failure_threshold = 1
@@ -80,10 +80,10 @@ resource "aws_service_discovery_service" "aztec_mainnet_fork" {
 
 # EFS filesystem for mainnet fork
 resource "aws_efs_file_system" "aztec_mainnet_fork_data_store" {
-  creation_token = "aztec-mainnet-fork-data"
+  creation_token = "aztec-network-mainnet-fork-data"
 
   tags = {
-    Name = "aztec-mainnet-fork-data"
+    Name = "aztec-network-mainnet-fork-data"
   }
 
   lifecycle_policy {
@@ -105,7 +105,7 @@ resource "aws_efs_mount_target" "aztec_fork_private_az2" {
 
 # Define deployment task and service
 resource "aws_ecs_task_definition" "aztec_mainnet_fork" {
-  family                   = "aztec-mainnet-fork"
+  family                   = "aztec-network-mainnet-fork"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
   cpu                      = "2048"
@@ -122,10 +122,9 @@ resource "aws_ecs_task_definition" "aztec_mainnet_fork" {
   container_definitions = <<DEFINITION
 [
   {
-    "name": "aztec-mainnet-fork",
-    "image": "ghcr.io/foundry-rs/foundry:nightly-f959af5e19c31ad05f6841fd5c40bd458b092288",
+    "name": "aztec-network-mainnet-fork",
+    "image": "278380418400.dkr.ecr.eu-west-2.amazonaws.com/aztec-mainnet-fork:aztec3-packages-prod",
     "essential": true,
-    "image": "278380418400.dkr.ecr.eu-west-2.amazonaws.com/mainnet-fork:latest",
     "environment": [
       {
         "name": "API_KEY",
@@ -183,7 +182,7 @@ resource "aws_alb_target_group" "mainnet_fork" {
   vpc_id               = data.terraform_remote_state.setup_iac.outputs.vpc_id
   deregistration_delay = 5
   depends_on = [
-    data.aws_alb.aztec2
+    data.aws_alb.aztec-network_alb
   ]
 
   health_check {
@@ -211,13 +210,13 @@ resource "aws_lb_listener_rule" "mainnet_fork_route" {
 
   condition {
     host_header {
-      values = ["aztec-network-mainnet-fork.aztec.network"]
+      values = ["aztec-network-mainnet-fork.aztec.networkq"]
     }
   }
 }
 
 resource "aws_ecs_service" "aztec_mainnet_fork" {
-  name                               = "aztec-mainnet-fork"
+  name                               = "aztec-network-mainnet-fork"
   cluster                            = data.terraform_remote_state.setup_iac.outputs.ecs_cluster_id
   launch_type                        = "FARGATE"
   desired_count                      = 1
@@ -235,13 +234,13 @@ resource "aws_ecs_service" "aztec_mainnet_fork" {
 
   load_balancer {
     target_group_arn = aws_alb_target_group.aztec_mainnet_fork.arn
-    container_name   = "aztec-mainnet-fork"
+    container_name   = "aztec-network-mainnet-fork"
     container_port   = 80
   }
 
   service_registries {
     registry_arn   = aws_service_discovery_service.aztec_mainnet_fork.arn
-    container_name = "aztec-mainnet-fork"
+    container_name = "aztec-network-mainnet-fork"
     container_port = 80
   }
 
@@ -255,14 +254,14 @@ resource "aws_cloudwatch_log_group" "aztec_mainnet_fork_logs" {
 
 # ALB to to limit public requests to apikey routes
 resource "aws_alb_target_group" "aztec_mainnet_fork" {
-  name                 = "aztec-fork"
+  name                 = "aztec-network-mainnet-fork"
   port                 = "80"
   protocol             = "HTTP"
   target_type          = "ip"
   vpc_id               = data.terraform_remote_state.setup_iac.outputs.vpc_id
   deregistration_delay = 5
   depends_on = [
-    data.aws_alb.aztec2
+    data.aws_alb.aztec-network_alb
   ]
 
   health_check {
@@ -275,13 +274,13 @@ resource "aws_alb_target_group" "aztec_mainnet_fork" {
   }
 
   tags = {
-    name = "aztec-mainnet-fork"
+    name = "aztec-network-mainnet-fork"
   }
 }
 
 resource "aws_lb_listener_rule" "aztec_mainnet_fork_route" {
   # listener_arn = data.terraform_remote_state.setup_iac.outputs.mainnet-fork-listener-id
-  listener_arn = data.aws_alb.aztec-network-alb.arn
+  listener_arn = data.terraform_remote_state.aztec2_iac.outputs.mainnet-fork-listener-id
 
   action {
     type             = "forward"
@@ -290,19 +289,19 @@ resource "aws_lb_listener_rule" "aztec_mainnet_fork_route" {
 
   condition {
     host_header {
-      values = ["mainnet-fork.aztec.network"]
+      values = ["aztec-network-mainnet-fork.aztec.network"]
     }
   }
 }
 
 # mainnet-fork DNS entry.
-resource "aws_route53_record" "mainnet-fork" {
+resource "aws_route53_record" "aztec_mainnet_fork" {
   zone_id = data.terraform_remote_state.aztec2_iac.outputs.aws_route53_zone_id
-  name    = "aztec-mainnet-fork"
+  name    = "aztec-network-mainnet-fork"
   type    = "A"
   alias {
-    name                   = data.aws_alb.aztec-network-alb.dns_name
-    zone_id                = data.aws_alb.aztec-network-alb.zone_id
+    name                   = data.aws_alb.aztec-network_alb.dns_name
+    zone_id                = data.aws_alb.aztec-network_alb.zone_id
     evaluate_target_health = true
   }
 }

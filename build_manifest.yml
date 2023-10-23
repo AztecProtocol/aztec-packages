@@ -174,7 +174,7 @@ p2p-bootstrap:
   dependencies:
     - yarn-project
 
-mainnet-fork:
+aztec-mainnet-fork:
   buildDir: iac/mainnet-fork
   projectDir: iac/mainnet-fork
 
