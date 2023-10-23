@@ -185,15 +185,13 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       log(`Partial address: ${partialAddress.toString()}`);
     });
 
-    program
+  program
     .command('register-account')
     .description(
       'Registers an aztec account that can be used for sending transactions. Registers the account on the PXE. Uses a Schnorr single-key account which uses the same key for encryption and authentication (not secure for production usage).',
     )
     .summary('Registers an aztec account that can be used for sending transactions.')
-    .addOption(
-      createPrivateKeyOption('Private key for note encryption and transaction signing.', true),
-    )
+    .addOption(createPrivateKeyOption('Private key for note encryption and transaction signing.', true))
     .requiredOption(
       '-pa, --partial-address <partialAddress>',
       'The partially computed address of the account contract.',
