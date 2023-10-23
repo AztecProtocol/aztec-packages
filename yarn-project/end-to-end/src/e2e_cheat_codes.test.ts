@@ -134,10 +134,7 @@ describe('e2e_cheat_codes', () => {
     });
 
     it('can modify L2 block time', async () => {
-      const tx = TestContract.deploy(pxe).send();
-      await tx.isMined({ interval: 0.1 });
-      const receipt = await tx.getReceipt();
-      const contract = await TestContract.at(receipt.contractAddress!, wallet);
+      const contract = await TestContract.deploy(wallet).send().deployed();
 
       // now update time:
       const timestamp = await cc.eth.timestamp();
