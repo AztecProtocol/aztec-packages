@@ -347,8 +347,6 @@ Transaction receipt:
     docs = `
 // docs:start:call
 % aztec-cli call balance_of_public -a $ADDRESS -c TokenContractArtifact -ca $CONTRACT_ADDRESS
-
-View result:  543n
 // docs:end:call
 `;
     command = docs
