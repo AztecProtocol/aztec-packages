@@ -3,7 +3,7 @@ set -eu
 
 PRESET=${1:-xray} # can also be 'xray-1thread'
 ONLY_PROCESS=${2:-}
-EXECUTABLE=${3:-ultra_honk_passes_bench}
+EXECUTABLE=${3:-ultra_honk_rounds_bench}
 
 # Move above script dir.
 cd $(dirname $0)/..

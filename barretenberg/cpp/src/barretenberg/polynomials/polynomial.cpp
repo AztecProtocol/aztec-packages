@@ -18,6 +18,12 @@ namespace barretenberg {
 /**
  * Constructors / Destructors
  **/
+
+/**
+ * @brief Initialize a Polynomial to size 'initial_size', zeroing memory.
+ *
+ * @param initial_size The initial size of the polynomial.
+ */
 template <typename Fr>
 Polynomial<Fr>::Polynomial(size_t initial_size)
     : coefficients_(nullptr)
@@ -29,6 +35,13 @@ Polynomial<Fr>::Polynomial(size_t initial_size)
     memset(static_cast<void*>(coefficients_.get()), 0, sizeof(Fr) * capacity());
 }
 
+/**
+ * @brief Initialize a Polynomial to size 'initial_size'.
+ * Important: This does NOT zero memory.
+ *
+ * @param initial_size The initial size of the polynomial.
+ * @param flag Signals that we do not zero memory.
+ */
 template <typename Fr>
 Polynomial<Fr>::Polynomial(size_t initial_size, DontZeroMemory flag)
     : coefficients_(nullptr)
@@ -456,18 +469,16 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::partial_evaluate_mle(std::
     }
     // Evaluate m-1 variables X_{n-l-1}, ..., X_{n-2} at m-1 remaining values u_0,...,u_{m-2})
     for (size_t l = 1; l < m; ++l) {
-        size_t new_n_l = 1 << (n - l - 1);
-        Fr new_u_l = evaluation_points[m - l - 1];
-        for (size_t i = 0; i < new_n_l; i++) {
-            // Iterate on increasingly small portions of intermediate results.
-            intermediate[i] += new_u_l * (intermediate[i + new_n_l] - intermediate[i]);
+        n_l = 1 << (n - l - 1);
+        u_l = evaluation_points[m - l - 1];
+        for (size_t i = 0; i < n_l; ++i) {
+            intermediate[i] += u_l * (intermediate[i + n_l] - intermediate[i]);
         }
     }
 
-    size_t final_n_l = 1 << (n - m);
     // Construct resulting polynomial g(X_0,…,X_{n-m-1})) = p(X_0,…,X_{n-m-1},u_0,...u_{m-1}) from buffer
-    Polynomial<Fr> result(final_n_l, DontZeroMemory::FLAG);
-    for (size_t idx = 0; idx < final_n_l; ++idx) {
+    Polynomial<Fr> result(n_l, DontZeroMemory::FLAG);
+    for (size_t idx = 0; idx < n_l; ++idx) {
         result[idx] = intermediate[idx];
     }
 

@@ -9,6 +9,8 @@
 // TODO(AD): Other instrumentation?
 #ifdef XRAY
 #define BBERG_PROFILE [[clang::xray_always_instrument]] [[clang::noinline]]
+#define BBERG_NO_PROFILE [[clang::xray_never_instrument]]
 #else
 #define BBERG_PROFILE
+#define BBERG_NO_PROFILE
 #endif

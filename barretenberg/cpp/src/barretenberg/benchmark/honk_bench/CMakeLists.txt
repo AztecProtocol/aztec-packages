@@ -2,7 +2,7 @@
 set(BENCHMARK_SOURCES
   standard_plonk.bench.cpp
   ultra_honk.bench.cpp
-  ultra_honk_passes.bench.cpp
+  ultra_honk_rounds.bench.cpp
   ultra_plonk.bench.cpp
 )
 

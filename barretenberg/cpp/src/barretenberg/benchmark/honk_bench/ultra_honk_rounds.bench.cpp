@@ -8,11 +8,19 @@
 using namespace benchmark;
 using namespace proof_system;
 
+// The rounds to measure
 enum { PREAMBLE, WIRE_COMMITMENTS, SORTED_LIST_ACCUMULATOR, GRAND_PRODUCT_COMPUTATION, RELATION_CHECK, ZEROMORPH };
 
-BBERG_PROFILE static void test_pass_inner(State& state, honk::UltraProver& prover, size_t index) noexcept
+/**
+ * @details Benchmark ultrahonk by performing all the rounds, but only measuring one.
+ * Note: As a result the very short rounds take a long time for statistical significance, so recommended to set their
+ * iterations to 1.
+ * @param state - The google benchmark state.
+ * @param prover - The ultrahonk prover.
+ * @param index - The pass to measure.
+ **/
+BBERG_PROFILE static void test_round_inner(State& state, honk::UltraProver& prover, size_t index) noexcept
 {
-
     auto time_if_index = [&](size_t target_index, auto&& func) -> void {
         if (index == target_index) {
             state.ResumeTiming();
@@ -33,27 +41,28 @@ BBERG_PROFILE static void test_pass_inner(State& state, honk::UltraProver& prove
         state.ResumeTiming();
     }
 }
-BBERG_PROFILE static void test_pass(State& state, size_t index) noexcept
+BBERG_PROFILE static void test_round(State& state, size_t index) noexcept
 {
     barretenberg::srs::init_crs_factory("../srs_db/ignition");
 
     honk::UltraComposer composer;
-    honk::UltraProver prover = bench_utils::get_prover(
-        composer, &bench_utils::generate_ecdsa_verification_test_circuit<UltraCircuitBuilder>, 10);
-    test_pass_inner(state, prover, index);
+    // TODO(AD) benchmark both sparse and dense circuits?
+    honk::UltraProver prover =
+        bench_utils::get_prover(composer, &bench_utils::generate_keccak_test_circuit<UltraCircuitBuilder>, 1);
+    test_round_inner(state, prover, index);
 }
-#define PASS_BENCHMARK(pass)                                                                                           \
-    static void PASS_##pass(State& state) noexcept                                                                     \
+#define ROUND_BENCHMARK(round)                                                                                         \
+    static void ROUND_##round(State& state) noexcept                                                                   \
     {                                                                                                                  \
-        test_pass(state, pass);                                                                                        \
+        test_round(state, round);                                                                                      \
     }                                                                                                                  \
-    BENCHMARK(PASS_##pass)->Unit(::benchmark::kMillisecond)
+    BENCHMARK(ROUND_##round)->Unit(::benchmark::kMillisecond)
 
-// Fast passes take a long time to benchmark because of how we compute statistical significance.
+// Fast rounds take a long time to benchmark because of how we compute statistical significance.
 // Limit to one iteration so we don't spend a lot of time redoing full proofs just to measure this part.
-PASS_BENCHMARK(PREAMBLE)->Iterations(1);
-PASS_BENCHMARK(WIRE_COMMITMENTS)->Iterations(1);
-PASS_BENCHMARK(SORTED_LIST_ACCUMULATOR)->Iterations(1);
-PASS_BENCHMARK(GRAND_PRODUCT_COMPUTATION)->Iterations(1);
-PASS_BENCHMARK(RELATION_CHECK);
-PASS_BENCHMARK(ZEROMORPH);
+ROUND_BENCHMARK(PREAMBLE)->Iterations(1);
+ROUND_BENCHMARK(WIRE_COMMITMENTS)->Iterations(1);
+ROUND_BENCHMARK(SORTED_LIST_ACCUMULATOR)->Iterations(1);
+ROUND_BENCHMARK(GRAND_PRODUCT_COMPUTATION)->Iterations(1);
+ROUND_BENCHMARK(RELATION_CHECK);
+ROUND_BENCHMARK(ZEROMORPH);
