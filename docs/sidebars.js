@@ -54,7 +54,7 @@ const sidebars = {
 
     {
       type: "html",
-      value: '<span class="sidebar-divider" />',
+      value: '<span clasuns="sidebar-divider" />',
     },
 
     // SPECIFICATION
@@ -244,7 +244,7 @@ const sidebars = {
           ],
         },
         {
-          label: "Build Uniswap with Portals",
+          label: "Swap on L1 Uniswap from L2 with Portals",
           type: "category",
           link: {
             type: "doc",
