@@ -1,6 +1,6 @@
 import { ContractArtifact } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { PublicKey } from '@aztec/types';
+import { PXE, PublicKey } from '@aztec/types';
 
 import { DeployMethod, Point } from '../index.js';
 import { Wallet } from '../wallet/index.js';
@@ -37,22 +37,22 @@ export class Contract extends ContractBase {
 
   /**
    * Creates a tx to deploy a new instance of a contract.
-   * @param wallet - The wallet for executing the deployment.
+   * @param pxe - The pxe for executing the deployment.
    * @param artifact - Build artifact of the contract to deploy
    * @param args - Arguments for the constructor.
    */
-  public static deploy(wallet: Wallet, artifact: ContractArtifact, args: any[]) {
-    return new DeployMethod(Point.ZERO, wallet, artifact, args);
+  public static deploy(pxe: PXE, artifact: ContractArtifact, args: any[]) {
+    return new DeployMethod(Point.ZERO, pxe, artifact, args);
   }
 
   /**
    * Creates a tx to deploy a new instance of a contract using the specified public key to derive the address.
    * @param publicKey - Public key for deriving the address.
-   * @param wallet - The wallet for executing the deployment.
+   * @param pxe - The pxe for executing the deployment.
    * @param artifact - Build artifact of the contract.
    * @param args - Arguments for the constructor.
    */
-  public static deployWithPublicKey(publicKey: PublicKey, wallet: Wallet, artifact: ContractArtifact, args: any[]) {
-    return new DeployMethod(publicKey, wallet, artifact, args);
+  public static deployWithPublicKey(publicKey: PublicKey, pxe: PXE, artifact: ContractArtifact, args: any[]) {
+    return new DeployMethod(publicKey, pxe, artifact, args);
   }
 }
