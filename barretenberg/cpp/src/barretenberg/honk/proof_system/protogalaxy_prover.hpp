@@ -24,6 +24,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     using Relations = typename Flavor::Relations;
     using BaseUnivariate = Univariate<FF, ProverInstances::NUM>;
     using ExtendedUnivariate = Univariate<FF, (Flavor::MAX_RELATION_LENGTH - 1) * (ProverInstances::NUM - 1) + 1>;
+    // ProverInstances::NUM containts the accumulator as well hence the -1
     using RandomExtendedUnivariate =
         Univariate<FF, (Flavor::MAX_RANDOM_RELATION_LENGTH - 1) * (ProverInstances::NUM - 1) + 1>;
     using ExtendedUnivariates = typename Flavor::template ProverUnivariates<ExtendedUnivariate::LENGTH>;
@@ -46,6 +47,21 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      *
      */
     void prepare_for_folding();
+
+    std::vector<FF> compute_pow_polynomials_at_values(const std::vector<FF> betas, const size_t instance_size)
+    {
+        std::vector<FF> pow_betas(instance_size);
+        for (size_t i = 0; i < instance_size; i++) {
+            auto res = FF(1);
+            for (size_t j = i, beta_idx = 0; j > 0; j >>= 1, beta_idx++) {
+                if ((j & 1) == 1) {
+                    res *= betas[beta_idx];
+                }
+            }
+            pow_betas[i] = res;
+        }
+        return pow_betas;
+    }
 
     /**
      * @brief For a new round challenge δ at each iteration of the ProtoGalaxy protocol, compute the vector
@@ -214,21 +230,20 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      *
      * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/754) Provide the right challenge to here
      */
-    RandomExtendedUnivariate compute_combiner(
-        const ProverInstances& instances,
-        const proof_system::RelationParameters<typename Flavor::FF>& relation_parameters,
-        const PowUnivariate<typename Flavor::FF>& pow_univariate,
-        const typename Flavor::FF alpha)
+    RandomExtendedUnivariate compute_combiner(const ProverInstances& instances,
+                                              const proof_system::RelationParameters<FF>& relation_parameters,
+                                              const std::vector<FF> pow_betas_star,
+                                              const FF alpha)
     {
         size_t common_circuit_size = instances[0]->prover_polynomials._data[0].size();
         // Precompute the vector of required powers of zeta
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/751): Parallelize this.
         // NB: there is a similar TODO in the sumcheck function `compute_univariate`.
-        std::vector<FF> pow_challenges(common_circuit_size);
-        pow_challenges[0] = pow_univariate.partial_evaluation_constant;
-        for (size_t i = 1; i < common_circuit_size; ++i) {
-            pow_challenges[i] = pow_challenges[i - 1] * pow_univariate.zeta_pow;
-        }
+        // std::vector<FF> pow_challenges(common_circuit_size);
+        // pow_challenges[0] = pow_univariate.partial_evaluation_constant;
+        // for (size_t i = 1; i < common_circuit_size; ++i) {
+        //     pow_challenges[i] = pow_challenges[i - 1] * pow_univariate.zeta_pow;
+        // }
 
         // Determine number of threads for multithreading.
         // Note: Multithreading is "on" for every round but we reduce the number of threads from the max available based
@@ -259,7 +274,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
             for (size_t idx = start; idx < end; idx++) {
                 extend_univariates(extended_univariates[thread_idx], instances, idx);
 
-                FF pow_challenge = pow_challenges[idx];
+                FF pow_challenge = pow_betas_star[idx];
 
                 // Accumulate the i-th row's univariate contribution
                 accumulate_relation_univariates(thread_univariate_accumulators[thread_idx],

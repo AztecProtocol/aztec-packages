@@ -31,6 +31,7 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepa
         instance->compute_sorted_accumulator_polynomials(eta);
         instance->compute_grand_product_polynomials(beta, gamma);
     }
+    // need to check all instances have the same circuit size!!
 }
 
 // TODO(#https://github.com/AztecProtocol/barretenberg/issues/689): finalise implementation this function
@@ -46,10 +47,44 @@ ProverFoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverI
     auto log_instance_size = static_cast<size_t>(numeric::get_msb(instance_size));
     auto deltas = compute_round_challenge_pows(log_instance_size, delta);
     auto perturbator = compute_perturbator(accumulator, deltas, alpha);
-
+    assert(perturbator[0] == accumulator->folding_parameters->target_sum);
     for (size_t idx = 0; idx <= log_instance_size; idx++) {
         transcript.send_to_verifier("perturbator_" + std::to_string(idx), perturbator[idx]);
     }
+
+    auto perturbator_challenge = transcript.get_challenge("perturbator_challenge");
+    auto compressed_perturbator = perturbator.evaluate(perturbator_challenge); // horner
+    static_cast<void>(compressed_perturbator);
+
+    std::vector<FF> lagrange_first(log_instance_size, FF(0));
+    lagrange_first[0] = FF(1);
+
+    std::vector<FF> vanishing_set;
+    vanishing_set.reserve(log_instance_size);
+    std::iota(vanishing_set.begin(), vanishing_set.end(), FF::zero());
+    // need to be built not on the vanishing set H!!!!!
+
+    // sanity check: i think we don't care about elemnt 0th element of beta, it is 1
+    std::vector<FF> betas_star(log_instance_size);
+    betas_star[0] = 1;
+    auto betas = accumulator->folding_parameters.gate_separation_challenges;
+    for (size_t idx = 1; idx <= log_instance_size; idx++) {
+        betas_star[idx] = betas[idx] + perturbator_challenge * deltas[idx - 1];
+    }
+
+    auto pow_betas_star = compute_pow_polynomials_at_values(betas_star, instance_size);
+
+    // compute pow, work around combiner problems
+
+    // compute \vec{\beta*}
+    // sanity check this is correc
+
+    // auto combiner = compute_combiner(instances, accumulator->relation_parameters, const PowUnivariate<typename
+    // Flavor::FF> &pow_univariate, alpha)
+
+    // auto vanishing_polynomial_at_challenge = combiner_challenge * (combiner_challenge - FF(1));
+    // auto lagrange_0_at_challenge = FF(1) - combiner_challenge;
+    // auto lagrange_1_at_challenge = combiner_challenge;
 
     ProverFoldingResult<Flavor> res;
     res.folding_data = transcript.proof_data;
