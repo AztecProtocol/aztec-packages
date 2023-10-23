@@ -108,6 +108,7 @@ pub fn initialize_end_values(previous_kernel : PreviousKernelData, public_inputs
     // functions within this circuit:
     let start = previous_kernel.public_inputs.end;
 
+    public_inputs.end.read_requests = arrays::array_to_bounded_vec(start.read_requests, arrays::is_empty, 0);
     public_inputs.end.new_commitments = arrays::array_to_bounded_vec(start.new_commitments, arrays::is_empty, 0);
     public_inputs.end.new_nullifiers = arrays::array_to_bounded_vec(start.new_nullifiers, arrays::is_empty, 0);
     public_inputs.end.nullified_commitments = arrays::array_to_bounded_vec(start.nullified_commitments, arrays::is_empty, 0);
@@ -123,6 +124,7 @@ pub fn initialize_end_values(previous_kernel : PreviousKernelData, public_inputs
     public_inputs.end.unencrypted_log_preimages_length = start.unencrypted_log_preimages_length;
 
     public_inputs.end.optionally_revealed_data = start.optionally_revealed_data;
+    public_inputs.end.new_contracts = arrays::array_to_bounded_vec(previous_kernel.public_inputs.end.new_contracts, |ncd: NewContractData| ncd.is_empty(), NewContractData::default());
 }
 
 pub fn update_end_values(private_call : PrivateCallData, public_inputs : &mut KernelCircuitPublicInputsBuilder) {
