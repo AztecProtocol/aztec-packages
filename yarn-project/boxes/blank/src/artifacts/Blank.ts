@@ -63,7 +63,7 @@ export class BlankContract extends ContractBase {
   /**
    * Creates a tx to deploy a new instance of this contract using the specified public key to derive the address.
    */
-  public static deployWithPublicKey(pxe: PXE, publicKey: PublicKey, ) {
+  public static deployWithPublicKey(publicKey: PublicKey, pxe: PXE, ) {
     return new DeployMethod<BlankContract>(publicKey, pxe, BlankContractArtifact, Array.from(arguments).slice(2));
   }
   
