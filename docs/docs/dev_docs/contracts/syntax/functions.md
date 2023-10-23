@@ -3,6 +3,17 @@ title: Functions
 description: This page covers functions, private and public functions composability, as well as their differences.
 ---
 
+Functions serve as the building blocks of smart contracts. Functions can be either public, ie they can interact with other contracts and the blockchain, or private for internal contract use. Every smart contract also has a private `constructor` function which is called when the contract is deployed. There are also special oracle functions, which can get data from outside of the smart contract. In the context of Aztec, oracles are often used to get user-provided inputs.
+
+On this page, you’ll learn more about:
+
+- How function visibility works in Aztec
+- A detailed understanding of public, private, and unconstrained functions, and how to write them
+- How constructors work and remain private
+- The process of calling functions from within the same smart contract and from different contracts, including calling private functions from private functions, public from public, and even private from public
+- What oracles and how Aztec smart contracts might use them
+- Built-in oracles
+
 ## Visibility
 
 In Aztec there are multiple different types of visibility that can be applied to functions. Namely we have `data visibility` and `function visibility`.
@@ -222,7 +233,7 @@ As we can see above, the private to public transaction flow looks very similar t
 
 Wait, I thought you said we could not do this? Well, you are right, we cannot do this directly. However, we can do this indirectly if we are a little cheeky.
 
-While we cannot directly call a private function, we can indirectly call it by adding a commitment to the private data tree. This commitment can then be consumed by a private function later, to "finish" the execution. So while it is not practically a call, we can ensure that it could only happen as an effect of a public function call, which is still pretty useful.
+While we cannot directly call a private function, we can indirectly call it by adding a commitment to the note hash tree. This commitment can then be consumed by a private function later, to "finish" the execution. So while it is not practically a call, we can ensure that it could only happen as an effect of a public function call, which is still pretty useful.
 
 In the snippet below, we insert a custom note, the transparent note, into the commitments tree from public such that it can later be consumed in private.
 
@@ -232,7 +243,7 @@ If you recall the `redeem_shield` from back in the [private function section](#p
 
 #include_code redeem_shield /yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
 
-When the note is removed, it emits a nullifier so that it cannot be used again. This nullifier is then added to the private data tree, and can be used to prove that the note was removed from the pending shields. Interestingly, we can generate the nullifier such that no-one who saw the public execution will know that it have been consumed. When sending messages between L1 and L2 in [portals](../portals/main.md) we are going to see this pattern again.
+When the note is removed, it emits a nullifier so that it cannot be used again. This nullifier is then added to the note hash tree, and can be used to prove that the note was removed from the pending shields. Interestingly, we can generate the nullifier such that no-one who saw the public execution will know that it have been consumed. When sending messages between L1 and L2 in [portals](../portals/main.md) we are going to see this pattern again.
 
 :::danger
 Something to be mindful of when inserting from public. Everyone can see the insertion and what happens in public, so if you are including a secret directly anyone would be able to see it. This is why the hash of the secret is used in the snippet above (`secret_hash`).

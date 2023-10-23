@@ -1,10 +1,10 @@
 use crate::{
     abi,
+    hash::pedersen_hash,
     abi::{
         PublicCircuitPublicInputs,
         FunctionData,
     },
-    hash::pedersen_hash,
 };
 use crate::constants_gen::{
     RETURN_VALUES_LENGTH,

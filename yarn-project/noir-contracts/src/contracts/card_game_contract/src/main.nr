@@ -4,6 +4,7 @@ mod game;
 contract CardGame {
     use dep::aztec::{
         context::Context,
+        hash::pedersen_hash,
         state_vars::{
             map::Map,
             public_state::PublicState,
@@ -26,7 +27,6 @@ contract CardGame {
         abi::{
             Hasher, PrivateContextInputs,
         },
-        hash::pedersen_hash,
         note::{
             note_header::NoteHeader,
             utils as note_utils,

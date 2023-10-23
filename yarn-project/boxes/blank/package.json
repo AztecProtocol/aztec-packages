@@ -42,6 +42,8 @@
     "serve": "^14.2.1"
   },
   "devDependencies": {
+    "@types/jest": "^29.5.0",
+    "@types/mocha": "^10.0.3",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
     "copy-webpack-plugin": "^11.0.0",

@@ -1,12 +1,17 @@
-use dep::aztec::note::{
-    note_header::NoteHeader,
-    note_interface::NoteInterface,
-    utils::compute_note_hash_for_read_or_nullify,
+use dep::aztec::{
+    note::{
+        note_header::NoteHeader,
+        note_interface::NoteInterface,
+        utils::compute_note_hash_for_read_or_nullify,
+    },
+    oracle::{
+        get_secret_key::get_secret_key,
+        get_public_key::get_public_key,
+    },
+    log::emit_encrypted_log,
+    hash::pedersen_hash,
+    context::PrivateContext,
 };
-use dep::aztec::oracle::{
-    get_secret_key::get_secret_key,
-};
-use dep::aztec::hash::pedersen_hash;
 
 global CARD_NOTE_LEN: Field = 3;
 
@@ -63,6 +68,18 @@ impl CardNote {
     pub fn set_header(&mut self, header: NoteHeader) {
         self.header = header;
     }
+
+    // Broadcasts the note as an encrypted log on L1.
+    pub fn broadcast(self, context: &mut PrivateContext, slot: Field) {
+        let encryption_pub_key = get_public_key(self.owner);
+        emit_encrypted_log(
+            context,
+            (*context).this_address(),
+            slot,
+            encryption_pub_key,
+            self.serialize(),
+        );
+    }
 }
 
 fn deserialize(preimage: [Field; CARD_NOTE_LEN]) -> CardNote {
@@ -89,6 +106,11 @@ fn set_header(note: &mut CardNote, header: NoteHeader) {
     note.set_header(header)
 }
 
+// Broadcasts the note as an encrypted log on L1.
+fn broadcast(context: &mut PrivateContext, slot: Field, note: CardNote) {
+    note.broadcast(context, slot);
+}
+
 global CardNoteMethods = NoteInterface {
     deserialize,
     serialize,
@@ -96,4 +118,5 @@ global CardNoteMethods = NoteInterface {
     compute_nullifier,
     get_header,
     set_header,
+    broadcast,
 };

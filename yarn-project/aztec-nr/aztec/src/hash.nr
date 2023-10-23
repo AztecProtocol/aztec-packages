@@ -32,7 +32,7 @@ pub fn compute_secret_hash(secret: Field) -> Field {
 #[oracle(pedersenHash)]
 fn pedersen_hash_oracle<N>(_inputs: [Field; N], _hash_index: u32) -> Field {}
 
-unconstrained pub fn pedersen_hash_internal<N>(inputs: [Field; N], hash_index: u32) -> Field {
+unconstrained fn pedersen_hash_internal<N>(inputs: [Field; N], hash_index: u32) -> Field {
     pedersen_hash_oracle(inputs, hash_index)
 }
 
