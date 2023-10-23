@@ -12,6 +12,11 @@ template <typename FF_> class UltraPermutationRelationImpl {
         3  // left-shiftable polynomial sub-relation
     };
 
+    static constexpr std::array<size_t, 2> PARAMETER_LENGTH_ADJUSTMENTS{
+        5, // grand product construction sub-relation
+        0  // left-shiftable polynomial sub-relation
+    };
+
     inline static auto& get_grand_product_polynomial(auto& in) { return in.z_perm; }
     inline static auto& get_shifted_grand_product_polynomial(auto& in) { return in.z_perm_shift; }
 
@@ -33,6 +38,7 @@ template <typename FF_> class UltraPermutationRelationImpl {
         const auto& beta = ParameterView(params.beta);
         const auto& gamma = ParameterView(params.gamma);
 
+        // witness degree 4; fully degree 8
         return (w_1 + id_1 * beta + gamma) * (w_2 + id_2 * beta + gamma) * (w_3 + id_3 * beta + gamma) *
                (w_4 + id_4 * beta + gamma);
     }
@@ -56,6 +62,7 @@ template <typename FF_> class UltraPermutationRelationImpl {
         const auto& beta = ParameterView(params.beta);
         const auto& gamma = ParameterView(params.gamma);
 
+        // witness degree 4; fully degree 8
         return (w_1 + sigma_1 * beta + gamma) * (w_2 + sigma_2 * beta + gamma) * (w_3 + sigma_3 * beta + gamma) *
                (w_4 + sigma_4 * beta + gamma);
     }
@@ -88,6 +95,8 @@ template <typename FF_> class UltraPermutationRelationImpl {
             const auto lagrange_first = View(in.lagrange_first);
             const auto lagrange_last = View(in.lagrange_last);
 
+            // witness degree: deg 5 - deg 5 = deg 5
+            // total degree: deg 9 - deg 10 = deg 10
             std::get<0>(accumulators) +=
                 (((z_perm + lagrange_first) * compute_grand_product_numerator<Accumulator>(in, params)) -
                  ((z_perm_shift + lagrange_last * public_input_delta) *

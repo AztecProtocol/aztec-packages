@@ -16,6 +16,7 @@ namespace proof_system {
  * type, do nothing, otherwise apply the provided view type.
  * @tparam Params
  * @tparam View
+ * @todo WORKTODO: make sure this is zero-cost in the IsField case.
  */
 template <typename Params, typename View>
 using GetParameterView = std::conditional_t<IsField<typename Params::DataType>, typename Params::DataType, View>;
