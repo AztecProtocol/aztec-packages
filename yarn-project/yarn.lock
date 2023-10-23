@@ -571,6 +571,8 @@ __metadata:
   dependencies:
     "@aztec/foundation": "workspace:^"
     "@jest/globals": ^29.5.0
+    "@noir-lang/noir_wasm": 0.17.0-b8b7782.aztec
+    "@noir-lang/source-resolver": 0.17.0-b8b7782.aztec
     "@rushstack/eslint-patch": ^1.1.4
     "@types/fs-extra": ^11.0.1
     "@types/jest": ^29.5.0
@@ -596,6 +598,7 @@ __metadata:
     ts-node: ^10.9.1
     tslib: ^2.4.0
     typescript: ^5.0.4
+    unzipit: ^1.4.3
   bin:
     aztec-compile: dest/cli.js
   languageName: unknown
@@ -3467,6 +3470,22 @@ __metadata:
   version: 0.30.0
   resolution: "@noir-lang/acvm_js@npm:0.30.0"
   checksum: 4209b8b572f35b90c577a3235303c9fdf4be0dbf20ac750c3580faac8256efd5f3810e10a1646d38b1607b67fbd11ec57c8a5c90935662be55b6edfa8a6b0c10
+  languageName: node
+  linkType: hard
+
+"@noir-lang/noir_wasm@npm:0.17.0-b8b7782.aztec":
+  version: 0.17.0-b8b7782.aztec
+  resolution: "@noir-lang/noir_wasm@npm:0.17.0-b8b7782.aztec"
+  peerDependencies:
+    "@noir-lang/source-resolver": 0.17.0-b8b7782.aztec
+  checksum: 47fcf8b1fbb990a0c8a47a653d284bf161513e5da96e25f4d9e2e4a8bc0d6dd3d3608bc05900b410b4fd24d7052cb942fe25b1eae3a354010bf8d9150a9d4cb4
+  languageName: node
+  linkType: hard
+
+"@noir-lang/source-resolver@npm:0.17.0-b8b7782.aztec":
+  version: 0.17.0-b8b7782.aztec
+  resolution: "@noir-lang/source-resolver@npm:0.17.0-b8b7782.aztec"
+  checksum: 603742aa14fcb28f9e49f9283f26a14291ebae90ca513c950b4d7f6fe947236fcc87d96c79ba361ced26cd0e7b45dc77dc4ebe232012e343750086639b4554a3
   languageName: node
   linkType: hard
 
@@ -18518,6 +18537,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"unzipit@npm:^1.4.3":
+  version: 1.4.3
+  resolution: "unzipit@npm:1.4.3"
+  dependencies:
+    uzip-module: ^1.0.2
+  checksum: ce29348edab7b5fb5b7b4d43437f48e35812ac8b3cc2d76efd1acfcad6dd1b96b4f96bfd03250a724b87ba99dd531d7727ad24b590acf727dde79f54f5e779ed
+  languageName: node
+  linkType: hard
+
 "upath@npm:^2.0.1":
   version: 2.0.1
   resolution: "upath@npm:2.0.1"
@@ -18655,6 +18683,13 @@ __metadata:
   bin:
     uuid: dist/bin/uuid
   checksum: 5575a8a75c13120e2f10e6ddc801b2c7ed7d8f3c8ac22c7ed0c7b2ba6383ec0abda88c905085d630e251719e0777045ae3236f04c812184b7c765f63a70e58df
+  languageName: node
+  linkType: hard
+
+"uzip-module@npm:^1.0.2":
+  version: 1.0.3
+  resolution: "uzip-module@npm:1.0.3"
+  checksum: fc286c44a04d75055577fae8293d3fee499d1e850f87e88c158b1e3657f4794a3a40ca2d34f73474ff82917176dd5ca9d1c0d1e375a083714e11afabd3afa423
   languageName: node
   linkType: hard
 

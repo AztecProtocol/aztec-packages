@@ -28,16 +28,10 @@
   "inherits": [
     "../package.common.json"
   ],
-  "jest": {
-    "preset": "ts-jest/presets/default-esm",
-    "moduleNameMapper": {
-      "^(\\.{1,2}/.*)\\.m?js$": "$1"
-    },
-    "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
-    "rootDir": "./src"
-  },
   "dependencies": {
     "@aztec/foundation": "workspace:^",
+    "@noir-lang/noir_wasm": "0.17.0-b8b7782.aztec",
+    "@noir-lang/source-resolver": "0.17.0-b8b7782.aztec",
     "base64-js": "^1.5.1",
     "commander": "^9.0.0",
     "fs-extra": "^11.1.1",
@@ -48,7 +42,8 @@
     "lodash.upperfirst": "^4.3.1",
     "pako": "^2.1.0",
     "toml": "^3.0.0",
-    "tslib": "^2.4.0"
+    "tslib": "^2.4.0",
+    "unzipit": "^1.4.3"
   },
   "devDependencies": {
     "@jest/globals": "^29.5.0",
@@ -75,5 +70,13 @@
   "types": "./dest/index.d.ts",
   "engines": {
     "node": ">=18"
+  },
+  "jest": {
+    "preset": "ts-jest/presets/default-esm",
+    "moduleNameMapper": {
+      "^(\\.{1,2}/.*)\\.m?js$": "$1"
+    },
+    "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
+    "rootDir": "./src"
   }
 }
