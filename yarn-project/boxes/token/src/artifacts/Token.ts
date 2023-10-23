@@ -63,7 +63,7 @@ export class TokenContract extends ContractBase {
   /**
    * Creates a tx to deploy a new instance of this contract using the specified public key to derive the address.
    */
-  public static deployWithPublicKey(pxe: PXE, publicKey: PublicKey, admin: AztecAddressLike) {
+  public static deployWithPublicKey(publicKey: PublicKey, pxe: PXE, admin: AztecAddressLike) {
     return new DeployMethod<TokenContract>(publicKey, pxe, TokenContractArtifact, Array.from(arguments).slice(2));
   }
   

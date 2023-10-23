@@ -76,7 +76,7 @@ function generateDeploy(input: ContractArtifact) {
   /**
    * Creates a tx to deploy a new instance of this contract using the specified public key to derive the address.
    */
-  public static deployWithPublicKey(pxe: PXE, publicKey: PublicKey, ${args}) {
+  public static deployWithPublicKey(publicKey: PublicKey, pxe: PXE, ${args}) {
     return new DeployMethod<${input.name}Contract>(publicKey, pxe, ${artifactName}, Array.from(arguments).slice(2));
   }
   `;
