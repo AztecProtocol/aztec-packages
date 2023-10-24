@@ -690,7 +690,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorDecompositionRelationCorrectnes
 
     // Fill in lagrange odd polynomial (the only non-witness one we are using)
     for (size_t i = 1; i < Flavor::MINI_CIRCUIT_SIZE - 1; i += 2) {
-        prover_polynomials.lagrange_odd[i] = 1;
+        prover_polynomials.lagrange_odd_in_minicircuit[i] = 1;
     }
 
     constexpr size_t NUM_LIMB_BITS = Flavor::CircuitBuilder::NUM_LIMB_BITS;
@@ -1138,7 +1138,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorNonNativeRelationCorrectness)
 
     // Fill in lagrange odd polynomial
     for (size_t i = 1; i < mini_circuit_size - 1; i += 2) {
-        prover_polynomials.lagrange_odd[i] = 1;
+        prover_polynomials.lagrange_odd_in_minicircuit[i] = 1;
     }
 
     using Relations = Flavor::Relations;
