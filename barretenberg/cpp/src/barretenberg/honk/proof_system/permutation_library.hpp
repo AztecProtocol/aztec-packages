@@ -280,6 +280,7 @@ void compute_goblin_translator_range_constraint_ordered_polynomials(StorageHandl
         // Get the group and the main target vector
         auto my_group = concatenation_groups[i];
         auto& current_vector = ordered_vectors_uint[i];
+        current_vector.resize(Flavor::FULL_CIRCUIT_SIZE);
 
         // Calculate how much space there is for values from the original polynomials
         auto free_space_before_runway = full_circuit_size - sorted_elements_count;
