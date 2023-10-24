@@ -11,6 +11,7 @@ template <typename Flavor_, size_t NUM_> struct ProverInstances_ {
     using Instance = ProverInstance_<Flavor>;
 
     using ArrayType = std::array<std::shared_ptr<Instance>, NUM_>;
+    // The extended length here is the length of a composition of polynomials.
     static constexpr size_t EXTENDED_LENGTH = (Flavor::MAX_TOTAL_RELATION_LENGTH - 1) * (NUM - 1) + 1;
     using RelationParameters = proof_system::RelationParameters<Univariate<FF, EXTENDED_LENGTH>>;
 
@@ -30,8 +31,10 @@ template <typename Flavor_, size_t NUM_> struct ProverInstances_ {
     };
 
     /**
-     * @brief Create folded (univariate) relation parameters
-     *
+     * @brief Create folded (univariate) relation parameters.
+     * @details For a given relation parameter type, extract that parameter from each instance, place the values in a
+     * univariate (i.e., sum them against an appropriate Lagrange basis) and then extended as needed during the
+     * constuction of the combiner.
      */
     void parameters_to_univariates()
     {

@@ -1,4 +1,4 @@
-# TODO: delete this
+# TODO(https://github.com/AztecProtocol/barretenberg/issues/760): Delete this?
 import numpy as np
 
 # np.set_printoptions(formatter={'int': hex})
