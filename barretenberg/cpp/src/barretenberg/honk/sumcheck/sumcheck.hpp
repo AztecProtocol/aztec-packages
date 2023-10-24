@@ -125,7 +125,7 @@ template <typename Flavor> class SumcheckProver {
      * @brief Compute univariate restriction place in transcript, generate challenge, partially evaluate,... repeat
      * until final round, then compute multivariate evaluations and place in transcript.
      *
-     * @details
+     * WORKTODO
      */
     SumcheckOutput<Flavor> prove(std::shared_ptr<Instance> instance)
     {

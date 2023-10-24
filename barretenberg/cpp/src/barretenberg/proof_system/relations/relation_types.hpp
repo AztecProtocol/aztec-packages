@@ -48,6 +48,10 @@ template <typename Relation, size_t subrelation_index> constexpr bool subrelatio
     }
 }
 
+/**
+ * @brief WORKTODO check Compute the full subrelation lenghths, i.e., the lengths when regarding the challenges as
+ * variables.
+ */
 template <typename RelationImpl>
 consteval std::array<size_t, RelationImpl::SUBRELATION_LENGTHS.size()> compute_full_subrelation_lengths()
 {
@@ -122,7 +126,7 @@ template <typename RelationImpl> class Relation : public RelationImpl {
     static constexpr size_t RELATION_LENGTH =
         *std::max_element(RelationImpl::SUBRELATION_LENGTHS.begin(), RelationImpl::SUBRELATION_LENGTHS.end());
 
-    static constexpr size_t FULL_RELATION_LENGTH =
+    static constexpr size_t TOTAL_RELATION_LENGTH =
         *std::max_element(FULL_SUBRELATION_LENGTHS.begin(), FULL_SUBRELATION_LENGTHS.end());
 
     template <size_t NUM_INSTANCES>

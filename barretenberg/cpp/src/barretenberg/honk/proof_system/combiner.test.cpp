@@ -50,7 +50,7 @@ TEST(Protogalaxy, CombinerOn2Instances)
 
             ProverInstances instances{ instance_data };
 
-            [[maybe_unused]] auto result = prover.compute_combiner(instances, pow_univariate, alpha);
+            auto result = prover.compute_combiner(instances, pow_univariate, alpha);
             auto expected_result =
                 barretenberg::Univariate<FF, 13>(std::array<FF, 13>{ 87706,
                                                                      27289140,

@@ -25,7 +25,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
 
     using BaseUnivariate = Univariate<FF, ProverInstances::NUM>;
     using ExtendedUnivariate = Univariate<FF, (Flavor::MAX_TOTAL_RELATION_LENGTH - 1) * (ProverInstances::NUM - 1) + 1>;
-    using RandomExtendedUnivariate =
+    using ExtendedUnivariateWithRandomization =
         Univariate<FF, (Flavor::BATCHED_RELATION_TOTAL_LENGTH - 1) * (ProverInstances::NUM - 1) + 1>;
     using ExtendedUnivariates = typename Flavor::template ProverUnivariates<ExtendedUnivariate::LENGTH>;
 
@@ -216,9 +216,9 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      *
      * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/754) Provide the right challenge to here
      */
-    RandomExtendedUnivariate compute_combiner(const ProverInstances& instances,
-                                              const PowUnivariate<typename Flavor::FF>& pow_univariate,
-                                              const typename Flavor::FF alpha)
+    ExtendedUnivariateWithRandomization compute_combiner(const ProverInstances& instances,
+                                                         const PowUnivariate<typename Flavor::FF>& pow_univariate,
+                                                         const typename Flavor::FF alpha)
     {
         size_t common_circuit_size = instances[0]->prover_polynomials._data[0].size();
         // Precompute the vector of required powers of zeta
@@ -274,7 +274,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
             Utils::add_nested_tuples(univariate_accumulators, accumulators);
         }
         // Batch the univariate contributions from each sub-relation to obtain the round univariate
-        return Utils::template batch_over_relations<RandomExtendedUnivariate>(
+        return Utils::template batch_over_relations<ExtendedUnivariateWithRandomization>(
             univariate_accumulators, alpha, pow_univariate);
     }
 };

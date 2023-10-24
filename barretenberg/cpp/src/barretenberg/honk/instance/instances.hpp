@@ -12,7 +12,7 @@ template <typename Flavor_, size_t NUM_> struct ProverInstances_ {
 
     using ArrayType = std::array<std::shared_ptr<Instance>, NUM_>;
     // WORKTODO set this correctly or extract it
-    static constexpr size_t EXTENDED_LENGTH = Flavor::MAX_PARTIAL_RELATION_LENGTH * NUM;
+    static constexpr size_t EXTENDED_LENGTH = (Flavor::MAX_TOTAL_RELATION_LENGTH - 1) * (NUM - 1) + 1;
     using RelationParameters = proof_system::RelationParameters<Univariate<FF, EXTENDED_LENGTH>>;
 
     ArrayType _data;
@@ -30,6 +30,10 @@ template <typename Flavor_, size_t NUM_> struct ProverInstances_ {
         }
     };
 
+    /**
+     * @brief Create folded (univariate) relation parameters
+     *
+     */
     void parameters_to_univariates()
     {
         auto params_to_fold = relation_parameters.to_fold;

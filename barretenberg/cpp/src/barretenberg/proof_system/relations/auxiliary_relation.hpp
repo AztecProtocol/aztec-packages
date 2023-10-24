@@ -211,9 +211,6 @@ template <typename FF_> class AuxiliaryRelationImpl {
          * Memory Record Check
          * Partial degree: 1
          * Full degree: 4
-         * WORKTODO: Full degree reducible using not powers of eta
-         * WORKTODO: this could (hence should?) be defined lower?
-         *
          *
          * A ROM/ROM access gate can be evaluated with the identity:
          *

@@ -75,7 +75,6 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
     static constexpr size_t NUM_RELATIONS = std::tuple_size<Relations>::value;
 
     // Instantiate the BarycentricData needed to extend each Relation Univariate
-    // static_assert(instantiate_barycentric_utils<FF, BATCHED_RELATION_PARTIAL_LENGTH>());
 
     // define the containers for storing the contributions from each relation in Sumcheck
     using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
