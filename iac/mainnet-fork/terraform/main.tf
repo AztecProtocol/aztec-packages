@@ -71,11 +71,6 @@ resource "aws_service_discovery_service" "aztec_mainnet_fork" {
 
     routing_policy = "MULTIVALUE"
   }
-
-  provisioner "local-exec" {
-    when    = destroy
-    command = "${path.module}/../servicediscovery-drain.sh ${self.id}"
-  }
 }
 
 # EFS filesystem for mainnet fork
@@ -186,7 +181,7 @@ resource "aws_alb_target_group" "mainnet_fork" {
   ]
 
   health_check {
-    path                = "/"
+    path                = "/${var.FORK_API_KEY}"
     matcher             = "404,400"
     interval            = 300
     healthy_threshold   = 2
@@ -250,32 +245,6 @@ resource "aws_ecs_service" "aztec_mainnet_fork" {
 resource "aws_cloudwatch_log_group" "aztec_mainnet_fork_logs" {
   name              = "/fargate/services/aztec_mainnet_fork"
   retention_in_days = "14"
-}
-
-# ALB to to limit public requests to apikey routes
-resource "aws_alb_target_group" "aztec_mainnet_fork" {
-  name                 = "aztec-network-mainnet-fork"
-  port                 = "80"
-  protocol             = "HTTP"
-  target_type          = "ip"
-  vpc_id               = data.terraform_remote_state.setup_iac.outputs.vpc_id
-  deregistration_delay = 5
-  depends_on = [
-    data.aws_alb.aztec-network_alb
-  ]
-
-  health_check {
-    path                = "/"
-    matcher             = "404,400"
-    interval            = 300
-    healthy_threshold   = 2
-    unhealthy_threshold = 10
-    timeout             = 120
-  }
-
-  tags = {
-    name = "aztec-network-mainnet-fork"
-  }
 }
 
 resource "aws_lb_listener_rule" "aztec_mainnet_fork_route" {
