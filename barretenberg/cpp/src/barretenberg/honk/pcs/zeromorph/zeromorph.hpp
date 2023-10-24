@@ -37,13 +37,14 @@ template <typename Curve> class ZeroMorphProver_ {
 
   public:
     /**
-     * @brief 
-     * 
-     * @param polynomial 
-     * @param u_challenge 
-     * @return std::vector<Polynomial> 
+     * @brief
+     *
+     * @param polynomial
+     * @param u_challenge
+     * @return std::vector<Polynomial>
      */
-    static std::vector<Polynomial> compute_multilinear_quotients_efficient(Polynomial polynomial, std::span<FF> u_challenge)
+    static std::vector<Polynomial> compute_multilinear_quotients_efficient(Polynomial polynomial,
+                                                                           std::span<FF> u_challenge)
     {
         size_t log_N = numeric::get_msb(polynomial.size());
         // The size of the multilinear challenge must equal the log of the polynomial size
@@ -57,7 +58,7 @@ template <typename Curve> class ZeroMorphProver_ {
         }
 
         // Compute the first 2^{n-1} coefficients of q_{n-1}
-        size_t size_q = 1 << (log_N-1);
+        size_t size_q = 1 << (log_N - 1);
         Polynomial q = Polynomial(size_q);
         for (size_t l = 0; l < size_q; ++l) {
             q[l] = polynomial[size_q + l] - polynomial[l];
@@ -68,19 +69,19 @@ template <typename Curve> class ZeroMorphProver_ {
         std::vector<FF> f_k;
         f_k.resize(size_q);
 
-        std::vector<FF> g(polynomial.data(), polynomial.data()+size_q);
+        std::vector<FF> g(polynomial.data().get(), polynomial.data().get() + size_q);
 
         // Compute the first 2^k coefficients of q_k in reverse order from k= n-2, i.e. q_{n-2}, ..., q_0
-        //Define the intermediate polynomial f_k
+        // Define the intermediate polynomial f_k
         // Polynomial f_k = Polynomial(size_q);
         // Polynomial g = polynomial;
-        for (size_t k = 1; k < log_N ; ++k) {
-            // Compute f_k 
+        for (size_t k = 1; k < log_N; ++k) {
+            // Compute f_k
             for (size_t l = 0; l < size_q; ++l) {
-                f_k[l] = g[l] + u_challenge[log_N-k] * q[l];
+                f_k[l] = g[l] + u_challenge[log_N - k] * q[l];
             }
 
-            size_q = size_q/2;
+            size_q = size_q / 2;
             q = Polynomial(size_q);
 
             for (size_t l = 0; l < size_q; ++l) {
@@ -404,7 +405,7 @@ template <typename Curve> class ZeroMorphProver_ {
         f_polynomial += g_batched.shifted();
 
         // Compute the multilinear quotients q_k = q_k(X_0, ..., X_{k-1})
-        auto quotients = compute_multilinear_quotients(f_polynomial, u_challenge);
+        auto quotients = compute_multilinear_quotients_efficient(f_polynomial, u_challenge);
 
         // Compute and send commitments C_{q_k} = [q_k], k = 0,...,d-1
         std::vector<Commitment> q_k_commitments;
