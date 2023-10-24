@@ -225,6 +225,79 @@ template <typename Curve> class ZeroMorphProver_ {
     }
 
     /**
+     * @brief Compute partially evaluated zeromorph identity polynomial Z_x with concatenated polynomials
+     * @details Compute Z_x, where
+     *
+     *  Z_x = x * f_batched + g_batched + \sum_{i=0}^{concatenation_index}(
+     *  x^{i * min_N + 1}concatenation_groups_batched_{i}) - v * x * \Phi_n(x)
+     *           - x * \sum_k (x^{2^k}\Phi_{n-k-1}(x^{2^{k-1}}) - u_k\Phi_{n-k}(x^{2^k})) * q_k
+     *
+     * where f_batched = \sum_{i=0}^{m-1}\rho^i*f_i, g_batched = \sum_{i=0}^{l-1}\rho^{m+i}*g_i,
+     * concatenation_groups_batched_{j}=\sum{i=0}^{o-1}\rho{m+l+i}*polynomial_before_concatenation_{j}_{i}
+     *
+     * @param input_polynomial
+     * @param quotients
+     * @param v_evaluation
+     * @param x_challenge
+     * @return Polynomial
+     */
+    static Polynomial compute_partially_evaluated_zeromorph_identity_polynomial_with_concatenations(
+        Polynomial& f_batched,
+        Polynomial& g_batched,
+        std::vector<Polynomial>& concatenation_groups_batched,
+        std::vector<Polynomial>& quotients,
+        FF v_evaluation,
+        std::span<FF> u_challenge,
+        FF x_challenge)
+    {
+        size_t N = f_batched.size();
+        size_t log_N = quotients.size();
+        size_t MINICIRCUIT_N = N / concatenation_groups_batched.size();
+        // Initialize Z_x with x * \sum_{i=0}^{m-1} f_i + \sum_{i=0}^{l-1} g_i
+        auto result = g_batched;
+        result.add_scaled(f_batched, x_challenge);
+
+        // Compute the power of x used for shifting polynomials to the right
+        auto x_to_minicircuit_N = x_challenge.pow(MINICIRCUIT_N);
+        auto running_shift = x_challenge;
+        // clang-format off
+        // Make Z_x = x * f_batched + g_batched + \sum_{i=0}^{concatenation_index}(x^{i * min_n + 1}concatenation_groups_batched_{i})
+        // We are effectively reconstructing concatenated polynomials from their chunks now that we now x
+        // clang-format on
+        for (size_t i = 0; i < concatenation_groups_batched.size(); i++) {
+            result.add_scaled(concatenation_groups_batched[i], running_shift);
+            running_shift *= x_to_minicircuit_N;
+        }
+
+        // Compute Z_x -= v * x * \Phi_n(x)
+        auto phi_numerator = x_challenge.pow(N) - 1; // x^N - 1
+        auto phi_n_x = phi_numerator / (x_challenge - 1);
+        result[0] -= v_evaluation * x_challenge * phi_n_x;
+
+        // Add contribution from q_k polynomials
+        auto x_power = x_challenge; // x^{2^k}
+        for (size_t k = 0; k < log_N; ++k) {
+            x_power = x_challenge.pow(1 << k); // x^{2^k}
+
+            // \Phi_{n-k-1}(x^{2^{k + 1}})
+            auto phi_term_1 = phi_numerator / (x_challenge.pow(1 << (k + 1)) - 1);
+
+            // \Phi_{n-k}(x^{2^k})
+            auto phi_term_2 = phi_numerator / (x_challenge.pow(1 << k) - 1);
+
+            // x^{2^k} * \Phi_{n-k-1}(x^{2^{k+1}}) - u_k *  \Phi_{n-k}(x^{2^k})
+            auto scalar = x_power * phi_term_1 - u_challenge[k] * phi_term_2;
+
+            scalar *= x_challenge;
+            scalar *= FF(-1);
+
+            result.add_scaled(quotients[k], scalar);
+        }
+
+        return result;
+    }
+
+    /**
      * @brief Compute combined evaluation and degree-check quotient polynomial pi
      * @details Compute univariate quotient pi, where
      *
@@ -485,6 +558,116 @@ template <typename Curve> class ZeroMorphVerifier_ {
             rho_pow *= rho;
         }
 
+        // Add contributions: scalar * [q_k],  k = 0,...,log_N, where
+        // scalar = -x * (x^{2^k} * \Phi_{n-k-1}(x^{2^{k+1}}) - u_k * \Phi_{n-k}(x^{2^k}))
+        auto x_pow_2k = x_challenge;                 // x^{2^k}
+        auto x_pow_2kp1 = x_challenge * x_challenge; // x^{2^{k + 1}}
+        for (size_t k = 0; k < log_N; ++k) {
+
+            auto phi_term_1 = phi_numerator / (x_pow_2kp1 - 1); // \Phi_{n-k-1}(x^{2^{k + 1}})
+            auto phi_term_2 = phi_numerator / (x_pow_2k - 1);   // \Phi_{n-k}(x^{2^k})
+
+            auto scalar = x_pow_2k * phi_term_1;
+            scalar -= u_challenge[k] * phi_term_2;
+            scalar *= x_challenge;
+            scalar *= FF(-1);
+
+            scalars.emplace_back(scalar);
+            commitments.emplace_back(C_q_k[k]);
+
+            // Update powers of challenge x
+            x_pow_2k = x_pow_2kp1;
+            x_pow_2kp1 *= x_pow_2kp1;
+        }
+
+        if constexpr (Curve::is_stdlib_type) {
+            return Commitment::batch_mul(commitments, scalars);
+        } else {
+            return batch_mul_native(commitments, scalars);
+        }
+    }
+
+    /**
+     * @brief Compute commitment to partially evaluated ZeroMorph identity Z
+     * @details Compute commitment C_{Z_x} = [Z_x]_1 using homomorphicity:
+     *
+     *  C_{Z_x} = x * \sum_{i=0}^{m-1}\rho^i*[f_i] + \sum_{i=0}^{l-1}\rho^{m+i}*[g_i] +
+     * \sum{i=0}^{o-1}\sum_{j=0}^{concatenation_index}(rho^{m+l+i} * x^{j * min_N + 1}
+     * *concatenation_groups_commitments_{i}_{j}) - v * x * \Phi_n(x) * [1]_1 - x * \sum_k
+     * (x^{2^k}\Phi_{n-k-1}(x^{2^{k-1}}) - u_k\Phi_{n-k}(x^{2^k})) * [q_k]
+     *
+     * @param f_commitments Commitments to unshifted polynomials [f_i]
+     * @param g_commitments Commitments to to-be-shifted polynomials [g_i]
+     * @param C_q_k Commitments to q_k
+     * @param rho
+     * @param batched_evaluation \sum_{i=0}^{m-1} \rho^i*f_i(u) + \sum_{i=0}^{l-1} \rho^{m+i}*h_i(u)
+     * @param x_challenge
+     * @param u_challenge multilinear challenge
+     * @return Commitment
+     */
+    static Commitment compute_C_Z_x_with_concatenations(
+        std::vector<Commitment> f_commitments,
+        std::vector<Commitment> g_commitments,
+        std::vector<std::vector<Commitment>> concatenation_groups_commitments,
+        std::vector<Commitment>& C_q_k,
+        FF rho,
+        FF batched_evaluation,
+        FF x_challenge,
+        std::vector<FF> u_challenge)
+    {
+        size_t log_N = C_q_k.size();
+        size_t N = 1 << log_N;
+
+        std::vector<FF> scalars;
+        std::vector<Commitment> commitments;
+
+        // Phi_n(x) = (x^N - 1) / (x - 1)
+        auto phi_numerator = x_challenge.pow(N) - 1; // x^N - 1
+        auto phi_n_x = phi_numerator / (x_challenge - 1);
+
+        // Add contribution: -v * x * \Phi_n(x) * [1]_1
+        if constexpr (Curve::is_stdlib_type) {
+            auto builder = x_challenge.get_context();
+            scalars.emplace_back(FF(builder, -1) * batched_evaluation * x_challenge * phi_n_x);
+            commitments.emplace_back(Commitment::one(builder));
+        } else {
+            scalars.emplace_back(FF(-1) * batched_evaluation * x_challenge * phi_n_x);
+            commitments.emplace_back(Commitment::one());
+        }
+
+        // Add contribution: x * \sum_{i=0}^{m-1} \rho^i*[f_i]
+        auto rho_pow = FF(1);
+        for (auto& commitment : f_commitments) {
+            scalars.emplace_back(x_challenge * rho_pow);
+            commitments.emplace_back(commitment);
+            rho_pow *= rho;
+        }
+
+        // Add contribution: \sum_{i=0}^{l-1} \rho^{m+i}*[g_i]
+        for (auto& commitment : g_commitments) {
+            scalars.emplace_back(rho_pow);
+            commitments.emplace_back(commitment);
+            rho_pow *= rho;
+        }
+
+        if (!concatenation_groups_commitments.empty()) {
+            size_t CONCATENATION_INDEX = concatenation_groups_commitments[0].size();
+            size_t MINICIRCUIT_N = N / CONCATENATION_INDEX;
+            std::vector<FF> x_shifts;
+            auto current_x_shift = x_challenge;
+            auto x_to_minicircuit_n = x_challenge.pow(MINICIRCUIT_N);
+            for (size_t i = 0; i < CONCATENATION_INDEX; ++i) {
+                x_shifts.emplace_back(current_x_shift);
+                current_x_shift *= x_to_minicircuit_n;
+            }
+            for (auto& concatenation_group_commitment : concatenation_groups_commitments) {
+                for (size_t i = 0; i < CONCATENATION_INDEX; ++i) {
+                    scalars.emplace_back(rho_pow * x_shifts[i]);
+                    commitments.emplace_back(concatenation_group_commitment[i]);
+                }
+                rho_pow *= rho;
+            }
+        }
         // Add contributions: scalar * [q_k],  k = 0,...,log_N, where
         // scalar = -x * (x^{2^k} * \Phi_{n-k-1}(x^{2^{k+1}}) - u_k * \Phi_{n-k}(x^{2^k}))
         auto x_pow_2k = x_challenge;                 // x^{2^k}
