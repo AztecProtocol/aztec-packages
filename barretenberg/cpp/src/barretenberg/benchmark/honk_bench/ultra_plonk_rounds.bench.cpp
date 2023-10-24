@@ -18,14 +18,16 @@ enum {
 };
 
 BBERG_PROFILE static void plonk_round(
-    State& state, plonk::UltraProver& prover, size_t target_index, size_t index, auto&& lambda) noexcept
+    State& state, plonk::UltraProver& prover, size_t target_index, size_t index, auto&& func) noexcept
 {
     if (index == target_index) {
         state.ResumeTiming();
     }
-    lambda();
+    func();
     prover.queue.process_queue();
-    state.PauseTiming();
+    if (index == target_index) {
+        state.PauseTiming();
+    }
 }
 /**
  * @details Benchmark ultraplonk by performing all the rounds, but only measuring one.
@@ -37,7 +39,6 @@ BBERG_PROFILE static void plonk_round(
  **/
 BBERG_PROFILE static void test_round_inner(State& state, plonk::UltraProver& prover, size_t index) noexcept
 {
-    state.PauseTiming();
     plonk_round(state, prover, PREAMBLE, index, [&] { prover.execute_preamble_round(); });
     plonk_round(state, prover, FIRST_WIRE_COMMITMENTS, index, [&] { prover.execute_first_round(); });
     plonk_round(state, prover, SECOND_FIAT_SHAMIR_ETA, index, [&] { prover.execute_second_round(); });
@@ -45,7 +46,6 @@ BBERG_PROFILE static void test_round_inner(State& state, plonk::UltraProver& pro
     plonk_round(state, prover, FOURTH_FIAT_SHAMIR_ALPHA_AND_COMMIT, index, [&] { prover.execute_fourth_round(); });
     plonk_round(state, prover, FIFTH_COMPUTE_QUOTIENT_EVALUTION, index, [&] { prover.execute_fifth_round(); });
     plonk_round(state, prover, SIXTH_BATCH_OPEN, index, [&] { prover.execute_sixth_round(); });
-    state.ResumeTiming();
 }
 BBERG_PROFILE static void test_round(State& state, size_t index) noexcept
 {

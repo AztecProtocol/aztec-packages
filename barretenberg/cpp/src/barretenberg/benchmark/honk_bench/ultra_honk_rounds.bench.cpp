@@ -24,20 +24,18 @@ BBERG_PROFILE static void test_round_inner(State& state, honk::UltraProver& prov
     auto time_if_index = [&](size_t target_index, auto&& func) -> void {
         if (index == target_index) {
             state.ResumeTiming();
-            func();
+        }
+        func();
+        if (index == target_index) {
             state.PauseTiming();
-        } else {
-            func();
         }
     };
-    state.PauseTiming();
     time_if_index(PREAMBLE, [&] { prover.execute_preamble_round(); });
     time_if_index(WIRE_COMMITMENTS, [&] { prover.execute_wire_commitments_round(); });
     time_if_index(SORTED_LIST_ACCUMULATOR, [&] { prover.execute_sorted_list_accumulator_round(); });
     time_if_index(GRAND_PRODUCT_COMPUTATION, [&] { prover.execute_grand_product_computation_round(); });
     time_if_index(RELATION_CHECK, [&] { prover.execute_relation_check_rounds(); });
     time_if_index(ZEROMORPH, [&] { prover.execute_zeromorph_rounds(); });
-    state.ResumeTiming();
 }
 BBERG_PROFILE static void test_round(State& state, size_t index) noexcept
 {
