@@ -506,6 +506,7 @@ struct BlackBoxOp {
                  EcdsaSecp256r1,
                  SchnorrVerify,
                  Pedersen,
+                 PedersenHash,
                  FixedBaseScalarMul>
         value;
 
