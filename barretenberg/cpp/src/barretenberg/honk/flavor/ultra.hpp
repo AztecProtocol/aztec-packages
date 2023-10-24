@@ -53,14 +53,14 @@ class Ultra {
                                  proof_system::EllipticRelation<FF>,
                                  proof_system::AuxiliaryRelation<FF>>;
 
-    static constexpr size_t MAX_RELATION_LENGTH = get_max_relation_length<Relations>();
+    static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = get_max_partial_relation_length<Relations>();
     static constexpr size_t MAX_FULL_RELATION_LENGTH = get_max_full_relation_length<Relations>();
-    static_assert(MAX_RELATION_LENGTH == 6);
+    static_assert(MAX_PARTIAL_RELATION_LENGTH == 6);
     static_assert(MAX_FULL_RELATION_LENGTH == 12);
 
     // MAX_RANDOM_RELATION_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta` random
     // polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation length = 3
-    static constexpr size_t MAX_RANDOM_RELATION_LENGTH = MAX_RELATION_LENGTH + 1;
+    static constexpr size_t MAX_RANDOM_RELATION_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
     static constexpr size_t MAX_FULL_RANDOM_RELATION_LENGTH = MAX_FULL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
@@ -331,7 +331,7 @@ class Ultra {
     /**
      * @brief A container for univariates produced during the hot loop in sumcheck.
      */
-    using ExtendedEdges = ProverUnivariates<MAX_RELATION_LENGTH>;
+    using ExtendedEdges = ProverUnivariates<MAX_PARTIAL_RELATION_LENGTH>;
 
     /**
      * @brief A container for commitment labels.

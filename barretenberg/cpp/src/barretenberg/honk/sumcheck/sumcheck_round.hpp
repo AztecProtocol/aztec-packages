@@ -65,7 +65,7 @@ template <typename Flavor> class SumcheckProverRound {
     size_t round_size; // a power of 2
 
     static constexpr size_t NUM_RELATIONS = Flavor::NUM_RELATIONS;
-    static constexpr size_t MAX_RELATION_LENGTH = Flavor::MAX_RELATION_LENGTH;
+    static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = Flavor::MAX_PARTIAL_RELATION_LENGTH;
     static constexpr size_t MAX_RANDOM_RELATION_LENGTH = Flavor::MAX_RANDOM_RELATION_LENGTH;
 
     SumcheckTupleOfTuplesOfUnivariates univariate_accumulators;
@@ -93,7 +93,7 @@ template <typename Flavor> class SumcheckProverRound {
         size_t univariate_idx = 0; // TODO(https://github.com/AztecProtocol/barretenberg/issues/391) zip
         for (auto& poly : multivariates) {
             auto edge = barretenberg::Univariate<FF, 2>({ poly[edge_idx], poly[edge_idx + 1] });
-            extended_edges[univariate_idx] = edge.template extend_to<MAX_RELATION_LENGTH>();
+            extended_edges[univariate_idx] = edge.template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
             ++univariate_idx;
         }
     }

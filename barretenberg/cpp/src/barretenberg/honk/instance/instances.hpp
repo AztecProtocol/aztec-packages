@@ -12,7 +12,7 @@ template <typename Flavor_, size_t NUM_> struct ProverInstances_ {
 
     using ArrayType = std::array<std::shared_ptr<Instance>, NUM_>;
     // WORKTODO set this correctly or extract it
-    static constexpr size_t EXTENDED_LENGTH = Flavor::MAX_RELATION_LENGTH * NUM;
+    static constexpr size_t EXTENDED_LENGTH = Flavor::MAX_PARTIAL_RELATION_LENGTH * NUM;
     using RelationParameters = proof_system::RelationParameters<Univariate<FF, EXTENDED_LENGTH>>;
 
     ArrayType _data;
