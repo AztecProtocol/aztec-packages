@@ -217,6 +217,21 @@ template <typename Tuple, std::size_t Index = 0> static constexpr size_t get_max
 }
 
 /**
+ * @brief Recursive utility function to find max RELATION_LENGTH over tuple of Relations
+ *
+ */
+template <typename Tuple, std::size_t Index = 0> static constexpr size_t get_max_full_relation_length()
+{
+    if constexpr (Index >= std::tuple_size<Tuple>::value) {
+        return 0; // Return 0 when reach end of the tuple
+    } else {
+        constexpr size_t current_length = std::tuple_element<Index, Tuple>::type::FULL_RELATION_LENGTH;
+        constexpr size_t next_length = get_max_full_relation_length<Tuple, Index + 1>();
+        return (current_length > next_length) ? current_length : next_length;
+    }
+}
+
+/**
  * @brief Recursive utility function to construct a container for the subrelation accumulators of Protogalaxy folding.
  * @details The size of the outer tuple is equal to the number of relations. Each relation contributes an inner tuple of
  * univariates whose size is equal to the number of subrelations of the relation. The length of a univariate in an inner

@@ -22,11 +22,13 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     using RowEvaluations = typename Flavor::AllValues;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using Relations = typename Flavor::Relations;
+
     using BaseUnivariate = Univariate<FF, ProverInstances::NUM>;
-    using ExtendedUnivariate = Univariate<FF, (Flavor::MAX_RELATION_LENGTH - 1) * (ProverInstances::NUM - 1) + 1>;
+    using ExtendedUnivariate = Univariate<FF, (Flavor::MAX_FULL_RELATION_LENGTH - 1) * (ProverInstances::NUM - 1) + 1>;
     using RandomExtendedUnivariate =
-        Univariate<FF, (Flavor::MAX_RANDOM_RELATION_LENGTH - 1) * (ProverInstances::NUM - 1) + 1>;
+        Univariate<FF, (Flavor::MAX_FULL_RANDOM_RELATION_LENGTH - 1) * (ProverInstances::NUM - 1) + 1>;
     using ExtendedUnivariates = typename Flavor::template ProverUnivariates<ExtendedUnivariate::LENGTH>;
+
     using TupleOfTuplesOfUnivariates =
         typename Flavor::template ProtogalaxyTupleOfTuplesOfUnivariates<ProverInstances::NUM>;
     using RelationEvaluations = typename Flavor::TupleOfArraysOfValues;

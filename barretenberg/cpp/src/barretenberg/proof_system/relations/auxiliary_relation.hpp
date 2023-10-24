@@ -7,23 +7,46 @@ namespace proof_system {
 template <typename FF_> class AuxiliaryRelationImpl {
   public:
     using FF = FF_;
+    /*
+     * TODO(https://github.com/AztecProtocol/barretenberg/issues/757): Investigate optimizations.
+     * It seems that we could have:
+     *     static constexpr std::array<size_t, 6> SUBRELATION_LENGTHS{
+     *     5 // auxiliary sub-relation;
+     *     6 // ROM consistency sub-relation 1
+     *     6 // ROM consistency sub-relation 2
+     *     6 // RAM consistency sub-relation 1
+     *     5 // RAM consistency sub-relation 2
+     *     5 // RAM consistency sub-relation 3
+     * };
+     *
+     * and
+     *
+     *     static constexpr std::array<size_t, 6> PARAMETER_LENGTH_ADJUSTMENTS{
+     *     6, // auxiliary sub-relation
+     *     0, // ROM consistency sub-relation 1
+     *     0, // ROM consistency sub-relation 2
+     *     3, // RAM consistency sub-relation 1
+     *     0, // RAM consistency sub-relation 2
+     *     1  // RAM consistency sub-relation 3
+     * };
+     */
 
     static constexpr std::array<size_t, 6> SUBRELATION_LENGTHS{
-        6, // could be 5 // auxiliary sub-relation;
-        6, // could be 6 // ROM consistency sub-relation 1
-        6, // could be 6 // ROM consistency sub-relation 2
-        6, // could be 6 // RAM consistency sub-relation 1
-        6, // could be 5 // RAM consistency sub-relation 2
-        6  // could be 5 // RAM consistency sub-relation 3
+        6, // auxiliary sub-relation;
+        6, // ROM consistency sub-relation 1
+        6, // ROM consistency sub-relation 2
+        6, // RAM consistency sub-relation 1
+        6, // RAM consistency sub-relation 2
+        6  // RAM consistency sub-relation 3
     };
 
     static constexpr std::array<size_t, 6> PARAMETER_LENGTH_ADJUSTMENTS{
         6, // auxiliary sub-relation
-        0, // ROM consistency sub-relation 1
-        0, // ROM consistency sub-relation 2
-        3, // RAM consistency sub-relation 1
-        0, // RAM consistency sub-relation 2
-        2  // RAM consistency sub-relation 3
+        6, // ROM consistency sub-relation 1
+        6, // ROM consistency sub-relation 2
+        6, // RAM consistency sub-relation 1
+        6, // RAM consistency sub-relation 2
+        6  // RAM consistency sub-relation 3
     };
 
     /**
@@ -225,14 +248,15 @@ template <typename FF_> class AuxiliaryRelationImpl {
         auto index_delta = w_1_shift - w_1;
         auto record_delta = w_4_shift - w_4;
 
-        auto index_is_monotonically_increasing = index_delta * index_delta - index_delta; // 2
+        auto index_is_monotonically_increasing = index_delta * index_delta - index_delta; // deg 2
 
-        auto adjacent_values_match_if_adjacent_indices_match = (index_delta * FF(-1) + FF(1)) * record_delta; // 2
+        auto adjacent_values_match_if_adjacent_indices_match = (index_delta * FF(-1) + FF(1)) * record_delta; // deg 2
 
         std::get<1>(accumulators) +=
-            adjacent_values_match_if_adjacent_indices_match * (q_1 * q_2) * (q_aux * scaling_factor);            // 5
-        std::get<2>(accumulators) += index_is_monotonically_increasing * (q_1 * q_2) * (q_aux * scaling_factor); // 5
-        auto ROM_consistency_check_identity = memory_record_check * (q_1 * q_2); // 3 or 7
+            adjacent_values_match_if_adjacent_indices_match * (q_1 * q_2) * (q_aux * scaling_factor); // deg 5
+        std::get<2>(accumulators) +=
+            index_is_monotonically_increasing * (q_1 * q_2) * (q_aux * scaling_factor); // deg 5
+        auto ROM_consistency_check_identity = memory_record_check * (q_1 * q_2);        // deg 3 or 7
 
         /**
          * RAM Consistency Check
@@ -304,10 +328,10 @@ template <typename FF_> class AuxiliaryRelationImpl {
          * The complete RAM/ROM memory identity
          * Partial degree:
          */
-        auto memory_identity = ROM_consistency_check_identity;         // 3 or 6
-        memory_identity += RAM_timestamp_check_identity * (q_4 * q_1); // 4
-        memory_identity += memory_record_check * (q_m * q_1);          // 3 or 6
-        memory_identity += RAM_consistency_check_identity;             // 3 or 9
+        auto memory_identity = ROM_consistency_check_identity;         // deg 3 or 6
+        memory_identity += RAM_timestamp_check_identity * (q_4 * q_1); // deg 4
+        memory_identity += memory_record_check * (q_m * q_1);          // deg 3 or 6
+        memory_identity += RAM_consistency_check_identity;             // deg 3 or 9
 
         // (deg 3 or 9) + (deg 4) + (deg 3)
         auto auxiliary_identity = memory_identity + non_native_field_identity + limb_accumulator_identity;
