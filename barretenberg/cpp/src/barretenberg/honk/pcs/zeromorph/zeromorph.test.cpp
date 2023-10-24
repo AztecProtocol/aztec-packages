@@ -407,8 +407,8 @@ template <class Curve> class ZeroMorphWithConcatenationTest : public CommitmentT
                 batched_quotient, quotients, y_challenge, x_challenge);
 
             // Compute ZeroMorph identity polynomial Z partially evaluated at x
-            auto Z_x = ZeroMorphProver::compute_partially_evaluated_zeromorph_identity_polynomial_with_concatenations(
-                f_batched, g_batched, concatenation_groups_batched, quotients, v_evaluation, u_challenge, x_challenge);
+            auto Z_x = ZeroMorphProver::compute_partially_evaluated_zeromorph_identity_polynomial(
+                f_batched, g_batched, quotients, v_evaluation, u_challenge, x_challenge, concatenation_groups_batched);
 
             // Compute batched degree and ZM-identity quotient polynomial pi
             auto pi_polynomial = ZeroMorphProver::compute_batched_evaluation_and_degree_check_quotient(

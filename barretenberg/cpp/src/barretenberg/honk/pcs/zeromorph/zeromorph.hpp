@@ -173,21 +173,28 @@ template <typename Curve> class ZeroMorphProver_ {
      *
      *  Z_x = x * f_batched + g_batched - v * x * \Phi_n(x)
      *           - x * \sum_k (x^{2^k}\Phi_{n-k-1}(x^{2^{k-1}}) - u_k\Phi_{n-k}(x^{2^k})) * q_k
+     *           + concatentation_term
      *
      * where f_batched = \sum_{i=0}^{m-1}\rho^i*f_i, g_batched = \sum_{i=0}^{l-1}\rho^{m+i}*g_i
      *
+     * and concatenation_term = \sum_{i=0}^{concatenation_index}(x^{i * min_N + 1}concatenation_groups_batched_{i})
+     *
+     * @note The concatenation term arises from an implementation detail in the Goblin Translator and is not part of the
+     * conventional ZM protocol
      * @param input_polynomial
      * @param quotients
      * @param v_evaluation
      * @param x_challenge
      * @return Polynomial
      */
-    static Polynomial compute_partially_evaluated_zeromorph_identity_polynomial(Polynomial& f_batched,
-                                                                                Polynomial& g_batched,
-                                                                                std::vector<Polynomial>& quotients,
-                                                                                FF v_evaluation,
-                                                                                std::span<FF> u_challenge,
-                                                                                FF x_challenge)
+    static Polynomial compute_partially_evaluated_zeromorph_identity_polynomial(
+        Polynomial& f_batched,
+        Polynomial& g_batched,
+        std::vector<Polynomial>& quotients,
+        FF v_evaluation,
+        std::span<FF> u_challenge,
+        FF x_challenge,
+        std::vector<Polynomial> concatenation_groups_batched = {})
     {
         size_t N = f_batched.size();
         size_t log_N = quotients.size();
@@ -221,50 +228,19 @@ template <typename Curve> class ZeroMorphProver_ {
             result.add_scaled(quotients[k], scalar);
         }
 
-        return result;
-    }
-
-    /**
-     * @brief Compute partially evaluated zeromorph identity polynomial Z_x with concatenated polynomials
-     * @details Compute Z_x, where
-     *
-     *  Z_x = x * f_batched + g_batched + \sum_{i=0}^{concatenation_index}(
-     *  x^{i * min_N + 1}concatenation_groups_batched_{i}) - v * x * \Phi_n(x)
-     *           - x * \sum_k (x^{2^k}\Phi_{n-k-1}(x^{2^{k-1}}) - u_k\Phi_{n-k}(x^{2^k})) * q_k
-     *
-     * where f_batched = \sum_{i=0}^{m-1}\rho^i*f_i, g_batched = \sum_{i=0}^{l-1}\rho^{m+i}*g_i,
-     * concatenation_groups_batched_{j}=\sum{i=0}^{o-1}\rho{m+l+i}*polynomial_before_concatenation_{j}_{i}
-     *
-     * @param input_polynomial
-     * @param quotients
-     * @param v_evaluation
-     * @param x_challenge
-     * @return Polynomial
-     */
-    static Polynomial compute_partially_evaluated_zeromorph_identity_polynomial_with_concatenations(
-        Polynomial& f_batched,
-        Polynomial& g_batched,
-        std::vector<Polynomial>& concatenation_groups_batched,
-        std::vector<Polynomial>& quotients,
-        FF v_evaluation,
-        std::span<FF> u_challenge,
-        FF x_challenge)
-    {
-        size_t N = f_batched.size();
-        size_t MINICIRCUIT_N = N / concatenation_groups_batched.size();
-        auto x_to_minicircuit_N = x_challenge.pow(MINICIRCUIT_N); // power of x used to shift polynomials to the right
-
-        // Initialize Z_x with conventional ZM identity
-        auto result = compute_partially_evaluated_zeromorph_identity_polynomial(
-            f_batched, g_batched, quotients, v_evaluation, u_challenge, x_challenge);
-
-        // Add to Z_x the contribution:
+        // If necessary, add to Z_x the contribution related to concatenated polynomials:
         // \sum_{i=0}^{concatenation_index}(x^{i * min_n + 1}concatenation_groups_batched_{i}).
         // We are effectively reconstructing concatenated polynomials from their chunks now that we know x
-        auto running_shift = x_challenge;
-        for (size_t i = 0; i < concatenation_groups_batched.size(); i++) {
-            result.add_scaled(concatenation_groups_batched[i], running_shift);
-            running_shift *= x_to_minicircuit_N;
+        // Note: this is an implementation detail related to Goblin Translator and is not part of the standard protocol.
+        if (!concatenation_groups_batched.empty()) {
+            size_t MINICIRCUIT_N = N / concatenation_groups_batched.size();
+            auto x_to_minicircuit_N =
+                x_challenge.pow(MINICIRCUIT_N); // power of x used to shift polynomials to the right
+            auto running_shift = x_challenge;
+            for (size_t i = 0; i < concatenation_groups_batched.size(); i++) {
+                result.add_scaled(concatenation_groups_batched[i], running_shift);
+                running_shift *= x_to_minicircuit_N;
+            }
         }
 
         return result;
