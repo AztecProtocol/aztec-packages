@@ -24,7 +24,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     using Relations = typename Flavor::Relations;
 
     using BaseUnivariate = Univariate<FF, ProverInstances::NUM>;
-    using ExtendedUnivariate = Univariate<FF, (Flavor::MAX_FULL_RELATION_LENGTH - 1) * (ProverInstances::NUM - 1) + 1>;
+    using ExtendedUnivariate = Univariate<FF, (Flavor::MAX_TOTAL_RELATION_LENGTH - 1) * (ProverInstances::NUM - 1) + 1>;
     using RandomExtendedUnivariate =
         Univariate<FF, (Flavor::MAX_FULL_RANDOM_RELATION_LENGTH - 1) * (ProverInstances::NUM - 1) + 1>;
     using ExtendedUnivariates = typename Flavor::template ProverUnivariates<ExtendedUnivariate::LENGTH>;
