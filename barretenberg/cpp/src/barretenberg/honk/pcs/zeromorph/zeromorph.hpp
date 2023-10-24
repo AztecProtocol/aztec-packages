@@ -251,47 +251,20 @@ template <typename Curve> class ZeroMorphProver_ {
         FF x_challenge)
     {
         size_t N = f_batched.size();
-        size_t log_N = quotients.size();
         size_t MINICIRCUIT_N = N / concatenation_groups_batched.size();
-        // Initialize Z_x with x * \sum_{i=0}^{m-1} f_i + \sum_{i=0}^{l-1} g_i
-        auto result = g_batched;
-        result.add_scaled(f_batched, x_challenge);
+        auto x_to_minicircuit_N = x_challenge.pow(MINICIRCUIT_N); // power of x used to shift polynomials to the right
 
-        // Compute the power of x used for shifting polynomials to the right
-        auto x_to_minicircuit_N = x_challenge.pow(MINICIRCUIT_N);
+        // Initialize Z_x with conventional ZM identity
+        auto result = compute_partially_evaluated_zeromorph_identity_polynomial(
+            f_batched, g_batched, quotients, v_evaluation, u_challenge, x_challenge);
+
+        // Add to Z_x the contribution:
+        // \sum_{i=0}^{concatenation_index}(x^{i * min_n + 1}concatenation_groups_batched_{i}).
+        // We are effectively reconstructing concatenated polynomials from their chunks now that we know x
         auto running_shift = x_challenge;
-        // clang-format off
-        // Make Z_x = x * f_batched + g_batched + \sum_{i=0}^{concatenation_index}(x^{i * min_n + 1}concatenation_groups_batched_{i})
-        // We are effectively reconstructing concatenated polynomials from their chunks now that we now x
-        // clang-format on
         for (size_t i = 0; i < concatenation_groups_batched.size(); i++) {
             result.add_scaled(concatenation_groups_batched[i], running_shift);
             running_shift *= x_to_minicircuit_N;
-        }
-
-        // Compute Z_x -= v * x * \Phi_n(x)
-        auto phi_numerator = x_challenge.pow(N) - 1; // x^N - 1
-        auto phi_n_x = phi_numerator / (x_challenge - 1);
-        result[0] -= v_evaluation * x_challenge * phi_n_x;
-
-        // Add contribution from q_k polynomials
-        auto x_power = x_challenge; // x^{2^k}
-        for (size_t k = 0; k < log_N; ++k) {
-            x_power = x_challenge.pow(1 << k); // x^{2^k}
-
-            // \Phi_{n-k-1}(x^{2^{k + 1}})
-            auto phi_term_1 = phi_numerator / (x_challenge.pow(1 << (k + 1)) - 1);
-
-            // \Phi_{n-k}(x^{2^k})
-            auto phi_term_2 = phi_numerator / (x_challenge.pow(1 << k) - 1);
-
-            // x^{2^k} * \Phi_{n-k-1}(x^{2^{k+1}}) - u_k *  \Phi_{n-k}(x^{2^k})
-            auto scalar = x_power * phi_term_1 - u_challenge[k] * phi_term_2;
-
-            scalar *= x_challenge;
-            scalar *= FF(-1);
-
-            result.add_scaled(quotients[k], scalar);
         }
 
         return result;
