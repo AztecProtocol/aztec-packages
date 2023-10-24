@@ -36,7 +36,7 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
         X_LO_Y_HI,
         X_HI_Z_1,
         Y_LO_Z_2,
-        /*P.xₗₒ split into 2 68 bit limbs*/
+        /*P.xₗₒ split into 2 NUM_LIMB_BITS bit limbs*/
         P_X_LOW_LIMBS,
         /*Low limbs split further into smaller chunks for range constraints*/
         P_X_LOW_LIMBS_RANGE_CONSTRAINT_0,
@@ -45,7 +45,7 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
         P_X_LOW_LIMBS_RANGE_CONSTRAINT_3,
         P_X_LOW_LIMBS_RANGE_CONSTRAINT_4,
         P_X_LOW_LIMBS_RANGE_CONSTRAINT_TAIL,
-        /*P.xₕᵢ split into 2 68 bit limbs*/
+        /*P.xₕᵢ split into 2 NUM_LIMB_BITS bit limbs*/
         P_X_HIGH_LIMBS,
         /*High limbs split into chunks for range constraints*/
         P_X_HIGH_LIMBS_RANGE_CONSTRAINT_0,
@@ -55,7 +55,7 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
         P_X_HIGH_LIMBS_RANGE_CONSTRAINT_4,
         P_X_HIGH_LIMBS_RANGE_CONSTRAINT_TAIL, // The tail also contains some leftover values from  relation wide limb
                                               // range cosntraints
-        /*P.yₗₒ split into 2 68 bit limbs*/
+        /*P.yₗₒ split into 2 NUM_LIMB_BITS bit limbs*/
         P_Y_LOW_LIMBS,
         /*Low limbs split into chunks for range constraints*/
         P_Y_LOW_LIMBS_RANGE_CONSTRAINT_0,
@@ -64,7 +64,7 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
         P_Y_LOW_LIMBS_RANGE_CONSTRAINT_3,
         P_Y_LOW_LIMBS_RANGE_CONSTRAINT_4,
         P_Y_LOW_LIMBS_RANGE_CONSTRAINT_TAIL,
-        /*P.yₕᵢ split into 2 68 bit limbs*/
+        /*P.yₕᵢ split into 2 NUM_LIMB_BITS bit limbs*/
         P_Y_HIGH_LIMBS,
         /*High limbs split into chunks for range constraints*/
         P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_0,
@@ -92,8 +92,8 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
         Z_HIGH_LIMBS_RANGE_CONSTRAINT_3,
         Z_HIGH_LIMBS_RANGE_CONSTRAINT_4,
         Z_HIGH_LIMBS_RANGE_CONSTRAINT_TAIL,
-        /* Contain 68-bit limbs of current and previous accumulator (previous at higher indices because of the nuances
-           of KZG commitment) */
+        /* Contain NUM_LIMB_BITS-bit limbs of current and previous accumulator (previous at higher indices because of
+           the nuances of KZG commitment) */
         ACCUMULATORS_BINARY_LIMBS_0,
         ACCUMULATORS_BINARY_LIMBS_1,
         ACCUMULATORS_BINARY_LIMBS_2,
@@ -241,8 +241,8 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
         /*All precomputed polynomials*/
         LAGRANGE_FIRST,
         LAGRANGE_LAST,
-        LAGRANGE_ODD,
-        LAGRANGE_EVEN,
+        LAGRANGE_ODD_IN_MINICIRCUIT,
+        LAGRANGE_EVEN_IN_MINICIRCUIT,
         LAGRANGE_SECOND,
         LAGRANGE_SECOND_TO_LAST_IN_MINICIRCUIT,
         ORDERED_EXTRA_RANGE_CONSTRAINTS_NUMERATOR,
@@ -266,7 +266,10 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
 
     // The size of the circuit which is filled with non-zero values for most polynomials. Most relations (everything
     // except for Permutation and GenPermSort) can be evaluated just on the first chunk
+    // It is also the only parameter that can be changed without updating relations or structures in the flavor
     static constexpr size_t MINI_CIRCUIT_SIZE = mini_circuit_size;
+
+    // None of this parameters can be changed
 
     // How many mini_circuit_size polynomials are concatenated in one concatenated_*
     static constexpr size_t CONCATENATION_INDEX = 16;
@@ -290,6 +293,7 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
     static constexpr auto NEGATIVE_MODULUS_LIMBS = CircuitBuilder::NEGATIVE_MODULUS_LIMBS;
 
     // Number of bits in a binary limb
+    // This is not a configurable value. Relations are sepcifically designed for it to be 68
     static constexpr size_t NUM_LIMB_BITS = CircuitBuilder::NUM_LIMB_BITS;
 
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
@@ -333,8 +337,9 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
       public:
         DataType& lagrange_first = std::get<0>(this->_data);
         DataType& lagrange_last = std::get<1>(this->_data);
-        DataType& lagrange_odd = std::get<2>(this->_data);
-        DataType& lagrange_even = std::get<3>(this->_data);
+        // TODO(#758): Check if one of these can be replaced by shifts
+        DataType& lagrange_odd_in_minicircuit = std::get<2>(this->_data);
+        DataType& lagrange_even_in_minicircuit = std::get<3>(this->_data);
         DataType& lagrange_second = std::get<4>(this->_data);
         DataType& lagrange_second_to_last_in_minicircuit = std::get<5>(this->_data);
         DataType& ordered_extra_range_constraints_numerator = std::get<6>(this->_data);
@@ -820,8 +825,8 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
         DataType& z_perm_shift = std::get<176>(this->_data);
         DataType& lagrange_first = std::get<177>(this->_data);
         DataType& lagrange_last = std::get<178>(this->_data);
-        DataType& lagrange_odd = std::get<179>(this->_data);
-        DataType& lagrange_even = std::get<180>(this->_data);
+        DataType& lagrange_odd_in_minicircuit = std::get<179>(this->_data);
+        DataType& lagrange_even_in_minicircuit = std::get<180>(this->_data);
         DataType& lagrange_second = std::get<181>(this->_data);
         DataType& lagrange_second_to_last_in_minicircuit = std::get<182>(this->_data);
         DataType& ordered_extra_range_constraints_numerator = std::get<183>(this->_data);
@@ -1119,8 +1124,8 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
 
                 lagrange_first,
                 lagrange_last,
-                lagrange_odd,
-                lagrange_even,
+                lagrange_odd_in_minicircuit,
+                lagrange_even_in_minicircuit,
                 lagrange_second,
                 lagrange_second_to_last_in_minicircuit,
                 ordered_extra_range_constraints_numerator,
@@ -1600,8 +1605,8 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
             // "__" are only used for debugging
             this->lagrange_first = "__LAGRANGE_FIRST";
             this->lagrange_last = "__LAGRANGE_LAST";
-            this->lagrange_odd = "__LAGRANGE_ODD";
-            this->lagrange_even = "__LAGRANGE_EVEN";
+            this->lagrange_odd_in_minicircuit = "__LAGRANGE_ODD_IN_MINICIRCUIT";
+            this->lagrange_even_in_minicircuit = "__LAGRANGE_EVEN_IN_MINICIRCUIT";
             this->lagrange_second = "__LAGRANGE_SECOND";
             this->lagrange_second_to_last_in_minicircuit = "__LAGRANGE_SECOND_TO_LAST_IN_MINICIRCUIT";
             this->ordered_extra_range_constraints_numerator = "__ORDERED_EXTRA_RANGE_CONSTRAINTS_NUMERATOR";
@@ -1616,8 +1621,8 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
             static_cast<void>(verification_key);
             this->lagrange_first = verification_key->lagrange_first;
             this->lagrange_last = verification_key->lagrange_last;
-            this->lagrange_odd = verification_key->lagrange_odd;
-            this->lagrange_even = verification_key->lagrange_even;
+            this->lagrange_odd_in_minicircuit = verification_key->lagrange_odd_in_minicircuit;
+            this->lagrange_even_in_minicircuit = verification_key->lagrange_even_in_minicircuit;
             this->lagrange_second = verification_key->lagrange_second;
             this->lagrange_second_to_last_in_minicircuit = verification_key->lagrange_second_to_last_in_minicircuit;
             this->ordered_extra_range_constraints_numerator =

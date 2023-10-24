@@ -173,17 +173,24 @@ void compute_permutation_grand_products(std::shared_ptr<typename Flavor::Proving
  * commitments. This method creates concatenated version of polynomials we won't need to commit to. Used in Goblin
  * Translator
  *
+ * Concatenation in Goblin Translator mean the action of constructing a new Polynomial from existing ones by writing
+ * their multilinear representations sequentially. For example, if we have f(x₁,x₂)={0, 1, 0, 1} and
+ * g(x₁,x₂)={1, 0, 0, 1} then h(x₁ ,x₂ ,x₃ )=concatenation(f(x₁,x₂),g(x₁,x₂))={0, 1, 0, 1, 1, 0, 0, 1}
+ *
+ * Since we commit to multilinear polynomials with KZG, which treats evaluations as monomial coefficients, in univariate
+ * form h(x)=f(x)+x⁴⋅g(x)Fr
  * @tparam Flavor
  * @tparam StorageHandle
  * @param proving_key Can be a proving_key or an AllEntities object
  */
 template <typename Flavor, typename StorageHandle> void compute_concatenated_polynomials(StorageHandle* proving_key)
 {
+    using PolynomialHandle = typename Flavor::PolynomialHandle;
     // Concatenation groups are vectors of polynomials that are concatenated together
-    auto concatenation_groups = proving_key->get_concatenation_groups();
+    std::vector<std::vector<PolynomialHandle>> concatenation_groups = proving_key->get_concatenation_groups();
 
     // Resulting concatenated polynomials
-    auto targets = proving_key->get_concatenated_constraints();
+    std::vector<PolynomialHandle> targets = proving_key->get_concatenated_constraints();
 
     // A function that produces 1 concatenated polynomial
     // TODO(#756): This can be rewritten to use more cores. Currently uses at maximum the number of concatenated
@@ -273,7 +280,6 @@ void compute_goblin_translator_range_constraint_ordered_polynomials(StorageHandl
         // Get the group and the main target vector
         auto my_group = concatenation_groups[i];
         auto& current_vector = ordered_vectors_uint[i];
-        current_vector.resize(Flavor::FULL_CIRCUIT_SIZE);
 
         // Calculate how much space there is for values from the original polynomials
         auto free_space_before_runway = full_circuit_size - sorted_elements_count;
@@ -306,7 +312,10 @@ void compute_goblin_translator_range_constraint_ordered_polynomials(StorageHandl
         std::advance(starting_write_offset, free_space_before_runway);
         std::copy(sorted_elements.cbegin(), sorted_elements.cend(), starting_write_offset);
 
-        // Sort the polynomial in nondescending order
+        // Sort the polynomial in nondescending order. We sort using vector with size_t elements for 2 reasons:
+        // 1. It is faster to sort size_t
+        // 2. Comparison operators for finite fields are operating on internal form, so we'd have to convert them from
+        // Montgomery
         std::sort(current_vector.begin(), current_vector.end());
 
         // Copy the values into the actual polynomial
