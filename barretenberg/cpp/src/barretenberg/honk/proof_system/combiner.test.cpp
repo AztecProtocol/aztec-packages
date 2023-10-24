@@ -129,9 +129,10 @@ TEST(Protogalaxy, CombinerOn2Instances)
             relation value:
                       0    0    0    0    0    0    0              0    0    6   18   36   60   90      */
 
-            [[maybe_unused]] auto result = prover.compute_combiner(instances, pow_univariate, alpha);
-            // auto expected_result = barretenberg::Univariate<FF, 7>(std::array<FF, 7>{ 0, 0, 36, 144, 360, 720, 1260
-            // }); EXPECT_EQ(result, expected_result);
+            auto result = prover.compute_combiner(instances, pow_univariate, alpha);
+            auto expected_result = barretenberg::Univariate<FF, 13>(
+                std::array<FF, 13>{ 0, 0, 36, 144, 360, 720, 1260, 2016, 3024, 4320, 5940, 7920, 10296 });
+            EXPECT_EQ(result, expected_result);
         }
     };
     run_test(true);
