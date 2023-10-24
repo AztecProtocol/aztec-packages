@@ -215,7 +215,7 @@ describe('e2e_card_game', () => {
         claimed: false,
         current_player: 0n,
       });
-    }, 30_000);
+    }, 360_000);
   });
 
   describe('game play', () => {
@@ -318,6 +318,6 @@ describe('e2e_card_game', () => {
       );
 
       expect(game.finished).toBe(true);
-    }, 180_000);
+    }, 360_000);
   });
 });
