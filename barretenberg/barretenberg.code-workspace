@@ -156,6 +156,7 @@
             "-g"
         ],
         "cmake.useCMakePresets": "auto",
-        "editor.inlayHints.enabled": "offUnlessPressed"
+        "editor.inlayHints.enabled": "offUnlessPressed",
+        "git.detectSubmodules": false
     },
 }
