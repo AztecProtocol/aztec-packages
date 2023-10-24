@@ -166,7 +166,7 @@ template <typename Flavor> class SumcheckProverRound {
         }
         // Batch the univariate contributions from each sub-relation to obtain the round univariate
         return Utils::template batch_over_relations<barretenberg::Univariate<FF, MAX_RANDOM_RELATION_LENGTH>>(
-            univariate_accumulators, alpha, pow_univariate);
+            univariate_accumulators, alpha, pow_univariate.zeta_pow);
     }
 
   private:

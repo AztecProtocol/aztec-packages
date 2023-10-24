@@ -123,11 +123,11 @@ template <typename Flavor> class RelationUtils {
      */
     template <typename ExtendedUnivariate, typename OfTuplesOfUnivariates>
     static void extend_and_batch_univariates(const OfTuplesOfUnivariates& tuple,
-                                             const PowUnivariate<FF>& pow_univariate,
+                                             const FF zeta,
                                              ExtendedUnivariate& result)
     {
         // Random poly R(X) = (1-X) + X.zeta_pow
-        auto random_polynomial = Univariate<FF, 2>({ 1, pow_univariate.zeta_pow });
+        auto random_polynomial = Univariate<FF, 2>({ 1, zeta });
         auto extended_random_polynomial = random_polynomial.template extend_to<ExtendedUnivariate::LENGTH>();
 
         auto extend_and_sum = [&]<size_t relation_idx, size_t subrelation_idx, typename Element>(Element& element) {
@@ -141,6 +141,7 @@ template <typename Flavor> class RelationUtils {
                 result += extended * extended_random_polynomial;
             } else {
                 // if subrelation is pure sum over hypercube, don't multiply by random polynomial
+                // make these comments more relevant
                 result += extended;
             }
         };
@@ -154,13 +155,13 @@ template <typename Flavor> class RelationUtils {
     template <typename ExtendedUnivariate, typename ContainerOverSubrelations>
     static ExtendedUnivariate batch_over_relations(ContainerOverSubrelations& univariate_accumulators,
                                                    const FF& challenge,
-                                                   const PowUnivariate<FF>& pow_univariate)
+                                                   const FF& zeta)
     {
         FF running_challenge = 1;
         scale_univariates(univariate_accumulators, challenge, running_challenge);
 
         auto result = ExtendedUnivariate(0);
-        extend_and_batch_univariates(univariate_accumulators, pow_univariate, result);
+        extend_and_batch_univariates(univariate_accumulators, zeta, result);
 
         // Reset all univariate accumulators to 0 before beginning accumulation in the next round
         zero_univariates(univariate_accumulators);

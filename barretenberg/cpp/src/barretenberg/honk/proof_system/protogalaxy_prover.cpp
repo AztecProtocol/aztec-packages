@@ -79,8 +79,7 @@ ProverFoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverI
     // compute \vec{\beta*}
     // sanity check this is correc
 
-    // auto combiner = compute_combiner(instances, accumulator->relation_parameters, const PowUnivariate<typename
-    // Flavor::FF> &pow_univariate, alpha)
+    auto combiner = compute_combiner(instances, accumulator->relation_parameters, pow_betas_star, alpha);
 
     // auto vanishing_polynomial_at_challenge = combiner_challenge * (combiner_challenge - FF(1));
     // auto lagrange_0_at_challenge = FF(1) - combiner_challenge;

@@ -290,7 +290,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         }
         // Batch the univariate contributions from each sub-relation to obtain the round univariate
         return Utils::template batch_over_relations<RandomExtendedUnivariate>(
-            univariate_accumulators, alpha, pow_univariate);
+            univariate_accumulators, alpha, FF(1)); // not sure what this should be, should it be 1?????
     }
 };
 
