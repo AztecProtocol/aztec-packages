@@ -2204,7 +2204,7 @@ inline BlackBoxFuncCall::PedersenHash BlackBoxFuncCall::PedersenHash::bincodeDes
     auto deserializer = serde::BincodeDeserializer(input);
     auto value = serde::Deserializable<BlackBoxFuncCall::PedersenHash>::deserialize(deserializer);
     if (deserializer.get_buffer_offset() < input.size()) {
-        throw serde::deserialization_error("Some input bytes were not read");
+        throw_or_abort("Some input bytes were not read");
     }
     return value;
 }
@@ -3209,7 +3209,7 @@ inline BlackBoxOp::PedersenHash BlackBoxOp::PedersenHash::bincodeDeserialize(std
     auto deserializer = serde::BincodeDeserializer(input);
     auto value = serde::Deserializable<BlackBoxOp::PedersenHash>::deserialize(deserializer);
     if (deserializer.get_buffer_offset() < input.size()) {
-        throw serde::deserialization_error("Some input bytes were not read");
+        throw_or_abort("Some input bytes were not read");
     }
     return value;
 }
