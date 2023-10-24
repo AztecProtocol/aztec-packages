@@ -17,17 +17,15 @@ enum {
     SIXTH_BATCH_OPEN
 };
 
-BBERG_PROFILE static void plonk_pass(
+BBERG_PROFILE static void plonk_round(
     State& state, plonk::UltraProver& prover, size_t target_index, size_t index, auto&& lambda) noexcept
 {
     if (index == target_index) {
         state.ResumeTiming();
-        lambda();
-        state.PauseTiming();
-    } else {
-        lambda();
     }
+    lambda();
     prover.queue.process_queue();
+    state.PauseTiming();
 }
 /**
  * @details Benchmark ultraplonk by performing all the rounds, but only measuring one.
@@ -40,13 +38,13 @@ BBERG_PROFILE static void plonk_pass(
 BBERG_PROFILE static void test_round_inner(State& state, plonk::UltraProver& prover, size_t index) noexcept
 {
     state.PauseTiming();
-    plonk_pass(state, prover, PREAMBLE, index, [&] { prover.execute_preamble_round(); });
-    plonk_pass(state, prover, FIRST_WIRE_COMMITMENTS, index, [&] { prover.execute_first_round(); });
-    plonk_pass(state, prover, SECOND_FIAT_SHAMIR_ETA, index, [&] { prover.execute_second_round(); });
-    plonk_pass(state, prover, THIRD_FIAT_SHAMIR_BETA_GAMMA, index, [&] { prover.execute_third_round(); });
-    plonk_pass(state, prover, FOURTH_FIAT_SHAMIR_ALPHA_AND_COMMIT, index, [&] { prover.execute_fourth_round(); });
-    plonk_pass(state, prover, FIFTH_COMPUTE_QUOTIENT_EVALUTION, index, [&] { prover.execute_fifth_round(); });
-    plonk_pass(state, prover, SIXTH_BATCH_OPEN, index, [&] { prover.execute_sixth_round(); });
+    plonk_round(state, prover, PREAMBLE, index, [&] { prover.execute_preamble_round(); });
+    plonk_round(state, prover, FIRST_WIRE_COMMITMENTS, index, [&] { prover.execute_first_round(); });
+    plonk_round(state, prover, SECOND_FIAT_SHAMIR_ETA, index, [&] { prover.execute_second_round(); });
+    plonk_round(state, prover, THIRD_FIAT_SHAMIR_BETA_GAMMA, index, [&] { prover.execute_third_round(); });
+    plonk_round(state, prover, FOURTH_FIAT_SHAMIR_ALPHA_AND_COMMIT, index, [&] { prover.execute_fourth_round(); });
+    plonk_round(state, prover, FIFTH_COMPUTE_QUOTIENT_EVALUTION, index, [&] { prover.execute_fifth_round(); });
+    plonk_round(state, prover, SIXTH_BATCH_OPEN, index, [&] { prover.execute_sixth_round(); });
     state.ResumeTiming();
 }
 BBERG_PROFILE static void test_round(State& state, size_t index) noexcept
@@ -55,8 +53,8 @@ BBERG_PROFILE static void test_round(State& state, size_t index) noexcept
     for (auto _ : state) {
         plonk::UltraComposer composer;
         // TODO(AD) benchmark both sparse and dense circuits?
-        plonk::UltraProver prover =
-            bench_utils::get_prover(composer, &bench_utils::generate_keccak_test_circuit<UltraCircuitBuilder>, 1);
+        plonk::UltraProver prover = bench_utils::get_prover(
+            composer, &bench_utils::generate_ecdsa_verification_test_circuit<UltraCircuitBuilder>, 10);
         test_round_inner(state, prover, index);
     }
 }
@@ -70,9 +68,9 @@ BBERG_PROFILE static void test_round(State& state, size_t index) noexcept
 // Fast rounds take a long time to benchmark because of how we compute statistical significance.
 // Limit to one iteration so we don't spend a lot of time redoing full proofs just to measure this part.
 ROUND_BENCHMARK(PREAMBLE)->Iterations(1);
-ROUND_BENCHMARK(FIRST_WIRE_COMMITMENTS)->Iterations(1);
-ROUND_BENCHMARK(SECOND_FIAT_SHAMIR_ETA)->Iterations(1);
-ROUND_BENCHMARK(THIRD_FIAT_SHAMIR_BETA_GAMMA)->Iterations(1);
+ROUND_BENCHMARK(FIRST_WIRE_COMMITMENTS);
+ROUND_BENCHMARK(SECOND_FIAT_SHAMIR_ETA);
+ROUND_BENCHMARK(THIRD_FIAT_SHAMIR_BETA_GAMMA);
 ROUND_BENCHMARK(FOURTH_FIAT_SHAMIR_ALPHA_AND_COMMIT);
 ROUND_BENCHMARK(FIFTH_COMPUTE_QUOTIENT_EVALUTION);
 ROUND_BENCHMARK(SIXTH_BATCH_OPEN);
