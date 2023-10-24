@@ -1,4 +1,5 @@
-import { PrivateCallStackItem, PublicCallRequest } from '@aztec/circuits.js';
+import { CircuitsWasm, PrivateCallStackItem, PublicCallRequest } from '@aztec/circuits.js';
+import { pedersenCompressWithHashIndex } from '@aztec/circuits.js/barretenberg';
 import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -21,7 +22,7 @@ export interface NoteData {
   innerNoteHash: Fr;
   /** The corresponding nullifier of the note. Undefined for pending notes. */
   siloedNullifier?: Fr;
-  /** The note's leaf index in the private data tree. Undefined for pending notes. */
+  /** The note's leaf index in the note hash tree. Undefined for pending notes. */
   index?: bigint;
 }
 
@@ -72,7 +73,7 @@ export abstract class TypedOracle {
     throw new Error('Not available.');
   }
 
-  getPublicKey(_address: AztecAddress): Promise<CompleteAddress> {
+  getCompleteAddress(_address: AztecAddress): Promise<CompleteAddress> {
     throw new Error('Not available.');
   }
 
@@ -151,5 +152,15 @@ export abstract class TypedOracle {
     _argsHash: Fr,
   ): Promise<PublicCallRequest> {
     throw new Error('Not available.');
+  }
+
+  async perdersenHash(inputs: Fr[], hashIndex: number): Promise<Fr> {
+    const wasm = await CircuitsWasm.get();
+    const hash = pedersenCompressWithHashIndex(
+      wasm,
+      inputs.map(i => i.toBuffer()),
+      hashIndex,
+    );
+    return Fr.fromBuffer(hash);
   }
 }

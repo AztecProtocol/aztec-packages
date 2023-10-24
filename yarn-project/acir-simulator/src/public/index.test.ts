@@ -6,7 +6,7 @@ import {
   HistoricBlockData,
   L1_TO_L2_MSG_TREE_HEIGHT,
 } from '@aztec/circuits.js';
-import { pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
+import { pedersenCompressInputs } from '@aztec/circuits.js/barretenberg';
 import { FunctionArtifact, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -303,8 +303,8 @@ describe('ACIR public execution simulator', () => {
     beforeEach(async () => {
       contractAddress = AztecAddress.random();
       functionData = new FunctionData(FunctionSelector.empty(), false, false, false);
-      amount = new Fr(140);
-      params = [amount, Fr.random()];
+      amount = new Fr(1);
+      params = [amount, new Fr(1)];
       wasm = await CircuitsWasm.get();
     });
 
@@ -335,15 +335,15 @@ describe('ACIR public execution simulator', () => {
       // Assert the commitment was created
       expect(result.newCommitments.length).toEqual(1);
 
-      const expectedNoteHash = pedersenPlookupCommitInputs(wasm, [amount.toBuffer(), secretHash.toBuffer()]);
+      const expectedNoteHash = pedersenCompressInputs(wasm, [amount.toBuffer(), secretHash.toBuffer()]);
       const storageSlot = new Fr(5); // for pending_shields
-      const expectedInnerNoteHash = pedersenPlookupCommitInputs(wasm, [storageSlot.toBuffer(), expectedNoteHash]);
+      const expectedInnerNoteHash = pedersenCompressInputs(wasm, [storageSlot.toBuffer(), expectedNoteHash]);
       expect(result.newCommitments[0].toBuffer()).toEqual(expectedInnerNoteHash);
     });
 
     it('Should be able to create a L2 to L1 message from the public context', async () => {
       const createL2ToL1MessagePublicArtifact = TestContractArtifact.functions.find(
-        f => f.name === 'createL2ToL1MessagePublic',
+        f => f.name === 'create_l2_to_l1_message_public',
       )!;
       const args = encodeArguments(createL2ToL1MessagePublicArtifact, params);
 
@@ -365,7 +365,7 @@ describe('ACIR public execution simulator', () => {
       // Assert the l2 to l1 message was created
       expect(result.newL2ToL1Messages.length).toEqual(1);
 
-      const expectedNewMessageValue = pedersenPlookupCommitInputs(
+      const expectedNewMessageValue = pedersenCompressInputs(
         wasm,
         params.map(a => a.toBuffer()),
       );
@@ -429,7 +429,7 @@ describe('ACIR public execution simulator', () => {
 
     it('Should be able to create a nullifier from the public context', async () => {
       const createNullifierPublicArtifact = TestContractArtifact.functions.find(
-        f => f.name === 'createNullifierPublic',
+        f => f.name === 'create_nullifier_public',
       )!;
 
       const args = encodeArguments(createNullifierPublicArtifact, params);
@@ -452,7 +452,7 @@ describe('ACIR public execution simulator', () => {
       // Assert the l2 to l1 message was created
       expect(result.newNullifiers.length).toEqual(1);
 
-      const expectedNewMessageValue = pedersenPlookupCommitInputs(
+      const expectedNewMessageValue = pedersenCompressInputs(
         wasm,
         params.map(a => a.toBuffer()),
       );

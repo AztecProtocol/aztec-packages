@@ -40,7 +40,7 @@ export class ViewDataOracle extends TypedOracle {
    * @param address - Address to fetch the complete address for.
    * @returns A complete address associated with the input address.
    */
-  public getPublicKey(address: AztecAddress): Promise<CompleteAddress> {
+  public getCompleteAddress(address: AztecAddress): Promise<CompleteAddress> {
     return this.db.getCompleteAddress(address);
   }
 
@@ -64,7 +64,7 @@ export class ViewDataOracle extends TypedOracle {
    *
    * Check for pending notes with matching address/slot.
    * Real notes coming from DB will have a leafIndex which
-   * represents their index in the private data tree.
+   * represents their index in the note hash tree.
    *
    * @param contractAddress - The contract address.
    * @param storageSlot - The storage slot.

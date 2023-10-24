@@ -34,6 +34,7 @@ import {
   MembershipWitness4,
   MembershipWitness8,
   MembershipWitness16,
+  MembershipWitness20,
   MergeRollupInputs,
   NativeAggregationState,
   NewContractData,
@@ -691,7 +692,7 @@ export function fromCombinedAccumulatedData(o: CombinedAccumulatedData): Msgpack
 }
 
 interface MsgpackHistoricBlockData {
-  private_data_tree_root: Buffer;
+  note_hash_tree_root: Buffer;
   nullifier_tree_root: Buffer;
   contract_tree_root: Buffer;
   l1_to_l2_messages_tree_root: Buffer;
@@ -702,8 +703,8 @@ interface MsgpackHistoricBlockData {
 }
 
 export function toHistoricBlockData(o: MsgpackHistoricBlockData): HistoricBlockData {
-  if (o.private_data_tree_root === undefined) {
-    throw new Error('Expected private_data_tree_root in HistoricBlockData deserialization');
+  if (o.note_hash_tree_root === undefined) {
+    throw new Error('Expected note_hash_tree_root in HistoricBlockData deserialization');
   }
   if (o.nullifier_tree_root === undefined) {
     throw new Error('Expected nullifier_tree_root in HistoricBlockData deserialization');
@@ -727,7 +728,7 @@ export function toHistoricBlockData(o: MsgpackHistoricBlockData): HistoricBlockD
     throw new Error('Expected global_variables_hash in HistoricBlockData deserialization');
   }
   return new HistoricBlockData(
-    Fr.fromBuffer(o.private_data_tree_root),
+    Fr.fromBuffer(o.note_hash_tree_root),
     Fr.fromBuffer(o.nullifier_tree_root),
     Fr.fromBuffer(o.contract_tree_root),
     Fr.fromBuffer(o.l1_to_l2_messages_tree_root),
@@ -739,8 +740,8 @@ export function toHistoricBlockData(o: MsgpackHistoricBlockData): HistoricBlockD
 }
 
 export function fromHistoricBlockData(o: HistoricBlockData): MsgpackHistoricBlockData {
-  if (o.privateDataTreeRoot === undefined) {
-    throw new Error('Expected privateDataTreeRoot in HistoricBlockData serialization');
+  if (o.noteHashTreeRoot === undefined) {
+    throw new Error('Expected noteHashTreeRoot in HistoricBlockData serialization');
   }
   if (o.nullifierTreeRoot === undefined) {
     throw new Error('Expected nullifierTreeRoot in HistoricBlockData serialization');
@@ -764,7 +765,7 @@ export function fromHistoricBlockData(o: HistoricBlockData): MsgpackHistoricBloc
     throw new Error('Expected globalVariablesHash in HistoricBlockData serialization');
   }
   return {
-    private_data_tree_root: toBuffer(o.privateDataTreeRoot),
+    note_hash_tree_root: toBuffer(o.noteHashTreeRoot),
     nullifier_tree_root: toBuffer(o.nullifierTreeRoot),
     contract_tree_root: toBuffer(o.contractTreeRoot),
     l1_to_l2_messages_tree_root: toBuffer(o.l1ToL2MessagesTreeRoot),
@@ -2365,6 +2366,37 @@ export function fromNullifierLeafPreimage(o: NullifierLeafPreimage): MsgpackNull
   };
 }
 
+interface MsgpackMembershipWitness20 {
+  leaf_index: Buffer;
+  sibling_path: Tuple<Buffer, 20>;
+}
+
+export function toMembershipWitness20(o: MsgpackMembershipWitness20): MembershipWitness20 {
+  if (o.leaf_index === undefined) {
+    throw new Error('Expected leaf_index in MembershipWitness20 deserialization');
+  }
+  if (o.sibling_path === undefined) {
+    throw new Error('Expected sibling_path in MembershipWitness20 deserialization');
+  }
+  return new MembershipWitness20(
+    Fr.fromBuffer(o.leaf_index),
+    mapTuple(o.sibling_path, (v: Buffer) => Fr.fromBuffer(v)),
+  );
+}
+
+export function fromMembershipWitness20(o: MembershipWitness20): MsgpackMembershipWitness20 {
+  if (o.leafIndex === undefined) {
+    throw new Error('Expected leafIndex in MembershipWitness20 serialization');
+  }
+  if (o.siblingPath === undefined) {
+    throw new Error('Expected siblingPath in MembershipWitness20 serialization');
+  }
+  return {
+    leaf_index: toBuffer(o.leafIndex),
+    sibling_path: mapTuple(o.siblingPath, (v: Fr) => toBuffer(v)),
+  };
+}
+
 interface MsgpackConstantRollupData {
   start_historic_blocks_tree_roots_snapshot: MsgpackAppendOnlyTreeSnapshot;
   private_kernel_vk_tree_root: Buffer;
@@ -2434,15 +2466,15 @@ export function fromConstantRollupData(o: ConstantRollupData): MsgpackConstantRo
 
 interface MsgpackBaseRollupInputs {
   kernel_data: Tuple<MsgpackPreviousKernelData, 2>;
-  start_private_data_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
+  start_note_hash_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
   start_nullifier_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
   start_contract_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
   start_public_data_tree_root: Buffer;
   start_historic_blocks_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
   low_nullifier_leaf_preimages: Tuple<MsgpackNullifierLeafPreimage, 128>;
-  low_nullifier_membership_witness: Tuple<MsgpackMembershipWitness16, 128>;
+  low_nullifier_membership_witness: Tuple<MsgpackMembershipWitness20, 128>;
   new_commitments_subtree_sibling_path: Tuple<Buffer, 25>;
-  new_nullifiers_subtree_sibling_path: Tuple<Buffer, 9>;
+  new_nullifiers_subtree_sibling_path: Tuple<Buffer, 13>;
   new_contracts_subtree_sibling_path: Tuple<Buffer, 15>;
   new_public_data_update_requests_sibling_paths: Tuple<Tuple<Buffer, 254>, 32>;
   new_public_data_reads_sibling_paths: Tuple<Tuple<Buffer, 254>, 32>;
@@ -2454,8 +2486,8 @@ export function toBaseRollupInputs(o: MsgpackBaseRollupInputs): BaseRollupInputs
   if (o.kernel_data === undefined) {
     throw new Error('Expected kernel_data in BaseRollupInputs deserialization');
   }
-  if (o.start_private_data_tree_snapshot === undefined) {
-    throw new Error('Expected start_private_data_tree_snapshot in BaseRollupInputs deserialization');
+  if (o.start_note_hash_tree_snapshot === undefined) {
+    throw new Error('Expected start_note_hash_tree_snapshot in BaseRollupInputs deserialization');
   }
   if (o.start_nullifier_tree_snapshot === undefined) {
     throw new Error('Expected start_nullifier_tree_snapshot in BaseRollupInputs deserialization');
@@ -2498,13 +2530,13 @@ export function toBaseRollupInputs(o: MsgpackBaseRollupInputs): BaseRollupInputs
   }
   return new BaseRollupInputs(
     mapTuple(o.kernel_data, (v: MsgpackPreviousKernelData) => toPreviousKernelData(v)),
-    toAppendOnlyTreeSnapshot(o.start_private_data_tree_snapshot),
+    toAppendOnlyTreeSnapshot(o.start_note_hash_tree_snapshot),
     toAppendOnlyTreeSnapshot(o.start_nullifier_tree_snapshot),
     toAppendOnlyTreeSnapshot(o.start_contract_tree_snapshot),
     Fr.fromBuffer(o.start_public_data_tree_root),
     toAppendOnlyTreeSnapshot(o.start_historic_blocks_tree_snapshot),
     mapTuple(o.low_nullifier_leaf_preimages, (v: MsgpackNullifierLeafPreimage) => toNullifierLeafPreimage(v)),
-    mapTuple(o.low_nullifier_membership_witness, (v: MsgpackMembershipWitness16) => toMembershipWitness16(v)),
+    mapTuple(o.low_nullifier_membership_witness, (v: MsgpackMembershipWitness20) => toMembershipWitness20(v)),
     mapTuple(o.new_commitments_subtree_sibling_path, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.new_nullifiers_subtree_sibling_path, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.new_contracts_subtree_sibling_path, (v: Buffer) => Fr.fromBuffer(v)),
@@ -2525,8 +2557,8 @@ export function fromBaseRollupInputs(o: BaseRollupInputs): MsgpackBaseRollupInpu
   if (o.kernelData === undefined) {
     throw new Error('Expected kernelData in BaseRollupInputs serialization');
   }
-  if (o.startPrivateDataTreeSnapshot === undefined) {
-    throw new Error('Expected startPrivateDataTreeSnapshot in BaseRollupInputs serialization');
+  if (o.startNoteHashTreeSnapshot === undefined) {
+    throw new Error('Expected startNoteHashTreeSnapshot in BaseRollupInputs serialization');
   }
   if (o.startNullifierTreeSnapshot === undefined) {
     throw new Error('Expected startNullifierTreeSnapshot in BaseRollupInputs serialization');
@@ -2569,7 +2601,7 @@ export function fromBaseRollupInputs(o: BaseRollupInputs): MsgpackBaseRollupInpu
   }
   return {
     kernel_data: mapTuple(o.kernelData, (v: PreviousKernelData) => fromPreviousKernelData(v)),
-    start_private_data_tree_snapshot: fromAppendOnlyTreeSnapshot(o.startPrivateDataTreeSnapshot),
+    start_note_hash_tree_snapshot: fromAppendOnlyTreeSnapshot(o.startNoteHashTreeSnapshot),
     start_nullifier_tree_snapshot: fromAppendOnlyTreeSnapshot(o.startNullifierTreeSnapshot),
     start_contract_tree_snapshot: fromAppendOnlyTreeSnapshot(o.startContractTreeSnapshot),
     start_public_data_tree_root: toBuffer(o.startPublicDataTreeRoot),
@@ -2577,8 +2609,8 @@ export function fromBaseRollupInputs(o: BaseRollupInputs): MsgpackBaseRollupInpu
     low_nullifier_leaf_preimages: mapTuple(o.lowNullifierLeafPreimages, (v: NullifierLeafPreimage) =>
       fromNullifierLeafPreimage(v),
     ),
-    low_nullifier_membership_witness: mapTuple(o.lowNullifierMembershipWitness, (v: MembershipWitness16) =>
-      fromMembershipWitness16(v),
+    low_nullifier_membership_witness: mapTuple(o.lowNullifierMembershipWitness, (v: MembershipWitness20) =>
+      fromMembershipWitness20(v),
     ),
     new_commitments_subtree_sibling_path: mapTuple(o.newCommitmentsSubtreeSiblingPath, (v: Fr) => toBuffer(v)),
     new_nullifiers_subtree_sibling_path: mapTuple(o.newNullifiersSubtreeSiblingPath, (v: Fr) => toBuffer(v)),
@@ -2603,8 +2635,8 @@ interface MsgpackBaseOrMergeRollupPublicInputs {
   rollup_subtree_height: Buffer;
   end_aggregation_object: MsgpackNativeAggregationState;
   constants: MsgpackConstantRollupData;
-  start_private_data_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
-  end_private_data_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
+  start_note_hash_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
+  end_note_hash_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
   start_nullifier_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
   end_nullifier_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
   start_contract_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
@@ -2629,11 +2661,11 @@ export function toBaseOrMergeRollupPublicInputs(
   if (o.constants === undefined) {
     throw new Error('Expected constants in BaseOrMergeRollupPublicInputs deserialization');
   }
-  if (o.start_private_data_tree_snapshot === undefined) {
-    throw new Error('Expected start_private_data_tree_snapshot in BaseOrMergeRollupPublicInputs deserialization');
+  if (o.start_note_hash_tree_snapshot === undefined) {
+    throw new Error('Expected start_note_hash_tree_snapshot in BaseOrMergeRollupPublicInputs deserialization');
   }
-  if (o.end_private_data_tree_snapshot === undefined) {
-    throw new Error('Expected end_private_data_tree_snapshot in BaseOrMergeRollupPublicInputs deserialization');
+  if (o.end_note_hash_tree_snapshot === undefined) {
+    throw new Error('Expected end_note_hash_tree_snapshot in BaseOrMergeRollupPublicInputs deserialization');
   }
   if (o.start_nullifier_tree_snapshot === undefined) {
     throw new Error('Expected start_nullifier_tree_snapshot in BaseOrMergeRollupPublicInputs deserialization');
@@ -2661,8 +2693,8 @@ export function toBaseOrMergeRollupPublicInputs(
     Fr.fromBuffer(o.rollup_subtree_height),
     toNativeAggregationState(o.end_aggregation_object),
     toConstantRollupData(o.constants),
-    toAppendOnlyTreeSnapshot(o.start_private_data_tree_snapshot),
-    toAppendOnlyTreeSnapshot(o.end_private_data_tree_snapshot),
+    toAppendOnlyTreeSnapshot(o.start_note_hash_tree_snapshot),
+    toAppendOnlyTreeSnapshot(o.end_note_hash_tree_snapshot),
     toAppendOnlyTreeSnapshot(o.start_nullifier_tree_snapshot),
     toAppendOnlyTreeSnapshot(o.end_nullifier_tree_snapshot),
     toAppendOnlyTreeSnapshot(o.start_contract_tree_snapshot),
@@ -2688,11 +2720,11 @@ export function fromBaseOrMergeRollupPublicInputs(
   if (o.constants === undefined) {
     throw new Error('Expected constants in BaseOrMergeRollupPublicInputs serialization');
   }
-  if (o.startPrivateDataTreeSnapshot === undefined) {
-    throw new Error('Expected startPrivateDataTreeSnapshot in BaseOrMergeRollupPublicInputs serialization');
+  if (o.startNoteHashTreeSnapshot === undefined) {
+    throw new Error('Expected startNoteHashTreeSnapshot in BaseOrMergeRollupPublicInputs serialization');
   }
-  if (o.endPrivateDataTreeSnapshot === undefined) {
-    throw new Error('Expected endPrivateDataTreeSnapshot in BaseOrMergeRollupPublicInputs serialization');
+  if (o.endNoteHashTreeSnapshot === undefined) {
+    throw new Error('Expected endNoteHashTreeSnapshot in BaseOrMergeRollupPublicInputs serialization');
   }
   if (o.startNullifierTreeSnapshot === undefined) {
     throw new Error('Expected startNullifierTreeSnapshot in BaseOrMergeRollupPublicInputs serialization');
@@ -2720,8 +2752,8 @@ export function fromBaseOrMergeRollupPublicInputs(
     rollup_subtree_height: toBuffer(o.rollupSubtreeHeight),
     end_aggregation_object: fromNativeAggregationState(o.endAggregationObject),
     constants: fromConstantRollupData(o.constants),
-    start_private_data_tree_snapshot: fromAppendOnlyTreeSnapshot(o.startPrivateDataTreeSnapshot),
-    end_private_data_tree_snapshot: fromAppendOnlyTreeSnapshot(o.endPrivateDataTreeSnapshot),
+    start_note_hash_tree_snapshot: fromAppendOnlyTreeSnapshot(o.startNoteHashTreeSnapshot),
+    end_note_hash_tree_snapshot: fromAppendOnlyTreeSnapshot(o.endNoteHashTreeSnapshot),
     start_nullifier_tree_snapshot: fromAppendOnlyTreeSnapshot(o.startNullifierTreeSnapshot),
     end_nullifier_tree_snapshot: fromAppendOnlyTreeSnapshot(o.endNullifierTreeSnapshot),
     start_contract_tree_snapshot: fromAppendOnlyTreeSnapshot(o.startContractTreeSnapshot),
@@ -2915,16 +2947,16 @@ export function fromRootRollupInputs(o: RootRollupInputs): MsgpackRootRollupInpu
 interface MsgpackRootRollupPublicInputs {
   end_aggregation_object: MsgpackNativeAggregationState;
   global_variables: MsgpackGlobalVariables;
-  start_private_data_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
-  end_private_data_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
+  start_note_hash_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
+  end_note_hash_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
   start_nullifier_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
   end_nullifier_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
   start_contract_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
   end_contract_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
   start_public_data_tree_root: Buffer;
   end_public_data_tree_root: Buffer;
-  start_tree_of_historic_private_data_tree_roots_snapshot: MsgpackAppendOnlyTreeSnapshot;
-  end_tree_of_historic_private_data_tree_roots_snapshot: MsgpackAppendOnlyTreeSnapshot;
+  start_tree_of_historic_note_hash_tree_roots_snapshot: MsgpackAppendOnlyTreeSnapshot;
+  end_tree_of_historic_note_hash_tree_roots_snapshot: MsgpackAppendOnlyTreeSnapshot;
   start_tree_of_historic_contract_tree_roots_snapshot: MsgpackAppendOnlyTreeSnapshot;
   end_tree_of_historic_contract_tree_roots_snapshot: MsgpackAppendOnlyTreeSnapshot;
   start_l1_to_l2_messages_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
@@ -2944,11 +2976,11 @@ export function toRootRollupPublicInputs(o: MsgpackRootRollupPublicInputs): Root
   if (o.global_variables === undefined) {
     throw new Error('Expected global_variables in RootRollupPublicInputs deserialization');
   }
-  if (o.start_private_data_tree_snapshot === undefined) {
-    throw new Error('Expected start_private_data_tree_snapshot in RootRollupPublicInputs deserialization');
+  if (o.start_note_hash_tree_snapshot === undefined) {
+    throw new Error('Expected start_note_hash_tree_snapshot in RootRollupPublicInputs deserialization');
   }
-  if (o.end_private_data_tree_snapshot === undefined) {
-    throw new Error('Expected end_private_data_tree_snapshot in RootRollupPublicInputs deserialization');
+  if (o.end_note_hash_tree_snapshot === undefined) {
+    throw new Error('Expected end_note_hash_tree_snapshot in RootRollupPublicInputs deserialization');
   }
   if (o.start_nullifier_tree_snapshot === undefined) {
     throw new Error('Expected start_nullifier_tree_snapshot in RootRollupPublicInputs deserialization');
@@ -2968,14 +3000,14 @@ export function toRootRollupPublicInputs(o: MsgpackRootRollupPublicInputs): Root
   if (o.end_public_data_tree_root === undefined) {
     throw new Error('Expected end_public_data_tree_root in RootRollupPublicInputs deserialization');
   }
-  if (o.start_tree_of_historic_private_data_tree_roots_snapshot === undefined) {
+  if (o.start_tree_of_historic_note_hash_tree_roots_snapshot === undefined) {
     throw new Error(
-      'Expected start_tree_of_historic_private_data_tree_roots_snapshot in RootRollupPublicInputs deserialization',
+      'Expected start_tree_of_historic_note_hash_tree_roots_snapshot in RootRollupPublicInputs deserialization',
     );
   }
-  if (o.end_tree_of_historic_private_data_tree_roots_snapshot === undefined) {
+  if (o.end_tree_of_historic_note_hash_tree_roots_snapshot === undefined) {
     throw new Error(
-      'Expected end_tree_of_historic_private_data_tree_roots_snapshot in RootRollupPublicInputs deserialization',
+      'Expected end_tree_of_historic_note_hash_tree_roots_snapshot in RootRollupPublicInputs deserialization',
     );
   }
   if (o.start_tree_of_historic_contract_tree_roots_snapshot === undefined) {
@@ -3019,16 +3051,16 @@ export function toRootRollupPublicInputs(o: MsgpackRootRollupPublicInputs): Root
   return new RootRollupPublicInputs(
     toNativeAggregationState(o.end_aggregation_object),
     toGlobalVariables(o.global_variables),
-    toAppendOnlyTreeSnapshot(o.start_private_data_tree_snapshot),
-    toAppendOnlyTreeSnapshot(o.end_private_data_tree_snapshot),
+    toAppendOnlyTreeSnapshot(o.start_note_hash_tree_snapshot),
+    toAppendOnlyTreeSnapshot(o.end_note_hash_tree_snapshot),
     toAppendOnlyTreeSnapshot(o.start_nullifier_tree_snapshot),
     toAppendOnlyTreeSnapshot(o.end_nullifier_tree_snapshot),
     toAppendOnlyTreeSnapshot(o.start_contract_tree_snapshot),
     toAppendOnlyTreeSnapshot(o.end_contract_tree_snapshot),
     Fr.fromBuffer(o.start_public_data_tree_root),
     Fr.fromBuffer(o.end_public_data_tree_root),
-    toAppendOnlyTreeSnapshot(o.start_tree_of_historic_private_data_tree_roots_snapshot),
-    toAppendOnlyTreeSnapshot(o.end_tree_of_historic_private_data_tree_roots_snapshot),
+    toAppendOnlyTreeSnapshot(o.start_tree_of_historic_note_hash_tree_roots_snapshot),
+    toAppendOnlyTreeSnapshot(o.end_tree_of_historic_note_hash_tree_roots_snapshot),
     toAppendOnlyTreeSnapshot(o.start_tree_of_historic_contract_tree_roots_snapshot),
     toAppendOnlyTreeSnapshot(o.end_tree_of_historic_contract_tree_roots_snapshot),
     toAppendOnlyTreeSnapshot(o.start_l1_to_l2_messages_tree_snapshot),
@@ -3049,11 +3081,11 @@ export function fromRootRollupPublicInputs(o: RootRollupPublicInputs): MsgpackRo
   if (o.globalVariables === undefined) {
     throw new Error('Expected globalVariables in RootRollupPublicInputs serialization');
   }
-  if (o.startPrivateDataTreeSnapshot === undefined) {
-    throw new Error('Expected startPrivateDataTreeSnapshot in RootRollupPublicInputs serialization');
+  if (o.startNoteHashTreeSnapshot === undefined) {
+    throw new Error('Expected startNoteHashTreeSnapshot in RootRollupPublicInputs serialization');
   }
-  if (o.endPrivateDataTreeSnapshot === undefined) {
-    throw new Error('Expected endPrivateDataTreeSnapshot in RootRollupPublicInputs serialization');
+  if (o.endNoteHashTreeSnapshot === undefined) {
+    throw new Error('Expected endNoteHashTreeSnapshot in RootRollupPublicInputs serialization');
   }
   if (o.startNullifierTreeSnapshot === undefined) {
     throw new Error('Expected startNullifierTreeSnapshot in RootRollupPublicInputs serialization');
@@ -3073,11 +3105,11 @@ export function fromRootRollupPublicInputs(o: RootRollupPublicInputs): MsgpackRo
   if (o.endPublicDataTreeRoot === undefined) {
     throw new Error('Expected endPublicDataTreeRoot in RootRollupPublicInputs serialization');
   }
-  if (o.startTreeOfHistoricPrivateDataTreeRootsSnapshot === undefined) {
-    throw new Error('Expected startTreeOfHistoricPrivateDataTreeRootsSnapshot in RootRollupPublicInputs serialization');
+  if (o.startTreeOfHistoricNoteHashTreeRootsSnapshot === undefined) {
+    throw new Error('Expected startTreeOfHistoricNoteHashTreeRootsSnapshot in RootRollupPublicInputs serialization');
   }
-  if (o.endTreeOfHistoricPrivateDataTreeRootsSnapshot === undefined) {
-    throw new Error('Expected endTreeOfHistoricPrivateDataTreeRootsSnapshot in RootRollupPublicInputs serialization');
+  if (o.endTreeOfHistoricNoteHashTreeRootsSnapshot === undefined) {
+    throw new Error('Expected endTreeOfHistoricNoteHashTreeRootsSnapshot in RootRollupPublicInputs serialization');
   }
   if (o.startTreeOfHistoricContractTreeRootsSnapshot === undefined) {
     throw new Error('Expected startTreeOfHistoricContractTreeRootsSnapshot in RootRollupPublicInputs serialization');
@@ -3116,19 +3148,19 @@ export function fromRootRollupPublicInputs(o: RootRollupPublicInputs): MsgpackRo
   return {
     end_aggregation_object: fromNativeAggregationState(o.endAggregationObject),
     global_variables: fromGlobalVariables(o.globalVariables),
-    start_private_data_tree_snapshot: fromAppendOnlyTreeSnapshot(o.startPrivateDataTreeSnapshot),
-    end_private_data_tree_snapshot: fromAppendOnlyTreeSnapshot(o.endPrivateDataTreeSnapshot),
+    start_note_hash_tree_snapshot: fromAppendOnlyTreeSnapshot(o.startNoteHashTreeSnapshot),
+    end_note_hash_tree_snapshot: fromAppendOnlyTreeSnapshot(o.endNoteHashTreeSnapshot),
     start_nullifier_tree_snapshot: fromAppendOnlyTreeSnapshot(o.startNullifierTreeSnapshot),
     end_nullifier_tree_snapshot: fromAppendOnlyTreeSnapshot(o.endNullifierTreeSnapshot),
     start_contract_tree_snapshot: fromAppendOnlyTreeSnapshot(o.startContractTreeSnapshot),
     end_contract_tree_snapshot: fromAppendOnlyTreeSnapshot(o.endContractTreeSnapshot),
     start_public_data_tree_root: toBuffer(o.startPublicDataTreeRoot),
     end_public_data_tree_root: toBuffer(o.endPublicDataTreeRoot),
-    start_tree_of_historic_private_data_tree_roots_snapshot: fromAppendOnlyTreeSnapshot(
-      o.startTreeOfHistoricPrivateDataTreeRootsSnapshot,
+    start_tree_of_historic_note_hash_tree_roots_snapshot: fromAppendOnlyTreeSnapshot(
+      o.startTreeOfHistoricNoteHashTreeRootsSnapshot,
     ),
-    end_tree_of_historic_private_data_tree_roots_snapshot: fromAppendOnlyTreeSnapshot(
-      o.endTreeOfHistoricPrivateDataTreeRootsSnapshot,
+    end_tree_of_historic_note_hash_tree_roots_snapshot: fromAppendOnlyTreeSnapshot(
+      o.endTreeOfHistoricNoteHashTreeRootsSnapshot,
     ),
     start_tree_of_historic_contract_tree_roots_snapshot: fromAppendOnlyTreeSnapshot(
       o.startTreeOfHistoricContractTreeRootsSnapshot,
