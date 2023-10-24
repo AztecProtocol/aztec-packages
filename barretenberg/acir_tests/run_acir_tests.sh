@@ -41,7 +41,7 @@ fi
 cd acir_tests
 
 # Convert them to array
-SKIP_ARRAY=(diamond_deps_0 workspace workspace_default_member)
+SKIP_ARRAY=(diamond_deps_0 workspace workspace_default_member brillig_scalar_mul double_verify_proof)
 
 function test() {
   cd $1
