@@ -129,6 +129,12 @@ void handle_blackbox_func_call(Circuit::Opcode::BlackBoxFuncCall const& arg, aci
                     .result_x = arg.outputs[0].value,
                     .result_y = arg.outputs[1].value,
                 });
+            } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::PedersenHash>) {
+                af.pedersen_hash_constraints.push_back(PedersenHashConstraint{
+                    .scalars = map(arg.inputs, [](auto& e) { return e.witness.value; }),
+                    .hash_index = arg.domain_separator,
+                    .result = arg.output.value,
+                });
             } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::HashToField128Security>) {
                 af.hash_to_field_constraints.push_back(HashToFieldConstraint{
                     .inputs = map(arg.inputs,
