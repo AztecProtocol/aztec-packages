@@ -11,20 +11,20 @@ use crate::oracle::{
     get_secret_key::get_secret_key,
     notes::check_nullifier_exists,
 };
-use dep::std::hash::pedersen_with_separator;
+use crate::hash::pedersen_hash;
 
 pub fn compute_singleton_initialization_nullifier(storage_slot: Field, owner: Option<Field>) -> Field {
     if owner.is_some() {
         let secret = get_secret_key(owner.unwrap_unchecked());
-        pedersen_with_separator(
+        pedersen_hash(
             [storage_slot, secret.low, secret.high],
             GENERATOR_INDEX__INITIALIZATION_NULLIFIER,
-        )[0]
+        )
     } else {
-        pedersen_with_separator(
+        pedersen_hash(
             [storage_slot],
             GENERATOR_INDEX__INITIALIZATION_NULLIFIER,
-        )[0]
+        )
     }
 }
 
@@ -113,8 +113,10 @@ impl<Note, N> Singleton<Note, N> {
     }
     // docs:end:get_note
 
+    // docs:start:view_note
     unconstrained pub fn view_note(self) -> Note {
         let options = NoteViewerOptions::new().set_limit(1);
         view_notes(self.storage_slot, self.note_interface, options)[0].unwrap()
     }
+    // docs:end:view_note
 }

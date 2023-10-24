@@ -7,6 +7,7 @@ contract Test {
     use dep::aztec::{
         abi,
         abi::PrivateContextInputs,
+        hash::pedersen_hash,
         context::PrivateContext,
         oracle::{
             get_public_key::get_public_key as get_public_key_oracle,
@@ -190,7 +191,7 @@ contract Test {
         }
 
         fn get_commitment(self) -> pub Field {
-            dep::std::hash::pedersen([self.amount, self.secretHash])[0]
+            pedersen_hash([self.amount, self.secretHash],0)
         }
     }
 

@@ -93,6 +93,7 @@ Builder create_inner_circuit()
                                    .keccak_constraints = {},
                                    .keccak_var_constraints = {},
                                    .pedersen_constraints = {},
+                                   .pedersen_hash_constraints = {},
                                    .hash_to_field_constraints = {},
                                    .fixed_base_scalar_mul_constraints = {},
                                    .recursion_constraints = {},
@@ -142,7 +143,7 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
 
         transcript::StandardTranscript transcript(inner_proof.proof_data,
                                                   Composer::create_manifest(num_inner_public_inputs),
-                                                  transcript::HashType::PlookupPedersenBlake3s,
+                                                  transcript::HashType::PedersenBlake3s,
                                                   16);
 
         const std::vector<barretenberg::fr> proof_witnesses = export_transcript_in_recursion_format(transcript);
@@ -219,6 +220,7 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
                                    .keccak_constraints = {},
                                    .keccak_var_constraints = {},
                                    .pedersen_constraints = {},
+                                   .pedersen_hash_constraints = {},
                                    .hash_to_field_constraints = {},
                                    .fixed_base_scalar_mul_constraints = {},
                                    .recursion_constraints = recursion_constraints,
