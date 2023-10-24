@@ -462,14 +462,14 @@ template <class Curve> class ZeroMorphWithConcatenationTest : public CommitmentT
             auto C_zeta_x = ZeroMorphVerifier::compute_C_zeta_x(C_q, C_q_k, y_challenge, x_challenge);
 
             // Compute commitment C_{Z_x}
-            Commitment C_Z_x = ZeroMorphVerifier::compute_C_Z_x_with_concatenations(f_commitments,
-                                                                                    g_commitments,
-                                                                                    concatenation_groups_commitments,
-                                                                                    C_q_k,
-                                                                                    rho,
-                                                                                    v_evaluation,
-                                                                                    x_challenge,
-                                                                                    u_challenge);
+            Commitment C_Z_x = ZeroMorphVerifier::compute_C_Z_x(f_commitments,
+                                                                g_commitments,
+                                                                C_q_k,
+                                                                rho,
+                                                                v_evaluation,
+                                                                x_challenge,
+                                                                u_challenge,
+                                                                concatenation_groups_commitments);
 
             // Compute commitment C_{\zeta,Z}
             auto C_zeta_Z = C_zeta_x + C_Z_x * z_challenge;
