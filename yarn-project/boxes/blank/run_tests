@@ -12,6 +12,18 @@ export COMPOSE_FILE=${1:-docker-compose.yml}
 ecr_login
 
 REPO=aztec-sandbox
+
+ensure_repo $REPO $ECR_REGION refresh_lifecycle
+CONTENT_HASH=$(calculate_content_hash $REPO)
+BASE_TAG=cache-$CONTENT_HASH
+SUCCESS_TAG=$BASE_TAG
+
+echo "Content hash: $CONTENT_HASH"
+if check_rebuild $SUCCESS_TAG $REPO; then
+  echo "No rebuild required."
+  exit 0
+fi
+
 echo "pulling docker image for $REPO $(calculate_image_uri $REPO)-x86_64"
 retry docker pull $(calculate_image_uri $REPO)-x86_64
 retry docker tag $(calculate_image_uri $REPO)-x86_64 aztecprotocol/$REPO:latest
