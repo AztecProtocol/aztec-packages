@@ -210,7 +210,7 @@ resource "aws_lb_listener_rule" "mainnet_fork_route" {
 
   condition {
     host_header {
-      values = ["aztec-network-mainnet-fork.aztec.networkq"]
+      values = ["aztec-network-mainnet-fork.aztec.network"]
     }
   }
 }
