@@ -19,7 +19,7 @@ if [ -z "$ONLY_PROCESS" ]; then
   rm -f xray-log.$EXECUTABLE.*
 
   # Run benchmark with profiling.
-  XRAY_OPTIONS="patch_premain=true xray_mode=xray-basic verbosity=1" ./bin/$EXECUTABLE --benchmark_min_time=0
+  XRAY_OPTIONS="patch_premain=true xray_mode=xray-basic verbosity=1" ./bin/$EXECUTABLE --benchmark_min_time=20
 fi
 
 function shorten_cpp_names() {
