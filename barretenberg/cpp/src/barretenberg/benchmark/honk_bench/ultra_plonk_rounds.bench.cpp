@@ -1,0 +1,78 @@
+#include <benchmark/benchmark.h>
+
+#include "barretenberg/benchmark/honk_bench/benchmark_utilities.hpp"
+#include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
+
+using namespace benchmark;
+using namespace proof_system;
+
+// The rounds to measure
+enum {
+    PREAMBLE,
+    FIRST_WIRE_COMMITMENTS,
+    SECOND_FIAT_SHAMIR_ETA,
+    THIRD_FIAT_SHAMIR_BETA_GAMMA,
+    FOURTH_FIAT_SHAMIR_ALPHA_AND_COMMIT,
+    FIFTH_COMPUTE_QUOTIENT_EVALUTION,
+    SIXTH_BATCH_OPEN
+};
+
+BBERG_PROFILE static void plonk_pass(
+    State& state, plonk::UltraProver& prover, size_t target_index, size_t index, auto&& lambda) noexcept
+{
+    if (index == target_index) {
+        state.ResumeTiming();
+        lambda();
+        state.PauseTiming();
+    } else {
+        lambda();
+    }
+    prover.queue.process_queue();
+}
+/**
+ * @details Benchmark ultraplonk by performing all the rounds, but only measuring one.
+ * Note: As a result the very short rounds take a long time for statistical significance, so recommended to set
+ *their iterations to 1.
+ * @param state - The google benchmark state.
+ * @param prover - The ultraplonk prover.
+ * @param index - The pass to measure.
+ **/
+BBERG_PROFILE static void test_round_inner(State& state, plonk::UltraProver& prover, size_t index) noexcept
+{
+    state.PauseTiming();
+    plonk_pass(state, prover, PREAMBLE, index, [&] { prover.execute_preamble_round(); });
+    plonk_pass(state, prover, FIRST_WIRE_COMMITMENTS, index, [&] { prover.execute_first_round(); });
+    plonk_pass(state, prover, SECOND_FIAT_SHAMIR_ETA, index, [&] { prover.execute_second_round(); });
+    plonk_pass(state, prover, THIRD_FIAT_SHAMIR_BETA_GAMMA, index, [&] { prover.execute_third_round(); });
+    plonk_pass(state, prover, FOURTH_FIAT_SHAMIR_ALPHA_AND_COMMIT, index, [&] { prover.execute_fourth_round(); });
+    plonk_pass(state, prover, FIFTH_COMPUTE_QUOTIENT_EVALUTION, index, [&] { prover.execute_fifth_round(); });
+    plonk_pass(state, prover, SIXTH_BATCH_OPEN, index, [&] { prover.execute_sixth_round(); });
+    state.ResumeTiming();
+}
+BBERG_PROFILE static void test_round(State& state, size_t index) noexcept
+{
+    barretenberg::srs::init_crs_factory("../srs_db/ignition");
+    for (auto _ : state) {
+        plonk::UltraComposer composer;
+        // TODO(AD) benchmark both sparse and dense circuits?
+        plonk::UltraProver prover =
+            bench_utils::get_prover(composer, &bench_utils::generate_keccak_test_circuit<UltraCircuitBuilder>, 1);
+        test_round_inner(state, prover, index);
+    }
+}
+#define ROUND_BENCHMARK(round)                                                                                         \
+    static void ROUND_##round(State& state) noexcept                                                                   \
+    {                                                                                                                  \
+        test_round(state, round);                                                                                      \
+    }                                                                                                                  \
+    BENCHMARK(ROUND_##round)->Unit(::benchmark::kMillisecond)
+
+// Fast rounds take a long time to benchmark because of how we compute statistical significance.
+// Limit to one iteration so we don't spend a lot of time redoing full proofs just to measure this part.
+ROUND_BENCHMARK(PREAMBLE)->Iterations(1);
+ROUND_BENCHMARK(FIRST_WIRE_COMMITMENTS)->Iterations(1);
+ROUND_BENCHMARK(SECOND_FIAT_SHAMIR_ETA)->Iterations(1);
+ROUND_BENCHMARK(THIRD_FIAT_SHAMIR_BETA_GAMMA)->Iterations(1);
+ROUND_BENCHMARK(FOURTH_FIAT_SHAMIR_ALPHA_AND_COMMIT);
+ROUND_BENCHMARK(FIFTH_COMPUTE_QUOTIENT_EVALUTION);
+ROUND_BENCHMARK(SIXTH_BATCH_OPEN);
