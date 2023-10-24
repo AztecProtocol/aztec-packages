@@ -168,7 +168,7 @@ template <typename Flavor> class SumcheckVerifier {
     using FF = typename Flavor::FF;
     using ClaimedEvaluations = typename Flavor::AllValues;
 
-    static constexpr size_t MAX_RANDOM_RELATION_LENGTH = Flavor::MAX_RANDOM_RELATION_LENGTH;
+    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
     static constexpr size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
 
     const size_t multivariate_d;
@@ -209,7 +209,7 @@ template <typename Flavor> class SumcheckVerifier {
             // Obtain the round univariate from the transcript
             std::string round_univariate_label = "Sumcheck:univariate_" + std::to_string(round_idx);
             auto round_univariate =
-                transcript.template receive_from_prover<barretenberg::Univariate<FF, MAX_RANDOM_RELATION_LENGTH>>(
+                transcript.template receive_from_prover<barretenberg::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
                     round_univariate_label);
 
             bool checked = round.check_sum(round_univariate);
