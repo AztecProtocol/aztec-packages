@@ -44,6 +44,7 @@ BBERG_PROFILE static void test_round(State& state, size_t index) noexcept
     barretenberg::srs::init_crs_factory("../srs_db/ignition");
 
     for (auto _ : state) {
+        state.PauseTiming();
         honk::UltraComposer composer;
         // TODO(AD) benchmark both sparse and dense circuits?
         honk::UltraProver prover =
