@@ -594,7 +594,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorExtraRelationsCorrectness)
 
     // Fill in lagrange even polynomial
     for (size_t i = 2; i < mini_circuit_size; i += 2) {
-        prover_polynomials.lagrange_even[i] = 1;
+        prover_polynomials.lagrange_even_in_minicircuit[i] = 1;
     }
     constexpr size_t NUMBER_OF_POSSIBLE_OPCODES = 6;
     constexpr std::array<uint64_t, NUMBER_OF_POSSIBLE_OPCODES> possible_opcode_values = { 0, 1, 2, 3, 4, 8 };
