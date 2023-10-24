@@ -55,6 +55,8 @@ class Ultra {
 
     static constexpr size_t MAX_RELATION_LENGTH = get_max_relation_length<Relations>();
     static constexpr size_t MAX_FULL_RELATION_LENGTH = get_max_full_relation_length<Relations>();
+    static_assert(MAX_RELATION_LENGTH == 6);
+    static_assert(MAX_FULL_RELATION_LENGTH == 12);
 
     // MAX_RANDOM_RELATION_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta` random
     // polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation length = 3
