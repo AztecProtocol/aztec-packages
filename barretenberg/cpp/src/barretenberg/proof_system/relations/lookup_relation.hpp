@@ -22,14 +22,12 @@ template <typename FF_> class LookupRelationImpl {
   public:
     using FF = FF_;
 
-    // WORKTODO: rename SUBRELATION_LENGTHS
-    static constexpr std::array<size_t, 2> SUBRELATION_LENGTHS{
+    static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS{
         6, // grand product construction sub-relation
         3  // left-shiftable polynomial sub-relation
     };
 
-    // WORKTODO: better name
-    static constexpr std::array<size_t, 2> PARAMETER_LENGTH_ADJUSTMENTS{
+    static constexpr std::array<size_t, 2> TOTAL_LENGTH_ADJUSTMENTS{
         6, // grand product construction sub-relation
         0  // left-shiftable polynomial sub-relation
     };

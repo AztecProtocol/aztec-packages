@@ -16,7 +16,7 @@ namespace proof_system {
  * type, do nothing, otherwise apply the provided view type.
  * @tparam Params
  * @tparam View
- * @todo WORKTODO: make sure this is zero-cost in the IsField case.
+ * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/759): Optimize
  */
 template <typename Params, typename View>
 using GetParameterView = std::conditional_t<IsField<typename Params::DataType>, typename Params::DataType, View>;
@@ -29,7 +29,7 @@ concept HasSubrelationLinearlyIndependentMember = requires(T) {
                                                   };
 
 template <typename T>
-concept HasParameterLengthAdjustmentsMember = requires { T::PARAMETER_LENGTH_ADJUSTMENTS; };
+concept HasParameterLengthAdjustmentsMember = requires { T::TOTAL_LENGTH_ADJUSTMENTS; };
 
 /**
  * @brief Check whether a given subrelation is linearly independent from the other subrelations.
@@ -49,21 +49,21 @@ template <typename Relation, size_t subrelation_index> constexpr bool subrelatio
 }
 
 /**
- * @brief WORKTODO check Compute the full subrelation lenghths, i.e., the lengths when regarding the challenges as
+ * @brief Compute the full subrelation lenghhs, i.e., the lengths when regarding the challenges as
  * variables.
  */
 template <typename RelationImpl>
-consteval std::array<size_t, RelationImpl::SUBRELATION_LENGTHS.size()> compute_full_subrelation_lengths()
+consteval std::array<size_t, RelationImpl::SUBRELATION_PARTIAL_LENGTHS.size()> compute_full_subrelation_lengths()
 {
     if constexpr (HasParameterLengthAdjustmentsMember<RelationImpl>) {
-        constexpr size_t NUM_SUBRELATIONS = RelationImpl::SUBRELATION_LENGTHS.size();
+        constexpr size_t NUM_SUBRELATIONS = RelationImpl::SUBRELATION_PARTIAL_LENGTHS.size();
         std::array<size_t, NUM_SUBRELATIONS> result;
         for (size_t idx = 0; idx < NUM_SUBRELATIONS; idx++) {
-            result[idx] = RelationImpl::SUBRELATION_LENGTHS[idx] + RelationImpl::PARAMETER_LENGTH_ADJUSTMENTS[idx];
+            result[idx] = RelationImpl::SUBRELATION_PARTIAL_LENGTHS[idx] + RelationImpl::TOTAL_LENGTH_ADJUSTMENTS[idx];
         }
         return result;
     } else {
-        return RelationImpl::SUBRELATION_LENGTHS;
+        return RelationImpl::SUBRELATION_PARTIAL_LENGTHS;
     }
 };
 
@@ -75,25 +75,25 @@ consteval std::array<size_t, RelationImpl::SUBRELATION_LENGTHS.size()> compute_f
  * will be one greater than this.
  * @tparam NUM_INSTANCES
  * @tparam NUM_SUBRELATIONS
- * @param subrelation_lengths The array of subrelation lengths supplied by a relation.
+ * @param SUBRELATION_PARTIAL_LENGTHS The array of subrelation lengths supplied by a relation.
  * @return The transformed subrelation lenths
  */
 template <size_t NUM_INSTANCES, size_t NUM_SUBRELATIONS>
-consteval std::array<size_t, NUM_SUBRELATIONS> compute_composed_subrelation_lengths(
-    std::array<size_t, NUM_SUBRELATIONS> subrelation_lengths)
+consteval std::array<size_t, NUM_SUBRELATIONS> compute_composed_SUBRELATION_PARTIAL_LENGTHS(
+    std::array<size_t, NUM_SUBRELATIONS> SUBRELATION_PARTIAL_LENGTHS)
 {
-    std::transform(subrelation_lengths.begin(),
-                   subrelation_lengths.end(),
-                   subrelation_lengths.begin(),
+    std::transform(SUBRELATION_PARTIAL_LENGTHS.begin(),
+                   SUBRELATION_PARTIAL_LENGTHS.end(),
+                   SUBRELATION_PARTIAL_LENGTHS.begin(),
                    [](const size_t x) { return (x - 1) * (NUM_INSTANCES - 1) + 1; });
-    return subrelation_lengths;
+    return SUBRELATION_PARTIAL_LENGTHS;
 };
 
 /**
  * @brief The templates defined herein facilitate sharing the relation arithmetic between the prover and the
  * verifier.
  *
- * The sumcheck prover and verifier accumulate the contributions from each relation (really, each sub-relation)
+ * @details The sumcheck prover and verifier accumulate the contributions from each relation (really, each sub-relation)
  * into, respectively, Univariates and individual field elements. When performing relation arithmetic on
  * Univariates, we introduce UnivariateViews to reduce full length Univariates to the minimum required length
  * and to avoid unnecessary copies.
@@ -105,7 +105,9 @@ consteval std::array<size_t, NUM_SUBRELATIONS> compute_composed_subrelation_leng
  * accommodate multiple sub-relations within each relation, where, for efficiency, each sub-relation has its own
  * specified degree.
  *
- * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/720)
+ * @note We use some funny terminology: we use the term "length" for 1 + the degree of a relation. When the relation is
+ * regarded as a polynomial in all of its arguments, we refer refer to this length as the "total length", and when we
+ * hold the relation parameters constant we refer to it as a "partial length."
  *
  */
 
@@ -120,20 +122,23 @@ template <typename RelationImpl> class Relation : public RelationImpl {
   public:
     using FF = typename RelationImpl::FF;
 
-    static constexpr std::array<size_t, RelationImpl::SUBRELATION_LENGTHS.size()> FULL_SUBRELATION_LENGTHS =
-        compute_full_subrelation_lengths<RelationImpl>();
+    static constexpr std::array<size_t, RelationImpl::SUBRELATION_PARTIAL_LENGTHS.size()>
+        FULL_SUBRELATION_PARTIAL_LENGTHS = compute_full_subrelation_lengths<RelationImpl>();
 
-    static constexpr size_t RELATION_LENGTH =
-        *std::max_element(RelationImpl::SUBRELATION_LENGTHS.begin(), RelationImpl::SUBRELATION_LENGTHS.end());
+    static constexpr size_t RELATION_LENGTH = *std::max_element(RelationImpl::SUBRELATION_PARTIAL_LENGTHS.begin(),
+                                                                RelationImpl::SUBRELATION_PARTIAL_LENGTHS.end());
 
     static constexpr size_t TOTAL_RELATION_LENGTH =
-        *std::max_element(FULL_SUBRELATION_LENGTHS.begin(), FULL_SUBRELATION_LENGTHS.end());
+        *std::max_element(FULL_SUBRELATION_PARTIAL_LENGTHS.begin(), FULL_SUBRELATION_PARTIAL_LENGTHS.end());
 
     template <size_t NUM_INSTANCES>
     using ProtogalaxyTupleOfUnivariatesOverSubrelations =
-        TupleOfUnivariates<FF, compute_composed_subrelation_lengths<NUM_INSTANCES>(FULL_SUBRELATION_LENGTHS)>;
-    using SumcheckTupleOfUnivariatesOverSubrelations = TupleOfUnivariates<FF, RelationImpl::SUBRELATION_LENGTHS>;
-    using SumcheckArrayOfValuesOverSubrelations = ArrayOfValues<FF, RelationImpl::SUBRELATION_LENGTHS>;
+        TupleOfUnivariates<FF,
+                           compute_composed_SUBRELATION_PARTIAL_LENGTHS<NUM_INSTANCES>(
+                               FULL_SUBRELATION_PARTIAL_LENGTHS)>;
+    using SumcheckTupleOfUnivariatesOverSubrelations =
+        TupleOfUnivariates<FF, RelationImpl::SUBRELATION_PARTIAL_LENGTHS>;
+    using SumcheckArrayOfValuesOverSubrelations = ArrayOfValues<FF, RelationImpl::SUBRELATION_PARTIAL_LENGTHS>;
 
     // These are commonly needed, most importantly, for explicitly instantiating
     // compute_foo_numerator/denomintor.

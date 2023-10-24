@@ -10,7 +10,7 @@ template <typename FF_> class GoblinTranslatorOpcodeConstraintRelationImpl {
 
     // 1 + polynomial degree of this relation
     static constexpr size_t RELATION_LENGTH = 7; // degree(op(op - 1)(op - 2)(op - 3)(op - 4)(op - 8)) = 6
-    static constexpr std::array<size_t, 1> SUBRELATION_LENGTHS{
+    static constexpr std::array<size_t, 1> SUBRELATION_PARTIAL_LENGTHS{
         7 // opcode constraint relation
     };
 
@@ -59,7 +59,7 @@ template <typename FF_> class GoblinTranslatorAccumulatorTransferRelationImpl {
 
     // 1 + polynomial degree of this relation
     static constexpr size_t RELATION_LENGTH = 3; // degree((SOME_LAGRANGE)(A-B)) = 2
-    static constexpr std::array<size_t, 12> SUBRELATION_LENGTHS{
+    static constexpr std::array<size_t, 12> SUBRELATION_PARTIAL_LENGTHS{
         3, // transfer accumulator limb 0 at even index subrelation
         3, // transfer accumulator limb 1 at even index subrelation
         3, // transfer accumulator limb 2 at even index subrelation

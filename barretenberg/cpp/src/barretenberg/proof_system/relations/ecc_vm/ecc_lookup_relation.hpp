@@ -17,7 +17,7 @@ template <typename FF_> class ECCVMLookupRelationBase {
     // 1 + polynomial degree of this relation
     static constexpr size_t LENGTH = READ_TERMS + WRITE_TERMS + 3; // 9
 
-    static constexpr std::array<size_t, 2> SUBRELATION_LENGTHS{
+    static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS{
         LENGTH, // grand product construction sub-relation
         LENGTH  // left-shiftable polynomial sub-relation
     };

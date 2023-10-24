@@ -7,7 +7,7 @@ template <typename FF_> class EccOpQueueRelationImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 8> SUBRELATION_LENGTHS{
+    static constexpr std::array<size_t, 8> SUBRELATION_PARTIAL_LENGTHS{
         3, // wire - op-queue-wire consistency sub-relation 1
         3, // wire - op-queue-wire consistency sub-relation 2
         3, // wire - op-queue-wire consistency sub-relation 3

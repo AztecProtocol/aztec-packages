@@ -7,7 +7,7 @@ template <typename FF_> class GenPermSortRelationImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 4> SUBRELATION_LENGTHS{
+    static constexpr std::array<size_t, 4> SUBRELATION_PARTIAL_LENGTHS{
         6, // range constrain sub-relation 1
         6, // range constrain sub-relation 2
         6, // range constrain sub-relation 3

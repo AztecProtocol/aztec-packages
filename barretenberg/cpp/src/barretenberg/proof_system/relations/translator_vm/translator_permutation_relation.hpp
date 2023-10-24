@@ -9,7 +9,7 @@ template <typename FF_> class GoblinTranslatorPermutationRelationImpl {
     // 1 + polynomial degree of this relation
     static constexpr size_t RELATION_LENGTH = 7;
 
-    static constexpr std::array<size_t, 2> SUBRELATION_LENGTHS{
+    static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS{
         7, // grand product construction sub-relation
         3  // left-shiftable polynomial sub-relation
     };

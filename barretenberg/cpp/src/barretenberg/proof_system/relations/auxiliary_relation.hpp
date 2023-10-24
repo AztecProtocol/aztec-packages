@@ -10,7 +10,7 @@ template <typename FF_> class AuxiliaryRelationImpl {
     /*
      * TODO(https://github.com/AztecProtocol/barretenberg/issues/757): Investigate optimizations.
      * It seems that we could have:
-     *     static constexpr std::array<size_t, 6> SUBRELATION_LENGTHS{
+     *     static constexpr std::array<size_t, 6> SUBRELATION_PARTIAL_LENGTHS{
      *     5 // auxiliary sub-relation;
      *     6 // ROM consistency sub-relation 1
      *     6 // ROM consistency sub-relation 2
@@ -21,7 +21,7 @@ template <typename FF_> class AuxiliaryRelationImpl {
      *
      * and
      *
-     *     static constexpr std::array<size_t, 6> PARAMETER_LENGTH_ADJUSTMENTS{
+     *     static constexpr std::array<size_t, 6> TOTAL_LENGTH_ADJUSTMENTS{
      *     6, // auxiliary sub-relation
      *     0, // ROM consistency sub-relation 1
      *     0, // ROM consistency sub-relation 2
@@ -31,7 +31,7 @@ template <typename FF_> class AuxiliaryRelationImpl {
      * };
      */
 
-    static constexpr std::array<size_t, 6> SUBRELATION_LENGTHS{
+    static constexpr std::array<size_t, 6> SUBRELATION_PARTIAL_LENGTHS{
         6, // auxiliary sub-relation;
         6, // ROM consistency sub-relation 1
         6, // ROM consistency sub-relation 2
@@ -40,7 +40,7 @@ template <typename FF_> class AuxiliaryRelationImpl {
         6  // RAM consistency sub-relation 3
     };
 
-    static constexpr std::array<size_t, 6> PARAMETER_LENGTH_ADJUSTMENTS{
+    static constexpr std::array<size_t, 6> TOTAL_LENGTH_ADJUSTMENTS{
         6, // auxiliary sub-relation
         6, // ROM consistency sub-relation 1
         6, // ROM consistency sub-relation 2
@@ -276,9 +276,8 @@ template <typename FF_> class AuxiliaryRelationImpl {
         auto access_type = (w_4 - partial_record_check);             // will be 0 or 1 for honest Prover; deg 1 or 4
         auto access_check = access_type * access_type - access_type; // check value is 0 or 1; deg 2 or 8
 
-        // WORKTODO: make issue
-        // TODO: oof nasty compute here. If we sorted in reverse order we could re-use `partial_record_check`
-        // 1 -  ((w3' * eta + w2') * eta + w1') * eta
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/757): If we sorted in
+        // reverse order we could re-use `partial_record_check`  1 -  ((w3' * eta + w2') * eta + w1') * eta
         // deg 1 or 4
         auto next_gate_access_type = w_3_shift * eta;
         next_gate_access_type += w_2_shift;

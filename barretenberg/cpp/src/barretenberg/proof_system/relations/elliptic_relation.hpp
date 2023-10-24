@@ -9,7 +9,7 @@ template <typename FF_> class EllipticRelationImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 2> SUBRELATION_LENGTHS{
+    static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS{
         6, // x-coordinate sub-relation
         6, // y-coordinate sub-relation
     };

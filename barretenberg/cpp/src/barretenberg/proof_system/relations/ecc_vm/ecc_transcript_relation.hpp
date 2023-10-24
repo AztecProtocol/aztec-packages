@@ -30,7 +30,7 @@ template <typename FF_> class ECCVMTranscriptRelationBase {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 35> SUBRELATION_LENGTHS{
+    static constexpr std::array<size_t, 35> SUBRELATION_PARTIAL_LENGTHS{
         6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
     };
 

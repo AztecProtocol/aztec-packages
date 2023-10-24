@@ -35,7 +35,7 @@ template <typename FF_> class ECCVMWnafRelationBase {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 21> SUBRELATION_LENGTHS{
+    static constexpr std::array<size_t, 21> SUBRELATION_PARTIAL_LENGTHS{
         5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
     };
 

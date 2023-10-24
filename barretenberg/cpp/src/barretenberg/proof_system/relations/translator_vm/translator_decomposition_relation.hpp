@@ -10,7 +10,7 @@ template <typename FF_> class GoblinTranslatorDecompositionRelationImpl {
 
     // 1 + polynomial degree of this relation
     static constexpr size_t RELATION_LENGTH = 3; // degree(lagrange_odd(a - a_0 - a_1*2¹⁴ ... - a_l⋅2¹⁴ˡ )) = 2
-    static constexpr std::array<size_t, 48> SUBRELATION_LENGTHS{
+    static constexpr std::array<size_t, 48> SUBRELATION_PARTIAL_LENGTHS{
         3, // decomposition of P.x limb 0 into microlimbs subrelation
         3, // decomposition of P.x limb 1 into microlimbs subrelation
         3, // decomposition of P.x limb 2 into microlimbs subrelation
