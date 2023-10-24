@@ -452,6 +452,10 @@ class GoblinUltra {
         FF target_sum;
     };
 
+    /**
+     * @brief Derived class that defines proof structure for GoblinUltra proofs, as well as supporting functions.
+     *
+     */
     class Transcript : public BaseTranscript<FF> {
       public:
         uint32_t circuit_size;

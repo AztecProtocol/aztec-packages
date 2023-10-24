@@ -68,6 +68,11 @@ template <typename FF> class BaseTranscript {
   public:
     BaseTranscript() = default;
 
+    /**
+     * @brief Construct a new Base Transcript object for Verifier using proof_data
+     *
+     * @param proof_data
+     */
     explicit BaseTranscript(const std::vector<uint8_t>& proof_data)
         : proof_data(proof_data.begin(), proof_data.end())
     {}
@@ -76,7 +81,7 @@ template <typename FF> class BaseTranscript {
   private:
     static constexpr size_t MIN_BYTES_PER_CHALLENGE = 128 / 8; // 128 bit challenges
 
-    size_t num_bytes_read = 0;
+    size_t num_bytes_read = 0;      // keeps track of number of bytes read from proof_data by the verifier
     size_t round_number = 0;        // current round for manifest
     bool is_first_challenge = true; // indicates if this is the first challenge this transcript is generating
     std::array<uint8_t, HASH_OUTPUT_SIZE> previous_challenge_buffer{}; // default-initialized to zeros
@@ -277,7 +282,7 @@ template <typename FF> class BaseTranscript {
 
     /**
      * @brief For testing: initializes transcript with some arbitrary data so that a challenge can be generated after
-     * initialization
+     * initialization. Only intended to be used by Prover.
      *
      * @return BaseTranscript
      */
@@ -291,7 +296,7 @@ template <typename FF> class BaseTranscript {
 
     /**
      * @brief For testing: initializes transcript based on proof data then receives junk data produced by
-     * BaseTranscript::prover_init_empty()
+     * BaseTranscript::prover_init_empty(). Only intended to be used by Verifier.
      *
      * @param transcript
      * @return BaseTranscript

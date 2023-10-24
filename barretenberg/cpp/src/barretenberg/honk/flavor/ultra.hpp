@@ -415,8 +415,13 @@ class Ultra {
         FF target_sum;
     };
 
+    /**
+     * @brief Derived class that defines proof structure for Ultra proofs, as well as supporting functions.
+     *
+     */
     class Transcript : public BaseTranscript<FF> {
       public:
+        // Transcript objects defined as public member variables for easy access and modification
         uint32_t circuit_size;
         uint32_t public_input_size;
         uint32_t pub_inputs_offset;
@@ -436,6 +441,7 @@ class Ultra {
 
         Transcript() = default;
 
+        // Used by verifier to initialize the transcript
         Transcript(const std::vector<uint8_t>& proof)
             : BaseTranscript<FF>(proof)
         {}
@@ -455,6 +461,11 @@ class Ultra {
             return verifier_transcript;
         };
 
+        /**
+         * @brief Takes a FULL Ultra proof and deserializes it into the public member variables that compose the
+         * structure. Must be called in order to access the structure of the proof.
+         *
+         */
         void deserialize_full_transcript() override
         {
             // take current proof and put them into the struct
@@ -486,11 +497,15 @@ class Ultra {
             zm_cq_comm = deserialize_object<Commitment>(proof_data, num_bytes_read);
             zm_pi_comm = deserialize_object<Commitment>(proof_data, num_bytes_read);
         }
-
+        /**
+         * @brief Serializes the structure variables into a FULL Ultra proof. Should be called only if
+         * deserialize_full_transcript() was called and some transcript variable was modified.
+         *
+         */
         void serialize_full_transcript() override
         {
             size_t old_proof_length = proof_data.size();
-            proof_data.clear();
+            proof_data.clear(); // clear proof_data so the rest of the function can replace it
             size_t log_n = numeric::get_msb(circuit_size);
             serialize_object(circuit_size, proof_data);
             serialize_object(public_input_size, proof_data);
@@ -515,6 +530,7 @@ class Ultra {
             serialize_object(zm_cq_comm, proof_data);
             serialize_object(zm_pi_comm, proof_data);
 
+            // sanity check to make sure we generate the same length of proof as before.
             ASSERT(proof_data.size() == old_proof_length);
         }
     };

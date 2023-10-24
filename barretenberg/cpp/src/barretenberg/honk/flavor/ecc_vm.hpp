@@ -856,6 +856,10 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
         }
     };
 
+    /**
+     * @brief Derived class that defines proof structure for ECCVM proofs, as well as supporting functions.
+     *
+     */
     class Transcript : public BaseTranscript<FF> {
       public:
         uint32_t circuit_size;
