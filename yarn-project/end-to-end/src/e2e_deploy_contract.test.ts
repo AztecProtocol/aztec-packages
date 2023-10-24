@@ -38,7 +38,8 @@ describe('e2e_deploy_contract', () => {
       }),
     );
     logger(`Receipt received and expecting contract deployment at ${receipt.contractAddress}`);
-    const receiptAfterMined = await tx.wait();
+    // we pass in wallet to wait(...) because wallet is necessary to create a TS contract instance
+    const receiptAfterMined = await tx.wait({ wallet });
 
     expect(receiptAfterMined).toEqual(
       expect.objectContaining({
@@ -60,7 +61,8 @@ describe('e2e_deploy_contract', () => {
 
     for (let index = 0; index < 2; index++) {
       logger(`Deploying contract ${index + 1}...`);
-      const receipt = await deployer.deploy().send({ contractAddressSalt: Fr.random() }).wait();
+      // we pass in wallet to wait(...) because wallet is necessary to create a TS contract instance
+      const receipt = await deployer.deploy().send({ contractAddressSalt: Fr.random() }).wait({ wallet });
       expect(receipt.status).toBe(TxStatus.MINED);
     }
   }, 30_000);
@@ -90,7 +92,8 @@ describe('e2e_deploy_contract', () => {
     const deployer = new ContractDeployer(TestContractArtifact, pxe);
 
     {
-      const receipt = await deployer.deploy().send({ contractAddressSalt }).wait();
+      // we pass in wallet to wait(...) because wallet is necessary to create a TS contract instance
+      const receipt = await deployer.deploy().send({ contractAddressSalt }).wait({ wallet });
 
       expect(receipt.status).toBe(TxStatus.MINED);
       expect(receipt.error).toBe('');
@@ -107,6 +110,7 @@ describe('e2e_deploy_contract', () => {
     const deployer = new ContractDeployer(TestContractArtifact, wallet);
     const portalContract = EthAddress.random();
 
+    // ContractDeployer was instantiated with wallet so we don't have to pass it to wait(...)
     const txReceipt = await deployer.deploy().send({ portalContract }).wait();
 
     expect(txReceipt.status).toBe(TxStatus.MINED);
