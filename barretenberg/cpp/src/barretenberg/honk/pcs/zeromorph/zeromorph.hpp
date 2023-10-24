@@ -449,7 +449,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
     }
 
     /**
-     * @brief
+     * @brief Compute commitment to partially evaluated ZeroMorph identity Z
      * @details Compute commitment C_{Z_x} = [Z_x]_1 using homomorphicity:
      *
      *  C_{Z_x} = x * \sum_{i=0}^{m-1}\rho^i*[f_i] + \sum_{i=0}^{l-1}\rho^{m+i}*[g_i] - v * x * \Phi_n(x) * [1]_1
@@ -462,13 +462,13 @@ template <typename Curve> class ZeroMorphVerifier_ {
      *
      * @note The concatenation term arises from an implementation detail in the Goblin Translator and is not part of the
      * conventional ZM protocol
-     * @param f_commitments
-     * @param g_commitments
-     * @param C_q_k
+     * @param f_commitments Commitments to unshifted polynomials [f_i]
+     * @param g_commitments Commitments to to-be-shifted polynomials [g_i]
+     * @param C_q_k Commitments to q_k
      * @param rho
-     * @param batched_evaluation
+     * @param batched_evaluation \sum_{i=0}^{m-1} \rho^i*f_i(u) + \sum_{i=0}^{l-1} \rho^{m+i}*h_i(u)
      * @param x_challenge
-     * @param u_challenge
+     * @param u_challenge multilinear challenge
      * @param concatenation_groups_commitments
      * @return Commitment
      */
