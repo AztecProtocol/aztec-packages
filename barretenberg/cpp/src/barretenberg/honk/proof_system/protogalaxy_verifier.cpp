@@ -53,10 +53,10 @@ VerifierFoldingResult<typename VerifierInstances::Flavor> ProtoGalaxyVerifier_<
     std::vector<FF> combiner_quotient_coeffs(combiner_quotient_size);
     for (size_t idx = 0; idx < combiner_quotient_size; idx++) {
         combiner_quotient_coeffs[idx] =
-            transcript.template receive_from_prover<FF>("combiner_quotient_idx" + std::to_string(idx));
+            transcript.template receive_from_prover<FF>("combiner_quotient_" + std::to_string(idx));
     }
     auto combiner_quotient = Polynomial<FF>(combiner_quotient_coeffs);
-    auto combiner_challenge = transcript.get_challenge("degree_reduction");
+    auto combiner_challenge = transcript.get_challenge("combiner_quotient_challenge");
     static_cast<void>(combiner_challenge);
 
     // fix k = 1 which means k+1 = 2 is a power of two

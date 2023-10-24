@@ -289,8 +289,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
             Utils::add_nested_tuples(univariate_accumulators, accumulators);
         }
         // Batch the univariate contributions from each sub-relation to obtain the round univariate
-        return Utils::template batch_over_relations<RandomExtendedUnivariate>(
-            univariate_accumulators, alpha, FF(1)); // not sure what this should be, should it be 1?????
+        return Utils::template batch_over_relations<RandomExtendedUnivariate>(univariate_accumulators, alpha);
     }
 };
 

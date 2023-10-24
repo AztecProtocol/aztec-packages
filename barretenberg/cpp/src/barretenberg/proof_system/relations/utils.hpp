@@ -123,12 +123,15 @@ template <typename Flavor> class RelationUtils {
      */
     template <typename ExtendedUnivariate, typename OfTuplesOfUnivariates>
     static void extend_and_batch_univariates(const OfTuplesOfUnivariates& tuple,
-                                             const FF zeta,
-                                             ExtendedUnivariate& result)
+                                             ExtendedUnivariate& result,
+                                             const std::optional<PowUnivariate<FF>>& pow_univariate = std::nullopt)
     {
+        ExtendedUnivariate extended_random_polynomial;
         // Random poly R(X) = (1-X) + X.zeta_pow
-        auto random_polynomial = Univariate<FF, 2>({ 1, zeta });
-        auto extended_random_polynomial = random_polynomial.template extend_to<ExtendedUnivariate::LENGTH>();
+        if (pow_univariate.has_value()) {
+            auto random_polynomial = Univariate<FF, 2>({ 1, pow_univariate.value().zeta_pow });
+            extended_random_polynomial = random_polynomial.template extend_to<ExtendedUnivariate::LENGTH>();
+        }
 
         auto extend_and_sum = [&]<size_t relation_idx, size_t subrelation_idx, typename Element>(Element& element) {
             auto extended = element.template extend_to<ExtendedUnivariate::LENGTH>();
@@ -136,13 +139,13 @@ template <typename Flavor> class RelationUtils {
             using Relation = typename std::tuple_element_t<relation_idx, Relations>;
             const bool is_subrelation_linearly_independent =
                 proof_system::subrelation_is_linearly_independent<Relation, subrelation_idx>();
-            if (is_subrelation_linearly_independent) {
-                // if subrelation is linearly independent, multiply by random polynomial
-                result += extended * extended_random_polynomial;
-            } else {
-                // if subrelation is pure sum over hypercube, don't multiply by random polynomial
+            if (!is_subrelation_linearly_independent || !pow_univariate.has_value()) {
+                // if subrelation is pure um over hypercube, don't multiply by random polynomial
                 // make these comments more relevant
                 result += extended;
+            } else {
+                // if subrelation is linearly independent, multiply by random polynomial
+                result += extended * extended_random_polynomial;
             }
         };
         apply_to_tuple_of_tuples(tuple, extend_and_sum);
@@ -153,15 +156,16 @@ template <typename Flavor> class RelationUtils {
      * return t_0 + αt_1 + ... + α^{NUM_RELATIONS-1}t_{NUM_RELATIONS-1}).
      */
     template <typename ExtendedUnivariate, typename ContainerOverSubrelations>
-    static ExtendedUnivariate batch_over_relations(ContainerOverSubrelations& univariate_accumulators,
-                                                   const FF& challenge,
-                                                   const FF& zeta)
+    static ExtendedUnivariate batch_over_relations(
+        ContainerOverSubrelations& univariate_accumulators,
+        const FF& challenge,
+        const std::optional<PowUnivariate<FF>>& pow_univariate = std::nullopt)
     {
         FF running_challenge = 1;
         scale_univariates(univariate_accumulators, challenge, running_challenge);
 
         auto result = ExtendedUnivariate(0);
-        extend_and_batch_univariates(univariate_accumulators, zeta, result);
+        extend_and_batch_univariates(univariate_accumulators, result, pow_univariate);
 
         // Reset all univariate accumulators to 0 before beginning accumulation in the next round
         zero_univariates(univariate_accumulators);
