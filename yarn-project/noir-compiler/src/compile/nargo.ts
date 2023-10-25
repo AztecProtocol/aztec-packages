@@ -1,7 +1,7 @@
 import { LogFn, createDebugLogger } from '@aztec/foundation/log';
 
 import { execSync } from 'child_process';
-import { readFileSync, readdirSync, statSync } from 'fs';
+import { readFileSync, readdirSync, statSync, unlinkSync } from 'fs';
 import { emptyDirSync } from 'fs-extra';
 import path from 'path';
 
@@ -37,7 +37,7 @@ export class NargoContractCompiler {
     const version = execSync(`${nargoBin} --version`, { cwd: this.projectPath, stdio: 'pipe' }).toString();
     this.checkNargoBinVersion(version.replace('\n', ''));
     emptyDirSync(this.getTargetFolder());
-    execSync(`${nargoBin} compile`, { cwd: this.projectPath, stdio });
+    execSync(`${nargoBin} compile --no-backend`, { cwd: this.projectPath, stdio });
     return Promise.resolve(this.collectArtifacts());
   }
 
@@ -66,6 +66,8 @@ export class NargoContractCompiler {
         } else {
           contractArtifacts.set(filename, JSON.parse(readFileSync(file).toString()) as NoirCompiledContract);
         }
+        // Delete the file as it is not needed anymore and it can cause issues with prettier
+        unlinkSync(file);
       }
     }
 

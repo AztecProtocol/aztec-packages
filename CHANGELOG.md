@@ -1,5 +1,39 @@
 # Changelog
 
+## [0.11.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.11.0...aztec-packages-v0.11.1) (2023-10-24)
+
+
+### Features
+
+* ProverPlookupAuxiliaryWidget kernel bench ([#2924](https://github.com/AztecProtocol/aztec-packages/issues/2924)) ([faffc39](https://github.com/AztecProtocol/aztec-packages/commit/faffc39a379c9f215978e4867c3d24dbc638f0b4))
+
+
+### Bug Fixes
+
+* **ci:** Publish-bb, use clang 16.04 ([#3019](https://github.com/AztecProtocol/aztec-packages/issues/3019)) ([703a964](https://github.com/AztecProtocol/aztec-packages/commit/703a9646a18bf7a9817d4aa6f3fb185c912a6fe7))
+
+## [0.11.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.10.1...aztec-packages-v0.11.0) (2023-10-24)
+
+
+### ⚠ BREAKING CHANGES
+
+* consistent `deploy` method params ([#2975](https://github.com/AztecProtocol/aztec-packages/issues/2975))
+
+### Features
+
+* Consistent `deploy` method params ([#2975](https://github.com/AztecProtocol/aztec-packages/issues/2975)) ([c50aefb](https://github.com/AztecProtocol/aztec-packages/commit/c50aefb63966e8ec3ae65d051d0b47b13de1d330))
+* Pedersen hash in acir format ([#2990](https://github.com/AztecProtocol/aztec-packages/issues/2990)) ([2a4c548](https://github.com/AztecProtocol/aztec-packages/commit/2a4c548bc816a5f379ee841e26bb30411deef56b))
+
+
+### Bug Fixes
+
+* TokenBox ([#3003](https://github.com/AztecProtocol/aztec-packages/issues/3003)) ([1ad6647](https://github.com/AztecProtocol/aztec-packages/commit/1ad6647ac5ad3a13b52eb78db64d13d941d9718d))
+
+
+### Miscellaneous
+
+* Update acir_tests reference branch ([#2993](https://github.com/AztecProtocol/aztec-packages/issues/2993)) ([91813a5](https://github.com/AztecProtocol/aztec-packages/commit/91813a55b8503c279ccd38b1d83463b97b86d064))
+
 ## [0.10.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.10.0...aztec-packages-v0.10.1) (2023-10-24)
 
 
