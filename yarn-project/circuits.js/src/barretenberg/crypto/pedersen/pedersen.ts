@@ -5,10 +5,10 @@ import { Buffer } from 'buffer';
 import { deserializeArrayFromVector, deserializeField, serializeBufferArrayToVector } from '../../serialize.js';
 
 /**
- * Hashes two 32-byte hashes.
+ * Hashes two arrays.
  * @param wasm - The barretenberg module.
- * @param lhs - The first hash.
- * @param rhs - The second hash.
+ * @param lhs - The first array.
+ * @param rhs - The second array.
  * @returns The new 32-byte hash.
  * @deprecated Don't call pedersen directly in production code. Instead, create suitably-named functions for specific
  * purposes.
@@ -18,10 +18,9 @@ export function pedersenHash(wasm: IWasmModule, lhs: Uint8Array, rhs: Uint8Array
 }
 
 /**
- * Combine an array of hashes using pedersen hash.
+ * Computes the hash of an array of buffers.
  * @param wasm - The barretenberg module.
- * @param lhs - The first hash.
- * @param rhs - The second hash.
+ * @param inputs - The array of buffers to hash.
  * @returns The new 32-byte hash.
  * @deprecated Don't call pedersen directly in production code. Instead, create suitably-named functions for specific
  * purposes.
