@@ -47,7 +47,7 @@ ProverFoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverI
     const auto log_instance_size = static_cast<size_t>(numeric::get_msb(instance_size));
     auto deltas = compute_round_challenge_pows(log_instance_size, delta);
     auto perturbator = compute_perturbator(accumulator, deltas, alpha);
-    assert(perturbator[0] == accumulator->folding_parameters->target_sum);
+    assert(perturbator[0] == accumulator->folding_parameters.target_sum);
     for (size_t idx = 0; idx <= log_instance_size; idx++) {
         transcript.send_to_verifier("perturbator_" + std::to_string(idx), perturbator[idx]);
     }
@@ -64,57 +64,58 @@ ProverFoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverI
         betas_star[idx] = betas[idx] + perturbator_challenge * deltas[idx - 1];
     }
 
-    auto pow_betas_star = compute_pow_polynomials_at_values(betas_star, instance_size);
+    auto pow_betas_star = compute_pow_polynomial_at_values(betas_star, instance_size);
 
     auto combiner = compute_combiner(instances, accumulator->relation_parameters, pow_betas_star, alpha);
-    const auto combiner_quotient_size = (log_instance_size - 1) * Flavor::MAX_RELATION_LENGTH;
-    std::vector<FF> lagrange_0(combiner_quotient_size);
-    std::vector<FF> vanishing_polynomial(combiner_quotient_size);
-    // combiner_quotient evaluations from k to dk + 1
-    // TODO: make this univariates
-    // WARNING: barycentric evaluations might not work here ????
-    std::array<FF, (Flavor::MAX_RANDOM_RELATION_LENGTH - 1) * (ProverInstances::NUM - 1) + 1> combiner_quotient_coeffs;
-    for (size_t point = log_instance_size; point < combiner.size(); point++) {
-        auto idx = point - log_instance_size;
-        lagrange_0[idx] = FF(1) - FF(point);
-        vanishing_polynomial[idx] = FF(point) * (FF(point) - 1);
-        combiner_quotient_coeffs[idx] =
-            (combiner.value_at(point) - compressed_perturbator * lagrange_0[idx]) / vanishing_polynomial[idx];
-    }
+    static_cast<void>(combiner);
+    // const auto combiner_quotient_size = (log_instance_size - 1) * Flavor::MAX_RELATION_LENGTH;
+    // std::vector<FF> lagrange_0(combiner_quotient_size);
+    // std::vector<FF> vanishing_polynomial(combiner_quotient_size);
+    // // combiner_quotient evaluations from k to dk + 1
+    // // TODO: make this univariates
+    // // WARNING: barycentric evaluations might not work here ????
+    // std::array<FF, (Flavor::MAX_RANDOM_RELATION_LENGTH - 1) * (ProverInstances::NUM - 1) + 1>
+    // combiner_quotient_coeffs; for (size_t point = log_instance_size; point < combiner.size(); point++) {
+    //     auto idx = point - log_instance_size;
+    //     lagrange_0[idx] = FF(1) - FF(point);
+    //     vanishing_polynomial[idx] = FF(point) * (FF(point) - 1);
+    //     combiner_quotient_coeffs[idx] =
+    //         (combiner.value_at(point) - compressed_perturbator * lagrange_0[idx]) / vanishing_polynomial[idx];
+    // }
 
-    for (size_t idx = 0; idx < combiner_quotient_size; idx++) {
-        transcript.send_to_verifier("combiner_quotient_" + std::to_string(idx), combiner_quotient_coeffs[idx]);
-    }
+    // for (size_t idx = 0; idx < combiner_quotient_size; idx++) {
+    //     transcript.send_to_verifier("combiner_quotient_" + std::to_string(idx), combiner_quotient_coeffs[idx]);
+    // }
 
-    RandomExtendedUnivariate combiner_quotient = Univariate(combiner_quotient_coeffs);
-    auto combiner_challenge = transcript.get_challenge("combiner_qoutient_challenge");
-    auto combiner_quotient_at_challenge = combiner_quotient.evaluate(combiner_challenge);
-    auto vanishing_polynomial_at_challenge = combiner_challenge * (combiner_challenge - FF(1));
-    auto lagrange_0_at_challenge = FF(1) - combiner_challenge;
-    auto lagrange_1_at_challenge = combiner_challenge;
-    auto new_target_sum = compressed_perturbator * lagrange_0_at_challenge + vanishing_polynomial_at_challenge +
-                          combiner_quotient_at_challenge;
+    // RandomExtendedUnivariate combiner_quotient = Univariate(combiner_quotient_coeffs);
+    // auto combiner_challenge = transcript.get_challenge("combiner_qoutient_challenge");
+    // auto combiner_quotient_at_challenge = combiner_quotient.evaluate(combiner_challenge);
+    // auto vanishing_polynomial_at_challenge = combiner_challenge * (combiner_challenge - FF(1));
+    // auto lagrange_0_at_challenge = FF(1) - combiner_challenge;
+    // auto lagrange_1_at_challenge = combiner_challenge;
+    // auto new_target_sum = compressed_perturbator * lagrange_0_at_challenge + vanishing_polynomial_at_challenge +
+    //                       combiner_quotient_at_challenge;
 
-    for (size_t idx = 0; idx < accumulator->prover_polynomials.size(); idx++) {
-        auto accumulator_poly = accumulator->prover_polynomials[idx];
-        auto instance_poly = accumulator->prover_polynomials[idx];
-        assert(accumulator_poly.size() == instance_poly.size());
-        for (size_t j = 0; j < accumulator_poly.size(); j++) {
-            accumulator_poly[j] =
-                accumulator_poly[j] * lagrange_0_at_challenge + instance_poly * lagrange_1_at_challenge;
-        }
-    }
+    // for (size_t idx = 0; idx < accumulator->prover_polynomials.size(); idx++) {
+    //     auto accumulator_poly = accumulator->prover_polynomials[idx];
+    //     auto instance_poly = accumulator->prover_polynomials[idx];
+    //     assert(accumulator_poly.size() == instance_poly.size());
+    //     for (size_t j = 0; j < accumulator_poly.size(); j++) {
+    //         accumulator_poly[j] =
+    //             accumulator_poly[j] * lagrange_0_at_challenge + instance_poly * lagrange_1_at_challenge;
+    //     }
+    // }
 
-    // i have dk evaluations out of which the first k are not good so we evaluate the rest of the polynomials from
-    // k+1
+    // // i have dk evaluations out of which the first k are not good so we evaluate the rest of the polynomials from
+    // // k+1
 
-    // we do barycentric evaluation on the combiner
+    // // we do barycentric evaluation on the combiner
 
     ProverFoldingResult<Flavor> res;
-    res.folded_prover_polynomials = accumalator->prover_polynomials;
-    res.params.target_sum = new_target_sum;
-    res.params.gate_separation_challenges = betas_star;
-    res.folding_data = transcript.proof_data;
+    // res.folded_prover_polynomials = accumulator->prover_polynomials;
+    // res.params.target_sum = new_target_sum;
+    // res.params.gate_separation_challenges = betas_star;
+    // res.folding_data = transcript.proof_data;
     return res;
 }
 template class ProtoGalaxyProver_<ProverInstances_<honk::flavor::Ultra, 2>>;

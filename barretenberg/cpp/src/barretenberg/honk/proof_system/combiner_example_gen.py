@@ -103,8 +103,9 @@ def compute_first_example():
                              row.q_l, row.q_r, row.q_o, row.q_c)
         accumulator += zeta_pow * relation_value
         zeta_pow *= zeta
+        print(zeta_pow)
 
-    accumulator *= extend_one_entity([1, 2])
+    # accumulator *= extend_one_entity([1, 2])
     return accumulator
 
 
@@ -133,10 +134,12 @@ def compute_second_example():
         result += rel(w_l, w_r, w_o, q_m, q_l, q_r, q_o, q_c)
         result *= 2
 
-        result *= extend_one_entity([1, 2])
+        # result *= extend_one_entity([1, 2])
         return result
 
 if __name__ == "__main__":
-    print(f"First example: \n  {compute_first_example()}")
-    print(f"Second example:\n  {compute_second_example()}")
+    # print(f"First example: \n  {compute_first_example()}")
+    # print(f"Second example:\n  {compute_second_example()}")
+    print(compute_first_example())
+    print(compute_second_example())
 
