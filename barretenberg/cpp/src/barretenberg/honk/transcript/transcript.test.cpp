@@ -108,6 +108,22 @@ class UltraTranscriptTests : public ::testing::Test {
 
         return manifest_expected;
     }
+
+    void generate_test_circuit(auto& builder)
+    {
+        FF a = 1;
+        builder.add_variable(a);
+        builder.add_public_variable(a);
+    }
+
+    void generate_random_test_circuit(auto& builder)
+    {
+        auto a = FF::random_element();
+        auto b = FF::random_element();
+        builder.add_variable(a);
+        builder.add_public_variable(a);
+        builder.add_public_variable(b);
+    }
 };
 
 /**
@@ -117,10 +133,8 @@ class UltraTranscriptTests : public ::testing::Test {
 TEST_F(UltraTranscriptTests, ProverManifestConsistency)
 {
     // Construct a simple circuit of size n = 8 (i.e. the minimum circuit size)
-    typename Flavor::FF a = 1;
     auto builder = typename Flavor::CircuitBuilder();
-    builder.add_variable(a);
-    builder.add_public_variable(a);
+    generate_test_circuit(builder);
 
     // Automatically generate a transcript manifest by constructing a proof
     auto composer = UltraComposer();
@@ -146,11 +160,8 @@ TEST_F(UltraTranscriptTests, VerifierManifestConsistency)
 {
 
     // Construct a simple circuit of size n = 8 (i.e. the minimum circuit size)
-    auto builder = proof_system::UltraCircuitBuilder();
-
-    auto a = 2;
-    builder.add_variable(a);
-    builder.add_public_variable(a);
+    auto builder = Flavor::CircuitBuilder();
+    generate_test_circuit(builder);
 
     // Automatically generate a transcript manifest in the prover by constructing a proof
     auto composer = UltraComposer();
@@ -181,7 +192,7 @@ TEST_F(UltraTranscriptTests, VerifierManifestConsistency)
 TEST_F(UltraTranscriptTests, ChallengeGenerationTest)
 {
     // initialized with random value sent to verifier
-    auto transcript = BaseTranscript<FF>::prover_init_empty();
+    auto transcript = Flavor::Transcript::prover_init_empty();
     // test a bunch of challenges
     auto challenges = transcript.get_challenges("a", "b", "c", "d", "e", "f");
     // check they are not 0
@@ -200,33 +211,32 @@ TEST_F(UltraTranscriptTests, ChallengeGenerationTest)
 TEST_F(UltraTranscriptTests, StructureTest)
 {
     // Construct a simple circuit of size n = 8 (i.e. the minimum circuit size)
-    typename Flavor::FF a = 1;
     auto builder = typename Flavor::CircuitBuilder();
-    builder.add_variable(a);
-    builder.add_public_variable(a);
+    generate_test_circuit(builder);
 
     // Automatically generate a transcript manifest by constructing a proof
     auto composer = UltraComposer();
     auto instance = composer.create_instance(builder);
     auto prover = composer.create_prover(instance);
     auto proof = prover.construct_proof();
-
     auto verifier = composer.create_verifier(instance);
     EXPECT_TRUE(verifier.verify_proof(proof));
 
+    // try deserializing and serializing with no changes and check proof is still valid
     prover.transcript.deserialize_full_transcript();
     prover.transcript.serialize_full_transcript();
-
     EXPECT_TRUE(verifier.verify_proof(prover.export_proof())); // we have changed nothing so proof is still valid
-    Flavor::GroupElement one_group_val = Flavor::GroupElement::one();
+
+    Flavor::Commitment one_group_val = Flavor::Commitment::one();
     prover.transcript.sorted_accum_comm = one_group_val;
     EXPECT_TRUE(verifier.verify_proof(
         prover.export_proof())); // we have not serialized it back to the proof so it should still be fine
+
     prover.transcript.serialize_full_transcript();
     EXPECT_FALSE(verifier.verify_proof(prover.export_proof())); // the proof is now wrong after serializing it
 
     prover.transcript.deserialize_full_transcript();
-    EXPECT_EQ(static_cast<Flavor::GroupElement>(prover.transcript.sorted_accum_comm), one_group_val);
+    EXPECT_EQ(static_cast<Flavor::Commitment>(prover.transcript.sorted_accum_comm), one_group_val);
 }
 
 TEST_F(UltraTranscriptTests, FoldingManifestTest)
@@ -237,11 +247,7 @@ TEST_F(UltraTranscriptTests, FoldingManifestTest)
     std::vector<std::shared_ptr<ProverInstance_<Flavor>>> insts(2);
     std::generate(insts.begin(), insts.end(), [&]() {
         auto builder = proof_system::UltraCircuitBuilder();
-        auto a = FF::random_element();
-        auto b = FF::random_element();
-        builder.add_variable(a);
-        builder.add_public_variable(a);
-        builder.add_public_variable(b);
+        generate_random_test_circuit(builder);
         return composer.create_instance(builder);
     });
 
