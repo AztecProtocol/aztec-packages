@@ -513,7 +513,8 @@ TYPED_TEST(ZeroMorphTest, QuotientConstructionEfficient)
     Fr v_evaluation = multilinear_f.evaluate_mle(u_challenge);
 
     // Compute the multilinear quotients q_k = q_k(X_0, ..., X_{k-1})
-    std::vector<Polynomial> quotients = ZeroMorphProver::compute_multilinear_quotients_efficient(multilinear_f, u_challenge);
+    std::vector<Polynomial> quotients =
+        ZeroMorphProver::compute_multilinear_quotients_efficient(multilinear_f, u_challenge);
 
     // Show that the q_k were properly constructed by showing that the identity holds at a random multilinear challenge
     // z, i.e. f(z) - v - \sum_{k=0}^{d-1} (z_k - u_k)q_k(z) = 0
