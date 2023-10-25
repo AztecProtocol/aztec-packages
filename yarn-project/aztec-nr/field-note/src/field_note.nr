@@ -9,7 +9,9 @@ use dep::aztec::{
 
 global FIELD_NOTE_LEN: Field = 1;
 
-// Stores a field
+// A note which stores a field and is expected to be passed around using the `addNote` function.
+// WARNING: This Note is not private as it does not contain randomness and hence it can be easy to perform preimage
+// attack on it.
 struct FieldNote {
     value: Field,
     header: NoteHeader,
@@ -40,6 +42,7 @@ impl FieldNote {
     }
 
     pub fn compute_nullifier(self) -> Field {
+        // This note is expected to be shared between users and for this reason can't be nullified using a secret.
         0
     }
 
@@ -73,7 +76,7 @@ fn set_header(note: &mut FieldNote, header: NoteHeader) {
 }
 
 fn broadcast(context: &mut PrivateContext, slot: Field, note: FieldNote) {
-    assert(false, "FieldNote does not support broadcast");
+    assert(false, "FieldNote does not support broadcast. Add it to PXE directly using the `.addNote` function.");
 }
 
 global FieldNoteMethods = NoteInterface {
