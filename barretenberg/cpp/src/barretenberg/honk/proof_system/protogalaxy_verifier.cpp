@@ -6,7 +6,7 @@ VerifierFoldingResult<typename VerifierInstances::Flavor> ProtoGalaxyVerifier_<
     VerifierInstances>::fold_public_parameters(std::vector<uint8_t> fold_data)
 {
     using Flavor = typename VerifierInstances::Flavor;
-    using VerificationKey = typename Flavor::VerificationKey;
+    // using VerificationKey = typename Flavor::VerificationKey;
 
     transcript = VerifierTranscript<FF>{ fold_data };
     auto index = 0;
@@ -42,25 +42,24 @@ VerifierFoldingResult<typename VerifierInstances::Flavor> ProtoGalaxyVerifier_<
     for (size_t idx = 0; idx <= log_instance_size; idx++) {
         perturbator_coeffs[idx] = transcript.template receive_from_prover<FF>("perturbator_" + std::to_string(idx));
     }
-    assert(perturbator_coeffs[0] == accumulator->folding_parameters->target_sum);
+    assert(perturbator_coeffs[0] == accumulator->folding_parameters.target_sum);
     auto perturbator = Polynomial<FF>(perturbator_coeffs);
     auto perturbator_challenge = transcript.get_challenge("perturbator_challenge");
     auto perturbator_at_challenge = perturbator.evaluate(perturbator_challenge); // horner
-    static_cast<void>(perturbator_at_challenge);
-    // get the coefficient of combiner quotient (K(X) polynomial in the paper)
-    // + 2 because we need one extra eval to rep a poly of certain degree
-    auto combiner_quotient_size = Flavor::MAX_RANDOM_RELATION_LENGTH * (VerifierInstances::NUM - 1) + 2;
-    std::vector<FF> combiner_quotient_coeffs(combiner_quotient_size);
+
+    std::array<FF, (Flavor::MAX_RANDOM_RELATION_LENGTH - 1) * (VerifierInstances::NUM - 1) + 1>
+        combiner_quotient_coeffs;
+    auto combiner_quotient_size = (Flavor::MAX_RANDOM_RELATION_LENGTH - 1) * (VerifierInstances::NUM - 1) + 1;
     for (size_t idx = 0; idx < combiner_quotient_size; idx++) {
         combiner_quotient_coeffs[idx] =
             transcript.template receive_from_prover<FF>("combiner_quotient_" + std::to_string(idx));
     }
-    auto combiner_quotient = Polynomial<FF>(combiner_quotient_coeffs);
+    Univariate<FF, (Flavor::MAX_RANDOM_RELATION_LENGTH - 1) * (VerifierInstances::NUM - 1) + 1> combiner_quotient(
+        combiner_quotient_coeffs);
     auto combiner_challenge = transcript.get_challenge("combiner_quotient_challenge");
-    static_cast<void>(combiner_challenge);
 
-    // fix k = 1 which means k+1 = 2 is a power of two
     auto combiner_quotient_at_challenge = combiner_quotient.evaluate(combiner_challenge); // K(\gamma)
+    // WORKTODO make functions for bigger Z and more lagrange basis
     auto vanishing_polynomial_at_challenge = combiner_challenge * (combiner_challenge - FF(1));
     auto lagrange_0_at_challenge = FF(1) - combiner_challenge;
     auto lagrange_1_at_challenge = combiner_challenge;

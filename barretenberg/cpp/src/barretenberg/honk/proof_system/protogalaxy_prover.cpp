@@ -47,14 +47,13 @@ ProverFoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverI
     const auto log_instance_size = static_cast<size_t>(numeric::get_msb(instance_size));
     auto deltas = compute_round_challenge_pows(log_instance_size, delta);
     auto perturbator = compute_perturbator(accumulator, deltas, alpha);
-    assert(perturbator[0] == accumulator->folding_parameters->target_sum);
+    assert(perturbator[0] == accumulator->folding_parameters.target_sum);
     for (size_t idx = 0; idx <= log_instance_size; idx++) {
         transcript.send_to_verifier("perturbator_" + std::to_string(idx), perturbator[idx]);
     }
 
     auto perturbator_challenge = transcript.get_challenge("perturbator_challenge");
     auto compressed_perturbator = perturbator.evaluate(perturbator_challenge); // horner
-    static_cast<void>(compressed_perturbator);
 
     // sanity check: i think we don't care about elemnt 0th element of beta, it is 1
     std::vector<FF> betas_star(log_instance_size);
@@ -64,16 +63,17 @@ ProverFoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverI
         betas_star[idx] = betas[idx] + perturbator_challenge * deltas[idx - 1];
     }
 
-    auto pow_betas_star = compute_pow_polynomials_at_values(betas_star, instance_size);
+    auto pow_betas_star = compute_pow_polynomial_at_values(betas_star, instance_size);
 
     auto combiner = compute_combiner(instances, accumulator->relation_parameters, pow_betas_star, alpha);
     const auto combiner_quotient_size = (log_instance_size - 1) * Flavor::MAX_RELATION_LENGTH;
     std::vector<FF> lagrange_0(combiner_quotient_size);
     std::vector<FF> vanishing_polynomial(combiner_quotient_size);
-    // combiner_quotient evaluations from k to dk + 1
-    // TODO: make this univariates
-    // WARNING: barycentric evaluations might not work here ????
+
+    // degree dk - k  = d(k - 1) so length is d(k-1) + 1
     std::array<FF, (Flavor::MAX_RANDOM_RELATION_LENGTH - 1) * (ProverInstances::NUM - 1) + 1> combiner_quotient_coeffs;
+
+    // we need to evaluate at values not part in the vanishing set
     for (size_t point = log_instance_size; point < combiner.size(); point++) {
         auto idx = point - log_instance_size;
         lagrange_0[idx] = FF(1) - FF(point);
@@ -86,7 +86,8 @@ ProverFoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverI
         transcript.send_to_verifier("combiner_quotient_" + std::to_string(idx), combiner_quotient_coeffs[idx]);
     }
 
-    RandomExtendedUnivariate combiner_quotient = Univariate(combiner_quotient_coeffs);
+    Univariate<FF, (Flavor::MAX_RANDOM_RELATION_LENGTH - 1) * (ProverInstances::NUM - 1) + 1> combiner_quotient(
+        combiner_quotient_coeffs);
     auto combiner_challenge = transcript.get_challenge("combiner_qoutient_challenge");
     auto combiner_quotient_at_challenge = combiner_quotient.evaluate(combiner_challenge);
     auto vanishing_polynomial_at_challenge = combiner_challenge * (combiner_challenge - FF(1));
@@ -101,7 +102,7 @@ ProverFoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverI
         assert(accumulator_poly.size() == instance_poly.size());
         for (size_t j = 0; j < accumulator_poly.size(); j++) {
             accumulator_poly[j] =
-                accumulator_poly[j] * lagrange_0_at_challenge + instance_poly * lagrange_1_at_challenge;
+                accumulator_poly[j] * lagrange_0_at_challenge + instance_poly[j] * lagrange_1_at_challenge;
         }
     }
 
@@ -111,7 +112,7 @@ ProverFoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverI
     // we do barycentric evaluation on the combiner
 
     ProverFoldingResult<Flavor> res;
-    res.folded_prover_polynomials = accumalator->prover_polynomials;
+    res.folded_prover_polynomials = accumulator->prover_polynomials;
     res.params.target_sum = new_target_sum;
     res.params.gate_separation_challenges = betas_star;
     res.folding_data = transcript.proof_data;

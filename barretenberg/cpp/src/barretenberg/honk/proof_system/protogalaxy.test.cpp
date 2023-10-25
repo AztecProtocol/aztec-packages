@@ -127,7 +127,7 @@ TEST_F(ProtoGalaxyTests, PerturbatorCoefficients)
     }
 }
 
-TEST_F(ProtoGalaxyTests, PowPerturbatorPolynomial)
+TEST_F(ProtoGalaxyTests, PerturbatorPolynomial)
 {
     const size_t log_instance_size(3);
     const size_t instance_size(1 << log_instance_size);
@@ -147,17 +147,8 @@ TEST_F(ProtoGalaxyTests, PowPerturbatorPolynomial)
         betas[idx] = FF::random_element();
     }
 
-    // Construct pow(\vec{betas}) manually as in the paper
-    std::vector<FF> pow_beta(instance_size);
-    for (size_t i = 0; i < instance_size; i++) {
-        auto res = FF(1);
-        for (size_t j = i, beta_idx = 0; j > 0; j >>= 1, beta_idx++) {
-            if ((j & 1) == 1) {
-                res *= betas[beta_idx];
-            }
-        }
-        pow_beta[i] = res;
-    }
+    // Construct pow(\vec{betas}) as in the paper
+    auto pow_beta = ProtoGalaxyProver::compute_pow_polynomial_at_values(betas, instance_size);
 
     // Compute the corresponding target sum and create a dummy accumulator
     auto target_sum = FF(0);
@@ -178,4 +169,6 @@ TEST_F(ProtoGalaxyTests, PowPerturbatorPolynomial)
     // Ensure the constant coefficient of the perturbator is equal to the target sum as indicated by the paper
     EXPECT_EQ(perturbator[0], target_sum);
 }
+
+TEST_F(ProtoGalaxyTests, PowCorrectness) {}
 } // namespace protogalaxy_tests

@@ -87,6 +87,13 @@ def get_extended_univariates(instances, row_idx):
         result = np.array(extend_one_entity(result))
         return result
 
+
+def compute_lagrange(points){
+    lagrange_0 = np.array([])
+    lagrange_1 = np.array([])
+    
+}
+
 def compute_first_example():
     i0 = Instance([Row(0), Row(1)])
     i1 = Instance([Row(128), Row(129)])
@@ -104,39 +111,43 @@ def compute_first_example():
         accumulator += zeta_pow * relation_value
         zeta_pow *= zeta
 
-    accumulator *= extend_one_entity([1, 2])
+
+
+    # accumulator *= extend_one_entity([1, 2])
     return accumulator
 
 
-def compute_second_example():
-        result = 0
-        w_l = np.array([ 1,  3,  5,  7,  9, 11, 13])
-        w_r = np.array([ 2,  4,  6,  8, 10, 12, 14])
-        w_o = np.array([ 3,  7, 11, 15, 19, 23, 27])
-        q_m = np.array([ 0,  0,  0,  0,  0,  0,  0])
-        q_l = np.array([ 1,  1,  1,  1,  1,  1,  1])
-        q_r = np.array([ 1,  1,  1,  1,  1,  1,  1])
-        q_o = np.array([-1, -1, -1, -1, -1, -1, -1])
-        q_c = np.array([ 0,  0,  0,  0,  0,  0,  0])
-        # contribution is zero, but why not?
-        result += rel(w_l, w_r, w_o, q_m, q_l, q_r, q_o, q_c)      
+# def compute_second_example():
+#         result = 0
+#         w_l = np.array([ 1,  3,  5,  7,  9, 11, 13])
+#         w_r = np.array([ 2,  4,  6,  8, 10, 12, 14])
+#         w_o = np.array([ 3,  7, 11, 15, 19, 23, 27])
+#         q_m = np.array([ 0,  0,  0,  0,  0,  0,  0])
+#         q_l = np.array([ 1,  1,  1,  1,  1,  1,  1])
+#         q_r = np.array([ 1,  1,  1,  1,  1,  1,  1])
+#         q_o = np.array([-1, -1, -1, -1, -1, -1, -1])
+#         q_c = np.array([ 0,  0,  0,  0,  0,  0,  0])
+#         # contribution is zero, but why not?
+#         result += rel(w_l, w_r, w_o, q_m, q_l, q_r, q_o, q_c)      
 
-        w_l = np.array([ 0,  1,  2,  3,  4,  5,  6])
-        w_r = np.array([ 4,  4,  4,  4,  4,  4,  4])
-        w_o = np.array([ 4,  4,  4,  4,  4,  4,  4])
-        q_m = np.array([ 0,  1,  2,  3,  4,  5,  6])
-        q_l = np.array([ 1,  0, -1, -2, -3, -4, -5])
-        q_r = np.array([ 1,  0, -1, -2, -3, -4, -5])
-        q_o = np.array([-1, -1, -1, -1, -1, -1, -1])
-        q_c = np.array([ 0,  0,  0,  0,  0,  0,  0])
+#         w_l = np.array([ 0,  1,  2,  3,  4,  5,  6])
+#         w_r = np.array([ 4,  4,  4,  4,  4,  4,  4])
+#         w_o = np.array([ 4,  4,  4,  4,  4,  4,  4])
+#         q_m = np.array([ 0,  1,  2,  3,  4,  5,  6])
+#         q_l = np.array([ 1,  0, -1, -2, -3, -4, -5])
+#         q_r = np.array([ 1,  0, -1, -2, -3, -4, -5])
+#         q_o = np.array([-1, -1, -1, -1, -1, -1, -1])
+#         q_c = np.array([ 0,  0,  0,  0,  0,  0,  0])
 
-        result += rel(w_l, w_r, w_o, q_m, q_l, q_r, q_o, q_c)
-        result *= 2
+#         result += rel(w_l, w_r, w_o, q_m, q_l, q_r, q_o, q_c)
+#         result *= 2
 
-        result *= extend_one_entity([1, 2])
-        return result
+#         # result *= extend_one_entity([1, 2])
+#         return result
 
 if __name__ == "__main__":
-    print(f"First example: \n  {compute_first_example()}")
-    print(f"Second example:\n  {compute_second_example()}")
+    # print(f"First example: \n  {compute_first_example()}")
+    # print(f"Second example:\n  {compute_second_example()}")
+    print(compute_first_example())
+    # print(compute_second_example())
 
