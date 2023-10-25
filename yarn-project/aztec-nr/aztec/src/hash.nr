@@ -29,13 +29,6 @@ pub fn compute_secret_hash(secret: Field) -> Field {
   pedersen_hash([secret], GENERATOR_INDEX__L1_TO_L2_MESSAGE_SECRET)
 }
 
-#[oracle(pedersenHash)]
-fn pedersen_hash_oracle<N>(_inputs: [Field; N], _hash_index: u32) -> Field {}
-
-unconstrained fn pedersen_hash_internal<N>(inputs: [Field; N], hash_index: u32) -> Field {
-    pedersen_hash_oracle(inputs, hash_index)
-}
-
 pub fn pedersen_hash<N>(inputs: [Field; N], hash_index: u32) -> Field {
   pedersen_hash_with_separator(inputs, hash_index)
 }
