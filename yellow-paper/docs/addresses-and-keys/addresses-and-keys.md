@@ -3,106 +3,106 @@ sidebar_position: 1
 ---
 
 $$
-\renewcommand{\sk}{\color{red}{sk}}
+\gdef\sk{\color{red}{sk}}
 
-\renewcommand{\nskm}{\color{red}{nsk_m}}
-\renewcommand{\tskm}{\color{red}{tsk_m}}
-\renewcommand{\ivskm}{\color{red}{ivsk_m}}
-\renewcommand{\ovskm}{\color{red}{ovsk_m}}
-\renewcommand{\rivskm}{\color{red}{rivsk_m}}
-\renewcommand{\rovskm}{\color{red}{rovsk_m}}
+\gdef\nskm{\color{red}{nsk_m}}
+\gdef\tskm{\color{red}{tsk_m}}
+\gdef\ivskm{\color{red}{ivsk_m}}
+\gdef\ovskm{\color{red}{ovsk_m}}
+\gdef\rivskm{\color{red}{rivsk_m}}
+\gdef\rovskm{\color{red}{rovsk_m}}
 
-\renewcommand{\Npkm}{\color{green}{Npk_m}}
-\renewcommand{\Tpkm}{\color{green}{Tpk_m}}
-\renewcommand{\Ivpkm}{\color{green}{Ivpk_m}}
-\renewcommand{\Ovpkm}{\color{green}{Ovpk_m}}
-\renewcommand{\Rivpkm}{\color{green}{Rivpk_m}}
-\renewcommand{\Rovpkm}{\color{green}{Rovpk_m}}
+\gdef\Npkm{\color{green}{Npk_m}}
+\gdef\Tpkm{\color{green}{Tpk_m}}
+\gdef\Ivpkm{\color{green}{Ivpk_m}}
+\gdef\Ovpkm{\color{green}{Ovpk_m}}
+\gdef\Rivpkm{\color{green}{Rivpk_m}}
+\gdef\Rovpkm{\color{green}{Rovpk_m}}
 
-\renewcommand{\shareableivskm}{\color{orange}{\widetilde{ivsk_{m}}}}
-\renewcommand{\shareableIvpkm}{\color{green}{\widetilde{Ivpk_{m}}}}
-\renewcommand{\shareableovskm}{\color{orange}{\widetilde{ovsk_{m}}}}
-
-
-\renewcommand{\address}{\color{green}{address}}
-\renewcommand{\codehash}{\color{green}{code\_hash}}
+\gdef\shareableivskm{\color{orange}{\widetilde{ivsk_{m}}}}
+\gdef\shareableIvpkm{\color{green}{\widetilde{Ivpk_{m}}}}
+\gdef\shareableovskm{\color{orange}{\widetilde{ovsk_{m}}}}
 
 
-\renewcommand{\nskapp}{\color{red}{nsk_{app}}}
-\renewcommand{\tskapp}{\color{red}{tsk_{app}}}
-\renewcommand{\ivskapp}{\color{red}{ivsk_{app}}}
-\renewcommand{\ovskapp}{\color{red}{ovsk_{app}}}
-\renewcommand{\rivskapp}{\color{red}{rivsk_{app}}}
-\renewcommand{\rovskapp}{\color{red}{rovsk_{app}}}
-
-\renewcommand{\Nkapp}{\color{orange}{Nk_{app}}}
-
-\renewcommand{\Npkapp}{\color{green}{Npk_{app}}}
+\gdef\address{\color{green}{address}}
+\gdef\codehash{\color{green}{code\_hash}}
 
 
-\renewcommand{\Ivpkapp}{\color{green}{Ivpk_{app}}}
+\gdef\nskapp{\color{red}{nsk_{app}}}
+\gdef\tskapp{\color{red}{tsk_{app}}}
+\gdef\ivskapp{\color{red}{ivsk_{app}}}
+\gdef\ovskapp{\color{red}{ovsk_{app}}}
+\gdef\rivskapp{\color{red}{rivsk_{app}}}
+\gdef\rovskapp{\color{red}{rovsk_{app}}}
+
+\gdef\Nkapp{\color{orange}{Nk_{app}}}
+
+\gdef\Npkapp{\color{green}{Npk_{app}}}
 
 
-\renewcommand{\Rivpkapp}{\color{green}{Rivpk_{app}}}
+\gdef\Ivpkapp{\color{green}{Ivpk_{app}}}
 
 
-\renewcommand{\happL}{\color{green}{h_{app}^L}}
-\renewcommand{\happn}{\color{green}{h_{app}^n}}
-\renewcommand{\happiv}{\color{green}{h_{app}^{iv}}}
-\renewcommand{\happriv}{\color{green}{h_{app}^{riv}}}
-\renewcommand{\happrov}{\color{green}{h_{app}^{rov}}}
+\gdef\Rivpkapp{\color{green}{Rivpk_{app}}}
 
 
-\renewcommand{\shareableivskapp}{\color{orange}{\widetilde{ivsk_{app}}}}
-\renewcommand{\shareableIvpkapp}{\color{green}{\widetilde{Ivpk_{app}}}}
-\renewcommand{\shareableovskapp}{\color{orange}{\widetilde{ovsk_{app}}}}
+\gdef\happL{\color{green}{h_{app}^L}}
+\gdef\happn{\color{green}{h_{app}^n}}
+\gdef\happiv{\color{green}{h_{app}^{iv}}}
+\gdef\happriv{\color{green}{h_{app}^{riv}}}
+\gdef\happrov{\color{green}{h_{app}^{rov}}}
 
 
-\renewcommand{\d}{\color{green}{d}}
-\renewcommand{\Gd}{\color{green}{G_d}}
-
-\renewcommand{\Ivpkappd}{\color{violet}{Ivpk_{app,d}}}
-\renewcommand{\Rivpkappd}{\color{violet}{Rivpk_{app,d}}}
-\renewcommand{\Pkappd}{\color{violet}{Pk_{app,d}}}
-\renewcommand{\shareableIvpkappd}{\color{violet}{\widetilde{Ivpk_{app,d}}}}
+\gdef\shareableivskapp{\color{orange}{\widetilde{ivsk_{app}}}}
+\gdef\shareableIvpkapp{\color{green}{\widetilde{Ivpk_{app}}}}
+\gdef\shareableovskapp{\color{orange}{\widetilde{ovsk_{app}}}}
 
 
-\renewcommand{\ivskappstealth}{\color{red}{ivsk_{app,stealth}}}
-\renewcommand{\Ivpkappdstealth}{\color{violet}{Ivpk_{app,d,stealth}}}
-\renewcommand{\Pkappdstealth}{\color{violet}{Pk_{app,d,stealth}}}
-\renewcommand{\shareableivskappstealth}{\color{orange}{\widetilde{ivsk_{app,stealth}}}}
-\renewcommand{\shareableIvpkappdstealth}{\color{violet}{\widetilde{Ivpk_{app,d,stealth}}}}
+\gdef\d{\color{green}{d}}
+\gdef\Gd{\color{green}{G_d}}
 
-\renewcommand{\hstealth}{\color{violet}{h_{stealth}}}
-
-
-\renewcommand{\esk}{\color{red}{esk}}
-\renewcommand{\Epk}{\color{green}{Epk}}
-\renewcommand{\Epkd}{\color{green}{Epk_d}}
-\renewcommand{\eskheader}{\color{red}{esk_{header}}}
-\renewcommand{\Epkheader}{\color{green}{Epk_{header}}}
-\renewcommand{\Epkdheader}{\color{green}{Epk_{d,header}}}
-
-\renewcommand{\sharedsecret}{\color{violet}{\text{S}}}
-\renewcommand{\sharedsecretmheader}{\color{violet}{\text{S_{m,header}}}}
-\renewcommand{\sharedsecretappheader}{\color{violet}{\text{S_{app,header}}}}
+\gdef\Ivpkappd{\color{violet}{Ivpk_{app,d}}}
+\gdef\Rivpkappd{\color{violet}{Rivpk_{app,d}}}
+\gdef\Pkappd{\color{violet}{Pk_{app,d}}}
+\gdef\shareableIvpkappd{\color{violet}{\widetilde{Ivpk_{app,d}}}}
 
 
-\renewcommand{\hmencheader}{\color{violet}{h_{m,enc,header}}}
-\renewcommand{\happencheader}{\color{violet}{h_{app,enc,header}}}
-\renewcommand{\hmenc}{\color{violet}{h_{m,enc}}}
-\renewcommand{\happenc}{\color{violet}{h_{app,enc}}}
-\renewcommand{\incomingenckey}{\color{violet}{h_{incoming\_enc\_key}}}
+\gdef\ivskappstealth{\color{red}{ivsk_{app,stealth}}}
+\gdef\Ivpkappdstealth{\color{violet}{Ivpk_{app,d,stealth}}}
+\gdef\Pkappdstealth{\color{violet}{Pk_{app,d,stealth}}}
+\gdef\shareableivskappstealth{\color{orange}{\widetilde{ivsk_{app,stealth}}}}
+\gdef\shareableIvpkappdstealth{\color{violet}{\widetilde{Ivpk_{app,d,stealth}}}}
+
+\gdef\hstealth{\color{violet}{h_{stealth}}}
 
 
-\renewcommand{\plaintext}{\color{red}{\text{plaintext}}}
-\renewcommand{\ciphertext}{\color{green}{\text{ciphertext}}}
-\renewcommand{\ciphertextheader}{\color{green}{\text{ciphertext\_header}}}
-\renewcommand{\payload}{\color{green}{\text{payload}}}
+\gdef\esk{\color{red}{esk}}
+\gdef\Epk{\color{green}{Epk}}
+\gdef\Epkd{\color{green}{Epk_d}}
+\gdef\eskheader{\color{red}{esk_{header}}}
+\gdef\Epkheader{\color{green}{Epk_{header}}}
+\gdef\Epkdheader{\color{green}{Epk_{d,header}}}
+
+\gdef\sharedsecret{\color{violet}{\text{S}}}
+\gdef\sharedsecretmheader{\color{violet}{\text{S_{m,header}}}}
+\gdef\sharedsecretappheader{\color{violet}{\text{S_{app,header}}}}
 
 
-\renewcommand{\tagg}{\color{green}{\text{tag}}}
-\renewcommand{\Taghs}{\color{green}{\text{Tag}_{hs}}}
+\gdef\hmencheader{\color{violet}{h_{m,enc,header}}}
+\gdef\happencheader{\color{violet}{h_{app,enc,header}}}
+\gdef\hmenc{\color{violet}{h_{m,enc}}}
+\gdef\happenc{\color{violet}{h_{app,enc}}}
+\gdef\incomingenckey{\color{violet}{h_{incoming\_enc\_key}}}
+
+
+\gdef\plaintext{\color{red}{\text{plaintext}}}
+\gdef\ciphertext{\color{green}{\text{ciphertext}}}
+\gdef\ciphertextheader{\color{green}{\text{ciphertext\_header}}}
+\gdef\payload{\color{green}{\text{payload}}}
+
+
+\gdef\tagg{\color{green}{\text{tag}}}
+\gdef\Taghs{\color{green}{\text{Tag}_{hs}}}
 
 $$
 
@@ -377,6 +377,7 @@ $\Ivpkm$ | $\ivskm \cdot G$ | incoming viewing public key | | A 'sender' can use
 $\Ovpkm$ | $\ovskm \cdot G$ | outgoing viewing public key | | A user can use this key to derive an ephemeral encryption key, to encrypt data _for themselves_.
 $\Rivpkm$ | $\rivskm \cdot G$ | randomising public key | | This "randomising" key pair is included to enable a _shareable_ incoming viewing secret key for each app; $\shareableivskapp$. |
 $\Rovpkm$ | $\rovskm \cdot G$ | randomising public key | | This "randomising" key pair is included to enable a _shareable_ outgoing viewing secret key for each app; $\shareableovskapp$. |
+||||||
 $\shareableivskm$ | $\ivskm + \rivskm$ | master randomised incoming viewing secret key | PXE/ T3P | I'm not sure why I derived _master_ shareable incoming viewing keys. Perhaps a user might want to provide 3rd party access to every app they use? There will definitely be a need to encrypt the `contract_address` with $\Ivpkm$ (as a ciphertext header), as a way of efficiently conveying which siloed app keys to use to decrypt the rest of the ciphertext. But sharing this info with a 3rd party would leak all app activity. A 3rd party could instead not be given the master key, and they'd need to brute-force find the relevant siloed key (out of those they possess for the user) to use to decrypt the ciphertext. Anyway, the option is there.| 
 $\shareableIvpkm$ | $\Ivpkm + \Rivpkm$<br />$= \shareableivskm \cdot G$ | master randomised incoming viewing public key |
 $\shareableovskm$ | $\ovskm + \rovskm$ | master randomised incoming viewing secret key | PXE/ T3P | | 
@@ -401,12 +402,12 @@ $\address$ | h($\Npkm$, $\Tpkm$, $\Ivpkm$, $\Ovpkm$, $\Rivpkm$, $\Rovpkm$, $\cod
 $\happL$ | h($\address$, app\_address) | normal siloing key for app-specific keypair derivations | | An intermediate step in a BIP-32-esque "normal" (non-hardened) child key derivation.<br />Note: the "L" is a lingering artifact carried over from the BIP-32 notation (where a 512-bit hmac output is split into a left and a right part), but notice there is no corresponding "R"; as a protocol simplification we do not derive BIP-32 chain codes.  |
 $\happiv$ | h(0x03, $\happL$) | normal siloing key for an app-specific incoming viewing keypair | | An intermediate step in a BIP-32-esque "normal" (non-hardened) child key derivation. |
 $\happriv$ | h(0x05, $\happL$) | normal siloing key for an app-specific randomising keypair | | An intermediate step in a BIP-32-esque "normal" (non-hardened) child key derivation. |
-|
+|||||
 $\ivskapp$ | $\happiv + \ivskm$ | app-siloed incoming viewing secret key | PXE*, <br />Not App |
 $\rivskapp$ | $\happriv + \rivskm$ | app-siloed randomising secret key | PXE*, <br />Not App |
 $\Ivpkapp$ | $\happiv \cdot G + \Ivpkm = \ivskapp \cdot G$ | app-siloed incoming viewing public key |
 $\Rivpkapp$ | $\happriv \cdot G + \Rivpkm = \rivskapp \cdot G$ | app-siloed randomising public key |
-|
+||||||
 $\shareableivskapp$ | $\ivskapp + \rivskapp$ | app-siloed shareable/randomised incoming viewing secret key | PXE, T3P, App |Shareable with a trusted 3rd party. The $\ivskapp$ alone could be used by an adversary to reverse-derive the $\ivskm$ master key, which would give view access to all apps' keys. Randomisation, with $\rivskapp$, prevents this.<br />This has a further important use: it can be safely passed _into_ the app's circuit(s) in use cases which require proof of attempted decryption (e.g. negative reputation examples), (but note: $\ivskapp$ and $\rivskapp$ MUST NOT be passed into an app circuit). |
 $\shareableIvpkapp$ | $\Ivpkapp + \Rivpkapp = \shareableivskapp \cdot G$ | app-siloed shareable/randomised incoming viewing public key | | It is this publicly-derivable public key which should be used by senders to derive an ephemeral symmetric encryption key, to encrypt a plaintext for some recipient. (The data is "incoming" from the pov of the recipient).<br />The non-randomised $\Ivpkapp$ should not be used for encryption in applications where a user might wish to have the option of providing some _trusted_ 3rd party with the ability to view that user's incoming data. |
 
