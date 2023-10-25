@@ -1,6 +1,6 @@
 import { AcirSimulator } from '@aztec/acir-simulator';
 import { CircuitsWasm, Fr, MAX_NEW_COMMITMENTS_PER_TX } from '@aztec/circuits.js';
-import { Grumpkin, pedersenHashInputs  } from '@aztec/circuits.js/barretenberg';
+import { Grumpkin, pedersenHashInputs } from '@aztec/circuits.js/barretenberg';
 import { Point } from '@aztec/foundation/fields';
 import { ConstantKeyPair } from '@aztec/key-store';
 import {
