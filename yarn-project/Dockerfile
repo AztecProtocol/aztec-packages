@@ -1,16 +1,15 @@
 # This base dockerfile adds all the remaining source files, performs artifact generation, and builds the project.
 # See yarn-project-base/Dockerfile for deeper insight into why things are how they are.
-FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/noir-contracts-build as noir
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project-base as builder
 
 # Copy in the entire workspace.
 COPY . .
 
-# Generate Noir contract TypeScript artifacts.
-COPY --from=noir /usr/src/yarn-project/noir-contracts /usr/src/yarn-project/noir-contracts
-
 # Build the entire project.
-RUN yarn tsc -b
+RUN yarn workspace @aztec/foundation build && \
+  yarn workspace @aztec/noir-compiler build && \
+  yarn workspace @aztec/noir-contracts noir:build:all && \
+  yarn tsc -b
 
 # Build aztec.js web artifact
 RUN cd /usr/src/yarn-project/aztec.js && yarn build:web
