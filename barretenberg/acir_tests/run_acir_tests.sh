@@ -7,7 +7,8 @@ set -eu
 BIN=${BIN:-../cpp/build/bin/bb}
 FLOW=${FLOW:-prove_and_verify}
 CRS_PATH=~/.bb-crs
-BRANCH=master
+NOIR_REPO="https://github.com/noir-lang/noir.git"
+BRANCH=tf/acir-artifact
 VERBOSE=${VERBOSE:-}
 NAMED_TEST=${1:-}
 
@@ -26,15 +27,22 @@ if [ ! -d acir_tests ]; then
   if [ -n "${TEST_SRC:-}" ]; then
     cp -R $TEST_SRC acir_tests
   else
-    rm -rf noir
-    git clone -b $BRANCH --filter=blob:none --no-checkout https://github.com/noir-lang/noir.git
-    cd noir
-    git sparse-checkout init --cone
-    git sparse-checkout set tooling/nargo_cli/tests/acir_artifacts
-    git checkout
-    cd ..
-    mv noir/tooling/nargo_cli/tests/acir_artifacts acir_tests
-    rm -rf noir
+    # Search for successful workflow runs on the specified branch
+    WORKFLOW_RUNS=$(gh run list -b $BRANCH -w "Rebuild ACIR artifacts" --repo $NOIR_REPO --json databaseId --json conclusion) 
+    WORKFLOW_RUNS=$(echo $WORKFLOW_RUNS | jq 'map(select(.conclusion == "success")) | map(.databaseId)' | jq @sh | xargs echo)
+    
+    # Iterate through workflow runs until we find one with ACIR artifacts
+    set +eu
+    for WORKFLOW_RUN in $WORKFLOW_RUNS; do
+      
+      echo "Checking workflow run $WORKFLOW_RUN" 
+      gh run download $WORKFLOW_RUN --dir acir_tests --repo $NOIR_REPO -n acir-artifacts
+      if [[ $? -eq "0" ]]; then
+        break;
+      fi
+    done 
+    set -eu
+
   fi
 fi
 
