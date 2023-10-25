@@ -4,8 +4,8 @@
 set -eux
 
 # docs:start:declare-accounts
-ALICE="0x281a2587d4bdf11a12bfb0c92d30060910b7ff5d882f67ce27519865db1c1881"
-BOB="0x2b2794e0d7fd2dffb64fac6ec81669cdeb47f2b116ffeeaa76c731fe83aa9592"
+ALICE="0x0f394e8bd156e15153376a711e3054821c2a1c1047dcfb3745d636a57fb42ab1"
+BOB="0x2b67f90f0044596190644ddafea4152de47bd4781559493860fa7358e19d090a"
 ALICE_PRIVATE_KEY="0x2153536ff6628eee01cf4024889ff977a18d9fa61d0e414422f7681cf085c281"
 # docs:end:declare-accounts
 
@@ -15,14 +15,14 @@ aztec-cli deploy \
   --salt 0 \
   --args $ALICE
 
-aztec-cli check-deploy --contract-address 0x24af0b78e803c66d36284dec93e6b64048e0fcad8fdf2ca99503e3b1c39dcde7
+aztec-cli check-deploy --contract-address 0x2f45f498b7912c779dde8e3594622e36d7908088b09e99ab91caaafb40d1f9ef
 
-CONTRACT="0x24af0b78e803c66d36284dec93e6b64048e0fcad8fdf2ca99503e3b1c39dcde7"
+CONTRACT="0x2f45f498b7912c779dde8e3594622e36d7908088b09e99ab91caaafb40d1f9ef"
 # docs:end:deploy
 
 # docs:start:mint-private
 SECRET="0x29bf6afaf29f61cbcf2a4fa7da97be481fb418dc08bdab5338839974beb7b49f"
-SECRET_HASH="0x0a42b1fe22b652cc8610e33bb1128040ce2d2862e7041ff235aa871739822b74"
+SECRET_HASH="0x0921759afa747c9073f75df9688a17d271cef0d6ec51eacf70e112402c4db6cd"
 
 MINT_PRIVATE_OUTPUT=$(aztec-cli send mint_private \
   --args 1000 $SECRET_HASH \

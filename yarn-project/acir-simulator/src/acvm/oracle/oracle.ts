@@ -39,8 +39,8 @@ export class Oracle {
     return [toACVMField(secretKey.low), toACVMField(secretKey.high)];
   }
 
-  async getPublicKey([address]: ACVMField[]) {
-    const { publicKey, partialAddress } = await this.typedOracle.getPublicKey(
+  async getPublicKeyAndPartialAddress([address]: ACVMField[]) {
+    const { publicKey, partialAddress } = await this.typedOracle.getCompleteAddress(
       AztecAddress.fromField(fromACVMField(address)),
     );
     return [publicKey.x, publicKey.y, partialAddress].map(toACVMField);
@@ -219,5 +219,10 @@ export class Oracle {
       fromACVMField(argsHash),
     );
     return toAcvmEnqueuePublicFunctionResult(enqueuedRequest);
+  }
+
+  async pedersenHash(inputs: ACVMField[], [hashIndex]: ACVMField[]) {
+    const hash = await this.typedOracle.perdersenHash(inputs.map(fromACVMField), +hashIndex);
+    return toACVMField(hash);
   }
 }

@@ -1,5 +1,7 @@
 #include "barretenberg/honk/composer/ultra_composer.hpp"
+#include "barretenberg/honk/flavor/goblin_translator.hpp"
 #include "barretenberg/honk/proof_system/grand_product_library.hpp"
+#include "barretenberg/honk/proof_system/permutation_library.hpp"
 #include "barretenberg/proof_system/relations/auxiliary_relation.hpp"
 #include "barretenberg/proof_system/relations/ecc_op_queue_relation.hpp"
 #include "barretenberg/proof_system/relations/elliptic_relation.hpp"
@@ -89,18 +91,21 @@ template <typename Flavor> void create_some_lookup_gates(auto& circuit_builder)
     using FF = typename Flavor::FF;
     // Add some lookup gates (related to pedersen hashing)
     auto pedersen_input_value = FF::random_element();
-    const auto input_hi = uint256_t(pedersen_input_value).slice(126, 256);
-    const auto input_lo = uint256_t(pedersen_input_value).slice(0, 126);
+    const auto input_hi =
+        uint256_t(pedersen_input_value)
+            .slice(plookup::fixed_base::table::BITS_PER_LO_SCALAR,
+                   plookup::fixed_base::table::BITS_PER_LO_SCALAR + plookup::fixed_base::table::BITS_PER_HI_SCALAR);
+    const auto input_lo = uint256_t(pedersen_input_value).slice(0, plookup::fixed_base::table::BITS_PER_LO_SCALAR);
     const auto input_hi_index = circuit_builder.add_variable(input_hi);
     const auto input_lo_index = circuit_builder.add_variable(input_lo);
 
-    const auto sequence_data_hi = plookup::get_lookup_accumulators(plookup::MultiTableId::PEDERSEN_LEFT_HI, input_hi);
-    const auto sequence_data_lo = plookup::get_lookup_accumulators(plookup::MultiTableId::PEDERSEN_LEFT_LO, input_lo);
+    const auto sequence_data_hi = plookup::get_lookup_accumulators(plookup::MultiTableId::FIXED_BASE_LEFT_HI, input_hi);
+    const auto sequence_data_lo = plookup::get_lookup_accumulators(plookup::MultiTableId::FIXED_BASE_LEFT_LO, input_lo);
 
     circuit_builder.create_gates_from_plookup_accumulators(
-        plookup::MultiTableId::PEDERSEN_LEFT_HI, sequence_data_hi, input_hi_index);
+        plookup::MultiTableId::FIXED_BASE_LEFT_HI, sequence_data_hi, input_hi_index);
     circuit_builder.create_gates_from_plookup_accumulators(
-        plookup::MultiTableId::PEDERSEN_LEFT_LO, sequence_data_lo, input_lo_index);
+        plookup::MultiTableId::FIXED_BASE_LEFT_LO, sequence_data_lo, input_lo_index);
 }
 
 template <typename Flavor> void create_some_genperm_sort_gates(auto& circuit_builder)
@@ -166,8 +171,8 @@ template <typename Flavor> void create_some_RAM_gates(auto& circuit_builder)
 template <typename Flavor> void create_some_elliptic_curve_addition_gates(auto& circuit_builder)
 {
     // Add an elliptic curve addition gate
-    grumpkin::g1::affine_element p1 = crypto::generators::get_generator_data({ 0, 0 }).generator;
-    grumpkin::g1::affine_element p2 = crypto::generators::get_generator_data({ 0, 1 }).generator;
+    grumpkin::g1::affine_element p1 = grumpkin::g1::affine_element::random_element();
+    grumpkin::g1::affine_element p2 = grumpkin::g1::affine_element::random_element();
 
     grumpkin::fq beta_scalar = grumpkin::fq::cube_root_of_unity();
     grumpkin::g1::affine_element p2_endo = p2;
@@ -318,6 +323,317 @@ TEST_F(RelationCorrectnessTests, GoblinUltraRelationCorrectness)
     check_relation<Flavor, std::tuple_element_t<4, Relations>>(circuit_size, prover_polynomials, params);
     check_relation<Flavor, std::tuple_element_t<5, Relations>>(circuit_size, prover_polynomials, params);
     check_relation<Flavor, std::tuple_element_t<6, Relations>>(circuit_size, prover_polynomials, params);
+}
+
+/**
+ * @brief Test the correctness of GolbinTranslator's Permutation Relation
+ *
+ */
+TEST_F(RelationCorrectnessTests, GoblinTranslatorPermutationRelationCorrectness)
+{
+    using Flavor = flavor::GoblinTranslatorBasic;
+    using FF = typename Flavor::FF;
+    using ProverPolynomials = typename Flavor::ProverPolynomials;
+    using Polynomial = barretenberg::Polynomial<FF>;
+    using namespace proof_system::honk::permutation_library;
+    auto& engine = numeric::random::get_debug_engine();
+    auto circuit_size = Flavor::MINI_CIRCUIT_SIZE * Flavor::CONCATENATION_INDEX;
+
+    // We only need gamma, because permutationr elation only uses gamma
+    FF gamma = FF::random_element();
+
+    // Fill relation parameters
+    proof_system::RelationParameters<FF> params;
+    params.gamma = gamma;
+
+    // Create storage for polynomials
+    ProverPolynomials prover_polynomials;
+    std::vector<Polynomial> polynomial_container;
+    for (size_t i = 0; i < prover_polynomials.size(); i++) {
+        Polynomial temporary_polynomial(circuit_size);
+        polynomial_container.push_back(temporary_polynomial);
+        prover_polynomials[i] = polynomial_container[i];
+    }
+
+    // Fill in lagrange polynomials used in the permutation relation
+    prover_polynomials.lagrange_first[0] = 1;
+    prover_polynomials.lagrange_last[circuit_size - 1] = 1;
+
+    // Put random values in all the non-concatenated constraint polynomials used to range constrain the values
+    auto fill_polynomial_with_random_14_bit_values = [&](auto& polynomial) {
+        for (size_t i = 0; i < Flavor::MINI_CIRCUIT_SIZE; i++) {
+            polynomial[i] = engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        }
+    };
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_x_low_limbs_range_constraint_0);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_x_low_limbs_range_constraint_1);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_x_low_limbs_range_constraint_2);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_x_low_limbs_range_constraint_3);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_x_low_limbs_range_constraint_4);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_x_low_limbs_range_constraint_tail);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_x_high_limbs_range_constraint_0);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_x_high_limbs_range_constraint_1);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_x_high_limbs_range_constraint_2);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_x_high_limbs_range_constraint_3);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_x_high_limbs_range_constraint_4);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_x_high_limbs_range_constraint_tail);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_y_low_limbs_range_constraint_0);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_y_low_limbs_range_constraint_1);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_y_low_limbs_range_constraint_2);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_y_low_limbs_range_constraint_3);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_y_low_limbs_range_constraint_4);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_y_low_limbs_range_constraint_tail);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_y_high_limbs_range_constraint_0);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_y_high_limbs_range_constraint_1);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_y_high_limbs_range_constraint_2);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_y_high_limbs_range_constraint_3);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_y_high_limbs_range_constraint_4);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_y_high_limbs_range_constraint_tail);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.z_low_limbs_range_constraint_0);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.z_low_limbs_range_constraint_1);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.z_low_limbs_range_constraint_2);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.z_low_limbs_range_constraint_3);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.z_low_limbs_range_constraint_4);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.z_low_limbs_range_constraint_tail);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.z_high_limbs_range_constraint_0);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.z_high_limbs_range_constraint_1);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.z_high_limbs_range_constraint_2);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.z_high_limbs_range_constraint_3);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.z_high_limbs_range_constraint_4);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.z_high_limbs_range_constraint_tail);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.accumulator_low_limbs_range_constraint_0);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.accumulator_low_limbs_range_constraint_1);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.accumulator_low_limbs_range_constraint_2);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.accumulator_low_limbs_range_constraint_3);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.accumulator_low_limbs_range_constraint_4);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.accumulator_low_limbs_range_constraint_tail);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.accumulator_high_limbs_range_constraint_0);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.accumulator_high_limbs_range_constraint_1);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.accumulator_high_limbs_range_constraint_2);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.accumulator_high_limbs_range_constraint_3);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.accumulator_high_limbs_range_constraint_4);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.accumulator_high_limbs_range_constraint_tail);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.quotient_low_limbs_range_constraint_0);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.quotient_low_limbs_range_constraint_1);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.quotient_low_limbs_range_constraint_2);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.quotient_low_limbs_range_constraint_3);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.quotient_low_limbs_range_constraint_4);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.quotient_low_limbs_range_constraint_tail);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.quotient_high_limbs_range_constraint_0);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.quotient_high_limbs_range_constraint_1);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.quotient_high_limbs_range_constraint_2);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.quotient_high_limbs_range_constraint_3);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.quotient_high_limbs_range_constraint_4);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.quotient_high_limbs_range_constraint_tail);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.relation_wide_limbs_range_constraint_0);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.relation_wide_limbs_range_constraint_1);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.relation_wide_limbs_range_constraint_2);
+    fill_polynomial_with_random_14_bit_values(prover_polynomials.relation_wide_limbs_range_constraint_3);
+
+    // Compute ordered range constraint polynomials that go in the denominator of the grand product polynomial
+    compute_goblin_translator_range_constraint_ordered_polynomials<Flavor>(&prover_polynomials);
+
+    // Compute the fixed numerator (part of verification key)
+    compute_extra_range_constraint_numerator<Flavor>(&prover_polynomials);
+
+    // Compute concatenated polynomials (4 polynomials produced from other constraint polynomials by concatenation)
+    compute_concatenated_polynomials<Flavor>(&prover_polynomials);
+
+    // Compute the grand product polynomial
+    grand_product_library::compute_grand_product<Flavor, proof_system::GoblinTranslatorPermutationRelation<FF>>(
+        circuit_size, prover_polynomials, params);
+    prover_polynomials.z_perm_shift = polynomial_container[Flavor::ALL_ENTITIES_IDS::Z_PERM].shifted();
+
+    using Relations = typename Flavor::Relations;
+
+    // Check that permutation relation is satisfied across each row of the prover polynomials
+    check_relation<Flavor, std::tuple_element_t<0, Relations>>(circuit_size, prover_polynomials, params);
+}
+
+TEST_F(RelationCorrectnessTests, GoblinTranslatorGenPermSortRelationCorrectness)
+{
+    using Flavor = flavor::GoblinTranslatorBasic;
+    using FF = typename Flavor::FF;
+    using ProverPolynomials = typename Flavor::ProverPolynomials;
+    using Polynomial = barretenberg::Polynomial<FF>;
+    auto& engine = numeric::random::get_debug_engine();
+
+    const auto circuit_size = Flavor::FULL_CIRCUIT_SIZE;
+    const auto sort_step = Flavor::SORT_STEP;
+    const auto max_value = (1 << Flavor::MICRO_LIMB_BITS) - 1;
+
+    // No relation parameters are used in this relation
+    proof_system::RelationParameters<FF> params;
+
+    ProverPolynomials prover_polynomials;
+    std::vector<Polynomial> polynomial_container;
+
+    // Allocate polynomials
+    for (size_t i = 0; i < prover_polynomials.size(); i++) {
+        Polynomial temporary_polynomial(circuit_size);
+        polynomial_container.push_back(temporary_polynomial);
+        prover_polynomials[i] = polynomial_container[i];
+    }
+
+    // Construct lagrange polynomials that are needed for Goblin Translator's GenPermSort Relation
+    prover_polynomials.lagrange_first[0] = 1;
+    prover_polynomials.lagrange_last[circuit_size - 1] = 1;
+
+    // Create a vector and fill with necessary steps for the GenPermSort relation
+    auto sorted_elements_count = (max_value / sort_step) + 1;
+    std::vector<uint64_t> vector_for_sorting(circuit_size);
+    for (size_t i = 0; i < sorted_elements_count - 1; i++) {
+        vector_for_sorting[i] = i * sort_step;
+    }
+    vector_for_sorting[sorted_elements_count - 1] = max_value;
+
+    // Add random values to fill the leftover space
+    for (size_t i = sorted_elements_count; i < circuit_size; i++) {
+        vector_for_sorting[i] = engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+    }
+
+    // Get ordered polynomials
+    auto polynomial_pointers = std::vector{ &prover_polynomials.ordered_range_constraints_0,
+                                            &prover_polynomials.ordered_range_constraints_1,
+                                            &prover_polynomials.ordered_range_constraints_2,
+                                            &prover_polynomials.ordered_range_constraints_3,
+                                            &prover_polynomials.ordered_range_constraints_4 };
+
+    // Sort the vector
+    std::sort(vector_for_sorting.begin(), vector_for_sorting.end());
+
+    // Copy values, transforming them into Finite Field elements
+    std::transform(vector_for_sorting.cbegin(),
+                   vector_for_sorting.cend(),
+                   prover_polynomials.ordered_range_constraints_0.begin(),
+                   [](uint64_t in) { return FF(in); });
+
+    // Copy the same polynomial into the 4 other ordered polynomials (they are not the same in an actual proof, but we
+    // only need to check the correctness of the relation and it acts independently on each polynomial)
+    parallel_for(4, [&](size_t i) {
+        std::copy(prover_polynomials.ordered_range_constraints_0.begin(),
+                  prover_polynomials.ordered_range_constraints_0.end(),
+                  polynomial_pointers[i + 1]->begin());
+    });
+
+    // Get shifted polynomials
+    prover_polynomials.ordered_range_constraints_0_shift =
+        polynomial_container[Flavor::ORDERED_RANGE_CONSTRAINTS_0].shifted();
+    prover_polynomials.ordered_range_constraints_1_shift =
+        polynomial_container[Flavor::ORDERED_RANGE_CONSTRAINTS_1].shifted();
+    prover_polynomials.ordered_range_constraints_2_shift =
+        polynomial_container[Flavor::ORDERED_RANGE_CONSTRAINTS_2].shifted();
+    prover_polynomials.ordered_range_constraints_3_shift =
+        polynomial_container[Flavor::ORDERED_RANGE_CONSTRAINTS_3].shifted();
+    prover_polynomials.ordered_range_constraints_4_shift =
+        polynomial_container[Flavor::ORDERED_RANGE_CONSTRAINTS_4].shifted();
+
+    using Relations = typename Flavor::Relations;
+
+    // Check that GenPermSort relation is satisfied across each row of the prover polynomials
+    check_relation<Flavor, std::tuple_element_t<1, Relations>>(circuit_size, prover_polynomials, params);
+}
+
+/**
+ * @brief Test the correctness of GoblinTranslator's  extra relations (GoblinTranslatorOpcodeConstraintRelation and
+ * GoblinTranslatorAccumulatorTransferRelation)
+ *
+ */
+TEST_F(RelationCorrectnessTests, GoblinTranslatorExtraRelationsCorrectness)
+{
+    using Flavor = flavor::GoblinTranslatorBasic;
+    using FF = typename Flavor::FF;
+    using ProverPolynomials = typename Flavor::ProverPolynomials;
+    using ProverPolynomialIds = typename Flavor::ProverPolynomialIds;
+    using Polynomial = barretenberg::Polynomial<FF>;
+
+    auto& engine = numeric::random::get_debug_engine();
+
+    auto circuit_size = Flavor::FULL_CIRCUIT_SIZE;
+    auto mini_circuit_size = Flavor::MINI_CIRCUIT_SIZE;
+
+    // We only use accumulated_result from relation parameters in this relation
+    proof_system::RelationParameters<FF> params;
+    params.accumulated_result = {
+        FF::random_element(), FF::random_element(), FF::random_element(), FF::random_element()
+    };
+
+    // Create storage for polynomials
+    ProverPolynomials prover_polynomials;
+    // We use polynomial ids to make shifting the polynomials easier
+    ProverPolynomialIds prover_polynomial_ids;
+    std::vector<Polynomial> polynomial_container;
+    std::vector<size_t> polynomial_ids;
+    for (size_t i = 0; i < prover_polynomials.size(); i++) {
+        Polynomial temporary_polynomial(circuit_size);
+        // Allocate polynomials
+        polynomial_container.push_back(temporary_polynomial);
+        // Push sequential ids to polynomial ids
+        polynomial_ids.push_back(i);
+        prover_polynomial_ids[i] = polynomial_ids[i];
+    }
+    // Get ids of shifted polynomials and put them in a set
+    auto shifted_ids = prover_polynomial_ids.get_shifted();
+    std::unordered_set<size_t> shifted_id_set;
+    for (auto& id : shifted_ids) {
+        shifted_id_set.emplace(id);
+    }
+    // Assign spans to non-shifted prover polynomials
+    for (size_t i = 0; i < prover_polynomials.size(); i++) {
+        if (!shifted_id_set.contains(i)) {
+            prover_polynomials[i] = polynomial_container[i];
+        }
+    }
+
+    // Assign shifted spans to shifted prover polynomials using ids
+    for (size_t i = 0; i < shifted_ids.size(); i++) {
+        auto shifted_id = shifted_ids[i];
+        auto to_be_shifted_id = prover_polynomial_ids.get_to_be_shifted()[i];
+        prover_polynomials[shifted_id] = polynomial_container[to_be_shifted_id].shifted();
+    }
+
+    // Fill in lagrange even polynomial
+    for (size_t i = 2; i < mini_circuit_size; i += 2) {
+        prover_polynomials.lagrange_even_in_minicircuit[i] = 1;
+    }
+    constexpr size_t NUMBER_OF_POSSIBLE_OPCODES = 6;
+    constexpr std::array<uint64_t, NUMBER_OF_POSSIBLE_OPCODES> possible_opcode_values = { 0, 1, 2, 3, 4, 8 };
+
+    // Assign random opcode values
+    for (size_t i = 1; i < mini_circuit_size - 1; i += 2) {
+        prover_polynomials.op[i] =
+            possible_opcode_values[static_cast<size_t>(engine.get_random_uint8() % NUMBER_OF_POSSIBLE_OPCODES)];
+    }
+
+    // Initialize used lagrange polynomials
+    prover_polynomials.lagrange_second[1] = 1;
+    prover_polynomials.lagrange_second_to_last_in_minicircuit[mini_circuit_size - 2] = 1;
+
+    // Put random values in accumulator binary limbs (values should be preserved across even->next odd shift)
+    for (size_t i = 2; i < mini_circuit_size - 2; i += 2) {
+        prover_polynomials.accumulators_binary_limbs_0[i] = FF ::random_element();
+        prover_polynomials.accumulators_binary_limbs_1[i] = FF ::random_element();
+        prover_polynomials.accumulators_binary_limbs_2[i] = FF ::random_element();
+        prover_polynomials.accumulators_binary_limbs_3[i] = FF ::random_element();
+        prover_polynomials.accumulators_binary_limbs_0[i + 1] = prover_polynomials.accumulators_binary_limbs_0[i];
+        prover_polynomials.accumulators_binary_limbs_1[i + 1] = prover_polynomials.accumulators_binary_limbs_1[i];
+        prover_polynomials.accumulators_binary_limbs_2[i + 1] = prover_polynomials.accumulators_binary_limbs_2[i];
+        prover_polynomials.accumulators_binary_limbs_3[i + 1] = prover_polynomials.accumulators_binary_limbs_3[i];
+    }
+
+    // The values of accumulator binary limbs at index 1 should equal the accumulated result from relation parameters
+    prover_polynomials.accumulators_binary_limbs_0[1] = params.accumulated_result[0];
+    prover_polynomials.accumulators_binary_limbs_1[1] = params.accumulated_result[1];
+    prover_polynomials.accumulators_binary_limbs_2[1] = params.accumulated_result[2];
+    prover_polynomials.accumulators_binary_limbs_3[1] = params.accumulated_result[3];
+
+    using Relations = typename Flavor::Relations;
+
+    // Check that Opcode Constraint relation is satisfied across each row of the prover polynomials
+    check_relation<Flavor, std::tuple_element_t<2, Relations>>(circuit_size, prover_polynomials, params);
+
+    // Check that Accumulator Transfer relation is satisfied across each row of the prover polynomials
+    check_relation<Flavor, std::tuple_element_t<3, Relations>>(circuit_size, prover_polynomials, params);
 }
 
 } // namespace test_honk_relations

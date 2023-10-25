@@ -67,7 +67,7 @@ __metadata:
     "@aztec/noir-contracts": "workspace:^"
     "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
-    "@noir-lang/acvm_js": 0.26.1
+    "@kevaundray/acvm_js": 0.29.0-kw-switch-backend-e9641725f
     "@rushstack/eslint-patch": ^1.1.4
     "@types/jest": ^29.5.0
     "@types/levelup": ^5.1.3
@@ -502,6 +502,7 @@ __metadata:
     eslint: ^8.21.0
     eslint-config-prettier: ^8.5.0
     eslint-plugin-jsdoc: ^40.1.0
+    eslint-plugin-no-only-tests: ^3.1.0
     eslint-plugin-tsdoc: ^0.2.17
     hash.js: ^1.1.7
     jest: ^29.5.0
@@ -2742,6 +2743,13 @@ __metadata:
     "@json-rpc-tools/types": ^1.7.6
     "@pedrouid/environment": ^1.0.1
   checksum: 32cac2e8cbf8a15d95415de8ded483c6206e6df392e129ad51acd90a4842511e931156c59cb26036fb9fae8054e8f20b719a35282304f39cd18683a5293cb67d
+  languageName: node
+  linkType: hard
+
+"@kevaundray/acvm_js@npm:0.29.0-kw-switch-backend-e9641725f":
+  version: 0.29.0-kw-switch-backend-e9641725f
+  resolution: "@kevaundray/acvm_js@npm:0.29.0-kw-switch-backend-e9641725f"
+  checksum: f292041564d36d6f4cb9919d807de60cef79206ad8797b92e3dfba04e61d59b4e63f46311065171af8432df71f75072a6414cd257fada99d73bff1dca6b3261b
   languageName: node
   linkType: hard
 
@@ -9498,6 +9506,13 @@ __metadata:
   peerDependencies:
     eslint: ^7.0.0 || ^8.0.0
   checksum: 7671ac3cc7165cd894cc2fc4c67ddf075f01502c25bbdc649559e7dfd6a525126debe756c83e11887972ffbe57d0d10d3bb17c7269594823654f55be3a3ca5ef
+  languageName: node
+  linkType: hard
+
+"eslint-plugin-no-only-tests@npm:^3.1.0":
+  version: 3.1.0
+  resolution: "eslint-plugin-no-only-tests@npm:3.1.0"
+  checksum: 2a5de82f3a732dbd46792661dd0f8546cf819f76d8828968166dee35741e8039904ba473dafe1eed585f401a496d260c2c38354bb887c94bd4ced0ddca00fb62
   languageName: node
   linkType: hard
 
