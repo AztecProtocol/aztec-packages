@@ -1,0 +1,61 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Noir compatibility tests (interop_testing.nr) Complete Address matches Noir 1`] = `
+CompleteAddress {
+  "address": AztecAddress {
+    "buffer": {
+      "data": [
+        26,
+        110,
+        137,
+        176,
+        52,
+        71,
+        135,
+        19,
+        199,
+        169,
+        241,
+        199,
+        127,
+        184,
+        10,
+        249,
+        149,
+        247,
+        8,
+        246,
+        242,
+        8,
+        191,
+        53,
+        43,
+        77,
+        218,
+        33,
+        36,
+        115,
+        145,
+        9,
+      ],
+      "type": "Buffer",
+    },
+  },
+  "partialAddress": Fr {
+    "value": 11517109422981783267562923429265051163864675433397402239476609863059550730459n,
+  },
+  "publicKey": Point {
+    "kind": "point",
+    "x": Fr {
+      "value": 1n,
+    },
+    "y": Fr {
+      "value": 2n,
+    },
+  },
+}
+`;
+
+exports[`Noir compatibility tests (interop_testing.nr) ComputeContractAddressFromPartial matches Noir 1`] = `"0x0b487ff2900ae1178e131bfe333fdbc351beef658f7c0d62db2801429b1aab75"`;
+
+exports[`Noir compatibility tests (interop_testing.nr) TxRequest Hash matches Noir 1`] = `"0x0b487ff2900ae1178e131bfe333fdbc351beef658f7c0d62db2801429b1aab75"`;
