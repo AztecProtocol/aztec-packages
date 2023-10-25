@@ -1,4 +1,4 @@
-import {  PrivateCallStackItem, PublicCallRequest } from '@aztec/circuits.js';
+import { PrivateCallStackItem, PublicCallRequest } from '@aztec/circuits.js';
 import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
