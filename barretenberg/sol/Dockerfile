@@ -38,4 +38,5 @@ RUN cd ../cpp/srs_db && ./download_ignition.sh 3 && cd ../../sol
 
 RUN ./scripts/init.sh
 
+# TestBase is excluded as it is just boilerplate 
 RUN forge test --no-match-contract TestBase
