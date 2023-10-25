@@ -3,6 +3,8 @@ import {
   ContractDeploymentData,
   EthAddress,
   FunctionData,
+  FunctionLeafPreimage,
+  FunctionSelector,
   Point,
   TxContext,
   TxRequest,
@@ -11,7 +13,7 @@ import {
   makePrivateKernelInputsInit,
   makeSelector,
 } from '@aztec/circuits.js';
-import { computeCompleteAddress, computeTxHash } from '@aztec/circuits.js/abis';
+import { computeCompleteAddress, computeFunctionLeaf, computeTxHash } from '@aztec/circuits.js/abis';
 import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 
@@ -71,7 +73,9 @@ describe('Noir compatibility tests (interop_testing.nr)', () => {
 
     const res = computeCompleteAddress(wasm, deployerPubKey, contractAddrSalt, treeRoot, constructorHash);
 
-    expect(res).toMatchSnapshot();
+    expect(res.address.toString()).toMatchSnapshot();
+    expect(res.publicKey).toMatchSnapshot();
+    expect(res.partialAddress.toString()).toMatchSnapshot();
   });
 
   it('TxRequest Hash matches Noir', async () => {
@@ -114,6 +118,14 @@ describe('Noir compatibility tests (interop_testing.nr)', () => {
     const hash = computeTxHash(wasm, txRequest);
 
     expect(hash.toString()).toMatchSnapshot();
+  });
+
+  it('Function leaf matches noir', async () => {
+    const wasm = await CircuitsWasm.get();
+
+    const fnLeafPreimage = new FunctionLeafPreimage(new FunctionSelector(27), false, true, new Fr(1), new Fr(2));
+    const fnLeaf = computeFunctionLeaf(wasm, fnLeafPreimage);
+    expect(fnLeaf.toString()).toMatchSnapshot();
   });
 });
 
