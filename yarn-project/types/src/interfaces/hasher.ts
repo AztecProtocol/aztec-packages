@@ -3,9 +3,9 @@
  */
 export interface Hasher {
   /**
-   * Hash two 32-byte hashes.
-   * @param lhs - The first 32-byte array.
-   * @param rhs - The second 32-byte array.
+   * Hash two arrays.
+   * @param lhs - The first array.
+   * @param rhs - The second array.
    * @returns The new 32-byte hash.
    */
   hash(lhs: Uint8Array, rhs: Uint8Array): Buffer;
