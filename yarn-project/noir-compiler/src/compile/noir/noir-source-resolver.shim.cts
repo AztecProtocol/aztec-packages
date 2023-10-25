@@ -1,21 +1,13 @@
 // Shim module to force the use of the CJS build of source-resolver & noir_wasm
+/**
+ * Source resolver module
+ */
 type SourceResolver = {
+  /** Sets up a function to provide file contents */
   initializeResolver: (resolver: (source_id: string) => string) => void;
 };
 
-type DepGraph = {
-  root_dependencies: string[];
-  library_dependencies: {
-    [key: string]: string[];
-  };
-};
-
-type NoirWasm = {
-  compile: (entrypoint: string, contract: boolean, depGraph: DepGraph) => Promise<any>;
-};
-
+// eslint-disable-next-line @typescript-eslint/no-var-requires
 const sourceResolver: SourceResolver = require('@noir-lang/source-resolver');
-const noirWasm: NoirWasm = require('@noir-lang/noir_wasm');
 
 export const initializeResolver = sourceResolver.initializeResolver;
-export const compile = noirWasm.compile;

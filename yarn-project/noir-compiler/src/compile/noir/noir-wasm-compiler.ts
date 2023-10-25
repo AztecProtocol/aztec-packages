@@ -8,7 +8,7 @@ import { NoirDependencyManager } from './dependencies/dependency-manager.js';
 import { GithubDependencyResolver as GithubCodeArchiveDependencyResolver } from './dependencies/github-dependency-resolver.js';
 import { LocalDependencyResolver } from './dependencies/local-dependency-resolver.js';
 import { FileManager } from './file-manager/file-manager.js';
-import { initializeResolver } from './noir-wasm-shim.cjs';
+import { initializeResolver } from './noir-source-resolver.shim.cjs';
 import { NoirPackage } from './package.js';
 
 /** Compilation options */

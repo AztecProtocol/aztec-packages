@@ -64,27 +64,6 @@ async function copyFolderFromGithub(data: JSZip, repositoryFolderPath: string, l
 }
 
 /**
- * @param data - in memory unzipped clone of a github repo
- * @param repositoryFile - path of the file to copy from github repo
- * @param localOutputPath - local path to copy the file to
- */
-async function copyFileFromGithub(data: JSZip, repositoryFile: string, localOutputPath: string, log: LogFn) {
-  log(`Downloading file from github: ${repositoryFile}`);
-
-  const file = data.files[repositoryFile];
-
-  if (!file || file.dir) {
-    throw new Error(`File not found or it's a directory: ${repositoryFile}`);
-  }
-
-  const filename = path.basename(repositoryFile);
-  const targetPath = `${localOutputPath}/${filename}`;
-
-  const content = await file.async('nodebuffer');
-  await fs.writeFile(targetPath, content);
-}
-
-/**
  * Not flexible at at all, but quick fix to download a noir smart contract from our
  * monorepo on github.  this will copy over the `yarn-projects/boxes/{contract_name}` folder
  * as well as the specified `directoryPath` if the box doesn't include source code
