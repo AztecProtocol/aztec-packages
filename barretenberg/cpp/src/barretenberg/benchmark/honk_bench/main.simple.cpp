@@ -38,16 +38,12 @@ template <typename Builder> void generate_sha256_test_circuit(Builder& builder, 
 
 BBERG_PROFILE void honk_profiling(honk::UltraProver& ext_prover)
 {
-    for (size_t i = 0; i < 200; i++) {
-        ext_prover.construct_proof();
-    }
+    ext_prover.construct_proof();
 }
 
 BBERG_PROFILE void plonk_profiling(plonk::UltraProver& ext_prover)
 {
-    for (size_t i = 0; i < 200; i++) {
-        ext_prover.construct_proof();
-    }
+    ext_prover.construct_proof();
 }
 
 /**
@@ -61,10 +57,13 @@ void construct_proof_ultrahonk() noexcept
     generate_sha256_test_circuit(builder, 1);
     std::cout << "gates: " << builder.get_total_circuit_size() << std::endl;
 
-    honk::UltraComposer composer;
-    std::shared_ptr<honk::UltraComposer::Instance> instance = composer.create_instance(builder);
-    honk::UltraProver ext_prover = composer.create_prover(instance);
-    honk_profiling(ext_prover);
+    for (int i = 0; i < 100; i++) {
+        honk::UltraComposer composer;
+        std::shared_ptr<honk::UltraComposer::Instance> instance = composer.create_instance(builder);
+        honk::UltraProver ext_prover = composer.create_prover(instance);
+
+        honk_profiling(ext_prover);
+    }
 }
 
 /**
@@ -78,9 +77,11 @@ void construct_proof_ultraplonk() noexcept
     generate_sha256_test_circuit(builder, 1);
     std::cout << "gates: " << builder.get_total_circuit_size() << std::endl;
 
-    plonk::UltraComposer composer;
-    plonk::UltraProver ext_prover = composer.create_prover(builder);
-    plonk_profiling(ext_prover);
+    for (int i = 0; i < 100; i++) {
+        plonk::UltraComposer composer;
+        plonk::UltraProver ext_prover = composer.create_prover(builder);
+        plonk_profiling(ext_prover);
+    }
 }
 
 int main()
