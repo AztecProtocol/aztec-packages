@@ -13,10 +13,3 @@ WASM_EXPORT void pedersen__commit(uint8_t const* inputs_buffer, uint8_t* output)
 
     serialize::write(output, pedersen_hash);
 }
-
-WASM_EXPORT void pedersen__buffer_to_field(uint8_t const* data, size_t length, uint8_t* r)
-{
-    std::vector<uint8_t> to_compress(data, data + length);
-    auto output = crypto::pedersen_hash::hash_buffer(to_compress);
-    write(r, output);
-}
