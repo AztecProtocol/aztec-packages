@@ -4,8 +4,10 @@
 [ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
-# Run in script path.
-cd `dirname $0`
+CURRENT_DIR=`dirname $0`
+BOX_NAME=${1:-boxes-blank}
+
+cd $CURRENT_DIR/$BOX_NAME
 
 export COMPOSE_FILE=${1:-docker-compose.yml}
 
