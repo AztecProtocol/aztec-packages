@@ -123,7 +123,6 @@ import {
   EthAddressLike,
   FieldLike,
   Fr,
-  PXE,
   Point,
   PublicKey,
   Wallet,
@@ -163,15 +162,15 @@ export class TestContractContract extends ContractBase {
   /**
    * Creates a tx to deploy a new instance of this contract.
    */
-  public static deploy(pxe: PXE, pub_param: FieldLike) {
-    return new DeployMethod<TestContractContract>(Point.ZERO, pxe, TestContractContractArtifact, Array.from(arguments).slice(1));
+  public static deploy(wallet: Wallet, pub_param: FieldLike) {
+    return new DeployMethod<TestContractContract>(Point.ZERO, wallet, TestContractContractArtifact, Array.from(arguments).slice(1));
   }
 
   /**
    * Creates a tx to deploy a new instance of this contract using the specified public key to derive the address.
    */
-  public static deployWithPublicKey(pxe: PXE, publicKey: PublicKey, pub_param: FieldLike) {
-    return new DeployMethod<TestContractContract>(publicKey, pxe, TestContractContractArtifact, Array.from(arguments).slice(2));
+  public static deployWithPublicKey(publicKey: PublicKey, wallet: Wallet, pub_param: FieldLike) {
+    return new DeployMethod<TestContractContract>(publicKey, wallet, TestContractContractArtifact, Array.from(arguments).slice(2));
   }
   
 
