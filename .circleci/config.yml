@@ -362,6 +362,17 @@ jobs:
           name: "Build and test"
           command: build l1-contracts
 
+  noir-compiler-build:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: build noir-compiler-build | add_timestamps
+
   noir-contracts-build:
     machine:
       image: ubuntu-2204:2023.07.2
@@ -1209,7 +1220,11 @@ workflows:
           <<: *defaults
 
       - l1-contracts: *defaults
-      - noir-contracts-build: *defaults
+      - noir-compiler-build: *defaults
+      - noir-contracts-build:
+          requires:
+            - noir-compiler-build
+          <<: *defaults
 
       # Yarn Project
       - yarn-project-base:
