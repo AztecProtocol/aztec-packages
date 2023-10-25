@@ -2,43 +2,45 @@
 
 set -euo pipefail
 
-SCRIPT="$0"
-SCRIPT_LOCATION="$(realpath $(dirname $SCRIPT))"
-
-# we need to look at which command was run in order to set up mount points
-COMMAND="$1"
-
-PXE_URL=${PXE_URL:-"http://host.docker.internal:8080"}
-
 CLI_IMAGE="278380418400.dkr.ecr.eu-west-2.amazonaws.com/aztec-cli"
 CLI_VERSION=${CLI_VERSION:-"latest"}
 
-DOCKER_CMD=""
+DOCKER_PATH=""
+
+# any host bindings we might send to the container
+DOCKER_HOST=""
+
+# env vars to pass to the container
+DOCKER_ENV=""
+
+# volumes to pass to the container
+DOCKER_VOLUME=""
+
+# assume the sandbox is running on listening on the host interface
+# unless something else was passed through
+DEFAULT_PXE_URL="http://host.docker.internal:8080"
+PXE_URL=${PXE_URL:-$DEFAULT_PXE_URL}
+
+# need to know if we're running on macOS or Linux
+UNAME=$(uname -s)
 
 if command -v podman &> /dev/null; then
-  DOCKER_CMD="podman"
+  DOCKER_PATH="podman"
 elif command -v docker &> /dev/null; then
-  DOCKER_CMD="docker"
+  DOCKER_PATH="docker"
 else
   echo "No docker or podman found"
   exit 1
 fi
 
-DOCKER_RUN_ARGS="--rm --user $(id -u):$(id -g)"
-
-UNAME=$(uname -s)
-
-# set up host.docker.internal alias on linux, just like it is on mac
-if [[ "$UNAME" == "Linux" ]]; then
-    DOCKER_RUN_ARGS="$DOCKER_RUN_ARGS --add-host=host.docker.internal:host-gateway"
+# set up host.docker.internal alias on Linux, just like it is on mac
+if [[ "$UNAME" == "Linux" && "$PXE_URL" == "$DEFAULT_PXE_URL" ]]; then
+  DOCKER_HOST="$DOCKER_HOST --add-host host.docker.internal:host-gateway"
 fi
 
 # Build a list of mount points
-MOUNTS=""
 function add_mount() {
   DIR="$1"
-
-  echo "mounting $DIR"
 
   # grab its dirname if its a file
   # e.g. passing the file path to a JSON artifact
@@ -50,20 +52,43 @@ function add_mount() {
     return
   fi
 
+  # check if it's already been added
   REALDIR=$(realpath $DIR)
-  if [[ "$MOUNTS" =~ "$REALDIR:" ]]; then
+  if [[ "$DOCKER_VOLUME" =~ "$REALDIR:" ]]; then
     return
   fi
 
-  MOUNTS="$MOUNTS -v $REALDIR:$REALDIR"
+  DOCKER_VOLUME="$DOCKER_VOLUME -v $REALDIR:$REALDIR"
 }
 
-if [[ "$COMMAND" == "compile" || "$COMMAND" == "deploy" || "$COMMAND" == "inspect-contract" ]]; then
-  CONTRACT=$2
-  add_mount "$CONTRACT"
+# we need to look at which command was run in order to set up mount points
+AZTEC_CLI_COMMAND="$1"
+
+# first process commands with positional arguments
+# assumes positional arguments are the first thing
+if [[ "$AZTEC_CLI_COMMAND" == "compile" || "$AZTEC_CLI_COMMAND" == "deploy" || "$AZTEC_CLI_COMMAND" == "inspect-contract" ]]; then
+  add_mount "$2"
 fi
 
-if [[ "$COMMAND" == "compile" || "$COMMAND" == "call" || "$COMMAND" == "send" ]]; then
+# aztec-cli unbox Token my_token_contract
+# if my_token_contract is missing then pass current folder
+if [[ "$AZTEC_CLI_COMMAND" == "unbox" ]]; then
+  DIR="${3:-$PWD}"
+
+  if [[ ! -d "$DIR" ]]; then
+    mkdir -p "$DIR"
+  fi
+
+  add_mount "$DIR"
+fi
+
+# process flags
+if [[ "$AZTEC_CLI_COMMAND" == "compile" || "$AZTEC_CLI_COMMAND" == "call" || "$AZTEC_CLI_COMMAND" == "send" ]]; then
+
+  # bash's builtin getops only works with single characeter flags
+  # GNU getopt doesn't exist on macOS
+  # process the flags manually
+  # NOTE: this won't work with assignement-style flags, e.g. --outdir=/foo
   for (( i=2; i <= "$#"; i++ )); do
       arg_value=${!i}
       next_index=$((i+1))
@@ -90,19 +115,26 @@ if [[ "$COMMAND" == "compile" || "$COMMAND" == "call" || "$COMMAND" == "send" ]]
   done
 fi
 
-ENV="-e PXE_URL=$PXE_URL"
+DOCKER_ENV="$DOCKER_ENV -e PXE_URL=$PXE_URL"
 
+# pass along any private keys
 if [[ ! -z "${PRIVATE_KEY:-}" ]]; then
-  ENV="$ENV -e PRIVATE_KEY=$PRIVATE_KEY"
+  DOCKER_ENV="$DOCKER_ENV -e PRIVATE_KEY=$PRIVATE_KEY"
 fi
 
-echo "-----"
+DOCKER_CMD="$DOCKER_PATH run \
+  --rm \
+  --user $(id -u):$(id -g) \
+  --workdir \"$PWD\" \
+  $DOCKER_HOST \
+  $DOCKER_ENV \
+  $DOCKER_VOLUME \
+  $CLI_IMAGE:$CLI_VERSION $@"
 
-echo $DOCKER_CMD run $DOCKER_RUN_ARGS \
-  $ENV \
-  $MOUNTS \
-  $CLI_IMAGE:$CLI_VERSION $@
+if [ ! -z "${DEBUG:-}" ]; then
+  echo "----"
+  echo $DOCKER_CMD
+  echo "----"
+fi
 
-echo "-----"
-
-$DOCKER_CMD run $DOCKER_RUN_ARGS $ENV $MOUNTS $CLI_IMAGE:$CLI_VERSION $@
+eval "$DOCKER_CMD"
