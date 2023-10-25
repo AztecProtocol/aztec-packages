@@ -5,8 +5,10 @@ FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project-base as builder
 # Copy in the entire workspace.
 COPY . .
 
-# Build the entire project.
-RUN yarn workspace @aztec/foundation build && \
+# Build the project.
+# bash & perl are needed for noir-contracts
+RUN apk add bash perl &&\
+  yarn workspace @aztec/foundation build && \
   yarn workspace @aztec/noir-compiler build && \
   yarn workspace @aztec/noir-contracts noir:build:all && \
   yarn tsc -b
