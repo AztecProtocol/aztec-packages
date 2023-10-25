@@ -134,12 +134,7 @@ pub fn stdlib_recursion_verification_key_compress_native_vk(vk : VerificationKey
 
 // TODO CPP uses blake3 for this
 pub fn compute_new_contract_address_hash(new_contract_address : Address) -> Field {
-    let bytes_slice = new_contract_address.to_field().to_be_bytes(32);
-    let mut bytes = [0; 32];
-    for i in 0..32 {
-        bytes[i] = bytes_slice[i];
-    }
-    sha256_to_field(bytes)
+    dep::std::hash::hash_to_field([new_contract_address.to_field()])
 }
 
 // TODO is the aztec-nr sha256 to field the same as cpp one?
