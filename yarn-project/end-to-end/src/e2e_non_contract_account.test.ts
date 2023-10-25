@@ -49,7 +49,7 @@ describe('e2e_non_contract_account', () => {
     const contractWithNoContractWallet = await TestContract.at(contract.address, nonContractAccountWallet);
 
     // Send transaction as arbitrary non-contract account
-    const tx = await contractWithNoContractWallet.methods.emit_msg_sender().send();
+    const tx = contractWithNoContractWallet.methods.emit_msg_sender().send();
     const receipt = await tx.wait({ interval: 0.1 });
     expect(receipt.status).toBe(TxStatus.MINED);
 
