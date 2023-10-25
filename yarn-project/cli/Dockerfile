@@ -19,8 +19,6 @@ FROM node:18-alpine
 
 COPY --from=builder /usr/src/ /usr/src/
 
-WORKDIR /usr/src/yarn-project/cli
-
 ENV XDG_CACHE_HOME /cache
 RUN mkdir /cache && chmod 777 /cache
 VOLUME [ "/cache" ]
@@ -29,4 +27,6 @@ VOLUME [ "/cache" ]
 RUN addgroup -S aztec && adduser -S aztec -G aztec
 USER aztec
 
-ENTRYPOINT ["yarn", "start"]
+ENV NODE_OPTIONS "--no-warnings"
+
+ENTRYPOINT ["node", "/usr/src/yarn-project/cli/dest/bin/index.js"]
