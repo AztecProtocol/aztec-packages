@@ -61,24 +61,6 @@ export function pedersenCompressWithHashIndex(wasm: IWasmModule, inputs: Buffer[
 }
 
 /**
- * Get a 32-byte pedersen hash from a buffer.
- * @param wasm - The barretenberg module.
- * @param data - The data buffer.
- * @returns The hash buffer.
- * @deprecated Don't call pedersen directly in production code. Instead, create suitably-named functions for specific
- * purposes.
- */
-export function pedersenGetHash(wasm: IWasmModule, data: Buffer): Buffer {
-  // If not done already, precompute constants.
-  wasm.call('pedersen__init');
-  const mem = wasm.call('bbmalloc', data.length);
-  wasm.writeMemory(mem, data);
-  wasm.call('pedersen__buffer_to_field', mem, data.length, 0);
-  wasm.call('bbfree', mem);
-  return Buffer.from(wasm.getMemorySlice(0, 32));
-}
-
-/**
  * Given a buffer containing 32 byte pedersen leaves, return a new buffer containing the leaves and all pairs of nodes
  * that define a merkle tree.
  *
