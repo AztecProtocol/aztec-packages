@@ -118,7 +118,7 @@ resource "aws_ecs_task_definition" "aztec_mainnet_fork" {
 [
   {
     "name": "aztec-network-mainnet-fork",
-    "image": "278380418400.dkr.ecr.eu-west-2.amazonaws.com/aztec-mainnet-fork:aztec3-packages-prod",
+    "image": "${var.ECR_URL}/aztec-mainnet-fork:aztec3-packages-prod",
     "essential": true,
     "environment": [
       {

@@ -9,3 +9,7 @@ variable "FORK_MNEMONIC" {
 variable "FORK_API_KEY" {
   type = string
 }
+
+variable "ECR_URL" {
+  type = string
+}
