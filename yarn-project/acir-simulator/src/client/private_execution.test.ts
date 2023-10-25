@@ -22,7 +22,7 @@ import {
   computeVarArgsHash,
   siloCommitment,
 } from '@aztec/circuits.js/abis';
-import { pedersenCompressInputs } from '@aztec/circuits.js/barretenberg';
+import { pedersenHashWithHashIndex } from '@aztec/circuits.js/barretenberg';
 import { makeContractDeploymentData } from '@aztec/circuits.js/factories';
 import { FunctionArtifact, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { asyncMap } from '@aztec/foundation/async-map';
@@ -145,12 +145,13 @@ describe('Private Execution test suite', () => {
     return trees[name];
   };
 
-  const hash = (data: Buffer[]) => pedersenCompressInputs(circuitsWasm, data);
+  const hash = (data: Buffer[]) => pedersenHashWithHashIndex(circuitsWasm, data, 0);
   const hashFields = (data: Fr[]) =>
     Fr.fromBuffer(
-      pedersenCompressInputs(
+      pedersenHashWithHashIndex(
         circuitsWasm,
         data.map(f => f.toBuffer()),
+        0,
       ),
     );
 

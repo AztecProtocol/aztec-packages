@@ -6,7 +6,7 @@ import {
   HistoricBlockData,
   L1_TO_L2_MSG_TREE_HEIGHT,
 } from '@aztec/circuits.js';
-import { pedersenCompressInputs } from '@aztec/circuits.js/barretenberg';
+import { pedersenHashWithHashIndex } from '@aztec/circuits.js/barretenberg';
 import { FunctionArtifact, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -335,9 +335,9 @@ describe('ACIR public execution simulator', () => {
       // Assert the commitment was created
       expect(result.newCommitments.length).toEqual(1);
 
-      const expectedNoteHash = pedersenCompressInputs(wasm, [amount.toBuffer(), secretHash.toBuffer()]);
+      const expectedNoteHash = pedersenHashWithHashIndex(wasm, [amount.toBuffer(), secretHash.toBuffer()], 0);
       const storageSlot = new Fr(5); // for pending_shields
-      const expectedInnerNoteHash = pedersenCompressInputs(wasm, [storageSlot.toBuffer(), expectedNoteHash]);
+      const expectedInnerNoteHash = pedersenHashWithHashIndex(wasm, [storageSlot.toBuffer(), expectedNoteHash], 0);
       expect(result.newCommitments[0].toBuffer()).toEqual(expectedInnerNoteHash);
     });
 
@@ -365,9 +365,10 @@ describe('ACIR public execution simulator', () => {
       // Assert the l2 to l1 message was created
       expect(result.newL2ToL1Messages.length).toEqual(1);
 
-      const expectedNewMessageValue = pedersenCompressInputs(
+      const expectedNewMessageValue = pedersenHashWithHashIndex(
         wasm,
         params.map(a => a.toBuffer()),
+        0,
       );
       expect(result.newL2ToL1Messages[0].toBuffer()).toEqual(expectedNewMessageValue);
     });
@@ -452,9 +453,10 @@ describe('ACIR public execution simulator', () => {
       // Assert the l2 to l1 message was created
       expect(result.newNullifiers.length).toEqual(1);
 
-      const expectedNewMessageValue = pedersenCompressInputs(
+      const expectedNewMessageValue = pedersenHashWithHashIndex(
         wasm,
         params.map(a => a.toBuffer()),
+        0,
       );
       expect(result.newNullifiers[0].toBuffer()).toEqual(expectedNewMessageValue);
     });
