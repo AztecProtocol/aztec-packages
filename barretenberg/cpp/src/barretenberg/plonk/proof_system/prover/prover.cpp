@@ -497,35 +497,36 @@ template <typename settings> plonk::proof& ProverBase<settings>::construct_proof
     // Execute init round. Randomize witness polynomials.
     // info("preamble");
     execute_preamble_round();
-    queue.process_queue();
+    queue.process_queue_<0>();
 
     // Compute wire precommitments and sometimes random widget round commitments
     // info("first");
     execute_first_round();
-    queue.process_queue();
+    queue.process_queue_<1>();
 
     // Fiat-Shamir eta + execute random widgets.
     // info("second");
     execute_second_round();
-    queue.process_queue();
+    queue.process_queue_<2>();
 
     // Fiat-Shamir beta & gamma, execute random widgets (Permutation widget is executed here)
     // and fft the witnesses
     // info("third");
     execute_third_round();
-    queue.process_queue();
+    queue.process_queue_<3>();
 
     // Fiat-Shamir alpha, compute & commit to quotient polynomial.
     // info("fourth");
     execute_fourth_round();
-    queue.process_queue();
+    queue.process_queue_<4>();
 
     // info("fifth");
     execute_fifth_round();
+    queue.process_queue_<5>();
 
     // info("sixth");
     execute_sixth_round();
-    queue.process_queue();
+    queue.process_queue_<6>();
 
     queue.flush_queue();
 

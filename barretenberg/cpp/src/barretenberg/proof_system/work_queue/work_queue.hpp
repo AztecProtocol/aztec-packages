@@ -60,6 +60,7 @@ class work_queue {
     void add_to_queue(const work_item& item);
 
     void process_queue();
+    template <int x> BBERG_PROFILE void process_queue_() { process_queue(); }
 
     std::vector<work_item> get_queue() const;
 

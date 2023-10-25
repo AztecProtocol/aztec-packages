@@ -69,7 +69,7 @@ void construct_proof_ultrahonk() noexcept
 /**
  * @brief Benchmark: Construction of a Ultra Honk proof for a circuit determined by the provided circuit function
  */
-void construct_proof_ultraplonk() noexcept
+BBERG_PROFILE void construct_proof_ultraplonk() noexcept
 {
     barretenberg::srs::init_crs_factory("../srs_db/ignition");
     // Constuct circuit and prover; don't include this part in measurement
@@ -77,7 +77,7 @@ void construct_proof_ultraplonk() noexcept
     generate_sha256_test_circuit(builder, 1);
     std::cout << "gates: " << builder.get_total_circuit_size() << std::endl;
 
-    for (int i = 0; i < 100; i++) {
+    for (int i = 0; i < 10; i++) {
         plonk::UltraComposer composer;
         plonk::UltraProver ext_prover = composer.create_prover(builder);
         plonk_profiling(ext_prover);
