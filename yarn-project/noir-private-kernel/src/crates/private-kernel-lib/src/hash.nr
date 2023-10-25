@@ -121,7 +121,7 @@ pub fn silo_nullifier(address : Address, nullifier : Field) -> Field {
 
 fn merkle_hash(left : Field, right : Field) -> Field {
     // TODO ensure it's the same hash cpp is doing for merkle trees. 
-    dep::std::hash::pedersen([left, right])[0]
+    dep::std::hash::pedersen_hash_with_separator([left, right], 0)
 }
 
 pub fn stdlib_recursion_verification_key_compress_native_vk(vk : VerificationKey) -> Field {

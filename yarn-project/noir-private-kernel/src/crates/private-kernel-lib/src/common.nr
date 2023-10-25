@@ -93,7 +93,7 @@ pub fn validate_read_requests(historic_note_hash_tree_root : Field, read_request
     
         if (read_request != 0) & (witness.is_transient == false) {
             let root_for_read_request = read_request_root_from_siblings(read_request, witness.leaf_index, witness.sibling_path);
-            // assert(root_for_read_request == historic_note_hash_tree_root, "private data tree root mismatch");
+            assert(root_for_read_request == historic_note_hash_tree_root, "private data tree root mismatch");
             
             // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1354): do we need to enforce
             // that a non-transient read_request was derived from the proper/current contract address?
