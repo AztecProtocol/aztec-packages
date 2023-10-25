@@ -27,7 +27,7 @@ export function pedersenCompress(wasm: IWasmModule, lhs: Uint8Array, rhs: Uint8A
  * purposes.
  */
 export function pedersenHashInputs(wasm: IWasmModule, inputs: Buffer[]): Buffer {
- return pedersenCompressWithHashIndex(wasm, inputs, 0);
+  return pedersenCompressWithHashIndex(wasm, inputs, 0);
 }
 
 /**
