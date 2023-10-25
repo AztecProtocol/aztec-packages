@@ -202,7 +202,7 @@
       "generator": "Unix Makefiles",
       "inherits": "clang16",
       "environment": {
-        "CFLAGS": "-fxray-instrument",
+        "CFLAGS": "-fxray-instrument -fxray-instruction-threshold=150000 -fxray-ignore-loops -DXRAY=1",
         "CXXFLAGS": "-fxray-instrument -fxray-instruction-threshold=150000 -fxray-ignore-loops -DXRAY=1",
         "LDFLAGS": "-fxray-instrument -fxray-instruction-threshold=150000 -fxray-ignore-loops -DXRAY=1"
       },
