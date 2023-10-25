@@ -24,26 +24,6 @@ WASM_EXPORT void pedersen_hash_with_hash_index(uint8_t const* inputs_buffer,
 
 WASM_EXPORT void pedersen_hash_init() {}
 
-WASM_EXPORT void pedersen_hash_pair(uint8_t const* left, uint8_t const* right, uint8_t* result)
-{
-    auto lhs = barretenberg::fr::serialize_from_buffer(left);
-    auto rhs = barretenberg::fr::serialize_from_buffer(right);
-    auto r = crypto::pedersen_hash::hash({ lhs, rhs });
-    barretenberg::fr::serialize_to_buffer(r, result);
-}
-
-WASM_EXPORT void pedersen_hash_multiple(uint8_t const* inputs_buffer, uint8_t* output)
-{
-    pedersen_hash(inputs_buffer, output);
-}
-
-WASM_EXPORT void pedersen_hash_multiple_with_hash_index(uint8_t const* inputs_buffer,
-                                                        uint32_t const* hash_index,
-                                                        uint8_t* output)
-{
-    pedersen_hash_with_hash_index(inputs_buffer, hash_index, output);
-}
-
 /**
  * Given a buffer containing 32 byte pedersen leaves, return a new buffer containing the leaves and all pairs of
  * nodes that define a merkle tree.

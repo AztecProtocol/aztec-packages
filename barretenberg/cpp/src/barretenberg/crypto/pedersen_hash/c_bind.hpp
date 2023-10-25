@@ -13,14 +13,6 @@ WASM_EXPORT void pedersen_hash_with_hash_index(fr::vec_in_buf inputs_buffer,
                                                uint32_t const* hash_index,
                                                fr::out_buf output);
 
-WASM_EXPORT void pedersen_hash_pair(fr::in_buf left, fr::in_buf right, fr::out_buf result);
-
-WASM_EXPORT void pedersen_hash_multiple(fr::vec_in_buf inputs_buffer, fr::out_buf output);
-
-WASM_EXPORT void pedersen_hash_multiple_with_hash_index(fr::vec_in_buf inputs_buffer,
-                                                        uint32_t const* hash_index,
-                                                        fr::out_buf output);
-
 /**
  * Given a buffer containing 32 byte pedersen leaves, return a new buffer containing the leaves and all pairs of
  * nodes that define a merkle tree.
