@@ -149,6 +149,8 @@ if [[ ! -z "${PRIVATE_KEY:-}" ]]; then
   DOCKER_ENV="$DOCKER_ENV -e PRIVATE_KEY=$PRIVATE_KEY"
 fi
 
+DOCKER_VOLUME="$DOCKER_VOLUME -v cache:/cache"
+
 DOCKER_CMD="$DOCKER_PATH run \
   --rm \
   --user $(id -u):$(id -g) \
