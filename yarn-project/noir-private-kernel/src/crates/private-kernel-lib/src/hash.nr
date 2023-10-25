@@ -132,23 +132,9 @@ pub fn stdlib_recursion_verification_key_compress_native_vk(vk : VerificationKey
     0
 }
 
-// TODO(David): In most* places where I use this, it was previously convert a field to
-// bytes and then taking a blake3s hash and then converting the 32 byte hash output to a 
-// Field. 
-//
-// *See `compute_new_contract_address_hash`
-//
-// For now, I have replaced this with `hash_to_field` for two reasons:
-// - Hash to field takes as input Field, so we can avoid the to_bytes conversion
-//   on the Noir layer.
-// - Hash_to_field abstracts away the fact that we need blake3s 
-fn hash_to_field<N>(input : [Field; N]) -> Field {
-   dep::std::hash::hash_to_field(input)
-}
-
 // TODO CPP uses blake3 for this
 pub fn compute_new_contract_address_hash(new_contract_address : Address) -> Field {
-    hash_to_field([new_contract_address.to_field()])
+    dep::std::hash::pedersen_hash([new_contract_address.to_field()])
 }
 
 // TODO is the aztec-nr sha256 to field the same as cpp one?
