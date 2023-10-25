@@ -203,8 +203,8 @@
       "inherits": "clang16",
       "environment": {
         "CFLAGS": "-fxray-instrument",
-        "CXXFLAGS": "-fxray-instrument -fxray-instruction-threshold=500 -DXRAY=1",
-        "LDFLAGS": "-fxray-instrument -fxray-instruction-threshold=500 -DXRAY=1"
+        "CXXFLAGS": "-fxray-instrument -fxray-instruction-threshold=150000 -fxray-ignore-loops -DXRAY=1",
+        "LDFLAGS": "-fxray-instrument -fxray-instruction-threshold=150000 -fxray-ignore-loops -DXRAY=1"
       },
       "binaryDir": "build-xray"
     },
