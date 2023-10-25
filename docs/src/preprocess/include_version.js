@@ -7,13 +7,14 @@ let versions;
 async function getVersions() {
   if (!versions) {
     try {
-      const noirVersionPath = path.resolve(
+      const noirCompilerPackagePath = path.resolve(
         __dirname,
-        "../../../yarn-project/noir-compiler/src/noir-version.json"
+        "../../../yarn-project/noir-compiler/package.json"
       );
-      const noirVersion = JSON.parse(
-        fs.readFileSync(noirVersionPath).toString()
-      ).tag;
+      const noirCompilerPackage = JSON.parse(
+        fs.readFileSync(noirCompilerPackagePath).toString()
+      );
+      const noir = noirCompilerPackage.dependencies["@noir-lang/noir_wasm"];
       const aztecVersionPath = path.resolve(
         __dirname,
         "../../../.release-please-manifest.json"
@@ -22,7 +23,7 @@ async function getVersions() {
         fs.readFileSync(aztecVersionPath).toString()
       )["."];
       versions = {
-        noir: noirVersion,
+        noir,
         aztec: `aztec-packages-v${aztecVersion}`,
         aztec_short: aztecVersion,
       };

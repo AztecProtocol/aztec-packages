@@ -82,13 +82,15 @@ const config = {
         name: "load-versions",
         async loadContent() {
           try {
-            const noirVersionPath = path.resolve(
+            const noirCompilerPackagePath = path.resolve(
               __dirname,
-              "../yarn-project/noir-compiler/src/noir-version.json"
+              "../yarn-project/noir-compiler/package.json"
             );
-            const noirVersion = JSON.parse(
-              fs.readFileSync(noirVersionPath).toString()
-            ).tag;
+            const noirCompilerPackage = JSON.parse(
+              fs.readFileSync(noirCompilerPackagePath).toString()
+            );
+            const noir =
+              noirCompilerPackage.dependencies["@noir-lang/noir_wasm"];
             const aztecVersionPath = path.resolve(
               __dirname,
               "../.release-please-manifest.json"
@@ -97,7 +99,7 @@ const config = {
               fs.readFileSync(aztecVersionPath).toString()
             )["."];
             return {
-              noir: noirVersion,
+              noir,
               "aztec-packages": `aztec-packages-v${aztecVersion}`,
             };
           } catch (err) {

@@ -171,7 +171,6 @@ docs:
     - ^.*.cpp$
     - ^.*.ts$
     - ^.release-please-manifest.json$
-    - ^.*/noir-version.json$
     - ^.*.nr$
   dependencies:
     - yarn-project

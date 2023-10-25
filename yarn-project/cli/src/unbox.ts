@@ -119,12 +119,6 @@ async function downloadContractAndBoxFromGithub(
   const boxPath = `${repoDirectoryPrefix}/${BOXES_PATH}/${contractName}/`;
   await copyFolderFromGithub(data, boxPath, outputPath, log);
 
-  // the expected noir version is contained in
-  // aztec-packages/yarn-project/noir-compiler/src/noir-version.json
-  // copy it in and use to update the package.json script to install that version of noir
-  const noirVersionPath = `${repoDirectoryPrefix}/yarn-project/noir-compiler/src/noir-version.json`;
-  await copyFileFromGithub(data, noirVersionPath, outputPath, log);
-
   const contractTargetDirectory = path.join(outputPath, 'src', 'contracts');
   const boxContainsNoirSource = await isDirectoryNonEmpty(contractTargetDirectory);
   if (boxContainsNoirSource) {
@@ -247,13 +241,6 @@ async function updatePackageJsonVersions(packageVersion: string, outputPath: str
       }
     }
   }
-  // read the `noir-version.json`, grab the expected noir version, and patch the noir install script
-  const noirVersionPath = path.join(outputPath, 'noir-version.json');
-  const noirVersionContent = await fs.readFile(noirVersionPath, 'utf-8');
-  const noirVersionJSON = JSON.parse(noirVersionContent);
-  const noirTag = noirVersionJSON.tag;
-  packageData.scripts['install:noir'] = packageData.scripts['install:noir'].replace('NOIR_VERSION', `${noirTag}`);
-  log(`Updated Noir version to: ${noirTag}`);
 
   // modify the version of the sandbox to pull - it's set to "latest" version in the monorepo,
   // but we need to replace with the same tagVersion as the cli and the other aztec npm packages
@@ -320,7 +307,7 @@ export async function unboxContract(
 
   if (!contractNames.includes(contractName)) {
     log(
-      `The noir contract named "${contractName}" was not found in "@aztec/boxes" package.  Valid options are: 
+      `The noir contract named "${contractName}" was not found in "@aztec/boxes" package.  Valid options are:
         ${contractNames.join('\n\t')}
       We recommend "token" as a default.`,
     );
