@@ -271,17 +271,17 @@ template <typename Flavor> bool GoblinTranslatorVerifier_<Flavor>::verify_proof(
 
     // Get commitment to permutation and lookup grand products
     commitments.z_perm = transcript.template receive_from_prover<Commitment>(commitment_labels.z_perm);
+
     // Execute Sumcheck Verifier
-    auto sumcheck = SumcheckVerifier<Flavor>(circuit_size, transcript);
+    auto sumcheck = SumcheckVerifier<Flavor>(circuit_size);
 
-    std::optional sumcheck_output = sumcheck.verify(relation_parameters);
+    auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
+        sumcheck.verify(relation_parameters, transcript);
 
-    // If Sumcheck does not return an output, sumcheck verification has failed
-    if (!sumcheck_output.has_value()) {
+    // If Sumcheck did not verify, return false
+    if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
         return false;
     }
-
-    auto [multivariate_challenge, claimed_evaluations] = *sumcheck_output;
 
     // Execute ZeroMorph rounds. See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description of the
     // unrolled protocol.

@@ -437,6 +437,107 @@ template <typename Curve> class ZeroMorphProver_ {
         auto pi_commitment = commitment_key->commit(pi_polynomial);
         transcript.send_to_verifier("ZM:PI", pi_commitment);
     }
+
+    /**
+     * @brief Prove a set of multilinear evaluation claims for unshifted polynomials f_i and to-be-shifted polynomials
+     * g_i
+     *
+     * @param f_polynomials Unshifted polynomials
+     * @param g_polynomials To-be-shifted polynomials (of which the shifts h_i were evaluated by sumcheck)
+     * @param evaluations Set of evaluations v_i = f_i(u), w_i = h_i(u) = g_i_shifted(u)
+     * @param multilinear_challenge Multilinear challenge point u
+     * @param commitment_key
+     * @param transcript
+     */
+    static void prove_with_concatenations(const auto& f_polynomials,
+                                          const auto& g_polynomials,
+                                          const auto&,
+                                          const auto&,
+                                          auto& evaluations,
+                                          auto& multilinear_challenge,
+                                          auto& commitment_key,
+                                          auto& transcript)
+    {
+        // Generate batching challenge \rho and powers 1,...,\rho^{m-1}
+        FF rho = transcript.get_challenge("rho");
+        std::vector<FF> rhos = powers_of_challenge(rho, evaluations.size());
+
+        // Extract multilinear challenge u and claimed multilinear evaluations from Sumcheck output
+        std::span<FF> u_challenge = multilinear_challenge;
+        std::span<FF> claimed_evaluations = evaluations;
+        size_t log_N = u_challenge.size();
+        size_t N = 1 << log_N;
+
+        // Compute batching of unshifted polynomials f_i and to-be-shifted polynomials g_i:
+        // f_batched = sum_{i=0}^{m-1}\rho^i*f_i and g_batched = sum_{i=0}^{l-1}\rho^{m+i}*g_i,
+        // and also batched evaluation
+        // v = sum_{i=0}^{m-1}\rho^i*f_i(u) + sum_{i=0}^{l-1}\rho^{m+i}*h_i(u).
+        // Note: g_batched is formed from the to-be-shifted polynomials, but the batched evaluation incorporates the
+        // evaluations produced by sumcheck of h_i = g_i_shifted.
+        auto batched_evaluation = FF(0);
+        Polynomial f_batched(N); // batched unshifted polynomials
+        size_t poly_idx = 0;     // TODO(#391) zip
+        for (auto& f_poly : f_polynomials) {
+            f_batched.add_scaled(f_poly, rhos[poly_idx]);
+            batched_evaluation += rhos[poly_idx] * claimed_evaluations[poly_idx];
+            ++poly_idx;
+        }
+
+        Polynomial g_batched(N); // batched to-be-shifted polynomials
+        for (auto& g_poly : g_polynomials) {
+            g_batched.add_scaled(g_poly, rhos[poly_idx]);
+            batched_evaluation += rhos[poly_idx] * claimed_evaluations[poly_idx];
+            ++poly_idx;
+        };
+
+        // Polynomial c_batched(N); // bached concatenated polynomials
+
+        // Compute the full batched polynomial f = f_batched + g_batched.shifted() = f_batched + h_batched. This is the
+        // polynomial for which we compute the quotients q_k and prove f(u) = v_batched.
+        auto f_polynomial = f_batched;
+        f_polynomial += g_batched.shifted();
+
+        // Compute the multilinear quotients q_k = q_k(X_0, ..., X_{k-1})
+        auto quotients = compute_multilinear_quotients(f_polynomial, u_challenge);
+
+        // Compute and send commitments C_{q_k} = [q_k], k = 0,...,d-1
+        std::vector<Commitment> q_k_commitments;
+        q_k_commitments.reserve(log_N);
+        for (size_t idx = 0; idx < log_N; ++idx) {
+            q_k_commitments[idx] = commitment_key->commit(quotients[idx]);
+            std::string label = "ZM:C_q_" + std::to_string(idx);
+            transcript.send_to_verifier(label, q_k_commitments[idx]);
+        }
+
+        // Get challenge y
+        auto y_challenge = transcript.get_challenge("ZM:y");
+
+        // Compute the batched, lifted-degree quotient \hat{q}
+        auto batched_quotient = compute_batched_lifted_degree_quotient(quotients, y_challenge, N);
+
+        // Compute and send the commitment C_q = [\hat{q}]
+        auto q_commitment = commitment_key->commit(batched_quotient);
+        transcript.send_to_verifier("ZM:C_q", q_commitment);
+
+        // Get challenges x and z
+        auto [x_challenge, z_challenge] = transcript.get_challenges("ZM:x", "ZM:z");
+
+        // Compute degree check polynomial \zeta partially evaluated at x
+        auto zeta_x =
+            compute_partially_evaluated_degree_check_polynomial(batched_quotient, quotients, y_challenge, x_challenge);
+
+        // Compute ZeroMorph identity polynomial Z partially evaluated at x
+        auto Z_x = compute_partially_evaluated_zeromorph_identity_polynomial(
+            f_batched, g_batched, quotients, batched_evaluation, u_challenge, x_challenge);
+
+        // Compute batched degree-check and ZM-identity quotient polynomial pi
+        auto pi_polynomial =
+            compute_batched_evaluation_and_degree_check_quotient(zeta_x, Z_x, x_challenge, z_challenge);
+
+        // Compute and send proof commitment pi
+        auto pi_commitment = commitment_key->commit(pi_polynomial);
+        transcript.send_to_verifier("ZM:PI", pi_commitment);
+    }
 };
 
 /**
@@ -724,6 +825,80 @@ template <typename Curve> class ZeroMorphVerifier_ {
                                             auto& claimed_evaluations,
                                             auto& multivariate_challenge,
                                             auto& transcript)
+    {
+        size_t log_N = multivariate_challenge.size();
+        FF rho = transcript.get_challenge("rho");
+
+        // Compute powers of batching challenge rho
+        std::vector<FF> rhos = pcs::zeromorph::powers_of_challenge(rho, claimed_evaluations.size());
+
+        // Construct batched evaluation v = sum_{i=0}^{m-1}\rho^i*f_i(u) + sum_{i=0}^{l-1}\rho^{m+i}*h_i(u)
+        FF batched_evaluation = FF(0);
+        size_t evaluation_idx = 0;
+        for (auto& value : claimed_evaluations.get_unshifted_then_shifted()) {
+            batched_evaluation += value * rhos[evaluation_idx];
+            ++evaluation_idx;
+        }
+
+        // Receive commitments [q_k]
+        std::vector<Commitment> C_q_k;
+        C_q_k.reserve(log_N);
+        for (size_t i = 0; i < log_N; ++i) {
+            C_q_k.emplace_back(transcript.template receive_from_prover<Commitment>("ZM:C_q_" + std::to_string(i)));
+        }
+
+        // Challenge y
+        auto y_challenge = transcript.get_challenge("ZM:y");
+
+        // Receive commitment C_{q}
+        auto C_q = transcript.template receive_from_prover<Commitment>("ZM:C_q");
+
+        // Challenges x, z
+        auto [x_challenge, z_challenge] = transcript.get_challenges("ZM:x", "ZM:z");
+
+        // Compute commitment C_{\zeta_x}
+        auto C_zeta_x = compute_C_zeta_x(C_q, C_q_k, y_challenge, x_challenge);
+
+        // Compute commitment C_{Z_x}
+        Commitment C_Z_x = compute_C_Z_x(commitments.get_unshifted(),
+                                         commitments.get_to_be_shifted(),
+                                         C_q_k,
+                                         rho,
+                                         batched_evaluation,
+                                         x_challenge,
+                                         multivariate_challenge);
+
+        // Compute commitment C_{\zeta,Z}
+        auto C_zeta_Z = C_zeta_x + C_Z_x * z_challenge;
+
+        // Receive proof commitment \pi
+        auto C_pi = transcript.template receive_from_prover<Commitment>("ZM:PI");
+
+        // Construct inputs and perform pairing check to verify claimed evaluation
+        // Note: The pairing check (without the degree check component X^{N_max-N-1}) can be expressed naturally as
+        // e(C_{\zeta,Z}, [1]_2) = e(pi, [X - x]_2). This can be rearranged (e.g. see the plonk paper) as
+        // e(C_{\zeta,Z} - x*pi, [1]_2) * e(-pi, [X]_2) = 1, or
+        // e(P_0, [1]_2) * e(P_1, [X]_2) = 1
+        auto P0 = C_zeta_Z + C_pi * x_challenge;
+        auto P1 = -C_pi;
+
+        return { P0, P1 };
+    }
+
+    /**
+     * @brief Verify a set of multilinear evaluation claims for unshifted polynomials f_i and to-be-shifted polynomials
+     * g_i
+     *
+     * @param commitments Commitments to polynomials f_i and g_i (unshifted and to-be-shifted)
+     * @param claimed_evaluations Claimed evaluations v_i = f_i(u) and w_i = h_i(u) = g_i_shifted(u)
+     * @param multivariate_challenge Challenge point u
+     * @param transcript
+     * @return std::array<Commitment, 2> Inputs to the final pairing check
+     */
+    static std::array<Commitment, 2> verify_with_concatenations(auto& commitments,
+                                                                auto& claimed_evaluations,
+                                                                auto& multivariate_challenge,
+                                                                auto& transcript)
     {
         size_t log_N = multivariate_challenge.size();
         FF rho = transcript.get_challenge("rho");
