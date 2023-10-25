@@ -21,7 +21,7 @@ permissions:
 jobs:
   build-x86_64-linux-gnu:
     name: Build on Linux GNU
-    runs-on: ubuntu-20.04-64core
+    runs-on: ubuntu-20.04
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
@@ -67,7 +67,7 @@ jobs:
 
   build-wasm-ts:
     name: Build WASM and deploy to TS
-    runs-on: ubuntu-20.04-64core
+    runs-on: ubuntu-20.04
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
