@@ -21,13 +21,13 @@ impl ContractDeploymentData {
     }
 
     fn hash(self) -> Field {
-        dep::std::hash::pedersen_with_separator([
+        dep::std::hash::pedersen_hash_with_separator([
             self.deployer_public_key.x,
             self.deployer_public_key.y,
             self.constructor_vk_hash,
             self.function_tree_root,
             self.contract_address_salt,
             self.portal_contract_address.to_field()
-        ], constants_gen::GENERATOR_INDEX__CONTRACT_DEPLOYMENT_DATA)[0]
+        ], constants_gen::GENERATOR_INDEX__CONTRACT_DEPLOYMENT_DATA)
     }
 }

@@ -74,6 +74,6 @@ impl PrivateCircuitPublicInputs{
         fields.push(self.chain_id);
         fields.push(self.version);
 
-        dep::std::hash::pedersen_with_separator(fields.storage, constants_gen::GENERATOR_INDEX__PRIVATE_CIRCUIT_PUBLIC_INPUTS)[0]
+        dep::std::hash::pedersen_hash_with_separator(fields.storage, constants_gen::GENERATOR_INDEX__PRIVATE_CIRCUIT_PUBLIC_INPUTS)
     }
 }

@@ -7,10 +7,10 @@ struct PublicDataRead {
 
 impl PublicDataRead {
     fn hash(self) -> Field {
-        dep::std::hash::pedersen_with_separator([
+        dep::std::hash::pedersen_hash_with_separator([
             self.leaf_index,
             self.value,
-        ], constants_gen::GENERATOR_INDEX__PUBLIC_DATA_READ)[0]
+        ], constants_gen::GENERATOR_INDEX__PUBLIC_DATA_READ)
     }
 
     // TODO(David): explain again why we don't check other fields

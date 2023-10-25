@@ -15,13 +15,13 @@ struct TxContext {
 
 impl TxContext {
     fn hash(self) -> Field {
-        dep::std::hash::pedersen_with_separator([
+        dep::std::hash::pedersen_hash_with_separator([
             self.is_fee_payment_tx as Field,
             self.is_rebate_payment_tx as Field,
             self.is_contract_deployment_tx as Field,
             self.contract_deployment_data.hash(),
             self.chain_id,
             self.version,
-        ], constants_gen::GENERATOR_INDEX__TX_CONTEXT)[0]
+        ], constants_gen::GENERATOR_INDEX__TX_CONTEXT)
     }
 }

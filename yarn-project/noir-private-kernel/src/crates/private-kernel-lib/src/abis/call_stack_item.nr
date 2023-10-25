@@ -47,11 +47,11 @@ struct CallStackItem<AppCircuitPublicInputs> {
 // public_inputs and contract_address
 impl PublicCallStackItem {
     fn hash(self) -> Field {
-        dep::std::hash::pedersen_with_separator([
+        dep::std::hash::pedersen_hash_with_separator([
             self.inner.contract_address.to_field(),
             self.inner.function_data.hash(),
             self.inner.public_inputs.hash(),
-        ], constants_gen::GENERATOR_INDEX__CALL_STACK_ITEM)[0]
+        ], constants_gen::GENERATOR_INDEX__CALL_STACK_ITEM)
     }
 
     fn public_inputs(self) -> PublicCircuitPublicInputs {
@@ -68,11 +68,11 @@ impl PublicCallStackItem {
 }
 impl PrivateCallStackItem {
     fn hash(self) -> Field {
-        dep::std::hash::pedersen_with_separator([
+        dep::std::hash::pedersen_hash_with_separator([
             self.inner.contract_address.to_field(),
             self.inner.function_data.hash(),
             self.inner.public_inputs.hash(),
-        ], constants_gen::GENERATOR_INDEX__CALL_STACK_ITEM)[0]
+        ], constants_gen::GENERATOR_INDEX__CALL_STACK_ITEM)
     }
 
     fn public_inputs(self) -> PrivateCircuitPublicInputs {

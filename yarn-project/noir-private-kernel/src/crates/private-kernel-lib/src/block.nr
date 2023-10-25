@@ -26,13 +26,13 @@ impl Block {
     }
 
     fn hash(self) -> Field {
-        dep::std::hash::pedersen_with_separator([
+        dep::std::hash::pedersen_hash_with_separator([
             self.global_variables_hash,
             self.note_hash_tree_root,
             self.nullifier_tree_root,
             self.contract_tree_root,
             self.l1_to_l2_data_tree_root,
             self.public_data_tree_root,
-        ], constants_gen::GENERATOR_INDEX__BLOCK_HASH)[0]
+        ], constants_gen::GENERATOR_INDEX__BLOCK_HASH)
     }
 }

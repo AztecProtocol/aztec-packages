@@ -106,17 +106,17 @@ pub fn read_request_root_from_siblings(read_request : Field, leaf_index : Field,
 }
 
 pub fn silo_commitment(address : Address, inner_commitment : Field) -> Field {
-    dep::std::hash::pedersen_with_separator([
+    dep::std::hash::pedersen_hash_with_separator([
         address.to_field(),
         inner_commitment,
-    ], constants_gen::GENERATOR_INDEX__SILOED_COMMITMENT)[0]
+    ], constants_gen::GENERATOR_INDEX__SILOED_COMMITMENT)
 }
 
 pub fn silo_nullifier(address : Address, nullifier : Field) -> Field {
-    dep::std::hash::pedersen_with_separator([
+    dep::std::hash::pedersen_hash_with_separator([
         address.to_field(),
         nullifier,
-    ], constants_gen::GENERATOR_INDEX__OUTER_NULLIFIER)[0]
+    ], constants_gen::GENERATOR_INDEX__OUTER_NULLIFIER)
 }
 
 fn merkle_hash(left : Field, right : Field) -> Field {
@@ -170,11 +170,11 @@ pub fn compute_l2_to_l1_hash(contract_address : Address, rollup_version_id: Fiel
 pub fn compute_constructor_hash(function_data : FunctionData, args_hash : Field, constructor_vk_hash : Field) -> Field {
     let function_data_hash = function_data.hash();
 
-    dep::std::hash::pedersen_with_separator([
+    dep::std::hash::pedersen_hash_with_separator([
         function_data_hash,
         args_hash,
         constructor_vk_hash
-    ], constants_gen::GENERATOR_INDEX__CONSTRUCTOR)[0]
+    ], constants_gen::GENERATOR_INDEX__CONSTRUCTOR)
 }
 
 // sha256 hash is stored in two fields to accommodate all 256-bits of the hash
@@ -225,35 +225,35 @@ pub fn compute_logs_hash(previous_log_hash : [Field;2], current_log_hash : [Fiel
 }
 
 pub fn compute_partial_address(contract_address_salt : Field, function_tree_root : Field, constructor_hash : Field) -> Field {
-    dep::std::hash::pedersen_with_separator([
+    dep::std::hash::pedersen_hash_with_separator([
         // TODO why the zeroes?
         0,
         0,
         contract_address_salt,
         function_tree_root,
         constructor_hash
-    ],constants_gen::GENERATOR_INDEX__PARTIAL_ADDRESS)[0]
+    ],constants_gen::GENERATOR_INDEX__PARTIAL_ADDRESS)
 }
 
 pub fn compute_contract_address_from_partial(point : Point, partial_address : Field) -> Address {
-    let field = dep::std::hash::pedersen_with_separator([
+    let field = dep::std::hash::pedersen_hash_with_separator([
         point.x,
         point.y,
         partial_address
-    ],constants_gen::GENERATOR_INDEX__CONTRACT_ADDRESS)[0];
+    ],constants_gen::GENERATOR_INDEX__CONTRACT_ADDRESS);
     Address::from_field(field)
 }
 
 pub fn compute_unique_commitment(nonce : Field, siloed_commitment : Field) -> Field {
-    dep::std::hash::pedersen_with_separator([
+    dep::std::hash::pedersen_hash_with_separator([
         nonce,
         siloed_commitment
-    ], constants_gen::GENERATOR_INDEX__UNIQUE_COMMITMENT)[0]
+    ], constants_gen::GENERATOR_INDEX__UNIQUE_COMMITMENT)
 }
 
 pub fn compute_commitment_nonce(first_nullifier : Field, commitment_index : Field) -> Field {
-    dep::std::hash::pedersen_with_separator([
+    dep::std::hash::pedersen_hash_with_separator([
         first_nullifier,
         commitment_index
-    ], constants_gen::GENERATOR_INDEX__COMMITMENT_NONCE)[0]
+    ], constants_gen::GENERATOR_INDEX__COMMITMENT_NONCE)
 }

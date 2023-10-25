@@ -12,11 +12,11 @@ struct TxRequest {
 
 impl TxRequest {
     fn hash(self) -> Field {
-        dep::std::hash::pedersen_with_separator([
+        dep::std::hash::pedersen_hash_with_separator([
             self.origin.to_field(),
             self.function_data.hash(),
             self.args_hash,
             self.tx_context.hash(),
-        ], constants_gen::GENERATOR_INDEX__TX_REQUEST)[0]
+        ], constants_gen::GENERATOR_INDEX__TX_REQUEST)
     }
 }

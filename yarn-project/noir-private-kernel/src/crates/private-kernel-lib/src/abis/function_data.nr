@@ -16,11 +16,11 @@ impl FunctionData {
     // TODO(hash): Since, function data can fit into a Field,
     // This method will simply return a bit packed Field instead of hashing
     fn hash(self) -> Field {
-        dep::std::hash::pedersen_with_separator([
+        dep::std::hash::pedersen_hash_with_separator([
             self.selector.to_field(),
             self.is_internal as Field,
             self.is_private as Field,
             self.is_constructor as Field,
-        ], constants_gen::GENERATOR_INDEX__FUNCTION_DATA)[0]
+        ], constants_gen::GENERATOR_INDEX__FUNCTION_DATA)
     }
 }

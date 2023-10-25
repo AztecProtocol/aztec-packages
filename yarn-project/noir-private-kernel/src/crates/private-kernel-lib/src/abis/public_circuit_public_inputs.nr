@@ -65,6 +65,6 @@ impl PublicCircuitPublicInputs{
         inputs.push_array(self.historical_block_data.to_array());
         inputs.push(self.prover_address.to_field());
 
-        dep::std::hash::pedersen_with_separator(inputs.storage, constants_gen::GENERATOR_INDEX__PUBLIC_CIRCUIT_PUBLIC_INPUTS)[0]
+        dep::std::hash::pedersen_hash_with_separator(inputs.storage, constants_gen::GENERATOR_INDEX__PUBLIC_CIRCUIT_PUBLIC_INPUTS)
     }
 }

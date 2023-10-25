@@ -12,7 +12,7 @@
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T prettier -w ./src",
-    "noir:build": "cd src && nargo compile",
+    "noir:build": "cd src && nargo compile --no-backend && rm -rf ./target/debug_*",
     "noir:types": "yarn ts-node --esm src/scripts/generate_ts_from_abi.ts",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --passWithNoTests"
   },
@@ -31,7 +31,7 @@
     "@aztec/circuits.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/noir-compiler": "workspace:^",
-    "@noir-lang/acvm_js": "^0.28.0",
+    "@noir-lang/acvm_js": "^0.30.0",
     "@noir-lang/backend_barretenberg": "^0.7.10",
     "@noir-lang/noir_js": "^0.16.0",
     "@noir-lang/noirc_abi": "^0.16.0",
