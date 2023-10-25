@@ -1,4 +1,4 @@
-import { pedersenGetHash, pedersenGetHashTree, pedersenHashWithHashIndex } from '@aztec/circuits.js/barretenberg';
+import { pedersenGetHashTree, pedersenHashWithHashIndex } from '@aztec/circuits.js/barretenberg';
 import { IWasmModule } from '@aztec/foundation/wasm';
 import { Hasher } from '@aztec/types';
 
@@ -25,14 +25,6 @@ export class Pedersen implements Hasher {
    */
   public hashInputs(inputs: Buffer[]): Buffer {
     return pedersenHashWithHashIndex(this.wasm, inputs, 0);
-  }
-
-  /*
-   * @deprecated Don't call pedersen directly in production code. Instead, create suitably-named functions for specific
-   * purposes.
-   */
-  public hashToField(data: Uint8Array): Buffer {
-    return pedersenGetHash(this.wasm, Buffer.from(data));
   }
 
   /*
