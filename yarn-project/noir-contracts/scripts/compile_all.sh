@@ -10,5 +10,3 @@ nargo_check
 echo "Compiling all contracts"
 
 nargo compile --workspace --no-backend
-
-rm -r ./target/debug*
