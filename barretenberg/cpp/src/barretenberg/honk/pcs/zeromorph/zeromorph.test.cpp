@@ -2,9 +2,7 @@
 #include "../commitment_key.test.hpp"
 #include "barretenberg/honk/transcript/transcript.hpp"
 
-#include <cstddef>
 #include <gtest/gtest.h>
-#include <vector>
 
 namespace proof_system::honk::pcs::zeromorph {
 

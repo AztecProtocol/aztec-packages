@@ -516,6 +516,8 @@ template <typename Curve> class ZeroMorphVerifier_ {
             rho_pow *= rho;
         }
 
+        // If applicable, add contribution from concatenated polynomial commitments
+        // Note: this is an implementation detail related to Goblin Translator and is not part of the standard protocol.
         if (!concatenation_groups_commitments.empty()) {
             size_t CONCATENATION_INDEX = concatenation_groups_commitments[0].size();
             size_t MINICIRCUIT_N = N / CONCATENATION_INDEX;
