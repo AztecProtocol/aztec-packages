@@ -140,7 +140,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_spot_run_build barretenberg-x86_64-linux-clang-sol 128
+          command: cond_spot_run_build barretenberg-x86_64-linux-clang-sol 32
 
   barretenberg-stdlib-tests:
     docker:
