@@ -46,8 +46,8 @@
   },
   "dependencies": {
     "@aztec/foundation": "workspace:^",
-    "@noir-lang/noir_wasm": "0.17.0-b8b7782.aztec",
-    "@noir-lang/source-resolver": "0.17.0-b8b7782.aztec",
+    "@noir-lang/noir_wasm": "0.18.0-3919619.aztec",
+    "@noir-lang/source-resolver": "0.18.0-3919619.aztec",
     "base64-js": "^1.5.1",
     "commander": "^9.0.0",
     "fs-extra": "^11.1.1",
