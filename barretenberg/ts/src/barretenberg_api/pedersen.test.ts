@@ -13,21 +13,6 @@ describe('pedersen', () => {
     await api.destroy();
   });
 
-  it('pedersenCompressFields', async () => {
-    const result = await api.pedersenCompressFields(new Fr(4n), new Fr(8n));
-    expect(result).toEqual(new Fr(1521373897829389584529155077412196627698249315427143054350987371861781120260n));
-  });
-
-  it('pedersenCompress', async () => {
-    const result = await api.pedersenCompress([new Fr(4n), new Fr(8n), new Fr(12n)]);
-    expect(result).toEqual(new Fr(16354408412011670665169322571938780771784319449166930406648760506154417354381n));
-  });
-
-  it('pedersenCompressWithHashIndex', async () => {
-    const result = await api.pedersenCompressWithHashIndex([new Fr(4n), new Fr(8n)], 7);
-    expect(result).toEqual(new Fr(2152386650411553803409271316104075950536496387580531018130718456431861859990n));
-  });
-
   it('pedersenCommit', async () => {
     const result = await api.pedersenCommit([new Fr(4n), new Fr(8n), new Fr(12n)]);
     expect(result).toEqual(new Fr(18374309251862457296563484909553154519357910650678202211610516068880120638872n));
@@ -40,19 +25,20 @@ describe('pedersen', () => {
     expect(result).toEqual(new Fr(5836632387256708040349959803326023895450290698906238002955147410646852307074n));
   });
 
-  it('pedersenHashPair', async () => {
-    const result = await api.pedersenHashPair(new Fr(4n), new Fr(8n));
-    expect(result).toEqual(new Fr(1521373897829389584529155077412196627698249315427143054350987371861781120260n));
-  });
-
-  it('pedersenHashMultiple', async () => {
-    const result = await api.pedersenHashMultiple([new Fr(4n), new Fr(8n), new Fr(12n)]);
+  it('pedersenHash', async () => {
+    const result = await api.pedersenHash([new Fr(4n), new Fr(8n), new Fr(12n)]);
     expect(result).toEqual(new Fr(16354408412011670665169322571938780771784319449166930406648760506154417354381n));
   });
 
-  it('pedersenHashMultipleWithHashIndex', async () => {
-    const result = await api.pedersenHashMultipleWithHashIndex([new Fr(4n), new Fr(8n)], 7);
+  it('pedersenHashWithHashIndex', async () => {
+    const result = await api.pedersenHashWithHashIndex([new Fr(4n), new Fr(8n)], 7);
     expect(result).toEqual(new Fr(2152386650411553803409271316104075950536496387580531018130718456431861859990n));
+  });
+
+  it('pedersenHash0index', async () => {
+    const resultWith0HashIndex = await api.pedersenHashWithHashIndex([new Fr(4n), new Fr(8n), new Fr(12n)], 0);
+    const resultWithImplicitZeroHashIndex = await api.pedersenHash([new Fr(4n), new Fr(8n), new Fr(12n)]);
+    expect(resultWith0HashIndex).toEqual(resultWithImplicitZeroHashIndex);
   });
 
   it('pedersenHashToTree', async () => {
