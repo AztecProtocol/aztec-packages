@@ -16,10 +16,9 @@ template <typename Flavor> class GoblinTranslatorComposer_ {
     using CircuitBuilder = typename Flavor::CircuitBuilder;
     using ProvingKey = typename Flavor::ProvingKey;
     using VerificationKey = typename Flavor::VerificationKey;
-    using PCSParams = typename Flavor::PCSParams;
     using PCS = typename Flavor::PCS;
-    using PCSCommitmentKey = typename PCSParams::CommitmentKey;
-    using PCSVerificationKey = typename PCSParams::VerificationKey;
+    using CommitmentKey = typename Flavor::CommitmentKey;
+    using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
     static constexpr size_t MINI_CIRCUIT_SIZE = Flavor::MINI_CIRCUIT_SIZE;
 
     static constexpr std::string_view NAME_STRING = "GoblinTranslator";
@@ -31,10 +30,10 @@ template <typename Flavor> class GoblinTranslatorComposer_ {
     std::shared_ptr<srs::factories::CrsFactory<typename Flavor::Curve>> crs_factory_;
 
     // The commitment key is passed to the prover but also used herein to compute the verfication key commitments
-    std::shared_ptr<PCSCommitmentKey> commitment_key;
+    std::shared_ptr<CommitmentKey> commitment_key;
 
     bool computed_witness = false;
-    size_t total_num_gates = 0; // num_gates + num_pub_inputs + tables + zero_row_offset (used to compute dyadic size)
+    size_t total_num_gates = 0;          // num_gates (already include zero row offset) (used to compute dyadic size)
     size_t dyadic_circuit_size = 0;      // final power-of-2 circuit size
     size_t mini_circuit_dyadic_size = 0; // The size of the small circuit that contains non-range constraint relations
 
@@ -62,9 +61,14 @@ template <typename Flavor> class GoblinTranslatorComposer_ {
     GoblinTranslatorProver_<Flavor> create_prover(CircuitBuilder& circuit_constructor);
     GoblinTranslatorVerifier_<Flavor> create_verifier(const CircuitBuilder& circuit_constructor);
 
-    void compute_commitment_key(size_t circuit_size)
+    std::shared_ptr<CommitmentKey> compute_commitment_key(size_t circuit_size)
     {
-        commitment_key = std::make_shared<typename PCSParams::CommitmentKey>(circuit_size, crs_factory_);
+        if (commitment_key) {
+            return commitment_key;
+        }
+
+        commitment_key = std::make_shared<CommitmentKey>(circuit_size, crs_factory_);
+        return commitment_key;
     };
 };
 extern template class GoblinTranslatorComposer_<honk::flavor::GoblinTranslatorBasic>;

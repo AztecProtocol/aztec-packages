@@ -9,12 +9,10 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/honk/composer/goblin_translator_composer.hpp"
 #include "barretenberg/honk/proof_system/goblin_translator_prover.hpp"
-#include "barretenberg/honk/proof_system/prover.hpp"
-#include "barretenberg/honk/sumcheck/relations/permutation_relation.hpp"
-#include "barretenberg/honk/sumcheck/relations/relation_parameters.hpp"
 #include "barretenberg/honk/sumcheck/sumcheck_round.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/proof_system/circuit_builder/goblin_translator_circuit_builder.hpp"
+#include "barretenberg/proof_system/relations/relation_parameters.hpp"
 
 using namespace proof_system::honk;
 
@@ -71,14 +69,14 @@ TEST_F(GoblinTranslatorComposerTests, Start)
     auto z = scalar::random_element();
 
     // Add the same operations to the ECC op queue; the native computation is performed under the hood.
-    ECCOpQueue op_queue;
+    proof_system::ECCOpQueue op_queue;
     for (size_t i = 0; i < 500; i++) {
         op_queue.add_accumulate(P1);
         op_queue.mul_accumulate(P2, z);
     }
     Fq batching_challenge = fq::random_element();
     Fq x = Fq::random_element();
-    auto circuit_builder = GoblinTranslatorCircuitBuilder(batching_challenge, x);
+    auto circuit_builder = proof_system::GoblinTranslatorCircuitBuilder(batching_challenge, x);
     circuit_builder.feed_ecc_op_queue_into_circuit(op_queue);
     EXPECT_TRUE(circuit_builder.check_circuit());
 

@@ -11,6 +11,7 @@
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/honk/flavor/goblin_translator.hpp"
 #include "barretenberg/honk/proof_system/goblin_translator_prover.hpp"
+#include "barretenberg/honk/proof_system/permutation_library.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/proof_system/circuit_builder/goblin_translator_circuit_builder.hpp"
@@ -188,11 +189,12 @@ template <typename Flavor> void GoblinTranslatorComposer_<Flavor>::compute_witne
 
     // We construct concatenated versions of range constraint polynomials, where several polynomials are concatenated
     // into one. These polynomials are not commited to.
-    compute_concatenated_polynomials<Flavor>(proving_key.get());
+    proof_system::honk::permutation_library::compute_concatenated_polynomials<Flavor>(proving_key.get());
 
     // We also contruct ordered polynomials, which have the same values as concatenated ones + enough values to bridge
     // the range from 0 to maximum range defined by the range constraint.
-    compute_goblin_translator_range_constraint_ordered_polynomials<Flavor>(proving_key.get());
+    proof_system::honk::permutation_library::compute_goblin_translator_range_constraint_ordered_polynomials<Flavor>(
+        proving_key.get());
 
     computed_witness = true;
 }
@@ -239,8 +241,7 @@ GoblinTranslatorVerifier_<Flavor> GoblinTranslatorComposer_<Flavor>::create_veri
 
     GoblinTranslatorVerifier_<Flavor> output_state(verification_key);
 
-    auto pcs_verification_key = std::make_unique<PCSVerificationKey>(verification_key->circuit_size, crs_factory_);
-
+    auto pcs_verification_key = std::make_unique<VerifierCommitmentKey>(verification_key->circuit_size, crs_factory_);
     output_state.pcs_verification_key = std::move(pcs_verification_key);
 
     return output_state;
@@ -275,11 +276,12 @@ std::shared_ptr<typename Flavor::ProvingKey> GoblinTranslatorComposer_<Flavor>::
 
     // Compute polynomials with odd and even indices set to 1 up to the minicircuit margin + lagrange polynomials at
     // second and second to last indices in the minicircuit
-    compute_lagrange_polynomials_for_goblin_translator<Flavor>(proving_key.get());
+    proof_system::honk::permutation_library::compute_lagrange_polynomials_for_goblin_translator<Flavor>(
+        proving_key.get());
 
     // Compute the numerator for the permutation argument with several repetitions of steps bridging 0 and maximum range
     // constraint
-    compute_extra_range_constraint_numerator<Flavor>(proving_key.get());
+    proof_system::honk::permutation_library::compute_extra_range_constraint_numerator<Flavor>(proving_key.get());
 
     return proving_key;
 }

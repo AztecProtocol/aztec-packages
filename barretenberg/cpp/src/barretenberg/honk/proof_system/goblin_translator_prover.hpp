@@ -32,13 +32,7 @@ template <typename Flavor> class GoblinTranslatorProver_ {
     void execute_wire_and_sorted_constraints_commitments_round();
     void execute_grand_product_computation_round();
     void execute_relation_check_rounds();
-    void execute_univariatization_round();
-    void execute_pcs_evaluation_round();
-    void execute_multikzg_opening_round();
-    void execute_shplonk_batched_quotient_round();
-    void execute_shplonk_partial_evaluation_round();
-    void execute_final_pcs_round();
-
+    void execute_zeromorph_rounds();
     plonk::proof& export_proof();
     plonk::proof& construct_proof();
 
@@ -54,6 +48,8 @@ template <typename Flavor> class GoblinTranslatorProver_ {
     CommitmentLabels commitment_labels;
 
     std::shared_ptr<CommitmentKey> commitment_key;
+
+    sumcheck::SumcheckOutput<Flavor> sumcheck_output;
 
     using ZeroMorph = pcs::zeromorph::ZeroMorphProver_<Curve>;
 

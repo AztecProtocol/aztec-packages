@@ -1,6 +1,5 @@
 #pragma once
 #include "barretenberg/honk/flavor/goblin_translator.hpp"
-#include "barretenberg/honk/flavor/goblin_ultra.hpp"
 #include "barretenberg/honk/sumcheck/sumcheck.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
 
@@ -10,7 +9,7 @@ template <typename Flavor> class GoblinTranslatorVerifier_ {
     using BF = typename Flavor::BF;
     using Commitment = typename Flavor::Commitment;
     using VerificationKey = typename Flavor::VerificationKey;
-    using PCSVerificationKey = typename Flavor::VerificationKey;
+    using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
 
   public:
     explicit GoblinTranslatorVerifier_(std::shared_ptr<VerificationKey> verifier_key = nullptr);
@@ -26,7 +25,7 @@ template <typename Flavor> class GoblinTranslatorVerifier_ {
     std::shared_ptr<VerificationKey> key;
     std::map<std::string, Commitment> commitments;
     std::map<std::string, FF> pcs_fr_elements;
-    std::shared_ptr<PCSVerificationKey> pcs_verification_key;
+    std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
     VerifierTranscript<FF> transcript;
 };
 
