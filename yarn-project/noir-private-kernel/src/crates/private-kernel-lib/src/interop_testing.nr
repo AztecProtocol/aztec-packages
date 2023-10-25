@@ -4,6 +4,7 @@ use crate::transaction::request::TxRequest;
 use crate::address::{Address, EthAddress};
 use crate::transaction::context::TxContext;
 use crate::abis::function_data::FunctionData;
+use crate::abis::function_leaf_preimage::FunctionLeafPreimage;
 use crate::contrakt::deployment_data::ContractDeploymentData;
 use crate::abis::function_selector::FunctionSelector;
 use crate::hash::compute_l2_to_l1_hash;
@@ -21,8 +22,8 @@ fn compute_complete_address() {
         
     let complete_address = CompleteAddress::compute(point, contract_address_salt, function_tree_root, constructor_hash);
   
-    assert(complete_address.partial_address == 0x2d21887e877530560476baa456091e3ec947feb8c80a8d8b271aca475b3d0d2f);
-    assert(complete_address.address.to_field() == 0x0343055cb133a46b33e482843fc73f03697ee869f1786c1d15655a0ece4da1d4);
+    assert(complete_address.partial_address == 0x197673f31940878b2d6c681223dbed9cfacd2f722cbe30155225b2ada17778db);
+    assert(complete_address.address.to_field() == 0x1a6e89b034478713c7a9f1c77fb80af995f708f6f208bf352b4dda2124739109);
     assert(complete_address.public_key.x == 1);
     assert(complete_address.public_key.y == 2);
 }
@@ -54,7 +55,7 @@ fn compute_tx_request_hash() {
             is_constructor : true,
         }
     };
-    assert(tx_request.hash() == 0x030d01a52e494df23f5835c597bd53e194d5c27db185a720e55caa95561a1115);
+    assert(tx_request.hash() == 0x0b487ff2900ae1178e131bfe333fdbc351beef658f7c0d62db2801429b1aab75);
 }
 
 #[test]
@@ -82,4 +83,17 @@ fn smoke_sha256_to_field() {
     ];
     let result = sha256_to_field(full_buffer);
     assert( result == 0x142a6d57007171f6eaa33d55976d9dbe739c889c8e920f115f7808dea184c718);
+}
+
+#[test]
+fn compute_function_leaf() {
+    let leaf = FunctionLeafPreimage {
+        selector: FunctionSelector::from_u32(27),
+        is_internal: false,
+        is_private: true,
+        vk_hash: 1,
+        acir_hash: 2,
+    };
+
+    assert_eq(leaf.hash(), 0x1ad8ece7f40e63d011ae47c6ce6cdaf31d632a23f5cf35bbeaaf69c8302afdbc);
 }
