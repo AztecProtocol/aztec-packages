@@ -46,7 +46,6 @@ FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/l1-contracts as contracts
 FROM node:18-alpine
 RUN apk update && apk add --no-cache bash jq curl
 
-
 WORKDIR /usr/src/yarn-project
 
 # The dockerignore file ensures the context only contains package.json and tsconfig.json files.
