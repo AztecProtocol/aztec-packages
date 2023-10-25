@@ -18,7 +18,7 @@ struct FieldNote {
 }
 
 impl FieldNote {
-    pub fn new(value: Field, owner: Field) -> Self {
+    pub fn new(value: Field) -> Self {
         FieldNote {
             value,
             header: NoteHeader::empty(),
