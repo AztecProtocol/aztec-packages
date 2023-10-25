@@ -1,6 +1,9 @@
 #pragma once
-#include <stddef.h>
+#include <barretenberg/common/throw_or_abort.hpp>
+#include <barretenberg/crypto/generators/generator_data.hpp>
 
+#include <cstddef>
+#include <string>
 // NOTE: When modifying names of constants or enums do the changes in `src/aztec3/circuits/abis/packers.hpp` as well
 
 namespace aztec3 {
@@ -13,7 +16,7 @@ namespace aztec3 {
  */
 constexpr size_t log2(size_t input)
 {
-    return (input < 2) ? 0 : 1 + log2(input / 2);
+    return static_cast<size_t>(numeric::get_msb64(static_cast<uint64_t>(input)));
 }
 
 constexpr size_t ARGS_LENGTH = 16;
@@ -97,9 +100,9 @@ constexpr size_t LOGS_HASHES_NUM_BYTES_PER_BASE_ROLLUP =
 constexpr size_t VK_TREE_HEIGHT = 3;
 constexpr size_t FUNCTION_TREE_HEIGHT = 4;
 constexpr size_t CONTRACT_TREE_HEIGHT = 16;
-constexpr size_t PRIVATE_DATA_TREE_HEIGHT = 32;
+constexpr size_t NOTE_HASH_TREE_HEIGHT = 32;
 constexpr size_t PUBLIC_DATA_TREE_HEIGHT = 254;
-constexpr size_t NULLIFIER_TREE_HEIGHT = 16;
+constexpr size_t NULLIFIER_TREE_HEIGHT = 20;
 constexpr size_t L1_TO_L2_MSG_TREE_HEIGHT = 16;
 constexpr size_t HISTORIC_BLOCKS_TREE_HEIGHT = 16;
 constexpr size_t ROLLUP_VK_TREE_HEIGHT = 8;  // TODO: update
@@ -109,9 +112,9 @@ constexpr size_t ROLLUP_VK_TREE_HEIGHT = 8;  // TODO: update
 constexpr size_t CONTRACT_SUBTREE_HEIGHT =
     static_cast<size_t>(log2(MAX_NEW_CONTRACTS_PER_TX * KERNELS_PER_BASE_ROLLUP));
 constexpr size_t CONTRACT_SUBTREE_SIBLING_PATH_LENGTH = CONTRACT_TREE_HEIGHT - CONTRACT_SUBTREE_HEIGHT;
-constexpr size_t PRIVATE_DATA_SUBTREE_HEIGHT =
+constexpr size_t NOTE_HASH_SUBTREE_HEIGHT =
     static_cast<size_t>(log2(KERNELS_PER_BASE_ROLLUP * MAX_NEW_COMMITMENTS_PER_TX));
-constexpr size_t PRIVATE_DATA_SUBTREE_SIBLING_PATH_LENGTH = PRIVATE_DATA_TREE_HEIGHT - PRIVATE_DATA_SUBTREE_HEIGHT;
+constexpr size_t NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH = NOTE_HASH_TREE_HEIGHT - NOTE_HASH_SUBTREE_HEIGHT;
 constexpr size_t NULLIFIER_SUBTREE_HEIGHT =
     static_cast<size_t>(log2(KERNELS_PER_BASE_ROLLUP * MAX_NEW_NULLIFIERS_PER_TX));
 constexpr size_t NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH = NULLIFIER_TREE_HEIGHT - NULLIFIER_SUBTREE_HEIGHT;
@@ -144,6 +147,7 @@ enum GeneratorIndex {
     /**
      * Indices with size ≤ 8
      */
+    DEFAULT = 0,
     COMMITMENT = 1,              // Size = 7 (unused)
     COMMITMENT_NONCE,            // Size = 2
     UNIQUE_COMMITMENT,           // Size = 2
@@ -184,7 +188,88 @@ enum GeneratorIndex {
     PRIVATE_CIRCUIT_PUBLIC_INPUTS,  // Size = 45
     PUBLIC_CIRCUIT_PUBLIC_INPUTS,   // Size = 32 (unused)
     FUNCTION_ARGS,                  // Size ≤ 40
+    NUMBER_OF_INDICES,
 };
+
+static constexpr std::string_view AZTEC_DOMAIN = "__AZTEC_";
+static constexpr std::string generatorIndexDomain(GeneratorIndex idx)
+{
+    switch (idx) {
+        case DEFAULT:
+            return "DEFAULT";
+        case COMMITMENT:
+            return "COMMITMENT";
+        case COMMITMENT_NONCE:
+            return "COMMITMENT_NONCE";
+        case UNIQUE_COMMITMENT:
+            return "UNIQUE_COMMITMENT";
+        case SILOED_COMMITMENT:
+            return "SILOED_COMMITMENT";
+        case NULLIFIER:
+            return "NULLIFIER       ";
+        case INITIALIZATION_NULLIFIER:
+            return "INITIALIZATION_NULLIFIER";
+        case OUTER_NULLIFIER:
+            return "OUTER_NULLIFIER ";
+        case PUBLIC_DATA_READ:
+            return "PUBLIC_DATA_READ";
+        case PUBLIC_DATA_UPDATE_REQUEST:
+            return "PUBLIC_DATA_UPDATE_REQUEST";
+        case FUNCTION_DATA:
+            return "FUNCTION_DATA";
+        case FUNCTION_LEAF:
+            return "FUNCTION_LEAF";
+        case CONTRACT_DEPLOYMENT_DATA:
+            return "CONTRACT_DEPLOYMENT_DATA";
+        case CONSTRUCTOR:
+            return "CONSTRUCTOR";
+        case CONSTRUCTOR_ARGS:
+            return "CONSTRUCTOR_ARGS";
+        case CONTRACT_ADDRESS:
+            return "CONTRACT_ADDRESS";
+        case CONTRACT_LEAF:
+            return "CONTRACT_LEAF";
+        case CALL_CONTEXT:
+            return "CALL_CONTEXT";
+        case CALL_STACK_ITEM:
+            return "CALL_STACK_ITEM";
+        case CALL_STACK_ITEM_2:
+            return "CALL_STACK_ITEM_2";
+        case L1_TO_L2_MESSAGE_SECRET:
+            return "L1_TO_L2_MESSAGE_SECRET ";
+        case L2_TO_L1_MSG:
+            return "L2_TO_L1_MSG";
+        case TX_CONTEXT:
+            return "TX_CONTEXT";
+        case PUBLIC_LEAF_INDEX:
+            return "PUBLIC_LEAF_INDEX";
+        case PUBLIC_DATA_LEAF:
+            return "PUBLIC_DATA_LEAF";
+        case SIGNED_TX_REQUEST:
+            return "SIGNED_TX_REQUEST";
+        case GLOBAL_VARIABLES:
+            return "GLOBAL_VARIABLES";
+        case PARTIAL_ADDRESS:
+            return "PARTIAL_ADDRESS";
+        case BLOCK_HASH:
+            return "BLOCK_HASH";
+        case TX_REQUEST:
+            return "TX_REQUEST";
+        case SIGNATURE_PAYLOAD:
+            return "SIGNATURE_PAYLOAD";
+        case VK:
+            return "VK";
+        case PRIVATE_CIRCUIT_PUBLIC_INPUTS:
+            return "PRIVATE_CIRCUIT_PUBLIC_INPUTS";
+        case PUBLIC_CIRCUIT_PUBLIC_INPUTS:
+            return "PUBLIC_CIRCUIT_PUBLIC_INPUTS";
+        case FUNCTION_ARGS:
+            return "FUNCTION_ARGS";
+        default: {
+            throw_or_abort("could not convert GeneratorIndex enum to string_view");
+        }
+    }
+}
 
 // Note: When modifying, modify `StorageSlotGeneratorIndexPacker` in packer.hpp accordingly.
 enum StorageSlotGeneratorIndex {

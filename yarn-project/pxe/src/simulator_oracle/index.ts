@@ -33,7 +33,7 @@ export class SimulatorOracle implements DBOracle {
     const completeAddress = await this.db.getCompleteAddress(address);
     if (!completeAddress)
       throw new Error(
-        `Unknown complete address for address ${address.toString()}. Add the information to PXE Service by calling server.registerRecipient(...) or server.registerAccount(...)`,
+        `No public key registered for address ${address.toString()}. Register it by calling pxe.registerRecipient(...) or pxe.registerAccount(...).\nSee docs for context: https://docs.aztec.network/dev_docs/contracts/common_errors#no-public-key-registered-error`,
       );
     return completeAddress;
   }
@@ -97,12 +97,12 @@ export class SimulatorOracle implements DBOracle {
   }
 
   /**
-   * Gets the index of a commitment in the private data tree.
+   * Gets the index of a commitment in the note hash tree.
    * @param commitment - The commitment.
    * @returns - The index of the commitment. Undefined if it does not exist in the tree.
    */
   async getCommitmentIndex(commitment: Fr) {
-    return await this.stateInfoProvider.findLeafIndex(MerkleTreeId.PRIVATE_DATA_TREE, commitment.toBuffer());
+    return await this.stateInfoProvider.findLeafIndex(MerkleTreeId.NOTE_HASH_TREE, commitment.toBuffer());
   }
 
   async getNullifierIndex(nullifier: Fr) {
