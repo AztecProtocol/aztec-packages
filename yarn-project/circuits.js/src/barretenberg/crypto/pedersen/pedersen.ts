@@ -67,7 +67,11 @@ export function pedersenHashWithHashIndex(wasm: IWasmModule, inputs: Buffer[], h
   const outputPtr = 0;
 
   wasm.call('pedersen__compress_with_hash_index', inputPtr, hashIndex, outputPtr);
-  return Buffer.from(wasm.getMemorySlice(0, 32));
+  const hashOutput = wasm.getMemorySlice(0, 32);
+
+  wasm.call('bbfree', inputPtr);
+
+  return Buffer.from(hashOutput);
 }
 
 /**
