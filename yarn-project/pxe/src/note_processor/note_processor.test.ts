@@ -48,9 +48,9 @@ describe('Note Processor', () => {
     );
 
   // ownedData: [tx1, tx2, ...], the numbers in each tx represents the indices of the note hashes the account owns.
-  const createEncryptedLogsAndOwnedNoteSpendingInfo = (ownedData: number[][], ownedNotes: L1NotePayload[]) => {
+  const createEncryptedLogsAndOwnedL1NotePayloads = (ownedData: number[][], ownedNotes: L1NotePayload[]) => {
     const newNotes: L1NotePayload[] = [];
-    const ownedNoteSpendingInfo: L1NotePayload[] = [];
+    const ownedL1NotePayloads: L1NotePayload[] = [];
     const txLogs: TxL2Logs[] = [];
     let usedOwnedNote = 0;
     for (let i = 0; i < TXS_PER_BLOCK; ++i) {
@@ -67,7 +67,7 @@ describe('Note Processor', () => {
         usedOwnedNote += note === ownedNotes[usedOwnedNote] ? 1 : 0;
         newNotes.push(note);
         if (isOwner) {
-          ownedNoteSpendingInfo.push(note);
+          ownedL1NotePayloads.push(note);
         }
         const log = note.toEncryptedBuffer(publicKey, grumpkin);
         // 1 tx containing 1 function invocation containing 1 log
@@ -77,7 +77,7 @@ describe('Note Processor', () => {
     }
 
     const encryptedLogs = new L2BlockL2Logs(txLogs);
-    return { newNotes, ownedNoteSpendingInfo, encryptedLogs };
+    return { newNotes, ownedL1NotePayloads, encryptedLogs };
   };
 
   const mockData = (
@@ -92,25 +92,25 @@ describe('Note Processor', () => {
 
     const blockContexts: L2BlockContext[] = [];
     const encryptedLogsArr: L2BlockL2Logs[] = [];
-    const ownedNoteSpendingInfos: L1NotePayload[] = [];
+    const ownedL1NotePayloads: L1NotePayload[] = [];
     const numberOfBlocks = prependedBlocks + appendedBlocks + 1;
     for (let i = 0; i < numberOfBlocks; ++i) {
       const block = L2Block.random(firstBlockNum + i, TXS_PER_BLOCK);
       block.startNoteHashTreeSnapshot.nextAvailableLeafIndex = firstBlockDataStartIndex + i * numCommitmentsPerBlock;
 
       const isTargetBlock = i === prependedBlocks;
-      const { newNotes, encryptedLogs, ownedNoteSpendingInfo } = createEncryptedLogsAndOwnedNoteSpendingInfo(
+      const { newNotes, encryptedLogs, ownedL1NotePayloads: payloads } = createEncryptedLogsAndOwnedL1NotePayloads(
         isTargetBlock ? ownedData : [],
         isTargetBlock ? ownedNotes : [],
       );
       encryptedLogsArr.push(encryptedLogs);
-      ownedNoteSpendingInfos.push(...ownedNoteSpendingInfo);
+      ownedL1NotePayloads.push(...payloads);
       block.newCommitments = newNotes.map(n => computeMockNoteHash(n.notePreimage.items));
 
       const randomBlockContext = new L2BlockContext(block);
       blockContexts.push(randomBlockContext);
     }
-    return { blockContexts, encryptedLogsArr, ownedNoteSpendingInfos };
+    return { blockContexts, encryptedLogsArr, ownedL1NotePayloads };
   };
 
   beforeAll(async () => {
@@ -151,13 +151,13 @@ describe('Note Processor', () => {
   });
 
   it('should store a note that belongs to us', async () => {
-    const { blockContexts, encryptedLogsArr, ownedNoteSpendingInfos } = mockData([[2]]);
+    const { blockContexts, encryptedLogsArr, ownedL1NotePayloads } = mockData([[2]]);
     await noteProcessor.process(blockContexts, encryptedLogsArr);
 
     expect(addExtendedNotesSpy).toHaveBeenCalledTimes(1);
     expect(addExtendedNotesSpy).toHaveBeenCalledWith([
       expect.objectContaining({
-        ...ownedNoteSpendingInfos[0],
+        ...ownedL1NotePayloads[0],
         index: BigInt(firstBlockDataStartIndex + 2),
       }),
     ]);
@@ -168,7 +168,7 @@ describe('Note Processor', () => {
     const appendedBlocks = 1;
     const thisBlockDataStartIndex = firstBlockDataStartIndex + prependedBlocks * numCommitmentsPerBlock;
 
-    const { blockContexts, encryptedLogsArr, ownedNoteSpendingInfos } = mockData(
+    const { blockContexts, encryptedLogsArr, ownedL1NotePayloads } = mockData(
       [[], [1], [], [0, 2]],
       prependedBlocks,
       appendedBlocks,
@@ -178,17 +178,17 @@ describe('Note Processor', () => {
     expect(addExtendedNotesSpy).toHaveBeenCalledTimes(1);
     expect(addExtendedNotesSpy).toHaveBeenCalledWith([
       expect.objectContaining({
-        ...ownedNoteSpendingInfos[0],
+        ...ownedL1NotePayloads[0],
         // Index 1 log in the 2nd tx.
         index: BigInt(thisBlockDataStartIndex + MAX_NEW_COMMITMENTS_PER_TX * (2 - 1) + 1),
       }),
       expect.objectContaining({
-        ...ownedNoteSpendingInfos[1],
+        ...ownedL1NotePayloads[1],
         // Index 0 log in the 4th tx.
         index: BigInt(thisBlockDataStartIndex + MAX_NEW_COMMITMENTS_PER_TX * (4 - 1) + 0),
       }),
       expect.objectContaining({
-        ...ownedNoteSpendingInfos[2],
+        ...ownedL1NotePayloads[2],
         // Index 2 log in the 4th tx.
         index: BigInt(thisBlockDataStartIndex + MAX_NEW_COMMITMENTS_PER_TX * (4 - 1) + 2),
       }),
@@ -205,21 +205,21 @@ describe('Note Processor', () => {
     const note2 = L1NotePayload.random();
     // All notes expect one have the same contract address, storage slot, and preimage.
     const notes = [note, note, note, note2, note];
-    const { blockContexts, encryptedLogsArr, ownedNoteSpendingInfos } = mockData([[0, 2], [], [0, 1, 3]], 0, 0, notes);
+    const { blockContexts, encryptedLogsArr, ownedL1NotePayloads } = mockData([[0, 2], [], [0, 1, 3]], 0, 0, notes);
     await noteProcessor.process(blockContexts, encryptedLogsArr);
 
     const addedInfos: ExtendedNote[] = addExtendedNotesSpy.mock.calls[0][0];
     expect(addedInfos).toEqual([
-      expect.objectContaining({ ...ownedNoteSpendingInfos[0] }),
-      expect.objectContaining({ ...ownedNoteSpendingInfos[1] }),
-      expect.objectContaining({ ...ownedNoteSpendingInfos[2] }),
-      expect.objectContaining({ ...ownedNoteSpendingInfos[3] }),
-      expect.objectContaining({ ...ownedNoteSpendingInfos[4] }),
+      expect.objectContaining({ ...ownedL1NotePayloads[0] }),
+      expect.objectContaining({ ...ownedL1NotePayloads[1] }),
+      expect.objectContaining({ ...ownedL1NotePayloads[2] }),
+      expect.objectContaining({ ...ownedL1NotePayloads[3] }),
+      expect.objectContaining({ ...ownedL1NotePayloads[4] }),
     ]);
-    expect(ownedNoteSpendingInfos[0]).toEqual(ownedNoteSpendingInfos[1]);
-    expect(ownedNoteSpendingInfos[1]).toEqual(ownedNoteSpendingInfos[2]);
-    expect(ownedNoteSpendingInfos[2]).toEqual(ownedNoteSpendingInfos[4]);
-    expect(ownedNoteSpendingInfos[3]).not.toEqual(ownedNoteSpendingInfos[4]);
+    expect(ownedL1NotePayloads[0]).toEqual(ownedL1NotePayloads[1]);
+    expect(ownedL1NotePayloads[1]).toEqual(ownedL1NotePayloads[2]);
+    expect(ownedL1NotePayloads[2]).toEqual(ownedL1NotePayloads[4]);
+    expect(ownedL1NotePayloads[3]).not.toEqual(ownedL1NotePayloads[4]);
 
     // Check that every note has a different nonce.
     const nonceSet = new Set<bigint>();

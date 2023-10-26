@@ -100,7 +100,7 @@ export class NoteProcessor {
       return;
     }
 
-    const blocksAndNoteSpendingInfo: ProcessedData[] = [];
+    const blocksAndNotes: ProcessedData[] = [];
     const curve = await Grumpkin.new();
 
     // Iterate over both blocks and encrypted logs.
@@ -135,25 +135,25 @@ export class NoteProcessor {
         for (const functionLogs of txFunctionLogs) {
           for (const logs of functionLogs.logs) {
             this.stats.seen++;
-            const noteSpendingInfo = L1NotePayload.fromEncryptedBuffer(logs, privateKey, curve);
-            if (noteSpendingInfo) {
+            const payload = L1NotePayload.fromEncryptedBuffer(logs, privateKey, curve);
+            if (payload) {
               // We have successfully decrypted the data.
               try {
                 const { commitmentIndex, nonce, innerNoteHash, siloedNullifier } = await this.findNoteIndexAndNullifier(
                   newCommitments,
                   newNullifiers[0],
-                  noteSpendingInfo,
+                  payload,
                   excludedIndices,
                 );
                 const index = BigInt(dataStartIndexForTx + commitmentIndex);
                 excludedIndices.add(commitmentIndex);
                 extendedNotes.push(
                   new ExtendedNote(
-                    noteSpendingInfo.notePreimage,
-                    noteSpendingInfo.contractAddress,
+                    payload.notePreimage,
+                    payload.contractAddress,
                     blockContext.getTxHash(indexOfTxInABlock),
                     nonce,
-                    noteSpendingInfo.storageSlot,
+                    payload.storageSlot,
                     innerNoteHash,
                     siloedNullifier,
                     index,
@@ -170,13 +170,13 @@ export class NoteProcessor {
         }
       }
 
-      blocksAndNoteSpendingInfo.push({
+      blocksAndNotes.push({
         blockContext: l2BlockContexts[blockIndex],
         extendedNotes,
       });
     }
 
-    await this.processBlocksAndNoteSpendingInfo(blocksAndNoteSpendingInfo);
+    await this.processBlocksAndNotes(blocksAndNotes);
 
     this.syncedToBlock = l2BlockContexts[l2BlockContexts.length - 1].block.number;
     this.log(`Synched block ${this.syncedToBlock}`);
@@ -187,13 +187,13 @@ export class NoteProcessor {
    * commitment for the current tx matches this value.
    * Compute the nullifier for a given transaction auxiliary data.
    * The nullifier is calculated using the private key of the account,
-   * contract address, and note preimage associated with the noteSpendingInfo.
+   * contract address, and note preimage associated with the l1NotePayload.
    * This method assists in identifying spent commitments in the private state.
    * @param commitments - Commitments in the tx. One of them should be the note's commitment.
    * @param firstNullifier - First nullifier in the tx.
-   * @param noteSpendingInfo - An instance of NoteSpendingInfo containing transaction details.
+   * @param l1NotePayload - An instance of l1NotePayload containing transaction details.
    * @param excludedIndices - Indices that have been assigned a note in the same tx. Notes in a tx can have the same
-   * NoteSpendingInfo. We need to find a different index for each replicate.
+   * l1NotePayload. We need to find a different index for each replicate.
    * @returns Information for a decrypted note, including the index of its commitment, nonce, inner note
    * hash, and the siloed nullifier. Throw if cannot find the nonce for the note.
    */
@@ -267,28 +267,28 @@ https://github.com/AztecProtocol/aztec-packages/issues/1641`;
    * transaction auxiliary data from the database. This function keeps track of new nullifiers
    * and ensures all other transactions are updated with newly settled block information.
    *
-   * @param blocksAndNoteSpendingInfo - Array of objects containing L2BlockContexts, user-pertaining transaction indices, and ExtendedNotes.
+   * @param blocksAndNotes - Array of objects containing L2BlockContexts, user-pertaining transaction indices, and ExtendedNotes.
    */
-  private async processBlocksAndNoteSpendingInfo(blocksAndNoteSpendingInfo: ProcessedData[]) {
-    const extendedNotesBatch = blocksAndNoteSpendingInfo.flatMap(b => b.extendedNotes);
+  private async processBlocksAndNotes(blocksAndNotes: ProcessedData[]) {
+    const extendedNotesBatch = blocksAndNotes.flatMap(b => b.extendedNotes);
     if (extendedNotesBatch.length) {
       await this.db.addExtendedNotes(extendedNotesBatch);
-      extendedNotesBatch.forEach(noteSpendingInfo => {
+      extendedNotesBatch.forEach(note => {
         this.log(
-          `Added note spending info for contract ${noteSpendingInfo.contractAddress} at slot ${
-            noteSpendingInfo.storageSlot
-          } with nullifier ${noteSpendingInfo.siloedNullifier.toString()}`,
+          `Added note for contract ${note.contractAddress} at slot ${
+            note.storageSlot
+          } with nullifier ${note.siloedNullifier.toString()}`,
         );
       });
     }
 
-    const newNullifiers: Fr[] = blocksAndNoteSpendingInfo.flatMap(b => b.blockContext.block.newNullifiers);
-    const removedNoteSpendingInfo = await this.db.removeNullifiedNotes(newNullifiers, this.publicKey);
-    removedNoteSpendingInfo.forEach(noteSpendingInfo => {
+    const newNullifiers: Fr[] = blocksAndNotes.flatMap(b => b.blockContext.block.newNullifiers);
+    const removedNotes = await this.db.removeNullifiedNotes(newNullifiers, this.publicKey);
+    removedNotes.forEach(note => {
       this.log(
-        `Removed note spending info for contract ${noteSpendingInfo.contractAddress} at slot ${
-          noteSpendingInfo.storageSlot
-        } with nullifier ${noteSpendingInfo.siloedNullifier.toString()}`,
+        `Removed note spending info for contract ${note.contractAddress} at slot ${
+          note.storageSlot
+        } with nullifier ${note.siloedNullifier.toString()}`,
       );
     });
   }

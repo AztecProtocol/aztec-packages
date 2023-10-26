@@ -10,7 +10,7 @@ describe('Memory DB', () => {
     db = new MemoryDB();
   });
 
-  describe('NoteSpendingInfo', () => {
+  describe('ExtendedNote', () => {
     const contractAddress = AztecAddress.random();
     const storageSlot = Fr.random();
 

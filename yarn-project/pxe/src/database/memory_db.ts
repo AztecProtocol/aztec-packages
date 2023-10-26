@@ -64,23 +64,23 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
     }
 
     return this.extendedNotesTable.filter(
-      noteSpendingInfo =>
-        (filter.contractAddress == undefined || noteSpendingInfo.contractAddress.equals(filter.contractAddress)) &&
-        (filter.txHash == undefined || noteSpendingInfo.txHash.equals(filter.txHash)) &&
-        (filter.storageSlot == undefined || noteSpendingInfo.storageSlot.equals(filter.storageSlot!)) &&
-        (ownerPublicKey == undefined || noteSpendingInfo.publicKey.equals(ownerPublicKey!)),
+      note =>
+        (filter.contractAddress == undefined || note.contractAddress.equals(filter.contractAddress)) &&
+        (filter.txHash == undefined || note.txHash.equals(filter.txHash)) &&
+        (filter.storageSlot == undefined || note.storageSlot.equals(filter.storageSlot!)) &&
+        (ownerPublicKey == undefined || note.publicKey.equals(ownerPublicKey!)),
     );
   }
 
   public removeNullifiedNotes(nullifiers: Fr[], account: PublicKey) {
     const nullifierSet = new Set(nullifiers.map(nullifier => nullifier.toString()));
     const [remaining, removed] = this.extendedNotesTable.reduce(
-      (acc: [ExtendedNote[], ExtendedNote[]], noteSpendingInfo) => {
-        const nullifier = noteSpendingInfo.siloedNullifier.toString();
-        if (noteSpendingInfo.publicKey.equals(account) && nullifierSet.has(nullifier)) {
-          acc[1].push(noteSpendingInfo);
+      (acc: [ExtendedNote[], ExtendedNote[]], note) => {
+        const nullifier = note.siloedNullifier.toString();
+        if (note.publicKey.equals(account) && nullifierSet.has(nullifier)) {
+          acc[1].push(note);
         } else {
-          acc[0].push(noteSpendingInfo);
+          acc[0].push(note);
         }
         return acc;
       },

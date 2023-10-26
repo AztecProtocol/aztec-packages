@@ -29,9 +29,9 @@ export class L1NotePayload {
   ) {}
 
   /**
-   * Deserializes the NoteSpendingInfo object from a Buffer.
+   * Deserializes the L1NotePayload object from a Buffer.
    * @param buffer - Buffer or BufferReader object to deserialize.
-   * @returns An instance of NoteSpendingInfo.
+   * @returns An instance of L1NotePayload.
    */
   static fromBuffer(buffer: Buffer | BufferReader): L1NotePayload {
     const reader = BufferReader.asReader(buffer);
@@ -39,18 +39,18 @@ export class L1NotePayload {
   }
 
   /**
-   * Serializes the NoteSpendingInfo object into a Buffer.
-   * @returns Buffer representation of the NoteSpendingInfo object.
+   * Serializes the L1NotePayload object into a Buffer.
+   * @returns Buffer representation of the L1NotePayload object.
    */
   toBuffer() {
     return serializeToBuffer([this.notePreimage, this.contractAddress, this.storageSlot]);
   }
 
   /**
-   * Encrypt the NoteSpendingInfo object using the owner's public key and the ephemeral private key.
-   * @param ownerPubKey - Public key of the owner of the NoteSpendingInfo object.
+   * Encrypt the L1NotePayload object using the owner's public key and the ephemeral private key.
+   * @param ownerPubKey - Public key of the owner of the L1NotePayload object.
    * @param curve - The curve instance to use.
-   * @returns The encrypted NoteSpendingInfo object.
+   * @returns The encrypted L1NotePayload object.
    */
   public toEncryptedBuffer(ownerPubKey: PublicKey, curve: Grumpkin): Buffer {
     const ephPrivKey: GrumpkinPrivateKey = GrumpkinScalar.random();
@@ -58,11 +58,11 @@ export class L1NotePayload {
   }
 
   /**
-   * Decrypts the NoteSpendingInfo object using the owner's private key.
-   * @param data - Encrypted NoteSpendingInfo object.
-   * @param ownerPrivKey - Private key of the owner of the NoteSpendingInfo object.
+   * Decrypts the L1NotePayload object using the owner's private key.
+   * @param data - Encrypted L1NotePayload object.
+   * @param ownerPrivKey - Private key of the owner of the L1NotePayload object.
    * @param curve - The curve instance to use.
-   * @returns Instance of NoteSpendingInfo if the decryption was successful, undefined otherwise.
+   * @returns Instance of L1NotePayload if the decryption was successful, undefined otherwise.
    */
   static fromEncryptedBuffer(
     data: Buffer,
@@ -77,8 +77,8 @@ export class L1NotePayload {
   }
 
   /**
-   * Create a random NoteSpendingInfo object (useful for testing purposes).
-   * @returns A random NoteSpendingInfo object.
+   * Create a random L1NotePayload object (useful for testing purposes).
+   * @returns A random L1NotePayload object.
    */
   static random() {
     return new L1NotePayload(NotePreimage.random(), AztecAddress.random(), Fr.random());
