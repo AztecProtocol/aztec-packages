@@ -5,7 +5,7 @@ import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
 
 import { decryptBuffer, encryptBuffer } from './encrypt_buffer.js';
-import { NotePreimage } from './note_preimage.js';
+import { Note } from './note.js';
 
 /**
  * A class which wraps note data which is pushed on L1.
@@ -17,7 +17,7 @@ export class L1NotePayload {
     /**
      * Preimage which can be used along with private key to compute nullifier.
      */
-    public notePreimage: NotePreimage,
+    public notePreimage: Note,
     /**
      * Address of the contract this tx is interacting with.
      */
@@ -35,7 +35,7 @@ export class L1NotePayload {
    */
   static fromBuffer(buffer: Buffer | BufferReader): L1NotePayload {
     const reader = BufferReader.asReader(buffer);
-    return new L1NotePayload(reader.readObject(NotePreimage), reader.readObject(AztecAddress), reader.readFr());
+    return new L1NotePayload(reader.readObject(Note), reader.readObject(AztecAddress), reader.readFr());
   }
 
   /**
@@ -81,6 +81,6 @@ export class L1NotePayload {
    * @returns A random L1NotePayload object.
    */
   static random() {
-    return new L1NotePayload(NotePreimage.random(), AztecAddress.random(), Fr.random());
+    return new L1NotePayload(Note.random(), AztecAddress.random(), Fr.random());
   }
 }

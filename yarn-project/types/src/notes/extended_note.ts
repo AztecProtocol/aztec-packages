@@ -1,6 +1,6 @@
 import { AztecAddress, Fr, Point, PublicKey } from '@aztec/circuits.js';
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { BufferReader, NotePreimage, TxHash } from '@aztec/types';
+import { BufferReader, Note, TxHash } from '@aztec/types';
 
 /**
  * A note with contextual data.
@@ -8,7 +8,7 @@ import { BufferReader, NotePreimage, TxHash } from '@aztec/types';
 export class ExtendedNote {
   constructor(
     /** The preimage of the note, containing essential information about the note. */
-    public notePreimage: NotePreimage,
+    public notePreimage: Note,
     /** The contract address this note is created in. */
     public contractAddress: AztecAddress,
     /** The hash of the tx the note was created in. */
@@ -52,7 +52,7 @@ export class ExtendedNote {
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
 
-    const notePreimage = NotePreimage.fromBuffer(reader);
+    const notePreimage = Note.fromBuffer(reader);
     const contractAddress = AztecAddress.fromBuffer(reader);
     const txHash = new TxHash(reader.readBytes(TxHash.SIZE));
     const nonce = Fr.fromBuffer(reader);

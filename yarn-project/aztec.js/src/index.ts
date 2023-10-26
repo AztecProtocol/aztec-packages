@@ -19,7 +19,7 @@ export {
   L2BlockL2Logs,
   LogFilter,
   NodeInfo,
-  NotePreimage,
+  Note as NotePreimage,
   PackedArguments,
   PublicKey,
   PXE,

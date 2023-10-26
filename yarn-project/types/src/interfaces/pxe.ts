@@ -8,7 +8,7 @@ import {
   GetUnencryptedLogsResponse,
   L2Tx,
   LogFilter,
-  NotePreimage,
+  Note,
   Tx,
   TxExecutionRequest,
   TxHash,
@@ -180,7 +180,7 @@ export interface PXE {
     account: AztecAddress,
     contract: AztecAddress,
     storageSlot: Fr,
-    preimage: NotePreimage,
+    preimage: Note,
     txHash: TxHash,
     nonce?: Fr,
   ): Promise<void>;
@@ -194,7 +194,7 @@ export interface PXE {
    * @returns The nonces of the note.
    * @remarks More than single nonce may be returned since there might be more than one note with the same preimage.
    */
-  getNoteNonces(contract: AztecAddress, storageSlot: Fr, preimage: NotePreimage, txHash: TxHash): Promise<Fr[]>;
+  getNoteNonces(contract: AztecAddress, storageSlot: Fr, preimage: Note, txHash: TxHash): Promise<Fr[]>;
 
   /**
    * Simulate the execution of a view (read-only) function on a deployed contract without actually modifying state.

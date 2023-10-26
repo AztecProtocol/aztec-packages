@@ -15,14 +15,7 @@ import { Tuple } from '@aztec/foundation/serialize';
 
 import times from 'lodash.times';
 
-import {
-  DeployedContract,
-  ExtendedContractData,
-  ExtendedNote,
-  FunctionL2Logs,
-  NotePreimage,
-  TxL2Logs,
-} from './index.js';
+import { DeployedContract, ExtendedContractData, ExtendedNote, FunctionL2Logs, Note, TxL2Logs } from './index.js';
 import { Tx, TxHash } from './tx/index.js';
 
 /**
@@ -62,7 +55,7 @@ export const randomDeployedContract = async (): Promise<DeployedContract> => ({
 });
 
 export const randomExtendedNote = ({
-  notePreimage = NotePreimage.random(),
+  notePreimage = Note.random(),
   contractAddress = AztecAddress.random(),
   txHash = randomTxHash(),
   nonce = Fr.random(),

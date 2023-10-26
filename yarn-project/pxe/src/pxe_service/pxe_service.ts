@@ -39,8 +39,8 @@ import {
   LogFilter,
   MerkleTreeId,
   NodeInfo,
+  Note,
   NoteFilter,
-  NotePreimage,
   PXE,
   SimulationError,
   Tx,
@@ -202,7 +202,7 @@ export class PXEService implements PXE {
     account: AztecAddress,
     contractAddress: AztecAddress,
     storageSlot: Fr,
-    preimage: NotePreimage,
+    preimage: Note,
     txHash: TxHash,
     nonce?: Fr,
   ) {
@@ -254,7 +254,7 @@ export class PXEService implements PXE {
   public async getNoteNonces(
     contractAddress: AztecAddress,
     storageSlot: Fr,
-    preimage: NotePreimage,
+    preimage: Note,
     txHash: TxHash,
   ): Promise<Fr[]> {
     const tx = await this.node.getTx(txHash);

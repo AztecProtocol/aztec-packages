@@ -1,12 +1,12 @@
 import { Fr } from '@aztec/foundation/fields';
 
-import { NotePreimage } from './note_preimage.js';
+import { Note } from './note.js';
 
-describe('note_preimage', () => {
+describe('note', () => {
   it('convert to and from buffer', () => {
     const fields = Array.from({ length: 5 }).map(() => Fr.random());
-    const notePreimage = new NotePreimage(fields);
+    const notePreimage = new Note(fields);
     const buf = notePreimage.toBuffer();
-    expect(NotePreimage.fromBuffer(buf)).toEqual(notePreimage);
+    expect(Note.fromBuffer(buf)).toEqual(notePreimage);
   });
 });

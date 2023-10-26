@@ -10,8 +10,8 @@ import {
   L2Tx,
   LogFilter,
   NodeInfo,
+  Note,
   NoteFilter,
-  NotePreimage,
   PXE,
   SyncStatus,
   Tx,
@@ -81,13 +81,13 @@ export abstract class BaseWallet implements Wallet {
     account: AztecAddress,
     contract: AztecAddress,
     storageSlot: Fr,
-    preimage: NotePreimage,
+    preimage: Note,
     txHash: TxHash,
     nonce?: Fr,
   ): Promise<void> {
     return this.pxe.addNote(account, contract, storageSlot, preimage, txHash, nonce);
   }
-  getNoteNonces(contract: AztecAddress, storageSlot: Fr, preimage: NotePreimage, txHash: TxHash): Promise<Fr[]> {
+  getNoteNonces(contract: AztecAddress, storageSlot: Fr, preimage: Note, txHash: TxHash): Promise<Fr[]> {
     return this.pxe.getNoteNonces(contract, storageSlot, preimage, txHash);
   }
   viewTx(functionName: string, args: any[], to: AztecAddress, from?: AztecAddress | undefined): Promise<any> {

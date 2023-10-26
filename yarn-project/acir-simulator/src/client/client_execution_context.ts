@@ -15,7 +15,7 @@ import { FunctionAbi, FunctionArtifact, countArgumentsSize } from '@aztec/founda
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AuthWitness, FunctionL2Logs, L1NotePayload, NotePreimage, UnencryptedL2Log } from '@aztec/types';
+import { AuthWitness, FunctionL2Logs, L1NotePayload, Note, UnencryptedL2Log } from '@aztec/types';
 
 import {
   NoteData,
@@ -288,7 +288,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param preimage - The preimage of the note.
    */
   public emitEncryptedLog(contractAddress: AztecAddress, storageSlot: Fr, publicKey: Point, preimage: Fr[]) {
-    const notePreimage = new NotePreimage(preimage);
+    const notePreimage = new Note(preimage);
     const l1NotePayload = new L1NotePayload(notePreimage, contractAddress, storageSlot);
     const encryptedNotePreimage = l1NotePayload.toEncryptedBuffer(publicKey, this.curve);
     this.encryptedLogs.push(encryptedNotePreimage);
