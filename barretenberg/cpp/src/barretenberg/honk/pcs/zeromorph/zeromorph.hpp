@@ -57,7 +57,7 @@ template <typename Curve> class ZeroMorphProver_ {
             quotients.emplace_back(Polynomial(size)); // degree 2^k - 1
         }
 
-        // Compute the first 2^{n-1} coefficients of q_{n-1}
+        // Compute the coefficients of q_{n-1}
         size_t size_q = 1 << (log_N - 1);
         Polynomial q = Polynomial(size_q);
         for (size_t l = 0; l < size_q; ++l) {
@@ -71,10 +71,7 @@ template <typename Curve> class ZeroMorphProver_ {
 
         std::vector<FF> g(polynomial.data().get(), polynomial.data().get() + size_q);
 
-        // Compute the first 2^k coefficients of q_k in reverse order from k= n-2, i.e. q_{n-2}, ..., q_0
-        // Define the intermediate polynomial f_k
-        // Polynomial f_k = Polynomial(size_q);
-        // Polynomial g = polynomial;
+        // Compute q_k in reverse order from k= n-2, i.e. q_{n-2}, ..., q_0
         for (size_t k = 1; k < log_N; ++k) {
             // Compute f_k
             for (size_t l = 0; l < size_q; ++l) {
@@ -90,7 +87,6 @@ template <typename Curve> class ZeroMorphProver_ {
 
             quotients[log_N - k - 1] = q;
             g = f_k;
-            // f = Polynomial(size_q);
         }
 
         return quotients;
