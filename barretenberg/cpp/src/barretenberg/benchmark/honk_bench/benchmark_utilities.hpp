@@ -40,17 +40,19 @@ struct BenchParams {
  * @param composer
  * @param num_iterations
  */
-template <typename Builder> void generate_basic_arithmetic_circuit(Builder& builder, size_t num_gates)
+template <typename Builder> void generate_basic_arithmetic_circuit(Builder& builder, size_t log2_num_gates)
 {
     proof_system::plonk::stdlib::field_t a(
         proof_system::plonk::stdlib::witness_t(&builder, barretenberg::fr::random_element()));
     proof_system::plonk::stdlib::field_t b(
         proof_system::plonk::stdlib::witness_t(&builder, barretenberg::fr::random_element()));
     proof_system::plonk::stdlib::field_t c(&builder);
-    if (num_gates < 4) {
+    size_t passes = (1 << log2_num_gates) / 4 - 4;
+    if (static_cast<int>(passes) <= 0) {
         throw std::runtime_error("too few gates");
     }
-    for (size_t i = 0; i < (num_gates / 4) - 4; ++i) {
+
+    for (size_t i = 0; i < passes; ++i) {
         c = a + b;
         c = a * c;
         a = b * b;
@@ -182,6 +184,7 @@ inline proof_system::honk::UltraProver get_prover(
 {
     proof_system::honk::UltraComposer::CircuitBuilder builder;
     test_circuit_function(builder, num_iterations);
+    std::cout << "built " << builder.get_total_circuit_size() << std::endl;
     std::shared_ptr<proof_system::honk::UltraComposer::Instance> instance = composer.create_instance(builder);
     return composer.create_prover(instance);
 }

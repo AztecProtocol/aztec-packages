@@ -18,6 +18,6 @@ void construct_proof_standard(State& state) noexcept
 }
 
 BENCHMARK(construct_proof_standard)
-    // 2**8 gates to 2**16 gates
-    ->DenseRange(8, 16)
-    ->Unit(::benchmark::kSecond);
+    // 2**13 gates to 2**18 gates
+    ->DenseRange(13, 18)
+    ->Unit(::benchmark::kMillisecond);
