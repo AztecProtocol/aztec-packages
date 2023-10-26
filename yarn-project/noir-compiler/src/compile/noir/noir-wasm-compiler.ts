@@ -95,8 +95,9 @@ export class NoirWasmContractCompiler {
       } else {
         this.#log('Error compiling contract ' + err);
       }
+
+      throw new Error("Couldn't compile contract");
     }
-    return [];
   }
 
   #resolveFile = (path: string) => {
