@@ -61,17 +61,17 @@ export const randomDeployedContract = async (): Promise<DeployedContract> => ({
   portalContract: EthAddress.random(),
 });
 
-export const randomNoteSpendingInfoDao = (
+export const randomNoteSpendingInfoDao = ({
+  notePreimage = NotePreimage.random(),
   contractAddress = AztecAddress.random(),
   txHash = randomTxHash(),
   nonce = Fr.random(),
   storageSlot = Fr.random(),
-  notePreimage = NotePreimage.random(),
   innerNoteHash = Fr.random(),
   siloedNullifier = Fr.random(),
   index = Fr.random().value,
   publicKey = Point.random(),
-) => {
+}: Partial<NoteSpendingInfoDao> = {}) => {
   return new NoteSpendingInfoDao(
     notePreimage,
     contractAddress,
