@@ -10,6 +10,7 @@ cmake --build --preset clang16
 
 cd build
 
+# github markdown style, works in comments and descriptions
 echo -e "<details><summary>Standard Plonk</summary>"
 echo -e '\n```'
 ./bin/standard_plonk_bench | tee standard_plonk_bench.out
