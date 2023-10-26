@@ -1,6 +1,6 @@
 import {
   AztecAddress,
-  NotePreimage,
+  Note,
   Wallet,
   computeMessageSecretHash,
   generatePublicKey,
@@ -75,7 +75,7 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
     expect(receipt.status).toEqual(TxStatus.MINED);
 
     const storageSlot = new Fr(5);
-    const preimage = new NotePreimage([new Fr(initialBalance), secretHash]);
+    const preimage = new Note([new Fr(initialBalance), secretHash]);
     await pxe.addNote(accounts[0], token.address, storageSlot, preimage, receipt.txHash);
 
     expect((await token.methods.redeem_shield(accounts[0], initialBalance, secret).send().wait()).status).toEqual(

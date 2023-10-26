@@ -1,4 +1,4 @@
-import { AztecAddress, NotePreimage, Wallet, computeMessageSecretHash } from '@aztec/aztec.js';
+import { AztecAddress, Note, Wallet, computeMessageSecretHash } from '@aztec/aztec.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { toBigInt } from '@aztec/foundation/serialize';
@@ -97,7 +97,7 @@ describe('e2e_2_pxes', () => {
     expect(receipt.status).toEqual(TxStatus.MINED);
 
     const storageSlot = new Fr(5);
-    const preimage = new NotePreimage([new Fr(balance), secretHash]);
+    const preimage = new Note([new Fr(balance), secretHash]);
     await pxe.addNote(recipient, contract.address, storageSlot, preimage, receipt.txHash);
 
     expect((await contract.methods.redeem_shield(recipient, balance, secret).send().wait()).status).toEqual(

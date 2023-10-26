@@ -103,10 +103,10 @@ export class Oracle {
     return returnData.concat(paddedZeros);
   }
 
-  notifyCreatedNote([storageSlot]: ACVMField[], preimage: ACVMField[], [innerNoteHash]: ACVMField[]): ACVMField {
+  notifyCreatedNote([storageSlot]: ACVMField[], note: ACVMField[], [innerNoteHash]: ACVMField[]): ACVMField {
     this.typedOracle.notifyCreatedNote(
       fromACVMField(storageSlot),
-      preimage.map(fromACVMField),
+      note.map(fromACVMField),
       fromACVMField(innerNoteHash),
     );
     return toACVMField(0);

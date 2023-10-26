@@ -15,9 +15,9 @@ import { Note } from './note.js';
 export class L1NotePayload {
   constructor(
     /**
-     * Preimage which can be used along with private key to compute nullifier.
+     * A note as emitted from Noir contract. Can be used along with private key to compute nullifier.
      */
-    public notePreimage: Note,
+    public note: Note,
     /**
      * Address of the contract this tx is interacting with.
      */
@@ -43,7 +43,7 @@ export class L1NotePayload {
    * @returns Buffer representation of the L1NotePayload object.
    */
   toBuffer() {
-    return serializeToBuffer([this.notePreimage, this.contractAddress, this.storageSlot]);
+    return serializeToBuffer([this.note, this.contractAddress, this.storageSlot]);
   }
 
   /**

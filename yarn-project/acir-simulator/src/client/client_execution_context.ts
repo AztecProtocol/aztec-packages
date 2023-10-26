@@ -288,10 +288,10 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param preimage - The preimage of the note.
    */
   public emitEncryptedLog(contractAddress: AztecAddress, storageSlot: Fr, publicKey: Point, preimage: Fr[]) {
-    const notePreimage = new Note(preimage);
-    const l1NotePayload = new L1NotePayload(notePreimage, contractAddress, storageSlot);
-    const encryptedNotePreimage = l1NotePayload.toEncryptedBuffer(publicKey, this.curve);
-    this.encryptedLogs.push(encryptedNotePreimage);
+    const note = new Note(preimage);
+    const l1NotePayload = new L1NotePayload(note, contractAddress, storageSlot);
+    const encryptedNote = l1NotePayload.toEncryptedBuffer(publicKey, this.curve);
+    this.encryptedLogs.push(encryptedNote);
   }
 
   /**

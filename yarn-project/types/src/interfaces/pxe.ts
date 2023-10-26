@@ -172,7 +172,7 @@ export interface PXE {
    * @param account - The account the note is associated with.
    * @param contract - The contract address of the note.
    * @param storageSlot - The storage slot of the note.
-   * @param preimage - The note preimage.
+   * @param note - The note to add.
    * @param txHash - The tx hash of the tx containing the note.
    * @param nonce - The nonce of the note. If undefined, will look for the first index that matches the preimage.
    */
@@ -180,21 +180,21 @@ export interface PXE {
     account: AztecAddress,
     contract: AztecAddress,
     storageSlot: Fr,
-    preimage: Note,
+    note: Note,
     txHash: TxHash,
     nonce?: Fr,
   ): Promise<void>;
 
   /**
-   * Finds the nonce(s) for a note in a tx with given preimage at a specified contract address and storage slot.
+   * Finds the nonce(s) for a note in a tx with given a note at a specified contract address and storage slot.
    * @param contract - The contract address of the note.
    * @param storageSlot - The storage slot of the note.
-   * @param preimage - The note preimage.
+   * @param note - The note as emitted from Noir contract.
    * @param txHash - The tx hash of the tx containing the note.
    * @returns The nonces of the note.
-   * @remarks More than single nonce may be returned since there might be more than one note with the same preimage.
+   * @remarks More than single nonce may be returned since there might be more than one nonce for a given note.
    */
-  getNoteNonces(contract: AztecAddress, storageSlot: Fr, preimage: Note, txHash: TxHash): Promise<Fr[]>;
+  getNoteNonces(contract: AztecAddress, storageSlot: Fr, note: Note, txHash: TxHash): Promise<Fr[]>;
 
   /**
    * Simulate the execution of a view (read-only) function on a deployed contract without actually modifying state.

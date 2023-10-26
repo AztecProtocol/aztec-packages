@@ -46,18 +46,16 @@ export class SimulatorOracle implements DBOracle {
 
   async getNotes(contractAddress: AztecAddress, storageSlot: Fr) {
     const noteDaos = await this.db.getExtendedNotes({ contractAddress, storageSlot });
-    return noteDaos.map(
-      ({ contractAddress, storageSlot, nonce, notePreimage, innerNoteHash, siloedNullifier, index }) => ({
-        contractAddress,
-        storageSlot,
-        nonce,
-        preimage: notePreimage.items,
-        innerNoteHash,
-        siloedNullifier,
-        // PXE can use this index to get full MembershipWitness
-        index,
-      }),
-    );
+    return noteDaos.map(({ contractAddress, storageSlot, nonce, note, innerNoteHash, siloedNullifier, index }) => ({
+      contractAddress,
+      storageSlot,
+      nonce,
+      preimage: note.items,
+      innerNoteHash,
+      siloedNullifier,
+      // PXE can use this index to get full MembershipWitness
+      index,
+    }));
   }
 
   async getFunctionArtifact(

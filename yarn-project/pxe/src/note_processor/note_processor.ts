@@ -149,7 +149,7 @@ export class NoteProcessor {
                 excludedIndices.add(commitmentIndex);
                 extendedNotes.push(
                   new ExtendedNote(
-                    payload.notePreimage,
+                    payload.note,
                     payload.contractAddress,
                     blockContext.getTxHash(indexOfTxInABlock),
                     nonce,
@@ -200,7 +200,7 @@ export class NoteProcessor {
   private async findNoteIndexAndNullifier(
     commitments: Fr[],
     firstNullifier: Fr,
-    { contractAddress, storageSlot, notePreimage }: L1NotePayload,
+    { contractAddress, storageSlot, note }: L1NotePayload,
     excludedIndices: Set<number>,
   ) {
     const wasm = await CircuitsWasm.get();
@@ -218,12 +218,7 @@ export class NoteProcessor {
 
       const expectedNonce = computeCommitmentNonce(wasm, firstNullifier, commitmentIndex);
       ({ innerNoteHash, siloedNoteHash, uniqueSiloedNoteHash, innerNullifier } =
-        await this.simulator.computeNoteHashAndNullifier(
-          contractAddress,
-          expectedNonce,
-          storageSlot,
-          notePreimage.items,
-        ));
+        await this.simulator.computeNoteHashAndNullifier(contractAddress, expectedNonce, storageSlot, note.items));
       if (commitment.equals(uniqueSiloedNoteHash)) {
         nonce = expectedNonce;
         break;

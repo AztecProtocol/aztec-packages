@@ -1,7 +1,7 @@
 import {
   Fr,
   L2BlockL2Logs,
-  NotePreimage,
+  Note,
   computeMessageSecretHash,
   createPXEClient,
   getSandboxAccountsWallets,
@@ -44,7 +44,7 @@ async function mintPrivateFunds(pxe) {
   const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
 
   const storageSlot = new Fr(5);
-  const preimage = new NotePreimage([new Fr(mintAmount), secretHash]);
+  const preimage = new Note([new Fr(mintAmount), secretHash]);
   await pxe.addNote(owner.getAddress(), token.address, storageSlot, preimage, receipt.txHash);
 
   await token.methods.redeem_shield(owner.getAddress(), mintAmount, secret).send().wait();

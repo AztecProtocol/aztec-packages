@@ -3,7 +3,7 @@ import {
   AccountWallet,
   CheatCodes,
   Fr,
-  NotePreimage,
+  Note,
   PXE,
   computeMessageSecretHash,
   createAccount,
@@ -48,7 +48,7 @@ describe('guides/dapp/testing', () => {
         const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
 
         const storageSlot = new Fr(5);
-        const preimage = new NotePreimage([new Fr(mintAmount), secretHash]);
+        const preimage = new Note([new Fr(mintAmount), secretHash]);
         await pxe.addNote(recipientAddress, token.address, storageSlot, preimage, receipt.txHash);
 
         await token.methods.redeem_shield(recipientAddress, mintAmount, secret).send().wait();
@@ -87,7 +87,7 @@ describe('guides/dapp/testing', () => {
         const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
 
         const storageSlot = new Fr(5); // The storage slot of `pending_shields` is 5.
-        const preimage = new NotePreimage([new Fr(mintAmount), secretHash]);
+        const preimage = new Note([new Fr(mintAmount), secretHash]);
         await pxe.addNote(recipientAddress, token.address, storageSlot, preimage, receipt.txHash);
 
         await token.methods.redeem_shield(recipientAddress, mintAmount, secret).send().wait();
@@ -119,7 +119,7 @@ describe('guides/dapp/testing', () => {
         const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
 
         const storageSlot = new Fr(5);
-        const preimage = new NotePreimage([new Fr(mintAmount), secretHash]);
+        const preimage = new Note([new Fr(mintAmount), secretHash]);
         await pxe.addNote(recipientAddress, token.address, storageSlot, preimage, receipt.txHash);
 
         await token.methods.redeem_shield(recipientAddress, mintAmount, secret).send().wait();
@@ -172,7 +172,7 @@ describe('guides/dapp/testing', () => {
         const receipt = await token.methods.mint_private(100n, secretHash).send().wait();
 
         const storageSlot = new Fr(5);
-        const preimage = new NotePreimage([new Fr(mintAmount), secretHash]);
+        const preimage = new Note([new Fr(mintAmount), secretHash]);
         await pxe.addNote(ownerAddress, token.address, storageSlot, preimage, receipt.txHash);
 
         await token.methods.redeem_shield(ownerAddress, 100n, secret).send().wait();
@@ -191,7 +191,7 @@ describe('guides/dapp/testing', () => {
           contractAddress: token.address,
           storageSlot: ownerSlot,
         });
-        const values = notes.map(note => note.notePreimage.items[0]);
+        const values = notes.map(note => note.note.items[0]);
         const balance = values.reduce((sum, current) => sum + current.toBigInt(), 0n);
         expect(balance).toEqual(100n);
         // docs:end:private-storage

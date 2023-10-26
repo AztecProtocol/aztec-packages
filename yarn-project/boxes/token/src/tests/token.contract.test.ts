@@ -3,7 +3,7 @@ import { TokenSimulator } from './token_simulator.js';
 import {
   AccountWallet,
   Fr,
-  NotePreimage,
+  Note,
   PXE,
   TxHash,
   TxStatus,
@@ -42,7 +42,7 @@ describe('e2e_token_contract', () => {
 
   const addPendingShieldNoteToPXE = async (accountIndex: number, amount: bigint, secretHash: Fr, txHash: TxHash) => {
     const storageSlot = new Fr(5); // The storage slot of `pending_shields` is 5.
-    const preimage = new NotePreimage([new Fr(amount), secretHash]);
+    const preimage = new Note([new Fr(amount), secretHash]);
     await wallets[accountIndex].addNote(accounts[0].address, asset.address, storageSlot, preimage, txHash);
   };
 

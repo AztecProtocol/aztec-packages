@@ -35,7 +35,7 @@ export class Note extends Vector<Fr> {
   }
 
   /**
-   * Returns a hex representation of this preimage.
+   * Returns a hex representation of the note.
    * @returns A hex string with the vector length as first element.
    */
   toString() {

@@ -254,7 +254,7 @@ export class PXEService implements PXE {
   public async getNoteNonces(
     contractAddress: AztecAddress,
     storageSlot: Fr,
-    preimage: Note,
+    note: Note,
     txHash: TxHash,
   ): Promise<Fr[]> {
     const tx = await this.node.getTx(txHash);
@@ -276,7 +276,7 @@ export class PXEService implements PXE {
         contractAddress,
         nonce,
         storageSlot,
-        preimage.items,
+        note.items,
       );
       // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
       // Remove this once notes added from public also include nonces.

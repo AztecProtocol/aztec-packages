@@ -2,7 +2,7 @@ import {
   AccountWallet,
   Fr,
   GrumpkinScalar,
-  NotePreimage,
+  Note,
   computeMessageSecretHash,
   createPXEClient,
   getUnsafeSchnorrAccount,
@@ -56,7 +56,7 @@ async function main() {
 
   // Add the newly created "pending shield" note to PXE
   const pendingShieldsStorageSlot = new Fr(5); // The storage slot of `pending_shields` is 5.
-  const preimage = new NotePreimage([new Fr(ALICE_MINT_BALANCE), aliceSecretHash]);
+  const preimage = new Note([new Fr(ALICE_MINT_BALANCE), aliceSecretHash]);
   await pxe.addNote(alice.address, token.address, pendingShieldsStorageSlot, preimage, receipt.txHash);
 
   // Make the tokens spendable by redeeming them using the secret (converts the "pending shield note" created above

@@ -5,7 +5,7 @@ import {
   EthAddress,
   Fr,
   GrumpkinScalar,
-  NotePreimage,
+  Note,
   generatePublicKey,
   getSchnorrAccount,
   isContractDeployed,
@@ -585,10 +585,10 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .argument('<contractAddress>', 'Aztec address of the contract.', parseAztecAddress)
     .argument('<storageSlot>', 'The storage slot of the note.', parseField)
     .argument('<txHash>', 'The tx hash of the tx containing the note.', parseTxHash)
-    .requiredOption('-p, --preimage [notePreimage...]', 'Note preimage.', [])
+    .requiredOption('-p, --preimage [note...]', 'Note preimage.', [])
     .addOption(pxeOption)
     .action(async (address, contractAddress, storageSlot, txHash, options) => {
-      const preimage = new NotePreimage(parseFields(options.preimage));
+      const preimage = new Note(parseFields(options.preimage));
       const client = await createCompatibleClient(options.rpcUrl, debugLogger);
       await client.addNote(address, contractAddress, storageSlot, preimage, txHash);
     });

@@ -106,7 +106,7 @@ describe('Note Processor', () => {
       } = createEncryptedLogsAndOwnedL1NotePayloads(isTargetBlock ? ownedData : [], isTargetBlock ? ownedNotes : []);
       encryptedLogsArr.push(encryptedLogs);
       ownedL1NotePayloads.push(...payloads);
-      block.newCommitments = newNotes.map(n => computeMockNoteHash(n.notePreimage.items));
+      block.newCommitments = newNotes.map(n => computeMockNoteHash(n.note.items));
 
       const randomBlockContext = new L2BlockContext(block);
       blockContexts.push(randomBlockContext);

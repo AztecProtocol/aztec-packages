@@ -7,8 +7,8 @@ import { BufferReader, Note, TxHash } from '@aztec/types';
  */
 export class ExtendedNote {
   constructor(
-    /** The preimage of the note, containing essential information about the note. */
-    public notePreimage: Note,
+    /** The note as emitted from the Noir contract. */
+    public note: Note,
     /** The contract address this note is created in. */
     public contractAddress: AztecAddress,
     /** The hash of the tx the note was created in. */
@@ -22,23 +22,17 @@ export class ExtendedNote {
      * We can use this value to compute siloedNoteHash and uniqueSiloedNoteHash.
      */
     public innerNoteHash: Fr,
-    /**
-     * The nullifier of the note (siloed by contract address).
-     */
+    /** The nullifier of the note (siloed by contract address). */
     public siloedNullifier: Fr,
-    /**
-     * The location of the relevant note in the note hash tree.
-     */
+    /** The location of the relevant note in the note hash tree. */
     public index: bigint,
-    /**
-     * The public key that was used to encrypt the data.
-     */
+    /** The public key that was used to encrypt the data. */
     public publicKey: PublicKey,
   ) {}
 
   toBuffer(): Buffer {
     return Buffer.concat([
-      this.notePreimage.toBuffer(),
+      this.note.toBuffer(),
       this.contractAddress.toBuffer(),
       this.txHash.buffer,
       this.nonce.toBuffer(),
@@ -52,7 +46,7 @@ export class ExtendedNote {
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
 
-    const notePreimage = Note.fromBuffer(reader);
+    const note = Note.fromBuffer(reader);
     const contractAddress = AztecAddress.fromBuffer(reader);
     const txHash = new TxHash(reader.readBytes(TxHash.SIZE));
     const nonce = Fr.fromBuffer(reader);
@@ -63,7 +57,7 @@ export class ExtendedNote {
     const publicKey = Point.fromBuffer(reader);
 
     return new this(
-      notePreimage,
+      note,
       contractAddress,
       txHash,
       nonce,
@@ -86,14 +80,14 @@ export class ExtendedNote {
 
   /**
    * Returns the size in bytes of the extended note.
-   * @param note - The note.
+   * @param extendedNote - The extended note.
    * @returns - Its size in bytes.
    */
-  public getSize(note: ExtendedNote) {
+  public getSize(extendedNote: ExtendedNote) {
     // 7 fields + 1 bigint + 1 buffer size (4 bytes) + 1 buffer
-    const indexSize = Math.ceil(Math.log2(Number(note.index)));
+    const indexSize = Math.ceil(Math.log2(Number(extendedNote.index)));
     return (
-      note.notePreimage.items.length * Fr.SIZE_IN_BYTES + 7 * Fr.SIZE_IN_BYTES + 4 + indexSize + Point.SIZE_IN_BYTES
+      extendedNote.note.items.length * Fr.SIZE_IN_BYTES + 7 * Fr.SIZE_IN_BYTES + 4 + indexSize + Point.SIZE_IN_BYTES
     );
   }
 }

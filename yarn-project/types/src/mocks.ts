@@ -55,7 +55,7 @@ export const randomDeployedContract = async (): Promise<DeployedContract> => ({
 });
 
 export const randomExtendedNote = ({
-  notePreimage = Note.random(),
+  note = Note.random(),
   contractAddress = AztecAddress.random(),
   txHash = randomTxHash(),
   nonce = Fr.random(),
@@ -66,7 +66,7 @@ export const randomExtendedNote = ({
   publicKey = Point.random(),
 }: Partial<ExtendedNote> = {}) => {
   return new ExtendedNote(
-    notePreimage,
+    note,
     contractAddress,
     txHash,
     nonce,

@@ -1,6 +1,6 @@
 import {
   AccountWallet,
-  NotePreimage,
+  Note,
   TxHash,
   TxStatus,
   computeAuthWitMessageHash,
@@ -31,7 +31,7 @@ describe('e2e_token_contract', () => {
 
   const addPendingShieldNoteToPXE = async (accountIndex: number, amount: bigint, secretHash: Fr, txHash: TxHash) => {
     const storageSlot = new Fr(5); // The storage slot of `pending_shields` is 5.
-    const preimage = new NotePreimage([new Fr(amount), secretHash]);
+    const preimage = new Note([new Fr(amount), secretHash]);
     await wallets[accountIndex].addNote(accounts[0].address, asset.address, storageSlot, preimage, txHash);
   };
 
@@ -174,7 +174,7 @@ describe('e2e_token_contract', () => {
           // 1 note should be created containing `amount` of tokens
           const notes = receiptClaim.notes!;
           expect(notes.length).toBe(1);
-          expect(notes[0].notePreimage.items[0].toBigInt()).toBe(amount);
+          expect(notes[0].note.items[0].toBigInt()).toBe(amount);
         });
       });
 
