@@ -13,7 +13,7 @@ import { Tuple } from '@aztec/foundation/serialize';
 import times from 'lodash.times';
 
 import { DeployedContract, ExtendedContractData, FunctionL2Logs, TxL2Logs } from './index.js';
-import { Tx } from './tx/index.js';
+import { Tx, TxHash } from './tx/index.js';
 
 /**
  * Testing utility to create empty logs composed from a single empty log.
@@ -22,6 +22,8 @@ export function makeEmptyLogs(): TxL2Logs {
   const functionLogs = [new FunctionL2Logs([Buffer.alloc(0)])];
   return new TxL2Logs(functionLogs);
 }
+
+export const randomTxHash = (): TxHash => new TxHash(randomBytes(32));
 
 export const mockTx = (seed = 1) => {
   return new Tx(
