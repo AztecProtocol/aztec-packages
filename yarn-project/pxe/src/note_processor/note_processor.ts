@@ -4,10 +4,18 @@ import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { AztecNode, KeyStore, L2BlockContext, L2BlockL2Logs, NoteSpendingInfo, PublicKey } from '@aztec/types';
+import {
+  AztecNode,
+  KeyStore,
+  L2BlockContext,
+  L2BlockL2Logs,
+  NoteSpendingInfo,
+  NoteSpendingInfoDao,
+  PublicKey,
+} from '@aztec/types';
 import { NoteProcessorStats } from '@aztec/types/stats';
 
-import { Database, NoteSpendingInfoDao } from '../database/index.js';
+import { Database } from '../database/index.js';
 import { getAcirSimulator } from '../simulator/index.js';
 
 /**
@@ -139,15 +147,19 @@ export class NoteProcessor {
                 );
                 const index = BigInt(dataStartIndexForTx + commitmentIndex);
                 excludedIndices.add(commitmentIndex);
-                noteSpendingInfoDaos.push({
-                  ...noteSpendingInfo,
-                  nonce,
-                  innerNoteHash,
-                  siloedNullifier,
-                  index,
-                  publicKey: this.publicKey,
-                  txHash: blockContext.getTxHash(indexOfTxInABlock),
-                });
+                noteSpendingInfoDaos.push(
+                  new NoteSpendingInfoDao(
+                    noteSpendingInfo.notePreimage,
+                    noteSpendingInfo.contractAddress,
+                    blockContext.getTxHash(indexOfTxInABlock),
+                    nonce,
+                    noteSpendingInfo.storageSlot,
+                    innerNoteHash,
+                    siloedNullifier,
+                    index,
+                    this.publicKey,
+                  ),
+                );
                 this.stats.decrypted++;
               } catch (e) {
                 this.stats.failed++;

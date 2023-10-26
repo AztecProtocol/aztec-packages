@@ -13,13 +13,14 @@ import {
   L2BlockContext,
   L2BlockL2Logs,
   NoteSpendingInfo,
+  NoteSpendingInfoDao,
   TxL2Logs,
 } from '@aztec/types';
 
 import { jest } from '@jest/globals';
 import { MockProxy, mock } from 'jest-mock-extended';
 
-import { Database, MemoryDB, NoteSpendingInfoDao } from '../database/index.js';
+import { Database, MemoryDB } from '../database/index.js';
 import { NoteProcessor } from './note_processor.js';
 
 const TXS_PER_BLOCK = 4;

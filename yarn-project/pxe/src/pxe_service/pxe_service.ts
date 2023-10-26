@@ -40,7 +40,7 @@ import {
   NodeInfo,
   NoteFilter,
   NotePreimage,
-  NoteSpendingInfo,
+  NoteSpendingInfoDao,
   PXE,
   SimulationError,
   Tx,
@@ -194,19 +194,7 @@ export class PXEService implements PXE {
     return await this.node.getPublicStorageAt(contract, storageSlot.value);
   }
 
-  public async getPrivateStorageAt(owner: AztecAddress, contract: AztecAddress, storageSlot: Fr) {
-    if ((await this.getContractData(contract)) === undefined) {
-      throw new Error(`Contract ${contract.toString()} is not deployed`);
-    }
-    const notes = await this.db.getNoteSpendingInfo(contract, storageSlot);
-    const ownerCompleteAddress = await this.db.getCompleteAddress(owner);
-    if (!ownerCompleteAddress) throw new Error(`Owner ${owner} not registered in PXE`);
-    const { publicKey: ownerPublicKey } = ownerCompleteAddress;
-    const ownerNotes = notes.filter(n => n.publicKey.equals(ownerPublicKey));
-    return ownerNotes.map(n => n.notePreimage);
-  }
-
-  public async getNotes(filter: NoteFilter): Promise<NoteSpendingInfo[]> {
+  public async getNotes(filter: NoteFilter): Promise<NoteSpendingInfoDao[]> {
     return await this.db.getNoteSpendingInfo(filter);
   }
 
@@ -248,17 +236,19 @@ export class PXEService implements PXE {
       throw new Error('The note has been destroyed.');
     }
 
-    await this.db.addNoteSpendingInfo({
-      contractAddress,
-      txHash,
-      storageSlot,
-      notePreimage: preimage,
-      nonce,
-      innerNoteHash,
-      siloedNullifier,
-      index,
-      publicKey,
-    });
+    await this.db.addNoteSpendingInfo(
+      new NoteSpendingInfoDao(
+        preimage,
+        contractAddress,
+        txHash,
+        nonce,
+        storageSlot,
+        innerNoteHash,
+        siloedNullifier,
+        index,
+        publicKey,
+      ),
+    );
   }
 
   public async getNoteNonces(

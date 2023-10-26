@@ -287,7 +287,8 @@ export class AztecCheatCodes {
    * @param slot - The storage slot to lookup
    * @returns The notes stored at the given slot
    */
-  public loadPrivate(owner: AztecAddress, contract: AztecAddress, slot: Fr | bigint): Promise<NotePreimage[]> {
-    return this.pxe.getPrivateStorageAt(owner, contract, new Fr(slot));
+  public async loadPrivate(owner: AztecAddress, contract: AztecAddress, slot: Fr | bigint): Promise<NotePreimage[]> {
+    const notes = await this.pxe.getNotes({ owner, contractAddress: contract, storageSlot: new Fr(slot) });
+    return notes.map(note => note.notePreimage);
   }
 }

@@ -73,11 +73,11 @@ export const randomNoteSpendingInfoDao = (
   publicKey = Point.random(),
 ) => {
   return new NoteSpendingInfoDao(
+    notePreimage,
     contractAddress,
     txHash,
     nonce,
     storageSlot,
-    notePreimage,
     innerNoteHash,
     siloedNullifier,
     index,

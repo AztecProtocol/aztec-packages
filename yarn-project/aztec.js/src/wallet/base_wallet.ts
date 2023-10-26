@@ -9,7 +9,9 @@ import {
   L2Tx,
   LogFilter,
   NodeInfo,
+  NoteFilter,
   NotePreimage,
+  NoteSpendingInfoDao,
   PXE,
   SyncStatus,
   Tx,
@@ -69,8 +71,8 @@ export abstract class BaseWallet implements Wallet {
   getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
     return this.pxe.getTxReceipt(txHash);
   }
-  getPrivateStorageAt(owner: AztecAddress, contract: AztecAddress, storageSlot: Fr): Promise<NotePreimage[]> {
-    return this.pxe.getPrivateStorageAt(owner, contract, storageSlot);
+  getNotes(filter: NoteFilter): Promise<NoteSpendingInfoDao[]> {
+    return this.pxe.getNotes(filter);
   }
   getPublicStorageAt(contract: AztecAddress, storageSlot: Fr): Promise<any> {
     return this.pxe.getPublicStorageAt(contract, storageSlot);

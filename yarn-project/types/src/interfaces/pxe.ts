@@ -8,7 +8,7 @@ import {
   L2Tx,
   LogFilter,
   NotePreimage,
-  NoteSpendingInfo,
+  NoteSpendingInfoDao,
   Tx,
   TxExecutionRequest,
   TxHash,
@@ -151,19 +151,6 @@ export interface PXE {
   getTx(txHash: TxHash): Promise<L2Tx | undefined>;
 
   /**
-   * Retrieves the private storage data at a specified contract address and storage slot. Returns only data
-   * encrypted for the specified owner that has been already decrypted by the PXE Service. Note that there
-   * may be multiple notes for a user in a single slot.
-   *
-   * @param owner - The address for whom the private data is encrypted.
-   * @param contract - The AztecAddress of the target contract.
-   * @param storageSlot - The storage slot to be fetched.
-   * @returns A set of note preimages for the owner in that contract and slot.
-   * @throws If the contract is not deployed.
-   */
-  getPrivateStorageAt(owner: AztecAddress, contract: AztecAddress, storageSlot: Fr): Promise<NotePreimage[]>;
-
-  /**
    * Retrieves the public storage data at a specified contract address and storage slot.
    *
    * @param contract - The AztecAddress of the target contract.
@@ -178,7 +165,7 @@ export interface PXE {
    * @param filter - The filter to apply to the notes.
    * @returns The requested notes.
    */
-  getNotes(filter: NoteFilter): Promise<NoteSpendingInfo[]>;
+  getNotes(filter: NoteFilter): Promise<NoteSpendingInfoDao[]>;
 
   /**
    * Adds a note to the database. Throw if the note hash of the note doesn't exist in the tree.

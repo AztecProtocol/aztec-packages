@@ -1,7 +1,7 @@
 import { AztecAddress, Fr } from '@aztec/circuits.js';
+import { NoteSpendingInfoDao, randomNoteSpendingInfoDao } from '@aztec/types';
 
 import { MemoryDB } from './memory_db.js';
-import { NoteSpendingInfoDao, randomNoteSpendingInfoDao } from './note_spending_info_dao.js';
 
 describe('Memory DB', () => {
   let db: MemoryDB;
@@ -33,7 +33,10 @@ describe('Memory DB', () => {
       }
 
       for (let i = 0; i < notes.length; ++i) {
-        const result = await db.getNoteSpendingInfo(notes[i].contractAddress, notes[i].storageSlot);
+        const result = await db.getNoteSpendingInfo({
+          contractAddress: notes[i].contractAddress,
+          storageSlot: notes[i].storageSlot,
+        });
         expect(result).toEqual([notes[i]]);
       }
     });
@@ -43,7 +46,10 @@ describe('Memory DB', () => {
       await db.addNoteSpendingInfoBatch(notes);
 
       for (let i = 0; i < notes.length; ++i) {
-        const result = await db.getNoteSpendingInfo(notes[i].contractAddress, notes[i].storageSlot);
+        const result = await db.getNoteSpendingInfo({
+          contractAddress: notes[i].contractAddress,
+          storageSlot: notes[i].storageSlot,
+        });
         expect(result).toEqual([notes[i]]);
       }
     });
@@ -52,7 +58,7 @@ describe('Memory DB', () => {
       const notes = createNotes(3);
       await db.addNoteSpendingInfoBatch(notes);
 
-      const result = await db.getNoteSpendingInfo(contractAddress, storageSlot);
+      const result = await db.getNoteSpendingInfo({ contractAddress, storageSlot });
       expect(result.length).toBe(notes.length);
       expect(result).toEqual(expect.objectContaining(notes));
     });

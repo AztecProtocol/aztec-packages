@@ -186,8 +186,12 @@ describe('guides/dapp/testing', () => {
 
       it('checks private storage', async () => {
         // docs:start:private-storage
-        const notes = await pxe.getPrivateStorageAt(owner.getAddress(), token.address, ownerSlot);
-        const values = notes.map(note => note.items[0]);
+        const notes = await pxe.getNotes({
+          owner: owner.getAddress(),
+          contractAddress: token.address,
+          storageSlot: ownerSlot,
+        });
+        const values = notes.map(note => note.notePreimage.items[0]);
         const balance = values.reduce((sum, current) => sum + current.toBigInt(), 0n);
         expect(balance).toEqual(100n);
         // docs:end:private-storage

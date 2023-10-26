@@ -1,9 +1,7 @@
 import { CompleteAddress, HistoricBlockData } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { ContractDatabase, MerkleTreeId, NoteFilter, PublicKey } from '@aztec/types';
-
-import { NoteSpendingInfoDao } from './note_spending_info_dao.js';
+import { ContractDatabase, MerkleTreeId, NoteFilter, NoteSpendingInfoDao, PublicKey } from '@aztec/types';
 
 /**
  * A database interface that provides methods for retrieving, adding, and removing transactional data related to Aztec
