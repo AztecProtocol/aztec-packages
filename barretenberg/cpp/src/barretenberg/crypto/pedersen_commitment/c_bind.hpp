@@ -6,5 +6,3 @@
 
 WASM_EXPORT void pedersen__init();
 WASM_EXPORT void pedersen__commit(uint8_t const* inputs_buffer, uint8_t* output);
-
-WASM_EXPORT void pedersen__buffer_to_field(uint8_t const* data, size_t length, uint8_t* r);
