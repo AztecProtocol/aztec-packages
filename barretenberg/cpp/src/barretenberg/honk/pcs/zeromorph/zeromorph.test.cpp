@@ -496,6 +496,14 @@ using CurveTypes = ::testing::Types<curve::BN254>;
 TYPED_TEST_SUITE(ZeroMorphTest, CurveTypes);
 TYPED_TEST_SUITE(ZeroMorphWithConcatenationTest, CurveTypes);
 
+/**
+ * @brief Test method for computing q_k given multilinear f
+ * @details Given f = f(X_0, ..., X_{d-1}), and (u,v) such that f(u) = v, compute q_k = q_k(X_0, ..., X_{k-1}) such that
+ * the following identity holds:
+ *
+ *  f(X_0, ..., X_{d-1}) - v = \sum_{k=0}^{d-1} (X_k - u_k)q_k(X_0, ..., X_{k-1})
+ *
+ */
 TYPED_TEST(ZeroMorphTest, QuotientConstructionEfficient)
 {
     // Define some useful type aliases
@@ -515,57 +523,6 @@ TYPED_TEST(ZeroMorphTest, QuotientConstructionEfficient)
     // Compute the multilinear quotients q_k = q_k(X_0, ..., X_{k-1})
     std::vector<Polynomial> quotients =
         ZeroMorphProver::compute_multilinear_quotients_efficient(multilinear_f, u_challenge);
-
-    // Show that the q_k were properly constructed by showing that the identity holds at a random multilinear challenge
-    // z, i.e. f(z) - v - \sum_{k=0}^{d-1} (z_k - u_k)q_k(z) = 0
-    std::vector<Fr> z_challenge = this->random_evaluation_point(log_N);
-
-    Fr result = multilinear_f.evaluate_mle(z_challenge);
-    result -= v_evaluation;
-    for (size_t k = 0; k < log_N; ++k) {
-        auto q_k_eval = Fr(0);
-        if (k == 0) {
-            // q_0 = a_0 is a constant polynomial so it's evaluation is simply its constant coefficient
-            q_k_eval = quotients[k][0];
-        } else {
-            // Construct (u_0, ..., u_{k-1})
-            auto subrange_size = static_cast<std::ptrdiff_t>(k);
-            std::vector<Fr> z_partial(z_challenge.begin(), z_challenge.begin() + subrange_size);
-            q_k_eval = quotients[k].evaluate_mle(z_partial);
-        }
-        // result = result - (z_k - u_k) * q_k(u_0, ..., u_{k-1})
-        result -= (z_challenge[k] - u_challenge[k]) * q_k_eval;
-    }
-
-    EXPECT_EQ(result, 0);
-}
-
-/**
- * @brief Test method for computing q_k given multilinear f
- * @details Given f = f(X_0, ..., X_{d-1}), and (u,v) such that f(u) = v, compute q_k = q_k(X_0, ..., X_{k-1}) such that
- * the following identity holds:
- *
- *  f(X_0, ..., X_{d-1}) - v = \sum_{k=0}^{d-1} (X_k - u_k)q_k(X_0, ..., X_{k-1})
- *
- */
-TYPED_TEST(ZeroMorphTest, QuotientConstruction)
-{
-    // Define some useful type aliases
-    using ZeroMorphProver = ZeroMorphProver_<TypeParam>;
-    using Fr = typename TypeParam::ScalarField;
-    using Polynomial = barretenberg::Polynomial<Fr>;
-
-    // Define size parameters
-    size_t N = 16;
-    size_t log_N = numeric::get_msb(N);
-
-    // Construct a random multilinear polynomial f, and (u,v) such that f(u) = v.
-    Polynomial multilinear_f = this->random_polynomial(N);
-    std::vector<Fr> u_challenge = this->random_evaluation_point(log_N);
-    Fr v_evaluation = multilinear_f.evaluate_mle(u_challenge);
-
-    // Compute the multilinear quotients q_k = q_k(X_0, ..., X_{k-1})
-    std::vector<Polynomial> quotients = ZeroMorphProver::compute_multilinear_quotients(multilinear_f, u_challenge);
 
     // Show that the q_k were properly constructed by showing that the identity holds at a random multilinear challenge
     // z, i.e. f(z) - v - \sum_{k=0}^{d-1} (z_k - u_k)q_k(z) = 0
