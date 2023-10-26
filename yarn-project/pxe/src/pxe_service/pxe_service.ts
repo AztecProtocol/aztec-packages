@@ -421,7 +421,7 @@ export class PXEService implements PXE {
 
     const nodeInfo: NodeInfo = {
       sandboxVersion: this.sandboxVersion,
-      compatibleNargoVersion: NoirVersion,
+      compatibleNargoVersion: NoirVersion.tag,
       chainId,
       protocolVersion: version,
       l1ContractAddresses: contractAddresses,

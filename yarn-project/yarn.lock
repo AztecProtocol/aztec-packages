@@ -67,7 +67,7 @@ __metadata:
     "@aztec/noir-contracts": "workspace:^"
     "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
-    "@noir-lang/acvm_js": 0.30.0-3919619.aztec
+    "@noir-lang/acvm_js": 0.30.0
     "@rushstack/eslint-patch": ^1.1.4
     "@types/jest": ^29.5.0
     "@types/levelup": ^5.1.3
@@ -3466,10 +3466,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@noir-lang/acvm_js@npm:0.30.0-3919619.aztec":
-  version: 0.30.0-3919619.aztec
-  resolution: "@noir-lang/acvm_js@npm:0.30.0-3919619.aztec"
-  checksum: 2ae79360347309f1cf7a9fde3580c7e1f25c03c36dc98fe30f9cd675f863bc36ee97b591d114ceb61ad66ec4096407f2997da3627c3350bbcdfd1e8e32aa0ffb
+"@noir-lang/acvm_js@npm:0.30.0":
+  version: 0.30.0
+  resolution: "@noir-lang/acvm_js@npm:0.30.0"
+  checksum: 4209b8b572f35b90c577a3235303c9fdf4be0dbf20ac750c3580faac8256efd5f3810e10a1646d38b1607b67fbd11ec57c8a5c90935662be55b6edfa8a6b0c10
   languageName: node
   linkType: hard
 

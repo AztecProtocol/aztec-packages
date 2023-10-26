@@ -179,6 +179,6 @@ describe('e2e_public_cross_chain_messaging', () => {
         .withWallet(user2Wallet)
         .methods.claim_private(secretHash, bridgeAmount, ethAccount, messageKey, secret)
         .simulate(),
-    ).rejects.toThrowError('Cannot satisfy constraint');
+    ).rejects.toThrowError("Cannot satisfy constraint 'l1_to_l2_message_data.message.content == content");
   });
 });

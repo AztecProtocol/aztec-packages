@@ -373,6 +373,17 @@ jobs:
           name: "Build and test"
           command: build l1-contracts
 
+  noir-contracts-build:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: build noir-contracts-build | add_timestamps
+
   yarn-project-base:
     machine:
       image: ubuntu-2204:2023.07.2
@@ -1221,6 +1232,7 @@ workflows:
           <<: *defaults
 
       - l1-contracts: *defaults
+      - noir-contracts-build: *defaults
 
       - mainnet-fork: *defaults
 
@@ -1233,6 +1245,7 @@ workflows:
       - yarn-project:
           requires:
             - yarn-project-base
+            - noir-contracts-build
           <<: *defaults
       - yarn-project-formatting:
           requires:

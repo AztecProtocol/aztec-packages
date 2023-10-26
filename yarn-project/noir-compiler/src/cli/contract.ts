@@ -5,7 +5,12 @@ import { mkdirSync, writeFileSync } from 'fs';
 import { mkdirpSync } from 'fs-extra';
 import path, { resolve } from 'path';
 
-import { compileUsingNoirWasm, generateNoirContractInterface, generateTypescriptContractInterface } from '../index.js';
+import {
+  compileUsingNargo,
+  compileUsingNoirWasm,
+  generateNoirContractInterface,
+  generateTypescriptContractInterface,
+} from '../index.js';
 
 /**
  * Registers a 'contract' command on the given commander program that compiles an Aztec.nr contract project.
@@ -20,6 +25,7 @@ export function compileContract(program: Command, name = 'contract', log: LogFn 
     .option('-o, --outdir <path>', 'Output folder for the binary artifacts, relative to the project path', 'target')
     .option('-ts, --typescript <path>', 'Optional output folder for generating typescript wrappers', undefined)
     .option('-i, --interface <path>', 'Optional output folder for generating an Aztec.nr contract interface', undefined)
+    .option('-c --compiler nargo|wasm', 'Which compiler to use. Defaults to nargo', 'nargo')
     .description('Compiles the contracts in the target project')
 
     .action(
@@ -30,15 +36,17 @@ export function compileContract(program: Command, name = 'contract', log: LogFn 
           outdir: string;
           typescript: string | undefined;
           interface: string | undefined;
+          compiler: string | undefined;
         },
         /* eslint-enable jsdoc/require-jsdoc */
       ) => {
-        const { outdir, typescript, interface: noirInterface } = options;
+        const { outdir, typescript, interface: noirInterface, compiler = 'nargo' } = options;
         if (typeof projectPath !== 'string') throw new Error(`Missing project path argument`);
         const currentDir = process.cwd();
 
+        const compile = compiler === 'wasm' ? compileUsingNoirWasm : compileUsingNargo;
         log(`Compiling contracts...`);
-        const result = await compileUsingNoirWasm(projectPath, { log });
+        const result = await compile(projectPath, { log });
 
         for (const contract of result) {
           const artifactPath = resolve(projectPath, outdir, `${contract.name}.json`);
