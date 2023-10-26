@@ -8,10 +8,11 @@ import { decryptBuffer, encryptBuffer } from './encrypt_buffer.js';
 import { NotePreimage } from './note_preimage.js';
 
 /**
- * A class which wraps the data required to compute a nullifier/to spend a note. Along with that this class contains
+ * A class which wraps note data which is pushed on L1.
+ * @remarks This data is required to compute a nullifier/to spend a note. Along with that this class contains
  * the necessary functionality to encrypt and decrypt the data.
  */
-export class NoteSpendingInfo {
+export class L1NotePayload {
   constructor(
     /**
      * Preimage which can be used along with private key to compute nullifier.
@@ -32,9 +33,9 @@ export class NoteSpendingInfo {
    * @param buffer - Buffer or BufferReader object to deserialize.
    * @returns An instance of NoteSpendingInfo.
    */
-  static fromBuffer(buffer: Buffer | BufferReader): NoteSpendingInfo {
+  static fromBuffer(buffer: Buffer | BufferReader): L1NotePayload {
     const reader = BufferReader.asReader(buffer);
-    return new NoteSpendingInfo(reader.readObject(NotePreimage), reader.readObject(AztecAddress), reader.readFr());
+    return new L1NotePayload(reader.readObject(NotePreimage), reader.readObject(AztecAddress), reader.readFr());
   }
 
   /**
@@ -67,12 +68,12 @@ export class NoteSpendingInfo {
     data: Buffer,
     ownerPrivKey: GrumpkinPrivateKey,
     curve: Grumpkin,
-  ): NoteSpendingInfo | undefined {
+  ): L1NotePayload | undefined {
     const buf = decryptBuffer(data, ownerPrivKey, curve);
     if (!buf) {
       return;
     }
-    return NoteSpendingInfo.fromBuffer(buf);
+    return L1NotePayload.fromBuffer(buf);
   }
 
   /**
@@ -80,6 +81,6 @@ export class NoteSpendingInfo {
    * @returns A random NoteSpendingInfo object.
    */
   static random() {
-    return new NoteSpendingInfo(NotePreimage.random(), AztecAddress.random(), Fr.random());
+    return new L1NotePayload(NotePreimage.random(), AztecAddress.random(), Fr.random());
   }
 }

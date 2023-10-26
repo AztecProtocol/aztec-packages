@@ -8,9 +8,9 @@ import {
   AztecNode,
   ExtendedNote,
   KeyStore,
+  L1NotePayload,
   L2BlockContext,
   L2BlockL2Logs,
-  NoteSpendingInfo,
   PublicKey,
 } from '@aztec/types';
 import { NoteProcessorStats } from '@aztec/types/stats';
@@ -135,7 +135,7 @@ export class NoteProcessor {
         for (const functionLogs of txFunctionLogs) {
           for (const logs of functionLogs.logs) {
             this.stats.seen++;
-            const noteSpendingInfo = NoteSpendingInfo.fromEncryptedBuffer(logs, privateKey, curve);
+            const noteSpendingInfo = L1NotePayload.fromEncryptedBuffer(logs, privateKey, curve);
             if (noteSpendingInfo) {
               // We have successfully decrypted the data.
               try {
@@ -200,7 +200,7 @@ export class NoteProcessor {
   private async findNoteIndexAndNullifier(
     commitments: Fr[],
     firstNullifier: Fr,
-    { contractAddress, storageSlot, notePreimage }: NoteSpendingInfo,
+    { contractAddress, storageSlot, notePreimage }: L1NotePayload,
     excludedIndices: Set<number>,
   ) {
     const wasm = await CircuitsWasm.get();

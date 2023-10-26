@@ -10,10 +10,10 @@ import {
   INITIAL_L2_BLOCK_NUM,
   KeyPair,
   KeyStore,
+  L1NotePayload,
   L2Block,
   L2BlockContext,
   L2BlockL2Logs,
-  NoteSpendingInfo,
   TxL2Logs,
 } from '@aztec/types';
 
@@ -48,9 +48,9 @@ describe('Note Processor', () => {
     );
 
   // ownedData: [tx1, tx2, ...], the numbers in each tx represents the indices of the note hashes the account owns.
-  const createEncryptedLogsAndOwnedNoteSpendingInfo = (ownedData: number[][], ownedNotes: NoteSpendingInfo[]) => {
-    const newNotes: NoteSpendingInfo[] = [];
-    const ownedNoteSpendingInfo: NoteSpendingInfo[] = [];
+  const createEncryptedLogsAndOwnedNoteSpendingInfo = (ownedData: number[][], ownedNotes: L1NotePayload[]) => {
+    const newNotes: L1NotePayload[] = [];
+    const ownedNoteSpendingInfo: L1NotePayload[] = [];
     const txLogs: TxL2Logs[] = [];
     let usedOwnedNote = 0;
     for (let i = 0; i < TXS_PER_BLOCK; ++i) {
@@ -63,7 +63,7 @@ describe('Note Processor', () => {
       for (let noteIndex = 0; noteIndex < MAX_NEW_COMMITMENTS_PER_TX; ++noteIndex) {
         const isOwner = ownedDataIndices.includes(noteIndex);
         const publicKey = isOwner ? owner.getPublicKey() : Point.random();
-        const note = (isOwner && ownedNotes[usedOwnedNote]) || NoteSpendingInfo.random();
+        const note = (isOwner && ownedNotes[usedOwnedNote]) || L1NotePayload.random();
         usedOwnedNote += note === ownedNotes[usedOwnedNote] ? 1 : 0;
         newNotes.push(note);
         if (isOwner) {
@@ -84,7 +84,7 @@ describe('Note Processor', () => {
     ownedData: number[][],
     prependedBlocks = 0,
     appendedBlocks = 0,
-    ownedNotes: NoteSpendingInfo[] = [],
+    ownedNotes: L1NotePayload[] = [],
   ) => {
     if (ownedData.length > TXS_PER_BLOCK) {
       throw new Error(`Tx size should be less than ${TXS_PER_BLOCK}.`);
@@ -92,7 +92,7 @@ describe('Note Processor', () => {
 
     const blockContexts: L2BlockContext[] = [];
     const encryptedLogsArr: L2BlockL2Logs[] = [];
-    const ownedNoteSpendingInfos: NoteSpendingInfo[] = [];
+    const ownedNoteSpendingInfos: L1NotePayload[] = [];
     const numberOfBlocks = prependedBlocks + appendedBlocks + 1;
     for (let i = 0; i < numberOfBlocks; ++i) {
       const block = L2Block.random(firstBlockNum + i, TXS_PER_BLOCK);
@@ -201,8 +201,8 @@ describe('Note Processor', () => {
   });
 
   it('should be able to recover two notes with the same preimage', async () => {
-    const note = NoteSpendingInfo.random();
-    const note2 = NoteSpendingInfo.random();
+    const note = L1NotePayload.random();
+    const note2 = L1NotePayload.random();
     // All notes expect one have the same contract address, storage slot, and preimage.
     const notes = [note, note, note, note2, note];
     const { blockContexts, encryptedLogsArr, ownedNoteSpendingInfos } = mockData([[0, 2], [], [0, 1, 3]], 0, 0, notes);
