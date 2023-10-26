@@ -5,8 +5,6 @@ use dep::aztec::constants_gen::{
 
 struct MembershipWitness<N> {
     leaf_index : Field,
-    // TODO(Kev): We don't need this to be a bounded_vec but right now
-    //it makes the refactoring a bit easier
     sibling_path : [Field; N]
 }
 

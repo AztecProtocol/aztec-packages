@@ -14,7 +14,6 @@ impl HistoricalBlockData {
         assert(self.private_kernel_vk_tree_root == 0);
     }
 
-    // TODO: We can move this onto block and then 
     fn to_array(self) -> [Field;7] {
         // This comment was copied from the cpp codebase.
         //
@@ -29,13 +28,6 @@ impl HistoricalBlockData {
             self.block.public_data_tree_root,
             self.block.global_variables_hash
         ]
-    }
-
-    // Note: private_kernel_vk_tree_root is not being hashed here
-    // TODO(David): Is this because it is not included in Noir?
-    fn hash(self) -> Field {
-        // Also note that the blocks_tree_root does not get hashed
-        self.block.hash()
     }
     
     fn note_hash_tree_root(self) -> Field {

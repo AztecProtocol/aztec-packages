@@ -98,11 +98,10 @@ pub fn silo_nullifier(address : Address, nullifier : Field) -> Field {
 }
 
 fn merkle_hash(left : Field, right : Field) -> Field {
-    // TODO ensure it's the same hash cpp is doing for merkle trees. 
     dep::std::hash::pedersen_hash_with_separator([left, right], 0)
 }
 
-pub fn stdlib_recursion_verification_key_compress_native_vk(vk : VerificationKey) -> Field {
+pub fn stdlib_recursion_verification_key_compress_native_vk(_vk : VerificationKey) -> Field {
     // Original cpp code
     // stdlib::recursion::verification_key<CT::bn254>::compress_native(private_call.vk, GeneratorIndex::VK);
     // The above cpp method is only ever called on verification key, so it has been special cased here
@@ -110,12 +109,11 @@ pub fn stdlib_recursion_verification_key_compress_native_vk(vk : VerificationKey
     0
 }
 
-// TODO CPP uses blake3 for this
+// TODO CPP uses blake2s for this
 pub fn compute_new_contract_address_hash(new_contract_address : Address) -> Field {
     dep::std::hash::pedersen_hash([new_contract_address.to_field()])
 }
 
-// TODO is the aztec-nr sha256 to field the same as cpp one?
 pub fn compute_l2_to_l1_hash(contract_address : Address, rollup_version_id: Field, portal_contract_address : EthAddress, chain_id : Field, content : Field) -> Field {
     let mut bytes: BoundedVec<u8, 160> = BoundedVec::new(0);
 

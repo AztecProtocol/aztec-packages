@@ -40,13 +40,11 @@ pub fn validate_arrays(app_public_inputs : PrivateCircuitPublicInputs) {
     // encrypted_logs_hash and unencrypted_logs_hash have their own integrity checks.
 }
 
-// TODO: Is this actually useful? We are already checking these in every iteration.
+// TODO(https://github.com/AztecProtocol/aztec-packages/issues/3060) Remove this
 // Check that preimages in the callstack correspond to the hash in the private_call_stack
 // ie hash(preimages) == private_call_stack for each preimage
 // If the stack is empty, then we avoid doing a hash and set the output to be 0
 pub fn validate_call_stack(private_call : PrivateCallData) {
-    
-    // TODO(David): should private call stack be renamed to private_call_stack_hash?
     let stack = private_call.call_stack_item.public_inputs().private_call_stack;
     let preimages = private_call.private_call_stack_preimages;
     
@@ -153,12 +151,12 @@ pub fn update_end_values(private_call : PrivateCallData, public_inputs : &mut Ke
     // We silo the read requests (domain separation per contract address)
     assert(read_requests.len() == read_request_membership_witnesses.len()); // This is not done in the cpp code.
     let mut siloed_read_requests: BoundedVec<Field,MAX_READ_REQUESTS_PER_CALL> = BoundedVec::new(0);
-    for i in 0..read_requests.len() {
+
+    assert(read_requests.len() == MAX_READ_REQUESTS_PER_CALL); // This is not done in the cpp code
+    for i in 0..MAX_READ_REQUESTS_PER_CALL {
         let read_request = read_requests[i];
         let witness = read_request_membership_witnesses[i];
         if witness.is_transient & (read_request != 0) {  // only forward transient to public inputs
-            // TODO (David): CPP is pushing zeroed read requests for public inputs if they are transient.
-            // Does this work because an empty read request witness has false to transient by default?
             siloed_read_requests.push(silo_commitment(storage_contract_address, read_request))
         }
     }
@@ -179,10 +177,9 @@ pub fn update_end_values(private_call : PrivateCallData, public_inputs : &mut Ke
     public_inputs.end.new_nullifiers.push_vec(siloed_new_nullifiers);
 
     // commitments
-    // TODO: These for loops are inconsistent, some use constants and others use the array length
     let mut siloed_new_commitments : BoundedVec<Field, MAX_NEW_COMMITMENTS_PER_CALL> = BoundedVec::new(0);
     assert(new_commitments.len() == MAX_NEW_COMMITMENTS_PER_CALL);
-    for i in 0..new_commitments.len() {
+    for i in 0..MAX_NEW_COMMITMENTS_PER_CALL {
         let new_commitment = new_commitments[i];
         if new_commitment != 0 {
             siloed_new_commitments.push(silo_commitment(storage_contract_address, new_commitment));
@@ -264,7 +261,7 @@ pub fn contract_logic(private_call : PrivateCallData, public_inputs : &mut Kerne
     let storage_contract_address = private_call_public_inputs.call_context.storage_contract_address;
     let portal_contract_address = private_call.portal_contract_address;
 
-    // TODO(David): Why is this using a hash function from the stdlib::recursion namespace
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/3062): Why is this using a hash function from the stdlib::recursion namespace
     let private_call_vk_hash =
         stdlib_recursion_verification_key_compress_native_vk(private_call.vk);
 
@@ -272,7 +269,7 @@ pub fn contract_logic(private_call : PrivateCallData, public_inputs : &mut Kerne
 
     // input storage contract address must be 0 if its a constructor call and non-zero otherwise
     if (is_contract_deployment) {
-        //TODO use locally computed private_call_vk_hash here
+        //TODO(https://github.com/AztecProtocol/aztec-packages/issues/3062) use locally computed private_call_vk_hash here
         let constructor_hash = compute_constructor_hash(function_data, private_call_public_inputs.args_hash, contract_dep_data.constructor_vk_hash);
         let new_contract_address = CompleteAddress::compute(contract_dep_data.deployer_public_key,
                                                                        contract_dep_data.contract_address_salt,
@@ -282,7 +279,7 @@ pub fn contract_logic(private_call : PrivateCallData, public_inputs : &mut Kerne
         let native_new_contract_data = NewContractData {contract_address : new_contract_address, portal_contract_address : portal_contract_address, function_tree_root : contract_dep_data.function_tree_root};
         public_inputs.end.new_contracts.push(native_new_contract_data);
         
-        // TODO VKs are mocked out for now
+        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/3062) VKs are mocked out for now
         // assert(contract_dep_data.constructor_vk_hash == private_call_vk_hash, "constructor_vk_hash doesn't match private_call_vk_hash");
         
         assert(storage_contract_address.eq(new_contract_address), "contract address supplied doesn't match derived address");

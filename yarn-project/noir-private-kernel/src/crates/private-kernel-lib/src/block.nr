@@ -1,6 +1,4 @@
 use dep::aztec::constants_gen;
-// TODO(David): When we call compute_block_hash, we pass these
-// fields to it. Why not have a Block data structure? 
 
 // This is not in the cpp code.
 struct Block {

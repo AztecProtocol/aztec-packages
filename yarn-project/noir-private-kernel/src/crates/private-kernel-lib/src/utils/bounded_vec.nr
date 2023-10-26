@@ -32,7 +32,7 @@ impl<T, MaxLen> BoundedVec<T, MaxLen> {
         self.len
     }
 
-    pub fn max_len(self) -> Field {
+    pub fn max_len(_self: BoundedVec<T, MaxLen>) -> Field {
         MaxLen
     }
 

@@ -10,17 +10,3 @@ struct ReadRequestMembershipWitness<N> {
     hint_to_commitment : Field,
 }
 
-
-impl<N> ReadRequestMembershipWitness<N> {
-
-    // A ReadRequestMembershipWitness is considered empty if:
-    // - The leaf index is empty
-    // - The sibling path is empty
-    // - The hint to commitment is empty
-    // - The read request is not transient
-    // Deliberately consider a transient read request membership witness as non-empty.
-    // TODO(Mike/David) -- why?
-    fn is_empty(self) -> bool {
-        true
-    }
-}

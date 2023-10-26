@@ -51,7 +51,7 @@ struct PrivateCircuitPublicInputs{
 }
 
 impl PrivateCircuitPublicInputs{
-    // TODO : Maybe reuse aztec-nr?
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/3059) : Reuse aztec-nr
     fn hash(self) -> Field {        
         let mut fields: BoundedVec<Field, constants_gen::PRIVATE_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH> = BoundedVec::new(0); 
         fields.push(self.call_context.hash());

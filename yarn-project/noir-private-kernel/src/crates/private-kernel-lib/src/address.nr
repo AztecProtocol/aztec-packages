@@ -39,8 +39,6 @@ impl Address{
     }
 }
 
-// TODO(David): The cpp code uses Fr for portal_contract_address
-// This is a divergence from the cpp code.
 struct EthAddress{
     inner : Field
 }

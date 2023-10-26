@@ -21,8 +21,7 @@ struct PrivateKernelInputsInner {
 }
 
 impl PrivateKernelInputsInner {
-    
-    // TODO: We can create a type alias for private call stack
+    // TODO: We can create a type alias for private call stack item
     fn pop_and_validate_this_private_call_hash(self, public_inputs : &mut KernelCircuitPublicInputsBuilder){
         let private_call = self.private_call;
         let popped_private_call_hash = public_inputs.end.private_call_stack.pop();

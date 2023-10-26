@@ -34,12 +34,4 @@ impl NewContractData {
             ], constants_gen::GENERATOR_INDEX__CONTRACT_LEAF)
         }
     }
-    
-    // TODO(David): These were switched in the cpp code
-    // Its quite confusing that true will select the rhs
-    fn conditional_select(mut self, predicate : bool, other : NewContractData) {
-        self.contract_address = Address::conditional_assign(predicate, other.contract_address, self.contract_address);
-        self.portal_contract_address = EthAddress::conditional_assign(predicate, other.portal_contract_address, self.portal_contract_address);
-        self.function_tree_root = utils::conditional_assign(predicate, other.function_tree_root, self.function_tree_root);
-    }
 }

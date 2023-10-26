@@ -14,9 +14,4 @@ impl PublicDataUpdateRequest {
             self.new_value
         ], constants_gen::GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST)
     }
-
-    // TODO(David): explain why we don't check other fields
-    fn is_empty(self) -> bool {
-        self.leaf_index == 0 
-    }
 }

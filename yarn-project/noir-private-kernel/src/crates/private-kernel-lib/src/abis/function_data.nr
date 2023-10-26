@@ -13,7 +13,7 @@ struct FunctionData {
 
 impl FunctionData {
     // A field is ~256 bits
-    // TODO(hash): Since, function data can fit into a Field,
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/3057): Since, function data can fit into a Field,
     // This method will simply return a bit packed Field instead of hashing
     fn hash(self) -> Field {
         dep::std::hash::pedersen_hash_with_separator([
