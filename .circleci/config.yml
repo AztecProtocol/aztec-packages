@@ -131,6 +131,17 @@ jobs:
           name: "Build"
           command: cond_spot_run_build barretenberg-x86_64-linux-clang-assert 128
 
+  barretenberg-x86_64-linux-clang-sol:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build"
+          command: cond_spot_run_build barretenberg-x86_64-linux-clang-sol 32
+
   barretenberg-stdlib-tests:
     docker:
       - image: aztecprotocol/alpine-build-image
@@ -465,6 +476,28 @@ jobs:
           name: "Build and test"
           command: build aztec-node | add_timestamps
 
+  mainnet-fork:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build"
+          command: build mainnet-fork | add_timestamps
+
+  deploy-mainnet-fork:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: medium
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Deploy mainnet fork"
+          command: deploy_ecr mainnet-fork
+
   aztec-faucet:
     machine:
       image: ubuntu-2204:2023.07.2
@@ -524,7 +557,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test via adhoc script"
-          command: ./yarn-project/boxes/blank-react/run_tests
+          command: ./yarn-project/boxes/run_tests blank-react
 
   boxes-blank:
     machine:
@@ -535,7 +568,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test via adhoc script"
-          command: ./yarn-project/boxes/blank/run_tests
+          command: ./yarn-project/boxes/run_tests blank
 
   boxes-token:
     machine:
@@ -546,7 +579,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test via adhoc script"
-          command: ./yarn-project/boxes/token/run_tests
+          command: ./yarn-project/boxes/run_tests token
 
   canary:
     machine:
@@ -1143,6 +1176,7 @@ workflows:
       - barretenberg-x86_64-linux-clang-assert: *defaults
       - barretenberg-x86_64-linux-clang-fuzzing: *defaults
       - barretenberg-wasm-linux-clang: *defaults
+      - barretenberg-x86_64-linux-clang-sol: *defaults
       - barretenberg-proof-system-tests: *bb_test
       - barretenberg-honk-tests: *bb_test
       - barretenberg-dsl-tests: *bb_test
@@ -1210,6 +1244,12 @@ workflows:
 
       - l1-contracts: *defaults
       - noir-contracts-build: *defaults
+
+      - mainnet-fork: *defaults
+      - deploy-mainnet-fork:
+          requires:
+            - mainnet-fork
+          <<: *deploy_defaults
 
       # Yarn Project
       - yarn-project-base:
