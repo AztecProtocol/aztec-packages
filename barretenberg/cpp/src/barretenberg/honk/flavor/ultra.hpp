@@ -52,8 +52,8 @@ class Ultra {
                                  proof_system::EllipticRelation<FF>,
                                  proof_system::AuxiliaryRelation<FF>>;
 
-    static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = get_max_partial_relation_length<Relations>();
-    static constexpr size_t MAX_TOTAL_RELATION_LENGTH = get_max_total_relation_length<Relations>();
+    static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
+    static constexpr size_t MAX_TOTAL_RELATION_LENGTH = compute_max_total_relation_length<Relations>();
     static_assert(MAX_PARTIAL_RELATION_LENGTH == 6);
     static_assert(MAX_TOTAL_RELATION_LENGTH == 12);
 

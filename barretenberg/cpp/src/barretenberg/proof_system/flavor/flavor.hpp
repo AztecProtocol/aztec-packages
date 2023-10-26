@@ -202,31 +202,35 @@ class AllEntities_ : public Entities_<DataType, DataType, NUM_ALL_ENTITIES> {
 };
 
 /**
- * @brief Recursive utility function to find max RELATION_LENGTH over tuple of Relations
+ * @brief Recursive utility function to find max PARTIAL_RELATION_LENGTH tuples of Relations.
+ * @details The "partial length" of a relation is 1 + the degree of the relation, where any challenges used in the
+ * relation are as constants, not as variables..
  *
  */
-template <typename Tuple, std::size_t Index = 0> static constexpr size_t get_max_partial_relation_length()
+template <typename Tuple, std::size_t Index = 0> static constexpr size_t compute_max_partial_relation_length()
 {
     if constexpr (Index >= std::tuple_size<Tuple>::value) {
         return 0; // Return 0 when reach end of the tuple
     } else {
         constexpr size_t current_length = std::tuple_element<Index, Tuple>::type::RELATION_LENGTH;
-        constexpr size_t next_length = get_max_partial_relation_length<Tuple, Index + 1>();
+        constexpr size_t next_length = compute_max_partial_relation_length<Tuple, Index + 1>();
         return (current_length > next_length) ? current_length : next_length;
     }
 }
 
 /**
- * @brief Recursive utility function to find max TOTAL_RELATION_LENGTH over tuple of Relations
+ * @brief Recursive utility function to find max TOTAL_RELATION_LENGTH among tuples of Relations.
+ * @details The "total length" of a relation is 1 + the degree of the relation, where any challenges used in the
+ * relation are regarded as variables.
  *
  */
-template <typename Tuple, std::size_t Index = 0> static constexpr size_t get_max_total_relation_length()
+template <typename Tuple, std::size_t Index = 0> static constexpr size_t compute_max_total_relation_length()
 {
     if constexpr (Index >= std::tuple_size<Tuple>::value) {
         return 0; // Return 0 when reach end of the tuple
     } else {
         constexpr size_t current_length = std::tuple_element<Index, Tuple>::type::TOTAL_RELATION_LENGTH;
-        constexpr size_t next_length = get_max_total_relation_length<Tuple, Index + 1>();
+        constexpr size_t next_length = compute_max_total_relation_length<Tuple, Index + 1>();
         return (current_length > next_length) ? current_length : next_length;
     }
 }

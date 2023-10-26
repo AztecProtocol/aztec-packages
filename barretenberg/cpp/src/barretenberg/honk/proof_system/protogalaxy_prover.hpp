@@ -277,6 +277,25 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         return Utils::template batch_over_relations<ExtendedUnivariateWithRandomization>(
             univariate_accumulators, alpha, pow_univariate);
     }
+
+    /**
+     * @brief Create folded (univariate) relation parameters.
+     * @details For a given relation parameter type, extract that parameter from each instance, place the values in a
+     * univariate (i.e., sum them against an appropriate univariate Lagrange basis) and then extended as needed during
+     * the constuction of the combiner.
+     */
+    static void fold_parameters(ProverInstances& instances)
+    {
+        auto params_to_fold = instances.relation_parameters.to_fold;
+        for (size_t param_idx = 0; param_idx < params_to_fold.size(); param_idx++) {
+            auto& univariate_param = *params_to_fold[param_idx];
+            Univariate<FF, ProverInstances::NUM> tmp(0);
+            for (size_t instance_idx = 0; instance_idx < ProverInstances::NUM; instance_idx++) {
+                tmp.value_at(instance_idx) = *((*instances._data[instance_idx]).relation_parameters.to_fold[param_idx]);
+            }
+            univariate_param = tmp.template extend_to<ProverInstances::EXTENDED_LENGTH>();
+        }
+    }
 };
 
 extern template class ProtoGalaxyProver_<ProverInstances_<honk::flavor::Ultra, 2>>;

@@ -31,25 +31,6 @@ template <typename Flavor_, size_t NUM_> struct ProverInstances_ {
     };
 
     /**
-     * @brief Create folded (univariate) relation parameters.
-     * @details For a given relation parameter type, extract that parameter from each instance, place the values in a
-     * univariate (i.e., sum them against an appropriate Lagrange basis) and then extended as needed during the
-     * constuction of the combiner.
-     */
-    void parameters_to_univariates()
-    {
-        auto params_to_fold = relation_parameters.to_fold;
-        for (size_t param_idx = 0; param_idx < params_to_fold.size(); param_idx++) {
-            auto& univariate_param = *params_to_fold[param_idx];
-            Univariate<FF, NUM> tmp(0);
-            for (size_t instance_idx = 0; instance_idx < NUM; instance_idx++) {
-                tmp.value_at(instance_idx) = *((*_data[instance_idx]).relation_parameters.to_fold[param_idx]);
-            }
-            univariate_param = tmp.template extend_to<EXTENDED_LENGTH>();
-        }
-    }
-
-    /**
      * @brief  For a prover polynomial label and a fixed row index, construct a uninvariate from the corresponding value
      * from each instance.
      *
