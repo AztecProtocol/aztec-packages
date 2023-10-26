@@ -43,7 +43,7 @@ template <typename Curve> class ZeroMorphProver_ {
      * @param u_challenge Multivariate challenge u = (u_0, ..., u_{d-1})
      * @return std::vector<Polynomial> degree < 2^k truncation of q_k
      */
-    static std::vector<Polynomial> compute_multilinear_quotients_efficient(Polynomial polynomial,
+    static std::vector<Polynomial> compute_multilinear_quotients(Polynomial polynomial,
                                                                            std::span<FF> u_challenge)
     {
         size_t log_N = numeric::get_msb(polynomial.size());
@@ -349,7 +349,7 @@ template <typename Curve> class ZeroMorphProver_ {
         f_polynomial += g_batched.shifted();
 
         // Compute the multilinear quotients q_k = q_k(X_0, ..., X_{k-1})
-        auto quotients = compute_multilinear_quotients_efficient(f_polynomial, u_challenge);
+        auto quotients = compute_multilinear_quotients(f_polynomial, u_challenge);
 
         // Compute and send commitments C_{q_k} = [q_k], k = 0,...,d-1
         std::vector<Commitment> q_k_commitments;

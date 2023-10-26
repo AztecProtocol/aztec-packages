@@ -504,7 +504,7 @@ TYPED_TEST_SUITE(ZeroMorphWithConcatenationTest, CurveTypes);
  *  f(X_0, ..., X_{d-1}) - v = \sum_{k=0}^{d-1} (X_k - u_k)q_k(X_0, ..., X_{k-1})
  *
  */
-TYPED_TEST(ZeroMorphTest, QuotientConstructionEfficient)
+TYPED_TEST(ZeroMorphTest, QuotientConstruction)
 {
     // Define some useful type aliases
     using ZeroMorphProver = ZeroMorphProver_<TypeParam>;
@@ -522,7 +522,7 @@ TYPED_TEST(ZeroMorphTest, QuotientConstructionEfficient)
 
     // Compute the multilinear quotients q_k = q_k(X_0, ..., X_{k-1})
     std::vector<Polynomial> quotients =
-        ZeroMorphProver::compute_multilinear_quotients_efficient(multilinear_f, u_challenge);
+        ZeroMorphProver::compute_multilinear_quotients(multilinear_f, u_challenge);
 
     // Show that the q_k were properly constructed by showing that the identity holds at a random multilinear challenge
     // z, i.e. f(z) - v - \sum_{k=0}^{d-1} (z_k - u_k)q_k(z) = 0
