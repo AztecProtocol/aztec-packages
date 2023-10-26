@@ -4,31 +4,6 @@
 #include "pedersen.hpp"
 
 WASM_EXPORT void pedersen__init() {}
-WASM_EXPORT void pedersen__compress_fields(uint8_t const* left, uint8_t const* right, uint8_t* result)
-{
-    auto lhs = barretenberg::fr::serialize_from_buffer(left);
-    auto rhs = barretenberg::fr::serialize_from_buffer(right);
-    auto r = crypto::pedersen_hash::hash({ lhs, rhs });
-    barretenberg::fr::serialize_to_buffer(r, result);
-}
-
-WASM_EXPORT void pedersen__compress(uint8_t const* inputs_buffer, uint8_t* output)
-{
-    std::vector<grumpkin::fq> to_compress;
-    read(inputs_buffer, to_compress);
-    auto r = crypto::pedersen_hash::hash(to_compress);
-    barretenberg::fr::serialize_to_buffer(r, output);
-}
-
-WASM_EXPORT void pedersen__compress_with_hash_index(uint8_t const* inputs_buffer, uint32_t hash_index, uint8_t* output)
-{
-    std::vector<grumpkin::fq> to_compress;
-    read(inputs_buffer, to_compress);
-    crypto::GeneratorContext<curve::Grumpkin> ctx; // todo fix
-    ctx.offset = static_cast<size_t>(hash_index);
-    auto r = crypto::pedersen_hash::hash(to_compress, ctx);
-    barretenberg::fr::serialize_to_buffer(r, output);
-}
 
 WASM_EXPORT void pedersen__commit(uint8_t const* inputs_buffer, uint8_t* output)
 {

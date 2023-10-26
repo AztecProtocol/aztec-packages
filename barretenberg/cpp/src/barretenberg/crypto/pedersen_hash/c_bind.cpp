@@ -7,14 +7,6 @@ extern "C" {
 
 WASM_EXPORT void pedersen_hash__init() {}
 
-WASM_EXPORT void pedersen__hash(uint8_t const* inputs_buffer, uint8_t* output)
-{
-    std::vector<grumpkin::fq> to_compress;
-    read(inputs_buffer, to_compress);
-    auto r = crypto::pedersen_hash::hash(to_compress);
-    barretenberg::fr::serialize_to_buffer(r, output);
-}
-
 WASM_EXPORT void pedersen__hash_with_hash_index(uint8_t const* inputs_buffer,
                                                 uint32_t const* hash_index,
                                                 uint8_t* output)
@@ -23,26 +15,6 @@ WASM_EXPORT void pedersen__hash_with_hash_index(uint8_t const* inputs_buffer,
     read(inputs_buffer, to_compress);
     auto r = crypto::pedersen_hash::hash(to_compress, ntohl(*hash_index));
     barretenberg::fr::serialize_to_buffer(r, output);
-}
-
-WASM_EXPORT void pedersen__hash_pair(uint8_t const* left, uint8_t const* right, uint8_t* result)
-{
-    auto lhs = barretenberg::fr::serialize_from_buffer(left);
-    auto rhs = barretenberg::fr::serialize_from_buffer(right);
-    auto r = crypto::pedersen_hash::hash({ lhs, rhs });
-    barretenberg::fr::serialize_to_buffer(r, result);
-}
-
-WASM_EXPORT void pedersen__hash_multiple(uint8_t const* inputs_buffer, uint8_t* output)
-{
-    pedersen__hash(inputs_buffer, output);
-}
-
-WASM_EXPORT void pedersen__hash_multiple_with_hash_index(uint8_t const* inputs_buffer,
-                                                         uint32_t const* hash_index,
-                                                         uint8_t* output)
-{
-    pedersen__hash_with_hash_index(inputs_buffer, hash_index, output);
 }
 
 /**
