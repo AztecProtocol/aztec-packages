@@ -7,13 +7,14 @@ contract Test {
     use dep::aztec::{
         abi,
         abi::PrivateContextInputs,
-        context::PrivateContext,
         hash::pedersen_hash,
+        context::PrivateContext,
         oracle::{
             get_public_key::get_public_key as get_public_key_oracle,
             context::get_portal_address,
             rand::rand
         },
+        log::emit_unencrypted_log_from_private,
         types::vec::BoundedVec,
         constants_gen::EMPTY_NULLIFIED_COMMITMENT,
     };
@@ -122,6 +123,12 @@ contract Test {
     #[aztec(private)]
     fn emit_nullifier(nullifier: Field) {
         context.push_new_nullifier(nullifier, EMPTY_NULLIFIED_COMMITMENT);
+    }
+
+    #[aztec(private)]
+    fn emit_msg_sender() {
+        // Note: don't use emit_unencrypted_log_from_private in production code
+        emit_unencrypted_log_from_private(&mut context, context.msg_sender());
     }
 
     // docs:start:is-time-equal
