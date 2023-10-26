@@ -30,15 +30,11 @@ describe('noir-compiler', () => {
     log = createDebugLogger('noir-compiler:test');
   });
 
-  const tests: Array<[string, (path: string, opts: { log: LogFn }) => Promise<ContractArtifact[]>]> = [
-    ['noir_wasm', compileUsingNoirWasm],
-  ];
+  const nargoAvailable = isNargoAvailable();
+  const conditionalDescribe = nargoAvailable ? describe : describe.skip;
+  const conditionalIt = nargoAvailable ? it : it.skip;
 
-  if (isNargoAvailable()) {
-    tests.push(['nargo', compileUsingNargo]);
-  }
-
-  describe.each(tests)('using %s binary', (_, compileFn) => {
+  function compilerTest(compileFn: (path: string, opts: { log: LogFn }) => Promise<ContractArtifact[]>) {
     let compiled: ContractArtifact[];
     beforeAll(async () => {
       compiled = await compileFn(projectPath, { log });
@@ -57,9 +53,16 @@ describe('noir-compiler', () => {
       const result = generateNoirContractInterface(compiled[0]);
       expect(result).toMatchSnapshot();
     });
+  }
+
+  describe('using wasm binary', () => {
+    compilerTest(compileUsingNoirWasm);
   });
 
-  const conditionalIt = isNargoAvailable() ? it : it.skip;
+  conditionalDescribe('using nargo', () => {
+    compilerTest(compileUsingNargo);
+  });
+
   conditionalIt('both nargo and noir_wasm should compile identically', async () => {
     const [noirWasmArtifact, nargoArtifact] = await Promise.all([
       compileUsingNoirWasm(projectPath, { log }),
