@@ -495,7 +495,7 @@ jobs:
       - *checkout
       - *setup_env
       - run:
-          name: "yarn-project"
+          name: "Deploy mainnet fork"
           command: deploy_ecr mainnet-fork
 
   aztec-faucet:
