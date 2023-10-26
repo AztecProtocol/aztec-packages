@@ -2,7 +2,7 @@ import { CompleteAddress, HistoricBlockData } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { MerkleTreeId, PublicKey } from '@aztec/types';
+import { MerkleTreeId, NoteFilter, PublicKey } from '@aztec/types';
 
 import { MemoryContractDatabase } from '../contract_database/index.js';
 import { Database } from './database.js';
@@ -54,13 +54,22 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
     return Promise.resolve();
   }
 
-  public getNoteSpendingInfo(contract: AztecAddress, storageSlot: Fr) {
-    const res = this.noteSpendingInfoTable.filter(
+  public async getNoteSpendingInfo(filter: NoteFilter): Promise<NoteSpendingInfoDao[]> {
+    let ownerPublicKey: PublicKey | undefined;
+    if (filter.owner !== undefined) {
+      const ownerCompleteAddress = await this.getCompleteAddress(filter.owner);
+      if (ownerCompleteAddress === undefined) {
+        throw new Error(`Owner ${filter.owner.toString()} not found in memory database`);
+      }
+      ownerPublicKey = ownerCompleteAddress.publicKey;
+    }
+
+    return this.noteSpendingInfoTable.filter(
       noteSpendingInfo =>
-        noteSpendingInfo.contractAddress.equals(contract) &&
-        noteSpendingInfo.storageSlot.toBuffer().equals(storageSlot.toBuffer()),
+        (filter.contractAddress == undefined || noteSpendingInfo.contractAddress.equals(filter.contractAddress)) &&
+        (filter.storageSlot == undefined || noteSpendingInfo.storageSlot.equals(filter.storageSlot!)) &&
+        (ownerPublicKey == undefined || noteSpendingInfo.publicKey.equals(ownerPublicKey!)),
     );
-    return Promise.resolve(res);
   }
 
   public removeNullifiedNoteSpendingInfo(nullifiers: Fr[], account: PublicKey) {

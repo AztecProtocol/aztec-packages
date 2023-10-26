@@ -8,6 +8,7 @@ import {
   L2Tx,
   LogFilter,
   NotePreimage,
+  NoteSpendingInfo,
   Tx,
   TxExecutionRequest,
   TxHash,
@@ -17,6 +18,7 @@ import {
 import { DeployedContract } from './deployed-contract.js';
 import { NodeInfo } from './node-info.js';
 import { SyncStatus } from './sync-status.js';
+import { NoteFilter } from '../note_filter.js';
 
 // docs:start:pxe-interface
 /**
@@ -170,6 +172,13 @@ export interface PXE {
    * @throws If the contract is not deployed.
    */
   getPublicStorageAt(contract: AztecAddress, storageSlot: Fr): Promise<Buffer | undefined>;
+
+  /**
+   * Gets notes based on the provided filter.
+   * @param filter - The filter to apply to the notes.
+   * @returns The requested notes.
+   */
+  getNotes(filter: NoteFilter): Promise<NoteSpendingInfo[]>;
 
   /**
    * Adds a note to the database. Throw if the note hash of the note doesn't exist in the tree.

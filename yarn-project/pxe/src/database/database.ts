@@ -1,7 +1,7 @@
 import { CompleteAddress, HistoricBlockData } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { ContractDatabase, MerkleTreeId, PublicKey } from '@aztec/types';
+import { ContractDatabase, MerkleTreeId, NoteFilter, PublicKey } from '@aztec/types';
 
 import { NoteSpendingInfoDao } from './note_spending_info_dao.js';
 
@@ -25,15 +25,11 @@ export interface Database extends ContractDatabase {
   getAuthWitness(messageHash: Fr): Promise<Fr[]>;
 
   /**
-   * Get auxiliary transaction data based on contract address and storage slot.
-   * It searches for matching NoteSpendingInfoDao objects in the MemoryDB's noteSpendingInfoTable
-   * where both the contractAddress and storageSlot properties match the given inputs.
-   *
-   * @param contract - The contract address.
-   * @param storageSlot - A Fr object representing the storage slot to search for in the auxiliary data.
-   * @returns An array of NoteSpendingInfoDao objects that fulfill the contract address and storage slot criteria.
+   * Gets notes based on the provided filter.
+   * @param filter - The filter to apply to the notes.
+   * @returns The requested notes.
    */
-  getNoteSpendingInfo(contract: AztecAddress, storageSlot: Fr): Promise<NoteSpendingInfoDao[]>;
+  getNoteSpendingInfo(filter: NoteFilter): Promise<NoteSpendingInfoDao[]>;
 
   /**
    * Add a NoteSpendingInfoDao instance to the noteSpendingInfoTable.

@@ -38,7 +38,9 @@ import {
   LogFilter,
   MerkleTreeId,
   NodeInfo,
+  NoteFilter,
   NotePreimage,
+  NoteSpendingInfo,
   PXE,
   SimulationError,
   Tx,
@@ -202,6 +204,10 @@ export class PXEService implements PXE {
     const { publicKey: ownerPublicKey } = ownerCompleteAddress;
     const ownerNotes = notes.filter(n => n.publicKey.equals(ownerPublicKey));
     return ownerNotes.map(n => n.notePreimage);
+  }
+
+  public async getNotes(filter: NoteFilter): Promise<NoteSpendingInfo[]> {
+    return await this.db.getNoteSpendingInfo(filter);
   }
 
   public async addNote(
