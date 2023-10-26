@@ -1,4 +1,5 @@
 import {
+  CircuitError,
   CircuitsWasm,
   KernelCircuitPublicInputs,
   KernelCircuitPublicInputsFinal,
@@ -8,12 +9,14 @@ import {
   PrivateKernelInputsOrdering,
   Proof,
   makeEmptyProof,
+  privateKernelSimInit,
+  privateKernelSimInner,
+  privateKernelSimOrdering,
 } from '@aztec/circuits.js';
 import { siloCommitment } from '@aztec/circuits.js/abis';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
-import { executeInit, executeInner, executeOrdering } from '@aztec/noir-private-kernel';
 import { CircuitSimulationStats } from '@aztec/types/stats';
 
 /**
@@ -106,8 +109,11 @@ export class KernelProofCreator implements ProofCreator {
   }
 
   public async createProofInit(privateInputs: PrivateKernelInputsInit): Promise<ProofOutput> {
-    const [duration, result] = await elapsed(() => executeInit(privateInputs));
-
+    const wasm = await CircuitsWasm.get();
+    const [duration, result] = await elapsed(() => privateKernelSimInit(wasm, privateInputs));
+    if (result instanceof CircuitError) {
+      throw new CircuitError(result.code, result.message);
+    }
     this.log(`Simulated private kernel init`, {
       eventName: 'circuit-simulation',
       circuitName: 'private-kernel-init',
@@ -125,8 +131,11 @@ export class KernelProofCreator implements ProofCreator {
   }
 
   public async createProofInner(privateInputs: PrivateKernelInputsInner): Promise<ProofOutput> {
-    const [duration, result] = await elapsed(() => executeInner(privateInputs));
-
+    const wasm = await CircuitsWasm.get();
+    const [duration, result] = await elapsed(() => privateKernelSimInner(wasm, privateInputs));
+    if (result instanceof CircuitError) {
+      throw new CircuitError(result.code, result.message);
+    }
     this.log(`Simulated private kernel inner`, {
       eventName: 'circuit-simulation',
       circuitName: 'private-kernel-inner',
@@ -144,8 +153,12 @@ export class KernelProofCreator implements ProofCreator {
   }
 
   public async createProofOrdering(privateInputs: PrivateKernelInputsOrdering): Promise<ProofOutputFinal> {
+    const wasm = await CircuitsWasm.get();
     this.log('Executing private kernel simulation ordering...');
-    const [duration, result] = await elapsed(() => executeOrdering(privateInputs));
+    const [duration, result] = await elapsed(() => privateKernelSimOrdering(wasm, privateInputs));
+    if (result instanceof CircuitError) {
+      throw new CircuitError(result.code, result.message);
+    }
     this.log(`Simulated private kernel ordering`, {
       eventName: 'circuit-simulation',
       circuitName: 'private-kernel-ordering',

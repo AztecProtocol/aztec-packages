@@ -642,7 +642,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/noir-private-kernel@workspace:^, @aztec/noir-private-kernel@workspace:noir-private-kernel":
+"@aztec/noir-private-kernel@workspace:noir-private-kernel":
   version: 0.0.0-use.local
   resolution: "@aztec/noir-private-kernel@workspace:noir-private-kernel"
   dependencies:
@@ -747,7 +747,6 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     "@aztec/key-store": "workspace:^"
     "@aztec/noir-compiler": "workspace:^"
-    "@aztec/noir-private-kernel": "workspace:^"
     "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
     "@rushstack/eslint-patch": ^1.1.4

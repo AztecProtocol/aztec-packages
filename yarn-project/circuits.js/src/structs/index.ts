@@ -35,10 +35,3 @@ export * from '@aztec/foundation/eth-address';
 export * from '@aztec/foundation/fields';
 export * from '@aztec/foundation/aztec-address';
 export { FunctionSelector } from '@aztec/foundation/abi';
-
-// TODO(Kev): This is only exported so that tests in noir-private-kernel
-// do not need to manually initialize their instance.
-// This is not great as we are exporting from tests.
-// Its okay for now and before merging into master, we should
-// remove this line.
-export * from '../tests/factories.js';

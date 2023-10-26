@@ -49,10 +49,7 @@ import {
   TxRequest,
   VK_TREE_HEIGHT,
   VerificationKey,
-  makeAztecAddress,
   makeEmptyProof,
-  makePoint,
-  makeSelector,
   makeTuple,
 } from '@aztec/circuits.js';
 import { computeCompleteAddress, computeFunctionLeaf, computeTxHash } from '@aztec/circuits.js/abis';
@@ -411,7 +408,7 @@ describe('Noir compatibility tests (interop_testing.nr)', () => {
   it('Complete Address matches Noir', async () => {
     logger('Initialized Noir instance with private kernel init circuit');
     const wasm = await CircuitsWasm.get();
-    const deployerPubKey = makePoint();
+    const deployerPubKey = new Point(new Fr(1n), new Fr(2n));
     const contractAddrSalt = new Fr(3n);
     const treeRoot = new Fr(4n);
     const constructorHash = new Fr(5n);
@@ -434,8 +431,8 @@ describe('Noir compatibility tests (interop_testing.nr)', () => {
       new EthAddress(numberToBuffer(1)),
     );
     const txRequest = TxRequest.from({
-      origin: makeAztecAddress(1),
-      functionData: new FunctionData(makeSelector(2), false, true, true),
+      origin: AztecAddress.fromBigInt(1n),
+      functionData: new FunctionData(FunctionSelector.fromField(new Fr(2n)), false, true, true),
       argsHash: new Fr(3),
       txContext: new TxContext(false, false, true, deploymentData, Fr.ZERO, Fr.ZERO),
     });
@@ -455,8 +452,8 @@ describe('Noir compatibility tests (interop_testing.nr)', () => {
       new EthAddress(numberToBuffer(1)),
     );
     const txRequest = TxRequest.from({
-      origin: makeAztecAddress(1),
-      functionData: new FunctionData(makeSelector(2), false, true, true),
+      origin: AztecAddress.fromBigInt(1n),
+      functionData: new FunctionData(FunctionSelector.fromField(new Fr(2n)), false, true, true),
       argsHash: new Fr(3),
       txContext: new TxContext(false, false, true, deploymentData, Fr.ZERO, Fr.ZERO),
     });
