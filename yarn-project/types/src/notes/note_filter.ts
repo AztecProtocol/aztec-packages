@@ -1,6 +1,6 @@
 import { AztecAddress, Fr } from '@aztec/circuits.js';
 
-import { TxHash } from './index.js';
+import { TxHash } from '../index.js';
 
 /**
  * A filter used to fetch Notes.

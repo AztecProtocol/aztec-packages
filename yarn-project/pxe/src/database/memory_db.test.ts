@@ -1,7 +1,7 @@
 import { AztecAddress, Fr } from '@aztec/circuits.js';
 
 import { MemoryDB } from './memory_db.js';
-import { NoteSpendingInfoDao, createRandomNoteSpendingInfoDao } from './note_spending_info_dao.js';
+import { NoteSpendingInfoDao, randomNoteSpendingInfoDao } from './note_spending_info_dao.js';
 
 describe('Memory DB', () => {
   let db: MemoryDB;
@@ -15,7 +15,7 @@ describe('Memory DB', () => {
     const storageSlot = Fr.random();
 
     const createNote = (attributes: Partial<NoteSpendingInfoDao> = {}, sameStorage = true) =>
-      createRandomNoteSpendingInfoDao({
+      randomNoteSpendingInfoDao({
         ...attributes,
         contractAddress: sameStorage ? contractAddress : AztecAddress.random(),
         storageSlot: sameStorage ? storageSlot : Fr.random(),

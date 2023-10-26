@@ -1,8 +1,11 @@
 import {
+  AztecAddress,
   CompleteAddress,
   EthAddress,
+  Fr,
   MAX_NEW_CONTRACTS_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+  Point,
   Proof,
 } from '@aztec/circuits.js';
 import { makePrivateKernelPublicInputsFinal, makePublicCallRequest } from '@aztec/circuits.js/factories';
@@ -12,7 +15,14 @@ import { Tuple } from '@aztec/foundation/serialize';
 
 import times from 'lodash.times';
 
-import { DeployedContract, ExtendedContractData, FunctionL2Logs, TxL2Logs } from './index.js';
+import {
+  DeployedContract,
+  ExtendedContractData,
+  FunctionL2Logs,
+  NotePreimage,
+  NoteSpendingInfoDao,
+  TxL2Logs,
+} from './index.js';
 import { Tx, TxHash } from './tx/index.js';
 
 /**
@@ -50,3 +60,27 @@ export const randomDeployedContract = async (): Promise<DeployedContract> => ({
   completeAddress: await CompleteAddress.random(),
   portalContract: EthAddress.random(),
 });
+
+export const randomNoteSpendingInfoDao = (
+  contractAddress = AztecAddress.random(),
+  txHash = randomTxHash(),
+  nonce = Fr.random(),
+  storageSlot = Fr.random(),
+  notePreimage = NotePreimage.random(),
+  innerNoteHash = Fr.random(),
+  siloedNullifier = Fr.random(),
+  index = Fr.random().value,
+  publicKey = Point.random(),
+) => {
+  return new NoteSpendingInfoDao(
+    contractAddress,
+    txHash,
+    nonce,
+    storageSlot,
+    notePreimage,
+    innerNoteHash,
+    siloedNullifier,
+    index,
+    publicKey,
+  );
+};

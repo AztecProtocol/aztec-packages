@@ -4,7 +4,7 @@ export * from './contract_database.js';
 export * from './contract_data.js';
 export * from './function_call.js';
 export * from './keys/index.js';
-export * from './note_filter.js';
+export * from './notes/index.js';
 export * from './l1_to_l2_message.js';
 export * from './l2_block.js';
 export * from './l2_block_context.js';

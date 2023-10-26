@@ -2,11 +2,10 @@ import { CompleteAddress, HistoricBlockData } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { MerkleTreeId, NoteFilter, PublicKey } from '@aztec/types';
+import { MerkleTreeId, NoteFilter, NoteSpendingInfoDao, PublicKey } from '@aztec/types';
 
 import { MemoryContractDatabase } from '../contract_database/index.js';
 import { Database } from './database.js';
-import { NoteSpendingInfoDao, getNoteSpendingInfoDaoSize } from './note_spending_info_dao.js';
 
 /**
  * The MemoryDB class provides an in-memory implementation of a database to manage transactions and auxiliary data.
@@ -156,7 +155,7 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
   }
 
   public estimateSize() {
-    const notesSize = this.noteSpendingInfoTable.reduce((sum, note) => sum + getNoteSpendingInfoDaoSize(note), 0);
+    const notesSize = this.noteSpendingInfoTable.reduce((sum, note) => sum + note.getSize(note), 0);
     const treeRootsSize = this.treeRoots ? Object.entries(this.treeRoots).length * Fr.SIZE_IN_BYTES : 0;
     const authWits = Object.entries(this.authWitnesses);
     const authWitsSize = authWits.reduce((sum, [key, value]) => sum + key.length + value.length * Fr.SIZE_IN_BYTES, 0);
