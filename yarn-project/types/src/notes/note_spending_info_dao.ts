@@ -77,6 +77,15 @@ export class NoteSpendingInfoDao {
     );
   }
 
+  toString() {
+    return '0x' + this.toBuffer().toString('hex');
+  }
+
+  static fromString(str: string) {
+    const hex = str.replace(/^0x/, '');
+    return NotePreimage.fromBuffer(Buffer.from(hex, 'hex'));
+  }
+
   /**
    * Returns the size in bytes of a note spending info dao.
    * @param note - The note.
