@@ -79,7 +79,7 @@ consteval std::array<size_t, RelationImpl::SUBRELATION_PARTIAL_LENGTHS.size()> c
  * @return The transformed subrelation lenths
  */
 template <size_t NUM_INSTANCES, size_t NUM_SUBRELATIONS>
-consteval std::array<size_t, NUM_SUBRELATIONS> compute_composed_SUBRELATION_PARTIAL_LENGTHS(
+consteval std::array<size_t, NUM_SUBRELATIONS> compute_composed_subrelation_partial_lengths(
     std::array<size_t, NUM_SUBRELATIONS> SUBRELATION_PARTIAL_LENGTHS)
 {
     std::transform(SUBRELATION_PARTIAL_LENGTHS.begin(),
@@ -106,7 +106,7 @@ consteval std::array<size_t, NUM_SUBRELATIONS> compute_composed_SUBRELATION_PART
  * specified degree.
  *
  * @note We use some funny terminology: we use the term "length" for 1 + the degree of a relation. When the relation is
- * regarded as a polynomial in all of its arguments, we refer refer to this length as the "total length", and when we
+ * regarded as a polynomial in all of its arguments, we refer to this length as the "total length", and when we
  * hold the relation parameters constant we refer to it as a "partial length."
  *
  */
@@ -134,7 +134,7 @@ template <typename RelationImpl> class Relation : public RelationImpl {
     template <size_t NUM_INSTANCES>
     using ProtogalaxyTupleOfUnivariatesOverSubrelations =
         TupleOfUnivariates<FF,
-                           compute_composed_SUBRELATION_PARTIAL_LENGTHS<NUM_INSTANCES>(
+                           compute_composed_subrelation_partial_lengths<NUM_INSTANCES>(
                                FULL_SUBRELATION_PARTIAL_LENGTHS)>;
     using SumcheckTupleOfUnivariatesOverSubrelations =
         TupleOfUnivariates<FF, RelationImpl::SUBRELATION_PARTIAL_LENGTHS>;
