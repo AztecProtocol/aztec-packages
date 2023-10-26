@@ -10,7 +10,12 @@ import {
   getSchnorrAccount,
   isContractDeployed,
 } from '@aztec/aztec.js';
-import { StructType, decodeFunctionSignatureWithParameterNames } from '@aztec/foundation/abi';
+import {
+  FunctionSelector,
+  StructType,
+  decodeFunctionSignature,
+  decodeFunctionSignatureWithParameterNames,
+} from '@aztec/foundation/abi';
 import { JsonStringify } from '@aztec/foundation/json-rpc';
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
@@ -186,6 +191,30 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     });
 
   program
+    .command('register-account')
+    .description(
+      'Registers an aztec account that can be used for sending transactions. Registers the account on the PXE. Uses a Schnorr single-key account which uses the same key for encryption and authentication (not secure for production usage).',
+    )
+    .summary('Registers an aztec account that can be used for sending transactions.')
+    .addOption(createPrivateKeyOption('Private key for note encryption and transaction signing.', true))
+    .requiredOption(
+      '-pa, --partial-address <partialAddress>',
+      'The partially computed address of the account contract.',
+      parsePartialAddress,
+    )
+    .addOption(pxeOption)
+    .action(async ({ rpcUrl, privateKey, partialAddress }) => {
+      const client = await createCompatibleClient(rpcUrl, debugLogger);
+
+      const { address, publicKey } = await client.registerAccount(privateKey, partialAddress);
+
+      log(`\nRegistered account:\n`);
+      log(`Address:         ${address.toString()}`);
+      log(`Public key:      ${publicKey.toString()}`);
+      log(`Partial address: ${partialAddress.toString()}`);
+    });
+
+  program
     .command('deploy')
     .description('Deploys a compiled Aztec.nr contract to Aztec.')
     .argument(
@@ -200,6 +229,11 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       parsePublicKey,
     )
     .option(
+      '-p, --portal-address <hex string>',
+      'Optional L1 portal address to link the contract to.',
+      parseEthereumAddress,
+    )
+    .option(
       '-s, --salt <hex string>',
       'Optional deployment salt as a hex string for generating the deployment address.',
       parseSaltFromHexString,
@@ -207,7 +241,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     // `options.wait` is default true. Passing `--no-wait` will set it to false.
     // https://github.com/tj/commander.js#other-option-types-negatable-boolean-and-booleanvalue
     .option('--no-wait', 'Skip waiting for the contract to be deployed. Print the hash of deployment transaction')
-    .action(async (artifactPath, { rpcUrl, publicKey, args: rawArgs, salt, wait }) => {
+    .action(async (artifactPath, { rpcUrl, publicKey, args: rawArgs, portalAddress, salt, wait }) => {
       const contractArtifact = await getContractArtifact(artifactPath, log);
       const constructorArtifact = contractArtifact.functions.find(({ name }) => name === 'constructor');
 
@@ -223,8 +257,8 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
 
       const deploy = deployer.deploy(...args);
 
-      await deploy.create({ contractAddressSalt: salt });
-      const tx = deploy.send({ contractAddressSalt: salt });
+      await deploy.create({ contractAddressSalt: salt, portalContract: portalAddress });
+      const tx = deploy.send({ contractAddressSalt: salt, portalContract: portalAddress });
       const txHash = await tx.getTxHash();
       debugLogger(`Deploy tx sent with hash ${txHash}`);
       if (wait) {
@@ -648,9 +682,22 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
         log(`No external functions found for contract ${contractArtifact.name}`);
       }
       for (const fn of contractFns) {
-        const signature = decodeFunctionSignatureWithParameterNames(fn.name, fn.parameters);
-        log(`${fn.functionType} ${signature}`);
+        const signatureWithParameterNames = decodeFunctionSignatureWithParameterNames(fn.name, fn.parameters);
+        const signature = decodeFunctionSignature(fn.name, fn.parameters);
+        const selector = FunctionSelector.fromSignature(signature);
+        log(
+          `${fn.functionType} ${signatureWithParameterNames} \n\tfunction signature: ${signature}\n\tselector: ${selector}`,
+        );
       }
+    });
+
+  program
+    .command('compute-selector')
+    .description('Given a function signature, it computes a selector')
+    .argument('<functionSignature>', 'Function signature to compute selector for e.g. foo(Field)')
+    .action((functionSignature: string) => {
+      const selector = FunctionSelector.fromSignature(functionSignature);
+      log(`${selector}`);
     });
 
   compileContract(program, 'compile', log);
