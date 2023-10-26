@@ -93,4 +93,4 @@ You can see all of our example contracts in the monorepo [here](https://github.c
 
 The sandbox is shipped with full-stack Aztec project templates, with example Aztec.nr contracts, testing scripts, and web interfaces.
 
-You can read more information about how to use boxes [here](TODO)
+You can read more information about how to use boxes [here](./blank_box.md)

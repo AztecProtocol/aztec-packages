@@ -1,8 +1,8 @@
 [package]
 name = "counter_contract"
-type = "bin"
 authors = [""]
 compiler_version = "0.1"
+type = "contract"
 
 [dependencies]
 aztec = { path = "../../../../aztec-nr/aztec" }

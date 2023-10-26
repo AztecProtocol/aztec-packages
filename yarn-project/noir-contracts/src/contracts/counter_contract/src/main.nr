@@ -53,7 +53,7 @@ contract Counter {
 // docs:start:increment
     #[aztec(private)]
       fn increment(owner: Field)  {
-        let couners = storage.counters;
+        let counters = storage.counters;
         counters.at(owner).add(1, owner);
     }
 // docs:end:increment
