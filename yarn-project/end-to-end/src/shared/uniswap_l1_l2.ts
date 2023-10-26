@@ -588,9 +588,7 @@ export const uniswapL1L2TestSuite = (
       await ownerWallet.setPublicAuth(swapMessageHash, true).send().wait();
 
       // Swap!
-      await expect(action.simulate()).rejects.toThrowError(
-        "Assertion failed: Message not authorized by account 'result == IS_VALID_SELECTOR'",
-      );
+      await expect(action.simulate()).rejects.toThrowError('Assertion failed: Message not authorized by account');
     });
 
     it("uniswap can't pull funds without transfer approval", async () => {
@@ -623,7 +621,7 @@ export const uniswapL1L2TestSuite = (
             Fr.ZERO,
           )
           .simulate(),
-      ).rejects.toThrowError(`Assertion failed: Message not authorized by account 'result == IS_VALID_SELECTOR'`);
+      ).rejects.toThrowError('Assertion failed: Message not authorized by account');
     });
 
     // tests when trying to mix private and public flows:
