@@ -37,11 +37,11 @@ template <typename Curve> class ZeroMorphProver_ {
 
   public:
     /**
-     * @brief
+     * @brief Compute the degree < 2^k truncation of multivariate quotients q_k(X_0, ..., X_{k-1}) for f(X_0, ..., X_{d-1})
      *
-     * @param polynomial
-     * @param u_challenge
-     * @return std::vector<Polynomial>
+     * @param polynomial Multilinear polynomial f(X_0, ..., X_{d-1})
+     * @param u_challenge Multivariate challenge u = (u_0, ..., u_{d-1})
+     * @return std::vector<Polynomial> degree < 2^k truncation of q_k
      */
     static std::vector<Polynomial> compute_multilinear_quotients_efficient(Polynomial polynomial,
                                                                            std::span<FF> u_challenge)
@@ -91,62 +91,6 @@ template <typename Curve> class ZeroMorphProver_ {
             quotients[log_N - k - 1] = q;
             g = f_k;
             // f = Polynomial(size_q);
-        }
-
-        return quotients;
-    }
-    /**
-     * @brief Compute multivariate quotients q_k(X_0, ..., X_{k-1}) for f(X_0, ..., X_{d-1})
-     * @details Given multilinear polynomial f = f(X_0, ..., X_{d-1}) for which f(u) = v, compute q_k such that:
-     *
-     *  f(X_0, ..., X_{d-1}) - v = \sum_{k=0}^{d-1} (X_k - u_k)q_k(X_0, ..., X_{k-1})
-     *
-     * The polynomials q_k can be computed explicitly as the difference of the partial evaluation of f in the last
-     * (n - k) variables at, respectively, u'' = (u_k + 1, u_{k+1}, ..., u_{n-1}) and u' = (u_k, ..., u_{n-1}). I.e.
-     *
-     *  q_k(X_0, ..., X_{k-1}) = f(X_0,...,X_{k-1}, u'') - f(X_0,...,X_{k-1}, u')
-     *
-     * @note In practice, 2^d is equal to the circuit size N
-     *
-     * TODO(#739): This method has been designed for clarity at the expense of efficiency. Implement the more efficient
-     * algorithm detailed in the latest versions of the ZeroMorph paper.
-     * @param polynomial Multilinear polynomial f(X_0, ..., X_{d-1})
-     * @param u_challenge Multivariate challenge u = (u_0, ..., u_{d-1})
-     * @return std::vector<Polynomial> The quotients q_k
-     */
-    static std::vector<Polynomial> compute_multilinear_quotients(Polynomial polynomial, std::span<FF> u_challenge)
-    {
-        size_t log_N = numeric::get_msb(polynomial.size());
-        // The size of the multilinear challenge must equal the log of the polynomial size
-        ASSERT(log_N == u_challenge.size());
-
-        // Define the vector of quotients q_k, k = 0, ..., log_N-1
-        std::vector<Polynomial> quotients;
-        for (size_t k = 0; k < log_N; ++k) {
-            size_t size = 1 << k;
-            quotients.emplace_back(Polynomial(size)); // degree 2^k - 1
-        }
-
-        // Compute the q_k in reverse order, i.e. q_{n-1}, ..., q_0
-        for (size_t k = 0; k < log_N; ++k) {
-            // Define partial evaluation point u' = (u_k, ..., u_{n-1})
-            auto evaluation_point_size = static_cast<std::ptrdiff_t>(k + 1);
-            std::vector<FF> u_partial(u_challenge.end() - evaluation_point_size, u_challenge.end());
-
-            // Compute f' = f(X_0,...,X_{k-1}, u')
-            auto f_1 = polynomial.partial_evaluate_mle(u_partial);
-
-            // Increment first element to get altered partial evaluation point u'' = (u_k + 1, u_{k+1}, ..., u_{n-1})
-            u_partial[0] += 1;
-
-            // Compute f'' = f(X_0,...,X_{k-1}, u'')
-            auto f_2 = polynomial.partial_evaluate_mle(u_partial);
-
-            // Compute q_k = f''(X_0,...,X_{k-1}) - f'(X_0,...,X_{k-1})
-            auto q_k = f_2;
-            q_k -= f_1;
-
-            quotients[log_N - k - 1] = q_k;
         }
 
         return quotients;
