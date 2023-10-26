@@ -66,7 +66,7 @@ export function pedersenHashWithHashIndex(wasm: IWasmModule, inputs: Buffer[], h
   // we can reuse the scratch space to store the result.
   const outputPtr = 0;
 
-  wasm.call('pedersen__compress_with_hash_index', inputPtr, hashIndex, outputPtr);
+  wasm.call('pedersen__hash_with_hash_index', inputPtr, hashIndex, outputPtr);
   const hashOutput = wasm.getMemorySlice(0, 32);
 
   wasm.call('bbfree', inputPtr);
