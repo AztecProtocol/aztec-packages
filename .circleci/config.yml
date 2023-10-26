@@ -66,7 +66,7 @@ checkout: &checkout
 setup_env: &setup_env
   run:
     name: "Setup environment"
-    command: ./build-system/scripts/setup_env "$CIRCLE_SHA1" "$CIRCLE_TAG" "$CIRCLE_JOB" "$CIRCLE_REPOSITORY_URL" "$CIRCLE_BRANCH"
+    command: ./build-system/scripts/setup_env "$CIRCLE_SHA1" "$CIRCLE_TAG" "$CIRCLE_JOB" "$CIRCLE_REPOSITORY_URL" "$CIRCLE_BRANCH" "$CIRCLE_PULL_REQUEST"
 
 # This step is used to save logs from various barretenberg test to the workspace so that they can be used later to parse benchmark values out of them
 save_logs: &save_logs
@@ -612,7 +612,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_script end-to-end 4 ./scripts/run_tests_local e2e_2_pxes.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml -e TEST=e2e_2_pxes.test.ts
           environment: { DEBUG: "aztec:*" }
 
   e2e-multiple-accounts-1-enc-key:
@@ -624,7 +624,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_script end-to-end 4 ./scripts/run_tests_local e2e_multiple_accounts_1_enc_key.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml -e TEST=e2e_multiple_accounts_1_enc_key.test.ts
           environment: { DEBUG: "aztec:*" }
 
   e2e-deploy-contract:
@@ -636,7 +636,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_script end-to-end 4 ./scripts/run_tests_local e2e_deploy_contract.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml -e TEST=e2e_deploy_contract.test.ts
           environment: { DEBUG: "aztec:*" }
 
   e2e-lending-contract:
@@ -648,7 +648,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_script end-to-end 4 ./scripts/run_tests_local e2e_lending_contract.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml -e TEST=e2e_lending_contract.test.ts
           environment: { DEBUG: "aztec:*" }
 
   e2e-token-contract:
@@ -660,7 +660,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_script end-to-end 4 ./scripts/run_tests_local e2e_token_contract.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml -e TEST=e2e_token_contract.test.ts
           environment: { DEBUG: "aztec:*" }
 
   e2e-sandbox-example:
@@ -672,7 +672,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_script end-to-end 4 ./scripts/run_tests_local e2e_sandbox_example.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml -e TEST=e2e_sandbox_example.test.ts
           environment: { DEBUG: "aztec:*" }
 
   e2e-block-building:
@@ -684,7 +684,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_script end-to-end 4 ./scripts/run_tests_local e2e_block_building.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml -e TEST=e2e_block_building.test.ts
           environment: { DEBUG: "aztec:*" }
 
   e2e-nested-contract:
@@ -696,7 +696,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_script end-to-end 4 ./scripts/run_tests_local e2e_nested_contract.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml -e TEST=e2e_nested_contract.test.ts
           environment: { DEBUG: "aztec:*" }
 
   e2e-non-contract-account:
@@ -708,7 +708,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_script end-to-end 4 ./scripts/run_tests_local e2e_non_contract_account.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml -e TEST=e2e_non_contract_account.test.ts
           environment: { DEBUG: "aztec:*" }
 
   e2e-cross-chain-messaging:
@@ -720,7 +720,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_script end-to-end 4 ./scripts/run_tests_local e2e_cross_chain_messaging.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml -e TEST=e2e_cross_chain_messaging.test.ts
           environment: { DEBUG: "aztec:*" }
 
   e2e-public-cross-chain-messaging:
@@ -732,7 +732,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_script end-to-end 4 ./scripts/run_tests_local e2e_public_cross_chain_messaging.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml -e TEST=e2e_public_cross_chain_messaging.test.ts
           environment: { DEBUG: "aztec:*" }
 
   e2e-public-to-private-messaging:
@@ -744,7 +744,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_script end-to-end 4 ./scripts/run_tests_local e2e_public_to_private_messaging.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml -e TEST=e2e_public_to_private_messaging.test.ts
           environment: { DEBUG: "aztec:*" }
 
   e2e-account-contracts:
@@ -756,7 +756,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_script end-to-end 4 ./scripts/run_tests_local e2e_account_contracts.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml -e TEST=e2e_account_contracts.test.ts
           environment: { DEBUG: "aztec:*" }
 
   e2e-escrow-contract:
@@ -768,7 +768,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_script end-to-end 4 ./scripts/run_tests_local e2e_escrow_contract.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml -e TEST=e2e_escrow_contract.test.ts
           environment: { DEBUG: "aztec:*" }
 
   e2e-pending-commitments-contract:
@@ -780,7 +780,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_script end-to-end 4 ./scripts/run_tests_local e2e_pending_commitments_contract.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml -e TEST=e2e_pending_commitments_contract.test.ts
           environment: { DEBUG: "aztec:*" }
 
   e2e-ordering:
@@ -792,7 +792,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_script end-to-end 4 ./scripts/run_tests_local e2e_ordering.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml -e TEST=e2e_ordering.test.ts
           environment: { DEBUG: "aztec:*" }
 
   uniswap-trade-on-l1-from-l2:
@@ -804,7 +804,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_script end-to-end 4 ./scripts/run_tests_local uniswap_trade_on_l1_from_l2.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml -e TEST=uniswap_trade_on_l1_from_l2.test.ts
           environment: { DEBUG: "aztec:*" }
 
   integration-archiver-l1-to-l2:
@@ -816,7 +816,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_script end-to-end 4 ./scripts/run_tests_local integration_archiver_l1_to_l2.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml -e TEST=integration_archiver_l1_to_l2.test.ts
           environment: { DEBUG: "aztec:*" }
 
   integration-l1-publisher:
@@ -828,7 +828,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_script end-to-end 4 ./scripts/run_tests_local integration_l1_publisher.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml -e TEST=integration_l1_publisher.test.ts
           environment: { DEBUG: "aztec:*" }
 
   e2e-cli:
@@ -840,7 +840,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_script end-to-end 4 ./scripts/run_tests_local e2e_cli.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml -e TEST=e2e_cli.test.ts
           environment: { DEBUG: "aztec:*" }
 
   e2e-p2p:
@@ -852,7 +852,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_script end-to-end 4 ./scripts/run_tests_local e2e_p2p_network.test.ts ./scripts/docker-compose-no-sandbox.yml
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose-no-sandbox.yml -e TEST=e2e_p2p_network.test.ts
           environment: { DEBUG: "aztec:*" }
 
   e2e-browser-sandbox:
@@ -864,7 +864,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_script end-to-end 4 ./scripts/run_tests_local e2e_aztec_js_browser.test.ts ./scripts/docker-compose-browser.yml
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose-browser.yml -e TEST=e2e_aztec_js_browser.test.ts
           environment: { DEBUG: "aztec:*" }
 
   e2e-card-game:
@@ -876,7 +876,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_script end-to-end 4 ./scripts/run_tests_local e2e_card_game.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml -e TEST=e2e_card_game.test.ts
           environment: { DEBUG: "aztec:*" }
 
   pxe-sandbox:
@@ -888,7 +888,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_script end-to-end 4 ./scripts/run_tests_local pxe_sandbox.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml -e TEST=pxe_sandbox.test.ts
           environment: { DEBUG: "aztec:*" }
 
   cli-docs-sandbox:
@@ -900,7 +900,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_script end-to-end 4 ./scripts/run_tests_local cli_docs_sandbox.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml -e TEST=cli_docs_sandbox.test.ts
           environment: { DEBUG: "aztec:*" }
 
   guides-writing-an-account-contract:
@@ -912,7 +912,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_script end-to-end 4 ./scripts/run_tests_local guides/writing_an_account_contract.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml -e TEST=guides/writing_an_account_contract.test.ts
           environment: { DEBUG: "aztec:*" }
 
   guides-dapp-testing:
@@ -924,7 +924,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_script end-to-end 4 ./scripts/run_tests_local guides/dapp_testing.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml -e TEST=guides/dapp_testing.test.ts
           environment: { DEBUG: "aztec:*" }
 
   guides-sample-dapp:
@@ -936,7 +936,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_script end-to-end 4 ./scripts/run_tests_local sample-dapp
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml -e TEST=sample-dapp
           environment: { DEBUG: "aztec:*" }
 
   guides-up-quick-start:
@@ -948,7 +948,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_script end-to-end 4 ./scripts/run_tests_local guides/up_quick_start.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml -e TEST=guides/up_quick_start.test.ts
           environment: { DEBUG: "aztec:*" }
 
   bench-publish-rollup:
@@ -960,7 +960,7 @@ jobs:
       - *setup_env
       - run:
           name: "Benchmark"
-          command: cond_spot_run_script end-to-end 4 ./scripts/run_tests_local benchmarks/bench_publish_rollup.test.ts ./scripts/docker-compose-no-sandbox.yml
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose-no-sandbox.yml -e TEST=benchmarks/bench_publish_rollup.test.ts
           environment:
             DEBUG: "aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees"
 
@@ -973,7 +973,7 @@ jobs:
       - *setup_env
       - run:
           name: "Benchmark"
-          command: cond_spot_run_script end-to-end 4 ./scripts/run_tests_local benchmarks/bench_process_history.test.ts ./scripts/docker-compose-no-sandbox.yml
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose-no-sandbox.yml -e TEST=benchmarks/bench_process_history.test.ts
           environment:
             DEBUG: "aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees"
 

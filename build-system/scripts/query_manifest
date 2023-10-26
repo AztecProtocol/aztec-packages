@@ -94,8 +94,6 @@ case "$CMD" in
       ALL_DEPS+=("$1")
     }
     add_deps $REPO
-    # Remove ourself as a dependency.
-    # unset ALL_DEPS[-1]
     for DEP in "${ALL_DEPS[@]}"; do
       echo $DEP
     done
