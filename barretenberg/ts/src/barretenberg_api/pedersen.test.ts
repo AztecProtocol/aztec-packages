@@ -22,17 +22,4 @@ describe('pedersen', () => {
     const result = await api.pedersenCommit([new Fr(4n), new Fr(8n), new Fr(12n)]);
     expect(result).toEqual(new Fr(18374309251862457296563484909553154519357910650678202211610516068880120638872n));
   });
-
-  it('pedersenHashToTree', async () => {
-    const result = await api.pedersenHashToTree([new Fr(4n), new Fr(8n), new Fr(12n), new Fr(16n)]);
-    expect(result).toEqual([
-      new Fr(4n),
-      new Fr(8n),
-      new Fr(12n),
-      new Fr(16n),
-      new Fr(1521373897829389584529155077412196627698249315427143054350987371861781120260n),
-      new Fr(18350527319045519333962768191016242826584323959670139897255818770108115223653n),
-      new Fr(5972535902427608430534212385621973704186819235181735133037695406667218179357n),
-    ]);
-  });
 });

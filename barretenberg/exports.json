@@ -48,22 +48,6 @@
     "isAsync": false
   },
   {
-    "functionName": "pedersen_hash_to_tree",
-    "inArgs": [
-      {
-        "name": "data",
-        "type": "fr::vec_in_buf"
-      }
-    ],
-    "outArgs": [
-      {
-        "name": "out",
-        "type": "fr::vec_out_buf"
-      }
-    ],
-    "isAsync": false
-  },
-  {
     "functionName": "blake2s",
     "inArgs": [
       {

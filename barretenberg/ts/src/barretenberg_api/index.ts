@@ -37,11 +37,6 @@ export class BarretenbergApi {
     return result[0];
   }
 
-  async pedersenHashToTree(data: Fr[]): Promise<Fr[]> {
-    const result = await this.binder.callWasmExport('pedersen_hash_to_tree', [data], [VectorDeserializer(Fr)]);
-    return result[0];
-  }
-
   async blake2s(data: Uint8Array): Promise<Buffer32> {
     const result = await this.binder.callWasmExport('blake2s', [data], [Buffer32]);
     return result[0];
