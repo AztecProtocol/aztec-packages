@@ -21,6 +21,7 @@ enum { PREAMBLE, WIRE_COMMITMENTS, SORTED_LIST_ACCUMULATOR, GRAND_PRODUCT_COMPUT
  **/
 BBERG_PROFILE static void test_round_inner(State& state, honk::UltraProver& prover, size_t index) noexcept
 {
+    (void)state;
     auto time_if_index = [&](size_t target_index, auto&& func) -> void {
         if (index == target_index) {
             state.ResumeTiming();
@@ -30,6 +31,7 @@ BBERG_PROFILE static void test_round_inner(State& state, honk::UltraProver& prov
             state.PauseTiming();
         }
     };
+
     time_if_index(PREAMBLE, [&] { prover.execute_preamble_round(); });
     time_if_index(WIRE_COMMITMENTS, [&] { prover.execute_wire_commitments_round(); });
     time_if_index(SORTED_LIST_ACCUMULATOR, [&] { prover.execute_sorted_list_accumulator_round(); });
@@ -45,9 +47,10 @@ BBERG_PROFILE static void test_round(State& state, size_t index) noexcept
         state.PauseTiming();
         honk::UltraComposer composer;
         // TODO(AD) benchmark both sparse and dense circuits?
-        honk::UltraProver prover =
-            bench_utils::get_prover(composer, &bench_utils::generate_keccak_test_circuit<UltraCircuitBuilder>, 1);
+        honk::UltraProver prover = bench_utils::get_prover(
+            composer, &bench_utils::generate_ecdsa_verification_test_circuit<UltraCircuitBuilder>, 10);
         test_round_inner(state, prover, index);
+        state.ResumeTiming();
     }
 }
 #define ROUND_BENCHMARK(round)                                                                                         \
