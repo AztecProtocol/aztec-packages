@@ -232,7 +232,7 @@ TYPED_TEST(ECCVMTranscriptTests, ProverManifestConsistency)
 {
     using Flavor = TypeParam;
 
-    // Construct a simple circuit of size n = 8 (i.e. the minimum circuit size)
+    // Construct a simple circuit
     auto builder = this->generate_trace(&engine);
 
     // Automatically generate a transcript manifest by constructing a proof
@@ -260,7 +260,7 @@ TYPED_TEST(ECCVMTranscriptTests, VerifierManifestConsistency)
 {
     using Flavor = TypeParam;
 
-    // Construct a simple circuit of size n = 8 (i.e. the minimum circuit size)
+    // Construct a simple circuit
     auto builder = this->generate_trace(&engine);
 
     // Automatically generate a transcript manifest in the prover by constructing a proof
@@ -312,7 +312,7 @@ TYPED_TEST(ECCVMTranscriptTests, StructureTest)
 {
     using Flavor = TypeParam;
 
-    // Construct a simple circuit of size n = 8 (i.e. the minimum circuit size)
+    // Construct a simple circuit
     auto builder = this->generate_trace(&engine);
 
     // Automatically generate a transcript manifest by constructing a proof
@@ -328,7 +328,8 @@ TYPED_TEST(ECCVMTranscriptTests, StructureTest)
     EXPECT_TRUE(verifier.verify_proof(prover.export_proof())); // we have changed nothing so proof is still valid
 
     typename Flavor::Commitment one_group_val = Flavor::Commitment::one();
-    prover.transcript.transcript_x_comm = one_group_val; // choose random one to modify
+    typename Flavor::FF rand_val = Flavor::FF::random_element();
+    prover.transcript.transcript_x_comm = one_group_val * rand_val; // choose random object to modify
     EXPECT_TRUE(verifier.verify_proof(
         prover.export_proof())); // we have not serialized it back to the proof so it should still be fine
 
@@ -336,5 +337,5 @@ TYPED_TEST(ECCVMTranscriptTests, StructureTest)
     EXPECT_FALSE(verifier.verify_proof(prover.export_proof())); // the proof is now wrong after serializing it
 
     prover.transcript.deserialize_full_transcript();
-    EXPECT_EQ(static_cast<typename Flavor::Commitment>(prover.transcript.transcript_x_comm), one_group_val);
+    EXPECT_EQ(static_cast<typename Flavor::Commitment>(prover.transcript.transcript_x_comm), one_group_val * rand_val);
 }

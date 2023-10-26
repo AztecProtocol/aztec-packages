@@ -220,7 +220,8 @@ TEST_F(GoblinUltraTranscriptTests, StructureTest)
     EXPECT_TRUE(verifier.verify_proof(prover.export_proof())); // we have changed nothing so proof is still valid
 
     Flavor::Commitment one_group_val = Flavor::Commitment::one();
-    prover.transcript.sorted_accum_comm = one_group_val;
+    FF rand_val = FF::random_element();
+    prover.transcript.sorted_accum_comm = one_group_val * rand_val; // choose random object to modify
     EXPECT_TRUE(verifier.verify_proof(
         prover.export_proof())); // we have not serialized it back to the proof so it should still be fine
 
@@ -228,5 +229,5 @@ TEST_F(GoblinUltraTranscriptTests, StructureTest)
     EXPECT_FALSE(verifier.verify_proof(prover.export_proof())); // the proof is now wrong after serializing it
 
     prover.transcript.deserialize_full_transcript();
-    EXPECT_EQ(static_cast<Flavor::Commitment>(prover.transcript.sorted_accum_comm), one_group_val);
+    EXPECT_EQ(static_cast<Flavor::Commitment>(prover.transcript.sorted_accum_comm), one_group_val * rand_val);
 }
