@@ -42,8 +42,8 @@ export function pedersenHashWithHashIndex(wasm: IWasmModule, inputs: Buffer[], h
   // If not done already, precompute constants.
   wasm.call('pedersen__init');
 
-  // Allocate memory for the inputs. We can optimize this 
-  // by checking the length and copying the data to the 
+  // Allocate memory for the inputs. We can optimize this
+  // by checking the length and copying the data to the
   // wasm scratch space if it is small enough.
   const data = serializeBufferArrayToVector(inputs);
   const inputPtr = wasm.call('bbmalloc', data.length);
