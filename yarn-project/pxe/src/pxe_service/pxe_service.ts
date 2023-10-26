@@ -230,7 +230,7 @@ export class PXEService implements PXE {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
     // This can always be `uniqueSiloedNoteHash` once notes added from public also include nonces.
     const noteHashToLookUp = nonce.isZero() ? siloedNoteHash : uniqueSiloedNoteHash;
-    const index = await this.node.findLeafIndex(MerkleTreeId.PRIVATE_DATA_TREE, noteHashToLookUp.toBuffer());
+    const index = await this.node.findLeafIndex(MerkleTreeId.NOTE_HASH_TREE, noteHashToLookUp.toBuffer());
     if (index === undefined) {
       throw new Error('Note does not exist.');
     }
@@ -395,7 +395,9 @@ export class PXEService implements PXE {
   async #getFunctionCall(functionName: string, args: any[], to: AztecAddress): Promise<FunctionCall> {
     const contract = await this.db.getContract(to);
     if (!contract) {
-      throw new Error(`Unknown contract ${to}: add it to PXE Service by calling server.addContracts(...)`);
+      throw new Error(
+        `Unknown contract ${to}: add it to PXE Service by calling server.addContracts(...).\nSee docs for context: https://docs.aztec.network/dev_docs/contracts/common_errors#unknown-contract-error`,
+      );
     }
 
     const functionDao = contract.functions.find(f => f.name === functionName);

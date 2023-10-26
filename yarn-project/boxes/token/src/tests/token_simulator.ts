@@ -1,16 +1,12 @@
-import { AztecAddress, DebugLogger } from '@aztec/aztec.js';
 import { TokenContract } from '../artifacts/Token.js';
+import { AztecAddress, DebugLogger } from '@aztec/aztec.js';
 
 export class TokenSimulator {
   private balancesPrivate: Map<AztecAddress, bigint> = new Map();
   private balancePublic: Map<AztecAddress, bigint> = new Map();
   public totalSupply: bigint = 0n;
 
-  constructor(
-    protected token: TokenContract,
-    protected logger: DebugLogger,
-    protected accounts: AztecAddress[],
-  ) {}
+  constructor(protected token: TokenContract, protected logger: DebugLogger, protected accounts: AztecAddress[]) {}
 
   public mintPrivate(amount: bigint) {
     this.totalSupply += amount;

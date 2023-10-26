@@ -23,6 +23,11 @@ barretenberg-wasm-linux-clang:
   dockerfile: dockerfiles/Dockerfile.wasm-linux-clang
   rebuildPatterns: .rebuild_patterns
 
+barretenberg-x86_64-linux-clang-sol:
+  buildDir: barretenberg
+  dockerfile: sol/Dockerfile
+  rebuildPatterns: sol/.rebuild_patterns
+
 bb.js:
   buildDir: barretenberg/ts
   dependencies:
@@ -113,6 +118,12 @@ aztec-sandbox:
   dependencies:
     - yarn-project
 
+aztec-faucet:
+  buildDir: yarn-project
+  projectDir: yarn-project/aztec-faucet
+  dependencies:
+    - yarn-project
+
 pxe:
   buildDir: yarn-project
   projectDir: yarn-project/pxe
@@ -167,6 +178,10 @@ p2p-bootstrap:
   projectDir: yarn-project/p2p-bootstrap
   dependencies:
     - yarn-project
+
+mainnet-fork:
+  buildDir: iac/mainnet-fork
+  projectDir: iac/mainnet-fork
 
 docs:
   buildDir: .

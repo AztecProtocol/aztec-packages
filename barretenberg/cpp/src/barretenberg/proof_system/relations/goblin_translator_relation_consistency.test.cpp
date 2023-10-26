@@ -15,6 +15,7 @@
 #include "barretenberg/proof_system/relations/decomposition_relation.hpp"
 #include "barretenberg/proof_system/relations/extra_relations.hpp"
 #include "barretenberg/proof_system/relations/gen_perm_sort_relation.hpp"
+#include "barretenberg/proof_system/relations/non_native_field_relation.hpp"
 #include "barretenberg/proof_system/relations/permutation_relation.hpp"
 #include "decomposition_relation.hpp"
 #include "extra_relations.hpp"
@@ -225,8 +226,8 @@ struct InputElements {
     FF& z_perm_shift = std::get<176>(this->_data);
     FF& lagrange_first = std::get<177>(this->_data);
     FF& lagrange_last = std::get<178>(this->_data);
-    FF& lagrange_odd = std::get<179>(this->_data);
-    FF& lagrange_even = std::get<180>(this->_data);
+    FF& lagrange_odd_in_minicircuit = std::get<179>(this->_data);
+    FF& lagrange_even_in_minicircuit = std::get<180>(this->_data);
     FF& lagrange_second = std::get<181>(this->_data);
     FF& lagrange_second_to_last_in_minicircuit = std::get<182>(this->_data);
     FF& ordered_extra_range_constraints_numerator = std::get<183>(this->_data);
@@ -239,7 +240,7 @@ class GoblinTranslatorRelationConsistency : public testing::Test {
                                             const InputElements& input_elements,
                                             const auto& parameters)
     {
-        typename Relation::ArrayOfValuesOverSubrelations accumulator;
+        typename Relation::SumcheckArrayOfValuesOverSubrelations accumulator;
         std::fill(accumulator.begin(), accumulator.end(), FF(0));
         Relation::accumulate(accumulator, input_elements, parameters, 1);
         EXPECT_EQ(accumulator, expected_values);
@@ -250,7 +251,7 @@ TEST_F(GoblinTranslatorRelationConsistency, PermutationRelation)
 {
     const auto run_test = [](bool random_inputs) {
         using Relation = GoblinTranslatorPermutationRelation<FF>;
-        using RelationValues = typename Relation::ArrayOfValuesOverSubrelations;
+        using RelationValues = typename Relation::SumcheckArrayOfValuesOverSubrelations;
 
         const InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
         const auto& concatenated_range_constraints_0 = input_elements.concatenated_range_constraints_0;
@@ -298,7 +299,7 @@ TEST_F(GoblinTranslatorRelationConsistency, GenPermSortRelation)
 {
     const auto run_test = [](bool random_inputs) {
         using Relation = GoblinTranslatorGenPermSortRelation<FF>;
-        using RelationValues = typename Relation::ArrayOfValuesOverSubrelations;
+        using RelationValues = typename Relation::SumcheckArrayOfValuesOverSubrelations;
 
         const InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
 
@@ -362,7 +363,7 @@ TEST_F(GoblinTranslatorRelationConsistency, DecompositionRelation)
 {
     const auto run_test = [](bool random_inputs) {
         using Relation = GoblinTranslatorDecompositionRelation<FF>;
-        using RelationValues = typename Relation::ArrayOfValuesOverSubrelations;
+        using RelationValues = typename Relation::SumcheckArrayOfValuesOverSubrelations;
 
         const InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
 
@@ -565,7 +566,7 @@ TEST_F(GoblinTranslatorRelationConsistency, DecompositionRelation)
         const auto& x_hi_z_1_shift = input_elements.x_hi_z_1_shift;
         const auto& y_lo_z_2_shift = input_elements.y_lo_z_2_shift;
 
-        const auto& lagrange_odd = input_elements.lagrange_odd;
+        const auto& lagrange_odd_in_minicircuit = input_elements.lagrange_odd_in_minicircuit;
 
         RelationValues expected_values;
 
@@ -596,17 +597,17 @@ TEST_F(GoblinTranslatorRelationConsistency, DecompositionRelation)
                                                   MICRO_LIMB_SHIFTx3,
                                                   MICRO_LIMB_SHIFTx4,
                                                   MICRO_LIMB_SHIFTx5,
-                                                  lagrange_odd](auto& micro_limb_0,
-                                                                auto& micro_limb_1,
-                                                                auto& micro_limb_2,
-                                                                auto& micro_limb_3,
-                                                                auto& micro_limb_4,
-                                                                auto& micro_limb_5,
-                                                                auto& decomposed_limb) {
+                                                  lagrange_odd_in_minicircuit](auto& micro_limb_0,
+                                                                               auto& micro_limb_1,
+                                                                               auto& micro_limb_2,
+                                                                               auto& micro_limb_3,
+                                                                               auto& micro_limb_4,
+                                                                               auto& micro_limb_5,
+                                                                               auto& decomposed_limb) {
             return (micro_limb_0 + micro_limb_1 * MICRO_LIMB_SHIFT + micro_limb_2 * MICRO_LIMB_SHIFTx2 +
                     micro_limb_3 * MICRO_LIMB_SHIFTx3 + micro_limb_4 * MICRO_LIMB_SHIFTx4 +
                     micro_limb_5 * MICRO_LIMB_SHIFTx5 - decomposed_limb) *
-                   lagrange_odd;
+                   lagrange_odd_in_minicircuit;
         };
 
         /**
@@ -615,7 +616,7 @@ TEST_F(GoblinTranslatorRelationConsistency, DecompositionRelation)
          *
          */
         auto check_standard_limb_decomposition =
-            [MICRO_LIMB_SHIFT, MICRO_LIMB_SHIFTx2, MICRO_LIMB_SHIFTx3, MICRO_LIMB_SHIFTx4, lagrange_odd](
+            [MICRO_LIMB_SHIFT, MICRO_LIMB_SHIFTx2, MICRO_LIMB_SHIFTx3, MICRO_LIMB_SHIFTx4, lagrange_odd_in_minicircuit](
                 auto& micro_limb_0,
                 auto& micro_limb_1,
                 auto& micro_limb_2,
@@ -624,7 +625,7 @@ TEST_F(GoblinTranslatorRelationConsistency, DecompositionRelation)
                 auto& decomposed_limb) {
                 return (micro_limb_0 + micro_limb_1 * MICRO_LIMB_SHIFT + micro_limb_2 * MICRO_LIMB_SHIFTx2 +
                         micro_limb_3 * MICRO_LIMB_SHIFTx3 + micro_limb_4 * MICRO_LIMB_SHIFTx4 - decomposed_limb) *
-                       lagrange_odd;
+                       lagrange_odd_in_minicircuit;
             };
 
         /**
@@ -632,11 +633,11 @@ TEST_F(GoblinTranslatorRelationConsistency, DecompositionRelation)
          *
          */
         auto check_standard_top_limb_decomposition =
-            [MICRO_LIMB_SHIFT, MICRO_LIMB_SHIFTx2, MICRO_LIMB_SHIFTx3, lagrange_odd](
+            [MICRO_LIMB_SHIFT, MICRO_LIMB_SHIFTx2, MICRO_LIMB_SHIFTx3, lagrange_odd_in_minicircuit](
                 auto& micro_limb_0, auto& micro_limb_1, auto& micro_limb_2, auto& micro_limb_3, auto& decomposed_limb) {
                 return (micro_limb_0 + micro_limb_1 * MICRO_LIMB_SHIFT + micro_limb_2 * MICRO_LIMB_SHIFTx2 +
                         micro_limb_3 * MICRO_LIMB_SHIFTx3 - decomposed_limb) *
-                       lagrange_odd;
+                       lagrange_odd_in_minicircuit;
             };
 
         /**
@@ -644,30 +645,30 @@ TEST_F(GoblinTranslatorRelationConsistency, DecompositionRelation)
          * version.
          *
          */
-        auto check_standard_tail_micro_limb_correctness = [SHIFT_12_TO_14, lagrange_odd](auto& nonshifted_micro_limb,
-                                                                                         auto shifted_micro_limb) {
-            return (nonshifted_micro_limb * SHIFT_12_TO_14 - shifted_micro_limb) * lagrange_odd;
-        };
+        auto check_standard_tail_micro_limb_correctness =
+            [SHIFT_12_TO_14, lagrange_odd_in_minicircuit](auto& nonshifted_micro_limb, auto shifted_micro_limb) {
+                return (nonshifted_micro_limb * SHIFT_12_TO_14 - shifted_micro_limb) * lagrange_odd_in_minicircuit;
+            };
 
         /**
          * @brief Ensure that the last microlimb of a standard top limb decomposition is 8 bits by checking a
          * shifted version.
          *
          */
-        auto check_top_tail_micro_limb_correctness = [SHIFT_8_TO_14, lagrange_odd](auto& nonshifted_micro_limb,
-                                                                                   auto shifted_micro_limb) {
-            return (nonshifted_micro_limb * SHIFT_8_TO_14 - shifted_micro_limb) * lagrange_odd;
-        };
+        auto check_top_tail_micro_limb_correctness =
+            [SHIFT_8_TO_14, lagrange_odd_in_minicircuit](auto& nonshifted_micro_limb, auto shifted_micro_limb) {
+                return (nonshifted_micro_limb * SHIFT_8_TO_14 - shifted_micro_limb) * lagrange_odd_in_minicircuit;
+            };
 
         /**
          * @brief Ensure that the last microlimb of z top limb decomposition is 4 bits by checking a shifted
          * version.
          *
          */
-        auto check_z_top_tail_micro_limb_correctness = [SHIFT_4_TO_14, lagrange_odd](auto& nonshifted_micro_limb,
-                                                                                     auto shifted_micro_limb) {
-            return (nonshifted_micro_limb * SHIFT_4_TO_14 - shifted_micro_limb) * lagrange_odd;
-        };
+        auto check_z_top_tail_micro_limb_correctness =
+            [SHIFT_4_TO_14, lagrange_odd_in_minicircuit](auto& nonshifted_micro_limb, auto shifted_micro_limb) {
+                return (nonshifted_micro_limb * SHIFT_4_TO_14 - shifted_micro_limb) * lagrange_odd_in_minicircuit;
+            };
 
         /**
          * @brief Ensure that the last microlimb of quotient top limb decomposition is 10 bits by checking a shifted
@@ -675,8 +676,8 @@ TEST_F(GoblinTranslatorRelationConsistency, DecompositionRelation)
          *
          */
         auto check_quotient_top_tail_micro_limb_correctness =
-            [SHIFT_10_TO_14, lagrange_odd](auto& nonshifted_micro_limb, auto shifted_micro_limb) {
-                return (nonshifted_micro_limb * SHIFT_10_TO_14 - shifted_micro_limb) * lagrange_odd;
+            [SHIFT_10_TO_14, lagrange_odd_in_minicircuit](auto& nonshifted_micro_limb, auto shifted_micro_limb) {
+                return (nonshifted_micro_limb * SHIFT_10_TO_14 - shifted_micro_limb) * lagrange_odd_in_minicircuit;
             };
 
         /**
@@ -684,8 +685,8 @@ TEST_F(GoblinTranslatorRelationConsistency, DecompositionRelation)
          *
          */
         auto check_wide_limb_into_regular_limb_correctness =
-            [LIMB_SHIFT, lagrange_odd](auto& low_limb, auto& high_limb, auto& wide_limb) {
-                return (low_limb + high_limb * LIMB_SHIFT - wide_limb) * lagrange_odd;
+            [LIMB_SHIFT, lagrange_odd_in_minicircuit](auto& low_limb, auto& high_limb, auto& wide_limb) {
+                return (low_limb + high_limb * LIMB_SHIFT - wide_limb) * lagrange_odd_in_minicircuit;
             };
 
         // Check decomposition 50-72 bit limbs into microlimbs
@@ -911,7 +912,7 @@ TEST_F(GoblinTranslatorRelationConsistency, OpcodeConstraintRelation)
 {
     const auto run_test = [](bool random_inputs) {
         using Relation = GoblinTranslatorOpcodeConstraintRelation<FF>;
-        using RelationValues = typename Relation::ArrayOfValuesOverSubrelations;
+        using RelationValues = typename Relation::SumcheckArrayOfValuesOverSubrelations;
 
         const InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
         const auto& op = input_elements.op;
@@ -934,11 +935,11 @@ TEST_F(GoblinTranslatorRelationConsistency, AccumulatorTransferRelation)
 {
     const auto run_test = [](bool random_inputs) {
         using Relation = GoblinTranslatorAccumulatorTransferRelation<FF>;
-        using RelationValues = typename Relation::ArrayOfValuesOverSubrelations;
+        using RelationValues = typename Relation::SumcheckArrayOfValuesOverSubrelations;
 
         const InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
 
-        const auto& lagrange_even = input_elements.lagrange_even;
+        const auto& lagrange_even_in_minicircuit = input_elements.lagrange_even_in_minicircuit;
         const auto& lagrange_second = input_elements.lagrange_second;
         const auto& lagrange_second_to_last_in_minicircuit = input_elements.lagrange_second_to_last_in_minicircuit;
         const auto& accumulators_binary_limbs_0 = input_elements.accumulators_binary_limbs_0;
@@ -958,10 +959,14 @@ TEST_F(GoblinTranslatorRelationConsistency, AccumulatorTransferRelation)
             parameters.accumulated_result;
 
         // Check transfer of accumulator at even indices
-        expected_values[0] = lagrange_even * (accumulators_binary_limbs_0 - accumulators_binary_limbs_0_shift);
-        expected_values[1] = lagrange_even * (accumulators_binary_limbs_1 - accumulators_binary_limbs_1_shift);
-        expected_values[2] = lagrange_even * (accumulators_binary_limbs_2 - accumulators_binary_limbs_2_shift);
-        expected_values[3] = lagrange_even * (accumulators_binary_limbs_3 - accumulators_binary_limbs_3_shift);
+        expected_values[0] =
+            lagrange_even_in_minicircuit * (accumulators_binary_limbs_0 - accumulators_binary_limbs_0_shift);
+        expected_values[1] =
+            lagrange_even_in_minicircuit * (accumulators_binary_limbs_1 - accumulators_binary_limbs_1_shift);
+        expected_values[2] =
+            lagrange_even_in_minicircuit * (accumulators_binary_limbs_2 - accumulators_binary_limbs_2_shift);
+        expected_values[3] =
+            lagrange_even_in_minicircuit * (accumulators_binary_limbs_3 - accumulators_binary_limbs_3_shift);
 
         // Check the accumulator starts as zero
         expected_values[4] = accumulators_binary_limbs_0 * lagrange_second_to_last_in_minicircuit;
@@ -974,6 +979,160 @@ TEST_F(GoblinTranslatorRelationConsistency, AccumulatorTransferRelation)
         expected_values[9] = (accumulators_binary_limbs_1 - accumulated_result_1) * lagrange_second;
         expected_values[10] = (accumulators_binary_limbs_2 - accumulated_result_2) * lagrange_second;
         expected_values[11] = (accumulators_binary_limbs_3 - accumulated_result_3) * lagrange_second;
+        validate_relation_execution<Relation>(expected_values, input_elements, parameters);
+    };
+    run_test(/*random_inputs=*/false);
+    run_test(/*random_inputs=*/true);
+};
+
+TEST_F(GoblinTranslatorRelationConsistency, NonNativeFieldRelation)
+{
+    const auto run_test = [](bool random_inputs) {
+        constexpr size_t NUM_LIMB_BITS = 68;
+        constexpr FF shift = FF(uint256_t(1) << NUM_LIMB_BITS);
+        constexpr FF shiftx2 = FF(uint256_t(1) << (NUM_LIMB_BITS * 2));
+        constexpr FF shiftx3 = FF(uint256_t(1) << (NUM_LIMB_BITS * 3));
+        constexpr uint512_t MODULUS_U512 = uint512_t(curve::BN254::BaseField::modulus);
+        constexpr uint512_t BINARY_BASIS_MODULUS = uint512_t(1) << (NUM_LIMB_BITS << 2);
+        constexpr uint512_t NEGATIVE_PRIME_MODULUS = BINARY_BASIS_MODULUS - MODULUS_U512;
+        constexpr std::array<FF, 5> NEGATIVE_MODULUS_LIMBS = {
+            FF(NEGATIVE_PRIME_MODULUS.slice(0, NUM_LIMB_BITS).lo),
+            FF(NEGATIVE_PRIME_MODULUS.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2).lo),
+            FF(NEGATIVE_PRIME_MODULUS.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3).lo),
+            FF(NEGATIVE_PRIME_MODULUS.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4).lo),
+            -FF(curve::BN254::BaseField::modulus)
+        };
+
+        using Relation = GoblinTranslatorNonNativeFieldRelation<FF>;
+        using RelationValues = typename Relation::SumcheckArrayOfValuesOverSubrelations;
+
+        const InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
+
+        auto& op = input_elements.op;
+        auto& p_x_low_limbs = input_elements.p_x_low_limbs;
+        auto& p_y_low_limbs = input_elements.p_y_low_limbs;
+        auto& p_x_high_limbs = input_elements.p_x_high_limbs;
+        auto& p_y_high_limbs = input_elements.p_y_high_limbs;
+        auto& accumulators_binary_limbs_0 = input_elements.accumulators_binary_limbs_0;
+        auto& accumulators_binary_limbs_1 = input_elements.accumulators_binary_limbs_1;
+        auto& accumulators_binary_limbs_2 = input_elements.accumulators_binary_limbs_2;
+        auto& accumulators_binary_limbs_3 = input_elements.accumulators_binary_limbs_3;
+        auto& z_low_limbs = input_elements.z_low_limbs;
+        auto& z_high_limbs = input_elements.z_high_limbs;
+        auto& quotient_low_binary_limbs = input_elements.quotient_low_binary_limbs;
+        auto& quotient_high_binary_limbs = input_elements.quotient_high_binary_limbs;
+        auto& p_x_low_limbs_shift = input_elements.p_x_low_limbs_shift;
+        auto& p_y_low_limbs_shift = input_elements.p_y_low_limbs_shift;
+        auto& p_x_high_limbs_shift = input_elements.p_x_high_limbs_shift;
+        auto& p_y_high_limbs_shift = input_elements.p_y_high_limbs_shift;
+        auto& accumulators_binary_limbs_0_shift = input_elements.accumulators_binary_limbs_0_shift;
+        auto& accumulators_binary_limbs_1_shift = input_elements.accumulators_binary_limbs_1_shift;
+        auto& accumulators_binary_limbs_2_shift = input_elements.accumulators_binary_limbs_2_shift;
+        auto& accumulators_binary_limbs_3_shift = input_elements.accumulators_binary_limbs_3_shift;
+        auto& z_low_limbs_shift = input_elements.z_low_limbs_shift;
+        auto& z_high_limbs_shift = input_elements.z_high_limbs_shift;
+        auto& quotient_low_binary_limbs_shift = input_elements.quotient_low_binary_limbs_shift;
+        auto& quotient_high_binary_limbs_shift = input_elements.quotient_high_binary_limbs_shift;
+        auto& relation_wide_limbs = input_elements.relation_wide_limbs;
+        auto& relation_wide_limbs_shift = input_elements.relation_wide_limbs_shift;
+        auto& lagrange_odd_in_minicircuit = input_elements.lagrange_odd_in_minicircuit;
+
+        RelationValues expected_values;
+
+        const auto parameters = RelationParameters<FF>::get_random();
+
+        // A detailed description of these subrelations is located in the relation's documentation
+
+        // Lower wide limb (lower 136 bits) subrelation
+        expected_values[0] =
+            (accumulators_binary_limbs_0_shift * parameters.evaluation_input_x[0] + op +
+             p_x_low_limbs * parameters.batching_challenge_v[0][0] +
+             p_y_low_limbs * parameters.batching_challenge_v[1][0] +
+             z_low_limbs * parameters.batching_challenge_v[2][0] +
+             z_low_limbs_shift * parameters.batching_challenge_v[3][0] +
+             quotient_low_binary_limbs * NEGATIVE_MODULUS_LIMBS[0] - accumulators_binary_limbs_0 +
+             (accumulators_binary_limbs_1_shift * parameters.evaluation_input_x[0] +
+              accumulators_binary_limbs_0_shift * parameters.evaluation_input_x[1] +
+              p_x_low_limbs * parameters.batching_challenge_v[0][1] +
+              p_x_low_limbs_shift * parameters.batching_challenge_v[0][0] +
+              p_y_low_limbs * parameters.batching_challenge_v[1][1] +
+              p_y_low_limbs_shift * parameters.batching_challenge_v[1][0] +
+              z_low_limbs * parameters.batching_challenge_v[2][1] +
+              z_high_limbs * parameters.batching_challenge_v[2][0] +
+              z_low_limbs_shift * parameters.batching_challenge_v[3][1] +
+              z_high_limbs_shift * parameters.batching_challenge_v[3][0] +
+              quotient_low_binary_limbs * NEGATIVE_MODULUS_LIMBS[1] +
+              quotient_low_binary_limbs_shift * NEGATIVE_MODULUS_LIMBS[0] - accumulators_binary_limbs_1) *
+                 shift -
+             relation_wide_limbs * shiftx2) *
+            lagrange_odd_in_minicircuit;
+
+        // Higher wide limb subrelation
+        expected_values[1] =
+            (relation_wide_limbs + accumulators_binary_limbs_2_shift * parameters.evaluation_input_x[0] +
+             accumulators_binary_limbs_1_shift * parameters.evaluation_input_x[1] +
+             accumulators_binary_limbs_0_shift * parameters.evaluation_input_x[2] +
+             p_x_high_limbs * parameters.batching_challenge_v[0][0] +
+             p_x_low_limbs_shift * parameters.batching_challenge_v[0][1] +
+             p_x_low_limbs * parameters.batching_challenge_v[0][2] +
+             p_y_high_limbs * parameters.batching_challenge_v[1][0] +
+             p_y_low_limbs_shift * parameters.batching_challenge_v[1][1] +
+             p_y_low_limbs * parameters.batching_challenge_v[1][2] +
+             z_high_limbs * parameters.batching_challenge_v[2][1] +
+             z_low_limbs * parameters.batching_challenge_v[2][2] +
+             z_high_limbs_shift * parameters.batching_challenge_v[3][1] +
+             z_low_limbs_shift * parameters.batching_challenge_v[3][2] +
+             quotient_high_binary_limbs * NEGATIVE_MODULUS_LIMBS[0] +
+             quotient_low_binary_limbs_shift * NEGATIVE_MODULUS_LIMBS[1] +
+             quotient_low_binary_limbs * NEGATIVE_MODULUS_LIMBS[2] - accumulators_binary_limbs_2 +
+             (accumulators_binary_limbs_3_shift * parameters.evaluation_input_x[0] +
+              accumulators_binary_limbs_2_shift * parameters.evaluation_input_x[1] +
+              accumulators_binary_limbs_1_shift * parameters.evaluation_input_x[2] +
+              accumulators_binary_limbs_0_shift * parameters.evaluation_input_x[3] +
+              p_x_high_limbs_shift * parameters.batching_challenge_v[0][0] +
+              p_x_high_limbs * parameters.batching_challenge_v[0][1] +
+              p_x_low_limbs_shift * parameters.batching_challenge_v[0][2] +
+              p_x_low_limbs * parameters.batching_challenge_v[0][3] +
+              p_y_high_limbs_shift * parameters.batching_challenge_v[1][0] +
+              p_y_high_limbs * parameters.batching_challenge_v[1][1] +
+              p_y_low_limbs_shift * parameters.batching_challenge_v[1][2] +
+              p_y_low_limbs * parameters.batching_challenge_v[1][3] +
+              z_high_limbs * parameters.batching_challenge_v[2][2] +
+              z_low_limbs * parameters.batching_challenge_v[2][3] +
+              z_high_limbs_shift * parameters.batching_challenge_v[3][2] +
+              z_low_limbs_shift * parameters.batching_challenge_v[3][3] +
+              quotient_high_binary_limbs_shift * NEGATIVE_MODULUS_LIMBS[0] +
+              quotient_high_binary_limbs * NEGATIVE_MODULUS_LIMBS[1] +
+              quotient_low_binary_limbs_shift * NEGATIVE_MODULUS_LIMBS[2] +
+              quotient_low_binary_limbs * NEGATIVE_MODULUS_LIMBS[3] - accumulators_binary_limbs_3) *
+                 shift -
+             relation_wide_limbs_shift * shiftx2) *
+            lagrange_odd_in_minicircuit;
+        auto reconstructed_p_x =
+            (p_x_low_limbs + p_x_low_limbs_shift * shift + p_x_high_limbs * shiftx2 + p_x_high_limbs_shift * shiftx3);
+        auto reconstructed_p_y =
+            (p_y_low_limbs + p_y_low_limbs_shift * shift + p_y_high_limbs * shiftx2 + p_y_high_limbs_shift * shiftx3);
+        auto reconstructed_previous_accumulator =
+            (accumulators_binary_limbs_0_shift + accumulators_binary_limbs_1_shift * shift +
+             accumulators_binary_limbs_2_shift * shiftx2 + accumulators_binary_limbs_3_shift * shiftx3);
+        auto reconstructed_current_accumulator =
+            (accumulators_binary_limbs_0 + accumulators_binary_limbs_1 * shift + accumulators_binary_limbs_2 * shiftx2 +
+             accumulators_binary_limbs_3 * shiftx3);
+        auto reconstructed_z1 = (z_low_limbs + z_high_limbs * shift);
+        auto reconstructed_z2 = (z_low_limbs_shift + z_high_limbs_shift * shift);
+        auto reconstructed_quotient =
+            (quotient_low_binary_limbs + quotient_low_binary_limbs_shift * shift +
+             quotient_high_binary_limbs * shiftx2 + quotient_high_binary_limbs_shift * shiftx3);
+
+        // Native field relation
+        expected_values[2] = (reconstructed_previous_accumulator * parameters.evaluation_input_x[4] + op +
+                              reconstructed_p_x * parameters.batching_challenge_v[0][4] +
+                              reconstructed_p_y * parameters.batching_challenge_v[1][4] +
+                              reconstructed_z1 * parameters.batching_challenge_v[2][4] +
+                              reconstructed_z2 * parameters.batching_challenge_v[3][4] +
+                              reconstructed_quotient * NEGATIVE_MODULUS_LIMBS[4] - reconstructed_current_accumulator) *
+                             lagrange_odd_in_minicircuit;
+
         validate_relation_execution<Relation>(expected_values, input_elements, parameters);
     };
     run_test(/*random_inputs=*/false);

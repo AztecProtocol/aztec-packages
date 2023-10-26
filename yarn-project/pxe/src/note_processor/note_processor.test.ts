@@ -1,6 +1,6 @@
 import { AcirSimulator } from '@aztec/acir-simulator';
 import { CircuitsWasm, Fr, MAX_NEW_COMMITMENTS_PER_TX } from '@aztec/circuits.js';
-import { Grumpkin, pedersenCompressInputs } from '@aztec/circuits.js/barretenberg';
+import { Grumpkin, pedersenHashInputs } from '@aztec/circuits.js/barretenberg';
 import { Point } from '@aztec/foundation/fields';
 import { ConstantKeyPair } from '@aztec/key-store';
 import {
@@ -40,7 +40,7 @@ describe('Note Processor', () => {
 
   const computeMockNoteHash = (preimage: Fr[]) =>
     Fr.fromBuffer(
-      pedersenCompressInputs(
+      pedersenHashInputs(
         wasm,
         preimage.map(p => p.toBuffer()),
       ),
@@ -95,7 +95,7 @@ describe('Note Processor', () => {
     const numberOfBlocks = prependedBlocks + appendedBlocks + 1;
     for (let i = 0; i < numberOfBlocks; ++i) {
       const block = L2Block.random(firstBlockNum + i, TXS_PER_BLOCK);
-      block.startPrivateDataTreeSnapshot.nextAvailableLeafIndex = firstBlockDataStartIndex + i * numCommitmentsPerBlock;
+      block.startNoteHashTreeSnapshot.nextAvailableLeafIndex = firstBlockDataStartIndex + i * numCommitmentsPerBlock;
 
       const isTargetBlock = i === prependedBlocks;
       const { newNotes, encryptedLogs, ownedNoteSpendingInfo } = createEncryptedLogsAndOwnedNoteSpendingInfo(

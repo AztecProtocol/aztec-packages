@@ -4,9 +4,9 @@ title: Deploy & Call Contracts with Typescript
 
 In this step, we We will now write a Typescript to interact with the sandbox and see our Solidity and Aztec.nr contracts in action.
 
-In the root folder, go to `src` dir we created in [the token bridge tutorial](../token_portal/setup.md).
+In the `packages` directory, go to `src` dir we created in [the token bridge tutorial](../token_portal/setup.md).
 
-```sh
+```bash
 cd src/test
 touch uniswap.test.ts
 ```
@@ -22,14 +22,14 @@ We will write two tests:
 
 To compile the Solidity contracts, run this:
 
-```sh
+```bash
 cd l1-contracts
 npx hardhat compile
 ```
 
 and the Aztec.nr contracts:
 
-```sh
+```bash
 cd aztec-contracts
 aztec-cli compile --typescript ../../src/test/fixtures uniswap
 ```
@@ -58,7 +58,8 @@ export FORK_URL=<YOUR_RPC_URL e.g. https://mainnet.infura.io/v3/API_KEY>
 ```
 
 Now rerun the sandbox:
-```sh
+
+```bash
 /bin/sh -c "$(curl -fsSL 'https://sandbox.aztec.network')"
 ```
 
@@ -94,7 +95,7 @@ import {
   parseEther,
 } from "viem";
 import { foundry } from "viem/chains";
-import { CrossChainTestHarness } from "./fixtures/cross_chain_test_harness.js";
+import { CrossChainTestHarness } from "./shared/cross_chain_test_harness.js";
 import { UniswapContract } from "./fixtures/Uniswap.js";
 import { beforeAll, expect, jest } from "@jest/globals";
 import {
@@ -113,30 +114,30 @@ const MNEMONIC = "test test test test test test test test test test test junk";
 const hdAccount = mnemonicToAccount(MNEMONIC);
 const expectedForkBlockNumber = 17514288;
 
-#include_code uniswap_l1_l2_test_setup_const yarn-project/end-to-end/src/canary/uniswap_l1_l2.ts typescript raw
-#include_code uniswap_setup yarn-project/canary/src/uniswap_trade_on_l1_from_l2.test.ts typescript raw
-#include_code uniswap_l1_l2_test_beforeAll yarn-project/end-to-end/src/canary/uniswap_l1_l2.ts typescript raw
+#include_code uniswap_l1_l2_test_setup_const yarn-project/end-to-end/src/shared/uniswap_l1_l2.ts raw
+#include_code uniswap_setup yarn-project/canary/src/uniswap_trade_on_l1_from_l2.test.ts raw
+#include_code uniswap_l1_l2_test_beforeAll yarn-project/end-to-end/src/shared/uniswap_l1_l2.ts raw
 ```
 
 ## Private flow test
 
-#include_code uniswap_private yarn-project/end-to-end/src/canary/uniswap_l1_l2.ts typescript
+#include_code uniswap_private yarn-project/end-to-end/src/shared/uniswap_l1_l2.ts typescript
 
 ## Public flow test
 
-#include_code uniswap_public yarn-project/end-to-end/src/canary/uniswap_l1_l2.ts typescript
+#include_code uniswap_public yarn-project/end-to-end/src/shared/uniswap_l1_l2.ts typescript
 
 ## Running the test
 
 Make sure your sandbox is running.
 
-```sh
+```bash
 cd ~/.aztec && docker-compose up
 ```
 
 Then run this in the root directory.
 
 ```bash
-cd src
+cd packages/src
 yarn test uniswap
 ```

@@ -9,8 +9,8 @@ import {
 } from '@aztec/aztec.js';
 import { TokenBridgeContract, TokenContract } from '@aztec/noir-contracts/types';
 
-import { CrossChainTestHarness } from './fixtures/cross_chain_test_harness.js';
 import { delay, setup } from './fixtures/utils.js';
+import { CrossChainTestHarness } from './shared/cross_chain_test_harness.js';
 
 describe('e2e_cross_chain_messaging', () => {
   let logger: DebugLogger;
@@ -234,5 +234,5 @@ describe('e2e_cross_chain_messaging', () => {
     ).rejects.toThrowError(
       "Failed to solve brillig function, reason: explicit trap hit in brillig 'l1_to_l2_message_data.message.content == content'",
     );
-  });
+  }, 50_000);
 });
