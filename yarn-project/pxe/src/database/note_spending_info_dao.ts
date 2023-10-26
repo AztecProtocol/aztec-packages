@@ -1,6 +1,6 @@
 import { AztecAddress, Fr, PublicKey } from '@aztec/circuits.js';
 import { Point } from '@aztec/foundation/fields';
-import { NotePreimage } from '@aztec/types';
+import { NotePreimage, TxHash, randomTxHash } from '@aztec/types';
 
 /**
  * Represents the data access object for auxiliary transaction data.
@@ -12,6 +12,10 @@ export interface NoteSpendingInfoDao {
    * The contract address this note is created in.
    */
   contractAddress: AztecAddress;
+  /**
+   * The hash of the tx the note was created in.
+   */
+  txHash: TxHash;
   /**
    * The nonce of the note.
    */
@@ -45,6 +49,7 @@ export interface NoteSpendingInfoDao {
 
 export const createRandomNoteSpendingInfoDao = ({
   contractAddress = AztecAddress.random(),
+  txHash = randomTxHash(),
   nonce = Fr.random(),
   storageSlot = Fr.random(),
   notePreimage = NotePreimage.random(),
@@ -54,6 +59,7 @@ export const createRandomNoteSpendingInfoDao = ({
   publicKey = Point.random(),
 }: Partial<NoteSpendingInfoDao> = {}): NoteSpendingInfoDao => ({
   contractAddress,
+  txHash,
   nonce,
   storageSlot,
   notePreimage,

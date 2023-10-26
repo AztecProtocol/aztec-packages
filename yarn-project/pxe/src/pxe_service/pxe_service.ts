@@ -250,6 +250,7 @@ export class PXEService implements PXE {
 
     await this.db.addNoteSpendingInfo({
       contractAddress,
+      txHash,
       storageSlot,
       notePreimage: preimage,
       nonce,

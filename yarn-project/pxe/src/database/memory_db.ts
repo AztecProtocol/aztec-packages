@@ -67,6 +67,7 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
     return this.noteSpendingInfoTable.filter(
       noteSpendingInfo =>
         (filter.contractAddress == undefined || noteSpendingInfo.contractAddress.equals(filter.contractAddress)) &&
+        (filter.txHash == undefined || noteSpendingInfo.txHash.equals(filter.txHash)) &&
         (filter.storageSlot == undefined || noteSpendingInfo.storageSlot.equals(filter.storageSlot!)) &&
         (ownerPublicKey == undefined || noteSpendingInfo.publicKey.equals(ownerPublicKey!)),
     );

@@ -15,10 +15,10 @@ import {
   TxReceipt,
 } from '@aztec/types';
 
+import { NoteFilter } from '../note_filter.js';
 import { DeployedContract } from './deployed-contract.js';
 import { NodeInfo } from './node-info.js';
 import { SyncStatus } from './sync-status.js';
-import { NoteFilter } from '../note_filter.js';
 
 // docs:start:pxe-interface
 /**

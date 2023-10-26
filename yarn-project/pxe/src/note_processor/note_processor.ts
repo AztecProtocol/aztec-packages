@@ -99,7 +99,8 @@ export class NoteProcessor {
     for (let blockIndex = 0; blockIndex < encryptedL2BlockLogs.length; ++blockIndex) {
       this.stats.blocks++;
       const { txLogs } = encryptedL2BlockLogs[blockIndex];
-      const block = l2BlockContexts[blockIndex].block;
+      const blockContext = l2BlockContexts[blockIndex];
+      const block = blockContext.block;
       const dataStartIndexForBlock = block.startNoteHashTreeSnapshot.nextAvailableLeafIndex;
 
       // We are using set for `userPertainingTxIndices` to avoid duplicates. This would happen in case there were
@@ -145,6 +146,7 @@ export class NoteProcessor {
                   siloedNullifier,
                   index,
                   publicKey: this.publicKey,
+                  txHash: blockContext.getTxHash(indexOfTxInABlock),
                 });
                 this.stats.decrypted++;
               } catch (e) {
