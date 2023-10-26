@@ -59,7 +59,7 @@ BBERG_PROFILE static void test_round(State& state, size_t index) noexcept
     {                                                                                                                  \
         test_round(state, round);                                                                                      \
     }                                                                                                                  \
-    BENCHMARK(ROUND_##round)->Unit(::benchmark::kMillisecond)
+    BENCHMARK(ROUND_##round)->Unit(kMillisecond)
 
 // Fast rounds take a long time to benchmark because of how we compute statistical significance.
 // Limit to one iteration so we don't spend a lot of time redoing full proofs just to measure this part.
