@@ -1,0 +1,10 @@
+[package]
+name = "counter_contract"
+type = "bin"
+authors = [""]
+compiler_version = "0.1"
+
+[dependencies]
+aztec = { path = "../../../../aztec-nr/aztec" }
+value_note = { path = "../../../../aztec-nr/value-note" }
+easy_private_state = { path = "../../../../aztec-nr/easy-private-state"}

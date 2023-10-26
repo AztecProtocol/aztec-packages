@@ -44,7 +44,7 @@ cd ~/.aztec && docker-compose up
 
 ## Otterscan
 
-If you have set up the Sandbox with Docker, you will also have Ottescan.
+If you have set up the Sandbox with Docker, you will also have Otterscan.
 
 You can see Ethereum Layer 1 activity through the local Otterscan on [`http://localhost:5100`](`http://localhost:5100`). This is especially useful for dapps that use L1-L2 messaging through [portal contracts](../contracts/portals/main.md).
 
@@ -58,7 +58,7 @@ You can find the cheat code reference [here](../testing/cheat_codes.md).
 
 ## Contracts
 
-We have shipped a number of example contracts in the `@aztec/noir-contracts` npm package. This is included with the cli by default so you are able to use these contracts to test with. To get a list of the names of the contracts run:
+We have shipped a number of example contracts in the `@aztec/noir-contracts` [npm package](https://www.npmjs.com/package/@aztec/noir-contracts). This is included with the cli by default so you are able to use these contracts to test with. To get a list of the names of the contracts run:
 
 ```bash title="example-contracts" showLineNumbers
 % aztec-cli example-contracts

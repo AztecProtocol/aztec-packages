@@ -89,59 +89,29 @@ compiler_version = "0.16.0"
 Add the following dependencies under `[dependencies]`:
 
 ```toml
-aztec = { git="https://github.com/AztecProtocol/aztec-packages", tag="master", directory="yarn-project/noir-libs/aztec-noir" }
-value_note = { git="https://github.com/AztecProtocol/aztec-packages", tag="master", directory="yarn-project/noir-libs/value-note"}
-easy_private_state = { git="https://github.com/AztecProtocol/aztec-packages", tag="master", directory="yarn-project/noir-libs/easy-private-state"}
+aztec = { git="https://github.com/AztecProtocol/aztec-packages", tag="#include_aztec_version", directory="yarn-project/aztec-nr/aztec" }
+value_note = { git="https://github.com/AztecProtocol/aztec-packages", tag="#include_aztec_version", directory="yarn-project/aztec-nr/value-note"}
+easy_private_state = { git="https://github.com/AztecProtocol/aztec-packages", tag="#include_aztec_version", directory="yarn-project/aztec-nr/easy-private-state"}
 ```
 
 ## Define the functions
 
-Go to `main.nr` and replace the code with this contract and functions:
+Go to `main.nr` and replace the code with this contract initialization:
 
 ```rust
 contract Counter {
-    #[aztec(private)]
-    fn constructor(initial_count: u120, owner: Field) {}
-
-    #[aztec(private)]
-    fn increment(owner: Field) {}
-
-    unconstrained fn getCounter(owner: Field) -> Field {
-        0
-    }
 }
 ```
 
-This code defines a contract called `Counter` with four functions that we will implement later - a `constructor` which is called when the contract is deployed, `increment`, and `getCounter`.
-
-We have annotated the functions with `#[aztec(private)]` which are ABI macros so the compiler understands it will handle private inputs. Learn more about functions and annotations [here](../contracts/syntax/functions.md).
-
-The `getCounter` function doesn’t need this as it will only be reading from the chain, not updating state, similar to a `view` function in Solidity. This is what `unconstrained` means.
+This defines a contract called `Counter`.
 
 ## Imports
 
 We need to define some imports.
 
-Write this within your contract at the top:
+Write this within your contract at the top
 
-```rust
-    use dep::aztec::{
-        context::{PrivateContext, Context},
-        note::{
-            note_header::NoteHeader,
-            utils as note_utils,
-        },
-        state_vars::map::Map,
-    };
-    use dep::value_note::{
-            balance_utils,
-            value_note::{
-                ValueNoteMethods,
-                VALUE_NOTE_LEN,
-            },
-    };
-    use dep::easy_private_state::easy_private_state::EasyPrivateUint;
-```
+#include_code imports /yarn-project/noir-contracts/src/contracts/counter_contract/src/main.nr rust
 
 `context::{PrivateContext, Context}`
 
@@ -165,29 +135,11 @@ This allows us to store our counter in a way that acts as an integer, abstractin
 
 In this step, we will initiate a `Storage` struct to store balances in a private way. The vast majority Aztec.nr smart contracts will need this.
 
-```rust
-struct Storage {
-        counts: Map<EasyPrivateUint>,
-    }
-```
+#include_code storage_struct /yarn-project/noir-contracts/src/contracts/counter_contract/src/main.nr rust
 
 We are only storing one variable - `counts` as a `Map` of `EasyPrivateUint`. This means our `count` will act as a private integer, and we can map it to an address.
 
-```rust
-impl Storage {
-        fn init(context: Context) -> pub Self {
-            Storage {
-                counters: Map::new(
-                    context,
-                    1,
-                    |context, slot| {
-                        EasyPrivateUint::new(context, slot)
-                    },
-                ),
-            }
-        }
-    }
-```
+#include_code storage_init /yarn-project/noir-contracts/src/contracts/counter_contract/src/main.nr rust
 
 This `init` method is creating and initializing a `Storage` instance. This instance includes a `Map` named `counters`. Each entry in this `Map` represents an account's counter.
 
@@ -197,27 +149,17 @@ Now we’ve got a mechanism for storing our private state, we can start using it
 
 Let’s create a `constructor` method to run on deployment that assigns an initial supply of tokens to a specified owner. In the constructor we created in the first step, write this:
 
-```rust
- #[aztec(private)]
-    fn constructor(initial_counter: u120, owner: Field) {
-        let counts = storage.counts;
-        counts.at(owner).add(headstart, owner);
-    }
-```
+#include_code constructor /yarn-project/noir-contracts/src/contracts/counter_contract/src/main.nr rust
 
 This function accesses the counts from storage. Then it assigns the passed initial counter to the `owner`'s counter privately using `at().add()`.
+
+We have annotated this and other functions with `#[aztec(private)]` which are ABI macros so the compiler understands it will handle private inputs. Learn more about functions and annotations [here](../contracts/syntax/functions.md).
 
 ## Incrementing our counter
 
 Now let’s implement the `increment` functio we defined in the first step.
 
-```rust
- #[aztec(private)]
-      fn increment(owner: Field)  {
-        let couners = storage.counters;
-        counters.at(owner).add(1, owner);
-    }
-```
+#include_code increment /yarn-project/noir-contracts/src/contracts/counter_contract/src/main.nr rust
 
 The `increment` function works very similarly to the `constructor`, but instead directly adds 1 to the counter rather than passing in an initial count parameter.
 
@@ -227,17 +169,7 @@ Because our counters are private, the network can't directly verify if a note wa
 
 Add a new function into your contract as shown below:
 
-```rust
-unconstrained fn compute_note_hash_and_nullifier(
-    contract_address: Field,
-    nonce: Field,
-    storage_slot: Field,
-    preimage: [Field; VALUE_NOTE_LEN],
-) -> [Field; 4] {
-    let note_header = NoteHeader { contract_address, nonce, storage_slot };
-    note_utils::compute_note_hash_and_nullifier(ValueNoteMethods, note_header, preimage)
-}
-```
+#include_code nullifier /yarn-project/noir-contracts/src/contracts/counter_contract/src/main.nr rust
 
 Here, we're computing both the note hash and the nullifier. The nullifier computation uses Aztec’s `compute_note_hash_and_nullifier` function, which takes details about the note's attributes eg contract address, nonce, storage slot, and preimage.
 
@@ -245,12 +177,7 @@ Here, we're computing both the note hash and the nullifier. The nullifier comput
 
 The last thing we need to implement is the function in order to retrieve a counter. In the `getCounter` we defined in the first step, write this:
 
-```rust
-unconstrained fn get_counter(owner: Field) -> Field {
-    let counts = storage.counters;
-    balance_utils::get_balance(counters.at(owner).set)
-}
-```
+#include_code get_counter /yarn-project/noir-contracts/src/contracts/counter_contract/src/main.nr rust
 
 This function is `unconstrained` which allows us to fetch data from storage without a transaction. We retrieve a reference to the `owner`'s `counter` from the `counters` Map. The `get_balance` function then operates on the owner's counter. This yields a private counter that only the private key owner can decrypt.
 
@@ -283,7 +210,20 @@ aztec-cli get-accounts
 This will return something like this:
 
 ```bash
+➜ counter aztec-cli get-accounts
+Accounts found:
 
+Address: 0x25048e8c1b7dea68053d597ac2d920637c99523651edfb123d0632da785970d0
+Public Key: 0x27c20118733174347b8082f578a7d8fb84b3ad38be293715eee8119ee5cd8a6d0d6b7d8124b37359663e75bcd2756f544a93b821a06f8e33fba68cc8029794d9
+Partial Address: 0x077fed6015ea2e4aabfd566b16d9528e79dc0f1d8573716a3f4de1f02962e8c9
+
+Address: 0x115f123bbc6cc6af9890055821cfba23a7c4e8832377a32ccb719a1ba3a86483
+Public Key: 0x08145e8e8d46f51cda8d4c9cad81920236366abeafb8d387002bad879a3e87a81570b04ac829e4c007141d856d5a36d3b9c464e0f3c1c99cdbadaa6bb93f3257
+Partial Address: 0x092908a7140034c7add7f2fac103abc41bedd5474cf09b1c9c16e5331282de77
+
+Address: 0x0402655a1134f3f248e9f2032c27b26d2c3ab57eaab3189541895c13f3622eba
+Public Key: 0x13e6151ea8e7386a5e7c4c5221047bf73d0b1b7a2ad14d22b7f73e57c1fa00c614bc6da69da1b581b09ee6cdc195e5d58ae4dce01b63bbb744e58f03855a94dd
+Partial Address: 0x211edeb823ef3e042e91f338d0d83d0c90606dba16f678c701d8bb64e64e2be5
 ```
 
 Use one of these `address`es as the `owner`. You can either copy it or export.

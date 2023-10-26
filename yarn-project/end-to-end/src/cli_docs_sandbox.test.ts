@@ -26,8 +26,11 @@ describe('CLI docs sandbox', () => {
 
   const waitForSandboxWithCli = async () => {
     const docs = `
+// docs:start:node-info-command
+aztec-cli get-node-info
+// docs:end:node-info-command
+
 // docs:start:node-info
-% aztec-cli get-node-info
 Node Info:
 
 Sandbox Version: #include_aztec_short_version
