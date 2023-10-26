@@ -5,95 +5,73 @@ import { Buffer } from 'buffer';
 import { deserializeArrayFromVector, deserializeField, serializeBufferArrayToVector } from '../../serialize.js';
 
 /**
- * Compresses two 32-byte hashes.
+ * Hashes two arrays.
  * @param wasm - The barretenberg module.
- * @param lhs - The first hash.
- * @param rhs - The second hash.
+ * @param lhs - The first array.
+ * @param rhs - The second array.
  * @returns The new 32-byte hash.
  * @deprecated Don't call pedersen directly in production code. Instead, create suitably-named functions for specific
  * purposes.
  */
-export function pedersenCompress(wasm: IWasmModule, lhs: Uint8Array, rhs: Uint8Array): Buffer {
-  // If not done already, precompute constants.
-  wasm.call('pedersen__init');
-  if (lhs.length !== 32 || rhs.length !== 32) {
-    throw new Error(`Pedersen lhs and rhs inputs must be 32 bytes (got ${lhs.length} and ${rhs.length} respectively)`);
-  }
-  wasm.writeMemory(0, lhs);
-  wasm.writeMemory(32, rhs);
-  wasm.call('pedersen__hash_pair', 0, 32, 64);
-  return Buffer.from(wasm.getMemorySlice(64, 96));
+export function pedersenHash(wasm: IWasmModule, lhs: Uint8Array, rhs: Uint8Array): Buffer {
+  return pedersenHashWithHashIndex(wasm, [Buffer.from(lhs), Buffer.from(rhs)], 0);
 }
 
 /**
- * Combine an array of hashes using pedersen hash.
+ * Computes the hash of an array of buffers.
  * @param wasm - The barretenberg module.
- * @param lhs - The first hash.
- * @param rhs - The second hash.
+ * @param inputs - The array of buffers to hash.
  * @returns The new 32-byte hash.
  * @deprecated Don't call pedersen directly in production code. Instead, create suitably-named functions for specific
  * purposes.
  */
 export function pedersenHashInputs(wasm: IWasmModule, inputs: Buffer[]): Buffer {
-  // If not done already, precompute constants.
-  wasm.call('pedersen__init');
-  const inputVectors = serializeBufferArrayToVector(inputs);
-  wasm.writeMemory(0, inputVectors);
-  wasm.call('pedersen__hash_multiple', 0, 0);
-  return Buffer.from(wasm.getMemorySlice(0, 32));
+  return pedersenHashWithHashIndex(wasm, inputs, 0);
 }
 
 /**
- * Compresses an array of buffers.
+ * Hashes an array of buffers.
  * @param wasm - The barretenberg module.
- * @param inputs - The array of buffers to compress.
- * @returns The resulting 32-byte hash.
- * @deprecated Don't call pedersen directly in production code. Instead, create suitably-named functions for specific
- * purposes.
- */
-export function pedersenCompressInputs(wasm: IWasmModule, inputs: Buffer[]): Buffer {
-  // If not done already, precompute constants.
-  wasm.call('pedersen__init');
-  const inputVectors = serializeBufferArrayToVector(inputs);
-  wasm.writeMemory(0, inputVectors);
-  wasm.call('pedersen__compress', 0, 0);
-  return Buffer.from(wasm.getMemorySlice(0, 32));
-}
-
-/**
- * Compresses an array of buffers.
- * @param wasm - The barretenberg module.
- * @param inputs - The array of buffers to compress.
+ * @param inputs - The array of buffers to hash.
  * @param hashIndex - Hash index of the generator to use (See GeneratorIndex enum).
  * @returns The resulting 32-byte hash.
  * @deprecated Don't call pedersen directly in production code. Instead, create suitably-named functions for specific
  * purposes.
  */
-export function pedersenCompressWithHashIndex(wasm: IWasmModule, inputs: Buffer[], hashIndex: number): Buffer {
+export function pedersenHashWithHashIndex(wasm: IWasmModule, inputs: Buffer[], hashIndex: number): Buffer {
   // If not done already, precompute constants.
   wasm.call('pedersen__init');
-  const inputVectors = serializeBufferArrayToVector(inputs);
-  wasm.writeMemory(0, inputVectors);
-  wasm.call('pedersen__compress_with_hash_index', 0, 0, hashIndex);
-  return Buffer.from(wasm.getMemorySlice(0, 32));
-}
 
-/**
- * Get a 32-byte pedersen hash from a buffer.
- * @param wasm - The barretenberg module.
- * @param data - The data buffer.
- * @returns The hash buffer.
- * @deprecated Don't call pedersen directly in production code. Instead, create suitably-named functions for specific
- * purposes.
- */
-export function pedersenGetHash(wasm: IWasmModule, data: Buffer): Buffer {
-  // If not done already, precompute constants.
-  wasm.call('pedersen__init');
-  const mem = wasm.call('bbmalloc', data.length);
-  wasm.writeMemory(mem, data);
-  wasm.call('pedersen__buffer_to_field', mem, data.length, 0);
-  wasm.call('bbfree', mem);
-  return Buffer.from(wasm.getMemorySlice(0, 32));
+  const data = serializeBufferArrayToVector(inputs);
+
+  // WASM gives us 1024 bytes of scratch space which we can use without
+  // needing to allocate/free it ourselves. This can be useful for when we need to pass in several small variables
+  // when calling functions on the wasm, however it's important to not overrun this scratch space as otherwise
+  // the written data will begin to corrupt the stack.
+  //
+  // Using this scratch space isn't particularly safe if we have multiple threads interacting with the wasm however,
+  // each thread could write to the same pointer address simultaneously.
+  const SCRATCH_SPACE_SIZE = 1024;
+
+  // For pedersen hashing, the case of hashing two inputs is the most common.
+  // so ideally we want to optimize for that. This will use 64 bytes of memory and
+  // can thus be optimized by checking if the input buffer is smaller than the scratch space.
+  let inputPtr = 0;
+  if (inputs.length >= SCRATCH_SPACE_SIZE) {
+    inputPtr = wasm.call('bbmalloc', data.length);
+  }
+  wasm.writeMemory(inputPtr, data);
+
+  // Since the output is 32 bytes, instead of allocating memory
+  // we can reuse the scratch space to store the result.
+  const outputPtr = 0;
+
+  wasm.call('pedersen__compress_with_hash_index', inputPtr, hashIndex, outputPtr);
+  const hashOutput = wasm.getMemorySlice(0, 32);
+
+  wasm.call('bbfree', inputPtr);
+
+  return Buffer.from(hashOutput);
 }
 
 /**
@@ -102,7 +80,7 @@ export function pedersenGetHash(wasm: IWasmModule, data: Buffer): Buffer {
  *
  * E.g.
  * Input:  [1][2][3][4]
- * Output: [1][2][3][4][compress(1,2)][compress(3,4)][compress(5,6)].
+ * Output: [1][2][3][4][hash(1,2)][hash(3,4)][hash(5,6)].
  *
  * @param wasm - The barretenberg module.
  * @param values - The 32 byte pedersen leaves.
