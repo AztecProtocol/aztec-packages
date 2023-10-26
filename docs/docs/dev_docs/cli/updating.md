@@ -112,7 +112,7 @@ Then we install the `Compatible Nargo Version` with (replace `COMPATIBLE_NARGO_V
 noirup -v COMPATIBLE_NARGO_VERSION
 ```
 
-## Updating Noir framework
+## Updating Aztec.nr packages
 
 Finally we need to update the Noir framework for Aztec contracts.
 We need to install a version compatible with our `nargo` and Sandbox.
