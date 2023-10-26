@@ -25,12 +25,4 @@ export class Pedersen implements Hasher {
   public hashInputs(inputs: Buffer[]): Buffer {
     return pedersenHashInputs(this.wasm, inputs);
   }
-
-  /*
-   * @deprecated Don't call pedersen directly in production code. Instead, create suitably-named functions for specific
-   * purposes.
-   */
-  public hashToTree(leaves: Buffer[]): Promise<Buffer[]> {
-    return Promise.resolve(pedersenGetHashTree(this.wasm, leaves));
-  }
 }
