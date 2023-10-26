@@ -43,8 +43,7 @@ template <typename Curve> class ZeroMorphProver_ {
      * @param u_challenge Multivariate challenge u = (u_0, ..., u_{d-1})
      * @return std::vector<Polynomial> The quotients q_k
      */
-    static std::vector<Polynomial> compute_multilinear_quotients(Polynomial polynomial,
-                                                                           std::span<FF> u_challenge)
+    static std::vector<Polynomial> compute_multilinear_quotients(Polynomial polynomial, std::span<FF> u_challenge)
     {
         size_t log_N = numeric::get_msb(polynomial.size());
         // The size of the multilinear challenge must equal the log of the polynomial size
