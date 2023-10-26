@@ -49,11 +49,11 @@ template <typename Relation, size_t subrelation_index> constexpr bool subrelatio
 }
 
 /**
- * @brief Compute the full subrelation lenghhs, i.e., the lengths when regarding the challenges as
+ * @brief Compute the full subrelation lengths, i.e., the lengths when regarding the challenges as
  * variables.
  */
 template <typename RelationImpl>
-consteval std::array<size_t, RelationImpl::SUBRELATION_PARTIAL_LENGTHS.size()> compute_full_subrelation_lengths()
+consteval std::array<size_t, RelationImpl::SUBRELATION_PARTIAL_LENGTHS.size()> compute_total_subrelation_lengths()
 {
     if constexpr (HasParameterLengthAdjustmentsMember<RelationImpl>) {
         constexpr size_t NUM_SUBRELATIONS = RelationImpl::SUBRELATION_PARTIAL_LENGTHS.size();
@@ -123,7 +123,7 @@ template <typename RelationImpl> class Relation : public RelationImpl {
     using FF = typename RelationImpl::FF;
 
     static constexpr std::array<size_t, RelationImpl::SUBRELATION_PARTIAL_LENGTHS.size()>
-        FULL_SUBRELATION_PARTIAL_LENGTHS = compute_full_subrelation_lengths<RelationImpl>();
+        FULL_SUBRELATION_PARTIAL_LENGTHS = compute_total_subrelation_lengths<RelationImpl>();
 
     static constexpr size_t RELATION_LENGTH = *std::max_element(RelationImpl::SUBRELATION_PARTIAL_LENGTHS.begin(),
                                                                 RelationImpl::SUBRELATION_PARTIAL_LENGTHS.end());
