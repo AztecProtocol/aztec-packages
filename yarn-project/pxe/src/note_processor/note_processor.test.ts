@@ -99,10 +99,11 @@ describe('Note Processor', () => {
       block.startNoteHashTreeSnapshot.nextAvailableLeafIndex = firstBlockDataStartIndex + i * numCommitmentsPerBlock;
 
       const isTargetBlock = i === prependedBlocks;
-      const { newNotes, encryptedLogs, ownedL1NotePayloads: payloads } = createEncryptedLogsAndOwnedL1NotePayloads(
-        isTargetBlock ? ownedData : [],
-        isTargetBlock ? ownedNotes : [],
-      );
+      const {
+        newNotes,
+        encryptedLogs,
+        ownedL1NotePayloads: payloads,
+      } = createEncryptedLogsAndOwnedL1NotePayloads(isTargetBlock ? ownedData : [], isTargetBlock ? ownedNotes : []);
       encryptedLogsArr.push(encryptedLogs);
       ownedL1NotePayloads.push(...payloads);
       block.newCommitments = newNotes.map(n => computeMockNoteHash(n.notePreimage.items));

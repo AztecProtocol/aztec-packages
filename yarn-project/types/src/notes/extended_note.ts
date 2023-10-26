@@ -85,7 +85,7 @@ export class ExtendedNote {
   }
 
   /**
-   * Returns the size in bytes of a note spending info dao.
+   * Returns the size in bytes of the extended note.
    * @param note - The note.
    * @returns - Its size in bytes.
    */

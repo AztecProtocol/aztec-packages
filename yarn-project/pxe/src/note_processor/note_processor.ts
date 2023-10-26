@@ -27,7 +27,7 @@ interface ProcessedData {
    */
   blockContext: L2BlockContext;
   /**
-   * A collection of data access objects for note spending info.
+   * A processed extended notes.
    */
   extendedNotes: ExtendedNote[];
 }
@@ -116,7 +116,7 @@ export class NoteProcessor {
       const extendedNotes: ExtendedNote[] = [];
       const privateKey = await this.keyStore.getAccountPrivateKey(this.publicKey);
 
-      // Iterate over all the encrypted logs and try decrypting them. If successful, store the note spending info.
+      // Iterate over all the encrypted logs and try decrypting them. If successful, store the note.
       for (let indexOfTxInABlock = 0; indexOfTxInABlock < txLogs.length; ++indexOfTxInABlock) {
         this.stats.txs++;
         const dataStartIndexForTx = dataStartIndexForBlock + indexOfTxInABlock * MAX_NEW_COMMITMENTS_PER_TX;
@@ -286,7 +286,7 @@ https://github.com/AztecProtocol/aztec-packages/issues/1641`;
     const removedNotes = await this.db.removeNullifiedNotes(newNullifiers, this.publicKey);
     removedNotes.forEach(note => {
       this.log(
-        `Removed note spending info for contract ${note.contractAddress} at slot ${
+        `Removed note for contract ${note.contractAddress} at slot ${
           note.storageSlot
         } with nullifier ${note.siloedNullifier.toString()}`,
       );
