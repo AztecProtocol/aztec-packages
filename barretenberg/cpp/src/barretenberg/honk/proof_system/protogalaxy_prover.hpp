@@ -292,8 +292,11 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         for (size_t param_idx = 0; param_idx < params_to_fold.size(); param_idx++) {
             auto& univariate_param = *params_to_fold[param_idx];
             Univariate<FF, ProverInstances::NUM> tmp(0);
-            for (size_t instance_idx = 0; instance_idx < ProverInstances::NUM; instance_idx++) {
-                tmp.value_at(instance_idx) = *((*instances._data[instance_idx]).relation_parameters.to_fold[param_idx]);
+            size_t instance_idx = 0;
+            for (auto& instance : instances) {
+                auto parameter_to_fold = instance->relation_parameters.to_fold[param_idx];
+                tmp.value_at(instance_idx) = *(parameter_to_fold);
+                instance_idx++;
             }
             univariate_param = tmp.template extend_to<ProverInstances::EXTENDED_LENGTH>();
         }
