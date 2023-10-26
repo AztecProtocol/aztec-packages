@@ -946,10 +946,10 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
         Commitment shplonk_q_comm;
         Commitment kzg_w_comm;
         // the rest are only for Grumpkin
-        Commitment ipa_poly_degree_comm;
-        Commitment ipa_l_s_comm;
-        Commitment ipa_r_s_comm;
-        Commitment ipa_a_0_comm;
+        uint64_t ipa_poly_degree;
+        std::vector<Commitment> ipa_l_comms;
+        std::vector<Commitment> ipa_r_comms;
+        FF ipa_a_0_eval;
 
         Transcript() = default;
 
@@ -1133,18 +1133,23 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
             }
             shplonk_q_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(BaseTranscript<FF>::proof_data,
                                                                                          num_bytes_read);
-            kzg_w_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(BaseTranscript<FF>::proof_data,
-                                                                                     num_bytes_read);
-
-            if (std::is_same<PCS, pcs::ipa::IPA<curve::Grumpkin>>::value) {
-                ipa_poly_degree_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
+            if (std::is_same<PCS, pcs::kzg::KZG<curve::BN254>>::value) {
+                kzg_w_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(BaseTranscript<FF>::proof_data,
+                                                                                         num_bytes_read);
+            } else if (std::is_same<PCS, pcs::ipa::IPA<curve::Grumpkin>>::value) {
+                ipa_poly_degree = BaseTranscript<FF>::template deserialize_object<uint64_t>(
                     BaseTranscript<FF>::proof_data, num_bytes_read);
-                ipa_l_s_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
-                    BaseTranscript<FF>::proof_data, num_bytes_read);
-                ipa_r_s_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
-                    BaseTranscript<FF>::proof_data, num_bytes_read);
-                ipa_a_0_comm = BaseTranscript<FF>::template deserialize_object<Commitment>(
-                    BaseTranscript<FF>::proof_data, num_bytes_read);
+                auto log_poly_degree = static_cast<size_t>(numeric::get_msb(ipa_poly_degree));
+                for (size_t i = 0; i < log_poly_degree; ++i) {
+                    ipa_l_comms.emplace_back(BaseTranscript<FF>::template deserialize_object<Commitment>(
+                        BaseTranscript<FF>::proof_data, num_bytes_read));
+                    ipa_r_comms.emplace_back(BaseTranscript<FF>::template deserialize_object<Commitment>(
+                        BaseTranscript<FF>::proof_data, num_bytes_read));
+                }
+                ipa_a_0_eval =
+                    BaseTranscript<FF>::template deserialize_object<FF>(BaseTranscript<FF>::proof_data, num_bytes_read);
+            } else {
+                throw_or_abort("Unsupported PCS");
             }
         }
 
@@ -1243,18 +1248,24 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
             }
             BaseTranscript<FF>::template serialize_object(sumcheck_evaluations, BaseTranscript<FF>::proof_data);
             for (size_t i = 0; i < log_n - 1; ++i) {
-                BaseTranscript<FF>::template serialize_object(gemini_univariate_comms, BaseTranscript<FF>::proof_data);
+                BaseTranscript<FF>::template serialize_object(gemini_univariate_comms[i],
+                                                              BaseTranscript<FF>::proof_data);
             }
             for (size_t i = 0; i < log_n; ++i) {
-                BaseTranscript<FF>::template serialize_object(gemini_a_evals, BaseTranscript<FF>::proof_data);
+                BaseTranscript<FF>::template serialize_object(gemini_a_evals[i], BaseTranscript<FF>::proof_data);
             }
             BaseTranscript<FF>::template serialize_object(shplonk_q_comm, BaseTranscript<FF>::proof_data);
-            BaseTranscript<FF>::template serialize_object(kzg_w_comm, BaseTranscript<FF>::proof_data);
-            if (std::is_same<PCS, pcs::ipa::IPA<curve::Grumpkin>>::value) {
-                BaseTranscript<FF>::template serialize_object(ipa_poly_degree_comm, BaseTranscript<FF>::proof_data);
-                BaseTranscript<FF>::template serialize_object(ipa_l_s_comm, BaseTranscript<FF>::proof_data);
-                BaseTranscript<FF>::template serialize_object(ipa_r_s_comm, BaseTranscript<FF>::proof_data);
-                BaseTranscript<FF>::template serialize_object(ipa_a_0_comm, BaseTranscript<FF>::proof_data);
+            if (std::is_same<PCS, pcs::kzg::KZG<curve::BN254>>::value) {
+                BaseTranscript<FF>::template serialize_object(kzg_w_comm, BaseTranscript<FF>::proof_data);
+            } else if (std::is_same<PCS, pcs::ipa::IPA<curve::Grumpkin>>::value) {
+                BaseTranscript<FF>::template serialize_object(ipa_poly_degree, BaseTranscript<FF>::proof_data);
+                auto log_poly_degree = static_cast<size_t>(numeric::get_msb(ipa_poly_degree));
+                for (size_t i = 0; i < log_poly_degree; ++i) {
+                    BaseTranscript<FF>::template serialize_object(ipa_l_comms[i], BaseTranscript<FF>::proof_data);
+                    BaseTranscript<FF>::template serialize_object(ipa_r_comms[i], BaseTranscript<FF>::proof_data);
+                }
+
+                BaseTranscript<FF>::template serialize_object(ipa_a_0_eval, BaseTranscript<FF>::proof_data);
             }
             ASSERT(BaseTranscript<FF>::proof_data.size() == old_proof_length);
         }
