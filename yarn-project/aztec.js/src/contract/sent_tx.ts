@@ -1,6 +1,6 @@
 import { FieldsOf } from '@aztec/circuits.js';
 import { retryUntil } from '@aztec/foundation/retry';
-import { GetUnencryptedLogsResponse, NoteSpendingInfoDao, PXE, TxHash, TxReceipt, TxStatus } from '@aztec/types';
+import { ExtendedNote, GetUnencryptedLogsResponse, PXE, TxHash, TxReceipt, TxStatus } from '@aztec/types';
 
 import every from 'lodash.every';
 
@@ -85,7 +85,7 @@ export class SentTx {
    * @remarks This function will wait for the tx to be mined if it hasn't been already.
    * @returns The requested notes.
    */
-  public async getNotes(): Promise<NoteSpendingInfoDao[]> {
+  public async getNotes(): Promise<ExtendedNote[]> {
     await this.wait();
     return this.pxe.getNotes({ txHash: await this.getTxHash() });
   }

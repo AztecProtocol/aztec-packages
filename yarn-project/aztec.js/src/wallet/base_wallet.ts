@@ -4,6 +4,7 @@ import {
   ContractData,
   DeployedContract,
   ExtendedContractData,
+  ExtendedNote,
   FunctionCall,
   GetUnencryptedLogsResponse,
   L2Tx,
@@ -11,7 +12,6 @@ import {
   NodeInfo,
   NoteFilter,
   NotePreimage,
-  NoteSpendingInfoDao,
   PXE,
   SyncStatus,
   Tx,
@@ -71,7 +71,7 @@ export abstract class BaseWallet implements Wallet {
   getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
     return this.pxe.getTxReceipt(txHash);
   }
-  getNotes(filter: NoteFilter): Promise<NoteSpendingInfoDao[]> {
+  getNotes(filter: NoteFilter): Promise<ExtendedNote[]> {
     return this.pxe.getNotes(filter);
   }
   getPublicStorageAt(contract: AztecAddress, storageSlot: Fr): Promise<any> {

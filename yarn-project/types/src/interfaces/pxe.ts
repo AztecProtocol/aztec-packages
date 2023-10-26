@@ -4,11 +4,11 @@ import {
   CompleteAddress,
   ContractData,
   ExtendedContractData,
+  ExtendedNote,
   GetUnencryptedLogsResponse,
   L2Tx,
   LogFilter,
   NotePreimage,
-  NoteSpendingInfoDao,
   Tx,
   TxExecutionRequest,
   TxHash,
@@ -165,7 +165,7 @@ export interface PXE {
    * @param filter - The filter to apply to the notes.
    * @returns The requested notes.
    */
-  getNotes(filter: NoteFilter): Promise<NoteSpendingInfoDao[]>;
+  getNotes(filter: NoteFilter): Promise<ExtendedNote[]>;
 
   /**
    * Adds a note to the database. Throw if the note hash of the note doesn't exist in the tree.

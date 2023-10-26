@@ -6,11 +6,11 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import {
   AztecNode,
+  ExtendedNote,
   KeyStore,
   L2BlockContext,
   L2BlockL2Logs,
   NoteSpendingInfo,
-  NoteSpendingInfoDao,
   PublicKey,
 } from '@aztec/types';
 import { NoteProcessorStats } from '@aztec/types/stats';
@@ -29,7 +29,7 @@ interface ProcessedData {
   /**
    * A collection of data access objects for note spending info.
    */
-  noteSpendingInfoDaos: NoteSpendingInfoDao[];
+  extendedNotes: ExtendedNote[];
 }
 
 /**
@@ -113,7 +113,7 @@ export class NoteProcessor {
 
       // We are using set for `userPertainingTxIndices` to avoid duplicates. This would happen in case there were
       // multiple encrypted logs in a tx pertaining to a user.
-      const noteSpendingInfoDaos: NoteSpendingInfoDao[] = [];
+      const extendedNotes: ExtendedNote[] = [];
       const privateKey = await this.keyStore.getAccountPrivateKey(this.publicKey);
 
       // Iterate over all the encrypted logs and try decrypting them. If successful, store the note spending info.
@@ -147,8 +147,8 @@ export class NoteProcessor {
                 );
                 const index = BigInt(dataStartIndexForTx + commitmentIndex);
                 excludedIndices.add(commitmentIndex);
-                noteSpendingInfoDaos.push(
-                  new NoteSpendingInfoDao(
+                extendedNotes.push(
+                  new ExtendedNote(
                     noteSpendingInfo.notePreimage,
                     noteSpendingInfo.contractAddress,
                     blockContext.getTxHash(indexOfTxInABlock),
@@ -172,7 +172,7 @@ export class NoteProcessor {
 
       blocksAndNoteSpendingInfo.push({
         blockContext: l2BlockContexts[blockIndex],
-        noteSpendingInfoDaos,
+        extendedNotes,
       });
     }
 
@@ -267,13 +267,13 @@ https://github.com/AztecProtocol/aztec-packages/issues/1641`;
    * transaction auxiliary data from the database. This function keeps track of new nullifiers
    * and ensures all other transactions are updated with newly settled block information.
    *
-   * @param blocksAndNoteSpendingInfo - Array of objects containing L2BlockContexts, user-pertaining transaction indices, and NoteSpendingInfoDaos.
+   * @param blocksAndNoteSpendingInfo - Array of objects containing L2BlockContexts, user-pertaining transaction indices, and ExtendedNotes.
    */
   private async processBlocksAndNoteSpendingInfo(blocksAndNoteSpendingInfo: ProcessedData[]) {
-    const noteSpendingInfoDaosBatch = blocksAndNoteSpendingInfo.flatMap(b => b.noteSpendingInfoDaos);
-    if (noteSpendingInfoDaosBatch.length) {
-      await this.db.addNoteSpendingInfoBatch(noteSpendingInfoDaosBatch);
-      noteSpendingInfoDaosBatch.forEach(noteSpendingInfo => {
+    const extendedNotesBatch = blocksAndNoteSpendingInfo.flatMap(b => b.extendedNotes);
+    if (extendedNotesBatch.length) {
+      await this.db.addExtendedNotes(extendedNotesBatch);
+      extendedNotesBatch.forEach(noteSpendingInfo => {
         this.log(
           `Added note spending info for contract ${noteSpendingInfo.contractAddress} at slot ${
             noteSpendingInfo.storageSlot
@@ -283,7 +283,7 @@ https://github.com/AztecProtocol/aztec-packages/issues/1641`;
     }
 
     const newNullifiers: Fr[] = blocksAndNoteSpendingInfo.flatMap(b => b.blockContext.block.newNullifiers);
-    const removedNoteSpendingInfo = await this.db.removeNullifiedNoteSpendingInfo(newNullifiers, this.publicKey);
+    const removedNoteSpendingInfo = await this.db.removeNullifiedNotes(newNullifiers, this.publicKey);
     removedNoteSpendingInfo.forEach(noteSpendingInfo => {
       this.log(
         `Removed note spending info for contract ${noteSpendingInfo.contractAddress} at slot ${

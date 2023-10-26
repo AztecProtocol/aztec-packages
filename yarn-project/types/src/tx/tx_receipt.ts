@@ -1,5 +1,5 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { NoteSpendingInfoDao, TxHash } from '@aztec/types';
+import { ExtendedNote, TxHash } from '@aztec/types';
 
 /**
  * Possible status of a transaction.
@@ -43,7 +43,7 @@ export class TxReceipt {
     /**
      * Notes created in this tx.
      */
-    public notes?: NoteSpendingInfoDao[],
+    public notes?: ExtendedNote[],
   ) {}
 
   /**

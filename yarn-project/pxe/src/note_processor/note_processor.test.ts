@@ -5,6 +5,7 @@ import { Point } from '@aztec/foundation/fields';
 import { ConstantKeyPair } from '@aztec/key-store';
 import {
   AztecNode,
+  ExtendedNote,
   FunctionL2Logs,
   INITIAL_L2_BLOCK_NUM,
   KeyPair,
@@ -13,7 +14,6 @@ import {
   L2BlockContext,
   L2BlockL2Logs,
   NoteSpendingInfo,
-  NoteSpendingInfoDao,
   TxL2Logs,
 } from '@aztec/types';
 
@@ -30,7 +30,7 @@ describe('Note Processor', () => {
   let grumpkin: Grumpkin;
   let database: Database;
   let aztecNode: ReturnType<typeof mock<AztecNode>>;
-  let addNoteSpendingInfoBatchSpy: any;
+  let addExtendedNotesSpy: any;
   let noteProcessor: NoteProcessor;
   let owner: KeyPair;
   let keyStore: MockProxy<KeyStore>;
@@ -121,7 +121,7 @@ describe('Note Processor', () => {
 
   beforeEach(() => {
     database = new MemoryDB();
-    addNoteSpendingInfoBatchSpy = jest.spyOn(database, 'addNoteSpendingInfoBatch');
+    addExtendedNotesSpy = jest.spyOn(database, 'addExtendedNotes');
 
     aztecNode = mock<AztecNode>();
     keyStore = mock<KeyStore>();
@@ -147,15 +147,15 @@ describe('Note Processor', () => {
   });
 
   afterEach(() => {
-    addNoteSpendingInfoBatchSpy.mockReset();
+    addExtendedNotesSpy.mockReset();
   });
 
   it('should store a note that belongs to us', async () => {
     const { blockContexts, encryptedLogsArr, ownedNoteSpendingInfos } = mockData([[2]]);
     await noteProcessor.process(blockContexts, encryptedLogsArr);
 
-    expect(addNoteSpendingInfoBatchSpy).toHaveBeenCalledTimes(1);
-    expect(addNoteSpendingInfoBatchSpy).toHaveBeenCalledWith([
+    expect(addExtendedNotesSpy).toHaveBeenCalledTimes(1);
+    expect(addExtendedNotesSpy).toHaveBeenCalledWith([
       expect.objectContaining({
         ...ownedNoteSpendingInfos[0],
         index: BigInt(firstBlockDataStartIndex + 2),
@@ -175,8 +175,8 @@ describe('Note Processor', () => {
     );
     await noteProcessor.process(blockContexts, encryptedLogsArr);
 
-    expect(addNoteSpendingInfoBatchSpy).toHaveBeenCalledTimes(1);
-    expect(addNoteSpendingInfoBatchSpy).toHaveBeenCalledWith([
+    expect(addExtendedNotesSpy).toHaveBeenCalledTimes(1);
+    expect(addExtendedNotesSpy).toHaveBeenCalledWith([
       expect.objectContaining({
         ...ownedNoteSpendingInfos[0],
         // Index 1 log in the 2nd tx.
@@ -208,7 +208,7 @@ describe('Note Processor', () => {
     const { blockContexts, encryptedLogsArr, ownedNoteSpendingInfos } = mockData([[0, 2], [], [0, 1, 3]], 0, 0, notes);
     await noteProcessor.process(blockContexts, encryptedLogsArr);
 
-    const addedInfos: NoteSpendingInfoDao[] = addNoteSpendingInfoBatchSpy.mock.calls[0][0];
+    const addedInfos: ExtendedNote[] = addExtendedNotesSpy.mock.calls[0][0];
     expect(addedInfos).toEqual([
       expect.objectContaining({ ...ownedNoteSpendingInfos[0] }),
       expect.objectContaining({ ...ownedNoteSpendingInfos[1] }),

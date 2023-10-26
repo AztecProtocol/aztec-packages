@@ -30,6 +30,7 @@ import {
   ContractData,
   DeployedContract,
   ExtendedContractData,
+  ExtendedNote,
   FunctionCall,
   GetUnencryptedLogsResponse,
   KeyStore,
@@ -40,7 +41,6 @@ import {
   NodeInfo,
   NoteFilter,
   NotePreimage,
-  NoteSpendingInfoDao,
   PXE,
   SimulationError,
   Tx,
@@ -194,8 +194,8 @@ export class PXEService implements PXE {
     return await this.node.getPublicStorageAt(contract, storageSlot.value);
   }
 
-  public async getNotes(filter: NoteFilter): Promise<NoteSpendingInfoDao[]> {
-    return await this.db.getNoteSpendingInfo(filter);
+  public async getNotes(filter: NoteFilter): Promise<ExtendedNote[]> {
+    return await this.db.getExtendedNotes(filter);
   }
 
   public async addNote(
@@ -236,8 +236,8 @@ export class PXEService implements PXE {
       throw new Error('The note has been destroyed.');
     }
 
-    await this.db.addNoteSpendingInfo(
-      new NoteSpendingInfoDao(
+    await this.db.addExtendedNote(
+      new ExtendedNote(
         preimage,
         contractAddress,
         txHash,

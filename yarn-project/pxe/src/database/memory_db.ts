@@ -2,7 +2,7 @@ import { CompleteAddress, HistoricBlockData } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { MerkleTreeId, NoteFilter, NoteSpendingInfoDao, PublicKey } from '@aztec/types';
+import { ExtendedNote, MerkleTreeId, NoteFilter, PublicKey } from '@aztec/types';
 
 import { MemoryContractDatabase } from '../contract_database/index.js';
 import { Database } from './database.js';
@@ -14,7 +14,7 @@ import { Database } from './database.js';
  * As an in-memory database, the stored data will not persist beyond the life of the application instance.
  */
 export class MemoryDB extends MemoryContractDatabase implements Database {
-  private noteSpendingInfoTable: NoteSpendingInfoDao[] = [];
+  private extendedNotesTable: ExtendedNote[] = [];
   private treeRoots: Record<MerkleTreeId, Fr> | undefined;
   private globalVariablesHash: Fr | undefined;
   private addresses: CompleteAddress[] = [];
@@ -43,17 +43,17 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
     return Promise.resolve(this.authWitnesses[messageHash.toString()]);
   }
 
-  public addNoteSpendingInfo(noteSpendingInfoDao: NoteSpendingInfoDao) {
-    this.noteSpendingInfoTable.push(noteSpendingInfoDao);
+  public addExtendedNote(extendedNote: ExtendedNote) {
+    this.extendedNotesTable.push(extendedNote);
     return Promise.resolve();
   }
 
-  public addNoteSpendingInfoBatch(noteSpendingInfoDaos: NoteSpendingInfoDao[]) {
-    this.noteSpendingInfoTable.push(...noteSpendingInfoDaos);
+  public addExtendedNotes(extendedNotes: ExtendedNote[]) {
+    this.extendedNotesTable.push(...extendedNotes);
     return Promise.resolve();
   }
 
-  public async getNoteSpendingInfo(filter: NoteFilter): Promise<NoteSpendingInfoDao[]> {
+  public async getExtendedNotes(filter: NoteFilter): Promise<ExtendedNote[]> {
     let ownerPublicKey: PublicKey | undefined;
     if (filter.owner !== undefined) {
       const ownerCompleteAddress = await this.getCompleteAddress(filter.owner);
@@ -63,7 +63,7 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
       ownerPublicKey = ownerCompleteAddress.publicKey;
     }
 
-    return this.noteSpendingInfoTable.filter(
+    return this.extendedNotesTable.filter(
       noteSpendingInfo =>
         (filter.contractAddress == undefined || noteSpendingInfo.contractAddress.equals(filter.contractAddress)) &&
         (filter.txHash == undefined || noteSpendingInfo.txHash.equals(filter.txHash)) &&
@@ -72,10 +72,10 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
     );
   }
 
-  public removeNullifiedNoteSpendingInfo(nullifiers: Fr[], account: PublicKey) {
+  public removeNullifiedNotes(nullifiers: Fr[], account: PublicKey) {
     const nullifierSet = new Set(nullifiers.map(nullifier => nullifier.toString()));
-    const [remaining, removed] = this.noteSpendingInfoTable.reduce(
-      (acc: [NoteSpendingInfoDao[], NoteSpendingInfoDao[]], noteSpendingInfo) => {
+    const [remaining, removed] = this.extendedNotesTable.reduce(
+      (acc: [ExtendedNote[], ExtendedNote[]], noteSpendingInfo) => {
         const nullifier = noteSpendingInfo.siloedNullifier.toString();
         if (noteSpendingInfo.publicKey.equals(account) && nullifierSet.has(nullifier)) {
           acc[1].push(noteSpendingInfo);
@@ -87,7 +87,7 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
       [[], []],
     );
 
-    this.noteSpendingInfoTable = remaining;
+    this.extendedNotesTable = remaining;
 
     return Promise.resolve(removed);
   }
@@ -155,7 +155,7 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
   }
 
   public estimateSize() {
-    const notesSize = this.noteSpendingInfoTable.reduce((sum, note) => sum + note.getSize(note), 0);
+    const notesSize = this.extendedNotesTable.reduce((sum, note) => sum + note.getSize(note), 0);
     const treeRootsSize = this.treeRoots ? Object.entries(this.treeRoots).length * Fr.SIZE_IN_BYTES : 0;
     const authWits = Object.entries(this.authWitnesses);
     const authWitsSize = authWits.reduce((sum, [key, value]) => sum + key.length + value.length * Fr.SIZE_IN_BYTES, 0);

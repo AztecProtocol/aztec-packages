@@ -1,7 +1,7 @@
 import { CompleteAddress, HistoricBlockData } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { ContractDatabase, MerkleTreeId, NoteFilter, NoteSpendingInfoDao, PublicKey } from '@aztec/types';
+import { ContractDatabase, ExtendedNote, MerkleTreeId, NoteFilter, PublicKey } from '@aztec/types';
 
 /**
  * A database interface that provides methods for retrieving, adding, and removing transactional data related to Aztec
@@ -27,38 +27,31 @@ export interface Database extends ContractDatabase {
    * @param filter - The filter to apply to the notes.
    * @returns The requested notes.
    */
-  getNoteSpendingInfo(filter: NoteFilter): Promise<NoteSpendingInfoDao[]>;
+  getExtendedNotes(filter: NoteFilter): Promise<ExtendedNote[]>;
 
   /**
-   * Add a NoteSpendingInfoDao instance to the noteSpendingInfoTable.
-   * This function is used to store auxiliary data related to a transaction,
-   * such as contract address and storage slot, in the database.
-   *
-   * @param noteSpendingInfoDao - The NoteSpendingInfoDao instance containing the auxiliary data of a transaction.
-   * @returns A promise that resolves when the auxiliary data is added to the database.
+   * Adds ExtendedNote to DB.
+   * @param extendedNote - The note to add.
    */
-  addNoteSpendingInfo(noteSpendingInfoDao: NoteSpendingInfoDao): Promise<void>;
+  addExtendedNote(extendedNote: ExtendedNote): Promise<void>;
 
   /**
-   * Adds an array of NoteSpendingInfoDaos to the noteSpendingInfoTable.
-   * This function is used to insert multiple transaction auxiliary data objects into the database at once,
+   * Adds an array of ExtendedNotes.
+   * This function is used to insert multiple extended notes to the database at once,
    * which can improve performance when dealing with large numbers of transactions.
    *
-   * @param noteSpendingInfoDaos - An array of NoteSpendingInfoDao instances representing the auxiliary data of transactions.
-   * @returns A Promise that resolves when all NoteSpendingInfoDaos have been successfully added to the noteSpendingInfoTable.
+   * @param extendedNotes - An array of ExtendedNote instances.
    */
-  addNoteSpendingInfoBatch(noteSpendingInfoDaos: NoteSpendingInfoDao[]): Promise<void>;
+  addExtendedNotes(extendedNotes: ExtendedNote[]): Promise<void>;
 
   /**
-   * Remove nullified transaction auxiliary data records associated with the given account and nullifiers.
-   * The function filters the records based on matching account and nullifier values, and updates the
-   * noteSpendingInfoTable with the remaining records. It returns an array of removed NoteSpendingInfoDao instances.
+   * Remove nullified notes associated with the given account and nullifiers.
    *
    * @param nullifiers - An array of Fr instances representing nullifiers to be matched.
    * @param account - A PublicKey instance representing the account for which the records are being removed.
-   * @returns A Promise resolved with an array of removed NoteSpendingInfoDao instances.
+   * @returns Removed notes.
    */
-  removeNullifiedNoteSpendingInfo(nullifiers: Fr[], account: PublicKey): Promise<NoteSpendingInfoDao[]>;
+  removeNullifiedNotes(nullifiers: Fr[], account: PublicKey): Promise<ExtendedNote[]>;
 
   /**
    * Retrieve the stored Merkle tree roots from the database.

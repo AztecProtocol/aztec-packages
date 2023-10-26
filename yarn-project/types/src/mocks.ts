@@ -18,9 +18,9 @@ import times from 'lodash.times';
 import {
   DeployedContract,
   ExtendedContractData,
+  ExtendedNote,
   FunctionL2Logs,
   NotePreimage,
-  NoteSpendingInfoDao,
   TxL2Logs,
 } from './index.js';
 import { Tx, TxHash } from './tx/index.js';
@@ -61,7 +61,7 @@ export const randomDeployedContract = async (): Promise<DeployedContract> => ({
   portalContract: EthAddress.random(),
 });
 
-export const randomNoteSpendingInfoDao = ({
+export const randomExtendedNote = ({
   notePreimage = NotePreimage.random(),
   contractAddress = AztecAddress.random(),
   txHash = randomTxHash(),
@@ -71,8 +71,8 @@ export const randomNoteSpendingInfoDao = ({
   siloedNullifier = Fr.random(),
   index = Fr.random().value,
   publicKey = Point.random(),
-}: Partial<NoteSpendingInfoDao> = {}) => {
-  return new NoteSpendingInfoDao(
+}: Partial<ExtendedNote> = {}) => {
+  return new ExtendedNote(
     notePreimage,
     contractAddress,
     txHash,

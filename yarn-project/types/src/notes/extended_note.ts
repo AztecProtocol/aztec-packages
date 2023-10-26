@@ -3,11 +3,9 @@ import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { BufferReader, NotePreimage, TxHash } from '@aztec/types';
 
 /**
- * Represents the data access object for auxiliary transaction data.
- * Contains properties from the decrypted note, computed properties, and information about
- * the public key used for encryption, as well as the location of the data in the tree.
+ * A note with contextual data.
  */
-export class NoteSpendingInfoDao {
+export class ExtendedNote {
   constructor(
     /** The preimage of the note, containing essential information about the note. */
     public notePreimage: NotePreimage,
@@ -83,7 +81,7 @@ export class NoteSpendingInfoDao {
 
   static fromString(str: string) {
     const hex = str.replace(/^0x/, '');
-    return NoteSpendingInfoDao.fromBuffer(Buffer.from(hex, 'hex'));
+    return ExtendedNote.fromBuffer(Buffer.from(hex, 'hex'));
   }
 
   /**
@@ -91,7 +89,7 @@ export class NoteSpendingInfoDao {
    * @param note - The note.
    * @returns - Its size in bytes.
    */
-  public getSize(note: NoteSpendingInfoDao) {
+  public getSize(note: ExtendedNote) {
     // 7 fields + 1 bigint + 1 buffer size (4 bytes) + 1 buffer
     const indexSize = Math.ceil(Math.log2(Number(note.index)));
     return (
