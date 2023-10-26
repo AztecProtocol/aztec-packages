@@ -37,11 +37,11 @@ template <typename Curve> class ZeroMorphProver_ {
 
   public:
     /**
-     * @brief Compute the degree < 2^k truncation of multivariate quotients q_k(X_0, ..., X_{k-1}) for f(X_0, ..., X_{d-1})
+     * @brief Compute multivariate quotients q_k(X_0, ..., X_{k-1}) for f(X_0, ..., X_{d-1})
      *
      * @param polynomial Multilinear polynomial f(X_0, ..., X_{d-1})
      * @param u_challenge Multivariate challenge u = (u_0, ..., u_{d-1})
-     * @return std::vector<Polynomial> degree < 2^k truncation of q_k
+     * @return std::vector<Polynomial> The quotients q_k
      */
     static std::vector<Polynomial> compute_multilinear_quotients(Polynomial polynomial,
                                                                            std::span<FF> u_challenge)
