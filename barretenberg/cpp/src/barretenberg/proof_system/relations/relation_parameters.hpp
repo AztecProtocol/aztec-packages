@@ -38,7 +38,9 @@ template <typename T> struct RelationParameters {
                                    { T(0), T(0), T(0), T(0), T(0) } } };
 
     static constexpr int NUM_TO_FOLD = 5;
-    std::array<T*, NUM_TO_FOLD> to_fold = { &eta, &beta, &gamma, &public_input_delta, &lookup_grand_product_delta };
+    std::array<std::reference_wrapper<T>, NUM_TO_FOLD> to_fold = {
+        eta, beta, gamma, public_input_delta, lookup_grand_product_delta
+    };
 
     static RelationParameters get_random()
     {
