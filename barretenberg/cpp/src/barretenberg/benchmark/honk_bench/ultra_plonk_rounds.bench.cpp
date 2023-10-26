@@ -57,6 +57,7 @@ BBERG_PROFILE static void test_round(State& state, size_t index) noexcept
         plonk::UltraProver prover = bench_utils::get_prover(
             composer, &bench_utils::generate_ecdsa_verification_test_circuit<UltraCircuitBuilder>, 10);
         test_round_inner(state, prover, index);
+        state.ResumeTiming();
     }
 }
 #define ROUND_BENCHMARK(round)                                                                                         \

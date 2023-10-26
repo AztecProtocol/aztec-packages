@@ -4,30 +4,20 @@
 
 using namespace benchmark;
 
-namespace standard_plonk_bench {
-
 using StandardBuilder = proof_system::StandardCircuitBuilder;
 using StandardPlonk = proof_system::plonk::StandardComposer;
-
-// Log number of gates for test circuit
-constexpr size_t MIN_LOG_NUM_GATES = bench_utils::BenchParams::MIN_LOG_NUM_GATES;
-constexpr size_t MAX_LOG_NUM_GATES = bench_utils::BenchParams::MAX_LOG_NUM_GATES;
-// Number of times to repeat each benchmark
-constexpr size_t NUM_REPETITIONS = bench_utils::BenchParams::NUM_REPETITIONS;
 
 /**
  * @brief Benchmark: Construction of a Standard proof for a circuit determined by the provided circuit function
  */
-void construct_proof_standard(State& state, void (*test_circuit_function)(StandardBuilder&, size_t)) noexcept
+void construct_proof_standard(State& state) noexcept
 {
-    bench_utils::construct_proof_with_specified_num_gates<StandardPlonk>(state, test_circuit_function);
+    auto log2_of_gates = static_cast<size_t>(state.range(0));
+    bench_utils::construct_proof_with_specified_num_iterations<proof_system::plonk::StandardComposer>(
+        state, &bench_utils::generate_basic_arithmetic_circuit<proof_system::StandardCircuitBuilder>, log2_of_gates);
 }
 
-BENCHMARK_CAPTURE(construct_proof_standard,
-                  arithmetic,
-                  &bench_utils::generate_basic_arithmetic_circuit<StandardBuilder>)
-    ->DenseRange(MIN_LOG_NUM_GATES, MAX_LOG_NUM_GATES)
-    ->Repetitions(NUM_REPETITIONS)
+BENCHMARK(construct_proof_standard)
+    // 2**8 gates to 2**16 gates
+    ->DenseRange(8, 16)
     ->Unit(::benchmark::kSecond);
-
-} // namespace standard_plonk_bench
