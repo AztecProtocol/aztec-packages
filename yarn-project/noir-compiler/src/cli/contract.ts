@@ -25,7 +25,7 @@ export function compileContract(program: Command, name = 'contract', log: LogFn 
     .option('-o, --outdir <path>', 'Output folder for the binary artifacts, relative to the project path', 'target')
     .option('-ts, --typescript <path>', 'Optional output folder for generating typescript wrappers', undefined)
     .option('-i, --interface <path>', 'Optional output folder for generating an Aztec.nr contract interface', undefined)
-    .option('-c --compiler nargo|wasm', 'Which compiler to use. Defaults to nargo', 'nargo')
+    .option('-c --compiler <string>', 'Which compiler to use. Either nargo or wasm. Defaults to nargo', 'nargo')
     .description('Compiles the contracts in the target project')
 
     .action(
