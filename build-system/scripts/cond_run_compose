@@ -17,14 +17,14 @@ if ! check_rebuild $SUCCESS_TAG $REPOSITORY; then
   ecr_login
 
   # For each dependency and self, pull in the latest image and give it correct tag.
-  for REPO in $(query_manifest dependencies $REPOSITORY) $REPOSITORY; do
+  for REPO in $(query_manifest runDependencies $REPOSITORY) $REPOSITORY; do
     echo "Pulling $REPO..."
     REPO_IMAGE_URI=$(calculate_image_uri $REPO)
     retry docker pull $REPO_IMAGE_URI
     docker tag $REPO_IMAGE_URI aztecprotocol/$REPO
   done
 
-  cd $(query_manifest projectDir)
+  cd $(query_manifest projectDir $REPOSITORY)
 
   docker-compose -f $COMPOSE_FILE rm -f
   docker-compose -f $COMPOSE_FILE up --exit-code-from $REPOSITORY $@
