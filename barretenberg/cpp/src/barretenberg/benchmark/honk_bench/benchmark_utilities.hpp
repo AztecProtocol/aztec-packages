@@ -184,7 +184,6 @@ inline proof_system::honk::UltraProver get_prover(
 {
     proof_system::honk::UltraComposer::CircuitBuilder builder;
     test_circuit_function(builder, num_iterations);
-    std::cout << "built " << builder.get_total_circuit_size() << std::endl;
     std::shared_ptr<proof_system::honk::UltraComposer::Instance> instance = composer.create_instance(builder);
     return composer.create_prover(instance);
 }

@@ -8,7 +8,8 @@ using namespace proof_system;
 /**
  * @brief Benchmark: Construction of a Ultra Plonk proof for a circuit determined by the provided circuit function
  */
-static void construct_proof_ultra(State& state, void (*test_circuit_function)(UltraCircuitBuilder&, size_t)) noexcept
+static void construct_proof_ultraplonk(State& state,
+                                       void (*test_circuit_function)(UltraCircuitBuilder&, size_t)) noexcept
 {
     size_t num_iterations = 10; // 10x the circuit
     bench_utils::construct_proof_with_specified_num_iterations<plonk::UltraComposer>(
@@ -18,7 +19,7 @@ static void construct_proof_ultra(State& state, void (*test_circuit_function)(Ul
 /**
  * @brief Benchmark: Construction of a Ultra Plonk proof with 2**n gates
  */
-static void construct_proof_ultra_power_of_2(State& state) noexcept
+static void construct_proof_ultraplonk_power_of_2(State& state) noexcept
 {
     auto log2_of_gates = static_cast<size_t>(state.range(0));
     bench_utils::construct_proof_with_specified_num_iterations<plonk::UltraComposer>(
@@ -26,20 +27,20 @@ static void construct_proof_ultra_power_of_2(State& state) noexcept
 }
 
 // Define benchmarks
-BENCHMARK_CAPTURE(construct_proof_ultra, sha256, &bench_utils::generate_sha256_test_circuit<UltraCircuitBuilder>)
+BENCHMARK_CAPTURE(construct_proof_ultraplonk, sha256, &bench_utils::generate_sha256_test_circuit<UltraCircuitBuilder>)
     ->Unit(kMillisecond);
-BENCHMARK_CAPTURE(construct_proof_ultra, keccak, &bench_utils::generate_keccak_test_circuit<UltraCircuitBuilder>)
+BENCHMARK_CAPTURE(construct_proof_ultraplonk, keccak, &bench_utils::generate_keccak_test_circuit<UltraCircuitBuilder>)
     ->Unit(kMillisecond);
-BENCHMARK_CAPTURE(construct_proof_ultra,
+BENCHMARK_CAPTURE(construct_proof_ultraplonk,
                   ecdsa_verification,
                   &bench_utils::generate_ecdsa_verification_test_circuit<UltraCircuitBuilder>)
     ->Unit(kMillisecond);
-BENCHMARK_CAPTURE(construct_proof_ultra,
+BENCHMARK_CAPTURE(construct_proof_ultraplonk,
                   merkle_membership,
                   &bench_utils::generate_merkle_membership_test_circuit<UltraCircuitBuilder>)
     ->Unit(kMillisecond);
 
-BENCHMARK(construct_proof_ultra_power_of_2)
+BENCHMARK(construct_proof_ultraplonk_power_of_2)
     // 2**13 gates to 2**18 gates
     ->DenseRange(13, 18)
     ->Unit(kMillisecond);
