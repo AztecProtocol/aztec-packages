@@ -1,4 +1,4 @@
-import { pedersenGetHashTree, pedersenHash, pedersenHashInputs } from '@aztec/circuits.js/barretenberg';
+import { pedersenHash, pedersenHashInputs } from '@aztec/circuits.js/barretenberg';
 import { IWasmModule } from '@aztec/foundation/wasm';
 import { Hasher } from '@aztec/types';
 
