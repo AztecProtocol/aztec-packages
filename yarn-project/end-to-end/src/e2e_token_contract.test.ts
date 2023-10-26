@@ -168,9 +168,13 @@ describe('e2e_token_contract', () => {
         it('redeem as recipient', async () => {
           await addPendingShieldNoteToPXE(0, amount, secretHash, txHash);
           const txClaim = asset.methods.redeem_shield(accounts[0].address, amount, secret).send();
-          const receiptClaim = await txClaim.wait();
+          const receiptClaim = await txClaim.wait({ getNotes: true });
           expect(receiptClaim.status).toBe(TxStatus.MINED);
           tokenSim.redeemShield(accounts[0].address, amount);
+          // 1 note should be created containing `amount` of tokens
+          const notes = receiptClaim.notes!;
+          expect(notes.length).toBe(1);
+          expect(notes[0].notePreimage.items[0].toBigInt()).toBe(amount);
         });
       });
 
