@@ -30,7 +30,7 @@ services:
   end-to-end:
     image: aztecprotocol/end-to-end:latest
     environment:
-      BENCHMARK: true
+      BENCHMARK: 'true'
       LOG_LEVL: 'debug'
       DEBUG: ${DEBUG:-'aztec:*'}
       ETHEREUM_HOST: http://fork:8545
