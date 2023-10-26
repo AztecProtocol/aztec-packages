@@ -83,7 +83,7 @@ export class NoteSpendingInfoDao {
 
   static fromString(str: string) {
     const hex = str.replace(/^0x/, '');
-    return NotePreimage.fromBuffer(Buffer.from(hex, 'hex'));
+    return NoteSpendingInfoDao.fromBuffer(Buffer.from(hex, 'hex'));
   }
 
   /**
