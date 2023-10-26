@@ -90,6 +90,7 @@ function add_mount() {
 
 # we need to look at which command was run in order to set up mount points
 AZTEC_CLI_COMMAND="$1"
+AZTEC_CLI_EXTRA_ARGS=""
 
 # first process commands with positional arguments
 # assumes positional arguments are the first thing
@@ -142,6 +143,10 @@ if [[ "$AZTEC_CLI_COMMAND" == "compile" || "$AZTEC_CLI_COMMAND" == "call" || "$A
   done
 fi
 
+if [[ "$AZTEC_CLI_COMMAND" == "compile" ]]; then
+  AZTEC_CLI_EXTRA_ARGS="$AZTEC_CLI_EXTRA_ARGS --compiler wasm"
+fi
+
 DOCKER_ENV="$DOCKER_ENV -e PXE_URL=$PXE_URL"
 
 # pass along any private keys
@@ -158,7 +163,7 @@ DOCKER_CMD="$DOCKER_PATH run \
   $DOCKER_HOST \
   $DOCKER_ENV \
   $DOCKER_VOLUME \
-  $CLI_IMAGE:$CLI_VERSION $@"
+  $CLI_IMAGE:$CLI_VERSION $@ $AZTEC_CLI_EXTRA_ARGS"
 
 if [ ! -z "${DEBUG:-}" ]; then
   echo "----"
