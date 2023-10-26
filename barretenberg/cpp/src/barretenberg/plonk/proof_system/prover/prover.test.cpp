@@ -291,9 +291,13 @@ TEST(prover, compute_quotient_polynomial)
     size_t n = 1 << 10;
     plonk::Prover state = prover_helpers::generate_test_data(n);
     state.execute_preamble_round();
+    state.queue.process_queue();
     state.execute_first_round();
+    state.queue.process_queue();
     state.execute_second_round();
+    state.queue.process_queue();
     state.execute_third_round();
+    state.queue.process_queue();
 
     // check that the max degree of our quotient polynomial is 3n
     for (size_t i = 0; i < n; ++i) {
