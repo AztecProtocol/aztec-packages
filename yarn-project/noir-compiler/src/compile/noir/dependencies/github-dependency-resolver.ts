@@ -76,7 +76,7 @@ export class GithubDependencyResolver implements DependencyResolver {
       gitUrl.pathname
         // remove leading slash
         .slice(1)
-        .replaceAll('/', '_') +
+        .replaceAll(sep, '_') +
         '@' +
         (dependency.tag ?? 'HEAD'),
     );
