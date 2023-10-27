@@ -59,16 +59,19 @@ export class GithubDependencyResolver implements DependencyResolver {
       throw new Error(`Failed to fetch ${url}: ${response.statusText}`);
     }
 
-    await this.#fm.writeFile(localArchivePath, response.body);
+    const tmpFile = localArchivePath + '.tmp';
+    await this.#fm.writeFile(tmpFile, response.body);
+    this.#fm.moveFileSync(tmpFile, localArchivePath);
+
     return localArchivePath;
   }
 
   async #extractZip(dependency: NoirGitDependencyConfig, archivePath: string): Promise<string> {
     const gitUrl = new URL(dependency.git);
     const extractLocation = join('libs', safeFilename(gitUrl.pathname + '@' + (dependency.tag ?? 'HEAD')));
+    const tmpExtractLocation = extractLocation + '.tmp';
     const packagePath = join(extractLocation, dependency.directory ?? '');
 
-    // TODO check contents before reusing old results
     if (this.#fm.hasFileSync(packagePath)) {
       return packagePath;
     }
@@ -84,9 +87,11 @@ export class GithubDependencyResolver implements DependencyResolver {
       if (dependency.directory && !name.startsWith(dependency.directory)) {
         continue;
       }
-      const path = join(extractLocation, name);
+      const path = join(tmpExtractLocation, name);
       await this.#fm.writeFile(path, (await entry.blob()).stream());
     }
+
+    this.#fm.moveFileSync(tmpExtractLocation, extractLocation);
 
     return packagePath;
   }

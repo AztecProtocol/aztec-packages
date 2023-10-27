@@ -18,7 +18,8 @@ export interface FileSystem {
   writeFileSync: (path: string, data: Uint8Array) => void;
   /** Reads a file */
   readFileSync: (path: string, encoding: 'binary' | 'utf-8') => Uint8Array | string;
-  /* eslint-enable jsdoc/require-jsdoc */
+  /** Renames a file */
+  renameSync: (oldPath: string, newPath: string) => void;
 }
 
 /**
@@ -69,6 +70,24 @@ export class FileManager {
 
   /**
    * Reads a file from the filesystem and returns a buffer
+   * Saves a file to the data directory.
+   * @param oldName - File to save
+   * @param newName - File contents
+   */
+  moveFileSync(oldName: string, newName: string) {
+    if (isAbsolute(oldName) || isAbsolute(newName)) {
+      throw new Error("can't move absolute path");
+    }
+
+    const oldPath = this.#getPath(oldName);
+    const newPath = this.#getPath(newName);
+
+    this.#fs.mkdirSync(dirname(newPath), { recursive: true });
+    this.#fs.renameSync(oldPath, newPath);
+  }
+
+  /**
+   * Reads a file from the disk and returns a buffer
    * @param name - File to read
    * @param encoding - Encoding to use
    */

@@ -21,6 +21,7 @@ const nodeFM = (): { fm: FileManager; teardown: () => void } => {
     mkdirSync: fs.mkdirSync,
     writeFileSync: fs.writeFileSync,
     readFileSync: fs.readFileSync,
+    renameSync: fs.renameSync,
   };
 
   const dir = fs.mkdtempSync(join(tmpdir(), 'noir-compiler-test'));
@@ -70,6 +71,16 @@ describe.each([memFS, nodeFM])('FileManager', setup => {
   it('correctly checks if file exists or not', async () => {
     expect(fm.hasFileSync('test.txt')).toBe(false);
     await fm.writeFile('test.txt', new Blob([testFileBytes]).stream());
+    expect(fm.hasFileSync('test.txt')).toBe(true);
+  });
+
+  it('moves files', async () => {
+    await fm.writeFile('test.txt.tmp', new Blob([testFileBytes]).stream());
+    expect(fm.hasFileSync('test.txt.tmp')).toBe(true);
+
+    fm.moveFileSync('test.txt.tmp', 'test.txt');
+
+    expect(fm.hasFileSync('test.txt.tmp')).toBe(false);
     expect(fm.hasFileSync('test.txt')).toBe(true);
   });
 });
