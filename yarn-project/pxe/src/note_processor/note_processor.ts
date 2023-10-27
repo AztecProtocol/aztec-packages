@@ -187,7 +187,7 @@ export class NoteProcessor {
    * commitment for the current tx matches this value.
    * Compute the nullifier for a given transaction auxiliary data.
    * The nullifier is calculated using the private key of the account,
-   * contract address, and note preimage associated with the l1NotePayload.
+   * contract address, and the note associated with the l1NotePayload.
    * This method assists in identifying spent commitments in the private state.
    * @param commitments - Commitments in the tx. One of them should be the note's commitment.
    * @param firstNullifier - First nullifier in the tx.

@@ -176,16 +176,13 @@ export class ClientExecutionContext extends ViewDataOracle {
   }
 
   /**
-   * Gets some notes for a contract address and storage slot.
-   * Returns a flattened array containing real-note-count and note preimages.
+   * Gets some notes for a storage slot.
    *
    * @remarks
-   *
-   * Check for pending notes with matching address/slot.
+   * Check for pending notes with matching slot.
    * Real notes coming from DB will have a leafIndex which
    * represents their index in the note hash tree.
    *
-   * @param contractAddress - The contract address.
    * @param storageSlot - The storage slot.
    * @param numSelects - The number of valid selects in selectBy and selectValues.
    * @param selectBy - An array of indices of the fields to selects.
@@ -194,12 +191,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param sortOrder - The order of the corresponding index in sortBy. (1: DESC, 2: ASC, 0: Do nothing)
    * @param limit - The number of notes to retrieve per query.
    * @param offset - The starting index for pagination.
-   * @param returnSize - The return size.
-   * @returns Flattened array of ACVMFields (format expected by Noir/ACVM) containing:
-   * count - number of real (non-padding) notes retrieved,
-   * contractAddress - the contract address,
-   * preimages - the real note preimages retrieved, and
-   * paddedZeros - zeros to ensure an array with length returnSize expected by Noir circuit
+   * @returns Array of note data.
    */
   public async getNotes(
     storageSlot: Fr,
@@ -286,10 +278,10 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param contractAddress - The contract address of the note.
    * @param storageSlot - The storage slot the note is at.
    * @param publicKey - The public key of the account that can decrypt the log.
-   * @param preimage - The preimage of the note.
+   * @param log - The log contents.
    */
-  public emitEncryptedLog(contractAddress: AztecAddress, storageSlot: Fr, publicKey: Point, preimage: Fr[]) {
-    const note = new Note(preimage);
+  public emitEncryptedLog(contractAddress: AztecAddress, storageSlot: Fr, publicKey: Point, log: Fr[]) {
+    const note = new Note(log);
     const l1NotePayload = new L1NotePayload(note, contractAddress, storageSlot);
     const encryptedNote = l1NotePayload.toEncryptedBuffer(publicKey, this.curve);
     this.encryptedLogs.push(encryptedNote);

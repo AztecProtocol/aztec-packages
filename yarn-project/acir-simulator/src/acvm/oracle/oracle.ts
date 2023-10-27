@@ -148,14 +148,14 @@ export class Oracle {
     [storageSlot]: ACVMField[],
     [publicKeyX]: ACVMField[],
     [publicKeyY]: ACVMField[],
-    preimage: ACVMField[],
+    log: ACVMField[],
   ): ACVMField {
     const publicKey = new Point(fromACVMField(publicKeyX), fromACVMField(publicKeyY));
     this.typedOracle.emitEncryptedLog(
       AztecAddress.fromString(contractAddress),
       Fr.fromString(storageSlot),
       publicKey,
-      preimage.map(fromACVMField),
+      log.map(fromACVMField),
     );
     return toACVMField(0);
   }

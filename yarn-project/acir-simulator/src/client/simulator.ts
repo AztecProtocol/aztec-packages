@@ -176,8 +176,8 @@ export class AcirSimulator {
       );
     }
 
-    const preimageLen = (artifact.parameters[3].type as ArrayType).length;
-    const extendedNoteItems = note.items.concat(Array(preimageLen - note.length).fill(Fr.ZERO));
+    const noteItemsLength = (artifact.parameters[3].type as ArrayType).length;
+    const extendedNoteItems = note.items.concat(Array(noteItemsLength - note.length).fill(Fr.ZERO));
 
     const execRequest: FunctionCall = {
       to: AztecAddress.ZERO,

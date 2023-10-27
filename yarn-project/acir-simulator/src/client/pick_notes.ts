@@ -65,16 +65,16 @@ interface GetOptions {
 }
 
 /**
- * Basic data needed from a note to perform sort.
+ * Data needed from to perform sort.
  */
-interface BasicNoteData {
+interface ContainsNote {
   /**
-   * Preimage of a note.
+   * The note.
    */
   note: Note;
 }
 
-const selectNotes = <T extends BasicNoteData>(noteDatas: T[], selects: Select[]): T[] =>
+const selectNotes = <T extends ContainsNote>(noteDatas: T[], selects: Select[]): T[] =>
   noteDatas.filter(noteData => selects.every(({ index, value }) => noteData.note.items[index]?.equals(value)));
 
 const sortNotes = (a: Fr[], b: Fr[], sorts: Sort[], level = 0): number => {
@@ -94,7 +94,7 @@ const sortNotes = (a: Fr[], b: Fr[], sorts: Sort[], level = 0): number => {
 /**
  * Pick from a note array a number of notes that meet the criteria.
  */
-export function pickNotes<T extends BasicNoteData>(
+export function pickNotes<T extends ContainsNote>(
   noteDatas: T[],
   { selects = [], sorts = [], limit = 0, offset = 0 }: GetOptions,
 ): T[] {

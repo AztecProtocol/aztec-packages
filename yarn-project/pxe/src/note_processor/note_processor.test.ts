@@ -202,10 +202,10 @@ describe('Note Processor', () => {
     await noteProcessor.process(blockContexts, encryptedLogsArr);
   });
 
-  it('should be able to recover two notes with the same preimage', async () => {
+  it('should be able to recover two note payloads with containing the same note', async () => {
     const note = L1NotePayload.random();
     const note2 = L1NotePayload.random();
-    // All notes expect one have the same contract address, storage slot, and preimage.
+    // All note payloads except one have the same contract address, storage slot, and the actual note.
     const notes = [note, note, note, note2, note];
     const { blockContexts, encryptedLogsArr, ownedL1NotePayloads } = mockData([[0, 2], [], [0, 1, 3]], 0, 0, notes);
     await noteProcessor.process(blockContexts, encryptedLogsArr);

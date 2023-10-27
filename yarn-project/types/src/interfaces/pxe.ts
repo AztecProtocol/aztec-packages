@@ -174,7 +174,7 @@ export interface PXE {
    * @param storageSlot - The storage slot of the note.
    * @param note - The note to add.
    * @param txHash - The tx hash of the tx containing the note.
-   * @param nonce - The nonce of the note. If undefined, will look for the first index that matches the preimage.
+   * @param nonce - The nonce of the note. If undefined, will look for the first index that matches the note.
    */
   addNote(
     account: AztecAddress,
