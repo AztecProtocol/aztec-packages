@@ -1,5 +1,5 @@
 import { AcirSimulator } from '@aztec/acir-simulator';
-import { CircuitsWasm, CompleteAddress, Fr, MAX_NEW_COMMITMENTS_PER_TX } from '@aztec/circuits.js';
+import { CircuitsWasm, Fr, MAX_NEW_COMMITMENTS_PER_TX } from '@aztec/circuits.js';
 import { Grumpkin, pedersenHashInputs } from '@aztec/circuits.js/barretenberg';
 import { Point } from '@aztec/foundation/fields';
 import { ConstantKeyPair } from '@aztec/key-store';
@@ -34,7 +34,6 @@ describe('Note Processor', () => {
   let addNotesSpy: any;
   let noteProcessor: NoteProcessor;
   let owner: KeyPair;
-  let ownerAddress: CompleteAddress;
   let keyStore: MockProxy<KeyStore>;
   let simulator: MockProxy<AcirSimulator>;
   const firstBlockNum = 123;
@@ -120,7 +119,6 @@ describe('Note Processor', () => {
     wasm = await CircuitsWasm.get();
     grumpkin = new Grumpkin(wasm);
     owner = ConstantKeyPair.random(grumpkin);
-    ownerAddress = await CompleteAddress.fromPrivateKeyAndPartialAddress(await owner.getPrivateKey(), Fr.random());
   });
 
   beforeEach(() => {
@@ -131,7 +129,14 @@ describe('Note Processor', () => {
     keyStore = mock<KeyStore>();
     simulator = mock<AcirSimulator>();
     keyStore.getAccountPrivateKey.mockResolvedValue(owner.getPrivateKey());
-    noteProcessor = new NoteProcessor(ownerAddress, keyStore, database, aztecNode, INITIAL_L2_BLOCK_NUM, simulator);
+    noteProcessor = new NoteProcessor(
+      owner.getPublicKey(),
+      keyStore,
+      database,
+      aztecNode,
+      INITIAL_L2_BLOCK_NUM,
+      simulator,
+    );
 
     simulator.computeNoteHashAndNullifier.mockImplementation((...args) =>
       Promise.resolve({
@@ -206,7 +211,7 @@ describe('Note Processor', () => {
     await noteProcessor.process(blockContexts, encryptedLogsArr);
 
     const addedNoteDaos: NoteDao[] = addNotesSpy.mock.calls[0][0];
-    expect(addedNoteDaos.map(dao => dao.extendedNote)).toEqual([
+    expect(addedNoteDaos.map(dao => dao)).toEqual([
       expect.objectContaining({ ...ownedL1NotePayloads[0] }),
       expect.objectContaining({ ...ownedL1NotePayloads[1] }),
       expect.objectContaining({ ...ownedL1NotePayloads[2] }),

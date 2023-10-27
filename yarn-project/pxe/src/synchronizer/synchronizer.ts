@@ -1,4 +1,4 @@
-import { AztecAddress, CircuitsWasm, CompleteAddress, Fr, HistoricBlockData } from '@aztec/circuits.js';
+import { AztecAddress, CircuitsWasm, Fr, HistoricBlockData, PublicKey } from '@aztec/circuits.js';
 import { computeGlobalsHash } from '@aztec/circuits.js/abis';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
@@ -179,9 +179,9 @@ export class Synchronizer {
 
       if (noteProcessor.status.syncedToBlock === this.synchedToBlock) {
         // Note processor caught up, move it to `noteProcessors` from `noteProcessorsToCatchUp`.
-        this.log(`Note processor for account ${noteProcessor.account.address.toString()} has caught up`, {
+        this.log(`Note processor for ${noteProcessor.publicKey.toString()} has caught up`, {
           eventName: 'note-processor-caught-up',
-          publicKey: noteProcessor.account.publicKey.toString(),
+          publicKey: noteProcessor.publicKey.toString(),
           duration: noteProcessor.timer.ms(),
           dbSize: this.db.estimateSize(),
           ...noteProcessor.stats,
@@ -234,16 +234,16 @@ export class Synchronizer {
    * Creates a NoteProcessor instance for the account and pushes it into the noteProcessors array.
    * The method resolves immediately after pushing the new note processor.
    *
-   * @param account - A complete address of the account toa dd.
+   * @param publicKey - The public key for the account.
    * @param keyStore - The key store.
    * @param startingBlock - The block where to start scanning for notes for this accounts.
    * @returns A promise that resolves once the account is added to the Synchronizer.
    */
-  public addAccount(account: CompleteAddress, keyStore: KeyStore, startingBlock: number) {
-    const processor = this.noteProcessors.find(x => x.account.equals(account));
+  public addAccount(publicKey: PublicKey, keyStore: KeyStore, startingBlock: number) {
+    const processor = this.noteProcessors.find(x => x.publicKey.equals(publicKey));
     if (processor) return;
 
-    this.noteProcessorsToCatchUp.push(new NoteProcessor(account, keyStore, this.db, this.node, startingBlock));
+    this.noteProcessorsToCatchUp.push(new NoteProcessor(publicKey, keyStore, this.db, this.node, startingBlock));
   }
 
   /**
@@ -255,9 +255,15 @@ export class Synchronizer {
    * @throws If checking a sync status of account which is not registered.
    */
   public async isAccountStateSynchronized(account: AztecAddress) {
-    const processor = this.noteProcessors.find(x => x.account.address.equals(account));
+    const completeAddress = await this.db.getCompleteAddress(account);
+    if (!completeAddress) {
+      throw new Error(`Checking if account is synched is not possible for ${account} because it is not registered.`);
+    }
+    const processor = this.noteProcessors.find(x => x.publicKey.equals(completeAddress.publicKey));
     if (!processor) {
-      throw new Error(`Account ${account} not found.`);
+      throw new Error(
+        `Checking if account is synched is not possible for ${account} because it is only registered as a recipient.`,
+      );
     }
     return await processor.isSynchronized();
   }
@@ -280,7 +286,7 @@ export class Synchronizer {
   public getSyncStatus() {
     return {
       blocks: this.synchedToBlock,
-      notes: Object.fromEntries(this.noteProcessors.map(n => [n.account.publicKey.toString(), n.status.syncedToBlock])),
+      notes: Object.fromEntries(this.noteProcessors.map(n => [n.publicKey.toString(), n.status.syncedToBlock])),
     };
   }
 }

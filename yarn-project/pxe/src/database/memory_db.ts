@@ -1,4 +1,4 @@
-import { CompleteAddress, HistoricBlockData } from '@aztec/circuits.js';
+import { CompleteAddress, HistoricBlockData, PublicKey } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -54,23 +54,31 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
     return Promise.resolve();
   }
 
-  public getNotes(filter: NoteFilter): Promise<NoteDao[]> {
-    const notes = this.notesTable.filter(
-      noteDao =>
-        (filter.contractAddress == undefined || noteDao.extendedNote.contractAddress.equals(filter.contractAddress)) &&
-        (filter.txHash == undefined || noteDao.extendedNote.txHash.equals(filter.txHash)) &&
-        (filter.storageSlot == undefined || noteDao.extendedNote.storageSlot.equals(filter.storageSlot!)) &&
-        (filter.owner == undefined || noteDao.extendedNote.owner.equals(filter.owner!)),
+  public async getNotes(filter: NoteFilter): Promise<NoteDao[]> {
+    let ownerPublicKey: PublicKey | undefined;
+    if (filter.owner !== undefined) {
+      const ownerCompleteAddress = await this.getCompleteAddress(filter.owner);
+      if (ownerCompleteAddress === undefined) {
+        throw new Error(`Owner ${filter.owner.toString()} not found in memory database`);
+      }
+      ownerPublicKey = ownerCompleteAddress.publicKey;
+    }
+
+    return this.notesTable.filter(
+      note =>
+        (filter.contractAddress == undefined || note.contractAddress.equals(filter.contractAddress)) &&
+        (filter.txHash == undefined || note.txHash.equals(filter.txHash)) &&
+        (filter.storageSlot == undefined || note.storageSlot.equals(filter.storageSlot!)) &&
+        (ownerPublicKey == undefined || note.publicKey.equals(ownerPublicKey!)),
     );
-    return Promise.resolve(notes);
   }
 
-  public removeNullifiedNotes(nullifiers: Fr[], account: AztecAddress) {
+  public removeNullifiedNotes(nullifiers: Fr[], account: PublicKey) {
     const nullifierSet = new Set(nullifiers.map(nullifier => nullifier.toString()));
     const [remaining, removed] = this.notesTable.reduce(
       (acc: [NoteDao[], NoteDao[]], note) => {
         const nullifier = note.siloedNullifier.toString();
-        if (note.extendedNote.owner.equals(account) && nullifierSet.has(nullifier)) {
+        if (note.publicKey.equals(account) && nullifierSet.has(nullifier)) {
           acc[1].push(note);
         } else {
           acc[0].push(note);

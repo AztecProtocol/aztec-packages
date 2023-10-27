@@ -1,14 +1,20 @@
-import { Fr } from '@aztec/circuits.js';
+import { AztecAddress, Fr, Point, PublicKey } from '@aztec/circuits.js';
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { BufferReader, ExtendedNote } from '@aztec/types';
+import { BufferReader, Note, TxHash } from '@aztec/types';
 
 /**
  * A note with contextual data.
  */
 export class NoteDao {
   constructor(
-    /** The extended note. */
-    public extendedNote: ExtendedNote,
+    /** The note as emitted from the Noir contract. */
+    public note: Note,
+    /** The contract address this note is created in. */
+    public contractAddress: AztecAddress,
+    /** The specific storage location of the note on the contract. */
+    public storageSlot: Fr,
+    /** The hash of the tx the note was created in. */
+    public txHash: TxHash,
     /** The nonce of the note. */
     public nonce: Fr,
     /**
@@ -20,27 +26,47 @@ export class NoteDao {
     public siloedNullifier: Fr,
     /** The location of the relevant note in the note hash tree. */
     public index: bigint,
+    /** The public key with which the note was encrypted. */
+    public publicKey: PublicKey,
   ) {}
 
   toBuffer(): Buffer {
     return Buffer.concat([
-      this.extendedNote.toBuffer(),
+      this.note.toBuffer(),
+      this.contractAddress.toBuffer(),
+      this.storageSlot.toBuffer(),
+      this.txHash.buffer,
       this.nonce.toBuffer(),
       this.innerNoteHash.toBuffer(),
       this.siloedNullifier.toBuffer(),
       toBufferBE(this.index, 32),
+      this.publicKey.toBuffer(),
     ]);
   }
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
 
-    const extendedNote = ExtendedNote.fromBuffer(reader);
+    const note = Note.fromBuffer(reader);
+    const contractAddress = AztecAddress.fromBuffer(reader);
+    const storageSlot = Fr.fromBuffer(reader);
+    const txHash = new TxHash(reader.readBytes(TxHash.SIZE));
     const nonce = Fr.fromBuffer(reader);
     const innerNoteHash = Fr.fromBuffer(reader);
     const siloedNullifier = Fr.fromBuffer(reader);
     const index = toBigIntBE(reader.readBytes(32));
+    const publicKey = Point.fromBuffer(reader);
 
-    return new this(extendedNote, nonce, innerNoteHash, siloedNullifier, index);
+    return new this(
+      note,
+      contractAddress,
+      storageSlot,
+      txHash,
+      nonce,
+      innerNoteHash,
+      siloedNullifier,
+      index,
+      publicKey,
+    );
   }
 
   toString() {
@@ -60,6 +86,6 @@ export class NoteDao {
     // TODO: update
     // 7 fields + 1 bigint + 1 buffer size (4 bytes) + 1 buffer
     const indexSize = Math.ceil(Math.log2(Number(this.index)));
-    return this.extendedNote.note.items.length * Fr.SIZE_IN_BYTES + 7 * Fr.SIZE_IN_BYTES + 4 + indexSize;
+    return this.note.items.length * Fr.SIZE_IN_BYTES + 7 * Fr.SIZE_IN_BYTES + 4 + indexSize;
   }
 }

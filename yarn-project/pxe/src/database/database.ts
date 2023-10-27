@@ -1,4 +1,4 @@
-import { CompleteAddress, HistoricBlockData } from '@aztec/circuits.js';
+import { CompleteAddress, HistoricBlockData, PublicKey } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { ContractDatabase, MerkleTreeId, NoteFilter } from '@aztec/types';
@@ -50,10 +50,10 @@ export interface Database extends ContractDatabase {
    * Remove nullified notes associated with the given account and nullifiers.
    *
    * @param nullifiers - An array of Fr instances representing nullifiers to be matched.
-   * @param account - An account for which the records are being removed.
+   * @param account - A PublicKey instance representing the account for which the records are being removed.
    * @returns Removed notes.
    */
-  removeNullifiedNotes(nullifiers: Fr[], account: AztecAddress): Promise<NoteDao[]>;
+  removeNullifiedNotes(nullifiers: Fr[], account: PublicKey): Promise<NoteDao[]>;
 
   /**
    * Retrieve the stored Merkle tree roots from the database.

@@ -32,8 +32,8 @@ describe('Memory DB', () => {
 
       for (let i = 0; i < notes.length; ++i) {
         const result = await db.getNotes({
-          contractAddress: notes[i].extendedNote.contractAddress,
-          storageSlot: notes[i].extendedNote.storageSlot,
+          contractAddress: notes[i].contractAddress,
+          storageSlot: notes[i].storageSlot,
         });
         expect(result).toEqual([notes[i]]);
       }
@@ -45,8 +45,8 @@ describe('Memory DB', () => {
 
       for (let i = 0; i < notes.length; ++i) {
         const result = await db.getNotes({
-          contractAddress: notes[i].extendedNote.contractAddress,
-          storageSlot: notes[i].extendedNote.storageSlot,
+          contractAddress: notes[i].contractAddress,
+          storageSlot: notes[i].storageSlot,
         });
         expect(result).toEqual([notes[i]]);
       }

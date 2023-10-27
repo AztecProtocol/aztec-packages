@@ -1,15 +1,15 @@
 import {
   CircuitsWasm,
-  CompleteAddress,
   MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
+  PublicKey
 } from '@aztec/circuits.js';
 import { computeCommitmentNonce, siloNullifier } from '@aztec/circuits.js/abis';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { AztecNode, ExtendedNote, KeyStore, L1NotePayload, L2BlockContext, L2BlockL2Logs } from '@aztec/types';
+import { AztecNode, KeyStore, L1NotePayload, L2BlockContext, L2BlockL2Logs } from '@aztec/types';
 import { NoteProcessorStats } from '@aztec/types/stats';
 
 import { Database } from '../database/index.js';
@@ -48,7 +48,7 @@ export class NoteProcessor {
     /**
      * The public counterpart to the private key to be used in note decryption.
      */
-    public readonly account: CompleteAddress,
+    public readonly publicKey: PublicKey,
     private keyStore: KeyStore,
     private db: Database,
     private node: AztecNode,
@@ -112,7 +112,7 @@ export class NoteProcessor {
       // We are using set for `userPertainingTxIndices` to avoid duplicates. This would happen in case there were
       // multiple encrypted logs in a tx pertaining to a user.
       const noteDaos: NoteDao[] = [];
-      const privateKey = await this.keyStore.getAccountPrivateKey(this.account.publicKey);
+      const privateKey = await this.keyStore.getAccountPrivateKey(this.publicKey);
 
       // Iterate over all the encrypted logs and try decrypting them. If successful, store the note.
       for (let indexOfTxInABlock = 0; indexOfTxInABlock < txLogs.length; ++indexOfTxInABlock) {
@@ -147,17 +147,15 @@ export class NoteProcessor {
                 excludedIndices.add(commitmentIndex);
                 noteDaos.push(
                   new NoteDao(
-                    new ExtendedNote(
-                      payload.note,
-                      this.account.address,
-                      payload.contractAddress,
-                      payload.storageSlot,
-                      blockContext.getTxHash(indexOfTxInABlock),
-                    ),
+                    payload.note,
+                    payload.contractAddress,
+                    payload.storageSlot,
+                    blockContext.getTxHash(indexOfTxInABlock),
                     nonce,
                     innerNoteHash,
                     siloedNullifier,
                     index,
+                    this.publicKey,
                   ),
                 );
                 this.stats.decrypted++;
@@ -270,19 +268,19 @@ https://github.com/AztecProtocol/aztec-packages/issues/1641`;
       await this.db.addNotes(noteDaos);
       noteDaos.forEach(noteDao => {
         this.log(
-          `Added note for contract ${noteDao.extendedNote.contractAddress} at slot ${
-            noteDao.extendedNote.storageSlot
+          `Added note for contract ${noteDao.contractAddress} at slot ${
+            noteDao.storageSlot
           } with nullifier ${noteDao.siloedNullifier.toString()}`,
         );
       });
     }
 
     const newNullifiers: Fr[] = blocksAndNotes.flatMap(b => b.blockContext.block.newNullifiers);
-    const removedNotes = await this.db.removeNullifiedNotes(newNullifiers, this.account.address);
+    const removedNotes = await this.db.removeNullifiedNotes(newNullifiers, this.publicKey);
     removedNotes.forEach(noteDao => {
       this.log(
-        `Removed note for contract ${noteDao.extendedNote.contractAddress} at slot ${
-          noteDao.extendedNote.storageSlot
+        `Removed note for contract ${noteDao.contractAddress} at slot ${
+          noteDao.storageSlot
         } with nullifier ${noteDao.siloedNullifier.toString()}`,
       );
     });

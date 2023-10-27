@@ -109,7 +109,7 @@ describe('Synchronizer', () => {
     await database.addCompleteAddress(completeAddress);
 
     // Add the account which will add the note processor to the synchronizer
-    synchronizer.addAccount(completeAddress, keyStore, INITIAL_L2_BLOCK_NUM);
+    synchronizer.addAccount(completeAddress.publicKey, keyStore, INITIAL_L2_BLOCK_NUM);
 
     await synchronizer.workNoteProcessorCatchUp();
 

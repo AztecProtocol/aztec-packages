@@ -124,8 +124,8 @@ export class PXEService implements PXE {
     const completeAddress = await CompleteAddress.fromPrivateKeyAndPartialAddress(privKey, partialAddress);
     const wasAdded = await this.db.addCompleteAddress(completeAddress);
     if (wasAdded) {
-      this.keyStore.addAccount(privKey);
-      this.synchronizer.addAccount(completeAddress, this.keyStore, this.config.l2StartingBlock);
+      const pubKey = this.keyStore.addAccount(privKey);
+      this.synchronizer.addAccount(pubKey, this.keyStore, this.config.l2StartingBlock);
       this.log.info(`Registered account ${completeAddress.address.toString()}`);
       this.log.debug(`Registered account\n ${completeAddress.toReadableString()}`);
     } else {
@@ -196,13 +196,29 @@ export class PXEService implements PXE {
 
   public async getNotes(filter: NoteFilter): Promise<ExtendedNote[]> {
     const noteDaos = await this.db.getNotes(filter);
-    return noteDaos.map(dao => dao.extendedNote);
+
+    // TODO(benesjan): Refactor --> This type conversion is ugly but I decided to keep it this way for now because
+    // key derivation will affect all this
+    const extendedNotes = noteDaos.map(async dao => {
+      let owner = filter.owner;
+      if (owner === undefined) {
+        const completeAddresses = (await this.db.getCompleteAddresses()).find(address =>
+          address.publicKey.equals(dao.publicKey),
+        );
+        if (completeAddresses === undefined) {
+          throw new Error(`Cannot find complete address for public key ${dao.publicKey.toString()}`);
+        }
+        owner = completeAddresses.address;
+      }
+      return new ExtendedNote(dao.note, owner, dao.contractAddress, dao.storageSlot, dao.txHash);
+    });
+    return Promise.all(extendedNotes);
   }
 
   public async addNote(note: ExtendedNote) {
-    const account = (await this.db.getCompleteAddress(note.owner)) ?? {};
-    if (!account) {
-      throw new Error('Unknown note owner: ' + note.owner.toString());
+    const { publicKey } = (await this.db.getCompleteAddress(note.owner)) ?? {};
+    if (!publicKey) {
+      throw new Error('Unknown account.');
     }
 
     const [nonce] = await this.getNoteNonces(note);
@@ -228,7 +244,19 @@ export class PXEService implements PXE {
       throw new Error('The note has been destroyed.');
     }
 
-    await this.db.addNote(new NoteDao(note, nonce, innerNoteHash, siloedNullifier, index));
+    await this.db.addNote(
+      new NoteDao(
+        note.note,
+        note.contractAddress,
+        note.storageSlot,
+        note.txHash,
+        nonce,
+        innerNoteHash,
+        siloedNullifier,
+        index,
+        publicKey,
+      ),
+    );
   }
 
   public async getNoteNonces(note: ExtendedNote): Promise<Fr[]> {
