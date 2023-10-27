@@ -50,10 +50,10 @@ export interface Database extends ContractDatabase {
    * Remove nullified notes associated with the given account and nullifiers.
    *
    * @param nullifiers - An array of Fr instances representing nullifiers to be matched.
-   * @param account - A PublicKey instance representing the account for which the records are being removed.
+   * @param account - An account for which the records are being removed.
    * @returns Removed notes.
    */
-  removeNullifiedNotes(nullifiers: Fr[], account: PublicKey): Promise<NoteDao[]>;
+  removeNullifiedNotes(nullifiers: Fr[], account: AztecAddress): Promise<NoteDao[]>;
 
   /**
    * Retrieve the stored Merkle tree roots from the database.

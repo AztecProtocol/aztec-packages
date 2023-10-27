@@ -5,7 +5,7 @@ import {
   Fr,
   MAX_NEW_CONTRACTS_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-  Proof
+  Proof,
 } from '@aztec/circuits.js';
 import { makePrivateKernelPublicInputsFinal, makePublicCallRequest } from '@aztec/circuits.js/factories';
 import { ContractArtifact } from '@aztec/foundation/abi';
@@ -60,11 +60,5 @@ export const randomExtendedNote = ({
   txHash = randomTxHash(),
   storageSlot = Fr.random(),
 }: Partial<ExtendedNote> = {}) => {
-  return new ExtendedNote(
-    note,
-    owner,
-    contractAddress,
-    storageSlot,
-    txHash,
-  );
+  return new ExtendedNote(note, owner, contractAddress, storageSlot, txHash);
 };

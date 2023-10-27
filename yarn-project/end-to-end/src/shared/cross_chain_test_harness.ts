@@ -21,6 +21,7 @@ import {
   TokenPortalBytecode,
 } from '@aztec/l1-artifacts';
 import { TokenBridgeContract, TokenContract } from '@aztec/noir-contracts/types';
+import { ExtendedNote } from '@aztec/types';
 
 import { Account, Chain, HttpTransport, PublicClient, WalletClient, getContract, getFunctionSelector } from 'viem';
 
@@ -412,7 +413,8 @@ export class CrossChainTestHarness {
     this.logger('Adding note to PXE');
     const storageSlot = new Fr(5);
     const note = new Note([new Fr(shieldAmount), secretHash]);
-    await this.pxeService.addNote(this.ownerAddress, this.l2Token.address, storageSlot, note, txHash);
+    const extendedNote = new ExtendedNote(note, this.ownerAddress, this.l2Token.address, storageSlot, txHash);
+    await this.pxeService.addNote(extendedNote);
   }
 
   async redeemShieldPrivatelyOnL2(shieldAmount: bigint, secret: Fr) {

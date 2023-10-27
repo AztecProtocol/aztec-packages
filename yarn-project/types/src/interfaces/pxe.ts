@@ -168,33 +168,19 @@ export interface PXE {
   getNotes(filter: NoteFilter): Promise<ExtendedNote[]>;
 
   /**
-   * Adds a note to the database. Throw if the note hash of the note doesn't exist in the tree.
-   * @param account - The account the note is associated with.
-   * @param contract - The contract address of the note.
-   * @param storageSlot - The storage slot of the note.
+   * Adds a note to the database.
+   * @throws If the note hash of the note doesn't exist in the tree.
    * @param note - The note to add.
-   * @param txHash - The tx hash of the tx containing the note.
-   * @param nonce - The nonce of the note. If undefined, will look for the first index that matches the note.
    */
-  addNote(
-    account: AztecAddress,
-    contract: AztecAddress,
-    storageSlot: Fr,
-    note: Note,
-    txHash: TxHash,
-    nonce?: Fr,
-  ): Promise<void>;
+  addNote(note: ExtendedNote): Promise<void>;
 
   /**
-   * Finds the nonce(s) for a note in a tx with given a note at a specified contract address and storage slot.
-   * @param contract - The contract address of the note.
-   * @param storageSlot - The storage slot of the note.
-   * @param note - The note as emitted from Noir contract.
-   * @param txHash - The tx hash of the tx containing the note.
+   * Finds the nonce(s) for a given note.
+   * @param note - The note to find the nonces for.
    * @returns The nonces of the note.
-   * @remarks More than single nonce may be returned since there might be more than one nonce for a given note.
+   * @remarks More than a single nonce may be returned since there might be more than one nonce for a given note.
    */
-  getNoteNonces(contract: AztecAddress, storageSlot: Fr, note: Note, txHash: TxHash): Promise<Fr[]>;
+  getNoteNonces(note: ExtendedNote): Promise<Fr[]>;
 
   /**
    * Simulate the execution of a view (read-only) function on a deployed contract without actually modifying state.

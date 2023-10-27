@@ -1,4 +1,4 @@
-import { Fr, Point, PublicKey } from '@aztec/circuits.js';
+import { Fr } from '@aztec/circuits.js';
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { BufferReader, ExtendedNote } from '@aztec/types';
 
@@ -20,8 +20,6 @@ export class NoteDao {
     public siloedNullifier: Fr,
     /** The location of the relevant note in the note hash tree. */
     public index: bigint,
-    /** The public key that was used to encrypt the data. */
-    public publicKey: PublicKey,
   ) {}
 
   toBuffer(): Buffer {
@@ -31,7 +29,6 @@ export class NoteDao {
       this.innerNoteHash.toBuffer(),
       this.siloedNullifier.toBuffer(),
       toBufferBE(this.index, 32),
-      this.publicKey.toBuffer(),
     ]);
   }
   static fromBuffer(buffer: Buffer | BufferReader) {
@@ -42,16 +39,8 @@ export class NoteDao {
     const innerNoteHash = Fr.fromBuffer(reader);
     const siloedNullifier = Fr.fromBuffer(reader);
     const index = toBigIntBE(reader.readBytes(32));
-    const publicKey = Point.fromBuffer(reader);
 
-    return new this(
-      extendedNote,
-      nonce,
-      innerNoteHash,
-      siloedNullifier,
-      index,
-      publicKey,
-    );
+    return new this(extendedNote, nonce, innerNoteHash, siloedNullifier, index);
   }
 
   toString() {
@@ -64,14 +53,13 @@ export class NoteDao {
   }
 
   /**
-   * Returns the size in bytes of the extended note.
+   * Returns the size in bytes of the Note Dao.
    * @returns - Its size in bytes.
    */
   public getSize() {
+    // TODO: update
     // 7 fields + 1 bigint + 1 buffer size (4 bytes) + 1 buffer
     const indexSize = Math.ceil(Math.log2(Number(this.index)));
-    return (
-      this.extendedNote.note.items.length * Fr.SIZE_IN_BYTES + 7 * Fr.SIZE_IN_BYTES + 4 + indexSize + Point.SIZE_IN_BYTES
-    );
+    return this.extendedNote.note.items.length * Fr.SIZE_IN_BYTES + 7 * Fr.SIZE_IN_BYTES + 4 + indexSize;
   }
 }

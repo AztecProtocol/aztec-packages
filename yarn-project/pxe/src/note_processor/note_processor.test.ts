@@ -1,5 +1,5 @@
 import { AcirSimulator } from '@aztec/acir-simulator';
-import { CircuitsWasm, Fr, MAX_NEW_COMMITMENTS_PER_TX } from '@aztec/circuits.js';
+import { CircuitsWasm, CompleteAddress, Fr, MAX_NEW_COMMITMENTS_PER_TX } from '@aztec/circuits.js';
 import { Grumpkin, pedersenHashInputs } from '@aztec/circuits.js/barretenberg';
 import { Point } from '@aztec/foundation/fields';
 import { ConstantKeyPair } from '@aztec/key-store';
@@ -22,6 +22,7 @@ import { jest } from '@jest/globals';
 import { MockProxy, mock } from 'jest-mock-extended';
 
 import { Database, MemoryDB } from '../database/index.js';
+import { NoteDao } from '../database/note_dao.js';
 import { NoteProcessor } from './note_processor.js';
 
 const TXS_PER_BLOCK = 4;
@@ -31,9 +32,10 @@ describe('Note Processor', () => {
   let grumpkin: Grumpkin;
   let database: Database;
   let aztecNode: ReturnType<typeof mock<AztecNode>>;
-  let addExtendedNotesSpy: any;
+  let addNotesSpy: any;
   let noteProcessor: NoteProcessor;
   let owner: KeyPair;
+  let ownerAddress: CompleteAddress;
   let keyStore: MockProxy<KeyStore>;
   let simulator: MockProxy<AcirSimulator>;
   const firstBlockNum = 123;
@@ -119,24 +121,18 @@ describe('Note Processor', () => {
     wasm = await CircuitsWasm.get();
     grumpkin = new Grumpkin(wasm);
     owner = ConstantKeyPair.random(grumpkin);
+    ownerAddress = await CompleteAddress.fromPrivateKeyAndPartialAddress(await owner.getPrivateKey(), Fr.random());
   });
 
   beforeEach(() => {
     database = new MemoryDB();
-    addExtendedNotesSpy = jest.spyOn(database, 'addExtendedNotes');
+    addNotesSpy = jest.spyOn(database, 'addNotes');
 
     aztecNode = mock<AztecNode>();
     keyStore = mock<KeyStore>();
     simulator = mock<AcirSimulator>();
     keyStore.getAccountPrivateKey.mockResolvedValue(owner.getPrivateKey());
-    noteProcessor = new NoteProcessor(
-      owner.getPublicKey(),
-      keyStore,
-      database,
-      aztecNode,
-      INITIAL_L2_BLOCK_NUM,
-      simulator,
-    );
+    noteProcessor = new NoteProcessor(ownerAddress, keyStore, database, aztecNode, INITIAL_L2_BLOCK_NUM, simulator);
 
     simulator.computeNoteHashAndNullifier.mockImplementation((...args) =>
       Promise.resolve({
@@ -149,15 +145,15 @@ describe('Note Processor', () => {
   });
 
   afterEach(() => {
-    addExtendedNotesSpy.mockReset();
+    addNotesSpy.mockReset();
   });
 
   it('should store a note that belongs to us', async () => {
     const { blockContexts, encryptedLogsArr, ownedL1NotePayloads } = mockData([[2]]);
     await noteProcessor.process(blockContexts, encryptedLogsArr);
 
-    expect(addExtendedNotesSpy).toHaveBeenCalledTimes(1);
-    expect(addExtendedNotesSpy).toHaveBeenCalledWith([
+    expect(addNotesSpy).toHaveBeenCalledTimes(1);
+    expect(addNotesSpy).toHaveBeenCalledWith([
       expect.objectContaining({
         ...ownedL1NotePayloads[0],
         index: BigInt(firstBlockDataStartIndex + 2),
@@ -177,8 +173,8 @@ describe('Note Processor', () => {
     );
     await noteProcessor.process(blockContexts, encryptedLogsArr);
 
-    expect(addExtendedNotesSpy).toHaveBeenCalledTimes(1);
-    expect(addExtendedNotesSpy).toHaveBeenCalledWith([
+    expect(addNotesSpy).toHaveBeenCalledTimes(1);
+    expect(addNotesSpy).toHaveBeenCalledWith([
       expect.objectContaining({
         ...ownedL1NotePayloads[0],
         // Index 1 log in the 2nd tx.
@@ -202,7 +198,7 @@ describe('Note Processor', () => {
     await noteProcessor.process(blockContexts, encryptedLogsArr);
   });
 
-  it('should be able to recover two note payloads with containing the same note', async () => {
+  it('should be able to recover two note payloads containing the same note', async () => {
     const note = L1NotePayload.random();
     const note2 = L1NotePayload.random();
     // All note payloads except one have the same contract address, storage slot, and the actual note.
@@ -210,8 +206,8 @@ describe('Note Processor', () => {
     const { blockContexts, encryptedLogsArr, ownedL1NotePayloads } = mockData([[0, 2], [], [0, 1, 3]], 0, 0, notes);
     await noteProcessor.process(blockContexts, encryptedLogsArr);
 
-    const addedInfos: ExtendedNote[] = addExtendedNotesSpy.mock.calls[0][0];
-    expect(addedInfos).toEqual([
+    const addedNoteDaos: NoteDao[] = addNotesSpy.mock.calls[0][0];
+    expect(addedNoteDaos).toEqual([
       expect.objectContaining({ ...ownedL1NotePayloads[0] }),
       expect.objectContaining({ ...ownedL1NotePayloads[1] }),
       expect.objectContaining({ ...ownedL1NotePayloads[2] }),
@@ -225,7 +221,7 @@ describe('Note Processor', () => {
 
     // Check that every note has a different nonce.
     const nonceSet = new Set<bigint>();
-    addedInfos.forEach(info => nonceSet.add(info.nonce.value));
+    addedNoteDaos.forEach(info => nonceSet.add(info.nonce.value));
     expect(nonceSet.size).toBe(notes.length);
   });
 });

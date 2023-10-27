@@ -9,7 +9,7 @@ import {
 import { CompleteAddress } from '@aztec/circuits.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { LendingContract, PriceFeedContract, TokenContract } from '@aztec/noir-contracts/types';
-import { Note, TxStatus } from '@aztec/types';
+import { ExtendedNote, Note, TxStatus } from '@aztec/types';
 
 import { jest } from '@jest/globals';
 
@@ -122,7 +122,8 @@ describe('e2e_lending_contract', () => {
         const storageSlot = new Fr(5);
         const note = new Note([new Fr(mintAmount), secretHash]);
         const txHash = await b.getTxHash();
-        await wallet.addNote(accounts[0].address, asset.address, storageSlot, note, txHash);
+        const extendedNote = new ExtendedNote(note, accounts[0].address, asset.address, storageSlot, txHash);
+        await wallet.addNote(extendedNote);
 
         await waitForSuccess(asset.methods.redeem_shield(lendingAccount.address, mintAmount, secret).send());
       }

@@ -4,7 +4,7 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { toBigInt } from '@aztec/foundation/serialize';
 import { ChildContract, TokenContract } from '@aztec/noir-contracts/types';
 import { EthAddress, Fr, PXEService } from '@aztec/pxe';
-import { AztecNode, CompleteAddress, PXE, TxStatus } from '@aztec/types';
+import { AztecNode, CompleteAddress, ExtendedNote, PXE, TxStatus } from '@aztec/types';
 
 import { jest } from '@jest/globals';
 
@@ -98,7 +98,8 @@ describe('e2e_2_pxes', () => {
 
     const storageSlot = new Fr(5);
     const note = new Note([new Fr(balance), secretHash]);
-    await pxe.addNote(recipient, contract.address, storageSlot, note, receipt.txHash);
+    const extendedNote = new ExtendedNote(note, recipient, contract.address, storageSlot, receipt.txHash);
+    await pxe.addNote(extendedNote);
 
     expect((await contract.methods.redeem_shield(recipient, balance, secret).send().wait()).status).toEqual(
       TxStatus.MINED,

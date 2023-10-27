@@ -2,7 +2,7 @@ import { CompleteAddress, HistoricBlockData } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { MerkleTreeId, NoteFilter, PublicKey } from '@aztec/types';
+import { MerkleTreeId, NoteFilter } from '@aztec/types';
 
 import { MemoryContractDatabase } from '../contract_database/index.js';
 import { Database } from './database.js';
@@ -54,31 +54,23 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
     return Promise.resolve();
   }
 
-  public async getNotes(filter: NoteFilter): Promise<NoteDao[]> {
-    let ownerPublicKey: PublicKey | undefined;
-    if (filter.owner !== undefined) {
-      const ownerCompleteAddress = await this.getCompleteAddress(filter.owner);
-      if (ownerCompleteAddress === undefined) {
-        throw new Error(`Owner ${filter.owner.toString()} not found in memory database`);
-      }
-      ownerPublicKey = ownerCompleteAddress.publicKey;
-    }
-
-    return this.notesTable.filter(
-      note =>
-        (filter.contractAddress == undefined || note.contractAddress.equals(filter.contractAddress)) &&
-        (filter.txHash == undefined || note.txHash.equals(filter.txHash)) &&
-        (filter.storageSlot == undefined || note.storageSlot.equals(filter.storageSlot!)) &&
-        (ownerPublicKey == undefined || note.publicKey.equals(ownerPublicKey!)),
+  public getNotes(filter: NoteFilter): Promise<NoteDao[]> {
+    const notes = this.notesTable.filter(
+      noteDao =>
+        (filter.contractAddress == undefined || noteDao.extendedNote.contractAddress.equals(filter.contractAddress)) &&
+        (filter.txHash == undefined || noteDao.extendedNote.txHash.equals(filter.txHash)) &&
+        (filter.storageSlot == undefined || noteDao.extendedNote.storageSlot.equals(filter.storageSlot!)) &&
+        (filter.owner == undefined || noteDao.extendedNote.owner.equals(filter.owner!)),
     );
+    return Promise.resolve(notes);
   }
 
-  public removeNullifiedNotes(nullifiers: Fr[], account: PublicKey) {
+  public removeNullifiedNotes(nullifiers: Fr[], account: AztecAddress) {
     const nullifierSet = new Set(nullifiers.map(nullifier => nullifier.toString()));
     const [remaining, removed] = this.notesTable.reduce(
       (acc: [NoteDao[], NoteDao[]], note) => {
         const nullifier = note.siloedNullifier.toString();
-        if (note.publicKey.equals(account) && nullifierSet.has(nullifier)) {
+        if (note.extendedNote.owner.equals(account) && nullifierSet.has(nullifier)) {
           acc[1].push(note);
         } else {
           acc[0].push(note);
@@ -156,7 +148,7 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
   }
 
   public estimateSize() {
-    const notesSize = this.notesTable.reduce((sum, note) => sum + note.getSize(note), 0);
+    const notesSize = this.notesTable.reduce((sum, note) => sum + note.getSize(), 0);
     const treeRootsSize = this.treeRoots ? Object.entries(this.treeRoots).length * Fr.SIZE_IN_BYTES : 0;
     const authWits = Object.entries(this.authWitnesses);
     const authWitsSize = authWits.reduce((sum, [key, value]) => sum + key.length + value.length * Fr.SIZE_IN_BYTES, 0);

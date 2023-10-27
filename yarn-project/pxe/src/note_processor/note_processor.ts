@@ -1,21 +1,19 @@
-import { CircuitsWasm, MAX_NEW_COMMITMENTS_PER_TX, MAX_NEW_NULLIFIERS_PER_TX } from '@aztec/circuits.js';
+import {
+  CircuitsWasm,
+  CompleteAddress,
+  MAX_NEW_COMMITMENTS_PER_TX,
+  MAX_NEW_NULLIFIERS_PER_TX,
+} from '@aztec/circuits.js';
 import { computeCommitmentNonce, siloNullifier } from '@aztec/circuits.js/abis';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import {
-  AztecNode,
-  ExtendedNote,
-  KeyStore,
-  L1NotePayload,
-  L2BlockContext,
-  L2BlockL2Logs,
-  PublicKey,
-} from '@aztec/types';
+import { AztecNode, ExtendedNote, KeyStore, L1NotePayload, L2BlockContext, L2BlockL2Logs } from '@aztec/types';
 import { NoteProcessorStats } from '@aztec/types/stats';
 
 import { Database } from '../database/index.js';
+import { NoteDao } from '../database/note_dao.js';
 import { getAcirSimulator } from '../simulator/index.js';
 
 /**
@@ -27,9 +25,9 @@ interface ProcessedData {
    */
   blockContext: L2BlockContext;
   /**
-   * A processed extended notes.
+   * DAOs of processed notes.
    */
-  extendedNotes: ExtendedNote[];
+  noteDaos: NoteDao[];
 }
 
 /**
@@ -50,7 +48,7 @@ export class NoteProcessor {
     /**
      * The public counterpart to the private key to be used in note decryption.
      */
-    public readonly publicKey: PublicKey,
+    public readonly account: CompleteAddress,
     private keyStore: KeyStore,
     private db: Database,
     private node: AztecNode,
@@ -113,8 +111,8 @@ export class NoteProcessor {
 
       // We are using set for `userPertainingTxIndices` to avoid duplicates. This would happen in case there were
       // multiple encrypted logs in a tx pertaining to a user.
-      const extendedNotes: ExtendedNote[] = [];
-      const privateKey = await this.keyStore.getAccountPrivateKey(this.publicKey);
+      const noteDaos: NoteDao[] = [];
+      const privateKey = await this.keyStore.getAccountPrivateKey(this.account.publicKey);
 
       // Iterate over all the encrypted logs and try decrypting them. If successful, store the note.
       for (let indexOfTxInABlock = 0; indexOfTxInABlock < txLogs.length; ++indexOfTxInABlock) {
@@ -147,17 +145,19 @@ export class NoteProcessor {
                 );
                 const index = BigInt(dataStartIndexForTx + commitmentIndex);
                 excludedIndices.add(commitmentIndex);
-                extendedNotes.push(
-                  new ExtendedNote(
-                    payload.note,
-                    payload.contractAddress,
-                    blockContext.getTxHash(indexOfTxInABlock),
+                noteDaos.push(
+                  new NoteDao(
+                    new ExtendedNote(
+                      payload.note,
+                      this.account.address,
+                      payload.contractAddress,
+                      payload.storageSlot,
+                      blockContext.getTxHash(indexOfTxInABlock),
+                    ),
                     nonce,
-                    payload.storageSlot,
                     innerNoteHash,
                     siloedNullifier,
                     index,
-                    this.publicKey,
                   ),
                 );
                 this.stats.decrypted++;
@@ -172,7 +172,7 @@ export class NoteProcessor {
 
       blocksAndNotes.push({
         blockContext: l2BlockContexts[blockIndex],
-        extendedNotes,
+        noteDaos,
       });
     }
 
@@ -262,28 +262,28 @@ https://github.com/AztecProtocol/aztec-packages/issues/1641`;
    * transaction auxiliary data from the database. This function keeps track of new nullifiers
    * and ensures all other transactions are updated with newly settled block information.
    *
-   * @param blocksAndNotes - Array of objects containing L2BlockContexts, user-pertaining transaction indices, and ExtendedNotes.
+   * @param blocksAndNotes - Array of objects containing L2BlockContexts, user-pertaining transaction indices, and NoteDaos.
    */
   private async processBlocksAndNotes(blocksAndNotes: ProcessedData[]) {
-    const extendedNotesBatch = blocksAndNotes.flatMap(b => b.extendedNotes);
-    if (extendedNotesBatch.length) {
-      await this.db.addExtendedNotes(extendedNotesBatch);
-      extendedNotesBatch.forEach(note => {
+    const noteDaos = blocksAndNotes.flatMap(b => b.noteDaos);
+    if (noteDaos.length) {
+      await this.db.addNotes(noteDaos);
+      noteDaos.forEach(noteDao => {
         this.log(
-          `Added note for contract ${note.contractAddress} at slot ${
-            note.storageSlot
-          } with nullifier ${note.siloedNullifier.toString()}`,
+          `Added note for contract ${noteDao.extendedNote.contractAddress} at slot ${
+            noteDao.extendedNote.storageSlot
+          } with nullifier ${noteDao.siloedNullifier.toString()}`,
         );
       });
     }
 
     const newNullifiers: Fr[] = blocksAndNotes.flatMap(b => b.blockContext.block.newNullifiers);
-    const removedNotes = await this.db.removeNullifiedNotes(newNullifiers, this.publicKey);
-    removedNotes.forEach(note => {
+    const removedNotes = await this.db.removeNullifiedNotes(newNullifiers, this.account.address);
+    removedNotes.forEach(noteDao => {
       this.log(
-        `Removed note for contract ${note.contractAddress} at slot ${
-          note.storageSlot
-        } with nullifier ${note.siloedNullifier.toString()}`,
+        `Removed note for contract ${noteDao.extendedNote.contractAddress} at slot ${
+          noteDao.extendedNote.storageSlot
+        } with nullifier ${noteDao.siloedNullifier.toString()}`,
       );
     });
   }

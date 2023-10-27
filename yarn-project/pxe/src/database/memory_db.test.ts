@@ -1,7 +1,7 @@
 import { AztecAddress, Fr } from '@aztec/circuits.js';
-import { ExtendedNote, randomExtendedNote } from '@aztec/types';
 
 import { MemoryDB } from './memory_db.js';
+import { randomNoteDao } from './note_dao.test.js';
 
 describe('Memory DB', () => {
   let db: MemoryDB;
@@ -14,17 +14,10 @@ describe('Memory DB', () => {
     const contractAddress = AztecAddress.random();
     const storageSlot = Fr.random();
 
-    const createNote = (attributes: Partial<ExtendedNote> = {}, sameStorage = true) =>
-      randomExtendedNote({
-        ...attributes,
-        contractAddress: sameStorage ? contractAddress : AztecAddress.random(),
-        storageSlot: sameStorage ? storageSlot : Fr.random(),
-      });
-
     const createNotes = (numberOfNotes: number, sameStorage = true) =>
       Array(numberOfNotes)
         .fill(0)
-        .map(() => createNote({}, sameStorage));
+        .map(() => randomNoteDao({ storageSlot: sameStorage ? storageSlot : Fr.random() }));
 
     it('should add and get notes', async () => {
       const notes = createNotes(3, false);
@@ -34,8 +27,8 @@ describe('Memory DB', () => {
 
       for (let i = 0; i < notes.length; ++i) {
         const result = await db.getNotes({
-          contractAddress: notes[i].contractAddress,
-          storageSlot: notes[i].storageSlot,
+          contractAddress: notes[i].extendedNote.contractAddress,
+          storageSlot: notes[i].extendedNote.storageSlot,
         });
         expect(result).toEqual([notes[i]]);
       }
@@ -43,12 +36,12 @@ describe('Memory DB', () => {
 
     it('should batch add notes', async () => {
       const notes = createNotes(3, false);
-      await db.addNote(notes);
+      await db.addNotes(notes);
 
       for (let i = 0; i < notes.length; ++i) {
         const result = await db.getNotes({
-          contractAddress: notes[i].contractAddress,
-          storageSlot: notes[i].storageSlot,
+          contractAddress: notes[i].extendedNote.contractAddress,
+          storageSlot: notes[i].extendedNote.storageSlot,
         });
         expect(result).toEqual([notes[i]]);
       }
@@ -56,7 +49,7 @@ describe('Memory DB', () => {
 
     it('should get all notes with the same contract storage slot', async () => {
       const notes = createNotes(3);
-      await db.addNote(notes);
+      await db.addNotes(notes);
 
       const result = await db.getNotes({ contractAddress, storageSlot });
       expect(result.length).toBe(notes.length);

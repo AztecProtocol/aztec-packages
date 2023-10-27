@@ -1,17 +1,16 @@
-import { Fr, Point } from '@aztec/circuits.js';
-import { randomExtendedNote } from '@aztec/types';
+import { Fr } from '@aztec/circuits.js';
+import { ExtendedNote, randomExtendedNote } from '@aztec/types';
 
 import { NoteDao } from './note_dao.js';
 
-const randomNoteDao = () => {
-  const extendedNote = randomExtendedNote();
+export const randomNoteDao = (extendedNoteAttributes: Partial<ExtendedNote> = {}) => {
+  const extendedNote = randomExtendedNote(extendedNoteAttributes);
   const nonce = Fr.random();
   const innerNoteHash = Fr.random();
   const siloedNullifier = Fr.random();
   const index = BigInt(0);
-  const publicKey = Point.random();
 
-  return new NoteDao(extendedNote, nonce, innerNoteHash, siloedNullifier, index, publicKey);
+  return new NoteDao(extendedNote, nonce, innerNoteHash, siloedNullifier, index);
 };
 
 describe('Note DAO', () => {

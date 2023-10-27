@@ -9,6 +9,7 @@ import {
 import { CompleteAddress, Fr, FunctionSelector } from '@aztec/circuits.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts/types';
+import { ExtendedNote } from '@aztec/types';
 
 import { jest } from '@jest/globals';
 
@@ -32,7 +33,8 @@ describe('e2e_token_contract', () => {
   const addPendingShieldNoteToPXE = async (accountIndex: number, amount: bigint, secretHash: Fr, txHash: TxHash) => {
     const storageSlot = new Fr(5); // The storage slot of `pending_shields` is 5.
     const note = new Note([new Fr(amount), secretHash]);
-    await wallets[accountIndex].addNote(accounts[0].address, asset.address, storageSlot, note, txHash);
+    const extendedNote = new ExtendedNote(note, accounts[0].address, asset.address, storageSlot, txHash);
+    await wallets[accountIndex].addNote(extendedNote);
   };
 
   beforeAll(async () => {

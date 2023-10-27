@@ -10,7 +10,7 @@ import {
 import { GrumpkinPrivateKey, GrumpkinScalar } from '@aztec/circuits.js';
 import { Schnorr } from '@aztec/circuits.js/barretenberg';
 import { SchnorrHardcodedAccountContractArtifact, TokenContract } from '@aztec/noir-contracts/types';
-import { AuthWitness } from '@aztec/types';
+import { AuthWitness, ExtendedNote } from '@aztec/types';
 
 import { setup } from '../fixtures/utils.js';
 
@@ -72,7 +72,8 @@ describe('guides/writing_an_account_contract', () => {
 
     const storageSlot = new Fr(5);
     const note = new Note([new Fr(mintAmount), secretHash]);
-    await pxe.addNote(address, token.address, storageSlot, note, receipt.txHash);
+    const extendedNote = new ExtendedNote(note, address, token.address, storageSlot, receipt.txHash);
+    await pxe.addNote(extendedNote);
 
     await token.methods.redeem_shield({ address }, mintAmount, secret).send().wait();
 

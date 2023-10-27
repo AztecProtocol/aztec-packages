@@ -15,6 +15,7 @@ import {
 } from '@aztec/aztec.js';
 import { CompleteAddress } from '@aztec/circuits.js';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { ExtendedNote } from '@aztec/types';
 import { afterEach, beforeAll, expect, jest } from '@jest/globals';
 
 // assumes sandbox is running locally, which this script does not trigger
@@ -43,7 +44,8 @@ describe('e2e_token_contract', () => {
   const addPendingShieldNoteToPXE = async (accountIndex: number, amount: bigint, secretHash: Fr, txHash: TxHash) => {
     const storageSlot = new Fr(5); // The storage slot of `pending_shields` is 5.
     const note = new Note([new Fr(amount), secretHash]);
-    await wallets[accountIndex].addNote(accounts[0].address, asset.address, storageSlot, note, txHash);
+    const extendedNote = new ExtendedNote(note, accounts[0].address, asset.address, storageSlot, txHash);
+    await wallets[accountIndex].addNote(extendedNote);
   };
 
   beforeAll(async () => {

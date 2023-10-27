@@ -13,6 +13,7 @@ import {
 } from '@aztec/aztec.js';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { TestContract, TokenContract } from '@aztec/noir-contracts/types';
+import { ExtendedNote } from '@aztec/types';
 
 const { PXE_URL = 'http://localhost:8080', ETHEREUM_HOST = 'http://localhost:8545' } = process.env;
 
@@ -49,7 +50,8 @@ describe('guides/dapp/testing', () => {
 
         const storageSlot = new Fr(5);
         const note = new Note([new Fr(mintAmount), secretHash]);
-        await pxe.addNote(recipientAddress, token.address, storageSlot, note, receipt.txHash);
+        const extendedNote = new ExtendedNote(note, recipientAddress, token.address, storageSlot, receipt.txHash);
+        await pxe.addNote(extendedNote);
 
         await token.methods.redeem_shield(recipientAddress, mintAmount, secret).send().wait();
         expect(await token.methods.balance_of_private(recipientAddress).view()).toEqual(20n);
@@ -88,7 +90,8 @@ describe('guides/dapp/testing', () => {
 
         const storageSlot = new Fr(5); // The storage slot of `pending_shields` is 5.
         const note = new Note([new Fr(mintAmount), secretHash]);
-        await pxe.addNote(recipientAddress, token.address, storageSlot, note, receipt.txHash);
+        const extendedNote = new ExtendedNote(note, recipientAddress, token.address, storageSlot, receipt.txHash);
+        await pxe.addNote(extendedNote);
 
         await token.methods.redeem_shield(recipientAddress, mintAmount, secret).send().wait();
         expect(await token.methods.balance_of_private(recipientAddress).view()).toEqual(20n);
@@ -120,7 +123,8 @@ describe('guides/dapp/testing', () => {
 
         const storageSlot = new Fr(5);
         const note = new Note([new Fr(mintAmount), secretHash]);
-        await pxe.addNote(recipientAddress, token.address, storageSlot, note, receipt.txHash);
+        const extendedNote = new ExtendedNote(note, recipientAddress, token.address, storageSlot, receipt.txHash);
+        await pxe.addNote(extendedNote);
 
         await token.methods.redeem_shield(recipientAddress, mintAmount, secret).send().wait();
         expect(await token.methods.balance_of_private(recipientAddress).view()).toEqual(20n);
@@ -173,7 +177,8 @@ describe('guides/dapp/testing', () => {
 
         const storageSlot = new Fr(5);
         const note = new Note([new Fr(mintAmount), secretHash]);
-        await pxe.addNote(ownerAddress, token.address, storageSlot, note, receipt.txHash);
+        const extendedNote = new ExtendedNote(note, ownerAddress, token.address, storageSlot, receipt.txHash);
+        await pxe.addNote(extendedNote);
 
         await token.methods.redeem_shield(ownerAddress, 100n, secret).send().wait();
 

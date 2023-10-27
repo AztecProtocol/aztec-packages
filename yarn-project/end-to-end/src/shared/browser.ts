@@ -1,6 +1,7 @@
 /* eslint-disable no-console */
 import * as AztecJs from '@aztec/aztec.js';
 import { TokenContractArtifact } from '@aztec/noir-contracts/artifacts';
+import { ExtendedNote } from '@aztec/types';
 
 import { Server } from 'http';
 import Koa from 'koa';
@@ -203,7 +204,14 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
 
           const storageSlot = new Fr(5);
           const note = new Note([new Fr(initialBalance), secretHash]);
-          await pxe.addNote(ownerAddress, token.address, storageSlot, note, mintPrivateReceipt.txHash);
+          const extendedNote = new ExtendedNote(
+            note,
+            ownerAddress,
+            token.address,
+            storageSlot,
+            mintPrivateReceipt.txHash,
+          );
+          await pxe.addNote(extendedNote);
 
           await token.methods.redeem_shield(ownerAddress, initialBalance, secret).send().wait();
 
