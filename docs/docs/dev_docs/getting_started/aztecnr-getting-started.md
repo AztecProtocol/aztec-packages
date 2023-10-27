@@ -119,7 +119,7 @@ Context gives us access to the environment information such as `msg.sender`. We 
 
 `map::Map`
 
-Map is a private state variable that functions like a dictionary, relating Fields to other state variables. You can learn more about it [here](../contracts/syntax/).
+Map is a private state variable that functions like a dictionary, relating Fields to other state variables. You can learn more about it [here](../contracts/syntax/main.md).
 
 `value_note`
 

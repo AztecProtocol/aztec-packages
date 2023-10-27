@@ -46,7 +46,7 @@ cd ~/.aztec && docker-compose up
 
 If you have set up the Sandbox with Docker, you will also have Otterscan.
 
-You can see Ethereum Layer 1 activity through the local Otterscan on [`http://localhost:5100`](`http://localhost:5100`). This is especially useful for dapps that use L1-L2 messaging through [portal contracts](../contracts/portals/main.md).
+You can see Ethereum Layer 1 activity through the local Otterscan on `http://localhost:5100`. This is especially useful for dapps that use L1-L2 messaging through [portal contracts](../contracts/portals/main.md).
 
 ## Cheat Codes
 
