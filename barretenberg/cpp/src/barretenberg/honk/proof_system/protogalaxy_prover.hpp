@@ -263,7 +263,8 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
 
                 FF pow_challenge = pow_challenges[idx];
 
-                // Accumulate the i-th row's univariate contribution
+                // Accumulate the i-th row's univariate contribution. Note that the relation parameters passed to this
+                // function have already been folded
                 accumulate_relation_univariates(thread_univariate_accumulators[thread_idx],
                                                 extended_univariates[thread_idx],
                                                 instances.relation_parameters,
