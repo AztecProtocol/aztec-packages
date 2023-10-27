@@ -1,12 +1,12 @@
 import { join } from 'node:path';
-import { parse } from 'toml';
+import { parse as parseToml } from 'toml';
 
 import { FileManager } from './file-manager/file-manager.js';
 import {
   NoirGitDependencyConfig,
   NoirLocalDependencyConfig,
   NoirPackageConfig,
-  isPackageConfig,
+  parsePackageConfig,
 } from './package-config.js';
 
 const CONFIG_FILE_NAME = 'Nargo.toml';
@@ -83,11 +83,7 @@ export class NoirPackage {
    */
   public static open(path: string, fm: FileManager): NoirPackage {
     const fileContents = fm.readFileSync(join(path, CONFIG_FILE_NAME), 'utf-8');
-    const config = parse(fileContents);
-
-    if (!isPackageConfig(config)) {
-      throw new Error('Invalid package configuration');
-    }
+    const config = parsePackageConfig(parseToml(fileContents));
 
     const srcDir =
       fm.hasFileSync(join(path, 'src', 'main.nr')) || fm.hasFileSync(join(path, 'src', 'lib.nr'))

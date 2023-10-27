@@ -599,6 +599,7 @@ __metadata:
     tslib: ^2.4.0
     typescript: ^5.0.4
     unzipit: ^1.4.3
+    zod: ^3.22.4
   bin:
     aztec-compile: dest/cli.js
   languageName: unknown
@@ -19678,6 +19679,13 @@ __metadata:
     toposort: ^2.0.2
     type-fest: ^2.19.0
   checksum: f0cdceb144e358c6155670f3e27404b65b090cc12594fde6db2699523661e13542aaf87ebe8e542b67f29a5f3f9bc5f23a3a3bb09e17f10d125353d35b841fac
+  languageName: node
+  linkType: hard
+
+"zod@npm:^3.22.4":
+  version: 3.22.4
+  resolution: "zod@npm:3.22.4"
+  checksum: 80bfd7f8039b24fddeb0718a2ec7c02aa9856e4838d6aa4864335a047b6b37a3273b191ef335bf0b2002e5c514ef261ffcda5a589fb084a48c336ffc4cdbab7f
   languageName: node
   linkType: hard
 

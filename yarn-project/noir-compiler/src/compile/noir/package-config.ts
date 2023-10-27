@@ -1,37 +1,37 @@
+import { z } from 'zod';
+
+const noirGitDependency = z.object({
+  git: z.string(),
+  tag: z.string().optional(),
+  directory: z.string().optional(),
+});
+
+const noirLocalDependency = z.object({
+  path: z.string(),
+});
+
+const noirPackageConfig = z.object({
+  package: z.object({
+    name: z.string(),
+    type: z.enum(['lib', 'contract', 'binary']),
+  }),
+  dependencies: z.record(z.union([noirGitDependency, noirLocalDependency])),
+});
+
 /**
  * Noir package configuration.
  */
-export type NoirPackageConfig = {
-  /** Package metadata */
-  package: {
-    /** Package name */
-    name: string;
-    /** Package type */
-    type: 'lib' | 'contract' | 'binary';
-  };
-  /** Package dependencies */
-  dependencies: Record<string, NoirDependencyConfig>;
-};
+export type NoirPackageConfig = z.infer<typeof noirPackageConfig>;
 
 /**
  * A remote package dependency.
  */
-export type NoirGitDependencyConfig = {
-  /** Git repository URL. */
-  git: string;
-  /** Tag to check out */
-  tag?: string;
-  /** Where the dependency sits inside the repo */
-  directory?: string;
-};
+export type NoirGitDependencyConfig = z.infer<typeof noirGitDependency>;
 
 /**
  * A local package dependency.
  */
-export type NoirLocalDependencyConfig = {
-  /** Path to the dependency */
-  path: string;
-};
+export type NoirLocalDependencyConfig = z.infer<typeof noirLocalDependency>;
 
 /**
  * A package dependency.
@@ -42,7 +42,6 @@ export type NoirDependencyConfig = NoirGitDependencyConfig | NoirLocalDependency
  * Checks that an object is a package configuration.
  * @param config - Config to check
  */
-export function isPackageConfig(config: any): config is NoirPackageConfig {
-  // TODO: validate
-  return true;
+export function parsePackageConfig(config: any): NoirPackageConfig {
+  return noirPackageConfig.parse(config);
 }
