@@ -151,7 +151,7 @@
       "name": "gperftools",
       "displayName": "Debugging build with gperftools on Clang-16",
       "description": "Build with gperf",
-      "inherits": "clang16-dbg",
+      "inherits": "clang16",
       "binaryDir": "build-gperftools",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
@@ -346,11 +346,6 @@
     {
       "name": "xray-verbose",
       "configurePreset": "xray-verbose",
-      "inherits": "default"
-    },
-    {
-      "name": "xray-1thread",
-      "configurePreset": "xray-1thread",
       "inherits": "default"
     },
     {
