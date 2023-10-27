@@ -10,4 +10,4 @@ nargo_check
 echo "Compiling all contracts"
 
 # ./scripts/compile.sh $(./scripts/get_all_contracts.sh)
-nargo compile --workspace --no-backend
+nargo compile --workspace
