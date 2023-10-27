@@ -81,14 +81,18 @@ export class NoirWasmContractCompiler {
     initializeResolver(this.#resolveFile);
 
     try {
-      const contract = await compile(this.#package.getEntryPointPath(), true, {
+      const result = compile(this.#package.getEntryPointPath(), true, {
         /* eslint-disable camelcase */
         root_dependencies: this.#dependencyManager.getEntrypointDependencies(),
         library_dependencies: this.#dependencyManager.getLibraryDependencies(),
         /* eslint-enable camelcase */
       });
 
-      return [{ contract }];
+      if (!('contract' in result)) {
+        throw new Error('No contract found in compilation result');
+      }
+
+      return [result];
     } catch (err) {
       if (err instanceof Error && err.name === 'CompileError') {
         this.#processCompileError(err as CompileError);

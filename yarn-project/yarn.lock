@@ -588,8 +588,8 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     "@jest/globals": ^29.5.0
     "@ltd/j-toml": ^1.38.0
-    "@noir-lang/noir_wasm": 0.18.0-3919619.aztec
-    "@noir-lang/source-resolver": 0.18.0-3919619.aztec
+    "@noir-lang/noir_wasm": 0.18.0-a098541.aztec
+    "@noir-lang/source-resolver": 0.18.0-a098541.aztec
     "@rushstack/eslint-patch": ^1.1.4
     "@types/fs-extra": ^11.0.1
     "@types/jest": ^29.5.0
@@ -600,6 +600,7 @@ __metadata:
     "@types/lodash.upperfirst": ^4.3.7
     "@types/node": ^18.7.23
     "@types/pako": ^2.0.0
+    "@types/semver": ^7.5.4
     base64-js: ^1.5.1
     commander: ^9.0.0
     fs-extra: ^11.1.1
@@ -611,6 +612,7 @@ __metadata:
     lodash.upperfirst: ^4.3.1
     memfs: ^4.6.0
     pako: ^2.1.0
+    semver: ^7.5.4
     ts-jest: ^29.1.0
     ts-node: ^10.9.1
     tslib: ^2.4.0
@@ -3572,12 +3574,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@noir-lang/noir_wasm@npm:0.18.0-3919619.aztec":
-  version: 0.18.0-3919619.aztec
-  resolution: "@noir-lang/noir_wasm@npm:0.18.0-3919619.aztec"
+"@noir-lang/noir_wasm@npm:0.18.0-a098541.aztec":
+  version: 0.18.0-a098541.aztec
+  resolution: "@noir-lang/noir_wasm@npm:0.18.0-a098541.aztec"
   peerDependencies:
-    "@noir-lang/source-resolver": 0.18.0-3919619.aztec
-  checksum: 34102eaeaf250cf6c324ba9021ffb88695de2eaf6c648b882ad1bd9f1db3434f3af854a5b13302972a0e9cf34b7921008ca162c4ea68807590e567d343f2cec0
+    "@noir-lang/source-resolver": 0.18.0-a098541.aztec
+  checksum: 844fe1991a4dec862b242d41fee947d19c2b2e2588490f92c82d230a87f5b0ade53aefcb35e6a520181c9ff81536698ac49fca79df6a28ba6e995f56f36d3a1a
   languageName: node
   linkType: hard
 
@@ -3588,10 +3590,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@noir-lang/source-resolver@npm:0.18.0-3919619.aztec":
-  version: 0.18.0-3919619.aztec
-  resolution: "@noir-lang/source-resolver@npm:0.18.0-3919619.aztec"
-  checksum: c7f39beba745fe9ca1b05c1df91bfb76c82704c18390740dbfea480e5e5ed98b7861e62341e2179fa4f5db3e327825336e1f8fe3452e081f4974be438c6b00f5
+"@noir-lang/source-resolver@npm:0.18.0-a098541.aztec":
+  version: 0.18.0-a098541.aztec
+  resolution: "@noir-lang/source-resolver@npm:0.18.0-a098541.aztec"
+  checksum: 876640b3577394078e0a9799c9281001038d07cfb8d35d9b6398a4e1d6b071d5db84ff9b271ec4b9582a79352cd41b2e59a27c8b394580a9f57b85d0d0918d76
   languageName: node
   linkType: hard
 
@@ -5054,6 +5056,13 @@ __metadata:
   version: 7.5.2
   resolution: "@types/semver@npm:7.5.2"
   checksum: 743aa8a2b58e20b329c19bd2459152cb049d12fafab7279b90ac11e0f268c97efbcb606ea0c681cca03f79015381b40d9b1244349b354270bec3f939ed49f6e9
+  languageName: node
+  linkType: hard
+
+"@types/semver@npm:^7.5.4":
+  version: 7.5.4
+  resolution: "@types/semver@npm:7.5.4"
+  checksum: 120c0189f6fec5f2d12d0d71ac8a4cfa952dc17fa3d842e8afddb82bba8828a4052f8799c1653e2b47ae1977435f38e8985658fde971905ce5afb8e23ee97ecf
   languageName: node
   linkType: hard
 
