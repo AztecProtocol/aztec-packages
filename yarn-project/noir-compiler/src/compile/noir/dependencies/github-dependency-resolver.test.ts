@@ -9,7 +9,7 @@ import { InMemoryFileManager } from '../file-manager/in-memory-file-manager.js';
 import { NoirGitDependencyConfig } from '../package-config.js';
 import { NoirPackage } from '../package.js';
 import { DependencyResolver } from './dependency-resolver.js';
-import { GithubDependencyResolver, resolveGithubCodeArchive } from './github-dependency-resolver.js';
+import { GithubDependencyResolver, resolveGithubCodeArchive, safeFilename } from './github-dependency-resolver.js';
 
 const fixtures = join(dirname(fileURLToPath(import.meta.url)), '../../../fixtures');
 
@@ -108,4 +108,19 @@ describe('GithubDependencyResolver', () => {
       expect(() => resolveGithubCodeArchive(dep, 'zip')).toThrow();
     },
   );
+
+  it.each([
+    ['main', 'main'],
+    ['v1.0.0', 'v1.0.0'],
+    ['../../../etc/passwd', '.._.._.._etc_passwd'],
+    ['/etc/passwd', 'etc_passwd'],
+    ['/SomeOrg/some-repo@v1.0.0', 'SomeOrg_some-repo@v1.0.0'],
+    ['SomeOrg/some-repo@v1.0.0', 'SomeOrg_some-repo@v1.0.0'],
+  ])('generates safe file names', (value, expected) => {
+    expect(safeFilename(value)).toEqual(expected);
+  });
+
+  it.each([''])('rejects invalid values', value => {
+    expect(() => safeFilename(value)).toThrow();
+  });
 });

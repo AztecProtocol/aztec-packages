@@ -1,6 +1,6 @@
 import { createDebugOnlyLogger } from '@aztec/foundation/log';
 
-import { join, sep } from 'node:path';
+import { delimiter, join, sep } from 'node:path';
 import { unzip } from 'unzipit';
 
 import { FileManager } from '../file-manager/file-manager.js';
@@ -43,13 +43,7 @@ export class GithubDependencyResolver implements DependencyResolver {
     }
 
     const url = resolveGithubCodeArchive(dependency, 'zip');
-    const localArchivePath = join(
-      'archives',
-      url.pathname
-        // remove leading slash
-        .slice(1)
-        .replaceAll(sep, '_'),
-    );
+    const localArchivePath = join('archives', safeFilename(url.pathname));
 
     // TODO should check signature before accepting any file
     if (this.#fm.hasFileSync(localArchivePath)) {
@@ -71,15 +65,7 @@ export class GithubDependencyResolver implements DependencyResolver {
 
   async #extractZip(dependency: NoirGitDependencyConfig, archivePath: string): Promise<string> {
     const gitUrl = new URL(dependency.git);
-    const extractLocation = join(
-      'libs',
-      gitUrl.pathname
-        // remove leading slash
-        .slice(1)
-        .replaceAll(sep, '_') +
-        '@' +
-        (dependency.tag ?? 'HEAD'),
-    );
+    const extractLocation = join('libs', safeFilename(gitUrl.pathname + '@' + (dependency.tag ?? 'HEAD')));
     const packagePath = join(extractLocation, dependency.directory ?? '');
 
     // TODO check contents before reusing old results
@@ -112,6 +98,18 @@ export class GithubDependencyResolver implements DependencyResolver {
 function stripSegments(path: string, count: number): string {
   const segments = path.split(sep).filter(Boolean);
   return segments.slice(count).join(sep);
+}
+
+/**
+ * Returns a safe filename for a value
+ * @param val - The value to convert
+ */
+export function safeFilename(val: string): string {
+  if (!val) {
+    throw new Error('invalid value');
+  }
+
+  return val.replaceAll(sep, '_').replaceAll(delimiter, '_').replace(/^_+/, '');
 }
 
 /**
