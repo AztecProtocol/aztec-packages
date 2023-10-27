@@ -42,6 +42,7 @@ export function compileContract(program: Command, name = 'contract', log: LogFn 
       ) => {
         const { outdir, typescript, interface: noirInterface, compiler = 'nargo' } = options;
         if (typeof projectPath !== 'string') throw new Error(`Missing project path argument`);
+        if (compiler !== 'nargo' && compiler !== 'wasm') throw new Error(`Invalid compiler: ${compiler}`);
         const currentDir = process.cwd();
 
         const compile = compiler === 'wasm' ? compileUsingNoirWasm : compileUsingNargo;
