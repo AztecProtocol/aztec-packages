@@ -18,6 +18,7 @@ use crate::{
         call_stack_item::{PrivateCallStackItem, CallStackItem},
         membership_witness::{FunctionLeafMembershipWitness, ContractLeafMembershipWitness},
         kernel_circuit_public_inputs::KernelCircuitPublicInputs,
+        read_request_membership_witness::ReadRequestMembershipWitness,
     },
     hash::{
         NUM_FIELDS_PER_SHA256,
@@ -42,6 +43,7 @@ use dep::aztec::{
         MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
         MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
         RETURN_VALUES_LENGTH,
+        NOTE_HASH_TREE_HEIGHT,
     }
 };
 
@@ -172,7 +174,7 @@ pub fn build_tx_request(
     }
 }
 
-pub fn create_private_call_deploy_data<N, T>(
+pub fn create_private_call_data<N, T>(
     is_constructor: bool,
     function: fn (PrivateAppInputs, T) -> PrivateCircuitPublicInputs,
     params: T,
@@ -314,6 +316,25 @@ pub fn create_private_call_deploy_data<N, T>(
 
     (private_call, contract_deployment_data)
 }
+
+pub fn generate_read_requests(how_many: u64) -> ([Field; MAX_READ_REQUESTS_PER_CALL], [ReadRequestMembershipWitness<NOTE_HASH_TREE_HEIGHT>; MAX_READ_REQUESTS_PER_CALL]) {
+    let mut read_requests = [0; MAX_READ_REQUESTS_PER_CALL];
+    let mut read_request_membership_witnesses: [ReadRequestMembershipWitness<NOTE_HASH_TREE_HEIGHT>; MAX_READ_REQUESTS_PER_CALL] = dep::std::unsafe::zeroed();
+
+    for i in 0..how_many {
+        read_requests[i] = (i as Field) + 1;
+        let witness = ReadRequestMembershipWitness {
+            leaf_index : i as Field,
+            sibling_path : crate::tests::read_requests::SIBLING_PATHS[i],
+            is_transient : false,
+            hint_to_commitment : 0,
+        };
+        read_request_membership_witnesses[i] = witness;
+    }
+
+    (read_requests, read_request_membership_witnesses)
+}
+
 
 pub fn validate_no_new_deployed_contract(public_inputs: KernelCircuitPublicInputs) {
     for new_contract in public_inputs.end.new_contracts {

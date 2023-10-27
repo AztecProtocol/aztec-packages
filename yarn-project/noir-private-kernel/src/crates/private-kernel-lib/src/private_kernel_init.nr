@@ -159,7 +159,8 @@ mod tests {
     };
     use crate::tests::{
         testing_harness::{
-            create_private_call_deploy_data,
+            create_private_call_data,
+            generate_read_requests,
             build_tx_request,
             PrivateAppInputs,
             validate_no_new_deployed_contract,
@@ -193,7 +194,7 @@ mod tests {
         app_params: T,
     ) -> PrivateKernelInputsInit {
         let msg_sender = Address::from_field(27);
-        let (private_call, contract_deployment_data) = create_private_call_deploy_data(
+        let (private_call, contract_deployment_data) = create_private_call_data(
             is_constructor,
             function,
             app_params,
@@ -461,5 +462,23 @@ mod tests {
 
         private_inputs.native_private_kernel_circuit_initial();
     }
+
+
+    #[test(should_fail_with="private data tree root mismatch")]
+    fn native_read_request_bad_request() {
+        let params = dep::std::unsafe::zeroed();
+        let mut private_inputs = build_inputs(false, deposit_app, params);
+
+        let (mut read_requests, mut read_request_membership_witnesses) = generate_read_requests(2);
+
+        // tweak read_request so it gives wrong root when paired with its sibling path
+        read_requests[1] += 1;
+
+        private_inputs.private_call.call_stack_item.inner.public_inputs.read_requests = read_requests;
+        private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
+
+        private_inputs.native_private_kernel_circuit_initial();
+    }
+
 
 }
