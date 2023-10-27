@@ -22,7 +22,7 @@ import { encodeArguments } from '@aztec/foundation/abi';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
-import NoirVersion from '@aztec/noir-compiler/noir-version';
+import { NoirVersion } from '@aztec/noir-compiler/noir-version';
 import {
   AuthWitness,
   AztecNode,
@@ -395,7 +395,9 @@ export class PXEService implements PXE {
   async #getFunctionCall(functionName: string, args: any[], to: AztecAddress): Promise<FunctionCall> {
     const contract = await this.db.getContract(to);
     if (!contract) {
-      throw new Error(`Unknown contract ${to}: add it to PXE Service by calling server.addContracts(...)`);
+      throw new Error(
+        `Unknown contract ${to}: add it to PXE Service by calling server.addContracts(...).\nSee docs for context: https://docs.aztec.network/dev_docs/contracts/common_errors#unknown-contract-error`,
+      );
     }
 
     const functionDao = contract.functions.find(f => f.name === functionName);

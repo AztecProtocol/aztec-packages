@@ -165,7 +165,7 @@ async function updatePackagingConfigurations(
  * @param log - logger
  */
 async function updateNargoToml(tag: string, outputPath: string, log: LogFn): Promise<void> {
-  const SUPPORTED_DEPS = ['aztec', 'value_note'];
+  const SUPPORTED_DEPS = ['aztec', 'value_note', 'safe_math', 'authwit'];
 
   const nargoTomlPath = path.join(outputPath, 'src', 'contracts', 'Nargo.toml');
   const fileContent = await fs.readFile(nargoTomlPath, 'utf-8');
@@ -178,7 +178,11 @@ async function updateNargoToml(tag: string, outputPath: string, log: LogFn): Pro
     if (key) {
       // Replace the line, which was configured for compiling within the `aztec-packages` monorepo.  We replace
       // the local path with `git` and `directory` fields with a `tag` field, which points to the tagged release
-      return `${key} = { git="https://github.com/AztecProtocol/aztec-packages/", tag="${tag}", directory="yarn-project/aztec-nr/${key}" }`;
+      // note that the key has a "_" in the name, but we use "-" in the github repo folder
+      return `${key} = { git="https://github.com/AztecProtocol/aztec-packages/", tag="${tag}", directory="yarn-project/aztec-nr/${key.replace(
+        '_',
+        '-',
+      )}" }`;
     }
     return line;
   });
@@ -316,7 +320,7 @@ export async function unboxContract(
 
   if (!contractNames.includes(contractName)) {
     log(
-      `The noir contract named "${contractName}" was not found in "@aztec/boxes" package.  Valid options are: 
+      `The noir contract named "${contractName}" was not found in "@aztec/boxes" package.  Valid options are:
         ${contractNames.join('\n\t')}
       We recommend "token" as a default.`,
     );

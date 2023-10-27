@@ -1,4 +1,4 @@
-use dep::std::hash::{pedersen_with_separator, sha256};
+use dep::std::hash::{pedersen_hash_with_separator, sha256};
 use crate::constants_gen::{
   GENERATOR_INDEX__SIGNATURE_PAYLOAD,
   GENERATOR_INDEX__L1_TO_L2_MESSAGE_SECRET,
@@ -29,6 +29,6 @@ pub fn compute_secret_hash(secret: Field) -> Field {
   pedersen_hash([secret], GENERATOR_INDEX__L1_TO_L2_MESSAGE_SECRET)
 }
 
-pub fn pedersen_hash<N>(inputs : [Field;N], hash_index : u32) -> Field {
-  pedersen_with_separator(inputs, hash_index)[0]
+pub fn pedersen_hash<N>(inputs: [Field; N], hash_index: u32) -> Field {
+  pedersen_hash_with_separator(inputs, hash_index)
 }

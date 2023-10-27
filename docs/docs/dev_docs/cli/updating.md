@@ -1,6 +1,37 @@
 ---
-title: Staying Updated
+title: Updating
 ---
+
+## Quick Reference
+
+- Aztec Sandbox
+
+```shell
+  /bin/bash -c "$(curl -fsSL 'https://sandbox.aztec.network')"
+```
+
+- Aztec CLI
+
+```shell
+npm install -g @aztec/cli
+```
+
+- nargo
+
+```shell
+noirup
+```
+
+- Aztec.nr
+
+```toml
+#nargo.toml
+[dependencies]
+aztec = { git="https://github.com/AztecProtocol/aztec-packages", tag="#include_aztec_version", directory="yarn-project/aztec-nr/aztec" }
+value_note = { git="https://github.com/AztecProtocol/aztec-packages", tag="#include_aztec_version", directory="yarn-project/aztec-nr/value-note" }
+```
+
+Read on to learn about versioning and other commands.
 
 There are 4 components whose versions need to be kept compatible:
 
@@ -41,6 +72,10 @@ Setting up Aztec Sandbox v#include_aztec_short_version (nargo #include_noir_vers
 
 Alternatively you can open a new terminal and use aztec-cli to get the version.
 
+#include_code node-info-command yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
+
+This will return something like this:
+
 #include_code node-info yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
 
 The sandbox version should be the same as the one we chose by setting the `SANDBOX_VERSION` environmental variable.
@@ -77,7 +112,7 @@ Then we install the `Compatible Nargo Version` with (replace `COMPATIBLE_NARGO_V
 noirup -v COMPATIBLE_NARGO_VERSION
 ```
 
-## Updating Noir framework
+## Updating Aztec.nr packages
 
 Finally we need to update the Noir framework for Aztec contracts.
 We need to install a version compatible with our `nargo` and Sandbox.

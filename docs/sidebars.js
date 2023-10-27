@@ -273,11 +273,7 @@ const sidebars = {
         type: "doc",
         id: "dev_docs/cli/main",
       },
-      items: [
-        "dev_docs/cli/cli-commands",
-        "dev_docs/cli/sandbox-reference",
-        "dev_docs/cli/updating",
-      ],
+      items: ["dev_docs/cli/cli-commands", "dev_docs/cli/sandbox-reference"],
     },
     {
       label: "Aztec.nr Contracts",
@@ -367,6 +363,12 @@ const sidebars = {
       label: "Aztec.js",
       type: "doc",
       id: "dev_docs/aztecjs/main",
+    },
+
+    {
+      label: "Updating",
+      type: "doc",
+      id: "dev_docs/cli/updating",
     },
 
     {

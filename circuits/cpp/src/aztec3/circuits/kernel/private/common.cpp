@@ -210,6 +210,8 @@ void common_update_end_values(DummyBuilder& builder,
             const auto& read_request = read_requests[i];
             const auto& witness = read_request_membership_witnesses[i];
             if (witness.is_transient) {  // only forward transient to public inputs
+                // TODO (David): This is pushing zeroed read requests for public inputs if they are transient. Is that
+                // correct?
                 const auto siloed_read_request =
                     read_request == 0 ? 0 : silo_commitment<NT>(storage_contract_address, read_request);
                 array_push(builder,
@@ -341,8 +343,7 @@ void common_contract_logic(DummyBuilder& builder,
     const auto& storage_contract_address = private_call_public_inputs.call_context.storage_contract_address;
     const auto& portal_contract_address = private_call.portal_contract_address;
 
-    const auto private_call_vk_hash =
-        stdlib::recursion::verification_key<CT::bn254>::compress_native(private_call.vk, GeneratorIndex::VK);
+    const auto private_call_vk_hash = stdlib::recursion::verification_key<CT::bn254>::hash_native(private_call.vk);
 
     const auto is_contract_deployment = public_inputs.constants.tx_context.is_contract_deployment_tx;
 
