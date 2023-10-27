@@ -265,10 +265,11 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
 
                 // Accumulate the i-th row's univariate contribution. Note that the relation parameters passed to this
                 // function have already been folded
-                accumulate_relation_univariates(thread_univariate_accumulators[thread_idx],
-                                                extended_univariates[thread_idx],
-                                                instances.relation_parameters,
-                                                pow_challenge);
+                accumulate_relation_univariates(
+                    thread_univariate_accumulators[thread_idx],
+                    extended_univariates[thread_idx],
+                    instances.relation_parameters, // these parameters have already been folded
+                    pow_challenge);
             }
         });
 
