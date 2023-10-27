@@ -8,7 +8,6 @@ import {
   GetUnencryptedLogsResponse,
   L2Tx,
   LogFilter,
-  Note,
   Tx,
   TxExecutionRequest,
   TxHash,

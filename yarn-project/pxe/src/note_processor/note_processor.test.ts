@@ -5,7 +5,6 @@ import { Point } from '@aztec/foundation/fields';
 import { ConstantKeyPair } from '@aztec/key-store';
 import {
   AztecNode,
-  ExtendedNote,
   FunctionL2Logs,
   INITIAL_L2_BLOCK_NUM,
   KeyPair,

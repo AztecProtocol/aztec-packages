@@ -39,7 +39,6 @@ import {
   LogFilter,
   MerkleTreeId,
   NodeInfo,
-  Note,
   NoteFilter,
   PXE,
   SimulationError,
@@ -202,7 +201,6 @@ export class PXEService implements PXE {
 
   public async addNote(note: ExtendedNote) {
     const account = (await this.db.getCompleteAddress(note.owner)) ?? {};
-    console.log('account', account);
     if (!account) {
       throw new Error('Unknown note owner: ' + note.owner.toString());
     }

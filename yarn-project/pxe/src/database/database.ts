@@ -1,7 +1,7 @@
 import { CompleteAddress, HistoricBlockData } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { ContractDatabase, MerkleTreeId, NoteFilter, PublicKey } from '@aztec/types';
+import { ContractDatabase, MerkleTreeId, NoteFilter } from '@aztec/types';
 
 import { NoteDao } from './note_dao.js';
 
