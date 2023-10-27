@@ -17,6 +17,7 @@ npm install -g @aztec/cli
 The first thing we want to do is create a couple of accounts. We will use the `create-account` command which will generate a new private key for us, register the account on the sandbox, and deploy a simple account contract which [uses a single key for privacy and authentication](../../concepts/foundation/accounts/keys.md):
 
 #include_code create-account yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
+#include_code create-account-output yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
 
 Once the account is set up, the CLI returns the resulting address, its privacy key, and partial address. You can read more about these [here](../../concepts/foundation/accounts/keys.md#addresses-partial-addresses-and-public-keys).
 
@@ -29,13 +30,20 @@ export PRIVATE_KEY=<Private key printed when you run the command>
 
 Alternatively, we can also manually generate a private key and use it for creating the account, either via a `-k` option or by setting the `PRIVATE_KEY` environment variable.
 
-#include_code create-account-from-private-key yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
+#include_code generate-private-key yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
+
+#include_code generate-private-key-output yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
+
+#include_code create-account-pk yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
+
+#include_code create-account-pk-output yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
 
 For all commands that require a user's private key, the CLI will look for the `PRIVATE_KEY` environment variable in absence of an optional argument.
 
 Let's double check that the accounts have been registered with the sandbox using the `get-accounts` command:
 
 #include_code get-accounts yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
+#include_code get-accounts-output yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
 
 You will see a that a number of accounts exist that we did not create. The Sandbox initializes itself with 3 default accounts. Save one of the printed accounts (not the one that you generated above) in an environment variable. We will use it later.
 
@@ -49,6 +57,7 @@ We will now deploy a token contract using the `deploy` command, and set an addre
 Make sure to replace this address with one of the two you created earlier.
 
 #include_code deploy yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
+#include_code deploy-output yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
 
 Save the contract address as an environment variable. We will use it later.
 
@@ -61,6 +70,7 @@ export CONTRACT_ADDRESS=<Your new contract address>
 The CLI tells us that the contract was successfully deployed. We can use the `check-deploy` command to verify that a contract has been successfully deployed to that address:
 
 #include_code check-deploy yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
+#include_code check-deploy-output yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
 
 ## Sending a Transaction
 
@@ -74,18 +84,21 @@ The `send` command expect the function name as the first unnamed argument and th
 - `--private-key` - The private key of the sender.
 
 #include_code send yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
+#include_code send-output yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
 
 We called the [`mint_public`](https://github.com/AztecProtocol/aztec-packages/blob/87fa621347e55f82e36c70515c1824161eee5282/yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr#L157C10-L157C10) function and provided it with the 2 arguments it expects: the recipient's address and the amount to be minted. Make sure to replace all addresses in this command with yours.
 
 The command output tells us the details of the transaction such as its hash and status. We can use this hash to query the receipt of the transaction at a later time:
 
 #include_code get-tx-receipt yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
+#include_code get-tx-receipt-output yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
 
 ## Calling an Unconstrained (View) Function
 
 Now that the `mint_public` tx has been settled we can call the `balance_of_public` unconstrained function:
 
 #include_code call yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
+#include_code call-output yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
 
 The `call` command calls a read-only method on a contract, one that will not generate a transaction to be sent to the network. The arguments here are:
 
