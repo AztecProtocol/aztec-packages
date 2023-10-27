@@ -154,6 +154,20 @@ impl PrivateCircuitPublicInputsBuilder {
     }
 }
 
+pub fn build_tx_context(
+    is_constructor: bool, 
+    contract_deployment_data: ContractDeploymentData,
+) -> TxContext {
+     TxContext {
+        is_fee_payment_tx : false,
+        is_rebate_payment_tx : false,
+        is_contract_deployment_tx : is_constructor,
+        contract_deployment_data,
+        chain_id : 1,
+        version: 0,
+    }
+}
+
 pub fn build_tx_request(
     is_constructor: bool, 
     contract_deployment_data: ContractDeploymentData,
