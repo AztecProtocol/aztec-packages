@@ -97,8 +97,8 @@ describe('e2e_2_pxes', () => {
     expect(receipt.status).toEqual(TxStatus.MINED);
 
     const storageSlot = new Fr(5);
-    const preimage = new Note([new Fr(balance), secretHash]);
-    await pxe.addNote(recipient, contract.address, storageSlot, preimage, receipt.txHash);
+    const note = new Note([new Fr(balance), secretHash]);
+    await pxe.addNote(recipient, contract.address, storageSlot, note, receipt.txHash);
 
     expect((await contract.methods.redeem_shield(recipient, balance, secret).send().wait()).status).toEqual(
       TxStatus.MINED,

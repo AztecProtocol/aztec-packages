@@ -152,7 +152,7 @@ export class AcirSimulator {
    * @param contractAddress - The address of the contract.
    * @param nonce - The nonce of the note hash.
    * @param storageSlot - The storage slot.
-   * @param note - The note preimage.
+   * @param note - The note.
    * @returns The nullifier.
    */
   public async computeNoteHashAndNullifier(contractAddress: AztecAddress, nonce: Fr, storageSlot: Fr, note: Fr[]) {
@@ -203,7 +203,7 @@ export class AcirSimulator {
    * Computes the inner note hash of a note, which contains storage slot and the custom note hash.
    * @param contractAddress - The address of the contract.
    * @param storageSlot - The storage slot.
-   * @param note - The note preimage.
+   * @param note - The note.
    * @returns The note hash.
    */
   public async computeInnerNoteHash(contractAddress: AztecAddress, storageSlot: Fr, note: Fr[]) {
@@ -216,7 +216,7 @@ export class AcirSimulator {
    * @param contractAddress - The address of the contract.
    * @param nonce - The nonce of the note hash.
    * @param storageSlot - The storage slot.
-   * @param note - The note preimage.
+   * @param note - The note.
    * @returns The note hash.
    */
   public async computeUniqueSiloedNoteHash(contractAddress: AztecAddress, nonce: Fr, storageSlot: Fr, note: Fr[]) {
@@ -229,7 +229,7 @@ export class AcirSimulator {
    * @param contractAddress - The address of the contract.
    * @param nonce - The nonce of the note hash.
    * @param storageSlot - The storage slot.
-   * @param note - The note preimage.
+   * @param note - The note.
    * @returns The note hash.
    */
   public async computeSiloedNoteHash(contractAddress: AztecAddress, nonce: Fr, storageSlot: Fr, note: Fr[]) {
@@ -242,7 +242,7 @@ export class AcirSimulator {
    * @param contractAddress - The address of the contract.
    * @param nonce - The nonce of the unique note hash.
    * @param storageSlot - The storage slot.
-   * @param note - The note preimage.
+   * @param note - The note.
    * @returns The note hash.
    */
   public async computeInnerNullifier(contractAddress: AztecAddress, nonce: Fr, storageSlot: Fr, note: Fr[]) {

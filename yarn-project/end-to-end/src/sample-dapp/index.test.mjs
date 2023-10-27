@@ -18,8 +18,8 @@ describe('token', () => {
     const receipt = await token.methods.mint_private(initialBalance, secretHash).send().wait();
 
     const storageSlot = new Fr(5);
-    const preimage = new Note([new Fr(initialBalance), secretHash]);
-    await pxe.addNote(owner.getAddress(), token.address, storageSlot, preimage, receipt.txHash);
+    const note = new Note([new Fr(initialBalance), secretHash]);
+    await pxe.addNote(owner.getAddress(), token.address, storageSlot, note, receipt.txHash);
 
     await token.methods.redeem_shield({ address: owner.getAddress() }, initialBalance, secret).send().wait();
   }, 120_000);

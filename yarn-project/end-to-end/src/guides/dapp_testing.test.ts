@@ -48,8 +48,8 @@ describe('guides/dapp/testing', () => {
         const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
 
         const storageSlot = new Fr(5);
-        const preimage = new Note([new Fr(mintAmount), secretHash]);
-        await pxe.addNote(recipientAddress, token.address, storageSlot, preimage, receipt.txHash);
+        const note = new Note([new Fr(mintAmount), secretHash]);
+        await pxe.addNote(recipientAddress, token.address, storageSlot, note, receipt.txHash);
 
         await token.methods.redeem_shield(recipientAddress, mintAmount, secret).send().wait();
         expect(await token.methods.balance_of_private(recipientAddress).view()).toEqual(20n);
@@ -87,8 +87,8 @@ describe('guides/dapp/testing', () => {
         const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
 
         const storageSlot = new Fr(5); // The storage slot of `pending_shields` is 5.
-        const preimage = new Note([new Fr(mintAmount), secretHash]);
-        await pxe.addNote(recipientAddress, token.address, storageSlot, preimage, receipt.txHash);
+        const note = new Note([new Fr(mintAmount), secretHash]);
+        await pxe.addNote(recipientAddress, token.address, storageSlot, note, receipt.txHash);
 
         await token.methods.redeem_shield(recipientAddress, mintAmount, secret).send().wait();
         expect(await token.methods.balance_of_private(recipientAddress).view()).toEqual(20n);
@@ -119,8 +119,8 @@ describe('guides/dapp/testing', () => {
         const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
 
         const storageSlot = new Fr(5);
-        const preimage = new Note([new Fr(mintAmount), secretHash]);
-        await pxe.addNote(recipientAddress, token.address, storageSlot, preimage, receipt.txHash);
+        const note = new Note([new Fr(mintAmount), secretHash]);
+        await pxe.addNote(recipientAddress, token.address, storageSlot, note, receipt.txHash);
 
         await token.methods.redeem_shield(recipientAddress, mintAmount, secret).send().wait();
         expect(await token.methods.balance_of_private(recipientAddress).view()).toEqual(20n);
@@ -172,8 +172,8 @@ describe('guides/dapp/testing', () => {
         const receipt = await token.methods.mint_private(100n, secretHash).send().wait();
 
         const storageSlot = new Fr(5);
-        const preimage = new Note([new Fr(mintAmount), secretHash]);
-        await pxe.addNote(ownerAddress, token.address, storageSlot, preimage, receipt.txHash);
+        const note = new Note([new Fr(mintAmount), secretHash]);
+        await pxe.addNote(ownerAddress, token.address, storageSlot, note, receipt.txHash);
 
         await token.methods.redeem_shield(ownerAddress, 100n, secret).send().wait();
 

@@ -411,8 +411,8 @@ export class CrossChainTestHarness {
   async addPendingShieldNoteToPXE(shieldAmount: bigint, secretHash: Fr, txHash: TxHash) {
     this.logger('Adding note to PXE');
     const storageSlot = new Fr(5);
-    const preimage = new Note([new Fr(shieldAmount), secretHash]);
-    await this.pxeService.addNote(this.ownerAddress, this.l2Token.address, storageSlot, preimage, txHash);
+    const note = new Note([new Fr(shieldAmount), secretHash]);
+    await this.pxeService.addNote(this.ownerAddress, this.l2Token.address, storageSlot, note, txHash);
   }
 
   async redeemShieldPrivatelyOnL2(shieldAmount: bigint, secret: Fr) {

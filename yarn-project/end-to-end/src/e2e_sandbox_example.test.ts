@@ -76,8 +76,8 @@ describe('e2e_sandbox_example', () => {
 
     // Add the newly created "pending shield" note to PXE
     const pendingShieldsStorageSlot = new Fr(5); // The storage slot of `pending_shields` is 5.
-    const preimage = new Note([new Fr(initialSupply), aliceSecretHash]);
-    await pxe.addNote(alice, contract.address, pendingShieldsStorageSlot, preimage, receipt.txHash);
+    const note = new Note([new Fr(initialSupply), aliceSecretHash]);
+    await pxe.addNote(alice, contract.address, pendingShieldsStorageSlot, note, receipt.txHash);
 
     // Make the tokens spendable by redeeming them using the secret (converts the "pending shield note" created above
     // to a "token note")

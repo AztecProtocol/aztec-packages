@@ -31,8 +31,8 @@ describe('e2e_token_contract', () => {
 
   const addPendingShieldNoteToPXE = async (accountIndex: number, amount: bigint, secretHash: Fr, txHash: TxHash) => {
     const storageSlot = new Fr(5); // The storage slot of `pending_shields` is 5.
-    const preimage = new Note([new Fr(amount), secretHash]);
-    await wallets[accountIndex].addNote(accounts[0].address, asset.address, storageSlot, preimage, txHash);
+    const note = new Note([new Fr(amount), secretHash]);
+    await wallets[accountIndex].addNote(accounts[0].address, asset.address, storageSlot, note, txHash);
   };
 
   beforeAll(async () => {

@@ -66,8 +66,8 @@ describe('e2e_escrow_contract', () => {
     const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
     expect(receipt.status).toEqual(TxStatus.MINED);
 
-    const preimage = new Note([new Fr(mintAmount), secretHash]);
-    await pxe.addNote(escrowContract.address, token.address, pendingShieldsStorageSlot, preimage, receipt.txHash);
+    const note = new Note([new Fr(mintAmount), secretHash]);
+    await pxe.addNote(escrowContract.address, token.address, pendingShieldsStorageSlot, note, receipt.txHash);
 
     expect(
       (await token.methods.redeem_shield(escrowContract.address, mintAmount, secret).send().wait()).status,
@@ -112,8 +112,8 @@ describe('e2e_escrow_contract', () => {
     const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
     expect(receipt.status).toEqual(TxStatus.MINED);
 
-    const preimage = new Note([new Fr(mintAmount), secretHash]);
-    await pxe.addNote(owner, token.address, pendingShieldsStorageSlot, preimage, receipt.txHash);
+    const note = new Note([new Fr(mintAmount), secretHash]);
+    await pxe.addNote(owner, token.address, pendingShieldsStorageSlot, note, receipt.txHash);
 
     expect((await token.methods.redeem_shield(owner, mintAmount, secret).send().wait()).status).toEqual(TxStatus.MINED);
 

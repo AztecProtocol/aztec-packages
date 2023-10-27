@@ -585,12 +585,12 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .argument('<contractAddress>', 'Aztec address of the contract.', parseAztecAddress)
     .argument('<storageSlot>', 'The storage slot of the note.', parseField)
     .argument('<txHash>', 'The tx hash of the tx containing the note.', parseTxHash)
-    .requiredOption('-p, --preimage [note...]', 'Note preimage.', [])
+    .requiredOption('-n, --note [note...]', 'The members of a Note serialized as hex strings.', [])
     .addOption(pxeOption)
     .action(async (address, contractAddress, storageSlot, txHash, options) => {
-      const preimage = new Note(parseFields(options.preimage));
+      const note = new Note(parseFields(options.note));
       const client = await createCompatibleClient(options.rpcUrl, debugLogger);
-      await client.addNote(address, contractAddress, storageSlot, preimage, txHash);
+      await client.addNote(address, contractAddress, storageSlot, note, txHash);
     });
 
   // Helper for users to decode hex strings into structs if needed.
