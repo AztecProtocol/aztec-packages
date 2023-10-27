@@ -158,6 +158,13 @@ Cool, so we have a function that checks if the current call is authenticated, bu
 
 #include_code authwit_transfer_example /yarn-project/end-to-end/src/e2e_token_contract.test.ts typescript
 
+#### Deleting an action in Typescript
+If you want to cancel a previously authorization action, you can use the `cancelPrivateAuthWitness` in the PXE to do so. This method should be called by the wallet that will be executing the transaction on your behalf like so:
+
+#include_code remove_private_auth_witness /yarn-project/end-to-end/src/e2e_token_contract.test.ts typescript
+
+Alternatively, you can always emit a nullifier for the `messageHash` to prevent anyone else from consuming it.
+
 ### Public Functions
 
 With private functions covered, how can we use this in a public function? Well, the answer is that we simply change one name of a function and then we are good to go :eyes: (almost).

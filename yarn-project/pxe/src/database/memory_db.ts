@@ -44,10 +44,20 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
     return Promise.resolve(this.authWitnesses[messageHash.toString()]);
   }
 
+  /**
+   * Delete a auth witness (undo authorization)
+   * @param messageHash - The message hash - action authorization to revoke
+   */
+  public cancelPrivateAuthWitness(messageHash: Fr): Promise<void> {
+    delete this.authWitnesses[messageHash.toString()];
+    return Promise.resolve();
+  }
+
   public addNote(note: NoteDao) {
     this.notesTable.push(note);
     return Promise.resolve();
   }
+  
 
   public addNotes(notes: NoteDao[]) {
     this.notesTable.push(...notes);

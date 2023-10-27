@@ -491,6 +491,28 @@ describe('e2e_token_contract', () => {
           );
         });
 
+        it('transfer on behalf of other after deleting approval', async () => {
+          const balance0 = await asset.methods.balance_of_private(accounts[0].address).view();
+          const amount = balance0 / 2n;
+          const nonce = Fr.random();
+          expect(amount).toBeGreaterThan(0n);
+
+          // create auth witness
+          const action = asset
+            .withWallet(wallets[1])
+            .methods.transfer(accounts[0].address, accounts[1].address, amount, nonce);
+          const messageHash = await computeAuthWitMessageHash(accounts[1].address, action.request());
+          const witness = await wallets[0].createAuthWitness(messageHash);
+          await wallets[1].addAuthWitness(witness);
+
+          // wallets[0] want to undo their authorization action. So they tell wallets[1] to do so:
+          await wallets[1].cancelPrivateAuthWitness(messageHash);
+
+          // Perform the transfer
+          await expect(action.simulate()).rejects.toThrowError('Assertion failed: Balance too low');
+          expect(await asset.methods.balance_of_private(accounts[0].address).view()).toEqual(balance0);
+        });
+
         it('transfer on behalf of other, wrong designated caller', async () => {
           const balance0 = await asset.methods.balance_of_private(accounts[0].address).view();
           const amount = balance0 / 2n;

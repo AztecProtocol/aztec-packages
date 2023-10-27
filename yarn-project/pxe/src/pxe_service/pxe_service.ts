@@ -120,6 +120,11 @@ export class PXEService implements PXE {
     return this.db.addAuthWitness(witness.requestHash, witness.witness);
   }
 
+  public cancelPrivateAuthWitness(messageHash: Fr | Buffer) {
+    messageHash = Buffer.isBuffer(messageHash) ? Fr.fromBuffer(messageHash) : messageHash;
+    return this.db.cancelPrivateAuthWitness(messageHash);
+  }
+
   public async registerAccount(privKey: GrumpkinPrivateKey, partialAddress: PartialAddress): Promise<CompleteAddress> {
     const completeAddress = await CompleteAddress.fromPrivateKeyAndPartialAddress(privKey, partialAddress);
     const wasAdded = await this.db.addCompleteAddress(completeAddress);

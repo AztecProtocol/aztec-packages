@@ -43,6 +43,12 @@ export interface PXE {
   addAuthWitness(authWitness: AuthWitness): Promise<void>;
 
   /**
+   * Cancel an auth witness for a given message hash (i.e. undo the authorization action).
+   * @param messageHash - hash of the message (authorization) that was signed.
+   */
+  cancelPrivateAuthWitness(messageHash: Fr | Buffer): Promise<void>;
+
+  /**
    * Registers a user account in PXE given its master encryption private key.
    * Once a new account is registered, the PXE Service will trial-decrypt all published notes on
    * the chain and store those that correspond to the registered account. Will do nothing if the
