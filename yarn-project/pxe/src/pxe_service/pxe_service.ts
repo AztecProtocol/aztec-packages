@@ -195,7 +195,7 @@ export class PXEService implements PXE {
   }
 
   public async getNotes(filter: NoteFilter): Promise<ExtendedNote[]> {
-    return await this.db.getExtendedNotes(filter);
+    return await this.db.getNotes(filter);
   }
 
   public async addNote(
@@ -236,7 +236,7 @@ export class PXEService implements PXE {
       throw new Error('The note has been destroyed.');
     }
 
-    await this.db.addExtendedNote(
+    await this.db.addNote(
       new ExtendedNote(
         note,
         contractAddress,

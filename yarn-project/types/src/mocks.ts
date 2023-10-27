@@ -5,8 +5,7 @@ import {
   Fr,
   MAX_NEW_CONTRACTS_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-  Point,
-  Proof,
+  Proof
 } from '@aztec/circuits.js';
 import { makePrivateKernelPublicInputsFinal, makePublicCallRequest } from '@aztec/circuits.js/factories';
 import { ContractArtifact } from '@aztec/foundation/abi';
@@ -56,24 +55,16 @@ export const randomDeployedContract = async (): Promise<DeployedContract> => ({
 
 export const randomExtendedNote = ({
   note = Note.random(),
+  owner = AztecAddress.random(),
   contractAddress = AztecAddress.random(),
   txHash = randomTxHash(),
-  nonce = Fr.random(),
   storageSlot = Fr.random(),
-  innerNoteHash = Fr.random(),
-  siloedNullifier = Fr.random(),
-  index = Fr.random().value,
-  publicKey = Point.random(),
 }: Partial<ExtendedNote> = {}) => {
   return new ExtendedNote(
     note,
+    owner,
     contractAddress,
-    txHash,
-    nonce,
     storageSlot,
-    innerNoteHash,
-    siloedNullifier,
-    index,
-    publicKey,
+    txHash,
   );
 };

@@ -1,7 +1,9 @@
 import { CompleteAddress, HistoricBlockData } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { ContractDatabase, ExtendedNote, MerkleTreeId, NoteFilter, PublicKey } from '@aztec/types';
+import { ContractDatabase, MerkleTreeId, NoteFilter, PublicKey } from '@aztec/types';
+
+import { NoteDao } from './note_dao.js';
 
 /**
  * A database interface that provides methods for retrieving, adding, and removing transactional data related to Aztec
@@ -27,22 +29,22 @@ export interface Database extends ContractDatabase {
    * @param filter - The filter to apply to the notes.
    * @returns The requested notes.
    */
-  getExtendedNotes(filter: NoteFilter): Promise<ExtendedNote[]>;
+  getNotes(filter: NoteFilter): Promise<NoteDao[]>;
 
   /**
-   * Adds ExtendedNote to DB.
-   * @param extendedNote - The note to add.
+   * Adds a note to DB.
+   * @param note - The note to add.
    */
-  addExtendedNote(extendedNote: ExtendedNote): Promise<void>;
+  addNote(note: NoteDao): Promise<void>;
 
   /**
-   * Adds an array of ExtendedNotes.
-   * This function is used to insert multiple extended notes to the database at once,
+   * Adds an array of notes to DB.
+   * This function is used to insert multiple notes to the database at once,
    * which can improve performance when dealing with large numbers of transactions.
    *
-   * @param extendedNotes - An array of ExtendedNote instances.
+   * @param notes - An array of notes.
    */
-  addExtendedNotes(extendedNotes: ExtendedNote[]): Promise<void>;
+  addNotes(notes: NoteDao[]): Promise<void>;
 
   /**
    * Remove nullified notes associated with the given account and nullifiers.
@@ -51,7 +53,7 @@ export interface Database extends ContractDatabase {
    * @param account - A PublicKey instance representing the account for which the records are being removed.
    * @returns Removed notes.
    */
-  removeNullifiedNotes(nullifiers: Fr[], account: PublicKey): Promise<ExtendedNote[]>;
+  removeNullifiedNotes(nullifiers: Fr[], account: PublicKey): Promise<NoteDao[]>;
 
   /**
    * Retrieve the stored Merkle tree roots from the database.

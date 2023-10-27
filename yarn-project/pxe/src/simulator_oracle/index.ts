@@ -45,7 +45,7 @@ export class SimulatorOracle implements DBOracle {
   }
 
   async getNotes(contractAddress: AztecAddress, storageSlot: Fr) {
-    const noteDaos = await this.db.getExtendedNotes({ contractAddress, storageSlot });
+    const noteDaos = await this.db.getNotes({ contractAddress, storageSlot });
     return noteDaos.map(({ contractAddress, storageSlot, nonce, note, innerNoteHash, siloedNullifier, index }) => ({
       contractAddress,
       storageSlot,

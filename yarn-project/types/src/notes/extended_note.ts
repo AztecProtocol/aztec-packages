@@ -1,5 +1,4 @@
-import { AztecAddress, Fr, Point, PublicKey } from '@aztec/circuits.js';
-import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
+import { AztecAddress, Fr } from '@aztec/circuits.js';
 import { BufferReader, Note, TxHash } from '@aztec/types';
 
 /**
@@ -9,64 +8,35 @@ export class ExtendedNote {
   constructor(
     /** The note as emitted from the Noir contract. */
     public note: Note,
+    /** The owner whose public key was used to encrypt the note. */
+    public owner: AztecAddress,
     /** The contract address this note is created in. */
     public contractAddress: AztecAddress,
-    /** The hash of the tx the note was created in. */
-    public txHash: TxHash,
-    /** The nonce of the note. */
-    public nonce: Fr,
     /** The specific storage location of the note on the contract. */
     public storageSlot: Fr,
-    /**
-     * Inner note hash of the note. This is customizable by the app circuit.
-     * We can use this value to compute siloedNoteHash and uniqueSiloedNoteHash.
-     */
-    public innerNoteHash: Fr,
-    /** The nullifier of the note (siloed by contract address). */
-    public siloedNullifier: Fr,
-    /** The location of the relevant note in the note hash tree. */
-    public index: bigint,
-    /** The public key that was used to encrypt the data. */
-    public publicKey: PublicKey,
+    /** The hash of the tx the note was created in. */
+    public txHash: TxHash,
   ) {}
 
   toBuffer(): Buffer {
     return Buffer.concat([
       this.note.toBuffer(),
+      this.owner.toBuffer(),
       this.contractAddress.toBuffer(),
-      this.txHash.buffer,
-      this.nonce.toBuffer(),
       this.storageSlot.toBuffer(),
-      this.innerNoteHash.toBuffer(),
-      this.siloedNullifier.toBuffer(),
-      toBufferBE(this.index, 32),
-      this.publicKey.toBuffer(),
+      this.txHash.buffer,
     ]);
   }
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
 
     const note = Note.fromBuffer(reader);
+    const owner = AztecAddress.fromBuffer(reader);
     const contractAddress = AztecAddress.fromBuffer(reader);
-    const txHash = new TxHash(reader.readBytes(TxHash.SIZE));
-    const nonce = Fr.fromBuffer(reader);
     const storageSlot = Fr.fromBuffer(reader);
-    const innerNoteHash = Fr.fromBuffer(reader);
-    const siloedNullifier = Fr.fromBuffer(reader);
-    const index = toBigIntBE(reader.readBytes(32));
-    const publicKey = Point.fromBuffer(reader);
+    const txHash = new TxHash(reader.readBytes(TxHash.SIZE));
 
-    return new this(
-      note,
-      contractAddress,
-      txHash,
-      nonce,
-      storageSlot,
-      innerNoteHash,
-      siloedNullifier,
-      index,
-      publicKey,
-    );
+    return new this(note, owner, contractAddress, storageSlot, txHash);
   }
 
   toString() {
@@ -76,18 +46,5 @@ export class ExtendedNote {
   static fromString(str: string) {
     const hex = str.replace(/^0x/, '');
     return ExtendedNote.fromBuffer(Buffer.from(hex, 'hex'));
-  }
-
-  /**
-   * Returns the size in bytes of the extended note.
-   * @param extendedNote - The extended note.
-   * @returns - Its size in bytes.
-   */
-  public getSize(extendedNote: ExtendedNote) {
-    // 7 fields + 1 bigint + 1 buffer size (4 bytes) + 1 buffer
-    const indexSize = Math.ceil(Math.log2(Number(extendedNote.index)));
-    return (
-      extendedNote.note.items.length * Fr.SIZE_IN_BYTES + 7 * Fr.SIZE_IN_BYTES + 4 + indexSize + Point.SIZE_IN_BYTES
-    );
   }
 }

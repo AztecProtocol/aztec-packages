@@ -2,10 +2,11 @@ import { CompleteAddress, HistoricBlockData } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { ExtendedNote, MerkleTreeId, NoteFilter, PublicKey } from '@aztec/types';
+import { MerkleTreeId, NoteFilter, PublicKey } from '@aztec/types';
 
 import { MemoryContractDatabase } from '../contract_database/index.js';
 import { Database } from './database.js';
+import { NoteDao } from './note_dao.js';
 
 /**
  * The MemoryDB class provides an in-memory implementation of a database to manage transactions and auxiliary data.
@@ -14,7 +15,7 @@ import { Database } from './database.js';
  * As an in-memory database, the stored data will not persist beyond the life of the application instance.
  */
 export class MemoryDB extends MemoryContractDatabase implements Database {
-  private extendedNotesTable: ExtendedNote[] = [];
+  private notesTable: NoteDao[] = [];
   private treeRoots: Record<MerkleTreeId, Fr> | undefined;
   private globalVariablesHash: Fr | undefined;
   private addresses: CompleteAddress[] = [];
@@ -43,17 +44,17 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
     return Promise.resolve(this.authWitnesses[messageHash.toString()]);
   }
 
-  public addExtendedNote(extendedNote: ExtendedNote) {
-    this.extendedNotesTable.push(extendedNote);
+  public addNote(note: NoteDao) {
+    this.notesTable.push(note);
     return Promise.resolve();
   }
 
-  public addExtendedNotes(extendedNotes: ExtendedNote[]) {
-    this.extendedNotesTable.push(...extendedNotes);
+  public addNotes(notes: NoteDao[]) {
+    this.notesTable.push(...notes);
     return Promise.resolve();
   }
 
-  public async getExtendedNotes(filter: NoteFilter): Promise<ExtendedNote[]> {
+  public async getNotes(filter: NoteFilter): Promise<NoteDao[]> {
     let ownerPublicKey: PublicKey | undefined;
     if (filter.owner !== undefined) {
       const ownerCompleteAddress = await this.getCompleteAddress(filter.owner);
@@ -63,7 +64,7 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
       ownerPublicKey = ownerCompleteAddress.publicKey;
     }
 
-    return this.extendedNotesTable.filter(
+    return this.notesTable.filter(
       note =>
         (filter.contractAddress == undefined || note.contractAddress.equals(filter.contractAddress)) &&
         (filter.txHash == undefined || note.txHash.equals(filter.txHash)) &&
@@ -74,8 +75,8 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
 
   public removeNullifiedNotes(nullifiers: Fr[], account: PublicKey) {
     const nullifierSet = new Set(nullifiers.map(nullifier => nullifier.toString()));
-    const [remaining, removed] = this.extendedNotesTable.reduce(
-      (acc: [ExtendedNote[], ExtendedNote[]], note) => {
+    const [remaining, removed] = this.notesTable.reduce(
+      (acc: [NoteDao[], NoteDao[]], note) => {
         const nullifier = note.siloedNullifier.toString();
         if (note.publicKey.equals(account) && nullifierSet.has(nullifier)) {
           acc[1].push(note);
@@ -87,7 +88,7 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
       [[], []],
     );
 
-    this.extendedNotesTable = remaining;
+    this.notesTable = remaining;
 
     return Promise.resolve(removed);
   }
@@ -155,7 +156,7 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
   }
 
   public estimateSize() {
-    const notesSize = this.extendedNotesTable.reduce((sum, note) => sum + note.getSize(note), 0);
+    const notesSize = this.notesTable.reduce((sum, note) => sum + note.getSize(note), 0);
     const treeRootsSize = this.treeRoots ? Object.entries(this.treeRoots).length * Fr.SIZE_IN_BYTES : 0;
     const authWits = Object.entries(this.authWitnesses);
     const authWitsSize = authWits.reduce((sum, [key, value]) => sum + key.length + value.length * Fr.SIZE_IN_BYTES, 0);

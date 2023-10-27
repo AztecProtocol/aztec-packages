@@ -10,7 +10,7 @@ describe('Memory DB', () => {
     db = new MemoryDB();
   });
 
-  describe('ExtendedNote', () => {
+  describe('NoteDao', () => {
     const contractAddress = AztecAddress.random();
     const storageSlot = Fr.random();
 
@@ -29,11 +29,11 @@ describe('Memory DB', () => {
     it('should add and get notes', async () => {
       const notes = createNotes(3, false);
       for (let i = 0; i < notes.length; ++i) {
-        await db.addExtendedNote(notes[i]);
+        await db.addNote(notes[i]);
       }
 
       for (let i = 0; i < notes.length; ++i) {
-        const result = await db.getExtendedNotes({
+        const result = await db.getNotes({
           contractAddress: notes[i].contractAddress,
           storageSlot: notes[i].storageSlot,
         });
@@ -43,10 +43,10 @@ describe('Memory DB', () => {
 
     it('should batch add notes', async () => {
       const notes = createNotes(3, false);
-      await db.addExtendedNotes(notes);
+      await db.addNote(notes);
 
       for (let i = 0; i < notes.length; ++i) {
-        const result = await db.getExtendedNotes({
+        const result = await db.getNotes({
           contractAddress: notes[i].contractAddress,
           storageSlot: notes[i].storageSlot,
         });
@@ -56,9 +56,9 @@ describe('Memory DB', () => {
 
     it('should get all notes with the same contract storage slot', async () => {
       const notes = createNotes(3);
-      await db.addExtendedNotes(notes);
+      await db.addNote(notes);
 
-      const result = await db.getExtendedNotes({ contractAddress, storageSlot });
+      const result = await db.getNotes({ contractAddress, storageSlot });
       expect(result.length).toBe(notes.length);
       expect(result).toEqual(expect.objectContaining(notes));
     });
