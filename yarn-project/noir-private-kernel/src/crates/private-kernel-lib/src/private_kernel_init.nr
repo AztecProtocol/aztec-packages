@@ -150,7 +150,6 @@ impl PrivateKernelInputsInit {
     }
 }
 
-
 mod tests {
     use crate::private_kernel_init::PrivateKernelInputsInit;
     use crate::abis::{

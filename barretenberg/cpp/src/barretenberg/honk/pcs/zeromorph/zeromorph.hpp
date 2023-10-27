@@ -37,20 +37,21 @@ template <typename Curve> class ZeroMorphProver_ {
 
   public:
     /**
-     * @brief Compute multivariate quotients q_k(X_0, ..., X_{k-1}) for f(X_0, ..., X_{d-1})
-     * @details Given multilinear polynomial f = f(X_0, ..., X_{d-1}) for which f(u) = v, compute q_k such that:
+     * @brief Compute multivariate quotients q_k(X_0, ..., X_{k-1}) for f(X_0, ..., X_{n-1})
+     * @details Starting from the coefficients of f, compute q_k inductively from k = n - 1, to k = 0.
+     *          f needs to be updated at each step.
      *
-     *  f(X_0, ..., X_{d-1}) - v = \sum_{k=0}^{d-1} (X_k - u_k)q_k(X_0, ..., X_{k-1})
+     *          First, compute q_{n-1} of size N/2 by
+     *          q_{n-1}[l] = f[N/2 + l ] - f[l].
      *
-     * The polynomials q_k can be computed explicitly as the difference of the partial evaluation of f in the last
-     * (n - k) variables at, respectively, u'' = (u_k + 1, u_{k+1}, ..., u_{n-1}) and u' = (u_k, ..., u_{n-1}). I.e.
+     *          Update f by f[l] <- f[l] + u_{n-1} * q_{n-1}[l]; f now has size N/2.
+     *          Compute q_{n-2} of size N/(2^2) by
+     *          q_{n-2}[l] = f[N/2^2 + l] - f[l].
      *
-     *  q_k(X_0, ..., X_{k-1}) = f(X_0,...,X_{k-1}, u'') - f(X_0,...,X_{k-1}, u')
+     *          Update f by f[l] <- f[l] + u_{n-2} * q_{n-2}[l]; f now has size N/(2^2).
+     *          Compute q_{n-3} of size N/(2^3) by
+     *          q_{n-3}[l] = f[N/2^3 + l] - f[l]. Repeat similarly until you reach q_0.
      *
-     * @note In practice, 2^d is equal to the circuit size N
-     *
-     * TODO(#739): This method has been designed for clarity at the expense of efficiency. Implement the more efficient
-     * algorithm detailed in the latest versions of the ZeroMorph paper.
      * @param polynomial Multilinear polynomial f(X_0, ..., X_{d-1})
      * @param u_challenge Multivariate challenge u = (u_0, ..., u_{d-1})
      * @return std::vector<Polynomial> The quotients q_k
@@ -68,26 +69,36 @@ template <typename Curve> class ZeroMorphProver_ {
             quotients.emplace_back(Polynomial(size)); // degree 2^k - 1
         }
 
-        // Compute the q_k in reverse order, i.e. q_{n-1}, ..., q_0
-        for (size_t k = 0; k < log_N; ++k) {
-            // Define partial evaluation point u' = (u_k, ..., u_{n-1})
-            auto evaluation_point_size = static_cast<std::ptrdiff_t>(k + 1);
-            std::vector<FF> u_partial(u_challenge.end() - evaluation_point_size, u_challenge.end());
+        // Compute the coefficients of q_{n-1}
+        size_t size_q = 1 << (log_N - 1);
+        Polynomial q = Polynomial(size_q);
+        for (size_t l = 0; l < size_q; ++l) {
+            q[l] = polynomial[size_q + l] - polynomial[l];
+        }
 
-            // Compute f' = f(X_0,...,X_{k-1}, u')
-            auto f_1 = polynomial.partial_evaluate_mle(u_partial);
+        quotients[log_N - 1] = q;
 
-            // Increment first element to get altered partial evaluation point u'' = (u_k + 1, u_{k+1}, ..., u_{n-1})
-            u_partial[0] += 1;
+        std::vector<FF> f_k;
+        f_k.resize(size_q);
 
-            // Compute f'' = f(X_0,...,X_{k-1}, u'')
-            auto f_2 = polynomial.partial_evaluate_mle(u_partial);
+        std::vector<FF> g(polynomial.data().get(), polynomial.data().get() + size_q);
 
-            // Compute q_k = f''(X_0,...,X_{k-1}) - f'(X_0,...,X_{k-1})
-            auto q_k = f_2;
-            q_k -= f_1;
+        // Compute q_k in reverse order from k= n-2, i.e. q_{n-2}, ..., q_0
+        for (size_t k = 1; k < log_N; ++k) {
+            // Compute f_k
+            for (size_t l = 0; l < size_q; ++l) {
+                f_k[l] = g[l] + u_challenge[log_N - k] * q[l];
+            }
 
-            quotients[log_N - k - 1] = q_k;
+            size_q = size_q / 2;
+            q = Polynomial(size_q);
+
+            for (size_t l = 0; l < size_q; ++l) {
+                q[l] = f_k[size_q + l] - f_k[l];
+            }
+
+            quotients[log_N - k - 1] = q;
+            g = f_k;
         }
 
         return quotients;
@@ -173,21 +184,28 @@ template <typename Curve> class ZeroMorphProver_ {
      *
      *  Z_x = x * f_batched + g_batched - v * x * \Phi_n(x)
      *           - x * \sum_k (x^{2^k}\Phi_{n-k-1}(x^{2^{k-1}}) - u_k\Phi_{n-k}(x^{2^k})) * q_k
+     *           + concatentation_term
      *
      * where f_batched = \sum_{i=0}^{m-1}\rho^i*f_i, g_batched = \sum_{i=0}^{l-1}\rho^{m+i}*g_i
      *
+     * and concatenation_term = \sum_{i=0}^{concatenation_index}(x^{i * min_N + 1}concatenation_groups_batched_{i})
+     *
+     * @note The concatenation term arises from an implementation detail in the Goblin Translator and is not part of the
+     * conventional ZM protocol
      * @param input_polynomial
      * @param quotients
      * @param v_evaluation
      * @param x_challenge
      * @return Polynomial
      */
-    static Polynomial compute_partially_evaluated_zeromorph_identity_polynomial(Polynomial& f_batched,
-                                                                                Polynomial& g_batched,
-                                                                                std::vector<Polynomial>& quotients,
-                                                                                FF v_evaluation,
-                                                                                std::span<FF> u_challenge,
-                                                                                FF x_challenge)
+    static Polynomial compute_partially_evaluated_zeromorph_identity_polynomial(
+        Polynomial& f_batched,
+        Polynomial& g_batched,
+        std::vector<Polynomial>& quotients,
+        FF v_evaluation,
+        std::span<FF> u_challenge,
+        FF x_challenge,
+        std::vector<Polynomial> concatenation_groups_batched = {})
     {
         size_t N = f_batched.size();
         size_t log_N = quotients.size();
@@ -219,6 +237,21 @@ template <typename Curve> class ZeroMorphProver_ {
             scalar *= FF(-1);
 
             result.add_scaled(quotients[k], scalar);
+        }
+
+        // If necessary, add to Z_x the contribution related to concatenated polynomials:
+        // \sum_{i=0}^{concatenation_index}(x^{i * min_n + 1}concatenation_groups_batched_{i}).
+        // We are effectively reconstructing concatenated polynomials from their chunks now that we know x
+        // Note: this is an implementation detail related to Goblin Translator and is not part of the standard protocol.
+        if (!concatenation_groups_batched.empty()) {
+            size_t MINICIRCUIT_N = N / concatenation_groups_batched.size();
+            auto x_to_minicircuit_N =
+                x_challenge.pow(MINICIRCUIT_N); // power of x used to shift polynomials to the right
+            auto running_shift = x_challenge;
+            for (size_t i = 0; i < concatenation_groups_batched.size(); i++) {
+                result.add_scaled(concatenation_groups_batched[i], running_shift);
+                running_shift *= x_to_minicircuit_N;
+            }
         }
 
         return result;
@@ -432,7 +465,14 @@ template <typename Curve> class ZeroMorphVerifier_ {
      *
      *  C_{Z_x} = x * \sum_{i=0}^{m-1}\rho^i*[f_i] + \sum_{i=0}^{l-1}\rho^{m+i}*[g_i] - v * x * \Phi_n(x) * [1]_1
      *              - x * \sum_k (x^{2^k}\Phi_{n-k-1}(x^{2^{k-1}}) - u_k\Phi_{n-k}(x^{2^k})) * [q_k]
+     *              + concatentation_term
+     * where
      *
+     *  concatenation_term = \sum{i=0}^{o-1}\sum_{j=0}^{concatenation_index}(rho^{m+l+i} * x^{j * min_N + 1}
+     *                       * concatenation_groups_commitments_{i}_{j})
+     *
+     * @note The concatenation term arises from an implementation detail in the Goblin Translator and is not part of the
+     * conventional ZM protocol
      * @param f_commitments Commitments to unshifted polynomials [f_i]
      * @param g_commitments Commitments to to-be-shifted polynomials [g_i]
      * @param C_q_k Commitments to q_k
@@ -440,6 +480,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
      * @param batched_evaluation \sum_{i=0}^{m-1} \rho^i*f_i(u) + \sum_{i=0}^{l-1} \rho^{m+i}*h_i(u)
      * @param x_challenge
      * @param u_challenge multilinear challenge
+     * @param concatenation_groups_commitments
      * @return Commitment
      */
     static Commitment compute_C_Z_x(std::vector<Commitment> f_commitments,
@@ -448,7 +489,8 @@ template <typename Curve> class ZeroMorphVerifier_ {
                                     FF rho,
                                     FF batched_evaluation,
                                     FF x_challenge,
-                                    std::vector<FF> u_challenge)
+                                    std::vector<FF> u_challenge,
+                                    std::vector<std::vector<Commitment>> concatenation_groups_commitments = {})
     {
         size_t log_N = C_q_k.size();
         size_t N = 1 << log_N;
@@ -483,6 +525,27 @@ template <typename Curve> class ZeroMorphVerifier_ {
             scalars.emplace_back(rho_pow);
             commitments.emplace_back(commitment);
             rho_pow *= rho;
+        }
+
+        // If applicable, add contribution from concatenated polynomial commitments
+        // Note: this is an implementation detail related to Goblin Translator and is not part of the standard protocol.
+        if (!concatenation_groups_commitments.empty()) {
+            size_t CONCATENATION_INDEX = concatenation_groups_commitments[0].size();
+            size_t MINICIRCUIT_N = N / CONCATENATION_INDEX;
+            std::vector<FF> x_shifts;
+            auto current_x_shift = x_challenge;
+            auto x_to_minicircuit_n = x_challenge.pow(MINICIRCUIT_N);
+            for (size_t i = 0; i < CONCATENATION_INDEX; ++i) {
+                x_shifts.emplace_back(current_x_shift);
+                current_x_shift *= x_to_minicircuit_n;
+            }
+            for (auto& concatenation_group_commitment : concatenation_groups_commitments) {
+                for (size_t i = 0; i < CONCATENATION_INDEX; ++i) {
+                    scalars.emplace_back(rho_pow * x_shifts[i]);
+                    commitments.emplace_back(concatenation_group_commitment[i]);
+                }
+                rho_pow *= rho;
+            }
         }
 
         // Add contributions: scalar * [q_k],  k = 0,...,log_N, where
