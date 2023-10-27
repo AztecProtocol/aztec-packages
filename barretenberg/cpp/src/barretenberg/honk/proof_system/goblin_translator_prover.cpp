@@ -342,6 +342,15 @@ template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_relatio
     auto sumcheck = Sumcheck(key->circuit_size, transcript);
 
     sumcheck_output = sumcheck.prove(prover_polynomials, relation_parameters);
+
+    size_t poly_idx = 0;
+    for (auto& poly : prover_polynomials) {
+        auto value = Polynomial(poly).evaluate_mle(sumcheck_output.challenge);
+        if (value != sumcheck_output.claimed_evaluations[poly_idx]) {
+            throw_or_abort(std::format("Evaluation mismatch at index {}.", poly_idx));
+        }
+        poly_idx++;
+    }
 }
 
 /**

@@ -1615,8 +1615,9 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
 
     class VerifierCommitments : public AllEntities<Commitment, CommitmentHandle> {
       public:
-        VerifierCommitments(std::shared_ptr<VerificationKey> verification_key, VerifierTranscript<FF> transcript)
+        VerifierCommitments(std::shared_ptr<VerificationKey> verification_key, VerifierTranscript<FF>& transcript)
         {
+            // WORKTODO: maybe_unused
             static_cast<void>(transcript);
             static_cast<void>(verification_key);
             this->lagrange_first = verification_key->lagrange_first;
