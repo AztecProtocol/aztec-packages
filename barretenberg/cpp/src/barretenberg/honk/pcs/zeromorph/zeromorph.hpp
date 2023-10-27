@@ -39,8 +39,8 @@ template <typename Curve> class ZeroMorphProver_ {
     /**
      * @brief Compute multivariate quotients q_k(X_0, ..., X_{k-1}) for f(X_0, ..., X_{n-1})
      * @details Starting from the coefficients of f, compute q_k inductively from k = n - 1, to k = 0.
-     *          f needs to be updated at each step. 
-     *          
+     *          f needs to be updated at each step.
+     *
      *          First, compute q_{n-1} of size N/2 by
      *          q_{n-1}[l] = f[N/2 + l ] - f[l].
      *
