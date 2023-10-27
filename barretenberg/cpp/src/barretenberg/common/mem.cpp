@@ -4,10 +4,10 @@
 
 WASM_EXPORT void* bbmalloc(size_t size)
 {
-    return aligned_alloc(32, size);
+    return barretenberg::get_mem_slab_raw(size);
 }
 
 WASM_EXPORT void bbfree(void* ptr)
 {
-    aligned_free(ptr);
+    barretenberg::free_mem_slab_raw(ptr);
 }

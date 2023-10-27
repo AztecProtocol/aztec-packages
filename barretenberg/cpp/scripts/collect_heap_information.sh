@@ -3,6 +3,7 @@ set -eu
 
 PRESET=gperftools
 ONLY_PROCESS=${1:-}
+EXECUTABLE=${2:-ultra_honk_rounds_bench}
 
 # Move above script dir.
 cd $(dirname $0)/..
@@ -16,10 +17,10 @@ cd build-$PRESET
 
 if [ -z "$ONLY_PROCESS" ]; then
   # Clear old heap profile data.
-  rm -f honk_bench_main_simple.heap*
+  rm -f $EXECUTABLE.heap*
 
-  # Run application with heap profiling.
-  HEAPPROFILE=./honk_bench_main_simple ./bin/honk_bench_main_simple
+  # Run application with heap profiling to a file with prefix '$EXECUTABLE'.
+  HEAPPROFILE=./$EXECUTABLE ./bin/$EXECUTABLE
 fi
 
 # Download and install Go
@@ -39,8 +40,8 @@ if [ ! -f ~/go/bin/pprof ]; then
 fi
 
 # Collect the heap files
-files=(./honk_bench_main_simple.*.heap)
+files=(./$EXECUTABLE.*.heap)
 # Find the middle index based on the count
 middle_index=$(( (${#files[@]} + 1) / 2 - 1))
 # Process the heap profile with pprof
-~/go/bin/pprof --text ./bin/honk_bench_main_simple ${files[$middle_index]}
+~/go/bin/pprof --text ./bin/$EXECUTABLE ${files[$middle_index]}
