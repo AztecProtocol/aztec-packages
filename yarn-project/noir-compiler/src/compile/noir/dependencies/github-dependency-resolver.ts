@@ -73,6 +73,7 @@ export class GithubDependencyResolver implements DependencyResolver {
     const packagePath = join(extractLocation, dependency.directory ?? '');
 
     if (this.#fm.hasFileSync(packagePath)) {
+      this.#log(`Using existing package at ${packagePath}`);
       return packagePath;
     }
 
@@ -91,7 +92,11 @@ export class GithubDependencyResolver implements DependencyResolver {
       await this.#fm.writeFile(path, (await entry.blob()).stream());
     }
 
-    this.#fm.moveFileSync(tmpExtractLocation, extractLocation);
+    if (dependency.directory) {
+      this.#fm.moveFileSync(join(tmpExtractLocation, dependency.directory), packagePath);
+    } else {
+      this.#fm.moveFileSync(tmpExtractLocation, packagePath);
+    }
 
     return packagePath;
   }
