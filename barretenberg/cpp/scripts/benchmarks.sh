@@ -4,7 +4,7 @@ set -eu
 # Move above script dir.
 cd $(dirname $0)/..
 
-# Configure and build with xray preset.
+# Configure and build.
 cmake --preset clang16
 cmake --build --preset clang16
 
