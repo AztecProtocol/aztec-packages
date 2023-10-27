@@ -394,4 +394,72 @@ mod tests {
 
         private_inputs.native_private_kernel_circuit_initial();
     }
+
+    // TODO this is invalid as should_fail_with "tx_request.function_data must match call_stack_item.function_data"
+    #[test(should_fail)]
+    fn contract_deployment_function_data_mismatch_fails() {
+        let params = dep::std::unsafe::zeroed();
+        let mut private_inputs = build_inputs(true, constructor_app, params);
+
+        private_inputs.tx_request.function_data.selector.inner = 27;
+
+        private_inputs.native_private_kernel_circuit_initial();
+    }
+
+    #[test(should_fail_with="noir function args passed to tx_request must match args in the call_stack_item")]
+    fn contract_deployment_args_hash_mismatch_fails() {
+        let params = dep::std::unsafe::zeroed();
+        let mut private_inputs = build_inputs(true, constructor_app, params);
+
+        // Modify the args hash in tx request.
+        private_inputs.tx_request.args_hash = 29;
+
+        private_inputs.native_private_kernel_circuit_initial();
+    }
+
+    // TODO this is invalid as should_fail_with "Cannot execute a non-private function with the private kernel circuit"
+    #[test(should_fail)]
+    fn private_function_is_private_false_fails() {
+        let params = dep::std::unsafe::zeroed();
+        let mut private_inputs = build_inputs(true, constructor_app, params);
+
+        // Set is_private in function data to false.
+        private_inputs.private_call.call_stack_item.inner.function_data.is_private = false;
+
+        private_inputs.native_private_kernel_circuit_initial();
+    }
+
+    #[test(should_fail_with="Users cannot make a static call")]
+    fn private_function_static_call_fails() {
+        let params = dep::std::unsafe::zeroed();
+        let mut private_inputs = build_inputs(true, constructor_app, params);
+
+        // Set is_static_call to true.
+        private_inputs.private_call.call_stack_item.inner.public_inputs.call_context.is_static_call = true;
+
+        private_inputs.native_private_kernel_circuit_initial();
+    }
+
+    #[test(should_fail_with="Users cannot make a delegatecall")]
+    fn private_function_delegate_call_fails() {
+        let params = dep::std::unsafe::zeroed();
+        let mut private_inputs = build_inputs(true, constructor_app, params);
+
+        // Set is_static_call to true.
+        private_inputs.private_call.call_stack_item.inner.public_inputs.call_context.is_delegate_call = true;
+
+        private_inputs.native_private_kernel_circuit_initial();
+    }
+
+    #[test(should_fail_with="Storage contract address must be that of the called contract")]
+    fn private_function_incorrect_storage_contract_address_fails() {
+        let params = dep::std::unsafe::zeroed();
+        let mut private_inputs = build_inputs(true, constructor_app, params);
+
+        // Set the storage_contract_address to a random scalar.
+        private_inputs.private_call.call_stack_item.inner.public_inputs.call_context.storage_contract_address = Address::from_field(356);
+
+        private_inputs.native_private_kernel_circuit_initial();
+    }
+
 }
