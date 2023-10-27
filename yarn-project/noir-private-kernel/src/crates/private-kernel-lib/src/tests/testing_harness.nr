@@ -335,6 +335,16 @@ pub fn generate_read_requests(how_many: u64) -> ([Field; MAX_READ_REQUESTS_PER_C
     (read_requests, read_request_membership_witnesses)
 }
 
+pub fn non_zero_items<N>(array: [Field; N]) -> u64 {
+    let mut count = 0;
+    for i in 0..N {
+        if array[i] != 0 {
+            count += 1;
+        }
+    }
+    count
+}
+
 
 pub fn validate_no_new_deployed_contract(public_inputs: KernelCircuitPublicInputs) {
     for new_contract in public_inputs.end.new_contracts {

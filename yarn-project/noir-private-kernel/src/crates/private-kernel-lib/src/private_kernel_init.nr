@@ -156,6 +156,7 @@ mod tests {
     use crate::abis::{
         kernel_circuit_public_inputs::{KernelCircuitPublicInputs, KernelCircuitPublicInputsBuilder},
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
+        read_request_membership_witness::ReadRequestMembershipWitness,
     };
     use crate::tests::{
         testing_harness::{
@@ -165,6 +166,7 @@ mod tests {
             PrivateAppInputs,
             validate_no_new_deployed_contract,
             validate_deployed_contract_address,
+            non_zero_items,
         },
         apps::deposit::{
             deposit_app,
@@ -186,6 +188,7 @@ mod tests {
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
         MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
         MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
+        NOTE_HASH_TREE_HEIGHT,
     };
 
     fn build_inputs<T>(
@@ -480,5 +483,180 @@ mod tests {
         private_inputs.native_private_kernel_circuit_initial();
     }
 
+    #[test(should_fail_with="private data tree root mismatch")]
+    fn native_read_request_bad_leaf_index() {
+        let params = dep::std::unsafe::zeroed();
+        let mut private_inputs = build_inputs(false, deposit_app, params);
 
+        let (mut read_requests, mut read_request_membership_witnesses) = generate_read_requests(2);
+
+        // tweak leaf index so it gives wrong root when paired with its request and sibling path
+        read_request_membership_witnesses[1].leaf_index += 1;
+        private_inputs.private_call.call_stack_item.inner.public_inputs.read_requests = read_requests;
+        private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
+
+        private_inputs.native_private_kernel_circuit_initial();
+    }
+
+    #[test(should_fail_with="private data tree root mismatch")]
+    fn native_read_request_bad_sibling_path() {
+        let params = dep::std::unsafe::zeroed();
+        let mut private_inputs = build_inputs(false, deposit_app, params);
+
+        let (mut read_requests, mut read_request_membership_witnesses) = generate_read_requests(2);
+
+        // tweak sibling path so it gives wrong root when paired with its request
+        read_request_membership_witnesses[1].sibling_path[1] += 1;
+        private_inputs.private_call.call_stack_item.inner.public_inputs.read_requests = read_requests;
+        private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
+
+        private_inputs.native_private_kernel_circuit_initial();
+    }
+
+    #[test]
+    fn native_no_read_requests_works() {
+        let params = dep::std::unsafe::zeroed();
+        let mut private_inputs = build_inputs(false, deposit_app, params);
+
+        let (mut read_requests, mut read_request_membership_witnesses) = generate_read_requests(0);
+
+        private_inputs.private_call.call_stack_item.inner.public_inputs.read_requests = read_requests;
+        private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
+
+        let public_inputs = private_inputs.native_private_kernel_circuit_initial();
+
+        validate_no_new_deployed_contract(public_inputs);
+        // Check the first nullifier is hash of the signed tx request
+        assert_eq(public_inputs.end.new_nullifiers[0], private_inputs.tx_request.hash());
+
+        // non-transient read requests are NOT forwarded
+        assert_eq(non_zero_items(public_inputs.end.read_requests), 0);
+    }
+
+    #[test]
+    fn native_one_read_requests_works() {
+        let params = dep::std::unsafe::zeroed();
+        let mut private_inputs = build_inputs(false, deposit_app, params);
+
+        let (mut read_requests, mut read_request_membership_witnesses) = generate_read_requests(1);
+
+        private_inputs.private_call.call_stack_item.inner.public_inputs.read_requests = read_requests;
+        private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
+
+        let public_inputs = private_inputs.native_private_kernel_circuit_initial();
+
+        validate_no_new_deployed_contract(public_inputs);
+        // Check the first nullifier is hash of the signed tx request
+        assert_eq(public_inputs.end.new_nullifiers[0], private_inputs.tx_request.hash());
+
+        // non-transient read requests are NOT forwarded
+        assert_eq(non_zero_items(public_inputs.end.read_requests), 0);
+    }
+
+    #[test]
+    fn native_two_read_requests_works() {
+        let params = dep::std::unsafe::zeroed();
+        let mut private_inputs = build_inputs(false, deposit_app, params);
+
+        let (mut read_requests, mut read_request_membership_witnesses) = generate_read_requests(2);
+
+        private_inputs.private_call.call_stack_item.inner.public_inputs.read_requests = read_requests;
+        private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
+
+        let public_inputs = private_inputs.native_private_kernel_circuit_initial();
+
+        validate_no_new_deployed_contract(public_inputs);
+        // Check the first nullifier is hash of the signed tx request
+        assert_eq(public_inputs.end.new_nullifiers[0], private_inputs.tx_request.hash());
+
+        // non-transient read requests are NOT forwarded
+        assert_eq(non_zero_items(public_inputs.end.read_requests), 0);
+    }
+
+    #[test]
+    fn native_max_read_requests_works() {
+        let params = dep::std::unsafe::zeroed();
+        let mut private_inputs = build_inputs(false, deposit_app, params);
+
+        let (mut read_requests, mut read_request_membership_witnesses) = generate_read_requests(MAX_READ_REQUESTS_PER_CALL as u64);
+
+        private_inputs.private_call.call_stack_item.inner.public_inputs.read_requests = read_requests;
+        private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
+
+        let public_inputs = private_inputs.native_private_kernel_circuit_initial();
+
+        validate_no_new_deployed_contract(public_inputs);
+        // Check the first nullifier is hash of the signed tx request
+        assert_eq(public_inputs.end.new_nullifiers[0], private_inputs.tx_request.hash());
+
+        // non-transient read requests are NOT forwarded
+        assert_eq(non_zero_items(public_inputs.end.read_requests), 0);
+    }
+
+    #[test]
+    fn native_one_transient_read_requests_works() {
+        let params = dep::std::unsafe::zeroed();
+        let mut private_inputs = build_inputs(false, deposit_app, params);
+
+        let (mut read_requests, mut read_request_membership_witnesses) = generate_read_requests(1);
+
+        private_inputs.private_call.call_stack_item.inner.public_inputs.read_requests = read_requests;
+        private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses.map(|mut witness: ReadRequestMembershipWitness<NOTE_HASH_TREE_HEIGHT>| {
+            witness.is_transient = true;
+            witness
+        });
+
+        let public_inputs = private_inputs.native_private_kernel_circuit_initial();
+
+        validate_no_new_deployed_contract(public_inputs);
+        // Check the first nullifier is hash of the signed tx request
+        assert_eq(public_inputs.end.new_nullifiers[0], private_inputs.tx_request.hash());
+
+        // non-transient read requests are NOT forwarded
+        assert_eq(non_zero_items(public_inputs.end.read_requests), 1);
+    }
+
+    #[test]
+    fn native_max_read_requests_one_transient_works() {
+        let params = dep::std::unsafe::zeroed();
+        let mut private_inputs = build_inputs(false, deposit_app, params);
+
+        let (mut read_requests, mut read_request_membership_witnesses) = generate_read_requests(MAX_READ_REQUESTS_PER_CALL as u64);
+
+        read_request_membership_witnesses[1].is_transient = true;
+        private_inputs.private_call.call_stack_item.inner.public_inputs.read_requests = read_requests;
+        private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
+
+        let public_inputs = private_inputs.native_private_kernel_circuit_initial();
+
+        validate_no_new_deployed_contract(public_inputs);
+        // Check the first nullifier is hash of the signed tx request
+        assert_eq(public_inputs.end.new_nullifiers[0], private_inputs.tx_request.hash());
+
+        // non-transient read requests are NOT forwarded
+        assert_eq(non_zero_items(public_inputs.end.read_requests), 1);
+    }
+
+     #[test]
+    fn native_max_read_requests_all_transient_works() {
+        let params = dep::std::unsafe::zeroed();
+        let mut private_inputs = build_inputs(false, deposit_app, params);
+
+        let (mut read_requests, mut read_request_membership_witnesses) = generate_read_requests(MAX_READ_REQUESTS_PER_CALL as u64);
+
+        private_inputs.private_call.call_stack_item.inner.public_inputs.read_requests = read_requests;
+        private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses.map(|mut witness: ReadRequestMembershipWitness<NOTE_HASH_TREE_HEIGHT>| {
+            witness.is_transient = true;
+            witness
+        });
+
+        let public_inputs = private_inputs.native_private_kernel_circuit_initial();
+
+        validate_no_new_deployed_contract(public_inputs);
+        // Check the first nullifier is hash of the signed tx request
+        assert_eq(public_inputs.end.new_nullifiers[0], private_inputs.tx_request.hash());
+
+        // non-transient read requests are NOT forwarded
+        assert_eq(non_zero_items(public_inputs.end.read_requests), 1);
+    }
 }
