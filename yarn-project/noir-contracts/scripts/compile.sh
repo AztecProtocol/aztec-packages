@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -euo pipefail;
+
 # Compiles Aztec.nr contracts in parallel, bubbling any compilation errors
 
 export self_dir=$(dirname "$(realpath $0)")
@@ -11,7 +13,6 @@ build() {
   echo "Compiling $CONTRACT_NAME..."
   rm -rf ${CONTRACT_FOLDER}/target
 
-  # If the compilation fails, rerun the compilation with 'nargo' and show the compiler output.
   node "$COMPILER" contract "$CONTRACT_FOLDER"
 }
 
