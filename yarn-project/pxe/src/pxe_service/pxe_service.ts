@@ -125,6 +125,7 @@ export class PXEService implements PXE {
     const completeAddress = await CompleteAddress.fromPrivateKeyAndPartialAddress(privKey, partialAddress);
     const wasAdded = await this.db.addCompleteAddress(completeAddress);
     if (wasAdded) {
+      this.keyStore.addAccount(privKey);
       this.synchronizer.addAccount(completeAddress, this.keyStore, this.config.l2StartingBlock);
       this.log.info(`Registered account ${completeAddress.address.toString()}`);
       this.log.debug(`Registered account\n ${completeAddress.toReadableString()}`);
@@ -201,8 +202,9 @@ export class PXEService implements PXE {
 
   public async addNote(note: ExtendedNote) {
     const account = (await this.db.getCompleteAddress(note.owner)) ?? {};
+    console.log('account', account);
     if (!account) {
-      throw new Error('Unknown account.');
+      throw new Error('Unknown note owner: ' + note.owner.toString());
     }
 
     const [nonce] = await this.getNoteNonces(note);
