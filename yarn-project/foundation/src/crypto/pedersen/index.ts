@@ -2,7 +2,7 @@
 import { Field } from '@noble/curves/abstract/modular';
 import { weierstrassPoints } from '@noble/curves/abstract/weierstrass';
 
-import { toBufferBE } from '../../bigint-buffer/index.js';
+import { toBigIntBE, toBufferBE } from '../../bigint-buffer/index.js';
 
 const grumpkin = weierstrassPoints({
   a: 0n,
@@ -289,12 +289,7 @@ function pedersenCommitInternal(input: Buffer[], generatorOffset = 0) {
     throw new Error('Pedersen commit overflowed default generators.');
   }
   const generators = defaultGenerators.slice(generatorOffset, generatorOffset + input.length);
-  let result = pointAtInfinity;
-  for (let i = 0; i < input.length; ++i) {
-    const value = BigInt(`0x${input[i].toString('hex')}`);
-    result = result.add(generators[i].multiply(value));
-  }
-  return result;
+  return generators.reduce((a, g, i) => a.add(g.multiply(toBigIntBE(input[i]))), pointAtInfinity);
 }
 
 /**
