@@ -49,7 +49,7 @@ template <typename Relation, size_t subrelation_index> constexpr bool subrelatio
 }
 
 /**
- * @brief Compute the full subrelation lengths, i.e., the lengths when regarding the challenges as
+ * @brief Compute the total subrelation lengths, i.e., the lengths when regarding the challenges as
  * variables.
  */
 template <typename RelationImpl>
