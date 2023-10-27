@@ -13,14 +13,14 @@
       "path": "../foundation"
     },
     {
-      "path": "../merkle-tree"
-    },
-    {
       "path": "../noir-compiler"
     },
     {
-      "path": "../types"
+      "path": "../merkle-tree"
     },
+    {
+      "path": "../types"
+    }
   ],
   "include": ["src", "src/**/*.json"],
   "exclude": ["src/contracts"]
