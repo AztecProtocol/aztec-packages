@@ -1,4 +1,5 @@
 import {
+  ExtendedNote,
   Fr,
   L2BlockL2Logs,
   Note,
@@ -45,7 +46,8 @@ async function mintPrivateFunds(pxe) {
 
   const storageSlot = new Fr(5);
   const note = new Note([new Fr(mintAmount), secretHash]);
-  await pxe.addNote(owner.getAddress(), token.address, storageSlot, note, receipt.txHash);
+  const extendedNote = new ExtendedNote(note, owner.getAddress(), token.address, storageSlot, receipt.txHash);
+  await pxe.addNote(extendedNote);
 
   await token.methods.redeem_shield(owner.getAddress(), mintAmount, secret).send().wait();
 
