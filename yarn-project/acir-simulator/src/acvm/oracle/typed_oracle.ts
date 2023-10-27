@@ -3,7 +3,7 @@ import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
-import { CompleteAddress, PublicKey, UnencryptedL2Log } from '@aztec/types';
+import { CompleteAddress, Note, PublicKey, UnencryptedL2Log } from '@aztec/types';
 
 /**
  * Information about a note needed during execution.
@@ -16,7 +16,7 @@ export interface NoteData {
   /** The nonce of the note. */
   nonce: Fr;
   /** The preimage of the note */
-  preimage: Fr[];
+  note: Note;
   /** The inner note hash of the note. */
   innerNoteHash: Fr;
   /** The corresponding nullifier of the note. Undefined for pending notes. */

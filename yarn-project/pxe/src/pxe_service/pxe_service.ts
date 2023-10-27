@@ -202,7 +202,7 @@ export class PXEService implements PXE {
     account: AztecAddress,
     contractAddress: AztecAddress,
     storageSlot: Fr,
-    preimage: Note,
+    note: Note,
     txHash: TxHash,
     nonce?: Fr,
   ) {
@@ -212,14 +212,14 @@ export class PXEService implements PXE {
     }
 
     if (!nonce) {
-      [nonce] = await this.getNoteNonces(contractAddress, storageSlot, preimage, txHash);
+      [nonce] = await this.getNoteNonces(contractAddress, storageSlot, note, txHash);
     }
     if (!nonce) {
       throw new Error(`Cannot find the note in tx: ${txHash}.`);
     }
 
     const { innerNoteHash, siloedNoteHash, uniqueSiloedNoteHash, innerNullifier } =
-      await this.simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, preimage.items);
+      await this.simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, note);
 
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
     // This can always be `uniqueSiloedNoteHash` once notes added from public also include nonces.
@@ -238,7 +238,7 @@ export class PXEService implements PXE {
 
     await this.db.addExtendedNote(
       new ExtendedNote(
-        preimage,
+        note,
         contractAddress,
         txHash,
         nonce,
@@ -276,7 +276,7 @@ export class PXEService implements PXE {
         contractAddress,
         nonce,
         storageSlot,
-        note.items,
+        note,
       );
       // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
       // Remove this once notes added from public also include nonces.

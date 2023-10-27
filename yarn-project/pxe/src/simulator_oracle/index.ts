@@ -50,7 +50,7 @@ export class SimulatorOracle implements DBOracle {
       contractAddress,
       storageSlot,
       nonce,
-      preimage: note.items,
+      note,
       innerNoteHash,
       siloedNullifier,
       // PXE can use this index to get full MembershipWitness

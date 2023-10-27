@@ -14,6 +14,7 @@ import {
   L2Block,
   L2BlockContext,
   L2BlockL2Logs,
+  Note,
   TxL2Logs,
 } from '@aztec/types';
 
@@ -39,11 +40,11 @@ describe('Note Processor', () => {
   const numCommitmentsPerBlock = TXS_PER_BLOCK * MAX_NEW_COMMITMENTS_PER_TX;
   const firstBlockDataStartIndex = (firstBlockNum - 1) * numCommitmentsPerBlock;
 
-  const computeMockNoteHash = (preimage: Fr[]) =>
+  const computeMockNoteHash = (note: Note) =>
     Fr.fromBuffer(
       pedersenHashInputs(
         wasm,
-        preimage.map(p => p.toBuffer()),
+        note.items.map(i => i.toBuffer()),
       ),
     );
 
@@ -106,7 +107,7 @@ describe('Note Processor', () => {
       } = createEncryptedLogsAndOwnedL1NotePayloads(isTargetBlock ? ownedData : [], isTargetBlock ? ownedNotes : []);
       encryptedLogsArr.push(encryptedLogs);
       ownedL1NotePayloads.push(...payloads);
-      block.newCommitments = newNotes.map(n => computeMockNoteHash(n.note.items));
+      block.newCommitments = newNotes.map(n => computeMockNoteHash(n.note));
 
       const randomBlockContext = new L2BlockContext(block);
       blockContexts.push(randomBlockContext);

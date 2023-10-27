@@ -28,7 +28,7 @@ import { SideEffectCounter } from '../common/index.js';
 import { PackedArgsCache } from '../common/packed_args_cache.js';
 import { DBOracle } from './db_oracle.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';
-import { ExecutionResult, NewNoteData } from './execution_result.js';
+import { ExecutionResult, NoteAndSlot } from './execution_result.js';
 import { pickNotes } from './pick_notes.js';
 import { executePrivateFunction } from './private_execution.js';
 import { ViewDataOracle } from './view_data_oracle.js';
@@ -44,7 +44,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * This information is only for references (currently used for tests), and is not used for any sort of constrains.
    * Users can also use this to get a clearer idea of what's happened during a simulation.
    */
-  private newNotes: NewNoteData[] = [];
+  private newNotes: NoteAndSlot[] = [];
   /**
    * Notes from previous transactions that are returned to the oracle call `getNotes` during this execution.
    * The mapping maps from the unique siloed note hash to the index for notes created in private executions.
@@ -135,7 +135,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * Get the data for the newly created notes.
    * @param innerNoteHashes - Inner note hashes for the notes.
    */
-  public getNewNotes(): NewNoteData[] {
+  public getNewNotes(): NoteAndSlot[] {
     return this.newNotes;
   }
 
@@ -227,7 +227,7 @@ export class ClientExecutionContext extends ViewDataOracle {
 
     this.log(
       `Returning ${notes.length} notes for ${this.contractAddress} at ${storageSlot}: ${notes
-        .map(n => `${n.nonce.toString()}:[${n.preimage.map(i => i.toString()).join(',')}]`)
+        .map(n => `${n.nonce.toString()}:[${n.note.items.map(i => i.toString()).join(',')}]`)
         .join(', ')}`,
     );
 
@@ -251,22 +251,23 @@ export class ClientExecutionContext extends ViewDataOracle {
    * It can be used in subsequent calls (or transactions when chaining txs is possible).
    * @param contractAddress - The contract address.
    * @param storageSlot - The storage slot.
-   * @param preimage - The preimage of the new note.
+   * @param noteItems - The items to be included in a Note.
    * @param innerNoteHash - The inner note hash of the new note.
    * @returns
    */
-  public notifyCreatedNote(storageSlot: Fr, preimage: Fr[], innerNoteHash: Fr) {
+  public notifyCreatedNote(storageSlot: Fr, noteItems: Fr[], innerNoteHash: Fr) {
+    const note = new Note(noteItems);
     this.noteCache.addNewNote({
       contractAddress: this.contractAddress,
       storageSlot,
       nonce: Fr.ZERO, // Nonce cannot be known during private execution.
-      preimage,
+      note,
       siloedNullifier: undefined, // Siloed nullifier cannot be known for newly created note.
       innerNoteHash,
     });
     this.newNotes.push({
       storageSlot,
-      preimage,
+      note,
     });
   }
 

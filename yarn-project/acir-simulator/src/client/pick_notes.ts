@@ -1,4 +1,5 @@
 import { Fr } from '@aztec/foundation/fields';
+import { Note } from '@aztec/types';
 
 /**
  * Configuration for selecting values.
@@ -70,11 +71,11 @@ interface BasicNoteData {
   /**
    * Preimage of a note.
    */
-  preimage: Fr[];
+  note: Note;
 }
 
-const selectNotes = <T extends BasicNoteData>(notes: T[], selects: Select[]): T[] =>
-  notes.filter(note => selects.every(({ index, value }) => note.preimage[index]?.equals(value)));
+const selectNotes = <T extends BasicNoteData>(noteDatas: T[], selects: Select[]): T[] =>
+  noteDatas.filter(noteData => selects.every(({ index, value }) => noteData.note.items[index]?.equals(value)));
 
 const sortNotes = (a: Fr[], b: Fr[], sorts: Sort[], level = 0): number => {
   if (sorts[level] === undefined) return 0;
@@ -94,10 +95,10 @@ const sortNotes = (a: Fr[], b: Fr[], sorts: Sort[], level = 0): number => {
  * Pick from a note array a number of notes that meet the criteria.
  */
 export function pickNotes<T extends BasicNoteData>(
-  notes: T[],
+  noteDatas: T[],
   { selects = [], sorts = [], limit = 0, offset = 0 }: GetOptions,
 ): T[] {
-  return selectNotes(notes, selects)
-    .sort((a, b) => sortNotes(a.preimage, b.preimage, sorts))
+  return selectNotes(noteDatas, selects)
+    .sort((a, b) => sortNotes(a.note.items, b.note.items, sorts))
     .slice(offset, limit ? offset + limit : undefined);
 }

@@ -1,4 +1,4 @@
-import { ExecutionResult, NewNoteData } from '@aztec/acir-simulator';
+import { ExecutionResult, NoteAndSlot } from '@aztec/acir-simulator';
 import {
   AztecAddress,
   CONTRACT_TREE_HEIGHT,
@@ -42,7 +42,7 @@ export interface OutputNoteData {
   /**
    * The encrypted note data for an output note.
    */
-  data: NewNoteData;
+  data: NoteAndSlot;
   /**
    * The unique value representing the note.
    */

@@ -51,4 +51,8 @@ export class Note extends Vector<Fr> {
     const hex = str.replace(/^0x/, '');
     return Note.fromBuffer(Buffer.from(hex, 'hex'));
   }
+
+  get length() {
+    return this.items.length;
+  }
 }
