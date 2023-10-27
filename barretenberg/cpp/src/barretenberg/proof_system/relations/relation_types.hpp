@@ -122,20 +122,18 @@ template <typename RelationImpl> class Relation : public RelationImpl {
   public:
     using FF = typename RelationImpl::FF;
 
-    static constexpr std::array<size_t, RelationImpl::SUBRELATION_PARTIAL_LENGTHS.size()>
-        FULL_SUBRELATION_PARTIAL_LENGTHS = compute_total_subrelation_lengths<RelationImpl>();
+    static constexpr std::array<size_t, RelationImpl::SUBRELATION_PARTIAL_LENGTHS.size()> SUBRELATION_TOTAL_LENGTHS =
+        compute_total_subrelation_lengths<RelationImpl>();
 
     static constexpr size_t RELATION_LENGTH = *std::max_element(RelationImpl::SUBRELATION_PARTIAL_LENGTHS.begin(),
                                                                 RelationImpl::SUBRELATION_PARTIAL_LENGTHS.end());
 
     static constexpr size_t TOTAL_RELATION_LENGTH =
-        *std::max_element(FULL_SUBRELATION_PARTIAL_LENGTHS.begin(), FULL_SUBRELATION_PARTIAL_LENGTHS.end());
+        *std::max_element(SUBRELATION_TOTAL_LENGTHS.begin(), SUBRELATION_TOTAL_LENGTHS.end());
 
     template <size_t NUM_INSTANCES>
     using ProtogalaxyTupleOfUnivariatesOverSubrelations =
-        TupleOfUnivariates<FF,
-                           compute_composed_subrelation_partial_lengths<NUM_INSTANCES>(
-                               FULL_SUBRELATION_PARTIAL_LENGTHS)>;
+        TupleOfUnivariates<FF, compute_composed_subrelation_partial_lengths<NUM_INSTANCES>(SUBRELATION_TOTAL_LENGTHS)>;
     using SumcheckTupleOfUnivariatesOverSubrelations =
         TupleOfUnivariates<FF, RelationImpl::SUBRELATION_PARTIAL_LENGTHS>;
     using SumcheckArrayOfValuesOverSubrelations = ArrayOfValues<FF, RelationImpl::SUBRELATION_PARTIAL_LENGTHS>;
