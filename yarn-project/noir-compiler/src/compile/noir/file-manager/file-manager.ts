@@ -1,31 +1,110 @@
+import { dirname, isAbsolute, join } from 'path';
+
 /**
- * An abstract file manager interface that allows reading and writing files.
+ * A file system interface that matches the node fs module.
  */
-export interface FileManager {
+export interface FileSystem {
+  /** Checks if the file exists */
+  existsSync: (path: string) => boolean;
+  /** Creates a directory structure */
+  mkdirSync: (
+    dir: string,
+    opts?: {
+      /** Create parent directories as needed */
+      recursive: boolean;
+    },
+  ) => void;
+  /** Writes a file */
+  writeFileSync: (path: string, data: Uint8Array) => void;
+  /** Reads a file */
+  readFileSync: (path: string, encoding: 'binary' | 'utf-8') => Uint8Array | string;
+  /* eslint-enable jsdoc/require-jsdoc */
+}
+
+/**
+ * A file manager that writes file to a specific directory but reads globally.
+ */
+export class FileManager {
+  #fs: FileSystem;
+  #dataDir: string;
+
+  constructor(fs: FileSystem, dataDir: string) {
+    this.#fs = fs;
+    this.#dataDir = dataDir;
+  }
+
   /**
    * Saves a file to the data directory.
    * @param name - File to save
    * @param stream - File contents
    */
-  writeFile(name: string, stream: ReadableStream<Uint8Array>): Promise<void>;
+  public async writeFile(name: string, stream: ReadableStream<Uint8Array>): Promise<void> {
+    if (isAbsolute(name)) {
+      throw new Error("can't write absolute path");
+    }
+
+    const path = this.#getPath(name);
+    const chunks: Uint8Array[] = [];
+    const reader = stream.getReader();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+
+      chunks.push(value);
+    }
+
+    const file = new Uint8Array(chunks.reduce((acc, chunk) => acc + chunk.length, 0));
+    let offset = 0;
+    for (const chunk of chunks) {
+      file.set(chunk, offset);
+      offset += chunk.length;
+    }
+
+    this.#fs.mkdirSync(dirname(path), { recursive: true });
+    this.#fs.writeFileSync(this.#getPath(path), file);
+  }
 
   /**
-   * Reads a file from the disk and returns a buffer
-   * @param name - File to read
-   * @param encoding - Binary encoding
-   */
-  readFileSync(name: string, encoding: 'binary'): Uint8Array;
-
-  /**
-   * Reads a file from the disk and returns a string
+   * Reads a file from the filesystem and returns a buffer
    * @param name - File to read
    * @param encoding - Encoding to use
    */
-  readFileSync(name: string, encoding: 'utf-8'): string;
+  public readFileSync(name: string, encoding: 'binary'): Uint8Array;
+  /**
+   * Reads a file from the filesystem as a string
+   * @param name - File to read
+   * @param encoding - Encoding to use
+   */
+  public readFileSync(name: string, encoding: 'utf-8'): string;
+  /**
+   * Reads a file from the filesystem
+   * @param name - File to read
+   * @param encoding - Encoding to use
+   */
+  public readFileSync(name: string, encoding: 'binary' | 'utf-8'): string | Uint8Array {
+    const data = this.#fs.readFileSync(this.#getPath(name), encoding);
+
+    if (encoding === 'binary') {
+      return typeof data === 'string'
+        ? new TextEncoder().encode(data)
+        : new Uint8Array(data.buffer, data.byteOffset, data.byteLength / Uint8Array.BYTES_PER_ELEMENT);
+    }
+
+    return data;
+  }
 
   /**
    * Checks if a file exists and is accessible
    * @param name - File to check
    */
-  hasFileSync(name: string): boolean;
+  public hasFileSync(name: string): boolean {
+    return this.#fs.existsSync(this.#getPath(name));
+  }
+
+  #getPath(name: string) {
+    return isAbsolute(name) ? name : join(this.#dataDir, name);
+  }
 }

@@ -1,11 +1,12 @@
 import { fileURLToPath } from '@aztec/foundation/url';
 
 import { jest } from '@jest/globals';
+import { Volume, createFsFromVolume } from 'memfs';
 import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
 import { FileManager } from '../file-manager/file-manager.js';
-import { InMemoryFileManager } from '../file-manager/in-memory-file-manager.js';
+import { createMemFSFileManager } from '../file-manager/memfs-file-manager.js';
 import { NoirGitDependencyConfig } from '../package-config.js';
 import { NoirPackage } from '../package.js';
 import { DependencyResolver } from './dependency-resolver.js';
@@ -21,7 +22,7 @@ describe('GithubDependencyResolver', () => {
   let fetchMock: jest.SpiedFunction<typeof fetch>;
 
   beforeEach(() => {
-    fm = new InMemoryFileManager();
+    fm = createMemFSFileManager(createFsFromVolume(new Volume()), '/');
 
     libDependency = {
       git: 'https://github.com/example/repo',

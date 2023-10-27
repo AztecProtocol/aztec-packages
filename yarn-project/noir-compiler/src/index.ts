@@ -1,9 +1,10 @@
 import { ContractArtifact } from '@aztec/foundation/abi';
 
+import * as fs from 'node:fs';
 import { join, resolve } from 'path';
 
 import { CompileOpts, NargoContractCompiler } from './compile/nargo.js';
-import { OnDiskFileManager } from './compile/noir/file-manager/on-disk-file-manager.js';
+import { FileManager } from './compile/noir/file-manager/file-manager.js';
 import { NoirWasmCompileOptions, NoirWasmContractCompiler } from './compile/noir/noir-wasm-compiler.js';
 import { generateContractArtifact } from './contract-interface-gen/abi.js';
 
@@ -34,7 +35,7 @@ export async function compileUsingNoirWasm(
   opts: NoirWasmCompileOptions,
 ): Promise<ContractArtifact[]> {
   const cacheRoot = process.env.XDG_CACHE_HOME ?? join(process.env.HOME ?? '', '.cache');
-  const fileManager = new OnDiskFileManager(join(cacheRoot, 'aztec-noir-compiler'));
+  const fileManager = new FileManager(fs, join(cacheRoot, 'aztec-noir-compiler'));
 
   return (await NoirWasmContractCompiler.new(fileManager, resolve(projectPath), opts).compile()).map(
     generateContractArtifact,
