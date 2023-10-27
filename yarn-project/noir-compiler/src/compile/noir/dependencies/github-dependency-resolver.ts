@@ -13,7 +13,7 @@ import { DependencyResolver } from './dependency-resolver.js';
  */
 export class GithubDependencyResolver implements DependencyResolver {
   #fm: FileManager;
-  #log = createDebugOnlyLogger('');
+  #log = createDebugOnlyLogger('aztec:compile:github-dependency-resolver');
 
   constructor(fm: FileManager) {
     this.#fm = fm;
