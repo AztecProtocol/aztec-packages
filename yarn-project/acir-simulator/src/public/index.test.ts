@@ -1,13 +1,12 @@
 import {
   CallContext,
   CircuitsWasm,
-  ContractStorageRead,
   FunctionData,
   GlobalVariables,
   HistoricBlockData,
   L1_TO_L2_MSG_TREE_HEIGHT,
 } from '@aztec/circuits.js';
-import { pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
+import { pedersenHashInputs } from '@aztec/circuits.js/barretenberg';
 import { FunctionArtifact, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -16,7 +15,6 @@ import { toBigInt } from '@aztec/foundation/serialize';
 import {
   ChildContractArtifact,
   ParentContractArtifact,
-  PublicTokenContractArtifact,
   TestContractArtifact,
   TokenContractArtifact,
 } from '@aztec/noir-contracts/artifacts';
@@ -54,7 +52,7 @@ describe('ACIR public execution simulator', () => {
     executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, blockData);
   }, 10000);
 
-  describe('PublicToken contract', () => {
+  describe('Token contract', () => {
     let recipient: AztecAddress;
 
     beforeEach(() => {
@@ -62,14 +60,17 @@ describe('ACIR public execution simulator', () => {
     });
 
     describe('mint', () => {
-      it('should run the mint function', async () => {
+      it('should run the mint_public function', async () => {
         const contractAddress = AztecAddress.random();
-        const mintArtifact = PublicTokenContractArtifact.functions.find(f => f.name === 'mint')!;
+        const mintArtifact = TokenContractArtifact.functions.find(f => f.name === 'mint_public')!;
         const functionData = FunctionData.fromAbi(mintArtifact);
-        const args = encodeArguments(mintArtifact, [140, recipient]);
 
+        const mintAmount = 140n;
+        const args = encodeArguments(mintArtifact, [recipient, mintAmount]);
+
+        const msgSender = AztecAddress.random();
         const callContext = CallContext.from({
-          msgSender: AztecAddress.random(),
+          msgSender,
           storageContractAddress: contractAddress,
           portalContractAddress: EthAddress.random(),
           functionSelector: FunctionSelector.empty(),
@@ -81,27 +82,57 @@ describe('ACIR public execution simulator', () => {
         publicContracts.getBytecode.mockResolvedValue(Buffer.from(mintArtifact.bytecode, 'base64'));
 
         // Mock the old value for the recipient balance to be 20
+        const isMinter = new Fr(1n); // 1n means true
         const previousBalance = new Fr(20n);
-        publicState.storageRead.mockResolvedValue(previousBalance);
+        const previousTotalSupply = new Fr(previousBalance.value + 100n);
+        publicState.storageRead
+          .mockResolvedValueOnce(isMinter) // reading whether msg_sender is minter
+          .mockResolvedValueOnce(previousBalance) // reading user's balance
+          .mockResolvedValueOnce(previousTotalSupply); // reading total supply
 
         const execution: PublicExecution = { contractAddress, functionData, args, callContext };
         const result = await executor.simulate(execution, GlobalVariables.empty());
 
-        const expectedBalance = new Fr(160n);
-        expect(result.returnValues[0]).toEqual(expectedBalance);
+        expect(result.returnValues[0]).toEqual(new Fr(1n));
 
-        const storageSlot = computeSlotForMapping(new Fr(1n), recipient.toField(), circuitsWasm);
+        const recipientBalanceStorageSlot = computeSlotForMapping(new Fr(6n), recipient.toField(), circuitsWasm);
+        const totalSupplyStorageSlot = new Fr(4n);
+
+        const expectedBalance = new Fr(previousBalance.value + mintAmount);
+        const expectedTotalSupply = new Fr(previousTotalSupply.value + mintAmount);
+        // There should be 2 storage updates, one for the recipient's balance and one for the total supply
         expect(result.contractStorageUpdateRequests).toEqual([
-          { storageSlot, oldValue: previousBalance, newValue: expectedBalance, sideEffectCounter: 1 }, // 0th is a read
+          {
+            storageSlot: recipientBalanceStorageSlot,
+            oldValue: previousBalance,
+            newValue: expectedBalance,
+            sideEffectCounter: 3,
+          },
+          {
+            storageSlot: totalSupplyStorageSlot,
+            oldValue: previousTotalSupply,
+            newValue: expectedTotalSupply,
+            sideEffectCounter: 4,
+          },
         ]);
 
-        expect(result.contractStorageReads).toEqual([]);
+        const mintersStorageSlot = new Fr(2n);
+        const isMinterStorageSlot = computeSlotForMapping(mintersStorageSlot, msgSender.toField(), circuitsWasm);
+        // Note: There is only 1 storage read (for the isMinter value) because the other 2 reads get overwritten by
+        // the updates
+        expect(result.contractStorageReads).toEqual([
+          {
+            storageSlot: isMinterStorageSlot,
+            currentValue: isMinter,
+            sideEffectCounter: 0,
+          },
+        ]);
       });
     });
 
     describe('transfer', () => {
       let contractAddress: AztecAddress;
-      let artifact: FunctionArtifact;
+      let transferArtifact: FunctionArtifact;
       let functionData: FunctionData;
       let args: Fr[];
       let sender: AztecAddress;
@@ -112,10 +143,10 @@ describe('ACIR public execution simulator', () => {
 
       beforeEach(() => {
         contractAddress = AztecAddress.random();
-        artifact = PublicTokenContractArtifact.functions.find(f => f.name === 'transfer')!;
+        transferArtifact = TokenContractArtifact.functions.find(f => f.name === 'transfer_public')!;
         functionData = new FunctionData(FunctionSelector.empty(), false, false, false);
-        args = encodeArguments(artifact, [140, recipient]);
         sender = AztecAddress.random();
+        args = encodeArguments(transferArtifact, [sender, recipient, 140n, 0n]);
 
         callContext = CallContext.from({
           msgSender: sender,
@@ -127,10 +158,10 @@ describe('ACIR public execution simulator', () => {
           isStaticCall: false,
         });
 
-        recipientStorageSlot = computeSlotForMapping(new Fr(1n), recipient.toField(), circuitsWasm);
-        senderStorageSlot = computeSlotForMapping(new Fr(1n), Fr.fromBuffer(sender.toBuffer()), circuitsWasm);
+        recipientStorageSlot = computeSlotForMapping(new Fr(6n), recipient.toField(), circuitsWasm);
+        senderStorageSlot = computeSlotForMapping(new Fr(6n), Fr.fromBuffer(sender.toBuffer()), circuitsWasm);
 
-        publicContracts.getBytecode.mockResolvedValue(Buffer.from(artifact.bytecode, 'base64'));
+        publicContracts.getBytecode.mockResolvedValue(Buffer.from(transferArtifact.bytecode, 'base64'));
 
         execution = { contractAddress, functionData, args, callContext };
       });
@@ -158,42 +189,34 @@ describe('ACIR public execution simulator', () => {
         const expectedRecipientBalance = new Fr(160n);
         const expectedSenderBalance = new Fr(60n);
 
-        expect(result.returnValues[0]).toEqual(expectedRecipientBalance);
+        expect(result.returnValues[0]).toEqual(new Fr(1n));
 
         expect(result.contractStorageUpdateRequests).toEqual([
           {
             storageSlot: senderStorageSlot,
             oldValue: senderBalance,
             newValue: expectedSenderBalance,
-            sideEffectCounter: 2,
-          }, // 0th, 1st are reads
+            sideEffectCounter: 1, // 1 read (sender balance)
+          },
           {
             storageSlot: recipientStorageSlot,
             oldValue: recipientBalance,
             newValue: expectedRecipientBalance,
-            sideEffectCounter: 3,
+            sideEffectCounter: 3, // 1 read (sender balance), 1 write (new sender balance), 1 read (recipient balance)
           },
         ]);
 
         expect(result.contractStorageReads).toEqual([]);
       });
 
-      it('should fail the transfer function without enough sender balance', async () => {
+      it('should throw underflow error when executing transfer function without enough sender balance', async () => {
         const senderBalance = new Fr(10n);
         const recipientBalance = new Fr(20n);
         mockStore(senderBalance, recipientBalance);
 
-        const result = await executor.simulate(execution, GlobalVariables.empty());
-        expect(result.returnValues[0]).toEqual(recipientBalance);
-
-        expect(result.contractStorageReads).toEqual(
-          [
-            { storageSlot: senderStorageSlot, currentValue: senderBalance, sideEffectCounter: 0 },
-            { storageSlot: recipientStorageSlot, currentValue: recipientBalance, sideEffectCounter: 1 },
-          ].map(ContractStorageRead.from),
+        await expect(executor.simulate(execution, GlobalVariables.empty())).rejects.toThrowError(
+          'Assertion failed: Underflow',
         );
-
-        expect(result.contractStorageUpdateRequests).toEqual([]);
       });
     });
   });
@@ -280,8 +303,8 @@ describe('ACIR public execution simulator', () => {
     beforeEach(async () => {
       contractAddress = AztecAddress.random();
       functionData = new FunctionData(FunctionSelector.empty(), false, false, false);
-      amount = new Fr(140);
-      params = [amount, Fr.random()];
+      amount = new Fr(1);
+      params = [amount, new Fr(1)];
       wasm = await CircuitsWasm.get();
     });
 
@@ -312,15 +335,15 @@ describe('ACIR public execution simulator', () => {
       // Assert the commitment was created
       expect(result.newCommitments.length).toEqual(1);
 
-      const expectedNoteHash = pedersenPlookupCommitInputs(wasm, [amount.toBuffer(), secretHash.toBuffer()]);
+      const expectedNoteHash = pedersenHashInputs(wasm, [amount.toBuffer(), secretHash.toBuffer()]);
       const storageSlot = new Fr(5); // for pending_shields
-      const expectedInnerNoteHash = pedersenPlookupCommitInputs(wasm, [storageSlot.toBuffer(), expectedNoteHash]);
+      const expectedInnerNoteHash = pedersenHashInputs(wasm, [storageSlot.toBuffer(), expectedNoteHash]);
       expect(result.newCommitments[0].toBuffer()).toEqual(expectedInnerNoteHash);
     });
 
     it('Should be able to create a L2 to L1 message from the public context', async () => {
       const createL2ToL1MessagePublicArtifact = TestContractArtifact.functions.find(
-        f => f.name === 'createL2ToL1MessagePublic',
+        f => f.name === 'create_l2_to_l1_message_public',
       )!;
       const args = encodeArguments(createL2ToL1MessagePublicArtifact, params);
 
@@ -342,7 +365,7 @@ describe('ACIR public execution simulator', () => {
       // Assert the l2 to l1 message was created
       expect(result.newL2ToL1Messages.length).toEqual(1);
 
-      const expectedNewMessageValue = pedersenPlookupCommitInputs(
+      const expectedNewMessageValue = pedersenHashInputs(
         wasm,
         params.map(a => a.toBuffer()),
       );
@@ -406,7 +429,7 @@ describe('ACIR public execution simulator', () => {
 
     it('Should be able to create a nullifier from the public context', async () => {
       const createNullifierPublicArtifact = TestContractArtifact.functions.find(
-        f => f.name === 'createNullifierPublic',
+        f => f.name === 'create_nullifier_public',
       )!;
 
       const args = encodeArguments(createNullifierPublicArtifact, params);
@@ -429,7 +452,7 @@ describe('ACIR public execution simulator', () => {
       // Assert the l2 to l1 message was created
       expect(result.newNullifiers.length).toEqual(1);
 
-      const expectedNewMessageValue = pedersenPlookupCommitInputs(
+      const expectedNewMessageValue = pedersenHashInputs(
         wasm,
         params.map(a => a.toBuffer()),
       );

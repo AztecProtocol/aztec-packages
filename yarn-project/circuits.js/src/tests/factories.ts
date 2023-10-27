@@ -42,6 +42,8 @@ import {
   MAX_NEW_NULLIFIERS_PER_CALL,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX,
+  MAX_PENDING_READ_REQUESTS_PER_CALL,
+  MAX_PENDING_READ_REQUESTS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
@@ -56,6 +58,8 @@ import {
   MAX_READ_REQUESTS_PER_TX,
   MembershipWitness,
   MergeRollupInputs,
+  NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
+  NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_TREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
@@ -63,8 +67,6 @@ import {
   NewContractData,
   NullifierLeafPreimage,
   OptionallyRevealedData,
-  PRIVATE_DATA_SUBTREE_SIBLING_PATH_LENGTH,
-  PRIVATE_DATA_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
   Point,
   PreviousKernelData,
@@ -211,6 +213,7 @@ export function makeAccumulatedData(seed = 1, full = false): CombinedAccumulated
   return new CombinedAccumulatedData(
     makeAggregationObject(seed),
     tupleGenerator(MAX_READ_REQUESTS_PER_TX, fr, seed + 0x80),
+    tupleGenerator(MAX_PENDING_READ_REQUESTS_PER_TX, fr, seed + 0x80),
     tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX, fr, seed + 0x100),
     tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x200),
     tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x300),
@@ -406,7 +409,7 @@ export function makeMembershipWitness<N extends number>(size: N, start: number):
 export function makeReadRequestMembershipWitness(start: number): ReadRequestMembershipWitness {
   return new ReadRequestMembershipWitness(
     new Fr(start),
-    makeTuple(PRIVATE_DATA_TREE_HEIGHT, fr, start + 1),
+    makeTuple(NOTE_HASH_TREE_HEIGHT, fr, start + 1),
     false,
     new Fr(0),
   );
@@ -418,7 +421,7 @@ export function makeReadRequestMembershipWitness(start: number): ReadRequestMemb
  * @returns Non-transient empty read request membership witness.
  */
 export function makeEmptyReadRequestMembershipWitness(): ReadRequestMembershipWitness {
-  return new ReadRequestMembershipWitness(new Fr(0), makeTuple(PRIVATE_DATA_TREE_HEIGHT, Fr.zero), false, new Fr(0));
+  return new ReadRequestMembershipWitness(new Fr(0), makeTuple(NOTE_HASH_TREE_HEIGHT, Fr.zero), false, new Fr(0));
 }
 
 /**
@@ -665,6 +668,7 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     argsHash: fr(seed + 0x100),
     returnValues: makeTuple(RETURN_VALUES_LENGTH, fr, seed + 0x200),
     readRequests: makeTuple(MAX_READ_REQUESTS_PER_CALL, fr, seed + 0x300),
+    pendingReadRequests: makeTuple(MAX_PENDING_READ_REQUESTS_PER_CALL, fr, seed + 0x310),
     newCommitments: makeTuple(MAX_NEW_COMMITMENTS_PER_CALL, fr, seed + 0x400),
     newNullifiers: makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, fr, seed + 0x500),
     nullifiedCommitments: makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, fr, seed + 0x510),
@@ -854,16 +858,16 @@ export function makeRootRollupPublicInputs(
   return RootRollupPublicInputs.from({
     endAggregationObject: makeAggregationObject(seed),
     globalVariables: globalVariables ?? makeGlobalVariables((seed += 0x100)),
-    startPrivateDataTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
-    endPrivateDataTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
+    startNoteHashTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
+    endNoteHashTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     startNullifierTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     endNullifierTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     startContractTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     endContractTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     startPublicDataTreeRoot: fr((seed += 0x100)),
     endPublicDataTreeRoot: fr((seed += 0x100)),
-    startTreeOfHistoricPrivateDataTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
-    endTreeOfHistoricPrivateDataTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
+    startTreeOfHistoricNoteHashTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
+    endTreeOfHistoricNoteHashTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     startTreeOfHistoricContractTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     endTreeOfHistoricContractTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     startL1ToL2MessagesTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
@@ -894,7 +898,7 @@ export function makeMergeRollupInputs(seed = 0): MergeRollupInputs {
 export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
   const kernelData = makeTuple(KERNELS_PER_BASE_ROLLUP, x => makePreviousKernelData(seed + (x + 1) * 0x100));
 
-  const startPrivateDataTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x100);
+  const startNoteHashTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x100);
   const startNullifierTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x200);
   const startContractTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x300);
   const startPublicDataTreeRoot = fr(seed + 0x400);
@@ -912,7 +916,7 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
     seed + 0x2000,
   );
 
-  const newCommitmentsSubtreeSiblingPath = makeTuple(PRIVATE_DATA_SUBTREE_SIBLING_PATH_LENGTH, fr, seed + 0x3000);
+  const newCommitmentsSubtreeSiblingPath = makeTuple(NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, fr, seed + 0x3000);
   const newNullifiersSubtreeSiblingPath = makeTuple(NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, fr, seed + 0x4000);
   const newContractsSubtreeSiblingPath = makeTuple(CONTRACT_SUBTREE_SIBLING_PATH_LENGTH, fr, seed + 0x5000);
 
@@ -937,7 +941,7 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
   return BaseRollupInputs.from({
     kernelData,
     lowNullifierMembershipWitness,
-    startPrivateDataTreeSnapshot,
+    startNoteHashTreeSnapshot,
     startNullifierTreeSnapshot,
     startContractTreeSnapshot,
     startPublicDataTreeRoot,

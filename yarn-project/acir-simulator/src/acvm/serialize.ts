@@ -107,7 +107,7 @@ export function toACVMContractDeploymentData(contractDeploymentData: ContractDep
  */
 export function toACVMHistoricBlockData(historicBlockData: HistoricBlockData): ACVMField[] {
   return [
-    toACVMField(historicBlockData.privateDataTreeRoot),
+    toACVMField(historicBlockData.noteHashTreeRoot),
     toACVMField(historicBlockData.nullifierTreeRoot),
     toACVMField(historicBlockData.contractTreeRoot),
     toACVMField(historicBlockData.l1ToL2MessagesTreeRoot),
@@ -143,6 +143,7 @@ export function toACVMPublicInputs(publicInputs: PrivateCircuitPublicInputs): AC
 
     ...publicInputs.returnValues.map(toACVMField),
     ...publicInputs.readRequests.map(toACVMField),
+    ...publicInputs.pendingReadRequests.map(toACVMField),
     ...publicInputs.newCommitments.map(toACVMField),
     ...publicInputs.newNullifiers.map(toACVMField),
     ...publicInputs.nullifiedCommitments.map(toACVMField),

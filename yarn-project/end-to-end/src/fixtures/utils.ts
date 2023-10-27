@@ -1,24 +1,17 @@
 import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import {
   AccountWalletWithPrivateKey,
-  AztecAddress,
   CheatCodes,
   CompleteAddress,
-  EthAddress,
+  DebugLogger,
   EthCheatCodes,
   SentTx,
-  Wallet,
   createAccounts,
+  createDebugLogger,
   createPXEClient,
   getSandboxAccountsWallets,
 } from '@aztec/aztec.js';
-import {
-  DeployL1Contracts,
-  L1ContractArtifactsForDeployment,
-  deployL1Contract,
-  deployL1Contracts,
-} from '@aztec/ethereum';
-import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { DeployL1Contracts, L1ContractArtifactsForDeployment, deployL1Contracts } from '@aztec/ethereum';
 import { retryUntil } from '@aztec/foundation/retry';
 import {
   ContractDeploymentEmitterAbi,
@@ -29,18 +22,14 @@ import {
   InboxBytecode,
   OutboxAbi,
   OutboxBytecode,
-  PortalERC20Abi,
-  PortalERC20Bytecode,
   RegistryAbi,
   RegistryBytecode,
   RollupAbi,
   RollupBytecode,
-  TokenPortalAbi,
-  TokenPortalBytecode,
 } from '@aztec/l1-artifacts';
-import { TokenBridgeContract, TokenContract } from '@aztec/noir-contracts/types';
 import { PXEService, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
-import { AztecNode, L2BlockL2Logs, LogType, PXE, TxStatus, createAztecNodeRpcClient } from '@aztec/types';
+import { SequencerClient } from '@aztec/sequencer-client';
+import { AztecNode, L2BlockL2Logs, LogType, PXE, createAztecNodeRpcClient } from '@aztec/types';
 
 import * as path from 'path';
 import {
@@ -49,17 +38,16 @@ import {
   HDAccount,
   HttpTransport,
   PrivateKeyAccount,
-  PublicClient,
-  WalletClient,
   createPublicClient,
   createWalletClient,
-  getContract,
   http,
 } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 
 import { MNEMONIC, localAnvil } from './fixtures.js';
 import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
+
+export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chain_test_harness.js';
 
 const { PXE_URL = '', AZTEC_NODE_URL = '' } = process.env;
 
@@ -206,6 +194,7 @@ async function setupWithSandbox(account: Account, config: AztecNodeConfig, logge
   const teardown = () => Promise.resolve();
   return {
     aztecNode,
+    sequencer: undefined,
     pxe: pxeClient,
     deployL1ContractsValues,
     accounts: await pxeClient!.getRegisteredAccounts(),
@@ -225,6 +214,8 @@ type SetupOptions = { /** State load */ stateLoad?: string } & Partial<AztecNode
 export type EndToEndContext = {
   /** The Aztec Node service or client a connected to it. */
   aztecNode: AztecNode | undefined;
+  /** A client to the sequencer service */
+  sequencer: SequencerClient | undefined;
   /** The Private eXecution Environment (PXE). */
   pxe: PXE;
   /** Return values from deployL1Contracts function. */
@@ -286,6 +277,7 @@ export async function setup(numberOfAccounts = 1, opts: SetupOptions = {}): Prom
 
   logger('Creating and synching an aztec node...');
   const aztecNode = await AztecNodeService.createAndSync(config);
+  const sequencer = aztecNode.getSequencer();
 
   const { pxe, accounts, wallets } = await setupPXEService(numberOfAccounts, aztecNode!, logger);
 
@@ -306,6 +298,7 @@ export async function setup(numberOfAccounts = 1, opts: SetupOptions = {}): Prom
     wallets,
     logger,
     cheatCodes,
+    sequencer,
     teardown,
   };
 }
@@ -337,100 +330,6 @@ export function getLogger() {
   const describeBlockName = expect.getState().currentTestName?.split(' ')[0].replaceAll('/', ':');
   return createDebugLogger('aztec:' + describeBlockName);
 }
-
-// docs:start:deployAndInitializeTokenAndBridgeContracts
-/**
- * Deploy L1 token and portal, initialize portal, deploy a non native l2 token contract, its L2 bridge contract and attach is to the portal.
- * @param wallet - the wallet instance
- * @param walletClient - A viem WalletClient.
- * @param publicClient - A viem PublicClient.
- * @param rollupRegistryAddress - address of rollup registry to pass to initialize the token portal
- * @param owner - owner of the L2 contract
- * @param underlyingERC20Address - address of the underlying ERC20 contract to use (if none supplied, it deploys one)
- * @returns l2 contract instance, bridge contract instance, token portal instance, token portal address and the underlying ERC20 instance
- */
-export async function deployAndInitializeTokenAndBridgeContracts(
-  wallet: Wallet,
-  walletClient: WalletClient<HttpTransport, Chain, Account>,
-  publicClient: PublicClient<HttpTransport, Chain>,
-  rollupRegistryAddress: EthAddress,
-  owner: AztecAddress,
-  underlyingERC20Address?: EthAddress,
-): Promise<{
-  /**
-   * The L2 token contract instance.
-   */
-  token: TokenContract;
-  /**
-   * The L2 bridge contract instance.
-   */
-  bridge: TokenBridgeContract;
-  /**
-   * The token portal contract address.
-   */
-  tokenPortalAddress: EthAddress;
-  /**
-   * The token portal contract instance
-   */
-  tokenPortal: any;
-  /**
-   * The underlying ERC20 contract instance.
-   */
-  underlyingERC20: any;
-}> {
-  if (!underlyingERC20Address) {
-    underlyingERC20Address = await deployL1Contract(walletClient, publicClient, PortalERC20Abi, PortalERC20Bytecode);
-  }
-  const underlyingERC20 = getContract({
-    address: underlyingERC20Address.toString(),
-    abi: PortalERC20Abi,
-    walletClient,
-    publicClient,
-  });
-
-  // deploy the token portal
-  const tokenPortalAddress = await deployL1Contract(walletClient, publicClient, TokenPortalAbi, TokenPortalBytecode);
-  const tokenPortal = getContract({
-    address: tokenPortalAddress.toString(),
-    abi: TokenPortalAbi,
-    walletClient,
-    publicClient,
-  });
-
-  // deploy l2 token
-  const deployTx = TokenContract.deploy(wallet, owner).send();
-
-  // now wait for the deploy txs to be mined. This way we send all tx in the same rollup.
-  const deployReceipt = await deployTx.wait();
-  if (deployReceipt.status !== TxStatus.MINED) throw new Error(`Deploy token tx status is ${deployReceipt.status}`);
-  const token = await TokenContract.at(deployReceipt.contractAddress!, wallet);
-
-  // deploy l2 token bridge and attach to the portal
-  const bridge = await TokenBridgeContract.deploy(wallet, token.address)
-    .send({ portalContract: tokenPortalAddress })
-    .deployed();
-
-  if ((await token.methods.admin().view()) !== owner.toBigInt()) throw new Error(`Token admin is not ${owner}`);
-
-  if ((await bridge.methods.token().view()) !== token.address.toBigInt())
-    throw new Error(`Bridge token is not ${token.address}`);
-
-  // make the bridge a minter on the token:
-  const makeMinterTx = token.methods.set_minter(bridge.address, true).send();
-  const makeMinterReceipt = await makeMinterTx.wait();
-  if (makeMinterReceipt.status !== TxStatus.MINED)
-    throw new Error(`Make bridge a minter tx status is ${makeMinterReceipt.status}`);
-  if ((await token.methods.is_minter(bridge.address).view()) === 1n) throw new Error(`Bridge is not a minter`);
-
-  // initialize portal
-  await tokenPortal.write.initialize(
-    [rollupRegistryAddress.toString(), underlyingERC20Address.toString(), bridge.address.toString()],
-    {} as any,
-  );
-
-  return { token, bridge, tokenPortalAddress, tokenPortal, underlyingERC20 };
-}
-// docs:end:deployAndInitializeTokenAndBridgeContracts
 
 // docs:start:delay
 /**

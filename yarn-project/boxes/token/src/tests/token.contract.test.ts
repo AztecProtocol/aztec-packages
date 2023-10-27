@@ -1,3 +1,5 @@
+import { TokenContract } from '../artifacts/Token.js';
+import { TokenSimulator } from './token_simulator.js';
 import {
   AccountWallet,
   Fr,
@@ -13,11 +15,7 @@ import {
 } from '@aztec/aztec.js';
 import { CompleteAddress } from '@aztec/circuits.js';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
-import { TokenContract } from '../artifacts/Token.js';
-
 import { afterEach, beforeAll, expect, jest } from '@jest/globals';
-
-import { TokenSimulator } from './token_simulator.js';
 
 // assumes sandbox is running locally, which this script does not trigger
 // as well as anvil.  anvil can be started with yarn test:integration
@@ -275,9 +273,7 @@ describe('e2e_token_contract', () => {
           .withWallet(wallets[1])
           .methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce)
           .send();
-        await txReplay.isMined();
-        const receiptReplay = await txReplay.getReceipt();
-        expect(receiptReplay.status).toBe(TxStatus.DROPPED);
+        await expect(txReplay.wait()).rejects.toThrowError('Transaction ');
       });
 
       describe('failure cases', () => {
@@ -429,9 +425,7 @@ describe('e2e_token_contract', () => {
           .withWallet(wallets[1])
           .methods.transfer(accounts[0].address, accounts[1].address, amount, nonce)
           .send();
-        await txReplay.isMined();
-        const receiptReplay = await txReplay.getReceipt();
-        expect(receiptReplay.status).toBe(TxStatus.DROPPED);
+        await expect(txReplay.wait()).rejects.toThrowError('Transaction ');
       });
 
       describe('failure cases', () => {
@@ -572,9 +566,7 @@ describe('e2e_token_contract', () => {
         .withWallet(wallets[1])
         .methods.shield(accounts[0].address, amount, secretHash, nonce)
         .send();
-      await txReplay.isMined();
-      const receiptReplay = await txReplay.getReceipt();
-      expect(receiptReplay.status).toBe(TxStatus.DROPPED);
+      await expect(txReplay.wait()).rejects.toThrowError('Transaction ');
 
       // Redeem it
       await addPendingShieldNoteToPXE(0, amount, secretHash, receipt.txHash);
@@ -688,9 +680,7 @@ describe('e2e_token_contract', () => {
         .withWallet(wallets[1])
         .methods.unshield(accounts[0].address, accounts[1].address, amount, nonce)
         .send();
-      await txReplay.isMined();
-      const receiptReplay = await txReplay.getReceipt();
-      expect(receiptReplay.status).toBe(TxStatus.DROPPED);
+      await expect(txReplay.wait()).rejects.toThrowError('Transaction ');
     });
 
     describe('failure cases', () => {
@@ -791,11 +781,9 @@ describe('e2e_token_contract', () => {
 
         tokenSim.burnPublic(accounts[0].address, amount);
 
+        const burnTx = asset.withWallet(wallets[1]).methods.burn_public(accounts[0].address, amount, nonce).send();
         // Check that the message hash is no longer valid. Need to try to send since nullifiers are handled by sequencer.
-        const txReplay = asset.withWallet(wallets[1]).methods.burn_public(accounts[0].address, amount, nonce).send();
-        await txReplay.isMined();
-        const receiptReplay = await txReplay.getReceipt();
-        expect(receiptReplay.status).toBe(TxStatus.DROPPED);
+        await expect(burnTx.wait()).rejects.toThrowError('Transaction ');
       });
 
       describe('failure cases', () => {
@@ -893,9 +881,7 @@ describe('e2e_token_contract', () => {
 
         // Perform the transfer again, should fail
         const txReplay = asset.withWallet(wallets[1]).methods.burn(accounts[0].address, amount, nonce).send();
-        await txReplay.isMined();
-        const receiptReplay = await txReplay.getReceipt();
-        expect(receiptReplay.status).toBe(TxStatus.DROPPED);
+        await expect(txReplay.wait()).rejects.toThrowError('Transaction ');
       });
 
       describe('failure cases', () => {

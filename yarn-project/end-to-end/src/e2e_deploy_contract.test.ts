@@ -1,7 +1,8 @@
 import { AztecAddress, Contract, ContractDeployer, EthAddress, Fr, Wallet, isContractDeployed } from '@aztec/aztec.js';
 import { CompleteAddress, getContractDeploymentInfo } from '@aztec/circuits.js';
 import { DebugLogger } from '@aztec/foundation/log';
-import { TestContractArtifact } from '@aztec/noir-contracts/artifacts';
+import { TestContractArtifact, TokenContractArtifact } from '@aztec/noir-contracts/artifacts';
+import { SequencerClient } from '@aztec/sequencer-client';
 import { PXE, TxStatus } from '@aztec/types';
 
 import { setup } from './fixtures/utils.js';
@@ -11,10 +12,11 @@ describe('e2e_deploy_contract', () => {
   let accounts: CompleteAddress[];
   let logger: DebugLogger;
   let wallet: Wallet;
+  let sequencer: SequencerClient | undefined;
   let teardown: () => Promise<void>;
 
   beforeEach(async () => {
-    ({ teardown, pxe, accounts, logger, wallet } = await setup());
+    ({ teardown, pxe, accounts, logger, wallet, sequencer } = await setup());
   }, 100_000);
 
   afterEach(() => teardown());
@@ -38,10 +40,9 @@ describe('e2e_deploy_contract', () => {
       }),
     );
     logger(`Receipt received and expecting contract deployment at ${receipt.contractAddress}`);
-    const isMined = await tx.isMined({ interval: 0.1 });
-    const receiptAfterMined = await tx.getReceipt();
+    // we pass in wallet to wait(...) because wallet is necessary to create a TS contract instance
+    const receiptAfterMined = await tx.wait({ wallet });
 
-    expect(isMined).toBe(true);
     expect(receiptAfterMined).toEqual(
       expect.objectContaining({
         status: TxStatus.MINED,
@@ -52,7 +53,7 @@ describe('e2e_deploy_contract', () => {
     const contractAddress = receiptAfterMined.contractAddress!;
     expect(await isContractDeployed(pxe, contractAddress)).toBe(true);
     expect(await isContractDeployed(pxe, AztecAddress.random())).toBe(false);
-  }, 30_000);
+  }, 60_000);
 
   /**
    * Verify that we can produce multiple rollups.
@@ -62,13 +63,11 @@ describe('e2e_deploy_contract', () => {
 
     for (let index = 0; index < 2; index++) {
       logger(`Deploying contract ${index + 1}...`);
-      const tx = deployer.deploy().send({ contractAddressSalt: Fr.random() });
-      const isMined = await tx.isMined({ interval: 0.1 });
-      expect(isMined).toBe(true);
-      const receipt = await tx.getReceipt();
+      // we pass in wallet to wait(...) because wallet is necessary to create a TS contract instance
+      const receipt = await deployer.deploy().send({ contractAddressSalt: Fr.random() }).wait({ wallet });
       expect(receipt.status).toBe(TxStatus.MINED);
     }
-  }, 30_000);
+  }, 60_000);
 
   /**
    * Verify that we can deploy multiple contracts and interact with all of them.
@@ -82,9 +81,9 @@ describe('e2e_deploy_contract', () => {
 
       const contract = await Contract.at(receipt.contractAddress!, TestContractArtifact, wallet);
       logger(`Sending TX to contract ${index + 1}...`);
-      await contract.methods.getPublicKey(accounts[0].address).send().wait();
+      await contract.methods.get_public_key(accounts[0].address).send().wait();
     }
-  }, 30_000);
+  }, 60_000);
 
   /**
    * Milestone 1.2.
@@ -95,11 +94,8 @@ describe('e2e_deploy_contract', () => {
     const deployer = new ContractDeployer(TestContractArtifact, pxe);
 
     {
-      const tx = deployer.deploy().send({ contractAddressSalt });
-      const isMined = await tx.isMined({ interval: 0.1 });
-
-      expect(isMined).toBe(true);
-      const receipt = await tx.getReceipt();
+      // we pass in wallet to wait(...) because wallet is necessary to create a TS contract instance
+      const receipt = await deployer.deploy().send({ contractAddressSalt }).wait({ wallet });
 
       expect(receipt.status).toBe(TxStatus.MINED);
       expect(receipt.error).toBe('');
@@ -110,12 +106,13 @@ describe('e2e_deploy_contract', () => {
         /A settled tx with equal hash/,
       );
     }
-  }, 30_000);
+  }, 60_000);
 
   it('should deploy a contract connected to a portal contract', async () => {
     const deployer = new ContractDeployer(TestContractArtifact, wallet);
     const portalContract = EthAddress.random();
 
+    // ContractDeployer was instantiated with wallet so we don't have to pass it to wait(...)
     const txReceipt = await deployer.deploy().send({ portalContract }).wait();
 
     expect(txReceipt.status).toBe(TxStatus.MINED);
@@ -127,5 +124,48 @@ describe('e2e_deploy_contract', () => {
     expect((await pxe.getExtendedContractData(contractAddress))?.contractData.portalContractAddress.toString()).toEqual(
       portalContract.toString(),
     );
+  }, 60_000);
+
+  it('it should not deploy a contract which failed the public part of the execution', async () => {
+    sequencer?.updateSequencerConfig({
+      minTxsPerBlock: 2,
+    });
+
+    try {
+      // This test requires at least another good transaction to go through in the same block as the bad one.
+      // I deployed the same contract again but it could really be any valid transaction here.
+      const goodDeploy = new ContractDeployer(TokenContractArtifact, wallet).deploy(AztecAddress.random());
+      const badDeploy = new ContractDeployer(TokenContractArtifact, wallet).deploy(AztecAddress.ZERO);
+
+      await Promise.all([
+        goodDeploy.simulate({ skipPublicSimulation: true }),
+        badDeploy.simulate({ skipPublicSimulation: true }),
+      ]);
+
+      const [goodTx, badTx] = [
+        goodDeploy.send({ skipPublicSimulation: true }),
+        badDeploy.send({ skipPublicSimulation: true }),
+      ];
+
+      const [goodTxPromiseResult, badTxReceiptResult] = await Promise.allSettled([goodTx.wait(), badTx.wait()]);
+
+      expect(goodTxPromiseResult.status).toBe('fulfilled');
+      expect(badTxReceiptResult.status).toBe('rejected');
+
+      const [goodTxReceipt, badTxReceipt] = await Promise.all([goodTx.getReceipt(), badTx.getReceipt()]);
+
+      expect(goodTxReceipt.blockNumber).toEqual(expect.any(Number));
+      expect(badTxReceipt.blockNumber).toBeUndefined();
+
+      await expect(pxe.getExtendedContractData(goodDeploy.completeAddress!.address)).resolves.toBeDefined();
+      await expect(pxe.getExtendedContractData(goodDeploy.completeAddress!.address)).resolves.toBeDefined();
+
+      await expect(pxe.getContractData(badDeploy.completeAddress!.address)).resolves.toBeUndefined();
+      await expect(pxe.getExtendedContractData(badDeploy.completeAddress!.address)).resolves.toBeUndefined();
+    } finally {
+      sequencer?.updateSequencerConfig({
+        minTxsPerBlock: 1,
+      });
+    }
   });
 });

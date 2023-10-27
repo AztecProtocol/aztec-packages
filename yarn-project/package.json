@@ -18,6 +18,7 @@
   "workspaces": [
     "acir-simulator",
     "archiver",
+    "aztec-faucet",
     "aztec-node",
     "pxe",
     "aztec-sandbox",
@@ -37,6 +38,7 @@
     "merkle-tree",
     "noir-compiler",
     "noir-contracts",
+    "noir-private-kernel",
     "p2p",
     "p2p-bootstrap",
     "prover-client",
