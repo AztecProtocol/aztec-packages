@@ -159,7 +159,7 @@ describe('Note Processor', () => {
     expect(addNotesSpy).toHaveBeenCalledTimes(1);
     expect(addNotesSpy).toHaveBeenCalledWith([
       expect.objectContaining({
-        extendedNote: expect.objectContaining({ ...ownedL1NotePayloads[0] }),
+        ...ownedL1NotePayloads[0],
         index: BigInt(firstBlockDataStartIndex + 2),
       }),
     ]);
@@ -180,17 +180,17 @@ describe('Note Processor', () => {
     expect(addNotesSpy).toHaveBeenCalledTimes(1);
     expect(addNotesSpy).toHaveBeenCalledWith([
       expect.objectContaining({
-        extendedNote: expect.objectContaining({ ...ownedL1NotePayloads[0] }),
+        ...ownedL1NotePayloads[0],
         // Index 1 log in the 2nd tx.
         index: BigInt(thisBlockDataStartIndex + MAX_NEW_COMMITMENTS_PER_TX * (2 - 1) + 1),
       }),
       expect.objectContaining({
-        extendedNote: expect.objectContaining({ ...ownedL1NotePayloads[1] }),
+        ...ownedL1NotePayloads[1],
         // Index 0 log in the 4th tx.
         index: BigInt(thisBlockDataStartIndex + MAX_NEW_COMMITMENTS_PER_TX * (4 - 1) + 0),
       }),
       expect.objectContaining({
-        extendedNote: expect.objectContaining({ ...ownedL1NotePayloads[2] }),
+        ...ownedL1NotePayloads[2],
         // Index 2 log in the 4th tx.
         index: BigInt(thisBlockDataStartIndex + MAX_NEW_COMMITMENTS_PER_TX * (4 - 1) + 2),
       }),
@@ -202,7 +202,7 @@ describe('Note Processor', () => {
     await noteProcessor.process(blockContexts, encryptedLogsArr);
   });
 
-  it('should be able to recover two note payloads containing the same note', async () => {
+  it('should be able to recover two note payloads with containing the same note', async () => {
     const note = L1NotePayload.random();
     const note2 = L1NotePayload.random();
     // All note payloads except one have the same contract address, storage slot, and the actual note.
