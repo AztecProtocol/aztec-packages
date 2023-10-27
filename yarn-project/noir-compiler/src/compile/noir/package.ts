@@ -85,10 +85,6 @@ export class NoirPackage {
     const fileContents = fm.readFileSync(join(path, CONFIG_FILE_NAME), 'utf-8');
     const config = parsePackageConfig(parseToml(fileContents));
 
-    const srcDir =
-      fm.hasFileSync(join(path, 'src', 'main.nr')) || fm.hasFileSync(join(path, 'src', 'lib.nr'))
-        ? join(path, 'src')
-        : path;
-    return new NoirPackage(path, srcDir, config);
+    return new NoirPackage(path, join(path, 'src'), config);
   }
 }
