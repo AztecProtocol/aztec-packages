@@ -1,4 +1,4 @@
-#include "poseidon2.hpp"
+#include "poseidon2_permutation.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include <gtest/gtest.h>
@@ -10,7 +10,7 @@ auto& engine = numeric::random::get_debug_engine();
 }
 
 namespace poseidon2_tests {
-TEST(Poseidon2, BasicTests)
+TEST(Poseidon2Permutation, BasicTests)
 {
 
     barretenberg::fr a = barretenberg::fr::random_element(&engine);
@@ -21,9 +21,9 @@ TEST(Poseidon2, BasicTests)
     std::vector<barretenberg::fr> input1{ a, b, c, d };
     std::vector<barretenberg::fr> input2{ d, c, b, a };
 
-    auto r0 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(input1);
-    auto r1 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(input1);
-    auto r2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(input2);
+    auto r0 = crypto::Poseidon2Permutation<crypto::Poseidon2Bn254ScalarFieldParams>::permutation(input1);
+    auto r1 = crypto::Poseidon2Permutation<crypto::Poseidon2Bn254ScalarFieldParams>::permutation(input1);
+    auto r2 = crypto::Poseidon2Permutation<crypto::Poseidon2Bn254ScalarFieldParams>::permutation(input2);
 
     EXPECT_EQ(r0, r1);
     EXPECT_NE(r0, r2);
