@@ -96,6 +96,7 @@ template <typename Params> class Poseidon2 {
 
     static constexpr void apply_single_sbox(FF& input)
     {
+        // hardcoded assumption that d = 5. should fix this or not make d configurable
         auto xx = input.sqr();
         auto xxxx = xx.sqr();
         input *= xxxx;
