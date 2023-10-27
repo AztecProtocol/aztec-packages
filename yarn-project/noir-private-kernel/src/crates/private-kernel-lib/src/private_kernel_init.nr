@@ -657,6 +657,6 @@ mod tests {
         assert_eq(public_inputs.end.new_nullifiers[0], private_inputs.tx_request.hash());
 
         // non-transient read requests are NOT forwarded
-        assert_eq(non_zero_items(public_inputs.end.read_requests), 1);
+        assert_eq(non_zero_items(public_inputs.end.read_requests), MAX_READ_REQUESTS_PER_CALL as u64);
     }
 }
