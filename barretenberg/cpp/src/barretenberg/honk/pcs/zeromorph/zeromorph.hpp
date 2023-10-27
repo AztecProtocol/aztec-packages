@@ -37,7 +37,20 @@ template <typename Curve> class ZeroMorphProver_ {
 
   public:
     /**
-     * @brief Compute multivariate quotients q_k(X_0, ..., X_{k-1}) for f(X_0, ..., X_{d-1})
+     * @brief Compute multivariate quotients q_k(X_0, ..., X_{k-1}) for f(X_0, ..., X_{n-1})
+     * @details Starting from the coefficients of f, compute q_k inductively from k = n - 1, to k = 0.
+     *          f needs to be updated at each step. 
+     *          
+     *          First, compute q_{n-1} of size N/2 by
+     *          q_{n-1}[l] = f[N/2 + l ] - f[l].
+     *
+     *          Update f by f[l] <- f[l] + u_{n-1} * q_{n-1}[l]; f now has size N/2.
+     *          Compute q_{n-2} of size N/(2^2) by
+     *          q_{n-2}[l] = f[N/2^2 + l] - f[l].
+     *
+     *          Update f by f[l] <- f[l] + u_{n-2} * q_{n-2}[l]; f now has size N/(2^2).
+     *          Compute q_{n-3} of size N/(2^3) by
+     *          q_{n-3}[l] = f[N/2^3 + l] - f[l]. Repeat similarly until you reach q_0.
      *
      * @param polynomial Multilinear polynomial f(X_0, ..., X_{d-1})
      * @param u_challenge Multivariate challenge u = (u_0, ..., u_{d-1})
