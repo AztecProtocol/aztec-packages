@@ -36,7 +36,7 @@ export class NoirWasmContractCompiler {
     opts: NoirWasmCompileOptions,
   ) {
     this.#log = opts.log;
-    this.#debugLog = opts.debugLog ?? createDebugLogger('noir-compiler:wasm');
+    this.#debugLog = opts.debugLog ?? createDebugLogger('aztec:noir-compiler:wasm');
     this.#package = entrypoint;
     this.#fm = fileManager;
     this.#dependencyManager = dependencyManager;
