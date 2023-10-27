@@ -17,7 +17,12 @@ describe('Memory DB', () => {
     const createNotes = (numberOfNotes: number, sameStorage = true) =>
       Array(numberOfNotes)
         .fill(0)
-        .map(() => randomNoteDao({ storageSlot: sameStorage ? storageSlot : Fr.random() }));
+        .map(() =>
+          randomNoteDao({
+            contractAddress: sameStorage ? contractAddress : AztecAddress.random(),
+            storageSlot: sameStorage ? storageSlot : Fr.random(),
+          }),
+        );
 
     it('should add and get notes', async () => {
       const notes = createNotes(3, false);

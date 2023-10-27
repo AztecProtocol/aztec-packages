@@ -154,7 +154,7 @@ describe('Note Processor', () => {
     expect(addNotesSpy).toHaveBeenCalledTimes(1);
     expect(addNotesSpy).toHaveBeenCalledWith([
       expect.objectContaining({
-        ...ownedL1NotePayloads[0],
+        extendedNote: expect.objectContaining({ ...ownedL1NotePayloads[0] }),
         index: BigInt(firstBlockDataStartIndex + 2),
       }),
     ]);
@@ -175,17 +175,17 @@ describe('Note Processor', () => {
     expect(addNotesSpy).toHaveBeenCalledTimes(1);
     expect(addNotesSpy).toHaveBeenCalledWith([
       expect.objectContaining({
-        ...ownedL1NotePayloads[0],
+        extendedNote: expect.objectContaining({ ...ownedL1NotePayloads[0] }),
         // Index 1 log in the 2nd tx.
         index: BigInt(thisBlockDataStartIndex + MAX_NEW_COMMITMENTS_PER_TX * (2 - 1) + 1),
       }),
       expect.objectContaining({
-        ...ownedL1NotePayloads[1],
+        extendedNote: expect.objectContaining({ ...ownedL1NotePayloads[1] }),
         // Index 0 log in the 4th tx.
         index: BigInt(thisBlockDataStartIndex + MAX_NEW_COMMITMENTS_PER_TX * (4 - 1) + 0),
       }),
       expect.objectContaining({
-        ...ownedL1NotePayloads[2],
+        extendedNote: expect.objectContaining({ ...ownedL1NotePayloads[2] }),
         // Index 2 log in the 4th tx.
         index: BigInt(thisBlockDataStartIndex + MAX_NEW_COMMITMENTS_PER_TX * (4 - 1) + 2),
       }),
@@ -206,7 +206,7 @@ describe('Note Processor', () => {
     await noteProcessor.process(blockContexts, encryptedLogsArr);
 
     const addedNoteDaos: NoteDao[] = addNotesSpy.mock.calls[0][0];
-    expect(addedNoteDaos).toEqual([
+    expect(addedNoteDaos.map(dao => dao.extendedNote)).toEqual([
       expect.objectContaining({ ...ownedL1NotePayloads[0] }),
       expect.objectContaining({ ...ownedL1NotePayloads[1] }),
       expect.objectContaining({ ...ownedL1NotePayloads[2] }),
