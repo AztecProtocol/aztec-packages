@@ -49,12 +49,24 @@ import {
   TxRequest,
   VK_TREE_HEIGHT,
   VerificationKey,
+  computeFunctionTree,
+  computeFunctionTreeData,
   makeEmptyProof,
   makeTuple,
 } from '@aztec/circuits.js';
-import { computeCompleteAddress, computeFunctionLeaf, computeTxHash } from '@aztec/circuits.js/abis';
+import {
+  computeCompleteAddress,
+  computeContractLeaf,
+  computeFunctionLeaf,
+  computeTxHash,
+} from '@aztec/circuits.js/abis';
 import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { Pedersen, StandardTree } from '@aztec/merkle-tree';
+import { MerkleTreeId } from '@aztec/types';
+
+import { default as levelup } from 'levelup';
+import memdown from 'memdown';
 
 import { executeInit, executeInner, executeOrdering } from './index.js';
 
@@ -468,6 +480,67 @@ describe('Noir compatibility tests (interop_testing.nr)', () => {
     const fnLeafPreimage = new FunctionLeafPreimage(new FunctionSelector(27), false, true, new Fr(1), new Fr(2));
     const fnLeaf = computeFunctionLeaf(wasm, fnLeafPreimage);
     expect(fnLeaf.toString()).toMatchSnapshot();
+  });
+});
+
+describe('Data generation for noir tests', () => {
+  const selector = new FunctionSelector(1);
+  const vkHash = Fr.ZERO;
+  const acirHash = new Fr(12341234);
+  const contractAddress = AztecAddress.fromField(new Fr(12345));
+  const portalContractAddress = EthAddress.fromField(new Fr(23456));
+
+  let functionLeaf: Fr;
+  let functionTreeRoot: Fr;
+
+  let wasm: CircuitsWasm;
+
+  beforeAll(async () => {
+    wasm = await CircuitsWasm.get();
+  });
+
+  it('Computes function leaf', () => {
+    const functionLeafPreimage = new FunctionLeafPreimage(selector, false, true, vkHash, acirHash);
+
+    functionLeaf = computeFunctionLeaf(wasm, functionLeafPreimage);
+
+    expect(functionLeaf.toString()).toMatchSnapshot();
+  });
+
+  it('Computes function tree data', () => {
+    const tree = computeFunctionTree(wasm, [functionLeaf]);
+
+    const functionTreeData = computeFunctionTreeData(tree, 0);
+
+    functionTreeRoot = functionTreeData.root;
+
+    expect({
+      root: functionTreeData.root.toString(),
+      siblingPath: functionTreeData.siblingPath.map(fr => fr.toString()),
+    }).toMatchSnapshot();
+  });
+
+  it('Computes the contract tree root', async () => {
+    const contractLeaf = computeContractLeaf(
+      wasm,
+      new NewContractData(contractAddress, portalContractAddress, functionTreeRoot),
+    );
+    const db = levelup((memdown as any)());
+
+    const tree = new StandardTree(
+      db,
+      new Pedersen(wasm),
+      `${MerkleTreeId[MerkleTreeId.CONTRACT_TREE]}`,
+      CONTRACT_TREE_HEIGHT,
+    );
+
+    await tree.appendLeaves([contractLeaf.toBuffer()]);
+
+    const siblingPath = await tree.getSiblingPath(0n, true);
+    expect({
+      siblingPath: siblingPath.toFieldArray().map(field => field.toString()),
+      root: Fr.fromBuffer(tree.getRoot(true)).toString(),
+    }).toMatchSnapshot();
   });
 });
 

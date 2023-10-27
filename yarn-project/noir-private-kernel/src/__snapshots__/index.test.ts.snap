@@ -1,5 +1,43 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
+exports[`Data generation for noir tests Computes function leaf 1`] = `"0x1d7d17187511e54f763c386f05c11bdb63bba2c24849f1b4b8bae96194d4fd0b"`;
+
+exports[`Data generation for noir tests Computes function tree data 1`] = `
+{
+  "root": "0x2143c6a86ded93cd75de5680c57c61a2a178e0a840d8649a9e0411032f969f1d",
+  "siblingPath": [
+    "0x1f2e3193c7187347a099ee7cb5d6ac077da6b18706fe5508e658a3d0a05494f7",
+    "0x2350c7d2f19119502d073142ff019af884d6513f38b92d5119b4999502282247",
+    "0x0837a67313f4dbbd8d6971c0672f961f0a3b9e218c1395d327915209292acbbf",
+    "0x2e0ef36ddc5db29acb6ef904999046f835ce7c78a40c3f7a0edb03b2f917a765",
+  ],
+}
+`;
+
+exports[`Data generation for noir tests Computes the contract tree root 1`] = `
+{
+  "root": "0x13e8827c83abfc4f0a37d0c228fb4ecd509d96613b8e7d74c169005a62ef67dd",
+  "siblingPath": [
+    "0x00",
+    "0x27b1d0839a5b23baf12a8d195b18ac288fcf401afb2f70b8a4b529ede5fa9fed",
+    "0x21dbfd1d029bf447152fcf89e355c334610d1632436ba170f738107266a71550",
+    "0x0bcd1f91cf7bdd471d0a30c58c4706f3fdab3807a954b8f5b5e3bfec87d001bb",
+    "0x06e62084ee7b602fe9abc15632dda3269f56fb0c6e12519a2eb2ec897091919d",
+    "0x03c9e2e67178ac638746f068907e6677b4cc7a9592ef234ab6ab518f17efffa0",
+    "0x15d28cad4c0736decea8997cb324cf0a0e0602f4d74472cd977bce2c8dd9923f",
+    "0x268ed1e1c94c3a45a14db4108bc306613a1c23fab68e0466a002dfb0a3f8d2ab",
+    "0x0cd8d5695bc2dde99dd531671f76f1482f14ddba8eeca7cb9686d4a62359c257",
+    "0x047fbb7eb974155702149e58ea6ad91f4c6e953e693db35e953e250d8ceac9a9",
+    "0xc5ae2526e665e2c7c698c11a06098b7159f720606d50e7660deb55758b0b02",
+    "0x2ced19489ab456b8b6c424594cdbbae59c36dfdd4c4621c4032da2d8a9674be5",
+    "0x1df5a245ffc1da14b46fe56a605f2a47b1cff1592bab4f66cfe5dfe990af6ab5",
+    "0x2871d090615d14eadb52228c635c90e0adf31176f0814f6525c23e7d7b318c93",
+    "0x1a2b85ff013d4b2b25074297c7e44aa61f4836d0862b36db2e6ce2b5542f9ea9",
+    "0x177b9a10bbee32f77c719c6f8d071a18476cbeb021e155c642bbf93c716ce943",
+  ],
+}
+`;
+
 exports[`Noir compatibility tests (interop_testing.nr) Complete Address matches Noir 1`] = `"0x1a6e89b034478713c7a9f1c77fb80af995f708f6f208bf352b4dda2124739109"`;
 
 exports[`Noir compatibility tests (interop_testing.nr) Complete Address matches Noir 2`] = `
