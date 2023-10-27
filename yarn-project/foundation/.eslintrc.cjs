@@ -109,7 +109,7 @@ module.exports = {
         ],
       },
     ],
-    'import/no-extraneous-dependencies': ['error', { devDependencies: ['**/*.test.js'] }],
+    'import/no-extraneous-dependencies': 'error',
     'tsdoc/syntax': JSDOC_RULES_LEVEL,
     'jsdoc/require-jsdoc': [
       JSDOC_RULES_LEVEL,
