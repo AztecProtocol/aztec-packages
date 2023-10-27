@@ -1,7 +1,6 @@
 /* eslint-disable no-console */
 import * as AztecJs from '@aztec/aztec.js';
 import { TokenContractArtifact } from '@aztec/noir-contracts/artifacts';
-import { ExtendedNote } from '@aztec/types';
 
 import { Server } from 'http';
 import Koa from 'koa';
@@ -172,10 +171,11 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
           const {
             GrumpkinScalar,
             DeployMethod,
-            createPXEClient: createPXEClient,
+            createPXEClient,
             getUnsafeSchnorrAccount,
             Contract,
             Fr,
+            ExtendedNote,
             Note,
             computeMessageSecretHash,
             getSandboxAccountsWallets,

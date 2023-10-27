@@ -1,5 +1,5 @@
 import { createSandbox } from '@aztec/aztec-sandbox';
-import { Contract, Fr, Note, computeMessageSecretHash, createAccount } from '@aztec/aztec.js';
+import { Contract, ExtendedNote, Fr, Note, computeMessageSecretHash, createAccount } from '@aztec/aztec.js';
 import { TokenContractArtifact } from '@aztec/noir-contracts/artifacts';
 
 describe('token', () => {
@@ -19,7 +19,8 @@ describe('token', () => {
 
     const storageSlot = new Fr(5);
     const note = new Note([new Fr(initialBalance), secretHash]);
-    await pxe.addNote(owner.getAddress(), token.address, storageSlot, note, receipt.txHash);
+    const extendedNote = new ExtendedNote(note, owner.getAddress(), token.address, storageSlot, receipt.txHash);
+    await pxe.addNote(extendedNote);
 
     await token.methods.redeem_shield({ address: owner.getAddress() }, initialBalance, secret).send().wait();
   }, 120_000);
