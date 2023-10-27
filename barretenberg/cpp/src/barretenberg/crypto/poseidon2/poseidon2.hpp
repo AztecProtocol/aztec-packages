@@ -32,7 +32,7 @@ template <typename Params> class Poseidon2 {
     static constexpr RoundConstantsContainer round_constants = Poseidon2Bn254ScalarFieldParams::round_constants;
     // derive_round_constants();
 
-    static void matrix_multiplication_4x4(State& input)
+    static constexpr void matrix_multiplication_4x4(State& input)
     {
         /**
          * hardcoded algorithm that evaluates matrix multiplication using the following MDS matrix:
@@ -64,14 +64,14 @@ template <typename Params> class Poseidon2 {
         input[3] = t4;
     }
 
-    static void add_round_constants(State& input, const RoundConstants& rc)
+    static constexpr void add_round_constants(State& input, const RoundConstants& rc)
     {
         for (size_t i = 0; i < t; ++i) {
             input[i] += rc[i];
         }
     }
 
-    static void matrix_multiplication_internal(State& input)
+    static constexpr void matrix_multiplication_internal(State& input)
     {
         // for t = 4
         auto sum = input[0];
@@ -84,7 +84,7 @@ template <typename Params> class Poseidon2 {
         }
     }
 
-    static void matrix_multiplication_external(State& input)
+    static constexpr void matrix_multiplication_external(State& input)
     {
         if constexpr (t == 4) {
             matrix_multiplication_4x4(input);
@@ -94,21 +94,21 @@ template <typename Params> class Poseidon2 {
         }
     }
 
-    static void apply_single_sbox(FF& input)
+    static constexpr void apply_single_sbox(FF& input)
     {
         auto xx = input.sqr();
         auto xxxx = xx.sqr();
         input *= xxxx;
     }
 
-    static void apply_sbox(State& input)
+    static constexpr void apply_sbox(State& input)
     {
         for (auto& in : input) {
             apply_single_sbox(in);
         }
     }
 
-    static State permutation(State& input)
+    static constexpr State permutation(State& input)
     {
         // deep copy
         State current_state(input);
