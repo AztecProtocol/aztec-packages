@@ -14,8 +14,7 @@ export function createMemFSFileManager(memFS: IFs = fs, dataDir = '/'): FileMana
       mkdirSync: memFS.mkdirSync.bind(memFS),
       writeFileSync: memFS.writeFileSync.bind(memFS),
       renameSync: memFS.renameSync.bind(memFS),
-      // memfs looks for `buffer` instead of `binary`
-      readFileSync: (path, enc) => memFS.readFileSync(path, enc === 'binary' ? 'buffer' : 'utf-8'),
+      readFileSync: memFS.readFileSync.bind(memFS),
     },
     dataDir,
   );

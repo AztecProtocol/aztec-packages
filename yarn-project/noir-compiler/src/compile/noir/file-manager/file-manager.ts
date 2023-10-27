@@ -17,7 +17,7 @@ export interface FileSystem {
   /** Writes a file */
   writeFileSync: (path: string, data: Uint8Array) => void;
   /** Reads a file */
-  readFileSync: (path: string, encoding: 'binary' | 'utf-8') => Uint8Array | string;
+  readFileSync: (path: string, encoding?: 'utf-8') => Uint8Array | string;
   /** Renames a file */
   renameSync: (oldPath: string, newPath: string) => void;
 }
@@ -89,9 +89,8 @@ export class FileManager {
   /**
    * Reads a file from the disk and returns a buffer
    * @param name - File to read
-   * @param encoding - Encoding to use
    */
-  public readFileSync(name: string, encoding: 'binary'): Uint8Array;
+  public readFileSync(name: string): Uint8Array;
   /**
    * Reads a file from the filesystem as a string
    * @param name - File to read
@@ -103,12 +102,13 @@ export class FileManager {
    * @param name - File to read
    * @param encoding - Encoding to use
    */
-  public readFileSync(name: string, encoding: 'binary' | 'utf-8'): string | Uint8Array {
-    const data = this.#fs.readFileSync(this.#getPath(name), encoding);
+  public readFileSync(name: string, encoding?: 'utf-8'): string | Uint8Array {
+    const path = this.#getPath(name);
+    const data = this.#fs.readFileSync(path, encoding);
 
-    if (encoding === 'binary') {
+    if (!encoding) {
       return typeof data === 'string'
-        ? new TextEncoder().encode(data)
+        ? new TextEncoder().encode(data) // this branch shouldn't be hit, but just in case
         : new Uint8Array(data.buffer, data.byteOffset, data.byteLength / Uint8Array.BYTES_PER_ELEMENT);
     }
 

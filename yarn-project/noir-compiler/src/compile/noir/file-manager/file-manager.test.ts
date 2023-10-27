@@ -60,7 +60,7 @@ describe.each([memFS, nodeFM])('FileManager', setup => {
 
   it('saves files and correctly reads bytes back', async () => {
     await fm.writeFile('test.txt', new Blob([testFileBytes]).stream());
-    expect(fm.readFileSync('test.txt', 'binary')).toEqual(testFileBytes);
+    expect(fm.readFileSync('test.txt')).toEqual(testFileBytes);
   });
 
   it('saves files and correctly reads UTF-8 string back', async () => {

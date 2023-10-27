@@ -76,7 +76,7 @@ export class GithubDependencyResolver implements DependencyResolver {
       return packagePath;
     }
 
-    const { entries } = await unzip(this.#fm.readFileSync(archivePath, 'binary'));
+    const { entries } = await unzip(this.#fm.readFileSync(archivePath));
 
     for (const entry of Object.values(entries)) {
       if (entry.isDirectory) {
