@@ -217,7 +217,7 @@ pub fn create_private_call_deploy_data<N, T>(
         portal_contract_address : EthAddress::from_field(0),
     };
 
-    // Constants taken from __snapshots__/index.test.ts.snap
+    // Constants taken from __snapshots__/noir_test_gen.test.ts.snap
     let function_tree_root = 0x2143c6a86ded93cd75de5680c57c61a2a178e0a840d8649a9e0411032f969f1d;
     let contract_tree_root = 0x13e8827c83abfc4f0a37d0c228fb4ecd509d96613b8e7d74c169005a62ef67dd;
     let function_leaf_sibling_path = [
@@ -248,7 +248,7 @@ pub fn create_private_call_deploy_data<N, T>(
     let historical_block_data = HistoricalBlockData {
         blocks_tree_root : 0,
         block : Block {
-            note_hash_tree_root : 0,
+            note_hash_tree_root : crate::tests::read_requests::ROOT,
             nullifier_tree_root : 0,
             contract_tree_root,
             l1_to_l2_data_tree_root : 0,
