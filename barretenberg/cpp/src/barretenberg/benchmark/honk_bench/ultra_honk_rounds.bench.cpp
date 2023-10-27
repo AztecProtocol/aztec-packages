@@ -21,7 +21,6 @@ enum { PREAMBLE, WIRE_COMMITMENTS, SORTED_LIST_ACCUMULATOR, GRAND_PRODUCT_COMPUT
  **/
 BBERG_PROFILE static void test_round_inner(State& state, honk::UltraProver& prover, size_t index) noexcept
 {
-    (void)state;
     auto time_if_index = [&](size_t target_index, auto&& func) -> void {
         if (index == target_index) {
             state.ResumeTiming();
