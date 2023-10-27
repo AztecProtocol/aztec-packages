@@ -14,4 +14,9 @@ describe('pedersen', () => {
     const r = pedersenHashWithHashIndex([toBufferBE(1n, 32), toBufferBE(1n, 32)]);
     expect(r).toEqual(Buffer.from('07ebfbf4df29888c6cd6dca13d4bb9d1a923013ddbbcbdc3378ab8845463297b', 'hex'));
   });
+
+  it('pedersen hash with index', () => {
+    const r = pedersenHashWithHashIndex([toBufferBE(1n, 32), toBufferBE(1n, 32)], 5);
+    expect(r).toEqual(Buffer.from('1c446df60816b897cda124524e6b03f36df0cec333fad87617aab70d7861daa6', 'hex'));
+  });
 });
