@@ -18070,7 +18070,7 @@ __metadata:
 
 "ts-jest@patch:ts-jest@npm%3A29.1.1#./.yarn/patches/ts-jest-npm-29.1.1-04e888e48e.patch::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
   version: 29.1.1
-  resolution: "ts-jest@patch:ts-jest@npm%3A29.1.1#./.yarn/patches/ts-jest-npm-29.1.1-04e888e48e.patch::version=29.1.1&hash=4dfb50&locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  resolution: "ts-jest@patch:ts-jest@npm%3A29.1.1#./.yarn/patches/ts-jest-npm-29.1.1-04e888e48e.patch::version=29.1.1&hash=e3c0a5&locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
     bs-logger: 0.x
     fast-json-stable-stringify: 2.x
@@ -18097,7 +18097,7 @@ __metadata:
       optional: true
   bin:
     ts-jest: cli.js
-  checksum: 8ac81d753db05eddd33adb3aa04fd5fb0b23030b67b3df7f20360a0f2e20e1d5f1b499f6bed712c53d6b5a077d1f3dce6e8cca505876ebb1f9c72b630d1fbc2a
+  checksum: 81022fc5cb39e8ab819e37a1cc68cd5e919849baf6573c27ceebcc61a4ba24048bcb7aac13c846396753b4a4a63b20c147cabfdc60727ef9acec835c770d9a8a
   languageName: node
   linkType: hard
 
