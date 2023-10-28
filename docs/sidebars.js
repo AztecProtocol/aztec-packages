@@ -198,9 +198,8 @@ const sidebars = {
       },
       items: [
         "dev_docs/getting_started/quickstart",
-        "dev_docs/getting_started/sandbox",
-        "dev_docs/getting_started/blank_box",
-        "dev_docs/getting_started/updating",
+        "dev_docs/getting_started/aztecjs-getting-started",
+        "dev_docs/getting_started/aztecnr-getting-started",
       ],
     },
 
@@ -268,6 +267,15 @@ const sidebars = {
     },
 
     {
+      label: "Aztec Sandbox and CLI",
+      type: "category",
+      link: {
+        type: "doc",
+        id: "dev_docs/cli/main",
+      },
+      items: ["dev_docs/cli/cli-commands", "dev_docs/cli/sandbox-reference"],
+    },
+    {
       label: "Aztec.nr Contracts",
       type: "category",
       link: {
@@ -310,11 +318,23 @@ const sidebars = {
             "dev_docs/contracts/portals/outbox",
           ],
         },
-        "dev_docs/contracts/common_errors",
+        {
+          label: "Debugging",
+          type: "category",
+          link: {
+            type: "doc",
+            id: "dev_docs/contracts/debugging/main",
+          },
+          items: [
+            "dev_docs/contracts/debugging/aztec-nr-errors",
+            "dev_docs/contracts/debugging/aztec-sandbox-errors",
+          ],
+        },
         {
           label: "Resources",
           type: "category",
           items: [
+            "dev_docs/contracts/resources/dependencies",
             //"dev_docs/contracts/resources/style_guide",
             {
               label: "Common Patterns",
@@ -351,7 +371,17 @@ const sidebars = {
       ],
     },
 
-    "dev_docs/cli/main",
+    {
+      label: "Aztec.js",
+      type: "doc",
+      id: "dev_docs/aztecjs/main",
+    },
+
+    {
+      label: "Updating",
+      type: "doc",
+      id: "dev_docs/cli/updating",
+    },
 
     {
       label: "Testing",
