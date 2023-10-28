@@ -10,6 +10,14 @@ describe('pedersen', () => {
     ]);
   });
 
+  it('pedersen commit with zero', () => {
+    const r = pedersenCommit([toBufferBE(0n, 32), toBufferBE(1n, 32)]);
+    expect(r).toEqual([
+      Buffer.from('054aa86a73cb8a34525e5bbed6e43ba1198e860f5f3950268f71df4591bde402', 'hex'),
+      Buffer.from('209dcfbf2cfb57f9f6046f44d71ac6faf87254afc7407c04eb621a6287cac126', 'hex'),
+    ]);
+  });
+
   it('pedersen hash', () => {
     const r = pedersenHashWithHashIndex([toBufferBE(1n, 32), toBufferBE(1n, 32)]);
     expect(r).toEqual(Buffer.from('07ebfbf4df29888c6cd6dca13d4bb9d1a923013ddbbcbdc3378ab8845463297b', 'hex'));

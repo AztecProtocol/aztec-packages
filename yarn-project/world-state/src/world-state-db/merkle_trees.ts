@@ -75,8 +75,7 @@ export class MerkleTrees implements MerkleTreeDb {
     const fromDb = fromDbOptions !== undefined;
     const initializeTree = fromDb ? loadTree : newTree;
 
-    const wasm = optionalWasm ?? (await CircuitsWasm.get());
-    const hasher = new Pedersen(wasm);
+    const hasher = new Pedersen();
     const contractTree: AppendOnlyTree = await initializeTree(
       StandardTree,
       this.db,
@@ -126,12 +125,12 @@ export class MerkleTrees implements MerkleTreeDb {
 
     // The first leaf in the blocks tree contains the empty roots of the other trees and empty global variables.
     if (!fromDb) {
-      const initialGlobalVariablesHash = computeGlobalsHash(wasm, GlobalVariables.empty());
+      const initialGlobalVariablesHash = computeGlobalsHash(GlobalVariables.empty());
       await this._updateLatestGlobalVariablesHash(initialGlobalVariablesHash);
       await this._updateHistoricBlocksTree(initialGlobalVariablesHash, true);
       await this._commit();
     } else {
-      await this._updateLatestGlobalVariablesHash(computeGlobalsHash(wasm, fromDbOptions.globalVariables));
+      await this._updateLatestGlobalVariablesHash(computeGlobalsHash(fromDbOptions.globalVariables));
     }
   }
 
@@ -574,7 +573,7 @@ export class MerkleTrees implements MerkleTreeDb {
       }
 
       // Sync and add the block to the historic blocks tree
-      const globalVariablesHash = computeGlobalsHash(await CircuitsWasm.get(), l2Block.globalVariables);
+      const globalVariablesHash = computeGlobalsHash(l2Block.globalVariables);
       await this._updateLatestGlobalVariablesHash(globalVariablesHash);
       this.log(`Synced global variables with hash ${globalVariablesHash}`);
 

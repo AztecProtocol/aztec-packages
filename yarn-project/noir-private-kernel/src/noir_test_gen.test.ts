@@ -64,7 +64,7 @@ describe('Data generation for noir tests', () => {
 
     const tree = new StandardTree(
       db,
-      new Pedersen(wasm),
+      new Pedersen(),
       `${MerkleTreeId[MerkleTreeId.CONTRACT_TREE]}`,
       CONTRACT_TREE_HEIGHT,
     );
@@ -86,7 +86,7 @@ describe('Data generation for noir tests', () => {
 
     const noteHashTree = new StandardTree(
       db,
-      new Pedersen(wasm),
+      new Pedersen(),
       `${MerkleTreeId[MerkleTreeId.NOTE_HASH_TREE]}`,
       NOTE_HASH_TREE_HEIGHT,
     );

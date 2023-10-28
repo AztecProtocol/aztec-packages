@@ -59,7 +59,7 @@ jest.setTimeout(60_000);
 const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
 describe('Private Execution test suite', () => {
-  let circuitsWasm: CircuitsWasm;
+  let circuitsWasm: any;
   let oracle: MockProxy<DBOracle>;
   let acirSimulator: AcirSimulator;
 
@@ -130,7 +130,7 @@ describe('Private Execution test suite', () => {
     }
     if (!trees[name]) {
       const db = levelup(createMemDown());
-      const pedersen = new Pedersen(circuitsWasm);
+      const pedersen = new Pedersen();
       trees[name] = await newTree(StandardTree, db, pedersen, name, treeHeights[name]);
     }
     await trees[name].appendLeaves(leaves.map(l => l.toBuffer()));
