@@ -72,7 +72,7 @@ Setting up Aztec Sandbox v#include_aztec_short_version (nargo #include_noir_vers
 
 Alternatively you can open a new terminal and use aztec-cli to get the version.
 
-#include_code node-info-command yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
+#include_code node-info yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
 
 This will return something like this:
 

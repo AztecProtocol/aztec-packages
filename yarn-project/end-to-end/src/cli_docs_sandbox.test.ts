@@ -26,11 +26,8 @@ describe('CLI docs sandbox', () => {
 
   const waitForSandboxWithCli = async () => {
     const docs = `
-// docs:start:node-info-command
-% aztec-cli get-node-info
-// docs:end:node-info-command
-
 // docs:start:node-info
+% aztec-cli get-node-info
 Node Info:
 
 Sandbox Version: #include_aztec_short_version
@@ -145,27 +142,21 @@ UniswapContractArtifact
 
   it('creates an account from private key', async () => {
     const docs = `
-// docs:start:generate-private-key
+// docs:start:create-account-from-private-key
 % aztec-cli generate-private-key
-// docs:end:generate-private-key
 
-// docs:start:generate-private-key-output
 Private Key: 0x12684562c8676e66be100878434b01286a757dea468233f818b906f66fb34984
 Public Key: 0x1003732857c052c1d6af4dd74b5631863a056c90a586c4e3ea6d94782ee712d317cdb713ed1ba02d3df0ac2b581d269490f9e24916c1b677c7259444aa0ad66b
-// docs:end:generate-private-key-output
 
 
-// docs:start:create-account-pk
 % aztec-cli create-account --private-key 0x12684562c8676e66be100878434b01286a757dea468233f818b906f66fb34984
-// docs:end:create-account-pk
 
-// docs:start:create-account-pk-output
 Created new account:
 
 Address:         0x26e831b1b146d1faf0c1d27fc72f2243887e9963cc87a6b3af64fe6481920a80
 Public key:      0x1003732857c052c1d6af4dd74b5631863a056c90a586c4e3ea6d94782ee712d317cdb713ed1ba02d3df0ac2b581d269490f9e24916c1b677c7259444aa0ad66b
 Partial address: 0x01e5e7b2abbfb98a93b7549ae80faa6886f8ea8e8f412416fb330b565fd2b4ed
-// docs:end:create-account-pk-output
+// docs:end:create-account-from-private-key
 `;
 
     const generateCommand = docs.split('\n')[2].split('aztec-cli ')[1];
@@ -195,16 +186,13 @@ Partial address: 0x01e5e7b2abbfb98a93b7549ae80faa6886f8ea8e8f412416fb330b565fd2b
     let docs = `
 // docs:start:create-account
 % aztec-cli create-account
-// docs:end:create-account
-
-// docs:start:create-account-output
 Created new account:
 
 Address:         0x20d3321707d53cebb168568e25c5c62a853ae1f0766d965e00d6f6c4eb05d599
 Public key:      0x02d18745eadddd496be95274367ee2cbf0bf667b81373fb6bed715c18814a09022907c273ec1c469fcc678738bd8efc3e9053fe1acbb11fa32da0d6881a1370e
 Private key:     0x2aba9e7de7075deee3e3f4ad1e47749f985f0f72543ed91063cc97a40d851f1e
 Partial address: 0x72bf7c9537875b0af267b4a8c497927e251f5988af6e30527feb16299042ed
-// docs:end:create-account-output
+// docs:end:create-account
 `;
 
     let command = docs.split('\n')[2].split('aztec-cli ')[1];
@@ -227,9 +215,6 @@ Partial address: 0x72bf7c9537875b0af267b4a8c497927e251f5988af6e30527feb16299042e
     docs = `
 // docs:start:get-accounts
 % aztec-cli get-accounts
-// docs:end:get-accounts
-
-// docs:start:get-accounts-output
 Accounts found:
 
   Address: 0x0c8a6673d7676cc80aaebe7fa7504cf51daa90ba906861bfad70a58a98bf5a7d
@@ -247,7 +232,7 @@ Accounts found:
   Address: 0x01b18c2044bbedd4a2e5f67cf6858370ccfb2b869b2000abe2f4ca12d9cc166e
   Public Key: 0x240845f1179e3fbaa6ce587d44722b3452bbdaa11deb29553196b23534985d432b746bcf2f0e7046eb13f0ca0c4fedd027dc80b64384f50d6a14ad248faa941a
   Partial Address: 0x03834845fc488d1454f195abe7d52b3393f6902eee080c90cd694c63572f7160
-// docs:end:get-accounts-output
+// docs:end:get-accounts
 `;
 
     command = docs.split('\n')[2].split('aztec-cli ')[1];
@@ -263,11 +248,9 @@ Accounts found:
     docs = `
 // docs:start:deploy
 % aztec-cli deploy TokenContractArtifact --args $ADDRESS
-// docs:end:deploy
 
-// docs:start:deploy-output
 Contract deployed at 0x1ae8eea0dc265fb7f160dae62cc8912686d8a9ed78e821fbdd8bcedc54c06d0f
-// docs:end:deploy-output
+// docs:end:deploy
     `;
 
     command = docs.split('\n')[2].split('aztec-cli ')[1].replace('$ADDRESS', newAddress.toString());
@@ -283,11 +266,9 @@ Contract deployed at 0x1ae8eea0dc265fb7f160dae62cc8912686d8a9ed78e821fbdd8bcedc5
     docs = `
 // docs:start:check-deploy
 % aztec-cli check-deploy --contract-address $CONTRACT_ADDRESS
-// docs:end:check-deploy
 
-// docs:start:check-deploy-output
 Contract found at 0x1ae8eea0dc265fb7f160dae62cc8912686d8a9ed78e821fbdd8bcedc54c06d0f
-// docs:end:check-deploy-output
+// docs:end:check-deploy
 `;
     command = docs.split('\n')[2].split('aztec-cli ')[1].replace('$CONTRACT_ADDRESS', contractAddress.toString());
     await run(command);
@@ -305,15 +286,13 @@ Contract found at 0x1ae8eea0dc265fb7f160dae62cc8912686d8a9ed78e821fbdd8bcedc54c0
   --contract-artifact TokenContractArtifact \
   --contract-address $CONTRACT_ADDRESS \
   --private-key $PRIVATE_KEY
-  // docs:end:send
 
-// docs:start:send-output
 Transaction has been mined
 Transaction hash: 15c5a8e58d5f895c7e3017a706efbad693635e01f67345fa60a64a340d83c78c
 Status: mined
 Block number: 5
 Block hash: 163697608599543b2bee9652f543938683e4cdd0f94ac506e5764d8b908d43d4
-// docs:end:send-output
+// docs:end:send
 `;
 
     command = docs
@@ -336,9 +315,7 @@ Block hash: 163697608599543b2bee9652f543938683e4cdd0f94ac506e5764d8b908d43d4
     docs = `
 // docs:start:get-tx-receipt
 % aztec-cli get-tx-receipt 15c5a8e58d5f895c7e3017a706efbad693635e01f67345fa60a64a340d83c78c
-// docs:end:get-tx-receipt
 
-// docs:start:get-tx-receipt-output
 Transaction receipt:
 {
   "txHash": "15c5a8e58d5f895c7e3017a706efbad693635e01f67345fa60a64a340d83c78c",
@@ -348,7 +325,7 @@ Transaction receipt:
   "blockNumber": 5,
   "origin": "0x2337f1d5cfa6c03796db5539b0b2d5a57e9aed42665df2e0907f66820cb6eebe"
 }
-// docs:end:get-tx-receipt-output
+// docs:end:get-tx-receipt
 `;
 
     command = docs
@@ -370,10 +347,9 @@ Transaction receipt:
     docs = `
 // docs:start:call
 % aztec-cli call balance_of_public -a $ADDRESS -c TokenContractArtifact -ca $CONTRACT_ADDRESS
-// docs:end:call
-// docs:start:call-output
+
 View result:  543n
-// docs:end:call-output
+// docs:end:call
 `;
     command = docs
       .split('\n')[2]
