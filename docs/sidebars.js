@@ -318,11 +318,23 @@ const sidebars = {
             "dev_docs/contracts/portals/outbox",
           ],
         },
-        "dev_docs/contracts/common_errors",
+        {
+          label: "Debugging",
+          type: "category",
+          link: {
+            type: "doc",
+            id: "dev_docs/contracts/debugging/main",
+          },
+          items: [
+            "dev_docs/contracts/debugging/aztec-nr-errors",
+            "dev_docs/contracts/debugging/aztec-sandbox-errors",
+          ],
+        },
         {
           label: "Resources",
           type: "category",
           items: [
+            "dev_docs/contracts/resources/dependencies",
             //"dev_docs/contracts/resources/style_guide",
             {
               label: "Common Patterns",
