@@ -26,6 +26,7 @@
     "remake-bindings": "DEBUG=wasm ts-node-esm src/cbind/circuits.in.ts && prettier -w src/cbind/circuits.gen.ts",
     "remake-constants": "ts-node-esm src/cbind/constants.in.ts && prettier -w src/cbind/constants.gen.ts",
     "test:light": "NODE_NO_WARNINGS=1 NODE_OPTIONS='--loader ts-node/esm' node --experimental-vm-modules $(yarn bin jest) --runner=jest-light-runner --passWithNoTests",
+    "test:light:dbg": "NODE_NO_WARNINGS=1 NODE_OPTIONS='--loader ts-node/esm' node --inspect-brk=0.0.0.0 --experimental-vm-modules $(yarn bin jest) --runner=jest-light-runner --passWithNoTests",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --passWithNoTests"
   },
   "inherits": [

@@ -1,4 +1,5 @@
 #include "pedersen.hpp"
+#include "barretenberg/common/timer.hpp"
 #include "barretenberg/crypto/generators/generator_data.hpp"
 #include <gtest/gtest.h>
 
@@ -25,6 +26,18 @@ TEST(Pedersen, CommitmentWithZero)
         grumpkin::g1::affine_element(fr(uint256_t("054aa86a73cb8a34525e5bbed6e43ba1198e860f5f3950268f71df4591bde402")),
                                      fr(uint256_t("209dcfbf2cfb57f9f6046f44d71ac6faf87254afc7407c04eb621a6287cac126")));
     EXPECT_EQ(r, expected);
+}
+
+TEST(Pedersen, CommitmentProf)
+{
+    GTEST_SKIP() << "Skipping mini profiler.";
+    auto x = fr::random_element();
+    auto y = fr::random_element();
+    Timer t;
+    for (int i = 0; i < 10000; ++i) {
+        pedersen_commitment::commit_native({ x, y });
+    }
+    info(t.nanoseconds() / 1000 / 10000);
 }
 
 // Useful for pasting into ts version of pedersen.

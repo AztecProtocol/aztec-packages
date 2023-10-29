@@ -2,7 +2,7 @@ import { proxy } from 'comlink';
 import { BarretenbergApi } from '../barretenberg_api/index.js';
 import { BarretenbergBinder } from '../barretenberg_binder/index.js';
 import { createMainWorker } from '../barretenberg_wasm/barretenberg_wasm_main/factory/node/index.js';
-import { BarretenbergWasmMainWorker } from '../barretenberg_wasm/barretenberg_wasm_main/index.js';
+import { BarretenbergWasmMain, BarretenbergWasmMainWorker } from '../barretenberg_wasm/barretenberg_wasm_main/index.js';
 import { getRemoteBarretenbergWasm } from '../barretenberg_wasm/helpers/index.js';
 import { BarretenbergWasmWorker } from '../barretenberg_wasm/index.js';
 import createDebug from 'debug';
@@ -14,7 +14,7 @@ const debug = createDebug('bb.js:wasm');
  * It extends the generated api, and provides a static constructor "new" to compose components.
  */
 export class Barretenberg extends BarretenbergApi {
-  private constructor(private worker: any, private wasm: BarretenbergWasmWorker) {
+  private constructor(private worker: any, private wasm: BarretenbergWasmWorker | BarretenbergWasmMain) {
     super(new BarretenbergBinder(wasm));
   }
 
@@ -31,12 +31,18 @@ export class Barretenberg extends BarretenbergApi {
     return new Barretenberg(worker, wasm);
   }
 
+  static async newSync() {
+    const wasm = new BarretenbergWasmMain();
+    await wasm.init(1);
+    return new Barretenberg(undefined, wasm);
+  }
+
   async getNumThreads() {
     return await this.wasm.getNumThreads();
   }
 
   async destroy() {
-    await this.wasm.destroy();
-    await this.worker.terminate();
+    await this.wasm?.destroy();
+    await this.worker?.terminate();
   }
 }
