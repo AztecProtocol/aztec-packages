@@ -107,7 +107,7 @@ export class AztecNodeService implements AztecNode {
 
     // now create the merkle trees and the world state syncher
     const db = await openDb(config);
-    const merkleTrees = await MerkleTrees.new(db, await CircuitsWasm.get());
+    const merkleTrees = await MerkleTrees.new(db);
     const worldStateConfig: WorldStateConfig = getWorldStateConfig();
     const worldStateSynchronizer = await ServerWorldStateSynchronizer.new(db, merkleTrees, archiver, worldStateConfig);
 
@@ -348,7 +348,7 @@ export class AztecNodeService implements AztecNode {
    */
   public async getPublicStorageAt(contract: AztecAddress, slot: bigint): Promise<Buffer | undefined> {
     const committedDb = await this.#getWorldState();
-    const leafIndex = computePublicDataTreeIndex(await CircuitsWasm.get(), contract, new Fr(slot));
+    const leafIndex = computePublicDataTreeIndex(contract, new Fr(slot));
     return committedDb.getLeafValue(MerkleTreeId.PUBLIC_DATA_TREE, leafIndex.value);
   }
 
@@ -414,7 +414,7 @@ export class AztecNodeService implements AztecNode {
     // TODO we should be able to remove this after https://github.com/AztecProtocol/aztec-packages/issues/1869
     // So simulation of public functions doesn't affect the merkle trees.
     const merkleTrees = new MerkleTrees(this.merkleTreesDb, this.log);
-    await merkleTrees.init(await CircuitsWasm.get(), {
+    await merkleTrees.init({
       globalVariables: prevGlobalVariables,
     });
 

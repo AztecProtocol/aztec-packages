@@ -37,7 +37,7 @@ describe('Data generation for noir tests', () => {
   it('Computes function leaf', () => {
     const functionLeafPreimage = new FunctionLeafPreimage(selector, false, true, vkHash, acirHash);
 
-    functionLeaf = computeFunctionLeaf(wasm, functionLeafPreimage);
+    functionLeaf = computeFunctionLeaf(functionLeafPreimage);
 
     expect(functionLeaf.toString()).toMatchSnapshot();
   });
@@ -57,7 +57,6 @@ describe('Data generation for noir tests', () => {
 
   it('Computes the contract tree root', async () => {
     const contractLeaf = computeContractLeaf(
-      wasm,
       new NewContractData(contractAddress, portalContractAddress, functionTreeRoot),
     );
     const db = levelup((memdown as any)());

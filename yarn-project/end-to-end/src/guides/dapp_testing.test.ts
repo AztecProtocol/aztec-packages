@@ -43,7 +43,7 @@ describe('guides/dapp/testing', () => {
 
         const mintAmount = 20n;
         const secret = Fr.random();
-        const secretHash = await computeMessageSecretHash(secret);
+        const secretHash = computeMessageSecretHash(secret);
         const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
 
         const storageSlot = new Fr(5); // The storage slot of `pending_shields` is 5.
@@ -75,7 +75,7 @@ describe('guides/dapp/testing', () => {
         const recipientAddress = recipient.getAddress();
         const mintAmount = 20n;
         const secret = Fr.random();
-        const secretHash = await computeMessageSecretHash(secret);
+        const secretHash = computeMessageSecretHash(secret);
         const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
 
         const storageSlot = new Fr(5);
@@ -128,7 +128,7 @@ describe('guides/dapp/testing', () => {
         const ownerAddress = owner.getAddress();
         const mintAmount = 100n;
         const secret = Fr.random();
-        const secretHash = await computeMessageSecretHash(secret);
+        const secretHash = computeMessageSecretHash(secret);
         const receipt = await token.methods.mint_private(100n, secretHash).send().wait();
 
         const storageSlot = new Fr(5);
@@ -245,7 +245,7 @@ describe('guides/dapp/testing', () => {
 
         const mintAmount = 20n;
         const secret = Fr.random();
-        const secretHash = await computeMessageSecretHash(secret);
+        const secretHash = computeMessageSecretHash(secret);
         const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
 
         const storageSlot = new Fr(5);

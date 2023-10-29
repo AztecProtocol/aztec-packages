@@ -42,16 +42,10 @@ export async function getContractDeploymentInfo(
   const functionTreeRoot = computeFunctionTreeRoot(wasm, leaves);
   const functionData = FunctionData.fromAbi(constructorArtifact);
   const flatArgs = encodeArguments(constructorArtifact, args);
-  const argsHash = await computeVarArgsHash(wasm, flatArgs);
-  const constructorHash = hashConstructor(wasm, functionData, argsHash, constructorVkHash.toBuffer());
+  const argsHash = computeVarArgsHash(flatArgs);
+  const constructorHash = hashConstructor(functionData, argsHash, constructorVkHash.toBuffer());
 
-  const completeAddress = computeCompleteAddress(
-    wasm,
-    publicKey,
-    contractAddressSalt,
-    functionTreeRoot,
-    constructorHash,
-  );
+  const completeAddress = computeCompleteAddress(publicKey, contractAddressSalt, functionTreeRoot, constructorHash);
 
   return {
     completeAddress,

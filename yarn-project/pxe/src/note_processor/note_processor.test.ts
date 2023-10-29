@@ -38,13 +38,7 @@ describe('Note Processor', () => {
   const numCommitmentsPerBlock = TXS_PER_BLOCK * MAX_NEW_COMMITMENTS_PER_TX;
   const firstBlockDataStartIndex = (firstBlockNum - 1) * numCommitmentsPerBlock;
 
-  const computeMockNoteHash = (preimage: Fr[]) =>
-    Fr.fromBuffer(
-      pedersenHashInputs(
-        wasm,
-        preimage.map(p => p.toBuffer()),
-      ),
-    );
+  const computeMockNoteHash = (preimage: Fr[]) => Fr.fromBuffer(pedersenHashInputs(preimage.map(p => p.toBuffer())));
 
   // ownedData: [tx1, tx2, ...], the numbers in each tx represents the indices of the note hashes the account owns.
   const createEncryptedLogsAndOwnedNoteSpendingInfo = (ownedData: number[][], ownedNotes: NoteSpendingInfo[]) => {

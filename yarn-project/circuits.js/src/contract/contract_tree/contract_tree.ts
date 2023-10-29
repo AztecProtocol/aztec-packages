@@ -86,7 +86,7 @@ export function generateFunctionLeaves(functions: ContractFunctionDao[], wasm: C
       Fr.fromBuffer(vkHash),
       Fr.fromBuffer(acirHash),
     );
-    const fnLeaf = computeFunctionLeaf(wasm, fnLeafPreimage);
+    const fnLeaf = computeFunctionLeaf(fnLeafPreimage);
     result.push(fnLeaf);
   }
   return result;

@@ -235,12 +235,7 @@ export class AztecCheatCodes {
   public computeSlotInMap(baseSlot: Fr | bigint, key: Fr | bigint | AztecAddress): Fr {
     // Based on `at` function in
     // aztec3-packages/yarn-project/aztec-nr/aztec/src/state_vars/map.nr
-    return Fr.fromBuffer(
-      pedersenHashInputs(
-        this.wasm,
-        [new Fr(baseSlot), new Fr(key)].map(f => f.toBuffer()),
-      ),
-    );
+    return Fr.fromBuffer(pedersenHashInputs([new Fr(baseSlot), new Fr(key)].map(f => f.toBuffer())));
   }
 
   /**

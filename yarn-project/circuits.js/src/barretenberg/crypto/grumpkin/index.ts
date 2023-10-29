@@ -3,6 +3,8 @@ import { IWasmModule } from '@aztec/foundation/wasm';
 
 import { CircuitsWasm, GrumpkinScalar } from '../../../index.js';
 
+// TODO!!!!!: Make this use grumpkin typescript currently in pedersen.
+
 /**
  * Grumpkin elliptic curve operations.
  */

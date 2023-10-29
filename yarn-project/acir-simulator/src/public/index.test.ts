@@ -1,6 +1,5 @@
 import {
   CallContext,
-  CircuitsWasm,
   FunctionData,
   GlobalVariables,
   HistoricBlockData,
@@ -32,16 +31,11 @@ import { PublicExecutor } from './executor.js';
 export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
 describe('ACIR public execution simulator', () => {
-  let circuitsWasm: CircuitsWasm;
   let publicState: MockProxy<PublicStateDB>;
   let publicContracts: MockProxy<PublicContractsDB>;
   let commitmentsDb: MockProxy<CommitmentsDB>;
   let executor: PublicExecutor;
   let blockData: HistoricBlockData;
-
-  beforeAll(async () => {
-    circuitsWasm = await CircuitsWasm.get();
-  });
 
   beforeEach(() => {
     publicState = mock<PublicStateDB>();
@@ -95,7 +89,7 @@ describe('ACIR public execution simulator', () => {
 
         expect(result.returnValues[0]).toEqual(new Fr(1n));
 
-        const recipientBalanceStorageSlot = computeSlotForMapping(new Fr(6n), recipient.toField(), circuitsWasm);
+        const recipientBalanceStorageSlot = computeSlotForMapping(new Fr(6n), recipient.toField());
         const totalSupplyStorageSlot = new Fr(4n);
 
         const expectedBalance = new Fr(previousBalance.value + mintAmount);
@@ -117,7 +111,7 @@ describe('ACIR public execution simulator', () => {
         ]);
 
         const mintersStorageSlot = new Fr(2n);
-        const isMinterStorageSlot = computeSlotForMapping(mintersStorageSlot, msgSender.toField(), circuitsWasm);
+        const isMinterStorageSlot = computeSlotForMapping(mintersStorageSlot, msgSender.toField());
         // Note: There is only 1 storage read (for the isMinter value) because the other 2 reads get overwritten by
         // the updates
         expect(result.contractStorageReads).toEqual([
@@ -158,8 +152,8 @@ describe('ACIR public execution simulator', () => {
           isStaticCall: false,
         });
 
-        recipientStorageSlot = computeSlotForMapping(new Fr(6n), recipient.toField(), circuitsWasm);
-        senderStorageSlot = computeSlotForMapping(new Fr(6n), Fr.fromBuffer(sender.toBuffer()), circuitsWasm);
+        recipientStorageSlot = computeSlotForMapping(new Fr(6n), recipient.toField());
+        senderStorageSlot = computeSlotForMapping(new Fr(6n), Fr.fromBuffer(sender.toBuffer()));
 
         publicContracts.getBytecode.mockResolvedValue(Buffer.from(transferArtifact.bytecode, 'base64'));
 
@@ -298,14 +292,12 @@ describe('ACIR public execution simulator', () => {
     let functionData: FunctionData;
     let amount: Fr;
     let params: Fr[];
-    let wasm: CircuitsWasm;
 
-    beforeEach(async () => {
+    beforeEach(() => {
       contractAddress = AztecAddress.random();
       functionData = new FunctionData(FunctionSelector.empty(), false, false, false);
       amount = new Fr(1);
       params = [amount, new Fr(1)];
-      wasm = await CircuitsWasm.get();
     });
 
     it('Should be able to create a commitment from the public context', async () => {
@@ -335,9 +327,9 @@ describe('ACIR public execution simulator', () => {
       // Assert the commitment was created
       expect(result.newCommitments.length).toEqual(1);
 
-      const expectedNoteHash = pedersenHashInputs(wasm, [amount.toBuffer(), secretHash.toBuffer()]);
+      const expectedNoteHash = pedersenHashInputs([amount.toBuffer(), secretHash.toBuffer()]);
       const storageSlot = new Fr(5); // for pending_shields
-      const expectedInnerNoteHash = pedersenHashInputs(wasm, [storageSlot.toBuffer(), expectedNoteHash]);
+      const expectedInnerNoteHash = pedersenHashInputs([storageSlot.toBuffer(), expectedNoteHash]);
       expect(result.newCommitments[0].toBuffer()).toEqual(expectedInnerNoteHash);
     });
 
@@ -365,10 +357,7 @@ describe('ACIR public execution simulator', () => {
       // Assert the l2 to l1 message was created
       expect(result.newL2ToL1Messages.length).toEqual(1);
 
-      const expectedNewMessageValue = pedersenHashInputs(
-        wasm,
-        params.map(a => a.toBuffer()),
-      );
+      const expectedNewMessageValue = pedersenHashInputs(params.map(a => a.toBuffer()));
       expect(result.newL2ToL1Messages[0].toBuffer()).toEqual(expectedNewMessageValue);
     });
 
@@ -452,10 +441,7 @@ describe('ACIR public execution simulator', () => {
       // Assert the l2 to l1 message was created
       expect(result.newNullifiers.length).toEqual(1);
 
-      const expectedNewMessageValue = pedersenHashInputs(
-        wasm,
-        params.map(a => a.toBuffer()),
-      );
+      const expectedNewMessageValue = pedersenHashInputs(params.map(a => a.toBuffer()));
       expect(result.newNullifiers[0].toBuffer()).toEqual(expectedNewMessageValue);
     });
   });

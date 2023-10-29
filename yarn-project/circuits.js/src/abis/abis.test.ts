@@ -27,13 +27,13 @@ describe('abis wasm bindings', () => {
 
   it('hashes a tx request', () => {
     const txRequest = makeTxRequest();
-    const hash = hashTxRequest(wasm, txRequest);
+    const hash = hashTxRequest(txRequest);
     expect(hash).toMatchSnapshot();
   });
 
   it('computes a function selector', () => {
     const funcSig = 'transfer(address,uint256)';
-    const res = computeFunctionSelector(wasm, funcSig);
+    const res = computeFunctionSelector(funcSig);
     expect(res).toMatchSnapshot();
   });
 
@@ -45,7 +45,7 @@ describe('abis wasm bindings', () => {
 
   it('computes a function leaf', () => {
     const leaf = new FunctionLeafPreimage(new FunctionSelector(7837), false, true, Fr.ZERO, Fr.ZERO);
-    const res = computeFunctionLeaf(wasm, leaf);
+    const res = computeFunctionLeaf(leaf);
     expect(res).toMatchSnapshot();
   });
 
@@ -58,7 +58,7 @@ describe('abis wasm bindings', () => {
     const functionData = new FunctionData(FunctionSelector.empty(), false, true, true);
     const argsHash = new Fr(42);
     const vkHash = Buffer.alloc(32);
-    const res = hashConstructor(wasm, functionData, argsHash, vkHash);
+    const res = hashConstructor(functionData, argsHash, vkHash);
     expect(res).toMatchSnapshot();
   });
 
@@ -67,59 +67,59 @@ describe('abis wasm bindings', () => {
     const contractAddrSalt = new Fr(2n);
     const treeRoot = new Fr(3n);
     const constructorHash = new Fr(4n);
-    const res = computeCompleteAddress(wasm, deployerPubKey, contractAddrSalt, treeRoot, constructorHash);
+    const res = computeCompleteAddress(deployerPubKey, contractAddrSalt, treeRoot, constructorHash);
     expect(res).toMatchSnapshot();
   });
 
   it('computes commitment nonce', () => {
     const nullifierZero = new Fr(123n);
     const commitmentIndex = 456;
-    const res = computeCommitmentNonce(wasm, nullifierZero, commitmentIndex);
+    const res = computeCommitmentNonce(nullifierZero, commitmentIndex);
     expect(res).toMatchSnapshot();
   });
 
   it('computes unique commitment', () => {
     const nonce = new Fr(123n);
     const innerCommitment = new Fr(456);
-    const res = computeUniqueCommitment(wasm, nonce, innerCommitment);
+    const res = computeUniqueCommitment(nonce, innerCommitment);
     expect(res).toMatchSnapshot();
   });
 
   it('computes siloed commitment', () => {
     const contractAddress = new AztecAddress(new Fr(123n).toBuffer());
     const uniqueCommitment = new Fr(456);
-    const res = siloCommitment(wasm, contractAddress, uniqueCommitment);
+    const res = siloCommitment(contractAddress, uniqueCommitment);
     expect(res).toMatchSnapshot();
   });
 
   it('computes siloed nullifier', () => {
     const contractAddress = new AztecAddress(new Fr(123n).toBuffer());
     const innerNullifier = new Fr(456);
-    const res = siloNullifier(wasm, contractAddress, innerNullifier);
+    const res = siloNullifier(contractAddress, innerNullifier);
     expect(res).toMatchSnapshot();
   });
 
   it('computes contract leaf', () => {
     const cd = new NewContractData(makeAztecAddress(), makeEthAddress(), new Fr(3n));
-    const res = computeContractLeaf(wasm, cd);
+    const res = computeContractLeaf(cd);
     expect(res).toMatchSnapshot();
   });
 
-  it('hashes empty function args', async () => {
-    const res = await computeVarArgsHash(wasm, []);
+  it('hashes empty function args', () => {
+    const res = computeVarArgsHash([]);
     expect(res).toMatchSnapshot();
   });
 
-  it('hashes function args', async () => {
+  it('hashes function args', () => {
     // const args = Array.from({ length: 8 }).map((_, i) => new Fr(i));
     const args = times(8, i => new Fr(i));
-    const res = await computeVarArgsHash(wasm, args);
+    const res = computeVarArgsHash(args);
     expect(res).toMatchSnapshot();
   });
 
-  it('hashes many function args', async () => {
+  it('hashes many function args', () => {
     const args = times(200, i => new Fr(i));
-    const res = await computeVarArgsHash(wasm, args);
+    const res = computeVarArgsHash(args);
     expect(res).toMatchSnapshot();
   });
 });

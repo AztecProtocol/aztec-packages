@@ -58,44 +58,13 @@ function wasmSyncCall(
 }
 
 /**
- * Writes input buffers to wasm memory, calls a wasm function, and returns the output buffer.
- * @param wasm - A module providing low-level wasm access.
- * @param fnName - The name of the function to call.
- * @param inputBuffers - Buffers to write to wasm memory.
- * @param expectedOutputLength - The expected length of the output buffer.
- * @returns The output buffer.
- */
-// function inputBuffersToOutputBuffer(
-//   wasm: IWasmModule,
-//   fnName: string,
-//   inputBuffers: Buffer[],
-//   expectedOutputLength: number,
-// ) {
-//   const offsets: number[] = [];
-//   const totalLength = inputBuffers.reduce((total, cur) => {
-//     offsets.push(total);
-//     return total + cur.length;
-//   }, 0);
-
-//   const outputBuf = wasm.call('bbmalloc', expectedOutputLength);
-//   const inputBuf = wasm.call('bbmalloc', totalLength);
-//   wasm.writeMemory(inputBuf, Buffer.concat(inputBuffers));
-//   const args = offsets.map(offset => inputBuf + offset);
-//   wasm.call(fnName, ...args, outputBuf);
-//   const output = Buffer.from(wasm.getMemorySlice(outputBuf, outputBuf + expectedOutputLength));
-//   wasm.call('bbfree', inputBuf);
-//   wasm.call('bbfree', outputBuf);
-//   return output;
-// }
-
-/**
  * Computes a hash of a transaction request.
  * @param wasm - A module providing low-level wasm access.
  * @param txRequest - The transaction request.
  * @returns The hash of the transaction request.
  */
-export function hashTxRequest(wasm: IWasmModule, txRequest: TxRequest): Buffer {
-  return computeTxHash(wasm, txRequest).toBuffer();
+export function hashTxRequest(txRequest: TxRequest): Buffer {
+  return computeTxHash(txRequest).toBuffer();
 }
 
 /**
@@ -104,7 +73,7 @@ export function hashTxRequest(wasm: IWasmModule, txRequest: TxRequest): Buffer {
  * @param funcSig - The function signature.
  * @returns The function selector.
  */
-export function computeFunctionSelector(wasm: IWasmModule, funcSig: string): Buffer {
+export function computeFunctionSelector(funcSig: string): Buffer {
   return keccak(Buffer.from(funcSig)).subarray(0, FUNCTION_SELECTOR_NUM_BYTES);
 }
 
@@ -124,7 +93,7 @@ export function hashVK(wasm: IWasmModule, vkBuf: Buffer) {
  * @param fnLeaf - The function leaf preimage.
  * @returns The function leaf.
  */
-export function computeFunctionLeaf(wasm: IWasmModule, fnLeaf: FunctionLeafPreimage): Fr {
+export function computeFunctionLeaf(fnLeaf: FunctionLeafPreimage): Fr {
   return Fr.fromBuffer(
     pedersenHashWithHashIndex(
       [
@@ -159,12 +128,7 @@ export function computeFunctionTreeRoot(wasm: IWasmModule, fnLeaves: Fr[]) {
  * @param constructorVKHash - Hash of the constructor's verification key.
  * @returns The constructor hash.
  */
-export function hashConstructor(
-  wasm: IWasmModule,
-  functionData: FunctionData,
-  argsHash: Fr,
-  constructorVKHash: Buffer,
-): Fr {
+export function hashConstructor(functionData: FunctionData, argsHash: Fr, constructorVKHash: Buffer): Fr {
   return Fr.fromBuffer(
     pedersenHashWithHashIndex(
       [computeFunctionDataHash(functionData).toBuffer(), argsHash.toBuffer(), constructorVKHash],
@@ -183,7 +147,6 @@ export function hashConstructor(
  * @returns The complete address.
  */
 export function computeCompleteAddress(
-  wasm: IWasmModule,
   deployerPubKey: PublicKey,
   contractAddrSalt: Fr,
   fnTreeRoot: Fr,
@@ -191,7 +154,7 @@ export function computeCompleteAddress(
 ): CompleteAddress {
   const partialAddress = computePartialAddress(contractAddrSalt, fnTreeRoot, constructorHash);
   return new CompleteAddress(
-    computeContractAddressFromPartial(wasm, deployerPubKey, partialAddress),
+    computeContractAddressFromPartial(deployerPubKey, partialAddress),
     deployerPubKey,
     partialAddress,
   );
@@ -223,11 +186,7 @@ function computePartialAddress(contractAddrSalt: Fr, fnTreeRoot: Fr, constructor
  * @param constructorHash - The hash of the constructor.
  * @returns The partially constructed contract address.
  */
-export function computeContractAddressFromPartial(
-  wasm: IWasmModule,
-  pubKey: PublicKey,
-  partialAddress: Fr,
-): AztecAddress {
+export function computeContractAddressFromPartial(pubKey: PublicKey, partialAddress: Fr): AztecAddress {
   const result = pedersenHashWithHashIndex(
     [pubKey.x.toBuffer(), pubKey.y.toBuffer(), partialAddress.toBuffer()],
     GeneratorIndex.CONTRACT_ADDRESS,
@@ -242,7 +201,7 @@ export function computeContractAddressFromPartial(
  * @param commitmentIndex - The index of the commitment.
  * @returns A commitment nonce.
  */
-export function computeCommitmentNonce(wasm: IWasmModule, nullifierZero: Fr, commitmentIndex: number): Fr {
+export function computeCommitmentNonce(nullifierZero: Fr, commitmentIndex: number): Fr {
   return Fr.fromBuffer(
     pedersenHashWithHashIndex(
       [nullifierZero.toBuffer(), numToUInt32BE(commitmentIndex, 32)],
@@ -259,7 +218,7 @@ export function computeCommitmentNonce(wasm: IWasmModule, nullifierZero: Fr, com
  * @param innerCommitment - The commitment to silo.
  * @returns A siloed commitment.
  */
-export function siloCommitment(wasm: IWasmModule, contract: AztecAddress, innerCommitment: Fr): Fr {
+export function siloCommitment(contract: AztecAddress, innerCommitment: Fr): Fr {
   return Fr.fromBuffer(
     pedersenHashWithHashIndex([contract.toBuffer(), innerCommitment.toBuffer()], GeneratorIndex.SILOED_COMMITMENT),
   );
@@ -272,7 +231,7 @@ export function siloCommitment(wasm: IWasmModule, contract: AztecAddress, innerC
  * @param siloedCommitment - An siloed commitment.
  * @returns A unique commitment.
  */
-export function computeUniqueCommitment(wasm: IWasmModule, nonce: Fr, siloedCommitment: Fr): Fr {
+export function computeUniqueCommitment(nonce: Fr, siloedCommitment: Fr): Fr {
   return Fr.fromBuffer(
     pedersenHashWithHashIndex([nonce.toBuffer(), siloedCommitment.toBuffer()], GeneratorIndex.UNIQUE_COMMITMENT),
   );
@@ -286,7 +245,7 @@ export function computeUniqueCommitment(wasm: IWasmModule, nonce: Fr, siloedComm
  * @param innerNullifier - The nullifier to silo.
  * @returns A siloed nullifier.
  */
-export function siloNullifier(wasm: IWasmModule, contract: AztecAddress, innerNullifier: Fr): Fr {
+export function siloNullifier(contract: AztecAddress, innerNullifier: Fr): Fr {
   return Fr.fromBuffer(
     pedersenHashWithHashIndex([contract.toBuffer(), innerNullifier.toBuffer()], GeneratorIndex.OUTER_NULLIFIER),
   );
@@ -304,7 +263,6 @@ export function siloNullifier(wasm: IWasmModule, contract: AztecAddress, innerNu
  * @returns The block hash.
  */
 export function computeBlockHashWithGlobals(
-  wasm: IWasmModule,
   globals: GlobalVariables,
   noteHashTreeRoot: Fr,
   nullifierTreeRoot: Fr,
@@ -313,7 +271,6 @@ export function computeBlockHashWithGlobals(
   publicDataTreeRoot: Fr,
 ): Fr {
   return computeBlockHash(
-    wasm,
     computeGlobalsHash(globals),
     noteHashTreeRoot,
     nullifierTreeRoot,
@@ -335,7 +292,6 @@ export function computeBlockHashWithGlobals(
  * @returns The block hash.
  */
 export function computeBlockHash(
-  wasm: IWasmModule,
   globalsHash: Fr,
   noteHashTreeRoot: Fr,
   nullifierTreeRoot: Fr,
@@ -385,7 +341,7 @@ export function computeGlobalsHash(globals: GlobalVariables): Fr {
  * @returns Value hash into a tree-insertion-ready value.
 
  */
-export function computePublicDataTreeValue(wasm: IWasmModule, value: Fr): Fr {
+export function computePublicDataTreeValue(value: Fr): Fr {
   return value;
 }
 
@@ -397,7 +353,7 @@ export function computePublicDataTreeValue(wasm: IWasmModule, value: Fr): Fr {
  * @returns Public data tree index computed from contract address and storage slot.
 
  */
-export function computePublicDataTreeIndex(wasm: IWasmModule, contractAddress: AztecAddress, storageSlot: Fr): Fr {
+export function computePublicDataTreeIndex(contractAddress: AztecAddress, storageSlot: Fr): Fr {
   return Fr.fromBuffer(
     pedersenHashWithHashIndex([contractAddress.toBuffer(), storageSlot.toBuffer()], GeneratorIndex.PUBLIC_LEAF_INDEX),
   );
@@ -412,8 +368,8 @@ const ARGS_HASH_CHUNK_COUNT = 16;
  * @param args - Arguments to hash.
  * @returns Pedersen hash of the arguments.
  */
-export function computeVarArgsHash(wasm: IWasmModule, args: Fr[]): Promise<Fr> {
-  if (args.length === 0) return Promise.resolve(Fr.ZERO);
+export function computeVarArgsHash(args: Fr[]) {
+  if (args.length === 0) return Fr.ZERO;
   if (args.length > ARGS_HASH_CHUNK_SIZE * ARGS_HASH_CHUNK_COUNT)
     throw new Error(`Cannot hash more than ${ARGS_HASH_CHUNK_SIZE * ARGS_HASH_CHUNK_COUNT} arguments`);
 
@@ -436,7 +392,7 @@ export function computeVarArgsHash(wasm: IWasmModule, args: Fr[]): Promise<Fr> {
     chunksHashes = padArrayEnd(chunksHashes, Fr.ZERO, ARGS_HASH_CHUNK_COUNT);
   }
 
-  return Promise.resolve(wasmComputeVarArgs(chunksHashes));
+  return wasmComputeVarArgs(chunksHashes);
 }
 
 /**
@@ -445,7 +401,7 @@ export function computeVarArgsHash(wasm: IWasmModule, args: Fr[]): Promise<Fr> {
  * @param cd - The contract data of the deployed contract.
  * @returns The contract leaf.
  */
-export function computeContractLeaf(wasm: IWasmModule, cd: NewContractData): Fr {
+export function computeContractLeaf(cd: NewContractData): Fr {
   return Fr.fromBuffer(
     pedersenHashWithHashIndex(
       [cd.contractAddress.toBuffer(), cd.portalContractAddress.toBuffer(), cd.functionTreeRoot.toBuffer()],
@@ -460,7 +416,7 @@ export function computeContractLeaf(wasm: IWasmModule, cd: NewContractData): Fr 
  * @param txRequest - The signed transaction request.
  * @returns The transaction hash.
  */
-export function computeTxHash(wasm: IWasmModule, txRequest: TxRequest): Fr {
+export function computeTxHash(txRequest: TxRequest): Fr {
   return Fr.fromBuffer(
     pedersenHashWithHashIndex(
       [
@@ -595,6 +551,6 @@ export function computePublicCallStackItemHash(wasm: IWasmModule, callStackItem:
  * @param secretMessage - The secret message.
  * @returns
  */
-export function computeSecretMessageHash(wasm: IWasmModule, secretMessage: Fr) {
+export function computeSecretMessageHash(secretMessage: Fr) {
   return Fr.fromBuffer(pedersenHashWithHashIndex([secretMessage.toBuffer()], GeneratorIndex.L1_TO_L2_MESSAGE_SECRET));
 }
