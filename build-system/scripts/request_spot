@@ -110,6 +110,11 @@ done
 
 # Wait till ssh port is open.
 >&2 echo "Waiting for SSH at $IP..."
-while ! nc -z $IP 22; do sleep 1; done;
-
-echo $IP
+for I in {1..60}; do
+  if nc -z $IP 22; then
+    echo $IP
+    exit 0
+  fi
+  sleep 1
+done
+exit 1

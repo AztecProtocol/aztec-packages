@@ -23,7 +23,7 @@ function on_exit {
 trap on_exit EXIT
 
 # Get spot instance.
-IP=$(request_spot $CONTENT_HASH:$JOB_NAME $CPUS)
+IP=$(retry request_spot $CONTENT_HASH:$JOB_NAME $CPUS)
 
 # Run script remotely on spot instance, capturing success or failure.
 set +e
