@@ -2,9 +2,7 @@
 #include "../commitment_key.test.hpp"
 #include "barretenberg/honk/transcript/transcript.hpp"
 
-#include <cstddef>
 #include <gtest/gtest.h>
-#include <vector>
 
 namespace proof_system::honk::pcs::zeromorph {
 
@@ -407,8 +405,8 @@ template <class Curve> class ZeroMorphWithConcatenationTest : public CommitmentT
                 batched_quotient, quotients, y_challenge, x_challenge);
 
             // Compute ZeroMorph identity polynomial Z partially evaluated at x
-            auto Z_x = ZeroMorphProver::compute_partially_evaluated_zeromorph_identity_polynomial_with_concatenations(
-                f_batched, g_batched, concatenation_groups_batched, quotients, v_evaluation, u_challenge, x_challenge);
+            auto Z_x = ZeroMorphProver::compute_partially_evaluated_zeromorph_identity_polynomial(
+                f_batched, g_batched, quotients, v_evaluation, u_challenge, x_challenge, concatenation_groups_batched);
 
             // Compute batched degree and ZM-identity quotient polynomial pi
             auto pi_polynomial = ZeroMorphProver::compute_batched_evaluation_and_degree_check_quotient(
@@ -462,14 +460,14 @@ template <class Curve> class ZeroMorphWithConcatenationTest : public CommitmentT
             auto C_zeta_x = ZeroMorphVerifier::compute_C_zeta_x(C_q, C_q_k, y_challenge, x_challenge);
 
             // Compute commitment C_{Z_x}
-            Commitment C_Z_x = ZeroMorphVerifier::compute_C_Z_x_with_concatenations(f_commitments,
-                                                                                    g_commitments,
-                                                                                    concatenation_groups_commitments,
-                                                                                    C_q_k,
-                                                                                    rho,
-                                                                                    v_evaluation,
-                                                                                    x_challenge,
-                                                                                    u_challenge);
+            Commitment C_Z_x = ZeroMorphVerifier::compute_C_Z_x(f_commitments,
+                                                                g_commitments,
+                                                                C_q_k,
+                                                                rho,
+                                                                v_evaluation,
+                                                                x_challenge,
+                                                                u_challenge,
+                                                                concatenation_groups_commitments);
 
             // Compute commitment C_{\zeta,Z}
             auto C_zeta_Z = C_zeta_x + C_Z_x * z_challenge;
