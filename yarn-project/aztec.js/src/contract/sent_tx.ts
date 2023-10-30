@@ -61,7 +61,7 @@ export class SentTx {
    * @returns The transaction receipt.
    */
   public async wait(opts?: WaitOpts): Promise<FieldsOf<TxReceipt>> {
-    if (opts?.getNotes && !opts.waitForNotesSync) {
+    if (opts?.getNotes && opts.waitForNotesSync === false) {
       throw new Error('Cannot set getNotes to true if waitForNotesSync is false');
     }
     const receipt = await this.waitForReceipt(opts);
