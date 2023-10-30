@@ -165,10 +165,4 @@ DOCKER_CMD="$DOCKER_PATH run \
   $DOCKER_VOLUME \
   $CLI_IMAGE:$CLI_VERSION $@ $AZTEC_CLI_EXTRA_ARGS"
 
-if [ ! -z "${DEBUG:-}" ]; then
-  echo "----"
-  echo $DOCKER_CMD
-  echo "----"
-fi
-
 eval "$DOCKER_CMD"
