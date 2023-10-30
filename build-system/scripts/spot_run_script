@@ -14,15 +14,17 @@ shift 2
 
 # On any sort of exit (error or not).
 function on_exit {
+    set +e
+
     if [ -n "$IP" ]; then
         echo "Terminating spot instance..."
-        ssh -F $SSH_CONFIG_PATH $IP sudo halt -p
+        ssh -F $SSH_CONFIG_PATH $IP sudo halt -p > /dev/null 2>&1
     fi
 
     # Kill spot request so it doesn't count against quota.
     if [ -f "sir-$CONTENT_HASH:$JOB_NAME.txt" ]; then
         SIR=$(cat sir-$CONTENT_HASH:$JOB_NAME.txt)
-        echo "Cancelling spot instance request $SIR (silently)"
+        echo "Cancelling spot instance request $SIR..."
         aws ec2 cancel-spot-instance-requests --spot-instance-request-ids $SIR >/dev/null 2>&1 || true
     fi
 }
