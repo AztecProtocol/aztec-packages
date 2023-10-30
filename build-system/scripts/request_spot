@@ -24,7 +24,7 @@ INSTANCE_TYPE_SUFFIX=${cpu_map[$CPUS]}
 
 # Check if INSTANCE_TYPE_SUFFIX is set, if not, the CPU count is not recognized.
 if [ -z "$INSTANCE_TYPE_SUFFIX" ]; then
-  echo "Unrecognized CPU count: $CPUS"
+  >&2 echo "Unrecognized CPU count: $CPUS"
   exit 1
 fi
 
