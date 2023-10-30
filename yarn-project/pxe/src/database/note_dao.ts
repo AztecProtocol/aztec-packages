@@ -83,9 +83,8 @@ export class NoteDao {
    * @returns - Its size in bytes.
    */
   public getSize() {
-    // TODO: update
-    // 7 fields + 1 bigint + 1 buffer size (4 bytes) + 1 buffer
     const indexSize = Math.ceil(Math.log2(Number(this.index)));
-    return this.note.items.length * Fr.SIZE_IN_BYTES + 7 * Fr.SIZE_IN_BYTES + 4 + indexSize;
+    const noteSize = 4 + this.note.items.length * Fr.SIZE_IN_BYTES;
+    return noteSize + AztecAddress.SIZE_IN_BYTES + Fr.SIZE_IN_BYTES * 4 + TxHash.SIZE + Point.SIZE_IN_BYTES + indexSize;
   }
 }
