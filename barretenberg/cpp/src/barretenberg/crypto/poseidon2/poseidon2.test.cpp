@@ -30,8 +30,8 @@ TEST(Poseidon2, BasicTests)
 }
 
 // N.B. these hardcoded values were extracted from the algorithm being tested. These are NOT independent test vectors!
-// TODO(@zac-williamson): find independent test vectors we can compare against! (very hard to find given flexibility of
-// Poseidon's parametrisation)
+// TODO(@zac-williamson #3132): find independent test vectors we can compare against! (very hard to find given
+// flexibility of Poseidon's parametrisation)
 TEST(Poseidon2, ConsistencyCheck)
 {
     barretenberg::fr a(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789"));

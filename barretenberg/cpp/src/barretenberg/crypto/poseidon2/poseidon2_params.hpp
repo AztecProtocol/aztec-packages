@@ -12,6 +12,8 @@ struct Poseidon2Bn254ScalarFieldParams {
     static constexpr size_t rounds_p = 56;
     static constexpr size_t sbox_size = 254;
 
+    // generated in `poseidon2_derive_params.hpp`. N.B. does not use the method outlined in the poseidon2 paper
+    // (requires implementation of some extra 3rd party crypto). May need to change for #3132
     static constexpr std::array<std::array<FF, t>, rounds_f + rounds_p> round_constants{
         std::array<FF, t>{
             FF(std::string("0x15eea6dca2b448bd09150227f045553c94d4cd0502e0c5a24c588fe3e311fa67")),
@@ -399,6 +401,8 @@ struct Poseidon2Bn254ScalarFieldParams {
         },
     };
 
+    // generated in `poseidon2_derive_params.hpp`. N.B. does not use the method outlined in the poseidon2 paper
+    // (requires implementation of some extra 3rd party crypto). May need to change for #3132
     static constexpr std::array<FF, t> internal_matrix_diagonal = {
         FF(std::string("0x056015c21fd75936e34c48b67888855f0ee8b5e54e173d7125251ec6e81957bd")),
         FF(std::string("0x056015c21fd75936e34c48b67888855f0ee8b5e54e173d7125251ec6e81957bd")),
