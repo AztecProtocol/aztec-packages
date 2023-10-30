@@ -84,7 +84,7 @@ resource "aws_ecs_task_definition" "aztec-faucet" {
 [
   {
     "name": "${var.DEPLOY_TAG}-aztec-faucet",
-    "image": "${var.ECR_URL}/aztec-faucet:aztec3-packages-prod",
+    "image": "${var.ECR_URL}/aztec-faucet:${var.DEPLOY_TAG}",
     "essential": true,
     "memoryReservation": 3776,
     "portMappings": [

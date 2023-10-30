@@ -117,8 +117,8 @@ resource "aws_ecs_task_definition" "aztec_mainnet_fork" {
   container_definitions = <<DEFINITION
 [
   {
-    "name": "aztec-network-mainnet-fork",
-    "image": "${var.ECR_URL}/aztec-mainnet-fork:aztec3-packages-prod",
+    "name": "${var.DEPLOY_TAG}-mainnet-fork",
+    "image": "${var.ECR_URL}/aztec-mainnet-fork:${var.DEPLOY_TAG}",
     "essential": true,
     "environment": [
       {

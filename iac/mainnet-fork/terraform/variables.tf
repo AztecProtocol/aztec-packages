@@ -13,3 +13,7 @@ variable "FORK_API_KEY" {
 variable "ECR_URL" {
   type = string
 }
+
+variable "DEPLOY_TAG" {
+  type = string
+}
