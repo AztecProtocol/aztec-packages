@@ -43,5 +43,5 @@ export interface StateInfoProvider {
    * @param leafIndex - Index of the leaf in the tree.
    * @returns The sibling path.
    */
-  getL1ToL2MessagesSiblingPath(leafIndex: bigint): Promise<SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>>;
+  getL1ToL2MessageSiblingPath(leafIndex: bigint): Promise<SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>>;
 }
