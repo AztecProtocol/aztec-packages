@@ -70,6 +70,22 @@ export class SimulatorOracle implements DBOracle {
     };
   }
 
+  async getFunctionArtifactByName(
+    contractAddress: AztecAddress,
+    functionName: string,
+  ): Promise<FunctionArtifactWithDebugMetadata | undefined> {
+    const artifact = await this.contractDataOracle.getFunctionArtifactByName(contractAddress, functionName);
+    if (!artifact) {
+      return;
+    }
+
+    const debug = await this.contractDataOracle.getFunctionDebugMetadata(contractAddress, artifact.selector);
+    return {
+      ...artifact,
+      debug,
+    };
+  }
+
   async getPortalContractAddress(contractAddress: AztecAddress): Promise<EthAddress> {
     return await this.contractDataOracle.getPortalContractAddress(contractAddress);
   }
@@ -86,7 +102,7 @@ export class SimulatorOracle implements DBOracle {
     const messageAndIndex = await this.stateInfoProvider.getL1ToL2MessageAndIndex(msgKey);
     const message = messageAndIndex.message.toFieldArray();
     const index = messageAndIndex.index;
-    const siblingPath = await this.stateInfoProvider.getL1ToL2MessagesTreePath(index);
+    const siblingPath = await this.stateInfoProvider.getL1ToL2MessageSiblingPath(index);
     return {
       message,
       siblingPath: siblingPath.toFieldArray(),
