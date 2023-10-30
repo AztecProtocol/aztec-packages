@@ -11,7 +11,7 @@ if [[ -f "$PWD/node_modules/.bin/aztec-cli" ]]; then
 elif command -v npm &> /dev/null; then
   # next look for a global install
   # e.g. if user has run `npm install -g @aztec/cli` after playing with the cli in dockerized form
-  GLOBAL_NPM_BIN_DIR=$(npm --global bin)
+  GLOBAL_NPM_BIN_DIR=$(npm --global prefix)/bin
   if [[ -f "$GLOBAL_NPM_BIN_DIR/aztec-cli" ]]; then
     "$GLOBAL_NPM_BIN_DIR/aztec-cli" $@
     exit 0
