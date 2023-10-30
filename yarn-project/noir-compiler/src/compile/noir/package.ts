@@ -1,7 +1,7 @@
 import { NoirDependencyConfig, NoirPackageConfig, parseNoirPackageConfig } from '@aztec/foundation/noir';
 
+import { parse } from '@ltd/j-toml';
 import { join } from 'node:path';
-import { parse as parseToml } from 'toml';
 
 import { FileManager } from './file-manager/file-manager.js';
 
@@ -79,7 +79,7 @@ export class NoirPackage {
    */
   public static open(path: string, fm: FileManager): NoirPackage {
     const fileContents = fm.readFileSync(join(path, CONFIG_FILE_NAME), 'utf-8');
-    const config = parseNoirPackageConfig(parseToml(fileContents));
+    const config = parseNoirPackageConfig(parse(fileContents));
 
     return new NoirPackage(path, join(path, 'src'), config);
   }
