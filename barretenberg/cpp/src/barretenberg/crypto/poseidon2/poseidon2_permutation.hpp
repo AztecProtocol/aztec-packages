@@ -11,18 +11,32 @@
 
 namespace crypto {
 
+/**
+ * @brief Applies the Poseidon2 permutation function from https://eprint.iacr.org/2023/323 .
+ * This algorithm was implemented using https://github.com/HorizenLabs/poseidon2 as a reference.
+ *
+ * @tparam Params
+ */
 template <typename Params> class Poseidon2Permutation {
   public:
-    // todo make parameters configurable?
+    // t = sponge permutation size (in field elements)
+    // t = rate + capacity
+    // capacity = 1 field element (256 bits)
+    // rate = number of field elements that can be compressed per permutation
     static constexpr size_t t = Params::t;
+    // d = degree of s-box polynomials. For a given field, `d` is the smallest element of `p` such that gdc(d, p - 1) =
+    // 1 (excluding 1) For bn254/grumpkin, d = 5
     static constexpr size_t d = Params::d;
-    static constexpr size_t sbox_size = Params::sbox_size; // logp
+    // sbox size = number of bits in p
+    static constexpr size_t sbox_size = Params::sbox_size;
+    // number of full sbox rounds
     static constexpr size_t rounds_f = Params::rounds_f;
+    // number of partial sbox rounds
     static constexpr size_t rounds_p = Params::rounds_p;
     static constexpr size_t NUM_ROUNDS = Params::rounds_f + Params::rounds_p;
 
     using FF = typename Params::FF;
-    using State = std::vector<FF>;
+    using State = std::array<FF, t>;
     using RoundConstants = std::array<FF, t>;
     using MatrixDiagonal = std::array<FF, t>;
     using RoundConstantsContainer = std::array<RoundConstants, NUM_ROUNDS>;
@@ -30,7 +44,6 @@ template <typename Params> class Poseidon2Permutation {
     static constexpr MatrixDiagonal internal_matrix_diagonal =
         Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal;
     static constexpr RoundConstantsContainer round_constants = Poseidon2Bn254ScalarFieldParams::round_constants;
-    // derive_round_constants();
 
     static constexpr void matrix_multiplication_4x4(State& input)
     {
