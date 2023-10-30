@@ -151,17 +151,29 @@ template <typename Curve> class IPA {
         auto pippenger_size = 2 * log_poly_degree;
         std::vector<Fr> round_challenges(log_poly_degree);
         std::vector<Fr> round_challenges_inv(log_poly_degree);
+        std::vector<Commitment> elements_L(log_poly_degree);
+        std::vector<Commitment> elements_R(log_poly_degree);
         std::vector<Commitment> msm_elements(pippenger_size);
         std::vector<Fr> msm_scalars(pippenger_size);
+
         for (size_t i = 0; i < log_poly_degree; i++) {
             std::string index = std::to_string(i);
             auto element_L = transcript.template receive_from_prover<Commitment>("IPA:L_" + index);
             auto element_R = transcript.template receive_from_prover<Commitment>("IPA:R_" + index);
-            round_challenges[i] = transcript.get_challenge("IPA:round_challenge_" + index);
-            round_challenges_inv[i] = round_challenges[i].invert();
+            elements_L[i] = element_L;
+            elements_R[i] = element_R;
 
-            msm_elements[2 * i] = element_L;
-            msm_elements[2 * i + 1] = element_R;
+            round_challenges[i] = transcript.get_challenge("IPA:round_challenge_" + index);
+            round_challenges_inv[i] = round_challenges[i];
+        }
+
+        Fr::batch_invert(round_challenges_inv);
+
+        for (size_t i = 0; i < log_poly_degree; i++) {
+            std::string index = std::to_string(i);
+
+            msm_elements[2 * i] = elements_L[i];
+            msm_elements[2 * i + 1] = elements_R[i];
             msm_scalars[2 * i] = round_challenges[i].sqr();
             msm_scalars[2 * i + 1] = round_challenges_inv[i].sqr();
         }
