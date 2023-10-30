@@ -64,27 +64,27 @@ contract Test {
     // Note; this function is deliberately NOT annotated with #[aztec(private)] due to its use in tests
     fn test_code_gen(
         inputs: PrivateContextInputs,
-        aField: Field,
-        aBool: bool,
-        aNumber: u32,
-        anArray: [Field; 2],
-        aStruct: DummyNote,
-        aDeepStruct: DeepStruct,
+        a_field: Field,
+        a_bool: bool,
+        a_number: u32,
+        an_array: [Field; 2],
+        a_struct: DummyNote,
+        a_deep_struct: DeepStruct,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let mut args: BoundedVec<Field, 17> = BoundedVec::new(0);
-        args.push(aField);
-        args.push(aBool as Field);
-        args.push(aNumber as Field);
-        args.push_array(anArray);
-        args.push(aStruct.amount);
-        args.push(aStruct.secretHash);
-        args.push(aDeepStruct.aField);
-        args.push(aDeepStruct.aBool as Field);
-        args.push(aDeepStruct.aNote.amount);
-        args.push(aDeepStruct.aNote.secretHash);
-        for note in aDeepStruct.manyNotes {
+        args.push(a_field);
+        args.push(a_bool as Field);
+        args.push(a_number as Field);
+        args.push_array(an_array);
+        args.push(a_struct.amount);
+        args.push(a_struct.secret_hash);
+        args.push(a_deep_struct.a_field);
+        args.push(a_deep_struct.a_bool as Field);
+        args.push(a_deep_struct.a_note.amount);
+        args.push(a_deep_struct.a_note.secret_hash);
+        for note in a_deep_struct.many_notes {
             args.push(note.amount);
-            args.push(note.secretHash);            
+            args.push(note.secret_hash);            
         }
         let args_hash = abi::hash_args(args.storage);
         let mut context = PrivateContext::new(inputs, args_hash);
@@ -96,10 +96,10 @@ contract Test {
     #[aztec(public)]
     fn create_l2_to_l1_message_public(
         amount: Field,
-        secretHash: Field,
+        secret_hash: Field,
     ) {
         // Create a commitment to the amount
-        let note = DummyNote::new(amount, secretHash);
+        let note = DummyNote::new(amount, secret_hash);
         
         // Public oracle call to emit new commitment.
         context.message_portal(note.get_commitment());
@@ -110,10 +110,10 @@ contract Test {
     #[aztec(public)]
     fn create_nullifier_public(
         amount: Field,
-        secretHash: Field,
+        secret_hash: Field,
     ) {
         // Create a commitment to the amount
-        let note = DummyNote::new(amount, secretHash);
+        let note = DummyNote::new(amount, secret_hash);
         
         // Public oracle call to emit new commitment.
         context.push_new_nullifier(note.get_commitment(), EMPTY_NULLIFIED_COMMITMENT);
@@ -186,26 +186,26 @@ contract Test {
 
     struct DummyNote {
         amount: Field,
-        secretHash: Field
+        secret_hash: Field
     }
 
     impl DummyNote {
-        fn new(amount: Field, secretHash: Field) -> pub Self {
+        fn new(amount: Field, secret_hash: Field) -> pub Self {
             Self {
                 amount: amount,
-                secretHash: secretHash
+                secret_hash: secret_hash
             }
         }
 
         fn get_commitment(self) -> pub Field {
-            pedersen_hash([self.amount, self.secretHash],0)
+            pedersen_hash([self.amount, self.secret_hash],0)
         }
     }
 
     struct DeepStruct {
-        aField: Field,
-        aBool: bool,
-        aNote: DummyNote,
-        manyNotes: [DummyNote; 3],
+        a_field: Field,
+        a_bool: bool,
+        a_note: DummyNote,
+        many_notes: [DummyNote; 3],
     }
 }
