@@ -14,10 +14,10 @@ export const createTestnetChain = (apiKey: string) => {
     },
     rpcUrls: {
       default: {
-        http: [`https://aztec-connect-testnet-eth-host.aztec.network:8545/${apiKey}`],
+        http: [`https://aztec-network-mainnet-fork.aztec.network.aztec.network:8545/${apiKey}`],
       },
       public: {
-        http: [`https://aztec-connect-testnet-eth-host.aztec.network:8545/${apiKey}`],
+        http: [`https://aztec-network-mainnet-fork.aztec.network.aztec.network:8545/${apiKey}`],
       },
     },
   };

@@ -496,7 +496,7 @@ jobs:
       - *setup_env
       - run:
           name: "Deploy mainnet fork"
-          command: deploy_ecr mainnet-fork
+          command: deploy mainnet-fork
 
   aztec-faucet:
     machine:
@@ -1110,7 +1110,8 @@ defaults: &defaults
     - slack/notify:
         event: fail
         branch_pattern: "master"
-deploy_defaults: &deploy_defaults
+# Config for versioned releases when tagging with e.g. v0.1.0
+release_defaults: &release_defaults
   filters:
     tags:
       only: *tag_regex
@@ -1123,6 +1124,12 @@ deploy_defaults: &deploy_defaults
     - slack/notify:
         event: fail
         branch_pattern: "master"
+# Config for deploying to ECR & Applying terraforms when merging to master
+deploy_defaults: &deploy_defaults
+  filters:
+    branches:
+      only:
+        - master
 e2e_test: &e2e_test
   requires:
     - e2e-join
@@ -1379,6 +1386,11 @@ workflows:
             - guides-up-quick-start
           <<: *defaults
 
+      - deploy-ecr:
+          requires:
+            - e2e-end
+          <<: *deploy_defaults
+
       - bench-summary:
           requires:
             - e2e-end
@@ -1386,55 +1398,51 @@ workflows:
             - bench-process-history
           <<: *defaults
 
-        # Deploy under canary tag
+        # Release under canary tag
       - deploy-npm-canary:
           requires:
             - e2e-end
-          <<: *deploy_defaults
+          <<: *release_defaults
       - deploy-dockerhub-canary:
           requires:
             - e2e-end
-          <<: *deploy_defaults
-      - deploy-ecr:
-          requires:
-            - e2e-end
-          <<: *deploy_defaults
+          <<: *release_defaults
 
       - build-deployment-canary:
           requires:
             - deploy-npm-canary
             - deploy-dockerhub-canary
-          <<: *deploy_defaults
+          <<: *release_defaults
 
       # Run canary tests
       - canary-uniswap-test:
           requires:
             - build-deployment-canary
-          <<: *deploy_defaults
+          <<: *release_defaults
 
       - canary-browser-test:
           requires:
             - build-deployment-canary
-          <<: *deploy_defaults
+          <<: *release_defaults
 
       - canary-cli-test:
           requires:
             - build-deployment-canary
-          <<: *deploy_defaults
+          <<: *release_defaults
 
       - canary-end:
           requires:
             - canary-uniswap-test
             - canary-browser-test
             - canary-cli-test
-          <<: *deploy_defaults
+          <<: *release_defaults
 
         # Production deployment
       - deploy-dockerhub:
           requires:
             - canary-end
-          <<: *deploy_defaults
+          <<: *release_defaults
       - deploy-npm:
           requires:
             - canary-end
-          <<: *deploy_defaults
+          <<: *release_defaults

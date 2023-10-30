@@ -1,6 +1,6 @@
 # Terraform to setup a prototype network of Aztec Nodes in AWS
 # It sets up 2 full nodes with different ports/keys etc.
-# Some duplication across the 2 defined services, could possibly 
+# Some duplication across the 2 defined services, could possibly
 # be refactored to use modules as and when we build out infrastructure for real
 
 
@@ -99,7 +99,7 @@ resource "aws_ecs_task_definition" "aztec-node-1" {
 [
   {
     "name": "${var.DEPLOY_TAG}-aztec-node-1",
-    "image": "${var.ECR_URL}/aztec-node:aztec3-packages-prod",
+    "image": "${var.ECR_URL}/aztec-node:aztec3-packages-${DEPLOY_TAG}",
     "essential": true,
     "memoryReservation": 3776,
     "portMappings": [
@@ -189,7 +189,7 @@ resource "aws_ecs_task_definition" "aztec-node-1" {
       },
       {
         "name": "BOOTSTRAP_NODES",
-        "value": "/dns4/aztec-dev-aztec-bootstrap-2.local/tcp/${var.BOOTNODE_2_LISTEN_PORT}/p2p/${var.BOOTNODE_2_PEER_ID},/dns4/aztec-dev-aztec-bootstrap-1.local/tcp/${var.BOOTNODE_1_LISTEN_PORT}/p2p/${var.BOOTNODE_1_PEER_ID}"
+        "value": "/dns4/${var.DEPLOY_TAG}-aztec-bootstrap-2.local/tcp/${var.BOOTNODE_2_LISTEN_PORT}/p2p/${var.BOOTNODE_2_PEER_ID},/dns4/${var.DEPLOY_TAG}-aztec-bootstrap-1.local/tcp/${var.BOOTNODE_1_LISTEN_PORT}/p2p/${var.BOOTNODE_1_PEER_ID}"
       },
       {
         "name": "P2P_ENABLED",
@@ -400,7 +400,7 @@ resource "aws_ecs_task_definition" "aztec-node-2" {
 [
   {
     "name": "${var.DEPLOY_TAG}-aztec-node-2",
-    "image": "${var.ECR_URL}/aztec-node:aztec3-packages-prod",
+    "image": "${var.ECR_URL}/aztec-node:aztec3-packages-${}",
     "essential": true,
     "memoryReservation": 3776,
     "portMappings": [
@@ -490,7 +490,7 @@ resource "aws_ecs_task_definition" "aztec-node-2" {
       },
       {
         "name": "BOOTSTRAP_NODES",
-        "value": "/dns4/aztec-dev-aztec-bootstrap-2.local/tcp/${var.BOOTNODE_2_LISTEN_PORT}/p2p/${var.BOOTNODE_2_PEER_ID},/dns4/aztec-dev-aztec-bootstrap-1.local/tcp/${var.BOOTNODE_1_LISTEN_PORT}/p2p/${var.BOOTNODE_1_PEER_ID}"
+        "value": "/dns4/${var.DEPLOY_TAG}-aztec-bootstrap-2.local/tcp/${var.BOOTNODE_2_LISTEN_PORT}/p2p/${var.BOOTNODE_2_PEER_ID},/dns4/${var.DEPLOY_TAG}-aztec-bootstrap-1.local/tcp/${var.BOOTNODE_1_LISTEN_PORT}/p2p/${var.BOOTNODE_1_PEER_ID}"
       },
       {
         "name": "P2P_ENABLED",
