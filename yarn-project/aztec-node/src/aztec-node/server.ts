@@ -311,7 +311,7 @@ export class AztecNodeService implements AztecNode {
    * @param leafIndex - The index of the leaf for which the sibling path is required.
    * @returns The sibling path for the leaf index.
    */
-  public async getDataTreePath(leafIndex: bigint): Promise<SiblingPath<typeof NOTE_HASH_TREE_HEIGHT>> {
+  public async getNoteHashTreePath(leafIndex: bigint): Promise<SiblingPath<typeof NOTE_HASH_TREE_HEIGHT>> {
     const committedDb = await this.#getWorldState();
     return committedDb.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, leafIndex);
   }

@@ -24,11 +24,11 @@ export interface StateInfoProvider {
   getContractPath(leafIndex: bigint): Promise<SiblingPath<typeof CONTRACT_TREE_HEIGHT>>;
 
   /**
-   * Returns the sibling path for the given index in the data tree.
+   * Returns the sibling path for the given index in the note hash tree.
    * @param leafIndex - The index of the leaf for which the sibling path is required.
    * @returns The sibling path for the leaf index.
    */
-  getDataTreePath(leafIndex: bigint): Promise<SiblingPath<typeof NOTE_HASH_TREE_HEIGHT>>;
+  getNoteHashTreePath(leafIndex: bigint): Promise<SiblingPath<typeof NOTE_HASH_TREE_HEIGHT>>;
 
   /**
    * Gets a confirmed/consumed L1 to L2 message for the given message key (throws if not found).
