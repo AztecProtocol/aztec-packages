@@ -11,13 +11,11 @@ using namespace numeric;
 TEST(uint256, TestStringConstructors)
 {
     std::string input = "9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789";
-    constexpr std::string_view input2("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789");
-    constexpr std::string_view input3("0x9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789");
     const std::string input4("0x9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789");
 
     const uint256_t result1(input);
-    constexpr uint256_t result2(input2);
-    const uint256_t result3(input3);
+    constexpr uint256_t result2("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789");
+    const uint256_t result3("0x9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789");
     const uint256_t result4(input4);
     constexpr uint256_t expected{
         0xabcdef0123456789,

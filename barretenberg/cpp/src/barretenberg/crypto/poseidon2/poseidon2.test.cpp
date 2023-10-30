@@ -42,7 +42,7 @@ TEST(Poseidon2, ConsistencyCheck)
     std::array<barretenberg::fr, 4> input{ a, b, c, d };
     auto result = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(input);
 
-    barretenberg::fr expected(std::string_view("0x2f8f825d4ba3c0461bd4804e7e9490775b6f107e2eea15d6c74d370d465f7e6d"));
+    barretenberg::fr expected(std::string("0x2f8f825d4ba3c0461bd4804e7e9490775b6f107e2eea15d6c74d370d465f7e6d"));
 
     EXPECT_EQ(result, expected);
 }

@@ -36,7 +36,7 @@ class alignas(32) uint256_t {
     {}
     constexpr uint256_t(uint256_t&& other) noexcept = default;
 
-    explicit constexpr uint256_t(std::string_view input) noexcept
+    explicit constexpr uint256_t(std::string input) noexcept
     {
         /* Quick and dirty conversion from a single character to its hex equivelent */
         constexpr auto HexCharToInt = [](uint8_t Input) {
@@ -76,7 +76,6 @@ class alignas(32) uint256_t {
         data[2] = limbs[1];
         data[3] = limbs[0];
     }
-    explicit constexpr uint256_t(std::string const& str) noexcept { *this = uint256_t(std::string_view(str)); }
 
     static constexpr uint256_t from_uint128(const uint128_t a) noexcept
     {

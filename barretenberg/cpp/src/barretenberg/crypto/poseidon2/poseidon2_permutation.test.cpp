@@ -43,10 +43,10 @@ TEST(Poseidon2Permutation, ConsistencyCheck)
     auto result = crypto::Poseidon2Permutation<crypto::Poseidon2Bn254ScalarFieldParams>::permutation(input);
 
     std::array<barretenberg::fr, 4> expected{
-        barretenberg::fr(std::string_view("0x0514d38493ec8da89f9e2b599bc20f96206ad0c94bc2751e6df03003009aa2ea")),
-        barretenberg::fr(std::string_view("0x0757d335371eacea287976a7b26729a74801720418bfdac37d852ac198b585ed")),
-        barretenberg::fr(std::string_view("0x19f5168edd96d2c8800d460908dde37c5dd36d56ae905faa8660182a2803c56c")),
-        barretenberg::fr(std::string_view("0x0096047284f80a35f2f9f95101a9287e99e1afb0866f19e86286a09bdb203685")),
+        barretenberg::fr(std::string("0x0514d38493ec8da89f9e2b599bc20f96206ad0c94bc2751e6df03003009aa2ea")),
+        barretenberg::fr(std::string("0x0757d335371eacea287976a7b26729a74801720418bfdac37d852ac198b585ed")),
+        barretenberg::fr(std::string("0x19f5168edd96d2c8800d460908dde37c5dd36d56ae905faa8660182a2803c56c")),
+        barretenberg::fr(std::string("0x0096047284f80a35f2f9f95101a9287e99e1afb0866f19e86286a09bdb203685")),
     };
     EXPECT_EQ(result, expected);
 }
