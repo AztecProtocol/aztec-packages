@@ -33,6 +33,7 @@ import { mnemonicToAccount } from 'viem/accounts';
 import { createCompatibleClient } from './client.js';
 import { encodeArgs, parseStructString } from './encoding.js';
 import { unboxContract } from './unbox.js';
+import { updateAztecNr } from './update-aztecnr.js';
 import {
   deployAztecContracts,
   getContractArtifact,
@@ -699,6 +700,14 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .action((functionSignature: string) => {
       const selector = FunctionSelector.fromSignature(functionSignature);
       log(`${selector}`);
+    });
+
+  program
+    .command('update-aztecnr')
+    .description('Updates noir dependencies in Nargo.toml to their latest version')
+    .argument('<contractPath>', 'Path to the contract directory')
+    .action(async (contractPath: string) => {
+      await updateAztecNr(contractPath, `aztec-packages-${version}`, log);
     });
 
   compileContract(program, 'compile', log);

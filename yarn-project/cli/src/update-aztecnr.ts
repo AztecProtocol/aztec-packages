@@ -1,0 +1,84 @@
+import { LogFn } from '@aztec/foundation/log';
+import { NoirPackageConfig, parseNoirPackageConfig } from '@aztec/foundation/noir';
+
+import TOML from '@ltd/j-toml';
+import { CommanderError } from 'commander';
+import { readFile, rename, writeFile } from 'fs/promises';
+import { EOL } from 'os';
+import { join, resolve } from 'path';
+
+/**
+ * Opens an Aztec.nr contract and updates Aztec.nr to the requested version.
+ * @param contractPath - Path to an Aztec.nr contract
+ * @param tag - The version of Aztec.nr to update to
+ * @param log - Logging function
+ */
+export async function updateAztecNr(contractPath: string, tag: string, log: LogFn) {
+  const configFilepath = resolve(join(contractPath, 'Nargo.toml'));
+  const packageConfig = parseNoirPackageConfig(TOML.parse(await readFile(configFilepath, 'utf-8')));
+  let dirty = false;
+  for (const [name, dep] of Object.entries(packageConfig.dependencies)) {
+    if (!('git' in dep)) {
+      continue;
+    }
+
+    if (dep.git.toLowerCase() !== 'https://github.com/AztecProtocol/aztec-packages'.toLowerCase()) {
+      continue;
+    }
+
+    if (dep.tag !== tag) {
+      log(`Updating ${name} to ${tag}`);
+      dep.tag = tag;
+      dirty = true;
+    }
+  }
+
+  if (dirty) {
+    await writeNoirPackageConfigAsToml(configFilepath, packageConfig);
+  } else {
+    log('No updates required');
+  }
+}
+
+/**
+ * Writes a contract's configuration as TOML at the given path.
+ * @param filePath - Where to write the TOML
+ * @param packageConfig - The Noir configuration
+ */
+async function writeNoirPackageConfigAsToml(filePath: string, packageConfig: NoirPackageConfig): Promise<void> {
+  // hint to TOML.stringify how we want the file to look like
+  const toml = TOML.stringify(
+    {
+      package: TOML.Section(packageConfig.package),
+      dependencies: TOML.Section(
+        Object.fromEntries(Object.entries(packageConfig.dependencies).map(([name, dep]) => [name, TOML.inline(dep)])),
+      ),
+    },
+    {
+      indent: 2,
+      newline: EOL as any,
+      newlineAround: 'section',
+    },
+  );
+
+  const tmpFilepath = filePath + '.tmp';
+  try {
+    await writeFile(tmpFilepath, toml, {
+      // let's crash if the tmp file already exists
+      flag: 'wx',
+    });
+    await rename(tmpFilepath, filePath);
+  } catch (e) {
+    if (e instanceof Error && 'code' in e && e.code === 'EEXIST') {
+      const commanderError = new CommanderError(
+        1,
+        e.code,
+        `Temporary file already exists: ${tmpFilepath}. Delete this file and try again.`,
+      );
+      commanderError.nestedError = e.message;
+      throw commanderError;
+    } else {
+      throw e;
+    }
+  }
+}

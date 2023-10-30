@@ -365,6 +365,7 @@ __metadata:
     "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
     "@libp2p/peer-id-factory": ^3.0.4
+    "@ltd/j-toml": ^1.38.0
     "@rushstack/eslint-patch": ^1.1.4
     "@types/jest": ^29.5.0
     "@types/lodash.startcase": ^4.4.7
