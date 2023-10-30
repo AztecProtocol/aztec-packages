@@ -7,6 +7,32 @@ import { readFile, rename, writeFile } from 'fs/promises';
 import { EOL } from 'os';
 import { join, resolve } from 'path';
 
+import { GITHUB_TAG_PREFIX, getRecentAztecReleases } from './github.js';
+
+/**
+ * Checks if a version exists on Github.
+ * @param version - A semver string
+ * @returns true if the version exists
+ */
+export async function aztecNrVersionToTagName(version: string): Promise<string> {
+  const releases = await getRecentAztecReleases();
+  const tagName = `${GITHUB_TAG_PREFIX}-v${version}`;
+  const exists = releases.find(release => release.tagName === tagName) !== undefined;
+  if (exists) {
+    return tagName;
+  }
+
+  throw new CommanderError(1, '', `Unknown Aztec.nr version ${version}`);
+}
+
+/**
+ * Gets the latest released version of Aztec.nr.
+ */
+export async function getLatestAztecNrTag(): Promise<string> {
+  const releases = await getRecentAztecReleases();
+  return releases[0].tagName;
+}
+
 /**
  * Opens an Aztec.nr contract and updates Aztec.nr to the requested version.
  * @param contractPath - Path to an Aztec.nr contract
@@ -17,6 +43,7 @@ export async function updateAztecNr(contractPath: string, tag: string, log: LogF
   const configFilepath = resolve(join(contractPath, 'Nargo.toml'));
   const packageConfig = parseNoirPackageConfig(TOML.parse(await readFile(configFilepath, 'utf-8')));
   let dirty = false;
+  log(`Updating ${packageConfig.package.name} to Aztec.nr@${tag}`);
   for (const [name, dep] of Object.entries(packageConfig.dependencies)) {
     if (!('git' in dep)) {
       continue;

@@ -32,8 +32,9 @@ import { mnemonicToAccount } from 'viem/accounts';
 
 import { createCompatibleClient } from './client.js';
 import { encodeArgs, parseStructString } from './encoding.js';
+import { GITHUB_TAG_PREFIX } from './github.js';
 import { unboxContract } from './unbox.js';
-import { updateAztecNr } from './update-aztecnr.js';
+import { aztecNrVersionToTagName, getLatestAztecNrTag, updateAztecNr } from './update-aztecnr.js';
 import {
   deployAztecContracts,
   getContractArtifact,
@@ -71,9 +72,9 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
   const program = new Command();
 
   const packageJsonPath = resolve(dirname(fileURLToPath(import.meta.url)), '../package.json');
-  const version: string = JSON.parse(readFileSync(packageJsonPath).toString()).version;
+  const cliVersion: string = JSON.parse(readFileSync(packageJsonPath).toString()).version;
 
-  program.name('aztec-cli').description('CLI for interacting with Aztec.').version(version);
+  program.name('aztec-cli').description('CLI for interacting with Aztec.').version(cliVersion);
 
   const pxeOption = new Option('-u, --rpc-url <string>', 'URL of the PXE')
     .env('PXE_URL')
@@ -650,7 +651,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     )
     .action(async (contractName, localDirectory) => {
       const unboxTo: string = localDirectory ? localDirectory : contractName;
-      await unboxContract(contractName, unboxTo, version, log);
+      await unboxContract(contractName, unboxTo, cliVersion, log);
     });
 
   program
@@ -706,8 +707,22 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .command('update-aztecnr')
     .description('Updates noir dependencies in Nargo.toml to their latest version')
     .argument('<contractPath>', 'Path to the contract directory')
-    .action(async (contractPath: string) => {
-      await updateAztecNr(contractPath, `aztec-packages-${version}`, log);
+    .option(
+      '--aztec-version <semver>',
+      'Semver version to update to or `current` for the current version compatible with the CLI or `latest` for the most recent stable version',
+      'current',
+    )
+    .action(async (contractPath: string, { aztecVersion }) => {
+      let tagName: string;
+      if (aztecVersion === 'current') {
+        tagName = `${GITHUB_TAG_PREFIX}-${cliVersion}`;
+      } else if (aztecVersion === 'latest') {
+        tagName = await getLatestAztecNrTag();
+      } else {
+        tagName = await aztecNrVersionToTagName(aztecVersion);
+      }
+
+      await updateAztecNr(contractPath, tagName, log);
     });
 
   compileContract(program, 'compile', log);
