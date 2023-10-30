@@ -1,15 +1,39 @@
 import times from 'lodash.times';
 
-import { AztecAddress, Fr, FunctionData, FunctionLeafPreimage, FunctionSelector, NewContractData } from '../index.js';
-import { makeAztecAddress, makeEthAddress, makePoint, makeTxRequest, makeVerificationKey } from '../tests/factories.js';
+import {
+  AztecAddress,
+  Fr,
+  FunctionData,
+  FunctionLeafPreimage,
+  FunctionSelector,
+  GlobalVariables,
+  NewContractData,
+} from '../index.js';
+import {
+  makeAztecAddress,
+  makeEthAddress,
+  makePoint,
+  makePrivateCallStackItem,
+  makePublicCallStackItem,
+  makeTxRequest,
+  makeVerificationKey,
+} from '../tests/factories.js';
 import { CircuitsWasm } from '../wasm/circuits_wasm.js';
 import {
+  computeBlockHashWithGlobals,
+  computeCallStackItemHash,
   computeCommitmentNonce,
   computeCompleteAddress,
+  computeContractAddressFromPartial,
   computeContractLeaf,
   computeFunctionLeaf,
   computeFunctionSelector,
   computeFunctionTreeRoot,
+  computeGlobalsHash,
+  computePublicDataTreeIndex,
+  computePublicDataTreeValue,
+  computeSecretMessageHash,
+  computeTxHash,
   computeUniqueCommitment,
   computeVarArgsHash,
   hashConstructor,
@@ -71,6 +95,13 @@ describe('abis wasm bindings', () => {
     expect(res).toMatchSnapshot();
   });
 
+  it('computes a contract address from partial', () => {
+    const deployerPubKey = makePoint();
+    const partialAddress = new Fr(2n);
+    const res = computeContractAddressFromPartial(wasm, deployerPubKey, partialAddress);
+    expect(res).toMatchSnapshot();
+  });
+
   it('computes commitment nonce', () => {
     const nullifierZero = new Fr(123n);
     const commitmentIndex = 456;
@@ -99,9 +130,51 @@ describe('abis wasm bindings', () => {
     expect(res).toMatchSnapshot();
   });
 
-  it('computes contract leaf', () => {
-    const cd = new NewContractData(makeAztecAddress(), makeEthAddress(), new Fr(3n));
-    const res = computeContractLeaf(wasm, cd);
+  it('computes block hash with globals', () => {
+    const globals = GlobalVariables.from({
+      chainId: new Fr(1n),
+      version: new Fr(2n),
+      blockNumber: new Fr(3n),
+      timestamp: new Fr(4n),
+    });
+    const noteHashTreeRoot = new Fr(5n);
+    const nullifierTreeRoot = new Fr(6n);
+    const contractTreeRoot = new Fr(7n);
+    const l1ToL2DataTreeRoot = new Fr(8n);
+    const publicDataTreeRoot = new Fr(9n);
+    const res = computeBlockHashWithGlobals(
+      wasm,
+      globals,
+      noteHashTreeRoot,
+      nullifierTreeRoot,
+      contractTreeRoot,
+      l1ToL2DataTreeRoot,
+      publicDataTreeRoot,
+    );
+    expect(res).toMatchSnapshot();
+  });
+
+  it('compute globals hash', () => {
+    const globals = GlobalVariables.from({
+      chainId: new Fr(1n),
+      version: new Fr(2n),
+      blockNumber: new Fr(3n),
+      timestamp: new Fr(4n),
+    });
+    const res = computeGlobalsHash(wasm, globals);
+    expect(res).toMatchSnapshot();
+  });
+
+  it('computes public data tree value', () => {
+    const value = new Fr(3n);
+    const res = computePublicDataTreeValue(wasm, value);
+    expect(res).toMatchSnapshot();
+  });
+
+  it('computes public data tree index', () => {
+    const contractAddress = makeAztecAddress();
+    const value = new Fr(3n);
+    const res = computePublicDataTreeIndex(wasm, contractAddress, value);
     expect(res).toMatchSnapshot();
   });
 
@@ -120,5 +193,35 @@ describe('abis wasm bindings', () => {
     const args = times(200, i => new Fr(i));
     const res = await computeVarArgsHash(wasm, args);
     expect(res).toMatchSnapshot();
+  });
+
+  it('computes contract leaf', () => {
+    const cd = new NewContractData(makeAztecAddress(), makeEthAddress(), new Fr(3n));
+    const res = computeContractLeaf(wasm, cd);
+    expect(res).toMatchSnapshot();
+  });
+
+  it('compute tx hash', () => {
+    const txRequest = makeTxRequest();
+    const hash = computeTxHash(wasm, txRequest);
+    expect(hash).toMatchSnapshot();
+  });
+
+  it('compute private call stack item hash', () => {
+    const item = makePrivateCallStackItem();
+    const hash = computeCallStackItemHash(wasm, item);
+    expect(hash).toMatchSnapshot();
+  });
+
+  it('compute public call stack item hash', () => {
+    const item = makePublicCallStackItem();
+    const hash = computeCallStackItemHash(wasm, item);
+    expect(hash).toMatchSnapshot();
+  });
+
+  it('compute secret message hash', () => {
+    const value = new Fr(8n);
+    const hash = computeSecretMessageHash(wasm, value);
+    expect(hash).toMatchSnapshot();
   });
 });
