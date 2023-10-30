@@ -28,7 +28,7 @@ export interface Database extends ContractDatabase {
    * Delete a auth witness in private flow (undo authorization)
    * @param messageHash - The message hash - action authorization to revoke
    */
-  cancelPrivateAuthWitness(messageHash: Fr): Promise<void>;
+  removePrivateAuthWitness(messageHash: Fr): Promise<void>;
 
   /**
    * Gets notes based on the provided filter.

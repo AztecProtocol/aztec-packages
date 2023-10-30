@@ -70,13 +70,13 @@ describe('Memory DB', () => {
       expect(result).toEqual(authWitness);
 
       // after deleting, shouldn't be able to fetch it
-      await db.cancelPrivateAuthWitness(messageHash);
+      await db.removePrivateAuthWitness(messageHash);
       result = await db.getAuthWitness(messageHash);
       expect(result).toEqual(undefined);
     });
 
     it("delete authWitness works even if it doesn't exist", async () => {
-      await db.cancelPrivateAuthWitness(Fr.random());
+      await db.removePrivateAuthWitness(Fr.random());
     });
   });
 });

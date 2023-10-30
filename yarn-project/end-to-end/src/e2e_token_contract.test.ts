@@ -502,11 +502,11 @@ describe('e2e_token_contract', () => {
           );
         });
 
-        it('transfer on behalf of other after deleting approval', async () => {
+        it('transfer on behalf of other fails if approval is removed', async () => {
           const balance0 = await asset.methods.balance_of_private(accounts[0].address).view();
           const amount = balance0 / 2n;
           const nonce = Fr.random();
-          // expect(amount).toBeGreaterThan(0n);
+          expect(amount).toBeGreaterThan(0n);
 
           // docs:start:remove_private_auth_witness
           // create auth witness
@@ -518,7 +518,7 @@ describe('e2e_token_contract', () => {
           await wallets[1].addAuthWitness(witness);
 
           // wallets[0] want to undo their authorization action. So they tell wallets[1] to do so:
-          await wallets[1].cancelPrivateAuthWitness(messageHash);
+          await wallets[1].removePrivateAuthWitness(messageHash);
           // docs:end:remove_private_auth_witness
 
           // Perform the transfer

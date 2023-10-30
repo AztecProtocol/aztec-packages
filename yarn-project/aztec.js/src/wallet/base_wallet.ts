@@ -116,7 +116,7 @@ export abstract class BaseWallet implements Wallet {
   addAuthWitness(authWitness: AuthWitness) {
     return this.pxe.addAuthWitness(authWitness);
   }
-  cancelPrivateAuthWitness(messageHash: Fr | Buffer): Promise<void> {
-    return this.pxe.cancelPrivateAuthWitness(messageHash);
+  removePrivateAuthWitness(messageHash: Fr | Buffer): Promise<void> {
+    return this.pxe.removePrivateAuthWitness(messageHash);
   }
 }

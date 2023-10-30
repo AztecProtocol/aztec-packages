@@ -46,7 +46,7 @@ export interface PXE {
    * Cancel an auth witness for a given message hash (i.e. undo the authorization action).
    * @param messageHash - hash of the message (authorization) that was signed.
    */
-  cancelPrivateAuthWitness(messageHash: Fr | Buffer): Promise<void>;
+  removePrivateAuthWitness(messageHash: Fr | Buffer): Promise<void>;
 
   /**
    * Registers a user account in PXE given its master encryption private key.

@@ -116,13 +116,13 @@ export class PXEService implements PXE {
     return this.db.estimateSize();
   }
 
-  public addAuthWitness(witness: AuthWitness) {
+  public addAuthWitness(witness: AuthWitness): Promise<void> {
     return this.db.addAuthWitness(witness.requestHash, witness.witness);
   }
 
-  public cancelPrivateAuthWitness(messageHash: Fr | Buffer) {
+  public removePrivateAuthWitness(messageHash: Fr | Buffer): Promise<void> {
     messageHash = Buffer.isBuffer(messageHash) ? Fr.fromBuffer(messageHash) : messageHash;
-    return this.db.cancelPrivateAuthWitness(messageHash);
+    return this.db.removePrivateAuthWitness(messageHash);
   }
 
   public async registerAccount(privKey: GrumpkinPrivateKey, partialAddress: PartialAddress): Promise<CompleteAddress> {
