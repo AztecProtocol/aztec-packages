@@ -197,6 +197,18 @@ impl TestPrivateContextInterface {
   }
   
 
+  pub fn set_constant(
+    self,
+    context: &mut PrivateContext,
+    value: Field
+  ) -> [Field; RETURN_VALUES_LENGTH] {
+    let mut serialized_args = [0; 1];
+    serialized_args[0] = value;
+
+    context.call_private_function(self.address, 0x1b3b9e18, serialized_args)
+  }
+  
+
   pub fn test_code_gen(
     self,
     context: &mut PrivateContext,
