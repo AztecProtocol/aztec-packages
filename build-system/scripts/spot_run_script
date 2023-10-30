@@ -16,7 +16,7 @@ shift 2
 function on_exit {
     if [ -n "$IP" ]; then
         echo "Terminating spot instance..."
-        ssh -F $SSH_CONFIG_PATH $IP sudo halt -p > /dev/null 2>&1
+        ssh -F $SSH_CONFIG_PATH $IP sudo halt -p
     fi
 
     # Kill spot request so it doesn't count against quota.
