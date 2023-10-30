@@ -522,6 +522,7 @@ __metadata:
     ts-jest: ^29.1.0
     ts-node: ^10.9.1
     typescript: ^5.0.4
+    zod: ^3.22.4
   languageName: unknown
   linkType: soft
 
@@ -615,7 +616,6 @@ __metadata:
     tslib: ^2.4.0
     typescript: ^5.0.4
     unzipit: ^1.4.3
-    zod: ^3.22.4
   bin:
     aztec-compile: dest/cli.js
   languageName: unknown

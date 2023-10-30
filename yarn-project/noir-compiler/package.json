@@ -60,8 +60,7 @@
     "pako": "^2.1.0",
     "toml": "^3.0.0",
     "tslib": "^2.4.0",
-    "unzipit": "^1.4.3",
-    "zod": "^3.22.4"
+    "unzipit": "^1.4.3"
   },
   "devDependencies": {
     "@jest/globals": "^29.5.0",
