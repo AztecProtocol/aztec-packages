@@ -28,7 +28,7 @@ export interface StateInfoProvider {
    * @param leafIndex - The index of the leaf for which the sibling path is required.
    * @returns The sibling path for the leaf index.
    */
-  getNoteHashTreeSiblingPath(leafIndex: bigint): Promise<SiblingPath<typeof NOTE_HASH_TREE_HEIGHT>>;
+  getNoteHashSiblingPath(leafIndex: bigint): Promise<SiblingPath<typeof NOTE_HASH_TREE_HEIGHT>>;
 
   /**
    * Gets a confirmed/consumed L1 to L2 message for the given message key (throws if not found).
@@ -43,5 +43,5 @@ export interface StateInfoProvider {
    * @param leafIndex - Index of the leaf in the tree.
    * @returns The sibling path.
    */
-  getL1ToL2MessagesTreeSiblingPath(leafIndex: bigint): Promise<SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>>;
+  getL1ToL2MessagesSiblingPath(leafIndex: bigint): Promise<SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>>;
 }

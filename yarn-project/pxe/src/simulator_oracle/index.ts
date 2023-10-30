@@ -104,7 +104,7 @@ export class SimulatorOracle implements DBOracle {
     const messageAndIndex = await this.stateInfoProvider.getL1ToL2MessageAndIndex(msgKey);
     const message = messageAndIndex.message.toFieldArray();
     const index = messageAndIndex.index;
-    const siblingPath = await this.stateInfoProvider.getL1ToL2MessagesTreeSiblingPath(index);
+    const siblingPath = await this.stateInfoProvider.getL1ToL2MessagesSiblingPath(index);
     return {
       message,
       siblingPath: siblingPath.toFieldArray(),
