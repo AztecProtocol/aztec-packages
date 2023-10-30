@@ -705,7 +705,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
 
   program
     .command('update-aztecnr')
-    .description('Updates noir dependencies in Nargo.toml to their latest version')
+    .description('Updates Aztec.nr dependencies in Nargo.toml to the given version')
     .argument('<contractPath>', 'Path to the contract directory')
     .option(
       '--aztec-version <semver>',
