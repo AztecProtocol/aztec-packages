@@ -56,7 +56,7 @@ export class NoteDao {
     const index = toBigIntBE(reader.readBytes(32));
     const publicKey = Point.fromBuffer(reader);
 
-    return new this(
+    return new NoteDao(
       note,
       contractAddress,
       storageSlot,
