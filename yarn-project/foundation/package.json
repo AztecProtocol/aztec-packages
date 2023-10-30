@@ -49,13 +49,14 @@
   "jest": {
     "preset": "ts-jest/presets/default-esm",
     "moduleNameMapper": {
-      "^(\\.{1,2}/.*)\\.m?js$": "$1"
+      "^(\\.{1,2}/.*)\\.[cm]?js$": "$1"
     },
     "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
     "rootDir": "./src"
   },
   "dependencies": {
     "@koa/cors": "^4.0.0",
+    "@noble/curves": "^1.2.0",
     "debug": "^4.3.4",
     "detect-node": "^2.1.0",
     "hash.js": "^1.1.7",
