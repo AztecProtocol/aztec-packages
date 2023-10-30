@@ -155,12 +155,7 @@ export class AcirSimulator {
    * @param note - The note.
    * @returns The nullifier.
    */
-  public async computeNoteHashAndNullifier(
-    contractAddress: AztecAddress,
-    nonce: Fr,
-    storageSlot: Fr,
-    note: Note,
-  ) {
+  public async computeNoteHashAndNullifier(contractAddress: AztecAddress, nonce: Fr, storageSlot: Fr, note: Note) {
     const artifact: FunctionArtifactWithDebugMetadata | undefined = await this.db.getFunctionArtifactByName(
       contractAddress,
       'compute_note_hash_and_nullifier',
