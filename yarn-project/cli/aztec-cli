@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+# Wrapper script around @aztec/cli using Docker. This is intended to be used by devs that don't have
+# a NodeJS environment setup locally. The script starts a Docker container passing any commands and
+# arguments to the CLI running inside the container.
+# If this wrapper script detecs a global install of @aztec/cli it falls back on that instead of Docker.
+
 set -euo pipefail
 
 # use node.js aztec-cli if available
@@ -120,6 +125,7 @@ if [[ "$AZTEC_CLI_COMMAND" == "compile" || "$AZTEC_CLI_COMMAND" == "call" || "$A
   for (( i=2; i <= "$#"; i++ )); do
       arg_value=${!i}
       next_index=$((i+1))
+      # edge case: odd number of flags
       if [[ "$next_index" -gt "$#" ]]; then
           continue
       fi
@@ -144,6 +150,7 @@ if [[ "$AZTEC_CLI_COMMAND" == "compile" || "$AZTEC_CLI_COMMAND" == "call" || "$A
 fi
 
 if [[ "$AZTEC_CLI_COMMAND" == "compile" ]]; then
+  # can't use Nargo inside the container
   AZTEC_CLI_EXTRA_ARGS="$AZTEC_CLI_EXTRA_ARGS --compiler wasm"
 fi
 
