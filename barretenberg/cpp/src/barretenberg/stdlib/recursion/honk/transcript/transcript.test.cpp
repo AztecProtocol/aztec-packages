@@ -15,7 +15,6 @@ using UltraFlavor = ::proof_system::honk::flavor::Ultra;
 using UltraRecursiveFlavor = ::proof_system::honk::flavor::UltraRecursive_<Builder>;
 using FF = barretenberg::fr;
 using BaseTranscript = ::proof_system::honk::BaseTranscript<FF>;
-using BaseTranscript = ::proof_system::honk::BaseTranscript<FF>;
 
 /**
  * @brief Create some mock data; add it to the provided prover transcript in various mock rounds

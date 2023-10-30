@@ -162,7 +162,7 @@ template <typename FF> class BaseTranscript {
      * @param element
      * @param proof_data
      */
-    template <typename T> void serialize_object(const T& element, std::vector<uint8_t>& proof_data)
+    template <typename T> void serialize_to_buffer(const T& element, std::vector<uint8_t>& proof_data)
     {
         auto element_bytes = to_buffer(element);
         proof_data.insert(proof_data.end(), element_bytes.begin(), element_bytes.end());
@@ -176,7 +176,7 @@ template <typename FF> class BaseTranscript {
      * @param offset
      * @return T
      */
-    template <typename T> T deserialize_object(const std::vector<uint8_t>& proof_data, size_t& offset) const
+    template <typename T> T deserialize_from_buffer(const std::vector<uint8_t>& proof_data, size_t& offset) const
     {
         constexpr size_t element_size = sizeof(T);
         ASSERT(offset + element_size <= proof_data.size());
