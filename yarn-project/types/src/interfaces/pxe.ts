@@ -6,6 +6,7 @@ import {
   ExtendedContractData,
   ExtendedNote,
   GetUnencryptedLogsResponse,
+  L2Block,
   L2Tx,
   LogFilter,
   Tx,
@@ -160,7 +161,7 @@ export interface PXE {
   getPublicStorageAt(contract: AztecAddress, storageSlot: Fr): Promise<Buffer | undefined>;
 
   /**
-   * Gets notes based on the provided filter.
+   * Gets notes OF ACCOUNTS REGISTERED IN THIS PXE based on the provided filter.
    * @param filter - The filter to apply to the notes.
    * @returns The requested notes.
    */
@@ -180,6 +181,13 @@ export interface PXE {
    * @remarks More than a single nonce may be returned since there might be more than one nonce for a given note.
    */
   getNoteNonces(note: ExtendedNote): Promise<Fr[]>;
+
+  /**
+   * Get the a given block.
+   * @param number - The block number being requested.
+   * @returns The blocks requested.
+   */
+  getBlock(number: number): Promise<L2Block | undefined>;
 
   /**
    * Simulate the execution of a view (read-only) function on a deployed contract without actually modifying state.
