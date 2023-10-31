@@ -79,6 +79,8 @@ template <typename _FF> class Standard : public Arithmetization</*NUM_WIRES =*/3
         }
         ~Selectors() = default;
     };
+    // Note: These are needed for Plonk only (for poly storage in a std::map). Must be in same order as above struct.
+    inline static const std::vector<std::string> selector_names = { "q_m", "q_1", "q_2", "q_3", "q_c" };
 };
 
 template <typename _FF> class Turbo : public Arithmetization</*NUM_WIRES =*/4, /*num_selectors =*/11> {
@@ -173,6 +175,10 @@ template <typename _FF> class Ultra : public Arithmetization</*NUM_WIRES =*/4, /
         // Selectors& operator=(Selectors&& other) = default;
         // ~Selectors() = default;
     };
+    // Note: These are needed for Plonk only (for poly storage in a std::map). Must be in same order as above struct.
+    inline static const std::vector<std::string> selector_names = { "q_m",        "q_c",   "q_1",       "q_2",
+                                                                    "q_3",        "q_4",   "q_arith",   "q_sort",
+                                                                    "q_elliptic", "q_aux", "table_type" };
 };
 class GoblinTranslator : public Arithmetization</*NUM_WIRES =*/81, /*num_selectors =*/0> {
   public:
