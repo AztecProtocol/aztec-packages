@@ -14,6 +14,7 @@
     "barretenberg",
     "bbfree",
     "bbmalloc",
+    "benesjan",
     "bodyparser",
     "bootnode",
     "Brillig",
@@ -27,6 +28,8 @@
     "camelcase",
     "cbind",
     "cbinds",
+    "cimg",
+    "cpus",
     "chainsafe",
     "cheatcode",
     "cheatcodes",
@@ -37,6 +40,7 @@
     "comlink",
     "composability",
     "concat",
+    "cond",
     "customizability",
     "danlee",
     "Daos",
@@ -73,6 +77,7 @@
     "Kademlia",
     "keccak",
     "keypairs",
+    "keyscan",
     "leveldb",
     "leveldown",
     "leveljs",
@@ -132,6 +137,7 @@
     "sload",
     "snakecase",
     "solhint",
+    "stdlib",
     "struct",
     "structs",
     "subrepo",
@@ -178,7 +184,5 @@
     "*.snap",
     "package.json"
   ],
-  "flagWords": [
-    "anonymous"
-  ]
+  "flagWords": ["anonymous"]
 }

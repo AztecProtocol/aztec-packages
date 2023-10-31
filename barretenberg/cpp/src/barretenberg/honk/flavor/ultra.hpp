@@ -1,12 +1,11 @@
 #pragma once
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/honk/pcs/kzg/kzg.hpp"
-#include "barretenberg/polynomials/barycentric.hpp"
-#include "barretenberg/polynomials/univariate.hpp"
-
 #include "barretenberg/honk/transcript/transcript.hpp"
+#include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 #include "barretenberg/proof_system/flavor/flavor.hpp"
 #include "barretenberg/proof_system/relations/auxiliary_relation.hpp"
@@ -53,18 +52,23 @@ class Ultra {
                                  proof_system::EllipticRelation<FF>,
                                  proof_system::AuxiliaryRelation<FF>>;
 
-    static constexpr size_t MAX_RELATION_LENGTH = get_max_relation_length<Relations>();
+    static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
+    static constexpr size_t MAX_TOTAL_RELATION_LENGTH = compute_max_total_relation_length<Relations>();
+    static_assert(MAX_PARTIAL_RELATION_LENGTH == 6);
+    static_assert(MAX_TOTAL_RELATION_LENGTH == 12);
 
-    // MAX_RANDOM_RELATION_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta` random
-    // polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation length = 3
-    static constexpr size_t MAX_RANDOM_RELATION_LENGTH = MAX_RELATION_LENGTH + 1;
-    static constexpr size_t NUM_RELATIONS = std::tuple_size<Relations>::value;
+    // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
+    // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
+    // length = 3
+    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
+    static constexpr size_t BATCHED_RELATION_TOTAL_LENGTH = MAX_TOTAL_RELATION_LENGTH + 1;
+    static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
     template <size_t NUM_INSTANCES>
     using ProtogalaxyTupleOfTuplesOfUnivariates =
         decltype(create_protogalaxy_tuple_of_tuples_of_univariates<Relations, NUM_INSTANCES>());
     using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
-    using TupleOfArraysOfValues = decltype(create_sumcheck_tuple_of_arrays_of_values<Relations>());
+    using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
     // Whether or not the first row of the execution trace is reserved for 0s to enable shifts
     static constexpr bool has_zero_row = true;
@@ -327,7 +331,7 @@ class Ultra {
     /**
      * @brief A container for univariates produced during the hot loop in sumcheck.
      */
-    using ExtendedEdges = ProverUnivariates<MAX_RELATION_LENGTH>;
+    using ExtendedEdges = ProverUnivariates<MAX_PARTIAL_RELATION_LENGTH>;
 
     /**
      * @brief A container for commitment labels.
@@ -434,7 +438,7 @@ class Ultra {
         Commitment w_4_comm;
         Commitment z_perm_comm;
         Commitment z_lookup_comm;
-        std::vector<barretenberg::Univariate<FF, MAX_RANDOM_RELATION_LENGTH>> sumcheck_univariates;
+        std::vector<barretenberg::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>> sumcheck_univariates;
         std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
         std::vector<Commitment> zm_cq_comms;
         Commitment zm_cq_comm;
@@ -488,8 +492,8 @@ class Ultra {
             z_lookup_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
             for (size_t i = 0; i < log_n; ++i) {
                 sumcheck_univariates.push_back(
-                    deserialize_from_buffer<barretenberg::Univariate<FF, MAX_RANDOM_RELATION_LENGTH>>(proof_data,
-                                                                                                      num_bytes_read));
+                    deserialize_from_buffer<barretenberg::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>>(proof_data,
+                                                                                                       num_bytes_read));
             }
             sumcheck_evaluations =
                 deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(proof_data, num_bytes_read);

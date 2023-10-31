@@ -106,7 +106,7 @@ yarn-project-base:
 yarn-project:
   buildDir: yarn-project
   rebuildPatterns:
-    - ^yarn-project/.*\.(ts|js|cjs|mjs|json|html|md|sh)$
+    - ^yarn-project/.*\.(ts|tsx|js|cjs|mjs|json|html|md|sh)$
     - ^yarn-project/Dockerfile
   dependencies:
     - yarn-project-base
@@ -121,6 +121,12 @@ aztec-sandbox:
 aztec-faucet:
   buildDir: yarn-project
   projectDir: yarn-project/aztec-faucet
+  dependencies:
+    - yarn-project
+
+aztec-cli:
+  buildDir: yarn-project
+  projectDir: yarn-project/cli
   dependencies:
     - yarn-project
 
@@ -166,6 +172,8 @@ end-to-end:
   projectDir: yarn-project/end-to-end
   dependencies:
     - yarn-project
+  runDependencies:
+    - aztec-sandbox
 
 aztec-node:
   buildDir: yarn-project
