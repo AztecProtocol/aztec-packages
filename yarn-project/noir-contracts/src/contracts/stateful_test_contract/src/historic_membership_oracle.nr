@@ -1,22 +1,22 @@
-use dep::aztec::constants_gen::PRIVATE_DATA_TREE_HEIGHT;
+use dep::aztec::constants_gen::NOTE_HASH_TREE_HEIGHT;
 use dep::aztec::utils::arr_copy_slice;
 
-global PRIVATE_DATA_MEMBERSHIP_WITNESS_LEN: Field = 33;
+global NOTE_HASH_MEMBERSHIP_WITNESS_LEN: Field = 33;
 
-struct PrivateDataMembershipWitness {
+struct NoteHashMembershipWitness {
     index: Field,
-    path: [Field; PRIVATE_DATA_TREE_HEIGHT],
+    path: [Field; NOTE_HASH_TREE_HEIGHT],
 }
 
 #[oracle(getMembershipWitness)]
-fn get_private_data_membership_witness_oracle(_treeId: Field, _commitment: Field) -> [Field; PRIVATE_DATA_MEMBERSHIP_WITNESS_LEN] {}
+fn get_note_hash_membership_witness_oracle(_treeId: Field, _commitment: Field) -> [Field; NOTE_HASH_MEMBERSHIP_WITNESS_LEN] {}
 
-unconstrained fn get_private_data_membership_witness(commitment: Field) -> PrivateDataMembershipWitness {
-    assert(PRIVATE_DATA_MEMBERSHIP_WITNESS_LEN == PRIVATE_DATA_TREE_HEIGHT + 1);
-    let fields = get_private_data_membership_witness_oracle(2, commitment);
-    PrivateDataMembershipWitness {
+unconstrained fn get_note_hash_membership_witness(commitment: Field) -> NoteHashMembershipWitness {
+    assert(NOTE_HASH_MEMBERSHIP_WITNESS_LEN == NOTE_HASH_TREE_HEIGHT + 1);
+    let fields = get_note_hash_membership_witness_oracle(2, commitment);
+    NoteHashMembershipWitness {
         index: fields[0],
-        path: arr_copy_slice(fields, [0; PRIVATE_DATA_TREE_HEIGHT], 1)
+        path: arr_copy_slice(fields, [0; NOTE_HASH_TREE_HEIGHT], 1)
     }
 
 }

@@ -69,5 +69,5 @@ export interface CommitmentsDB {
    * @param commitment - The commitment.
    * @returns The index of the commitment. Undefined if it does not exist in the tree.
    */
-  findCommitmentIndex(commitment: Fr): Promise<bigint | undefined>;
+  getCommitmentIndex(commitment: Fr): Promise<bigint | undefined>;
 }

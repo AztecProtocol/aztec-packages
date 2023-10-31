@@ -23,6 +23,7 @@ impl AlmostValueNote {
                 contract_address: serialized[3],
                 nonce: serialized[4],
                 storage_slot: serialized[5],
+                is_transient: false, // TODO: should this be serialized and deserialized?
             },
         }
     }

@@ -119,7 +119,7 @@ export class PublicExecutionContext extends TypedOracle {
     // Once public kernel or base rollup circuit injects nonces, this can be updated to use uniqueSiloedCommitment.
     const wasm = await CircuitsWasm.get();
     const siloedNoteHash = siloCommitment(wasm, this.execution.contractAddress, innerNoteHash);
-    const index = await this.commitmentsDb.findCommitmentIndex(siloedNoteHash);
+    const index = await this.commitmentsDb.getCommitmentIndex(siloedNoteHash);
     return index !== undefined;
   }
 

@@ -58,7 +58,7 @@ describe('e2e_deploy_contract', () => {
     const h2 = (a: Fr, b: Fr) => Fr.fromBuffer(pedersenHashInputs(circuitsWasm, [a.toBuffer(), b.toBuffer()])); // Matches kernel and circuits
 
     const commitment = new Fr(await statefulContract.methods.get_commitment(valueNote).view());
-    const index = await aztecNode.findCommitmentIndex(commitment.toBuffer());
+    const index = await aztecNode.getCommitmentIndex(commitment.toBuffer());
     const path = await statefulContract.methods.get_path(valueNote).view();
     const root = await statefulContract.methods.get_root(valueNote).view(); // computes root in noir using path
 

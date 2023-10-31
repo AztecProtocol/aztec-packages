@@ -6,8 +6,9 @@ import {
   PublicStateDB,
 } from '@aztec/acir-simulator';
 import { AztecAddress, CircuitsWasm, EthAddress, Fr, FunctionSelector, HistoricBlockData } from '@aztec/circuits.js';
-import { ContractDataSource, L1ToL2MessageSource, MerkleTreeId, SiblingPath } from '@aztec/types';
-import { MerkleTreeOperations, computePublicDataTreeLeafIndex } from '@aztec/world-state';
+import { computePublicDataTreeIndex } from '@aztec/circuits.js/abis';
+import { ContractDataSource, ExtendedContractData, L1ToL2MessageSource, MerkleTreeId, SiblingPath, Tx } from '@aztec/types';
+import { MerkleTreeOperations } from '@aztec/world-state';
 
 /**
  * Returns a new PublicExecutor simulator backed by the supplied merkle tree db and contract data source.
@@ -148,7 +149,7 @@ export class WorldStateDB implements CommitmentsDB {
     return await this.db.findLeafIndex(MerkleTreeId.NOTE_HASH_TREE, commitment.toBuffer());
   }
 
-  public async getDataTreePath(leafIndex: bigint): Promise<SiblingPath<32>> {
+  public async getNoteHashSiblingPath(leafIndex: bigint): Promise<SiblingPath<32>> {
     return await this.db.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, leafIndex);
   }
 }

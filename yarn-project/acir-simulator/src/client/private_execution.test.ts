@@ -486,7 +486,7 @@ describe('Private Execution test suite', () => {
       const storageSlot = new Fr(2);
       const innerNoteHash = hashFields([storageSlot, noteHash]);
       const siloedNoteHash = siloCommitment(wasm, contractAddress, innerNoteHash);
-      oracle.findCommitmentIndex.mockResolvedValue(0n);
+      oracle.getCommitmentIndex.mockResolvedValue(0n);
 
       const result = await runSimulator({
         artifact,
