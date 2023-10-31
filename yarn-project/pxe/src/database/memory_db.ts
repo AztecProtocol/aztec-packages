@@ -48,7 +48,7 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
    * Delete a auth witness (undo authorization)
    * @param messageHash - The message hash - action authorization to revoke
    */
-  public removePrivateAuthWitness(messageHash: Fr): Promise<void> {
+  public removeAuthWitness(messageHash: Fr): Promise<void> {
     delete this.authWitnesses[messageHash.toString()];
     return Promise.resolve();
   }

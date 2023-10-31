@@ -159,7 +159,7 @@ Cool, so we have a function that checks if the current call is authenticated, bu
 #include_code authwit_transfer_example /yarn-project/end-to-end/src/e2e_token_contract.test.ts typescript
 
 #### Deleting an action in Typescript
-If you want to undo an authorization action, you can use the `removePrivateAuthWitness` in the PXE to do so. This method should be called by the wallet that will be executing the transaction on your behalf like so:
+If you want to undo an authorization action, you can use the `removeAuthWitness` in the PXE to do so. This method should be called by the wallet that will be executing the transaction on your behalf like so:
 
 #include_code remove_private_auth_witness /yarn-project/end-to-end/src/e2e_token_contract.test.ts typescript
 

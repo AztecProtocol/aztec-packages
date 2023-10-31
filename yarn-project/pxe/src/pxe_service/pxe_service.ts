@@ -120,9 +120,9 @@ export class PXEService implements PXE {
     return this.db.addAuthWitness(witness.requestHash, witness.witness);
   }
 
-  public removePrivateAuthWitness(messageHash: Fr | Buffer): Promise<void> {
+  public removeAuthWitness(messageHash: Fr | Buffer): Promise<void> {
     messageHash = Buffer.isBuffer(messageHash) ? Fr.fromBuffer(messageHash) : messageHash;
-    return this.db.removePrivateAuthWitness(messageHash);
+    return this.db.removeAuthWitness(messageHash);
   }
 
   public async registerAccount(privKey: GrumpkinPrivateKey, partialAddress: PartialAddress): Promise<CompleteAddress> {

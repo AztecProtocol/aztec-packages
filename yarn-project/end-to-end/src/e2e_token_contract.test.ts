@@ -503,22 +503,25 @@ describe('e2e_token_contract', () => {
         });
 
         it('transfer on behalf of other fails if approval is removed', async () => {
-          const balance0 = await asset.methods.balance_of_private(accounts[0].address).view();
-          const amount = balance0 / 2n;
-          const nonce = Fr.random();
+          const amount = await asset.methods.balance_of_private(accounts[0].address).view();
           expect(amount).toBeGreaterThan(0n);
+          const nonce = Fr.random();
 
           // docs:start:remove_private_auth_witness
           // create auth witness
+          const alice = wallets[0];
+          const bob = wallets[1];
+
+          // alice approves bob to transfer on her behalf. Alice creates authWitness
           const action = asset
-            .withWallet(wallets[1])
+            .withWallet(bob)
             .methods.transfer(accounts[0].address, accounts[1].address, amount, nonce);
           const messageHash = await computeAuthWitMessageHash(accounts[1].address, action.request());
-          const witness = await wallets[0].createAuthWitness(messageHash);
-          await wallets[1].addAuthWitness(witness);
+          const witness = await alice.createAuthWitness(messageHash);
+          await bob.addAuthWitness(witness);
 
-          // wallets[0] want to undo their authorization action. So they tell wallets[1] to do so:
-          await wallets[1].removePrivateAuthWitness(messageHash);
+          // alice want to undo their authorization action. So they tell bob to do so:
+          await bob.removeAuthWitness(messageHash);
           // docs:end:remove_private_auth_witness
 
           // Perform the transfer
