@@ -47,6 +47,12 @@ export class SimulatorOracle implements DBOracle {
     return witness;
   }
 
+  async popMint(): Promise<Fr[]> {
+    const mint = await this.db.popMint();
+    if (!mint) throw new Error(`No mints available`);
+    return mint;
+  }
+
   async getNotes(contractAddress: AztecAddress, storageSlot: Fr) {
     const noteDaos = await this.db.getNotes({ contractAddress, storageSlot });
     return noteDaos.map(({ contractAddress, storageSlot, nonce, note, innerNoteHash, siloedNullifier, index }) => ({

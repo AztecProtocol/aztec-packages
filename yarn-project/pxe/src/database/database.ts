@@ -25,6 +25,18 @@ export interface Database extends ContractDatabase {
   getAuthWitness(messageHash: Fr): Promise<Fr[]>;
 
   /**
+   * Adding a mint to the pez dispenser.
+   * @param mint - An array of field elements representing the mint.
+   */
+  addMint(mint: Fr[]): Promise<void>;
+
+  /**
+   * Get the next mint from the pez dispenser.
+   * @returns A promise that resolves to an array of field elements representing the mint.
+   */
+  popMint(): Promise<Fr[] | undefined>;
+
+  /**
    * Gets notes based on the provided filter.
    * @param filter - The filter to apply to the notes.
    * @returns The requested notes.

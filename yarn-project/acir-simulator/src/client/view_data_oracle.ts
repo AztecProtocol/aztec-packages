@@ -57,7 +57,16 @@ export class ViewDataOracle extends TypedOracle {
   }
 
   /**
-   * Gets some notes for a storage slot.
+   * Pops a mint from the PEZ dispenser
+   * @returns The mint values
+   */
+  public popMint(): Promise<Fr[]> {
+    return this.db.popMint();
+  }
+
+  /**
+   * Gets some notes for a contract address and storage slot.
+   * Returns a flattened array containing real-note-count and note preimages.
    *
    * @remarks
    * Check for pending notes with matching slot.

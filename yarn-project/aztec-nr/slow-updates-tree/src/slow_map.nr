@@ -2,10 +2,8 @@ use dep::aztec::context::{PrivateContext, PublicContext, Context};
 use dep::aztec::state_vars::public_state::PublicState;
 use dep::aztec::types::type_serialization::TypeSerializationInterface;
 use dep::aztec::oracle::storage::{storage_read, storage_write};
-use dep::aztec::oracle::debug_log::debug_log_format;
 
 use dep::std::hash::pedersen_hash;
-
 use dep::std::option::Option;
 
 // The epoch length is just a random number for now.
@@ -57,6 +55,10 @@ struct SlowUpdateProof<N, M> {
   new_value: Field,
   before: SlowUpdateInner<N>,
   after: SlowUpdateInner<N>,
+}
+
+pub fn deserialize_slow_update_proof<N, M>(serialized: [Field; M]) -> SlowUpdateProof<N, M> {
+  SlowUpdateProof::deserialize(serialized)
 }
 
 impl<N, M> SlowUpdateProof<N, M> {
@@ -250,7 +252,6 @@ impl<N,M> SlowMap<N,M> {
     let fields = root.serialize();
     storage_write(self.storage_slot, fields);
   }
-
 }
 
 pub fn compute_merkle_root<N>(leaf: Field, index: Field, hash_path: [Field; N]) -> Field {

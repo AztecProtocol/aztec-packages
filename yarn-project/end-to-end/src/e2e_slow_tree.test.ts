@@ -1,4 +1,4 @@
-import { CheatCodes, Fr, Wallet, sleep } from '@aztec/aztec.js';
+import { CheatCodes, Fr, Wallet } from '@aztec/aztec.js';
 import { CircuitsWasm } from '@aztec/circuits.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { Pedersen, SparseTree, newTree } from '@aztec/merkle-tree';
@@ -42,6 +42,10 @@ describe('e2e_slow_tree', () => {
       };
     };
 
+    const getMembershipMint = (proof: { index: bigint; value: Fr; sibling_path: Fr[] }) => {
+      return [new Fr(proof.index), proof.value, ...proof.sibling_path];
+    };
+
     const getUpdateProof = async (newValue: bigint, index: bigint) => {
       const beforeProof = await getMembershipProof(index, false);
       const afterProof = await getMembershipProof(index, true);
@@ -57,6 +61,22 @@ describe('e2e_slow_tree', () => {
       };
     };
 
+    const getUpdateMint = (proof: {
+      index: bigint;
+      new_value: bigint;
+      before: { value: Fr; sibling_path: Fr[] };
+      after: { value: Fr; sibling_path: Fr[] };
+    }) => {
+      return [
+        new Fr(proof.index),
+        new Fr(proof.new_value),
+        proof.before.value,
+        ...proof.before.sibling_path,
+        proof.after.value,
+        ...proof.after.sibling_path,
+      ];
+    };
+
     const status = async (key: bigint) => {
       logger(`\tTime: ${await cheatCodes.eth.timestamp()}`);
       logger('\tRoot', await contract.methods.un_read_root(owner).view());
@@ -70,11 +90,8 @@ describe('e2e_slow_tree', () => {
 
     logger('Initial state');
     await status(key);
-
-    await contract.methods
-      .read_at({ ...(await getMembershipProof(key, true)), value: 0n })
-      .send()
-      .wait();
+    await wallet.addMint(getMembershipMint(await getMembershipProof(key, true)));
+    await contract.methods.read_at(key).send().wait();
 
     logger(`Updating tree[${key}] to 1 from public`);
     await contract.methods
@@ -86,7 +103,8 @@ describe('e2e_slow_tree', () => {
 
     const zeroProof = await getMembershipProof(key, false);
     logger(`"Reads" tree[${zeroProof.index}] from the tree, equal to ${zeroProof.value}`);
-    await contract.methods.read_at(zeroProof).send().wait();
+    await wallet.addMint(getMembershipMint({ ...zeroProof, value: new Fr(0) }));
+    await contract.methods.read_at(key).send().wait();
 
     // Progress time to beyond the update and thereby commit it to the tree.
     await cheatCodes.aztec.warp((await cheatCodes.eth.timestamp()) + 1000);
@@ -97,20 +115,18 @@ describe('e2e_slow_tree', () => {
     logger(
       `Tries to "read" tree[${zeroProof.index}] from the tree, but is rejected as value is not ${zeroProof.value}`,
     );
-    await expect(contract.methods.read_at(zeroProof).simulate()).rejects.toThrowError(
+    await wallet.addMint(getMembershipMint({ ...zeroProof, value: new Fr(0) }));
+    await expect(contract.methods.read_at(key).simulate()).rejects.toThrowError(
       'Assertion failed: Root does not match expected',
     );
+
     logger(`"Reads" tree[${key}], expect to be 1`);
-    await contract.methods
-      .read_at({ ...(await getMembershipProof(key, false)), value: 1n })
-      .send()
-      .wait();
+    await wallet.addMint(getMembershipMint({ ...zeroProof, value: new Fr(1) }));
+    await contract.methods.read_at(key).send().wait();
 
     logger(`Updating tree[${key}] to 4 from private`);
-    await contract.methods
-      .update_at_private(await getUpdateProof(4n, key))
-      .send()
-      .wait();
+    await wallet.addMint(getUpdateMint(await getUpdateProof(4n, key)));
+    await contract.methods.update_at_private(key, 4n).send().wait();
     await tree.updateLeaf(new Fr(4).toBuffer(), key);
 
     await status(key);

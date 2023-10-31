@@ -43,6 +43,12 @@ export interface PXE {
   addAuthWitness(authWitness: AuthWitness): Promise<void>;
 
   /**
+   * Adding a mint to the pez dispenser.
+   * @param mint - An array of field elements representing the mint.
+   */
+  addMint(mint: Fr[]): Promise<void>;
+
+  /**
    * Registers a user account in PXE given its master encryption private key.
    * Once a new account is registered, the PXE Service will trial-decrypt all published notes on
    * the chain and store those that correspond to the registered account. Will do nothing if the
