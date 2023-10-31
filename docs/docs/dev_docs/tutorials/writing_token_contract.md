@@ -18,7 +18,7 @@ We are going to start with a blank project and fill in the token contract source
 
 ## Requirements
 
-You will need to install nargo, the Noir build too. if you are familiar with Rust, this is similar to cargo.
+You will need to install nargo, the Noir build tool. if you are familiar with Rust, this is similar to cargo.
 
 <InstallNargoInstructions />
 
