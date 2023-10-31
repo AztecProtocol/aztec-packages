@@ -42,7 +42,7 @@ export class TxReceipt {
     public contractAddress?: AztecAddress,
     /**
      * Notes created in this tx which belong to accounts which are registered in the PXE which was used to submit the
-     * tx. YOU WILL NOT RECEIVE NOTES OF ACCOUNTS WHICH ARE NOT REGISTERED IN THE PXE HERE even though they were
+     * tx. You will not receive notes of accounts which are not registered in the PXE here even though they were
      * created in this tx.
      */
     public visibleNotes?: ExtendedNote[],

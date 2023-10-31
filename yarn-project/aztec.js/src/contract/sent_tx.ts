@@ -84,7 +84,7 @@ export class SentTx {
   }
 
   /**
-   * Get notes OF ACCOUNTS REGISTERED IN THE PROVIDED PXE/WALLET created in this tx.
+   * Get notes of accounts registered in the provided PXE/Wallet created in this tx.
    * @remarks This function will wait for the tx to be mined if it hasn't been already.
    * @returns The requested notes.
    */
