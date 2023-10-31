@@ -1703,11 +1703,9 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
                 },
             };
         };
-        VerifierCommitments(std::shared_ptr<VerificationKey> verification_key, VerifierTranscript<FF>& transcript)
+        VerifierCommitments([[maybe_unused]] std::shared_ptr<VerificationKey> verification_key,
+                            [[maybe_unused]] VerifierTranscript<FF>& transcript)
         {
-            // WORKTODO: maybe_unused
-            static_cast<void>(transcript);
-            static_cast<void>(verification_key);
             this->lagrange_first = verification_key->lagrange_first;
             this->lagrange_last = verification_key->lagrange_last;
             this->lagrange_odd_in_minicircuit = verification_key->lagrange_odd_in_minicircuit;
