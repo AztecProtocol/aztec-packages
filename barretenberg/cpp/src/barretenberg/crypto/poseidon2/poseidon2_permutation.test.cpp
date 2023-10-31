@@ -10,6 +10,17 @@ auto& engine = numeric::random::get_debug_engine();
 }
 
 namespace poseidon2_tests {
+
+TEST(Poseidon2Permutation, TestVectors)
+{
+
+    auto input = crypto::Poseidon2Bn254ScalarFieldParams::TEST_VECTOR_INPUT;
+    auto expected = crypto::Poseidon2Bn254ScalarFieldParams::TEST_VECTOR_OUTPUT;
+    auto result = crypto::Poseidon2Permutation<crypto::Poseidon2Bn254ScalarFieldParams>::permutation(input);
+
+    EXPECT_EQ(result, expected);
+}
+
 TEST(Poseidon2Permutation, BasicTests)
 {
 
@@ -43,10 +54,10 @@ TEST(Poseidon2Permutation, ConsistencyCheck)
     auto result = crypto::Poseidon2Permutation<crypto::Poseidon2Bn254ScalarFieldParams>::permutation(input);
 
     std::array<barretenberg::fr, 4> expected{
-        barretenberg::fr(std::string("0x0514d38493ec8da89f9e2b599bc20f96206ad0c94bc2751e6df03003009aa2ea")),
-        barretenberg::fr(std::string("0x0757d335371eacea287976a7b26729a74801720418bfdac37d852ac198b585ed")),
-        barretenberg::fr(std::string("0x19f5168edd96d2c8800d460908dde37c5dd36d56ae905faa8660182a2803c56c")),
-        barretenberg::fr(std::string("0x0096047284f80a35f2f9f95101a9287e99e1afb0866f19e86286a09bdb203685")),
+        barretenberg::fr(std::string("0x2bf1eaf87f7d27e8dc4056e9af975985bccc89077a21891d6c7b6ccce0631f95")),
+        barretenberg::fr(std::string("0x0c01fa1b8d0748becafbe452c0cb0231c38224ea824554c9362518eebdd5701f")),
+        barretenberg::fr(std::string("0x018555a8eb50cf07f64b019ebaf3af3c925c93e631f3ecd455db07bbb52bbdd3")),
+        barretenberg::fr(std::string("0x0cbea457c91c22c6c31fd89afd2541efc2edf31736b9f721e823b2165c90fd41")),
     };
     EXPECT_EQ(result, expected);
 }

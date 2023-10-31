@@ -56,20 +56,19 @@ template <typename Params> class Poseidon2Permutation {
          * | 1 1 4 6 |
          * \         /
          */
-
         auto t0 = input[0] + input[1]; // A + B
         auto t1 = input[2] + input[3]; // C + D
         auto t2 = input[1] + input[1]; // 2B
         t2 += t1;                      // 2B + C + D
-        auto t3 = input[3] + input[3]; // 2C
-        t3 += t0;                      // 2C + A + B
+        auto t3 = input[3] + input[3]; // 2D
+        t3 += t0;                      // 2D + A + B
         auto t4 = t1 + t1;
         t4 += t4;
-        t4 += t3; // 4D + 6C + A + B
+        t4 += t3; // A + B + 4C + 6D
         auto t5 = t0 + t0;
         t5 += t5;
-        t5 += t3;          // 4A + 6B + C + D
-        auto t6 = t3 + t5; // 5A + 7B + 7C + 5D
+        t5 += t2;          // 4A + 6B + C + D
+        auto t6 = t3 + t5; // 5A + 7B + 3C + D
         auto t7 = t2 + t4; // A + 3B + 5D + 7C
         input[0] = t6;
         input[1] = t5;
@@ -130,14 +129,15 @@ template <typename Params> class Poseidon2Permutation {
         // Apply 1st linear layer
         matrix_multiplication_external(current_state);
 
-        for (size_t i = 0; i < rounds_f; ++i) {
+        constexpr size_t rounds_f_beginning = rounds_f / 2;
+        for (size_t i = 0; i < rounds_f_beginning; ++i) {
             add_round_constants(current_state, round_constants[i]);
             apply_sbox(current_state);
             matrix_multiplication_external(current_state);
         }
 
-        const size_t p_end = rounds_f + rounds_p;
-        for (size_t i = rounds_f; i < p_end; ++i) {
+        const size_t p_end = rounds_f_beginning + rounds_p;
+        for (size_t i = rounds_f_beginning; i < p_end; ++i) {
             current_state[0] += round_constants[i][0];
             apply_single_sbox(current_state[0]);
             matrix_multiplication_internal(current_state);

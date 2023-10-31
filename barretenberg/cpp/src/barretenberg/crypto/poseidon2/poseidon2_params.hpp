@@ -1,3 +1,6 @@
+// poseidon2 paramters generated via sage script
+// original author: Markus Schofnegger from Horizen Labs
+// original source: https://github.com/HorizenLabs/poseidon2/blob/main/poseidon2_rust_params.sage
 #pragma once
 
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
@@ -5,409 +8,445 @@
 namespace crypto {
 
 struct Poseidon2Bn254ScalarFieldParams {
+
     using FF = barretenberg::fr;
     static constexpr size_t t = 4;
     static constexpr size_t d = 5;
     static constexpr size_t rounds_f = 8;
     static constexpr size_t rounds_p = 56;
     static constexpr size_t sbox_size = 254;
+    static constexpr std::array<FF, t> internal_matrix_diagonal = {
+        FF(std::string("0x10dc6e9c006ea38b04b1e03b4bd9490c0d03f98929ca1d7fb56821fd19d3b6e7")),
+        FF(std::string("0x0c28145b6a44df3e0149b3d0a30b3bb599df9756d4dd9b84a86b38cfb45a740b")),
+        FF(std::string("0x00544b8338791518b2c7645a50392798b21f75bb60e3596170067d00141cac15")),
+        FF(std::string("0x222c01175718386f2e2e82eb122789e352e105a3b8fa852613bc534433ee428b")),
+    };
 
-    // generated in `poseidon2_derive_params.hpp`. N.B. does not use the method outlined in the poseidon2 paper
-    // (requires implementation of some extra 3rd party crypto). May need to change for #3132
-    static constexpr std::array<std::array<FF, t>, rounds_f + rounds_p> round_constants{
+    static constexpr std::array<std::array<FF, t>, t> internal_matrix = {
         std::array<FF, t>{
-            FF(std::string("0x15eea6dca2b448bd09150227f045553c94d4cd0502e0c5a24c588fe3e311fa67")),
-            FF(std::string("0x279df1af44823fa78173f97a9b3cdcc444c41f7a5fd25dac8252ad283fa5ec3f")),
-            FF(std::string("0x2e4aba940b2e5e9d60f7b558e840165eabae3e016bb14218f64a866963d666b7")),
-            FF(std::string("0x04323d044f25a2b19578b980d6c1589d639545d1dabc36ae965a70740a9c0857")),
+            FF(std::string("0x10dc6e9c006ea38b04b1e03b4bd9490c0d03f98929ca1d7fb56821fd19d3b6e8")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000001")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000001")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000001")),
         },
-        {
-            FF(std::string("0x1ad0d155c36e0233329934e15ac3d6467c3b05acbca17a1836cbfc7f0d660915")),
-            FF(std::string("0x07ec817c89206c5c4301973c5be04fe7b4c249859151779166d0a6bc4995d6e7")),
-            FF(std::string("0x0f7ffe28dc5258f8aa627156d9ce39467c740552d87e4b0e4cc696a3cf53cf36")),
-            FF(std::string("0x0a8ea6ce4988c432f594582361129f2c62dae142da5a057117b5fd6807257986")),
+        std::array<FF, t>{
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000001")),
+            FF(std::string("0x0c28145b6a44df3e0149b3d0a30b3bb599df9756d4dd9b84a86b38cfb45a740c")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000001")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000001")),
         },
-        {
-            FF(std::string("0x0308252835005ac66742d170cda29be20f224dd01e3a782c286414bc41d61218")),
-            FF(std::string("0x098e1a885f6b8d5fa1c4987ca12faa12e96408af06ec133342e7fb15914148dd")),
-            FF(std::string("0x220826e11ca209dbf03b948986a1e2767b6036473cfde7efd99e21f5ffc77dde")),
-            FF(std::string("0x15ab8985ee003841a897509e2baffa614ed80b401ade01c1c78e7d4ad41607de")),
+        std::array<FF, t>{
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000001")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000001")),
+            FF(std::string("0x00544b8338791518b2c7645a50392798b21f75bb60e3596170067d00141cac16")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000001")),
         },
-        {
-            FF(std::string("0x064980ea9c8b32817c459209486d8b2533e29f53808161e7a650583da1690acc")),
-            FF(std::string("0x10c54b290c4040afa6454fb560ca3862c5535be8bc5da1c6a5be5344a03942c9")),
-            FF(std::string("0x2469f804e2a02b122d43c314d4fc1a1dd7bee08276da9138e705076583b90247")),
-            FF(std::string("0x19c3f8198fe7535dac3a2ea383aaffa39ddf30da0e1582bbcb07577475d2c0da")),
-        },
-        {
-            FF(std::string("0x226caac408b4335f4ba9e927ea0127ab68fe0e0f0e9012609c4337ebcc63604b")),
-            FF(std::string("0x302d6600e481480955e13ad506ed7fe098f517bc5ee63b32c5bedad64cec9d78")),
-            FF(std::string("0x149754646e22efa13cfb34e1cfcf396bd3f91611a7d03edd1993098ebbcde8e0")),
-            FF(std::string("0x06f85232ebbf79f827857c165d221c6c66ac421e9b99274a174c0f2ff194432c")),
-        },
-        {
-            FF(std::string("0x108f75e9efe231ba6396e0ee8c22472d3f71da8380b4be01ec4cb4b32232eb57")),
-            FF(std::string("0x0aee1b1783ba93af99e248aec6c41f937fe003185d0bc962aae3b080d187661b")),
-            FF(std::string("0x0bf3de9ada3a61ee25af9f448e055874b651d168f1009e22bb200c1b4d35324b")),
-            FF(std::string("0x18496105620a6c599c467a80a4d6f76313b7f793dfaff480c6d3ef1e361d328c")),
-        },
-        {
-            FF(std::string("0x2bf6d9d2749f31152b6df0ebe61751b53b434160b454b49778e8343267d7f6a1")),
-            FF(std::string("0x026dd15b91c1ca7d869045ae68815dae60c5e4544fd438b7ef0b90319c005884")),
-            FF(std::string("0x0821a99692cd0c110e511829f7d918ed8980ccaa3e799315e914ab153b6303eb")),
-            FF(std::string("0x25018d135e760d8e196c44e271e7f6f22f09bbbaf36025f7a7880f177fde04b9")),
-        },
-        {
-            FF(std::string("0x0aa5c1f043f4fe98ec82d081fa9741f846f833f900d31111d259a14b16fab4f2")),
-            FF(std::string("0x2023ce7ccb396c4c6d4054691f04d36be27d66d01eef8d63bc5aad175b1bd967")),
-            FF(std::string("0x0534b260e284e2f9b1c3aed425db75d9e458dec84fb78178673d31d20644fc98")),
-            FF(std::string("0x001bf1f59f36fa68545aaba439a1bca8ea4724b2895e6fb29f6db064467f1cc6")),
-        },
-        {
-            FF(std::string("0x1a69a7401bbd7a4822930ae713a664bfd0f5ead08553e353d2f4498b80149baa")),
-            FF(std::string("0x125c28a74dad02056ffabe14f3544db6673289e6a6bc4132a3b183fd2ccf6b7b")),
-            FF(std::string("0x0c36495973a2a18285cedeb79118adf4585a0151e4ea25e836ee5591fe44f332")),
-            FF(std::string("0x1a376c8f32df8d253552a268f5957d62bf3b63f701c0c2dbbdcb293cc4bf1ec1")),
-        },
-        {
-            FF(std::string("0x2b53585a0bc0789078d58374c129ab35e80e65ff0b9ecd002f0996d03e941049")),
-            FF(std::string("0x143354f143b3622a185a65b3f8e210cb91300d2f9d187058db94db23aacc0a64")),
-            FF(std::string("0x220ed9f1201fa741566e86c9491af4c63648d806262088b73c980240b2630d5b")),
-            FF(std::string("0x01df34ca136c47a5a016a9c6a13984a2e1200b047d8c345b477f3be24f1dfca6")),
-        },
-        {
-            FF(std::string("0x0325e6449db3896bfa8c2bcdcabac9a4a0add91b9305e10b071f9681466d8a64")),
-            FF(std::string("0x1e4f12df40af7b3b3a7daab0d15e1b6c649bed50c6d85f0f469b9c680d6213aa")),
-            FF(std::string("0x259babe5dc5beb75821174d2ac2514c3ac75d9a252e919fa3d082f08f6fc255d")),
-            FF(std::string("0x0536d199068109873bd726373eaada568cbebe3b4723cf963954469fef87b03d")),
-        },
-        {
-            FF(std::string("0x0f96c283774eb29f7a3e6ebf8d39b7580c6b87a4a8688c4e9954c985900c692a")),
-            FF(std::string("0x2a197e4a1585c27e4d0efb238aa87bc49146a5f9b10efd89b8e0e1e40a1f5397")),
-            FF(std::string("0x1334e3cea317028385e6359b7bb3b3a64958d8840e0c03c30673853f581f5762")),
-            FF(std::string("0x085335f63362d18d1807f03b7e7f33d12d80aa219e58e577fb51dc9fa4913b9d")),
-        },
-        {
-            FF(std::string("0x24767a8fe8035513548f15f041d6d306e03a0974d70f550bf17d164c68545ddd")),
-            FF(std::string("0x05343763fc0c0c73d67623a34e695100fa591a9be834f34c971d7a1145e39a3b")),
-            FF(std::string("0x23a663071238e76485140982a4a7bb856f0cea6a3adf1f0a1e2a20a62be5d8a0")),
-            FF(std::string("0x10eb6ea7c892c9f530eb7c358f4595a602f3d6ead83a94c2430034a3ce67720e")),
-        },
-        {
-            FF(std::string("0x22d77c228d29014470c28e3c6e4463f36d4a5d99e58271b2b762e34559ae252f")),
-            FF(std::string("0x14b7f0b968a5a59b13b66c60059ee0794e990715d64637516a6e414aa7c3eb4e")),
-            FF(std::string("0x03c56ae6f8cecce9636a751c3e0c9f8460f6b01dca3c488f0ad59cd8753621b7")),
-            FF(std::string("0x231ef5b2c2bd15606426bbf4a7a32270fd95cef340be77b69295c849712f7970")),
-        },
-        {
-            FF(std::string("0x052cc6b97d8f8657fd1371eb099c2f0efe37166aa4be7e6b2f5ec18ecd7a2555")),
-            FF(std::string("0x08339e3b437b5c5fe7fc91bb7903901cab3634f4d71eeb999d4e1ec8dd7d5d34")),
-            FF(std::string("0x2b52dd66a2f030ffff2b1134cfab98aa0bd16706346457d9995f6bc579f63e0d")),
-            FF(std::string("0x2d770d6d74c1238b40e39bf1e0da9cf8540bd7461a84aab9b474a0ec581731c5")),
-        },
-        {
-            FF(std::string("0x25fd2a2b1c65fe0bff324bd3ebc035d7806e374a1770ea9baca8115101afd9ec")),
-            FF(std::string("0x24b73f5aa558b9165a0e2db4280134e06b46740d9b05bcec07d5bfa5f9866f7b")),
-            FF(std::string("0x253dbd4522315578fec9b4d9ddbdd94797cb670c2b36cc8fc35ddb11da3574d8")),
-            FF(std::string("0x1678ac4331ce9d28dd63a303e2840c1a8c8df5cdf7982edd3e880bf9e3ff638c")),
-        },
-        {
-            FF(std::string("0x299b57ed6ef793250bba6df0464aaaa40ee32fc0cdea661dc47f7167c788bc15")),
-            FF(std::string("0x0e8031d7f045796728ec86ef6be1105e317697b6817123c92c62cd0df3e134a0")),
-            FF(std::string("0x08bbc62c82e3192c7a71903385188fd2defe8d3821d83fc19a735821f58b53ed")),
-            FF(std::string("0x15246558ca9f8636072607ea90f89aaae31e5a095e71f62d40ecef3cf87fc56e")),
-        },
-        {
-            FF(std::string("0x2c69fb396836afb10bcdee8830ef75edfd2de23bdb1f458cd4013b95b399df5a")),
-            FF(std::string("0x1332a20f8423504ac6dea46427bca87c692659ee456db4b631b329abac0428f8")),
-            FF(std::string("0x076099baa164eff4630a22beae8945ec96df7b84fd3e7c2135e38072e53dcb89")),
-            FF(std::string("0x0e612dcdcec52eac2c227596b8df9f8325785e9ccb4d8e595b164224ee232643")),
-        },
-        {
-            FF(std::string("0x205123027e2e8e0d813daaa7e791ec129a4a89ba0f7e026dd6c591080495d6da")),
-            FF(std::string("0x126e7c36d80a9dc4fa9a868ec791b53d61a54e6e2f850bab00cb32cdc6d975d5")),
-            FF(std::string("0x2638520164de3f58a5f0ef7b6302cb0740d7c0e60c0e3feec89e137c0918ab1e")),
-            FF(std::string("0x2adf70f515c0d91851da22ef6fcef1c270f2cf28a15adbb4e8931c375fb1d152")),
-        },
-        {
-            FF(std::string("0x12dc9813445d92702cefdccf3aed56487e5b13fba98d993a101e23d5c75c7fa5")),
-            FF(std::string("0x1f0c0639a5b5209dc4056aac7aafaaa759dde0c3b219f32fe6dd77596f7fef5b")),
-            FF(std::string("0x2bac8f37d86d3f562ad7f4a285a63fccb1de4745c78e29a7ada03c8d84584a0d")),
-            FF(std::string("0x2dc55bc6c7f6dd4a723daafef52a133602ae2e113566d1ed44deff0228536629")),
-        },
-        {
-            FF(std::string("0x060e528735661c9f4aab45b097c326f53c374658041cfa1c8c6402581267ec60")),
-            FF(std::string("0x0655e8499681d25f19ce13c9361eecf7d89664d709fbac5edbd00826880526ff")),
-            FF(std::string("0x03d2045d3557086899658264d24baee7e842cbb213b36bf22db6e408881e194b")),
-            FF(std::string("0x1b3bebbee511ad923e5741b9ae9299e0b3a49a950e7b0b8eb35b5411e58fa83a")),
-        },
-        {
-            FF(std::string("0x01635e56bfea75fdcf3fbf9ed4c103f99851d9553a696c3c02ff71bea3b934a4")),
-            FF(std::string("0x2edcb004d073cb39a73eef2a994653a732e7cc2aa5c33980be989d35268e7a85")),
-            FF(std::string("0x04c2258ac4f7f74cb2114477aef1ae61d541b919b362efafa0cc6ff1f3abe0c4")),
-            FF(std::string("0x2dae38722e7509f87cf5380638e40560584de28b0a180c3f654e145d83d4e5b6")),
-        },
-        {
-            FF(std::string("0x2b1a7bccd6a282790bcc29f5f2d13c5f33dc5eee59af2939b3339f142324f102")),
-            FF(std::string("0x1768e953de2e58f7620005da9cc4a6863da49fb3c8369ec4d389ae1e74ac5525")),
-            FF(std::string("0x0d7cfced42afd96297631bb0332b3c90a772ca1c82187cffe43d90906684863f")),
-            FF(std::string("0x283f8070a0bca435614e8e3e786c120e637f235108fad44a8b1d55f15549ee50")),
-        },
-        {
-            FF(std::string("0x17400a650edc03e961ec826cedeb0028c928d98bc30e758032afce5c6b9b4bcc")),
-            FF(std::string("0x0beb669dbb1fa32200d670275f0dfd51b016beef89ed28b2c605a9cee9e4897b")),
-            FF(std::string("0x08419d357edbd69de031dfe608761f7ff782cc8994b9c282760189d4ec7e01f6")),
-            FF(std::string("0x118bc2f4015b753019d60abb95037d582270a525d06c6341f35ddca22505f3b2")),
-        },
-        {
-            FF(std::string("0x293f43e6aa59c0ac8337e25182b0810d0bbfbfb9dc33951d93645e0795b6e5b8")),
-            FF(std::string("0x25b16e33ab57889a409537da7ee0cd22db722d275e2aa4f5b2b7cae010f055c7")),
-            FF(std::string("0x1c35af9efbed4574315d523b2d25f8b9bdb0033346243486a99b0b5c49a7d1f3")),
-            FF(std::string("0x0c9cca6505f4e705fca5caff5283b2bcaf781d95ae388e52314e27f2f14e14b5")),
-        },
-        {
-            FF(std::string("0x2f6985dc96c8f1ba0e338bd09d4624b28958a4114927158001d5d8d550cc3b71")),
-            FF(std::string("0x08e034f17598366a77cb0ad47ab55dc31df8e5d2893e13549d132f6428afe09a")),
-            FF(std::string("0x1651e97525932a9ebca8f072f8e6aa8740a3a351231c14d6061b3268e42e8c7e")),
-            FF(std::string("0x0f34ea4d29d247d4baf3ea9b9c9763e8ba263c46e0f25ea80df81999f51fbb8b")),
-        },
-        {
-            FF(std::string("0x27f93f3a609b73ad1ffe2bf154899d8399c9accba6947507bd84bc4556168d7d")),
-            FF(std::string("0x2bd8b5f1a460e7dcf8b1f8e753b260d4d9460b8c86a3eb1d006d476a9cbe5650")),
-            FF(std::string("0x123515d8163c3825363d25a84e13bffaa0b5e20c9db01aa1ea6fa467aee0b5e4")),
-            FF(std::string("0x29676411a52008a07ed65c1fc2901a8adc3689d70ebac45532cf4f3cc8d30774")),
-        },
-        {
-            FF(std::string("0x1bb60ab8bc36870aed66a594efb34ea24fb7d2d992ca58d4aeb31289c8cf0d65")),
-            FF(std::string("0x248f8f678b4a5c3a7ffae164c471d29dba9fa6a320b1e9809f64ae120d0bb22b")),
-            FF(std::string("0x05c08dff728cf1e6804ed5d84e6cabd4575f9bf2f89e9a2eccdb1fc8b83672cb")),
-            FF(std::string("0x0a5dc0217ebc7f6bbb10ea6261d4bed8fd2b8598be6a7e326e31cc3991135a6b")),
-        },
-        {
-            FF(std::string("0x21ea154846c075ba1e2ec1d61ad4843bb263e2f05b9bdad67c8b989fe52c9377")),
-            FF(std::string("0x0592a7b6e9cc14efcff5e9530db734028610a38322e4ad5b2a60220d69e819bb")),
-            FF(std::string("0x01b98b71b6bf17a929d6557703eecae267893a625f923e497752d7befcaab460")),
-            FF(std::string("0x2b867342d1d0664b7411d4ab1056f337828ee7bf9db45871798051c56b869503")),
-        },
-        {
-            FF(std::string("0x0a66788eaf35195b3d40246c836baf1412a9927185197ce2abd747760a809fad")),
-            FF(std::string("0x2a886be85416c3ef9748376da17b5178091817cb82a38b80ff7492f13ef3444b")),
-            FF(std::string("0x1dc519f87a75cb012b0a4e15aa8d8fff0da730e81b41c27411766d7587dde4ca")),
-            FF(std::string("0x2ef6492984f15978f5357c70cb6fd9e13cfc4e21ef6aee5d72b2b636da194bcb")),
-        },
-        {
-            FF(std::string("0x062de010063d1072aac3b8f51dc0c462c5eaccb9142f931a7ab76a1ae3d5b7ae")),
-            FF(std::string("0x204baed49134a9764295715f195a04f609a93727157afe1993dc5daa29c46df5")),
-            FF(std::string("0x0649a9953bbb403ac0d2e9cd624cf9627f36ed8e15cb33d7514e883480234fab")),
-            FF(std::string("0x2abd88ffeb65a265128ffa3c42037d77934da139f4f04d4ba59790b163e9507e")),
-        },
-        {
-            FF(std::string("0x18d333c846fa6c4ead13daa110e590ebbc288ea7394e52abfe6f247f99d0e23e")),
-            FF(std::string("0x2e8727a08f6964a4c758214db8d7cf5c88112176d6dfa3230824935788876509")),
-            FF(std::string("0x1ef52294254e9a07eea80611b6ae3d7e1b6e8a4b70515d723399f4dcd1e2a5f6")),
-            FF(std::string("0x11572d12ac653a3c0f22d5b7d20459e6aad41a9116a6adf35aa5e515f6b97399")),
-        },
-        {
-            FF(std::string("0x09c871834f078d45549694f501a761e42a501c592bd3a4e1fb3e09ad8dd16df1")),
-            FF(std::string("0x246bbcaf77d39eaa09131e99ffb6d8a754aae3be7a2e3e88c11684f4bf7db342")),
-            FF(std::string("0x18ba724cfbc52564874d8443dcf08f3584233c2a14e59970059c17648af1c46b")),
-            FF(std::string("0x2676199c8c498f8b995e8d8089219e64faf4d644d918a8bbdf48f5aeef397ee2")),
-        },
-        {
-            FF(std::string("0x25af0a7566280e5b679d22a6a543e5d1ee49afba262854cff833c6ab17d9b406")),
-            FF(std::string("0x0944ddaa67cef777788d34b3af061ca90138856b7b673732abbb7a729010d5e0")),
-            FF(std::string("0x2541565720337000bfa180c09d2b74f26dc75bc0092489afe6c7628867903fab")),
-            FF(std::string("0x1557f108c4f6a5e42e6b21b6ce3324111c3b197e746ed56a1b3011df4f3a78aa")),
-        },
-        {
-            FF(std::string("0x02379e39dade80c2b3cdd994914cc7e3bbabe6f5451c457ea72e8061e6258cf6")),
-            FF(std::string("0x19283b8a618a8dab599629f322448c2d438a7ff0c8e3869fd48c1287af4682b2")),
-            FF(std::string("0x2ccdb0312609448eb09c8d49a8ebae3b47cc0476675753b908c244f82262bd46")),
-            FF(std::string("0x03ce886a32c134b13e508ad9c9470b47c66c28f6c07b6d7abf5d67e3d8cfe128")),
-        },
-        {
-            FF(std::string("0x05105ee8f7d50a26d109a3854267be2bb0045dbfdec8493ae70bdab4e783815c")),
-            FF(std::string("0x2d5d51efb46deaf8c878b35c0d62ed2821127d533cc30c28b4259800d11722a8")),
-            FF(std::string("0x1074bc594f6b3665ccc365f9ff5cc21135d1f922e1db035cbbb452babe549599")),
-            FF(std::string("0x216aac7bdd7f0bfbdacc9d0a0202cdf964f1dd203f231b08a6138171a332af56")),
-        },
-        {
-            FF(std::string("0x179773cd3f390ee479f96169df1866d8def0bda8b3a542924e82a61a30f5d734")),
-            FF(std::string("0x051ce7238a6fb317f56eba00b5eafbd8d83addd72de072f0e67e17918edab699")),
-            FF(std::string("0x2b50582527dc94f6c32a7a37cb59b783795e42ad4a50d60ad8c4cd9d32a4e5e8")),
-            FF(std::string("0x175bdedd785a09eb07d8d40c5c53407dc40bf4f85c29e451a1ab015b62d4d9e0")),
-        },
-        {
-            FF(std::string("0x0ac575ed0014055981fb6db94e50ec901bb29474e93772f9aaf25e8c18fe6f1f")),
-            FF(std::string("0x1b8541ea21a9c9215a63b2b32192e6dbfd5102471c517e180440d719e98bef2e")),
-            FF(std::string("0x0deb999605c554a85c85e671ab63cb6989c44445a5f428d4f2688d48eba1a846")),
-            FF(std::string("0x19d5c93f224b85de28240ba4bb1de0f0bba3c08648957dff13b323a90cbe0a5b")),
-        },
-        {
-            FF(std::string("0x2a6abea2a0828a230400d001108a16d95a8906e04db3577c602b009d6130677b")),
-            FF(std::string("0x1b6a2b82be46145b09c0f0ecfe2191b8896ba92c0bd67f8a9ff9e99fc0aaa41d")),
-            FF(std::string("0x03a0b2e64db36338004acf1bfbb756cc4e1df1a60272b4eb7240beec0fe9ff0a")),
-            FF(std::string("0x090da681d61c1e68e31625e3d1dd767e8996076333ecd2c0c32de18f93c8a7cc")),
-        },
-        {
-            FF(std::string("0x00304b05b245d8a93c35dcc8a201623bc10c70a7a59809a9ae77fbb3592c448d")),
-            FF(std::string("0x2ccc7c443cc4ac2d908ac7cbc78f3432ffdace325957fc00cbcb36fd4220abca")),
-            FF(std::string("0x05bb83747d88579128e4f3ec624d239fc51da9fd20788970a1dcc1e0650b9742")),
-            FF(std::string("0x08789f0f2d902548599a592dc0e1902bb11d4f2344c7155919736dae577aede0")),
-        },
-        {
-            FF(std::string("0x2d7e79f6ff0a354d849c9339102cc01d6fcab3bbcf2a19755ae6e78aab0c50fd")),
-            FF(std::string("0x23b130113a10a7b7bf6df003e9f895e2de67bf7be27bc802a9fa1552928cd126")),
-            FF(std::string("0x1907e748c911fce6a62574268653103ff1b7eb59539f29434873a8cc31f1c7dd")),
-            FF(std::string("0x2e68eba7243e7fb1a492512ee8a7041c84b0c840b74119f6c00d4cb5856054ae")),
-        },
-        {
-            FF(std::string("0x08dadfd73dbd17a1a3834300b2d47e3645d270df6e0081d84cdf05fe71f9b86e")),
-            FF(std::string("0x2b194d668c4400df5a26a2c4067d923086d505d3d4a3bbcf59c292c84b0e7ca5")),
-            FF(std::string("0x2456e40dde7c6f74e1da3a2277b7210cdf00509166d6af184c78d33f79f43a48")),
-            FF(std::string("0x016009a0a16d27ed52230190747b3b6913966cbc0414156778e68c6b14fd1735")),
-        },
-        {
-            FF(std::string("0x12ff5c523564441020205b85188e144c8157f689ec5069cc7d039803a7349ab4")),
-            FF(std::string("0x041578eda5a7678fbda568fbf40759426f5705e303f32c63ac474cb5f5f7ec6a")),
-            FF(std::string("0x05239591df2f6f81c1d26da5a2a0fbfca86d0efc99a38a63ce0a7d247a69af83")),
-            FF(std::string("0x250ddf97d92629ebea4aa32ecaf8b78e9dba508e113dd267327662a81833cfb4")),
-        },
-        {
-            FF(std::string("0x2c6f9180b88371c9fbb0be3de33660ef305e29db740d1a58c932b81564ac1b85")),
-            FF(std::string("0x072c7948f6111a46e2cab1b8bdca315dd4d2d4ec9cbafb7fa93a4142a610de2a")),
-            FF(std::string("0x1d95394e6d3f4a54fac5db36c72e1ab50b5bfba092983a9e2bb314190c0ddbcf")),
-            FF(std::string("0x047dd6e2991a472698d3769e7fd4424e8d1bc7b8b71d4a302b5cc41e1a940b27")),
-        },
-        {
-            FF(std::string("0x1d1bf8d0e8a7862fe9b96231ae07bc42563ba5921fdee16f209645884a46e6e3")),
-            FF(std::string("0x08a53afc4b57bc9202929dc6ed63b7c661d5c485cf6ae17161bce7938fc59af4")),
-            FF(std::string("0x0ff20cb119d82b8d20cf4d31b9f477758a0be7ecaf8812126f9b4ad464a6782c")),
-            FF(std::string("0x087b751afd7be2acd7923cb74430f27db98890e44c375c09ac535d3a8ee4349f")),
-        },
-        {
-            FF(std::string("0x2df5483c1ce4c9de8401c7051392a30e0198a489d21449ddedf4048b50dac823")),
-            FF(std::string("0x284c153a3a910c030071783ee0baa88fd701dc61f31ed77463bd9b37cd34b782")),
-            FF(std::string("0x03e1a7a5affcca77d76dff3e43fca2c9aea3962775bf9f416dda6b9b70a553f4")),
-            FF(std::string("0x24be4f6d00f3088d5983848d39e43ebc8b940192cedfe9205ee84221427aaa38")),
-        },
-        {
-            FF(std::string("0x29f50462b45601fc9cd5f46ebd7d6a659351898bea6e3403ce931fd3432d0290")),
-            FF(std::string("0x1ed2ff04f43127d837a5ca18a41163a9470c67d355ecebe5aff04366865ac132")),
-            FF(std::string("0x146cccc77351666008a6b776a7ebbc2a84aecb29bf20bddf2e4896da0bd3eb64")),
-            FF(std::string("0x0b91c204757074bcf1e106f7fb7bf26dd9836c2af828e50f5b3424668e6c3f49")),
-        },
-        {
-            FF(std::string("0x0c46dafe7ba3db2a074471d38a67ae25a5cc91844f2efe41435dd6bd794c8889")),
-            FF(std::string("0x04a54a09f063d9aa4d123e0f4bbf948c1015b281adbd993df67be92639604e56")),
-            FF(std::string("0x0bf1f2a39d8f9002dfb81966bbde913d798ea554515b4b7cc985613d43bdc380")),
-            FF(std::string("0x0c12d5365ba60d32e6342537847154c0933d99d36342cf98a080a62db324723b")),
-        },
-        {
-            FF(std::string("0x20dc243ef10af7a9a5822706cd8fc4d0beb65d68e6f08218bca636b566d90635")),
-            FF(std::string("0x22bac8e86894a619dc6bb337719964b56fee5217bda8c711500b8579196d6360")),
-            FF(std::string("0x1cfe092982f2d61d132e0b6fc4b678c97d1f80297d1b43e723024503e19da7a5")),
-            FF(std::string("0x2bb3ca88ab47d917625c22ce11260cba3dc9c5cc693ccc4722f7d06058b5c355")),
-        },
-        {
-            FF(std::string("0x2289c7ff79446228f2b6a52e48a90d6d3ddec3d7ff5b548f39267ded5c175191")),
-            FF(std::string("0x09d963f5d895df0d2f1be27e0cd589c1e20f6219a31526fe9acdbb534de923fe")),
-            FF(std::string("0x07dc265e4f1736a3a07c0aa2d94d0f23742ecb90837c5ed87e8e1f4db3f49f3b")),
-            FF(std::string("0x18f75992411fbb0ec8a01ce2c0c81567ce8da36087ab92e483470d3f141e1176")),
-        },
-        {
-            FF(std::string("0x2a7d09e28d6b184616502993130ee0b552d238da6867895ee7eb50fea033af26")),
-            FF(std::string("0x2b5e8bd12bd77ba2a3abfd4b56a8dc5e93b8c509110665113acbe97598e2514a")),
-            FF(std::string("0x2b4506470648cd32461b08692dfe4741571820e1e02674a4652305724c3024b9")),
-            FF(std::string("0x0a64cd1b197a31dac84de8bb0eb634fafd344155bdbac92719e8d34ed0accf64")),
-        },
-        {
-            FF(std::string("0x0ebaacbd0edc01a28c88ea6cd8232a8fb5e0cbf7b7d46db954a59551269aae11")),
-            FF(std::string("0x1d3d7a5ba3d8d1728f3187401038cebf5adec7e95d5ec485aa82f58fd9339a68")),
-            FF(std::string("0x16b027c675b006b18560c236d7e0b4fe0c08061572911f467c8448a5e62a25a5")),
-            FF(std::string("0x20eb9f65f94084054d77a1fb220bdfe6fc2ab17ea04f99400834241b584949c6")),
-        },
-        {
-            FF(std::string("0x11d15fbd5525aa70d44cbcb3879128652f4680034db3841db0254a60218fb29a")),
-            FF(std::string("0x1e4a6b228d2596a72e7535d24dd60a0c583eb2febd0d8bcd12396ebc425470eb")),
-            FF(std::string("0x21728fe5756ff55de1c9d5fc0d08f1b1318805a66f6637088fd2b20294911687")),
-            FF(std::string("0x1bda907f1c69a520fd37d6ddce8d3956c32e5aa10b24f2958ed7a6705bd1f37d")),
-        },
-        {
-            FF(std::string("0x1c837c3290090ef4afd9d904ff67734f54b939fb719cc1038efa5db256c94d6d")),
-            FF(std::string("0x019e54db9c8ec7651ceda7bcf44b50b1255fb78d797e158e669de93adcb6e3b5")),
-            FF(std::string("0x261506c83aea562286a84681f6fa2449395c241e1cde0c69f8ca63783fbfca59")),
-            FF(std::string("0x08e04b821c976f6cec904c3aea5aaf05cb255722bbdcf7ee93b1de99846b3625")),
-        },
-        {
-            FF(std::string("0x1e8d1ab72f9ca36a7ecd2ad9e93bb46a5b88830925dfa45fa8817c5ead9d8b54")),
-            FF(std::string("0x2f58fda0de317d3472baac058b7a0e8c5c590eaf0482dbe53ead518b2f313dbe")),
-            FF(std::string("0x0aaea80cc01cac944922c8a24532953790060ea0d48934da0ef75bc6574444d3")),
-            FF(std::string("0x2306ce71ff2352e0f1bf6e5f87cabb98ecdfb489ff3a99891ae203526d4d737b")),
-        },
-        {
-            FF(std::string("0x06628eb6eef76ad7569e50e4b97b25f18d412426e9bfd45ec583cc1fe6272005")),
-            FF(std::string("0x284db95e0c26cd9b64fbd9e40aee8aeab14ff0429aa5775711a6ca4854076d27")),
-            FF(std::string("0x2328cd3fb4348135ab6acaccbc0e83a7c8272687d3c6454390a725af4a7f95de")),
-            FF(std::string("0x1d5815e60424ef674449982aa51687893b82363952d31cfe8bc24453ed153cb6")),
-        },
-        {
-            FF(std::string("0x18c57f75efec583c1c0c440fffcf5f4377e4740ff3311e820a8b6d814e92c86a")),
-            FF(std::string("0x1b82f143fc2eebc22a600bb95a3af1506b68d813ffbf647bc479c3864170b338")),
-            FF(std::string("0x192470dde3a0806e90bc34f2190afd2dcb7df6629bad92e209d70c74a48c9d92")),
-            FF(std::string("0x0aa97a5b7d802d0caf9cb6d1c76486853bee852f1aadd85b52fd83e1147457a2")),
-        },
-        {
-            FF(std::string("0x1b831d08854a1a109a745c5b16760cec73edd3d5317dcbe1cf24a6b0ddc2d79e")),
-            FF(std::string("0x096b1936ea537a6b03ce83d87823f2326a97e03c2b90c10476c3058001e6b471")),
-            FF(std::string("0x2c1ab915961a17681e0626196749ab54beaf01e1b29e01f1be2cba941d6d3eac")),
-            FF(std::string("0x19fc611ee693c8a12b73bd0eba61fa74ff4a476df46c221b3abe00af3ee82e61")),
-        },
-        {
-            FF(std::string("0x205625df4943f819eedf11cb9736648f80437f3e0b3cd73a5a0b3b144e5b3569")),
-            FF(std::string("0x2eb23a5e85fbc502e6b24d08acaad160119e51498ef07df8079c2d47ff760d57")),
-            FF(std::string("0x0c725970a0e4c070a785efd46d63eb6523a7b4951e5270bdf549ae1a89dc0991")),
-            FF(std::string("0x15f2d2888ad658cecc3d7038de6541c7e620ac92e4d2c192eafd4fec2ba48e8f")),
-        },
-        {
-            FF(std::string("0x01080c482028f2fdfb4c4247d07157bfa58d6d2fd6e0583fe87a1a8f3d96f112")),
-            FF(std::string("0x058e98dfe1751afb7478f2b93a4522e0e5bab006777fcc9903580542e549b66f")),
-            FF(std::string("0x21abaf2ff4b43316f52910454f957d485008403630f1bc68b63da871d3462d9a")),
-            FF(std::string("0x227acf3eaa5df73c3f01e2e34e571c2d69279194b0f2930fdd9adf3898753ec7")),
-        },
-        {
-            FF(std::string("0x21e0c57ce891ea47b91b4757a41817a9f47b4a5a14632dd556ea0e5411f79f1f")),
-            FF(std::string("0x1a8ada480114c7e248cd5214511ee2b79b793f8e199eff986b3ae59297e9feb9")),
-            FF(std::string("0x082bc7a263ca5da12ee6e8aa048a7cdcd1ae4d4a16aacfd92b33991157c92db9")),
-            FF(std::string("0x178502779a89aa327096a62883989ac41e28a25caac6cfb7bd4ec32e343b08b1")),
-        },
-        {
-            FF(std::string("0x0bdc3b7f3127210ac8871d1b8e3ec744d345dbbfe1508f8565b05896c9e50e8e")),
-            FF(std::string("0x146f2b581340685a19fc4175354475b04bae900f542ee1c6254c4b94d9e5c619")),
-            FF(std::string("0x0e2093f5fea23aa450f519e844a3ff5dd3c62bc5727b6016d8272bff4f8d18b4")),
-            FF(std::string("0x0bd958eab1a98cc6618245168d3f83c9f502450c15ce978e4ed8fa09b409d0cd")),
-        },
-        {
-            FF(std::string("0x1d4fa3a009238083b8e844c9923bd6220460d55d47677d0dca26bb6ed30fb9c6")),
-            FF(std::string("0x219992a2ad3c2e2ed6a7b2b95556835e1bad915d26e886c8ee5d4b6edae81085")),
-            FF(std::string("0x0fccc34a26a433f005e9ab759b8029ee18e5e2f36aa10564684f3f359845c920")),
-            FF(std::string("0x1fb16829f9023a2c365f4f35b3e8e85fa9da87a1196a87941bd54b2e2f6a3c5a")),
-        },
-        {
-            FF(std::string("0x2a62ca0cc5e850c6c4af48edf269e50bf2d812e5883622557c9c407694bfe1ea")),
-            FF(std::string("0x1d7e77f95174c41ea0c1368390eb4618cbc6cc3a5a5743cc03ee90a636022a76")),
-            FF(std::string("0x24dd714d441b7986af8dee276cd2606359cba9e4ead6034ac3bab018364a21c4")),
-            FF(std::string("0x11072894ca6d01e8d6536eacaa067940f59b1b6d27bebdb2c6f53ac887fee5dc")),
+        std::array<FF, t>{
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000001")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000001")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000001")),
+            FF(std::string("0x222c01175718386f2e2e82eb122789e352e105a3b8fa852613bc534433ee428c")),
         },
     };
 
-    // generated in `poseidon2_derive_params.hpp`. N.B. does not use the method outlined in the poseidon2 paper
-    // (requires implementation of some extra 3rd party crypto). May need to change for #3132
-    static constexpr std::array<FF, t> internal_matrix_diagonal = {
-        FF(std::string("0x056015c21fd75936e34c48b67888855f0ee8b5e54e173d7125251ec6e81957bd")),
-        FF(std::string("0x056015c21fd75936e34c48b67888855f0ee8b5e54e173d7125251ec6e81957bd")),
-        FF(std::string("0x056015c21fd75936e34c48b67888855f0ee8b5e54e173d7125251ec6e81957bd")),
-        FF(std::string("0x056015c21fd75936e34c48b67888855f0ee8b5e54e173d7125251ec6e81957bd")),
+    static constexpr std::array<std::array<FF, t>, rounds_f + rounds_p> round_constants{
+        std::array<FF, t>{
+            FF(std::string("0x19b849f69450b06848da1d39bd5e4a4302bb86744edc26238b0878e269ed23e5")),
+            FF(std::string("0x265ddfe127dd51bd7239347b758f0a1320eb2cc7450acc1dad47f80c8dcf34d6")),
+            FF(std::string("0x199750ec472f1809e0f66a545e1e51624108ac845015c2aa3dfc36bab497d8aa")),
+            FF(std::string("0x157ff3fe65ac7208110f06a5f74302b14d743ea25067f0ffd032f787c7f1cdf8")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x2e49c43c4569dd9c5fd35ac45fca33f10b15c590692f8beefe18f4896ac94902")),
+            FF(std::string("0x0e35fb89981890520d4aef2b6d6506c3cb2f0b6973c24fa82731345ffa2d1f1e")),
+            FF(std::string("0x251ad47cb15c4f1105f109ae5e944f1ba9d9e7806d667ffec6fe723002e0b996")),
+            FF(std::string("0x13da07dc64d428369873e97160234641f8beb56fdd05e5f3563fa39d9c22df4e")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x0c009b84e650e6d23dc00c7dccef7483a553939689d350cd46e7b89055fd4738")),
+            FF(std::string("0x011f16b1c63a854f01992e3956f42d8b04eb650c6d535eb0203dec74befdca06")),
+            FF(std::string("0x0ed69e5e383a688f209d9a561daa79612f3f78d0467ad45485df07093f367549")),
+            FF(std::string("0x04dba94a7b0ce9e221acad41472b6bbe3aec507f5eb3d33f463672264c9f789b")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x0a3f2637d840f3a16eb094271c9d237b6036757d4bb50bf7ce732ff1d4fa28e8")),
+            FF(std::string("0x259a666f129eea198f8a1c502fdb38fa39b1f075569564b6e54a485d1182323f")),
+            FF(std::string("0x28bf7459c9b2f4c6d8e7d06a4ee3a47f7745d4271038e5157a32fdf7ede0d6a1")),
+            FF(std::string("0x0a1ca941f057037526ea200f489be8d4c37c85bbcce6a2aeec91bd6941432447")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x0c6f8f958be0e93053d7fd4fc54512855535ed1539f051dcb43a26fd926361cf")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x123106a93cd17578d426e8128ac9d90aa9e8a00708e296e084dd57e69caaf811")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x26e1ba52ad9285d97dd3ab52f8e840085e8fa83ff1e8f1877b074867cd2dee75")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x1cb55cad7bd133de18a64c5c47b9c97cbe4d8b7bf9e095864471537e6a4ae2c5")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x1dcd73e46acd8f8e0e2c7ce04bde7f6d2a53043d5060a41c7143f08e6e9055d0")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x011003e32f6d9c66f5852f05474a4def0cda294a0eb4e9b9b12b9bb4512e5574")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x2b1e809ac1d10ab29ad5f20d03a57dfebadfe5903f58bafed7c508dd2287ae8c")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x2539de1785b735999fb4dac35ee17ed0ef995d05ab2fc5faeaa69ae87bcec0a5")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x0c246c5a2ef8ee0126497f222b3e0a0ef4e1c3d41c86d46e43982cb11d77951d")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x192089c4974f68e95408148f7c0632edbb09e6a6ad1a1c2f3f0305f5d03b527b")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x1eae0ad8ab68b2f06a0ee36eeb0d0c058529097d91096b756d8fdc2fb5a60d85")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x179190e5d0e22179e46f8282872abc88db6e2fdc0dee99e69768bd98c5d06bfb")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x29bb9e2c9076732576e9a81c7ac4b83214528f7db00f31bf6cafe794a9b3cd1c")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x225d394e42207599403efd0c2464a90d52652645882aac35b10e590e6e691e08")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x064760623c25c8cf753d238055b444532be13557451c087de09efd454b23fd59")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x10ba3a0e01df92e87f301c4b716d8a394d67f4bf42a75c10922910a78f6b5b87")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x0e070bf53f8451b24f9c6e96b0c2a801cb511bc0c242eb9d361b77693f21471c")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x1b94cd61b051b04dd39755ff93821a73ccd6cb11d2491d8aa7f921014de252fb")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x1d7cb39bafb8c744e148787a2e70230f9d4e917d5713bb050487b5aa7d74070b")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x2ec93189bd1ab4f69117d0fe980c80ff8785c2961829f701bb74ac1f303b17db")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x2db366bfdd36d277a692bb825b86275beac404a19ae07a9082ea46bd83517926")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x062100eb485db06269655cf186a68532985275428450359adc99cec6960711b8")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x0761d33c66614aaa570e7f1e8244ca1120243f92fa59e4f900c567bf41f5a59b")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x20fc411a114d13992c2705aa034e3f315d78608a0f7de4ccf7a72e494855ad0d")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x25b5c004a4bdfcb5add9ec4e9ab219ba102c67e8b3effb5fc3a30f317250bc5a")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x23b1822d278ed632a494e58f6df6f5ed038b186d8474155ad87e7dff62b37f4b")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x22734b4c5c3f9493606c4ba9012499bf0f14d13bfcfcccaa16102a29cc2f69e0")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x26c0c8fe09eb30b7e27a74dc33492347e5bdff409aa3610254413d3fad795ce5")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x070dd0ccb6bd7bbae88eac03fa1fbb26196be3083a809829bbd626df348ccad9")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x12b6595bdb329b6fb043ba78bb28c3bec2c0a6de46d8c5ad6067c4ebfd4250da")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x248d97d7f76283d63bec30e7a5876c11c06fca9b275c671c5e33d95bb7e8d729")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x1a306d439d463b0816fc6fd64cc939318b45eb759ddde4aa106d15d9bd9baaaa")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x28a8f8372e3c38daced7c00421cb4621f4f1b54ddc27821b0d62d3d6ec7c56cf")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x0094975717f9a8a8bb35152f24d43294071ce320c829f388bc852183e1e2ce7e")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x04d5ee4c3aa78f7d80fde60d716480d3593f74d4f653ae83f4103246db2e8d65")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x2a6cf5e9aa03d4336349ad6fb8ed2269c7bef54b8822cc76d08495c12efde187")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x2304d31eaab960ba9274da43e19ddeb7f792180808fd6e43baae48d7efcba3f3")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x03fd9ac865a4b2a6d5e7009785817249bff08a7e0726fcb4e1c11d39d199f0b0")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x00b7258ded52bbda2248404d55ee5044798afc3a209193073f7954d4d63b0b64")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x159f81ada0771799ec38fca2d4bf65ebb13d3a74f3298db36272c5ca65e92d9a")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x1ef90e67437fbc8550237a75bc28e3bb9000130ea25f0c5471e144cf4264431f")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x1e65f838515e5ff0196b49aa41a2d2568df739bc176b08ec95a79ed82932e30d")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x2b1b045def3a166cec6ce768d079ba74b18c844e570e1f826575c1068c94c33f")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x0832e5753ceb0ff6402543b1109229c165dc2d73bef715e3f1c6e07c168bb173")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x02f614e9cedfb3dc6b762ae0a37d41bab1b841c2e8b6451bc5a8e3c390b6ad16")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x0e2427d38bd46a60dd640b8e362cad967370ebb777bedff40f6a0be27e7ed705")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x0493630b7c670b6deb7c84d414e7ce79049f0ec098c3c7c50768bbe29214a53a")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x22ead100e8e482674decdab17066c5a26bb1515355d5461a3dc06cc85327cea9")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x25b3e56e655b42cdaae2626ed2554d48583f1ae35626d04de5084e0b6d2a6f16")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x1e32752ada8836ef5837a6cde8ff13dbb599c336349e4c584b4fdc0a0cf6f9d0")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x2fa2a871c15a387cc50f68f6f3c3455b23c00995f05078f672a9864074d412e5")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x2f569b8a9a4424c9278e1db7311e889f54ccbf10661bab7fcd18e7c7a7d83505")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x044cb455110a8fdd531ade530234c518a7df93f7332ffd2144165374b246b43d")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x227808de93906d5d420246157f2e42b191fe8c90adfe118178ddc723a5319025")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x02fcca2934e046bc623adead873579865d03781ae090ad4a8579d2e7a6800355")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x0ef915f0ac120b876abccceb344a1d36bad3f3c5ab91a8ddcbec2e060d8befac")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+            FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x1797130f4b7a3e1777eb757bc6f287f6ab0fb85f6be63b09f3b16ef2b1405d38")),
+            FF(std::string("0x0a76225dc04170ae3306c85abab59e608c7f497c20156d4d36c668555decc6e5")),
+            FF(std::string("0x1fffb9ec1992d66ba1e77a7b93209af6f8fa76d48acb664796174b5326a31a5c")),
+            FF(std::string("0x25721c4fc15a3f2853b57c338fa538d85f8fbba6c6b9c6090611889b797b9c5f")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x0c817fd42d5f7a41215e3d07ba197216adb4c3790705da95eb63b982bfcaf75a")),
+            FF(std::string("0x13abe3f5239915d39f7e13c2c24970b6df8cf86ce00a22002bc15866e52b5a96")),
+            FF(std::string("0x2106feea546224ea12ef7f39987a46c85c1bc3dc29bdbd7a92cd60acb4d391ce")),
+            FF(std::string("0x21ca859468a746b6aaa79474a37dab49f1ca5a28c748bc7157e1b3345bb0f959")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x05ccd6255c1e6f0c5cf1f0df934194c62911d14d0321662a8f1a48999e34185b")),
+            FF(std::string("0x0f0e34a64b70a626e464d846674c4c8816c4fb267fe44fe6ea28678cb09490a4")),
+            FF(std::string("0x0558531a4e25470c6157794ca36d0e9647dbfcfe350d64838f5b1a8a2de0d4bf")),
+            FF(std::string("0x09d3dca9173ed2faceea125157683d18924cadad3f655a60b72f5864961f1455")),
+        },
+        std::array<FF, t>{
+            FF(std::string("0x0328cbd54e8c0913493f866ed03d218bf23f92d68aaec48617d4c722e5bd4335")),
+            FF(std::string("0x2bf07216e2aff0a223a487b1a7094e07e79e7bcc9798c648ee3347dd5329d34b")),
+            FF(std::string("0x1daf345a58006b736499c583cb76c316d6f78ed6a6dffc82111e11a63fe412df")),
+            FF(std::string("0x176563472456aaa746b694c60e1823611ef39039b2edc7ff391e6f2293d2c404")),
+        },
+    };
+
+    static constexpr std::array<FF, t> TEST_VECTOR_INPUT{
+        FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000001")),
+        FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000002")),
+        FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000003")),
+    };
+    static constexpr std::array<FF, t> TEST_VECTOR_OUTPUT{
+        FF(std::string("0x01bd538c2ee014ed5141b29e9ae240bf8db3fe5b9a38629a9647cf8d76c01737")),
+        FF(std::string("0x239b62e7db98aa3a2a8f6a0d2fa1709e7a35959aa6c7034814d9daa90cbac662")),
+        FF(std::string("0x04cbb44c61d928ed06808456bf758cbf0c18d1e15a7b6dbc8245fa7515d5e3cb")),
+        FF(std::string("0x2e11c5cff2a22c64d01304b778d78f6998eff1ab73163a35603f54794c30847a")),
     };
 };
 } // namespace crypto
