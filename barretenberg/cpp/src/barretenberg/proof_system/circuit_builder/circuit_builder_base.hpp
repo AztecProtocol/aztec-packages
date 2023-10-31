@@ -18,7 +18,7 @@ template <typename FF_> class CircuitBuilderBase {
         std::conditional_t<std::same_as<FF, barretenberg::g1::coordinate_field>, curve::BN254, curve::Grumpkin>;
 
     // WORKTODO: hackily defining this here in the base for now. Get acir-bberg test failure otherwise
-    std::array<std::vector<uint32_t, barretenberg::ContainerSlabAllocator<uint32_t>>, /* max num wires = */ 4> wires;
+    // std::array<std::vector<uint32_t, barretenberg::ContainerSlabAllocator<uint32_t>>, /* max num wires = */ 4> wires;
 
     size_t num_gates = 0;
 

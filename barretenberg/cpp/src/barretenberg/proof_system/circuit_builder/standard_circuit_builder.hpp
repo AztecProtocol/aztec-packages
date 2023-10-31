@@ -23,15 +23,15 @@ template <typename FF> class StandardCircuitBuilder_ : public CircuitBuilderBase
     static constexpr merkle::HashType merkle_hash_type = merkle::HashType::FIXED_BASE_PEDERSEN;
     static constexpr pedersen::CommitmentType commitment_type = pedersen::CommitmentType::FIXED_BASE_PEDERSEN;
 
-    // std::array<std::vector<uint32_t, barretenberg::ContainerSlabAllocator<uint32_t>>, NUM_WIRES> wires;
+    std::array<std::vector<uint32_t, barretenberg::ContainerSlabAllocator<uint32_t>>, NUM_WIRES> wires;
     Arithmetization selectors;
 
     using WireVector = std::vector<uint32_t, barretenberg::ContainerSlabAllocator<uint32_t>>;
     using SelectorVector = std::vector<FF, barretenberg::ContainerSlabAllocator<FF>>;
 
-    WireVector& w_l = std::get<0>(this->wires);
-    WireVector& w_r = std::get<1>(this->wires);
-    WireVector& w_o = std::get<2>(this->wires);
+    WireVector& w_l = std::get<0>(wires);
+    WireVector& w_r = std::get<1>(wires);
+    WireVector& w_o = std::get<2>(wires);
 
     SelectorVector& q_m = this->selectors.q_m();
     SelectorVector& q_1 = this->selectors.q_1();
