@@ -3,7 +3,6 @@ use crate::common;
 use crate::mocked::{Proof, AggregationObject, verify_previous_kernel_state};
 use crate::transaction::request::TxRequest;
 use crate::abis::{
-    combined_constant_data::CombinedConstantData,
     previous_kernel_data::PreviousKernelData,
     private_kernel::private_call_data::PrivateCallData,
     new_contract_data::NewContractData,
@@ -97,33 +96,24 @@ impl PrivateKernelInputsInner {
 mod tests {
     use crate::private_kernel_inner::PrivateKernelInputsInner;
     use crate::abis::{
-        kernel_circuit_public_inputs::{KernelCircuitPublicInputs, KernelCircuitPublicInputsBuilder},
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
         read_request_membership_witness::ReadRequestMembershipWitness,
-        combined_constant_data::CombinedConstantData,
-        previous_kernel_data::PreviousKernelData,
     };
     use crate::tests::{
         testing_harness::{
+            create_previous_kernel_data,
             create_private_call_data,
             generate_read_requests,
-            build_tx_request,
             PrivateAppInputs,
             non_zero_items,
-            build_tx_context,
         },
-        apps::deposit::{
-            deposit_app,
-            DepositParams,
+        apps::{
+            constructor::constructor_app,
+            deposit::deposit_app,
         },
-        apps::constructor::{
-            constructor_app,
-            ConstructorParams,
-        }
     };
     use crate::address::Address;
-    use crate::hash::{compute_logs_hash, NUM_FIELDS_PER_SHA256};
-    use crate::utils::uint128::U128;
+    use crate::hash::compute_logs_hash;
     use dep::aztec::constants_gen::{
         MAX_READ_REQUESTS_PER_CALL,
         MAX_READ_REQUESTS_PER_TX,
@@ -146,31 +136,20 @@ mod tests {
         app_params: T,
     ) -> PrivateKernelInputsInner {
         let msg_sender = Address::from_field(27);
-        let (private_call, contract_deployment_data) = create_private_call_data(
+        let params = dep::std::unsafe::zeroed();
+        let previous_kernel = create_previous_kernel_data(
+            false,
+            constructor_app,
+            params,
+            msg_sender,
+        );
+        
+        let (private_call, _) = create_private_call_data(
             false,
             function,
             app_params,
             msg_sender,
         );
-
-        let tx_context = build_tx_context(false, contract_deployment_data);
-
-        let mut previous_kernel: PreviousKernelData = dep::std::unsafe::zeroed();
-        previous_kernel.public_inputs.constants = CombinedConstantData {
-            block_data: private_call.call_stack_item.public_inputs().historical_block_data,
-            tx_context,
-        };
-
-        previous_kernel.public_inputs.is_private = true;
-        previous_kernel.public_inputs.end.encrypted_logs_hash = [0,0];
-        previous_kernel.public_inputs.end.unencrypted_logs_hash = [0,0];
-        previous_kernel.public_inputs.end.encrypted_log_preimages_length = 0;
-        previous_kernel.public_inputs.end.unencrypted_log_preimages_length = 0;
-
-        previous_kernel.public_inputs.end.new_nullifiers[0] = 321; // 0th nullifier must be non-zero.
-        previous_kernel.public_inputs.end.nullified_commitments[0] = EMPTY_NULLIFIED_COMMITMENT;
-
-        previous_kernel.public_inputs.end.private_call_stack[0] = private_call.call_stack_item.hash();
 
         PrivateKernelInputsInner {
             previous_kernel,
