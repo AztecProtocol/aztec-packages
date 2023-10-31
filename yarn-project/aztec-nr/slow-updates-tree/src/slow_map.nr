@@ -2,12 +2,13 @@ use dep::aztec::context::{PrivateContext, PublicContext, Context};
 use dep::aztec::state_vars::public_state::PublicState;
 use dep::aztec::types::type_serialization::TypeSerializationInterface;
 use dep::aztec::oracle::storage::{storage_read, storage_write};
+use dep::aztec::oracle::debug_log::debug_log_format;
+
+use dep::std::hash::pedersen_hash;
 
 use dep::std::option::Option;
 
-use dep::std::merkle::compute_merkle_root;
-
-// The epoch lenght is just a random number for now.
+// The epoch length is just a random number for now.
 global EPOCH_LENGTH: u120 = 100;
 
 fn compute_next_change(time: Field) -> Field {
@@ -49,7 +50,7 @@ struct SlowUpdateInner<N> {
 }
 
 // The slow update proof. Containing two merkle paths
-// One for the the before and one for the after trees.
+// One for the before and one for the after trees.
 // M = 2 * N + 4
 struct SlowUpdateProof<N, M> {
   index: Field,
@@ -208,7 +209,7 @@ impl<N,M> SlowMap<N,M> {
   }
 
   // A variation of `update_at` that skips the merkle-membership checks.
-  // To be used by a contract wich has already checked the merkle-membership.
+  // To be used by a contract which has already checked the merkle-membership.
   // This allows us to check the merkle-memberships in private and then update
   // in public, limiting the cost of the update.
   pub fn update_unsafe_at(self: Self, index: Field, leaf_value: Field, new_root: Field) {
@@ -250,4 +251,20 @@ impl<N,M> SlowMap<N,M> {
     storage_write(self.storage_slot, fields);
   }
 
+}
+
+pub fn compute_merkle_root<N>(leaf: Field, index: Field, hash_path: [Field; N]) -> Field {
+    let n = hash_path.len();
+    let index_bits = index.to_le_bits(n as u32);
+    let mut current = leaf;
+    for i in 0..n {
+        let path_bit = index_bits[i] as bool;
+        let (hash_left, hash_right) = if path_bit {
+            (hash_path[i], current)
+        } else {
+            (current, hash_path[i])
+        };
+    current = pedersen_hash([hash_left, hash_right]);
+    };
+    current
 }

@@ -1,10 +1,8 @@
-import { CheatCodes, Fr, Wallet } from '@aztec/aztec.js';
+import { CheatCodes, Fr, Wallet, sleep } from '@aztec/aztec.js';
 import { CircuitsWasm } from '@aztec/circuits.js';
-import { pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
 import { DebugLogger } from '@aztec/foundation/log';
-import { SparseTree, newTree } from '@aztec/merkle-tree';
+import { Pedersen, SparseTree, newTree } from '@aztec/merkle-tree';
 import { SlowTreeContract } from '@aztec/noir-contracts/types';
-import { Hasher } from '@aztec/types';
 
 import { default as levelup } from 'levelup';
 import { type MemDown, default as memdown } from 'memdown';
@@ -28,35 +26,9 @@ describe('e2e_slow_tree', () => {
 
   afterAll(() => teardown());
 
-  /**
-   * Pedersen hasher for the slow tree to match noir hashing.
-   */
-  class PedersenHasher implements Hasher {
-    private readonly circuitsWasm: CircuitsWasm;
-
-    constructor(circuitsWasm: CircuitsWasm) {
-      this.circuitsWasm = circuitsWasm;
-    }
-    compressInputs(_inputs: Buffer[]): Buffer {
-      throw new Error('Method not implemented.');
-    }
-    hashToField(_data: Uint8Array): Buffer {
-      throw new Error('Method not implemented.');
-    }
-    hashToTree(_leaves: Buffer[]): Promise<Buffer[]> {
-      throw new Error('Method not implemented.');
-    }
-
-    public compress(lhs: Buffer, rhs: Buffer): Buffer {
-      return pedersenPlookupCommitInputs(this.circuitsWasm, [lhs, rhs]);
-    }
-  }
-
   it('Messing around with noir slow tree', async () => {
-    const circuitsWasm = await CircuitsWasm.get();
-    const hasher = new PedersenHasher(circuitsWasm);
-
     const db = levelup(createMemDown());
+    const hasher = new Pedersen(await CircuitsWasm.get());
     const depth = 254;
     const tree = await newTree(SparseTree, db, hasher, 'test', depth);
     const root = tree.getRoot(true);
@@ -106,7 +78,7 @@ describe('e2e_slow_tree', () => {
 
     logger(`Updating tree[${key}] to 1 from public`);
     await contract.methods
-      .update_at(await getUpdateProof(1n, key))
+      .update_at_public(await getUpdateProof(1n, key))
       .send()
       .wait();
     await tree.updateLeaf(new Fr(1).toBuffer(), key);
