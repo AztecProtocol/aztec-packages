@@ -71,7 +71,7 @@ Open Nargo.toml that is in the `contracts/example_contract` folder, and add the 
 [package]
 name = "example_contract"
 authors = [""]
-compiler_version = "0.1"
+compiler_version = "0.18"
 type = "contract"
 
 [dependencies]

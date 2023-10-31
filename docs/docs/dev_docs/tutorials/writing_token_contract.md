@@ -84,7 +84,7 @@ Add the following dependencies to your Nargo.toml file, below the package inform
 [package]
 name = "token_contract"
 authors = [""]
-compiler_version = "0.1"
+compiler_version = "0.18"
 type = "contract"
 
 [dependencies]
