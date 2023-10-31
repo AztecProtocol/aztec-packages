@@ -40,30 +40,42 @@ export async function getLatestAztecNrTag(): Promise<string> {
  * @param log - Logging function
  */
 export async function updateAztecNr(contractPath: string, tag: string, log: LogFn) {
-  const configFilepath = resolve(join(contractPath, 'Nargo.toml'));
-  const packageConfig = parseNoirPackageConfig(TOML.parse(await readFile(configFilepath, 'utf-8')));
-  let dirty = false;
-  log(`Updating ${packageConfig.package.name} to Aztec.nr@${tag}`);
-  for (const [name, dep] of Object.entries(packageConfig.dependencies)) {
-    if (!('git' in dep)) {
-      continue;
+  try {
+    const configFilepath = resolve(join(contractPath, 'Nargo.toml'));
+    const packageConfig = parseNoirPackageConfig(TOML.parse(await readFile(configFilepath, 'utf-8')));
+    let dirty = false;
+    log(`Updating ${packageConfig.package.name} to Aztec.nr@${tag}`);
+    for (const [name, dep] of Object.entries(packageConfig.dependencies)) {
+      if (!('git' in dep)) {
+        continue;
+      }
+
+      // check both trailing an non-trailing slash as technically they are different URLs
+      if (
+        dep.git.toLowerCase() !== 'https://github.com/AztecProtocol/aztec-packages'.toLowerCase() &&
+        dep.git.toLowerCase() !== 'https://github.com/AztecProtocol/aztec-packages/'.toLowerCase()
+      ) {
+        continue;
+      }
+
+      if (dep.tag !== tag) {
+        log(`Updating ${name} to ${tag}`);
+        dep.tag = tag;
+        dirty = true;
+      }
     }
 
-    if (dep.git.toLowerCase() !== 'https://github.com/AztecProtocol/aztec-packages'.toLowerCase()) {
-      continue;
+    if (dirty) {
+      await writeNoirPackageConfigAsToml(configFilepath, packageConfig);
+    } else {
+      log('No updates required');
     }
-
-    if (dep.tag !== tag) {
-      log(`Updating ${name} to ${tag}`);
-      dep.tag = tag;
-      dirty = true;
+  } catch (err) {
+    if (err instanceof Error && 'code' in err && err.code === 'ENOENT') {
+      log('No Nargo.toml found. Skipping update.');
+      return;
     }
-  }
-
-  if (dirty) {
-    await writeNoirPackageConfigAsToml(configFilepath, packageConfig);
-  } else {
-    log('No updates required');
+    throw err;
   }
 }
 

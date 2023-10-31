@@ -705,33 +705,39 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     });
 
   program
-    .command('update-nodejs')
-    .description('Updates @aztec packages in package.json to their latest versions')
+    .command('update')
+    .description('Updates Nodejs and Noir dependencies')
     .argument('<projectPath>', 'Path to the project directory')
-    .action((projectPath: string) => {
-      updateAztecDeps(projectPath, cliVersion, log);
-    });
-
-  program
-    .command('update-aztecnr')
-    .description('Updates Aztec.nr dependencies in Nargo.toml to the given version')
-    .argument('<contractPath>', 'Path to the contract directory')
     .option(
-      '--aztec-version <semver>',
+      '--aztec-version <semver|current|latest>',
       'Semver version to update to or `current` for the current version compatible with the CLI or `latest` for the most recent stable version',
       'current',
     )
-    .action(async (contractPath: string, { aztecVersion }) => {
-      let tagName: string;
+    .option('--no-nodejs', 'Disable updating @aztec/* packages in package.json')
+    .option('--no-noir', 'Disable updating Aztec.nr libraries in Nargo.toml')
+    .action(async (projectPath: string, options) => {
+      const { aztecVersion, nodejs, noir } = options;
+
+      let noirTagName = '';
+      let npmVersion = '';
       if (aztecVersion === 'current') {
-        tagName = `${GITHUB_TAG_PREFIX}-${cliVersion}`;
+        noirTagName = `${GITHUB_TAG_PREFIX}-${cliVersion}`;
+        npmVersion = cliVersion;
       } else if (aztecVersion === 'latest') {
-        tagName = await getLatestAztecNrTag();
+        noirTagName = await getLatestAztecNrTag();
+        npmVersion = 'latest';
       } else {
-        tagName = await aztecNrVersionToTagName(aztecVersion);
+        noirTagName = await aztecNrVersionToTagName(aztecVersion);
+        npmVersion = aztecVersion;
       }
 
-      await updateAztecNr(contractPath, tagName, log);
+      if (nodejs) {
+        updateAztecDeps(projectPath, npmVersion, log);
+      }
+
+      if (noir) {
+        await updateAztecNr(projectPath, noirTagName, log);
+      }
     });
 
   compileContract(program, 'compile', log);
