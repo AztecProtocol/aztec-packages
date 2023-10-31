@@ -357,7 +357,7 @@ template <typename Curve> class ZeroMorphProver_ {
         };
 
         size_t num_groups = concatenation_groups.size();
-        size_t num_chunks_per_group = concatenation_groups[0].size();
+        size_t num_chunks_per_group = concatenation_groups.empty() ? 0 : concatenation_groups[0].size();
         // Concatenated polynomials
         // std::vector<Polynomial> concatenated_polynomials;
         Polynomial concatenated_batched(N);
