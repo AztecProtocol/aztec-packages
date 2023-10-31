@@ -600,6 +600,8 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<FF
     UltraCircuitBuilder_(UltraCircuitBuilder_&& other)
         : CircuitBuilderBase<FF>(std::move(other))
     {
+        wires = other.wires;
+        selectors = other.selectors;
         constant_variable_indices = other.constant_variable_indices;
 
         lookup_tables = other.lookup_tables;
@@ -616,6 +618,8 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<FF
     UltraCircuitBuilder_& operator=(UltraCircuitBuilder_&& other)
     {
         CircuitBuilderBase<FF>::operator=(std::move(other));
+        wires = other.wires;
+        selectors = other.selectors;
         constant_variable_indices = other.constant_variable_indices;
 
         lookup_tables = other.lookup_tables;

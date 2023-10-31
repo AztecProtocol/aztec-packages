@@ -71,6 +71,8 @@ template <typename FF> class StandardCircuitBuilder_ : public CircuitBuilderBase
     {
         CircuitBuilderBase<FF>::operator=(std::move(other));
         constant_variable_indices = other.constant_variable_indices;
+        wires = other.wires;
+        selectors = other.selectors;
         return *this;
     };
     ~StandardCircuitBuilder_() override = default;
