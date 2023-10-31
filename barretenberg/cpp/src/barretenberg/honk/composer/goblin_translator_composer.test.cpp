@@ -58,7 +58,7 @@ class GoblinTranslatorComposerTests : public ::testing::Test {
  * @brief Test simple circuit with public inputs
  *
  */
-TEST_F(GoblinTranslatorComposerTests, Start)
+TEST_F(GoblinTranslatorComposerTests, Basic)
 {
     using point = barretenberg::g1::affine_element;
     using scalar = barretenberg::fr;

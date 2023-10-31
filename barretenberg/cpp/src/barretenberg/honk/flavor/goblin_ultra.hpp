@@ -215,6 +215,10 @@ class GoblinUltra {
         {
             return { ecc_op_wire_1, ecc_op_wire_2, ecc_op_wire_3, ecc_op_wire_4 };
         };
+
+        std::vector<HandleType> get_unshifted_then_shifted_then_special() { return {}; }
+        std::vector<HandleType> get_concatenated_constraints() { return {}; }
+
         // Gemini-specific getters.
         std::vector<HandleType> get_unshifted() override
         {
@@ -417,6 +421,8 @@ class GoblinUltra {
 
     class VerifierCommitments : public AllEntities<Commitment, CommitmentHandle> {
       public:
+        std::vector<std::vector<CommitmentHandle>> get_concatenation_groups() { return {}; };
+
         VerifierCommitments(std::shared_ptr<VerificationKey> verification_key, VerifierTranscript<FF> transcript)
         {
             static_cast<void>(transcript);

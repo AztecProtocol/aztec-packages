@@ -360,14 +360,14 @@ template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_relatio
  * */
 template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_zeromorph_rounds()
 {
-    ZeroMorph::prove_with_concatenations(prover_polynomials.get_unshifted(),
-                                         prover_polynomials.get_to_be_shifted(),
-                                         prover_polynomials.get_concatenated_constraints(),
-                                         prover_polynomials.get_concatenation_groups(),
-                                         sumcheck_output.claimed_evaluations,
-                                         sumcheck_output.challenge,
-                                         commitment_key,
-                                         transcript);
+    ZeroMorph::prove(prover_polynomials.get_unshifted(),
+                     prover_polynomials.get_to_be_shifted(),
+                     sumcheck_output.claimed_evaluations,
+                     sumcheck_output.challenge,
+                     commitment_key,
+                     transcript,
+                     prover_polynomials.get_concatenated_constraints(),
+                     prover_polynomials.get_concatenation_groups());
 }
 
 template <typename Flavor> plonk::proof& GoblinTranslatorProver_<Flavor>::export_proof()

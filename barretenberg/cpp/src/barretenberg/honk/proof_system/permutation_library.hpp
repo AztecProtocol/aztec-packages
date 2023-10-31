@@ -195,6 +195,7 @@ template <typename Flavor, typename StorageHandle> void compute_concatenated_pol
     // A function that produces 1 concatenated polynomial
     // TODO(#756): This can be rewritten to use more cores. Currently uses at maximum the number of concatenated
     // polynomials (4 in Goblin Translator)
+    // WORKTODO: rewrite this...
     auto ordering_function = [&](size_t i) {
         auto my_group = concatenation_groups[i];
         auto& current_target = targets[i];

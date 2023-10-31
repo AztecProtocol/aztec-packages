@@ -442,7 +442,8 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorPermutationRelationCorrectness)
     // Compute the grand product polynomial
     grand_product_library::compute_grand_product<Flavor, proof_system::GoblinTranslatorPermutationRelation<FF>>(
         circuit_size, prover_polynomials, params);
-    prover_polynomials.z_perm_shift = polynomial_container[Flavor::ALL_ENTITIES_IDS::Z_PERM].shifted();
+    prover_polynomials.z_perm_shift =
+        polynomial_container[Flavor::ALL_ENTITIES_IDS::Z_PERM].shifted(); // WORKTODO I'm going to have a meltdown
 
     using Relations = typename Flavor::Relations;
 

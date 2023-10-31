@@ -220,6 +220,9 @@ class Ultra {
                      w_o_shift,     w_4_shift,     sorted_accum_shift, z_perm_shift,  z_lookup_shift };
         };
 
+        std::vector<HandleType> get_concatenated_constraints() { return {}; }
+        std::vector<HandleType> get_unshifted_then_shifted_then_special() { return {}; }
+
         AllEntities() = default;
 
         AllEntities(const AllEntities& other)
@@ -382,6 +385,8 @@ class Ultra {
 
     class VerifierCommitments : public AllEntities<Commitment, CommitmentHandle> {
       public:
+        std::vector<std::vector<CommitmentHandle>> get_concatenation_groups() { return {}; };
+
         VerifierCommitments(std::shared_ptr<VerificationKey> verification_key, VerifierTranscript<FF> transcript)
         {
             static_cast<void>(transcript);

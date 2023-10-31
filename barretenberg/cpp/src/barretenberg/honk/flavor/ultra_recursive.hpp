@@ -1,14 +1,13 @@
 #pragma once
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
+#include "barretenberg/honk/flavor/ultra.hpp"
 #include "barretenberg/honk/pcs/commitment_key.hpp"
 #include "barretenberg/honk/pcs/kzg/kzg.hpp"
-#include "barretenberg/polynomials/barycentric.hpp"
-#include "barretenberg/polynomials/univariate.hpp"
-
-#include "barretenberg/honk/flavor/ultra.hpp"
 #include "barretenberg/honk/transcript/transcript.hpp"
+#include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 #include "barretenberg/proof_system/flavor/flavor.hpp"
 #include "barretenberg/proof_system/relations/auxiliary_relation.hpp"
@@ -18,16 +17,14 @@
 #include "barretenberg/proof_system/relations/permutation_relation.hpp"
 #include "barretenberg/proof_system/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/srs/factories/crs_factory.hpp"
-
+#include "barretenberg/stdlib/primitives/curves/bn254.hpp"
+#include "barretenberg/stdlib/primitives/field/field.hpp"
 #include <array>
 #include <concepts>
 #include <span>
 #include <string>
 #include <type_traits>
 #include <vector>
-
-#include "barretenberg/stdlib/primitives/curves/bn254.hpp"
-#include "barretenberg/stdlib/primitives/field/field.hpp"
 
 namespace proof_system::honk::flavor {
 
@@ -214,6 +211,9 @@ template <typename BuilderType> class UltraRecursive_ {
 
         std::vector<HandleType> get_wires() override { return { w_l, w_r, w_o, w_4 }; };
         // Gemini-specific getters.
+        std::vector<HandleType> get_unshifted_then_shifted_then_special() { return {}; }
+        std::vector<HandleType> get_concatenated_constraints() { return {}; }
+
         std::vector<HandleType> get_unshifted() override
         {
             return { q_c,           q_l,   q_r,      q_o,     q_4,     q_m,          q_arith, q_sort,
@@ -368,6 +368,8 @@ template <typename BuilderType> class UltraRecursive_ {
 
     class VerifierCommitments : public AllEntities<Commitment, CommitmentHandle> {
       public:
+        std::vector<std::vector<CommitmentHandle>> get_concatenation_groups() { return {}; };
+
         VerifierCommitments(std::shared_ptr<VerificationKey> verification_key)
         {
             this->q_m = verification_key->q_m;

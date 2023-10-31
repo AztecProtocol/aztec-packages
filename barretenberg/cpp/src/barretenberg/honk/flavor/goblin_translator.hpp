@@ -29,6 +29,7 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
      *
      * @details We use the enum for easier updates of structure sizes and for cases where we need to get a particular
      * polynomial programmatically
+     * WORKTODO: what are you thinking
      */
     enum ALL_ENTITIES_IDS : size_t {
         /*The first 4 wires contain the standard values from the EccOpQueue*/
@@ -248,7 +249,6 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
         ORDERED_EXTRA_RANGE_CONSTRAINTS_NUMERATOR,
         /*Utility value*/
         TOTAL_COUNT
-
     };
 
     using CircuitBuilder = GoblinTranslatorCircuitBuilder;
@@ -299,7 +299,7 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
     // Note: this number does not include the individual sorted list polynomials.
-    static constexpr size_t NUM_ALL_ENTITIES = ALL_ENTITIES_IDS::TOTAL_COUNT;
+    static constexpr size_t NUM_ALL_ENTITIES = ALL_ENTITIES_IDS::TOTAL_COUNT; // WORKTODO I'm having a meltdown.
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = ALL_ENTITIES_IDS::TOTAL_COUNT - ALL_ENTITIES_IDS::Z_PERM_SHIFT;
@@ -1448,6 +1448,7 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
 
     /**
      * @brief A container for easier mapping of polynomials
+     * // WORKTODO AHHHHH
      */
     using ProverPolynomialIds = AllEntities<size_t, size_t>;
 
@@ -1618,6 +1619,90 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
 
     class VerifierCommitments : public AllEntities<Commitment, CommitmentHandle> {
       public:
+        // WORKTODO
+        // std::vector<std::vector<Commitment>> concatenation_group_commitments;
+        /**
+         * @brief Get the polynomials that are concatenated for the permutation relation
+         *
+         * @return std::vector<std::vector<HandleType>>
+         */
+        std::vector<std::vector<CommitmentHandle>> get_concatenation_groups()
+        {
+            return {
+                {
+                    this->p_x_low_limbs_range_constraint_0,
+                    this->p_x_low_limbs_range_constraint_1,
+                    this->p_x_low_limbs_range_constraint_2,
+                    this->p_x_low_limbs_range_constraint_3,
+                    this->p_x_low_limbs_range_constraint_4,
+                    this->p_x_low_limbs_range_constraint_tail,
+                    this->p_x_high_limbs_range_constraint_0,
+                    this->p_x_high_limbs_range_constraint_1,
+                    this->p_x_high_limbs_range_constraint_2,
+                    this->p_x_high_limbs_range_constraint_3,
+                    this->p_x_high_limbs_range_constraint_4,
+                    this->p_x_high_limbs_range_constraint_tail,
+                    this->p_y_low_limbs_range_constraint_0,
+                    this->p_y_low_limbs_range_constraint_1,
+                    this->p_y_low_limbs_range_constraint_2,
+                    this->p_y_low_limbs_range_constraint_3,
+                },
+                {
+                    this->p_y_low_limbs_range_constraint_4,
+                    this->p_y_low_limbs_range_constraint_tail,
+                    this->p_y_high_limbs_range_constraint_0,
+                    this->p_y_high_limbs_range_constraint_1,
+                    this->p_y_high_limbs_range_constraint_2,
+                    this->p_y_high_limbs_range_constraint_3,
+                    this->p_y_high_limbs_range_constraint_4,
+                    this->p_y_high_limbs_range_constraint_tail,
+                    this->z_low_limbs_range_constraint_0,
+                    this->z_low_limbs_range_constraint_1,
+                    this->z_low_limbs_range_constraint_2,
+                    this->z_low_limbs_range_constraint_3,
+                    this->z_low_limbs_range_constraint_4,
+                    this->z_low_limbs_range_constraint_tail,
+                    this->z_high_limbs_range_constraint_0,
+                    this->z_high_limbs_range_constraint_1,
+                },
+                {
+                    this->z_high_limbs_range_constraint_2,
+                    this->z_high_limbs_range_constraint_3,
+                    this->z_high_limbs_range_constraint_4,
+                    this->z_high_limbs_range_constraint_tail,
+                    this->accumulator_low_limbs_range_constraint_0,
+                    this->accumulator_low_limbs_range_constraint_1,
+                    this->accumulator_low_limbs_range_constraint_2,
+                    this->accumulator_low_limbs_range_constraint_3,
+                    this->accumulator_low_limbs_range_constraint_4,
+                    this->accumulator_low_limbs_range_constraint_tail,
+                    this->accumulator_high_limbs_range_constraint_0,
+                    this->accumulator_high_limbs_range_constraint_1,
+                    this->accumulator_high_limbs_range_constraint_2,
+                    this->accumulator_high_limbs_range_constraint_3,
+                    this->accumulator_high_limbs_range_constraint_4,
+                    this->accumulator_high_limbs_range_constraint_tail,
+                },
+                {
+                    this->quotient_low_limbs_range_constraint_0,
+                    this->quotient_low_limbs_range_constraint_1,
+                    this->quotient_low_limbs_range_constraint_2,
+                    this->quotient_low_limbs_range_constraint_3,
+                    this->quotient_low_limbs_range_constraint_4,
+                    this->quotient_low_limbs_range_constraint_tail,
+                    this->quotient_high_limbs_range_constraint_0,
+                    this->quotient_high_limbs_range_constraint_1,
+                    this->quotient_high_limbs_range_constraint_2,
+                    this->quotient_high_limbs_range_constraint_3,
+                    this->quotient_high_limbs_range_constraint_4,
+                    this->quotient_high_limbs_range_constraint_tail,
+                    this->relation_wide_limbs_range_constraint_0,
+                    this->relation_wide_limbs_range_constraint_1,
+                    this->relation_wide_limbs_range_constraint_2,
+                    this->relation_wide_limbs_range_constraint_3,
+                },
+            };
+        };
         VerifierCommitments(std::shared_ptr<VerificationKey> verification_key, VerifierTranscript<FF>& transcript)
         {
             // WORKTODO: maybe_unused
