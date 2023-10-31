@@ -4,7 +4,6 @@
 // This is made as a separate contract for one thing mainly. Making it a simpler to use.
 contract SlowTree {
     use dep::std::option::Option;
-    use dep::std::merkle::compute_merkle_root;
     use dep::value_note::{
         balance_utils,
         utils::{increment, decrement},
@@ -23,11 +22,11 @@ contract SlowTree {
         },
     };
     use dep::slow_updates_tree::slow_map::{
-        SlowMap, Leaf, SlowUpdateProof
+        SlowMap, Leaf, SlowUpdateProof, compute_merkle_root
     };
 
     global TREE_HEIGHT: Field = 254;
-    global MEMBERSHIP_SIZE: Field = 256; // TREE_HEIGTH + 2
+    global MEMBERSHIP_SIZE: Field = 256; // TREE_HEIGHT + 2
     global UPDATE_SIZE: Field = 512; // TREE_HEIGHT * 2 + 4
 
     struct Storage {
@@ -122,7 +121,7 @@ contract SlowTree {
     }
 
     #[aztec(public)]
-    fn update_at(p: SlowUpdateProof<TREE_HEIGHT, UPDATE_SIZE>) {
+    fn update_at_public(p: SlowUpdateProof<TREE_HEIGHT, UPDATE_SIZE>) {
         storage.trees.at(context.msg_sender()).update_at(p);
     }
 
