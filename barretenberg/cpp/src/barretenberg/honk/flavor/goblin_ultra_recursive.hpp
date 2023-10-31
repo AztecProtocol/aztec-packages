@@ -462,7 +462,7 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
         Commitment w_4_comm;
         Commitment z_perm_comm;
         Commitment z_lookup_comm;
-        std::vector<barretenberg::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>> sumcheck_univariates;
+        std::vector<barretenberg::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
         std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
         std::vector<Commitment> zm_cq_comms;
         Commitment zm_cq_comm;
@@ -520,7 +520,7 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
             z_lookup_comm = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
             for (size_t i = 0; i < log_n; ++i) {
                 sumcheck_univariates.push_back(
-                    deserialize_from_buffer<barretenberg::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>>(
+                    deserialize_from_buffer<barretenberg::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
                         BaseTranscript<FF>::proof_data, num_bytes_read));
             }
             sumcheck_evaluations = deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(

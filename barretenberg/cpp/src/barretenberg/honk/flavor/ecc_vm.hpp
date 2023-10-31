@@ -940,7 +940,7 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
         Commitment lookup_read_counts_1_comm;
         Commitment z_perm_comm;
         Commitment lookup_inverses_comm;
-        std::vector<barretenberg::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>> sumcheck_univariates;
+        std::vector<barretenberg::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
         std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
         std::vector<Commitment> gemini_univariate_comms;
         std::vector<FF> gemini_a_evals;
@@ -1119,7 +1119,7 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
                 BaseTranscript<FF>::proof_data, num_bytes_read);
             for (size_t i = 0; i < log_n; ++i) {
                 sumcheck_univariates.emplace_back(BaseTranscript<FF>::template deserialize_from_buffer<
-                                                  barretenberg::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>>(
+                                                  barretenberg::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
                     BaseTranscript<FF>::proof_data, num_bytes_read));
             }
             sumcheck_evaluations =
