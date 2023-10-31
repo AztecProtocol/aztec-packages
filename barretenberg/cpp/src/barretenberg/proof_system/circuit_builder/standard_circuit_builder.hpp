@@ -24,7 +24,7 @@ template <typename FF> class StandardCircuitBuilder_ : public CircuitBuilderBase
     static constexpr pedersen::CommitmentType commitment_type = pedersen::CommitmentType::FIXED_BASE_PEDERSEN;
 
     std::array<std::vector<uint32_t, barretenberg::ContainerSlabAllocator<uint32_t>>, NUM_WIRES> wires;
-    typename Arithmetization::Selectors selectors;
+    Arithmetization selectors;
 
     using WireVector = std::vector<uint32_t, barretenberg::ContainerSlabAllocator<uint32_t>>;
     using SelectorVector = std::vector<FF, barretenberg::ContainerSlabAllocator<FF>>;
@@ -33,11 +33,11 @@ template <typename FF> class StandardCircuitBuilder_ : public CircuitBuilderBase
     WireVector& w_r = std::get<1>(this->wires);
     WireVector& w_o = std::get<2>(this->wires);
 
-    SelectorVector& q_m = this->selectors.q_m;
-    SelectorVector& q_1 = this->selectors.q_1;
-    SelectorVector& q_2 = this->selectors.q_2;
-    SelectorVector& q_3 = this->selectors.q_3;
-    SelectorVector& q_c = this->selectors.q_c;
+    SelectorVector& q_m = this->selectors.q_m();
+    SelectorVector& q_1 = this->selectors.q_1();
+    SelectorVector& q_2 = this->selectors.q_2();
+    SelectorVector& q_3 = this->selectors.q_3();
+    SelectorVector& q_c = this->selectors.q_c();
 
     static constexpr size_t UINT_LOG2_BASE = 2;
 
@@ -49,9 +49,7 @@ template <typename FF> class StandardCircuitBuilder_ : public CircuitBuilderBase
     StandardCircuitBuilder_(const size_t size_hint = 0)
         : CircuitBuilderBase<FF>(size_hint)
     {
-        for (auto& p : selectors) {
-            p.reserve(size_hint);
-        }
+        selectors.reserve(size_hint);
         w_l.reserve(size_hint);
         w_r.reserve(size_hint);
         w_o.reserve(size_hint);

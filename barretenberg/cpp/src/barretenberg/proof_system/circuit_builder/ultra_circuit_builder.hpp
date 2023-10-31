@@ -527,7 +527,7 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<FF
     };
 
     std::array<std::vector<uint32_t, barretenberg::ContainerSlabAllocator<uint32_t>>, NUM_WIRES> wires;
-    typename Arithmetization::Selectors selectors;
+    Arithmetization selectors;
 
     using WireVector = std::vector<uint32_t, ContainerSlabAllocator<uint32_t>>;
     using SelectorVector = std::vector<FF, ContainerSlabAllocator<FF>>;
@@ -537,17 +537,17 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<FF
     WireVector& w_o = std::get<2>(wires);
     WireVector& w_4 = std::get<3>(wires);
 
-    SelectorVector& q_m = selectors.q_m;
-    SelectorVector& q_c = selectors.q_c;
-    SelectorVector& q_1 = selectors.q_1;
-    SelectorVector& q_2 = selectors.q_2;
-    SelectorVector& q_3 = selectors.q_3;
-    SelectorVector& q_4 = selectors.q_4;
-    SelectorVector& q_arith = selectors.q_arith;
-    SelectorVector& q_sort = selectors.q_sort;
-    SelectorVector& q_elliptic = selectors.q_elliptic;
-    SelectorVector& q_aux = selectors.q_aux;
-    SelectorVector& q_lookup_type = selectors.q_lookup_type;
+    SelectorVector& q_m = selectors.q_m();
+    SelectorVector& q_c = selectors.q_c();
+    SelectorVector& q_1 = selectors.q_1();
+    SelectorVector& q_2 = selectors.q_2();
+    SelectorVector& q_3 = selectors.q_3();
+    SelectorVector& q_4 = selectors.q_4();
+    SelectorVector& q_arith = selectors.q_arith();
+    SelectorVector& q_sort = selectors.q_sort();
+    SelectorVector& q_elliptic = selectors.q_elliptic();
+    SelectorVector& q_aux = selectors.q_aux();
+    SelectorVector& q_lookup_type = selectors.q_lookup_type();
 
     // These are variables that we have used a gate on, to enforce that they are
     // equal to a defined value.
@@ -588,9 +588,7 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<FF
     UltraCircuitBuilder_(const size_t size_hint = 0)
         : CircuitBuilderBase<FF>(size_hint)
     {
-        for (auto& p : selectors) {
-            p.reserve(size_hint);
-        }
+        selectors.reserve(size_hint);
         w_l.reserve(size_hint);
         w_r.reserve(size_hint);
         w_o.reserve(size_hint);
