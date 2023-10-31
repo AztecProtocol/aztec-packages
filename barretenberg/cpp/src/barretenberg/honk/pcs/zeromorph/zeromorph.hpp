@@ -1,6 +1,5 @@
 #pragma once
 #include "barretenberg/polynomials/polynomial.hpp"
-#include <format>
 namespace proof_system::honk::pcs::zeromorph {
 
 /**
