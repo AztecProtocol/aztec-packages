@@ -34,6 +34,7 @@ import { createCompatibleClient } from './client.js';
 import { encodeArgs, parseStructString } from './encoding.js';
 import { GITHUB_TAG_PREFIX } from './github.js';
 import { unboxContract } from './unbox.js';
+import { updateAztecDeps } from './update-aztec.js';
 import { aztecNrVersionToTagName, getLatestAztecNrTag, updateAztecNr } from './update-aztecnr.js';
 import {
   deployAztecContracts,
@@ -701,6 +702,14 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .action((functionSignature: string) => {
       const selector = FunctionSelector.fromSignature(functionSignature);
       log(`${selector}`);
+    });
+
+  program
+    .command('update-nodejs')
+    .description('Updates @aztec packages in package.json to their latest versions')
+    .argument('<projectPath>', 'Path to the project directory')
+    .action((projectPath: string) => {
+      updateAztecDeps(projectPath, cliVersion, log);
     });
 
   program
