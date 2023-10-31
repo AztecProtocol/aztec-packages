@@ -161,7 +161,7 @@ export interface PXE {
   getPublicStorageAt(contract: AztecAddress, storageSlot: Fr): Promise<Buffer | undefined>;
 
   /**
-   * Gets notes based on the provided filter.
+   * Gets notes OF ACCOUNTS REGISTERED IN THIS PXE based on the provided filter.
    * @param filter - The filter to apply to the notes.
    * @returns The requested notes.
    */
