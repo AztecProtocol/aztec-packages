@@ -145,13 +145,11 @@ fi
 
 DOCKER_VOLUME="$DOCKER_VOLUME -v cache:/cache"
 
-DOCKER_CMD="$DOCKER_PATH run \
+$DOCKER_PATH run \
   --rm \
   --user $(id -u):$(id -g) \
-  --workdir \"$PWD\" \
+  --workdir "$PWD" \
   $DOCKER_HOST \
   $DOCKER_ENV \
   $DOCKER_VOLUME \
-  $CLI_IMAGE:$CLI_VERSION $@ $AZTEC_CLI_EXTRA_ARGS"
-
-eval "$DOCKER_CMD"
+  $CLI_IMAGE:$CLI_VERSION $@ $AZTEC_CLI_EXTRA_ARGS
