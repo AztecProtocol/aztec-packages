@@ -1,16 +1,12 @@
 use dep::aztec::{
     context::{PrivateContext, PublicContext, Context},
     constants_gen::{MAX_NOTES_PER_PAGE, MAX_READ_REQUESTS_PER_CALL},
-    log::emit_encrypted_log,
     note::{
         note_getter_options::NoteGetterOptions,
         note_viewer_options::NoteViewerOptions,
         note_getter::view_notes,
     },
-    oracle::{
-        get_public_key::get_public_key,
-        get_secret_key::get_secret_key,
-    },
+    oracle::get_secret_key::get_secret_key,
     state_vars::set::Set,
     types::point::Point,
 };
@@ -28,7 +24,7 @@ struct Card {
 }
 
 impl Card {
-    fn from_field(field: Field) -> Card {
+    pub fn from_field(field: Field) -> Card {
         let value_bytes = field.to_le_bytes(32);
         let strength = (value_bytes[0] as u16) + (value_bytes[1] as u16) * 256;
         let points = (value_bytes[2] as u16) + (value_bytes[3] as u16) * 256;
@@ -38,11 +34,11 @@ impl Card {
         }
     }
 
-    fn to_field(self) -> Field {
+    pub fn to_field(self) -> Field {
         self.strength as Field + (self.points as Field)*65536
     }
 
-    fn serialize(self) -> [Field; 2] {
+    pub fn serialize(self) -> [Field; 2] {
         [self.strength as Field, self.points as Field]
     }
 }
@@ -73,14 +69,14 @@ impl CardNote {
         CardNote::from_card(card, owner)
     }
 
-    fn from_card(card: Card, owner: Field) -> CardNote {
+    pub fn from_card(card: Card, owner: Field) -> CardNote {
         CardNote {
             card,
             note: ValueNote::new(card.to_field(), owner),
         }
     }
 
-    fn from_note(note: ValueNote) -> CardNote {
+    pub fn from_note(note: ValueNote) -> CardNote {
         CardNote {
             card: Card::from_field(note.value),
             note,
@@ -92,7 +88,7 @@ struct Deck {
     set: Set<ValueNote, VALUE_NOTE_LEN>,
 }
 
-fn filter_cards<N>(notes: [Option<ValueNote>; MAX_READ_REQUESTS_PER_CALL], desired_cards: [Card; N]) -> [Option<ValueNote>; MAX_READ_REQUESTS_PER_CALL] {
+pub fn filter_cards<N>(notes: [Option<ValueNote>; MAX_READ_REQUESTS_PER_CALL], desired_cards: [Card; N]) -> [Option<ValueNote>; MAX_READ_REQUESTS_PER_CALL] {
     let mut selected = [Option::none(); MAX_READ_REQUESTS_PER_CALL];
 
     let mut found = [false; N];
@@ -118,7 +114,7 @@ fn filter_cards<N>(notes: [Option<ValueNote>; MAX_READ_REQUESTS_PER_CALL], desir
 
 
 impl Deck {
-    fn new(
+    pub fn new(
         context: Context,
         storage_slot: Field,
     ) -> Self {
@@ -132,28 +128,20 @@ impl Deck {
         }
     }
 
-    fn add_cards<N>(&mut self, cards: [Card; N], owner: Field) -> [CardNote]{
-        let owner_key = get_public_key(owner);
+    pub fn add_cards<N>(&mut self, cards: [Card; N], owner: Field) -> [CardNote]{
         let context = self.set.context.private.unwrap();
 
         let mut inserted_cards = [];
         for card in cards {
             let mut card_note = CardNote::from_card(card, owner);
-            self.set.insert(&mut card_note.note);
-            emit_encrypted_log(
-                context,
-                (*context).this_address(),
-                self.set.storage_slot,
-                owner_key,
-                card_note.note.serialize(),
-            );
+            self.set.insert(&mut card_note.note, true);
             inserted_cards = inserted_cards.push_back(card_note);
         }
 
         inserted_cards
     }
 
-    fn get_cards<N>(&mut self, cards: [Card; N], owner: Field) -> [CardNote; N] {
+    pub fn get_cards<N>(&mut self, cards: [Card; N], owner: Field) -> [CardNote; N] {
         let options = NoteGetterOptions::with_filter(filter_cards, cards);
         let maybe_notes = self.set.get_notes(options);
         let mut found_cards = [Option::none(); N];
@@ -180,14 +168,14 @@ impl Deck {
         })
     }
 
-    fn remove_cards<N>(&mut self, cards: [Card; N], owner: Field) {
+    pub fn remove_cards<N>(&mut self, cards: [Card; N], owner: Field) {
         let card_notes = self.get_cards(cards, owner);
         for card_note in card_notes {
             self.set.remove(card_note.note);
         }
     }
 
-    unconstrained fn view_cards(self, offset: u32) -> [Option<Card>; MAX_NOTES_PER_PAGE] {
+    unconstrained pub fn view_cards(self, offset: u32) -> [Option<Card>; MAX_NOTES_PER_PAGE] {
         let options = NoteViewerOptions::new().set_offset(offset);
         let opt_notes = self.set.view_notes(options);
         let mut opt_cards = [Option::none(); MAX_NOTES_PER_PAGE];
@@ -203,7 +191,7 @@ impl Deck {
 
 global PACK_CARDS = 3; // Limited by number of write requests (max 4)
 
-fn get_pack_cards(
+pub fn get_pack_cards(
     seed: Field,
     owner_address: Field
 ) -> [Card; PACK_CARDS] {
@@ -226,7 +214,7 @@ fn get_pack_cards(
     cards
 }
 
-fn compute_deck_strength<N>(cards: [Card; N]) -> Field {
+pub fn compute_deck_strength<N>(cards: [Card; N]) -> Field {
     cards.fold(0, |acc, card: Card| {
         acc + card.strength as Field
     })

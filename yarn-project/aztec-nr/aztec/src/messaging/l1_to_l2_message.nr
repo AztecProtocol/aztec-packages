@@ -3,6 +3,7 @@ use crate::constants_gen::{
     GENERATOR_INDEX__NULLIFIER,
     GENERATOR_INDEX__L1_TO_L2_MESSAGE_SECRET,
 };
+use crate::hash::{sha256_to_field, pedersen_hash};
 
 struct L1ToL2Message {
     sender: Field,
@@ -18,7 +19,7 @@ struct L1ToL2Message {
 }
 
 impl L1ToL2Message {
-    fn deserialize(
+    pub fn deserialize(
         fields: [Field; L1_TO_L2_MESSAGE_LENGTH],
         secret: Field,
         tree_index: Field
@@ -37,8 +38,8 @@ impl L1ToL2Message {
         }
     }
 
-    fn validate_message_secret(self: Self) {
-        let recomputed_hash = dep::std::hash::pedersen_with_separator([self.secret], GENERATOR_INDEX__L1_TO_L2_MESSAGE_SECRET)[0];
+    pub fn validate_message_secret(self: Self) {
+        let recomputed_hash = pedersen_hash([self.secret], GENERATOR_INDEX__L1_TO_L2_MESSAGE_SECRET);
         assert(self.secret_hash == recomputed_hash);
     }
 
@@ -64,28 +65,15 @@ impl L1ToL2Message {
             hash_bytes[i + 224] = fee_bytes[i];
         }
 
-        let message_sha256 = dep::std::hash::sha256(hash_bytes);
-
-        // Convert the message_sha256 to a field element
-        let mut v = 1;
-        let mut high = 0 as Field;
-        let mut low = 0 as Field;
-
-        for i in 0..16 {
-            high = high + (message_sha256[15 - i] as Field) * v;
-            low = low + (message_sha256[16 + 15 - i] as Field) * v;
-            v = v * 256;
-        }
-
-        let message_hash = low + high * v;
+        let message_hash = sha256_to_field(hash_bytes);
         message_hash        
     }
 
     // The nullifier of a l1 to l2 message is the hash of the message salted with the secret and tree index
     // docs:start:l1_to_l2_message_compute_nullifier
-    fn compute_nullifier(self: Self) -> Field {
+    pub fn compute_nullifier(self: Self) -> Field {
         let message_hash = self.message_hash();
-        dep::std::hash::pedersen_with_separator([message_hash, self.secret, self.tree_index], GENERATOR_INDEX__NULLIFIER)[0]
+        pedersen_hash([message_hash, self.secret, self.tree_index], GENERATOR_INDEX__NULLIFIER)
     }
     // docs:end:l1_to_l2_message_compute_nullifier
 }

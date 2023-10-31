@@ -4,30 +4,25 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
 import {
-  ContractCommitmentProvider,
   ContractData,
-  DataCommitmentProvider,
   ExtendedContractData,
-  L1ToL2MessageProvider,
+  GetUnencryptedLogsResponse,
   L2Block,
   L2BlockL2Logs,
   L2Tx,
+  LogFilter,
   LogType,
   MerkleTreeId,
+  StateInfoProvider,
   Tx,
   TxHash,
 } from '../index.js';
-import { NullifierProvider } from './nullifier_provider.js';
 
 /**
  * The aztec node.
  * We will probably implement the additional interfaces by means other than Aztec Node as it's currently a privacy leak
  */
-export interface AztecNode
-  extends DataCommitmentProvider,
-    L1ToL2MessageProvider,
-    ContractCommitmentProvider,
-    NullifierProvider {
+export interface AztecNode extends StateInfoProvider {
   /**
    * Method to determine if the node is ready to accept transactions.
    * @returns - Flag indicating the readiness for tx submission.
@@ -96,6 +91,13 @@ export interface AztecNode
    * @returns The requested logs.
    */
   getLogs(from: number, limit: number, logType: LogType): Promise<L2BlockL2Logs[]>;
+
+  /**
+   * Gets unencrypted logs based on the provided filter.
+   * @param filter - The filter to apply to the logs.
+   * @returns The requested logs.
+   */
+  getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse>;
 
   /**
    * Method to submit a transaction to the p2p pool.

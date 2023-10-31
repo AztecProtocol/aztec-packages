@@ -1,6 +1,11 @@
+#pragma once
 #include <benchmark/benchmark.h>
+#include <cstddef>
 
 #include "barretenberg/honk/composer/ultra_composer.hpp"
+#include "barretenberg/honk/proof_system/ultra_prover.hpp"
+#include "barretenberg/plonk/composer/standard_composer.hpp"
+#include "barretenberg/plonk/composer/ultra_composer.hpp"
 #include "barretenberg/proof_system/types/circuit_type.hpp"
 #include "barretenberg/stdlib/encryption/ecdsa/ecdsa.hpp"
 #include "barretenberg/stdlib/hash/keccak/keccak.hpp"
@@ -19,32 +24,25 @@ using namespace benchmark;
 
 namespace bench_utils {
 
-struct BenchParams {
-    // Num iterations of the operation of interest in a test circuit, e.g. num sha256 hashes
-    static constexpr size_t MIN_NUM_ITERATIONS = 10;
-    static constexpr size_t MAX_NUM_ITERATIONS = 10;
-
-    // Log num gates; for simple circuits only, e.g. standard arithmetic circuit
-    static constexpr size_t MIN_LOG_NUM_GATES = 16;
-    static constexpr size_t MAX_LOG_NUM_GATES = 16;
-
-    static constexpr size_t NUM_REPETITIONS = 1;
-};
-
 /**
  * @brief Generate test circuit with basic arithmetic operations
  *
  * @param composer
  * @param num_iterations
  */
-template <typename Builder> void generate_basic_arithmetic_circuit(Builder& builder, size_t num_gates)
+template <typename Builder> void generate_basic_arithmetic_circuit(Builder& builder, size_t log2_num_gates)
 {
     proof_system::plonk::stdlib::field_t a(
         proof_system::plonk::stdlib::witness_t(&builder, barretenberg::fr::random_element()));
     proof_system::plonk::stdlib::field_t b(
         proof_system::plonk::stdlib::witness_t(&builder, barretenberg::fr::random_element()));
     proof_system::plonk::stdlib::field_t c(&builder);
-    for (size_t i = 0; i < (num_gates / 4) - 4; ++i) {
+    size_t passes = (1UL << log2_num_gates) / 4 - 4;
+    if (static_cast<int>(passes) <= 0) {
+        throw std::runtime_error("too few gates");
+    }
+
+    for (size_t i = 0; i < passes; ++i) {
         c = a + b;
         c = a * c;
         a = b * b;
@@ -62,9 +60,6 @@ template <typename Builder> void generate_sha256_test_circuit(Builder& builder, 
 {
     std::string in;
     in.resize(32);
-    for (size_t i = 0; i < 32; ++i) {
-        in[i] = 0;
-    }
     proof_system::plonk::stdlib::packed_byte_array<Builder> input(&builder, in);
     for (size_t i = 0; i < num_iterations; i++) {
         input = proof_system::plonk::stdlib::sha256<Builder>(input);
@@ -171,37 +166,39 @@ template <typename Builder> void generate_merkle_membership_test_circuit(Builder
     }
 }
 
-/**
- * @brief Performs proof constuction for benchmarks based on a provided circuit function
- *
- * @details This function assumes state.range refers to num_gates which is the size of the underlying circuit
- *
- * @tparam Builder
- * @param state
- * @param test_circuit_function
- */
-template <typename Composer>
-void construct_proof_with_specified_num_gates(State& state,
-                                              void (*test_circuit_function)(typename Composer::CircuitBuilder&,
-                                                                            size_t)) noexcept
+// ultrahonk
+inline proof_system::honk::UltraProver get_prover(
+    proof_system::honk::UltraComposer& composer,
+    void (*test_circuit_function)(proof_system::honk::UltraComposer::CircuitBuilder&, size_t),
+    size_t num_iterations)
 {
-    barretenberg::srs::init_crs_factory("../srs_db/ignition");
-    auto num_gates = static_cast<size_t>(1 << (size_t)state.range(0));
-    for (auto _ : state) {
-        // Constuct circuit and prover; don't include this part in measurement
-        state.PauseTiming();
-        auto builder = typename Composer::CircuitBuilder();
-        test_circuit_function(builder, num_gates);
-
-        auto composer = Composer();
-        auto ext_prover = composer.create_prover(builder);
-        state.ResumeTiming();
-
-        // Construct proof
-        auto proof = ext_prover.construct_proof();
-    }
+    proof_system::honk::UltraComposer::CircuitBuilder builder;
+    test_circuit_function(builder, num_iterations);
+    std::shared_ptr<proof_system::honk::UltraComposer::Instance> instance = composer.create_instance(builder);
+    return composer.create_prover(instance);
 }
 
+// standard plonk
+inline proof_system::plonk::Prover get_prover(proof_system::plonk::StandardComposer& composer,
+                                              void (*test_circuit_function)(proof_system::StandardCircuitBuilder&,
+                                                                            size_t),
+                                              size_t num_iterations)
+{
+    proof_system::StandardCircuitBuilder builder;
+    test_circuit_function(builder, num_iterations);
+    return composer.create_prover(builder);
+}
+
+// ultraplonk
+inline proof_system::plonk::UltraProver get_prover(
+    proof_system::plonk::UltraComposer& composer,
+    void (*test_circuit_function)(proof_system::honk::UltraComposer::CircuitBuilder&, size_t),
+    size_t num_iterations)
+{
+    proof_system::plonk::UltraComposer::CircuitBuilder builder;
+    test_circuit_function(builder, num_iterations);
+    return composer.create_prover(builder);
+}
 /**
  * @brief Performs proof constuction for benchmarks based on a provided circuit function
  *
@@ -213,34 +210,21 @@ void construct_proof_with_specified_num_gates(State& state,
  * @param test_circuit_function
  */
 template <typename Composer>
-void construct_proof_with_specified_num_iterations(State& state,
-                                                   void (*test_circuit_function)(typename Composer::CircuitBuilder&,
-                                                                                 size_t)) noexcept
+void construct_proof_with_specified_num_iterations(
+    State& state, void (*test_circuit_function)(typename Composer::CircuitBuilder&, size_t), size_t num_iterations)
 {
     barretenberg::srs::init_crs_factory("../srs_db/ignition");
-    auto num_iterations = static_cast<size_t>(state.range(0));
+
+    Composer composer;
+
     for (auto _ : state) {
         // Constuct circuit and prover; don't include this part in measurement
         state.PauseTiming();
-        auto builder = typename Composer::CircuitBuilder();
-        test_circuit_function(builder, num_iterations);
+        auto prover = get_prover(composer, test_circuit_function, num_iterations);
+        state.ResumeTiming();
 
-        auto composer = Composer();
-        if constexpr (proof_system::IsAnyOf<Composer, proof_system::honk::UltraComposer>) {
-            auto instance = composer.create_instance(builder);
-            auto ext_prover = composer.create_prover(instance);
-            state.ResumeTiming();
-
-            // Construct proof
-            auto proof = ext_prover.construct_proof();
-
-        } else {
-            auto ext_prover = composer.create_prover(builder);
-            state.ResumeTiming();
-
-            // Construct proof
-            auto proof = ext_prover.construct_proof();
-        }
+        // Construct proof
+        auto proof = prover.construct_proof();
     }
 }
 

@@ -20,6 +20,7 @@
   "references": [
     { "path": "acir-simulator/tsconfig.json" },
     { "path": "archiver/tsconfig.json" },
+    { "path": "aztec-faucet/tsconfig.json" },
     { "path": "aztec.js/tsconfig.json" },
     { "path": "aztec-node/tsconfig.json" },
     { "path": "pxe/tsconfig.json" },
@@ -34,12 +35,17 @@
     { "path": "merkle-tree/tsconfig.json" },
     { "path": "noir-contracts/tsconfig.json" },
     { "path": "noir-compiler/tsconfig.json" },
+    { "path": "noir-protocol-circuits/tsconfig.json" },
     { "path": "p2p/tsconfig.json" },
     { "path": "p2p-bootstrap/tsconfig.json" },
     { "path": "prover-client/tsconfig.json" },
     { "path": "sequencer-client/tsconfig.json" },
     { "path": "types/tsconfig.json" },
-    { "path": "world-state/tsconfig.json" }
+    { "path": "world-state/tsconfig.json" },
+    { "path": "boxes/token/tsconfig.json" },
+    { "path": "boxes/blank/tsconfig.json" },
+    { "path": "boxes/blank-react/tsconfig.json" },
+    { "path": "scripts/tsconfig.json" }
   ],
   "files": ["./@types/jest/index.d.ts"]
 }

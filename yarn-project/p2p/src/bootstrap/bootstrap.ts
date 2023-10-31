@@ -8,6 +8,7 @@ import { mplex } from '@libp2p/mplex';
 import { tcp } from '@libp2p/tcp';
 import { Libp2p, Libp2pOptions, ServiceFactoryMap, createLibp2p } from 'libp2p';
 import { identifyService } from 'libp2p/identify';
+import { format } from 'util';
 
 import { P2PConfig } from '../config.js';
 import { createLibP2PPeerId } from '../index.js';
@@ -38,7 +39,7 @@ export class BootstrapNode {
       peerId,
       addresses: {
         listen: [`/ip4/${tcpListenIp}/tcp/${tcpListenPort}`],
-        announce: announceHostname ? [`/ip4/${announceHostname}/tcp/${announcePort ?? tcpListenPort}`] : [],
+        announce: announceHostname ? [`${announceHostname}/tcp/${announcePort ?? tcpListenPort}`] : [],
       },
       transports: [tcp()],
       streamMuxers: [yamux(), mplex()],
@@ -57,6 +58,13 @@ export class BootstrapNode {
         protocolPrefix: 'aztec',
         clientMode: false,
       }),
+      // The autonat service seems quite problematic in that using it seems to cause a lot of attempts
+      // to dial ephemeral ports. I suspect that it works better if you can get the uPNPnat service to
+      // work as then you would have a permanent port to be dialled.
+      // Alas, I struggled to get this to work reliably either.
+      // autoNAT: autoNATService({
+      //   protocolPrefix: 'aztec',
+      // }),
     };
 
     this.node = await createLibp2p({
@@ -74,15 +82,15 @@ export class BootstrapNode {
     });
 
     this.node.addEventListener('peer:discovery', evt => {
-      this.logger('Discovered %s', evt.detail.id.toString()); // Log discovered peer
+      this.logger(format('Discovered %s', evt.detail.id.toString())); // Log discovered peer
     });
 
     this.node.addEventListener('peer:connect', evt => {
-      this.logger('Connected to %s', evt.detail.toString()); // Log connected peer
+      this.logger(format('Connected to %s', evt.detail.toString())); // Log connected peer
     });
 
     this.node.addEventListener('peer:disconnect', evt => {
-      this.logger('Disconnected from %s', evt.detail.toString()); // Log connected peer
+      this.logger(format('Disconnected from %s', evt.detail.toString())); // Log connected peer
     });
   }
 

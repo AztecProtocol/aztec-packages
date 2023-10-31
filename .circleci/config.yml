@@ -12,7 +12,7 @@
 # The docker executor uses a custom image build in `build_image`. It's specifically streamlined for fast download
 # with just enough tools to execute the build system, and launch EC2 instances etc.
 #
-# There are some `join` steps that are just noops. They are just used to produce cleaner graph rendering in CCI.
+# There are some `join` steps that are just no-ops. They are just used to produce cleaner graph rendering in CCI.
 
 version: 2.1
 
@@ -61,12 +61,12 @@ checkout: &checkout
       retry git checkout FETCH_HEAD
 
 # Called setup_env to setup a bunch of global variables used throughout the rest of the build process.
-# It takes the required CCI environment variables as inputs, and gives them normalised names for the rest of
+# It takes the required CCI environment variables as inputs, and gives them normalized names for the rest of
 # the build process. This enables easy running of the build system external to CCI, as used for powerful EC2 builds.
 setup_env: &setup_env
   run:
     name: "Setup environment"
-    command: ./build-system/scripts/setup_env "$CIRCLE_SHA1" "$CIRCLE_TAG" "$CIRCLE_JOB" "$CIRCLE_REPOSITORY_URL" "$CIRCLE_BRANCH"
+    command: ./build-system/scripts/setup_env "$CIRCLE_SHA1" "$CIRCLE_TAG" "$CIRCLE_JOB" "$CIRCLE_REPOSITORY_URL" "$CIRCLE_BRANCH" "$CIRCLE_PULL_REQUEST"
 
 # This step is used to save logs from various barretenberg test to the workspace so that they can be used later to parse benchmark values out of them
 save_logs: &save_logs
@@ -130,6 +130,17 @@ jobs:
       - run:
           name: "Build"
           command: cond_spot_run_build barretenberg-x86_64-linux-clang-assert 128
+
+  barretenberg-x86_64-linux-clang-sol:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build"
+          command: cond_spot_run_build barretenberg-x86_64-linux-clang-sol 32
 
   barretenberg-stdlib-tests:
     docker:
@@ -417,17 +428,6 @@ jobs:
           name: Test
           command: cond_spot_run_container yarn-project 64 test | add_timestamps
 
-  aztec-sandbox-base:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build and test"
-          command: force_deploy_build aztec-sandbox-base false
-
   aztec-sandbox-x86_64:
     machine:
       image: ubuntu-2204:2023.07.2
@@ -437,7 +437,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build and test"
-          command: force_deploy_build aztec-sandbox false x86_64
+          command: build aztec-sandbox false x86_64
 
   aztec-sandbox-arm64:
     machine:
@@ -449,12 +449,93 @@ jobs:
       - run:
           name: "Build and test"
           # We need to force not to use docker buildkit because for some reason on arm only, it ends up making a call
-          # out to eu-west2 despite the image being locally tagged, resulting in unauthorised 401. Weird docker bug?
+          # out to eu-west2 despite the image being locally tagged, resulting in unauthorized 401. Weird docker bug?
           command: |
             echo "export DOCKER_BUILDKIT=" > $BASH_ENV
-            force_deploy_build aztec-sandbox false arm64
+            build aztec-sandbox false arm64
 
-  aztec-sandbox-ecr-manifest:
+  aztec-p2p-bootstrap:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: build p2p-bootstrap | add_timestamps
+
+  aztec-node:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: build aztec-node | add_timestamps
+
+  mainnet-fork:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build"
+          command: build mainnet-fork | add_timestamps
+
+  deploy-mainnet-fork:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: medium
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Deploy mainnet fork"
+          command: deploy_ecr mainnet-fork
+
+  aztec-faucet:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: build aztec-faucet | add_timestamps
+
+  pxe-x86_64:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: build pxe false x86_64
+
+  pxe-arm64:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: arm.large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          # We need to force not to use docker buildkit because for some reason on arm only, it ends up making a call
+          # out to eu-west2 despite the image being locally tagged, resulting in unauthorized 401. Weird docker bug?
+          command: |
+            echo "export DOCKER_BUILDKIT=" > $BASH_ENV
+            build pxe false arm64
+
+  ecr-manifest:
     machine:
       image: ubuntu-2204:2023.07.2
     resource_class: large
@@ -463,7 +544,9 @@ jobs:
       - *setup_env
       - run:
           name: "Create ECR manifest"
-          command: create_ecr_manifest aztec-sandbox-base aztec-sandbox x86_64,arm64
+          command: |
+            create_ecr_manifest aztec-sandbox x86_64,arm64
+            create_ecr_manifest pxe x86_64,arm64
 
   boxes-blank-react:
     machine:
@@ -474,7 +557,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test via adhoc script"
-          command: ./yarn-project/boxes/blank-react/run_tests
+          command: ./yarn-project/boxes/run_tests blank-react
 
   boxes-blank:
     machine:
@@ -485,9 +568,9 @@ jobs:
       - *setup_env
       - run:
           name: "Test via adhoc script"
-          command: ./yarn-project/boxes/blank/run_tests
+          command: ./yarn-project/boxes/run_tests blank
 
-  boxes-private-token:
+  boxes-token:
     machine:
       image: ubuntu-2204:2023.07.2
     resource_class: large
@@ -496,7 +579,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test via adhoc script"
-          command: ./yarn-project/boxes/private-token/run_tests
+          command: ./yarn-project/boxes/run_tests token
 
   canary:
     machine:
@@ -520,391 +603,357 @@ jobs:
           name: "Build"
           command: build end-to-end
 
-  e2e-2-pxes:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Test"
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_2_pxes.test.ts
-
-  e2e-multiple-accounts-1-enc-key:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Test"
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_multiple_accounts_1_enc_key.test.ts
-
-  e2e-deploy-contract:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Test"
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_deploy_contract.test.ts
-
   e2e-stateful-test-contract:
     machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
+      image: aztecprotocol/alpine-build-image
+    resource_class: small
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Test"
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_stateful_test_contract.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST= e2e_stateful_test_contract.test.ts
 
+  e2e-2-pxes:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_2_pxes.test.ts
+
+  e2e-multiple-accounts-1-enc-key:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_multiple_accounts_1_enc_key.test.ts
+
+  e2e-deploy-contract:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_deploy_contract.test.ts
 
   e2e-lending-contract:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Test"
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_lending_contract.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_lending_contract.test.ts
 
   e2e-token-contract:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Test"
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_token_contract.test.ts
-
-  e2e-private-airdrop:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Test"
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_private_airdrop.test.ts
-
-  e2e-private-token-contract:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Test"
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_private_token_contract.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_token_contract.test.ts
 
   e2e-sandbox-example:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Test"
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_sandbox_example.test.ts ./scripts/docker-compose-e2e-sandbox.yml
-
-  e2e-multi-transfer-contract:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Test"
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_multi_transfer.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_sandbox_example.test.ts
 
   e2e-block-building:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Test"
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_block_building.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_block_building.test.ts
 
   e2e-nested-contract:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Test"
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_nested_contract.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_nested_contract.test.ts
 
   e2e-non-contract-account:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Test"
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_non_contract_account.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_non_contract_account.test.ts
 
   e2e-cross-chain-messaging:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Test"
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_cross_chain_messaging.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_cross_chain_messaging.test.ts
 
   e2e-public-cross-chain-messaging:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Test"
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_public_cross_chain_messaging.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_public_cross_chain_messaging.test.ts
 
   e2e-public-to-private-messaging:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Test"
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_public_to_private_messaging.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_public_to_private_messaging.test.ts
 
   e2e-account-contracts:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Test"
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_account_contracts.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_account_contracts.test.ts
 
   e2e-escrow-contract:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Test"
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_escrow_contract.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_escrow_contract.test.ts
 
   e2e-pending-commitments-contract:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Test"
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_pending_commitments_contract.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_pending_commitments_contract.test.ts
 
   e2e-ordering:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Test"
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_ordering.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_ordering.test.ts
 
   uniswap-trade-on-l1-from-l2:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Test"
-          command: cond_run_script end-to-end ./scripts/run_tests_local uniswap_trade_on_l1_from_l2.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=uniswap_trade_on_l1_from_l2.test.ts
 
   integration-archiver-l1-to-l2:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Test"
-          command: cond_run_script end-to-end ./scripts/run_tests_local integration_archiver_l1_to_l2.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=integration_archiver_l1_to_l2.test.ts
 
   integration-l1-publisher:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Test"
-          command: cond_run_script end-to-end ./scripts/run_tests_local integration_l1_publisher.test.ts
-
-  e2e-public-token-contract:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Test"
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_public_token_contract.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=integration_l1_publisher.test.ts
 
   e2e-cli:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Test"
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_cli.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_cli.test.ts
 
   e2e-p2p:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Test"
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_p2p_network.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose-no-sandbox.yml TEST=e2e_p2p_network.test.ts
 
   e2e-browser-sandbox:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Test"
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_aztec_js_browser.test.ts ./scripts/docker-compose-e2e-sandbox-browser.yml
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose-browser.yml TEST=e2e_aztec_js_browser.test.ts
 
   e2e-card-game:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Test"
-          command: cond_run_script end-to-end ./scripts/run_tests_local e2e_card_game.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_card_game.test.ts
 
   pxe-sandbox:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Test"
-          command: cond_run_script end-to-end ./scripts/run_tests_local pxe_sandbox.test.ts ./scripts/docker-compose-e2e-sandbox.yml
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=pxe_sandbox.test.ts
 
   cli-docs-sandbox:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Test"
-          command: cond_run_script end-to-end ./scripts/run_tests_local cli_docs_sandbox.test.ts ./scripts/docker-compose-e2e-sandbox.yml
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=cli_docs_sandbox.test.ts
 
   guides-writing-an-account-contract:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Test"
-          command: cond_run_script end-to-end ./scripts/run_tests_local guides/writing_an_account_contract.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=guides/writing_an_account_contract.test.ts
 
   guides-dapp-testing:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Test"
-          command: cond_run_script end-to-end ./scripts/run_tests_local guides/dapp_testing.test.ts ./scripts/docker-compose-e2e-sandbox.yml
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=guides/dapp_testing.test.ts
 
   guides-sample-dapp:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Test"
-          command: cond_run_script end-to-end ./scripts/run_tests_local sample-dapp ./scripts/docker-compose-e2e-sandbox.yml
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=sample-dapp
 
   guides-up-quick-start:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Test"
-          command: cond_run_script end-to-end ./scripts/run_tests_local guides/up_quick_start.test.ts ./scripts/docker-compose-e2e-sandbox.yml
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=guides/up_quick_start.test.ts
 
-  e2e-canary-test:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
+  bench-publish-rollup:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
     steps:
       - *checkout
       - *setup_env
       - run:
-          name: "Test"
-          command: cond_run_script canary-build ./scripts/run_tests uniswap_trade_on_l1_from_l2.test.ts canary-build ./scripts/docker-compose-e2e-sandbox.yml
+          name: "Benchmark"
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose-no-sandbox.yml TEST=benchmarks/bench_publish_rollup.test.ts DEBUG=aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees
+
+  bench-process-history:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Benchmark"
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose-no-sandbox.yml TEST=benchmarks/bench_process_history.test.ts DEBUG=aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees
 
   build-docs:
     machine:
@@ -938,6 +987,38 @@ jobs:
           name: "Noop"
           command: echo Noop
 
+  canary-end:
+    docker:
+      - image: cimg/base:2023.09
+    resource_class: small
+    steps:
+      - run:
+          name: "Noop"
+          command: echo Noop
+
+  bench-summary:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Assemble benchmark summary from uploaded logs"
+          command: ./scripts/ci/assemble_e2e_benchmark.sh
+
+  deploy-npm-canary:
+    # Deploys next version under 'canary' dist tag.
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: medium
+    steps:
+      - *checkout
+      - *setup_env
+      # Aztec.js and dependencies
+      - run:
+          name: "yarn-project"
+          command: yarn-project/deploy_npm.sh canary
+
   deploy-npm:
     machine:
       image: ubuntu-2204:2023.07.2
@@ -948,7 +1029,29 @@ jobs:
       # Aztec.js and dependencies
       - run:
           name: "yarn-project"
-          command: yarn-project/deploy_npm.sh
+          command: yarn-project/deploy_npm.sh latest
+
+  deploy-dockerhub-canary:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: medium
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Deploy to dockerhub"
+          command: yarn-project/deploy_dockerhub.sh canary
+
+  deploy-ecr:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: medium
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "yarn-project"
+          command: yarn-project/deploy_ecr.sh
 
   deploy-dockerhub:
     machine:
@@ -958,21 +1061,8 @@ jobs:
       - *checkout
       - *setup_env
       - run:
-          name: "deploy-sandbox"
-          working_directory: aztec-sandbox
-          command: |
-            deploy_dockerhub aztec-sandbox x86_64
-            deploy_dockerhub aztec-sandbox arm64
-            create_dockerhub_manifest aztec-sandbox x86_64,arm64
-
-  deploy-end:
-    docker:
-      - image: cimg/base:2023.09
-    resource_class: small
-    steps:
-      - run:
-          name: "Noop"
-          command: echo Noop
+          name: "Deploy to dockerhub"
+          command: yarn-project/deploy_dockerhub.sh
 
   build-deployment-canary:
     machine:
@@ -985,7 +1075,7 @@ jobs:
           name: "Build"
           command: build canary true
 
-  run-deployment-canary-uniswap:
+  canary-uniswap-test:
     machine:
       image: ubuntu-2204:2023.07.2
     resource_class: large
@@ -996,7 +1086,7 @@ jobs:
           name: "Test"
           command: run_script canary ./scripts/run_tests ./src/uniswap_trade_on_l1_from_l2.test.ts canary ./scripts/docker-compose.yml
 
-  run-deployment-canary-browser:
+  canary-browser-test:
     machine:
       image: ubuntu-2204:2023.07.2
     resource_class: large
@@ -1007,7 +1097,7 @@ jobs:
           name: "Test"
           command: run_script canary ./scripts/run_tests ./src/aztec_js_browser.test.ts canary ./scripts/docker-compose-browser.yml
 
-  run-deployment-canary-cli:
+  canary-cli-test:
     machine:
       image: ubuntu-2204:2023.07.2
     resource_class: large
@@ -1044,10 +1134,6 @@ deploy_defaults: &deploy_defaults
     - slack/notify:
         event: fail
         branch_pattern: "master"
-yarn_project: &yarn_project
-  requires:
-    - yarn-project
-  <<: *defaults
 e2e_test: &e2e_test
   requires:
     - e2e-join
@@ -1068,6 +1154,7 @@ workflows:
       - barretenberg-x86_64-linux-clang-assert: *defaults
       - barretenberg-x86_64-linux-clang-fuzzing: *defaults
       - barretenberg-wasm-linux-clang: *defaults
+      - barretenberg-x86_64-linux-clang-sol: *defaults
       - barretenberg-proof-system-tests: *bb_test
       - barretenberg-honk-tests: *bb_test
       - barretenberg-dsl-tests: *bb_test
@@ -1136,6 +1223,12 @@ workflows:
       - l1-contracts: *defaults
       - noir-contracts-build: *defaults
 
+      - mainnet-fork: *defaults
+      - deploy-mainnet-fork:
+          requires:
+            - mainnet-fork
+          <<: *deploy_defaults
+
       # Yarn Project
       - yarn-project-base:
           requires:
@@ -1156,24 +1249,58 @@ workflows:
             - yarn-project
           <<: *defaults
 
-      - end-to-end: *yarn_project
-      - aztec-sandbox-base: *yarn_project
-      - canary: *yarn_project
-      - build-docs: *yarn_project
+      - end-to-end:
+          requires:
+            - yarn-project
+          <<: *defaults
+      - canary:
+          requires:
+            - yarn-project
+          <<: *defaults
+      - build-docs:
+          requires:
+            - yarn-project
+          <<: *defaults
 
       - aztec-sandbox-x86_64:
           requires:
-            - aztec-sandbox-base
+            - yarn-project
           <<: *defaults
       - aztec-sandbox-arm64:
           requires:
-            - aztec-sandbox-base
+            - yarn-project
           <<: *defaults
 
-      - aztec-sandbox-ecr-manifest:
+      - aztec-p2p-bootstrap:
+          requires:
+            - yarn-project
+          <<: *defaults
+
+      - aztec-node:
+          requires:
+            - yarn-project
+          <<: *defaults
+
+      - aztec-faucet:
+          requires:
+            - yarn-project
+          <<: *defaults
+
+      - pxe-x86_64:
+          requires:
+            - yarn-project
+          <<: *defaults
+      - pxe-arm64:
+          requires:
+            - yarn-project
+          <<: *defaults
+
+      - ecr-manifest:
           requires:
             - aztec-sandbox-x86_64
             - aztec-sandbox-arm64
+            - pxe-x86_64
+            - pxe-arm64
           <<: *defaults
 
       - boxes-blank-react:
@@ -1186,7 +1313,7 @@ workflows:
             - aztec-sandbox-x86_64
           <<: *defaults
 
-      - boxes-private-token:
+      - boxes-token:
           requires:
             - aztec-sandbox-x86_64
           <<: *defaults
@@ -1194,7 +1321,7 @@ workflows:
       - e2e-join:
           requires:
             - end-to-end
-            - aztec-sandbox-ecr-manifest
+            - ecr-manifest
             - canary
           <<: *defaults
 
@@ -1203,15 +1330,11 @@ workflows:
       - e2e-stateful-test-contract: *e2e_test
       - e2e-lending-contract: *e2e_test
       - e2e-token-contract: *e2e_test
-      - e2e-private-airdrop: *e2e_test
-      - e2e-private-token-contract: *e2e_test
       - e2e-sandbox-example: *e2e_test
-      - e2e-multi-transfer-contract: *e2e_test
       - e2e-block-building: *e2e_test
       - e2e-nested-contract: *e2e_test
       - e2e-non-contract-account: *e2e_test
       - e2e-multiple-accounts-1-enc-key: *e2e_test
-      - e2e-public-token-contract: *e2e_test
       - e2e-cli: *e2e_test
       - e2e-cross-chain-messaging: *e2e_test
       - e2e-public-cross-chain-messaging: *e2e_test
@@ -1224,7 +1347,6 @@ workflows:
       - integration-l1-publisher: *e2e_test
       - integration-archiver-l1-to-l2: *e2e_test
       - e2e-p2p: *e2e_test
-      - e2e-canary-test: *e2e_test
       - e2e-browser-sandbox: *e2e_test
       - e2e-card-game: *e2e_test
       - pxe-sandbox: *e2e_test
@@ -1233,6 +1355,8 @@ workflows:
       - guides-dapp-testing: *e2e_test
       - guides-sample-dapp: *e2e_test
       - guides-up-quick-start: *e2e_test
+      - bench-publish-rollup: *e2e_test
+      - bench-process-history: *e2e_test
 
       - e2e-end:
           requires:
@@ -1241,15 +1365,11 @@ workflows:
             - e2e-stateful-test-contract
             - e2e-lending-contract
             - e2e-token-contract
-            - e2e-private-airdrop
-            - e2e-private-token-contract
             - e2e-sandbox-example
-            - e2e-multi-transfer-contract
             - e2e-block-building
             - e2e-nested-contract
             - e2e-non-contract-account
             - e2e-multiple-accounts-1-enc-key
-            - e2e-public-token-contract
             - e2e-cli
             - e2e-cross-chain-messaging
             - e2e-public-cross-chain-messaging
@@ -1263,7 +1383,6 @@ workflows:
             - integration-archiver-l1-to-l2
             - e2e-p2p
             - e2e-browser-sandbox
-            - e2e-canary-test
             - e2e-card-game
             - pxe-sandbox
             - cli-docs-sandbox
@@ -1273,38 +1392,62 @@ workflows:
             - guides-up-quick-start
           <<: *defaults
 
-        # Deployment and Canary tests
-      - deploy-dockerhub:
+      - bench-summary:
           requires:
             - e2e-end
-          <<: *deploy_defaults
-      - deploy-npm:
-          requires:
-            - e2e-end
-          <<: *deploy_defaults
+            - bench-publish-rollup
+            - bench-process-history
+          <<: *defaults
 
-      - deploy-end:
+        # Deploy under canary tag
+      - deploy-npm-canary:
           requires:
-            - deploy-dockerhub
-            - deploy-npm
+            - e2e-end
+          <<: *deploy_defaults
+      - deploy-dockerhub-canary:
+          requires:
+            - e2e-end
+          <<: *deploy_defaults
+      - deploy-ecr:
+          requires:
+            - e2e-end
           <<: *deploy_defaults
 
       - build-deployment-canary:
           requires:
-            - deploy-end
+            - deploy-npm-canary
+            - deploy-dockerhub-canary
           <<: *deploy_defaults
 
-      - run-deployment-canary-uniswap:
+      # Run canary tests
+      - canary-uniswap-test:
           requires:
             - build-deployment-canary
           <<: *deploy_defaults
 
-      - run-deployment-canary-browser:
+      - canary-browser-test:
           requires:
             - build-deployment-canary
           <<: *deploy_defaults
 
-      - run-deployment-canary-cli:
+      - canary-cli-test:
           requires:
             - build-deployment-canary
+          <<: *deploy_defaults
+
+      - canary-end:
+          requires:
+            - canary-uniswap-test
+            - canary-browser-test
+            - canary-cli-test
+          <<: *deploy_defaults
+
+        # Production deployment
+      - deploy-dockerhub:
+          requires:
+            - canary-end
+          <<: *deploy_defaults
+      - deploy-npm:
+          requires:
+            - canary-end
           <<: *deploy_defaults

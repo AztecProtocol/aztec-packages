@@ -1,13 +1,25 @@
 #pragma once
-#include "barretenberg/polynomials/univariate.hpp"
-#include "relation_parameters.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "nested_containers.hpp"
+#include <algorithm>
 
-namespace barretenberg {
-template <typename FF> class Polynomial;
-}
+template <typename T>
+concept IsField = std::same_as<T, barretenberg::fr> /* || std::same_as<T, grumpkin::fr> */;
+
 namespace proof_system {
 
-// forward-declare Polynomial so we can use in a concept
+/**
+ * @brief A type to optionally extract a view of a relation parameter in a relation.
+ *
+ * @details In sumcheck, challenges in relations are always field elements, but in folding we need univariate
+ * challenges. This template inspecting the underlying type of a RelationParameters instance. When this type is a field
+ * type, do nothing, otherwise apply the provided view type.
+ * @tparam Params
+ * @tparam View
+ * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/759): Optimize
+ */
+template <typename Params, typename View>
+using GetParameterView = std::conditional_t<IsField<typename Params::DataType>, typename Params::DataType, View>;
 
 template <typename T, size_t subrelation_idx>
 concept HasSubrelationLinearlyIndependentMember = requires(T) {
@@ -15,139 +27,120 @@ concept HasSubrelationLinearlyIndependentMember = requires(T) {
                                                           std::get<subrelation_idx>(T::SUBRELATION_LINEARLY_INDEPENDENT)
                                                           } -> std::convertible_to<bool>;
                                                   };
+
+template <typename T>
+concept HasParameterLengthAdjustmentsMember = requires { T::TOTAL_LENGTH_ADJUSTMENTS; };
+
 /**
- * @brief The templates defined herein facilitate sharing the relation arithmetic between the prover and the verifier.
+ * @brief Check whether a given subrelation is linearly independent from the other subrelations.
  *
- * The sumcheck prover and verifier accumulate the contributions from each relation (really, each sub-relation) into,
- * respectively, Univariates and individual field elements. When performing relation arithmetic on Univariates, we
- * introduce UnivariateViews to reduce full length Univariates to the minimum required length and to avoid unnecessary
- * copies.
+ * @details More often than not, we want multiply each subrelation contribution by a power of the relation
+ * separator challenge. In cases where we wish to define a subrelation that merges into another, we encode this
+ * in a boolean array `SUBRELATION_LINEARLY_INDEPENDENT` in the relation. If no such array is defined, then the
+ * default case where all subrelations are independent is engaged.
+ */
+template <typename Relation, size_t subrelation_index> constexpr bool subrelation_is_linearly_independent()
+{
+    if constexpr (HasSubrelationLinearlyIndependentMember<Relation, subrelation_index>) {
+        return std::get<subrelation_index>(Relation::SUBRELATION_LINEARLY_INDEPENDENT);
+    } else {
+        return true;
+    }
+}
+
+/**
+ * @brief Compute the total subrelation lengths, i.e., the lengths when regarding the challenges as
+ * variables.
+ */
+template <typename RelationImpl>
+consteval std::array<size_t, RelationImpl::SUBRELATION_PARTIAL_LENGTHS.size()> compute_total_subrelation_lengths()
+{
+    if constexpr (HasParameterLengthAdjustmentsMember<RelationImpl>) {
+        constexpr size_t NUM_SUBRELATIONS = RelationImpl::SUBRELATION_PARTIAL_LENGTHS.size();
+        std::array<size_t, NUM_SUBRELATIONS> result;
+        for (size_t idx = 0; idx < NUM_SUBRELATIONS; idx++) {
+            result[idx] = RelationImpl::SUBRELATION_PARTIAL_LENGTHS[idx] + RelationImpl::TOTAL_LENGTH_ADJUSTMENTS[idx];
+        }
+        return result;
+    } else {
+        return RelationImpl::SUBRELATION_PARTIAL_LENGTHS;
+    }
+};
+
+/**
+ * @brief Get the subrelation accumulators for the Protogalaxy combiner calculation.
+ * @details A subrelation of degree D, when evaluated on polynomials of degree N, gives a polynomial of degree D
+ * * N. In the context of Protogalaxy, N = NUM_INSTANCES-1. Hence, given a subrelation of length x, its
+ * evaluation on such polynomials will have degree (x-1) * (NUM_INSTANCES-1), and the length of this evaluation
+ * will be one greater than this.
+ * @tparam NUM_INSTANCES
+ * @tparam NUM_SUBRELATIONS
+ * @param SUBRELATION_PARTIAL_LENGTHS The array of subrelation lengths supplied by a relation.
+ * @return The transformed subrelation lenths
+ */
+template <size_t NUM_INSTANCES, size_t NUM_SUBRELATIONS>
+consteval std::array<size_t, NUM_SUBRELATIONS> compute_composed_subrelation_partial_lengths(
+    std::array<size_t, NUM_SUBRELATIONS> SUBRELATION_PARTIAL_LENGTHS)
+{
+    std::transform(SUBRELATION_PARTIAL_LENGTHS.begin(),
+                   SUBRELATION_PARTIAL_LENGTHS.end(),
+                   SUBRELATION_PARTIAL_LENGTHS.begin(),
+                   [](const size_t x) { return (x - 1) * (NUM_INSTANCES - 1) + 1; });
+    return SUBRELATION_PARTIAL_LENGTHS;
+};
+
+/**
+ * @brief The templates defined herein facilitate sharing the relation arithmetic between the prover and the
+ * verifier.
+ *
+ * @details The sumcheck prover and verifier accumulate the contributions from each relation (really, each sub-relation)
+ * into, respectively, Univariates and individual field elements. When performing relation arithmetic on
+ * Univariates, we introduce UnivariateViews to reduce full length Univariates to the minimum required length
+ * and to avoid unnecessary copies.
  *
  * To share the relation arithmetic, we introduce simple structs that specify two types: Accumulators and
- * AccumulatorViews. For the prover, who accumulates Univariates, these are respectively std::tuple<Univariate> and
- * std::tuple<UnivariateView>. For the verifier, who accumulates FFs, both types are simply aliases for std::array<FF>
- * (since no "view" type is necessary). The containers std::tuple and std::array are needed to accommodate multiple
- * sub-relations within each relation, where, for efficiency, each sub-relation has its own specified degree.
+ * AccumulatorViews. For the prover, who accumulates Univariates, these are respectively std::tuple<Univariate>
+ * and std::tuple<UnivariateView>. For the verifier, who accumulates FFs, both types are simply aliases for
+ * std::array<FF> (since no "view" type is necessary). The containers std::tuple and std::array are needed to
+ * accommodate multiple sub-relations within each relation, where, for efficiency, each sub-relation has its own
+ * specified degree.
  *
- * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/720)
+ * @note We use some funny terminology: we use the term "length" for 1 + the degree of a relation. When the relation is
+ * regarded as a polynomial in all of its arguments, we refer to this length as the "total length", and when we
+ * hold the relation parameters constant we refer to it as a "partial length."
  *
  */
 
 /**
- * @brief Getter method that will return `input[index]` iff `input` is a std::span container
- *
- * @return requires
- */
-template <typename FF, typename AccumulatorTypes, typename T>
-    requires std::is_same<std::span<FF>, T>::value
-inline typename std::tuple_element<0, typename AccumulatorTypes::AccumulatorViews>::type get_view(const T& input,
-                                                                                                  const size_t index)
-{
-    return input[index];
-}
-
-/**
- * @brief Getter method that will return `input[index]` iff `input` is a Polynomial container
- *
- * @tparam FF
- * @tparam TypeMuncher
- * @tparam T
- * @param input
- * @param index
- * @return requires
- */
-template <typename FF, typename AccumulatorTypes, typename T>
-    requires std::is_same<barretenberg::Polynomial<FF>, T>::value
-inline typename std::tuple_element<0, typename AccumulatorTypes::AccumulatorViews>::type get_view(const T& input,
-                                                                                                  const size_t index)
-{
-    return input[index];
-}
-
-/**
- * @brief Getter method that will return `input[index]` iff `input` is not a std::span or a Polynomial container
- *
- * @return requires
- */
-template <typename FF, typename AccumulatorTypes, typename T>
-inline typename std::tuple_element<0, typename AccumulatorTypes::AccumulatorViews>::type get_view(
-    const T& input, const size_t /*unused*/)
-{
-    return typename std::tuple_element<0, typename AccumulatorTypes::AccumulatorViews>::type(input);
-}
-
-/**
- * @brief A wrapper for Relations to expose methods used by the Sumcheck prover or verifier to add the contribution of
- * a given relation to the corresponding accumulator.
+ * @brief A wrapper for Relations to expose methods used by the Sumcheck prover or verifier to add the
+ * contribution of a given relation to the corresponding accumulator.
  *
  * @tparam FF
  * @tparam RelationImpl Base class that implements the arithmetic for a given relation (or set of sub-relations)
  */
 template <typename RelationImpl> class Relation : public RelationImpl {
-  private:
-    using FF = typename RelationImpl::FF;
-    template <size_t... subrelation_lengths> struct UnivariateAccumulatorsAndViewsTemplate {
-        using Accumulators = std::tuple<barretenberg::Univariate<FF, subrelation_lengths>...>;
-        using AccumulatorViews = std::tuple<barretenberg::UnivariateView<FF, subrelation_lengths>...>;
-    };
-    template <size_t... subrelation_lengths> struct ValueAccumulatorsAndViewsTemplate {
-        using Accumulators = std::array<FF, sizeof...(subrelation_lengths)>;
-        using AccumulatorViews = std::array<FF, sizeof...(subrelation_lengths)>; // there is no "view" type here
-    };
-
   public:
-    // Each `RelationImpl` defines a template `GetAccumulatorTypes` that supplies the `subrelation_lengths` parameters
-    // of the different `AccumulatorsAndViewsTemplate`s.
-    using UnivariateAccumulatorsAndViews =
-        typename RelationImpl::template GetAccumulatorTypes<UnivariateAccumulatorsAndViewsTemplate>;
-    // In the case of the value accumulator types, only the number of subrelations (not their lengths) has an effect.
-    using ValueAccumulatorsAndViews =
-        typename RelationImpl::template GetAccumulatorTypes<ValueAccumulatorsAndViewsTemplate>;
+    using FF = typename RelationImpl::FF;
 
-    using RelationUnivariates = typename UnivariateAccumulatorsAndViews::Accumulators;
-    using RelationValues = typename ValueAccumulatorsAndViews::Accumulators;
-    static constexpr size_t RELATION_LENGTH = RelationImpl::RELATION_LENGTH;
+    static constexpr std::array<size_t, RelationImpl::SUBRELATION_PARTIAL_LENGTHS.size()> SUBRELATION_TOTAL_LENGTHS =
+        compute_total_subrelation_lengths<RelationImpl>();
 
-    static inline void add_edge_contribution(RelationUnivariates& accumulator,
-                                             const auto& input,
-                                             const RelationParameters<FF>& relation_parameters,
-                                             const FF& scaling_factor)
-    {
-        Relation::template accumulate<UnivariateAccumulatorsAndViews>(
-            accumulator, input, relation_parameters, scaling_factor);
-    }
+    static constexpr size_t RELATION_LENGTH = *std::max_element(RelationImpl::SUBRELATION_PARTIAL_LENGTHS.begin(),
+                                                                RelationImpl::SUBRELATION_PARTIAL_LENGTHS.end());
 
-    static void add_full_relation_value_contribution(RelationValues& accumulator,
-                                                     auto& input,
-                                                     const RelationParameters<FF>& relation_parameters,
-                                                     const FF& scaling_factor = 1)
-    {
-        Relation::template accumulate<ValueAccumulatorsAndViews>(
-            accumulator, input, relation_parameters, scaling_factor);
-    }
-    /**
-     * @brief Check is subrelation is linearly independent
-     * Method is active if relation has SUBRELATION_LINEARLY_INDEPENDENT array defined
-     * @tparam size_t
-     */
-    template <size_t subrelation_index>
-    static constexpr bool is_subrelation_linearly_independent()
-        requires(!HasSubrelationLinearlyIndependentMember<Relation, subrelation_index>)
-    {
-        return true;
-    }
+    static constexpr size_t TOTAL_RELATION_LENGTH =
+        *std::max_element(SUBRELATION_TOTAL_LENGTHS.begin(), SUBRELATION_TOTAL_LENGTHS.end());
 
-    /**
-     * @brief Check is subrelation is linearly independent
-     * Method is active if relation has SUBRELATION_LINEARLY_INDEPENDENT array defined
-     * @tparam size_t
-     */
-    template <size_t subrelation_index>
-    static constexpr bool is_subrelation_linearly_independent()
-        requires(HasSubrelationLinearlyIndependentMember<Relation, subrelation_index>)
-    {
-        return std::get<subrelation_index>(Relation::SUBRELATION_LINEARLY_INDEPENDENT);
-    }
+    template <size_t NUM_INSTANCES>
+    using ProtogalaxyTupleOfUnivariatesOverSubrelations =
+        TupleOfUnivariates<FF, compute_composed_subrelation_partial_lengths<NUM_INSTANCES>(SUBRELATION_TOTAL_LENGTHS)>;
+    using SumcheckTupleOfUnivariatesOverSubrelations =
+        TupleOfUnivariates<FF, RelationImpl::SUBRELATION_PARTIAL_LENGTHS>;
+    using SumcheckArrayOfValuesOverSubrelations = ArrayOfValues<FF, RelationImpl::SUBRELATION_PARTIAL_LENGTHS>;
+
+    // These are commonly needed, most importantly, for explicitly instantiating
+    // compute_foo_numerator/denomintor.
+    using UnivariateAccumulator0 = std::tuple_element_t<0, SumcheckTupleOfUnivariatesOverSubrelations>;
+    using ValueAccumulator0 = std::tuple_element_t<0, SumcheckArrayOfValuesOverSubrelations>;
 };
-
 } // namespace proof_system

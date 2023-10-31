@@ -5,6 +5,7 @@
 #include "../../state_vars/state_var_base.hpp"
 #include "../note_interface.hpp"
 
+#include "aztec3/constants.hpp"
 #include "aztec3/utils/types/circuit_types.hpp"
 #include "aztec3/utils/types/convert.hpp"
 #include "aztec3/utils/types/native_types.hpp"
@@ -19,8 +20,6 @@ using aztec3::circuits::apps::state_vars::StateVar;
 namespace aztec3::circuits::apps::notes {
 
 using aztec3::GeneratorIndex;
-
-using crypto::generators::generator_index_t;
 
 using aztec3::utils::types::CircuitTypes;
 using aztec3::utils::types::NativeTypes;
@@ -62,23 +61,6 @@ typename CircuitTypes<Builder>::fr DefaultSingletonPrivateNote<Builder, V>::comp
 
     grumpkin_point const storage_slot_point = state_var->storage_slot_point;
 
-    std::vector<fr> const inputs;
-    std::vector<generator_index_t> const generators;
-
-    auto gen_pair_address = [&](std::optional<address> const& input, size_t const hash_sub_index) {
-        if (!input) {
-            throw_or_abort("Cannot commit to a partial preimage.");
-        }
-        return std::make_pair((*input).to_field(), generator_index_t({ GeneratorIndex::COMMITMENT, hash_sub_index }));
-    };
-
-    auto gen_pair_fr = [&](std::optional<fr> const& input, size_t const hash_sub_index) {
-        if (!input) {
-            throw_or_abort("Cannot commit to a partial preimage.");
-        }
-        return std::make_pair(*input, generator_index_t({ GeneratorIndex::COMMITMENT, hash_sub_index }));
-    };
-
     if (!note_preimage.salt) {
         note_preimage.salt = get_oracle().generate_random_element();
     }
@@ -86,12 +68,14 @@ typename CircuitTypes<Builder>::fr DefaultSingletonPrivateNote<Builder, V>::comp
     const auto& [value, owner, salt, nonce] = note_preimage;
 
     const grumpkin_point commitment_point =
-        storage_slot_point + CT::commit({
-                                 gen_pair_fr(value, PrivateStateNoteGeneratorIndex::VALUE),
-                                 gen_pair_address(owner, PrivateStateNoteGeneratorIndex::OWNER),
-                                 gen_pair_fr(salt, PrivateStateNoteGeneratorIndex::SALT),
-                                 gen_pair_fr(nonce, PrivateStateNoteGeneratorIndex::NONCE),
-                             });
+        storage_slot_point + CT::commit(
+                                 {
+                                     *value,              /*PrivateStateNoteGeneratorIndex::VALUE*/
+                                     (*owner).to_field(), /*PrivateStateNoteGeneratorIndex::OWNER*/
+                                     *salt,               /*PrivateStateNoteGeneratorIndex::SALT*/
+                                     *nonce,              /*PrivateStateNoteGeneratorIndex::NONCE*/
+                                 },
+                                 GeneratorIndex::COMMITMENT);
 
     commitment = commitment_point.x;
 
@@ -145,7 +129,7 @@ typename CircuitTypes<Builder>::fr DefaultSingletonPrivateNote<Builder, V>::comp
 
     // We compress the hash_inputs with Pedersen, because that's cheaper (constraint-wise) than compressing
     // the data directly with Blake2s in the next step.
-    const fr compressed_inputs = CT::compress(hash_inputs, GeneratorIndex::NULLIFIER);
+    const fr compressed_inputs = CT::hash(hash_inputs, GeneratorIndex::NULLIFIER);
 
     // Blake2s hash the compressed result. Without this it's possible to leak info from the pedersen
     // compression.
@@ -204,13 +188,13 @@ typename CircuitTypes<Builder>::fr DefaultSingletonPrivateNote<Builder, V>::gene
 };
 
 template <typename Builder, typename V>
-typename CircuitTypes<Builder>::fr DefaultSingletonPrivateNote<Builder, V>::get_initialisation_nullifier()
+typename CircuitTypes<Builder>::fr DefaultSingletonPrivateNote<Builder, V>::get_initialization_nullifier()
 {
     auto& oracle = get_oracle();
 
     const fr& owner_private_key = oracle.get_msg_sender_private_key();
 
-    // We prevent this storage slot from even being initialised again:
+    // We prevent this storage slot from even being initialized again:
     auto& storage_slot_point = state_var->storage_slot_point;
 
     const std::vector<fr> hash_inputs{
@@ -221,7 +205,7 @@ typename CircuitTypes<Builder>::fr DefaultSingletonPrivateNote<Builder, V>::get_
     const bool is_dummy = false;
 
     // We compress the hash_inputs with Pedersen, because that's cheap.
-    const fr compressed_storage_slot_point = CT::compress(hash_inputs, GeneratorIndex::INITIALISATION_NULLIFIER);
+    const fr compressed_storage_slot_point = CT::hash(hash_inputs, GeneratorIndex::INITIALIZATION_NULLIFIER);
 
     // For now, we piggy-back on the regular nullifier function.
     return DefaultSingletonPrivateNote<Builder, V>::compute_nullifier(
@@ -229,15 +213,15 @@ typename CircuitTypes<Builder>::fr DefaultSingletonPrivateNote<Builder, V>::get_
 };
 
 template <typename Builder, typename V>
-typename CircuitTypes<Builder>::fr DefaultSingletonPrivateNote<Builder, V>::get_initialisation_commitment()
+typename CircuitTypes<Builder>::fr DefaultSingletonPrivateNote<Builder, V>::get_initialization_commitment()
 {
     /**
-     * TODO: Get rid of this temporary fix of including owner_private_key while computing the initialisation commitment.
-     * Details: We need to add the initialisation commitment value to the `nullified_commitments`.
-     * In this case, since the actual note data is not yet available, we compute the initialisation nullifier as:
+     * TODO: Get rid of this temporary fix of including owner_private_key while computing the initialization commitment.
+     * Details: We need to add the initialization commitment value to the `nullified_commitments`.
+     * In this case, since the actual note data is not yet available, we compute the initialization nullifier as:
      * null = hash(compressed_storage_slot, owner_private_key, false)
      *
-     * Thus, the initialisation commitment here is `compressed_storage_slot`. But since the storage slot is not a real
+     * Thus, the initialization commitment here is `compressed_storage_slot`. But since the storage slot is not a real
      * circuit variable, `compressed_storage_slot` would be a circuit constant. The compiler doesn't allow us
      * to make a circuit constant as a public input of the circuit, it just crashes at runtime.
      * To avoid this, we compute the initial commitment as:
@@ -249,7 +233,7 @@ typename CircuitTypes<Builder>::fr DefaultSingletonPrivateNote<Builder, V>::get_
 
     const fr& owner_private_key = oracle.get_msg_sender_private_key();
 
-    // We prevent this storage slot from even being initialised again:
+    // We prevent this storage slot from even being initialized again:
     auto& storage_slot_point = state_var->storage_slot_point;
 
     const std::vector<fr> hash_inputs{
@@ -259,7 +243,7 @@ typename CircuitTypes<Builder>::fr DefaultSingletonPrivateNote<Builder, V>::get_
     };
 
     // We compress the hash_inputs with Pedersen, because that's cheap.
-    fr compressed_storage_slot_point = CT::compress(hash_inputs, GeneratorIndex::INITIALISATION_NULLIFIER);
+    fr compressed_storage_slot_point = CT::hash(hash_inputs, GeneratorIndex::INITIALIZATION_NULLIFIER);
 
     return compressed_storage_slot_point;
 };

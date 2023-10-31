@@ -2,8 +2,8 @@ import { CompleteAddress, FunctionData, HistoricBlockData } from '@aztec/circuit
 import { FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
-import { StatefulTestContractAbi } from '@aztec/noir-contracts/artifacts';
-import { FunctionCall } from '@aztec/types';
+import { StatefulTestContractArtifact } from '@aztec/noir-contracts/artifacts';
+import { FunctionCall, Note } from '@aztec/types';
 
 import { mock } from 'jest-mock-extended';
 
@@ -25,7 +25,7 @@ describe('Unconstrained Execution test suite', () => {
     let owner: AztecAddress;
 
     const buildNote = (amount: bigint, owner: AztecAddress) => {
-      return [new Fr(amount), owner, Fr.random()];
+      return new Note([new Fr(amount), owner.toField(), Fr.random()]);
     };
 
     beforeEach(async () => {
@@ -40,18 +40,18 @@ describe('Unconstrained Execution test suite', () => {
 
     it('should run the summed_values function', async () => {
       const contractAddress = AztecAddress.random();
-      const abi = StatefulTestContractAbi.functions.find(f => f.name === 'summed_values')!;
+      const artifact = StatefulTestContractArtifact.functions.find(f => f.name === 'summed_values')!;
 
-      const preimages = [...Array(5).fill(buildNote(1n, owner)), ...Array(2).fill(buildNote(2n, owner))];
+      const notes: Note[] = [...Array(5).fill(buildNote(1n, owner)), ...Array(2).fill(buildNote(2n, owner))];
 
       oracle.getHistoricBlockData.mockResolvedValue(HistoricBlockData.empty());
       oracle.getNotes.mockResolvedValue(
-        preimages.map((preimage, index) => ({
+        notes.map((note, index) => ({
           contractAddress,
           storageSlot: Fr.random(),
           nonce: Fr.random(),
           isSome: new Fr(1),
-          preimage,
+          note,
           innerNoteHash: Fr.random(),
           siloedNullifier: Fr.random(),
           index: BigInt(index),
@@ -61,10 +61,10 @@ describe('Unconstrained Execution test suite', () => {
       const execRequest: FunctionCall = {
         to: contractAddress,
         functionData: new FunctionData(FunctionSelector.empty(), false, true, true),
-        args: encodeArguments(abi, [owner]),
+        args: encodeArguments(artifact, [owner]),
       };
 
-      const result = await acirSimulator.runUnconstrained(execRequest, abi, AztecAddress.random());
+      const result = await acirSimulator.runUnconstrained(execRequest, artifact, AztecAddress.random());
 
       expect(result).toEqual(9n);
     }, 30_000);

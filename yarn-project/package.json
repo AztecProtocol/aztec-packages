@@ -18,13 +18,14 @@
   "workspaces": [
     "acir-simulator",
     "archiver",
+    "aztec-faucet",
     "aztec-node",
     "pxe",
     "aztec-sandbox",
     "aztec.js",
     "boxes/blank",
     "boxes/blank-react",
-    "boxes/private-token",
+    "boxes/token",
     "canary",
     "circuits.js",
     "cli",
@@ -37,11 +38,13 @@
     "merkle-tree",
     "noir-compiler",
     "noir-contracts",
+    "noir-protocol-circuits",
     "p2p",
     "p2p-bootstrap",
     "prover-client",
     "rollup-provider",
     "sequencer-client",
+    "scripts",
     "types",
     "world-state",
     "yarn-project-base"
@@ -56,5 +59,9 @@
     "prettier": "^2.8.8",
     "typedoc": "^0.24.8",
     "typescript": "^5.0.4"
+  },
+  "resolutions": {
+    "ts-jest@^29.1.0": "patch:ts-jest@npm%3A29.1.1#./.yarn/patches/ts-jest-npm-29.1.1-04e888e48e.patch",
+    "ts-jest@^29.1.1": "patch:ts-jest@npm%3A29.1.1#./.yarn/patches/ts-jest-npm-29.1.1-04e888e48e.patch"
   }
 }

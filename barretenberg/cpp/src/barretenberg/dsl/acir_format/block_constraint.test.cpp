@@ -7,6 +7,11 @@
 #include <vector>
 
 namespace acir_format::tests {
+
+class UltraPlonkRAM : public ::testing::Test {
+  protected:
+    static void SetUpTestSuite() { barretenberg::srs::init_crs_factory("../srs_db/ignition"); }
+};
 size_t generate_block_constraint(BlockConstraint& constraint, WitnessVector& witness_values)
 {
     size_t witness_len = 1;
@@ -98,7 +103,7 @@ size_t generate_block_constraint(BlockConstraint& constraint, WitnessVector& wit
     return witness_len;
 }
 
-TEST(up_ram, TestBlockConstraint)
+TEST_F(UltraPlonkRAM, TestBlockConstraint)
 {
     BlockConstraint block;
     WitnessVector witness_values;
@@ -116,6 +121,7 @@ TEST(up_ram, TestBlockConstraint)
         .keccak_constraints = {},
         .keccak_var_constraints = {},
         .pedersen_constraints = {},
+        .pedersen_hash_constraints = {},
         .hash_to_field_constraints = {},
         .fixed_base_scalar_mul_constraints = {},
         .recursion_constraints = {},

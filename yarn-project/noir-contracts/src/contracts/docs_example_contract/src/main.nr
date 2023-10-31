@@ -19,7 +19,7 @@ contract DocsExample {
     // docs:end:state_vars-PublicStateBoolImport
     use crate::account_contract_interface::AccountContractInterface;
     use crate::actions;
-    use crate::options::{create_account_card_getter_options, create_largest_account_card_getter_options};
+    use crate::options::create_account_card_getter_options;
     use crate::types::{
         card_note::{CardNote, CardNoteMethods, CARD_NOTE_LEN},
         profile_note::{ProfileNote, ProfileNoteMethods, PROFILE_NOTE_LEN},
@@ -94,9 +94,7 @@ contract DocsExample {
         max_points: u8,
         legendary_card_secret: Field,
     ) {
-        
-
-        let mut game_rules = RulesNote::new(min_points, max_points);
+        let mut game_rules = RulesNote::new(min_points, max_points, Option::some(0));
         actions::init_game_rules(storage.game_rules, &mut game_rules);
 
         let mut legendary_card = CardNote::new(0, legendary_card_secret, 0);
@@ -221,21 +219,6 @@ contract DocsExample {
 
         context.return_values.push(total_points as Field);
     }
-
-    // docs:start:state_vars-check_return_notes
-    #[aztec(private)]
-    fn discard_largest_card() {
-        
-
-        let account = context.msg_sender();
-        let options = create_largest_account_card_getter_options(account);
-        let card = actions::get_cards(storage.cards, options)[0].unwrap_unchecked();
-        // highlight-next-line:state_vars-check_return_notes
-        assert(card.owner == account);
-
-        actions::remove_card(storage.cards, card);
-    }
-    // docs:end:state_vars-check_return_notes
 
     // docs:start:functions-UncontrainedFunction
     unconstrained fn get_total_points(account: Field) -> u8 {

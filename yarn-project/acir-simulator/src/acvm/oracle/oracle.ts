@@ -4,7 +4,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { MerkleTreeId } from '@aztec/types';
+import { MerkleTreeId, UnencryptedL2Log } from '@aztec/types';
 
 import { ACVMField } from '../acvm.js';
 import { convertACVMFieldToBuffer, fromACVMField } from '../deserialize.js';
@@ -23,12 +23,6 @@ import { TypedOracle } from './typed_oracle.js';
 export class Oracle {
   constructor(private typedOracle: TypedOracle, private log = createDebugLogger('aztec:simulator:oracle')) {}
 
-  computeSelector(...args: ACVMField[][]): ACVMField {
-    const signature = oracleDebugCallToFormattedStr(args);
-    const selector = this.typedOracle.computeSelector(signature);
-    return toACVMField(selector);
-  }
-
   getRandomField(): ACVMField {
     const val = this.typedOracle.getRandomField();
     return toACVMField(val);
@@ -45,8 +39,8 @@ export class Oracle {
     return [toACVMField(secretKey.low), toACVMField(secretKey.high)];
   }
 
-  async getPublicKey([address]: ACVMField[]) {
-    const { publicKey, partialAddress } = await this.typedOracle.getPublicKey(
+  async getPublicKeyAndPartialAddress([address]: ACVMField[]) {
+    const { publicKey, partialAddress } = await this.typedOracle.getCompleteAddress(
       AztecAddress.fromField(fromACVMField(address)),
     );
     return [publicKey.x, publicKey.y, partialAddress].map(toACVMField);
@@ -70,7 +64,7 @@ export class Oracle {
     [offset]: ACVMField[],
     [returnSize]: ACVMField[],
   ): Promise<ACVMField[]> {
-    const notes = await this.typedOracle.getNotes(
+    const noteDatas = await this.typedOracle.getNotes(
       fromACVMField(storageSlot),
       +numSelects,
       selectBy.map(s => +s),
@@ -81,41 +75,38 @@ export class Oracle {
       +offset,
     );
 
-    const contractAddress = notes[0]?.contractAddress ?? Fr.ZERO;
+    const noteLength = noteDatas?.[0]?.note.items.length ?? 0;
+    if (!noteDatas.every(({ note }) => noteLength === note.items.length)) {
+      throw new Error('Notes should all be the same length.');
+    }
 
-    const isSome = new Fr(1); // Boolean. Indicates whether the Noir Option<Note>::is_some();
-    const realNotePreimages = notes.flatMap(({ nonce, preimage }) => [nonce, isSome, ...preimage]);
-    const preimageLength = notes[0]?.preimage.length ?? 0;
-    const returnHeaderLength = 2; // is for the header values: `notes.length` and `contractAddress`.
-    const extraPreimageLength = 2; // is for the nonce and isSome fields.
-    const extendedPreimageLength = preimageLength + extraPreimageLength;
-    const numRealNotes = notes.length;
-    const numReturnNotes = Math.floor((+returnSize - returnHeaderLength) / extendedPreimageLength);
-    const numDummyNotes = numReturnNotes - numRealNotes;
+    const contractAddress = noteDatas[0]?.contractAddress ?? Fr.ZERO;
 
-    const dummyNotePreimage = Array(extendedPreimageLength).fill(Fr.ZERO);
-    const dummyNotePreimages = Array(numDummyNotes)
-      .fill(dummyNotePreimage)
-      .flatMap(note => note);
+    // Values indicates whether the note is settled or transient.
+    const noteTypes = {
+      isSettled: new Fr(0),
+      isTransient: new Fr(1),
+    };
+    const flattenData = noteDatas.flatMap(({ nonce, note, index }) => [
+      nonce,
+      index === undefined ? noteTypes.isTransient : noteTypes.isSettled,
+      ...note.items,
+    ]);
 
-    const paddedZeros = Array(
-      Math.max(0, +returnSize - returnHeaderLength - realNotePreimages.length - dummyNotePreimages.length),
-    ).fill(Fr.ZERO);
+    const returnFieldSize = +returnSize;
+    const returnData = [noteDatas.length, contractAddress, ...flattenData].map(v => toACVMField(v));
+    if (returnData.length > returnFieldSize) {
+      throw new Error(`Return data size too big. Maximum ${returnFieldSize} fields. Got ${flattenData.length}.`);
+    }
 
-    return [notes.length, contractAddress, ...realNotePreimages, ...dummyNotePreimages, ...paddedZeros].map(v =>
-      toACVMField(v),
-    );
+    const paddedZeros = Array(returnFieldSize - returnData.length).fill(toACVMField(0));
+    return returnData.concat(paddedZeros);
   }
 
-  async checkNoteHashExists([nonce]: ACVMField[], [innerNoteHash]: ACVMField[]): Promise<ACVMField> {
-    const exists = await this.typedOracle.checkNoteHashExists(fromACVMField(nonce), fromACVMField(innerNoteHash));
-    return toACVMField(exists);
-  }
-
-  notifyCreatedNote([storageSlot]: ACVMField[], preimage: ACVMField[], [innerNoteHash]: ACVMField[]): ACVMField {
+  notifyCreatedNote([storageSlot]: ACVMField[], note: ACVMField[], [innerNoteHash]: ACVMField[]): ACVMField {
     this.typedOracle.notifyCreatedNote(
       fromACVMField(storageSlot),
-      preimage.map(fromACVMField),
+      note.map(fromACVMField),
       fromACVMField(innerNoteHash),
     );
     return toACVMField(0);
@@ -124,6 +115,11 @@ export class Oracle {
   async notifyNullifiedNote([innerNullifier]: ACVMField[], [innerNoteHash]: ACVMField[]): Promise<ACVMField> {
     await this.typedOracle.notifyNullifiedNote(fromACVMField(innerNullifier), fromACVMField(innerNoteHash));
     return toACVMField(0);
+  }
+
+  async checkNullifierExists([innerNullifier]: ACVMField[]): Promise<ACVMField> {
+    const exists = await this.typedOracle.checkNullifierExists(fromACVMField(innerNullifier));
+    return toACVMField(exists);
   }
 
   async getL1ToL2Message([msgKey]: ACVMField[]): Promise<ACVMField[]> {
@@ -157,21 +153,26 @@ export class Oracle {
     [storageSlot]: ACVMField[],
     [publicKeyX]: ACVMField[],
     [publicKeyY]: ACVMField[],
-    preimage: ACVMField[],
+    log: ACVMField[],
   ): ACVMField {
     const publicKey = new Point(fromACVMField(publicKeyX), fromACVMField(publicKeyY));
     this.typedOracle.emitEncryptedLog(
       AztecAddress.fromString(contractAddress),
       Fr.fromString(storageSlot),
       publicKey,
-      preimage.map(fromACVMField),
+      log.map(fromACVMField),
     );
     return toACVMField(0);
   }
 
-  emitUnencryptedLog(message: ACVMField[]): ACVMField {
-    // https://github.com/AztecProtocol/aztec-packages/issues/885
-    const log = Buffer.concat(message.map(charBuffer => convertACVMFieldToBuffer(charBuffer).subarray(-1)));
+  emitUnencryptedLog([contractAddress]: ACVMField[], [eventSelector]: ACVMField[], message: ACVMField[]): ACVMField {
+    const logPayload = Buffer.concat(message.map(charBuffer => convertACVMFieldToBuffer(charBuffer).subarray(-1)));
+    const log = new UnencryptedL2Log(
+      AztecAddress.fromString(contractAddress),
+      FunctionSelector.fromField(fromACVMField(eventSelector)), // TODO https://github.com/AztecProtocol/aztec-packages/issues/2632
+      logPayload,
+    );
+
     this.typedOracle.emitUnencryptedLog(log);
     return toACVMField(0);
   }

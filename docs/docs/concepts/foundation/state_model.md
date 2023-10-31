@@ -2,11 +2,27 @@
 title: State Model
 ---
 
-import Disclaimer from '../../misc/common/\_disclaimer.mdx';
+Aztec has a hybrid public/private state model. Aztec contract developers can specify which data is public and which data is private, as well as the functions that can operate on that data.
 
-<Disclaimer/>
+## Public State
+
+Aztec has public state that will be familiar to developers coming that have worked on other blockchains. Public state is transparent is managed by the associated smart contract logic.
+
+Internal to the Aztec network, public state is stored and updated by the sequencer. The sequencer executes state transitions, generates proofs of correct execution (or delegates proof generation to the prover network), and publishes the associated data to Ethereum.
 
 ## Private State
+
+Every smart contract needs a way to track information over time - that's what state is. In order to have both private and public transactions and storage in Aztec, we have to have public and private state.
+
+On this page, you’ll learn
+
+- Aztec's unique interpretation of private state
+- Representation of private state in an append-only database
+- Concept of 'deleting' private state variables using nullifiers
+- How to modify private state
+- How Aztec abstracts the UTXO model from developers
+
+## Private State on Aztec
 
 Private state must be treated differently from public state and this must be expressed in the semantics of Aztec.nr.
 
@@ -27,9 +43,8 @@ This is achieved with two main features:
 1. Users sign over transactions, not over specific UTXO's
 2. Aztec.nr contracts support developer defined `unconstrained` getter functions to help dApp's make sense of UTXO's. e.g `getBalance()`. These functions can be called outside of a transaction context to read private state.
 
-## Coming soon
+## To be documented soon
 
-- Public State
 - The lifecycle of a note
 - Custom notes
 - Injection of data by the kernel

@@ -7,7 +7,8 @@ use dep::aztec::{
     context::PrivateContext,
     constants_gen::MAX_READ_REQUESTS_PER_CALL,
     state_vars::set::Set,
-    log::emit_encrypted_log
+    log::emit_encrypted_log,
+    hash::pedersen_hash,
 };
 use dep::aztec::types::address::AztecAddress;
 use dep::aztec::oracle::{
@@ -15,7 +16,6 @@ use dep::aztec::oracle::{
     get_secret_key::get_secret_key,
     get_public_key::get_public_key,
 };
-
 use dep::safe_math::SafeU120;
 use dep::std::option::Option;
 
@@ -36,7 +36,7 @@ struct TokenNote {
 }
 
 impl TokenNote {
-    fn new(amount: SafeU120, owner: AztecAddress) -> Self {
+    pub fn new(amount: SafeU120, owner: AztecAddress) -> Self {
         Self {
             amount,
             owner,
@@ -45,11 +45,11 @@ impl TokenNote {
         }
     }
 
-    fn serialize(self) -> [Field; TOKEN_NOTE_LEN] {
+    pub fn serialize(self) -> [Field; TOKEN_NOTE_LEN] {
         [self.amount.value as Field, self.owner.address, self.randomness]
     }
 
-    fn deserialize(preimage: [Field; TOKEN_NOTE_LEN]) -> Self {
+    pub fn deserialize(preimage: [Field; TOKEN_NOTE_LEN]) -> Self {
         Self {
             amount: SafeU120::new(preimage[0]),
             owner: AztecAddress::new(preimage[1]),
@@ -58,53 +58,44 @@ impl TokenNote {
         }
     }
 
-    fn compute_note_hash(self) -> Field {
+    pub fn compute_note_hash(self) -> Field {
         // TODO(#1205) Should use a non-zero generator index.
-        dep::std::hash::pedersen([
+        pedersen_hash([
             self.amount.value as Field, 
             self.owner.address as Field,
             self.randomness,
-        ])[0]
+        ],0)
     }
 
     // docs:start:nullifier
-    fn compute_nullifier(self) -> Field {
+    pub fn compute_nullifier(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_read_or_nullify(TokenNoteMethods, self);
         let secret = get_secret_key(self.owner.address);
         // TODO(#1205) Should use a non-zero generator index.
-        dep::std::hash::pedersen([
+        pedersen_hash([
             note_hash_for_nullify,
             secret.low,
             secret.high,
-        ])[0]
+        ],0)
     }
     // docs:end:nullifier
 
-    fn set_header(&mut self, header: NoteHeader) {
+    pub fn set_header(&mut self, header: NoteHeader) {
         self.header = header;
     }
 
-
-  fn emit_encrypted(
-      self: &mut Self,
-      context: &mut PrivateContext,
-      storage_slot: Field,
-  ) {
+    // Broadcasts the note as an encrypted log on L1.
+    pub fn broadcast(self, context: &mut PrivateContext, slot: Field) {
       // We only bother inserting the note if non-empty to save funds on gas.
       if !self.amount.is_zero() {
-          // docs:start:encrypted
-          let application_contract_address = (*context).this_address();
           let encryption_pub_key = get_public_key(self.owner.address);
-          let encrypted_data = (*self).serialize();
-
           emit_encrypted_log(
               context,
-              application_contract_address,
-              storage_slot,
+              (*context).this_address(),
+              slot,
               encryption_pub_key,
-              encrypted_data,
+              self.serialize(),
           );
-          // docs:end:encrypted
       }
   }
 }
@@ -133,6 +124,11 @@ fn set_header(note: &mut TokenNote, header: NoteHeader) {
     note.set_header(header)
 }
 
+// Broadcasts the note as an encrypted log on L1.
+fn broadcast(context: &mut PrivateContext, slot: Field, note: TokenNote) {
+    note.broadcast(context, slot);
+}
+
 global TokenNoteMethods = NoteInterface {
     deserialize,
     serialize,
@@ -140,4 +136,5 @@ global TokenNoteMethods = NoteInterface {
     compute_nullifier,
     get_header,
     set_header,
+    broadcast,
 };

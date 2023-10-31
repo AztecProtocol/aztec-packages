@@ -1,25 +1,53 @@
 #pragma once
 #include "barretenberg/numeric/uint256/uint256.hpp"
-#include "relation_parameters.hpp"
-#include "relation_types.hpp"
+#include "barretenberg/proof_system/relations/relation_types.hpp"
 
 namespace proof_system {
 
 template <typename FF_> class AuxiliaryRelationImpl {
   public:
     using FF = FF_;
+    /*
+     * TODO(https://github.com/AztecProtocol/barretenberg/issues/757): Investigate optimizations.
+     * It seems that we could have:
+     *     static constexpr std::array<size_t, 6> SUBRELATION_PARTIAL_LENGTHS{
+     *     5 // auxiliary sub-relation;
+     *     6 // ROM consistency sub-relation 1
+     *     6 // ROM consistency sub-relation 2
+     *     6 // RAM consistency sub-relation 1
+     *     5 // RAM consistency sub-relation 2
+     *     5 // RAM consistency sub-relation 3
+     * };
+     *
+     * and
+     *
+     *     static constexpr std::array<size_t, 6> TOTAL_LENGTH_ADJUSTMENTS{
+     *     6, // auxiliary sub-relation
+     *     0, // ROM consistency sub-relation 1
+     *     0, // ROM consistency sub-relation 2
+     *     3, // RAM consistency sub-relation 1
+     *     0, // RAM consistency sub-relation 2
+     *     1  // RAM consistency sub-relation 3
+     * };
+     */
 
-    // 1 + polynomial degree of this relation
-    static constexpr size_t RELATION_LENGTH = 6;
+    static constexpr std::array<size_t, 6> SUBRELATION_PARTIAL_LENGTHS{
+        6, // auxiliary sub-relation;
+        6, // ROM consistency sub-relation 1
+        6, // ROM consistency sub-relation 2
+        6, // RAM consistency sub-relation 1
+        6, // RAM consistency sub-relation 2
+        6  // RAM consistency sub-relation 3
+    };
 
-    static constexpr size_t LEN_1 = 6; // auxiliary sub-relation
-    static constexpr size_t LEN_2 = 6; // ROM consistency sub-relation 1
-    static constexpr size_t LEN_3 = 6; // ROM consistency sub-relation 2
-    static constexpr size_t LEN_4 = 6; // RAM consistency sub-relation 1
-    static constexpr size_t LEN_5 = 6; // RAM consistency sub-relation 2
-    static constexpr size_t LEN_6 = 6; // RAM consistency sub-relation 3
-    template <template <size_t...> typename SubrelationAccumulatorsTemplate>
-    using GetAccumulatorTypes = SubrelationAccumulatorsTemplate<LEN_1, LEN_2, LEN_3, LEN_4, LEN_5, LEN_6>;
+    static constexpr std::array<size_t, 6> TOTAL_LENGTH_ADJUSTMENTS{
+        6, // auxiliary sub-relation
+        6, // ROM consistency sub-relation 1
+        6, // ROM consistency sub-relation 2
+        6, // RAM consistency sub-relation 1
+        6, // RAM consistency sub-relation 2
+        6  // RAM consistency sub-relation 3
+    };
 
     /**
      * @brief Expression for the generalized permutation sort gate.
@@ -50,47 +78,49 @@ template <typename FF_> class AuxiliaryRelationImpl {
      *
      * N.B.2 The q_c selector is used to store circuit-specific values in the RAM/ROM access gate
      *
-     * @param evals transformed to `evals + C(extended_edges(X)...)*scaling_factor`
-     * @param extended_edges an std::array containing the fully extended Univariate edges.
+     * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
+     * @param in an std::array containing the Totaly extended Univariate edges.
      * @param parameters contains beta, gamma, and public_input_delta, ....
      * @param scaling_factor optional term to scale the evaluation before adding to evals.
      */
-    template <typename AccumulatorTypes>
-    inline static void accumulate(typename AccumulatorTypes::Accumulators& accumulators,
-                                  const auto& extended_edges,
-                                  const RelationParameters<FF>& relation_parameters,
+    template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
+    inline static void accumulate(ContainerOverSubrelations& accumulators,
+                                  const AllEntities& in,
+                                  const Parameters& params,
                                   const FF& scaling_factor)
     {
-        // OPTIMIZATION?: Karatsuba in general, at least for some degrees?
-        //       See https://hackmd.io/xGLuj6biSsCjzQnYN-pEiA?both
-
-        const auto& eta = relation_parameters.eta;
 
         // All subrelations have the same length so we use the same length view for all calculations
-        using View = typename std::tuple_element<0, typename AccumulatorTypes::AccumulatorViews>::type;
-        auto w_1 = View(extended_edges.w_l);
-        auto w_2 = View(extended_edges.w_r);
-        auto w_3 = View(extended_edges.w_o);
-        auto w_4 = View(extended_edges.w_4);
-        auto w_1_shift = View(extended_edges.w_l_shift);
-        auto w_2_shift = View(extended_edges.w_r_shift);
-        auto w_3_shift = View(extended_edges.w_o_shift);
-        auto w_4_shift = View(extended_edges.w_4_shift);
+        using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
+        using View = typename Accumulator::View;
+        using ParameterView = GetParameterView<Parameters, View>;
 
-        auto q_1 = View(extended_edges.q_l);
-        auto q_2 = View(extended_edges.q_r);
-        auto q_3 = View(extended_edges.q_o);
-        auto q_4 = View(extended_edges.q_4);
-        auto q_m = View(extended_edges.q_m);
-        auto q_c = View(extended_edges.q_c);
-        auto q_arith = View(extended_edges.q_arith);
-        auto q_aux = View(extended_edges.q_aux);
+        const auto& eta = ParameterView(params.eta);
+
+        auto w_1 = View(in.w_l);
+        auto w_2 = View(in.w_r);
+        auto w_3 = View(in.w_o);
+        auto w_4 = View(in.w_4);
+        auto w_1_shift = View(in.w_l_shift);
+        auto w_2_shift = View(in.w_r_shift);
+        auto w_3_shift = View(in.w_o_shift);
+        auto w_4_shift = View(in.w_4_shift);
+
+        auto q_1 = View(in.q_l);
+        auto q_2 = View(in.q_r);
+        auto q_3 = View(in.q_o);
+        auto q_4 = View(in.q_4);
+        auto q_m = View(in.q_m);
+        auto q_c = View(in.q_c);
+        auto q_arith = View(in.q_arith);
+        auto q_aux = View(in.q_aux);
 
         const FF LIMB_SIZE(uint256_t(1) << 68);
         const FF SUBLIMB_SHIFT(uint256_t(1) << 14);
 
         /**
          * Non native field arithmetic gate 2
+         * deg 4
          *
          *             _                                                                               _
          *            /   _                   _                               _       14                \
@@ -119,6 +149,8 @@ template <typename FF_> class AuxiliaryRelationImpl {
         auto non_native_field_identity = non_native_field_gate_1 + non_native_field_gate_2 + non_native_field_gate_3;
         non_native_field_identity *= q_2;
 
+        // ((((w2' * 2^14 + w1') * 2^14 + w3) * 2^14 + w2) * 2^14 + w1 - w4) * qm
+        // deg 2
         auto limb_accumulator_1 = w_2_shift * SUBLIMB_SHIFT;
         limb_accumulator_1 += w_1_shift;
         limb_accumulator_1 *= SUBLIMB_SHIFT;
@@ -130,6 +162,8 @@ template <typename FF_> class AuxiliaryRelationImpl {
         limb_accumulator_1 -= w_4;
         limb_accumulator_1 *= q_4;
 
+        // ((((w3' * 2^14 + w2') * 2^14 + w1') * 2^14 + w4) * 2^14 + w3 - w4') * qm
+        // deg 2
         auto limb_accumulator_2 = w_3_shift * SUBLIMB_SHIFT;
         limb_accumulator_2 += w_2_shift;
         limb_accumulator_2 *= SUBLIMB_SHIFT;
@@ -142,7 +176,7 @@ template <typename FF_> class AuxiliaryRelationImpl {
         limb_accumulator_2 *= q_m;
 
         auto limb_accumulator_identity = limb_accumulator_1 + limb_accumulator_2;
-        limb_accumulator_identity *= q_3;
+        limb_accumulator_identity *= q_3; //  deg 3
 
         /**
          * MEMORY
@@ -175,6 +209,8 @@ template <typename FF_> class AuxiliaryRelationImpl {
 
         /**
          * Memory Record Check
+         * Partial degree: 1
+         * Total degree: 4
          *
          * A ROM/ROM access gate can be evaluated with the identity:
          *
@@ -188,11 +224,13 @@ template <typename FF_> class AuxiliaryRelationImpl {
         memory_record_check += w_1;
         memory_record_check *= eta;
         memory_record_check += q_c;
-        auto partial_record_check = memory_record_check; // used in RAM consistency check
+        auto partial_record_check = memory_record_check; // used in RAM consistency check; deg 1 or 4
         memory_record_check = memory_record_check - w_4;
 
         /**
          * ROM Consistency Check
+         * Partial degree: 1
+         * Total degree: 4
          *
          * For every ROM read, a set equivalence check is applied between the record witnesses, and a second set of
          * records that are sorted.
@@ -207,14 +245,15 @@ template <typename FF_> class AuxiliaryRelationImpl {
         auto index_delta = w_1_shift - w_1;
         auto record_delta = w_4_shift - w_4;
 
-        auto index_is_monotonically_increasing = index_delta * index_delta - index_delta;
+        auto index_is_monotonically_increasing = index_delta * index_delta - index_delta; // deg 2
 
-        auto adjacent_values_match_if_adjacent_indices_match = (index_delta * FF(-1) + FF(1)) * record_delta;
+        auto adjacent_values_match_if_adjacent_indices_match = (index_delta * FF(-1) + FF(1)) * record_delta; // deg 2
 
         std::get<1>(accumulators) +=
-            adjacent_values_match_if_adjacent_indices_match * (q_1 * q_2) * (q_aux * scaling_factor);
-        std::get<2>(accumulators) += index_is_monotonically_increasing * (q_1 * q_2) * (q_aux * scaling_factor);
-        auto ROM_consistency_check_identity = memory_record_check * (q_1 * q_2);
+            adjacent_values_match_if_adjacent_indices_match * (q_1 * q_2) * (q_aux * scaling_factor); // deg 5
+        std::get<2>(accumulators) +=
+            index_is_monotonically_increasing * (q_1 * q_2) * (q_aux * scaling_factor); // deg 5
+        auto ROM_consistency_check_identity = memory_record_check * (q_1 * q_2);        // deg 3 or 7
 
         /**
          * RAM Consistency Check
@@ -234,10 +273,12 @@ template <typename FF_> class AuxiliaryRelationImpl {
          * N.B. it is the responsibility of the circuit writer to ensure that every RAM cell is initialized
          * with a WRITE operation.
          */
-        auto access_type = (w_4 - partial_record_check);             // will be 0 or 1 for honest Prover
-        auto access_check = access_type * access_type - access_type; // check value is 0 or 1
+        auto access_type = (w_4 - partial_record_check);             // will be 0 or 1 for honest Prover; deg 1 or 4
+        auto access_check = access_type * access_type - access_type; // check value is 0 or 1; deg 2 or 8
 
-        // TODO: oof nasty compute here. If we sorted in reverse order we could re-use `partial_record_check`
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/757): If we sorted in
+        // reverse order we could re-use `partial_record_check`  1 -  ((w3' * eta + w2') * eta + w1') * eta
+        // deg 1 or 4
         auto next_gate_access_type = w_3_shift * eta;
         next_gate_access_type += w_2_shift;
         next_gate_access_type *= eta;
@@ -247,22 +288,23 @@ template <typename FF_> class AuxiliaryRelationImpl {
 
         auto value_delta = w_3_shift - w_3;
         auto adjacent_values_match_if_adjacent_indices_match_and_next_access_is_a_read_operation =
-            (index_delta * FF(-1) + FF(1)) * value_delta * (next_gate_access_type * FF(-1) + FF(1));
+            (index_delta * FF(-1) + FF(1)) * value_delta * (next_gate_access_type * FF(-1) + FF(1)); // deg 3 or 6
 
         // We can't apply the RAM consistency check identity on the final entry in the sorted list (the wires in the
-        // next gate would make the identity fail).
-        // We need to validate that its 'access type' bool is correct. Can't do
-        // with an arithmetic gate because of the `eta` factors. We need to check that the *next* gate's access type is
-        // correct, to cover this edge case
+        // next gate would make the identity fail).  We need to validate that its 'access type' bool is correct. Can't
+        // do  with an arithmetic gate because of the  `eta` factors. We need to check that the *next* gate's access
+        // type is  correct, to cover this edge case
+        // deg 2 or 4
         auto next_gate_access_type_is_boolean = next_gate_access_type * next_gate_access_type - next_gate_access_type;
 
         // Putting it all together...
         std::get<3>(accumulators) +=
             adjacent_values_match_if_adjacent_indices_match_and_next_access_is_a_read_operation * (q_arith) *
-            (q_aux * scaling_factor);
-        std::get<4>(accumulators) += index_is_monotonically_increasing * (q_arith) * (q_aux * scaling_factor);
-        std::get<5>(accumulators) += next_gate_access_type_is_boolean * (q_arith) * (q_aux * scaling_factor);
-        auto RAM_consistency_check_identity = access_check * (q_arith);
+            (q_aux * scaling_factor); // deg 5 or 8
+        std::get<4>(accumulators) += index_is_monotonically_increasing * (q_arith) * (q_aux * scaling_factor); // deg 4
+        std::get<5>(accumulators) +=
+            next_gate_access_type_is_boolean * (q_arith) * (q_aux * scaling_factor); // deg 4 or 6
+        auto RAM_consistency_check_identity = access_check * (q_arith);              // deg 3 or 9
 
         /**
          * RAM Timestamp Consistency Check
@@ -276,19 +318,20 @@ template <typename FF_> class AuxiliaryRelationImpl {
          * Else timestamp_check = 0
          */
         auto timestamp_delta = w_2_shift - w_2;
-        auto RAM_timestamp_check_identity = (index_delta * FF(-1) + FF(1)) * timestamp_delta - w_3;
+        auto RAM_timestamp_check_identity = (index_delta * FF(-1) + FF(1)) * timestamp_delta - w_3; // deg 3
 
         /**
          * The complete RAM/ROM memory identity
-         *
+         * Partial degree:
          */
-        auto memory_identity = ROM_consistency_check_identity;
-        memory_identity += RAM_timestamp_check_identity * (q_4 * q_1);
-        memory_identity += memory_record_check * (q_m * q_1);
-        memory_identity += RAM_consistency_check_identity;
+        auto memory_identity = ROM_consistency_check_identity;         // deg 3 or 6
+        memory_identity += RAM_timestamp_check_identity * (q_4 * q_1); // deg 4
+        memory_identity += memory_record_check * (q_m * q_1);          // deg 3 or 6
+        memory_identity += RAM_consistency_check_identity;             // deg 3 or 9
 
+        // (deg 3 or 9) + (deg 4) + (deg 3)
         auto auxiliary_identity = memory_identity + non_native_field_identity + limb_accumulator_identity;
-        auxiliary_identity *= (q_aux * scaling_factor);
+        auxiliary_identity *= (q_aux * scaling_factor); // deg 4 or 10
         std::get<0>(accumulators) += auxiliary_identity;
     };
 };

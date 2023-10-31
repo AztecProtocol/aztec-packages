@@ -1,5 +1,191 @@
 # Changelog
 
+## [0.13.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.13.0...barretenberg.js-v0.13.1) (2023-10-31)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.13.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.12.0...barretenberg.js-v0.13.0) (2023-10-31)
+
+
+### Features
+
+* New script to output table of benchmarks for README pasting. ([#2780](https://github.com/AztecProtocol/aztec-packages/issues/2780)) ([6c20b45](https://github.com/AztecProtocol/aztec-packages/commit/6c20b45993ee9cbd319ab8351e2722e0c912f427))
+
+
+### Miscellaneous
+
+* Automatic c_binds for commit should return a point instead of an Fr element ([#3072](https://github.com/AztecProtocol/aztec-packages/issues/3072)) ([2e289a5](https://github.com/AztecProtocol/aztec-packages/commit/2e289a5d11d28496ac47220bede03268065e0cb7))
+* Remove unecessary calls to `pedersen__init` ([#3079](https://github.com/AztecProtocol/aztec-packages/issues/3079)) ([84f8db2](https://github.com/AztecProtocol/aztec-packages/commit/84f8db20f482242ac29a23eb4c8876f14f060b4c))
+* Remove unused pedersen c_binds ([#3058](https://github.com/AztecProtocol/aztec-packages/issues/3058)) ([e71e5f9](https://github.com/AztecProtocol/aztec-packages/commit/e71e5f94ba920208e7cc9b2b1b9d62678b699812))
+
+## [0.12.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.11.1...barretenberg.js-v0.12.0) (2023-10-26)
+
+
+### ⚠ BREAKING CHANGES
+
+* remove plookup pedersen methods from c_bind namespace ([#3033](https://github.com/AztecProtocol/aztec-packages/issues/3033))
+
+### Miscellaneous
+
+* Proxy redundant `hash` methods ([#3046](https://github.com/AztecProtocol/aztec-packages/issues/3046)) ([df389b5](https://github.com/AztecProtocol/aztec-packages/commit/df389b5f593a202bc644479a6c3dff884b7d3652))
+* Remove `pedersen_buffer_to_field` from c_bind ([#3045](https://github.com/AztecProtocol/aztec-packages/issues/3045)) ([de7e63b](https://github.com/AztecProtocol/aztec-packages/commit/de7e63bf7e1184333c1eaadf2387fef6bf163871))
+* Remove plookup pedersen methods from c_bind namespace ([#3033](https://github.com/AztecProtocol/aztec-packages/issues/3033)) ([a8ea391](https://github.com/AztecProtocol/aztec-packages/commit/a8ea391c95a9fe4fa26a3fa987f52114a40c664a))
+* Rename pedersen typescript methods to be called `hash` instead of compress ([#3047](https://github.com/AztecProtocol/aztec-packages/issues/3047)) ([2f7cc5f](https://github.com/AztecProtocol/aztec-packages/commit/2f7cc5fd3242b04fa996b71dbd7282444e82e903))
+
+## [0.11.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.11.0...barretenberg.js-v0.11.1) (2023-10-24)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.11.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.10.1...barretenberg.js-v0.11.0) (2023-10-24)
+
+
+### Features
+
+* Pedersen hash in acir format ([#2990](https://github.com/AztecProtocol/aztec-packages/issues/2990)) ([2a4c548](https://github.com/AztecProtocol/aztec-packages/commit/2a4c548bc816a5f379ee841e26bb30411deef56b))
+
+## [0.10.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.10.0...barretenberg.js-v0.10.1) (2023-10-24)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.10.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.9.0...barretenberg.js-v0.10.0) (2023-10-24)
+
+
+### Features
+
+* Refactor pedersen hash standard ([#2592](https://github.com/AztecProtocol/aztec-packages/issues/2592)) ([3085676](https://github.com/AztecProtocol/aztec-packages/commit/3085676dd8a68ac43abc3e5c7843ff437df91d7d))
+
+## [0.9.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.8.14...barretenberg.js-v0.9.0) (2023-10-17)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.8.14](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.8.13...barretenberg.js-v0.8.14) (2023-10-13)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.8.13](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.8.12...barretenberg.js-v0.8.13) (2023-10-13)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.8.12](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.8.11...barretenberg.js-v0.8.12) (2023-10-13)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.8.11](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.8.10...barretenberg.js-v0.8.11) (2023-10-13)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.8.10](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.8.9...barretenberg.js-v0.8.10) (2023-10-11)
+
+
+### Features
+
+* Adding Fr back as a BB export (ts) ([#2770](https://github.com/AztecProtocol/aztec-packages/issues/2770)) ([d9ac808](https://github.com/AztecProtocol/aztec-packages/commit/d9ac8080a5525b9792b7b3f10c40583536bb256c))
+
+## [0.8.9](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.8.8...barretenberg.js-v0.8.9) (2023-10-10)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.8.8](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.8.7...barretenberg.js-v0.8.8) (2023-10-09)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.8.7](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.8.6...barretenberg.js-v0.8.7) (2023-10-04)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.8.6](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.8.5...barretenberg.js-v0.8.6) (2023-10-04)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.8.5](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.8.4...barretenberg.js-v0.8.5) (2023-10-04)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.8.4](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.8.3...barretenberg.js-v0.8.4) (2023-10-04)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.8.3](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.8.2...barretenberg.js-v0.8.3) (2023-10-04)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.8.2](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.8.1...barretenberg.js-v0.8.2) (2023-10-04)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.8.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.8.0...barretenberg.js-v0.8.1) (2023-10-03)
+
+
+### Bug Fixes
+
+* Remove -u from build_wasm script so that we can skip the build when SKIP_CPP_BUILD is unset ([#2649](https://github.com/AztecProtocol/aztec-packages/issues/2649)) ([84b8ff4](https://github.com/AztecProtocol/aztec-packages/commit/84b8ff4b46e1f542209c1f35a33b7cffdc083f04))
+
+## [0.8.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.7.10...barretenberg.js-v0.8.0) (2023-10-03)
+
+
+### ⚠ BREAKING CHANGES
+
+* Gates command should always return 8 bytes ([#2631](https://github.com/AztecProtocol/aztec-packages/issues/2631))
+
+### Bug Fixes
+
+* Gates command should always return 8 bytes ([#2631](https://github.com/AztecProtocol/aztec-packages/issues/2631)) ([9668165](https://github.com/AztecProtocol/aztec-packages/commit/9668165372c4f5170aa7c4f161e031da0c845649))
+
+
+### Miscellaneous
+
+* Provide cross compile to cjs. ([#2566](https://github.com/AztecProtocol/aztec-packages/issues/2566)) ([47d0d37](https://github.com/AztecProtocol/aztec-packages/commit/47d0d376727dfcb798af4ea019dfc23a9a57b6ca))
+* Remove `BarretenbergBinderSync` import from typescript bindgen file ([#2607](https://github.com/AztecProtocol/aztec-packages/issues/2607)) ([43af1a3](https://github.com/AztecProtocol/aztec-packages/commit/43af1a35c1bbe55cab102bef21375dd9986202ea))
+* Typo ([#2546](https://github.com/AztecProtocol/aztec-packages/issues/2546)) ([8656a3b](https://github.com/AztecProtocol/aztec-packages/commit/8656a3b1f4fce63c3acaed6e81ae77632df05ef5))
+
 ## [0.7.10](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.7.9...barretenberg.js-v0.7.10) (2023-09-20)
 
 

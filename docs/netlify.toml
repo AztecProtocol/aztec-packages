@@ -99,10 +99,6 @@
     to = "/about_aztec/roadmap/cryptography_roadmap"
 
 [[redirects]]
-    from = "/aztec/milestones"
-    to = "/about_aztec/roadmap/engineering_roadmap"
-
-[[redirects]]
     from = "/aztec/milestones/features-initial-ldt"
     to = "/about_aztec/roadmap/features_initial_ldt"
 
@@ -169,3 +165,8 @@
 [[redirects]]
     from = "/dev_docs/contracts/syntax/state_variables"
     to = "/dev_docs/contracts/syntax/storage"
+
+
+[[redirects]]
+    from = "/misc/aztec-connect-sunset"
+    to = "misc/aztec_connect_sunset"

@@ -6,11 +6,11 @@
 # Scans for all .test.cpp files in a subdirectory, and creates a gtest binary named <module name>_tests.
 # Scans for all .bench.cpp files in a subdirectory, and creates a benchmark binary named <module name>_bench.
 #
-# We have to get a bit complicated here, due to the fact CMake will not parallelise the building of object files
+# We have to get a bit complicated here, due to the fact CMake will not parallelize the building of object files
 # between dependent targets, due to the potential of post-build code generation steps etc.
 # To work around this, we create "object libraries" containing the object files.
 # Then we declare executables/libraries that are to be built from these object files.
-# These assets will only be linked as their dependencies complete, but we can parallelise the compilation at least.
+# These assets will only be linked as their dependencies complete, but we can parallelize the compilation at least.
 
 function(circuits_cmake_module MODULE_NAME)
     file(GLOB_RECURSE SOURCE_FILES *.cpp)
@@ -38,6 +38,10 @@ function(circuits_cmake_module MODULE_NAME)
             ${TBB_IMPORTED_TARGETS}
         )
         list(APPEND lib_targets ${MODULE_NAME})
+
+        # enable msgpack downloading via dependency (solves race condition)
+        add_dependencies(${MODULE_NAME}_objects msgpack-c)
+        add_dependencies(${MODULE_NAME} msgpack-c)
 
         set(MODULE_LINK_NAME ${MODULE_NAME})
     endif()
@@ -100,6 +104,9 @@ function(circuits_cmake_module MODULE_NAME)
             env
             ${TBB_IMPORTED_TARGETS}
         )
+        # enable msgpack downloading via dependency (solves race condition)
+        add_dependencies(${MODULE_NAME}_test_objects msgpack-c)
+        add_dependencies(${MODULE_NAME}_tests msgpack-c)
 
         if(NOT WASM AND NOT CI)
             # If collecting coverage data, set profile
@@ -176,6 +183,8 @@ function(circuits_cmake_module MODULE_NAME)
                 ${MODULE_LINK_NAME}
                 env
             )
+            # enable msgpack downloading via dependency (solves race condition)
+            add_dependencies(${MODULE_NAME}_${FUZZER_NAME_STEM}_fuzzer msgpack-c)
         endforeach()
     endif()
 
@@ -217,6 +226,8 @@ function(circuits_cmake_module MODULE_NAME)
             COMMAND ${MODULE_NAME}_bench
             WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
         )
+        add_dependencies(${MODULE_NAME}_bench_objects msgpack-c)
+        add_dependencies(${MODULE_NAME}_bench msgpack-c)
     endif()
 
     set(${MODULE_NAME}_lib_targets ${lib_targets} PARENT_SCOPE)

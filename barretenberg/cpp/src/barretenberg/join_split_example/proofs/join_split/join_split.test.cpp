@@ -43,11 +43,11 @@ class join_split_tests : public ::testing::Test {
     static constexpr size_t ACCOUNT_INDEX = 14;
     static void SetUpTestCase()
     {
-        auto null_crs_factory = std::make_shared<barretenberg::srs::factories::CrsFactory<curve::BN254>>();
-        init_proving_key(null_crs_factory, false);
+        barretenberg::srs::init_crs_factory("../srs_db/ignition");
+        init_proving_key(false);
         auto crs_factory =
             std::make_unique<barretenberg::srs::factories::FileCrsFactory<curve::BN254>>("../srs_db/ignition");
-        init_verification_key(std::move(crs_factory));
+        init_verification_key();
         info("vk hash: ", get_verification_key()->sha256_hash());
     }
 
@@ -212,7 +212,7 @@ class join_split_tests : public ::testing::Test {
                                uint32_t account_note_index = 0,
                                bool account_required = false)
     {
-        // The tree, user and notes are initialised in SetUp().
+        // The tree, user and notes are initialized in SetUp().
         preload_value_notes();
         preload_account_notes(); // indices: [ACCOUNT_INDEX, ACCOUNT_INDEX + 1]
         return create_join_split_tx(input_indices,
@@ -706,10 +706,9 @@ TEST_F(join_split_tests, test_0_input_notes_and_detect_circuit_change)
     EXPECT_TRUE(result.valid);
 
     // The below part detects any changes in the join-split circuit
-
-    constexpr uint32_t CIRCUIT_GATE_COUNT = 184517;
-    constexpr uint32_t GATES_NEXT_POWER_OF_TWO = 524288;
-    const uint256_t VK_HASH("787c464414a2c2e3332314ff528bd236b13133c269c5704505a0f3a3ad56ad57");
+    constexpr uint32_t CIRCUIT_GATE_COUNT = 49492;
+    constexpr uint32_t GATES_NEXT_POWER_OF_TWO = 65535;
+    const uint256_t VK_HASH("cc3b14fad5465fe9b8c714e8a5d79012b86a70f6e37dfc23054e6def7eb1770f");
 
     auto number_of_gates_js = result.number_of_gates;
     std::cout << get_verification_key()->sha256_hash() << std::endl;
@@ -1041,7 +1040,7 @@ TEST_F(join_split_tests, test_total_output_value_larger_than_total_input_value_f
 TEST_F(join_split_tests, test_different_input_note_owners_fails)
 {
     join_split_tx tx = simple_setup({ 1, 2 });
-    tx.input_note[0].owner = grumpkin::g1::affine_element::hash_to_curve(1);
+    tx.input_note[0].owner = grumpkin::g1::affine_element::hash_to_curve({ 1 });
 
     auto result = sign_and_verify_logic(tx, user.owner);
     EXPECT_FALSE(result.valid);
@@ -1178,7 +1177,7 @@ TEST_F(join_split_tests, test_spend_registered_notes_with_owner_key_fails)
 TEST_F(join_split_tests, test_wrong_alias_hash_fails)
 {
     join_split_tx tx = simple_setup({ 2, 3 }, ACCOUNT_INDEX, 1);
-    tx.alias_hash = join_split_example::fixtures::generate_alias_hash("chicken");
+    tx.alias_hash = join_split_example::fixtures::generate_alias_hash("derive_generators");
 
     auto result = sign_and_verify_logic(tx, user.owner);
     EXPECT_FALSE(result.valid);

@@ -1,10 +1,10 @@
 import { AztecAddress, CircuitsWasm, EthAddress, Fr } from '@aztec/circuits.js';
 import { computeSecretMessageHash } from '@aztec/circuits.js/abis';
-import { ContractAbi, getFunctionDebugMetadata } from '@aztec/foundation/abi';
+import { ContractArtifact, FunctionSelector, getFunctionDebugMetadata } from '@aztec/foundation/abi';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { L1Actor, L1ToL2Message, L2Actor } from '@aztec/types';
 
-import { FunctionAbiWithDebugMetadata } from '../index.js';
+import { FunctionArtifactWithDebugMetadata } from '../index.js';
 
 /**
  * Test utility function to craft an L1 to L2 message.
@@ -42,14 +42,30 @@ export const buildL1ToL2Message = async (
   );
 };
 
-export const getFunctionAbi = (abi: ContractAbi, functionName: string): FunctionAbiWithDebugMetadata => {
-  const functionIndex = abi.functions.findIndex(f => f.name === functionName);
-  if (functionIndex < 0) {
+export const getFunctionArtifact = (
+  artifact: ContractArtifact,
+  functionName: string,
+): FunctionArtifactWithDebugMetadata => {
+  const functionArtifact = artifact.functions.find(f => f.name === functionName);
+  if (!functionArtifact) {
     throw new Error(`Unknown function ${functionName}`);
   }
-  const functionAbi = abi.functions[functionIndex];
 
-  const debug = getFunctionDebugMetadata(abi, functionName);
+  const debug = getFunctionDebugMetadata(artifact, functionName);
+  return { ...functionArtifact, debug };
+};
 
-  return { ...functionAbi, debug };
+export const getFunctionArtifactWithSelector = (
+  artifact: ContractArtifact,
+  functionSelector: FunctionSelector,
+): FunctionArtifactWithDebugMetadata => {
+  const functionArtifact = artifact.functions.find(f =>
+    functionSelector.equals(FunctionSelector.fromNameAndParameters(f.name, f.parameters)),
+  );
+  if (!functionArtifact) {
+    throw new Error(`Unknown function ${functionSelector}`);
+  }
+
+  const debug = getFunctionDebugMetadata(artifact, functionArtifact.name);
+  return { ...functionArtifact, debug };
 };

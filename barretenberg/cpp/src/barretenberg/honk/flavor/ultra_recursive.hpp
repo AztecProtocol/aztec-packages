@@ -36,7 +36,7 @@ namespace proof_system::honk::flavor {
  * @details This flavor can be used to instantiate a recursive Ultra Honk verifier for a proof created using the
  * conventional Ultra flavor. It is similar in structure to its native counterpart with two main differences: 1) the
  * curve types are stdlib types (e.g. field_t instead of field) and 2) it does not specify any Prover related types
- * (e.g. Polynomial, ExtendedEdges, etc.) since we do not emulate prover computation in circuits, i.e. it only makes
+ * (e.g. Polynomial, ProverUnivariates, etc.) since we do not emulate prover computation in circuits, i.e. it only makes
  * sense to instantiate a Verifier with this flavor.
  *
  * @note Unlike conventional flavors, "recursive" flavors are templated by a builder (much like native vs stdlib types).
@@ -76,16 +76,17 @@ template <typename BuilderType> class UltraRecursive_ {
                                  proof_system::EllipticRelation<FF>,
                                  proof_system::AuxiliaryRelation<FF>>;
 
-    static constexpr size_t MAX_RELATION_LENGTH = get_max_relation_length<Relations>();
+    static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
 
-    // MAX_RANDOM_RELATION_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta` random
-    // polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation length = 3
-    static constexpr size_t MAX_RANDOM_RELATION_LENGTH = MAX_RELATION_LENGTH + 1;
+    // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
+    // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
+    // length = 3
+    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size<Relations>::value;
 
     // define the container for storing the univariate contribution from each relation in Sumcheck
-    using RelationUnivariates = decltype(create_relation_univariates_container<FF, Relations>());
-    using RelationValues = decltype(create_relation_values_container<FF, Relations>());
+    using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
+    using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
   private:
     template <typename DataType, typename HandleType>
@@ -308,14 +309,14 @@ template <typename BuilderType> class UltraRecursive_ {
     };
 
     /**
-     * @brief A container for the polynomials evaluations produced during sumcheck, which are purported to be the
-     * evaluations of polynomials committed in earlier rounds.
+     * @brief A field element for each entity of the flavor. These entities represent the prover polynomials evaluated
+     * at one point.
      */
-    class ClaimedEvaluations : public AllEntities<FF, FF> {
+    class AllValues : public AllEntities<FF, FF> {
       public:
         using Base = AllEntities<FF, FF>;
         using Base::Base;
-        ClaimedEvaluations(std::array<FF, NUM_ALL_ENTITIES> _data_in) { this->_data = _data_in; }
+        AllValues(std::array<FF, NUM_ALL_ENTITIES> _data_in) { this->_data = _data_in; }
     };
 
     /**
@@ -394,6 +395,128 @@ template <typename BuilderType> class UltraRecursive_ {
             this->table_4 = verification_key->table_4;
             this->lagrange_first = verification_key->lagrange_first;
             this->lagrange_last = verification_key->lagrange_last;
+        }
+    };
+
+    /**
+     * @brief Derived class that defines proof structure for UltraRecursive proofs, as well as supporting functions.
+     *
+     */
+    class Transcript : public BaseTranscript<FF> {
+      public:
+        // Transcript objects defined as public member variables for easy access and modification
+        uint32_t circuit_size;
+        uint32_t public_input_size;
+        uint32_t pub_inputs_offset;
+        std::vector<FF> public_inputs;
+        Commitment w_l_comm;
+        Commitment w_r_comm;
+        Commitment w_o_comm;
+        Commitment sorted_accum_comm;
+        Commitment w_4_comm;
+        Commitment z_perm_comm;
+        Commitment z_lookup_comm;
+        std::vector<barretenberg::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
+        std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
+        std::vector<Commitment> zm_cq_comms;
+        Commitment zm_cq_comm;
+        Commitment zm_pi_comm;
+
+        Transcript() = default;
+
+        // Used by verifier to initialize the transcript
+        Transcript(const std::vector<uint8_t>& proof)
+            : BaseTranscript<FF>(proof)
+        {}
+
+        static Transcript prover_init_empty()
+        {
+            Transcript transcript;
+            constexpr uint32_t init{ 42 }; // arbitrary
+            transcript.send_to_verifier("Init", init);
+            return transcript;
+        };
+
+        static Transcript verifier_init_empty(const Transcript& transcript)
+        {
+            Transcript verifier_transcript{ transcript.proof_data };
+            [[maybe_unused]] auto _ = verifier_transcript.template receive_from_prover<uint32_t>("Init");
+            return verifier_transcript;
+        };
+
+        /**
+         * @brief Takes a FULL UltraRecursive proof and deserializes it into the public member variables that compose
+         * the structure. Must be called in order to access the structure of the proof.
+         *
+         */
+        void deserialize_full_transcript() override
+        {
+            // take current proof and put them into the struct
+            size_t num_bytes_read = 0;
+            circuit_size = deserialize_from_buffer<uint32_t>(BaseTranscript<FF>::proof_data, num_bytes_read);
+            size_t log_n = numeric::get_msb(circuit_size);
+
+            public_input_size = deserialize_from_buffer<uint32_t>(BaseTranscript<FF>::proof_data, num_bytes_read);
+            pub_inputs_offset = deserialize_from_buffer<uint32_t>(BaseTranscript<FF>::proof_data, num_bytes_read);
+            for (size_t i = 0; i < public_input_size; ++i) {
+                public_inputs.push_back(deserialize_from_buffer<FF>(BaseTranscript<FF>::proof_data, num_bytes_read));
+            }
+            w_l_comm = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
+            w_r_comm = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
+            w_o_comm = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
+            sorted_accum_comm = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
+            w_4_comm = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
+            z_perm_comm = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
+            z_lookup_comm = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
+            for (size_t i = 0; i < log_n; ++i) {
+                sumcheck_univariates.push_back(
+                    deserialize_from_buffer<barretenberg::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
+                        BaseTranscript<FF>::proof_data, num_bytes_read));
+            }
+            sumcheck_evaluations = deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            for (size_t i = 0; i < log_n; ++i) {
+                zm_cq_comms.push_back(
+                    deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read));
+            }
+            zm_cq_comm = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
+            zm_pi_comm = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
+        }
+        /**
+         * @brief Serializes the structure variables into a FULL UltraRecursive proof. Should be called only if
+         * deserialize_full_transcript() was called and some transcript variable was modified.
+         *
+         */
+        void serialize_full_transcript() override
+        {
+            size_t old_proof_length = BaseTranscript<FF>::proof_data.size();
+            BaseTranscript<FF>::proof_data.clear(); // clear proof_data so the rest of the function can replace it
+            size_t log_n = numeric::get_msb(circuit_size);
+            serialize_to_buffer(circuit_size, BaseTranscript<FF>::proof_data);
+            serialize_to_buffer(public_input_size, BaseTranscript<FF>::proof_data);
+            serialize_to_buffer(pub_inputs_offset, BaseTranscript<FF>::proof_data);
+            for (size_t i = 0; i < public_input_size; ++i) {
+                serialize_to_buffer(public_inputs[i], BaseTranscript<FF>::proof_data);
+            }
+            serialize_to_buffer(w_l_comm, BaseTranscript<FF>::proof_data);
+            serialize_to_buffer(w_r_comm, BaseTranscript<FF>::proof_data);
+            serialize_to_buffer(w_o_comm, BaseTranscript<FF>::proof_data);
+            serialize_to_buffer(sorted_accum_comm, BaseTranscript<FF>::proof_data);
+            serialize_to_buffer(w_4_comm, BaseTranscript<FF>::proof_data);
+            serialize_to_buffer(z_perm_comm, BaseTranscript<FF>::proof_data);
+            serialize_to_buffer(z_lookup_comm, BaseTranscript<FF>::proof_data);
+            for (size_t i = 0; i < log_n; ++i) {
+                serialize_to_buffer(sumcheck_univariates[i], BaseTranscript<FF>::proof_data);
+            }
+            serialize_to_buffer(sumcheck_evaluations, BaseTranscript<FF>::proof_data);
+            for (size_t i = 0; i < log_n; ++i) {
+                serialize_to_buffer(zm_cq_comms[i], BaseTranscript<FF>::proof_data);
+            }
+            serialize_to_buffer(zm_cq_comm, BaseTranscript<FF>::proof_data);
+            serialize_to_buffer(zm_pi_comm, BaseTranscript<FF>::proof_data);
+
+            // sanity check to make sure we generate the same length of proof as before.
+            ASSERT(BaseTranscript<FF>::proof_data.size() == old_proof_length);
         }
     };
 };

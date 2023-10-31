@@ -3,6 +3,7 @@
 #include "barretenberg/honk/composer/ultra_composer.hpp"
 #include "barretenberg/honk/proof_system/grand_product_library.hpp"
 #include "barretenberg/honk/transcript/transcript.hpp"
+#include "barretenberg/proof_system/plookup_tables/fixed_base/fixed_base.hpp"
 #include "barretenberg/proof_system/relations/auxiliary_relation.hpp"
 #include "barretenberg/proof_system/relations/elliptic_relation.hpp"
 #include "barretenberg/proof_system/relations/gen_perm_sort_relation.hpp"
@@ -103,7 +104,7 @@ TEST_F(SumcheckTests, PolynomialNormalization)
     info(full_polynomials.w_l[2]);
     info(full_polynomials.w_l[3]);
 
-    auto transcript = ProverTranscript<FF>::init_empty();
+    Flavor::Transcript transcript = Flavor::Transcript::prover_init_empty();
 
     auto sumcheck = SumcheckProver<Flavor>(multivariate_n, transcript);
 
@@ -143,6 +144,16 @@ TEST_F(SumcheckTests, PolynomialNormalization)
                               l_6 * full_polynomials[i][6] + l_7 * full_polynomials[i][7];
         EXPECT_EQ(hand_computed_value, sumcheck.partially_evaluated_polynomials[i][0]);
     }
+
+    // We can also check the correctness of the multilinear evaluations produced by Sumcheck by directly evaluating the
+    // full polynomials at challenge u via the evaluate_mle() function
+    std::vector<FF> u_challenge = { u_0, u_1, u_2 };
+    for (size_t i = 0; i < NUM_POLYNOMIALS; i++) {
+        barretenberg::Polynomial<FF> poly(full_polynomials[i]);
+        auto v_expected = poly.evaluate_mle(u_challenge);
+        auto v_result = output.claimed_evaluations[i];
+        EXPECT_EQ(v_expected, v_result);
+    }
 }
 
 TEST_F(SumcheckTests, Prover)
@@ -158,7 +169,7 @@ TEST_F(SumcheckTests, Prover)
     }
     auto full_polynomials = construct_ultra_full_polynomials(random_polynomials);
 
-    auto transcript = ProverTranscript<FF>::init_empty();
+    Flavor::Transcript transcript = Flavor::Transcript::prover_init_empty();
 
     auto sumcheck = SumcheckProver<Flavor>(multivariate_n, transcript);
 
@@ -232,13 +243,13 @@ TEST_F(SumcheckTests, ProverAndVerifierSimple)
             .public_input_delta = FF::one(),
         };
 
-        auto prover_transcript = ProverTranscript<FF>::init_empty();
+        Flavor::Transcript prover_transcript = Flavor::Transcript::prover_init_empty();
 
         auto sumcheck_prover = SumcheckProver<Flavor>(multivariate_n, prover_transcript);
 
         auto prover_output = sumcheck_prover.prove(full_polynomials, relation_parameters);
 
-        auto verifier_transcript = VerifierTranscript<FF>::init_empty(prover_transcript);
+        Flavor::Transcript verifier_transcript = Flavor::Transcript::verifier_init_empty(prover_transcript);
 
         auto sumcheck_verifier = SumcheckVerifier<Flavor>(multivariate_n);
 
@@ -289,18 +300,21 @@ TEST_F(SumcheckTests, RealCircuitUltra)
 
     // Add some lookup gates (related to pedersen hashing)
     auto pedersen_input_value = FF::random_element();
-    const FF input_hi = uint256_t(pedersen_input_value).slice(126, 256);
-    const FF input_lo = uint256_t(pedersen_input_value).slice(0, 126);
+    const FF input_hi =
+        uint256_t(pedersen_input_value)
+            .slice(plookup::fixed_base::table::BITS_PER_LO_SCALAR,
+                   plookup::fixed_base::table::BITS_PER_LO_SCALAR + plookup::fixed_base::table::BITS_PER_HI_SCALAR);
+    const FF input_lo = uint256_t(pedersen_input_value).slice(0, plookup::fixed_base::table::BITS_PER_LO_SCALAR);
     const auto input_hi_index = builder.add_variable(input_hi);
     const auto input_lo_index = builder.add_variable(input_lo);
 
-    const auto sequence_data_hi = plookup::get_lookup_accumulators(plookup::MultiTableId::PEDERSEN_LEFT_HI, input_hi);
-    const auto sequence_data_lo = plookup::get_lookup_accumulators(plookup::MultiTableId::PEDERSEN_LEFT_LO, input_lo);
+    const auto sequence_data_hi = plookup::get_lookup_accumulators(plookup::MultiTableId::FIXED_BASE_LEFT_HI, input_hi);
+    const auto sequence_data_lo = plookup::get_lookup_accumulators(plookup::MultiTableId::FIXED_BASE_LEFT_LO, input_lo);
 
     builder.create_gates_from_plookup_accumulators(
-        plookup::MultiTableId::PEDERSEN_LEFT_HI, sequence_data_hi, input_hi_index);
+        plookup::MultiTableId::FIXED_BASE_LEFT_HI, sequence_data_hi, input_hi_index);
     builder.create_gates_from_plookup_accumulators(
-        plookup::MultiTableId::PEDERSEN_LEFT_LO, sequence_data_lo, input_lo_index);
+        plookup::MultiTableId::FIXED_BASE_LEFT_LO, sequence_data_lo, input_lo_index);
 
     // Add a sort gate (simply checks that consecutive inputs have a difference of < 4)
     a_idx = builder.add_variable(FF(0));
@@ -310,14 +324,10 @@ TEST_F(SumcheckTests, RealCircuitUltra)
     builder.create_sort_constraint({ a_idx, b_idx, c_idx, d_idx });
 
     // Add an elliptic curve addition gate
-    grumpkin::g1::affine_element p1 = crypto::generators::get_generator_data({ 0, 0 }).generator;
-    grumpkin::g1::affine_element p2 = crypto::generators::get_generator_data({ 0, 1 }).generator;
+    grumpkin::g1::affine_element p1 = grumpkin::g1::affine_element::random_element();
+    grumpkin::g1::affine_element p2 = grumpkin::g1::affine_element::random_element();
 
-    grumpkin::fq beta_scalar = grumpkin::fq::cube_root_of_unity();
-    grumpkin::g1::affine_element p2_endo = p2;
-    p2_endo.x *= beta_scalar;
-
-    grumpkin::g1::affine_element p3(grumpkin::g1::element(p1) - grumpkin::g1::element(p2_endo));
+    grumpkin::g1::affine_element p3(grumpkin::g1::element(p1) + grumpkin::g1::element(p2));
 
     uint32_t x1 = builder.add_variable(p1.x);
     uint32_t y1 = builder.add_variable(p1.y);
@@ -326,7 +336,7 @@ TEST_F(SumcheckTests, RealCircuitUltra)
     uint32_t x3 = builder.add_variable(p3.x);
     uint32_t y3 = builder.add_variable(p3.y);
 
-    builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, beta_scalar, -1 });
+    builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, 1 });
 
     // Add some RAM gates
     uint32_t ram_values[8]{
@@ -386,14 +396,14 @@ TEST_F(SumcheckTests, RealCircuitUltra)
     instance->compute_sorted_accumulator_polynomials(eta);
     instance->compute_grand_product_polynomials(beta, gamma);
 
-    auto prover_transcript = ProverTranscript<FF>::init_empty();
+    Flavor::Transcript prover_transcript = Flavor::Transcript::prover_init_empty();
     auto circuit_size = instance->proving_key->circuit_size;
 
     auto sumcheck_prover = SumcheckProver<Flavor>(circuit_size, prover_transcript);
 
     auto prover_output = sumcheck_prover.prove(instance->prover_polynomials, instance->relation_parameters);
 
-    auto verifier_transcript = VerifierTranscript<FF>::init_empty(prover_transcript);
+    Flavor::Transcript verifier_transcript = Flavor::Transcript::verifier_init_empty(prover_transcript);
 
     auto sumcheck_verifier = SumcheckVerifier<Flavor>(circuit_size);
 

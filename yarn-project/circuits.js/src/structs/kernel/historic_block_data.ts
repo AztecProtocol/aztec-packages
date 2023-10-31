@@ -5,7 +5,7 @@ import { FieldsOf } from '../../utils/jsUtils.js';
 import { serializeToBuffer } from '../../utils/serialize.js';
 
 /**
- * The string encoding used for serialising HistoricBlockData objects.
+ * The string encoding used for serializing HistoricBlockData objects.
  */
 const STRING_ENCODING: BufferEncoding = 'hex';
 
@@ -15,9 +15,9 @@ const STRING_ENCODING: BufferEncoding = 'hex';
 export class HistoricBlockData {
   constructor(
     /**
-     * Root of the private data tree at the time of when this information was assembled.
+     * Root of the note hash tree at the time of when this information was assembled.
      */
-    public privateDataTreeRoot: Fr,
+    public noteHashTreeRoot: Fr,
     /**
      * Root of the nullifier tree at the time of when this information was assembled.
      */
@@ -67,7 +67,7 @@ export class HistoricBlockData {
 
   static getFields(fields: FieldsOf<HistoricBlockData>) {
     return [
-      fields.privateDataTreeRoot,
+      fields.noteHashTreeRoot,
       fields.nullifierTreeRoot,
       fields.contractTreeRoot,
       fields.l1ToL2MessagesTreeRoot,
@@ -88,12 +88,12 @@ export class HistoricBlockData {
   }
 
   /**
-   * Return the historic block data as an array of items in the order they are serialised in noir.
+   * Return the historic block data as an array of items in the order they are serialized in noir.
    * @returns Array of items in the order they are stored in the contract
    */
   toArray(): Fr[] {
     return [
-      this.privateDataTreeRoot,
+      this.noteHashTreeRoot,
       this.nullifierTreeRoot,
       this.contractTreeRoot,
       this.l1ToL2MessagesTreeRoot,
@@ -124,7 +124,7 @@ export class HistoricBlockData {
 
   isEmpty() {
     return (
-      this.privateDataTreeRoot.isZero() &&
+      this.noteHashTreeRoot.isZero() &&
       this.nullifierTreeRoot.isZero() &&
       this.contractTreeRoot.isZero() &&
       this.l1ToL2MessagesTreeRoot.isZero() &&

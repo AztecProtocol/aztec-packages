@@ -1,12 +1,12 @@
-import { BlankContract } from '../artifacts/blank.js';
+import { BlankContract } from '../artifacts/Blank.js';
 import { callContractFunction, deployContract, getWallet } from '../scripts/index.js';
 import {
   AccountWallet,
   AztecAddress,
-  PXE,
   CompleteAddress,
   Contract,
   Fr,
+  PXE,
   TxStatus,
   Wallet,
   createPXEClient,
@@ -19,8 +19,8 @@ const logger = createDebugLogger('aztec:http-pxe-client');
 // assumes sandbox is running locally, which this script does not trigger
 // as well as anvil.  anvil can be started with yarn test:integration
 const setupSandbox = async () => {
-  const { SANDBOX_URL = 'http://localhost:8080' } = process.env;
-  const pxe = createPXEClient(SANDBOX_URL);
+  const { PXE_URL = 'http://localhost:8080' } = process.env;
+  const pxe = createPXEClient(PXE_URL);
   await waitForSandbox(pxe);
 
   return pxe;
@@ -28,7 +28,7 @@ const setupSandbox = async () => {
 
 async function deployZKContract(owner: CompleteAddress, wallet: Wallet, pxe: PXE) {
   logger('Deploying Blank contract...');
-  const contractAddress = await deployContract(owner, BlankContract.abi, [], Fr.random(), pxe);
+  const contractAddress = await deployContract(owner, BlankContract.artifact, [], Fr.random(), pxe);
 
   logger(`L2 contract deployed at ${contractAddress}`);
   return BlankContract.at(contractAddress, wallet);
@@ -57,7 +57,7 @@ describe('ZK Contract Tests', () => {
   test('call succeeds after deploy', async () => {
     const callTxReceipt = await callContractFunction(
       contractAddress,
-      contract.abi,
+      contract.artifact,
       'getPublicKey',
       [owner.address.toField()],
       pxe,

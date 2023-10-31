@@ -1,9 +1,9 @@
 import { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import { ContractDeployer, SentTx, isContractDeployed } from '@aztec/aztec.js';
+import { ContractDeployer, DeploySentTx, Wallet, isContractDeployed } from '@aztec/aztec.js';
 import { AztecAddress, CompleteAddress, Fr, PublicKey, getContractDeploymentInfo } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { DebugLogger } from '@aztec/foundation/log';
-import { TestContractAbi } from '@aztec/noir-contracts/artifacts';
+import { TestContractArtifact } from '@aztec/noir-contracts/artifacts';
 import { BootstrapNode, P2PConfig, createLibP2PPeerId } from '@aztec/p2p';
 import { ConstantKeyPair, PXEService, createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe';
 import { TxStatus } from '@aztec/types';
@@ -18,7 +18,7 @@ const BOOT_NODE_TCP_PORT = 40400;
 interface NodeContext {
   node: AztecNodeService;
   pxeService: PXEService;
-  txs: SentTx[];
+  txs: DeploySentTx[];
   account: AztecAddress;
 }
 
@@ -26,8 +26,10 @@ describe('e2e_p2p_network', () => {
   let config: AztecNodeConfig;
   let logger: DebugLogger;
   let teardown: () => Promise<void>;
+  let wallet: Wallet;
+
   beforeEach(async () => {
-    ({ teardown, config, logger } = await setup(0));
+    ({ wallet, teardown, config, logger } = await setup(1));
   }, 100_000);
 
   afterEach(() => teardown());
@@ -52,12 +54,11 @@ describe('e2e_p2p_network', () => {
     // now ensure that all txs were successfully mined
     for (const context of contexts) {
       for (const tx of context.txs) {
-        const isMined = await tx.isMined({ interval: 0.1 });
-        const receiptAfterMined = await tx.getReceipt();
+        // we pass in wallet to wait(...) because wallet is necessary to create a TS contract instance
+        const receipt = await tx.wait({ wallet });
 
-        expect(isMined).toBe(true);
-        expect(receiptAfterMined.status).toBe(TxStatus.MINED);
-        const contractAddress = receiptAfterMined.contractAddress!;
+        expect(receipt.status).toBe(TxStatus.MINED);
+        const contractAddress = receipt.contractAddress!;
         expect(await isContractDeployed(context.pxeService, contractAddress)).toBeTruthy();
         expect(await isContractDeployed(context.pxeService, AztecAddress.random())).toBeFalsy();
       }
@@ -78,10 +79,10 @@ describe('e2e_p2p_network', () => {
       p2pEnabled: true,
       tcpListenPort: BOOT_NODE_TCP_PORT,
       tcpListenIp: '0.0.0.0',
-      announceHostname: '127.0.0.1',
+      announceHostname: '/tcp/127.0.0.1',
       announcePort: BOOT_NODE_TCP_PORT,
       peerIdPrivateKey: Buffer.from(peerId.privateKey!).toString('hex'),
-      serverMode: false,
+      clientKADRouting: false,
       minPeerCount: 10,
       maxPeerCount: 100,
 
@@ -107,18 +108,19 @@ describe('e2e_p2p_network', () => {
       minTxsPerBlock: NUM_TXS_PER_BLOCK,
       maxTxsPerBlock: NUM_TXS_PER_BLOCK,
       p2pEnabled: true,
-      serverMode: false,
+      clientKADRouting: false,
     };
     return await AztecNodeService.createAndSync(newConfig);
   };
 
   // submits a set of transactions to the provided Private eXecution Environment (PXE)
   const submitTxsTo = async (pxe: PXEService, account: AztecAddress, numTxs: number, publicKey: PublicKey) => {
-    const txs: SentTx[] = [];
+    const txs: DeploySentTx[] = [];
     for (let i = 0; i < numTxs; i++) {
       const salt = Fr.random();
-      const origin = (await getContractDeploymentInfo(TestContractAbi, [], salt, publicKey)).completeAddress.address;
-      const deployer = new ContractDeployer(TestContractAbi, pxe, publicKey);
+      const origin = (await getContractDeploymentInfo(TestContractArtifact, [], salt, publicKey)).completeAddress
+        .address;
+      const deployer = new ContractDeployer(TestContractArtifact, pxe, publicKey);
       const tx = deployer.deploy().send({ contractAddressSalt: salt });
       logger(`Tx sent with hash ${await tx.getTxHash()}`);
       const receipt = await tx.getReceipt();

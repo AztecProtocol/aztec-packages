@@ -1,8 +1,8 @@
 # This base Dockerfile is for:
 #  - Caching the workspace dependencies.
-#  - Running workspace checks (package.json inheritence, tsconfig.json project references).
-#  - Bringing in any upstream artefacts such as circuits.wasm and L1 contracts.
-#  - Performing any code generation that doesn't require the workspace code to do so (generate L1 artefacts).
+#  - Running workspace checks (package.json inheritance, tsconfig.json project references).
+#  - Bringing in any upstream artifacts such as circuits.wasm and L1 contracts.
+#  - Performing any code generation that doesn't require the workspace code to do so (generate L1 artifacts).
 #
 # When installing workspace dependencies, there are issues with doing this naively:
 #  - We only ever want to re-download and install workspace dependencies in the event that they change.
@@ -44,7 +44,8 @@ FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/circuits-wasm-linux-clang as c
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/l1-contracts as contracts
 
 FROM node:18-alpine
-RUN apk update && apk add --no-cache bash jq
+RUN apk update && apk add --no-cache bash jq curl
+
 WORKDIR /usr/src/yarn-project
 
 # The dockerignore file ensures the context only contains package.json and tsconfig.json files.
@@ -63,12 +64,16 @@ RUN yarn --immutable && rm -rf /root/.cache/puppeteer && /bin/bash -c '\
 # If everything's worked properly, we should no longer need access to the network.
 RUN echo "enableNetwork: false" >> .yarnrc.yml
 
-# Check package.json inheritence and tsconfig project references.
+# Check package.json inheritance and tsconfig project references.
 RUN yarn prepare:check
 
 # Bring in circuits wasms.
 COPY --from=circuits /usr/src/circuits/cpp/build-wasm/bin /usr/src/circuits/cpp/build-wasm/bin
 
+# Copy ignition download script.
+COPY --from=circuits /usr/src/barretenberg/cpp/srs_db/download_ignition.sh /usr/src/barretenberg/cpp/srs_db/download_ignition.sh
+
+# Copy L1 contracts.
+COPY --from=contracts /usr/src/l1-contracts /usr/src/l1-contracts
 # Generate L1 contract TypeScript artifacts.
-COPY --from=contracts /usr/src/l1-contracts/out /usr/src/l1-contracts/out
 RUN cd l1-artifacts && ./scripts/generate-artifacts.sh

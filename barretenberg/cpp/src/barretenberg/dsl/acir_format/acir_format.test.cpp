@@ -8,7 +8,12 @@
 #include "ecdsa_secp256k1.hpp"
 
 namespace acir_format::tests {
-TEST(acir_format, test_a_single_constraint_no_pub_inputs)
+
+class AcirFormatTests : public ::testing::Test {
+  protected:
+    static void SetUpTestSuite() { barretenberg::srs::init_crs_factory("../srs_db/ignition"); }
+};
+TEST_F(AcirFormatTests, TestASingleConstraintNoPubInputs)
 {
 
     poly_triple constraint{
@@ -35,6 +40,7 @@ TEST(acir_format, test_a_single_constraint_no_pub_inputs)
         .keccak_constraints = {},
         .keccak_var_constraints = {},
         .pedersen_constraints = {},
+        .pedersen_hash_constraints = {},
         .hash_to_field_constraints = {},
         .fixed_base_scalar_mul_constraints = {},
         .recursion_constraints = {},
@@ -53,12 +59,12 @@ TEST(acir_format, test_a_single_constraint_no_pub_inputs)
     EXPECT_EQ(verifier.verify_proof(proof), false);
 }
 
-TEST(acir_format, msgpack_logic_constraint)
+TEST_F(AcirFormatTests, MsgpackLogicConstraint)
 {
     auto [actual, expected] = msgpack_roundtrip(LogicConstraint{});
     EXPECT_EQ(actual, expected);
 }
-TEST(acir_format, test_logic_gate_from_noir_circuit)
+TEST_F(AcirFormatTests, TestLogicGateFromNoirCircuit)
 {
     /**
      * constraints produced by Noir program:
@@ -141,6 +147,7 @@ TEST(acir_format, test_logic_gate_from_noir_circuit)
                                    .keccak_constraints = {},
                                    .keccak_var_constraints = {},
                                    .pedersen_constraints = {},
+                                   .pedersen_hash_constraints = {},
                                    .hash_to_field_constraints = {},
                                    .fixed_base_scalar_mul_constraints = {},
                                    .recursion_constraints = {},
@@ -167,7 +174,7 @@ TEST(acir_format, test_logic_gate_from_noir_circuit)
     EXPECT_EQ(verifier.verify_proof(proof), true);
 }
 
-TEST(acir_format, test_schnorr_verify_pass)
+TEST_F(AcirFormatTests, TestSchnorrVerifyPass)
 {
     std::vector<RangeConstraint> range_constraints;
     for (uint32_t i = 0; i < 10; i++) {
@@ -205,6 +212,7 @@ TEST(acir_format, test_schnorr_verify_pass)
                                    .keccak_constraints = {},
                                    .keccak_var_constraints = {},
                                    .pedersen_constraints = {},
+                                   .pedersen_hash_constraints = {},
                                    .hash_to_field_constraints = {},
                                    .fixed_base_scalar_mul_constraints = {},
                                    .recursion_constraints = {},
@@ -220,15 +228,29 @@ TEST(acir_format, test_schnorr_verify_pass)
                                    } },
                                    .block_constraints = {} };
 
-    uint256_t pub_x = uint256_t("17cbd3ed3151ccfd170efe1d54280a6a4822640bf5c369908ad74ea21518a9c5");
-    uint256_t pub_y = uint256_t("0e0456e3795c1a31f20035b741cd6158929eeccd320d299cfcac962865a6bc74");
+    std::string message_string = "tenletters";
+    crypto::schnorr::key_pair<grumpkin::fr, grumpkin::g1> account;
+    account.private_key = grumpkin::fr::random_element();
+    account.public_key = grumpkin::g1::one * account.private_key;
+    crypto::schnorr::signature signature_raw =
+        crypto::schnorr::construct_signature<Blake2sHasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(message_string,
+                                                                                                      account);
+    uint256_t pub_x = account.public_key.x;
+    uint256_t pub_y = account.public_key.y;
+    WitnessVector witness{ 0,   1,   2,   3,   4,   5,   6,   7,   8,   9,   pub_x, pub_y, 5,   202, 31,  146,
+                           81,  242, 246, 69,  43,  107, 249, 153, 198, 44,  14,    111,   191, 121, 137, 166,
+                           160, 103, 18,  181, 243, 233, 226, 95,  67,  16,  37,    128,   85,  76,  19,  253,
+                           30,  77,  192, 53,  138, 205, 69,  33,  236, 163, 83,    194,   84,  137, 184, 221,
+                           176, 121, 179, 27,  63,  70,  54,  16,  176, 250, 39,    239,   1,   0,   0,   0 };
+    for (size_t i = 0; i < 32; ++i) {
+        witness[13 + i - 1] = signature_raw.s[i];
+        witness[13 + 32 + i - 1] = signature_raw.e[i];
+    }
+    for (size_t i = 0; i < 10; ++i) {
+        witness[i] = message_string[i];
+    }
 
-    auto builder = create_circuit_with_witness(
-        constraint_system,
-        { 0,  1,   2,   3,   4,   5,   6,   7,   8,   9,   pub_x, pub_y, 5,   202, 31, 146, 81,  242, 246, 69,
-          43, 107, 249, 153, 198, 44,  14,  111, 191, 121, 137,   166,   160, 103, 18, 181, 243, 233, 226, 95,
-          67, 16,  37,  128, 85,  76,  19,  253, 30,  77,  192,   53,    138, 205, 69, 33,  236, 163, 83,  194,
-          84, 137, 184, 221, 176, 121, 179, 27,  63,  70,  54,    16,    176, 250, 39, 239, 1,   0,   0,   0 });
+    auto builder = create_circuit_with_witness(constraint_system, witness);
 
     auto composer = Composer();
     auto prover = composer.create_ultra_with_keccak_prover(builder);
@@ -239,7 +261,7 @@ TEST(acir_format, test_schnorr_verify_pass)
     EXPECT_EQ(verifier.verify_proof(proof), true);
 }
 
-TEST(acir_format, test_schnorr_verify_small_range)
+TEST_F(AcirFormatTests, TestSchnorrVerifySmallRange)
 {
     std::vector<RangeConstraint> range_constraints;
     for (uint32_t i = 0; i < 10; i++) {
@@ -278,6 +300,7 @@ TEST(acir_format, test_schnorr_verify_small_range)
         .keccak_constraints = {},
         .keccak_var_constraints = {},
         .pedersen_constraints = {},
+        .pedersen_hash_constraints = {},
         .hash_to_field_constraints = {},
         .fixed_base_scalar_mul_constraints = {},
         .recursion_constraints = {},
@@ -294,15 +317,30 @@ TEST(acir_format, test_schnorr_verify_small_range)
         .block_constraints = {},
     };
 
-    uint256_t pub_x = uint256_t("17cbd3ed3151ccfd170efe1d54280a6a4822640bf5c369908ad74ea21518a9c5");
-    uint256_t pub_y = uint256_t("0e0456e3795c1a31f20035b741cd6158929eeccd320d299cfcac962865a6bc74");
+    std::string message_string = "tenletters";
+    crypto::schnorr::key_pair<grumpkin::fr, grumpkin::g1> account;
+    account.private_key = grumpkin::fr::random_element();
+    account.public_key = grumpkin::g1::one * account.private_key;
+    crypto::schnorr::signature signature_raw =
+        crypto::schnorr::construct_signature<Blake2sHasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(message_string,
+                                                                                                      account);
+    uint256_t pub_x = account.public_key.x;
+    uint256_t pub_y = account.public_key.y;
+    WitnessVector witness{ 0,   1,   2,   3,   4,   5,   6,   7,   8,   9,   pub_x, pub_y, 5,   202, 31,  146,
+                           81,  242, 246, 69,  43,  107, 249, 153, 198, 44,  14,    111,   191, 121, 137, 166,
+                           160, 103, 18,  181, 243, 233, 226, 95,  67,  16,  37,    128,   85,  76,  19,  253,
+                           30,  77,  192, 53,  138, 205, 69,  33,  236, 163, 83,    194,   84,  137, 184, 221,
+                           176, 121, 179, 27,  63,  70,  54,  16,  176, 250, 39,    239,   1,   0,   0,   0 };
+    for (size_t i = 0; i < 32; ++i) {
+        witness[13 + i - 1] = signature_raw.s[i];
+        witness[13 + 32 + i - 1] = signature_raw.e[i];
+    }
+    for (size_t i = 0; i < 10; ++i) {
+        witness[i] = message_string[i];
+    }
 
-    auto builder = create_circuit_with_witness(
-        constraint_system,
-        { 0,  1,   2,   3,   4,   5,   6,   7,   8,   9,   pub_x, pub_y, 5,   202, 31, 146, 81,  242, 246, 69,
-          43, 107, 249, 153, 198, 44,  14,  111, 191, 121, 137,   166,   160, 103, 18, 181, 243, 233, 226, 95,
-          67, 16,  37,  128, 85,  76,  19,  253, 30,  77,  192,   53,    138, 205, 69, 33,  236, 163, 83,  194,
-          84, 137, 184, 221, 176, 121, 179, 27,  63,  70,  54,    16,    176, 250, 39, 239, 1,   0,   0,   0 });
+    // TODO: actually sign a schnorr signature!
+    auto builder = create_circuit_with_witness(constraint_system, witness);
 
     auto composer = Composer();
     auto prover = composer.create_ultra_with_keccak_prover(builder);
@@ -311,7 +349,7 @@ TEST(acir_format, test_schnorr_verify_small_range)
     EXPECT_EQ(verifier.verify_proof(proof), true);
 }
 
-TEST(acir_format, test_var_keccak)
+TEST_F(AcirFormatTests, TestVarKeccak)
 {
     HashInput input1;
     input1.witness = 1;
@@ -369,6 +407,7 @@ TEST(acir_format, test_var_keccak)
         .keccak_constraints = {},
         .keccak_var_constraints = { keccak },
         .pedersen_constraints = {},
+        .pedersen_hash_constraints = {},
         .hash_to_field_constraints = {},
         .fixed_base_scalar_mul_constraints = {},
         .recursion_constraints = {},

@@ -4,10 +4,12 @@ import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 
 // Messaging
-import {IRegistry} from "@aztec/core/interfaces/messagebridge/IRegistry.sol";
-import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
-import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
-import {Hash} from "@aztec/core/libraries/Hash.sol";
+import {IRegistry} from "../../src/core/interfaces/messagebridge/IRegistry.sol";
+import {IInbox} from "../../src/core/interfaces/messagebridge/IInbox.sol";
+import {DataStructures} from "../../src/core/libraries/DataStructures.sol";
+// docs:start:content_hash_sol_import
+import {Hash} from "../../src/core/libraries/Hash.sol";
+// docs:end:content_hash_sol_import
 
 contract TokenPortal {
   using SafeERC20 for IERC20;
@@ -25,16 +27,16 @@ contract TokenPortal {
   // docs:start:deposit_public
   /**
    * @notice Deposit funds into the portal and adds an L2 message which can only be consumed publicly on Aztec
-   * @param _amount - The amount to deposit
    * @param _to - The aztec address of the recipient
+   * @param _amount - The amount to deposit
    * @param _canceller - The address that can cancel the L1 to L2 message
    * @param _deadline - The timestamp after which the entry can be cancelled
    * @param _secretHash - The hash of the secret consumable message. The hash should be 254 bits (so it can fit in a Field element)
    * @return The key of the entry in the Inbox
    */
   function depositToAztecPublic(
-    uint256 _amount,
     bytes32 _to,
+    uint256 _amount,
     address _canceller,
     uint32 _deadline,
     bytes32 _secretHash
@@ -45,7 +47,7 @@ contract TokenPortal {
 
     // Hash the message content to be reconstructed in the receiving contract
     bytes32 contentHash = Hash.sha256ToField(
-      abi.encodeWithSignature("mint_public(uint256,bytes32,address)", _amount, _to, _canceller)
+      abi.encodeWithSignature("mint_public(bytes32,uint256,address)", _to, _amount, _canceller)
     );
 
     // Hold the tokens in the portal
@@ -56,18 +58,19 @@ contract TokenPortal {
   }
   // docs:end:deposit_public
 
+  // docs:start:deposit_private
   /**
    * @notice Deposit funds into the portal and adds an L2 message which can only be consumed privately on Aztec
-   * @param _amount - The amount to deposit
    * @param _secretHashForRedeemingMintedNotes - The hash of the secret to redeem minted notes privately on Aztec. The hash should be 254 bits (so it can fit in a Field element)
+   * @param _amount - The amount to deposit
    * @param _canceller - The address that can cancel the L1 to L2 message
    * @param _deadline - The timestamp after which the entry can be cancelled
    * @param _secretHashForL2MessageConsumption - The hash of the secret consumable L1 to L2 message. The hash should be 254 bits (so it can fit in a Field element)
    * @return The key of the entry in the Inbox
    */
   function depositToAztecPrivate(
-    uint256 _amount,
     bytes32 _secretHashForRedeemingMintedNotes,
+    uint256 _amount,
     address _canceller,
     uint32 _deadline,
     bytes32 _secretHashForL2MessageConsumption
@@ -79,9 +82,9 @@ contract TokenPortal {
     // Hash the message content to be reconstructed in the receiving contract
     bytes32 contentHash = Hash.sha256ToField(
       abi.encodeWithSignature(
-        "mint_private(uint256,bytes32,address)",
-        _amount,
+        "mint_private(bytes32,uint256,address)",
         _secretHashForRedeemingMintedNotes,
+        _amount,
         _canceller
       )
     );
@@ -94,21 +97,22 @@ contract TokenPortal {
       actor, _deadline, contentHash, _secretHashForL2MessageConsumption
     );
   }
+  // docs:end:deposit_private
 
   // docs:start:token_portal_cancel
   /**
    * @notice Cancel a public depositToAztec L1 to L2 message
    * @dev only callable by the `canceller` of the message
-   * @param _amount - The amount to deposit per the original message
    * @param _to - The aztec address of the recipient in the original message
+   * @param _amount - The amount to deposit per the original message
    * @param _deadline - The timestamp after which the entry can be cancelled
    * @param _secretHash - The hash of the secret consumable message in the original message
    * @param _fee - The fee paid to the sequencer
    * @return The key of the entry in the Inbox
    */
   function cancelL1ToAztecMessagePublic(
-    uint256 _amount,
     bytes32 _to,
+    uint256 _amount,
     uint32 _deadline,
     bytes32 _secretHash,
     uint64 _fee
@@ -120,7 +124,7 @@ contract TokenPortal {
       sender: l1Actor,
       recipient: l2Actor,
       content: Hash.sha256ToField(
-        abi.encodeWithSignature("mint_public(uint256,bytes32,address)", _amount, _to, msg.sender)
+        abi.encodeWithSignature("mint_public(bytes32,uint256,address)", _to, _amount, msg.sender)
         ),
       secretHash: _secretHash,
       deadline: _deadline,
@@ -136,16 +140,16 @@ contract TokenPortal {
   /**
    * @notice Cancel a private depositToAztec L1 to L2 message
    * @dev only callable by the `canceller` of the message
-   * @param _amount - The amount to deposit per the original message
    * @param _secretHashForRedeemingMintedNotes - The hash of the secret to redeem minted notes privately on Aztec
+   * @param _amount - The amount to deposit per the original message
    * @param _deadline - The timestamp after which the entry can be cancelled
    * @param _secretHashForL2MessageConsumption - The hash of the secret consumable L1 to L2 message
    * @param _fee - The fee paid to the sequencer
    * @return The key of the entry in the Inbox
    */
   function cancelL1ToAztecMessagePrivate(
-    uint256 _amount,
     bytes32 _secretHashForRedeemingMintedNotes,
+    uint256 _amount,
     uint32 _deadline,
     bytes32 _secretHashForL2MessageConsumption,
     uint64 _fee
@@ -158,9 +162,9 @@ contract TokenPortal {
       recipient: l2Actor,
       content: Hash.sha256ToField(
         abi.encodeWithSignature(
-          "mint_private(uint256,bytes32,address)",
-          _amount,
+          "mint_private(bytes32,uint256,address)",
           _secretHashForRedeemingMintedNotes,
+          _amount,
           msg.sender
         )
         ),
@@ -181,13 +185,13 @@ contract TokenPortal {
   /**
    * @notice Withdraw funds from the portal
    * @dev Second part of withdraw, must be initiated from L2 first as it will consume a message from outbox
-   * @param _amount - The amount to withdraw
    * @param _recipient - The address to send the funds to
+   * @param _amount - The amount to withdraw
    * @param _withCaller - Flag to use `msg.sender` as caller, otherwise address(0)
    * Must match the caller of the message (specified from L2) to consume it.
    * @return The key of the entry in the Outbox
    */
-  function withdraw(uint256 _amount, address _recipient, bool _withCaller)
+  function withdraw(address _recipient, uint256 _amount, bool _withCaller)
     external
     returns (bytes32)
   {
@@ -196,9 +200,9 @@ contract TokenPortal {
       recipient: DataStructures.L1Actor(address(this), block.chainid),
       content: Hash.sha256ToField(
         abi.encodeWithSignature(
-          "withdraw(uint256,address,address)",
-          _amount,
+          "withdraw(address,uint256,address)",
           _recipient,
+          _amount,
           _withCaller ? msg.sender : address(0)
         )
         )

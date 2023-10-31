@@ -20,9 +20,6 @@
   },
   "references": [
     {
-      "path": "../circuits.js"
-    },
-    {
       "path": "../aztec.js"
     },
     {
@@ -30,6 +27,9 @@
     },
     {
       "path": "../end-to-end"
+    },
+    {
+      "path": "../ethereum"
     },
     {
       "path": "../l1-artifacts"

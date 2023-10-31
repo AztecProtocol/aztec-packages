@@ -1,12 +1,11 @@
 #pragma once
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/honk/pcs/kzg/kzg.hpp"
-#include "barretenberg/polynomials/barycentric.hpp"
-#include "barretenberg/polynomials/univariate.hpp"
-
 #include "barretenberg/honk/transcript/transcript.hpp"
+#include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 #include "barretenberg/proof_system/flavor/flavor.hpp"
 #include "barretenberg/proof_system/relations/auxiliary_relation.hpp"
@@ -53,16 +52,23 @@ class Ultra {
                                  proof_system::EllipticRelation<FF>,
                                  proof_system::AuxiliaryRelation<FF>>;
 
-    static constexpr size_t MAX_RELATION_LENGTH = get_max_relation_length<Relations>();
+    static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
+    static constexpr size_t MAX_TOTAL_RELATION_LENGTH = compute_max_total_relation_length<Relations>();
+    static_assert(MAX_PARTIAL_RELATION_LENGTH == 6);
+    static_assert(MAX_TOTAL_RELATION_LENGTH == 12);
 
-    // MAX_RANDOM_RELATION_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta` random
-    // polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation length = 3
-    static constexpr size_t MAX_RANDOM_RELATION_LENGTH = MAX_RELATION_LENGTH + 1;
-    static constexpr size_t NUM_RELATIONS = std::tuple_size<Relations>::value;
+    // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
+    // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
+    // length = 3
+    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
+    static constexpr size_t BATCHED_RELATION_TOTAL_LENGTH = MAX_TOTAL_RELATION_LENGTH + 1;
+    static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
-    // define the container for storing the univariate contribution from each relation in Sumcheck
-    using RelationUnivariates = decltype(create_relation_univariates_container<FF, Relations>());
-    using RelationValues = decltype(create_relation_values_container<FF, Relations>());
+    template <size_t NUM_INSTANCES>
+    using ProtogalaxyTupleOfTuplesOfUnivariates =
+        decltype(create_protogalaxy_tuple_of_tuples_of_univariates<Relations, NUM_INSTANCES>());
+    using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
+    using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
     // Whether or not the first row of the execution trace is reserved for 0s to enable shifts
     static constexpr bool has_zero_row = true;
@@ -272,9 +278,32 @@ class Ultra {
     using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment, CommitmentHandle>>;
 
     /**
+     * @brief A field element for each entity of the flavor. These entities represent the prover polynomials evaluated
+     * at one point.
+     */
+    class AllValues : public AllEntities<FF, FF> {
+      public:
+        using Base = AllEntities<FF, FF>;
+        using Base::Base;
+        AllValues(std::array<FF, NUM_ALL_ENTITIES> _data_in) { this->_data = _data_in; }
+    };
+
+    /**
      * @brief A container for polynomials handles; only stores spans.
      */
-    using ProverPolynomials = AllEntities<PolynomialHandle, PolynomialHandle>;
+    class ProverPolynomials : public AllEntities<PolynomialHandle, PolynomialHandle> {
+      public:
+        AllValues get_row(const size_t row_idx) const
+        {
+            AllValues result;
+            size_t column_idx = 0; // TODO(https://github.com/AztecProtocol/barretenberg/issues/391) zip
+            for (auto& column : this->_data) {
+                result[column_idx] = column[row_idx];
+                column_idx++;
+            }
+            return result;
+        }
+    };
 
     /**
      * @brief A container for storing the partially evaluated multivariates produced by sumcheck.
@@ -293,23 +322,16 @@ class Ultra {
     };
 
     /**
-     * @brief A container for univariates produced during the hot loop in sumcheck.
-     * @todo TODO(#390): Simplify this by moving MAX_RELATION_LENGTH?
+     * @brief A container for univariates used during Protogalaxy folding and sumcheck.
+     * @details During folding and sumcheck, the prover evaluates the relations on these univariates.
      */
-    template <size_t MAX_RELATION_LENGTH>
-    using ExtendedEdges = AllEntities<barretenberg::Univariate<FF, MAX_RELATION_LENGTH>,
-                                      barretenberg::Univariate<FF, MAX_RELATION_LENGTH>>;
+    template <size_t LENGTH>
+    using ProverUnivariates = AllEntities<barretenberg::Univariate<FF, LENGTH>, barretenberg::Univariate<FF, LENGTH>>;
 
     /**
-     * @brief A container for the polynomials evaluations produced during sumcheck, which are purported to be the
-     * evaluations of polynomials committed in earlier rounds.
+     * @brief A container for univariates produced during the hot loop in sumcheck.
      */
-    class ClaimedEvaluations : public AllEntities<FF, FF> {
-      public:
-        using Base = AllEntities<FF, FF>;
-        using Base::Base;
-        ClaimedEvaluations(std::array<FF, NUM_ALL_ENTITIES> _data_in) { this->_data = _data_in; }
-    };
+    using ExtendedEdges = ProverUnivariates<MAX_PARTIAL_RELATION_LENGTH>;
 
     /**
      * @brief A container for commitment labels.
@@ -360,7 +382,8 @@ class Ultra {
 
     class VerifierCommitments : public AllEntities<Commitment, CommitmentHandle> {
       public:
-        VerifierCommitments(std::shared_ptr<VerificationKey> verification_key, VerifierTranscript<FF> transcript)
+        VerifierCommitments(std::shared_ptr<VerificationKey> verification_key,
+                            [[maybe_unused]] const BaseTranscript<FF>& transcript)
         {
             static_cast<void>(transcript);
             q_m = verification_key->q_m;
@@ -393,8 +416,129 @@ class Ultra {
 
     class FoldingParameters {
       public:
-        FF gate_separation_challenge;
+        std::vector<FF> gate_separation_challenges;
         FF target_sum;
+    };
+
+    /**
+     * @brief Derived class that defines proof structure for Ultra proofs, as well as supporting functions.
+     *
+     */
+    class Transcript : public BaseTranscript<FF> {
+      public:
+        // Transcript objects defined as public member variables for easy access and modification
+        uint32_t circuit_size;
+        uint32_t public_input_size;
+        uint32_t pub_inputs_offset;
+        std::vector<FF> public_inputs;
+        Commitment w_l_comm;
+        Commitment w_r_comm;
+        Commitment w_o_comm;
+        Commitment sorted_accum_comm;
+        Commitment w_4_comm;
+        Commitment z_perm_comm;
+        Commitment z_lookup_comm;
+        std::vector<barretenberg::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
+        std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
+        std::vector<Commitment> zm_cq_comms;
+        Commitment zm_cq_comm;
+        Commitment zm_pi_comm;
+
+        Transcript() = default;
+
+        // Used by verifier to initialize the transcript
+        Transcript(const std::vector<uint8_t>& proof)
+            : BaseTranscript<FF>(proof)
+        {}
+
+        static Transcript prover_init_empty()
+        {
+            Transcript transcript;
+            constexpr uint32_t init{ 42 }; // arbitrary
+            transcript.send_to_verifier("Init", init);
+            return transcript;
+        };
+
+        static Transcript verifier_init_empty(const Transcript& transcript)
+        {
+            Transcript verifier_transcript{ transcript.proof_data };
+            [[maybe_unused]] auto _ = verifier_transcript.template receive_from_prover<uint32_t>("Init");
+            return verifier_transcript;
+        };
+
+        /**
+         * @brief Takes a FULL Ultra proof and deserializes it into the public member variables that compose the
+         * structure. Must be called in order to access the structure of the proof.
+         *
+         */
+        void deserialize_full_transcript() override
+        {
+            // take current proof and put them into the struct
+            size_t num_bytes_read = 0;
+            circuit_size = deserialize_from_buffer<uint32_t>(proof_data, num_bytes_read);
+            size_t log_n = numeric::get_msb(circuit_size);
+
+            public_input_size = deserialize_from_buffer<uint32_t>(proof_data, num_bytes_read);
+            pub_inputs_offset = deserialize_from_buffer<uint32_t>(proof_data, num_bytes_read);
+            for (size_t i = 0; i < public_input_size; ++i) {
+                public_inputs.push_back(deserialize_from_buffer<FF>(proof_data, num_bytes_read));
+            }
+            w_l_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
+            w_r_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
+            w_o_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
+            sorted_accum_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
+            w_4_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
+            z_perm_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
+            z_lookup_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
+            for (size_t i = 0; i < log_n; ++i) {
+                sumcheck_univariates.push_back(
+                    deserialize_from_buffer<barretenberg::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
+                        proof_data, num_bytes_read));
+            }
+            sumcheck_evaluations =
+                deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(proof_data, num_bytes_read);
+            for (size_t i = 0; i < log_n; ++i) {
+                zm_cq_comms.push_back(deserialize_from_buffer<Commitment>(proof_data, num_bytes_read));
+            }
+            zm_cq_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
+            zm_pi_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
+        }
+        /**
+         * @brief Serializes the structure variables into a FULL Ultra proof. Should be called only if
+         * deserialize_full_transcript() was called and some transcript variable was modified.
+         *
+         */
+        void serialize_full_transcript() override
+        {
+            size_t old_proof_length = proof_data.size();
+            proof_data.clear(); // clear proof_data so the rest of the function can replace it
+            size_t log_n = numeric::get_msb(circuit_size);
+            serialize_to_buffer(circuit_size, proof_data);
+            serialize_to_buffer(public_input_size, proof_data);
+            serialize_to_buffer(pub_inputs_offset, proof_data);
+            for (size_t i = 0; i < public_input_size; ++i) {
+                serialize_to_buffer(public_inputs[i], proof_data);
+            }
+            serialize_to_buffer(w_l_comm, proof_data);
+            serialize_to_buffer(w_r_comm, proof_data);
+            serialize_to_buffer(w_o_comm, proof_data);
+            serialize_to_buffer(sorted_accum_comm, proof_data);
+            serialize_to_buffer(w_4_comm, proof_data);
+            serialize_to_buffer(z_perm_comm, proof_data);
+            serialize_to_buffer(z_lookup_comm, proof_data);
+            for (size_t i = 0; i < log_n; ++i) {
+                serialize_to_buffer(sumcheck_univariates[i], proof_data);
+            }
+            serialize_to_buffer(sumcheck_evaluations, proof_data);
+            for (size_t i = 0; i < log_n; ++i) {
+                serialize_to_buffer(zm_cq_comms[i], proof_data);
+            }
+            serialize_to_buffer(zm_cq_comm, proof_data);
+            serialize_to_buffer(zm_pi_comm, proof_data);
+
+            // sanity check to make sure we generate the same length of proof as before.
+            ASSERT(proof_data.size() == old_proof_length);
+        }
     };
 };
 

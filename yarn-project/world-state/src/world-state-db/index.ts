@@ -68,8 +68,8 @@ type WithIncludeUncommitted<F> = F extends (...args: [...infer Rest]) => infer R
  * The current roots of the commitment trees
  */
 export type CurrentTreeRoots = {
-  /** Private data tree root. */
-  privateDataTreeRoot: Buffer;
+  /** Note Hash Tree root. */
+  noteHashTreeRoot: Buffer;
   /** Contract data tree root. */
   contractDataTreeRoot: Buffer;
   /** L1 to L2 Messages data tree root. */
@@ -208,7 +208,7 @@ export interface MerkleTreeOperations {
    * Handles a single L2 block (i.e. Inserts the new commitments into the merkle tree).
    * @param block - The L2 block to handle.
    */
-  handleL2Block(block: L2Block): Promise<void>;
+  handleL2Block(block: L2Block): Promise<HandleL2BlockResult>;
 
   /**
    * Commits pending changes to the underlying store.
@@ -220,6 +220,11 @@ export interface MerkleTreeOperations {
    */
   rollback(): Promise<void>;
 }
+
+/** Return type for handleL2Block */
+export type HandleL2BlockResult = {
+  /** Whether the block processed was emitted by our sequencer */ isBlockOurs: boolean;
+};
 
 /**
  * Outputs a tree leaves using for debugging purposes.

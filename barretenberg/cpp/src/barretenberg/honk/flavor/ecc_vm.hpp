@@ -13,6 +13,7 @@
 #include "barretenberg/proof_system/relations/ecc_vm/ecc_set_relation.hpp"
 #include "barretenberg/proof_system/relations/ecc_vm/ecc_transcript_relation.hpp"
 #include "barretenberg/proof_system/relations/ecc_vm/ecc_wnaf_relation.hpp"
+#include "barretenberg/proof_system/relations/relation_parameters.hpp"
 #include "barretenberg/proof_system/relations/relation_types.hpp"
 #include <array>
 #include <concepts>
@@ -65,19 +66,19 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
                                  sumcheck::ECCVMLookupRelation<FF>>;
 
     using LookupRelation = sumcheck::ECCVMLookupRelation<FF>;
-    static constexpr size_t MAX_RELATION_LENGTH = get_max_relation_length<Relations>();
+    static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
 
-    // MAX_RANDOM_RELATION_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta` random
-    // polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation length = 3
-    static constexpr size_t MAX_RANDOM_RELATION_LENGTH = MAX_RELATION_LENGTH + 1;
+    // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
+    // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
+    // length = 3
+    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size<Relations>::value;
 
     // Instantiate the BarycentricData needed to extend each Relation Univariate
-    // static_assert(instantiate_barycentric_utils<FF, MAX_RANDOM_RELATION_LENGTH>());
 
     // define the containers for storing the contributions from each relation in Sumcheck
-    using RelationUnivariates = decltype(create_relation_univariates_container<FF, Relations>());
-    using RelationValues = decltype(create_relation_values_container<FF, Relations>());
+    using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
+    using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
   private:
     /**
@@ -105,82 +106,82 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
     class WitnessEntities : public WitnessEntities_<DataType, HandleType, NUM_WITNESS_ENTITIES> {
       public:
         // clang-format off
-        DataType& transcript_add                  = std::get<0>(this->_data);
-        DataType& transcript_mul                  = std::get<1>(this->_data);
-        DataType& transcript_eq                   = std::get<2>(this->_data);
-        DataType& transcript_collision_check           = std::get<3>(this->_data);
-        DataType& transcript_msm_transition       = std::get<4>(this->_data);
-        DataType& transcript_pc                     = std::get<5>(this->_data);
-        DataType& transcript_msm_count              = std::get<6>(this->_data);
-        DataType& transcript_x                      = std::get<7>(this->_data);
-        DataType& transcript_y                      = std::get<8>(this->_data);
-        DataType& transcript_z1                     = std::get<9>(this->_data);
-        DataType& transcript_z2                     = std::get<10>(this->_data);
-        DataType& transcript_z1zero                 = std::get<11>(this->_data); 
-        DataType& transcript_z2zero                 = std::get<12>(this->_data);
-        DataType& transcript_op                     = std::get<13>(this->_data);
-        DataType& transcript_accumulator_x          = std::get<14>(this->_data);
-        DataType& transcript_accumulator_y          = std::get<15>(this->_data);
-        DataType& transcript_msm_x                  = std::get<16>(this->_data);
-        DataType& transcript_msm_y                  = std::get<17>(this->_data);
-        DataType& precompute_pc                          = std::get<18>(this->_data);
-        DataType& precompute_point_transition            = std::get<19>(this->_data);
-        DataType& precompute_round                       = std::get<20>(this->_data);
-        DataType& precompute_scalar_sum                  = std::get<21>(this->_data);
-        DataType& precompute_s1hi                          = std::get<22>(this->_data);
-        DataType& precompute_s1lo                          = std::get<23>(this->_data);
-        DataType& precompute_s2hi                          = std::get<24>(this->_data);
-        DataType& precompute_s2lo                          = std::get<25>(this->_data);
-        DataType& precompute_s3hi                          = std::get<26>(this->_data);
-        DataType& precompute_s3lo                          = std::get<27>(this->_data);
-        DataType& precompute_s4hi                          = std::get<28>(this->_data);
-        DataType& precompute_s4lo                          = std::get<29>(this->_data);
-        DataType& precompute_skew                        = std::get<30>(this->_data);
-        DataType& precompute_dx                          = std::get<31>(this->_data);
-        DataType& precompute_dy                          = std::get<32>(this->_data);
-        DataType& precompute_tx                          = std::get<33>(this->_data);
-        DataType& precompute_ty                          = std::get<34>(this->_data);
-        DataType& msm_transition                  = std::get<35>(this->_data);
-        DataType& msm_add                         = std::get<36>(this->_data);
-        DataType& msm_double                      = std::get<37>(this->_data);
-        DataType& msm_skew                        = std::get<38>(this->_data);
-        DataType& msm_accumulator_x                 = std::get<39>(this->_data);
-        DataType& msm_accumulator_y                 = std::get<40>(this->_data);
-        DataType& msm_pc                            = std::get<41>(this->_data);
-        DataType& msm_size_of_msm                   = std::get<42>(this->_data);
-        DataType& msm_count                         = std::get<43>(this->_data);
-        DataType& msm_round                         = std::get<44>(this->_data);
-        DataType& msm_add1                        = std::get<45>(this->_data);
-        DataType& msm_add2                        = std::get<46>(this->_data);
-        DataType& msm_add3                        = std::get<47>(this->_data);
-        DataType& msm_add4                        = std::get<48>(this->_data);
-        DataType& msm_x1                            = std::get<49>(this->_data);
-        DataType& msm_y1                            = std::get<50>(this->_data);
-        DataType& msm_x2                            = std::get<51>(this->_data);
-        DataType& msm_y2                            = std::get<52>(this->_data);
-        DataType& msm_x3                            = std::get<53>(this->_data);
-        DataType& msm_y3                            = std::get<54>(this->_data);
-        DataType& msm_x4                            = std::get<55>(this->_data);
-        DataType& msm_y4                            = std::get<56>(this->_data);
-        DataType& msm_collision_x1                  = std::get<57>(this->_data);
-        DataType& msm_collision_x2                  = std::get<58>(this->_data);
-        DataType& msm_collision_x3                  = std::get<59>(this->_data);
-        DataType& msm_collision_x4                  = std::get<60>(this->_data);
-        DataType& msm_lambda1                       = std::get<61>(this->_data);
-        DataType& msm_lambda2                       = std::get<62>(this->_data);
-        DataType& msm_lambda3                       = std::get<63>(this->_data);
-        DataType& msm_lambda4                       = std::get<64>(this->_data);
-        DataType& msm_slice1                        = std::get<65>(this->_data);
-        DataType& msm_slice2                        = std::get<66>(this->_data);
-        DataType& msm_slice3                        = std::get<67>(this->_data);
-        DataType& msm_slice4                        = std::get<68>(this->_data);
-        DataType& transcript_accumulator_empty      = std::get<69>(this->_data);
-        DataType& transcript_reset_accumulator    = std::get<70>(this->_data);
-        DataType& precompute_select                            = std::get<71>(this->_data);
-        DataType& lookup_read_counts_0              = std::get<72>(this->_data);
-        DataType& lookup_read_counts_1              = std::get<73>(this->_data);
-        DataType& z_perm                            = std::get<74>(this->_data);
-        DataType& lookup_inverses                   = std::get<75>(this->_data);
+        DataType& transcript_add               = std::get<0>(this->_data);
+        DataType& transcript_mul               = std::get<1>(this->_data);
+        DataType& transcript_eq                = std::get<2>(this->_data);
+        DataType& transcript_collision_check   = std::get<3>(this->_data);
+        DataType& transcript_msm_transition    = std::get<4>(this->_data);
+        DataType& transcript_pc                = std::get<5>(this->_data);
+        DataType& transcript_msm_count         = std::get<6>(this->_data);
+        DataType& transcript_x                 = std::get<7>(this->_data);
+        DataType& transcript_y                 = std::get<8>(this->_data);
+        DataType& transcript_z1                = std::get<9>(this->_data);
+        DataType& transcript_z2                = std::get<10>(this->_data);
+        DataType& transcript_z1zero            = std::get<11>(this->_data); 
+        DataType& transcript_z2zero            = std::get<12>(this->_data);
+        DataType& transcript_op                = std::get<13>(this->_data);
+        DataType& transcript_accumulator_x     = std::get<14>(this->_data);
+        DataType& transcript_accumulator_y     = std::get<15>(this->_data);
+        DataType& transcript_msm_x             = std::get<16>(this->_data);
+        DataType& transcript_msm_y             = std::get<17>(this->_data);
+        DataType& precompute_pc                = std::get<18>(this->_data);
+        DataType& precompute_point_transition  = std::get<19>(this->_data);
+        DataType& precompute_round             = std::get<20>(this->_data);
+        DataType& precompute_scalar_sum        = std::get<21>(this->_data);
+        DataType& precompute_s1hi              = std::get<22>(this->_data);
+        DataType& precompute_s1lo              = std::get<23>(this->_data);
+        DataType& precompute_s2hi              = std::get<24>(this->_data);
+        DataType& precompute_s2lo              = std::get<25>(this->_data);
+        DataType& precompute_s3hi              = std::get<26>(this->_data);
+        DataType& precompute_s3lo              = std::get<27>(this->_data);
+        DataType& precompute_s4hi              = std::get<28>(this->_data);
+        DataType& precompute_s4lo              = std::get<29>(this->_data);
+        DataType& precompute_skew              = std::get<30>(this->_data);
+        DataType& precompute_dx                = std::get<31>(this->_data);
+        DataType& precompute_dy                = std::get<32>(this->_data);
+        DataType& precompute_tx                = std::get<33>(this->_data);
+        DataType& precompute_ty                = std::get<34>(this->_data);
+        DataType& msm_transition               = std::get<35>(this->_data);
+        DataType& msm_add                      = std::get<36>(this->_data);
+        DataType& msm_double                   = std::get<37>(this->_data);
+        DataType& msm_skew                     = std::get<38>(this->_data);
+        DataType& msm_accumulator_x            = std::get<39>(this->_data);
+        DataType& msm_accumulator_y            = std::get<40>(this->_data);
+        DataType& msm_pc                       = std::get<41>(this->_data);
+        DataType& msm_size_of_msm              = std::get<42>(this->_data);
+        DataType& msm_count                    = std::get<43>(this->_data);
+        DataType& msm_round                    = std::get<44>(this->_data);
+        DataType& msm_add1                     = std::get<45>(this->_data);
+        DataType& msm_add2                     = std::get<46>(this->_data);
+        DataType& msm_add3                     = std::get<47>(this->_data);
+        DataType& msm_add4                     = std::get<48>(this->_data);
+        DataType& msm_x1                       = std::get<49>(this->_data);
+        DataType& msm_y1                       = std::get<50>(this->_data);
+        DataType& msm_x2                       = std::get<51>(this->_data);
+        DataType& msm_y2                       = std::get<52>(this->_data);
+        DataType& msm_x3                       = std::get<53>(this->_data);
+        DataType& msm_y3                       = std::get<54>(this->_data);
+        DataType& msm_x4                       = std::get<55>(this->_data);
+        DataType& msm_y4                       = std::get<56>(this->_data);
+        DataType& msm_collision_x1             = std::get<57>(this->_data);
+        DataType& msm_collision_x2             = std::get<58>(this->_data);
+        DataType& msm_collision_x3             = std::get<59>(this->_data);
+        DataType& msm_collision_x4             = std::get<60>(this->_data);
+        DataType& msm_lambda1                  = std::get<61>(this->_data);
+        DataType& msm_lambda2                  = std::get<62>(this->_data);
+        DataType& msm_lambda3                  = std::get<63>(this->_data);
+        DataType& msm_lambda4                  = std::get<64>(this->_data);
+        DataType& msm_slice1                   = std::get<65>(this->_data);
+        DataType& msm_slice2                   = std::get<66>(this->_data);
+        DataType& msm_slice3                   = std::get<67>(this->_data);
+        DataType& msm_slice4                   = std::get<68>(this->_data);
+        DataType& transcript_accumulator_empty = std::get<69>(this->_data);
+        DataType& transcript_reset_accumulator = std::get<70>(this->_data);
+        DataType& precompute_select            = std::get<71>(this->_data);
+        DataType& lookup_read_counts_0         = std::get<72>(this->_data);
+        DataType& lookup_read_counts_1         = std::get<73>(this->_data);
+        DataType& z_perm                       = std::get<74>(this->_data);
+        DataType& lookup_inverses              = std::get<75>(this->_data);
 
         // clang-format on
         std::vector<HandleType> get_wires() override
@@ -279,111 +280,111 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
     class AllEntities : public AllEntities_<DataType, HandleType, NUM_ALL_ENTITIES> {
       public:
         // clang-format off
-        DataType& lagrange_first                    = std::get<0>(this->_data);
-        DataType& lagrange_second                   = std::get<1>(this->_data);
-        DataType& lagrange_last                     = std::get<2>(this->_data);
-        DataType& transcript_add                    = std::get<3>(this->_data);
-        DataType& transcript_mul                    = std::get<4>(this->_data);
-        DataType& transcript_eq                     = std::get<5>(this->_data);
-        DataType& transcript_collision_check        = std::get<6>(this->_data);
-        DataType& transcript_msm_transition         = std::get<7>(this->_data);
-        DataType& transcript_pc                     = std::get<8>(this->_data);
-        DataType& transcript_msm_count              = std::get<9>(this->_data);
-        DataType& transcript_x                      = std::get<10>(this->_data);
-        DataType& transcript_y                      = std::get<11>(this->_data);
-        DataType& transcript_z1                     = std::get<12>(this->_data);
-        DataType& transcript_z2                     = std::get<13>(this->_data);
-        DataType& transcript_z1zero                 = std::get<14>(this->_data); 
-        DataType& transcript_z2zero                 = std::get<15>(this->_data);
-        DataType& transcript_op                     = std::get<16>(this->_data);
-        DataType& transcript_accumulator_x          = std::get<17>(this->_data);
-        DataType& transcript_accumulator_y          = std::get<18>(this->_data);
-        DataType& transcript_msm_x                  = std::get<19>(this->_data);
-        DataType& transcript_msm_y                  = std::get<20>(this->_data);
-        DataType& precompute_pc                     = std::get<21>(this->_data);
-        DataType& precompute_point_transition       = std::get<22>(this->_data);
-        DataType& precompute_round                  = std::get<23>(this->_data);
-        DataType& precompute_scalar_sum             = std::get<24>(this->_data);
-        DataType& precompute_s1hi                   = std::get<25>(this->_data);
-        DataType& precompute_s1lo                   = std::get<26>(this->_data);
-        DataType& precompute_s2hi                   = std::get<27>(this->_data);
-        DataType& precompute_s2lo                   = std::get<28>(this->_data);
-        DataType& precompute_s3hi                   = std::get<29>(this->_data);
-        DataType& precompute_s3lo                   = std::get<30>(this->_data);
-        DataType& precompute_s4hi                   = std::get<31>(this->_data);
-        DataType& precompute_s4lo                   = std::get<32>(this->_data);
-        DataType& precompute_skew                   = std::get<33>(this->_data);
-        DataType& precompute_dx                     = std::get<34>(this->_data);
-        DataType& precompute_dy                     = std::get<35>(this->_data);
-        DataType& precompute_tx                     = std::get<36>(this->_data);
-        DataType& precompute_ty                     = std::get<37>(this->_data);
-        DataType& msm_transition                    = std::get<38>(this->_data);
-        DataType& msm_add                           = std::get<39>(this->_data);
-        DataType& msm_double                        = std::get<40>(this->_data);
-        DataType& msm_skew                          = std::get<41>(this->_data);
-        DataType& msm_accumulator_x                 = std::get<42>(this->_data);
-        DataType& msm_accumulator_y                 = std::get<43>(this->_data);
-        DataType& msm_pc                            = std::get<44>(this->_data);
-        DataType& msm_size_of_msm                   = std::get<45>(this->_data);
-        DataType& msm_count                         = std::get<46>(this->_data);
-        DataType& msm_round                         = std::get<47>(this->_data);
-        DataType& msm_add1                          = std::get<48>(this->_data);
-        DataType& msm_add2                          = std::get<49>(this->_data);
-        DataType& msm_add3                          = std::get<50>(this->_data);
-        DataType& msm_add4                          = std::get<51>(this->_data);
-        DataType& msm_x1                            = std::get<52>(this->_data);
-        DataType& msm_y1                            = std::get<53>(this->_data);
-        DataType& msm_x2                            = std::get<54>(this->_data);
-        DataType& msm_y2                            = std::get<55>(this->_data);
-        DataType& msm_x3                            = std::get<56>(this->_data);
-        DataType& msm_y3                            = std::get<57>(this->_data);
-        DataType& msm_x4                            = std::get<58>(this->_data);
-        DataType& msm_y4                            = std::get<59>(this->_data);
-        DataType& msm_collision_x1                  = std::get<60>(this->_data);
-        DataType& msm_collision_x2                  = std::get<61>(this->_data);
-        DataType& msm_collision_x3                  = std::get<62>(this->_data);
-        DataType& msm_collision_x4                  = std::get<63>(this->_data);
-        DataType& msm_lambda1                       = std::get<64>(this->_data);
-        DataType& msm_lambda2                       = std::get<65>(this->_data);
-        DataType& msm_lambda3                       = std::get<66>(this->_data);
-        DataType& msm_lambda4                       = std::get<67>(this->_data);
-        DataType& msm_slice1                        = std::get<68>(this->_data);
-        DataType& msm_slice2                        = std::get<69>(this->_data);
-        DataType& msm_slice3                        = std::get<70>(this->_data);
-        DataType& msm_slice4                        = std::get<71>(this->_data);
-        DataType& transcript_accumulator_empty      = std::get<72>(this->_data);
-        DataType& transcript_reset_accumulator      = std::get<73>(this->_data);
-        DataType& precompute_select                 = std::get<74>(this->_data);
-        DataType& lookup_read_counts_0              = std::get<75>(this->_data);
-        DataType& lookup_read_counts_1              = std::get<76>(this->_data);
-        DataType& z_perm                            = std::get<77>(this->_data);
-        DataType& lookup_inverses                   = std::get<78>(this->_data);
-        DataType& transcript_mul_shift              = std::get<79>(this->_data);
-        DataType& transcript_msm_count_shift        = std::get<80>(this->_data);
-        DataType& transcript_accumulator_x_shift    = std::get<81>(this->_data);
-        DataType& transcript_accumulator_y_shift    = std::get<82>(this->_data);
-        DataType& precompute_scalar_sum_shift       = std::get<83>(this->_data);
-        DataType& precompute_s1hi_shift             = std::get<84>(this->_data);
-        DataType& precompute_dx_shift               = std::get<85>(this->_data);
-        DataType& precompute_dy_shift               = std::get<86>(this->_data);
-        DataType& precompute_tx_shift               = std::get<87>(this->_data);
-        DataType& precompute_ty_shift               = std::get<88>(this->_data);
-        DataType& msm_transition_shift              = std::get<89>(this->_data);
-        DataType& msm_add_shift                     = std::get<90>(this->_data);
-        DataType& msm_double_shift                  = std::get<91>(this->_data);
-        DataType& msm_skew_shift                    = std::get<92>(this->_data);
-        DataType& msm_accumulator_x_shift           = std::get<93>(this->_data);
-        DataType& msm_accumulator_y_shift           = std::get<94>(this->_data);
-        DataType& msm_count_shift                   = std::get<95>(this->_data);
-        DataType& msm_round_shift                   = std::get<96>(this->_data);
-        DataType& msm_add1_shift                    = std::get<97>(this->_data);
-        DataType& msm_pc_shift                      = std::get<98>(this->_data);
-        DataType& precompute_pc_shift               = std::get<99>(this->_data);
-        DataType& transcript_pc_shift               = std::get<100>(this->_data);
-        DataType& precompute_round_shift            = std::get<101>(this->_data);
-        DataType& transcript_accumulator_empty_shift= std::get<102>(this->_data);
-        DataType& precompute_select_shift           = std::get<103>(this->_data);
-        DataType& z_perm_shift                      = std::get<104>(this->_data);
+        DataType& lagrange_first                     = std::get<0>(this->_data);
+        DataType& lagrange_second                    = std::get<1>(this->_data);
+        DataType& lagrange_last                      = std::get<2>(this->_data);
+        DataType& transcript_add                     = std::get<3>(this->_data);
+        DataType& transcript_mul                     = std::get<4>(this->_data);
+        DataType& transcript_eq                      = std::get<5>(this->_data);
+        DataType& transcript_collision_check         = std::get<6>(this->_data);
+        DataType& transcript_msm_transition          = std::get<7>(this->_data);
+        DataType& transcript_pc                      = std::get<8>(this->_data);
+        DataType& transcript_msm_count               = std::get<9>(this->_data);
+        DataType& transcript_x                       = std::get<10>(this->_data);
+        DataType& transcript_y                       = std::get<11>(this->_data);
+        DataType& transcript_z1                      = std::get<12>(this->_data);
+        DataType& transcript_z2                      = std::get<13>(this->_data);
+        DataType& transcript_z1zero                  = std::get<14>(this->_data); 
+        DataType& transcript_z2zero                  = std::get<15>(this->_data);
+        DataType& transcript_op                      = std::get<16>(this->_data);
+        DataType& transcript_accumulator_x           = std::get<17>(this->_data);
+        DataType& transcript_accumulator_y           = std::get<18>(this->_data);
+        DataType& transcript_msm_x                   = std::get<19>(this->_data);
+        DataType& transcript_msm_y                   = std::get<20>(this->_data);
+        DataType& precompute_pc                      = std::get<21>(this->_data);
+        DataType& precompute_point_transition        = std::get<22>(this->_data);
+        DataType& precompute_round                   = std::get<23>(this->_data);
+        DataType& precompute_scalar_sum              = std::get<24>(this->_data);
+        DataType& precompute_s1hi                    = std::get<25>(this->_data);
+        DataType& precompute_s1lo                    = std::get<26>(this->_data);
+        DataType& precompute_s2hi                    = std::get<27>(this->_data);
+        DataType& precompute_s2lo                    = std::get<28>(this->_data);
+        DataType& precompute_s3hi                    = std::get<29>(this->_data);
+        DataType& precompute_s3lo                    = std::get<30>(this->_data);
+        DataType& precompute_s4hi                    = std::get<31>(this->_data);
+        DataType& precompute_s4lo                    = std::get<32>(this->_data);
+        DataType& precompute_skew                    = std::get<33>(this->_data);
+        DataType& precompute_dx                      = std::get<34>(this->_data);
+        DataType& precompute_dy                      = std::get<35>(this->_data);
+        DataType& precompute_tx                      = std::get<36>(this->_data);
+        DataType& precompute_ty                      = std::get<37>(this->_data);
+        DataType& msm_transition                     = std::get<38>(this->_data);
+        DataType& msm_add                            = std::get<39>(this->_data);
+        DataType& msm_double                         = std::get<40>(this->_data);
+        DataType& msm_skew                           = std::get<41>(this->_data);
+        DataType& msm_accumulator_x                  = std::get<42>(this->_data);
+        DataType& msm_accumulator_y                  = std::get<43>(this->_data);
+        DataType& msm_pc                             = std::get<44>(this->_data);
+        DataType& msm_size_of_msm                    = std::get<45>(this->_data);
+        DataType& msm_count                          = std::get<46>(this->_data);
+        DataType& msm_round                          = std::get<47>(this->_data);
+        DataType& msm_add1                           = std::get<48>(this->_data);
+        DataType& msm_add2                           = std::get<49>(this->_data);
+        DataType& msm_add3                           = std::get<50>(this->_data);
+        DataType& msm_add4                           = std::get<51>(this->_data);
+        DataType& msm_x1                             = std::get<52>(this->_data);
+        DataType& msm_y1                             = std::get<53>(this->_data);
+        DataType& msm_x2                             = std::get<54>(this->_data);
+        DataType& msm_y2                             = std::get<55>(this->_data);
+        DataType& msm_x3                             = std::get<56>(this->_data);
+        DataType& msm_y3                             = std::get<57>(this->_data);
+        DataType& msm_x4                             = std::get<58>(this->_data);
+        DataType& msm_y4                             = std::get<59>(this->_data);
+        DataType& msm_collision_x1                   = std::get<60>(this->_data);
+        DataType& msm_collision_x2                   = std::get<61>(this->_data);
+        DataType& msm_collision_x3                   = std::get<62>(this->_data);
+        DataType& msm_collision_x4                   = std::get<63>(this->_data);
+        DataType& msm_lambda1                        = std::get<64>(this->_data);
+        DataType& msm_lambda2                        = std::get<65>(this->_data);
+        DataType& msm_lambda3                        = std::get<66>(this->_data);
+        DataType& msm_lambda4                        = std::get<67>(this->_data);
+        DataType& msm_slice1                         = std::get<68>(this->_data);
+        DataType& msm_slice2                         = std::get<69>(this->_data);
+        DataType& msm_slice3                         = std::get<70>(this->_data);
+        DataType& msm_slice4                         = std::get<71>(this->_data);
+        DataType& transcript_accumulator_empty       = std::get<72>(this->_data);
+        DataType& transcript_reset_accumulator       = std::get<73>(this->_data);
+        DataType& precompute_select                  = std::get<74>(this->_data);
+        DataType& lookup_read_counts_0               = std::get<75>(this->_data);
+        DataType& lookup_read_counts_1               = std::get<76>(this->_data);
+        DataType& z_perm                             = std::get<77>(this->_data);
+        DataType& lookup_inverses                    = std::get<78>(this->_data);
+        DataType& transcript_mul_shift               = std::get<79>(this->_data);
+        DataType& transcript_msm_count_shift         = std::get<80>(this->_data);
+        DataType& transcript_accumulator_x_shift     = std::get<81>(this->_data);
+        DataType& transcript_accumulator_y_shift     = std::get<82>(this->_data);
+        DataType& precompute_scalar_sum_shift        = std::get<83>(this->_data);
+        DataType& precompute_s1hi_shift              = std::get<84>(this->_data);
+        DataType& precompute_dx_shift                = std::get<85>(this->_data);
+        DataType& precompute_dy_shift                = std::get<86>(this->_data);
+        DataType& precompute_tx_shift                = std::get<87>(this->_data);
+        DataType& precompute_ty_shift                = std::get<88>(this->_data);
+        DataType& msm_transition_shift               = std::get<89>(this->_data);
+        DataType& msm_add_shift                      = std::get<90>(this->_data);
+        DataType& msm_double_shift                   = std::get<91>(this->_data);
+        DataType& msm_skew_shift                     = std::get<92>(this->_data);
+        DataType& msm_accumulator_x_shift            = std::get<93>(this->_data);
+        DataType& msm_accumulator_y_shift            = std::get<94>(this->_data);
+        DataType& msm_count_shift                    = std::get<95>(this->_data);
+        DataType& msm_round_shift                    = std::get<96>(this->_data);
+        DataType& msm_add1_shift                     = std::get<97>(this->_data);
+        DataType& msm_pc_shift                       = std::get<98>(this->_data);
+        DataType& precompute_pc_shift                = std::get<99>(this->_data);
+        DataType& transcript_pc_shift                = std::get<100>(this->_data);
+        DataType& precompute_round_shift             = std::get<101>(this->_data);
+        DataType& transcript_accumulator_empty_shift = std::get<102>(this->_data);
+        DataType& precompute_select_shift            = std::get<103>(this->_data);
+        DataType& z_perm_shift                       = std::get<104>(this->_data);
 
         template <size_t index>
         [[nodiscard]] const DataType& lookup_read_counts() const
@@ -650,18 +651,46 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
     using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment, CommitmentHandle>>;
 
     /**
-     * @brief A container for polynomials handles; only stores spans.
-     */
-    using ProverPolynomials = AllEntities<PolynomialHandle, PolynomialHandle>;
-
-    /**
      * @brief A container for polynomials produced after the first round of sumcheck.
      * @todo TODO(#394) Use polynomial classes for guaranteed memory alignment.
      */
     using FoldedPolynomials = AllEntities<std::vector<FF>, PolynomialHandle>;
 
-    using RawPolynomials = AllEntities<Polynomial, PolynomialHandle>;
+    /**
+     * @brief A field element for each entity of the flavor.  These entities represent the prover polynomials evaluated
+     * at one point.
+     */
+    class AllValues : public AllEntities<FF, FF> {
+      public:
+        using Base = AllEntities<FF, FF>;
+        using Base::Base;
+        AllValues(std::array<FF, NUM_ALL_ENTITIES> _data_in) { this->_data = _data_in; }
+    };
 
+    /**
+     * @brief An owning container of polynomials.
+     * @warning When this was introduced it broke some of our design principles.
+     *   - Execution trace builders don't handle "polynomials" because the interpretation of the execution trace columns
+     *     as polynomials is a detail of the proving system, and trace builders are (sometimes in practice, always in
+     *     principle) reusable for different proving protocols (e.g., Plonk and Honk).
+     *   - Polynomial storage is handled by key classes. Polynomials aren't moved, but are accessed elsewhere by
+     * std::spans.
+     *
+     *  We will consider revising this data model: TODO(https://github.com/AztecProtocol/barretenberg/issues/743)
+     */
+    class AllPolynomials : public AllEntities<Polynomial, PolynomialHandle> {
+      public:
+        AllValues get_row(const size_t row_idx) const
+        {
+            AllValues result;
+            size_t column_idx = 0; // // TODO(https://github.com/AztecProtocol/barretenberg/issues/391) zip
+            for (auto& column : this->_data) {
+                result[column_idx] = column[row_idx];
+                column_idx++;
+            }
+            return result;
+        }
+    };
     /**
      * @brief A container for polynomials produced after the first round of sumcheck.
      * @todo TODO(#394) Use polynomial classes for guaranteed memory alignment.
@@ -685,22 +714,35 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
     };
 
     /**
-     * @brief A container for univariates produced during the hot loop in sumcheck.
-     * @todo TODO(#390): Simplify this by moving MAX_RELATION_LENGTH?
+     * @brief A container for univariates used during sumcheck.
      */
-    template <size_t MAX_RELATION_LENGTH>
-    using ExtendedEdges = AllEntities<barretenberg::Univariate<FF, MAX_RELATION_LENGTH>,
-                                      barretenberg::Univariate<FF, MAX_RELATION_LENGTH>>;
+    template <size_t LENGTH>
+    using ProverUnivariates = AllEntities<barretenberg::Univariate<FF, LENGTH>, barretenberg::Univariate<FF, LENGTH>>;
 
     /**
-     * @brief A container for the polynomials evaluations produced during sumcheck, which are purported to be the
-     * evaluations of polynomials committed in earlier rounds.
+     * @brief A container for univariates produced during the hot loop in sumcheck.
      */
-    class ClaimedEvaluations : public AllEntities<FF, FF> {
+    using ExtendedEdges = ProverUnivariates<MAX_PARTIAL_RELATION_LENGTH>;
+
+    /**
+     * @brief A container for the prover polynomials handles; only stores spans.
+     */
+    class ProverPolynomials : public AllEntities<PolynomialHandle, PolynomialHandle> {
       public:
-        using Base = AllEntities<FF, FF>;
-        using Base::Base;
-        ClaimedEvaluations(std::array<FF, NUM_ALL_ENTITIES> _data_in) { this->_data = _data_in; }
+        /**
+         * @brief Returns the evaluations of all prover polynomials at one point on the boolean hypercube, which
+         * represents one row in the execution trace.
+         */
+        AllValues get_row(const size_t row_idx)
+        {
+            AllValues result;
+            size_t column_idx = 0; // TODO(https://github.com/AztecProtocol/barretenberg/issues/391) zip
+            for (auto& column : this->_data) {
+                result[column_idx] = column[row_idx];
+                column_idx++;
+            }
+            return result;
+        }
     };
 
     /**
@@ -806,12 +848,430 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
 
       public:
         VerifierCommitments(const std::shared_ptr<VerificationKey>& verification_key,
-                            const VerifierTranscript<FF>& transcript)
+                            [[maybe_unused]] const BaseTranscript<FF>& transcript)
         {
             static_cast<void>(transcript);
             Base::lagrange_first = verification_key->lagrange_first;
             Base::lagrange_second = verification_key->lagrange_second;
             Base::lagrange_last = verification_key->lagrange_last;
+        }
+    };
+
+    /**
+     * @brief Derived class that defines proof structure for ECCVM proofs, as well as supporting functions.
+     *
+     */
+    class Transcript : public BaseTranscript<FF> {
+      public:
+        uint32_t circuit_size;
+        Commitment transcript_add_comm;
+        Commitment transcript_mul_comm;
+        Commitment transcript_eq_comm;
+        Commitment transcript_collision_check_comm;
+        Commitment transcript_msm_transition_comm;
+        Commitment transcript_pc_comm;
+        Commitment transcript_msm_count_comm;
+        Commitment transcript_x_comm;
+        Commitment transcript_y_comm;
+        Commitment transcript_z1_comm;
+        Commitment transcript_z2_comm;
+        Commitment transcript_z1zero_comm;
+        Commitment transcript_z2zero_comm;
+        Commitment transcript_op_comm;
+        Commitment transcript_accumulator_x_comm;
+        Commitment transcript_accumulator_y_comm;
+        Commitment transcript_msm_x_comm;
+        Commitment transcript_msm_y_comm;
+        Commitment precompute_pc_comm;
+        Commitment precompute_point_transition_comm;
+        Commitment precompute_round_comm;
+        Commitment precompute_scalar_sum_comm;
+        Commitment precompute_s1hi_comm;
+        Commitment precompute_s1lo_comm;
+        Commitment precompute_s2hi_comm;
+        Commitment precompute_s2lo_comm;
+        Commitment precompute_s3hi_comm;
+        Commitment precompute_s3lo_comm;
+        Commitment precompute_s4hi_comm;
+        Commitment precompute_s4lo_comm;
+        Commitment precompute_skew_comm;
+        Commitment precompute_dx_comm;
+        Commitment precompute_dy_comm;
+        Commitment precompute_tx_comm;
+        Commitment precompute_ty_comm;
+        Commitment msm_transition_comm;
+        Commitment msm_add_comm;
+        Commitment msm_double_comm;
+        Commitment msm_skew_comm;
+        Commitment msm_accumulator_x_comm;
+        Commitment msm_accumulator_y_comm;
+        Commitment msm_pc_comm;
+        Commitment msm_size_of_msm_comm;
+        Commitment msm_count_comm;
+        Commitment msm_round_comm;
+        Commitment msm_add1_comm;
+        Commitment msm_add2_comm;
+        Commitment msm_add3_comm;
+        Commitment msm_add4_comm;
+        Commitment msm_x1_comm;
+        Commitment msm_y1_comm;
+        Commitment msm_x2_comm;
+        Commitment msm_y2_comm;
+        Commitment msm_x3_comm;
+        Commitment msm_y3_comm;
+        Commitment msm_x4_comm;
+        Commitment msm_y4_comm;
+        Commitment msm_collision_x1_comm;
+        Commitment msm_collision_x2_comm;
+        Commitment msm_collision_x3_comm;
+        Commitment msm_collision_x4_comm;
+        Commitment msm_lambda1_comm;
+        Commitment msm_lambda2_comm;
+        Commitment msm_lambda3_comm;
+        Commitment msm_lambda4_comm;
+        Commitment msm_slice1_comm;
+        Commitment msm_slice2_comm;
+        Commitment msm_slice3_comm;
+        Commitment msm_slice4_comm;
+        Commitment transcript_accumulator_empty_comm;
+        Commitment transcript_reset_accumulator_comm;
+        Commitment precompute_select_comm;
+        Commitment lookup_read_counts_0_comm;
+        Commitment lookup_read_counts_1_comm;
+        Commitment z_perm_comm;
+        Commitment lookup_inverses_comm;
+        std::vector<barretenberg::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
+        std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
+        std::vector<Commitment> gemini_univariate_comms;
+        std::vector<FF> gemini_a_evals;
+        Commitment shplonk_q_comm;
+        Commitment kzg_w_comm;
+        // the rest are only for Grumpkin
+        uint64_t ipa_poly_degree;
+        std::vector<Commitment> ipa_l_comms;
+        std::vector<Commitment> ipa_r_comms;
+        FF ipa_a_0_eval;
+
+        Transcript() = default;
+
+        Transcript(const std::vector<uint8_t>& proof)
+            : BaseTranscript<FF>(proof)
+        {}
+
+        void deserialize_full_transcript() override
+        {
+            // take current proof and put them into the struct
+            size_t num_bytes_read = 0;
+            circuit_size = BaseTranscript<FF>::template deserialize_from_buffer<uint32_t>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            size_t log_n = numeric::get_msb(circuit_size);
+            transcript_add_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            transcript_mul_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            transcript_eq_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            transcript_collision_check_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            transcript_msm_transition_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            transcript_pc_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            transcript_msm_count_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            transcript_x_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            transcript_y_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            transcript_z1_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            transcript_z2_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            transcript_z1zero_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            transcript_z2zero_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            transcript_op_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            transcript_accumulator_x_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            transcript_accumulator_y_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            transcript_msm_x_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            transcript_msm_y_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            precompute_pc_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            precompute_point_transition_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            precompute_round_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            precompute_scalar_sum_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            precompute_s1hi_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            precompute_s1lo_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            precompute_s2hi_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            precompute_s2lo_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            precompute_s3hi_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            precompute_s3lo_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            precompute_s4hi_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            precompute_s4lo_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            precompute_skew_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            precompute_dx_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            precompute_dy_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            precompute_tx_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            precompute_ty_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_transition_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_add_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_double_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_skew_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_accumulator_x_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_accumulator_y_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_pc_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_size_of_msm_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_count_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_round_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_add1_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_add2_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_add3_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_add4_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_x1_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_y1_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_x2_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_y2_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_x3_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_y3_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_x4_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_y4_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_collision_x1_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_collision_x2_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_collision_x3_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_collision_x4_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_lambda1_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_lambda2_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_lambda3_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_lambda4_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_slice1_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_slice2_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_slice3_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            msm_slice4_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            transcript_accumulator_empty_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            transcript_reset_accumulator_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            precompute_select_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            lookup_read_counts_0_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            lookup_read_counts_1_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            lookup_inverses_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            z_perm_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            for (size_t i = 0; i < log_n; ++i) {
+                sumcheck_univariates.emplace_back(BaseTranscript<FF>::template deserialize_from_buffer<
+                                                  barretenberg::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
+                    BaseTranscript<FF>::proof_data, num_bytes_read));
+            }
+            sumcheck_evaluations =
+                BaseTranscript<FF>::template deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(
+                    BaseTranscript<FF>::proof_data, num_bytes_read);
+            for (size_t i = 0; i < log_n - 1; ++i) {
+                gemini_univariate_comms.emplace_back(BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                    BaseTranscript<FF>::proof_data, num_bytes_read));
+            }
+            for (size_t i = 0; i < log_n; ++i) {
+                gemini_a_evals.emplace_back(BaseTranscript<FF>::template deserialize_from_buffer<FF>(
+                    BaseTranscript<FF>::proof_data, num_bytes_read));
+            }
+            shplonk_q_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
+            if (std::is_same<PCS, pcs::kzg::KZG<curve::BN254>>::value) {
+                kzg_w_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                    BaseTranscript<FF>::proof_data, num_bytes_read);
+            } else if (std::is_same<PCS, pcs::ipa::IPA<curve::Grumpkin>>::value) {
+                ipa_poly_degree = BaseTranscript<FF>::template deserialize_from_buffer<uint64_t>(
+                    BaseTranscript<FF>::proof_data, num_bytes_read);
+                auto log_poly_degree = static_cast<size_t>(numeric::get_msb(ipa_poly_degree));
+                for (size_t i = 0; i < log_poly_degree; ++i) {
+                    ipa_l_comms.emplace_back(BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                        BaseTranscript<FF>::proof_data, num_bytes_read));
+                    ipa_r_comms.emplace_back(BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+                        BaseTranscript<FF>::proof_data, num_bytes_read));
+                }
+                ipa_a_0_eval = BaseTranscript<FF>::template deserialize_from_buffer<FF>(BaseTranscript<FF>::proof_data,
+                                                                                        num_bytes_read);
+            } else {
+                throw_or_abort("Unsupported PCS");
+            }
+        }
+
+        void serialize_full_transcript() override
+        {
+            size_t old_proof_length = BaseTranscript<FF>::proof_data.size();
+            BaseTranscript<FF>::proof_data.clear();
+            size_t log_n = numeric::get_msb(circuit_size);
+
+            BaseTranscript<FF>::template serialize_to_buffer(circuit_size, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(transcript_add_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(transcript_mul_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(transcript_eq_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(transcript_collision_check_comm,
+                                                             BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(transcript_msm_transition_comm,
+                                                             BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(transcript_pc_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(transcript_msm_count_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(transcript_x_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(transcript_y_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(transcript_z1_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(transcript_z2_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(transcript_z1zero_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(transcript_z2zero_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(transcript_op_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(transcript_accumulator_x_comm,
+                                                             BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(transcript_accumulator_y_comm,
+                                                             BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(transcript_msm_x_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(transcript_msm_y_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(precompute_pc_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(precompute_point_transition_comm,
+                                                             BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(precompute_round_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(precompute_scalar_sum_comm,
+                                                             BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(precompute_s1hi_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(precompute_s1lo_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(precompute_s2hi_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(precompute_s2lo_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(precompute_s3hi_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(precompute_s3lo_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(precompute_s4hi_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(precompute_s4lo_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(precompute_skew_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(precompute_dx_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(precompute_dy_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(precompute_tx_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(precompute_ty_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(msm_transition_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(msm_add_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(msm_double_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(msm_skew_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(msm_accumulator_x_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(msm_accumulator_y_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(msm_pc_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(msm_size_of_msm_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(msm_count_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(msm_round_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(msm_add1_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(msm_add2_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(msm_add3_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(msm_add4_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(msm_x1_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(msm_y1_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(msm_x2_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(msm_y2_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(msm_x3_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(msm_y3_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(msm_x4_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(msm_y4_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(msm_collision_x1_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(msm_collision_x2_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(msm_collision_x3_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(msm_collision_x4_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(msm_lambda1_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(msm_lambda2_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(msm_lambda3_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(msm_lambda4_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(msm_slice1_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(msm_slice2_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(msm_slice3_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(msm_slice4_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(transcript_accumulator_empty_comm,
+                                                             BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(transcript_reset_accumulator_comm,
+                                                             BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(precompute_select_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(lookup_read_counts_0_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(lookup_read_counts_1_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(lookup_inverses_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(z_perm_comm, BaseTranscript<FF>::proof_data);
+            for (size_t i = 0; i < log_n; ++i) {
+                BaseTranscript<FF>::template serialize_to_buffer(sumcheck_univariates[i],
+                                                                 BaseTranscript<FF>::proof_data);
+            }
+            BaseTranscript<FF>::template serialize_to_buffer(sumcheck_evaluations, BaseTranscript<FF>::proof_data);
+            for (size_t i = 0; i < log_n - 1; ++i) {
+                BaseTranscript<FF>::template serialize_to_buffer(gemini_univariate_comms[i],
+                                                                 BaseTranscript<FF>::proof_data);
+            }
+            for (size_t i = 0; i < log_n; ++i) {
+                BaseTranscript<FF>::template serialize_to_buffer(gemini_a_evals[i], BaseTranscript<FF>::proof_data);
+            }
+            BaseTranscript<FF>::template serialize_to_buffer(shplonk_q_comm, BaseTranscript<FF>::proof_data);
+            if (std::is_same<PCS, pcs::kzg::KZG<curve::BN254>>::value) {
+                BaseTranscript<FF>::template serialize_to_buffer(kzg_w_comm, BaseTranscript<FF>::proof_data);
+            } else if (std::is_same<PCS, pcs::ipa::IPA<curve::Grumpkin>>::value) {
+                BaseTranscript<FF>::template serialize_to_buffer(ipa_poly_degree, BaseTranscript<FF>::proof_data);
+                auto log_poly_degree = static_cast<size_t>(numeric::get_msb(ipa_poly_degree));
+                for (size_t i = 0; i < log_poly_degree; ++i) {
+                    BaseTranscript<FF>::template serialize_to_buffer(ipa_l_comms[i], BaseTranscript<FF>::proof_data);
+                    BaseTranscript<FF>::template serialize_to_buffer(ipa_r_comms[i], BaseTranscript<FF>::proof_data);
+                }
+
+                BaseTranscript<FF>::template serialize_to_buffer(ipa_a_0_eval, BaseTranscript<FF>::proof_data);
+            }
+            ASSERT(BaseTranscript<FF>::proof_data.size() == old_proof_length);
         }
     };
 };

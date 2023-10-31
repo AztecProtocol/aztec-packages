@@ -1,5 +1,6 @@
 use crate::context::{PrivateContext, PublicContext, Context};
 use dep::std::option::Option;
+use crate::hash::pedersen_hash;
 
 // docs:start:map
 struct Map<V> {
@@ -11,7 +12,7 @@ struct Map<V> {
 
 impl<V> Map<V> {
     // docs:start:new
-    fn new(
+    pub fn new(
         context: Context,
         storage_slot: Field,
         state_var_constructor: fn(Context, Field) -> V,
@@ -26,9 +27,9 @@ impl<V> Map<V> {
     // docs:end:new
 
     // docs:start:at
-    fn at(self, key: Field) -> V {
+    pub fn at(self, key: Field) -> V {
         // TODO(#1204): use a generator index for the storage slot
-        let derived_storage_slot = dep::std::hash::pedersen([self.storage_slot, key])[0];
+        let derived_storage_slot = pedersen_hash([self.storage_slot, key],0);
 
         let state_var_constructor = self.state_var_constructor;
         state_var_constructor(self.context, derived_storage_slot)

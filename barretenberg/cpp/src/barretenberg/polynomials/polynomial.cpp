@@ -3,6 +3,7 @@
 #include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/thread_utils.hpp"
+#include "barretenberg/numeric/bitop/pow.hpp"
 #include "polynomial_arithmetic.hpp"
 #include <cstddef>
 #include <fcntl.h>
@@ -17,15 +18,40 @@ namespace barretenberg {
 /**
  * Constructors / Destructors
  **/
+
+/**
+ * @brief Initialize a Polynomial to size 'initial_size', zeroing memory.
+ *
+ * @param initial_size The initial size of the polynomial.
+ */
 template <typename Fr>
-Polynomial<Fr>::Polynomial(const size_t size_)
+Polynomial<Fr>::Polynomial(size_t initial_size)
     : coefficients_(nullptr)
-    , size_(size_)
+    , size_(initial_size)
 {
     if (capacity() > 0) {
         coefficients_ = allocate_aligned_memory(sizeof(Fr) * capacity());
     }
     memset(static_cast<void*>(coefficients_.get()), 0, sizeof(Fr) * capacity());
+}
+
+/**
+ * @brief Initialize a Polynomial to size 'initial_size'.
+ * Important: This does NOT zero memory.
+ *
+ * @param initial_size The initial size of the polynomial.
+ * @param flag Signals that we do not zero memory.
+ */
+template <typename Fr>
+Polynomial<Fr>::Polynomial(size_t initial_size, DontZeroMemory flag)
+    : coefficients_(nullptr)
+    , size_(initial_size)
+{
+    // Flag is unused, but we don't memset 0 if passed.
+    (void)flag;
+    if (capacity() > 0) {
+        coefficients_ = allocate_aligned_memory(sizeof(Fr) * capacity());
+    }
 }
 
 template <typename Fr>
@@ -129,7 +155,7 @@ template <typename Fr> Fr Polynomial<Fr>::evaluate(const Fr& z) const
 /**
  * @brief sets a block of memory to all zeroes
  * Used to zero out unintialized memory to ensure that, when writing to the polynomial in future,
- * memory requests made to the OS do not return virtual pages (performance optimisation).
+ * memory requests made to the OS do not return virtual pages (performance optimization).
  * Used, for example, when one polynomial is instantiated from another one with size_>= other.size_.
  *
  * @param opening_proof Opening proof computed by `batch_open`
@@ -414,6 +440,48 @@ template <typename Fr> Fr Polynomial<Fr>::evaluate_mle(std::span<const Fr> evalu
         }
     }
     Fr result = tmp[0];
+    return result;
+}
+
+template <typename Fr> Polynomial<Fr> Polynomial<Fr>::partial_evaluate_mle(std::span<const Fr> evaluation_points) const
+{
+    // Get size of partial evaluation point u = (u_0,...,u_{m-1})
+    const size_t m = evaluation_points.size();
+
+    // Assert that the size of the polynomial being evaluated is a power of 2 greater than (1 << m)
+    ASSERT(numeric::is_power_of_two(size_));
+    ASSERT(size_ >= static_cast<size_t>(1 << m));
+    size_t n = numeric::get_msb(size_);
+
+    // Partial evaluation is done in m rounds l = 0,...,m-1. At the end of round l, the polynomial has been partially
+    // evaluated at u_{m-l-1}, ..., u_{m-1} in variables X_{n-l-1}, ..., X_{n-1}. The size of this polynomial is n_l.
+    size_t n_l = 1 << (n - 1);
+
+    // Temporary buffer of half the size of the polynomial
+    Polynomial<Fr> intermediate(n_l, DontZeroMemory::FLAG);
+
+    // Evaluate variable X_{n-1} at u_{m-1}
+    Fr u_l = evaluation_points[m - 1];
+
+    for (size_t i = 0; i < n_l; i++) {
+        // Initiate our intermediate results using this polynomial.
+        intermediate[i] = at(i) + u_l * (at(i + n_l) - at(i));
+    }
+    // Evaluate m-1 variables X_{n-l-1}, ..., X_{n-2} at m-1 remaining values u_0,...,u_{m-2})
+    for (size_t l = 1; l < m; ++l) {
+        n_l = 1 << (n - l - 1);
+        u_l = evaluation_points[m - l - 1];
+        for (size_t i = 0; i < n_l; ++i) {
+            intermediate[i] += u_l * (intermediate[i + n_l] - intermediate[i]);
+        }
+    }
+
+    // Construct resulting polynomial g(X_0,…,X_{n-m-1})) = p(X_0,…,X_{n-m-1},u_0,...u_{m-1}) from buffer
+    Polynomial<Fr> result(n_l, DontZeroMemory::FLAG);
+    for (size_t idx = 0; idx < n_l; ++idx) {
+        result[idx] = intermediate[idx];
+    }
+
     return result;
 }
 

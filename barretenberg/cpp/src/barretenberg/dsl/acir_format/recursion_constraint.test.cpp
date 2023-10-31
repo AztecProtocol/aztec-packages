@@ -8,6 +8,10 @@
 
 using namespace proof_system::plonk;
 
+class AcirRecursionConstraint : public ::testing::Test {
+  protected:
+    static void SetUpTestSuite() { barretenberg::srs::init_crs_factory("../srs_db/ignition"); }
+};
 namespace acir_format::test {
 Builder create_inner_circuit()
 {
@@ -89,6 +93,7 @@ Builder create_inner_circuit()
                                    .keccak_constraints = {},
                                    .keccak_var_constraints = {},
                                    .pedersen_constraints = {},
+                                   .pedersen_hash_constraints = {},
                                    .hash_to_field_constraints = {},
                                    .fixed_base_scalar_mul_constraints = {},
                                    .recursion_constraints = {},
@@ -138,7 +143,7 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
 
         transcript::StandardTranscript transcript(inner_proof.proof_data,
                                                   Composer::create_manifest(num_inner_public_inputs),
-                                                  transcript::HashType::PlookupPedersenBlake3s,
+                                                  transcript::HashType::PedersenBlake3s,
                                                   16);
 
         const std::vector<barretenberg::fr> proof_witnesses = export_transcript_in_recursion_format(transcript);
@@ -215,6 +220,7 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
                                    .keccak_constraints = {},
                                    .keccak_var_constraints = {},
                                    .pedersen_constraints = {},
+                                   .pedersen_hash_constraints = {},
                                    .hash_to_field_constraints = {},
                                    .fixed_base_scalar_mul_constraints = {},
                                    .recursion_constraints = recursion_constraints,
@@ -226,7 +232,7 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
     return outer_circuit;
 }
 
-TEST(RecursionConstraint, TestBasicDoubleRecursionConstraints)
+TEST_F(AcirRecursionConstraint, TestBasicDoubleRecursionConstraints)
 {
     std::vector<Builder> layer_1_circuits;
     layer_1_circuits.push_back(create_inner_circuit());
@@ -245,7 +251,7 @@ TEST(RecursionConstraint, TestBasicDoubleRecursionConstraints)
     EXPECT_EQ(verifier.verify_proof(proof), true);
 }
 
-TEST(RecursionConstraint, TestOneOuterRecursiveCircuit)
+TEST_F(AcirRecursionConstraint, TestOneOuterRecursiveCircuit)
 {
     /**
      * We want to test the following:
@@ -302,7 +308,7 @@ TEST(RecursionConstraint, TestOneOuterRecursiveCircuit)
     EXPECT_EQ(verifier.verify_proof(proof), true);
 }
 
-TEST(RecursionConstraint, TestFullRecursiveComposition)
+TEST_F(AcirRecursionConstraint, TestFullRecursiveComposition)
 {
     std::vector<Builder> layer_b_1_circuits;
     layer_b_1_circuits.push_back(create_inner_circuit());

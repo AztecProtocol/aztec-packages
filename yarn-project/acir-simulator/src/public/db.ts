@@ -65,9 +65,9 @@ export interface CommitmentsDB {
   getL1ToL2Message(msgKey: Fr): Promise<MessageLoadOracleInputs>;
 
   /**
-   * Find the index of the given commitment.
-   * @param leafValue - The value to search for.
-   * @returns The index of the given leaf of undefined if not found.
+   * Find the index of the given commitment in the note hash tree.
+   * @param commitment - The commitment.
+   * @returns The index of the commitment. Undefined if it does not exist in the tree.
    */
-  findCommitmentIndex(leafValue: Buffer): Promise<bigint | undefined>;
+  findCommitmentIndex(commitment: Fr): Promise<bigint | undefined>;
 }

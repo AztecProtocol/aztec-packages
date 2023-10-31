@@ -18,7 +18,7 @@ namespace test_eccvm_composer {
 
 template <typename Flavor> class ECCVMComposerTests : public ::testing::Test {
   protected:
-    // TODO(640): The Standard Honk on Grumpkin test suite fails unless the SRS is initialised for every test.
+    // TODO(640): The Standard Honk on Grumpkin test suite fails unless the SRS is initialized for every test.
     void SetUp() override
     {
         if constexpr (std::is_same<Flavor, flavor::ECCVMGrumpkin>::value) {
@@ -42,7 +42,7 @@ proof_system::ECCVMCircuitBuilder<Flavor> generate_trace(numeric::random::Engine
     using G1 = typename Flavor::CycleGroup;
     using Fr = typename G1::Fr;
 
-    auto generators = G1::template derive_generators<3>();
+    auto generators = G1::derive_generators("test generators", 3);
 
     typename G1::element a = generators[0];
     typename G1::element b = generators[1];

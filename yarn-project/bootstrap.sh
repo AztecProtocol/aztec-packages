@@ -6,7 +6,7 @@ cd "$(dirname "$0")"
 
 if [ "$(uname)" = "Darwin" ]; then
   # works around https://github.com/AztecProtocol/aztec3-packages/issues/158
-  echo "Note: not sourcing nvm on Mac, see github #158"
+    echo "Note: not sourcing nvm on Mac, see github #158"
 else
   \. ~/.nvm/nvm.sh
 fi
@@ -29,10 +29,9 @@ yarn --cwd circuits.js remake-bindings
 yarn --cwd circuits.js remake-constants
 
 (cd noir-contracts && ./bootstrap.sh)
+(cd boxes && ./bootstrap.sh)
 (cd .. && l1-contracts/bootstrap.sh)
 
-# Until we push .yarn/cache, we still need to install.
-yarn
 # We do not need to build individual packages, yarn build will build the root tsconfig.json
 yarn build
 

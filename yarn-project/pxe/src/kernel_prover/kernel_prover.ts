@@ -1,4 +1,4 @@
-import { ExecutionResult, NewNoteData } from '@aztec/acir-simulator';
+import { ExecutionResult, NoteAndSlot } from '@aztec/acir-simulator';
 import {
   AztecAddress,
   CONTRACT_TREE_HEIGHT,
@@ -42,7 +42,7 @@ export interface OutputNoteData {
   /**
    * The encrypted note data for an output note.
    */
-  data: NewNoteData;
+  data: NoteAndSlot;
   /**
    * The unique value representing the note.
    */
@@ -138,11 +138,6 @@ export class KernelProver {
       );
 
       if (firstIteration) {
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/778): remove historic root
-        // from app circuit public inputs and add it to PrivateCallData
-        privateCallData.callStackItem.publicInputs.historicBlockData.privateDataTreeRoot =
-          await this.oracle.getPrivateDataRoot();
-
         output = await this.proofCreator.createProofInit(new PrivateKernelInputsInit(txRequest, privateCallData));
       } else {
         const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(previousVerificationKey);
@@ -236,11 +231,11 @@ export class KernelProver {
 
   /**
    * Retrieves the new output notes for a given execution result.
-   * The function maps over the new note preimages and associates them with their corresponding
+   * The function maps over the new notes and associates them with their corresponding
    * commitments in the public inputs of the execution result. It also includes the contract address
    * from the call context of the public inputs.
    *
-   * @param executionResult - The execution result object containing note preimages and public inputs.
+   * @param executionResult - The execution result object containing notes and public inputs.
    * @returns An array of OutputNoteData objects, each representing an output note with its associated data.
    */
   private async getNewNotes(executionResult: ExecutionResult): Promise<OutputNoteData[]> {

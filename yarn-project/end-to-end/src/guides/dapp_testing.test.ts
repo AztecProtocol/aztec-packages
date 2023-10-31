@@ -3,7 +3,7 @@ import {
   AccountWallet,
   CheatCodes,
   Fr,
-  L2BlockL2Logs,
+  Note,
   PXE,
   computeMessageSecretHash,
   createAccount,
@@ -13,76 +13,52 @@ import {
 } from '@aztec/aztec.js';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { TestContract, TokenContract } from '@aztec/noir-contracts/types';
+import { ExtendedNote } from '@aztec/types';
 
-const { SANDBOX_URL = 'http://localhost:8080', ETHEREUM_HOST = 'http://localhost:8545' } = process.env;
+const { PXE_URL = 'http://localhost:8080', ETHEREUM_HOST = 'http://localhost:8545' } = process.env;
 
 describe('guides/dapp/testing', () => {
-  describe('on in-proc sandbox', () => {
-    describe('private token contract', () => {
-      let pxe: PXE;
-      let stop: () => Promise<void>;
-      let owner: AccountWallet;
-      let recipient: AccountWallet;
-      let token: TokenContract;
-
-      beforeAll(async () => {
-        // docs:start:in-proc-sandbox
-        ({ pxe, stop } = await createSandbox());
-        // docs:end:in-proc-sandbox
-        owner = await createAccount(pxe);
-        recipient = await createAccount(pxe);
-        token = await TokenContract.deploy(owner).send().deployed();
-        await token.methods._initialize(owner.getAddress()).send().wait();
-      }, 60_000);
-
-      // docs:start:stop-in-proc-sandbox
-      afterAll(() => stop());
-      // docs:end:stop-in-proc-sandbox
-
-      it('increases recipient funds on mint', async () => {
-        expect(await token.methods.balance_of_private(recipient.getAddress()).view()).toEqual(0n);
-        const secret = Fr.random();
-        const secretHash = await computeMessageSecretHash(secret);
-        await token.methods.mint_private(20n, secretHash).send().wait();
-        await token.methods.redeem_shield(recipient.getAddress(), 20n, secret).send().wait();
-        expect(await token.methods.balance_of_private(recipient.getAddress()).view()).toEqual(20n);
-      }, 30_000);
-    });
-  });
-
   describe('on local sandbox', () => {
     beforeAll(async () => {
-      const pxe = createPXEClient(SANDBOX_URL);
+      const pxe = createPXEClient(PXE_URL);
       await waitForSandbox(pxe);
     });
 
     // docs:start:sandbox-example
-    describe('private token contract', () => {
+    describe('token contract', () => {
       let pxe: PXE;
       let owner: AccountWallet;
       let recipient: AccountWallet;
       let token: TokenContract;
 
       beforeEach(async () => {
-        pxe = createPXEClient(SANDBOX_URL);
+        pxe = createPXEClient(PXE_URL);
         owner = await createAccount(pxe);
         recipient = await createAccount(pxe);
-        token = await TokenContract.deploy(owner).send().deployed();
-        await token.methods._initialize(owner.getAddress()).send().wait();
+        token = await TokenContract.deploy(owner, owner.getCompleteAddress()).send().deployed();
       }, 30_000);
 
       it('increases recipient funds on mint', async () => {
-        expect(await token.methods.balance_of_private(recipient.getAddress()).view()).toEqual(0n);
+        const recipientAddress = recipient.getAddress();
+        expect(await token.methods.balance_of_private(recipientAddress).view()).toEqual(0n);
+
+        const mintAmount = 20n;
         const secret = Fr.random();
         const secretHash = await computeMessageSecretHash(secret);
-        await token.methods.mint_private(20n, secretHash).send().wait();
-        await token.methods.redeem_shield(recipient.getAddress(), 20n, secret).send().wait();
-        expect(await token.methods.balance_of_private(recipient.getAddress()).view()).toEqual(20n);
+        const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
+
+        const storageSlot = new Fr(5); // The storage slot of `pending_shields` is 5.
+        const note = new Note([new Fr(mintAmount), secretHash]);
+        const extendedNote = new ExtendedNote(note, recipientAddress, token.address, storageSlot, receipt.txHash);
+        await pxe.addNote(extendedNote);
+
+        await token.methods.redeem_shield(recipientAddress, mintAmount, secret).send().wait();
+        expect(await token.methods.balance_of_private(recipientAddress).view()).toEqual(20n);
       }, 30_000);
     });
     // docs:end:sandbox-example
 
-    describe('private token contract with initial accounts', () => {
+    describe('token contract with initial accounts', () => {
       let pxe: PXE;
       let owner: AccountWallet;
       let recipient: AccountWallet;
@@ -90,20 +66,27 @@ describe('guides/dapp/testing', () => {
 
       beforeEach(async () => {
         // docs:start:use-existing-wallets
-        pxe = createPXEClient(SANDBOX_URL);
+        pxe = createPXEClient(PXE_URL);
         [owner, recipient] = await getSandboxAccountsWallets(pxe);
-        token = await TokenContract.deploy(owner).send().deployed();
-        await token.methods._initialize(owner.getAddress()).send().wait();
+        token = await TokenContract.deploy(owner, owner.getCompleteAddress()).send().deployed();
         // docs:end:use-existing-wallets
       }, 30_000);
 
       it('increases recipient funds on mint', async () => {
         expect(await token.methods.balance_of_private(recipient.getAddress()).view()).toEqual(0n);
+        const recipientAddress = recipient.getAddress();
+        const mintAmount = 20n;
         const secret = Fr.random();
         const secretHash = await computeMessageSecretHash(secret);
-        await token.methods.mint_private(20n, secretHash).send().wait();
-        await token.methods.redeem_shield(recipient.getAddress(), 20n, secret).send().wait();
-        expect(await token.methods.balance_of_private(recipient.getAddress()).view()).toEqual(20n);
+        const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
+
+        const storageSlot = new Fr(5);
+        const note = new Note([new Fr(mintAmount), secretHash]);
+        const extendedNote = new ExtendedNote(note, recipientAddress, token.address, storageSlot, receipt.txHash);
+        await pxe.addNote(extendedNote);
+
+        await token.methods.redeem_shield(recipientAddress, mintAmount, secret).send().wait();
+        expect(await token.methods.balance_of_private(recipientAddress).view()).toEqual(20n);
       }, 30_000);
     });
 
@@ -114,7 +97,7 @@ describe('guides/dapp/testing', () => {
       let cheats: CheatCodes;
 
       beforeAll(async () => {
-        pxe = createPXEClient(SANDBOX_URL);
+        pxe = createPXEClient(PXE_URL);
         owner = await createAccount(pxe);
         testContract = await TestContract.deploy(owner).send().deployed();
         cheats = await CheatCodes.create(ETHEREUM_HOST, pxe);
@@ -124,7 +107,7 @@ describe('guides/dapp/testing', () => {
         // docs:start:warp
         const newTimestamp = Math.floor(Date.now() / 1000) + 60 * 60 * 24;
         await cheats.aztec.warp(newTimestamp);
-        await testContract.methods.isTimeEqual(newTimestamp).send().wait();
+        await testContract.methods.is_time_equal(newTimestamp).send().wait();
         // docs:end:warp
       });
     });
@@ -139,28 +122,40 @@ describe('guides/dapp/testing', () => {
       let ownerSlot: Fr;
 
       beforeAll(async () => {
-        pxe = createPXEClient(SANDBOX_URL);
+        pxe = createPXEClient(PXE_URL);
         owner = await createAccount(pxe);
         recipient = await createAccount(pxe);
         testContract = await TestContract.deploy(owner).send().deployed();
-        token = await TokenContract.deploy(owner).send().deployed();
-        await token.methods._initialize(owner.getAddress()).send().wait();
+        token = await TokenContract.deploy(owner, owner.getCompleteAddress()).send().deployed();
+
+        const ownerAddress = owner.getAddress();
+        const mintAmount = 100n;
         const secret = Fr.random();
         const secretHash = await computeMessageSecretHash(secret);
-        await token.methods.mint_private(100n, secretHash).send().wait();
-        await token.methods.redeem_shield(owner.getAddress(), 100n, secret).send().wait();
+        const receipt = await token.methods.mint_private(100n, secretHash).send().wait();
+
+        const storageSlot = new Fr(5);
+        const note = new Note([new Fr(mintAmount), secretHash]);
+        const extendedNote = new ExtendedNote(note, ownerAddress, token.address, storageSlot, receipt.txHash);
+        await pxe.addNote(extendedNote);
+
+        await token.methods.redeem_shield(ownerAddress, 100n, secret).send().wait();
 
         // docs:start:calc-slot
         cheats = await CheatCodes.create(ETHEREUM_HOST, pxe);
         // The balances mapping is defined on storage slot 3 and is indexed by user address
-        ownerSlot = cheats.aztec.computeSlotInMap(3n, owner.getAddress());
+        ownerSlot = cheats.aztec.computeSlotInMap(3n, ownerAddress);
         // docs:end:calc-slot
       }, 60_000);
 
       it('checks private storage', async () => {
         // docs:start:private-storage
-        const notes = await pxe.getPrivateStorageAt(owner.getAddress(), token.address, ownerSlot);
-        const values = notes.map(note => note.items[0]);
+        const notes = await pxe.getNotes({
+          owner: owner.getAddress(),
+          contractAddress: token.address,
+          storageSlot: ownerSlot,
+        });
+        const values = notes.map(note => note.note.items[0]);
         const balance = values.reduce((sum, current) => sum + current.toBigInt(), 0n);
         expect(balance).toEqual(100n);
         // docs:end:private-storage
@@ -179,9 +174,12 @@ describe('guides/dapp/testing', () => {
         // docs:start:unencrypted-logs
         const value = Fr.fromString('ef'); // Only 1 bytes will make its way in there :( so no larger stuff
         const tx = await testContract.methods.emit_unencrypted(value).send().wait();
-        const logs = await pxe.getUnencryptedLogs(tx.blockNumber!, 1);
-        const log = L2BlockL2Logs.unrollLogs(logs)[0];
-        expect(Fr.fromBuffer(log)).toEqual(value);
+        const filter = {
+          fromBlock: tx.blockNumber!,
+          limit: 1, // 1 log expected
+        };
+        const logs = (await pxe.getUnencryptedLogs(filter)).logs;
+        expect(Fr.fromBuffer(logs[0].log.data)).toEqual(value);
         // docs:end:unencrypted-logs
       });
 
@@ -225,6 +223,47 @@ describe('guides/dapp/testing', () => {
         await expect(call.send({ skipPublicSimulation: true }).wait()).rejects.toThrowError(/dropped/);
         // docs:end:pub-dropped
       });
+    });
+  });
+
+  describe('on in-proc sandbox', () => {
+    describe('token contract', () => {
+      let pxe: PXE;
+      let stop: () => Promise<void>;
+      let owner: AccountWallet;
+      let recipient: AccountWallet;
+      let token: TokenContract;
+
+      beforeAll(async () => {
+        // docs:start:in-proc-sandbox
+        ({ pxe, stop } = await createSandbox());
+        // docs:end:in-proc-sandbox
+        owner = await createAccount(pxe);
+        recipient = await createAccount(pxe);
+        token = await TokenContract.deploy(owner, owner.getCompleteAddress()).send().deployed();
+      }, 60_000);
+
+      // docs:start:stop-in-proc-sandbox
+      afterAll(() => stop());
+      // docs:end:stop-in-proc-sandbox
+
+      it('increases recipient funds on mint', async () => {
+        const recipientAddress = recipient.getAddress();
+        expect(await token.methods.balance_of_private(recipientAddress).view()).toEqual(0n);
+
+        const mintAmount = 20n;
+        const secret = Fr.random();
+        const secretHash = await computeMessageSecretHash(secret);
+        const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
+
+        const storageSlot = new Fr(5);
+        const note = new Note([new Fr(mintAmount), secretHash]);
+        const extendedNote = new ExtendedNote(note, recipientAddress, token.address, storageSlot, receipt.txHash);
+        await pxe.addNote(extendedNote);
+
+        await token.methods.redeem_shield(recipientAddress, mintAmount, secret).send().wait();
+        expect(await token.methods.balance_of_private(recipientAddress).view()).toEqual(20n);
+      }, 30_000);
     });
   });
 });

@@ -4,16 +4,18 @@ import {
   CompleteAddress,
   ContractData,
   ExtendedContractData,
-  L2BlockL2Logs,
+  ExtendedNote,
+  GetUnencryptedLogsResponse,
+  L2Block,
   L2Tx,
-  NotePreimage,
-  PublicKey,
+  LogFilter,
   Tx,
   TxExecutionRequest,
   TxHash,
   TxReceipt,
 } from '@aztec/types';
 
+import { NoteFilter } from '../notes/note_filter.js';
 import { DeployedContract } from './deployed-contract.js';
 import { NodeInfo } from './node-info.js';
 import { SyncStatus } from './sync-status.js';
@@ -27,15 +29,15 @@ import { SyncStatus } from './sync-status.js';
  */
 export interface PXE {
   /**
-   * Insert an auth witness for a given message hash. Auth witnesses are used to authorise actions on
+   * Insert an auth witness for a given message hash. Auth witnesses are used to authorize actions on
    * behalf of a user. For instance, a token transfer initiated by a different address may request
-   * authorisation from the user to move their tokens. This authorisation is granted by the user
+   * authorization from the user to move their tokens. This authorization is granted by the user
    * account contract by verifying an auth witness requested to the execution oracle. Witnesses are
-   * usually a signature over a hash of the action to be authorised, but their actual contents depend
+   * usually a signature over a hash of the action to be authorized, but their actual contents depend
    * on the account contract that consumes them.
    *
    * @param authWitness - The auth witness to insert. Composed of an identifier, which is the hash of
-   * the action to be authorised, and the actual witness as an array of fields, which are to be
+   * the action to be authorized, and the actual witness as an array of fields, which are to be
    * deserialized and processed by the account contract.
    */
   addAuthWitness(authWitness: AuthWitness): Promise<void>;
@@ -43,13 +45,14 @@ export interface PXE {
   /**
    * Registers a user account in PXE given its master encryption private key.
    * Once a new account is registered, the PXE Service will trial-decrypt all published notes on
-   * the chain and store those that correspond to the registered account.
+   * the chain and store those that correspond to the registered account. Will do nothing if the
+   * account is already registered.
    *
    * @param privKey - Private key of the corresponding user master public key.
    * @param partialAddress - The partial address of the account contract corresponding to the account being registered.
-   * @throws If the account is already registered.
+   * @returns The complete address of the account.
    */
-  registerAccount(privKey: GrumpkinPrivateKey, partialAddress: PartialAddress): Promise<void>;
+  registerAccount(privKey: GrumpkinPrivateKey, partialAddress: PartialAddress): Promise<CompleteAddress>;
 
   /**
    * Registers a recipient in PXE. This is required when sending encrypted notes to
@@ -118,7 +121,7 @@ export interface PXE {
    *
    * @param txRequest - An authenticated tx request ready for simulation
    * @param simulatePublic - Whether to simulate the public part of the transaction.
-   * @returns A transaction ready to be sent to the network for excution.
+   * @returns A transaction ready to be sent to the network for execution.
    * @throws If the code for the functions executed in this transaction has not been made available via `addContracts`.
    */
   simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx>;
@@ -148,19 +151,6 @@ export interface PXE {
   getTx(txHash: TxHash): Promise<L2Tx | undefined>;
 
   /**
-   * Retrieves the private storage data at a specified contract address and storage slot. Returns only data
-   * encrypted for the specified owner that has been already decrypted by the PXE Service. Note that there
-   * may be multiple notes for a user in a single slot.
-   *
-   * @param owner - The address for whom the private data is encrypted.
-   * @param contract - The AztecAddress of the target contract.
-   * @param storageSlot - The storage slot to be fetched.
-   * @returns A set of note preimages for the owner in that contract and slot.
-   * @throws If the contract is not deployed.
-   */
-  getPrivateStorageAt(owner: AztecAddress, contract: AztecAddress, storageSlot: Fr): Promise<NotePreimage[]>;
-
-  /**
    * Retrieves the public storage data at a specified contract address and storage slot.
    *
    * @param contract - The AztecAddress of the target contract.
@@ -171,31 +161,33 @@ export interface PXE {
   getPublicStorageAt(contract: AztecAddress, storageSlot: Fr): Promise<Buffer | undefined>;
 
   /**
-   * Adds a note to the database. Throw if the note hash of the note doesn't exist in the tree.
-   * @param contract - The contract address of the note.
-   * @param storageSlot - The storage slot of the note.
-   * @param preimage - The note preimage.
-   * @param nonce - The nonce of the note.
-   * @param account - The public key of the account the note is associated with.
+   * Gets notes based on the provided filter.
+   * @param filter - The filter to apply to the notes.
+   * @returns The requested notes.
    */
-  addNote(
-    contract: AztecAddress,
-    storageSlot: Fr,
-    preimage: NotePreimage,
-    nonce: Fr,
-    account: PublicKey,
-  ): Promise<void>;
+  getNotes(filter: NoteFilter): Promise<ExtendedNote[]>;
 
   /**
-   * Finds the nonce(s) for a note in a tx with given preimage at a specified contract address and storage slot.
-   * @param contract - The contract address of the note.
-   * @param storageSlot - The storage slot of the note.
-   * @param preimage - The note preimage.
-   * @param txHash - The tx hash of the tx containing the note.
-   * @returns The nonces of the note.
-   * @remarks More than single nonce may be returned since there might be more than one note with the same preimage.
+   * Adds a note to the database.
+   * @throws If the note hash of the note doesn't exist in the tree.
+   * @param note - The note to add.
    */
-  getNoteNonces(contract: AztecAddress, storageSlot: Fr, preimage: NotePreimage, txHash: TxHash): Promise<Fr[]>;
+  addNote(note: ExtendedNote): Promise<void>;
+
+  /**
+   * Finds the nonce(s) for a given note.
+   * @param note - The note to find the nonces for.
+   * @returns The nonces of the note.
+   * @remarks More than a single nonce may be returned since there might be more than one nonce for a given note.
+   */
+  getNoteNonces(note: ExtendedNote): Promise<Fr[]>;
+
+  /**
+   * Get the a given block.
+   * @param number - The block number being requested.
+   * @returns The blocks requested.
+   */
+  getBlock(number: number): Promise<L2Block | undefined>;
 
   /**
    * Simulate the execution of a view (read-only) function on a deployed contract without actually modifying state.
@@ -229,14 +221,11 @@ export interface PXE {
   getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined>;
 
   /**
-   * Gets unencrypted public logs from the specified block range. Logs are grouped by block and then by
-   * transaction. Use the `L2BlockL2Logs.unrollLogs` helper function to get an flattened array of logs instead.
-   *
-   * @param from - Number of the L2 block to which corresponds the first unencrypted logs to be returned.
-   * @param limit - The maximum number of unencrypted logs to return.
-   * @returns The requested unencrypted logs.
+   * Gets unencrypted logs based on the provided filter.
+   * @param filter - The filter to apply to the logs.
+   * @returns The requested logs.
    */
-  getUnencryptedLogs(from: number, limit: number): Promise<L2BlockL2Logs[]>;
+  getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse>;
 
   /**
    * Fetches the current block number.

@@ -1,6 +1,8 @@
 import {
+  ExtendedNote,
   Fr,
   L2BlockL2Logs,
+  Note,
   computeMessageSecretHash,
   createPXEClient,
   getSandboxAccountsWallets,
@@ -9,7 +11,7 @@ import { fileURLToPath } from '@aztec/foundation/url';
 
 import { getToken } from './contracts.mjs';
 
-const { SANDBOX_URL = 'http://localhost:8080' } = process.env;
+const { PXE_URL = 'http://localhost:8080' } = process.env;
 
 async function showAccounts(pxe) {
   // docs:start:showAccounts
@@ -40,7 +42,13 @@ async function mintPrivateFunds(pxe) {
   const mintAmount = 20n;
   const secret = Fr.random();
   const secretHash = await computeMessageSecretHash(secret);
-  await token.methods.mint_private(mintAmount, secretHash).send().wait();
+  const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
+
+  const storageSlot = new Fr(5);
+  const note = new Note([new Fr(mintAmount), secretHash]);
+  const extendedNote = new ExtendedNote(note, owner.getAddress(), token.address, storageSlot, receipt.txHash);
+  await pxe.addNote(extendedNote);
+
   await token.methods.redeem_shield(owner.getAddress(), mintAmount, secret).send().wait();
 
   await showPrivateBalances(pxe);
@@ -92,14 +100,14 @@ async function mintPublicFunds(pxe) {
 
   // docs:start:showLogs
   const blockNumber = await pxe.getBlockNumber();
-  const logs = await pxe.getUnencryptedLogs(blockNumber, 1);
-  const textLogs = L2BlockL2Logs.unrollLogs(logs).map(log => log.toString('ascii'));
+  const logs = (await pxe.getUnencryptedLogs(blockNumber, 1)).logs;
+  const textLogs = logs.map(extendedLog => extendedLog.log.data.toString('ascii'));
   for (const log of textLogs) console.log(`Log emitted: ${log}`);
   // docs:end:showLogs
 }
 
 async function main() {
-  const pxe = createPXEClient(SANDBOX_URL);
+  const pxe = createPXEClient(PXE_URL);
   const { chainId } = await pxe.getNodeInfo();
   console.log(`Connected to chain ${chainId}`);
 

@@ -6,9 +6,10 @@ import {
   GlobalVariables,
   HistoricBlockData,
   L1_TO_L2_MSG_TREE_HEIGHT,
-  PRIVATE_DATA_TREE_HEIGHT,
+  NOTE_HASH_TREE_HEIGHT,
 } from '@aztec/circuits.js';
-import { L1ContractAddresses } from '@aztec/ethereum';
+import { computePublicDataTreeIndex } from '@aztec/circuits.js/abis';
+import { L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { InMemoryTxPool, P2P, createP2PClient } from '@aztec/p2p';
@@ -23,6 +24,7 @@ import {
   ContractData,
   ContractDataSource,
   ExtendedContractData,
+  GetUnencryptedLogsResponse,
   L1ToL2MessageAndIndex,
   L1ToL2MessageSource,
   L2Block,
@@ -30,6 +32,7 @@ import {
   L2BlockSource,
   L2LogsSource,
   L2Tx,
+  LogFilter,
   LogType,
   MerkleTreeId,
   SiblingPath,
@@ -41,7 +44,6 @@ import {
   ServerWorldStateSynchronizer,
   WorldStateConfig,
   WorldStateSynchronizer,
-  computePublicDataTreeLeafIndex,
   getConfigEnvVars as getWorldStateConfig,
 } from '@aztec/world-state';
 
@@ -55,21 +57,30 @@ import { openDb } from './db.js';
  */
 export class AztecNodeService implements AztecNode {
   constructor(
-    protected config: AztecNodeConfig,
-    protected p2pClient: P2P,
-    protected blockSource: L2BlockSource,
-    protected encryptedLogsSource: L2LogsSource,
-    protected unencryptedLogsSource: L2LogsSource,
-    protected contractDataSource: ContractDataSource,
-    protected l1ToL2MessageSource: L1ToL2MessageSource,
-    protected worldStateSynchronizer: WorldStateSynchronizer,
-    protected sequencer: SequencerClient,
-    protected chainId: number,
-    protected version: number,
-    protected globalVariableBuilder: GlobalVariableBuilder,
-    protected merkleTreesDb: levelup.LevelUp,
+    protected readonly config: AztecNodeConfig,
+    protected readonly p2pClient: P2P,
+    protected readonly blockSource: L2BlockSource,
+    protected readonly encryptedLogsSource: L2LogsSource,
+    protected readonly unencryptedLogsSource: L2LogsSource,
+    protected readonly contractDataSource: ContractDataSource,
+    protected readonly l1ToL2MessageSource: L1ToL2MessageSource,
+    protected readonly worldStateSynchronizer: WorldStateSynchronizer,
+    protected readonly sequencer: SequencerClient | undefined,
+    protected readonly chainId: number,
+    protected readonly version: number,
+    protected readonly globalVariableBuilder: GlobalVariableBuilder,
+    protected readonly merkleTreesDb: levelup.LevelUp,
     private log = createDebugLogger('aztec:node'),
-  ) {}
+  ) {
+    const message =
+      `Started Aztec Node against chain 0x${chainId.toString(16)} with contracts - \n` +
+      `Rollup: ${config.l1Contracts.rollupAddress.toString()}\n` +
+      `Registry: ${config.l1Contracts.registryAddress.toString()}\n` +
+      `Inbox: ${config.l1Contracts.inboxAddress.toString()}\n` +
+      `Outbox: ${config.l1Contracts.outboxAddress.toString()}\n` +
+      `Contract Emitter: ${config.l1Contracts.contractDeploymentEmitterAddress.toString()}`;
+    this.log(message);
+  }
 
   /**
    * initializes the Aztec Node, wait for component to sync.
@@ -77,6 +88,13 @@ export class AztecNodeService implements AztecNode {
    * @returns - A fully synced Aztec Node for use in development/testing.
    */
   public static async createAndSync(config: AztecNodeConfig) {
+    const ethereumChain = createEthereumChain(config.rpcUrl, config.apiKey);
+    //validate that the actual chain id matches that specified in configuration
+    if (config.chainId !== ethereumChain.chainInfo.id) {
+      throw new Error(
+        `RPC URL configured for chain id ${ethereumChain.chainInfo.id} but expected id ${config.chainId}`,
+      );
+    }
     // first create and sync the archiver
     const archiver = await Archiver.createAndSync(config);
 
@@ -97,14 +115,10 @@ export class AztecNodeService implements AztecNode {
     await Promise.all([p2pClient.start(), worldStateSynchronizer.start()]);
 
     // now create the sequencer
-    const sequencer = await SequencerClient.new(
-      config,
-      p2pClient,
-      worldStateSynchronizer,
-      archiver,
-      archiver,
-      archiver,
-    );
+    const sequencer = config.disableSequencer
+      ? undefined
+      : await SequencerClient.new(config, p2pClient, worldStateSynchronizer, archiver, archiver, archiver);
+
     return new AztecNodeService(
       config,
       p2pClient,
@@ -115,11 +129,19 @@ export class AztecNodeService implements AztecNode {
       archiver,
       worldStateSynchronizer,
       sequencer,
-      config.chainId,
+      ethereumChain.chainInfo.id,
       config.version,
       getGlobalVariableBuilder(config),
       db,
     );
+  }
+
+  /**
+   * Returns the sequencer client instance.
+   * @returns The sequencer client instance.
+   */
+  public getSequencer(): SequencerClient | undefined {
+    return this.sequencer;
   }
 
   /**
@@ -144,7 +166,7 @@ export class AztecNodeService implements AztecNode {
    * @returns The blocks requested.
    */
   public async getBlock(number: number): Promise<L2Block | undefined> {
-    return await this.blockSource.getL2Block(number);
+    return await this.blockSource.getBlock(number);
   }
 
   /**
@@ -154,7 +176,7 @@ export class AztecNodeService implements AztecNode {
    * @returns The blocks requested.
    */
   public async getBlocks(from: number, limit: number): Promise<L2Block[]> {
-    return (await this.blockSource.getL2Blocks(from, limit)) ?? [];
+    return (await this.blockSource.getBlocks(from, limit)) ?? [];
   }
 
   /**
@@ -213,6 +235,15 @@ export class AztecNodeService implements AztecNode {
   }
 
   /**
+   * Gets unencrypted logs based on the provided filter.
+   * @param filter - The filter to apply to the logs.
+   * @returns The requested logs.
+   */
+  getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+    return this.unencryptedLogsSource.getUnencryptedLogs(filter);
+  }
+
+  /**
    * Method to submit a transaction to the p2p pool.
    * @param tx - The transaction to be submitted.
    */
@@ -229,7 +260,8 @@ export class AztecNodeService implements AztecNode {
    * Method to stop the aztec node.
    */
   public async stop() {
-    await this.sequencer.stop();
+    this.log.info(`Stopping`);
+    await this.sequencer?.stop();
     await this.p2pClient.stop();
     await this.worldStateSynchronizer.stop();
     await this.blockSource.stop();
@@ -254,13 +286,14 @@ export class AztecNodeService implements AztecNode {
   }
 
   /**
-   * Find the index of the given contract.
-   * @param leafValue - The value to search for.
-   * @returns The index of the given leaf in the contracts tree or undefined if not found.
+   * Find the index of the given leaf in the given tree.
+   * @param treeId - The tree to search in.
+   * @param leafValue - The value to search for
+   * @returns The index of the given leaf in the given tree or undefined if not found.
    */
-  public async findContractIndex(leafValue: Buffer): Promise<bigint | undefined> {
+  public async findLeafIndex(treeId: MerkleTreeId, leafValue: Buffer): Promise<bigint | undefined> {
     const committedDb = await this.#getWorldState();
-    return committedDb.findLeafIndex(MerkleTreeId.CONTRACT_TREE, leafValue);
+    return committedDb.findLeafIndex(treeId, leafValue);
   }
 
   /**
@@ -268,19 +301,9 @@ export class AztecNodeService implements AztecNode {
    * @param leafIndex - The index of the leaf for which the sibling path is required.
    * @returns The sibling path for the leaf index.
    */
-  public async getContractPath(leafIndex: bigint): Promise<SiblingPath<typeof CONTRACT_TREE_HEIGHT>> {
+  public async getContractSiblingPath(leafIndex: bigint): Promise<SiblingPath<typeof CONTRACT_TREE_HEIGHT>> {
     const committedDb = await this.#getWorldState();
     return committedDb.getSiblingPath(MerkleTreeId.CONTRACT_TREE, leafIndex);
-  }
-
-  /**
-   * Find the index of the given commitment.
-   * @param leafValue - The value to search for.
-   * @returns The index of the given leaf in the private data tree or undefined if not found.
-   */
-  public async findCommitmentIndex(leafValue: Buffer): Promise<bigint | undefined> {
-    const committedDb = await this.#getWorldState();
-    return committedDb.findLeafIndex(MerkleTreeId.PRIVATE_DATA_TREE, leafValue);
   }
 
   /**
@@ -288,9 +311,9 @@ export class AztecNodeService implements AztecNode {
    * @param leafIndex - The index of the leaf for which the sibling path is required.
    * @returns The sibling path for the leaf index.
    */
-  public async getDataTreePath(leafIndex: bigint): Promise<SiblingPath<typeof PRIVATE_DATA_TREE_HEIGHT>> {
+  public async getNoteHashSiblingPath(leafIndex: bigint): Promise<SiblingPath<typeof NOTE_HASH_TREE_HEIGHT>> {
     const committedDb = await this.#getWorldState();
-    return committedDb.getSiblingPath(MerkleTreeId.PRIVATE_DATA_TREE, leafIndex);
+    return committedDb.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, leafIndex);
   }
 
   /**
@@ -301,10 +324,9 @@ export class AztecNodeService implements AztecNode {
    */
   public async getL1ToL2MessageAndIndex(messageKey: Fr): Promise<L1ToL2MessageAndIndex> {
     // todo: #697 - make this one lookup.
-    const committedDb = await this.#getWorldState();
+    const index = (await this.findLeafIndex(MerkleTreeId.L1_TO_L2_MESSAGES_TREE, messageKey.toBuffer()))!;
     const message = await this.l1ToL2MessageSource.getConfirmedL1ToL2Message(messageKey);
-    const index = (await committedDb.findLeafIndex(MerkleTreeId.L1_TO_L2_MESSAGES_TREE, messageKey.toBuffer()))!;
-    return Promise.resolve({ message, index });
+    return Promise.resolve(new L1ToL2MessageAndIndex(index, message));
   }
 
   /**
@@ -312,19 +334,9 @@ export class AztecNodeService implements AztecNode {
    * @param leafIndex - Index of the leaf in the tree.
    * @returns The sibling path.
    */
-  public async getL1ToL2MessagesTreePath(leafIndex: bigint): Promise<SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
+  public async getL1ToL2MessageSiblingPath(leafIndex: bigint): Promise<SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
     const committedDb = await this.#getWorldState();
     return committedDb.getSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGES_TREE, leafIndex);
-  }
-
-  /**
-   * Find the index of the given nullifier.
-   * @param nullifier - The nullifier to search for.
-   * @returns The index of the given leaf in the nullifier tree or undefined if not found.
-   */
-  public async findNullifierIndex(nullifier: Fr): Promise<bigint | undefined> {
-    const committedDb = await this.#getWorldState();
-    return committedDb.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
   }
 
   /**
@@ -336,8 +348,8 @@ export class AztecNodeService implements AztecNode {
    */
   public async getPublicStorageAt(contract: AztecAddress, slot: bigint): Promise<Buffer | undefined> {
     const committedDb = await this.#getWorldState();
-    const leafIndex = computePublicDataTreeLeafIndex(contract, new Fr(slot), await CircuitsWasm.get());
-    return committedDb.getLeafValue(MerkleTreeId.PUBLIC_DATA_TREE, leafIndex);
+    const leafIndex = computePublicDataTreeIndex(await CircuitsWasm.get(), contract, new Fr(slot));
+    return committedDb.getLeafValue(MerkleTreeId.PUBLIC_DATA_TREE, leafIndex.value);
   }
 
   /**
@@ -348,9 +360,9 @@ export class AztecNodeService implements AztecNode {
     const committedDb = await this.#getWorldState();
     const getTreeRoot = async (id: MerkleTreeId) => Fr.fromBuffer((await committedDb.getTreeInfo(id)).root);
 
-    const [privateDataTree, nullifierTree, contractTree, l1ToL2MessagesTree, blocksTree, publicDataTree] =
+    const [noteHashTree, nullifierTree, contractTree, l1ToL2MessagesTree, blocksTree, publicDataTree] =
       await Promise.all([
-        getTreeRoot(MerkleTreeId.PRIVATE_DATA_TREE),
+        getTreeRoot(MerkleTreeId.NOTE_HASH_TREE),
         getTreeRoot(MerkleTreeId.NULLIFIER_TREE),
         getTreeRoot(MerkleTreeId.CONTRACT_TREE),
         getTreeRoot(MerkleTreeId.L1_TO_L2_MESSAGES_TREE),
@@ -360,7 +372,7 @@ export class AztecNodeService implements AztecNode {
 
     return {
       [MerkleTreeId.CONTRACT_TREE]: contractTree,
-      [MerkleTreeId.PRIVATE_DATA_TREE]: privateDataTree,
+      [MerkleTreeId.NOTE_HASH_TREE]: noteHashTree,
       [MerkleTreeId.NULLIFIER_TREE]: nullifierTree,
       [MerkleTreeId.PUBLIC_DATA_TREE]: publicDataTree,
       [MerkleTreeId.L1_TO_L2_MESSAGES_TREE]: l1ToL2MessagesTree,
@@ -377,7 +389,7 @@ export class AztecNodeService implements AztecNode {
     const [roots, globalsHash] = await Promise.all([this.getTreeRoots(), committedDb.getLatestGlobalVariablesHash()]);
 
     return new HistoricBlockData(
-      roots[MerkleTreeId.PRIVATE_DATA_TREE],
+      roots[MerkleTreeId.NOTE_HASH_TREE],
       roots[MerkleTreeId.NULLIFIER_TREE],
       roots[MerkleTreeId.CONTRACT_TREE],
       roots[MerkleTreeId.L1_TO_L2_MESSAGES_TREE],
@@ -396,7 +408,7 @@ export class AztecNodeService implements AztecNode {
     this.log.info(`Simulating tx ${await tx.getTxHash()}`);
     const blockNumber = (await this.blockSource.getBlockNumber()) + 1;
     const newGlobalVariables = await this.globalVariableBuilder.buildGlobalVariables(new Fr(blockNumber));
-    const prevGlobalVariables = (await this.blockSource.getL2Block(-1))?.globalVariables ?? GlobalVariables.empty();
+    const prevGlobalVariables = (await this.blockSource.getBlock(-1))?.globalVariables ?? GlobalVariables.empty();
 
     // Instantiate merkle trees so uncommitted updates by this simulation are local to it.
     // TODO we should be able to remove this after https://github.com/AztecProtocol/aztec-packages/issues/1869

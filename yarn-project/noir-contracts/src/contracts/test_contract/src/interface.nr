@@ -6,24 +6,24 @@ use dep::aztec::constants_gen::RETURN_VALUES_LENGTH;
 
 struct AStructTestCodeGenStruct {
   amount: Field,
-  secretHash: Field,
+  secret_hash: Field,
 }
 
 struct ADeepStructTestCodeGenStruct {
-  aField: Field,
-  aBool: bool,
-  aNote: ANoteADeepStructTestCodeGenStruct,
-  manyNotes: [ManyNotesADeepStructTestCodeGenStruct;3],
+  a_field: Field,
+  a_bool: bool,
+  a_note: ANoteADeepStructTestCodeGenStruct,
+  many_notes: [ManyNotesADeepStructTestCodeGenStruct;3],
 }
 
 struct ANoteADeepStructTestCodeGenStruct {
   amount: Field,
-  secretHash: Field,
+  secret_hash: Field,
 }
 
 struct ManyNotesADeepStructTestCodeGenStruct {
   amount: Field,
-  secretHash: Field,
+  secret_hash: Field,
 }
 
 
@@ -33,41 +33,91 @@ struct TestPrivateContextInterface {
 }
 
 impl TestPrivateContextInterface {
-  fn at(address: Field) -> Self {
+  pub fn at(address: Field) -> Self {
       Self {
           address,
       }
   }
   
-  fn createL2ToL1MessagePublic(
+  pub fn consume_mint_private_message(
     self,
     context: &mut PrivateContext,
+    secret_hash_for_redeeming_minted_notes: Field,
     amount: Field,
-    secretHash: Field
-  ) {
-    let mut serialized_args = [0; 2];
-    serialized_args[0] = amount;
-    serialized_args[1] = secretHash;
+    canceller: Field,
+    msg_key: Field,
+    secret_for_L1_to_L2_message_consumption: Field
+  ) -> [Field; RETURN_VALUES_LENGTH] {
+    let mut serialized_args = [0; 5];
+    serialized_args[0] = secret_hash_for_redeeming_minted_notes;
+    serialized_args[1] = amount;
+    serialized_args[2] = canceller;
+    serialized_args[3] = msg_key;
+    serialized_args[4] = secret_for_L1_to_L2_message_consumption;
 
-    context.call_public_function(self.address, 0xbac98727, serialized_args)
+    context.call_private_function(self.address, 0x8999306a, serialized_args)
   }
   
 
-  fn createNullifierPublic(
+  pub fn consume_mint_public_message(
     self,
     context: &mut PrivateContext,
+    to: Field,
     amount: Field,
-    secretHash: Field
+    canceller: Field,
+    msg_key: Field,
+    secret: Field
   ) {
-    let mut serialized_args = [0; 2];
-    serialized_args[0] = amount;
-    serialized_args[1] = secretHash;
+    let mut serialized_args = [0; 5];
+    serialized_args[0] = to;
+    serialized_args[1] = amount;
+    serialized_args[2] = canceller;
+    serialized_args[3] = msg_key;
+    serialized_args[4] = secret;
 
-    context.call_public_function(self.address, 0x42040a24, serialized_args)
+    context.call_public_function(self.address, 0x1c60863d, serialized_args)
   }
   
 
-  fn emit_nullifier(
+  pub fn create_l2_to_l1_message_public(
+    self,
+    context: &mut PrivateContext,
+    amount: Field,
+    secret_hash: Field
+  ) {
+    let mut serialized_args = [0; 2];
+    serialized_args[0] = amount;
+    serialized_args[1] = secret_hash;
+
+    context.call_public_function(self.address, 0x9749ca06, serialized_args)
+  }
+  
+
+  pub fn create_nullifier_public(
+    self,
+    context: &mut PrivateContext,
+    amount: Field,
+    secret_hash: Field
+  ) {
+    let mut serialized_args = [0; 2];
+    serialized_args[0] = amount;
+    serialized_args[1] = secret_hash;
+
+    context.call_public_function(self.address, 0xdf02db8d, serialized_args)
+  }
+  
+
+  pub fn emit_msg_sender(
+    self,
+    context: &mut PrivateContext
+  ) -> [Field; RETURN_VALUES_LENGTH] {
+    let mut serialized_args = [0; 0];
+
+    context.call_private_function(self.address, 0x11fb5d45, serialized_args)
+  }
+  
+
+  pub fn emit_nullifier(
     self,
     context: &mut PrivateContext,
     nullifier: Field
@@ -79,7 +129,7 @@ impl TestPrivateContextInterface {
   }
   
 
-  fn emit_unencrypted(
+  pub fn emit_unencrypted(
     self,
     context: &mut PrivateContext,
     value: Field
@@ -91,7 +141,7 @@ impl TestPrivateContextInterface {
   }
   
 
-  fn getPortalContractAddress(
+  pub fn get_portal_contract_address(
     self,
     context: &mut PrivateContext,
     aztec_address: Field
@@ -99,11 +149,11 @@ impl TestPrivateContextInterface {
     let mut serialized_args = [0; 1];
     serialized_args[0] = aztec_address;
 
-    context.call_private_function(self.address, 0xaf15a45f, serialized_args)
+    context.call_private_function(self.address, 0x98ff64fd, serialized_args)
   }
   
 
-  fn getPublicKey(
+  pub fn get_public_key(
     self,
     context: &mut PrivateContext,
     address: Field
@@ -111,31 +161,31 @@ impl TestPrivateContextInterface {
     let mut serialized_args = [0; 1];
     serialized_args[0] = address;
 
-    context.call_private_function(self.address, 0x88f0753b, serialized_args)
+    context.call_private_function(self.address, 0x5ccf578f, serialized_args)
   }
   
 
-  fn getThisAddress(
+  pub fn get_this_address(
     self,
     context: &mut PrivateContext
   ) -> [Field; RETURN_VALUES_LENGTH] {
     let mut serialized_args = [0; 0];
 
-    context.call_private_function(self.address, 0xd3953822, serialized_args)
+    context.call_private_function(self.address, 0x95a7b2ae, serialized_args)
   }
   
 
-  fn getThisPortalAddress(
+  pub fn get_this_portal_address(
     self,
     context: &mut PrivateContext
   ) -> [Field; RETURN_VALUES_LENGTH] {
     let mut serialized_args = [0; 0];
 
-    context.call_private_function(self.address, 0x82cc9431, serialized_args)
+    context.call_private_function(self.address, 0xc71384f5, serialized_args)
   }
   
 
-  fn isTimeEqual(
+  pub fn is_time_equal(
     self,
     context: &mut PrivateContext,
     time: Field
@@ -143,40 +193,52 @@ impl TestPrivateContextInterface {
     let mut serialized_args = [0; 1];
     serialized_args[0] = time;
 
-    context.call_public_function(self.address, 0xfff6026c, serialized_args)
+    context.call_public_function(self.address, 0x61fa2bda, serialized_args)
   }
   
 
-  fn testCodeGen(
+  pub fn set_constant(
     self,
     context: &mut PrivateContext,
-    aField: Field,
-    aBool: bool,
-    aNumber: u32,
-    anArray: [Field;2],
-    aStruct: AStructTestCodeGenStruct,
-    aDeepStruct: ADeepStructTestCodeGenStruct
+    value: Field
+  ) -> [Field; RETURN_VALUES_LENGTH] {
+    let mut serialized_args = [0; 1];
+    serialized_args[0] = value;
+
+    context.call_private_function(self.address, 0x1b3b9e18, serialized_args)
+  }
+  
+
+  pub fn test_code_gen(
+    self,
+    context: &mut PrivateContext,
+    a_field: Field,
+    a_bool: bool,
+    a_number: u32,
+    an_array: [Field;2],
+    a_struct: AStructTestCodeGenStruct,
+    a_deep_struct: ADeepStructTestCodeGenStruct
   ) -> [Field; RETURN_VALUES_LENGTH] {
     let mut serialized_args = [0; 17];
-    serialized_args[0] = aField;
-    serialized_args[1] = aBool as Field;
-    serialized_args[2] = aNumber as Field;
-    serialized_args[3] = anArray[0];
-    serialized_args[4] = anArray[1];
-    serialized_args[5] = aStruct.amount;
-    serialized_args[6] = aStruct.secretHash;
-    serialized_args[7] = aDeepStruct.aField;
-    serialized_args[8] = aDeepStruct.aBool as Field;
-    serialized_args[9] = aDeepStruct.aNote.amount;
-    serialized_args[10] = aDeepStruct.aNote.secretHash;
-    serialized_args[11] = aDeepStruct.manyNotes[0].amount;
-    serialized_args[12] = aDeepStruct.manyNotes[0].secretHash;
-    serialized_args[13] = aDeepStruct.manyNotes[1].amount;
-    serialized_args[14] = aDeepStruct.manyNotes[1].secretHash;
-    serialized_args[15] = aDeepStruct.manyNotes[2].amount;
-    serialized_args[16] = aDeepStruct.manyNotes[2].secretHash;
+    serialized_args[0] = a_field;
+    serialized_args[1] = a_bool as Field;
+    serialized_args[2] = a_number as Field;
+    serialized_args[3] = an_array[0];
+    serialized_args[4] = an_array[1];
+    serialized_args[5] = a_struct.amount;
+    serialized_args[6] = a_struct.secret_hash;
+    serialized_args[7] = a_deep_struct.a_field;
+    serialized_args[8] = a_deep_struct.a_bool as Field;
+    serialized_args[9] = a_deep_struct.a_note.amount;
+    serialized_args[10] = a_deep_struct.a_note.secret_hash;
+    serialized_args[11] = a_deep_struct.many_notes[0].amount;
+    serialized_args[12] = a_deep_struct.many_notes[0].secret_hash;
+    serialized_args[13] = a_deep_struct.many_notes[1].amount;
+    serialized_args[14] = a_deep_struct.many_notes[1].secret_hash;
+    serialized_args[15] = a_deep_struct.many_notes[2].amount;
+    serialized_args[16] = a_deep_struct.many_notes[2].secret_hash;
 
-    context.call_private_function(self.address, 0x81d7c118, serialized_args)
+    context.call_private_function(self.address, 0x0f054f9b, serialized_args)
   }
   
 }
@@ -190,41 +252,61 @@ struct TestPublicContextInterface {
 }
 
 impl TestPublicContextInterface {
-  fn at(address: Field) -> Self {
+  pub fn at(address: Field) -> Self {
       Self {
           address,
       }
   }
   
-  fn createL2ToL1MessagePublic(
+  pub fn consume_mint_public_message(
     self,
     context: PublicContext,
+    to: Field,
     amount: Field,
-    secretHash: Field
+    canceller: Field,
+    msg_key: Field,
+    secret: Field
   ) -> [Field; RETURN_VALUES_LENGTH] {
-    let mut serialized_args = [0; 2];
-    serialized_args[0] = amount;
-    serialized_args[1] = secretHash;
+    let mut serialized_args = [0; 5];
+    serialized_args[0] = to;
+    serialized_args[1] = amount;
+    serialized_args[2] = canceller;
+    serialized_args[3] = msg_key;
+    serialized_args[4] = secret;
 
-    context.call_public_function(self.address, 0xbac98727, serialized_args)
+    context.call_public_function(self.address, 0x1c60863d, serialized_args)
   }
   
 
-  fn createNullifierPublic(
+  pub fn create_l2_to_l1_message_public(
     self,
     context: PublicContext,
     amount: Field,
-    secretHash: Field
+    secret_hash: Field
   ) -> [Field; RETURN_VALUES_LENGTH] {
     let mut serialized_args = [0; 2];
     serialized_args[0] = amount;
-    serialized_args[1] = secretHash;
+    serialized_args[1] = secret_hash;
 
-    context.call_public_function(self.address, 0x42040a24, serialized_args)
+    context.call_public_function(self.address, 0x9749ca06, serialized_args)
   }
   
 
-  fn emit_unencrypted(
+  pub fn create_nullifier_public(
+    self,
+    context: PublicContext,
+    amount: Field,
+    secret_hash: Field
+  ) -> [Field; RETURN_VALUES_LENGTH] {
+    let mut serialized_args = [0; 2];
+    serialized_args[0] = amount;
+    serialized_args[1] = secret_hash;
+
+    context.call_public_function(self.address, 0xdf02db8d, serialized_args)
+  }
+  
+
+  pub fn emit_unencrypted(
     self,
     context: PublicContext,
     value: Field
@@ -236,7 +318,7 @@ impl TestPublicContextInterface {
   }
   
 
-  fn isTimeEqual(
+  pub fn is_time_equal(
     self,
     context: PublicContext,
     time: Field
@@ -244,7 +326,7 @@ impl TestPublicContextInterface {
     let mut serialized_args = [0; 1];
     serialized_args[0] = time;
 
-    context.call_public_function(self.address, 0xfff6026c, serialized_args)
+    context.call_public_function(self.address, 0x61fa2bda, serialized_args)
   }
   
 }

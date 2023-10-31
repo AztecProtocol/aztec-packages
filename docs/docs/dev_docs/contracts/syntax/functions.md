@@ -3,6 +3,17 @@ title: Functions
 description: This page covers functions, private and public functions composability, as well as their differences.
 ---
 
+Functions serve as the building blocks of smart contracts. Functions can be either public, ie they can interact with other contracts and the blockchain, or private for internal contract use. Every smart contract also has a private `constructor` function which is called when the contract is deployed. There are also special oracle functions, which can get data from outside of the smart contract. In the context of Aztec, oracles are often used to get user-provided inputs.
+
+On this page, you’ll learn more about:
+
+- How function visibility works in Aztec
+- A detailed understanding of public, private, and unconstrained functions, and how to write them
+- How constructors work and remain private
+- The process of calling functions from within the same smart contract and from different contracts, including calling private functions from private functions, public from public, and even private from public
+- What oracles and how Aztec smart contracts might use them
+- Built-in oracles
+
 ## Visibility
 
 In Aztec there are multiple different types of visibility that can be applied to functions. Namely we have `data visibility` and `function visibility`.
@@ -39,12 +50,12 @@ While `staticcall` and `delegatecall` both have flags in the call context, they 
 
 - A special `constructor` function MUST be declared within a contract's scope.
 - A constructor doesn't have a name, because its purpose is clear: to initialize contract state.
-- In Aztec terminology, a constructor is always a '`private` function' (i.e. it cannot be a `public` function, in the current version of the sandbox it cannot call public functions either).
+- In Aztec terminology, a constructor is always a '`private` function' (i.e. it cannot be a `public` function).
 - A constructor behaves almost identically to any other function. It's just important for Aztec to be able to identify this function as special: it may only be called once, and will not be deployed as part of the contract.
 
 An example of a somewhat boring constructor is as follows:
 
-#include_code empty-constructor /yarn-project/noir-contracts/src/contracts/public_token_contract/src/main.nr rust
+#include_code empty-constructor /yarn-project/noir-contracts/src/contracts/test_contract/src/main.nr rust
 
 Although you can have a constructor that does nothing, you might want to do something with it, such as setting the deployer as an owner.
 
@@ -100,7 +111,7 @@ Oracles introduce **non-determinism** into a circuit, and thus are `unconstraine
 
 ### A few useful inbuilt oracles
 
-- [`compute_selector`](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec-nr/aztec/src/oracle/compute_selector.nr) - Computes the selector of a function. This is useful for when you want to call a function from within a circuit, but don't have an interface at hand and don't want to hardcode the selector in hex.
+- [`compute_selector`](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec-nr/aztec/src/selector.nr) - Computes the selector of a function. This is useful for when you want to call a function from within a circuit, but don't have an interface at hand and don't want to hardcode the selector in hex.
 - [`debug_log`](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec-nr/aztec/src/oracle/debug_log.nr) - Provides a couple of debug functions that can be used to log information to the console.
 - [`auth_witness`](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec-nr/aztec/src/oracle/auth_witness.nr) - Provides a way to fetch the authentication witness for a given address. This is useful when building account contracts to support approve-like functionality.
 - [`get_l1_to_l2_message`](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec-nr/aztec/src/oracle/get_l1_to_l2_message.nr) - Useful for application that receive messages from L1 to be consumed on L2, such as token bridges or other cross-chain applications.
@@ -222,7 +233,7 @@ As we can see above, the private to public transaction flow looks very similar t
 
 Wait, I thought you said we could not do this? Well, you are right, we cannot do this directly. However, we can do this indirectly if we are a little cheeky.
 
-While we cannot directly call a private function, we can indirectly call it by adding a commitment to the private data tree. This commitment can then be consumed by a private function later, to "finish" the execution. So while it is not practically a call, we can ensure that it could only happen as an effect of a public function call, which is still pretty useful.
+While we cannot directly call a private function, we can indirectly call it by adding a commitment to the note hash tree. This commitment can then be consumed by a private function later, to "finish" the execution. So while it is not practically a call, we can ensure that it could only happen as an effect of a public function call, which is still pretty useful.
 
 In the snippet below, we insert a custom note, the transparent note, into the commitments tree from public such that it can later be consumed in private.
 
@@ -232,7 +243,7 @@ If you recall the `redeem_shield` from back in the [private function section](#p
 
 #include_code redeem_shield /yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
 
-When the note is removed, it emits a nullifier so that it cannot be used again. This nullifier is then added to the private data tree, and can be used to prove that the note was removed from the pending shields. Interestingly, we can generate the nullifier such that no-one who saw the public execution will know that it have been consumed. When sending messages between L1 and L2 in [portals](../portals/main.md) we are going to see this pattern again.
+When the note is removed, it emits a nullifier so that it cannot be used again. This nullifier is then added to the note hash tree, and can be used to prove that the note was removed from the pending shields. Interestingly, we can generate the nullifier such that no-one who saw the public execution will know that it have been consumed. When sending messages between L1 and L2 in [portals](../portals/main.md) we are going to see this pattern again.
 
 :::danger
 Something to be mindful of when inserting from public. Everyone can see the insertion and what happens in public, so if you are including a secret directly anyone would be able to see it. This is why the hash of the secret is used in the snippet above (`secret_hash`).
@@ -306,7 +317,6 @@ We achieve this by pushing return values to the execution context, which we then
 When a [`Storage` struct](./storage.md) is declared within a contract, the `storage` keyword is made available. As shown in the macro expansion above, this calls the init function on the storage struct with the current function's context.
 
 Any state variables declared in the `Storage` struct can now be accessed as normal struct members.
-
 
 **Returning the function context to the kernel.**
 #include_code context-example-finish /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/main.nr rust

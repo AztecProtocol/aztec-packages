@@ -7,8 +7,9 @@ set -eu
 export TEST=$1
 export IMAGE=${2:-canary}
 export COMPOSE_FILE=${3:-./scripts/docker-compose.yml}
-
-if [ "$TEST" = "uniswap_trade_on_l1_from_l2.test.ts" ]; then
+:
+# if test name ends with uniswap_trade_on_l1_from_l2.test.ts, use the forked mainnet
+if [[ "$TEST" == *"uniswap_trade_on_l1_from_l2"* ]]; then
   export FORK_URL=https://mainnet.infura.io/v3/9928b52099854248b3a096be07a6b23c
   export FORK_BLOCK_NUMBER=17514288
 fi
@@ -21,9 +22,6 @@ IMAGE_URI=$(calculate_image_uri $IMAGE)
 retry docker pull $IMAGE_URI
 retry docker tag $IMAGE_URI aztecprotocol/canary:latest
 
-SANDBOX_IMAGE_URI=$(calculate_image_uri aztec-sandbox)
-retry docker pull $SANDBOX_IMAGE_URI
-retry docker tag $SANDBOX_IMAGE_URI aztecprotocol/sandbox:latest
-
-docker-compose -f $COMPOSE_FILE rm -f
-docker-compose -f $COMPOSE_FILE up --exit-code-from canary
+export SANDBOX_VERSION=canary
+docker-compose -f ../aztec-sandbox/docker-compose.yml -f $COMPOSE_FILE rm -f
+docker-compose -f ../aztec-sandbox/docker-compose.yml -f $COMPOSE_FILE up --exit-code-from canary

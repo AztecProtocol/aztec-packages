@@ -103,7 +103,7 @@ async function downloadContractAndBoxFromGithub(
   // small string conversion, in the ABI the contract name looks like PrivateToken
   // but in the repostory it looks like private_token
 
-  log(`Downloading @aztex/boxes/${contractName} to ${outputPath}...`);
+  log(`Downloading @aztec/boxes/${contractName}/ to ${outputPath}...`);
   // Step 1: Fetch the monorepo ZIP from GitHub, matching the CLI version
   const url = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/archive/refs/tags/${tag}.zip`;
   const response = await fetch(url);
@@ -113,10 +113,10 @@ async function downloadContractAndBoxFromGithub(
   const data = await zip.loadAsync(buffer);
 
   // Step 2: copy the '@aztec/boxes/{contract-name}' subpackage to the output directory
-  // this is currently only implemented for `blank` and `private-token` under 'boxes/{box-name}/'
+  // this is currently only implemented for `blank`, `blank-react` and `token` under 'boxes/{box-name}/'
   const repoDirectoryPrefix = `${GITHUB_REPO}-${tag}`;
 
-  const boxPath = `${repoDirectoryPrefix}/${BOXES_PATH}/${contractName}`;
+  const boxPath = `${repoDirectoryPrefix}/${BOXES_PATH}/${contractName}/`;
   await copyFolderFromGithub(data, boxPath, outputPath, log);
 
   // the expected noir version is contained in
@@ -157,19 +157,38 @@ async function updatePackagingConfigurations(
 }
 
 /**
- * adjust the contract Nargo.toml file to use the same repository version as the npm packages
+ * Adjust the contract Nargo.toml file for copied box:
+ * change the dependency paths from pointing within the monorepo
+ * to the github tagged version matching the installed `aztec-cli --version`
  * @param packageVersion - CLI npm version, which determines what npm version to grab
  * @param outputPath - relative path where we are copying everything
  * @param log - logger
  */
 async function updateNargoToml(tag: string, outputPath: string, log: LogFn): Promise<void> {
+  const SUPPORTED_DEPS = ['aztec', 'value_note', 'safe_math', 'authwit'];
+
   const nargoTomlPath = path.join(outputPath, 'src', 'contracts', 'Nargo.toml');
   const fileContent = await fs.readFile(nargoTomlPath, 'utf-8');
   const lines = fileContent.split('\n');
-  const updatedLines = lines.map(line => line.replace(/tag="master"/g, `tag="${tag}"`));
+  const updatedLines = lines.map(line => {
+    // Check if the line starts with one of the deps
+    const key: string | undefined = SUPPORTED_DEPS.find(dependencyName =>
+      line.trim().startsWith(`${dependencyName} =`),
+    );
+    if (key) {
+      // Replace the line, which was configured for compiling within the `aztec-packages` monorepo.  We replace
+      // the local path with `git` and `directory` fields with a `tag` field, which points to the tagged release
+      // note that the key has a "_" in the name, but we use "-" in the github repo folder
+      return `${key} = { git="https://github.com/AztecProtocol/aztec-packages/", tag="${tag}", directory="yarn-project/aztec-nr/${key.replace(
+        '_',
+        '-',
+      )}" }`;
+    }
+    return line;
+  });
   const updatedContent = updatedLines.join('\n');
   await fs.writeFile(nargoTomlPath, updatedContent);
-  log(`Updated Nargo.toml to point to the compatible version of aztec noir libs.`);
+  log(`Updated Nargo.toml to point to version ${tag} of aztec-noir libs in github.`);
 }
 
 /**
@@ -297,13 +316,13 @@ export async function unboxContract(
   packageVersion: string,
   log: LogFn,
 ) {
-  const contractNames = ['private-token', 'blank', 'blank-react'];
+  const contractNames = ['token', 'blank', 'blank-react'];
 
   if (!contractNames.includes(contractName)) {
     log(
-      `The noir contract named "${contractName}" was not found in "@aztec/boxes" package.  Valid options are: 
+      `The noir contract named "${contractName}" was not found in "@aztec/boxes" package.  Valid options are:
         ${contractNames.join('\n\t')}
-      We recommend "private-token" as a default.`,
+      We recommend "token" as a default.`,
     );
     return;
   }

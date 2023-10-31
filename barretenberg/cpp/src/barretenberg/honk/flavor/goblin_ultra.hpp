@@ -51,16 +51,21 @@ class GoblinUltra {
                                  proof_system::AuxiliaryRelation<FF>,
                                  proof_system::EccOpQueueRelation<FF>>;
 
-    static constexpr size_t MAX_RELATION_LENGTH = get_max_relation_length<Relations>();
+    static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
+    static constexpr size_t MAX_TOTAL_RELATION_LENGTH = compute_max_total_relation_length<Relations>();
 
-    // MAX_RANDOM_RELATION_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta` random
-    // polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation length = 3
-    static constexpr size_t MAX_RANDOM_RELATION_LENGTH = MAX_RELATION_LENGTH + 1;
-    static constexpr size_t NUM_RELATIONS = std::tuple_size<Relations>::value;
+    // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
+    // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
+    // length = 3
+    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
+    static constexpr size_t BATCHED_RELATION_TOTAL_LENGTH = MAX_TOTAL_RELATION_LENGTH + 1;
+    static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
-    // define the container for storing the univariate contribution from each relation in Sumcheck
-    using RelationUnivariates = decltype(create_relation_univariates_container<FF, Relations>());
-    using RelationValues = decltype(create_relation_values_container<FF, Relations>());
+    template <size_t NUM_INSTANCES>
+    using ProtogalaxyTupleOfTuplesOfUnivariates =
+        decltype(create_protogalaxy_tuple_of_tuples_of_univariates<Relations, NUM_INSTANCES>());
+    using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
+    using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
     // Whether or not the first row of the execution trace is reserved for 0s to enable shifts
     static constexpr bool has_zero_row = true;
@@ -288,8 +293,6 @@ class GoblinUltra {
 
         size_t num_ecc_op_gates; // needed to determine public input offset
 
-        std::shared_ptr<ECCOpQueue> op_queue;
-
         // The plookup wires that store plookup read data.
         std::array<PolynomialHandle, 3> get_table_column_wires() { return { w_l, w_r, w_o }; };
     };
@@ -303,11 +306,6 @@ class GoblinUltra {
      * circuits.
      */
     using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment, CommitmentHandle>>;
-
-    /**
-     * @brief A container for polynomials handles; only stores spans.
-     */
-    using ProverPolynomials = AllEntities<PolynomialHandle, PolynomialHandle>;
 
     /**
      * @brief A container for storing the partially evaluated multivariates produced by sumcheck.
@@ -326,22 +324,43 @@ class GoblinUltra {
     };
 
     /**
-     * @brief A container for univariates produced during the hot loop in sumcheck.
-     * @todo TODO(#390): Simplify this by moving MAX_RELATION_LENGTH?
+     * @brief A container for univariates used during Protogalaxy folding and sumcheck.
+     * @details During folding and sumcheck, the prover evaluates the relations on these univariates.
      */
-    template <size_t MAX_RELATION_LENGTH>
-    using ExtendedEdges = AllEntities<barretenberg::Univariate<FF, MAX_RELATION_LENGTH>,
-                                      barretenberg::Univariate<FF, MAX_RELATION_LENGTH>>;
+    template <size_t LENGTH>
+    using ProverUnivariates = AllEntities<barretenberg::Univariate<FF, LENGTH>, barretenberg::Univariate<FF, LENGTH>>;
 
     /**
-     * @brief A container for the polynomials evaluations produced during sumcheck, which are purported to be the
-     * evaluations of polynomials committed in earlier rounds.
+     * @brief A container for univariates produced during the hot loop in sumcheck.
      */
-    class ClaimedEvaluations : public AllEntities<FF, FF> {
+    using ExtendedEdges = ProverUnivariates<MAX_PARTIAL_RELATION_LENGTH>;
+
+    /**
+     * @brief A field element for each entity of the flavor. These entities represent the prover polynomials evaluated
+     * at one point.
+     */
+    class AllValues : public AllEntities<FF, FF> {
       public:
         using Base = AllEntities<FF, FF>;
         using Base::Base;
-        ClaimedEvaluations(std::array<FF, NUM_ALL_ENTITIES> _data_in) { this->_data = _data_in; }
+        AllValues(std::array<FF, NUM_ALL_ENTITIES> _data_in) { this->_data = _data_in; }
+    };
+
+    /**
+     * @brief A container for the prover polynomials handles; only stores spans.
+     */
+    class ProverPolynomials : public AllEntities<PolynomialHandle, PolynomialHandle> {
+      public:
+        AllValues get_row(const size_t row_idx) const
+        {
+            AllValues result;
+            size_t column_idx = 0; // TODO(https://github.com/AztecProtocol/barretenberg/issues/391) zip
+            for (auto& column : this->_data) {
+                result[column_idx] = column[row_idx];
+                column_idx++;
+            }
+            return result;
+        }
     };
 
     /**
@@ -398,7 +417,8 @@ class GoblinUltra {
 
     class VerifierCommitments : public AllEntities<Commitment, CommitmentHandle> {
       public:
-        VerifierCommitments(std::shared_ptr<VerificationKey> verification_key, VerifierTranscript<FF> transcript)
+        VerifierCommitments(std::shared_ptr<VerificationKey> verification_key,
+                            [[maybe_unused]] const BaseTranscript<FF>& transcript)
         {
             static_cast<void>(transcript);
             q_m = verification_key->q_m;
@@ -432,8 +452,113 @@ class GoblinUltra {
 
     class FoldingParameters {
       public:
-        FF gate_separation_challenge;
+        std::vector<FF> gate_separation_challenges;
         FF target_sum;
+    };
+
+    /**
+     * @brief Derived class that defines proof structure for GoblinUltra proofs, as well as supporting functions.
+     *
+     */
+    class Transcript : public BaseTranscript<FF> {
+      public:
+        uint32_t circuit_size;
+        uint32_t public_input_size;
+        uint32_t pub_inputs_offset;
+        std::vector<FF> public_inputs;
+        Commitment w_l_comm;
+        Commitment w_r_comm;
+        Commitment w_o_comm;
+        Commitment ecc_op_wire_1_comm;
+        Commitment ecc_op_wire_2_comm;
+        Commitment ecc_op_wire_3_comm;
+        Commitment ecc_op_wire_4_comm;
+        Commitment sorted_accum_comm;
+        Commitment w_4_comm;
+        Commitment z_perm_comm;
+        Commitment z_lookup_comm;
+        std::vector<barretenberg::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
+        std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
+        std::vector<Commitment> zm_cq_comms;
+        Commitment zm_cq_comm;
+        Commitment zm_pi_comm;
+
+        Transcript() = default;
+
+        Transcript(const std::vector<uint8_t>& proof)
+            : BaseTranscript<FF>(proof)
+        {}
+        void deserialize_full_transcript() override
+        {
+            // take current proof and put them into the struct
+            size_t num_bytes_read = 0;
+            circuit_size = deserialize_from_buffer<uint32_t>(proof_data, num_bytes_read);
+            size_t log_n = numeric::get_msb(circuit_size);
+
+            public_input_size = deserialize_from_buffer<uint32_t>(proof_data, num_bytes_read);
+            pub_inputs_offset = deserialize_from_buffer<uint32_t>(proof_data, num_bytes_read);
+            for (size_t i = 0; i < public_input_size; ++i) {
+                public_inputs.push_back(deserialize_from_buffer<FF>(proof_data, num_bytes_read));
+            }
+            w_l_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
+            w_r_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
+            w_o_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
+            ecc_op_wire_1_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
+            ecc_op_wire_2_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
+            ecc_op_wire_3_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
+            ecc_op_wire_4_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
+            sorted_accum_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
+            w_4_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
+            z_perm_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
+            z_lookup_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
+            for (size_t i = 0; i < log_n; ++i) {
+                sumcheck_univariates.push_back(
+                    deserialize_from_buffer<barretenberg::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
+                        proof_data, num_bytes_read));
+            }
+            sumcheck_evaluations =
+                deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(proof_data, num_bytes_read);
+            for (size_t i = 0; i < log_n; ++i) {
+                zm_cq_comms.push_back(deserialize_from_buffer<Commitment>(proof_data, num_bytes_read));
+            }
+            zm_cq_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
+            zm_pi_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
+        }
+
+        void serialize_full_transcript() override
+        {
+            size_t old_proof_length = proof_data.size();
+            proof_data.clear();
+            size_t log_n = numeric::get_msb(circuit_size);
+            serialize_to_buffer(circuit_size, proof_data);
+            serialize_to_buffer(public_input_size, proof_data);
+            serialize_to_buffer(pub_inputs_offset, proof_data);
+            for (size_t i = 0; i < public_input_size; ++i) {
+                serialize_to_buffer(public_inputs[i], proof_data);
+            }
+            serialize_to_buffer(w_l_comm, proof_data);
+            serialize_to_buffer(w_r_comm, proof_data);
+            serialize_to_buffer(w_o_comm, proof_data);
+            serialize_to_buffer(ecc_op_wire_1_comm, proof_data);
+            serialize_to_buffer(ecc_op_wire_2_comm, proof_data);
+            serialize_to_buffer(ecc_op_wire_3_comm, proof_data);
+            serialize_to_buffer(ecc_op_wire_4_comm, proof_data);
+            serialize_to_buffer(sorted_accum_comm, proof_data);
+            serialize_to_buffer(w_4_comm, proof_data);
+            serialize_to_buffer(z_perm_comm, proof_data);
+            serialize_to_buffer(z_lookup_comm, proof_data);
+            for (size_t i = 0; i < log_n; ++i) {
+                serialize_to_buffer(sumcheck_univariates[i], proof_data);
+            }
+            serialize_to_buffer(sumcheck_evaluations, proof_data);
+            for (size_t i = 0; i < log_n; ++i) {
+                serialize_to_buffer(zm_cq_comms[i], proof_data);
+            }
+            serialize_to_buffer(zm_cq_comm, proof_data);
+            serialize_to_buffer(zm_pi_comm, proof_data);
+
+            ASSERT(proof_data.size() == old_proof_length);
+        }
     };
 };
 

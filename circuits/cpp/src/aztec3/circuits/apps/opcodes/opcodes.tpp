@@ -54,7 +54,7 @@ Note Opcodes<Builder>::UTXO_SLOAD(UTXOStateVar<Builder, Note>* utxo_state_var,
 
     // TODO within this function:
     // - Merkle Membership Check using the contract_address, utxo_datum.{sibling_path, leaf_index,
-    // historic_private_data_tree_root}
+    // historic_note_hash_tree_root}
 
     return new_note;
 };
@@ -95,7 +95,7 @@ std::vector<Note> Opcodes<Builder>::UTXO_SLOAD(UTXOSetStateVar<Builder, Note>* u
 
         // TODO within this function:
         // - Merkle Membership Check using the contract_address, utxo_datum.{sibling_path, leaf_index,
-        // historic_private_data_tree_root}
+        // historic_note_hash_tree_root}
 
         new_notes.push_back(new_note);
     }
@@ -122,8 +122,8 @@ void Opcodes<Builder>::UTXO_NULL(StateVar<Builder>* state_var, Note& note_to_nul
 template <typename Builder> template <typename Note>
 void Opcodes<Builder>::UTXO_INIT(StateVar<Builder>* state_var, Note& note_to_initialise)
 {
-    typename CT::fr const init_nullifier = note_to_initialise.get_initialisation_nullifier();
-    typename CT::fr const init_commitment = note_to_initialise.get_initialisation_commitment();
+    typename CT::fr const init_nullifier = note_to_initialise.get_initialization_nullifier();
+    typename CT::fr const init_commitment = note_to_initialise.get_initialization_commitment();
 
     auto& exec_ctx = state_var->exec_ctx;
 

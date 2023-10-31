@@ -11,17 +11,24 @@ import {
 } from '@aztec/circuits.js';
 import { computeUniqueCommitment, siloCommitment } from '@aztec/circuits.js/abis';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
+import { FunctionAbi, FunctionArtifact, countArgumentsSize } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AuthWitness, FunctionL2Logs, NotePreimage, NoteSpendingInfo } from '@aztec/types';
+import { AuthWitness, FunctionL2Logs, L1NotePayload, Note, UnencryptedL2Log } from '@aztec/types';
 
-import { NoteData, toACVMWitness } from '../acvm/index.js';
+import {
+  NoteData,
+  toACVMCallContext,
+  toACVMContractDeploymentData,
+  toACVMHistoricBlockData,
+  toACVMWitness,
+} from '../acvm/index.js';
 import { SideEffectCounter } from '../common/index.js';
 import { PackedArgsCache } from '../common/packed_args_cache.js';
 import { DBOracle } from './db_oracle.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';
-import { ExecutionResult, NewNoteData } from './execution_result.js';
+import { ExecutionResult, NoteAndSlot } from './execution_result.js';
 import { pickNotes } from './pick_notes.js';
 import { executePrivateFunction } from './private_execution.js';
 import { ViewDataOracle } from './view_data_oracle.js';
@@ -37,7 +44,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * This information is only for references (currently used for tests), and is not used for any sort of constrains.
    * Users can also use this to get a clearer idea of what's happened during a simulation.
    */
-  private newNotes: NewNoteData[] = [];
+  private newNotes: NoteAndSlot[] = [];
   /**
    * Notes from previous transactions that are returned to the oracle call `getNotes` during this execution.
    * The mapping maps from the unique siloed note hash to the index for notes created in private executions.
@@ -49,7 +56,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    */
   private gotNotes: Map<bigint, bigint> = new Map();
   private encryptedLogs: Buffer[] = [];
-  private unencryptedLogs: Buffer[] = [];
+  private unencryptedLogs: UnencryptedL2Log[] = [];
   private nestedExecutions: ExecutionResult[] = [];
   private enqueuedPublicFunctionCalls: PublicCallRequest[] = [];
 
@@ -76,32 +83,29 @@ export class ClientExecutionContext extends ViewDataOracle {
   // TODO When that is sorted out on noir side, we can use instead the utilities in serialize.ts
   /**
    * Writes the function inputs to the initial witness.
+   * @param abi - The function ABI.
    * @returns The initial witness.
    */
-  public getInitialWitness() {
+  public getInitialWitness(abi: FunctionAbi) {
     const contractDeploymentData = this.txContext.contractDeploymentData;
 
+    const argumentsSize = countArgumentsSize(abi);
+
+    const args = this.packedArgsCache.unpack(this.argsHash);
+
+    if (args.length !== argumentsSize) {
+      throw new Error('Invalid arguments size');
+    }
+
     const fields = [
-      this.callContext.msgSender,
-      this.callContext.storageContractAddress,
-      this.callContext.portalContractAddress,
-      this.callContext.isDelegateCall,
-      this.callContext.isStaticCall,
-      this.callContext.isContractDeployment,
-
-      ...this.historicBlockData.toArray(),
-
-      contractDeploymentData.deployerPublicKey.x,
-      contractDeploymentData.deployerPublicKey.y,
-      contractDeploymentData.constructorVkHash,
-      contractDeploymentData.functionTreeRoot,
-      contractDeploymentData.contractAddressSalt,
-      contractDeploymentData.portalContractAddress,
+      ...toACVMCallContext(this.callContext),
+      ...toACVMHistoricBlockData(this.historicBlockData),
+      ...toACVMContractDeploymentData(contractDeploymentData),
 
       this.txContext.chainId,
       this.txContext.version,
 
-      ...this.packedArgsCache.unpack(this.argsHash),
+      ...args,
     ];
 
     return toACVMWitness(1, fields);
@@ -131,7 +135,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * Get the data for the newly created notes.
    * @param innerNoteHashes - Inner note hashes for the notes.
    */
-  public getNewNotes(): NewNoteData[] {
+  public getNewNotes(): NoteAndSlot[] {
     return this.newNotes;
   }
 
@@ -146,7 +150,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * Return the encrypted logs emitted during this execution.
    */
   public getUnencryptedLogs() {
-    return new FunctionL2Logs(this.unencryptedLogs);
+    return new FunctionL2Logs(this.unencryptedLogs.map(log => log.toBuffer()));
   }
 
   /**
@@ -172,16 +176,13 @@ export class ClientExecutionContext extends ViewDataOracle {
   }
 
   /**
-   * Gets some notes for a contract address and storage slot.
-   * Returns a flattened array containing real-note-count and note preimages.
+   * Gets some notes for a storage slot.
    *
    * @remarks
-   *
-   * Check for pending notes with matching address/slot.
+   * Check for pending notes with matching slot.
    * Real notes coming from DB will have a leafIndex which
-   * represents their index in the private data tree.
+   * represents their index in the note hash tree.
    *
-   * @param contractAddress - The contract address.
    * @param storageSlot - The storage slot.
    * @param numSelects - The number of valid selects in selectBy and selectValues.
    * @param selectBy - An array of indices of the fields to selects.
@@ -190,12 +191,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param sortOrder - The order of the corresponding index in sortBy. (1: DESC, 2: ASC, 0: Do nothing)
    * @param limit - The number of notes to retrieve per query.
    * @param offset - The starting index for pagination.
-   * @param returnSize - The return size.
-   * @returns Flattened array of ACVMFields (format expected by Noir/ACVM) containing:
-   * count - number of real (non-padding) notes retrieved,
-   * contractAddress - the contract address,
-   * preimages - the real note preimages retrieved, and
-   * paddedZeros - zeros to ensure an array with length returnSize expected by Noir circuit
+   * @returns Array of note data.
    */
   public async getNotes(
     storageSlot: Fr,
@@ -223,27 +219,19 @@ export class ClientExecutionContext extends ViewDataOracle {
 
     this.log(
       `Returning ${notes.length} notes for ${this.contractAddress} at ${storageSlot}: ${notes
-        .map(n => `${n.nonce.toString()}:[${n.preimage.map(i => i.toString()).join(',')}]`)
+        .map(n => `${n.nonce.toString()}:[${n.note.items.map(i => i.toString()).join(',')}]`)
         .join(', ')}`,
     );
-
-    // TODO: notice, that if we don't have a note in our DB, we don't know how big the preimage needs to be, and so we don't actually know how many dummy notes to return, or big to make those dummy notes, or where to position `is_some` booleans to inform the noir program that _all_ the notes should be dummies.
-    // By a happy coincidence, a `0` field is interpreted as `is_none`, and since in this case (of an empty db) we'll return all zeros (paddedZeros), the noir program will treat the returned data as all dummies, but this is luck. Perhaps a preimage size should be conveyed by the get_notes Aztec.nr oracle?
-    const preimageLength = notes?.[0]?.preimage.length ?? 0;
-    if (
-      !notes.every(({ preimage }) => {
-        return preimageLength === preimage.length;
-      })
-    ) {
-      throw new Error('Preimages for a particular note type should all be the same length');
-    }
 
     const wasm = await CircuitsWasm.get();
     notes.forEach(n => {
       if (n.index !== undefined) {
         const siloedNoteHash = siloCommitment(wasm, n.contractAddress, n.innerNoteHash);
         const uniqueSiloedNoteHash = computeUniqueCommitment(wasm, n.nonce, siloedNoteHash);
-        this.gotNotes.set(uniqueSiloedNoteHash.value, n.index);
+        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
+        // Should always be uniqueSiloedNoteHash when publicly created notes include nonces.
+        const noteHashForReadRequest = n.nonce.isZero() ? siloedNoteHash : uniqueSiloedNoteHash;
+        this.gotNotes.set(noteHashForReadRequest.value, n.index);
       }
     });
 
@@ -288,22 +276,23 @@ export class ClientExecutionContext extends ViewDataOracle {
    * It can be used in subsequent calls (or transactions when chaining txs is possible).
    * @param contractAddress - The contract address.
    * @param storageSlot - The storage slot.
-   * @param preimage - The preimage of the new note.
+   * @param noteItems - The items to be included in a Note.
    * @param innerNoteHash - The inner note hash of the new note.
    * @returns
    */
-  public notifyCreatedNote(storageSlot: Fr, preimage: Fr[], innerNoteHash: Fr) {
+  public notifyCreatedNote(storageSlot: Fr, noteItems: Fr[], innerNoteHash: Fr) {
+    const note = new Note(noteItems);
     this.noteCache.addNewNote({
       contractAddress: this.contractAddress,
       storageSlot,
       nonce: Fr.ZERO, // Nonce cannot be known during private execution.
-      preimage,
+      note,
       siloedNullifier: undefined, // Siloed nullifier cannot be known for newly created note.
       innerNoteHash,
     });
     this.newNotes.push({
       storageSlot,
-      preimage,
+      note,
     });
   }
 
@@ -322,22 +311,22 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param contractAddress - The contract address of the note.
    * @param storageSlot - The storage slot the note is at.
    * @param publicKey - The public key of the account that can decrypt the log.
-   * @param preimage - The preimage of the note.
+   * @param log - The log contents.
    */
-  public emitEncryptedLog(contractAddress: AztecAddress, storageSlot: Fr, publicKey: Point, preimage: Fr[]) {
-    const notePreimage = new NotePreimage(preimage);
-    const noteSpendingInfo = new NoteSpendingInfo(notePreimage, contractAddress, storageSlot);
-    const encryptedNotePreimage = noteSpendingInfo.toEncryptedBuffer(publicKey, this.curve);
-    this.encryptedLogs.push(encryptedNotePreimage);
+  public emitEncryptedLog(contractAddress: AztecAddress, storageSlot: Fr, publicKey: Point, log: Fr[]) {
+    const note = new Note(log);
+    const l1NotePayload = new L1NotePayload(note, contractAddress, storageSlot);
+    const encryptedNote = l1NotePayload.toEncryptedBuffer(publicKey, this.curve);
+    this.encryptedLogs.push(encryptedNote);
   }
 
   /**
    * Emit an unencrypted log.
    * @param log - The unencrypted log to be emitted.
    */
-  public emitUnencryptedLog(log: Buffer) {
+  public emitUnencryptedLog(log: UnencryptedL2Log) {
     this.unencryptedLogs.push(log);
-    this.log(`Emitted unencrypted log: "${log.toString('ascii')}"`);
+    this.log(`Emitted unencrypted log: "${log.toHumanReadable()}"`);
   }
 
   /**
@@ -352,8 +341,8 @@ export class ClientExecutionContext extends ViewDataOracle {
       `Calling private function ${targetContractAddress}:${functionSelector} from ${this.callContext.storageContractAddress}`,
     );
 
-    const targetAbi = await this.db.getFunctionABI(targetContractAddress, functionSelector);
-    const targetFunctionData = FunctionData.fromAbi(targetAbi);
+    const targetArtifact = await this.db.getFunctionArtifact(targetContractAddress, functionSelector);
+    const targetFunctionData = FunctionData.fromAbi(targetArtifact);
 
     const derivedTxContext = new TxContext(
       false,
@@ -364,7 +353,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       this.txContext.version,
     );
 
-    const derivedCallContext = await this.deriveCallContext(targetContractAddress, false, false);
+    const derivedCallContext = await this.deriveCallContext(targetContractAddress, targetArtifact, false, false);
 
     const context = new ClientExecutionContext(
       targetContractAddress,
@@ -382,7 +371,7 @@ export class ClientExecutionContext extends ViewDataOracle {
 
     const childExecutionResult = await executePrivateFunction(
       context,
-      targetAbi,
+      targetArtifact,
       targetContractAddress,
       targetFunctionData,
     );
@@ -406,14 +395,14 @@ export class ClientExecutionContext extends ViewDataOracle {
     functionSelector: FunctionSelector,
     argsHash: Fr,
   ): Promise<PublicCallRequest> {
-    const targetAbi = await this.db.getFunctionABI(targetContractAddress, functionSelector);
-    const derivedCallContext = await this.deriveCallContext(targetContractAddress, false, false);
+    const targetArtifact = await this.db.getFunctionArtifact(targetContractAddress, functionSelector);
+    const derivedCallContext = await this.deriveCallContext(targetContractAddress, targetArtifact, false, false);
     const args = this.packedArgsCache.unpack(argsHash);
     const sideEffectCounter = this.sideEffectCounter.count();
     const enqueuedRequest = PublicCallRequest.from({
       args,
       callContext: derivedCallContext,
-      functionData: FunctionData.fromAbi(targetAbi),
+      functionData: FunctionData.fromAbi(targetArtifact),
       contractAddress: targetContractAddress,
       sideEffectCounter,
     });
@@ -433,18 +422,24 @@ export class ClientExecutionContext extends ViewDataOracle {
 
   /**
    * Derives the call context for a nested execution.
-   * @param parentContext - The parent call context.
    * @param targetContractAddress - The address of the contract being called.
+   * @param targetArtifact - The artifact of the function being called.
    * @param isDelegateCall - Whether the call is a delegate call.
    * @param isStaticCall - Whether the call is a static call.
    * @returns The derived call context.
    */
-  private async deriveCallContext(targetContractAddress: AztecAddress, isDelegateCall = false, isStaticCall = false) {
+  private async deriveCallContext(
+    targetContractAddress: AztecAddress,
+    targetArtifact: FunctionArtifact,
+    isDelegateCall = false,
+    isStaticCall = false,
+  ) {
     const portalContractAddress = await this.db.getPortalContractAddress(targetContractAddress);
     return new CallContext(
       this.contractAddress,
       targetContractAddress,
       portalContractAddress,
+      FunctionSelector.fromNameAndParameters(targetArtifact.name, targetArtifact.parameters),
       isDelegateCall,
       isStaticCall,
       false,

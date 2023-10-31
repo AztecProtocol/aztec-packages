@@ -34,6 +34,7 @@ import {
   MembershipWitness4,
   MembershipWitness8,
   MembershipWitness16,
+  MembershipWitness20,
   MergeRollupInputs,
   NativeAggregationState,
   NewContractData,
@@ -61,7 +62,6 @@ import {
   TxContext,
   TxRequest,
   VerificationKeyData,
-  isCircuitError,
   toBuffer,
 } from './types.js';
 
@@ -524,6 +524,7 @@ export function fromPublicDataRead(o: PublicDataRead): MsgpackPublicDataRead {
 interface MsgpackCombinedAccumulatedData {
   aggregation_object: MsgpackNativeAggregationState;
   read_requests: Tuple<Buffer, 128>;
+  pending_read_requests: Tuple<Buffer, 128>;
   new_commitments: Tuple<Buffer, 64>;
   new_nullifiers: Tuple<Buffer, 64>;
   nullified_commitments: Tuple<Buffer, 64>;
@@ -546,6 +547,9 @@ export function toCombinedAccumulatedData(o: MsgpackCombinedAccumulatedData): Co
   }
   if (o.read_requests === undefined) {
     throw new Error('Expected read_requests in CombinedAccumulatedData deserialization');
+  }
+  if (o.pending_read_requests === undefined) {
+    throw new Error('Expected pending_read_requests in CombinedAccumulatedData deserialization');
   }
   if (o.new_commitments === undefined) {
     throw new Error('Expected new_commitments in CombinedAccumulatedData deserialization');
@@ -592,6 +596,7 @@ export function toCombinedAccumulatedData(o: MsgpackCombinedAccumulatedData): Co
   return new CombinedAccumulatedData(
     toNativeAggregationState(o.aggregation_object),
     mapTuple(o.read_requests, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.pending_read_requests, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.new_commitments, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.new_nullifiers, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.nullified_commitments, (v: Buffer) => Fr.fromBuffer(v)),
@@ -615,6 +620,9 @@ export function fromCombinedAccumulatedData(o: CombinedAccumulatedData): Msgpack
   }
   if (o.readRequests === undefined) {
     throw new Error('Expected readRequests in CombinedAccumulatedData serialization');
+  }
+  if (o.pendingReadRequests === undefined) {
+    throw new Error('Expected pendingReadRequests in CombinedAccumulatedData serialization');
   }
   if (o.newCommitments === undefined) {
     throw new Error('Expected newCommitments in CombinedAccumulatedData serialization');
@@ -661,6 +669,7 @@ export function fromCombinedAccumulatedData(o: CombinedAccumulatedData): Msgpack
   return {
     aggregation_object: fromNativeAggregationState(o.aggregationObject),
     read_requests: mapTuple(o.readRequests, (v: Fr) => toBuffer(v)),
+    pending_read_requests: mapTuple(o.pendingReadRequests, (v: Fr) => toBuffer(v)),
     new_commitments: mapTuple(o.newCommitments, (v: Fr) => toBuffer(v)),
     new_nullifiers: mapTuple(o.newNullifiers, (v: Fr) => toBuffer(v)),
     nullified_commitments: mapTuple(o.nullifiedCommitments, (v: Fr) => toBuffer(v)),
@@ -683,7 +692,7 @@ export function fromCombinedAccumulatedData(o: CombinedAccumulatedData): Msgpack
 }
 
 interface MsgpackHistoricBlockData {
-  private_data_tree_root: Buffer;
+  note_hash_tree_root: Buffer;
   nullifier_tree_root: Buffer;
   contract_tree_root: Buffer;
   l1_to_l2_messages_tree_root: Buffer;
@@ -694,8 +703,8 @@ interface MsgpackHistoricBlockData {
 }
 
 export function toHistoricBlockData(o: MsgpackHistoricBlockData): HistoricBlockData {
-  if (o.private_data_tree_root === undefined) {
-    throw new Error('Expected private_data_tree_root in HistoricBlockData deserialization');
+  if (o.note_hash_tree_root === undefined) {
+    throw new Error('Expected note_hash_tree_root in HistoricBlockData deserialization');
   }
   if (o.nullifier_tree_root === undefined) {
     throw new Error('Expected nullifier_tree_root in HistoricBlockData deserialization');
@@ -719,7 +728,7 @@ export function toHistoricBlockData(o: MsgpackHistoricBlockData): HistoricBlockD
     throw new Error('Expected global_variables_hash in HistoricBlockData deserialization');
   }
   return new HistoricBlockData(
-    Fr.fromBuffer(o.private_data_tree_root),
+    Fr.fromBuffer(o.note_hash_tree_root),
     Fr.fromBuffer(o.nullifier_tree_root),
     Fr.fromBuffer(o.contract_tree_root),
     Fr.fromBuffer(o.l1_to_l2_messages_tree_root),
@@ -731,8 +740,8 @@ export function toHistoricBlockData(o: MsgpackHistoricBlockData): HistoricBlockD
 }
 
 export function fromHistoricBlockData(o: HistoricBlockData): MsgpackHistoricBlockData {
-  if (o.privateDataTreeRoot === undefined) {
-    throw new Error('Expected privateDataTreeRoot in HistoricBlockData serialization');
+  if (o.noteHashTreeRoot === undefined) {
+    throw new Error('Expected noteHashTreeRoot in HistoricBlockData serialization');
   }
   if (o.nullifierTreeRoot === undefined) {
     throw new Error('Expected nullifierTreeRoot in HistoricBlockData serialization');
@@ -756,7 +765,7 @@ export function fromHistoricBlockData(o: HistoricBlockData): MsgpackHistoricBloc
     throw new Error('Expected globalVariablesHash in HistoricBlockData serialization');
   }
   return {
-    private_data_tree_root: toBuffer(o.privateDataTreeRoot),
+    note_hash_tree_root: toBuffer(o.noteHashTreeRoot),
     nullifier_tree_root: toBuffer(o.nullifierTreeRoot),
     contract_tree_root: toBuffer(o.contractTreeRoot),
     l1_to_l2_messages_tree_root: toBuffer(o.l1ToL2MessagesTreeRoot),
@@ -1138,6 +1147,7 @@ interface MsgpackCallContext {
   msg_sender: Buffer;
   storage_contract_address: Buffer;
   portal_contract_address: Buffer;
+  function_selector: MsgpackFunctionSelector;
   is_delegate_call: boolean;
   is_static_call: boolean;
   is_contract_deployment: boolean;
@@ -1153,6 +1163,9 @@ export function toCallContext(o: MsgpackCallContext): CallContext {
   if (o.portal_contract_address === undefined) {
     throw new Error('Expected portal_contract_address in CallContext deserialization');
   }
+  if (o.function_selector === undefined) {
+    throw new Error('Expected function_selector in CallContext deserialization');
+  }
   if (o.is_delegate_call === undefined) {
     throw new Error('Expected is_delegate_call in CallContext deserialization');
   }
@@ -1166,6 +1179,7 @@ export function toCallContext(o: MsgpackCallContext): CallContext {
     Address.fromBuffer(o.msg_sender),
     Address.fromBuffer(o.storage_contract_address),
     Fr.fromBuffer(o.portal_contract_address),
+    toFunctionSelector(o.function_selector),
     o.is_delegate_call,
     o.is_static_call,
     o.is_contract_deployment,
@@ -1182,6 +1196,9 @@ export function fromCallContext(o: CallContext): MsgpackCallContext {
   if (o.portalContractAddress === undefined) {
     throw new Error('Expected portalContractAddress in CallContext serialization');
   }
+  if (o.functionSelector === undefined) {
+    throw new Error('Expected functionSelector in CallContext serialization');
+  }
   if (o.isDelegateCall === undefined) {
     throw new Error('Expected isDelegateCall in CallContext serialization');
   }
@@ -1195,6 +1212,7 @@ export function fromCallContext(o: CallContext): MsgpackCallContext {
     msg_sender: toBuffer(o.msgSender),
     storage_contract_address: toBuffer(o.storageContractAddress),
     portal_contract_address: toBuffer(o.portalContractAddress),
+    function_selector: fromFunctionSelector(o.functionSelector),
     is_delegate_call: o.isDelegateCall,
     is_static_call: o.isStaticCall,
     is_contract_deployment: o.isContractDeployment,
@@ -1206,6 +1224,7 @@ interface MsgpackPrivateCircuitPublicInputs {
   args_hash: Buffer;
   return_values: Tuple<Buffer, 4>;
   read_requests: Tuple<Buffer, 32>;
+  pending_read_requests: Tuple<Buffer, 32>;
   new_commitments: Tuple<Buffer, 16>;
   new_nullifiers: Tuple<Buffer, 16>;
   nullified_commitments: Tuple<Buffer, 16>;
@@ -1234,6 +1253,9 @@ export function toPrivateCircuitPublicInputs(o: MsgpackPrivateCircuitPublicInput
   }
   if (o.read_requests === undefined) {
     throw new Error('Expected read_requests in PrivateCircuitPublicInputs deserialization');
+  }
+  if (o.pending_read_requests === undefined) {
+    throw new Error('Expected pending_read_requests in PrivateCircuitPublicInputs deserialization');
   }
   if (o.new_commitments === undefined) {
     throw new Error('Expected new_commitments in PrivateCircuitPublicInputs deserialization');
@@ -1282,6 +1304,7 @@ export function toPrivateCircuitPublicInputs(o: MsgpackPrivateCircuitPublicInput
     Fr.fromBuffer(o.args_hash),
     mapTuple(o.return_values, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.read_requests, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.pending_read_requests, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.new_commitments, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.new_nullifiers, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.nullified_commitments, (v: Buffer) => Fr.fromBuffer(v)),
@@ -1311,6 +1334,9 @@ export function fromPrivateCircuitPublicInputs(o: PrivateCircuitPublicInputs): M
   }
   if (o.readRequests === undefined) {
     throw new Error('Expected readRequests in PrivateCircuitPublicInputs serialization');
+  }
+  if (o.pendingReadRequests === undefined) {
+    throw new Error('Expected pendingReadRequests in PrivateCircuitPublicInputs serialization');
   }
   if (o.newCommitments === undefined) {
     throw new Error('Expected newCommitments in PrivateCircuitPublicInputs serialization');
@@ -1359,6 +1385,7 @@ export function fromPrivateCircuitPublicInputs(o: PrivateCircuitPublicInputs): M
     args_hash: toBuffer(o.argsHash),
     return_values: mapTuple(o.returnValues, (v: Fr) => toBuffer(v)),
     read_requests: mapTuple(o.readRequests, (v: Fr) => toBuffer(v)),
+    pending_read_requests: mapTuple(o.pendingReadRequests, (v: Fr) => toBuffer(v)),
     new_commitments: mapTuple(o.newCommitments, (v: Fr) => toBuffer(v)),
     new_nullifiers: mapTuple(o.newNullifiers, (v: Fr) => toBuffer(v)),
     nullified_commitments: mapTuple(o.nullifiedCommitments, (v: Fr) => toBuffer(v)),
@@ -2339,6 +2366,37 @@ export function fromNullifierLeafPreimage(o: NullifierLeafPreimage): MsgpackNull
   };
 }
 
+interface MsgpackMembershipWitness20 {
+  leaf_index: Buffer;
+  sibling_path: Tuple<Buffer, 20>;
+}
+
+export function toMembershipWitness20(o: MsgpackMembershipWitness20): MembershipWitness20 {
+  if (o.leaf_index === undefined) {
+    throw new Error('Expected leaf_index in MembershipWitness20 deserialization');
+  }
+  if (o.sibling_path === undefined) {
+    throw new Error('Expected sibling_path in MembershipWitness20 deserialization');
+  }
+  return new MembershipWitness20(
+    Fr.fromBuffer(o.leaf_index),
+    mapTuple(o.sibling_path, (v: Buffer) => Fr.fromBuffer(v)),
+  );
+}
+
+export function fromMembershipWitness20(o: MembershipWitness20): MsgpackMembershipWitness20 {
+  if (o.leafIndex === undefined) {
+    throw new Error('Expected leafIndex in MembershipWitness20 serialization');
+  }
+  if (o.siblingPath === undefined) {
+    throw new Error('Expected siblingPath in MembershipWitness20 serialization');
+  }
+  return {
+    leaf_index: toBuffer(o.leafIndex),
+    sibling_path: mapTuple(o.siblingPath, (v: Fr) => toBuffer(v)),
+  };
+}
+
 interface MsgpackConstantRollupData {
   start_historic_blocks_tree_roots_snapshot: MsgpackAppendOnlyTreeSnapshot;
   private_kernel_vk_tree_root: Buffer;
@@ -2408,15 +2466,15 @@ export function fromConstantRollupData(o: ConstantRollupData): MsgpackConstantRo
 
 interface MsgpackBaseRollupInputs {
   kernel_data: Tuple<MsgpackPreviousKernelData, 2>;
-  start_private_data_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
+  start_note_hash_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
   start_nullifier_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
   start_contract_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
   start_public_data_tree_root: Buffer;
   start_historic_blocks_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
   low_nullifier_leaf_preimages: Tuple<MsgpackNullifierLeafPreimage, 128>;
-  low_nullifier_membership_witness: Tuple<MsgpackMembershipWitness16, 128>;
+  low_nullifier_membership_witness: Tuple<MsgpackMembershipWitness20, 128>;
   new_commitments_subtree_sibling_path: Tuple<Buffer, 25>;
-  new_nullifiers_subtree_sibling_path: Tuple<Buffer, 9>;
+  new_nullifiers_subtree_sibling_path: Tuple<Buffer, 13>;
   new_contracts_subtree_sibling_path: Tuple<Buffer, 15>;
   new_public_data_update_requests_sibling_paths: Tuple<Tuple<Buffer, 254>, 32>;
   new_public_data_reads_sibling_paths: Tuple<Tuple<Buffer, 254>, 32>;
@@ -2428,8 +2486,8 @@ export function toBaseRollupInputs(o: MsgpackBaseRollupInputs): BaseRollupInputs
   if (o.kernel_data === undefined) {
     throw new Error('Expected kernel_data in BaseRollupInputs deserialization');
   }
-  if (o.start_private_data_tree_snapshot === undefined) {
-    throw new Error('Expected start_private_data_tree_snapshot in BaseRollupInputs deserialization');
+  if (o.start_note_hash_tree_snapshot === undefined) {
+    throw new Error('Expected start_note_hash_tree_snapshot in BaseRollupInputs deserialization');
   }
   if (o.start_nullifier_tree_snapshot === undefined) {
     throw new Error('Expected start_nullifier_tree_snapshot in BaseRollupInputs deserialization');
@@ -2472,13 +2530,13 @@ export function toBaseRollupInputs(o: MsgpackBaseRollupInputs): BaseRollupInputs
   }
   return new BaseRollupInputs(
     mapTuple(o.kernel_data, (v: MsgpackPreviousKernelData) => toPreviousKernelData(v)),
-    toAppendOnlyTreeSnapshot(o.start_private_data_tree_snapshot),
+    toAppendOnlyTreeSnapshot(o.start_note_hash_tree_snapshot),
     toAppendOnlyTreeSnapshot(o.start_nullifier_tree_snapshot),
     toAppendOnlyTreeSnapshot(o.start_contract_tree_snapshot),
     Fr.fromBuffer(o.start_public_data_tree_root),
     toAppendOnlyTreeSnapshot(o.start_historic_blocks_tree_snapshot),
     mapTuple(o.low_nullifier_leaf_preimages, (v: MsgpackNullifierLeafPreimage) => toNullifierLeafPreimage(v)),
-    mapTuple(o.low_nullifier_membership_witness, (v: MsgpackMembershipWitness16) => toMembershipWitness16(v)),
+    mapTuple(o.low_nullifier_membership_witness, (v: MsgpackMembershipWitness20) => toMembershipWitness20(v)),
     mapTuple(o.new_commitments_subtree_sibling_path, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.new_nullifiers_subtree_sibling_path, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.new_contracts_subtree_sibling_path, (v: Buffer) => Fr.fromBuffer(v)),
@@ -2499,8 +2557,8 @@ export function fromBaseRollupInputs(o: BaseRollupInputs): MsgpackBaseRollupInpu
   if (o.kernelData === undefined) {
     throw new Error('Expected kernelData in BaseRollupInputs serialization');
   }
-  if (o.startPrivateDataTreeSnapshot === undefined) {
-    throw new Error('Expected startPrivateDataTreeSnapshot in BaseRollupInputs serialization');
+  if (o.startNoteHashTreeSnapshot === undefined) {
+    throw new Error('Expected startNoteHashTreeSnapshot in BaseRollupInputs serialization');
   }
   if (o.startNullifierTreeSnapshot === undefined) {
     throw new Error('Expected startNullifierTreeSnapshot in BaseRollupInputs serialization');
@@ -2543,7 +2601,7 @@ export function fromBaseRollupInputs(o: BaseRollupInputs): MsgpackBaseRollupInpu
   }
   return {
     kernel_data: mapTuple(o.kernelData, (v: PreviousKernelData) => fromPreviousKernelData(v)),
-    start_private_data_tree_snapshot: fromAppendOnlyTreeSnapshot(o.startPrivateDataTreeSnapshot),
+    start_note_hash_tree_snapshot: fromAppendOnlyTreeSnapshot(o.startNoteHashTreeSnapshot),
     start_nullifier_tree_snapshot: fromAppendOnlyTreeSnapshot(o.startNullifierTreeSnapshot),
     start_contract_tree_snapshot: fromAppendOnlyTreeSnapshot(o.startContractTreeSnapshot),
     start_public_data_tree_root: toBuffer(o.startPublicDataTreeRoot),
@@ -2551,8 +2609,8 @@ export function fromBaseRollupInputs(o: BaseRollupInputs): MsgpackBaseRollupInpu
     low_nullifier_leaf_preimages: mapTuple(o.lowNullifierLeafPreimages, (v: NullifierLeafPreimage) =>
       fromNullifierLeafPreimage(v),
     ),
-    low_nullifier_membership_witness: mapTuple(o.lowNullifierMembershipWitness, (v: MembershipWitness16) =>
-      fromMembershipWitness16(v),
+    low_nullifier_membership_witness: mapTuple(o.lowNullifierMembershipWitness, (v: MembershipWitness20) =>
+      fromMembershipWitness20(v),
     ),
     new_commitments_subtree_sibling_path: mapTuple(o.newCommitmentsSubtreeSiblingPath, (v: Fr) => toBuffer(v)),
     new_nullifiers_subtree_sibling_path: mapTuple(o.newNullifiersSubtreeSiblingPath, (v: Fr) => toBuffer(v)),
@@ -2577,8 +2635,8 @@ interface MsgpackBaseOrMergeRollupPublicInputs {
   rollup_subtree_height: Buffer;
   end_aggregation_object: MsgpackNativeAggregationState;
   constants: MsgpackConstantRollupData;
-  start_private_data_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
-  end_private_data_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
+  start_note_hash_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
+  end_note_hash_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
   start_nullifier_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
   end_nullifier_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
   start_contract_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
@@ -2603,11 +2661,11 @@ export function toBaseOrMergeRollupPublicInputs(
   if (o.constants === undefined) {
     throw new Error('Expected constants in BaseOrMergeRollupPublicInputs deserialization');
   }
-  if (o.start_private_data_tree_snapshot === undefined) {
-    throw new Error('Expected start_private_data_tree_snapshot in BaseOrMergeRollupPublicInputs deserialization');
+  if (o.start_note_hash_tree_snapshot === undefined) {
+    throw new Error('Expected start_note_hash_tree_snapshot in BaseOrMergeRollupPublicInputs deserialization');
   }
-  if (o.end_private_data_tree_snapshot === undefined) {
-    throw new Error('Expected end_private_data_tree_snapshot in BaseOrMergeRollupPublicInputs deserialization');
+  if (o.end_note_hash_tree_snapshot === undefined) {
+    throw new Error('Expected end_note_hash_tree_snapshot in BaseOrMergeRollupPublicInputs deserialization');
   }
   if (o.start_nullifier_tree_snapshot === undefined) {
     throw new Error('Expected start_nullifier_tree_snapshot in BaseOrMergeRollupPublicInputs deserialization');
@@ -2635,8 +2693,8 @@ export function toBaseOrMergeRollupPublicInputs(
     Fr.fromBuffer(o.rollup_subtree_height),
     toNativeAggregationState(o.end_aggregation_object),
     toConstantRollupData(o.constants),
-    toAppendOnlyTreeSnapshot(o.start_private_data_tree_snapshot),
-    toAppendOnlyTreeSnapshot(o.end_private_data_tree_snapshot),
+    toAppendOnlyTreeSnapshot(o.start_note_hash_tree_snapshot),
+    toAppendOnlyTreeSnapshot(o.end_note_hash_tree_snapshot),
     toAppendOnlyTreeSnapshot(o.start_nullifier_tree_snapshot),
     toAppendOnlyTreeSnapshot(o.end_nullifier_tree_snapshot),
     toAppendOnlyTreeSnapshot(o.start_contract_tree_snapshot),
@@ -2662,11 +2720,11 @@ export function fromBaseOrMergeRollupPublicInputs(
   if (o.constants === undefined) {
     throw new Error('Expected constants in BaseOrMergeRollupPublicInputs serialization');
   }
-  if (o.startPrivateDataTreeSnapshot === undefined) {
-    throw new Error('Expected startPrivateDataTreeSnapshot in BaseOrMergeRollupPublicInputs serialization');
+  if (o.startNoteHashTreeSnapshot === undefined) {
+    throw new Error('Expected startNoteHashTreeSnapshot in BaseOrMergeRollupPublicInputs serialization');
   }
-  if (o.endPrivateDataTreeSnapshot === undefined) {
-    throw new Error('Expected endPrivateDataTreeSnapshot in BaseOrMergeRollupPublicInputs serialization');
+  if (o.endNoteHashTreeSnapshot === undefined) {
+    throw new Error('Expected endNoteHashTreeSnapshot in BaseOrMergeRollupPublicInputs serialization');
   }
   if (o.startNullifierTreeSnapshot === undefined) {
     throw new Error('Expected startNullifierTreeSnapshot in BaseOrMergeRollupPublicInputs serialization');
@@ -2694,8 +2752,8 @@ export function fromBaseOrMergeRollupPublicInputs(
     rollup_subtree_height: toBuffer(o.rollupSubtreeHeight),
     end_aggregation_object: fromNativeAggregationState(o.endAggregationObject),
     constants: fromConstantRollupData(o.constants),
-    start_private_data_tree_snapshot: fromAppendOnlyTreeSnapshot(o.startPrivateDataTreeSnapshot),
-    end_private_data_tree_snapshot: fromAppendOnlyTreeSnapshot(o.endPrivateDataTreeSnapshot),
+    start_note_hash_tree_snapshot: fromAppendOnlyTreeSnapshot(o.startNoteHashTreeSnapshot),
+    end_note_hash_tree_snapshot: fromAppendOnlyTreeSnapshot(o.endNoteHashTreeSnapshot),
     start_nullifier_tree_snapshot: fromAppendOnlyTreeSnapshot(o.startNullifierTreeSnapshot),
     end_nullifier_tree_snapshot: fromAppendOnlyTreeSnapshot(o.endNullifierTreeSnapshot),
     start_contract_tree_snapshot: fromAppendOnlyTreeSnapshot(o.startContractTreeSnapshot),
@@ -2889,16 +2947,16 @@ export function fromRootRollupInputs(o: RootRollupInputs): MsgpackRootRollupInpu
 interface MsgpackRootRollupPublicInputs {
   end_aggregation_object: MsgpackNativeAggregationState;
   global_variables: MsgpackGlobalVariables;
-  start_private_data_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
-  end_private_data_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
+  start_note_hash_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
+  end_note_hash_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
   start_nullifier_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
   end_nullifier_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
   start_contract_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
   end_contract_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
   start_public_data_tree_root: Buffer;
   end_public_data_tree_root: Buffer;
-  start_tree_of_historic_private_data_tree_roots_snapshot: MsgpackAppendOnlyTreeSnapshot;
-  end_tree_of_historic_private_data_tree_roots_snapshot: MsgpackAppendOnlyTreeSnapshot;
+  start_tree_of_historic_note_hash_tree_roots_snapshot: MsgpackAppendOnlyTreeSnapshot;
+  end_tree_of_historic_note_hash_tree_roots_snapshot: MsgpackAppendOnlyTreeSnapshot;
   start_tree_of_historic_contract_tree_roots_snapshot: MsgpackAppendOnlyTreeSnapshot;
   end_tree_of_historic_contract_tree_roots_snapshot: MsgpackAppendOnlyTreeSnapshot;
   start_l1_to_l2_messages_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
@@ -2918,11 +2976,11 @@ export function toRootRollupPublicInputs(o: MsgpackRootRollupPublicInputs): Root
   if (o.global_variables === undefined) {
     throw new Error('Expected global_variables in RootRollupPublicInputs deserialization');
   }
-  if (o.start_private_data_tree_snapshot === undefined) {
-    throw new Error('Expected start_private_data_tree_snapshot in RootRollupPublicInputs deserialization');
+  if (o.start_note_hash_tree_snapshot === undefined) {
+    throw new Error('Expected start_note_hash_tree_snapshot in RootRollupPublicInputs deserialization');
   }
-  if (o.end_private_data_tree_snapshot === undefined) {
-    throw new Error('Expected end_private_data_tree_snapshot in RootRollupPublicInputs deserialization');
+  if (o.end_note_hash_tree_snapshot === undefined) {
+    throw new Error('Expected end_note_hash_tree_snapshot in RootRollupPublicInputs deserialization');
   }
   if (o.start_nullifier_tree_snapshot === undefined) {
     throw new Error('Expected start_nullifier_tree_snapshot in RootRollupPublicInputs deserialization');
@@ -2942,14 +3000,14 @@ export function toRootRollupPublicInputs(o: MsgpackRootRollupPublicInputs): Root
   if (o.end_public_data_tree_root === undefined) {
     throw new Error('Expected end_public_data_tree_root in RootRollupPublicInputs deserialization');
   }
-  if (o.start_tree_of_historic_private_data_tree_roots_snapshot === undefined) {
+  if (o.start_tree_of_historic_note_hash_tree_roots_snapshot === undefined) {
     throw new Error(
-      'Expected start_tree_of_historic_private_data_tree_roots_snapshot in RootRollupPublicInputs deserialization',
+      'Expected start_tree_of_historic_note_hash_tree_roots_snapshot in RootRollupPublicInputs deserialization',
     );
   }
-  if (o.end_tree_of_historic_private_data_tree_roots_snapshot === undefined) {
+  if (o.end_tree_of_historic_note_hash_tree_roots_snapshot === undefined) {
     throw new Error(
-      'Expected end_tree_of_historic_private_data_tree_roots_snapshot in RootRollupPublicInputs deserialization',
+      'Expected end_tree_of_historic_note_hash_tree_roots_snapshot in RootRollupPublicInputs deserialization',
     );
   }
   if (o.start_tree_of_historic_contract_tree_roots_snapshot === undefined) {
@@ -2993,16 +3051,16 @@ export function toRootRollupPublicInputs(o: MsgpackRootRollupPublicInputs): Root
   return new RootRollupPublicInputs(
     toNativeAggregationState(o.end_aggregation_object),
     toGlobalVariables(o.global_variables),
-    toAppendOnlyTreeSnapshot(o.start_private_data_tree_snapshot),
-    toAppendOnlyTreeSnapshot(o.end_private_data_tree_snapshot),
+    toAppendOnlyTreeSnapshot(o.start_note_hash_tree_snapshot),
+    toAppendOnlyTreeSnapshot(o.end_note_hash_tree_snapshot),
     toAppendOnlyTreeSnapshot(o.start_nullifier_tree_snapshot),
     toAppendOnlyTreeSnapshot(o.end_nullifier_tree_snapshot),
     toAppendOnlyTreeSnapshot(o.start_contract_tree_snapshot),
     toAppendOnlyTreeSnapshot(o.end_contract_tree_snapshot),
     Fr.fromBuffer(o.start_public_data_tree_root),
     Fr.fromBuffer(o.end_public_data_tree_root),
-    toAppendOnlyTreeSnapshot(o.start_tree_of_historic_private_data_tree_roots_snapshot),
-    toAppendOnlyTreeSnapshot(o.end_tree_of_historic_private_data_tree_roots_snapshot),
+    toAppendOnlyTreeSnapshot(o.start_tree_of_historic_note_hash_tree_roots_snapshot),
+    toAppendOnlyTreeSnapshot(o.end_tree_of_historic_note_hash_tree_roots_snapshot),
     toAppendOnlyTreeSnapshot(o.start_tree_of_historic_contract_tree_roots_snapshot),
     toAppendOnlyTreeSnapshot(o.end_tree_of_historic_contract_tree_roots_snapshot),
     toAppendOnlyTreeSnapshot(o.start_l1_to_l2_messages_tree_snapshot),
@@ -3023,11 +3081,11 @@ export function fromRootRollupPublicInputs(o: RootRollupPublicInputs): MsgpackRo
   if (o.globalVariables === undefined) {
     throw new Error('Expected globalVariables in RootRollupPublicInputs serialization');
   }
-  if (o.startPrivateDataTreeSnapshot === undefined) {
-    throw new Error('Expected startPrivateDataTreeSnapshot in RootRollupPublicInputs serialization');
+  if (o.startNoteHashTreeSnapshot === undefined) {
+    throw new Error('Expected startNoteHashTreeSnapshot in RootRollupPublicInputs serialization');
   }
-  if (o.endPrivateDataTreeSnapshot === undefined) {
-    throw new Error('Expected endPrivateDataTreeSnapshot in RootRollupPublicInputs serialization');
+  if (o.endNoteHashTreeSnapshot === undefined) {
+    throw new Error('Expected endNoteHashTreeSnapshot in RootRollupPublicInputs serialization');
   }
   if (o.startNullifierTreeSnapshot === undefined) {
     throw new Error('Expected startNullifierTreeSnapshot in RootRollupPublicInputs serialization');
@@ -3047,11 +3105,11 @@ export function fromRootRollupPublicInputs(o: RootRollupPublicInputs): MsgpackRo
   if (o.endPublicDataTreeRoot === undefined) {
     throw new Error('Expected endPublicDataTreeRoot in RootRollupPublicInputs serialization');
   }
-  if (o.startTreeOfHistoricPrivateDataTreeRootsSnapshot === undefined) {
-    throw new Error('Expected startTreeOfHistoricPrivateDataTreeRootsSnapshot in RootRollupPublicInputs serialization');
+  if (o.startTreeOfHistoricNoteHashTreeRootsSnapshot === undefined) {
+    throw new Error('Expected startTreeOfHistoricNoteHashTreeRootsSnapshot in RootRollupPublicInputs serialization');
   }
-  if (o.endTreeOfHistoricPrivateDataTreeRootsSnapshot === undefined) {
-    throw new Error('Expected endTreeOfHistoricPrivateDataTreeRootsSnapshot in RootRollupPublicInputs serialization');
+  if (o.endTreeOfHistoricNoteHashTreeRootsSnapshot === undefined) {
+    throw new Error('Expected endTreeOfHistoricNoteHashTreeRootsSnapshot in RootRollupPublicInputs serialization');
   }
   if (o.startTreeOfHistoricContractTreeRootsSnapshot === undefined) {
     throw new Error('Expected startTreeOfHistoricContractTreeRootsSnapshot in RootRollupPublicInputs serialization');
@@ -3090,19 +3148,19 @@ export function fromRootRollupPublicInputs(o: RootRollupPublicInputs): MsgpackRo
   return {
     end_aggregation_object: fromNativeAggregationState(o.endAggregationObject),
     global_variables: fromGlobalVariables(o.globalVariables),
-    start_private_data_tree_snapshot: fromAppendOnlyTreeSnapshot(o.startPrivateDataTreeSnapshot),
-    end_private_data_tree_snapshot: fromAppendOnlyTreeSnapshot(o.endPrivateDataTreeSnapshot),
+    start_note_hash_tree_snapshot: fromAppendOnlyTreeSnapshot(o.startNoteHashTreeSnapshot),
+    end_note_hash_tree_snapshot: fromAppendOnlyTreeSnapshot(o.endNoteHashTreeSnapshot),
     start_nullifier_tree_snapshot: fromAppendOnlyTreeSnapshot(o.startNullifierTreeSnapshot),
     end_nullifier_tree_snapshot: fromAppendOnlyTreeSnapshot(o.endNullifierTreeSnapshot),
     start_contract_tree_snapshot: fromAppendOnlyTreeSnapshot(o.startContractTreeSnapshot),
     end_contract_tree_snapshot: fromAppendOnlyTreeSnapshot(o.endContractTreeSnapshot),
     start_public_data_tree_root: toBuffer(o.startPublicDataTreeRoot),
     end_public_data_tree_root: toBuffer(o.endPublicDataTreeRoot),
-    start_tree_of_historic_private_data_tree_roots_snapshot: fromAppendOnlyTreeSnapshot(
-      o.startTreeOfHistoricPrivateDataTreeRootsSnapshot,
+    start_tree_of_historic_note_hash_tree_roots_snapshot: fromAppendOnlyTreeSnapshot(
+      o.startTreeOfHistoricNoteHashTreeRootsSnapshot,
     ),
-    end_tree_of_historic_private_data_tree_roots_snapshot: fromAppendOnlyTreeSnapshot(
-      o.endTreeOfHistoricPrivateDataTreeRootsSnapshot,
+    end_tree_of_historic_note_hash_tree_roots_snapshot: fromAppendOnlyTreeSnapshot(
+      o.endTreeOfHistoricNoteHashTreeRootsSnapshot,
     ),
     start_tree_of_historic_contract_tree_roots_snapshot: fromAppendOnlyTreeSnapshot(
       o.startTreeOfHistoricContractTreeRootsSnapshot,
@@ -3199,7 +3257,7 @@ export function abisComputeGlobalsHash(wasm: IWasmModule, arg0: GlobalVariables)
 export function abisComputePublicDataTreeValue(wasm: IWasmModule, arg0: Fr): Fr {
   return Fr.fromBuffer(callCbind(wasm, 'abis__compute_public_data_tree_value', [toBuffer(arg0)]));
 }
-export function abisComputePublicDataTreeIndex(wasm: IWasmModule, arg0: Fr, arg1: Fr): Fr {
+export function abisComputePublicDataTreeIndex(wasm: IWasmModule, arg0: Address, arg1: Fr): Fr {
   return Fr.fromBuffer(callCbind(wasm, 'abis__compute_public_data_tree_index', [toBuffer(arg0), toBuffer(arg1)]));
 }
 export function privateKernelDummyPreviousKernel(wasm: IWasmModule): PreviousKernelData {
@@ -3209,8 +3267,10 @@ export function privateKernelSimInit(
   wasm: IWasmModule,
   arg0: PrivateKernelInputsInit,
 ): CircuitError | KernelCircuitPublicInputs {
-  return ((v: MsgpackCircuitError | MsgpackKernelCircuitPublicInputs) =>
-    isCircuitError(v) ? toCircuitError(v) : toKernelCircuitPublicInputs(v))(
+  return ((v: [number, MsgpackCircuitError | MsgpackKernelCircuitPublicInputs]) =>
+    v[0] == 0
+      ? toCircuitError(v[1] as MsgpackCircuitError)
+      : toKernelCircuitPublicInputs(v[1] as MsgpackKernelCircuitPublicInputs))(
     callCbind(wasm, 'private_kernel__sim_init', [fromPrivateKernelInputsInit(arg0)]),
   );
 }
@@ -3218,8 +3278,10 @@ export function privateKernelSimInner(
   wasm: IWasmModule,
   arg0: PrivateKernelInputsInner,
 ): CircuitError | KernelCircuitPublicInputs {
-  return ((v: MsgpackCircuitError | MsgpackKernelCircuitPublicInputs) =>
-    isCircuitError(v) ? toCircuitError(v) : toKernelCircuitPublicInputs(v))(
+  return ((v: [number, MsgpackCircuitError | MsgpackKernelCircuitPublicInputs]) =>
+    v[0] == 0
+      ? toCircuitError(v[1] as MsgpackCircuitError)
+      : toKernelCircuitPublicInputs(v[1] as MsgpackKernelCircuitPublicInputs))(
     callCbind(wasm, 'private_kernel__sim_inner', [fromPrivateKernelInputsInner(arg0)]),
   );
 }
@@ -3227,20 +3289,26 @@ export function privateKernelSimOrdering(
   wasm: IWasmModule,
   arg0: PrivateKernelInputsOrdering,
 ): CircuitError | KernelCircuitPublicInputsFinal {
-  return ((v: MsgpackCircuitError | MsgpackKernelCircuitPublicInputsFinal) =>
-    isCircuitError(v) ? toCircuitError(v) : toKernelCircuitPublicInputsFinal(v))(
+  return ((v: [number, MsgpackCircuitError | MsgpackKernelCircuitPublicInputsFinal]) =>
+    v[0] == 0
+      ? toCircuitError(v[1] as MsgpackCircuitError)
+      : toKernelCircuitPublicInputsFinal(v[1] as MsgpackKernelCircuitPublicInputsFinal))(
     callCbind(wasm, 'private_kernel__sim_ordering', [fromPrivateKernelInputsOrdering(arg0)]),
   );
 }
 export function publicKernelSim(wasm: IWasmModule, arg0: PublicKernelInputs): CircuitError | KernelCircuitPublicInputs {
-  return ((v: MsgpackCircuitError | MsgpackKernelCircuitPublicInputs) =>
-    isCircuitError(v) ? toCircuitError(v) : toKernelCircuitPublicInputs(v))(
+  return ((v: [number, MsgpackCircuitError | MsgpackKernelCircuitPublicInputs]) =>
+    v[0] == 0
+      ? toCircuitError(v[1] as MsgpackCircuitError)
+      : toKernelCircuitPublicInputs(v[1] as MsgpackKernelCircuitPublicInputs))(
     callCbind(wasm, 'public_kernel__sim', [fromPublicKernelInputs(arg0)]),
   );
 }
 export function baseRollupSim(wasm: IWasmModule, arg0: BaseRollupInputs): CircuitError | BaseOrMergeRollupPublicInputs {
-  return ((v: MsgpackCircuitError | MsgpackBaseOrMergeRollupPublicInputs) =>
-    isCircuitError(v) ? toCircuitError(v) : toBaseOrMergeRollupPublicInputs(v))(
+  return ((v: [number, MsgpackCircuitError | MsgpackBaseOrMergeRollupPublicInputs]) =>
+    v[0] == 0
+      ? toCircuitError(v[1] as MsgpackCircuitError)
+      : toBaseOrMergeRollupPublicInputs(v[1] as MsgpackBaseOrMergeRollupPublicInputs))(
     callCbind(wasm, 'base_rollup__sim', [fromBaseRollupInputs(arg0)]),
   );
 }
@@ -3248,14 +3316,18 @@ export function mergeRollupSim(
   wasm: IWasmModule,
   arg0: MergeRollupInputs,
 ): CircuitError | BaseOrMergeRollupPublicInputs {
-  return ((v: MsgpackCircuitError | MsgpackBaseOrMergeRollupPublicInputs) =>
-    isCircuitError(v) ? toCircuitError(v) : toBaseOrMergeRollupPublicInputs(v))(
+  return ((v: [number, MsgpackCircuitError | MsgpackBaseOrMergeRollupPublicInputs]) =>
+    v[0] == 0
+      ? toCircuitError(v[1] as MsgpackCircuitError)
+      : toBaseOrMergeRollupPublicInputs(v[1] as MsgpackBaseOrMergeRollupPublicInputs))(
     callCbind(wasm, 'merge_rollup__sim', [fromMergeRollupInputs(arg0)]),
   );
 }
 export function rootRollupSim(wasm: IWasmModule, arg0: RootRollupInputs): CircuitError | RootRollupPublicInputs {
-  return ((v: MsgpackCircuitError | MsgpackRootRollupPublicInputs) =>
-    isCircuitError(v) ? toCircuitError(v) : toRootRollupPublicInputs(v))(
+  return ((v: [number, MsgpackCircuitError | MsgpackRootRollupPublicInputs]) =>
+    v[0] == 0
+      ? toCircuitError(v[1] as MsgpackCircuitError)
+      : toRootRollupPublicInputs(v[1] as MsgpackRootRollupPublicInputs))(
     callCbind(wasm, 'root_rollup__sim', [fromRootRollupInputs(arg0)]),
   );
 }

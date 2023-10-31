@@ -28,15 +28,11 @@ Last, copy-paste the code from the `Token` contract into `contracts/token/main.n
 
 #include_code token_all yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
 
-The `Token` contract also requires two helper files. Copy-them too:
+The `Token` contract also requires a helper file. Copy it too:
 
 Create `contracts/token/types.nr` and copy-paste the following:
 
 #include_code token_types_all yarn-project/noir-contracts/src/contracts/token_contract/src/types/transparent_note.nr rust
-
-Finally, create `contracts/token/util.nr` and copy-paste the following:
-
-#include_code token_util_all yarn-project/noir-contracts/src/contracts/token_contract/src/util.nr rust
 
 ## Compile your contract
 
@@ -68,7 +64,7 @@ Create a new file `src/deploy.mjs`:
 // src/deploy.mjs
 import { writeFileSync } from 'fs';
 import { Contract, ContractDeployer, createPXEClient, getSandboxAccountsWallets } from '@aztec/aztec.js';
-import TokenContractAbi from "../contracts/token/target/Token.json" assert { type: "json" };
+import TokenContractArtifact from "../contracts/token/target/Token.json" assert { type: "json" };
 
 #include_code dapp-deploy yarn-project/end-to-end/src/sample-dapp/deploy.mjs raw
 

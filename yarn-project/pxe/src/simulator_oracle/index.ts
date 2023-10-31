@@ -1,4 +1,4 @@
-import { DBOracle, FunctionAbiWithDebugMetadata, MessageLoadOracleInputs } from '@aztec/acir-simulator';
+import { DBOracle, FunctionArtifactWithDebugMetadata, MessageLoadOracleInputs } from '@aztec/acir-simulator';
 import {
   AztecAddress,
   CompleteAddress,
@@ -9,7 +9,7 @@ import {
   HistoricBlockData,
   PublicKey,
 } from '@aztec/circuits.js';
-import { DataCommitmentProvider, KeyStore, L1ToL2MessageProvider, MerkleTreeId } from '@aztec/types';
+import { KeyStore, MerkleTreeId, StateInfoProvider } from '@aztec/types';
 
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { Database } from '../database/index.js';
@@ -22,8 +22,7 @@ export class SimulatorOracle implements DBOracle {
     private contractDataOracle: ContractDataOracle,
     private db: Database,
     private keyStore: KeyStore,
-    private l1ToL2MessageProvider: L1ToL2MessageProvider,
-    private dataTreeProvider: DataCommitmentProvider,
+    private stateInfoProvider: StateInfoProvider,
   ) {}
 
   getSecretKey(_contractAddress: AztecAddress, pubKey: PublicKey): Promise<GrumpkinPrivateKey> {
@@ -34,7 +33,7 @@ export class SimulatorOracle implements DBOracle {
     const completeAddress = await this.db.getCompleteAddress(address);
     if (!completeAddress)
       throw new Error(
-        `Unknown complete address for address ${address.toString()}. Add the information to PXE Service by calling server.registerRecipient(...) or server.registerAccount(...)`,
+        `No public key registered for address ${address.toString()}. Register it by calling pxe.registerRecipient(...) or pxe.registerAccount(...).\nSee docs for context: https://docs.aztec.network/dev_docs/contracts/common_errors#no-public-key-registered-error`,
       );
     return completeAddress;
   }
@@ -46,29 +45,43 @@ export class SimulatorOracle implements DBOracle {
   }
 
   async getNotes(contractAddress: AztecAddress, storageSlot: Fr) {
-    const noteDaos = await this.db.getNoteSpendingInfo(contractAddress, storageSlot);
-    return noteDaos.map(
-      ({ contractAddress, storageSlot, nonce, notePreimage, innerNoteHash, siloedNullifier, index }) => ({
-        contractAddress,
-        storageSlot,
-        nonce,
-        preimage: notePreimage.items,
-        innerNoteHash,
-        siloedNullifier,
-        // PXE can use this index to get full MembershipWitness
-        index,
-      }),
-    );
+    const noteDaos = await this.db.getNotes({ contractAddress, storageSlot });
+    return noteDaos.map(({ contractAddress, storageSlot, nonce, note, innerNoteHash, siloedNullifier, index }) => ({
+      contractAddress,
+      storageSlot,
+      nonce,
+      note,
+      innerNoteHash,
+      siloedNullifier,
+      // PXE can use this index to get full MembershipWitness
+      index,
+    }));
   }
 
-  async getFunctionABI(
+  async getFunctionArtifact(
     contractAddress: AztecAddress,
     selector: FunctionSelector,
-  ): Promise<FunctionAbiWithDebugMetadata> {
-    const abi = await this.contractDataOracle.getFunctionAbi(contractAddress, selector);
+  ): Promise<FunctionArtifactWithDebugMetadata> {
+    const artifact = await this.contractDataOracle.getFunctionArtifact(contractAddress, selector);
     const debug = await this.contractDataOracle.getFunctionDebugMetadata(contractAddress, selector);
     return {
-      ...abi,
+      ...artifact,
+      debug,
+    };
+  }
+
+  async getFunctionArtifactByName(
+    contractAddress: AztecAddress,
+    functionName: string,
+  ): Promise<FunctionArtifactWithDebugMetadata | undefined> {
+    const artifact = await this.contractDataOracle.getFunctionArtifactByName(contractAddress, functionName);
+    if (!artifact) {
+      return;
+    }
+
+    const debug = await this.contractDataOracle.getFunctionDebugMetadata(contractAddress, artifact.selector);
+    return {
+      ...artifact,
       debug,
     };
   }
@@ -86,10 +99,10 @@ export class SimulatorOracle implements DBOracle {
    *          index of the message in the l1ToL2MessagesTree
    */
   async getL1ToL2Message(msgKey: Fr): Promise<MessageLoadOracleInputs> {
-    const messageAndIndex = await this.l1ToL2MessageProvider.getL1ToL2MessageAndIndex(msgKey);
+    const messageAndIndex = await this.stateInfoProvider.getL1ToL2MessageAndIndex(msgKey);
     const message = messageAndIndex.message.toFieldArray();
     const index = messageAndIndex.index;
-    const siblingPath = await this.l1ToL2MessageProvider.getL1ToL2MessagesTreePath(index);
+    const siblingPath = await this.stateInfoProvider.getL1ToL2MessageSiblingPath(index);
     return {
       message,
       siblingPath: siblingPath.toFieldArray(),
@@ -98,18 +111,18 @@ export class SimulatorOracle implements DBOracle {
   }
 
   /**
-   * Gets the index of a commitment in the private data tree.
-   * @param leafValue - The commitment buffer.
+   * Gets the index of a commitment in the note hash tree.
+   * @param commitment - The commitment.
    * @returns - The index of the commitment. Undefined if it does not exist in the tree.
    */
-  async findCommitmentIndex(leafValue: Buffer) {
-    return await this.findLeafIndex(MerkleTreeId.PRIVATE_DATA_TREE, leafValue);
+  async getCommitmentIndex(commitment: Fr) {
+    return await this.findLeafIndex(MerkleTreeId.NOTE_HASH_TREE, commitment.toBuffer());
   }
 
   public async findLeafIndex(treeId: MerkleTreeId, leafValue: Buffer): Promise<bigint | undefined> {
     switch (treeId) {
-      case MerkleTreeId.PRIVATE_DATA_TREE:
-        return await this.dataTreeProvider.findCommitmentIndex(leafValue);
+      case MerkleTreeId.NOTE_HASH_TREE:
+        return await this.stateInfoProvider.findLeafIndex(treeId, leafValue);
       default:
         throw new Error('Not implemented');
     }
@@ -118,11 +131,15 @@ export class SimulatorOracle implements DBOracle {
   public async getSiblingPath(treeId: MerkleTreeId, leafIndex: bigint): Promise<Fr[]> {
     // @todo This is doing a nasty workaround as http_rpc_client was not happy about a generic `getSiblingPath` function being exposed.
     switch (treeId) {
-      case MerkleTreeId.PRIVATE_DATA_TREE:
-        return (await this.dataTreeProvider.getDataTreePath(leafIndex)).toFieldArray();
+      case MerkleTreeId.NOTE_HASH_TREE:
+        return (await this.stateInfoProvider.getNoteHashSiblingPath(leafIndex)).toFieldArray();
       default:
         throw new Error('Not implemented');
     }
+  }
+
+  async getNullifierIndex(nullifier: Fr) {
+    return await this.stateInfoProvider.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
   }
 
   /**

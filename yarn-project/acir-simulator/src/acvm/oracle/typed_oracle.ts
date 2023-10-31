@@ -3,25 +3,25 @@ import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
-import { CompleteAddress, MerkleTreeId, PublicKey } from '@aztec/types';
+import { CompleteAddress, MerkleTreeId, Note, PublicKey, UnencryptedL2Log } from '@aztec/types';
 
 /**
  * Information about a note needed during execution.
  */
 export interface NoteData {
+  /** The note. */
+  note: Note;
   /** The contract address of the note. */
   contractAddress: AztecAddress;
   /** The storage slot of the note. */
   storageSlot: Fr;
   /** The nonce of the note. */
   nonce: Fr;
-  /** The preimage of the note */
-  preimage: Fr[];
   /** The inner note hash of the note. */
   innerNoteHash: Fr;
   /** The corresponding nullifier of the note. Undefined for pending notes. */
   siloedNullifier?: Fr;
-  /** The note's leaf index in the private data tree. Undefined for pending notes. */
+  /** The note's leaf index in the note hash tree. Undefined for pending notes. */
   index?: bigint;
 }
 
@@ -60,10 +60,6 @@ export interface L1ToL2MessageOracleReturnData extends MessageLoadOracleInputs {
  * and are unavailable by default.
  */
 export abstract class TypedOracle {
-  computeSelector(signature: string): Fr {
-    return FunctionSelector.fromSignature(signature).toField();
-  }
-
   getRandomField(): Fr {
     return Fr.random();
   }
@@ -76,7 +72,7 @@ export abstract class TypedOracle {
     throw new Error('Not available.');
   }
 
-  getPublicKey(_address: AztecAddress): Promise<CompleteAddress> {
+  getCompleteAddress(_address: AztecAddress): Promise<CompleteAddress> {
     throw new Error('Not available.');
   }
 
@@ -97,15 +93,15 @@ export abstract class TypedOracle {
     throw new Error('Not available.');
   }
 
-  checkNoteHashExists(_nonce: Fr, _innerNoteHash: Fr): Promise<boolean> {
-    throw new Error('Not available.');
-  }
-
-  notifyCreatedNote(_storageSlot: Fr, _preimage: Fr[], _innerNoteHash: Fr): void {
+  notifyCreatedNote(_storageSlot: Fr, _note: Fr[], _innerNoteHash: Fr): void {
     throw new Error('Not available.');
   }
 
   notifyNullifiedNote(_innerNullifier: Fr, _innerNoteHash: Fr): Promise<void> {
+    throw new Error('Not available.');
+  }
+
+  checkNullifierExists(_innerNullifier: Fr): Promise<boolean> {
     throw new Error('Not available.');
   }
 
@@ -129,11 +125,11 @@ export abstract class TypedOracle {
     throw new Error('Not available.');
   }
 
-  emitEncryptedLog(_contractAddress: AztecAddress, _storageSlot: Fr, _publicKey: PublicKey, _preimage: Fr[]): void {
+  emitEncryptedLog(_contractAddress: AztecAddress, _storageSlot: Fr, _publicKey: PublicKey, _log: Fr[]): void {
     throw new Error('Not available.');
   }
 
-  emitUnencryptedLog(_log: Buffer): void {
+  emitUnencryptedLog(_log: UnencryptedL2Log): void {
     throw new Error('Not available.');
   }
 

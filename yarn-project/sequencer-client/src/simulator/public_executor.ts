@@ -17,13 +17,13 @@ import { MerkleTreeOperations, computePublicDataTreeLeafIndex } from '@aztec/wor
  */
 export function getPublicExecutor(
   merkleTree: MerkleTreeOperations,
-  contractDataSource: ContractDataSource,
+  publicContractsDB: PublicContractsDB,
   l1toL2MessageSource: L1ToL2MessageSource,
   blockData: HistoricBlockData,
 ) {
   return new PublicExecutor(
     new WorldStatePublicDB(merkleTree),
-    new ContractsDataSourcePublicDB(contractDataSource),
+    publicContractsDB,
     new WorldStateDB(merkleTree, l1toL2MessageSource),
     blockData,
   );
@@ -31,17 +31,63 @@ export function getPublicExecutor(
 
 /**
  * Implements the PublicContractsDB using a ContractDataSource.
+ * Progressively records contracts in transaction as they are processed in a block.
  */
-class ContractsDataSourcePublicDB implements PublicContractsDB {
+export class ContractsDataSourcePublicDB implements PublicContractsDB {
+  cache = new Map<string, ExtendedContractData>();
+
   constructor(private db: ContractDataSource) {}
+
+  /**
+   * Add new contracts from a transaction
+   * @param tx - The transaction to add contracts from.
+   */
+  public addNewContracts(tx: Tx): Promise<void> {
+    for (const contract of tx.newContracts) {
+      const contractAddress = contract.contractData.contractAddress;
+
+      if (contractAddress.isZero()) {
+        continue;
+      }
+
+      this.cache.set(contractAddress.toString(), contract);
+    }
+
+    return Promise.resolve();
+  }
+
+  /**
+   * Removes new contracts added from transactions
+   * @param tx - The tx's contracts to be removed
+   */
+  public removeNewContracts(tx: Tx): Promise<void> {
+    for (const contract of tx.newContracts) {
+      const contractAddress = contract.contractData.contractAddress;
+
+      if (contractAddress.isZero()) {
+        continue;
+      }
+
+      this.cache.delete(contractAddress.toString());
+    }
+    return Promise.resolve();
+  }
+
   async getBytecode(address: AztecAddress, selector: FunctionSelector): Promise<Buffer | undefined> {
-    return (await this.db.getPublicFunction(address, selector))?.bytecode;
+    const contract = await this.#getContract(address);
+    return contract?.getPublicFunction(selector)?.bytecode;
   }
   async getIsInternal(address: AztecAddress, selector: FunctionSelector): Promise<boolean | undefined> {
-    return (await this.db.getPublicFunction(address, selector))?.isInternal;
+    const contract = await this.#getContract(address);
+    return contract?.getPublicFunction(selector)?.isInternal;
   }
   async getPortalContractAddress(address: AztecAddress): Promise<EthAddress | undefined> {
-    return (await this.db.getContractData(address))?.portalContractAddress;
+    const contract = await this.#getContract(address);
+    return contract?.contractData.portalContractAddress;
+  }
+
+  async #getContract(address: AztecAddress): Promise<ExtendedContractData | undefined> {
+    return this.cache.get(address.toString()) ?? (await this.db.getExtendedContractData(address));
   }
 }
 
@@ -60,7 +106,7 @@ class WorldStatePublicDB implements PublicStateDB {
    * @returns The current value in the storage slot.
    */
   public async storageRead(contract: AztecAddress, slot: Fr): Promise<Fr> {
-    const index = computePublicDataTreeLeafIndex(contract, slot, await CircuitsWasm.get());
+    const index = computePublicDataTreeIndex(await CircuitsWasm.get(), contract, slot).value;
     const cached = this.writeCache.get(index);
     if (cached !== undefined) return cached;
     const value = await this.db.getLeafValue(MerkleTreeId.PUBLIC_DATA_TREE, index);
@@ -74,7 +120,7 @@ class WorldStatePublicDB implements PublicStateDB {
    * @param newValue - The new value to store.
    */
   public async storageWrite(contract: AztecAddress, slot: Fr, newValue: Fr): Promise<void> {
-    const index = computePublicDataTreeLeafIndex(contract, slot, await CircuitsWasm.get());
+    const index = computePublicDataTreeIndex(await CircuitsWasm.get(), contract, slot).value;
     this.writeCache.set(index, newValue);
   }
 }
@@ -98,11 +144,11 @@ export class WorldStateDB implements CommitmentsDB {
     };
   }
 
-  public async findCommitmentIndex(commitment: Buffer): Promise<bigint | undefined> {
-    return await this.db.findLeafIndex(MerkleTreeId.PRIVATE_DATA_TREE, commitment);
+  public async getCommitmentIndex(commitment: Fr): Promise<bigint | undefined> {
+    return await this.db.findLeafIndex(MerkleTreeId.NOTE_HASH_TREE, commitment.toBuffer());
   }
 
   public async getDataTreePath(leafIndex: bigint): Promise<SiblingPath<32>> {
-    return await this.db.getSiblingPath(MerkleTreeId.PRIVATE_DATA_TREE, leafIndex);
+    return await this.db.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, leafIndex);
   }
 }

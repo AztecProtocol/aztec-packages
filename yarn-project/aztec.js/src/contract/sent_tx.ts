@@ -1,6 +1,6 @@
 import { FieldsOf } from '@aztec/circuits.js';
 import { retryUntil } from '@aztec/foundation/retry';
-import { PXE, TxHash, TxReceipt, TxStatus } from '@aztec/types';
+import { ExtendedNote, GetUnencryptedLogsResponse, PXE, TxHash, TxReceipt, TxStatus } from '@aztec/types';
 
 import every from 'lodash.every';
 
@@ -15,12 +15,15 @@ export type WaitOpts = {
    * If false, then any queries that depend on state set by this transaction may return stale data. Defaults to true.
    **/
   waitForNotesSync?: boolean;
+  /** Whether newly created notes should be included in the receipt. */
+  getNotes?: boolean;
 };
 
 const DefaultWaitOpts: WaitOpts = {
   timeout: 60,
   interval: 1,
   waitForNotesSync: true,
+  getNotes: false,
 };
 
 /**
@@ -58,26 +61,36 @@ export class SentTx {
    * @returns The transaction receipt.
    */
   public async wait(opts?: WaitOpts): Promise<FieldsOf<TxReceipt>> {
+    if (opts?.getNotes && opts.waitForNotesSync === false) {
+      throw new Error('Cannot set getNotes to true if waitForNotesSync is false');
+    }
     const receipt = await this.waitForReceipt(opts);
     if (receipt.status !== TxStatus.MINED)
       throw new Error(`Transaction ${await this.getTxHash()} was ${receipt.status}`);
+    if (opts?.getNotes) {
+      receipt.notes = await this.pxe.getNotes({ txHash: await this.getTxHash() });
+    }
     return receipt;
   }
 
   /**
-   * Checks whether the transaction is mined or not within the specified timeout and retry interval.
-   * Resolves to true if the transaction status is 'MINED', false otherwise.
-   * Throws an error if the transaction receipt cannot be fetched after the given timeout.
-   *
-   * @deprecated Use wait() instead as it throws if the tx is not mined,
-   * while this would silently fail if the return value isn't checked explicitly.
-   *
-   * @param opts - Options for configuring the waiting for the tx to be mined.
-   * @returns A Promise that resolves to a boolean indicating if the transaction is mined or not.
+   * Gets unencrypted logs emitted by this tx.
+   * @remarks This function will wait for the tx to be mined if it hasn't been already.
+   * @returns The requested logs.
    */
-  public async isMined(opts?: WaitOpts): Promise<boolean> {
-    const receipt = await this.waitForReceipt(opts);
-    return receipt.status === TxStatus.MINED;
+  public async getUnencryptedLogs(): Promise<GetUnencryptedLogsResponse> {
+    await this.wait();
+    return this.pxe.getUnencryptedLogs({ txHash: await this.getTxHash() });
+  }
+
+  /**
+   * Gets notes created in this tx.
+   * @remarks This function will wait for the tx to be mined if it hasn't been already.
+   * @returns The requested notes.
+   */
+  public async getNotes(): Promise<ExtendedNote[]> {
+    await this.wait();
+    return this.pxe.getNotes({ txHash: await this.getTxHash() });
   }
 
   protected async waitForReceipt(opts?: WaitOpts): Promise<TxReceipt> {

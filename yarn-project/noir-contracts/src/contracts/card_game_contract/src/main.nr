@@ -4,6 +4,7 @@ mod game;
 contract CardGame {
     use dep::aztec::{
         context::Context,
+        hash::pedersen_hash,
         state_vars::{
             map::Map,
             public_state::PublicState,
@@ -30,7 +31,7 @@ contract CardGame {
             note_header::NoteHeader,
             utils as note_utils,
         },
-        oracle::compute_selector::compute_selector
+        selector::compute_selector
     };
 
     use crate::cards::{
@@ -206,7 +207,7 @@ contract CardGame {
         context.call_public_function(
             context.this_address(), 
             selector, 
-            [game as Field, player, dep::std::hash::pedersen(cards_fields)[0]]
+            [game as Field, player, pedersen_hash(cards_fields,0)]
         );
     }
 
@@ -221,7 +222,7 @@ contract CardGame {
 
         assert_eq(
             cards_hash, 
-            dep::std::hash::pedersen(game_data.rounds_cards.map(|card: Card| card.to_field()))[0]
+            pedersen_hash(game_data.rounds_cards.map(|card: Card| card.to_field()),0)
         );
 
         let winner = game_data.winner();
@@ -252,7 +253,7 @@ contract CardGame {
     // Note 1: Needs to be defined by every contract producing logs.
     // Note 2: Having it in all the contracts gives us the ability to compute the note hash and nullifier differently for different kind of notes.
     unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; VALUE_NOTE_LEN]) -> [Field; 4] {
-        let note_header = NoteHeader { contract_address, nonce, storage_slot };
+        let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
         note_utils::compute_note_hash_and_nullifier(ValueNoteMethods, note_header, preimage)
     }
 }

@@ -12,11 +12,13 @@
  *
  */
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/proof_system/relations/auxiliary_relation.hpp"
 #include "barretenberg/proof_system/relations/elliptic_relation.hpp"
 #include "barretenberg/proof_system/relations/gen_perm_sort_relation.hpp"
 #include "barretenberg/proof_system/relations/lookup_relation.hpp"
 #include "barretenberg/proof_system/relations/permutation_relation.hpp"
+#include "barretenberg/proof_system/relations/relation_parameters.hpp"
 #include "barretenberg/proof_system/relations/ultra_arithmetic_relation.hpp"
 #include <gtest/gtest.h>
 
@@ -95,13 +97,14 @@ struct InputElements {
 class UltraRelationConsistency : public testing::Test {
   public:
     template <typename Relation>
-    static void validate_relation_execution(const auto& expected_values,
-                                            const InputElements& input_elements,
-                                            const auto& parameters)
+    static void validate_relation_execution(
+        const typename Relation::SumcheckArrayOfValuesOverSubrelations& expected_values,
+        const InputElements& input_elements,
+        const auto& parameters)
     {
-        typename Relation::RelationValues accumulator;
+        typename Relation::SumcheckArrayOfValuesOverSubrelations accumulator;
         std::fill(accumulator.begin(), accumulator.end(), FF(0));
-        Relation::add_full_relation_value_contribution(accumulator, input_elements, parameters);
+        Relation::accumulate(accumulator, input_elements, parameters, 1);
         EXPECT_EQ(accumulator, expected_values);
     };
 };
@@ -110,7 +113,7 @@ TEST_F(UltraRelationConsistency, UltraArithmeticRelation)
 {
     const auto run_test = [](bool random_inputs) {
         using Relation = UltraArithmeticRelation<FF>;
-        using RelationValues = typename Relation::RelationValues;
+        using SumcheckArrayOfValuesOverSubrelations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
 
         const InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
         const auto& w_1 = input_elements.w_l;
@@ -127,7 +130,7 @@ TEST_F(UltraRelationConsistency, UltraArithmeticRelation)
         const auto& q_c = input_elements.q_c;
         const auto& q_arith = input_elements.q_arith;
 
-        RelationValues expected_values;
+        SumcheckArrayOfValuesOverSubrelations expected_values;
         static const FF neg_half = FF(-2).invert();
 
         // Contribution 1
@@ -154,7 +157,7 @@ TEST_F(UltraRelationConsistency, UltraPermutationRelation)
 {
     const auto run_test = [](bool random_inputs) {
         using Relation = UltraPermutationRelation<FF>;
-        using RelationValues = typename Relation::RelationValues;
+        using SumcheckArrayOfValuesOverSubrelations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
 
         const InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
         const auto& w_1 = input_elements.w_l;
@@ -174,7 +177,7 @@ TEST_F(UltraRelationConsistency, UltraPermutationRelation)
         const auto& lagrange_first = input_elements.lagrange_first;
         const auto& lagrange_last = input_elements.lagrange_last;
 
-        RelationValues expected_values;
+        SumcheckArrayOfValuesOverSubrelations expected_values;
 
         const auto parameters = RelationParameters<FF>::get_random();
         const auto& beta = parameters.beta;
@@ -203,7 +206,7 @@ TEST_F(UltraRelationConsistency, LookupRelation)
 {
     const auto run_test = [](bool random_inputs) {
         using Relation = LookupRelation<FF>;
-        using RelationValues = typename Relation::RelationValues;
+        using SumcheckArrayOfValuesOverSubrelations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
 
         const InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
         const auto& w_1 = input_elements.w_l;
@@ -238,7 +241,7 @@ TEST_F(UltraRelationConsistency, LookupRelation)
         const auto& lagrange_first = input_elements.lagrange_first;
         const auto& lagrange_last = input_elements.lagrange_last;
 
-        RelationValues expected_values;
+        SumcheckArrayOfValuesOverSubrelations expected_values;
 
         const auto parameters = RelationParameters<FF>::get_random();
 
@@ -281,7 +284,7 @@ TEST_F(UltraRelationConsistency, GenPermSortRelation)
 {
     const auto run_test = [](bool random_inputs) {
         using Relation = GenPermSortRelation<FF>;
-        using RelationValues = typename Relation::RelationValues;
+        using SumcheckArrayOfValuesOverSubrelations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
 
         const InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
         const auto& w_1 = input_elements.w_l;
@@ -301,7 +304,7 @@ TEST_F(UltraRelationConsistency, GenPermSortRelation)
         auto contribution_3 = delta_3 * (delta_3 - 1) * (delta_3 - 2) * (delta_3 - 3);
         auto contribution_4 = delta_4 * (delta_4 - 1) * (delta_4 - 2) * (delta_4 - 3);
 
-        RelationValues expected_values;
+        SumcheckArrayOfValuesOverSubrelations expected_values;
 
         expected_values[0] = contribution_1 * q_sort;
         expected_values[1] = contribution_2 * q_sort;
@@ -320,7 +323,7 @@ TEST_F(UltraRelationConsistency, EllipticRelation)
 {
     const auto run_test = [](bool random_inputs) {
         using Relation = EllipticRelation<FF>;
-        using RelationValues = typename Relation::RelationValues;
+        using SumcheckArrayOfValuesOverSubrelations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
 
         const InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
         const auto& x_1 = input_elements.w_r;
@@ -332,26 +335,44 @@ TEST_F(UltraRelationConsistency, EllipticRelation)
         const auto& y_3 = input_elements.w_o_shift;
 
         const auto& q_sign = input_elements.q_l;
-        const auto& q_beta = input_elements.q_o;
-        const auto& q_beta_sqr = input_elements.q_4;
         const auto& q_elliptic = input_elements.q_elliptic;
+        const auto& q_is_double = input_elements.q_m;
 
-        RelationValues expected_values;
+        SumcheckArrayOfValuesOverSubrelations expected_values;
         // Compute x/y coordinate identities
 
-        // Contribution 1
-        auto x_identity = q_sign * (y_1 * y_2 * 2);
-        x_identity += q_beta * (x_1 * x_2 * x_3 * 2 + x_1 * x_1 * x_2) * FF(-1);
-        x_identity += q_beta_sqr * (x_2 * x_2 * x_3 - x_1 * x_2 * x_2);
-        x_identity += (x_1 * x_1 * x_3 - y_2 * y_2 - y_1 * y_1 + x_2 * x_2 * x_2 + x_1 * x_1 * x_1);
+        {
+            // Contribution (1) point addition, x-coordinate check
+            // q_elliptic * (x3 + x2 + x1)(x2 - x1)(x2 - x1) - y2^2 - y1^2 + 2(y2y1)*q_sign = 0
+            auto x_diff = (x_2 - x_1);
+            auto y2_sqr = (y_2 * y_2);
+            auto y1_sqr = (y_1 * y_1);
+            auto y1y2 = y_1 * y_2 * q_sign;
+            auto x_add_identity = (x_3 + x_2 + x_1) * x_diff * x_diff - y2_sqr - y1_sqr + y1y2 + y1y2;
 
-        // Contribution 2
-        auto y_identity = q_sign * (y_2 * x_3 - y_2 * x_1);
-        y_identity += q_beta * (x_2 * y_3 + y_1 * x_2);
-        y_identity += (x_1 * y_1 - x_1 * y_3 - y_1 * x_3 - x_1 * y_1);
+            // Contribution (2) point addition, x-coordinate check
+            // q_elliptic * (q_sign * y1 + y3)(x2 - x1) + (x3 - x1)(y2 - q_sign * y1) = 0
+            auto y1_plus_y3 = y_1 + y_3;
+            auto y_diff = y_2 * q_sign - y_1;
+            auto y_add_identity = y1_plus_y3 * x_diff + (x_3 - x_1) * y_diff;
 
-        expected_values[0] = x_identity * q_elliptic;
-        expected_values[1] = y_identity * q_elliptic;
+            // Contribution (3) point doubling, x-coordinate check
+            // (x3 + x1 + x1) (4y1*y1) - 9 * x1 * x1 * x1 * x1 = 0
+            // N.B. we're using the equivalence x1*x1*x1 === y1*y1 - curve_b to reduce degree by 1
+            const auto curve_b = EllipticRelationImpl<FF>::get_curve_b();
+            auto x_pow_4 = (y1_sqr - curve_b) * x_1;
+            auto y1_sqr_mul_4 = y1_sqr + y1_sqr;
+            y1_sqr_mul_4 += y1_sqr_mul_4;
+            auto x1_pow_4_mul_9 = x_pow_4 * 9;
+            auto x_double_identity = (x_3 + x_1 + x_1) * y1_sqr_mul_4 - x1_pow_4_mul_9;
+
+            // Contribution (4) point doubling, y-coordinate check
+            // (y1 + y1) (2y1) - (3 * x1 * x1)(x1 - x3) = 0
+            auto x1_sqr_mul_3 = (x_1 + x_1 + x_1) * x_1;
+            auto y_double_identity = x1_sqr_mul_3 * (x_1 - x_3) - (y_1 + y_1) * (y_1 + y_3);
+            expected_values[0] = (x_add_identity * (-q_is_double + 1) + (x_double_identity * q_is_double)) * q_elliptic;
+            expected_values[1] = (y_add_identity * (-q_is_double + 1) + (y_double_identity * q_is_double)) * q_elliptic;
+        }
 
         const auto parameters = RelationParameters<FF>::get_random();
 
@@ -365,7 +386,7 @@ TEST_F(UltraRelationConsistency, AuxiliaryRelation)
 {
     const auto run_test = [](bool random_inputs) {
         using Relation = AuxiliaryRelation<FF>;
-        using RelationValues = typename Relation::RelationValues;
+        using SumcheckArrayOfValuesOverSubrelations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
 
         const InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
         const auto& w_1 = input_elements.w_l;
@@ -395,7 +416,7 @@ TEST_F(UltraRelationConsistency, AuxiliaryRelation)
         const auto parameters = RelationParameters<FF>::get_random();
         const auto& eta = parameters.eta;
 
-        RelationValues expected_values;
+        SumcheckArrayOfValuesOverSubrelations expected_values;
         /**
          * Non native field arithmetic gate 2
          *

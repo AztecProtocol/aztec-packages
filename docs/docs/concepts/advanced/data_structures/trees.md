@@ -2,10 +2,18 @@
 title: Trees
 ---
 
-import Disclaimer from "../../../misc/common/\_disclaimer.mdx";
 import Image from "@theme/IdealImage";
 
-<Disclaimer/>
+## Overview
+
+Data trees are how we keep track of all the data in the network. Each type of data is stored in it's own data tree. Different tree structures are used for different kinds of data, as the requirements for each are different.
+
+Data includes:
+
+- Private state
+- Nullifiers to invalidate old private state
+- Public state
+- Contracts
 
 ## Private State Tree
 
@@ -17,7 +25,7 @@ Any function of any Aztec contract may insert new leaves into the this tree.
 
 Once inserted into this tree, a leaf's value can never be modified. We enforce this, to prevent linkability of transactions. If an observer sees that 'tx A' inserted a leaf and 'tx B' modified that leaf, then the observer knows these two transactions are related in some way. This is a big 'no no' if we want to ensure privacy.
 
-So, if an app needs to edit a private state variable (which will be represented by one or more leaves in the tree), it may do so in a manner inspired by [zerocash](http://zerocash-project.org/media/pdf/zerocash-extended-20140518.pdf). (See Nullifier Tree, further down this page). This allows the leaf to be 'nullified' and a new leaf value inserted into the next empty position in the tree, in a way which prevents observers from linking the old and new leaves.
+So, if an app needs to edit a private state variable (which will be represented by one or more leaves in the tree), it may do so in a manner inspired by [zerocash](http://zerocash-project.org/media/pdf/zerocash-extended-20140518.pdf). (See [Nullifier Tree](#nullifier-tree)). This allows the leaf to be 'nullified' and a new leaf value inserted into the next empty position in the tree, in a way which prevents observers from linking the old and new leaves.
 
 <Image img={require("/img/private-data-tree.png")} />
 
@@ -93,14 +101,14 @@ This has the property that it's inextricably linked to the Note it is nullifying
 
 If a function of a smart contract generates this Nullifier and submits it to the network, it will only be allowed to submit it once; a second submission will be rejected by the Base Rollup Circuit (which performs Merkle non-membership checks against the Nullifier Tree). This prevents a Note from being 'deleted' twice.
 
-> Note: a Note cannot actually be "deleted" from the Private Data Tree, because it is an append-only tree. This is why we produce nullifiers; as a way of emulating deletion in a way where observers won't know which Note has been deleted.
+> Note: a Note cannot actually be "deleted" from the Note Hash Tree, because it is an append-only tree. This is why we produce nullifiers; as a way of emulating deletion in a way where observers won't know which Note has been deleted.
 > Note: this nullifier derivation example is an oversimplification for the purposes of illustration.
 
 #### Initialising Singleton Notes
 
 'Singleton Note' is a term we've been using to mean: "A single Note which contains the whole of a private state's current value, and must be deleted and replaced with another single Note, if one ever wishes to edit that state". It's in contrast to a Note which only contains a small fragment of a Private State's current value. <!-- TODO: write about fragmented private state, somewhere. -->
 
-We've found that such notes require an 'Initialisation Nullifier'; a nullifier which, when emitted, signals the initialisation of this state variable. I.e. the very first time the state variable has been written-to.
+We've found that such notes require an 'Initialisation Nullifier'; a nullifier which, when emitted, signals the initialization of this state variable. I.e. the very first time the state variable has been written-to.
 
 > There's more on this topic in [the Aztec forum](https://discourse.aztec.network/t/utxo-syntax-2-initialising-singleton-utxos/47).
 
@@ -133,9 +141,9 @@ The contract tree contains information about every function of every contract de
 
 ## Trees of historic trees' roots
 
-- `treeOfHistoricPrivateDataTreeRoots`: for membership checks against historic roots of the `privateDataTree`
+- `treeOfHistoricNoteHashTreeRoots`: for membership checks against historic roots of the `noteHashTree`
 - `treeOfHistoricContractTreeRoots`: for membership checks against historic roots of the `contractTree`
 
-## Trees of valid Kernel/Rollup circuit VKs
+## Trees of valid Kernel/Rollup circuit Verification Keys
 
-Eventually, we'll have trees of VKs for various permutations of kernel/rollup circuits. Such permutations might be the number of public inputs, or the logic contained within the circuits.
+Eventually, we'll have trees of verification keys for various permutations of kernel/rollup circuits. Such permutations might be the number of public inputs, or the logic contained within the circuits.

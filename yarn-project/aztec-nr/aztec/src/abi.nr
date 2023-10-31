@@ -1,6 +1,7 @@
 use crate::constants_gen::{
     RETURN_VALUES_LENGTH,
     MAX_READ_REQUESTS_PER_CALL,
+    MAX_PENDING_READ_REQUESTS_PER_CALL,
     MAX_NEW_COMMITMENTS_PER_CALL,
     MAX_NEW_NULLIFIERS_PER_CALL,
     MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
@@ -31,7 +32,7 @@ use crate::constants_gen::{
 use crate::oracle::debug_log;
 use crate::types::vec::BoundedVec;
 use crate::types::point::Point;
-
+use crate::hash::pedersen_hash;
 
 // docs:start:private-global-variables
 struct PrivateGlobalVariables {
@@ -84,7 +85,7 @@ impl ContractDeploymentData {
     }
 
     fn hash(self) -> Field {
-        dep::std::hash::pedersen_with_separator(self.serialize(), GENERATOR_INDEX__CONTRACT_DEPLOYMENT_DATA)[0]
+        pedersen_hash(self.serialize(), GENERATOR_INDEX__CONTRACT_DEPLOYMENT_DATA)
     }
 }
 
@@ -113,6 +114,7 @@ struct CallContext {
     msg_sender : Field,
     storage_contract_address : Field,
     portal_contract_address : Field,
+    function_selector: Field,
 
     is_delegate_call : bool,
     is_static_call : bool,
@@ -126,6 +128,7 @@ impl CallContext {
             self.msg_sender,
             self.storage_contract_address,
             self.portal_contract_address,
+            self.function_selector,
             self.is_delegate_call as Field,
             self.is_static_call as Field,
             self.is_contract_deployment as Field,
@@ -133,13 +136,13 @@ impl CallContext {
     }
 
     fn hash(self) -> Field {
-        dep::std::hash::pedersen_with_separator(self.serialize(), GENERATOR_INDEX__CALL_CONTEXT)[0]
+        pedersen_hash(self.serialize(), GENERATOR_INDEX__CALL_CONTEXT)
     }
 }
 
 // docs:start:historic-block-data
 struct HistoricBlockData {
-    private_data_tree_root : Field,
+    note_hash_tree_root : Field,
     nullifier_tree_root : Field,
     contract_tree_root : Field,
     l1_to_l2_messages_tree_root : Field,
@@ -151,9 +154,9 @@ struct HistoricBlockData {
 
 impl HistoricBlockData {
     // NOTE: this order must match the order in `private_circuit_public_inputs.hpp`
-    fn serialize(self) -> [Field; HISTORIC_BLOCK_DATA_LENGTH] {
+    pub fn serialize(self) -> [Field; HISTORIC_BLOCK_DATA_LENGTH] {
         [
-            self.private_data_tree_root,
+            self.note_hash_tree_root,
             self.nullifier_tree_root,
             self.contract_tree_root,
             self.l1_to_l2_messages_tree_root,
@@ -163,8 +166,8 @@ impl HistoricBlockData {
         ]
     }
 
-    fn empty() -> Self {
-        Self { private_data_tree_root: 0, nullifier_tree_root: 0, contract_tree_root: 0, l1_to_l2_messages_tree_root: 0, blocks_tree_root: 0, public_data_tree_root: 0, global_variables_hash: 0 }
+    pub fn empty() -> Self {
+        Self { note_hash_tree_root: 0, nullifier_tree_root: 0, contract_tree_root: 0, l1_to_l2_messages_tree_root: 0, blocks_tree_root: 0, public_data_tree_root: 0, global_variables_hash: 0 }
     }
 }
 
@@ -177,12 +180,12 @@ struct FunctionData {
 
 impl FunctionData {
     fn hash(self) -> Field {
-        dep::std::hash::pedersen_with_separator([
+        pedersen_hash([
             self.function_selector,
             self.is_internal as Field,
             self.is_private as Field,
             self.is_constructor as Field,
-        ], GENERATOR_INDEX__FUNCTION_DATA)[0]
+        ], GENERATOR_INDEX__FUNCTION_DATA)
     }
 }
 
@@ -191,6 +194,7 @@ struct PrivateCircuitPublicInputs {
     args_hash: Field,
     return_values: [Field; RETURN_VALUES_LENGTH],
     read_requests: [Field; crate::abi::MAX_READ_REQUESTS_PER_CALL],
+    pending_read_requests: [Field; crate::abi::MAX_PENDING_READ_REQUESTS_PER_CALL],
     new_commitments: [Field; MAX_NEW_COMMITMENTS_PER_CALL],
     new_nullifiers: [Field; MAX_NEW_NULLIFIERS_PER_CALL],
     nullified_commitments: [Field; MAX_NEW_NULLIFIERS_PER_CALL],
@@ -216,6 +220,7 @@ impl PrivateCircuitPublicInputs {
         fields.push(self.args_hash);
         fields.push_array(self.return_values);
         fields.push_array(self.read_requests);
+        fields.push_array(self.pending_read_requests);
         fields.push_array(self.new_commitments);
         fields.push_array(self.new_nullifiers);
         fields.push_array(self.nullified_commitments);
@@ -231,7 +236,7 @@ impl PrivateCircuitPublicInputs {
         fields.push(self.chain_id);
         fields.push(self.version);
 
-        dep::std::hash::pedersen_with_separator(fields.storage, GENERATOR_INDEX__PRIVATE_CIRCUIT_PUBLIC_INPUTS)[0]
+        pedersen_hash(fields.storage, GENERATOR_INDEX__PRIVATE_CIRCUIT_PUBLIC_INPUTS)
     }
 
     fn serialize(self) -> [Field; PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH] {
@@ -240,6 +245,7 @@ impl PrivateCircuitPublicInputs {
         fields.push(self.args_hash);
         fields.push_array(self.return_values);
         fields.push_array(self.read_requests);
+        fields.push_array(self.pending_read_requests);
         fields.push_array(self.new_commitments);
         fields.push_array(self.new_nullifiers);
         fields.push_array(self.private_call_stack);
@@ -263,15 +269,15 @@ struct ContractStorageRead {
 }
 
 impl ContractStorageRead {
-    fn serialize(self) -> [Field; CONTRACT_STORAGE_READ_LENGTH] {
+    pub fn serialize(self) -> [Field; CONTRACT_STORAGE_READ_LENGTH] {
         [self.storage_slot, self.value]
     }
 
-    fn hash(self) -> Field {
-        dep::std::hash::pedersen_with_separator(self.serialize(), GENERATOR_INDEX__PUBLIC_DATA_READ)[0]
+    pub fn hash(self) -> Field {
+        pedersen_hash(self.serialize(), GENERATOR_INDEX__PUBLIC_DATA_READ)
     }
 
-    fn empty() -> Self {
+    pub fn empty() -> Self {
         Self { storage_slot: 0, value: 0 }
     }
 }
@@ -283,15 +289,15 @@ struct ContractStorageUpdateRequest {
 }
 
 impl ContractStorageUpdateRequest {
-    fn serialize(self) -> [Field; CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH] {
+    pub fn serialize(self) -> [Field; CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH] {
         [self.storage_slot, self.old_value, self.new_value]
     }
 
-    fn hash(self) -> Field {
-        dep::std::hash::pedersen_with_separator(self.serialize(), GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST)[0]
+    pub fn hash(self) -> Field {
+        pedersen_hash(self.serialize(), GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST)
     }
 
-    fn empty() -> Self {
+    pub fn empty() -> Self {
         Self { storage_slot: 0, old_value: 0, new_value: 0 }
     }
 }
@@ -311,14 +317,11 @@ struct PublicCircuitPublicInputs {
     unencrypted_log_preimages_length: Field,
     block_data: HistoricBlockData,
     prover_address: Field,
-
-    // TODO: include globals in here and check them elsewhere
-    // https://github.com/AztecProtocol/aztec-packages/issues/1567
 }
 
 impl PublicCircuitPublicInputs {
     
-    fn hash(self) -> Field {
+    pub fn hash(self) -> Field {
         let mut inputs: BoundedVec<Field, PUBLIC_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH> = BoundedVec::new(0);
         inputs.push(self.call_context.hash());
         inputs.push(self.args_hash);
@@ -334,17 +337,15 @@ impl PublicCircuitPublicInputs {
         inputs.push_array(self.new_nullifiers);
         inputs.push_array(self.new_l2_to_l1_msgs);
 
-        // We do not include block_data since it's not in the cpp hash
-
         inputs.push_array(self.unencrypted_logs_hash);
         inputs.push(self.unencrypted_log_preimages_length);
-        inputs.push_array(self.block_data.serialize()); // see https://github.com/AztecProtocol/aztec-packages/issues/1473
+        inputs.push_array(self.block_data.serialize());
         inputs.push(self.prover_address);
 
-        dep::std::hash::pedersen_with_separator(inputs.storage, GENERATOR_INDEX__PUBLIC_CIRCUIT_PUBLIC_INPUTS)[0]
+        pedersen_hash(inputs.storage, GENERATOR_INDEX__PUBLIC_CIRCUIT_PUBLIC_INPUTS)
     }
 
-    fn serialize(self) -> [Field; PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH] {
+    pub fn serialize(self) -> [Field; PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH] {
         let mut fields: BoundedVec<Field, PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH> = BoundedVec::new(0); 
         fields.push_array(self.call_context.serialize());   
         fields.push(self.args_hash);
@@ -372,21 +373,21 @@ struct Hasher {
 }
 
 impl Hasher {
-    fn new()-> Self {
+    pub fn new()-> Self {
         Self { fields: [] }
     }
 
-    fn add(&mut self, field: Field) {
+    pub fn add(&mut self, field: Field) {
         self.fields = self.fields.push_back(field);
     }
 
-    fn add_multiple<N>(&mut self, fields: [Field; N]) {
+    pub fn add_multiple<N>(&mut self, fields: [Field; N]) {
         for i in 0..N {
             self.fields = self.fields.push_back(fields[i]);
         }
     }
 
-    fn hash(self) -> Field {
+    pub fn hash(self) -> Field {
         hash_args(self.fields)
     }
 }
@@ -394,7 +395,7 @@ impl Hasher {
 global ARGS_HASH_CHUNK_LENGTH: u32 = 32;
 global ARGS_HASH_CHUNK_COUNT: u32 = 16;
 
-fn hash_args<N>(args: [Field; N]) -> Field {
+pub fn hash_args<N>(args: [Field; N]) -> Field {
     if args.len() == 0 {
         0
     } else {
@@ -410,10 +411,10 @@ fn hash_args<N>(args: [Field; N]) -> Field {
                         chunk_args[j] = args[item_index];
                     }
                 }
-                chunk_hash = dep::std::hash::pedersen_with_separator(chunk_args, GENERATOR_INDEX__FUNCTION_ARGS)[0];
+                chunk_hash = pedersen_hash(chunk_args, GENERATOR_INDEX__FUNCTION_ARGS);
             }
             chunks_hashes[i] = chunk_hash;
         }
-        dep::std::hash::pedersen_with_separator(chunks_hashes, GENERATOR_INDEX__FUNCTION_ARGS)[0]
+        pedersen_hash(chunks_hashes, GENERATOR_INDEX__FUNCTION_ARGS)
     }
 }

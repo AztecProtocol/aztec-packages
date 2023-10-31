@@ -2,7 +2,10 @@
   "name": "@aztec/types",
   "version": "0.1.0",
   "type": "module",
-  "exports": "./dest/index.js",
+  "exports": {
+    ".": "./dest/index.js",
+    "./stats": "./dest/stats/index.js"
+  },
   "typedocOptions": {
     "entryPoints": [
       "./src/index.ts"
@@ -24,7 +27,7 @@
   "jest": {
     "preset": "ts-jest/presets/default-esm",
     "moduleNameMapper": {
-      "^(\\.{1,2}/.*)\\.m?js$": "$1"
+      "^(\\.{1,2}/.*)\\.[cm]?js$": "$1"
     },
     "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
     "rootDir": "./src"
@@ -35,6 +38,7 @@
     "@aztec/foundation": "workspace:^",
     "browserify-cipher": "^1.0.1",
     "lodash.clonedeep": "^4.5.0",
+    "lodash.isequal": "^4.5.0",
     "lodash.times": "^4.3.2",
     "tslib": "^2.5.0"
   },
@@ -43,6 +47,7 @@
     "@rushstack/eslint-patch": "^1.1.4",
     "@types/jest": "^29.5.0",
     "@types/lodash.clonedeep": "^4.5.7",
+    "@types/lodash.isequal": "^4.5.6",
     "@types/lodash.times": "^4.3.7",
     "@types/node": "^18.7.23",
     "jest": "^29.5.0",

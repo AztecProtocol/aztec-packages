@@ -1,6 +1,6 @@
 #pragma once
 #include "barretenberg/common/assert.hpp"
-#include "barretenberg/common/inline.hpp"
+#include "barretenberg/common/compiler_hints.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/numeric/uint128/uint128.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
@@ -23,6 +23,7 @@
 namespace barretenberg {
 template <class Params_> struct alignas(32) field {
   public:
+    using View = field;
     using Params = Params_;
     using in_buf = const uint8_t*;
     using vec_in_buf = const uint8_t*;

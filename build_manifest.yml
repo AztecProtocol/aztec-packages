@@ -23,6 +23,11 @@ barretenberg-wasm-linux-clang:
   dockerfile: dockerfiles/Dockerfile.wasm-linux-clang
   rebuildPatterns: .rebuild_patterns
 
+barretenberg-x86_64-linux-clang-sol:
+  buildDir: barretenberg
+  dockerfile: sol/Dockerfile
+  rebuildPatterns: sol/.rebuild_patterns
+
 bb.js:
   buildDir: barretenberg/ts
   dependencies:
@@ -101,24 +106,35 @@ yarn-project-base:
 yarn-project:
   buildDir: yarn-project
   rebuildPatterns:
-    - ^yarn-project/.*\\.(ts|js|cjs|mjs|json|html)$
+    - ^yarn-project/.*\.(ts|tsx|js|cjs|mjs|json|html|md|sh)$
     - ^yarn-project/Dockerfile
   dependencies:
     - yarn-project-base
     - noir-contracts-build
 
-aztec-sandbox-base:
+aztec-sandbox:
   buildDir: yarn-project
   projectDir: yarn-project/aztec-sandbox
   dependencies:
     - yarn-project
 
-aztec-sandbox:
+aztec-faucet:
   buildDir: yarn-project
-  projectDir: yarn-project/aztec-sandbox
-  dockerfile: Dockerfile.final
+  projectDir: yarn-project/aztec-faucet
   dependencies:
-    - aztec-sandbox-base
+    - yarn-project
+
+aztec-cli:
+  buildDir: yarn-project
+  projectDir: yarn-project/cli
+  dependencies:
+    - yarn-project
+
+pxe:
+  buildDir: yarn-project
+  projectDir: yarn-project/pxe
+  dependencies:
+    - yarn-project
 
 boxes-blank-react:
   buildDir: yarn-project
@@ -132,9 +148,9 @@ boxes-blank:
   dependencies:
     - aztec-sandbox
 
-boxes-private-token:
+boxes-token:
   buildDir: yarn-project
-  projectDir: yarn-project/boxes/private-token
+  projectDir: yarn-project/boxes/token
   dependencies:
     - aztec-sandbox
 
@@ -156,6 +172,24 @@ end-to-end:
   projectDir: yarn-project/end-to-end
   dependencies:
     - yarn-project
+  runDependencies:
+    - aztec-sandbox
+
+aztec-node:
+  buildDir: yarn-project
+  projectDir: yarn-project/aztec-node
+  dependencies:
+    - yarn-project
+
+p2p-bootstrap:
+  buildDir: yarn-project
+  projectDir: yarn-project/p2p-bootstrap
+  dependencies:
+    - yarn-project
+
+mainnet-fork:
+  buildDir: iac/mainnet-fork
+  projectDir: iac/mainnet-fork
 
 docs:
   buildDir: .

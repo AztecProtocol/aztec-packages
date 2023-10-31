@@ -32,7 +32,7 @@ write_export() {
     NAME=$(echo $CONTRACT_NAME | perl -pe 's/(^|_)(\w)/\U$2/g')
 
     # artifacts
-    echo "export const ${NAME}ContractAbi = ${NAME}Json as ContractAbi;"  >> "$artifacts_dir/index.ts";
+    echo "export const ${NAME}ContractArtifact = ${NAME}Json as ContractArtifact;"  >> "$artifacts_dir/index.ts";
     echo "Written typescript for $NAME"
 
     # types
@@ -44,13 +44,15 @@ process() {
   CONTRACT=$1
 
   cd $ROOT
+  NODE_OPTIONS=--no-warnings yarn ts-node --esm src/scripts/copy_source.ts $CONTRACT_NAME
+
   echo "Creating types for $CONTRACT"
   NODE_OPTIONS=--no-warnings yarn ts-node --esm src/scripts/copy_output.ts $CONTRACT_NAME
 }
 
 format(){
   echo "Formatting contract folders"
-  yarn run -T prettier -w  ../aztec.js/src/abis/*.json ./$types_dir/*.ts
+  yarn run -T prettier -w  ../aztec.js/src/artifacts/*.json ./$types_dir/*.ts
   echo -e "Done\n"
 }
 
@@ -68,7 +70,7 @@ rm -f $artifacts_dir/index.ts || true
 
 # Generate artifacts package index.ts
 echo "// Auto generated module\n" > "$artifacts_dir/index.ts";
-echo "import { ContractAbi } from '@aztec/foundation/abi';"  >> "$artifacts_dir/index.ts";
+echo "import { ContractArtifact } from '@aztec/foundation/abi';"  >> "$artifacts_dir/index.ts";
 
 # Generate types package index.ts
 echo "// Auto generated module\n" > "$types_dir/index.ts";

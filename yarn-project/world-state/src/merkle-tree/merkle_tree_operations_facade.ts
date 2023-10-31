@@ -2,7 +2,14 @@ import { Fr } from '@aztec/foundation/fields';
 import { LowLeafWitnessData } from '@aztec/merkle-tree';
 import { L2Block, MerkleTreeId, SiblingPath } from '@aztec/types';
 
-import { CurrentTreeRoots, LeafData, MerkleTreeDb, MerkleTreeOperations, TreeInfo } from '../index.js';
+import {
+  CurrentTreeRoots,
+  HandleL2BlockResult,
+  LeafData,
+  MerkleTreeDb,
+  MerkleTreeOperations,
+  TreeInfo,
+} from '../index.js';
 
 /**
  * Wraps a MerkleTreeDbOperations to call all functions with a preset includeUncommitted flag.
@@ -115,8 +122,8 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
   }
 
   /**
-   * Inserts into the roots trees (CONTRACT_TREE_ROOTS_TREE, PRIVATE_DATA_TREE_ROOTS_TREE)
-   * the current roots of the corresponding trees (CONTRACT_TREE, PRIVATE_DATA_TREE).
+   * Inserts into the roots trees (CONTRACT_TREE_ROOTS_TREE, NOTE_HASH_TREE_ROOTS_TREE)
+   * the current roots of the corresponding trees (CONTRACT_TREE, NOTE_HASH_TREE).
    * @param globalVariablesHash - The hash of the current global variables to include in the block hash.
    * @returns Empty promise.
    */
@@ -142,9 +149,9 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
   /**
    * Handles a single L2 block (i.e. Inserts the new commitments into the merkle tree).
    * @param block - The L2 block to handle.
-   * @returns Empty promise.
+   * @returns Whether the block handled was produced by this same node.
    */
-  public handleL2Block(block: L2Block): Promise<void> {
+  public handleL2Block(block: L2Block): Promise<HandleL2BlockResult> {
     return this.trees.handleL2Block(block);
   }
 

@@ -27,6 +27,7 @@ struct ConstantsPacker {
                  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
                  MAX_PUBLIC_DATA_READS_PER_CALL,
                  MAX_READ_REQUESTS_PER_CALL,
+                 MAX_PENDING_READ_REQUESTS_PER_CALL,
                  MAX_NEW_COMMITMENTS_PER_TX,
                  MAX_NEW_NULLIFIERS_PER_TX,
                  MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
@@ -36,7 +37,8 @@ struct ConstantsPacker {
                  MAX_PUBLIC_DATA_READS_PER_TX,
                  MAX_NEW_CONTRACTS_PER_TX,
                  MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX,
-                 MAX_READ_REQUESTS_PER_TX),
+                 MAX_READ_REQUESTS_PER_TX,
+                 MAX_PENDING_READ_REQUESTS_PER_TX),
              NVP(NUM_ENCRYPTED_LOGS_HASHES_PER_TX,
                  NUM_UNENCRYPTED_LOGS_HASHES_PER_TX,
                  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
@@ -47,15 +49,15 @@ struct ConstantsPacker {
                  VK_TREE_HEIGHT,
                  FUNCTION_TREE_HEIGHT,
                  CONTRACT_TREE_HEIGHT,
-                 PRIVATE_DATA_TREE_HEIGHT,
+                 NOTE_HASH_TREE_HEIGHT,
                  PUBLIC_DATA_TREE_HEIGHT,
                  NULLIFIER_TREE_HEIGHT,
                  L1_TO_L2_MSG_TREE_HEIGHT,
                  ROLLUP_VK_TREE_HEIGHT,
                  CONTRACT_SUBTREE_HEIGHT,
                  CONTRACT_SUBTREE_SIBLING_PATH_LENGTH,
-                 PRIVATE_DATA_SUBTREE_HEIGHT,
-                 PRIVATE_DATA_SUBTREE_SIBLING_PATH_LENGTH,
+                 NOTE_HASH_SUBTREE_HEIGHT,
+                 NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
                  NULLIFIER_SUBTREE_HEIGHT,
                  HISTORIC_BLOCKS_TREE_HEIGHT,
                  NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
@@ -107,7 +109,7 @@ struct GeneratorIndexPacker {
         int UNIQUE_COMMITMENT = GeneratorIndex::UNIQUE_COMMITMENT;
         int SILOED_COMMITMENT = GeneratorIndex::SILOED_COMMITMENT;
         int NULLIFIER = GeneratorIndex::NULLIFIER;
-        int INITIALISATION_NULLIFIER = GeneratorIndex::INITIALISATION_NULLIFIER;
+        int INITIALIZATION_NULLIFIER = GeneratorIndex::INITIALIZATION_NULLIFIER;
         int OUTER_NULLIFIER = GeneratorIndex::OUTER_NULLIFIER;
         int PUBLIC_DATA_READ = GeneratorIndex::PUBLIC_DATA_READ;
         int PUBLIC_DATA_UPDATE_REQUEST = GeneratorIndex::PUBLIC_DATA_UPDATE_REQUEST;
@@ -129,6 +131,7 @@ struct GeneratorIndexPacker {
         int SIGNED_TX_REQUEST = GeneratorIndex::SIGNED_TX_REQUEST;
         int GLOBAL_VARIABLES = GeneratorIndex::GLOBAL_VARIABLES;
         int PARTIAL_ADDRESS = GeneratorIndex::PARTIAL_ADDRESS;
+        int BLOCK_HASH = GeneratorIndex::BLOCK_HASH;
         int TX_REQUEST = GeneratorIndex::TX_REQUEST;
         int SIGNATURE_PAYLOAD = GeneratorIndex::SIGNATURE_PAYLOAD;
         int VK = GeneratorIndex::VK;
@@ -144,7 +147,7 @@ struct GeneratorIndexPacker {
                  UNIQUE_COMMITMENT,
                  SILOED_COMMITMENT,
                  NULLIFIER,
-                 INITIALISATION_NULLIFIER,
+                 INITIALIZATION_NULLIFIER,
                  OUTER_NULLIFIER,
                  PUBLIC_DATA_READ,
                  PUBLIC_DATA_UPDATE_REQUEST,
@@ -166,6 +169,7 @@ struct GeneratorIndexPacker {
                  SIGNED_TX_REQUEST,
                  GLOBAL_VARIABLES,
                  PARTIAL_ADDRESS,
+                 BLOCK_HASH,
                  TX_REQUEST,
                  SIGNATURE_PAYLOAD,
                  VK,
