@@ -526,16 +526,16 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<FF
         }
     };
 
-    std::array<std::vector<uint32_t, barretenberg::ContainerSlabAllocator<uint32_t>>, NUM_WIRES> wires;
+    // std::array<std::vector<uint32_t, barretenberg::ContainerSlabAllocator<uint32_t>>, NUM_WIRES> wires;
     Arithmetization selectors;
 
     using WireVector = std::vector<uint32_t, ContainerSlabAllocator<uint32_t>>;
     using SelectorVector = std::vector<FF, ContainerSlabAllocator<FF>>;
 
-    WireVector& w_l = std::get<0>(wires);
-    WireVector& w_r = std::get<1>(wires);
-    WireVector& w_o = std::get<2>(wires);
-    WireVector& w_4 = std::get<3>(wires);
+    WireVector& w_l = std::get<0>(this->wires);
+    WireVector& w_r = std::get<1>(this->wires);
+    WireVector& w_o = std::get<2>(this->wires);
+    WireVector& w_4 = std::get<3>(this->wires);
 
     SelectorVector& q_m = selectors.q_m();
     SelectorVector& q_c = selectors.q_c();
