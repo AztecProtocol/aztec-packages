@@ -77,6 +77,10 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
     void finalize_circuit();
     void add_gates_to_ensure_all_polys_are_non_zero();
 
+    /**
+     * @brief Utility for adding zeros to selectors which are not part of the conventional Ultra arithmetization
+     *
+     */
     void pad_additional_selectors() override { q_busread.emplace_back(0); };
 
     size_t get_num_constant_gates() const override { return 0; }
