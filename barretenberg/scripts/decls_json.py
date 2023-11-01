@@ -41,7 +41,6 @@ def process_files(files: List[str]) -> List[dict]:
             # '-isystem', '/usr/include/x86_64-linux-gnu',
             # '-isystem', '/usr/include',
             "-I./cpp/src",
-            '-stdlib=libc++',
             '-std=gnu++20', '-Wall', '-Wextra'])
         for diag in tu.diagnostics:
             print_diagnostic(diag, file=sys.stderr)

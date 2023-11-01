@@ -1,6 +1,6 @@
+#include "c_bind.hpp"
 #include "../pedersen_hash/pedersen.hpp"
 #include "barretenberg/common/serialize.hpp"
-#include "c_bind_new.hpp"
 #include "pedersen.hpp"
 
 extern "C" {

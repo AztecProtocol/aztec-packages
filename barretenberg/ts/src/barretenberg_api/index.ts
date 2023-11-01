@@ -65,7 +65,7 @@ export class BarretenbergApi {
     return result[0];
   }
 
-  async schnorrMultisigCreateMultisigPublicKey(privateKey: Fq): Promise<Buffer128> {
+  async schnorrMultisigCreateMultisigPublicKey(privateKey: Fr): Promise<Buffer128> {
     const result = await this.binder.callWasmExport(
       'schnorr_multisig_create_multisig_public_key',
       [privateKey],
@@ -94,15 +94,15 @@ export class BarretenbergApi {
 
   async schnorrMultisigConstructSignatureRound2(
     message: Uint8Array,
-    privateKey: Fq,
+    privateKey: Fr,
     signerRoundOnePrivateBuf: Buffer128,
     signerPubkeysBuf: Buffer128[],
     roundOnePublicBuf: Buffer128[],
-  ): Promise<[Fq, boolean]> {
+  ): Promise<[Fr, boolean]> {
     const result = await this.binder.callWasmExport(
       'schnorr_multisig_construct_signature_round_2',
       [message, privateKey, signerRoundOnePrivateBuf, signerPubkeysBuf, roundOnePublicBuf],
-      [Fq, BoolDeserializer()],
+      [Fr, BoolDeserializer()],
     );
     return result as any;
   }

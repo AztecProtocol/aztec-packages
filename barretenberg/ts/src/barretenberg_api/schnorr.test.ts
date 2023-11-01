@@ -1,5 +1,5 @@
 import { TextEncoder } from 'util';
-import { Buffer128, Buffer32, Fq, Fr, Point } from '../types/index.js';
+import { Buffer128, Buffer32, Fr, Point } from '../types/index.js';
 import { Barretenberg } from '../barretenberg/index.js';
 import { asyncMap } from '../async_map/index.js';
 
@@ -48,7 +48,7 @@ describe('schnorr', () => {
   it('should create + verify multi signature', async () => {
     // set up multisig accounts
     const numSigners = 7;
-    const pks = [...Array(numSigners)].map(() => Fq.random());
+    const pks = [...Array(numSigners)].map(() => Fr.random());
     const pubKeys = await asyncMap(pks, pk => api.schnorrMultisigCreateMultisigPublicKey(pk));
 
     // round one
