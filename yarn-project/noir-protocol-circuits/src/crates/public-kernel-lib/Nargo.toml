@@ -6,3 +6,4 @@ compiler_version = ">=0.18.0"
 
 [dependencies]
 aztec = { path="../../../../aztec-nr/aztec" }
+private_kernel_lib = { path = "../private-kernel-lib" }

@@ -1,5 +1,5 @@
 [package]
-name = "public_kernel_private_previous"
+name = "public_kernel_public_previous"
 type = "bin"
 authors = [""]
 compiler_version = ">=0.18.0"
