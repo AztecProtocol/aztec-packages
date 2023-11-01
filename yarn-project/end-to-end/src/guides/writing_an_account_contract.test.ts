@@ -9,6 +9,7 @@ import {
   GrumpkinPrivateKey,
   GrumpkinScalar,
   Note,
+  Schnorr,
   computeMessageSecretHash,
 } from '@aztec/aztec.js';
 import { SchnorrHardcodedAccountContractArtifact, TokenContract } from '@aztec/noir-contracts/types';
