@@ -94,12 +94,13 @@ export function hashVK(wasm: IWasmModule, vkBuf: Buffer) {
  * @returns The function leaf.
  */
 export function computeFunctionLeaf(fnLeaf: FunctionLeafPreimage): Fr {
+  // return Fr.fromBuffer(wasmSyncCall(wasm, 'abis__compute_function_leaf', fnLeaf, 32));
   return Fr.fromBuffer(
     pedersenHash(
       [
-        fnLeaf.functionSelector.toBuffer(),
-        boolToBuffer(fnLeaf.isInternal),
-        boolToBuffer(fnLeaf.isPrivate),
+        numToUInt32BE(fnLeaf.functionSelector.value, 32),
+        boolToBuffer(fnLeaf.isInternal, 32),
+        boolToBuffer(fnLeaf.isPrivate, 32),
         fnLeaf.vkHash.toBuffer(),
         fnLeaf.acirHash.toBuffer(),
       ],
@@ -430,7 +431,7 @@ function computeFunctionDataHash(functionData: FunctionData): Fr {
   return Fr.fromBuffer(
     pedersenHash(
       [
-        functionData.selector.toBuffer(),
+        functionData.selector.toBuffer(32),
         new Fr(functionData.isInternal).toBuffer(),
         new Fr(functionData.isPrivate).toBuffer(),
         new Fr(functionData.isConstructor).toBuffer(),

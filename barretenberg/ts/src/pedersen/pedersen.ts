@@ -16,7 +16,7 @@ export class Pedersen {
     const data = serializeBufferArrayToVector(inputs);
 
     let inputPtr = 0;
-    if (inputs.length >= SCRATCH_SPACE_SIZE - 4) {
+    if (data.length > SCRATCH_SPACE_SIZE - 4) {
       inputPtr = this.wasm.call('bbmalloc', data.length);
     }
     this.wasm.writeMemory(inputPtr, data);
@@ -39,13 +39,14 @@ export class Pedersen {
     const data = serializeBufferArrayToVector(inputs);
 
     let inputPtr = 0;
-    if (inputs.length >= SCRATCH_SPACE_SIZE) {
+    if (data.length > SCRATCH_SPACE_SIZE - 4) {
       inputPtr = this.wasm.call('bbmalloc', data.length);
     }
     this.wasm.writeMemory(inputPtr, data);
+    this.wasm.writeMemory(SCRATCH_SPACE_SIZE - 4, numToUInt32BE(hashIndex));
 
     const outputPtr = 0;
-    this.wasm.call('pedersen_commit', inputPtr, hashIndex, outputPtr);
+    this.wasm.call('pedersen_commit', inputPtr, SCRATCH_SPACE_SIZE - 4, outputPtr);
     const hashOutput = this.wasm.getMemorySlice(0, 64);
 
     if (inputPtr !== 0) {

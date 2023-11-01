@@ -1,3 +1,10 @@
+/**
+ * This is about 10x slower than WASM pedersen.
+ * But note that if run within jest it's like, 100x slower.
+ * I banged my head against a wall for a weekend trying to understand why, profiling and everything.
+ * Ultimately I discovered that using jest-runner-light resolved that, and still it's a mystery to me.
+ * Given it's 10x slower anyway, this might be fine for small hash calculations, but not for merkle trees.
+ */
 import BN from 'bn.js';
 // eslint-disable-next-line
 import EC from 'elliptic';
@@ -562,6 +569,9 @@ export function pedersenCommit(input: Buffer[], generatorOffset = 0) {
  * Create a pedersen hash (field) from an array of input fields.
  */
 export function pedersenHash(input: Buffer[], index = 0) {
+  if (!input.every(i => i.length === 32)) {
+    throw new Error('All input buffers must be <= 32 bytes.');
+  }
   const result = lengthGenerator.mul(new BN(input.length));
   return result.add(pedersenCommitInternal(input, index)).getX().toBuffer();
 }

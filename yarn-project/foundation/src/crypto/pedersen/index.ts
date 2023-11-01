@@ -1,1 +1,1 @@
-export * from './pedersen.wasm.js';
+export * from './pedersen.elliptic.js';
