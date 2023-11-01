@@ -300,6 +300,19 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@aztec/bb.js@portal:../../barretenberg/ts::locator=%40aztec%2Ffoundation%40workspace%3Afoundation":
+  version: 0.0.0-use.local
+  resolution: "@aztec/bb.js@portal:../../barretenberg/ts::locator=%40aztec%2Ffoundation%40workspace%3Afoundation"
+  dependencies:
+    comlink: ^4.4.1
+    commander: ^10.0.1
+    debug: ^4.3.4
+    tslib: ^2.4.0
+  bin:
+    bb.js: ./dest/node/main.js
+  languageName: node
+  linkType: soft
+
 "@aztec/canary@workspace:canary":
   version: 0.0.0-use.local
   resolution: "@aztec/canary@workspace:canary"
@@ -483,6 +496,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/foundation@workspace:foundation"
   dependencies:
+    "@aztec/bb.js": "portal:../../barretenberg/ts"
     "@jest/globals": ^29.5.0
     "@koa/cors": ^4.0.0
     "@noble/curves": ^1.2.0

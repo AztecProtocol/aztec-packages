@@ -561,7 +561,7 @@ export function pedersenCommit(input: Buffer[], generatorOffset = 0) {
 /**
  * Create a pedersen hash (field) from an array of input fields.
  */
-export function pedersenHashWithHashIndex(input: Buffer[], index = 0) {
+export function pedersenHash(input: Buffer[], index = 0) {
   const result = lengthGenerator.mul(new BN(input.length));
   return result.add(pedersenCommitInternal(input, index)).getX().toBuffer();
 }

@@ -1,10 +1,14 @@
 [
   {
-    "functionName": "pedersen___commit",
+    "functionName": "pedersen_commit",
     "inArgs": [
       {
         "name": "inputs_buffer",
         "type": "fr::vec_in_buf"
+      },
+      {
+        "name": "hash_index",
+        "type": "const uint32_t *"
       }
     ],
     "outArgs": [
@@ -16,7 +20,7 @@
     "isAsync": false
   },
   {
-    "functionName": "pedersen_hash_with_hash_index",
+    "functionName": "pedersen_hash",
     "inArgs": [
       {
         "name": "inputs_buffer",

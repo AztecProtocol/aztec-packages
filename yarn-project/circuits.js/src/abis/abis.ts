@@ -1,5 +1,5 @@
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { keccak, pedersenHashWithHashIndex } from '@aztec/foundation/crypto';
+import { keccak, pedersenHash } from '@aztec/foundation/crypto';
 import { numToUInt32BE } from '@aztec/foundation/serialize';
 import { IWasmModule } from '@aztec/foundation/wasm';
 
@@ -95,7 +95,7 @@ export function hashVK(wasm: IWasmModule, vkBuf: Buffer) {
  */
 export function computeFunctionLeaf(fnLeaf: FunctionLeafPreimage): Fr {
   return Fr.fromBuffer(
-    pedersenHashWithHashIndex(
+    pedersenHash(
       [
         fnLeaf.functionSelector.toBuffer(),
         boolToBuffer(fnLeaf.isInternal),
@@ -130,7 +130,7 @@ export function computeFunctionTreeRoot(wasm: IWasmModule, fnLeaves: Fr[]) {
  */
 export function hashConstructor(functionData: FunctionData, argsHash: Fr, constructorVKHash: Buffer): Fr {
   return Fr.fromBuffer(
-    pedersenHashWithHashIndex(
+    pedersenHash(
       [computeFunctionDataHash(functionData).toBuffer(), argsHash.toBuffer(), constructorVKHash],
       GeneratorIndex.CONSTRUCTOR,
     ),
@@ -165,7 +165,7 @@ export function computeCompleteAddress(
  */
 function computePartialAddress(contractAddrSalt: Fr, fnTreeRoot: Fr, constructorHash: Fr) {
   return Fr.fromBuffer(
-    pedersenHashWithHashIndex(
+    pedersenHash(
       [
         Fr.ZERO.toBuffer(),
         Fr.ZERO.toBuffer(),
@@ -187,7 +187,7 @@ function computePartialAddress(contractAddrSalt: Fr, fnTreeRoot: Fr, constructor
  * @returns The partially constructed contract address.
  */
 export function computeContractAddressFromPartial(pubKey: PublicKey, partialAddress: Fr): AztecAddress {
-  const result = pedersenHashWithHashIndex(
+  const result = pedersenHash(
     [pubKey.x.toBuffer(), pubKey.y.toBuffer(), partialAddress.toBuffer()],
     GeneratorIndex.CONTRACT_ADDRESS,
   );
@@ -203,10 +203,7 @@ export function computeContractAddressFromPartial(pubKey: PublicKey, partialAddr
  */
 export function computeCommitmentNonce(nullifierZero: Fr, commitmentIndex: number): Fr {
   return Fr.fromBuffer(
-    pedersenHashWithHashIndex(
-      [nullifierZero.toBuffer(), numToUInt32BE(commitmentIndex, 32)],
-      GeneratorIndex.COMMITMENT_NONCE,
-    ),
+    pedersenHash([nullifierZero.toBuffer(), numToUInt32BE(commitmentIndex, 32)], GeneratorIndex.COMMITMENT_NONCE),
   );
 }
 
@@ -220,7 +217,7 @@ export function computeCommitmentNonce(nullifierZero: Fr, commitmentIndex: numbe
  */
 export function siloCommitment(contract: AztecAddress, innerCommitment: Fr): Fr {
   return Fr.fromBuffer(
-    pedersenHashWithHashIndex([contract.toBuffer(), innerCommitment.toBuffer()], GeneratorIndex.SILOED_COMMITMENT),
+    pedersenHash([contract.toBuffer(), innerCommitment.toBuffer()], GeneratorIndex.SILOED_COMMITMENT),
   );
 }
 
@@ -232,9 +229,7 @@ export function siloCommitment(contract: AztecAddress, innerCommitment: Fr): Fr 
  * @returns A unique commitment.
  */
 export function computeUniqueCommitment(nonce: Fr, siloedCommitment: Fr): Fr {
-  return Fr.fromBuffer(
-    pedersenHashWithHashIndex([nonce.toBuffer(), siloedCommitment.toBuffer()], GeneratorIndex.UNIQUE_COMMITMENT),
-  );
+  return Fr.fromBuffer(pedersenHash([nonce.toBuffer(), siloedCommitment.toBuffer()], GeneratorIndex.UNIQUE_COMMITMENT));
 }
 
 /**
@@ -246,9 +241,7 @@ export function computeUniqueCommitment(nonce: Fr, siloedCommitment: Fr): Fr {
  * @returns A siloed nullifier.
  */
 export function siloNullifier(contract: AztecAddress, innerNullifier: Fr): Fr {
-  return Fr.fromBuffer(
-    pedersenHashWithHashIndex([contract.toBuffer(), innerNullifier.toBuffer()], GeneratorIndex.OUTER_NULLIFIER),
-  );
+  return Fr.fromBuffer(pedersenHash([contract.toBuffer(), innerNullifier.toBuffer()], GeneratorIndex.OUTER_NULLIFIER));
 }
 
 /**
@@ -300,7 +293,7 @@ export function computeBlockHash(
   publicDataTreeRoot: Fr,
 ): Fr {
   return Fr.fromBuffer(
-    pedersenHashWithHashIndex(
+    pedersenHash(
       [
         globalsHash.toBuffer(),
         noteHashTreeRoot.toBuffer(),
@@ -322,7 +315,7 @@ export function computeBlockHash(
  */
 export function computeGlobalsHash(globals: GlobalVariables): Fr {
   return Fr.fromBuffer(
-    pedersenHashWithHashIndex(
+    pedersenHash(
       [
         globals.chainId.toBuffer(),
         globals.version.toBuffer(),
@@ -355,7 +348,7 @@ export function computePublicDataTreeValue(value: Fr): Fr {
  */
 export function computePublicDataTreeIndex(contractAddress: AztecAddress, storageSlot: Fr): Fr {
   return Fr.fromBuffer(
-    pedersenHashWithHashIndex([contractAddress.toBuffer(), storageSlot.toBuffer()], GeneratorIndex.PUBLIC_LEAF_INDEX),
+    pedersenHash([contractAddress.toBuffer(), storageSlot.toBuffer()], GeneratorIndex.PUBLIC_LEAF_INDEX),
   );
 }
 
@@ -375,7 +368,7 @@ export function computeVarArgsHash(args: Fr[]) {
 
   const wasmComputeVarArgs = (args: Fr[]) =>
     Fr.fromBuffer(
-      pedersenHashWithHashIndex(
+      pedersenHash(
         args.map(a => a.toBuffer()),
         GeneratorIndex.FUNCTION_ARGS,
       ),
@@ -403,7 +396,7 @@ export function computeVarArgsHash(args: Fr[]) {
  */
 export function computeContractLeaf(cd: NewContractData): Fr {
   return Fr.fromBuffer(
-    pedersenHashWithHashIndex(
+    pedersenHash(
       [cd.contractAddress.toBuffer(), cd.portalContractAddress.toBuffer(), cd.functionTreeRoot.toBuffer()],
       GeneratorIndex.CONTRACT_LEAF,
     ),
@@ -418,7 +411,7 @@ export function computeContractLeaf(cd: NewContractData): Fr {
  */
 export function computeTxHash(txRequest: TxRequest): Fr {
   return Fr.fromBuffer(
-    pedersenHashWithHashIndex(
+    pedersenHash(
       [
         txRequest.origin.toBuffer(),
         computeFunctionDataHash(txRequest.functionData).toBuffer(),
@@ -435,7 +428,7 @@ export function computeTxHash(txRequest: TxRequest): Fr {
  */
 function computeFunctionDataHash(functionData: FunctionData): Fr {
   return Fr.fromBuffer(
-    pedersenHashWithHashIndex(
+    pedersenHash(
       [
         functionData.selector.toBuffer(),
         new Fr(functionData.isInternal).toBuffer(),
@@ -452,7 +445,7 @@ function computeFunctionDataHash(functionData: FunctionData): Fr {
  */
 function computeTxContextHash(txContext: TxContext): Fr {
   return Fr.fromBuffer(
-    pedersenHashWithHashIndex(
+    pedersenHash(
       [
         new Fr(txContext.isFeePaymentTx).toBuffer(),
         new Fr(txContext.isRebatePaymentTx).toBuffer(),
@@ -471,7 +464,7 @@ function computeTxContextHash(txContext: TxContext): Fr {
  */
 function computeContractDeploymentDataHash(data: ContractDeploymentData): Fr {
   return Fr.fromBuffer(
-    pedersenHashWithHashIndex(
+    pedersenHash(
       [
         data.deployerPublicKey.x.toBuffer(),
         data.deployerPublicKey.y.toBuffer(),
@@ -552,5 +545,5 @@ export function computePublicCallStackItemHash(wasm: IWasmModule, callStackItem:
  * @returns
  */
 export function computeSecretMessageHash(secretMessage: Fr) {
-  return Fr.fromBuffer(pedersenHashWithHashIndex([secretMessage.toBuffer()], GeneratorIndex.L1_TO_L2_MESSAGE_SECRET));
+  return Fr.fromBuffer(pedersenHash([secretMessage.toBuffer()], GeneratorIndex.L1_TO_L2_MESSAGE_SECRET));
 }

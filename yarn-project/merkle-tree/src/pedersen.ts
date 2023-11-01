@@ -1,4 +1,4 @@
-import { pedersenHashWithHashIndex } from '@aztec/foundation/crypto';
+import { pedersenHash } from '@aztec/foundation/crypto';
 import { Hasher } from '@aztec/types';
 
 /**
@@ -12,7 +12,7 @@ export class Pedersen implements Hasher {
    * purposes.
    */
   public hash(lhs: Uint8Array, rhs: Uint8Array): Buffer {
-    return pedersenHashWithHashIndex([Buffer.from(lhs), Buffer.from(rhs)]);
+    return pedersenHash([Buffer.from(lhs), Buffer.from(rhs)]);
   }
 
   /*
@@ -20,6 +20,6 @@ export class Pedersen implements Hasher {
    * purposes.
    */
   public hashInputs(inputs: Buffer[]): Buffer {
-    return pedersenHashWithHashIndex(inputs);
+    return pedersenHash(inputs);
   }
 }
