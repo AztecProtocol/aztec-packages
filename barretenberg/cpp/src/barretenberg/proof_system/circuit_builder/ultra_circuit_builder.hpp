@@ -18,8 +18,7 @@ using namespace barretenberg;
 template <typename Arithmetization>
 class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization::FF> {
   public:
-    // using Arithmetization = arithmetization::Ultra<FF>;
-    using FF = Arithmetization::FF;
+    using FF = typename Arithmetization::FF;
     static constexpr size_t NUM_WIRES = Arithmetization::NUM_WIRES;
     // Keeping NUM_WIRES, at least temporarily, for backward compatibility
     static constexpr size_t program_width = Arithmetization::NUM_WIRES;
