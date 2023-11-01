@@ -2678,21 +2678,22 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
  * @return fr
  */
 template <typename Arithmetization>
-inline Arithmetization::FF UltraCircuitBuilder_<Arithmetization>::compute_arithmetic_identity(FF q_arith_value,
-                                                                                              FF q_1_value,
-                                                                                              FF q_2_value,
-                                                                                              FF q_3_value,
-                                                                                              FF q_4_value,
-                                                                                              FF q_m_value,
-                                                                                              FF q_c_value,
-                                                                                              FF w_1_value,
-                                                                                              FF w_2_value,
-                                                                                              FF w_3_value,
-                                                                                              FF w_4_value,
-                                                                                              FF w_1_shifted_value,
-                                                                                              FF w_4_shifted_value,
-                                                                                              FF alpha_base,
-                                                                                              FF alpha) const
+inline typename Arithmetization::FF UltraCircuitBuilder_<Arithmetization>::compute_arithmetic_identity(
+    FF q_arith_value,
+    FF q_1_value,
+    FF q_2_value,
+    FF q_3_value,
+    FF q_4_value,
+    FF q_m_value,
+    FF q_c_value,
+    FF w_1_value,
+    FF w_2_value,
+    FF w_3_value,
+    FF w_4_value,
+    FF w_1_shifted_value,
+    FF w_4_shifted_value,
+    FF alpha_base,
+    FF alpha) const
 {
     constexpr FF neg_half = FF(-2).invert();
     // The main arithmetic identity that gets activated for q_arith_value == 1
@@ -2743,14 +2744,15 @@ inline Arithmetization::FF UltraCircuitBuilder_<Arithmetization>::compute_arithm
  * @return fr
  */
 template <typename Arithmetization>
-inline Arithmetization::FF UltraCircuitBuilder_<Arithmetization>::compute_genperm_sort_identity(FF q_sort_value,
-                                                                                                FF w_1_value,
-                                                                                                FF w_2_value,
-                                                                                                FF w_3_value,
-                                                                                                FF w_4_value,
-                                                                                                FF w_1_shifted_value,
-                                                                                                FF alpha_base,
-                                                                                                FF alpha) const
+inline typename Arithmetization::FF UltraCircuitBuilder_<Arithmetization>::compute_genperm_sort_identity(
+    FF q_sort_value,
+    FF w_1_value,
+    FF w_2_value,
+    FF w_3_value,
+    FF w_4_value,
+    FF w_1_shifted_value,
+    FF alpha_base,
+    FF alpha) const
 {
     // Power of alpha to separate individual delta relations
     // TODO(kesha): This is a repeated computation which can be efficiently optimized
@@ -2802,17 +2804,18 @@ inline Arithmetization::FF UltraCircuitBuilder_<Arithmetization>::compute_genper
  * @return fr
  */
 template <typename Arithmetization>
-inline Arithmetization::FF UltraCircuitBuilder_<Arithmetization>::compute_elliptic_identity(FF q_elliptic_value,
-                                                                                            FF q_1_value,
-                                                                                            FF q_m_value,
-                                                                                            FF w_2_value,
-                                                                                            FF w_3_value,
-                                                                                            FF w_1_shifted_value,
-                                                                                            FF w_2_shifted_value,
-                                                                                            FF w_3_shifted_value,
-                                                                                            FF w_4_shifted_value,
-                                                                                            FF alpha_base,
-                                                                                            FF alpha) const
+inline typename Arithmetization::FF UltraCircuitBuilder_<Arithmetization>::compute_elliptic_identity(
+    FF q_elliptic_value,
+    FF q_1_value,
+    FF q_m_value,
+    FF w_2_value,
+    FF w_3_value,
+    FF w_1_shifted_value,
+    FF w_2_shifted_value,
+    FF w_3_shifted_value,
+    FF w_4_shifted_value,
+    FF alpha_base,
+    FF alpha) const
 {
     const FF x_1 = w_2_value;
     const FF y_1 = w_3_value;
@@ -2885,25 +2888,26 @@ inline Arithmetization::FF UltraCircuitBuilder_<Arithmetization>::compute_ellipt
  */
 
 template <typename Arithmetization>
-inline Arithmetization::FF UltraCircuitBuilder_<Arithmetization>::compute_auxilary_identity(FF q_aux_value,
-                                                                                            FF q_arith_value,
-                                                                                            FF q_1_value,
-                                                                                            FF q_2_value,
-                                                                                            FF q_3_value,
-                                                                                            FF q_4_value,
-                                                                                            FF q_m_value,
-                                                                                            FF q_c_value,
-                                                                                            FF w_1_value,
-                                                                                            FF w_2_value,
-                                                                                            FF w_3_value,
-                                                                                            FF w_4_value,
-                                                                                            FF w_1_shifted_value,
-                                                                                            FF w_2_shifted_value,
-                                                                                            FF w_3_shifted_value,
-                                                                                            FF w_4_shifted_value,
-                                                                                            FF alpha_base,
-                                                                                            FF alpha,
-                                                                                            FF eta) const
+inline typename Arithmetization::FF UltraCircuitBuilder_<Arithmetization>::compute_auxilary_identity(
+    FF q_aux_value,
+    FF q_arith_value,
+    FF q_1_value,
+    FF q_2_value,
+    FF q_3_value,
+    FF q_4_value,
+    FF q_m_value,
+    FF q_c_value,
+    FF w_1_value,
+    FF w_2_value,
+    FF w_3_value,
+    FF w_4_value,
+    FF w_1_shifted_value,
+    FF w_2_shifted_value,
+    FF w_3_shifted_value,
+    FF w_4_shifted_value,
+    FF alpha_base,
+    FF alpha,
+    FF eta) const
 {
     constexpr FF LIMB_SIZE(uint256_t(1) << DEFAULT_NON_NATIVE_FIELD_LIMB_BITS);
     // TODO(kesha): Replace with a constant defined in header
