@@ -106,11 +106,11 @@ template <typename FF_> class Ultra {
 
 template <typename FF_> class UltraHonk : public Ultra<FF_> {
   public:
-    static constexpr size_t NUM_SELECTORS = 11; // 12;
+    static constexpr size_t NUM_SELECTORS = 12;
     using FF = FF_;
     using SelectorType = std::vector<FF, barretenberg::ContainerSlabAllocator<FF>>;
 
-    // SelectorType& q_busread() { return this->selectors[11]; };
+    SelectorType& q_busread() { return this->selectors[11]; };
 
     UltraHonk()
         : Ultra<FF_>(NUM_SELECTORS)

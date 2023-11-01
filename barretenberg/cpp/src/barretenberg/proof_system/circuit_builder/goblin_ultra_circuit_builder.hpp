@@ -32,6 +32,7 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
     uint32_t equality_op_idx;
 
     using WireVector = std::vector<uint32_t, ContainerSlabAllocator<uint32_t>>;
+    using SelectorVector = std::vector<FF, ContainerSlabAllocator<FF>>;
 
     // Wires storing ecc op queue data; values are indices into the variables array
     std::array<WireVector, arithmetization::UltraHonk<FF>::NUM_WIRES> ecc_op_wires;
@@ -41,8 +42,11 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
     WireVector& ecc_op_wire_3 = std::get<2>(ecc_op_wires);
     WireVector& ecc_op_wire_4 = std::get<3>(ecc_op_wires);
 
+    SelectorVector& q_busread = this->selectors.q_busread();
+
     // DataBus call/return data arrays
     std::vector<uint32_t> public_calldata;
+    std::vector<uint32_t> calldata_read_counts;
     std::vector<uint32_t> public_return_data;
 
     // Functions for adding ECC op queue "gates"
@@ -73,7 +77,7 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
     void finalize_circuit();
     void add_gates_to_ensure_all_polys_are_non_zero();
 
-    void pad_additional_selectors() override{};
+    void pad_additional_selectors() override { q_busread.emplace_back(0); };
 
     size_t get_num_constant_gates() const override { return 0; }
 

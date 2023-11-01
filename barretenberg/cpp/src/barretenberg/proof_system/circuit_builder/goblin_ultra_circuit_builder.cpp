@@ -24,25 +24,30 @@ template <typename FF> void GoblinUltraCircuitBuilder_<FF>::add_gates_to_ensure_
 {
     UltraCircuitBuilder_<arithmetization::UltraHonk<FF>>::add_gates_to_ensure_all_polys_are_non_zero();
 
-    // WORKTODO: addtional logic to take care of q_busread selector
-    // this->w_l.emplace_back(this->zero_idx);
-    // this->w_r.emplace_back(this->zero_idx);
-    // this->w_o.emplace_back(this->zero_idx);
-    // this->w_4.emplace_back(this->zero_idx);
-    // this->q_m.emplace_back(1);
-    // this->q_1.emplace_back(1);
-    // this->q_2.emplace_back(1);
-    // this->q_3.emplace_back(1);
-    // this->q_c.emplace_back(0);
-    // this->q_sort.emplace_back(1);
+    // Additional gate to add a nonzero value to q_busread
+    this->w_l.emplace_back(this->zero_idx);
+    this->w_r.emplace_back(this->zero_idx);
+    this->w_o.emplace_back(this->zero_idx);
+    this->w_4.emplace_back(this->zero_idx);
+    this->q_m.emplace_back(0);
+    this->q_1.emplace_back(0);
+    this->q_2.emplace_back(0);
+    this->q_3.emplace_back(0);
+    this->q_c.emplace_back(0);
+    this->q_sort.emplace_back(0);
 
-    // this->q_arith.emplace_back(1);
-    // this->q_4.emplace_back(1);
-    // this->q_lookup_type.emplace_back(0);
-    // this->q_elliptic.emplace_back(1);
-    // this->q_aux.emplace_back(1);
-    // pad_additional_selectors();
-    // ++this->num_gates;
+    this->q_arith.emplace_back(0);
+    this->q_4.emplace_back(0);
+    this->q_lookup_type.emplace_back(0);
+    this->q_elliptic.emplace_back(0);
+    this->q_aux.emplace_back(0);
+    q_busread.emplace_back(1);
+    ++this->num_gates;
+
+    // Add some nonzero values to the calldata and corresponding read counts
+    // WORKTODO: will need to do this more carefully once we actually have a databus lookup relation
+    public_calldata.emplace_back(this->one_idx);
+    calldata_read_counts.emplace_back(this->one_idx);
 }
 
 /**
