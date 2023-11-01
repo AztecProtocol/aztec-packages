@@ -35,7 +35,7 @@ namespace arithmetization {
 template <typename FF_> class Standard {
   public:
     static constexpr size_t NUM_WIRES = 3;
-    static constexpr size_t num_selectors = 5;
+    static constexpr size_t NUM_SELECTORS = 5;
     using FF = FF_;
     using SelectorType = std::vector<FF, barretenberg::ContainerSlabAllocator<FF>>;
 
@@ -48,7 +48,7 @@ template <typename FF_> class Standard {
     SelectorType& q_c() { return selectors[4]; };
 
     Standard()
-        : selectors(num_selectors)
+        : selectors(NUM_SELECTORS)
     {}
 
     const auto& get() const { return selectors; };
@@ -67,7 +67,7 @@ template <typename FF_> class Standard {
 template <typename FF_> class Ultra {
   public:
     static constexpr size_t NUM_WIRES = 4;
-    static constexpr size_t num_selectors = 11;
+    static constexpr size_t NUM_SELECTORS = 11;
     using FF = FF_;
     using SelectorType = std::vector<FF, barretenberg::ContainerSlabAllocator<FF>>;
 
@@ -85,7 +85,7 @@ template <typename FF_> class Ultra {
     SelectorType& q_aux() { return selectors[9]; };
     SelectorType& q_lookup_type() { return selectors[10]; };
 
-    Ultra()
+    Ultra(size_t num_selectors = NUM_SELECTORS)
         : selectors(num_selectors)
     {}
 
@@ -104,9 +104,28 @@ template <typename FF_> class Ultra {
                                                                     "q_elliptic", "q_aux", "table_type" };
 };
 
+template <typename FF_> class UltraHonk : public Ultra<FF_> {
+  public:
+    static constexpr size_t NUM_SELECTORS = 11; // 12;
+    using FF = FF_;
+    using SelectorType = std::vector<FF, barretenberg::ContainerSlabAllocator<FF>>;
+
+    // SelectorType& q_busread() { return this->selectors[11]; };
+
+    UltraHonk()
+        : Ultra<FF_>(NUM_SELECTORS)
+    {}
+
+    // // Note: These are needed for Plonk only (for poly storage in a std::map). Must be in same order as above struct.
+    // inline static const std::vector<std::string> selector_names = { "q_m",        "q_c",   "q_1",        "q_2",
+    //                                                                 "q_3",        "q_4",   "q_arith",    "q_sort",
+    //                                                                 "q_elliptic", "q_aux", "table_type", "q_busread"
+    //                                                                 };
+};
+
 class GoblinTranslator {
   public:
     static constexpr size_t NUM_WIRES = 81;
-    static constexpr size_t num_selectors = 0;
+    static constexpr size_t NUM_SELECTORS = 0;
 };
 } // namespace arithmetization
