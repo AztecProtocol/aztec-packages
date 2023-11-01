@@ -506,6 +506,8 @@ class GoblinUltra {
         Commitment ecc_op_wire_2_comm;
         Commitment ecc_op_wire_3_comm;
         Commitment ecc_op_wire_4_comm;
+        Commitment calldata_comm;
+        Commitment calldata_read_counts_comm;
         Commitment sorted_accum_comm;
         Commitment w_4_comm;
         Commitment z_perm_comm;
@@ -540,6 +542,8 @@ class GoblinUltra {
             ecc_op_wire_2_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
             ecc_op_wire_3_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
             ecc_op_wire_4_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
+            calldata_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
+            calldata_read_counts_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
             sorted_accum_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
             w_4_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
             z_perm_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
@@ -576,6 +580,8 @@ class GoblinUltra {
             serialize_to_buffer(ecc_op_wire_2_comm, proof_data);
             serialize_to_buffer(ecc_op_wire_3_comm, proof_data);
             serialize_to_buffer(ecc_op_wire_4_comm, proof_data);
+            serialize_to_buffer(calldata_comm, proof_data);
+            serialize_to_buffer(calldata_read_counts_comm, proof_data);
             serialize_to_buffer(sorted_accum_comm, proof_data);
             serialize_to_buffer(w_4_comm, proof_data);
             serialize_to_buffer(z_perm_comm, proof_data);
