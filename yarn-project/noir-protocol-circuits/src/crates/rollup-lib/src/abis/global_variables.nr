@@ -26,5 +26,4 @@ impl GlobalVariables {
         (self.block_number == other.block_number) &
         (self.timestamp == other.timestamp)
     }
-
 }
