@@ -37,6 +37,7 @@ export {
   L2BlockL2Logs,
   LogFilter,
   LogType,
+  MerkleTreeId,
   NodeInfo,
   Note,
   PackedArguments,
@@ -52,6 +53,7 @@ export {
   UnencryptedL2Log,
   emptyFunctionCall,
   createAztecNodeClient,
+  merkleTreeIds,
   mockTx,
 } from '@aztec/types';
 
