@@ -11,7 +11,6 @@ import {
   getSandboxAccountsWallets,
   waitForSandbox,
 } from '@aztec/aztec.js';
-import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { TestContract, TokenContract } from '@aztec/noir-contracts/types';
 import { ExtendedNote } from '@aztec/types';
 
