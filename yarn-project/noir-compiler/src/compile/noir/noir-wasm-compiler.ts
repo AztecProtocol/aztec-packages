@@ -96,11 +96,9 @@ export class NoirWasmContractCompiler {
     } catch (err) {
       if (err instanceof Error && err.name === 'CompileError') {
         this.#processCompileError(err as CompileError);
-      } else {
-        this.#log('Error compiling contract ' + err);
       }
 
-      throw new Error("Couldn't compile contract");
+      throw err;
     }
   }
 
