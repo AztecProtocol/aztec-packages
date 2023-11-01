@@ -13,13 +13,14 @@ export { AztecAddress, EthAddress, Point, Fr, FunctionSelector, GrumpkinScalar }
 export {
   ContractData,
   DeployedContract,
-  ExtendedContractData as ExtendedContractData,
+  ExtendedContractData,
+  ExtendedNote,
   FunctionCall,
   GrumpkinPrivateKey,
   L2BlockL2Logs,
   LogFilter,
   NodeInfo,
-  NotePreimage,
+  Note,
   PackedArguments,
   PublicKey,
   PXE,
@@ -31,6 +32,7 @@ export {
   TxStatus,
   UnencryptedL2Log,
   emptyFunctionCall,
+  createAztecNodeClient,
 } from '@aztec/types';
 export { ContractArtifact } from '@aztec/foundation/abi';
 export { createDebugLogger, DebugLogger } from '@aztec/foundation/log';
