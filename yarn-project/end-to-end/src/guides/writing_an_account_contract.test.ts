@@ -1,16 +1,17 @@
 import {
   AccountManager,
+  AuthWitness,
   AuthWitnessProvider,
   BaseAccountContract,
   CompleteAddress,
+  ExtendedNote,
   Fr,
+  GrumpkinPrivateKey,
+  GrumpkinScalar,
   Note,
   computeMessageSecretHash,
 } from '@aztec/aztec.js';
-import { GrumpkinPrivateKey, GrumpkinScalar } from '@aztec/circuits.js';
-import { Schnorr } from '@aztec/circuits.js/barretenberg';
 import { SchnorrHardcodedAccountContractArtifact, TokenContract } from '@aztec/noir-contracts/types';
-import { AuthWitness, ExtendedNote } from '@aztec/types';
 
 import { setup } from '../fixtures/utils.js';
 
