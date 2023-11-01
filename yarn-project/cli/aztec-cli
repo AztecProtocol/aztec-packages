@@ -99,7 +99,7 @@ AZTEC_CLI_EXTRA_ARGS=""
 
 # first process commands with positional arguments
 # assumes positional arguments are the first thing
-if [[ "$AZTEC_CLI_COMMAND" == "compile" || "$AZTEC_CLI_COMMAND" == "deploy" || "$AZTEC_CLI_COMMAND" == "inspect-contract" || "$AZTEC_CLI_COMMAND" == "update-aztecnr" ]]; then
+if [[ "$AZTEC_CLI_COMMAND" == "compile" || "$AZTEC_CLI_COMMAND" == "deploy" || "$AZTEC_CLI_COMMAND" == "inspect-contract" ]]; then
   add_mount "$2"
 fi
 
@@ -113,6 +113,11 @@ if [[ "$AZTEC_CLI_COMMAND" == "unbox" ]]; then
   fi
 
   add_mount "$DIR"
+fi
+
+if [[ "$AZTEC_CLI_COMMAND" == "update" ]]; then
+  # update command defaults to current directory
+  add_mount "$PWD"
 fi
 
 # process flags

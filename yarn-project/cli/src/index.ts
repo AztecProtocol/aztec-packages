@@ -32,10 +32,8 @@ import { mnemonicToAccount } from 'viem/accounts';
 
 import { createCompatibleClient } from './client.js';
 import { encodeArgs, parseStructString } from './encoding.js';
-import { GITHUB_TAG_PREFIX } from './github.js';
 import { unboxContract } from './unbox.js';
-import { updateAztecDeps } from './update-aztec.js';
-import { aztecNrVersionToTagName, getLatestAztecNrTag, updateAztecNr } from './update-aztecnr.js';
+import { update } from './update/update.js';
 import {
   deployAztecContracts,
   getContractArtifact,
@@ -707,37 +705,12 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
   program
     .command('update')
     .description('Updates Nodejs and Noir dependencies')
-    .argument('<projectPath>', 'Path to the project directory')
-    .option(
-      '--aztec-version <semver|current|latest>',
-      'Semver version to update to or `current` for the current version compatible with the CLI or `latest` for the most recent stable version',
-      'current',
-    )
-    .option('--no-nodejs', 'Disable updating @aztec/* packages in package.json')
-    .option('--no-noir', 'Disable updating Aztec.nr libraries in Nargo.toml')
+    .argument('[projectPath]', 'Path to the project directory', process.cwd())
+    .option('--contract [paths...]', 'Paths to contracts to update dependencies', [])
+    .addOption(pxeOption)
     .action(async (projectPath: string, options) => {
-      const { aztecVersion, nodejs, noir } = options;
-
-      let noirTagName = '';
-      let npmVersion = '';
-      if (aztecVersion === 'current') {
-        noirTagName = `${GITHUB_TAG_PREFIX}-${cliVersion}`;
-        npmVersion = cliVersion;
-      } else if (aztecVersion === 'latest') {
-        noirTagName = await getLatestAztecNrTag();
-        npmVersion = 'latest';
-      } else {
-        noirTagName = await aztecNrVersionToTagName(aztecVersion);
-        npmVersion = aztecVersion;
-      }
-
-      if (nodejs) {
-        updateAztecDeps(projectPath, npmVersion, log);
-      }
-
-      if (noir) {
-        await updateAztecNr(projectPath, noirTagName, log);
-      }
+      const { contract } = options;
+      await update(projectPath, contract, options.rpcUrl, log, debugLogger);
     });
 
   compileContract(program, 'compile', log);
