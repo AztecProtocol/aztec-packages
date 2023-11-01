@@ -32,11 +32,11 @@ namespace arithmetization {
 
 // These are not magic numbers and they should not be written with global constants. These parameters are not accessible
 // through clearly named static class members.
-template <typename _FF> class Standard {
+template <typename FF_> class Standard {
   public:
     static constexpr size_t NUM_WIRES = 3;
     static constexpr size_t num_selectors = 5;
-    using FF = _FF;
+    using FF = FF_;
     using SelectorType = std::vector<FF, barretenberg::ContainerSlabAllocator<FF>>;
 
     std::vector<SelectorType> selectors;
@@ -64,11 +64,11 @@ template <typename _FF> class Standard {
     inline static const std::vector<std::string> selector_names = { "q_m", "q_1", "q_2", "q_3", "q_c" };
 };
 
-template <typename _FF> class Ultra {
+template <typename FF_> class Ultra {
   public:
     static constexpr size_t NUM_WIRES = 4;
     static constexpr size_t num_selectors = 11;
-    using FF = _FF;
+    using FF = FF_;
     using SelectorType = std::vector<FF, barretenberg::ContainerSlabAllocator<FF>>;
 
     std::vector<SelectorType> selectors;

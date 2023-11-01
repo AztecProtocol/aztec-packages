@@ -15,9 +15,11 @@ namespace proof_system {
 
 using namespace barretenberg;
 
-template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<FF> {
+template <typename Arithmetization>
+class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization::FF> {
   public:
-    using Arithmetization = arithmetization::Ultra<FF>;
+    // using Arithmetization = arithmetization::Ultra<FF>;
+    using FF = Arithmetization::FF;
     static constexpr size_t NUM_WIRES = Arithmetization::NUM_WIRES;
     // Keeping NUM_WIRES, at least temporarily, for backward compatibility
     static constexpr size_t program_width = Arithmetization::NUM_WIRES;
@@ -1046,6 +1048,6 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<FF
 
     bool check_circuit();
 };
-extern template class UltraCircuitBuilder_<barretenberg::fr>;
-using UltraCircuitBuilder = UltraCircuitBuilder_<barretenberg::fr>;
+extern template class UltraCircuitBuilder_<arithmetization::Ultra<barretenberg::fr>>;
+using UltraCircuitBuilder = UltraCircuitBuilder_<arithmetization::Ultra<barretenberg::fr>>;
 } // namespace proof_system
