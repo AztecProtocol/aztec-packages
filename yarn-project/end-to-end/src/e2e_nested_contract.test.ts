@@ -1,7 +1,6 @@
 import { AztecAddress, BatchCall, Fr, Wallet } from '@aztec/aztec.js';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { DebugLogger } from '@aztec/foundation/log';
-import { toBigInt } from '@aztec/foundation/serialize';
 import { ChildContract, ImportTestContract, ParentContract, TestContract } from '@aztec/noir-contracts/types';
 import { PXE } from '@aztec/types';
 
@@ -28,8 +27,7 @@ describe('e2e_nested_contract', () => {
       childContract = await ChildContract.deploy(wallet).send().deployed();
     }, 100_000);
 
-    const getChildStoredValue = (child: { address: AztecAddress }) =>
-      pxe.getPublicStorageAt(child.address, new Fr(1)).then(x => toBigInt(x!));
+    const getChildStoredValue = (child: { address: AztecAddress }) => pxe.getPublicStorageAt(child.address, new Fr(1));
 
     it('performs nested calls', async () => {
       await parentContract.methods
