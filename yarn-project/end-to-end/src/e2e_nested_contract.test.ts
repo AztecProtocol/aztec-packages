@@ -56,7 +56,7 @@ describe('e2e_nested_contract', () => {
         .enqueueCallToChild(childContract.address, childContract.methods.pubIncValue.selector.toField(), 42n)
         .send()
         .wait();
-      expect(await getChildStoredValue(childContract)).toEqual(42n);
+      expect(await getChildStoredValue(childContract)).toEqual(new Fr(42n));
     }, 100_000);
 
     it('fails simulation if calling a public function not allowed to be called externally', async () => {
@@ -72,7 +72,7 @@ describe('e2e_nested_contract', () => {
         .enqueueCallToChildTwice(childContract.address, childContract.methods.pubIncValue.selector.value, 42n)
         .send()
         .wait();
-      expect(await getChildStoredValue(childContract)).toEqual(85n);
+      expect(await getChildStoredValue(childContract)).toEqual(new Fr(85n));
     }, 100_000);
 
     it('enqueues a public call with nested public calls', async () => {
@@ -80,7 +80,7 @@ describe('e2e_nested_contract', () => {
         .enqueueCallToPubEntryPoint(childContract.address, childContract.methods.pubIncValue.selector.toField(), 42n)
         .send()
         .wait();
-      expect(await getChildStoredValue(childContract)).toEqual(42n);
+      expect(await getChildStoredValue(childContract)).toEqual(new Fr(42n));
     }, 100_000);
 
     it('enqueues multiple public calls with nested public calls', async () => {
@@ -88,7 +88,7 @@ describe('e2e_nested_contract', () => {
         .enqueueCallsToPubEntryPoint(childContract.address, childContract.methods.pubIncValue.selector.toField(), 42n)
         .send()
         .wait();
-      expect(await getChildStoredValue(childContract)).toEqual(85n);
+      expect(await getChildStoredValue(childContract)).toEqual(new Fr(85n));
     }, 100_000);
 
     // Regression for https://github.com/AztecProtocol/aztec-packages/issues/640
@@ -97,7 +97,7 @@ describe('e2e_nested_contract', () => {
         .pubEntryPointTwice(childContract.address, childContract.methods.pubIncValue.selector.value, 42n)
         .send()
         .wait();
-      expect(await getChildStoredValue(childContract)).toEqual(84n);
+      expect(await getChildStoredValue(childContract)).toEqual(new Fr(84n));
     }, 100_000);
 
     // Regression for https://github.com/AztecProtocol/aztec-packages/issues/1645
@@ -119,7 +119,7 @@ describe('e2e_nested_contract', () => {
       ).logs;
       const processedLogs = extendedLogs.map(extendedLog => toBigIntBE(extendedLog.log.data));
       expect(processedLogs).toEqual([20n, 40n]);
-      expect(await getChildStoredValue(childContract)).toEqual(40n);
+      expect(await getChildStoredValue(childContract)).toEqual(new Fr(40n));
     });
   });
 
