@@ -1,12 +1,13 @@
 #pragma once
-#include "barretenberg/plonk/proof_system/constants.hpp"
-#include "barretenberg/plonk/proof_system/types/polynomial_manifest.hpp"
-#include "barretenberg/plonk/proof_system/types/prover_settings.hpp"
+// #include "barretenberg/plonk/proof_system/constants.hpp"
+// #include "barretenberg/plonk/proof_system/types/polynomial_manifest.hpp"
+// #include "barretenberg/plonk/proof_system/types/prover_settings.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/proof_system/arithmetization/arithmetization.hpp"
 #include "barretenberg/proof_system/op_queue/ecc_op_queue.hpp"
 #include "barretenberg/proof_system/plookup_tables/plookup_tables.hpp"
 #include "barretenberg/proof_system/plookup_tables/types.hpp"
+#include "barretenberg/proof_system/types/circuit_type.hpp"
 #include "barretenberg/proof_system/types/merkle_hash_type.hpp"
 #include "barretenberg/proof_system/types/pedersen_commitment_type.hpp"
 #include "circuit_builder_base.hpp"
@@ -18,8 +19,10 @@ using namespace barretenberg;
 
 template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<arithmetization::Ultra<FF>> {
   public:
+    using Base = CircuitBuilderBase<arithmetization::Ultra<FF>>;
     static constexpr std::string_view NAME_STRING = "UltraArithmetization";
     static constexpr CircuitType CIRCUIT_TYPE = CircuitType::ULTRA;
+    static constexpr size_t NUM_WIRES = Base::NUM_WIRES;
     static constexpr merkle::HashType merkle_hash_type = merkle::HashType::LOOKUP_PEDERSEN;
     static constexpr pedersen::CommitmentType commitment_type = pedersen::CommitmentType::FIXED_BASE_PEDERSEN;
     static constexpr size_t UINT_LOG2_BASE = 6; // DOCTODO: explain what this is, or rename.

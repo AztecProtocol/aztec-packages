@@ -12,14 +12,15 @@
 namespace proof_system {
 static constexpr uint32_t DUMMY_TAG = 0;
 
-template <typename Arithmetization> class CircuitBuilderBase {
+template <typename Arithmetization_> class CircuitBuilderBase {
   public:
+    using Arithmetization = Arithmetization_;
     using FF = typename Arithmetization::FF;
     using EmbeddedCurve =
         std::conditional_t<std::same_as<FF, barretenberg::g1::coordinate_field>, curve::BN254, curve::Grumpkin>;
 
     static constexpr size_t NUM_WIRES = Arithmetization::NUM_WIRES;
-    // Keeping NUM_WIRES, at least temporarily, for backward compatibility
+    // Keeping program_width, at least temporarily, for backward compatibility
     static constexpr size_t program_width = Arithmetization::NUM_WIRES;
     static constexpr size_t num_selectors = Arithmetization::num_selectors;
 
