@@ -300,6 +300,10 @@ template <class Flavor> void ProverInstance_<Flavor>::initialise_prover_polynomi
         prover_polynomials.ecc_op_wire_3 = proving_key->ecc_op_wire_3;
         prover_polynomials.ecc_op_wire_4 = proving_key->ecc_op_wire_4;
         prover_polynomials.lagrange_ecc_op = proving_key->lagrange_ecc_op;
+        // DataBus polynomials
+        prover_polynomials.calldata = proving_key->calldata;
+        prover_polynomials.calldata_read_counts = proving_key->calldata_read_counts;
+        prover_polynomials.q_busread = proving_key->q_busread;
     }
 
     std::span<FF> public_wires_source = prover_polynomials.w_r;
