@@ -6,7 +6,7 @@ exports[`noir-compiler using nargo compiles the test contract 1`] = `
     "events": [],
     "functions": [
       {
-        "bytecode": "H4sIAAAAAAAA/61RQQ7DMAij6bL3QIAGbvvKoqX/f8G0TqVSem4tWTYXC9kZABLsmDY+Q4/7G37e+IAz5tBXKF4DTTdmpSGLcRHptXRiemPxZoqibTEyUtNPMeZuYtWbV3QS7rSq8xph+b6/cOz28GnY4N9pHjr+AWqna3ugAQAA",
+        "bytecode": "H4sIAAAAAAAA/62QUQqEMAxEY7ew10maxCZ/e5Ut1vufQFRsoX7rQJiZnyG8CAABLk3HfZv3vrX8gbt6/zXHZ6Lpxa0wbDHOIjWnSkx/TF5MUbTMRkZquiRjriaWvXhGJ+FKqzqvbSy+9xeOXHsOA/+TaRwY7+UbOCacAQAA",
         "functionType": "secret",
         "isInternal": false,
         "name": "constructor",
@@ -198,7 +198,7 @@ exports[`noir-compiler using wasm binary compiles the test contract 1`] = `
     "events": [],
     "functions": [
       {
-        "bytecode": "H4sIAAAAAAAA/61RQQ7DMAij6bL3QIAGbvvKoqX/f8G0TqVSem4tWTYXC9kZABLsmDY+Q4/7G37e+IAz5tBXKF4DTTdmpSGLcRHptXRiemPxZoqibTEyUtNPMeZuYtWbV3QS7rSq8xph+b6/cOz28GnY4N9pHjr+AWqna3ugAQAA",
+        "bytecode": "H4sIAAAAAAAA/62QUQqEMAxEY7ew10maxCZ/e5Ut1vufQFRsoX7rQJiZnyG8CAABLk3HfZv3vrX8gbt6/zXHZ6Lpxa0wbDHOIjWnSkx/TF5MUbTMRkZquiRjriaWvXhGJ+FKqzqvbSy+9xeOXHsOA/+TaRwY7+UbOCacAQAA",
         "functionType": "secret",
         "isInternal": false,
         "name": "constructor",
