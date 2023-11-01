@@ -272,7 +272,7 @@ export class AztecCheatCodes {
     if (storageValue === undefined) {
       throw new Error(`Storage slot ${slot} not found`);
     }
-    return Fr.fromBuffer(storageValue);
+    return storageValue;
   }
 
   /**
