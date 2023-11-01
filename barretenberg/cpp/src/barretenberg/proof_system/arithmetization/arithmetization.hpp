@@ -104,6 +104,12 @@ template <typename FF_> class Ultra {
                                                                     "q_elliptic", "q_aux", "table_type" };
 };
 
+/**
+ * @brief Ultra Honk arithmetization
+ * @details Extends the conventional Ultra arithmetization with a new selector related to databus lookups
+ *
+ * @tparam FF_
+ */
 template <typename FF_> class UltraHonk : public Ultra<FF_> {
   public:
     static constexpr size_t NUM_SELECTORS = 12;
@@ -115,12 +121,6 @@ template <typename FF_> class UltraHonk : public Ultra<FF_> {
     UltraHonk()
         : Ultra<FF_>(NUM_SELECTORS)
     {}
-
-    // // Note: These are needed for Plonk only (for poly storage in a std::map). Must be in same order as above struct.
-    // inline static const std::vector<std::string> selector_names = { "q_m",        "q_c",   "q_1",        "q_2",
-    //                                                                 "q_3",        "q_4",   "q_arith",    "q_sort",
-    //                                                                 "q_elliptic", "q_aux", "table_type", "q_busread"
-    //                                                                 };
 };
 
 class GoblinTranslator {
