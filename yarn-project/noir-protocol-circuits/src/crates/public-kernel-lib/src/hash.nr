@@ -11,7 +11,7 @@ use crate::utils::bounded_vec::BoundedVec;
 
 use dep::aztec::{
     constants_gen,
-    constants_gen::{CONTRACT_TREE_HEIGHT, FUNCTION_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT},
+    constants_gen::{CONTRACT_TREE_HEIGHT, FUNCTION_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT, PUBLIC_LEAF_INDEX},
     hash::sha256_to_field,
 };
 
@@ -40,63 +40,6 @@ fn root_from_sibling_path<N>(leaf : Field, leaf_index : Field, sibling_path : [F
     node
 }
 
-// Calculate the function tree root from the sibling path and leaf preimage.
-//
-// TODO: The cpp code passes in components of the FunctionLeafPreimage and then 
-// builds it up. We should build it up and then pass the leaf preimage as a parameter.
-// We can then choose to have a general method that takes in anything hashable
-// and deduplicate the logic in `contract_tree_root_from_siblings`
-pub fn function_tree_root_from_siblings(selector : FunctionSelector, is_internal : bool, is_private : bool, vk_hash : Field, acir_hash : Field, function_leaf_index : Field, function_leaf_sibling_path : [Field; FUNCTION_TREE_HEIGHT]) -> Field {
-    let function_leaf_preimage = FunctionLeafPreimage{
-        selector: selector,
-        is_internal : is_internal,
-        is_private : is_private,
-        vk_hash : vk_hash,
-        acir_hash : acir_hash,
-    };
-
-    let function_leaf = function_leaf_preimage.hash();
-
-    let function_tree_root =
-        root_from_sibling_path(function_leaf, function_leaf_index, function_leaf_sibling_path);
-
-    function_tree_root
-}
-
-// Calculate the contract tree root from the sibling path and leaf preimage.
-pub fn contract_tree_root_from_siblings(function_tree_root : Field, storage_contract_address : Address, portal_contract_address : EthAddress, contract_leaf_index : Field,contract_leaf_sibling_path : [Field; CONTRACT_TREE_HEIGHT]) -> Field {
-    //TODO(Kev): if we use shorthand syntax here, we get an error as expected,
-    // since variable name is `storage_contract_address` but the span is incorrect.
-    let contract_leaf_preimage = ContractLeafPreimage { contract_address: storage_contract_address,
-                                    portal_contract_address,
-                                    function_tree_root };
-        
-    let contract_leaf = contract_leaf_preimage.hash();
-
-    let computed_contract_tree_root =
-        root_from_sibling_path(contract_leaf, contract_leaf_index, contract_leaf_sibling_path);
-    
-    computed_contract_tree_root
-}
-
-pub fn read_request_root_from_siblings(read_request : Field, leaf_index : Field, sibling_path : [Field; NOTE_HASH_TREE_HEIGHT]) -> Field {
-    root_from_sibling_path(read_request, leaf_index, sibling_path)
-}
-
-pub fn silo_commitment(address : Address, inner_commitment : Field) -> Field {
-    dep::std::hash::pedersen_hash_with_separator([
-        address.to_field(),
-        inner_commitment,
-    ], constants_gen::GENERATOR_INDEX__SILOED_COMMITMENT)
-}
-
-pub fn silo_nullifier(address : Address, nullifier : Field) -> Field {
-    dep::std::hash::pedersen_hash_with_separator([
-        address.to_field(),
-        nullifier,
-    ], constants_gen::GENERATOR_INDEX__OUTER_NULLIFIER)
-}
-
 fn merkle_hash(left : Field, right : Field) -> Field {
     dep::std::hash::pedersen_hash_with_separator([left, right], 0)
 }
@@ -107,11 +50,6 @@ pub fn stdlib_recursion_verification_key_compress_native_vk(_vk : VerificationKe
     // The above cpp method is only ever called on verification key, so it has been special cased here
     let _hash_index = constants_gen::GENERATOR_INDEX__VK;
     0
-}
-
-// TODO CPP uses blake2s for this
-pub fn compute_new_contract_address_hash(new_contract_address : Address) -> Field {
-    dep::std::hash::pedersen_hash([new_contract_address.to_field()])
 }
 
 pub fn compute_l2_to_l1_hash(contract_address : Address, rollup_version_id: Field, portal_contract_address : EthAddress, chain_id : Field, content : Field) -> Field {
@@ -127,16 +65,6 @@ pub fn compute_l2_to_l1_hash(contract_address : Address, rollup_version_id: Fiel
     }
 
     sha256_to_field(bytes.storage)
-}
-
-pub fn compute_constructor_hash(function_data : FunctionData, args_hash : Field, constructor_vk_hash : Field) -> Field {
-    let function_data_hash = function_data.hash();
-
-    dep::std::hash::pedersen_hash_with_separator([
-        function_data_hash,
-        args_hash,
-        constructor_vk_hash
-    ], constants_gen::GENERATOR_INDEX__CONSTRUCTOR)
 }
 
 // sha256 hash is stored in two fields to accommodate all 256-bits of the hash
@@ -197,25 +125,15 @@ pub fn compute_partial_address(contract_address_salt : Field, function_tree_root
     ],constants_gen::GENERATOR_INDEX__PARTIAL_ADDRESS)
 }
 
-pub fn compute_contract_address_from_partial(point : Point, partial_address : Field) -> Address {
-    let field = dep::std::hash::pedersen_hash_with_separator([
-        point.x,
-        point.y,
-        partial_address
-    ],constants_gen::GENERATOR_INDEX__CONTRACT_ADDRESS);
-    Address::from_field(field)
+pub fn compute_public_data_tree_index(contract_address: Address, storage_slot: Field) -> Field {
+    dep::std::hash::pedersen_hash_with_separator([
+        contract_address.to_field(),
+        storage_slot
+    ], constants_gen::GENERATOR_INDEX__PUBLIC_LEAF_INDEX)
 }
 
-pub fn compute_unique_commitment(nonce : Field, siloed_commitment : Field) -> Field {
-    dep::std::hash::pedersen_hash_with_separator([
-        nonce,
-        siloed_commitment
-    ], constants_gen::GENERATOR_INDEX__UNIQUE_COMMITMENT)
-}
-
-pub fn compute_commitment_nonce(first_nullifier : Field, commitment_index : Field) -> Field {
-    dep::std::hash::pedersen_hash_with_separator([
-        first_nullifier,
-        commitment_index
-    ], constants_gen::GENERATOR_INDEX__COMMITMENT_NONCE)
+pub fn compute_public_data_tree_value(value: Field) -> Field {
+    // as it's a public value, it doesn't require hashing.
+    // leaving this function here in case we decide to change this.
+    value;
 }
