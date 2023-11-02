@@ -12,7 +12,6 @@ import {
   Wallet,
   computeMessageSecretHash,
   retryUntil,
-  toBigInt,
 } from '@aztec/aztec.js';
 import { ChildContract, TokenContract } from '@aztec/noir-contracts/types';
 
@@ -185,7 +184,7 @@ describe('e2e_2_pxes', () => {
   };
 
   const getChildStoredValue = (child: { address: AztecAddress }, pxe: PXE) =>
-    pxe.getPublicStorageAt(child.address, new Fr(1)).then(x => toBigInt(x!));
+    pxe.getPublicStorageAt(child.address, new Fr(1));
 
   it('user calls a public function on a contract deployed by a different user using a different PXE', async () => {
     const childCompleteAddress = await deployChildContractViaServerA();
@@ -201,7 +200,7 @@ describe('e2e_2_pxes', () => {
       },
     ]);
 
-    const newValueToSet = 256n;
+    const newValueToSet = new Fr(256n);
 
     const childContractWithWalletB = await ChildContract.at(childCompleteAddress.address, walletB);
     await childContractWithWalletB.methods.pubIncValue(newValueToSet).send().wait({ interval: 0.1 });
@@ -209,7 +208,7 @@ describe('e2e_2_pxes', () => {
     await awaitServerSynchronized(pxeA);
 
     const storedValue = await getChildStoredValue(childCompleteAddress, pxeB);
-    expect(storedValue).toBe(newValueToSet);
+    expect(storedValue).toEqual(newValueToSet);
   });
 
   it('private state is "zero" when Private eXecution Environment (PXE) does not have the account private key', async () => {

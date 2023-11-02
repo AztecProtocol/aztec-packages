@@ -10,7 +10,6 @@ import {
   SchnorrAccountContract,
   SingleKeyAccountContract,
   Wallet,
-  toBigInt,
 } from '@aztec/aztec.js';
 import { ChildContract } from '@aztec/noir-contracts/types';
 
@@ -58,7 +57,8 @@ function itShouldBehaveLikeAnAccountContract(
       const { logger, pxe } = context;
       logger('Calling public function...');
       await child.methods.pubIncValue(42).send().wait({ interval: 0.1 });
-      expect(toBigInt((await pxe.getPublicStorageAt(child.address, new Fr(1)))!)).toEqual(42n);
+      const storedValue = await pxe.getPublicStorageAt(child.address, new Fr(1));
+      expect(storedValue!).toEqual(new Fr(42n));
     }, 60_000);
 
     it('fails to call a function using an invalid signature', async () => {
