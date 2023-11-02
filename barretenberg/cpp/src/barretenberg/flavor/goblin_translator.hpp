@@ -1634,5 +1634,5 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
     };
 };
 
-using GoblinTranslatorBasic = GoblinTranslator_<2048>;
+using GoblinTranslator = GoblinTranslator_<2048>;
 } // namespace proof_system::honk::flavor
