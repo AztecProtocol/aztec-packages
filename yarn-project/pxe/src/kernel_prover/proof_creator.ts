@@ -1,5 +1,4 @@
 import {
-  CircuitsWasm,
   KernelCircuitPublicInputs,
   KernelCircuitPublicInputsFinal,
   PrivateCircuitPublicInputs,
