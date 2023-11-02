@@ -2,10 +2,7 @@
 use dep::aztec::constants_gen::NUM_FIELDS_PER_SHA256;
 use crate::abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot;
 use crate::abis::constant_rollup_data::ConstantRollupData;
-
-// Re-export bug 3384
-// use dep::private_kernel_lib::mocked::AggregationObject;
-struct AggregationObject;
+use dep::types::mocked::AggregationObject;
 
 global BASE_ROLLUP_TYPE = 0;
 global MERGE_ROLLUP_TYPE = 1;
@@ -34,6 +31,7 @@ struct BaseOrMergeRollupPublicInputs {
     
     // We hash public inputs to make them constant-sized (to then be unpacked on-chain)
     // TODO(Kev): Want to make this a U128, but Re-export bug 3384
+    // TODO(Alvaro): Do we? U128 isn't safe if it's an input to the circuit (it won't automatically constrain the witness)
 
     // We hash public inputs to make them constant-sized (to then be unpacked on-chain)
     calldata_hash : [Field; 2],
