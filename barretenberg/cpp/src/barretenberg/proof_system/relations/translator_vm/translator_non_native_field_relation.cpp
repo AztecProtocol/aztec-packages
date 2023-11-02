@@ -160,8 +160,7 @@ void GoblinTranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSub
                    - accumulators_binary_limbs_0;
         
         // the index-1 limb
-        tmp += shift 
-                * (accumulators_binary_limbs_1_shift   * evaluation_input_x_0 
+        tmp += (accumulators_binary_limbs_1_shift   * evaluation_input_x_0 
                    + accumulators_binary_limbs_0_shift * evaluation_input_x_1 
                    + p_x_low_limbs       * v_0_1
                    + p_x_low_limbs_shift * v_0_0
@@ -173,7 +172,8 @@ void GoblinTranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSub
                    + z_high_limbs_shift  * v_3_0
                    + quotient_low_binary_limbs       * NEGATIVE_MODULUS_LIMBS[1] 
                    + quotient_low_binary_limbs_shift * NEGATIVE_MODULUS_LIMBS[0] 
-                   - accumulators_binary_limbs_1);
+                   - accumulators_binary_limbs_1)
+                * shift ;
     // clang-format on
     // subtract large value; vanishing shows the desired relation holds on low 136-bit limb
     tmp -= relation_wide_limbs * shiftx2;
@@ -205,8 +205,7 @@ void GoblinTranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSub
               - accumulators_binary_limbs_2;
 
         // the index-2 limb
-        tmp += shift
-                * (accumulators_binary_limbs_3_shift   * evaluation_input_x_0
+        tmp += (accumulators_binary_limbs_3_shift   * evaluation_input_x_0
                    + accumulators_binary_limbs_2_shift   * evaluation_input_x_1
                    + accumulators_binary_limbs_1_shift * evaluation_input_x_2
                    + accumulators_binary_limbs_0_shift * evaluation_input_x_3
@@ -226,7 +225,8 @@ void GoblinTranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSub
                    + quotient_high_binary_limbs       * NEGATIVE_MODULUS_LIMBS[1]
                    + quotient_low_binary_limbs_shift  * NEGATIVE_MODULUS_LIMBS[2]
                    + quotient_low_binary_limbs        * NEGATIVE_MODULUS_LIMBS[3] 
-                   - accumulators_binary_limbs_3);
+                   - accumulators_binary_limbs_3)
+                * shift;
     // clang-format on
     // subtract large value; vanishing shows the desired relation holds on high 136-bit limb
     tmp -= relation_wide_limbs_shift * shiftx2;
@@ -278,8 +278,6 @@ void GoblinTranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSub
 };
 
 template class GoblinTranslatorNonNativeFieldRelationImpl<barretenberg::fr>;
-
-template <typename FF>
-using GoblinTranslatorNonNativeFieldRelation = Relation<GoblinTranslatorNonNativeFieldRelationImpl<FF>>;
+DEFINE_SUMCHECK_RELATION_CLASS(GoblinTranslatorNonNativeFieldRelationImpl, honk::flavor::GoblinTranslator);
 
 } // namespace proof_system
