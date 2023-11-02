@@ -588,8 +588,8 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     "@jest/globals": ^29.5.0
     "@ltd/j-toml": ^1.38.0
-    "@noir-lang/noir_wasm": 0.18.0-a098541.aztec
-    "@noir-lang/source-resolver": 0.18.0-a098541.aztec
+    "@noir-lang/noir_wasm": 0.18.0-6ca33a2.aztec
+    "@noir-lang/source-resolver": 0.18.0-6ca33a2.aztec
     "@rushstack/eslint-patch": ^1.1.4
     "@types/fs-extra": ^11.0.1
     "@types/jest": ^29.5.0
@@ -3574,12 +3574,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@noir-lang/noir_wasm@npm:0.18.0-a098541.aztec":
-  version: 0.18.0-a098541.aztec
-  resolution: "@noir-lang/noir_wasm@npm:0.18.0-a098541.aztec"
+"@noir-lang/noir_wasm@npm:0.18.0-6ca33a2.aztec":
+  version: 0.18.0-6ca33a2.aztec
+  resolution: "@noir-lang/noir_wasm@npm:0.18.0-6ca33a2.aztec"
   peerDependencies:
-    "@noir-lang/source-resolver": 0.18.0-a098541.aztec
-  checksum: 844fe1991a4dec862b242d41fee947d19c2b2e2588490f92c82d230a87f5b0ade53aefcb35e6a520181c9ff81536698ac49fca79df6a28ba6e995f56f36d3a1a
+    "@noir-lang/source-resolver": 0.18.0-6ca33a2.aztec
+  checksum: 1654cf4a86b600ad33717306253e94623efb017a9a99fc90a1ecde8b3fe909e8a8b5a339dd84ec5b20daa2c15aa60697cda6b84b90f4f201647f68581a5655be
   languageName: node
   linkType: hard
 
@@ -3590,10 +3590,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@noir-lang/source-resolver@npm:0.18.0-a098541.aztec":
-  version: 0.18.0-a098541.aztec
-  resolution: "@noir-lang/source-resolver@npm:0.18.0-a098541.aztec"
-  checksum: 876640b3577394078e0a9799c9281001038d07cfb8d35d9b6398a4e1d6b071d5db84ff9b271ec4b9582a79352cd41b2e59a27c8b394580a9f57b85d0d0918d76
+"@noir-lang/source-resolver@npm:0.18.0-6ca33a2.aztec":
+  version: 0.18.0-6ca33a2.aztec
+  resolution: "@noir-lang/source-resolver@npm:0.18.0-6ca33a2.aztec"
+  checksum: 95f3426f7c40737be2f40bf793ecc555ecab7f1a782f27fd3dbcbf37197db0d2bf3fe8a5554e69e842cdb59a7e2d11a575d32ef82d92312c438cf892f5a98a6a
   languageName: node
   linkType: hard
 
