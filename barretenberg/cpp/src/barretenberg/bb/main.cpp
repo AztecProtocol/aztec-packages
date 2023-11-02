@@ -75,8 +75,6 @@ bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessP
     auto constraint_system = get_constraint_system(bytecodePath);
     auto witness = get_witness(witnessPath);
 
-    info("witness");
-    info(witness);
     auto acir_composer = init(constraint_system);
 
     Timer pk_timer;
@@ -119,6 +117,7 @@ void prove(const std::string& bytecodePath,
     auto constraint_system = get_constraint_system(bytecodePath);
     auto witness = get_witness(witnessPath);
     auto acir_composer = init(constraint_system);
+    acir_composer.init_proving_key(constraint_system);
     auto proof = acir_composer.create_proof(constraint_system, witness, recursive);
 
     if (outputPath == "-") {
@@ -142,9 +141,11 @@ void gateCount(const std::string& bytecodePath)
 {
     auto constraint_system = get_constraint_system(bytecodePath);
     auto acir_composer = init(constraint_system);
+    auto num_public_inputs = acir_composer.get_num_public_inputs();
     auto gate_count = acir_composer.get_total_circuit_size();
 
     writeUint64AsRawBytesToStdout(static_cast<uint64_t>(gate_count));
+    vinfo("public inputs: ", num_public_inputs);
     vinfo("gate count: ", gate_count);
 }
 
@@ -172,7 +173,6 @@ bool verify(const std::string& proof_path, bool recursive, const std::string& vk
     auto verified = acir_composer.verify_proof(read_file(proof_path), recursive);
 
     vinfo("verified: ", verified);
-
     return verified;
 }
 

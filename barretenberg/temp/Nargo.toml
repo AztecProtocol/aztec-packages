@@ -1,7 +1,0 @@
-[package]
-name = "temp"
-type = "bin"
-authors = [""]
-compiler_version = "0.18.0"
-
-[dependencies]

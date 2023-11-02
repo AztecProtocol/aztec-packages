@@ -834,6 +834,8 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
         return std::max(minimum_circuit_size, num_filled_gates) + NUM_RESERVED_GATES;
     }
 
+    [[nodiscard]] size_t get_num_public_inputs() const { return this->public_inputs.size(); }
+
     /**x
      * @brief Print the number and composition of gates in the circuit
      *

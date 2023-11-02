@@ -90,7 +90,7 @@ void ProverPlookupWidget<num_roots_cut_out_of_vanishing_polynomial>::compute_sor
     const size_t s_randomness = 3;
     ASSERT(s_randomness < num_roots_cut_out_of_vanishing_polynomial);
     for (size_t k = 0; k < s_randomness; ++k) {
-        s_accum[((key->circuit_size - num_roots_cut_out_of_vanishing_polynomial) + 1 + k)] = fr::random_element();
+        s_accum[((key->circuit_size - num_roots_cut_out_of_vanishing_polynomial) + 1 + k)] = fr::one();
     }
 
     // Save the lagrange base representation of s
@@ -324,7 +324,7 @@ void ProverPlookupWidget<num_roots_cut_out_of_vanishing_polynomial>::compute_gra
     ASSERT(z_randomness < num_roots_cut_out_of_vanishing_polynomial);
     for (size_t k = 0; k < z_randomness; ++k) {
         // Blinding:
-        z_lookup[((n - num_roots_cut_out_of_vanishing_polynomial) + 1 + k)] = fr::random_element();
+        z_lookup[((n - num_roots_cut_out_of_vanishing_polynomial) + 1 + k)] = fr::one();
     }
 
     // Compute and add monomial form of z_lookup to the polynomial store

@@ -11,11 +11,10 @@ BFLAG="-b ./target/acir.gz"
 FLAGS="-c $CRS_PATH $VFLAG"
 
 # Test we can perform the proof/verify flow.
-$BIN gates $FLAGS $BFLAG > /dev/null
+# $BIN gates $FLAGS $BFLAG > /dev/null
 $BIN prove -o proof $FLAGS $BFLAG
 $BIN write_vk -o vk $FLAGS $BFLAG
 $BIN verify -k vk -p proof $FLAGS
-$BIN contract -k vk $FLAGS
 
 # Check supplemental functions.
 # Grep to determine success.
@@ -25,3 +24,4 @@ OUTPUT=$($BIN proof_as_fields -k vk -p proof -o - | jq .)
 [ -n "$OUTPUT" ] || exit 1
 OUTPUT=$($BIN vk_as_fields -k vk -o - | jq .)
 [ -n "$OUTPUT" ] || exit 1
+

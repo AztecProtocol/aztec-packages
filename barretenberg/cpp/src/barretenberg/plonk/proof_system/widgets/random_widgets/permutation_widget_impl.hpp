@@ -310,7 +310,7 @@ void ProverPermutationWidget<program_width, idpolys, num_roots_cut_out_of_vanish
     const size_t z_randomness = 3;
     ASSERT(z_randomness < num_roots_cut_out_of_vanishing_polynomial);
     for (size_t k = 0; k < z_randomness; ++k) {
-        z_perm[(key->circuit_size - num_roots_cut_out_of_vanishing_polynomial) + 1 + k] = fr::random_element();
+        z_perm[(key->circuit_size - num_roots_cut_out_of_vanishing_polynomial) + 1 + k] = fr::one();
     }
 
     z_perm.ifft(key->small_domain);
