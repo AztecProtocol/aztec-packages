@@ -27,7 +27,8 @@ export async function update(
     if (currentSandboxVersion && lt(currentSandboxVersion, latestSandboxVersion)) {
       log(`
 Sandbox is older than version ${latestSandboxVersion}. If running in docker update it with the following command then restart the container:
-docker pull aztecprotocol/aztec-sandbox:latest`);
+docker pull aztecprotocol/aztec-sandbox:latest
+Once the container is restarted, run the \`aztec-cli update\` command again`);
       return;
     }
   }
