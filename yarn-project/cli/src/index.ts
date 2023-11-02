@@ -247,6 +247,13 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       const constructorArtifact = contractArtifact.functions.find(({ name }) => name === 'constructor');
 
       const client = await createCompatibleClient(rpcUrl, debugLogger);
+      const nodeInfo = await client.getNodeInfo();
+      if (contractArtifact.compilerVersion && contractArtifact.compilerVersion !== nodeInfo.compatibleNargoVersion) {
+        log(
+          `\nWarning: Contract was compiled with a different version of Noir: ${contractArtifact.compilerVersion}. Consider re-compiling the contract with Noir ${nodeInfo.compatibleNargoVersion}\n`,
+        );
+      }
+
       const deployer = new ContractDeployer(contractArtifact, client, publicKey);
 
       const constructor = getFunctionArtifact(contractArtifact, 'constructor');
