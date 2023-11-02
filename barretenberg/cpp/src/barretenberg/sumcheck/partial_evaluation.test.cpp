@@ -235,6 +235,7 @@ TYPED_TEST(PartialEvaluationTests, ThreeRoundsGeneric)
 
     FF round_challenge_2 = FF::random_element();
     FF expected_val = expected_lo * (FF(1) - round_challenge_2) + expected_hi * round_challenge_2;
+    (void)expected_val;
     sumcheck.partially_evaluate(sumcheck.partially_evaluated_polynomials, multivariate_n >> 2, round_challenge_2);
     // EXPECT_EQ(sumcheck.partially_evaluated_polynomials[0][0], expected_val);
 }
