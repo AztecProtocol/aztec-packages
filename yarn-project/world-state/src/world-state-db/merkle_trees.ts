@@ -40,7 +40,7 @@ import {
   MerkleTreeOperations,
   PublicTreeId,
   TreeInfo,
-} from './index.js';
+} from './merkle_tree_db.js';
 
 /**
  * Data necessary to reinitialize the merkle trees from Db.
