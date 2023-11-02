@@ -52,7 +52,7 @@ Once the container is restarted, run the \`aztec-cli update\` command again`);
 
   const npmChanges = await updateAztecDeps(projectPath, targetSandboxVersion, log);
   if (npmChanges.dependencies.length > 0) {
-    updateLockfile(projectPath);
+    updateLockfile(projectPath, log);
   }
 
   const contractChanges: DependencyChanges[] = [];

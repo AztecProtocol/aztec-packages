@@ -103,7 +103,8 @@ export async function updateAztecDeps(
  * Updates a project's yarn.lock or package-lock.json
  * @param projectPath - Path to Nodejs project
  */
-export function updateLockfile(projectPath: string): void {
+export function updateLockfile(projectPath: string, log: LogFn): void {
+  const isNpm = existsSync(resolve(join(projectPath, 'package-lock.json')));
   const isYarn = existsSync(resolve(join(projectPath, 'yarn.lock')));
   const isPnpm = existsSync(resolve(join(projectPath, 'pnpm-lock.yaml')));
 
@@ -117,10 +118,12 @@ export function updateLockfile(projectPath: string): void {
       cwd: projectPath,
       stdio: 'inherit',
     });
-  } else {
+  } else if (isNpm) {
     spawnSync('npm', ['install'], {
       cwd: projectPath,
       stdio: 'inherit',
     });
+  } else {
+    log(`No lockfile found in ${projectPath}. Skipping lockfile update...`);
   }
 }
