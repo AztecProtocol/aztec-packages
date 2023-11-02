@@ -788,12 +788,9 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
         AllValues get_row(const size_t row_idx) const
         {
             AllValues result;
-            (void)row_idx;
-            // size_t column_idx = 0; // // TODO(https://github.com/AztecProtocol/barretenberg/issues/391) zip
-            // for (auto& column : this->_data) {
-            //     // result[column_idx] = column[row_idx];
-            //     column_idx++;
-            // }
+            for (auto [result_field, polynomial] : zip_view(result, this->get_pointer_array())) {
+                result_field = polynomial[row_idx];
+            }
             return result;
         }
     };
