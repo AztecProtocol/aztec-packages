@@ -396,6 +396,9 @@ export function computeVarArgsHash(args: Fr[]) {
  * @returns The contract leaf.
  */
 export function computeContractLeaf(cd: NewContractData): Fr {
+  if (cd.contractAddress.isZero() && cd.portalContractAddress.isZero() && cd.functionTreeRoot.isZero()) {
+    return new Fr(0);
+  }
   return Fr.fromBuffer(
     pedersenHash(
       [cd.contractAddress.toBuffer(), cd.portalContractAddress.toBuffer(), cd.functionTreeRoot.toBuffer()],
