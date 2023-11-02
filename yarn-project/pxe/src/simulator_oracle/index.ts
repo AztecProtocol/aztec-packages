@@ -116,10 +116,10 @@ export class SimulatorOracle implements DBOracle {
    * @returns - The index of the commitment. Undefined if it does not exist in the tree.
    */
   async getCommitmentIndex(commitment: Fr) {
-    return await this.findLeafIndex(MerkleTreeId.NOTE_HASH_TREE, commitment.toBuffer());
+    return await this.findLeafIndex(MerkleTreeId.NOTE_HASH_TREE, commitment);
   }
 
-  public async findLeafIndex(treeId: MerkleTreeId, leafValue: Buffer): Promise<bigint | undefined> {
+  public async findLeafIndex(treeId: MerkleTreeId, leafValue: Fr): Promise<bigint | undefined> {
     switch (treeId) {
       case MerkleTreeId.NOTE_HASH_TREE:
         return await this.stateInfoProvider.findLeafIndex(treeId, leafValue);
@@ -139,7 +139,7 @@ export class SimulatorOracle implements DBOracle {
   }
 
   async getNullifierIndex(nullifier: Fr) {
-    return await this.stateInfoProvider.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
+    return await this.stateInfoProvider.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier);
   }
 
   /**

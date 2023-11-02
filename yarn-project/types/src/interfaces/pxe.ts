@@ -158,10 +158,10 @@ export interface PXE {
    * @returns A buffer containing the public storage data at the storage slot.
    * @throws If the contract is not deployed.
    */
-  getPublicStorageAt(contract: AztecAddress, storageSlot: Fr): Promise<Buffer | undefined>;
+  getPublicStorageAt(contract: AztecAddress, storageSlot: Fr): Promise<Fr | undefined>;
 
   /**
-   * Gets notes based on the provided filter.
+   * Gets notes of accounts registered in this PXE based on the provided filter.
    * @param filter - The filter to apply to the notes.
    * @returns The requested notes.
    */
@@ -183,7 +183,7 @@ export interface PXE {
   getNoteNonces(note: ExtendedNote): Promise<Fr[]>;
 
   /**
-   * Get the a given block.
+   * Get the given block.
    * @param number - The block number being requested.
    * @returns The blocks requested.
    */
