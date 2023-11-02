@@ -1623,7 +1623,7 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
         [[nodiscard]] AllValues get_row(size_t row_idx) const
         {
             AllValues result;
-            for (auto [result_field, polynomial] : zip_view(result.get_pointer_array(), get_pointer_array())) {
+            for (auto [result_field, polynomial] : zip_view(result.get_pointer_array(), this->get_pointer_array())) {
                 *result_field = (*polynomial)[row_idx];
             }
             return result;

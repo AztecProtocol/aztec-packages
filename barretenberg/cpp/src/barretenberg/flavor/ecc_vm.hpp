@@ -788,8 +788,8 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
         AllValues get_row(const size_t row_idx) const
         {
             AllValues result;
-            for (auto [result_field, polynomial] : zip_view(result, this->get_pointer_array())) {
-                result_field = polynomial[row_idx];
+            for (auto [result_field, polynomial] : zip_view(result.get_pointer_array(), this->get_pointer_array())) {
+                *result_field = (*polynomial)[row_idx];
             }
             return result;
         }
@@ -839,8 +839,8 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
         AllValues get_row(const size_t row_idx)
         {
             AllValues result;
-            for (auto [result_field, polynomial] : zip_view(result, this->get_pointer_array())) {
-                result_field = polynomial[row_idx];
+            for (auto [result_field, polynomial] : zip_view(result.get_pointer_array(), this->get_pointer_array())) {
+                *result_field = (*polynomial)[row_idx];
             }
             return result;
         }
