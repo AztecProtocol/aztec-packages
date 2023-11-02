@@ -93,9 +93,15 @@ export async function updateAztecDeps(projectPath: string, aztecVersion: SemVer,
  */
 export function updateLockfile(projectPath: string): void {
   const isYarn = existsSync(resolve(join(projectPath, 'yarn.lock')));
+  const isPnpm = existsSync(resolve(join(projectPath, 'pnpm-lock.yaml')));
 
-  if (isYarn) {
-    spawnSync('yarn', {
+  if (isPnpm) {
+    spawnSync('pnpm', ['install'], {
+      cwd: projectPath,
+      stdio: 'inherit',
+    });
+  } else if (isYarn) {
+    spawnSync('yarn', ['install'], {
       cwd: projectPath,
       stdio: 'inherit',
     });
