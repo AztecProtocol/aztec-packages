@@ -72,6 +72,10 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
         pageLogger.error(err.toString());
       });
       await page.goto(`http://localhost:${PORT}/index.html`);
+      while (!(await page.evaluate(() => !!window.AztecJs))) {
+        pageLogger('Waiting for window.AztecJs...');
+        await AztecJs.sleep(1000);
+      }
     }, 120_000);
 
     afterAll(async () => {

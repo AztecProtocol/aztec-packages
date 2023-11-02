@@ -38,7 +38,7 @@ export async function getContractDeploymentInfo(
     ...f,
     selector: FunctionSelector.fromNameAndParameters(f.name, f.parameters),
   }));
-  const leaves = generateFunctionLeaves(functions, wasm);
+  const leaves = generateFunctionLeaves(functions);
   const functionTreeRoot = computeFunctionTreeRoot(wasm, leaves);
   const functionData = FunctionData.fromAbi(constructorArtifact);
   const flatArgs = encodeArguments(constructorArtifact, args);

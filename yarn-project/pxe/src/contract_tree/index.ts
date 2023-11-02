@@ -87,7 +87,7 @@ export class ContractTree {
       ...f,
       selector: FunctionSelector.fromNameAndParameters(f.name, f.parameters),
     }));
-    const leaves = generateFunctionLeaves(functions, wasm);
+    const leaves = generateFunctionLeaves(functions);
     const root = computeFunctionTreeRoot(wasm, leaves);
     const functionData = FunctionData.fromAbi(constructorArtifact);
     const vkHash = hashVKStr(constructorArtifact.verificationKey, wasm);
@@ -218,7 +218,7 @@ export class ContractTree {
    */
   private getFunctionLeaves() {
     if (!this.functionLeaves) {
-      this.functionLeaves = generateFunctionLeaves(this.contract.functions, this.wasm);
+      this.functionLeaves = generateFunctionLeaves(this.contract.functions);
     }
     return this.functionLeaves;
   }

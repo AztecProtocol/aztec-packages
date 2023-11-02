@@ -64,7 +64,7 @@ export function isConstrained({
  * @param wasm - CircuitsWasm instance used for hashing and computations.
  * @returns An array of Fr instances representing the generated function leaves.
  */
-export function generateFunctionLeaves(functions: ContractFunctionDao[], wasm: CircuitsWasm) {
+export function generateFunctionLeaves(functions: ContractFunctionDao[]) {
   const targetFunctions = functions.filter(isConstrained);
   const result: Fr[] = [];
   for (let i = 0; i < targetFunctions.length; i++) {
