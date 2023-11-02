@@ -88,7 +88,7 @@ template <typename DataType, typename HandleType, size_t NUM_ENTITIES> class Ent
 
     virtual ~Entities_() = default;
 
-    DataType& operator[](size_t idx) { return _data[idx]; };
+    // DataType& operator[](size_t idx) { return _data[idx]; };
     typename ArrayType::iterator begin() { return _data.begin(); };
     typename ArrayType::iterator end() { return _data.end(); };
 

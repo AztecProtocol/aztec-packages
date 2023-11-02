@@ -111,12 +111,13 @@ template <typename Flavor> class SumcheckProver {
 
         // Final round: Extract multivariate evaluations from partially_evaluated_polynomials and add to transcript
         ClaimedEvaluations multivariate_evaluations;
-        size_t evaluation_idx = 0;
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/391) zip
-        for (auto& polynomial : partially_evaluated_polynomials) {
-            multivariate_evaluations[evaluation_idx] = polynomial[0];
-            ++evaluation_idx;
-        }
+        // auto multivariate_evaluations_pointers = multivariate_evaluations.get_pointer_array();
+        // size_t evaluation_idx = 0;
+        // // TODO(https://github.com/AztecProtocol/barretenberg/issues/391) zip
+        // for (auto* polynomial : partially_evaluated_polynomials.get_pointer_array()) {
+        //     *multivariate_evaluations_pointers[evaluation_idx] = (*polynomial)[0];
+        //     ++evaluation_idx;
+        // }
         transcript.send_to_verifier("Sumcheck:evaluations", multivariate_evaluations._data);
 
         return { multivariate_challenge, multivariate_evaluations };
@@ -150,13 +151,16 @@ template <typename Flavor> class SumcheckProver {
      */
     void partially_evaluate(auto& polynomials, size_t round_size, FF round_challenge)
     {
-        // after the first round, operate in place on partially_evaluated_polynomials
-        parallel_for(polynomials.size(), [&](size_t j) {
-            for (size_t i = 0; i < round_size; i += 2) {
-                partially_evaluated_polynomials[j][i >> 1] =
-                    polynomials[j][i] + round_challenge * (polynomials[j][i + 1] - polynomials[j][i]);
-            }
-        });
+        (void)polynomials;
+        (void)round_size;
+        (void)round_challenge;
+        // // after the first round, operate in place on partially_evaluated_polynomials
+        // parallel_for(polynomials.size(), [&](size_t j) {
+        //     for (size_t i = 0; i < round_size; i += 2) {
+        //         partially_evaluated_polynomials[j][i >> 1] =
+        //             polynomials[j][i] + round_challenge * (polynomials[j][i + 1] - polynomials[j][i]);
+        //     }
+        // });
     };
 };
 

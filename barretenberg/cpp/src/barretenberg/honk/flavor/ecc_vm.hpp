@@ -683,11 +683,12 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
         AllValues get_row(const size_t row_idx) const
         {
             AllValues result;
-            size_t column_idx = 0; // // TODO(https://github.com/AztecProtocol/barretenberg/issues/391) zip
-            for (auto& column : this->_data) {
-                result[column_idx] = column[row_idx];
-                column_idx++;
-            }
+            (void)row_idx;
+            // size_t column_idx = 0; // // TODO(https://github.com/AztecProtocol/barretenberg/issues/391) zip
+            // for (auto& column : this->_data) {
+            //     // result[column_idx] = column[row_idx];
+            //     column_idx++;
+            // }
             return result;
         }
     };
@@ -738,7 +739,10 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
             AllValues result;
             size_t column_idx = 0; // TODO(https://github.com/AztecProtocol/barretenberg/issues/391) zip
             for (auto& column : this->_data) {
-                result[column_idx] = column[row_idx];
+                (void)column_idx;
+                (void)row_idx;
+                (void)column;
+                // result[column_idx] = column[row_idx];
                 column_idx++;
             }
             return result;

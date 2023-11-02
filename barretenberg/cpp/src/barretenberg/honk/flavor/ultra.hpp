@@ -199,7 +199,7 @@ class Ultra {
         DataType& z_perm_shift = std::get<41>(this->_data);
         DataType& z_lookup_shift = std::get<42>(this->_data);
 
-        auto get_pointer_array()
+        [[nodiscard]] auto get_pointer_array() const
         {
             return std::array{
                 &q_c,
@@ -341,13 +341,14 @@ class Ultra {
      */
     class ProverPolynomials : public AllEntities<PolynomialHandle, PolynomialHandle> {
       public:
-        AllValues get_row(const size_t row_idx)
+        [[nodiscard]] size_t get_polynomial_size() const { return q_c.size(); }
+        [[nodiscard]] AllValues get_row(const size_t row_idx) const
         {
             AllValues result;
             auto result_pointers = result.get_pointer_array();
             size_t column_idx = 0; // TODO(https://github.com/AztecProtocol/barretenberg/issues/391) zip
             for (auto* column : get_pointer_array()) {
-                *result[column_idx] = (*column)[row_idx];
+                *(result_pointers[column_idx]) = (*column)[row_idx];
                 column_idx++;
             }
             return result;

@@ -339,8 +339,10 @@ template <typename Flavor> class ECCVMCircuitBuilder {
         size_t num_rows_pow2 = 1UL << (num_rows_log2 + (1UL << num_rows_log2 == num_rows ? 0 : 1));
 
         AllPolynomials polys;
+        // auto poly_pointers = polys.get_pointer_array();
         for (size_t j = 0; j < NUM_POLYNOMIALS; ++j) {
-            polys[j] = Polynomial(num_rows_pow2);
+            // TODO(array)
+            // poly_pointers[j] = Polynomial(num_rows_pow2);
         }
 
         polys.lagrange_first[0] = 1;
@@ -503,7 +505,7 @@ template <typename Flavor> class ECCVMCircuitBuilder {
         };
 
         auto polynomials = compute_polynomials();
-        const size_t num_rows = polynomials[0].size();
+        const size_t num_rows = 0; // polynomials[0].size();
         proof_system::honk::lookup_library::compute_logderivative_inverse<Flavor,
                                                                           honk::sumcheck::ECCVMLookupRelation<FF>>(
             polynomials, params, num_rows);

@@ -50,10 +50,13 @@ void compute_grand_product(const size_t circuit_size,
                            typename Flavor::ProverPolynomials& full_polynomials,
                            proof_system::RelationParameters<typename Flavor::FF>& relation_parameters)
 {
+    (void)relation_parameters;
     using FF = typename Flavor::FF;
     using Polynomial = typename Flavor::Polynomial;
     using Accumulator = std::tuple_element_t<0, typename GrandProdRelation::SumcheckArrayOfValuesOverSubrelations>;
 
+    Accumulator* v = nullptr;
+    (void)v;
     // Allocate numerator/denominator polynomials that will serve as scratch space
     // TODO(zac) we can re-use the permutation polynomial as the numerator polynomial. Reduces readability
     Polynomial numerator = Polynomial{ circuit_size };
@@ -63,20 +66,23 @@ void compute_grand_product(const size_t circuit_size,
     // Populate `numerator` and `denominator` with the algebra described by Relation
     const size_t num_threads = circuit_size >= get_num_cpus_pow2() ? get_num_cpus_pow2() : 1;
     const size_t block_size = circuit_size / num_threads;
-    parallel_for(num_threads, [&](size_t thread_idx) {
-        const size_t start = thread_idx * block_size;
-        const size_t end = (thread_idx + 1) * block_size;
-        for (size_t i = start; i < end; ++i) {
-            typename Flavor::AllValues evaluations;
-            for (size_t k = 0; k < Flavor::NUM_ALL_ENTITIES; ++k) {
-                evaluations[k] = full_polynomials[k].size() > i ? full_polynomials[k][i] : 0;
-            }
-            numerator[i] = GrandProdRelation::template compute_grand_product_numerator<Accumulator>(
-                evaluations, relation_parameters);
-            denominator[i] = GrandProdRelation::template compute_grand_product_denominator<Accumulator>(
-                evaluations, relation_parameters);
-        }
-    });
+    // auto full_polynomial_pointers = full_polynomials.get_pointer_array();
+    // parallel_for(num_threads, [&](size_t thread_idx) {
+    //     const size_t start = thread_idx * block_size;
+    //     const size_t end = (thread_idx + 1) * block_size;
+    //     for (size_t i = start; i < end; ++i) {
+    //         typename Flavor::AllValues evaluations;
+    //         auto evaluations_pointer = evaluations.get_pointer_array();
+    //         for (size_t k = 0; k < Flavor::NUM_ALL_ENTITIES; ++k) {
+    //             *evaluations_pointer[k] =
+    //                 (*full_polynomial_pointers[k]).size() > i ? (*full_polynomial_pointers[k])[i] : 0;
+    //         }
+    //         numerator[i] = GrandProdRelation::template compute_grand_product_numerator<Accumulator>(
+    //             evaluations, relation_parameters);
+    //         denominator[i] = GrandProdRelation::template compute_grand_product_denominator<Accumulator>(
+    //             evaluations, relation_parameters);
+    //     }
+    // });
 
     // Step (2)
     // Compute the accumulating product of the numerator and denominator terms.

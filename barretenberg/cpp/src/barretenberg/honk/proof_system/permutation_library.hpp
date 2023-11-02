@@ -71,7 +71,8 @@ void compute_permutation_grand_product(const size_t circuit_size,
 
             typename Flavor::AllValues evaluations;
             for (size_t k = 0; k < Flavor::NUM_ALL_ENTITIES; ++k) {
-                evaluations[k] = full_polynomials[k].size() > i ? full_polynomials[k][i] : 0;
+                (void)k;
+                // evaluations[k] = full_polynomials[k].size() > i ? full_polynomials[k][i] : 0;
             }
             numerator[i] = GrandProdRelation::template compute_permutation_numerator<Accumulator>(evaluations,
                                                                                                   relation_parameters);

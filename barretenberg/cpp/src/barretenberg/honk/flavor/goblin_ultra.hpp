@@ -210,7 +210,7 @@ class GoblinUltra {
         DataType& z_perm_shift = std::get<46>(this->_data);
         DataType& z_lookup_shift = std::get<47>(this->_data);
 
-        auto get_pointer_array()
+        [[nodiscard]] auto get_pointer_array() const
         {
             return std::array{
                 &q_c,           &q_l,
@@ -381,13 +381,14 @@ class GoblinUltra {
      */
     class ProverPolynomials : public AllEntities<PolynomialHandle, PolynomialHandle> {
       public:
-        AllValues get_row(const size_t row_idx)
+        [[nodiscard]] size_t get_polynomial_size() const { return q_c.size(); }
+        [[nodiscard]] AllValues get_row(const size_t row_idx) const
         {
             AllValues result;
             auto result_pointer_array = result.get_pointer_array();
             size_t column_idx = 0; // TODO(https://github.com/AztecProtocol/barretenberg/issues/391) zip
-            for (auto& member_pointer : get_pointer_array()) {
-                *result_pointer_array[column_idx] = (*member_pointer)[row_idx];
+            for (auto* member_pointer : get_pointer_array()) {
+                *(result_pointer_array[column_idx]) = (*member_pointer)[row_idx];
                 column_idx++;
             }
             return result;
