@@ -95,7 +95,7 @@ pub fn validate_call_stack(public_call : PublicCallData) {
 
         let num_contract_storage_update_requests = preimage.public_inputs.contract_storage_update_requests.len();
         if is_static_call {
-        assert(num_contract_storage_update_requests == 0,"contract_storage_update_requests should be empty for static call")
+        assert(num_contract_storage_update_requests == 0,"contract_storage_update_requests should be empty for static call");
         }
     }
 }
@@ -110,20 +110,22 @@ pub fn validate_call_context(public_call: PublicCallData){
     let contract_storage_update_requests_length =
         call_stack_item.public_inputs.contract_storage_update_requests.len();
 
-    assert(!is_delegate_call || contract_address != storage_contract_address,
+    if is_delegate_call{
+    assert(contract_address != storage_contract_address,
                       "curent contract address must not match storage contract address for delegate calls");
-    assert(
-        !is_static_call || contract_storage_update_requests_length == 0,
-        "No contract storage update requests are allowed for static calls");
+    }
+    if is_static_call {
 
+    assert(contract_storage_update_requests_length == 0,
+        "No contract storage update requests are allowed for static calls");
+    }
 }
 
 // Validates the kernel execution of the current iteration
-pub fn common_validate_kernel_execution(public_call: PublicCallData)
-{
+pub fn common_validate_kernel_execution(public_call: PublicCallData) {
     common_validate_call_context(public_call);
     common_validate_call_stack(public_call);
-};
+}
 
 //Validates inputs to the kernel circuit that are common to all invocation scenarios
 pub fn common_validate_inputs(public_call: PublicCallData){
@@ -221,7 +223,7 @@ pub fn initialize_end_values(previous_kernel : PreviousKernelData, circuit_outpu
 
 pub fn update_public_end_values(public_call: PublicCallData, circuit_outputs : &mut KernelCircuitPublicInputsBuilder) {
     // Updates the circuit outputs with new state changes, call stack etc
-    public_inputs.is_private = false;
+    circuit_outputs.is_private = false;
 
     // If this call is a static call, certain operations are disallowed, such as creating new state.
     perform_static_call_checks(public_call);
@@ -237,14 +239,14 @@ pub fn update_public_end_values(public_call: PublicCallData, circuit_outputs : &
     propagate_new_nullifiers(public_call, circuit_outputs);
     propagate_new_commitments(public_call, circuit_outputs);
 
-    propagate_new_l2_to_l1_messages(public_kernel_inputs, circuit_outputs);
+    propagate_new_l2_to_l1_messages(public_call, circuit_outputs);
 
-    propagate_valid_public_data_update_requests(public_kernel_inputs.public_call, circuit_outputs);
+    propagate_valid_public_data_update_requests(public_call, circuit_outputs);
 
     propagate_valid_public_data_reads(public_call, circuit_outputs)
 }
 
-pub fn propagate_valid_public_data_reads(public_call: PublicCallData, circuit_outputs: &must KernelCircuitPublicInputsBuilder){
+pub fn propagate_valid_public_data_reads(public_call: PublicCallData, circuit_outputs: &mut KernelCircuitPublicInputsBuilder){
     let contract_address = public_call.call_stack_item.contract_address;
     let read_requests = public_call.call_stack_item.public_inputs().contract_storage_reads;
 
@@ -297,9 +299,12 @@ pub fn propagate_new_nullifiers(public_call: PublicCallData, circuit_outputs : &
 }
 
 
-pub fn propagate_new_l2_to_l1_messages(public_kernel_inputs: PublicKernelInputs, public_inputs:  &mut KernelCircuitPublicInputsBuilder){
+pub fn propagate_new_l2_to_l1_messages(public_call: PublicCallData, public_inputs:  &mut KernelCircuitPublicInputsBuilder){
     // new l2 to l1 messages
-    let portal_contract_address = public_kernel_inputs.portal_contract_address;
+    let public_call_public_inputs = public_call.call_stack_item.public_inputs();
+    let portal_contract_address = public_call.portal_contract_address;
+    let storage_contract_address = public_call_public_inputs.call_context.storage_contract_address;
+
     let new_l2_to_l1_msgs = public_kernel_inputs_public_inputs.new_l2_to_l1_msgs;
     let mut new_l2_to_l1_msgs_to_insert : BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> = BoundedVec::new(0);
     for i in 0..MAX_NEW_L2_TO_L1_MSGS_PER_CALL {
@@ -330,22 +335,24 @@ pub fn accumulate_unencrypted_logs(public_kernel_inputs: PublicKernelInputs,
 {
     let public_kernel_inputs_public_inputs = public_kernel_inputs.public_kernel_inputs.call_stack_item.public_inputs;
 
-    let& previous_kernel_end = public_kernel_inputs.previous_kernel.public_inputs.end;
-    let& previous_unencrypted_logs_hash = previous_kernel_end.unencrypted_logs_hash;
+    let previous_kernel_end = public_kernel_inputs.previous_kernel.public_inputs.end;
+    let previous_unencrypted_logs_hash = previous_kernel_end.unencrypted_logs_hash;
 
-    let& current_unencrypted_logs_hash = public_kernel_inputs_public_inputs.unencrypted_logs_hash;
-    circuit_outputs.end.unencrypted_logs_hash = accumulate_sha256<NT>({ previous_unencrypted_logs_hash[0],
+    let current_unencrypted_logs_hash = public_kernel_inputs_public_inputs.unencrypted_logs_hash;
+    circuit_outputs.end.unencrypted_logs_hash = accumulate_sha256({ previous_unencrypted_logs_hash[0],
                                                                         previous_unencrypted_logs_hash[1],
                                                                         current_unencrypted_logs_hash[0],
                                                                         current_unencrypted_logs_hash[1] });
 
     // Add log preimages lengths from current iteration to accumulated lengths
-    let& current_unencrypted_log_preimages_length = public_kernel_inputs_public_inputs.unencrypted_log_preimages_length;
+    let current_unencrypted_log_preimages_length = public_kernel_inputs_public_inputs.unencrypted_log_preimages_length;
     circuit_outputs.end.unencrypted_log_preimages_length =
         previous_kernel_end.unencrypted_log_preimages_length + current_unencrypted_log_preimages_length;
 }
 
-pub fn propagate_valid_public_data_reads(, public_inputs:  &mut KernelCircuitPublicInputsBuilder)
+pub fn propagate_valid_public_data_reads(, public_inputs:  &mut KernelCircuitPublicInputsBuilder){
+
+}
 
 
 /**
@@ -353,8 +360,7 @@ pub fn propagate_valid_public_data_reads(, public_inputs:  &mut KernelCircuitPub
  * @param builder The circuit builder
  * @param public_kernel_inputs The inputs to this iteration of the kernel circuit
  */
- pub fn validate_this_public_call_hash(public_call: PublicCallData, public_inputs: &mut KernelCircuitPublicInputs)
-{
+ pub fn validate_this_public_call_hash(public_call: PublicCallData, public_inputs: &mut KernelCircuitPublicInputs) {
     // If public call stack is empty, we bail so array_pop doesn't throw_or_abort
     assert(public_inputs.end.public_kernel_inputs_stack.len() == 0 , "Public call stack can't be empty");
 
@@ -368,4 +374,4 @@ pub fn propagate_valid_public_data_reads(, public_inputs:  &mut KernelCircuitPub
     assert(
         popped_public_call_hash == calculated_this_public_call_hash,
         "calculated public_kernel_inputs_hash does not match provided public_kernel_inputs_hash at the top of the call stack");
-};
+}
