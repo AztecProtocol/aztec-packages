@@ -37,10 +37,10 @@ template <typename FF_> class GoblinTranslatorGenPermSortRelationImpl {
      * @param scaling_factor optional term to scale the evaluation before adding to evals.
      */
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
-    inline static void accumulate(ContainerOverSubrelations& accumulators,
-                                  const AllEntities& in,
-                                  const Parameters&,
-                                  const FF& scaling_factor);
+    static void accumulate(ContainerOverSubrelations& accumulators,
+                           const AllEntities& in,
+                           const Parameters&,
+                           const FF& scaling_factor);
 };
 
 template <typename FF>
