@@ -21,6 +21,8 @@ use dep::aztec::constants_gen::{
     EMPTY_NULLIFIED_COMMITMENT,
     MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
     MAX_NEW_COMMITMENTS_PER_CALL,
+    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+    MAX_PUBLIC_DATA_READS_PER_CALL,
 };
 
 // not sure this is needed, but i saw it in the private kernel code
