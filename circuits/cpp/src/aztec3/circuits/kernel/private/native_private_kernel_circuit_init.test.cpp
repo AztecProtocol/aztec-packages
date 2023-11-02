@@ -250,7 +250,7 @@ TEST_F(native_private_kernel_init_tests, contract_deployment_call_stack_item_has
               CircuitErrorCode::PRIVATE_KERNEL__PRIVATE_CALL_STACK_ITEM_HASH_MISMATCH);
 }
 
-// TODO(Alvaro) VKs are mocked out for now
+// TODO(#3062) VKs are mocked out for now
 // TEST_F(native_private_kernel_init_tests, contract_deployment_incorrect_constructor_vk_hash_fails)
 // {
 //     auto private_inputs = do_private_call_get_kernel_inputs_init(true, constructor, standard_test_args());
