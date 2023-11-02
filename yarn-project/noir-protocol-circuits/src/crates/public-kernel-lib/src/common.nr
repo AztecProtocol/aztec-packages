@@ -122,13 +122,13 @@ pub fn validate_call_context(public_call: PublicCallData){
 }
 
 // Validates the kernel execution of the current iteration
-pub fn common_validate_kernel_execution(public_call: PublicCallData) {
-    common_validate_call_context(public_call);
-    common_validate_call_stack(public_call);
+pub fn validate_kernel_execution(public_call: PublicCallData) {
+    validate_call_context(public_call);
+    validate_call_stack(public_call);
 }
 
 //Validates inputs to the kernel circuit that are common to all invocation scenarios
-pub fn common_validate_inputs(public_call: PublicCallData){
+pub fn validate_inputs(public_call: PublicCallData){
     // Validates commons inputs for all type of kernel inputs
     let this_call_stack_item: PublicCallStackItem = public_call.call_stack_item;
     assert(this_call_stack_item.public_inputs.call_context.is_contract_deployment == false,
@@ -177,16 +177,15 @@ pub fn propagate_valid_public_data_update_requests(public_call: PublicCallData, 
 
     for  i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
         let update_request = update_requests[i];
-        if (update_request.is_empty()) {
-            continue;
-        }
-        let public_data_update_request = PublicDataUpdateRequest{
+        if (!update_request.is_empty()) {
+        let public_data_update_request = PublicDataUpdateRequest {
             leaf_index: compute_public_data_tree_index(contract_address, update_request.storage_slot),
             old_value: compute_public_data_tree_value(update_request.old_value),
             new_value: compute_public_data_tree_value(update_request.new_value),
         };
 
         public_data_update_requests.push(public_data_update_request);
+        }
     }
     circuit_outputs.end.public_data_update_requests.push_vec(public_data_update_requests);
 
@@ -231,7 +230,7 @@ pub fn update_public_end_values(public_call: PublicCallData, circuit_outputs : &
     let public_call_public_inputs = public_call.call_stack_item.public_inputs();
 
     let stack = public_call_public_inputs.public_call_stack;
-    let public_call_stack = arrays::array_to_bounded_vec(public_kernel_inputs_public_inputs.public_kernel_inputs_stack, arrays::is_empty, 0);
+    let public_call_stack = arrays::array_to_bounded_vec(stack, arrays::is_empty, 0);
     circuit_outputs.end.public_call_stack.push_vec(public_call_stack);
 
     // don't update pending_read_requests, because those just get passed through without any change
@@ -254,22 +253,22 @@ pub fn propagate_valid_public_data_reads(public_call: PublicCallData, circuit_ou
 
     for i in 0..MAX_PUBLIC_DATA_READS_PER_CALL {
         let read_request: StorageRead = read_requests[i];
-        if read_request.is_empty() {
-            continue;
-        }
+        if !read_request.is_empty() {
         let public_data_read = PublicDataRead {
             leaf_index: compute_public_data_tree_index(contract_address, read_request.storage_slot),
             value: compute_public_data_tree_value(read_request.value),
         };
         public_data_reads.push(public_data_read);
-
+        }
     }
    circuit_outputs.end.public_data_reads.push_vec(public_data_reads);
 }
 
 pub fn propagate_new_commitments(public_call: PublicCallData, circuit_outputs : &mut KernelCircuitPublicInputsBuilder) {
+    let public_call_public_inputs = public_call.call_stack_item.public_inputs();
+
     let new_commitments = public_call.call_stack_item.public_inputs().new_commitments;
-    // commitments
+    let storage_contract_address = public_call_public_inputs.call_context.storage_contract_address;
 
     let mut siloed_new_commitments : BoundedVec<Field, MAX_NEW_COMMITMENTS_PER_CALL> = BoundedVec::new(0);
     assert(new_commitments.len() == MAX_NEW_COMMITMENTS_PER_CALL);
@@ -305,15 +304,15 @@ pub fn propagate_new_l2_to_l1_messages(public_call: PublicCallData, public_input
     let portal_contract_address = public_call.portal_contract_address;
     let storage_contract_address = public_call_public_inputs.call_context.storage_contract_address;
 
-    let new_l2_to_l1_msgs = public_kernel_inputs_public_inputs.new_l2_to_l1_msgs;
+    let new_l2_to_l1_msgs = public_call_public_inputs.new_l2_to_l1_msgs;
     let mut new_l2_to_l1_msgs_to_insert : BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> = BoundedVec::new(0);
     for i in 0..MAX_NEW_L2_TO_L1_MSGS_PER_CALL {
         let msg_is_zero = new_l2_to_l1_msgs[i] == 0;
         if msg_is_zero == false {
             let new_l2_to_l1_msgs = compute_l2_to_l1_hash(storage_contract_address,
-                                                                           public_kernel_inputs_public_inputs.version,
+                                                                           public_call_public_inputs.version,
                                                                            portal_contract_address,
-                                                                           public_kernel_inputs_public_inputs.chain_id,
+                                                                           public_call_public_inputs.chain_id,
                                                                            new_l2_to_l1_msgs[i]);
             new_l2_to_l1_msgs_to_insert.push(new_l2_to_l1_msgs)
         }
@@ -330,12 +329,13 @@ pub fn propagate_new_l2_to_l1_messages(public_call: PublicCallData, public_input
  *       https://discourse.aztec.network/t/proposal-forcing-the-sequencer-to-actually-submit-data-to-l1/426
  * @note Used by public kernels which had previous iterations.
  */
-pub fn accumulate_unencrypted_logs(public_kernel_inputs: PublicKernelInputs,
-                                    public_inputs:  &mut KernelCircuitPublicInputsBuilder)
+pub fn accumulate_unencrypted_logs(public_call: PublicCallData,
+                                   previous_kernel: PreviousKernelData,
+                                   public_inputs:  &mut KernelCircuitPublicInputsBuilder)
 {
-    let public_kernel_inputs_public_inputs = public_kernel_inputs.public_kernel_inputs.call_stack_item.public_inputs;
+    let public_call_public_inputs = public_call.call_stack_item.public_inputs();
 
-    let previous_kernel_end = public_kernel_inputs.previous_kernel.public_inputs.end;
+    let previous_kernel_end = previous_kernel.public_inputs.end;
     let previous_unencrypted_logs_hash = previous_kernel_end.unencrypted_logs_hash;
 
     let current_unencrypted_logs_hash = public_kernel_inputs_public_inputs.unencrypted_logs_hash;
@@ -348,10 +348,6 @@ pub fn accumulate_unencrypted_logs(public_kernel_inputs: PublicKernelInputs,
     let current_unencrypted_log_preimages_length = public_kernel_inputs_public_inputs.unencrypted_log_preimages_length;
     circuit_outputs.end.unencrypted_log_preimages_length =
         previous_kernel_end.unencrypted_log_preimages_length + current_unencrypted_log_preimages_length;
-}
-
-pub fn propagate_valid_public_data_reads(, public_inputs:  &mut KernelCircuitPublicInputsBuilder){
-
 }
 
 

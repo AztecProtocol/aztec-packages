@@ -41,11 +41,11 @@ impl PublicKernelPublicPreviousInputs {
         common::validate_kernel_execution(self.public_call);
 
         // validate our public call hash
-        validate_this_public_call_hash(public_kernel_inputs, public_inputs);
+        common::validate_this_public_call_hash(self.public_call, public_inputs);
 
-        common::update_public_end_values(public_kernel_inputs, public_inputs);
+        common::update_public_end_values(self.public_call, public_inputs);
 
-        common::accumulate_unencrypted_logs(public_kernel_inputs, public_inputs);
+        common::accumulate_unencrypted_logs(self.public_call, self.previous_kernel, public_inputs);
 
         public_inputs.finish();
     }
