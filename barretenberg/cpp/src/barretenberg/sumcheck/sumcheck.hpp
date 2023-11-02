@@ -111,10 +111,10 @@ template <typename Flavor> class SumcheckProver {
 
         // Final round: Extract multivariate evaluations from partially_evaluated_polynomials and add to transcript
         ClaimedEvaluations multivariate_evaluations;
-        // auto multivariate_evaluations_pointers = multivariate_evaluations.get_pointer_array();
+        // auto multivariate_evaluations_pointers = multivariate_evaluations.get_ref_array();
         // size_t evaluation_idx = 0;
         // // TODO(https://github.com/AztecProtocol/barretenberg/issues/391) zip
-        // for (auto* polynomial : partially_evaluated_polynomials.get_pointer_array()) {
+        // for (auto* polynomial : partially_evaluated_polynomials.get_ref_array()) {
         //     *multivariate_evaluations_pointers[evaluation_idx] = (*polynomial)[0];
         //     ++evaluation_idx;
         // }

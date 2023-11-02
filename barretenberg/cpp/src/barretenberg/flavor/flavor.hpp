@@ -64,6 +64,7 @@
  */
 
 #pragma once
+#include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
@@ -73,6 +74,16 @@
 #include <vector>
 
 namespace proof_system::honk::flavor {
+
+#define DEFINE_GET_REF_ARRAY(...)                                                                                      \
+    [[nodiscard]] auto get_ref_array()                                                                                 \
+    {                                                                                                                  \
+        return std::array{ __VA_ARGS__ };                                                                              \
+    }                                                                                                                  \
+    [[nodiscard]] auto get_ref_array() const                                                                           \
+    {                                                                                                                  \
+        return std::array{ __VA_ARGS__ };                                                                              \
+    }
 
 /**
  * @brief Base data class template, a wrapper for std::array, from which every flavor class ultimately derives.

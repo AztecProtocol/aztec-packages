@@ -27,7 +27,7 @@ get_sequential_prover_polynomials(const size_t log_circuit_size, const size_t st
     }
 
     ProverPolynomials prover_polynomials;
-    auto prover_polynomials_pointers = prover_polynomials.get_pointer_array();
+    auto prover_polynomials_pointers = prover_polynomials.get_ref_array();
     size_t poly_idx = 0;
     for (auto& polynomial : storage) {
         *(prover_polynomials_pointers[poly_idx]) = polynomial;
@@ -57,7 +57,7 @@ get_zero_prover_polynomials(const size_t log_circuit_size)
 
     ProverPolynomials prover_polynomials;
     size_t poly_idx = 0;
-    auto prover_polynomial_pointers = prover_polynomials.get_pointer_array();
+    auto prover_polynomial_pointers = prover_polynomials.get_ref_array();
     for (auto& polynomial : storage) {
         *prover_polynomial_pointers[poly_idx] = polynomial;
         poly_idx++;
