@@ -48,7 +48,7 @@ export class Fr {
   }
 
   equals(rhs: Fr) {
-    return this.value === rhs.value;
+    return this.value.every((v, i) => v === rhs.value[i]);
   }
 
   isZero() {

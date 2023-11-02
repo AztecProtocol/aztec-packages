@@ -20,7 +20,7 @@ export function pedersenCommit(input: Buffer[], generatorOffset = 0) {
  * Left pads any inputs less than 32 bytes.
  */
 export function pedersenHash(input: Buffer[], index = 0) {
-  if (!input.every(i => i.length === 32)) {
+  if (!input.every(i => i.length <= 32)) {
     throw new Error('All input buffers must be <= 32 bytes.');
   }
   input = input.map(i => (i.length < 32 ? Buffer.concat([Buffer.alloc(32 - i.length, 0), i]) : i));

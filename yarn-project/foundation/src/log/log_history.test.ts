@@ -1,3 +1,5 @@
+import { jest } from '@jest/globals';
+
 import { createDebugOnlyLogger, enableLogs } from './debug.js';
 import { LogHistory } from './log_history.js';
 

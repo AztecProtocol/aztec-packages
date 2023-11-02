@@ -6,7 +6,9 @@ describe('pedersen sync', () => {
   it('pedersenHash', async () => {
     const pedersen = await Pedersen.new();
     const result = pedersen.pedersenHash([new Fr(4n).toBuffer(), new Fr(8n).toBuffer()], 7);
-    expect(result).toEqual(new Fr(2152386650411553803409271316104075950536496387580531018130718456431861859990n));
+    expect(result).toEqual(
+      new Fr(2152386650411553803409271316104075950536496387580531018130718456431861859990n).toBuffer(),
+    );
   });
 
   it('pedersenCommit', async () => {

@@ -559,19 +559,26 @@ function pedersenCommitInternal(input: Buffer[], generatorOffset = 0) {
 
 /**
  * Create a pedersen commitment (point) from an array of input fields.
+ * Left pads any inputs less than 32 bytes.
  */
 export function pedersenCommit(input: Buffer[], generatorOffset = 0) {
+  if (!input.every(i => i.length <= 32)) {
+    throw new Error('All input buffers must be <= 32 bytes.');
+  }
+  input = input.map(i => (i.length < 32 ? Buffer.concat([Buffer.alloc(32 - i.length, 0), i]) : i));
   const result = pedersenCommitInternal(input, generatorOffset);
   return [result.getX().toBuffer(), result.getY().toBuffer()];
 }
 
 /**
  * Create a pedersen hash (field) from an array of input fields.
+ * Left pads any inputs less than 32 bytes.
  */
 export function pedersenHash(input: Buffer[], index = 0) {
-  if (!input.every(i => i.length === 32)) {
+  if (!input.every(i => i.length <= 32)) {
     throw new Error('All input buffers must be <= 32 bytes.');
   }
+  input = input.map(i => (i.length < 32 ? Buffer.concat([Buffer.alloc(32 - i.length, 0), i]) : i));
   const result = lengthGenerator.mul(new BN(input.length));
   return result.add(pedersenCommitInternal(input, index)).getX().toBuffer();
 }

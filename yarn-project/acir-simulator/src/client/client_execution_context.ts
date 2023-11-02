@@ -267,8 +267,9 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param innerNullifier - The pending nullifier to add in the list (not yet siloed by contract address).
    * @param innerNoteHash - The inner note hash of the new note.
    */
-  public async notifyNullifiedNote(innerNullifier: Fr, innerNoteHash: Fr) {
-    await this.noteCache.nullifyNote(this.contractAddress, innerNullifier, innerNoteHash);
+  public notifyNullifiedNote(innerNullifier: Fr, innerNoteHash: Fr) {
+    this.noteCache.nullifyNote(this.contractAddress, innerNullifier, innerNoteHash);
+    return Promise.resolve();
   }
 
   /**

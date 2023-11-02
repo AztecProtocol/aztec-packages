@@ -1250,6 +1250,7 @@ workflows:
           requires:
             - circuits-wasm-linux-clang
             - l1-contracts
+            - bb-js
           <<: *defaults
       - yarn-project:
           requires:

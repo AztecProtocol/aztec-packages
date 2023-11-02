@@ -1,7 +1,8 @@
 import { FieldsOf } from '@aztec/circuits.js';
 import { TxHash, TxReceipt } from '@aztec/types';
 
-import { SentTx, WaitOpts, Wallet } from '../../index.js';
+import { SentTx, WaitOpts } from '../../contract/index.js';
+import { Wallet } from '../../wallet/index.js';
 
 /** Extends a transaction receipt with a wallet instance for the newly deployed contract. */
 export type DeployAccountTxReceipt = FieldsOf<TxReceipt> & {
