@@ -27,7 +27,7 @@ fi
 if [ ! -d ~/go ]; then
   ARCHIVE=go1.21.3.linux-amd64.tar.gz
   echo "Downloading and installing Go..."
-  curl -O https://golang.org/dl/$ARCHIVE
+  wget https://go.dev/dl/$ARCHIVE
   tar -C ~/ -xvf $ARCHIVE
   rm $ARCHIVE
   export PATH=$PATH:~/go/bin
