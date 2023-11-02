@@ -20,7 +20,7 @@ namespace proof_system::honk::sumcheck {
  */
 template <typename FF>
 template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
-void ECCVMLookupRelationBase<FF>::accumulate(ContainerOverSubrelations& accumulator,
+void ECCVMLookupRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator,
                                              const AllEntities& in,
                                              const Parameters& params,
                                              [[maybe_unused]] const FF& scaling_factor)
@@ -29,9 +29,9 @@ void ECCVMLookupRelationBase<FF>::accumulate(ContainerOverSubrelations& accumula
         accumulator, in, params, scaling_factor);
 }
 
-template class ECCVMLookupRelationBase<barretenberg::fr>;
-template class ECCVMLookupRelationBase<grumpkin::fr>;
-DEFINE_SUMCHECK_RELATION_CLASS(ECCVMLookupRelationBase, flavor::ECCVM);
-DEFINE_SUMCHECK_RELATION_CLASS(ECCVMLookupRelationBase, flavor::ECCVMGrumpkin);
+template class ECCVMLookupRelationImpl<barretenberg::fr>;
+template class ECCVMLookupRelationImpl<grumpkin::fr>;
+DEFINE_SUMCHECK_RELATION_CLASS(ECCVMLookupRelationImpl, flavor::ECCVM);
+DEFINE_SUMCHECK_RELATION_CLASS(ECCVMLookupRelationImpl, flavor::ECCVMGrumpkin);
 
 } // namespace proof_system::honk::sumcheck
