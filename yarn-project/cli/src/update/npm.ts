@@ -3,10 +3,11 @@ import { LogFn } from '@aztec/foundation/log';
 import { spawnSync } from 'child_process';
 import { existsSync } from 'fs';
 import { readFile } from 'fs/promises';
-import { join, resolve } from 'path';
+import { join, relative, resolve } from 'path';
 import { SemVer, parse } from 'semver';
 
 import { atomicUpdateFile } from '../utils.js';
+import { DependencyChanges } from './common.js';
 
 /**
  * Looks up a package.json file and returns its contents
@@ -51,15 +52,24 @@ export async function getNewestVersion(packageName: string, distTag = 'latest'):
  * @param aztecVersion - The version to update to
  * @returns True if the project was updated
  */
-export async function updateAztecDeps(projectPath: string, aztecVersion: SemVer, log: LogFn): Promise<boolean> {
+export async function updateAztecDeps(
+  projectPath: string,
+  aztecVersion: SemVer,
+  log: LogFn,
+): Promise<DependencyChanges> {
   const pkg = await readPackageJson(projectPath);
+  const changes: DependencyChanges = {
+    file: resolve(join(projectPath, 'package.json')),
+    dependencies: [],
+  };
+
   if (!pkg.dependencies) {
-    return false;
+    return changes;
   }
 
-  log(`\nUpdating @aztec packages to ${aztecVersion} in ${projectPath}`);
+  log(`Updating @aztec packages to ${aztecVersion} in ${relative(process.cwd(), changes.file)}`);
   const version = aztecVersion.version;
-  let dirty = false;
+
   for (const name of Object.keys(pkg.dependencies)) {
     if (!name.startsWith('@aztec/')) {
       continue;
@@ -71,20 +81,22 @@ export async function updateAztecDeps(projectPath: string, aztecVersion: SemVer,
     }
 
     if (pkg.dependencies[name] !== version) {
-      dirty = true;
+      changes.dependencies.push({
+        name,
+        from: pkg.dependencies[name],
+        to: version,
+      });
+
       pkg.dependencies[name] = version;
     }
   }
 
-  if (dirty) {
+  if (changes.dependencies.length > 0) {
     const contents = JSON.stringify(pkg, null, 2) + '\n';
     await atomicUpdateFile(resolve(join(projectPath, 'package.json')), contents);
-    log(`${join(projectPath, 'package.json')} updated`);
-    return true;
-  } else {
-    log('No updates required');
-    return false;
   }
+
+  return changes;
 }
 
 /**

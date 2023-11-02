@@ -4,9 +4,10 @@ import { NoirPackageConfig, parseNoirPackageConfig } from '@aztec/foundation/noi
 import TOML from '@ltd/j-toml';
 import { readFile } from 'fs/promises';
 import { EOL } from 'os';
-import { join, resolve } from 'path';
+import { join, relative, resolve } from 'path';
 
 import { atomicUpdateFile } from '../utils.js';
+import { DependencyChanges } from './common.js';
 
 /**
  * Updates Aztec.nr dependencies
@@ -14,12 +15,15 @@ import { atomicUpdateFile } from '../utils.js';
  * @param tag - The tag to update to
  * @param log - Logging function
  */
-export async function updateAztecNr(contractPath: string, tag: string, log: LogFn) {
+export async function updateAztecNr(contractPath: string, tag: string, log: LogFn): Promise<DependencyChanges> {
   const configFilepath = resolve(join(contractPath, 'Nargo.toml'));
   const packageConfig = parseNoirPackageConfig(TOML.parse(await readFile(configFilepath, 'utf-8')));
-  let dirty = false;
+  const changes: DependencyChanges = {
+    dependencies: [],
+    file: configFilepath,
+  };
 
-  log(`\nUpdating Aztec.nr libraries to ${tag} in ${contractPath}`);
+  log(`Updating Aztec.nr libraries to ${tag} in ${relative(process.cwd(), changes.file)}`);
   for (const dep of Object.values(packageConfig.dependencies)) {
     if (!('git' in dep)) {
       continue;
@@ -32,18 +36,24 @@ export async function updateAztecNr(contractPath: string, tag: string, log: LogF
     }
 
     if (dep.tag !== tag) {
-      dirty = true;
+      // show the Aztec.nr package name rather than the lib name
+      const dirParts = dep.directory?.split('/') ?? [];
+      changes.dependencies.push({
+        name: dirParts.slice(-2).join('/'),
+        from: dep.tag,
+        to: tag,
+      });
+
       dep.tag = tag;
     }
   }
 
-  if (dirty) {
+  if (changes.dependencies.length > 0) {
     const contents = prettyPrintTOML(packageConfig);
     await atomicUpdateFile(configFilepath, contents);
-    log(`${join(contractPath, 'Nargo.toml')} updated`);
-  } else {
-    log('No updates required');
   }
+
+  return changes;
 }
 
 /**

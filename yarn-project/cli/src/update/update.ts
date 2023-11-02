@@ -1,11 +1,12 @@
 /* eslint-disable jsdoc/require-jsdoc */
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
 
-import { resolve } from 'path';
+import { relative, resolve } from 'path';
 import { SemVer, coerce, gt, lt, parse } from 'semver';
 
 import { createCompatibleClient } from '../client.js';
 import { GITHUB_TAG_PREFIX } from '../github.js';
+import { DependencyChanges } from './common.js';
 import { updateAztecNr } from './noir.js';
 import { getNewestVersion as getLatestVersion, readPackageJson, updateAztecDeps, updateLockfile } from './npm.js';
 
@@ -49,13 +50,33 @@ Once the container is restarted, run the \`aztec-cli update\` command again`);
     throw new Error('Local sandbox version is newer than latest version.');
   }
 
-  const changed = await updateAztecDeps(projectPath, targetSandboxVersion, log);
-  if (changed) {
+  const npmChanges = await updateAztecDeps(projectPath, targetSandboxVersion, log);
+  if (npmChanges.dependencies.length > 0) {
     updateLockfile(projectPath);
   }
 
+  const contractChanges: DependencyChanges[] = [];
   for (const contract of contracts) {
-    await updateAztecNr(resolve(projectPath, contract), `${GITHUB_TAG_PREFIX}-v${targetSandboxVersion.version}`, log);
+    contractChanges.push(
+      await updateAztecNr(resolve(projectPath, contract), `${GITHUB_TAG_PREFIX}-v${targetSandboxVersion.version}`, log),
+    );
+  }
+
+  printChanges(npmChanges, log);
+
+  contractChanges.forEach(changes => {
+    printChanges(changes, log);
+  });
+}
+
+function printChanges(changes: DependencyChanges, log: LogFn): void {
+  log(`\nIn ${relative(process.cwd(), changes.file)}:`);
+  if (changes.dependencies.length === 0) {
+    log('  No changes');
+  } else {
+    changes.dependencies.forEach(({ name, from, to }) => {
+      log(`  Updated ${name} from ${from} to ${to}`);
+    });
   }
 }
 
