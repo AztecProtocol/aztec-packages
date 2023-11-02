@@ -8,7 +8,7 @@ import {
   computeAuthWitMessageHash,
   computeMessageSecretHash,
 } from '@aztec/aztec.js';
-import { AztecAddress, CompleteAddress, Fr, FunctionSelector } from '@aztec/circuits.js';
+import { AztecAddress, CompleteAddress, EthAddress, Fr, FunctionSelector } from '@aztec/circuits.js';
 import { CircuitsWasm } from '@aztec/circuits.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { Pedersen, SparseTree, newTree } from '@aztec/merkle-tree';
@@ -24,8 +24,6 @@ import { setup } from './fixtures/utils.js';
 import { TokenSimulator } from './simulators/token_simulator.js';
 
 const TIMEOUT = 90_000;
-
-// TODO @LHerskind - Add tests for when actor is on blacklist.
 
 describe('e2e_blacklist_token_contract', () => {
   jest.setTimeout(TIMEOUT);
@@ -110,12 +108,7 @@ describe('e2e_blacklist_token_contract', () => {
     const depth = 254;
     tree = await newTree(SparseTree, db, hasher, 'test', depth);
 
-    const deployTx = TokenBlacklistContract.deploy(
-      wallets[0],
-      accounts[0],
-      slowTree.address,
-      tree.getRoot(true),
-    ).send();
+    const deployTx = TokenBlacklistContract.deploy(wallets[0], accounts[0], slowTree.address).send({});
     const receipt = await deployTx.wait();
     asset = receipt.contract;
 
@@ -134,14 +127,26 @@ describe('e2e_blacklist_token_contract', () => {
       await wallet.addNote(extendedNote);
     }
 
+    // Add account[0] as admin
+    await updateSlowTree(tree, wallets[0], accounts[0].address, 4n);
+    await asset.methods.init_slow_tree(accounts[0].address).send().wait();
+
+    // Progress to next "epoch"
+    const time = await cheatCodes.eth.timestamp();
+    await cheatCodes.aztec.warp(time + 200);
+    await tree.commit();
+
+    const roleLeaf = await slowTree.methods.un_read_leaf_at(asset.address, accounts[0].address).view();
+    expect(roleLeaf['next_change']).toBeGreaterThan(0n);
+    expect(roleLeaf['before']).toEqual(0n);
+    expect(roleLeaf['after']).toEqual(4n);
+
     logger(`Token deployed to ${asset.address}`);
     tokenSim = new TokenSimulator(
       asset as unknown as TokenContract,
       logger,
       accounts.map(a => a.address),
     );
-
-    expect(await asset.methods.admin().view()).toBe(accounts[0].address.toBigInt());
 
     asset.artifact.functions.forEach(fn => {
       logger(
@@ -160,35 +165,104 @@ describe('e2e_blacklist_token_contract', () => {
   }, TIMEOUT);
 
   describe('Access controlled functions', () => {
-    it('Set admin', async () => {
-      const tx = asset.methods.set_admin(accounts[1].address).send();
+    it('Extend account[0] roles with minter as admin', async () => {
+      const newMinter = accounts[0].address;
+      const newRoles = 2n + 4n;
+
+      const beforeLeaf = await slowTree.methods.un_read_leaf_at(asset.address, newMinter).view();
+      // eslint-disable-next-line camelcase
+      expect(beforeLeaf['next_change']).toBeGreaterThan(0n);
+      expect(beforeLeaf['before']).toEqual(0n);
+      expect(beforeLeaf['after']).toEqual(4n);
+
+      await updateSlowTree(tree, wallets[0], newMinter, newRoles);
+      await wallets[0].addMint(getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), false)));
+
+      const tx = await asset.methods.update_roles(newMinter, newRoles).send().wait();
+      expect(tx.status).toBe(TxStatus.MINED);
+      await tree.commit();
+
+      const afterLeaf = await slowTree.methods.un_read_leaf_at(asset.address, newMinter).view();
+      expect(afterLeaf['next_change']).toBeGreaterThan(beforeLeaf['next_change']);
+      expect(afterLeaf['before']).toEqual(4n);
+      expect(afterLeaf['after']).toEqual(newRoles);
+
+      const time = await cheatCodes.eth.timestamp();
+      await cheatCodes.aztec.warp(time + 200);
+
+      /*      const tx = asset.withWallet(wallets[1]).methods.set_minter(accounts[1].address, true).send();
       const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.MINED);
-      expect(await asset.methods.admin().view()).toBe(accounts[1].address.toBigInt());
+      expect(await asset.methods.is_minter(accounts[1].address).view()).toBe(true);*/
     });
 
-    it('Add minter as admin', async () => {
-      const tx = asset.withWallet(wallets[1]).methods.set_minter(accounts[1].address, true).send();
-      const receipt = await tx.wait();
-      expect(receipt.status).toBe(TxStatus.MINED);
-      expect(await asset.methods.is_minter(accounts[1].address).view()).toBe(true);
+    it('Make account[1] admin', async () => {
+      const newAdmin = accounts[1].address;
+      const newRoles = 4n;
+
+      let v = await slowTree.methods.un_read_leaf_at(asset.address, newAdmin).view();
+      // eslint-disable-next-line camelcase
+      expect(v).toEqual({ next_change: 0n, before: 0n, after: 0n });
+
+      await updateSlowTree(tree, wallets[0], newAdmin, newRoles);
+      await wallets[0].addMint(getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), false)));
+
+      const tx = await asset.methods.update_roles(newAdmin, newRoles).send().wait();
+      expect(tx.status).toBe(TxStatus.MINED);
+      await tree.commit();
+
+      v = await slowTree.methods.un_read_leaf_at(asset.address, newAdmin).view();
+      expect(v['next_change']).toBeGreaterThan(0n);
+      expect(v['before']).toEqual(0n);
+      expect(v['after']).toEqual(newRoles);
+
+      // Progress to next "epoch"
+      const time = await cheatCodes.eth.timestamp();
+      await cheatCodes.aztec.warp(time + 200);
     });
 
-    it('Revoke minter as admin', async () => {
+    it('Revoke admin as admin', async () => {
+      const actor = accounts[1].address;
+      const newRoles = 0n;
+      const currentRoles = 4n;
+
+      const beforeLeaf = await slowTree.methods.un_read_leaf_at(asset.address, actor).view();
+      // eslint-disable-next-line camelcase
+      expect(beforeLeaf['next_change']).toBeGreaterThan(0n);
+      expect(beforeLeaf['before']).toEqual(0n);
+      expect(beforeLeaf['after']).toEqual(currentRoles);
+
+      await updateSlowTree(tree, wallets[0], actor, newRoles);
+      await wallets[0].addMint(getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), false)));
+
+      const tx = await asset.methods.update_roles(actor, newRoles).send().wait();
+      expect(tx.status).toBe(TxStatus.MINED);
+      await tree.commit();
+
+      const afterLeaf = await slowTree.methods.un_read_leaf_at(asset.address, actor).view();
+      expect(afterLeaf['next_change']).toBeGreaterThan(beforeLeaf['next_change']);
+      expect(afterLeaf['before']).toEqual(currentRoles);
+      expect(afterLeaf['after']).toEqual(newRoles);
+
+      const time = await cheatCodes.eth.timestamp();
+      await cheatCodes.aztec.warp(time + 200);
+
+      /*
       const tx = asset.withWallet(wallets[1]).methods.set_minter(accounts[1].address, false).send();
       const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.MINED);
-      expect(await asset.methods.is_minter(accounts[1].address).view()).toBe(false);
+      expect(await asset.methods.is_minter(accounts[1].address).view()).toBe(false);*/
     });
 
     it('Add account[3] to blacklist', async () => {
-      await updateSlowTree(tree, wallets[0], accounts[3].address, 1n);
-
       let v = await slowTree.methods.un_read_leaf_at(asset.address, accounts[3].address).view();
       // eslint-disable-next-line camelcase
       expect(v).toEqual({ next_change: 0n, before: 0n, after: 0n });
 
-      const tx = await asset.methods.update_blocked(accounts[3].address, true).send().wait();
+      await updateSlowTree(tree, wallets[0], accounts[3].address, 1n);
+      await wallets[0].addMint(getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), false)));
+
+      const tx = await asset.methods.update_roles(accounts[3].address, 1n).send().wait();
       expect(tx.status).toBe(TxStatus.MINED);
       await tree.commit();
 
@@ -203,14 +277,39 @@ describe('e2e_blacklist_token_contract', () => {
 
     describe('failure cases', () => {
       it('Set admin (not admin)', async () => {
-        await expect(asset.methods.set_admin(accounts[0].address).simulate()).rejects.toThrowError(
+        const account = AztecAddress.random();
+        const v = await slowTree.methods.un_read_leaf_at(asset.address, account).view();
+        const newRoles = 4n;
+        // eslint-disable-next-line camelcase
+        expect(v).toEqual({ next_change: 0n, before: 0n, after: 0n });
+
+        await wallets[3].addMint(getMembershipMint(await getMembershipProof(accounts[3].address.toBigInt(), false)));
+        await expect(
+          asset.withWallet(wallets[3]).methods.update_roles(account, newRoles).simulate(),
+        ).rejects.toThrowError("Assertion failed: caller is not admin 'caller_roles.is_admin'");
+
+        /*        await expect(asset.methods.set_admin(accounts[0].address).simulate()).rejects.toThrowError(
           'Assertion failed: caller is not admin',
-        );
+        );*/
       });
+
       it('Revoke minter not as admin', async () => {
-        await expect(asset.methods.set_minter(accounts[0].address, false).simulate()).rejects.toThrowError(
+        const adminAccount = accounts[0].address;
+        const v = await slowTree.methods.un_read_leaf_at(asset.address, adminAccount).view();
+        const newRoles = 0n;
+        // eslint-disable-next-line camelcase
+        expect(v['next_change']).toBeGreaterThan(0n);
+        expect(v['before']).toEqual(4n);
+        expect(v['after']).toEqual(6n);
+
+        await wallets[3].addMint(getMembershipMint(await getMembershipProof(accounts[3].address.toBigInt(), false)));
+        await expect(
+          asset.withWallet(wallets[3]).methods.update_roles(adminAccount, newRoles).simulate(),
+        ).rejects.toThrowError("Assertion failed: caller is not admin 'caller_roles.is_admin'");
+
+        /* await expect(asset.methods.set_minter(accounts[0].address, false).simulate()).rejects.toThrowError(
           'Assertion failed: caller is not admin',
-        );
+        );*/
       });
     });
   });
@@ -262,9 +361,7 @@ describe('e2e_blacklist_token_contract', () => {
         it('mint to blacklisted entity', async () => {
           await expect(
             asset.withWallet(wallets[1]).methods.mint_public(accounts[3].address, 1n).simulate(),
-          ).rejects.toThrowError(
-            "Assertion failed: Blacklisted: Recipient 'SlowMap::at(addr).read_at_pub(context, to.address) == 0'",
-          );
+          ).rejects.toThrowError("Assertion failed: Blacklisted: Recipient '!to_roles.is_blacklisted'");
         });
       });
     });
@@ -346,9 +443,7 @@ describe('e2e_blacklist_token_contract', () => {
           await wallets[3].addMint(getMembershipMint(await getMembershipProof(accounts[3].address.toBigInt(), true)));
           await expect(
             asset.methods.redeem_shield(accounts[3].address, amount, secret).simulate(),
-          ).rejects.toThrowError(
-            "Assertion failed: Blacklisted: Recipient 'SlowMap::at(addr).read_at(&mut context, to.address) == 0'",
-          );
+          ).rejects.toThrowError("Assertion failed: Blacklisted: Recipient '!to_roles.is_blacklisted'");
         });
       });
     });
@@ -514,17 +609,13 @@ describe('e2e_blacklist_token_contract', () => {
         it('transfer from a blacklisted account', async () => {
           await expect(
             asset.methods.transfer_public(accounts[3].address, accounts[0].address, 1n, 0n).simulate(),
-          ).rejects.toThrowError(
-            "Assertion failed: Blacklisted: Sender 'SlowMap::at(addr).read_at_pub(context, from.address) == 0'",
-          );
+          ).rejects.toThrowError("Assertion failed: Blacklisted: Sender '!from_roles.is_blacklisted'");
         });
 
         it('transfer to a blacklisted account', async () => {
           await expect(
             asset.methods.transfer_public(accounts[0].address, accounts[3].address, 1n, 0n).simulate(),
-          ).rejects.toThrowError(
-            "Assertion failed: Blacklisted: Recipient 'SlowMap::at(addr).read_at_pub(context, to.address) == 0'",
-          );
+          ).rejects.toThrowError("Assertion failed: Blacklisted: Recipient '!to_roles.is_blacklisted'");
         });
       });
     });
@@ -697,9 +788,7 @@ describe('e2e_blacklist_token_contract', () => {
           await wallets[3].addMint(getMembershipMint(await getMembershipProof(accounts[3].address.toBigInt(), true)));
           await expect(
             asset.methods.transfer(accounts[3].address, accounts[0].address, 1n, 0).simulate(),
-          ).rejects.toThrowError(
-            "Assertion failed: Blacklisted: Sender 'SlowMap::at(addr).read_at(&mut context, from.address) == 0'",
-          );
+          ).rejects.toThrowError("Assertion failed: Blacklisted: Sender '!from_roles.is_blacklisted'");
         });
 
         it('transfer to a blacklisted account', async () => {
@@ -707,9 +796,7 @@ describe('e2e_blacklist_token_contract', () => {
           await wallets[0].addMint(getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), true)));
           await expect(
             asset.methods.transfer(accounts[0].address, accounts[3].address, 1n, 0).simulate(),
-          ).rejects.toThrowError(
-            "Assertion failed: Blacklisted: Recipient 'SlowMap::at(addr).read_at(&mut context, to.address) == 0'",
-          );
+          ).rejects.toThrowError("Assertion failed: Blacklisted: Recipient '!to_roles.is_blacklisted'");
         });
       });
     });
@@ -844,9 +931,7 @@ describe('e2e_blacklist_token_contract', () => {
         await wallets[0].addMint(getMembershipMint(await getMembershipProof(accounts[3].address.toBigInt(), true)));
         await expect(
           asset.withWallet(wallets[3]).methods.shield(accounts[3].address, 1n, secretHash, 0).simulate(),
-        ).rejects.toThrowError(
-          "Assertion failed: Blacklisted: Sender 'SlowMap::at(addr).read_at_pub(context, from.address) == 0'",
-        );
+        ).rejects.toThrowError("Assertion failed: Blacklisted: Sender '!from_roles.is_blacklisted'");
       });
     });
   });
@@ -983,9 +1068,7 @@ describe('e2e_blacklist_token_contract', () => {
         await wallets[0].addMint(getMembershipMint(await getMembershipProof(accounts[3].address.toBigInt(), true)));
         await expect(
           asset.methods.unshield(accounts[3].address, accounts[0].address, 1n, 0).simulate(),
-        ).rejects.toThrowError(
-          "Assertion failed: Blacklisted: Sender 'SlowMap::at(addr).read_at(&mut context, from.address) == 0'",
-        );
+        ).rejects.toThrowError("Assertion failed: Blacklisted: Sender '!from_roles.is_blacklisted'");
       });
 
       it('unshield to blacklisted account', async () => {
@@ -993,9 +1076,7 @@ describe('e2e_blacklist_token_contract', () => {
         await wallets[0].addMint(getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), true)));
         await expect(
           asset.methods.unshield(accounts[0].address, accounts[3].address, 1n, 0).simulate(),
-        ).rejects.toThrowError(
-          "Assertion failed: Blacklisted: Recipient 'SlowMap::at(addr).read_at(&mut context, to.address) == 0'",
-        );
+        ).rejects.toThrowError("Assertion failed: Blacklisted: Recipient '!to_roles.is_blacklisted'");
       });
     });
   });
@@ -1096,7 +1177,7 @@ describe('e2e_blacklist_token_contract', () => {
 
         it('burn from blacklisted account', async () => {
           await expect(asset.methods.burn_public(accounts[3].address, 1n, 0).simulate()).rejects.toThrowError(
-            "Assertion failed: Blacklisted: Sender 'SlowMap::at(addr).read_at_pub(context, from.address) == 0'",
+            "Assertion failed: Blacklisted: Sender '!from_roles.is_blacklisted'",
           );
         });
       });
@@ -1222,7 +1303,7 @@ describe('e2e_blacklist_token_contract', () => {
         it('burn from blacklisted account', async () => {
           await wallets[0].addMint(getMembershipMint(await getMembershipProof(accounts[3].address.toBigInt(), true)));
           await expect(asset.methods.burn(accounts[3].address, 1n, 0).simulate()).rejects.toThrowError(
-            "Assertion failed: Blacklisted: Sender 'SlowMap::at(addr).read_at(&mut context, from.address) == 0'",
+            "Assertion failed: Blacklisted: Sender '!from_roles.is_blacklisted'",
           );
         });
       });

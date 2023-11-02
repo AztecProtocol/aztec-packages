@@ -36,6 +36,8 @@ contract SlowTree {
     global MEMBERSHIP_SIZE: Field = 256; // TREE_HEIGHT + 2
     global UPDATE_SIZE: Field = 512; // TREE_HEIGHT * 2 + 4
 
+    global EMPTY_ROOT: Field = 5785871043333994658400733180052743689641713274194136017445890613179954325976;
+
     struct Storage {
         trees: Map<SlowMap<TREE_HEIGHT, UPDATE_SIZE>>,
     }
@@ -61,8 +63,8 @@ contract SlowTree {
     fn constructor() {}
 
     #[aztec(public)]
-    fn initialize(root: Field) {
-        storage.trees.at(context.msg_sender()).initialize(root);
+    fn initialize() {
+        storage.trees.at(context.msg_sender()).initialize(EMPTY_ROOT);
     }
 
     #[aztec(public)]

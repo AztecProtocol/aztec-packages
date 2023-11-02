@@ -122,6 +122,7 @@ impl<N,M> SlowMap<N,M> {
     storage_read(self.storage_slot, deserialize_leaf)
   }
 
+  // Beware that the initial root could include much state that is not shown by the public storage!
   pub fn initialize(self: Self, initial_root: Field) {
     let mut root_object = self.read_root();
     assert(root_object.next_change == 0, "cannot initialize twice");

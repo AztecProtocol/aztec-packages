@@ -31,8 +31,6 @@ describe('e2e_slow_tree', () => {
     const hasher = new Pedersen(await CircuitsWasm.get());
     const depth = 254;
     const tree = await newTree(SparseTree, db, hasher, 'test', depth);
-    const root = tree.getRoot(true);
-
     const getMembershipProof = async (index: bigint, includeUncommitted: boolean) => {
       return {
         index,
@@ -86,7 +84,7 @@ describe('e2e_slow_tree', () => {
     const owner = wallet.getCompleteAddress().address;
     const key = owner.toBigInt();
 
-    await contract.methods.initialize(root).send().wait();
+    await contract.methods.initialize().send().wait();
 
     logger('Initial state');
     await status(key);

@@ -13,11 +13,10 @@ impl SlowMap {
     Self { address: address.address }
   }
 
-  pub fn initialize(self: Self, context: PublicContext, root: Field) {
-    let _return_values = context.call_public_function(
+  pub fn initialize(self: Self, context: PublicContext) {
+    let _return_values = context.call_public_function_no_args(
       self.address,
-      compute_selector("initialize(Field)"),
-      [root]
+      compute_selector("initialize()")
     );
   }
 
