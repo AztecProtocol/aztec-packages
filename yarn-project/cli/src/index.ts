@@ -707,10 +707,11 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .description('Updates Nodejs and Noir dependencies')
     .argument('[projectPath]', 'Path to the project directory', process.cwd())
     .option('--contract [paths...]', 'Paths to contracts to update dependencies', [])
+    .option('--sandbox-version <semver>', 'The sandbox version to update to. Defaults to latest', 'latest')
     .addOption(pxeOption)
     .action(async (projectPath: string, options) => {
       const { contract } = options;
-      await update(projectPath, contract, options.rpcUrl, log, debugLogger);
+      await update(projectPath, contract, options.rpcUrl, options.sandboxVersion, log, debugLogger);
     });
 
   compileContract(program, 'compile', log);

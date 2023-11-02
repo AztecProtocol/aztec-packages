@@ -58,7 +58,7 @@ export async function updateAztecDeps(projectPath: string, aztecVersion: SemVer,
   }
 
   log(`\nUpdating @aztec packages to ${aztecVersion} in ${projectPath}`);
-  const version = '^' + aztecVersion.version;
+  const version = aztecVersion.version;
   let dirty = false;
   for (const name of Object.keys(pkg.dependencies)) {
     if (!name.startsWith('@aztec/')) {

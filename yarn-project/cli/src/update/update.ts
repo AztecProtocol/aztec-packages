@@ -7,7 +7,7 @@ import { SemVer, coerce, gt, lt, parse } from 'semver';
 import { createCompatibleClient } from '../client.js';
 import { GITHUB_TAG_PREFIX } from '../github.js';
 import { updateAztecNr } from './noir.js';
-import { getNewestVersion, readPackageJson, updateAztecDeps, updateLockfile } from './npm.js';
+import { getNewestVersion as getLatestVersion, readPackageJson, updateAztecDeps, updateLockfile } from './npm.js';
 
 const SANDBOX_PACKAGE = '@aztec/aztec-sandbox';
 
@@ -15,18 +15,25 @@ export async function update(
   projectPath: string,
   contracts: string[],
   pxeUrl: string,
+  sandboxVersion: string,
   log: LogFn,
   debugLog: DebugLogger,
 ): Promise<void> {
-  const latestSandboxVersion = await getNewestVersion(SANDBOX_PACKAGE, 'latest');
+  const targetSandboxVersion =
+    sandboxVersion === 'latest' ? await getLatestVersion(SANDBOX_PACKAGE, 'latest') : parse(sandboxVersion);
+
+  if (!targetSandboxVersion) {
+    throw new Error(`Invalid aztec version ${sandboxVersion}`);
+  }
+
   let currentSandboxVersion = await getNpmSandboxVersion(projectPath);
 
   if (!currentSandboxVersion) {
     currentSandboxVersion = await getRemoteSandboxVersion(pxeUrl, debugLog);
 
-    if (currentSandboxVersion && lt(currentSandboxVersion, latestSandboxVersion)) {
+    if (currentSandboxVersion && lt(currentSandboxVersion, targetSandboxVersion)) {
       log(`
-Sandbox is older than version ${latestSandboxVersion}. If running in docker update it with the following command then restart the container:
+Sandbox is older than version ${targetSandboxVersion}. If running in docker update it with the following command then restart the container:
 docker pull aztecprotocol/aztec-sandbox:latest
 Once the container is restarted, run the \`aztec-cli update\` command again`);
       return;
@@ -38,17 +45,17 @@ Once the container is restarted, run the \`aztec-cli update\` command again`);
   }
 
   // sanity check
-  if (gt(currentSandboxVersion, latestSandboxVersion)) {
+  if (gt(currentSandboxVersion, targetSandboxVersion)) {
     throw new Error('Local sandbox version is newer than latest version.');
   }
 
-  const changed = await updateAztecDeps(projectPath, latestSandboxVersion, log);
+  const changed = await updateAztecDeps(projectPath, targetSandboxVersion, log);
   if (changed) {
     updateLockfile(projectPath);
   }
 
   for (const contract of contracts) {
-    await updateAztecNr(resolve(projectPath, contract), `${GITHUB_TAG_PREFIX}-v${latestSandboxVersion}`, log);
+    await updateAztecNr(resolve(projectPath, contract), `${GITHUB_TAG_PREFIX}-v${targetSandboxVersion.version}`, log);
   }
 }
 
