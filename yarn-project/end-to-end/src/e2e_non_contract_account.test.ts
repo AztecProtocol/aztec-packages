@@ -1,10 +1,17 @@
-import { SignerlessWallet, Wallet } from '@aztec/aztec.js';
-import { Fr } from '@aztec/circuits.js';
+import {
+  AztecNode,
+  DebugLogger,
+  ExtendedNote,
+  Fr,
+  Note,
+  PXE,
+  SignerlessWallet,
+  TxStatus,
+  Wallet,
+  toBigInt,
+} from '@aztec/aztec.js';
 import { siloNullifier } from '@aztec/circuits.js/abis';
-import { DebugLogger } from '@aztec/foundation/log';
-import { toBigInt } from '@aztec/foundation/serialize';
 import { TestContract } from '@aztec/noir-contracts/types';
-import { AztecNode, ExtendedNote, Note, PXE, TxStatus } from '@aztec/types';
 
 import { setup } from './fixtures/utils.js';
 
