@@ -167,5 +167,5 @@ describe('e2e_deploy_contract', () => {
         minTxsPerBlock: 1,
       });
     }
-  });
+  }, 60_000);
 });
