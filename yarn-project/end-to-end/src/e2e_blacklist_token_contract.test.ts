@@ -101,7 +101,7 @@ describe('e2e_blacklist_token_contract', () => {
   };
 
   beforeAll(async () => {
-    ({ teardown, logger, wallets, accounts, cheatCodes } = await setup(3));
+    ({ teardown, logger, wallets, accounts, cheatCodes } = await setup(4));
 
     slowTree = await SlowTreeContract.deploy(wallets[0]).send().deployed();
 
@@ -109,8 +109,6 @@ describe('e2e_blacklist_token_contract', () => {
     const hasher = new Pedersen(await CircuitsWasm.get());
     const depth = 254;
     tree = await newTree(SparseTree, db, hasher, 'test', depth);
-
-    // await updateSlowTree(tree, wallets[0], accounts[0].address, 1n);
 
     const deployTx = TokenBlacklistContract.deploy(
       wallets[0],
@@ -183,32 +181,24 @@ describe('e2e_blacklist_token_contract', () => {
       expect(await asset.methods.is_minter(accounts[1].address).view()).toBe(false);
     });
 
-    it.skip('Add to blacklist', async () => {
-      await updateSlowTree(tree, wallets[0], accounts[0].address, 1n);
-      logger('Updating tree insertion');
+    it('Add account[3] to blacklist', async () => {
+      await updateSlowTree(tree, wallets[0], accounts[3].address, 1n);
 
-      const tx = await asset.methods.update_blocked(accounts[0].address, true).send().wait();
+      let v = await slowTree.methods.un_read_leaf_at(asset.address, accounts[3].address).view();
+      // eslint-disable-next-line camelcase
+      expect(v).toEqual({ next_change: 0n, before: 0n, after: 0n });
+
+      const tx = await asset.methods.update_blocked(accounts[3].address, true).send().wait();
       expect(tx.status).toBe(TxStatus.MINED);
-
       await tree.commit();
 
-      const time = (await cheatCodes.eth.timestamp()) + 1000;
-      await cheatCodes.aztec.warp(time);
+      v = await slowTree.methods.un_read_leaf_at(asset.address, accounts[3].address).view();
+      expect(v['next_change']).toBeGreaterThan(0n);
+      expect(v['before']).toEqual(0n);
+      expect(v['after']).toEqual(1n);
 
-      await expect(
-        asset.methods.transfer_public(accounts[0].address, accounts[1].address, 1n, 0).simulate(),
-      ).rejects.toThrowError(
-        "Assertion failed: Blacklisted: Sender 'SlowMap::at(addr).read_at_pub(context, from.address) == 0'",
-      );
-
-      await wallets[0].addMint(getMembershipMint(await getMembershipProof(accounts[1].address.toBigInt(), true)));
-      await wallets[0].addMint(getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), true)));
-
-      await expect(
-        asset.methods.transfer(accounts[0].address, accounts[1].address, 1n, 0).simulate(),
-      ).rejects.toThrowError(
-        "Assertion failed: Blacklisted: Sender 'SlowMap::at(addr).read_at(&mut context, from.address) == 0'",
-      );
+      const time = await cheatCodes.eth.timestamp();
+      await cheatCodes.aztec.warp(time + 200);
     });
 
     describe('failure cases', () => {
@@ -266,6 +256,14 @@ describe('e2e_blacklist_token_contract', () => {
           const amount = 2n ** 120n - tokenSim.balanceOfPublic(accounts[0].address);
           await expect(asset.methods.mint_public(accounts[1].address, amount).simulate()).rejects.toThrowError(
             'Assertion failed: Overflow',
+          );
+        });
+
+        it('mint to blacklisted entity', async () => {
+          await expect(
+            asset.withWallet(wallets[1]).methods.mint_public(accounts[3].address, 1n).simulate(),
+          ).rejects.toThrowError(
+            "Assertion failed: Blacklisted: Recipient 'SlowMap::at(addr).read_at_pub(context, to.address) == 0'",
           );
         });
       });
@@ -344,7 +342,14 @@ describe('e2e_blacklist_token_contract', () => {
           );
         });
 
-        it.skip('mint and try to redeem at blacklist', async () => {});
+        it('mint and try to redeem at blacklist', async () => {
+          await wallets[3].addMint(getMembershipMint(await getMembershipProof(accounts[3].address.toBigInt(), true)));
+          await expect(
+            asset.methods.redeem_shield(accounts[3].address, amount, secret).simulate(),
+          ).rejects.toThrowError(
+            "Assertion failed: Blacklisted: Recipient 'SlowMap::at(addr).read_at(&mut context, to.address) == 0'",
+          );
+        });
       });
     });
   });
@@ -504,6 +509,22 @@ describe('e2e_blacklist_token_contract', () => {
           // a way to get funds enough to overflow.
           // Require direct storage manipulation for us to perform a nice explicit case though.
           // See https://github.com/AztecProtocol/aztec-packages/issues/1259
+        });
+
+        it('transfer from a blacklisted account', async () => {
+          await expect(
+            asset.methods.transfer_public(accounts[3].address, accounts[0].address, 1n, 0n).simulate(),
+          ).rejects.toThrowError(
+            "Assertion failed: Blacklisted: Sender 'SlowMap::at(addr).read_at_pub(context, from.address) == 0'",
+          );
+        });
+
+        it('transfer to a blacklisted account', async () => {
+          await expect(
+            asset.methods.transfer_public(accounts[0].address, accounts[3].address, 1n, 0n).simulate(),
+          ).rejects.toThrowError(
+            "Assertion failed: Blacklisted: Recipient 'SlowMap::at(addr).read_at_pub(context, to.address) == 0'",
+          );
         });
       });
     });
@@ -670,6 +691,26 @@ describe('e2e_blacklist_token_contract', () => {
           );
           expect(await asset.methods.balance_of_private(accounts[0].address).view()).toEqual(balance0);
         });
+
+        it('transfer from a blacklisted account', async () => {
+          await wallets[3].addMint(getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), true)));
+          await wallets[3].addMint(getMembershipMint(await getMembershipProof(accounts[3].address.toBigInt(), true)));
+          await expect(
+            asset.methods.transfer(accounts[3].address, accounts[0].address, 1n, 0).simulate(),
+          ).rejects.toThrowError(
+            "Assertion failed: Blacklisted: Sender 'SlowMap::at(addr).read_at(&mut context, from.address) == 0'",
+          );
+        });
+
+        it('transfer to a blacklisted account', async () => {
+          await wallets[0].addMint(getMembershipMint(await getMembershipProof(accounts[3].address.toBigInt(), true)));
+          await wallets[0].addMint(getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), true)));
+          await expect(
+            asset.methods.transfer(accounts[0].address, accounts[3].address, 1n, 0).simulate(),
+          ).rejects.toThrowError(
+            "Assertion failed: Blacklisted: Recipient 'SlowMap::at(addr).read_at(&mut context, to.address) == 0'",
+          );
+        });
       });
     });
   });
@@ -797,6 +838,15 @@ describe('e2e_blacklist_token_contract', () => {
         await expect(
           asset.withWallet(wallets[1]).methods.shield(accounts[0].address, amount, secretHash, nonce).simulate(),
         ).rejects.toThrowError(`Assertion failed: Message not authorized by account`);
+      });
+
+      it('shielding from blacklisted account', async () => {
+        await wallets[0].addMint(getMembershipMint(await getMembershipProof(accounts[3].address.toBigInt(), true)));
+        await expect(
+          asset.withWallet(wallets[3]).methods.shield(accounts[3].address, 1n, secretHash, 0).simulate(),
+        ).rejects.toThrowError(
+          "Assertion failed: Blacklisted: Sender 'SlowMap::at(addr).read_at_pub(context, from.address) == 0'",
+        );
       });
     });
   });
@@ -927,6 +977,26 @@ describe('e2e_blacklist_token_contract', () => {
           `Unknown auth witness for message hash 0x${expectedMessageHash.toString('hex')}`,
         );
       });
+
+      it('unshield from blacklisted account', async () => {
+        await wallets[0].addMint(getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), true)));
+        await wallets[0].addMint(getMembershipMint(await getMembershipProof(accounts[3].address.toBigInt(), true)));
+        await expect(
+          asset.methods.unshield(accounts[3].address, accounts[0].address, 1n, 0).simulate(),
+        ).rejects.toThrowError(
+          "Assertion failed: Blacklisted: Sender 'SlowMap::at(addr).read_at(&mut context, from.address) == 0'",
+        );
+      });
+
+      it('unshield to blacklisted account', async () => {
+        await wallets[0].addMint(getMembershipMint(await getMembershipProof(accounts[3].address.toBigInt(), true)));
+        await wallets[0].addMint(getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), true)));
+        await expect(
+          asset.methods.unshield(accounts[0].address, accounts[3].address, 1n, 0).simulate(),
+        ).rejects.toThrowError(
+          "Assertion failed: Blacklisted: Recipient 'SlowMap::at(addr).read_at(&mut context, to.address) == 0'",
+        );
+      });
     });
   });
 
@@ -1022,6 +1092,12 @@ describe('e2e_blacklist_token_contract', () => {
           await expect(
             asset.withWallet(wallets[1]).methods.burn_public(accounts[0].address, amount, nonce).simulate(),
           ).rejects.toThrowError('Assertion failed: Message not authorized by account');
+        });
+
+        it('burn from blacklisted account', async () => {
+          await expect(asset.methods.burn_public(accounts[3].address, 1n, 0).simulate()).rejects.toThrowError(
+            "Assertion failed: Blacklisted: Sender 'SlowMap::at(addr).read_at_pub(context, from.address) == 0'",
+          );
         });
       });
     });
@@ -1140,6 +1216,13 @@ describe('e2e_blacklist_token_contract', () => {
 
           await expect(action.simulate()).rejects.toThrowError(
             `Unknown auth witness for message hash 0x${expectedMessageHash.toString('hex')}`,
+          );
+        });
+
+        it('burn from blacklisted account', async () => {
+          await wallets[0].addMint(getMembershipMint(await getMembershipProof(accounts[3].address.toBigInt(), true)));
+          await expect(asset.methods.burn(accounts[3].address, 1n, 0).simulate()).rejects.toThrowError(
+            "Assertion failed: Blacklisted: Sender 'SlowMap::at(addr).read_at(&mut context, from.address) == 0'",
           );
         });
       });
