@@ -111,7 +111,7 @@ void construct_pedersen_witnesses_bench(State& state) noexcept
     for (auto _ : state) {
         state.PauseTiming();
         auto builder = Builder(static_cast<size_t>(state.range(0)));
-        generate_test_pedersen_hash_buffer_circuit(builder, static_cast<size_t>(state.range(0)));
+        generate_test_pedersen_hash_circuit(builder, static_cast<size_t>(state.range(0)));
         std::cout << "builder gates = " << builder.get_num_gates() << std::endl;
 
         auto composer = Composer();
