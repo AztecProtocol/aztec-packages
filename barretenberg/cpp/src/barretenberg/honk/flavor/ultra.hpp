@@ -199,6 +199,54 @@ class Ultra {
         DataType& z_perm_shift = std::get<41>(this->_data);
         DataType& z_lookup_shift = std::get<42>(this->_data);
 
+        auto get_pointer_array()
+        {
+            return std::array{
+                &q_c,
+                &q_l,
+                &q_r,
+                &q_o,
+                &q_4,
+                &q_m,
+                &q_arith,
+                &q_sort,
+                &q_elliptic,
+                &q_aux,
+                &q_lookup,
+                &sigma_1,
+                &sigma_2,
+                &sigma_3,
+                &sigma_4,
+                &id_1,
+                &id_2,
+                &id_3,
+                &id_4,
+                &table_1,
+                &table_2,
+                &table_3,
+                &table_4,
+                &lagrange_first,
+                &lagrange_last,
+                &w_l,
+                &w_r,
+                &w_o,
+                &w_4,
+                &sorted_accum,
+                &z_perm,
+                &z_lookup,
+                &table_1_shift,
+                &table_2_shift,
+                &table_3_shift,
+                &table_4_shift,
+                &w_l_shift,
+                &w_r_shift,
+                &w_o_shift,
+                &w_4_shift,
+                &sorted_accum_shift,
+                &z_perm_shift,
+                &z_lookup_shift,
+            };
+        }
         std::vector<HandleType> get_wires() override { return { w_l, w_r, w_o, w_4 }; };
         // Gemini-specific getters.
         std::vector<HandleType> get_unshifted() override
@@ -293,12 +341,13 @@ class Ultra {
      */
     class ProverPolynomials : public AllEntities<PolynomialHandle, PolynomialHandle> {
       public:
-        AllValues get_row(const size_t row_idx) const
+        AllValues get_row(const size_t row_idx)
         {
             AllValues result;
+            auto result_pointers = result.get_pointer_array();
             size_t column_idx = 0; // TODO(https://github.com/AztecProtocol/barretenberg/issues/391) zip
-            for (auto& column : this->_data) {
-                result[column_idx] = column[row_idx];
+            for (auto* column : get_pointer_array()) {
+                *result[column_idx] = (*column)[row_idx];
                 column_idx++;
             }
             return result;
