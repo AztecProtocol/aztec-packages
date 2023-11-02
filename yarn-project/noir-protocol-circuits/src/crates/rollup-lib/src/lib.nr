@@ -10,5 +10,3 @@ mod merge;
 mod root;
 
 mod components;
-
-mod root;
