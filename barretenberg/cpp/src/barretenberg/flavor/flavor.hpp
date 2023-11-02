@@ -75,12 +75,12 @@
 
 namespace proof_system::honk::flavor {
 
-#define DEFINE_GET_REF_ARRAY(...)                                                                                      \
-    [[nodiscard]] auto get_ref_array()                                                                                 \
+#define DEFINE_GET_POINTER_ARRAY(...)                                                                                  \
+    [[nodiscard]] auto get_pointer_array()                                                                             \
     {                                                                                                                  \
         return std::array{ __VA_ARGS__ };                                                                              \
     }                                                                                                                  \
-    [[nodiscard]] auto get_ref_array() const                                                                           \
+    [[nodiscard]] auto get_pointer_array() const                                                                       \
     {                                                                                                                  \
         return std::array{ __VA_ARGS__ };                                                                              \
     }
