@@ -1,6 +1,5 @@
-#include "translator_decomposition_relation.hpp"
+#include "barretenberg/proof_system/relations/translator_vm/translator_decomposition_relation.hpp"
 #include "barretenberg/flavor/goblin_translator.hpp"
-#include "barretenberg/flavor/relation_definitions_fwd.hpp"
 
 namespace proof_system {
 
