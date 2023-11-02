@@ -1,4 +1,4 @@
-use crate::address::Address;
+use dep::private_kernel_lib::address::Address;
 use dep::aztec::{
     constants_gen,
     constants_gen::{GENERATOR_INDEX__PUBLIC_LEAF_INDEX},

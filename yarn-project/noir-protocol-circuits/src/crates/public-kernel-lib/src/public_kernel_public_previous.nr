@@ -1,4 +1,5 @@
-use crate::abis::PublicCallData;
+use dep::private_kernel_lib::abis::PublicCallData;
+use dep::private_kernel_lib::abis::previous_kernel_data::PreviousKernelData;
 use crate::common;
 // translated from cpp impl in 
 // aztec-packages/circuits/cpp/src/aztec3/circuits/kernel/public/native_public_kernel_circuit_public_previous_kernel.cpp

@@ -1,7 +1,7 @@
-use crate::address::{Address, EthAddress};
-use crate::utils::bounded_vec:BoundedVec;
 use dep::aztec::constants_gen::{MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL};
-use crate::abis::call_stack_item::PublicCallStackItem;
+use dep::private_kernel_lib::address::{Address, EthAddress};
+use dep::private_kernel_lib::utils::bounded_vec:BoundedVec;
+use dep::private_kernel_lib::abis::call_stack_item::PublicCallStackItem;
 
 struct PublicCallData {
     call_stack_item: PublicCallStackItem,
