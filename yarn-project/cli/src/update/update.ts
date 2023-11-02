@@ -27,10 +27,10 @@ export async function update(
     throw new Error(`Invalid aztec version ${sandboxVersion}`);
   }
 
-  let currentSandboxVersion = await getNpmSandboxVersion(projectPath);
+  let currentSandboxVersion = await getNpmSandboxVersion(projectPath, log);
 
   if (!currentSandboxVersion) {
-    currentSandboxVersion = await getRemoteSandboxVersion(pxeUrl, debugLog);
+    currentSandboxVersion = await getRemoteSandboxVersion(pxeUrl, log, debugLog);
 
     if (currentSandboxVersion && lt(currentSandboxVersion, targetSandboxVersion)) {
       log(`
@@ -57,9 +57,22 @@ Once the container is restarted, run the \`aztec-cli update\` command again`);
 
   const contractChanges: DependencyChanges[] = [];
   for (const contract of contracts) {
-    contractChanges.push(
-      await updateAztecNr(resolve(projectPath, contract), `${GITHUB_TAG_PREFIX}-v${targetSandboxVersion.version}`, log),
-    );
+    try {
+      contractChanges.push(
+        await updateAztecNr(
+          resolve(projectPath, contract),
+          `${GITHUB_TAG_PREFIX}-v${targetSandboxVersion.version}`,
+          log,
+        ),
+      );
+    } catch (err) {
+      if (err instanceof Error && 'code' in err && err.code === 'ENOENT') {
+        log(`No Nargo.toml found in ${relative(process.cwd(), contract)}. Skipping...`);
+        process.exit(1);
+      }
+
+      throw err;
+    }
   }
 
   printChanges(npmChanges, log);
@@ -80,15 +93,33 @@ function printChanges(changes: DependencyChanges, log: LogFn): void {
   }
 }
 
-async function getNpmSandboxVersion(projectPath: string): Promise<SemVer | null> {
-  const pkg = await readPackageJson(projectPath);
-  // use coerce instead of parse because it eliminates semver operators like ~ and ^
-  return coerce(pkg.dependencies?.[SANDBOX_PACKAGE]);
+async function getNpmSandboxVersion(projectPath: string, log: LogFn): Promise<SemVer | null> {
+  try {
+    const pkg = await readPackageJson(projectPath);
+    // use coerce instead of parse because it eliminates semver operators like ~ and ^
+    return coerce(pkg.dependencies?.[SANDBOX_PACKAGE]);
+  } catch (err) {
+    if (err instanceof Error && 'code' in err && err.code === 'ENOENT') {
+      log(`No package.json found in ${projectPath}`);
+      process.exit(1);
+    }
+
+    throw err;
+  }
 }
 
-async function getRemoteSandboxVersion(pxeUrl: string, debugLog: DebugLogger): Promise<SemVer | null> {
-  const client = await createCompatibleClient(pxeUrl, debugLog);
-  const nodeInfo = await client.getNodeInfo();
+async function getRemoteSandboxVersion(pxeUrl: string, log: LogFn, debugLog: DebugLogger): Promise<SemVer | null> {
+  try {
+    const client = await createCompatibleClient(pxeUrl, debugLog);
+    const nodeInfo = await client.getNodeInfo();
 
-  return parse(nodeInfo.sandboxVersion);
+    return parse(nodeInfo.sandboxVersion);
+  } catch (err) {
+    if (err instanceof Error && err.message === 'fetch failed') {
+      log(`Could not connect to Sandbox running on ${pxeUrl}`);
+      process.exit(1);
+    }
+
+    throw err;
+  }
 }
