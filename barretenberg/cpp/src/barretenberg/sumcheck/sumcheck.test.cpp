@@ -136,9 +136,9 @@ TEST_F(SumcheckTests, PolynomialNormalization)
     FF l_7 = (      u_0) * (      u_1) * (      u_2);
     // clang-format on
     FF hand_computed_value;
-    auto partially_evaluated_polynomials_array = sumcheck.partially_evaluated_polynomials.get_ref_array();
+    auto partially_evaluated_polynomials_array = sumcheck.partially_evaluated_polynomials.get_pointer_array();
     size_t i = 0;
-    for (auto* full_polynomial_pointer : full_polynomials.get_ref_array()) {
+    for (auto* full_polynomial_pointer : full_polynomials.get_pointer_array()) {
         // full_polynomials[0][0] = w_l[0], full_polynomials[1][1] = w_r[1], and so on.
         hand_computed_value = l_0 * (*full_polynomial_pointer)[0] + l_1 * (*full_polynomial_pointer)[1] +
                               l_2 * (*full_polynomial_pointer)[2] + l_3 * (*full_polynomial_pointer)[3] +

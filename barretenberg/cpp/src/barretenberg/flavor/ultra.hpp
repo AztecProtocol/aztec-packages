@@ -341,7 +341,7 @@ class Ultra {
         [[nodiscard]] AllValues get_row(const size_t row_idx) const
         {
             AllValues result;
-            for (auto [result_field, polynomial] : zip_view(result.get_ref_array(), get_ref_array())) {
+            for (auto [result_field, polynomial] : zip_view(result.get_pointer_array(), get_pointer_array())) {
                 *result_field = (*polynomial)[row_idx];
             }
             return result;

@@ -338,7 +338,7 @@ template <typename Flavor> class ECCVMCircuitBuilder {
         size_t num_rows_pow2 = 1UL << (num_rows_log2 + (1UL << num_rows_log2 == num_rows ? 0 : 1));
 
         AllPolynomials polys;
-        // auto poly_pointers = polys.get_ref_array();
+        // auto poly_pointers = polys.get_pointer_array();
         for (size_t j = 0; j < NUM_POLYNOMIALS; ++j) {
             // TODO(array)
             // poly_pointers[j] = Polynomial(num_rows_pow2);
