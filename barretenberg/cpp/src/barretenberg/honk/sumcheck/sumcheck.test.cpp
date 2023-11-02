@@ -104,7 +104,7 @@ TEST_F(SumcheckTests, PolynomialNormalization)
     info(full_polynomials.w_l[2]);
     info(full_polynomials.w_l[3]);
 
-    auto transcript = ProverTranscript<FF>::init_empty();
+    Flavor::Transcript transcript = Flavor::Transcript::prover_init_empty();
 
     auto sumcheck = SumcheckProver<Flavor>(multivariate_n, transcript);
 
@@ -169,7 +169,7 @@ TEST_F(SumcheckTests, Prover)
     }
     auto full_polynomials = construct_ultra_full_polynomials(random_polynomials);
 
-    auto transcript = ProverTranscript<FF>::init_empty();
+    Flavor::Transcript transcript = Flavor::Transcript::prover_init_empty();
 
     auto sumcheck = SumcheckProver<Flavor>(multivariate_n, transcript);
 
@@ -243,13 +243,13 @@ TEST_F(SumcheckTests, ProverAndVerifierSimple)
             .public_input_delta = FF::one(),
         };
 
-        auto prover_transcript = ProverTranscript<FF>::init_empty();
+        Flavor::Transcript prover_transcript = Flavor::Transcript::prover_init_empty();
 
         auto sumcheck_prover = SumcheckProver<Flavor>(multivariate_n, prover_transcript);
 
         auto prover_output = sumcheck_prover.prove(full_polynomials, relation_parameters);
 
-        auto verifier_transcript = VerifierTranscript<FF>::init_empty(prover_transcript);
+        Flavor::Transcript verifier_transcript = Flavor::Transcript::verifier_init_empty(prover_transcript);
 
         auto sumcheck_verifier = SumcheckVerifier<Flavor>(multivariate_n);
 
@@ -327,11 +327,7 @@ TEST_F(SumcheckTests, RealCircuitUltra)
     grumpkin::g1::affine_element p1 = grumpkin::g1::affine_element::random_element();
     grumpkin::g1::affine_element p2 = grumpkin::g1::affine_element::random_element();
 
-    grumpkin::fq beta_scalar = grumpkin::fq::cube_root_of_unity();
-    grumpkin::g1::affine_element p2_endo = p2;
-    p2_endo.x *= beta_scalar;
-
-    grumpkin::g1::affine_element p3(grumpkin::g1::element(p1) - grumpkin::g1::element(p2_endo));
+    grumpkin::g1::affine_element p3(grumpkin::g1::element(p1) + grumpkin::g1::element(p2));
 
     uint32_t x1 = builder.add_variable(p1.x);
     uint32_t y1 = builder.add_variable(p1.y);
@@ -340,7 +336,7 @@ TEST_F(SumcheckTests, RealCircuitUltra)
     uint32_t x3 = builder.add_variable(p3.x);
     uint32_t y3 = builder.add_variable(p3.y);
 
-    builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, beta_scalar, -1 });
+    builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, 1 });
 
     // Add some RAM gates
     uint32_t ram_values[8]{
@@ -400,14 +396,14 @@ TEST_F(SumcheckTests, RealCircuitUltra)
     instance->compute_sorted_accumulator_polynomials(eta);
     instance->compute_grand_product_polynomials(beta, gamma);
 
-    auto prover_transcript = ProverTranscript<FF>::init_empty();
+    Flavor::Transcript prover_transcript = Flavor::Transcript::prover_init_empty();
     auto circuit_size = instance->proving_key->circuit_size;
 
     auto sumcheck_prover = SumcheckProver<Flavor>(circuit_size, prover_transcript);
 
     auto prover_output = sumcheck_prover.prove(instance->prover_polynomials, instance->relation_parameters);
 
-    auto verifier_transcript = VerifierTranscript<FF>::init_empty(prover_transcript);
+    Flavor::Transcript verifier_transcript = Flavor::Transcript::verifier_init_empty(prover_transcript);
 
     auto sumcheck_verifier = SumcheckVerifier<Flavor>(circuit_size);
 
