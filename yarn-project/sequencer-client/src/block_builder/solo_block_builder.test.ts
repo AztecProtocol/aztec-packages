@@ -358,6 +358,7 @@ describe('sequencer/solo_block_builder', () => {
         makeEmptyProcessedTx(),
         makeEmptyProcessedTx(),
       ]);
+      console.log(txs);
 
       const [l2Block] = await builder.buildL2Block(globalVariables, txs, mockL1ToL2Messages);
       expect(l2Block.number).toEqual(blockNumber);
