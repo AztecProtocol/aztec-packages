@@ -21,12 +21,14 @@ TESTS=(
   crypto_pedersen_commitment_tests
   crypto_pedersen_hash_tests
   ecc_tests
+  flavor_tests
   numeric_tests
   plonk_tests
   polynomials_tests
   join_split_example_proofs_inner_proof_data_tests
   join_split_example_proofs_notes_tests
   srs_tests
+  sumcheck_tests
   transcript_tests
   dsl_tests
 )

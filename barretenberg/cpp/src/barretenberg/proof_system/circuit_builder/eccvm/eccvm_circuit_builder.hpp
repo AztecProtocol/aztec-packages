@@ -1,13 +1,12 @@
 #pragma once
 
 #include "./eccvm_builder_types.hpp"
-#include "barretenberg/ecc/curves/bn254/fr.hpp"
-#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-
 #include "./msm_builder.hpp"
 #include "./precomputed_tables_builder.hpp"
 #include "./transcript_builder.hpp"
-#include "barretenberg/honk/flavor/ecc_vm.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/flavor/ecc_vm.hpp"
 #include "barretenberg/honk/proof_system/lookup_library.hpp"
 #include "barretenberg/honk/proof_system/permutation_library.hpp"
 #include "barretenberg/proof_system/relations/relation_parameters.hpp"

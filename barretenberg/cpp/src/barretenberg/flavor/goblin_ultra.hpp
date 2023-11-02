@@ -1,13 +1,10 @@
 #pragma once
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
-#include "barretenberg/ecc/curves/bn254/g1.hpp"
-#include "barretenberg/polynomials/barycentric.hpp"
-#include "barretenberg/polynomials/evaluation_domain.hpp"
-#include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
-#include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
-#include "barretenberg/proof_system/flavor/flavor.hpp"
+#include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
 #include "barretenberg/proof_system/relations/auxiliary_relation.hpp"
+#include "barretenberg/proof_system/relations/ecc_op_queue_relation.hpp"
 #include "barretenberg/proof_system/relations/elliptic_relation.hpp"
 #include "barretenberg/proof_system/relations/gen_perm_sort_relation.hpp"
 #include "barretenberg/proof_system/relations/lookup_relation.hpp"
@@ -17,9 +14,9 @@
 
 namespace proof_system::honk::flavor {
 
-class Ultra {
+class GoblinUltra {
   public:
-    using CircuitBuilder = UltraCircuitBuilder;
+    using CircuitBuilder = GoblinUltraCircuitBuilder;
     using Curve = curve::BN254;
     using FF = Curve::ScalarField;
     using GroupElement = Curve::Element;
@@ -35,27 +32,27 @@ class Ultra {
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
     // Note: this number does not include the individual sorted list polynomials.
-    static constexpr size_t NUM_ALL_ENTITIES = 43;
+    static constexpr size_t NUM_ALL_ENTITIES = 48; // 43 (UH) + 4 op wires + 1 op wire "selector"
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 25;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 26; // 25 (UH) + 1 op wire "selector"
     // The total number of witness entities not including shifts.
-    static constexpr size_t NUM_WITNESS_ENTITIES = 11;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 15; // 11 (UH) + 4 op wires
 
     using GrandProductRelations =
         std::tuple<proof_system::UltraPermutationRelation<FF>, proof_system::LookupRelation<FF>>;
+
     // define the tuple of Relations that comprise the Sumcheck relation
     using Relations = std::tuple<proof_system::UltraArithmeticRelation<FF>,
                                  proof_system::UltraPermutationRelation<FF>,
                                  proof_system::LookupRelation<FF>,
                                  proof_system::GenPermSortRelation<FF>,
                                  proof_system::EllipticRelation<FF>,
-                                 proof_system::AuxiliaryRelation<FF>>;
+                                 proof_system::AuxiliaryRelation<FF>,
+                                 proof_system::EccOpQueueRelation<FF>>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
     static constexpr size_t MAX_TOTAL_RELATION_LENGTH = compute_max_total_relation_length<Relations>();
-    static_assert(MAX_PARTIAL_RELATION_LENGTH == 6);
-    static_assert(MAX_TOTAL_RELATION_LENGTH == 12);
 
     // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
     // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
@@ -106,6 +103,7 @@ class Ultra {
         DataType& table_4 = std::get<22>(this->_data);
         DataType& lagrange_first = std::get<23>(this->_data);
         DataType& lagrange_last = std::get<24>(this->_data);
+        DataType& lagrange_ecc_op = std::get<25>(this->_data); // indicator poly for ecc op gates
 
         static constexpr CircuitType CIRCUIT_TYPE = CircuitBuilder::CIRCUIT_TYPE;
 
@@ -137,8 +135,16 @@ class Ultra {
         DataType& sorted_accum = std::get<8>(this->_data);
         DataType& z_perm = std::get<9>(this->_data);
         DataType& z_lookup = std::get<10>(this->_data);
+        DataType& ecc_op_wire_1 = std::get<11>(this->_data);
+        DataType& ecc_op_wire_2 = std::get<12>(this->_data);
+        DataType& ecc_op_wire_3 = std::get<13>(this->_data);
+        DataType& ecc_op_wire_4 = std::get<14>(this->_data);
 
         std::vector<HandleType> get_wires() override { return { w_l, w_r, w_o, w_4 }; };
+        std::vector<HandleType> get_ecc_op_wires()
+        {
+            return { ecc_op_wire_1, ecc_op_wire_2, ecc_op_wire_3, ecc_op_wire_4 };
+        };
         // The sorted concatenations of table and witness data needed for plookup.
         std::vector<HandleType> get_sorted_polynomials() { return { sorted_1, sorted_2, sorted_3, sorted_4 }; };
     };
@@ -180,83 +186,87 @@ class Ultra {
         DataType& table_4 = std::get<22>(this->_data);
         DataType& lagrange_first = std::get<23>(this->_data);
         DataType& lagrange_last = std::get<24>(this->_data);
-        DataType& w_l = std::get<25>(this->_data);
-        DataType& w_r = std::get<26>(this->_data);
-        DataType& w_o = std::get<27>(this->_data);
-        DataType& w_4 = std::get<28>(this->_data);
-        DataType& sorted_accum = std::get<29>(this->_data);
-        DataType& z_perm = std::get<30>(this->_data);
-        DataType& z_lookup = std::get<31>(this->_data);
-        DataType& table_1_shift = std::get<32>(this->_data);
-        DataType& table_2_shift = std::get<33>(this->_data);
-        DataType& table_3_shift = std::get<34>(this->_data);
-        DataType& table_4_shift = std::get<35>(this->_data);
-        DataType& w_l_shift = std::get<36>(this->_data);
-        DataType& w_r_shift = std::get<37>(this->_data);
-        DataType& w_o_shift = std::get<38>(this->_data);
-        DataType& w_4_shift = std::get<39>(this->_data);
-        DataType& sorted_accum_shift = std::get<40>(this->_data);
-        DataType& z_perm_shift = std::get<41>(this->_data);
-        DataType& z_lookup_shift = std::get<42>(this->_data);
+        DataType& lagrange_ecc_op = std::get<25>(this->_data);
+        DataType& w_l = std::get<26>(this->_data);
+        DataType& w_r = std::get<27>(this->_data);
+        DataType& w_o = std::get<28>(this->_data);
+        DataType& w_4 = std::get<29>(this->_data);
+        DataType& sorted_accum = std::get<30>(this->_data);
+        DataType& z_perm = std::get<31>(this->_data);
+        DataType& z_lookup = std::get<32>(this->_data);
+        DataType& ecc_op_wire_1 = std::get<33>(this->_data);
+        DataType& ecc_op_wire_2 = std::get<34>(this->_data);
+        DataType& ecc_op_wire_3 = std::get<35>(this->_data);
+        DataType& ecc_op_wire_4 = std::get<36>(this->_data);
+        DataType& table_1_shift = std::get<37>(this->_data);
+        DataType& table_2_shift = std::get<38>(this->_data);
+        DataType& table_3_shift = std::get<39>(this->_data);
+        DataType& table_4_shift = std::get<40>(this->_data);
+        DataType& w_l_shift = std::get<41>(this->_data);
+        DataType& w_r_shift = std::get<42>(this->_data);
+        DataType& w_o_shift = std::get<43>(this->_data);
+        DataType& w_4_shift = std::get<44>(this->_data);
+        DataType& sorted_accum_shift = std::get<45>(this->_data);
+        DataType& z_perm_shift = std::get<46>(this->_data);
+        DataType& z_lookup_shift = std::get<47>(this->_data);
 
         [[nodiscard]] auto get_pointer_array() const
         {
             return std::array{
-                &q_c,
-                &q_l,
-                &q_r,
-                &q_o,
-                &q_4,
-                &q_m,
-                &q_arith,
-                &q_sort,
-                &q_elliptic,
-                &q_aux,
-                &q_lookup,
-                &sigma_1,
-                &sigma_2,
-                &sigma_3,
-                &sigma_4,
-                &id_1,
-                &id_2,
-                &id_3,
-                &id_4,
-                &table_1,
-                &table_2,
-                &table_3,
-                &table_4,
-                &lagrange_first,
-                &lagrange_last,
-                &w_l,
-                &w_r,
-                &w_o,
-                &w_4,
-                &sorted_accum,
-                &z_perm,
-                &z_lookup,
-                &table_1_shift,
-                &table_2_shift,
-                &table_3_shift,
-                &table_4_shift,
-                &w_l_shift,
-                &w_r_shift,
-                &w_o_shift,
-                &w_4_shift,
-                &sorted_accum_shift,
-                &z_perm_shift,
-                &z_lookup_shift,
+                &q_c,           &q_l,
+                &q_r,           &q_o,
+                &q_4,           &q_m,
+                &q_arith,       &q_sort,
+                &q_elliptic,    &q_aux,
+                &q_lookup,      &sigma_1,
+                &sigma_2,       &sigma_3,
+                &sigma_4,       &id_1,
+                &id_2,          &id_3,
+                &id_4,          &table_1,
+                &table_2,       &table_3,
+                &table_4,       &lagrange_first,
+                &lagrange_last, &lagrange_ecc_op,
+                &w_l,           &w_r,
+                &w_o,           &w_4,
+                &sorted_accum,  &z_perm,
+                &z_lookup,      &ecc_op_wire_1,
+                &ecc_op_wire_2, &ecc_op_wire_3,
+                &ecc_op_wire_4, &table_1_shift,
+                &table_2_shift, &table_3_shift,
+                &table_4_shift, &w_l_shift,
+                &w_r_shift,     &w_o_shift,
+                &w_4_shift,     &sorted_accum_shift,
+                &z_perm_shift,  &z_lookup_shift,
             };
         }
+
         std::vector<HandleType> get_wires() override { return { w_l, w_r, w_o, w_4 }; };
+        std::vector<HandleType> get_ecc_op_wires()
+        {
+            return { ecc_op_wire_1, ecc_op_wire_2, ecc_op_wire_3, ecc_op_wire_4 };
+        };
         // Gemini-specific getters.
         std::vector<HandleType> get_unshifted() override
         {
-            return { q_c,           q_l,   q_r,      q_o,     q_4,     q_m,          q_arith, q_sort,
-                     q_elliptic,    q_aux, q_lookup, sigma_1, sigma_2, sigma_3,      sigma_4, id_1,
-                     id_2,          id_3,  id_4,     table_1, table_2, table_3,      table_4, lagrange_first,
-                     lagrange_last, w_l,   w_r,      w_o,     w_4,     sorted_accum, z_perm,  z_lookup
-
-            };
+            return { q_c,           q_l,
+                     q_r,           q_o,
+                     q_4,           q_m,
+                     q_arith,       q_sort,
+                     q_elliptic,    q_aux,
+                     q_lookup,      sigma_1,
+                     sigma_2,       sigma_3,
+                     sigma_4,       id_1,
+                     id_2,          id_3,
+                     id_4,          table_1,
+                     table_2,       table_3,
+                     table_4,       lagrange_first,
+                     lagrange_last, lagrange_ecc_op,
+                     w_l,           w_r,
+                     w_o,           w_4,
+                     sorted_accum,  z_perm,
+                     z_lookup,      ecc_op_wire_1,
+                     ecc_op_wire_2, ecc_op_wire_3,
+                     ecc_op_wire_4 };
         };
         std::vector<HandleType> get_to_be_shifted() override
         {
@@ -311,6 +321,8 @@ class Ultra {
         std::vector<uint32_t> memory_read_records;
         std::vector<uint32_t> memory_write_records;
 
+        size_t num_ecc_op_gates; // needed to determine public input offset
+
         // The plookup wires that store plookup read data.
         std::array<PolynomialHandle, 3> get_table_column_wires() { return { w_l, w_r, w_o }; };
     };
@@ -324,36 +336,6 @@ class Ultra {
      * circuits.
      */
     using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment, CommitmentHandle>>;
-
-    /**
-     * @brief A field element for each entity of the flavor. These entities represent the prover polynomials evaluated
-     * at one point.
-     */
-    class AllValues : public AllEntities<FF, FF> {
-      public:
-        using Base = AllEntities<FF, FF>;
-        using Base::Base;
-        AllValues(std::array<FF, NUM_ALL_ENTITIES> _data_in) { this->_data = _data_in; }
-    };
-
-    /**
-     * @brief A container for polynomials handles; only stores spans.
-     */
-    class ProverPolynomials : public AllEntities<PolynomialHandle, PolynomialHandle> {
-      public:
-        [[nodiscard]] size_t get_polynomial_size() const { return q_c.size(); }
-        [[nodiscard]] AllValues get_row(const size_t row_idx) const
-        {
-            AllValues result;
-            auto result_pointers = result.get_pointer_array();
-            size_t column_idx = 0; // TODO(https://github.com/AztecProtocol/barretenberg/issues/391) zip
-            for (auto* column : get_pointer_array()) {
-                *(result_pointers[column_idx]) = (*column)[row_idx];
-                column_idx++;
-            }
-            return result;
-        }
-    };
 
     /**
      * @brief A container for storing the partially evaluated multivariates produced by sumcheck.
@@ -384,6 +366,36 @@ class Ultra {
     using ExtendedEdges = ProverUnivariates<MAX_PARTIAL_RELATION_LENGTH>;
 
     /**
+     * @brief A field element for each entity of the flavor. These entities represent the prover polynomials evaluated
+     * at one point.
+     */
+    class AllValues : public AllEntities<FF, FF> {
+      public:
+        using Base = AllEntities<FF, FF>;
+        using Base::Base;
+        AllValues(std::array<FF, NUM_ALL_ENTITIES> _data_in) { this->_data = _data_in; }
+    };
+
+    /**
+     * @brief A container for the prover polynomials handles; only stores spans.
+     */
+    class ProverPolynomials : public AllEntities<PolynomialHandle, PolynomialHandle> {
+      public:
+        [[nodiscard]] size_t get_polynomial_size() const { return q_c.size(); }
+        [[nodiscard]] AllValues get_row(const size_t row_idx) const
+        {
+            AllValues result;
+            auto result_pointer_array = result.get_pointer_array();
+            size_t column_idx = 0; // TODO(https://github.com/AztecProtocol/barretenberg/issues/391) zip
+            for (auto* member_pointer : get_pointer_array()) {
+                *(result_pointer_array[column_idx]) = (*member_pointer)[row_idx];
+                column_idx++;
+            }
+            return result;
+        }
+    };
+
+    /**
      * @brief A container for commitment labels.
      * @note It's debatable whether this should inherit from AllEntities. since most entries are not strictly needed. It
      * has, however, been useful during debugging to have these labels available.
@@ -400,6 +412,10 @@ class Ultra {
             z_perm = "Z_PERM";
             z_lookup = "Z_LOOKUP";
             sorted_accum = "SORTED_ACCUM";
+            ecc_op_wire_1 = "ECC_OP_WIRE_1";
+            ecc_op_wire_2 = "ECC_OP_WIRE_2";
+            ecc_op_wire_3 = "ECC_OP_WIRE_3";
+            ecc_op_wire_4 = "ECC_OP_WIRE_4";
 
             // The ones beginning with "__" are only used for debugging
             q_c = "__Q_C";
@@ -427,6 +443,7 @@ class Ultra {
             table_4 = "__TABLE_4";
             lagrange_first = "__LAGRANGE_FIRST";
             lagrange_last = "__LAGRANGE_LAST";
+            lagrange_ecc_op = "__Q_ECC_OP_QUEUE";
         };
     };
 
@@ -461,6 +478,7 @@ class Ultra {
             table_4 = verification_key->table_4;
             lagrange_first = verification_key->lagrange_first;
             lagrange_last = verification_key->lagrange_last;
+            lagrange_ecc_op = verification_key->lagrange_ecc_op;
         }
     };
 
@@ -471,12 +489,11 @@ class Ultra {
     };
 
     /**
-     * @brief Derived class that defines proof structure for Ultra proofs, as well as supporting functions.
+     * @brief Derived class that defines proof structure for GoblinUltra proofs, as well as supporting functions.
      *
      */
     class Transcript : public BaseTranscript<FF> {
       public:
-        // Transcript objects defined as public member variables for easy access and modification
         uint32_t circuit_size;
         uint32_t public_input_size;
         uint32_t pub_inputs_offset;
@@ -484,6 +501,10 @@ class Ultra {
         Commitment w_l_comm;
         Commitment w_r_comm;
         Commitment w_o_comm;
+        Commitment ecc_op_wire_1_comm;
+        Commitment ecc_op_wire_2_comm;
+        Commitment ecc_op_wire_3_comm;
+        Commitment ecc_op_wire_4_comm;
         Commitment sorted_accum_comm;
         Commitment w_4_comm;
         Commitment z_perm_comm;
@@ -496,31 +517,9 @@ class Ultra {
 
         Transcript() = default;
 
-        // Used by verifier to initialize the transcript
         Transcript(const std::vector<uint8_t>& proof)
             : BaseTranscript<FF>(proof)
         {}
-
-        static Transcript prover_init_empty()
-        {
-            Transcript transcript;
-            constexpr uint32_t init{ 42 }; // arbitrary
-            transcript.send_to_verifier("Init", init);
-            return transcript;
-        };
-
-        static Transcript verifier_init_empty(const Transcript& transcript)
-        {
-            Transcript verifier_transcript{ transcript.proof_data };
-            [[maybe_unused]] auto _ = verifier_transcript.template receive_from_prover<uint32_t>("Init");
-            return verifier_transcript;
-        };
-
-        /**
-         * @brief Takes a FULL Ultra proof and deserializes it into the public member variables that compose the
-         * structure. Must be called in order to access the structure of the proof.
-         *
-         */
         void deserialize_full_transcript() override
         {
             // take current proof and put them into the struct
@@ -536,6 +535,10 @@ class Ultra {
             w_l_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
             w_r_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
             w_o_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
+            ecc_op_wire_1_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
+            ecc_op_wire_2_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
+            ecc_op_wire_3_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
+            ecc_op_wire_4_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
             sorted_accum_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
             w_4_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
             z_perm_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
@@ -553,15 +556,11 @@ class Ultra {
             zm_cq_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
             zm_pi_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
         }
-        /**
-         * @brief Serializes the structure variables into a FULL Ultra proof. Should be called only if
-         * deserialize_full_transcript() was called and some transcript variable was modified.
-         *
-         */
+
         void serialize_full_transcript() override
         {
             size_t old_proof_length = proof_data.size();
-            proof_data.clear(); // clear proof_data so the rest of the function can replace it
+            proof_data.clear();
             size_t log_n = numeric::get_msb(circuit_size);
             serialize_to_buffer(circuit_size, proof_data);
             serialize_to_buffer(public_input_size, proof_data);
@@ -572,6 +571,10 @@ class Ultra {
             serialize_to_buffer(w_l_comm, proof_data);
             serialize_to_buffer(w_r_comm, proof_data);
             serialize_to_buffer(w_o_comm, proof_data);
+            serialize_to_buffer(ecc_op_wire_1_comm, proof_data);
+            serialize_to_buffer(ecc_op_wire_2_comm, proof_data);
+            serialize_to_buffer(ecc_op_wire_3_comm, proof_data);
+            serialize_to_buffer(ecc_op_wire_4_comm, proof_data);
             serialize_to_buffer(sorted_accum_comm, proof_data);
             serialize_to_buffer(w_4_comm, proof_data);
             serialize_to_buffer(z_perm_comm, proof_data);
@@ -586,7 +589,6 @@ class Ultra {
             serialize_to_buffer(zm_cq_comm, proof_data);
             serialize_to_buffer(zm_pi_comm, proof_data);
 
-            // sanity check to make sure we generate the same length of proof as before.
             ASSERT(proof_data.size() == old_proof_length);
         }
     };
