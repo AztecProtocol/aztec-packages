@@ -15,6 +15,7 @@ $BIN gates $FLAGS $BFLAG > /dev/null
 $BIN prove -o proof $FLAGS $BFLAG
 $BIN write_vk -o vk $FLAGS $BFLAG
 $BIN verify -k vk -p proof $FLAGS
+$BIN contract -k vk $FLAGS
 
 # Check supplemental functions.
 # Grep to determine success.
