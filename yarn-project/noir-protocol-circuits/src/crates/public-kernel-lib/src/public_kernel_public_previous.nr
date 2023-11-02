@@ -1,6 +1,9 @@
-use dep::private_kernel_lib::abis::PublicCallData;
-use dep::private_kernel_lib::abis::previous_kernel_data::PreviousKernelData;
+use crate::abis::public_call_data::PublicCallData;
+use dep::types::abis::previous_kernel_data::PreviousKernelData;
+use dep::types::KernelCircuitPublicInputs;
+use dep::types::abis::kernel_circuit_public_inputs::KernelCircuitPublicInputsBuilder;
 use crate::common;
+use dep::std::unsafe;
 // translated from cpp impl in 
 // aztec-packages/circuits/cpp/src/aztec3/circuits/kernel/public/native_public_kernel_circuit_public_previous_kernel.cpp
 
@@ -22,7 +25,7 @@ impl PublicKernelPublicPreviousInputs {
 
     fn public_kernel_public_previous(self) -> KernelCircuitPublicInputs {
         // construct the circuit outputs
-        let mut public_inputs: KernelCircuitPublicInputsBuilder = unsafe::zerod();
+        let mut public_inputs: KernelCircuitPublicInputsBuilder = unsafe::zeroed();
 
         // initialise the end state with our provided previous kernel state
         common::initialize_end_values(self.previous_kernel, &mut public_inputs);

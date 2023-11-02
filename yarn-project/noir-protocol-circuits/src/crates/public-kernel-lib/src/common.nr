@@ -1,14 +1,19 @@
-use dep::private_kernel_lib::abis::public_circuit_public_inputs::PublicCircuitPublicInputs;
-use dep::private_kernel_lib::abis::kernel_circuit_public_inputs::KernelCircuitPublicInputsBuilder;
-use dep::private_kernel_lib::utils::arrays;
-use dep::private_kernel_lib::abis::previous_kernel_data::PreviousKernelData;
-use dep::private_kernel_lib::abis::combined_accumulated_data::{CombinedAccumulatedData, CombinedAccumulatedDataBuilder};
-use dep::private_kernel_lib::hash::{compute_public_data_tree_index, compute_public_data_tree_value, silo_commitment, silo_nullifier, compute_l2_to_l1_hash};
-use dep::private_kernel_lib::address::Address;
-use dep::private_kernel_lib::abis::new_contract_data::NewContractData;
-use dep::private_kernel_lib::abis::complete_address::CompleteAddress;
-use dep::private_kernel_lib::utils::bounded_vec::BoundedVec;
-use crate::abis::public_kernel::public_call_data::PublicCallData;
+use dep::types::abis::public_circuit_public_inputs::PublicCircuitPublicInputs;
+use dep::types::abis::kernel_circuit_public_inputs::KernelCircuitPublicInputsBuilder;
+use dep::types::utils::arrays;
+use dep::types::abis::previous_kernel_data::PreviousKernelData;
+use dep::types::abis::combined_accumulated_data::{CombinedAccumulatedData, CombinedAccumulatedDataBuilder};
+use crate::hash::{compute_public_data_tree_index, compute_public_data_tree_value};
+use dep::types::hash::{silo_commitment, silo_nullifier, compute_l2_to_l1_hash};
+use dep::types::address::Address;
+use dep::types::abis::new_contract_data::NewContractData;
+use dep::types::abis::complete_address::CompleteAddress;
+use dep::types::utils::bounded_vec::BoundedVec;
+use crate::abis::public_call_data::PublicCallData;
+use dep::types::abis::call_stack_item::PublicCallStackItem;
+use dep::types::abis::public_data_update_request::PublicDataUpdateRequest;
+use dep::types::contrakt::storage_read::StorageRead;
+use dep::types::abis::public_data_read::PublicDataRead;
 
 use dep::aztec::constants_gen::{
     MAX_READ_REQUESTS_PER_CALL,

@@ -1,5 +1,6 @@
-use dep::private_kernel_lib::abis::PublicCallData;
-use dep::private_kernel_lib::abis::previous_kernel_data::PreviousKernelData;
+use crate::abis::public_call_data::PublicCallData;
+use dep::types::abis::previous_kernel_data::PreviousKernelData;
+use dep::types::abis::kernel_circuit_public_inputs::KernelCircuitPublicInputs;
 use crate::common;
 // translated from cpp impl in 
 // aztec-packages/circuits/cpp/src/aztec3/circuits/kernel/public/native_public_kernel_circuit_private_previous_kernel.cpp
@@ -14,8 +15,7 @@ impl PublicKernelPrivatePreviousInputs {
     fn validate_inputs(self) {
         let private_call_stack = self.previous_kernel.public_inputs.end.private_call_stack;
         assert(private_call_stack ==0,
-                      "Private call stack must be empty when executing in the public kernel (i.e. all private calls "
-                      "must have been completed)");
+                      "Private call stack must be empty when executing in the public kernel (i.e. all private calls must have been completed)");
 
         let previous_call_is_private = self.previous_kernel.public_inputs.is_private;
         assert(previous_call_is_private == true,

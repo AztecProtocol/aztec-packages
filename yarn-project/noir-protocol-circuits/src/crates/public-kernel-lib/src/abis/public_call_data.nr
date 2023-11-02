@@ -1,7 +1,8 @@
 use dep::aztec::constants_gen::{MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL};
-use dep::private_kernel_lib::address::{Address, EthAddress};
-use dep::private_kernel_lib::utils::bounded_vec:BoundedVec;
-use dep::private_kernel_lib::abis::call_stack_item::PublicCallStackItem;
+use dep::types::address::{Address, EthAddress};
+use dep::types::utils::bounded_vec::BoundedVec;
+use dep::types::abis::call_stack_item::PublicCallStackItem;
+use dep::types::mocked::Proof;
 
 struct PublicCallData {
     call_stack_item: PublicCallStackItem,

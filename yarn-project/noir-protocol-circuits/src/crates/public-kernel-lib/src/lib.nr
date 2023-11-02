@@ -7,5 +7,5 @@ mod hash;
 mod public_kernel_private_previous;
 mod public_kernel_public_previous;
 
-use public_kernel_private_previous::PublicKernelPrivatePrevious;
-use public_kernel_public_previous::PublicKernelPublicPrevious;
+use public_kernel_private_previous::PublicKernelPrivatePreviousInputs;
+use public_kernel_public_previous::PublicKernelPublicPreviousInputs;
