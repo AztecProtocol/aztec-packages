@@ -72,6 +72,7 @@ TYPED_TEST(PartialEvaluationTests, TwoRoundsSpecial)
 
     FF round_challenge_1 = 2;
     FF expected_val = expected_lo * (FF(1) - round_challenge_1) + expected_hi * round_challenge_1;
+    (void)expected_val;
 
     sumcheck.partially_evaluate(sumcheck.partially_evaluated_polynomials, multivariate_n >> 1, round_challenge_1);
     // EXPECT_EQ(sumcheck.partially_evaluated_polynomials[0][0], expected_val);
@@ -108,6 +109,7 @@ TYPED_TEST(PartialEvaluationTests, TwoRoundsGeneric)
 
     FF round_challenge_1 = FF::random_element();
     FF expected_val = expected_lo * (FF(1) - round_challenge_1) + expected_hi * round_challenge_1;
+    (void)expected_val;
     sumcheck.partially_evaluate(sumcheck.partially_evaluated_polynomials, multivariate_n >> 1, round_challenge_1);
     // EXPECT_EQ(sumcheck.partially_evaluated_polynomials[0][0], expected_val);
 }
@@ -181,6 +183,7 @@ TYPED_TEST(PartialEvaluationTests, ThreeRoundsSpecial)
 
     FF round_challenge_2 = 3;
     FF expected_val = expected_lo * (FF(1) - round_challenge_2) + expected_hi * round_challenge_2; // 18
+    (void)expected_val;
     sumcheck.partially_evaluate(sumcheck.partially_evaluated_polynomials, multivariate_n >> 2, round_challenge_2);
     // EXPECT_EQ(sumcheck.partially_evaluated_polynomials[0][0], expected_val);
 }
