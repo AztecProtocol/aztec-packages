@@ -61,7 +61,7 @@ pub fn validate_call_stack(private_call : PrivateCallData) {
         } else {
             preimage.hash()
         };
-        assert(hash == calculated_hash, "call stack item hash doesn't match preimage hash");
+        assert(hash == calculated_hash, "call stack item hash does not match preimage hash");
     }
 }
 
@@ -282,7 +282,7 @@ pub fn contract_logic(private_call : PrivateCallData, public_inputs : &mut Kerne
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/3062) VKs are mocked out for now
         // assert(contract_dep_data.constructor_vk_hash == private_call_vk_hash, "constructor_vk_hash doesn't match private_call_vk_hash");
         
-        assert(storage_contract_address.eq(new_contract_address), "contract address supplied doesn't match derived address");
+        assert(storage_contract_address.eq(new_contract_address), "contract address supplied does not match derived address");
 
         let new_contract_address_nullifier = compute_new_contract_address_hash(new_contract_address);
 
