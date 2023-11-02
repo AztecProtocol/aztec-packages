@@ -8,7 +8,7 @@ import {
   computeAuthWitMessageHash,
   computeMessageSecretHash,
 } from '@aztec/aztec.js';
-import { AztecAddress, CompleteAddress, EthAddress, Fr, FunctionSelector } from '@aztec/circuits.js';
+import { AztecAddress, CompleteAddress, Fr, FunctionSelector } from '@aztec/circuits.js';
 import { CircuitsWasm } from '@aztec/circuits.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { Pedersen, SparseTree, newTree } from '@aztec/merkle-tree';
