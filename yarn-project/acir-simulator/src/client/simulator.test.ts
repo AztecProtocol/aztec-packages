@@ -1,8 +1,8 @@
 import { CompleteAddress } from '@aztec/circuits.js';
 import { computeUniqueCommitment, siloCommitment } from '@aztec/circuits.js/abis';
-import { pedersenHashInputs } from '@aztec/circuits.js/barretenberg';
 import { ABIParameterVisibility } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { pedersenHash } from '@aztec/foundation/crypto';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import { TokenContractArtifact } from '@aztec/noir-contracts/artifacts';
 import { Note } from '@aztec/types';
@@ -20,7 +20,7 @@ describe('Simulator', () => {
   let owner: AztecAddress;
   const ownerPk = GrumpkinScalar.fromString('2dcc5485a58316776299be08c78fa3788a1a7961ae30dc747fb1be17692a8d32');
 
-  const hashFields = (data: Fr[]) => Fr.fromBuffer(pedersenHashInputs(data.map(f => f.toBuffer())));
+  const hashFields = (data: Fr[]) => Fr.fromBuffer(pedersenHash(data.map(f => f.toBuffer())));
 
   beforeAll(async () => {
     ownerCompleteAddress = await CompleteAddress.fromPrivateKeyAndPartialAddress(ownerPk, Fr.random());

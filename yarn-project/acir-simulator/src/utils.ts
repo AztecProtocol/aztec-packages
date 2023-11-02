@@ -1,5 +1,6 @@
 import { GrumpkinPrivateKey } from '@aztec/circuits.js';
-import { Grumpkin, pedersenHashInputs } from '@aztec/circuits.js/barretenberg';
+import { Grumpkin } from '@aztec/circuits.js/barretenberg';
+import { pedersenHash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 
 /**
@@ -23,7 +24,7 @@ export function computeSlotForMapping(mappingSlot: Fr, owner: NoirPoint | Fr) {
   const isFr = (owner: NoirPoint | Fr): owner is Fr => typeof (owner as Fr).value === 'bigint';
   const ownerField = isFr(owner) ? owner : new Fr(owner.x);
 
-  return Fr.fromBuffer(pedersenHashInputs([mappingSlot, ownerField].map(f => f.toBuffer())));
+  return Fr.fromBuffer(pedersenHash([mappingSlot, ownerField].map(f => f.toBuffer())));
 }
 
 /**

@@ -31,7 +31,6 @@ services:
     image: aztecprotocol/end-to-end:latest
     environment:
       BENCHMARK: 'true'
-      LOG_LEVEL: 'debug'
       DEBUG: ${DEBUG:-aztec:*}
       DEBUG_COLORS: 1
       ETHEREUM_HOST: http://fork:8545

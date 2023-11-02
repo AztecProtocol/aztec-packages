@@ -5,9 +5,9 @@ import {
   HistoricBlockData,
   L1_TO_L2_MSG_TREE_HEIGHT,
 } from '@aztec/circuits.js';
-import { pedersenHashInputs } from '@aztec/circuits.js/barretenberg';
 import { FunctionArtifact, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { pedersenHash } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import {
@@ -326,9 +326,9 @@ describe('ACIR public execution simulator', () => {
       // Assert the commitment was created
       expect(result.newCommitments.length).toEqual(1);
 
-      const expectedNoteHash = pedersenHashInputs([amount.toBuffer(), secretHash.toBuffer()]);
+      const expectedNoteHash = pedersenHash([amount.toBuffer(), secretHash.toBuffer()]);
       const storageSlot = new Fr(5); // for pending_shields
-      const expectedInnerNoteHash = pedersenHashInputs([storageSlot.toBuffer(), expectedNoteHash]);
+      const expectedInnerNoteHash = pedersenHash([storageSlot.toBuffer(), expectedNoteHash]);
       expect(result.newCommitments[0].toBuffer()).toEqual(expectedInnerNoteHash);
     });
 
@@ -356,7 +356,7 @@ describe('ACIR public execution simulator', () => {
       // Assert the l2 to l1 message was created
       expect(result.newL2ToL1Messages.length).toEqual(1);
 
-      const expectedNewMessageValue = pedersenHashInputs(params.map(a => a.toBuffer()));
+      const expectedNewMessageValue = pedersenHash(params.map(a => a.toBuffer()));
       expect(result.newL2ToL1Messages[0].toBuffer()).toEqual(expectedNewMessageValue);
     });
 
@@ -440,7 +440,7 @@ describe('ACIR public execution simulator', () => {
       // Assert the l2 to l1 message was created
       expect(result.newNullifiers.length).toEqual(1);
 
-      const expectedNewMessageValue = pedersenHashInputs(params.map(a => a.toBuffer()));
+      const expectedNewMessageValue = pedersenHash(params.map(a => a.toBuffer()));
       expect(result.newNullifiers[0].toBuffer()).toEqual(expectedNewMessageValue);
     });
   });

@@ -201,6 +201,12 @@ describe('abis wasm bindings', () => {
     expect(res).toMatchSnapshot();
   });
 
+  it('computes zero contract leaf', () => {
+    const cd = new NewContractData(AztecAddress.ZERO, AztecAddress.ZERO, new Fr(0n));
+    const res = computeContractLeaf(cd);
+    expect(res).toMatchSnapshot();
+  });
+
   it('compute tx hash', () => {
     const txRequest = makeTxRequest();
     const hash = computeTxHash(txRequest);

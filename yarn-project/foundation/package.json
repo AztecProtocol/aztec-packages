@@ -56,18 +56,6 @@
     "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
     "rootDir": "./src"
   },
-  "mocha": {
-    "extension": [
-      "ts"
-    ],
-    "node-option": [
-      "experimental-specifier-resolution=node",
-      "loader=ts-node/esm"
-    ],
-    "spec": [
-      "./src/crypto/pedersen/*.test.ts"
-    ]
-  },
   "dependencies": {
     "@aztec/bb.js": "portal:../../barretenberg/ts",
     "@koa/cors": "^4.0.0",
@@ -119,8 +107,6 @@
     "eslint-plugin-no-only-tests": "^3.1.0",
     "eslint-plugin-tsdoc": "^0.2.17",
     "jest": "^29.5.0",
-    "jest-light-runner": "^0.5.1",
-    "mocha": "^10.2.0",
     "prettier": "^2.7.1",
     "supertest": "^6.3.3",
     "ts-jest": "^29.1.0",

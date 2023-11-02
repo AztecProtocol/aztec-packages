@@ -1,6 +1,6 @@
 import { Fr, GeneratorIndex } from '@aztec/circuits.js';
-import { pedersenHashWithHashIndex } from '@aztec/circuits.js/barretenberg';
 import { padArrayEnd } from '@aztec/foundation/collection';
+import { pedersenHash } from '@aztec/foundation/crypto';
 import { FunctionCall, PackedArguments, emptyFunctionCall } from '@aztec/types';
 
 // These must match the values defined in yarn-project/aztec-nr/aztec/src/entrypoint.nr
@@ -69,7 +69,7 @@ export function buildPayload(calls: FunctionCall[]): {
 
 /** Hashes an entrypoint payload to a 32-byte buffer (useful for signing) */
 export function hashPayload(payload: EntrypointPayload) {
-  return pedersenHashWithHashIndex(
+  return pedersenHash(
     flattenPayload(payload).map(fr => fr.toBuffer()),
     GeneratorIndex.SIGNATURE_PAYLOAD,
   );

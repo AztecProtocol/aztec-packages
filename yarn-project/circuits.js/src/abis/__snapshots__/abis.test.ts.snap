@@ -200,6 +200,12 @@ Fr {
 }
 `;
 
+exports[`abis wasm bindings computes zero contract leaf 1`] = `
+Fr {
+  "value": 0n,
+}
+`;
+
 exports[`abis wasm bindings hashes VK 1`] = `
 {
   "data": [

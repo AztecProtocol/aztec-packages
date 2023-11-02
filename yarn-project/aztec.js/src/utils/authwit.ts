@@ -1,5 +1,5 @@
 import { AztecAddress, GeneratorIndex } from '@aztec/circuits.js';
-import { pedersenHashWithHashIndex } from '@aztec/circuits.js/barretenberg';
+import { pedersenHash } from '@aztec/foundation/crypto';
 import { FunctionCall, PackedArguments } from '@aztec/types';
 
 // docs:start:authwit_computeAuthWitMessageHash
@@ -11,7 +11,7 @@ import { FunctionCall, PackedArguments } from '@aztec/types';
  * @returns The message hash for the witness
  */
 export const computeAuthWitMessageHash = (caller: AztecAddress, request: FunctionCall) => {
-  return pedersenHashWithHashIndex(
+  return pedersenHash(
     [
       caller.toField(),
       request.to.toField(),

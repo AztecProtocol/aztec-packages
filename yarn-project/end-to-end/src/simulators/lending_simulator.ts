@@ -1,6 +1,6 @@
 // Convenience struct to hold an account's address and secret that can easily be passed around.
 import { AztecAddress, CheatCodes, Fr } from '@aztec/aztec.js';
-import { pedersenHashInputs } from '@aztec/circuits.js/barretenberg';
+import { pedersenHash } from '@aztec/foundation/crypto';
 import { LendingContract } from '@aztec/noir-contracts/types';
 
 import { TokenSimulator } from './token_simulator.js';
@@ -24,7 +24,7 @@ export class LendingAccount {
    * @returns Key in public space
    */
   public key() {
-    return Fr.fromBuffer(pedersenHashInputs([this.address, this.secret].map(f => f.toBuffer())));
+    return Fr.fromBuffer(pedersenHash([this.address, this.secret].map(f => f.toBuffer())));
   }
 }
 
