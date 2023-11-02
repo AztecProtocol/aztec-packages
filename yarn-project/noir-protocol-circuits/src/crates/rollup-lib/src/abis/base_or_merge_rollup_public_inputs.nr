@@ -30,8 +30,8 @@ struct BaseOrMergeRollupPublicInputs {
     end_public_data_tree_root : Field,
     
     // We hash public inputs to make them constant-sized (to then be unpacked on-chain)
-    // TODO(Kev): Want to make this a U128, but Re-export bug 3384
-    // TODO(Alvaro): Do we? U128 isn't safe if it's an input to the circuit (it won't automatically constrain the witness)
+    // U128 isn't safe if it's an input to the circuit (it won't automatically constrain the witness)
+    // So we want to constrain it when casting these fields to U128
 
     // We hash public inputs to make them constant-sized (to then be unpacked on-chain)
     calldata_hash : [Field; 2],
