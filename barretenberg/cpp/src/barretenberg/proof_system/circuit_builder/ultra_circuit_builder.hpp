@@ -641,14 +641,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
 
     void add_gates_to_ensure_all_polys_are_non_zero();
 
-    /**
-     * @brief Virtual method for adding zeros to selectors which are not part of the conventional Ultra arithmetization
-     * @details This method does nothing for the conventional Ultra builder but can be overriden by child classes to
-     * allow methods for constructing conventional ultra gates to be reused in builders that extend this one.
-     *
-     */
-    virtual void pad_additional_selectors(){};
-
     void create_add_gate(const add_triple_<FF>& in) override;
 
     void create_big_add_gate(const add_quad_<FF>& in, const bool use_next_gate_w_4 = false);
