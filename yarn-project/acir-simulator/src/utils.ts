@@ -23,11 +23,7 @@ export function computeSlotForMapping(mappingSlot: Fr, owner: NoirPoint | Fr) {
   const isFr = (owner: NoirPoint | Fr): owner is Fr => typeof (owner as Fr).value === 'bigint';
   const ownerField = isFr(owner) ? owner : new Fr(owner.x);
 
-  return Fr.fromBuffer(
-    pedersenHashInputs(
-      [mappingSlot, ownerField].map(f => f.toBuffer()),
-    ),
-  );
+  return Fr.fromBuffer(pedersenHashInputs([mappingSlot, ownerField].map(f => f.toBuffer())));
 }
 
 /**

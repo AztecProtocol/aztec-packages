@@ -1,5 +1,5 @@
 import { SignerlessWallet, Wallet } from '@aztec/aztec.js';
-import { CircuitsWasm, Fr } from '@aztec/circuits.js';
+import { Fr } from '@aztec/circuits.js';
 import { siloNullifier } from '@aztec/circuits.js/abis';
 import { DebugLogger } from '@aztec/foundation/log';
 import { toBigInt } from '@aztec/foundation/serialize';

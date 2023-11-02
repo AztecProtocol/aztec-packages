@@ -3,7 +3,6 @@ import {
   AztecAddress,
   CONTRACT_TREE_HEIGHT,
   CallContext,
-  CircuitsWasm,
   CombinedAccumulatedData,
   CombinedConstantData,
   ContractDeploymentData,

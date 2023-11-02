@@ -370,7 +370,7 @@ describe('ACIR public execution simulator', () => {
       const secret = new Fr(1n);
       const recipient = AztecAddress.random();
 
-      const preimage = await buildL1ToL2Message(
+      const preimage = buildL1ToL2Message(
         getFunctionSelector('mint_public(bytes32,uint256,address)').substring(2),
         [recipient.toField(), new Fr(bridgedAmount), canceller.toField()],
         contractAddress,

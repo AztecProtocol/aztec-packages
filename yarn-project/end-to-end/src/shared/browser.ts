@@ -199,7 +199,7 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
 
           const token = await Contract.at(receipt.contractAddress!, TokenContractArtifact, owner);
           const secret = Fr.random();
-          const secretHash = await computeMessageSecretHash(secret);
+          const secretHash = computeMessageSecretHash(secret);
           const mintPrivateReceipt = await token.methods.mint_private(initialBalance, secretHash).send().wait();
 
           const storageSlot = new Fr(5);

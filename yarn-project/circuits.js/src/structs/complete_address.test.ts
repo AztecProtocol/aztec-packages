@@ -4,7 +4,7 @@ import { Fr, Point } from '@aztec/foundation/fields';
 import { CompleteAddress } from './complete_address.js';
 
 describe('CompleteAddress', () => {
-  it('refuses to add an account with incorrect address for given partial address and pubkey', async () => {
+  it('refuses to add an account with incorrect address for given partial address and pubkey', () => {
     expect(() => CompleteAddress.create(AztecAddress.random(), Point.random(), Fr.random())).toThrowError(
       /cannot be derived/,
     );

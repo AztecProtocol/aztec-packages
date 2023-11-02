@@ -1,7 +1,6 @@
 import { Archiver } from '@aztec/archiver';
 import {
   CONTRACT_TREE_HEIGHT,
-  CircuitsWasm,
   Fr,
   GlobalVariables,
   HistoricBlockData,
