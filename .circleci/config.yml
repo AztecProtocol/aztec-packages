@@ -18,6 +18,7 @@ version: 2.1
 
 orbs:
   slack: circleci/slack@4.12.1
+  gh: circleci/github-cli@2.0
 
 parameters:
   workflow:
@@ -246,6 +247,9 @@ jobs:
     steps:
       - *checkout
       - *setup_env
+      - gh/setup:
+          parameters:
+            token: $AZTEC_GITHUB_TOKEN
       - run:
           name: "Build and test"
           command: cond_spot_run_build barretenberg-acir-tests-bb 32
@@ -279,6 +283,9 @@ jobs:
     steps:
       - *checkout
       - *setup_env
+      - gh/setup:
+          parameters:
+            token: $AZTEC_GITHUB_TOKEN
       - run:
           name: "Build and test"
           command: cond_spot_run_build barretenberg-acir-tests-bb.js 32
