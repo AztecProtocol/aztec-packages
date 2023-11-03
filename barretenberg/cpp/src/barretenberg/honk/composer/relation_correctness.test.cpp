@@ -558,6 +558,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorExtraRelationsCorrectness)
     ProverPolynomials prover_polynomials;
     // We use polynomial ids to make shifting the polynomials easier
     ProverPolynomialIds prover_polynomial_ids;
+    auto id_pointer_view = prover_polynomial_ids.pointer_view();
     std::vector<Polynomial> polynomial_container;
     std::vector<size_t> polynomial_ids;
     for (size_t i = 0; i < prover_polynomials.size(); i++) {
@@ -566,7 +567,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorExtraRelationsCorrectness)
         polynomial_container.push_back(temporary_polynomial);
         // Push sequential ids to polynomial ids
         polynomial_ids.push_back(i);
-        prover_polynomial_ids[i] = polynomial_ids[i];
+        *id_pointer_view[i] = polynomial_ids[i];
     }
     // Get ids of shifted polynomials and put them in a set
     auto shifted_ids = prover_polynomial_ids.get_shifted();
@@ -575,7 +576,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorExtraRelationsCorrectness)
         shifted_id_set.emplace(id);
     }
     // Assign spans to non-shifted prover polynomials
-    auto pointer_view = prover_polynomials.get_pointer_array();
+    auto pointer_view = prover_polynomials.pointer_view();
     for (size_t i = 0; i < prover_polynomials.size(); i++) {
         if (!shifted_id_set.contains(i)) {
             *pointer_view[i] = polynomial_container[i];
