@@ -8,20 +8,20 @@ import {
   computeAuthWitMessageHash,
   computeMessageSecretHash,
 } from '@aztec/aztec.js';
-import { AztecAddress, CompleteAddress, Fr, FunctionSelector } from '@aztec/circuits.js';
-import { CircuitsWasm } from '@aztec/circuits.js';
+import { AztecAddress, CircuitsWasm, CompleteAddress, Fr, FunctionSelector } from '@aztec/circuits.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { Pedersen, SparseTree, newTree } from '@aztec/merkle-tree';
-import { TokenBlacklistContract, TokenContract } from '@aztec/noir-contracts/types';
-import { SlowTreeContract } from '@aztec/noir-contracts/types';
+import { SlowTreeContract, TokenBlacklistContract, TokenContract } from '@aztec/noir-contracts/types';
 import { ExtendedNote } from '@aztec/types';
 
 import { jest } from '@jest/globals';
 import levelup from 'levelup';
+import { type MemDown, default as memdown } from 'memdown';
 
-import { createMemDown } from './e2e_slow_tree.test.js';
 import { setup } from './fixtures/utils.js';
 import { TokenSimulator } from './simulators/token_simulator.js';
+
+export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
 const TIMEOUT = 90_000;
 
