@@ -98,8 +98,7 @@ template <typename DataType, typename HandleType, size_t NUM_ENTITIES> class Ent
     ArrayType _data;
 
     virtual ~Entities_() = default;
-
-    // DataType& operator[](size_t idx) { return _data[idx]; };
+    // TODO(AD): remove these with the backing array
     typename ArrayType::iterator begin() { return _data.begin(); };
     typename ArrayType::iterator end() { return _data.end(); };
 
