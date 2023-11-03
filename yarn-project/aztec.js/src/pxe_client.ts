@@ -12,11 +12,13 @@ import {
   AuthWitness,
   ContractData,
   ExtendedContractData,
+  ExtendedNote,
   ExtendedUnencryptedL2Log,
+  L2Block,
   L2BlockL2Logs,
   L2Tx,
   LogId,
-  NotePreimage,
+  Note,
   PXE,
   Tx,
   TxExecutionRequest,
@@ -26,6 +28,12 @@ import {
 
 export { makeFetch } from '@aztec/foundation/json-rpc/client';
 
+/**
+ * Creates a JSON-RPC client to remotely talk to PXE.
+ * @param url - The URL of the PXE.
+ * @param fetch - The fetch implementation to use.
+ * @returns A JSON-RPC client of PXE.
+ */
 export const createPXEClient = (url: string, fetch = makeFetch([1, 2, 3], true)): PXE =>
   createJsonRpcClient<PXE>(
     url,
@@ -42,10 +50,12 @@ export const createPXEClient = (url: string, fetch = makeFetch([1, 2, 3], true))
       Point,
       Fr,
       GrumpkinScalar,
-      NotePreimage,
+      Note,
+      ExtendedNote,
       AuthWitness,
       L2Tx,
       LogId,
+      L2Block,
     },
     { Tx, TxReceipt, L2BlockL2Logs },
     false,

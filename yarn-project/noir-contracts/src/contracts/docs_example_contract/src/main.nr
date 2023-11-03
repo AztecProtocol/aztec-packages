@@ -36,7 +36,9 @@ contract DocsExample {
         legendary_card: Singleton<CardNote, CARD_NOTE_LEN>,
         // docs:end:storage-singleton-declaration
         cards: Set<CardNote, CARD_NOTE_LEN>,
+        // docs:start:storage-map-singleton-declaration
         profiles: Map<Singleton<ProfileNote, PROFILE_NOTE_LEN>>,
+        // docs:end:storage-map-singleton-declaration
     }
     // docs:end:storage-struct-declaration
 
@@ -305,4 +307,9 @@ contract DocsExample {
 
     }
     // docs:end:l1_to_l2_cross_chain_message  
+
+    // TODO: remove this placeholder once https://github.com/AztecProtocol/aztec-packages/issues/2918 is implemented
+    unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, serialized_note: [Field; 0]) -> [Field; 4] {
+        [0, 0, 0, 0]
+    }
 }

@@ -1,6 +1,6 @@
 #include "barretenberg/common/test.hpp"
+#include "barretenberg/flavor/ultra_recursive.hpp"
 #include "barretenberg/honk/composer/ultra_composer.hpp"
-#include "barretenberg/honk/flavor/ultra_recursive.hpp"
 #include "barretenberg/honk/proof_system/ultra_verifier.hpp"
 #include "barretenberg/stdlib/hash/blake3s/blake3s.hpp"
 #include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
@@ -201,7 +201,10 @@ template <typename BuilderType> class RecursiveVerifierTest : public testing::Te
         const auto native_verification_key = instance->compute_verification_key();
 
         // Arbitrarily tamper with the proof to be verified
-        inner_proof.proof_data[10] = 25;
+        inner_prover.transcript.deserialize_full_transcript();
+        inner_prover.transcript.sorted_accum_comm = Flavor::Commitment::one() * Flavor::FF::random_element();
+        inner_prover.transcript.serialize_full_transcript();
+        inner_proof = inner_prover.export_proof();
 
         // Create a recursive verification circuit for the proof of the inner circuit
         OuterBuilder outer_circuit;

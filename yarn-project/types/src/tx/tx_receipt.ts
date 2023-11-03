@@ -1,5 +1,5 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { TxHash } from '@aztec/types';
+import { ExtendedNote, TxHash } from '@aztec/types';
 
 /**
  * Possible status of a transaction.
@@ -40,6 +40,12 @@ export class TxReceipt {
      * The deployed contract's address.
      */
     public contractAddress?: AztecAddress,
+    /**
+     * Notes created in this tx which belong to accounts which are registered in the PXE which was used to submit the
+     * tx. You will not receive notes of accounts which are not registered in the PXE here even though they were
+     * created in this tx.
+     */
+    public visibleNotes?: ExtendedNote[],
   ) {}
 
   /**

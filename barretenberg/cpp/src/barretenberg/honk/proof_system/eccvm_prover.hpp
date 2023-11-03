@@ -1,11 +1,11 @@
 #pragma once
-#include "barretenberg/honk/flavor/ecc_vm.hpp"
-#include "barretenberg/honk/pcs/gemini/gemini.hpp"
-#include "barretenberg/honk/pcs/shplonk/shplonk.hpp"
-#include "barretenberg/honk/sumcheck/sumcheck_output.hpp"
-#include "barretenberg/honk/transcript/transcript.hpp"
+#include "barretenberg/commitment_schemes/gemini/gemini.hpp"
+#include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
+#include "barretenberg/flavor/ecc_vm.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
 #include "barretenberg/proof_system/relations/relation_parameters.hpp"
+#include "barretenberg/sumcheck/sumcheck_output.hpp"
+#include "barretenberg/transcript/transcript.hpp"
 
 namespace proof_system::honk {
 
@@ -21,6 +21,7 @@ template <ECCVMFlavor Flavor> class ECCVMProver_ {
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using Curve = typename Flavor::Curve;
+    using Transcript = typename Flavor::Transcript;
 
   public:
     explicit ECCVMProver_(std::shared_ptr<ProvingKey> input_key, std::shared_ptr<PCSCommitmentKey> commitment_key);
@@ -39,7 +40,7 @@ template <ECCVMFlavor Flavor> class ECCVMProver_ {
     plonk::proof& export_proof();
     plonk::proof& construct_proof();
 
-    ProverTranscript<FF> transcript;
+    Transcript transcript;
 
     std::vector<FF> public_inputs;
 

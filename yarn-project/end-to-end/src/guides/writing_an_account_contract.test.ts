@@ -1,16 +1,18 @@
 import {
   AccountManager,
+  AuthWitness,
   AuthWitnessProvider,
   BaseAccountContract,
   CompleteAddress,
+  ExtendedNote,
   Fr,
-  NotePreimage,
+  GrumpkinPrivateKey,
+  GrumpkinScalar,
+  Note,
+  Schnorr,
   computeMessageSecretHash,
 } from '@aztec/aztec.js';
-import { GrumpkinPrivateKey, GrumpkinScalar } from '@aztec/circuits.js';
-import { Schnorr } from '@aztec/circuits.js/barretenberg';
 import { SchnorrHardcodedAccountContractArtifact, TokenContract } from '@aztec/noir-contracts/types';
-import { AuthWitness } from '@aztec/types';
 
 import { setup } from '../fixtures/utils.js';
 
@@ -71,8 +73,9 @@ describe('guides/writing_an_account_contract', () => {
     const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
 
     const storageSlot = new Fr(5);
-    const preimage = new NotePreimage([new Fr(mintAmount), secretHash]);
-    await pxe.addNote(address, token.address, storageSlot, preimage, receipt.txHash);
+    const note = new Note([new Fr(mintAmount), secretHash]);
+    const extendedNote = new ExtendedNote(note, address, token.address, storageSlot, receipt.txHash);
+    await pxe.addNote(extendedNote);
 
     await token.methods.redeem_shield({ address }, mintAmount, secret).send().wait();
 

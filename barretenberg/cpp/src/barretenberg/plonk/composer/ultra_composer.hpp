@@ -1,7 +1,7 @@
 #pragma once
 
+#include "barretenberg/flavor/plonk_flavors.hpp"
 #include "barretenberg/plonk/composer/composer_lib.hpp"
-#include "barretenberg/plonk/flavor/flavor.hpp"
 #include "barretenberg/plonk/proof_system/prover/prover.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
 #include "barretenberg/plonk/proof_system/verifier/verifier.hpp"
@@ -25,8 +25,6 @@ class UltraComposer {
     static constexpr size_t program_width = CircuitBuilder::NUM_WIRES;
     std::shared_ptr<plonk::proving_key> circuit_proving_key;
     std::shared_ptr<plonk::verification_key> circuit_verification_key;
-
-    // The crs_factory holds the path to the srs and exposes methods to extract the srs elements
 
     bool computed_witness = false;
 

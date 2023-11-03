@@ -1,5 +1,5 @@
 #include "protogalaxy_prover.hpp"
-#include "barretenberg/proof_system/flavor/flavor.hpp"
+#include "barretenberg/flavor/flavor.hpp"
 namespace proof_system::honk {
 
 template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepare_for_folding()
@@ -31,6 +31,8 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepa
         instance->compute_sorted_accumulator_polynomials(eta);
         instance->compute_grand_product_polynomials(beta, gamma);
     }
+
+    fold_parameters(instances);
 }
 
 // TODO(#https://github.com/AztecProtocol/barretenberg/issues/689): finalise implementation this function

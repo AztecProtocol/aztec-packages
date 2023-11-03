@@ -1,8 +1,8 @@
 #include "./ultra_verifier.hpp"
-#include "barretenberg/honk/pcs/zeromorph/zeromorph.hpp"
-#include "barretenberg/honk/transcript/transcript.hpp"
-#include "barretenberg/honk/utils/power_polynomial.hpp"
+#include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
+#include "barretenberg/honk/proof_system/power_polynomial.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
+#include "barretenberg/transcript/transcript.hpp"
 
 using namespace barretenberg;
 using namespace proof_system::honk::sumcheck;
@@ -42,7 +42,7 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const plonk
 
     proof_system::RelationParameters<FF> relation_parameters;
 
-    transcript = VerifierTranscript<FF>{ proof.proof_data };
+    transcript = BaseTranscript<FF>{ proof.proof_data };
 
     auto commitments = VerifierCommitments(key, transcript);
     auto commitment_labels = CommitmentLabels();

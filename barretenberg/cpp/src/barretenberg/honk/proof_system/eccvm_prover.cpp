@@ -1,15 +1,14 @@
 #include "eccvm_prover.hpp"
-#include "barretenberg/honk/pcs/claim.hpp"
-#include "barretenberg/honk/pcs/commitment_key.hpp"
+#include "barretenberg/commitment_schemes/claim.hpp"
+#include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/honk/proof_system/lookup_library.hpp"
 #include "barretenberg/honk/proof_system/permutation_library.hpp"
-#include "barretenberg/honk/sumcheck/sumcheck.hpp"
-#include "barretenberg/honk/utils/power_polynomial.hpp"
+#include "barretenberg/honk/proof_system/power_polynomial.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
-#include "barretenberg/polynomials/univariate.hpp" // will go away
+#include "barretenberg/proof_system/library/grand_product_library.hpp"
 #include "barretenberg/proof_system/relations/lookup_relation.hpp"
 #include "barretenberg/proof_system/relations/permutation_relation.hpp"
-#include "barretenberg/transcript/transcript_wrappers.hpp"
+#include "barretenberg/sumcheck/sumcheck.hpp"
 #include <algorithm>
 #include <array>
 #include <cstddef>
@@ -329,7 +328,7 @@ template <ECCVMFlavor Flavor> plonk::proof& ECCVMProver_<Flavor>::construct_proo
     // Compute sorted list accumulator and commitment
     execute_log_derivative_commitments_round();
 
-    // Fiat-Shamir: bbeta & gamma
+    // Fiat-Shamir: beta & gamma
     // Compute grand product(s) and commitments.
     execute_grand_product_computation_round();
 
