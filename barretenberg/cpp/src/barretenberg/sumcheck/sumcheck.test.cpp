@@ -151,13 +151,12 @@ TEST_F(SumcheckTests, PolynomialNormalization)
     // We can also check the correctness of the multilinear evaluations produced by Sumcheck by directly evaluating the
     // full polynomials at challenge u via the evaluate_mle() function
     std::vector<FF> u_challenge = { u_0, u_1, u_2 };
-    (void)u_challenge;
-    // for (size_t i = 0; i < NUM_POLYNOMIALS; i++) {
-    //     barretenberg::Polynomial<FF> poly(full_polynomials[i]);
-    //     auto v_expected = poly.evaluate_mle(u_challenge);
-    //     auto v_result = output.claimed_evaluations[i];
-    //     EXPECT_EQ(v_expected, v_result);
-    // }
+    for (auto [full_poly, claimed_eval] :
+         zip_view(full_polynomials.pointer_view(), output.claimed_evaluations.pointer_view())) {
+        barretenberg::Polynomial<FF> poly(*full_poly);
+        auto v_expected = poly.evaluate_mle(u_challenge);
+        EXPECT_EQ(v_expected, *claimed_eval);
+    }
 }
 
 TEST_F(SumcheckTests, Prover)
@@ -190,9 +189,9 @@ TEST_F(SumcheckTests, Prover)
         expected_values.emplace_back(expected_lo + expected_hi);
     }
 
-    // for (size_t poly_idx = 0; poly_idx < NUM_POLYNOMIALS; poly_idx++) {
-    // EXPECT_EQ(output.claimed_evaluations[poly_idx], expected_values[poly_idx]);
-    // }
+    for (auto [eval, expected] : zip_view(output.claimed_evaluations.pointer_view(), expected_values)) {
+        *eval = expected;
+    }
 }
 
 // TODO(#225): make the inputs to this test more interesting, e.g. non-trivial permutations
