@@ -1,6 +1,6 @@
 #pragma once
 #include "barretenberg/polynomials/pow.hpp"
-#include "barretenberg/proof_system/relations/relation_parameters.hpp"
+#include "barretenberg/relations/relation_parameters.hpp"
 
 namespace barretenberg {
 

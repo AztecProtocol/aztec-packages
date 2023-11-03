@@ -1,7 +1,7 @@
 #pragma once
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/numeric/uintx/uintx.hpp"
-#include "barretenberg/proof_system/relations/relation_types.hpp"
+#include "barretenberg/relations/relation_types.hpp"
 
 namespace proof_system {
 
