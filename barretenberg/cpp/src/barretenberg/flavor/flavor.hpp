@@ -75,12 +75,12 @@
 
 namespace proof_system::honk::flavor {
 
-#define DEFINE_GET_POINTER_ARRAY(...)                                                                                  \
-    [[nodiscard]] auto get_pointer_array()                                                                             \
+#define DEFINE_POINTER_VIEW(...)                                                                                       \
+    [[nodiscard]] auto pointer_view()                                                                                  \
     {                                                                                                                  \
         return std::array{ __VA_ARGS__ };                                                                              \
     }                                                                                                                  \
-    [[nodiscard]] auto get_pointer_array() const                                                                       \
+    [[nodiscard]] auto pointer_view() const                                                                            \
     {                                                                                                                  \
         return std::array{ __VA_ARGS__ };                                                                              \
     }

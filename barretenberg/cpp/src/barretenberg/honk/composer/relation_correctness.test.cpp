@@ -38,16 +38,12 @@ template <typename Flavor, typename Relation> void check_relation(auto circuit_s
 
         // Extract an array containing all the polynomial evaluations at a given row i
         AllValues evaluations_at_index_i;
-        size_t poly_idx = 0;
-        for (auto& poly : polynomials) {
-            (void)poly_idx;
-            (void)poly;
-            // evaluations_at_index_i[poly_idx] = poly[i];
-            ++poly_idx;
+        for (auto [poly, eval] : zip_view(polynomials.pointer_view(), evaluations_at_index_i.pointer_view())) {
+            *eval = (*poly)[i];
         }
 
         // Define the appropriate SumcheckArrayOfValuesOverSubrelations type for this relation and initialize to zero
-        using SumcheckArrayOfValuesOverSubrelations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
+        using SumcheckArrayOfValuesOverSubrelations = Relation::SumcheckArrayOfValuesOverSubrelations;
         SumcheckArrayOfValuesOverSubrelations result;
         for (auto& element : result) {
             element = 0;

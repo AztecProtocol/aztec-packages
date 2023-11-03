@@ -93,7 +93,7 @@ template <typename Flavor> class SumcheckProverRound {
         (void)extended_edges;
         (void)multivariates;
         (void)edge_idx;
-        // auto extended_edges_pointer = extended_edges.get_pointer_array();
+        // auto extended_edges_pointer = extended_edges.pointer_view();
         // size_t univariate_idx = 0; // TODO(https://github.com/AztecProtocol/barretenberg/issues/391) zip
         // for (auto& poly : multivariates) {
         //     auto edge = barretenberg::Univariate<FF, 2>({ poly[edge_idx], poly[edge_idx + 1] });
