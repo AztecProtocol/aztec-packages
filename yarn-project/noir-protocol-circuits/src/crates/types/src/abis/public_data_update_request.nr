@@ -14,4 +14,8 @@ impl PublicDataUpdateRequest {
             self.new_value
         ], constants_gen::GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST)
     }
+
+    pub fn is_empty(self) -> bool {
+        (self.leaf_index == 0) & (self.old_value == 0) & (self.new_value == 0)
+    }
 }

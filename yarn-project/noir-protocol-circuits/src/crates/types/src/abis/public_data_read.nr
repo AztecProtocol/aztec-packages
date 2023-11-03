@@ -12,4 +12,8 @@ impl PublicDataRead {
             self.value,
         ], constants_gen::GENERATOR_INDEX__PUBLIC_DATA_READ)
     }
+
+    pub fn is_empty(self) -> bool {
+        (self.leaf_index == 0) & (self.value == 0)
+    }
 }
