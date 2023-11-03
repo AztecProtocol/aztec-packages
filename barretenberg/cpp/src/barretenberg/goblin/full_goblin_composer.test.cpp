@@ -3,7 +3,7 @@
 #include <gtest/gtest.h>
 
 #include "barretenberg/common/log.hpp"
-#include "barretenberg/honk/composer/eccvm_composer.hpp"
+#include "barretenberg/eccvm/eccvm_composer.hpp"
 #include "barretenberg/honk/composer/ultra_composer.hpp"
 #include "barretenberg/honk/proof_system/ultra_prover.hpp"
 #include "barretenberg/proof_system/circuit_builder/eccvm/eccvm_circuit_builder.hpp"
