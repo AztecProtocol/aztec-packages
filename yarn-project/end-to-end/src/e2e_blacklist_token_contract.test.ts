@@ -1,6 +1,12 @@
 import {
   AccountWallet,
+  AztecAddress,
   CheatCodes,
+  CompleteAddress,
+  DebugLogger,
+  ExtendedNote,
+  Fr,
+  FunctionSelector,
   Note,
   TxHash,
   TxStatus,
@@ -8,11 +14,9 @@ import {
   computeAuthWitMessageHash,
   computeMessageSecretHash,
 } from '@aztec/aztec.js';
-import { AztecAddress, CircuitsWasm, CompleteAddress, Fr, FunctionSelector } from '@aztec/circuits.js';
-import { DebugLogger } from '@aztec/foundation/log';
+import { CircuitsWasm } from '@aztec/circuits.js';
 import { Pedersen, SparseTree, newTree } from '@aztec/merkle-tree';
 import { SlowTreeContract, TokenBlacklistContract, TokenContract } from '@aztec/noir-contracts/types';
-import { ExtendedNote } from '@aztec/types';
 
 import { jest } from '@jest/globals';
 import levelup from 'levelup';
@@ -393,7 +397,7 @@ describe('e2e_blacklist_token_contract', () => {
           expect(receiptClaim.status).toBe(TxStatus.MINED);
           tokenSim.redeemShield(accounts[0].address, amount);
           // 1 note should be created containing `amount` of tokens
-          const notes = receiptClaim.notes!;
+          const notes = receiptClaim.visibleNotes!;
           expect(notes.length).toBe(1);
           expect(notes[0].note.items[0].toBigInt()).toBe(amount);
         });

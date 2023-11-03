@@ -1,6 +1,5 @@
-import { CheatCodes, Fr, Wallet } from '@aztec/aztec.js';
+import { CheatCodes, DebugLogger, Fr, Wallet } from '@aztec/aztec.js';
 import { CircuitsWasm } from '@aztec/circuits.js';
-import { DebugLogger } from '@aztec/foundation/log';
 import { Pedersen, SparseTree, newTree } from '@aztec/merkle-tree';
 import { SlowTreeContract } from '@aztec/noir-contracts/types';
 
