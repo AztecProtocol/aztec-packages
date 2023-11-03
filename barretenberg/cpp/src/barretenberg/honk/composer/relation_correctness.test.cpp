@@ -587,7 +587,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorExtraRelationsCorrectness)
     for (size_t i = 0; i < shifted_ids.size(); i++) {
         auto shifted_id = shifted_ids[i];
         auto to_be_shifted_id = prover_polynomial_ids.get_to_be_shifted()[i];
-        prover_polynomials[shifted_id] = polynomial_container[to_be_shifted_id].shifted();
+        *pointer_view[shifted_id] = polynomial_container[to_be_shifted_id].shifted();
     }
 
     // Fill in lagrange even polynomial
