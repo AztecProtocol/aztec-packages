@@ -786,7 +786,7 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
      */
     class AllPolynomials : public AllEntities<Polynomial, PolynomialHandle> {
       public:
-        size_t get_polynomial_size() const { return lagrange_first.size(); }
+        size_t get_polynomial_size() const { return this->lagrange_first.size(); }
         AllValues get_row(const size_t row_idx) const
         {
             AllValues result;
