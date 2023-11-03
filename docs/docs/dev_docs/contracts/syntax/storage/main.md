@@ -23,7 +23,7 @@ On this page, you’ll learn:
 
 Public state variables can be read by anyone, while private state variables can only be read by their owner (or people whom the owner has shared the decrypted data or note viewing key with).
 
-Public state follows the Ethereum style account model, where each contract has its own key-value datastore. Private state follows a UTXO model, where note contents (pre-images) are only known by the sender and those able to decrypt them - see ([state model](./../../../concepts/foundation/state_model.md) and [private/public execution](./../../../concepts/foundation/communication/public_private_calls.md)) for more background.
+Public state follows the Ethereum style account model, where each contract has its own key-value datastore. Private state follows a UTXO model, where note contents (pre-images) are only known by the sender and those able to decrypt them - see ([state model](../../../../concepts/foundation/state_model/main.md) and [private/public execution](../../../../concepts/foundation/communication/public_private_calls.md)) for more background.
 
 ## Storage struct
 
@@ -39,7 +39,7 @@ struct Storage {
 ```
 
 :::danger
-If your contract works with storage (has Storage struct defined), you **MUST** include a `compute_note_hash_and_nullifier` function to allow PXE to process encrypted events. See [encrypted events](./events.md#processing-encrypted-events) for more.
+If your contract works with storage (has Storage struct defined), you **MUST** include a `compute_note_hash_and_nullifier` function to allow PXE to process encrypted events. See [encrypted events](../events.md#processing-encrypted-events) for more.
 
 If you don't yet have any private state variables defined put there a placeholder function:
 
@@ -73,7 +73,7 @@ A `map` is a state variable that "maps" a key to a value. It can be used with pr
 In Aztec.nr, keys are always `Field`s (or types that can be serialized as Fields) and values can be any type - even other maps. `Field`s are finite field elements, but you can think of them as integers for now.
 :::
 
-It includes a [`Context`](./context.mdx) to specify the private or public domain, a `storage_slot` to specify where in storage the map is stored, and a `start_var_constructor` which tells the map how it should operate on the underlying type. This includes how to serialize and deserialize the type, as well as how commitments and nullifiers are computed for the type if it's private.
+It includes a [`Context`](../context.mdx) to specify the private or public domain, a `storage_slot` to specify where in storage the map is stored, and a `start_var_constructor` which tells the map how it should operate on the underlying type. This includes how to serialize and deserialize the type, as well as how commitments and nullifiers are computed for the type if it's private.
 
 You can view the implementation in the Aztec.nr library [here](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec-nr/aztec/src/state_vars/map.nr).
 
