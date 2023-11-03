@@ -15,15 +15,15 @@ export type WaitOpts = {
    * If false, then any queries that depend on state set by this transaction may return stale data. Defaults to true.
    **/
   waitForNotesSync?: boolean;
-  /** Whether newly created notes should be included in the receipt. */
-  getNotes?: boolean;
+  /** Whether to include information useful for testing in the receipt. */
+  test?: boolean;
 };
 
 const DefaultWaitOpts: WaitOpts = {
   timeout: 60,
   interval: 1,
   waitForNotesSync: true,
-  getNotes: false,
+  test: false,
 };
 
 /**
@@ -61,14 +61,25 @@ export class SentTx {
    * @returns The transaction receipt.
    */
   public async wait(opts?: WaitOpts): Promise<FieldsOf<TxReceipt>> {
-    if (opts?.getNotes && opts.waitForNotesSync === false) {
+    if (opts?.test && opts.waitForNotesSync === false) {
       throw new Error('Cannot set getNotes to true if waitForNotesSync is false');
     }
     const receipt = await this.waitForReceipt(opts);
     if (receipt.status !== TxStatus.MINED)
       throw new Error(`Transaction ${await this.getTxHash()} was ${receipt.status}`);
-    if (opts?.getNotes) {
-      receipt.visibleNotes = await this.pxe.getNotes({ txHash: await this.getTxHash() });
+    if (opts?.test) {
+      const txHash = await this.getTxHash();
+      const tx = (await this.pxe.getTx(txHash))!;
+      const visibleNotes = await this.pxe.getNotes({ txHash });
+      receipt.testInfo = {
+        newCommitments: tx.newCommitments,
+        newNullifiers: tx.newNullifiers,
+        newPublicDataWrites: tx.newPublicDataWrites,
+        newL2ToL1Msgs: tx.newL2ToL1Msgs,
+        newContracts: tx.newContracts,
+        newContractData: tx.newContractData,
+        visibleNotes,
+      };
     }
     return receipt;
   }
