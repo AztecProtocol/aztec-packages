@@ -1,96 +1,40 @@
-// This is the naive way to do the merkle tree hashing given we know the height.
-// Its janky but has the least complexity given that for loop bounds need to be constant.
-//
+struct MerkleTree<N> {
+    leaves: [Field; N],
+    nodes: [Field; N],
+}
+
+impl<N> MerkleTree<N> {
+    fn new(leaves: [Field; N]) -> Self {
+        let mut nodes = [0; N];
+        
+        // We need one less node than leaves, but we cannot have computed array lengths
+        let total_nodes = N - 1;
+        let half_size = N/2;
+        
+        // hash base layer
+        for i in 0..half_size {
+            dep::std::println(i);
+            nodes[i] = dep::std::hash::pedersen_hash([leaves[2*i], leaves[2*i+1]]);
+        }
+
+        // hash the other layers
+        for i in 0..(total_nodes - half_size) {
+            nodes[half_size+i] = dep::std::hash::pedersen_hash([nodes[2*i], nodes[2*i+1]]);
+        }
+
+        MerkleTree {
+            leaves,
+            nodes,
+        }
+    }
+
+    fn get_root(self) -> Field {
+        self.nodes[N-2]
+    }
+}
+
 pub fn calculate_subtree<N>(leaves : [Field; N]) -> Field { 
-    let num_of_leaves = leaves.len();
-    if num_of_leaves == 128 {
-        calculate_subtree_128(leaves.as_slice())
-    } else if num_of_leaves == 64 {
-        calculate_subtree_64(leaves.as_slice())
-    } else if num_of_leaves == 32 {
-        calculate_subtree_32(leaves.as_slice())
-    } else if num_of_leaves == 16 {
-        calculate_subtree_16(leaves.as_slice())
-    } else if num_of_leaves == 8 {
-        calculate_subtree_8(leaves.as_slice())
-    } else if num_of_leaves == 4 {
-        calculate_subtree_4(leaves.as_slice())
-    } else if num_of_leaves == 2 {
-        calculate_subtree_2(leaves.as_slice())
-    } else {
-        assert(false, "merkle tree width is not supported");
-        0
-    }
-}
-
-fn calculate_subtree_128(leaves : [Field]) -> Field {   
-    assert(leaves.len() == 128, "number of leaves should be 128");
-
-    let mut layer = [0; 64];
-    for i in 0..layer.len() {
-        let combined = [leaves[2 * i], leaves[2 * i + 1]];
-        layer[i] = dep::std::hash::pedersen_hash(combined);
-    }
-
-    calculate_subtree_64(layer.as_slice())
-}
-fn calculate_subtree_64(leaves : [Field]) -> Field {   
-    assert(leaves.len() == 64, "number of leaves should be 64");
-
-    let mut layer = [0; 32];
-    for i in 0..layer.len() {
-        let combined = [leaves[2 * i], leaves[2 * i + 1]];
-        layer[i] = dep::std::hash::pedersen_hash(combined);
-    }
-
-    calculate_subtree_32(layer.as_slice())
-}
-fn calculate_subtree_32(leaves : [Field]) -> Field {   
-    assert(leaves.len() == 32, "number of leaves should be 32");
-
-    let mut layer = [0; 16];
-    for i in 0..layer.len() {
-        let combined = [leaves[2 * i], leaves[2 * i + 1]];
-        layer[i] = dep::std::hash::pedersen_hash(combined);
-    }
-
-    calculate_subtree_16(layer.as_slice())
-}
-fn calculate_subtree_16(leaves : [Field]) -> Field {   
-    assert(leaves.len() == 16, "number of leaves should be 16");
-
-    let mut layer = [0; 8];
-    for i in 0..layer.len() {
-        let combined = [leaves[2 * i], leaves[2 * i + 1]];
-        layer[i] = dep::std::hash::pedersen_hash(combined);
-    }
-
-    calculate_subtree_8(layer.as_slice())
-}
-fn calculate_subtree_8(leaves : [Field]) -> Field {
-    assert(leaves.len() == 8, "number of leaves should be 8");
-
-    let mut layer = [0; 4];
-    for i in 0..layer.len() {
-        let combined = [leaves[2 * i], leaves[2 * i + 1]];
-        layer[i] = dep::std::hash::pedersen_hash(combined);
-    }
-
-    calculate_subtree_4(layer)
-}
-fn calculate_subtree_4(leaves : [Field]) -> Field {
-    assert(leaves.len() == 4, "number of leaves should be 4");
-
-    let mut layer = [0; 2];
-    for i in 0..layer.len() {
-        let combined = [leaves[2 * i], leaves[2 * i + 1]];
-        layer[i] = dep::std::hash::pedersen_hash(combined);
-    }
-
-    calculate_subtree_2(layer.as_slice())
-}
-fn calculate_subtree_2(leaves : [Field]) -> Field {   
-    dep::std::hash::pedersen_hash(leaves)
+    MerkleTree::new(leaves).get_root()
 }
 
 // These values are precomputed and we run tests to ensure that they
@@ -124,6 +68,7 @@ pub fn calculate_empty_tree_root(depth : Field) -> Field {
         0
     }
 }
+
 
 #[test]
 fn test_merkle_root_interop_test() {
