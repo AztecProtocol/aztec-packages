@@ -1,1 +1,1 @@
-barretenberg_module(goblin honk eccvm)
+barretenberg_module(goblin ultra_honk eccvm)

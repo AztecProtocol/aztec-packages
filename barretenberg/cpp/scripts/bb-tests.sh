@@ -30,10 +30,12 @@ TESTS=(
   numeric_tests
   plonk_tests
   polynomials_tests
+  protogalaxy_tests
   relations_tests
   srs_tests
   sumcheck_tests
   transcript_tests
+  ultra_honk_tests
 )
 TESTS_STR="${TESTS[@]}"
 

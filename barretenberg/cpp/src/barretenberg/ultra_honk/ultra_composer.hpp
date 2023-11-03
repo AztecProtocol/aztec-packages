@@ -1,12 +1,12 @@
 #pragma once
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/honk/proof_system/goblin_merge/merge_prover.hpp"
-#include "barretenberg/honk/proof_system/goblin_merge/merge_verifier.hpp"
-#include "barretenberg/honk/proof_system/protogalaxy_prover.hpp"
-#include "barretenberg/honk/proof_system/protogalaxy_verifier.hpp"
 #include "barretenberg/proof_system/composer/composer_lib.hpp"
+#include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
+#include "barretenberg/protogalaxy/protogalaxy_verifier.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/sumcheck/instance/prover_instance.hpp"
+#include "barretenberg/ultra_honk/merge_prover.hpp"
+#include "barretenberg/ultra_honk/merge_verifier.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
