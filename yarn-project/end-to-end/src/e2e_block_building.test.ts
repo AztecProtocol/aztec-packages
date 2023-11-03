@@ -1,17 +1,18 @@
 import {
   BatchCall,
+  CircuitsWasm,
   ContractDeployer,
   ContractFunctionInteraction,
+  DebugLogger,
   Fr,
+  PXE,
+  TxStatus,
   Wallet,
   isContractDeployed,
 } from '@aztec/aztec.js';
-import { CircuitsWasm } from '@aztec/circuits.js';
-import { pedersenCompressInputs } from '@aztec/circuits.js/barretenberg';
-import { DebugLogger } from '@aztec/foundation/log';
+import { pedersenHashInputs } from '@aztec/circuits.js/barretenberg';
 import { TestContractArtifact } from '@aztec/noir-contracts/artifacts';
 import { TestContract, TokenContract } from '@aztec/noir-contracts/types';
-import { PXE, TxStatus } from '@aztec/types';
 
 import times from 'lodash.times';
 
@@ -45,7 +46,7 @@ describe('e2e_block_building', () => {
       const deployer = new ContractDeployer(artifact, owner);
       const methods = times(TX_COUNT, () => deployer.deploy());
 
-      for (const i in methods) {
+      for (let i = 0; i < TX_COUNT; i++) {
         await methods[i].create({ contractAddressSalt: new Fr(BigInt(i + 1)) });
         await methods[i].simulate({});
       }
@@ -135,7 +136,7 @@ describe('e2e_block_building', () => {
     it('drops tx with private nullifier already emitted from public on the same block', async () => {
       const secret = Fr.random();
       // See yarn-project/acir-simulator/src/public/index.test.ts 'Should be able to create a nullifier from the public context'
-      const emittedPublicNullifier = pedersenCompressInputs(
+      const emittedPublicNullifier = pedersenHashInputs(
         await CircuitsWasm.get(),
         [new Fr(140), secret].map(a => a.toBuffer()),
       );

@@ -17,90 +17,13 @@ export class BarretenbergApi {
     await this.binder.wasm.destroy();
   }
 
-  async pedersenInit(): Promise<void> {
-    const result = await this.binder.callWasmExport('pedersen___init', [], []);
-    return;
-  }
-
-  async pedersenCompressFields(left: Fr, right: Fr): Promise<Fr> {
-    const result = await this.binder.callWasmExport('pedersen___compress_fields', [left, right], [Fr]);
+  async pedersenCommit(inputsBuffer: Fr[]): Promise<Point> {
+    const result = await this.binder.callWasmExport('pedersen___commit', [inputsBuffer], [Point]);
     return result[0];
   }
 
-  async pedersenPlookupCompressFields(left: Fr, right: Fr): Promise<Fr> {
-    const result = await this.binder.callWasmExport('pedersen___compress_fields', [left, right], [Fr]);
-    return result[0];
-  }
-
-  async pedersenCompress(inputsBuffer: Fr[]): Promise<Fr> {
-    const result = await this.binder.callWasmExport('pedersen___compress', [inputsBuffer], [Fr]);
-    return result[0];
-  }
-
-  async pedersenPlookupCompress(inputsBuffer: Fr[]): Promise<Fr> {
-    const result = await this.binder.callWasmExport('pedersen___compress', [inputsBuffer], [Fr]);
-    return result[0];
-  }
-
-  async pedersenCompressWithHashIndex(inputsBuffer: Fr[], hashIndex: number): Promise<Fr> {
-    const result = await this.binder.callWasmExport(
-      'pedersen___compress_with_hash_index',
-      [inputsBuffer, hashIndex],
-      [Fr],
-    );
-    return result[0];
-  }
-
-  async pedersenCommit(inputsBuffer: Fr[]): Promise<Fr> {
-    const result = await this.binder.callWasmExport('pedersen___commit', [inputsBuffer], [Fr]);
-    return result[0];
-  }
-
-  async pedersenPlookupCommit(inputsBuffer: Fr[]): Promise<Fr> {
-    const result = await this.binder.callWasmExport('pedersen___commit', [inputsBuffer], [Fr]);
-    return result[0];
-  }
-
-  async pedersenPlookupCommitWithHashIndex(inputsBuffer: Fr[], hashIndex: number): Promise<Fr> {
-    const result = await this.binder.callWasmExport(
-      'pedersen___plookup_commit_with_hash_index',
-      [inputsBuffer, hashIndex],
-      [Fr],
-    );
-    return result[0];
-  }
-
-  async pedersenBufferToField(data: Uint8Array): Promise<Fr> {
-    const result = await this.binder.callWasmExport('pedersen___buffer_to_field', [data], [Fr]);
-    return result[0];
-  }
-
-  async pedersenHashInit(): Promise<void> {
-    const result = await this.binder.callWasmExport('pedersen_hash_init', [], []);
-    return;
-  }
-
-  async pedersenHashPair(left: Fr, right: Fr): Promise<Fr> {
-    const result = await this.binder.callWasmExport('pedersen_hash_pair', [left, right], [Fr]);
-    return result[0];
-  }
-
-  async pedersenHashMultiple(inputsBuffer: Fr[]): Promise<Fr> {
-    const result = await this.binder.callWasmExport('pedersen_hash_multiple', [inputsBuffer], [Fr]);
-    return result[0];
-  }
-
-  async pedersenHashMultipleWithHashIndex(inputsBuffer: Fr[], hashIndex: number): Promise<Fr> {
-    const result = await this.binder.callWasmExport(
-      'pedersen_hash_multiple_with_hash_index',
-      [inputsBuffer, hashIndex],
-      [Fr],
-    );
-    return result[0];
-  }
-
-  async pedersenHashToTree(data: Fr[]): Promise<Fr[]> {
-    const result = await this.binder.callWasmExport('pedersen_hash_to_tree', [data], [VectorDeserializer(Fr)]);
+  async pedersenHashWithHashIndex(inputsBuffer: Fr[], hashIndex: number): Promise<Fr> {
+    const result = await this.binder.callWasmExport('pedersen_hash_with_hash_index', [inputsBuffer, hashIndex], [Fr]);
     return result[0];
   }
 
@@ -215,16 +138,6 @@ export class BarretenbergApi {
   async testThreads(threads: number, iterations: number): Promise<number> {
     const result = await this.binder.callWasmExport('test_threads', [threads, iterations], [NumberDeserializer()]);
     return result[0];
-  }
-
-  async testThreadAbort(): Promise<void> {
-    const result = await this.binder.callWasmExport('test_thread_abort', [], []);
-    return;
-  }
-
-  async testAbort(): Promise<void> {
-    const result = await this.binder.callWasmExport('test_abort', [], []);
-    return;
   }
 
   async commonInitSlabAllocator(circuitSize: number): Promise<void> {

@@ -1,6 +1,6 @@
 #include "ultra_prover.hpp"
-#include "barretenberg/honk/sumcheck/sumcheck.hpp"
-#include "barretenberg/honk/utils/power_polynomial.hpp"
+#include "barretenberg/honk/proof_system/power_polynomial.hpp"
+#include "barretenberg/sumcheck/sumcheck.hpp"
 
 namespace proof_system::honk {
 
@@ -107,7 +107,7 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_relation_check_
 
     auto sumcheck = Sumcheck(instance->proving_key->circuit_size, transcript);
 
-    sumcheck_output = sumcheck.prove(instance->prover_polynomials, instance->relation_parameters);
+    sumcheck_output = sumcheck.prove(instance);
 }
 
 /**

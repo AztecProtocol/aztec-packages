@@ -14,9 +14,8 @@ import JSZip from 'jszip';
 import fetch from 'node-fetch';
 import * as path from 'path';
 
-const GITHUB_OWNER = 'AztecProtocol';
-const GITHUB_REPO = 'aztec-packages';
-const GITHUB_TAG_PREFIX = 'aztec-packages';
+import { GITHUB_OWNER, GITHUB_REPO, GITHUB_TAG_PREFIX } from './github.js';
+
 const BOXES_PATH = 'yarn-project/boxes';
 
 /**
@@ -320,7 +319,7 @@ export async function unboxContract(
 
   if (!contractNames.includes(contractName)) {
     log(
-      `The noir contract named "${contractName}" was not found in "@aztec/boxes" package.  Valid options are: 
+      `The noir contract named "${contractName}" was not found in "@aztec/boxes" package.  Valid options are:
         ${contractNames.join('\n\t')}
       We recommend "token" as a default.`,
     );
