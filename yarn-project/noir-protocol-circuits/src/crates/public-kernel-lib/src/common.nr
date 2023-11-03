@@ -173,7 +173,7 @@ pub fn propagate_valid_public_data_update_requests(public_call: PublicCallData, 
     let contract_address = public_call.call_stack_item.contract_address();
     let update_requests = public_call.call_stack_item.public_inputs().contract_storage_update_requests;
 
-    let mut public_data_update_requests : BoundedVec<PublicDataUpdateRequest, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX> = BoundedVec::new(0);
+    let mut public_data_update_requests : BoundedVec<PublicDataUpdateRequest, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX> = BoundedVec::new(PublicDataUpdateRequest::empty());
 
     assert(update_requests.len() == MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX); // This is not done in the cpp code.
 
@@ -211,8 +211,8 @@ pub fn initialize_end_values(previous_kernel : PreviousKernelData, circuit_outpu
 
     circuit_outputs.end.optionally_revealed_data = start.optionally_revealed_data;
 
-    circuit_outputs.end.public_data_update_requests = start.public_data_update_requests;
-    circuit_outputs.end.public_data_reads = start.public_data_reads;
+    circuit_outputs.end.public_data_update_requests = arrays::array_to_bounded_vec(start.public_data_update_requests, |pdu: PublicDataUpdateRequest| pdu.is_empty(), PublicDataUpdateRequest::empty());
+    circuit_outputs.end.public_data_reads = arrays::array_to_bounded_vec(start.public_data_reads, |pdr: PublicDataRead| pdr.is_empty(), PublicDataRead::empty());
 
     // Public kernel does not modify encrypted logs values --> we just copy them to output
     circuit_outputs.end.encrypted_logs_hash = start.encrypted_logs_hash;
@@ -250,14 +250,14 @@ pub fn propagate_valid_public_data_reads(public_call: PublicCallData, circuit_ou
     let contract_address = public_call.call_stack_item.contract_address();
     let read_requests = public_call.call_stack_item.public_inputs().contract_storage_reads;
 
-    let mut public_data_reads : BoundedVec<Field, MAX_PUBLIC_DATA_READS_PER_CALL> = BoundedVec::new(0);
+    let mut public_data_reads : BoundedVec<PublicDataRead, MAX_PUBLIC_DATA_READS_PER_CALL> = BoundedVec::new(PublicDataRead::empty());
 
     for i in 0..MAX_PUBLIC_DATA_READS_PER_CALL {
         let read_request: StorageRead = read_requests[i];
         if !read_request.is_empty() {
             let public_data_read = PublicDataRead {
                 leaf_index: compute_public_data_tree_index(contract_address, read_request.storage_slot),
-                value: compute_public_data_tree_value(read_request.value),
+                value: compute_public_data_tree_value(read_request.current_value),
             };
             public_data_reads.push(public_data_read);
         }
@@ -284,7 +284,7 @@ pub fn propagate_new_commitments(public_call: PublicCallData, circuit_outputs : 
 
 pub fn propagate_new_nullifiers(public_call: PublicCallData, circuit_outputs : &mut KernelCircuitPublicInputsBuilder) {
     let new_nullifiers = public_call.call_stack_item.public_inputs().new_nullifiers;
-    let storage_contract_address = public_call_public_inputs.call_context.storage_contract_address;
+    let storage_contract_address = public_call.call_stack_item.public_inputs().call_context.storage_contract_address;
 
     // Enhance commitments and nullifiers with domain separation whereby domain is the contract.
     let mut siloed_new_nullifiers : BoundedVec<Field,MAX_NEW_NULLIFIERS_PER_CALL> = BoundedVec::new(0);
@@ -312,9 +312,9 @@ pub fn propagate_new_l2_to_l1_messages(public_call: PublicCallData, public_input
         let msg_is_zero = new_l2_to_l1_msgs[i] == 0;
         if msg_is_zero == false {
             let new_l2_to_l1_msgs = compute_l2_to_l1_hash(storage_contract_address,
-                                                                           public_call_public_inputs.version,
+                                                                           public_inputs.constants.tx_context.version,
                                                                            portal_contract_address,
-                                                                           public_call_public_inputs.chain_id,
+                                                                           public_inputs.constants.tx_context.chain_id,
                                                                            new_l2_to_l1_msgs[i]);
             new_l2_to_l1_msgs_to_insert.push(new_l2_to_l1_msgs)
         }
@@ -324,7 +324,7 @@ pub fn propagate_new_l2_to_l1_messages(public_call: PublicCallData, public_input
 
 /**
  * @brief Accumulates unencrypted logs hashes and lengths.
- * @tparam The type of kernel input
+ * @param The type of kernel input
  * @param public_kernel_inputs The inputs to this iteration of the kernel circuit
  * @param circuit_outputs The circuit outputs to be populated
  * @note See the following thread if not clear:
@@ -349,7 +349,7 @@ pub fn accumulate_unencrypted_logs(public_call: PublicCallData,
     ]);
 
     // Add log preimages lengths from current iteration to accumulated lengths
-    let current_unencrypted_log_preimages_length = public_kernel_inputs_public_inputs.unencrypted_log_preimages_length;
+    let current_unencrypted_log_preimages_length = public_call_public_inputs.unencrypted_log_preimages_length;
     public_inputs.end.unencrypted_log_preimages_length =
         previous_kernel_end.unencrypted_log_preimages_length + current_unencrypted_log_preimages_length;
 }
@@ -360,9 +360,9 @@ pub fn accumulate_unencrypted_logs(public_call: PublicCallData,
  * @param builder The circuit builder
  * @param public_kernel_inputs The inputs to this iteration of the kernel circuit
  */
- pub fn validate_this_public_call_hash(public_call: PublicCallData, public_inputs: &mut KernelCircuitPublicInputs) {
+ pub fn validate_this_public_call_hash(public_call: PublicCallData, public_inputs: &mut KernelCircuitPublicInputsBuilder) {
     // If public call stack is empty, we bail so array_pop doesn't throw_or_abort
-    assert(public_inputs.end.public_kernel_inputs_stack.len() == 0 , "Public call stack can't be empty");
+    assert(public_inputs.end.public_call_stack.len() != 0 , "Public call stack can't be empty");
 
     // Pops the current function execution from the stack and validates it against the call stack item
 

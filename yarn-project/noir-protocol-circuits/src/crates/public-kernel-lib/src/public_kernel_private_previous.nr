@@ -15,8 +15,11 @@ impl PublicKernelPrivatePreviousInputs {
 
     fn validate_inputs(self) {
         let private_call_stack = self.previous_kernel.public_inputs.end.private_call_stack;
-        assert(private_call_stack ==0,
-                      "Private call stack must be empty when executing in the public kernel (i.e. all private calls must have been completed)");
+        for i in 0..private_call_stack.len() {
+            let private_call = private_call_stack[i];
+            assert(private_call == 0,
+                "Private call stack must be empty when executing in the public kernel (i.e. all private calls must have been completed)");
+        }
 
         let previous_call_is_private = self.previous_kernel.public_inputs.is_private;
         assert(previous_call_is_private == true,
@@ -48,6 +51,6 @@ impl PublicKernelPrivatePreviousInputs {
 
         common::accumulate_unencrypted_logs(self.public_call, self.previous_kernel,&mut public_inputs);
 
-        public_inputs.to_final();
+        public_inputs.finish()
     }
 }

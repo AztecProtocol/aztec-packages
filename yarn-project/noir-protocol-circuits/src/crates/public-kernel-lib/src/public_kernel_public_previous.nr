@@ -47,6 +47,6 @@ impl PublicKernelPublicPreviousInputs {
 
         common::accumulate_unencrypted_logs(self.public_call, self.previous_kernel,&mut public_inputs);
 
-        public_inputs.to_final();
+        public_inputs.finish()
     }
 }
