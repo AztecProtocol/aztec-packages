@@ -162,4 +162,8 @@ contract SlowTree {
     unconstrained fn un_read_root(address: Field) -> Leaf {
         storage.trees.at(address).read_root()
     }
+
+    unconstrained fn compute_note_hash_and_nullifier(_contract_address: Field, _nonce: Field, _storage_slot: Field, _preimage: [Field; 4]) -> [Field; 4] {
+        [0x0d, 0x0e, 0x0a, 0x0d]
+    }
 }

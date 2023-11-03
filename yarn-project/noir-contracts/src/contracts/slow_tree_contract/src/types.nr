@@ -6,7 +6,7 @@ struct MembershipProof<N, M> {
     sibling_path: [Field; N],
 }
 
-pub fn deserialize_membership_proof<N, M>(serialized: [Field; M]) -> pub MembershipProof<N, M> {
+fn deserialize_membership_proof<N, M>(serialized: [Field; M]) -> MembershipProof<N, M> {
   let mut sibling_path = [0; N];
   for i in 0..N {
       sibling_path[i] = serialized[2 + i];
@@ -18,9 +18,8 @@ pub fn deserialize_membership_proof<N, M>(serialized: [Field; M]) -> pub Members
   }
 }
 
-
 impl<N, M> MembershipProof<N, M> {
-    pub fn serialize(self: Self) -> pub [Field; M] {
+    fn serialize(self: Self) -> [Field; M] {
       let mut serialized = [0; M];
       serialized[0] = self.index;
       serialized[1] = self.value;
@@ -30,7 +29,7 @@ impl<N, M> MembershipProof<N, M> {
       serialized
     }
 
-    pub fn deserialize(serialized: [Field; M]) -> Self {
+    fn deserialize(serialized: [Field; M]) -> Self {
       deserialize_membership_proof(serialized)
     }
 }

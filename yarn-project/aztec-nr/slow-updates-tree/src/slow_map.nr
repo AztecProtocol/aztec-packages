@@ -1,5 +1,4 @@
 use dep::aztec::context::{PrivateContext, PublicContext, Context};
-use dep::aztec::state_vars::public_state::PublicState;
 use dep::aztec::types::type_serialization::TypeSerializationInterface;
 use dep::aztec::oracle::storage::{storage_read, storage_write};
 
@@ -33,10 +32,10 @@ fn deserialize_leaf(serialized: [Field; 3]) -> Leaf {
 }
 
 impl Leaf {
-  pub fn serialize(self: Self) -> [Field; 3] {
+  fn serialize(self: Self) -> [Field; 3] {
     serialize_leaf(self)
   }
-  pub fn deserialize(serialized: [Field; 3]) -> Self {
+   fn deserialize(serialized: [Field; 3]) -> Self {
     deserialize_leaf(serialized)
   }
 }
@@ -62,7 +61,7 @@ pub fn deserialize_slow_update_proof<N, M>(serialized: [Field; M]) -> SlowUpdate
 }
 
 impl<N, M> SlowUpdateProof<N, M> {
-  pub fn serialize(self: Self) -> pub [Field; M] {
+  pub fn serialize(self: Self) -> [Field; M] {
     let mut serialized = [0; M];
     serialized[0] = self.index;
     serialized[1] = self.new_value;
@@ -76,7 +75,7 @@ impl<N, M> SlowUpdateProof<N, M> {
     serialized
   }
 
-  pub fn deserialize(serialized: [Field; M]) -> pub Self {
+  pub fn deserialize(serialized: [Field; M]) -> Self {
     let mut before_sibling_path = [0; N];
     let mut after_sibling_path = [0; N];
 
@@ -147,7 +146,7 @@ impl<N,M> SlowMap<N,M> {
   }
 
   pub fn read_leaf_at(self: Self, key: Field) -> Leaf {
-    let derived_storage_slot = dep::std::hash::pedersen([self.storage_slot, key])[0];
+    let derived_storage_slot = pedersen_hash([self.storage_slot, key]);
     storage_read(derived_storage_slot, deserialize_leaf)
   }
 
@@ -246,7 +245,7 @@ impl<N,M> SlowMap<N,M> {
 
   // Updates the value in the in storage with no checks.
   fn update_unsafe(self: Self, index: Field, leaf: Leaf, root: Leaf) {
-    let derived_storage_slot = dep::std::hash::pedersen([self.storage_slot, index])[0];
+    let derived_storage_slot = pedersen_hash([self.storage_slot, index]);
     let fields = leaf.serialize();
     storage_write(derived_storage_slot, fields);
     
