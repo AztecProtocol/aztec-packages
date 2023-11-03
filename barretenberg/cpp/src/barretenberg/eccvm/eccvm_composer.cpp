@@ -1,5 +1,4 @@
-#include "./eccvm_composer.hpp"
-#include "barretenberg/honk/proof_system/ultra_prover.hpp"
+#include "eccvm_composer.hpp"
 #include "barretenberg/proof_system/composer/composer_lib.hpp"
 #include "barretenberg/proof_system/composer/permutation_lib.hpp"
 

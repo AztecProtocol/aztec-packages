@@ -1,6 +1,6 @@
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
+#include "barretenberg/eccvm/eccvm_composer.hpp"
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/honk/composer/eccvm_composer.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/transcript/transcript.hpp"
