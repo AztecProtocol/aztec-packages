@@ -1,6 +1,5 @@
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
-#include "barretenberg/honk/composer/ultra_composer.hpp"
 #include "barretenberg/proof_system/library/grand_product_delta.hpp"
 #include "barretenberg/proof_system/library/grand_product_library.hpp"
 #include "barretenberg/proof_system/plookup_tables/fixed_base/fixed_base.hpp"
@@ -11,6 +10,7 @@
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/transcript/transcript.hpp"
+#include "barretenberg/ultra_honk/ultra_composer.hpp"
 
 #include <gtest/gtest.h>
 

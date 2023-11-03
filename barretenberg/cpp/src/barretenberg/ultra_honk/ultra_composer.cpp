@@ -1,4 +1,4 @@
-#include "barretenberg/honk/composer/ultra_composer.hpp"
+#include "barretenberg/ultra_honk/ultra_composer.hpp"
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 #include "barretenberg/proof_system/composer/composer_lib.hpp"
 #include "barretenberg/proof_system/composer/permutation_lib.hpp"

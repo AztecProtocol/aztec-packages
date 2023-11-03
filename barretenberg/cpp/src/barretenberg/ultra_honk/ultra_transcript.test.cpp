@@ -1,9 +1,9 @@
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/honk/composer/ultra_composer.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/transcript/transcript.hpp"
+#include "barretenberg/ultra_honk/ultra_composer.hpp"
 #include <gtest/gtest.h>
 
 using namespace proof_system::honk;
