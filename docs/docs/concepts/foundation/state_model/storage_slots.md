@@ -3,7 +3,7 @@ title: Storage Slots
 description: How are storage slots derived for public and private state
 ---
 
-In Aztec private data and public data are stored in two trees, a public data tree and a private data tree. 
+In Aztec private data and public data are stored in two trees, a public data tree and a note hashes tree. 
 
 These trees have in common that they store state for *all* accounts on the Aztec network directly as leaves. This is different from Ethereum, where a state trie contains smaller tries that hold the individual accounts' storage.
 
@@ -26,15 +26,15 @@ For structs and arrays, we are logically using a similar storage slot computatio
 
 ## Private State Slots - Slots aren't real
 
-Private storage is a different beast. As you might remember from [State Model](./main.md), private state is stored in a append-only tree where each leaf is a note. Being append-only, means that leaves are never updated or deleted; instead a nullifier is emitted to signify that some note is no longer valid. A major reason we used this tree, is that lookups at a specific storage slot would leak information in the context of private state. If you could look up a specific address balance just by looking at the storage slot, even if encrypted you would be able to see it changing! That is not good privacy. 
+Private storage is a different beast. As you might remember from [State Model](./main.md), private state is stored in encrypted logs and the corresponding private state commitments in append-only tree where each leaf is a commitment. Being append-only, means that leaves are never updated or deleted; instead a nullifier is emitted to signify that some note is no longer valid. A major reason we used this tree, is that lookups at a specific storage slot would leak information in the context of private state. If you could look up a specific address balance just by looking at the storage slot, even if encrypted you would be able to see it changing! That is not good privacy. 
 
-Following this. The storage slot as we know it doesn't really exists. The leaves of the private data tree are just commitments to content (think of it as a hash of its content). 
+Following this. The storage slot as we know it doesn't really exists. The leaves of the note hashes tree are just commitments to content (think of it as a hash of its content). 
 
 Nevertheless, the concept of a storage slot is very useful when writing applications, since it allows us to reason about distinct and disjoint pieces of data. For example we can say that the balance of an account is stored in a specific slot and that the balance of another account is stored in another slot with the total supply stored in some third slot. By making sure that these slots are disjoint, we can be sure that the balances are not mixed up and that someone cannot use the total supply as their balance. 
 
 ### But how?
 
-If we include the storage slot, as part of the note whose commitment is stored in the private data tree, we can *logically link* all the notes that make up the storage slot. For the case of a balance, we can say that the balance is the sum of all the notes that have the same storage slot - in the same way that your physical \$ balance might be the sum of all the notes in your wallet. 
+If we include the storage slot, as part of the note whose commitment is stored in the note hashes tree, we can *logically link* all the notes that make up the storage slot. For the case of a balance, we can say that the balance is the sum of all the notes that have the same storage slot - in the same way that your physical \$ balance might be the sum of all the notes in your wallet. 
 
 Similarly to how we siloed the public storage slots, we can silo our private storage by hashing the logical storage slot together with the note content.
 
@@ -48,7 +48,7 @@ This siloing (there will be more) is done in the application circuit, since it i
 The private variable wrappers `Set` and `Singleton` in Aztec.nr include the `logical_storage_slot` in the commitments they compute, to make it easier for developers to write contracts without having to think about how to correctly handle storage slots.
 ::: 
 
-When reading the values for these notes, the application circuit can then constrain it to only read notes with a specific logical storage slot.
+When reading the values for these notes, the application circuit can then constrain the values to only read notes with a specific logical storage slot.
 
 To ensure that one contract cannot insert storage that other contracts would believe is theirs, we do a second siloing by hashing the `commitment` with the contract address. 
 
