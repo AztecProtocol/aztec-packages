@@ -1,8 +1,6 @@
 // This is the naive way to do the merkle tree hashing given we know the height.
 // Its janky but has the least complexity given that for loop bounds need to be constant.
 //
-// TODO: Check that in all cases the compiler is able to see that num_of_leaves
-// is a constant, else this will be pretty expensive.
 pub fn calculate_subtree<N>(leaves : [Field; N]) -> Field { 
     let num_of_leaves = leaves.len();
     if num_of_leaves == 128 {
