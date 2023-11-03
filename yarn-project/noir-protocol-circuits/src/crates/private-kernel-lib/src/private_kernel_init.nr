@@ -1,4 +1,3 @@
-use dep::aztec::constants_gen;
 use crate::common;
 use crate::mocked::{Proof, verify_previous_kernel_state};
 use crate::transaction::request::TxRequest;
@@ -8,6 +7,7 @@ use crate::abis::{
     kernel_circuit_public_inputs::{KernelCircuitPublicInputs, KernelCircuitPublicInputsBuilder}
 };
 use crate::utils::arrays;
+use dep::aztec::constants_gen::EMPTY_NULLIFIED_COMMITMENT;
 use dep::std::unsafe;
 
 // Initialization struct for private inputs to the private kernel
@@ -105,7 +105,7 @@ impl PrivateKernelInputsInit {
         
         // Push an empty nullified commitment too since each nullifier must
         // be paired with a nonzero (real or "empty") nullified commitment
-        public_inputs.end.nullified_commitments.push(constants_gen::EMPTY_NULLIFIED_COMMITMENT);
+        public_inputs.end.nullified_commitments.push(EMPTY_NULLIFIED_COMMITMENT);
 
         // Note that we do not need to nullify the transaction request nonce anymore.
         // Should an account want to additionally use nonces for replay protection or handling cancellations,
@@ -158,16 +158,9 @@ mod tests {
         complete_address::CompleteAddress,
         kernel_circuit_public_inputs::KernelCircuitPublicInputs,
         private_kernel::private_call_data::PrivateCallData,
-        read_request_membership_witness::ReadRequestMembershipWitness,
     };
     use crate::tests::{
-        fixtures::{
-            read_requests::generate_read_requests,
-        },
-        testing_harness::{
-            create_private_call_data,
-            build_tx_request,
-        },
+        testing_harness::PrivateCallDataBuilder,
     };
     use crate::transaction::request::TxRequest;
     use crate::address::Address;
@@ -179,18 +172,11 @@ mod tests {
     use crate::utils::arrays::array_length;
     use dep::aztec::constants_gen::{
         MAX_READ_REQUESTS_PER_CALL,
-        MAX_NEW_COMMITMENTS_PER_CALL,
-        MAX_NEW_NULLIFIERS_PER_CALL,
-        EMPTY_NULLIFIED_COMMITMENT,
-        MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
-        MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
-        MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
-        NOTE_HASH_TREE_HEIGHT,
     };
 
     struct PrivateKernelInitInputsBuilder {
         tx_request: TxRequest,
-        private_call: PrivateCallData,
+        private_call: PrivateCallDataBuilder,
     }
 
     impl PrivateKernelInitInputsBuilder {
@@ -203,12 +189,8 @@ mod tests {
         }
 
         fn new_with_config(is_constructor: bool) -> Self {
-            let private_call = create_private_call_data(is_constructor);
-
-            let tx_request = build_tx_request(
-                is_constructor,
-                private_call,
-            );
+            let private_call = PrivateCallDataBuilder::new(is_constructor);
+            let tx_request = private_call.build_tx_request();
 
             PrivateKernelInitInputsBuilder {
                 tx_request,
@@ -219,7 +201,7 @@ mod tests {
         pub fn execute(self) -> KernelCircuitPublicInputs {
             let kernel = PrivateKernelInputsInit {
                 tx_request: self.tx_request,
-                private_call: self.private_call,
+                private_call: self.private_call.finish(),
             };
 
             kernel.native_private_kernel_circuit_initial()
@@ -230,7 +212,7 @@ mod tests {
         }
     }
 
-    pub fn validate_deployed_contract_address(tx_request: TxRequest, private_call: PrivateCallData, public_inputs: KernelCircuitPublicInputs) {
+    pub fn validate_deployed_contract_address(tx_request: TxRequest, private_call: PrivateCallDataBuilder, public_inputs: KernelCircuitPublicInputs) {
         assert_eq(public_inputs.end.new_contracts.len(), 1);
         let cdd = tx_request.tx_context.contract_deployment_data;
 
@@ -258,10 +240,8 @@ mod tests {
         let encrypted_log_preimages_length = 100;
         let unencrypted_logs_hash = [26, 47];
         let unencrypted_log_preimages_length = 50;
-        builder.private_call.call_stack_item.inner.public_inputs.encrypted_logs_hash = encrypted_logs_hash;
-        builder.private_call.call_stack_item.inner.public_inputs.encrypted_log_preimages_length = encrypted_log_preimages_length;
-        builder.private_call.call_stack_item.inner.public_inputs.unencrypted_logs_hash = unencrypted_logs_hash;
-        builder.private_call.call_stack_item.inner.public_inputs.unencrypted_log_preimages_length = unencrypted_log_preimages_length;
+        builder.private_call.set_encrypted_logs(encrypted_logs_hash, encrypted_log_preimages_length);
+        builder.private_call.set_unencrypted_logs(unencrypted_logs_hash, unencrypted_log_preimages_length);
 
         let public_inputs = builder.execute();
 
@@ -305,8 +285,7 @@ mod tests {
     fn input_validation_malformed_arrays_return_values() {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
-        let malformed_return_values = [0, 0, 0, 553];
-        builder.private_call.call_stack_item.inner.public_inputs.return_values = malformed_return_values;
+        builder.private_call.public_inputs.return_values.push_array([0, 9123]);
 
         builder.failed();
     }
@@ -315,10 +294,7 @@ mod tests {
     fn input_validation_malformed_arrays_read_requests() {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
-        let mut malformed_read_requests = [0; MAX_READ_REQUESTS_PER_CALL];
-        malformed_read_requests[1] = 9123;
-        malformed_read_requests[3] = 12;
-        builder.private_call.call_stack_item.inner.public_inputs.read_requests = malformed_read_requests;
+        builder.private_call.public_inputs.read_requests.push_array([0, 9123]);
         
         builder.failed();
     }
@@ -327,9 +303,7 @@ mod tests {
     fn input_validation_malformed_arrays_commitments() {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
-        let mut malformed_commitments = [0; MAX_NEW_COMMITMENTS_PER_CALL];
-        malformed_commitments[1] = 9123;
-        builder.private_call.call_stack_item.inner.public_inputs.new_commitments = malformed_commitments;
+        builder.private_call.public_inputs.new_commitments.push_array([0, 9123]);
         
         builder.failed();
     }
@@ -338,9 +312,7 @@ mod tests {
     fn input_validation_malformed_arrays_nullifiers() {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
-        let mut malformed_nullifiers = [0; MAX_NEW_NULLIFIERS_PER_CALL];
-        malformed_nullifiers[MAX_NEW_NULLIFIERS_PER_CALL - 1] = 12;
-        builder.private_call.call_stack_item.inner.public_inputs.new_nullifiers = malformed_nullifiers;
+        builder.private_call.public_inputs.new_nullifiers.push_array([0, 9123]);
         
         builder.failed();
     }
@@ -349,9 +321,7 @@ mod tests {
     fn input_validation_malformed_arrays_nullified_commitments() {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
-        let mut malformed_nullified_commitments = [0; MAX_NEW_NULLIFIERS_PER_CALL];
-        malformed_nullified_commitments[2] = EMPTY_NULLIFIED_COMMITMENT;
-        builder.private_call.call_stack_item.inner.public_inputs.nullified_commitments = malformed_nullified_commitments;
+        builder.private_call.public_inputs.nullified_commitments.push_array([0, 9123]);
         
         builder.failed();
     }
@@ -360,9 +330,7 @@ mod tests {
     fn input_validation_malformed_arrays_private_call_stack() {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
-        let mut malformed_private_call_stack = [0; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL];
-        malformed_private_call_stack[1] = 888;
-        builder.private_call.call_stack_item.inner.public_inputs.private_call_stack = malformed_private_call_stack;
+        builder.private_call.public_inputs.private_call_stack.push_array([0, 9123]);
         
         builder.failed();
     }
@@ -371,9 +339,7 @@ mod tests {
     fn input_validation_malformed_arrays_public_call_stack() {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
-        let mut malformed_public_call_stack = [0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL];
-        malformed_public_call_stack[1] = 888;
-        builder.private_call.call_stack_item.inner.public_inputs.public_call_stack = malformed_public_call_stack;
+        builder.private_call.public_inputs.public_call_stack.push_array([0, 9123]);
         
         builder.failed();
     }
@@ -382,9 +348,7 @@ mod tests {
     fn input_validation_malformed_arrays_new_l2_to_l1_msgs() {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
-        let mut malformed_new_l2_to_l1_msgs = [0; MAX_NEW_L2_TO_L1_MSGS_PER_CALL];
-        malformed_new_l2_to_l1_msgs[1] = 888;
-        builder.private_call.call_stack_item.inner.public_inputs.new_l2_to_l1_msgs = malformed_new_l2_to_l1_msgs;
+        builder.private_call.public_inputs.new_l2_to_l1_msgs.push_array([0, 9123]);
         
         builder.failed();
     }
@@ -393,7 +357,7 @@ mod tests {
     fn contract_deployment_call_stack_item_hash_mismatch_fails() {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
-        builder.private_call.call_stack_item.inner.public_inputs.private_call_stack[0] = 27;
+        builder.private_call.public_inputs.private_call_stack.push(27);
         
         builder.failed();
     }
@@ -403,9 +367,9 @@ mod tests {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
         let random_address = Address::from_field(27);
-        builder.private_call.call_stack_item.inner.public_inputs.call_context.storage_contract_address = random_address;
+        builder.private_call.public_inputs.call_context.storage_contract_address = random_address;
         builder.tx_request.origin = random_address;
-        builder.private_call.call_stack_item.inner.contract_address = random_address;
+        builder.private_call.contract_address = random_address;
 
         builder.failed();
     }
@@ -414,9 +378,9 @@ mod tests {
     fn contract_deployment_contract_address_mismatch_fails() {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
-        let random_contract_address = Address::from_field(27);
-        builder.private_call.call_stack_item.inner.public_inputs.call_context.storage_contract_address = random_contract_address;
-        builder.private_call.call_stack_item.inner.contract_address = random_contract_address;
+        let random_address = Address::from_field(27);
+        builder.private_call.public_inputs.call_context.storage_contract_address = random_address;
+        builder.private_call.contract_address = random_address;
 
         builder.failed();
     }
@@ -445,7 +409,7 @@ mod tests {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
         // Set is_private in function data to false.
-        builder.private_call.call_stack_item.inner.function_data.is_private = false;
+        builder.private_call.function_data.is_private = false;
 
         builder.failed();
     }
@@ -455,7 +419,7 @@ mod tests {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
         // Set is_static_call to true.
-        builder.private_call.call_stack_item.inner.public_inputs.call_context.is_static_call = true;
+        builder.private_call.public_inputs.call_context.is_static_call = true;
 
         builder.failed();
     }
@@ -465,7 +429,7 @@ mod tests {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
         // Set is_delegate_call to true.
-        builder.private_call.call_stack_item.inner.public_inputs.call_context.is_delegate_call = true;
+        builder.private_call.public_inputs.call_context.is_delegate_call = true;
 
         builder.failed();
     }
@@ -475,23 +439,20 @@ mod tests {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
         // Set the storage_contract_address to a random scalar.
-        builder.private_call.call_stack_item.inner.public_inputs.call_context.storage_contract_address = Address::from_field(356);
+        builder.private_call.public_inputs.call_context.storage_contract_address = Address::from_field(356);
 
         builder.failed();
     }
-
 
     #[test(should_fail_with="private data tree root mismatch")]
     fn native_read_request_bad_request() {
         let mut builder = PrivateKernelInitInputsBuilder::new();
 
-        let (mut read_requests, mut read_request_membership_witnesses) = generate_read_requests(2);
+        builder.private_call.append_read_requests(2);
 
         // tweak read_request so it gives wrong root when paired with its sibling path
-        read_requests[1] += 1;
-
-        builder.private_call.call_stack_item.inner.public_inputs.read_requests = read_requests;
-        builder.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
+        let read_request = builder.private_call.public_inputs.read_requests.pop();
+        builder.private_call.public_inputs.read_requests.push(read_request + 1);
 
         builder.failed();
     }
@@ -500,12 +461,12 @@ mod tests {
     fn native_read_request_bad_leaf_index() {
         let mut builder = PrivateKernelInitInputsBuilder::new();
 
-        let (mut read_requests, mut read_request_membership_witnesses) = generate_read_requests(2);
+        builder.private_call.append_read_requests(2);
 
         // tweak leaf index so it gives wrong root when paired with its request and sibling path
-        read_request_membership_witnesses[1].leaf_index += 1;
-        builder.private_call.call_stack_item.inner.public_inputs.read_requests = read_requests;
-        builder.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
+        let mut read_request_membership_witness = builder.private_call.read_request_membership_witnesses.pop();
+        read_request_membership_witness.leaf_index += 1;
+        builder.private_call.read_request_membership_witnesses.push(read_request_membership_witness);
 
         builder.failed();
     }
@@ -514,12 +475,12 @@ mod tests {
     fn native_read_request_bad_sibling_path() {
         let mut builder = PrivateKernelInitInputsBuilder::new();
 
-        let (mut read_requests, mut read_request_membership_witnesses) = generate_read_requests(2);
+        builder.private_call.append_read_requests(2);
 
         // tweak sibling path so it gives wrong root when paired with its request
-        read_request_membership_witnesses[1].sibling_path[1] += 1;
-        builder.private_call.call_stack_item.inner.public_inputs.read_requests = read_requests;
-        builder.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
+        let mut read_request_membership_witness = builder.private_call.read_request_membership_witnesses.pop();
+        read_request_membership_witness.sibling_path[1] += 1;
+        builder.private_call.read_request_membership_witnesses.push(read_request_membership_witness);
 
         builder.failed();
     }
@@ -527,11 +488,6 @@ mod tests {
     #[test]
     fn native_no_read_requests_works() {
         let mut builder = PrivateKernelInitInputsBuilder::new();
-
-        let (mut read_requests, mut read_request_membership_witnesses) = generate_read_requests(0);
-
-        builder.private_call.call_stack_item.inner.public_inputs.read_requests = read_requests;
-        builder.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
 
         let public_inputs = builder.execute();
 
@@ -547,10 +503,7 @@ mod tests {
     fn native_one_read_requests_works() {
         let mut builder = PrivateKernelInitInputsBuilder::new();
 
-        let (mut read_requests, mut read_request_membership_witnesses) = generate_read_requests(1);
-
-        builder.private_call.call_stack_item.inner.public_inputs.read_requests = read_requests;
-        builder.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
+        builder.private_call.append_read_requests(1);
 
         let public_inputs = builder.execute();
 
@@ -566,10 +519,7 @@ mod tests {
     fn native_two_read_requests_works() {
         let mut builder = PrivateKernelInitInputsBuilder::new();
 
-        let (mut read_requests, mut read_request_membership_witnesses) = generate_read_requests(2);
-
-        builder.private_call.call_stack_item.inner.public_inputs.read_requests = read_requests;
-        builder.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
+        builder.private_call.append_read_requests(2);
 
         let public_inputs = builder.execute();
 
@@ -585,10 +535,7 @@ mod tests {
     fn native_max_read_requests_works() {
         let mut builder = PrivateKernelInitInputsBuilder::new();
 
-        let (mut read_requests, mut read_request_membership_witnesses) = generate_read_requests(MAX_READ_REQUESTS_PER_CALL as u64);
-
-        builder.private_call.call_stack_item.inner.public_inputs.read_requests = read_requests;
-        builder.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
+        builder.private_call.append_read_requests(MAX_READ_REQUESTS_PER_CALL);
 
         let public_inputs = builder.execute();
 
@@ -604,13 +551,7 @@ mod tests {
     fn native_one_transient_read_requests_works() {
         let mut builder = PrivateKernelInitInputsBuilder::new();
 
-        let (mut read_requests, mut read_request_membership_witnesses) = generate_read_requests(1);
-
-        builder.private_call.call_stack_item.inner.public_inputs.read_requests = read_requests;
-        builder.private_call.read_request_membership_witnesses = read_request_membership_witnesses.map(|mut witness: ReadRequestMembershipWitness<NOTE_HASH_TREE_HEIGHT>| {
-            witness.is_transient = true;
-            witness
-        });
+        builder.private_call.append_transient_read_requests(1);
 
         let public_inputs = builder.execute();
 
@@ -626,11 +567,8 @@ mod tests {
     fn native_max_read_requests_one_transient_works() {
         let mut builder = PrivateKernelInitInputsBuilder::new();
 
-        let (mut read_requests, mut read_request_membership_witnesses) = generate_read_requests(MAX_READ_REQUESTS_PER_CALL as u64);
-
-        read_request_membership_witnesses[1].is_transient = true;
-        builder.private_call.call_stack_item.inner.public_inputs.read_requests = read_requests;
-        builder.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
+        builder.private_call.append_transient_read_requests(1);
+        builder.private_call.append_read_requests(MAX_READ_REQUESTS_PER_CALL - 1);
 
         let public_inputs = builder.execute();
 
@@ -646,13 +584,7 @@ mod tests {
     fn native_max_read_requests_all_transient_works() {
         let mut builder = PrivateKernelInitInputsBuilder::new();
 
-        let (mut read_requests, mut read_request_membership_witnesses) = generate_read_requests(MAX_READ_REQUESTS_PER_CALL as u64);
-
-        builder.private_call.call_stack_item.inner.public_inputs.read_requests = read_requests;
-        builder.private_call.read_request_membership_witnesses = read_request_membership_witnesses.map(|mut witness: ReadRequestMembershipWitness<NOTE_HASH_TREE_HEIGHT>| {
-            witness.is_transient = true;
-            witness
-        });
+        builder.private_call.append_transient_read_requests(MAX_READ_REQUESTS_PER_CALL);
 
         let public_inputs = builder.execute();
 
