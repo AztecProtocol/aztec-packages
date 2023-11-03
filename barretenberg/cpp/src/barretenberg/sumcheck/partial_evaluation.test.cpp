@@ -290,12 +290,12 @@ TYPED_TEST(PartialEvaluationTests, ThreeRoundsGenericMultiplePolys)
     }
 
     sumcheck.partially_evaluate(full_polynomials, multivariate_n, round_challenge_0);
-    auto pointer_view = sumcheck.partially_evaluated_polynomials.pointer_view();
+    auto polynomial_pointer_view = sumcheck.partially_evaluated_polynomials.pointer_view();
     for (size_t i = 0; i < 3; i++) {
-        EXPECT_EQ((*pointer_view[i])[0], expected_q1[i]);
-        EXPECT_EQ((*pointer_view[i])[1], expected_q2[i]);
-        EXPECT_EQ((*pointer_view[i])[2], expected_q3[i]);
-        EXPECT_EQ((*pointer_view[i])[3], expected_q4[i]);
+        EXPECT_EQ((*polynomial_pointer_view[i])[0], expected_q1[i]);
+        EXPECT_EQ((*polynomial_pointer_view[i])[1], expected_q2[i]);
+        EXPECT_EQ((*polynomial_pointer_view[i])[2], expected_q3[i]);
+        EXPECT_EQ((*polynomial_pointer_view[i])[3], expected_q4[i]);
     }
 
     FF round_challenge_1 = FF::random_element();
@@ -307,8 +307,8 @@ TYPED_TEST(PartialEvaluationTests, ThreeRoundsGenericMultiplePolys)
     }
     sumcheck.partially_evaluate(sumcheck.partially_evaluated_polynomials, multivariate_n >> 1, round_challenge_1);
     for (size_t i = 0; i < 3; i++) {
-        EXPECT_EQ((*pointer_view[i])[0], expected_lo[i]);
-        EXPECT_EQ((*pointer_view[i])[1], expected_hi[i]);
+        EXPECT_EQ((*polynomial_pointer_view[i])[0], expected_lo[i]);
+        EXPECT_EQ((*polynomial_pointer_view[i])[1], expected_hi[i]);
     }
     FF round_challenge_2 = FF::random_element();
     std::array<FF, 3> expected_val;
@@ -317,7 +317,7 @@ TYPED_TEST(PartialEvaluationTests, ThreeRoundsGenericMultiplePolys)
     }
     sumcheck.partially_evaluate(sumcheck.partially_evaluated_polynomials, multivariate_n >> 2, round_challenge_2);
     for (size_t i = 0; i < 3; i++) {
-        EXPECT_EQ((*pointer_view[i])[0], expected_val[i]);
+        EXPECT_EQ((*polynomial_pointer_view[i])[0], expected_val[i]);
     }
 }
 
