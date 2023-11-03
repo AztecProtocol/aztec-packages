@@ -30,7 +30,7 @@ get_sequential_prover_polynomials(const size_t log_circuit_size, const size_t st
     auto prover_polynomials_pointers = prover_polynomials.pointer_view();
     size_t poly_idx = 0;
     for (auto& polynomial : storage) {
-        *(prover_polynomials_pointers[poly_idx]) = polynomial;
+        *prover_polynomials_pointers[poly_idx] = polynomial;
         poly_idx++;
     }
 
