@@ -659,7 +659,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorDecompositionRelationCorrectnes
     std::vector<Polynomial> polynomial_container;
     std::vector<size_t> polynomial_ids;
     auto polynomial_id_pointer_view = prover_polynomial_ids.pointer_view();
-    auto pointer_view = prover_polynomials.pointer_view();
+    auto polynomial_pointer_view = prover_polynomials.pointer_view();
     for (size_t i = 0; i < prover_polynomials.size(); i++) {
         Polynomial temporary_polynomial(circuit_size);
         // Allocate polynomials
@@ -677,7 +677,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorDecompositionRelationCorrectnes
     // Assign spans to non-shifted prover polynomials
     for (size_t i = 0; i < prover_polynomials.size(); i++) {
         if (!shifted_id_set.contains(i)) {
-            *pointer_view[i] = polynomial_container[i];
+            *polynomial_pointer_view[i] = polynomial_container[i];
         }
     }
 
@@ -685,7 +685,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorDecompositionRelationCorrectnes
     for (size_t i = 0; i < shifted_ids.size(); i++) {
         auto shifted_id = shifted_ids[i];
         auto to_be_shifted_id = prover_polynomial_ids.get_to_be_shifted()[i];
-        *pointer_view[shifted_id] = polynomial_container[to_be_shifted_id].shifted();
+        *polynomial_pointer_view[shifted_id] = polynomial_container[to_be_shifted_id].shifted();
     }
 
     // Fill in lagrange odd polynomial (the only non-witness one we are using)
