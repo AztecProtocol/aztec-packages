@@ -17,8 +17,8 @@ export class BarretenbergApi {
     await this.binder.wasm.destroy();
   }
 
-  async pedersenCommit(inputsBuffer: Fr[], hashIndex: number): Promise<Point> {
-    const result = await this.binder.callWasmExport('pedersen_commit', [inputsBuffer, hashIndex], [Point]);
+  async pedersenCommit(inputsBuffer: Fr[]): Promise<Point> {
+    const result = await this.binder.callWasmExport('pedersen_commit', [inputsBuffer], [Point]);
     return result[0];
   }
 

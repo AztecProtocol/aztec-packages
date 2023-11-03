@@ -33,20 +33,19 @@ export class Pedersen {
     return hashOutput;
   }
 
-  pedersenCommit(inputs: Uint8Array[], hashIndex = 0) {
+  pedersenCommit(inputs: Uint8Array[]) {
     const SCRATCH_SPACE_SIZE = 1024;
 
     const data = serializeBufferArrayToVector(inputs);
 
     let inputPtr = 0;
-    if (data.length > SCRATCH_SPACE_SIZE - 4) {
+    if (data.length > SCRATCH_SPACE_SIZE) {
       inputPtr = this.wasm.call('bbmalloc', data.length);
     }
     this.wasm.writeMemory(inputPtr, data);
-    this.wasm.writeMemory(SCRATCH_SPACE_SIZE - 4, numToUInt32BE(hashIndex));
 
     const outputPtr = 0;
-    this.wasm.call('pedersen_commit', inputPtr, SCRATCH_SPACE_SIZE - 4, outputPtr);
+    this.wasm.call('pedersen_commit', inputPtr, outputPtr);
     const hashOutput = this.wasm.getMemorySlice(0, 64);
 
     if (inputPtr !== 0) {

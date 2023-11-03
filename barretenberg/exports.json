@@ -5,10 +5,6 @@
       {
         "name": "inputs_buffer",
         "type": "fr::vec_in_buf"
-      },
-      {
-        "name": "hash_index",
-        "type": "const uint32_t *"
       }
     ],
     "outArgs": [
