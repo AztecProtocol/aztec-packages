@@ -248,8 +248,7 @@ jobs:
       - *checkout
       - *setup_env
       - gh/setup:
-          parameters:
-            token: $AZTEC_GITHUB_TOKEN
+          token: $AZTEC_GITHUB_TOKEN
       - run:
           name: "Build and test"
           command: cond_spot_run_build barretenberg-acir-tests-bb 32
@@ -284,8 +283,7 @@ jobs:
       - *checkout
       - *setup_env
       - gh/setup:
-          parameters:
-            token: $AZTEC_GITHUB_TOKEN
+          token: $AZTEC_GITHUB_TOKEN
       - run:
           name: "Build and test"
           command: cond_spot_run_build barretenberg-acir-tests-bb.js 32
