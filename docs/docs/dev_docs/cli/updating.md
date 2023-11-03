@@ -4,32 +4,14 @@ title: Updating
 
 ## Quick Reference
 
-- Aztec Sandbox
+Inside your project run:
 
 ```shell
-  /bin/bash -c "$(curl -fsSL 'https://sandbox.aztec.network')"
+cd your/aztec/project
+npx @aztec/cli@latest update . --contract src/contract1 --contract src/contract2
 ```
 
-- Aztec CLI
-
-```shell
-npm install -g @aztec/cli
-```
-
-- nargo
-
-```shell
-noirup
-```
-
-- Aztec.nr
-
-```toml
-#nargo.toml
-[dependencies]
-aztec = { git="https://github.com/AztecProtocol/aztec-packages", tag="#include_aztec_version", directory="yarn-project/aztec-nr/aztec" }
-value_note = { git="https://github.com/AztecProtocol/aztec-packages", tag="#include_aztec_version", directory="yarn-project/aztec-nr/value-note" }
-```
+This will update `@aztec/*` dependencies in `package.json` as well as Aztec.nr libraries in `Nargo.toml` to the latest version. If `@aztec/sandbox` and `@aztec/cli` are listed as dependencies then they will be automatically updated as well.
 
 Read on to learn about versioning and other commands.
 
