@@ -2,14 +2,14 @@
 #include "barretenberg/honk/composer/ultra_composer.hpp"
 #include "barretenberg/honk/proof_system/permutation_library.hpp"
 #include "barretenberg/proof_system/library/grand_product_library.hpp"
-#include "barretenberg/proof_system/relations/auxiliary_relation.hpp"
-#include "barretenberg/proof_system/relations/ecc_op_queue_relation.hpp"
-#include "barretenberg/proof_system/relations/elliptic_relation.hpp"
-#include "barretenberg/proof_system/relations/gen_perm_sort_relation.hpp"
-#include "barretenberg/proof_system/relations/lookup_relation.hpp"
-#include "barretenberg/proof_system/relations/permutation_relation.hpp"
-#include "barretenberg/proof_system/relations/relation_parameters.hpp"
-#include "barretenberg/proof_system/relations/ultra_arithmetic_relation.hpp"
+#include "barretenberg/relations/auxiliary_relation.hpp"
+#include "barretenberg/relations/ecc_op_queue_relation.hpp"
+#include "barretenberg/relations/elliptic_relation.hpp"
+#include "barretenberg/relations/gen_perm_sort_relation.hpp"
+#include "barretenberg/relations/lookup_relation.hpp"
+#include "barretenberg/relations/permutation_relation.hpp"
+#include "barretenberg/relations/relation_parameters.hpp"
+#include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 #include <gtest/gtest.h>
 
 using namespace proof_system::honk;

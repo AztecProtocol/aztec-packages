@@ -3,7 +3,7 @@
 #include "barretenberg/flavor/goblin_ultra.hpp"
 #include "barretenberg/flavor/ultra.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
-#include "barretenberg/proof_system/relations/relation_parameters.hpp"
+#include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/sumcheck/instance/prover_instance.hpp"
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
 #include "barretenberg/transcript/transcript.hpp"

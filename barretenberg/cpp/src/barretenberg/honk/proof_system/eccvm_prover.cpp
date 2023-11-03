@@ -6,8 +6,8 @@
 #include "barretenberg/honk/proof_system/power_polynomial.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/proof_system/library/grand_product_library.hpp"
-#include "barretenberg/proof_system/relations/lookup_relation.hpp"
-#include "barretenberg/proof_system/relations/permutation_relation.hpp"
+#include "barretenberg/relations/lookup_relation.hpp"
+#include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include <algorithm>
 #include <array>

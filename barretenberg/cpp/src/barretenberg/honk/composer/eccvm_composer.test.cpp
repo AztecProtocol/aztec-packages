@@ -8,8 +8,8 @@
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/proof_system/circuit_builder/eccvm/eccvm_circuit_builder.hpp"
 #include "barretenberg/proof_system/library/grand_product_delta.hpp"
-#include "barretenberg/proof_system/relations/permutation_relation.hpp"
-#include "barretenberg/proof_system/relations/relation_parameters.hpp"
+#include "barretenberg/relations/permutation_relation.hpp"
+#include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/sumcheck/sumcheck_round.hpp"
 
 using namespace proof_system::honk;

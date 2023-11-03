@@ -7,8 +7,8 @@
 #include "barretenberg/honk/proof_system/folding_result.hpp"
 #include "barretenberg/polynomials/pow.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
-#include "barretenberg/proof_system/relations/relation_parameters.hpp"
-#include "barretenberg/proof_system/relations/utils.hpp"
+#include "barretenberg/relations/relation_parameters.hpp"
+#include "barretenberg/relations/utils.hpp"
 #include "barretenberg/sumcheck/instance/instances.hpp"
 
 namespace proof_system::honk {

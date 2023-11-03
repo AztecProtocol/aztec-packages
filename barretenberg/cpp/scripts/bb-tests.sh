@@ -16,21 +16,22 @@ TESTS=(
   crypto_blake2s_tests
   crypto_blake3s_tests
   crypto_ecdsa_tests
-  crypto_schnorr_tests
-  crypto_sha256_tests
   crypto_pedersen_commitment_tests
   crypto_pedersen_hash_tests
+  crypto_schnorr_tests
+  crypto_sha256_tests
+  dsl_tests
   ecc_tests
   flavor_tests
+  join_split_example_proofs_inner_proof_data_tests
+  join_split_example_proofs_notes_tests
   numeric_tests
   plonk_tests
   polynomials_tests
-  join_split_example_proofs_inner_proof_data_tests
-  join_split_example_proofs_notes_tests
+  relations_tests
   srs_tests
   sumcheck_tests
   transcript_tests
-  dsl_tests
 )
 TESTS_STR="${TESTS[@]}"
 
