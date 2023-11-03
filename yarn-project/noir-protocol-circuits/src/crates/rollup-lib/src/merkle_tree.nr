@@ -18,7 +18,7 @@ pub fn calculate_subtree<N>(leaves : [Field; N]) -> Field {
     } else if num_of_leaves == 2 {
         calculate_subtree_2(leaves.as_slice())
     } else {
-        assert(false, "number of leaves should be 2, 4, 8, or 16");
+        assert(false, "merkle tree width is not supported");
         0
     }
 }
