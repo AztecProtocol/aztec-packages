@@ -152,12 +152,11 @@ template <typename Flavor> class SumcheckProver {
     void partially_evaluate(auto& polynomials, size_t round_size, FF round_challenge)
     {
         auto pep_view = partially_evaluated_polynomials.pointer_view();
-        auto poly_view = polynomials.pointer_view();
         // after the first round, operate in place on partially_evaluated_polynomials
         parallel_for(polynomials.size(), [&](size_t j) {
             for (size_t i = 0; i < round_size; i += 2) {
                 (*pep_view[j])[i >> 1] =
-                    (*poly_view[j])[i] + round_challenge * ((*poly_view[j])[i + 1] - (*poly_view[j])[i]);
+                    polynomials[j][i] + round_challenge * (polynomials[j][i + 1] - polynomials[j][i]);
             }
         });
     };
