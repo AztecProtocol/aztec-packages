@@ -78,30 +78,30 @@ fn test_merkle_root_interop_test() {
     let root = calculate_subtree([1,2,3,4,1,2,3,4,1,2,3,4,1,2,3,4]);
     assert(0x17e8bb70a11d0c946345950879484d2f4f9fef397ff6adbfdec3baab2d41faab == root);
 
-    let empty_root = calculate_subtree([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]);
+    let empty_root = calculate_subtree([0; 16]);
     assert(0x06e62084ee7b602fe9abc15632dda3269f56fb0c6e12519a2eb2ec897091919d == empty_root);
 }
 
 #[test]
 fn test_empty_subroot() {
-    let expected_empty_root_2 = calculate_subtree([0,0]);
+    let expected_empty_root_2 = calculate_subtree([0; 2]);
     assert(calculate_empty_tree_root(1) == expected_empty_root_2);
     
-    let expected_empty_root_4 = calculate_subtree([0,0,0,0]);
+    let expected_empty_root_4 = calculate_subtree([0; 4]);
     assert(calculate_empty_tree_root(2) == expected_empty_root_4);
 
-    let expected_empty_root_8 = calculate_subtree([0,0,0,0,0,0,0,0]);
+    let expected_empty_root_8 = calculate_subtree([0; 8]);
     assert(calculate_empty_tree_root(3) == expected_empty_root_8);
 
-    let expected_empty_root_16 = calculate_subtree([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]);
+    let expected_empty_root_16 = calculate_subtree([0; 16]);
     assert(calculate_empty_tree_root(4) == expected_empty_root_16);
 
-    let expected_empty_root_32 = calculate_subtree([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]);
+    let expected_empty_root_32 = calculate_subtree([0; 32]);
     assert(calculate_empty_tree_root(5) == expected_empty_root_32);
     
-    let expected_empty_root_64 = calculate_subtree([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]);
+    let expected_empty_root_64 = calculate_subtree([0; 64]);
     assert(calculate_empty_tree_root(6) == expected_empty_root_64);
  
-    let expected_empty_root_128 = calculate_subtree([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]);
+    let expected_empty_root_128 = calculate_subtree([0; 128]);
     assert(calculate_empty_tree_root(7) == expected_empty_root_128);
 }
