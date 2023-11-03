@@ -44,7 +44,7 @@ export class TxReceipt {
     /**
      * Information useful for testing, set when test flag is set to true in `waitOpts`.
      */
-    public testInfo?: TestInfo,
+    public debugInfo?: DebugInfo,
   ) {}
 
   /**
@@ -79,9 +79,10 @@ export class TxReceipt {
 }
 
 /**
- * Information useful for testing purposes included in the receipt when the test flag is set to true in `WaitOpts`.
+ * Information useful for debugging/testing purposes included in the receipt when the debug flag is set to true
+ * in `WaitOpts`.
  */
-interface TestInfo {
+interface DebugInfo {
   /**
    * New commitments created by the transaction.
    */
