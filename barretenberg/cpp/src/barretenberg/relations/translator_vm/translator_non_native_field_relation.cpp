@@ -1,4 +1,4 @@
-#include "barretenberg/proof_system/relations/translator_vm/translator_non_native_field_relation.hpp"
+#include "barretenberg/relations/translator_vm/translator_non_native_field_relation.hpp"
 #include "barretenberg/flavor/goblin_translator.hpp"
 
 namespace proof_system {
