@@ -43,7 +43,7 @@ template <typename Flavor, typename Relation> void check_relation(auto circuit_s
         }
 
         // Define the appropriate SumcheckArrayOfValuesOverSubrelations type for this relation and initialize to zero
-        using SumcheckArrayOfValuesOverSubrelations = Relation::SumcheckArrayOfValuesOverSubrelations;
+        using SumcheckArrayOfValuesOverSubrelations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
         SumcheckArrayOfValuesOverSubrelations result;
         for (auto& element : result) {
             element = 0;
