@@ -70,7 +70,7 @@ void compute_permutation_grand_product(const size_t circuit_size,
         for (size_t i = start; i < end; ++i) {
 
             typename Flavor::AllValues evaluations;
-            for (auto [eval, poly] : zip_view(evaluations, full_polynomials)) {
+            for (auto [eval, poly] : zip_view(evaluations.pointer_view(), full_polynomials.pointer_view())) {
                 eval = poly->size() > i ? (*poly)[i] : 0;
             }
             numerator[i] = GrandProdRelation::template compute_permutation_numerator<Accumulator>(evaluations,
