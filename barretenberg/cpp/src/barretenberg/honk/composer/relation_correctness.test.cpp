@@ -38,7 +38,7 @@ template <typename Flavor, typename Relation> void check_relation(auto circuit_s
 
         // Extract an array containing all the polynomial evaluations at a given row i
         AllValues evaluations_at_index_i;
-        for (auto [poly, eval] : zip_view(polynomials.pointer_view(), evaluations_at_index_i.pointer_view())) {
+        for (auto [eval, poly] : zip_view(evaluations_at_index_i.pointer_view(), polynomials.pointer_view())) {
             *eval = (*poly)[i];
         }
 
@@ -343,10 +343,11 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorPermutationRelationCorrectness)
     // Create storage for polynomials
     ProverPolynomials prover_polynomials;
     std::vector<Polynomial> polynomial_container;
+    auto polynomial_pointer_view = prover_polynomials.pointer_view();
     for (size_t i = 0; i < prover_polynomials.size(); i++) {
         Polynomial temporary_polynomial(circuit_size);
         polynomial_container.push_back(temporary_polynomial);
-        // prover_polynomials[i] = polynomial_container[i];
+        *polynomial_pointer_view[i] = polynomial_container[i];
     }
 
     // Fill in lagrange polynomials used in the permutation relation
@@ -466,7 +467,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorGenPermSortRelationCorrectness)
     for (size_t i = 0; i < prover_polynomials.size(); i++) {
         Polynomial temporary_polynomial(circuit_size);
         polynomial_container.push_back(temporary_polynomial);
-        // prover_polynomials[i] = polynomial_container[i];
+        prover_polynomials[i] = polynomial_container[i];
     }
 
     // Construct lagrange polynomials that are needed for Goblin Translator's GenPermSort Relation
