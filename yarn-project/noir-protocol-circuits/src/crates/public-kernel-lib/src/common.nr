@@ -26,26 +26,6 @@ use dep::aztec::constants_gen::{
     MAX_PUBLIC_DATA_READS_PER_CALL,
 };
 
-// not sure this is needed, but i saw it in the private kernel code
-// I think it's not since the public VM is not user controllable
-pub fn validate_arrays(app_public_inputs : PublicCircuitPublicInputs) {
-    // Each of the following arrays is expected to be zero-padded.
-    // In addition, some of the following arrays (new_commitments, etc...) are passed
-    // to push_array_to_array() routines which rely on the passed arrays to be well-formed.
-    
-    // arrays::validate_array(app_public_inputs.return_values);
-    // arrays::validate_array(app_public_inputs.read_requests);
-    // arrays::validate_array(app_public_inputs.pending_read_requests);
-    // arrays::validate_array(app_public_inputs.new_commitments);
-    // arrays::validate_array(app_public_inputs.new_nullifiers);
-    // arrays::validate_array(app_public_inputs.nullified_commitments);
-    // arrays::validate_array(app_public_inputs.public_kernel_inputs_stack);
-    // arrays::validate_array(app_public_inputs.public_kernel_inputs_stack);
-    // arrays::validate_array(app_public_inputs.new_l2_to_l1_msgs);
-    
-    // encrypted_logs_hash and unencrypted_logs_hash have their own integrity checks.
-}
-
 // Validate that all pre-images on the call stack hash to equal the accumulated data
 pub fn validate_call_stack(public_call : PublicCallData) {
     let stack = public_call.call_stack_item.public_inputs().public_call_stack;

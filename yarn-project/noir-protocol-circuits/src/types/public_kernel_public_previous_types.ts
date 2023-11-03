@@ -177,89 +177,71 @@ export interface CallContext {
 }
 
 
+export interface StorageUpdateRequest {
+  storage_slot: Field;
+  old_value: Field;
+  new_value: Field;
+}
 
 
-export interface PrivateCircuitPublicInputs {
+export interface StorageRead {
+  storage_slot: Field;
+  current_value: Field;
+}
+
+
+
+
+export interface PublicCircuitPublicInputs {
   call_context: CallContext;
   args_hash: Field;
   return_values: FixedLengthArray<Field, 4>;
-  read_requests: FixedLengthArray<Field, 32>;
-  pending_read_requests: FixedLengthArray<Field, 32>;
+  contract_storage_update_requests: FixedLengthArray<StorageUpdateRequest, 16>;
+  contract_storage_reads: FixedLengthArray<StorageRead, 16>;
+  public_call_stack: FixedLengthArray<Field, 4>;
   new_commitments: FixedLengthArray<Field, 16>;
   new_nullifiers: FixedLengthArray<Field, 16>;
-  nullified_commitments: FixedLengthArray<Field, 16>;
-  private_call_stack: FixedLengthArray<Field, 4>;
-  public_call_stack: FixedLengthArray<Field, 4>;
   new_l2_to_l1_msgs: FixedLengthArray<Field, 2>;
-  encrypted_logs_hash: FixedLengthArray<Field, 2>;
   unencrypted_logs_hash: FixedLengthArray<Field, 2>;
-  encrypted_log_preimages_length: Field;
   unencrypted_log_preimages_length: Field;
   historical_block_data: HistoricalBlockData;
-  contract_deployment_data: ContractDeploymentData;
-  chain_id: Field;
-  version: Field;
+  prover_address: Address;
 }
 
 
 
 export interface CallStackItem {
   contract_address: Address;
-  public_inputs: PrivateCircuitPublicInputs;
+  public_inputs: PublicCircuitPublicInputs;
   is_execution_request: boolean;
   function_data: FunctionData;
 }
 
 
-export interface PrivateCallStackItem {
+export interface PublicCallStackItem {
   inner: CallStackItem;
 }
 
 
 
 
-export interface FunctionLeafMembershipWitness {
-  leaf_index: Field;
-  sibling_path: FixedLengthArray<Field, 4>;
-}
-
-
-export interface ContractLeafMembershipWitness {
-  leaf_index: Field;
-  sibling_path: FixedLengthArray<Field, 16>;
-}
-
-
-export interface ReadRequestMembershipWitness {
-  leaf_index: Field;
-  sibling_path: FixedLengthArray<Field, 32>;
-  is_transient: boolean;
-  hint_to_commitment: Field;
-}
-
-
-
-export interface PrivateCallData {
-  call_stack_item: PrivateCallStackItem;
-  private_call_stack_preimages: FixedLengthArray<PrivateCallStackItem, 4>;
+export interface PublicCallData {
+  call_stack_item: PublicCallStackItem;
+  public_call_stack_preimages: FixedLengthArray<PublicCallStackItem, 4>;
   proof: Proof;
-  vk: VerificationKey;
-  function_leaf_membership_witness: FunctionLeafMembershipWitness;
-  contract_leaf_membership_witness: ContractLeafMembershipWitness;
-  read_request_membership_witnesses: FixedLengthArray<ReadRequestMembershipWitness, 32>;
   portal_contract_address: EthAddress;
-  acir_hash: Field;
+  bytecode_hash: Field;
 }
 
 
-export interface PrivateKernelInputsInner {
+export interface PublicKernelPublicPreviousInputs {
   previous_kernel: PreviousKernelData;
-  private_call: PrivateCallData;
+  public_call: PublicCallData;
 }
 
 
 export type ReturnType = KernelCircuitPublicInputs;
 
 export interface InputType {
-  input: PrivateKernelInputsInner;
+  input: PublicKernelPublicPreviousInputs;
 }
