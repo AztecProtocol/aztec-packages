@@ -191,9 +191,9 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
                             const size_t row_idx)
     {
         size_t poly_idx = 0;
-        for (auto* member_pointer : extended_univariates.get_pointer_array()) {
+        for (auto* extended_univariate : extended_univariates.get_pointer_array()) {
             auto base_univariate = instances.row_to_univariate(poly_idx, row_idx);
-            *member_pointer = base_univariate.template extend_to<ExtendedUnivariate::LENGTH>();
+            *extended_univariate = base_univariate.template extend_to<ExtendedUnivariate::LENGTH>();
             poly_idx++;
         }
     }
