@@ -93,7 +93,7 @@ template <typename Flavor> class SumcheckProverRound {
         for (auto [extended_edge, multivariate] :
              zip_view(extended_edges.pointer_view(), multivariates.pointer_view())) {
             auto edge = barretenberg::Univariate<FF, 2>({ (*multivariate)[edge_idx], (*multivariate)[edge_idx + 1] });
-            *extended_edge[univariate_idx] = edge.template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
+            *extended_edge = edge.template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
         }
     }
 
