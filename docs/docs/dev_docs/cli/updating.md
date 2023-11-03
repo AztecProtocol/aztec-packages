@@ -33,15 +33,13 @@ value_note = { git="https://github.com/AztecProtocol/aztec-packages", tag="#incl
 
 Read on to learn about versioning and other commands.
 
-There are 4 components whose versions need to be kept compatible:
+There are three components whose versions need to be kept compatible:
 
 1. Aztec Sandbox,
 2. Aztec CLI,
-3. Noir compiler `nargo`,
-4. Noir framework for Aztec contracts `aztec.nr`.
+3. Noir framework for Aztec contracts `aztec.nr`.
 
-Aztec Sandbox, Aztec CLI and `aztec.nr` are using the same versioning scheme and their versions must match.
-The Noir compiler `nargo` has its own versioning scheme and its version must match the compatible nargo version specified in Sandbox.
+All three are using the same versioning scheme and their versions must match.
 
 ## Updating Aztec Sandbox
 
@@ -98,18 +96,6 @@ E.g.:
 
 ```shell
 npm install -g @aztec/cli@#include_aztec_short_version
-```
-
-## Updating Noir compiler
-
-Now we need to update the Noir compiler `nargo` to the version compatible with the sandbox.
-Use `aztec-cli` to get it:
-#include_code node-info yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
-
-Then we install the `Compatible Nargo Version` with (replace `COMPATIBLE_NARGO_VERSION` with the version from the previous command):
-
-```shell
-noirup -v COMPATIBLE_NARGO_VERSION
 ```
 
 ## Updating Aztec.nr packages

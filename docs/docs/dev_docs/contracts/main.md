@@ -20,12 +20,10 @@ An **Aztec smart contract** is a smart contract with **private** state variables
 
 ## Install Noir
 
-To write an Aztec.nr contract, you need to write Noir, which requires a build tool called Nargo:
-
-<InstallNargoInstructions />
+To write an Aztec.nr contract, you need to write Noir, [aztec-cli](../cli/cli-commands) comes with a built-in compiler for Noir contracts.
 
 :::info
-For those coming from vanilla Noir, the nargo version used for aztec.nr is tracked seaprately to nargo for vanilla noir, so be sure to use the nargo version shown above
+For those coming from vanilla Noir, the version used for aztec.nr is tracked separately to nargo for vanilla noir, so be sure to use the nargo version shown above
 :::
 
 ## Install Noir tooling
