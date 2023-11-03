@@ -8,3 +8,9 @@ mod merge;
 
 // Root rollup
 mod root;
+
+mod components;
+
+mod hash;
+
+mod merkle_tree;

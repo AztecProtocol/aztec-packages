@@ -1,12 +1,12 @@
 use crate::common;
-use crate::mocked::{Proof, verify_previous_kernel_state};
-use crate::transaction::request::TxRequest;
-use crate::abis::{
+use dep::types::mocked::{Proof, verify_previous_kernel_state};
+use dep::types::transaction::request::TxRequest;
+use dep::types::abis::{
     combined_constant_data::CombinedConstantData,
     private_kernel::private_call_data::PrivateCallData,
     kernel_circuit_public_inputs::{KernelCircuitPublicInputs, KernelCircuitPublicInputsBuilder}
 };
-use crate::utils::arrays;
+use dep::types::utils::arrays;
 use dep::aztec::constants_gen::EMPTY_NULLIFIED_COMMITMENT;
 use dep::std::unsafe;
 
@@ -154,22 +154,22 @@ impl PrivateKernelInputsInit {
 
 mod tests {
     use crate::private_kernel_init::PrivateKernelInputsInit;
-    use crate::abis::{
+    use dep::types::abis::{
         complete_address::CompleteAddress,
         kernel_circuit_public_inputs::KernelCircuitPublicInputs,
         private_kernel::private_call_data::PrivateCallData,
     };
-    use crate::tests::{
+    use dep::types::tests::{
         testing_harness::PrivateCallDataBuilder,
     };
-    use crate::transaction::request::TxRequest;
-    use crate::address::Address;
-    use crate::hash::{
+    use dep::types::transaction::request::TxRequest;
+    use dep::types::address::Address;
+    use dep::types::hash::{
         compute_constructor_hash,
         compute_logs_hash,
         stdlib_recursion_verification_key_compress_native_vk,
     };
-    use crate::utils::arrays::array_length;
+    use dep::types::utils::arrays::array_length;
     use dep::aztec::constants_gen::{
         MAX_READ_REQUESTS_PER_CALL,
     };

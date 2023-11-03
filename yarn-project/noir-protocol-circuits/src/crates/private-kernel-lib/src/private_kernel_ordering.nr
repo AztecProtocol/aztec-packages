@@ -5,17 +5,17 @@ use dep::aztec::constants_gen::{
     MAX_READ_REQUESTS_PER_TX,
 };
 use crate::common;
-use crate::abis::{
+use dep::types::abis::{
     previous_kernel_data::PreviousKernelData,
     kernel_circuit_public_inputs::{
         KernelCircuitPublicInputsBuilder, 
         KernelCircuitPublicInputsFinal,
     },
 };
-use crate::utils::{
+use dep::types::utils::{
     bounded_vec::BoundedVec,
 };
-use crate::hash::{
+use dep::types::hash::{
     compute_commitment_nonce,
     compute_unique_siloed_commitment,
 };
@@ -149,17 +149,17 @@ impl PrivateKernelInputsOrdering {
 }
 
 mod tests {
-    use crate::abis::kernel_circuit_public_inputs::KernelCircuitPublicInputsFinal;
-    use crate::hash::compute_unique_siloed_commitments;
+    use dep::types::abis::kernel_circuit_public_inputs::KernelCircuitPublicInputsFinal;
+    use dep::types::hash::compute_unique_siloed_commitments;
     use crate::private_kernel_ordering::PrivateKernelInputsOrdering;
-    use crate::tests::testing_harness::PreviousKernelDataBuilder;
+    use dep::types::tests::testing_harness::PreviousKernelDataBuilder;
     use dep::aztec::constants_gen::{
         MAX_READ_REQUESTS_PER_TX,
         MAX_NEW_COMMITMENTS_PER_TX,
         MAX_NEW_NULLIFIERS_PER_TX,
         EMPTY_NULLIFIED_COMMITMENT,
     };
-    use crate::utils::{
+    use dep::types::utils::{
         arrays::{array_length, is_empty_array, expect_array_fields},
         bounded_vec::BoundedVec,
     };
