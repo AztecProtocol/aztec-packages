@@ -4,7 +4,7 @@ use dep::types::utils::arrays;
 use dep::types::abis::previous_kernel_data::PreviousKernelData;
 use dep::types::abis::combined_accumulated_data::{CombinedAccumulatedData, CombinedAccumulatedDataBuilder};
 use crate::hash::{compute_public_data_tree_index, compute_public_data_tree_value};
-use dep::types::hash::{silo_commitment, silo_nullifier, compute_l2_to_l1_hash};
+use dep::types::hash::{silo_commitment, silo_nullifier, compute_l2_to_l1_hash, accumulate_sha256};
 use dep::types::address::Address;
 use dep::types::abis::new_contract_data::NewContractData;
 use dep::types::abis::complete_address::CompleteAddress;
@@ -14,6 +14,7 @@ use dep::types::abis::call_stack_item::PublicCallStackItem;
 use dep::types::abis::public_data_update_request::PublicDataUpdateRequest;
 use dep::types::contrakt::storage_read::StorageRead;
 use dep::types::abis::public_data_read::PublicDataRead;
+use dep::types::utils::uint128::U128;
 
 use dep::aztec::constants_gen::{
     MAX_READ_REQUESTS_PER_CALL,
@@ -26,20 +27,21 @@ use dep::aztec::constants_gen::{
 };
 
 // not sure this is needed, but i saw it in the private kernel code
+// I think it's not since the public VM is not user controllable
 pub fn validate_arrays(app_public_inputs : PublicCircuitPublicInputs) {
     // Each of the following arrays is expected to be zero-padded.
     // In addition, some of the following arrays (new_commitments, etc...) are passed
     // to push_array_to_array() routines which rely on the passed arrays to be well-formed.
     
-    arrays::validate_array(app_public_inputs.return_values);
-    arrays::validate_array(app_public_inputs.read_requests);
-    arrays::validate_array(app_public_inputs.pending_read_requests);
-    arrays::validate_array(app_public_inputs.new_commitments);
-    arrays::validate_array(app_public_inputs.new_nullifiers);
-    arrays::validate_array(app_public_inputs.nullified_commitments);
-    arrays::validate_array(app_public_inputs.public_kernel_inputs_stack);
-    arrays::validate_array(app_public_inputs.public_kernel_inputs_stack);
-    arrays::validate_array(app_public_inputs.new_l2_to_l1_msgs);
+    // arrays::validate_array(app_public_inputs.return_values);
+    // arrays::validate_array(app_public_inputs.read_requests);
+    // arrays::validate_array(app_public_inputs.pending_read_requests);
+    // arrays::validate_array(app_public_inputs.new_commitments);
+    // arrays::validate_array(app_public_inputs.new_nullifiers);
+    // arrays::validate_array(app_public_inputs.nullified_commitments);
+    // arrays::validate_array(app_public_inputs.public_kernel_inputs_stack);
+    // arrays::validate_array(app_public_inputs.public_kernel_inputs_stack);
+    // arrays::validate_array(app_public_inputs.new_l2_to_l1_msgs);
     
     // encrypted_logs_hash and unencrypted_logs_hash have their own integrity checks.
 }
@@ -49,20 +51,20 @@ pub fn validate_call_stack(public_call : PublicCallData) {
     let stack = public_call.call_stack_item.public_inputs().public_call_stack;
     let preimages = public_call.public_call_stack_preimages;
 
-    let our_contract_address = public_call.call_stack_item.contract_address;
-    let our_storage_address = public_call.call_stack_item.public_inputs.call_context.storage_contract_address;
-    let our_msg_sender = public_call.call_stack_item.public_inputs.call_context.msg_sender;
+    let our_contract_address = public_call.call_stack_item.contract_address();
+    let our_storage_address = public_call.call_stack_item.public_inputs().call_context.storage_contract_address;
+    let our_msg_sender = public_call.call_stack_item.public_inputs().call_context.msg_sender;
     let our_portal_contract_address =
-        public_call.call_stack_item.public_inputs.call_context.portal_contract_address;
+        public_call.call_stack_item.public_inputs().call_context.portal_contract_address;
     
     assert(stack.len() == preimages.len()); // This is not in the cpp code.
     for i in 0..stack.len() {
         let hash = stack[i];
         let preimage = preimages[i];
 
-        let is_delegate_call = preimage.public_inputs.call_context.is_delegate_call;
-        let is_static_call = preimage.public_inputs.call_context.is_static_call;
-        let contract_being_called = preimage.contract_address;
+        let is_delegate_call = preimage.public_inputs().call_context.is_delegate_call;
+        let is_static_call = preimage.public_inputs().call_context.is_static_call;
+        let contract_being_called = preimage.contract_address();
 
         // Note: this assumes it's computationally infeasible to have `0` as a valid call_stack_item_hash.
         // Assumes `hash == 0` means "this stack item is empty".
@@ -77,25 +79,25 @@ pub fn validate_call_stack(public_call : PublicCallData) {
         // here we validate the msg sender for each call on the stack
         // here we validate the storage address for each call on the stack
         // we need to consider regular vs delegate calls for both
-        let preimage_msg_sender = preimage.public_inputs.call_context.msg_sender;
-        let preimage_storage_address = preimage.public_inputs.call_context.storage_contract_address;
+        let preimage_msg_sender = preimage.public_inputs().call_context.msg_sender;
+        let preimage_storage_address = preimage.public_inputs().call_context.storage_contract_address;
 
         if is_delegate_call {
-            assert(preimage_msg_sender==our_msg_sender, "call_stack_msg_sender doesn't match expected_msg_sender");
-            assert(preimage_storage_address==our_storage_address, "call_stack_storage_address doesnt match expected_storage_address");
+            assert(preimage_msg_sender.eq(our_msg_sender), "call_stack_msg_sender doesn't match expected_msg_sender");
+            assert(preimage_storage_address.eq(our_storage_address), "call_stack_storage_address doesnt match expected_storage_address");
             // if it is a delegate call then we check that the portal contract in the pre image is our portal contract
-            let preimage_portal_address = preimage.public_inputs.call_context.portal_contract_address;
+            let preimage_portal_address = preimage.public_inputs().call_context.portal_contract_address;
             let expected_portal_address = our_portal_contract_address;
-            assert(preimage_portal_address==expected_portal_address, "call_stack_portal_contract_address doesnt match expected_portal_address");
+            assert(preimage_portal_address.eq(expected_portal_address), "call_stack_portal_contract_address doesnt match expected_portal_address");
         } else {
-            assert(preimage_msg_sender==our_contract_address, "call_stack_msg_sender doesn't match expected_msg_sender");
-            assert(preimage_storage_address==contract_being_called, "call_stack_storage_address doesnt match expected_storage_address");
+            assert(preimage_msg_sender.eq(our_contract_address), "call_stack_msg_sender doesn't match expected_msg_sender");
+            assert(preimage_storage_address.eq(contract_being_called), "call_stack_storage_address doesnt match expected_storage_address");
         }
 
 
-        let num_contract_storage_update_requests = preimage.public_inputs.contract_storage_update_requests.len();
+        let num_contract_storage_update_requests = preimage.public_inputs().contract_storage_update_requests.len();
         if is_static_call {
-        assert(num_contract_storage_update_requests == 0,"contract_storage_update_requests should be empty for static call");
+            assert(num_contract_storage_update_requests == 0,"contract_storage_update_requests should be empty for static call");
         }
     }
 }
@@ -103,15 +105,15 @@ pub fn validate_call_stack(public_call : PublicCallData) {
 // Validates the call context of the current iteration
 pub fn validate_call_context(public_call: PublicCallData){
     let call_stack_item = public_call.call_stack_item;
-    let is_delegate_call = call_stack_item.public_inputs.call_context.is_delegate_call;
-    let is_static_call = call_stack_item.public_inputs.call_context.is_static_call;
-    let contract_address = call_stack_item.contract_address;
-    let storage_contract_address = call_stack_item.public_inputs.call_context.storage_contract_address;
+    let is_delegate_call = call_stack_item.public_inputs().call_context.is_delegate_call;
+    let is_static_call = call_stack_item.public_inputs().call_context.is_static_call;
+    let contract_address = call_stack_item.contract_address();
+    let storage_contract_address = call_stack_item.public_inputs().call_context.storage_contract_address;
     let contract_storage_update_requests_length =
-        call_stack_item.public_inputs.contract_storage_update_requests.len();
+        call_stack_item.public_inputs().contract_storage_update_requests.len();
 
     if is_delegate_call{
-    assert(contract_address != storage_contract_address,
+    assert(!contract_address.eq(storage_contract_address),
                       "curent contract address must not match storage contract address for delegate calls");
     }
     if is_static_call {
@@ -131,24 +133,24 @@ pub fn validate_kernel_execution(public_call: PublicCallData) {
 pub fn validate_inputs(public_call: PublicCallData){
     // Validates commons inputs for all type of kernel inputs
     let this_call_stack_item: PublicCallStackItem = public_call.call_stack_item;
-    assert(this_call_stack_item.public_inputs.call_context.is_contract_deployment == false,
+    assert(this_call_stack_item.public_inputs().call_context.is_contract_deployment == false,
                       "Contract deployment can't be a public function");
-    assert(this_call_stack_item.contract_address != 0,
+    assert(!this_call_stack_item.contract_address().eq(Address::ZERO()),
                       "Contract address must be non-zero");
-    assert(this_call_stack_item.function_data.selector.value != 0,
+    assert(this_call_stack_item.function_data().selector.to_field() != 0,
                       "Function signature must be non-zero");
-    assert(this_call_stack_item.function_data.is_constructor == false,
+    assert(this_call_stack_item.function_data().is_constructor == false,
                       "Constructors can't be public functions");
-    assert(this_call_stack_item.function_data.is_private == false,
+    assert(this_call_stack_item.function_data().is_private == false,
                       "Cannot execute a private function with the public kernel circuit");
-    assert(public_call.public_kernel_inputs.bytecode_hash != 0,
+    assert(public_call.bytecode_hash != 0,
                       "Bytecode hash must be non-zero");
 
-    if (this_call_stack_item.function_data.is_internal) {
-        let target = this_call_stack_item.contract_address;
-        let sender = this_call_stack_item.public_inputs.call_context.msg_sender;
+    if (this_call_stack_item.function_data().is_internal) {
+        let target = this_call_stack_item.contract_address();
+        let sender = this_call_stack_item.public_inputs().call_context.msg_sender;
 
-        assert(target == sender, "call is internal, but msg_sender is not self");
+        assert(target.eq(sender), "call is internal, but msg_sender is not self");
     }
 }
 
@@ -168,23 +170,23 @@ pub fn perform_static_call_checks(public_call: PublicCallData){
 }
 
 pub fn propagate_valid_public_data_update_requests(public_call: PublicCallData, circuit_outputs: &mut KernelCircuitPublicInputsBuilder){
-    let contract_address = public_call.call_stack_item.contract_address;
-    let update_requests = public_call.call_stack_item.public_inputs.contract_storage_update_requests;
+    let contract_address = public_call.call_stack_item.contract_address();
+    let update_requests = public_call.call_stack_item.public_inputs().contract_storage_update_requests;
 
-    let mut public_data_update_requests : BoundedVec<Field, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX> = BoundedVec::new(0);
+    let mut public_data_update_requests : BoundedVec<PublicDataUpdateRequest, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX> = BoundedVec::new(0);
 
     assert(update_requests.len() == MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX); // This is not done in the cpp code.
 
     for  i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
         let update_request = update_requests[i];
         if (!update_request.is_empty()) {
-        let public_data_update_request = PublicDataUpdateRequest {
-            leaf_index: compute_public_data_tree_index(contract_address, update_request.storage_slot),
-            old_value: compute_public_data_tree_value(update_request.old_value),
-            new_value: compute_public_data_tree_value(update_request.new_value),
-        };
+            let public_data_update_request = PublicDataUpdateRequest {
+                leaf_index: compute_public_data_tree_index(contract_address, update_request.storage_slot),
+                old_value: compute_public_data_tree_value(update_request.old_value),
+                new_value: compute_public_data_tree_value(update_request.new_value),
+            };
 
-        public_data_update_requests.push(public_data_update_request);
+            public_data_update_requests.push(public_data_update_request);
         }
     }
     circuit_outputs.end.public_data_update_requests.push_vec(public_data_update_requests);
@@ -198,26 +200,25 @@ pub fn initialize_end_values(previous_kernel : PreviousKernelData, circuit_outpu
 
     // Ensure the arrays are the same as previously, before we start pushing more data onto them in other
     // functions within this circuit:
-    let end = circuit_outputs.end;
     let start = previous_kernel.public_inputs.end;
 
-    end.new_commitments = arrays::array_to_bounded_vec(start.new_commitments, arrays::is_empty, 0);
-    end.new_nullifiers = arrays::array_to_bounded_vec(start.new_nullifiers, arrays::is_empty, 0);
+    circuit_outputs.end.new_commitments = arrays::array_to_bounded_vec(start.new_commitments, arrays::is_empty, 0);
+    circuit_outputs.end.new_nullifiers = arrays::array_to_bounded_vec(start.new_nullifiers, arrays::is_empty, 0);
 
-    end.private_call_stack = arrays::array_to_bounded_vec(start.private_call_stack, arrays::is_empty, 0);
-    end.public_call_stack = arrays::array_to_bounded_vec(start.public_call_stack, arrays::is_empty, 0);
-    end.new_l2_to_l1_msgs = arrays::array_to_bounded_vec(start.new_l2_to_l1_msgs, arrays::is_empty, 0);
+    circuit_outputs.end.private_call_stack = arrays::array_to_bounded_vec(start.private_call_stack, arrays::is_empty, 0);
+    circuit_outputs.end.public_call_stack = arrays::array_to_bounded_vec(start.public_call_stack, arrays::is_empty, 0);
+    circuit_outputs.end.new_l2_to_l1_msgs = arrays::array_to_bounded_vec(start.new_l2_to_l1_msgs, arrays::is_empty, 0);
 
-    end.optionally_revealed_data = start.optionally_revealed_data;
+    circuit_outputs.end.optionally_revealed_data = start.optionally_revealed_data;
 
-    end.public_data_update_requests = start.public_data_update_requests;
-    end.public_data_reads = start.public_data_reads;
+    circuit_outputs.end.public_data_update_requests = start.public_data_update_requests;
+    circuit_outputs.end.public_data_reads = start.public_data_reads;
 
     // Public kernel does not modify encrypted logs values --> we just copy them to output
-    end.encrypted_logs_hash = start.encrypted_logs_hash;
-    end.encrypted_log_preimages_length = start.encrypted_log_preimages_length;
+    circuit_outputs.end.encrypted_logs_hash = start.encrypted_logs_hash;
+    circuit_outputs.end.encrypted_log_preimages_length = start.encrypted_log_preimages_length;
 
-    end.new_contracts = arrays::array_to_bounded_vec(previous_kernel.public_inputs.end.new_contracts, |ncd: NewContractData| ncd.is_empty(), NewContractData::default());
+    circuit_outputs.end.new_contracts = arrays::array_to_bounded_vec(previous_kernel.public_inputs.end.new_contracts, |ncd: NewContractData| ncd.is_empty(), NewContractData::default());
 }
 
 pub fn update_public_end_values(public_call: PublicCallData, circuit_outputs : &mut KernelCircuitPublicInputsBuilder) {
@@ -246,7 +247,7 @@ pub fn update_public_end_values(public_call: PublicCallData, circuit_outputs : &
 }
 
 pub fn propagate_valid_public_data_reads(public_call: PublicCallData, circuit_outputs: &mut KernelCircuitPublicInputsBuilder){
-    let contract_address = public_call.call_stack_item.contract_address;
+    let contract_address = public_call.call_stack_item.contract_address();
     let read_requests = public_call.call_stack_item.public_inputs().contract_storage_reads;
 
     let mut public_data_reads : BoundedVec<Field, MAX_PUBLIC_DATA_READS_PER_CALL> = BoundedVec::new(0);
@@ -254,11 +255,11 @@ pub fn propagate_valid_public_data_reads(public_call: PublicCallData, circuit_ou
     for i in 0..MAX_PUBLIC_DATA_READS_PER_CALL {
         let read_request: StorageRead = read_requests[i];
         if !read_request.is_empty() {
-        let public_data_read = PublicDataRead {
-            leaf_index: compute_public_data_tree_index(contract_address, read_request.storage_slot),
-            value: compute_public_data_tree_value(read_request.value),
-        };
-        public_data_reads.push(public_data_read);
+            let public_data_read = PublicDataRead {
+                leaf_index: compute_public_data_tree_index(contract_address, read_request.storage_slot),
+                value: compute_public_data_tree_value(read_request.value),
+            };
+            public_data_reads.push(public_data_read);
         }
     }
    circuit_outputs.end.public_data_reads.push_vec(public_data_reads);
@@ -283,6 +284,7 @@ pub fn propagate_new_commitments(public_call: PublicCallData, circuit_outputs : 
 
 pub fn propagate_new_nullifiers(public_call: PublicCallData, circuit_outputs : &mut KernelCircuitPublicInputsBuilder) {
     let new_nullifiers = public_call.call_stack_item.public_inputs().new_nullifiers;
+    let storage_contract_address = public_call_public_inputs.call_context.storage_contract_address;
 
     // Enhance commitments and nullifiers with domain separation whereby domain is the contract.
     let mut siloed_new_nullifiers : BoundedVec<Field,MAX_NEW_NULLIFIERS_PER_CALL> = BoundedVec::new(0);
@@ -338,15 +340,17 @@ pub fn accumulate_unencrypted_logs(public_call: PublicCallData,
     let previous_kernel_end = previous_kernel.public_inputs.end;
     let previous_unencrypted_logs_hash = previous_kernel_end.unencrypted_logs_hash;
 
-    let current_unencrypted_logs_hash = public_kernel_inputs_public_inputs.unencrypted_logs_hash;
-    circuit_outputs.end.unencrypted_logs_hash = accumulate_sha256({ previous_unencrypted_logs_hash[0],
-                                                                        previous_unencrypted_logs_hash[1],
-                                                                        current_unencrypted_logs_hash[0],
-                                                                        current_unencrypted_logs_hash[1] });
+    let current_unencrypted_logs_hash = public_call_public_inputs.unencrypted_logs_hash;
+    public_inputs.end.unencrypted_logs_hash = accumulate_sha256([
+        U128::from_field(previous_unencrypted_logs_hash[0]),            
+        U128::from_field(previous_unencrypted_logs_hash[1]),
+        U128::from_field(current_unencrypted_logs_hash[0]),
+        U128::from_field(current_unencrypted_logs_hash[1])
+    ]);
 
     // Add log preimages lengths from current iteration to accumulated lengths
     let current_unencrypted_log_preimages_length = public_kernel_inputs_public_inputs.unencrypted_log_preimages_length;
-    circuit_outputs.end.unencrypted_log_preimages_length =
+    public_inputs.end.unencrypted_log_preimages_length =
         previous_kernel_end.unencrypted_log_preimages_length + current_unencrypted_log_preimages_length;
 }
 
