@@ -850,13 +850,13 @@ If the kernel circuit succeeds in these calculations, then the $\ovskapp$ has be
 
 ![Alt text](images/addresses-and-keys/image-3.png)
 
-# Acknowledgements
+## Acknowledgements
 
 Much of this is inspired by the [ZCash Sapling and Orchard specs](https://zips.z.cash/protocol/protocol.pdf).
 
-# Appendix
+## Appendix
 
-## Alternative nullifier key derivation
+### Alternative nullifier key derivation
 
 :::note
 
