@@ -558,7 +558,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorExtraRelationsCorrectness)
     ProverPolynomials prover_polynomials;
     // We use polynomial ids to make shifting the polynomials easier
     ProverPolynomialIds prover_polynomial_ids;
-    auto id_pointer_view = prover_polynomial_ids.pointer_view();
+    auto polynomial_id_pointer_view = prover_polynomial_ids.pointer_view();
     std::vector<Polynomial> polynomial_container;
     std::vector<size_t> polynomial_ids;
     for (size_t i = 0; i < prover_polynomials.size(); i++) {
@@ -567,7 +567,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorExtraRelationsCorrectness)
         polynomial_container.push_back(temporary_polynomial);
         // Push sequential ids to polynomial ids
         polynomial_ids.push_back(i);
-        *id_pointer_view[i] = polynomial_ids[i];
+        *polynomial_id_pointer_view[i] = polynomial_ids[i];
     }
     // Get ids of shifted polynomials and put them in a set
     auto shifted_ids = prover_polynomial_ids.get_shifted();
@@ -658,7 +658,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorDecompositionRelationCorrectnes
     ProverPolynomialIds prover_polynomial_ids;
     std::vector<Polynomial> polynomial_container;
     std::vector<size_t> polynomial_ids;
-    auto id_pointer_view = prover_polynomial_ids.pointer_view();
+    auto polynomial_id_pointer_view = prover_polynomial_ids.pointer_view();
     auto pointer_view = prover_polynomials.pointer_view();
     for (size_t i = 0; i < prover_polynomials.size(); i++) {
         Polynomial temporary_polynomial(circuit_size);
@@ -666,7 +666,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorDecompositionRelationCorrectnes
         polynomial_container.push_back(temporary_polynomial);
         // Push sequential ids to polynomial ids
         polynomial_ids.push_back(i);
-        *id_pointer_view[i] = polynomial_ids[i];
+        *polynomial_id_pointer_view[i] = polynomial_ids[i];
     }
     // Get ids of shifted polynomials and put them in a set
     auto shifted_ids = prover_polynomial_ids.get_shifted();
