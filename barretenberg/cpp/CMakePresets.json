@@ -49,9 +49,9 @@
       "binaryDir": "build-debug",
       "environment": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "CFLAGS": "-gdwarf-aranges -gdwarf-4",
-        "CXXFLAGS": "-gdwarf-aranges -gdwarf-4",
-        "LDFLAGS": "-gdwarf-aranges -gdwarf-4"
+        "CFLAGS": "-gdwarf-4",
+        "CXXFLAGS": "-gdwarf-4",
+        "LDFLAGS": "-gdwarf-4"
       },
       "cacheVariables": {
         "ENABLE_ASAN": "OFF",

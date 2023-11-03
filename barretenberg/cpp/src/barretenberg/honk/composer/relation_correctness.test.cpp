@@ -1078,13 +1078,14 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorNonNativeRelationCorrectness)
     std::vector<Polynomial> polynomial_container;
     std::vector<size_t> polynomial_ids;
     auto polynomial_pointer_view = prover_polynomials.pointer_view();
+    auto polynomial_id_pointer_view = prover_polynomial_ids.pointer_view();
     for (size_t i = 0; i < prover_polynomials.size(); i++) {
         Polynomial temporary_polynomial(circuit_size);
         // Allocate polynomials
         polynomial_container.push_back(temporary_polynomial);
         // Push sequential ids to polynomial ids
         polynomial_ids.push_back(i);
-        *polynomial_pointer_view[i] = polynomial_container[i];
+        *polynomial_id_pointer_view[i] = polynomial_ids[i];
     }
     // Get ids of shifted polynomials and put them in a set
     auto shifted_ids = prover_polynomial_ids.get_shifted();
