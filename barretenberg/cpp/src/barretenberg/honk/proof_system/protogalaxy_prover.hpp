@@ -1,15 +1,15 @@
 #pragma once
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
-#include "barretenberg/honk/flavor/goblin_ultra.hpp"
-#include "barretenberg/honk/flavor/ultra.hpp"
-#include "barretenberg/honk/instance/instances.hpp"
+#include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/goblin_ultra.hpp"
+#include "barretenberg/flavor/ultra.hpp"
 #include "barretenberg/honk/proof_system/folding_result.hpp"
 #include "barretenberg/polynomials/pow.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
-#include "barretenberg/proof_system/flavor/flavor.hpp"
 #include "barretenberg/proof_system/relations/relation_parameters.hpp"
 #include "barretenberg/proof_system/relations/utils.hpp"
+#include "barretenberg/sumcheck/instance/instances.hpp"
 
 namespace proof_system::honk {
 template <class ProverInstances_> class ProtoGalaxyProver_ {
@@ -36,7 +36,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     using RelationEvaluations = typename Flavor::TupleOfArraysOfValues;
 
     ProverInstances instances;
-    ProverTranscript<FF> transcript;
+    BaseTranscript<FF> transcript;
 
     ProtoGalaxyProver_() = default;
     ProtoGalaxyProver_(ProverInstances insts)

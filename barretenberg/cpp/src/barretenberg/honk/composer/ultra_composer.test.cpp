@@ -2,14 +2,14 @@
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/honk/proof_system/ultra_prover.hpp"
-#include "barretenberg/honk/sumcheck/sumcheck_round.hpp"
-#include "barretenberg/honk/utils/grand_product_delta.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
+#include "barretenberg/proof_system/library/grand_product_delta.hpp"
 #include "barretenberg/proof_system/plookup_tables/fixed_base/fixed_base.hpp"
 #include "barretenberg/proof_system/plookup_tables/types.hpp"
 #include "barretenberg/proof_system/relations/permutation_relation.hpp"
 #include "barretenberg/proof_system/relations/relation_parameters.hpp"
+#include "barretenberg/sumcheck/sumcheck_round.hpp"
 #include <cstddef>
 #include <cstdint>
 #include <gtest/gtest.h>
@@ -254,21 +254,17 @@ TEST_F(UltraHonkComposerTests, test_elliptic_gate)
     uint32_t x3 = circuit_builder.add_variable(p3.x);
     uint32_t y3 = circuit_builder.add_variable(p3.y);
 
-    circuit_builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, 1, 1 });
+    circuit_builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, 1 });
 
-    grumpkin::fq beta = grumpkin::fq::cube_root_of_unity();
-    affine_element p2_endo = p2;
-    p2_endo.x *= beta;
-    p3 = affine_element(element(p1) + element(p2_endo));
+    p3 = affine_element(element(p1) + element(p2));
     x3 = circuit_builder.add_variable(p3.x);
     y3 = circuit_builder.add_variable(p3.y);
-    circuit_builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, beta, 1 });
+    circuit_builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, 1 });
 
-    p2_endo.x *= beta;
-    p3 = affine_element(element(p1) - element(p2_endo));
+    p3 = affine_element(element(p1) - element(p2));
     x3 = circuit_builder.add_variable(p3.x);
     y3 = circuit_builder.add_variable(p3.y);
-    circuit_builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, beta.sqr(), -1 });
+    circuit_builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, -1 });
 
     auto composer = UltraComposer();
     prove_and_verify(circuit_builder, composer, /*expected_result=*/true);

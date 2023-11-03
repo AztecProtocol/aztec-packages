@@ -1,5 +1,5 @@
-#include "barretenberg/honk/flavor/ecc_vm.hpp"
-#include "barretenberg/honk/sumcheck/relation_definitions_fwd.hpp"
+#include "barretenberg/flavor/ecc_vm.hpp"
+#include "barretenberg/flavor/relation_definitions_fwd.hpp"
 #include "ecc_msm_relation.hpp"
 
 namespace proof_system::honk::sumcheck {
@@ -359,7 +359,7 @@ Accumulator ECCVMSetRelationBase<FF>::compute_permutation_denominator(const AllE
  *
  * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
  * @param in an std::array containing the fully extended Accumulator edges.
- * @param parameters contains bbeta, gamma, and public_input_delta, ....
+ * @param parameters contains beta, gamma, and public_input_delta, ....
  * @param scaling_factor optional term to scale the evaluation before adding to evals.
  */
 template <typename FF>

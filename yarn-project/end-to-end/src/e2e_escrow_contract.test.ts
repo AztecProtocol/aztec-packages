@@ -2,15 +2,22 @@ import {
   AccountWallet,
   AztecAddress,
   BatchCall,
-  NotePreimage,
+  CompleteAddress,
+  DebugLogger,
+  ExtendedNote,
+  Fr,
+  GrumpkinPrivateKey,
+  GrumpkinScalar,
+  Note,
+  PXE,
+  PublicKey,
+  TxStatus,
   computeMessageSecretHash,
   generatePublicKey,
+  getContractDeploymentInfo,
 } from '@aztec/aztec.js';
-import { CompleteAddress, Fr, GrumpkinPrivateKey, GrumpkinScalar, getContractDeploymentInfo } from '@aztec/circuits.js';
-import { DebugLogger } from '@aztec/foundation/log';
 import { EscrowContractArtifact } from '@aztec/noir-contracts/artifacts';
 import { EscrowContract, TokenContract } from '@aztec/noir-contracts/types';
-import { PXE, PublicKey, TxStatus } from '@aztec/types';
 
 import { setup } from './fixtures/utils.js';
 
@@ -66,8 +73,9 @@ describe('e2e_escrow_contract', () => {
     const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
     expect(receipt.status).toEqual(TxStatus.MINED);
 
-    const preimage = new NotePreimage([new Fr(mintAmount), secretHash]);
-    await pxe.addNote(escrowContract.address, token.address, pendingShieldsStorageSlot, preimage, receipt.txHash);
+    const note = new Note([new Fr(mintAmount), secretHash]);
+    const extendedNote = new ExtendedNote(note, owner, token.address, pendingShieldsStorageSlot, receipt.txHash);
+    await pxe.addNote(extendedNote);
 
     expect(
       (await token.methods.redeem_shield(escrowContract.address, mintAmount, secret).send().wait()).status,
@@ -112,8 +120,9 @@ describe('e2e_escrow_contract', () => {
     const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
     expect(receipt.status).toEqual(TxStatus.MINED);
 
-    const preimage = new NotePreimage([new Fr(mintAmount), secretHash]);
-    await pxe.addNote(owner, token.address, pendingShieldsStorageSlot, preimage, receipt.txHash);
+    const note = new Note([new Fr(mintAmount), secretHash]);
+    const extendedNote = new ExtendedNote(note, owner, token.address, pendingShieldsStorageSlot, receipt.txHash);
+    await pxe.addNote(extendedNote);
 
     expect((await token.methods.redeem_shield(owner, mintAmount, secret).send().wait()).status).toEqual(TxStatus.MINED);
 
