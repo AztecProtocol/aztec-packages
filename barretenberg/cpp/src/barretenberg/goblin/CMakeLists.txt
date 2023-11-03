@@ -1,0 +1,1 @@
+barretenberg_module(goblin honk eccvm)
