@@ -39,7 +39,7 @@ function generateFunctionArtifact(fn: NoirFunctionEntry): FunctionArtifact {
  */
 export function generateContractArtifact(
   { contract, debug }: NoirCompilationArtifacts,
-  compilerVersion: string,
+  aztecNrVersion?: string,
 ): ContractArtifact {
   const originalFunctions = contract.functions;
   // TODO why sort? we should have idempotent compilation so this should not be needed.
@@ -61,6 +61,6 @@ export function generateContractArtifact(
     functions: sortedFunctions.map(generateFunctionArtifact),
     events: contract.events,
     debug: parsedDebug,
-    compilerVersion,
+    aztecNrVersion,
   };
 }

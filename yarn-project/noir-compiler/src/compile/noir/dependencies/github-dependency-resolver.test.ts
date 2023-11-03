@@ -62,9 +62,10 @@ describe('GithubDependencyResolver', () => {
 
   it('resolves Github dependency', async () => {
     fetchMock.mockResolvedValueOnce(new Response(await readFile(join(fixtures, 'test_lib.zip')), { status: 200 }));
-    const libPkg = await resolver.resolveDependency(pkg, libDependency);
-    expect(libPkg).toBeDefined();
-    expect(fm.hasFileSync(libPkg!.getEntryPointPath())).toBe(true);
+    const lib = await resolver.resolveDependency(pkg, libDependency);
+    expect(lib).toBeDefined();
+    expect(lib!.version).toEqual(libDependency.tag);
+    expect(fm.hasFileSync(lib!.package.getEntryPointPath())).toBe(true);
   });
 
   it.each<[NoirGitDependencyConfig, 'zip' | 'tar', string]>([

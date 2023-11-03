@@ -32,6 +32,7 @@ import { mnemonicToAccount } from 'viem/accounts';
 
 import { createCompatibleClient } from './client.js';
 import { encodeArgs, parseStructString } from './encoding.js';
+import { GITHUB_TAG_PREFIX } from './github.js';
 import { unboxContract } from './unbox.js';
 import { update } from './update/update.js';
 import {
@@ -248,9 +249,10 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
 
       const client = await createCompatibleClient(rpcUrl, debugLogger);
       const nodeInfo = await client.getNodeInfo();
-      if (contractArtifact.compilerVersion && contractArtifact.compilerVersion !== nodeInfo.compatibleNargoVersion) {
+      const expectedAztecNrVersion = `${GITHUB_TAG_PREFIX}-v${nodeInfo.sandboxVersion}`;
+      if (contractArtifact.aztecNrVersion && contractArtifact.aztecNrVersion !== expectedAztecNrVersion) {
         log(
-          `\nWarning: Contract was compiled with a different version of Noir: ${contractArtifact.compilerVersion}. Consider re-compiling the contract with Noir ${nodeInfo.compatibleNargoVersion}\n`,
+          `\nWarning: Contract was compiled with a different version of Aztec.nr: ${contractArtifact.aztecNrVersion}. Consider updating Aztec.nr to ${expectedAztecNrVersion}\n`,
         );
       }
 

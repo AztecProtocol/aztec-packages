@@ -43,10 +43,11 @@ describe('DependencyResolver', () => {
   });
 
   it.each(['../test_contract', '/test_contract'])('resolves a known dependency', async path => {
-    const libPkg = await resolver.resolveDependency(pkg, {
+    const lib = await resolver.resolveDependency(pkg, {
       path,
     });
-    expect(libPkg).toBeDefined();
-    expect(fm.hasFileSync(libPkg!.getEntryPointPath())).toBe(true);
+    expect(lib).toBeDefined();
+    expect(lib!.version).toBeUndefined();
+    expect(fm.hasFileSync(lib!.package.getEntryPointPath())).toBe(true);
   });
 });

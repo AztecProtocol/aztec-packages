@@ -253,7 +253,7 @@ export interface ContractArtifact {
   /**
    * The version of compiler used to create this artifact
    */
-  compilerVersion?: string;
+  aztecNrVersion?: string;
 
   /**
    * The functions of the contract.
