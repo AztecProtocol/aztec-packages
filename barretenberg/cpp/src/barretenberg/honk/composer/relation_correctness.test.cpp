@@ -463,11 +463,12 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorGenPermSortRelationCorrectness)
     ProverPolynomials prover_polynomials;
     std::vector<Polynomial> polynomial_container;
 
+    auto pointer_view = prover_polynomials.pointer_view();
     // Allocate polynomials
     for (size_t i = 0; i < prover_polynomials.size(); i++) {
         Polynomial temporary_polynomial(circuit_size);
         polynomial_container.push_back(temporary_polynomial);
-        prover_polynomials[i] = polynomial_container[i];
+        *pointer_view[i] = polynomial_container[i];
     }
 
     // Construct lagrange polynomials that are needed for Goblin Translator's GenPermSort Relation
@@ -565,7 +566,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorExtraRelationsCorrectness)
         polynomial_container.push_back(temporary_polynomial);
         // Push sequential ids to polynomial ids
         polynomial_ids.push_back(i);
-        // prover_polynomial_ids[i] = polynomial_ids[i];
+        prover_polynomial_ids[i] = polynomial_ids[i];
     }
     // Get ids of shifted polynomials and put them in a set
     auto shifted_ids = prover_polynomial_ids.get_shifted();
@@ -574,9 +575,10 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorExtraRelationsCorrectness)
         shifted_id_set.emplace(id);
     }
     // Assign spans to non-shifted prover polynomials
+    auto pointer_view = prover_polynomials.get_pointer_array();
     for (size_t i = 0; i < prover_polynomials.size(); i++) {
         if (!shifted_id_set.contains(i)) {
-            // prover_polynomials[i] = polynomial_container[i];
+            *pointer_view[i] = polynomial_container[i];
         }
     }
 
@@ -584,9 +586,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorExtraRelationsCorrectness)
     for (size_t i = 0; i < shifted_ids.size(); i++) {
         auto shifted_id = shifted_ids[i];
         auto to_be_shifted_id = prover_polynomial_ids.get_to_be_shifted()[i];
-        (void)shifted_id;
-        (void)to_be_shifted_id;
-        // prover_polynomials[shifted_id] = polynomial_container[to_be_shifted_id].shifted();
+        prover_polynomials[shifted_id] = polynomial_container[to_be_shifted_id].shifted();
     }
 
     // Fill in lagrange even polynomial
