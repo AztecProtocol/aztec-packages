@@ -2,7 +2,7 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/goblin_ultra.hpp"
 #include "barretenberg/flavor/ultra.hpp"
-#include "barretenberg/honk/proof_system/folding_result.hpp"
+#include "barretenberg/protogalaxy/folding_result.hpp"
 #include "barretenberg/sumcheck/instance/instances.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 

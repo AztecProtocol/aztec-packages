@@ -1,5 +1,5 @@
-#include "barretenberg/honk/composer/ultra_composer.hpp"
-#include "protogalaxy_prover.hpp"
+#include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
+#include "barretenberg/ultra_honk/ultra_composer.hpp"
 #include <gtest/gtest.h>
 
 using namespace barretenberg;
