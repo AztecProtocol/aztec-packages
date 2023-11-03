@@ -319,18 +319,6 @@ const sidebars = {
           ],
         },
         {
-          label: "Debugging",
-          type: "category",
-          link: {
-            type: "doc",
-            id: "dev_docs/contracts/debugging/main",
-          },
-          items: [
-            "dev_docs/contracts/debugging/aztec-nr-errors",
-            "dev_docs/contracts/debugging/aztec-sandbox-errors",
-          ],
-        },
-        {
           label: "Resources",
           type: "category",
           items: [
@@ -376,7 +364,18 @@ const sidebars = {
       type: "doc",
       id: "dev_docs/aztecjs/main",
     },
-
+    {
+      label: "Debugging",
+      type: "category",
+      link: {
+        type: "doc",
+        id: "dev_docs/debugging/main",
+      },
+      items: [
+        "dev_docs/debugging/aztecnr-errors",
+        "dev_docs/debugging/sandbox-errors",
+      ],
+    },
     {
       label: "Updating",
       type: "doc",

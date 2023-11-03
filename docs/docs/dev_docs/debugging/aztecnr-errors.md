@@ -12,7 +12,7 @@ All smart contracts written in Aztec.nr need the `aztec` dependency. In your `Na
 aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/aztec" }
 ```
 
-You can learn more about dependencies and their paths [here](../resources/dependencies.md).
+You can learn more about dependencies and their paths [here](../contracts/resources/dependencies.md).
 
 #### `compute_note_hash_and_nullifier function not found. Define it in your contract`
 
@@ -26,7 +26,7 @@ This error may also show if the `compute_note_hash_and_nullifier` function is no
 
 #### `backend has encountered an error`
 
-This is likely due to a version mismatch or bad install of barretenberg. Try [reinstalling nargo](TODO) or uninstalling barretenberg:
+This is likely due to a version mismatch or bad install of barretenberg. Try [reinstalling nargo](../cli/updating.md) or uninstalling barretenberg:
 
 ```bash
 nargo backend uninstall acvm-backend-barretenberg
@@ -36,7 +36,7 @@ It will then reinstall when you compile.
 
 #### `Oracle callback {} not found` & `Oracle callback pedersenHash not found`
 
-This can occasionally happen when there are breaking releases. Make sure that your dependencies in `Nargo.toml` are [updated to the latest release](../resources/dependencies.md).
+This can occasionally happen when there are breaking releases. Make sure that your dependencies in `Nargo.toml` are [updated to the latest release](../contracts/resources/dependencies.md).
 
 #### `error: Failed constraint: 'Public state writes only supported in public functions`
 

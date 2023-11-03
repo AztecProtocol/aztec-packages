@@ -2,7 +2,7 @@
 title: Aztec Sandbox Errors
 ---
 
-import Disclaimer from '../../../misc/common/\_disclaimer.mdx';
+import Disclaimer from '../../misc/common/\_disclaimer.mdx';
 <Disclaimer/>
 
 This section contains a list of errors you may encounter when using Aztec Sandbox and an explanation of each of them.
@@ -13,7 +13,7 @@ This section contains a list of errors you may encounter when using Aztec Sandbo
 
 ### Kernel Circuits
 
-We have several versions of public and private kernels as explained in [our circuits section](../../../concepts/advanced/circuits/main.md). Certain things are only possible in certain versions of the circuits. So always ensure that the right version is being used for proof generation. For example, there is a specific version of the public kernel that only works if the previous kernel iteration was a private kernel. Similarly there is one that only works if the previous kernel was public.
+We have several versions of public and private kernels as explained in [our circuits section](../../concepts/advanced/circuits/kernels/main.md). Certain things are only possible in certain versions of the circuits. So always ensure that the right version is being used for proof generation. For example, there is a specific version of the public kernel that only works if the previous kernel iteration was a private kernel. Similarly there is one that only works if the previous kernel was public.
 
 Remember that for each function call (i.e. each item in the call stack), there is a new kernel iteration that gets run.
 
@@ -86,7 +86,7 @@ Calling a private Aztec.nr function in a public kernel is not allowed.
 
 #### 3005 - PUBLIC_KERNEL\_\_NON_EMPTY_PRIVATE_CALL_STACK
 
-Public functions are executed after all the private functions are (see [private-public execution](../../../concepts/foundation/communication/public_private_calls.md)). As such, private call stack must be empty when executing in the public kernel.
+Public functions are executed after all the private functions are (see [private-public execution](../../concepts/foundation/communication/public_private_calls.md)). As such, private call stack must be empty when executing in the public kernel.
 
 #### 3011 - PUBLIC_KERNEL\_\_CALCULATED_PRIVATE_CALL_HASH_AND_PROVIDED_PRIVATE_CALL_HASH_MISMATCH
 
@@ -130,7 +130,7 @@ For static calls, no new commitments or nullifiers can be added to the state.
 
 ### Rollup circuit errors
 
-These are errors that occur when kernel proofs (transaction proofs) are sent to the rollup circuits to create an L2 block. See [rollup circuits](../../../concepts/advanced/circuits/rollup_circuits/main.md) for more information.
+These are errors that occur when kernel proofs (transaction proofs) are sent to the rollup circuits to create an L2 block. See [rollup circuits](../../concepts/advanced/circuits/rollup_circuits/main.md) for more information.
 
 #### 4007 - BASE\_\_INVALID_CHAIN_ID
 
@@ -140,7 +140,7 @@ The L1 chain ID you used in your proof generation (for your private transaction)
 
 Same as [section 4007](#4007---base__invalid_chain_id) except the `version` refers to the version of the Aztec L2 instance.
 
-Some scary bugs like `4003 - BASE__INVALID_NULLIFIER_SUBTREE` and `4004 - BASE__INVALID_NULLIFIER_RANGE` which are to do malformed nullifier trees (see [Indexed Merkle Trees](../../../concepts/advanced/data_structures/indexed_merkle_tree.md)) etc may seem unrelated at a glance, but at a closer look may be because of some bug in an application's Aztec.nr code. Same is true for certain instances of `7008 - MEMBERSHIP_CHECK_FAILED`.
+Some scary bugs like `4003 - BASE__INVALID_NULLIFIER_SUBTREE` and `4004 - BASE__INVALID_NULLIFIER_RANGE` which are to do malformed nullifier trees (see [Indexed Merkle Trees](../../concepts/advanced/data_structures/indexed_merkle_tree.md)) etc may seem unrelated at a glance, but at a closer look may be because of some bug in an application's Aztec.nr code. Same is true for certain instances of `7008 - MEMBERSHIP_CHECK_FAILED`.
 
 ### Generic circuit errors
 
@@ -171,7 +171,7 @@ Users may create a proof against a historic state in Aztec. The rollup circuits 
 - using invalid historic L1 to L2 message data tree state
 - inserting a subtree into the greater tree
   - we make a smaller merkle tree of all the new commitments/nullifiers etc that were created in a transaction or in a rollup and add it to the bigger state tree. Before inserting, we do a merkle membership check to ensure that the index to insert at is indeed an empty subtree (otherwise we would be overwriting state). This can happen when `next_available_leaf_index` in the state tree's snapshot is wrong (it is fetched by the sequencer from the archiver). The error message should reveal which tree is causing this issue
-  - nullifier tree related errors - The nullifier tree uses an [Indexed Merkle Tree](../../../concepts/advanced/data_structures/indexed_merkle_tree.md). It requires additional data from the archiver to know which is the nullifier in the tree that is just below the current nullifier before it can perform batch insertion. If the low nullifier is wrong, or the nullifier is in incorrect range, you may receive this error.
+  - nullifier tree related errors - The nullifier tree uses an [Indexed Merkle Tree](../../concepts/advanced/data_structures/indexed_merkle_tree.md). It requires additional data from the archiver to know which is the nullifier in the tree that is just below the current nullifier before it can perform batch insertion. If the low nullifier is wrong, or the nullifier is in incorrect range, you may receive this error.
 
 ---
 
@@ -191,7 +191,7 @@ Users may create a proof against a historic state in Aztec. The rollup circuits 
 
 - "${treeName} tree next available leaf index mismatch" - validating a tree's root is not enough. It also checks that the `next_avaliable_leaf_index` is as expected. This is the next index we can insert new values into. Note that for the public data tree, this test is skipped since as it is a sparse tree unlike the others.
 
-- "Public call stack size exceeded" - In Aztec, the sequencer executes all enqueued public functions in a transaction (to prevent race conditions - see [private-public execution](../../../concepts/foundation/communication/public_private_calls.md)). This error says there are too many public functions requested.
+- "Public call stack size exceeded" - In Aztec, the sequencer executes all enqueued public functions in a transaction (to prevent race conditions - see [private-public execution](../../concepts/foundation/communication/public_private_calls.md)). This error says there are too many public functions requested.
 
 - "Array size exceeds target length" - happens if you add more items than allowed by the constants set due to our circuit limitations (eg sending too many L2 to L1 messages or creating a function that exceeds the call stack length or returns more values than what Aztec.nr functions allow)
 
