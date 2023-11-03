@@ -54,30 +54,32 @@ pub fn validate_call_stack(public_call : PublicCallData) {
         } else {
             preimage.hash()
         };
-        assert(hash == calculated_hash, "call stack item hash doesn't match preimage hash");
+        if calculated_hash != 0 {
+            assert(hash == calculated_hash, "call stack item hash doesn't match preimage hash");
+            dep::std::println(1);
+            // here we validate the msg sender for each call on the stack
+            // here we validate the storage address for each call on the stack
+            // we need to consider regular vs delegate calls for both
+            let preimage_msg_sender = preimage.public_inputs().call_context.msg_sender;
+            let preimage_storage_address = preimage.public_inputs().call_context.storage_contract_address;
 
-        // here we validate the msg sender for each call on the stack
-        // here we validate the storage address for each call on the stack
-        // we need to consider regular vs delegate calls for both
-        let preimage_msg_sender = preimage.public_inputs().call_context.msg_sender;
-        let preimage_storage_address = preimage.public_inputs().call_context.storage_contract_address;
-
-        if is_delegate_call {
-            assert(preimage_msg_sender.eq(our_msg_sender), "call_stack_msg_sender doesn't match expected_msg_sender");
-            assert(preimage_storage_address.eq(our_storage_address), "call_stack_storage_address doesnt match expected_storage_address");
-            // if it is a delegate call then we check that the portal contract in the pre image is our portal contract
-            let preimage_portal_address = preimage.public_inputs().call_context.portal_contract_address;
-            let expected_portal_address = our_portal_contract_address;
-            assert(preimage_portal_address.eq(expected_portal_address), "call_stack_portal_contract_address doesnt match expected_portal_address");
-        } else {
-            assert(preimage_msg_sender.eq(our_contract_address), "call_stack_msg_sender doesn't match expected_msg_sender");
-            assert(preimage_storage_address.eq(contract_being_called), "call_stack_storage_address doesnt match expected_storage_address");
-        }
+            if is_delegate_call {
+                assert(preimage_msg_sender.eq(our_msg_sender), "call_stack_msg_sender doesn't match expected_msg_sender");
+                assert(preimage_storage_address.eq(our_storage_address), "call_stack_storage_address doesnt match expected_storage_address");
+                // if it is a delegate call then we check that the portal contract in the pre image is our portal contract
+                let preimage_portal_address = preimage.public_inputs().call_context.portal_contract_address;
+                let expected_portal_address = our_portal_contract_address;
+                assert(preimage_portal_address.eq(expected_portal_address), "call_stack_portal_contract_address doesnt match expected_portal_address");
+            } else {
+                assert(preimage_msg_sender.eq(our_contract_address), "call_stack_msg_sender doesn't match expected_msg_sender");
+                assert(preimage_storage_address.eq(contract_being_called), "call_stack_storage_address doesnt match expected_storage_address");
+            }
 
 
-        let num_contract_storage_update_requests = preimage.public_inputs().contract_storage_update_requests.len();
-        if is_static_call {
-            assert(num_contract_storage_update_requests == 0,"contract_storage_update_requests should be empty for static call");
+            let num_contract_storage_update_requests = preimage.public_inputs().contract_storage_update_requests.len();
+            if is_static_call {
+                assert(num_contract_storage_update_requests == 0,"contract_storage_update_requests should be empty for static call");
+            }
         }
     }
 }

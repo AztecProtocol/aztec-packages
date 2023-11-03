@@ -41,6 +41,7 @@ import { computeCallStackItemHash, computeVarArgsHash } from '@aztec/circuits.js
 import { arrayNonEmptyLength, isArrayEmpty, padArrayEnd, padArrayStart } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Tuple, mapTuple, to2Fields } from '@aztec/foundation/serialize';
+import { executePublicKernelPrivatePrevious } from '@aztec/noir-protocol-circuits';
 import { ContractDataSource, FunctionL2Logs, L1ToL2MessageSource, MerkleTreeId, Tx } from '@aztec/types';
 import { MerkleTreeOperations } from '@aztec/world-state';
 
@@ -226,7 +227,7 @@ export class PublicProcessor {
       // Run the public kernel circuit with previous private kernel
       const previousKernel = this.getPreviousKernelData(previousOutput, previousProof);
       const inputs = new PublicKernelInputs(previousKernel, callData);
-      return this.publicKernel.publicKernelCircuitPrivateInput(inputs);
+      return executePublicKernelPrivatePrevious(inputs);
     } else if (previousOutput && previousProof) {
       // Run the public kernel circuit with previous public kernel
       const previousKernel = this.getPreviousKernelData(previousOutput, previousProof);
