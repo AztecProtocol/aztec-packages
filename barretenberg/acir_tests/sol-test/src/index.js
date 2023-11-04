@@ -4,10 +4,17 @@ import {spawn} from "child_process";
 import {ethers} from "ethers";
 import solc from "solc";
 
-// TODO: create temp directories and pass them into here
-
 // We use the solcjs compiler version in this test, although it is slower than foundry, to run the test end to end
 // it simplifies of parallelising the test suite
+
+// What does this file do?
+//
+// 1. Launch an instance of anvil { on a random port, for parallelism }
+// 2. Compile the solidity files using solcjs
+// 3. Deploy the contract
+// 4. Read the previously created proof, and append public inputs
+// 5. Run the test against the deployed contract
+// 6. Kill the anvil instance
 
 const getEnvVar = (envvar) => {
   const varVal = process.env[envvar];
@@ -17,9 +24,10 @@ const getEnvVar = (envvar) => {
   return varVal;
 }
 
+// Test name is passed into environment from `flows/sol.sh`
 const testName = getEnvVar("TEST_NAME");
 
-// Get Solidity files from random dir
+// Get solidity files, passed into environment from `flows/sol.sh`
 const keyPath = getEnvVar("KEY_PATH");
 const verifierPath = getEnvVar("VERIFIER_PATH");
 const testPath = getEnvVar("TEST_PATH");
@@ -45,7 +53,7 @@ var input = {
       content: verifier
     }
   },
-  settings: {
+  settings: { // we require the optimiser
     optimizer: {
       enabled: true,
       runs: 200
@@ -71,7 +79,6 @@ const launchAnvil = async (port) => {
     handle.stdout.on("data", (data) => {
       const str = data.toString();
       if (str.includes("Listening on")) {
-        // console.log("Anvil Ready");
         resolve(undefined);
       }
     });
@@ -82,7 +89,6 @@ const launchAnvil = async (port) => {
 
 const deploy = async (signer) => {
     const factory = new ethers.ContractFactory(abi, bytecode, signer);
-    // console.log("Deploying Contract...");
     const deployment = await factory.deploy();
     const deployed = await deployment.waitForDeployment();
     return await deployed.getAddress();
@@ -102,49 +108,46 @@ const readPublicInputs = (numPublicInputs, proofAsFields) => {
   return publicInputs;
 }
 
-const main = async () => {
-  // start anvil
-  const randomPort = Math.floor(Math.random() * 10000) + 10000;
-  const anvil = await launchAnvil(randomPort);
-  const killAnvil = () => {
-    anvil.kill();
-    console.log(testName, " complete")
-  }
-
-  try {
-    const proofAsFieldsPath = getEnvVar("PROOF_AS_FIELDS");
-    const proofAsFields = readFileSync(proofAsFieldsPath);
-    const numPublicInputs = +getEnvVar("NUM_PUBLIC_INPUTS");
-    const publicInputs = readPublicInputs(numPublicInputs, JSON.parse(proofAsFields.toString()));
-
-    const proofPath = getEnvVar("PROOF");
-    const proof = readFileSync(proofPath);
-    
-    // Cut the number of public inputs off of the proof string
-    const proofStr = `0x${proof.toString("hex").substring(64*numPublicInputs)}`;
-
-    // Get the contract artifact
-    const key = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
-    const provider = new ethers.JsonRpcProvider(`http://localhost:${randomPort}`);
-    const signer = new ethers.Wallet(key, provider);
-
-    // deploy 
-    const address = await deploy(signer);
-    const contract = new ethers.Contract(address, abi, signer);
-
-    // Run the test
-    const result = await contract.test(proofStr, publicInputs);
-    if (!result) throw new Error("Test failed");
-  }
-  catch (e) {
-    console.error(testName, " failed")
-    console.log(e)
-    throw e;
-  }
-  finally {
-    // Kill anvil at the end of running
-    killAnvil();
-  }
+// start anvil
+const randomPort = Math.floor(Math.random() * 10000) + 10000;
+const anvil = await launchAnvil(randomPort);
+const killAnvil = () => {
+  anvil.kill();
+  console.log(testName, " complete")
 }
-main();
+
+try {
+  const proofAsFieldsPath = getEnvVar("PROOF_AS_FIELDS");
+  const proofAsFields = readFileSync(proofAsFieldsPath);
+  const numPublicInputs = +getEnvVar("NUM_PUBLIC_INPUTS");
+  const publicInputs = readPublicInputs(numPublicInputs, JSON.parse(proofAsFields.toString()));
+
+  const proofPath = getEnvVar("PROOF");
+  const proof = readFileSync(proofPath);
+  
+  // Cut the number of public inputs off of the proof string
+  const proofStr = `0x${proof.toString("hex").substring(64*numPublicInputs)}`;
+
+  // Get the contract artifact
+  const key = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+  const provider = new ethers.JsonRpcProvider(`http://localhost:${randomPort}`);
+  const signer = new ethers.Wallet(key, provider);
+
+  // deploy 
+  const address = await deploy(signer);
+  const contract = new ethers.Contract(address, abi, signer);
+
+  // Run the test
+  const result = await contract.test(proofStr, publicInputs);
+  if (!result) throw new Error("Test failed");
+}
+catch (e) {
+  console.error(testName, " failed")
+  console.log(e)
+  throw e;
+}
+finally {
+  // Kill anvil at the end of running
+  killAnvil();
+}
 

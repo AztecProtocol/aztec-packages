@@ -217,7 +217,6 @@ export class ClientExecutionContext extends ViewDataOracle {
       offset,
     });
 
-    // TODO: PHIL issue starts here
     this.log(
       `Returning ${notes.length} notes for ${this.contractAddress} at ${storageSlot}: ${notes
         .map(n => `${n.nonce.toString()}:[${n.note.items.map(i => i.toString()).join(',')}]`)

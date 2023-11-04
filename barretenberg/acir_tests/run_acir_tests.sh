@@ -72,8 +72,7 @@ function test() {
 
 if [ "${#TEST_NAMES[@]}" -ne 0 ]; then
   for NAMED_TEST in "${TEST_NAMES[@]}"; do
-    # echo -n "Testing $NAMED_TEST... "
-    echo "Testing $NAMED_TEST... "
+    echo -n "Testing $NAMED_TEST... "
     test $NAMED_TEST
   done
 else

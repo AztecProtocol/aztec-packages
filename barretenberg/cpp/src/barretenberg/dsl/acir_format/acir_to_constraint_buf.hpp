@@ -305,14 +305,10 @@ WitnessVector witness_buf_to_witness_data(std::vector<uint8_t> const& buf)
     WitnessVector wv;
     size_t index = 1;
     for (auto& e : w.value) {
-        // // first is index
-        // info("first ", e.first.value);
         while (index < e.first.value) {
-            // info("index < first ", e.first.value);
             wv.push_back(barretenberg::fr(0));
             index++;
         }
-        // info("second ", e.second);
         wv.push_back(barretenberg::fr(uint256_t(e.second)));
         index++;
     }

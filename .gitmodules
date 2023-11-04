@@ -13,6 +13,3 @@
 [submodule "barretenberg/sol/lib/openzeppelin-contracts"]
 	path = barretenberg/sol/lib/openzeppelin-contracts
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts
-[submodule "barretenberg/acir_tests/sol-test /contracts/lib/forge-std"]
-	path = barretenberg/acir_tests/sol-test /contracts/lib/forge-std
-	url = https://github.com/foundry-rs/forge-std
