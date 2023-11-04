@@ -204,7 +204,8 @@ template <typename settings> void ProverBase<settings>::execute_preamble_round()
         const size_t w_randomness = 3;
         ASSERT(w_randomness < settings::num_roots_cut_out_of_vanishing_polynomial);
         for (size_t k = 0; k < w_randomness; ++k) {
-            wire_lagrange.at(circuit_size - settings::num_roots_cut_out_of_vanishing_polynomial + k) = fr::one();
+            wire_lagrange.at(circuit_size - settings::num_roots_cut_out_of_vanishing_polynomial + k) =
+                fr::random_element();
         }
 
         key->polynomial_store.put(wire_tag + "_lagrange", std::move(wire_lagrange));
@@ -297,7 +298,8 @@ template <typename settings> void ProverBase<settings>::execute_second_round()
         ASSERT(w_randomness < settings::num_roots_cut_out_of_vanishing_polynomial);
         for (size_t k = 0; k < w_randomness; ++k) {
             // Blinding
-            w_4_lagrange.at(circuit_size - settings::num_roots_cut_out_of_vanishing_polynomial + k) = fr::one();
+            w_4_lagrange.at(circuit_size - settings::num_roots_cut_out_of_vanishing_polynomial + k) =
+                fr::random_element();
         }
 
         // compute poly w_4 from w_4_lagrange and add it to the cache
@@ -464,7 +466,7 @@ template <typename settings> void ProverBase<settings>::add_blinding_to_quotient
     // For details, please head to: https://hackmd.io/JiyexiqRQJW55TMRrBqp1g.
     for (size_t i = 0; i < settings::program_width - 1; i++) {
         // Note that only program_width-1 random elements are required for full blinding
-        fr quotient_randomness = fr::one();
+        fr quotient_randomness = fr::random_element();
 
         key->quotient_polynomial_parts[i][key->circuit_size] +=
             quotient_randomness;                                         // update coefficient of X^n'th term
