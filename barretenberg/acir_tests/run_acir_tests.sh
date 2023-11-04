@@ -4,6 +4,12 @@
 #   VERBOSE: to enable logging for each test.
 set -eu
 
+# Catch when running in parallel
+error_file="/tmp/error.$$"
+pids=()
+source ./bash_helpers/catch.sh
+trap handle_sigchild SIGCHLD
+
 BIN=${BIN:-../cpp/build/bin/bb}
 FLOW=${FLOW:-prove_and_verify}
 CRS_PATH=~/.bb-crs
@@ -84,6 +90,11 @@ else
       continue
     fi
 
-    test $TEST_NAME
+    test $TEST_NAME &
   done
 fi
+
+wait
+
+# Check for parallel errors
+check_error_file

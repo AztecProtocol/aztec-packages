@@ -250,6 +250,17 @@ jobs:
           name: "Build and test"
           command: cond_spot_run_build barretenberg-acir-tests-bb 32
 
+  barretenberg-acir-tests-bb-sol:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: cond_spot_run_build barretenberg-acir-tests-bb-sol 32
+
   bb-js:
     machine:
       image: ubuntu-2204:2023.07.2
@@ -1163,6 +1174,10 @@ workflows:
       #           - master
       #     <<: *defaults
       - barretenberg-acir-tests-bb:
+          requires:
+            - barretenberg-x86_64-linux-clang-assert
+          <<: *defaults
+      - barretenberg-acir-tests-bb-sol:
           requires:
             - barretenberg-x86_64-linux-clang-assert
           <<: *defaults
