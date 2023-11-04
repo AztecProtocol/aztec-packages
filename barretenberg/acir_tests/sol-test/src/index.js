@@ -1,14 +1,13 @@
-import fs, { readFileSync } from "fs";
+import fs from "fs";
+const {readFileSync, promises: fsPromises} = fs;
 import {spawn} from "child_process";
 import {ethers} from "ethers";
+import solc from "solc";
 
-import ABI from "./contracts/out/Test.sol/Test.json" assert { type: "json" };
-import { gunzipSync } from "zlib";
+// TODO: create temp directories and pass them into here
 
-const readWitnessFile = (path) => {
-  const buffer = fs.readFileSync(path);
-  return gunzipSync(buffer);
-};
+// We use the solcjs compiler version in this test, although it is slower than foundry, to run the test end to end
+// it simplifies of parallelising the test suite
 
 const getEnvVar = (envvar) => {
   const varVal = process.env[envvar];
@@ -18,12 +17,54 @@ const getEnvVar = (envvar) => {
   return varVal;
 }
 
-const launchAnvil = async () => {
-  const handle = spawn("anvil");
-  // console.log("Anvil Launched");
-  handle.on("close", (code) => {
-    console.log(`anvil exited with code ${code}`)
-  });
+const testName = getEnvVar("TEST_NAME");
+
+// Get Solidity files from random dir
+const keyPath = getEnvVar("KEY_PATH");
+const verifierPath = getEnvVar("VERIFIER_PATH");
+const testPath = getEnvVar("TEST_PATH");
+const encoding = {encoding: "utf8"};
+const [key, test, verifier] = await Promise.all(
+  [
+    fsPromises.readFile(keyPath, encoding),
+    fsPromises.readFile(testPath, encoding),
+    fsPromises.readFile(verifierPath, encoding)
+  ]);
+
+
+var input = {
+  language: 'Solidity',
+  sources: {
+    'Key.sol': {
+      content: key
+    },
+    'Test.sol': {
+      content: test
+    },
+    'Verifier.sol': {
+      content: verifier
+    }
+  },
+  settings: {
+    optimizer: {
+      enabled: true,
+      runs: 200
+    },
+    outputSelection: {
+      '*': {
+        '*': ['evm.bytecode.object', 'abi']
+      }
+    }
+  }
+};
+
+var output = JSON.parse(solc.compile(JSON.stringify(input)));
+const contract = output.contracts['Test.sol']['Test'];
+const bytecode = contract.evm.bytecode.object;
+const abi = contract.abi;
+
+const launchAnvil = async (port) => {
+  const handle = spawn("anvil", ["-p", port]);
 
   // wait until the anvil instance is ready on port 8545
   await new Promise((resolve) => {
@@ -39,8 +80,8 @@ const launchAnvil = async () => {
   return handle;
 }
 
-const deploy = async (abi, signer) => {
-    const factory = new ethers.ContractFactory(abi.abi, abi.bytecode.object, signer);
+const deploy = async (signer) => {
+    const factory = new ethers.ContractFactory(abi, bytecode, signer);
     // console.log("Deploying Contract...");
     const deployment = await factory.deploy();
     const deployed = await deployment.waitForDeployment();
@@ -54,7 +95,6 @@ const deploy = async (abi, signer) => {
  * @returns {Array<String>}
  */
 const readPublicInputs = (numPublicInputs, proofAsFields) => {
-  // console.log("numPublicInputs: ", numPublicInputs);
   const publicInputs = [];
   for (let i = 0; i < numPublicInputs; i++) {
     publicInputs.push(proofAsFields[i]);
@@ -62,92 +102,49 @@ const readPublicInputs = (numPublicInputs, proofAsFields) => {
   return publicInputs;
 }
 
-// start anvil
-async function main() {
-  // const anvil = await launchAnvil();
-  // const killAnvil = () => {
-  //   anvil.kill();
-  // }
+const main = async () => {
+  // start anvil
+  const randomPort = Math.floor(Math.random() * 10000) + 10000;
+  const anvil = await launchAnvil(randomPort);
+  const killAnvil = () => {
+    anvil.kill();
+    console.log(testName, " complete")
+  }
 
   try {
-    // console.log("getting witness");
-    const witnessPath = getEnvVar("WITNESS");
-    const witness = readWitnessFile(witnessPath);
-    // console.log(witness.toString());
-
     const proofAsFieldsPath = getEnvVar("PROOF_AS_FIELDS");
     const proofAsFields = readFileSync(proofAsFieldsPath);
     const numPublicInputs = +getEnvVar("NUM_PUBLIC_INPUTS");
     const publicInputs = readPublicInputs(numPublicInputs, JSON.parse(proofAsFields.toString()));
 
-    // console.log("getting proof");
     const proofPath = getEnvVar("PROOF");
-    // console.log(proofPath)
     const proof = readFileSync(proofPath);
     
     // Cut the number of public inputs off of the proof string
     const proofStr = `0x${proof.toString("hex").substring(64*numPublicInputs)}`;
-    // console.log(proofStr)
 
     // Get the contract artifact
     const key = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
-    const provider = new ethers.JsonRpcProvider("http://localhost:8545");
+    const provider = new ethers.JsonRpcProvider(`http://localhost:${randomPort}`);
     const signer = new ethers.Wallet(key, provider);
 
     // deploy 
-    const address = await deploy(ABI, signer);
-    const contract = new ethers.Contract(address, ABI.abi, signer);
+    const address = await deploy(signer);
+    const contract = new ethers.Contract(address, abi, signer);
 
     // Run the test
-    console.log(publicInputs)
     const result = await contract.test(proofStr, publicInputs);
-    console.log(result);
+    if (!result) throw new Error("Test failed");
   }
   catch (e) {
+    console.error(testName, " failed")
     console.log(e)
-    console.log("FAILED")
-    console.log("FAILED")
-    console.log("FAILED")
-    console.log("FAILED")
-    console.log("FAILED")
-    console.log("FAILED")
-    console.log("FAILED")
-    console.log("FAILED")
-    console.log("FAILED")
-    console.log("FAILED")
-    console.log("FAILED")
-    console.log("FAILED")
-    // console.log(e);
     throw e;
   }
   finally {
     // Kill anvil at the end of running
-    // killAnvil();
+    killAnvil();
   }
 }
-
-
-
-
-// Create a proof for the given ACIR
-
-
-// Deploy the solidity contract
-
-// Run the test
-
-
-// Set up the command-line interface
-// const acir = readBytecodeFile(bytecodePath);
-// const witness = readWitnessFile(witnessPath);
-// const threads = Math.min(os.cpus().length, 16);
-
-
-// // Convert the input data to Uint8Arrays within the browser context
-// const acirUint8Array = new Uint8Array(acirData as number[]);
-// const witnessUint8Array = new Uint8Array(witnessData as number[]);
-
-
-
-main()
+main();
 

@@ -1,3 +1,4 @@
+// THIS FILE WILL BE COPIED
 pragma solidity >=0.8.4;
 
 import {Verifier} from "./Verifier.sol";
