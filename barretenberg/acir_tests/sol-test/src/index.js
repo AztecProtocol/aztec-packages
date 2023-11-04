@@ -19,7 +19,7 @@ import solc from "solc";
 const getEnvVar = (envvar) => {
   const varVal = process.env[envvar];
   if (!varVal) {
-    return 0;
+    throw new Error(`Missing environment variable ${envvar}`);
   }
   return varVal;
 }
@@ -115,6 +115,7 @@ const deploy = async (signer) => {
  */
 const readPublicInputs = (proofAsFields) => {
   const publicInputs = [];
+  // A proof with no public inputs is 93 fields long
   const numPublicInputs = proofAsFields.length - 93;
   for (let i = 0; i < numPublicInputs; i++) {
     publicInputs.push(proofAsFields[i]);
