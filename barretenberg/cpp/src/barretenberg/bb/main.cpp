@@ -141,11 +141,9 @@ void gateCount(const std::string& bytecodePath)
 {
     auto constraint_system = get_constraint_system(bytecodePath);
     auto acir_composer = init(constraint_system);
-    auto num_public_inputs = acir_composer.get_num_public_inputs();
     auto gate_count = acir_composer.get_total_circuit_size();
 
     writeUint64AsRawBytesToStdout(static_cast<uint64_t>(gate_count));
-    vinfo("public inputs: ", num_public_inputs);
     vinfo("gate count: ", gate_count);
 }
 

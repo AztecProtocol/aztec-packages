@@ -27,7 +27,6 @@ class AcirComposer {
     bool verify_proof(std::vector<uint8_t> const& proof, bool is_recursive);
 
     std::string get_solidity_verifier();
-    size_t get_num_public_inputs() { return num_public_inputs_; };
     size_t get_exact_circuit_size() { return exact_circuit_size_; };
     size_t get_total_circuit_size() { return total_circuit_size_; };
     size_t get_circuit_subgroup_size() { return circuit_subgroup_size_; };
@@ -41,7 +40,6 @@ class AcirComposer {
     acir_format::Builder builder_;
     size_t size_hint_;
     size_t exact_circuit_size_;
-    size_t num_public_inputs_;
     size_t total_circuit_size_;
     size_t circuit_subgroup_size_;
     std::shared_ptr<proof_system::plonk::proving_key> proving_key_;

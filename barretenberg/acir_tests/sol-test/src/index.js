@@ -111,14 +111,15 @@ const deploy = async (signer) => {
  * 
  * @param {number} numPublicInputs 
  * @param {Array<String>} proofAsFields 
- * @returns {Array<String>}
+ * @returns {Array<Tuple<Array<String>,number>}
  */
-const readPublicInputs = (numPublicInputs, proofAsFields) => {
+const readPublicInputs = (proofAsFields) => {
   const publicInputs = [];
+  const numPublicInputs = proofAsFields.length - 93;
   for (let i = 0; i < numPublicInputs; i++) {
     publicInputs.push(proofAsFields[i]);
   }
-  return publicInputs;
+  return [numPublicInputs, publicInputs];
 }
 
 // start anvil
@@ -142,8 +143,7 @@ const killAnvil = () => {
 try {
   const proofAsFieldsPath = getEnvVar("PROOF_AS_FIELDS");
   const proofAsFields = readFileSync(proofAsFieldsPath);
-  const numPublicInputs = +getEnvVar("NUM_PUBLIC_INPUTS");
-  const publicInputs = readPublicInputs(numPublicInputs, JSON.parse(proofAsFields.toString()));
+  const [numPublicInputs, publicInputs] = readPublicInputs(JSON.parse(proofAsFields.toString()));
 
   const proofPath = getEnvVar("PROOF");
   const proof = readFileSync(proofPath);

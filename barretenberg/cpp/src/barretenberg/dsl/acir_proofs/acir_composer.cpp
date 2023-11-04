@@ -24,7 +24,6 @@ void AcirComposer::create_circuit(acir_format::acir_format& constraint_system)
     vinfo("building circuit...");
     builder_ = acir_format::create_circuit(constraint_system, size_hint_);
     exact_circuit_size_ = builder_.get_num_gates();
-    num_public_inputs_ = builder_.get_num_public_inputs();
     total_circuit_size_ = builder_.get_total_circuit_size();
     circuit_subgroup_size_ = builder_.get_circuit_subgroup_size(total_circuit_size_);
     size_hint_ = circuit_subgroup_size_;
