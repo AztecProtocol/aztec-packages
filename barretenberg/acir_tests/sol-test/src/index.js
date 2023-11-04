@@ -31,12 +31,14 @@ const testName = getEnvVar("TEST_NAME");
 const keyPath = getEnvVar("KEY_PATH");
 const verifierPath = getEnvVar("VERIFIER_PATH");
 const testPath = getEnvVar("TEST_PATH");
+const basePath = getEnvVar("BASE_PATH");
 const encoding = {encoding: "utf8"};
-const [key, test, verifier] = await Promise.all(
+const [key, test, verifier, base] = await Promise.all(
   [
     fsPromises.readFile(keyPath, encoding),
     fsPromises.readFile(testPath, encoding),
-    fsPromises.readFile(verifierPath, encoding)
+    fsPromises.readFile(verifierPath, encoding),
+    fsPromises.readFile(basePath, encoding)
   ]);
 
 
@@ -51,6 +53,9 @@ var input = {
     },
     'Verifier.sol': {
       content: verifier
+    },
+    'BaseUltraVerifier.sol': {
+      content: base
     }
   },
   settings: { // we require the optimiser

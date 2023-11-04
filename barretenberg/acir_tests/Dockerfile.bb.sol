@@ -1,8 +1,10 @@
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/barretenberg-x86_64-linux-clang-assert
+FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/barretenberg-x86_64-linux-clang-sol
 
 FROM node:18-alpine
 RUN apk update && apk add git bash curl jq
 COPY --from=0 /usr/src/barretenberg/cpp/build /usr/src/barretenberg/cpp/build
+COPY --from=1 /usr/src/barretenberg/sol/src/ultra/BaseUltraVerifier.sol /usr/src/barretenberg/sol/src/ultra/BaseUltraVerifier.sol
 WORKDIR /usr/src/barretenberg/acir_tests
 COPY . .
 # Run every acir test through a solidity verifier".

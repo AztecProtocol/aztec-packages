@@ -18,6 +18,7 @@ $BIN contract -k vk -c $CRS_PATH -b ./target/acir.gz -o Key.sol
 export KEY_PATH="$(pwd)/Key.sol"
 export VERIFIER_PATH=$(realpath "../../sol-test/Verifier.sol")
 export TEST_PATH=$(realpath "../../sol-test/Test.sol")
+export BASE_PATH=$(realpath "../../../sol/src/ultra/BaseUltraVerifier.sol")
 
 # Use solcjs to compile the generated key contract with the template verifier and test contract 
 # index.js will start an anvil, on a random port
