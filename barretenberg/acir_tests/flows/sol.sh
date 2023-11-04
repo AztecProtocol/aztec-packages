@@ -5,8 +5,9 @@ export PROOF="$(pwd)/proof"
 export PROOF_AS_FIELDS="$(pwd)/proof_fields.json"
 
 # Get the number of public inputs in the circuit
-gates=$($BIN gates -v 2>&1 | tr -d '\0') 
-export NUM_PUBLIC_INPUTS=$(echo "$gates" | grep -o 'public inputs: [0-9]*' | awk '{print $3}')
+gates=$($BIN gates -v 2>&1 | tr -d '\0')
+NUM_PUBLIC_INPUTS=$(echo "$gates" | awk '/public inputs: [0-9]+/ {print $3}')
+echo "Number of public inputs: $NUM_PUBLIC_INPUTS"
 
 # Create a proof, write the solidity contract, write the proof as fields in order to extract the public inputs
 $BIN prove -o proof
@@ -19,6 +20,7 @@ export KEY_PATH="$(pwd)/Key.sol"
 export VERIFIER_PATH=$(realpath "../../sol-test/Verifier.sol")
 export TEST_PATH=$(realpath "../../sol-test/Test.sol")
 export BASE_PATH=$(realpath "../../../sol/src/ultra/BaseUltraVerifier.sol")
+export NUM_PUBLIC_INPUTS=$NUM_PUBLIC_INPUTS
 
 # Use solcjs to compile the generated key contract with the template verifier and test contract 
 # index.js will start an anvil, on a random port

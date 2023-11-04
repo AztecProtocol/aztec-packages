@@ -19,7 +19,7 @@ import solc from "solc";
 const getEnvVar = (envvar) => {
   const varVal = process.env[envvar];
   if (!varVal) {
-    throw new Error(`${envvar} not set`);
+    return 0;
   }
   return varVal;
 }
