@@ -1180,6 +1180,7 @@ workflows:
       - barretenberg-acir-tests-bb-sol:
           requires:
             - barretenberg-x86_64-linux-clang-assert
+            - barretenberg-x86_64-linux-clang-sol
           <<: *defaults
       - bb-js:
           requires:
