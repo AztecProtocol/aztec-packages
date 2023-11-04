@@ -64,6 +64,7 @@ function test() {
     echo -e "\033[32mPASSED\033[0m ($duration ms)"
   else
     echo -e "\033[31mFAILED\033[0m"
+    touch "$error_file"
     exit 1
   fi
 

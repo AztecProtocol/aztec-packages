@@ -41,7 +41,6 @@ const [key, test, verifier, base] = await Promise.all(
     fsPromises.readFile(basePath, encoding)
   ]);
 
-
 var input = {
   language: 'Solidity',
   sources: {
@@ -80,7 +79,16 @@ const launchAnvil = async (port) => {
   const handle = spawn("anvil", ["-p", port]);
 
   // wait until the anvil instance is ready on port 8545
-  await new Promise((resolve) => {
+  await new Promise((resolve, reject) => {
+    // If we get an error reject, which will cause the caller to retry on a new port
+    handle.stderr.on("data", (data) => {
+      const str = data.toString();
+      if (str.includes("error binding")) {
+        reject("we go again baby")
+      }
+    });
+
+    // If we get a success resolve, anvil is ready
     handle.stdout.on("data", (data) => {
       const str = data.toString();
       if (str.includes("Listening on")) {
@@ -114,8 +122,18 @@ const readPublicInputs = (numPublicInputs, proofAsFields) => {
 }
 
 // start anvil
-const randomPort = Math.floor(Math.random() * 10000) + 10000;
-const anvil = await launchAnvil(randomPort);
+const getAnvil = async () => {
+  const port = Math.floor(Math.random() * 10000) + 10000;
+  try {
+    return [await launchAnvil(port), port];
+  } catch (e) {
+    // Recursive call should try again on a new port in the rare case the port is already taken
+    // yes this looks dangerous, but it relies on 0-10000 being hard to collide on
+    return getAnvil();
+  }
+}
+
+const [anvil, randomPort] = await getAnvil();
 const killAnvil = () => {
   anvil.kill();
   console.log(testName, " complete")

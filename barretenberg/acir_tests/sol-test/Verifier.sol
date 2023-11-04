@@ -1,4 +1,6 @@
-// THIS FILE WILL BE COPIED
+// THIS FILE WILL NOT COMPILE BY ITSELF
+// Compilation is handled in `src/index.js` where solcjs gathers the dependencies
+
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2022 Aztec
 pragma solidity >=0.8.4;
