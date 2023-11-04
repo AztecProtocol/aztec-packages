@@ -167,7 +167,6 @@ TYPED_TEST(PartialEvaluationTests, ThreeRoundsSpecial)
 
     sumcheck.partially_evaluate(full_polynomials, multivariate_n, round_challenge_0);
 
-    std::cout << sumcheck.partially_evaluated_polynomials.q_c << std::endl;
     auto& first_polynomial = *sumcheck.partially_evaluated_polynomials.pointer_view()[0];
     EXPECT_EQ(first_polynomial[0], expected_q1);
     EXPECT_EQ(first_polynomial[1], expected_q2);
