@@ -1,18 +1,18 @@
-use crate::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs;
-use crate::abis::kernel_circuit_public_inputs::KernelCircuitPublicInputsBuilder;
-use crate::utils::arrays;
-use crate::abis::previous_kernel_data::PreviousKernelData;
-use crate::abis::private_kernel::private_call_data::PrivateCallData;
-use crate::abis::combined_accumulated_data::{CombinedAccumulatedData, CombinedAccumulatedDataBuilder};
-use crate::abis::private_kernel::private_call_data::ReadRequestMembershipWitnessPrivateData;
-use crate::hash::{read_request_root_from_siblings, function_tree_root_from_siblings, contract_tree_root_from_siblings, silo_commitment, silo_nullifier,stdlib_recursion_verification_key_compress_native_vk, compute_new_contract_address_hash, compute_l2_to_l1_hash,compute_constructor_hash, compute_logs_hash};
-use crate::address::{EthAddress, Address};
-use crate::abis::function_data::FunctionData;
-use crate::contrakt::deployment_data::ContractDeploymentData;
-use crate::point::Point;
-use crate::abis::new_contract_data::NewContractData;
-use crate::abis::complete_address::CompleteAddress;
-use crate::utils::bounded_vec::BoundedVec;
+use dep::types::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs;
+use dep::types::abis::kernel_circuit_public_inputs::KernelCircuitPublicInputsBuilder;
+use dep::types::utils::arrays;
+use dep::types::abis::previous_kernel_data::PreviousKernelData;
+use dep::types::abis::private_kernel::private_call_data::PrivateCallData;
+use dep::types::abis::combined_accumulated_data::{CombinedAccumulatedData, CombinedAccumulatedDataBuilder};
+use dep::types::abis::private_kernel::private_call_data::ReadRequestMembershipWitnessPrivateData;
+use dep::types::hash::{read_request_root_from_siblings, function_tree_root_from_siblings, contract_tree_root_from_siblings, silo_commitment, silo_nullifier,stdlib_recursion_verification_key_compress_native_vk, compute_new_contract_address_hash, compute_l2_to_l1_hash,compute_constructor_hash, compute_logs_hash};
+use dep::types::address::{EthAddress, Address};
+use dep::types::abis::function_data::FunctionData;
+use dep::types::contrakt::deployment_data::ContractDeploymentData;
+use dep::types::point::Point;
+use dep::types::abis::new_contract_data::NewContractData;
+use dep::types::abis::complete_address::CompleteAddress;
+use dep::types::utils::bounded_vec::BoundedVec;
 
 use dep::aztec::constants_gen::{
     MAX_READ_REQUESTS_PER_CALL,
@@ -289,7 +289,9 @@ pub fn contract_logic(private_call : PrivateCallData, public_inputs : &mut Kerne
         public_inputs.end.new_nullifiers.push(new_contract_address_nullifier);
     } else {
         // non-contract deployments must specify contract address being interacted with
-        assert(storage_contract_address.to_field() != 0, "contract address can't be 0 for non-contract deployment related transactions");
+        // TODO - Allow special characters in error message.
+        // assert(storage_contract_address.to_field() != 0, "contract address can't be 0 for non-contract deployment related transactions");
+        assert(storage_contract_address.to_field() != 0, "contract address cannot be 0");
 
          /* We need to compute the root of the contract tree, starting from the function's VK:
          * - Compute the vk_hash (done above)
@@ -302,7 +304,9 @@ pub fn contract_logic(private_call : PrivateCallData, public_inputs : &mut Kerne
         // Ensures that if the function is internal, only the contract itself can call it
         if (private_call.call_stack_item.function_data().is_internal) {
             let msg_sender = private_call.call_stack_item.public_inputs().call_context.msg_sender;
-            assert(storage_contract_address.eq(msg_sender), "call is internal, but msg_sender is not self");
+            // TODO - Allow special characters in error message.
+            // assert(storage_contract_address.eq(msg_sender), "call is internal, but msg_sender is not self");
+            assert(storage_contract_address.eq(msg_sender), "call is internal but msg_sender is not self");
         }
 
         // The logic below ensures that the contract exists in the contracts tree
@@ -321,7 +325,9 @@ pub fn contract_logic(private_call : PrivateCallData, public_inputs : &mut Kerne
                                                  private_call.contract_leaf_membership_witness.sibling_path);
 
         let purported_contract_tree_root = private_call.call_stack_item.public_inputs().historical_block_data.contract_tree_root();
-        assert_eq(computed_contract_tree_root, purported_contract_tree_root, "computed_contract_tree_root doesn't match purported_contract_tree_root");
+        // TODO - Allow special characters in error message.
+        // assert_eq(computed_contract_tree_root, purported_contract_tree_root, "computed_contract_tree_root doesn't match purported_contract_tree_root");
+        assert_eq(computed_contract_tree_root, purported_contract_tree_root, "computed_contract_tree_root does not match purported_contract_tree_root");
     }
 }
 
