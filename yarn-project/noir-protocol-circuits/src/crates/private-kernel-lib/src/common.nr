@@ -11,9 +11,10 @@ use dep::types::{
         complete_address::CompleteAddress,
         function_data::FunctionData,
         kernel_circuit_public_inputs::KernelCircuitPublicInputsBuilder,
+        membership_witness::ReadRequestMembershipWitness,
         new_contract_data::NewContractData,
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
-        private_kernel::private_call_data::{PrivateCallData, ReadRequestMembershipWitnessPrivateData},
+        private_kernel::private_call_data::PrivateCallData,
         previous_kernel_data::PreviousKernelData,
     },
     address::{Address, EthAddress},
@@ -88,7 +89,11 @@ pub fn validate_call_stack(private_call : PrivateCallData) {
 // More info here:
 // - https://discourse.aztec.network/t/to-read-or-not-to-read/178
 // - https://discourse.aztec.network/t/spending-notes-which-havent-yet-been-inserted/180
-pub fn validate_read_requests(historic_note_hash_tree_root : Field, read_requests : [Field; MAX_READ_REQUESTS_PER_CALL], read_request_membership_witnesses : [ReadRequestMembershipWitnessPrivateData; MAX_READ_REQUESTS_PER_CALL]) {
+pub fn validate_read_requests(
+    historic_note_hash_tree_root: Field,
+    read_requests: [Field; MAX_READ_REQUESTS_PER_CALL],
+    read_request_membership_witnesses: [ReadRequestMembershipWitness; MAX_READ_REQUESTS_PER_CALL],
+) {
     // membership witnesses must resolve to the same private data root
     // for every request in all kernel iterations
     for rr_idx in 0..MAX_READ_REQUESTS_PER_CALL {

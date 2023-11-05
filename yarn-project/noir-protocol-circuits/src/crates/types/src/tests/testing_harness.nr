@@ -11,8 +11,11 @@ use crate::{
         previous_kernel_data::PreviousKernelData,
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
         private_kernel::private_call_data::PrivateCallData,
-        read_request_membership_witness::ReadRequestMembershipWitness,
-        membership_witness::{ContractLeafMembershipWitness,FunctionLeafMembershipWitness},
+        membership_witness::{
+            ContractLeafMembershipWitness,
+            FunctionLeafMembershipWitness,
+            ReadRequestMembershipWitness,
+        },
     },
     address::{Address, EthAddress},
     contrakt::{
@@ -46,7 +49,6 @@ use dep::aztec::{
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
         MAX_READ_REQUESTS_PER_CALL,
         MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
-        NOTE_HASH_TREE_HEIGHT,
         RETURN_VALUES_LENGTH,
         VK_TREE_HEIGHT,
     },
@@ -287,7 +289,7 @@ struct PrivateCallDataBuilder {
     vk: VerificationKey,
     function_leaf_membership_witness: FunctionLeafMembershipWitness,
     contract_leaf_membership_witness: ContractLeafMembershipWitness,
-    read_request_membership_witnesses: BoundedVec<ReadRequestMembershipWitness<NOTE_HASH_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_CALL>,
+    read_request_membership_witnesses: BoundedVec<ReadRequestMembershipWitness, MAX_READ_REQUESTS_PER_CALL>,
     portal_contract_address: EthAddress,
     acir_hash: Field,
 }

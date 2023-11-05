@@ -1,17 +1,17 @@
 use crate::abis::{
     call_stack_item::PrivateCallStackItem,
-    membership_witness::{ContractLeafMembershipWitness, FunctionLeafMembershipWitness},
-    read_request_membership_witness::ReadRequestMembershipWitness,
+    membership_witness::{
+        ContractLeafMembershipWitness,
+        FunctionLeafMembershipWitness,
+        ReadRequestMembershipWitness,
+    },
 };
 use crate::address::EthAddress;
 use crate::mocked::{Proof, VerificationKey};
 use dep::aztec::constants_gen::{
     MAX_READ_REQUESTS_PER_CALL,
     MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
-    NOTE_HASH_TREE_HEIGHT
 };
-
-type ReadRequestMembershipWitnessPrivateData = ReadRequestMembershipWitness<NOTE_HASH_TREE_HEIGHT>;
 
 struct PrivateCallData {
     call_stack_item: PrivateCallStackItem,
@@ -24,7 +24,7 @@ struct PrivateCallData {
     function_leaf_membership_witness: FunctionLeafMembershipWitness,
     contract_leaf_membership_witness: ContractLeafMembershipWitness,
 
-    read_request_membership_witnesses: [ReadRequestMembershipWitnessPrivateData; MAX_READ_REQUESTS_PER_CALL],
+    read_request_membership_witnesses: [ReadRequestMembershipWitness; MAX_READ_REQUESTS_PER_CALL],
 
     portal_contract_address: EthAddress,
     acir_hash: Field,
