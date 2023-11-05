@@ -1,14 +1,16 @@
 use crate::common;
-use dep::types::mocked::{Proof, verify_previous_kernel_state};
-use dep::types::transaction::request::TxRequest;
-use dep::types::abis::{
-    combined_constant_data::CombinedConstantData,
-    private_kernel::private_call_data::PrivateCallData,
-    kernel_circuit_public_inputs::{KernelCircuitPublicInputs, KernelCircuitPublicInputsBuilder}
-};
-use dep::types::utils::arrays;
 use dep::aztec::constants_gen::EMPTY_NULLIFIED_COMMITMENT;
 use dep::std::unsafe;
+use dep::types::{
+    abis::{
+        combined_constant_data::CombinedConstantData,
+        private_kernel::private_call_data::PrivateCallData,
+        kernel_circuit_public_inputs::{KernelCircuitPublicInputs, KernelCircuitPublicInputsBuilder},
+    },
+    mocked::{Proof, verify_previous_kernel_state},
+    transaction::request::TxRequest,
+    utils::arrays::{is_empty_array, log_hashes_empty},
+};
 
 // Initialization struct for private inputs to the private kernel
 struct PrivateKernelInputsInit {
@@ -76,25 +78,25 @@ impl PrivateKernelInputsInit {
         // We only initialized constants member of public_inputs so far. Therefore, there must not be any
         // new nullifiers or logs as part of public_inputs.
         
-        let new_commitments_empty = arrays::is_empty_array(public_inputs.end.new_commitments.storage);
+        let new_commitments_empty = is_empty_array(public_inputs.end.new_commitments.storage);
         assert(new_commitments_empty, "public_inputs.end.new_commitments must start as empty in initial kernel iteration");
 
-        let new_nullifiers_empty = arrays::is_empty_array(public_inputs.end.new_nullifiers.storage);
+        let new_nullifiers_empty = is_empty_array(public_inputs.end.new_nullifiers.storage);
         assert(new_nullifiers_empty, "public_inputs.end.new_nullifiers must start as empty in initial kernel iteration");
 
-        let end_nullified_commitments_empty = arrays::is_empty_array(public_inputs.end.nullified_commitments.storage);
+        let end_nullified_commitments_empty = is_empty_array(public_inputs.end.nullified_commitments.storage);
         assert(end_nullified_commitments_empty, "public_inputs.end.nullified_commitments must start as empty in initial kernel iteration");
 
-        let encrypted_logs_hash_empty = arrays::log_hashes_empty(public_inputs.end.encrypted_logs_hash);
+        let encrypted_logs_hash_empty = log_hashes_empty(public_inputs.end.encrypted_logs_hash);
         assert(encrypted_logs_hash_empty, "public_inputs.end.encrypted_logs_hash must start as empty in initial kernel iteration");
 
-        let unencrypted_logs_hash_empty = arrays::log_hashes_empty(public_inputs.end.unencrypted_logs_hash);
+        let unencrypted_logs_hash_empty = log_hashes_empty(public_inputs.end.unencrypted_logs_hash);
         assert(unencrypted_logs_hash_empty, "public_inputs.end.unencrypted_logs_hash must start as empty in initial kernel iteration");
 
-        let read_requests_empty = arrays::is_empty_array(public_inputs.end.read_requests.storage);
+        let read_requests_empty = is_empty_array(public_inputs.end.read_requests.storage);
         assert(read_requests_empty, "public_inputs.end.read_requests must start as empty in initial kernel iteration");
 
-        let pending_read_requests_empty = arrays::is_empty_array(public_inputs.end.pending_read_requests.storage);
+        let pending_read_requests_empty = is_empty_array(public_inputs.end.pending_read_requests.storage);
         assert(pending_read_requests_empty, "public_inputs.end.pending_read_requests_empty must start as empty in initial kernel iteration");
 
         assert(public_inputs.end.encrypted_log_preimages_length == 0,"public_inputs.end.encrypted_log_preimages_length must start as 0 in initial kernel iteration");
@@ -154,24 +156,26 @@ impl PrivateKernelInputsInit {
 
 mod tests {
     use crate::private_kernel_init::PrivateKernelInputsInit;
-    use dep::types::abis::{
-        complete_address::CompleteAddress,
-        kernel_circuit_public_inputs::KernelCircuitPublicInputs,
-        private_kernel::private_call_data::PrivateCallData,
-    };
-    use dep::types::tests::{
-        testing_harness::PrivateCallDataBuilder,
-    };
-    use dep::types::transaction::request::TxRequest;
-    use dep::types::address::Address;
-    use dep::types::hash::{
-        compute_constructor_hash,
-        compute_logs_hash,
-        stdlib_recursion_verification_key_compress_native_vk,
-    };
-    use dep::types::utils::arrays::array_length;
     use dep::aztec::constants_gen::{
         MAX_READ_REQUESTS_PER_CALL,
+    };
+    use dep::types::{
+        abis::{
+            complete_address::CompleteAddress,
+            kernel_circuit_public_inputs::KernelCircuitPublicInputs,
+            private_kernel::private_call_data::PrivateCallData,
+        },
+        address::Address,
+        hash::{
+            compute_constructor_hash,
+            compute_logs_hash,
+            stdlib_recursion_verification_key_compress_native_vk,
+        },
+        tests::{
+            testing_harness::PrivateCallDataBuilder,
+        },
+        transaction::request::TxRequest,
+        utils::arrays::array_length,
     };
 
     struct PrivateKernelInitInputsBuilder {

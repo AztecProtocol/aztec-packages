@@ -1,17 +1,17 @@
-use dep::aztec::constants_gen::{MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX};
 use crate::common;
-use dep::types::mocked::{Proof, AggregationObject, verify_previous_kernel_state};
-use dep::types::transaction::request::TxRequest;
-use dep::types::abis::{
-    previous_kernel_data::PreviousKernelData,
-    private_kernel::private_call_data::PrivateCallData,
-    new_contract_data::NewContractData,
-    kernel_circuit_public_inputs::{KernelCircuitPublicInputs, KernelCircuitPublicInputsBuilder}
-};
-use dep::types::utils::{
-    arrays,
-};
+use dep::aztec::constants_gen::{MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX};
 use dep::std::unsafe;
+use dep::types::{
+    abis::{
+        previous_kernel_data::PreviousKernelData,
+        private_kernel::private_call_data::PrivateCallData,
+        new_contract_data::NewContractData,
+        kernel_circuit_public_inputs::{KernelCircuitPublicInputs, KernelCircuitPublicInputsBuilder},
+    },
+    mocked::{Proof, AggregationObject, verify_previous_kernel_state},
+    transaction::request::TxRequest,
+    utils::arrays::array_length,
+};
 
 struct PrivateKernelInputsInner {
     previous_kernel: PreviousKernelData,
@@ -40,7 +40,7 @@ impl PrivateKernelInputsInner {
         assert(this_call_stack_item.function_data().is_private, "Cannot execute a non-private function with the private kernel circuit");
 
         let start = self.previous_kernel.public_inputs.end;
-        let start_private_call_stack_length = arrays::array_length(start.private_call_stack);
+        let start_private_call_stack_length = array_length(start.private_call_stack);
 
         assert(self.previous_kernel.public_inputs.is_private, "Cannot verify a non-private kernel snark in the private kernel circuit");
         assert(this_call_stack_item.function_data().is_constructor == false, "A constructor must be executed as the first tx in the recursion");
@@ -94,24 +94,6 @@ impl PrivateKernelInputsInner {
 
 mod tests {
     use crate::private_kernel_inner::PrivateKernelInputsInner;
-    use dep::types::abis::{
-        kernel_circuit_public_inputs::KernelCircuitPublicInputs,
-        previous_kernel_data::PreviousKernelData,
-        private_kernel::private_call_data::PrivateCallData,
-        read_request_membership_witness::ReadRequestMembershipWitness,
-    };
-    use dep::types::tests::{
-        testing_harness::{
-            PreviousKernelDataBuilder,
-            PrivateCallDataBuilder,
-        },
-    };
-    use dep::types::address::Address;
-    use dep::types::hash::compute_logs_hash;
-    use dep::types::utils::{
-        arrays::array_length,
-        bounded_vec::BoundedVec,
-    };
     use dep::aztec::constants_gen::{
         MAX_READ_REQUESTS_PER_CALL,
         MAX_READ_REQUESTS_PER_TX,
@@ -127,6 +109,26 @@ mod tests {
         MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
         MAX_NEW_L2_TO_L1_MSGS_PER_TX,
         NOTE_HASH_TREE_HEIGHT,
+    };
+    use dep::types::{
+        abis::{
+            kernel_circuit_public_inputs::KernelCircuitPublicInputs,
+            previous_kernel_data::PreviousKernelData,
+            private_kernel::private_call_data::PrivateCallData,
+            read_request_membership_witness::ReadRequestMembershipWitness,
+        },
+        tests::{
+            testing_harness::{
+                PreviousKernelDataBuilder,
+                PrivateCallDataBuilder,
+            },
+        },
+        address::Address,
+        hash::compute_logs_hash,
+        utils::{
+            arrays::array_length,
+            bounded_vec::BoundedVec,
+        },
     };
 
     struct PrivateKernelInnerInputsBuilder {

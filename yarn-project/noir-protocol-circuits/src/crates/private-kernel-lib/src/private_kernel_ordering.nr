@@ -1,25 +1,27 @@
+use crate::common;
 use dep::aztec::constants_gen::{
     EMPTY_NULLIFIED_COMMITMENT,
     MAX_NEW_COMMITMENTS_PER_TX,
     MAX_NEW_NULLIFIERS_PER_TX,
     MAX_READ_REQUESTS_PER_TX,
 };
-use crate::common;
-use dep::types::abis::{
-    previous_kernel_data::PreviousKernelData,
-    kernel_circuit_public_inputs::{
-        KernelCircuitPublicInputsBuilder, 
-        KernelCircuitPublicInputsFinal,
+use dep::std::unsafe;
+use dep::types::{
+    abis::{
+        previous_kernel_data::PreviousKernelData,
+        kernel_circuit_public_inputs::{
+            KernelCircuitPublicInputsBuilder, 
+            KernelCircuitPublicInputsFinal,
+        },
+    },
+    hash::{
+        compute_commitment_nonce,
+        compute_unique_siloed_commitment,
+    },
+    utils::{
+        bounded_vec::BoundedVec,
     },
 };
-use dep::types::utils::{
-    bounded_vec::BoundedVec,
-};
-use dep::types::hash::{
-    compute_commitment_nonce,
-    compute_unique_siloed_commitment,
-};
-use dep::std::unsafe;
 
 struct PrivateKernelInputsOrdering {
     previous_kernel : PreviousKernelData,
@@ -149,19 +151,21 @@ impl PrivateKernelInputsOrdering {
 }
 
 mod tests {
-    use dep::types::abis::kernel_circuit_public_inputs::KernelCircuitPublicInputsFinal;
-    use dep::types::hash::compute_unique_siloed_commitments;
     use crate::private_kernel_ordering::PrivateKernelInputsOrdering;
-    use dep::types::tests::testing_harness::PreviousKernelDataBuilder;
     use dep::aztec::constants_gen::{
         MAX_READ_REQUESTS_PER_TX,
         MAX_NEW_COMMITMENTS_PER_TX,
         MAX_NEW_NULLIFIERS_PER_TX,
         EMPTY_NULLIFIED_COMMITMENT,
     };
-    use dep::types::utils::{
-        arrays::{array_length, is_empty_array, expect_array_fields},
-        bounded_vec::BoundedVec,
+    use dep::types::{
+        abis::kernel_circuit_public_inputs::KernelCircuitPublicInputsFinal,
+        hash::compute_unique_siloed_commitments,
+        tests::testing_harness::PreviousKernelDataBuilder,
+        utils::{
+            arrays::{array_length, is_empty_array, expect_array_fields},
+            bounded_vec::BoundedVec,
+        },
     };
 
     struct PrivateKernelOrderingInputsBuilder {
