@@ -6,8 +6,7 @@ set(BENCHMARK_SOURCES
 
 # Required libraries for benchmark suites
 set(LINKED_LIBRARIES
-  polynomials
-  relations
+  proof_system
   benchmark::benchmark
   transcript
 )
