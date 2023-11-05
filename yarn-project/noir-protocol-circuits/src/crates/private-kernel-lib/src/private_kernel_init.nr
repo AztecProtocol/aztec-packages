@@ -14,19 +14,16 @@ use dep::types::{
 
 // Initialization struct for private inputs to the private kernel
 struct PrivateKernelInputsInit {
-    tx_request : TxRequest,
-    private_call : PrivateCallData,
+    tx_request: TxRequest,
+    private_call: PrivateCallData,
 }
 
 impl PrivateKernelInputsInit {
-    fn initialize_end_values(self, public_inputs : &mut KernelCircuitPublicInputsBuilder) {
-        let private_call_public_inputs = self.private_call.call_stack_item.public_inputs;
-        let constants = CombinedConstantData{
-            block_data : private_call_public_inputs.historical_block_data,
-            tx_context : self.tx_request.tx_context,
+    fn initialize_end_values(self, public_inputs: &mut KernelCircuitPublicInputsBuilder) {
+        public_inputs.constants = CombinedConstantData {
+            block_data: self.private_call.call_stack_item.public_inputs.historical_block_data,
+            tx_context: self.tx_request.tx_context,
         };
-
-        public_inputs.constants = constants;
     }
 
     // Confirm that the TxRequest (user's intent) 
@@ -74,10 +71,10 @@ impl PrivateKernelInputsInit {
         assert(public_inputs.call_context.storage_contract_address.eq(call_stack_item.contract_address), "Storage contract address must be that of the called contract");
     }
 
-    fn update_end_values(self, public_inputs : &mut KernelCircuitPublicInputsBuilder) {
-        // We only initialized constants member of public_inputs so far. Therefore, there must not be any
-        // new nullifiers or logs as part of public_inputs.
-        
+    // Not needed.
+    // This was part of self.update_end_values.
+    // But the builder is initialized with 0s. If the logic in this circuit is correct, there shouldn't be any illegal end values.
+    fn validate_end_values(public_inputs: KernelCircuitPublicInputsBuilder) {
         let new_commitments_empty = is_empty_array(public_inputs.end.new_commitments.storage);
         assert(new_commitments_empty, "public_inputs.end.new_commitments must start as empty in initial kernel iteration");
 
@@ -99,9 +96,11 @@ impl PrivateKernelInputsInit {
         let pending_read_requests_empty = is_empty_array(public_inputs.end.pending_read_requests.storage);
         assert(pending_read_requests_empty, "public_inputs.end.pending_read_requests_empty must start as empty in initial kernel iteration");
 
-        assert(public_inputs.end.encrypted_log_preimages_length == 0,"public_inputs.end.encrypted_log_preimages_length must start as 0 in initial kernel iteration");
-        assert(public_inputs.end.unencrypted_log_preimages_length == 0,"public_inputs.end.unencrypted_log_preimages_length must start as 0 in initial kernel iteration");
+        assert(public_inputs.end.encrypted_log_preimages_length == 0, "public_inputs.end.encrypted_log_preimages_length must start as 0 in initial kernel iteration");
+        assert(public_inputs.end.unencrypted_log_preimages_length == 0, "public_inputs.end.unencrypted_log_preimages_length must start as 0 in initial kernel iteration");
+    }
 
+    fn update_end_values(self, public_inputs: &mut KernelCircuitPublicInputsBuilder) {
         // Since it's the first iteration, we need to push the the tx hash nullifier into the `new_nullifiers` array
         public_inputs.end.new_nullifiers.push(self.tx_request.hash());
         
@@ -444,6 +443,50 @@ mod tests {
 
         // Set the storage_contract_address to a random scalar.
         builder.private_call.public_inputs.call_context.storage_contract_address = Address::from_field(356);
+
+        builder.failed();
+    }
+
+    #[test(should_fail_with="computed_contract_tree_root does not match purported_contract_tree_root")]
+    fn private_function_incorrect_contract_leaf_index_fails() {
+        let mut builder = PrivateKernelInitInputsBuilder::new();
+
+        // Set the leaf index of the contract leaf to a wrong value (the correct value + 1).
+        let leaf_index = builder.private_call.contract_leaf_membership_witness.leaf_index;
+        builder.private_call.contract_leaf_membership_witness.leaf_index = leaf_index + 1;
+
+        builder.failed();
+    }
+
+     #[test(should_fail_with="computed_contract_tree_root does not match purported_contract_tree_root")]
+    fn private_function_incorrect_contract_leaf_sibling_path_fails() {
+        let mut builder = PrivateKernelInitInputsBuilder::new();
+
+        // Set the first value of the sibling path to a wrong value (the correct value + 1).
+        let sibling_path_0 = builder.private_call.contract_leaf_membership_witness.sibling_path[0];
+        builder.private_call.contract_leaf_membership_witness.sibling_path[0] = sibling_path_0 + 1;
+
+        builder.failed();
+    }
+
+    #[test(should_fail_with="computed_contract_tree_root does not match purported_contract_tree_root")]
+    fn private_function_incorrect_function_leaf_index_fails() {
+        let mut builder = PrivateKernelInitInputsBuilder::new();
+
+        // Set the leaf index of the function leaf to a wrong value (the correct value + 1).
+        let leaf_index = builder.private_call.function_leaf_membership_witness.leaf_index;
+        builder.private_call.function_leaf_membership_witness.leaf_index = leaf_index + 1;
+
+        builder.failed();
+    }
+
+    #[test(should_fail_with="computed_contract_tree_root does not match purported_contract_tree_root")]
+    fn private_function_incorrect_function_leaf_sibling_path_fails() {
+        let mut builder = PrivateKernelInitInputsBuilder::new();
+
+        // Set the first value of the sibling path to a wrong value (the correct value + 1).
+        let sibling_path_0 = builder.private_call.function_leaf_membership_witness.sibling_path[0];
+        builder.private_call.function_leaf_membership_witness.sibling_path[0] = sibling_path_0 + 1;
 
         builder.failed();
     }

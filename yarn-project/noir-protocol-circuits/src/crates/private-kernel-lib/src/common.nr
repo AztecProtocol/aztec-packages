@@ -193,7 +193,6 @@ pub fn update_end_values(private_call : PrivateCallData, public_inputs : &mut Ke
             siloed_new_nullifiers.push(silo_nullifier(storage_contract_address, new_nullifier));
         }
     }
-
     public_inputs.end.new_nullifiers.push_vec(siloed_new_nullifiers);
 
     // commitments
@@ -288,16 +287,22 @@ pub fn contract_logic(private_call : PrivateCallData, public_inputs : &mut Kerne
     let is_contract_deployment = public_inputs.constants.tx_context.is_contract_deployment_tx;
 
     // input storage contract address must be 0 if its a constructor call and non-zero otherwise
-    if (is_contract_deployment) {
+    if is_contract_deployment {
         //TODO(https://github.com/AztecProtocol/aztec-packages/issues/3062) use locally computed private_call_vk_hash here
         let constructor_hash = compute_constructor_hash(function_data, private_call_public_inputs.args_hash, contract_dep_data.constructor_vk_hash);
-        let new_contract_address = CompleteAddress::compute(contract_dep_data.deployer_public_key,
-                                                                       contract_dep_data.contract_address_salt,
-                                                                       contract_dep_data.function_tree_root,
-                                                                       constructor_hash).address;
+        let new_contract_address = CompleteAddress::compute(
+            contract_dep_data.deployer_public_key,
+            contract_dep_data.contract_address_salt,
+            contract_dep_data.function_tree_root,
+            constructor_hash,
+        ).address;
         
-        let native_new_contract_data = NewContractData {contract_address : new_contract_address, portal_contract_address : portal_contract_address, function_tree_root : contract_dep_data.function_tree_root};
-        public_inputs.end.new_contracts.push(native_new_contract_data);
+        let new_contract_data = NewContractData {
+            contract_address: new_contract_address,
+            portal_contract_address,
+            function_tree_root: contract_dep_data.function_tree_root,
+        };
+        public_inputs.end.new_contracts.push(new_contract_data);
         
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/3062) VKs are mocked out for now
         // assert(contract_dep_data.constructor_vk_hash == private_call_vk_hash, "constructor_vk_hash doesn't match private_call_vk_hash");
@@ -322,8 +327,8 @@ pub fn contract_logic(private_call : PrivateCallData, public_inputs : &mut Kerne
          */
         
         // Ensures that if the function is internal, only the contract itself can call it
-        if (private_call.call_stack_item.function_data.is_internal) {
-            let msg_sender = private_call.call_stack_item.public_inputs.call_context.msg_sender;
+        if private_call.call_stack_item.function_data.is_internal {
+            let msg_sender = private_call_public_inputs.call_context.msg_sender;
             // TODO - Allow special characters in error message.
             // assert(storage_contract_address.eq(msg_sender), "call is internal, but msg_sender is not self");
             assert(storage_contract_address.eq(msg_sender), "call is internal but msg_sender is not self");
