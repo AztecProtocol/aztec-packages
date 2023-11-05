@@ -18,11 +18,9 @@ use crate::utils::bounded_vec::BoundedVec;
 pub fn is_empty_array<T>(array : [Field; T]) -> bool {
     array.all(|elem| is_empty(elem))
 }
+
 pub fn is_empty(value : Field) -> bool {
     value == 0
-}
-pub fn log_hashes_empty(log_hashes : [Field; 2]) -> bool {
-    log_hashes.all(|elem| elem == 0)
 }
 
 pub fn array_to_bounded_vec<T, N>(array: [T; N], is_empty_item: fn (T)->bool, empty_item: T) -> BoundedVec<T, N> {

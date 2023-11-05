@@ -9,7 +9,7 @@ use dep::types::{
     },
     mocked::{Proof, verify_previous_kernel_state},
     transaction::request::TxRequest,
-    utils::arrays::{is_empty_array, log_hashes_empty},
+    utils::arrays::is_empty_array,
 };
 
 // Initialization struct for private inputs to the private kernel
@@ -87,10 +87,10 @@ impl PrivateKernelInputsInit {
         let end_nullified_commitments_empty = is_empty_array(public_inputs.end.nullified_commitments.storage);
         assert(end_nullified_commitments_empty, "public_inputs.end.nullified_commitments must start as empty in initial kernel iteration");
 
-        let encrypted_logs_hash_empty = log_hashes_empty(public_inputs.end.encrypted_logs_hash);
+        let encrypted_logs_hash_empty = is_empty_array(public_inputs.end.encrypted_logs_hash);
         assert(encrypted_logs_hash_empty, "public_inputs.end.encrypted_logs_hash must start as empty in initial kernel iteration");
 
-        let unencrypted_logs_hash_empty = log_hashes_empty(public_inputs.end.unencrypted_logs_hash);
+        let unencrypted_logs_hash_empty = is_empty_array(public_inputs.end.unencrypted_logs_hash);
         assert(unencrypted_logs_hash_empty, "public_inputs.end.unencrypted_logs_hash must start as empty in initial kernel iteration");
 
         let read_requests_empty = is_empty_array(public_inputs.end.read_requests.storage);
