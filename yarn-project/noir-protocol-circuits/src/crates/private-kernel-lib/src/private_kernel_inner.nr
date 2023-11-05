@@ -1,15 +1,12 @@
 use crate::common;
-use dep::aztec::constants_gen::{MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX};
 use dep::std::unsafe;
 use dep::types::{
     abis::{
         previous_kernel_data::PreviousKernelData,
         private_kernel::private_call_data::PrivateCallData,
-        new_contract_data::NewContractData,
         kernel_circuit_public_inputs::{KernelCircuitPublicInputs, KernelCircuitPublicInputsBuilder},
     },
-    mocked::{Proof, AggregationObject, verify_previous_kernel_state},
-    transaction::request::TxRequest,
+    mocked::verify_previous_kernel_state,
     utils::arrays::array_length,
 };
 
@@ -95,28 +92,12 @@ impl PrivateKernelInputsInner {
 mod tests {
     use crate::private_kernel_inner::PrivateKernelInputsInner;
     use dep::aztec::constants_gen::{
-        MAX_READ_REQUESTS_PER_CALL,
-        MAX_READ_REQUESTS_PER_TX,
-        MAX_NEW_COMMITMENTS_PER_CALL,
-        MAX_NEW_COMMITMENTS_PER_TX,
-        MAX_NEW_NULLIFIERS_PER_CALL,
-        MAX_NEW_NULLIFIERS_PER_TX,
         EMPTY_NULLIFIED_COMMITMENT,
-        MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
-        MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
-        MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
-        MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-        MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
-        MAX_NEW_L2_TO_L1_MSGS_PER_TX,
-        NOTE_HASH_TREE_HEIGHT,
+        MAX_READ_REQUESTS_PER_CALL,
+        MAX_NEW_COMMITMENTS_PER_TX,
     };
     use dep::types::{
-        abis::{
-            kernel_circuit_public_inputs::KernelCircuitPublicInputs,
-            previous_kernel_data::PreviousKernelData,
-            private_kernel::private_call_data::PrivateCallData,
-            read_request_membership_witness::ReadRequestMembershipWitness,
-        },
+        abis::kernel_circuit_public_inputs::KernelCircuitPublicInputs,
         tests::{
             testing_harness::{
                 PreviousKernelDataBuilder,
