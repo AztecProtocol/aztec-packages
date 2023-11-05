@@ -20,7 +20,7 @@ struct PrivateKernelInputsInit {
 
 impl PrivateKernelInputsInit {
     fn initialize_end_values(self, public_inputs : &mut KernelCircuitPublicInputsBuilder) {
-        let private_call_public_inputs = self.private_call.call_stack_item.public_inputs();
+        let private_call_public_inputs = self.private_call.call_stack_item.public_inputs;
         let constants = CombinedConstantData{
             block_data : private_call_public_inputs.historical_block_data,
             tx_context : self.tx_request.tx_context,
@@ -41,25 +41,25 @@ impl PrivateKernelInputsInit {
         // We use the word correct to denote whether it matches the user intent.
         //
         // Ensure we are calling the correct initial contract
-        let origin_address_matches = tx_request.origin.eq(call_stack_item.contract_address());
+        let origin_address_matches = tx_request.origin.eq(call_stack_item.contract_address);
         assert(origin_address_matches, "origin address does not match call stack items contract address");
         //
         // Ensure we are calling the correct initial function in the contract
-        let entry_point_function_matches = tx_request.function_data.hash() == call_stack_item.function_data().hash();
+        let entry_point_function_matches = tx_request.function_data.hash() == call_stack_item.function_data.hash();
         // TODO - Allow special characters in error message.
         // assert(entry_point_function_matches, "tx_request.function_data must match call_stack_item.function_data");
         assert(entry_point_function_matches, "tx_request function_data must match call_stack_item function_data");
         //
         // Ensure we are passing the correct arguments to the function.
-        let args_match = tx_request.args_hash == call_stack_item.public_inputs().args_hash;
+        let args_match = tx_request.args_hash == call_stack_item.public_inputs.args_hash;
         assert(args_match, "noir function args passed to tx_request must match args in the call_stack_item");
     }
 
     fn validate_inputs(self) {
         let call_stack_item = self.private_call.call_stack_item;
-        let function_data = call_stack_item.function_data();
+        let function_data = call_stack_item.function_data;
 
-        let public_inputs = call_stack_item.public_inputs();
+        let public_inputs = call_stack_item.public_inputs;
 
         /* TODO(Mike/David): If we are going to have 3 initial calls on the private call stack,
         * then do we still need the `private_call_stack`
@@ -71,7 +71,7 @@ impl PrivateKernelInputsInit {
         assert(public_inputs.call_context.is_static_call == false, "Users cannot make a static call");
         
         // The below also prevents delegatecall/staticcall in the base case
-        assert(public_inputs.call_context.storage_contract_address.eq(call_stack_item.contract_address()), "Storage contract address must be that of the called contract");
+        assert(public_inputs.call_context.storage_contract_address.eq(call_stack_item.contract_address), "Storage contract address must be that of the called contract");
     }
 
     fn update_end_values(self, public_inputs : &mut KernelCircuitPublicInputsBuilder) {
@@ -123,7 +123,7 @@ impl PrivateKernelInputsInit {
 
         self.validate_inputs();
 
-        common::validate_arrays(self.private_call.call_stack_item.public_inputs());
+        common::validate_arrays(self.private_call.call_stack_item.public_inputs);
 
         self.validate_this_private_call_against_tx_request();
 
@@ -131,7 +131,7 @@ impl PrivateKernelInputsInit {
 
         common::validate_read_requests(
             public_inputs.constants.block_data.note_hash_tree_root(),
-            self.private_call.call_stack_item.public_inputs().read_requests,
+            self.private_call.call_stack_item.public_inputs.read_requests,
             self.private_call.read_request_membership_witnesses
         );
 

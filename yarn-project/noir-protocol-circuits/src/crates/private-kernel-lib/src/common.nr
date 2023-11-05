@@ -60,7 +60,7 @@ pub fn validate_arrays(app_public_inputs : PrivateCircuitPublicInputs) {
 // ie hash(preimages) == private_call_stack for each preimage
 // If the stack is empty, then we avoid doing a hash and set the output to be 0
 pub fn validate_call_stack(private_call : PrivateCallData) {
-    let stack = private_call.call_stack_item.public_inputs().private_call_stack;
+    let stack = private_call.call_stack_item.public_inputs.private_call_stack;
     let preimages = private_call.private_call_stack_preimages;
     
     assert(stack.len() == preimages.len()); // This is not in the cpp code.
@@ -141,7 +141,7 @@ pub fn initialize_end_values(previous_kernel : PreviousKernelData, public_inputs
 }
 
 pub fn update_end_values(private_call : PrivateCallData, public_inputs : &mut KernelCircuitPublicInputsBuilder) {
-    let private_call_public_inputs = private_call.call_stack_item.public_inputs();
+    let private_call_public_inputs = private_call.call_stack_item.public_inputs;
 
     let read_requests = private_call_public_inputs.read_requests;
     let read_request_membership_witnesses = private_call.read_request_membership_witnesses;
@@ -272,7 +272,7 @@ pub fn update_end_values(private_call : PrivateCallData, public_inputs : &mut Ke
 }
 
 pub fn contract_logic(private_call : PrivateCallData, public_inputs : &mut KernelCircuitPublicInputsBuilder, contract_dep_data : ContractDeploymentData, function_data : FunctionData) {
-    let private_call_public_inputs = private_call.call_stack_item.public_inputs();
+    let private_call_public_inputs = private_call.call_stack_item.public_inputs;
     let storage_contract_address = private_call_public_inputs.call_context.storage_contract_address;
     let portal_contract_address = private_call.portal_contract_address;
 
@@ -317,16 +317,16 @@ pub fn contract_logic(private_call : PrivateCallData, public_inputs : &mut Kerne
          */
         
         // Ensures that if the function is internal, only the contract itself can call it
-        if (private_call.call_stack_item.function_data().is_internal) {
-            let msg_sender = private_call.call_stack_item.public_inputs().call_context.msg_sender;
+        if (private_call.call_stack_item.function_data.is_internal) {
+            let msg_sender = private_call.call_stack_item.public_inputs.call_context.msg_sender;
             // TODO - Allow special characters in error message.
             // assert(storage_contract_address.eq(msg_sender), "call is internal, but msg_sender is not self");
             assert(storage_contract_address.eq(msg_sender), "call is internal but msg_sender is not self");
         }
 
         // The logic below ensures that the contract exists in the contracts tree
-        let computed_function_tree_root = function_tree_root_from_siblings(private_call.call_stack_item.function_data().selector,
-                                                 private_call.call_stack_item.function_data().is_internal,
+        let computed_function_tree_root = function_tree_root_from_siblings(private_call.call_stack_item.function_data.selector,
+                                                 private_call.call_stack_item.function_data.is_internal,
                                                  true,  // is_private
                                                  private_call_vk_hash,
                                                  private_call.acir_hash,
@@ -339,7 +339,7 @@ pub fn contract_logic(private_call : PrivateCallData, public_inputs : &mut Kerne
                                                  private_call.contract_leaf_membership_witness.leaf_index,
                                                  private_call.contract_leaf_membership_witness.sibling_path);
 
-        let purported_contract_tree_root = private_call.call_stack_item.public_inputs().historical_block_data.contract_tree_root();
+        let purported_contract_tree_root = private_call.call_stack_item.public_inputs.historical_block_data.contract_tree_root();
         // TODO - Allow special characters in error message.
         // assert_eq(computed_contract_tree_root, purported_contract_tree_root, "computed_contract_tree_root doesn't match purported_contract_tree_root");
         assert_eq(computed_contract_tree_root, purported_contract_tree_root, "computed_contract_tree_root does not match purported_contract_tree_root");
