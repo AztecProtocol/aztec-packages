@@ -64,6 +64,7 @@ impl PrivateKernelInputsInit {
         */
 
         assert(function_data.is_private, "Private kernel circuit can only execute a private function");
+        assert(function_data.is_internal == false, "Cannot call an internal function directly");
         assert(public_inputs.call_context.is_delegate_call == false, "Users cannot make a delegatecall");
         assert(public_inputs.call_context.is_static_call == false, "Users cannot make a static call");
         
@@ -413,6 +414,15 @@ mod tests {
 
         // Set is_private in function data to false.
         builder.private_call.function_data.is_private = false;
+
+        builder.failed();
+    }
+    
+    #[test(should_fail_with="Cannot call an internal function directly")]
+    fn private_function_is_internal_fails() {
+        let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
+
+        builder.private_call.function_data.is_internal = true;
 
         builder.failed();
     }
