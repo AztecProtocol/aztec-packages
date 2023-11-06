@@ -14,11 +14,9 @@ contract EcdsaUltraTest is TestBaseUltra {
         verifier = IVerifier(address(new EcdsaUltraVerifier()));
         fuzzer = fuzzer.with_circuit_flavour(DifferentialFuzzer.CircuitFlavour.Ecdsa);
 
-        // Does the noir code do this?
-        // NOTE Seems here for the recursive public input count the inptus amount is always 16, this is not true all of the time
         PUBLIC_INPUT_COUNT = 6;
 
-        // // Add default inputs to the fuzzer (we will override these in fuzz test)
+        // Add default inputs to the fuzzer (we will override these in fuzz test)
         uint256[] memory inputs = new uint256[](6);
         inputs[0] = uint256(0x67);
         inputs[1] = uint256(0x6f);
@@ -30,7 +28,6 @@ contract EcdsaUltraTest is TestBaseUltra {
         fuzzer = fuzzer.with_inputs(inputs);
     }
 
-    // Nothing to fuzz for now, we could fuzz a string input up to a give size?
     function testFuzzProof() public {
         // NOTE we do not fuzz here yet
         // "goblin"

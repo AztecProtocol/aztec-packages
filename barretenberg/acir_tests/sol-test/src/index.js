@@ -4,6 +4,8 @@ import {spawn} from "child_process";
 import {ethers} from "ethers";
 import solc from "solc";
 
+const NUMBER_OF_FIELDS_IN_PROOF = 93;
+
 // We use the solcjs compiler version in this test, although it is slower than foundry, to run the test end to end
 // it simplifies of parallelising the test suite
 
@@ -75,10 +77,15 @@ const contract = output.contracts['Test.sol']['Test'];
 const bytecode = contract.evm.bytecode.object;
 const abi = contract.abi;
 
+/**
+ * Launch anvil on the given port,
+ * Resolves when ready, rejects when port is already allocated
+ * @param {Number} port
+ */
 const launchAnvil = async (port) => {
   const handle = spawn("anvil", ["-p", port]);
 
-  // wait until the anvil instance is ready on port 8545
+  // wait until the anvil instance is ready on port
   await new Promise((resolve, reject) => {
     // If we get an error reject, which will cause the caller to retry on a new port
     handle.stderr.on("data", (data) => {
@@ -100,6 +107,10 @@ const launchAnvil = async (port) => {
   return handle;
 }
 
+/**
+ * Deploys the contract
+ * @param {ethers.Signer} signer
+ */
 const deploy = async (signer) => {
     const factory = new ethers.ContractFactory(abi, bytecode, signer);
     const deployment = await factory.deploy();
@@ -108,22 +119,27 @@ const deploy = async (signer) => {
 }
 
 /**
- * 
- * @param {number} numPublicInputs 
+ * Takes in a proof as fields, and returns the public inputs, as well as the number of public inputs
  * @param {Array<String>} proofAsFields 
- * @returns {Array<Tuple<Array<String>,number>}
+ * @return {Array} [number, Array<String>] 
  */
 const readPublicInputs = (proofAsFields) => {
   const publicInputs = [];
   // A proof with no public inputs is 93 fields long
-  const numPublicInputs = proofAsFields.length - 93;
+  const numPublicInputs = proofAsFields.length - NUMBER_OF_FIELDS_IN_PROOF;
   for (let i = 0; i < numPublicInputs; i++) {
     publicInputs.push(proofAsFields[i]);
   }
   return [numPublicInputs, publicInputs];
 }
 
-// start anvil
+/**
+ * Get Anvil
+ * 
+ * Creates an anvil instance on a random port, and returns the instance and the port
+ * If the port is alredy allocated, it will try again
+ * @returns {[ChildProcess, Number]} [anvil, port]
+ */
 const getAnvil = async () => {
   const port = Math.floor(Math.random() * 10000) + 10000;
   try {
@@ -152,7 +168,6 @@ try {
   // Cut the number of public inputs off of the proof string
   const proofStr = `0x${proof.toString("hex").substring(64*numPublicInputs)}`;
 
-  // Get the contract artifact
   const key = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
   const provider = new ethers.JsonRpcProvider(`http://localhost:${randomPort}`);
   const signer = new ethers.Wallet(key, provider);
@@ -161,7 +176,6 @@ try {
   const address = await deploy(signer);
   const contract = new ethers.Contract(address, abi, signer);
 
-  // Run the test
   const result = await contract.test(proofStr, publicInputs);
   if (!result) throw new Error("Test failed");
 }

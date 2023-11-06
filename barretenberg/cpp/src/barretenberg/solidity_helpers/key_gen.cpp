@@ -83,7 +83,7 @@ int main(int argc, char** argv)
     } else if (circuit_flavour == "ecdsa") {
         generate_keys<UltraComposer, EcdsaCircuit>(output_path, plonk_flavour, circuit_flavour);
     } else {
-        info("Only blake, add2 and recursive circuits are supported at the moment");
+        info("Unsupported circuit are supported at the moment");
         return 1;
     }
     return 0;
