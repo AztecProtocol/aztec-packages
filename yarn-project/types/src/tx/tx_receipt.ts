@@ -42,7 +42,7 @@ export class TxReceipt {
      */
     public contractAddress?: AztecAddress,
     /**
-     * Information useful for testing, set when test flag is set to true in `waitOpts`.
+     * Information useful for testing/debugging, set when test flag is set to true in `waitOpts`.
      */
     public debugInfo?: DebugInfo,
   ) {}
