@@ -88,9 +88,6 @@ echo export VERSION_TAG=$VERSION_TAG >> $BASH_ENV
 echo export DEPLOY_TAG=$DEPLOY_TAG >> $BASH_ENV
 echo export BRANCH=$BRANCH >> $BASH_ENV
 echo export PULL_REQUEST=$PULL_REQUEST >> $BASH_ENV
-echo export INFURA_API_KEY=${INFURA_API_KEY:-} >> $BASH_ENV
-echo export FORK_API_KEY=$FORK_API_KEY >> $BASH_ENV
-echo export FORK_MNEMONIC=$FORK_MNEMONIC >> $BASH_ENV
 
 # Only run the following if we're the result of a commit (i.e. not being run manually).
 if [ -n "$COMMIT_HASH" ]; then
