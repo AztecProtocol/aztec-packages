@@ -1,7 +1,9 @@
 import { FieldsOf } from '@aztec/circuits.js';
+import { retryUntil } from '@aztec/foundation/retry';
 import { TxHash, TxReceipt } from '@aztec/types';
 
-import { SentTx, WaitOpts, Wallet } from '../../index.js';
+import { DefaultWaitOpts, SentTx, WaitOpts } from '../../contract/sent_tx.js';
+import { Wallet } from '../../wallet/index.js';
 
 /** Extends a transaction receipt with a wallet instance for the newly deployed contract. */
 export type DeployAccountTxReceipt = FieldsOf<TxReceipt> & {
@@ -32,8 +34,32 @@ export class DeployAccountSentTx extends SentTx {
    * @param opts - Options for configuring the waiting for the tx to be mined.
    * @returns The transaction receipt with the wallet for the deployed account contract.
    */
-  public async wait(opts?: WaitOpts): Promise<DeployAccountTxReceipt> {
+  public async wait(opts: WaitOpts = DefaultWaitOpts): Promise<DeployAccountTxReceipt> {
     const receipt = await super.wait(opts);
+    await this.waitForAccountSynch(opts);
     return { ...receipt, wallet: this.wallet };
+  }
+
+  /**
+   * Waits for the account to finish synchronizing with the PXE Service.
+   * @param opts - Options to wait for account to finish synchronizing
+   * @returns A wallet instance
+   */
+  private async waitForAccountSynch({ interval, timeout }: WaitOpts): Promise<void> {
+    const address = this.wallet.getCompleteAddress().publicKey;
+    await retryUntil(
+      async () => {
+        const status = await this.pxe.getSyncStatus();
+        const accountSynchedToBlock = status.notes[address.toString()];
+        if (!accountSynchedToBlock) {
+          return false;
+        } else {
+          return accountSynchedToBlock >= status.blocks;
+        }
+      },
+      'waitForAccountSynch',
+      interval,
+      timeout,
+    );
   }
 }

@@ -8,7 +8,6 @@ import {
   DeployMethod,
   WaitOpts,
   generatePublicKey,
-  retryUntil,
 } from '../../index.js';
 import { AccountContract, Salt } from '../index.js';
 import { AccountInterface } from '../interface.js';
@@ -89,13 +88,11 @@ export class AccountManager {
    * Registers this account in the PXE Service and returns the associated wallet. Registering
    * the account on the PXE Service is required for managing private state associated with it.
    * Use the returned wallet to create Contract instances to be interacted with from this account.
-   * @param opts - Options to wait for the account to be registered.
    * @returns A Wallet instance.
    */
-  public async register(opts: WaitOpts = {}): Promise<AccountWalletWithPrivateKey> {
+  public async register(): Promise<AccountWalletWithPrivateKey> {
     const completeAddress = await this.getCompleteAddress();
     await this.pxe.registerAccount(this.encryptionPrivateKey, completeAddress.partialAddress);
-    await this.waitSynch(opts);
     return this.getWallet();
   }
 
@@ -143,31 +140,6 @@ export class AccountManager {
    */
   public async waitDeploy(opts: WaitOpts = {}): Promise<AccountWalletWithPrivateKey> {
     await this.deploy().then(tx => tx.wait(opts));
-    return this.getWallet();
-  }
-
-  /**
-   * Waits for the account to finish synchronizing with the PXE Service.
-   * @param opts - Options to wait for account to finish synchronizing
-   * @returns A wallet instance
-   */
-  public async waitSynch({ interval, timeout }: WaitOpts): Promise<AccountWalletWithPrivateKey> {
-    const address = (await this.getCompleteAddress()).address;
-    await retryUntil(
-      async () => {
-        const status = await this.pxe.getSyncStatus();
-        const accountSynchedToBlock = status.notes[address.toString()];
-        if (!accountSynchedToBlock) {
-          return false;
-        } else {
-          return accountSynchedToBlock >= status.blocks;
-        }
-      },
-      'waitSynch',
-      interval,
-      timeout,
-    );
-
     return this.getWallet();
   }
 }
