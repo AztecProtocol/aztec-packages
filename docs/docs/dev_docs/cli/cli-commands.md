@@ -26,7 +26,7 @@ You can find more information about compiling contracts [on this page](../contra
 
 :::info
 
-If you installed the CLI via Docker (with the sandbox install Docker command), the update command won't work. You can update it by [running the command again](./sandbox-reference.md#installation).
+If you installed the CLI via Docker (with the sandbox install Docker command), the `aztec-cli update` command won't work. You can update the CLI it by [running the command again](./sandbox-reference.md#installation).
 
 :::
 
