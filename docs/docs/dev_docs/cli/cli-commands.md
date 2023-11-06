@@ -43,7 +43,7 @@ This command does a few things to manage updates:
 - If you installed the CLI globally via a node package manager, it updates to the specified version. Defaults to latest.
 - It looks for a `package.json` and updates all `@aztec/` dependencies to the versions the sandbox expects.
 - It looks for `Nargo.toml` at the `--contract` paths specified and updates all `aztec.nr` dependencies to the versions the sandbox expects.
-- It outputs the diffs.
+- It outputs the changes.
 
 ## Creating Accounts
 
