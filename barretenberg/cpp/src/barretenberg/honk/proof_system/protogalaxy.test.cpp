@@ -200,68 +200,6 @@ TEST_F(ProtoGalaxyTests, CombinerQuotient)
     }
 }
 
-// TEST_F(ProtoGalaxyTests, Galaxify)
-// {
-//     auto composer = UltraComposer();
-
-//     // Create instance from actual circuit
-//     std::vector<std::shared_ptr<ProverInstance_<Flavor>>> insts(2);
-//     auto builder = proof_system::UltraCircuitBuilder();
-//     auto a = FF::random_element();
-//     auto b = FF::random_element();
-//     builder.add_variable(a);
-//     builder.add_public_variable(a);
-//     builder.add_public_variable(b);
-//     insts[1] = composer.create_instance(builder);
-
-//     auto instance_size = insts[1]->proving_key->circuit_size;
-//     auto log_instance_size = static_cast<size_t>(numeric::get_msb(instance_size));
-
-//     // Create fake accumulator
-//     std::array<barretenberg::Polynomial<FF>, NUM_POLYNOMIALS> random_polynomials;
-//     for (auto& poly : random_polynomials) {
-//         poly = get_random_polynomial(instance_size);
-//     }
-//     auto full_polynomials = construct_ultra_full_polynomials(random_polynomials);
-//     auto relation_parameters = proof_system::RelationParameters<FF>::get_random();
-//     auto alpha = FF::random_element();
-
-//     auto full_honk_evals =
-//         ProtoGalaxyProver::compute_full_honk_evaluations(full_polynomials, alpha, relation_parameters);
-//     std::vector<FF> betas(log_instance_size);
-//     for (size_t idx = 0; idx < log_instance_size; idx++) {
-//         betas[idx] = FF::random_element();
-//     }
-
-//     // Construct pow(\vec{betas}) as in the paper
-//     auto pow_beta = ProtoGalaxyProver::compute_pow_polynomial_at_values(betas, instance_size);
-
-//     // Compute the corresponding target sum and create a dummy accumulator
-//     auto target_sum = FF(0);
-//     for (size_t i = 0; i < instance_size; i++) {
-//         target_sum += full_honk_evals[i] * pow_beta[i];
-//     }
-
-//     insts[0] = std::make_shared<Instance>(
-//         FoldingResult<Flavor>{ .folded_prover_polynomials = full_polynomials,
-//                                .folded_public_inputs = std::vector<FF>{},
-//                                .verification_key = std::make_shared<Flavor::VerificationKey>(),
-//                                .folding_parameters = { betas, target_sum } });
-//     insts[0]->relation_parameters = relation_parameters;
-
-//     // artificially make first instance relaxed
-
-//     auto prover = composer.create_folding_prover(insts);
-//     auto verifier = composer.create_folding_verifier(insts);
-//     prover.prepare_for_folding();
-//     auto new_target_sum_prover = prover.galaxify(alpha)[0];
-
-//     verifier.prepare_for_folding(prover.transcript.proof_data);
-//     auto new_target_sum_verifier = verifier.galaxify(alpha)[0];
-//     info(new_target_sum_prover);
-//     info(new_target_sum_verifier);
-// }
-
 TEST_F(ProtoGalaxyTests, FoldChallenges)
 {
     using Instances = ProverInstances_<Flavor, 2>;
@@ -283,26 +221,4 @@ TEST_F(ProtoGalaxyTests, FoldChallenges)
     EXPECT_EQ(instances.relation_parameters.eta, expected_eta);
 }
 
-// namespace proof_system::honk::instance_tests {
-
-// template <class Flavor> class InstancesTests : public testing::Test {
-//     using FF = typename Flavor::FF;
-//     using Builder = typename Flavor::CircuitBuilder;
-
-//   public:
-//     static void test_parameters_to_univariates()
-//     {
-
-//     };
-// };
-
-// using FlavorTypes = testing::Types<flavor::Ultra>;
-// TYPED_TEST_SUITE(InstancesTests, FlavorTypes);
-
-// TYPED_TEST(InstancesTests, ParametersToUnivariates)
-// {
-//     TestFixture::test_parameters_to_univariates();
-// }
-
-// } // namespace proof_system::honk::instance_tests
 } // namespace protogalaxy_tests

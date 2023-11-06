@@ -35,7 +35,6 @@ TEST(Protogalaxy, CombinerOn2Instances)
             std::vector<std::shared_ptr<ProverInstance>> instance_data(NUM_INSTANCES);
             std::array<std::array<Polynomial, Flavor::NUM_ALL_ENTITIES>, NUM_INSTANCES> storage_arrays;
             ProtoGalaxyProver prover;
-            // auto pow_univariate = PowUnivariate<FF>(/*zeta_pow=*/2);
             std::vector<FF> pow_betas = { FF(1), FF(2) };
             auto alpha = FF(0); // focus on the arithmetic relation only
 
@@ -71,7 +70,6 @@ TEST(Protogalaxy, CombinerOn2Instances)
             std::vector<std::shared_ptr<ProverInstance>> instance_data(NUM_INSTANCES);
             std::array<std::array<Polynomial, Flavor::NUM_ALL_ENTITIES>, NUM_INSTANCES> storage_arrays;
             ProtoGalaxyProver prover;
-            // auto pow_univariate = PowUnivariate<FF>(/*zeta_pow=*/2);
             std::vector<FF> pow_betas = { FF(1), FF(2) };
             auto alpha = FF(0); // focus on the arithmetic relation only
 

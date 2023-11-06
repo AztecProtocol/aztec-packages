@@ -240,14 +240,6 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
                                                          const FF alpha)
     {
         size_t common_circuit_size = instances[0]->prover_polynomials._data[0].size();
-        // Precompute the vector of required powers of zeta
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/751): Parallelize this.
-        // NB: there is a similar TODO in the sumcheck function `compute_univariate`.
-        // std::vector<FF> pow_challenges(common_circuit_size);
-        // pow_challenges[0] = pow_univariate.partial_evaluation_constant;
-        // for (size_t i = 1; i < common_circuit_size; ++i) {
-        //     pow_challenges[i] = pow_challenges[i - 1] * pow_univariate.zeta_pow;
-        // }
 
         // Determine number of threads for multithreading.
         // Note: Multithreading is "on" for every round but we reduce the number of threads from the max available based
@@ -304,7 +296,6 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
                       ProverInstances::NUM>
     compute_combiner_quotient(FF compressed_perturbator, ExtendedUnivariateWithRandomization combiner)
     {
-        // degree dk - k - 1  = d(k - 1) - 1
         std::array<FF, (Flavor::BATCHED_RELATION_TOTAL_LENGTH - 2) * (ProverInstances::NUM - 1)>
             combiner_quotient_evals = {};
 

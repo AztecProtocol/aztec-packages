@@ -60,34 +60,16 @@ VerifierFoldingResult<typename VerifierInstances::Flavor> ProtoGalaxyVerifier_<
                VerifierInstances::NUM>
         combiner_quotient(combiner_quotient_evals);
     auto combiner_challenge = transcript.get_challenge("combiner_quotient_challenge");
-    auto combiner_quotient_at_challenge = combiner_quotient.evaluate(combiner_challenge); // K(\gamma)
-    // WORKTODO make functions for bigger Z and more lagrange basis
+    auto combiner_quotient_at_challenge = combiner_quotient.evaluate(combiner_challenge);
+
     auto vanishing_polynomial_at_challenge = combiner_challenge * (combiner_challenge - FF(1));
     auto lagrange_0_at_challenge = FF(1) - combiner_challenge;
-    // auto lagrange_1_at_challenge = combiner_challenge;
+
     auto new_target_sum = perturbator_at_challenge * lagrange_0_at_challenge +
                           vanishing_polynomial_at_challenge * combiner_quotient_at_challenge;
 
-    // auto accumulator_public_inputs = accumulator->public_inputs;
-    // auto other_public_inputs = verifier_instances[1]->public_inputs;
-    // std::vector<FF> folded_public_inputs(accumulator->public_input_size);
-    // // extend either with 0s if the sizes are different
-    // for (size_t idx = 0; idx < folded_public_inputs.size(); idx++) {
-    //     folded_public_inputs[idx] = lagrange_0_at_challenge * accumulator->public_inputs[idx] +
-    //                                 lagrange_1_at_challenge * other_public_inputs[idx];
-    // }
-    // // all verification keys have the same size
-    // auto folded_verification_key =
-    //     std::make_shared<VerificationKey>(accumulator->instance_size, accumulator->public_input_size);
-
-    // for (size_t idx = 0; idx < (*folded_verification_key).size(); idx++) {
-    //     (*folded_verification_key)[idx] = (*accumulator->verification_key)[idx] * lagrange_0_at_challenge +
-    //                                       (*verifier_instances[1]->verification_key)[idx] * lagrange_1_at_challenge;
-    // }
     VerifierFoldingResult<Flavor> res;
     res.parameters.target_sum = new_target_sum;
-    // res.folded_verification_key = folded_verification_key;
-    // res.folded_public_inputs = folded_public_inputs;
     return res;
 }
 
