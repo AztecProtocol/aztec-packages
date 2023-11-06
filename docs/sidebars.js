@@ -74,7 +74,17 @@ const sidebars = {
         id: "concepts/foundation/main",
       },
       items: [
-        "concepts/foundation/state_model",
+        {
+          label: "State Model",
+          type: "category",
+          link: {
+            type: "doc",
+            id: "concepts/foundation/state_model/main",
+          },
+          items: [
+            "concepts/foundation/state_model/storage_slots"
+          ]
+        },
         {
           label: "Accounts",
           type: "category",
@@ -294,7 +304,17 @@ const sidebars = {
             id: "dev_docs/contracts/syntax/main",
           },
           items: [
-            "dev_docs/contracts/syntax/storage",
+            {
+              label: "Storage",
+              type: "category",
+              link: {
+                type: "doc",
+                id: "dev_docs/contracts/syntax/storage/main",
+              },
+              items: [
+                "dev_docs/contracts/syntax/storage/storage_slots",
+              ]
+            },
             "dev_docs/contracts/syntax/events",
             "dev_docs/contracts/syntax/functions",
             "dev_docs/contracts/syntax/context",
@@ -318,11 +338,11 @@ const sidebars = {
             "dev_docs/contracts/portals/outbox",
           ],
         },
-        "dev_docs/contracts/common_errors",
         {
           label: "Resources",
           type: "category",
           items: [
+            "dev_docs/contracts/resources/dependencies",
             //"dev_docs/contracts/resources/style_guide",
             {
               label: "Common Patterns",
@@ -364,7 +384,18 @@ const sidebars = {
       type: "doc",
       id: "dev_docs/aztecjs/main",
     },
-
+    {
+      label: "Debugging",
+      type: "category",
+      link: {
+        type: "doc",
+        id: "dev_docs/debugging/main",
+      },
+      items: [
+        "dev_docs/debugging/aztecnr-errors",
+        "dev_docs/debugging/sandbox-errors",
+      ],
+    },
     {
       label: "Updating",
       type: "doc",
