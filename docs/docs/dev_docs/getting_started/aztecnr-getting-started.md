@@ -188,7 +188,7 @@ Partial Address: 0x211edeb823ef3e042e91f338d0d83d0c90606dba16f678c701d8bb64e64e2
 
 Use one of these `address`es as the `owner`. You can either copy it or export.
 
-To deploy the counter contract, [ensure the sandbox is running](../cli/sandbox-reference.md) and run this in the root of your nargo project:
+To deploy the counter contract, [ensure the sandbox is running](../cli/sandbox-reference.md) and run this in the root of your Noir project:
 
 ```bash
 aztec-cli deploy target/Counter.json --args 100 0x25048e8c1b7dea68053d597ac2d920637c99523651edfb123d0632da785970d0
