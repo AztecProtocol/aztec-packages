@@ -176,11 +176,13 @@ TEST_F(ProtoGalaxyTests, PerturbatorPolynomial)
 
 TEST_F(ProtoGalaxyTests, CombinerQuotient)
 {
-    auto compressed_perturbator = FF(2);
+    auto compressed_perturbator = FF(2); // F(\alpha) in the paper
     auto combiner =
         barretenberg::Univariate<FF, 13>(std::array<FF, 13>{ 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32 });
     auto combiner_quotient = ProtoGalaxyProver::compute_combiner_quotient(compressed_perturbator, combiner);
 
+    // K(i) = (G(i) - ( L_0(i) * F(\alpha)) / Z(i), i = {2,.., 13} for ProverInstances::NUM = 2
+    // K(i) = (G(i) - (1 - i) * F(\alpha)) / i * (i - 1)
     auto expected_evals = barretenberg::Univariate<FF, 13, 2>(std::array<FF, 11>{
         (FF(22) - (FF(1) - FF(2)) * compressed_perturbator) / (FF(2) * FF(2 - 1)),
         (FF(23) - (FF(1) - FF(3)) * compressed_perturbator) / (FF(3) * FF(3 - 1)),
