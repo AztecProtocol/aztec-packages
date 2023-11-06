@@ -37,6 +37,8 @@ To update the sandbox to the latest version, simply run the curl command we used
 /bin/bash -c "$(curl -fsSL 'https://sandbox.aztec.network')"
 ```
 
+This will also update the CLI if a node package version of the CLI isn't found locally.
+
 ## Updating Aztec CLI
 
 ### npm
@@ -67,13 +69,17 @@ If you don't have the CLI installed globally via package manager or locally in y
 /bin/bash -c "$(curl -fsSL 'https://sandbox.aztec.network')"
 ```
 
-## Updating Aztec.nr packages manually
+## Updating Aztec.nr packages
 
-:::info
+### Automatic update
 
-This should be handled for you automatically by the `aztec-cli update` command.
+`aztec-cli` will update your Aztec.nr packages to the appropriate version with the `aztec-cli update` command. Run this command from the root of your project and pass the paths to the folders containing the Nargo.toml files for your projects like so:
 
-:::
+```shell
+aztec-cli update . --contract src/contract1 --contract src/contract2
+```
+
+### Manual update
 
 Finally we need to update the Noir framework for Aztec contracts.
 We need to install a version compatible with our `nargo` and Sandbox.
