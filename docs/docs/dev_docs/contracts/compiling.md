@@ -8,9 +8,7 @@ We'll also cover how to generate a helper [TypeScript interface](#typescript-int
 
 ## Compile using the CLI
 
-To compile a contract using the Aztec CLI, first install it:
-
-`npm install -g @aztec/cli`
+To compile a contract using the Aztec CLI, first [install it](../cli/cli-commands#installation).
 
 Then run the `compile` command with the path to your [contract project folder](./layout.md#directory-structure), which is the one that contains the `Nargo.toml` file:
 
@@ -19,6 +17,14 @@ aztec-cli compile ./path/to/my_aztec_contract_project
 ```
 
 This will output a JSON [artifact](./artifacts.md) for each contract in the project to a `target` folder containing their artifact, which you can use for deploying or interacting with your contracts.
+
+`aztec-cli` uses a `noir_wasm` by default for compiling contracts. This helps reduce the developer overhead of maintaining compatible versions of `nargo`. You can still use `nargo` to compile contracts with `aztec-cli` by specifying the compiler:
+
+```bash
+aztec-cli compile my-contract --compiler nargo # switches compiler to nargo
+```
+
+When you specify `nargo` as your compiler, you need to make sure that you are using the correct version. You can find the [latest version information here](../cli/updating.md#updating-nargo).
 
 ### Typescript Interfaces
 

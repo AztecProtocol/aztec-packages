@@ -4,6 +4,8 @@ title: Updating
 
 ## Quick Reference
 
+The sandbox must be running for the update command to work.
+
 Inside your project run:
 
 ```shell
@@ -23,7 +25,7 @@ There are three components whose versions need to be kept compatible:
 
 All three are using the same versioning scheme and their versions must match.
 
-## Updating Aztec Sandbox
+## Updating Aztec Sandbox and CLI
 
 To update the sandbox to the latest version, simply run the curl command we used for installation again:
 
@@ -31,7 +33,7 @@ To update the sandbox to the latest version, simply run the curl command we used
 /bin/bash -c "$(curl -fsSL 'https://sandbox.aztec.network')"
 ```
 
-It will download and start the latest version of sandbox.
+It will download and start the latest version of sandbox. If you don't have the CLI installed via a node package manager, this command will also update the CLI.
 
 If you would like to use a fixed version of the sandbox, you can export the `SANDBOX_VERSION` environmental variable.
 If you are unsure what version to use go to [aztec-packages repository](https://github.com/AztecProtocol/aztec-packages/releases) and choose the `aztec-packages` release based on the changelog.
@@ -105,3 +107,9 @@ aztec-cli compile ./
 ```
 
 If the dependencies fail to resolve ensure that the tag matches a tag in the [aztec-packages repository](https://github.com/AztecProtocol/aztec-packages/tags).
+
+## Updating `nargo`
+
+Nargo is not strictly required, but you may want to use it for the LSP or testing. More info [here](../getting_started/aztecnr-getting-started.md#install-nargo-recommended).
+
+<InstallNargoInstructions />
