@@ -25,7 +25,7 @@ There are three components whose versions need to be kept compatible:
 
 All three are using the same versioning scheme and their versions must match.
 
-## Updating Aztec Sandbox and CLI
+## Updating Aztec Sandbox
 
 To update the sandbox to the latest version, simply run the curl command we used for installation again:
 
@@ -33,7 +33,7 @@ To update the sandbox to the latest version, simply run the curl command we used
 /bin/bash -c "$(curl -fsSL 'https://sandbox.aztec.network')"
 ```
 
-It will download and start the latest version of sandbox. If you don't have the CLI installed via a node package manager, this command will also update the CLI.
+It will download and start the latest version of sandbox. If you don't have the CLI installed via a node package manager, this command will also update the CLI as well.
 
 If you would like to use a fixed version of the sandbox, you can export the `SANDBOX_VERSION` environmental variable.
 If you are unsure what version to use go to [aztec-packages repository](https://github.com/AztecProtocol/aztec-packages/releases) and choose the `aztec-packages` release based on the changelog.
@@ -64,6 +64,8 @@ The sandbox version should be the same as the one we chose by setting the `SANDB
 
 ## Updating Aztec CLI
 
+### npm
+
 If the latest version was used when updating the sandbox then we can simply run the following command to update the CLI:
 
 ```shell
@@ -82,7 +84,21 @@ E.g.:
 npm install -g @aztec/cli@#include_aztec_short_version
 ```
 
+### Docker
+
+If you don't have the CLI installed globally via package manager or locally in your npm project, then you can update it by running the sandbox installation command again:
+
+```shell
+/bin/bash -c "$(curl -fsSL 'https://sandbox.aztec.network')"
+```
+
 ## Updating Aztec.nr packages
+
+:::info
+
+This should be handled for you automatically by the `aztec-cli update` command.
+
+:::
 
 Finally we need to update the Noir framework for Aztec contracts.
 We need to install a version compatible with our `nargo` and Sandbox.
