@@ -3,6 +3,9 @@
 extract_repo yarn-project /usr/src project
 PROJECT_ROOT=$(pwd)/project/src/
 
+# export some tf variables
+export TF_VAR_API_KEY=$API_KEY
+
 for REPOSITORY in "p2p-bootstrap" "aztec-node" "aztec-faucet"; do
   echo "Deploying $REPOSITORY"
   RELATIVE_PROJECT_DIR=$(query_manifest relativeProjectDir $REPOSITORY)

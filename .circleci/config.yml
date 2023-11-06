@@ -1079,7 +1079,7 @@ jobs:
       - *setup_env
       - run:
           name: "yarn-project"
-          command: yarn-project/deploy_ecr.sh
+          command: yarn-project/deploy_ecr_tf.sh
 
   deploy-dockerhub:
     machine:
