@@ -151,7 +151,14 @@ export class L2Block {
       this.attachLogs(newUnencryptedLogs, LogType.UNENCRYPTED);
     }
 
-    this.numberOfTxs = Math.floor(this.newCommitments.length / MAX_NEW_COMMITMENTS_PER_TX);
+    // Since the block is padded to always contain a fixed number of nullifiers we get number of txs by counting number
+    // of non-zero tx hashes --> tx hash is set to be the first nullifier in the tx.
+    this.numberOfTxs = 0;
+    for (let i = 0; i < this.newNullifiers.length; i += MAX_NEW_NULLIFIERS_PER_TX) {
+      if (!this.newNullifiers[i].equals(Fr.zero())) {
+        this.numberOfTxs++;
+      }
+    }
   }
 
   /**
@@ -711,6 +718,7 @@ export class L2Block {
     const newNullifiers = this.newNullifiers
       .slice(MAX_NEW_NULLIFIERS_PER_TX * txIndex, MAX_NEW_NULLIFIERS_PER_TX * (txIndex + 1))
       .filter(x => !x.isZero());
+    console.log('newNullifiers', newNullifiers);
     const newPublicDataWrites = this.newPublicDataWrites
       .slice(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * txIndex, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * (txIndex + 1))
       .filter(x => !x.isEmpty());
@@ -738,7 +746,7 @@ export class L2Block {
 
   /**
    * Get all the transaction in an L2 block.
-   * @returns The txx.
+   * @returns The tx.
    */
   getTxs() {
     return Array(this.numberOfTxs)
