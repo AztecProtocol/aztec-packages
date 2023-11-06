@@ -51,8 +51,6 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      */
     void prepare_for_folding();
 
-    std::array<FF, 3> galaxify(FF);
-
     static std::vector<FF> compute_pow_polynomial_at_values(const std::vector<FF> betas, const size_t instance_size)
     {
         std::vector<FF> pow_betas(instance_size);
