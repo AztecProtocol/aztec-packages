@@ -30,7 +30,7 @@ If you installed the CLI via Docker (with the sandbox install Docker command), t
 
 :::
 
-The sandbox must be running for the update command to work.
+The sandbox must be running for the update command to work unless there the project defines `@aztec/aztec-sandbox` as a dependency, in which case the command will compare against the version listed in `package.json`.
 
 The CLI comes with an update command.
 

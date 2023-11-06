@@ -4,7 +4,7 @@ title: Updating
 
 ## Quick Reference
 
-The sandbox must be running for the update command to work.
+The sandbox must be running for the update command to work unless there the project defines `@aztec/aztec-sandbox` as a dependency, in which case the command will compare against the version listed in `package.json`.
 
 Inside your project run:
 
