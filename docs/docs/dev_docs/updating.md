@@ -13,7 +13,10 @@ cd your/aztec/project
 npx @aztec/cli@latest update . --contract src/contract1 --contract src/contract2
 ```
 
-This will update `@aztec/*` dependencies in `package.json` as well as Aztec.nr libraries in `Nargo.toml` to the latest version. If `@aztec/sandbox` and `@aztec/cli` are listed as dependencies then they will be automatically updated as well.
+This will:
+1. If `@aztec/sandbox` and `@aztec/cli` are listed as dependencies then they will be automatically updated
+2. update `@aztec/*` dependencies in `package.json` 
+3. update Aztec.nr libraries in `Nargo.toml` to the latest version.
 
 Read on to learn about versioning and other commands.
 
