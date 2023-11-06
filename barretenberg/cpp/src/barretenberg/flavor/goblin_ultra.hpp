@@ -3,14 +3,16 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
-#include "barretenberg/relations/auxiliary_relation.hpp"
-#include "barretenberg/relations/ecc_op_queue_relation.hpp"
-#include "barretenberg/relations/elliptic_relation.hpp"
-#include "barretenberg/relations/gen_perm_sort_relation.hpp"
-#include "barretenberg/relations/lookup_relation.hpp"
-#include "barretenberg/relations/permutation_relation.hpp"
-#include "barretenberg/relations/ultra_arithmetic_relation.hpp"
+#include "barretenberg/proof_system/relations/auxiliary_relation.hpp"
+#include "barretenberg/proof_system/relations/databus_lookup_relation.hpp"
+#include "barretenberg/proof_system/relations/ecc_op_queue_relation.hpp"
+#include "barretenberg/proof_system/relations/elliptic_relation.hpp"
+#include "barretenberg/proof_system/relations/gen_perm_sort_relation.hpp"
+#include "barretenberg/proof_system/relations/lookup_relation.hpp"
+#include "barretenberg/proof_system/relations/permutation_relation.hpp"
+#include "barretenberg/proof_system/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/transcript/transcript.hpp"
+#include "relation_definitions_fwd.hpp"
 
 namespace proof_system::honk::flavor {
 
@@ -32,13 +34,13 @@ class GoblinUltra {
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
     // Note: this number does not include the individual sorted list polynomials.
-    // NUM = 43 (UH) + 4 op wires + 1 op wire "selector" + 3 (calldata + calldata_read_counts + q_busread)
-    static constexpr size_t NUM_ALL_ENTITIES = 51;
+    // NUM = 43 (UH) + 4 op wires + 1 op wire "selector" + 3+1 (bus)
+    static constexpr size_t NUM_ALL_ENTITIES = 52;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 27; // 25 (UH) + 1 op wire "selector" + q_busread
     // The total number of witness entities not including shifts.
-    static constexpr size_t NUM_WITNESS_ENTITIES = 17; // 11 (UH) + 4 op wires + (calldata + calldata_read_counts)
+    static constexpr size_t NUM_WITNESS_ENTITIES = 18; // 11 (UH) + 4 op wires + 3 (bus)
 
     using GrandProductRelations =
         std::tuple<proof_system::UltraPermutationRelation<FF>, proof_system::LookupRelation<FF>>;
@@ -50,8 +52,10 @@ class GoblinUltra {
                                  proof_system::GenPermSortRelation<FF>,
                                  proof_system::EllipticRelation<FF>,
                                  proof_system::AuxiliaryRelation<FF>,
-                                 proof_system::EccOpQueueRelation<FF>>;
-    // WORKTODO: add bus lookup relation!
+                                 proof_system::EccOpQueueRelation<FF>,
+                                 proof_system::DatabusLookupRelation<FF>>;
+
+    using LookupRelation = proof_system::DatabusLookupRelation<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
     static constexpr size_t MAX_TOTAL_RELATION_LENGTH = compute_max_total_relation_length<Relations>();
@@ -144,6 +148,7 @@ class GoblinUltra {
         DataType& ecc_op_wire_4 = std::get<14>(this->_data);
         DataType& calldata = std::get<15>(this->_data);
         DataType& calldata_read_counts = std::get<16>(this->_data);
+        DataType& lookup_inverses = std::get<17>(this->_data);
 
         std::vector<HandleType> get_wires() override { return { w_l, w_r, w_o, w_4 }; };
         std::vector<HandleType> get_ecc_op_wires()
@@ -206,17 +211,18 @@ class GoblinUltra {
         DataType& ecc_op_wire_4 = std::get<37>(this->_data);
         DataType& calldata = std::get<38>(this->_data);
         DataType& calldata_read_counts = std::get<39>(this->_data);
-        DataType& table_1_shift = std::get<40>(this->_data);
-        DataType& table_2_shift = std::get<41>(this->_data);
-        DataType& table_3_shift = std::get<42>(this->_data);
-        DataType& table_4_shift = std::get<43>(this->_data);
-        DataType& w_l_shift = std::get<44>(this->_data);
-        DataType& w_r_shift = std::get<45>(this->_data);
-        DataType& w_o_shift = std::get<46>(this->_data);
-        DataType& w_4_shift = std::get<47>(this->_data);
-        DataType& sorted_accum_shift = std::get<48>(this->_data);
-        DataType& z_perm_shift = std::get<49>(this->_data);
-        DataType& z_lookup_shift = std::get<50>(this->_data);
+        DataType& lookup_inverses = std::get<40>(this->_data);
+        DataType& table_1_shift = std::get<41>(this->_data);
+        DataType& table_2_shift = std::get<42>(this->_data);
+        DataType& table_3_shift = std::get<43>(this->_data);
+        DataType& table_4_shift = std::get<44>(this->_data);
+        DataType& w_l_shift = std::get<45>(this->_data);
+        DataType& w_r_shift = std::get<46>(this->_data);
+        DataType& w_o_shift = std::get<47>(this->_data);
+        DataType& w_4_shift = std::get<48>(this->_data);
+        DataType& sorted_accum_shift = std::get<49>(this->_data);
+        DataType& z_perm_shift = std::get<50>(this->_data);
+        DataType& z_lookup_shift = std::get<51>(this->_data);
 
         std::vector<HandleType> get_wires() override { return { w_l, w_r, w_o, w_4 }; };
         std::vector<HandleType> get_ecc_op_wires()
@@ -265,7 +271,8 @@ class GoblinUltra {
                      ecc_op_wire_3,
                      ecc_op_wire_4,
                      calldata,
-                     calldata_read_counts };
+                     calldata_read_counts,
+                     lookup_inverses };
         };
         std::vector<HandleType> get_to_be_shifted() override
         {
@@ -415,6 +422,7 @@ class GoblinUltra {
             ecc_op_wire_4 = "ECC_OP_WIRE_4";
             calldata = "CALLDATA";
             calldata_read_counts = "CALLDATA_READ_COUNTS";
+            lookup_inverses = "LOOKUP_INVERSES";
 
             // The ones beginning with "__" are only used for debugging
             q_c = "__Q_C";
@@ -508,6 +516,7 @@ class GoblinUltra {
         Commitment ecc_op_wire_4_comm;
         Commitment calldata_comm;
         Commitment calldata_read_counts_comm;
+        Commitment lookup_inverses_comm;
         Commitment sorted_accum_comm;
         Commitment w_4_comm;
         Commitment z_perm_comm;
@@ -523,6 +532,7 @@ class GoblinUltra {
         Transcript(const std::vector<uint8_t>& proof)
             : BaseTranscript<FF>(proof)
         {}
+        // WORKTODO: add lookup inverses once its being computed
         void deserialize_full_transcript() override
         {
             // take current proof and put them into the struct
@@ -602,3 +612,9 @@ class GoblinUltra {
 };
 
 } // namespace proof_system::honk::flavor
+
+namespace proof_system {
+// extern template class DatabusLookupRelationImpl<barretenberg::fr>;
+
+// DECLARE_SUMCHECK_RELATION_CLASS(DatabusLookupRelationImpl, honk::flavor::GoblinUltra);
+} // namespace proof_system

@@ -150,7 +150,7 @@ void accumulate_logderivative_lookup_subrelation_contributions(ContainerOverSubr
     // degree of relation = NUM_TOTAL_TERMS + 2
     barretenberg::constexpr_for<0, WRITE_TERMS, 1>([&]<size_t i>() {
         const auto p = lookup_relation.template compute_write_term_predicate<Accumulator, i>(in);
-        const auto lookup_read_count = View(in.template lookup_read_counts<i>());
+        const auto lookup_read_count = lookup_relation.template lookup_read_counts<Accumulator, i>(in);
         std::get<1>(accumulator) -= p * (denominator_accumulator[i + READ_TERMS] * lookup_read_count);
     });
 }
