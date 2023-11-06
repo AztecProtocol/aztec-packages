@@ -1,5 +1,6 @@
 // Note these tests are a bit hacky
 #include "barretenberg/honk/composer/ultra_composer.hpp"
+#include "barretenberg/honk/utils/testing.hpp"
 #include "protogalaxy_prover.hpp"
 #include <gtest/gtest.h>
 using namespace proof_system::honk;
@@ -10,7 +11,9 @@ using Instances = ProverInstances_<Flavor, 2>;
 using ProtoGalaxyProver = ProtoGalaxyProver_<Instances>;
 using FF = Flavor::FF;
 using Builder = Flavor::CircuitBuilder;
+using Polynomial = typename Flavor::Polynomial;
 using ProverPolynomials = Flavor::ProverPolynomials;
+using RelationParameters = proof_system::RelationParameters<FF>;
 const size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
 
 namespace protogalaxy_tests {
@@ -170,5 +173,93 @@ TEST_F(ProtoGalaxyTests, PerturbatorPolynomial)
     EXPECT_EQ(perturbator[0], target_sum);
 }
 
-TEST_F(ProtoGalaxyTests, PowCorrectness) {}
+TEST_F(ProtoGalaxyTests, CombinerQuotient)
+{
+    auto compressed_perturbator = FF(2);
+    auto combiner = barretenberg::Univariate<FF, 7>(std::array<FF, 7>{
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+    });
+    auto combiner_quotient = ProtoGalaxyProver::compute_combiner_quotient(compressed_perturbator, combiner);
+
+    auto expected_evals = barretenberg::Univariate<FF, 7, 2>(std::array<FF, 5>{
+        (FF(22) - (FF(1) - FF(2)) * compressed_perturbator) / (FF(2) * FF(2 - 1)),
+        (FF(23) - (FF(1) - FF(3)) * compressed_perturbator) / (FF(3) * FF(3 - 1)),
+        (FF(24) - (FF(1) - FF(4)) * compressed_perturbator) / (FF(4) * FF(4 - 1)),
+        (FF(25) - (FF(1) - FF(5)) * compressed_perturbator) / (FF(5) * FF(5 - 1)),
+        (FF(26) - (FF(1) - FF(6)) * compressed_perturbator) / (FF(6) * FF(6 - 1)),
+    });
+
+    for (size_t idx = 2; idx < 7; idx++) {
+        EXPECT_EQ(combiner_quotient.value_at(idx), expected_evals.value_at(idx));
+    }
+}
+
+// TEST_F(ProtoGalaxyTests, Galaxify)
+// {
+//     auto composer = UltraComposer();
+
+//     // Create instance from actual circuit
+//     std::vector<std::shared_ptr<ProverInstance_<Flavor>>> insts(2);
+//     auto builder = proof_system::UltraCircuitBuilder();
+//     auto a = FF::random_element();
+//     auto b = FF::random_element();
+//     builder.add_variable(a);
+//     builder.add_public_variable(a);
+//     builder.add_public_variable(b);
+//     insts[1] = composer.create_instance(builder);
+
+//     auto instance_size = insts[1]->proving_key->circuit_size;
+//     auto log_instance_size = static_cast<size_t>(numeric::get_msb(instance_size));
+
+//     // Create fake accumulator
+//     std::array<barretenberg::Polynomial<FF>, NUM_POLYNOMIALS> random_polynomials;
+//     for (auto& poly : random_polynomials) {
+//         poly = get_random_polynomial(instance_size);
+//     }
+//     auto full_polynomials = construct_ultra_full_polynomials(random_polynomials);
+//     auto relation_parameters = proof_system::RelationParameters<FF>::get_random();
+//     auto alpha = FF::random_element();
+
+//     auto full_honk_evals =
+//         ProtoGalaxyProver::compute_full_honk_evaluations(full_polynomials, alpha, relation_parameters);
+//     std::vector<FF> betas(log_instance_size);
+//     for (size_t idx = 0; idx < log_instance_size; idx++) {
+//         betas[idx] = FF::random_element();
+//     }
+
+//     // Construct pow(\vec{betas}) as in the paper
+//     auto pow_beta = ProtoGalaxyProver::compute_pow_polynomial_at_values(betas, instance_size);
+
+//     // Compute the corresponding target sum and create a dummy accumulator
+//     auto target_sum = FF(0);
+//     for (size_t i = 0; i < instance_size; i++) {
+//         target_sum += full_honk_evals[i] * pow_beta[i];
+//     }
+
+//     insts[0] = std::make_shared<Instance>(
+//         FoldingResult<Flavor>{ .folded_prover_polynomials = full_polynomials,
+//                                .folded_public_inputs = std::vector<FF>{},
+//                                .verification_key = std::make_shared<Flavor::VerificationKey>(),
+//                                .folding_parameters = { betas, target_sum } });
+//     insts[0]->relation_parameters = relation_parameters;
+
+//     // artificially make first instance relaxed
+
+//     auto prover = composer.create_folding_prover(insts);
+//     auto verifier = composer.create_folding_verifier(insts);
+//     prover.prepare_for_folding();
+//     auto new_target_sum_prover = prover.galaxify(alpha)[0];
+
+//     verifier.prepare_for_folding(prover.transcript.proof_data);
+//     auto new_target_sum_verifier = verifier.galaxify(alpha)[0];
+//     info(new_target_sum_prover);
+//     info(new_target_sum_verifier);
+// }
+
 } // namespace protogalaxy_tests

@@ -136,7 +136,7 @@ TEST(transcript, univariate_serialization)
     constexpr size_t LENGTH = 8;
 
     using Fr = barretenberg::fr;
-    using Univariate = barretenberg::Univariate<Fr, LENGTH>;
+    using Univariate = barretenberg::Univariate<Fr, 8>;
     using Transcript = transcript::StandardTranscript;
 
     std::vector<uint8_t> g1_vector(64);

@@ -158,4 +158,12 @@ TYPED_TEST(UnivariateTest, Serialization)
     }
 }
 
+TYPED_TEST(UnivariateTest, EvaluationCustomDomain)
+{
+    UNIVARIATE_TESTS_ALIASES
+
+    auto poly = Univariate<FF, 3, 1>(std::array<FF, 2>{ 1, 2 });
+    EXPECT_EQ(poly.evaluate(FF(5)), FF(5));
+}
+
 } // namespace barretenberg::test_univariate

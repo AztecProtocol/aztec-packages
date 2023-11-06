@@ -35,6 +35,8 @@ template <class VerifierInstances> class ProtoGalaxyVerifier_ {
     }
     std::shared_ptr<Instance> get_accumulator() { return verifier_instances[0]; }
 
+    void prepare_for_folding(std::vector<uint8_t> fold_data);
+
     VerifierFoldingResult<Flavor> fold_public_parameters(std::vector<uint8_t> fold_data);
 };
 

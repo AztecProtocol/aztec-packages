@@ -48,6 +48,8 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      */
     void prepare_for_folding();
 
+    std::array<FF, 3> galaxify(FF);
+
     static std::vector<FF> compute_pow_polynomial_at_values(const std::vector<FF> betas, const size_t instance_size)
     {
         std::vector<FF> pow_betas(instance_size);
@@ -290,6 +292,29 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         }
         // Batch the univariate contributions from each sub-relation to obtain the round univariate
         return Utils::template batch_over_relations<RandomExtendedUnivariate>(univariate_accumulators, alpha);
+    }
+
+    static Univariate<FF,
+                      (Flavor::MAX_RANDOM_RELATION_LENGTH - 1) * (ProverInstances::NUM - 1) + 1,
+                      ProverInstances::NUM>
+    compute_combiner_quotient(FF compressed_perturbator, RandomExtendedUnivariate combiner)
+    {
+        // degree dk - k - 1  = d(k - 1) - 1
+        std::array<FF, (Flavor::MAX_RANDOM_RELATION_LENGTH - 2) * (ProverInstances::NUM - 1)>
+            combiner_quotient_evals = {};
+
+        // we need to evaluate at values not part in the vanishing set
+        for (size_t point = ProverInstances::NUM; point < combiner.size(); point++) {
+            auto idx = point - ProverInstances::NUM;
+            auto lagrange_0 = FF(1) - FF(point);
+            auto vanishing_polynomial = FF(point) * (FF(point) - 1);
+            combiner_quotient_evals[idx] =
+                (combiner.value_at(point) - compressed_perturbator * lagrange_0) / vanishing_polynomial;
+        }
+
+        Univariate<FF, (Flavor::MAX_RANDOM_RELATION_LENGTH - 1) * (ProverInstances::NUM - 1) + 1, ProverInstances::NUM>
+            combiner_quotient(combiner_quotient_evals);
+        return combiner_quotient;
     }
 };
 
