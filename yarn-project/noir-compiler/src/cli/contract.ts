@@ -46,8 +46,9 @@ export function compileContract(program: Command, name = 'contract', log: LogFn 
         const currentDir = process.cwd();
 
         const compile = compiler === 'wasm' ? compileUsingNoirWasm : compileUsingNargo;
-        log(`Compiling contracts...`);
+        log(`Compiling contracts... with ${compiler} backend`);
         const result = await compile(projectPath, { log });
+        log(`result: ${result}`);
 
         for (const contract of result) {
           const artifactPath = resolve(projectPath, outdir, `${contract.name}.json`);

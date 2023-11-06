@@ -1,5 +1,7 @@
 import { ABIParameter, ABIType, DebugFileMap, DebugInfo, EventAbi } from '@aztec/foundation/abi';
 
+import { CompiledProgram } from '@noir-lang/noir_wasm';
+
 /** The Aztec.nr function types. */
 type NoirFunctionType = 'Open' | 'Secret' | 'Unconstrained';
 
@@ -101,7 +103,7 @@ export interface NoirProgramCompilationArtifacts {
   /**
    * The compiled contract.
    */
-  program: any;
+  program: CompiledProgram;
 
   /**
    * The artifact that contains the debug metadata about the contract.
@@ -110,6 +112,6 @@ export interface NoirProgramCompilationArtifacts {
 }
 
 /**
- * output of Noir Wasm compilation, can be for a contract or lib/binary
+ * union of two output types above
  */
-export type NoirCompilationResult = NoirContractCompilationArtifacts | NoirProgramCompilationArtifacts;
+export type NoirCompilationArtifacts = NoirProgramCompilationArtifacts | NoirContractCompilationArtifacts;

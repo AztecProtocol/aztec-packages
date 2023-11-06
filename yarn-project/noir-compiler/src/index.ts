@@ -42,12 +42,17 @@ export async function compileUsingNoirWasm(
   const cacheRoot = process.env.XDG_CACHE_HOME ?? join(process.env.HOME ?? '', '.cache');
   const fileManager = new FileManager(fs, join(cacheRoot, 'aztec-noir-compiler'));
   const compiler = NoirWasmContractCompiler.new(fileManager, resolve(projectPath), opts);
-  const artifacts = await compiler.compile();
+  const artifact = await compiler.compile();
   const resolvedAztecNrVersion = compiler.getResolvedAztecNrVersion();
 
   if (resolvedAztecNrVersion && AztecNrVersion !== resolvedAztecNrVersion) {
     opts.log(`WARNING: Aztec.nr version mismatch: expected "${AztecNrVersion}", got "${resolvedAztecNrVersion}"`);
   }
-
-  return artifacts.map(artifact => generateContractArtifact(artifact, resolvedAztecNrVersion));
+  if ('program' in artifact) {
+    return [];
+  } else if ('contract' in artifact) {
+    return [generateContractArtifact(artifact, resolvedAztecNrVersion)];
+  } else {
+    throw Error('invalid nargo package type!');
+  }
 }

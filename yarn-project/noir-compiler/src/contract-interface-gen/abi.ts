@@ -3,7 +3,7 @@ import { ContractArtifact, DebugMetadata, FunctionArtifact, FunctionType } from 
 import { deflate } from 'pako';
 
 import { mockVerificationKey } from '../mocked_keys.js';
-import { NoirCompilationArtifacts, NoirFunctionEntry } from '../noir_artifact.js';
+import { NoirContractCompilationArtifacts, NoirFunctionEntry } from '../noir_artifact.js';
 
 /**
  * Generates a function build artifact. Replaces verification key with a mock value.
@@ -38,7 +38,7 @@ function generateFunctionArtifact(fn: NoirFunctionEntry): FunctionArtifact {
  * @returns Aztec contract build artifact.
  */
 export function generateContractArtifact(
-  { contract, debug }: NoirCompilationArtifacts,
+  { contract, debug }: NoirContractCompilationArtifacts,
   aztecNrVersion?: string,
 ): ContractArtifact {
   const originalFunctions = contract.functions;
