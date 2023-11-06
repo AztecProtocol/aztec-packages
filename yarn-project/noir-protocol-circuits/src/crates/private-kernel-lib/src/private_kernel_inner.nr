@@ -38,11 +38,6 @@ impl PrivateKernelInputsInner {
         assert(function_data.is_private, "Private kernel circuit can only execute a private function");
         assert(function_data.is_constructor == false, "A constructor must be executed as the first tx in the recursion");
         assert(self.previous_kernel.public_inputs.is_private, "Can only verify a private kernel snark in the private kernel circuit");
-
-        // An empty stack will fail at self.pop_and_validate_this_private_call_hash.
-        // let start = self.previous_kernel.public_inputs.end;
-        // let start_private_call_stack_length = array_length(start.private_call_stack);
-        // assert(start_private_call_stack_length != 0, "Cannot execute private kernel circuit with an empty private call stack");
     }
 
     pub fn native_private_kernel_circuit_inner(self) -> KernelCircuitPublicInputs {
