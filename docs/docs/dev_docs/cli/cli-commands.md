@@ -16,19 +16,9 @@ npm install -g @aztec/cli
 
 ### Docker
 
-The CLI will be installed automatically via Docker if it is not already found locally, by running the command to install and start the sandbox, [instructions here](./sandbox-reference.md#installation).
-
-## Compile
-
-You can find more information about compiling contracts [on this page](../contracts/compiling.md).
+The CLI will be installed automatically via Docker if it is not already found locally, by running the command to install and start the sandbox, [instructions here](./sandbox-reference.md#installation-with-docker).
 
 ## Update
-
-:::info
-
-If you installed the CLI via Docker (with the sandbox install Docker command), the `aztec-cli update` command won't work. You can update the CLI it by [running the command again](./sandbox-reference.md#installation).
-
-:::
 
 The sandbox must be running for the update command to work unless there the project defines `@aztec/aztec-sandbox` as a dependency, in which case the command will compare against the version listed in `package.json`.
 
@@ -43,7 +33,17 @@ This command does a few things to manage updates:
 - If you installed the CLI globally via a node package manager, it updates to the specified version. Defaults to latest.
 - It looks for a `package.json` and updates all `@aztec/` dependencies to the versions the sandbox expects.
 - It looks for `Nargo.toml` at the `--contract` paths specified and updates all `aztec.nr` dependencies to the versions the sandbox expects.
-- It outputs the diffs.
+- It outputs the changes.
+
+:::info
+
+If you installed the CLI via Docker (with the sandbox install Docker command), the `aztec-cli update` command won't work. You can update the CLI it by [running the command again](./sandbox-reference.md#installation-with-docker).
+
+:::
+
+## Compile
+
+You can find more information about compiling contracts [on this page](../contracts/compiling.md).
 
 ## Creating Accounts
 
