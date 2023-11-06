@@ -8,11 +8,11 @@ import { dirname, join } from 'node:path';
 import { FileManager } from '../file-manager/file-manager.js';
 import { createMemFSFileManager } from '../file-manager/memfs-file-manager.js';
 import { NoirPackage } from '../package.js';
-import { DependencyResolver } from './dependency-resolver.js';
+import { NoirDependencyResolver } from './dependency-resolver.js';
 import { LocalDependencyResolver } from './local-dependency-resolver.js';
 
 describe('DependencyResolver', () => {
-  let resolver: DependencyResolver;
+  let resolver: NoirDependencyResolver;
   let fm: FileManager;
   let pkg: NoirPackage;
 

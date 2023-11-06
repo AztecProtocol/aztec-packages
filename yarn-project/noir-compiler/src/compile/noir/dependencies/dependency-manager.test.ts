@@ -2,7 +2,7 @@ import { NoirDependencyConfig } from '@aztec/foundation/noir';
 
 import { NoirPackage } from '../package.js';
 import { NoirDependencyManager } from './dependency-manager.js';
-import { Dependency, DependencyResolver } from './dependency-resolver.js';
+import { NoirDependency, NoirDependencyResolver } from './dependency-resolver.js';
 
 describe('DependencyManager', () => {
   let manager: NoirDependencyManager;
@@ -49,9 +49,9 @@ describe('DependencyManager', () => {
   });
 });
 
-class TestDependencyResolver implements DependencyResolver {
+class TestDependencyResolver implements NoirDependencyResolver {
   // eslint-disable-next-line require-await
-  public async resolveDependency(pkg: NoirPackage, dep: NoirDependencyConfig): Promise<Dependency | null> {
+  public async resolveDependency(pkg: NoirPackage, dep: NoirDependencyConfig): Promise<NoirDependency | null> {
     if (!('path' in dep)) {
       return null;
     }

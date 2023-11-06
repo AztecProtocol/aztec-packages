@@ -4,19 +4,19 @@ import { resolve } from 'path';
 
 import { FileManager } from '../file-manager/file-manager.js';
 import { NoirPackage } from '../package.js';
-import { Dependency, DependencyResolver } from './dependency-resolver.js';
+import { NoirDependency, NoirDependencyResolver } from './dependency-resolver.js';
 
 /**
  * Resolves dependencies on-disk, relative to current package
  */
-export class LocalDependencyResolver implements DependencyResolver {
+export class LocalDependencyResolver implements NoirDependencyResolver {
   #fm: FileManager;
 
   constructor(fm: FileManager) {
     this.#fm = fm;
   }
 
-  resolveDependency(pkg: NoirPackage, config: NoirDependencyConfig): Promise<Dependency | null> {
+  resolveDependency(pkg: NoirPackage, config: NoirDependencyConfig): Promise<NoirDependency | null> {
     if ('path' in config) {
       return Promise.resolve({
         // unknown version, Nargo.toml doesn't have a version field

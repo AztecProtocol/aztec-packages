@@ -4,24 +4,24 @@ import { NoirDependencyConfig } from '@aztec/foundation/noir';
 import { join } from 'node:path';
 
 import { NoirPackage } from '../package.js';
-import { Dependency, DependencyResolver } from './dependency-resolver.js';
+import { NoirDependency, NoirDependencyResolver } from './dependency-resolver.js';
 
 /**
  * Noir Dependency Resolver
  */
 export class NoirDependencyManager {
   #entryPoint: NoirPackage;
-  #libraries = new Map<string, Dependency>();
+  #libraries = new Map<string, NoirDependency>();
   #dependencies = new Map<string, string[]>();
   #log: LogFn;
-  #resolvers: readonly DependencyResolver[];
+  #resolvers: readonly NoirDependencyResolver[];
 
   /**
    * Creates a new dependency resolver
    * @param resolvers - A list of dependency resolvers to use
    * @param entryPoint - The entry point of the project
    */
-  constructor(resolvers: readonly DependencyResolver[] = [], entryPoint: NoirPackage) {
+  constructor(resolvers: readonly NoirDependencyResolver[] = [], entryPoint: NoirPackage) {
     this.#log = createDebugOnlyLogger('noir:dependency-resolver');
     this.#resolvers = resolvers;
     this.#entryPoint = entryPoint;
@@ -82,8 +82,8 @@ export class NoirDependencyManager {
     }
   }
 
-  async #resolveDependency(pkg: NoirPackage, config: NoirDependencyConfig): Promise<Dependency> {
-    let dependency: Dependency | null = null;
+  async #resolveDependency(pkg: NoirPackage, config: NoirDependencyConfig): Promise<NoirDependency> {
+    let dependency: NoirDependency | null = null;
     for (const resolver of this.#resolvers) {
       dependency = await resolver.resolveDependency(pkg, config);
       if (dependency) {
