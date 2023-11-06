@@ -18,6 +18,9 @@ import PrivateKernelInnerSimulatedJson from './target/private_kernel_inner_simul
 import PrivateKernelOrderingJson from './target/private_kernel_ordering.json' assert { type: 'json' };
 import PrivateKernelOrderingSimulatedJson from './target/private_kernel_ordering_simulated.json' assert { type: 'json' };
 import PublicKernelPrivatePreviousJson from './target/public_kernel_private_previous.json' assert { type: 'json' };
+import PublicKernelPrivatePreviousSimulatedJson from './target/public_kernel_private_previous_simulated.json' assert { type: 'json' };
+import PublicKernelPublicPreviousJson from './target/public_kernel_public_previous.json' assert { type: 'json' };
+import PublicKernelPublicPreviousSimulatedJson from './target/public_kernel_public_previous_simulated.json' assert { type: 'json' };
 import {
   mapKernelCircuitPublicInputsFinalFromNoir,
   mapKernelCircuitPublicInputsFromNoir,
@@ -54,6 +57,10 @@ export const PrivateKernelInitArtifact = PrivateKernelInitJson as NoirCompiledCi
 export const PrivateKernelInnerArtifact = PrivateKernelInnerJson as NoirCompiledCircuit;
 
 export const PrivateKernelOrderingArtifact = PrivateKernelOrderingJson as NoirCompiledCircuit;
+
+export const PublicKernelPrivatePreviousArtifact = PublicKernelPrivatePreviousJson as NoirCompiledCircuit;
+
+export const PublicKernelPublicPreviousArtifact = PublicKernelPublicPreviousJson as NoirCompiledCircuit;
 
 /**
  * Executes the init private kernel.
@@ -116,8 +123,8 @@ export async function executeOrdering(
 }
 
 /**
- * Executes the inner private kernel.
- * @param privateKernelInputsInit - The private kernel inputs.
+ * Executes the public kernel.
+ * @param privateKernelInputsInit - The public kernel private inputs.
  * @returns The public inputs.
  */
 export async function executePublicKernelPrivatePrevious(
@@ -128,6 +135,23 @@ export async function executePublicKernelPrivatePrevious(
   };
 
   const returnType = await executePublicKernelPrivatePreviousWithACVM(params);
+
+  return mapKernelCircuitPublicInputsFromNoir(returnType);
+}
+
+/**
+ * Executes the inner public kernel.
+ * @param privateKernelInputsInit - The public kernel private inputs.
+ * @returns The public inputs.
+ */
+export async function executePublicKernelPublicPrevious(
+  publicKernelPrivateInputs: PublicKernelInputs,
+): Promise<KernelCircuitPublicInputs> {
+  const params: PublicPrivatePreviousInputType = {
+    input: mapPublicKernelInputs(publicKernelPrivateInputs),
+  };
+
+  const returnType = await executePublicKernelPublicPreviousWithACVM(params);
 
   return mapKernelCircuitPublicInputsFromNoir(returnType);
 }
@@ -221,12 +245,12 @@ async function executePrivateKernelOrderingWithACVM(input: OrderingInputType): P
  * Executes the ordering private kernel with the given inputs using the acvm.
  */
 async function executePublicKernelPrivatePreviousWithACVM(input: PublicPrivatePreviousInputType): Promise<ReturnType> {
-  const initialWitnessMap = abiEncode(PublicKernelPrivatePreviousJson.abi, input, null);
+  const initialWitnessMap = abiEncode(PublicKernelPrivatePreviousSimulatedJson.abi, input, null);
 
   // Execute the circuit on those initial witness values
   //
   // Decode the bytecode from base64 since the acvm does not know about base64 encoding
-  const decodedBytecode = Buffer.from(PublicKernelPrivatePreviousJson.bytecode, 'base64');
+  const decodedBytecode = Buffer.from(PublicKernelPrivatePreviousSimulatedJson.bytecode, 'base64');
   //
   // Execute the circuit
   const _witnessMap = await executeCircuitWithBlackBoxSolver(
@@ -239,7 +263,35 @@ async function executePublicKernelPrivatePreviousWithACVM(input: PublicPrivatePr
   );
 
   // Decode the witness map into two fields, the return values and the inputs
-  const decodedInputs: DecodedInputs = abiDecode(PublicKernelPrivatePreviousJson.abi, _witnessMap);
+  const decodedInputs: DecodedInputs = abiDecode(PublicKernelPrivatePreviousSimulatedJson.abi, _witnessMap);
+
+  // Cast the inputs as the return type
+  return decodedInputs.return_value as ReturnType;
+}
+
+/**
+ * Executes the ordering private kernel with the given inputs using the acvm.
+ */
+async function executePublicKernelPublicPreviousWithACVM(input: PublicPrivatePreviousInputType): Promise<ReturnType> {
+  const initialWitnessMap = abiEncode(PublicKernelPublicPreviousSimulatedJson.abi, input, null);
+
+  // Execute the circuit on those initial witness values
+  //
+  // Decode the bytecode from base64 since the acvm does not know about base64 encoding
+  const decodedBytecode = Buffer.from(PublicKernelPublicPreviousSimulatedJson.bytecode, 'base64');
+  //
+  // Execute the circuit
+  const _witnessMap = await executeCircuitWithBlackBoxSolver(
+    await getSolver(),
+    decodedBytecode,
+    initialWitnessMap,
+    () => {
+      throw Error('unexpected oracle during execution');
+    },
+  );
+
+  // Decode the witness map into two fields, the return values and the inputs
+  const decodedInputs: DecodedInputs = abiDecode(PublicKernelPublicPreviousSimulatedJson.abi, _witnessMap);
 
   // Cast the inputs as the return type
   return decodedInputs.return_value as ReturnType;
