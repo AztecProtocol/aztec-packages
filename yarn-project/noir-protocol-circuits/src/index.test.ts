@@ -41,6 +41,8 @@ import {
   PrivateKernelInputsInit,
   PrivateKernelInputsInner,
   PrivateKernelInputsOrdering,
+  PublicCallStackItem,
+  PublicCircuitPublicInputs,
   PublicDataRead,
   PublicDataUpdateRequest,
   RETURN_VALUES_LENGTH,
@@ -468,6 +470,26 @@ describe('Noir compatibility tests (interop_testing.nr)', () => {
     const fnLeafPreimage = new FunctionLeafPreimage(new FunctionSelector(27), false, true, new Fr(1), new Fr(2));
     const fnLeaf = computeFunctionLeaf(wasm, fnLeafPreimage);
     expect(fnLeaf.toString()).toMatchSnapshot();
+  });
+
+  it('Public call stack item matches noir', async () => {
+    const contractAddress = AztecAddress.fromField(new Fr(1));
+    const functionData = new FunctionData(new FunctionSelector(2), false, false, false);
+    const appPublicInputs = PublicCircuitPublicInputs.empty();
+    appPublicInputs.newCommitments[0] = new Fr(1);
+
+    const publicCallStackItem = new PublicCallStackItem(contractAddress, functionData, appPublicInputs, false);
+    expect((await publicCallStackItem.hash()).toString()).toMatchSnapshot();
+  });
+
+  it('Public call stack item request matches noir', async () => {
+    const contractAddress = AztecAddress.fromField(new Fr(1));
+    const functionData = new FunctionData(new FunctionSelector(2), false, false, false);
+    const appPublicInputs = PublicCircuitPublicInputs.empty();
+    appPublicInputs.newCommitments[0] = new Fr(1);
+
+    const publicCallStackItem = new PublicCallStackItem(contractAddress, functionData, appPublicInputs, true);
+    expect((await publicCallStackItem.hash()).toString()).toMatchSnapshot();
   });
 });
 
