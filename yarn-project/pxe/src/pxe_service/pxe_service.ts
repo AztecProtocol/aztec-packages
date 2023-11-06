@@ -22,7 +22,7 @@ import { encodeArguments } from '@aztec/foundation/abi';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
-import { NoirVersion } from '@aztec/noir-compiler/noir-version';
+import { NoirWasmVersion } from '@aztec/noir-compiler/noir-version';
 import {
   AuthWitness,
   AztecNode,
@@ -187,11 +187,11 @@ export class PXEService implements PXE {
     return (await this.db.getContracts()).map(c => c.completeAddress.address);
   }
 
-  public async getPublicStorageAt(contract: AztecAddress, storageSlot: Fr) {
+  public async getPublicStorageAt(contract: AztecAddress, slot: Fr) {
     if ((await this.getContractData(contract)) === undefined) {
       throw new Error(`Contract ${contract.toString()} is not deployed`);
     }
-    return await this.node.getPublicStorageAt(contract, storageSlot.value);
+    return await this.node.getPublicStorageAt(contract, slot);
   }
 
   public async getNotes(filter: NoteFilter): Promise<ExtendedNote[]> {
@@ -221,45 +221,53 @@ export class PXEService implements PXE {
       throw new Error('Unknown account.');
     }
 
-    const [nonce] = await this.getNoteNonces(note);
-    if (!nonce) {
+    const nonces = await this.getNoteNonces(note);
+    if (nonces.length === 0) {
       throw new Error(`Cannot find the note in tx: ${note.txHash}.`);
     }
 
-    const { innerNoteHash, siloedNoteHash, uniqueSiloedNoteHash, innerNullifier } =
-      await this.simulator.computeNoteHashAndNullifier(note.contractAddress, nonce, note.storageSlot, note.note);
+    for (const nonce of nonces) {
+      const { innerNoteHash, siloedNoteHash, uniqueSiloedNoteHash, innerNullifier } =
+        await this.simulator.computeNoteHashAndNullifier(note.contractAddress, nonce, note.storageSlot, note.note);
 
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
-    // This can always be `uniqueSiloedNoteHash` once notes added from public also include nonces.
-    const noteHashToLookUp = nonce.isZero() ? siloedNoteHash : uniqueSiloedNoteHash;
-    const index = await this.node.findLeafIndex(MerkleTreeId.NOTE_HASH_TREE, noteHashToLookUp.toBuffer());
-    if (index === undefined) {
-      throw new Error('Note does not exist.');
+      // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
+      // This can always be `uniqueSiloedNoteHash` once notes added from public also include nonces.
+      const noteHashToLookUp = nonce.isZero() ? siloedNoteHash : uniqueSiloedNoteHash;
+      const index = await this.node.findLeafIndex(MerkleTreeId.NOTE_HASH_TREE, noteHashToLookUp);
+      if (index === undefined) {
+        throw new Error('Note does not exist.');
+      }
+
+      const wasm = await CircuitsWasm.get();
+      const siloedNullifier = siloNullifier(wasm, note.contractAddress, innerNullifier!);
+      const nullifierIndex = await this.node.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, siloedNullifier);
+      if (nullifierIndex !== undefined) {
+        throw new Error('The note has been destroyed.');
+      }
+
+      await this.db.addNote(
+        new NoteDao(
+          note.note,
+          note.contractAddress,
+          note.storageSlot,
+          note.txHash,
+          nonce,
+          innerNoteHash,
+          siloedNullifier,
+          index,
+          publicKey,
+        ),
+      );
     }
-
-    const wasm = await CircuitsWasm.get();
-    const siloedNullifier = siloNullifier(wasm, note.contractAddress, innerNullifier!);
-    const nullifierIndex = await this.node.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, siloedNullifier.toBuffer());
-    if (nullifierIndex !== undefined) {
-      throw new Error('The note has been destroyed.');
-    }
-
-    await this.db.addNote(
-      new NoteDao(
-        note.note,
-        note.contractAddress,
-        note.storageSlot,
-        note.txHash,
-        nonce,
-        innerNoteHash,
-        siloedNullifier,
-        index,
-        publicKey,
-      ),
-    );
   }
 
-  public async getNoteNonces(note: ExtendedNote): Promise<Fr[]> {
+  /**
+   * Finds the nonce(s) for a given note.
+   * @param note - The note to find the nonces for.
+   * @returns The nonces of the note.
+   * @remarks More than a single nonce may be returned since there might be more than one nonce for a given note.
+   */
+  private async getNoteNonces(note: ExtendedNote): Promise<Fr[]> {
     const tx = await this.node.getTx(note.txHash);
     if (!tx) {
       throw new Error(`Unknown tx: ${note.txHash}`);
@@ -421,7 +429,7 @@ export class PXEService implements PXE {
 
     const nodeInfo: NodeInfo = {
       sandboxVersion: this.sandboxVersion,
-      compatibleNargoVersion: NoirVersion.tag,
+      compatibleNargoVersion: NoirWasmVersion,
       chainId,
       protocolVersion: version,
       l1ContractAddresses: contractAddresses,

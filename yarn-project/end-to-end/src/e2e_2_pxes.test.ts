@@ -1,10 +1,19 @@
-import { AztecAddress, Note, Wallet, computeMessageSecretHash } from '@aztec/aztec.js';
-import { DebugLogger } from '@aztec/foundation/log';
-import { retryUntil } from '@aztec/foundation/retry';
-import { toBigInt } from '@aztec/foundation/serialize';
+import {
+  AztecAddress,
+  AztecNode,
+  CompleteAddress,
+  DebugLogger,
+  EthAddress,
+  ExtendedNote,
+  Fr,
+  Note,
+  PXE,
+  TxStatus,
+  Wallet,
+  computeMessageSecretHash,
+  retryUntil,
+} from '@aztec/aztec.js';
 import { ChildContract, TokenContract } from '@aztec/noir-contracts/types';
-import { EthAddress, Fr, PXEService } from '@aztec/pxe';
-import { AztecNode, CompleteAddress, ExtendedNote, PXE, TxStatus } from '@aztec/types';
 
 import { jest } from '@jest/globals';
 
@@ -47,7 +56,7 @@ describe('e2e_2_pxes', () => {
 
   afterEach(async () => {
     await teardownA();
-    if (pxeB instanceof PXEService) await pxeB.stop();
+    if ((pxeB as any).stop) await (pxeB as any).stop();
   });
 
   const awaitUserSynchronized = async (wallet: Wallet, owner: AztecAddress) => {
@@ -175,7 +184,7 @@ describe('e2e_2_pxes', () => {
   };
 
   const getChildStoredValue = (child: { address: AztecAddress }, pxe: PXE) =>
-    pxe.getPublicStorageAt(child.address, new Fr(1)).then(x => toBigInt(x!));
+    pxe.getPublicStorageAt(child.address, new Fr(1));
 
   it('user calls a public function on a contract deployed by a different user using a different PXE', async () => {
     const childCompleteAddress = await deployChildContractViaServerA();
@@ -191,7 +200,7 @@ describe('e2e_2_pxes', () => {
       },
     ]);
 
-    const newValueToSet = 256n;
+    const newValueToSet = new Fr(256n);
 
     const childContractWithWalletB = await ChildContract.at(childCompleteAddress.address, walletB);
     await childContractWithWalletB.methods.pubIncValue(newValueToSet).send().wait({ interval: 0.1 });
@@ -199,7 +208,7 @@ describe('e2e_2_pxes', () => {
     await awaitServerSynchronized(pxeA);
 
     const storedValue = await getChildStoredValue(childCompleteAddress, pxeB);
-    expect(storedValue).toBe(newValueToSet);
+    expect(storedValue).toEqual(newValueToSet);
   });
 
   it('private state is "zero" when Private eXecution Environment (PXE) does not have the account private key', async () => {

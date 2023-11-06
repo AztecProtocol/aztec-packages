@@ -151,14 +151,17 @@ export interface PXE {
   getTx(txHash: TxHash): Promise<L2Tx | undefined>;
 
   /**
-   * Retrieves the public storage data at a specified contract address and storage slot.
+   * Gets the storage value at the given contract storage slot.
    *
-   * @param contract - The AztecAddress of the target contract.
-   * @param storageSlot - The Fr representing the storage slot to be fetched.
-   * @returns A buffer containing the public storage data at the storage slot.
+   * @remarks The storage slot here refers to the slot as it is defined in Noir not the index in the merkle tree.
+   * Aztec's version of `eth_getStorageAt`.
+   *
+   * @param contract - Address of the contract to query.
+   * @param slot - Slot to query.
+   * @returns Storage value at the given contract slot (or undefined if not found).
    * @throws If the contract is not deployed.
    */
-  getPublicStorageAt(contract: AztecAddress, storageSlot: Fr): Promise<Buffer | undefined>;
+  getPublicStorageAt(contract: AztecAddress, slot: Fr): Promise<Fr | undefined>;
 
   /**
    * Gets notes of accounts registered in this PXE based on the provided filter.
@@ -173,14 +176,6 @@ export interface PXE {
    * @param note - The note to add.
    */
   addNote(note: ExtendedNote): Promise<void>;
-
-  /**
-   * Finds the nonce(s) for a given note.
-   * @param note - The note to find the nonces for.
-   * @returns The nonces of the note.
-   * @remarks More than a single nonce may be returned since there might be more than one nonce for a given note.
-   */
-  getNoteNonces(note: ExtendedNote): Promise<Fr[]>;
 
   /**
    * Get the given block.
