@@ -718,7 +718,6 @@ export class L2Block {
     const newNullifiers = this.newNullifiers
       .slice(MAX_NEW_NULLIFIERS_PER_TX * txIndex, MAX_NEW_NULLIFIERS_PER_TX * (txIndex + 1))
       .filter(x => !x.isZero());
-    console.log('newNullifiers', newNullifiers);
     const newPublicDataWrites = this.newPublicDataWrites
       .slice(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * txIndex, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * (txIndex + 1))
       .filter(x => !x.isEmpty());
