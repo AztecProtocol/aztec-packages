@@ -18,7 +18,7 @@ aztec-cli compile ./path/to/my_aztec_contract_project
 
 This will output a JSON [artifact](./artifacts.md) for each contract in the project to a `target` folder containing their artifact, which you can use for deploying or interacting with your contracts.
 
-`aztec-cli` uses a `noir_wasm` by default for compiling contracts. This helps reduce the developer overhead of maintaining compatible versions of `nargo`. You can still use `nargo` to compile contracts with `aztec-cli` by specifying the compiler:
+`aztec-cli` uses `noir_wasm` by default for compiling contracts. This helps reduce the developer overhead of installation and maintaining the noir compiler, `nargo`. However, if you prefer, you can use `nargo` to compile contracts with `aztec-cli` as so:
 
 ```bash
 aztec-cli compile my-contract --compiler nargo # switches compiler to nargo
