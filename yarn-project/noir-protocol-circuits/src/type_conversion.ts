@@ -1,15 +1,19 @@
 import {
   AggregationObject,
+  AppendOnlyTreeSnapshot,
   AztecAddress,
+  BaseOrMergeRollupPublicInputs,
   CallContext,
   CombinedAccumulatedData,
   CombinedConstantData,
+  ConstantRollupData,
   ContractDeploymentData,
   EthAddress,
   FinalAccumulatedData,
   Fr,
   FunctionData,
   FunctionSelector,
+  GlobalVariables,
   HistoricBlockData,
   KernelCircuitPublicInputs,
   KernelCircuitPublicInputsFinal,
@@ -29,6 +33,7 @@ import {
   OptionallyRevealedData,
   Point,
   PreviousKernelData,
+  PreviousRollupData,
   PrivateCallData,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
@@ -38,6 +43,8 @@ import {
   PublicDataRead,
   PublicDataUpdateRequest,
   ReadRequestMembershipWitness,
+  RootRollupInputs,
+  RootRollupPublicInputs,
   TxContext,
   TxRequest,
 } from '@aztec/circuits.js';
@@ -80,8 +87,17 @@ import {
   KernelCircuitPublicInputsFinal as KernelCircuitPublicInputsFinalNoir,
   PrivateKernelInputsOrdering as PrivateKernelInputsOrderingNoir,
 } from './types/private_kernel_ordering_types.js';
+import {
+  AppendOnlyTreeSnapshot as AppendOnlyTreeSnapshotNoir,
+  BaseOrMergeRollupPublicInputs as BaseOrMergeRollupPublicInputsNoir,
+  ConstantRollupData as ConstantRollupDataNoir,
+  GlobalVariables as GlobalVariablesNoir,
+  PreviousRollupData as PreviousRollupDataNoir,
+  RootRollupInputs as RootRollupInputsNoir,
+  RootRollupPublicInputs as RootRollupPublicInputsNoir,
+} from './types/rollup_root_types.js';
 
-/* eslint-disable camelcase */
+/* eslint-disable */
 
 /**
  * Maps a field to a noir field.
@@ -99,6 +115,10 @@ export function mapFieldToNoir(field: Fr): NoirField {
  */
 export function mapFieldFromNoir(field: NoirField): Fr {
   return Fr.fromString(field);
+}
+
+export function mapNumberFromNoir(number: NoirField): number {
+  return Number(Fr.fromString(number).toBigInt());
 }
 
 /**
@@ -860,4 +880,147 @@ export function mapPrivateKernelInputsOrderingToNoir(
     read_commitment_hints: inputs.readCommitmentHints.map(mapFieldToNoir) as FixedLengthArray<NoirField, 128>,
     nullifier_commitment_hints: inputs.nullifierCommitmentHints.map(mapFieldToNoir) as FixedLengthArray<NoirField, 64>,
   };
+}
+
+export function mapGlobalVariablesToNoir(globalVariables: GlobalVariables): GlobalVariablesNoir {
+  return {
+    chain_id: mapFieldToNoir(globalVariables.chainId),
+    version: mapFieldToNoir(globalVariables.version),
+    block_number: mapFieldToNoir(globalVariables.blockNumber),
+    timestamp: mapFieldToNoir(globalVariables.timestamp),
+  };
+}
+
+export function mapGlobalVariablesFromNoir(globalVariables: GlobalVariablesNoir): GlobalVariables {
+  return new GlobalVariables(
+    mapFieldFromNoir(globalVariables.chain_id),
+    mapFieldFromNoir(globalVariables.version),
+    mapFieldFromNoir(globalVariables.block_number),
+    mapFieldFromNoir(globalVariables.timestamp),
+  );
+}
+
+export function mapConstantRollupDataToNoir(constantRollupData: ConstantRollupData): ConstantRollupDataNoir {
+  return {
+    start_historic_blocks_tree_roots_snapshot: mapAppendOnlyTreeSnapshotToNoir(
+      constantRollupData.startHistoricBlocksTreeRootsSnapshot,
+    ),
+    private_kernel_vk_tree_root: mapFieldToNoir(constantRollupData.privateKernelVkTreeRoot),
+    public_kernel_vk_tree_root: mapFieldToNoir(constantRollupData.publicKernelVkTreeRoot),
+    base_rollup_vk_hash: mapFieldToNoir(constantRollupData.baseRollupVkHash),
+    merge_rollup_vk_hash: mapFieldToNoir(constantRollupData.mergeRollupVkHash),
+    global_variables: mapGlobalVariablesToNoir(constantRollupData.globalVariables),
+  };
+}
+
+export function mapBaseOrMergeRollupPublicInputsToNoir(
+  baseOrMergeRollupPublicInputs: BaseOrMergeRollupPublicInputs,
+): BaseOrMergeRollupPublicInputsNoir {
+  return {
+    rollup_type: mapFieldToNoir(new Fr(baseOrMergeRollupPublicInputs.rollupType)),
+    rollup_subtree_height: mapFieldToNoir(new Fr(baseOrMergeRollupPublicInputs.rollupSubtreeHeight)),
+    end_aggregation_object: {},
+    constants: mapConstantRollupDataToNoir(baseOrMergeRollupPublicInputs.constants),
+    start_note_hash_tree_snapshot: mapAppendOnlyTreeSnapshotToNoir(
+      baseOrMergeRollupPublicInputs.startNoteHashTreeSnapshot,
+    ),
+    end_note_hash_tree_snapshot: mapAppendOnlyTreeSnapshotToNoir(baseOrMergeRollupPublicInputs.endNoteHashTreeSnapshot),
+    start_nullifier_tree_snapshot: mapAppendOnlyTreeSnapshotToNoir(
+      baseOrMergeRollupPublicInputs.startNullifierTreeSnapshot,
+    ),
+    end_nullifier_tree_snapshot: mapAppendOnlyTreeSnapshotToNoir(
+      baseOrMergeRollupPublicInputs.endNullifierTreeSnapshot,
+    ),
+    start_contract_tree_snapshot: mapAppendOnlyTreeSnapshotToNoir(
+      baseOrMergeRollupPublicInputs.startContractTreeSnapshot,
+    ),
+    end_contract_tree_snapshot: mapAppendOnlyTreeSnapshotToNoir(baseOrMergeRollupPublicInputs.endContractTreeSnapshot),
+    start_public_data_tree_root: mapFieldToNoir(baseOrMergeRollupPublicInputs.startPublicDataTreeRoot),
+    end_public_data_tree_root: mapFieldToNoir(baseOrMergeRollupPublicInputs.endPublicDataTreeRoot),
+    calldata_hash: baseOrMergeRollupPublicInputs.calldataHash.map(mapFieldToNoir) as FixedLengthArray<NoirField, 2>,
+  };
+}
+
+export function mapPreviousRollupDataToNoir(previousRollupData: PreviousRollupData): PreviousRollupDataNoir {
+  return {
+    base_or_merge_rollup_public_inputs: mapBaseOrMergeRollupPublicInputsToNoir(
+      previousRollupData.baseOrMergeRollupPublicInputs,
+    ),
+    proof: {},
+    vk: {},
+    vk_index: mapFieldToNoir(new Fr(previousRollupData.vkIndex)),
+    vk_sibling_path: {
+      leaf_index: mapFieldToNoir(new Fr(previousRollupData.vkSiblingPath.leafIndex)),
+      sibling_path: previousRollupData.vkSiblingPath.siblingPath.map(mapFieldToNoir) as FixedLengthArray<NoirField, 8>,
+    },
+  };
+}
+
+export function mapAppendOnlyTreeSnapshotFromNoir(snapshot: AppendOnlyTreeSnapshotNoir): AppendOnlyTreeSnapshot {
+  return new AppendOnlyTreeSnapshot(
+    mapFieldFromNoir(snapshot.root),
+    mapNumberFromNoir(snapshot.next_available_leaf_index),
+  );
+}
+
+export function mapAppendOnlyTreeSnapshotToNoir(snapshot: AppendOnlyTreeSnapshot): AppendOnlyTreeSnapshotNoir {
+  return {
+    root: mapFieldToNoir(snapshot.root),
+    next_available_leaf_index: mapFieldToNoir(new Fr(snapshot.nextAvailableLeafIndex)),
+  };
+}
+
+export function mapRootRollupInputsToNoir(rootRollupInputs: RootRollupInputs): RootRollupInputsNoir {
+  return {
+    previous_rollup_data: rootRollupInputs.previousRollupData.map(mapPreviousRollupDataToNoir) as FixedLengthArray<
+      PreviousRollupDataNoir,
+      2
+    >,
+    new_l1_to_l2_messages: rootRollupInputs.newL1ToL2Messages.map(mapFieldToNoir) as FixedLengthArray<NoirField, 16>,
+    new_l1_to_l2_messages_tree_root_sibling_path: rootRollupInputs.newL1ToL2MessagesTreeRootSiblingPath.map(
+      mapFieldToNoir,
+    ) as FixedLengthArray<NoirField, 12>,
+    start_l1_to_l2_messages_tree_snapshot: mapAppendOnlyTreeSnapshotToNoir(
+      rootRollupInputs.startL1ToL2MessagesTreeSnapshot,
+    ),
+    start_historic_blocks_tree_snapshot: mapAppendOnlyTreeSnapshotToNoir(
+      rootRollupInputs.startHistoricBlocksTreeSnapshot,
+    ),
+    new_historic_blocks_tree_sibling_path: rootRollupInputs.newHistoricBlocksTreeSiblingPath.map(
+      mapFieldToNoir,
+    ) as FixedLengthArray<NoirField, 16>,
+  };
+}
+
+export function mapRootRollupPublicInputsFromNoir(
+  rootRollupPublicInputs: RootRollupPublicInputsNoir,
+): RootRollupPublicInputs {
+  return new RootRollupPublicInputs(
+    AggregationObject.makeFake(),
+    mapGlobalVariablesFromNoir(rootRollupPublicInputs.global_variables),
+    mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.start_note_hash_tree_snapshot),
+    mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.end_note_hash_tree_snapshot),
+    mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.start_nullifier_tree_snapshot),
+    mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.end_nullifier_tree_snapshot),
+    mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.start_contract_tree_snapshot),
+    mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.end_contract_tree_snapshot),
+    mapFieldFromNoir(rootRollupPublicInputs.start_public_data_tree_root),
+    mapFieldFromNoir(rootRollupPublicInputs.end_public_data_tree_root),
+    mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.start_tree_of_historic_note_hash_tree_roots_snapshot),
+    mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.end_tree_of_historic_note_hash_tree_roots_snapshot),
+    mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.start_tree_of_historic_contract_tree_roots_snapshot),
+    mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.end_tree_of_historic_contract_tree_roots_snapshot),
+    mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.start_l1_to_l2_messages_tree_snapshot),
+    mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.end_l1_to_l2_messages_tree_snapshot),
+    mapAppendOnlyTreeSnapshotFromNoir(
+      rootRollupPublicInputs.start_tree_of_historic_l1_to_l2_messages_tree_roots_snapshot,
+    ),
+    mapAppendOnlyTreeSnapshotFromNoir(
+      rootRollupPublicInputs.end_tree_of_historic_l1_to_l2_messages_tree_roots_snapshot,
+    ),
+    mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.start_historic_blocks_tree_snapshot),
+    mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.end_historic_blocks_tree_snapshot),
+    mapTupleFromNoir(rootRollupPublicInputs.calldata_hash, 2, mapFieldFromNoir),
+    mapTupleFromNoir(rootRollupPublicInputs.l1_to_l2_messages_hash, 2, mapFieldFromNoir),
+  );
 }

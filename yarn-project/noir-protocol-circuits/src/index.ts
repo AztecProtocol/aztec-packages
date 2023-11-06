@@ -4,6 +4,8 @@ import {
   PrivateKernelInputsInit,
   PrivateKernelInputsInner,
   PrivateKernelInputsOrdering,
+  RootRollupInputs,
+  RootRollupPublicInputs,
 } from '@aztec/circuits.js';
 import { NoirCompiledCircuit } from '@aztec/noir-compiler';
 
@@ -16,12 +18,15 @@ import PrivateKernelInnerJson from './target/private_kernel_inner.json' assert {
 import PrivateKernelInnerSimulatedJson from './target/private_kernel_inner_simulated.json' assert { type: 'json' };
 import PrivateKernelOrderingJson from './target/private_kernel_ordering.json' assert { type: 'json' };
 import PrivateKernelOrderingSimulatedJson from './target/private_kernel_ordering_simulated.json' assert { type: 'json' };
+import RootRollupJson from './target/rollup_root.json' assert { type: 'json' };
 import {
   mapKernelCircuitPublicInputsFinalFromNoir,
   mapKernelCircuitPublicInputsFromNoir,
   mapPrivateKernelInputsInitToNoir,
   mapPrivateKernelInputsInnerToNoir,
   mapPrivateKernelInputsOrderingToNoir,
+  mapRootRollupInputsToNoir,
+  mapRootRollupPublicInputsFromNoir,
 } from './type_conversion.js';
 import { InputType as InitInputType, ReturnType } from './types/private_kernel_init_types.js';
 import { InputType as InnerInputType } from './types/private_kernel_inner_types.js';
@@ -29,6 +34,7 @@ import {
   ReturnType as FinalReturnType,
   InputType as OrderingInputType,
 } from './types/private_kernel_ordering_types.js';
+import { InputType as RootRollupInputType, ReturnType as RootRollupReturnType } from './types/rollup_root_types.js';
 
 // TODO(Tom): This should be exported from noirc_abi
 /**
@@ -109,6 +115,21 @@ export async function executeOrdering(
   const returnType = await executePrivateKernelOrderingWithACVM(params);
 
   return mapKernelCircuitPublicInputsFinalFromNoir(returnType);
+}
+
+/**
+ * Executes the inner private kernel.
+ * @param privateKernelInputsInit - The private kernel inputs.
+ * @returns The public inputs.
+ */
+export async function executeRootRollup(rootRollupInputs: RootRollupInputs): Promise<RootRollupPublicInputs> {
+  const params: RootRollupInputType = {
+    inputs: mapRootRollupInputsToNoir(rootRollupInputs),
+  };
+
+  const returnType = await executeRootRollupWithACVM(params);
+
+  return mapRootRollupPublicInputsFromNoir(returnType);
 }
 
 /**
@@ -194,4 +215,32 @@ async function executePrivateKernelOrderingWithACVM(input: OrderingInputType): P
 
   // Cast the inputs as the return type
   return decodedInputs.return_value as FinalReturnType;
+}
+
+/**
+ * Executes the ordering private kernel with the given inputs using the acvm.
+ */
+async function executeRootRollupWithACVM(input: RootRollupInputType): Promise<RootRollupReturnType> {
+  const initialWitnessMap = abiEncode(RootRollupJson.abi, input, null);
+
+  // Execute the circuit on those initial witness values
+  //
+  // Decode the bytecode from base64 since the acvm does not know about base64 encoding
+  const decodedBytecode = Buffer.from(RootRollupJson.bytecode, 'base64');
+  //
+  // Execute the circuit
+  const _witnessMap = await executeCircuitWithBlackBoxSolver(
+    await getSolver(),
+    decodedBytecode,
+    initialWitnessMap,
+    () => {
+      throw Error('unexpected oracle during execution');
+    },
+  );
+
+  // Decode the witness map into two fields, the return values and the inputs
+  const decodedInputs: DecodedInputs = abiDecode(RootRollupJson.abi, _witnessMap);
+
+  // Cast the inputs as the return type
+  return decodedInputs.return_value as RootRollupReturnType;
 }

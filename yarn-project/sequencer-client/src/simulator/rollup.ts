@@ -8,10 +8,10 @@ import {
   RootRollupPublicInputs,
   baseRollupSim,
   mergeRollupSim,
-  rootRollupSim,
 } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
+import { executeRootRollup } from '@aztec/noir-protocol-circuits';
 import { CircuitSimulationStats } from '@aztec/types/stats';
 
 import { RollupSimulator } from './index.js';
@@ -73,8 +73,7 @@ export class WasmRollupCircuitSimulator implements RollupSimulator {
    * @returns The public inputs as outputs of the simulation.
    */
   public async rootRollupCircuit(input: RootRollupInputs): Promise<RootRollupPublicInputs> {
-    const wasm = await CircuitsWasm.get();
-    const [duration, result] = await elapsed(() => rootRollupSim(wasm, input));
+    const [duration, result] = await elapsed(() => executeRootRollup(input));
     if (result instanceof CircuitError) {
       throw new CircuitError(result.code, result.message);
     }
