@@ -15,6 +15,13 @@ use dep::aztec::{
     hash::sha256_to_field,
 };
 
+// Checks that `value` is a member of a merkle tree with root `root` at position `index`
+// The witness being the `sibling_path`
+pub fn assert_check_membership<N>(value : Field, index : Field, sibling_path : [Field; N], root : Field) {
+    let calculated_root = root_from_sibling_path(value, index, sibling_path);
+    assert(calculated_root == root, "membership check failed");
+}
+
 // Calculate the Merkle tree root from the sibling path and leaf.
 //
 // The leaf is hashed with its sibling, and then the result is hashed
@@ -25,7 +32,7 @@ use dep::aztec::{
 // TODO: I'd generally like to avoid u256 for algorithms like 
 // this because it means we never even need to consider cases where 
 // the index is greater than p.
-fn root_from_sibling_path<N>(leaf : Field, leaf_index : Field, sibling_path : [Field; N]) -> Field {
+pub fn root_from_sibling_path<N>(leaf : Field, leaf_index : Field, sibling_path : [Field; N]) -> Field {
     let mut node = leaf;
     let indices = leaf_index.to_le_bits(N);
 
@@ -206,16 +213,28 @@ pub fn compute_contract_address_from_partial(point : Point, partial_address : Fi
     Address::from_field(field)
 }
 
-pub fn compute_unique_commitment(nonce : Field, siloed_commitment : Field) -> Field {
+pub fn compute_commitment_nonce(first_nullifier : Field, commitment_index : Field) -> Field {
+    dep::std::hash::pedersen_hash_with_separator([
+        first_nullifier,
+        commitment_index
+    ], constants_gen::GENERATOR_INDEX__COMMITMENT_NONCE)
+}
+
+pub fn compute_unique_siloed_commitment(nonce: Field, siloed_commitment: Field) -> Field {
     dep::std::hash::pedersen_hash_with_separator([
         nonce,
         siloed_commitment
     ], constants_gen::GENERATOR_INDEX__UNIQUE_COMMITMENT)
 }
 
-pub fn compute_commitment_nonce(first_nullifier : Field, commitment_index : Field) -> Field {
-    dep::std::hash::pedersen_hash_with_separator([
-        first_nullifier,
-        commitment_index
-    ], constants_gen::GENERATOR_INDEX__COMMITMENT_NONCE)
+pub fn compute_unique_siloed_commitments<N>(first_nullifier: Field, siloed_commitments: [Field; N]) -> [Field; N] {
+    let mut unique_siloed_commitments = [0; N];
+    for i in 0..N {
+        let siloed_commitment = siloed_commitments[i];
+        if siloed_commitment != 0 {
+            let nonce = compute_commitment_nonce(first_nullifier, i);
+            unique_siloed_commitments[i] = compute_unique_siloed_commitment(nonce, siloed_commitment);
+        }
+    }
+    unique_siloed_commitments
 }

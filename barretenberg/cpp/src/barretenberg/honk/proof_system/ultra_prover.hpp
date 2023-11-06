@@ -1,11 +1,11 @@
 #pragma once
-#include "barretenberg/honk/flavor/goblin_ultra.hpp"
-#include "barretenberg/honk/flavor/ultra.hpp"
-#include "barretenberg/honk/instance/prover_instance.hpp"
-#include "barretenberg/honk/pcs/zeromorph/zeromorph.hpp"
-#include "barretenberg/honk/sumcheck/sumcheck_output.hpp"
+#include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
+#include "barretenberg/flavor/goblin_ultra.hpp"
+#include "barretenberg/flavor/ultra.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
 #include "barretenberg/proof_system/relations/relation_parameters.hpp"
+#include "barretenberg/sumcheck/instance/prover_instance.hpp"
+#include "barretenberg/sumcheck/sumcheck_output.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace proof_system::honk {

@@ -93,7 +93,9 @@ contract Token {
                     },
                 ),
                 // docs:end:storage_minters_init
+                // docs:start:storage_balances_init
                 balances: BalancesMap::new(context, 3),
+                // docs:end:storage_balances_init
                 total_supply: PublicState::new(
                     context,
                     4,
@@ -250,11 +252,13 @@ contract Token {
         amount: Field,
         nonce: Field,
     ) -> Field {
+        // docs:start:assert_current_call_valid_authwit_public
         if (from.address != context.msg_sender()) {
             assert_current_call_valid_authwit_public(&mut context, from);
         } else {
             assert(nonce == 0, "invalid nonce");
         }
+        // docs:end:assert_current_call_valid_authwit_public
 
         let amount = SafeU120::new(amount);
         let from_balance = storage.public_balances.at(from.address).read().sub(amount);
@@ -322,15 +326,19 @@ contract Token {
         amount: Field,
         nonce: Field,
     ) -> Field {
+        // docs:start:assert_current_call_valid_authwit
         if (from.address != context.msg_sender()) {
             assert_current_call_valid_authwit(&mut context, from);
         } else {
             assert(nonce == 0, "invalid nonce");
         }
+        // docs:end:assert_current_call_valid_authwit
 
         let amount = SafeU120::new(amount);
         storage.balances.at(from).sub(amount);
+        // docs:start:increase_private_balance
         storage.balances.at(to).add(amount);
+        // docs:end:increase_private_balance
 
         1
     }

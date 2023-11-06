@@ -71,6 +71,15 @@ export class NoirWasmContractCompiler {
   }
 
   /**
+   * Gets the version of Aztec.nr that was used compiling this contract.
+   */
+  public getResolvedAztecNrVersion() {
+    // TODO eliminate this hardcoded library name!
+    // see docs/docs/dev_docs/contracts/setup.md
+    return this.#dependencyManager.getVersionOf('aztec');
+  }
+
+  /**
    * Compiles the project.
    */
   public async compile(): Promise<NoirCompilationArtifacts[]> {
@@ -81,22 +90,24 @@ export class NoirWasmContractCompiler {
     initializeResolver(this.#resolveFile);
 
     try {
-      const contract = await compile(this.#package.getEntryPointPath(), true, {
+      const result = compile(this.#package.getEntryPointPath(), true, {
         /* eslint-disable camelcase */
         root_dependencies: this.#dependencyManager.getEntrypointDependencies(),
         library_dependencies: this.#dependencyManager.getLibraryDependencies(),
         /* eslint-enable camelcase */
       });
 
-      return [{ contract }];
+      if (!('contract' in result)) {
+        throw new Error('No contract found in compilation result');
+      }
+
+      return [result];
     } catch (err) {
       if (err instanceof Error && err.name === 'CompileError') {
         this.#processCompileError(err as CompileError);
-      } else {
-        this.#log('Error compiling contract ' + err);
       }
 
-      throw new Error("Couldn't compile contract");
+      throw err;
     }
   }
 
