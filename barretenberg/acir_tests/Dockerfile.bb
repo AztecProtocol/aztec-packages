@@ -9,3 +9,5 @@ COPY . .
 RUN FLOW=all_cmds ./run_acir_tests.sh
 # Run 1_mul through native bb build, all_cmds flow, to test all cli args.
 RUN VERBOSE=1 FLOW=all_cmds ./run_acir_tests.sh 1_mul
+# Run double_verify_proof through sol
+RUN VERBOSE=1 FLOW=sol ./run_acir_tests.sh double_verify_proof
