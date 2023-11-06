@@ -49,6 +49,14 @@ data "terraform_remote_state" "aztec-network_iac" {
   }
 }
 
+data "terraform_remote_state" "l1_contracts" {
+  backend = "s3"
+  config = {
+    bucket = "aztec-terraform"
+    key    = "${var.DEPLOY_TAG}/l1-contracts"
+    region = "eu-west-2"
+  }
+}
 
 resource "aws_cloudwatch_log_group" "aztec-node-log-group-1" {
   name              = "/fargate/service/${var.DEPLOY_TAG}/aztec-node-1"
@@ -149,19 +157,19 @@ resource "aws_ecs_task_definition" "aztec-node-1" {
       },
       {
         "name": "CONTRACT_DEPLOYMENT_EMITTER_ADDRESS",
-        "value": "${var.CONTRACT_DEPLOYMENT_EMITTER_ADDRESS}"
+        "value": "${data.terraform_remote_state.l1_contracts.outputs.contract_deployment_emitter_address}"
       },
       {
         "name": "ROLLUP_CONTRACT_ADDRESS",
-        "value": "${var.ROLLUP_CONTRACT_ADDRESS}"
+        "value": "${data.terraform_remote_state.l1_contracts.outputs.rollup_contract_address}"
       },
       {
         "name": "INBOX_CONTRACT_ADDRESS",
-        "value": "${var.INBOX_CONTRACT_ADDRESS}"
+        "value": "${data.terraform_remote_state.l1_contracts.outputs.inbox_contract_address}"
       },
       {
         "name": "REGISTRY_CONTRACT_ADDRESS",
-        "value": "${var.REGISTRY_CONTRACT_ADDRESS}"
+        "value": "${data.terraform_remote_state.l1_contracts.outputs.registry_contract_address}"
       },
       {
         "name": "API_KEY",
@@ -450,19 +458,19 @@ resource "aws_ecs_task_definition" "aztec-node-2" {
       },
       {
         "name": "CONTRACT_DEPLOYMENT_EMITTER_ADDRESS",
-        "value": "${var.CONTRACT_DEPLOYMENT_EMITTER_ADDRESS}"
+        "value": "${data.terraform_remote_state.l1_contracts.outputs.contract_deployment_emitter_address}"
       },
       {
         "name": "ROLLUP_CONTRACT_ADDRESS",
-        "value": "${var.ROLLUP_CONTRACT_ADDRESS}"
+        "value": "${data.terraform_remote_state.l1_contracts.outputs.rollup_contract_address}"
       },
       {
         "name": "INBOX_CONTRACT_ADDRESS",
-        "value": "${var.INBOX_CONTRACT_ADDRESS}"
+        "value": "${data.terraform_remote_state.l1_contracts.outputs.inbox_contract_address}"
       },
       {
         "name": "REGISTRY_CONTRACT_ADDRESS",
-        "value": "${var.REGISTRY_CONTRACT_ADDRESS}"
+        "value": "${data.terraform_remote_state.l1_contracts.outputs.registry_contract_address}"
       },
       {
         "name": "API_KEY",

@@ -524,6 +524,18 @@ jobs:
           name: "Deploy mainnet fork"
           command: deploy mainnet-fork
 
+  deploy-contracts:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: medium
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Deploy L1 contracts to mainnet fork"
+          working_directory: l1-contracts
+          command: ./scripts/ci_deploy_contracts.sh
+
   aztec-faucet:
     machine:
       image: ubuntu-2204:2023.07.2
@@ -1250,6 +1262,12 @@ workflows:
       - deploy-mainnet-fork:
           requires:
             - mainnet-fork
+          <<: *deploy_defaults
+
+      - deploy-contracts:
+          requires:
+            - l1-contracts
+            - deploy-mainnet-fork
           <<: *deploy_defaults
 
       # Yarn Project
