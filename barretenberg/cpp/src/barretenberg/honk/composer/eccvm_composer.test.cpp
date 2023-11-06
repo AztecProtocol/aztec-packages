@@ -4,13 +4,13 @@
 #include <vector>
 
 #include "barretenberg/honk/composer/eccvm_composer.hpp"
-#include "barretenberg/honk/sumcheck/sumcheck_round.hpp"
-#include "barretenberg/honk/utils/grand_product_delta.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/proof_system/circuit_builder/eccvm/eccvm_circuit_builder.hpp"
+#include "barretenberg/proof_system/library/grand_product_delta.hpp"
 #include "barretenberg/proof_system/relations/permutation_relation.hpp"
 #include "barretenberg/proof_system/relations/relation_parameters.hpp"
+#include "barretenberg/sumcheck/sumcheck_round.hpp"
 
 using namespace proof_system::honk;
 
@@ -42,7 +42,7 @@ proof_system::ECCVMCircuitBuilder<Flavor> generate_trace(numeric::random::Engine
     using G1 = typename Flavor::CycleGroup;
     using Fr = typename G1::Fr;
 
-    auto generators = G1::template derive_generators<3>();
+    auto generators = G1::derive_generators("test generators", 3);
 
     typename G1::element a = generators[0];
     typename G1::element b = generators[1];

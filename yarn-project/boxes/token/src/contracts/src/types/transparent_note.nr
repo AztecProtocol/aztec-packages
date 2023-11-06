@@ -1,11 +1,13 @@
 // docs:start:token_types_all
-use dep::std::hash::pedersen;
-use dep::aztec::note::{
-    note_header::NoteHeader,
-    note_interface::NoteInterface,
-    utils::compute_siloed_note_hash,
+use dep::aztec::{
+    note::{
+        note_header::NoteHeader,
+        note_interface::NoteInterface,
+        utils::compute_siloed_note_hash,
+    },
+    hash::{compute_secret_hash, pedersen_hash},
+    context::PrivateContext,
 };
-use dep::aztec::hash::{compute_secret_hash};
 
 global TRANSPARENT_NOTE_LEN: Field = 2;
 
@@ -51,10 +53,10 @@ impl TransparentNote {
         [self.amount, self.secret_hash]
     }
 
-    pub fn deserialize(preimage: [Field; TRANSPARENT_NOTE_LEN]) -> Self {
+    pub fn deserialize(serialized_note: [Field; TRANSPARENT_NOTE_LEN]) -> Self {
         TransparentNote {
-            amount: preimage[0],
-            secret_hash: preimage[1],
+            amount: serialized_note[0],
+            secret_hash: serialized_note[1],
             secret: 0,
             header: NoteHeader::empty(),
         }
@@ -62,17 +64,17 @@ impl TransparentNote {
 
     pub fn compute_note_hash(self) -> Field {
         // TODO(#1205) Should use a non-zero generator index.
-        dep::std::hash::pedersen([
+        pedersen_hash([
             self.amount,
             self.secret_hash,
-        ])[0]
+        ],0)
     }
 
     pub fn compute_nullifier(self) -> Field {
         // TODO(#1386): should use `compute_note_hash_for_read_or_nullify` once public functions inject nonce!
         let siloed_note_hash = compute_siloed_note_hash(TransparentNoteMethods, self);
         // TODO(#1205) Should use a non-zero generator index.
-        pedersen([self.secret, siloed_note_hash])[0]
+        pedersen_hash([self.secret, siloed_note_hash], 0)
     }
 
     pub fn set_header(&mut self, header: NoteHeader) {
@@ -88,8 +90,8 @@ impl TransparentNote {
     }
 }
 
-fn deserialize(preimage: [Field; TRANSPARENT_NOTE_LEN]) -> TransparentNote {
-    TransparentNote::deserialize(preimage)
+fn deserialize(serialized_note: [Field; TRANSPARENT_NOTE_LEN]) -> TransparentNote {
+    TransparentNote::deserialize(serialized_note)
 }
 
 fn serialize(note: TransparentNote) -> [Field; TRANSPARENT_NOTE_LEN] {
@@ -112,6 +114,10 @@ fn set_header(note: &mut TransparentNote, header: NoteHeader) {
     note.set_header(header)
 }
 
+fn broadcast(context: &mut PrivateContext, slot: Field, note: TransparentNote) {
+    assert(false, "TransparentNote does not support broadcast");
+}
+
 global TransparentNoteMethods = NoteInterface {
     deserialize,
     serialize,
@@ -119,5 +125,6 @@ global TransparentNoteMethods = NoteInterface {
     compute_nullifier,
     get_header,
     set_header,
+    broadcast,
 };
 // docs:end:token_types_all

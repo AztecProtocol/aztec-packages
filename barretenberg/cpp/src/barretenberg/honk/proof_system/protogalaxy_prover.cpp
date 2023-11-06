@@ -1,5 +1,5 @@
 #include "protogalaxy_prover.hpp"
-#include "barretenberg/proof_system/flavor/flavor.hpp"
+#include "barretenberg/flavor/flavor.hpp"
 namespace proof_system::honk {
 
 template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepare_for_folding()
@@ -30,6 +30,8 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepa
         instance->compute_sorted_accumulator_polynomials(eta);
         instance->compute_grand_product_polynomials(beta, gamma);
     }
+
+    fold_parameters(instances);
 }
 
 // TODO(#https://github.com/AztecProtocol/barretenberg/issues/689): finalise implementation this function
@@ -61,7 +63,7 @@ ProverFoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverI
 
     auto pow_betas_star = compute_pow_polynomial_at_values(betas_star, instance_size);
 
-    auto combiner = compute_combiner(instances, accumulator->relation_parameters, pow_betas_star, alpha);
+    auto combiner = compute_combiner(instances, pow_betas_star, alpha);
     auto combiner_quotient = compute_combiner_quotient(compressed_perturbator, combiner);
     for (size_t idx = ProverInstances::NUM; idx < combiner.size(); idx++) {
         transcript.send_to_verifier("combiner_quotient_" + std::to_string(idx), combiner_quotient.value_at(idx));

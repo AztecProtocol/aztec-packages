@@ -7,8 +7,7 @@ contract SchnorrAccount {
     use dep::std::option::Option;
 
     use dep::aztec::{
-        context::{PrivateContext, PublicContext, Context},
-        log::emit_encrypted_log,
+        context::{PrivateContext, Context},
         note::{ note_header::NoteHeader, utils as note_utils },
         oracle::get_public_key::get_public_key,
         state_vars::immutable_singleton::ImmutableSingleton,
@@ -48,16 +47,8 @@ contract SchnorrAccount {
         let this = context.this_address();
         // docs:start:initialize
         let mut pub_key_note = PublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this);
-        storage.signing_public_key.initialize(&mut pub_key_note, Option::none());
+        storage.signing_public_key.initialize(&mut pub_key_note, Option::none(), true);
         // docs:end:initialize
-        
-        emit_encrypted_log(
-            &mut context,
-            this,
-            storage.signing_public_key.storage_slot,
-            get_public_key(this),
-            pub_key_note.serialize(),
-        );
     }
 
     #[aztec(private)]
@@ -107,9 +98,9 @@ contract SchnorrAccount {
     // Computes notes hash and nullifier.
     // Note 1: Needs to be defined by every contract producing logs.
     // Note 2: Having it in all the contracts gives us the ability to compute the note hash and nullifier differently for different kind of notes.
-    unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; PUBLIC_KEY_NOTE_LEN]) -> [Field; 4] {
+    unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, serialized_note: [Field; PUBLIC_KEY_NOTE_LEN]) -> [Field; 4] {
         assert(storage_slot == 1);
         let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
-        note_utils::compute_note_hash_and_nullifier(PublicKeyNoteMethods, note_header, preimage)
+        note_utils::compute_note_hash_and_nullifier(PublicKeyNoteMethods, note_header, serialized_note)
     }
 }

@@ -4,8 +4,8 @@
 set -eux
 
 # docs:start:declare-accounts
-ALICE="0x25048e8c1b7dea68053d597ac2d920637c99523651edfb123d0632da785970d0"
-BOB="0x115f123bbc6cc6af9890055821cfba23a7c4e8832377a32ccb719a1ba3a86483"
+ALICE="0x16efad912187aa8ef0dcc6ef4f3743ab327b06465d4d229943f2fe3f88b06ad9"
+BOB="0x17f5e66bfe7dafc76434268bcb3968a8bc207b476aeed78d1e4a2f02aad45842"
 ALICE_PRIVATE_KEY="0x2153536ff6628eee01cf4024889ff977a18d9fa61d0e414422f7681cf085c281"
 # docs:end:declare-accounts
 
@@ -15,14 +15,14 @@ aztec-cli deploy \
   --salt 0 \
   --args $ALICE
 
-aztec-cli check-deploy --contract-address 0x2219e810bff6e04abdefce9f91c2d1dd1e4d52fafa602def3c90b77f4331feca
+aztec-cli check-deploy --contract-address 0x0ed3aaa22d69559ee368b32fbafb24b49b103c0a07bd834fd519c8157553ec1f
 
-CONTRACT="0x2219e810bff6e04abdefce9f91c2d1dd1e4d52fafa602def3c90b77f4331feca"
+CONTRACT="0x0ed3aaa22d69559ee368b32fbafb24b49b103c0a07bd834fd519c8157553ec1f"
 # docs:end:deploy
 
 # docs:start:mint-private
 SECRET="0x29bf6afaf29f61cbcf2a4fa7da97be481fb418dc08bdab5338839974beb7b49f"
-SECRET_HASH="0x0a42b1fe22b652cc8610e33bb1128040ce2d2862e7041ff235aa871739822b74"
+SECRET_HASH="0x0921759afa747c9073f75df9688a17d271cef0d6ec51eacf70e112402c4db6cd"
 
 MINT_PRIVATE_OUTPUT=$(aztec-cli send mint_private \
   --args 1000 $SECRET_HASH \
@@ -34,7 +34,7 @@ MINT_PRIVATE_TX_HASH=$(echo "$MINT_PRIVATE_OUTPUT" | grep "Transaction hash:" | 
 
 aztec-cli add-note \
   $ALICE $CONTRACT 5 $MINT_PRIVATE_TX_HASH \
-  --preimage 1000 $SECRET_HASH
+  --note 1000 $SECRET_HASH
 
 aztec-cli send redeem_shield \
   --args $ALICE 1000 $SECRET \

@@ -1,10 +1,15 @@
 import { Archiver } from '@aztec/archiver';
 import { AztecNodeConfig } from '@aztec/aztec-node';
-import { AztecAddress, CompleteAddress, Wallet, computeMessageSecretHash } from '@aztec/aztec.js';
-import { DeployL1Contracts } from '@aztec/ethereum';
-import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
-import { DebugLogger } from '@aztec/foundation/log';
+import {
+  AztecAddress,
+  CompleteAddress,
+  DebugLogger,
+  DeployL1Contracts,
+  EthAddress,
+  Fr,
+  Wallet,
+  computeMessageSecretHash,
+} from '@aztec/aztec.js';
 import { TokenContract } from '@aztec/noir-contracts/types';
 
 import { Chain, HttpTransport, PublicClient } from 'viem';
@@ -35,7 +40,7 @@ describe('archiver integration with l1 to l2 messages', () => {
     let accounts: CompleteAddress[];
     ({ teardown, wallet, deployL1ContractsValues, accounts, config, logger } = await setup(2));
     config.archiverPollingIntervalMS = 100;
-    archiver = await Archiver.createAndSync(config);
+    archiver = await Archiver.createAndSync({ ...config, l1Contracts: deployL1ContractsValues.l1ContractAddresses });
 
     const walletClient = deployL1ContractsValues.walletClient;
     publicClient = deployL1ContractsValues.publicClient;

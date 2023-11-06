@@ -1,8 +1,8 @@
 #pragma once
-#include "barretenberg/honk/flavor/goblin_ultra.hpp"
-#include "barretenberg/honk/flavor/ultra.hpp"
-#include "barretenberg/honk/sumcheck/sumcheck.hpp"
+#include "barretenberg/flavor/goblin_ultra.hpp"
+#include "barretenberg/flavor/ultra.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
+#include "barretenberg/sumcheck/sumcheck.hpp"
 
 namespace proof_system::honk {
 template <typename Flavor> class UltraVerifier_ {
@@ -23,7 +23,7 @@ template <typename Flavor> class UltraVerifier_ {
     std::shared_ptr<VerificationKey> key;
     std::map<std::string, Commitment> commitments;
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
-    VerifierTranscript<FF> transcript;
+    BaseTranscript<FF> transcript;
 };
 
 extern template class UltraVerifier_<honk::flavor::Ultra>;

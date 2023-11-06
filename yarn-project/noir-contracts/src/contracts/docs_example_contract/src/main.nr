@@ -36,7 +36,9 @@ contract DocsExample {
         legendary_card: Singleton<CardNote, CARD_NOTE_LEN>,
         // docs:end:storage-singleton-declaration
         cards: Set<CardNote, CARD_NOTE_LEN>,
+        // docs:start:storage-map-singleton-declaration
         profiles: Map<Singleton<ProfileNote, PROFILE_NOTE_LEN>>,
+        // docs:end:storage-map-singleton-declaration
     }
     // docs:end:storage-struct-declaration
 
@@ -94,9 +96,7 @@ contract DocsExample {
         max_points: u8,
         legendary_card_secret: Field,
     ) {
-        
-
-        let mut game_rules = RulesNote::new(min_points, max_points);
+        let mut game_rules = RulesNote::new(min_points, max_points, Option::some(0));
         actions::init_game_rules(storage.game_rules, &mut game_rules);
 
         let mut legendary_card = CardNote::new(0, legendary_card_secret, 0);
@@ -307,4 +307,9 @@ contract DocsExample {
 
     }
     // docs:end:l1_to_l2_cross_chain_message  
+
+    // TODO: remove this placeholder once https://github.com/AztecProtocol/aztec-packages/issues/2918 is implemented
+    unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, serialized_note: [Field; 0]) -> [Field; 4] {
+        [0, 0, 0, 0]
+    }
 }

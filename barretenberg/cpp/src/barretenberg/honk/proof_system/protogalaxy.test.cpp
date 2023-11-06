@@ -1,8 +1,9 @@
-// Note these tests are a bit hacky
 #include "barretenberg/honk/composer/ultra_composer.hpp"
 #include "barretenberg/honk/utils/testing.hpp"
 #include "protogalaxy_prover.hpp"
 #include <gtest/gtest.h>
+
+using namespace barretenberg;
 using namespace proof_system::honk;
 
 using Flavor = flavor::Ultra;
@@ -176,23 +177,22 @@ TEST_F(ProtoGalaxyTests, PerturbatorPolynomial)
 TEST_F(ProtoGalaxyTests, CombinerQuotient)
 {
     auto compressed_perturbator = FF(2);
-    auto combiner = barretenberg::Univariate<FF, 7>(std::array<FF, 7>{
-        20,
-        21,
-        22,
-        23,
-        24,
-        25,
-        26,
-    });
+    auto combiner =
+        barretenberg::Univariate<FF, 13>(std::array<FF, 13>{ 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32 });
     auto combiner_quotient = ProtoGalaxyProver::compute_combiner_quotient(compressed_perturbator, combiner);
 
-    auto expected_evals = barretenberg::Univariate<FF, 7, 2>(std::array<FF, 5>{
+    auto expected_evals = barretenberg::Univariate<FF, 13, 2>(std::array<FF, 11>{
         (FF(22) - (FF(1) - FF(2)) * compressed_perturbator) / (FF(2) * FF(2 - 1)),
         (FF(23) - (FF(1) - FF(3)) * compressed_perturbator) / (FF(3) * FF(3 - 1)),
         (FF(24) - (FF(1) - FF(4)) * compressed_perturbator) / (FF(4) * FF(4 - 1)),
         (FF(25) - (FF(1) - FF(5)) * compressed_perturbator) / (FF(5) * FF(5 - 1)),
         (FF(26) - (FF(1) - FF(6)) * compressed_perturbator) / (FF(6) * FF(6 - 1)),
+        (FF(27) - (FF(1) - FF(7)) * compressed_perturbator) / (FF(7) * FF(7 - 1)),
+        (FF(28) - (FF(1) - FF(8)) * compressed_perturbator) / (FF(8) * FF(8 - 1)),
+        (FF(29) - (FF(1) - FF(9)) * compressed_perturbator) / (FF(9) * FF(9 - 1)),
+        (FF(30) - (FF(1) - FF(10)) * compressed_perturbator) / (FF(10) * FF(10 - 1)),
+        (FF(31) - (FF(1) - FF(11)) * compressed_perturbator) / (FF(11) * FF(11 - 1)),
+        (FF(32) - (FF(1) - FF(12)) * compressed_perturbator) / (FF(12) * FF(12 - 1)),
     });
 
     for (size_t idx = 2; idx < 7; idx++) {
@@ -262,4 +262,47 @@ TEST_F(ProtoGalaxyTests, CombinerQuotient)
 //     info(new_target_sum_verifier);
 // }
 
+TEST_F(ProtoGalaxyTests, FoldChallenges)
+{
+    using Instances = ProverInstances_<Flavor, 2>;
+    using Instance = typename Instances::Instance;
+
+    Builder builder1;
+    auto instance1 = std::make_shared<Instance>(builder1);
+    instance1->relation_parameters.eta = 1;
+
+    Builder builder2;
+    builder2.add_variable(3);
+    auto instance2 = std::make_shared<Instance>(builder2);
+    instance2->relation_parameters.eta = 3;
+
+    Instances instances{ { instance1, instance2 } };
+    ProtoGalaxyProver::fold_parameters(instances);
+
+    Univariate<FF, 12> expected_eta{ { 1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23 } };
+    EXPECT_EQ(instances.relation_parameters.eta, expected_eta);
+}
+
+// namespace proof_system::honk::instance_tests {
+
+// template <class Flavor> class InstancesTests : public testing::Test {
+//     using FF = typename Flavor::FF;
+//     using Builder = typename Flavor::CircuitBuilder;
+
+//   public:
+//     static void test_parameters_to_univariates()
+//     {
+
+//     };
+// };
+
+// using FlavorTypes = testing::Types<flavor::Ultra>;
+// TYPED_TEST_SUITE(InstancesTests, FlavorTypes);
+
+// TYPED_TEST(InstancesTests, ParametersToUnivariates)
+// {
+//     TestFixture::test_parameters_to_univariates();
+// }
+
+// } // namespace proof_system::honk::instance_tests
 } // namespace protogalaxy_tests

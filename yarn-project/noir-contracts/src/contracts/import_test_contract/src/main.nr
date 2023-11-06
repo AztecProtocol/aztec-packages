@@ -26,21 +26,21 @@ contract ImportTest {
         target: Field
     ) -> Field {
         let test_contract_instance = TestPrivateContextInterface::at(target);
-        let return_values = test_contract_instance.testCodeGen(
+        let return_values = test_contract_instance.test_code_gen(
             &mut context,
             1,
             true,
             1 as u32,
             [1, 2],
-            AStructTestCodeGenStruct { amount: 1, secretHash: 2 },
+            AStructTestCodeGenStruct { amount: 1, secret_hash: 2 },
             ADeepStructTestCodeGenStruct {
-                aField: 1, 
-                aBool: true, 
-                aNote: ANoteADeepStructTestCodeGenStruct { amount: 1, secretHash: 2 },
-                manyNotes: [
-                    ManyNotesADeepStructTestCodeGenStruct { amount: 1, secretHash: 2 },
-                    ManyNotesADeepStructTestCodeGenStruct { amount: 1, secretHash: 2 },
-                    ManyNotesADeepStructTestCodeGenStruct { amount: 1, secretHash: 2 },
+                a_field: 1, 
+                a_bool: true, 
+                a_note: ANoteADeepStructTestCodeGenStruct { amount: 1, secret_hash: 2 },
+                many_notes: [
+                    ManyNotesADeepStructTestCodeGenStruct { amount: 1, secret_hash: 2 },
+                    ManyNotesADeepStructTestCodeGenStruct { amount: 1, secret_hash: 2 },
+                    ManyNotesADeepStructTestCodeGenStruct { amount: 1, secret_hash: 2 },
                 ]
             }
         );
@@ -56,7 +56,7 @@ contract ImportTest {
         target: Field
     ) -> Field {
         let test_contract_instance = TestPrivateContextInterface::at(target);
-        let return_values = test_contract_instance.getThisAddress(&mut context);
+        let return_values = test_contract_instance.get_this_address(&mut context);
         
         return_values[0]
     }
@@ -69,7 +69,7 @@ contract ImportTest {
         target: Field,
     ) {
         let test_contract_instance = TestPrivateContextInterface::at(target);
-        test_contract_instance.createNullifierPublic(&mut context, 1, 2);
+        test_contract_instance.create_nullifier_public(&mut context, 1, 2);
     }
 
     // Calls the createNullifierPublic on the Test contract at the target address
@@ -80,7 +80,7 @@ contract ImportTest {
         target: Field,
     ) -> Field {
         let test_contract_instance = TestPublicContextInterface::at(target);
-        let ret = test_contract_instance.createNullifierPublic(context, 1, 2);
+        let ret = test_contract_instance.create_nullifier_public(context, 1, 2);
         
         ret[0]
     }

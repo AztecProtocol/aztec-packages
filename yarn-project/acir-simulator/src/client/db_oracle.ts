@@ -50,7 +50,7 @@ export interface DBOracle extends CommitmentsDB {
   /**
    * Retrieves a set of notes stored in the database for a given contract address and storage slot.
    * The query result is paginated using 'limit' and 'offset' values.
-   * Returns an object containing an array of note data, including preimage, nonce, and index for each note.
+   * Returns an object containing an array of note data.
    *
    * @param contractAddress - The AztecAddress instance representing the contract address.
    * @param storageSlot - The Fr instance representing the storage slot of the notes.
@@ -70,6 +70,19 @@ export interface DBOracle extends CommitmentsDB {
     contractAddress: AztecAddress,
     selector: FunctionSelector,
   ): Promise<FunctionArtifactWithDebugMetadata>;
+
+  /**
+   * Retrieves the artifact of a specified function within a given contract.
+   * The function is identified by its name, which is unique within a contract.
+   *
+   * @param contractAddress - The AztecAddress representing the contract containing the function.
+   * @param functionName - The name of the function.
+   * @returns The corresponding function's artifact as an object.
+   */
+  getFunctionArtifactByName(
+    contractAddress: AztecAddress,
+    functionName: string,
+  ): Promise<FunctionArtifactWithDebugMetadata | undefined>;
 
   /**
    * Retrieves the portal contract address associated with the given contract address.

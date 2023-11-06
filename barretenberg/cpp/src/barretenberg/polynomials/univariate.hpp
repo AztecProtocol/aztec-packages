@@ -81,6 +81,8 @@ template <class Fr, size_t domain_end, size_t domain_start = 0> class Univariate
         return output;
     };
 
+    static Univariate random_element() { return get_random(); };
+
     // Operations between Univariate and other Univariate
     bool operator==(const Univariate& other) const = default;
 

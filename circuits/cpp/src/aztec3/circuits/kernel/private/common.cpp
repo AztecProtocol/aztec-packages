@@ -53,7 +53,7 @@ void common_validate_call_stack(DummyBuilder& builder, PrivateCallData<NT> const
 }
 
 /**
- * @brief Validate all read requests against the historic private data root.
+ * @brief Validate all read requests against the historic note hash tree root.
  * Use their membership witnesses to do so. If the historic root is not yet
  * initialized, initialize it using the first read request here (if present).
  *
@@ -62,26 +62,26 @@ void common_validate_call_stack(DummyBuilder& builder, PrivateCallData<NT> const
  * - https://discourse.aztec.network/t/spending-notes-which-havent-yet-been-inserted/180
  *
  * @param builder
- * @param historic_private_data_tree_root This is a reference to the historic root which all
+ * @param historic_note_hash_tree_root This is a reference to the historic root which all
  * read requests are checked against here.
  * @param read_requests the commitments being read by this private call - 'transient note reads' here are
  * `inner_note_hashes` (not yet siloed, not unique), but 'pre-existing note reads' are `unique_siloed_note_hashes`
- * @param read_request_membership_witnesses used to compute the private data root
+ * @param read_request_membership_witnesses used to compute the note hash tree root
  * for a given request which is essentially a membership check
  */
 void common_validate_read_requests(DummyBuilder& builder,
-                                   NT::fr const& historic_private_data_tree_root,
+                                   NT::fr const& historic_note_hash_tree_root,
                                    std::array<fr, MAX_READ_REQUESTS_PER_CALL> const& read_requests,
-                                   std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>,
+                                   std::array<ReadRequestMembershipWitness<NT, NOTE_HASH_TREE_HEIGHT>,
                                               MAX_READ_REQUESTS_PER_CALL> const& read_request_membership_witnesses)
 {
-    // membership witnesses must resolve to the same private data root
+    // membership witnesses must resolve to the same note hash tree root
     // for every request in all kernel iterations
     for (size_t rr_idx = 0; rr_idx < aztec3::MAX_READ_REQUESTS_PER_CALL; rr_idx++) {
         const auto& read_request = read_requests[rr_idx];
         const auto& witness = read_request_membership_witnesses[rr_idx];
 
-        // A pending commitment is the one that is not yet added to private data tree
+        // A pending commitment is the one that is not yet added to note hash tree
         // A "transient read" is when we try to "read" a pending commitment within a transaction
         // between function calls, as opposed to reading the outputs of a previous transaction
         // which is a "pending read".
@@ -92,12 +92,12 @@ void common_validate_read_requests(DummyBuilder& builder,
             const auto& root_for_read_request =
                 root_from_sibling_path<NT>(read_request, witness.leaf_index, witness.sibling_path);
             builder.do_assert(
-                root_for_read_request == historic_private_data_tree_root,
-                format("private data tree root mismatch at read_request[",
+                root_for_read_request == historic_note_hash_tree_root,
+                format("note hash tree root mismatch at read_request[",
                        rr_idx,
                        "]",
                        "\n\texpected root:    ",
-                       historic_private_data_tree_root,
+                       historic_note_hash_tree_root,
                        "\n\tbut got root*:    ",
                        root_for_read_request,
                        "\n\tread_request**:   ",
@@ -108,11 +108,11 @@ void common_validate_read_requests(DummyBuilder& builder,
                        witness.is_transient,
                        "\n\thint_to_commitment: ",
                        witness.hint_to_commitment,
-                       "\n\t* got root by treating the read_request as a leaf in the private data tree "
+                       "\n\t* got root by treating the read_request as a leaf in the note hash tree "
                        "and merkle-hashing to a root using the membership witness"
                        "\n\t** for 'pre-existing note reads', the read_request is the unique_siloed_note_hash "
                        "(it has been hashed with contract address and then a nonce)"),
-                CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_PRIVATE_DATA_ROOT_MISMATCH);
+                CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_NOTE_HASH_TREE_ROOT_MISMATCH);
             // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1354): do we need to enforce
             // that a non-transient read_request was derived from the proper/current contract address?
         }
@@ -210,6 +210,8 @@ void common_update_end_values(DummyBuilder& builder,
             const auto& read_request = read_requests[i];
             const auto& witness = read_request_membership_witnesses[i];
             if (witness.is_transient) {  // only forward transient to public inputs
+                // TODO (David): This is pushing zeroed read requests for public inputs if they are transient. Is that
+                // correct?
                 const auto siloed_read_request =
                     read_request == 0 ? 0 : silo_commitment<NT>(storage_contract_address, read_request);
                 array_push(builder,
@@ -341,8 +343,9 @@ void common_contract_logic(DummyBuilder& builder,
     const auto& storage_contract_address = private_call_public_inputs.call_context.storage_contract_address;
     const auto& portal_contract_address = private_call.portal_contract_address;
 
-    const auto private_call_vk_hash =
-        stdlib::recursion::verification_key<CT::bn254>::compress_native(private_call.vk, GeneratorIndex::VK);
+    // TODO(#3062) VKs are mocked out for now
+    // const auto private_call_vk_hash = stdlib::recursion::verification_key<CT::bn254>::hash_native(private_call.vk);
+    const auto private_call_vk_hash = 0;
 
     const auto is_contract_deployment = public_inputs.constants.tx_context.is_contract_deployment_tx;
 
@@ -366,9 +369,10 @@ void common_contract_logic(DummyBuilder& builder,
                    native_new_contract_data,
                    format(PRIVATE_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING, "too many contracts created in one tx"));
 
-        builder.do_assert(contract_dep_data.constructor_vk_hash == private_call_vk_hash,
-                          "constructor_vk_hash doesn't match private_call_vk_hash",
-                          CircuitErrorCode::PRIVATE_KERNEL__INVALID_CONSTRUCTOR_VK_HASH);
+        // TODO(#3062) VKs are mocked out for now
+        // builder.do_assert(contract_dep_data.constructor_vk_hash == private_call_vk_hash,
+        //                   "constructor_vk_hash doesn't match private_call_vk_hash",
+        //                   CircuitErrorCode::PRIVATE_KERNEL__INVALID_CONSTRUCTOR_VK_HASH);
 
         // must imply == derived address
         builder.do_assert(storage_contract_address == new_contract_address,

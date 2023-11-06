@@ -1,7 +1,9 @@
 // docs:start:imports
 import {
+  ExtendedNote,
   Fr,
-  NotePreimage,
+  GrumpkinScalar,
+  Note,
   PXE,
   computeMessageSecretHash,
   createDebugLogger,
@@ -10,7 +12,6 @@ import {
   getSchnorrAccount,
   waitForSandbox,
 } from '@aztec/aztec.js';
-import { GrumpkinScalar } from '@aztec/circuits.js';
 import { TokenContract } from '@aztec/noir-contracts/types';
 
 import { format } from 'util';
@@ -45,8 +46,10 @@ describe('e2e_sandbox_example', () => {
     ////////////// LOAD SOME ACCOUNTS FROM THE SANDBOX //////////////
     // The sandbox comes with a set of created accounts. Load them
     const accounts = await getSandboxAccountsWallets(pxe);
-    const alice = accounts[0].getAddress();
-    const bob = accounts[1].getAddress();
+    const aliceWallet = accounts[0];
+    const bobWallet = accounts[1];
+    const alice = aliceWallet.getAddress();
+    const bob = bobWallet.getAddress();
     logger(`Loaded alice's account at ${alice.toShortString()}`);
     logger(`Loaded bob's account at ${bob.toShortString()}`);
     // docs:end:load_accounts
@@ -58,11 +61,11 @@ describe('e2e_sandbox_example', () => {
     logger(`Deploying token contract...`);
 
     // Deploy the contract and set Alice as the admin while doing so
-    const contract = await TokenContract.deploy(pxe, alice).send().deployed();
+    const contract = await TokenContract.deploy(aliceWallet, alice).send().deployed();
     logger(`Contract successfully deployed at address ${contract.address.toShortString()}`);
 
     // Create the contract abstraction and link it to Alice's wallet for future signing
-    const tokenContractAlice = await TokenContract.at(contract.address, accounts[0]);
+    const tokenContractAlice = await TokenContract.at(contract.address, aliceWallet);
 
     // Create a secret and a corresponding hash that will be used to mint funds privately
     const aliceSecret = Fr.random();
@@ -74,8 +77,8 @@ describe('e2e_sandbox_example', () => {
 
     // Add the newly created "pending shield" note to PXE
     const pendingShieldsStorageSlot = new Fr(5); // The storage slot of `pending_shields` is 5.
-    const preimage = new NotePreimage([new Fr(initialSupply), aliceSecretHash]);
-    await pxe.addNote(alice, contract.address, pendingShieldsStorageSlot, preimage, receipt.txHash);
+    const note = new Note([new Fr(initialSupply), aliceSecretHash]);
+    await pxe.addNote(new ExtendedNote(note, alice, contract.address, pendingShieldsStorageSlot, receipt.txHash));
 
     // Make the tokens spendable by redeeming them using the secret (converts the "pending shield note" created above
     // to a "token note")
@@ -92,7 +95,7 @@ describe('e2e_sandbox_example', () => {
 
     // Bob wants to mint some funds, the contract is already deployed, create an abstraction and link it his wallet
     // Since we already have a token link, we can simply create a new instance of the contract linked to Bob's wallet
-    const tokenContractBob = tokenContractAlice.withWallet(accounts[1]);
+    const tokenContractBob = tokenContractAlice.withWallet(bobWallet);
 
     let aliceBalance = await tokenContractAlice.methods.balance_of_private(alice).view();
     logger(`Alice's balance ${aliceBalance}`);
@@ -140,8 +143,10 @@ describe('e2e_sandbox_example', () => {
     logger(`Minting ${mintQuantity} tokens to Bob...`);
     const mintPrivateReceipt = await tokenContractBob.methods.mint_private(mintQuantity, bobSecretHash).send().wait();
 
-    const bobPendingShield = new NotePreimage([new Fr(mintQuantity), bobSecretHash]);
-    await pxe.addNote(bob, contract.address, pendingShieldsStorageSlot, bobPendingShield, mintPrivateReceipt.txHash);
+    const bobPendingShield = new Note([new Fr(mintQuantity), bobSecretHash]);
+    await pxe.addNote(
+      new ExtendedNote(bobPendingShield, bob, contract.address, pendingShieldsStorageSlot, mintPrivateReceipt.txHash),
+    );
 
     await tokenContractBob.methods.redeem_shield(bob, mintQuantity, bobSecret).send().wait();
 

@@ -67,6 +67,10 @@
     to = "/dev_docs/tutorials/writing_token_contract"
 
 [[redirects]]
+    from = "/dev_docs/getting_started/updating"
+    to = "/dev_docs/updating"
+
+[[redirects]]
     from = "/dev_docs/sandbox/main"
     to = "/dev_docs/getting_started/sandbox"
 
@@ -97,10 +101,6 @@
 [[redirects]]
     from = "/aztec/cryptography/cryptography-roadmap"
     to = "/about_aztec/roadmap/cryptography_roadmap"
-
-[[redirects]]
-    from = "/aztec/milestones"
-    to = "/about_aztec/roadmap/engineering_roadmap"
 
 [[redirects]]
     from = "/aztec/milestones/features-initial-ldt"
@@ -170,6 +170,17 @@
     from = "/dev_docs/contracts/syntax/state_variables"
     to = "/dev_docs/contracts/syntax/storage"
 
+[[redirects]]
+    from = "/dev_docs/getting_started/sandbox"
+    to = "/dev_docs/getting_started/quickstart"
+
+[[redirects]]
+    from = "/dev_docs/getting_started/blank_box"
+    to = "/dev_docs/cli/blank_box"
+
+[[redirects]]
+    from = "/dev_docs/getting_started/updating"
+    to = "/dev_docs/cli/updating"
 
 [[redirects]]
     from = "/misc/aztec-connect-sunset"

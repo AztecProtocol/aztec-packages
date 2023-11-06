@@ -161,8 +161,8 @@ TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
     utils::DummyCircuitBuilder builder =
         utils::DummyCircuitBuilder("root_rollup_tests__native_root_missing_nullifier_logic");
 
-    MemoryStore private_data_tree_store;
-    MerkleTree private_data_tree(private_data_tree_store, PRIVATE_DATA_TREE_HEIGHT);
+    MemoryStore note_hash_tree_store;
+    MerkleTree note_hash_tree(note_hash_tree_store, NOTE_HASH_TREE_HEIGHT);
 
     MemoryStore contract_tree_store;
     MerkleTree contract_tree(contract_tree_store, CONTRACT_TREE_HEIGHT);
@@ -187,7 +187,7 @@ TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
     // Calculate the start block hash
     abis::GlobalVariables<NT> globals = abis::GlobalVariables<NT>::empty();
     auto start_block_hash = compute_block_hash_with_globals(globals,
-                                                            private_data_tree.root(),
+                                                            note_hash_tree.root(),
                                                             nullifier_tree.root(),
                                                             contract_tree.root(),
                                                             l1_to_l2_messages_tree.root(),
@@ -202,7 +202,7 @@ TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
         for (uint8_t commitment_k = 0; commitment_k < MAX_NEW_COMMITMENTS_PER_TX; commitment_k++) {
             auto val = fr(kernel_j * MAX_NEW_COMMITMENTS_PER_TX + commitment_k + 1);
             new_commitments[commitment_k] = val;
-            private_data_tree.update_element(kernel_j * MAX_NEW_COMMITMENTS_PER_TX + commitment_k, val);
+            note_hash_tree.update_element(kernel_j * MAX_NEW_COMMITMENTS_PER_TX + commitment_k, val);
         }
         kernels[kernel_j].public_inputs.end.new_commitments = new_commitments;
 
@@ -238,7 +238,7 @@ TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
 
     // Get the block hash after.
     auto end_block_hash = compute_block_hash_with_globals(globals,
-                                                          private_data_tree.root(),
+                                                          note_hash_tree.root(),
                                                           nullifier_tree.root(),
                                                           contract_tree.root(),
                                                           l1_to_l2_messages_tree.root(),
@@ -256,17 +256,16 @@ TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
     RootRollupPublicInputs outputs =
         aztec3::circuits::rollup::native_root_rollup::root_rollup_circuit(builder, rootRollupInputs);
 
-    // Check private data trees
+    // Check note hash trees
     ASSERT_EQ(
-        outputs.start_private_data_tree_snapshot,
-        rootRollupInputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.start_private_data_tree_snapshot);
-    ASSERT_EQ(
-        outputs.end_private_data_tree_snapshot,
-        rootRollupInputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.end_private_data_tree_snapshot);
-    AppendOnlyTreeSnapshot<NT> const expected_private_data_tree_snapshot = { .root = private_data_tree.root(),
-                                                                             .next_available_leaf_index =
-                                                                                 4 * MAX_NEW_COMMITMENTS_PER_TX };
-    ASSERT_EQ(outputs.end_private_data_tree_snapshot, expected_private_data_tree_snapshot);
+        outputs.start_note_hash_tree_snapshot,
+        rootRollupInputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.start_note_hash_tree_snapshot);
+    ASSERT_EQ(outputs.end_note_hash_tree_snapshot,
+              rootRollupInputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.end_note_hash_tree_snapshot);
+    AppendOnlyTreeSnapshot<NT> const expected_note_hash_tree_snapshot = { .root = note_hash_tree.root(),
+                                                                          .next_available_leaf_index =
+                                                                              4 * MAX_NEW_COMMITMENTS_PER_TX };
+    ASSERT_EQ(outputs.end_note_hash_tree_snapshot, expected_note_hash_tree_snapshot);
 
     // Check public data trees
     ASSERT_EQ(outputs.start_public_data_tree_root,
@@ -306,6 +305,35 @@ TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
 
     // TODO(1998): see above
     // run_cbind(rootRollupInputs, outputs, true);
+}
+
+TEST_F(root_rollup_tests, noir_interop_test)
+{
+    // This is an annoying hack to convert the field into a hex string
+    // We should add a to_hex and from_hex method to field class
+    auto to_hex = [](const NT::fr& value) -> std::string {
+        std::stringstream field_as_hex_stream;
+        field_as_hex_stream << value;
+        return field_as_hex_stream.str();
+    };
+
+    MemoryStore merkle_tree_store;
+    MerkleTree merkle_tree(merkle_tree_store, L1_TO_L2_MSG_SUBTREE_HEIGHT);
+
+    std::array<fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP> leaves = { 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4 };
+    for (size_t i = 0; i < NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP; i++) {
+        merkle_tree.update_element(i, leaves[i]);
+    }
+    auto root = merkle_tree.root();
+    auto expected = "0x17e8bb70a11d0c946345950879484d2f4f9fef397ff6adbfdec3baab2d41faab";
+    ASSERT_EQ(to_hex(root), expected);
+
+    // Empty subtree is the same as zeroes
+    MemoryStore empty_tree_store;
+    MerkleTree const empty_tree = MerkleTree(empty_tree_store, L1_TO_L2_MSG_SUBTREE_HEIGHT);
+    auto empty_root = empty_tree.root();
+    auto expected_empty_root = "0x06e62084ee7b602fe9abc15632dda3269f56fb0c6e12519a2eb2ec897091919d";
+    ASSERT_EQ(to_hex(empty_root), expected_empty_root);
 }
 
 }  // namespace aztec3::circuits::rollup::root::native_root_rollup_circuit

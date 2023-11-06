@@ -1,10 +1,10 @@
 #pragma once
-#include "barretenberg/honk/flavor/goblin_ultra.hpp"
-#include "barretenberg/honk/flavor/ultra.hpp"
-#include "barretenberg/honk/instance/instances.hpp"
+#include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/goblin_ultra.hpp"
+#include "barretenberg/flavor/ultra.hpp"
 #include "barretenberg/honk/proof_system/folding_result.hpp"
-#include "barretenberg/honk/transcript/transcript.hpp"
-#include "barretenberg/proof_system/flavor/flavor.hpp"
+#include "barretenberg/sumcheck/instance/instances.hpp"
+#include "barretenberg/transcript/transcript.hpp"
 
 namespace proof_system::honk {
 template <class VerifierInstances> class ProtoGalaxyVerifier_ {
@@ -14,7 +14,7 @@ template <class VerifierInstances> class ProtoGalaxyVerifier_ {
     using Instance = typename VerifierInstances::Instance;
     using VerificationKey = typename Flavor::VerificationKey;
     VerifierInstances verifier_instances;
-    VerifierTranscript<FF> transcript;
+    BaseTranscript<FF> transcript;
 
     // should the PG verifier be given the VerifierInstances, nah this makes sense yo me
     ProtoGalaxyVerifier_(VerifierInstances insts)

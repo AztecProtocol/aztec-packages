@@ -1,4 +1,3 @@
-use dep::std::option::Option;
 use crate::abi::PublicContextInputs;
 use crate::context::{
     PrivateContext,
@@ -17,6 +16,7 @@ pub fn create_note<Note, N>(
     storage_slot: Field,
     note: &mut Note,
     note_interface: NoteInterface<Note, N>,
+    broadcast: bool,
 ) {
     let contract_address = (*context).this_address();
 
@@ -26,10 +26,15 @@ pub fn create_note<Note, N>(
     let inner_note_hash = compute_inner_note_hash(note_interface, *note);
 
     let serialize = note_interface.serialize;
-    let preimage = serialize(*note);
-    assert(notify_created_note(storage_slot, preimage, inner_note_hash) == 0);
+    let serialized_note = serialize(*note);
+    assert(notify_created_note(storage_slot, serialized_note, inner_note_hash) == 0);
 
     context.push_new_note_hash(inner_note_hash);
+
+    if broadcast {
+        let broadcast = note_interface.broadcast;
+        broadcast(context, storage_slot, *note);
+    }
 }
 
 pub fn create_note_hash_from_public<Note, N>(
@@ -65,7 +70,7 @@ pub fn destroy_note<Note, N>(
     // the nullifier corresponds to so they can be matched and both squashed/deleted.
     // nonzero nonce implies "persistable" nullifier (nullifies a persistent/in-tree
     // commitment) in which case `nullified_commitment` is not used since the kernel
-    // just siloes and forwards the nullier to its output.
+    // just siloes and forwards the nullifier to its output.
     if (header.is_transient) {
         // TODO(1718): Can we reuse the note commitment computed in `compute_nullifier`?
         nullified_commitment = compute_inner_note_hash(note_interface, note);

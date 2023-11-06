@@ -1,6 +1,6 @@
 import { AztecAddress, CircuitsWasm, EthAddress, Fr } from '@aztec/circuits.js';
 import { computeSecretMessageHash } from '@aztec/circuits.js/abis';
-import { ContractArtifact, getFunctionDebugMetadata } from '@aztec/foundation/abi';
+import { ContractArtifact, FunctionSelector, getFunctionDebugMetadata } from '@aztec/foundation/abi';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { L1Actor, L1ToL2Message, L2Actor } from '@aztec/types';
 
@@ -46,13 +46,26 @@ export const getFunctionArtifact = (
   artifact: ContractArtifact,
   functionName: string,
 ): FunctionArtifactWithDebugMetadata => {
-  const functionIndex = artifact.functions.findIndex(f => f.name === functionName);
-  if (functionIndex < 0) {
+  const functionArtifact = artifact.functions.find(f => f.name === functionName);
+  if (!functionArtifact) {
     throw new Error(`Unknown function ${functionName}`);
   }
-  const functionArtifact = artifact.functions[functionIndex];
 
   const debug = getFunctionDebugMetadata(artifact, functionName);
+  return { ...functionArtifact, debug };
+};
 
+export const getFunctionArtifactWithSelector = (
+  artifact: ContractArtifact,
+  functionSelector: FunctionSelector,
+): FunctionArtifactWithDebugMetadata => {
+  const functionArtifact = artifact.functions.find(f =>
+    functionSelector.equals(FunctionSelector.fromNameAndParameters(f.name, f.parameters)),
+  );
+  if (!functionArtifact) {
+    throw new Error(`Unknown function ${functionSelector}`);
+  }
+
+  const debug = getFunctionDebugMetadata(artifact, functionArtifact.name);
   return { ...functionArtifact, debug };
 };

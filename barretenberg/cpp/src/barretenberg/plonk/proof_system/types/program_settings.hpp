@@ -2,7 +2,6 @@
 
 #include <cstdint>
 
-#include "../../../transcript/transcript.hpp"
 #include "../widgets/random_widgets/permutation_widget.hpp"
 #include "../widgets/random_widgets/plookup_widget.hpp"
 #include "../widgets/random_widgets/random_widget.hpp"
@@ -14,6 +13,7 @@
 #include "../widgets/transition_widgets/plookup_arithmetic_widget.hpp"
 #include "../widgets/transition_widgets/plookup_auxiliary_widget.hpp"
 #include "./prover_settings.hpp"
+#include "barretenberg/plonk/transcript/transcript.hpp"
 
 namespace proof_system::plonk {
 
@@ -71,7 +71,7 @@ class ultra_verifier_settings : public ultra_settings {
     typedef VerifierPlookupAuxiliaryWidget<fr, g1::affine_element, Transcript, ultra_settings> PlookupAuxiliaryWidget;
 
     static constexpr size_t num_challenge_bytes = 16;
-    static constexpr transcript::HashType hash_type = transcript::HashType::PlookupPedersenBlake3s;
+    static constexpr transcript::HashType hash_type = transcript::HashType::PedersenBlake3s;
     static constexpr bool idpolys = true;
 
     static fr append_scalar_multiplication_inputs(verification_key* key,

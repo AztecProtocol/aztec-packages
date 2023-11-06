@@ -1,4 +1,4 @@
-import { CONTRACT_TREE_HEIGHT, Fr, L1_TO_L2_MSG_TREE_HEIGHT, PRIVATE_DATA_TREE_HEIGHT } from '@aztec/circuits.js';
+import { CONTRACT_TREE_HEIGHT, Fr, L1_TO_L2_MSG_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT } from '@aztec/circuits.js';
 
 import { L1ToL2MessageAndIndex } from '../l1_to_l2_message.js';
 import { MerkleTreeId } from '../merkle_tree_id.js';
@@ -14,21 +14,21 @@ export interface StateInfoProvider {
    * @param leafValue - The value to search for
    * @returns The index of the given leaf in the given tree or undefined if not found.
    */
-  findLeafIndex(treeId: MerkleTreeId, leafValue: Buffer): Promise<bigint | undefined>;
+  findLeafIndex(treeId: MerkleTreeId, leafValue: Fr): Promise<bigint | undefined>;
 
   /**
    * Returns the sibling path for the given index in the contract tree.
    * @param leafIndex - The index of the leaf for which the sibling path is required.
    * @returns The sibling path for the leaf index.
    */
-  getContractPath(leafIndex: bigint): Promise<SiblingPath<typeof CONTRACT_TREE_HEIGHT>>;
+  getContractSiblingPath(leafIndex: bigint): Promise<SiblingPath<typeof CONTRACT_TREE_HEIGHT>>;
 
   /**
-   * Returns the sibling path for the given index in the data tree.
+   * Returns the sibling path for the given index in the note hash tree.
    * @param leafIndex - The index of the leaf for which the sibling path is required.
    * @returns The sibling path for the leaf index.
    */
-  getDataTreePath(leafIndex: bigint): Promise<SiblingPath<typeof PRIVATE_DATA_TREE_HEIGHT>>;
+  getNoteHashSiblingPath(leafIndex: bigint): Promise<SiblingPath<typeof NOTE_HASH_TREE_HEIGHT>>;
 
   /**
    * Gets a confirmed/consumed L1 to L2 message for the given message key (throws if not found).
@@ -43,5 +43,5 @@ export interface StateInfoProvider {
    * @param leafIndex - Index of the leaf in the tree.
    * @returns The sibling path.
    */
-  getL1ToL2MessagesTreePath(leafIndex: bigint): Promise<SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>>;
+  getL1ToL2MessageSiblingPath(leafIndex: bigint): Promise<SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>>;
 }

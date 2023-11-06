@@ -1,11 +1,11 @@
 #pragma once
-#include "barretenberg/honk/flavor/goblin_ultra.hpp"
-#include "barretenberg/honk/flavor/goblin_ultra_recursive.hpp"
-#include "barretenberg/honk/flavor/ultra.hpp"
-#include "barretenberg/honk/flavor/ultra_recursive.hpp"
-#include "barretenberg/honk/sumcheck/sumcheck.hpp"
+#include "barretenberg/flavor/goblin_ultra.hpp"
+#include "barretenberg/flavor/goblin_ultra_recursive.hpp"
+#include "barretenberg/flavor/ultra.hpp"
+#include "barretenberg/flavor/ultra_recursive.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
 #include "barretenberg/stdlib/recursion/honk/transcript/transcript.hpp"
+#include "barretenberg/sumcheck/sumcheck.hpp"
 
 namespace proof_system::plonk::stdlib::recursion::honk {
 template <typename Flavor> class UltraRecursiveVerifier_ {

@@ -33,7 +33,7 @@ export class SimulatorOracle implements DBOracle {
     const completeAddress = await this.db.getCompleteAddress(address);
     if (!completeAddress)
       throw new Error(
-        `Unknown complete address for address ${address.toString()}. Add the information to PXE Service by calling server.registerRecipient(...) or server.registerAccount(...)`,
+        `No public key registered for address ${address.toString()}. Register it by calling pxe.registerRecipient(...) or pxe.registerAccount(...).\nSee docs for context: https://docs.aztec.network/dev_docs/contracts/common_errors#no-public-key-registered-error`,
       );
     return completeAddress;
   }
@@ -45,19 +45,17 @@ export class SimulatorOracle implements DBOracle {
   }
 
   async getNotes(contractAddress: AztecAddress, storageSlot: Fr) {
-    const noteDaos = await this.db.getNoteSpendingInfo(contractAddress, storageSlot);
-    return noteDaos.map(
-      ({ contractAddress, storageSlot, nonce, notePreimage, innerNoteHash, siloedNullifier, index }) => ({
-        contractAddress,
-        storageSlot,
-        nonce,
-        preimage: notePreimage.items,
-        innerNoteHash,
-        siloedNullifier,
-        // PXE can use this index to get full MembershipWitness
-        index,
-      }),
-    );
+    const noteDaos = await this.db.getNotes({ contractAddress, storageSlot });
+    return noteDaos.map(({ contractAddress, storageSlot, nonce, note, innerNoteHash, siloedNullifier, index }) => ({
+      contractAddress,
+      storageSlot,
+      nonce,
+      note,
+      innerNoteHash,
+      siloedNullifier,
+      // PXE can use this index to get full MembershipWitness
+      index,
+    }));
   }
 
   async getFunctionArtifact(
@@ -66,6 +64,22 @@ export class SimulatorOracle implements DBOracle {
   ): Promise<FunctionArtifactWithDebugMetadata> {
     const artifact = await this.contractDataOracle.getFunctionArtifact(contractAddress, selector);
     const debug = await this.contractDataOracle.getFunctionDebugMetadata(contractAddress, selector);
+    return {
+      ...artifact,
+      debug,
+    };
+  }
+
+  async getFunctionArtifactByName(
+    contractAddress: AztecAddress,
+    functionName: string,
+  ): Promise<FunctionArtifactWithDebugMetadata | undefined> {
+    const artifact = await this.contractDataOracle.getFunctionArtifactByName(contractAddress, functionName);
+    if (!artifact) {
+      return;
+    }
+
+    const debug = await this.contractDataOracle.getFunctionDebugMetadata(contractAddress, artifact.selector);
     return {
       ...artifact,
       debug,
@@ -88,7 +102,7 @@ export class SimulatorOracle implements DBOracle {
     const messageAndIndex = await this.stateInfoProvider.getL1ToL2MessageAndIndex(msgKey);
     const message = messageAndIndex.message.toFieldArray();
     const index = messageAndIndex.index;
-    const siblingPath = await this.stateInfoProvider.getL1ToL2MessagesTreePath(index);
+    const siblingPath = await this.stateInfoProvider.getL1ToL2MessageSiblingPath(index);
     return {
       message,
       siblingPath: siblingPath.toFieldArray(),
@@ -97,16 +111,16 @@ export class SimulatorOracle implements DBOracle {
   }
 
   /**
-   * Gets the index of a commitment in the private data tree.
+   * Gets the index of a commitment in the note hash tree.
    * @param commitment - The commitment.
    * @returns - The index of the commitment. Undefined if it does not exist in the tree.
    */
   async getCommitmentIndex(commitment: Fr) {
-    return await this.stateInfoProvider.findLeafIndex(MerkleTreeId.PRIVATE_DATA_TREE, commitment.toBuffer());
+    return await this.stateInfoProvider.findLeafIndex(MerkleTreeId.NOTE_HASH_TREE, commitment);
   }
 
   async getNullifierIndex(nullifier: Fr) {
-    return await this.stateInfoProvider.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
+    return await this.stateInfoProvider.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier);
   }
 
   /**

@@ -1,13 +1,16 @@
 import {
   AccountWallet,
-  NotePreimage,
+  CompleteAddress,
+  DebugLogger,
+  ExtendedNote,
+  Fr,
+  FunctionSelector,
+  Note,
   TxHash,
   TxStatus,
   computeAuthWitMessageHash,
   computeMessageSecretHash,
 } from '@aztec/aztec.js';
-import { CompleteAddress, Fr, FunctionSelector } from '@aztec/circuits.js';
-import { DebugLogger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts/types';
 
 import { jest } from '@jest/globals';
@@ -31,8 +34,9 @@ describe('e2e_token_contract', () => {
 
   const addPendingShieldNoteToPXE = async (accountIndex: number, amount: bigint, secretHash: Fr, txHash: TxHash) => {
     const storageSlot = new Fr(5); // The storage slot of `pending_shields` is 5.
-    const preimage = new NotePreimage([new Fr(amount), secretHash]);
-    await wallets[accountIndex].addNote(accounts[0].address, asset.address, storageSlot, preimage, txHash);
+    const note = new Note([new Fr(amount), secretHash]);
+    const extendedNote = new ExtendedNote(note, accounts[accountIndex].address, asset.address, storageSlot, txHash);
+    await wallets[accountIndex].addNote(extendedNote);
   };
 
   beforeAll(async () => {
@@ -168,9 +172,13 @@ describe('e2e_token_contract', () => {
         it('redeem as recipient', async () => {
           await addPendingShieldNoteToPXE(0, amount, secretHash, txHash);
           const txClaim = asset.methods.redeem_shield(accounts[0].address, amount, secret).send();
-          const receiptClaim = await txClaim.wait();
+          const receiptClaim = await txClaim.wait({ debug: true });
           expect(receiptClaim.status).toBe(TxStatus.MINED);
           tokenSim.redeemShield(accounts[0].address, amount);
+          // 1 note should be created containing `amount` of tokens
+          const { visibleNotes } = receiptClaim.debugInfo!;
+          expect(visibleNotes.length).toBe(1);
+          expect(visibleNotes[0].note.items[0].toBigInt()).toBe(amount);
         });
       });
 
@@ -266,9 +274,7 @@ describe('e2e_token_contract', () => {
           .withWallet(wallets[1])
           .methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce)
           .send();
-        await txReplay.isMined();
-        const receiptReplay = await txReplay.getReceipt();
-        expect(receiptReplay.status).toBe(TxStatus.DROPPED);
+        await expect(txReplay.wait()).rejects.toThrowError('Transaction ');
       });
 
       describe('failure cases', () => {
@@ -427,9 +433,7 @@ describe('e2e_token_contract', () => {
           .withWallet(wallets[1])
           .methods.transfer(accounts[0].address, accounts[1].address, amount, nonce)
           .send();
-        await txReplay.isMined();
-        const receiptReplay = await txReplay.getReceipt();
-        expect(receiptReplay.status).toBe(TxStatus.DROPPED);
+        await expect(txReplay.wait()).rejects.toThrowError('Transaction ');
       });
 
       describe('failure cases', () => {
@@ -577,9 +581,7 @@ describe('e2e_token_contract', () => {
         .withWallet(wallets[1])
         .methods.shield(accounts[0].address, amount, secretHash, nonce)
         .send();
-      await txReplay.isMined();
-      const receiptReplay = await txReplay.getReceipt();
-      expect(receiptReplay.status).toBe(TxStatus.DROPPED);
+      await expect(txReplay.wait()).rejects.toThrowError('Transaction ');
 
       // Redeem it
       await addPendingShieldNoteToPXE(0, amount, secretHash, receipt.txHash);
@@ -693,9 +695,7 @@ describe('e2e_token_contract', () => {
         .withWallet(wallets[1])
         .methods.unshield(accounts[0].address, accounts[1].address, amount, nonce)
         .send();
-      await txReplay.isMined();
-      const receiptReplay = await txReplay.getReceipt();
-      expect(receiptReplay.status).toBe(TxStatus.DROPPED);
+      await expect(txReplay.wait()).rejects.toThrowError('Transaction ');
     });
 
     describe('failure cases', () => {
@@ -798,9 +798,7 @@ describe('e2e_token_contract', () => {
 
         // Check that the message hash is no longer valid. Need to try to send since nullifiers are handled by sequencer.
         const txReplay = asset.withWallet(wallets[1]).methods.burn_public(accounts[0].address, amount, nonce).send();
-        await txReplay.isMined();
-        const receiptReplay = await txReplay.getReceipt();
-        expect(receiptReplay.status).toBe(TxStatus.DROPPED);
+        await expect(txReplay.wait()).rejects.toThrowError('Transaction ');
       });
 
       describe('failure cases', () => {
@@ -898,9 +896,7 @@ describe('e2e_token_contract', () => {
 
         // Perform the transfer again, should fail
         const txReplay = asset.withWallet(wallets[1]).methods.burn(accounts[0].address, amount, nonce).send();
-        await txReplay.isMined();
-        const receiptReplay = await txReplay.getReceipt();
-        expect(receiptReplay.status).toBe(TxStatus.DROPPED);
+        await expect(txReplay.wait()).rejects.toThrowError('Transaction ');
       });
 
       describe('failure cases', () => {

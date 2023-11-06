@@ -48,26 +48,29 @@ else()
     message(STATUS "Using optimized assembly for field arithmetic.")
 endif()
 
-add_subdirectory(barretenberg/env)
+add_subdirectory(barretenberg/bb)
+add_subdirectory(barretenberg/commitment_schemes)
 add_subdirectory(barretenberg/common)
-add_subdirectory(barretenberg/numeric)
-add_subdirectory(barretenberg/srs)
-add_subdirectory(barretenberg/ecc)
 add_subdirectory(barretenberg/crypto)
+add_subdirectory(barretenberg/dsl)
+add_subdirectory(barretenberg/ecc)
+add_subdirectory(barretenberg/env)
+add_subdirectory(barretenberg/examples)
+add_subdirectory(barretenberg/flavor)
+add_subdirectory(barretenberg/grumpkin_srs_gen)
+add_subdirectory(barretenberg/honk)
+add_subdirectory(barretenberg/join_split_example)
+add_subdirectory(barretenberg/numeric)
+add_subdirectory(barretenberg/plonk)
 add_subdirectory(barretenberg/polynomials)
 add_subdirectory(barretenberg/proof_system)
-add_subdirectory(barretenberg/transcript)
-add_subdirectory(barretenberg/honk)
-add_subdirectory(barretenberg/plonk)
-add_subdirectory(barretenberg/stdlib)
-add_subdirectory(barretenberg/join_split_example)
-add_subdirectory(barretenberg/dsl)
-add_subdirectory(barretenberg/examples)
 add_subdirectory(barretenberg/serialize)
 add_subdirectory(barretenberg/solidity_helpers)
+add_subdirectory(barretenberg/srs)
+add_subdirectory(barretenberg/stdlib)
+add_subdirectory(barretenberg/sumcheck)
+add_subdirectory(barretenberg/transcript)
 add_subdirectory(barretenberg/wasi)
-add_subdirectory(barretenberg/grumpkin_srs_gen)
-add_subdirectory(barretenberg/bb)
 
 
 if(SMT)
@@ -89,18 +92,17 @@ message(STATUS "Compiling all-in-one barretenberg archive")
 add_library(
     barretenberg
     STATIC
-    $<TARGET_OBJECTS:dsl_objects>
     $<TARGET_OBJECTS:common_objects>
     $<TARGET_OBJECTS:crypto_aes128_objects>
     $<TARGET_OBJECTS:crypto_blake2s_objects>
     $<TARGET_OBJECTS:crypto_blake3s_objects>
     $<TARGET_OBJECTS:crypto_ecdsa_objects>
-    $<TARGET_OBJECTS:crypto_generators_objects>
     $<TARGET_OBJECTS:crypto_keccak_objects>
     $<TARGET_OBJECTS:crypto_pedersen_commitment_objects>
     $<TARGET_OBJECTS:crypto_pedersen_hash_objects>
     $<TARGET_OBJECTS:crypto_schnorr_objects>
     $<TARGET_OBJECTS:crypto_sha256_objects>
+    $<TARGET_OBJECTS:dsl_objects>
     $<TARGET_OBJECTS:ecc_objects>
     $<TARGET_OBJECTS:examples_objects>
     $<TARGET_OBJECTS:honk_objects>
@@ -135,19 +137,17 @@ if(WASM)
     # to implement the functions in env.
     add_executable(
         barretenberg.wasm
-        $<TARGET_OBJECTS:wasi_objects>
-        $<TARGET_OBJECTS:dsl_objects>
         $<TARGET_OBJECTS:common_objects>
         $<TARGET_OBJECTS:crypto_aes128_objects>
         $<TARGET_OBJECTS:crypto_blake2s_objects>
         $<TARGET_OBJECTS:crypto_blake3s_objects>
         $<TARGET_OBJECTS:crypto_ecdsa_objects>
-        $<TARGET_OBJECTS:crypto_generators_objects>
         $<TARGET_OBJECTS:crypto_keccak_objects>
         $<TARGET_OBJECTS:crypto_pedersen_commitment_objects>
         $<TARGET_OBJECTS:crypto_pedersen_hash_objects>
         $<TARGET_OBJECTS:crypto_schnorr_objects>
         $<TARGET_OBJECTS:crypto_sha256_objects>
+        $<TARGET_OBJECTS:dsl_objects>
         $<TARGET_OBJECTS:ecc_objects>
         $<TARGET_OBJECTS:examples_objects>
         $<TARGET_OBJECTS:honk_objects>
@@ -167,6 +167,7 @@ if(WASM)
         $<TARGET_OBJECTS:stdlib_schnorr_objects>
         $<TARGET_OBJECTS:stdlib_sha256_objects>
         $<TARGET_OBJECTS:transcript_objects>
+        $<TARGET_OBJECTS:wasi_objects>
     )
 
     add_executable(
@@ -178,7 +179,6 @@ if(WASM)
         $<TARGET_OBJECTS:ecc_objects>
         $<TARGET_OBJECTS:crypto_blake2s_objects>
         $<TARGET_OBJECTS:crypto_keccak_objects>
-        $<TARGET_OBJECTS:crypto_generators_objects>
         $<TARGET_OBJECTS:crypto_schnorr_objects>
         $<TARGET_OBJECTS:crypto_pedersen_hash_objects>
         $<TARGET_OBJECTS:crypto_pedersen_commitment_objects>
