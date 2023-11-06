@@ -126,6 +126,6 @@ If the dependencies fail to resolve ensure that the tag matches a tag in the [az
 
 ## Updating `nargo`
 
-Nargo is not strictly required, but you may want to use it for the LSP or testing. More info [here](../getting_started/aztecnr-getting-started.md#install-nargo-recommended).
+Nargo is not strictly required, but you may want to use it for the LSP or testing. More info [here](./getting_started/aztecnr-getting-started.md#install-nargo-recommended).
 
 <InstallNargoInstructions />
