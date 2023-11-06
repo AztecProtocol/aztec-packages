@@ -1,6 +1,6 @@
 [package]
 name = "rollup_merge"
-type = "binary"
+type = "bin"
 authors = [""]
 compiler_version = ">=0.18.0"
 
