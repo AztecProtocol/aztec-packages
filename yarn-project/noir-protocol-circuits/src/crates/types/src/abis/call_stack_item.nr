@@ -47,11 +47,33 @@ struct CallStackItem<AppCircuitPublicInputs> {
 // public_inputs and contract_address
 impl PublicCallStackItem {
     fn hash(self) -> Field {
+        let item = if self.inner.is_execution_request {
+            self.as_execution_request().inner
+        } else {
+            self.inner
+        };
+
         dep::std::hash::pedersen_hash_with_separator([
-            self.inner.contract_address.to_field(),
-            self.inner.function_data.hash(),
-            self.inner.public_inputs.hash(),
+            item.contract_address.to_field(),
+            item.function_data.hash(),
+            item.public_inputs.hash(),
         ], constants_gen::GENERATOR_INDEX__CALL_STACK_ITEM)
+    }
+
+    fn as_execution_request(self) -> Self {
+        let public_inputs = self.public_inputs();
+        let mut request_public_inputs: PublicCircuitPublicInputs = dep::std::unsafe::zeroed();
+        request_public_inputs.call_context = public_inputs.call_context;
+        request_public_inputs.args_hash = public_inputs.args_hash;
+
+        PublicCallStackItem {
+            inner: CallStackItem {
+                contract_address: self.contract_address(),
+                function_data: self.function_data(),
+                is_execution_request: true,
+                public_inputs: request_public_inputs,
+            }
+        }
     }
 
     fn public_inputs(self) -> PublicCircuitPublicInputs {

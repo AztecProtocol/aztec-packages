@@ -56,7 +56,6 @@ pub fn validate_call_stack(public_call : PublicCallData) {
         };
         if calculated_hash != 0 {
             assert(hash == calculated_hash, "call stack item hash doesn't match preimage hash");
-            dep::std::println(1);
             // here we validate the msg sender for each call on the stack
             // here we validate the storage address for each call on the stack
             // we need to consider regular vs delegate calls for both
