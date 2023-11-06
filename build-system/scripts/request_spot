@@ -116,5 +116,5 @@ while ! nc -z -w1 $IP 22; do
     >&2 echo "Timeout: SSH port 22 at $IP did not become available after 60 seconds."
     exit 1
   fi
-fi
+done
 echo $IP
