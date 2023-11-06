@@ -24,7 +24,7 @@ This will output a JSON [artifact](./artifacts.md) for each contract in the proj
 aztec-cli compile my-contract --compiler nargo # switches compiler to nargo
 ```
 
-When you specify `nargo` as your compiler, you need to make sure that you are using the correct version. You can find the [latest version information here](../cli/updating.md#updating-nargo).
+When you specify `nargo` as your compiler, you need to make sure that you are using the correct version. You can find the [latest version information here](../updating.md#updating-nargo).
 
 ### Typescript Interfaces
 
