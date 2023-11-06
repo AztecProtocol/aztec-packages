@@ -11,10 +11,6 @@ If you already have some experience with Noir and want to build a cooler contrac
 - You have followed the [quickstart](./quickstart.md)
 - Running Aztec Sandbox
 
-## Install nargo
-
-`Aztec.nr` is a framework built on top of [Noir](https://noir-lang.org), a zero-knowledge DSL. [Aztec CLI](../cli/main.md) comes with a built-in Noir compiler.
-
 ## Set up a project
 
 Create a new directory called `aztec-private-counter`
@@ -51,7 +47,6 @@ Add the following content to `Nargo.toml`:
 name = "counter"
 type = "contract"
 authors = [""]
-compiler_version = "0.16.0"
 
 [dependencies]
 aztec = { git="https://github.com/AztecProtocol/aztec-packages", tag="#include_aztec_version", directory="yarn-project/aztec-nr/aztec" }
