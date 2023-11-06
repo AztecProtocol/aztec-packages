@@ -1,5 +1,5 @@
 artifacts/
-targets/
+target/
 proofs/
 /src/types/
 Prover.toml

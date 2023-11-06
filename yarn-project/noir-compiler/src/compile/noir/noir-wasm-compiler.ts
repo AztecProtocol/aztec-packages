@@ -54,9 +54,6 @@ export class NoirWasmContractCompiler {
     }
 
     const noirPackage = NoirPackage.open(projectPath, fileManager);
-    if (noirPackage.getType() !== 'contract') {
-      throw new Error('This is not a contract project');
-    }
 
     const dependencyManager = new NoirDependencyManager(
       [
@@ -90,7 +87,8 @@ export class NoirWasmContractCompiler {
     initializeResolver(this.#resolveFile);
 
     try {
-      const result = compile(this.#package.getEntryPointPath(), true, {
+      const isContract: boolean = this.#package.getType() === 'contract';
+      const result = compile(this.#package.getEntryPointPath(), isContract, {
         /* eslint-disable camelcase */
         root_dependencies: this.#dependencyManager.getEntrypointDependencies(),
         library_dependencies: this.#dependencyManager.getLibraryDependencies(),

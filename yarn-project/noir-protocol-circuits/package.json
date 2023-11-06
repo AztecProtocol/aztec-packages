@@ -13,7 +13,7 @@
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T prettier -w ./src",
     "noir:build": "cd src && nargo compile --no-backend && rm -rf ./target/debug_*",
-    "noir:build:all": "yarn noir:clean && ./scripts/compile_all.sh && ./scripts/types_all.sh",
+    "noir:build:all": "yarn noir:clean && ./src/scripts/compile_all.sh && ./src/scripts/types_all.sh",
     "noir:clean": "rm -rf ./src/artifacts ./src/types && mkdir -p ../aztec.js/src/artifacts/ && find ../aztec.js/src/artifacts/ -mindepth 1 -delete && rm -rf target/",
     "noir:types": "yarn ts-node --esm src/scripts/generate_ts_from_abi.ts",
     "noir:test": "cd src && nargo test",
