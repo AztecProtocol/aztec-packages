@@ -211,8 +211,7 @@ pub fn update_public_end_values(public_call: PublicCallData, circuit_outputs : &
 
     let public_call_public_inputs = public_call.call_stack_item.public_inputs();
 
-    let stack = public_call_public_inputs.public_call_stack;
-    let public_call_stack = arrays::array_to_bounded_vec(stack, arrays::is_empty, 0);
+    let public_call_stack = arrays::array_to_bounded_vec(public_call_public_inputs.public_call_stack, arrays::is_empty, 0);
     circuit_outputs.end.public_call_stack.push_vec(public_call_stack);
 
     // don't update pending_read_requests, because those just get passed through without any change
@@ -224,7 +223,7 @@ pub fn update_public_end_values(public_call: PublicCallData, circuit_outputs : &
 
     propagate_valid_public_data_update_requests(public_call, circuit_outputs);
 
-    propagate_valid_public_data_reads(public_call, circuit_outputs)
+    propagate_valid_public_data_reads(public_call, circuit_outputs);
 }
 
 pub fn propagate_valid_public_data_reads(public_call: PublicCallData, circuit_outputs: &mut KernelCircuitPublicInputsBuilder){
