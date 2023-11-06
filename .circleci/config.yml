@@ -522,7 +522,9 @@ jobs:
       - *setup_env
       - run:
           name: "Deploy mainnet fork"
-          command: deploy mainnet-fork
+          command: |
+            export TF_VAR_FORK_MNEMONIC=$FORK_MNEMONIC
+            deploy mainnet-fork
 
   deploy-contracts:
     machine:
