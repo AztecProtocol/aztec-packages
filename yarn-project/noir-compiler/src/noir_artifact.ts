@@ -82,13 +82,34 @@ export interface NoirDebugMetadata {
 /**
  * The compilation artifacts of a given contract.
  */
-export interface NoirCompilationArtifacts {
+export interface NoirContractCompilationArtifacts {
   /**
    * The compiled contract.
    */
   contract: NoirCompiledContract;
+
   /**
    * The artifact that contains the debug metadata about the contract.
    */
   debug?: NoirDebugMetadata;
 }
+
+/**
+ * The compilation artifacts of a given program.
+ */
+export interface NoirProgramCompilationArtifacts {
+  /**
+   * The compiled contract.
+   */
+  program: any;
+
+  /**
+   * The artifact that contains the debug metadata about the contract.
+   */
+  debug?: NoirDebugMetadata;
+}
+
+/**
+ * output of Noir Wasm compilation, can be for a contract or lib/binary
+ */
+export type NoirCompilationResult = NoirContractCompilationArtifacts | NoirProgramCompilationArtifacts;

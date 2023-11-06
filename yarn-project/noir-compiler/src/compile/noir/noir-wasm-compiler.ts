@@ -3,7 +3,7 @@ import { LogFn, createDebugLogger } from '@aztec/foundation/log';
 import { CompileError, compile } from '@noir-lang/noir_wasm';
 import { isAbsolute } from 'node:path';
 
-import { NoirCompilationArtifacts } from '../../noir_artifact.js';
+import { NoirCompilationResult } from '../../noir_artifact.js';
 import { NoirDependencyManager } from './dependencies/dependency-manager.js';
 import { GithubDependencyResolver as GithubCodeArchiveDependencyResolver } from './dependencies/github-dependency-resolver.js';
 import { LocalDependencyResolver } from './dependencies/local-dependency-resolver.js';
@@ -79,7 +79,7 @@ export class NoirWasmContractCompiler {
   /**
    * Compiles the project.
    */
-  public async compile(): Promise<NoirCompilationArtifacts[]> {
+  public async compile(): Promise<NoirCompilationResult[]> {
     this.#debugLog(`Compiling contract at ${this.#package.getEntryPointPath()}`);
     await this.#dependencyManager.resolveDependencies();
     this.#debugLog(`Dependencies: ${this.#dependencyManager.getPackageNames().join(', ')}`);
@@ -95,8 +95,14 @@ export class NoirWasmContractCompiler {
         /* eslint-enable camelcase */
       });
 
-      if (!('contract' in result)) {
-        throw new Error('No contract found in compilation result');
+      if (isContract) {
+        if (!('contract' in result)) {
+          throw new Error('No contract found in compilation result');
+        }
+      } else {
+        if (!('program' in result)) {
+          throw new Error('No program found in compilation result');
+        }
       }
 
       return [result];
