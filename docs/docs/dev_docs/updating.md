@@ -14,8 +14,9 @@ npx @aztec/cli@latest update . --contract src/contract1 --contract src/contract2
 ```
 
 This will:
+
 1. If `@aztec/sandbox` and `@aztec/cli` are listed as dependencies then they will be automatically updated
-2. update `@aztec/*` dependencies in `package.json` 
+2. update `@aztec/*` dependencies in `package.json`
 3. update Aztec.nr libraries in `Nargo.toml` to the latest version.
 
 Read on to learn about versioning and other commands.
@@ -35,35 +36,6 @@ To update the sandbox to the latest version, simply run the curl command we used
 ```shell
 /bin/bash -c "$(curl -fsSL 'https://sandbox.aztec.network')"
 ```
-
-It will download and start the latest version of sandbox. If you don't have the CLI installed via a node package manager, this command will also update the CLI as well.
-
-If you would like to use a fixed version of the sandbox, you can export the `SANDBOX_VERSION` environmental variable.
-If you are unsure what version to use go to [aztec-packages repository](https://github.com/AztecProtocol/aztec-packages/releases) and choose the `aztec-packages` release based on the changelog.
-
-Then set the `SANDBOX_VERSION` environmental variable to the version you want to use. E.g.:
-
-```shell
-export SANDBOX_VERSION=#include_aztec_short_version
-```
-
-Now when you run the curl command it will use the version you specified.
-To verify that it's the case check the console output of the curl command.
-You should see the following line:
-
-```
-Setting up Aztec Sandbox v#include_aztec_short_version (nargo #include_noir_version), please stand by...
-```
-
-Alternatively you can open a new terminal and use aztec-cli to get the version.
-
-#include_code node-info yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
-
-This will return something like this:
-
-#include_code node-info yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
-
-The sandbox version should be the same as the one we chose by setting the `SANDBOX_VERSION` environmental variable.
 
 ## Updating Aztec CLI
 
@@ -95,7 +67,7 @@ If you don't have the CLI installed globally via package manager or locally in y
 /bin/bash -c "$(curl -fsSL 'https://sandbox.aztec.network')"
 ```
 
-## Updating Aztec.nr packages
+## Updating Aztec.nr packages manually
 
 :::info
 
