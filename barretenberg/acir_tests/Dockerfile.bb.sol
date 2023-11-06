@@ -10,4 +10,4 @@ WORKDIR /usr/src/barretenberg/acir_tests
 COPY . .
 # Run every acir test through a solidity verifier".
 RUN (cd sol-test && yarn)
-RUN FLOW=sol ./run_acir_tests.sh
+RUN PARALLEL=1 FLOW=sol ./run_acir_tests.sh

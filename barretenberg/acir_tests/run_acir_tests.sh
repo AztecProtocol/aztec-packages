@@ -90,7 +90,12 @@ else
       continue
     fi
 
-    test $TEST_NAME &
+    # If parallel flag is set, run in parallel
+    if [ -n "${PARALLEL:-}" ]; then
+      test $TEST_NAME &
+    else 
+      test $TEST_NAME 
+    fi
   done
 fi
 
