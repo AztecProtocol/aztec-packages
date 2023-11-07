@@ -5,6 +5,13 @@ struct NullifierLeafPreimage {
 }
 
 impl NullifierLeafPreimage {
+    pub fn default() -> Self {
+        NullifierLeafPreimage {
+            leaf_value : 0,
+            next_value : 0,
+            next_index : 0,
+        }
+    }
     // TODO(Kev): Check if this is needed.
     fn is_empty(self) -> bool {
         (self.leaf_value == 0) & (self.next_index == 0) & (self.next_value == 0)
