@@ -210,16 +210,11 @@ export interface PublicCircuitPublicInputs {
 
 
 
-export interface CallStackItem {
+export interface PublicCallStackItem {
   contract_address: Address;
   public_inputs: PublicCircuitPublicInputs;
-  is_execution_request: boolean;
   function_data: FunctionData;
-}
-
-
-export interface PublicCallStackItem {
-  inner: CallStackItem;
+  is_execution_request: boolean;
 }
 
 

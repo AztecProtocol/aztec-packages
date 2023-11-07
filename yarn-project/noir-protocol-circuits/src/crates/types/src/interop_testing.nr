@@ -8,7 +8,7 @@ use crate::abis::function_leaf_preimage::FunctionLeafPreimage;
 use crate::contrakt::deployment_data::ContractDeploymentData;
 use crate::abis::function_selector::FunctionSelector;
 use crate::hash::compute_l2_to_l1_hash;
-use crate::abis::call_stack_item::{ PublicCallStackItem, CallStackItem };
+use crate::abis::call_stack_item::PublicCallStackItem;
 use dep::aztec::hash::sha256_to_field;
 use crate::abis::public_circuit_public_inputs::PublicCircuitPublicInputs;
 
@@ -114,12 +114,10 @@ fn compute_call_stack_item_request() {
     public_inputs.new_commitments[0] = 1;
 
     let call_stack_item = PublicCallStackItem {
-        inner: CallStackItem {
-            contract_address,
-            public_inputs,
-            is_execution_request: true,
-            function_data,
-        }
+        contract_address,
+        public_inputs,
+        is_execution_request: true,
+        function_data,
     };
 
     assert_eq(call_stack_item.hash(), 0x1d51d7758d792c9cd6edd8e8ec5f1f9fb1f974abc1af6bb4cf9f2328ef306c96);
@@ -139,12 +137,10 @@ fn compute_call_stack_item() {
     public_inputs.new_commitments[0] = 1;
 
     let call_stack_item = PublicCallStackItem {
-        inner: CallStackItem {
-            contract_address,
-            public_inputs,
-            is_execution_request: false,
-            function_data,
-        }
+        contract_address,
+        public_inputs,
+        is_execution_request: false,
+        function_data,
     };
 
     assert_eq(call_stack_item.hash(), 0x0a370c67b66e30901470c11a199764a914fc0fcfbc737ed03153079b2765813a);
