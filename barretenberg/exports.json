@@ -156,7 +156,7 @@
     "inArgs": [
       {
         "name": "private_key",
-        "type": "fr::in_buf"
+        "type": "fq::in_buf"
       }
     ],
     "outArgs": [
@@ -211,7 +211,7 @@
       },
       {
         "name": "private_key",
-        "type": "fr::in_buf"
+        "type": "fq::in_buf"
       },
       {
         "name": "signer_round_one_private_buf",
@@ -229,7 +229,7 @@
     "outArgs": [
       {
         "name": "round_two_buf",
-        "type": "fr::out_buf"
+        "type": "fq::out_buf"
       },
       {
         "name": "success",
@@ -255,7 +255,7 @@
       },
       {
         "name": "round_two_buf",
-        "type": "fr::vec_in_buf"
+        "type": "fq::vec_in_buf"
       }
     ],
     "outArgs": [

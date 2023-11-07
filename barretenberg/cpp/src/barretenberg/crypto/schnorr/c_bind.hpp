@@ -17,7 +17,7 @@ WASM_EXPORT void schnorr_construct_signature(uint8_t const* message, fr::in_buf 
 WASM_EXPORT void schnorr_verify_signature(
     uint8_t const* message, affine_element::in_buf pub_key, in_buf32 sig_s, in_buf32 sig_e, bool* result);
 
-WASM_EXPORT void schnorr_multisig_create_multisig_public_key(fr::in_buf private_key,
+WASM_EXPORT void schnorr_multisig_create_multisig_public_key(fq::in_buf private_key,
                                                              multisig::MultiSigPublicKey::out_buf multisig_pubkey_buf);
 
 WASM_EXPORT void schnorr_multisig_validate_and_combine_signer_pubkeys(
@@ -29,17 +29,17 @@ WASM_EXPORT void schnorr_multisig_construct_signature_round_1(
 
 WASM_EXPORT void schnorr_multisig_construct_signature_round_2(
     uint8_t const* message,
-    fr::in_buf private_key,
+    fq::in_buf private_key,
     multisig::RoundOnePrivateOutput::in_buf signer_round_one_private_buf,
     multisig::MultiSigPublicKey::vec_in_buf signer_pubkeys_buf,
     multisig::RoundOnePublicOutput::vec_in_buf round_one_public_buf,
-    fr::out_buf round_two_buf,
+    fq::out_buf round_two_buf,
     bool* success);
 
 WASM_EXPORT void schnorr_multisig_combine_signatures(uint8_t const* message,
                                                      multisig::MultiSigPublicKey::vec_in_buf signer_pubkeys_buf,
                                                      multisig::RoundOnePublicOutput::vec_in_buf round_one_buf,
-                                                     fr::vec_in_buf round_two_buf,
+                                                     fq::vec_in_buf round_two_buf,
                                                      out_buf32 s,
                                                      out_buf32 e,
                                                      bool* success);
