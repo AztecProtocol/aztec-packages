@@ -16,7 +16,8 @@ build() {
   echo "rm -rf src/target/${CONTRACT_NAME}.json"
   rm -rf src/target/${CONTRACT_NAME}.json
 
-  node "$COMPILER" compile "$CONTRACT_FOLDER"
+  echo "$COMPILER" compile "$CONTRACT_FOLDER" --outdir src/target
+  node "$COMPILER" compile "$CONTRACT_FOLDER" --outdir src/target
   # node "$COMPILER" typescript "$CONTRACT_FOLDER"
 }
 
