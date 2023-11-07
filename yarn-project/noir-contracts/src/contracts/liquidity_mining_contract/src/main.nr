@@ -1,10 +1,21 @@
+mod types;
+
 // A demonstration of private liquidity mining.
 contract LiquidityMining {
-
-    use crate::types::{
-        lp_note::{LPNote, LPNoteMethods, LP_NOTE_LEN},
-        safe_u120_serialization::{SafeU120SerializationMethods, SAFE_U120_SERIALIZED_LEN}
+    use dep::aztec::{
+        state_vars::{
+            map::Map,
+            set::Set,
+        },
+        types::address::AztecAddress,
+        context::Context,
+        note::{
+            note_header::NoteHeader,
+            utils as note_utils,
+        },
     };
+
+    use crate::types::lp_note::{LPNote, LPNoteMethods, LP_NOTE_LEN};
 
     struct Storage {
         balances: Map<Set<LPNote, LP_NOTE_LEN>>,
@@ -39,22 +50,24 @@ contract LiquidityMining {
     }
 
 
-    // Proves that the owner owned an LP note for a specific time period and distributes reward based on the deposit
-    // amount and the length of time the note was owned.
-    // The proof works as follows:
+    // Proves that the owner owned an LP note for a specific time period and distributes the reward based
+    // on the deposit amount and the length of time the note was owned.
+    //
+    // The scheme works as follows:
     // 1) Prove that I owned the note at the start of the time period.
     //      a) Pop HAT root of the stack (this will eventually be injected by kernel since this is not safe and for
     //         experimental purposes only).
-    //      b) Pop all the preimages of block hash from the stack (one of those is note hash tree root).
+    //      b) Pop all the preimages of block hash from the stack (this contains note hash tree root and timestamp).
     //      c) Compute the block hash.
-    //      c) Pop sibling path of the block hash in the HAT from the stack.
-    //      c) Prove that the block hash is in the HAT.
-    //      a) Get the note/preimage from PXE.
-    //      d) Compute the commitment from the note.
-    //      d) Pop the note commitment sibling path in the note hash tree from the stack.
-    //      e) Verify that the commitment is in the note hash tree.
+    //      d) Pop sibling path of the block hash in the HAT from the stack.
+    //      e) Prove that the block hash is in the HAT.
+    //      f) Get the note/preimage from PXE.
+    //      g) Compute the commitment from the note.
+    //      h) Pop the note commitment sibling path in the note hash tree from the stack.
+    //      i) Verify that the commitment is in the note hash tree.
     // 2) Prove that the note has not yet been nullified by emitting a nullifier.
-    // 3) Distribute reward based on the time period and the note amount.
+    // 3) Use the timestamp from 1.b), current timestamp and the note amount from 1.f) to compute the reward.
+    // 4) Transfer the reward to the owner.
     #[aztec(private)]
     fn claim(
         owner: AztecAddress,
@@ -69,6 +82,7 @@ contract LiquidityMining {
     // Note 2: Having it in all the contracts gives us the ability to compute the note hash and nullifier differently for different kind of notes.
     unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, serialized_note: [Field; LP_NOTE_LEN]) -> [Field; 4] {
         assert(storage_slot == 1, "Invalid storage slot");
+        let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
         note_utils::compute_note_hash_and_nullifier(LPNoteMethods, note_header, serialized_note)
     }
 }
