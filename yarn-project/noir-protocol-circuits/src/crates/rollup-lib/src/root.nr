@@ -170,4 +170,38 @@ mod tests {
         assert_eq(outputs.l1_to_l2_messages_hash, expected_messages_hash);
     }
 
+    #[test]
+    fn start_and_end_snapshots(){
+        let inputs = default_root_rollup_inputs();
+        let outputs = inputs.root_rollup_circuit();
+        
+        assert(
+            outputs.start_note_hash_tree_snapshot.eq(inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.start_note_hash_tree_snapshot)
+        );
+        assert(
+            outputs.end_note_hash_tree_snapshot.eq(inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.end_note_hash_tree_snapshot)
+        );
+
+        assert(
+            outputs.start_nullifier_tree_snapshot.eq(inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.start_nullifier_tree_snapshot)
+        );
+        assert(
+            outputs.end_nullifier_tree_snapshot.eq(inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.end_nullifier_tree_snapshot)
+        );
+
+        assert(
+            outputs.start_contract_tree_snapshot.eq(inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.start_contract_tree_snapshot)
+        );
+        assert(
+            outputs.end_contract_tree_snapshot.eq(inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.end_contract_tree_snapshot)
+        );
+
+        assert_eq(
+            outputs.start_public_data_tree_root, inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.start_public_data_tree_root
+        );
+        assert_eq(
+            outputs.end_public_data_tree_root, inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.end_public_data_tree_root
+        );
+    }
+
 }

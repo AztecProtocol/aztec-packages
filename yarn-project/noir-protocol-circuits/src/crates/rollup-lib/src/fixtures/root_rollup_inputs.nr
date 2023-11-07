@@ -10,6 +10,7 @@ use dep::aztec::constants_gen::{
     HISTORIC_BLOCKS_TREE_HEIGHT,
 };
 use crate::abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot;
+use crate::fixtures::previous_rollup_data::default_previous_rollup_data;
 
 pub fn compute_zero_hashes<N>(mut hashes: [Field; N]) -> [Field; N] {
     hashes[0] = dep::std::hash::pedersen_hash([0, 0]);
@@ -55,8 +56,7 @@ pub fn default_root_rollup_inputs() -> RootRollupInputs {
     inputs.start_historic_blocks_tree_snapshot = historic_blocks_snapshot;
     inputs.new_historic_blocks_tree_sibling_path = historic_blocks_sibling_path;
 
-    inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.calldata_hash = [0, 1];
-    inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.calldata_hash = [2, 3];
+    inputs.previous_rollup_data = default_previous_rollup_data();
 
     inputs
 }
