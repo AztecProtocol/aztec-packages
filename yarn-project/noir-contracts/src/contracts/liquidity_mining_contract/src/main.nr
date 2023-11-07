@@ -10,6 +10,7 @@ contract LiquidityMining {
         types::address::AztecAddress,
         context::Context,
         note::{
+            note_getter_options::NoteGetterOptions,
             note_header::NoteHeader,
             utils as note_utils,
         },
@@ -72,17 +73,21 @@ contract LiquidityMining {
     #[aztec(private)]
     fn claim(
         owner: AztecAddress,
-    ) -> Field {
-        // TODO
+    ) {
+        let balances = storage.balances.at(owner.address);
 
-        1
+        let options = NoteGetterOptions::new().select(1, owner.address).set_limit(1);
+        let notes = balances.get_notes(options);
+        let note = notes[0].unwrap();
+
+        // Remove/nullify the note
+        balances.remove(note);
     }
 
     // Computes note hash and nullifier.
     // Note 1: Needs to be defined by every contract producing logs.
     // Note 2: Having it in all the contracts gives us the ability to compute the note hash and nullifier differently for different kind of notes.
     unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, serialized_note: [Field; LP_NOTE_LEN]) -> [Field; 4] {
-        assert(storage_slot == 1, "Invalid storage slot");
         let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
         note_utils::compute_note_hash_and_nullifier(LPNoteMethods, note_header, serialized_note)
     }

@@ -58,7 +58,7 @@ describe('e2e_liquidity_mining', () => {
       // Claim
       const receipt = await contract.methods.claim(accounts[0].address).send().wait({ debug: true });
       const { newNullifiers } = receipt.debugInfo!;
-      expect(newNullifiers.length).toBe(1);
+      expect(newNullifiers.length).toBe(2); // tx hash and note nullifier
     }
   });
 });
