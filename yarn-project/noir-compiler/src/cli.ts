@@ -12,7 +12,7 @@ const log = createConsoleLogger('aztec:compiler-cli');
 
 const main = async () => {
   program.name('aztec-compile');
-  compileContract(program, 'contract', log);
+  compileContract(program, 'compile', log);
   generateTypescriptInterface(program, 'typescript', log);
   generateNoirInterface(program, 'interface', log);
   await program.parseAsync(process.argv);

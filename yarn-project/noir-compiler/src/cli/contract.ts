@@ -49,7 +49,7 @@ export function compileContract(program: Command, name = 'compile', log: LogFn =
       if (compiler !== 'nargo' && compiler !== 'wasm') throw new Error(`Invalid compiler: ${compiler}`);
 
       const compile = compiler === 'wasm' ? compileUsingNoirWasm : compileUsingNargo;
-      log(`Compiling noir projects...`);
+      log(`Compiling ${projectPath} with ${compiler} backend...`);
       const results = await compile(projectPath, { log });
       for (const result of results) {
         generateOutput(projectPath, result, options, log);
