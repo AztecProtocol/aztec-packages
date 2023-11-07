@@ -4,10 +4,8 @@ use dep::types::KernelCircuitPublicInputs;
 use dep::types::abis::kernel_circuit_public_inputs::KernelCircuitPublicInputsBuilder;
 use crate::common;
 use dep::std::unsafe;
-// translated from cpp impl in 
-// aztec-packages/circuits/cpp/src/aztec3/circuits/kernel/public/native_public_kernel_circuit_public_previous_kernel.cpp
 
-// this is really the same as PublicKernelPrivatePreviousInputs...
+
 struct PublicKernelPublicPreviousInputs {
     previous_kernel: PreviousKernelData,
     public_call: PublicCallData,
