@@ -54,7 +54,7 @@ export interface NoirCompiledContract {
  */
 export interface NoirCompiledCircuit {
   /** The hash of the circuit. */
-  hash: number;
+  hash?: number;
   /** Compilation backend. */
   backend: string;
   /**
@@ -101,7 +101,7 @@ export interface NoirProgramCompilationArtifacts {
   /**
    * The compiled contract.
    */
-  program: any;
+  program: NoirCompiledCircuit;
 
   /**
    * The artifact that contains the debug metadata about the contract.
@@ -113,3 +113,31 @@ export interface NoirProgramCompilationArtifacts {
  * output of Noir Wasm compilation, can be for a contract or lib/binary
  */
 export type NoirCompilationResult = NoirContractCompilationArtifacts | NoirProgramCompilationArtifacts;
+
+/**
+ * Check if it has Contract unique property
+ */
+export function isNoirContractCompilationArtifacts(
+  artifact: NoirCompilationResult,
+): artifact is NoirContractCompilationArtifacts {
+  return (artifact as NoirContractCompilationArtifacts).contract !== undefined;
+}
+
+/**
+ * Check if it has Contract unique property
+ */
+export function isNoirProgramCompilationArtifacts(
+  artifact: NoirCompilationResult,
+): artifact is NoirProgramCompilationArtifacts {
+  return (artifact as NoirProgramCompilationArtifacts).program !== undefined;
+}
+
+export function handleCompilationArtifact(artifact: NoirCompilationArtifacts) {
+  if (isNoirContractCompilationArtifacts(artifact)) {
+    // Handle NoirContractCompilationArtifacts
+    console.log(artifact.contractProperty);
+  } else if (isNoirProgramCompilationArtifacts(artifact)) {
+    // Handle NoirProgramCompilationArtifacts
+    console.log(artifact.programProperty);
+  }
+}

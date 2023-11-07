@@ -3,7 +3,14 @@ import { ContractArtifact, DebugMetadata, FunctionArtifact, FunctionType } from 
 import { deflate } from 'pako';
 
 import { mockVerificationKey } from '../mocked_keys.js';
-import { NoirCompilationArtifacts, NoirFunctionEntry } from '../noir_artifact.js';
+import {
+  NoirCompilationResult,
+  NoirContractCompilationArtifacts,
+  NoirFunctionEntry,
+  NoirProgramCompilationArtifacts,
+  isNoirContractCompilationArtifacts,
+  isNoirProgramCompilationArtifacts,
+} from '../noir_artifact.js';
 
 /**
  * Generates a function build artifact. Replaces verification key with a mock value.
@@ -32,13 +39,54 @@ function generateFunctionArtifact(fn: NoirFunctionEntry): FunctionArtifact {
   };
 }
 
+export function generateArtifact(compileResult: NoirCompilationResult) {
+  if (isNoirContractCompilationArtifacts(compileResult)) {
+    return generateContractArtifact(compileResult);
+  } else if (isNoirProgramCompilationArtifacts(compileResult)) {
+    return generateProgramArtifact(compileResult);
+  }
+}
+
+/**
+ * Given a Nargo output generates an Aztec-compatible contract artifact.
+ * @param compiled - Noir build output.
+ * @returns Aztec contract build artifact.
+ */
+export function generateProgramArtifact(
+  { program, debug }: NoirProgramCompilationArtifacts,
+  aztecNrVersion?: string,
+): ContractArtifact {
+  const originalFunctions = contract.functions;
+  // TODO why sort? we should have idempotent compilation so this should not be needed.
+  const sortedFunctions = [...contract.functions].sort((fnA, fnB) => fnA.name.localeCompare(fnB.name));
+  let parsedDebug: DebugMetadata | undefined = undefined;
+
+  if (debug) {
+    parsedDebug = {
+      debugSymbols: sortedFunctions.map(fn => {
+        const originalIndex = originalFunctions.indexOf(fn);
+        return Buffer.from(deflate(JSON.stringify(debug.debug_symbols[originalIndex]))).toString('base64');
+      }),
+      fileMap: debug.file_map,
+    };
+  }
+
+  return {
+    name: contract.name,
+    functions: sortedFunctions.map(generateFunctionArtifact),
+    events: contract.events,
+    debug: parsedDebug,
+    aztecNrVersion,
+  };
+}
+
 /**
  * Given a Nargo output generates an Aztec-compatible contract artifact.
  * @param compiled - Noir build output.
  * @returns Aztec contract build artifact.
  */
 export function generateContractArtifact(
-  { contract, debug }: NoirCompilationArtifacts,
+  { contract, debug }: NoirContractCompilationArtifacts,
   aztecNrVersion?: string,
 ): ContractArtifact {
   const originalFunctions = contract.functions;

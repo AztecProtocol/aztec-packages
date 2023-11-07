@@ -15,7 +15,7 @@ build() {
   echo "Compiling $CONTRACT_NAME..."
   rm -rf ${CONTRACT_FOLDER}/target
 
-  node "$COMPILER" contract "$CONTRACT_FOLDER" --compiler nargo
+  node "$COMPILER" contract "$CONTRACT_FOLDER"
   node "$COMPILER" typescript "$CONTRACT_FOLDER"
 }
 

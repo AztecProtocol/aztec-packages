@@ -35,14 +35,14 @@ export async function compileUsingNargo(projectPath: string, opts: CompileOpts =
  * @param opts - Compiler options.
  * @returns Compiled artifacts.
  */
-export async function compileUsingNoirWasm(
+export async function compileContractUsingNoirWasm(
   projectPath: string,
   opts: NoirWasmCompileOptions,
 ): Promise<ContractArtifact[]> {
   const cacheRoot = process.env.XDG_CACHE_HOME ?? join(process.env.HOME ?? '', '.cache');
   const fileManager = new FileManager(fs, join(cacheRoot, 'aztec-noir-compiler'));
   const compiler = NoirWasmContractCompiler.new(fileManager, resolve(projectPath), opts);
-  const artifacts = await compiler.compile();
+  const artifacts = await compiler.compileContract();
   const resolvedAztecNrVersion = compiler.getResolvedAztecNrVersion();
 
   if (resolvedAztecNrVersion && AztecNrVersion !== resolvedAztecNrVersion) {
