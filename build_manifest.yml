@@ -52,6 +52,13 @@ circuits-wasm-linux-clang:
   dependencies:
     - barretenberg-wasm-linux-clang
 
+circuits-x86_64-linux-clang-assert:
+  buildDir: circuits/cpp
+  dockerfile: dockerfiles/Dockerfile.x86_64-linux-clang-assert
+  rebuildPatterns: .rebuild_patterns
+  dependencies:
+    - barretenberg-x86_64-linux-clang
+
 l1-contracts:
   buildDir: l1-contracts
 

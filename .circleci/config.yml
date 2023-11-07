@@ -294,28 +294,6 @@ jobs:
           name: "Build"
           command: cond_spot_run_build circuits-wasm-linux-clang 32
 
-  circuits-x86_64-linux-clang-tidy:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build"
-          command: cond_spot_run_build circuits-x86_64-linux-clang-tidy 32
-
-  circuits-x86_64-linux-clang:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build"
-          command: cond_spot_run_build circuits-x86_64-linux-clang 32
-
   circuits-x86_64-linux-clang-assert:
     docker:
       - image: aztecprotocol/alpine-build-image
@@ -326,6 +304,18 @@ jobs:
       - run:
           name: "Build"
           command: cond_spot_run_build circuits-x86_64-linux-clang-assert 32
+
+  circuits-x86_64-tests:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_spot_run_test circuits-x86_64-linux-clang-assert 32 ./scripts/run_tests 1 x86_64 scripts/a3-tests -*.skip*
+      - *save_logs
 
   l1-contracts:
     machine:
@@ -1164,6 +1154,14 @@ workflows:
       - circuits-wasm-linux-clang:
           requires:
             - barretenberg-wasm-linux-clang
+          <<: *defaults
+      - circuits-x86_64-linux-clang-assert:
+          requires:
+            - barretenberg-x86_64-linux-clang
+          <<: *defaults
+      - circuits-x86_64-tests:
+          requires:
+            - circuits-x86_64-linux-clang-assert
           <<: *defaults
 
       - l1-contracts: *defaults
