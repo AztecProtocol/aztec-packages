@@ -105,6 +105,7 @@ export class NoirWasmContractCompiler {
     } catch (err) {
       if (err instanceof Error && err.name === 'CompileError') {
         this.#processCompileError(err as CompileError);
+        throw new Error('Compilation failed');
       }
 
       throw err;
@@ -121,7 +122,6 @@ export class NoirWasmContractCompiler {
   };
 
   #processCompileError(err: CompileError): void {
-    this.#log('Error compiling contract');
     for (const diag of err.diagnostics) {
       this.#log(`  ${diag.message}`);
       const contents = this.#resolveFile(diag.file);
