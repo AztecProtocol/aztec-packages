@@ -44,6 +44,8 @@ export class NoirPackage {
 
     switch (this.getType()) {
       case 'lib':
+        // we shouldn't need to compile `lib` type, since the .nr source is read directly
+        // when the lib is used as a dependency elsewhere.
         entrypoint = 'lib.nr';
         break;
       case 'contract':

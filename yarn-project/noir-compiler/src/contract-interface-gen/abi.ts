@@ -8,6 +8,7 @@ import {
   NoirContractCompilationArtifacts,
   NoirFunctionEntry,
   NoirProgramCompilationArtifacts,
+  ProgramArtifact,
   isNoirContractCompilationArtifacts,
   isNoirProgramCompilationArtifacts,
 } from '../noir_artifact.js';
@@ -39,11 +40,18 @@ function generateFunctionArtifact(fn: NoirFunctionEntry): FunctionArtifact {
   };
 }
 
+/**
+ * Entrypoint for generating the .json artifact for compiled contract or program
+ * @param compileResult - Noir build output.
+ * @returns Aztec contract build artifact.
+ */
 export function generateArtifact(compileResult: NoirCompilationResult) {
   if (isNoirContractCompilationArtifacts(compileResult)) {
     return generateContractArtifact(compileResult);
   } else if (isNoirProgramCompilationArtifacts(compileResult)) {
     return generateProgramArtifact(compileResult);
+  } else {
+    throw Error('Unsupported artifact type');
   }
 }
 
@@ -52,31 +60,25 @@ export function generateArtifact(compileResult: NoirCompilationResult) {
  * @param compiled - Noir build output.
  * @returns Aztec contract build artifact.
  */
-export function generateProgramArtifact(
-  { program, debug }: NoirProgramCompilationArtifacts,
-  aztecNrVersion?: string,
-): ContractArtifact {
-  const originalFunctions = contract.functions;
-  // TODO why sort? we should have idempotent compilation so this should not be needed.
-  const sortedFunctions = [...contract.functions].sort((fnA, fnB) => fnA.name.localeCompare(fnB.name));
-  let parsedDebug: DebugMetadata | undefined = undefined;
-
-  if (debug) {
-    parsedDebug = {
-      debugSymbols: sortedFunctions.map(fn => {
-        const originalIndex = originalFunctions.indexOf(fn);
-        return Buffer.from(deflate(JSON.stringify(debug.debug_symbols[originalIndex]))).toString('base64');
-      }),
-      fileMap: debug.file_map,
-    };
-  }
+export function generateProgramArtifact({ program, debug }: NoirProgramCompilationArtifacts): ProgramArtifact {
+  // let parsedDebug: NoirDebugMetadata | undefined = undefined;
+  // if (debug) {
+  //   parsedDebug = {
+  //     debug_symbols: sortedFunctions.map(fn => {
+  //       const originalIndex = originalFunctions.indexOf(fn);
+  //       return Buffer.from(deflate(JSON.stringify(debug.debug_symbols[originalIndex]))).toString('base64');
+  //     }),
+  //     file_map: debug.file_map,
+  //   };
+  // }
 
   return {
-    name: contract.name,
-    functions: sortedFunctions.map(generateFunctionArtifact),
-    events: contract.events,
-    debug: parsedDebug,
-    aztecNrVersion,
+    hash: program.hash,
+    backend: program.backend,
+    abi: program.abi,
+
+    // TODO: parse the debug
+    debug,
   };
 }
 
@@ -104,11 +106,18 @@ export function generateContractArtifact(
     };
   }
 
-  return {
+  const artifact: ContractArtifact = {
     name: contract.name,
     functions: sortedFunctions.map(generateFunctionArtifact),
     events: contract.events,
     debug: parsedDebug,
     aztecNrVersion,
   };
+  const resolvedAztecNrVersion = compiler.getResolvedAztecNrVersion();
+
+  if (resolvedAztecNrVersion && AztecNrVersion !== resolvedAztecNrVersion) {
+    opts.log(`WARNING: Aztec.nr version mismatch: expected "${AztecNrVersion}", got "${resolvedAztecNrVersion}"`);
+  }
+
+  return artifacts.map(artifact => generateContractArtifact(artifact, resolvedAztecNrVersion));
 }

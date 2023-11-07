@@ -66,6 +66,32 @@ export interface NoirCompiledCircuit {
 }
 
 /**
+ * Defines artifact of a contract.
+ */
+export interface ProgramArtifact {
+  /**
+   * The name of the contract.
+   */
+  hash?: number;
+
+  /**
+   * The compilation backend of the artifact.
+   */
+  backend: string;
+
+  /**
+   * The abi of the program.
+   */
+  abi: any; // TODO: type
+
+  /**
+   * The debug metadata of the contract.
+   * It's used to include the relevant source code section when a constraint is not met during simulation.
+   */
+  debug?: NoirDebugMetadata;
+}
+
+/**
  * The debug metadata of an Aztec.nr contract.
  */
 export interface NoirDebugMetadata {
@@ -130,14 +156,4 @@ export function isNoirProgramCompilationArtifacts(
   artifact: NoirCompilationResult,
 ): artifact is NoirProgramCompilationArtifacts {
   return (artifact as NoirProgramCompilationArtifacts).program !== undefined;
-}
-
-export function handleCompilationArtifact(artifact: NoirCompilationArtifacts) {
-  if (isNoirContractCompilationArtifacts(artifact)) {
-    // Handle NoirContractCompilationArtifacts
-    console.log(artifact.contractProperty);
-  } else if (isNoirProgramCompilationArtifacts(artifact)) {
-    // Handle NoirProgramCompilationArtifacts
-    console.log(artifact.programProperty);
-  }
 }

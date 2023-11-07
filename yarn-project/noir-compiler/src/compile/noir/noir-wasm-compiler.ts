@@ -143,7 +143,7 @@ export class NoirWasmContractCompiler {
     initializeResolver(this.#resolveFile);
 
     try {
-      const isContract: boolean = this.#package.getType() === 'contract';
+      const isContract: boolean = true; // this.#package.getType() === 'contract';
       const result = compile(this.#package.getEntryPointPath(), isContract, {
         /* eslint-disable camelcase */
         root_dependencies: this.#dependencyManager.getEntrypointDependencies(),
@@ -151,14 +151,8 @@ export class NoirWasmContractCompiler {
         /* eslint-enable camelcase */
       });
 
-      if (isContract) {
-        if (!('contract' in result)) {
-          throw new Error('No contract found in compilation result');
-        }
-      } else {
-        if (!('program' in result)) {
-          throw new Error('No program found in compilation result');
-        }
+      if (!('contract' in result)) {
+        throw new Error('No contract found in compilation result');
       }
 
       return [result];
