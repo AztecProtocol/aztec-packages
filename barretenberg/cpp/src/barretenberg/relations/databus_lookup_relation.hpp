@@ -5,7 +5,7 @@
 #include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
-#include "barretenberg/proof_system/relations/relation_types.hpp"
+#include "barretenberg/relations/relation_types.hpp"
 
 namespace proof_system {
 
