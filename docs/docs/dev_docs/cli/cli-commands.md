@@ -8,7 +8,7 @@ Here you will find a reference to the commands available in the Aztec CLI.
 
 ### NPM
 
-This command will install the Aztec CLI as a developer dependency in your npm project.
+This command will install the Aztec CLI as a dev dependency in your npm project.
 
 ```bash
 npm install --save-dev @aztec/cli
