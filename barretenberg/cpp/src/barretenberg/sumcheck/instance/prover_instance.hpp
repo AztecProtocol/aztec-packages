@@ -71,6 +71,8 @@ template <class Flavor> class ProverInstance_ {
 
     void compute_sorted_list_accumulator(FF);
 
+    void compute_logderivative_inverse(FF, FF);
+
     void compute_grand_product_polynomials(FF, FF);
 
   private:

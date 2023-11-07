@@ -29,15 +29,16 @@ template <typename FF_> class DatabusLookupRelationImpl {
 
     template <typename AllValues> static bool lookup_exists_at_row(const AllValues& row)
     {
-        return (row.q_busread == 1);
+        return (row.q_busread == 1 || row.calldata_read_counts > 0);
     }
 
     template <typename Accumulator, typename AllEntities>
     static Accumulator compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        // return View(in.q_busread);
-        return Accumulator(View(in.q_busread));
+        // WORKTODO: really what we need instead of calldata_read_counts is a boolean equivalent that says > 0 counts or
+        // not.. or possibly just "is this a row in the calldata"
+        return Accumulator(View(in.q_busread) + View(in.calldata_read_counts));
     }
 
     template <typename Accumulator, size_t index, typename AllEntities>
@@ -52,20 +53,20 @@ template <typename FF_> class DatabusLookupRelationImpl {
     }
 
     template <typename Accumulator, size_t read_index, typename AllEntities>
-    static Accumulator compute_read_term_predicate([[maybe_unused]] const AllEntities& /*unused*/)
+    static Accumulator compute_read_term_predicate([[maybe_unused]] const AllEntities& in)
 
     {
+        using View = typename Accumulator::View;
+
+        if constexpr (read_index == 0) {
+            return Accumulator(View(in.q_busread));
+        }
         return Accumulator(1);
     }
 
     template <typename Accumulator, size_t write_index, typename AllEntities>
-    static Accumulator compute_write_term_predicate(const AllEntities& in)
+    static Accumulator compute_write_term_predicate(const AllEntities& /*unused*/)
     {
-        using View = typename Accumulator::View;
-
-        if constexpr (write_index == 0) {
-            return Accumulator(View(in.q_busread));
-        }
         return Accumulator(1);
     }
 
@@ -78,14 +79,14 @@ template <typename FF_> class DatabusLookupRelationImpl {
         static_assert(write_index < WRITE_TERMS);
 
         const auto& calldata = View(in.calldata);
-        const auto& id_1 = View(in.id_1);
+        const auto& id = View(in.databus_id);
 
         const auto& gamma = ParameterView(params.gamma);
         const auto& beta = ParameterView(params.beta);
 
         // Construct b_i + idx_i*\beta + \gamma
         if constexpr (write_index == 0) {
-            return calldata + id_1 * beta + gamma; // degree 1
+            return calldata + gamma + id * beta; // degree 1
         }
 
         return Accumulator(1);
@@ -100,17 +101,17 @@ template <typename FF_> class DatabusLookupRelationImpl {
         static_assert(read_index < READ_TERMS);
 
         // Bus value stored in w_1, index into bus column stored in w_2
-        const auto& value = View(in.w_l);
-        const auto& index = View(in.w_r);
+        const auto& w_1 = View(in.w_l);
+        const auto& w_2 = View(in.w_r);
 
         const auto& gamma = ParameterView(params.gamma);
         const auto& beta = ParameterView(params.beta);
 
-        const auto read_term1 = value + gamma + index * beta; // degree 1
+        // const auto read_term1 = w_1 + gamma + w_2 * beta; // degree 1
 
         // Construct value + index*\beta + \gamma
         if constexpr (read_index == 0) {
-            return read_term1;
+            return w_1 + gamma + w_2 * beta;
         }
 
         return Accumulator(1);
@@ -171,6 +172,12 @@ template <typename FF_> class DatabusLookupRelationImpl {
             inverse_accumulator = inverse_accumulator * lookup_terms[NUM_TOTAL_TERMS - 1 - i];
         }
         denominator_accumulator[0] = inverse_accumulator;
+
+        // auto read_result = denominator_accumulator[0] * compute_read_term<Accumulator, 0>(in, params);
+        // info(read_result);
+        // auto write_result = denominator_accumulator[1] * compute_write_term<Accumulator, 0>(in, params);
+        // info(write_result);
+        // info(denominator_accumulator[1]);
 
         // each predicate is degree-1
         // degree of relation at this point = NUM_TOTAL_TERMS + 1

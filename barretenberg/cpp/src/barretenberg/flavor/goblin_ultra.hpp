@@ -34,11 +34,11 @@ class GoblinUltra {
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
     // Note: this number does not include the individual sorted list polynomials.
-    // NUM = 43 (UH) + 4 op wires + 1 op wire "selector" + 3+1 (bus)
-    static constexpr size_t NUM_ALL_ENTITIES = 52;
+    // NUM = 43 (UH) + 4 op wires + 1 op wire "selector" + 3+1+1 (bus)
+    static constexpr size_t NUM_ALL_ENTITIES = 53;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 27; // 25 (UH) + 1 op wire "selector" + q_busread
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 28; // 25 (UH) + 1 op wire "selector" + q_busread + databus_id
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = 18; // 11 (UH) + 4 op wires + 3 (bus)
 
@@ -55,7 +55,7 @@ class GoblinUltra {
                                  proof_system::EccOpQueueRelation<FF>,
                                  proof_system::DatabusLookupRelation<FF>>;
 
-    using LookupRelation = proof_system::DatabusLookupRelation<FF>;
+    using LogDerivLookupRelation = proof_system::DatabusLookupRelation<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
     static constexpr size_t MAX_TOTAL_RELATION_LENGTH = compute_max_total_relation_length<Relations>();
@@ -111,7 +111,7 @@ class GoblinUltra {
         DataType& lagrange_first = std::get<24>(this->_data);
         DataType& lagrange_last = std::get<25>(this->_data);
         DataType& lagrange_ecc_op = std::get<26>(this->_data); // indicator poly for ecc op gates
-
+        DataType& databus_id = std::get<27>(this->_data);      // id polynomial, i.e. id_i = i
         static constexpr CircuitType CIRCUIT_TYPE = CircuitBuilder::CIRCUIT_TYPE;
 
         std::vector<HandleType> get_selectors() override
@@ -198,31 +198,32 @@ class GoblinUltra {
         DataType& lagrange_first = std::get<24>(this->_data);
         DataType& lagrange_last = std::get<25>(this->_data);
         DataType& lagrange_ecc_op = std::get<26>(this->_data);
-        DataType& w_l = std::get<27>(this->_data);
-        DataType& w_r = std::get<28>(this->_data);
-        DataType& w_o = std::get<29>(this->_data);
-        DataType& w_4 = std::get<30>(this->_data);
-        DataType& sorted_accum = std::get<31>(this->_data);
-        DataType& z_perm = std::get<32>(this->_data);
-        DataType& z_lookup = std::get<33>(this->_data);
-        DataType& ecc_op_wire_1 = std::get<34>(this->_data);
-        DataType& ecc_op_wire_2 = std::get<35>(this->_data);
-        DataType& ecc_op_wire_3 = std::get<36>(this->_data);
-        DataType& ecc_op_wire_4 = std::get<37>(this->_data);
-        DataType& calldata = std::get<38>(this->_data);
-        DataType& calldata_read_counts = std::get<39>(this->_data);
-        DataType& lookup_inverses = std::get<40>(this->_data);
-        DataType& table_1_shift = std::get<41>(this->_data);
-        DataType& table_2_shift = std::get<42>(this->_data);
-        DataType& table_3_shift = std::get<43>(this->_data);
-        DataType& table_4_shift = std::get<44>(this->_data);
-        DataType& w_l_shift = std::get<45>(this->_data);
-        DataType& w_r_shift = std::get<46>(this->_data);
-        DataType& w_o_shift = std::get<47>(this->_data);
-        DataType& w_4_shift = std::get<48>(this->_data);
-        DataType& sorted_accum_shift = std::get<49>(this->_data);
-        DataType& z_perm_shift = std::get<50>(this->_data);
-        DataType& z_lookup_shift = std::get<51>(this->_data);
+        DataType& databus_id = std::get<27>(this->_data);
+        DataType& w_l = std::get<28>(this->_data);
+        DataType& w_r = std::get<29>(this->_data);
+        DataType& w_o = std::get<30>(this->_data);
+        DataType& w_4 = std::get<31>(this->_data);
+        DataType& sorted_accum = std::get<32>(this->_data);
+        DataType& z_perm = std::get<33>(this->_data);
+        DataType& z_lookup = std::get<34>(this->_data);
+        DataType& ecc_op_wire_1 = std::get<35>(this->_data);
+        DataType& ecc_op_wire_2 = std::get<36>(this->_data);
+        DataType& ecc_op_wire_3 = std::get<37>(this->_data);
+        DataType& ecc_op_wire_4 = std::get<38>(this->_data);
+        DataType& calldata = std::get<39>(this->_data);
+        DataType& calldata_read_counts = std::get<40>(this->_data);
+        DataType& lookup_inverses = std::get<41>(this->_data);
+        DataType& table_1_shift = std::get<42>(this->_data);
+        DataType& table_2_shift = std::get<43>(this->_data);
+        DataType& table_3_shift = std::get<44>(this->_data);
+        DataType& table_4_shift = std::get<45>(this->_data);
+        DataType& w_l_shift = std::get<46>(this->_data);
+        DataType& w_r_shift = std::get<47>(this->_data);
+        DataType& w_o_shift = std::get<48>(this->_data);
+        DataType& w_4_shift = std::get<49>(this->_data);
+        DataType& sorted_accum_shift = std::get<50>(this->_data);
+        DataType& z_perm_shift = std::get<51>(this->_data);
+        DataType& z_lookup_shift = std::get<52>(this->_data);
 
         std::vector<HandleType> get_wires() override { return { w_l, w_r, w_o, w_4 }; };
         std::vector<HandleType> get_ecc_op_wires()
@@ -259,6 +260,7 @@ class GoblinUltra {
                      lagrange_first,
                      lagrange_last,
                      lagrange_ecc_op,
+                     databus_id,
                      w_l,
                      w_r,
                      w_o,
@@ -488,6 +490,7 @@ class GoblinUltra {
             lagrange_first = verification_key->lagrange_first;
             lagrange_last = verification_key->lagrange_last;
             lagrange_ecc_op = verification_key->lagrange_ecc_op;
+            databus_id = verification_key->databus_id;
         }
     };
 
@@ -554,6 +557,7 @@ class GoblinUltra {
             ecc_op_wire_4_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
             calldata_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
             calldata_read_counts_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
+            lookup_inverses_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
             sorted_accum_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
             w_4_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
             z_perm_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
@@ -592,6 +596,7 @@ class GoblinUltra {
             serialize_to_buffer(ecc_op_wire_4_comm, proof_data);
             serialize_to_buffer(calldata_comm, proof_data);
             serialize_to_buffer(calldata_read_counts_comm, proof_data);
+            serialize_to_buffer(lookup_inverses_comm, proof_data);
             serialize_to_buffer(sorted_accum_comm, proof_data);
             serialize_to_buffer(w_4_comm, proof_data);
             serialize_to_buffer(z_perm_comm, proof_data);

@@ -1,4 +1,5 @@
 #include "prover_instance.hpp"
+#include "barretenberg/honk/proof_system/lookup_library.hpp"
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 #include "barretenberg/proof_system/composer/permutation_lib.hpp"
 #include "barretenberg/proof_system/library/grand_product_delta.hpp"
@@ -198,10 +199,10 @@ template <class Flavor> void ProverInstance_<Flavor>::construct_databus_polynomi
         polynomial public_calldata(dyadic_circuit_size);
         polynomial calldata_read_counts(dyadic_circuit_size);
 
-        const size_t offset = Flavor::has_zero_row ? 1 : 0;
+        // We do not utilize a zero row for databus columns
         for (size_t idx = 0; idx < circuit.public_calldata.size(); ++idx) {
-            public_calldata[idx + offset] = circuit.get_variable(circuit.public_calldata[idx]);
-            calldata_read_counts[idx + offset] = circuit.get_variable(circuit.calldata_read_counts[idx]);
+            public_calldata[idx] = circuit.get_variable(circuit.public_calldata[idx]);
+            calldata_read_counts[idx] = circuit.get_variable(circuit.calldata_read_counts[idx]);
         }
 
         proving_key->calldata = public_calldata;
@@ -275,6 +276,12 @@ std::shared_ptr<typename Flavor::ProvingKey> ProverInstance_<Flavor>::compute_pr
 
     if constexpr (IsGoblinFlavor<Flavor>) {
         proving_key->num_ecc_op_gates = num_ecc_op_gates;
+        // Construct simple ID polynomial for databus indexing
+        typename Flavor::Polynomial databus_id(proving_key->circuit_size);
+        for (size_t i = 0; i < databus_id.size(); ++i) {
+            databus_id[i] = i;
+        }
+        proving_key->databus_id = databus_id;
     }
 
     return proving_key;
@@ -328,8 +335,17 @@ template <class Flavor> void ProverInstance_<Flavor>::initialise_prover_polynomi
         // DataBus polynomials
         prover_polynomials.calldata = proving_key->calldata;
         prover_polynomials.calldata_read_counts = proving_key->calldata_read_counts;
+        prover_polynomials.lookup_inverses = proving_key->lookup_inverses;
         prover_polynomials.q_busread = proving_key->q_busread;
+        prover_polynomials.databus_id = proving_key->databus_id;
     }
+
+    // These polynomials have not yet been computed; initialize them so prover_polynomials is "full" and we can use
+    // utilities like get_row()
+    prover_polynomials.z_perm = proving_key->z_perm;
+    prover_polynomials.z_lookup = proving_key->z_lookup;
+    prover_polynomials.z_perm_shift = proving_key->z_perm.shifted();
+    prover_polynomials.z_lookup_shift = proving_key->z_lookup.shifted();
 
     std::span<FF> public_wires_source = prover_polynomials.w_r;
 
@@ -427,6 +443,18 @@ template <class Flavor> void ProverInstance_<Flavor>::add_plookup_memory_records
         wires[3][gate_idx] += wires[0][gate_idx];
         wires[3][gate_idx] *= eta;
         wires[3][gate_idx] += 1;
+    }
+}
+
+template <class Flavor> void ProverInstance_<Flavor>::compute_logderivative_inverse(FF beta, FF gamma)
+{
+    if constexpr (IsGoblinFlavor<Flavor>) {
+        relation_parameters.beta = beta;
+        relation_parameters.gamma = gamma;
+
+        // Compute permutation and lookup grand product polynomials
+        lookup_library::compute_logderivative_inverse<Flavor, typename Flavor::LogDerivLookupRelation>(
+            prover_polynomials, relation_parameters, proving_key->circuit_size);
     }
 }
 

@@ -10,7 +10,7 @@ using namespace proof_system::honk;
 
 class GoblinUltraTranscriptTests : public ::testing::Test {
   public:
-    // static void SetUpTestSuite() { barretenberg::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { barretenberg::srs::init_crs_factory("../srs_db/ignition"); }
 
     using Flavor = proof_system::honk::flavor::GoblinUltra;
     using FF = Flavor::FF;
@@ -61,6 +61,7 @@ class GoblinUltraTranscriptTests : public ::testing::Test {
         manifest_expected.add_challenge(round, "beta", "gamma");
 
         round++;
+        manifest_expected.add_entry(round, "LOOKUP_INVERSES", size_G);
         manifest_expected.add_entry(round, "Z_PERM", size_G);
         manifest_expected.add_entry(round, "Z_LOOKUP", size_G);
         manifest_expected.add_challenge(round, "Sumcheck:alpha", "Sumcheck:zeta");
@@ -171,6 +172,8 @@ TEST_F(GoblinUltraTranscriptTests, VerifierManifestConsistency)
     auto prover_manifest = prover.transcript.get_manifest();
     auto verifier_manifest = verifier.transcript.get_manifest();
 
+    prover_manifest.print();
+    verifier_manifest.print();
     // Note: a manifest can be printed using manifest.print()
     for (size_t round = 0; round < prover_manifest.size(); ++round) {
         ASSERT_EQ(prover_manifest[round], verifier_manifest[round])

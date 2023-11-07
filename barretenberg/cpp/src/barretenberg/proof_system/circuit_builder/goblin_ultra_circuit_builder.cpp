@@ -24,9 +24,24 @@ template <typename FF> void GoblinUltraCircuitBuilder_<FF>::add_gates_to_ensure_
 {
     UltraCircuitBuilder_<arithmetization::UltraHonk<FF>>::add_gates_to_ensure_all_polys_are_non_zero();
 
-    // Additional gate to add a nonzero value to q_busread
-    this->w_l.emplace_back(this->zero_idx);
-    this->w_r.emplace_back(this->zero_idx);
+    // Populate the calldata with some data
+    public_calldata.emplace_back(this->add_variable(FF(5)));
+    public_calldata.emplace_back(this->add_variable(FF(7)));
+    public_calldata.emplace_back(this->add_variable(FF(9)));
+
+    // Construct read counts with length of calldata
+    calldata_read_counts.resize(public_calldata.size());
+    for (auto& val : calldata_read_counts) {
+        val = 0;
+    }
+
+    // Construct gate corresponding to a single calldata read
+    this->w_l.emplace_back(public_calldata[1]);        // index for 7 in variables
+    this->w_r.emplace_back(this->add_variable(FF(1))); // idx 1 into calldata
+    calldata_read_counts[1]++;                         // increment read count at index 1
+    q_busread.emplace_back(1);                         // read selector on
+
+    // populate all other components with zero
     this->w_o.emplace_back(this->zero_idx);
     this->w_4.emplace_back(this->zero_idx);
     this->q_m.emplace_back(0);
@@ -41,13 +56,7 @@ template <typename FF> void GoblinUltraCircuitBuilder_<FF>::add_gates_to_ensure_
     this->q_lookup_type.emplace_back(0);
     this->q_elliptic.emplace_back(0);
     this->q_aux.emplace_back(0);
-    q_busread.emplace_back(1);
     ++this->num_gates;
-
-    // Add some nonzero values to the calldata and corresponding read counts
-    // WORKTODO: will need to do this more carefully once we actually have a databus lookup relation
-    public_calldata.emplace_back(this->one_idx);
-    calldata_read_counts.emplace_back(this->one_idx);
 }
 
 /**
