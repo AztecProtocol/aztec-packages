@@ -23,7 +23,8 @@ global LP_NOTE_LEN: Field = 3; // 3 plus a header.
 
 struct LPNote {
     // the amount of LP tokens in the note
-    amount: SafeU120,
+    // Note: We don't ever do any operations on this value, so we don't need to use SafeU120.
+    amount: Field,
     // the provider of secrets for the nullifier. The owner (recipient) to ensure that the note 
     // can be privately spent. When nullifier secret and encryption private key is same 
     // we can simply use the owner for this one.
@@ -36,7 +37,7 @@ struct LPNote {
 }
 
 impl LPNote {
-    pub fn new(amount: SafeU120, owner: AztecAddress) -> Self {
+    pub fn new(amount: Field, owner: AztecAddress) -> Self {
         Self {
             amount,
             owner,
@@ -46,12 +47,12 @@ impl LPNote {
     }
 
     pub fn serialize(self) -> [Field; LP_NOTE_LEN] {
-        [self.amount.value as Field, self.owner.address, self.randomness]
+        [self.amount, self.owner.address, self.randomness]
     }
 
     pub fn deserialize(serialized_note: [Field; LP_NOTE_LEN]) -> Self {
         Self {
-            amount: SafeU120::new(serialized_note[0]),
+            amount: serialized_note[0],
             owner: AztecAddress::new(serialized_note[1]),
             randomness: serialized_note[2],
             header: NoteHeader::empty(),
@@ -61,7 +62,7 @@ impl LPNote {
     pub fn compute_note_hash(self) -> Field {
         // TODO(#1205) Should use a non-zero generator index.
         pedersen_hash([
-            self.amount.value as Field, 
+            self.amount, 
             self.owner.address as Field,
             self.randomness,
         ],0)
@@ -87,7 +88,7 @@ impl LPNote {
     // Broadcasts the note as an encrypted log on L1.
     pub fn broadcast(self, context: &mut PrivateContext, slot: Field) {
       // We only bother inserting the note if non-empty to save funds on gas.
-      if !self.amount.is_zero() {
+      if self.amount != 0 {
           let encryption_pub_key = get_public_key(self.owner.address);
           emit_encrypted_log(
               context,

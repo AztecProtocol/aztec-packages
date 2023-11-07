@@ -27,7 +27,7 @@ describe('e2e_liquidity_mining', () => {
   let simulatorTree: SparseTree;
 
   beforeAll(async () => {
-    ({ teardown, logger, wallets, accounts, cheatCodes } = await setup(4));
+    ({ teardown, logger, wallets, accounts, cheatCodes } = await setup(1));
 
     contract = await LiquidityMiningContract.deploy(wallets[0]).send().deployed();
 
@@ -39,4 +39,26 @@ describe('e2e_liquidity_mining', () => {
 
   afterAll(() => teardown());
 
+  it('mints and claims', async () => {
+    // The account which apes into the pool
+    const ape = accounts[0].address;
+    {
+      // Mint
+      const mintAmount = 100n;
+      const receipt = await contract.methods.mint(ape, mintAmount).send().wait({ debug: true });
+      const { newCommitments, visibleNotes } = receipt.debugInfo!;
+      expect(newCommitments.length).toBe(1);
+      expect(visibleNotes.length).toBe(1);
+      const [noteAmount, noteOwner, _randomness] = visibleNotes[0].note.items;
+      expect(noteAmount.value).toBe(mintAmount);
+      expect(noteOwner).toEqual(ape.toField());
+    }
+
+    {
+      // Claim
+      const receipt = await contract.methods.claim(accounts[0].address).send().wait({ debug: true });
+      const { newNullifiers } = receipt.debugInfo!;
+      expect(newNullifiers.length).toBe(1);
+    }
+  });
 });

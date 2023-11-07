@@ -13,6 +13,7 @@ contract LiquidityMining {
             note_header::NoteHeader,
             utils as note_utils,
         },
+        // oracle::debug_log::debug_log_format,
     };
 
     use crate::types::lp_note::{LPNote, LPNoteMethods, LP_NOTE_LEN};
@@ -43,10 +44,10 @@ contract LiquidityMining {
     fn mint(
         owner: AztecAddress,
         amount: Field,
-    ) -> Field {
-        // TODO
-
-        1
+    ) {
+        let owner_balance = storage.balances.at(owner.address);
+        let mut note = LPNote::new(amount, owner);
+        owner_balance.insert(&mut note, true);
     }
 
 
