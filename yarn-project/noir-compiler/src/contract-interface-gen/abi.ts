@@ -113,11 +113,5 @@ export function generateContractArtifact(
     debug: parsedDebug,
     aztecNrVersion,
   };
-  const resolvedAztecNrVersion = compiler.getResolvedAztecNrVersion();
-
-  if (resolvedAztecNrVersion && AztecNrVersion !== resolvedAztecNrVersion) {
-    opts.log(`WARNING: Aztec.nr version mismatch: expected "${AztecNrVersion}", got "${resolvedAztecNrVersion}"`);
-  }
-
-  return artifacts.map(artifact => generateContractArtifact(artifact, resolvedAztecNrVersion));
+  return artifact;
 }

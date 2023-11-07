@@ -14,10 +14,17 @@ import {
   generateTypescriptContractInterface,
 } from '../index.js';
 
+/**
+ * CLI options for configuring behavior
+ */
 interface options {
+  // eslint-disable-next-line jsdoc/require-jsdoc
   outdir: string;
+  // eslint-disable-next-line jsdoc/require-jsdoc
   typescript: string | undefined;
+  // eslint-disable-next-line jsdoc/require-jsdoc
   interface: string | undefined;
+  // eslint-disable-next-line jsdoc/require-jsdoc
   compiler: string | undefined;
 }
 /**
@@ -36,30 +43,24 @@ export function compileContract(program: Command, name = 'compile', log: LogFn =
     .option('-c --compiler <string>', 'Which compiler to use. Either nargo or wasm. Defaults to nargo', 'wasm')
     .description('Compiles the Noir Source in the target project')
 
-    .action(
-      async (
-        projectPath: string,
-        /* eslint-disable jsdoc/require-jsdoc */
-        options: options,
-        /* eslint-enable jsdoc/require-jsdoc */
-      ) => {
-        const { outdir, typescript, interface: noirInterface, compiler } = options;
-        if (typeof projectPath !== 'string') throw new Error(`Missing project path argument`);
-        if (compiler !== 'nargo' && compiler !== 'wasm') throw new Error(`Invalid compiler: ${compiler}`);
+    .action(async (projectPath: string, options: options) => {
+      const { compiler } = options;
+      if (typeof projectPath !== 'string') throw new Error(`Missing project path argument`);
+      if (compiler !== 'nargo' && compiler !== 'wasm') throw new Error(`Invalid compiler: ${compiler}`);
 
-        const compile = compiler === 'wasm' ? compileUsingNoirWasm : compileUsingNargo;
-        log(`Compiling contracts...`);
-        const results = await compile(projectPath, { log });
-        for (const result of results) {
-          generateOutput(projectPath, result, options, log);
-        }
-      },
-    );
+      const compile = compiler === 'wasm' ? compileUsingNoirWasm : compileUsingNargo;
+      log(`Compiling noir projects...`);
+      const results = await compile(projectPath, { log });
+      for (const result of results) {
+        log(JSON.stringify(result, null, 2));
+        generateOutput(projectPath, result, options, log);
+      }
+    });
 }
 
 /**
  *
- * @param contract - output from compiler, to serialize locally
+ * @param contract - output from compiler, to serialize locally.  branch based on Contract vs Program
  */
 function generateOutput(
   projectPath: string,
