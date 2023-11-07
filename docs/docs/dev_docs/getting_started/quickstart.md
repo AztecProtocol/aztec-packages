@@ -32,10 +32,6 @@ This command will also install the CLI if a node package version of the CLI isn'
 
 Alternatively, you can [run the sandbox as an npm package](../cli/sandbox-reference.md#with-npm).
 
-## Install the CLI
-
-You can interact with the sandbox via the [Aztec CLI](../cli/main.md).
-
 ## Deploy a contract using the CLI
 
 The sandbox is preloaded with multiple accounts. Let's assign them to shell variables. Run the following in your terminal, so we can refer to the accounts as $ALICE and $BOB from now on:
