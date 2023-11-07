@@ -5,7 +5,7 @@ describe('pedersen', () => {
   let api: Barretenberg;
 
   beforeAll(async () => {
-    api = await Barretenberg.new(1);
+    api = await Barretenberg.new({ threads: 1 });
   }, 30000);
 
   afterAll(async () => {

@@ -9,6 +9,12 @@ import createDebug from 'debug';
 
 const debug = createDebug('bb.js:wasm');
 
+export type BackendOptions = {
+  threads?: number;
+  memory?: { initial?: number; maximum?: number };
+};
+
+
 /**
  * The main class library consumers interact with.
  * It extends the generated api, and provides a static constructor "new" to compose components.
@@ -24,10 +30,10 @@ export class Barretenberg extends BarretenbergApi {
    * and blocking the main thread in the browser is not allowed.
    * It threads > 1 (defaults to hardware availability), child threads will be created on their own workers.
    */
-  static async new(threads?: number) {
+  static async new({ threads, memory }: BackendOptions = {}) {
     const worker = createMainWorker();
     const wasm = getRemoteBarretenbergWasm<BarretenbergWasmMainWorker>(worker);
-    await wasm.init(threads, proxy(debug));
+    await wasm.init(threads, proxy(debug), memory?.initial, memory?.maximum);
     return new Barretenberg(worker, wasm);
   }
 
