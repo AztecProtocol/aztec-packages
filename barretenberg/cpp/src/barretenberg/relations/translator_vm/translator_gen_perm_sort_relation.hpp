@@ -42,7 +42,6 @@ template <typename FF_> class GoblinTranslatorGenPermSortRelationImpl {
                            const Parameters&,
                            const FF& scaling_factor);
 };
-
 template <typename FF>
 using GoblinTranslatorGenPermSortRelation = Relation<GoblinTranslatorGenPermSortRelationImpl<FF>>;
 

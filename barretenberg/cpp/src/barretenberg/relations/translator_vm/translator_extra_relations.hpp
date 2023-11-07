@@ -1,4 +1,5 @@
 #pragma once
+#include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 
 namespace proof_system {
@@ -72,7 +73,6 @@ template <typename FF_> class GoblinTranslatorAccumulatorTransferRelationImpl {
                            const Parameters& params,
                            const FF& scaling_factor);
 };
-
 template <typename FF>
 using GoblinTranslatorOpcodeConstraintRelation = Relation<GoblinTranslatorOpcodeConstraintRelationImpl<FF>>;
 
