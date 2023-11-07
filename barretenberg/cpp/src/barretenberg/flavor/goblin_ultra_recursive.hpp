@@ -97,32 +97,32 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
      */
     class PrecomputedEntities : public PrecomputedEntities_<DataType, HandleType, NUM_PRECOMPUTED_ENTITIES> {
       public:
-        DataType& q_m = std::get<0>(this->_data);
-        DataType& q_c = std::get<1>(this->_data);
-        DataType& q_l = std::get<2>(this->_data);
-        DataType& q_r = std::get<3>(this->_data);
-        DataType& q_o = std::get<4>(this->_data);
-        DataType& q_4 = std::get<5>(this->_data);
-        DataType& q_arith = std::get<6>(this->_data);
-        DataType& q_sort = std::get<7>(this->_data);
-        DataType& q_elliptic = std::get<8>(this->_data);
-        DataType& q_aux = std::get<9>(this->_data);
-        DataType& q_lookup = std::get<10>(this->_data);
-        DataType& sigma_1 = std::get<11>(this->_data);
-        DataType& sigma_2 = std::get<12>(this->_data);
-        DataType& sigma_3 = std::get<13>(this->_data);
-        DataType& sigma_4 = std::get<14>(this->_data);
-        DataType& id_1 = std::get<15>(this->_data);
-        DataType& id_2 = std::get<16>(this->_data);
-        DataType& id_3 = std::get<17>(this->_data);
-        DataType& id_4 = std::get<18>(this->_data);
-        DataType& table_1 = std::get<19>(this->_data);
-        DataType& table_2 = std::get<20>(this->_data);
-        DataType& table_3 = std::get<21>(this->_data);
-        DataType& table_4 = std::get<22>(this->_data);
-        DataType& lagrange_first = std::get<23>(this->_data);
-        DataType& lagrange_last = std::get<24>(this->_data);
-        DataType& lagrange_ecc_op = std::get<25>(this->_data); // indicator poly for ecc op gates
+        DataType q_m;             // column 0
+        DataType q_c;             // column 1
+        DataType q_l;             // column 2
+        DataType q_r;             // column 3
+        DataType q_o;             // column 4
+        DataType q_4;             // column 5
+        DataType q_arith;         // column 6
+        DataType q_sort;          // column 7
+        DataType q_elliptic;      // column 8
+        DataType q_aux;           // column 9
+        DataType q_lookup;        // column 10
+        DataType sigma_1;         // column 11
+        DataType sigma_2;         // column 12
+        DataType sigma_3;         // column 13
+        DataType sigma_4;         // column 14
+        DataType id_1;            // column 15
+        DataType id_2;            // column 16
+        DataType id_3;            // column 17
+        DataType id_4;            // column 18
+        DataType table_1;         // column 19
+        DataType table_2;         // column 20
+        DataType table_3;         // column 21
+        DataType table_4;         // column 22
+        DataType lagrange_first;  // column 23
+        DataType lagrange_last;   // column 24
+        DataType lagrange_ecc_op; // column 25 // indicator poly for ecc op gates
 
         static constexpr CircuitType CIRCUIT_TYPE = CircuitBuilder::CIRCUIT_TYPE;
 
@@ -143,21 +143,21 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
     template <typename DataType, typename HandleType>
     class WitnessEntities : public WitnessEntities_<DataType, HandleType, NUM_WITNESS_ENTITIES> {
       public:
-        DataType& w_l = std::get<0>(this->_data);
-        DataType& w_r = std::get<1>(this->_data);
-        DataType& w_o = std::get<2>(this->_data);
-        DataType& w_4 = std::get<3>(this->_data);
-        DataType& sorted_1 = std::get<4>(this->_data);
-        DataType& sorted_2 = std::get<5>(this->_data);
-        DataType& sorted_3 = std::get<6>(this->_data);
-        DataType& sorted_4 = std::get<7>(this->_data);
-        DataType& sorted_accum = std::get<8>(this->_data);
-        DataType& z_perm = std::get<9>(this->_data);
-        DataType& z_lookup = std::get<10>(this->_data);
-        DataType& ecc_op_wire_1 = std::get<11>(this->_data);
-        DataType& ecc_op_wire_2 = std::get<12>(this->_data);
-        DataType& ecc_op_wire_3 = std::get<13>(this->_data);
-        DataType& ecc_op_wire_4 = std::get<14>(this->_data);
+        DataType w_l;           // column 0
+        DataType w_r;           // column 1
+        DataType w_o;           // column 2
+        DataType w_4;           // column 3
+        DataType sorted_1;      // column 4
+        DataType sorted_2;      // column 5
+        DataType sorted_3;      // column 6
+        DataType sorted_4;      // column 7
+        DataType sorted_accum;  // column 8
+        DataType z_perm;        // column 9
+        DataType z_lookup;      // column 10
+        DataType ecc_op_wire_1; // column 11
+        DataType ecc_op_wire_2; // column 12
+        DataType ecc_op_wire_3; // column 13
+        DataType ecc_op_wire_4; // column 14
 
         std::vector<HandleType> get_wires() override { return { w_l, w_r, w_o, w_4 }; };
         std::vector<HandleType> get_ecc_op_wires()
@@ -180,54 +180,54 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
     template <typename DataType, typename HandleType>
     class AllEntities : public AllEntities_<DataType, HandleType, NUM_ALL_ENTITIES> {
       public:
-        DataType& q_c = std::get<0>(this->_data);
-        DataType& q_l = std::get<1>(this->_data);
-        DataType& q_r = std::get<2>(this->_data);
-        DataType& q_o = std::get<3>(this->_data);
-        DataType& q_4 = std::get<4>(this->_data);
-        DataType& q_m = std::get<5>(this->_data);
-        DataType& q_arith = std::get<6>(this->_data);
-        DataType& q_sort = std::get<7>(this->_data);
-        DataType& q_elliptic = std::get<8>(this->_data);
-        DataType& q_aux = std::get<9>(this->_data);
-        DataType& q_lookup = std::get<10>(this->_data);
-        DataType& sigma_1 = std::get<11>(this->_data);
-        DataType& sigma_2 = std::get<12>(this->_data);
-        DataType& sigma_3 = std::get<13>(this->_data);
-        DataType& sigma_4 = std::get<14>(this->_data);
-        DataType& id_1 = std::get<15>(this->_data);
-        DataType& id_2 = std::get<16>(this->_data);
-        DataType& id_3 = std::get<17>(this->_data);
-        DataType& id_4 = std::get<18>(this->_data);
-        DataType& table_1 = std::get<19>(this->_data);
-        DataType& table_2 = std::get<20>(this->_data);
-        DataType& table_3 = std::get<21>(this->_data);
-        DataType& table_4 = std::get<22>(this->_data);
-        DataType& lagrange_first = std::get<23>(this->_data);
-        DataType& lagrange_last = std::get<24>(this->_data);
-        DataType& lagrange_ecc_op = std::get<25>(this->_data);
-        DataType& w_l = std::get<26>(this->_data);
-        DataType& w_r = std::get<27>(this->_data);
-        DataType& w_o = std::get<28>(this->_data);
-        DataType& w_4 = std::get<29>(this->_data);
-        DataType& sorted_accum = std::get<30>(this->_data);
-        DataType& z_perm = std::get<31>(this->_data);
-        DataType& z_lookup = std::get<32>(this->_data);
-        DataType& ecc_op_wire_1 = std::get<33>(this->_data);
-        DataType& ecc_op_wire_2 = std::get<34>(this->_data);
-        DataType& ecc_op_wire_3 = std::get<35>(this->_data);
-        DataType& ecc_op_wire_4 = std::get<36>(this->_data);
-        DataType& table_1_shift = std::get<37>(this->_data);
-        DataType& table_2_shift = std::get<38>(this->_data);
-        DataType& table_3_shift = std::get<39>(this->_data);
-        DataType& table_4_shift = std::get<40>(this->_data);
-        DataType& w_l_shift = std::get<41>(this->_data);
-        DataType& w_r_shift = std::get<42>(this->_data);
-        DataType& w_o_shift = std::get<43>(this->_data);
-        DataType& w_4_shift = std::get<44>(this->_data);
-        DataType& sorted_accum_shift = std::get<45>(this->_data);
-        DataType& z_perm_shift = std::get<46>(this->_data);
-        DataType& z_lookup_shift = std::get<47>(this->_data);
+        DataType q_c;                // column 0
+        DataType q_l;                // column 1
+        DataType q_r;                // column 2
+        DataType q_o;                // column 3
+        DataType q_4;                // column 4
+        DataType q_m;                // column 5
+        DataType q_arith;            // column 6
+        DataType q_sort;             // column 7
+        DataType q_elliptic;         // column 8
+        DataType q_aux;              // column 9
+        DataType q_lookup;           // column 10
+        DataType sigma_1;            // column 11
+        DataType sigma_2;            // column 12
+        DataType sigma_3;            // column 13
+        DataType sigma_4;            // column 14
+        DataType id_1;               // column 15
+        DataType id_2;               // column 16
+        DataType id_3;               // column 17
+        DataType id_4;               // column 18
+        DataType table_1;            // column 19
+        DataType table_2;            // column 20
+        DataType table_3;            // column 21
+        DataType table_4;            // column 22
+        DataType lagrange_first;     // column 23
+        DataType lagrange_last;      // column 24
+        DataType lagrange_ecc_op;    // column 25
+        DataType w_l;                // column 26
+        DataType w_r;                // column 27
+        DataType w_o;                // column 28
+        DataType w_4;                // column 29
+        DataType sorted_accum;       // column 30
+        DataType z_perm;             // column 31
+        DataType z_lookup;           // column 32
+        DataType ecc_op_wire_1;      // column 33
+        DataType ecc_op_wire_2;      // column 34
+        DataType ecc_op_wire_3;      // column 35
+        DataType ecc_op_wire_4;      // column 36
+        DataType table_1_shift;      // column 37
+        DataType table_2_shift;      // column 38
+        DataType table_3_shift;      // column 39
+        DataType table_4_shift;      // column 40
+        DataType w_l_shift;          // column 41
+        DataType w_r_shift;          // column 42
+        DataType w_o_shift;          // column 43
+        DataType w_4_shift;          // column 44
+        DataType sorted_accum_shift; // column 45
+        DataType z_perm_shift;       // column 46
+        DataType z_lookup_shift;     // column 47
 
         std::vector<HandleType> get_wires() override { return { w_l, w_r, w_o, w_4 }; };
         std::vector<HandleType> get_ecc_op_wires()

@@ -80,7 +80,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
                                                          const FF& alpha,
                                                          const RelationParameters<FF>& relation_parameters)
     {
-        auto instance_size = std::get<0>(instance_polynomials._data).size();
+        auto instance_size = instance_polynomials.get_polynomial_size();
 
         std::vector<FF> full_honk_evaluations(instance_size);
         for (size_t row = 0; row < instance_size; row++) {
@@ -224,7 +224,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
                                                          const PowUnivariate<typename Flavor::FF>& pow_univariate,
                                                          const typename Flavor::FF alpha)
     {
-        size_t common_circuit_size = instances[0]->prover_polynomials._data[0].size();
+        size_t common_circuit_size = instances[0]->prover_polynomials.get_polynomial_size();
         // Precompute the vector of required powers of zeta
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/751): Parallelize this.
         // NB: there is a similar TODO in the sumcheck function `compute_univariate`.

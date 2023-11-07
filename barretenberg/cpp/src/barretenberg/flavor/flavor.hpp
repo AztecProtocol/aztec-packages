@@ -94,9 +94,6 @@ namespace proof_system::honk::flavor {
  */
 template <typename DataType, typename HandleType, size_t NUM_ENTITIES> class Entities_ {
   public:
-    using ArrayType = std::array<DataType, NUM_ENTITIES>;
-    ArrayType _data;
-
     virtual ~Entities_() = default;
 
     constexpr size_t size() { return NUM_ENTITIES; };
@@ -144,9 +141,6 @@ class ProvingKey_ : public PrecomputedPolynomials, public WitnessPolynomials {
     using Polynomial = typename PrecomputedPolynomials::DataType;
     using FF = typename Polynomial::FF;
 
-    typename PrecomputedPolynomials::ArrayType& _precomputed_polynomials = PrecomputedPolynomials::_data;
-    typename WitnessPolynomials::ArrayType& _witness_polynomials = WitnessPolynomials::_data;
-
     bool contains_recursive_proof;
     std::vector<uint32_t> recursive_proof_public_input_indices;
     barretenberg::EvaluationDomain<FF> evaluation_domain;
@@ -159,12 +153,12 @@ class ProvingKey_ : public PrecomputedPolynomials, public WitnessPolynomials {
         this->log_circuit_size = numeric::get_msb(circuit_size);
         this->num_public_inputs = num_public_inputs;
         // Allocate memory for precomputed polynomials
-        for (auto& poly : _precomputed_polynomials) {
-            poly = Polynomial(circuit_size);
+        for (auto* poly : PrecomputedPolynomials::pointer_view()) {
+            *poly = Polynomial(circuit_size);
         }
         // Allocate memory for witness polynomials
-        for (auto& poly : _witness_polynomials) {
-            poly = Polynomial(circuit_size);
+        for (auto* poly : WitnessPolynomials::pointer_view()) {
+            *poly = Polynomial(circuit_size);
         }
     };
 };
