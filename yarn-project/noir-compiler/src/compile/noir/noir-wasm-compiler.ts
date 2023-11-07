@@ -71,9 +71,24 @@ export class NoirWasmContractCompiler {
   }
 
   /**
+   * Gets the version of Aztec.nr that was used compiling this contract.
+   */
+  public getResolvedAztecNrVersion() {
+    // TODO eliminate this hardcoded library name!
+    // see docs/docs/dev_docs/contracts/setup.md
+    return this.#dependencyManager.getVersionOf('aztec');
+  }
+
+  /**
    * Compiles the project.
    */
   public async compile(): Promise<NoirCompilationArtifacts[]> {
+    const isContract = this.#package.getType() === 'contract';
+    // limit to contracts-only because the rest of the pipeline only supports processing contracts
+    if (!isContract) {
+      throw new Error('Noir project is not a contract');
+    }
+
     this.#debugLog(`Compiling contract at ${this.#package.getEntryPointPath()}`);
     await this.#dependencyManager.resolveDependencies();
     this.#debugLog(`Dependencies: ${this.#dependencyManager.getPackageNames().join(', ')}`);
@@ -81,7 +96,7 @@ export class NoirWasmContractCompiler {
     initializeResolver(this.#resolveFile);
 
     try {
-      const result = compile(this.#package.getEntryPointPath(), true, {
+      const result = compile(this.#package.getEntryPointPath(), isContract, {
         /* eslint-disable camelcase */
         root_dependencies: this.#dependencyManager.getEntrypointDependencies(),
         library_dependencies: this.#dependencyManager.getLibraryDependencies(),
@@ -96,6 +111,7 @@ export class NoirWasmContractCompiler {
     } catch (err) {
       if (err instanceof Error && err.name === 'CompileError') {
         this.#processCompileError(err as CompileError);
+        throw new Error('Compilation failed');
       }
 
       throw err;
@@ -112,7 +128,6 @@ export class NoirWasmContractCompiler {
   };
 
   #processCompileError(err: CompileError): void {
-    this.#log('Error compiling contract');
     for (const diag of err.diagnostics) {
       this.#log(`  ${diag.message}`);
       const contents = this.#resolveFile(diag.file);

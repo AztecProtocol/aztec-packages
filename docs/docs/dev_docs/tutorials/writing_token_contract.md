@@ -18,29 +18,7 @@ We are going to start with a blank project and fill in the token contract source
 
 ## Requirements
 
-You will need to install nargo, the Noir build too. if you are familiar with Rust, this is similar to cargo.
-
-<InstallNargoInstructions />
-
-If you've already installed the `aztec-cli`, as described in the quickstart [here](../getting_started/quickstart.md#cli), you can check which version of Noir is compatible with your version of the CLI and sandbox by running:
-
-```bash
-aztec-cli get-node-info
-```
-
-It should print something similar to:
-
-```bash
-➜  ~ aztec-cli get-node-info
-
-Node Info:
-
-Version: 1
-Chain Id: 31337
-Rollup Address: 0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9
-Client: pxe@0.7.5
-Compatible Nargo Version: 0.11.1-aztec.0
-```
+You will need to have `aztec-cli` installed in order to compile Aztec.nr contracts. See the [quickstart guide](../getting_started/quickstart.md#cli) for installation instructions.
 
 When you are running the Sandbox, `aztec-cli`, and compiling contracts with Noir, make sure you are using matching versions--we will be shipping breaking changes so mis-matched versions may not work.
 
@@ -62,13 +40,7 @@ inside that directory, create a `contracts` folder for the Aztec contracts.
 cd token_contract_tutorial && mkdir contracts && cd contracts
 ```
 
-Create a new Noir project using nargo.
-
-```bash
-nargo new --contract token_contract
-```
-
-Your project should look like this:
+Create the following file structure
 
 ```tree
 .
@@ -78,7 +50,7 @@ Your project should look like this:
         └── main.nr
 ```
 
-Add the following dependencies to your Nargo.toml file, below the package information:
+Add the following content to Nargo.toml file:
 
 ```toml
 [package]
@@ -248,7 +220,7 @@ We are also importing types from a `types.nr` file. The main thing to note from 
 
 ### Note on private state
 
-Private state in Aztec is all [UTXOs](https://en.wikipedia.org/wiki/Unspent_transaction_output) under the hood. Handling UTXOs is largely abstracted away from developers, but there are some unique things for developers to be aware of when creating and managing private state in an Aztec contract. See [State Variables](../contracts/syntax/storage.md) to learn more about public and private state in Aztec.
+Private state in Aztec is all [UTXOs](https://en.wikipedia.org/wiki/Unspent_transaction_output) under the hood. Handling UTXOs is largely abstracted away from developers, but there are some unique things for developers to be aware of when creating and managing private state in an Aztec contract. See [State Variables](../contracts/syntax/storage/main.md) to learn more about public and private state in Aztec.
 
 ## Contract Storage
 
@@ -267,7 +239,7 @@ Reading through the storage variables:
 - `pending_shields` is a `Set` of `TransparentNote`s stored in private state. What is stored publicly is a set of commitments to `TransparentNote`s.
 - `public_balances` is a mapping field elements in public state and represents the publicly viewable balances of accounts.
 
-You can read more about it [here](../contracts/syntax/storage.md).
+You can read more about it [here](../contracts/syntax/storage/main.md).
 
 ### Initializing Storage
 
