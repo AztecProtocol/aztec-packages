@@ -77,7 +77,6 @@ __metadata:
     jest-mock-extended: ^3.0.4
     levelup: ^5.1.1
     memdown: ^6.1.1
-    toml: ^3.0.0
     ts-jest: ^29.1.0
     ts-node: ^10.9.1
     tslib: ^2.4.0
@@ -366,6 +365,7 @@ __metadata:
     "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
     "@libp2p/peer-id-factory": ^3.0.4
+    "@ltd/j-toml": ^1.38.0
     "@rushstack/eslint-patch": ^1.1.4
     "@types/jest": ^29.5.0
     "@types/lodash.startcase": ^4.4.7
@@ -477,6 +477,7 @@ __metadata:
   dependencies:
     "@jest/globals": ^29.5.0
     "@koa/cors": ^4.0.0
+    "@noble/curves": ^1.2.0
     "@rushstack/eslint-patch": ^1.1.4
     "@types/debug": ^4.1.7
     "@types/detect-node": ^2.0.0
@@ -521,6 +522,7 @@ __metadata:
     ts-jest: ^29.1.0
     ts-node: ^10.9.1
     typescript: ^5.0.4
+    zod: ^3.22.4
   languageName: unknown
   linkType: soft
 
@@ -585,8 +587,9 @@ __metadata:
   dependencies:
     "@aztec/foundation": "workspace:^"
     "@jest/globals": ^29.5.0
-    "@noir-lang/noir_wasm": 0.18.0-3919619.aztec
-    "@noir-lang/source-resolver": 0.18.0-3919619.aztec
+    "@ltd/j-toml": ^1.38.0
+    "@noir-lang/noir_wasm": 0.18.0-6ca33a2.aztec
+    "@noir-lang/source-resolver": 0.18.0-6ca33a2.aztec
     "@rushstack/eslint-patch": ^1.1.4
     "@types/fs-extra": ^11.0.1
     "@types/jest": ^29.5.0
@@ -597,6 +600,7 @@ __metadata:
     "@types/lodash.upperfirst": ^4.3.7
     "@types/node": ^18.7.23
     "@types/pako": ^2.0.0
+    "@types/semver": ^7.5.4
     base64-js: ^1.5.1
     commander: ^9.0.0
     fs-extra: ^11.1.1
@@ -608,13 +612,12 @@ __metadata:
     lodash.upperfirst: ^4.3.1
     memfs: ^4.6.0
     pako: ^2.1.0
-    toml: ^3.0.0
+    semver: ^7.5.4
     ts-jest: ^29.1.0
     ts-node: ^10.9.1
     tslib: ^2.4.0
     typescript: ^5.0.4
     unzipit: ^1.4.3
-    zod: ^3.22.4
   bin:
     aztec-compile: dest/cli.js
   languageName: unknown
@@ -647,9 +650,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/noir-private-kernel@workspace:noir-private-kernel":
+"@aztec/noir-protocol-circuits@workspace:^, @aztec/noir-protocol-circuits@workspace:noir-protocol-circuits":
   version: 0.0.0-use.local
-  resolution: "@aztec/noir-private-kernel@workspace:noir-private-kernel"
+  resolution: "@aztec/noir-protocol-circuits@workspace:noir-protocol-circuits"
   dependencies:
     "@aztec/circuits.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
@@ -756,6 +759,7 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     "@aztec/key-store": "workspace:^"
     "@aztec/noir-compiler": "workspace:^"
+    "@aztec/noir-protocol-circuits": "workspace:^"
     "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
     "@rushstack/eslint-patch": ^1.1.4
@@ -3236,6 +3240,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@ltd/j-toml@npm:^1.38.0":
+  version: 1.38.0
+  resolution: "@ltd/j-toml@npm:1.38.0"
+  checksum: 34f5d0ec652e790a7a733f0d3a8d9957d63997bd0efc13a61beb9d772bae75519453884fbc3fd6a2d5fe15674834bdd57ca1824bb1de8f829e5ce195fc5fa3ea
+  languageName: node
+  linkType: hard
+
 "@metamask/safe-event-emitter@npm:2.0.0, @metamask/safe-event-emitter@npm:^2.0.0":
   version: 2.0.0
   resolution: "@metamask/safe-event-emitter@npm:2.0.0"
@@ -3468,6 +3479,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@noble/curves@npm:^1.2.0":
+  version: 1.2.0
+  resolution: "@noble/curves@npm:1.2.0"
+  dependencies:
+    "@noble/hashes": 1.3.2
+  checksum: bb798d7a66d8e43789e93bc3c2ddff91a1e19fdb79a99b86cd98f1e5eff0ee2024a2672902c2576ef3577b6f282f3b5c778bebd55761ddbb30e36bf275e83dd0
+  languageName: node
+  linkType: hard
+
 "@noble/hashes@npm:1.3.0":
   version: 1.3.0
   resolution: "@noble/hashes@npm:1.3.0"
@@ -3479,6 +3499,13 @@ __metadata:
   version: 1.3.1
   resolution: "@noble/hashes@npm:1.3.1"
   checksum: 7fdefc0f7a0c1ec27acc6ff88841793e3f93ec4ce6b8a6a12bfc0dd70ae6b7c4c82fe305fdfeda1735d5ad4a9eebe761e6693b3d355689c559e91242f4bc95b1
+  languageName: node
+  linkType: hard
+
+"@noble/hashes@npm:1.3.2":
+  version: 1.3.2
+  resolution: "@noble/hashes@npm:1.3.2"
+  checksum: fe23536b436539d13f90e4b9be843cc63b1b17666a07634a2b1259dded6f490be3d050249e6af98076ea8f2ea0d56f578773c2197f2aa0eeaa5fba5bc18ba474
   languageName: node
   linkType: hard
 
@@ -3548,12 +3575,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@noir-lang/noir_wasm@npm:0.18.0-3919619.aztec":
-  version: 0.18.0-3919619.aztec
-  resolution: "@noir-lang/noir_wasm@npm:0.18.0-3919619.aztec"
+"@noir-lang/noir_wasm@npm:0.18.0-6ca33a2.aztec":
+  version: 0.18.0-6ca33a2.aztec
+  resolution: "@noir-lang/noir_wasm@npm:0.18.0-6ca33a2.aztec"
   peerDependencies:
-    "@noir-lang/source-resolver": 0.18.0-3919619.aztec
-  checksum: 34102eaeaf250cf6c324ba9021ffb88695de2eaf6c648b882ad1bd9f1db3434f3af854a5b13302972a0e9cf34b7921008ca162c4ea68807590e567d343f2cec0
+    "@noir-lang/source-resolver": 0.18.0-6ca33a2.aztec
+  checksum: 1654cf4a86b600ad33717306253e94623efb017a9a99fc90a1ecde8b3fe909e8a8b5a339dd84ec5b20daa2c15aa60697cda6b84b90f4f201647f68581a5655be
   languageName: node
   linkType: hard
 
@@ -3564,10 +3591,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@noir-lang/source-resolver@npm:0.18.0-3919619.aztec":
-  version: 0.18.0-3919619.aztec
-  resolution: "@noir-lang/source-resolver@npm:0.18.0-3919619.aztec"
-  checksum: c7f39beba745fe9ca1b05c1df91bfb76c82704c18390740dbfea480e5e5ed98b7861e62341e2179fa4f5db3e327825336e1f8fe3452e081f4974be438c6b00f5
+"@noir-lang/source-resolver@npm:0.18.0-6ca33a2.aztec":
+  version: 0.18.0-6ca33a2.aztec
+  resolution: "@noir-lang/source-resolver@npm:0.18.0-6ca33a2.aztec"
+  checksum: 95f3426f7c40737be2f40bf793ecc555ecab7f1a782f27fd3dbcbf37197db0d2bf3fe8a5554e69e842cdb59a7e2d11a575d32ef82d92312c438cf892f5a98a6a
   languageName: node
   linkType: hard
 
@@ -5030,6 +5057,13 @@ __metadata:
   version: 7.5.2
   resolution: "@types/semver@npm:7.5.2"
   checksum: 743aa8a2b58e20b329c19bd2459152cb049d12fafab7279b90ac11e0f268c97efbcb606ea0c681cca03f79015381b40d9b1244349b354270bec3f939ed49f6e9
+  languageName: node
+  linkType: hard
+
+"@types/semver@npm:^7.5.4":
+  version: 7.5.4
+  resolution: "@types/semver@npm:7.5.4"
+  checksum: 120c0189f6fec5f2d12d0d71ac8a4cfa952dc17fa3d842e8afddb82bba8828a4052f8799c1653e2b47ae1977435f38e8985658fde971905ce5afb8e23ee97ecf
   languageName: node
   linkType: hard
 
@@ -18095,13 +18129,6 @@ __metadata:
     yup: ^1.2.0
   languageName: unknown
   linkType: soft
-
-"toml@npm:^3.0.0":
-  version: 3.0.0
-  resolution: "toml@npm:3.0.0"
-  checksum: 5d7f1d8413ad7780e9bdecce8ea4c3f5130dd53b0a4f2e90b93340979a137739879d7b9ce2ce05c938b8cc828897fe9e95085197342a1377dd8850bf5125f15f
-  languageName: node
-  linkType: hard
 
 "toposort@npm:^2.0.2":
   version: 2.0.2
