@@ -73,6 +73,7 @@ function deploy_package() {
   fi
 }
 
+# New packages here should be added after the last package that they depend on
 deploy_package foundation
 deploy_package circuits.js
 deploy_package types
