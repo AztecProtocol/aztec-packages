@@ -939,12 +939,10 @@ export function mapPublicCircuitPublicInputsToNoir(
  */
 export function mapPublicCallStackItemToNoir(publicCallStackItem: PublicCallStackItem): PublicCallStackItemNoir {
   return {
-    inner: {
-      contract_address: mapAztecAddressToNoir(publicCallStackItem.contractAddress),
-      public_inputs: mapPublicCircuitPublicInputsToNoir(publicCallStackItem.publicInputs),
-      is_execution_request: publicCallStackItem.isExecutionRequest,
-      function_data: mapFunctionDataToNoir(publicCallStackItem.functionData),
-    },
+    contract_address: mapAztecAddressToNoir(publicCallStackItem.contractAddress),
+    public_inputs: mapPublicCircuitPublicInputsToNoir(publicCallStackItem.publicInputs),
+    is_execution_request: publicCallStackItem.isExecutionRequest,
+    function_data: mapFunctionDataToNoir(publicCallStackItem.functionData),
   };
 }
 
