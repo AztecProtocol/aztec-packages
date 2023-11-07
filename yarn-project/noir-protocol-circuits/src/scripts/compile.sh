@@ -16,12 +16,12 @@ build() {
   echo "rm -rf src/target/${CONTRACT_NAME}.json"
   rm -rf src/target/${CONTRACT_NAME}.json
 
-  echo "$COMPILER" compile "$CONTRACT_FOLDER" --outdir src/target
-  node "$COMPILER" compile "$CONTRACT_FOLDER" --outdir src/target
+  echo "$COMPILER" compile "$CONTRACT_FOLDER" --outdir ${self_dir}/../src/target
+  node "$COMPILER" compile "$CONTRACT_FOLDER" --outdir ${self_dir}/../src/target
   # node "$COMPILER" typescript "$CONTRACT_FOLDER"
 }
 
 export -f build
 
 # run 4 builds at a time
-echo "$@" | xargs -n 1 -P 4 bash -c 'build "$0"'
+echo "$@" | xargs -n 1 -P 1 bash -c 'build "$0"'
