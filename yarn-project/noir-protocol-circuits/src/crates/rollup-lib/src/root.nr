@@ -141,62 +141,18 @@ mod tests {
     use crate::{
         root::{
             root_rollup_inputs::RootRollupInputs,
-            NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP_NUM_BYTES
+            NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP_NUM_BYTES,
         },
+        fixtures::root_rollup_inputs::default_root_rollup_inputs,
     };
-    use dep::types::hash::accumulate_sha256;
     use dep::types::utils::uint128::U128;
     use dep::types::utils::uint256::U256;
-    use dep::aztec::constants_gen::{
-        NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-        L1_TO_L2_MSG_TREE_HEIGHT,
-        L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
-        L1_TO_L2_MSG_SUBTREE_HEIGHT,
-        HISTORIC_BLOCKS_TREE_HEIGHT,
-    };
-    use crate::merkle_tree::{calculate_subtree, calculate_empty_tree_root};
-    use crate::abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot;
-
-    pub fn compute_zero_hashes<N>(mut hashes: [Field; N]) -> [Field; N] {
-        hashes[0] = dep::std::hash::pedersen_hash([0, 0]);
-
-        for i in 1..N {
-            hashes[i] = dep::std::hash::pedersen_hash([hashes[i-1], hashes[i-1]]);
-        }
-
-        hashes
-    }
-
-    pub fn compute_l1_l2_empty_snapshot() -> (AppendOnlyTreeSnapshot, [Field; L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH]) {
-        let zero_hashes = compute_zero_hashes([0; L1_TO_L2_MSG_TREE_HEIGHT]);
-        let mut new_l1_to_l2_messages_tree_root_sibling_path = [0; L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH];
-
-        for i in 0..L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH {
-            let index = L1_TO_L2_MSG_SUBTREE_HEIGHT + i - 1;
-            new_l1_to_l2_messages_tree_root_sibling_path[i] = zero_hashes[index];
-        }
-
-        (AppendOnlyTreeSnapshot{ root: zero_hashes[zero_hashes.len() - 1], next_available_leaf_index: 0 }, new_l1_to_l2_messages_tree_root_sibling_path)
-    }
-
-    pub fn compute_historic_blocks_tree_snapshot() -> (AppendOnlyTreeSnapshot, [Field; HISTORIC_BLOCKS_TREE_HEIGHT]) {
-        let zero_hashes = compute_zero_hashes([0; HISTORIC_BLOCKS_TREE_HEIGHT]);
-        let mut sibling_path = [0; HISTORIC_BLOCKS_TREE_HEIGHT];
-        for i in 1..HISTORIC_BLOCKS_TREE_HEIGHT {
-            sibling_path[i] = zero_hashes[i-1];
-        }
-        (AppendOnlyTreeSnapshot { root: zero_hashes[zero_hashes.len() - 1], next_available_leaf_index: 0 }, sibling_path)
-    }
+    use dep::types::hash::accumulate_sha256;
 
 
     #[test]
     fn check_block_hashes_empty_blocks(){
-        let empty_l1_l2_messages = [0; NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP];
-        let (l1_l2_empty_snapshot, l1_l2_empty_sibling_path) = compute_l1_l2_empty_snapshot();
-
-        let sha_digest = dep::std::hash::sha256([0; NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP_NUM_BYTES]);
-
-        let expected_messages_hash = U256::from_bytes32(sha_digest).to_u128_limbs();
+        let expected_messages_hash = U256::from_bytes32(dep::std::hash::sha256([0; NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP_NUM_BYTES])).to_u128_limbs();
 
         let expected_calldata_hash = accumulate_sha256([
             U128::from_field(0),
@@ -205,19 +161,7 @@ mod tests {
             U128::from_field(3)
         ]);
 
-        let mut inputs: RootRollupInputs = dep::std::unsafe::zeroed();
-        inputs.new_l1_to_l2_messages = empty_l1_l2_messages;
-        inputs.new_l1_to_l2_messages_tree_root_sibling_path = l1_l2_empty_sibling_path;
-        inputs.start_l1_to_l2_messages_tree_snapshot = l1_l2_empty_snapshot;
-
-        let (historic_blocks_snapshot, historic_blocks_sibling_path) = compute_historic_blocks_tree_snapshot();
-
-        inputs.start_historic_blocks_tree_snapshot = historic_blocks_snapshot;
-        inputs.new_historic_blocks_tree_sibling_path = historic_blocks_sibling_path;
-
-        inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.calldata_hash = [0, 1];
-        inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.calldata_hash = [2, 3];
-        
+        let inputs = default_root_rollup_inputs();
         let outputs = inputs.root_rollup_circuit();
     
         // check calldata hash
