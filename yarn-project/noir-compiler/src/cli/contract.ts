@@ -52,7 +52,6 @@ export function compileContract(program: Command, name = 'compile', log: LogFn =
       log(`Compiling noir projects...`);
       const results = await compile(projectPath, { log });
       for (const result of results) {
-        log(JSON.stringify(result, null, 2));
         generateOutput(projectPath, result, options, log);
       }
     });

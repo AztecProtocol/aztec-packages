@@ -1,7 +1,7 @@
 artifacts/
-target/
+# add back before landing # target/
 proofs/
-src/target/
+# uncomment before landing # src/target/
 src/types/
 Prover.toml
 Verifier.toml
