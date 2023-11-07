@@ -5,7 +5,7 @@ import {
   EthAddress,
   Fr,
   GrumpkinScalar,
-  NotePreimage,
+  Note,
   generatePublicKey,
   getSchnorrAccount,
   isContractDeployed,
@@ -21,7 +21,7 @@ import { DebugLogger, LogFn } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { fileURLToPath } from '@aztec/foundation/url';
 import { compileContract, generateNoirInterface, generateTypescriptInterface } from '@aztec/noir-compiler/cli';
-import { CompleteAddress, ContractData, LogFilter } from '@aztec/types';
+import { CompleteAddress, ContractData, ExtendedNote, LogFilter } from '@aztec/types';
 
 import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import { Command, Option } from 'commander';
@@ -32,7 +32,9 @@ import { mnemonicToAccount } from 'viem/accounts';
 
 import { createCompatibleClient } from './client.js';
 import { encodeArgs, parseStructString } from './encoding.js';
+import { GITHUB_TAG_PREFIX } from './github.js';
 import { unboxContract } from './unbox.js';
+import { update } from './update/update.js';
 import {
   deployAztecContracts,
   getContractArtifact,
@@ -70,9 +72,9 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
   const program = new Command();
 
   const packageJsonPath = resolve(dirname(fileURLToPath(import.meta.url)), '../package.json');
-  const version: string = JSON.parse(readFileSync(packageJsonPath).toString()).version;
+  const cliVersion: string = JSON.parse(readFileSync(packageJsonPath).toString()).version;
 
-  program.name('aztec-cli').description('CLI for interacting with Aztec.').version(version);
+  program.name('aztec-cli').description('CLI for interacting with Aztec.').version(cliVersion);
 
   const pxeOption = new Option('-u, --rpc-url <string>', 'URL of the PXE')
     .env('PXE_URL')
@@ -246,6 +248,14 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       const constructorArtifact = contractArtifact.functions.find(({ name }) => name === 'constructor');
 
       const client = await createCompatibleClient(rpcUrl, debugLogger);
+      const nodeInfo = await client.getNodeInfo();
+      const expectedAztecNrVersion = `${GITHUB_TAG_PREFIX}-v${nodeInfo.sandboxVersion}`;
+      if (contractArtifact.aztecNrVersion && contractArtifact.aztecNrVersion !== expectedAztecNrVersion) {
+        log(
+          `\nWarning: Contract was compiled with a different version of Aztec.nr: ${contractArtifact.aztecNrVersion}. Consider updating Aztec.nr to ${expectedAztecNrVersion}\n`,
+        );
+      }
+
       const deployer = new ContractDeployer(contractArtifact, client, publicKey);
 
       const constructor = getFunctionArtifact(contractArtifact, 'constructor');
@@ -585,12 +595,13 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .argument('<contractAddress>', 'Aztec address of the contract.', parseAztecAddress)
     .argument('<storageSlot>', 'The storage slot of the note.', parseField)
     .argument('<txHash>', 'The tx hash of the tx containing the note.', parseTxHash)
-    .requiredOption('-p, --preimage [notePreimage...]', 'Note preimage.', [])
+    .requiredOption('-n, --note [note...]', 'The members of a Note serialized as hex strings.', [])
     .addOption(pxeOption)
     .action(async (address, contractAddress, storageSlot, txHash, options) => {
-      const preimage = new NotePreimage(parseFields(options.preimage));
+      const note = new Note(parseFields(options.note));
+      const extendedNote = new ExtendedNote(note, address, contractAddress, storageSlot, txHash);
       const client = await createCompatibleClient(options.rpcUrl, debugLogger);
-      await client.addNote(address, contractAddress, storageSlot, preimage, txHash);
+      await client.addNote(extendedNote);
     });
 
   // Helper for users to decode hex strings into structs if needed.
@@ -648,7 +659,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     )
     .action(async (contractName, localDirectory) => {
       const unboxTo: string = localDirectory ? localDirectory : contractName;
-      await unboxContract(contractName, unboxTo, version, log);
+      await unboxContract(contractName, unboxTo, cliVersion, log);
     });
 
   program
@@ -698,6 +709,18 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .action((functionSignature: string) => {
       const selector = FunctionSelector.fromSignature(functionSignature);
       log(`${selector}`);
+    });
+
+  program
+    .command('update')
+    .description('Updates Nodejs and Noir dependencies')
+    .argument('[projectPath]', 'Path to the project directory', process.cwd())
+    .option('--contract [paths...]', 'Paths to contracts to update dependencies', [])
+    .option('--sandbox-version <semver>', 'The sandbox version to update to. Defaults to latest', 'latest')
+    .addOption(pxeOption)
+    .action(async (projectPath: string, options) => {
+      const { contract } = options;
+      await update(projectPath, contract, options.rpcUrl, options.sandboxVersion, log, debugLogger);
     });
 
   compileContract(program, 'compile', log);

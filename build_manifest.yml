@@ -39,6 +39,13 @@ barretenberg-acir-tests-bb:
   dependencies:
     - barretenberg-x86_64-linux-clang-assert
 
+barretenberg-acir-tests-bb-sol:
+  buildDir: barretenberg/acir_tests
+  dockerfile: Dockerfile.bb.sol
+  dependencies:
+    - barretenberg-x86_64-linux-clang-assert
+    - barretenberg-x86_64-linux-clang-sol
+
 barretenberg-acir-tests-bb.js:
   buildDir: barretenberg/acir_tests
   dockerfile: Dockerfile.bb.js
@@ -52,27 +59,6 @@ circuits-wasm-linux-clang:
   dependencies:
     - barretenberg-wasm-linux-clang
 
-circuits-wasm-linux-clang-assert:
-  buildDir: circuits/cpp
-  dockerfile: dockerfiles/Dockerfile.wasm-linux-clang-assert
-  rebuildPatterns: .rebuild_patterns
-  dependencies:
-    - barretenberg-wasm-linux-clang
-
-circuits-x86_64-linux-clang-tidy:
-  buildDir: circuits/cpp
-  dockerfile: dockerfiles/Dockerfile.x86_64-linux-clang-tidy
-  rebuildPatterns: .rebuild_patterns
-  dependencies:
-    - barretenberg-x86_64-linux-clang
-
-circuits-x86_64-linux-clang:
-  buildDir: circuits/cpp
-  dockerfile: dockerfiles/Dockerfile.x86_64-linux-clang
-  rebuildPatterns: .rebuild_patterns
-  dependencies:
-    - barretenberg-x86_64-linux-clang
-
 circuits-x86_64-linux-clang-assert:
   buildDir: circuits/cpp
   dockerfile: dockerfiles/Dockerfile.x86_64-linux-clang-assert
@@ -82,16 +68,6 @@ circuits-x86_64-linux-clang-assert:
 
 l1-contracts:
   buildDir: l1-contracts
-
-# We should move the noir source code to the top of the repo.
-# It's currently under yarn-project which looks very circular, but it isn't.
-# We're specific with our rebuild patterns as we depend on aztec.nr, but it doesn't have its own build.
-noir-contracts-build:
-  buildDir: yarn-project
-  projectDir: yarn-project/noir-contracts
-  rebuildPatterns:
-    - ^yarn-project/noir-contracts/
-    - ^yarn-project/aztec-nr/
 
 yarn-project-base:
   buildDir: yarn-project
@@ -106,11 +82,10 @@ yarn-project-base:
 yarn-project:
   buildDir: yarn-project
   rebuildPatterns:
-    - ^yarn-project/.*\.(ts|js|cjs|mjs|json|html|md|sh)$
+    - ^yarn-project/.*\.(ts|tsx|js|cjs|mjs|json|html|md|sh|nr|toml)$
     - ^yarn-project/Dockerfile
   dependencies:
     - yarn-project-base
-    - noir-contracts-build
 
 aztec-sandbox:
   buildDir: yarn-project
@@ -121,6 +96,12 @@ aztec-sandbox:
 aztec-faucet:
   buildDir: yarn-project
   projectDir: yarn-project/aztec-faucet
+  dependencies:
+    - yarn-project
+
+cli:
+  buildDir: yarn-project
+  projectDir: yarn-project/cli
   dependencies:
     - yarn-project
 
@@ -166,6 +147,8 @@ end-to-end:
   projectDir: yarn-project/end-to-end
   dependencies:
     - yarn-project
+  runDependencies:
+    - aztec-sandbox
 
 aztec-node:
   buildDir: yarn-project

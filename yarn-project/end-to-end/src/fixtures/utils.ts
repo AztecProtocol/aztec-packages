@@ -1,18 +1,25 @@
 import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import {
   AccountWalletWithPrivateKey,
+  AztecNode,
   CheatCodes,
   CompleteAddress,
   DebugLogger,
+  DeployL1Contracts,
   EthCheatCodes,
+  L1ContractArtifactsForDeployment,
+  L2BlockL2Logs,
+  LogType,
+  PXE,
   SentTx,
   createAccounts,
+  createAztecNodeClient,
   createDebugLogger,
   createPXEClient,
+  deployL1Contracts,
   getSandboxAccountsWallets,
+  retryUntil,
 } from '@aztec/aztec.js';
-import { DeployL1Contracts, L1ContractArtifactsForDeployment, deployL1Contracts } from '@aztec/ethereum';
-import { retryUntil } from '@aztec/foundation/retry';
 import {
   ContractDeploymentEmitterAbi,
   ContractDeploymentEmitterBytecode,
@@ -28,7 +35,7 @@ import {
   RollupBytecode,
 } from '@aztec/l1-artifacts';
 import { PXEService, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
-import { AztecNode, L2BlockL2Logs, LogType, PXE, createAztecNodeRpcClient } from '@aztec/types';
+import { SequencerClient } from '@aztec/sequencer-client';
 
 import * as path from 'path';
 import {
@@ -165,7 +172,7 @@ async function setupWithSandbox(account: Account, config: AztecNodeConfig, logge
   // we are setting up against the sandbox, l1 contracts are already deployed
   const aztecNodeUrl = getAztecNodeUrl();
   logger(`Creating Aztec Node client to remote host ${aztecNodeUrl}`);
-  const aztecNode = createAztecNodeRpcClient(aztecNodeUrl);
+  const aztecNode = createAztecNodeClient(aztecNodeUrl);
   logger(`Creating PXE client to remote host ${PXE_URL}`);
   const pxeClient = createPXEClient(PXE_URL);
   await waitForPXE(pxeClient, logger);
@@ -193,6 +200,7 @@ async function setupWithSandbox(account: Account, config: AztecNodeConfig, logge
   const teardown = () => Promise.resolve();
   return {
     aztecNode,
+    sequencer: undefined,
     pxe: pxeClient,
     deployL1ContractsValues,
     accounts: await pxeClient!.getRegisteredAccounts(),
@@ -212,6 +220,8 @@ type SetupOptions = { /** State load */ stateLoad?: string } & Partial<AztecNode
 export type EndToEndContext = {
   /** The Aztec Node service or client a connected to it. */
   aztecNode: AztecNode | undefined;
+  /** A client to the sequencer service */
+  sequencer: SequencerClient | undefined;
   /** The Private eXecution Environment (PXE). */
   pxe: PXE;
   /** Return values from deployL1Contracts function. */
@@ -273,6 +283,7 @@ export async function setup(numberOfAccounts = 1, opts: SetupOptions = {}): Prom
 
   logger('Creating and synching an aztec node...');
   const aztecNode = await AztecNodeService.createAndSync(config);
+  const sequencer = aztecNode.getSequencer();
 
   const { pxe, accounts, wallets } = await setupPXEService(numberOfAccounts, aztecNode!, logger);
 
@@ -293,6 +304,7 @@ export async function setup(numberOfAccounts = 1, opts: SetupOptions = {}): Prom
     wallets,
     logger,
     cheatCodes,
+    sequencer,
     teardown,
   };
 }

@@ -4,12 +4,18 @@
 #   VERBOSE: to enable logging for each test.
 set -eu
 
+# Catch when running in parallel
+error_file="/tmp/error.$$"
+pids=()
+source ./bash_helpers/catch.sh
+trap handle_sigchild SIGCHLD
+
 BIN=${BIN:-../cpp/build/bin/bb}
 FLOW=${FLOW:-prove_and_verify}
 CRS_PATH=~/.bb-crs
 BRANCH=master
 VERBOSE=${VERBOSE:-}
-NAMED_TEST=${1:-}
+TEST_NAMES=("$@")
 
 FLOW_SCRIPT=$(realpath ./flows/${FLOW}.sh)
 
@@ -19,24 +25,9 @@ else
     BIN=$(realpath $(which $BIN))
 fi
 
-export BIN CRS_PATH VERBOSE
+export BIN CRS_PATH VERBOSE BRANCH
 
-# Pull down the test vectors from the noir repo, if we don't have the folder already.
-if [ ! -d acir_tests ]; then
-  if [ -n "${TEST_SRC:-}" ]; then
-    cp -R $TEST_SRC acir_tests
-  else
-    rm -rf noir
-    git clone -b $BRANCH --filter=blob:none --no-checkout https://github.com/noir-lang/noir.git
-    cd noir
-    git sparse-checkout init --cone
-    git sparse-checkout set tooling/nargo_cli/tests/acir_artifacts
-    git checkout
-    cd ..
-    mv noir/tooling/nargo_cli/tests/acir_artifacts acir_tests
-    rm -rf noir
-  fi
-fi
+./clone_test_vectors.sh
 
 cd acir_tests
 
@@ -47,23 +38,29 @@ function test() {
   cd $1
 
   set +e
+  start=$(date +%s%3N)
   $FLOW_SCRIPT
   result=$?
+  end=$(date +%s%3N)
+  duration=$((end - start))
   set -eu
 
   if [ $result -eq 0 ]; then
-    echo -e "\033[32mPASSED\033[0m"
+    echo -e "\033[32mPASSED\033[0m ($duration ms)"
   else
     echo -e "\033[31mFAILED\033[0m"
+    touch "$error_file"
     exit 1
   fi
 
   cd ..
 }
 
-if [ -n "$NAMED_TEST" ]; then
-  echo -n "Testing $NAMED_TEST... "
-  test $NAMED_TEST
+if [ "${#TEST_NAMES[@]}" -ne 0 ]; then
+  for NAMED_TEST in "${TEST_NAMES[@]}"; do
+    echo -n "Testing $NAMED_TEST... "
+    test $NAMED_TEST
+  done
 else
   for TEST_NAME in $(find -maxdepth 1 -type d -not -path '.' | sed 's|^\./||'); do
     echo -n "Testing $TEST_NAME... "
@@ -78,6 +75,16 @@ else
       continue
     fi
 
-    test $TEST_NAME
+    # If parallel flag is set, run in parallel
+    if [ -n "${PARALLEL:-}" ]; then
+      test $TEST_NAME &
+    else 
+      test $TEST_NAME 
+    fi
   done
 fi
+
+wait
+
+# Check for parallel errors
+check_error_file

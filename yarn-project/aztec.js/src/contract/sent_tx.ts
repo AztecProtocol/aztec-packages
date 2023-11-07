@@ -1,6 +1,6 @@
 import { FieldsOf } from '@aztec/circuits.js';
 import { retryUntil } from '@aztec/foundation/retry';
-import { GetUnencryptedLogsResponse, PXE, TxHash, TxReceipt, TxStatus } from '@aztec/types';
+import { ExtendedNote, GetUnencryptedLogsResponse, PXE, TxHash, TxReceipt, TxStatus } from '@aztec/types';
 
 import every from 'lodash.every';
 
@@ -15,12 +15,15 @@ export type WaitOpts = {
    * If false, then any queries that depend on state set by this transaction may return stale data. Defaults to true.
    **/
   waitForNotesSync?: boolean;
+  /** Whether to include information useful for debugging/testing in the receipt. */
+  debug?: boolean;
 };
 
-const DefaultWaitOpts: WaitOpts = {
+export const DefaultWaitOpts: WaitOpts = {
   timeout: 60,
   interval: 1,
   waitForNotesSync: true,
+  debug: false,
 };
 
 /**
@@ -58,9 +61,26 @@ export class SentTx {
    * @returns The transaction receipt.
    */
   public async wait(opts?: WaitOpts): Promise<FieldsOf<TxReceipt>> {
+    if (opts?.debug && opts.waitForNotesSync === false) {
+      throw new Error('Cannot set getNotes to true if waitForNotesSync is false');
+    }
     const receipt = await this.waitForReceipt(opts);
     if (receipt.status !== TxStatus.MINED)
       throw new Error(`Transaction ${await this.getTxHash()} was ${receipt.status}`);
+    if (opts?.debug) {
+      const txHash = await this.getTxHash();
+      const tx = (await this.pxe.getTx(txHash))!;
+      const visibleNotes = await this.pxe.getNotes({ txHash });
+      receipt.debugInfo = {
+        newCommitments: tx.newCommitments,
+        newNullifiers: tx.newNullifiers,
+        newPublicDataWrites: tx.newPublicDataWrites,
+        newL2ToL1Msgs: tx.newL2ToL1Msgs,
+        newContracts: tx.newContracts,
+        newContractData: tx.newContractData,
+        visibleNotes,
+      };
+    }
     return receipt;
   }
 
@@ -72,6 +92,16 @@ export class SentTx {
   public async getUnencryptedLogs(): Promise<GetUnencryptedLogsResponse> {
     await this.wait();
     return this.pxe.getUnencryptedLogs({ txHash: await this.getTxHash() });
+  }
+
+  /**
+   * Get notes of accounts registered in the provided PXE/Wallet created in this tx.
+   * @remarks This function will wait for the tx to be mined if it hasn't been already.
+   * @returns The requested notes.
+   */
+  public async getVisibleNotes(): Promise<ExtendedNote[]> {
+    await this.wait();
+    return this.pxe.getNotes({ txHash: await this.getTxHash() });
   }
 
   protected async waitForReceipt(opts?: WaitOpts): Promise<TxReceipt> {

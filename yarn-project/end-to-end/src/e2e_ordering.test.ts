@@ -1,13 +1,12 @@
 // Test suite for testing proper ordering of side effects
-import { Wallet } from '@aztec/aztec.js';
-import { FunctionSelector } from '@aztec/circuits.js';
-import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
-import { Fr } from '@aztec/foundation/fields';
-import { toBigInt } from '@aztec/foundation/serialize';
+import { Fr, FunctionSelector, PXE, TxStatus, Wallet, toBigIntBE } from '@aztec/aztec.js';
 import { ChildContract, ParentContract } from '@aztec/noir-contracts/types';
-import { PXE, TxStatus } from '@aztec/types';
+
+import { jest } from '@jest/globals';
 
 import { setup } from './fixtures/utils.js';
+
+jest.setTimeout(30_000);
 
 // See https://github.com/AztecProtocol/aztec-packages/issues/1601
 describe('e2e_ordering', () => {
@@ -76,8 +75,8 @@ describe('e2e_ordering', () => {
           await expectLogsFromLastBlockToBe(expectedOrder);
 
           // The final value of the child is the last one set
-          const value = await pxe.getPublicStorageAt(child.address, new Fr(1)).then(x => toBigInt(x!));
-          expect(value).toEqual(expectedOrder[1]); // final state should match last value set
+          const value = await pxe.getPublicStorageAt(child.address, new Fr(1));
+          expect(value?.value).toBe(expectedOrder[1]); // final state should match last value set
         },
       );
     });
@@ -100,8 +99,8 @@ describe('e2e_ordering', () => {
           const receipt = await tx.wait();
           expect(receipt.status).toBe(TxStatus.MINED);
 
-          const value = await pxe.getPublicStorageAt(child.address, new Fr(1)).then(x => toBigInt(x!));
-          expect(value).toEqual(expectedOrder[1]); // final state should match last value set
+          const value = await pxe.getPublicStorageAt(child.address, new Fr(1));
+          expect(value?.value).toBe(expectedOrder[1]); // final state should match last value set
         },
       );
 
