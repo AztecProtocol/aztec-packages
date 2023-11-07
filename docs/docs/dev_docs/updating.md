@@ -2,10 +2,24 @@
 title: Updating
 ---
 
-## Quick Reference
+## TL;DR
+1. **Updating the sandbox:** 
+- If you installed sandbox via docker, run:
+```shell
+/bin/bash -c "$(curl -fsSL 'https://sandbox.aztec.network')"
+```
+- If you have installed via an npm package then step 3 handles the update.
 
-The sandbox must be running for the update command to work unless there the project defines `@aztec/aztec-sandbox` as a dependency, in which case the command will compare against the version listed in `package.json`.
+2. **Updating Aztec-CLI:**
+- The above command also downloads the aztec-cli if a node package version of the CLI isn't found locally.
+- If you have globally installed the CLI previously, then run:
+```shell
+npm install -g @aztec/aztec-cli
+```
+(replace with `yarn` or your node package version manager tool).
+- If you have aztec-cli listed as a local dependency in your project's `package.json`, then step 3 handles the update.
 
+3. **Updating aztec-nr and individual @aztec dependencies:**
 Inside your project run:
 
 ```shell
@@ -13,13 +27,9 @@ cd your/aztec/project
 npx @aztec/cli@latest update . --contract src/contract1 --contract src/contract2
 ```
 
-This will:
+The sandbox must be running for the update command to work unless there the project defines `@aztec/aztec-sandbox` as a dependency, in which case the command will compare against the version listed in `package.json`.
 
-1. If `@aztec/sandbox` and `@aztec/cli` are listed as dependencies then they will be automatically updated
-2. update `@aztec/*` dependencies in `package.json`
-3. update Aztec.nr libraries in `Nargo.toml` to the latest version.
-
-Read on to learn about versioning and other commands.
+---
 
 There are three components whose versions need to be kept compatible:
 

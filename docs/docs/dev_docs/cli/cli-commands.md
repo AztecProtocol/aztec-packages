@@ -16,11 +16,9 @@ npm install -g @aztec/cli
 
 ### Docker
 
-The CLI will be installed automatically via Docker if it is not already found locally, by running the command to install and start the sandbox, [instructions here](./sandbox-reference.md#installation-with-docker).
+The CLI will be installed automatically via Docker if it is not already found locally, by running the command to install and start the sandbox, [instructions here](./sandbox-reference.md#with-docker).
 
 ## Update
-
-The sandbox must be running for the update command to work unless there the project defines `@aztec/aztec-sandbox` as a dependency, in which case the command will compare against the version listed in `package.json`.
 
 The CLI comes with an update command.
 
@@ -34,6 +32,8 @@ This command does a few things to manage updates:
 - It looks for a `package.json` and updates all `@aztec/` dependencies to the versions the sandbox expects.
 - It looks for `Nargo.toml` at the `--contract` paths specified and updates all `aztec.nr` dependencies to the versions the sandbox expects.
 - It outputs the changes.
+
+The sandbox must be running for the update command to work unless there the project defines `@aztec/aztec-sandbox` as a dependency, in which case the command will compare against the version listed in `package.json`.
 
 :::info
 

@@ -47,6 +47,7 @@ Add the following content to `Nargo.toml`:
 name = "counter"
 type = "contract"
 authors = [""]
+compiler_version = ">=0.18.0"
 
 [dependencies]
 aztec = { git="https://github.com/AztecProtocol/aztec-packages", tag="#include_aztec_version", directory="yarn-project/aztec-nr/aztec" }
