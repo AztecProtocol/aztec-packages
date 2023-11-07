@@ -14,7 +14,6 @@ export type BackendOptions = {
   memory?: { initial?: number; maximum?: number };
 };
 
-
 /**
  * The main class library consumers interact with.
  * It extends the generated api, and provides a static constructor "new" to compose components.
