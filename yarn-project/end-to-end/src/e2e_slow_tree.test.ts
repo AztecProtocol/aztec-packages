@@ -26,16 +26,20 @@ describe('e2e_slow_tree', () => {
   afterAll(() => teardown());
 
   it('Messing around with noir slow tree', async () => {
-    const db = levelup(createMemDown());
-    const hasher = new Pedersen(await CircuitsWasm.get());
     const depth = 254;
-    const tree = await newTree(SparseTree, db, hasher, 'test', depth);
+    const slowUpdateTreeSimulator = await newTree(
+      SparseTree,
+      levelup(createMemDown()),
+      new Pedersen(await CircuitsWasm.get()),
+      'test',
+      depth,
+    );
     const getMembershipProof = async (index: bigint, includeUncommitted: boolean) => {
       return {
         index,
-        value: Fr.fromBuffer((await tree.getLeafValue(index, includeUncommitted))!),
+        value: Fr.fromBuffer((await slowUpdateTreeSimulator.getLeafValue(index, includeUncommitted))!),
         // eslint-disable-next-line camelcase
-        sibling_path: (await tree.getSiblingPath(index, includeUncommitted)).toFieldArray(),
+        sibling_path: (await slowUpdateTreeSimulator.getSiblingPath(index, includeUncommitted)).toFieldArray(),
       };
     };
 
@@ -95,7 +99,7 @@ describe('e2e_slow_tree', () => {
       .update_at_public(await getUpdateProof(1n, key))
       .send()
       .wait();
-    await tree.updateLeaf(new Fr(1).toBuffer(), key);
+    await slowUpdateTreeSimulator.updateLeaf(new Fr(1).toBuffer(), key);
     await status(key);
 
     const zeroProof = await getMembershipProof(key, false);
@@ -105,7 +109,7 @@ describe('e2e_slow_tree', () => {
 
     // Progress time to beyond the update and thereby commit it to the tree.
     await cheatCodes.aztec.warp((await cheatCodes.eth.timestamp()) + 1000);
-    await tree.commit();
+    await slowUpdateTreeSimulator.commit();
     logger('--- Progressing time to after the update ---');
     await status(key);
 
@@ -124,7 +128,7 @@ describe('e2e_slow_tree', () => {
     logger(`Updating tree[${key}] to 4 from private`);
     await wallet.addMint(getUpdateMint(await getUpdateProof(4n, key)));
     await contract.methods.update_at_private(key, 4n).send().wait();
-    await tree.updateLeaf(new Fr(4).toBuffer(), key);
+    await slowUpdateTreeSimulator.updateLeaf(new Fr(4).toBuffer(), key);
 
     await status(key);
   }, 200_000);

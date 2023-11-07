@@ -42,16 +42,16 @@ describe('e2e_blacklist_token_contract', () => {
 
   let tokenSim: TokenSimulator;
 
-  let tree: SparseTree;
+  let slowUpdateTreeSimulator: SparseTree;
 
   let cheatCodes: CheatCodes;
 
   const getMembershipProof = async (index: bigint, includeUncommitted: boolean) => {
     return {
       index,
-      value: Fr.fromBuffer((await tree.getLeafValue(index, includeUncommitted))!),
+      value: Fr.fromBuffer((await slowUpdateTreeSimulator.getLeafValue(index, includeUncommitted))!),
       // eslint-disable-next-line camelcase
-      sibling_path: (await tree.getSiblingPath(index, includeUncommitted)).toFieldArray(),
+      sibling_path: (await slowUpdateTreeSimulator.getSiblingPath(index, includeUncommitted)).toFieldArray(),
     };
   };
 
@@ -107,10 +107,14 @@ describe('e2e_blacklist_token_contract', () => {
 
     slowTree = await SlowTreeContract.deploy(wallets[0]).send().deployed();
 
-    const db = levelup(createMemDown());
-    const hasher = new Pedersen(await CircuitsWasm.get());
     const depth = 254;
-    tree = await newTree(SparseTree, db, hasher, 'test', depth);
+    slowUpdateTreeSimulator = await newTree(
+      SparseTree,
+      levelup(createMemDown()),
+      new Pedersen(await CircuitsWasm.get()),
+      'test',
+      depth,
+    );
 
     const deployTx = TokenBlacklistContract.deploy(wallets[0], accounts[0], slowTree.address).send({});
     const receipt = await deployTx.wait();
@@ -132,13 +136,13 @@ describe('e2e_blacklist_token_contract', () => {
     }
 
     // Add account[0] as admin
-    await updateSlowTree(tree, wallets[0], accounts[0].address, 4n);
+    await updateSlowTree(slowUpdateTreeSimulator, wallets[0], accounts[0].address, 4n);
     await asset.methods.init_slow_tree(accounts[0].address).send().wait();
 
     // Progress to next "epoch"
     const time = await cheatCodes.eth.timestamp();
     await cheatCodes.aztec.warp(time + 200);
-    await tree.commit();
+    await slowUpdateTreeSimulator.commit();
 
     const roleLeaf = await slowTree.methods.un_read_leaf_at(asset.address, accounts[0].address).view();
     expect(roleLeaf['next_change']).toBeGreaterThan(0n);
@@ -179,12 +183,12 @@ describe('e2e_blacklist_token_contract', () => {
       expect(beforeLeaf['before']).toEqual(0n);
       expect(beforeLeaf['after']).toEqual(4n);
 
-      await updateSlowTree(tree, wallets[0], newMinter, newRoles);
+      await updateSlowTree(slowUpdateTreeSimulator, wallets[0], newMinter, newRoles);
       await wallets[0].addMint(getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), false)));
 
       const tx = await asset.methods.update_roles(newMinter, newRoles).send().wait();
       expect(tx.status).toBe(TxStatus.MINED);
-      await tree.commit();
+      await slowUpdateTreeSimulator.commit();
 
       const afterLeaf = await slowTree.methods.un_read_leaf_at(asset.address, newMinter).view();
       expect(afterLeaf['next_change']).toBeGreaterThan(beforeLeaf['next_change']);
@@ -208,12 +212,12 @@ describe('e2e_blacklist_token_contract', () => {
       // eslint-disable-next-line camelcase
       expect(v).toEqual({ next_change: 0n, before: 0n, after: 0n });
 
-      await updateSlowTree(tree, wallets[0], newAdmin, newRoles);
+      await updateSlowTree(slowUpdateTreeSimulator, wallets[0], newAdmin, newRoles);
       await wallets[0].addMint(getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), false)));
 
       const tx = await asset.methods.update_roles(newAdmin, newRoles).send().wait();
       expect(tx.status).toBe(TxStatus.MINED);
-      await tree.commit();
+      await slowUpdateTreeSimulator.commit();
 
       v = await slowTree.methods.un_read_leaf_at(asset.address, newAdmin).view();
       expect(v['next_change']).toBeGreaterThan(0n);
@@ -236,12 +240,12 @@ describe('e2e_blacklist_token_contract', () => {
       expect(beforeLeaf['before']).toEqual(0n);
       expect(beforeLeaf['after']).toEqual(currentRoles);
 
-      await updateSlowTree(tree, wallets[0], actor, newRoles);
+      await updateSlowTree(slowUpdateTreeSimulator, wallets[0], actor, newRoles);
       await wallets[0].addMint(getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), false)));
 
       const tx = await asset.methods.update_roles(actor, newRoles).send().wait();
       expect(tx.status).toBe(TxStatus.MINED);
-      await tree.commit();
+      await slowUpdateTreeSimulator.commit();
 
       const afterLeaf = await slowTree.methods.un_read_leaf_at(asset.address, actor).view();
       expect(afterLeaf['next_change']).toBeGreaterThan(beforeLeaf['next_change']);
@@ -263,12 +267,12 @@ describe('e2e_blacklist_token_contract', () => {
       // eslint-disable-next-line camelcase
       expect(v).toEqual({ next_change: 0n, before: 0n, after: 0n });
 
-      await updateSlowTree(tree, wallets[0], accounts[3].address, 1n);
+      await updateSlowTree(slowUpdateTreeSimulator, wallets[0], accounts[3].address, 1n);
       await wallets[0].addMint(getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), false)));
 
       const tx = await asset.methods.update_roles(accounts[3].address, 1n).send().wait();
       expect(tx.status).toBe(TxStatus.MINED);
-      await tree.commit();
+      await slowUpdateTreeSimulator.commit();
 
       v = await slowTree.methods.un_read_leaf_at(asset.address, accounts[3].address).view();
       expect(v['next_change']).toBeGreaterThan(0n);

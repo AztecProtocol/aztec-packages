@@ -3,6 +3,7 @@ use dep::aztec::types::type_serialization::TypeSerializationInterface;
 use dep::aztec::oracle::storage::{storage_read, storage_write};
 
 use dep::std::hash::pedersen_hash;
+use dep::std::merkle::compute_merkle_root;
 use dep::std::option::Option;
 
 // The epoch length is just a random number for now.
@@ -169,7 +170,8 @@ impl<N,M> SlowMap<N,M> {
   // Should only be used when updates from public are desired, since the hashing will be
   // costly since done by sequencer.
   pub fn update_at(self: Self, p: SlowUpdateProof<N, M>) {
-    // TODO: Constrain the index to be within the tree.
+    // The calling function should ensure that the index is within the tree.
+    // This must be done separately to ensure we are not constraining too tight here.
 
     let time = self.context.public.unwrap().timestamp() as u120;
     let next_change = compute_next_change(time as Field);
@@ -193,7 +195,9 @@ impl<N,M> SlowMap<N,M> {
       "Before root don't match"
     );
 
-    // Ensures that the after root is correct, and ensure that sibling_path for root computation is correct
+    // Ensures that the provided sibling path is valid for the CURRENT "after" tree.
+    // Without this check, someone could provide a sibling path for a different tree
+    // and update the entire "after" tree at once, causing it to be out of sync with leaf storage.
     assert(
       root.after == compute_merkle_root(leaf.after, p.index, p.after.sibling_path), 
       "After root don't match"
@@ -254,7 +258,7 @@ impl<N,M> SlowMap<N,M> {
   }
 }
 
-pub fn compute_merkle_root<N>(leaf: Field, index: Field, hash_path: [Field; N]) -> Field {
+/*pub fn compute_merkle_root<N>(leaf: Field, index: Field, hash_path: [Field; N]) -> Field {
     let n = hash_path.len();
     let index_bits = index.to_le_bits(n as u32);
     let mut current = leaf;
@@ -269,3 +273,4 @@ pub fn compute_merkle_root<N>(leaf: Field, index: Field, hash_path: [Field; N]) 
     };
     current
 }
+*/

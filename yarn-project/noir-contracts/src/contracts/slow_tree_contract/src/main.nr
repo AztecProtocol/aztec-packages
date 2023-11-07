@@ -3,8 +3,8 @@ mod types;
 
 // This contract allow us to "read" public storage in private through a delayed tree.
 // More documentation need to be outlined for this properly, but there is some in 
-// https://github.com/AztecProtocol/aztec-packages/pull/2732/files
-// This is made as a separate contract for one thing mainly. Making it a simpler to use.
+// https://github.com/AztecProtocol/aztec-packages/issues/1291
+// This is made as a separate contract for one thing mainly. Making it simpler to use.
 contract SlowTree {
     use dep::std::option::Option;
     use dep::value_note::{
@@ -12,7 +12,6 @@ contract SlowTree {
         utils::{increment, decrement},
         value_note::{VALUE_NOTE_LEN, ValueNote, ValueNoteMethods},
     };
-    use dep::aztec::oracle::debug_log::debug_log_format;
     use dep::aztec::{
         context::{PrivateContext, PublicContext, Context},
         note::{
@@ -81,7 +80,6 @@ contract SlowTree {
     fn read_at(index: Field) -> Field {
         let fields = pop_mint();
         let p: MembershipProof<TREE_HEIGHT, MEMBERSHIP_SIZE> = deserialize_membership_proof(fields);
-        debug_log_format("Indexes: {0} {1}", [index, p.index]);
         assert(index == p.index, "Index does not match expected");
 
         let expected_root = compute_merkle_root(p.value, p.index, p.sibling_path);
