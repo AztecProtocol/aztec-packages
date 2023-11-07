@@ -29,6 +29,7 @@ import {
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_READ_REQUESTS_PER_TX,
   MembershipWitness,
+  MergeRollupInputs,
   NewContractData,
   OptionallyRevealedData,
   Point,
@@ -87,6 +88,7 @@ import {
   KernelCircuitPublicInputsFinal as KernelCircuitPublicInputsFinalNoir,
   PrivateKernelInputsOrdering as PrivateKernelInputsOrderingNoir,
 } from './types/private_kernel_ordering_types.js';
+import { MergeRollupInputs as MergeRollupInputsNoir } from './types/rollup_merge_types.js';
 import {
   AppendOnlyTreeSnapshot as AppendOnlyTreeSnapshotNoir,
   BaseOrMergeRollupPublicInputs as BaseOrMergeRollupPublicInputsNoir,
@@ -913,6 +915,17 @@ export function mapConstantRollupDataToNoir(constantRollupData: ConstantRollupDa
   };
 }
 
+export function mapConstantRollupDataFromNoir(constantRollupData: ConstantRollupDataNoir): ConstantRollupData {
+  return new ConstantRollupData(
+    mapAppendOnlyTreeSnapshotFromNoir(constantRollupData.start_historic_blocks_tree_roots_snapshot),
+    mapFieldFromNoir(constantRollupData.private_kernel_vk_tree_root),
+    mapFieldFromNoir(constantRollupData.public_kernel_vk_tree_root),
+    mapFieldFromNoir(constantRollupData.base_rollup_vk_hash),
+    mapFieldFromNoir(constantRollupData.merge_rollup_vk_hash),
+    mapGlobalVariablesFromNoir(constantRollupData.global_variables),
+  );
+}
+
 export function mapBaseOrMergeRollupPublicInputsToNoir(
   baseOrMergeRollupPublicInputs: BaseOrMergeRollupPublicInputs,
 ): BaseOrMergeRollupPublicInputsNoir {
@@ -939,6 +952,26 @@ export function mapBaseOrMergeRollupPublicInputsToNoir(
     end_public_data_tree_root: mapFieldToNoir(baseOrMergeRollupPublicInputs.endPublicDataTreeRoot),
     calldata_hash: baseOrMergeRollupPublicInputs.calldataHash.map(mapFieldToNoir) as FixedLengthArray<NoirField, 2>,
   };
+}
+
+export function mapBaseOrMergeRollupPublicInputsFromNoir(
+  baseOrMergeRollupPublicInputs: BaseOrMergeRollupPublicInputsNoir,
+): BaseOrMergeRollupPublicInputs {
+  return new BaseOrMergeRollupPublicInputs(
+    mapNumberFromNoir(baseOrMergeRollupPublicInputs.rollup_type),
+    mapFieldFromNoir(baseOrMergeRollupPublicInputs.rollup_subtree_height),
+    AggregationObject.makeFake(),
+    mapConstantRollupDataFromNoir(baseOrMergeRollupPublicInputs.constants),
+    mapAppendOnlyTreeSnapshotFromNoir(baseOrMergeRollupPublicInputs.start_note_hash_tree_snapshot),
+    mapAppendOnlyTreeSnapshotFromNoir(baseOrMergeRollupPublicInputs.end_note_hash_tree_snapshot),
+    mapAppendOnlyTreeSnapshotFromNoir(baseOrMergeRollupPublicInputs.start_nullifier_tree_snapshot),
+    mapAppendOnlyTreeSnapshotFromNoir(baseOrMergeRollupPublicInputs.end_nullifier_tree_snapshot),
+    mapAppendOnlyTreeSnapshotFromNoir(baseOrMergeRollupPublicInputs.start_contract_tree_snapshot),
+    mapAppendOnlyTreeSnapshotFromNoir(baseOrMergeRollupPublicInputs.end_contract_tree_snapshot),
+    mapFieldFromNoir(baseOrMergeRollupPublicInputs.start_public_data_tree_root),
+    mapFieldFromNoir(baseOrMergeRollupPublicInputs.end_public_data_tree_root),
+    mapTupleFromNoir(baseOrMergeRollupPublicInputs.calldata_hash, 2, mapFieldFromNoir),
+  );
 }
 
 export function mapPreviousRollupDataToNoir(previousRollupData: PreviousRollupData): PreviousRollupDataNoir {
@@ -1023,4 +1056,13 @@ export function mapRootRollupPublicInputsFromNoir(
     mapTupleFromNoir(rootRollupPublicInputs.calldata_hash, 2, mapFieldFromNoir),
     mapTupleFromNoir(rootRollupPublicInputs.l1_to_l2_messages_hash, 2, mapFieldFromNoir),
   );
+}
+
+export function mapMergeRollupInputsToNoir(mergeRollupInputs: MergeRollupInputs): MergeRollupInputsNoir {
+  return {
+    previous_rollup_data: mergeRollupInputs.previousRollupData.map(mapPreviousRollupDataToNoir) as FixedLengthArray<
+      PreviousRollupDataNoir,
+      2
+    >,
+  };
 }
