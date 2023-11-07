@@ -81,9 +81,9 @@ deploy_package l1-artifacts
 deploy_package ethereum
 deploy_package noir-compiler
 deploy_package noir-contracts
-deploy_package noir-protocol-circuits
 deploy_package cli
 deploy_package merkle-tree
+deploy_package noir-protocol-circuits
 deploy_package acir-simulator
 deploy_package key-store
 deploy_package pxe
