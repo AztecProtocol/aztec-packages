@@ -70,7 +70,11 @@ export interface NoirCompiledCircuit {
  */
 export interface ProgramArtifact {
   /**
-   * The name of the contract.
+   * the name of the project, read from Nargo.toml
+   */
+  name: string;
+  /**
+   * The hash of the contract.
    */
   hash?: number;
 
@@ -124,6 +128,10 @@ export interface NoirContractCompilationArtifacts {
  * The compilation artifacts of a given program.
  */
 export interface NoirProgramCompilationArtifacts {
+  /**
+   * not part of the compilation output, injected later
+   */
+  name: string;
   /**
    * The compiled contract.
    */

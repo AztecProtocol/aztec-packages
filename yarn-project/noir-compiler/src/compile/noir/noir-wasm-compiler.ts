@@ -116,7 +116,7 @@ export class NoirWasmContractCompiler {
         throw new Error('No program found in compilation result');
       }
 
-      return [result];
+      return [{ name: this.#package.getNoirPackageConfig().package.name, ...result }];
     } catch (err) {
       if (err instanceof Error && err.name === 'CompileError') {
         this.#processCompileError(err as CompileError);

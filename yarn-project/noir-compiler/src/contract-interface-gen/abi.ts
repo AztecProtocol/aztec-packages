@@ -60,7 +60,7 @@ export function generateArtifact(compileResult: NoirCompilationResult) {
  * @param compiled - Noir build output.
  * @returns Aztec contract build artifact.
  */
-export function generateProgramArtifact({ program, debug }: NoirProgramCompilationArtifacts): ProgramArtifact {
+export function generateProgramArtifact({ name, program, debug }: NoirProgramCompilationArtifacts): ProgramArtifact {
   // let parsedDebug: NoirDebugMetadata | undefined = undefined;
   // if (debug) {
   //   parsedDebug = {
@@ -79,6 +79,8 @@ export function generateProgramArtifact({ program, debug }: NoirProgramCompilati
 
     // TODO: parse the debug
     debug,
+
+    name,
   };
 }
 

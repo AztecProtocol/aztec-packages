@@ -13,7 +13,8 @@ build() {
   CONTRACT_NAME=$1
   CONTRACT_FOLDER="$self_dir/../crates/${CONTRACT_NAME}"
   echo "Compiling $CONTRACT_NAME..."
-  rm -rf ${CONTRACT_FOLDER}/target
+  echo "rm -rf src/target/$(CONTRACT_NAME).json"
+  rm -rf src/target/$(CONTRACT_NAME).json
 
   node "$COMPILER" contract "$CONTRACT_FOLDER"
   node "$COMPILER" typescript "$CONTRACT_FOLDER"

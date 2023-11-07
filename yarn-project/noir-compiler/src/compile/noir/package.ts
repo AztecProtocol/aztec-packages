@@ -30,6 +30,13 @@ export class NoirPackage {
   }
 
   /**
+   * Gets this package's Nargo.toml (NoirPackage)Config.
+   */
+  public getNoirPackageConfig() {
+    return this.#config;
+  }
+
+  /**
    * The path to the source directory.
    */
   public getSrcPath() {
