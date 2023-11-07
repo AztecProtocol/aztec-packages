@@ -66,7 +66,7 @@ class alignas(32) uint256_t {
                 const size_t byte_index = limb_index + (i * 2);
                 uint8_t nibble_hi = HexCharToInt(static_cast<uint8_t>(input[byte_index]));
                 uint8_t nibble_lo = HexCharToInt(static_cast<uint8_t>(input[byte_index + 1]));
-                uint8_t byte = (nibble_hi * 16) + nibble_lo;
+                uint8_t byte = static_cast<uint8_t>((nibble_hi * 16) + nibble_lo);
                 limbs[j] <<= 8;
                 limbs[j] += byte;
             }
