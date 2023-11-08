@@ -4,7 +4,7 @@
 
 namespace proof_system::honk {
 
-template <typename Flavor_, size_t NUM_> struct ProverInstances_ {
+template <typename Flavor_, size_t NUM_> class ProverInstances_ {
   public:
     using Flavor = Flavor_;
     using FF = typename Flavor::FF;
@@ -15,9 +15,6 @@ template <typename Flavor_, size_t NUM_> struct ProverInstances_ {
     // The extended length here is the length of a composition of polynomials.
     static constexpr size_t EXTENDED_LENGTH = (Flavor::MAX_TOTAL_RELATION_LENGTH - 1) * (NUM - 1) + 1;
     using RelationParameters = proof_system::RelationParameters<Univariate<FF, EXTENDED_LENGTH>>;
-
-    ArrayType _data;
-    RelationParameters relation_parameters;
 
     std::shared_ptr<Instance> const& operator[](size_t idx) const { return _data[idx]; }
     typename ArrayType::iterator begin() { return _data.begin(); };
@@ -35,7 +32,7 @@ template <typename Flavor_, size_t NUM_> struct ProverInstances_ {
      * @brief  For a prover polynomial label and a fixed row index, construct a uninvariate from the corresponding value
      * from each instance.
      *
-     * @example if the prover polynomia index is 1 and the row index is 2, and there are 4 instances visually we have
+     * @example if the prover polynomial index is 1 and the row index is 2, and there are 4 instances visually we have
      *
      *           Instance 0       Instance 1       Instance 2       Instance 3
      *           q_c q_l q_r ...  q_c q_l q_r ...  q_c q_l q_r ...  q_c q_l q_r ...
@@ -60,6 +57,11 @@ template <typename Flavor_, size_t NUM_> struct ProverInstances_ {
         }
         return result;
     }
+
+  private:
+    ArrayType _data;
+    std::array<typename Flavor::ProverPolynomials, NUM> _data_pointer_views;
+    RelationParameters relation_parameters;
 };
 
 template <typename Flavor_, size_t NUM_> struct VerifierInstances_ {
