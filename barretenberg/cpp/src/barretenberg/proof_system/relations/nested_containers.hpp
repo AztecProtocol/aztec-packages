@@ -12,17 +12,17 @@ namespace proof_system {
  */
 template <template <typename, size_t, size_t> typename InnerContainer,
           typename ValueType,
-          auto LENGTHS,
-          size_t sth = 0,
-          typename IS = decltype(std::make_index_sequence<LENGTHS.size()>())>
+          auto domain_end,
+          size_t domain_start = 0,
+          typename IS = decltype(std::make_index_sequence<domain_end.size()>())>
 struct TupleOfContainersOverArray;
 template <template <typename, size_t, size_t> typename InnerContainer,
           typename ValueType,
-          auto LENGTHS,
-          size_t sth,
+          auto domain_end,
+          size_t domain_start,
           std::size_t... I>
-struct TupleOfContainersOverArray<InnerContainer, ValueType, LENGTHS, sth, std::index_sequence<I...>> {
-    using type = std::tuple<InnerContainer<ValueType, LENGTHS[I], sth>...>;
+struct TupleOfContainersOverArray<InnerContainer, ValueType, domain_end, domain_start, std::index_sequence<I...>> {
+    using type = std::tuple<InnerContainer<ValueType, domain_end[I], domain_start>...>;
 };
 
 // Helpers
@@ -32,13 +32,12 @@ template <typename Tuple>
 using HomogeneousTupleToArray = std::array<std::tuple_element_t<0, Tuple>, std::tuple_size_v<Tuple>>;
 
 // Types needed for sumcheck and folding.
-template <typename FF, auto LENGTHS, size_t sth = 0>
-using TupleOfUnivariates = typename TupleOfContainersOverArray<barretenberg::Univariate, FF, LENGTHS, sth>::type;
+template <typename FF, auto LENGTHS>
+using TupleOfUnivariates = typename TupleOfContainersOverArray<barretenberg::Univariate, FF, LENGTHS, 0>::type;
 
-template <typename FF, auto LENGTHS, size_t sth = 0>
-using TupleOfValues = typename TupleOfContainersOverArray<ExtractValueType, FF, LENGTHS, sth>::type;
+template <typename FF, auto LENGTHS>
+using TupleOfValues = typename TupleOfContainersOverArray<ExtractValueType, FF, LENGTHS>::type;
 
-template <typename FF, auto LENGTHS, size_t sth = 0>
-using ArrayOfValues = HomogeneousTupleToArray<TupleOfValues<FF, LENGTHS, sth>>;
+template <typename FF, auto LENGTHS> using ArrayOfValues = HomogeneousTupleToArray<TupleOfValues<FF, LENGTHS>>;
 
 } // namespace proof_system
