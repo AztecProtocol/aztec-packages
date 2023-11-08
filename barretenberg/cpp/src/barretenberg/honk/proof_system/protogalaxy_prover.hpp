@@ -192,7 +192,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     {
         auto base_univariates = instances.row_to_univariates(row_idx);
         for (auto [extended_univariate, base_univariate] :
-             zip_view(extended_univariates.pointer_view(), base_univariates.pointer_view())) {
+             zip_view(extended_univariates.pointer_view(), base_univariates)) {
             *extended_univariate = base_univariate.template extend_to<ExtendedUnivariate::LENGTH>();
         }
     }

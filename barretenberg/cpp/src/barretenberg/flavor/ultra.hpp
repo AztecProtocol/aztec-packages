@@ -164,6 +164,9 @@ class Ultra {
         DataType z_perm;       // column 9
         DataType z_lookup;     // column 10
 
+        DEFINE_POINTER_VIEW(
+            &w_l, &w_r, &w_o, &w_4, &sorted_1, &sorted_2, &sorted_3, &sorted_4, &sorted_accum, &z_perm, &z_lookup)
+
         std::vector<HandleType> get_wires() override { return { w_l, w_r, w_o, w_4 }; };
         // The sorted concatenations of table and witness data needed for plookup.
         std::vector<HandleType> get_sorted_polynomials() { return { sorted_1, sorted_2, sorted_3, sorted_4 }; };

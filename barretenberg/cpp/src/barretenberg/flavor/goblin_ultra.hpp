@@ -140,6 +140,22 @@ class GoblinUltra {
         DataType ecc_op_wire_3; // column 13
         DataType ecc_op_wire_4; // column 14
 
+        DEFINE_POINTER_VIEW(&w_l,
+                            &w_r,
+                            &w_o,
+                            &w_4,
+                            &sorted_1,
+                            &sorted_2,
+                            &sorted_3,
+                            &sorted_4,
+                            &sorted_accum,
+                            &z_perm,
+                            &z_lookup,
+                            &ecc_op_wire_1,
+                            &ecc_op_wire_2,
+                            &ecc_op_wire_3,
+                            &ecc_op_wire_4, )
+
         std::vector<HandleType> get_wires() override { return { w_l, w_r, w_o, w_4 }; };
         std::vector<HandleType> get_ecc_op_wires()
         {

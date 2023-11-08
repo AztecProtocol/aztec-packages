@@ -61,7 +61,7 @@ template <typename Flavor_, size_t NUM_> struct ProverInstances_ {
             // Iterate columns
             for (auto [result, poly_ptr] : zip_view(results, pointer_view)) {
                 // Assign row for each instance
-                result.evaluations[instance_idx] = (*pointer_view)[row_idx];
+                result.evaluations[instance_idx] = (*poly_ptr)[row_idx];
             }
             instance_idx++;
         }
@@ -69,7 +69,7 @@ template <typename Flavor_, size_t NUM_> struct ProverInstances_ {
     }
 
   private:
-    auto get_polynomial_pointer_views()
+    auto get_polynomial_pointer_views() const
     {
         static_assert(NUM > 0);
         // As a practical measure to get a decltype, get the first instance's pointer view
