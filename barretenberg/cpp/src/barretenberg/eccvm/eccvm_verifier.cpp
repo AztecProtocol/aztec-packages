@@ -222,7 +222,8 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
     // Construct batched commitment for NON-shifted polynomials
     size_t commitment_idx = 0;
     for (auto& commitment : commitments.get_unshifted()) {
-        // TODO(@zac-williamson) ensure ECCVM polynomial commitments are never points at infinity (#2214)
+        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/2214) ensure ECCVM polynomial commitments are
+        // never points at infinity
         if (commitment.y != 0) {
             batched_commitment_unshifted += commitment * rhos[commitment_idx];
         } else {
@@ -233,7 +234,8 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
 
     // Construct batched commitment for to-be-shifted polynomials
     for (auto& commitment : commitments.get_to_be_shifted()) {
-        // TODO(@zac-williamson) ensure ECCVM polynomial commitments are never points at infinity (#2214)
+        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/2214) ensure ECCVM polynomial commitments are
+        // never points at infinity
         if (commitment.y != 0) {
             batched_commitment_to_be_shifted += commitment * rhos[commitment_idx];
         } else {
