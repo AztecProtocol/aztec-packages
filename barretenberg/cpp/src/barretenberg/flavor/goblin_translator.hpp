@@ -346,6 +346,13 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
         DataType lagrange_second;                           // column 4
         DataType lagrange_second_to_last_in_minicircuit;    // column 5
         DataType ordered_extra_range_constraints_numerator; // column 6
+        DEFINE_POINTER_VIEW(&lagrange_first,
+                            &lagrange_last,
+                            &lagrange_odd_in_minicircuit,
+                            &lagrange_even_in_minicircuit,
+                            &lagrange_second,
+                            &lagrange_second_to_last_in_minicircuit,
+                            &ordered_extra_range_constraints_numerator);
         std::vector<HandleType> get_selectors() { return {}; };
         std::vector<HandleType> get_sigma_polynomials() { return {}; };
         std::vector<HandleType> get_id_polynomials() { return {}; };
