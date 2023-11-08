@@ -1,4 +1,4 @@
-use crate::abis::public_call_data::PublicCallData;
+use dep::types::abis::public_call_data::PublicCallData;
 use dep::types::abis::previous_kernel_data::PreviousKernelData;
 use dep::types::KernelCircuitPublicInputs;
 use dep::types::abis::kernel_circuit_public_inputs::KernelCircuitPublicInputsBuilder;

@@ -115,7 +115,7 @@ mod tests {
 
     impl PrivateKernelInnerInputsBuilder {
         pub fn new() -> Self {
-            let previous_kernel = PreviousKernelDataBuilder::new(false);
+            let previous_kernel = PreviousKernelDataBuilder::new(false, false);
             let private_call = PrivateCallDataBuilder::new(false);
 
             PrivateKernelInnerInputsBuilder { previous_kernel, private_call }

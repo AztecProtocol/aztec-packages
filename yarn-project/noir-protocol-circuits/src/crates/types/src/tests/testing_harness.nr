@@ -201,11 +201,13 @@ struct PreviousKernelDataBuilder {
 }
 
 impl PreviousKernelDataBuilder {
-    pub fn new(is_constructor: bool) -> Self {
+    pub fn new(is_constructor: bool, next_is_public: bool) -> Self {
         let mut end: CombinedAccumulatedDataBuilder = dep::std::unsafe::zeroed();
         end.new_nullifiers.push(321); // 0th nullifier must be non-zero.
         end.nullified_commitments.push(EMPTY_NULLIFIED_COMMITMENT);
-        end.private_call_stack.push(1);
+        if !next_is_public {
+            end.private_call_stack.push(1);
+        }
 
         let tx_context = build_tx_context(is_constructor);
 

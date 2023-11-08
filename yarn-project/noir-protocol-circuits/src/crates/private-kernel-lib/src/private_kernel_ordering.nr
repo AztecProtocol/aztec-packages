@@ -182,7 +182,7 @@ mod tests {
     impl PrivateKernelOrderingInputsBuilder {
         pub fn new() -> Self {
             PrivateKernelOrderingInputsBuilder {
-                previous_kernel: PreviousKernelDataBuilder::new(false),
+                previous_kernel: PreviousKernelDataBuilder::new(false, false),
                 read_commitment_hints: [0; MAX_READ_REQUESTS_PER_TX],
                 nullifier_commitment_hints: [0; MAX_NEW_NULLIFIERS_PER_TX],
             }
@@ -235,7 +235,7 @@ mod tests {
             kernel.native_private_kernel_circuit_ordering()
         }
 
-        pub fn failed(&mut self) {
+        pub fn failed(self) {
             let _ = self.execute();
         }
     }

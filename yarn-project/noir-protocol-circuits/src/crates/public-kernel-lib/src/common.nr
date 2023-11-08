@@ -9,7 +9,7 @@ use dep::types::address::Address;
 use dep::types::abis::new_contract_data::NewContractData;
 use dep::types::abis::complete_address::CompleteAddress;
 use dep::types::utils::bounded_vec::BoundedVec;
-use crate::abis::public_call_data::PublicCallData;
+use dep::types::abis::public_call_data::PublicCallData;
 use dep::types::abis::call_stack_item::PublicCallStackItem;
 use dep::types::abis::public_data_update_request::PublicDataUpdateRequest;
 use dep::types::contrakt::storage_read::StorageRead;
@@ -63,17 +63,16 @@ pub fn validate_call_stack(public_call : PublicCallData) {
             let preimage_storage_address = preimage.public_inputs.call_context.storage_contract_address;
 
             if is_delegate_call {
-                assert(preimage_msg_sender.eq(our_msg_sender), "call_stack_msg_sender doesn't match expected_msg_sender");
+                assert(preimage_msg_sender.eq(our_msg_sender), "call_stack_msg_sender does not match expected_msg_sender");
                 assert(preimage_storage_address.eq(our_storage_address), "call_stack_storage_address doesnt match expected_storage_address");
                 // if it is a delegate call then we check that the portal contract in the pre image is our portal contract
                 let preimage_portal_address = preimage.public_inputs.call_context.portal_contract_address;
                 let expected_portal_address = our_portal_contract_address;
                 assert(preimage_portal_address.eq(expected_portal_address), "call_stack_portal_contract_address doesnt match expected_portal_address");
             } else {
-                assert(preimage_msg_sender.eq(our_contract_address), "call_stack_msg_sender doesn't match expected_msg_sender");
-                assert(preimage_storage_address.eq(contract_being_called), "call_stack_storage_address doesnt match expected_storage_address");
+                assert(preimage_msg_sender.eq(our_contract_address), "call_stack_msg_sender does not match expected_msg_sender");
+                assert(preimage_storage_address.eq(contract_being_called), "call_stack_storage_address does not match expected_storage_address");
             }
-
 
             let num_contract_storage_update_requests = preimage.public_inputs.contract_storage_update_requests.len();
             if is_static_call {
@@ -115,23 +114,23 @@ pub fn validate_inputs(public_call: PublicCallData){
     // Validates commons inputs for all type of kernel inputs
     let this_call_stack_item: PublicCallStackItem = public_call.call_stack_item;
     assert(this_call_stack_item.public_inputs.call_context.is_contract_deployment == false,
-                      "Contract deployment can't be a public function");
+                      "Contract deployment cannot be a public function");
     assert(!this_call_stack_item.contract_address.eq(Address::ZERO()),
-                      "Contract address must be non-zero");
+                      "Contract address cannot be zero");
     assert(this_call_stack_item.function_data.selector.to_field() != 0,
-                      "Function signature must be non-zero");
+                      "Function signature cannot be zero");
     assert(this_call_stack_item.function_data.is_constructor == false,
-                      "Constructors can't be public functions");
+                      "Constructors cannot be public functions");
     assert(this_call_stack_item.function_data.is_private == false,
                       "Cannot execute a private function with the public kernel circuit");
     assert(public_call.bytecode_hash != 0,
-                      "Bytecode hash must be non-zero");
+                      "Bytecode hash cannot be zero");
 
     if (this_call_stack_item.function_data.is_internal) {
         let target = this_call_stack_item.contract_address;
         let sender = this_call_stack_item.public_inputs.call_context.msg_sender;
 
-        assert(target.eq(sender), "call is internal, but msg_sender is not self");
+        assert(target.eq(sender), "msg_sender must be self for internal calls");
     }
 }
 
