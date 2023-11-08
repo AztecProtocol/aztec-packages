@@ -1,14 +1,13 @@
-#include <cstddef>
-#include <cstdint>
-#include <gtest/gtest.h>
-
-#include "barretenberg/common/log.hpp"
 #include "barretenberg/eccvm/eccvm_composer.hpp"
 #include "barretenberg/proof_system/circuit_builder/eccvm/eccvm_circuit_builder.hpp"
 #include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
+#include "barretenberg/translator_vm/goblin_translator_composer.hpp"
 #include "barretenberg/ultra_honk/ultra_composer.hpp"
-#include "barretenberg/ultra_honk/ultra_prover.hpp"
+
+#include <gtest/gtest.h>
+
+using namespace proof_system::honk;
 
 namespace test_full_goblin_composer {
 
@@ -26,22 +25,26 @@ class FullGoblinComposerTests : public ::testing::Test {
 
     using Curve = curve::BN254;
     using FF = Curve::ScalarField;
+    using Fbase = Curve::BaseField;
     using Point = Curve::AffineElement;
-    using CommitmentKey = proof_system::honk::pcs::CommitmentKey<Curve>;
+    using CommitmentKey = pcs::CommitmentKey<Curve>;
     using GoblinUltraBuilder = proof_system::GoblinUltraCircuitBuilder;
-    using GoblinUltraComposer = proof_system::honk::GoblinUltraComposer;
-    using ECCVMFlavor = proof_system::honk::flavor::ECCVMGrumpkin;
+    using GoblinUltraComposer = GoblinUltraComposer;
+    using ECCVMFlavor = flavor::ECCVMGrumpkin;
     using ECCVMBuilder = proof_system::ECCVMCircuitBuilder<ECCVMFlavor>;
-    using ECCVMComposer = proof_system::honk::ECCVMComposer_<ECCVMFlavor>;
+    using ECCVMComposer = ECCVMComposer_<ECCVMFlavor>;
+    using TranslatorFlavor = flavor::GoblinTranslator;
+    using TranslatorBuilder = proof_system::GoblinTranslatorCircuitBuilder;
+    using TranslatorComposer = GoblinTranslatorComposer_<TranslatorFlavor>;
     using VMOp = proof_system_eccvm::VMOperation<ECCVMFlavor::CycleGroup>;
-    static constexpr size_t NUM_OP_QUEUE_COLUMNS = proof_system::honk::flavor::GoblinUltra::NUM_WIRES;
+    static constexpr size_t NUM_OP_QUEUE_COLUMNS = flavor::GoblinUltra::NUM_WIRES;
 
     /**
      * @brief Generate a simple test circuit with some ECC op gates and conventional arithmetic gates
      *
      * @param builder
      */
-    void generate_test_circuit(auto& builder)
+    void generate_test_circuit(GoblinUltraBuilder& builder)
     {
         // Add some arbitrary ecc op gates
         for (size_t i = 0; i < 3; ++i) {
@@ -132,10 +135,10 @@ class FullGoblinComposerTests : public ::testing::Test {
     }
 
     /**
-     * @brief Construct and verify a Goblin ECC op queue merge proof
+     * @brief Construct and verify an ECCVM proof
      *
      */
-    bool construct_and_verify_eccvm_proof(auto& composer, auto& builder)
+    bool construct_and_verify_proof(auto& composer, auto& builder)
     {
         auto prover = composer.create_prover(builder);
         auto proof = prover.construct_proof();
@@ -186,8 +189,20 @@ TEST_F(FullGoblinComposerTests, SimpleCircuit)
 
         // Construct and verify ECCVM proof
         auto composer = ECCVMComposer();
-        auto eccvm_verified = construct_and_verify_eccvm_proof(composer, builder);
+        auto eccvm_verified = construct_and_verify_proof(composer, builder);
         EXPECT_TRUE(eccvm_verified);
+    }
+    // Construct an ECCVM circuit then generate and verify its proof
+    {
+        // Instantiate an ECCVM builder with the vm ops stored in the op queue
+        auto batching_challenge = Fbase::random_element();
+        auto evaluation_input = Fbase::random_element();
+        auto builder = TranslatorBuilder(batching_challenge, evaluation_input, *op_queue); // WORKTODO: take pointer?
+
+        // Construct and verify ECCVM proof
+        auto composer = TranslatorComposer();
+        auto translator_verified = construct_and_verify_proof(composer, builder);
+        EXPECT_TRUE(translator_verified);
     }
 }
 
@@ -231,7 +246,7 @@ TEST_F(FullGoblinComposerTests, SimpleCircuitFailureCase)
 
         // Construct and verify ECCVM proof
         auto composer = ECCVMComposer();
-        auto eccvm_verified = construct_and_verify_eccvm_proof(composer, builder);
+        auto eccvm_verified = construct_and_verify_proof(composer, builder);
         EXPECT_FALSE(eccvm_verified);
     }
 }
