@@ -3,6 +3,7 @@ import {
   AztecAddress,
   CONTRACT_TREE_HEIGHT,
   CallContext,
+  CircuitsWasm,
   CombinedAccumulatedData,
   CombinedConstantData,
   ContractDeploymentData,
@@ -404,21 +405,24 @@ describe('Noir compatibility tests (interop_testing.nr)', () => {
     logger = createDebugLogger('noir-private-kernel-compatibility');
   });
 
-  it('Complete Address matches Noir', () => {
+  it('Complete Address matches Noir', async () => {
     logger('Initialized Noir instance with private kernel init circuit');
+    const wasm = await CircuitsWasm.get();
     const deployerPubKey = new Point(new Fr(1n), new Fr(2n));
     const contractAddrSalt = new Fr(3n);
     const treeRoot = new Fr(4n);
     const constructorHash = new Fr(5n);
 
-    const res = computeCompleteAddress(deployerPubKey, contractAddrSalt, treeRoot, constructorHash);
+    const res = computeCompleteAddress(wasm, deployerPubKey, contractAddrSalt, treeRoot, constructorHash);
 
     expect(res.address.toString()).toMatchSnapshot();
     expect(res.publicKey).toMatchSnapshot();
     expect(res.partialAddress.toString()).toMatchSnapshot();
   });
 
-  it('TxRequest Hash matches Noir', () => {
+  it('TxRequest Hash matches Noir', async () => {
+    const wasm = await CircuitsWasm.get();
+
     const deploymentData = new ContractDeploymentData(
       new Point(new Fr(1), new Fr(2)),
       new Fr(1),
@@ -432,12 +436,14 @@ describe('Noir compatibility tests (interop_testing.nr)', () => {
       argsHash: new Fr(3),
       txContext: new TxContext(false, false, true, deploymentData, Fr.ZERO, Fr.ZERO),
     });
-    const hash = computeTxHash(txRequest);
+    const hash = computeTxHash(wasm, txRequest);
 
     expect(hash.toString()).toMatchSnapshot();
   });
 
-  it('ComputeContractAddressFromPartial matches Noir', () => {
+  it('ComputeContractAddressFromPartial matches Noir', async () => {
+    const wasm = await CircuitsWasm.get();
+
     const deploymentData = new ContractDeploymentData(
       new Point(new Fr(1), new Fr(2)),
       new Fr(1),
@@ -451,14 +457,16 @@ describe('Noir compatibility tests (interop_testing.nr)', () => {
       argsHash: new Fr(3),
       txContext: new TxContext(false, false, true, deploymentData, Fr.ZERO, Fr.ZERO),
     });
-    const hash = computeTxHash(txRequest);
+    const hash = computeTxHash(wasm, txRequest);
 
     expect(hash.toString()).toMatchSnapshot();
   });
 
-  it('Function leaf matches noir', () => {
+  it('Function leaf matches noir', async () => {
+    const wasm = await CircuitsWasm.get();
+
     const fnLeafPreimage = new FunctionLeafPreimage(new FunctionSelector(27), false, true, new Fr(1), new Fr(2));
-    const fnLeaf = computeFunctionLeaf(fnLeafPreimage);
+    const fnLeaf = computeFunctionLeaf(wasm, fnLeafPreimage);
     expect(fnLeaf.toString()).toMatchSnapshot();
   });
 });

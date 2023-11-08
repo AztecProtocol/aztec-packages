@@ -10,7 +10,6 @@ COPY . .
 RUN yarn workspace @aztec/foundation build && \
   yarn workspace @aztec/noir-compiler build && \
   yarn workspace @aztec/noir-contracts noir:build:all && \
-  yarn workspace @aztec/noir-protocol-circuits noir:build:all && \
   yarn tsc -b
 
 # Build aztec.js web artifact

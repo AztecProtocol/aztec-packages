@@ -1,7 +1,15 @@
 use crate::{
+    transaction::{
+        request::TxRequest,
+        context::TxContext,
+    },
+    address::{Address, EthAddress},
+    contrakt::{
+        deployment_data::ContractDeploymentData,
+    },
     abis::{
         call_context::CallContext,
-        call_stack_item::PrivateCallStackItem,
+        call_stack_item::{PrivateCallStackItem, CallStackItem},
         combined_constant_data::CombinedConstantData,
         combined_accumulated_data::CombinedAccumulatedDataBuilder,
         complete_address::CompleteAddress,
@@ -11,45 +19,35 @@ use crate::{
         previous_kernel_data::PreviousKernelData,
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
         private_kernel::private_call_data::PrivateCallData,
-        membership_witness::{
-            ContractLeafMembershipWitness,
-            FunctionLeafMembershipWitness,
-            ReadRequestMembershipWitness,
-        },
-    },
-    address::{Address, EthAddress},
-    contrakt::{
-        deployment_data::ContractDeploymentData,
+        read_request_membership_witness::ReadRequestMembershipWitness,
+        membership_witness::{ContractLeafMembershipWitness,FunctionLeafMembershipWitness},
     },
     hash::{
         NUM_FIELDS_PER_SHA256,
         compute_constructor_hash,
     },
-    mocked::{Proof, VerificationKey},
-    point::Point,
-    tests::fixtures,
-    transaction::{
-        request::TxRequest,
-        context::TxContext,
-    },
     utils::{
         bounded_vec::BoundedVec,
     },
+    point::Point,
+    mocked::{Proof, VerificationKey},
+    tests::fixtures,
 };
 use dep::aztec::{
     abi::hash_args,
     constants_gen::{
         EMPTY_NULLIFIED_COMMITMENT,
+        MAX_READ_REQUESTS_PER_CALL,
         MAX_NEW_COMMITMENTS_PER_CALL,
         MAX_NEW_COMMITMENTS_PER_TX,
-        MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
         MAX_NEW_NULLIFIERS_PER_CALL,
         MAX_NEW_NULLIFIERS_PER_TX,
-        MAX_PENDING_READ_REQUESTS_PER_CALL,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
-        MAX_READ_REQUESTS_PER_CALL,
+        MAX_PENDING_READ_REQUESTS_PER_CALL,
         MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
+        MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
         RETURN_VALUES_LENGTH,
+        NOTE_HASH_TREE_HEIGHT,
         VK_TREE_HEIGHT,
     },
 };
@@ -278,7 +276,7 @@ impl PreviousKernelDataBuilder {
 }
 
 struct PrivateCallDataBuilder {
-    // Values of PrivateCallStackItem.
+    // Values of CallStackItem.
     contract_address: Address,
     public_inputs: PrivateCircuitPublicInputsBuilder,
     is_execution_request: bool,
@@ -289,7 +287,7 @@ struct PrivateCallDataBuilder {
     vk: VerificationKey,
     function_leaf_membership_witness: FunctionLeafMembershipWitness,
     contract_leaf_membership_witness: ContractLeafMembershipWitness,
-    read_request_membership_witnesses: BoundedVec<ReadRequestMembershipWitness, MAX_READ_REQUESTS_PER_CALL>,
+    read_request_membership_witnesses: BoundedVec<ReadRequestMembershipWitness<NOTE_HASH_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_CALL>,
     portal_contract_address: EthAddress,
     acir_hash: Field,
 }
@@ -391,10 +389,12 @@ impl PrivateCallDataBuilder {
 
     pub fn finish(self) -> PrivateCallData {
         let call_stack_item = PrivateCallStackItem {
-            contract_address: self.contract_address,
-            public_inputs: self.public_inputs.finish(),
-            is_execution_request: false,
-            function_data: self.function_data,
+            inner: CallStackItem {
+                contract_address: self.contract_address,
+                public_inputs: self.public_inputs.finish(),
+                is_execution_request: false,
+                function_data: self.function_data,
+            }
         };
 
         PrivateCallData {

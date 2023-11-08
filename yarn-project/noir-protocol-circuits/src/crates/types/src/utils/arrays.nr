@@ -18,9 +18,11 @@ use crate::utils::bounded_vec::BoundedVec;
 pub fn is_empty_array<T>(array : [Field; T]) -> bool {
     array.all(|elem| is_empty(elem))
 }
-
 pub fn is_empty(value : Field) -> bool {
     value == 0
+}
+pub fn log_hashes_empty(log_hashes : [Field; 2]) -> bool {
+    log_hashes.all(|elem| elem == 0)
 }
 
 pub fn array_to_bounded_vec<T, N>(array: [T; N], is_empty_item: fn (T)->bool, empty_item: T) -> BoundedVec<T, N> {
@@ -64,14 +66,12 @@ pub fn validate_array<T>(array : [Field;T]) {
     assert((last_non_zero_pos as u64) <= (first_zero_pos as u64), "invalid array");
 }
 
-// Helper method to determine the number of non-zero/empty elements in a validated array (ie, validate_array(array) 
-// should be true).
+// Helper method to determine the number of non-zero/empty elements in
+// the array.
 pub fn array_length<N>(array : [Field; N]) -> Field {
     let mut length = 0;
-    let mut end = false;
     for elem in array {
-        end |= is_empty(elem);
-        if !end {
+        if elem != 0 {
             length += 1;
         }
     }
@@ -114,20 +114,4 @@ fn smoke_validate_array_invalid(){
 fn smoke_validate_array_invalid_case2(){
     let invalid_array = [0,0,0,0,1];
     validate_array(invalid_array);
-}
-
-#[test]
-fn test_empty_array_length() {
-    assert_eq(array_length([]), 0);
-    assert_eq(array_length([0]), 0);
-    assert_eq(array_length([0, 0, 0]), 0);
-}
-
-#[test]
-fn test_array_length() {
-    assert_eq(array_length([123]), 1);
-    assert_eq(array_length([123, 456]), 2);
-    assert_eq(array_length([123, 456, 0]), 2);
-    assert_eq(array_length([123, 0, 456]), 1);
-    assert_eq(array_length([0, 123, 0, 456]), 0);
 }
