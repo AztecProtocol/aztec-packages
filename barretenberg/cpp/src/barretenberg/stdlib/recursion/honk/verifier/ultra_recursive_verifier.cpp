@@ -97,7 +97,9 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     // Execute Sumcheck Verifier and extract multivariate opening point u = (u_0, ..., u_{d-1}) and purported
     // multivariate evaluations at u
     auto sumcheck = Sumcheck(key->circuit_size);
-    auto [multivariate_challenge, claimed_evaluations, verified] = sumcheck.verify(relation_parameters, transcript);
+    auto alpha = transcript.get_challenge("alpha");
+    auto [multivariate_challenge, claimed_evaluations, verified] =
+        sumcheck.verify(relation_parameters, alpha, transcript);
 
     info("Sumcheck: num gates = ",
          builder->get_num_gates() - prev_num_gates,

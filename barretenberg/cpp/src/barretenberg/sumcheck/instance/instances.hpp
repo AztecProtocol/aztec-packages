@@ -13,11 +13,13 @@ template <typename Flavor_, size_t NUM_> struct ProverInstances_ {
 
     using ArrayType = std::array<std::shared_ptr<Instance>, NUM_>;
     // The extended length here is the length of a composition of polynomials.
+    // I changed this to NUM, it was NUM - 1
     static constexpr size_t EXTENDED_LENGTH = (Flavor::MAX_TOTAL_RELATION_LENGTH - 1) * (NUM - 1) + 1;
     using RelationParameters = proof_system::RelationParameters<Univariate<FF, EXTENDED_LENGTH>>;
-
+    using AlphaType = Univariate<FF, EXTENDED_LENGTH>;
     ArrayType _data;
     RelationParameters relation_parameters;
+    AlphaType alpha;
 
     std::shared_ptr<Instance> const& operator[](size_t idx) const { return _data[idx]; }
     typename ArrayType::iterator begin() { return _data.begin(); };

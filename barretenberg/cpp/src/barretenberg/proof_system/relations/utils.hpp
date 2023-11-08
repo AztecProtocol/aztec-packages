@@ -65,7 +65,8 @@ template <typename Flavor> class RelationUtils {
      * @param challenge
      * @param current_scalar power of the challenge
      */
-    static void scale_univariates(auto& tuple, const FF& challenge, FF current_scalar)
+    template <typename ChallengeType>
+    static void scale_univariates(auto& tuple, const ChallengeType& challenge, ChallengeType& current_scalar)
     {
         auto scale_by_consecutive_powers_of_challenge = [&]<size_t, size_t>(auto& element) {
             element *= current_scalar;
@@ -86,8 +87,7 @@ template <typename Flavor> class RelationUtils {
     template <typename... T>
     static constexpr void add_tuples(std::tuple<T...>& tuple_1, const std::tuple<T...>& tuple_2)
     {
-        auto add_tuples_helper = [&]<std::size_t... I>(std::index_sequence<I...>)
-        {
+        auto add_tuples_helper = [&]<std::size_t... I>(std::index_sequence<I...>) {
             ((std::get<I>(tuple_1) += std::get<I>(tuple_2)), ...);
         };
 
@@ -155,13 +155,13 @@ template <typename Flavor> class RelationUtils {
      * @brief Given a tuple t = (t_0, t_1, ..., t_{NUM_RELATIONS-1}) and a challenge α,
      * return t_0 + αt_1 + ... + α^{NUM_RELATIONS-1}t_{NUM_RELATIONS-1}).
      */
-    template <typename ExtendedUnivariate, typename ContainerOverSubrelations>
+    template <typename ExtendedUnivariate, typename ContainerOverSubrelations, typename ChallengeType>
     static ExtendedUnivariate batch_over_relations(
         ContainerOverSubrelations& univariate_accumulators,
-        const FF& challenge,
+        ChallengeType& challenge,
         const std::optional<PowUnivariate<FF>>& pow_univariate = std::nullopt)
     {
-        FF running_challenge = 1;
+        auto running_challenge = ChallengeType(1);
         scale_univariates(univariate_accumulators, challenge, running_challenge);
 
         auto result = ExtendedUnivariate(0);

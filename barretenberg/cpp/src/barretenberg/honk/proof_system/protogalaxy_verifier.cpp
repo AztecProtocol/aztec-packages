@@ -28,6 +28,7 @@ void ProtoGalaxyVerifier_<VerifierInstances>::prepare_for_folding(std::vector<ui
         const FF lookup_grand_product_delta = compute_lookup_grand_product_delta<FF>(beta, gamma, inst->instance_size);
         inst->relation_parameters =
             RelationParameters<FF>{ eta, beta, gamma, public_input_delta, lookup_grand_product_delta };
+        inst->alpha = transcript.get_challenge(domain_separator + "_alpha");
     }
 }
 
@@ -38,7 +39,7 @@ VerifierFoldingResult<typename VerifierInstances::Flavor> ProtoGalaxyVerifier_<
     using Flavor = typename VerifierInstances::Flavor;
 
     prepare_for_folding(fold_data);
-    auto [alpha, delta] = transcript.get_challenges("alpha", "delta");
+    auto delta = transcript.get_challenge("delta");
     auto accumulator = get_accumulator();
     auto log_instance_size = static_cast<size_t>(numeric::get_msb(accumulator->instance_size));
     auto deltas = compute_round_challenge_pows(log_instance_size, delta);
