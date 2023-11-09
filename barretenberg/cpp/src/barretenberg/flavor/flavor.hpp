@@ -145,6 +145,7 @@ class ProvingKey_ : public PrecomputedPolynomials, public WitnessPolynomials {
     std::vector<uint32_t> recursive_proof_public_input_indices;
     barretenberg::EvaluationDomain<FF> evaluation_domain;
 
+    auto precomputed_polynomials_pointer_view() { return PrecomputedPolynomials::pointer_view(); }
     ProvingKey_() = default;
     ProvingKey_(const size_t circuit_size, const size_t num_public_inputs)
     {

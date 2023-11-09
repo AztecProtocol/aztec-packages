@@ -103,7 +103,34 @@ class GoblinUltra {
         DataType table_4;         // column 22
         DataType lagrange_first;  // column 23
         DataType lagrange_last;   // column 24
-        DataType lagrange_ecc_op; // column 25 // indicator poly for ecc op gates
+        DataType lagrange_ecc_op; // column 25, indicator poly for ecc op gates
+
+        DEFINE_POINTER_VIEW(&q_m,
+                            &q_c,
+                            &q_l,
+                            &q_r,
+                            &q_o,
+                            &q_4,
+                            &q_arith,
+                            &q_sort,
+                            &q_elliptic,
+                            &q_aux,
+                            &q_lookup,
+                            &sigma_1,
+                            &sigma_2,
+                            &sigma_3,
+                            &sigma_4,
+                            &id_1,
+                            &id_2,
+                            &id_3,
+                            &id_4,
+                            &table_1,
+                            &table_2,
+                            &table_3,
+                            &table_4,
+                            &lagrange_first,
+                            &lagrange_last,
+                            &lagrange_ecc_op, )
 
         static constexpr CircuitType CIRCUIT_TYPE = CircuitBuilder::CIRCUIT_TYPE;
 
