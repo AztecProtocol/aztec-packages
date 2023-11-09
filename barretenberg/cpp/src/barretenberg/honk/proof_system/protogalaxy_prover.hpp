@@ -51,7 +51,10 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      */
     void prepare_for_folding();
 
-    static std::vector<FF> compute_pow_polynomial_at_values(const std::vector<FF> betas, const size_t instance_size)
+    /**
+     * @brief Given a vector \vec{\beta} of values, compute the pow polynomial on these values as defined in the paper.
+     */
+    static std::vector<FF> compute_pow_polynomial_at_values(const std::vector<FF>& betas, const size_t instance_size)
     {
         std::vector<FF> pow_betas(instance_size);
         for (size_t i = 0; i < instance_size; i++) {
@@ -234,8 +237,8 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/754) Provide the right challenge to here
      */
     ExtendedUnivariateWithRandomization compute_combiner(const ProverInstances& instances,
-                                                         const std::vector<FF> pow_betas_star,
-                                                         const FF alpha)
+                                                         const std::vector<FF>& pow_betas_star,
+                                                         const FF& alpha)
     {
         size_t common_circuit_size = instances[0]->prover_polynomials._data[0].size();
 
@@ -297,13 +300,15 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         std::array<FF, (Flavor::BATCHED_RELATION_TOTAL_LENGTH - 2) * (ProverInstances::NUM - 1)>
             combiner_quotient_evals = {};
 
-        // we need to evaluate at values not part in the vanishing set
+        // Compute the combiner quotient polynomial as evaluations on points that are not in the vanishing set.
+        //
         for (size_t point = ProverInstances::NUM; point < combiner.size(); point++) {
             auto idx = point - ProverInstances::NUM;
             auto lagrange_0 = FF(1) - FF(point);
             auto vanishing_polynomial = FF(point) * (FF(point) - 1);
+
             combiner_quotient_evals[idx] =
-                (combiner.value_at(point) - compressed_perturbator * lagrange_0) / vanishing_polynomial;
+                (combiner.value_at(point) - compressed_perturbator * lagrange_0) * vanishing_polynomial.invert();
         }
 
         Univariate<FF,

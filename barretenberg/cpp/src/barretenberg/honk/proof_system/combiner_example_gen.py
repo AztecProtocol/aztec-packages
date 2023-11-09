@@ -86,13 +86,7 @@ def get_extended_univariates(instances, row_idx):
         result = [row.entities[entity_idx] for row in rows]
         result = np.array(extend_one_entity(result))
         return result
-
-
-def compute_lagrange(points):
-    lagrange_0 = np.array([])
-    lagrange_1 = np.array([])
     
-
 def compute_first_example():
     i0 = Instance([Row(0), Row(1)])
     i1 = Instance([Row(128), Row(129)])

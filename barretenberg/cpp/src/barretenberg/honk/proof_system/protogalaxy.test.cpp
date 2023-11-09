@@ -174,6 +174,14 @@ TEST_F(ProtoGalaxyTests, PerturbatorPolynomial)
     EXPECT_EQ(perturbator[0], target_sum);
 }
 
+TEST_F(ProtoGalaxyTests, PowPolynomialsOnPowers)
+{
+    auto betas = std::vector<FF>{ 2, 4, 16 };
+    auto pow_betas = ProtoGalaxyProver::compute_pow_polynomial_at_values(betas, 8);
+    auto expected_values = std::vector<FF>{ 1, 2, 4, 8, 16, 32, 64, 128 };
+    EXPECT_EQ(expected_values, pow_betas);
+}
+
 TEST_F(ProtoGalaxyTests, CombinerQuotient)
 {
     auto compressed_perturbator = FF(2); // F(\alpha) in the paper

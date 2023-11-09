@@ -262,7 +262,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0> class Univariate
     template <size_t EXTENDED_DOMAIN_END> Univariate<Fr, EXTENDED_DOMAIN_END> extend_to() const
     {
         const size_t EXTENDED_LENGTH = EXTENDED_DOMAIN_END - domain_start;
-        using Data = BarycentricData<Fr, LENGTH, EXTENDED_LENGTH>; // ?
+        using Data = BarycentricData<Fr, LENGTH, EXTENDED_LENGTH>;
         static_assert(EXTENDED_LENGTH >= LENGTH);
 
         Univariate<Fr, EXTENDED_LENGTH> result;

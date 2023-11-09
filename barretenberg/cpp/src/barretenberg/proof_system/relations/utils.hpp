@@ -86,8 +86,7 @@ template <typename Flavor> class RelationUtils {
     template <typename... T>
     static constexpr void add_tuples(std::tuple<T...>& tuple_1, const std::tuple<T...>& tuple_2)
     {
-        auto add_tuples_helper = [&]<std::size_t... I>(std::index_sequence<I...>)
-        {
+        auto add_tuples_helper = [&]<std::size_t... I>(std::index_sequence<I...>) {
             ((std::get<I>(tuple_1) += std::get<I>(tuple_2)), ...);
         };
 
@@ -120,6 +119,9 @@ template <typename Flavor> class RelationUtils {
      * @tparam extended_size Size after extension
      * @param tuple A tuple of tuples of Univariates
      * @param result A Univariate of length extended_size
+     * @param pow_univariate Power polynomial univariate. Optional because this concept is only used in sumcheck. When
+     * using this function in the context of Protogalaxy, the contribution of the pow polynomial has already been added
+     * to the result as a scalar.
      */
     template <typename ExtendedUnivariate, typename TupleOfTuplesOfUnivariates>
     static void extend_and_batch_univariates(const TupleOfTuplesOfUnivariates& tuple,
@@ -139,12 +141,12 @@ template <typename Flavor> class RelationUtils {
             using Relation = typename std::tuple_element_t<relation_idx, Relations>;
             const bool is_subrelation_linearly_independent =
                 proof_system::subrelation_is_linearly_independent<Relation, subrelation_idx>();
+            // Except from the log derivative subrelation, each other subrelation in part is required to be 0 hence we
+            // multiply by the power polynomial. As the sumcheck prover is required to send a univariate to the
+            // verifier, we additionally need a univariate contribution from the pow polynomial.
             if (!is_subrelation_linearly_independent || !pow_univariate.has_value()) {
-                // if subrelation is pure um over hypercube, don't multiply by random polynomial
-                // make these comments more relevant
                 result += extended;
             } else {
-                // if subrelation is linearly independent, multiply by random polynomial
                 result += extended * extended_random_polynomial;
             }
         };
