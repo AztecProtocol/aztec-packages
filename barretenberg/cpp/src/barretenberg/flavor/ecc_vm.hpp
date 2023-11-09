@@ -465,10 +465,13 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
         template <size_t index>
         [[nodiscard]] const DataType& lookup_read_counts() const
         {
-            static_assert(index == 0 || index == 1);
-            return std::get<75 + index>(this->_data);
+            if constexpr (index == 0) {
+                return lookup_read_counts_0;
+            } else {
+                static_assert(index == 1);
+                return lookup_read_counts_1;
+            }
         }
-        // clang-format on
 
         // defines a method pointer_view that returns the following, with const and non-const variants
         DEFINE_POINTER_VIEW(&lagrange_first,
