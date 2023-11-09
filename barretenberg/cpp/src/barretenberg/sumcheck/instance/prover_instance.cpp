@@ -192,21 +192,21 @@ template <class Flavor> void ProverInstance_<Flavor>::construct_ecc_op_wire_poly
  * @tparam Flavor
  * @param circuit
  */
-template <class Flavor> void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit)
+template <class Flavor>
+void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit)
+    requires IsGoblinFlavor<Flavor>
 {
-    if constexpr (IsGoblinFlavor<Flavor>) {
-        polynomial public_calldata(dyadic_circuit_size);
-        polynomial calldata_read_counts(dyadic_circuit_size);
+    polynomial public_calldata(dyadic_circuit_size);
+    polynomial calldata_read_counts(dyadic_circuit_size);
 
-        const size_t offset = Flavor::has_zero_row ? 1 : 0;
-        for (size_t idx = 0; idx < circuit.public_calldata.size(); ++idx) {
-            public_calldata[idx + offset] = circuit.get_variable(circuit.public_calldata[idx]);
-            calldata_read_counts[idx + offset] = circuit.get_variable(circuit.calldata_read_counts[idx]);
-        }
-
-        proving_key->calldata = public_calldata;
-        proving_key->calldata_read_counts = calldata_read_counts;
+    const size_t offset = Flavor::has_zero_row ? 1 : 0;
+    for (size_t idx = 0; idx < circuit.public_calldata.size(); ++idx) {
+        public_calldata[idx + offset] = circuit.get_variable(circuit.public_calldata[idx]);
+        calldata_read_counts[idx + offset] = circuit.get_variable(circuit.calldata_read_counts[idx]);
     }
+
+    proving_key->calldata = public_calldata;
+    proving_key->calldata_read_counts = calldata_read_counts;
 }
 
 template <class Flavor>

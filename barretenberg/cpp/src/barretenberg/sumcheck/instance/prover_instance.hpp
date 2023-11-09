@@ -93,7 +93,8 @@ template <class Flavor> class ProverInstance_ {
 
     void construct_ecc_op_wire_polynomials(auto&);
 
-    void construct_databus_polynomials(Circuit&);
+    void construct_databus_polynomials(Circuit&)
+        requires IsGoblinFlavor<Flavor>;
 
     void add_table_column_selector_poly_to_proving_key(barretenberg::polynomial& small, const std::string& tag);
 
