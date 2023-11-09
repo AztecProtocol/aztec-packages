@@ -45,7 +45,6 @@ template <typename FF> void GoblinUltraCircuitBuilder_<FF>::add_gates_to_ensure_
     ++this->num_gates;
 
     // Add some nonzero values to the calldata and corresponding read counts
-    // WORKTODO: will need to do this more carefully once we actually have a databus lookup relation
     public_calldata.emplace_back(this->one_idx);
     calldata_read_counts.emplace_back(this->one_idx);
 }

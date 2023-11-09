@@ -85,7 +85,7 @@ TEST_F(DataBusComposerTests, SingleCircuit)
     // Add mock data to op queue to simulate interaction with a previous circuit
     op_queue->populate_with_mock_initital_data();
 
-    auto builder = proof_system::GoblinUltraCircuitBuilder(op_queue);
+    auto builder = proof_system::GoblinUltraCircuitBuilder{ op_queue };
 
     generate_test_circuit(builder);
 
