@@ -56,9 +56,10 @@ template <UltraFlavor Flavor> class UltraComposer_ {
 
     std::shared_ptr<CommitmentKey> compute_commitment_key(size_t circuit_size)
     {
-        if (commitment_key) {
-            return commitment_key;
-        }
+        // WORKTODO: this is too small for the merge prover
+        // if (commitment_key) {
+        //     return commitment_key;
+        // }
 
         commitment_key = std::make_shared<CommitmentKey>(circuit_size, crs_factory_);
         return commitment_key;
@@ -81,7 +82,7 @@ template <UltraFlavor Flavor> class UltraComposer_ {
         op_queue->set_size_data();
         // Merge requires a commitment key with size equal to that of the current op queue transcript T_i since the
         // shift of the current contribution t_i will be of degree equal to deg(T_i)
-        auto commitment_key = compute_commitment_key(op_queue->get_current_size());
+        auto commitment_key = compute_commitment_key(op_queue->get_current_size() + 100000); // WORKTODO
         return MergeProver_<Flavor>(commitment_key, op_queue);
     }
 

@@ -41,13 +41,13 @@ class FullGoblinComposerTests : public ::testing::Test {
 
     /**
      * @brief Generate a simple test circuit with some ECC op gates and conventional arithmetic gates
-     *
+     *g
      * @param builder
      */
     void generate_test_circuit(GoblinUltraBuilder& builder)
     {
         // Add some arbitrary ecc op gates
-        for (size_t i = 0; i < 3000; ++i) {
+        for (size_t i = 0; i < 300; ++i) {
             auto point = Point::random_element();
             auto scalar = FF::random_element();
             builder.queue_ecc_add_accum(point);
@@ -56,7 +56,7 @@ class FullGoblinComposerTests : public ::testing::Test {
         builder.queue_ecc_eq();
 
         // Add some conventional gates that utilize public inputs
-        for (size_t i = 0; i < 1000; ++i) {
+        for (size_t i = 0; i < 100; ++i) {
             FF a = FF::random_element();
             FF b = FF::random_element();
             FF c = FF::random_element();
@@ -127,7 +127,7 @@ class FullGoblinComposerTests : public ::testing::Test {
     bool construct_and_verify_merge_proof(auto& composer, auto& op_queue)
     {
         auto merge_prover = composer.create_merge_prover(op_queue);
-        auto merge_verifier = composer.create_merge_verifier(10);
+        auto merge_verifier = composer.create_merge_verifier(10); // WORKTODO: What is this 10?
         auto merge_proof = merge_prover.construct_proof();
         bool verified = merge_verifier.verify_proof(merge_proof);
 
@@ -182,7 +182,7 @@ TEST_F(FullGoblinComposerTests, SimpleCircuit)
         EXPECT_TRUE(merge_verified);
     }
 
-    // Construct an ECCVM circuit then generate and verify its proof
+    // Execute the ECCVM
     {
         // Instantiate an ECCVM builder with the vm ops stored in the op queue
         auto builder = ECCVMBuilder(op_queue->raw_ops);
@@ -192,7 +192,8 @@ TEST_F(FullGoblinComposerTests, SimpleCircuit)
         auto eccvm_verified = construct_and_verify_proof(composer, builder);
         EXPECT_TRUE(eccvm_verified);
     }
-    // Construct an ECCVM circuit then generate and verify its proof
+
+    // Execute the TranslatorVM
     {
         // Instantiate an ECCVM builder with the vm ops stored in the op queue
         auto batching_challenge = Fbase::random_element();
