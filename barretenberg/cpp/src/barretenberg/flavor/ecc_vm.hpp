@@ -355,115 +355,113 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
     template <typename DataType, typename HandleType>
     class AllEntities : public AllEntities_<DataType, HandleType, NUM_ALL_ENTITIES> {
       public:
-        // clang-format off
-        DataType lagrange_first                    ; // column 0
-        DataType lagrange_second                   ; // column 1
-        DataType lagrange_last                     ; // column 2
-        DataType transcript_add                    ; // column 3
-        DataType transcript_mul                    ; // column 4
-        DataType transcript_eq                     ; // column 5
-        DataType transcript_collision_check        ; // column 6
-        DataType transcript_msm_transition         ; // column 7
-        DataType transcript_pc                     ; // column 8
-        DataType transcript_msm_count              ; // column 9
-        DataType transcript_x                      ; // column 10
-        DataType transcript_y                      ; // column 11
-        DataType transcript_z1                     ; // column 12
-        DataType transcript_z2                     ; // column 13
-        DataType transcript_z1zero                 ; // column 14 
-        DataType transcript_z2zero                 ; // column 15
-        DataType transcript_op                     ; // column 16
-        DataType transcript_accumulator_x          ; // column 17
-        DataType transcript_accumulator_y          ; // column 18
-        DataType transcript_msm_x                  ; // column 19
-        DataType transcript_msm_y                  ; // column 20
-        DataType precompute_pc                     ; // column 21
-        DataType precompute_point_transition       ; // column 22
-        DataType precompute_round                  ; // column 23
-        DataType precompute_scalar_sum             ; // column 24
-        DataType precompute_s1hi                   ; // column 25
-        DataType precompute_s1lo                   ; // column 26
-        DataType precompute_s2hi                   ; // column 27
-        DataType precompute_s2lo                   ; // column 28
-        DataType precompute_s3hi                   ; // column 29
-        DataType precompute_s3lo                   ; // column 30
-        DataType precompute_s4hi                   ; // column 31
-        DataType precompute_s4lo                   ; // column 32
-        DataType precompute_skew                   ; // column 33
-        DataType precompute_dx                     ; // column 34
-        DataType precompute_dy                     ; // column 35
-        DataType precompute_tx                     ; // column 36
-        DataType precompute_ty                     ; // column 37
-        DataType msm_transition                    ; // column 38
-        DataType msm_add                           ; // column 39
-        DataType msm_double                        ; // column 40
-        DataType msm_skew                          ; // column 41
-        DataType msm_accumulator_x                 ; // column 42
-        DataType msm_accumulator_y                 ; // column 43
-        DataType msm_pc                            ; // column 44
-        DataType msm_size_of_msm                   ; // column 45
-        DataType msm_count                         ; // column 46
-        DataType msm_round                         ; // column 47
-        DataType msm_add1                          ; // column 48
-        DataType msm_add2                          ; // column 49
-        DataType msm_add3                          ; // column 50
-        DataType msm_add4                          ; // column 51
-        DataType msm_x1                            ; // column 52
-        DataType msm_y1                            ; // column 53
-        DataType msm_x2                            ; // column 54
-        DataType msm_y2                            ; // column 55
-        DataType msm_x3                            ; // column 56
-        DataType msm_y3                            ; // column 57
-        DataType msm_x4                            ; // column 58
-        DataType msm_y4                            ; // column 59
-        DataType msm_collision_x1                  ; // column 60
-        DataType msm_collision_x2                  ; // column 61
-        DataType msm_collision_x3                  ; // column 62
-        DataType msm_collision_x4                  ; // column 63
-        DataType msm_lambda1                       ; // column 64
-        DataType msm_lambda2                       ; // column 65
-        DataType msm_lambda3                       ; // column 66
-        DataType msm_lambda4                       ; // column 67
-        DataType msm_slice1                        ; // column 68
-        DataType msm_slice2                        ; // column 69
-        DataType msm_slice3                        ; // column 70
-        DataType msm_slice4                        ; // column 71
-        DataType transcript_accumulator_empty      ; // column 72
-        DataType transcript_reset_accumulator      ; // column 73
-        DataType precompute_select                 ; // column 74
-        DataType lookup_read_counts_0              ; // column 75
-        DataType lookup_read_counts_1              ; // column 76
-        DataType z_perm                            ; // column 77
-        DataType lookup_inverses                   ; // column 78
-        DataType transcript_mul_shift              ; // column 79
-        DataType transcript_msm_count_shift        ; // column 80
-        DataType transcript_accumulator_x_shift    ; // column 81
-        DataType transcript_accumulator_y_shift    ; // column 82
-        DataType precompute_scalar_sum_shift       ; // column 83
-        DataType precompute_s1hi_shift             ; // column 84
-        DataType precompute_dx_shift               ; // column 85
-        DataType precompute_dy_shift               ; // column 86
-        DataType precompute_tx_shift               ; // column 87
-        DataType precompute_ty_shift               ; // column 88
-        DataType msm_transition_shift              ; // column 89
-        DataType msm_add_shift                     ; // column 90
-        DataType msm_double_shift                  ; // column 91
-        DataType msm_skew_shift                    ; // column 92
-        DataType msm_accumulator_x_shift           ; // column 93
-        DataType msm_accumulator_y_shift           ; // column 94
-        DataType msm_count_shift                   ; // column 95
-        DataType msm_round_shift                   ; // column 96
-        DataType msm_add1_shift                    ; // column 97
-        DataType msm_pc_shift                      ; // column 98
-        DataType precompute_pc_shift               ; // column 99
-        DataType transcript_pc_shift               ; // column 100
-        DataType precompute_round_shift            ; // column 101
+        DataType lagrange_first;                     // column 0
+        DataType lagrange_second;                    // column 1
+        DataType lagrange_last;                      // column 2
+        DataType transcript_add;                     // column 3
+        DataType transcript_mul;                     // column 4
+        DataType transcript_eq;                      // column 5
+        DataType transcript_collision_check;         // column 6
+        DataType transcript_msm_transition;          // column 7
+        DataType transcript_pc;                      // column 8
+        DataType transcript_msm_count;               // column 9
+        DataType transcript_x;                       // column 10
+        DataType transcript_y;                       // column 11
+        DataType transcript_z1;                      // column 12
+        DataType transcript_z2;                      // column 13
+        DataType transcript_z1zero;                  // column 14
+        DataType transcript_z2zero;                  // column 15
+        DataType transcript_op;                      // column 16
+        DataType transcript_accumulator_x;           // column 17
+        DataType transcript_accumulator_y;           // column 18
+        DataType transcript_msm_x;                   // column 19
+        DataType transcript_msm_y;                   // column 20
+        DataType precompute_pc;                      // column 21
+        DataType precompute_point_transition;        // column 22
+        DataType precompute_round;                   // column 23
+        DataType precompute_scalar_sum;              // column 24
+        DataType precompute_s1hi;                    // column 25
+        DataType precompute_s1lo;                    // column 26
+        DataType precompute_s2hi;                    // column 27
+        DataType precompute_s2lo;                    // column 28
+        DataType precompute_s3hi;                    // column 29
+        DataType precompute_s3lo;                    // column 30
+        DataType precompute_s4hi;                    // column 31
+        DataType precompute_s4lo;                    // column 32
+        DataType precompute_skew;                    // column 33
+        DataType precompute_dx;                      // column 34
+        DataType precompute_dy;                      // column 35
+        DataType precompute_tx;                      // column 36
+        DataType precompute_ty;                      // column 37
+        DataType msm_transition;                     // column 38
+        DataType msm_add;                            // column 39
+        DataType msm_double;                         // column 40
+        DataType msm_skew;                           // column 41
+        DataType msm_accumulator_x;                  // column 42
+        DataType msm_accumulator_y;                  // column 43
+        DataType msm_pc;                             // column 44
+        DataType msm_size_of_msm;                    // column 45
+        DataType msm_count;                          // column 46
+        DataType msm_round;                          // column 47
+        DataType msm_add1;                           // column 48
+        DataType msm_add2;                           // column 49
+        DataType msm_add3;                           // column 50
+        DataType msm_add4;                           // column 51
+        DataType msm_x1;                             // column 52
+        DataType msm_y1;                             // column 53
+        DataType msm_x2;                             // column 54
+        DataType msm_y2;                             // column 55
+        DataType msm_x3;                             // column 56
+        DataType msm_y3;                             // column 57
+        DataType msm_x4;                             // column 58
+        DataType msm_y4;                             // column 59
+        DataType msm_collision_x1;                   // column 60
+        DataType msm_collision_x2;                   // column 61
+        DataType msm_collision_x3;                   // column 62
+        DataType msm_collision_x4;                   // column 63
+        DataType msm_lambda1;                        // column 64
+        DataType msm_lambda2;                        // column 65
+        DataType msm_lambda3;                        // column 66
+        DataType msm_lambda4;                        // column 67
+        DataType msm_slice1;                         // column 68
+        DataType msm_slice2;                         // column 69
+        DataType msm_slice3;                         // column 70
+        DataType msm_slice4;                         // column 71
+        DataType transcript_accumulator_empty;       // column 72
+        DataType transcript_reset_accumulator;       // column 73
+        DataType precompute_select;                  // column 74
+        DataType lookup_read_counts_0;               // column 75
+        DataType lookup_read_counts_1;               // column 76
+        DataType z_perm;                             // column 77
+        DataType lookup_inverses;                    // column 78
+        DataType transcript_mul_shift;               // column 79
+        DataType transcript_msm_count_shift;         // column 80
+        DataType transcript_accumulator_x_shift;     // column 81
+        DataType transcript_accumulator_y_shift;     // column 82
+        DataType precompute_scalar_sum_shift;        // column 83
+        DataType precompute_s1hi_shift;              // column 84
+        DataType precompute_dx_shift;                // column 85
+        DataType precompute_dy_shift;                // column 86
+        DataType precompute_tx_shift;                // column 87
+        DataType precompute_ty_shift;                // column 88
+        DataType msm_transition_shift;               // column 89
+        DataType msm_add_shift;                      // column 90
+        DataType msm_double_shift;                   // column 91
+        DataType msm_skew_shift;                     // column 92
+        DataType msm_accumulator_x_shift;            // column 93
+        DataType msm_accumulator_y_shift;            // column 94
+        DataType msm_count_shift;                    // column 95
+        DataType msm_round_shift;                    // column 96
+        DataType msm_add1_shift;                     // column 97
+        DataType msm_pc_shift;                       // column 98
+        DataType precompute_pc_shift;                // column 99
+        DataType transcript_pc_shift;                // column 100
+        DataType precompute_round_shift;             // column 101
         DataType transcript_accumulator_empty_shift; // column 102
-        DataType precompute_select_shift           ; // column 103
-        DataType z_perm_shift                      ; // column 104
+        DataType precompute_select_shift;            // column 103
+        DataType z_perm_shift;                       // column 104
 
-        template <size_t index>
-        [[nodiscard]] const DataType& lookup_read_counts() const
+        template <size_t index> [[nodiscard]] const DataType& lookup_read_counts() const
         {
             if constexpr (index == 0) {
                 return lookup_read_counts_0;
