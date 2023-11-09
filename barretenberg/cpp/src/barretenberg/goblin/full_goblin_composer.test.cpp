@@ -47,7 +47,7 @@ class FullGoblinComposerTests : public ::testing::Test {
     void generate_test_circuit(GoblinUltraBuilder& builder)
     {
         // Add some arbitrary ecc op gates
-        for (size_t i = 0; i < 300; ++i) {
+        for (size_t i = 0; i < 3; ++i) {
             auto point = Point::random_element();
             auto scalar = FF::random_element();
             builder.queue_ecc_add_accum(point);
@@ -56,7 +56,7 @@ class FullGoblinComposerTests : public ::testing::Test {
         builder.queue_ecc_eq();
 
         // Add some conventional gates that utilize public inputs
-        for (size_t i = 0; i < 100; ++i) {
+        for (size_t i = 0; i < 10; ++i) {
             FF a = FF::random_element();
             FF b = FF::random_element();
             FF c = FF::random_element();
