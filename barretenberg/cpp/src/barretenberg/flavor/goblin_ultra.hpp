@@ -130,7 +130,7 @@ class GoblinUltra {
                             &table_4,
                             &lagrange_first,
                             &lagrange_last,
-                            &lagrange_ecc_op, )
+                            &lagrange_ecc_op)
 
         static constexpr CircuitType CIRCUIT_TYPE = CircuitBuilder::CIRCUIT_TYPE;
 
