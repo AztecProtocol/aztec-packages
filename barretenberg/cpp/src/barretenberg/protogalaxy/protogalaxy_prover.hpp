@@ -234,7 +234,6 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     /**
      * @brief Compute the combiner polynomial $G$ in the Protogalaxy paper.
      *
-     * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/754) Provide the right challenge to here
      */
     ExtendedUnivariateWithRandomization compute_combiner(const ProverInstances& instances,
                                                          const std::vector<FF>& pow_betas_star,
@@ -292,6 +291,13 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
                                                                                          alpha);
     }
 
+    /**
+     * @brief Compute the combiner quotient defined as $K$ polynomial in the paper.
+     *
+     * TODO(https://github.com/AztecProtocol/barretenberg/issues/764): generalise the computation of vanishing
+     * polynomials and Lagrange basis and use batch_invert.
+     *
+     */
     static Univariate<FF,
                       (Flavor::BATCHED_RELATION_TOTAL_LENGTH - 1) * (ProverInstances::NUM - 1) + 1,
                       ProverInstances::NUM>
