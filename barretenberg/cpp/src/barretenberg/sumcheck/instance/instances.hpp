@@ -6,6 +6,7 @@ namespace proof_system::honk {
 
 template <typename Flavor_, size_t NUM_> struct ProverInstances_ {
   public:
+    static_assert(NUM_ > 0, "Must have at least one prover instance");
     using Flavor = Flavor_;
     using FF = typename Flavor::FF;
     static constexpr size_t NUM = NUM_;
@@ -71,10 +72,8 @@ template <typename Flavor_, size_t NUM_> struct ProverInstances_ {
   private:
     auto get_polynomial_pointer_views() const
     {
-        static_assert(NUM > 0);
-        // As a practical measure to get a decltype, get the first instance's pointer view
-        auto first_view = _data[0]->prover_polynomials.pointer_view();
-        std::vector<decltype(first_view)> pointer_views = { first_view };
+        // As a practical measure, get the first instance's pointer view to deduce the vector type
+        std::vector pointer_views{ _data[0]->prover_polynomials.pointer_view() };
         // complete the views, starting from the second itme
         for (size_t i = 1; i < NUM; i++) {
             pointer_views.push_back(_data[i]->prover_polynomials.pointer_view());
