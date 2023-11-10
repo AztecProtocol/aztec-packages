@@ -53,7 +53,7 @@ void construct_selector_polynomials(const typename Flavor::CircuitBuilder& circu
             *poly_ptr = selector_poly_lagrange;
         }
     } else if constexpr (IsPlonkFlavor<Flavor>) {
-        size_t selector_idx = 0; // TODO(https://github.com/AztecProtocol/barretenberg/issues/391) zip
+        size_t selector_idx = 0;
         for (auto& selector_values : circuit_constructor.selectors.get()) {
             ASSERT(proving_key->circuit_size >= selector_values.size());
 

@@ -52,13 +52,13 @@ template <typename Flavor_, size_t NUM_> struct ProverInstances_ {
      */
     std::vector<Univariate<FF, NUM>> row_to_univariates(size_t row_idx) const
     {
-        auto polynomial_pointer_views = get_polynomial_pointer_views();
+        auto instance_polynomial_views = get_polynomial_pointer_views();
         std::vector<Univariate<FF, NUM>> results;
         // Initialize to our amount of columns
-        results.resize(polynomial_pointer_views[0].size());
+        results.resize(instance_polynomial_views[0].size());
         size_t instance_idx = 0;
         // Iterate instances
-        for (auto& pointer_view : polynomial_pointer_views) {
+        for (auto& pointer_view : instance_polynomial_views) {
             // Iterate columns
             for (auto [result, poly_ptr] : zip_view(results, pointer_view)) {
                 // Assign row for each instance
@@ -74,7 +74,7 @@ template <typename Flavor_, size_t NUM_> struct ProverInstances_ {
     {
         // As a practical measure, get the first instance's pointer view to deduce the vector type
         std::vector pointer_views{ _data[0]->prover_polynomials.pointer_view() };
-        // complete the views, starting from the second itme
+        // complete the views, starting from the second item
         for (size_t i = 1; i < NUM; i++) {
             pointer_views.push_back(_data[i]->prover_polynomials.pointer_view());
         }
