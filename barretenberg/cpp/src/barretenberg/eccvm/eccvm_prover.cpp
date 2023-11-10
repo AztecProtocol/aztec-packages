@@ -360,6 +360,5 @@ template <ECCVMFlavor Flavor> plonk::proof& ECCVMProver_<Flavor>::construct_proo
 }
 
 template class ECCVMProver_<honk::flavor::ECCVM>;
-template class ECCVMProver_<honk::flavor::ECCVMGrumpkin>;
 
 } // namespace proof_system::honk

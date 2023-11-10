@@ -255,8 +255,7 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
     std::get<34>(accumulator) += x_coordinate_collision_check * scaling_factor;
 }
 
-template class ECCVMTranscriptRelationImpl<barretenberg::fr>;
+template class ECCVMTranscriptRelationImpl<grumpkin::fr>;
 DEFINE_SUMCHECK_RELATION_CLASS(ECCVMTranscriptRelationImpl, flavor::ECCVM);
-DEFINE_SUMCHECK_RELATION_CLASS(ECCVMTranscriptRelationImpl, flavor::ECCVMGrumpkin);
 
 } // namespace proof_system::honk::sumcheck

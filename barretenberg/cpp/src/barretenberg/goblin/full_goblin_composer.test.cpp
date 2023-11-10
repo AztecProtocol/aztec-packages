@@ -27,7 +27,7 @@ class FullGoblinComposerTests : public ::testing::Test {
     using OpQueue = proof_system::ECCOpQueue;
     using GoblinUltraBuilder = proof_system::GoblinUltraCircuitBuilder;
     using GoblinUltraComposer = GoblinUltraComposer;
-    using ECCVMFlavor = flavor::ECCVMGrumpkin;
+    using ECCVMFlavor = flavor::ECCVM;
     using ECCVMBuilder = proof_system::ECCVMCircuitBuilder<ECCVMFlavor>;
     using ECCVMComposer = ECCVMComposer_<ECCVMFlavor>;
     using TranslatorFlavor = flavor::GoblinTranslator;

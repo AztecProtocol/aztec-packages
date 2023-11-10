@@ -263,6 +263,5 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
 }
 
 template class ECCVMVerifier_<honk::flavor::ECCVM>;
-template class ECCVMVerifier_<honk::flavor::ECCVMGrumpkin>;
 
 } // namespace proof_system::honk
