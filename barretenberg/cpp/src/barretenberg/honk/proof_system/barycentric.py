@@ -29,4 +29,16 @@ for i in range(len(evals)):
 result *= s
 print(result)
 
+points = [32, 33, 34, 35, 36]
+evals = [1,11,111,1111,11111]
+        
+z = 2
+ 
+result = get_A_at_z(z, points)
+s = 0
+for i in range(len(evals)):
+    s += evals[i] / ((z - points[i])* get_A_deriv(i, points))
+result *= s
+print(result)
+
     
