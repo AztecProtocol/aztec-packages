@@ -261,7 +261,8 @@ class GoblinUltra {
         DataType z_lookup_shift;       // column 50
 
         // defines a method pointer_view that returns the following, with const and non-const variants
-        DEFINE_POINTER_VIEW(&q_c,
+        DEFINE_POINTER_VIEW(NUM_ALL_ENTITIES,
+                            &q_c,
                             &q_l,
                             &q_r,
                             &q_o,
@@ -272,6 +273,7 @@ class GoblinUltra {
                             &q_elliptic,
                             &q_aux,
                             &q_lookup,
+                            &q_busread,
                             &sigma_1,
                             &sigma_2,
                             &sigma_3,
@@ -298,6 +300,8 @@ class GoblinUltra {
                             &ecc_op_wire_2,
                             &ecc_op_wire_3,
                             &ecc_op_wire_4,
+                            &calldata,
+                            &calldata_read_counts,
                             &table_1_shift,
                             &table_2_shift,
                             &table_3_shift,

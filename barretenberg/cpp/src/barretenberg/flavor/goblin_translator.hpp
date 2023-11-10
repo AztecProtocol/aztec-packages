@@ -935,7 +935,8 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
         DataType ordered_extra_range_constraints_numerator;          // column 183
 
         // defines a method pointer_view that returns the following, with const and non-const variants
-        DEFINE_POINTER_VIEW(&op,
+        DEFINE_POINTER_VIEW(NUM_ALL_ENTITIES,
+                            &op,
                             &x_lo_y_hi,
                             &x_hi_z_1,
                             &y_lo_z_2,
