@@ -218,7 +218,8 @@ class GoblinUltra {
         DataType& z_lookup_shift = std::get<50>(this->_data);
 
         // defines a method pointer_view that returns the following, with const and non-const variants
-        DEFINE_POINTER_VIEW(&q_c,
+        DEFINE_POINTER_VIEW(NUM_ALL_ENTITIES,
+                            &q_c,
                             &q_l,
                             &q_r,
                             &q_o,

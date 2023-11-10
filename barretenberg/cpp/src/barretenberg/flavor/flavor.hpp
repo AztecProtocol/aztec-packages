@@ -75,14 +75,21 @@
 
 namespace proof_system::honk::flavor {
 
-#define DEFINE_POINTER_VIEW(...)                                                                                       \
+template <std::size_t ExpectedSize, typename T, std::size_t N> static auto _assert_array_size(std::array<T, N>&& array)
+{
+    static_assert(N == ExpectedSize,
+                  "Expected array size to match given size (first parameter) in DEFINE_POINTER_VIEW");
+    return array;
+}
+
+#define DEFINE_POINTER_VIEW(ExpectedSize, ...)                                                                         \
     [[nodiscard]] auto pointer_view()                                                                                  \
     {                                                                                                                  \
-        return std::array{ __VA_ARGS__ };                                                                              \
+        return _assert_array_size<ExpectedSize>(std::array{ __VA_ARGS__ });                                            \
     }                                                                                                                  \
     [[nodiscard]] auto pointer_view() const                                                                            \
     {                                                                                                                  \
-        return std::array{ __VA_ARGS__ };                                                                              \
+        return _assert_array_size<ExpectedSize>(std::array{ __VA_ARGS__ });                                            \
     }
 
 /**
