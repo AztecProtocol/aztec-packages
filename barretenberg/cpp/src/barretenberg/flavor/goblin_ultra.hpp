@@ -119,6 +119,7 @@ class GoblinUltra {
                             &q_elliptic,
                             &q_aux,
                             &q_lookup,
+                            &q_busread,
                             &sigma_1,
                             &sigma_2,
                             &sigma_3,
@@ -187,7 +188,9 @@ class GoblinUltra {
                             &ecc_op_wire_1,
                             &ecc_op_wire_2,
                             &ecc_op_wire_3,
-                            &ecc_op_wire_4, )
+                            &ecc_op_wire_4,
+                            &calldata,
+                            &calldata_read_counts)
 
         std::vector<HandleType> get_wires() override { return { w_l, w_r, w_o, w_4 }; };
         std::vector<HandleType> get_ecc_op_wires()
