@@ -325,7 +325,7 @@ TEST_F(RelationCorrectnessTests, GoblinUltraRelationCorrectness)
  */
 TEST_F(RelationCorrectnessTests, GoblinTranslatorPermutationRelationCorrectness)
 {
-    using Flavor = flavor::GoblinTranslatorBasic;
+    using Flavor = flavor::GoblinTranslator;
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using Polynomial = barretenberg::Polynomial<FF>;
@@ -447,7 +447,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorPermutationRelationCorrectness)
 
 TEST_F(RelationCorrectnessTests, GoblinTranslatorGenPermSortRelationCorrectness)
 {
-    using Flavor = flavor::GoblinTranslatorBasic;
+    using Flavor = flavor::GoblinTranslator;
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using Polynomial = barretenberg::Polynomial<FF>;
@@ -537,7 +537,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorGenPermSortRelationCorrectness)
  */
 TEST_F(RelationCorrectnessTests, GoblinTranslatorExtraRelationsCorrectness)
 {
-    using Flavor = flavor::GoblinTranslatorBasic;
+    using Flavor = flavor::GoblinTranslator;
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using ProverPolynomialIds = typename Flavor::ProverPolynomialIds;
@@ -639,7 +639,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorExtraRelationsCorrectness)
  */
 TEST_F(RelationCorrectnessTests, GoblinTranslatorDecompositionRelationCorrectness)
 {
-    using Flavor = flavor::GoblinTranslatorBasic;
+    using Flavor = flavor::GoblinTranslator;
     using FF = typename Flavor::FF;
     using BF = typename Flavor::BF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
@@ -1012,7 +1012,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorDecompositionRelationCorrectnes
  */
 TEST_F(RelationCorrectnessTests, GoblinTranslatorNonNativeRelationCorrectness)
 {
-    using Flavor = flavor::GoblinTranslatorBasic;
+    using Flavor = flavor::GoblinTranslator;
     using FF = typename Flavor::FF;
     using BF = typename Flavor::BF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
