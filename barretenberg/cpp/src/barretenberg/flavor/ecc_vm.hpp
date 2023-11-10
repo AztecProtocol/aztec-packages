@@ -395,7 +395,8 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
         // clang-format on
 
         // defines a method pointer_view that returns the following, with const and non-const variants
-        DEFINE_POINTER_VIEW(&lagrange_first,
+        DEFINE_POINTER_VIEW(NUM_ALL_ENTITIES,
+                            &lagrange_first,
                             &lagrange_second,
                             &lagrange_last,
                             &transcript_add,
