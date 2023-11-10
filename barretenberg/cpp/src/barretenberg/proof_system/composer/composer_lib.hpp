@@ -66,8 +66,8 @@ void construct_selector_polynomials(const typename Flavor::CircuitBuilder& circu
             // TODO(Cody): Loose coupling here of selector_names and selector_properties.
             proving_key->polynomial_store.put(circuit_constructor.selector_names[selector_idx] + "_lagrange",
                                               std::move(selector_poly_lagrange));
+            ++selector_idx;
         }
-        ++selector_idx;
     }
 }
 
