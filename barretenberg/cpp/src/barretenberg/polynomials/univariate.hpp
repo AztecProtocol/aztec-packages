@@ -57,7 +57,7 @@ template <class Fr, size_t _length> class Univariate {
     const Fr& value_at(size_t i) const { return evaluations[i]; };
 
     // Write the Univariate evaluations to a buffer
-    std::vector<uint8_t> to_buffer() const { return ::to_buffer(evaluations); }
+    [[nodiscard]] std::vector<uint8_t> to_buffer() const { return ::to_buffer(evaluations); }
 
     // Static method for creating a Univariate from a buffer
     // IMPROVEMENT: Could be made to identically match equivalent methods in e.g. field.hpp. Currently bypasses

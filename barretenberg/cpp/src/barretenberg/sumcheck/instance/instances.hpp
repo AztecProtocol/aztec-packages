@@ -54,7 +54,7 @@ template <typename Flavor_, size_t NUM_> struct ProverInstances_ {
         auto polynomial_pointer_views = get_polynomial_pointer_views();
         std::vector<Univariate<FF, NUM>> results;
         // Initialize to our amount of columns
-        results.resize(polynomial_pointer_views.size());
+        results.resize(polynomial_pointer_views[0].size());
         size_t instance_idx = 0;
         // Iterate instances
         for (auto& pointer_view : polynomial_pointer_views) {
