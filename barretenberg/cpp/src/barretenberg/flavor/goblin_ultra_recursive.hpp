@@ -10,13 +10,13 @@
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
-#include "barretenberg/proof_system/relations/auxiliary_relation.hpp"
-#include "barretenberg/proof_system/relations/ecc_op_queue_relation.hpp"
-#include "barretenberg/proof_system/relations/elliptic_relation.hpp"
-#include "barretenberg/proof_system/relations/gen_perm_sort_relation.hpp"
-#include "barretenberg/proof_system/relations/lookup_relation.hpp"
-#include "barretenberg/proof_system/relations/permutation_relation.hpp"
-#include "barretenberg/proof_system/relations/ultra_arithmetic_relation.hpp"
+#include "barretenberg/relations/auxiliary_relation.hpp"
+#include "barretenberg/relations/ecc_op_queue_relation.hpp"
+#include "barretenberg/relations/elliptic_relation.hpp"
+#include "barretenberg/relations/gen_perm_sort_relation.hpp"
+#include "barretenberg/relations/lookup_relation.hpp"
+#include "barretenberg/relations/permutation_relation.hpp"
+#include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/srs/factories/crs_factory.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include <array>
@@ -61,12 +61,13 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
     // Note: this number does not include the individual sorted list polynomials.
-    static constexpr size_t NUM_ALL_ENTITIES = 48; // 43 (UH) + 4 op wires + 1 op wire "selector"
+    // NUM = 43 (UH) + 4 op wires + 1 op wire "selector" + 3 (calldata + calldata_read_counts + q_busread)
+    static constexpr size_t NUM_ALL_ENTITIES = 51;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 26; // 25 (UH) + 1 op wire "selector"
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 27; // 25 (UH) + 1 op wire "selector" + q_busread
     // The total number of witness entities not including shifts.
-    static constexpr size_t NUM_WITNESS_ENTITIES = 15; // 11 (UH) + 4 op wires
+    static constexpr size_t NUM_WITNESS_ENTITIES = 17; // 11 (UH) + 4 op wires + (calldata + calldata_read_counts)
 
     // define the tuple of Relations that comprise the Sumcheck relation
     using Relations = std::tuple<proof_system::UltraArithmeticRelation<FF>,
@@ -108,27 +109,28 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
         DataType q_elliptic;      // column 8
         DataType q_aux;           // column 9
         DataType q_lookup;        // column 10
-        DataType sigma_1;         // column 11
-        DataType sigma_2;         // column 12
-        DataType sigma_3;         // column 13
-        DataType sigma_4;         // column 14
-        DataType id_1;            // column 15
-        DataType id_2;            // column 16
-        DataType id_3;            // column 17
-        DataType id_4;            // column 18
-        DataType table_1;         // column 19
-        DataType table_2;         // column 20
-        DataType table_3;         // column 21
-        DataType table_4;         // column 22
-        DataType lagrange_first;  // column 23
-        DataType lagrange_last;   // column 24
-        DataType lagrange_ecc_op; // column 25 // indicator poly for ecc op gates
+        DataType q_busread;       // column 11
+        DataType sigma_1;         // column 12
+        DataType sigma_2;         // column 13
+        DataType sigma_3;         // column 14
+        DataType sigma_4;         // column 15
+        DataType id_1;            // column 16
+        DataType id_2;            // column 17
+        DataType id_3;            // column 18
+        DataType id_4;            // column 19
+        DataType table_1;         // column 20
+        DataType table_2;         // column 21
+        DataType table_3;         // column 22
+        DataType table_4;         // column 23
+        DataType lagrange_first;  // column 24
+        DataType lagrange_last;   // column 25
+        DataType lagrange_ecc_op; // column 26 // indicator poly for ecc op gates
 
         static constexpr CircuitType CIRCUIT_TYPE = CircuitBuilder::CIRCUIT_TYPE;
 
         std::vector<HandleType> get_selectors() override
         {
-            return { q_m, q_c, q_l, q_r, q_o, q_4, q_arith, q_sort, q_elliptic, q_aux, q_lookup };
+            return { q_m, q_c, q_l, q_r, q_o, q_4, q_arith, q_sort, q_elliptic, q_aux, q_lookup, q_busread };
         };
         std::vector<HandleType> get_sigma_polynomials() override { return { sigma_1, sigma_2, sigma_3, sigma_4 }; };
         std::vector<HandleType> get_id_polynomials() override { return { id_1, id_2, id_3, id_4 }; };
@@ -143,21 +145,23 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
     template <typename DataType, typename HandleType>
     class WitnessEntities : public WitnessEntities_<DataType, HandleType, NUM_WITNESS_ENTITIES> {
       public:
-        DataType w_l;           // column 0
-        DataType w_r;           // column 1
-        DataType w_o;           // column 2
-        DataType w_4;           // column 3
-        DataType sorted_1;      // column 4
-        DataType sorted_2;      // column 5
-        DataType sorted_3;      // column 6
-        DataType sorted_4;      // column 7
-        DataType sorted_accum;  // column 8
-        DataType z_perm;        // column 9
-        DataType z_lookup;      // column 10
-        DataType ecc_op_wire_1; // column 11
-        DataType ecc_op_wire_2; // column 12
-        DataType ecc_op_wire_3; // column 13
-        DataType ecc_op_wire_4; // column 14
+        DataType w_l;                  // column 0
+        DataType w_r;                  // column 1
+        DataType w_o;                  // column 2
+        DataType w_4;                  // column 3
+        DataType sorted_1;             // column 4
+        DataType sorted_2;             // column 5
+        DataType sorted_3;             // column 6
+        DataType sorted_4;             // column 7
+        DataType sorted_accum;         // column 8
+        DataType z_perm;               // column 9
+        DataType z_lookup;             // column 10
+        DataType ecc_op_wire_1;        // column 11
+        DataType ecc_op_wire_2;        // column 12
+        DataType ecc_op_wire_3;        // column 13
+        DataType ecc_op_wire_4;        // column 14
+        DataType calldata;             // column 15
+        DataType calldata_read_counts; // column 16
 
         DEFINE_POINTER_VIEW(&w_l,
                             &w_r,
@@ -196,54 +200,57 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
     template <typename DataType, typename HandleType>
     class AllEntities : public AllEntities_<DataType, HandleType, NUM_ALL_ENTITIES> {
       public:
-        DataType q_c;                // column 0
-        DataType q_l;                // column 1
-        DataType q_r;                // column 2
-        DataType q_o;                // column 3
-        DataType q_4;                // column 4
-        DataType q_m;                // column 5
-        DataType q_arith;            // column 6
-        DataType q_sort;             // column 7
-        DataType q_elliptic;         // column 8
-        DataType q_aux;              // column 9
-        DataType q_lookup;           // column 10
-        DataType sigma_1;            // column 11
-        DataType sigma_2;            // column 12
-        DataType sigma_3;            // column 13
-        DataType sigma_4;            // column 14
-        DataType id_1;               // column 15
-        DataType id_2;               // column 16
-        DataType id_3;               // column 17
-        DataType id_4;               // column 18
-        DataType table_1;            // column 19
-        DataType table_2;            // column 20
-        DataType table_3;            // column 21
-        DataType table_4;            // column 22
-        DataType lagrange_first;     // column 23
-        DataType lagrange_last;      // column 24
-        DataType lagrange_ecc_op;    // column 25
-        DataType w_l;                // column 26
-        DataType w_r;                // column 27
-        DataType w_o;                // column 28
-        DataType w_4;                // column 29
-        DataType sorted_accum;       // column 30
-        DataType z_perm;             // column 31
-        DataType z_lookup;           // column 32
-        DataType ecc_op_wire_1;      // column 33
-        DataType ecc_op_wire_2;      // column 34
-        DataType ecc_op_wire_3;      // column 35
-        DataType ecc_op_wire_4;      // column 36
-        DataType table_1_shift;      // column 37
-        DataType table_2_shift;      // column 38
-        DataType table_3_shift;      // column 39
-        DataType table_4_shift;      // column 40
-        DataType w_l_shift;          // column 41
-        DataType w_r_shift;          // column 42
-        DataType w_o_shift;          // column 43
-        DataType w_4_shift;          // column 44
-        DataType sorted_accum_shift; // column 45
-        DataType z_perm_shift;       // column 46
-        DataType z_lookup_shift;     // column 47
+        DataType q_c;                  // column 0
+        DataType q_l;                  // column 1
+        DataType q_r;                  // column 2
+        DataType q_o;                  // column 3
+        DataType q_4;                  // column 4
+        DataType q_m;                  // column 5
+        DataType q_arith;              // column 6
+        DataType q_sort;               // column 7
+        DataType q_elliptic;           // column 8
+        DataType q_aux;                // column 9
+        DataType q_lookup;             // column 10
+        DataType q_busread;            // column 11
+        DataType sigma_1;              // column 12
+        DataType sigma_2;              // column 13
+        DataType sigma_3;              // column 14
+        DataType sigma_4;              // column 15
+        DataType id_1;                 // column 16
+        DataType id_2;                 // column 17
+        DataType id_3;                 // column 18
+        DataType id_4;                 // column 19
+        DataType table_1;              // column 20
+        DataType table_2;              // column 21
+        DataType table_3;              // column 22
+        DataType table_4;              // column 23
+        DataType lagrange_first;       // column 24
+        DataType lagrange_last;        // column 25
+        DataType lagrange_ecc_op;      // column 26
+        DataType w_l;                  // column 27
+        DataType w_r;                  // column 28
+        DataType w_o;                  // column 29
+        DataType w_4;                  // column 30
+        DataType sorted_accum;         // column 31
+        DataType z_perm;               // column 32
+        DataType z_lookup;             // column 33
+        DataType ecc_op_wire_1;        // column 34
+        DataType ecc_op_wire_2;        // column 35
+        DataType ecc_op_wire_3;        // column 36
+        DataType ecc_op_wire_4;        // column 37
+        DataType calldata;             // column 38
+        DataType calldata_read_counts; // column 39
+        DataType table_1_shift;        // column 40
+        DataType table_2_shift;        // column 41
+        DataType table_3_shift;        // column 42
+        DataType table_4_shift;        // column 43
+        DataType w_l_shift;            // column 44
+        DataType w_r_shift;            // column 45
+        DataType w_o_shift;            // column 46
+        DataType w_4_shift;            // column 47
+        DataType sorted_accum_shift;   // column 48
+        DataType z_perm_shift;         // column 49
+        DataType z_lookup_shift;       // column 50
 
         DEFINE_POINTER_VIEW(&q_c,
                             &q_l,
@@ -302,25 +309,46 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
         // Gemini-specific getters.
         std::vector<HandleType> get_unshifted() override
         {
-            return { q_c,           q_l,
-                     q_r,           q_o,
-                     q_4,           q_m,
-                     q_arith,       q_sort,
-                     q_elliptic,    q_aux,
-                     q_lookup,      sigma_1,
-                     sigma_2,       sigma_3,
-                     sigma_4,       id_1,
-                     id_2,          id_3,
-                     id_4,          table_1,
-                     table_2,       table_3,
-                     table_4,       lagrange_first,
-                     lagrange_last, lagrange_ecc_op,
-                     w_l,           w_r,
-                     w_o,           w_4,
-                     sorted_accum,  z_perm,
-                     z_lookup,      ecc_op_wire_1,
-                     ecc_op_wire_2, ecc_op_wire_3,
-                     ecc_op_wire_4 };
+            return { q_c,
+                     q_l,
+                     q_r,
+                     q_o,
+                     q_4,
+                     q_m,
+                     q_arith,
+                     q_sort,
+                     q_elliptic,
+                     q_aux,
+                     q_lookup,
+                     q_busread,
+                     sigma_1,
+                     sigma_2,
+                     sigma_3,
+                     sigma_4,
+                     id_1,
+                     id_2,
+                     id_3,
+                     id_4,
+                     table_1,
+                     table_2,
+                     table_3,
+                     table_4,
+                     lagrange_first,
+                     lagrange_last,
+                     lagrange_ecc_op,
+                     w_l,
+                     w_r,
+                     w_o,
+                     w_4,
+                     sorted_accum,
+                     z_perm,
+                     z_lookup,
+                     ecc_op_wire_1,
+                     ecc_op_wire_2,
+                     ecc_op_wire_3,
+                     ecc_op_wire_4,
+                     calldata,
+                     calldata_read_counts };
         };
         std::vector<HandleType> get_to_be_shifted() override
         {
@@ -365,6 +393,7 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
             this->q_elliptic = Commitment::from_witness(builder, native_key->q_elliptic);
             this->q_aux = Commitment::from_witness(builder, native_key->q_aux);
             this->q_lookup = Commitment::from_witness(builder, native_key->q_lookup);
+            this->q_busread = Commitment::from_witness(builder, native_key->q_busread);
             this->sigma_1 = Commitment::from_witness(builder, native_key->sigma_1);
             this->sigma_2 = Commitment::from_witness(builder, native_key->sigma_2);
             this->sigma_3 = Commitment::from_witness(builder, native_key->sigma_3);
@@ -415,6 +444,8 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
             this->ecc_op_wire_2 = "ECC_OP_WIRE_2";
             this->ecc_op_wire_3 = "ECC_OP_WIRE_3";
             this->ecc_op_wire_4 = "ECC_OP_WIRE_4";
+            this->calldata = "CALLDATA";
+            this->calldata_read_counts = "CALLDATA_READ_COUNTS";
 
             // The ones beginning with "__" are only used for debugging
             this->q_c = "__Q_C";
@@ -428,6 +459,7 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
             this->q_elliptic = "__Q_ELLIPTIC";
             this->q_aux = "__Q_AUX";
             this->q_lookup = "__Q_LOOKUP";
+            this->q_busread = "__Q_BUSREAD";
             this->sigma_1 = "__SIGMA_1";
             this->sigma_2 = "__SIGMA_2";
             this->sigma_3 = "__SIGMA_3";
@@ -461,6 +493,7 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
             this->q_elliptic = verification_key->q_elliptic;
             this->q_aux = verification_key->q_aux;
             this->q_lookup = verification_key->q_lookup;
+            this->q_busread = verification_key->q_busread;
             this->sigma_1 = verification_key->sigma_1;
             this->sigma_2 = verification_key->sigma_2;
             this->sigma_3 = verification_key->sigma_3;
@@ -486,7 +519,6 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
      */
     class Transcript : public BaseTranscript<FF> {
       public:
-        // Transcript objects defined as public member variables for easy access and modification
         uint32_t circuit_size;
         uint32_t public_input_size;
         uint32_t pub_inputs_offset;
@@ -498,6 +530,8 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
         Commitment ecc_op_wire_2_comm;
         Commitment ecc_op_wire_3_comm;
         Commitment ecc_op_wire_4_comm;
+        Commitment calldata_comm;
+        Commitment calldata_read_counts_comm;
         Commitment sorted_accum_comm;
         Commitment w_4_comm;
         Commitment z_perm_comm;
@@ -510,26 +544,9 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
 
         Transcript() = default;
 
-        // Used by verifier to initialize the transcript
         Transcript(const std::vector<uint8_t>& proof)
             : BaseTranscript<FF>(proof)
         {}
-
-        static Transcript prover_init_empty()
-        {
-            Transcript transcript;
-            constexpr uint32_t init{ 42 }; // arbitrary
-            transcript.send_to_verifier("Init", init);
-            return transcript;
-        };
-
-        static Transcript verifier_init_empty(const Transcript& transcript)
-        {
-            Transcript verifier_transcript{ transcript.proof_data };
-            [[maybe_unused]] auto _ = verifier_transcript.template receive_from_prover<uint32_t>("Init");
-            return verifier_transcript;
-        };
-
         /**
          * @brief Takes a FULL GoblinUltraRecursive proof and deserializes it into the public member variables that
          * compose the structure. Must be called in order to access the structure of the proof.
@@ -554,6 +571,9 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
             ecc_op_wire_2_comm = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
             ecc_op_wire_3_comm = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
             ecc_op_wire_4_comm = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
+            calldata_comm = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
+            calldata_read_counts_comm =
+                deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
             sorted_accum_comm = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
             w_4_comm = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
             z_perm_comm = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
@@ -572,6 +592,7 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
             zm_cq_comm = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
             zm_pi_comm = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
         }
+
         /**
          * @brief Serializes the structure variables into a FULL GoblinUltraRecursive proof. Should be called only if
          * deserialize_full_transcript() was called and some transcript variable was modified.
@@ -580,7 +601,7 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
         void serialize_full_transcript() override
         {
             size_t old_proof_length = BaseTranscript<FF>::proof_data.size();
-            BaseTranscript<FF>::proof_data.clear(); // clear proof_data so the rest of the function can replace it
+            BaseTranscript<FF>::proof_data.clear();
             size_t log_n = numeric::get_msb(circuit_size);
             serialize_to_buffer(circuit_size, BaseTranscript<FF>::proof_data);
             serialize_to_buffer(public_input_size, BaseTranscript<FF>::proof_data);
@@ -595,6 +616,8 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
             serialize_to_buffer(ecc_op_wire_2_comm, BaseTranscript<FF>::proof_data);
             serialize_to_buffer(ecc_op_wire_3_comm, BaseTranscript<FF>::proof_data);
             serialize_to_buffer(ecc_op_wire_4_comm, BaseTranscript<FF>::proof_data);
+            serialize_to_buffer(calldata_comm, BaseTranscript<FF>::proof_data);
+            serialize_to_buffer(calldata_read_counts_comm, BaseTranscript<FF>::proof_data);
             serialize_to_buffer(sorted_accum_comm, BaseTranscript<FF>::proof_data);
             serialize_to_buffer(w_4_comm, BaseTranscript<FF>::proof_data);
             serialize_to_buffer(z_perm_comm, BaseTranscript<FF>::proof_data);

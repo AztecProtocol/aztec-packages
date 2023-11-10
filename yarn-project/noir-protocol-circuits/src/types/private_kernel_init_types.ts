@@ -102,15 +102,11 @@ export interface PrivateCircuitPublicInputs {
   version: Field;
 }
 
-export interface CallStackItem {
+export interface PrivateCallStackItem {
   contract_address: Address;
   public_inputs: PrivateCircuitPublicInputs;
-  is_execution_request: boolean;
   function_data: FunctionData;
-}
-
-export interface PrivateCallStackItem {
-  inner: CallStackItem;
+  is_execution_request: boolean;
 }
 
 export interface Proof {}
