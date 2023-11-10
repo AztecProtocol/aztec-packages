@@ -477,59 +477,59 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
         std::vector<HandleType> get_unshifted() override
         {
             return {
-                lagrange_first,
-                lagrange_second,
-                lagrange_last,
-                transcript_add,
-                transcript_eq,
-                transcript_collision_check,
-                transcript_msm_transition,
-                transcript_x,
-                transcript_y,
-                transcript_z1,
-                transcript_z2,
-                transcript_z1zero,
-                transcript_z2zero,
-                transcript_op,
-                transcript_msm_x,
-                transcript_msm_y,
-                precompute_point_transition,
-                precompute_s1hi,
-                precompute_s2hi,
-                precompute_s2lo,
-                precompute_s3hi,
-                precompute_s3lo,
-                precompute_s4hi,
-                precompute_s4lo,
-                precompute_skew,
-                msm_size_of_msm,
-                msm_add2,
-                msm_add3,
-                msm_add4,
-                msm_x1,
-                msm_y1,
-                msm_x2,
-                msm_y2,
-                msm_x3,
-                msm_y3,
-                msm_x4,
-                msm_y4,
-                msm_collision_x1,
-                msm_collision_x2,
-                msm_collision_x3,
-                msm_collision_x4,
-                msm_lambda1,
-                msm_lambda2,
-                msm_lambda3,
-                msm_lambda4,
-                msm_slice1,
-                msm_slice2,
-                msm_slice3,
-                msm_slice4,
-                transcript_reset_accumulator,
-                lookup_read_counts_0,
-                lookup_read_counts_1,
-                lookup_inverses,
+                lagrange_first,               // 0
+                lagrange_second,              // 1
+                lagrange_last,                // 2
+                transcript_add,               // 3
+                transcript_eq,                // 4
+                transcript_collision_check,   // 5
+                transcript_msm_transition,    // 6
+                transcript_x,                 // 7
+                transcript_y,                 // 8
+                transcript_z1,                // 9
+                transcript_z2,                // 10
+                transcript_z1zero,            // 11
+                transcript_z2zero,            // 12
+                transcript_op,                // 13
+                transcript_msm_x,             // 14
+                transcript_msm_y,             // 15
+                precompute_point_transition,  // 16
+                precompute_s1hi,              // 17
+                precompute_s2hi,              // 18
+                precompute_s2lo,              // 19
+                precompute_s3hi,              // 20
+                precompute_s3lo,              // 21
+                precompute_s4hi,              // 22
+                precompute_s4lo,              // 23
+                precompute_skew,              // 24
+                msm_size_of_msm,              // 25
+                msm_add2,                     // 26
+                msm_add3,                     // 27
+                msm_add4,                     // 28
+                msm_x1,                       // 29
+                msm_y1,                       // 30
+                msm_x2,                       // 31
+                msm_y2,                       // 32
+                msm_x3,                       // 33
+                msm_y3,                       // 34
+                msm_x4,                       // 35
+                msm_y4,                       // 36
+                msm_collision_x1,             // 37
+                msm_collision_x2,             // 38
+                msm_collision_x3,             // 39
+                msm_collision_x4,             // 40
+                msm_lambda1,                  // 41
+                msm_lambda2,                  // 42
+                msm_lambda3,                  // 43
+                msm_lambda4,                  // 44
+                msm_slice1,                   // 45
+                msm_slice2,                   // 46
+                msm_slice3,                   // 47
+                msm_slice4,                   // 48
+                transcript_reset_accumulator, // 49
+                lookup_read_counts_0,         // 50
+                lookup_read_counts_1,         // 51
+                lookup_inverses,              // 52
             };
         };
 

@@ -1620,8 +1620,6 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
 
     class VerifierCommitments : public AllEntities<Commitment, CommitmentHandle> {
       public:
-        // WORKTODO
-        // std::vector<std::vector<Commitment>> concatenation_group_commitments;
         /**
          * @brief Get the polynomials that are concatenated for the permutation relation
          *
