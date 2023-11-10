@@ -134,34 +134,6 @@ class FullGoblinComposerTests : public ::testing::Test {
 
         return verified;
     }
-
-    /**
-     * @brief Construct and verify an ECCVM proof
-     *
-     */
-    static bool construct_and_verify_eccvm_proof(ECCVMComposer& composer, ECCVMBuilder& builder)
-    {
-        auto prover = composer.create_prover(builder);
-        auto proof = prover.construct_proof();
-        ECCVMFlavor::AllValues evals = prover.transcript.sumcheck_evaluations;
-        auto verifier = composer.create_verifier(builder);
-        bool verified = verifier.verify_proof(proof);
-        return verified;
-    }
-
-    /**
-     * @brief Construct and verify a Translator proof
-     *
-     */
-    static bool construct_and_verify_translator_proof(TranslatorComposer& composer, TranslatorBuilder& builder)
-    {
-        auto prover = composer.create_prover(builder);
-        auto proof = prover.construct_proof();
-        auto verifier = composer.create_verifier(builder);
-        bool verified = verifier.verify_proof(proof);
-
-        return verified;
-    }
 };
 
 /**
@@ -198,32 +170,25 @@ TEST_F(FullGoblinComposerTests, SimpleCircuit)
     }
 
     // Execute the ECCVM
-    const auto& execute_eccvm = [&]() {
-        // Instantiate an ECCVM builder with the vm ops stored in the op queue
-        auto builder = ECCVMBuilder(op_queue->raw_ops);
+    auto eccvm_builder = ECCVMBuilder(op_queue->raw_ops);
+    auto eccvm_composer = ECCVMComposer();
+    auto eccvm_prover = eccvm_composer.create_prover(eccvm_builder);
+    auto eccvm_verifier = eccvm_composer.create_verifier(eccvm_builder);
+    auto eccvm_proof = eccvm_prover.construct_proof();
+    bool eccvm_verified = eccvm_verifier.verify_proof(eccvm_proof);
+    EXPECT_TRUE(eccvm_verified);
 
-        // Construct and verify ECCVM proof
-        auto composer = ECCVMComposer();
-        bool eccvm_verified = construct_and_verify_eccvm_proof(composer, builder);
-        EXPECT_TRUE(eccvm_verified);
-    };
-
-    // Execute the TranslatorVM
-    const auto& execute_translator_vm = [&]() {
-        // Instantiate an ECCVM builder with the vm ops stored in the op queue
-        auto batching_challenge = Fbase::random_element();
-        auto evaluation_input = Fbase::random_element();
-        auto builder =
-            TranslatorBuilder(batching_challenge, evaluation_input, *op_queue); // WORKTODO: take pointer or ref
-
-        // Construct and verify ECCVM proof
-        auto composer = TranslatorComposer();
-        bool translator_verified = construct_and_verify_translator_proof(composer, builder);
-        EXPECT_TRUE(translator_verified);
-    };
-
-    execute_eccvm();
-    execute_translator_vm();
+    // Execute the Translator
+    auto batching_challenge = Fbase::random_element();
+    auto evaluation_input = Fbase::random_element();
+    auto translator_builder =
+        TranslatorBuilder(batching_challenge, evaluation_input, *op_queue); // WORKTODO: take pointer or ref
+    auto translator_composer = TranslatorComposer();
+    auto translator_prover = translator_composer.create_prover(translator_builder);
+    auto translator_verifier = translator_composer.create_verifier(translator_builder);
+    auto translator_proof = translator_prover.construct_proof();
+    bool translator_verified = translator_verifier.verify_proof(translator_proof);
+    EXPECT_TRUE(translator_verified);
 }
 
 /**
