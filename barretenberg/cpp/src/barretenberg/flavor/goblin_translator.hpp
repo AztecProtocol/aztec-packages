@@ -347,7 +347,8 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
         DataType lagrange_second;                           // column 4
         DataType lagrange_second_to_last_in_minicircuit;    // column 5
         DataType ordered_extra_range_constraints_numerator; // column 6
-        DEFINE_POINTER_VIEW(&lagrange_first,
+        DEFINE_POINTER_VIEW(NUM_PRECOMPUTED_ENTITIES,
+                            &lagrange_first,
                             &lagrange_last,
                             &lagrange_odd_in_minicircuit,
                             &lagrange_even_in_minicircuit,
@@ -458,7 +459,8 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
         DataType ordered_range_constraints_4;                  // column 89
         DataType z_perm;                                       // column 90
 
-        DEFINE_POINTER_VIEW(&op,
+        DEFINE_POINTER_VIEW(NUM_WITNESS_ENTITIES,
+                            &op,
                             &x_lo_y_hi,
                             &x_hi_z_1,
                             &y_lo_z_2,

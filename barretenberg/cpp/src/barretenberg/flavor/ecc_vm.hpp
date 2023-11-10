@@ -92,7 +92,7 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
         DataType lagrange_second; // column 1
         DataType lagrange_last;   // column 2
 
-        DEFINE_POINTER_VIEW(&lagrange_first, &lagrange_second, &lagrange_last)
+        DEFINE_POINTER_VIEW(NUM_PRECOMPUTED_ENTITIES, &lagrange_first, &lagrange_second, &lagrange_last)
 
         std::vector<HandleType> get_selectors() override { return { lagrange_first, lagrange_second, lagrange_last }; };
         std::vector<HandleType> get_sigma_polynomials() override { return {}; };
@@ -184,7 +184,8 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
         DataType z_perm;                       // column 74
         DataType lookup_inverses;              // column 75
 
-        DEFINE_POINTER_VIEW(&transcript_add,
+        DEFINE_POINTER_VIEW(NUM_WITNESS_ENTITIES,
+                            &transcript_add,
                             &transcript_mul,
                             &transcript_eq,
                             &transcript_collision_check,

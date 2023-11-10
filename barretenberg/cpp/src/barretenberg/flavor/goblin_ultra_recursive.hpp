@@ -163,7 +163,8 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
         DataType calldata;             // column 15
         DataType calldata_read_counts; // column 16
 
-        DEFINE_POINTER_VIEW(&w_l,
+        DEFINE_POINTER_VIEW(NUM_WITNESS_ENTITIES,
+                            &w_l,
                             &w_r,
                             &w_o,
                             &w_4,
@@ -252,7 +253,8 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
         DataType z_perm_shift;         // column 49
         DataType z_lookup_shift;       // column 50
 
-        DEFINE_POINTER_VIEW(&q_c,
+        DEFINE_POINTER_VIEW(NUM_ALL_ENTITIES,
+                            &q_c,
                             &q_l,
                             &q_r,
                             &q_o,
@@ -263,6 +265,7 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
                             &q_elliptic,
                             &q_aux,
                             &q_lookup,
+                            &q_busread,
                             &sigma_1,
                             &sigma_2,
                             &sigma_3,
@@ -289,6 +292,8 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
                             &ecc_op_wire_2,
                             &ecc_op_wire_3,
                             &ecc_op_wire_4,
+                            &calldata,
+                            &calldata_read_counts,
                             &table_1_shift,
                             &table_2_shift,
                             &table_3_shift,

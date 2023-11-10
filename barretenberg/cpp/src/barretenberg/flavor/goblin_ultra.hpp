@@ -107,7 +107,8 @@ class GoblinUltra {
         DataType lagrange_last;   // column 25
         DataType lagrange_ecc_op; // column 26 // indicator poly for ecc op gates
 
-        DEFINE_POINTER_VIEW(&q_m,
+        DEFINE_POINTER_VIEW(NUM_PRECOMPUTED_ENTITIES,
+                            &q_m,
                             &q_c,
                             &q_l,
                             &q_r,
@@ -171,7 +172,8 @@ class GoblinUltra {
         DataType calldata;             // column 15
         DataType calldata_read_counts; // column 16
 
-        DEFINE_POINTER_VIEW(&w_l,
+        DEFINE_POINTER_VIEW(NUM_WITNESS_ENTITIES,
+                            &w_l,
                             &w_r,
                             &w_o,
                             &w_4,
