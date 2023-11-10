@@ -180,8 +180,6 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
                             &ecc_op_wire_3,
                             &ecc_op_wire_4,
                             &calldata,
-                            &calldata,
-                            &calldata,
                             &calldata_read_counts)
 
         std::vector<HandleType> get_wires() override { return { w_l, w_r, w_o, w_4 }; };
