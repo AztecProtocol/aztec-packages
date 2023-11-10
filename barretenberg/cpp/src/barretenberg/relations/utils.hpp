@@ -164,7 +164,7 @@ template <typename Flavor> class RelationUtils {
         ChallengeType& challenge,
         const std::optional<PowUnivariate<FF>>& pow_univariate = std::nullopt)
     {
-        auto running_challenge = ChallengeType(1);
+        auto running_challenge = ExtendedUnivariate(1);
         scale_univariates(univariate_accumulators, challenge, running_challenge);
 
         auto result = ExtendedUnivariate(0);
