@@ -148,9 +148,9 @@
       "binaryDir": "build-msan",
       "generator": "Unix Makefiles",
       "environment": {
-        "CFLAGS": "-fsanitize=memory",
-        "CXXFLAGS": "-fsanitize=memory",
-        "LDFLAGS": "-fsanitize=memory"
+        "CFLAGS": "-fsanitize=memory -stdlib=libc++ -Illvm-project/build/include -Illvm-project/build/include/c++/v1",
+        "CXXFLAGS": "-fsanitize=memory -stdlib=libc++ -Illvm-project/build/include -Illvm-project/build/include/c++/v1",
+        "LDFLAGS": "-fsanitize=memory -stdlib=libc++ -Lllvm-project/build/lib -lc++abi -Illvm-project/build/include -Illvm-project/build/include/c++/v1"
       },
       "cacheVariables": {
         "BENCHMARK": "OFF",

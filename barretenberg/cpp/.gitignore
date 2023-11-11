@@ -11,3 +11,4 @@ CMakeUserPresets.json
 acir_tests
 # we may download go in scripts/collect_heap_information.sh
 go*.tar.gz
+llvm-project
