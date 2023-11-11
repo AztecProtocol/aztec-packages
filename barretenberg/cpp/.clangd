@@ -61,6 +61,13 @@ Diagnostics:
       - google-explicit-constructor
       # Not honouring.
       - cppcoreguidelines-owning-memory
+      # Often nicer to initialize fields in a flexible/explicit order.
+      - cppcoreguidelines-prefer-member-initializer
+      # [[nodiscard]] only helps if we return error codes that need to be handled, meanwhile this causes a lot of noise.
+      - modernize-use-nodiscard
+      # Opinionated, but static_cast<> does not feel more readable than classic casts.
+      # The syntax was copied by a bunch of other languages anyway.
+      - google-readability-casting
 
 --- # this divider is necessary
 # Disable some checks for Google Test/Bench
