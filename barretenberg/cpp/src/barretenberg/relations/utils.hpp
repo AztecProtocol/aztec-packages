@@ -68,6 +68,8 @@ template <typename Flavor> class RelationUtils {
     template <typename ChallengeType>
     static void scale_univariates(auto& tuple, const ChallengeType& challenge, ChallenchrgeType& current_scalar)
     {
+
+        // these size_t are not necessary????????
         auto scale_by_consecutive_powers_of_challenge = [&]<size_t, size_t>(auto& element) {
             element *= current_scalar;
             current_scalar *= challenge;

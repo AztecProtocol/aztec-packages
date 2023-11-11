@@ -245,7 +245,7 @@ TEST_F(SumcheckTests, ProverAndVerifierSimple)
         };
 
         Flavor::Transcript prover_transcript = Flavor::Transcript::prover_init_empty();
-
+        info(Flavor::NUMBER_OF_SUBRELATIONS);
         auto sumcheck_prover = SumcheckProver<Flavor>(multivariate_n, prover_transcript);
 
         auto alpha = prover_transcript.get_challenge("alpha");
