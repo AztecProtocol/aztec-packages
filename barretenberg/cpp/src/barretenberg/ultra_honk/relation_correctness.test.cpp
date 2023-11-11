@@ -78,10 +78,8 @@ void check_linearly_dependent_relation(auto circuit_size, auto polynomials, auto
 
         // Extract an array containing all the polynomial evaluations at a given row i
         AllValues evaluations_at_index_i;
-        size_t poly_idx = 0;
-        for (auto& poly : polynomials) {
-            evaluations_at_index_i[poly_idx] = poly[i];
-            ++poly_idx;
+        for (auto [eval, poly] : zip_view(evaluations_at_index_i.pointer_view(), polynomials.pointer_view())) {
+            *eval = (*poly)[i];
         }
 
         // Evaluate each constraint in the relation and check that each is satisfied
