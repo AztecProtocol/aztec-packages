@@ -37,7 +37,9 @@ GoblinTranslatorVerifier_<Flavor>& GoblinTranslatorVerifier_<Flavor>::operator=(
  * @brief This function verifies an GoblinTranslator Honk proof for given program settings.
  *
  */
-template <typename Flavor> bool GoblinTranslatorVerifier_<Flavor>::verify_proof(const plonk::proof& proof)
+template <typename Flavor>
+bool GoblinTranslatorVerifier_<Flavor>::verify_proof(
+    const plonk::proof& proof, const GoblinTranslationConsistencyData& translation_consistency_data)
 {
 
     using FF = typename Flavor::FF;
@@ -289,6 +291,51 @@ template <typename Flavor> bool GoblinTranslatorVerifier_<Flavor>::verify_proof(
     auto pairing_points = ZeroMorph::verify(commitments, claimed_evaluations, multivariate_challenge, transcript);
 
     auto verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
+
+    const auto reconstruct_from_array = [](const auto& arr) {
+        const BF elt_0 = (static_cast<uint256_t>(arr[0]));
+        const BF elt_1 = (static_cast<uint256_t>(arr[1]) << 68);
+        const BF elt_2 = (static_cast<uint256_t>(arr[2]) << 136);
+        const BF elt_3 = (static_cast<uint256_t>(arr[3]) << 204);
+        const BF reconstructed = elt_0 + elt_1 + elt_2 + elt_3;
+        return reconstructed;
+    };
+
+    // info("in the verifier");
+    // translation_consistency_data.print();
+    const auto& reconstruct_value_from_eccvm_evaluations =
+        [&](const GoblinTranslationConsistencyData& translation_consistency_data, auto& relation_parameters) {
+            const BF accumulated_result = reconstruct_from_array(relation_parameters.accumulated_result);
+            const BF x = reconstruct_from_array(relation_parameters.evaluation_input_x);
+            const BF v1 = reconstruct_from_array(relation_parameters.batching_challenge_v[0]);
+            const BF v2 = reconstruct_from_array(relation_parameters.batching_challenge_v[1]);
+            const BF v3 = reconstruct_from_array(relation_parameters.batching_challenge_v[2]);
+            const BF v4 = reconstruct_from_array(relation_parameters.batching_challenge_v[3]);
+            const BF& op = translation_consistency_data.op;
+            const BF& Px = translation_consistency_data.Px;
+            const BF& Py = translation_consistency_data.Py;
+            const BF& z1 = translation_consistency_data.z1;
+            const BF& z2 = translation_consistency_data.z2;
+
+            info("x: ", x);
+            info("circuit_size: ", circuit_size);
+
+            const BF x_power = x.pow(22);
+            const BF eccvm_opening = op + (v1 * Px) + (v2 * Py) + (v3 * z1) + (v4 * z2);
+            // info("v1  : ", v1);
+            // info("v1^2: ", v1 * v1);
+            // info("v2  : ", v2);
+            // info("v2^2: ", v2 * v2);
+            // info("v4  : ", v4);
+            info("accumulated_result: ", accumulated_result);
+            info("eccvm_opening:      ", eccvm_opening);
+            return x_power * accumulated_result == eccvm_opening;
+        };
+
+    bool value_reconstructed =
+        reconstruct_value_from_eccvm_evaluations(translation_consistency_data, relation_parameters);
+
+    verified &= value_reconstructed;
 
     return verified;
 }

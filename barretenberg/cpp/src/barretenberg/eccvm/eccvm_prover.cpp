@@ -216,6 +216,23 @@ template <ECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_relation_check_
     auto sumcheck = Sumcheck(key->circuit_size, transcript);
 
     sumcheck_output = sumcheck.prove(prover_polynomials, relation_parameters);
+    ClaimedEvaluations& evals = sumcheck_output.claimed_evaluations;
+    translation_consistency_data.op = evals.transcript_op;
+    translation_consistency_data.Px = evals.transcript_x;
+    translation_consistency_data.Py = evals.transcript_y;
+    translation_consistency_data.z1 = evals.transcript_z1;
+    translation_consistency_data.z2 = evals.transcript_z2;
+    // info(evals.transcript_op,
+    //      "\n",
+    //      evals.transcript_x,
+    //      "\n",
+    //      evals.transcript_y,
+    //      "\n",
+    //      evals.transcript_z1,
+    //      "\n",
+    //      evals.transcript_z2);
+    // info("is it transfered correctly?");
+    translation_consistency_data.print();
 }
 
 /**

@@ -1,4 +1,5 @@
 #include "barretenberg/eccvm/eccvm_composer.hpp"
+#include "barretenberg/goblin/translation_consistency_data.hpp"
 #include "barretenberg/proof_system/circuit_builder/eccvm/eccvm_circuit_builder.hpp"
 #include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
@@ -6,6 +7,8 @@
 #include "barretenberg/ultra_honk/ultra_composer.hpp"
 
 #include <gtest/gtest.h>
+
+#pragma GCC diagnostic ignored "-Wunused-variable"
 
 using namespace proof_system::honk;
 
@@ -33,6 +36,7 @@ class FullGoblinComposerTests : public ::testing::Test {
     using TranslatorFlavor = flavor::GoblinTranslator;
     using TranslatorBuilder = proof_system::GoblinTranslatorCircuitBuilder;
     using TranslatorComposer = GoblinTranslatorComposer_<TranslatorFlavor>;
+    using TranslatorConsistencyData = barretenberg::GoblinTranslationConsistencyData;
 
     static constexpr size_t NUM_OP_QUEUE_COLUMNS = flavor::GoblinUltra::NUM_WIRES;
 
@@ -170,6 +174,7 @@ TEST_F(FullGoblinComposerTests, SimpleCircuit)
     }
 
     // Execute the ECCVM
+    info("raw_opws: ", op_queue->raw_ops.size());
     auto eccvm_builder = ECCVMBuilder(op_queue->raw_ops);
     auto eccvm_composer = ECCVMComposer();
     auto eccvm_prover = eccvm_composer.create_prover(eccvm_builder);
@@ -187,7 +192,8 @@ TEST_F(FullGoblinComposerTests, SimpleCircuit)
     auto translator_prover = translator_composer.create_prover(translator_builder);
     auto translator_verifier = translator_composer.create_verifier(translator_builder);
     auto translator_proof = translator_prover.construct_proof();
-    bool translator_verified = translator_verifier.verify_proof(translator_proof);
+    bool translator_verified =
+        translator_verifier.verify_proof(translator_proof, eccvm_prover.translation_consistency_data);
     EXPECT_TRUE(translator_verified);
 }
 
