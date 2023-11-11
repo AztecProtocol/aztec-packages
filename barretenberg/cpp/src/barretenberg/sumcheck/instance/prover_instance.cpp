@@ -446,16 +446,23 @@ template <class Flavor> void ProverInstance_<Flavor>::add_plookup_memory_records
     }
 }
 
-template <class Flavor> void ProverInstance_<Flavor>::compute_logderivative_inverse(FF beta, FF gamma)
+/**
+ * @brief Compute the inverse polynomial used in the log derivative lookup argument
+ *
+ * @tparam Flavor
+ * @param beta
+ * @param gamma
+ */
+template <class Flavor>
+void ProverInstance_<Flavor>::compute_logderivative_inverse(FF beta, FF gamma)
+    requires IsGoblinFlavor<Flavor>
 {
-    if constexpr (IsGoblinFlavor<Flavor>) {
-        relation_parameters.beta = beta;
-        relation_parameters.gamma = gamma;
+    relation_parameters.beta = beta;
+    relation_parameters.gamma = gamma;
 
-        // Compute permutation and lookup grand product polynomials
-        lookup_library::compute_logderivative_inverse<Flavor, typename Flavor::LogDerivLookupRelation>(
-            prover_polynomials, relation_parameters, proving_key->circuit_size);
-    }
+    // Compute permutation and lookup grand product polynomials
+    lookup_library::compute_logderivative_inverse<Flavor, typename Flavor::LogDerivLookupRelation>(
+        prover_polynomials, relation_parameters, proving_key->circuit_size);
 }
 
 template <class Flavor> void ProverInstance_<Flavor>::compute_grand_product_polynomials(FF beta, FF gamma)

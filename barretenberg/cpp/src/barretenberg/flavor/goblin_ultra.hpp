@@ -618,9 +618,3 @@ class GoblinUltra {
 };
 
 } // namespace proof_system::honk::flavor
-
-namespace proof_system {
-// extern template class DatabusLookupRelationImpl<barretenberg::fr>;
-
-// DECLARE_SUMCHECK_RELATION_CLASS(DatabusLookupRelationImpl, honk::flavor::GoblinUltra);
-} // namespace proof_system

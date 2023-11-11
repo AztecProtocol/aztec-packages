@@ -354,32 +354,6 @@ TEST_F(RelationCorrectnessTests, GoblinUltraRelationCorrectness)
     auto prover_polynomials = instance->prover_polynomials;
     auto params = instance->relation_parameters;
 
-    // size_t idx = 0;
-    // for (auto& coeff : prover_polynomials.calldata_read_counts) {
-    //     if (!coeff.is_zero()) {
-    //         info("idx = ", idx);
-    //         info("counts = ", coeff);
-    //         info("calldata = ", prover_polynomials.calldata[idx]);
-    //         info("id = ", prover_polynomials.databus_id[idx]);
-    //     }
-    //     idx++;
-    // }
-
-    // idx = 0;
-    // for (auto& coeff : prover_polynomials.q_busread) {
-    //     if (!coeff.is_zero()) {
-    //         info("idx = ", idx);
-    //         info("q_busread = ", coeff);
-    //         info("w_1 = ", prover_polynomials.w_l[idx]);
-    //         info("w_2 = ", prover_polynomials.w_r[idx]);
-    //     }
-    //     idx++;
-    // }
-
-    // for (size_t i = 0; i < 5; ++i) {
-    //     info("id_1_i = ", prover_polynomials.databus_id[i]);
-    // }
-
     // Check that each relation is satisfied across each row of the prover polynomials
     check_relation<Flavor, std::tuple_element_t<0, Relations>>(circuit_size, prover_polynomials, params);
     check_relation<Flavor, std::tuple_element_t<1, Relations>>(circuit_size, prover_polynomials, params);
