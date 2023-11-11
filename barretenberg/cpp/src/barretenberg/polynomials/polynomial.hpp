@@ -17,6 +17,7 @@ template <typename Fr> class Polynomial {
     using value_type = Fr;
     using difference_type = std::ptrdiff_t;
     using reference = value_type&;
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
     using pointer = std::shared_ptr<value_type[]>;
     using const_pointer = pointer;
     using iterator = Fr*;
@@ -48,7 +49,7 @@ template <typename Fr> class Polynomial {
 
     Polynomial& operator=(Polynomial&& other) noexcept;
     Polynomial& operator=(const Polynomial& other);
-    ~Polynomial();
+    ~Polynomial() = default;
 
     /**
      * Return a shallow clone of the polynomial. i.e. underlying memory is shared.
@@ -56,7 +57,7 @@ template <typename Fr> class Polynomial {
     Polynomial clone()
     {
         Polynomial p;
-        p.coefficients_ = coefficients_;
+        p.backing_memory_ = backing_memory_;
         p.size_ = size_;
         return p;
     }
@@ -65,7 +66,7 @@ template <typename Fr> class Polynomial {
 
     void clear()
     {
-        coefficients_.reset();
+        backing_memory_.reset();
         size_ = 0;
     }
 
@@ -81,7 +82,7 @@ template <typename Fr> class Polynomial {
         }
         // Each coefficient must agree
         for (size_t i = 0; i < size(); i++) {
-            if (coefficients_.get()[i] != rhs.coefficients_.get()[i]) {
+            if (backing_memory_.get()[i] != rhs.backing_memory_.get()[i]) {
                 return false;
             }
         }
@@ -89,23 +90,23 @@ template <typename Fr> class Polynomial {
     }
 
     // Const and non const versions of coefficient accessors
-    Fr const& operator[](const size_t i) const { return coefficients_.get()[i]; }
+    Fr const& operator[](const size_t i) const { return backing_memory_.get()[i]; }
 
-    Fr& operator[](const size_t i) { return coefficients_.get()[i]; }
+    Fr& operator[](const size_t i) { return backing_memory_.get()[i]; }
 
     Fr const& at(const size_t i) const
     {
         ASSERT(i < capacity());
-        return coefficients_.get()[i];
+        return backing_memory_.get()[i];
     };
 
     Fr& at(const size_t i)
     {
         ASSERT(i < capacity());
-        return coefficients_.get()[i];
+        return backing_memory_.get()[i];
     };
 
-    Fr evaluate(const Fr& z, const size_t target_size) const;
+    Fr evaluate(const Fr& z, size_t target_size) const;
     Fr evaluate(const Fr& z) const;
 
     Fr compute_barycentric_evaluation(const Fr& z, const EvaluationDomain<Fr>& domain)
@@ -122,9 +123,9 @@ template <typename Fr> class Polynomial {
         requires polynomial_arithmetic::SupportsFFT<Fr>;
     void coset_fft(const EvaluationDomain<Fr>& domain,
                    const EvaluationDomain<Fr>& large_domain,
-                   const size_t domain_extension)
+                   size_t domain_extension)
         requires polynomial_arithmetic::SupportsFFT<Fr>;
-    void coset_fft_with_constant(const EvaluationDomain<Fr>& domain, const Fr& costant)
+    void coset_fft_with_constant(const EvaluationDomain<Fr>& domain, const Fr& constant)
         requires polynomial_arithmetic::SupportsFFT<Fr>;
     void coset_fft_with_generator_shift(const EvaluationDomain<Fr>& domain, const Fr& constant)
         requires polynomial_arithmetic::SupportsFFT<Fr>;
@@ -137,7 +138,7 @@ template <typename Fr> class Polynomial {
     Fr compute_kate_opening_coefficients(const Fr& z)
         requires polynomial_arithmetic::SupportsFFT<Fr>;
 
-    bool is_empty() const { return (coefficients_ == nullptr) || (size_ == 0); }
+    bool is_empty() const { return (backing_memory_ == nullptr) || (size_ == 0); }
 
     /**
      * @brief Returns an std::span of the left-shift of self.
@@ -148,9 +149,9 @@ template <typename Fr> class Polynomial {
     std::span<Fr> shifted() const
     {
         ASSERT(size_ > 0);
-        ASSERT(coefficients_[0].is_zero());
-        ASSERT(coefficients_.get()[size_].is_zero()); // relies on DEFAULT_CAPACITY_INCREASE >= 1
-        return std::span{ coefficients_.get() + 1, size_ };
+        ASSERT(backing_memory_[0].is_zero());
+        ASSERT(backing_memory_.get()[size_].is_zero()); // relies on DEFAULT_CAPACITY_INCREASE >= 1
+        return std::span{ backing_memory_.get() + 1, size_ };
     }
 
     /**
@@ -192,7 +193,7 @@ template <typename Fr> class Polynomial {
      *
      * @param scaling_factor s
      */
-    Polynomial& operator*=(const Fr scaling_factor);
+    Polynomial& operator*=(Fr scaling_factor);
 
     /**
      * @brief evaluates p(X) = ∑ᵢ aᵢ⋅Xⁱ considered as multi-linear extension p(X₀,…,Xₘ₋₁) = ∑ᵢ aᵢ⋅Lᵢ(X₀,…,Xₘ₋₁)
@@ -241,22 +242,19 @@ template <typename Fr> class Polynomial {
 #ifdef __clang__
     // Needed for clang versions earlier than 14.0.3, but breaks gcc.
     // Can remove once ecosystem is firmly upgraded.
-    operator std::span<Fr>() { return std::span<Fr>(coefficients_.get(), size_); }
-    operator std::span<const Fr>() const { return std::span<const Fr>(coefficients_.get(), size_); }
+    operator std::span<Fr>() { return std::span<Fr>(backing_memory_.get(), size_); }
+    operator std::span<const Fr>() const { return std::span<const Fr>(backing_memory_.get(), size_); }
 #endif
 
-    iterator begin() { return coefficients_.get(); }
-    iterator end() { return coefficients_.get() + size_; }
-    pointer data() { return coefficients_; }
+    iterator begin() { return backing_memory_.get(); }
+    iterator end() { return backing_memory_.get() + size_; }
+    pointer data() { return backing_memory_; }
 
-    std::span<uint8_t> byte_span() const
-    {
-        return std::span<uint8_t>((uint8_t*)coefficients_.get(), size_ * sizeof(fr));
-    }
+    std::span<uint8_t> byte_span() const { return { (uint8_t*)backing_memory_.get(), size_ * sizeof(fr) }; }
 
-    const_iterator begin() const { return coefficients_.get(); }
-    const_iterator end() const { return coefficients_.get() + size_; }
-    const_pointer data() const { return coefficients_; }
+    const_iterator begin() const { return backing_memory_.get(); }
+    const_iterator end() const { return backing_memory_.get() + size_; }
+    const_pointer data() const { return backing_memory_; }
 
     std::size_t size() const { return size_; }
     std::size_t capacity() const { return size_ + DEFAULT_CAPACITY_INCREASE; }
@@ -265,15 +263,15 @@ template <typename Fr> class Polynomial {
     // safety check for in place operations
     bool in_place_operation_viable(size_t domain_size = 0) { return (size() >= domain_size); }
 
-    pointer allocate_aligned_memory(const size_t size) const;
-
-    void zero_memory_beyond(const size_t start_position);
+    void zero_memory_beyond(size_t start_position);
     // When a polynomial is instantiated from a size alone, the memory allocated corresponds to
     // input size + DEFAULT_CAPACITY_INCREASE. A DEFAULT_CAPACITY_INCREASE of >= 1 is required to ensure
     // that polynomials can be 'shifted' via a span of the 1st to size+1th coefficients.
     const static size_t DEFAULT_CAPACITY_INCREASE = 1;
 
-    pointer coefficients_;
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
+    std::shared_ptr<Fr[]> backing_memory_;
+    Fr* coefficients_;
     // The size_ effectively represents the 'usable' length of the coefficients array but may be less than the true
     // 'capacity' of the array. It is not explicitly tied to the degree and is not changed by any operations on the
     // polynomial.
@@ -291,11 +289,8 @@ template <typename Fr> inline std::ostream& operator<<(std::ostream& os, Polynom
               << "]";
 }
 
-// Done
-// N.B. grumpkin polynomials don't support fast fourier transforms using roots of unity!
-// TODO: use template junk to disable fft methods if Fr::SUPPORTS_FFTS == false
-// extern template class Polynomial<grumpkin::fr>;
 extern template class Polynomial<barretenberg::fr>;
+// N.B. grumpkin polynomials don't support fast fourier transforms using roots of unity!
 extern template class Polynomial<grumpkin::fr>;
 
 using polynomial = Polynomial<barretenberg::fr>;
