@@ -149,12 +149,16 @@ template <typename Fr> class Polynomial {
      * @details If the n coefficients of self are (0, a₁, …, aₙ₋₁),
      * we returns the view of the n-1 coefficients (a₁, …, aₙ₋₁).
      */
-    std::span<Fr> shifted() const
+    Polynomial shifted() const
     {
         ASSERT(size_ > 0);
         ASSERT(backing_memory_[0].is_zero());
         ASSERT(coefficients_[size_].is_zero()); // relies on MAXIMUM_COEFFICIENT_SHIFT >= 1
-        return std::span{ coefficients_ + 1, size_ };
+        Polynomial p;
+        p.backing_memory_ = backing_memory_;
+        p.size_ = size_;
+        p.coefficients_ = coefficients_ + 1;
+        return p;
     }
 
     /**
@@ -280,7 +284,7 @@ template <typename Fr> class Polynomial {
     std::shared_ptr<Fr[]> backing_memory_;
     // A pointer into backing_memory_ to support std::span-like functionality. This allows for coefficient subsets
     // and shifts.
-    Fr* coefficients_;
+    Fr* coefficients_ = nullptr;
     // The size_ effectively represents the 'usable' length of the coefficients array but may be less than the true
     // 'capacity' of the array. It is not explicitly tied to the degree and is not changed by any operations on the
     // polynomial.
