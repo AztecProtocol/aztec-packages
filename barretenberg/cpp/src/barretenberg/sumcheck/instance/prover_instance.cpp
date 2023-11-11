@@ -524,19 +524,13 @@ std::shared_ptr<typename Flavor::VerificationKey> ProverInstance_<Flavor>::compu
     verification_key->table_3 = commitment_key->commit(proving_key->table_3);
     verification_key->table_4 = commitment_key->commit(proving_key->table_4);
 
-    // TODO(luke): Similar to the lagrange_first/last polynomials, we dont really need to commit to this polynomial
-    // due to its simple structure. Handling it in the same way as the lagrange polys for now for simplicity.
+    // TODO(luke): Similar to the lagrange_first/last polynomials, we dont really need to commit to these polynomials
+    // due to their simple structure.
     if constexpr (IsGoblinFlavor<Flavor>) {
         verification_key->lagrange_ecc_op = commitment_key->commit(proving_key->lagrange_ecc_op);
         verification_key->q_busread = commitment_key->commit(proving_key->q_busread);
+        verification_key->databus_id = commitment_key->commit(proving_key->databus_id);
     }
-
-    // // See `add_recusrive_proof()` for how this recursive data is assigned.
-    // verification_key->recursive_proof_public_input_indices =
-    //     std::vector<uint32_t>(recursive_proof_public_input_indices.begin(),
-    //     recursive_proof_public_input_indices.end());
-
-    // verification_key->contains_recursive_proof = contains_recursive_proof;
 
     return verification_key;
 }
