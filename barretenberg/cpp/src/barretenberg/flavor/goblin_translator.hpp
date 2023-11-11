@@ -1691,9 +1691,9 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
         AllValues(std::array<FF, NUM_ALL_ENTITIES> _data_in) { this->_data = _data_in; }
     };
     /**
-     * @brief A container for the prover polynomials.
+     * @brief A container for the prover polynomials handles; only stores spans.
      */
-    class ProverPolynomials : public AllEntities<Polynomial, PolynomialHandle> {
+    class ProverPolynomials : public AllEntities<PolynomialHandle, PolynomialHandle> {
       public:
         [[nodiscard]] size_t get_polynomial_size() const { return this->op.size(); }
         /**
@@ -1715,6 +1715,30 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
      */
     using ProverPolynomialIds = AllEntities<size_t, size_t>;
 
+    /**
+     * @brief An owning container of polynomials.
+     * @warning When this was introduced it broke some of our design principles.
+     *   - Execution trace builders don't handle "polynomials" because the interpretation of the execution trace columns
+     *     as polynomials is a detail of the proving system, and trace builders are (sometimes in practice, always in
+     *     principle) reusable for different proving protocols (e.g., Plonk and Honk).
+     *   - Polynomial storage is handled by key classes. Polynomials aren't moved, but are accessed elsewhere by
+     * std::spans.
+     *
+     *  We will consider revising this data model: TODO(https://github.com/AztecProtocol/barretenberg/issues/743)
+     */
+    class AllPolynomials : public AllEntities<Polynomial, PolynomialHandle> {
+      public:
+        AllValues get_row(const size_t row_idx) const
+        {
+            AllValues result;
+            size_t column_idx = 0; // // TODO(https://github.com/AztecProtocol/barretenberg/issues/391) zip
+            for (auto& column : this->_data) {
+                result[column_idx] = column[row_idx];
+                column_idx++;
+            }
+            return result;
+        }
+    };
     /**
      * @brief A container for polynomials produced after the first round of sumcheck.
      * @todo TODO(#394) Use polynomial classes for guaranteed memory alignment.
