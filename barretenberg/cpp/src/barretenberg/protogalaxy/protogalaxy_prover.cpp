@@ -42,7 +42,7 @@ ProverFoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverI
     // TODO(#https://github.com/AztecProtocol/barretenberg/issues/763): Fold alpha
     auto [alpha, delta] = transcript.get_challenges("alpha", "delta");
     auto accumulator = get_accumulator();
-    auto instance_size = accumulator->prover_polynomials[0].size();
+    auto instance_size = accumulator->prover_polynomials.get_polynomial_size();
     const auto log_instance_size = static_cast<size_t>(numeric::get_msb(instance_size));
     auto deltas = compute_round_challenge_pows(log_instance_size, delta);
 
