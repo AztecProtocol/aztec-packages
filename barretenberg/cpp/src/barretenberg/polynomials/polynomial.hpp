@@ -246,18 +246,15 @@ template <typename Fr> class Polynomial {
     void factor_roots(std::span<const Fr> roots) { polynomial_arithmetic::factor_roots(std::span{ *this }, roots); };
     void factor_roots(const Fr& root) { polynomial_arithmetic::factor_roots(std::span{ *this }, root); };
 
-#ifdef __clang__
-    // Needed for clang versions earlier than 14.0.3, but breaks gcc.
-    // Can remove once ecosystem is firmly upgraded.
-    operator std::span<Fr>() { return std::span<Fr>(coefficients_, size_); }
-    operator std::span<const Fr>() const { return std::span<const Fr>(coefficients_, size_); }
-#endif
-
     iterator begin() { return coefficients_; }
     iterator end() { return coefficients_ + size_; }
     pointer data() { return backing_memory_; }
 
-    std::span<uint8_t> byte_span() const { return { (uint8_t*)coefficients_, size_ * sizeof(fr) }; }
+    std::span<uint8_t> byte_span() const
+    {
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+        return { reinterpret_cast<uint8_t*>(coefficients_), size_ * sizeof(Fr) };
+    }
 
     const_iterator begin() const { return coefficients_; }
     const_iterator end() const { return coefficients_ + size_; }

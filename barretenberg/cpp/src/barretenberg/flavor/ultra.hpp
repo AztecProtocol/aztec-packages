@@ -350,7 +350,7 @@ class Ultra {
     /**
      * @brief A container for polynomials handles; only stores spans.
      */
-    class ProverPolynomials : public AllEntities<PolynomialHandle, PolynomialHandle> {
+    class ProverPolynomials : public AllEntities<Polynomial, PolynomialHandle> {
       public:
         [[nodiscard]] size_t get_polynomial_size() const { return q_c.size(); }
         [[nodiscard]] AllValues get_row(const size_t row_idx) const
