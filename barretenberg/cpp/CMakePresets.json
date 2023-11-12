@@ -158,6 +158,18 @@
       }
     },
     {
+      "name": "ftime-trace",
+      "displayName": "Debugging build time with clang16",
+      "description": "Debugging build time with clang16",
+      "inherits": "clang16",
+      "binaryDir": "build-ftime-trace",
+      "environment": {
+        "CFLAGS": "-ftime-trace",
+        "CXXFLAGS": "-ftime-trace",
+        "LDFLAGS": "-ftime-trace"
+      }
+    },
+    {
       "name": "coverage",
       "displayName": "Build with coverage",
       "description": "Build default preset but with coverage enabled",
@@ -335,6 +347,11 @@
       "name": "tsan",
       "inherits": "default",
       "configurePreset": "tsan"
+    },
+    {
+      "name": "ftime-trace",
+      "inherits": "default",
+      "configurePreset": "ftime-trace"
     },
     {
       "name": "coverage",
