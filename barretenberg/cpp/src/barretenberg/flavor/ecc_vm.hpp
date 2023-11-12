@@ -828,29 +828,6 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
     };
 
     /**
-     * @brief An owning container of polynomials.
-     * @warning When this was introduced it broke some of our design principles.
-     *   - Execution trace builders don't handle "polynomials" because the interpretation of the execution trace columns
-     *     as polynomials is a detail of the proving system, and trace builders are (sometimes in practice, always in
-     *     principle) reusable for different proving protocols (e.g., Plonk and Honk).
-     *   - Polynomial storage is handled by key classes. Polynomials aren't moved, but are accessed elsewhere by
-     * std::spans.
-     *
-     *  We will consider revising this data model: TODO(https://github.com/AztecProtocol/barretenberg/issues/743)
-     */
-    class AllPolynomials : public AllEntities<Polynomial, PolynomialHandle> {
-      public:
-        [[nodiscard]] size_t get_polynomial_size() const { return this->lagrange_first.size(); }
-        AllValues get_row(const size_t row_idx) const
-        {
-            AllValues result;
-            for (auto [result_field, polynomial] : zip_view(result.pointer_view(), this->pointer_view())) {
-                *result_field = (*polynomial)[row_idx];
-            }
-            return result;
-        }
-    };
-    /**
      * @brief A container for polynomials produced after the first round of sumcheck.
      * @todo TODO(#394) Use polynomial classes for guaranteed memory alignment.
      */
@@ -886,7 +863,7 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
     /**
      * @brief A container for the prover polynomials handles; only stores spans.
      */
-    class ProverPolynomials : public AllEntities<PolynomialHandle, PolynomialHandle> {
+    class ProverPolynomials : public AllEntities<Polynomial, PolynomialHandle> {
       public:
         /**
          * @brief Returns the evaluations of all prover polynomials at one point on the boolean hypercube, which
