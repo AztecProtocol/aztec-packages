@@ -134,6 +134,13 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator=(Polynomial&& ot
     return *this;
 }
 
+template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator=(std::span<const Fr> coefficients) noexcept
+{
+    // move assign a Polynomial constructed with the span
+    *this = Polynomial<Fr>{ coefficients };
+    return *this;
+}
+
 // #######
 
 template <typename Fr> Fr Polynomial<Fr>::evaluate(const Fr& z, const size_t target_size) const
