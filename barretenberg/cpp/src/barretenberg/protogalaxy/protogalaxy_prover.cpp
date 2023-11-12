@@ -67,7 +67,7 @@ ProverFoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverI
     for (size_t idx = ProverInstances::NUM; idx < combiner.size(); idx++) {
         transcript.send_to_verifier("combiner_quotient_" + std::to_string(idx), combiner_quotient.value_at(idx));
     }
-    auto combiner_challenge = transcript.get_challenge("combiner_qoutient_challenge");
+    auto combiner_challenge = transcript.get_challenge("combiner_quotient_challenge");
     auto combiner_quotient_at_challenge = combiner_quotient.evaluate(combiner_challenge);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/764): Generalise these formulas as well as computation

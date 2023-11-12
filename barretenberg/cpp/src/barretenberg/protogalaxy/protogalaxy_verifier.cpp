@@ -49,6 +49,8 @@ VerifierFoldingResult<typename VerifierInstances::Flavor> ProtoGalaxyVerifier_<
     auto perturbator = Polynomial<FF>(perturbator_coeffs);
     auto perturbator_challenge = transcript.get_challenge("perturbator_challenge");
     auto perturbator_at_challenge = perturbator.evaluate(perturbator_challenge);
+
+    // Thed degree of K(X) is dk - k - 1 = k(d - 1) - 1. Hence we need  k(d - 1) evaluations to represent it.
     std::array<FF, (Flavor::BATCHED_RELATION_TOTAL_LENGTH - 2) * (VerifierInstances::NUM - 1)>
         combiner_quotient_evals = {};
     for (size_t idx = 0; idx < (Flavor::BATCHED_RELATION_TOTAL_LENGTH - 2) * (VerifierInstances::NUM - 1); idx++) {
