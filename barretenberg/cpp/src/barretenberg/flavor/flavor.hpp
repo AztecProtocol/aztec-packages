@@ -140,31 +140,33 @@ class WitnessEntities_ : public Entities_<DataType, HandleType, NUM_WITNESS_ENTI
  * @tparam PrecomputedEntities An instance of PrecomputedEntities_ with polynomial data type and span handle type.
  * @tparam FF The scalar field on which we will encode our polynomial data. When instantiating, this may be extractable
  * from the other template paramter.
+ * TODO(AD) is there a better way than taking the constituent types as templates?
  */
-template <typename PrecomputedPolynomials, typename WitnessPolynomials>
-class ProvingKey_ : public PrecomputedPolynomials, public WitnessPolynomials {
+template <typename PrecomputedPolynomials, typename WitnessPolynomials> class ProvingKey_ {
   public:
     using Polynomial = typename PrecomputedPolynomials::DataType;
     using FF = typename Polynomial::FF;
+
+    PrecomputedPolynomials precomputed_polynomials;
+    WitnessPolynomials witness_polynomials;
 
     bool contains_recursive_proof;
     std::vector<uint32_t> recursive_proof_public_input_indices;
     barretenberg::EvaluationDomain<FF> evaluation_domain;
 
-    auto precomputed_polynomials_pointer_view() { return PrecomputedPolynomials::pointer_view(); }
     ProvingKey_() = default;
     ProvingKey_(const size_t circuit_size, const size_t num_public_inputs)
     {
         this->evaluation_domain = barretenberg::EvaluationDomain<FF>(circuit_size, circuit_size);
-        PrecomputedPolynomials::circuit_size = circuit_size;
+        precomputed_polynomials.circuit_size = circuit_size;
         this->log_circuit_size = numeric::get_msb(circuit_size);
         this->num_public_inputs = num_public_inputs;
         // Allocate memory for precomputed polynomials
-        for (auto* poly : PrecomputedPolynomials::pointer_view()) {
+        for (auto* poly : precomputed_polynomials.pointer_view()) {
             *poly = Polynomial(circuit_size);
         }
         // Allocate memory for witness polynomials
-        for (auto* poly : WitnessPolynomials::pointer_view()) {
+        for (auto* poly : witness_polynomials.pointer_view()) {
             *poly = Polynomial(circuit_size);
         }
     };
