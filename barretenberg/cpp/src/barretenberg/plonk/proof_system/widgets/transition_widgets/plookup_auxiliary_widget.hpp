@@ -62,11 +62,13 @@ template <class Field, class Getters, typename PolyContainer> class PlookupAuxil
         return required_polynomial_ids;
     }
 
-    inline static void compute_linear_terms(PolyContainer&,
-                                            const challenge_array&,
-                                            coefficient_array&,
-                                            const size_t = 0)
-    {}
+    inline static Field compute_linear_terms(PolyContainer&,
+                                             const challenge_array&,
+                                             coefficient_array&,
+                                             const size_t = 0)
+    {
+        return Field(0);
+    }
 
     inline static void compute_non_linear_terms(PolyContainer& polynomials,
                                                 const challenge_array& challenges,
@@ -325,11 +327,6 @@ template <class Field, class Getters, typename PolyContainer> class PlookupAuxil
         auxiliary_identity *= alpha_base;
 
         quotient += (auxiliary_identity);
-    }
-
-    inline static Field sum_linear_terms(PolyContainer&, const challenge_array&, coefficient_array&, const size_t = 0)
-    {
-        return Field(0);
     }
 
     inline static void update_kate_opening_scalars(coefficient_array&,

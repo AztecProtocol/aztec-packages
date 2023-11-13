@@ -78,11 +78,13 @@ template <class Field, class Getters, typename PolyContainer> class PlookupArith
      * @brief Stub for computing linear terms. Not used in plookup artihmetic gate
      *
      */
-    inline static void compute_linear_terms(PolyContainer&,
-                                            const challenge_array&,
-                                            coefficient_array&,
-                                            const size_t = 0)
-    {}
+    inline static Field compute_linear_terms(PolyContainer&,
+                                             const challenge_array&,
+                                             coefficient_array&,
+                                             const size_t = 0)
+    {
+        return Field(0);
+    }
     /**
      * @brief Computes the full identity for the arithmetic gate in plookup to be added to the quotient. All the logic
      * is explained in class description
@@ -168,11 +170,6 @@ template <class Field, class Getters, typename PolyContainer> class PlookupArith
         identity *= alpha_base;
 
         quotient += identity;
-    }
-
-    inline static Field sum_linear_terms(PolyContainer&, const challenge_array&, coefficient_array&, const size_t = 0)
-    {
-        return Field(0);
     }
 
     /**

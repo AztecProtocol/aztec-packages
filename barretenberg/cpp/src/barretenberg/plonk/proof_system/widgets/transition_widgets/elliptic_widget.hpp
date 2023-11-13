@@ -93,10 +93,10 @@ template <class Field, class Getters, typename PolyContainer> class EllipticKern
      * @param linear_terms Output array
      * @param i Gate index
      */
-    inline static void compute_linear_terms(PolyContainer& polynomials,
-                                            const challenge_array& challenges,
-                                            coefficient_array& linear_terms,
-                                            const size_t i = 0)
+    inline static Field compute_linear_terms(PolyContainer& polynomials,
+                                             const challenge_array& challenges,
+                                             coefficient_array& linear_terms,
+                                             const size_t i = 0)
     {
         const Field& x_1 =
             Getters::template get_value<EvaluationType::NON_SHIFTED, PolynomialIndex::W_2>(polynomials, i);
@@ -140,21 +140,7 @@ template <class Field, class Getters, typename PolyContainer> class EllipticKern
         auto y_identity =
             (q_is_double * (y_identity_double - y_identity_add) + y_identity_add) * challenges.alpha_powers[1];
         linear_terms[0] = x_identity + y_identity;
-    }
 
-    /**
-     * @brief Return the linear term multiplied by elliptic curve addition selector value at gate
-     *
-     * @param polynomials Polynomial container or simulator
-     * @param linear_terms Array of linear terms
-     * @param i Gate index
-     * @return Field
-     */
-    inline static Field sum_linear_terms(PolyContainer& polynomials,
-                                         const challenge_array&,
-                                         coefficient_array& linear_terms,
-                                         const size_t i = 0)
-    {
         const Field& q_elliptic =
             Getters::template get_value<EvaluationType::NON_SHIFTED, PolynomialIndex::Q_ELLIPTIC>(polynomials, i);
 

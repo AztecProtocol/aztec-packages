@@ -51,10 +51,10 @@ template <class Field, class Getters, typename PolyContainer> class ArithmeticKe
      * @param linear_terms Container for results of computation
      * @param i Index at which the wire values are sampled.
      */
-    inline static void compute_linear_terms(PolyContainer& polynomials,
-                                            const challenge_array&,
-                                            coefficient_array& linear_terms,
-                                            const size_t i = 0)
+    inline static Field compute_linear_terms(PolyContainer& polynomials,
+                                             const challenge_array& challenges,
+                                             coefficient_array& linear_terms,
+                                             const size_t i = 0)
     {
         const Field& w_1 =
             Getters::template get_value<EvaluationType::NON_SHIFTED, PolynomialIndex::W_1>(polynomials, i);
@@ -67,30 +67,7 @@ template <class Field, class Getters, typename PolyContainer> class ArithmeticKe
         linear_terms[1] = w_1;
         linear_terms[2] = w_2;
         linear_terms[3] = w_3;
-    }
 
-    /**
-     * @brief Not being used in arithmetic_widget because there are none
-     *
-     */
-    inline static void compute_non_linear_terms(PolyContainer&, const challenge_array&, Field&, const size_t = 0) {}
-
-    /**
-     * @brief Scale and sum the linear terms for the final equation.
-     *
-     * @details Multiplies the linear terms by selector values and scale the whole sum by alpha before returning
-     *
-     * @param polynomials Container with polynomials or their simulation
-     * @param challenges A structure with various challenges
-     * @param linear_terms Precomuputed linear terms to be scaled and summed
-     * @param i The index at which selector/witness values are sampled
-     * @return Field Scaled sum of values
-     */
-    inline static Field sum_linear_terms(PolyContainer& polynomials,
-                                         const challenge_array& challenges,
-                                         coefficient_array& linear_terms,
-                                         const size_t i = 0)
-    {
         const Field& alpha = challenges.alpha_powers[0];
         const Field& q_1 =
             Getters::template get_value<EvaluationType::NON_SHIFTED, PolynomialIndex::Q_1>(polynomials, i);
@@ -111,6 +88,12 @@ template <class Field, class Getters, typename PolyContainer> class ArithmeticKe
         result *= alpha;
         return result;
     }
+
+    /**
+     * @brief Not being used in arithmetic_widget because there are none
+     *
+     */
+    inline static void compute_non_linear_terms(PolyContainer&, const challenge_array&, Field&, const size_t = 0) {}
 
     /**
      * @brief Compute the scaled values of openings

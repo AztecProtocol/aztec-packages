@@ -51,8 +51,8 @@ void plookup_auxiliary_kernel(::benchmark::State& state) noexcept
         // NOTE: this simply calls the following 3 functions it does NOT try to replicate ProverPlookupAuxiliaryWidget
         // logic exactly
         widget::containers::coefficient_array<barretenberg::fr> linear_terms;
-        FFTKernel::compute_linear_terms(polynomials, challenges, linear_terms, 0);
-        barretenberg::fr sum_of_linear_terms = FFTKernel::sum_linear_terms(polynomials, challenges, linear_terms, 0);
+        barretenberg::fr sum_of_linear_terms =
+            FFTKernel::compute_linear_terms(polynomials, challenges, linear_terms, 0);
         FFTKernel::compute_non_linear_terms(polynomials, challenges, sum_of_linear_terms, 0);
     }
 }

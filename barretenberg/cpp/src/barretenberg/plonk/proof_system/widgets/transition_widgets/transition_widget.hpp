@@ -331,8 +331,7 @@ class TransitionWidget : public TransitionWidgetBase<Field> {
 
         ITERATE_OVER_DOMAIN_START(key->large_domain);
         coefficient_array linear_terms;
-        FFTKernel::compute_linear_terms(polynomials, challenges, linear_terms, i);
-        Field sum_of_linear_terms = FFTKernel::sum_linear_terms(polynomials, challenges, linear_terms, i);
+        Field sum_of_linear_terms = FFTKernel::compute_linear_terms(polynomials, challenges, linear_terms, i);
 
         // populate split quotient components
         Field& quotient_term =
@@ -372,8 +371,8 @@ class GenericVerifierWidget {
         // would be the contribution with linearization, then completes that smaller sum to the full contribution
         // without linearization.
         coefficient_array linear_terms;
-        EvaluationKernel::compute_linear_terms(polynomial_evaluations, challenges, linear_terms);
-        quotient_numerator_eval += EvaluationKernel::sum_linear_terms(polynomial_evaluations, challenges, linear_terms);
+        quotient_numerator_eval +=
+            EvaluationKernel::compute_linear_terms(polynomial_evaluations, challenges, linear_terms);
         EvaluationKernel::compute_non_linear_terms(polynomial_evaluations, challenges, quotient_numerator_eval);
 
         return EvaluationGetter::update_alpha(challenges, num_independent_relations);
