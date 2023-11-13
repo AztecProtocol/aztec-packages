@@ -14,7 +14,6 @@ import {
   computeAuthWitMessageHash,
   computeMessageSecretHash,
 } from '@aztec/aztec.js';
-import { CircuitsWasm } from '@aztec/circuits.js';
 import { Pedersen, SparseTree, newTree } from '@aztec/merkle-tree';
 import { SlowTreeContract, TokenBlacklistContract, TokenContract } from '@aztec/noir-contracts/types';
 
@@ -55,7 +54,7 @@ describe('e2e_blacklist_token_contract', () => {
     };
   };
 
-  const getMembershipMint = (proof: { index: bigint; value: Fr; sibling_path: Fr[] }) => {
+  const getMembershipCapsule = (proof: { index: bigint; value: Fr; sibling_path: Fr[] }) => {
     return [new Fr(proof.index), proof.value, ...proof.sibling_path];
   };
 
@@ -74,7 +73,7 @@ describe('e2e_blacklist_token_contract', () => {
     };
   };
 
-  const getUpdateMint = (proof: {
+  const getUpdateCapsule = (proof: {
     index: bigint;
     new_value: bigint;
     before: { value: Fr; sibling_path: Fr[] };
@@ -98,7 +97,7 @@ describe('e2e_blacklist_token_contract', () => {
   };
 
   const updateSlowTree = async (tree: SparseTree, wallet: Wallet, index: AztecAddress, value: bigint) => {
-    await wallet.addCapsule(getUpdateMint(await getUpdateProof(value, index.toBigInt())));
+    await wallet.addCapsule(getUpdateCapsule(await getUpdateProof(value, index.toBigInt())));
     await tree.updateLeaf(new Fr(value).toBuffer(), index.toBigInt());
   };
 
@@ -108,13 +107,7 @@ describe('e2e_blacklist_token_contract', () => {
     slowTree = await SlowTreeContract.deploy(wallets[0]).send().deployed();
 
     const depth = 254;
-    slowUpdateTreeSimulator = await newTree(
-      SparseTree,
-      levelup(createMemDown()),
-      new Pedersen(await CircuitsWasm.get()),
-      'test',
-      depth,
-    );
+    slowUpdateTreeSimulator = await newTree(SparseTree, levelup(createMemDown()), new Pedersen(), 'test', depth);
 
     const deployTx = TokenBlacklistContract.deploy(wallets[0], accounts[0], slowTree.address).send({});
     const receipt = await deployTx.wait();
@@ -184,7 +177,9 @@ describe('e2e_blacklist_token_contract', () => {
       expect(beforeLeaf['after']).toEqual(4n);
 
       await updateSlowTree(slowUpdateTreeSimulator, wallets[0], newMinter, newRoles);
-      await wallets[0].addCapsule(getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), false)));
+      await wallets[0].addCapsule(
+        getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), false)),
+      );
 
       const tx = await asset.methods.update_roles(newMinter, newRoles).send().wait();
       expect(tx.status).toBe(TxStatus.MINED);
@@ -213,7 +208,9 @@ describe('e2e_blacklist_token_contract', () => {
       expect(v).toEqual({ next_change: 0n, before: 0n, after: 0n });
 
       await updateSlowTree(slowUpdateTreeSimulator, wallets[0], newAdmin, newRoles);
-      await wallets[0].addCapsule(getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), false)));
+      await wallets[0].addCapsule(
+        getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), false)),
+      );
 
       const tx = await asset.methods.update_roles(newAdmin, newRoles).send().wait();
       expect(tx.status).toBe(TxStatus.MINED);
@@ -241,7 +238,9 @@ describe('e2e_blacklist_token_contract', () => {
       expect(beforeLeaf['after']).toEqual(currentRoles);
 
       await updateSlowTree(slowUpdateTreeSimulator, wallets[0], actor, newRoles);
-      await wallets[0].addCapsule(getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), false)));
+      await wallets[0].addCapsule(
+        getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), false)),
+      );
 
       const tx = await asset.methods.update_roles(actor, newRoles).send().wait();
       expect(tx.status).toBe(TxStatus.MINED);
@@ -268,7 +267,9 @@ describe('e2e_blacklist_token_contract', () => {
       expect(v).toEqual({ next_change: 0n, before: 0n, after: 0n });
 
       await updateSlowTree(slowUpdateTreeSimulator, wallets[0], accounts[3].address, 1n);
-      await wallets[0].addCapsule(getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), false)));
+      await wallets[0].addCapsule(
+        getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), false)),
+      );
 
       const tx = await asset.methods.update_roles(accounts[3].address, 1n).send().wait();
       expect(tx.status).toBe(TxStatus.MINED);
@@ -291,7 +292,9 @@ describe('e2e_blacklist_token_contract', () => {
         // eslint-disable-next-line camelcase
         expect(v).toEqual({ next_change: 0n, before: 0n, after: 0n });
 
-        await wallets[3].addCapsule(getMembershipMint(await getMembershipProof(accounts[3].address.toBigInt(), false)));
+        await wallets[3].addCapsule(
+          getMembershipCapsule(await getMembershipProof(accounts[3].address.toBigInt(), false)),
+        );
         await expect(
           asset.withWallet(wallets[3]).methods.update_roles(account, newRoles).simulate(),
         ).rejects.toThrowError("Assertion failed: caller is not admin 'caller_roles.is_admin'");
@@ -310,7 +313,9 @@ describe('e2e_blacklist_token_contract', () => {
         expect(v['before']).toEqual(4n);
         expect(v['after']).toEqual(6n);
 
-        await wallets[3].addCapsule(getMembershipMint(await getMembershipProof(accounts[3].address.toBigInt(), false)));
+        await wallets[3].addCapsule(
+          getMembershipCapsule(await getMembershipProof(accounts[3].address.toBigInt(), false)),
+        );
         await expect(
           asset.withWallet(wallets[3]).methods.update_roles(adminAccount, newRoles).simulate(),
         ).rejects.toThrowError("Assertion failed: caller is not admin 'caller_roles.is_admin'");
@@ -396,7 +401,7 @@ describe('e2e_blacklist_token_contract', () => {
         it('redeem as recipient', async () => {
           await addPendingShieldNoteToPXE(0, amount, secretHash, txHash);
           await wallets[0].addCapsule(
-            getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+            getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
           );
           const txClaim = asset.methods.redeem_shield(accounts[0].address, amount, secret).send();
           const receiptClaim = await txClaim.wait({ getNotes: true });
@@ -415,7 +420,7 @@ describe('e2e_blacklist_token_contract', () => {
             'The note has been destroyed.',
           );
           await wallets[0].addCapsule(
-            getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+            getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
           );
           await expect(
             asset.methods.redeem_shield(accounts[0].address, amount, secret).simulate(),
@@ -453,7 +458,7 @@ describe('e2e_blacklist_token_contract', () => {
 
         it('mint and try to redeem at blacklist', async () => {
           await wallets[3].addCapsule(
-            getMembershipMint(await getMembershipProof(accounts[3].address.toBigInt(), true)),
+            getMembershipCapsule(await getMembershipProof(accounts[3].address.toBigInt(), true)),
           );
           await expect(
             asset.methods.redeem_shield(accounts[3].address, amount, secret).simulate(),
@@ -639,8 +644,12 @@ describe('e2e_blacklist_token_contract', () => {
         const balance0 = await asset.methods.balance_of_private(accounts[0].address).view();
         const amount = balance0 / 2n;
         expect(amount).toBeGreaterThan(0n);
-        await wallets[0].addCapsule(getMembershipMint(await getMembershipProof(accounts[1].address.toBigInt(), true)));
-        await wallets[0].addCapsule(getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), true)));
+        await wallets[0].addCapsule(
+          getMembershipCapsule(await getMembershipProof(accounts[1].address.toBigInt(), true)),
+        );
+        await wallets[0].addCapsule(
+          getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+        );
         const tx = asset.methods.transfer(accounts[0].address, accounts[1].address, amount, 0).send();
         const receipt = await tx.wait();
         expect(receipt.status).toBe(TxStatus.MINED);
@@ -651,8 +660,12 @@ describe('e2e_blacklist_token_contract', () => {
         const balance0 = await asset.methods.balance_of_private(accounts[0].address).view();
         const amount = balance0 / 2n;
         expect(amount).toBeGreaterThan(0n);
-        await wallets[0].addCapsule(getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), true)));
-        await wallets[0].addCapsule(getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), true)));
+        await wallets[0].addCapsule(
+          getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+        );
+        await wallets[0].addCapsule(
+          getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+        );
         const tx = asset.methods.transfer(accounts[0].address, accounts[0].address, amount, 0).send();
         const receipt = await tx.wait();
         expect(receipt.status).toBe(TxStatus.MINED);
@@ -677,8 +690,12 @@ describe('e2e_blacklist_token_contract', () => {
         const witness = await wallets[0].createAuthWitness(messageHash);
         await wallets[1].addAuthWitness(witness);
         // docs:end:authwit_transfer_example
-        await wallets[1].addCapsule(getMembershipMint(await getMembershipProof(accounts[1].address.toBigInt(), true)));
-        await wallets[1].addCapsule(getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), true)));
+        await wallets[1].addCapsule(
+          getMembershipCapsule(await getMembershipProof(accounts[1].address.toBigInt(), true)),
+        );
+        await wallets[1].addCapsule(
+          getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+        );
 
         // Perform the transfer
         const tx = action.send();
@@ -686,8 +703,12 @@ describe('e2e_blacklist_token_contract', () => {
         expect(receipt.status).toBe(TxStatus.MINED);
         tokenSim.transferPrivate(accounts[0].address, accounts[1].address, amount);
 
-        await wallets[1].addCapsule(getMembershipMint(await getMembershipProof(accounts[1].address.toBigInt(), true)));
-        await wallets[1].addCapsule(getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), true)));
+        await wallets[1].addCapsule(
+          getMembershipCapsule(await getMembershipProof(accounts[1].address.toBigInt(), true)),
+        );
+        await wallets[1].addCapsule(
+          getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+        );
 
         // Perform the transfer again, should fail
         const txReplay = asset
@@ -703,10 +724,10 @@ describe('e2e_blacklist_token_contract', () => {
           const amount = balance0 + 1n;
           expect(amount).toBeGreaterThan(0n);
           await wallets[0].addCapsule(
-            getMembershipMint(await getMembershipProof(accounts[1].address.toBigInt(), true)),
+            getMembershipCapsule(await getMembershipProof(accounts[1].address.toBigInt(), true)),
           );
           await wallets[0].addCapsule(
-            getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+            getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
           );
           await expect(
             asset.methods.transfer(accounts[0].address, accounts[1].address, amount, 0).simulate(),
@@ -718,10 +739,10 @@ describe('e2e_blacklist_token_contract', () => {
           const amount = balance0 - 1n;
           expect(amount).toBeGreaterThan(0n);
           await wallets[0].addCapsule(
-            getMembershipMint(await getMembershipProof(accounts[1].address.toBigInt(), true)),
+            getMembershipCapsule(await getMembershipProof(accounts[1].address.toBigInt(), true)),
           );
           await wallets[0].addCapsule(
-            getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+            getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
           );
           await expect(
             asset.methods.transfer(accounts[0].address, accounts[1].address, amount, 1).simulate(),
@@ -747,10 +768,10 @@ describe('e2e_blacklist_token_contract', () => {
           const witness = await wallets[0].createAuthWitness(messageHash);
           await wallets[1].addAuthWitness(witness);
           await wallets[1].addCapsule(
-            getMembershipMint(await getMembershipProof(accounts[1].address.toBigInt(), true)),
+            getMembershipCapsule(await getMembershipProof(accounts[1].address.toBigInt(), true)),
           );
           await wallets[1].addCapsule(
-            getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+            getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
           );
 
           // Perform the transfer
@@ -778,10 +799,10 @@ describe('e2e_blacklist_token_contract', () => {
             .methods.transfer(accounts[0].address, accounts[1].address, amount, nonce);
           const messageHash = await computeAuthWitMessageHash(accounts[1].address, action.request());
           await wallets[1].addCapsule(
-            getMembershipMint(await getMembershipProof(accounts[1].address.toBigInt(), true)),
+            getMembershipCapsule(await getMembershipProof(accounts[1].address.toBigInt(), true)),
           );
           await wallets[1].addCapsule(
-            getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+            getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
           );
 
           await expect(action.simulate()).rejects.toThrowError(
@@ -805,10 +826,10 @@ describe('e2e_blacklist_token_contract', () => {
           const witness = await wallets[0].createAuthWitness(messageHash);
           await wallets[2].addAuthWitness(witness);
           await wallets[2].addCapsule(
-            getMembershipMint(await getMembershipProof(accounts[1].address.toBigInt(), true)),
+            getMembershipCapsule(await getMembershipProof(accounts[1].address.toBigInt(), true)),
           );
           await wallets[2].addCapsule(
-            getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+            getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
           );
 
           await expect(action.simulate()).rejects.toThrowError(
@@ -819,10 +840,10 @@ describe('e2e_blacklist_token_contract', () => {
 
         it('transfer from a blacklisted account', async () => {
           await wallets[3].addCapsule(
-            getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+            getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
           );
           await wallets[3].addCapsule(
-            getMembershipMint(await getMembershipProof(accounts[3].address.toBigInt(), true)),
+            getMembershipCapsule(await getMembershipProof(accounts[3].address.toBigInt(), true)),
           );
           await expect(
             asset.methods.transfer(accounts[3].address, accounts[0].address, 1n, 0).simulate(),
@@ -831,10 +852,10 @@ describe('e2e_blacklist_token_contract', () => {
 
         it('transfer to a blacklisted account', async () => {
           await wallets[0].addCapsule(
-            getMembershipMint(await getMembershipProof(accounts[3].address.toBigInt(), true)),
+            getMembershipCapsule(await getMembershipProof(accounts[3].address.toBigInt(), true)),
           );
           await wallets[0].addCapsule(
-            getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+            getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
           );
           await expect(
             asset.methods.transfer(accounts[0].address, accounts[3].address, 1n, 0).simulate(),
@@ -866,7 +887,7 @@ describe('e2e_blacklist_token_contract', () => {
 
       // Redeem it
       await addPendingShieldNoteToPXE(0, amount, secretHash, receipt.txHash);
-      await wallets[0].addCapsule(getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), true)));
+      await wallets[0].addCapsule(getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)));
       const txClaim = asset.methods.redeem_shield(accounts[0].address, amount, secret).send();
       const receiptClaim = await txClaim.wait();
       expect(receiptClaim.status).toBe(TxStatus.MINED);
@@ -901,7 +922,7 @@ describe('e2e_blacklist_token_contract', () => {
 
       // Redeem it
       await addPendingShieldNoteToPXE(0, amount, secretHash, receipt.txHash);
-      await wallets[0].addCapsule(getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), true)));
+      await wallets[0].addCapsule(getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)));
       const txClaim = asset.methods.redeem_shield(accounts[0].address, amount, secret).send();
       const receiptClaim = await txClaim.wait();
       expect(receiptClaim.status).toBe(TxStatus.MINED);
@@ -970,7 +991,9 @@ describe('e2e_blacklist_token_contract', () => {
       });
 
       it('shielding from blacklisted account', async () => {
-        await wallets[0].addCapsule(getMembershipMint(await getMembershipProof(accounts[3].address.toBigInt(), true)));
+        await wallets[0].addCapsule(
+          getMembershipCapsule(await getMembershipProof(accounts[3].address.toBigInt(), true)),
+        );
         await expect(
           asset.withWallet(wallets[3]).methods.shield(accounts[3].address, 1n, secretHash, 0).simulate(),
         ).rejects.toThrowError("Assertion failed: Blacklisted: Sender '!from_roles.is_blacklisted'");
@@ -984,8 +1007,8 @@ describe('e2e_blacklist_token_contract', () => {
       const amount = balancePriv / 2n;
       expect(amount).toBeGreaterThan(0n);
 
-      await wallets[1].addCapsule(getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), true)));
-      await wallets[1].addCapsule(getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), true)));
+      await wallets[1].addCapsule(getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)));
+      await wallets[1].addCapsule(getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)));
       const tx = asset.methods.unshield(accounts[0].address, accounts[0].address, amount, 0).send();
       const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.MINED);
@@ -1000,8 +1023,8 @@ describe('e2e_blacklist_token_contract', () => {
       expect(amount).toBeGreaterThan(0n);
 
       // We need to compute the message we want to sign and add it to the wallet as approved
-      await wallets[1].addCapsule(getMembershipMint(await getMembershipProof(accounts[1].address.toBigInt(), true)));
-      await wallets[1].addCapsule(getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), true)));
+      await wallets[1].addCapsule(getMembershipCapsule(await getMembershipProof(accounts[1].address.toBigInt(), true)));
+      await wallets[1].addCapsule(getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)));
       const action = asset
         .withWallet(wallets[1])
         .methods.unshield(accounts[0].address, accounts[1].address, amount, nonce);
@@ -1019,8 +1042,8 @@ describe('e2e_blacklist_token_contract', () => {
       tokenSim.unshield(accounts[0].address, accounts[1].address, amount);
 
       // Perform the transfer again, should fail
-      await wallets[1].addCapsule(getMembershipMint(await getMembershipProof(accounts[1].address.toBigInt(), true)));
-      await wallets[1].addCapsule(getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), true)));
+      await wallets[1].addCapsule(getMembershipCapsule(await getMembershipProof(accounts[1].address.toBigInt(), true)));
+      await wallets[1].addCapsule(getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)));
       const txReplay = asset
         .withWallet(wallets[1])
         .methods.unshield(accounts[0].address, accounts[1].address, amount, nonce)
@@ -1035,8 +1058,12 @@ describe('e2e_blacklist_token_contract', () => {
         const amount = balancePriv + 1n;
         expect(amount).toBeGreaterThan(0n);
 
-        await wallets[0].addCapsule(getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), true)));
-        await wallets[0].addCapsule(getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), true)));
+        await wallets[0].addCapsule(
+          getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+        );
+        await wallets[0].addCapsule(
+          getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+        );
 
         await expect(
           asset.methods.unshield(accounts[0].address, accounts[0].address, amount, 0).simulate(),
@@ -1048,8 +1075,12 @@ describe('e2e_blacklist_token_contract', () => {
         const amount = balancePriv + 1n;
         expect(amount).toBeGreaterThan(0n);
 
-        await wallets[0].addCapsule(getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), true)));
-        await wallets[0].addCapsule(getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), true)));
+        await wallets[0].addCapsule(
+          getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+        );
+        await wallets[0].addCapsule(
+          getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+        );
 
         await expect(
           asset.methods.unshield(accounts[0].address, accounts[0].address, amount, 1).simulate(),
@@ -1073,8 +1104,12 @@ describe('e2e_blacklist_token_contract', () => {
         // But doing it in two actions to show the flow.
         const witness = await wallets[0].createAuthWitness(messageHash);
         await wallets[1].addAuthWitness(witness);
-        await wallets[1].addCapsule(getMembershipMint(await getMembershipProof(accounts[1].address.toBigInt(), true)));
-        await wallets[1].addCapsule(getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), true)));
+        await wallets[1].addCapsule(
+          getMembershipCapsule(await getMembershipProof(accounts[1].address.toBigInt(), true)),
+        );
+        await wallets[1].addCapsule(
+          getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+        );
 
         await expect(action.simulate()).rejects.toThrowError('Assertion failed: Balance too low');
       });
@@ -1097,8 +1132,12 @@ describe('e2e_blacklist_token_contract', () => {
         // But doing it in two actions to show the flow.
         const witness = await wallets[0].createAuthWitness(messageHash);
         await wallets[2].addAuthWitness(witness);
-        await wallets[2].addCapsule(getMembershipMint(await getMembershipProof(accounts[1].address.toBigInt(), true)));
-        await wallets[2].addCapsule(getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), true)));
+        await wallets[2].addCapsule(
+          getMembershipCapsule(await getMembershipProof(accounts[1].address.toBigInt(), true)),
+        );
+        await wallets[2].addCapsule(
+          getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+        );
 
         await expect(action.simulate()).rejects.toThrowError(
           `Unknown auth witness for message hash 0x${expectedMessageHash.toString('hex')}`,
@@ -1106,16 +1145,24 @@ describe('e2e_blacklist_token_contract', () => {
       });
 
       it('unshield from blacklisted account', async () => {
-        await wallets[0].addCapsule(getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), true)));
-        await wallets[0].addCapsule(getMembershipMint(await getMembershipProof(accounts[3].address.toBigInt(), true)));
+        await wallets[0].addCapsule(
+          getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+        );
+        await wallets[0].addCapsule(
+          getMembershipCapsule(await getMembershipProof(accounts[3].address.toBigInt(), true)),
+        );
         await expect(
           asset.methods.unshield(accounts[3].address, accounts[0].address, 1n, 0).simulate(),
         ).rejects.toThrowError("Assertion failed: Blacklisted: Sender '!from_roles.is_blacklisted'");
       });
 
       it('unshield to blacklisted account', async () => {
-        await wallets[0].addCapsule(getMembershipMint(await getMembershipProof(accounts[3].address.toBigInt(), true)));
-        await wallets[0].addCapsule(getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), true)));
+        await wallets[0].addCapsule(
+          getMembershipCapsule(await getMembershipProof(accounts[3].address.toBigInt(), true)),
+        );
+        await wallets[0].addCapsule(
+          getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+        );
         await expect(
           asset.methods.unshield(accounts[0].address, accounts[3].address, 1n, 0).simulate(),
         ).rejects.toThrowError("Assertion failed: Blacklisted: Recipient '!to_roles.is_blacklisted'");
@@ -1230,7 +1277,9 @@ describe('e2e_blacklist_token_contract', () => {
         const balance0 = await asset.methods.balance_of_private(accounts[0].address).view();
         const amount = balance0 / 2n;
         expect(amount).toBeGreaterThan(0n);
-        await wallets[0].addCapsule(getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), true)));
+        await wallets[0].addCapsule(
+          getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+        );
         const tx = asset.methods.burn(accounts[0].address, amount, 0).send();
         const receipt = await tx.wait();
         expect(receipt.status).toBe(TxStatus.MINED);
@@ -1252,7 +1301,9 @@ describe('e2e_blacklist_token_contract', () => {
         // But doing it in two actions to show the flow.
         const witness = await wallets[0].createAuthWitness(messageHash);
         await wallets[1].addAuthWitness(witness);
-        await wallets[1].addCapsule(getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), true)));
+        await wallets[1].addCapsule(
+          getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+        );
 
         const tx = asset.withWallet(wallets[1]).methods.burn(accounts[0].address, amount, nonce).send();
         const receipt = await tx.wait();
@@ -1260,7 +1311,9 @@ describe('e2e_blacklist_token_contract', () => {
         tokenSim.burnPrivate(accounts[0].address, amount);
 
         // Perform the transfer again, should fail
-        await wallets[1].addCapsule(getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), true)));
+        await wallets[1].addCapsule(
+          getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+        );
         const txReplay = asset.withWallet(wallets[1]).methods.burn(accounts[0].address, amount, nonce).send();
         await expect(txReplay.wait()).rejects.toThrowError('Transaction ');
       });
@@ -1271,7 +1324,7 @@ describe('e2e_blacklist_token_contract', () => {
           const amount = balance0 + 1n;
           expect(amount).toBeGreaterThan(0n);
           await wallets[0].addCapsule(
-            getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+            getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
           );
           await expect(asset.methods.burn(accounts[0].address, amount, 0).simulate()).rejects.toThrowError(
             'Assertion failed: Balance too low',
@@ -1283,7 +1336,7 @@ describe('e2e_blacklist_token_contract', () => {
           const amount = balance0 - 1n;
           expect(amount).toBeGreaterThan(0n);
           await wallets[0].addCapsule(
-            getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+            getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
           );
           await expect(asset.methods.burn(accounts[0].address, amount, 1).simulate()).rejects.toThrowError(
             'Assertion failed: invalid nonce',
@@ -1306,7 +1359,7 @@ describe('e2e_blacklist_token_contract', () => {
           const witness = await wallets[0].createAuthWitness(messageHash);
           await wallets[1].addAuthWitness(witness);
           await wallets[1].addCapsule(
-            getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+            getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
           );
 
           await expect(action.simulate()).rejects.toThrowError('Assertion failed: Balance too low');
@@ -1320,7 +1373,7 @@ describe('e2e_blacklist_token_contract', () => {
 
           // We need to compute the message we want to sign and add it to the wallet as approved
           await wallets[1].addCapsule(
-            getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+            getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
           );
           const action = asset.withWallet(wallets[1]).methods.burn(accounts[0].address, amount, nonce);
           const messageHash = await computeAuthWitMessageHash(accounts[1].address, action.request());
@@ -1338,7 +1391,7 @@ describe('e2e_blacklist_token_contract', () => {
 
           // We need to compute the message we want to sign and add it to the wallet as approved
           await wallets[2].addCapsule(
-            getMembershipMint(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+            getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
           );
           const action = asset.withWallet(wallets[2]).methods.burn(accounts[0].address, amount, nonce);
           const messageHash = await computeAuthWitMessageHash(accounts[1].address, action.request());
@@ -1354,7 +1407,7 @@ describe('e2e_blacklist_token_contract', () => {
 
         it('burn from blacklisted account', async () => {
           await wallets[0].addCapsule(
-            getMembershipMint(await getMembershipProof(accounts[3].address.toBigInt(), true)),
+            getMembershipCapsule(await getMembershipProof(accounts[3].address.toBigInt(), true)),
           );
           await expect(asset.methods.burn(accounts[3].address, 1n, 0).simulate()).rejects.toThrowError(
             "Assertion failed: Blacklisted: Sender '!from_roles.is_blacklisted'",

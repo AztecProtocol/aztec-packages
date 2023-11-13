@@ -1,5 +1,4 @@
 import { CheatCodes, DebugLogger, Fr, Wallet } from '@aztec/aztec.js';
-import { CircuitsWasm } from '@aztec/circuits.js';
 import { Pedersen, SparseTree, newTree } from '@aztec/merkle-tree';
 import { SlowTreeContract } from '@aztec/noir-contracts/types';
 
@@ -27,13 +26,7 @@ describe('e2e_slow_tree', () => {
 
   it('Messing around with noir slow tree', async () => {
     const depth = 254;
-    const slowUpdateTreeSimulator = await newTree(
-      SparseTree,
-      levelup(createMemDown()),
-      new Pedersen(await CircuitsWasm.get()),
-      'test',
-      depth,
-    );
+    const slowUpdateTreeSimulator = await newTree(SparseTree, levelup(createMemDown()), new Pedersen(), 'test', depth);
     const getMembershipProof = async (index: bigint, includeUncommitted: boolean) => {
       return {
         index,
@@ -43,7 +36,7 @@ describe('e2e_slow_tree', () => {
       };
     };
 
-    const getMembershipMint = (proof: { index: bigint; value: Fr; sibling_path: Fr[] }) => {
+    const getMembershipCapsule = (proof: { index: bigint; value: Fr; sibling_path: Fr[] }) => {
       return [new Fr(proof.index), proof.value, ...proof.sibling_path];
     };
 
@@ -62,7 +55,7 @@ describe('e2e_slow_tree', () => {
       };
     };
 
-    const getUpdateMint = (proof: {
+    const getUpdateCapsule = (proof: {
       index: bigint;
       new_value: bigint;
       before: { value: Fr; sibling_path: Fr[] };
@@ -103,7 +96,7 @@ describe('e2e_slow_tree', () => {
     };
     let _leaf = { before: 0n, after: 0n, next_change: 0n };
     await status(key, _root, _leaf);
-    await wallet.addCapsule(getMembershipMint(await getMembershipProof(key, true)));
+    await wallet.addCapsule(getMembershipCapsule(await getMembershipProof(key, true)));
     await contract.methods.read_at(key).send().wait();
 
     logger(`Updating tree[${key}] to 1 from public`);
@@ -125,7 +118,7 @@ describe('e2e_slow_tree', () => {
 
     const zeroProof = await getMembershipProof(key, false);
     logger(`"Reads" tree[${zeroProof.index}] from the tree, equal to ${zeroProof.value}`);
-    await wallet.addCapsule(getMembershipMint({ ...zeroProof, value: new Fr(0) }));
+    await wallet.addCapsule(getMembershipCapsule({ ...zeroProof, value: new Fr(0) }));
     await contract.methods.read_at(key).send().wait();
 
     // Progress time to beyond the update and thereby commit it to the tree.
@@ -137,18 +130,18 @@ describe('e2e_slow_tree', () => {
     logger(
       `Tries to "read" tree[${zeroProof.index}] from the tree, but is rejected as value is not ${zeroProof.value}`,
     );
-    await wallet.addCapsule(getMembershipMint({ ...zeroProof, value: new Fr(0) }));
+    await wallet.addCapsule(getMembershipCapsule({ ...zeroProof, value: new Fr(0) }));
     await expect(contract.methods.read_at(key).simulate()).rejects.toThrowError(
       'Assertion failed: Root does not match expected',
     );
 
     logger(`"Reads" tree[${key}], expect to be 1`);
-    await wallet.addCapsule(getMembershipMint({ ...zeroProof, value: new Fr(1) }));
+    await wallet.addCapsule(getMembershipCapsule({ ...zeroProof, value: new Fr(1) }));
     await contract.methods.read_at(key).send().wait();
 
     logger(`Updating tree[${key}] to 4 from private`);
     const t2 = computeNextChange(BigInt(await cheatCodes.eth.timestamp()));
-    await wallet.addCapsule(getUpdateMint(await getUpdateProof(4n, key)));
+    await wallet.addCapsule(getUpdateCapsule(await getUpdateProof(4n, key)));
     await contract.methods.update_at_private(key, 4n).send().wait();
     await slowUpdateTreeSimulator.updateLeaf(new Fr(4).toBuffer(), key);
     _root = {

@@ -48,9 +48,9 @@ export class SimulatorOracle implements DBOracle {
   }
 
   async popCapsule(): Promise<Fr[]> {
-    const mint = await this.db.popCapsule();
-    if (!mint) throw new Error(`No mints available`);
-    return mint;
+    const capsule = await this.db.popCapsule();
+    if (!capsule) throw new Error(`No capsules available`);
+    return capsule;
   }
 
   async getNotes(contractAddress: AztecAddress, storageSlot: Fr) {

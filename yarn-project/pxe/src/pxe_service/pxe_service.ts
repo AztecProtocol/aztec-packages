@@ -119,8 +119,8 @@ export class PXEService implements PXE {
     return this.db.addAuthWitness(witness.requestHash, witness.witness);
   }
 
-  public addCapsule(mint: Fr[]) {
-    return this.db.addCapsule(mint);
+  public addCapsule(capsule: Fr[]) {
+    return this.db.addCapsule(capsule);
   }
 
   public async registerAccount(privKey: GrumpkinPrivateKey, partialAddress: PartialAddress): Promise<CompleteAddress> {
