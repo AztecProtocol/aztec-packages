@@ -78,10 +78,15 @@ describe('e2e_slow_tree', () => {
       ];
     };
 
-    const status = async (key: bigint) => {
-      logger(`\tTime: ${await cheatCodes.eth.timestamp()}`);
-      logger('\tRoot', await contract.methods.un_read_root(owner).view());
-      logger(`\tLeaf (${key})`, await contract.methods.un_read_leaf_at(owner, key).view());
+    const status = async (
+      key: bigint,
+      _root: { before: bigint; after: bigint; next_change: bigint },
+      _leaf: { before: bigint; after: bigint; next_change: bigint },
+    ) => {
+      const root = await contract.methods.un_read_root(owner).view();
+      const leaf = await contract.methods.un_read_leaf_at(owner, key).view();
+      expect(root).toEqual(_root);
+      expect(leaf).toEqual(_leaf);
     };
 
     const owner = wallet.getCompleteAddress().address;
@@ -89,18 +94,34 @@ describe('e2e_slow_tree', () => {
 
     await contract.methods.initialize().send().wait();
 
-    logger('Initial state');
-    await status(key);
+    const computeNextChange = (ts: bigint) => (ts / 100n + 1n) * 100n;
+
+    let _root = {
+      before: Fr.fromBuffer(slowUpdateTreeSimulator.getRoot(true)).toBigInt(),
+      after: Fr.fromBuffer(slowUpdateTreeSimulator.getRoot(true)).toBigInt(),
+      next_change: 2n ** 120n - 1n,
+    };
+    let _leaf = { before: 0n, after: 0n, next_change: 0n };
+    await status(key, _root, _leaf);
     await wallet.addMint(getMembershipMint(await getMembershipProof(key, true)));
     await contract.methods.read_at(key).send().wait();
 
     logger(`Updating tree[${key}] to 1 from public`);
+    const t1 = computeNextChange(BigInt(await cheatCodes.eth.timestamp()));
     await contract.methods
       .update_at_public(await getUpdateProof(1n, key))
       .send()
       .wait();
     await slowUpdateTreeSimulator.updateLeaf(new Fr(1).toBuffer(), key);
-    await status(key);
+
+    // Update below.
+    _root = {
+      ..._root,
+      after: Fr.fromBuffer(slowUpdateTreeSimulator.getRoot(true)).toBigInt(),
+      next_change: t1,
+    };
+    _leaf = { ..._leaf, after: 1n, next_change: t1 };
+    await status(key, _root, _leaf);
 
     const zeroProof = await getMembershipProof(key, false);
     logger(`"Reads" tree[${zeroProof.index}] from the tree, equal to ${zeroProof.value}`);
@@ -111,7 +132,7 @@ describe('e2e_slow_tree', () => {
     await cheatCodes.aztec.warp((await cheatCodes.eth.timestamp()) + 1000);
     await slowUpdateTreeSimulator.commit();
     logger('--- Progressing time to after the update ---');
-    await status(key);
+    await status(key, _root, _leaf);
 
     logger(
       `Tries to "read" tree[${zeroProof.index}] from the tree, but is rejected as value is not ${zeroProof.value}`,
@@ -126,10 +147,17 @@ describe('e2e_slow_tree', () => {
     await contract.methods.read_at(key).send().wait();
 
     logger(`Updating tree[${key}] to 4 from private`);
+    const t2 = computeNextChange(BigInt(await cheatCodes.eth.timestamp()));
     await wallet.addMint(getUpdateMint(await getUpdateProof(4n, key)));
     await contract.methods.update_at_private(key, 4n).send().wait();
     await slowUpdateTreeSimulator.updateLeaf(new Fr(4).toBuffer(), key);
+    _root = {
+      before: Fr.fromBuffer(slowUpdateTreeSimulator.getRoot(false)).toBigInt(),
+      after: Fr.fromBuffer(slowUpdateTreeSimulator.getRoot(true)).toBigInt(),
+      next_change: t2,
+    };
+    _leaf = { before: 1n, after: 4n, next_change: t2 };
 
-    await status(key);
+    await status(key, _root, _leaf);
   }, 200_000);
 });
