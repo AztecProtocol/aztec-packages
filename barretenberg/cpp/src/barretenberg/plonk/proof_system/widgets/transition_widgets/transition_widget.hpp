@@ -359,9 +359,7 @@ class GenericVerifierWidget {
         challenge_array challenges =
             EvaluationGetter::get_challenges(transcript, alpha_base, EvaluationKernel::quotient_required_challenges);
 
-        // As in the permutation widget, we have vestiges of the linearization trick: the code first computes what
-        // would be the contribution with linearization, then completes that smaller sum to the full contribution
-        // without linearization.
+        // Accumulate the contribution from the widget into the quotient
         EvaluationKernel::accumulate_contribution(polynomial_evaluations, challenges, quotient_numerator_eval);
 
         return EvaluationGetter::update_alpha(challenges, num_independent_relations);
