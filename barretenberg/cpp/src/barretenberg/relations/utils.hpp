@@ -66,7 +66,7 @@ template <typename Flavor> class RelationUtils {
      * @param current_scalar power of the challenge
      */
     template <typename ChallengeType>
-    static void scale_univariates(auto& tuple, const ChallengeType& challenge, ChallenchrgeType& current_scalar)
+    static void scale_univariates(auto& tuple, const ChallengeType& challenge, ChallengeType& current_scalar)
     {
 
         // these size_t are not necessary????????
