@@ -94,25 +94,6 @@ template <class Field, class Getters, typename PolyContainer> class ArithmeticKe
      *
      */
     inline static void compute_non_linear_terms(PolyContainer&, const challenge_array&, Field&, const size_t = 0) {}
-
-    /**
-     * @brief Compute the scaled values of openings
-     *
-     * @param linear_terms The original computed linear terms of the product and wires
-     * @param scalars A map where we put the values
-     * @param challenges Challenges where we get the alpha
-     */
-    inline static void update_kate_opening_scalars(coefficient_array& linear_terms,
-                                                   std::map<std::string, Field>& scalars,
-                                                   const challenge_array& challenges)
-    {
-        const Field& alpha = challenges.alpha_powers[0];
-        scalars["Q_M"] += linear_terms[0] * alpha;
-        scalars["Q_1"] += linear_terms[1] * alpha;
-        scalars["Q_2"] += linear_terms[2] * alpha;
-        scalars["Q_3"] += linear_terms[3] * alpha;
-        scalars["Q_C"] += alpha;
-    }
 };
 
 } // namespace widget

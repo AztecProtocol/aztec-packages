@@ -328,11 +328,6 @@ template <class Field, class Getters, typename PolyContainer> class PlookupAuxil
 
         quotient += (auxiliary_identity);
     }
-
-    inline static void update_kate_opening_scalars(coefficient_array&,
-                                                   std::map<std::string, Field>&,
-                                                   const challenge_array&)
-    {}
 };
 
 } // namespace widget

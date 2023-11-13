@@ -171,15 +171,6 @@ template <class Field, class Getters, typename PolyContainer> class PlookupArith
 
         quotient += identity;
     }
-
-    /**
-     * @brief Stub for updating opening scalars, since not using linear terms
-     *
-     */
-    inline static void update_kate_opening_scalars(coefficient_array&,
-                                                   std::map<std::string, Field>&,
-                                                   const challenge_array&)
-    {}
 };
 
 } // namespace widget

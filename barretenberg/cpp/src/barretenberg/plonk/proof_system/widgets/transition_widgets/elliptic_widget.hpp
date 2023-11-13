@@ -148,19 +148,6 @@ template <class Field, class Getters, typename PolyContainer> class EllipticKern
     }
 
     inline static void compute_non_linear_terms(PolyContainer&, const challenge_array&, Field&, const size_t = 0) {}
-
-    /**
-     * @brief Update opening scalars with the linear term from elliptic gate
-     *
-     * @param linear_terms Contains input scalar
-     * @param scalars Output map for updates
-     */
-    inline static void update_kate_opening_scalars(coefficient_array& linear_terms,
-                                                   std::map<std::string, Field>& scalars,
-                                                   const challenge_array&)
-    {
-        scalars["Q_ELLIPTIC"] += linear_terms[0];
-    }
 };
 
 } // namespace widget

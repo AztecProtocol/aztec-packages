@@ -210,13 +210,6 @@ template <class Field, class Getters, typename PolyContainer> class LogicKernel 
     }
 
     inline static void compute_non_linear_terms(PolyContainer&, const challenge_array&, Field&, const size_t = 0) {}
-
-    inline static void update_kate_opening_scalars(coefficient_array& linear_terms,
-                                                   std::map<std::string, Field>& scalars,
-                                                   const challenge_array&)
-    {
-        scalars["Q_LOGIC"] += linear_terms[0];
-    }
 };
 
 } // namespace widget
