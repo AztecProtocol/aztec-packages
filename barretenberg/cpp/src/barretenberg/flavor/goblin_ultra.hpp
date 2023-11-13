@@ -448,7 +448,6 @@ class GoblinUltra {
       public:
         using Base = AllEntities<FF, FF>;
         using Base::Base;
-        // AllValues(std::array<FF, NUM_ALL_ENTITIES> _data_in) { this->_data = _data_in; }
     };
 
     /**
