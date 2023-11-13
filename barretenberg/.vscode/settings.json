@@ -127,5 +127,6 @@
   "[javascript]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
-  "cmake.sourceDirectory": "${workspaceFolder}/cpp"
+  "cmake.sourceDirectory": "${workspaceFolder}/cpp",
+  "clangd.path": "/Users/cody/Library/Application Support/Code/User/globalStorage/llvm-vs-code-extensions.vscode-clangd/install/16.0.2/clangd_16.0.2/bin/clangdrere"
 }
