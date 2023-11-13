@@ -43,10 +43,10 @@ export interface PXE {
   addAuthWitness(authWitness: AuthWitness): Promise<void>;
 
   /**
-   * Adding a mint to the pez dispenser.
-   * @param mint - An array of field elements representing the mint.
+   * Adding a capsule to the capsule dispenser.
+   * @param capsule - An array of field elements representing the capsule.
    */
-  addMint(mint: Fr[]): Promise<void>;
+  addCapsule(capsule: Fr[]): Promise<void>;
 
   /**
    * Registers a user account in PXE given its master encryption private key.

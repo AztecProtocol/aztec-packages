@@ -103,7 +103,7 @@ describe('e2e_slow_tree', () => {
     };
     let _leaf = { before: 0n, after: 0n, next_change: 0n };
     await status(key, _root, _leaf);
-    await wallet.addMint(getMembershipMint(await getMembershipProof(key, true)));
+    await wallet.addCapsule(getMembershipMint(await getMembershipProof(key, true)));
     await contract.methods.read_at(key).send().wait();
 
     logger(`Updating tree[${key}] to 1 from public`);
@@ -125,7 +125,7 @@ describe('e2e_slow_tree', () => {
 
     const zeroProof = await getMembershipProof(key, false);
     logger(`"Reads" tree[${zeroProof.index}] from the tree, equal to ${zeroProof.value}`);
-    await wallet.addMint(getMembershipMint({ ...zeroProof, value: new Fr(0) }));
+    await wallet.addCapsule(getMembershipMint({ ...zeroProof, value: new Fr(0) }));
     await contract.methods.read_at(key).send().wait();
 
     // Progress time to beyond the update and thereby commit it to the tree.
@@ -137,18 +137,18 @@ describe('e2e_slow_tree', () => {
     logger(
       `Tries to "read" tree[${zeroProof.index}] from the tree, but is rejected as value is not ${zeroProof.value}`,
     );
-    await wallet.addMint(getMembershipMint({ ...zeroProof, value: new Fr(0) }));
+    await wallet.addCapsule(getMembershipMint({ ...zeroProof, value: new Fr(0) }));
     await expect(contract.methods.read_at(key).simulate()).rejects.toThrowError(
       'Assertion failed: Root does not match expected',
     );
 
     logger(`"Reads" tree[${key}], expect to be 1`);
-    await wallet.addMint(getMembershipMint({ ...zeroProof, value: new Fr(1) }));
+    await wallet.addCapsule(getMembershipMint({ ...zeroProof, value: new Fr(1) }));
     await contract.methods.read_at(key).send().wait();
 
     logger(`Updating tree[${key}] to 4 from private`);
     const t2 = computeNextChange(BigInt(await cheatCodes.eth.timestamp()));
-    await wallet.addMint(getUpdateMint(await getUpdateProof(4n, key)));
+    await wallet.addCapsule(getUpdateMint(await getUpdateProof(4n, key)));
     await contract.methods.update_at_private(key, 4n).send().wait();
     await slowUpdateTreeSimulator.updateLeaf(new Fr(4).toBuffer(), key);
     _root = {

@@ -1,4 +1,4 @@
-mod pez;
+mod capsule;
 mod types;
 
 // This contract allow us to "read" public storage in private through a delayed tree.
@@ -28,7 +28,7 @@ contract SlowTree {
         SlowMap, Leaf, SlowUpdateProof, compute_merkle_root, deserialize_slow_update_proof
     };
 
-    use crate::pez::pop_mint;
+    use crate::capsule::pop_capsule;
     use crate::types::{MembershipProof, deserialize_membership_proof};
 
     global TREE_HEIGHT: Field = 254;
@@ -78,7 +78,7 @@ contract SlowTree {
 
     #[aztec(private)]
     fn read_at(index: Field) -> Field {
-        let fields = pop_mint();
+        let fields = pop_capsule();
         let p: MembershipProof<TREE_HEIGHT, MEMBERSHIP_SIZE> = deserialize_membership_proof(fields);
         assert(index == p.index, "Index does not match expected");
 
@@ -106,7 +106,7 @@ contract SlowTree {
 
     #[aztec(private)]
     fn update_at_private(index: Field, new_value: Field) {
-        let fields = pop_mint();
+        let fields = pop_capsule();
         let p: SlowUpdateProof<TREE_HEIGHT, UPDATE_SIZE> = deserialize_slow_update_proof(fields);
         assert(index == p.index, "Index does not match expected");
         assert(new_value == p.new_value, "New value does not match expected");

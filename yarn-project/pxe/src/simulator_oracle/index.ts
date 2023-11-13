@@ -47,8 +47,8 @@ export class SimulatorOracle implements DBOracle {
     return witness;
   }
 
-  async popMint(): Promise<Fr[]> {
-    const mint = await this.db.popMint();
+  async popCapsule(): Promise<Fr[]> {
+    const mint = await this.db.popCapsule();
     if (!mint) throw new Error(`No mints available`);
     return mint;
   }

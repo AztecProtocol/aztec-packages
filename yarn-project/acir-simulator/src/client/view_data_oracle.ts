@@ -57,11 +57,11 @@ export class ViewDataOracle extends TypedOracle {
   }
 
   /**
-   * Pops a mint from the PEZ dispenser
-   * @returns The mint values
+   * Pops a capsule from the capsule dispenser
+   * @returns The capsule values
    */
-  public popMint(): Promise<Fr[]> {
-    return this.db.popMint();
+  public popCapsule(): Promise<Fr[]> {
+    return this.db.popCapsule();
   }
 
   /**

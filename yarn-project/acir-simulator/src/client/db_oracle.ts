@@ -36,10 +36,10 @@ export interface DBOracle extends CommitmentsDB {
   getAuthWitness(messageHash: Fr): Promise<Fr[]>;
 
   /**
-   * Retrieve a mint from the pez dispenser.
-   * @returns A promise that resolves to an array of field elements representing the mint.
+   * Retrieve a capsule from the capsule dispenser.
+   * @returns A promise that resolves to an array of field elements representing the capsule.
    */
-  popMint(): Promise<Fr[]>;
+  popCapsule(): Promise<Fr[]>;
 
   /**
    * Retrieve the secret key associated with a specific public key.

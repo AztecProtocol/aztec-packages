@@ -80,7 +80,7 @@ export abstract class TypedOracle {
     throw new Error('Not available.');
   }
 
-  popMint(): Promise<Fr[]> {
+  popCapsule(): Promise<Fr[]> {
     throw new Error('Not available.');
   }
 
