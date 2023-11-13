@@ -7,7 +7,6 @@
 #include "../widgets/random_widgets/random_widget.hpp"
 #include "../widgets/transition_widgets/arithmetic_widget.hpp"
 #include "../widgets/transition_widgets/elliptic_widget.hpp"
-#include "../widgets/transition_widgets/fixed_base_widget.hpp"
 #include "../widgets/transition_widgets/genperm_sort_widget.hpp"
 #include "../widgets/transition_widgets/logic_widget.hpp"
 #include "../widgets/transition_widgets/plookup_arithmetic_widget.hpp"
