@@ -15,7 +15,6 @@ template <class Field, class Getters, typename PolyContainer> class LogicKernel 
 
   private:
     typedef containers::challenge_array<Field, num_independent_relations> challenge_array;
-    typedef containers::coefficient_array<Field> coefficient_array;
 
   public:
     inline static std::set<PolynomialIndex> const& get_required_polynomial_ids()
@@ -41,10 +40,10 @@ template <class Field, class Getters, typename PolyContainer> class LogicKernel 
         return !q_logic.is_zero();
     }
 
-    inline static Field compute_linear_terms(PolyContainer& polynomials,
-                                             const challenge_array& challenges,
-                                             coefficient_array& linear_terms,
-                                             const size_t i = 0)
+    inline static void accumulate_contribution(PolyContainer& polynomials,
+                                               const challenge_array& challenges,
+                                               Field& quotient,
+                                               const size_t i = 0)
     {
         constexpr barretenberg::fr six(6);
         constexpr barretenberg::fr eighty_one(81);
@@ -69,6 +68,8 @@ template <class Field, class Getters, typename PolyContainer> class LogicKernel 
 
         const Field& q_c =
             Getters::template get_value<EvaluationType::NON_SHIFTED, PolynomialIndex::Q_C>(polynomials, i);
+        const Field& q_logic =
+            Getters::template get_value<EvaluationType::NON_SHIFTED, PolynomialIndex::Q_LOGIC>(polynomials, i);
 
         Field delta_sum;
         Field delta_squared_sum;
@@ -201,15 +202,8 @@ template <class Field, class Getters, typename PolyContainer> class LogicKernel 
         identity += T2;
         identity *= alpha_base;
 
-        linear_terms[0] = identity;
-
-        const Field& q_logic =
-            Getters::template get_value<EvaluationType::NON_SHIFTED, PolynomialIndex::Q_LOGIC>(polynomials, i);
-
-        return linear_terms[0] * q_logic;
+        quotient += identity * q_logic;
     }
-
-    inline static void compute_non_linear_terms(PolyContainer&, const challenge_array&, Field&, const size_t = 0) {}
 };
 
 } // namespace widget
