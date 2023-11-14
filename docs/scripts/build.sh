@@ -17,6 +17,14 @@ if [ -n "$NETLIFY" ]; then
   cd ..
   echo Working dir $(pwd)
 
+  # Build bb.js
+  cd barretenberg/ts
+  yarn build
+  cd ..
+  ./bootstrap.sh
+  # Back to root
+  cd ..
+
   # Make sure the latest tag is available for loading code snippets from it
   LAST_TAG="aztec-packages-v$(jq -r '.["."]' .release-please-manifest.json)"
   echo Fetching latest released tag $LAST_TAG...
