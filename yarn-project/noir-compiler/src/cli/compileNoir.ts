@@ -33,7 +33,7 @@ interface options {
  * @param log - Optional logging function.
  * @returns The program with the command registered.
  */
-export function compileContract(program: Command, name = 'compile', log: LogFn = () => {}): Command {
+export function compileNoir(program: Command, name = 'compile', log: LogFn = () => {}): Command {
   return program
     .command(name)
     .argument('<project-path>', 'Path to the bin or Aztec.nr project to compile')
