@@ -317,17 +317,23 @@ bool GoblinTranslatorVerifier_<Flavor>::verify_proof(
             const BF& z1 = translation_consistency_data.z1;
             const BF& z2 = translation_consistency_data.z2;
 
-            info("x: ", x);
+            info("translator vm verifier x: ", x);
             info("circuit_size: ", circuit_size);
 
             const BF x_power = x.pow(22);
-            const BF eccvm_opening = op + (v1 * Px) + (v2 * Py) + (v3 * z1) + (v4 * z2);
+            info("translator verifier translation_consistency_data.op: ", translation_consistency_data.op);
+            info("translator verifier translation_consistency_data.Px: ", translation_consistency_data.Px);
+            info("translator verifier translation_consistency_data.Py: ", translation_consistency_data.Py);
+            info("translator verifier translation_consistency_data.z1: ", translation_consistency_data.z1);
+            info("translator verifier translation_consistency_data.z2: ", translation_consistency_data.z2);
+
+            const BF eccvm_opening = (op + (v1 * Px) + (v2 * Py) + (v3 * z1) + (v4 * z2));
             // info("v1  : ", v1);
             // info("v1^2: ", v1 * v1);
             // info("v2  : ", v2);
             // info("v2^2: ", v2 * v2);
             // info("v4  : ", v4);
-            info("accumulated_result: ", accumulated_result);
+            info("accumulated_result: ", x_power * accumulated_result);
             info("eccvm_opening:      ", eccvm_opening);
             return x_power * accumulated_result == eccvm_opening;
         };

@@ -36,9 +36,12 @@ template <ECCVMFlavor Flavor> class ECCVMProver_ {
     void execute_relation_check_rounds();
     void execute_univariatization_round();
     void execute_pcs_evaluation_round();
-    void execute_shplonk_batched_quotient_round();
-    void execute_shplonk_partial_evaluation_round();
-    void execute_final_pcs_round();
+    void execute_batched_univariatization_shplonk_batched_quotient_round();
+    void execute_batched_univariatization_shplonk_partial_evaluation_round();
+    void execute_batched_univariatization_ipa_round();
+    void execute_translation_consistency_check_shplonk_batched_quotient_round();
+    void execute_translation_consistency_check_shplonk_partial_evaluation_round();
+    void execute_translation_consistency_check_ipa_round();
 
     plonk::proof& export_proof();
     plonk::proof& construct_proof();
@@ -53,6 +56,8 @@ template <ECCVMFlavor Flavor> class ECCVMProver_ {
 
     std::shared_ptr<ProvingKey> key;
 
+    FF evaluation_challenge_x;
+
     // Container for spans of all polynomials required by the prover (i.e. all multivariates evaluated by Sumcheck).
     ProverPolynomials prover_polynomials;
 
@@ -61,14 +66,17 @@ template <ECCVMFlavor Flavor> class ECCVMProver_ {
     // Container for d + 1 Fold polynomials produced by Gemini
     std::vector<Polynomial> gemini_polynomials;
 
-    Polynomial batched_quotient_Q; // batched quotient poly computed by Shplonk
-    FF nu_challenge;               // needed in both Shplonk rounds
+    Polynomial batched_univariatization_batched_quotient_Q;      // batched quotient poly computed by Shplonk
+    Polynomial translation_consistency_check_batched_quotient_Q; // batched quotient poly computed by Shplonk
+    FF nu_challenge;                                             // needed in both Shplonk rounds
 
     Polynomial quotient_W;
 
     sumcheck::SumcheckOutput<Flavor> sumcheck_output;
     pcs::gemini::ProverOutput<Curve> gemini_output;
-    pcs::shplonk::ProverOutput<Curve> shplonk_output;
+    pcs::gemini::ProverOutput<Curve> translation_consistency_check_data; // WORKTODO: move this struct
+    pcs::shplonk::ProverOutput<Curve> batched_univariatization_shplonk_output;
+    pcs::shplonk::ProverOutput<Curve> translation_consistency_check_shplonk_output;
     std::shared_ptr<PCSCommitmentKey> commitment_key;
 
     using Gemini = pcs::gemini::GeminiProver_<Curve>;
