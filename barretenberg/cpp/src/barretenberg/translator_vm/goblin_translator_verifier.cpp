@@ -322,7 +322,6 @@ bool GoblinTranslatorVerifier_<Flavor>::verify_proof(
             info("translator vm verifier x: ", x);
             info("circuit_size: ", circuit_size);
 
-            const BF x_power = x.pow(5);
             info("translator verifier translation_consistency_data.op: ", translation_consistency_data.op);
             info("translator verifier translation_consistency_data.Px: ", translation_consistency_data.Px);
             info("translator verifier translation_consistency_data.Py: ", translation_consistency_data.Py);
@@ -330,15 +329,8 @@ bool GoblinTranslatorVerifier_<Flavor>::verify_proof(
             info("translator verifier translation_consistency_data.z2: ", translation_consistency_data.z2);
 
             const BF eccvm_opening = (op + (v1 * Px) + (v2 * Py) + (v3 * z1) + (v4 * z2));
-            // info("v1  : ", v1);
-            // info("v1^2: ", v1 * v1);
-            // info("v2  : ", v2);
-            // info("v2^2: ", v2 * v2);
-            // info("v4  : ", v4);
-            info("eccvm_opening/accumulated_result: ", eccvm_opening / accumulated_result);
-            info("accumulated_result: ", x_power * accumulated_result);
-            info("eccvm_opening:      ", eccvm_opening);
-            return x_power * accumulated_result == eccvm_opening;
+            // multiply by x here to deal with shift
+            return x * accumulated_result == eccvm_opening;
         };
 
     bool value_reconstructed =

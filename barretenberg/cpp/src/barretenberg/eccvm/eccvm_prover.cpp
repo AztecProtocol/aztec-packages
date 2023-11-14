@@ -274,8 +274,7 @@ template <ECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_pcs_evaluation_
         transcript.send_to_verifier(label, evaluation);
     }
 
-    // evaluation_challenge_x = transcript.get_challenge("ds:evaluation_challenge_x");
-    evaluation_challenge_x = 2;
+    evaluation_challenge_x = transcript.get_challenge("Translation:evaluation_challenge_x");
 
     translation_consistency_check_data.witnesses.emplace_back(prover_polynomials.transcript_op);
     translation_consistency_check_data.witnesses.emplace_back(prover_polynomials.transcript_x);
