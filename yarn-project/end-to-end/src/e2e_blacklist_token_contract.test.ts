@@ -385,8 +385,8 @@ describe('e2e_blacklist_token_contract', () => {
       let secretHash: Fr;
       let txHash: TxHash;
 
-      beforeAll(async () => {
-        secretHash = await computeMessageSecretHash(secret);
+      beforeAll(() => {
+        secretHash = computeMessageSecretHash(secret);
       });
 
       describe('Mint flow', () => {
@@ -502,7 +502,7 @@ describe('e2e_blacklist_token_contract', () => {
         const action = asset
           .withWallet(wallets[1])
           .methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce);
-        const messageHash = await computeAuthWitMessageHash(accounts[1].address, action.request());
+        const messageHash = computeAuthWitMessageHash(accounts[1].address, action.request());
 
         await wallets[0].setPublicAuth(messageHash, true).send().wait();
         // docs:end:authwit_public_transfer_example
@@ -563,7 +563,7 @@ describe('e2e_blacklist_token_contract', () => {
           const action = asset
             .withWallet(wallets[1])
             .methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce);
-          const messageHash = await computeAuthWitMessageHash(accounts[1].address, action.request());
+          const messageHash = computeAuthWitMessageHash(accounts[1].address, action.request());
 
           // We need to compute the message we want to sign and add it to the wallet as approved
           await wallets[0].setPublicAuth(messageHash, true).send().wait();
@@ -586,7 +586,7 @@ describe('e2e_blacklist_token_contract', () => {
           const action = asset
             .withWallet(wallets[1])
             .methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce);
-          const messageHash = await computeAuthWitMessageHash(accounts[0].address, action.request());
+          const messageHash = computeAuthWitMessageHash(accounts[0].address, action.request());
 
           await wallets[0].setPublicAuth(messageHash, true).send().wait();
 
@@ -608,7 +608,7 @@ describe('e2e_blacklist_token_contract', () => {
           const action = asset
             .withWallet(wallets[1])
             .methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce);
-          const messageHash = await computeAuthWitMessageHash(accounts[0].address, action.request());
+          const messageHash = computeAuthWitMessageHash(accounts[0].address, action.request());
           await wallets[0].setPublicAuth(messageHash, true).send().wait();
 
           // Perform the transfer
@@ -684,7 +684,7 @@ describe('e2e_blacklist_token_contract', () => {
         const action = asset
           .withWallet(wallets[1])
           .methods.transfer(accounts[0].address, accounts[1].address, amount, nonce);
-        const messageHash = await computeAuthWitMessageHash(accounts[1].address, action.request());
+        const messageHash = computeAuthWitMessageHash(accounts[1].address, action.request());
         // docs:end:authwit_computeAuthWitMessageHash
 
         const witness = await wallets[0].createAuthWitness(messageHash);
@@ -760,7 +760,7 @@ describe('e2e_blacklist_token_contract', () => {
           const action = asset
             .withWallet(wallets[1])
             .methods.transfer(accounts[0].address, accounts[1].address, amount, nonce);
-          const messageHash = await computeAuthWitMessageHash(accounts[1].address, action.request());
+          const messageHash = computeAuthWitMessageHash(accounts[1].address, action.request());
 
           // Both wallets are connected to same node and PXE so we could just insert directly using
           // await wallet.signAndAddAuthWitness(messageHash, );
@@ -797,7 +797,7 @@ describe('e2e_blacklist_token_contract', () => {
           const action = asset
             .withWallet(wallets[1])
             .methods.transfer(accounts[0].address, accounts[1].address, amount, nonce);
-          const messageHash = await computeAuthWitMessageHash(accounts[1].address, action.request());
+          const messageHash = computeAuthWitMessageHash(accounts[1].address, action.request());
           await wallets[1].addCapsule(
             getMembershipCapsule(await getMembershipProof(accounts[1].address.toBigInt(), true)),
           );
@@ -820,8 +820,8 @@ describe('e2e_blacklist_token_contract', () => {
           const action = asset
             .withWallet(wallets[2])
             .methods.transfer(accounts[0].address, accounts[1].address, amount, nonce);
-          const messageHash = await computeAuthWitMessageHash(accounts[1].address, action.request());
-          const expectedMessageHash = await computeAuthWitMessageHash(accounts[2].address, action.request());
+          const messageHash = computeAuthWitMessageHash(accounts[1].address, action.request());
+          const expectedMessageHash = computeAuthWitMessageHash(accounts[2].address, action.request());
 
           const witness = await wallets[0].createAuthWitness(messageHash);
           await wallets[2].addAuthWitness(witness);
@@ -869,8 +869,8 @@ describe('e2e_blacklist_token_contract', () => {
     const secret = Fr.random();
     let secretHash: Fr;
 
-    beforeAll(async () => {
-      secretHash = await computeMessageSecretHash(secret);
+    beforeAll(() => {
+      secretHash = computeMessageSecretHash(secret);
     });
 
     it('on behalf of self', async () => {
@@ -903,7 +903,7 @@ describe('e2e_blacklist_token_contract', () => {
 
       // We need to compute the message we want to sign and add it to the wallet as approved
       const action = asset.withWallet(wallets[1]).methods.shield(accounts[0].address, amount, secretHash, nonce);
-      const messageHash = await computeAuthWitMessageHash(accounts[1].address, action.request());
+      const messageHash = computeAuthWitMessageHash(accounts[1].address, action.request());
       await wallets[0].setPublicAuth(messageHash, true).send().wait();
 
       const tx = action.send();
@@ -959,7 +959,7 @@ describe('e2e_blacklist_token_contract', () => {
 
         // We need to compute the message we want to sign and add it to the wallet as approved
         const action = asset.withWallet(wallets[1]).methods.shield(accounts[0].address, amount, secretHash, nonce);
-        const messageHash = await computeAuthWitMessageHash(accounts[1].address, action.request());
+        const messageHash = computeAuthWitMessageHash(accounts[1].address, action.request());
         await wallets[0].setPublicAuth(messageHash, true).send().wait();
 
         await expect(action.simulate()).rejects.toThrowError('Assertion failed: Underflow');
@@ -973,7 +973,7 @@ describe('e2e_blacklist_token_contract', () => {
 
         // We need to compute the message we want to sign and add it to the wallet as approved
         const action = asset.withWallet(wallets[2]).methods.shield(accounts[0].address, amount, secretHash, nonce);
-        const messageHash = await computeAuthWitMessageHash(accounts[1].address, action.request());
+        const messageHash = computeAuthWitMessageHash(accounts[1].address, action.request());
         await wallets[0].setPublicAuth(messageHash, true).send().wait();
 
         await expect(action.simulate()).rejects.toThrowError('Assertion failed: Message not authorized by account');
@@ -1028,7 +1028,7 @@ describe('e2e_blacklist_token_contract', () => {
       const action = asset
         .withWallet(wallets[1])
         .methods.unshield(accounts[0].address, accounts[1].address, amount, nonce);
-      const messageHash = await computeAuthWitMessageHash(accounts[1].address, action.request());
+      const messageHash = computeAuthWitMessageHash(accounts[1].address, action.request());
 
       // Both wallets are connected to same node and PXE so we could just insert directly using
       // await wallet.signAndAddAuthWitness(messageHash, );
@@ -1097,7 +1097,7 @@ describe('e2e_blacklist_token_contract', () => {
         const action = asset
           .withWallet(wallets[1])
           .methods.unshield(accounts[0].address, accounts[1].address, amount, nonce);
-        const messageHash = await computeAuthWitMessageHash(accounts[1].address, action.request());
+        const messageHash = computeAuthWitMessageHash(accounts[1].address, action.request());
 
         // Both wallets are connected to same node and PXE so we could just insert directly using
         // await wallet.signAndAddAuthWitness(messageHash, );
@@ -1124,8 +1124,8 @@ describe('e2e_blacklist_token_contract', () => {
         const action = asset
           .withWallet(wallets[2])
           .methods.unshield(accounts[0].address, accounts[1].address, amount, nonce);
-        const messageHash = await computeAuthWitMessageHash(accounts[1].address, action.request());
-        const expectedMessageHash = await computeAuthWitMessageHash(accounts[2].address, action.request());
+        const messageHash = computeAuthWitMessageHash(accounts[1].address, action.request());
+        const expectedMessageHash = computeAuthWitMessageHash(accounts[2].address, action.request());
 
         // Both wallets are connected to same node and PXE so we could just insert directly using
         // await wallet.signAndAddAuthWitness(messageHash, );
@@ -1191,7 +1191,7 @@ describe('e2e_blacklist_token_contract', () => {
 
         // We need to compute the message we want to sign and add it to the wallet as approved
         const action = asset.withWallet(wallets[1]).methods.burn_public(accounts[0].address, amount, nonce);
-        const messageHash = await computeAuthWitMessageHash(accounts[1].address, action.request());
+        const messageHash = computeAuthWitMessageHash(accounts[1].address, action.request());
         await wallets[0].setPublicAuth(messageHash, true).send().wait();
 
         const tx = action.send();
@@ -1242,7 +1242,7 @@ describe('e2e_blacklist_token_contract', () => {
 
           // We need to compute the message we want to sign and add it to the wallet as approved
           const action = asset.withWallet(wallets[1]).methods.burn_public(accounts[0].address, amount, nonce);
-          const messageHash = await computeAuthWitMessageHash(accounts[1].address, action.request());
+          const messageHash = computeAuthWitMessageHash(accounts[1].address, action.request());
           await wallets[0].setPublicAuth(messageHash, true).send().wait();
 
           await expect(action.simulate()).rejects.toThrowError('Assertion failed: Underflow');
@@ -1256,7 +1256,7 @@ describe('e2e_blacklist_token_contract', () => {
 
           // We need to compute the message we want to sign and add it to the wallet as approved
           const action = asset.withWallet(wallets[1]).methods.burn_public(accounts[0].address, amount, nonce);
-          const messageHash = await computeAuthWitMessageHash(accounts[0].address, action.request());
+          const messageHash = computeAuthWitMessageHash(accounts[0].address, action.request());
           await wallets[0].setPublicAuth(messageHash, true).send().wait();
 
           await expect(
@@ -1294,7 +1294,7 @@ describe('e2e_blacklist_token_contract', () => {
 
         // We need to compute the message we want to sign and add it to the wallet as approved
         const action = asset.withWallet(wallets[1]).methods.burn(accounts[0].address, amount, nonce);
-        const messageHash = await computeAuthWitMessageHash(accounts[1].address, action.request());
+        const messageHash = computeAuthWitMessageHash(accounts[1].address, action.request());
 
         // Both wallets are connected to same node and PXE so we could just insert directly using
         // await wallet.signAndAddAuthWitness(messageHash, );
@@ -1351,7 +1351,7 @@ describe('e2e_blacklist_token_contract', () => {
 
           // We need to compute the message we want to sign and add it to the wallet as approved
           const action = asset.withWallet(wallets[1]).methods.burn(accounts[0].address, amount, nonce);
-          const messageHash = await computeAuthWitMessageHash(accounts[1].address, action.request());
+          const messageHash = computeAuthWitMessageHash(accounts[1].address, action.request());
 
           // Both wallets are connected to same node and PXE so we could just insert directly using
           // await wallet.signAndAddAuthWitness(messageHash, );
@@ -1376,7 +1376,7 @@ describe('e2e_blacklist_token_contract', () => {
             getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
           );
           const action = asset.withWallet(wallets[1]).methods.burn(accounts[0].address, amount, nonce);
-          const messageHash = await computeAuthWitMessageHash(accounts[1].address, action.request());
+          const messageHash = computeAuthWitMessageHash(accounts[1].address, action.request());
 
           await expect(action.simulate()).rejects.toThrowError(
             `Unknown auth witness for message hash 0x${messageHash.toString('hex')}`,
@@ -1394,8 +1394,8 @@ describe('e2e_blacklist_token_contract', () => {
             getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
           );
           const action = asset.withWallet(wallets[2]).methods.burn(accounts[0].address, amount, nonce);
-          const messageHash = await computeAuthWitMessageHash(accounts[1].address, action.request());
-          const expectedMessageHash = await computeAuthWitMessageHash(accounts[2].address, action.request());
+          const messageHash = computeAuthWitMessageHash(accounts[1].address, action.request());
+          const expectedMessageHash = computeAuthWitMessageHash(accounts[2].address, action.request());
 
           const witness = await wallets[0].createAuthWitness(messageHash);
           await wallets[2].addAuthWitness(witness);
