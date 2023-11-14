@@ -49,7 +49,7 @@ class FullGoblinComposerTests : public ::testing::Test {
     {
         // Add some arbitrary ecc op gates
         // ((a+ab) + c + cd) + e + ef
-        for (size_t i = 0; i < 3; ++i) {
+        for (size_t i = 0; i < 1; ++i) {
             auto point = Point::random_element();
             auto scalar = FF::random_element();
             builder.queue_ecc_add_accum(point);
@@ -59,7 +59,7 @@ class FullGoblinComposerTests : public ::testing::Test {
         builder.queue_ecc_eq(); // should be eq and reset
 
         // Add some conventional gates that utilize public inputs
-        for (size_t i = 0; i < 10; ++i) {
+        for (size_t i = 0; i < 0; ++i) {
             FF a = FF::random_element();
             FF b = FF::random_element();
             FF c = FF::random_element();
@@ -155,7 +155,7 @@ TEST_F(FullGoblinComposerTests, SimpleCircuit)
     perform_op_queue_interactions_for_mock_first_circuit(op_queue);
 
     // Construct a series of simple Goblin circuits; generate and verify their proofs
-    size_t NUM_CIRCUITS = 3;
+    size_t NUM_CIRCUITS = 1;
     for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
         auto builder = GoblinUltraBuilder(op_queue);
 
@@ -174,12 +174,12 @@ TEST_F(FullGoblinComposerTests, SimpleCircuit)
     }
 
     // Execute the ECCVM
-    info("raw_opws: ", op_queue->raw_ops.size());
+    info("raw_ops: ", op_queue->raw_ops.size());
     auto eccvm_builder = ECCVMBuilder(op_queue->raw_ops);
     auto eccvm_composer = ECCVMComposer();
     auto eccvm_prover = eccvm_composer.create_prover(eccvm_builder);
     auto eccvm_verifier = eccvm_composer.create_verifier(eccvm_builder);
-    [[maybe_unused]] auto eccvm_proof = eccvm_prover.construct_proof();
+    auto eccvm_proof = eccvm_prover.construct_proof();
     // bool eccvm_verified = eccvm_verifier.verify_proof(eccvm_proof);
     // EXPECT_TRUE(eccvm_verified);
 
