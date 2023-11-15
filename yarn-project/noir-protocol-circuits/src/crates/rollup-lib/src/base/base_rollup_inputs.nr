@@ -462,18 +462,18 @@ impl BaseRollupInputs {
             }
         }
 
-        // NOTE!
-        // We deviate from the cpp implementation.
-        // TODO(KEV): I'm going to modify the cpp implementation to follow this route instead.
-        // Summary:
-        // The cpp implementation optimizes for the fact that the log hashes 
-        // are actually 128 bits field elements. We can apply this optimization
-        // after, the code for it in cpp looks messy and error prone.
-        let mut hash_input_flattened = [0;CALLDATA_HASH_INPUT_SIZE * 32];
-        for offset in 0..CALLDATA_HASH_INPUT_SIZE {
+        let mut hash_input_flattened = [0; CALL_DATA_HASH_FULL_FIELDS * 32 + CALL_DATA_HASH_LOG_FIELDS * 16];
+        for offset in 0..CALL_DATA_HASH_FULL_FIELDS {
             let input_as_bytes = calldata_hash_inputs[offset].to_be_bytes(32);
             for byte_index in 0..32 {
                 hash_input_flattened[offset * 32 + byte_index] = input_as_bytes[byte_index];
+            }
+        }
+
+        for log_field_index in 0..CALL_DATA_HASH_LOG_FIELDS {
+            let input_as_bytes = calldata_hash_inputs[CALL_DATA_HASH_FULL_FIELDS + log_field_index].to_be_bytes(16);
+            for byte_index in 0..16 {
+                hash_input_flattened[CALL_DATA_HASH_FULL_FIELDS * 32 + log_field_index * 16 + byte_index] = input_as_bytes[byte_index];
             }
         }
 
@@ -588,6 +588,20 @@ fn consistent_calldata_hash_input_size() {
             NUM_UNENCRYPTED_LOGS_HASHES_PER_TX * NUM_FIELDS_PER_SHA256) * 2;
     assert(CALLDATA_HASH_INPUT_SIZE == expected_size, "calldata hash input size is incorrect");
 }
+
+global CALL_DATA_HASH_LOG_FIELDS = 8;
+#[test]
+fn consistent_call_data_hash_log_fields() {
+    assert_eq(CALL_DATA_HASH_LOG_FIELDS, NUM_ENCRYPTED_LOGS_HASHES_PER_TX * NUM_FIELDS_PER_SHA256 * 2 + 
+            NUM_UNENCRYPTED_LOGS_HASHES_PER_TX * NUM_FIELDS_PER_SHA256 * 2, "calldata hash log fields is incorrect");
+}
+
+global CALL_DATA_HASH_FULL_FIELDS = 330;
+#[test]
+fn consistent_call_data_hash_full_fields() {
+    assert_eq(CALL_DATA_HASH_FULL_FIELDS, CALLDATA_HASH_INPUT_SIZE - CALL_DATA_HASH_LOG_FIELDS, "calldata hash log fields is incorrect");
+}
+
 
 // TODO to radix returns u8, so we cannot use bigger radixes. It'd be ideal to use a radix of the maximum range-constrained integer noir supports
 fn full_field_less_than(lhs: Field, rhs: Field) -> bool {
