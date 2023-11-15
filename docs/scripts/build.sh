@@ -10,6 +10,11 @@ build_package() {
   (cd "yarn-project/$package_name" && $build_command)
 }
 
+bootstrap_barretenberg() {
+  echo "Bootstrapping barretenberg and building bb.js..."
+  (cd barretenberg && ./bootstrap.sh)
+}
+
 # Build script. If run on Netlify, first it needs to compile all yarn-projects 
 # that are involved in typedoc in order to generate their type information.
 if [ -n "$NETLIFY" ]; then
@@ -18,11 +23,8 @@ if [ -n "$NETLIFY" ]; then
   echo Working dir $(pwd)
 
   # Build bb.js
-  cd barretenberg/ts
-  yarn build
-  cd ..
-  ./bootstrap.sh
-  # Back to root
+  cd barretenberg
+  bootstrap_barretenberg
   cd ..
 
   # Make sure the latest tag is available for loading code snippets from it
