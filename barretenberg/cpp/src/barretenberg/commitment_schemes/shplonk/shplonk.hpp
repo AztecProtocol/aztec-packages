@@ -60,7 +60,6 @@ template <typename Curve> class ShplonkProver_ {
                                                std::span<const Polynomial> witness_polynomials,
                                                const Fr& nu)
     {
-        info("P shplonk nu:           ", nu);
         // Find n, the maximum size of all polynomials fⱼ(X)
         size_t max_poly_size{ 0 };
         for (const auto& poly : witness_polynomials) {
@@ -105,8 +104,6 @@ template <typename Curve> class ShplonkProver_ {
         const Fr& nu_challenge,
         const Fr& z_challenge)
     {
-        info("P shplonk nu:           ", nu_challenge);
-        info("P shplonk z :           ", z_challenge);
 
         const size_t num_opening_pairs = opening_pairs.size();
 
@@ -174,12 +171,9 @@ template <typename Curve> class ShplonkVerifier_ {
         const size_t num_claims = claims.size();
 
         const Fr nu = transcript.get_challenge("Shplonk" + suffix + ":nu");
-        info("V shplonk nu          : ", nu);
         auto Q_commitment = transcript.template receive_from_prover<Commitment>("Shplonk" + suffix + ":Q");
-        info("V shplonk Q commitment: ", Q_commitment);
 
         const Fr z_challenge = transcript.get_challenge("Shplonk" + suffix + ":z");
-        info("V shplonk z:            ", z_challenge);
 
         // [G] = [Q] - ∑ⱼ ρʲ / ( r − xⱼ )⋅[fⱼ] + G₀⋅[1]
         //     = [Q] - [∑ⱼ ρʲ ⋅ ( fⱼ(X) − vⱼ) / ( r − xⱼ )]

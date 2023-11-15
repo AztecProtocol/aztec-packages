@@ -240,7 +240,8 @@ template <typename FF> class BaseTranscript {
     template <class T> void send_to_verifier(const std::string& label, const T& element)
     {
         info("TRANSCRIPT: ", label);
-        if constexpr (std::same_as<T, grumpkin::fr> || std::same_as<T, grumpkin::g1>) {
+        if constexpr (std::same_as<T, grumpkin::fr> || std::same_as<T, grumpkin::g1::affine_element> ||
+                      std::same_as<T, uint32_t> || std::same_as<T, uint64_t>) {
             info("element: ", element);
         }
 
@@ -262,7 +263,6 @@ template <typename FF> class BaseTranscript {
      */
     template <class T> T receive_from_prover(const std::string& label)
     {
-        info("TRANSCRIPT: ", label);
         constexpr size_t element_size = sizeof(T);
         ASSERT(num_bytes_read + element_size <= proof_data.size());
 
@@ -272,7 +272,9 @@ template <typename FF> class BaseTranscript {
         BaseTranscript<FF>::consume_prover_element_bytes(label, element_bytes);
 
         T element = from_buffer<T>(element_bytes);
-        if constexpr (std::same_as<T, grumpkin::fr> || std::same_as<T, grumpkin::g1>) {
+        info("TRANSCRIPT: ", label);
+        if constexpr (std::same_as<T, grumpkin::fr> || std::same_as<T, grumpkin::g1::affine_element> ||
+                      std::same_as<T, uint32_t> || std::same_as<T, uint64_t>) {
             info("element: ", element);
         }
         return element;

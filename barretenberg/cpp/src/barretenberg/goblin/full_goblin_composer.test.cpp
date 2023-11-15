@@ -174,7 +174,6 @@ TEST_F(FullGoblinComposerTests, SimpleCircuit)
     }
 
     // Execute the ECCVM
-    // info("raw_ops: ", op_queue->raw_ops.size());
     auto eccvm_builder = ECCVMBuilder(op_queue->raw_ops);
     auto eccvm_composer = ECCVMComposer();
     auto eccvm_prover = eccvm_composer.create_prover(eccvm_builder);

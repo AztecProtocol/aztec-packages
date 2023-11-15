@@ -37,7 +37,11 @@ template <typename Curve> class IPA {
                                       const Polynomial& polynomial,
                                       BaseTranscript<Fr>& transcript)
     {
-        ASSERT(opening_pair.challenge != 0 && "The challenge point should not be zero");
+        info("IPA prover challenge: ", opening_pair.challenge);
+        info("IPA prover eval     : ", opening_pair.evaluation);
+        info("IPA prover poly cmt : ", ck->commit(polynomial));
+
+        ASSERT(opening_pair.challenge != 0 && "The challenge point should not be zero"); // why?
         auto poly_degree = static_cast<size_t>(polynomial.size());
         transcript.send_to_verifier("IPA:poly_degree", static_cast<uint64_t>(poly_degree));
         Fr generator_challenge = transcript.get_challenge("IPA:generator_challenge");
@@ -97,7 +101,6 @@ template <typename Curve> class IPA {
 
             std::string index = std::to_string(i);
             transcript.send_to_verifier("IPA:L_" + index, Commitment(L_elements[i]));
-            // info("IPA:L_" + index, Commitment(L_elements[i]));
             transcript.send_to_verifier("IPA:R_" + index, Commitment(R_elements[i]));
 
             // Generate the round challenge.
@@ -137,6 +140,10 @@ template <typename Curve> class IPA {
      */
     static bool verify(std::shared_ptr<VK> vk, const OpeningClaim<Curve>& opening_claim, BaseTranscript<Fr>& transcript)
     {
+        info("IPA verifier challenge : ", opening_claim.opening_pair.challenge);
+        info("IPA verifier eval      : ", opening_claim.opening_pair.evaluation);
+        info("IPA verifier comm      : ", opening_claim.commitment);
+
         auto poly_degree = static_cast<size_t>(transcript.template receive_from_prover<uint64_t>("IPA:poly_degree"));
         Fr generator_challenge = transcript.get_challenge("IPA:generator_challenge");
         auto aux_generator = Commitment::one() * generator_challenge;

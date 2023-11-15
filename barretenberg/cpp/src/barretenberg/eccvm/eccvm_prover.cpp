@@ -10,6 +10,8 @@
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
+#pragma GCC diagnostic ignored "-Wunused-local-typedef"
+
 namespace proof_system::honk {
 
 /**
@@ -42,6 +44,7 @@ ECCVMProver_<Flavor>::ECCVMProver_(std::shared_ptr<typename Flavor::ProvingKey> 
     prover_polynomials.transcript_z1zero = key->transcript_z1zero;
     prover_polynomials.transcript_z2zero = key->transcript_z2zero;
     prover_polynomials.transcript_op = key->transcript_op;
+    // info("extracted from key: ", prover_polynomials.transcript_op[1]);
     prover_polynomials.transcript_accumulator_x = key->transcript_accumulator_x;
     prover_polynomials.transcript_accumulator_y = key->transcript_accumulator_y;
     prover_polynomials.transcript_msm_x = key->transcript_msm_x;
@@ -319,24 +322,20 @@ template <ECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_batched_univari
  */
 template <ECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_univariate_pcs_evaluation_round()
 {
-    translation_consistency_check_output.witnesses.push_back(Polynomial(prover_polynomials.transcript_op));
-    translation_consistency_check_output.witnesses.push_back(Polynomial(prover_polynomials.transcript_Px));
-    translation_consistency_check_output.witnesses.push_back(Polynomial(prover_polynomials.transcript_Py));
-    translation_consistency_check_output.witnesses.push_back(Polynomial(prover_polynomials.transcript_z1));
-    translation_consistency_check_output.witnesses.push_back(Polynomial(prover_polynomials.transcript_z2));
+    translation_consistency_check_output.witnesses.push_back(key->transcript_op);
+    translation_consistency_check_output.witnesses.push_back(key->transcript_Px);
+    translation_consistency_check_output.witnesses.push_back(key->transcript_Py);
+    translation_consistency_check_output.witnesses.push_back(key->transcript_z1);
+    translation_consistency_check_output.witnesses.push_back(key->transcript_z2);
 
     // WORKTODO
     evaluation_challenge_x = transcript.get_challenge("Translation:evaluation_challenge_x");
-    cheat_translation_consistency_data.op =
-        Polynomial(prover_polynomials.transcript_op).evaluate(evaluation_challenge_x);
-    cheat_translation_consistency_data.Px =
-        Polynomial(prover_polynomials.transcript_Px).evaluate(evaluation_challenge_x);
-    cheat_translation_consistency_data.Py =
-        Polynomial(prover_polynomials.transcript_Py).evaluate(evaluation_challenge_x);
-    cheat_translation_consistency_data.z1 =
-        Polynomial(prover_polynomials.transcript_z1).evaluate(evaluation_challenge_x);
-    cheat_translation_consistency_data.z2 =
-        Polynomial(prover_polynomials.transcript_z2).evaluate(evaluation_challenge_x);
+    cheat_translation_consistency_data.op = key->transcript_op.evaluate(evaluation_challenge_x);
+    cheat_translation_consistency_data.Px = key->transcript_Px.evaluate(evaluation_challenge_x);
+    cheat_translation_consistency_data.Py = key->transcript_Py.evaluate(evaluation_challenge_x);
+    cheat_translation_consistency_data.z1 = key->transcript_z1.evaluate(evaluation_challenge_x);
+    cheat_translation_consistency_data.z2 = key->transcript_z2.evaluate(evaluation_challenge_x);
+    cheat_translation_consistency_data.print();
     transcript.send_to_verifier("Translation:op", cheat_translation_consistency_data.op);
     transcript.send_to_verifier("Translation:Px", cheat_translation_consistency_data.Px);
     transcript.send_to_verifier("Translation:Py", cheat_translation_consistency_data.Py);
@@ -396,8 +395,8 @@ void ECCVMProver_<Flavor>::execute_translation_consistency_check_shplonk_partial
 template <ECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_translation_consistency_check_ipa_round()
 {
     PCS::compute_opening_proof(commitment_key,
-                               translation_consistency_check_shplonk_output.opening_pair,
-                               translation_consistency_check_shplonk_output.witness,
+                               { evaluation_challenge_x, key->transcript_op.evaluate(evaluation_challenge_x) },
+                               key->transcript_op,
                                transcript);
 }
 
@@ -411,17 +410,17 @@ template <ECCVMFlavor Flavor> plonk::proof& ECCVMProver_<Flavor>::construct_proo
 {
     execute_preamble_round();
     execute_wire_commitments_round();
-    execute_log_derivative_commitments_round();
-    execute_grand_product_computation_round();
-    execute_relation_check_rounds();
-    execute_univariatization_round();
-    execute_multivariate_pcs_evaluation_round();
-    execute_batched_univariatization_shplonk_batched_quotient_round();
-    execute_batched_univariatization_shplonk_partial_evaluation_round();
-    execute_batched_univariatization_ipa_round();
+    // execute_log_derivative_commitments_round();
+    // execute_grand_product_computation_round();
+    // execute_relation_check_rounds();
+    // execute_univariatization_round();
+    // execute_multivariate_pcs_evaluation_round();
+    // execute_batched_univariatization_shplonk_batched_quotient_round();
+    // execute_batched_univariatization_shplonk_partial_evaluation_round();
+    // execute_batched_univariatization_ipa_round();
     execute_univariate_pcs_evaluation_round();
-    execute_translation_consistency_check_shplonk_batched_quotient_round();
-    execute_translation_consistency_check_shplonk_partial_evaluation_round();
+    // execute_translation_consistency_check_shplonk_batched_quotient_round();
+    // execute_translation_consistency_check_shplonk_partial_evaluation_round();
     execute_translation_consistency_check_ipa_round();
 
     return export_proof();
