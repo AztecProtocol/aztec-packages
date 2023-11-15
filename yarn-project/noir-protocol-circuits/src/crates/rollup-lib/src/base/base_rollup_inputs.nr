@@ -183,6 +183,28 @@ impl BaseRollupInputs {
         calculate_subtree(commitment_tree_leaves)
     }
 
+    unconstrained fn find_leaf_index(self, leaves: [NullifierLeafPreimage; MAX_NEW_NULLIFIERS_PER_TX * 2], nullifier: Field, nullifier_index: u64) -> u64 {
+        let mut matched = false;
+        let mut index = 0;
+        for k in 0..nullifier_index {
+            if !matched {
+                if (!leaves[k].is_empty()) {
+                    if (full_field_less_than(leaves[k].leaf_value, nullifier) &
+                    (full_field_greater_than(leaves[k].next_value, nullifier) |
+                    (leaves[k].next_value == 0))) {
+                        matched = true;
+                        index = k;
+                    }
+                }
+            }
+
+        
+        }
+        // if not matched, our subtree will misformed - we must reject
+        assert(matched, "Nullifier subtree is malformed");
+        index
+    }
+
     fn check_nullifier_tree_non_membership_and_insert_to_tree(self) -> AppendOnlyTreeSnapshot {
         // The below monologue is by Madiaa. fwiw, the plan was not simple.
         //
@@ -236,30 +258,18 @@ impl BaseRollupInputs {
                     // Assuming populated premier subtree
                     if (low_nullifier_preimage.is_empty()) {
                         // check previous nullifier leaves
-                        let mut matched = false;
-                        for k in 0..nullifier_index {
-                            if !matched {
-                                if (!nullifier_insertion_subtree[k].is_empty()) {
-                                    if (full_field_less_than(nullifier_insertion_subtree[k].leaf_value, nullifier) &
-                                    (full_field_greater_than(nullifier_insertion_subtree[k].next_value, nullifier) |
-                                    (nullifier_insertion_subtree[k].next_value == 0))) {
-                                        matched = true;
-                                        // Update pointers
-                                        new_nullifier_leaf.next_index = nullifier_insertion_subtree[k].next_index;
-                                        new_nullifier_leaf.next_value = nullifier_insertion_subtree[k].next_value;
+                        let index = self.find_leaf_index(nullifier_insertion_subtree, nullifier, nullifier_index as u64);
+                        let same_batch_nullifier = nullifier_insertion_subtree[index];
+                        assert(!same_batch_nullifier.is_empty(), "Same batch batch nullifier is empty");
+                        assert(full_field_less_than(same_batch_nullifier.leaf_value, nullifier), "Invalid hint");
+                        assert(full_field_greater_than(same_batch_nullifier.next_value, nullifier) | (same_batch_nullifier.next_value == 0), "Invalid hint");
+  
+                        new_nullifier_leaf.next_index = nullifier_insertion_subtree[index].next_index;
+                        new_nullifier_leaf.next_value = nullifier_insertion_subtree[index].next_value;
 
-                                        // Update child
-                                        nullifier_insertion_subtree[k].next_index = new_index;
-                                        nullifier_insertion_subtree[k].next_value = nullifier;
-                                    }
-                                }
-                            }
-
-                        
-                        }
-                        // if not matched, our subtree will misformed - we must reject
-                        assert(matched, "Nullifier subtree is malformed");
-
+                        // Update child
+                        nullifier_insertion_subtree[index].next_index = new_index;
+                        nullifier_insertion_subtree[index].next_value = nullifier;
                     } else {
                         let is_less_than_nullifier = full_field_less_than(low_nullifier_preimage.leaf_value, nullifier);
                         let is_next_greater_than = full_field_greater_than(low_nullifier_preimage.next_value, nullifier);
@@ -580,31 +590,11 @@ fn consistent_calldata_hash_input_size() {
 
 // TODO to radix returns u8, so we cannot use bigger radixes. It'd be ideal to use a radix of the maximum range-constrained integer noir supports
 fn full_field_less_than(lhs: Field, rhs: Field) -> bool {
-    let lhs_bytes = lhs.to_be_bytes(32);
-    let rhs_bytes = rhs.to_be_bytes(32);
-    let mut less_than = false;
-
-    for i in 0..32 {
-        if (!less_than) & (lhs_bytes[i] < rhs_bytes[i]) {
-            less_than = true;
-        }
-    }
-
-    less_than
+    dep::std::eddsa::lt_bytes32(lhs, rhs)
 }
 
 fn full_field_greater_than(lhs: Field, rhs: Field) -> bool {
-    let lhs_bytes = lhs.to_be_bytes(32);
-    let rhs_bytes = rhs.to_be_bytes(32);
-    let mut less_than = false;
-
-    for i in 0..32 {
-        if (!less_than) & (lhs_bytes[i] > rhs_bytes[i]) {
-            less_than = true;
-        }
-    }
-
-    less_than
+    dep::std::eddsa::lt_bytes32(rhs, lhs)
 }
 
 #[test]
