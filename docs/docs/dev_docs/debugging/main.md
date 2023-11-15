@@ -18,7 +18,7 @@ use dep::aztec::oracle::debug_log::{ debug_log };
 ```
 
 **Write log**
-Write `debug_log()` in the appropriate place in your contract. 
+Write `debug_log()` in the appropriate place in your contract.
 
 ```rust
 debug_log("here")
@@ -26,11 +26,10 @@ debug_log("here")
 
 **Start Sandbox in debug mode**
 
-Prepend the command to start the sandbox with `DEBUG=aztec` to log everything or `DEBUG=aztec:simulator:oracle` to only log your `debug_log()` statements.
+Prepend the command to start the sandbox with `DEBUG=aztec:*` to log everything or `DEBUG=aztec:simulator:oracle` to only log your `debug_log()` statements.
 
 ```bash
-cd ~./aztec && DEBUG=aztec docker-compose up
+cd ~./aztec && DEBUG=aztec:* docker-compose up
 ```
-
 
 <DocCardList/>
