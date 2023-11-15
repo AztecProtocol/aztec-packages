@@ -8,7 +8,7 @@ The Aztec Sandbox is an environment for local development on the Aztec Network. 
 
 Aztec's Layer 2 network is a fully programmable combined private/public ZK rollup. To achieve this, the network contains the following primary components:
 
-- Aztec Node - Aggregates all of the 'backend' services necessary for the building and publishing of rollups. This packages is currently in development and much of the functionality is mocked.
+- Aztec Node - Aggregates all of the 'backend' services necessary for the building and publishing of rollups. This package is currently in development and much of the functionality is mocked.
 - [Private Execution Environment (PXE)](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/pxe) - Normally residing with the end client, this decrypts and stores a client's private state, executes simulations and submits transactions to the Aztec Node.
 - [Aztec.js](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/aztec.js) - Aztec's client library for interacting with the PXE (think Ethers.js). See the getting started guide [here](../getting_started/aztecjs-getting-started.md).
 
@@ -36,4 +36,4 @@ The current sandbox does not generate or verify proofs, but provides a working e
 
 The Aztec CLI is a command-line tool allowing the user to interact directly with the Aztec network and sandbox.
 
-It aims to provide all of the functionality required to deploy and invoke contracts and query system state such as contract data, transactions and emitted logs.
+It aims to provide all of the functionality required to deploy, compile, and invoke contracts and query system state such as contract data, transactions and emitted logs.

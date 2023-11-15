@@ -129,6 +129,11 @@ export function mapFieldFromNoir(field: NoirField): Fr {
   return Fr.fromString(field);
 }
 
+/**
+ * Maps a number coming from noir.
+ * @param number - The field representing the number.
+ * @returns The number
+ */
 export function mapNumberFromNoir(number: NoirField): number {
   return Number(Fr.fromString(number).toBigInt());
 }
@@ -892,6 +897,11 @@ export function mapPrivateKernelInputsOrderingToNoir(
   };
 }
 
+/**
+ * Maps global variables to the noir type.
+ * @param globalVariables - The global variables.
+ * @returns The noir global variables.
+ */
 export function mapGlobalVariablesToNoir(globalVariables: GlobalVariables): GlobalVariablesNoir {
   return {
     chain_id: mapFieldToNoir(globalVariables.chainId),
@@ -901,6 +911,11 @@ export function mapGlobalVariablesToNoir(globalVariables: GlobalVariables): Glob
   };
 }
 
+/**
+ * Maps global variables from the noir type.
+ * @param globalVariables - The noir global variables.
+ * @returns The global variables.
+ */
 export function mapGlobalVariablesFromNoir(globalVariables: GlobalVariablesNoir): GlobalVariables {
   return new GlobalVariables(
     mapFieldFromNoir(globalVariables.chain_id),
@@ -910,6 +925,11 @@ export function mapGlobalVariablesFromNoir(globalVariables: GlobalVariablesNoir)
   );
 }
 
+/**
+ * Maps a constant rollup data to a noir constant rollup data.
+ * @param constantRollupData - The circuits.js constant rollup data.
+ * @returns The noir constant rollup data.
+ */
 export function mapConstantRollupDataToNoir(constantRollupData: ConstantRollupData): ConstantRollupDataNoir {
   return {
     start_historic_blocks_tree_roots_snapshot: mapAppendOnlyTreeSnapshotToNoir(
@@ -923,6 +943,11 @@ export function mapConstantRollupDataToNoir(constantRollupData: ConstantRollupDa
   };
 }
 
+/**
+ * Maps a constant rollup data from noir to the circuits.js type.
+ * @param constantRollupData - The noir constant rollup data.
+ * @returns The circuits.js constant rollup data.
+ */
 export function mapConstantRollupDataFromNoir(constantRollupData: ConstantRollupDataNoir): ConstantRollupData {
   return new ConstantRollupData(
     mapAppendOnlyTreeSnapshotFromNoir(constantRollupData.start_historic_blocks_tree_roots_snapshot),
@@ -934,6 +959,11 @@ export function mapConstantRollupDataFromNoir(constantRollupData: ConstantRollup
   );
 }
 
+/**
+ * Maps a base or merge rollup public inputs to a noir base or merge rollup public inputs.
+ * @param baseOrMergeRollupPublicInputs - The base or merge rollup public inputs.
+ * @returns The noir base or merge rollup public inputs.
+ */
 export function mapBaseOrMergeRollupPublicInputsToNoir(
   baseOrMergeRollupPublicInputs: BaseOrMergeRollupPublicInputs,
 ): BaseOrMergeRollupPublicInputsNoir {
@@ -962,6 +992,11 @@ export function mapBaseOrMergeRollupPublicInputsToNoir(
   };
 }
 
+/**
+ * Maps a base or merge rollup public inputs from noir to the circuits.js type.
+ * @param baseOrMergeRollupPublicInputs - The noir base or merge rollup public inputs.
+ * @returns The circuits.js base or merge rollup public inputs.
+ */
 export function mapBaseOrMergeRollupPublicInputsFromNoir(
   baseOrMergeRollupPublicInputs: BaseOrMergeRollupPublicInputsNoir,
 ): BaseOrMergeRollupPublicInputs {
@@ -982,6 +1017,11 @@ export function mapBaseOrMergeRollupPublicInputsFromNoir(
   );
 }
 
+/**
+ * Maps a previous rollup data from the circuits.js type to noir.
+ * @param previousRollupData - The circuits.js previous rollup data.
+ * @returns The noir previous rollup data.
+ */
 export function mapPreviousRollupDataToNoir(previousRollupData: PreviousRollupData): PreviousRollupDataNoir {
   return {
     base_or_merge_rollup_public_inputs: mapBaseOrMergeRollupPublicInputsToNoir(
@@ -997,6 +1037,11 @@ export function mapPreviousRollupDataToNoir(previousRollupData: PreviousRollupDa
   };
 }
 
+/**
+ * Maps a AOT snapshot to noir.
+ * @param snapshot - The circuits.js AOT snapshot.
+ * @returns The noir AOT snapshot.
+ */
 export function mapAppendOnlyTreeSnapshotFromNoir(snapshot: AppendOnlyTreeSnapshotNoir): AppendOnlyTreeSnapshot {
   return new AppendOnlyTreeSnapshot(
     mapFieldFromNoir(snapshot.root),
@@ -1004,6 +1049,11 @@ export function mapAppendOnlyTreeSnapshotFromNoir(snapshot: AppendOnlyTreeSnapsh
   );
 }
 
+/**
+ * Maps a AOT snapshot from noir to the circuits.js type.
+ * @param snapshot - The noir AOT snapshot.
+ * @returns The circuits.js AOT snapshot.
+ */
 export function mapAppendOnlyTreeSnapshotToNoir(snapshot: AppendOnlyTreeSnapshot): AppendOnlyTreeSnapshotNoir {
   return {
     root: mapFieldToNoir(snapshot.root),
@@ -1011,6 +1061,11 @@ export function mapAppendOnlyTreeSnapshotToNoir(snapshot: AppendOnlyTreeSnapshot
   };
 }
 
+/**
+ * Naos the root rollup inputs to noir.
+ * @param rootRollupInputs - The circuits.js root rollup inputs.
+ * @returns The noir root rollup inputs.
+ */
 export function mapRootRollupInputsToNoir(rootRollupInputs: RootRollupInputs): RootRollupInputsNoir {
   return {
     previous_rollup_data: rootRollupInputs.previousRollupData.map(mapPreviousRollupDataToNoir) as FixedLengthArray<
@@ -1033,6 +1088,11 @@ export function mapRootRollupInputsToNoir(rootRollupInputs: RootRollupInputs): R
   };
 }
 
+/**
+ * Maps a root rollup public inputs from noir.
+ * @param rootRollupPublicInputs - The noir root rollup public inputs.
+ * @returns The circuits.js root rollup public inputs.
+ */
 export function mapRootRollupPublicInputsFromNoir(
   rootRollupPublicInputs: RootRollupPublicInputsNoir,
 ): RootRollupPublicInputs {
@@ -1066,6 +1126,11 @@ export function mapRootRollupPublicInputsFromNoir(
   );
 }
 
+/**
+ * Maps the merge rollup inputs to noir.
+ * @param mergeRollupInputs - The circuits.js merge rollup inputs.
+ * @returns The noir merge rollup inputs.
+ */
 export function mapMergeRollupInputsToNoir(mergeRollupInputs: MergeRollupInputs): MergeRollupInputsNoir {
   return {
     previous_rollup_data: mergeRollupInputs.previousRollupData.map(mapPreviousRollupDataToNoir) as FixedLengthArray<

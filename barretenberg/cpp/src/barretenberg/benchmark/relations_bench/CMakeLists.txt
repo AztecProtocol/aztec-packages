@@ -2,16 +2,13 @@
 set(BENCHMARK_SOURCES
   barycentric.bench.cpp
   relations.bench.cpp
-  widget.bench.cpp
 )
 
 # Required libraries for benchmark suites
 set(LINKED_LIBRARIES
-  polynomials
   proof_system
   benchmark::benchmark
   transcript
-  stdlib_primitives
 )
 
 # Add executable and custom target for each suite, e.g. ultra_honk_bench

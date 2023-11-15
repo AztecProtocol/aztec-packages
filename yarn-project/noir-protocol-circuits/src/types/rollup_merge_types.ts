@@ -2,20 +2,17 @@
 
 /* eslint-disable */
 
-export type FixedLengthArray<T, L extends number> = L extends 0 ? never[]: T[] & { length: L }
+export type FixedLengthArray<T, L extends number> = L extends 0 ? never[] : T[] & { length: L };
 
 export type Field = string;
 export type u32 = string;
 
-export interface AggregationObject {
-}
-
+export interface AggregationObject {}
 
 export interface AppendOnlyTreeSnapshot {
   root: Field;
   next_available_leaf_index: u32;
 }
-
 
 export interface GlobalVariables {
   chain_id: Field;
@@ -23,7 +20,6 @@ export interface GlobalVariables {
   block_number: Field;
   timestamp: Field;
 }
-
 
 export interface ConstantRollupData {
   start_historic_blocks_tree_roots_snapshot: AppendOnlyTreeSnapshot;
@@ -33,13 +29,6 @@ export interface ConstantRollupData {
   merge_rollup_vk_hash: Field;
   global_variables: GlobalVariables;
 }
-
-
-
-
-
-
-
 
 export interface BaseOrMergeRollupPublicInputs {
   rollup_type: u32;
@@ -57,20 +46,14 @@ export interface BaseOrMergeRollupPublicInputs {
   calldata_hash: FixedLengthArray<Field, 2>;
 }
 
+export interface Proof {}
 
-export interface Proof {
-}
-
-
-export interface VerificationKey {
-}
-
+export interface VerificationKey {}
 
 export interface VKMembershipWitness {
   leaf_index: Field;
   sibling_path: FixedLengthArray<Field, 8>;
 }
-
 
 export interface PreviousRollupData {
   base_or_merge_rollup_public_inputs: BaseOrMergeRollupPublicInputs;
@@ -80,11 +63,9 @@ export interface PreviousRollupData {
   vk_sibling_path: VKMembershipWitness;
 }
 
-
 export interface MergeRollupInputs {
   previous_rollup_data: FixedLengthArray<PreviousRollupData, 2>;
 }
-
 
 export type ReturnType = BaseOrMergeRollupPublicInputs;
 
