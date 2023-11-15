@@ -92,7 +92,7 @@ impl BaseRollupInputs {
         );
 
         // Insert contract subtrees:
-        let  empty_contracts_subtree_root = calculate_empty_tree_root(CONTRACT_SUBTREE_HEIGHT);
+        let empty_contracts_subtree_root = calculate_empty_tree_root(CONTRACT_SUBTREE_HEIGHT);
         let end_contract_tree_snapshot = components::insert_subtree_to_snapshot_tree(
             self.start_contract_tree_snapshot,
             self.new_contracts_subtree_sibling_path,
@@ -138,9 +138,8 @@ impl BaseRollupInputs {
             let new_contracts = self.kernel_data[i].public_inputs.end.new_contracts;
 
             // loop over the new contracts
-            // TODO(Madiaa): NOTE: we are currently assuming that there is only going to be one
-            for i in 0..new_contracts.len() {
-                let leaf_preimage = new_contracts[i];
+            for j in 0..new_contracts.len() {
+                let leaf_preimage = new_contracts[j];
                 // When there is no contract deployment, we should insert a zero leaf into the tree and ignore the
                 // member-ship check. This is to ensure that we don't hit "already deployed" errors when we are not
                 // deploying contracts. e.g., when we are only calling functions on existing contracts.
@@ -149,8 +148,7 @@ impl BaseRollupInputs {
                 } else {    
                     leaf_preimage.hash()
                 };
-
-                contract_leaves[i] = to_push;
+                contract_leaves[i*new_contracts.len() + j] = to_push;
             }
         }
 
@@ -205,7 +203,8 @@ impl BaseRollupInputs {
         index
     }
 
-    fn check_nullifier_tree_non_membership_and_insert_to_tree(self) -> AppendOnlyTreeSnapshot {
+    // TODO this should be done in circuit. Ideally using the sorting strategy.
+    unconstrained fn check_nullifier_tree_non_membership_and_insert_to_tree(self) -> AppendOnlyTreeSnapshot {
         // The below monologue is by Madiaa. fwiw, the plan was not simple.
         //
         // LADIES AND GENTLEMEN The P L A N ( is simple )
@@ -348,7 +347,8 @@ impl BaseRollupInputs {
         calculate_subtree(leaves.map(|leaf:NullifierLeafPreimage| leaf.hash()))
     }
 
-    fn validate_and_process_public_state(self) -> Field {
+    // TODO this should be changed to append only and done in-circuit
+    unconstrained fn validate_and_process_public_state(self) -> Field {
         // TODO(#2521) - data read validation should happen against the current state of the tx and not the start state.
         // Blocks all interesting usecases that read and write to the same public state in the same tx.
         // https://aztecprotocol.slack.com/archives/C02M7VC7TN0/p1695809629015719?thread_ts=1695653252.007339&cid=C02M7VC7TN0
@@ -394,6 +394,7 @@ impl BaseRollupInputs {
 
     // Computes the calldata hash for a base rollup
     // TODO(Kev): move this into components module
+    // TODO(Alvaro): This is too slow for brillig without the array optimization
     fn components_compute_kernel_calldata_hash(kernel_data : [PreviousKernelData; KERNELS_PER_BASE_ROLLUP]) -> [Field; NUM_FIELDS_PER_SHA256]{
         // Compute calldata hashes
         // Consist of 2 kernels
