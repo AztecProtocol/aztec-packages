@@ -7,6 +7,8 @@ import {
   PrivateKernelInputsInner,
   PrivateKernelInputsOrdering,
   PublicKernelInputs,
+  RootRollupInputs,
+  RootRollupPublicInputs,
 } from '@aztec/circuits.js';
 import { NoirCompiledCircuit } from '@aztec/noir-compiler';
 
@@ -23,6 +25,7 @@ import PublicKernelPrivatePreviousJson from './target/public_kernel_private_prev
 import PublicKernelPrivatePreviousSimulatedJson from './target/public_kernel_private_previous_simulated.json' assert { type: 'json' };
 import PublicKernelPublicPreviousJson from './target/public_kernel_public_previous.json' assert { type: 'json' };
 import PublicKernelPublicPreviousSimulatedJson from './target/public_kernel_public_previous_simulated.json' assert { type: 'json' };
+import MergeRollupJson from './target/rollup_merge.json' assert { type: 'json' };
 import RootRollupJson from './target/rollup_root.json' assert { type: 'json' };
 import {
   mapBaseOrMergeRollupPublicInputsFromNoir,
@@ -43,7 +46,7 @@ import {
   InputType as OrderingInputType,
 } from './types/private_kernel_ordering_types.js';
 import { InputType as PublicPrivatePreviousInputType } from './types/public_kernel_private_previous_types.js';
-import { InputType as MergeRollupInputType } from './types/rollup_merge_types.js';
+import { InputType as MergeRollupInputType, ReturnType as MergeRollupReturnType } from './types/rollup_merge_types.js';
 import { InputType as RootRollupInputType, ReturnType as RootRollupReturnType } from './types/rollup_root_types.js';
 
 // TODO(Tom): This should be exported from noirc_abi
