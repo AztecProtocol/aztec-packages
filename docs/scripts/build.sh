@@ -23,9 +23,7 @@ if [ -n "$NETLIFY" ]; then
   echo Working dir $(pwd)
 
   # Build bb.js
-  cd barretenberg
   bootstrap_barretenberg
-  cd ..
 
   # Make sure the latest tag is available for loading code snippets from it
   LAST_TAG="aztec-packages-v$(jq -r '.["."]' .release-please-manifest.json)"
