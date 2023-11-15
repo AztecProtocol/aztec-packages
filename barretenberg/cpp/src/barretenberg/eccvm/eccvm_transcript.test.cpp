@@ -54,8 +54,8 @@ template <typename Flavor> class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "TRANSCRIPT_MSM_TRANSITION", size_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_PC", size_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_MSM_COUNT", size_G);
-        manifest_expected.add_entry(round, "TRANSCRIPT_X", size_G);
-        manifest_expected.add_entry(round, "TRANSCRIPT_Y", size_G);
+        manifest_expected.add_entry(round, "TRANSCRIPT_PX", size_G);
+        manifest_expected.add_entry(round, "TRANSCRIPT_PY", size_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_Z1", size_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_Z2", size_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_Z1ZERO", size_G);
@@ -329,7 +329,7 @@ TYPED_TEST(ECCVMTranscriptTests, StructureTest)
 
     typename Flavor::Commitment one_group_val = Flavor::Commitment::one();
     typename Flavor::FF rand_val = Flavor::FF::random_element();
-    prover.transcript.transcript_x_comm = one_group_val * rand_val; // choose random object to modify
+    prover.transcript.transcript_Px_comm = one_group_val * rand_val; // choose random object to modify
     EXPECT_TRUE(verifier.verify_proof(
         prover.export_proof())); // we have not serialized it back to the proof so it should still be fine
 
@@ -337,5 +337,5 @@ TYPED_TEST(ECCVMTranscriptTests, StructureTest)
     EXPECT_FALSE(verifier.verify_proof(prover.export_proof())); // the proof is now wrong after serializing it
 
     prover.transcript.deserialize_full_transcript();
-    EXPECT_EQ(static_cast<typename Flavor::Commitment>(prover.transcript.transcript_x_comm), one_group_val * rand_val);
+    EXPECT_EQ(static_cast<typename Flavor::Commitment>(prover.transcript.transcript_Px_comm), one_group_val * rand_val);
 }

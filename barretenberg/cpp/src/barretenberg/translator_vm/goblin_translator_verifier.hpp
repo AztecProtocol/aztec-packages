@@ -1,6 +1,6 @@
 #pragma once
 #include "barretenberg/flavor/goblin_translator.hpp"
-#include "barretenberg/goblin/translation_consistency_data.hpp"
+#include "barretenberg/goblin/cheat_translation_consistency_data.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
@@ -11,7 +11,7 @@ template <typename Flavor> class GoblinTranslatorVerifier_ {
     using Commitment = typename Flavor::Commitment;
     using VerificationKey = typename Flavor::VerificationKey;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
-    using GoblinTranslationConsistencyData = barretenberg::GoblinTranslationConsistencyData;
+    using CheatGoblinTranslationConsistencyData = barretenberg::CheatGoblinTranslationConsistencyData;
 
   public:
     explicit GoblinTranslatorVerifier_(std::shared_ptr<VerificationKey> verifier_key = nullptr);
@@ -21,7 +21,8 @@ template <typename Flavor> class GoblinTranslatorVerifier_ {
     GoblinTranslatorVerifier_& operator=(GoblinTranslatorVerifier_&& other) noexcept;
     ~GoblinTranslatorVerifier_() = default;
 
-    bool verify_proof(const plonk::proof& proof, const GoblinTranslationConsistencyData& translation_consistency_data);
+    bool verify_proof(const plonk::proof& proof,
+                      const CheatGoblinTranslationConsistencyData& cheat_translation_consistency_data);
     BF evaluation_input_x = 0;
     BF batching_challenge_v = 0;
     std::shared_ptr<VerificationKey> key;

@@ -260,7 +260,6 @@ template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_preambl
                                                         uint256_t(key->accumulators_binary_limbs_1[1]) * SHIFT +
                                                         uint256_t(key->accumulators_binary_limbs_2[1]) * SHIFTx2 +
                                                         uint256_t(key->accumulators_binary_limbs_3[1]) * SHIFTx3);
-    info("accumulated_result: ", accumulated_result);
     transcript.send_to_verifier("circuit_size", circuit_size);
     transcript.send_to_verifier("evaluation_input_x", key->evaluation_input_x);
     transcript.send_to_verifier("batching_challenge_v", key->batching_challenge_v);

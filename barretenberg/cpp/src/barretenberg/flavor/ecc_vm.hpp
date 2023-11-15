@@ -113,8 +113,8 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
         DataType& transcript_msm_transition    = std::get<4>(this->_data);
         DataType& transcript_pc                = std::get<5>(this->_data);
         DataType& transcript_msm_count         = std::get<6>(this->_data);
-        DataType& transcript_x                 = std::get<7>(this->_data);
-        DataType& transcript_y                 = std::get<8>(this->_data);
+        DataType& transcript_Px                 = std::get<7>(this->_data);
+        DataType& transcript_Py                 = std::get<8>(this->_data);
         DataType& transcript_z1                = std::get<9>(this->_data);
         DataType& transcript_z2                = std::get<10>(this->_data);
         DataType& transcript_z1zero            = std::get<11>(this->_data); 
@@ -194,8 +194,8 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
                 transcript_msm_transition,
                 transcript_pc,
                 transcript_msm_count,
-                transcript_x,
-                transcript_y,
+                transcript_Px,
+                transcript_Py,
                 transcript_z1,
                 transcript_z2,
                 transcript_z1zero,
@@ -290,8 +290,8 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
         DataType& transcript_msm_transition          = std::get<7>(this->_data);
         DataType& transcript_pc                      = std::get<8>(this->_data);
         DataType& transcript_msm_count               = std::get<9>(this->_data);
-        DataType& transcript_x                       = std::get<10>(this->_data);
-        DataType& transcript_y                       = std::get<11>(this->_data);
+        DataType& transcript_Px                       = std::get<10>(this->_data);
+        DataType& transcript_Py                       = std::get<11>(this->_data);
         DataType& transcript_z1                      = std::get<12>(this->_data);
         DataType& transcript_z2                      = std::get<13>(this->_data);
         DataType& transcript_z1zero                  = std::get<14>(this->_data); 
@@ -404,8 +404,8 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
                 transcript_msm_transition,
                 transcript_pc,
                 transcript_msm_count,
-                transcript_x,
-                transcript_y,
+                transcript_Px,
+                transcript_Py,
                 transcript_z1,
                 transcript_z2,
                 transcript_z1zero,
@@ -484,8 +484,8 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
                 transcript_eq,                // 4
                 transcript_collision_check,   // 5
                 transcript_msm_transition,    // 6
-                transcript_x,                 // 7
-                transcript_y,                 // 8
+                transcript_Px,                // 7
+                transcript_Py,                // 8
                 transcript_z1,                // 9
                 transcript_z2,                // 10
                 transcript_z1zero,            // 11
@@ -766,8 +766,8 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
             Base::transcript_msm_transition = "TRANSCRIPT_MSM_TRANSITION";
             Base::transcript_pc = "TRANSCRIPT_PC";
             Base::transcript_msm_count = "TRANSCRIPT_MSM_COUNT";
-            Base::transcript_x = "TRANSCRIPT_X";
-            Base::transcript_y = "TRANSCRIPT_Y";
+            Base::transcript_Px = "transcript_Px";
+            Base::transcript_Py = "transcript_Py";
             Base::transcript_z1 = "TRANSCRIPT_Z1";
             Base::transcript_z2 = "TRANSCRIPT_Z2";
             Base::transcript_z1zero = "TRANSCRIPT_Z1ZERO";
@@ -871,8 +871,8 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
         Commitment transcript_msm_transition_comm;
         Commitment transcript_pc_comm;
         Commitment transcript_msm_count_comm;
-        Commitment transcript_x_comm;
-        Commitment transcript_y_comm;
+        Commitment transcript_Px_comm;
+        Commitment transcript_Py_comm;
         Commitment transcript_z1_comm;
         Commitment transcript_z2_comm;
         Commitment transcript_z1zero_comm;
@@ -979,9 +979,9 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
                 BaseTranscript<FF>::proof_data, num_bytes_read);
             transcript_msm_count_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
                 BaseTranscript<FF>::proof_data, num_bytes_read);
-            transcript_x_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+            transcript_Px_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
                 BaseTranscript<FF>::proof_data, num_bytes_read);
-            transcript_y_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
+            transcript_Py_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
                 BaseTranscript<FF>::proof_data, num_bytes_read);
             transcript_z1_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
                 BaseTranscript<FF>::proof_data, num_bytes_read);
@@ -1171,8 +1171,8 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
                                                              BaseTranscript<FF>::proof_data);
             BaseTranscript<FF>::template serialize_to_buffer(transcript_pc_comm, BaseTranscript<FF>::proof_data);
             BaseTranscript<FF>::template serialize_to_buffer(transcript_msm_count_comm, BaseTranscript<FF>::proof_data);
-            BaseTranscript<FF>::template serialize_to_buffer(transcript_x_comm, BaseTranscript<FF>::proof_data);
-            BaseTranscript<FF>::template serialize_to_buffer(transcript_y_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(transcript_Px_comm, BaseTranscript<FF>::proof_data);
+            BaseTranscript<FF>::template serialize_to_buffer(transcript_Py_comm, BaseTranscript<FF>::proof_data);
             BaseTranscript<FF>::template serialize_to_buffer(transcript_z1_comm, BaseTranscript<FF>::proof_data);
             BaseTranscript<FF>::template serialize_to_buffer(transcript_z2_comm, BaseTranscript<FF>::proof_data);
             BaseTranscript<FF>::template serialize_to_buffer(transcript_z1zero_comm, BaseTranscript<FF>::proof_data);

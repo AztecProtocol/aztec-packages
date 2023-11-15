@@ -116,7 +116,7 @@
   "typescript.enablePromptUseWorkspaceTsdk": true,
   "[cpp]": {
     // doesn't conflict with barratenberg.code-workspace settings.
-    "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd"
+    "editor.defaultFormatter": "xaver.clang-format"
   },
   "[terraform]": {
     "editor.defaultFormatter": "hashicorp.terraform"
@@ -128,5 +128,5 @@
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
   "cmake.sourceDirectory": "${workspaceFolder}/cpp",
-  "clangd.path": "/Users/cody/Library/Application Support/Code/User/globalStorage/llvm-vs-code-extensions.vscode-clangd/install/16.0.2/clangd_16.0.2/bin/clangdrere"
+  "clangd.path": "/usr/bin/clangd-16"
 }

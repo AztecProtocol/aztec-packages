@@ -83,7 +83,7 @@
         // Clangd. Note that this setting may be overridden by  user settings
         // to the default value "clangd".
         //
-        "clangd.path": "/Users/cody/Library/Application Support/Code/User/globalStorage/llvm-vs-code-extensions.vscode-clangd/install/16.0.2/clangd_16.0.2/bin/clangd",
+        "clangd.path": "/usr/bin/clangd-16",
         // We should disable automatic inclusion of headers unless we decide to follow "WhyIWYU".
         "clangd.arguments": [
             "-header-insertion=never"

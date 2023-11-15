@@ -2,7 +2,7 @@
 #include "barretenberg/commitment_schemes/gemini/gemini.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
 #include "barretenberg/flavor/ecc_vm.hpp"
-#include "barretenberg/goblin/translation_consistency_data.hpp"
+#include "barretenberg/goblin/cheat_translation_consistency_data.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
@@ -24,7 +24,7 @@ template <ECCVMFlavor Flavor> class ECCVMProver_ {
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using Curve = typename Flavor::Curve;
     using Transcript = typename Flavor::Transcript;
-    using GoblinTranslationConsistencyData = barretenberg::GoblinTranslationConsistencyData;
+    using CheatGoblinTranslationConsistencyData = barretenberg::CheatGoblinTranslationConsistencyData;
 
   public:
     explicit ECCVMProver_(std::shared_ptr<ProvingKey> input_key, std::shared_ptr<PCSCommitmentKey> commitment_key);
@@ -35,10 +35,11 @@ template <ECCVMFlavor Flavor> class ECCVMProver_ {
     void execute_grand_product_computation_round();
     void execute_relation_check_rounds();
     void execute_univariatization_round();
-    void execute_pcs_evaluation_round();
+    void execute_multivariate_pcs_evaluation_round();
     void execute_batched_univariatization_shplonk_batched_quotient_round();
     void execute_batched_univariatization_shplonk_partial_evaluation_round();
     void execute_batched_univariatization_ipa_round();
+    void execute_univariate_pcs_evaluation_round();
     void execute_translation_consistency_check_shplonk_batched_quotient_round();
     void execute_translation_consistency_check_shplonk_partial_evaluation_round();
     void execute_translation_consistency_check_ipa_round();
@@ -48,7 +49,7 @@ template <ECCVMFlavor Flavor> class ECCVMProver_ {
 
     Transcript transcript;
 
-    GoblinTranslationConsistencyData translation_consistency_data;
+    CheatGoblinTranslationConsistencyData cheat_translation_consistency_data;
 
     std::vector<FF> public_inputs;
 
@@ -68,13 +69,13 @@ template <ECCVMFlavor Flavor> class ECCVMProver_ {
 
     Polynomial batched_univariatization_batched_quotient_Q;      // batched quotient poly computed by Shplonk
     Polynomial translation_consistency_check_batched_quotient_Q; // batched quotient poly computed by Shplonk
-    FF nu_challenge;                                             // needed in both Shplonk rounds
+    FF nu_challenge;                                             // needed in all Shplonk rounds
 
     Polynomial quotient_W;
 
     sumcheck::SumcheckOutput<Flavor> sumcheck_output;
     pcs::gemini::ProverOutput<Curve> gemini_output;
-    pcs::gemini::ProverOutput<Curve> translation_consistency_check_data; // WORKTODO: move this struct
+    pcs::gemini::ProverOutput<Curve> translation_consistency_check_output; // WORKTODO: move this struct
     pcs::shplonk::ProverOutput<Curve> batched_univariatization_shplonk_output;
     pcs::shplonk::ProverOutput<Curve> translation_consistency_check_shplonk_output;
     std::shared_ptr<PCSCommitmentKey> commitment_key;

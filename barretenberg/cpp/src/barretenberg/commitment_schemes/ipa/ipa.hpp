@@ -97,6 +97,7 @@ template <typename Curve> class IPA {
 
             std::string index = std::to_string(i);
             transcript.send_to_verifier("IPA:L_" + index, Commitment(L_elements[i]));
+            // info("IPA:L_" + index, Commitment(L_elements[i]));
             transcript.send_to_verifier("IPA:R_" + index, Commitment(R_elements[i]));
 
             // Generate the round challenge.

@@ -1,5 +1,5 @@
 #include "barretenberg/eccvm/eccvm_composer.hpp"
-#include "barretenberg/goblin/translation_consistency_data.hpp"
+#include "barretenberg/goblin/cheat_translation_consistency_data.hpp"
 #include "barretenberg/proof_system/circuit_builder/eccvm/eccvm_circuit_builder.hpp"
 #include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
@@ -36,7 +36,7 @@ class FullGoblinComposerTests : public ::testing::Test {
     using TranslatorFlavor = flavor::GoblinTranslator;
     using TranslatorBuilder = proof_system::GoblinTranslatorCircuitBuilder;
     using TranslatorComposer = GoblinTranslatorComposer_<TranslatorFlavor>;
-    using TranslatorConsistencyData = barretenberg::GoblinTranslationConsistencyData;
+    using TranslatorConsistencyData = barretenberg::CheatGoblinTranslationConsistencyData;
 
     static constexpr size_t NUM_OP_QUEUE_COLUMNS = flavor::GoblinUltra::NUM_WIRES;
 
@@ -174,14 +174,14 @@ TEST_F(FullGoblinComposerTests, SimpleCircuit)
     }
 
     // Execute the ECCVM
-    info("raw_ops: ", op_queue->raw_ops.size());
+    // info("raw_ops: ", op_queue->raw_ops.size());
     auto eccvm_builder = ECCVMBuilder(op_queue->raw_ops);
     auto eccvm_composer = ECCVMComposer();
     auto eccvm_prover = eccvm_composer.create_prover(eccvm_builder);
     auto eccvm_verifier = eccvm_composer.create_verifier(eccvm_builder);
     auto eccvm_proof = eccvm_prover.construct_proof();
-    // bool eccvm_verified = eccvm_verifier.verify_proof(eccvm_proof);
-    // EXPECT_TRUE(eccvm_verified);
+    bool eccvm_verified = eccvm_verifier.verify_proof(eccvm_proof);
+    EXPECT_TRUE(eccvm_verified);
 
     // Execute the Translator
     auto batching_challenge = Fbase::random_element();
@@ -193,7 +193,7 @@ TEST_F(FullGoblinComposerTests, SimpleCircuit)
     auto translator_verifier = translator_composer.create_verifier(translator_builder);
     auto translator_proof = translator_prover.construct_proof();
     bool translator_verified =
-        translator_verifier.verify_proof(translator_proof, eccvm_prover.translation_consistency_data);
+        translator_verifier.verify_proof(translator_proof, eccvm_prover.cheat_translation_consistency_data);
     EXPECT_TRUE(translator_verified);
 }
 
