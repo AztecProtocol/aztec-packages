@@ -32,4 +32,11 @@ Prepend the command to start the sandbox with `DEBUG=aztec:*` to log everything 
 cd ~./aztec && DEBUG=aztec:* docker-compose up
 ```
 
+Alternatively you can update the `DEBUG` environment variable in docker-compose.yml and start the sandbox normally.
+
+```yml
+environment:
+  DEBUG: aztec:*
+```
+
 <DocCardList/>
