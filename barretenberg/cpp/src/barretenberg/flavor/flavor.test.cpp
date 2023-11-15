@@ -14,22 +14,22 @@ TEST(Flavor, Getters)
     using FF = Flavor::FF;
     using ProvingKey = typename Flavor::ProvingKey;
 
-    ProvingKey proving_key = []() { return Flavor::ProvingKey(/*circuit_size=*/4, /*num_public_inputs=*/0); }();
+    Flavor::ProvingKey proving_key{ /*circuit_size=*/4, /*num_public_inputs=*/0 };
 
     // set
     size_t coset_idx = 0;
     for (auto& id_poly : proving_key.get_id_polynomials()) {
-        typename Flavor::Polynomial new_poly(proving_key.circuit_size);
-        for (size_t i = 0; i < proving_key.circuit_size; ++i) {
-            id_poly[i] = coset_idx * proving_key.circuit_size + i;
+        typename Flavor::Polynomial new_poly(proving_key.get_circuit_size());
+        for (size_t i = 0; i < proving_key.get_circuit_size(); ++i) {
+            id_poly[i] = coset_idx * proving_key.get_circuit_size() + i;
         }
         ++coset_idx;
     }
 
     // Polynomials in the proving key can be set through loops over subsets produced by the getters
-    EXPECT_EQ(proving_key.id_1[0], FF(0));
-    EXPECT_EQ(proving_key.id_2[0], FF(4));
-    EXPECT_EQ(proving_key.id_3[0], FF(8));
+    EXPECT_EQ(proving_key.precomputed.id_1[0], FF(0));
+    EXPECT_EQ(proving_key.precomputed.id_2[0], FF(4));
+    EXPECT_EQ(proving_key.precomputed.id_3[0], FF(8));
 
     Flavor::VerificationKey verification_key;
     Flavor::ProverPolynomials prover_polynomials;

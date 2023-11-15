@@ -31,7 +31,7 @@ ECCVMProver_<Flavor> ECCVMComposer_<Flavor>::create_prover(CircuitConstructor& c
 {
     compute_proving_key(circuit_constructor);
     compute_witness(circuit_constructor);
-    compute_commitment_key(proving_key->circuit_size);
+    compute_commitment_key(proving_key->get_circuit_size());
 
     ECCVMProver_<Flavor> output_state(proving_key, commitment_key);
 
@@ -78,10 +78,10 @@ std::shared_ptr<typename Flavor::ProvingKey> ECCVMComposer_<Flavor>::compute_pro
 
     compute_first_and_last_lagrange_polynomials<Flavor>(proving_key.get());
     {
-        const size_t n = proving_key->circuit_size;
+        const size_t n = proving_key->get_circuit_size();
         typename Flavor::Polynomial lagrange_polynomial_second(n);
         lagrange_polynomial_second[1] = 1;
-        proving_key->lagrange_second = lagrange_polynomial_second;
+        proving_key->precomputed.lagrange_second = lagrange_polynomial_second;
     }
 
     proving_key->contains_recursive_proof = false;
@@ -106,12 +106,12 @@ std::shared_ptr<typename Flavor::VerificationKey> ECCVMComposer_<Flavor>::comput
         compute_proving_key(circuit_constructor);
     }
 
-    verification_key =
-        std::make_shared<typename Flavor::VerificationKey>(proving_key->circuit_size, proving_key->num_public_inputs);
+    verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_circuit_size(),
+                                                                          proving_key->get_num_public_inputs());
 
-    verification_key->lagrange_first = commitment_key->commit(proving_key->lagrange_first);
-    verification_key->lagrange_second = commitment_key->commit(proving_key->lagrange_second);
-    verification_key->lagrange_last = commitment_key->commit(proving_key->lagrange_last);
+    verification_key->lagrange_first = commitment_key->commit(proving_key->precomputed.lagrange_first);
+    verification_key->lagrange_second = commitment_key->commit(proving_key->precomputed.lagrange_second);
+    verification_key->lagrange_last = commitment_key->commit(proving_key->precomputed.lagrange_last);
     return verification_key;
 }
 template class ECCVMComposer_<honk::flavor::ECCVM>;

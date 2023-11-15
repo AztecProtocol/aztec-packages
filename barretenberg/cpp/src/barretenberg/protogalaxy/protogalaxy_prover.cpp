@@ -10,15 +10,15 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepa
         instance->initialise_prover_polynomials();
 
         auto domain_separator = std::to_string(idx);
-        const auto circuit_size = static_cast<uint32_t>(instance->proving_key->circuit_size);
-        const auto num_public_inputs = static_cast<uint32_t>(instance->proving_key->num_public_inputs);
+        const auto circuit_size = static_cast<uint32_t>(instance->proving_key->get_circuit_size());
+        const auto num_public_inputs = static_cast<uint32_t>(instance->proving_key->get_num_public_inputs());
 
         transcript.send_to_verifier(domain_separator + "_circuit_size", circuit_size);
         transcript.send_to_verifier(domain_separator + "_public_input_size", num_public_inputs);
         transcript.send_to_verifier(domain_separator + "_pub_inputs_offset",
                                     static_cast<uint32_t>(instance->pub_inputs_offset));
 
-        for (size_t i = 0; i < instance->proving_key->num_public_inputs; ++i) {
+        for (size_t i = 0; i < instance->proving_key->get_num_public_inputs(); ++i) {
             auto public_input_i = instance->public_inputs[i];
             transcript.send_to_verifier(domain_separator + "_public_input_" + std::to_string(i), public_input_i);
         }

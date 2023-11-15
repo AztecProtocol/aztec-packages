@@ -47,7 +47,7 @@ TEST(proving_key, proving_key_from_serialized_key)
 
     // Check equality of other proving_key_data data
     EXPECT_EQ(p_key.circuit_type, proving_key->circuit_type);
-    EXPECT_EQ(p_key.circuit_size, proving_key->circuit_size);
+    EXPECT_EQ(p_key.circuit_size, proving_key->get_circuit_size());
     EXPECT_EQ(p_key.num_public_inputs, proving_key->num_public_inputs);
     EXPECT_EQ(p_key.contains_recursive_proof, proving_key->contains_recursive_proof);
 }
@@ -84,7 +84,7 @@ TEST(proving_key, proving_key_from_serialized_key_ultra)
 
     // Check equality of other proving_key_data data
     EXPECT_EQ(p_key.circuit_type, proving_key->circuit_type);
-    EXPECT_EQ(p_key.circuit_size, proving_key->circuit_size);
+    EXPECT_EQ(p_key.circuit_size, proving_key->get_circuit_size());
     EXPECT_EQ(p_key.num_public_inputs, proving_key->num_public_inputs);
     EXPECT_EQ(p_key.contains_recursive_proof, proving_key->contains_recursive_proof);
 }

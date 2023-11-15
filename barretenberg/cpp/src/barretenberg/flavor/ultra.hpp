@@ -326,7 +326,7 @@ class Ultra {
         // The plookup wires that store plookup read data.
         std::array<PolynomialHandle, 3> get_table_column_wires()
         {
-            return { witness_polynomials.w_l, witness_polynomials.w_r, witness_polynomials.w_o };
+            return { witnesses.w_l, witnesses.w_r, witnesses.w_o };
         };
     };
 

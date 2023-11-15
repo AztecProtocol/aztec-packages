@@ -90,28 +90,28 @@ template <class FF> class GrandProductTests : public testing::Test {
         };
 
         typename Flavor::ProverPolynomials prover_polynomials;
-        prover_polynomials.w_l = proving_key->w_l;
-        prover_polynomials.w_r = proving_key->w_r;
-        prover_polynomials.w_o = proving_key->w_o;
-        prover_polynomials.q_m = proving_key->q_m;
-        prover_polynomials.q_l = proving_key->q_l;
-        prover_polynomials.q_r = proving_key->q_r;
-        prover_polynomials.q_o = proving_key->q_o;
-        prover_polynomials.q_c = proving_key->q_c;
-        prover_polynomials.sigma_1 = proving_key->sigma_1;
-        prover_polynomials.sigma_2 = proving_key->sigma_2;
-        prover_polynomials.sigma_3 = proving_key->sigma_3;
-        prover_polynomials.id_1 = proving_key->id_1;
-        prover_polynomials.id_2 = proving_key->id_2;
-        prover_polynomials.id_3 = proving_key->id_3;
-        prover_polynomials.lagrange_first = proving_key->lagrange_first;
-        prover_polynomials.lagrange_last = proving_key->lagrange_last;
+        prover_polynomials.w_l = proving_key->witnesses.w_l;
+        prover_polynomials.w_r = proving_key->witnesses.w_r;
+        prover_polynomials.w_o = proving_key->witnesses.w_o;
+        prover_polynomials.q_m = proving_key->precomputed.q_m;
+        prover_polynomials.q_l = proving_key->precomputed.q_l;
+        prover_polynomials.q_r = proving_key->precomputed.q_r;
+        prover_polynomials.q_o = proving_key->precomputed.q_o;
+        prover_polynomials.q_c = proving_key->precomputed.q_c;
+        prover_polynomials.sigma_1 = proving_key->precomputed.sigma_1;
+        prover_polynomials.sigma_2 = proving_key->precomputed.sigma_2;
+        prover_polynomials.sigma_3 = proving_key->precomputed.sigma_3;
+        prover_polynomials.id_1 = proving_key->precomputed.id_1;
+        prover_polynomials.id_2 = proving_key->precomputed.id_2;
+        prover_polynomials.id_3 = proving_key->precomputed.id_3;
+        prover_polynomials.lagrange_first = proving_key->precomputed.lagrange_first;
+        prover_polynomials.lagrange_last = proving_key->precomputed.lagrange_last;
         if constexpr (Flavor::NUM_WIRES == 4) {
-            prover_polynomials.w_4 = proving_key->w_4;
-            prover_polynomials.sigma_4 = proving_key->sigma_4;
-            prover_polynomials.id_4 = proving_key->id_4;
+            prover_polynomials.w_4 = proving_key->witnesses.w_4;
+            prover_polynomials.sigma_4 = proving_key->precomputed.sigma_4;
+            prover_polynomials.id_4 = proving_key->precomputed.id_4;
         }
-        prover_polynomials.z_perm = proving_key->z_perm;
+        prover_polynomials.z_perm = proving_key->witnesses.z_perm;
 
         // Method 1: Compute z_perm using 'compute_grand_product_polynomial' as the prover would in practice
         constexpr size_t PERMUTATION_RELATION_INDEX = 0;
@@ -121,7 +121,7 @@ template <class FF> class GrandProductTests : public testing::Test {
         using RHS = typename proof_system::UltraPermutationRelation<FF>;
         static_assert(std::same_as<LHS, RHS>);
         grand_product_library::compute_grand_product<Flavor, RHS>(
-            proving_key->circuit_size, prover_polynomials, params);
+            proving_key->get_circuit_size(), prover_polynomials, params);
 
         // Method 2: Compute z_perm locally using the simplest non-optimized syntax possible. The comment below,
         // which describes the computation in 4 steps, is adapted from a similar comment in
@@ -153,7 +153,7 @@ template <class FF> class GrandProductTests : public testing::Test {
         std::array<std::array<FF, num_gates>, Flavor::NUM_WIRES> denominator_accum;
 
         // Step (1)
-        for (size_t i = 0; i < proving_key->circuit_size; ++i) {
+        for (size_t i = 0; i < proving_key->get_circuit_size(); ++i) {
             for (size_t k = 0; k < Flavor::NUM_WIRES; ++k) {
                 numerator_accum[k][i] = wires[k][i] + (ids[k][i] * beta) + gamma;      // w_k(i) + β.id_k(i) + γ
                 denominator_accum[k][i] = wires[k][i] + (sigmas[k][i] * beta) + gamma; // w_k(i) + β.σ_k(i) + γ
@@ -162,14 +162,14 @@ template <class FF> class GrandProductTests : public testing::Test {
 
         // Step (2)
         for (size_t k = 0; k < Flavor::NUM_WIRES; ++k) {
-            for (size_t i = 0; i < proving_key->circuit_size - 1; ++i) {
+            for (size_t i = 0; i < proving_key->get_circuit_size() - 1; ++i) {
                 numerator_accum[k][i + 1] *= numerator_accum[k][i];
                 denominator_accum[k][i + 1] *= denominator_accum[k][i];
             }
         }
 
         // Step (3)
-        for (size_t i = 0; i < proving_key->circuit_size; ++i) {
+        for (size_t i = 0; i < proving_key->get_circuit_size(); ++i) {
             for (size_t k = 1; k < Flavor::NUM_WIRES; ++k) {
                 numerator_accum[0][i] *= numerator_accum[k][i];
                 denominator_accum[0][i] *= denominator_accum[k][i];
@@ -177,15 +177,15 @@ template <class FF> class GrandProductTests : public testing::Test {
         }
 
         // Step (4)
-        Polynomial z_permutation_expected(proving_key->circuit_size);
+        Polynomial z_permutation_expected(proving_key->get_circuit_size());
         z_permutation_expected[0] = FF::zero(); // Z_0 = 1
         // Note: in practice, we replace this expensive element-wise division with Montgomery batch inversion
-        for (size_t i = 0; i < proving_key->circuit_size - 1; ++i) {
+        for (size_t i = 0; i < proving_key->get_circuit_size() - 1; ++i) {
             z_permutation_expected[i + 1] = numerator_accum[0][i] / denominator_accum[0][i];
         }
 
         // Check consistency between locally computed z_perm and the one computed by the prover library
-        EXPECT_EQ(proving_key->z_perm, z_permutation_expected);
+        EXPECT_EQ(proving_key->witnesses.z_perm, z_permutation_expected);
     };
 
     /**
@@ -237,12 +237,12 @@ template <class FF> class GrandProductTests : public testing::Test {
         auto lookup_index_selector = get_random_polynomial(circuit_size);
         auto lookup_selector = get_random_polynomial(circuit_size);
 
-        proving_key->sorted_accum = sorted_batched;
-        populate_span(proving_key->q_r, column_1_step_size);
-        populate_span(proving_key->q_m, column_2_step_size);
-        populate_span(proving_key->q_c, column_3_step_size);
-        populate_span(proving_key->q_o, lookup_index_selector);
-        populate_span(proving_key->q_lookup, lookup_selector);
+        proving_key->witnesses.sorted_accum = sorted_batched;
+        populate_span(proving_key->precomputed.q_r, column_1_step_size);
+        populate_span(proving_key->precomputed.q_m, column_2_step_size);
+        populate_span(proving_key->precomputed.q_c, column_3_step_size);
+        populate_span(proving_key->precomputed.q_o, lookup_index_selector);
+        populate_span(proving_key->precomputed.q_lookup, lookup_selector);
 
         // Get random challenges
         auto beta = FF::random_element();
@@ -258,29 +258,29 @@ template <class FF> class GrandProductTests : public testing::Test {
         };
 
         Flavor::ProverPolynomials prover_polynomials;
-        prover_polynomials.w_l = proving_key->w_l;
-        prover_polynomials.w_r = proving_key->w_r;
-        prover_polynomials.w_o = proving_key->w_o;
-        prover_polynomials.w_l_shift = proving_key->w_l.shifted();
-        prover_polynomials.w_r_shift = proving_key->w_r.shifted();
-        prover_polynomials.w_o_shift = proving_key->w_o.shifted();
-        prover_polynomials.sorted_accum = proving_key->sorted_accum;
-        prover_polynomials.sorted_accum_shift = proving_key->sorted_accum.shifted();
-        prover_polynomials.table_1 = proving_key->table_1;
-        prover_polynomials.table_2 = proving_key->table_2;
-        prover_polynomials.table_3 = proving_key->table_3;
-        prover_polynomials.table_4 = proving_key->table_4;
-        prover_polynomials.table_1_shift = proving_key->table_1.shifted();
-        prover_polynomials.table_2_shift = proving_key->table_2.shifted();
-        prover_polynomials.table_3_shift = proving_key->table_3.shifted();
-        prover_polynomials.table_4_shift = proving_key->table_4.shifted();
-        prover_polynomials.q_m = proving_key->q_m;
-        prover_polynomials.q_r = proving_key->q_r;
-        prover_polynomials.q_o = proving_key->q_o;
-        prover_polynomials.q_c = proving_key->q_c;
-        prover_polynomials.q_lookup = proving_key->q_lookup;
-        prover_polynomials.z_perm = proving_key->z_perm;
-        prover_polynomials.z_lookup = proving_key->z_lookup;
+        prover_polynomials.w_l = proving_key->witnesses.w_l;
+        prover_polynomials.w_r = proving_key->witnesses.w_r;
+        prover_polynomials.w_o = proving_key->witnesses.w_o;
+        prover_polynomials.w_l_shift = proving_key->witnesses.w_l.shifted();
+        prover_polynomials.w_r_shift = proving_key->witnesses.w_r.shifted();
+        prover_polynomials.w_o_shift = proving_key->witnesses.w_o.shifted();
+        prover_polynomials.sorted_accum = proving_key->witnesses.sorted_accum;
+        prover_polynomials.sorted_accum_shift = proving_key->witnesses.sorted_accum.shifted();
+        prover_polynomials.table_1 = proving_key->precomputed.table_1;
+        prover_polynomials.table_2 = proving_key->precomputed.table_2;
+        prover_polynomials.table_3 = proving_key->precomputed.table_3;
+        prover_polynomials.table_4 = proving_key->precomputed.table_4;
+        prover_polynomials.table_1_shift = proving_key->precomputed.table_1.shifted();
+        prover_polynomials.table_2_shift = proving_key->precomputed.table_2.shifted();
+        prover_polynomials.table_3_shift = proving_key->precomputed.table_3.shifted();
+        prover_polynomials.table_4_shift = proving_key->precomputed.table_4.shifted();
+        prover_polynomials.q_m = proving_key->precomputed.q_m;
+        prover_polynomials.q_r = proving_key->precomputed.q_r;
+        prover_polynomials.q_o = proving_key->precomputed.q_o;
+        prover_polynomials.q_c = proving_key->precomputed.q_c;
+        prover_polynomials.q_lookup = proving_key->precomputed.q_lookup;
+        prover_polynomials.z_perm = proving_key->witnesses.z_perm;
+        prover_polynomials.z_lookup = proving_key->witnesses.z_lookup;
 
         // Method 1: Compute z_lookup using the prover library method
         constexpr size_t LOOKUP_RELATION_INDEX = 1;
@@ -288,7 +288,7 @@ template <class FF> class GrandProductTests : public testing::Test {
         using RHS = proof_system::LookupRelation<FF>;
         static_assert(std::same_as<LHS, RHS>);
         grand_product_library::compute_grand_product<Flavor, RHS>(
-            proving_key->circuit_size, prover_polynomials, params);
+            proving_key->get_circuit_size(), prover_polynomials, params);
 
         // Method 2: Compute the lookup grand product polynomial Z_lookup:
         //
@@ -360,7 +360,7 @@ template <class FF> class GrandProductTests : public testing::Test {
             z_lookup_expected[i + 1] = accumulators[0][i] / accumulators[3][i];
         }
 
-        EXPECT_EQ(proving_key->z_lookup, z_lookup_expected);
+        EXPECT_EQ(proving_key->witnesses.z_lookup, z_lookup_expected);
     };
 };
 

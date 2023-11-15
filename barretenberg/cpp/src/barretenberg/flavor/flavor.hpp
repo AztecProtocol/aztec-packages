@@ -147,26 +147,36 @@ template <typename PrecomputedPolynomials, typename WitnessPolynomials> class Pr
     using Polynomial = typename PrecomputedPolynomials::DataType;
     using FF = typename Polynomial::FF;
 
-    PrecomputedPolynomials precomputed_polynomials;
-    WitnessPolynomials witness_polynomials;
+    PrecomputedPolynomials precomputed;
+    WitnessPolynomials witnesses;
 
     bool contains_recursive_proof;
     std::vector<uint32_t> recursive_proof_public_input_indices;
-    barretenberg::EvaluationDomain<FF> evaluation_domain;
+    barretenberg::EvaluationDomain<FF> evaluation_domain{};
 
-    ProvingKey_() = default;
+    auto get_wires() { return witnesses.get_wires(); }
+    size_t get_circuit_size() const { return precomputed.circuit_size; }
+    size_t get_log_circuit_size() const { return precomputed.log_circuit_size; }
+    size_t get_num_public_inputs() const { return precomputed.num_public_inputs; }
+    auto get_sorted_polynomials() { return witnesses.get_sorted_polynomials(); }
+    auto get_selectors() { return precomputed.get_selectors(); }
+    auto get_table_polynomials() { return precomputed.get_table_polynomials(); }
+    auto get_sigma_polynomials() { return precomputed.get_sigma_polynomials(); }
+    auto get_id_polynomials() { return precomputed.get_id_polynomials(); }
+    auto get_ecc_op_wires() { return witnesses.get_ecc_op_wires(); }
+
     ProvingKey_(const size_t circuit_size, const size_t num_public_inputs)
+        : evaluation_domain{ circuit_size, circuit_size }
     {
-        this->evaluation_domain = barretenberg::EvaluationDomain<FF>(circuit_size, circuit_size);
-        precomputed_polynomials.circuit_size = circuit_size;
-        this->log_circuit_size = numeric::get_msb(circuit_size);
-        this->num_public_inputs = num_public_inputs;
+        precomputed.circuit_size = circuit_size;
+        precomputed.log_circuit_size = numeric::get_msb(circuit_size);
+        precomputed.num_public_inputs = num_public_inputs;
         // Allocate memory for precomputed polynomials
-        for (auto* poly : precomputed_polynomials.pointer_view()) {
+        for (auto* poly : precomputed.pointer_view()) {
             *poly = Polynomial(circuit_size);
         }
         // Allocate memory for witness polynomials
-        for (auto* poly : witness_polynomials.pointer_view()) {
+        for (auto* poly : witnesses.pointer_view()) {
             *poly = Polynomial(circuit_size);
         }
     };

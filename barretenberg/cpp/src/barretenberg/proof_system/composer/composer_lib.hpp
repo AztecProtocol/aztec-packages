@@ -31,22 +31,22 @@ void construct_selector_polynomials(const typename Flavor::CircuitBuilder& circu
         gate_offset += num_ecc_op_gates;
         const size_t op_gate_offset = zero_row_offset;
         // The op gate selector is simply the indicator on the domain [offset, num_ecc_op_gates + offset - 1]
-        barretenberg::polynomial ecc_op_selector(proving_key->circuit_size);
+        barretenberg::polynomial ecc_op_selector(proving_key->get_circuit_size());
         for (size_t i = 0; i < num_ecc_op_gates; ++i) {
             ecc_op_selector[i + op_gate_offset] = 1;
         }
-        proving_key->lagrange_ecc_op = ecc_op_selector;
+        proving_key->precomputed.lagrange_ecc_op = ecc_op_selector;
     }
 
     // TODO(#398): Loose coupling here! Would rather build up pk from arithmetization
     if constexpr (IsHonkFlavor<Flavor>) {
         for (auto [poly_ptr, selector_values] :
-             zip_view(proving_key->precomputed_polynomials.pointer_view(), circuit_constructor.selectors.get())) {
-            ASSERT(proving_key->circuit_size >= selector_values.size());
+             zip_view(proving_key->precomputed.pointer_view(), circuit_constructor.selectors.get())) {
+            ASSERT(proving_key->get_circuit_size() >= selector_values.size());
 
             // Copy the selector values for all gates, keeping the rows at which we store public inputs as 0.
             // Initializing the polynomials in this way automatically applies 0-padding to the selectors.
-            typename Flavor::Polynomial selector_poly_lagrange(proving_key->circuit_size);
+            typename Flavor::Polynomial selector_poly_lagrange(proving_key->get_circuit_size());
             for (size_t i = 0; i < selector_values.size(); ++i) {
                 selector_poly_lagrange[i + gate_offset] = selector_values[i];
             }

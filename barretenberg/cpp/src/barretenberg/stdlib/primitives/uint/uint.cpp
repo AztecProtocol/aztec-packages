@@ -34,27 +34,26 @@ std::vector<uint32_t> uint<Builder, Native>::constrain_accumulators(Builder* con
 }
 
 template <typename Builder, typename Native>
-uint<Builder, Native>::uint(const witness_t<Builder>& witness)
-    : context(witness.context)
+uint<Builder, Native>::uint(const witness_t<Builder>& other)
+    : context(other.context)
     , additive_constant(0)
     , witness_status(WitnessStatus::OK)
     , accumulators(constrain_accumulators(
-          context, witness.witness_index, width, "uint: range constraint fails in constructor of uint from witness"))
+          context, other.witness_index, width, "uint: range constraint fails in constructor of uint from witness"))
     , witness_index(accumulators[num_accumulators() - 1])
 {}
 
 template <typename Builder, typename Native>
-uint<Builder, Native>::uint(const field_t<Builder>& value)
-    : context(value.context)
+uint<Builder, Native>::uint(const field_t<Builder>& other)
+    : context(other.context)
     , additive_constant(0)
     , witness_status(WitnessStatus::OK)
-    , accumulators()
     , witness_index(IS_CONSTANT)
 {
-    if (value.witness_index == IS_CONSTANT) {
-        additive_constant = value.additive_constant;
+    if (other.witness_index == IS_CONSTANT) {
+        additive_constant = other.additive_constant;
     } else {
-        field_t<Builder> norm = value.normalize();
+        field_t<Builder> norm = other.normalize();
         accumulators = constrain_accumulators(
             context, norm.witness_index, width, "uint: range constraint fails in constructor of uint from field_t");
         witness_index = accumulators[num_accumulators() - 1];

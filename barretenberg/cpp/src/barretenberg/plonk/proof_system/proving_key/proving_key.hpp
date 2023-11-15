@@ -55,6 +55,9 @@ struct proving_key {
 
     void init();
 
+    // getter for compatibility with other proving key structures
+    size_t get_circuit_size() const { return circuit_size; }
+
     CircuitType circuit_type;
     size_t circuit_size;
     size_t log_circuit_size;

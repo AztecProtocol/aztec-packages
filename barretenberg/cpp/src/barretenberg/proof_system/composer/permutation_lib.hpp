@@ -185,12 +185,12 @@ PermutationMapping<Flavor::NUM_WIRES> compute_permutation_mapping(
     // Initialize the table of permutations so that every element points to itself
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/391) zip
     for (size_t i = 0; i < Flavor::NUM_WIRES; ++i) {
-        mapping.sigmas[i].reserve(proving_key->circuit_size);
+        mapping.sigmas[i].reserve(proving_key->get_circuit_size());
         if constexpr (generalized) {
-            mapping.ids[i].reserve(proving_key->circuit_size);
+            mapping.ids[i].reserve(proving_key->get_circuit_size());
         }
 
-        for (size_t j = 0; j < proving_key->circuit_size; ++j) {
+        for (size_t j = 0; j < proving_key->get_circuit_size(); ++j) {
             mapping.sigmas[i].emplace_back(permutation_subgroup_element{ .row_index = static_cast<uint32_t>(j),
                                                                          .column_index = static_cast<uint8_t>(i),
                                                                          .is_public_input = false,
@@ -285,7 +285,7 @@ void compute_honk_style_permutation_lagrange_polynomials_from_mapping(
     typename Flavor::ProvingKey* proving_key)
 {
     using FF = typename Flavor::FF;
-    const size_t num_gates = proving_key->circuit_size;
+    const size_t num_gates = proving_key->get_circuit_size();
 
     size_t wire_index = 0;
     for (auto& current_permutation_poly : permutation_polynomials) {
@@ -471,14 +471,14 @@ void compute_standard_plonk_sigma_permutations(const typename Flavor::CircuitBui
  */
 template <typename Flavor> inline void compute_first_and_last_lagrange_polynomials(auto proving_key)
 {
-    const size_t n = proving_key->circuit_size;
+    const size_t n = proving_key->get_circuit_size();
     typename Flavor::Polynomial lagrange_polynomial_0(n);
     typename Flavor::Polynomial lagrange_polynomial_n_min_1(n);
     lagrange_polynomial_0[0] = 1;
-    proving_key->lagrange_first = lagrange_polynomial_0;
+    proving_key->precomputed.lagrange_first = lagrange_polynomial_0;
 
     lagrange_polynomial_n_min_1[n - 1] = 1;
-    proving_key->lagrange_last = lagrange_polynomial_n_min_1;
+    proving_key->precomputed.lagrange_last = lagrange_polynomial_n_min_1;
 }
 
 /**

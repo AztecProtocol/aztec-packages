@@ -233,7 +233,7 @@ TEST_F(RelationCorrectnessTests, UltraRelationCorrectness)
     auto composer = UltraComposer();
     auto instance = composer.create_instance(builder);
     auto proving_key = instance->proving_key;
-    auto circuit_size = proving_key->circuit_size;
+    auto circuit_size = proving_key->get_circuit_size();
 
     // Generate eta, beta and gamma
     FF eta = FF::random_element();
@@ -245,11 +245,11 @@ TEST_F(RelationCorrectnessTests, UltraRelationCorrectness)
     instance->compute_grand_product_polynomials(beta, gamma);
 
     // Check that selectors are nonzero to ensure corresponding relation has nontrivial contribution
-    ensure_non_zero(proving_key->q_arith);
-    ensure_non_zero(proving_key->q_sort);
-    ensure_non_zero(proving_key->q_lookup);
-    ensure_non_zero(proving_key->q_elliptic);
-    ensure_non_zero(proving_key->q_aux);
+    ensure_non_zero(proving_key->precomputed.q_arith);
+    ensure_non_zero(proving_key->precomputed.q_sort);
+    ensure_non_zero(proving_key->precomputed.q_lookup);
+    ensure_non_zero(proving_key->precomputed.q_elliptic);
+    ensure_non_zero(proving_key->precomputed.q_aux);
 
     // Construct the round for applying sumcheck relations and results for storing computed results
     using Relations = typename Flavor::Relations;
@@ -286,7 +286,7 @@ TEST_F(RelationCorrectnessTests, GoblinUltraRelationCorrectness)
     auto composer = GoblinUltraComposer();
     auto instance = composer.create_instance(builder);
     auto proving_key = instance->proving_key;
-    auto circuit_size = proving_key->circuit_size;
+    auto circuit_size = proving_key->get_circuit_size();
 
     // Generate eta, beta and gamma
     FF eta = FF::random_element();
@@ -298,11 +298,11 @@ TEST_F(RelationCorrectnessTests, GoblinUltraRelationCorrectness)
     instance->compute_grand_product_polynomials(beta, gamma);
 
     // Check that selectors are nonzero to ensure corresponding relation has nontrivial contribution
-    ensure_non_zero(proving_key->q_arith);
-    ensure_non_zero(proving_key->q_sort);
-    ensure_non_zero(proving_key->q_lookup);
-    ensure_non_zero(proving_key->q_elliptic);
-    ensure_non_zero(proving_key->q_aux);
+    ensure_non_zero(proving_key->precomputed.q_arith);
+    ensure_non_zero(proving_key->precomputed.q_sort);
+    ensure_non_zero(proving_key->precomputed.q_lookup);
+    ensure_non_zero(proving_key->precomputed.q_elliptic);
+    ensure_non_zero(proving_key->precomputed.q_aux);
 
     // Construct the round for applying sumcheck relations and results for storing computed results
     using Relations = typename Flavor::Relations;

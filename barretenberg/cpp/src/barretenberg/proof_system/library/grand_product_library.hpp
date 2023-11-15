@@ -158,10 +158,11 @@ void compute_grand_products(std::shared_ptr<typename Flavor::ProvingKey>& key,
         // For example, for LookupRelation, this will be `full_polynomials.z_lookup`
         barretenberg::Polynomial<FF>& full_polynomial =
             GrandProdRelation::get_grand_product_polynomial(full_polynomials);
-        auto& key_polynomial = GrandProdRelation::get_grand_product_polynomial(*key);
+        auto& key_polynomial = GrandProdRelation::get_grand_product_polynomial(key->witnesses);
         full_polynomial = key_polynomial;
 
-        compute_grand_product<Flavor, GrandProdRelation>(key->circuit_size, full_polynomials, relation_parameters);
+        compute_grand_product<Flavor, GrandProdRelation>(
+            key->get_circuit_size(), full_polynomials, relation_parameters);
         barretenberg::Polynomial<FF>& full_polynomial_shift =
             GrandProdRelation::get_shifted_grand_product_polynomial(full_polynomials);
         full_polynomial_shift = key_polynomial.shifted();

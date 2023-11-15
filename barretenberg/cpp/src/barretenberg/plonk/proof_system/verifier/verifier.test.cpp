@@ -36,13 +36,13 @@ plonk::Verifier generate_verifier(std::shared_ptr<proving_key> circuit_proving_k
         commitments[i] = g1::affine_element(
             scalar_multiplication::pippenger<curve::BN254>(poly_coefficients[i].get(),
                                                            circuit_proving_key->reference_string->get_monomial_points(),
-                                                           circuit_proving_key->circuit_size,
+                                                           circuit_proving_key->get_circuit_size(),
                                                            state));
     }
 
     auto crs = std::make_shared<barretenberg::srs::factories::FileVerifierCrs<curve::BN254>>("../srs_db/ignition");
     std::shared_ptr<verification_key> circuit_verification_key =
-        std::make_shared<verification_key>(circuit_proving_key->circuit_size,
+        std::make_shared<verification_key>(circuit_proving_key->get_circuit_size(),
                                            circuit_proving_key->num_public_inputs,
                                            crs,
                                            circuit_proving_key->circuit_type);

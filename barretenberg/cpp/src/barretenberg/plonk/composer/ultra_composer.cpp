@@ -378,7 +378,7 @@ std::shared_ptr<proving_key> UltraComposer::compute_proving_key(CircuitBuilder& 
 
     compute_plonk_generalized_sigma_permutations<Flavor>(circuit_constructor, circuit_proving_key.get());
 
-    const size_t subgroup_size = circuit_proving_key->circuit_size;
+    const size_t subgroup_size = circuit_proving_key->get_circuit_size();
 
     polynomial poly_q_table_column_1(subgroup_size);
     polynomial poly_q_table_column_2(subgroup_size);
@@ -508,7 +508,7 @@ void UltraComposer::add_table_column_selector_poly_to_proving_key(polynomial& se
     selector_poly_lagrange_form.ifft(circuit_proving_key->small_domain);
     auto& selector_poly_coeff_form = selector_poly_lagrange_form;
 
-    polynomial selector_poly_coset_form(selector_poly_coeff_form, circuit_proving_key->circuit_size * 4);
+    polynomial selector_poly_coset_form(selector_poly_coeff_form, circuit_proving_key->get_circuit_size() * 4);
     selector_poly_coset_form.coset_fft(circuit_proving_key->large_domain);
 
     circuit_proving_key->polynomial_store.put(tag, std::move(selector_poly_coeff_form));

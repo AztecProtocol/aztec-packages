@@ -242,7 +242,7 @@ TYPED_TEST(ECCVMTranscriptTests, ProverManifestConsistency)
 
     // Check that the prover generated manifest agrees with the manifest hard coded in this suite
     auto manifest_expected =
-        this->construct_eccvm_honk_manifest(prover.key->circuit_size, prover.shplonk_output.witness.size());
+        this->construct_eccvm_honk_manifest(prover.key->get_circuit_size(), prover.shplonk_output.witness.size());
     auto prover_manifest = prover.transcript.get_manifest();
 
     // Note: a manifest can be printed using manifest.print()

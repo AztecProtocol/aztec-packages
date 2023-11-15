@@ -34,30 +34,30 @@ TEST_F(ComposerLibTests, ConstructSelectors)
         offset += 1;
     }
 
-    EXPECT_EQ(proving_key.q_m[0 + offset], 1);
-    EXPECT_EQ(proving_key.q_m[1 + offset], 2);
-    EXPECT_EQ(proving_key.q_m[2 + offset], 3);
-    EXPECT_EQ(proving_key.q_m[3 + offset], 4);
+    EXPECT_EQ(proving_key.precomputed.q_m[0 + offset], 1);
+    EXPECT_EQ(proving_key.precomputed.q_m[1 + offset], 2);
+    EXPECT_EQ(proving_key.precomputed.q_m[2 + offset], 3);
+    EXPECT_EQ(proving_key.precomputed.q_m[3 + offset], 4);
 
-    EXPECT_EQ(proving_key.q_l[0 + offset], 5);
-    EXPECT_EQ(proving_key.q_l[1 + offset], 6);
-    EXPECT_EQ(proving_key.q_l[2 + offset], 7);
-    EXPECT_EQ(proving_key.q_l[3 + offset], 8);
+    EXPECT_EQ(proving_key.precomputed.q_l[0 + offset], 5);
+    EXPECT_EQ(proving_key.precomputed.q_l[1 + offset], 6);
+    EXPECT_EQ(proving_key.precomputed.q_l[2 + offset], 7);
+    EXPECT_EQ(proving_key.precomputed.q_l[3 + offset], 8);
 
-    EXPECT_EQ(proving_key.q_r[0 + offset], 9);
-    EXPECT_EQ(proving_key.q_r[1 + offset], 10);
-    EXPECT_EQ(proving_key.q_r[2 + offset], 11);
-    EXPECT_EQ(proving_key.q_r[3 + offset], 12);
+    EXPECT_EQ(proving_key.precomputed.q_r[0 + offset], 9);
+    EXPECT_EQ(proving_key.precomputed.q_r[1 + offset], 10);
+    EXPECT_EQ(proving_key.precomputed.q_r[2 + offset], 11);
+    EXPECT_EQ(proving_key.precomputed.q_r[3 + offset], 12);
 
-    EXPECT_EQ(proving_key.q_o[0 + offset], 13);
-    EXPECT_EQ(proving_key.q_o[1 + offset], 14);
-    EXPECT_EQ(proving_key.q_o[2 + offset], 15);
-    EXPECT_EQ(proving_key.q_o[3 + offset], 16);
+    EXPECT_EQ(proving_key.precomputed.q_o[0 + offset], 13);
+    EXPECT_EQ(proving_key.precomputed.q_o[1 + offset], 14);
+    EXPECT_EQ(proving_key.precomputed.q_o[2 + offset], 15);
+    EXPECT_EQ(proving_key.precomputed.q_o[3 + offset], 16);
 
-    EXPECT_EQ(proving_key.q_c[0 + offset], 17);
-    EXPECT_EQ(proving_key.q_c[1 + offset], 18);
-    EXPECT_EQ(proving_key.q_c[2 + offset], 19);
-    EXPECT_EQ(proving_key.q_c[3 + offset], 20);
+    EXPECT_EQ(proving_key.precomputed.q_c[0 + offset], 17);
+    EXPECT_EQ(proving_key.precomputed.q_c[1 + offset], 18);
+    EXPECT_EQ(proving_key.precomputed.q_c[2 + offset], 19);
+    EXPECT_EQ(proving_key.precomputed.q_c[3 + offset], 20);
 }
 
 } // namespace proof_system::test_composer_lib

@@ -54,10 +54,10 @@ template <class Flavor> void ProverInstance_<Flavor>::compute_witness(Circuit& c
     // Construct the conventional wire polynomials
     auto wire_polynomials = construct_wire_polynomials_base<Flavor>(circuit, dyadic_circuit_size);
 
-    proving_key->w_l = wire_polynomials[0];
-    proving_key->w_r = wire_polynomials[1];
-    proving_key->w_o = wire_polynomials[2];
-    proving_key->w_4 = wire_polynomials[3];
+    proving_key->witnesses.w_l = wire_polynomials[0];
+    proving_key->witnesses.w_r = wire_polynomials[1];
+    proving_key->witnesses.w_o = wire_polynomials[2];
+    proving_key->witnesses.w_4 = wire_polynomials[3];
 
     // If Goblin, construct the ECC op queue wire and databus polynomials
     if constexpr (IsGoblinFlavor<Flavor>) {
@@ -125,10 +125,10 @@ template <class Flavor> void ProverInstance_<Flavor>::compute_witness(Circuit& c
 
     // Polynomial memory is zeroed out when constructed with size hint, so we don't have to initialize trailing
     // space
-    proving_key->sorted_1 = s_1;
-    proving_key->sorted_2 = s_2;
-    proving_key->sorted_3 = s_3;
-    proving_key->sorted_4 = s_4;
+    proving_key->witnesses.sorted_1 = s_1;
+    proving_key->witnesses.sorted_2 = s_2;
+    proving_key->witnesses.sorted_3 = s_3;
+    proving_key->witnesses.sorted_4 = s_4;
 
     // Copy memory read/write record data into proving key. Prover needs to know which gates contain a read/write
     // 'record' witness on the 4th wire. This wire value can only be fully computed once the first 3 wire
@@ -179,10 +179,10 @@ template <class Flavor> void ProverInstance_<Flavor>::construct_ecc_op_wire_poly
         }
     }
 
-    proving_key->ecc_op_wire_1 = op_wire_polynomials[0];
-    proving_key->ecc_op_wire_2 = op_wire_polynomials[1];
-    proving_key->ecc_op_wire_3 = op_wire_polynomials[2];
-    proving_key->ecc_op_wire_4 = op_wire_polynomials[3];
+    proving_key->witnesses.ecc_op_wire_1 = op_wire_polynomials[0];
+    proving_key->witnesses.ecc_op_wire_2 = op_wire_polynomials[1];
+    proving_key->witnesses.ecc_op_wire_3 = op_wire_polynomials[2];
+    proving_key->witnesses.ecc_op_wire_4 = op_wire_polynomials[3];
 }
 
 /**
@@ -205,8 +205,8 @@ void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit)
         calldata_read_counts[idx + offset] = circuit.get_variable(circuit.calldata_read_counts[idx]);
     }
 
-    proving_key->calldata = public_calldata;
-    proving_key->calldata_read_counts = calldata_read_counts;
+    proving_key->witnesses.calldata = public_calldata;
+    proving_key->witnesses.calldata_read_counts = calldata_read_counts;
 }
 
 template <class Flavor>
@@ -263,10 +263,10 @@ std::shared_ptr<typename Flavor::ProvingKey> ProverInstance_<Flavor>::compute_pr
     // Polynomial memory is zeroed out when constructed with size hint, so we don't have to initialize trailing
     // space
 
-    proving_key->table_1 = poly_q_table_column_1;
-    proving_key->table_2 = poly_q_table_column_2;
-    proving_key->table_3 = poly_q_table_column_3;
-    proving_key->table_4 = poly_q_table_column_4;
+    proving_key->precomputed.table_1 = poly_q_table_column_1;
+    proving_key->precomputed.table_2 = poly_q_table_column_2;
+    proving_key->precomputed.table_3 = poly_q_table_column_3;
+    proving_key->precomputed.table_4 = poly_q_table_column_4;
 
     proving_key->recursive_proof_public_input_indices =
         std::vector<uint32_t>(recursive_proof_public_input_indices.begin(), recursive_proof_public_input_indices.end());
@@ -282,53 +282,53 @@ std::shared_ptr<typename Flavor::ProvingKey> ProverInstance_<Flavor>::compute_pr
 
 template <class Flavor> void ProverInstance_<Flavor>::initialise_prover_polynomials()
 {
-    prover_polynomials.q_c = proving_key->q_c;
-    prover_polynomials.q_l = proving_key->q_l;
-    prover_polynomials.q_r = proving_key->q_r;
-    prover_polynomials.q_o = proving_key->q_o;
-    prover_polynomials.q_m = proving_key->q_m;
-    prover_polynomials.sigma_1 = proving_key->sigma_1;
-    prover_polynomials.sigma_2 = proving_key->sigma_2;
-    prover_polynomials.sigma_3 = proving_key->sigma_3;
-    prover_polynomials.id_1 = proving_key->id_1;
-    prover_polynomials.id_2 = proving_key->id_2;
-    prover_polynomials.id_3 = proving_key->id_3;
-    prover_polynomials.lagrange_first = proving_key->lagrange_first;
-    prover_polynomials.lagrange_last = proving_key->lagrange_last;
-    prover_polynomials.w_l = proving_key->w_l;
-    prover_polynomials.w_r = proving_key->w_r;
-    prover_polynomials.w_o = proving_key->w_o;
+    prover_polynomials.q_c = proving_key->precomputed.q_c;
+    prover_polynomials.q_l = proving_key->precomputed.q_l;
+    prover_polynomials.q_r = proving_key->precomputed.q_r;
+    prover_polynomials.q_o = proving_key->precomputed.q_o;
+    prover_polynomials.q_m = proving_key->precomputed.q_m;
+    prover_polynomials.sigma_1 = proving_key->precomputed.sigma_1;
+    prover_polynomials.sigma_2 = proving_key->precomputed.sigma_2;
+    prover_polynomials.sigma_3 = proving_key->precomputed.sigma_3;
+    prover_polynomials.id_1 = proving_key->precomputed.id_1;
+    prover_polynomials.id_2 = proving_key->precomputed.id_2;
+    prover_polynomials.id_3 = proving_key->precomputed.id_3;
+    prover_polynomials.lagrange_first = proving_key->precomputed.lagrange_first;
+    prover_polynomials.lagrange_last = proving_key->precomputed.lagrange_last;
+    prover_polynomials.w_l = proving_key->witnesses.w_l;
+    prover_polynomials.w_r = proving_key->witnesses.w_r;
+    prover_polynomials.w_o = proving_key->witnesses.w_o;
 
-    prover_polynomials.q_4 = proving_key->q_4;
-    prover_polynomials.q_arith = proving_key->q_arith;
-    prover_polynomials.q_sort = proving_key->q_sort;
-    prover_polynomials.q_elliptic = proving_key->q_elliptic;
-    prover_polynomials.q_aux = proving_key->q_aux;
-    prover_polynomials.q_lookup = proving_key->q_lookup;
-    prover_polynomials.sigma_4 = proving_key->sigma_4;
-    prover_polynomials.id_4 = proving_key->id_4;
-    prover_polynomials.table_1 = proving_key->table_1;
-    prover_polynomials.table_2 = proving_key->table_2;
-    prover_polynomials.table_3 = proving_key->table_3;
-    prover_polynomials.table_4 = proving_key->table_4;
-    prover_polynomials.table_1_shift = proving_key->table_1.shifted();
-    prover_polynomials.table_2_shift = proving_key->table_2.shifted();
-    prover_polynomials.table_3_shift = proving_key->table_3.shifted();
-    prover_polynomials.table_4_shift = proving_key->table_4.shifted();
-    prover_polynomials.w_l_shift = proving_key->w_l.shifted();
-    prover_polynomials.w_r_shift = proving_key->w_r.shifted();
-    prover_polynomials.w_o_shift = proving_key->w_o.shifted();
+    prover_polynomials.q_4 = proving_key->precomputed.q_4;
+    prover_polynomials.q_arith = proving_key->precomputed.q_arith;
+    prover_polynomials.q_sort = proving_key->precomputed.q_sort;
+    prover_polynomials.q_elliptic = proving_key->precomputed.q_elliptic;
+    prover_polynomials.q_aux = proving_key->precomputed.q_aux;
+    prover_polynomials.q_lookup = proving_key->precomputed.q_lookup;
+    prover_polynomials.sigma_4 = proving_key->precomputed.sigma_4;
+    prover_polynomials.id_4 = proving_key->precomputed.id_4;
+    prover_polynomials.table_1 = proving_key->precomputed.table_1;
+    prover_polynomials.table_2 = proving_key->precomputed.table_2;
+    prover_polynomials.table_3 = proving_key->precomputed.table_3;
+    prover_polynomials.table_4 = proving_key->precomputed.table_4;
+    prover_polynomials.table_1_shift = proving_key->precomputed.table_1.shifted();
+    prover_polynomials.table_2_shift = proving_key->precomputed.table_2.shifted();
+    prover_polynomials.table_3_shift = proving_key->precomputed.table_3.shifted();
+    prover_polynomials.table_4_shift = proving_key->precomputed.table_4.shifted();
+    prover_polynomials.w_l_shift = proving_key->witnesses.w_l.shifted();
+    prover_polynomials.w_r_shift = proving_key->witnesses.w_r.shifted();
+    prover_polynomials.w_o_shift = proving_key->witnesses.w_o.shifted();
 
     if constexpr (IsGoblinFlavor<Flavor>) {
-        prover_polynomials.ecc_op_wire_1 = proving_key->ecc_op_wire_1;
-        prover_polynomials.ecc_op_wire_2 = proving_key->ecc_op_wire_2;
-        prover_polynomials.ecc_op_wire_3 = proving_key->ecc_op_wire_3;
-        prover_polynomials.ecc_op_wire_4 = proving_key->ecc_op_wire_4;
-        prover_polynomials.lagrange_ecc_op = proving_key->lagrange_ecc_op;
+        prover_polynomials.ecc_op_wire_1 = proving_key->witnesses.ecc_op_wire_1;
+        prover_polynomials.ecc_op_wire_2 = proving_key->witnesses.ecc_op_wire_2;
+        prover_polynomials.ecc_op_wire_3 = proving_key->witnesses.ecc_op_wire_3;
+        prover_polynomials.ecc_op_wire_4 = proving_key->witnesses.ecc_op_wire_4;
+        prover_polynomials.lagrange_ecc_op = proving_key->precomputed.lagrange_ecc_op;
         // DataBus polynomials
-        prover_polynomials.calldata = proving_key->calldata;
-        prover_polynomials.calldata_read_counts = proving_key->calldata_read_counts;
-        prover_polynomials.q_busread = proving_key->q_busread;
+        prover_polynomials.calldata = proving_key->witnesses.calldata;
+        prover_polynomials.calldata_read_counts = proving_key->witnesses.calldata_read_counts;
+        prover_polynomials.q_busread = proving_key->precomputed.q_busread;
     }
 
     std::span<FF> public_wires_source = prover_polynomials.w_r;
@@ -339,7 +339,7 @@ template <class Flavor> void ProverInstance_<Flavor>::initialise_prover_polynomi
         pub_inputs_offset += proving_key->num_ecc_op_gates;
     }
     // Construct the public inputs array
-    for (size_t i = 0; i < proving_key->num_public_inputs; ++i) {
+    for (size_t i = 0; i < proving_key->precomputed.num_public_inputs; ++i) {
         size_t idx = i + pub_inputs_offset;
         public_inputs.emplace_back(public_wires_source[idx]);
     }
@@ -350,13 +350,13 @@ template <class Flavor> void ProverInstance_<Flavor>::compute_sorted_accumulator
     relation_parameters.eta = eta;
     // Compute sorted witness-table accumulator
     compute_sorted_list_accumulator(eta);
-    prover_polynomials.sorted_accum = proving_key->sorted_accum;
-    prover_polynomials.sorted_accum_shift = proving_key->sorted_accum.shifted();
+    prover_polynomials.sorted_accum = proving_key->witnesses.sorted_accum;
+    prover_polynomials.sorted_accum_shift = proving_key->witnesses.sorted_accum.shifted();
 
     // Finalize fourth wire polynomial by adding lookup memory records
     add_plookup_memory_records_to_wire_4(eta);
-    prover_polynomials.w_4 = proving_key->w_4;
-    prover_polynomials.w_4_shift = proving_key->w_4.shifted();
+    prover_polynomials.w_4 = proving_key->witnesses.w_4;
+    prover_polynomials.w_4_shift = proving_key->witnesses.w_4.shifted();
 }
 
 /**
@@ -372,7 +372,7 @@ template <class Flavor> void ProverInstance_<Flavor>::compute_sorted_accumulator
  */
 template <class Flavor> void ProverInstance_<Flavor>::compute_sorted_list_accumulator(FF eta)
 {
-    const size_t circuit_size = proving_key->circuit_size;
+    const size_t circuit_size = proving_key->get_circuit_size();
 
     auto sorted_list_accumulator = Polynomial{ circuit_size };
 
@@ -389,7 +389,7 @@ template <class Flavor> void ProverInstance_<Flavor>::compute_sorted_list_accumu
         T0 += sorted_polynomials[0][i];
         sorted_list_accumulator[i] = T0;
     }
-    proving_key->sorted_accum = sorted_list_accumulator;
+    proving_key->witnesses.sorted_accum = sorted_list_accumulator;
 }
 
 /**
@@ -432,14 +432,14 @@ template <class Flavor> void ProverInstance_<Flavor>::add_plookup_memory_records
 
 template <class Flavor> void ProverInstance_<Flavor>::compute_grand_product_polynomials(FF beta, FF gamma)
 {
-    auto public_input_delta =
-        compute_public_input_delta<Flavor>(public_inputs, beta, gamma, proving_key->circuit_size, pub_inputs_offset);
+    auto public_input_delta = compute_public_input_delta<Flavor>(
+        public_inputs, beta, gamma, proving_key->get_circuit_size(), pub_inputs_offset);
 
     relation_parameters.beta = beta;
     relation_parameters.gamma = gamma;
     relation_parameters.public_input_delta = public_input_delta;
 
-    auto lookup_grand_product_delta = compute_lookup_grand_product_delta(beta, gamma, proving_key->circuit_size);
+    auto lookup_grand_product_delta = compute_lookup_grand_product_delta(beta, gamma, proving_key->get_circuit_size());
     relation_parameters.lookup_grand_product_delta = lookup_grand_product_delta;
 
     // Compute permutation and lookup grand product polynomials
@@ -458,42 +458,42 @@ std::shared_ptr<typename Flavor::VerificationKey> ProverInstance_<Flavor>::compu
         return verification_key;
     }
 
-    verification_key =
-        std::make_shared<typename Flavor::VerificationKey>(proving_key->circuit_size, proving_key->num_public_inputs);
+    verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_circuit_size(),
+                                                                          proving_key->get_num_public_inputs());
 
     // Compute and store commitments to all precomputed polynomials
-    verification_key->q_m = commitment_key->commit(proving_key->q_m);
-    verification_key->q_l = commitment_key->commit(proving_key->q_l);
-    verification_key->q_r = commitment_key->commit(proving_key->q_r);
-    verification_key->q_o = commitment_key->commit(proving_key->q_o);
-    verification_key->q_c = commitment_key->commit(proving_key->q_c);
-    verification_key->sigma_1 = commitment_key->commit(proving_key->sigma_1);
-    verification_key->sigma_2 = commitment_key->commit(proving_key->sigma_2);
-    verification_key->sigma_3 = commitment_key->commit(proving_key->sigma_3);
-    verification_key->id_1 = commitment_key->commit(proving_key->id_1);
-    verification_key->id_2 = commitment_key->commit(proving_key->id_2);
-    verification_key->id_3 = commitment_key->commit(proving_key->id_3);
-    verification_key->lagrange_first = commitment_key->commit(proving_key->lagrange_first);
-    verification_key->lagrange_last = commitment_key->commit(proving_key->lagrange_last);
+    verification_key->q_m = commitment_key->commit(proving_key->precomputed.q_m);
+    verification_key->q_l = commitment_key->commit(proving_key->precomputed.q_l);
+    verification_key->q_r = commitment_key->commit(proving_key->precomputed.q_r);
+    verification_key->q_o = commitment_key->commit(proving_key->precomputed.q_o);
+    verification_key->q_c = commitment_key->commit(proving_key->precomputed.q_c);
+    verification_key->sigma_1 = commitment_key->commit(proving_key->precomputed.sigma_1);
+    verification_key->sigma_2 = commitment_key->commit(proving_key->precomputed.sigma_2);
+    verification_key->sigma_3 = commitment_key->commit(proving_key->precomputed.sigma_3);
+    verification_key->id_1 = commitment_key->commit(proving_key->precomputed.id_1);
+    verification_key->id_2 = commitment_key->commit(proving_key->precomputed.id_2);
+    verification_key->id_3 = commitment_key->commit(proving_key->precomputed.id_3);
+    verification_key->lagrange_first = commitment_key->commit(proving_key->precomputed.lagrange_first);
+    verification_key->lagrange_last = commitment_key->commit(proving_key->precomputed.lagrange_last);
 
-    verification_key->q_4 = commitment_key->commit(proving_key->q_4);
-    verification_key->q_arith = commitment_key->commit(proving_key->q_arith);
-    verification_key->q_sort = commitment_key->commit(proving_key->q_sort);
-    verification_key->q_elliptic = commitment_key->commit(proving_key->q_elliptic);
-    verification_key->q_aux = commitment_key->commit(proving_key->q_aux);
-    verification_key->q_lookup = commitment_key->commit(proving_key->q_lookup);
-    verification_key->sigma_4 = commitment_key->commit(proving_key->sigma_4);
-    verification_key->id_4 = commitment_key->commit(proving_key->id_4);
-    verification_key->table_1 = commitment_key->commit(proving_key->table_1);
-    verification_key->table_2 = commitment_key->commit(proving_key->table_2);
-    verification_key->table_3 = commitment_key->commit(proving_key->table_3);
-    verification_key->table_4 = commitment_key->commit(proving_key->table_4);
+    verification_key->q_4 = commitment_key->commit(proving_key->precomputed.q_4);
+    verification_key->q_arith = commitment_key->commit(proving_key->precomputed.q_arith);
+    verification_key->q_sort = commitment_key->commit(proving_key->precomputed.q_sort);
+    verification_key->q_elliptic = commitment_key->commit(proving_key->precomputed.q_elliptic);
+    verification_key->q_aux = commitment_key->commit(proving_key->precomputed.q_aux);
+    verification_key->q_lookup = commitment_key->commit(proving_key->precomputed.q_lookup);
+    verification_key->sigma_4 = commitment_key->commit(proving_key->precomputed.sigma_4);
+    verification_key->id_4 = commitment_key->commit(proving_key->precomputed.id_4);
+    verification_key->table_1 = commitment_key->commit(proving_key->precomputed.table_1);
+    verification_key->table_2 = commitment_key->commit(proving_key->precomputed.table_2);
+    verification_key->table_3 = commitment_key->commit(proving_key->precomputed.table_3);
+    verification_key->table_4 = commitment_key->commit(proving_key->precomputed.table_4);
 
     // TODO(luke): Similar to the lagrange_first/last polynomials, we dont really need to commit to this polynomial
     // due to its simple structure. Handling it in the same way as the lagrange polys for now for simplicity.
     if constexpr (IsGoblinFlavor<Flavor>) {
-        verification_key->lagrange_ecc_op = commitment_key->commit(proving_key->lagrange_ecc_op);
-        verification_key->q_busread = commitment_key->commit(proving_key->q_busread);
+        verification_key->lagrange_ecc_op = commitment_key->commit(proving_key->precomputed.lagrange_ecc_op);
+        verification_key->q_busread = commitment_key->commit(proving_key->precomputed.q_busread);
     }
 
     // // See `add_recusrive_proof()` for how this recursive data is assigned.

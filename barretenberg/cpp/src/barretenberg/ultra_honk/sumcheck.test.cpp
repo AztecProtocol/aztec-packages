@@ -160,7 +160,7 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     instance->compute_grand_product_polynomials(beta, gamma);
 
     Flavor::Transcript prover_transcript = Flavor::Transcript::prover_init_empty();
-    auto circuit_size = instance->proving_key->circuit_size;
+    auto circuit_size = instance->proving_key->get_circuit_size();
 
     auto sumcheck_prover = SumcheckProver<Flavor>(circuit_size, prover_transcript);
 
