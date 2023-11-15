@@ -44,10 +44,12 @@ The engineering roadmap is long. There are no timings assigned here. In a loose 
 ## Enforcing correct ordering Public & Private State Transitions
 
 ## Enforcing correct ordering of other 'side effects'
+
 - Log ordering
 - Enqueued public function calls
 
 ## What data actually needs to be submitted on-chain?
+
 - For Public Functions:
     - Just emit the initially-enqueued public function request data? (The 'inputs' of the tx);
         - I.e. contract address, function selector, args, call_context.
@@ -58,7 +60,7 @@ The engineering roadmap is long. There are no timings assigned here. In a loose 
 
 - Write detailed specs, given recent protocol changes.
 - Review the code to ensure it matches what we _think_ the protocol is.
-- Open issues to ensure the code matches the spec.
+- Open issues to ensure the code matches the specs.
 - (Note: bringing cryptographers into the fold (to review specs) is a separate section, later in this doc).
 
 ## Iterate on the Sandbox
@@ -102,7 +104,7 @@ CI takes up a significant amount of time. It gets its own section here, so we re
 - Note Discovery RFP
 - Decide on the protocol
 - Spec
-- Build it.
+- Build it
 
 ## Privacy-preserving queries to public nodes
 
@@ -114,7 +116,7 @@ CI takes up a significant amount of time. It gets its own section here, so we re
 
 - Write up keys spec
 - Get internal comments
-- Do a RFC from the external community
+- Do an RFC from the external community
 - Implement
 
 ## Slow Updates tree?
@@ -148,7 +150,7 @@ We _need_ a way to read mutable public data from a private function.
 
 ## Testing UX team
 
-A team focussed on testing and debugging UX.
+A team focused on testing and debugging UX.
 This team should have free rein to design and add any features they see fit.
 
 Some example features:
@@ -165,13 +167,14 @@ Some example features:
 ## Proper Circuits
 
 ### Redesign
+
 - The Bus
     - The bus will have an impact on the way we design the circuit logic.
     - We can hopefully avoid hashing in circuit 1 and unpacking that hash in circuit 2.
     - Understand the 'bus' and how we can use it to pass variable amounts of data between recursive circuit iterations.
     - Redesign all circuit logic to allow for the variable-sized arrays that the 'bus' enables.
 - Enable 'dynamic/variable-sized **loops**'
-    - allow each `for` loop (eg read requests, insertions, commitment squashing, call stack processing, bip32 key derivation, etc.) to vary in size, by deferring each loop to its own final circuit. This would require complex folding stuff.
+    - allow each `for` loop (e.g., read requests, insertions, commitment squashing, call stack processing, bip32 key derivation, etc.) to vary in size, by deferring each loop to its own final circuit. This would require complex folding stuff.
     - This would give much more flexibility over the sizes of various arrays that a circuit can output. Without it, if one array of an app circuit needs to be size 2000, but other arrays aren't used, we'd use a kernel where every array is size 2048, meaning a huge amount of unnecessary loops of computation for those empty arrays.
 - Improvements
     - We can definitely change how call stacks are processed within a kernel, to reduce hashing.
@@ -213,10 +216,12 @@ Also, we do a lot of sha256-compressing in our kernel and rollup circuits for da
 ### Ultra -> Standard Squisher Circuit
 
 ## Authentication: access to private data
+
 - Private data must not be returned to an app, unless the user authorizes it.
 
 ## Validation: preventing execution of malicious bytecode
-- A node should check that the bytecode provided by an application for a given app matches the leaf in the contract tree to ensure that user doesn't execute unplanned code which might access their notes.
+
+- A node should check that the bytecode provided by an application for a given app matches the leaf in the contract tree to ensure that the user doesn't execute unplanned code which might access their notes.
 
 ## Fuzz Testing
 
@@ -230,15 +235,17 @@ An investigation into how formal verification techniques might improve the secur
 
 ## Hashes
 
-- An improved, standardised Pedersen hash in barretenberg.
+- An improved, standardized Pedersen hash in barretenberg.
 - Poseidon hashing in barretenberg.
 
 ## Tree epochs
+
 - Nullifier tree epochs
 - Maybe other tree epochs.
 
 ## Chaining txs
-- We have the ability to spend pending notes (which haven't-yet been added to the tree) _within the context of a single tx_.
+
+- We have the ability to spend pending notes (which haven't yet been added to the tree) _within the context of a single tx_.
 - We need the ability to spend pending notes (which haven't yet been added to the tree) across different txs, within the context of a single rollup.
     - This happens if Alice generates two txs X & Y, where tx Y spends notes from tx X. If we want Alice to be able to generate these txs in parallel (without interacting with the network at all), we need a way for tx Y to spend notes before they've been added to the tree. The 'chaining tx' concepts from Aztec Connect can enable this.
 - This added _a lot_ of complexity to Aztec Connect. Especially around fees, iirc. Caution needed.

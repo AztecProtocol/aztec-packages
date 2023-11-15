@@ -4,7 +4,7 @@ title: Sandbox Features
 
 The Aztec Sandbox is intended to provide developers with a lightweight and fast local node.
 
-Developers should be able to quickly spin up local, emulated instances of an Ethereum blockchain and an Aztec encrypted rollup, and start deploying private contracts and submitting private txs.
+Developers should be able to quickly spin up local, emulated instances of an Ethereum blockchain and an Aztec encrypted rollup, and start deploying private contracts and submitting private transactions.
 
 The sandbox allows developers to:
 
