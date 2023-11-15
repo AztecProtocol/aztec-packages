@@ -306,10 +306,6 @@ impl BaseRollupInputs {
                             updated_low_nullifier.hash(), witness.leaf_index, witness.sibling_path);
                     }
                     nullifier_insertion_subtree[nullifier_index] = new_nullifier_leaf;
-                } else {
-                    // 0 case
-                    let new_nullifier_leaf = NullifierLeafPreimage{ leaf_value : 0, next_value : 0, next_index : 0 };
-                    nullifier_insertion_subtree[nullifier_index] = new_nullifier_leaf;
                 }
                 
                 // increment insertion index
