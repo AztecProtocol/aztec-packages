@@ -89,7 +89,6 @@ export async function sendTxs(
 ): Promise<SentTx[]> {
   const calls = times(txCount, index => makeCall(index, context, contract));
   await Promise.all(calls.map(call => call.simulate({ skipPublicSimulation: true })));
-
   const sentTxs = calls.map(call => call.send());
 
   // Awaiting txHash waits until the aztec node has received the tx into its p2p pool
