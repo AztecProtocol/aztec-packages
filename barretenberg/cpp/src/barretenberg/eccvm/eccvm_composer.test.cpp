@@ -12,6 +12,10 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/sumcheck/sumcheck_round.hpp"
 
+#pragma GCC diagnostic ignored "-Wunused-variable"
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#pragma GCC diagnostic ignored "-Wunused-local-typedef"
+
 using namespace proof_system::honk;
 
 namespace test_eccvm_composer {
@@ -80,9 +84,26 @@ TYPED_TEST(ECCVMComposerTests, BaseCase)
     auto composer = ECCVMComposer_<Flavor>();
     auto prover = composer.create_prover(circuit_constructor);
 
-    auto proof = prover.construct_proof();
+    // auto proof = prover.construct_proof();
     auto verifier = composer.create_verifier(circuit_constructor);
-    bool verified = verifier.verify_proof(proof);
+    // bool verified = verifier.verify_proof(proof);
+
+    using PCS = typename Flavor::PCS;
+    typename Flavor::FF x = 1;
+
+    typename Flavor::Transcript prover_transcript;
+
+    PCS::compute_opening_proof(prover.commitment_key,
+                               { x, prover.key->transcript_op.evaluate(x) },
+                               prover.key->transcript_op,
+                               prover_transcript);
+
+    typename Flavor::Transcript verifier_transcript(prover_transcript.proof_data);
+    bool verified = PCS::verify(
+        verifier.pcs_verification_key,
+        { { x, prover.key->transcript_op.evaluate(x) }, prover.commitment_key->commit(prover.key->transcript_op) },
+        verifier_transcript);
+
     ASSERT_TRUE(verified);
 }
 

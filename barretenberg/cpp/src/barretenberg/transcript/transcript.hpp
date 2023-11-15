@@ -220,6 +220,9 @@ template <typename FF> class BaseTranscript {
 
         // Prepare for next round.
         ++round_number;
+        for (auto& challenge : challenges) {
+            info(challenge);
+        };
 
         return challenges;
     }

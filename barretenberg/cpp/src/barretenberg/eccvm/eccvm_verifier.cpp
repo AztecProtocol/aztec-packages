@@ -81,7 +81,7 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
     commitments.transcript_z1zero = receive_commitment(commitment_labels.transcript_z1zero);
     commitments.transcript_z2zero = receive_commitment(commitment_labels.transcript_z2zero);
     commitments.transcript_op = receive_commitment(commitment_labels.transcript_op);
-    // info("V: commitment: ", commitments.transcript_op);
+    info("received: commitment: ", commitments.transcript_op);
     commitments.transcript_accumulator_x = receive_commitment(commitment_labels.transcript_accumulator_x);
     commitments.transcript_accumulator_y = receive_commitment(commitment_labels.transcript_accumulator_y);
     commitments.transcript_msm_x = receive_commitment(commitment_labels.transcript_msm_x);

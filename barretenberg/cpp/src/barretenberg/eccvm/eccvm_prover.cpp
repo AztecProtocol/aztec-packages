@@ -44,7 +44,8 @@ ECCVMProver_<Flavor>::ECCVMProver_(std::shared_ptr<typename Flavor::ProvingKey> 
     prover_polynomials.transcript_z1zero = key->transcript_z1zero;
     prover_polynomials.transcript_z2zero = key->transcript_z2zero;
     prover_polynomials.transcript_op = key->transcript_op;
-    // info("extracted from key: ", prover_polynomials.transcript_op[1]);
+    info("extracted from key: ", prover_polynomials.transcript_op[1]);
+    info("commitment        : ", commitment_key->commit(key->transcript_op));
     prover_polynomials.transcript_accumulator_x = key->transcript_accumulator_x;
     prover_polynomials.transcript_accumulator_y = key->transcript_accumulator_y;
     prover_polynomials.transcript_msm_x = key->transcript_msm_x;
@@ -162,6 +163,7 @@ template <ECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_wire_commitment
     for (size_t idx = 0; idx < wire_polys.size(); ++idx) {
         transcript.send_to_verifier(labels[idx], commitment_key->commit(wire_polys[idx]));
     }
+    info("commitment to transcript_op: ", commitment_key->commit(key->transcript_op));
 }
 
 /**
@@ -413,11 +415,14 @@ template <ECCVMFlavor Flavor> plonk::proof& ECCVMProver_<Flavor>::construct_proo
     // execute_log_derivative_commitments_round();
     // execute_grand_product_computation_round();
     // execute_relation_check_rounds();
+
     // execute_univariatization_round();
+
     // execute_multivariate_pcs_evaluation_round();
     // execute_batched_univariatization_shplonk_batched_quotient_round();
     // execute_batched_univariatization_shplonk_partial_evaluation_round();
     // execute_batched_univariatization_ipa_round();
+
     execute_univariate_pcs_evaluation_round();
     // execute_translation_consistency_check_shplonk_batched_quotient_round();
     // execute_translation_consistency_check_shplonk_partial_evaluation_round();

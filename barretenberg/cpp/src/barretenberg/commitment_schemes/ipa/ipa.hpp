@@ -37,9 +37,9 @@ template <typename Curve> class IPA {
                                       const Polynomial& polynomial,
                                       BaseTranscript<Fr>& transcript)
     {
-        info("IPA prover challenge: ", opening_pair.challenge);
-        info("IPA prover eval     : ", opening_pair.evaluation);
-        info("IPA prover poly cmt : ", ck->commit(polynomial));
+        info("IPA challenge: ", opening_pair.challenge);
+        info("IPA eval     : ", opening_pair.evaluation);
+        info("IPA comm     : ", ck->commit(polynomial));
 
         ASSERT(opening_pair.challenge != 0 && "The challenge point should not be zero"); // why?
         auto poly_degree = static_cast<size_t>(polynomial.size());
@@ -140,9 +140,9 @@ template <typename Curve> class IPA {
      */
     static bool verify(std::shared_ptr<VK> vk, const OpeningClaim<Curve>& opening_claim, BaseTranscript<Fr>& transcript)
     {
-        info("IPA verifier challenge : ", opening_claim.opening_pair.challenge);
-        info("IPA verifier eval      : ", opening_claim.opening_pair.evaluation);
-        info("IPA verifier comm      : ", opening_claim.commitment);
+        info("IPA challenge: ", opening_claim.opening_pair.challenge);
+        info("IPA eval     : ", opening_claim.opening_pair.evaluation);
+        info("IPA comm     : ", opening_claim.commitment);
 
         auto poly_degree = static_cast<size_t>(transcript.template receive_from_prover<uint64_t>("IPA:poly_degree"));
         Fr generator_challenge = transcript.get_challenge("IPA:generator_challenge");
@@ -210,7 +210,7 @@ template <typename Curve> class IPA {
         // Copy the G_vector to local memory.
         std::vector<Commitment> G_vec_local(poly_degree);
         // The SRS stored in the commitment key is the result after applying the pippenger point table so the
-        // values at odd indices contain the point {srs[i-1].x * beta, srs[i-1].y}, where beta is the endomorphism
+        // values at odd indices contain the point {srs[i-1].x * g beta, srs[i-1].y}, where beta is the endomorphism
         // G_vec_local should use only the original SRS thus we extract only the even indices.
         for (size_t i = 0; i < poly_degree * 2; i += 2) {
             G_vec_local[i >> 1] = srs_elements[i];
@@ -223,6 +223,8 @@ template <typename Curve> class IPA {
 
         GroupElement right_hand_side = G_zero * a_zero + aux_generator * a_zero * b_zero;
 
+        info(C_zero.normalize());
+        info(right_hand_side.normalize());
         return (C_zero.normalize() == right_hand_side.normalize());
     }
 };
