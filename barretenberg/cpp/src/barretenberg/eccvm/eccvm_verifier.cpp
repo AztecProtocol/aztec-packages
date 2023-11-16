@@ -238,8 +238,8 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
     FF eval_Py = transcript.template receive_from_prover<FF>("Translation:Py");
     FF eval_z1 = transcript.template receive_from_prover<FF>("Translation:z1");
     FF eval_z2 = transcript.template receive_from_prover<FF>("Translation:z2");
-    FF dummy_evaluation = transcript.template receive_from_prover<FF>("Dummy:evaluation");
-    Commitment dummy_commitment = transcript.template receive_from_prover<Commitment>("Dummy:commitment");
+    FF dummy_evaluation = transcript.template receive_from_prover<FF>("Hack:evaluation");
+    Commitment dummy_commitment = transcript.template receive_from_prover<Commitment>("Hack:commitment");
 
     auto dummy = typename Flavor::Polynomial(key->circuit_size);
     for (size_t idx = 0; idx < key->circuit_size; idx++) {

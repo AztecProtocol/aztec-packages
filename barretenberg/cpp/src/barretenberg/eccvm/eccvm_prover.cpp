@@ -322,41 +322,37 @@ template <ECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_batched_univari
 template <ECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_univariate_pcs_evaluation_round()
 {
     // WORKTODO: optimize
-    Polynomial dummy(key->circuit_size);
+    Polynomial hack(key->circuit_size);
     for (size_t idx = 0; idx < key->circuit_size; idx++) {
-        dummy[idx] = 1;
+        hack[idx] = 1;
     }
     translation_consistency_check_output.witnesses.push_back(key->transcript_op);
     translation_consistency_check_output.witnesses.push_back(key->transcript_Px);
     translation_consistency_check_output.witnesses.push_back(key->transcript_Py);
     translation_consistency_check_output.witnesses.push_back(key->transcript_z1);
     translation_consistency_check_output.witnesses.push_back(key->transcript_z2);
-    translation_consistency_check_output.witnesses.push_back(dummy);
+    translation_consistency_check_output.witnesses.push_back(hack);
 
     // WORKTODO
     evaluation_challenge_x = transcript.get_challenge("Translation:evaluation_challenge_x");
-    cheat_translation_consistency_data.op = key->transcript_op.evaluate(evaluation_challenge_x);
-    cheat_translation_consistency_data.Px = key->transcript_Px.evaluate(evaluation_challenge_x);
-    cheat_translation_consistency_data.Py = key->transcript_Py.evaluate(evaluation_challenge_x);
-    cheat_translation_consistency_data.z1 = key->transcript_z1.evaluate(evaluation_challenge_x);
-    cheat_translation_consistency_data.z2 = key->transcript_z2.evaluate(evaluation_challenge_x);
-    auto dummy_evaluation = dummy.evaluate(evaluation_challenge_x);
+    FF eval_op = key->transcript_op.evaluate(evaluation_challenge_x);
+    FF eval_Px = key->transcript_Px.evaluate(evaluation_challenge_x);
+    FF eval_Py = key->transcript_Py.evaluate(evaluation_challenge_x);
+    FF eval_z1 = key->transcript_z1.evaluate(evaluation_challenge_x);
+    FF eval_z2 = key->transcript_z2.evaluate(evaluation_challenge_x);
+    FF eval_hack = hack.evaluate(evaluation_challenge_x);
 
-    transcript.send_to_verifier("Translation:op", cheat_translation_consistency_data.op);
-    transcript.send_to_verifier("Translation:Px", cheat_translation_consistency_data.Px);
-    transcript.send_to_verifier("Translation:Py", cheat_translation_consistency_data.Py);
-    transcript.send_to_verifier("Translation:z1", cheat_translation_consistency_data.z1);
-    transcript.send_to_verifier("Translation:z2", cheat_translation_consistency_data.z2);
-    transcript.send_to_verifier("Dummy:evaluation", dummy_evaluation);
-    transcript.send_to_verifier("Dummy:commitment", commitment_key->commit(dummy));
+    transcript.send_to_verifier("Translation:op", eval_op);
+    transcript.send_to_verifier("Translation:Px", eval_Px);
+    transcript.send_to_verifier("Translation:Py", eval_Py);
+    transcript.send_to_verifier("Translation:z1", eval_z1);
+    transcript.send_to_verifier("Translation:z2", eval_z2);
+    transcript.send_to_verifier("Hack:evaluation", eval_hack);
+    transcript.send_to_verifier("Hack:commitment", commitment_key->commit(hack));
 
     translation_consistency_check_output.opening_pairs = {
-        { evaluation_challenge_x, cheat_translation_consistency_data.op },
-        { evaluation_challenge_x, cheat_translation_consistency_data.Px },
-        { evaluation_challenge_x, cheat_translation_consistency_data.Py },
-        { evaluation_challenge_x, cheat_translation_consistency_data.z1 },
-        { evaluation_challenge_x, cheat_translation_consistency_data.z2 },
-        { evaluation_challenge_x, dummy.evaluate(evaluation_challenge_x) }
+        { evaluation_challenge_x, eval_op }, { evaluation_challenge_x, eval_Px }, { evaluation_challenge_x, eval_Py },
+        { evaluation_challenge_x, eval_z1 }, { evaluation_challenge_x, eval_z2 }, { evaluation_challenge_x, eval_hack }
     };
 };
 
