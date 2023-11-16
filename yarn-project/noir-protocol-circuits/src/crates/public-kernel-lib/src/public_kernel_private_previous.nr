@@ -77,10 +77,8 @@ mod tests {
         contrakt::storage_read::StorageRead,
         hash::compute_logs_hash,
         tests::{
+            previous_kernel_data_builder::PreviousKernelDataBuilder,
             public_call_data_builder::PublicCallDataBuilder,
-            testing_harness::{
-                PreviousKernelDataBuilder,
-            },
         },
         utils::{
             arrays::{

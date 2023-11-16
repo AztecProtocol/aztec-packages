@@ -95,10 +95,8 @@ mod tests {
     use dep::types::{
         abis::kernel_circuit_public_inputs::KernelCircuitPublicInputs,
         tests::{
-            testing_harness::{
-                PreviousKernelDataBuilder,
-                PrivateCallDataBuilder,
-            },
+            previous_kernel_data_builder::PreviousKernelDataBuilder,
+            private_call_data_builder::PrivateCallDataBuilder,
         },
         address::Address,
         hash::compute_logs_hash,

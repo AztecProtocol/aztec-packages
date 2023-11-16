@@ -166,7 +166,7 @@ mod tests {
     use dep::types::{
         abis::kernel_circuit_public_inputs::KernelCircuitPublicInputsFinal,
         hash::compute_unique_siloed_commitments,
-        tests::testing_harness::PreviousKernelDataBuilder,
+        tests::previous_kernel_data_builder::PreviousKernelDataBuilder,
         utils::{
             arrays::{array_length, is_empty_array, expect_array_fields},
             bounded_vec::BoundedVec,

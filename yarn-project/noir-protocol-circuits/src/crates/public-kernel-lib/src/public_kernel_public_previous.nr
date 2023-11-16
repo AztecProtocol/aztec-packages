@@ -71,10 +71,8 @@ mod tests {
             silo_nullifier,
         },
         tests::{
+            previous_kernel_data_builder::PreviousKernelDataBuilder,
             public_call_data_builder::PublicCallDataBuilder,
-            testing_harness::{
-                PreviousKernelDataBuilder,
-            },
         },
         utils::{
             arrays::expect_array_fields,
