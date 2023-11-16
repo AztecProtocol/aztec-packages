@@ -344,25 +344,6 @@ pub fn contract_logic(private_call : PrivateCallData, public_inputs : &mut Kerne
     }
 }
 
-pub fn validate_previous_kernel_values(end : CombinedAccumulatedData) {
-    validate_previous_kernel_arrays(end);
-    validate_previous_kernel_0th_nullifier(end);
-}
-
-// We validate that relevant arrays assumed to be zero-padded on the right comply to this format.
-fn validate_previous_kernel_arrays(end : CombinedAccumulatedData) {
-    // Each of the following arrays is expected to be zero-padded.
-    validate_array(end.read_requests);
-    validate_array(end.pending_read_requests);
-    validate_array(end.new_commitments);
-    validate_array(end.new_nullifiers);
-    validate_array(end.nullified_commitments);
-    validate_array(end.private_call_stack);
-    validate_array(end.public_call_stack);
-    validate_array(end.new_l2_to_l1_msgs);
-}
-
-fn validate_previous_kernel_0th_nullifier(end : CombinedAccumulatedData)
-{
+pub fn validate_previous_kernel_values(end: CombinedAccumulatedData) {
     assert(end.new_nullifiers[0] != 0, "The 0th nullifier in the accumulated nullifier array is zero");
 }
