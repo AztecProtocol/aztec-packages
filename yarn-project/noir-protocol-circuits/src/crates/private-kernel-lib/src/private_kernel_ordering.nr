@@ -182,7 +182,7 @@ mod tests {
     impl PrivateKernelOrderingInputsBuilder {
         pub fn new() -> Self {
             PrivateKernelOrderingInputsBuilder {
-                previous_kernel: PreviousKernelDataBuilder::new(false, false),
+                previous_kernel: PreviousKernelDataBuilder::new(),
                 read_commitment_hints: [0; MAX_READ_REQUESTS_PER_TX],
                 nullifier_commitment_hints: [0; MAX_NEW_NULLIFIERS_PER_TX],
             }

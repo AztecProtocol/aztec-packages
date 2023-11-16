@@ -8,14 +8,16 @@ use crate::{
         function_data::FunctionData,
         historical_block_data::HistoricalBlockData,
         kernel_circuit_public_inputs::KernelCircuitPublicInputs,
-        previous_kernel_data::PreviousKernelData,
-        private_circuit_public_inputs::PrivateCircuitPublicInputs,
-        private_kernel::private_call_data::PrivateCallData,
         membership_witness::{
             ContractLeafMembershipWitness,
             FunctionLeafMembershipWitness,
             ReadRequestMembershipWitness,
         },
+        previous_kernel_data::PreviousKernelData,
+        private_circuit_public_inputs::PrivateCircuitPublicInputs,
+        private_kernel::private_call_data::PrivateCallData,
+        public_data_read::PublicDataRead,
+        public_data_update_request::PublicDataUpdateRequest,
     },
     address::{Address, EthAddress},
     contrakt::{
@@ -49,6 +51,8 @@ use dep::aztec::{
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
         MAX_READ_REQUESTS_PER_CALL,
         MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
+        MAX_PUBLIC_DATA_READS_PER_CALL,
+        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
         RETURN_VALUES_LENGTH,
         VK_TREE_HEIGHT,
     },
@@ -201,15 +205,13 @@ struct PreviousKernelDataBuilder {
 }
 
 impl PreviousKernelDataBuilder {
-    pub fn new(is_constructor: bool, next_is_public: bool) -> Self {
+    pub fn new() -> Self {
         let mut end: CombinedAccumulatedDataBuilder = dep::std::unsafe::zeroed();
         end.new_nullifiers.push(321); // 0th nullifier must be non-zero.
         end.nullified_commitments.push(EMPTY_NULLIFIED_COMMITMENT);
-        if !next_is_public {
-            end.private_call_stack.push(1);
-        }
+        end.private_call_stack.push(1);
 
-        let tx_context = build_tx_context(is_constructor);
+        let tx_context = build_tx_context(false);
 
         PreviousKernelDataBuilder {
             end,
@@ -220,6 +222,53 @@ impl PreviousKernelDataBuilder {
             vk: VerificationKey {},
             vk_index: 0,
             vk_path: [0; VK_TREE_HEIGHT],
+        }
+    }
+
+    pub fn is_constructor(&mut self) -> Self {
+        self.tx_context = build_tx_context(true);
+        *self
+    }
+
+    pub fn is_public(&mut self) -> Self {
+        self.is_private = false;
+        *self
+    }
+
+    pub fn next_is_public(&mut self) -> Self {
+        let _ = self.end.private_call_stack.pop();
+        *self
+    }
+
+    pub fn append_public_data_update_requests(&mut self, num_updates: Field) {
+        let value_offset = self.end.public_data_update_requests.len();
+        for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL {
+            if i as u64 < num_updates as u64 {
+                let update_request = PublicDataUpdateRequest {
+                    // The default leaf index is its index + 23.
+                    leaf_index: value_offset + i + 23,
+                    // The default value is its index + 45.
+                    old_value: value_offset + i + 45,
+                    // The default value is its index + 678.
+                    new_value: value_offset + i + 678,
+                };
+                self.end.public_data_update_requests.push(update_request);
+            }
+        }
+    }
+
+    pub fn append_public_data_read_requests(&mut self, num_reads: Field) {
+        let value_offset = self.end.public_data_reads.len();
+        for i in 0..MAX_PUBLIC_DATA_READS_PER_CALL {
+            if i as u64 < num_reads as u64 {
+                let read_request = PublicDataRead {
+                    // The default leaf index is its index + 34.
+                    leaf_index: value_offset + i + 34,
+                    // The default value is its index + 5566.
+                    value: value_offset + i + 5566,
+                };
+                self.end.public_data_reads.push(read_request);
+            }
         }
     }
 

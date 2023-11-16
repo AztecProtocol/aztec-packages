@@ -39,7 +39,8 @@ impl PublicCallDataBuilder {
     pub fn new() -> Self {
         let contract_data = fixtures::contracts::default_contract;
         let contract_function = fixtures::contract_functions::default_public_function;
-        let public_inputs = PublicCircuitPublicInputsBuilder::new();
+        let mut public_inputs = PublicCircuitPublicInputsBuilder::new();
+        public_inputs.call_context.storage_contract_address = contract_data.address;
         
         PublicCallDataBuilder {
             contract_address: contract_data.address,
@@ -53,9 +54,9 @@ impl PublicCallDataBuilder {
         }
     }
 
-    pub fn push_call_stack_items(&mut self, num_stacks: Field) {
+    pub fn append_call_stack_items(&mut self, num_items: Field) {
         for i in 0..MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL {
-            if i as u64 < num_stacks as u64 {
+            if i as u64 < num_items as u64 {
                 let preimage = self.generate_call_stack_item(false);
                 self.public_call_stack_preimages.push(preimage);
                 self.public_inputs.public_call_stack.push(preimage.hash());
@@ -63,9 +64,9 @@ impl PublicCallDataBuilder {
         }
     }
 
-    pub fn push_delegate_call_stack_items(&mut self, num_stacks: Field) {
+    pub fn append_delegate_call_stack_items(&mut self, num_items: Field) {
         for i in 0..MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL {
-            if i as u64 < num_stacks as u64 {
+            if i as u64 < num_items as u64 {
                 let preimage = self.generate_call_stack_item(true);
                 self.public_call_stack_preimages.push(preimage);
                 self.public_inputs.public_call_stack.push(preimage.hash());
@@ -104,7 +105,7 @@ impl PublicCallDataBuilder {
         }
     }
 
-    pub fn push_read_requests(&mut self, num_reads: Field) {
+    pub fn append_read_requests(&mut self, num_reads: Field) {
         let value_offset = self.public_inputs.contract_storage_reads.len();
         for i in 0..MAX_PUBLIC_DATA_READS_PER_CALL {
             if i as u64 < num_reads as u64 {
@@ -119,7 +120,7 @@ impl PublicCallDataBuilder {
         }
     }
 
-    pub fn push_empty_read_requests(&mut self, num_reads: Field) {
+    pub fn append_empty_read_requests(&mut self, num_reads: Field) {
         for i in 0..MAX_PUBLIC_DATA_READS_PER_CALL {
             if i as u64 < num_reads as u64 {
                 self.public_inputs.contract_storage_reads.push(StorageRead::empty());
@@ -127,7 +128,7 @@ impl PublicCallDataBuilder {
         }
     }
 
-    pub fn push_update_requests(&mut self, num_updates: Field) {
+    pub fn append_update_requests(&mut self, num_updates: Field) {
         let value_offset = self.public_inputs.contract_storage_update_requests.len();
         for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL {
             if i as u64 < num_updates as u64 {
@@ -144,7 +145,7 @@ impl PublicCallDataBuilder {
         }
     }
 
-    pub fn push_empty_update_requests(&mut self, num_updates: Field) {
+    pub fn append_empty_update_requests(&mut self, num_updates: Field) {
         for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL {
             if i as u64 < num_updates as u64 {
                 self.public_inputs.contract_storage_update_requests.push(StorageUpdateRequest::empty());
