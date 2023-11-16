@@ -24,7 +24,7 @@ impl PublicDataRead {
         (self.leaf_index == 0) & (self.value == 0)
     }
 
-    pub fn equals(self, public_data_read: PublicDataRead) -> bool {
+    pub fn eq(self, public_data_read: PublicDataRead) -> bool {
         (public_data_read.leaf_index == self.leaf_index) & (public_data_read.value == self.value)
     }
 }

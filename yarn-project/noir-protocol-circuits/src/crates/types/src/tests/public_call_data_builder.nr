@@ -21,6 +21,7 @@ use dep::aztec::constants_gen::{
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
     MAX_PUBLIC_DATA_READS_PER_CALL,
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
+    NUM_FIELDS_PER_SHA256,
 };
 
 struct PublicCallDataBuilder {
@@ -52,7 +53,7 @@ impl PublicCallDataBuilder {
         }
     }
 
-    pub fn push_call_stacks(&mut self, num_stacks: Field) {
+    pub fn push_call_stack_items(&mut self, num_stacks: Field) {
         for i in 0..MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL {
             if i as u64 < num_stacks as u64 {
                 let preimage = self.generate_call_stack_item(false);
@@ -62,7 +63,7 @@ impl PublicCallDataBuilder {
         }
     }
 
-    pub fn push_delegate_call_stacks(&mut self, num_stacks: Field) {
+    pub fn push_delegate_call_stack_items(&mut self, num_stacks: Field) {
         for i in 0..MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL {
             if i as u64 < num_stacks as u64 {
                 let preimage = self.generate_call_stack_item(true);
@@ -149,6 +150,11 @@ impl PublicCallDataBuilder {
                 self.public_inputs.contract_storage_update_requests.push(StorageUpdateRequest::empty());
             }
         }
+    }
+
+    pub fn set_unencrypted_logs(&mut self, hash: [Field; NUM_FIELDS_PER_SHA256], preimages_length: Field) {
+        self.public_inputs.unencrypted_logs_hash = hash;
+        self.public_inputs.unencrypted_log_preimages_length = preimages_length;
     }
 
     pub fn finish(self) -> PublicCallData {

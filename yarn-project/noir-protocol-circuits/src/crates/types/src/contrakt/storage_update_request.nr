@@ -26,4 +26,10 @@ impl StorageUpdateRequest {
     pub fn is_empty(self) -> bool {
         self.storage_slot == 0
     }
+
+    pub fn eq(self, request: Self) -> bool {
+        (request.storage_slot == self.storage_slot)
+            & (request.old_value == self.old_value)
+            & (request.new_value == self.new_value)
+    }
 }

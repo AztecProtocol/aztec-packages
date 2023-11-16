@@ -78,7 +78,7 @@ pub fn array_length<N>(array : [Field; N]) -> Field {
     length
 }
 
-fn array_len<T, N>(array: [T; N], is_empty_item: fn (T) -> bool) -> Field {
+pub fn array_len<T, N>(array: [T; N], is_empty_item: fn(T) -> bool) -> Field {
     let mut length = 0;
     let mut end = false;
     for elem in array {
@@ -98,19 +98,19 @@ pub fn expect_array_fields<N, S>(array: [Field; N], expected: [Field; S]) -> boo
     eq
 }
 
-// TODO: Trait: equals, is_empty
+// TODO: Trait: eq, is_empty
 pub fn expect_array_values<T, N, S>(
     array: [T; N],
     expected: [T; S],
-    equals: fn (T, T) -> bool,
+    eq: fn (T, T) -> bool,
     is_empty_item: fn (T) -> bool,
 ) -> bool {
     let length = array_len(array, is_empty_item);
-    let mut eq = length == S;
+    let mut ret = length == S;
     for i in 0..S {
-        eq &= equals(array[i], expected[i]);
+        ret &= eq(array[i], expected[i]);
     }
-    eq
+    ret
 }
 
 #[test]
