@@ -315,8 +315,8 @@ template <ECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_transcript_cons
     FF evaluation_challenge_x = transcript.get_challenge("Translation:evaluation_challenge_x");
 
     const size_t NUM_UNIVARIATES = 6;
-    std::array<Polynomial, NUM_UNIVARIATES> univariate_polynomials = { key->transcript_op, key->transcript_x,
-                                                                       key->transcript_y,  key->transcript_z1,
+    std::array<Polynomial, NUM_UNIVARIATES> univariate_polynomials = { key->transcript_op, key->transcript_Px,
+                                                                       key->transcript_Py, key->transcript_z1,
                                                                        key->transcript_z2, hack };
     std::array<FF, NUM_UNIVARIATES> univariate_evaluations;
     for (auto [eval, polynomial] : zip_view(univariate_evaluations, univariate_polynomials)) {
