@@ -43,8 +43,6 @@ impl PrivateKernelInputsInit {
         //
         // Ensure we are calling the correct initial function in the contract
         let entry_point_function_matches = tx_request.function_data.hash() == call_stack_item.function_data.hash();
-        // TODO - Allow special characters in error message.
-        // assert(entry_point_function_matches, "tx_request.function_data must match call_stack_item.function_data");
         assert(entry_point_function_matches, "tx_request function_data must match call_stack_item function_data");
         //
         // Ensure we are passing the correct arguments to the function.
@@ -54,22 +52,21 @@ impl PrivateKernelInputsInit {
 
     fn validate_inputs(self) {
         let call_stack_item = self.private_call.call_stack_item;
-        let function_data = call_stack_item.function_data;
-
-        let public_inputs = call_stack_item.public_inputs;
 
         /* TODO(Mike/David): If we are going to have 3 initial calls on the private call stack,
         * then do we still need the `private_call_stack`
         * despite no longer needing a full `previous_kernel`
         */
 
+        let function_data = call_stack_item.function_data;
         assert(function_data.is_private, "Private kernel circuit can only execute a private function");
         assert(function_data.is_internal == false, "Cannot call an internal function directly");
-        assert(public_inputs.call_context.is_delegate_call == false, "Users cannot make a delegatecall");
-        assert(public_inputs.call_context.is_static_call == false, "Users cannot make a static call");
-        
+
+        let call_context = call_stack_item.public_inputs.call_context;
+        assert(call_context.is_delegate_call == false, "Users cannot make a delegatecall");
+        assert(call_context.is_static_call == false, "Users cannot make a static call");
         // The below also prevents delegatecall/staticcall in the base case
-        assert(public_inputs.call_context.storage_contract_address.eq(call_stack_item.contract_address), "Storage contract address must be that of the called contract");
+        assert(call_context.storage_contract_address.eq(call_stack_item.contract_address), "Storage contract address must be that of the called contract");
     }
 
     fn update_end_values(self, public_inputs: &mut KernelCircuitPublicInputsBuilder) {
@@ -87,7 +84,7 @@ impl PrivateKernelInputsInit {
     }
 
     pub fn native_private_kernel_circuit_initial(self) -> KernelCircuitPublicInputs {
-        let mut public_inputs : KernelCircuitPublicInputsBuilder = unsafe::zeroed();
+        let mut public_inputs: KernelCircuitPublicInputsBuilder = unsafe::zeroed();
         public_inputs.is_private = true;
         
         self.initialize_end_values(&mut public_inputs);

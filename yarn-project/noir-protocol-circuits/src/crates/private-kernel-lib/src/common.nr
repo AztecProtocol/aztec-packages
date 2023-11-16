@@ -33,7 +33,7 @@ use dep::types::{
     },
     point::Point,
     utils::{
-        arrays::{array_to_bounded_vec, is_empty, is_empty_array, validate_array},
+        arrays::{array_to_bounded_vec, is_empty_array, struct_array_to_bounded_vec, validate_array},
         bounded_vec::BoundedVec,
     },
 };
@@ -126,14 +126,14 @@ pub fn initialize_end_values(previous_kernel : PreviousKernelData, public_inputs
     // functions within this circuit:
     let start = previous_kernel.public_inputs.end;
 
-    public_inputs.end.read_requests = array_to_bounded_vec(start.read_requests, is_empty, 0);
-    public_inputs.end.new_commitments = array_to_bounded_vec(start.new_commitments, is_empty, 0);
-    public_inputs.end.new_nullifiers = array_to_bounded_vec(start.new_nullifiers, is_empty, 0);
-    public_inputs.end.nullified_commitments = array_to_bounded_vec(start.nullified_commitments, is_empty, 0);
+    public_inputs.end.read_requests = array_to_bounded_vec(start.read_requests);
+    public_inputs.end.new_commitments = array_to_bounded_vec(start.new_commitments);
+    public_inputs.end.new_nullifiers = array_to_bounded_vec(start.new_nullifiers);
+    public_inputs.end.nullified_commitments = array_to_bounded_vec(start.nullified_commitments);
 
-    public_inputs.end.private_call_stack = array_to_bounded_vec(start.private_call_stack, is_empty, 0);
-    public_inputs.end.public_call_stack = array_to_bounded_vec(start.public_call_stack, is_empty, 0);
-    public_inputs.end.new_l2_to_l1_msgs = array_to_bounded_vec(start.new_l2_to_l1_msgs, is_empty, 0);
+    public_inputs.end.private_call_stack = array_to_bounded_vec(start.private_call_stack);
+    public_inputs.end.public_call_stack = array_to_bounded_vec(start.public_call_stack);
+    public_inputs.end.new_l2_to_l1_msgs = array_to_bounded_vec(start.new_l2_to_l1_msgs);
 
     public_inputs.end.encrypted_logs_hash = start.encrypted_logs_hash;
     public_inputs.end.unencrypted_logs_hash = start.unencrypted_logs_hash;
@@ -142,10 +142,10 @@ pub fn initialize_end_values(previous_kernel : PreviousKernelData, public_inputs
     public_inputs.end.unencrypted_log_preimages_length = start.unencrypted_log_preimages_length;
 
     public_inputs.end.optionally_revealed_data = start.optionally_revealed_data;
-    public_inputs.end.new_contracts = array_to_bounded_vec(start.new_contracts, |ncd: NewContractData| ncd.is_empty(), NewContractData::default());
+    public_inputs.end.new_contracts = struct_array_to_bounded_vec(start.new_contracts, |ncd: NewContractData| ncd.is_empty(), NewContractData::default());
 }
 
-pub fn update_end_values(private_call : PrivateCallData, public_inputs : &mut KernelCircuitPublicInputsBuilder) {
+pub fn update_end_values(private_call: PrivateCallData, public_inputs: &mut KernelCircuitPublicInputsBuilder) {
     let private_call_public_inputs = private_call.call_stack_item.public_inputs;
 
     let read_requests = private_call_public_inputs.read_requests;
@@ -158,7 +158,6 @@ pub fn update_end_values(private_call : PrivateCallData, public_inputs : &mut Ke
     let nullified_commitments = private_call_public_inputs.nullified_commitments;
 
     let is_static_call = private_call_public_inputs.call_context.is_static_call;
-
     if is_static_call {
         // No state changes are allowed for static calls:
         assert(is_empty_array(new_commitments), "new_commitments must be empty for static calls");
@@ -169,10 +168,7 @@ pub fn update_end_values(private_call : PrivateCallData, public_inputs : &mut Ke
     
     // Transient read requests and witnesses are accumulated in public_inputs.end
     // We silo the read requests (domain separation per contract address)
-    assert(read_requests.len() == read_request_membership_witnesses.len()); // This is not done in the cpp code.
-    let mut siloed_read_requests: BoundedVec<Field,MAX_READ_REQUESTS_PER_CALL> = BoundedVec::new(0);
-
-    assert(read_requests.len() == MAX_READ_REQUESTS_PER_CALL); // This is not done in the cpp code
+    let mut siloed_read_requests: BoundedVec<Field, MAX_READ_REQUESTS_PER_CALL> = BoundedVec::new(0);
     for i in 0..MAX_READ_REQUESTS_PER_CALL {
         let read_request = read_requests[i];
         let witness = read_request_membership_witnesses[i];
@@ -185,8 +181,7 @@ pub fn update_end_values(private_call : PrivateCallData, public_inputs : &mut Ke
     // Enhance commitments and nullifiers with domain separation whereby domain is the contract.
     //
     // nullifiers
-    let mut siloed_new_nullifiers : BoundedVec<Field,MAX_NEW_NULLIFIERS_PER_CALL> = BoundedVec::new(0);
-    assert(new_nullifiers.len() == MAX_NEW_NULLIFIERS_PER_CALL);
+    let mut siloed_new_nullifiers: BoundedVec<Field, MAX_NEW_NULLIFIERS_PER_CALL> = BoundedVec::new(0);
     for i in 0..MAX_NEW_NULLIFIERS_PER_CALL {
         let new_nullifier = new_nullifiers[i];
         if new_nullifier != 0 {
@@ -196,8 +191,7 @@ pub fn update_end_values(private_call : PrivateCallData, public_inputs : &mut Ke
     public_inputs.end.new_nullifiers.push_vec(siloed_new_nullifiers);
 
     // commitments
-    let mut siloed_new_commitments : BoundedVec<Field, MAX_NEW_COMMITMENTS_PER_CALL> = BoundedVec::new(0);
-    assert(new_commitments.len() == MAX_NEW_COMMITMENTS_PER_CALL);
+    let mut siloed_new_commitments: BoundedVec<Field, MAX_NEW_COMMITMENTS_PER_CALL> = BoundedVec::new(0);
     for i in 0..MAX_NEW_COMMITMENTS_PER_CALL {
         let new_commitment = new_commitments[i];
         if new_commitment != 0 {
@@ -212,7 +206,7 @@ pub fn update_end_values(private_call : PrivateCallData, public_inputs : &mut Ke
     // take up a slot in the nullified_commitments array so that the array lines up properly
     // with new_nullifiers. This is necessary since the constant-size circuit-array functions
     // we use assume that the first 0-valued array entry designates the end of the array.
-    let mut siloed_nullified_commitments : BoundedVec<Field, MAX_NEW_NULLIFIERS_PER_CALL> = BoundedVec::new(0);
+    let mut siloed_nullified_commitments: BoundedVec<Field, MAX_NEW_NULLIFIERS_PER_CALL> = BoundedVec::new(0);
     for i in 0..MAX_NEW_NULLIFIERS_PER_CALL {
         // TODO(David): There are two ways to specify that a nullified commitment is empty.
         // Either with 0 or the special EMPTY_NULLIFIED_COMMITMENT constant
@@ -236,10 +230,10 @@ pub fn update_end_values(private_call : PrivateCallData, public_inputs : &mut Ke
     public_inputs.end.nullified_commitments.push_vec(siloed_nullified_commitments);
 
     // Call stacks
-    let private_call_stack = array_to_bounded_vec(private_call_public_inputs.private_call_stack, is_empty, 0);
+    let private_call_stack = array_to_bounded_vec(private_call_public_inputs.private_call_stack);
     public_inputs.end.private_call_stack.push_vec(private_call_stack);
 
-    let public_call_stack = array_to_bounded_vec(private_call_public_inputs.public_call_stack, is_empty, 0);
+    let public_call_stack = array_to_bounded_vec(private_call_public_inputs.public_call_stack);
     public_inputs.end.public_call_stack.push_vec(public_call_stack);
 
     // new l2 to l1 messages
@@ -314,8 +308,6 @@ pub fn contract_logic(private_call : PrivateCallData, public_inputs : &mut Kerne
         public_inputs.end.new_nullifiers.push(new_contract_address_nullifier);
     } else {
         // non-contract deployments must specify contract address being interacted with
-        // TODO - Allow special characters in error message.
-        // assert(storage_contract_address.to_field() != 0, "contract address can't be 0 for non-contract deployment related transactions");
         assert(storage_contract_address.to_field() != 0, "contract address cannot be 0");
 
          /* We need to compute the root of the contract tree, starting from the function's VK:
@@ -329,8 +321,6 @@ pub fn contract_logic(private_call : PrivateCallData, public_inputs : &mut Kerne
         // Ensures that if the function is internal, only the contract itself can call it
         if private_call.call_stack_item.function_data.is_internal {
             let msg_sender = private_call_public_inputs.call_context.msg_sender;
-            // TODO - Allow special characters in error message.
-            // assert(storage_contract_address.eq(msg_sender), "call is internal, but msg_sender is not self");
             assert(storage_contract_address.eq(msg_sender), "call is internal but msg_sender is not self");
         }
 
@@ -350,8 +340,6 @@ pub fn contract_logic(private_call : PrivateCallData, public_inputs : &mut Kerne
                                                  private_call.contract_leaf_membership_witness.sibling_path);
 
         let purported_contract_tree_root = private_call.call_stack_item.public_inputs.historical_block_data.contract_tree_root();
-        // TODO - Allow special characters in error message.
-        // assert_eq(computed_contract_tree_root, purported_contract_tree_root, "computed_contract_tree_root doesn't match purported_contract_tree_root");
         assert_eq(computed_contract_tree_root, purported_contract_tree_root, "computed_contract_tree_root does not match purported_contract_tree_root");
     }
 }

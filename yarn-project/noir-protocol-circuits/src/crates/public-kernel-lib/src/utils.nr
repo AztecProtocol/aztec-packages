@@ -11,7 +11,7 @@ use dep::types::{
         storage_update_request::StorageUpdateRequest,
     },
     utils::{
-        arrays::expect_array_values,
+        arrays::struct_array_eq,
     },
 };
 
@@ -48,7 +48,7 @@ pub fn compute_public_data_update_requests<N>(
 }
 
 pub fn assert_eq_public_data_reads<N, S>(public_data_reads: [PublicDataRead; N], expected: [PublicDataRead; S]) {
-    assert(expect_array_values(
+    assert(struct_array_eq(
         public_data_reads,
         expected,
         |pdr1: PublicDataRead, pdr2: PublicDataRead| pdr1.eq(pdr2),
@@ -60,7 +60,7 @@ pub fn assert_eq_public_data_update_requests<N, S>(
     public_data_update_requests: [PublicDataUpdateRequest; N],
     expected: [PublicDataUpdateRequest; S],
 ) {
-    assert(expect_array_values(
+    assert(struct_array_eq(
         public_data_update_requests,
         expected,
         |r1: PublicDataUpdateRequest, r2: PublicDataUpdateRequest| r1.eq(r2),
@@ -72,7 +72,7 @@ pub fn assert_eq_new_contracts<N, S>(
     new_contracts: [NewContractData; N],
     expected: [NewContractData; S],
 ) {
-    assert(expect_array_values(
+    assert(struct_array_eq(
         new_contracts,
         expected,
         |c1: NewContractData, c2: NewContractData| c1.eq(c2),

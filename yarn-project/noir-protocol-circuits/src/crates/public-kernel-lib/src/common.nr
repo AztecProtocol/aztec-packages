@@ -18,7 +18,7 @@ use dep::types::{
     },
     hash::{silo_commitment, silo_nullifier, compute_l2_to_l1_hash, accumulate_sha256},
     utils::{
-        arrays::{array_len, array_to_bounded_vec, is_empty, is_empty_array},
+        arrays::{array_to_bounded_vec, is_empty_array, struct_array_length, struct_array_to_bounded_vec},
         bounded_vec::BoundedVec,
         uint128::U128,
     },
@@ -105,7 +105,7 @@ pub fn validate_call_context(public_call: PublicCallData){
     }
     if is_static_call {
         let contract_storage_update_requests_length =
-            array_len(call_stack_item.public_inputs.contract_storage_update_requests, |r: StorageUpdateRequest| r.is_empty());
+            struct_array_length(call_stack_item.public_inputs.contract_storage_update_requests, |r: StorageUpdateRequest| r.is_empty());
         assert(contract_storage_update_requests_length == 0,
             "No contract storage update requests are allowed for static calls");
     }
@@ -190,23 +190,23 @@ pub fn initialize_end_values(previous_kernel : PreviousKernelData, circuit_outpu
     // functions within this circuit:
     let start = previous_kernel.public_inputs.end;
 
-    circuit_outputs.end.new_commitments = array_to_bounded_vec(start.new_commitments, is_empty, 0);
-    circuit_outputs.end.new_nullifiers = array_to_bounded_vec(start.new_nullifiers, is_empty, 0);
+    circuit_outputs.end.new_commitments = array_to_bounded_vec(start.new_commitments);
+    circuit_outputs.end.new_nullifiers = array_to_bounded_vec(start.new_nullifiers);
 
-    circuit_outputs.end.private_call_stack = array_to_bounded_vec(start.private_call_stack, is_empty, 0);
-    circuit_outputs.end.public_call_stack = array_to_bounded_vec(start.public_call_stack, is_empty, 0);
-    circuit_outputs.end.new_l2_to_l1_msgs = array_to_bounded_vec(start.new_l2_to_l1_msgs, is_empty, 0);
+    circuit_outputs.end.private_call_stack = array_to_bounded_vec(start.private_call_stack);
+    circuit_outputs.end.public_call_stack = array_to_bounded_vec(start.public_call_stack);
+    circuit_outputs.end.new_l2_to_l1_msgs = array_to_bounded_vec(start.new_l2_to_l1_msgs);
 
     circuit_outputs.end.optionally_revealed_data = start.optionally_revealed_data;
 
-    circuit_outputs.end.public_data_update_requests = array_to_bounded_vec(start.public_data_update_requests, |pdu: PublicDataUpdateRequest| pdu.is_empty(), PublicDataUpdateRequest::empty());
-    circuit_outputs.end.public_data_reads = array_to_bounded_vec(start.public_data_reads, |pdr: PublicDataRead| pdr.is_empty(), PublicDataRead::empty());
+    circuit_outputs.end.public_data_update_requests = struct_array_to_bounded_vec(start.public_data_update_requests, |pdu: PublicDataUpdateRequest| pdu.is_empty(), PublicDataUpdateRequest::empty());
+    circuit_outputs.end.public_data_reads = struct_array_to_bounded_vec(start.public_data_reads, |pdr: PublicDataRead| pdr.is_empty(), PublicDataRead::empty());
 
     // Public kernel does not modify encrypted logs values --> we just copy them to output
     circuit_outputs.end.encrypted_logs_hash = start.encrypted_logs_hash;
     circuit_outputs.end.encrypted_log_preimages_length = start.encrypted_log_preimages_length;
 
-    circuit_outputs.end.new_contracts = array_to_bounded_vec(previous_kernel.public_inputs.end.new_contracts, |ncd: NewContractData| ncd.is_empty(), NewContractData::default());
+    circuit_outputs.end.new_contracts = struct_array_to_bounded_vec(previous_kernel.public_inputs.end.new_contracts, |ncd: NewContractData| ncd.is_empty(), NewContractData::default());
 }
 
 pub fn update_public_end_values(public_call: PublicCallData, circuit_outputs : &mut KernelCircuitPublicInputsBuilder) {
@@ -218,7 +218,7 @@ pub fn update_public_end_values(public_call: PublicCallData, circuit_outputs : &
 
     let public_call_public_inputs = public_call.call_stack_item.public_inputs;
 
-    let public_call_stack = array_to_bounded_vec(public_call_public_inputs.public_call_stack, is_empty, 0);
+    let public_call_stack = array_to_bounded_vec(public_call_public_inputs.public_call_stack);
     circuit_outputs.end.public_call_stack.push_vec(public_call_stack);
 
     // don't update pending_read_requests, because those just get passed through without any change

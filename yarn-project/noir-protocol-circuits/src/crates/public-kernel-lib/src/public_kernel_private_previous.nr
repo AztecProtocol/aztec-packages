@@ -82,9 +82,8 @@ mod tests {
         },
         utils::{
             arrays::{
+                array_eq,
                 array_length,
-                expect_array_fields,
-                expect_array_values,
             },
             bounded_vec::BoundedVec,
         },
@@ -379,9 +378,9 @@ mod tests {
 
         let public_inputs = builder.execute();
 
-        assert(expect_array_fields(public_inputs.end.private_call_stack, []));
+        assert(array_eq(public_inputs.end.private_call_stack, []));
         assert_eq_new_contracts(public_inputs.end.new_contracts, new_contracts);
-        assert(expect_array_fields(public_inputs.end.public_call_stack, public_call_stack));
+        assert(array_eq(public_inputs.end.public_call_stack, public_call_stack));
         assert_eq_public_data_update_requests(public_inputs.end.public_data_update_requests, update_requests);
         assert_eq_public_data_reads(public_inputs.end.public_data_reads, read_requests);
     }

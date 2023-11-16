@@ -75,7 +75,7 @@ mod tests {
             public_call_data_builder::PublicCallDataBuilder,
         },
         utils::{
-            arrays::expect_array_fields,
+            arrays::array_eq,
         },
     };
     use dep::aztec::constants_gen::{
@@ -234,9 +234,9 @@ mod tests {
         let public_inputs = builder.execute();
         assert_eq_public_data_update_requests(public_inputs.end.public_data_update_requests, public_data_update_requests);
         assert_eq_public_data_reads(public_inputs.end.public_data_reads, public_data_read_requests);
-        assert(expect_array_fields(public_inputs.end.new_commitments, new_commitments));
-        assert(expect_array_fields(public_inputs.end.new_nullifiers, new_nullifiers));
-        assert(expect_array_fields(public_inputs.end.new_l2_to_l1_msgs, new_l2_to_l1_msgs));
+        assert(array_eq(public_inputs.end.new_commitments, new_commitments));
+        assert(array_eq(public_inputs.end.new_nullifiers, new_nullifiers));
+        assert(array_eq(public_inputs.end.new_l2_to_l1_msgs, new_l2_to_l1_msgs));
 
         assert_eq(public_inputs.end.encrypted_log_preimages_length, prev_encrypted_log_preimages_length);
         assert_eq(public_inputs.end.unencrypted_log_preimages_length, unencrypted_log_preimages_length + prev_unencrypted_log_preimages_length);

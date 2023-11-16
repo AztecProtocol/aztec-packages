@@ -168,7 +168,7 @@ mod tests {
         hash::compute_unique_siloed_commitments,
         tests::previous_kernel_data_builder::PreviousKernelDataBuilder,
         utils::{
-            arrays::{array_length, is_empty_array, expect_array_fields},
+            arrays::{array_eq, array_length, is_empty_array},
             bounded_vec::BoundedVec,
         },
     };
@@ -301,7 +301,7 @@ mod tests {
 
         // The nullifier at index 1 is chopped.
         let expected_new_nullifiers = [new_nullifiers[0], new_nullifiers[2]];
-        assert(expect_array_fields(public_inputs.end.new_nullifiers, expected_new_nullifiers));
+        assert(array_eq(public_inputs.end.new_nullifiers, expected_new_nullifiers));
     }
 
     #[test]
@@ -319,11 +319,11 @@ mod tests {
         let new_nullifiers = builder.get_new_nullifiers();
 
         let public_inputs = builder.execute();
-        assert(expect_array_fields(public_inputs.end.new_commitments, unique_siloed_commitments));
+        assert(array_eq(public_inputs.end.new_commitments, unique_siloed_commitments));
 
         // The nullifier at index 1 is chopped.
         let expected_new_nullifiers = [new_nullifiers[0], new_nullifiers[2]];
-        assert(expect_array_fields(public_inputs.end.new_nullifiers, expected_new_nullifiers));
+        assert(array_eq(public_inputs.end.new_nullifiers, expected_new_nullifiers));
     }
 
     #[test]
@@ -341,7 +341,7 @@ mod tests {
 
         let public_inputs = builder.execute();
         assert(is_empty_array(public_inputs.end.new_commitments));
-        assert(expect_array_fields(public_inputs.end.new_nullifiers, [new_nullifiers[0]]));
+        assert(array_eq(public_inputs.end.new_nullifiers, [new_nullifiers[0]]));
     }
 
     #[test]
