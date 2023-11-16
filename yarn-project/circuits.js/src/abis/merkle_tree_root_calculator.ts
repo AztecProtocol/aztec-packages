@@ -14,10 +14,6 @@ export class MerkleTreeRootCalculator {
   }
 
   computeTreeRoot(leaves: Buffer[] = []) {
-    if (this.height > this.zeroHashes.length - 1) {
-      throw new Error('Height greater than computed zeroHashes.');
-    }
-
     if (leaves.length === 0) {
       return this.zeroHashes[this.zeroHashes.length - 1];
     }
