@@ -93,7 +93,6 @@ export async function sendTxs(
 
   // Awaiting txHash waits until the aztec node has received the tx into its p2p pool
   await Promise.all(sentTxs.map(tx => tx.getTxHash()));
-
   await sleep(100);
 
   return sentTxs;
