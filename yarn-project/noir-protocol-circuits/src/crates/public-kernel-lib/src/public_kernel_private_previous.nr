@@ -40,7 +40,6 @@ impl PublicKernelPrivatePreviousInputs {
         // validate the inputs unique to having a previous private kernel
         self.validate_inputs();
 
-        // to implement:
         // validate the kernel execution common to all invocation circumstances
         common::validate_kernel_execution(self.public_call);
 

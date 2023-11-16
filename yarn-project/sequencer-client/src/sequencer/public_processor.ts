@@ -302,6 +302,7 @@ export class PublicProcessor {
       );
     }
 
+    // note this was previously padArrayStart in the cpp kernel, logic was updated in noir translation
     return padArrayEnd(preimages, PublicCallStackItem.empty(), MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
   }
 

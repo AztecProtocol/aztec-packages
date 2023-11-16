@@ -17,7 +17,7 @@ impl PublicKernelPublicPreviousInputs {
     fn validate_inputs(self) {
         let previous_call_is_private = self.previous_kernel.public_inputs.is_private;
         assert(previous_call_is_private == false,
-            "Previous kernel must be private when in this public kernel version");
+            "Previous kernel must be public when in this public kernel version");
     }
 
 
@@ -31,10 +31,9 @@ impl PublicKernelPublicPreviousInputs {
         // validate the inputs common to all invocation circumstances
         common::validate_inputs(self.public_call);
 
-        // validate the inputs unique to having a previous private kernel
+        // validate the inputs unique to having a previous public kernel
         self.validate_inputs();
 
-        // to implement:
         // validate the kernel execution common to all invocation circumstances
         common::validate_kernel_execution(self.public_call);
 
