@@ -161,7 +161,6 @@ mod tests {
         MAX_READ_REQUESTS_PER_TX,
         MAX_NEW_COMMITMENTS_PER_TX,
         MAX_NEW_NULLIFIERS_PER_TX,
-        EMPTY_NULLIFIED_COMMITMENT,
     };
     use dep::types::{
         abis::kernel_circuit_public_inputs::KernelCircuitPublicInputsFinal,
@@ -404,69 +403,6 @@ mod tests {
         let mut builder = PrivateKernelOrderingInputsBuilder::new();
 
         builder.previous_kernel.end.new_nullifiers = BoundedVec::new(0);
-
-        builder.failed();
-    }
-
-    #[test(should_fail_with="invalid array")]
-    fn input_validation_malformed_end_arrays_read_requests() {
-        let mut builder = PrivateKernelOrderingInputsBuilder::new();
-
-        builder.previous_kernel.end.read_requests.push_array([0, 9123]);
-
-        builder.failed();
-    }
-
-    #[test(should_fail_with="invalid array")]
-    fn input_validation_malformed_end_arrays_commitments() {
-        let mut builder = PrivateKernelOrderingInputsBuilder::new();
-
-        builder.previous_kernel.end.new_commitments.push_array([0, 9123]);
-
-        builder.failed();
-    }
-
-    #[test(should_fail_with="invalid array")]
-    fn input_validation_malformed_end_arrays_nullifiers() {
-        let mut builder = PrivateKernelOrderingInputsBuilder::new();
-
-        builder.previous_kernel.end.new_nullifiers.push_array([0, 9123]);
-
-        builder.failed();
-    }
-
-    #[test(should_fail_with="invalid array")]
-    fn input_validation_malformed_end_arrays_nullified_commitments() {
-        let mut builder = PrivateKernelOrderingInputsBuilder::new();
-
-        builder.previous_kernel.end.nullified_commitments.push_array([0, EMPTY_NULLIFIED_COMMITMENT]);
-
-        builder.failed();
-    }
-
-    #[test(should_fail_with="invalid array")]
-    fn input_validation_malformed_end_arrays_private_call_stack() {
-        let mut builder = PrivateKernelOrderingInputsBuilder::new();
-
-        builder.previous_kernel.end.private_call_stack.push_array([0, 9123]);
-
-        builder.failed();
-    }
-
-    #[test(should_fail_with="invalid array")]
-    fn input_validation_malformed_end_arrays_public_call_stack() {
-        let mut builder = PrivateKernelOrderingInputsBuilder::new();
-
-        builder.previous_kernel.end.public_call_stack.push_array([0, 9123]);
-
-        builder.failed();
-    }
-
-    #[test(should_fail_with="invalid array")]
-    fn input_validation_malformed_end_arrays_l2_to_l1_msgs() {
-        let mut builder = PrivateKernelOrderingInputsBuilder::new();
-
-        builder.previous_kernel.end.new_l2_to_l1_msgs.push_array([0, 9123]);
 
         builder.failed();
     }

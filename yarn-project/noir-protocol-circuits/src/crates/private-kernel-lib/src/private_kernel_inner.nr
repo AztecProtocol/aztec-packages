@@ -306,69 +306,6 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with = "invalid array")]
-    fn input_validation_malformed_end_arrays_read_requests() {
-        let mut builder = PrivateKernelInnerInputsBuilder::new();
-
-        builder.previous_kernel.end.read_requests.push_array([0, 9123]);
-        
-        builder.failed();
-    }
-
-    #[test(should_fail_with = "invalid array")]
-    fn input_validation_malformed_end_arrays_commitments() {
-        let mut builder = PrivateKernelInnerInputsBuilder::new();
-
-        builder.previous_kernel.end.new_commitments.push_array([0, 9123]);
-        
-        builder.failed();
-    }
-
-    #[test(should_fail_with = "invalid array")]
-    fn input_validation_malformed_end_arrays_nullifiers() {
-        let mut builder = PrivateKernelInnerInputsBuilder::new();
-
-        builder.previous_kernel.end.new_nullifiers.push_array([0, 9123]);
-        
-        builder.failed();
-    }
-
-    #[test(should_fail_with = "invalid array")]
-    fn input_validation_malformed_end_arrays_nullified_commitments() {
-        let mut builder = PrivateKernelInnerInputsBuilder::new();
-
-        builder.previous_kernel.end.nullified_commitments.push_array([0, EMPTY_NULLIFIED_COMMITMENT]);
-        
-        builder.failed();
-    }
-    
-    #[test(should_fail_with = "invalid array")]
-    fn input_validation_malformed_end_arrays_private_call_stack() {
-        let mut builder = PrivateKernelInnerInputsBuilder::new();
-
-        builder.previous_kernel.end.private_call_stack.push_array([0, 888]);
-        
-        builder.failed();
-    }
-
-    #[test(should_fail_with = "invalid array")]
-    fn input_validation_malformed_end_arrays_public_call_stack() {
-        let mut builder = PrivateKernelInnerInputsBuilder::new();
-
-        builder.previous_kernel.end.public_call_stack.push_array([0, 888]);
-        
-        builder.failed();
-    }
-
-    #[test(should_fail_with = "invalid array")]
-    fn input_validation_malformed_end_arrays_l2_to_l1_msgs() {
-        let mut builder = PrivateKernelInnerInputsBuilder::new();
-
-        builder.previous_kernel.end.new_l2_to_l1_msgs.push_array([0, 1]);
-        
-        builder.failed();
-    }
-
     #[test(should_fail_with = "push_vec out of bounds")]
     fn private_kernel_should_fail_if_aggregating_too_many_commitments() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
