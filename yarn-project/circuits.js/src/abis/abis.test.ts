@@ -1,3 +1,5 @@
+import { Timer } from '@aztec/foundation/timer';
+
 import times from 'lodash.times';
 
 import {

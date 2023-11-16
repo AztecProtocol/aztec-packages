@@ -2,7 +2,6 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { keccak, pedersenHash } from '@aztec/foundation/crypto';
 import { numToUInt32BE } from '@aztec/foundation/serialize';
 import { IWasmModule } from '@aztec/foundation/wasm';
-import { MerkleTreeRootCalculator } from '@aztec/merkle-tree';
 
 import { Buffer } from 'buffer';
 import chunk from 'lodash.chunk';
@@ -25,7 +24,8 @@ import {
   TxContext,
   TxRequest,
 } from '../index.js';
-import { boolToBuffer } from '../utils/serialize.js';
+import { boolToBuffer, serializeBufferArrayToVector } from '../utils/serialize.js';
+import { MerkleTreeRootCalculator } from './merkle_tree_root_calculator.js';
 
 /**
  * Synchronously calls a wasm function.
@@ -111,12 +111,10 @@ export function computeFunctionLeaf(fnLeaf: FunctionLeafPreimage): Fr {
   );
 }
 
-const functionTreeRootCalculator = new MerkleTreeRootCalculator(
-  FUNCTION_TREE_HEIGHT,
-  // The "zero leaf" of the function tree is the hash of 5 zero fields.
-  // TODO: Why can we not just use a zero field as the zero leaf? Complicates things perhaps unnecessarily?
-  pedersenHash(new Array(5).fill(Buffer.alloc(32))),
-);
+// The "zero leaf" of the function tree is the hash of 5 zero fields.
+// TODO: Why can we not just use a zero field as the zero leaf? Complicates things perhaps unnecessarily?
+const functionTreeZeroLeaf = pedersenHash(new Array(5).fill(Buffer.alloc(32)));
+const functionTreeRootCalculator = new MerkleTreeRootCalculator(FUNCTION_TREE_HEIGHT, functionTreeZeroLeaf);
 
 /**
  * Computes a function tree root from function leaves.
@@ -125,7 +123,8 @@ const functionTreeRootCalculator = new MerkleTreeRootCalculator(
  * @returns The function tree root.
  */
 export function computeFunctionTreeRoot(wasm: IWasmModule, fnLeaves: Fr[]) {
-  return Fr.fromBuffer(functionTreeRootCalculator.computeTreeRoot(fnLeaves.map(fr => fr.toBuffer())));
+  const leaves = fnLeaves.map(fr => fr.toBuffer());
+  return Fr.fromBuffer(functionTreeRootCalculator.computeTreeRoot(leaves));
 }
 
 /**
