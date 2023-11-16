@@ -327,7 +327,8 @@ class Ultra {
      * @details During folding and sumcheck, the prover evaluates the relations on these univariates.
      */
     template <size_t LENGTH>
-    using ProverUnivariates = AllEntities<barretenberg::Univariate<FF, LENGTH>, barretenberg::Univariate<FF, LENGTH>>;
+    using ProverUnivariates =
+        AllEntities<barretenberg::Univariate<FF, LENGTH>, barretenberg::Univariate<FF, LENGTH>>; // ??????
 
     /**
      * @brief A container for univariates produced during the hot loop in sumcheck.

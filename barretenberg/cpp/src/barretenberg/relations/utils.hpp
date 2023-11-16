@@ -50,10 +50,10 @@ template <typename Flavor> class RelationUtils {
      *
      * @details After computing the round univariate, it is necessary to zero-out the accumulators used to compute it.
      */
-    template <typename ChallengeType> static void zero_univariates(auto& tuple)
+    static void zero_univariates(auto& tuple)
     {
         auto set_to_zero = []<size_t, size_t>(auto& element) {
-            std::fill(element.evaluations.begin(), element.evaluations.end(), ChallengeType(0));
+            std::fill(element.evaluations.begin(), element.evaluations.end(), FF(0));
         };
         apply_to_tuple_of_tuples(tuple, set_to_zero);
     }
@@ -65,8 +65,7 @@ template <typename Flavor> class RelationUtils {
      * @param challenge
      * @param current_scalar power of the challenge
      */
-    template <typename ChallengeType>
-    static void scale_univariates(auto& tuple, const ChallengeType& challenge, ChallengeType& current_scalar)
+    static void scale_univariates(auto& tuple, const FF& challenge, FF& current_scalar)
     {
 
         // these size_t are not necessary????????
@@ -160,20 +159,20 @@ template <typename Flavor> class RelationUtils {
      * @brief Given a tuple t = (t_0, t_1, ..., t_{NUM_SUBRELATIONS-1}) and a challenge α,
      * return t_0 + αt_1 + ... + α^{NUM_SUBRELATIONS-1}t_{NUM_SUBRELATIONS-1}).
      */
-    template <typename ExtendedUnivariate, typename ContainerOverSubrelations, typename ChallengeType>
+    template <typename ExtendedUnivariate, typename ContainerOverSubrelations>
     static ExtendedUnivariate batch_over_relations(
         ContainerOverSubrelations& univariate_accumulators,
-        ChallengeType& challenge,
+        FF& challenge,
         const std::optional<PowUnivariate<FF>>& pow_univariate = std::nullopt)
     {
-        auto running_challenge = ChallengeType(1);
+        auto running_challenge = FF(1);
         scale_univariates(univariate_accumulators, challenge, running_challenge);
 
         auto result = ExtendedUnivariate(0);
         extend_and_batch_univariates(univariate_accumulators, result, pow_univariate);
 
         // Reset all univariate accumulators to 0 before beginning accumulation in the next round
-        zero_univariates<ChallengeType>(univariate_accumulators);
+        zero_univariates(univariate_accumulators);
         return result;
     }
 

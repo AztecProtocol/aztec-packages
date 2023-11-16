@@ -27,11 +27,12 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     using BaseUnivariate = Univariate<FF, ProverInstances::NUM>;
     // The length of ExtendedUnivariate is the largest length (==degree + 1) of a univariate polynomial obtained by
     // composing a relation with folded instance + challenge data.
-
-    using ExtendedUnivariate = Univariate<FF,
-                                          (Flavor::NUMBER_OF_SUBRELATIONS - 1) *
-                                                  (Flavor::MAX_TOTAL_RELATION_LENGTH - 1) * (ProverInstances::NUM - 1) +
-                                              1>;
+    using ExtendedUnivariate = Univariate<FF, (Flavor::MAX_TOTAL_RELATION_LENGTH - 1) * (ProverInstances::NUM - 1) + 1>;
+    using ExtendedUnivariateWithRandomization =
+        Univariate<FF,
+                   (Flavor::NUMBER_OF_SUBRELATIONS - 1) * (Flavor::MAX_TOTAL_RELATION_LENGTH - 1) *
+                           (ProverInstances::NUM - 1) +
+                       1>;
 
     using ExtendedUnivariates = typename Flavor::template ProverUnivariates<ExtendedUnivariate::LENGTH>;
 
@@ -238,7 +239,8 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      * @brief Compute the combiner polynomial $G$ in the Protogalaxy paper.
      *
      */
-    ExtendedUnivariate compute_combiner(const ProverInstances& instances, const std::vector<FF> pow_betas_star)
+    ExtendedUnivariateWithRandomization compute_combiner(const ProverInstances& instances,
+                                                         const std::vector<FF> pow_betas_star)
     {
         size_t common_circuit_size = instances[0]->prover_polynomials._data[0].size();
 
@@ -256,7 +258,8 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         // Constuct univariate accumulator containers; one per thread
         std::vector<TupleOfTuplesOfUnivariates> thread_univariate_accumulators(num_threads);
         for (auto& accum : thread_univariate_accumulators) {
-            Utils::template zero_univariates<AlphaType>(accum);
+            // just normal relation lengths
+            Utils::zero_univariates(accum);
         }
 
         // Constuct extended univariates containers; one per thread
@@ -288,7 +291,25 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
             Utils::add_nested_tuples(univariate_accumulators, accumulators);
         }
         // Batch the univariate contributions from each sub-relation to obtain the round univariate
-        return Utils::template batch_over_relations<ExtendedUnivariate>(univariate_accumulators, instances.alpha);
+        return batch_over_relations(univariate_accumulators, instances.alpha);
+    }
+    static ExtendedUnivariateWithRandomization batch_over_relations(TupleOfTuplesOfUnivariates univariate_accumulators,
+                                                                    AlphaType alpha)
+    {
+        auto running_challenge = AlphaType(1);
+
+        auto result = ExtendedUnivariateWithRandomization(0);
+        auto scale_and_sum = [&]<size_t, size_t>(auto& element) {
+            auto extended = element.template extend_to<ProverInstances::BATCHED_EXTENDED_LENGTH>();
+            extended *= running_challenge;
+            running_challenge *= alpha;
+            result += extended;
+        };
+
+        Utils::apply_to_tuple_of_tuples(univariate_accumulators, scale_and_sum);
+        Utils::zero_univariates(univariate_accumulators);
+
+        return result;
     }
 
     /**
@@ -301,7 +322,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     static Univariate<FF,
                       (Flavor::MAX_TOTAL_RELATION_LENGTH - 1) * (ProverInstances::NUM - 1) + 1,
                       ProverInstances::NUM>
-    compute_combiner_quotient(FF compressed_perturbator, ExtendedUnivariate combiner)
+    compute_combiner_quotient(FF compressed_perturbator, ExtendedUnivariateWithRandomization combiner)
     {
         std::array<FF, (Flavor::MAX_TOTAL_RELATION_LENGTH - 2) * (ProverInstances::NUM - 1)>
             combiner_quotient_evals = {};
@@ -362,7 +383,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
             accumulated_alpha.value_at(instance_idx) = instance->alpha;
             instance_idx++;
         }
-        instances.alpha = accumulated_alpha.template extend_to<ProverInstances::EXTENDED_LENGTH>();
+        instances.alpha = accumulated_alpha.template extend_to<ProverInstances::BATCHED_EXTENDED_LENGTH>();
     }
 };
 
