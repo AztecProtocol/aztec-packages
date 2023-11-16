@@ -50,10 +50,10 @@ template <typename Flavor> class RelationUtils {
      *
      * @details After computing the round univariate, it is necessary to zero-out the accumulators used to compute it.
      */
-    static void zero_univariates(auto& tuple)
+    template <typename ChallengeType> static void zero_univariates(auto& tuple)
     {
         auto set_to_zero = []<size_t, size_t>(auto& element) {
-            std::fill(element.evaluations.begin(), element.evaluations.end(), FF(0));
+            std::fill(element.evaluations.begin(), element.evaluations.end(), ChallengeType(0));
         };
         apply_to_tuple_of_tuples(tuple, set_to_zero);
     }
@@ -157,8 +157,8 @@ template <typename Flavor> class RelationUtils {
     }
 
     /**
-     * @brief Given a tuple t = (t_0, t_1, ..., t_{NUM_RELATIONS-1}) and a challenge α,
-     * return t_0 + αt_1 + ... + α^{NUM_RELATIONS-1}t_{NUM_RELATIONS-1}).
+     * @brief Given a tuple t = (t_0, t_1, ..., t_{NUM_SUBRELATIONS-1}) and a challenge α,
+     * return t_0 + αt_1 + ... + α^{NUM_SUBRELATIONS-1}t_{NUM_SUBRELATIONS-1}).
      */
     template <typename ExtendedUnivariate, typename ContainerOverSubrelations, typename ChallengeType>
     static ExtendedUnivariate batch_over_relations(
@@ -173,7 +173,7 @@ template <typename Flavor> class RelationUtils {
         extend_and_batch_univariates(univariate_accumulators, result, pow_univariate);
 
         // Reset all univariate accumulators to 0 before beginning accumulation in the next round
-        zero_univariates(univariate_accumulators);
+        zero_univariates<ChallengeType>(univariate_accumulators);
         return result;
     }
 

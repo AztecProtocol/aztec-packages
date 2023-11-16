@@ -22,22 +22,17 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     using RowEvaluations = typename Flavor::AllValues;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using Relations = typename Flavor::Relations;
+    using AlphaType = ProverInstances::AlphaType;
 
     using BaseUnivariate = Univariate<FF, ProverInstances::NUM>;
     // The length of ExtendedUnivariate is the largest length (==degree + 1) of a univariate polynomial obtained by
     // composing a relation with folded instance + challenge data.
 
-    using ExtendedUnivariate =
-        Univariate<FF,
-                   Flavor::NUMBER_OF_SUBRELATIONS*(Flavor::MAX_TOTAL_RELATION_LENGTH - 1) * (ProverInstances::NUM - 1) +
-                       1>;
+    using ExtendedUnivariate = Univariate<FF,
+                                          (Flavor::NUMBER_OF_SUBRELATIONS - 1) *
+                                                  (Flavor::MAX_TOTAL_RELATION_LENGTH - 1) * (ProverInstances::NUM - 1) +
+                                              1>;
 
-    // this might be wrong???????
-    // We don't need the extra batching :-?
-    using ExtendedUnivariateWithRandomization =
-        Univariate<FF,
-                   Flavor::NUMBER_OF_SUBRELATIONS*(Flavor::MAX_TOTAL_RELATION_LENGTH - 1) * (ProverInstances::NUM - 1) +
-                       1>;
     using ExtendedUnivariates = typename Flavor::template ProverUnivariates<ExtendedUnivariate::LENGTH>;
 
     using TupleOfTuplesOfUnivariates =
@@ -243,8 +238,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      * @brief Compute the combiner polynomial $G$ in the Protogalaxy paper.
      *
      */
-    ExtendedUnivariateWithRandomization compute_combiner(const ProverInstances& instances,
-                                                         const std::vector<FF> pow_betas_star)
+    ExtendedUnivariate compute_combiner(const ProverInstances& instances, const std::vector<FF> pow_betas_star)
     {
         size_t common_circuit_size = instances[0]->prover_polynomials._data[0].size();
 
@@ -262,7 +256,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         // Constuct univariate accumulator containers; one per thread
         std::vector<TupleOfTuplesOfUnivariates> thread_univariate_accumulators(num_threads);
         for (auto& accum : thread_univariate_accumulators) {
-            Utils::zero_univariates(accum);
+            Utils::template zero_univariates<AlphaType>(accum);
         }
 
         // Constuct extended univariates containers; one per thread
@@ -294,8 +288,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
             Utils::add_nested_tuples(univariate_accumulators, accumulators);
         }
         // Batch the univariate contributions from each sub-relation to obtain the round univariate
-        return Utils::template batch_over_relations<ExtendedUnivariateWithRandomization>(univariate_accumulators,
-                                                                                         instances.alpha);
+        return Utils::template batch_over_relations<ExtendedUnivariate>(univariate_accumulators, instances.alpha);
     }
 
     /**
@@ -308,7 +301,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     static Univariate<FF,
                       (Flavor::MAX_TOTAL_RELATION_LENGTH - 1) * (ProverInstances::NUM - 1) + 1,
                       ProverInstances::NUM>
-    compute_combiner_quotient(FF compressed_perturbator, ExtendedUnivariateWithRandomization combiner)
+    compute_combiner_quotient(FF compressed_perturbator, ExtendedUnivariate combiner)
     {
         std::array<FF, (Flavor::MAX_TOTAL_RELATION_LENGTH - 2) * (ProverInstances::NUM - 1)>
             combiner_quotient_evals = {};
