@@ -64,7 +64,6 @@ pub fn validate_call_stack(private_call : PrivateCallData) {
     let stack = private_call.call_stack_item.public_inputs.private_call_stack;
     let preimages = private_call.private_call_stack_preimages;
     
-    assert(stack.len() == preimages.len()); // This is not in the cpp code.
     for i in 0..stack.len() {
         let hash = stack[i];
         let preimage = preimages[i];

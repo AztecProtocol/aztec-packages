@@ -46,7 +46,6 @@ pub fn validate_call_stack(public_call : PublicCallData) {
     let our_portal_contract_address =
         public_call.call_stack_item.public_inputs.call_context.portal_contract_address;
     
-    assert(stack.len() == preimages.len()); // This is not in the cpp code.
     for i in 0..stack.len() {
         let hash = stack[i];
         let preimage = preimages[i];
@@ -163,8 +162,6 @@ pub fn propagate_valid_public_data_update_requests(public_call: PublicCallData, 
 
     let mut public_data_update_requests : BoundedVec<PublicDataUpdateRequest, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX> = BoundedVec::new(PublicDataUpdateRequest::empty());
 
-    assert(update_requests.len() == MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX); // This is not done in the cpp code.
-
     for  i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
         let update_request = update_requests[i];
         if (!update_request.is_empty()) {
@@ -259,7 +256,6 @@ pub fn propagate_new_commitments(public_call: PublicCallData, circuit_outputs : 
     let storage_contract_address = public_call_public_inputs.call_context.storage_contract_address;
 
     let mut siloed_new_commitments : BoundedVec<Field, MAX_NEW_COMMITMENTS_PER_CALL> = BoundedVec::new(0);
-    assert(new_commitments.len() == MAX_NEW_COMMITMENTS_PER_CALL);
     for i in 0..MAX_NEW_COMMITMENTS_PER_CALL {
         let new_commitment = new_commitments[i];
         if new_commitment != 0 {
@@ -275,7 +271,6 @@ pub fn propagate_new_nullifiers(public_call: PublicCallData, circuit_outputs : &
 
     // Enhance commitments and nullifiers with domain separation whereby domain is the contract.
     let mut siloed_new_nullifiers : BoundedVec<Field,MAX_NEW_NULLIFIERS_PER_CALL> = BoundedVec::new(0);
-    assert(new_nullifiers.len() == MAX_NEW_NULLIFIERS_PER_CALL);
     for i in 0..MAX_NEW_NULLIFIERS_PER_CALL {
         let new_nullifier = new_nullifiers[i];
         if new_nullifier != 0 {
