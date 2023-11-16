@@ -328,7 +328,6 @@ template <typename Curve> class ZeroMorphProver_ {
 
         // Extract multilinear challenge u and claimed multilinear evaluations from Sumcheck output
         std::span<FF> u_challenge = multilinear_challenge;
-        // std::span<FF> claimed_evaluations = evaluations;
         size_t log_N = u_challenge.size();
         size_t N = 1 << log_N;
 
