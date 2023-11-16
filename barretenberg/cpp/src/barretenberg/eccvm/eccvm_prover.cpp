@@ -303,18 +303,27 @@ template <ECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_final_pcs_round
     PCS::compute_opening_proof(commitment_key, shplonk_output.opening_pair, shplonk_output.witness, transcript);
 }
 
+/**
+ * @brief Batch open the transcript polynomials as univariates for Translator consistency check
+ * TODO(#768): Find a better way to do this. See issue for details.
+ *
+ * @tparam Flavor
+ */
 template <ECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_transcript_consistency_univariate_opening_round()
 {
-    // WORKTODO: optimize
+    // Since IPA cannot currently handle polynomials for which the latter half of the coefficients are 0, we hackily
+    // batch the constant polynomial 1 in with the 5 transcript polynomials. See issue #768 for more details.
     Polynomial hack(key->circuit_size);
     for (size_t idx = 0; idx < key->circuit_size; idx++) {
         hack[idx] = 1;
     }
     transcript.send_to_verifier("Translation:hack_commitment", commitment_key->commit(hack));
 
+    // Get the challenge at which we evaluate the polynomials as univariates
     FF evaluation_challenge_x = transcript.get_challenge("Translation:evaluation_challenge_x");
 
-    const size_t NUM_UNIVARIATES = 6;
+    // Collect the polynomials and evaluations to be batched
+    const size_t NUM_UNIVARIATES = 6; // 5 transcript polynomials plus the constant hack poly
     std::array<Polynomial, NUM_UNIVARIATES> univariate_polynomials = { key->transcript_op, key->transcript_Px,
                                                                        key->transcript_Py, key->transcript_z1,
                                                                        key->transcript_z2, hack };
@@ -323,6 +332,7 @@ template <ECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_transcript_cons
         eval = polynomial.evaluate(evaluation_challenge_x);
     }
 
+    // Add the univariate evaluations to the transcript
     transcript.send_to_verifier("Translation:op", univariate_evaluations[0]);
     transcript.send_to_verifier("Translation:Px", univariate_evaluations[1]);
     transcript.send_to_verifier("Translation:Py", univariate_evaluations[2]);
@@ -330,8 +340,10 @@ template <ECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_transcript_cons
     transcript.send_to_verifier("Translation:z2", univariate_evaluations[4]);
     transcript.send_to_verifier("Translation:hack_evaluation", univariate_evaluations[5]);
 
+    // Get another challenge for batching the univariate claims
     FF batching_challenge = transcript.get_challenge("Translation:batching_challenge");
 
+    // Constuct the batched polynomial and batched evaluation
     Polynomial batched_univariate{ key->circuit_size };
     FF batched_evaluation{ 0 };
     auto batching_scalar = FF(1);
@@ -341,6 +353,7 @@ template <ECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_transcript_cons
         batching_scalar *= batching_challenge;
     }
 
+    // Compute a proof for the batched univariate opening
     PCS::compute_opening_proof(
         commitment_key, { evaluation_challenge_x, batched_evaluation }, batched_univariate, transcript);
 }
