@@ -272,6 +272,9 @@ template <typename BuilderType> class UltraRecursive_ {
 
         std::vector<HandleType> get_wires() override { return { w_l, w_r, w_o, w_4 }; };
         // Gemini-specific getters.
+        std::vector<HandleType> get_unshifted_then_shifted_then_special() { return {}; }
+        std::vector<HandleType> get_concatenated_constraints() { return {}; }
+
         std::vector<HandleType> get_unshifted() override
         {
             return { q_c,           q_l,   q_r,      q_o,     q_4,     q_m,          q_arith, q_sort,
@@ -401,6 +404,8 @@ template <typename BuilderType> class UltraRecursive_ {
 
     class VerifierCommitments : public AllEntities<Commitment, CommitmentHandle> {
       public:
+        std::vector<std::vector<CommitmentHandle>> get_concatenation_groups() { return {}; };
+
         VerifierCommitments(std::shared_ptr<VerificationKey> verification_key)
         {
             this->q_m = verification_key->q_m;
