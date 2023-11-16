@@ -2,6 +2,7 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { keccak, pedersenHash } from '@aztec/foundation/crypto';
 import { numToUInt32BE } from '@aztec/foundation/serialize';
 import { IWasmModule } from '@aztec/foundation/wasm';
+import { MerkleTreeRootCalculator } from '@aztec/merkle-tree';
 
 import { Buffer } from 'buffer';
 import chunk from 'lodash.chunk';
@@ -11,6 +12,7 @@ import {
   CompleteAddress,
   ContractDeploymentData,
   FUNCTION_SELECTOR_NUM_BYTES,
+  FUNCTION_TREE_HEIGHT,
   Fr,
   FunctionData,
   FunctionLeafPreimage,
@@ -23,7 +25,7 @@ import {
   TxContext,
   TxRequest,
 } from '../index.js';
-import { boolToBuffer, serializeBufferArrayToVector } from '../utils/serialize.js';
+import { boolToBuffer } from '../utils/serialize.js';
 
 /**
  * Synchronously calls a wasm function.
@@ -109,6 +111,13 @@ export function computeFunctionLeaf(fnLeaf: FunctionLeafPreimage): Fr {
   );
 }
 
+const functionTreeRootCalculator = new MerkleTreeRootCalculator(
+  FUNCTION_TREE_HEIGHT,
+  // The "zero leaf" of the function tree is the hash of 5 zero fields.
+  // TODO: Why can we not just use a zero field as the zero leaf? Complicates things perhaps unnecessarily?
+  pedersenHash(new Array(5).fill(Buffer.alloc(32))),
+);
+
 /**
  * Computes a function tree root from function leaves.
  * @param wasm - A module providing low-level wasm access.
@@ -116,9 +125,7 @@ export function computeFunctionLeaf(fnLeaf: FunctionLeafPreimage): Fr {
  * @returns The function tree root.
  */
 export function computeFunctionTreeRoot(wasm: IWasmModule, fnLeaves: Fr[]) {
-  const inputVector = serializeBufferArrayToVector(fnLeaves.map(fr => fr.toBuffer()));
-  const result = wasmSyncCall(wasm, 'abis__compute_function_tree_root', inputVector, 32);
-  return Fr.fromBuffer(result);
+  return Fr.fromBuffer(functionTreeRootCalculator.computeTreeRoot(fnLeaves.map(fr => fr.toBuffer())));
 }
 
 /**

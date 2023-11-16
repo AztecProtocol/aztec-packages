@@ -6,6 +6,7 @@ export * from './pedersen.js';
 export * from './sparse_tree/sparse_tree.js';
 export * from './standard_indexed_tree/standard_indexed_tree.js';
 export * from './standard_tree/standard_tree.js';
+export * from './merkle_tree_root_calculator.js';
 export { INITIAL_LEAF } from './tree_base.js';
 export { newTree } from './new_tree.js';
 export { loadTree } from './load_tree.js';
