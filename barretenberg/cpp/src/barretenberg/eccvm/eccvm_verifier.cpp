@@ -265,7 +265,7 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
 
     const size_t NUM_UNIVARIATES = 6;
     std::array<Commitment, NUM_UNIVARIATES> transcript_commitments = {
-        commitments.transcript_op, commitments.transcript_x,  commitments.transcript_y,
+        commitments.transcript_op, commitments.transcript_Px, commitments.transcript_Py,
         commitments.transcript_z1, commitments.transcript_z2, hack_commitment
     };
 
