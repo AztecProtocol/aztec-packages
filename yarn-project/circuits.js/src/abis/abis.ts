@@ -24,7 +24,7 @@ import {
   TxContext,
   TxRequest,
 } from '../index.js';
-import { boolToBuffer, serializeBufferArrayToVector } from '../utils/serialize.js';
+import { boolToBuffer } from '../utils/serialize.js';
 import { MerkleTreeRootCalculator } from './merkle_tree_root_calculator.js';
 
 /**
