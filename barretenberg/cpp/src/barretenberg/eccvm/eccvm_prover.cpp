@@ -9,14 +9,8 @@
 #include "barretenberg/relations/lookup_relation.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
-#include <algorithm>
-#include <array>
-#include <cstddef>
-#include <memory>
-#include <span>
-#include <string>
-#include <utility>
-#include <vector>
+
+#pragma GCC diagnostic ignored "-Wunused-local-typedef"
 
 namespace proof_system::honk {
 
@@ -43,13 +37,14 @@ ECCVMProver_<Flavor>::ECCVMProver_(std::shared_ptr<typename Flavor::ProvingKey> 
     prover_polynomials.transcript_msm_transition = key->transcript_msm_transition;
     prover_polynomials.transcript_pc = key->transcript_pc;
     prover_polynomials.transcript_msm_count = key->transcript_msm_count;
-    prover_polynomials.transcript_x = key->transcript_x;
-    prover_polynomials.transcript_y = key->transcript_y;
+    prover_polynomials.transcript_Px = key->transcript_Px;
+    prover_polynomials.transcript_Py = key->transcript_Py;
     prover_polynomials.transcript_z1 = key->transcript_z1;
     prover_polynomials.transcript_z2 = key->transcript_z2;
     prover_polynomials.transcript_z1zero = key->transcript_z1zero;
     prover_polynomials.transcript_z2zero = key->transcript_z2zero;
     prover_polynomials.transcript_op = key->transcript_op;
+
     prover_polynomials.transcript_accumulator_x = key->transcript_accumulator_x;
     prover_polynomials.transcript_accumulator_y = key->transcript_accumulator_y;
     prover_polynomials.transcript_msm_x = key->transcript_msm_x;
@@ -167,6 +162,7 @@ template <ECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_wire_commitment
     for (size_t idx = 0; idx < wire_polys.size(); ++idx) {
         transcript.send_to_verifier(labels[idx], commitment_key->commit(wire_polys[idx]));
     }
+    info("commitment to transcript_op: ", commitment_key->commit(key->transcript_op));
 }
 
 /**
@@ -262,7 +258,7 @@ template <ECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_univariatizatio
  * - Compute and aggregate opening pairs (challenge, evaluation) for each of d Fold polynomials.
  * - Add d-many Fold evaluations a_i, i = 0, ..., d-1 to the transcript, excluding eval of Fold_{r}^(0)
  * */
-template <ECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_pcs_evaluation_round()
+template <ECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_multivariate_pcs_evaluation_round()
 {
     const FF r_challenge = transcript.get_challenge("Gemini:r");
     gemini_output = Gemini::compute_fold_polynomial_evaluations(
@@ -273,42 +269,146 @@ template <ECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_pcs_evaluation_
         const auto& evaluation = gemini_output.opening_pairs[l + 1].evaluation;
         transcript.send_to_verifier(label, evaluation);
     }
-}
+};
 
 /**
  * - Do Fiat-Shamir to get "nu" challenge.
  * - Compute commitment [Q]_1
  * */
-template <ECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_shplonk_batched_quotient_round()
+template <ECCVMFlavor Flavor>
+void ECCVMProver_<Flavor>::execute_batched_univariatization_shplonk_batched_quotient_round()
 {
-    nu_challenge = transcript.get_challenge("Shplonk:nu");
+    nu_challenge = transcript.get_challenge("ShplonkUnivariatization:nu");
 
-    batched_quotient_Q =
+    batched_univariatization_batched_quotient_Q =
         Shplonk::compute_batched_quotient(gemini_output.opening_pairs, gemini_output.witnesses, nu_challenge);
 
     // commit to Q(X) and add [Q] to the transcript
-    transcript.send_to_verifier("Shplonk:Q", commitment_key->commit(batched_quotient_Q));
+    transcript.send_to_verifier("ShplonkUnivariatization:Q",
+                                commitment_key->commit(batched_univariatization_batched_quotient_Q));
 }
 
 /**
  * - Do Fiat-Shamir to get "z" challenge.
  * - Compute polynomial Q(X) - Q_z(X)
  * */
-template <ECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_shplonk_partial_evaluation_round()
+template <ECCVMFlavor Flavor>
+void ECCVMProver_<Flavor>::execute_batched_univariatization_shplonk_partial_evaluation_round()
 {
-    const FF z_challenge = transcript.get_challenge("Shplonk:z");
+    const FF z_challenge = transcript.get_challenge("ShplonkUnivariatization:z");
 
-    shplonk_output = Shplonk::compute_partially_evaluated_batched_quotient(
-        gemini_output.opening_pairs, gemini_output.witnesses, std::move(batched_quotient_Q), nu_challenge, z_challenge);
+    batched_univariatization_shplonk_output =
+        Shplonk::compute_partially_evaluated_batched_quotient(gemini_output.opening_pairs,
+                                                              gemini_output.witnesses,
+                                                              std::move(batched_univariatization_batched_quotient_Q),
+                                                              nu_challenge,
+                                                              z_challenge);
 }
+
 /**
  * - Compute final PCS opening proof:
  * - For KZG, this is the quotient commitment [W]_1
- * - For IPA, the vectors L and R
+ * - For IPA, the vectors L and R // WORKTODO?
  * */
-template <ECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_final_pcs_round()
+template <ECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_batched_univariatization_ipa_round()
 {
-    PCS::compute_opening_proof(commitment_key, shplonk_output.opening_pair, shplonk_output.witness, transcript);
+    PCS::compute_opening_proof(commitment_key,
+                               batched_univariatization_shplonk_output.opening_pair,
+                               batched_univariatization_shplonk_output.witness,
+                               transcript);
+}
+
+/**
+ * @brief WORKTODO
+ */
+template <ECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_univariate_pcs_evaluation_round()
+{
+    // WORKTODO: optimize
+    Polynomial dummy(key->circuit_size);
+    for (size_t idx = 0; idx < key->circuit_size; idx++) {
+        dummy[idx] = 1;
+    }
+    translation_consistency_check_output.witnesses.push_back(key->transcript_op);
+    translation_consistency_check_output.witnesses.push_back(key->transcript_Px);
+    translation_consistency_check_output.witnesses.push_back(key->transcript_Py);
+    translation_consistency_check_output.witnesses.push_back(key->transcript_z1);
+    translation_consistency_check_output.witnesses.push_back(key->transcript_z2);
+    translation_consistency_check_output.witnesses.push_back(dummy);
+
+    // WORKTODO
+    evaluation_challenge_x = transcript.get_challenge("Translation:evaluation_challenge_x");
+    cheat_translation_consistency_data.op = key->transcript_op.evaluate(evaluation_challenge_x);
+    cheat_translation_consistency_data.Px = key->transcript_Px.evaluate(evaluation_challenge_x);
+    cheat_translation_consistency_data.Py = key->transcript_Py.evaluate(evaluation_challenge_x);
+    cheat_translation_consistency_data.z1 = key->transcript_z1.evaluate(evaluation_challenge_x);
+    cheat_translation_consistency_data.z2 = key->transcript_z2.evaluate(evaluation_challenge_x);
+    auto dummy_evaluation = dummy.evaluate(evaluation_challenge_x);
+
+    transcript.send_to_verifier("Translation:op", cheat_translation_consistency_data.op);
+    transcript.send_to_verifier("Translation:Px", cheat_translation_consistency_data.Px);
+    transcript.send_to_verifier("Translation:Py", cheat_translation_consistency_data.Py);
+    transcript.send_to_verifier("Translation:z1", cheat_translation_consistency_data.z1);
+    transcript.send_to_verifier("Translation:z2", cheat_translation_consistency_data.z2);
+    transcript.send_to_verifier("Dummy:evaluation", dummy_evaluation);
+    transcript.send_to_verifier("Dummy:commitment", commitment_key->commit(dummy));
+
+    translation_consistency_check_output.opening_pairs = {
+        { evaluation_challenge_x, cheat_translation_consistency_data.op },
+        { evaluation_challenge_x, cheat_translation_consistency_data.Px },
+        { evaluation_challenge_x, cheat_translation_consistency_data.Py },
+        { evaluation_challenge_x, cheat_translation_consistency_data.z1 },
+        { evaluation_challenge_x, cheat_translation_consistency_data.z2 },
+        { evaluation_challenge_x, dummy.evaluate(evaluation_challenge_x) }
+    };
+};
+
+/**
+ * - Do Fiat-Shamir to get "nu" challenge.
+ * - Compute commitment [Q]_1
+ * */
+template <ECCVMFlavor Flavor>
+void ECCVMProver_<Flavor>::execute_translation_consistency_check_shplonk_batched_quotient_round()
+{
+    nu_challenge = transcript.get_challenge("ShplonkTranslation:nu");
+
+    translation_consistency_check_batched_quotient_Q =
+        Shplonk::compute_batched_quotient(translation_consistency_check_output.opening_pairs,
+                                          translation_consistency_check_output.witnesses,
+                                          nu_challenge);
+
+    // commit to Q(X) and add [Q] to the transcript
+    transcript.send_to_verifier("ShplonkTranslation:Q",
+                                commitment_key->commit(translation_consistency_check_batched_quotient_Q));
+}
+
+/**
+ * - Do Fiat-Shamir to get "z" challenge.
+ * - Compute polynomial Q(X) - Q_z(X)
+ * */
+template <ECCVMFlavor Flavor>
+void ECCVMProver_<Flavor>::execute_translation_consistency_check_shplonk_partial_evaluation_round()
+{
+    const FF z_challenge = transcript.get_challenge("ShplonkTranslation:z");
+
+    translation_consistency_check_shplonk_output = Shplonk::compute_partially_evaluated_batched_quotient(
+        translation_consistency_check_output.opening_pairs,
+        translation_consistency_check_output.witnesses,
+        std::move(translation_consistency_check_batched_quotient_Q),
+        nu_challenge,
+        z_challenge);
+}
+
+/**
+ * - Compute final PCS opening proof:
+ * - For KZG, this is the quotient commitment [W]_1
+ * - For IPA, the vectors L and R // WORKTODO?
+ * */
+template <ECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_translation_consistency_check_ipa_round()
+{
+    PCS::compute_opening_proof(commitment_key,
+                               translation_consistency_check_shplonk_output.opening_pair,
+                               translation_consistency_check_shplonk_output.witness,
+                               transcript);
 }
 
 template <ECCVMFlavor Flavor> plonk::proof& ECCVMProver_<Flavor>::export_proof()
@@ -319,47 +419,24 @@ template <ECCVMFlavor Flavor> plonk::proof& ECCVMProver_<Flavor>::export_proof()
 
 template <ECCVMFlavor Flavor> plonk::proof& ECCVMProver_<Flavor>::construct_proof()
 {
-    // Add circuit size public input size and public inputs to transcript.
     execute_preamble_round();
-
-    // Compute first three wire commitments
     execute_wire_commitments_round();
-
-    // Compute sorted list accumulator and commitment
     execute_log_derivative_commitments_round();
-
-    // Fiat-Shamir: beta & gamma
-    // Compute grand product(s) and commitments.
     execute_grand_product_computation_round();
-
-    // Fiat-Shamir: alpha
-    // Run sumcheck subprotocol.
     execute_relation_check_rounds();
-
-    // Fiat-Shamir: rho
-    // Compute Fold polynomials and their commitments.
     execute_univariatization_round();
-
-    // Fiat-Shamir: r
-    // Compute Fold evaluations
-    execute_pcs_evaluation_round();
-
-    // Fiat-Shamir: nu
-    // Compute Shplonk batched quotient commitment Q
-    execute_shplonk_batched_quotient_round();
-
-    // Fiat-Shamir: z
-    // Compute partial evaluation Q_z
-    execute_shplonk_partial_evaluation_round();
-
-    // Fiat-Shamir: z
-    // Compute PCS opening proof (either KZG quotient commitment or IPA opening proof)
-    execute_final_pcs_round();
+    execute_multivariate_pcs_evaluation_round();
+    execute_batched_univariatization_shplonk_batched_quotient_round();
+    execute_batched_univariatization_shplonk_partial_evaluation_round();
+    execute_batched_univariatization_ipa_round();
+    execute_univariate_pcs_evaluation_round();
+    execute_translation_consistency_check_shplonk_batched_quotient_round();
+    execute_translation_consistency_check_shplonk_partial_evaluation_round();
+    execute_translation_consistency_check_ipa_round();
 
     return export_proof();
 }
 
 template class ECCVMProver_<honk::flavor::ECCVM>;
-template class ECCVMProver_<honk::flavor::ECCVMGrumpkin>;
 
 } // namespace proof_system::honk
