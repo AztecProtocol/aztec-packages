@@ -45,6 +45,7 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using Transcript = typename Flavor::Transcript;
+    using OpeningClaim = typename pcs::OpeningClaim<Curve>;
 
     RelationParameters<FF> relation_parameters;
 
@@ -255,9 +256,44 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
     auto shplonk_claim = Shplonk::reduce_verification(pcs_verification_key, gemini_claim, transcript);
 
     // Verify the Shplonk claim with KZG or IPA
-    auto verified = PCS::verify(pcs_verification_key, shplonk_claim, transcript);
+    auto multivariate_opening_verified = PCS::verify(pcs_verification_key, shplonk_claim, transcript);
 
-    return sumcheck_verified.value() && verified;
+    // Execute transcript consistency univariate opening round
+    auto hack_commitment = transcript.template receive_from_prover<Commitment>("Translation:hack_commitment");
+
+    FF evaluation_challenge_x = transcript.get_challenge("Translation:evaluation_challenge_x");
+
+    const size_t NUM_UNIVARIATES = 6;
+    std::array<Commitment, NUM_UNIVARIATES> transcript_commitments = {
+        commitments.transcript_op, commitments.transcript_x,  commitments.transcript_y,
+        commitments.transcript_z1, commitments.transcript_z2, hack_commitment
+    };
+
+    std::array<FF, NUM_UNIVARIATES> transcript_evaluations = {
+        transcript.template receive_from_prover<FF>("Translation:op"),
+        transcript.template receive_from_prover<FF>("Translation:Px"),
+        transcript.template receive_from_prover<FF>("Translation:Py"),
+        transcript.template receive_from_prover<FF>("Translation:z1"),
+        transcript.template receive_from_prover<FF>("Translation:z2"),
+        transcript.template receive_from_prover<FF>("Translation:hack_evaluation")
+    };
+
+    FF batching_challenge = transcript.get_challenge("Translation:batching_challenge");
+
+    auto batched_commitment = transcript_commitments[0];
+    auto batched_transcript_eval = transcript_evaluations[0];
+    auto batching_scalar = batching_challenge;
+    for (size_t idx = 1; idx < transcript_commitments.size(); ++idx) {
+        batched_commitment = batched_commitment + transcript_commitments[idx] * batching_scalar;
+        batched_transcript_eval += batching_scalar * transcript_evaluations[idx];
+        batching_scalar *= batching_challenge;
+    }
+
+    OpeningClaim batched_univariate_claim = { { evaluation_challenge_x, batched_transcript_eval }, batched_commitment };
+
+    bool univariate_opening_verified = PCS::verify(pcs_verification_key, batched_univariate_claim, transcript);
+
+    return multivariate_opening_verified && univariate_opening_verified;
 }
 
 template class ECCVMVerifier_<honk::flavor::ECCVM>;

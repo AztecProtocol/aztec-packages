@@ -311,6 +311,48 @@ template <ECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_final_pcs_round
     PCS::compute_opening_proof(commitment_key, shplonk_output.opening_pair, shplonk_output.witness, transcript);
 }
 
+template <ECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_transcript_consistency_univariate_opening_round()
+{
+    // WORKTODO: optimize
+    Polynomial hack(key->circuit_size);
+    for (size_t idx = 0; idx < key->circuit_size; idx++) {
+        hack[idx] = 1;
+    }
+    transcript.send_to_verifier("Translation:hack_commitment", commitment_key->commit(hack));
+
+    FF evaluation_challenge_x = transcript.get_challenge("Translation:evaluation_challenge_x");
+
+    const size_t NUM_UNIVARIATES = 6;
+    std::array<Polynomial, NUM_UNIVARIATES> univariate_polynomials = { key->transcript_op, key->transcript_x,
+                                                                       key->transcript_y,  key->transcript_z1,
+                                                                       key->transcript_z2, hack };
+    std::array<FF, NUM_UNIVARIATES> univariate_evaluations;
+    for (auto [eval, polynomial] : zip_view(univariate_evaluations, univariate_polynomials)) {
+        eval = polynomial.evaluate(evaluation_challenge_x);
+    }
+
+    transcript.send_to_verifier("Translation:op", univariate_evaluations[0]);
+    transcript.send_to_verifier("Translation:Px", univariate_evaluations[1]);
+    transcript.send_to_verifier("Translation:Py", univariate_evaluations[2]);
+    transcript.send_to_verifier("Translation:z1", univariate_evaluations[3]);
+    transcript.send_to_verifier("Translation:z2", univariate_evaluations[4]);
+    transcript.send_to_verifier("Translation:hack_evaluation", univariate_evaluations[5]);
+
+    FF batching_challenge = transcript.get_challenge("Translation:batching_challenge");
+
+    Polynomial batched_univariate{ key->circuit_size };
+    FF batched_evaluation{ 0 };
+    auto batching_scalar = FF(1);
+    for (auto [eval, polynomial] : zip_view(univariate_evaluations, univariate_polynomials)) {
+        batched_univariate.add_scaled(polynomial, batching_scalar);
+        batched_evaluation += eval * batching_scalar;
+        batching_scalar *= batching_challenge;
+    }
+
+    PCS::compute_opening_proof(
+        commitment_key, { evaluation_challenge_x, batched_evaluation }, batched_univariate, transcript);
+}
+
 template <ECCVMFlavor Flavor> plonk::proof& ECCVMProver_<Flavor>::export_proof()
 {
     proof.proof_data = transcript.proof_data;
@@ -355,6 +397,8 @@ template <ECCVMFlavor Flavor> plonk::proof& ECCVMProver_<Flavor>::construct_proo
     // Fiat-Shamir: z
     // Compute PCS opening proof (either KZG quotient commitment or IPA opening proof)
     execute_final_pcs_round();
+
+    execute_transcript_consistency_univariate_opening_round();
 
     return export_proof();
 }
