@@ -19,6 +19,7 @@ use dep::types::{
         compute_unique_siloed_commitment,
     },
     utils::{
+        arrays::array_length,
         bounded_vec::BoundedVec,
     },
 };
@@ -30,6 +31,10 @@ struct PrivateKernelInputsOrdering {
 }
 
 impl PrivateKernelInputsOrdering {
+    fn validate_inputs(self) {
+        assert_eq(array_length(self.previous_kernel.public_inputs.end.private_call_stack), 0, "Private call stack must be empty when executing the ordering circuit");
+    }
+
     fn match_reads_to_commitments(
         public_inputs: &mut KernelCircuitPublicInputsBuilder,
         read_commitment_hints: [Field; MAX_READ_REQUESTS_PER_TX],
@@ -136,6 +141,8 @@ impl PrivateKernelInputsOrdering {
     pub fn native_private_kernel_circuit_ordering(self) -> KernelCircuitPublicInputsFinal {
         let mut public_inputs : KernelCircuitPublicInputsBuilder = unsafe::zeroed();
         public_inputs.is_private = true;
+
+        self.validate_inputs();
 
         common::validate_previous_kernel_values(self.previous_kernel.public_inputs.end);
         
@@ -394,6 +401,15 @@ mod tests {
         builder.nullify_transient_commitment(2, 0);
         // Tweak the hint to be for the commitment at index 1.
         builder.nullifier_commitment_hints[2] = 1;
+
+        builder.failed();
+    }
+
+    #[test(should_fail_with="Private call stack must be empty when executing the ordering circuit")]
+    fn non_empty_private_call_stack_should_fail() {
+        let mut builder = PrivateKernelOrderingInputsBuilder::new();
+
+        builder.previous_kernel.end.private_call_stack.push(1);
 
         builder.failed();
     }

@@ -55,8 +55,6 @@ impl PrivateKernelInputsInner {
 
         self.pop_and_validate_this_private_call_hash(&mut public_inputs);
 
-        common::validate_call_stack(self.private_call);
-
         common::validate_read_requests(
             public_inputs.constants.block_data.note_hash_tree_root(),
             self.private_call.call_stack_item.public_inputs.read_requests,  // read requests from private call
@@ -347,15 +345,6 @@ mod tests {
 
         builder.previous_kernel.is_private = false;
 
-        builder.failed();
-    }
-
-    #[test(should_fail_with="call stack item hash does not match preimage hash")]
-    fn contract_deployment_call_stack_item_hash_mismatch_fails() {
-        let mut builder = PrivateKernelInnerInputsBuilder::new();
-
-        builder.private_call.public_inputs.private_call_stack.push(27);
-        
         builder.failed();
     }
 

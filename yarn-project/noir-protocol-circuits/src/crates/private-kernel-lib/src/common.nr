@@ -56,31 +56,6 @@ pub fn validate_arrays(app_public_inputs : PrivateCircuitPublicInputs) {
     // encrypted_logs_hash and unencrypted_logs_hash have their own integrity checks.
 }
 
-// TODO(https://github.com/AztecProtocol/aztec-packages/issues/3060) Remove this
-// Check that preimages in the callstack correspond to the hash in the private_call_stack
-// ie hash(preimages) == private_call_stack for each preimage
-// If the stack is empty, then we avoid doing a hash and set the output to be 0
-pub fn validate_call_stack(private_call : PrivateCallData) {
-    let stack = private_call.call_stack_item.public_inputs.private_call_stack;
-    let preimages = private_call.private_call_stack_preimages;
-    
-    for i in 0..stack.len() {
-        let hash = stack[i];
-        let preimage = preimages[i];
-
-        // Note: this assumes it's computationally infeasible to have `0` as a valid call_stack_item_hash.
-        // Assumes `hash == 0` means "this stack item is empty".
-
-        let calculated_hash = if hash == 0 {
-            0
-        } else {
-            preimage.hash()
-        };
-        assert(hash == calculated_hash, "call stack item hash does not match preimage hash");
-    }
-}
-
-
 // Validate all read requests against the historic private data root.
 // Use their membership witnesses to do so. If the historic root is not yet
 // initialized, initialize it using the first read request here (if present).

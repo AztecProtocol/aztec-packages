@@ -51,7 +51,6 @@ use dep::aztec::{
         MAX_NEW_NULLIFIERS_PER_CALL,
         MAX_NEW_NULLIFIERS_PER_TX,
         MAX_PENDING_READ_REQUESTS_PER_CALL,
-        MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
         MAX_READ_REQUESTS_PER_CALL,
         MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
         MAX_PUBLIC_DATA_READS_PER_CALL,
@@ -68,7 +67,6 @@ struct PrivateCallDataBuilder {
     is_execution_request: bool,
     function_data: FunctionData,
     // The rest of the values of PrivateCallData.
-    private_call_stack_preimages: [PrivateCallStackItem; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL],
     proof: Proof,
     vk: VerificationKey,
     function_leaf_membership_witness: FunctionLeafMembershipWitness,
@@ -130,7 +128,6 @@ impl PrivateCallDataBuilder {
             public_inputs,
             is_execution_request: false,
             function_data,
-            private_call_stack_preimages: dep::std::unsafe::zeroed(),
             proof: Proof {},
             vk: VerificationKey {},
             function_leaf_membership_witness: contract_function.membership_witness,
@@ -183,7 +180,6 @@ impl PrivateCallDataBuilder {
 
         PrivateCallData {
             call_stack_item,
-            private_call_stack_preimages: self.private_call_stack_preimages,
             proof: self.proof,
             vk: self.vk,
             function_leaf_membership_witness: self.function_leaf_membership_witness,

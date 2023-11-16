@@ -53,11 +53,6 @@ impl PrivateKernelInputsInit {
     fn validate_inputs(self) {
         let call_stack_item = self.private_call.call_stack_item;
 
-        /* TODO(Mike/David): If we are going to have 3 initial calls on the private call stack,
-        * then do we still need the `private_call_stack`
-        * despite no longer needing a full `previous_kernel`
-        */
-
         let function_data = call_stack_item.function_data;
         assert(function_data.is_private, "Private kernel circuit can only execute a private function");
         assert(function_data.is_internal == false, "Cannot call an internal function directly");
@@ -94,8 +89,6 @@ impl PrivateKernelInputsInit {
         common::validate_arrays(self.private_call.call_stack_item.public_inputs);
 
         self.validate_this_private_call_against_tx_request();
-
-        common::validate_call_stack(self.private_call);
 
         common::validate_read_requests(
             public_inputs.constants.block_data.note_hash_tree_root(),
@@ -319,15 +312,6 @@ mod tests {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
         builder.private_call.public_inputs.new_l2_to_l1_msgs.push_array([0, 9123]);
-        
-        builder.failed();
-    }
-
-    #[test(should_fail_with="call stack item hash does not match preimage hash")]
-    fn contract_deployment_call_stack_item_hash_mismatch_fails() {
-        let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
-
-        builder.private_call.public_inputs.private_call_stack.push(27);
         
         builder.failed();
     }
