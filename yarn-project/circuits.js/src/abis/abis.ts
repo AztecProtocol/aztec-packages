@@ -1,6 +1,6 @@
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { keccak, pedersenHash } from '@aztec/foundation/crypto';
-import { numToUInt32BE } from '@aztec/foundation/serialize';
+import { keccak, pedersenHash, pedersenHashBuffer } from '@aztec/foundation/crypto';
+import { numToUInt8, numToUInt16BE, numToUInt32BE } from '@aztec/foundation/serialize';
 import { IWasmModule } from '@aztec/foundation/wasm';
 
 import { Buffer } from 'buffer';
@@ -8,8 +8,11 @@ import chunk from 'lodash.chunk';
 
 import {
   AztecAddress,
+  CallContext,
   CompleteAddress,
   ContractDeploymentData,
+  ContractStorageRead,
+  ContractStorageUpdateRequest,
   FUNCTION_SELECTOR_NUM_BYTES,
   FUNCTION_TREE_HEIGHT,
   Fr,
@@ -18,46 +21,19 @@ import {
   GeneratorIndex,
   GlobalVariables,
   NewContractData,
+  PRIVATE_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH,
+  PUBLIC_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH,
   PrivateCallStackItem,
+  PrivateCircuitPublicInputs,
   PublicCallStackItem,
+  PublicCircuitPublicInputs,
   PublicKey,
   TxContext,
   TxRequest,
+  VerificationKey,
 } from '../index.js';
 import { boolToBuffer } from '../utils/serialize.js';
 import { MerkleTreeRootCalculator } from './merkle_tree_root_calculator.js';
-
-/**
- * Synchronously calls a wasm function.
- * @param wasm - The wasm wrapper.
- * @param fnName - The name of the function to call.
- * @param input - The input buffer or object serializable to a buffer.
- * @param expectedOutputLength - The expected length of the output buffer.
- * @returns The output buffer.
- */
-function wasmSyncCall(
-  wasm: IWasmModule,
-  fnName: string,
-  input:
-    | Buffer
-    | {
-        /**
-         * Signature of the target serialization function.
-         */
-        toBuffer: () => Buffer;
-      },
-  expectedOutputLength: number,
-): Buffer {
-  const inputData: Buffer = input instanceof Buffer ? input : input.toBuffer();
-  const outputBuf = wasm.call('bbmalloc', expectedOutputLength);
-  const inputBuf = wasm.call('bbmalloc', inputData.length);
-  wasm.writeMemory(inputBuf, inputData);
-  wasm.call(fnName, inputBuf, outputBuf);
-  const buf = Buffer.from(wasm.getMemorySlice(outputBuf, outputBuf + expectedOutputLength));
-  wasm.call('bbfree', outputBuf);
-  wasm.call('bbfree', inputBuf);
-  return buf;
-}
 
 /**
  * Computes a hash of a transaction request.
@@ -86,7 +62,41 @@ export function computeFunctionSelector(funcSig: string): Buffer {
  * @returns The hash of the verification key.
  */
 export function hashVK(wasm: IWasmModule, vkBuf: Buffer) {
-  return wasmSyncCall(wasm, 'abis__hash_vk', vkBuf, 32);
+  // return wasmSyncCall(wasm, 'abis__hash_vk', vkBuf, 32);
+  const vk = VerificationKey.fromBuffer(vkBuf);
+  const toHash = Buffer.concat([
+    numToUInt8(vk.circuitType),
+    numToUInt16BE(5), // fr::coset_generator(0)?
+    numToUInt32BE(vk.circuitSize),
+    numToUInt32BE(vk.numPublicInputs),
+    ...Object.values(vk.commitments)
+      .map(e => [e.y.toBuffer(), e.x.toBuffer()])
+      .flat(),
+    // Montgomery form of fr::one()? Not sure. But if so, why?
+    Buffer.from('1418144d5b080fcac24cdb7649bdadf246a6cb2426e324bedb94fb05118f023a', 'hex'),
+  ]);
+  return pedersenHashBuffer(toHash);
+  // barretenberg::evaluation_domain eval_domain = barretenberg::evaluation_domain(circuit_size);
+
+  // std::vector<uint8_t> preimage_data;
+
+  // preimage_data.push_back(static_cast<uint8_t>(proof_system::CircuitType(circuit_type)));
+
+  // const uint256_t domain = eval_domain.domain; // montgomery form of circuit_size
+  // const uint256_t generator = eval_domain.generator; //coset_generator(0)
+  // const uint256_t public_inputs = num_public_inputs;
+
+  // write(preimage_data, static_cast<uint16_t>(uint256_t(generator))); // maybe 1?
+  // write(preimage_data, static_cast<uint32_t>(uint256_t(domain))); // try circuit_size
+  // write(preimage_data, static_cast<uint32_t>(public_inputs));
+  // for (const auto& [tag, selector] : commitments) {
+  //     write(preimage_data, selector.y);
+  //     write(preimage_data, selector.x);
+  // }
+
+  // write(preimage_data, eval_domain.root);  // fr::one()
+
+  // return crypto::pedersen_hash::hash_buffer(preimage_data, hash_index);
 }
 
 /**
@@ -96,7 +106,6 @@ export function hashVK(wasm: IWasmModule, vkBuf: Buffer) {
  * @returns The function leaf.
  */
 export function computeFunctionLeaf(fnLeaf: FunctionLeafPreimage): Fr {
-  // return Fr.fromBuffer(wasmSyncCall(wasm, 'abis__compute_function_leaf', fnLeaf, 32));
   return Fr.fromBuffer(
     pedersenHash(
       [
@@ -508,24 +517,125 @@ export function computeCallStackItemHash(
 }
 
 /**
+ *
+ */
+function computeCallContextHash(input: CallContext) {
+  return pedersenHash(
+    [
+      input.msgSender.toBuffer(),
+      input.storageContractAddress.toBuffer(),
+      input.portalContractAddress.toBuffer(),
+      input.functionSelector.toBuffer(),
+      boolToBuffer(input.isDelegateCall, 32),
+      boolToBuffer(input.isStaticCall, 32),
+      boolToBuffer(input.isContractDeployment, 32),
+    ],
+    GeneratorIndex.CALL_CONTEXT,
+  );
+}
+
+/**
+ *
+ */
+function computePrivateInputsHash(input: PrivateCircuitPublicInputs) {
+  const toHash = [
+    computeCallContextHash(input.callContext),
+    input.argsHash.toBuffer(),
+    ...input.returnValues.map(fr => fr.toBuffer()),
+    ...input.readRequests.map(fr => fr.toBuffer()),
+    ...input.pendingReadRequests.map(fr => fr.toBuffer()),
+    ...input.newCommitments.map(fr => fr.toBuffer()),
+    ...input.newNullifiers.map(fr => fr.toBuffer()),
+    ...input.nullifiedCommitments.map(fr => fr.toBuffer()),
+    ...input.privateCallStack.map(fr => fr.toBuffer()),
+    ...input.publicCallStack.map(fr => fr.toBuffer()),
+    ...input.newL2ToL1Msgs.map(fr => fr.toBuffer()),
+    ...input.encryptedLogsHash.map(fr => fr.toBuffer()),
+    ...input.unencryptedLogsHash.map(fr => fr.toBuffer()),
+    input.encryptedLogPreimagesLength.toBuffer(),
+    input.unencryptedLogPreimagesLength.toBuffer(),
+    input.historicBlockData.noteHashTreeRoot.toBuffer(),
+    input.historicBlockData.nullifierTreeRoot.toBuffer(),
+    input.historicBlockData.contractTreeRoot.toBuffer(),
+    input.historicBlockData.l1ToL2MessagesTreeRoot.toBuffer(),
+    input.historicBlockData.blocksTreeRoot.toBuffer(),
+    input.historicBlockData.publicDataTreeRoot.toBuffer(),
+    input.historicBlockData.globalVariablesHash.toBuffer(),
+    computeContractDeploymentDataHash(input.contractDeploymentData).toBuffer(),
+    input.chainId.toBuffer(),
+    input.version.toBuffer(),
+  ];
+  if (toHash.length != PRIVATE_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH) {
+    throw new Error('Incorrect number of input fields when hashing PrivateCircuitPublicInputs');
+  }
+  return pedersenHash(toHash, GeneratorIndex.PRIVATE_CIRCUIT_PUBLIC_INPUTS);
+}
+
+/**
  * Computes a call stack item hash.
  * @param wasm - Relevant WASM wrapper.
  * @param callStackItem - The call stack item.
  * @returns The call stack item hash.
  */
 export function computePrivateCallStackItemHash(wasm: IWasmModule, callStackItem: PrivateCallStackItem): Fr {
-  const value = wasmSyncCall(wasm, 'abis__compute_private_call_stack_item_hash', callStackItem, 32);
-  return Fr.fromBuffer(value);
-  // return Fr.fromBuffer(
-  //   pedersenHashWithHashIndex(
-  //     [
-  //       callStackItem.contractAddress.toBuffer(),
-  //       computeFunctionDataHash(callStackItem.functionData).toBuffer(),
-  //       computePublicInputsHash(callStackItem.publicInputs).toBuffer(),
-  //     ],
-  //     GeneratorIndex.CALL_STACK_ITEM,
-  //   ),
-  // );
+  return Fr.fromBuffer(
+    pedersenHash(
+      [
+        callStackItem.contractAddress.toBuffer(),
+        computeFunctionDataHash(callStackItem.functionData).toBuffer(),
+        computePrivateInputsHash(callStackItem.publicInputs),
+      ],
+      GeneratorIndex.CALL_STACK_ITEM,
+    ),
+  );
+}
+
+/**
+ *
+ */
+function computeContractStorageUpdateRequestHash(input: ContractStorageUpdateRequest) {
+  return pedersenHash(
+    [input.storageSlot.toBuffer(), input.oldValue.toBuffer(), input.newValue.toBuffer()],
+    GeneratorIndex.PUBLIC_DATA_UPDATE_REQUEST,
+  );
+}
+
+/**
+ *
+ */
+function computeContractStorageReadsHash(input: ContractStorageRead) {
+  return pedersenHash([input.storageSlot.toBuffer(), input.currentValue.toBuffer()], GeneratorIndex.PUBLIC_DATA_READ);
+}
+
+/**
+ *
+ */
+function computePublicInputsHash(input: PublicCircuitPublicInputs) {
+  const toHash = [
+    computeCallContextHash(input.callContext),
+    input.argsHash.toBuffer(),
+    ...input.returnValues.map(fr => fr.toBuffer()),
+    ...input.contractStorageUpdateRequests.map(computeContractStorageUpdateRequestHash),
+    ...input.contractStorageReads.map(computeContractStorageReadsHash),
+    ...input.publicCallStack.map(fr => fr.toBuffer()),
+    ...input.newCommitments.map(fr => fr.toBuffer()),
+    ...input.newNullifiers.map(fr => fr.toBuffer()),
+    ...input.newL2ToL1Msgs.map(fr => fr.toBuffer()),
+    ...input.unencryptedLogsHash.map(fr => fr.toBuffer()),
+    input.unencryptedLogPreimagesLength.toBuffer(),
+    input.historicBlockData.noteHashTreeRoot.toBuffer(),
+    input.historicBlockData.nullifierTreeRoot.toBuffer(),
+    input.historicBlockData.contractTreeRoot.toBuffer(),
+    input.historicBlockData.l1ToL2MessagesTreeRoot.toBuffer(),
+    input.historicBlockData.blocksTreeRoot.toBuffer(),
+    input.historicBlockData.publicDataTreeRoot.toBuffer(),
+    input.historicBlockData.globalVariablesHash.toBuffer(),
+    input.proverAddress.toBuffer(),
+  ];
+  if (toHash.length != PUBLIC_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH) {
+    throw new Error('Incorrect number of input fields when hashing PublicCircuitPublicInputs');
+  }
+  return pedersenHash(toHash, GeneratorIndex.PUBLIC_CIRCUIT_PUBLIC_INPUTS);
 }
 
 /**
@@ -535,18 +645,31 @@ export function computePrivateCallStackItemHash(wasm: IWasmModule, callStackItem
  * @returns The call stack item hash.
  */
 export function computePublicCallStackItemHash(wasm: IWasmModule, callStackItem: PublicCallStackItem): Fr {
-  const value = wasmSyncCall(wasm, 'abis__compute_public_call_stack_item_hash', callStackItem, 32);
-  return Fr.fromBuffer(value);
-  // return Fr.fromBuffer(
-  //   pedersenHashWithHashIndex(
-  //     [
-  //       callStackItem.contractAddress.toBuffer(),
-  //       callStackItem.functionData.toBuffer(),
-  //       callStackItem.publicInputs.toBuffer(),
-  //     ],
-  //     GeneratorIndex.CALL_STACK_ITEM,
-  //   ),
-  // );
+  // const value = wasmSyncCall(wasm, 'abis__compute_public_call_stack_item_hash', callStackItem, 32);
+  // return Fr.fromBuffer(value);
+
+  // TODO: This seems to be used in the C++ when isExecutionRequest is true. We need to create a new PublicCallStackItem?
+  // console.log(callStackItem.isExecutionRequest);
+  //   return {
+  //       .contract_address = call_stack_item.contract_address,
+  //       .function_data = call_stack_item.function_data,
+  //       .public_inputs = {
+  //           .call_context = call_stack_item.public_inputs.call_context,
+  //           .args_hash = call_stack_item.public_inputs.args_hash,
+  //       },
+  //       .is_execution_request = call_stack_item.is_execution_request,
+  //   };
+
+  return Fr.fromBuffer(
+    pedersenHash(
+      [
+        callStackItem.contractAddress.toBuffer(),
+        computeFunctionDataHash(callStackItem.functionData).toBuffer(),
+        computePublicInputsHash(callStackItem.publicInputs),
+      ],
+      GeneratorIndex.CALL_STACK_ITEM,
+    ),
+  );
 }
 
 /**

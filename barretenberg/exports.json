@@ -36,6 +36,26 @@
     "isAsync": false
   },
   {
+    "functionName": "pedersen_hash_buffer",
+    "inArgs": [
+      {
+        "name": "input_buffer",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "hash_index",
+        "type": "const uint32_t *"
+      }
+    ],
+    "outArgs": [
+      {
+        "name": "output",
+        "type": "fr::out_buf"
+      }
+    ],
+    "isAsync": false
+  },
+  {
     "functionName": "blake2s",
     "inArgs": [
       {

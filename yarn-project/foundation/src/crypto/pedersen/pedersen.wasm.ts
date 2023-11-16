@@ -26,3 +26,10 @@ export function pedersenHash(input: Buffer[], index = 0) {
   input = input.map(i => (i.length < 32 ? Buffer.concat([Buffer.alloc(32 - i.length, 0), i]) : i));
   return Buffer.from(pedersen.pedersenHash(input, index));
 }
+
+/**
+ * Create a pedersen hash from an arbitrary length buffer.
+ */
+export function pedersenHashBuffer(input: Buffer, index = 0) {
+  return Buffer.from(pedersen.pedersenHashBuffer(input, index));
+}
