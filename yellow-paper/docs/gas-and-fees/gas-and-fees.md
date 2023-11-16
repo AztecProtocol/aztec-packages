@@ -119,7 +119,7 @@ To achieve the above requirements we will break the transaction into 3 component
 2. The transaction payload component can have both private and/or public functions.
 3. The fee distribution component only has a public function.
 
-All of these components occur <b>within the same transaction</b>.
+All of these components occur **within the same transaction**.
 
 ### Fee Preparation
 
@@ -151,3 +151,148 @@ With this new value defined, a typical fee payment flow would look like:
 2. Compute the actual cost of the transaction.
 3. Transfer the actual cost to the ‘coinbase’ address.
 4. Transfer the refund back to the transaction sender.
+
+## Transaction and Fee Lifecycle
+
+We will attempt to walk through the process by which a transaction is created with an appropriate fee, accepted by the sequencer and the appropriate fee distribution undertaken. 
+
+### User Simulation and Fee Preparation
+
+Transactions begin on a user's device. A user opts to interact privately with a contract, likely via their own account contract. This execution results in the generation of new notes and nulliifiers and potentially some enqueued public function calls. This part of the transaction is then proven via the private kernel circuit. The execution can be simulated, including the public execution against the state as it exists at the point of simulation. This enables a user to determine the L1 and L2 gas profile of the transaction, i.e. all required state updates and the extent of public execution and proving.
+
+With this gas profile, the user's wallet will be able to use gas price oracles to determine how much fee will need to be paid for the transaction in a given asset. The wallet will also need to suggest suitable amortisation rates by looking historically at the size of prior rollups.
+
+With an appropriate fee determined, a second component of the transaction is executed, that to generate and escrow the fee. This may change the gas profile of the entire transaction, e.g. it will result in an increased number of state updates. For this reason it may be necessary for a few iterations of this process to determine the correct fee depending on the notes available for fee payment. Once the user has settled on a fee payment, this part of the transaction will be proven via the private fee payment kernel circuit. This circuit will have a number of additional public inputs:
+
+- **feePerL1Gas** - The fee provided per unit of L1 gas
+- **feePerL2Gas** - The fee provided per unit of L2 gas
+- **l1BaseGasLimit** - The upper bound of L1 ammortised gas the transaction is willing to pay for
+- **l2BaseGasLimit** - The upper bound of L2 ammortised gas the transaction is willing to pay for
+- **l1TxGasLimit** - The upper bound of L1 transaction specific gas the transaction is willing to pay for
+- **l2TxGasLimit** - The upper bound of L2 transaction specific gas the transaction is willing to pay for
+- **feeDistribution** - The contract address and function selector the sequencer must call to process the fee distribution phase of the transaction
+
+Finally, the proofs of these 2 private kernel circuits are passed to another circuit, the private kernel merge circuit. This will output the final transaction proof and the resulting public inputs. 
+
+```
+struct TxComponent {
+    commitments: Field[];
+    nullifiers: Field[];
+    publicCalls: PublicCall[];
+    //.....
+}
+
+struct FeeDistribution {
+    contractAddress: Field;
+    functionSelector: Field;
+}
+
+struct PrivateMergeKernelPublicInputs {
+    feeComponent: TxComponent;
+    transactionPayload: TxComponent;
+    feeDistribution: FeeDistribution;
+    feePerL1Gas: Field;
+    feePerL2Gas: Field;
+    l1BaseGasLimit: Field;
+    l2BaseGasLimit: Field;
+    l1TxGasLimit: Field;
+    l2TxGasLimit: Field;
+    //.....
+}
+```
+
+The transaction is now ready for submission to the network.
+
+![Merging the private kernel circuits](../gas-and-fees/images/gas-and-fees/private-merge.jpg)
+
+### Transaction Selection and Execution
+
+Upon retrieving a transaction from the P2P network, the sequencer can check that the transaction contains a fee for an accepted asset. This may require simulation of a whitelisted public function. If this step fails or is not accepted by the sequencer then the transaction can be discarded. Assuming this has succeeded, the provided fee is evaluated to see if it large enough as described previously.
+
+At this stage a `TxContext` object is instantiated and will be maintained through the lifetime of transaction execution. It will be used to accumulate gas usage through the various circuits, ensure that the correct fee is taken and an appropriate refund issued to the transaction sender.
+
+```
+struct TxContext {
+    totalFee; // provided by the client
+    l1BaseGasLimit; // provided by the client
+    l2BaseGasLimit; // provided by the client
+    l1TxGasLimit; // provided by the client
+    l2TxGasLimit; // provided by the client
+    feePerL1Gas; // provided by the client
+    feePerL2Gas; // provided by the client
+    l1GasUsed; // accumulated through circuits
+    l2GasUsed; // accumulated through circuits
+    refundRecipient; // used in the case of public payments/refunds
+    txId; // identifer used for private refunds
+    rollupSize; // set by the sequener for the rollup
+}
+```
+
+The sequencer will need to specify the intended size of the rollup (determined as part of the sequencer selection commitment phase) and use this value to calculate gas amortisation. These values of amortised L1 and L2 gas will be added to the `l1GasUsed` and `l2GasUsed` accumulators. These accumulators will need to accurately reflect the gas consumption of the transaction prior to public function execution including state updates produced as part of private execution.
+
+Any enqueued public function calls can be simulated by the sequencer to obtain an accurate gas profile of the execution. This simulation will enable the sequencer to compute the number of additional state updates to be made, the number of public function calls and the L2 gas consumption of each of those calls. If either the L1 or L2 gas limits are breached, simulation will identify where in the execution trace this takes place and so the sequencer will only need to perform iterations of the public VM and public kernel circuits for the calls that either partially or completely succeeded. This ensures that the sequencer is not forced to exeucte and prove circuits for which they will not be compensated. 
+
+The public VM circuit can now be executed and proven until completion or until the gas limit is reached. Each invocation of the circuit will constrain it's reported usage of both L1 and L2 gas.
+
+Public kernel circuit iterations will be executed for each public function call that actually took place. The combination of VM and kernel circuit executions will constrain the sequencer to correctly maintain the `TxContext` object such that:
+
+1. The gas consumption claimed by the sequencer is correct for both L1 and L2 gas.
+2. Any reverts claimed by the sequencer did indeed occur.
+3. After such reverts no unnecessary gas consumption took place.
+
+### Fee Distribution
+
+Once public function execution has completed (or hit the gas limit), the fee distribution component is executed. This is a public function and will also need to be proven via the VM and publc kernel circuits. The sequencer will have agency over which functions they are willing to accept and this will be part of the earlier transaction acceptance.
+
+The total fee taken by the sequencer is calculated from the values of consumed L1 and L2 gas and the `feePerGas` values provided with the transaction. Any balance reamining must be refunded.
+
+```
+let actual_l1_cost = tx_context.l1GasUsed * tx_context.feePerL1Gas;
+let actual_l2_cost = tx_context.l2GasUsed * tx_context.feePerL2Gas;
+let total_tx_cost = actual_l1_cost + actual_l2_cost;
+let refund = tx_context.totalFee - total_tx_cost;
+```
+
+### Merging the Public Kernel Circuits
+
+The sequencer will have performed public function execution in up to 3 of the transaction components producing a chain of public kernel circuit executions for each. The proofs from the final iteration of each chain will be merged via a public kernel merge circuit. This circuit will also verify that the correct fee distribution function was called by the sequencer.
+
+![Merging the public kernel circuits](../gas-and-fees/images/gas-and-fees/public-merge.jpg)
+
+### Constraining the Sequencer via the Rollup Circuits
+
+Once all public execution has completed, the public kernel merge circuit proof will be consumed by the base rollup circuit. The base rollup circuit will ensure that the sequencer behaved honestly with regards to fee processing by verifying that:
+
+1. The values of amortised gas corresponded to the actual rollup size
+2. The values of l1 and l2 gas accumulated within the `TxContext` object were accurate
+3. The l1 and l2 gas limits specified in the transaction were respected
+4. The correct values of `feePerL1Gas` and `feePerL2Gas` were used
+
+Additionally, the merge and root rollup circuits will constrain that the value of amortised gas was the same for all transactions in the rollup.
+
+## Payment Methods
+
+The methods described here can facilitate payment in any asset, either privately or publicly. The following example demonstrate how this can be achieved.
+
+### Paying Privately With a Public Refund
+
+A user could opt to take private funds and publicly escrow them to a fee payment contract as part of the fee preparation stage of the transaction. In this example, $5 is taken from a private note and escrowed into a public balance in the fee contract as part of fee preparation. Fee distribution takes the $3 transaction fee and applies it to the sequencer's balance via the 'coinbase' address whilst applying the refund to the sender's public balance.
+
+![Public Refund](../gas-and-fees/images/gas-and-fees/public-refund.jpg)
+
+### Paying Privately With a Private Refund
+
+This next example differs in that the refund is performed privately using partial notes. When the user takes $5 from their private note, they publicly escrow the amount within the fee contract. In addition to this, they create a partial note containing a secret known only to them. At this stage, the note does not contain the value as this is not known. During fee distribution, the note commitment is created from the partial note and the refunded quantity. The quantity is emitted as a public event enabling the user to later reconstruct the note and commitment.
+
+![Private Refund](../gas-and-fees/images/gas-and-fees/private-refund.jpg)
+
+
+### Paying Via L1
+
+As a further option, it would be possible to facilitate payments directly from L1. Here, a mechanism similar to L1 -> L2 messaging would be used to transmit the payment to the sequencer.
+
+1. The user deposits the fee to the rollup contract and sends an L1 -> L2 message along the lines of 'L1 fee of $100 for transaction X'.
+2. The user creates the transaction and executes the fee payment circuit with the message 'L1 fee of $100 for transaction X'.
+3. The sequencer accepts the transaction and the L1 -> L2 message confirming that the funds have been made available on L1.
+4. The sequencer executes the transaction and the fee distribution function taking their fee and distributing a refund on L2.
+5. The L1 -> L2 message is consumed by the rollup transaction on L1.
