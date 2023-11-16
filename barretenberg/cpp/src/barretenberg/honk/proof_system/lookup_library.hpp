@@ -125,6 +125,7 @@ void accumulate_logderivative_lookup_subrelation_contributions(ContainerOverSubr
 
     const auto inverse_exists = lookup_relation.template compute_inverse_exists<Accumulator>(in);
 
+    // Note: the lookup_inverses are computed so that the value is 0 if !inverse_exists
     std::get<0>(accumulator) +=
         (denominator_accumulator[NUM_TOTAL_TERMS - 1] * lookup_inverses - inverse_exists) * scaling_factor;
 

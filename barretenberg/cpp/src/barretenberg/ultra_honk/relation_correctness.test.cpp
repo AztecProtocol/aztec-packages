@@ -59,6 +59,9 @@ template <typename Flavor, typename Relation> void check_relation(auto circuit_s
 
 /**
  * @brief Check that a given linearly dependent relation is satisfied for a set of polynomials
+ * @details We refer to a relation as linearly dependent if it defines a constraint on the sum across the full execution
+ * trace rather than at each individual row. For example, a subrelation of this type arises in the log derivative lookup
+ * argument.
  *
  * @tparam relation_idx Index into a tuple of provided relations
  * @tparam Flavor

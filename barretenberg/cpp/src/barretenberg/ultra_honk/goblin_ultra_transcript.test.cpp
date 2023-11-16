@@ -26,7 +26,7 @@ class GoblinUltraTranscriptTests : public ::testing::Test {
      *
      * @return TranscriptManifest
      */
-    TranscriptManifest construct_goblin_ultra_honk_manifest(size_t circuit_size)
+    static TranscriptManifest construct_goblin_ultra_honk_manifest(size_t circuit_size)
     {
         TranscriptManifest manifest_expected;
 
@@ -172,8 +172,6 @@ TEST_F(GoblinUltraTranscriptTests, VerifierManifestConsistency)
     auto prover_manifest = prover.transcript.get_manifest();
     auto verifier_manifest = verifier.transcript.get_manifest();
 
-    prover_manifest.print();
-    verifier_manifest.print();
     // Note: a manifest can be printed using manifest.print()
     for (size_t round = 0; round < prover_manifest.size(); ++round) {
         ASSERT_EQ(prover_manifest[round], verifier_manifest[round])

@@ -87,12 +87,12 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_sorted_list_acc
 }
 
 /**
- * @brief Compute permutation and lookup grand product polynomials and their commitments
+ * @brief Compute log derivative inverse polynomial and its commitment, if required
  *
  */
 template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_log_derivative_inverse_round()
 {
-    // Compute and store parameters required by relations in Sumcheck
+    // Compute and store challenges beta and gamma
     auto [beta, gamma] = transcript.get_challenges("beta", "gamma");
     relation_parameters.beta = beta;
     relation_parameters.gamma = gamma;

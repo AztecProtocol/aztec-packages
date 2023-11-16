@@ -42,12 +42,23 @@ template <typename FF_> class DatabusLookupRelationImpl {
         return (row.q_busread == 1 || row.calldata_read_counts > 0);
     }
 
+    /**
+     * @brief Compute the Accumulator whose values indicate whether the inverse is computed or not
+     * @details This is needed for efficiency since we don't need to compute the inverse unless the log derivative
+     * lookup relation is active at a given row.
+     *
+     */
     template <typename Accumulator, typename AllEntities>
     static Accumulator compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        // WORKTODO: really what we need instead of calldata_read_counts is a boolean equivalent that says > 0 counts or
-        // not.. or possibly just "is this a row in the calldata"
+        // TODO(luke): row_has_read should really be a boolean object thats equal to 1 when counts > 0 and 0 otherwise.
+        // This current structure will lead to failure if call_data_read_counts > 1.
+        const auto row_has_write = View(in.q_busread);
+        const auto row_has_read = View(in.calldata_read_counts);
+
+        return row_has_write + row_has_read - (row_has_write * row_has_read);
+
         return Accumulator(View(in.q_busread) + View(in.calldata_read_counts));
     }
 
