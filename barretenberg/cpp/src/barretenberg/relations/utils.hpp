@@ -220,6 +220,7 @@ template <typename Flavor> class RelationUtils {
         apply_to_tuple_of_arrays(set_to_zero, tuple);
     };
 
+    // this is for computing evaluations not univariates
     /**
      * @brief Scale elements by consecutive powers of the challenge then sum
      * @param result Batched result

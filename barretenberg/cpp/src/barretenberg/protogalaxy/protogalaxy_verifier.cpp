@@ -50,15 +50,12 @@ VerifierFoldingResult<typename VerifierInstances::Flavor> ProtoGalaxyVerifier_<
     auto perturbator = Polynomial<FF>(perturbator_coeffs);
     auto perturbator_challenge = transcript.get_challenge("perturbator_challenge");
     auto perturbator_at_challenge = perturbator.evaluate(perturbator_challenge);
-    std::array<FF, (Flavor::BATCHED_RELATION_TOTAL_LENGTH - 2) * (VerifierInstances::NUM - 1)>
-        combiner_quotient_evals = {};
-    for (size_t idx = 0; idx < (Flavor::BATCHED_RELATION_TOTAL_LENGTH - 2) * (VerifierInstances::NUM - 1); idx++) {
+    std::array<FF, (Flavor::MAX_TOTAL_RELATION_LENGTH - 2) * (VerifierInstances::NUM - 1)> combiner_quotient_evals = {};
+    for (size_t idx = 0; idx < (Flavor::MAX_TOTAL_RELATION_LENGTH - 2) * (VerifierInstances::NUM - 1); idx++) {
         combiner_quotient_evals[idx] = transcript.template receive_from_prover<FF>(
             "combiner_quotient_" + std::to_string(idx + VerifierInstances::NUM));
     }
-    Univariate<FF,
-               (Flavor::BATCHED_RELATION_TOTAL_LENGTH - 1) * (VerifierInstances::NUM - 1) + 1,
-               VerifierInstances::NUM>
+    Univariate<FF, (Flavor::MAX_TOTAL_RELATION_LENGTH - 1) * (VerifierInstances::NUM - 1) + 1, VerifierInstances::NUM>
         combiner_quotient(combiner_quotient_evals);
     auto combiner_challenge = transcript.get_challenge("combiner_quotient_challenge");
     auto combiner_quotient_at_challenge = combiner_quotient.evaluate(combiner_challenge);

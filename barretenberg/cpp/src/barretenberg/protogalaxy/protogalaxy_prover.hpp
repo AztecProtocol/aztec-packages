@@ -34,9 +34,10 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
 
     // this might be wrong???????
     // We don't need the extra batching :-?
-    using ExtendedUnivariateWithRandomization = Univariate<
-        FF,
-        Flavor::NUMBER_OF_SUBRELATIONS*(Flavor::BATCHED_RELATION_TOTAL_LENGTH - 1) * (ProverInstances::NUM - 1) + 1>;
+    using ExtendedUnivariateWithRandomization =
+        Univariate<FF,
+                   Flavor::NUMBER_OF_SUBRELATIONS*(Flavor::MAX_TOTAL_RELATION_LENGTH - 1) * (ProverInstances::NUM - 1) +
+                       1>;
     using ExtendedUnivariates = typename Flavor::template ProverUnivariates<ExtendedUnivariate::LENGTH>;
 
     using TupleOfTuplesOfUnivariates =
@@ -305,11 +306,11 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      *
      */
     static Univariate<FF,
-                      (Flavor::BATCHED_RELATION_TOTAL_LENGTH - 1) * (ProverInstances::NUM - 1) + 1,
+                      (Flavor::MAX_TOTAL_RELATION_LENGTH - 1) * (ProverInstances::NUM - 1) + 1,
                       ProverInstances::NUM>
     compute_combiner_quotient(FF compressed_perturbator, ExtendedUnivariateWithRandomization combiner)
     {
-        std::array<FF, (Flavor::BATCHED_RELATION_TOTAL_LENGTH - 2) * (ProverInstances::NUM - 1)>
+        std::array<FF, (Flavor::MAX_TOTAL_RELATION_LENGTH - 2) * (ProverInstances::NUM - 1)>
             combiner_quotient_evals = {};
 
         // Compute the combiner quotient polynomial as evaluations on points that are not in the vanishing set.
@@ -323,9 +324,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
                 (combiner.value_at(point) - compressed_perturbator * lagrange_0) * vanishing_polynomial.invert();
         }
 
-        Univariate<FF,
-                   (Flavor::BATCHED_RELATION_TOTAL_LENGTH - 1) * (ProverInstances::NUM - 1) + 1,
-                   ProverInstances::NUM>
+        Univariate<FF, (Flavor::MAX_TOTAL_RELATION_LENGTH - 1) * (ProverInstances::NUM - 1) + 1, ProverInstances::NUM>
             combiner_quotient(combiner_quotient_evals);
         return combiner_quotient;
     }
