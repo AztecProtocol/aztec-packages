@@ -35,13 +35,12 @@ class GoblinUltra {
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
     // Note: this number does not include the individual sorted list polynomials.
-    // NUM = 43 (UH) + 4 op wires + 1 op wire "selector" + 3+1+1 (bus)
     static constexpr size_t NUM_ALL_ENTITIES = 53;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 28; // 25 (UH) + 1 op wire "selector" + q_busread + databus_id
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 28;
     // The total number of witness entities not including shifts.
-    static constexpr size_t NUM_WITNESS_ENTITIES = 18; // 11 (UH) + 4 op wires + 3 (bus)
+    static constexpr size_t NUM_WITNESS_ENTITIES = 18;
 
     using GrandProductRelations =
         std::tuple<proof_system::UltraPermutationRelation<FF>, proof_system::LookupRelation<FF>>;
@@ -616,7 +615,7 @@ class GoblinUltra {
         Transcript(const std::vector<uint8_t>& proof)
             : BaseTranscript<FF>(proof)
         {}
-        // WORKTODO: add lookup inverses once its being computed
+
         void deserialize_full_transcript() override
         {
             // take current proof and put them into the struct

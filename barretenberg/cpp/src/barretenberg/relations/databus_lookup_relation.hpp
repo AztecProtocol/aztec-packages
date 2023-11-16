@@ -16,7 +16,6 @@ template <typename FF_> class DatabusLookupRelationImpl {
     static constexpr size_t READ_TERMS = 1;
     static constexpr size_t WRITE_TERMS = 1;
     // 1 + polynomial degree of this relation
-    // WORKTODO
     static constexpr size_t LENGTH = READ_TERMS + WRITE_TERMS + 3;
 
     static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS{
@@ -28,6 +27,16 @@ template <typename FF_> class DatabusLookupRelationImpl {
     // entire execution trace rather than a per-row identity.
     static constexpr std::array<bool, 2> SUBRELATION_LINEARLY_INDEPENDENT = { true, false };
 
+    /**
+     * @brief Determine whether the inverse I needs to be computed at a given row
+     * @details The value of the inverse polynomial I(X) only needs to be computed when the databus lookup gate is
+     * "active". Otherwise it is set to 0. This method allows for determination of when the inverse should be computed.
+     *
+     * @tparam AllValues
+     * @param row
+     * @return true
+     * @return false
+     */
     template <typename AllValues> static bool lookup_exists_at_row(const AllValues& row)
     {
         return (row.q_busread == 1 || row.calldata_read_counts > 0);
@@ -53,6 +62,10 @@ template <typename FF_> class DatabusLookupRelationImpl {
         return Accumulator(1);
     }
 
+    /**
+     * @brief Compute scalar for read term in log derivative lookup argument
+     *
+     */
     template <typename Accumulator, size_t read_index, typename AllEntities>
     static Accumulator compute_read_term_predicate([[maybe_unused]] const AllEntities& in)
 
@@ -65,12 +78,20 @@ template <typename FF_> class DatabusLookupRelationImpl {
         return Accumulator(1);
     }
 
+    /**
+     * @brief Compute scalar for write term in log derivative lookup argument
+     *
+     */
     template <typename Accumulator, size_t write_index, typename AllEntities>
     static Accumulator compute_write_term_predicate(const AllEntities& /*unused*/)
     {
         return Accumulator(1);
     }
 
+    /**
+     * @brief Compute write term denominator in log derivative lookup argument
+     *
+     */
     template <typename Accumulator, size_t write_index, typename AllEntities, typename Parameters>
     static Accumulator compute_write_term(const AllEntities& in, const Parameters& params)
     {
@@ -93,6 +114,10 @@ template <typename FF_> class DatabusLookupRelationImpl {
         return Accumulator(1);
     }
 
+    /**
+     * @brief Compute read term denominator in log derivative lookup argument
+     *
+     */
     template <typename Accumulator, size_t read_index, typename AllEntities, typename Parameters>
     static Accumulator compute_read_term(const AllEntities& in, const Parameters& params)
     {
@@ -108,8 +133,6 @@ template <typename FF_> class DatabusLookupRelationImpl {
         const auto& gamma = ParameterView(params.gamma);
         const auto& beta = ParameterView(params.beta);
 
-        // const auto read_term1 = w_1 + gamma + w_2 * beta; // degree 1
-
         // Construct value + index*\beta + \gamma
         if constexpr (read_index == 0) {
             return w_1 + gamma + w_2 * beta;
@@ -119,8 +142,9 @@ template <typename FF_> class DatabusLookupRelationImpl {
     }
 
     /**
-     * @brief
-     * @details
+     * @brief Accumulate the contribution from two surelations for the log derivative databus lookup argument
+     * @details See lookup_library.hpp for details of the generic log-derivative lookup argument
+     *
      * @param accumulator transformed to `evals + C(in(X)...)*scaling_factor`
      * @param in an std::array containing the fully extended Accumulator edges.
      * @param params contains beta, gamma, and public_input_delta, ....

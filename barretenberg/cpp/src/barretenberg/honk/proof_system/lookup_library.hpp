@@ -23,10 +23,7 @@ namespace proof_system::honk::lookup_library {
  *
  */
 template <typename Flavor, typename Relation, typename Polynomials>
-void compute_logderivative_inverse(Polynomials& polynomials,
-                                   //    proof_system::RelationParameters<typename Flavor::FF>& relation_parameters,
-                                   auto& relation_parameters,
-                                   const size_t circuit_size)
+void compute_logderivative_inverse(Polynomials& polynomials, auto& relation_parameters, const size_t circuit_size)
 {
     using FF = typename Flavor::FF;
     using Accumulator = typename Relation::ValueAccumulator0;

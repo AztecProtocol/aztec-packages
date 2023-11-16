@@ -22,7 +22,11 @@ template <typename FF> void GoblinUltraCircuitBuilder_<FF>::finalize_circuit()
 // polynomials is zero, which is required for them to be shiftable.
 template <typename FF> void GoblinUltraCircuitBuilder_<FF>::add_gates_to_ensure_all_polys_are_non_zero()
 {
+    // Most polynomials are handled via the conventional Ultra method
     UltraCircuitBuilder_<arithmetization::UltraHonk<FF>>::add_gates_to_ensure_all_polys_are_non_zero();
+
+    // All that remains is to handle databus related polynomials. In what follows we populate the calldata with some
+    // mock data then constuct a single calldata read gate
 
     // Populate the calldata with some data
     public_calldata.emplace_back(this->add_variable(FF(5)));
@@ -36,10 +40,11 @@ template <typename FF> void GoblinUltraCircuitBuilder_<FF>::add_gates_to_ensure_
     }
 
     // Construct gate corresponding to a single calldata read
-    this->w_l.emplace_back(public_calldata[1]);        // index for 7 in variables
-    this->w_r.emplace_back(this->add_variable(FF(1))); // idx 1 into calldata
-    calldata_read_counts[1]++;                         // increment read count at index 1
-    q_busread.emplace_back(1);                         // read selector on
+    size_t read_idx = 1;                                      // index into calldata array at which we want to read
+    this->w_l.emplace_back(public_calldata[read_idx]);        // populate with value of calldata at read index
+    this->w_r.emplace_back(this->add_variable(FF(read_idx))); // populate with read index as witness
+    calldata_read_counts[read_idx]++;                         // increment read count at read index
+    q_busread.emplace_back(1);                                // read selector on
 
     // populate all other components with zero
     this->w_o.emplace_back(this->zero_idx);
@@ -50,12 +55,12 @@ template <typename FF> void GoblinUltraCircuitBuilder_<FF>::add_gates_to_ensure_
     this->q_3.emplace_back(0);
     this->q_c.emplace_back(0);
     this->q_sort.emplace_back(0);
-
     this->q_arith.emplace_back(0);
     this->q_4.emplace_back(0);
     this->q_lookup_type.emplace_back(0);
     this->q_elliptic.emplace_back(0);
     this->q_aux.emplace_back(0);
+
     ++this->num_gates;
 }
 
