@@ -10,8 +10,6 @@
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
-#pragma GCC diagnostic ignored "-Wunused-local-typedef"
-
 namespace proof_system::honk {
 
 /**

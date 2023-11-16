@@ -6,7 +6,6 @@
 #include "barretenberg/transcript/transcript.hpp"
 
 #pragma GCC diagnostic ignored "-Wunused-variable"
-#pragma GCC diagnostic ignored "-Wunused-local-typedef"
 
 using namespace barretenberg;
 using namespace proof_system::honk::sumcheck;
