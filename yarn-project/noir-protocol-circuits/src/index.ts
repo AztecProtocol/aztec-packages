@@ -45,7 +45,14 @@ import {
   ReturnType as FinalReturnType,
   InputType as OrderingInputType,
 } from './types/private_kernel_ordering_types.js';
-import { InputType as PublicPrivatePreviousInputType } from './types/public_kernel_private_previous_types.js';
+import {
+  InputType as PublicPrivatePreviousInputType,
+  ReturnType as PublicPrivatePreviousReturnType,
+} from './types/public_kernel_private_previous_types.js';
+import {
+  InputType as PublicPublicPreviousInputType,
+  ReturnType as PublicPublicPreviousReturnType,
+} from './types/public_kernel_public_previous_types.js';
 import { InputType as MergeRollupInputType, ReturnType as MergeRollupReturnType } from './types/rollup_merge_types.js';
 import { InputType as RootRollupInputType, ReturnType as RootRollupReturnType } from './types/rollup_root_types.js';
 
@@ -286,7 +293,9 @@ async function executePrivateKernelOrderingWithACVM(input: OrderingInputType): P
 /**
  * Executes the public kernel with private prevoius kernel with the given inputs
  */
-async function executePublicKernelPrivatePreviousWithACVM(input: PublicPrivatePreviousInputType): Promise<ReturnType> {
+async function executePublicKernelPrivatePreviousWithACVM(
+  input: PublicPrivatePreviousInputType,
+): Promise<PublicPrivatePreviousReturnType> {
   const initialWitnessMap = abiEncode(PublicKernelPrivatePreviousSimulatedJson.abi, input, null);
   const decodedBytecode = Buffer.from(PublicKernelPrivatePreviousSimulatedJson.bytecode, 'base64');
   // Execute the circuit
@@ -302,13 +311,15 @@ async function executePublicKernelPrivatePreviousWithACVM(input: PublicPrivatePr
   // Decode the witness map into two fields, the return values and the inputs
   const decodedInputs: DecodedInputs = abiDecode(PublicKernelPrivatePreviousSimulatedJson.abi, _witnessMap);
   // Cast the inputs as the return type
-  return decodedInputs.return_value as ReturnType;
+  return decodedInputs.return_value as PublicPrivatePreviousReturnType;
 }
 
 /**
  * Executes the ordering private kernel with the given inputs using the acvm.
  */
-async function executePublicKernelPublicPreviousWithACVM(input: PublicPrivatePreviousInputType): Promise<ReturnType> {
+async function executePublicKernelPublicPreviousWithACVM(
+  input: PublicPublicPreviousInputType,
+): Promise<PublicPublicPreviousReturnType> {
   const initialWitnessMap = abiEncode(PublicKernelPublicPreviousSimulatedJson.abi, input, null);
   const decodedBytecode = Buffer.from(PublicKernelPublicPreviousSimulatedJson.bytecode, 'base64');
   // Execute the circuit
@@ -325,7 +336,7 @@ async function executePublicKernelPublicPreviousWithACVM(input: PublicPrivatePre
   const decodedInputs: DecodedInputs = abiDecode(PublicKernelPublicPreviousSimulatedJson.abi, _witnessMap);
 
   // Cast the inputs as the return type
-  return decodedInputs.return_value as ReturnType;
+  return decodedInputs.return_value as PublicPublicPreviousReturnType;
 }
 
 /**
