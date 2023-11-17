@@ -5,6 +5,8 @@
 #include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
 #include <concepts>
 
+// #define DEBUG_TRANSCRIPT
+
 namespace proof_system::honk {
 
 // class TranscriptManifest;
@@ -220,9 +222,11 @@ template <typename FF> class BaseTranscript {
 
         // Prepare for next round.
         ++round_number;
-        // for (auto& challenge : challenges) {
-        //     info(challenge);
-        // };
+#ifdef DEBUG_TRANSCRIPT
+        for (auto& challenge : challenges) {
+            info(challenge);
+        };
+#endif
 
         return challenges;
     }
@@ -242,12 +246,13 @@ template <typename FF> class BaseTranscript {
      */
     template <class T> void send_to_verifier(const std::string& label, const T& element)
     {
-        // info("TRANSCRIPT: ", label);
-        // if constexpr (std::same_as<T, grumpkin::fr> || std::same_as<T, grumpkin::g1::affine_element> ||
-        //               std::same_as<T, uint32_t> || std::same_as<T, uint64_t>) {
-        //     info("element: ", element);
-        // }
-
+#ifdef DEBUG_TRANSCRIPT
+        info("TRANSCRIPT: ", label);
+        if constexpr (std::same_as<T, grumpkin::fr> || std::same_as<T, grumpkin::g1::affine_element> ||
+                      std::same_as<T, uint32_t> || std::same_as<T, uint64_t>) {
+            info("element: ", element);
+        }
+#endif
         using serialize::write;
         // TODO(Adrian): Ensure that serialization of affine elements (including point at infinity) is consistent.
         // TODO(Adrian): Consider restricting serialization (via concepts) to types T for which sizeof(T) reliably
@@ -275,11 +280,13 @@ template <typename FF> class BaseTranscript {
         BaseTranscript<FF>::consume_prover_element_bytes(label, element_bytes);
 
         T element = from_buffer<T>(element_bytes);
-        // info("TRANSCRIPT: ", label);
-        // if constexpr (std::same_as<T, grumpkin::fr> || std::same_as<T, grumpkin::g1::affine_element> ||
-        //               std::same_as<T, uint32_t> || std::same_as<T, uint64_t>) {
-        //     info("element: ", element);
-        // }
+#ifdef DEBUG_TRANSCRIPT
+        info("TRANSCRIPT: ", label);
+        if constexpr (std::same_as<T, grumpkin::fr> || std::same_as<T, grumpkin::g1::affine_element> ||
+                      std::same_as<T, uint32_t> || std::same_as<T, uint64_t>) {
+            info("element: ", element);
+        }
+#endif
         return element;
     }
 

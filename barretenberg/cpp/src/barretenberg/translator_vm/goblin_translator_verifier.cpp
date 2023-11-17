@@ -43,7 +43,6 @@ template <typename Flavor>
 bool GoblinTranslatorVerifier_<Flavor>::verify_proof(
     const plonk::proof& proof, const CheatGoblinTranslationConsistencyData& cheat_translation_consistency_data)
 {
-
     using FF = typename Flavor::FF;
     using BF = typename Flavor::BF;
     using Commitment = typename Flavor::Commitment;

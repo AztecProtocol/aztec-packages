@@ -182,7 +182,7 @@ TEST_F(FullGoblinComposerTests, SimpleCircuit)
     EXPECT_TRUE(eccvm_verified);
 
     // Execute the Translator
-    auto batching_challenge = Fbase::random_element();
+    auto batching_challenge = Fbase::random_element(); // WORKTODO: where is this derived?
     auto evaluation_input = eccvm_prover.evaluation_challenge_x;
     auto translator_builder =
         TranslatorBuilder(batching_challenge, evaluation_input, *op_queue); // WORKTODO: take pointer or ref
