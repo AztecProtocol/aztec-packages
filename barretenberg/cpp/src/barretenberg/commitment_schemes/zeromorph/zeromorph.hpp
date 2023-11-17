@@ -319,9 +319,9 @@ template <typename Curve> class ZeroMorphProver_ {
                       auto& multilinear_challenge,
                       auto& commitment_key,
                       auto& transcript,
-                      const auto& concatenated_polynomials = {},
-                      const auto& concatenated_evaluations = {},
-                      const auto& concatenation_groups = {})
+                      const std::vector<std::span<FF>>& concatenated_polynomials = {},
+                      std::vector<FF>&& concatenated_evaluations = {},
+                      const std::vector<std::vector<std::span<FF>>>& concatenation_groups = {})
     {
         // Generate batching challenge \rho and powers 1,...,\rho^{m-1}
         FF rho = transcript.get_challenge("rho");
@@ -426,27 +426,6 @@ template <typename Curve> class ZeroMorphProver_ {
         // Compute and send proof commitment pi
         auto pi_commitment = commitment_key->commit(pi_polynomial);
         transcript.send_to_verifier("ZM:PI", pi_commitment);
-    }
-
-    static void prove(const auto& f_polynomials,
-                      const auto& g_polynomials,
-                      auto& evaluations,
-                      auto& multilinear_challenge,
-                      auto& commitment_key,
-                      auto& transcript,
-                      const std::vector<std::span<FF>>& concatenated_polynomials = {},
-                      const std::vector<std::vector<std::span<FF>>>& concatenation_groups = {})
-    {
-        return prove(f_polynomials,
-                     g_polynomials,
-                     evaluations.get_unshifted(),
-                     evaluations.get_shifted(),
-                     multilinear_challenge,
-                     commitment_key,
-                     transcript,
-                     concatenated_polynomials,
-                     evaluations.get_concatenated_constraints(),
-                     concatenation_groups);
     }
 };
 
