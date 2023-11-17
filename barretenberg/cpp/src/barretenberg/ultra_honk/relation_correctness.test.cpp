@@ -483,7 +483,8 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorPermutationRelationCorrectness)
     // Compute the grand product polynomial
     grand_product_library::compute_grand_product<Flavor, proof_system::GoblinTranslatorPermutationRelation<FF>>(
         circuit_size, prover_polynomials, params);
-    prover_polynomials.z_perm_shift = polynomial_container[Flavor::ALL_ENTITIES_IDS::Z_PERM].shifted();
+    prover_polynomials.z_perm_shift =
+        polynomial_container[90].shifted(); // WORKTODO: magic number; use an existing structure
 
     using Relations = typename Flavor::Relations;
 
@@ -558,17 +559,20 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorGenPermSortRelationCorrectness)
                   polynomial_pointers[i + 1]->begin());
     });
 
+    // WORKTODO: rewrite these tests using AllPolynomials
+    enum ORDERED_RANGE_CONSTRAINTS : size_t { C0 = 85, C1, C2, C3, C4 };
+
     // Get shifted polynomials
     prover_polynomials.ordered_range_constraints_0_shift =
-        polynomial_container[Flavor::ORDERED_RANGE_CONSTRAINTS_0].shifted();
+        polynomial_container[ORDERED_RANGE_CONSTRAINTS::C0].shifted();
     prover_polynomials.ordered_range_constraints_1_shift =
-        polynomial_container[Flavor::ORDERED_RANGE_CONSTRAINTS_1].shifted();
+        polynomial_container[ORDERED_RANGE_CONSTRAINTS::C1].shifted();
     prover_polynomials.ordered_range_constraints_2_shift =
-        polynomial_container[Flavor::ORDERED_RANGE_CONSTRAINTS_2].shifted();
+        polynomial_container[ORDERED_RANGE_CONSTRAINTS::C2].shifted();
     prover_polynomials.ordered_range_constraints_3_shift =
-        polynomial_container[Flavor::ORDERED_RANGE_CONSTRAINTS_3].shifted();
+        polynomial_container[ORDERED_RANGE_CONSTRAINTS::C3].shifted();
     prover_polynomials.ordered_range_constraints_4_shift =
-        polynomial_container[Flavor::ORDERED_RANGE_CONSTRAINTS_4].shifted();
+        polynomial_container[ORDERED_RANGE_CONSTRAINTS::C4].shifted();
 
     using Relations = typename Flavor::Relations;
 

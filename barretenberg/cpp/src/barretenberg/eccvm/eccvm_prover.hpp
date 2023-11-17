@@ -2,6 +2,7 @@
 #include "barretenberg/commitment_schemes/gemini/gemini.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
 #include "barretenberg/flavor/ecc_vm.hpp"
+#include "barretenberg/goblin/cheat_translation_consistency_data.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
@@ -22,6 +23,7 @@ template <ECCVMFlavor Flavor> class ECCVMProver_ {
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using Curve = typename Flavor::Curve;
     using Transcript = typename Flavor::Transcript;
+    using CheatGoblinTranslationConsistencyData = barretenberg::CheatGoblinTranslationConsistencyData;
 
   public:
     explicit ECCVMProver_(std::shared_ptr<ProvingKey> input_key, std::shared_ptr<PCSCommitmentKey> commitment_key);
@@ -42,6 +44,8 @@ template <ECCVMFlavor Flavor> class ECCVMProver_ {
     plonk::proof& construct_proof();
 
     Transcript transcript;
+
+    CheatGoblinTranslationConsistencyData cheat_translation_consistency_data;
 
     std::vector<FF> public_inputs;
 

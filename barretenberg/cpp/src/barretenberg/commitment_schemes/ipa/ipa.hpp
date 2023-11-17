@@ -202,7 +202,7 @@ template <typename Curve> class IPA {
         // Copy the G_vector to local memory.
         std::vector<Commitment> G_vec_local(poly_degree);
         // The SRS stored in the commitment key is the result after applying the pippenger point table so the
-        // values at odd indices contain the point {srs[i-1].x * beta, srs[i-1].y}, where beta is the endomorphism
+        // values at odd indices contain the point {srs[i-1].x * g beta, srs[i-1].y}, where beta is the endomorphism
         // G_vec_local should use only the original SRS thus we extract only the even indices.
         for (size_t i = 0; i < poly_degree * 2; i += 2) {
             G_vec_local[i >> 1] = srs_elements[i];

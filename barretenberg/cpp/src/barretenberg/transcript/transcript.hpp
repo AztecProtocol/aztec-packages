@@ -3,6 +3,7 @@
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/crypto/blake3s/blake3s.hpp"
 #include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
+#include <concepts>
 
 namespace proof_system::honk {
 
@@ -219,6 +220,9 @@ template <typename FF> class BaseTranscript {
 
         // Prepare for next round.
         ++round_number;
+        // for (auto& challenge : challenges) {
+        //     info(challenge);
+        // };
 
         return challenges;
     }
@@ -238,6 +242,12 @@ template <typename FF> class BaseTranscript {
      */
     template <class T> void send_to_verifier(const std::string& label, const T& element)
     {
+        // info("TRANSCRIPT: ", label);
+        // if constexpr (std::same_as<T, grumpkin::fr> || std::same_as<T, grumpkin::g1::affine_element> ||
+        //               std::same_as<T, uint32_t> || std::same_as<T, uint64_t>) {
+        //     info("element: ", element);
+        // }
+
         using serialize::write;
         // TODO(Adrian): Ensure that serialization of affine elements (including point at infinity) is consistent.
         // TODO(Adrian): Consider restricting serialization (via concepts) to types T for which sizeof(T) reliably
@@ -265,7 +275,11 @@ template <typename FF> class BaseTranscript {
         BaseTranscript<FF>::consume_prover_element_bytes(label, element_bytes);
 
         T element = from_buffer<T>(element_bytes);
-
+        // info("TRANSCRIPT: ", label);
+        // if constexpr (std::same_as<T, grumpkin::fr> || std::same_as<T, grumpkin::g1::affine_element> ||
+        //               std::same_as<T, uint32_t> || std::same_as<T, uint64_t>) {
+        //     info("element: ", element);
+        // }
         return element;
     }
 

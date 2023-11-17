@@ -104,6 +104,7 @@ template <typename Curve> class ShplonkProver_ {
         const Fr& nu_challenge,
         const Fr& z_challenge)
     {
+
         const size_t num_opening_pairs = opening_pairs.size();
 
         // {ẑⱼ(r)}ⱼ , where ẑⱼ(r) = 1/zⱼ(r) = 1/(r - xⱼ)
@@ -163,16 +164,16 @@ template <typename Curve> class ShplonkVerifier_ {
      */
     static OpeningClaim<Curve> reduce_verification(std::shared_ptr<VK> vk,
                                                    std::span<const OpeningClaim<Curve>> claims,
-                                                   auto& transcript)
+                                                   auto& transcript,
+                                                   const std::string& suffix = "")
     {
 
         const size_t num_claims = claims.size();
 
-        const Fr nu = transcript.get_challenge("Shplonk:nu");
+        const Fr nu = transcript.get_challenge("Shplonk" + suffix + ":nu");
+        auto Q_commitment = transcript.template receive_from_prover<Commitment>("Shplonk" + suffix + ":Q");
 
-        auto Q_commitment = transcript.template receive_from_prover<Commitment>("Shplonk:Q");
-
-        const Fr z_challenge = transcript.get_challenge("Shplonk:z");
+        const Fr z_challenge = transcript.get_challenge("Shplonk" + suffix + ":z");
 
         // [G] = [Q] - ∑ⱼ ρʲ / ( r − xⱼ )⋅[fⱼ] + G₀⋅[1]
         //     = [Q] - [∑ⱼ ρʲ ⋅ ( fⱼ(X) − vⱼ) / ( r − xⱼ )]
@@ -205,7 +206,7 @@ template <typename Curve> class ShplonkVerifier_ {
             std::vector<Fr> inverse_vanishing_evals;
             inverse_vanishing_evals.reserve(num_claims);
             for (const auto& claim : claims) {
-                // Note: no need for batch inversion; emulated inversion is cheap. (just show known inverse is valid)
+                // Note: no need for batch inversion; emulated inverison is cheap. (just show known inverse is valid)
                 inverse_vanishing_evals.emplace_back((z_challenge - claim.opening_pair.challenge).invert());
             }
 

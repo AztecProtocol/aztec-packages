@@ -195,6 +195,7 @@ template <typename Flavor, typename StorageHandle> void compute_concatenated_pol
     // A function that produces 1 concatenated polynomial
     // TODO(#756): This can be rewritten to use more cores. Currently uses at maximum the number of concatenated
     // polynomials (4 in Goblin Translator)
+    // WORKTODO: rewrite this...
     auto ordering_function = [&](size_t i) {
         auto my_group = concatenation_groups[i];
         auto& current_target = targets[i];
@@ -399,6 +400,33 @@ template <typename Flavor> inline void compute_extra_range_constraint_numerator(
     };
     // Fill polynomials with a sequence, where each element is repeated num_concatenated_wires+1 times
     parallel_for(num_concatenated_wires + 1, fill_with_shift);
+}
+
+/**
+ * @brief Compute odd and even largrange polynomials (up to mini_circuit length) and put them in the polynomial cache
+ *
+ * @param key Proving key where we will save the polynomials
+ */
+template <typename Flavor> inline void compute_lagrange_polynomials_for_goblin_translator(auto proving_key)
+
+{
+    const size_t n = proving_key->circuit_size;
+    typename Flavor::Polynomial lagrange_polynomial_odd_in_minicircuit(n);
+    typename Flavor::Polynomial lagrange_polynomial_even_in_minicircut(n);
+    typename Flavor::Polynomial lagrange_polynomial_second(n);
+    typename Flavor::Polynomial lagrange_polynomial_second_to_last_in_minicircuit(n);
+
+    for (size_t i = 1; i < Flavor::MINI_CIRCUIT_SIZE - 1; i += 2) {
+        lagrange_polynomial_odd_in_minicircuit[i] = 1;
+        lagrange_polynomial_even_in_minicircut[i + 1] = 1;
+    }
+    proving_key->lagrange_odd_in_minicircuit = lagrange_polynomial_odd_in_minicircuit;
+
+    proving_key->lagrange_even_in_minicircuit = lagrange_polynomial_even_in_minicircut;
+    lagrange_polynomial_second[1] = 1;
+    lagrange_polynomial_second_to_last_in_minicircuit[Flavor::MINI_CIRCUIT_SIZE - 2] = 1;
+    proving_key->lagrange_second_to_last_in_minicircuit = lagrange_polynomial_second_to_last_in_minicircuit;
+    proving_key->lagrange_second = lagrange_polynomial_second;
 }
 
 } // namespace proof_system::honk::permutation_library
