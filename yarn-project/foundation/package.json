@@ -57,7 +57,7 @@
     "rootDir": "./src"
   },
   "dependencies": {
-    "@aztec/bb.js": "^0.14.2",
+    "@aztec/bb.js": "^0.15.0",
     "@koa/cors": "^4.0.0",
     "@noble/curves": "^1.2.0",
     "bn.js": "^5.2.1",

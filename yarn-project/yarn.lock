@@ -279,9 +279,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/bb.js@npm:0.7.10":
-  version: 0.7.10
-  resolution: "@aztec/bb.js@npm:0.7.10"
+"@aztec/bb.js@npm:^0.15.0":
+  version: 0.15.0
+  resolution: "@aztec/bb.js@npm:0.15.0"
   dependencies:
     comlink: ^4.4.1
     commander: ^10.0.1
@@ -289,21 +289,7 @@ __metadata:
     tslib: ^2.4.0
   bin:
     bb.js: dest/node/main.js
-  checksum: 0410278e6ec2a6ecdcbaa58633b181ec1d91e1c267c76e7e587fb69c8f2fd394e79f65bd96cfcdb2a2b20fe5abeb86ababd45bd6364ba07555fc0643bf0e4307
-  languageName: node
-  linkType: hard
-
-"@aztec/bb.js@npm:^0.14.2":
-  version: 0.14.2
-  resolution: "@aztec/bb.js@npm:0.14.2"
-  dependencies:
-    comlink: ^4.4.1
-    commander: ^10.0.1
-    debug: ^4.3.4
-    tslib: ^2.4.0
-  bin:
-    bb.js: dest/node/main.js
-  checksum: ba2ef350fb1b1768fa452bd2e159a0385a5c8b5a6bad532017bb7916ea768b2e26177323ec332a856a884dfd7eb5171b63f36920e42a54fbe41d5caa79d7d2bf
+  checksum: 05480ef0821c87cd285a832e42ba3d507c3aaa4d63cdf1911dcecaa304726a6ecfac76127090a75b311fe85db82628fe557d1666eeeda666fe2c83d5b969cdce
   languageName: node
   linkType: hard
 
@@ -490,7 +476,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/foundation@workspace:foundation"
   dependencies:
-    "@aztec/bb.js": ^0.14.2
+    "@aztec/bb.js": ^0.15.0
     "@jest/globals": ^29.5.0
     "@koa/cors": ^4.0.0
     "@noble/curves": ^1.2.0
