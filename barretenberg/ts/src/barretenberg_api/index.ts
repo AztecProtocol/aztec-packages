@@ -196,6 +196,30 @@ export class BarretenbergApi {
     return out as any;
   }
 
+  async aesEncryptBufferCbc(input: Uint8Array, iv: Uint8Array, key: Uint8Array, length: number): Promise<Uint8Array> {
+    const inArgs = [input, iv, key, length].map(serializeBufferable);
+    const outTypes: OutputType[] = [BufferDeserializer()];
+    const result = await this.wasm.callWasmExport(
+      'aes_encrypt_buffer_cbc',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
+  async aesDecryptBufferCbc(input: Uint8Array, iv: Uint8Array, key: Uint8Array, length: number): Promise<Uint8Array> {
+    const inArgs = [input, iv, key, length].map(serializeBufferable);
+    const outTypes: OutputType[] = [BufferDeserializer()];
+    const result = await this.wasm.callWasmExport(
+      'aes_decrypt_buffer_cbc',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
   async srsInitSrs(pointsBuf: Uint8Array, numPoints: number, g2PointBuf: Uint8Array): Promise<void> {
     const inArgs = [pointsBuf, numPoints, g2PointBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [];
@@ -591,6 +615,30 @@ export class BarretenbergApiSync {
     );
     const out = result.map((r, i) => outTypes[i].fromBuffer(r));
     return out as any;
+  }
+
+  aesEncryptBufferCbc(input: Uint8Array, iv: Uint8Array, key: Uint8Array, length: number): Uint8Array {
+    const inArgs = [input, iv, key, length].map(serializeBufferable);
+    const outTypes: OutputType[] = [BufferDeserializer()];
+    const result = this.wasm.callWasmExport(
+      'aes_encrypt_buffer_cbc',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
+  aesDecryptBufferCbc(input: Uint8Array, iv: Uint8Array, key: Uint8Array, length: number): Uint8Array {
+    const inArgs = [input, iv, key, length].map(serializeBufferable);
+    const outTypes: OutputType[] = [BufferDeserializer()];
+    const result = this.wasm.callWasmExport(
+      'aes_decrypt_buffer_cbc',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
   }
 
   srsInitSrs(pointsBuf: Uint8Array, numPoints: number, g2PointBuf: Uint8Array): void {

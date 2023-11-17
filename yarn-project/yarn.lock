@@ -293,6 +293,19 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@aztec/bb.js@portal:../../barretenberg/ts::locator=%40aztec%2Fcircuits.js%40workspace%3Acircuits.js":
+  version: 0.0.0-use.local
+  resolution: "@aztec/bb.js@portal:../../barretenberg/ts::locator=%40aztec%2Fcircuits.js%40workspace%3Acircuits.js"
+  dependencies:
+    comlink: ^4.4.1
+    commander: ^10.0.1
+    debug: ^4.3.4
+    tslib: ^2.4.0
+  bin:
+    bb.js: ./dest/node/main.js
+  languageName: node
+  linkType: soft
+
 "@aztec/bb.js@portal:../../barretenberg/ts::locator=%40aztec%2Ffoundation%40workspace%3Afoundation":
   version: 0.0.0-use.local
   resolution: "@aztec/bb.js@portal:../../barretenberg/ts::locator=%40aztec%2Ffoundation%40workspace%3Afoundation"
@@ -337,6 +350,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/circuits.js@workspace:circuits.js"
   dependencies:
+    "@aztec/bb.js": "portal:../../barretenberg/ts"
     "@aztec/foundation": "workspace:^"
     "@jest/globals": ^29.5.0
     "@msgpack/msgpack": ^3.0.0-beta2
