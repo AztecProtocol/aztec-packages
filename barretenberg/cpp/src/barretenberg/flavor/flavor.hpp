@@ -244,9 +244,7 @@ template <typename Tuple, std::size_t Index = 0> static constexpr size_t compute
 }
 
 /**
- * @brief Recursive utility function to find max TOTAL_RELATION_LENGTH among tuples of Relations.
- * @details The "total length" of a relation is 1 + the degree of the relation, where any challenges used in the
- * relation are regarded as variables.
+ * @brief Recursive utility function to find the number of subrelations.
  *
  */
 template <typename Tuple, std::size_t Index = 0> static constexpr size_t compute_number_of_subrelations()

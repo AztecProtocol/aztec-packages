@@ -22,7 +22,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     using RowEvaluations = typename Flavor::AllValues;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using Relations = typename Flavor::Relations;
-    using AlphaType = ProverInstances::AlphaType;
+    using AlphaType = typename ProverInstances::AlphaType;
 
     using BaseUnivariate = Univariate<FF, ProverInstances::NUM>;
     // The length of ExtendedUnivariate is the largest length (==degree + 1) of a univariate polynomial obtained by
@@ -345,8 +345,6 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      * univariate (i.e., sum them against an appropriate univariate Lagrange basis) and then extended as needed during
      * the constuction of the combiner.
      */
-
-    // THIS SHOULD BE CALLED ACCUMULATED
     static void fold_relation_parameters(ProverInstances& instances)
     {
         // array of parameters to be computed
@@ -355,7 +353,6 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         for (auto& folded_parameter : folded_parameters) {
             Univariate<FF, ProverInstances::NUM> tmp(0);
             size_t instance_idx = 0;
-            // it's not wrong i'm just dumb
             for (auto& instance : instances) {
                 tmp.value_at(instance_idx) = instance->relation_parameters.to_fold[param_idx];
                 instance_idx++;
@@ -369,8 +366,10 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      * @brief Create folded univariate for the relation batching parameter (alpha).
      *
      */
-
-    // THIS SHOULD BE CALLED ACCUMULATED
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/772): At the moment we have a single α per Instance, we
+    // fold them and then we use the unique folded_α for each folded subrelation that is batched in the combiner. This
+    // is obviously insecure. We need to generate α_i for each subrelation_i, fold them and then use folded_α_i when
+    // batching the i-th folded subrelation in the combiner.
     static void fold_alpha(ProverInstances& instances)
     {
         Univariate<FF, ProverInstances::NUM> accumulated_alpha;

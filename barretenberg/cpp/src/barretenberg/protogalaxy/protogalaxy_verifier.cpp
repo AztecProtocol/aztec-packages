@@ -52,13 +52,13 @@ VerifierFoldingResult<typename VerifierInstances::Flavor> ProtoGalaxyVerifier_<
     auto perturbator_at_challenge = perturbator.evaluate(perturbator_challenge);
 
     // Thed degree of K(X) is dk - k - 1 = k(d - 1) - 1. Hence we need  k(d - 1) evaluations to represent it.
-    std::array<FF, (Flavor::MAX_TOTAL_RELATION_LENGTH - 2) * (VerifierInstances::NUM - 1)> combiner_quotient_evals = {};
-    for (size_t idx = 0; idx < (Flavor::MAX_TOTAL_RELATION_LENGTH - 2) * (VerifierInstances::NUM - 1); idx++) {
+    std::array<FF, VerifierInstances::BATCHED_EXTENDED_LENGTH - VerifierInstances::NUM> combiner_quotient_evals = {};
+    for (size_t idx = 0; idx < VerifierInstances::BATCHED_EXTENDED_LENGTH - VerifierInstances::NUM; idx++) {
         combiner_quotient_evals[idx] = transcript.template receive_from_prover<FF>(
             "combiner_quotient_" + std::to_string(idx + VerifierInstances::NUM));
     }
-    Univariate<FF, (Flavor::MAX_TOTAL_RELATION_LENGTH - 1) * (VerifierInstances::NUM - 1) + 1, VerifierInstances::NUM>
-        combiner_quotient(combiner_quotient_evals);
+    Univariate<FF, VerifierInstances::BATCHED_EXTENDED_LENGTH, VerifierInstances::NUM> combiner_quotient(
+        combiner_quotient_evals);
     auto combiner_challenge = transcript.get_challenge("combiner_quotient_challenge");
     auto combiner_quotient_at_challenge = combiner_quotient.evaluate(combiner_challenge);
 

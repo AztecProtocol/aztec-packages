@@ -38,7 +38,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0> class Univariate
     Univariate(Univariate&& other) noexcept = default;
     Univariate& operator=(const Univariate& other) = default;
     Univariate& operator=(Univariate&& other) noexcept = default;
-    // Construct constant Univariate from scalar which represents the value all the point in the domain should evalute
+    // Construct constant Univariate from scalar which represents the value that all the points in the domain evaluate
     // to
     explicit Univariate(Fr value)
         : evaluations{}
