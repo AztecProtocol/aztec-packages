@@ -118,10 +118,10 @@ mod tests {
         }
 
         pub fn execute(&mut self) -> KernelCircuitPublicInputs {
-            let mut previous_kernel = self.previous_kernel.finish();
             let private_call = self.private_call.finish();
-            // We need to update the previous_kernel's private_call_stack in case the current call_stack_item has changed.
-            previous_kernel.public_inputs.end.private_call_stack[0] = private_call.call_stack_item.hash();
+            // Update the previous_kernel's private_call_stack with the current call_stack_item.
+            self.previous_kernel.end.private_call_stack.push(private_call.call_stack_item.hash());
+            let previous_kernel = self.previous_kernel.finish();
 
             let kernel = PrivateKernelInputsInner {
                 previous_kernel,

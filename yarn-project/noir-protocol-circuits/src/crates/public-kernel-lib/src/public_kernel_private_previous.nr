@@ -101,7 +101,7 @@ mod tests {
 
     impl PublicKernelPrivatePreviousInputsBuilder {
         pub fn new() -> Self {
-            let previous_kernel = PreviousKernelDataBuilder::new().next_is_public();
+            let previous_kernel = PreviousKernelDataBuilder::new();
             let public_call = PublicCallDataBuilder::new();
             
             PublicKernelPrivatePreviousInputsBuilder {

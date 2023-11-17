@@ -91,7 +91,7 @@ mod tests {
 
     impl PublicKernelPublicPreviousInputsBuilder {
         pub fn new() -> Self {
-            let previous_kernel = PreviousKernelDataBuilder::new().next_is_public().is_public();
+            let previous_kernel = PreviousKernelDataBuilder::new().is_public();
             let public_call = PublicCallDataBuilder::new();
             
             PublicKernelPublicPreviousInputsBuilder {
@@ -159,7 +159,7 @@ mod tests {
     #[test(should_fail_with="Previous kernel must be public when in this public kernel version")]
     fn public_previous_kernel_private_previous_kernel_should_fail() {
         let mut builder = PublicKernelPublicPreviousInputsBuilder::new();
-        builder.previous_kernel = PreviousKernelDataBuilder::new().next_is_public();
+        builder.previous_kernel = PreviousKernelDataBuilder::new();
 
         builder.failed();
     }

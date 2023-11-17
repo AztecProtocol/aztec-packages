@@ -43,7 +43,6 @@ impl PreviousKernelDataBuilder {
         let mut end: CombinedAccumulatedDataBuilder = dep::std::unsafe::zeroed();
         end.new_nullifiers.push(321); // 0th nullifier must be non-zero.
         end.nullified_commitments.push(EMPTY_NULLIFIED_COMMITMENT);
-        end.private_call_stack.push(1);
 
         let tx_context = build_tx_context(false);
 
@@ -66,11 +65,6 @@ impl PreviousKernelDataBuilder {
 
     pub fn is_public(&mut self) -> Self {
         self.is_private = false;
-        *self
-    }
-
-    pub fn next_is_public(&mut self) -> Self {
-        let _ = self.end.private_call_stack.pop();
         *self
     }
 
