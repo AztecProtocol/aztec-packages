@@ -630,12 +630,14 @@ template <typename Curve> class ZeroMorphVerifier_ {
      * @param transcript
      * @return std::array<Commitment, 2> Inputs to the final pairing check
      */
-    static std::array<Commitment, 2> verify_internal(auto& commitments,
-                                                     auto&& unshifted_evaluations,
-                                                     [[maybe_unused]] auto&& shifted_evaluations,
-                                                     [[maybe_unused]] auto&& concatenated_evaluations,
-                                                     auto& multivariate_challenge,
-                                                     auto& transcript)
+    static std::array<Commitment, 2> verify(auto&& unshifted_commitments,
+                                            auto&& to_be_shifted_commitments,
+                                            auto&& unshifted_evaluations,
+                                            auto&& shifted_evaluations,
+                                            auto& multivariate_challenge,
+                                            auto& transcript,
+                                            std::vector<std::vector<Commitment>>&& concatenation_group_commitments = {},
+                                            std::vector<FF>&& concatenated_evaluations = {})
     {
         size_t log_N = multivariate_challenge.size();
         FF rho = transcript.get_challenge("rho");
@@ -676,14 +678,14 @@ template <typename Curve> class ZeroMorphVerifier_ {
         auto C_zeta_x = compute_C_zeta_x(C_q, C_q_k, y_challenge, x_challenge);
 
         // Compute commitment C_{Z_x}
-        Commitment C_Z_x = compute_C_Z_x(commitments.get_unshifted(),
-                                         commitments.get_to_be_shifted(),
+        Commitment C_Z_x = compute_C_Z_x(unshifted_commitments,
+                                         to_be_shifted_commitments,
                                          C_q_k,
                                          rho,
                                          batched_evaluation,
                                          x_challenge,
                                          multivariate_challenge,
-                                         commitments.get_concatenation_groups());
+                                         concatenation_group_commitments);
 
         // Compute commitment C_{\zeta,Z}
         auto C_zeta_Z = C_zeta_x + C_Z_x * z_challenge;
@@ -700,19 +702,6 @@ template <typename Curve> class ZeroMorphVerifier_ {
         auto P1 = -C_pi;
 
         return { P0, P1 };
-    }
-
-    static std::array<Commitment, 2> verify(auto& commitments,
-                                            auto& claimed_evaluations,
-                                            auto& multivariate_challenge,
-                                            auto& transcript)
-    {
-        return verify_internal(commitments,
-                               claimed_evaluations.get_unshifted(),
-                               claimed_evaluations.get_shifted(),
-                               claimed_evaluations.get_concatenated_constraints(),
-                               multivariate_challenge,
-                               transcript);
     }
 };
 
