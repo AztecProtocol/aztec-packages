@@ -13,10 +13,34 @@ export class MerkleTreeRootCalculator {
     );
   }
 
+  computeTree(leaves: Buffer[] = []) {
+    if (leaves.length === 0) {
+      return [this.zeroHashes[this.zeroHashes.length - 1]];
+    }
+
+    let result = leaves.slice();
+
+    for (let i = 0; i < this.height; ++i) {
+      const numLeaves = 2 ** (this.height - i);
+      const newLeaves: Buffer[] = [];
+      for (let j = 0; j < leaves.length / 2; ++j) {
+        const l = leaves[j * 2];
+        const r = leaves[j * 2 + 1] || this.zeroHashes[i];
+        newLeaves[j] = pedersenHash([l, r]);
+      }
+      result = result.concat(new Array(numLeaves - leaves.length).fill(this.zeroHashes[i]), newLeaves);
+      leaves = newLeaves;
+    }
+
+    return result;
+  }
+
   computeTreeRoot(leaves: Buffer[] = []) {
     if (leaves.length === 0) {
       return this.zeroHashes[this.zeroHashes.length - 1];
     }
+
+    leaves = leaves.slice();
 
     for (let i = 0; i < this.height; ++i) {
       let j = 0;

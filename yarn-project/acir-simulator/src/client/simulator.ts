@@ -94,7 +94,7 @@ export class AcirSimulator {
       callContext,
       historicBlockData,
       request.authWitnesses,
-      await PackedArgsCache.create(request.packedArguments),
+      PackedArgsCache.create(request.packedArguments),
       new ExecutionNoteCache(),
       new SideEffectCounter(),
       this.db,
