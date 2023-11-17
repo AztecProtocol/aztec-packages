@@ -65,7 +65,7 @@ export class AccountManager {
   public async getCompleteAddress(): Promise<CompleteAddress> {
     if (!this.completeAddress) {
       const encryptionPublicKey = await generatePublicKey(this.encryptionPrivateKey);
-      const contractDeploymentInfo = await getContractDeploymentInfo(
+      const contractDeploymentInfo = getContractDeploymentInfo(
         this.accountContract.getContractArtifact(),
         await this.accountContract.getDeploymentArgs(),
         this.salt!,

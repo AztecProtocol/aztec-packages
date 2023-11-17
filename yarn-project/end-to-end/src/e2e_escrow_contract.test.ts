@@ -55,7 +55,7 @@ describe('e2e_escrow_contract', () => {
     escrowPrivateKey = GrumpkinScalar.random();
     escrowPublicKey = await generatePublicKey(escrowPrivateKey);
     const salt = Fr.random();
-    const deployInfo = await getContractDeploymentInfo(EscrowContractArtifact, [owner], salt, escrowPublicKey);
+    const deployInfo = getContractDeploymentInfo(EscrowContractArtifact, [owner], salt, escrowPublicKey);
     await pxe.registerAccount(escrowPrivateKey, deployInfo.completeAddress.partialAddress);
 
     escrowContract = await EscrowContract.deployWithPublicKey(escrowPublicKey, wallet, owner)

@@ -32,7 +32,7 @@ import {
   VerificationKey,
 } from '../index.js';
 import { boolToBuffer } from '../utils/serialize.js';
-import { MerkleTreeRootCalculator } from './merkle_tree_root_calculator.js';
+import { MerkleTreeCalculator } from './merkle_tree_calculator.js';
 
 /**
  * Computes a hash of a transaction request.
@@ -117,7 +117,7 @@ export function computeFunctionLeaf(fnLeaf: FunctionLeafPreimage): Fr {
 // The "zero leaf" of the function tree is the hash of 5 zero fields.
 // TODO: Why can we not just use a zero field as the zero leaf? Complicates things perhaps unnecessarily?
 const functionTreeZeroLeaf = pedersenHash(new Array(5).fill(Buffer.alloc(32)));
-const functionTreeRootCalculator = new MerkleTreeRootCalculator(FUNCTION_TREE_HEIGHT, functionTreeZeroLeaf);
+const functionTreeRootCalculator = new MerkleTreeCalculator(FUNCTION_TREE_HEIGHT, functionTreeZeroLeaf);
 
 /**
  * Computes a function tree from function leaves.

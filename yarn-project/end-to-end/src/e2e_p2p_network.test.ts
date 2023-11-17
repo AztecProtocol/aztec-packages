@@ -127,8 +127,7 @@ describe('e2e_p2p_network', () => {
     const txs: DeploySentTx[] = [];
     for (let i = 0; i < numTxs; i++) {
       const salt = Fr.random();
-      const origin = (await getContractDeploymentInfo(TestContractArtifact, [], salt, publicKey)).completeAddress
-        .address;
+      const origin = getContractDeploymentInfo(TestContractArtifact, [], salt, publicKey).completeAddress.address;
       const deployer = new ContractDeployer(TestContractArtifact, pxe, publicKey);
       const tx = deployer.deploy().send({ contractAddressSalt: salt });
       logger(`Tx sent with hash ${await tx.getTxHash()}`);

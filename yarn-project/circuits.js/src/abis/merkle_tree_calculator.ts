@@ -1,9 +1,9 @@
 import { pedersenHash } from '@aztec/foundation/crypto';
 
 /**
- * Calculates the root of a merkle tree.
+ * Merkle tree calculator.
  */
-export class MerkleTreeRootCalculator {
+export class MerkleTreeCalculator {
   private zeroHashes: Buffer[];
 
   constructor(private height: number, zeroLeaf = Buffer.alloc(32)) {
