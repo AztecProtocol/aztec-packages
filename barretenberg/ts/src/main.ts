@@ -376,7 +376,6 @@ program
     await writePk(bytecodePath, crsPath, outputPath);
   });
 
-
 program
   .command('proof_as_fields')
   .description('Return the proof as fields elements')

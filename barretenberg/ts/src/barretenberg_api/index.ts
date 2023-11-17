@@ -215,7 +215,7 @@ export class BarretenbergApi {
     return result[0];
   }
 
-  async acirGetProvingKey(acirComposerPtr: Ptr,  constraintSystemBuf: Uint8Array): Promise<Uint8Array> {
+  async acirGetProvingKey(acirComposerPtr: Ptr, constraintSystemBuf: Uint8Array): Promise<Uint8Array> {
     const result = await this.binder.callWasmExport(
       'acir_get_proving_key',
       [acirComposerPtr, constraintSystemBuf],
