@@ -4,7 +4,7 @@
 This is a draft. These requirements need to be considered by the wider team, and might change significantly before a mainnet release.
 :::
 
-When rollups are successfully published, the state transitions are published along with it and are publically retrievable. This category of state does not depend on the Aztec network for it's persistence or distribution. Transient data such as pending user transactions for inclusion in future rollups however does rely on the network for these functions. Network participants will consist of:
+When rollups are successfully published, the state transitions are published along with it and are publically retrievable. This category of state does not depend on the Aztec network for its persistence or distribution. Transient data such as pending user transactions for inclusion in future rollups however does rely on the network for these functions. Network participants will consist of:
 
 * Sequencers - responsible for selecting transactions from the global pool and including them in rollups
 * Provers - responsible for generating zk-proofs for the transaction and rollup circuits
